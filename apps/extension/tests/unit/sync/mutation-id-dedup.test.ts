@@ -13,11 +13,11 @@
  *     short-circuit + the oracle's per-id idempotency are layered).
  */
 
-import { type MutatorContext } from '@openheaders/core/sync';
 import { SYNC_MUTATION_BATCH_TYPE, SYNC_MUTATION_TYPE } from '@openheaders/core/protocol';
+import type { MutatorContext } from '@openheaders/core/sync';
+import { seedRule } from '@openheaders/core/sync-builders/projections/rule-projection';
 import type { Rule } from '@openheaders/core/types';
 import { generateUid } from '@openheaders/core/utils';
-import { seedRule } from '@openheaders/core/sync-builders/projections/rule-projection';
 import { dispatchSyncRpc } from '@openheaders/oracle/rpc';
 import {
   __resetMutationStreamBridgeForTests,
@@ -160,7 +160,8 @@ describe('C11: mutationId dedup at receive', () => {
       await flush();
     };
     await boot();
-    const batch = seedRule(makeRule(generateUid()), ctx(5_000));
+    const rule = makeRule(generateUid());
+    const batch = seedRule(rule, ctx(5_000));
     const frame = { type: SYNC_MUTATION_BATCH_TYPE, workspaceId: wsId, batch };
     const first = dispatchSyncRpc(frame as unknown as Record<string, unknown>);
     if (first?.kind === 'async') await first.promise;
@@ -169,10 +170,13 @@ describe('C11: mutationId dedup at receive', () => {
     expect(recompiles.length).toBeGreaterThan(0);
 
     // Restart: the in-memory seen set is gone; a fresh service opens
-    // over the SAME log and its caches re-seed from the storage mirrors.
+    // over the SAME log and replays it — the rule is back from the log
+    // alone, with no storage mirror in this rig, and nothing is appended.
     __resetMutationStreamBridgeForTests();
     await boot();
     expect(hasRecentlyApplied(batch.mutations[0]!.mutationId)).toBe(false);
+    expect(getOracleForCurrentWorkspace()?.materializeOne('rule', rule.uid)).not.toBeNull();
+    expect(await logRows(log)).toBe(batch.mutations.length);
     const rows = await logRows(log);
     const pending = await intents.list();
     const recompilesAfterBoot = recompiles.length;

@@ -19,11 +19,11 @@ import type { SwContextHandle } from '../sw-context';
 export interface WorkspaceServiceState {
   workspaceId: string;
   /**
-   * Resolves once the service is ready to accept `oracle.apply` calls.
-   * Awaited by {@link applySyncRequest} before routing to the oracle —
-   * closes the cold-oracle race without eager pre-create. Today the
-   * oracle is synchronously ready; the promise contract is in place
-   * for a future async seed-from-storage step.
+   * The hydration gate: resolves once the oracle holds the log's
+   * replayed state and every cache has re-projected from it. Awaited by
+   * every reader of the oracle or its log — {@link applySyncRequest},
+   * the handshake readers through the scope-log accessor, the Active
+   * flip — so nothing observes a half-replayed scope. Never rejects.
    */
   hydrated: Promise<void>;
   oracle: EntityOracle;

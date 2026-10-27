@@ -4,8 +4,11 @@
  * Counterpart to `flat-entity-cache.ts` for entities with one record per
  * scope (vault, workspace-variables, layout-state, pause-markers,
  * oauth-bundle, files, extension-workspace). Hosts the broadcast →
- * re-project → persist → notify pipeline plus the
- * `seedFromPersisted` → `oracle.apply(buildSeedBatch)` → refresh loop.
+ * re-project → persist → notify pipeline, the boot pass over the
+ * replayed oracle (`hydrateFromStorage`: re-project, or migrate the
+ * stored projection once when the log never mentions the entity), and
+ * the `seedFromPersisted` → `oracle.apply(buildSeedBatch)` → refresh
+ * loop the migration and the import path's seeding bridges share.
  *
  * Each per-entity adapter declares its `entityType`, `loggerTag`,
  * `emptySnapshot`, projection composer, seed batch builder, optional
@@ -66,12 +69,11 @@ export interface SingletonEntityCacheConfig<T, I> {
   beforeSeed?: (input: I) => T | null;
   /**
    * Read this singleton's persisted projection for `scope` from
-   * `chrome.storage.local`. Symmetric to {@link persist}. Used by
-   * {@link SingletonEntityCache.hydrateFromStorage} to re-seed the
-   * oracle when a per-workspace service is materialized lazily —
-   * without this, a freshly built oracle starts blank even though
-   * `wsKeys(scope).<key>` has the data on disk. Returns `null` when
-   * nothing is persisted (the cache stays at `emptySnapshot`).
+   * `chrome.storage.local`. Symmetric to {@link persist}. The one-time
+   * migration's input: {@link SingletonEntityCache.hydrateFromStorage}
+   * seeds it into the oracle only when the replayed log holds no row of
+   * this entity. Returns `null` when nothing is persisted (the cache
+   * stays at `emptySnapshot`).
    */
   loadFromStorage?: (scope: string) => Promise<I | null>;
   /**
@@ -79,21 +81,22 @@ export interface SingletonEntityCacheConfig<T, I> {
    * {@link SingletonEntityCache.hydrateFromStorage} uses it instead so a
    * present-but-undecryptable persisted blob — the at-rest key was lost out
    * from under the surviving ciphertext — is told apart from an absent slot.
-   * On `undecryptable` the cache enters {@link SingletonEntityCache.isLocked}
-   * and refuses to seed `emptySnapshot` over the unreadable ciphertext
-   * (which would let a subsequent edit tombstone the orphaned secrets), then
-   * surfaces the condition via `onChange` rather than masquerading as empty.
-   * Only entities holding irreplaceable secrets (the vault) wire this.
+   * Consulted only when the log holds no row of the entity: a log that
+   * holds it restores the content whatever the blob says, and the next
+   * refresh rewrites the blob. With no row and an `undecryptable` blob the
+   * secrets are unrecoverable; the cache enters
+   * {@link SingletonEntityCache.isLocked} and surfaces the condition via
+   * `onChange` rather than masquerading as empty. Only entities holding
+   * irreplaceable secrets (the vault) wire this.
    */
   loadGuardedFromStorage?: (scope: string) => Promise<GuardedRead<I>>;
   /**
    * Predicate paired with {@link loadGuardedFromStorage}: does this snapshot
    * carry no real content? It governs when the undecryptable-baseline lock
-   * lifts. The lock holds while the snapshot stays empty — so a benign empty
-   * re-seed (e.g. the active-mirror bridge seeding from a `null` read) cannot
-   * clear it — and lifts the moment authoritative content lands (the user
-   * re-enters and writes), after which deleting everything won't re-lock.
-   * Required for the lock to ever clear; omit it and the entity never locks.
+   * lifts. The lock holds while the snapshot stays empty and lifts the
+   * moment authoritative content lands (the user re-enters and writes),
+   * after which deleting everything won't re-lock. Required for the lock
+   * to ever clear; omit it and the entity never locks.
    */
   isEmptySnapshot?: (snapshot: T) => boolean;
 }
@@ -104,14 +107,21 @@ export interface SingletonEntityCache<T, I> {
   readonly scope: string;
   getSnapshot(): T;
   /**
-   * True when {@link hydrateFromStorage} found a present-but-undecryptable
-   * persisted blob and refused to seed empty over it (the at-rest key was
-   * lost). The snapshot stays at `emptySnapshot`, but consumers must treat
-   * this as "locked — secrets unreadable, re-entry required", NOT "empty".
-   * Clears once authoritative content lands (the user re-enters and writes);
-   * a benign empty re-seed leaves it locked (see {@link SingletonEntityCacheConfig.isEmptySnapshot}).
+   * True when {@link hydrateFromStorage} found the log holding no row of
+   * this entity and a present-but-undecryptable persisted blob (the
+   * at-rest key was lost; the secrets are unrecoverable). The snapshot
+   * stays at `emptySnapshot`, but consumers must treat this as "locked —
+   * secrets unreadable, re-entry required", NOT "empty". Clears once
+   * authoritative content lands (the user re-enters and writes); see
+   * {@link SingletonEntityCacheConfig.isEmptySnapshot}.
    */
   isLocked(): boolean;
+  /**
+   * Seed the oracle from a projection as a real commit (logged,
+   * broadcast). The one-time migration's and the import path's seeding
+   * bridges' mechanism; the boot pass never seeds over a log that
+   * already holds the entity.
+   */
   seedFromPersisted(input: I): Promise<void>;
   /**
    * Re-project from the oracle outside the broadcast pipeline. Needed
@@ -121,12 +131,12 @@ export interface SingletonEntityCache<T, I> {
    */
   refresh(): void;
   /**
-   * Read this singleton's persisted projection from
-   * `chrome.storage.local` (via the configured `loadFromStorage`) and
-   * seed the oracle. No-op when no `loadFromStorage` is configured or
-   * the load returns `null`. Called by {@link buildService}'s
-   * `hydrated` promise so a freshly materialized per-workspace service
-   * starts with this cache populated regardless of Active state.
+   * The boot pass over the replayed oracle, run by {@link buildService}'s
+   * `hydrated` promise. When the log holds a row of this entity, re-project
+   * from the oracle (the persisted key is the write-through cache and is
+   * rewritten). Otherwise the stored projection is the migration's input:
+   * seeded once as a real commit when present, left alone when absent, and
+   * an undecryptable blob locks the cache instead (see {@link isLocked}).
    */
   hydrateFromStorage(): Promise<void>;
   onChange(listener: () => void): () => void;
@@ -184,9 +194,8 @@ export function createSingletonEntityCache<T, I>(
     const next = config.project(oracle, snapshot) ?? config.emptySnapshot;
     snapshot = next;
     // The undecryptable-baseline lock lifts only when authoritative content
-    // lands — NOT on a benign empty re-seed. Deriving from emptiness (rather
-    // than "any broadcast") keeps the active-mirror bridge's empty seed from
-    // clearing the lock, while a genuine re-entry clears it for good.
+    // lands — an empty re-projection leaves it, a genuine re-entry clears
+    // it for good.
     if (locked && config.isEmptySnapshot && !config.isEmptySnapshot(next)) {
       locked = false;
     }
@@ -235,6 +244,19 @@ export function createSingletonEntityCache<T, I>(
     refresh: refreshFromOracle,
 
     async hydrateFromStorage(): Promise<void> {
+      // The log is the source: an entity the replay touched re-projects
+      // from the oracle, whatever the stored key holds. A projection
+      // failure on a malformed historical row must not block the service.
+      if (oracle.hasEntityOfType(config.entityType)) {
+        try {
+          refreshFromOracle();
+        } catch (err) {
+          logger.info(config.loggerTag, `hydrateFromStorage(scope=${scope}) failed: ${(err as Error).message}`);
+        }
+        return;
+      }
+      // The log never mentions this entity: the stored projection is the
+      // one-time migration's input, committed through the seed path.
       if (config.loadGuardedFromStorage) {
         try {
           const result = await config.loadGuardedFromStorage(scope);
@@ -242,8 +264,8 @@ export function createSingletonEntityCache<T, I>(
             locked = true;
             logger.warn(
               config.loggerTag,
-              `persisted ${config.entityType} is present but undecryptable (scope=${scope}); ` +
-                'refusing to seed empty over it — at-rest key lost, re-entry required',
+              `persisted ${config.entityType} is present but undecryptable and the log holds none (scope=${scope}); ` +
+                'at-rest key lost, re-entry required',
             );
             notify();
             return;

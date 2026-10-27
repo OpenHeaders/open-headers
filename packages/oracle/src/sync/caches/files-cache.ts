@@ -10,9 +10,11 @@
  * `FileRegistry` rebuild, message-handler's legacy `listFiles` dispatch).
  * The renderer mirror reads the same data via the broadcast channel.
  *
- * Hydration: `seedFromPersistedFiles(refs)` applies one `seedFiles`
- * batch; the caller (the bridge wiring in `files-store.ts`) sources the
- * refs from `BlobStore.listBlobs(workspaceId)`.
+ * Boot: the catalog replays from the workspace's log; a catalog the log
+ * never held is migrated once from `BlobStore.listBlobs(workspaceId)`
+ * by the boot pass. `seedFromPersistedFiles(refs)` applies one
+ * `seedFiles` batch for that migration and for the import path's
+ * seeding bridge in `files-store.ts`.
  *
  * Files are user-visible UX state (filenames, sizes), not secrets —
  * broadcast carries them freely.
@@ -20,13 +22,13 @@
 
 import type { FileRef } from '@openheaders/core/files';
 import { FILES_ENTITY_TYPE } from '@openheaders/core/sync';
-import * as BlobStore from '@openheaders/oracle/files';
 import { seedFiles } from '@openheaders/core/sync-builders/projections/files-projection';
+import * as BlobStore from '@openheaders/oracle/files';
 import type { InMemoryBroadcast } from '../broadcast';
-import { projectFilesSingleton } from '../post-state/files-post-state';
 import type { EntityOracle } from '../oracle';
-import { createSingletonEntityCache, type SingletonEntityCache } from './singleton-entity-cache';
+import { projectFilesSingleton } from '../post-state/files-post-state';
 import type { SwMutatorContextFactory } from '../sw-context';
+import { createSingletonEntityCache, type SingletonEntityCache } from './singleton-entity-cache';
 
 export interface FilesSnapshot {
   /** All currently-known FileRefs, in fileId order. */

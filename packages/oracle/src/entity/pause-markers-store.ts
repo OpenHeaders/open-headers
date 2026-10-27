@@ -84,19 +84,38 @@ function adopt(cache: PauseMarkersCache): void {
   notifyChange();
 }
 
-/**
- * Wire the local mirror to the active workspace's
- * {@link PauseMarkersCache}. Idempotent — the prior subscription is
- * dropped first. Seeds the oracle from the current persisted record.
- */
-export async function bridgePauseMarkersSyncEngine(): Promise<void> {
-  const cache = getActiveCacheForRegistration<PauseMarkersCache>(PAUSE_MARKERS_REGISTRATION);
-  if (!cache) return;
+function subscribeMirror(cache: PauseMarkersCache): void {
   if (cacheUnsubscribe) {
     cacheUnsubscribe();
     cacheUnsubscribe = null;
   }
   cacheUnsubscribe = cache.onChange(() => adopt(cache));
+}
+
+/**
+ * Wire the local mirror to the active workspace's
+ * {@link PauseMarkersCache} without seeding — the service's `hydrated`
+ * gate replayed the workspace's log, which the cache projects.
+ * Idempotent — the prior subscription is dropped first.
+ */
+export function wirePauseMarkersSyncEngine(): void {
+  const cache = getActiveCacheForRegistration<PauseMarkersCache>(PAUSE_MARKERS_REGISTRATION);
+  if (!cache) return;
+  subscribeMirror(cache);
+  adopt(cache);
+  logger.debug('PauseMarkersStore', `Wired ws=${requireActiveWorkspaceId()}: ${markers.size} markers`);
+}
+
+/**
+ * Wire the local mirror to the active workspace's
+ * {@link PauseMarkersCache} AND seed the oracle from the current
+ * persisted record — for callers whose store state is fresher than the
+ * oracle (the active-workspace import path). Idempotent.
+ */
+export async function bridgePauseMarkersSyncEngine(): Promise<void> {
+  const cache = getActiveCacheForRegistration<PauseMarkersCache>(PAUSE_MARKERS_REGISTRATION);
+  if (!cache) return;
+  subscribeMirror(cache);
   const workspaceId = requireActiveWorkspaceId();
   const persisted = await readMarkersFor(workspaceId);
   await cache.seedFromPersistedPauseMarkers(persisted);

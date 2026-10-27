@@ -82,8 +82,7 @@ async function doSetActive(workspaceId: string): Promise<SetActiveResult> {
     return { ok: false, reason: 'workspace-not-found' };
   }
 
-  // 2. Hydration gate. Resolves synchronously today; the contract is in
-  //    place for a future async seed-from-storage step.
+  // 2. Hydration gate: the log replay and the cache passes.
   try {
     await newSvc.hydrated;
   } catch (error) {

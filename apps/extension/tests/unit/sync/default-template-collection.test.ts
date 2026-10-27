@@ -17,16 +17,29 @@ import {
   getTemplateCollections,
   hydrateTemplatesFromStorage,
   __resetForTests as resetTemplateStore,
+  wireTemplateCollectionSyncEngine,
 } from '@openheaders/oracle/entity/template-store';
+import { wsKeys } from '@openheaders/oracle/storage';
 import { setOracleHostHooks } from '@openheaders/oracle/sync';
-import { __initSyncServiceForTests, dispose as disposeSyncService } from '@openheaders/oracle/sync/service';
+import { InMemoryMutationLog } from '@openheaders/oracle/sync/mutation-log';
+import {
+  __initSyncServiceForTests,
+  dispose as disposeSyncService,
+  getOrCreateWorkspaceService,
+  releaseWorkspaceService,
+} from '@openheaders/oracle/sync/service';
 import {
   bootstrap as bootstrapWorkspaces,
   getActiveWorkspaceId,
   __resetForTests as resetWorkspaceStore,
 } from '@openheaders/oracle/workspace/extension-workspace-store';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { installBackingStorage, installHostStorage, seedStorageMany } from '../../helpers/chrome-storage-backing';
+import {
+  installBackingStorage,
+  installHostStorage,
+  readStorage,
+  seedStorageMany,
+} from '../../helpers/chrome-storage-backing';
 import { clearTestIdentitySnapshot, installTestIdentitySnapshot } from '../../helpers/identity-snapshot';
 
 const HOME_ORG_ID = '01900000-0000-7000-8000-0000000000aa';
@@ -51,15 +64,21 @@ function workspace(id: string, orgId: string) {
   };
 }
 
-async function bootWith(activeWorkspaceId: string): Promise<void> {
+async function bootWith(activeWorkspaceId: string, log?: InMemoryMutationLog): Promise<void> {
   seedStorageMany({
     'oh.workspaces': [workspace('ws-home', HOME_ORG_ID), workspace('ws-adopted', CONSUMED_ORG.id)],
     'oh.runtimeActive.active': activeWorkspaceId,
   });
   await bootstrapWorkspaces({ seedOnEmpty: true });
   setOracleHostHooks({ getActiveWorkspaceId });
-  __initSyncServiceForTests(activeWorkspaceId);
+  __initSyncServiceForTests(activeWorkspaceId, log ? { log } : {});
   await hydrateTemplatesFromStorage();
+}
+
+async function rowCount(log: InMemoryMutationLog): Promise<number> {
+  let rows = 0;
+  for await (const _ of log.readSince(null)) rows += 1;
+  return rows;
 }
 
 beforeEach(async () => {
@@ -104,5 +123,35 @@ describe('ensureDefaultTemplateCollection', () => {
     const minted = await ensureDefaultTemplateCollection();
     const result = await ensureDefaultTemplateCollection('initialization');
     expect(result?.uid).toBe(minted.uid);
+  });
+
+  it('a restart over the hydrated log finds the default in the oracle and mints nothing more', async () => {
+    const log = new InMemoryMutationLog();
+    await bootWith('ws-home', log);
+    const minted = await ensureDefaultTemplateCollection('initialization');
+    const rows = await rowCount(log);
+    expect(rows).toBeGreaterThan(0);
+
+    // A restart with the keys wiped too: the log alone restores the
+    // collection into the cache, the wire copies it into the mirror.
+    installBackingStorage();
+    await installHostStorage();
+    resetTemplateStore();
+    resetWorkspaceStore();
+    await bootWith('ws-home', log);
+    expect(getTemplateCollections()).toHaveLength(0);
+    const svc = getOrCreateWorkspaceService('ws-home');
+    await svc.hydrated;
+    releaseWorkspaceService('ws-home');
+    wireTemplateCollectionSyncEngine();
+
+    const result = await ensureDefaultTemplateCollection('initialization');
+    expect(result?.uid).toBe(minted?.uid);
+    expect(getTemplateCollections()).toHaveLength(1);
+    expect(await rowCount(log)).toBe(rows);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(readStorage<Array<{ uid: string }>>(wsKeys('ws-home').templateCollections.key)?.map((c) => c.uid)).toEqual([
+      minted?.uid,
+    ]);
   });
 });

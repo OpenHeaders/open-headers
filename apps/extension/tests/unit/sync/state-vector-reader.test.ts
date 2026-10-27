@@ -9,16 +9,17 @@
  */
 
 import { type MutatorContext, mintBatch, RULE_ENTITY_TYPE } from '@openheaders/core/sync';
+import { seedRule } from '@openheaders/core/sync-builders/projections/rule-projection';
 import type { Rule } from '@openheaders/core/types';
 import { generateUid } from '@openheaders/core/utils';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { readWorkspaceStateVector } from '@openheaders/oracle/sync';
+import { InMemoryMutationLog } from '@openheaders/oracle/sync/mutation-log';
 import {
   __initSyncServiceForTests,
   applySyncRequest,
   dispose as disposeSyncService,
 } from '@openheaders/oracle/sync/service';
-import { readWorkspaceStateVector } from '@openheaders/oracle/sync';
-import { seedRule } from '@openheaders/core/sync-builders/projections/rule-projection';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { clearTestIdentitySnapshot, installTestIdentitySnapshot } from '../../helpers/identity-snapshot';
 
 const wsId = 'ws-sv';
@@ -44,6 +45,12 @@ const makeRule = (uid: string, name = 'r'): Rule =>
       responseHeaders: [],
     },
   }) as unknown as Rule;
+
+async function countRows(log: InMemoryMutationLog): Promise<number> {
+  let rows = 0;
+  for await (const _ of log.readSince(null)) rows += 1;
+  return rows;
+}
 
 beforeEach(() => {
   __initSyncServiceForTests(wsId);
@@ -78,6 +85,22 @@ describe('readWorkspaceStateVector', () => {
     expect(Object.keys(vector).sort()).toEqual(['desktop-main', 'sw']);
     expect(vector.sw?.physicalMs).toBe(2_500);
     expect(vector['desktop-main']?.physicalMs).toBe(5_000);
+  });
+
+  it('a read over a freshly materialized service appends nothing: the replay is the hydration', async () => {
+    const log = new InMemoryMutationLog();
+    __initSyncServiceForTests(wsId, { log });
+    await applySyncRequest({ type: 'oh.sync.apply', batch: seedRule(makeRule(generateUid()), ctx(1_000, 'sw')) });
+    const rows = await countRows(log);
+
+    // A restart: the service is fresh, the log is the same. The handshake's
+    // state-vector read materializes it lazily and folds what the log holds.
+    __initSyncServiceForTests(wsId, { log });
+    const vector = await readWorkspaceStateVector(wsId);
+
+    expect(Object.keys(vector)).toEqual(['sw']);
+    expect(vector.sw?.physicalMs).toBe(1_000);
+    expect(await countRows(log)).toBe(rows);
   });
 
   it('does not leave a refcount leak after a successful read', async () => {

@@ -646,19 +646,7 @@ export async function bridgeEnvironmentSyncEngine(): Promise<void> {
 
 let workspaceVarsCacheUnsubscribe: (() => void) | null = null;
 
-/**
- * Wire the local `workspaceVariables` singleton to the active
- * workspace's {@link WorkspaceVariablesCache}: seed the oracle from
- * the hydrated record, then subscribe to broadcast-driven re-projections
- * so subsequent mutations flow back into the local mirror. Mirrors
- * `bridgeEnvironmentSyncEngine`.
- */
-export async function bridgeWorkspaceVariablesSyncEngine(): Promise<void> {
-  const cache = getActiveCacheForRegistration<WorkspaceVariablesCache>(WORKSPACE_VARIABLES_REGISTRATION);
-  if (!cache) {
-    logger.info('EnvironmentStore', 'bridgeWorkspaceVariablesSyncEngine: no active cache; skipping');
-    return;
-  }
+function subscribeWorkspaceVariablesMirror(cache: WorkspaceVariablesCache): void {
   if (workspaceVarsCacheUnsubscribe) {
     workspaceVarsCacheUnsubscribe();
     workspaceVarsCacheUnsubscribe = null;
@@ -667,6 +655,39 @@ export async function bridgeWorkspaceVariablesSyncEngine(): Promise<void> {
     workspaceVariables = cache.getWorkspaceVariables();
     notifyChange();
   });
+}
+
+/**
+ * Wire the local `workspaceVariables` singleton to the active
+ * workspace's {@link WorkspaceVariablesCache} without seeding — the
+ * service's `hydrated` gate replayed the workspace's log into the
+ * oracle, which the cache projects. Mirrors
+ * {@link wireEnvironmentSyncEngine}; idempotent.
+ */
+export function wireWorkspaceVariablesSyncEngine(): void {
+  const cache = getActiveCacheForRegistration<WorkspaceVariablesCache>(WORKSPACE_VARIABLES_REGISTRATION);
+  if (!cache) {
+    logger.info('EnvironmentStore', 'wireWorkspaceVariablesSyncEngine: no active cache; skipping');
+    return;
+  }
+  subscribeWorkspaceVariablesMirror(cache);
+  workspaceVariables = cache.getWorkspaceVariables();
+}
+
+/**
+ * Wire the local `workspaceVariables` singleton to the active
+ * workspace's {@link WorkspaceVariablesCache} AND seed the oracle from
+ * the hydrated record — for callers whose store state is fresher than
+ * the oracle (the active-workspace import path). Mirrors
+ * `bridgeEnvironmentSyncEngine`.
+ */
+export async function bridgeWorkspaceVariablesSyncEngine(): Promise<void> {
+  const cache = getActiveCacheForRegistration<WorkspaceVariablesCache>(WORKSPACE_VARIABLES_REGISTRATION);
+  if (!cache) {
+    logger.info('EnvironmentStore', 'bridgeWorkspaceVariablesSyncEngine: no active cache; skipping');
+    return;
+  }
+  subscribeWorkspaceVariablesMirror(cache);
   await cache.seedFromPersistedWorkspaceVariables(workspaceVariables);
   workspaceVariables = cache.getWorkspaceVariables();
 }
@@ -675,23 +696,7 @@ export async function bridgeWorkspaceVariablesSyncEngine(): Promise<void> {
 
 let vaultCacheUnsubscribe: (() => void) | null = null;
 
-/**
- * Wire the local `vault` singleton to the active workspace's
- * {@link VaultCache}: seed the oracle from the hydrated record, then
- * subscribe to broadcast-driven re-projections so subsequent mutations
- * flow back into the local mirror. Mirrors
- * `bridgeWorkspaceVariablesSyncEngine`.
- *
- * Vault is non-syncing in v1 (§12.3) — the broadcast pipe is
- * local-machine only and the cache's persistence sink stays inside
- * `chrome.storage.local`.
- */
-export async function bridgeVaultSyncEngine(): Promise<void> {
-  const cache = getActiveCacheForRegistration<VaultCache>(VAULT_REGISTRATION);
-  if (!cache) {
-    logger.info('EnvironmentStore', 'bridgeVaultSyncEngine: no active cache; skipping');
-    return;
-  }
+function subscribeVaultMirror(cache: VaultCache): void {
   if (vaultCacheUnsubscribe) {
     vaultCacheUnsubscribe();
     vaultCacheUnsubscribe = null;
@@ -700,6 +705,43 @@ export async function bridgeVaultSyncEngine(): Promise<void> {
     vault = cache.getVault();
     notifyChange();
   });
+}
+
+/**
+ * Wire the local `vault` singleton to the active workspace's
+ * {@link VaultCache} without seeding — the log replay restored the
+ * vault, and the cache's lock answers the one case it did not (see
+ * {@link isVaultLocked}). Mirrors {@link wireWorkspaceVariablesSyncEngine};
+ * idempotent.
+ *
+ * Vault is non-syncing in v1 (§12.3) — the broadcast pipe is
+ * local-machine only and the cache's persistence sink stays inside
+ * `chrome.storage.local`.
+ */
+export function wireVaultSyncEngine(): void {
+  const cache = getActiveCacheForRegistration<VaultCache>(VAULT_REGISTRATION);
+  if (!cache) {
+    logger.info('EnvironmentStore', 'wireVaultSyncEngine: no active cache; skipping');
+    return;
+  }
+  subscribeVaultMirror(cache);
+  vault = cache.getVault();
+}
+
+/**
+ * Wire the local `vault` singleton to the active workspace's
+ * {@link VaultCache} AND seed the oracle from the hydrated record — for
+ * callers whose store state is fresher than the oracle (the
+ * active-workspace import path). Mirrors
+ * `bridgeWorkspaceVariablesSyncEngine`.
+ */
+export async function bridgeVaultSyncEngine(): Promise<void> {
+  const cache = getActiveCacheForRegistration<VaultCache>(VAULT_REGISTRATION);
+  if (!cache) {
+    logger.info('EnvironmentStore', 'bridgeVaultSyncEngine: no active cache; skipping');
+    return;
+  }
+  subscribeVaultMirror(cache);
   await cache.seedFromPersistedVault(vault);
   vault = cache.getVault();
 }

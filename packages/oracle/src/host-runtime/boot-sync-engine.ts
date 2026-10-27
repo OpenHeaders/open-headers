@@ -5,8 +5,10 @@
  *      replaying its durable log.
  *   2. `bridgeExtensionWorkspaceSyncEngine` — await the replay, migrate the
  *      stored projection once if the log holds nothing, install the sink.
- *   3. `setRuntimeActive` — make the persisted-active workspace current.
- *   4. `reseedAllPerWorkspaceBridges` — re-point every per-workspace bridge.
+ *   3. `setRuntimeActive` — make the persisted-active workspace current;
+ *      its service replays the workspace's log behind the `hydrated` gate.
+ *   4. `reseedAllPerWorkspaceBridges` — re-point every per-workspace bridge
+ *      (wiring only; nothing is seeded).
  *   5. `ensureDefaultTemplateCollection` — seed the User Templates default.
  *   6. `attachGlobalWorkspaceCoordRunner` — drain SWAP / PURGE intents.
  *   7. `setupAwarenessLifelinePorts` — surface-connection refcounting.
@@ -91,9 +93,9 @@ export async function bootSyncEngine(): Promise<BootSyncEngineResult> {
     }
 
     // 4. Re-point every per-workspace bridge at the active workspace.
-    //    Entity caches were already seeded by the service's `hydrated`
-    //    gate inside `setRuntimeActive`; this pass wires the store
-    //    mirrors (and seeds the cheap singletons). After this call,
+    //    The service's `hydrated` gate inside `setRuntimeActive` replayed
+    //    the workspace's log and every cache projects it; this pass wires
+    //    the store mirrors and appends nothing. After this call,
     //    per-workspace entity writes route through the oracle; reads
     //    stay synchronous off the local mirror.
     await reseedAllPerWorkspaceBridges();

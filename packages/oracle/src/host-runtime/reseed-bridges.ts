@@ -3,20 +3,15 @@
  * workspace. Called at boot and by the workspace-coord runner after an
  * active-flip swap.
  *
- * Flat + folder-tree mirrors (rules, collections, folders, requests,
- * templates, environments, live workflows/variables) are WIRED only —
- * subscription re-point plus a snapshot pull. The active service's
- * `hydrated` gate (awaited inside `setRuntimeActive`) already seeded
- * those caches from the same per-workspace storage keys the stores
- * hydrate from; seeding again here would re-apply every entity into the
- * live oracle a second time (the workspace-switch double-seed freeze).
- * The seeding `bridgeXSyncEngine` variants remain for callers whose
- * store state is fresher than the oracle — the active-workspace import
- * path.
- *
- * Singleton caches (workspace variables, vault, OAuth, pause markers,
- * layout, files, live values) keep their full bridge: one apply each,
- * and the seed primes a fresh workspace's defaults into the oracle.
+ * Wiring only — a subscription re-point plus a snapshot pull for every
+ * store mirror, flat and singleton alike. The active service's
+ * `hydrated` gate (awaited inside `setRuntimeActive`) replayed the
+ * workspace's durable log into its oracle and every cache projects
+ * that, so this pass appends nothing to any log: a boot and a swap are
+ * reads. The seeding `bridgeXSyncEngine` variants remain for the one
+ * caller whose store state is fresher than the oracle — the
+ * active-workspace import path. The layout cache has no store mirror
+ * and needs no wire.
  *
  * Errors are caught per bridge and routed to `onError` (or logged via
  * the core logger as a fallback) so a single bridge failure doesn't
@@ -25,13 +20,13 @@
 
 import { logger } from '@openheaders/core/utils';
 import {
-  bridgeVaultSyncEngine,
-  bridgeWorkspaceVariablesSyncEngine,
   wireEnvironmentSyncEngine,
+  wireVaultSyncEngine,
+  wireWorkspaceVariablesSyncEngine,
 } from '../entity/environment-store';
-import { bridgeFilesSyncEngine } from '../entity/files-store';
-import { bridgeOAuthSyncEngine } from '../entity/oauth-token-store';
-import { bridgePauseMarkersSyncEngine } from '../entity/pause-markers-store';
+import { wireFilesSyncEngine } from '../entity/files-store';
+import { wireOAuthSyncEngine } from '../entity/oauth-token-store';
+import { wirePauseMarkersSyncEngine } from '../entity/pause-markers-store';
 import {
   wireRequestCollectionSyncEngine,
   wireRequestFolderSyncEngine,
@@ -43,11 +38,10 @@ import {
   wireTemplateFolderSyncEngine,
   wireTemplateSyncEngine,
 } from '../entity/template-store';
-import { bridgeTrustedRootsSyncEngine } from '../entity/trusted-roots-store';
+import { wireTrustedRootsSyncEngine } from '../entity/trusted-roots-store';
 import { bridgeLiveValueSyncEngine } from '../live/live-value-store';
 import { wireLiveVariableSyncEngine } from '../live/live-variable-store';
 import { wireLiveWorkflowSyncEngine } from '../live/live-workflow-store';
-import { bridgeLayoutStateSyncEngine } from './../workspace/layout-store';
 
 export interface ReseedOptions {
   /** Called once per failed bridge with the bridge name + the error. */
@@ -60,7 +54,6 @@ export async function reseedAllPerWorkspaceBridges(opts: ReseedOptions = {}): Pr
     ((bridge: string, err: unknown) => {
       logger.warn('HostRuntime', `${bridge} after workspace switch failed`, err);
     });
-  const catchFor = (bridge: string) => (err: unknown) => onError(bridge, err);
   const wire = (bridge: string, fn: () => void): void => {
     try {
       fn();
@@ -73,6 +66,9 @@ export async function reseedAllPerWorkspaceBridges(opts: ReseedOptions = {}): Pr
   wire('wireRuleCollectionSyncEngine', wireRuleCollectionSyncEngine);
   wire('wireRuleFolderSyncEngine', wireRuleFolderSyncEngine);
   wire('wireEnvironmentSyncEngine', wireEnvironmentSyncEngine);
+  wire('wireWorkspaceVariablesSyncEngine', wireWorkspaceVariablesSyncEngine);
+  wire('wireVaultSyncEngine', wireVaultSyncEngine);
+  wire('wireTrustedRootsSyncEngine', wireTrustedRootsSyncEngine);
   wire('wireRequestSyncEngine', wireRequestSyncEngine);
   wire('wireRequestCollectionSyncEngine', wireRequestCollectionSyncEngine);
   wire('wireRequestFolderSyncEngine', wireRequestFolderSyncEngine);
@@ -81,15 +77,12 @@ export async function reseedAllPerWorkspaceBridges(opts: ReseedOptions = {}): Pr
   wire('wireTemplateFolderSyncEngine', wireTemplateFolderSyncEngine);
   wire('wireLiveWorkflowSyncEngine', wireLiveWorkflowSyncEngine);
   wire('wireLiveVariableSyncEngine', wireLiveVariableSyncEngine);
+  wire('wireOAuthSyncEngine', wireOAuthSyncEngine);
+  wire('wirePauseMarkersSyncEngine', wirePauseMarkersSyncEngine);
+  wire('wireFilesSyncEngine', wireFilesSyncEngine);
 
-  await Promise.all([
-    bridgeWorkspaceVariablesSyncEngine().catch(catchFor('bridgeWorkspaceVariablesSyncEngine')),
-    bridgeVaultSyncEngine().catch(catchFor('bridgeVaultSyncEngine')),
-    bridgeTrustedRootsSyncEngine().catch(catchFor('bridgeTrustedRootsSyncEngine')),
-    bridgeLiveValueSyncEngine().catch(catchFor('bridgeLiveValueSyncEngine')),
-    bridgeOAuthSyncEngine().catch(catchFor('bridgeOAuthSyncEngine')),
-    bridgePauseMarkersSyncEngine().catch(catchFor('bridgePauseMarkersSyncEngine')),
-    bridgeLayoutStateSyncEngine().catch(catchFor('bridgeLayoutStateSyncEngine')),
-    bridgeFilesSyncEngine().catch(catchFor('bridgeFilesSyncEngine')),
-  ]);
+  // The live-value bridge wires the propagation hooks and folds the
+  // oracle's value set into this host's liveCache blob — a host-local
+  // write, never a mutation.
+  await bridgeLiveValueSyncEngine().catch((err: unknown) => onError('bridgeLiveValueSyncEngine', err));
 }

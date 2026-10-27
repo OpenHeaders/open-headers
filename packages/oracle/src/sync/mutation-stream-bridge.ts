@@ -59,7 +59,6 @@ import {
 } from '@openheaders/core/identity';
 import { resolveWorkspaceVisibility } from '@openheaders/core/schemas';
 import {
-  compareHlc,
   computeInverseSpec,
   EXTENSION_WORKSPACE_ENTITY_TYPE,
   EXTENSION_WORKSPACE_GLOBAL_SCOPE,
@@ -76,7 +75,7 @@ import { getWorkspace } from '../workspace/extension-workspace-store';
 import { makeOracleInverseAccess } from './activity/activity-inverse-builder';
 import { rememberPriorForMutation } from './activity/activity-priors';
 import { getOracleHostHooks } from './host-hooks';
-import { applySyncRequest, getOrCreateWorkspaceService, releaseWorkspaceService } from './service';
+import { applySyncRequest } from './service';
 import { getOracleForWorkspace } from './service/accessors';
 
 const SEEN_MUTATION_IDS = new Set<string>();
@@ -354,11 +353,11 @@ export async function applyInboundMutationEnvelope(
  * extension SW receiver. Synthetic LocalAdmin always allows today; the
  * gate becomes load-bearing once per-WRA gating lands post-promotion.
  *
- * After a successful apply, folds the highest inbound HLC per
- * workspace into the local sequencer (Phase C C12). Guarantees that
- * the NEXT local mint strictly exceeds every envelope this peer has
- * observed — non-negotiable for cross-host LWW convergence when
- * the local wall clock has drifted (machine sleep, NTP step, etc.).
+ * The highest inbound HLC folds into the scope's sequencer at the
+ * oracle's commit point (`onBatchApplied`, Phase C C12), for the
+ * per-workspace and the global oracle alike, so the NEXT local mint
+ * strictly exceeds every envelope this peer has observed — the bridge
+ * adds no fold of its own.
  */
 export async function applyInboundMutationBatch(input: MutationBatch, actor?: InboundMutationActor): Promise<void> {
   const allKnown = input.mutations.every((e) => SEEN_MUTATION_IDS.has(e.mutationId));
@@ -423,7 +422,6 @@ export async function applyInboundMutationBatch(input: MutationBatch, actor?: In
     const response = await applySyncRequest({ type: 'oh.sync.apply', batch, applyOrigin: 'inbound' });
     if (!response.ok) return;
     for (const env of batch.mutations) rememberApplied(env);
-    observeHighestPerWorkspace(batch);
     if (actor && createdWorkspaceIds.length > 0) {
       await grantOwnerOnCreatedWorkspaces(actor, createdWorkspaceIds);
     }
@@ -465,30 +463,5 @@ function capturePriorsForActivity(batch: MutationBatch): void {
     const spec = computeInverseSpec(env.body, access);
     const inverse = spec === null ? null : { mutatorVersion: env.mutatorVersion, spec };
     rememberPriorForMutation(env.mutationId, env.workspaceId, prior, inverse);
-  }
-}
-
-/**
- * Fold the highest HLC per workspace into the local sequencer.
- * Walks the batch once to find the highest HLC for each
- * workspaceId, then calls `observe` on the service handle. Acquires
- * + releases the service refcount so concurrent dispose can't tear
- * the handle down mid-observe.
- */
-function observeHighestPerWorkspace(batch: MutationBatch): void {
-  const highest = new Map<string, MutationEnvelope>();
-  for (const env of batch.mutations) {
-    const current = highest.get(env.workspaceId);
-    if (!current || compareHlc(env.hlc, current.hlc) > 0) {
-      highest.set(env.workspaceId, env);
-    }
-  }
-  for (const [workspaceId, env] of highest) {
-    const svc = getOrCreateWorkspaceService(workspaceId);
-    try {
-      svc.context.observe(env.hlc);
-    } finally {
-      releaseWorkspaceService(workspaceId);
-    }
   }
 }

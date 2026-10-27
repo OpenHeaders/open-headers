@@ -30,8 +30,11 @@ async function readLayoutFor(workspaceId: string): Promise<PersistedPanelLayout 
 
 /**
  * Seed the active workspace's {@link LayoutStateCache} from the
- * persisted layout blob. Idempotent — calling twice in a row replays
- * the same batch through the oracle, which dedups by mutationId.
+ * persisted layout blob — for callers whose store state is fresher than
+ * the oracle (the active-workspace import path). Every call mints a
+ * fresh batch, so this is not a boot or swap step: the service's
+ * `hydrated` gate replays the log, and the cache's boot pass migrates a
+ * blob the log never held once.
  */
 export async function bridgeLayoutStateSyncEngine(): Promise<void> {
   const cache = getActiveCacheForRegistration<LayoutStateCache>(LAYOUT_STATE_REGISTRATION);

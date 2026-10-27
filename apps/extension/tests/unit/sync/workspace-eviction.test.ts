@@ -39,6 +39,8 @@ import {
   __initSyncServiceForTests,
   __setWireDepsFactoryForTests,
   dispose as disposeSyncService,
+  getOrCreateWorkspaceService,
+  releaseWorkspaceService,
 } from '@openheaders/oracle/sync/service';
 import {
   bootstrap as bootstrapWorkspaces,
@@ -116,7 +118,19 @@ const daemonWorkspaceEnvelope = (): MutationEnvelope => ({
   workspaceId: 'ws-adopted',
   orgId: CONSUMED_ORG.id,
   mutatorVersion: 1,
-  body: { kind: 'create', type: 'rule', id: 'r1', payload: { name: 'daemon rule' } },
+  body: {
+    kind: 'create',
+    type: 'rule',
+    id: 'r1',
+    payload: {
+      schemaVersion: 5,
+      uid: 'r1',
+      path: 'rules/daemon/r1',
+      type: 'header',
+      name: 'daemon rule',
+      enabled: true,
+    },
+  },
 });
 
 let globalLog: InMemoryMutationLog;
@@ -242,6 +256,32 @@ describe('evictConsumedWorkspace', () => {
     const adoptedLog = scopeLogs.get('ws-adopted');
     expect(adoptedLog).toBeDefined();
     if (adoptedLog) expect(await collect(adoptedLog.readSince(null))).toEqual([]);
+  });
+
+  it('a re-materialized service replays the purged stripe: the daemon rule is gone until the re-join redelivers it', async () => {
+    await boot('ws-home');
+    // Before the eviction the adopted workspace's service hydrates the
+    // daemon's rule from its own log stripe — a replay, not a seed.
+    const before = getOrCreateWorkspaceService('ws-adopted');
+    await before.hydrated;
+    expect(before.oracle.materializeOne('rule', 'r1')).not.toBeNull();
+    releaseWorkspaceService('ws-adopted');
+
+    await evictConsumedWorkspace('ws-adopted');
+
+    const after = getOrCreateWorkspaceService('ws-adopted');
+    try {
+      await after.hydrated;
+      expect(after.oracle.materializeOne('rule', 'r1')).toBeNull();
+
+      await applyInboundMutationEnvelope(daemonWorkspaceEnvelope());
+      expect(after.oracle.materializeOne('rule', 'r1')).not.toBeNull();
+      const adoptedLog = scopeLogs.get('ws-adopted');
+      if (adoptedLog)
+        expect((await collect(adoptedLog.readSince(null))).map((e) => e.mutationId)).toEqual(['daemon-rule-create']);
+    } finally {
+      releaseWorkspaceService('ws-adopted');
+    }
   });
 
   it('flips the active pointer to a survivor when the evicted workspace was active', async () => {

@@ -218,7 +218,10 @@ describe('applyInboundMutationBatch', () => {
     __resetMutationStreamBridgeForTests();
     await boot();
     expect(hasRecentlyApplied(batch.mutations[0]!.mutationId)).toBe(false);
+    // The fresh service replayed the log: the rule is back without a seed.
+    expect(getOracleForCurrentWorkspace()?.materializeOne(RULE_ENTITY_TYPE, r.uid)).not.toBeNull();
     const rows = await logRows(log);
+    expect(rows).toBe(batch.mutations.length);
     const pending = await intents.list();
     const broadcasts: string[] = [];
     setOracleHostHooks({ broadcastSyncEvent: (event) => broadcasts.push(event.envelope.mutationId) });

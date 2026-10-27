@@ -1,20 +1,25 @@
 /**
- * Singleton-entity-cache — undecryptable-baseline lock (WS-B B2).
+ * Singleton-entity-cache — undecryptable-baseline lock (WS-B B2), narrowed
+ * by the workspace-list scope plan (Part 3): the log is the source.
  *
- * When `hydrateFromStorage` reads a present-but-undecryptable persisted blob
- * (the at-rest key was lost out from under the surviving ciphertext), the
- * cache must enter a `locked` state and REFUSE to seed `emptySnapshot` over
- * it — otherwise a subsequent edit diffs against an empty baseline and
- * silently tombstones the orphaned secrets. An `absent` slot stays the
- * ordinary empty path; a real mutation clears the lock (re-entry).
+ * When the replayed log holds no row of the entity and `hydrateFromStorage`
+ * reads a present-but-undecryptable persisted blob (the at-rest key was
+ * lost out from under the surviving ciphertext), the secrets are
+ * unrecoverable: the cache enters a `locked` state and seeds nothing. A log
+ * that holds the entity restores it whatever the blob says and never
+ * locks. An `absent` slot stays the ordinary empty path; a real mutation
+ * clears the lock (re-entry).
  */
 
 import type { GuardedRead } from '@openheaders/core/storage';
 import type { MutationBatch } from '@openheaders/core/sync';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { InMemoryBroadcast } from '../../src/sync/broadcast';
+import {
+  createSingletonEntityCache,
+  type SingletonEntityCacheConfig,
+} from '../../src/sync/caches/singleton-entity-cache';
 import type { EntityOracle } from '../../src/sync/oracle';
-import { createSingletonEntityCache, type SingletonEntityCacheConfig } from '../../src/sync/caches/singleton-entity-cache';
 
 interface Snap {
   value: string;
@@ -24,14 +29,24 @@ const ENTITY_TYPE = 'test-entity';
 const EMPTY: Snap = { value: 'empty' };
 const PROJECTED: Snap = { value: 'projected' };
 
-const oracleStub = { apply: async () => ({ ok: true }) } as unknown as EntityOracle;
+/** An oracle whose log never mentioned the entity — the migration case. */
+const oracleStub = { apply: async () => ({ ok: true }), hasEntityOfType: () => false } as unknown as EntityOracle;
+/** An oracle that replayed the entity from its log. */
+const hydratedOracleStub = {
+  apply: async () => ({ ok: true }),
+  hasEntityOfType: () => true,
+} as unknown as EntityOracle;
 const contextFactory = () => ({}) as never;
 
-function makeCache(guarded: GuardedRead<Snap>, overrides: Partial<SingletonEntityCacheConfig<Snap, Snap>> = {}) {
+function makeCache(
+  guarded: GuardedRead<Snap>,
+  overrides: Partial<SingletonEntityCacheConfig<Snap, Snap>> = {},
+  oracle: EntityOracle = oracleStub,
+) {
   const broadcast = new InMemoryBroadcast();
   const project = vi.fn(() => PROJECTED);
   const buildSeedBatch = vi.fn(() => ({}) as MutationBatch);
-  const cache = createSingletonEntityCache<Snap, Snap>('ws-1', oracleStub, broadcast, contextFactory, {
+  const cache = createSingletonEntityCache<Snap, Snap>('ws-1', oracle, broadcast, contextFactory, {
     entityType: ENTITY_TYPE,
     loggerTag: 'TestCache',
     emptySnapshot: EMPTY,
@@ -78,6 +93,44 @@ describe('singleton-entity-cache — undecryptable-baseline lock', () => {
     expect(buildSeedBatch).not.toHaveBeenCalled();
   });
 
+  it('a log that holds the entity re-projects and never consults the blob: no lock, no seed', async () => {
+    const loadGuardedFromStorage = vi.fn(async (): Promise<GuardedRead<Snap>> => ({ status: 'undecryptable' }));
+    const { cache, project, buildSeedBatch } = makeCache(
+      { status: 'undecryptable' },
+      { loadGuardedFromStorage },
+      hydratedOracleStub,
+    );
+    const listener = vi.fn();
+    cache.onChange(listener);
+
+    await cache.hydrateFromStorage();
+
+    expect(cache.isLocked()).toBe(false);
+    expect(cache.getSnapshot()).toBe(PROJECTED);
+    expect(project).toHaveBeenCalledTimes(1);
+    expect(buildSeedBatch).not.toHaveBeenCalled();
+    expect(loadGuardedFromStorage).not.toHaveBeenCalled();
+    expect(listener).toHaveBeenCalledTimes(1);
+  });
+
+  it('a log that holds the entity ignores a stored projection too: the log is the source', async () => {
+    const loadFromStorage = vi.fn(async () => ({ value: 'stale' }));
+    const broadcast = new InMemoryBroadcast();
+    const buildSeedBatch = vi.fn(() => ({}) as MutationBatch);
+    const cache = createSingletonEntityCache<Snap, Snap>('ws-1', hydratedOracleStub, broadcast, contextFactory, {
+      entityType: ENTITY_TYPE,
+      loggerTag: 'TestCache',
+      emptySnapshot: EMPTY,
+      project: () => PROJECTED,
+      buildSeedBatch,
+      loadFromStorage,
+    });
+    await cache.hydrateFromStorage();
+    expect(cache.getSnapshot()).toBe(PROJECTED);
+    expect(buildSeedBatch).not.toHaveBeenCalled();
+    expect(loadFromStorage).not.toHaveBeenCalled();
+  });
+
   it('seeds normally for an ok value', async () => {
     const { cache, project, buildSeedBatch } = makeCache({ status: 'ok', value: { value: 'persisted' } });
     await cache.hydrateFromStorage();
@@ -98,9 +151,9 @@ describe('singleton-entity-cache — undecryptable-baseline lock', () => {
     expect(cache.getSnapshot()).toBe(PROJECTED);
   });
 
-  it('keeps the lock through a benign empty re-seed (active-mirror bridge)', async () => {
-    // The bridge seeds the active cache from a `null`/empty direct read; that
-    // empty re-project must NOT clear the lost-key lock.
+  it('keeps the lock through an empty re-projection', async () => {
+    // A commit elsewhere in the scope re-projects the cache; an empty
+    // projection must NOT clear the lost-key lock.
     const { cache, broadcast } = makeCache({ status: 'undecryptable' }, { project: () => EMPTY });
     await cache.hydrateFromStorage();
     expect(cache.isLocked()).toBe(true);

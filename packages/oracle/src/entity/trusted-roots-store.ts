@@ -27,9 +27,25 @@ export function getTrustedRootPemsForWorkspace(workspaceId: string): string[] {
 }
 
 /**
- * Seed the active workspace's cache from the persisted record. The
- * cache owns the in-memory snapshot after this — readers go through
- * {@link getTrustedRootsForWorkspace}.
+ * Point the read seam at the active workspace's cache without seeding —
+ * the service's `hydrated` gate replayed the workspace's log, which the
+ * cache projects. The cache owns the in-memory snapshot; readers go
+ * through {@link getTrustedRootsForWorkspace}, so there is no mirror to
+ * copy. Idempotent.
+ */
+export function wireTrustedRootsSyncEngine(): void {
+  const cache = getActiveCacheForRegistration<TrustedRootsCache>(TRUSTED_ROOTS_REGISTRATION);
+  if (!cache) return;
+  logger.debug(
+    'TrustedRootsStore',
+    `Wired ws=${requireActiveWorkspaceId()}: ${cache.getTrustedRoots().roots.length} roots`,
+  );
+}
+
+/**
+ * Seed the active workspace's cache from the persisted record — for
+ * callers whose store state is fresher than the oracle (the
+ * active-workspace import path).
  */
 export async function bridgeTrustedRootsSyncEngine(): Promise<void> {
   const cache = getActiveCacheForRegistration<TrustedRootsCache>(TRUSTED_ROOTS_REGISTRATION);

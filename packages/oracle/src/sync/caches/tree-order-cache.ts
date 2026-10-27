@@ -8,9 +8,9 @@
  * the request kinds has a home there. This record folds the live
  * `folders` and `items` sets of every collection and folder MERGED by
  * key — child uids of both kinds in one list, the order the container
- * renders — keyed by `<type>:<uid>`, and is what the restart re-seed
- * (the tree slot reconciler for leaves, the folder caches for folders)
- * replays before falling back to the arrays. Containers with no
+ * renders — keyed by `<type>:<uid>`, and is what the tree slot
+ * reconciler's hydration pass (and a folder migration) ranks siblings
+ * by before falling back to the arrays. Containers with no
  * children carry no entry; a stale entry for a container that no
  * longer exists is ignored by every reader. A legacy entry (the two
  * runs listed apart) reads as folders then items and marks a container

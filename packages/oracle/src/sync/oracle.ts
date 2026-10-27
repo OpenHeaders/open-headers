@@ -170,6 +170,16 @@ export class EntityOracle {
   }
 
   /**
+   * Whether the replayed log holds any row of `type` — see
+   * `InMemoryDocumentStore.hasEntityOfType`. The caches' one-time
+   * migration guard: a type the log never mentions is seeded from the
+   * stored projection once; a type it knows is never seeded again.
+   */
+  hasEntityOfType(type: string): boolean {
+    return this.store.hasEntityOfType(type);
+  }
+
+  /**
    * Read live `(itemId, item)` pairs at a set path. Write-side helpers
    * (rule-store's partial-update path) consult this to enumerate the
    * itemIds they need to emit `removeFromSet` against — the materialized
@@ -208,28 +218,33 @@ export class EntityOracle {
   /**
    * Replay this scope's durable log into the store — the boot path.
    * The envelopes apply in the order given (the log's stored order:
-   * `hlc_key, mutation_id`) under the lock chain of every entity they
-   * touch, with an `inbound` field origin; their ids prime the store's
-   * applied set so a later redelivery reads as a duplicate at either
-   * layer. Nothing is appended, no intent derives, nothing broadcasts:
-   * a replay is not a commit. The highest HLC folds into the sequencer
-   * and the revision bumps once at the end. A row the mutator refuses
-   * is skipped — the log is history, not a batch to roll back. The
-   * batch-replay invariants carry the rest: ticked HLCs order a batch,
-   * a leaf replayed ahead of its create stays invisible until the
-   * create lands, singletons are observable without one. Returns the
+   * `hlc_key, mutation_id`) with an `inbound` field origin; their ids
+   * prime the store's applied set so a later redelivery reads as a
+   * duplicate at either layer. Nothing is appended, no intent derives,
+   * nothing broadcasts: a replay is not a commit. The highest HLC folds
+   * into the sequencer and the revision bumps once at the end. A row
+   * the mutator refuses is skipped — the log is history, not a batch to
+   * roll back. The batch-replay invariants carry the rest: ticked HLCs
+   * order a batch, a leaf replayed ahead of its create stays invisible
+   * until the create lands, singletons are observable without one.
+   *
+   * No lock is taken. The owning service's hydration gate is what every
+   * writer of this oracle awaits, so the replay has nothing to order
+   * against; the loop itself is one synchronous block, and a write that
+   * did slip in between the buffering and the loop converges by LWW the
+   * same way a peer's would. A chain of one lock per distinct entity
+   * would hold hundreds of nested locks for the whole replay on a large
+   * scope and fail the boot on the first contended one. Returns the
    * number of envelopes replayed.
    */
   async hydrate(envelopes: AsyncIterable<MutationEnvelope> | readonly MutationEnvelope[]): Promise<number> {
     const stored: MutationEnvelope[] = [];
     for await (const env of envelopes) stored.push(env);
     if (stored.length === 0) return 0;
-    return this.lockChain(collectEntityTargets(stored), async () => {
-      for (const env of stored) this.store.apply(env, 'inbound');
-      this.committed += 1;
-      this.observeEnvelopes(stored);
-      return stored.length;
-    });
+    for (const env of stored) this.store.apply(env, 'inbound');
+    this.committed += 1;
+    this.observeEnvelopes(stored);
+    return stored.length;
   }
 
   // ── internals ────────────────────────────────────────────────────

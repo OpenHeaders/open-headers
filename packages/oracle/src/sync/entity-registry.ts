@@ -229,16 +229,14 @@ import type { SwContextHandle } from './sw-context';
 /** Structural minimum the registry needs from any entity cache. */
 export interface EntityCacheLike {
   /**
-   * Read this entity's persisted projection from `chrome.storage.local`
-   * and seed the oracle. No-op for caches without a chrome.storage
-   * projection (e.g. files — bytes live in BlobStore IDB, the catalog
-   * is sync-engine-singleton without a wsKeys projection). Awaited by
-   * {@link buildService}'s `hydrated` promise so per-workspace services
-   * start with their caches populated regardless of Active state — the
-   * fix for the cross-workspace residency bug where lazy re-materialized
-   * non-Active services would otherwise project an empty oracle and
-   * report `Workflow X not found in workspace Y` for entities that
-   * exist in storage.
+   * The boot pass, run by {@link buildService}'s `hydrated` promise once
+   * the scope's log has replayed into the oracle: re-project from the
+   * oracle and persist the projection (the storage keys are the
+   * write-through cache), and when the log holds no row of this cache's
+   * entity type while the stored projection holds data, migrate that
+   * projection into the log once as a real commit. Runs for every
+   * materialized service regardless of Active state, so a non-Active
+   * workspace's caches hold its state too.
    */
   hydrateFromStorage(): Promise<void>;
   dispose(): void;

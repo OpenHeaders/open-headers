@@ -26,9 +26,8 @@ import type { WorkspaceServiceState } from './types';
 export function getOrCreateWorkspaceService(workspaceId: string): WorkspaceServiceState {
   let svc = services.get(workspaceId);
   if (svc?.disposing) {
-    // A teardown is mid-flight; rebuild a fresh service. Should be
-    // unreachable today (teardown is synchronous) but the contract
-    // matters once seed-from-storage becomes async in later commits.
+    // A teardown is mid-flight; rebuild a fresh service. Teardown is
+    // synchronous, so this stays unreachable in practice.
     svc = undefined;
   }
   if (!svc) {

@@ -1,11 +1,14 @@
 /**
- * Vault cache — undecryptable-baseline lock surface (WS-B B2, commit 2).
+ * Vault cache — undecryptable-baseline lock surface (WS-B B2, commit 2),
+ * narrowed by the workspace-list scope plan (Part 3): the log is the source.
  *
  * The storage layer's tri-state (`extension-storage-sensitive.test.ts`) and the
  * core lock derivation (`singleton-entity-cache-locked.test.ts`) are covered
- * elsewhere. This proves the vault-cache wrapper wires them together: a
- * present-but-undecryptable persisted blob locks the cache (`isVaultLocked()`)
- * while `getVault()` reads empty, and a genuine re-entry clears the lock.
+ * elsewhere. This proves the vault-cache wrapper wires them together: with
+ * no vault row in the log, a present-but-undecryptable persisted blob locks
+ * the cache (`isVaultLocked()`) while `getVault()` reads empty, and a genuine
+ * re-entry clears the lock; a log that holds the vault restores it over any
+ * blob and never locks, and the blob is rewritten from the oracle.
  */
 
 import { setHostStorage, wsKeys } from '@openheaders/core/storage';
@@ -86,20 +89,31 @@ const ctxFactory = () => ({
   deviceId: 'd',
 });
 const makeVault = (secrets: Vault['secrets']): Vault => ({ schemaVersion: 5, secrets });
+const apiKey: Vault['secrets'][number] = { uid: 'scapikey', kind: 'string', name: 'API_KEY', value: 'sek' };
+
+const flush = () => new Promise((resolve) => setTimeout(resolve, 0));
+
+async function rowCount(log: InMemoryMutationLog): Promise<number> {
+  let rows = 0;
+  for await (const _ of log.readSince(null)) rows += 1;
+  return rows;
+}
 
 describe('VaultCache — undecryptable-baseline lock', () => {
   let store: ReturnType<typeof installFakeChromeStorage>;
   let oracle: EntityOracle;
+  let log: InMemoryMutationLog;
   let broadcast: InMemoryBroadcast;
 
   beforeEach(() => {
     store = installFakeChromeStorage();
     setHostStorage(new ExtensionStorage(makeStubCipher()));
     broadcast = new InMemoryBroadcast();
+    log = new InMemoryMutationLog();
     oracle = new EntityOracle({
       workspaceId: 'ws-1',
       lock,
-      log: new InMemoryMutationLog(),
+      log,
       intents: new InMemoryPendingIntents(),
       broadcast,
       // Production-faithful: the vault singleton's schema keeps it
@@ -134,13 +148,46 @@ describe('VaultCache — undecryptable-baseline lock', () => {
 
   it('hydrates a good persisted blob without locking', async () => {
     const cache = createVaultCache('ws-1', oracle, broadcast, ctxFactory);
-    await cache.seedFromPersistedVault(
-      makeVault([{ uid: 'scapikey1', kind: 'string', name: 'API_KEY', value: 'sek' }]),
-    );
+    await cache.seedFromPersistedVault(makeVault([apiKey]));
 
     expect(cache.isVaultLocked()).toBe(false);
     expect(cache.getVault().secrets.map((s) => s.name)).toEqual(['API_KEY']);
     cache.dispose();
+  });
+
+  it('a log that holds the vault restores it over an undecryptable blob, never locks, and rewrites the blob', async () => {
+    // The vault's envelopes in the log — what a replayed boot holds.
+    await oracle.apply(setVaultSecret(ctxFactory(), { secret: apiKey }).batch);
+    store.data.set(wsKeys('ws-1').vault.key, 'not-a-sealed-blob');
+    const rows = await rowCount(log);
+
+    const cache = createVaultCache('ws-1', oracle, broadcast, ctxFactory);
+    await cache.hydrateFromStorage();
+
+    expect(cache.isVaultLocked()).toBe(false);
+    expect(cache.getVault().secrets.map((s) => s.name)).toEqual(['API_KEY']);
+    expect(await rowCount(log)).toBe(rows);
+    await flush();
+    expect(String(store.data.get(wsKeys('ws-1').vault.key))).toMatch(/^SEALED\(/);
+    cache.dispose();
+  });
+
+  it('migrates a decryptable blob into an empty log once; the next boot re-projects without seeding', async () => {
+    store.data.set(wsKeys('ws-1').vault.key, `SEALED(${JSON.stringify(makeVault([apiKey]))})`);
+
+    const first = createVaultCache('ws-1', oracle, broadcast, ctxFactory);
+    await first.hydrateFromStorage();
+    expect(first.isVaultLocked()).toBe(false);
+    expect(first.getVault().secrets.map((s) => s.name)).toEqual(['API_KEY']);
+    const rows = await rowCount(log);
+    expect(rows).toBeGreaterThan(0);
+    first.dispose();
+
+    const second = createVaultCache('ws-1', oracle, broadcast, ctxFactory);
+    await second.hydrateFromStorage();
+    expect(second.getVault().secrets.map((s) => s.name)).toEqual(['API_KEY']);
+    expect(await rowCount(log)).toBe(rows);
+    second.dispose();
   });
 
   it('clears the lock when a re-entered secret yields a non-empty snapshot', async () => {

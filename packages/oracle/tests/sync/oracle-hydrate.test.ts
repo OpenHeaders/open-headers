@@ -5,8 +5,9 @@
  * order given without committing anything: no log row, no intent, no
  * broadcast, one revision bump, the highest HLC folded into the
  * sequencer, the applied set primed so a redelivery of any replayed id
- * is a duplicate. The lock chain covers every entity the replay
- * touches, in the same order `apply` takes it.
+ * is a duplicate. No lock is taken — the owning service's hydration
+ * gate is what every writer awaits, and the loop is one synchronous
+ * block.
  */
 
 import {
@@ -150,11 +151,21 @@ describe('EntityOracle.hydrate', () => {
     expect(enabledOf(h, 'r1')).toBe(false);
   });
 
-  it('takes the lock chain over every entity the replay touches, in the apply order', async () => {
+  it('takes no lock: the owning gate serializes the replay against every writer', async () => {
     const log = await writeHistory();
     const h = makeHarness(log);
     await h.oracle.hydrate(log.readSince(null));
-    expect(h.locks).toEqual([`${RULE_ENTITY_TYPE}:r1`, `${RULE_ENTITY_TYPE}:r2`]);
+    expect(h.locks).toEqual([]);
+    expect(h.oracle.hasEntityOfType(RULE_ENTITY_TYPE)).toBe(true);
+    expect(h.oracle.hasEntityOfType('vault')).toBe(false);
+  });
+
+  it('a local write after the replay still takes its entity lock', async () => {
+    const log = await writeHistory();
+    const h = makeHarness(log);
+    await h.oracle.hydrate(log.readSince(null));
+    await h.oracle.apply(toggleEnabled(ctx(2_500), { ruleUid: 'r2', enabled: true }).batch);
+    expect(h.locks).toEqual([`${RULE_ENTITY_TYPE}:r2`]);
   });
 
   it('an empty log replays nothing: no lock, no revision, no observation', async () => {

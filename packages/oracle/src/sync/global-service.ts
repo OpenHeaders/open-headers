@@ -53,6 +53,7 @@ import {
   GLOBAL_REGISTRY,
   singletonSnapshot,
 } from './entity-registry';
+import { hydrateOracleFromLog } from './hydrate-from-log';
 import { ruleOracleLockAcquirer } from './lock-adapter';
 import { InMemoryMutationLog, type MutationLog } from './mutation-log';
 import { EntityOracle, type LockAcquirer } from './oracle';
@@ -257,7 +258,7 @@ function wire(deps: WireDeps): GlobalServiceState {
   return {
     oracle,
     log: deps.log,
-    hydrated: hydrateFromLog(oracle, deps.log),
+    hydrated: hydrateOracleFromLog(oracle, deps.log, 'GlobalSyncService', EXTENSION_WORKSPACE_GLOBAL_SCOPE),
     broadcast,
     intents: deps.intents,
     caches,
@@ -265,20 +266,4 @@ function wire(deps: WireDeps): GlobalServiceState {
     unsubscribeBroadcast,
     workspaceCoordRunner: null,
   };
-}
-
-/**
- * Replay the log into the oracle. The replay buffers before it applies,
- * so a failure leaves the oracle empty rather than half-filled — the
- * store's bridge then migrates the stored projection as on a first
- * boot. Never rejects: a host must still boot.
- */
-async function hydrateFromLog(oracle: EntityOracle, log: MutationLog): Promise<void> {
-  const startedAt = Date.now();
-  try {
-    const replayed = await oracle.hydrate(log.readSince(null));
-    logger.info('GlobalSyncService', `Hydrated ${replayed} envelope(s) from the log in ${Date.now() - startedAt} ms`);
-  } catch (err) {
-    logger.warn('GlobalSyncService', 'Hydrating from the log failed; the oracle starts empty', err);
-  }
 }

@@ -1,7 +1,8 @@
 /**
  * Sync service — service construction: the production dependency
  * factory and the shared `buildService` wiring (oracle, caches,
- * broadcast bridge, awareness, two-phase hydration).
+ * broadcast bridge, awareness, the log replay and the cache passes
+ * behind the `hydrated` gate).
  */
 
 import { LIVE_VALUE_ENTITY_TYPE, OAUTH_BUNDLE_ENTITY_TYPE, VAULT_ENTITY_TYPE } from '@openheaders/core/sync';
@@ -21,6 +22,7 @@ import {
   TEMPLATE_FOLDER_REGISTRATION,
   WORKSPACE_REGISTRY,
 } from '../entity-registry';
+import { hydrateOracleFromLog } from '../hydrate-from-log';
 import { ruleOracleLockAcquirer } from '../lock-adapter';
 import { EntityOracle } from '../oracle';
 import { createSwContextHandle } from '../sw-context';
@@ -78,13 +80,13 @@ export function buildService(deps: WireDeps): WorkspaceServiceState {
   const caches: EntityCacheLike[] = WORKSPACE_REGISTRY.map((reg) =>
     reg.createCache(deps.workspaceId, oracle, broadcast, () => context.next()),
   );
-  // Path-derived slot seeding rides the same bus as a cache; it is
-  // appended AFTER the registry's caches so registry-index lookups
+  // Path-derived slot reconciliation rides the same bus as a cache; it
+  // is appended AFTER the registry's caches so registry-index lookups
   // (`getActiveCacheForRegistration`) stay aligned.
   const treeSlots = createTreeSlotReconciler(deps.workspaceId, oracle, broadcast, () => context.next());
   caches.push(treeSlots);
-  // The per-container order record the restart re-seed reads back;
-  // written from the live sets on every containment write.
+  // The per-container order record the reconciler's hydration pass
+  // reads back; written from the live sets on every containment write.
   const treeOrder = createTreeOrderCache(deps.workspaceId, oracle, broadcast);
   caches.push(treeOrder);
 
@@ -107,21 +109,24 @@ export function buildService(deps: WireDeps): WorkspaceServiceState {
   const projector = buildProjectorPipeline(oracle, WORKSPACE_REGISTRY);
   const unsubscribeBroadcast = wireBroadcastToSink(broadcast, deps.sink, projector);
 
-  // Hydrate every cache from `chrome.storage.local` (or BlobStore for
-  // files; no-op for caches without a durable projection). Folders seed
-  // entries that reference collection parents in the oracle, so
-  // collection caches must finish hydrating before folder caches start.
-  // Two-phase: non-folder caches in parallel, then folder caches in
-  // parallel; then the tree slot reconciler seeds every slot-less leaf
-  // and collection from the persisted paths (parents must be live
-  // first). The `hydrated` promise resolves after all three finish.
-  //
-  // Without this, a freshly materialized non-Active workspace service
-  // starts with empty caches even though `wsKeys(workspaceId).<key>` has
-  // the data on disk — bridge*SyncEngine seeds only the runtime-Active
-  // workspace, leaving cross-workspace gestures (manual refresh on a
-  // workspace whose tab is open in per-tab mode but is not Active)
-  // unable to find their entities. See § 8.7 Session 20 disposition.
+  // Boot by replay: the scope's durable log is the source of truth, and
+  // the oracle holds its replayed state before any cache looks at it.
+  // Each cache then re-projects from the oracle and persists its
+  // projection — the `oh.ws.<id>.*` keys are the write-through cache —
+  // and migrates its stored projection into the log exactly once when
+  // the log holds no row of its entity type (a profile from before the
+  // log was the boot source). A migration mints real commits, so the
+  // passes run one cache at a time (each commit folds its HLC into the
+  // sequencer before the next cache mints, so no two batches share an
+  // HLC), and a folder's commit resolves its collection parent from the
+  // oracle, so the collection caches finish before the folder caches
+  // start; over a hydrated log every pass is a synchronous re-projection
+  // and appends nothing. The tree slot reconciler's hydration pass runs
+  // after them as a permanent reconciliation of slot-less children (it
+  // mints only when it heals), then the order cache arms. The `hydrated`
+  // promise resolves after all of it, and every reader of the oracle or
+  // its log awaits it — including a handshake's state-vector read, which
+  // therefore appends nothing.
   const folderRegistrations = new Set<EntityRegistration>([
     FOLDER_REGISTRATION,
     REQUEST_FOLDER_REGISTRATION,
@@ -134,8 +139,9 @@ export function buildService(deps: WireDeps): WorkspaceServiceState {
     else nonFolderCaches.push(caches[idx]);
   });
   const hydrated = (async () => {
-    await Promise.all(nonFolderCaches.map((c) => c.hydrateFromStorage()));
-    await Promise.all(folderCaches.map((c) => c.hydrateFromStorage()));
+    await hydrateOracleFromLog(oracle, deps.log, 'SyncService', deps.workspaceId);
+    for (const cache of nonFolderCaches) await cache.hydrateFromStorage();
+    for (const cache of folderCaches) await cache.hydrateFromStorage();
     await treeSlots.hydrateFromStorage();
     await treeOrder.hydrateFromStorage();
   })();

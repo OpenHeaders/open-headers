@@ -3,8 +3,11 @@
  *
  * Three caches (`folder-cache`, `request-folder-cache`,
  * `template-folder-cache`) share the same broadcast → re-project →
- * persist → notify pipeline plus a depth-first hydration that mints
- * one `createX` batch per persisted folder. They differ only in:
+ * persist → notify pipeline plus a depth-first seed that mints one
+ * `createX` batch per persisted folder — the one-time migration's and
+ * the import path's mechanism; the boot pass re-projects from the
+ * replayed oracle and seeds only when the log holds no folder row.
+ * They differ only in:
  *
  *  - the collection / folder entity-type pair + children-path slot,
  *  - the `buildCreateXBatch` factory + parent ref shape,
@@ -175,6 +178,10 @@ export function createFolderTreeCache<P extends ParentRefShape>(
 
     async hydrateFromStorage(): Promise<void> {
       try {
+        if (oracle.hasEntityOfType(config.folderType)) {
+          refreshFromOracle();
+          return;
+        }
         const collectionStorage = config.collectionStorageKey(workspaceId);
         const folderStorage = config.storageKey(workspaceId);
         const [collections, persistedFolders] = await Promise.all([

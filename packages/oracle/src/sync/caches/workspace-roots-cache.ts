@@ -3,11 +3,11 @@
  *
  * Thin adapter over the shared `singleton-entity-cache.ts` core, the
  * trusted-roots shape. Persists the three trees' collection order to
- * `wsKeys(scope).workspaceRoots`; hydration re-seeds the singleton
- * from it with ascending keys in array order, so collection order
- * survives a restart. An absent record seeds nothing: the roots are
- * observable without a create, so the first collection slot is what
- * makes the projection appear.
+ * `wsKeys(scope).workspaceRoots`; the roots replay from the log, and a
+ * record the log never held is seeded once with ascending keys in array
+ * order. An absent record seeds nothing: the roots are observable
+ * without a create, so the first collection slot is what makes the
+ * projection appear.
  */
 
 import { WorkspaceRootsSchema } from '@openheaders/core/schemas';

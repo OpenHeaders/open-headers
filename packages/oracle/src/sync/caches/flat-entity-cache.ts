@@ -45,8 +45,9 @@ export interface FlatEntityCacheConfig<E extends { uid: string }, T extends stri
    */
   arrange?: (entities: E[], oracle: EntityOracle) => E[];
   /**
-   * Per-entity seed-batch builder. Used during hydration to feed the
-   * oracle from `chrome.storage.local`-persisted snapshots.
+   * Per-entity seed-batch builder — the one-time migration's and the
+   * import path's seeding bridges' way of committing a persisted
+   * projection into the oracle.
    */
   seed: (entity: E, ctx: MutatorContext) => MutationBatch;
   /**
@@ -69,11 +70,10 @@ export interface FlatEntityCacheConfig<E extends { uid: string }, T extends stri
    * Read this entity's persisted projection for `scope` from
    * `chrome.storage.local`. Symmetric to the implicit persist-on-refresh
    * write (callers wire it via the per-entity cache adapter, not this
-   * core). Used by {@link FlatEntityCacheCore.hydrateFromStorage} to
-   * re-seed the oracle when a per-workspace service is materialized
-   * lazily — without this, a freshly built oracle starts blank even
-   * though `wsKeys(scope).<key>` has the data on disk. Returns `[]`
-   * when nothing is persisted.
+   * core). The one-time migration's input:
+   * {@link FlatEntityCacheCore.hydrateFromStorage} seeds it into the
+   * oracle only when the replayed log holds no row of this entity type.
+   * Returns `[]` when nothing is persisted.
    */
   loadFromStorage?: (scope: string) => Promise<readonly E[]>;
 }
@@ -81,15 +81,20 @@ export interface FlatEntityCacheConfig<E extends { uid: string }, T extends stri
 export interface FlatEntityCacheCore<E> {
   readonly workspaceId: string;
   getEntities(): E[];
+  /**
+   * Seed the oracle from persisted projections as real commits (logged,
+   * broadcast). The one-time migration's and the import path's seeding
+   * bridges' mechanism; the boot pass never seeds over a log that
+   * already holds the type.
+   */
   seedFromPersisted(entities: E[]): Promise<void>;
   /**
-   * Read this entity's persisted projection from `chrome.storage.local`
-   * (via the configured `loadFromStorage`) and seed the oracle. No-op
-   * when no `loadFromStorage` is configured — the cache stays whatever
-   * the broadcast pipeline produces. Called by
-   * {@link buildService}'s `hydrated` promise so a freshly materialized
-   * per-workspace service starts with its caches populated, regardless
-   * of whether it is the runtime-Active workspace.
+   * The boot pass over the replayed oracle, run by {@link buildService}'s
+   * `hydrated` promise: re-project from the oracle and persist (the
+   * storage key is the write-through cache). When the log holds no row of
+   * this entity type and `loadFromStorage` returns a non-empty projection,
+   * migrate it once through {@link seedFromPersisted}. No-op when no
+   * `loadFromStorage` is configured and the log holds nothing.
    */
   hydrateFromStorage(): Promise<void>;
   /** Force a re-project cycle. Used by tree-shaped caches that wrap
@@ -164,8 +169,16 @@ export function createFlatEntityCache<E extends { uid: string }, T extends strin
     seedFromPersisted: (persisted) => seedFromPersisted(persisted),
 
     async hydrateFromStorage(): Promise<void> {
-      if (!config.loadFromStorage) return;
       try {
+        // The log is the source: a type the replay touched re-projects
+        // from the oracle, whatever the stored key holds.
+        if (oracle.hasEntityOfType(config.entityType)) {
+          refreshFromOracle();
+          return;
+        }
+        if (!config.loadFromStorage) return;
+        // The log never mentions this type: the stored projection is the
+        // one-time migration's input, committed through the seed path.
         const persisted = await config.loadFromStorage(workspaceId);
         if (persisted.length === 0) {
           // Still refresh once so consumers see an empty (not stale)
@@ -175,9 +188,10 @@ export function createFlatEntityCache<E extends { uid: string }, T extends strin
         }
         await seedFromPersisted(persisted);
       } catch (err) {
-        // Storage read failures (quota, schema drift) must not block
-        // service materialization. The cache stays empty; the next
-        // mutation broadcast will populate it. Drift recorders inside
+        // A projection or storage failure (quota, schema drift, a
+        // malformed historical row) must not block service
+        // materialization. The cache stays as it was; the next mutation
+        // broadcast re-projects it. Drift recorders inside
         // `loadFromStorage` already log the structured failure.
         logger.info(config.loggerTag, `hydrateFromStorage(ws=${workspaceId}) failed: ${(err as Error).message}`);
       }

@@ -9,10 +9,10 @@
  * UI, request collections that walk by path) keep working without
  * change.
  *
- * Hydration: `seedFromPersistedCollections(colls)` walks each
- * persisted collection, builds a `seedCollection` batch, and applies
- * it through the oracle. Boot-time replay through this same sink is
- * idempotent and byte-stable.
+ * Boot: the oracle has replayed the workspace's log before
+ * `hydrateFromStorage` runs, so the pass re-projects from it; the
+ * persisted list is seeded through `seedFromPersistedCollections` only
+ * when the log holds no collection row (the one-time migration).
  */
 
 import { CollectionSchema } from '@openheaders/core/schemas';
@@ -33,14 +33,13 @@ export interface CollectionCache {
   readonly workspaceId: string;
   /** Snapshot of the cached collections in roots order. */
   getCollections(): Collection[];
-  /** Replace the cache from a list of collection snapshots and seed
-   *  the oracle. Drives boot-time hydration and the workspace-switch
-   *  path. */
+  /** Seed the oracle from collection snapshots as real commits — the
+   *  one-time migration's and the import path's seeding bridge's
+   *  mechanism. */
   seedFromPersistedCollections(colls: Collection[]): Promise<void>;
-  /** Read the persisted collection list for this workspace and seed the
-   *  oracle. No-op when nothing is persisted. Called by `buildService`'s
-   *  `hydrated` promise so a freshly materialized non-Active workspace
-   *  service starts populated. */
+  /** The boot pass over the replayed oracle (`buildService`'s `hydrated`
+   *  promise): re-project and persist, or migrate the persisted
+   *  collection list once when the log holds no collection row. */
   hydrateFromStorage(): Promise<void>;
   /** Subscribe to cache changes — fires after every broadcast-driven
    *  re-projection. */
@@ -100,6 +99,10 @@ export function createCollectionCache(
 
     async hydrateFromStorage(): Promise<void> {
       try {
+        if (oracle.hasEntityOfType(COLLECTION_ENTITY_TYPE)) {
+          refreshFromOracle();
+          return;
+        }
         const persisted = await hostStorage.getValidatedArray(wsKeys(workspaceId).collections, CollectionSchema, {
           onError: driftRecorder({
             subsystem: 'rule-engine',

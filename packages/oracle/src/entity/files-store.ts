@@ -14,8 +14,9 @@
  *     the durable record is already in BlobStore IDB.
  *
  * Every mutating write does the byte layer first, then emits the
- * catalog mutation; on cold boot the bridge seeds the oracle from
- * `BlobStore.listBlobs` so the catalog matches the durable record.
+ * catalog mutation; the catalog boots from the workspace's log replay,
+ * and a catalog the log never held is migrated once from
+ * `BlobStore.listBlobs` by the cache's boot pass.
  *
  * Reads (`list`, `get`) stay synchronous off the active mirror when the
  * service is bridged; cross-workspace reads + cold-boot reads (before
@@ -220,24 +221,45 @@ function toSlot(ref: FileRef): FileRefSlot {
 
 let cacheUnsubscribe: (() => void) | null = null;
 
-/**
- * Wire the local mirror to the active workspace's {@link FilesCache}.
- * Idempotent — the prior subscription is dropped first. Seeds the
- * oracle from the workspace's current `BlobStore` rows (the durable
- * record).
- */
-export async function bridgeFilesSyncEngine(): Promise<void> {
-  const cache = getActiveCacheForRegistration<FilesCache>(FILES_REGISTRATION);
-  if (!cache) return;
+function subscribeMirror(cache: FilesCache): void {
   if (cacheUnsubscribe) {
     cacheUnsubscribe();
     cacheUnsubscribe = null;
   }
-  const workspaceId = requireActiveWorkspaceId();
   cacheUnsubscribe = cache.onChange(() => {
     mirror = cache.getSnapshot().refs.slice();
     notifyChange();
   });
+}
+
+/**
+ * Wire the local mirror to the active workspace's {@link FilesCache}
+ * without seeding — the service's `hydrated` gate replayed the
+ * workspace's log, which the cache projects (a catalog the log never
+ * held was migrated from the `BlobStore` rows by that pass). Idempotent
+ * — the prior subscription is dropped first.
+ */
+export function wireFilesSyncEngine(): void {
+  const cache = getActiveCacheForRegistration<FilesCache>(FILES_REGISTRATION);
+  if (!cache) return;
+  subscribeMirror(cache);
+  const workspaceId = requireActiveWorkspaceId();
+  mirror = cache.getSnapshot().refs.slice();
+  mirrorWorkspaceId = workspaceId;
+  logger.debug('FilesStore', `Wired ws=${workspaceId}: ${mirror.length} refs`);
+}
+
+/**
+ * Wire the local mirror to the active workspace's {@link FilesCache} AND
+ * seed the oracle from the workspace's current `BlobStore` rows (the
+ * durable record of the bytes) — for callers whose store state is
+ * fresher than the oracle (the active-workspace import path). Idempotent.
+ */
+export async function bridgeFilesSyncEngine(): Promise<void> {
+  const cache = getActiveCacheForRegistration<FilesCache>(FILES_REGISTRATION);
+  if (!cache) return;
+  subscribeMirror(cache);
+  const workspaceId = requireActiveWorkspaceId();
   const persisted = await BlobStore.listBlobs(workspaceId);
   await cache.seedFromPersistedFiles(persisted);
   mirror = cache.getSnapshot().refs.slice();

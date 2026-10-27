@@ -337,23 +337,43 @@ async function applyDirectStorageWrite(
 
 let cacheUnsubscribe: (() => void) | null = null;
 
-/**
- * Wire the local mirror to the active workspace's
- * {@link OAuthBundleCache}. Idempotent — the prior subscription is
- * dropped first. Seeds the oracle from the current persisted blob.
- */
-export async function bridgeOAuthSyncEngine(): Promise<void> {
-  const cache = getActiveCacheForRegistration<OAuthBundleCache>(OAUTH_BUNDLE_REGISTRATION);
-  if (!cache) return;
+function subscribeMirror(cache: OAuthBundleCache, workspaceId: string): void {
   if (cacheUnsubscribe) {
     cacheUnsubscribe();
     cacheUnsubscribe = null;
   }
-  const workspaceId = requireActiveWorkspaceId();
   cacheUnsubscribe = cache.onChange(() => {
     mirror = cache.getSnapshot();
     notifyChange(workspaceId);
   });
+}
+
+/**
+ * Wire the local mirror to the active workspace's
+ * {@link OAuthBundleCache} without seeding — the service's `hydrated`
+ * gate replayed the workspace's log, which the cache projects.
+ * Idempotent — the prior subscription is dropped first.
+ */
+export function wireOAuthSyncEngine(): void {
+  const cache = getActiveCacheForRegistration<OAuthBundleCache>(OAUTH_BUNDLE_REGISTRATION);
+  if (!cache) return;
+  const workspaceId = requireActiveWorkspaceId();
+  subscribeMirror(cache, workspaceId);
+  mirror = cache.getSnapshot();
+  mirrorWorkspaceId = workspaceId;
+}
+
+/**
+ * Wire the local mirror to the active workspace's
+ * {@link OAuthBundleCache} AND seed the oracle from the current
+ * persisted blob — for callers whose store state is fresher than the
+ * oracle (the active-workspace import path). Idempotent.
+ */
+export async function bridgeOAuthSyncEngine(): Promise<void> {
+  const cache = getActiveCacheForRegistration<OAuthBundleCache>(OAUTH_BUNDLE_REGISTRATION);
+  if (!cache) return;
+  const workspaceId = requireActiveWorkspaceId();
+  subscribeMirror(cache, workspaceId);
   const persisted = await readSnapshot(workspaceId);
   await cache.seedFromPersistedOAuthBundle(persisted);
   mirror = cache.getSnapshot();

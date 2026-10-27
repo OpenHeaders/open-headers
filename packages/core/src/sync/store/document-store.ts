@@ -78,6 +78,21 @@ export class InMemoryDocumentStore {
   }
 
   /**
+   * Whether any mutation ever touched an entity of `type` — a replayed
+   * log holds a row of it, deleted or not. The boot-time migration
+   * guard: a cache whose type the log never mentions seeds its stored
+   * projection once; a type the log knows is the log's to describe,
+   * whatever the projection holds. An early-exit scan over the entity
+   * states, no materialization.
+   */
+  hasEntityOfType(type: EntityType): boolean {
+    for (const state of this.entities.values()) {
+      if (state.type === type) return true;
+    }
+    return false;
+  }
+
+  /**
    * Live members of a set at `(type, id, setPath)`, sorted by order key
    * (with itemId tie-break). Surfaces this for write-side helpers that
    * need to enumerate current itemIds — e.g. a partial-update flow that
