@@ -23,6 +23,7 @@
 
 import { InfoCircleOutlined } from '@ant-design/icons';
 import { useStatus } from '../hooks/useStatus';
+import type { MessageKey } from '@openheaders/i18n';
 import { Button, Popover, Tag, Tooltip, Typography, theme } from 'antd';
 import type { TooltipPlacement } from 'antd/es/tooltip';
 import React from 'react';
@@ -35,16 +36,31 @@ import { type StatusLevel, type StatusSnapshot, type StatusSubsystem, SUBSYSTEM_
 // alongside every other subsystem and feed the worst-state summary. The
 // interactive controls live in the standalone Debug mode pill (see
 // `shared/debug-mode/DebugModePill`); this row is status only.
-export const SUBSYSTEM_ORDER: StatusSubsystem[] = [
-  'sync',
-  'activity',
-  'rules',
-  'requests',
-  'cdp',
-  'permissions',
-  'secrets',
-  'live',
+export interface StatusGroup {
+  labelKey: MessageKey;
+  subsystems: readonly StatusSubsystem[];
+}
+
+/**
+ * The popover's titled row groups: the connection to the back-ends
+ * (sync and the activity feed it carries), the Browser Interceptor
+ * (rules, the host permissions they need, the debugger that intercepts), and
+ * the workbench's own planes (request executor, live workflows, the
+ * secrets store). Product extras render directly under the subsystem
+ * they qualify, inside its group.
+ */
+export const SUBSYSTEM_GROUPS: readonly StatusGroup[] = [
+  { labelKey: 'shared.chrome.status.groupConnection', subsystems: ['sync', 'activity'] },
+  { labelKey: 'shared.chrome.status.groupBrowserInterceptor', subsystems: ['rules', 'permissions', 'cdp'] },
+  { labelKey: 'shared.chrome.status.groupWorkbench', subsystems: ['requests', 'live', 'secrets'] },
 ];
+
+export const SUBSYSTEM_ORDER: StatusSubsystem[] = SUBSYSTEM_GROUPS.flatMap((group) => group.subsystems);
+
+/** Popover body cap — the body sizes to its longest line, growing up
+ *  to this so a two-clause message still fits beside the tag column;
+ *  the viewport caps it on the narrow side-panel surface. */
+const STATUS_POPOVER_MAX_WIDTH = 'min(480px, calc(100vw - 48px))';
 
 /**
  * Fixed tag width shared by every row in the Status popover —
@@ -54,6 +70,23 @@ export const SUBSYSTEM_ORDER: StatusSubsystem[] = [
  * align to the same x-offset across the whole panel.
  */
 export const STATUS_TAG_WIDTH = 92;
+
+/**
+ * The tag column's shared style — every row kind in the popover (built-in
+ * subsystem, product extra) wears it, so a label longer than the column
+ * (a back-end URL, a long locale) clips with an ellipsis inside the tag
+ * instead of running into the message column.
+ */
+export const STATUS_TAG_STYLE: React.CSSProperties = {
+  fontSize: 10,
+  width: STATUS_TAG_WIDTH,
+  textAlign: 'center',
+  margin: 0,
+  flex: 'none',
+  overflow: 'hidden',
+  textOverflow: 'ellipsis',
+  whiteSpace: 'nowrap',
+};
 
 /**
  * Docs anchor for the "System Status" reference section. Surfaces
@@ -386,73 +419,86 @@ const StatusPopoverBody: React.FC<StatusPopoverBodyProps> = ({
   renderSubsystemInlineAction,
 }) => {
   const t = useT();
-  // Collect extras first (same iteration order as the standard rows)
-  // so the block of product callouts is stable across renders and
-  // always sits BELOW every built-in subsystem row. Prevents a sync
-  // callout from visually splitting the standard five-row block.
-  const extrasRows = renderSubsystemExtras
-    ? SUBSYSTEM_ORDER.map((sub) => {
-        const node = renderSubsystemExtras(sub, snapshot[sub]);
-        return node ? <React.Fragment key={`extras-${sub}`}>{node}</React.Fragment> : null;
-      }).filter((n): n is React.ReactElement => n !== null)
-    : [];
-
-  // Reorder the subsystem rows so static-info (no entry yet) rows
-  // come before state-carrying (has an entry, green/yellow/red) rows.
-  // Within each partition the canonical SUBSYSTEM_ORDER is preserved
-  // so rows don't shuffle laterally — they only migrate once, on the
-  // first report for their subsystem. Keeps the informational block
-  // and the dynamic-state block visually grouped.
-  const greys: StatusSubsystem[] = SUBSYSTEM_ORDER.filter((sub) => !snapshot[sub]);
-  const coloreds: StatusSubsystem[] = SUBSYSTEM_ORDER.filter((sub) => !!snapshot[sub]);
-  const orderedSubsystems: StatusSubsystem[] = [...greys, ...coloreds];
-
   return (
-    <div style={{ maxWidth: 320, display: 'flex', flexDirection: 'column', gap: 3 }}>
-      {orderedSubsystems.map((sub) => {
-        const entry = snapshot[sub];
-        const state: StatusLevel = entry?.state ?? 'green';
-        const color = state === 'red' ? 'error' : state === 'yellow' ? 'warning' : entry ? 'success' : 'default';
-        const inlineAction = renderSubsystemInlineAction?.(sub, entry);
-        return (
-          // Status is a snapshot — "right now" by design. Timestamps
-          // would answer "when did this state last change", which is
-          // history-shaped info that belongs in the observability log
-          // (Settings → Export Diagnostic Log). Keeping the popover a
-          // pure state surface keeps each row single-line + the five-
-          // row block visually tight.
-          <SubsystemRow key={sub} token={token}>
-            <Tag
-              color={color}
-              style={{ fontSize: 10, width: STATUS_TAG_WIDTH, textAlign: 'center', margin: 0, flex: 'none' }}
-            >
-              {t(SUBSYSTEM_LABELS[sub])}
-            </Tag>
-            <Typography.Text
-              // `minWidth: 0` + anywhere-wrap: an extra-long value breaks
-              // onto further lines inside its own column — the fixed-width
-              // tag column keeps every row's message at the same x-offset.
-              style={{
-                fontSize: 11,
-                flex: 1,
-                minWidth: 0,
-                color: token.colorText,
-                overflowWrap: 'anywhere',
-                paddingTop: 2,
-              }}
-              data-testid={`status-popover-message-${sub}`}
-            >
-              {entry?.message ?? t('shared.chrome.status.noEvents')}
-            </Typography.Text>
-            {inlineAction}
-          </SubsystemRow>
-        );
-      })}
-      {extrasRows.length > 0 ? extrasRows : null}
+    <div style={{ maxWidth: STATUS_POPOVER_MAX_WIDTH, display: 'flex', flexDirection: 'column', gap: 3 }}>
+      {SUBSYSTEM_GROUPS.map((group) => (
+        <React.Fragment key={group.labelKey}>
+          <GroupHeading token={token} label={t(group.labelKey)} />
+          {group.subsystems.map((sub) => {
+            const entry = snapshot[sub];
+            const state: StatusLevel = entry?.state ?? 'green';
+            const color = state === 'red' ? 'error' : state === 'yellow' ? 'warning' : entry ? 'success' : 'default';
+            const inlineAction = renderSubsystemInlineAction?.(sub, entry);
+            return (
+              // Status is a snapshot — "right now" by design. Timestamps
+              // would answer "when did this state last change", which is
+              // history-shaped info that belongs in the observability log
+              // (Settings → Export Diagnostic Log). Keeping the popover a
+              // pure state surface keeps each row single-line and each
+              // group visually tight.
+              <React.Fragment key={sub}>
+                <SubsystemRow token={token}>
+                  <Tag color={color} style={STATUS_TAG_STYLE}>
+                    {t(SUBSYSTEM_LABELS[sub])}
+                  </Tag>
+                  <Typography.Text
+                    // `minWidth: 0` + anywhere-wrap: an extra-long value breaks
+                    // onto further lines inside its own column — the fixed-width
+                    // tag column keeps every row's message at the same x-offset.
+                    style={{
+                      fontSize: 11,
+                      flex: 1,
+                      minWidth: 0,
+                      color: token.colorText,
+                      overflowWrap: 'anywhere',
+                      paddingTop: 2,
+                    }}
+                    data-testid={`status-popover-message-${sub}`}
+                  >
+                    {entry?.message ?? t('shared.chrome.status.noEvents')}
+                  </Typography.Text>
+                  {inlineAction}
+                </SubsystemRow>
+                {renderSubsystemExtras?.(sub, entry)}
+              </React.Fragment>
+            );
+          })}
+        </React.Fragment>
+      ))}
       <BuildInfoFooter token={token} />
     </div>
   );
 };
+
+/**
+ * A group's title line — the settings GroupSection idiom: a small
+ * uppercase tertiary label with the hairline running to the right
+ * edge, so the title and the divider between groups are one line.
+ */
+const GroupHeading: React.FC<{ token: ReturnType<typeof theme.useToken>['token']; label: string }> = ({
+  token,
+  label,
+}) => (
+  <div
+    role="separator"
+    aria-label={label}
+    style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 5, marginBottom: 1 }}
+  >
+    <Typography.Text
+      style={{
+        fontSize: 10,
+        fontWeight: 500,
+        color: token.colorTextTertiary,
+        textTransform: 'uppercase',
+        letterSpacing: '.06em',
+        whiteSpace: 'nowrap',
+      }}
+    >
+      {label}
+    </Typography.Text>
+    <div style={{ flex: 1, height: 1, background: token.colorBorderSecondary }} />
+  </div>
+);
 
 /**
  * Compact build-info line rendered at the bottom of the Status popover.

@@ -16,7 +16,7 @@ import { type Translate, useT } from '@openheaders/ui/context/LocaleContext';
 import { useBackends } from '../backend';
 import { useBackendSyncStatus } from '../hooks/useBackendSyncStatus';
 import { requestSecretsRelaunch } from '../hooks/useSecretsStorageState';
-import { STATUS_TAG_WIDTH } from './StatusPill';
+import { STATUS_TAG_STYLE } from './StatusPill';
 import type { StatusEntry, StatusSubsystem } from './types';
 import { useBootRegression } from './use-boot-regression';
 
@@ -26,7 +26,7 @@ import { useBootRegression } from './use-boot-regression';
  * to get the product-level callouts on every surface.
  *
  * Each callout mirrors the popover's built-in subsystem row layout
- * (tag on the left with min-width 64px, label text on the right) so
+ * (the fixed tag column on the left, label text on the right) so
  * the extras line up visually with the standard rows — no bespoke
  * styling that would make them look like foreign elements.
  */
@@ -167,7 +167,7 @@ const ExtrasRow: React.FC<ExtrasRowProps> = ({ tagColor, label, message }) => (
   // wrapped message keeps the tag on its first line and the column
   // aligned (see the SubsystemRow rationale in StatusPill).
   <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
-    <Tag color={tagColor} style={{ fontSize: 10, width: STATUS_TAG_WIDTH, textAlign: 'center', margin: 0, flex: 'none' }}>
+    <Tag color={tagColor} style={STATUS_TAG_STYLE}>
       {label}
     </Tag>
     <Typography.Text style={{ fontSize: 11, flex: 1, minWidth: 0, overflowWrap: 'anywhere', paddingTop: 2 }}>

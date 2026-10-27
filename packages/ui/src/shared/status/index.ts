@@ -12,8 +12,8 @@ export {
   useDesktopCompanion,
 } from './companion-rows';
 export { productStatusExtras, productStatusInlineActions } from './product-extras';
-export type { StatusPillDensity, StatusPillProps } from './StatusPill';
-export { STATUS_DOCS_SECTION_ID, STATUS_TAG_WIDTH, StatusPill } from './StatusPill';
+export type { StatusGroup, StatusPillDensity, StatusPillProps } from './StatusPill';
+export { STATUS_DOCS_SECTION_ID, STATUS_TAG_STYLE, STATUS_TAG_WIDTH, StatusPill, SUBSYSTEM_GROUPS } from './StatusPill';
 export type { ReportInput } from './store';
 export {
   __resetForTests as __resetStatusForTests,
