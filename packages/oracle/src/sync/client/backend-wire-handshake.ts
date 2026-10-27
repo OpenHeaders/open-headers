@@ -8,7 +8,7 @@ import {
 } from '@openheaders/core/backends';
 import { claimJoinedOrg, getOrgBackendBindings } from '@openheaders/core/identity';
 import { type HandshakeRejectReason, type HandshakeRole, isBackendEvictingReason } from '@openheaders/core/protocol';
-import { logger } from '@openheaders/core/utils';
+import { type BrowserKind, logger } from '@openheaders/core/utils';
 import {
   getWorkspace,
   listWorkspaces,
@@ -35,6 +35,9 @@ export interface BackendWireHandshakeDeps {
   readonly role: HandshakeRole;
   /** Diagnostic agent string (e.g. `'@openheaders/extension@5.0.0'`). */
   readonly getAgent: () => string;
+  /** The browser this host runs in, for HELLO's `browser`; only
+   *  browser-page hosts set it. */
+  readonly browser?: BrowserKind;
   /**
    * Stable per-install identity for HELLO's `installId`, or null when
    * the host has none hydrated. Must not vary with the active
@@ -121,6 +124,7 @@ export function createSyncHandshakeForWire(
       }
     },
     getAgent: deps.getAgent,
+    browser: deps.browser,
     getInstallId: deps.getInstallId,
     getAuthToken: () => {
       const raw = wire.record().authToken;

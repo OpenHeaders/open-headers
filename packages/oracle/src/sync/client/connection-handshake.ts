@@ -34,7 +34,7 @@ import {
   SyncWelcomeMessageSchema,
 } from '@openheaders/core/protocol';
 import type { Org } from '@openheaders/core/types';
-import { logger } from '@openheaders/core/utils';
+import { type BrowserKind, logger } from '@openheaders/core/utils';
 import * as v from 'valibot';
 
 const SCOPE = 'ConnectionHandshake';
@@ -62,6 +62,9 @@ export interface ConnectionHandshakeDeps {
   readonly getNodeId: (workspaceId: string) => string;
   /** Diagnostic agent string (e.g. `'@openheaders/extension@5.0.0'`). */
   readonly getAgent: () => string;
+  /** The browser this client runs in, announced on HELLO so the backend
+   *  can name the peer by brand. Only browser-page hosts set it. */
+  readonly browser?: BrowserKind;
   /**
    * Stable per-install identity for HELLO's `installId`, or null when
    * the host has none hydrated. Unlike `getNodeId` this must not vary
@@ -185,6 +188,7 @@ export function createConnectionHandshake(deps: ConnectionHandshakeDeps): Connec
       nodeId: deps.getNodeId(workspaceId),
       workspaceId,
       agent: deps.getAgent(),
+      ...(deps.browser ? { browser: deps.browser } : {}),
       ...(installId ? { installId } : {}),
       ...(authToken ? { authToken } : {}),
     };

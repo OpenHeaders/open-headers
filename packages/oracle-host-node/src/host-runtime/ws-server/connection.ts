@@ -227,6 +227,7 @@ export function handleConnection(socket: WebSocket, request: IncomingMessage, de
           peerId: peerConn.peerId,
           role: peerConn.role,
           agent: peerConn.agent,
+          ...(outcome.hello.browser ? { browser: outcome.hello.browser } : {}),
           workspaceId: peerConn.workspaceId,
           nodeId: peerConn.nodeId,
           installId: outcome.hello.installId ?? null,

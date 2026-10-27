@@ -1,6 +1,7 @@
 // ── Public contract — options + server API + peer snapshots ────────
 
 import type { IncomingMessage } from 'node:http';
+import type { BrowserKind } from '@openheaders/core/utils';
 import type { LocalHandshakeIdentity } from '@openheaders/oracle/rpc';
 import type { PairingHttpHandler } from '../pairing-http';
 
@@ -145,6 +146,9 @@ export interface PeerSummary {
   readonly peerId: string;
   readonly role: string;
   readonly agent: string;
+  /** The browser the peer announced at HELLO; absent on hosts that are
+   *  not a browser page and on clients that predate the field. */
+  readonly browser?: BrowserKind;
   readonly workspaceId: string;
   /** The peer's HELLO nodeId — its HLC minting identity. Broadcast
    *  exclusion matches an envelope's `hlc.nodeId` against this so a

@@ -24,10 +24,11 @@
  *     sync rows' story.
  */
 
+import { RobotOutlined } from '@ant-design/icons';
 import { hostBridge } from '@openheaders/core/bridge';
-import { providingBackendKind } from '@openheaders/core/identity';
+import { describeOrg, getOrgBackendBindings, providingBackendKind } from '@openheaders/core/identity';
 import type { BackendConnection, BackendSyncStatus } from '@openheaders/core/types';
-import { App as AntApp, Button, Popover, Tag, Typography, theme } from 'antd';
+import { App as AntApp, Button, Popover, Typography, theme } from 'antd';
 import type { TooltipPlacement } from 'antd/es/tooltip';
 import React from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
@@ -36,8 +37,18 @@ import { confirmEnableMcp } from '@openheaders/ui/workbench/settings/mcp-consent
 import { useBackends } from '../backend';
 import { getCurrentHost, viewerHostKind } from '../host-vocabulary';
 import { useBackendSyncStatus } from '../hooks/useBackendSyncStatus';
+import { useIdentitySnapshot } from '../hooks/useIdentitySnapshot';
+import { CliIcon } from '../icons';
+import { hostKindIcon } from '../workspace-org/org-scope-vocabulary';
+import { OrgIcon } from '../workspace-org/OrgIcon';
+import {
+  ADDON_GLYPH_COLOR,
+  ADDON_GLYPH_SIZE,
+  ADDONS_BODY_WIDTH,
+  AddonMark,
+  AddonRow as AddonRowShell,
+} from './addon-row';
 import { CompanionStatusRows } from './companion-rows';
-import { STATUS_TAG_WIDTH } from './StatusPill';
 
 export interface AddonsPillProps {
   className?: string;
@@ -48,7 +59,7 @@ export const AddonsPill: React.FC<AddonsPillProps> = ({ className, placement = '
   const t = useT();
   const { token } = theme.useToken();
   const body = (
-    <div style={{ maxWidth: 320, display: 'flex', flexDirection: 'column', gap: 3 }}>
+    <div style={{ width: ADDONS_BODY_WIDTH, display: 'flex', flexDirection: 'column', gap: 3 }}>
       <CompanionStatusRows />
       <CliRow />
       <ServerRow />
@@ -162,6 +173,7 @@ const CliRow: React.FC = () => {
     const wire = desktopConnected && wireState !== null ? visual[wireState] : null;
     return (
       <AddonRow
+        glyph={<AddonMark icon={CliIcon} />}
         tagColor={wire?.tagColor ?? 'default'}
         label={t('shared.chrome.addons.cli')}
         message={
@@ -180,6 +192,7 @@ const CliRow: React.FC = () => {
   return (
     <>
       <AddonRow
+        glyph={<AddonMark icon={CliIcon} />}
         tagColor={tagColor}
         label={t('shared.chrome.addons.cli')}
         message={message}
@@ -218,6 +231,7 @@ const McpRow: React.FC = () => {
   const enabled = useSettingValue('mcp.enabled');
   return (
     <AddonRow
+      glyph={<AddonMark icon={RobotOutlined} color={ADDON_GLYPH_COLOR.mcp} />}
       tagColor={enabled ? 'success' : 'default'}
       label={t('shared.chrome.addons.mcp')}
       message={t(enabled ? 'shared.chrome.addons.mcpOn' : 'shared.chrome.status.backendOff')}
@@ -249,17 +263,24 @@ const McpRow: React.FC = () => {
  * first server record's wire state; with none, it stays visible as a
  * neutral "not configured" for discoverability. Web's serving daemon
  * already reads in the sync rows.
+ *
+ * The glyph is the server's Org icon — the mark the workspace switcher
+ * draws for it (the OS the daemon stamped at boot, else its reach
+ * tier, with the team overlay), found by the Org bound to the record;
+ * the bare server mark stands in before a join binds one.
  */
 const ServerRow: React.FC = () => {
   const t = useT();
   const host = getCurrentHost();
   const backends = useBackends();
   const { snapshot: syncSlots } = useBackendSyncStatus();
+  const identity = useIdentitySnapshot();
   if (host !== 'extension' && host !== 'desktop') return null;
   const serverRecord = backends.find((b) => providingBackendKind(viewerHostKind(host), b.url) === 'server');
   if (!serverRecord) {
     return (
       <AddonRow
+        glyph={<AddonMark icon={hostKindIcon('daemon')} color={ADDON_GLYPH_COLOR.server} />}
         tagColor="default"
         label={t('shared.chrome.addons.server')}
         message={t('shared.chrome.addons.notConfigured')}
@@ -267,11 +288,34 @@ const ServerRow: React.FC = () => {
       />
     );
   }
+  const orgId = boundOrgId(serverRecord.id);
+  const descriptor = orgId !== null ? describeOrg(identity, orgId) : null;
   const { tagColor, message } = serverRecordVisual(serverRecord, syncSlots[serverRecord.id], t);
   return (
-    <AddonRow tagColor={tagColor} label={t('shared.chrome.addons.server')} message={message} testId="addons-server" />
+    <AddonRow
+      glyph={
+        descriptor ? (
+          <OrgIcon descriptor={descriptor} size={ADDON_GLYPH_SIZE} />
+        ) : (
+          <AddonMark icon={hostKindIcon('daemon')} color={ADDON_GLYPH_COLOR.server} />
+        )
+      }
+      tagColor={tagColor}
+      label={t('shared.chrome.addons.server')}
+      message={message}
+      testId="addons-server"
+    />
   );
 };
+
+/** The joined Org a backend record provides — the bindings map read
+ *  the other way round; null before a join binds one. */
+function boundOrgId(backendId: string): string | null {
+  for (const [orgId, boundBackendId] of getOrgBackendBindings()) {
+    if (boundBackendId === backendId) return orgId;
+  }
+  return null;
+}
 
 function serverRecordVisual(
   record: BackendConnection,
@@ -285,36 +329,19 @@ function serverRecordVisual(
 }
 
 const AddonRow: React.FC<{
+  glyph: React.ReactNode;
   tagColor: string;
   label: string;
   message: string;
   testId: string;
   /** Optional inline remedy, right-aligned after the message. */
   action?: React.ReactNode;
-}> = ({ tagColor, label, message, testId, action }) => {
+}> = ({ glyph, tagColor, label, message, testId, action }) => {
   const { token } = theme.useToken();
   return (
-    <div data-testid={testId} style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
-      <Tag color={tagColor} style={{ fontSize: 10, width: STATUS_TAG_WIDTH, textAlign: 'center', margin: 0, flex: 'none' }}>
-        {label}
-      </Tag>
-      <span
-        style={{
-          flex: 1,
-          minWidth: 0,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          flexWrap: 'wrap',
-          gap: 4,
-          paddingTop: 1,
-        }}
-      >
-        <Typography.Text style={{ fontSize: 11, minWidth: 0, color: token.colorText, overflowWrap: 'anywhere' }}>
-          {message}
-        </Typography.Text>
-        {action}
-      </span>
-    </div>
+    <AddonRowShell glyph={glyph} tagColor={tagColor} label={label} testId={testId}>
+      <Typography.Text style={{ fontSize: 11, minWidth: 0, color: token.colorText }}>{message}</Typography.Text>
+      {action}
+    </AddonRowShell>
   );
 };

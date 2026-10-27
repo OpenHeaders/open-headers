@@ -8,7 +8,11 @@ import '@openheaders/ui/workbench/settings/schema';
 // The companion row reads the global execution-place row — its settings-map entry.
 import '@openheaders/ui/workbench/settings/schema/requests';
 import type { BackendConnection, BackendSyncStatus } from '@openheaders/core/types';
-import { deriveDesktopCompanionState, desktopCompanionRunsRequests } from '@openheaders/ui/shared/status';
+import {
+  deriveDesktopCompanionState,
+  desktopCompanionRunsRequests,
+  readSyncPeers,
+} from '@openheaders/ui/shared/status';
 import { describe, expect, it } from 'vitest';
 
 function backend(overrides: Partial<BackendConnection> = {}): BackendConnection {
@@ -28,6 +32,30 @@ function backend(overrides: Partial<BackendConnection> = {}): BackendConnection 
 function slot(state: BackendSyncStatus['state']): BackendSyncStatus {
   return { state, message: 'm' };
 }
+
+describe('readSyncPeers', () => {
+  it("reads the serving host's peer list, a browser per peer or null", () => {
+    expect(
+      readSyncPeers({
+        peerCount: 2,
+        peers: [
+          { browser: 'edge', isLoopback: true },
+          { browser: null, isLoopback: false },
+        ],
+      }),
+    ).toEqual([
+      { browser: 'edge', isLoopback: true },
+      { browser: null, isLoopback: false },
+    ]);
+  });
+
+  it('answers null for a context without the list or with a malformed entry', () => {
+    expect(readSyncPeers(undefined)).toBeNull();
+    expect(readSyncPeers({ peerCount: 1 })).toBeNull();
+    expect(readSyncPeers({ peers: [{ browser: 'netscape', isLoopback: true }] })).toBeNull();
+    expect(readSyncPeers({ peers: [{ browser: 'chrome' }] })).toBeNull();
+  });
+});
 
 describe('deriveDesktopCompanionState', () => {
   it("a green sync slot on the desktop app's record reads connected", () => {

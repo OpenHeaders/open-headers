@@ -62,6 +62,15 @@ describe('SyncHelloMessageSchema', () => {
     expect(() => v.parse(SyncHelloMessageSchema, { ...hello, role: 'phone' })).toThrow();
   });
 
+  it('round-trips the browser a browser-hosted client announces', () => {
+    const withBrowser: SyncHelloMessage = { ...hello, browser: 'firefox' };
+    expect(v.parse(SyncHelloMessageSchema, withBrowser)).toEqual(withBrowser);
+  });
+
+  it('rejects a browser outside the known kinds', () => {
+    expect(() => v.parse(SyncHelloMessageSchema, { ...hello, browser: 'netscape' })).toThrow();
+  });
+
   it('rejects protocolVersion < 1', () => {
     expect(() => v.parse(SyncHelloMessageSchema, { ...hello, protocolVersion: 0 })).toThrow();
   });

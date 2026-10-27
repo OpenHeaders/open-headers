@@ -18,6 +18,9 @@
  *        - 0 peers → green "Idle — no extensions connected"
  *        - N peers, all loopback → green "Connected to N … on this device"
  *        - N peers with one or more LAN → green "Connected to N … (L on LAN)"
+ *      The context also lists every peer ({@link SyncPeerEntry}: the
+ *      browser it announced + loopback or not) so the Add-ons popover
+ *      can draw one row per connected extension with its brand logo.
  *
  * "Idle" stays green: the host can be used standalone, so an
  * empty peer set is a healthy steady state — not a degraded one.
@@ -27,6 +30,7 @@
  * `onBindStateChange` drives {@link SyncStatusReporter.setBindState}.
  */
 
+import type { SyncPeerEntry } from '@openheaders/core/types';
 import type { OracleWsServer } from '../host-runtime/ws-server';
 import type { DaemonBindState } from './bind-supervisor';
 import type { SpineStatusReporter } from './status-seam';
@@ -84,11 +88,12 @@ export function installSyncStatusReporter(reportStatus: SpineStatusReporter): Sy
     const peers = server.listConnectedPeers();
     const total = peers.length;
     const lan = peers.filter((p) => !p.isLoopback).length;
+    const entries: SyncPeerEntry[] = peers.map((p) => ({ browser: p.browser ?? null, isLoopback: p.isLoopback }));
     reportStatus({
       subsystem: 'sync',
       state: 'green',
       message: describe(total, lan),
-      context: { peerCount: total, lanCount: lan, loopbackCount: total - lan },
+      context: { peerCount: total, lanCount: lan, loopbackCount: total - lan, peers: entries },
     });
   }
 

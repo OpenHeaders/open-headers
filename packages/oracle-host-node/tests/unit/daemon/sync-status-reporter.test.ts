@@ -213,6 +213,18 @@ describe('sync-status-reporter — peer classification', () => {
     });
   }
 
+  it('lists every peer with the browser it announced, null for one that announced none', () => {
+    const reporter = installSyncStatusReporter();
+    reporter.attachServer(makeFakeServer([{ ...loopbackPeer(0), browser: 'chrome' }, lanPeer(1)]));
+
+    expect(syncEntry()?.context).toMatchObject({
+      peers: [
+        { browser: 'chrome', isLoopback: true },
+        { browser: null, isLoopback: false },
+      ],
+    });
+  });
+
   it('re-emits when the peer set changes after attach', () => {
     const reporter = installSyncStatusReporter();
     const server = makeFakeServer([]);

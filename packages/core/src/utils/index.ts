@@ -73,6 +73,7 @@ export {
 export type { BrowserKind, HostProbe, PlatformKind } from './host-detect';
 export {
   BROWSER_DISPLAY_NAME,
+  BROWSER_KINDS,
   detectBrowser,
   detectPlatform,
   PLATFORM_DISPLAY_NAME,

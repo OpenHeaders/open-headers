@@ -10,11 +10,12 @@
  *     earns a Download action that resolves this platform's latest
  *     installer from the update feed (website install section when the
  *     feed is unreachable).
- *   - desktop host → an "Extensions" row: connected browser peers from
- *     the daemon's sync status (`context.peerCount`); none connected
- *     shows the per-browser store links, handed to the browser that
- *     will install them (same data + capability seam as the Traffic
- *     Monitor rail's install CTAs).
+ *   - desktop host → the connected browser peers from the daemon's sync
+ *     status (`context.peers`), one row per peer wearing the browser's
+ *     logo and brand name so two connected browsers stay told apart;
+ *     none connected shows one "Extensions" row with the per-browser
+ *     store links, handed to the browser that will install them (same
+ *     data + capability seam as the Traffic Monitor rail's install CTAs).
  *   - web host → the "Extensions" row too: a web surface is already a
  *     client of its serving back-end (the sync rows tell that story),
  *     so the missing companion is the browser extension; store links
@@ -25,9 +26,10 @@ import { DownloadOutlined } from '@ant-design/icons';
 import { createBackend, updateBackend } from '@openheaders/core/backends';
 import { getCapability, type InstallTargetBrowser, type NmHostPresenceVerdict } from '@openheaders/core/capabilities';
 import { WS_PORT } from '@openheaders/core/protocol';
-import type { BackendConnection, BackendSyncStatus, ExecutionPlaceRole } from '@openheaders/core/types';
+import type { BackendConnection, BackendSyncStatus, ExecutionPlaceRole, SyncPeerEntry } from '@openheaders/core/types';
+import { BROWSER_DISPLAY_NAME, BROWSER_KINDS, type BrowserKind } from '@openheaders/core/utils';
 import type { MessageKey } from '@openheaders/i18n';
-import { Button, Tag, Typography } from 'antd';
+import { Button, Typography } from 'antd';
 import React from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { useUiTheme } from '@openheaders/ui/context/ui-theme';
@@ -39,11 +41,12 @@ import {
 } from '../../workbench/data/extension-stores';
 import { desktopAppRecord, useBackends } from '../backend';
 import { DESKTOP_DOWNLOAD_URL, fetchLatestDesktopInstaller } from '../desktop-teaser/update-feed';
-import { detectedBrowser } from '../host-glyph';
+import { browserGlyph, detectedBrowser, detectedPlatform, platformGlyph } from '../host-glyph';
 import { getCurrentHost } from '../host-vocabulary';
 import { useBackendSyncStatus } from '../hooks/useBackendSyncStatus';
 import { useStatus } from '../hooks/useStatus';
-import { STATUS_TAG_WIDTH } from './StatusPill';
+import { hostKindIcon } from '../workspace-org/org-scope-vocabulary';
+import { ADDON_GLYPH_COLOR, ADDON_GLYPH_SIZE, type AddonGlyph, AddonMark, AddonRow } from './addon-row';
 
 export type DesktopCompanionState =
   | 'connected'
@@ -159,8 +162,14 @@ const DesktopAppRow: React.FC = () => {
     'not-installed': { tagColor: 'default', messageKey: 'shared.chrome.status.companionNotInstalled' },
   };
   const { tagColor, messageKey } = visual[state];
+  // The OS brand mark keeps its own colour (Apple and Tux are
+  // deliberately `currentColor`); only the generic fallback takes the tint.
+  const osMark = platformGlyph(detectedPlatform());
   return (
-    <CompanionRow
+    <AddonRow
+      glyph={
+        <AddonMark icon={osMark ?? hostKindIcon('desktop')} color={osMark ? undefined : ADDON_GLYPH_COLOR.desktop} />
+      }
       tagColor={tagColor}
       label={t('shared.chrome.status.companionDesktopApp')}
       testId="status-companion-desktop"
@@ -176,7 +185,7 @@ const DesktopAppRow: React.FC = () => {
           {launchable && <DesktopOpenAppAction />}
         </span>
       )}
-    </CompanionRow>
+    </AddonRow>
   );
 };
 
@@ -313,14 +322,72 @@ export const ExtensionInstallAction: React.FC = () => {
   );
 };
 
+/** The Extensions row's mark: the served tab names the browser it runs
+ *  in (its own logo); the desktop speaks for every browser at once, so
+ *  it wears the generic browser glyph. */
+function extensionsRowGlyph(): AddonGlyph {
+  if (getCurrentHost() === 'web') return browserGlyph(detectedBrowser()) ?? hostKindIcon('browser');
+  return hostKindIcon('browser');
+}
+
+function isBrowserKind(value: unknown): value is BrowserKind {
+  return typeof value === 'string' && (BROWSER_KINDS as readonly string[]).includes(value);
+}
+
+/** The serving host's peer list out of its `sync` context — `null`
+ *  when the entry carries none (a host that predates the list). */
+export function readSyncPeers(context: Record<string, unknown> | undefined): SyncPeerEntry[] | null {
+  const raw = context?.peers;
+  if (!Array.isArray(raw)) return null;
+  const peers: SyncPeerEntry[] = [];
+  for (const item of raw) {
+    if (typeof item !== 'object' || item === null) return null;
+    const { browser, isLoopback } = item as { browser?: unknown; isLoopback?: unknown };
+    if (typeof isLoopback !== 'boolean') return null;
+    if (browser !== null && !isBrowserKind(browser)) return null;
+    peers.push({ browser: browser ?? null, isLoopback });
+  }
+  return peers;
+}
+
+/** One row per connected peer: its browser's logo and brand name when
+ *  it announced one, the generic browser glyph + "Extensions" when not. */
+const ConnectedPeerRows: React.FC<{ peers: readonly SyncPeerEntry[] }> = ({ peers }) => {
+  const t = useT();
+  return (
+    <>
+      {peers.map((peer, index) => {
+        const Logo = peer.browser ? browserGlyph(peer.browser) : null;
+        return (
+          <AddonRow
+            // Peers carry no stable id across the status seam; the list
+            // re-renders whole on every peer change, so position is the key.
+            key={index}
+            glyph={<AddonMark icon={Logo ?? hostKindIcon('browser')} color={ADDON_GLYPH_COLOR.browser} />}
+            tagColor="success"
+            label={peer.browser ? BROWSER_DISPLAY_NAME[peer.browser] : t('shared.chrome.status.companionExtensions')}
+            testId="status-companion-extension-peer"
+          >
+            <Typography.Text style={{ fontSize: 11 }}>{t('shared.chrome.status.companionConnected')}</Typography.Text>
+          </AddonRow>
+        );
+      })}
+    </>
+  );
+};
+
 const ExtensionsRow: React.FC = () => {
   const t = useT();
   const { snapshot } = useStatus();
-  const rawCount = snapshot.sync?.context?.peerCount;
+  const context = snapshot.sync?.context;
+  const rawCount = context?.peerCount;
   const peerCount = typeof rawCount === 'number' ? rawCount : null;
   if (peerCount !== null && peerCount > 0) {
+    const peers = readSyncPeers(context);
+    if (peers !== null && peers.length > 0) return <ConnectedPeerRows peers={peers} />;
     return (
-      <CompanionRow
+      <AddonRow
+        glyph={<AddonMark icon={extensionsRowGlyph()} color={ADDON_GLYPH_COLOR.browser} />}
         tagColor="success"
         label={t('shared.chrome.status.companionExtensions')}
         testId="status-companion-extensions"
@@ -328,30 +395,35 @@ const ExtensionsRow: React.FC = () => {
         <Typography.Text style={{ fontSize: 11 }}>
           {t('shared.chrome.status.companionPeersConnected', { count: peerCount })}
         </Typography.Text>
-      </CompanionRow>
+      </AddonRow>
     );
   }
   return (
-    <CompanionRow
+    <AddonRow
+      glyph={<AddonMark icon={extensionsRowGlyph()} color={ADDON_GLYPH_COLOR.browser} />}
       tagColor="default"
       label={t('shared.chrome.status.companionExtensions')}
       testId="status-companion-extensions"
     >
       <Typography.Text style={{ fontSize: 11 }}>{t('shared.chrome.status.companionNoPeers')}</Typography.Text>
       <span style={{ display: 'inline-flex', gap: 2 }}>
-        {INSTALLABLE_BROWSERS.map((browser) => (
-          <Button
-            key={browser}
-            type="link"
-            size="small"
-            onClick={() => openStoreListing(browser)}
-            style={{ fontSize: 11, padding: '0 3px', height: 18 }}
-          >
-            {INSTALL_BROWSER_LABELS[browser]}
-          </Button>
-        ))}
+        {INSTALLABLE_BROWSERS.map((browser) => {
+          const Logo = browserGlyph(browser);
+          return (
+            <Button
+              key={browser}
+              type="link"
+              size="small"
+              icon={Logo ? <Logo style={{ fontSize: ADDON_GLYPH_SIZE - 2 }} /> : undefined}
+              onClick={() => openStoreListing(browser)}
+              style={{ fontSize: 11, padding: '0 3px', height: 18 }}
+            >
+              {INSTALL_BROWSER_LABELS[browser]}
+            </Button>
+          );
+        })}
       </span>
-    </CompanionRow>
+    </AddonRow>
   );
 };
 
@@ -373,39 +445,3 @@ function openOutside(url: string): void {
   if (openUrl) void openUrl(url);
   else window.open(url, '_blank', 'noopener');
 }
-
-/**
- * Companion row shell — same fixed-width tag column as the built-in
- * subsystem rows, message content top-aligned so a wrapped value keeps
- * the tag pinned to its first line.
- */
-const CompanionRow: React.FC<{
-  tagColor: string;
-  label: string;
-  testId: string;
-  children: React.ReactNode;
-}> = ({ tagColor, label, testId, children }) => (
-  <div data-testid={testId} style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
-    <Tag
-      color={tagColor}
-      style={{ fontSize: 10, width: STATUS_TAG_WIDTH, textAlign: 'center', margin: 0, flex: 'none' }}
-    >
-      {label}
-    </Tag>
-    <span
-      style={{
-        flex: 1,
-        minWidth: 0,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        flexWrap: 'wrap',
-        gap: 4,
-        paddingTop: 1,
-        overflowWrap: 'anywhere',
-      }}
-    >
-      {children}
-    </span>
-  </div>
-);

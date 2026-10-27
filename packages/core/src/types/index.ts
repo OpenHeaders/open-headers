@@ -367,6 +367,7 @@ export type {
   StatusLevel,
   StatusSnapshot,
   StatusSubsystem,
+  SyncPeerEntry,
 } from './status';
 // ── Storage ────────────────────────────────────────────────────────
 export { GITIGNORE } from './storage';

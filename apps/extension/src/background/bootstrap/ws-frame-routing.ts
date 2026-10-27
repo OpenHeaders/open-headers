@@ -2,10 +2,12 @@
  * Extension install of the shared per-wire sync plane
  * (`@openheaders/oracle/sync/client/backend-sync-plane`) — the
  * extension-bound edges: the `extension` HELLO role, the manifest-based
- * agent string, the awareness push on SYNCED, and the awareness
- * receiver as the host's extra inbound frame handler.
+ * agent string, the browser this service worker runs in, the awareness
+ * push on SYNCED, and the awareness receiver as the host's extra
+ * inbound frame handler.
  */
 import { HANDSHAKE_ROLES } from '@openheaders/core/protocol';
+import { detectBrowser, readHostProbe } from '@openheaders/core/utils';
 import { forwardCurrentAwarenessOnConnect } from '@openheaders/oracle/sync/client/awareness-forwarder';
 import { handleIncomingAwarenessFrame } from '@openheaders/oracle/sync/client/awareness-receiver';
 import { installBackendSyncPlane, type SyncWiring } from '@openheaders/oracle/sync/client/backend-sync-plane';
@@ -20,6 +22,7 @@ export function installWsFrameRouting(): SyncWiring {
   return installBackendSyncPlane({
     role: HANDSHAKE_ROLES.EXTENSION,
     getAgent: () => `@openheaders/extension@${runtime.getManifest().version}`,
+    browser: detectBrowser(readHostProbe(navigator)),
     getInstallId: () => peekSyncInstallId(),
     onSyncedPresencePush: () => forwardCurrentAwarenessOnConnect('extension'),
     // A first join over the network is a share accepted (the telemetry

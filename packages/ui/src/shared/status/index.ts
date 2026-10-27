@@ -9,6 +9,7 @@ export {
   deriveDesktopCompanionState,
   desktopCompanionRunsRequests,
   ExtensionInstallAction,
+  readSyncPeers,
   useDesktopCompanion,
 } from './companion-rows';
 export { productStatusExtras, productStatusInlineActions } from './product-extras';

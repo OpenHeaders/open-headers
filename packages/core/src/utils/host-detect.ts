@@ -17,16 +17,19 @@
  * otherwise they classify as plain `linux`.
  */
 
-export type BrowserKind =
-  | 'chrome'
-  | 'chromium'
-  | 'edge'
-  | 'firefox'
-  | 'safari'
-  | 'opera'
-  | 'brave'
-  | 'vivaldi'
-  | 'unknown';
+export const BROWSER_KINDS = [
+  'chrome',
+  'chromium',
+  'edge',
+  'firefox',
+  'safari',
+  'opera',
+  'brave',
+  'vivaldi',
+  'unknown',
+] as const;
+
+export type BrowserKind = (typeof BROWSER_KINDS)[number];
 
 export const PLATFORM_KINDS = ['macos', 'windows', 'ubuntu', 'debian', 'fedora', 'linux', 'unknown'] as const;
 

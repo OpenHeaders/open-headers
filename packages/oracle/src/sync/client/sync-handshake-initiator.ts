@@ -34,7 +34,7 @@ import type { BackendReach, HandshakeRejectReason, HandshakeRole, WorkspaceSnaps
 import type { StateVector } from '@openheaders/core/sync';
 import { EXTENSION_WORKSPACE_GLOBAL_SCOPE } from '@openheaders/core/sync';
 import type { Org } from '@openheaders/core/types';
-import { logger } from '@openheaders/core/utils';
+import { type BrowserKind, logger } from '@openheaders/core/utils';
 
 import { type ConnectionState, createConnectionHandshake } from './connection-handshake';
 import { type CatchupState, createScopeCatchupDriver } from './scope-catchup-driver';
@@ -68,6 +68,8 @@ export interface SyncHandshakeInitiatorDeps {
   readonly getNodeId: (workspaceId: string) => string;
   /** Diagnostic agent string (e.g. `'@openheaders/extension@5.0.0'`). */
   readonly getAgent: () => string;
+  /** The browser this client runs in, for HELLO's `browser`. */
+  readonly browser?: BrowserKind;
   /** Stable per-install identity for HELLO's `installId`, or null. */
   readonly getInstallId?: () => string | null;
   /**
@@ -228,6 +230,7 @@ export function createSyncHandshakeInitiator(deps: SyncHandshakeInitiatorDeps): 
     getActiveWorkspaceId: deps.getActiveWorkspaceId,
     getNodeId: deps.getNodeId,
     getAgent: deps.getAgent,
+    browser: deps.browser,
     getInstallId: deps.getInstallId,
     getAuthToken: deps.getAuthToken,
     onJoinedOrg: deps.onJoinedOrg,

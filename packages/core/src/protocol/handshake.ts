@@ -35,6 +35,7 @@ import * as v from 'valibot';
 import { OrgSchema } from '../schemas/identity';
 import { type StateVector, StateVectorSchema } from '../sync/state-vector';
 import type { Org } from '../types/identity';
+import { BROWSER_KINDS, type BrowserKind } from '../utils/host-detect';
 
 export type { StateVector };
 export { StateVectorSchema };
@@ -186,6 +187,14 @@ export interface SyncHelloMessage {
   /** Free-form software version (`@openheaders/extension@5.0.0-pre.42`) for diagnostics only. */
   agent: string;
   /**
+   * The browser a browser-hosted client runs in, so the backend can
+   * name each connected extension by its brand (the Add-ons popover
+   * draws one row per peer with the browser's logo). Absent on hosts
+   * that are not a browser page and on clients that predate the field.
+   * Additive — the protocol integer stays.
+   */
+  browser?: BrowserKind;
+  /**
    * Stable per-install identity, minted once by the client and carried
    * on every HELLO. Unlike `nodeId` (the ACTIVE workspace's HLC writer
    * identity, which changes when the active workspace changes — e.g.
@@ -213,6 +222,7 @@ export const SyncHelloMessageSchema = v.object({
   nodeId: v.pipe(v.string(), v.minLength(1)),
   workspaceId: v.pipe(v.string(), v.minLength(1)),
   agent: v.string(),
+  browser: v.optional(v.picklist(BROWSER_KINDS)),
   installId: v.optional(v.pipe(v.string(), v.minLength(1))),
   authToken: v.optional(v.pipe(v.string(), v.minLength(1))),
 }) satisfies v.GenericSchema<SyncHelloMessage>;

@@ -10,6 +10,8 @@
  * them.
  */
 
+import type { BrowserKind } from '../utils/host-detect';
+
 /** Which subsystem the entry is about. Closed set — one pill per value. */
 export type StatusSubsystem =
   | 'sync' // desktop connection / team workspace sync
@@ -41,6 +43,17 @@ export interface StatusEntry {
 
 /** Snapshot of every subsystem. Absent subsystems render as the default 'green · no data yet'. */
 export type StatusSnapshot = Partial<Record<StatusSubsystem, StatusEntry>>;
+
+/**
+ * One connected peer as a serving host's `sync` entry lists it under
+ * `context.peers` — the browser it announced at HELLO (null when it
+ * announced none) and whether it dialed over loopback. The Add-ons
+ * popover draws one row per entry.
+ */
+export interface SyncPeerEntry {
+  browser: BrowserKind | null;
+  isLoopback: boolean;
+}
 
 /**
  * One backend's contribution to the `sync` subsystem — the slot the
