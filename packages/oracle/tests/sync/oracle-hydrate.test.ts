@@ -107,6 +107,19 @@ describe('EntityOracle.hydrate', () => {
     expect(h.broadcastIds).toEqual([]);
   });
 
+  it('readAll is the replay read: the whole scope in stored order, the shape hydrateOracleFromLog consumes', async () => {
+    const log = await writeHistory();
+    const rows = await collect(log);
+    const h = makeHarness(log);
+
+    const all: MutationEnvelope[] = [];
+    for await (const env of log.readAll()) all.push(env);
+    expect(all).toEqual(rows);
+
+    expect(await h.oracle.hydrate(log.readAll())).toBe(rows.length);
+    expect(enabledOf(h, 'r1')).toBe(false);
+  });
+
   it('folds the highest replayed HLC into the sequencer once', async () => {
     const log = await writeHistory();
     const h = makeHarness(log);

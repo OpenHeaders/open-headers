@@ -64,6 +64,25 @@ describe('SqliteMutationLog per-branch scope', () => {
     expect(await collect(log.readSince(null))).toEqual(['trunk-1']);
   });
 
+  it('readAll is the boot replay: every branch in HLC order, whatever the pointer says', async () => {
+    await log.append(env('trunk-1', 1_000));
+    log.setActiveBranch('main');
+    await log.append(env('main-1', 2_000));
+    log.setActiveBranch('feature');
+    await log.append(env('feature-1', 3_000));
+    log.setActiveBranch('main');
+    await log.append(env('main-2', 4_000));
+
+    const everything = ['trunk-1', 'main-1', 'feature-1', 'main-2'];
+    expect(await collect(log.readAll())).toEqual(everything);
+    log.setActiveBranch('feature');
+    expect(await collect(log.readAll())).toEqual(everything);
+    expect(await collect(log.readSince(null))).toEqual(['trunk-1', 'feature-1']);
+    log.setActiveBranch('');
+    expect(await collect(log.readAll())).toEqual(everything);
+    expect(await collect(log.readSince(null))).toEqual(['trunk-1']);
+  });
+
   it('readSince watermark composes with the branch filter', async () => {
     log.setActiveBranch('main');
     await log.appendAll([env('m1', 1_000), env('m2', 2_000), env('m3', 3_000)]);

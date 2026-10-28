@@ -120,6 +120,11 @@ export class IdbMutationLog implements MutationLog {
     yield* readCursor(cursorReq);
   }
 
+  /** No branch plane in the browser: the whole scope is the ordered read. */
+  readAll(): AsyncIterable<MutationEnvelope> {
+    return this.readSince(null);
+  }
+
   async hasMutation(mutationId: string): Promise<boolean> {
     const db = await openDb();
     const tx = db.transaction(STORE, 'readonly');

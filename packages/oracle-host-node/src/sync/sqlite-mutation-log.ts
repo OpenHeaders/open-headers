@@ -28,18 +28,35 @@
  *     there is no pre-v5 data.
  *   - **`branch`** is the per-branch log of the data-plane topologies design
  *     §6.3 (the git-sync plan Phase 6): a tree-bound workspace's rows are
- *     stamped with the git branch active when they were appended, and
- *     ordered reads filter to the active branch — two branches can
- *     legitimately hold different histories for the same entity, and
- *     interleaving them would corrupt per-entity HLC ordering. `''` is
- *     the branchless trunk (unbound workspaces, and every row appended
- *     before a binding existed): trunk rows precede any branch-stamped
- *     row and are visible from every branch. Dedup stays scope-global
- *     (`mutationId` is minted fresh per branch — checkout/merge enter
- *     as virtual batches with new ids, so a cross-branch collision is
- *     the same envelope). The pointer flips via
+ *     stamped with the git branch active when they were appended. The
+ *     stamp is the WIRE's identity, not the store's. `readSince` — the
+ *     read every peer-facing reader (delta stream, state-vector fold,
+ *     snapshot threshold) consumes — filters to the trunk plus the
+ *     active branch, so a peer of this host is shown one branch's
+ *     history and never a sibling's (§6.3 names the log a short-term
+ *     reconciliation buffer whose per-branch split keeps a peer's
+ *     per-entity HLC order coherent). `readAll` — the boot replay's
+ *     read — ignores the stamp: the oracle's store applied every batch
+ *     this host committed, on whatever branch HEAD named at the time
+ *     (a checkout enters only the tree's delta against the state the
+ *     store already held), so the only replay that rebuilds the store
+ *     is the whole scope in HLC order. A branch-filtered boot would
+ *     omit the previous branch's rows that the current branch's tree
+ *     was forked from, and the tree-wins sweep — whose premise is that
+ *     the engine state equals the state that produced its baseline —
+ *     would then let the materializer rewrite the working tree from a
+ *     state the host never held. `''` is the branchless trunk (unbound
+ *     workspaces, and every row appended before a binding existed):
+ *     trunk rows precede any branch-stamped row and are visible from
+ *     every branch. Dedup stays scope-global (`mutationId` is minted
+ *     fresh per branch — checkout/merge enter as virtual batches with
+ *     new ids, so a cross-branch collision is the same envelope).
+ *     Compaction, when it is designed, must be scope-wide or
+ *     checkpoint-based: a branch-local truncate would remove rows the
+ *     boot replay needs. The pointer flips via
  *     {@link SqliteMutationLog.setActiveBranch}, called by the
- *     workspace-tree runtime at bind-open and on every checkout.
+ *     workspace-tree runtime at bind-open and on every checkout; the
+ *     boot state does not depend on when it flips.
  *
  * Design notes:
  *
@@ -125,6 +142,7 @@ interface MutationLogStatements {
   knownMutationIds: Database.Statement<[string, string]>;
   readSinceAll: Database.Statement<[string, string]>;
   readSinceFrom: Database.Statement<[string, string, string]>;
+  readAll: Database.Statement<[string]>;
   truncateBefore: Database.Statement<[string, string, string]>;
   purgeOrgSelect: Database.Statement<[string, string]>;
   purgeOrgDelete: Database.Statement<[string, string]>;
@@ -151,6 +169,12 @@ function prepareStatements(db: Database.Database): MutationLogStatements {
     ),
     readSinceFrom: db.prepare(
       `SELECT envelope_json FROM mutation_log WHERE scope = ? AND branch IN ('', ?) AND hlc_key > ?
+       ORDER BY hlc_key ASC, mutation_id ASC`,
+    ),
+    // The boot replay reads the whole scope in stored order — every
+    // branch's rows, because the store applied every one of them.
+    readAll: db.prepare(
+      `SELECT envelope_json FROM mutation_log WHERE scope = ?
        ORDER BY hlc_key ASC, mutation_id ASC`,
     ),
     // Compaction is branch-local: a watermark computed while on branch
@@ -218,6 +242,16 @@ export class SqliteMutationLog implements BranchScopedMutationLog {
       sinceHlcKey === null
         ? stmts.readSinceAll.iterate(this.scope, this.branch)
         : stmts.readSinceFrom.iterate(this.scope, this.branch, sinceHlcKey);
+    for (const row of iter as IterableIterator<{ envelope_json: string }>) {
+      yield JSON.parse(row.envelope_json) as MutationEnvelope;
+    }
+  }
+
+  // The same open-iterator discipline as `readSince`: the one consumer
+  // (the oracle's hydrate) buffers every row before it applies.
+  async *readAll(): AsyncIterable<MutationEnvelope> {
+    const stmts = statementsFor(this.db);
+    const iter = stmts.readAll.iterate(this.scope);
     for (const row of iter as IterableIterator<{ envelope_json: string }>) {
       yield JSON.parse(row.envelope_json) as MutationEnvelope;
     }

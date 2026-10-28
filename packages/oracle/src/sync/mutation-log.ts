@@ -29,12 +29,24 @@ export interface MutationLog {
   appendAll(envs: MutationEnvelope[]): Promise<void>;
 
   /**
-   * Read every envelope since `sinceHlcKey` (exclusive). When `null`,
-   * reads the whole log oldest-first. The argument is the
-   * {@link hlcToString} encoding so callers can persist a watermark
-   * without deserializing it.
+   * The wire's ordered read: every envelope since `sinceHlcKey`
+   * (exclusive), oldest-first; `null` reads from the start. A log that
+   * scopes rows to a git branch answers with the trunk plus the active
+   * branch here — the view a peer of this host is given. The argument
+   * is the {@link hlcToString} encoding so callers can persist a
+   * watermark without deserializing it.
    */
   readSince(sinceHlcKey: string | null): AsyncIterable<MutationEnvelope>;
+
+  /**
+   * The boot replay's read: every envelope of the scope in stored
+   * order, whatever stamp a row carries. The oracle's store applies
+   * each committed batch as it arrives and never consults a branch, so
+   * the replay that rebuilds it is the whole scope — a branch-filtered
+   * replay would omit rows the store applied and boot into a state the
+   * host never held.
+   */
+  readAll(): AsyncIterable<MutationEnvelope>;
 
   /** Cheap dedup query — used by transport-level "did we already see this?" checks. */
   hasMutation(mutationId: string): Promise<boolean>;
@@ -88,6 +100,10 @@ export class InMemoryMutationLog implements MutationLog {
       const env = this.entries.get(key);
       if (env) yield env;
     }
+  }
+
+  readAll(): AsyncIterable<MutationEnvelope> {
+    return this.readSince(null);
   }
 
   async hasMutation(mutationId: string): Promise<boolean> {
