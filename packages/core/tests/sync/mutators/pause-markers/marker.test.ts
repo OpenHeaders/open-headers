@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   clearPauseMarker,
   type MutatorContext,
+  migrateLegacyPauseMarkers,
   PAUSE_MARKERS_ENTITY_TYPE,
   PAUSE_MARKERS_ID,
   PAUSE_MARKERS_MUTATOR_VERSION,
@@ -140,5 +141,57 @@ describe('replacePauseMarkers', () => {
     });
     expect(intent.batch.batchId).toBe('shared-batch');
     expect(intent.batch.mutations.length).toBeGreaterThan(0);
+  });
+});
+
+describe('migrateLegacyPauseMarkers', () => {
+  it('tombstones every retired path and, per conversion, tombstones the path then adds the uid-keyed entry', () => {
+    const intent = migrateLegacyPauseMarkers(ctx({ batchId: 'migrate' }), {
+      retire: ['rules/gone'],
+      convert: [
+        {
+          itemId: 'rules/auth-col-auth/login-fld-1',
+          entry: { type: 'folder', uid: 'fld-1', marker: 'paused', path: 'rules/auth-col-auth/login-fld-1' },
+        },
+      ],
+    });
+    expect(intent.batch.batchId).toBe('migrate');
+    expect(intent.batch.mutations.map((m) => m.body)).toEqual([
+      {
+        kind: 'removeFromSet',
+        type: PAUSE_MARKERS_ENTITY_TYPE,
+        id: PAUSE_MARKERS_ID,
+        path: PAUSE_MARKERS_PATH,
+        itemId: 'rules/gone',
+      },
+      {
+        kind: 'removeFromSet',
+        type: PAUSE_MARKERS_ENTITY_TYPE,
+        id: PAUSE_MARKERS_ID,
+        path: PAUSE_MARKERS_PATH,
+        itemId: 'rules/auth-col-auth/login-fld-1',
+      },
+      {
+        kind: 'addToSet',
+        type: PAUSE_MARKERS_ENTITY_TYPE,
+        id: PAUSE_MARKERS_ID,
+        path: PAUSE_MARKERS_PATH,
+        itemId: 'fld-1',
+        item: { type: 'folder', uid: 'fld-1', marker: 'paused', path: 'rules/auth-col-auth/login-fld-1' },
+      },
+    ]);
+    // Ticked HLCs order the batch; every envelope carries the catalog's version.
+    const hlcs = intent.batch.mutations.map((m) => m.hlc.logical);
+    expect(hlcs).toEqual([0, 1, 2]);
+    expect(new Set(intent.batch.mutations.map((m) => m.mutatorVersion))).toEqual(
+      new Set([PAUSE_MARKERS_MUTATOR_VERSION]),
+    );
+    expect(intent.sideEffects.map((s) => s.kind)).toEqual([RECOMPILE_DNR, RECOMPILE_DNR, RECOMPILE_DNR]);
+  });
+
+  it('returns an empty batch for an empty plan', () => {
+    const intent = migrateLegacyPauseMarkers(ctx(), { retire: [], convert: [] });
+    expect(intent.batch.mutations).toHaveLength(0);
+    expect(intent.sideEffects).toEqual([]);
   });
 });

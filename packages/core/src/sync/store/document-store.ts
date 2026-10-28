@@ -14,8 +14,9 @@
  */
 
 import type { EntityType, MutationEnvelope } from '../envelope';
+import type { HLC } from '../hlc';
 import { applyMutation } from '../mutators';
-import { type LiveOrderedItem, liveOrderedItemsAt, newEntityState } from '../mutators/state';
+import { type LiveOrderedItem, latestSetWriteHlcAt, liveOrderedItemsAt, newEntityState } from '../mutators/state';
 import type { EntityState, FieldOrigin, MutatorOutcome } from '../mutators/types';
 import { EMPTY_ENTITY_SCHEMA_REGISTRY, type EntitySchemaRegistry } from '../schema';
 import { canonicalJson } from './canonical';
@@ -120,6 +121,20 @@ export class InMemoryDocumentStore {
     const state = this.entities.get(entityKey(type, id));
     if (!state) return [];
     return liveOrderedItemsAt(state, setPath);
+  }
+
+  /**
+   * The HLC of the latest statement a set holds about `itemId` — the
+   * winning add or the tombstone, whichever is later — or `null` when
+   * the set never heard of it. The live reads above hide a tombstoned
+   * member; a catalog migrating members from one key shape to another
+   * needs to know that the new key has spoken, even when its last word
+   * was a remove. See `latestSetWriteHlcAt`.
+   */
+  latestSetWriteHlc(type: EntityType, id: string, setPath: string, itemId: string): HLC | null {
+    const state = this.entities.get(entityKey(type, id));
+    if (!state) return null;
+    return latestSetWriteHlcAt(state, setPath, itemId);
   }
 
   /**

@@ -13,10 +13,19 @@
  * accept the version-1 shapes still found at rest and on old peers —
  * a path-keyed record, or a post-state whose `markers` is path-keyed —
  * and the fold migrates path-keyed members on READ through the caller's
- * path → ref resolver. Nothing is rewritten in the store: an old client
- * keeps its own entry; when both shapes name one container the higher
- * add-HLC wins, which is the same LWW the set already applies within a
- * shape.
+ * path → ref resolver: when both shapes name one container the higher
+ * add-HLC wins, the same LWW the set already applies within a shape.
+ *
+ * The fold sees live members only, so a version-2 tombstone (uid-keyed)
+ * never speaks to a version-1 member of the same container, and a host
+ * that boots by replaying its log would revive a pause cleared under
+ * version 2. `planLegacyPauseMarkerMigration` is the fold's rule
+ * extended to tombstones, applied once at boot by the catalog's
+ * `migrateLegacyPauseMarkers`: a live version-1 member whose container
+ * has a later version-2 statement (an add or a tombstone) is retired;
+ * one still the latest word on its container is re-keyed by uid; one no
+ * container answers to is retired. After it the fold's path branch only
+ * ever serves a member an old peer sends in-session.
  */
 
 import {
@@ -25,6 +34,8 @@ import {
   isLegacyPauseMarkerSlot,
   isPauseMarkerKind,
   isPauseMarkerSlot,
+  type LegacyPauseMarkerConversion,
+  type LegacyPauseMarkerMigration,
   type MaterializedEntity,
   type MutationBatch,
   type MutationBody,
@@ -161,6 +172,55 @@ function entryOf(item: unknown, resolveLegacyPath: LegacyPauseMarkerResolver): P
   const ref = resolveLegacyPath(item.path);
   if (!ref) return null;
   return { type: ref.type, uid: ref.uid, marker: item.marker, path: item.path };
+}
+
+/**
+ * Plan the boot migration of the live version-1 members. `latestUidWriteHlc`
+ * answers the HLC of the latest version-2 statement about a container
+ * (its winning add or its tombstone), `null` when none was ever made.
+ * A member whose container has a version-2 statement at or above its
+ * own add-HLC is superseded and retired; a member that is still the
+ * latest word on its container is converted — re-added keyed by uid
+ * with the same marker and the path kept as the hint — and where two
+ * version-1 members resolve to one container only the higher add-HLC
+ * converts (the fold's own tie rule); a member no container answers to
+ * is retired. The plan is empty over a log with no live version-1
+ * member, which is what every boot after the migration finds.
+ */
+export function planLegacyPauseMarkerMigration(
+  liveItems: ReadonlyArray<PauseMarkerLiveItem>,
+  resolveLegacyPath: LegacyPauseMarkerResolver,
+  latestUidWriteHlc: (uid: string) => HLC | null,
+): LegacyPauseMarkerMigration {
+  const retire: string[] = [];
+  const latestByUid = new Map<string, { conversion: LegacyPauseMarkerConversion; addHlc: HLC }>();
+  for (const live of liveItems) {
+    if (!isLegacyPauseMarkerSlot(live.item)) continue;
+    const ref = resolveLegacyPath(live.item.path);
+    if (!ref) {
+      retire.push(live.itemId);
+      continue;
+    }
+    const spoken = latestUidWriteHlc(ref.uid);
+    if (spoken && compareHlc(spoken, live.addHlc) >= 0) {
+      retire.push(live.itemId);
+      continue;
+    }
+    const held = latestByUid.get(ref.uid);
+    if (held && compareHlc(live.addHlc, held.addHlc) <= 0) {
+      retire.push(live.itemId);
+      continue;
+    }
+    if (held) retire.push(held.conversion.itemId);
+    latestByUid.set(ref.uid, {
+      conversion: {
+        itemId: live.itemId,
+        entry: { type: ref.type, uid: ref.uid, marker: live.item.marker, path: live.item.path },
+      },
+      addHlc: live.addHlc,
+    });
+  }
+  return { retire, convert: Array.from(latestByUid.values(), (held) => held.conversion) };
 }
 
 export function pauseMarkersRecordFromEntries(entries: PauseMarkerEntry[]): PauseMarkersRecord {

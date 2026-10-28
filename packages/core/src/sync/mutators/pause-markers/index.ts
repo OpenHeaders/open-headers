@@ -2,6 +2,7 @@ export { mintBatch, mintEnvelope, PAUSE_MARKERS_MUTATOR_VERSION } from './envelo
 export {
   type ClearPauseMarkerArgs,
   clearPauseMarker,
+  migrateLegacyPauseMarkers,
   type ReplacePauseMarkersArgs,
   replacePauseMarkers,
   type SetPauseMarkerArgs,
@@ -12,6 +13,8 @@ export {
   isLegacyPauseMarkerSlot,
   isPauseMarkerKind,
   isPauseMarkerSlot,
+  type LegacyPauseMarkerConversion,
+  type LegacyPauseMarkerMigration,
   type LegacyPauseMarkerSlot,
   PAUSE_MARKERS_ENTITY_TYPE,
   PAUSE_MARKERS_ID,

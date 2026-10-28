@@ -201,6 +201,17 @@ export class EntityOracle {
   }
 
   /**
+   * The HLC of the latest statement a set holds about `itemId` (its
+   * winning add or its tombstone), `null` when the set never heard of
+   * it — see `InMemoryDocumentStore.latestSetWriteHlc`. The pause-markers
+   * boot migration reads it to tell a version-1 member a version-2 remove
+   * superseded from one the log never re-keyed.
+   */
+  latestSetWriteHlc(type: string, id: string, setPath: string, itemId: string): HLC | null {
+    return this.store.latestSetWriteHlc(type, id, setPath, itemId);
+  }
+
+  /**
    * Host-local eviction surgery (backend Discard): under the entity
    * lock, delete one set item's CRDT record without a tombstone and
    * forget the purged mutation ids so a re-joined peer's replay of

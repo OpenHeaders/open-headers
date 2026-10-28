@@ -11,15 +11,25 @@
  * keyed members by container PATH (`{ path, marker }`, itemId = path);
  * such members still arrive from 2026.8.4 clients and are migrated on
  * READ by the projector — resolved to a ref through the same path →
- * parent net the tree reconciler uses — never rewritten in the store.
- * The version-2 item carries the container's path at write time as a
- * hint for those old readers only.
+ * parent net the tree reconciler uses. The version-2 item carries the
+ * container's path at write time as a hint for those old readers only.
  *
  * Concurrent toggles on the same container converge under
  * per-(setPath, itemId) LWW; across the two key shapes the higher
  * add-HLC wins. Unmarking is a `removeFromSet` tombstone — distinct
  * from "implicitly unpaused via inheritance default", which has no
- * marker at all.
+ * marker at all. A version-2 tombstone names the uid only, so it never
+ * reaches a version-1 member of the same container, and the read-side
+ * fold sees live members only: once a host boots by replaying its log
+ * (not by re-seeding a folded projection), a container unpaused under
+ * version 2 would come back paused through its dormant version-1
+ * member. The catalog therefore owns a boot migration
+ * (`migrateLegacyPauseMarkers`, planned by the projection module): a
+ * live version-1 member whose container has a later version-2
+ * statement — an add or a tombstone — is retired; one still the latest
+ * word on its container is re-keyed by uid; one no container answers
+ * to is retired. The fold's path resolution stays for members that
+ * arrive in-session from an old peer.
  *
  * Pause-marker changes invalidate DNR (effective rule set shifts when
  * an ancestor pause flips), so the catalog emits a `RECOMPILE_DNR`
@@ -52,6 +62,22 @@ export type PauseMarkerSlot = PauseMarkerEntry;
 export interface LegacyPauseMarkerSlot {
   path: string;
   marker: PauseMarkerKind;
+}
+
+/** A version-1 member the boot migration re-keys: the set key it holds today and the version-2 entry it becomes. */
+export interface LegacyPauseMarkerConversion {
+  itemId: string;
+  entry: PauseMarkerEntry;
+}
+
+/**
+ * What the boot migration does with the live version-1 members:
+ * `retire` holds the set keys to tombstone, `convert` the members to
+ * tombstone and re-add keyed by their container uid.
+ */
+export interface LegacyPauseMarkerMigration {
+  retire: string[];
+  convert: LegacyPauseMarkerConversion[];
 }
 
 export function isPauseMarkerKind(v: unknown): v is PauseMarkerKind {

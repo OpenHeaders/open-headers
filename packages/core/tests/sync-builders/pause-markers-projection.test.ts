@@ -5,6 +5,7 @@ import {
   isPauseMarkersRecord,
   normalizePauseMarkersSeed,
   pauseMarkersRecordFromEntries,
+  planLegacyPauseMarkerMigration,
   seedPauseMarkers,
 } from '../../src/sync-builders/projections/pause-markers-projection';
 
@@ -96,6 +97,104 @@ describe('foldPauseMarkerItems', () => {
         resolve,
       ),
     ).toEqual([]);
+  });
+});
+
+describe('planLegacyPauseMarkerMigration', () => {
+  const FLD = 'rules/auth-col-1/login-fld-1';
+  const legacy = (itemId: string, marker: 'paused' | 'unpaused', ms: number) => ({
+    itemId,
+    item: { path: itemId, marker },
+    addHlc: hlc(ms),
+  });
+  const spoken = (table: Record<string, number>) => (uid: string) => (uid in table ? hlc(table[uid]) : null);
+
+  it('retires a version-1 member whose container a later version-2 tombstone unpaused (the replayed-log case)', () => {
+    // 8.x pause at 1, the first 9.0 boot's path-keyed re-mint at 2, the uid
+    // re-mint at 3, the user's clear at 4: the uid tombstone is the latest word.
+    expect(planLegacyPauseMarkerMigration([legacy(FLD, 'paused', 2)], resolve, spoken({ 'fld-1': 4 }))).toEqual({
+      retire: [FLD],
+      convert: [],
+    });
+  });
+
+  it('retires a version-1 member whose container a later version-2 add carries itself', () => {
+    expect(planLegacyPauseMarkerMigration([legacy(FLD, 'paused', 2)], resolve, spoken({ 'fld-1': 3 }))).toEqual({
+      retire: [FLD],
+      convert: [],
+    });
+  });
+
+  it('converts a version-1 member whose container version 2 never spoke about (the direct upgrade)', () => {
+    expect(planLegacyPauseMarkerMigration([legacy(FLD, 'paused', 1)], resolve, spoken({}))).toEqual({
+      retire: [],
+      convert: [{ itemId: FLD, entry: { type: 'folder', uid: 'fld-1', marker: 'paused', path: FLD } }],
+    });
+  });
+
+  it('converts a version-1 member newer than the last version-2 statement (an old peer wrote after the clear)', () => {
+    expect(planLegacyPauseMarkerMigration([legacy(FLD, 'unpaused', 7)], resolve, spoken({ 'fld-1': 4 }))).toEqual({
+      retire: [],
+      convert: [{ itemId: FLD, entry: { type: 'folder', uid: 'fld-1', marker: 'unpaused', path: FLD } }],
+    });
+  });
+
+  it('treats a version-2 statement at the same HLC as superseding', () => {
+    expect(planLegacyPauseMarkerMigration([legacy(FLD, 'paused', 4)], resolve, spoken({ 'fld-1': 4 }))).toEqual({
+      retire: [FLD],
+      convert: [],
+    });
+  });
+
+  it('retires a version-1 member no container answers to', () => {
+    expect(planLegacyPauseMarkerMigration([legacy('rules/gone', 'paused', 1)], resolve, spoken({}))).toEqual({
+      retire: ['rules/gone'],
+      convert: [],
+    });
+  });
+
+  it('converts only the higher add-HLC when two version-1 paths resolve to one container', () => {
+    const resolveBoth = (path: string): PauseMarkerRef | null =>
+      path === 'rules/old-col/moved-fld-1' || path === 'rules/new-col/moved-fld-1'
+        ? { type: 'folder', uid: 'fld-1' }
+        : null;
+    expect(
+      planLegacyPauseMarkerMigration(
+        [legacy('rules/new-col/moved-fld-1', 'unpaused', 5), legacy('rules/old-col/moved-fld-1', 'paused', 2)],
+        resolveBoth,
+        spoken({}),
+      ),
+    ).toEqual({
+      retire: ['rules/old-col/moved-fld-1'],
+      convert: [
+        {
+          itemId: 'rules/new-col/moved-fld-1',
+          entry: { type: 'folder', uid: 'fld-1', marker: 'unpaused', path: 'rules/new-col/moved-fld-1' },
+        },
+      ],
+    });
+    // The same pair in the other order lands the same plan.
+    expect(
+      planLegacyPauseMarkerMigration(
+        [legacy('rules/old-col/moved-fld-1', 'paused', 2), legacy('rules/new-col/moved-fld-1', 'unpaused', 5)],
+        resolveBoth,
+        spoken({}),
+      ).retire,
+    ).toEqual(['rules/old-col/moved-fld-1']);
+  });
+
+  it('plans nothing over version-2 members and malformed members', () => {
+    expect(
+      planLegacyPauseMarkerMigration(
+        [
+          { itemId: 'fld-1', item: { type: 'folder', uid: 'fld-1', marker: 'paused' }, addHlc: hlc(1) },
+          { itemId: 'y', item: { uid: 'y', marker: 'nope' }, addHlc: hlc(1) },
+          { itemId: 'z', item: null, addHlc: hlc(1) },
+        ],
+        resolve,
+        spoken({}),
+      ),
+    ).toEqual({ retire: [], convert: [] });
   });
 });
 

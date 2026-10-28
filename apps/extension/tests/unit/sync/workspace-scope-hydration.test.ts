@@ -12,6 +12,9 @@
  *     rewritten from the oracle;
  *   - a slot-less leaf the log holds is healed by the hydration pass
  *     once;
+ *   - a version-1 pause marker a version-2 clear never tombstoned is
+ *     retired by the pause-markers catalog's boot migration once, and
+ *     the container boots unpaused;
  *   - a swap between two workspaces — the store swap, the Active flip,
  *     the bridge re-point, the default template ensure — appends
  *     nothing to either log once each has booted.
@@ -19,14 +22,20 @@
 
 import {
   COLLECTION_ENTITY_TYPE,
+  clearPauseMarker,
   FOLDER_ENTITY_TYPE,
   FOLDER_ITEMS_PATH,
   type MutatorContext,
+  PAUSE_MARKERS_ENTITY_TYPE,
+  PAUSE_MARKERS_ID,
+  PAUSE_MARKERS_PATH,
+  setPauseMarker,
   WORKSPACE_ROOTS_ENTITY_TYPE,
   WORKSPACE_ROOTS_ID,
   WORKSPACE_ROOTS_RULE_COLLECTIONS_PATH,
 } from '@openheaders/core/sync';
 import { seedCollection } from '@openheaders/core/sync-builders/projections/collection-projection';
+import { seedPauseMarkers } from '@openheaders/core/sync-builders/projections/pause-markers-projection';
 import { seedRule } from '@openheaders/core/sync-builders/projections/rule-projection';
 import type { Collection, Rule } from '@openheaders/core/types';
 import { __resetForTests as resetEnvironmentStore } from '@openheaders/oracle/entity/environment-store';
@@ -46,11 +55,13 @@ import { setOracleHostHooks } from '@openheaders/oracle/sync';
 import type { CollectionCache } from '@openheaders/oracle/sync/caches/collection-cache';
 import type { FolderCache } from '@openheaders/oracle/sync/caches/folder-cache';
 import type { LayoutStateCache } from '@openheaders/oracle/sync/caches/layout-state-cache';
+import type { PauseMarkersCache } from '@openheaders/oracle/sync/caches/pause-markers-cache';
 import type { RuleCache } from '@openheaders/oracle/sync/caches/rule-cache';
 import {
   COLLECTION_REGISTRATION,
   FOLDER_REGISTRATION,
   LAYOUT_STATE_REGISTRATION,
+  PAUSE_MARKERS_REGISTRATION,
   RULE_REGISTRATION,
 } from '@openheaders/oracle/sync/entity-registry';
 import { InMemoryMutationLog } from '@openheaders/oracle/sync/mutation-log';
@@ -154,6 +165,7 @@ const collections = (): Collection[] =>
   getCacheForWorkspace<CollectionCache>(COLLECTION_REGISTRATION, wsId)?.getCollections() ?? [];
 const folders = () => getCacheForWorkspace<FolderCache>(FOLDER_REGISTRATION, wsId)?.getFolders() ?? [];
 const layout = () => getCacheForWorkspace<LayoutStateCache>(LAYOUT_STATE_REGISTRATION, wsId)?.getSnapshot().layout;
+const pauseMarkers = () => getCacheForWorkspace<PauseMarkersCache>(PAUSE_MARKERS_REGISTRATION, wsId)?.getSnapshot();
 
 beforeEach(async () => {
   installBackingStorage();
@@ -273,6 +285,38 @@ describe('a per-workspace scope boots from its log', () => {
 
     await boot();
     expect(await rowCount(rig.log)).toBe(healed);
+  });
+
+  it('retires a version-1 pause marker a version-2 clear never tombstoned, once; the folder boots unpaused', async () => {
+    const coll = makeCollection('col00001');
+    const folder = makeFolder('fld00001', coll.path);
+    const rule = makeRule('rul00001', folder.path);
+    // The 8.x pause (path-keyed), the first 9.0 boot's path-keyed re-mint,
+    // the uid-keyed re-mint of the next boot, then the user's clear by uid.
+    await rig.log.appendAll([
+      ...seedCollection(coll, ctx()).mutations,
+      ...seedRule(rule, ctx()).mutations,
+      ...seedPauseMarkers({ [folder.path]: 'paused' }, ctx()).mutations,
+      ...seedPauseMarkers({ [folder.path]: 'paused' }, ctx()).mutations,
+      ...setPauseMarker(ctx(), { type: 'folder', uid: folder.uid, marker: 'paused', path: folder.path }).batch
+        .mutations,
+      ...clearPauseMarker(ctx(), { uid: folder.uid }).batch.mutations,
+    ]);
+    const rows = await rowCount(rig.log);
+
+    const first = await boot();
+
+    expect(pauseMarkers()).toEqual({ markers: {}, entries: [] });
+    expect(
+      first.oracle.liveSetItems(PAUSE_MARKERS_ENTITY_TYPE, PAUSE_MARKERS_ID, PAUSE_MARKERS_PATH).map((e) => e.itemId),
+    ).toEqual([]);
+    // The migration's one removeFromSet, beside the reconciler's two heals (the roots slot, the items slot).
+    const migrated = await rowCount(rig.log);
+    expect(migrated).toBe(rows + 3);
+
+    await boot();
+    expect(pauseMarkers()).toEqual({ markers: {}, entries: [] });
+    expect(await rowCount(rig.log)).toBe(migrated);
   });
 });
 

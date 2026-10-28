@@ -97,6 +97,21 @@ export function writeSetOrderIfNewer(state: EntityState, path: string, itemId: s
   return true;
 }
 
+/**
+ * The HLC of the latest statement the set at `path` holds about
+ * `itemId` — its winning add or its tombstone, whichever is later —
+ * or `null` when the set never heard of it. The boot migration of a
+ * catalog that changed its member key reads this to decide whether a
+ * member under the old key has been superseded by one under the new
+ * key: a tombstone is a statement too, and the live view hides it.
+ */
+export function latestSetWriteHlcAt(state: EntityState, path: string, itemId: string): HLC | null {
+  const added = state.setItems.get(path)?.get(itemId)?.addHlc ?? null;
+  const removed = state.setTombstones.get(path)?.get(itemId) ?? null;
+  if (added && removed) return compareHlc(removed, added) >= 0 ? removed : added;
+  return added ?? removed;
+}
+
 export interface LiveOrderedItem {
   itemId: string;
   item: unknown;

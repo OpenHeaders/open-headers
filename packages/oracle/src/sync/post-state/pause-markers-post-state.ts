@@ -10,8 +10,11 @@
  * ref through `resolveTreeParent` over the rules tree's live
  * containers — the same net the slot reconciler uses, whose
  * `<slug>-<uid>` tail parse answers even before the container has
- * hydrated. Unresolvable paths drop out of the projection and are
- * never rewritten in the store.
+ * hydrated. Unresolvable paths drop out of the projection. The cache's
+ * boot pass retires or re-keys every live version-1 member through the
+ * same resolver (`pause-markers-cache.ts`), so after the first boot on
+ * a replayed log this branch only serves an old peer's in-session
+ * write.
  *
  * Pause markers are user-visible UX state, not secrets — the projection
  * is identical for all surfaces.
