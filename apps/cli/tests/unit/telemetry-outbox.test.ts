@@ -80,11 +80,19 @@ describe('the outbox file', () => {
     ).toEqual([{ channel: 'usage', body: '{}', attempts: 0 }]);
   });
 
-  it('is written 0600 through a rename, holds the newest entries up to the cap, and is removed when empty', async () => {
+  // The 0600 mode is a no-op on Windows, where the profile dir's ACL
+  // is the protection (config-store.ts header) — nothing to assert.
+  it.runIf(process.platform !== 'win32')('is written 0600', async () => {
+    const outbox = await openTelemetryOutbox(filePath);
+    outbox.put('usage', '{"n":0}');
+    await outbox.settle();
+    expect((await stat(filePath)).mode & 0o777).toBe(0o600);
+  });
+
+  it('is written through a rename, holds the newest entries up to the cap, and is removed when empty', async () => {
     const outbox = await openTelemetryOutbox(filePath);
     for (let i = 0; i < TELEMETRY_OUTBOX_MAX_ENTRIES + 2; i += 1) outbox.put('usage', `{"n":${i}}`);
     await outbox.settle();
-    expect((await stat(filePath)).mode & 0o777).toBe(0o600);
     const entries = parseTelemetryOutbox(await readFile(filePath, 'utf8'));
     expect(entries).toHaveLength(TELEMETRY_OUTBOX_MAX_ENTRIES);
     expect(entries[0].body).toBe('{"n":2}');
