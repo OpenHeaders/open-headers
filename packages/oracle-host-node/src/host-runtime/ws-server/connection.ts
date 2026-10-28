@@ -14,9 +14,11 @@
 // the entity lock arbitrates only BETWEEN writers, never within one
 // socket's stream. Every other frame keeps its immediate dispatch:
 // pings so the heartbeat is never starved, push frames for their hot
-// path, STATE_VECTOR because the client sends it before any flush, and
-// the peer RPC planes because a delegated send can run for seconds and
-// its Stop is a later frame on the same socket. A tailed frame captures
+// path, STATE_VECTOR because a client's flush precedes its next scope's
+// vector on the same socket and the log's paged reads are the layer
+// that tolerates a walk interleaved with applies, and the peer RPC
+// planes because a delegated send can run for seconds and its Stop is
+// a later frame on the same socket. A tailed frame captures
 // its peer at arrival and is dropped if the socket closed while it
 // queued — it never dispatches without claims.
 

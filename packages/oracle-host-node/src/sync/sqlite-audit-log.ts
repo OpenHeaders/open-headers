@@ -42,11 +42,10 @@
  *   - **Never inside another statement's iteration** — better-sqlite3
  *     refuses a write while any statement on the connection iterates,
  *     and the resolver's audit sink calls `append` from inside gate
- *     code. Every reader of the shared handle that yields to caller
- *     code per row therefore materializes first (`SqlitePendingOutQueue.
- *     drain`); the one streaming reader left, `SqliteMutationLog.
- *     readSince`, is consumed only by code that writes nothing to the
- *     handle per row.
+ *     code. The law for every reader of the shared handle is therefore
+ *     that no statement is open across a `yield`: a reader materializes
+ *     before it yields to caller code (`SqlitePendingOutQueue.drain`'s
+ *     one `all()`, `SqliteMutationLog`'s keyset pages).
  *
  * The standalone query/prune functions below serve the report surfaces
  * (`ohd audit`, the prune scheduler) that read the table without

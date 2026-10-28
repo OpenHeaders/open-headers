@@ -61,9 +61,33 @@
  * Design notes:
  *
  *   - **`hlc_key`** is the {@link hlcToString} encoding (lex order ===
- *     HLC numeric order). Range reads collapse to a single
- *     `WHERE scope = ? AND hlc_key > ?` query — same shape as the
- *     IDB impl's `IDBKeyRange.bound`.
+ *     HLC numeric order). An ordered read is a keyset walk over the
+ *     primary key: `WHERE scope = ? AND (hlc_key, mutation_id) > (?, ?)
+ *     ORDER BY hlc_key, mutation_id LIMIT n`, one index search per
+ *     page. `since` becomes the cursor `(since, '~')` — every mutation
+ *     id sorts below the tilde, so it is exactly `hlc_key > since`, the
+ *     IDB impl's own upper sentinel.
+ *   - **No statement is ever open across a `yield`.** better-sqlite3
+ *     refuses every write on the connection while any statement
+ *     iterates ("This database connection is busy executing a query"),
+ *     and the reads here are consumed by async generators whose
+ *     consumer suspends between rows: the handshake responder's
+ *     threshold count and delta walk run while a peer's reconnect flush
+ *     and this host's own edits apply on the same handle, and an
+ *     `appendAll` or an audit append that lands during an open walk
+ *     throws and is lost. So `readSince` / `readAll` page by keyset —
+ *     each page one synchronous `all()` of {@link MUTATION_LOG_PAGE_SIZE}
+ *     rows, the statement finished before the first row is yielded,
+ *     the next page fetched from the last `(hlc_key, mutation_id)` the
+ *     consumer saw. The law for every reader of the shared handle:
+ *     materialize before yielding to caller code — the pending-out
+ *     drain's one `all()` and these pages are two instances of it. A
+ *     row that lands above the cursor during a walk is streamed by a
+ *     later page; a peer that also receives it through the live fan-out
+ *     absorbs the duplicate at its durable `mutationId` dedup. A row
+ *     that lands below the cursor (a flushed envelope carrying its
+ *     sender's offline HLC) is not streamed back, and need not be: the
+ *     sender holds it, and the vector folded after the walk covers it.
  *   - **Dedup** rides the unique index on `(scope, mutation_id)`. Every
  *     append uses `INSERT OR IGNORE`; duplicate `mutationId` is a
  *     silent no-op, matching the in-memory + IDB impls.
@@ -136,13 +160,19 @@ export function supportsBranchScope(log: MutationLog): log is BranchScopedMutati
   return typeof (log as Partial<BranchScopedMutationLog>).setActiveBranch === 'function';
 }
 
+/** One row of a keyset page: the envelope plus the cursor columns the next page starts above. */
+interface PageRow {
+  envelope_json: string;
+  hlc_key: string;
+  mutation_id: string;
+}
+
 interface MutationLogStatements {
   append: Database.Statement<[string, string, string, string, string, string]>;
   hasMutation: Database.Statement<[string, string]>;
   knownMutationIds: Database.Statement<[string, string]>;
-  readSinceAll: Database.Statement<[string, string]>;
-  readSinceFrom: Database.Statement<[string, string, string]>;
-  readAll: Database.Statement<[string]>;
+  readSincePage: Database.Statement<[string, string, string, string, number], PageRow>;
+  readAllPage: Database.Statement<[string, string, string, number], PageRow>;
   truncateBefore: Database.Statement<[string, string, string]>;
   purgeOrgSelect: Database.Statement<[string, string]>;
   purgeOrgDelete: Database.Statement<[string, string]>;
@@ -161,21 +191,21 @@ function prepareStatements(db: Database.Database): MutationLogStatements {
       `SELECT mutation_id FROM mutation_log
        WHERE scope = ? AND mutation_id IN (SELECT value FROM json_each(?))`,
     ),
-    // Ordered reads see the branchless trunk plus the active branch —
-    // never a sibling branch's rows (§6.3 HLC-coherence law).
-    readSinceAll: db.prepare(
-      `SELECT envelope_json FROM mutation_log WHERE scope = ? AND branch IN ('', ?)
-       ORDER BY hlc_key ASC, mutation_id ASC`,
+    // One keyset page of the wire's read: the branchless trunk plus the
+    // active branch — never a sibling branch's rows (§6.3 HLC-coherence
+    // law) — above the `(hlc_key, mutation_id)` cursor.
+    readSincePage: db.prepare(
+      `SELECT envelope_json, hlc_key, mutation_id FROM mutation_log
+       WHERE scope = ? AND branch IN ('', ?) AND (hlc_key, mutation_id) > (?, ?)
+       ORDER BY hlc_key ASC, mutation_id ASC LIMIT ?`,
     ),
-    readSinceFrom: db.prepare(
-      `SELECT envelope_json FROM mutation_log WHERE scope = ? AND branch IN ('', ?) AND hlc_key > ?
-       ORDER BY hlc_key ASC, mutation_id ASC`,
-    ),
-    // The boot replay reads the whole scope in stored order — every
-    // branch's rows, because the store applied every one of them.
-    readAll: db.prepare(
-      `SELECT envelope_json FROM mutation_log WHERE scope = ?
-       ORDER BY hlc_key ASC, mutation_id ASC`,
+    // One keyset page of the boot replay's read: the whole scope in
+    // stored order — every branch's rows, because the store applied
+    // every one of them.
+    readAllPage: db.prepare(
+      `SELECT envelope_json, hlc_key, mutation_id FROM mutation_log
+       WHERE scope = ? AND (hlc_key, mutation_id) > (?, ?)
+       ORDER BY hlc_key ASC, mutation_id ASC LIMIT ?`,
     ),
     // Compaction is branch-local: a watermark computed while on branch
     // A must never drop rows another branch still needs; trunk rows
@@ -185,6 +215,20 @@ function prepareStatements(db: Database.Database): MutationLogStatements {
     purgeOrgDelete: db.prepare(`DELETE FROM mutation_log WHERE scope = ? AND org_id = ?`),
   };
 }
+
+/**
+ * Rows per page of an ordered read. Each page is one synchronous
+ * `all()`, so this bounds both the memory a walk holds between yields
+ * and the length of the statement's run on the shared handle.
+ */
+export const MUTATION_LOG_PAGE_SIZE = 500;
+
+/**
+ * The keyset cursor's `mutation_id` for the first page above a
+ * `since` key: every mutation id sorts below it, so `(since, '~')`
+ * admits exactly the rows whose `hlc_key` exceeds `since`.
+ */
+const CURSOR_ABOVE_ANY_ID = '~';
 
 const PREPARED = new WeakMap<Database.Database, MutationLogStatements>();
 function statementsFor(db: Database.Database): MutationLogStatements {
@@ -230,30 +274,39 @@ export class SqliteMutationLog implements BranchScopedMutationLog {
     this.appendBatch(envs);
   }
 
-  // Streams off an open iterator, so the connection refuses every write
-  // until the consumer finishes: the consumers (the oracle's hydrate,
-  // the state-vector and threshold folds, the catch-up responder and
-  // the grant offer) buffer, count or write to a socket per row — none
-  // touches the handle. A consumer that must write per row reads
-  // through a materializing path like `SqlitePendingOutQueue.drain`.
-  async *readSince(sinceHlcKey: string | null): AsyncIterable<MutationEnvelope> {
+  readSince(sinceHlcKey: string | null): AsyncIterable<MutationEnvelope> {
     const stmts = statementsFor(this.db);
-    const iter =
-      sinceHlcKey === null
-        ? stmts.readSinceAll.iterate(this.scope, this.branch)
-        : stmts.readSinceFrom.iterate(this.scope, this.branch, sinceHlcKey);
-    for (const row of iter as IterableIterator<{ envelope_json: string }>) {
-      yield JSON.parse(row.envelope_json) as MutationEnvelope;
-    }
+    return this.walk(sinceHlcKey, (hlcKey, mutationId) =>
+      stmts.readSincePage.all(this.scope, this.branch, hlcKey, mutationId, MUTATION_LOG_PAGE_SIZE),
+    );
   }
 
-  // The same open-iterator discipline as `readSince`: the one consumer
-  // (the oracle's hydrate) buffers every row before it applies.
-  async *readAll(): AsyncIterable<MutationEnvelope> {
+  readAll(): AsyncIterable<MutationEnvelope> {
     const stmts = statementsFor(this.db);
-    const iter = stmts.readAll.iterate(this.scope);
-    for (const row of iter as IterableIterator<{ envelope_json: string }>) {
-      yield JSON.parse(row.envelope_json) as MutationEnvelope;
+    return this.walk(null, (hlcKey, mutationId) =>
+      stmts.readAllPage.all(this.scope, hlcKey, mutationId, MUTATION_LOG_PAGE_SIZE),
+    );
+  }
+
+  // The keyset walk (the header): a page is fetched whole, its
+  // statement finished, before any row of it is yielded; the next page
+  // starts above the last row the consumer saw. A short page ends the
+  // walk.
+  private async *walk(
+    sinceHlcKey: string | null,
+    page: (hlcKey: string, mutationId: string) => PageRow[],
+  ): AsyncIterable<MutationEnvelope> {
+    let hlcKey = sinceHlcKey ?? '';
+    let mutationId = sinceHlcKey === null ? '' : CURSOR_ABOVE_ANY_ID;
+    for (;;) {
+      const rows = page(hlcKey, mutationId);
+      for (const row of rows) {
+        yield JSON.parse(row.envelope_json) as MutationEnvelope;
+      }
+      if (rows.length < MUTATION_LOG_PAGE_SIZE) return;
+      const last = rows[rows.length - 1];
+      hlcKey = last.hlc_key;
+      mutationId = last.mutation_id;
     }
   }
 
