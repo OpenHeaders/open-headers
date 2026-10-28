@@ -1,4 +1,24 @@
 // ── Per-socket lifecycle — handshake gate, dispatch, cleanup ────────
+//
+// Inbound order. A socket's APPLY-FAMILY frames — `oh.sync.mutation`,
+// `oh.sync.mutationBatch` and the web tab's `oh.sync.apply`, the three
+// whose handler takes the entity lock — are chained on one per-socket
+// tail and processed strictly in arrival order, the discipline the
+// client connection manager holds for its wires. Dispatching them
+// concurrently raced every apply of one entity onto one FIFO lock: a
+// reconnect flush of a few hundred edits queued the tail of them past
+// the lock's acquisition timeout, each late apply threw, the error reply
+// had no consumer, the client had acked at send, and the lost envelopes
+// sat below the hub's vector forever. Serialized, one socket's applies
+// land in the order the client sent them (HLC order for a flush) and
+// the entity lock arbitrates only BETWEEN writers, never within one
+// socket's stream. Every other frame keeps its immediate dispatch:
+// pings so the heartbeat is never starved, push frames for their hot
+// path, STATE_VECTOR because the client sends it before any flush, and
+// the peer RPC planes because a delegated send can run for seconds and
+// its Stop is a later frame on the same socket. A tailed frame captures
+// its peer at arrival and is dropped if the socket closed while it
+// queued — it never dispatches without claims.
 
 import { randomUUID } from 'node:crypto';
 import type { IncomingMessage } from 'node:http';
@@ -8,10 +28,13 @@ import {
   HANDSHAKE_REJECT_CLOSE_CODE,
   HANDSHAKE_REJECT_REASONS,
   PROTOCOL_INCOMPATIBLE_CLOSE_CODE,
+  SYNC_APPLY_TYPE,
   SYNC_HELLO_TYPE,
+  SYNC_MUTATION_BATCH_TYPE,
+  SYNC_MUTATION_TYPE,
   SYNC_STATE_VECTOR_TYPE,
 } from '@openheaders/core/protocol';
-import { createPeerConnection } from '@openheaders/oracle/host-runtime/peer-connection';
+import { createPeerConnection, type PeerClaims } from '@openheaders/oracle/host-runtime/peer-connection';
 import {
   dispatchSyncRpc,
   evaluateHello,
@@ -37,6 +60,11 @@ interface RpcMessage {
 
 function isPing(m: unknown): m is PingMessage {
   return Boolean(m && typeof m === 'object' && (m as { type?: unknown }).type === 'ping');
+}
+
+/** The frames whose handler takes the entity lock — the per-socket tail's family. */
+function isApplyFamilyFrame(type: unknown): boolean {
+  return type === SYNC_MUTATION_TYPE || type === SYNC_MUTATION_BATCH_TYPE || type === SYNC_APPLY_TYPE;
 }
 
 function send(socket: WebSocket, payload: unknown): void {
@@ -103,6 +131,39 @@ export function handleConnection(socket: WebSocket, request: IncomingMessage, de
   alive.set(socket, true);
   socket.on('pong', () => alive.set(socket, true));
   let handshakeDone = false;
+  // The apply-family tail (the header). Never rejects: each link
+  // answers its own frame, error reply included, so the chain cannot
+  // latch into a failed state.
+  let inboundTail: Promise<void> = Promise.resolve();
+
+  /**
+   * Dispatch one frame through the sync dispatcher as the authenticated
+   * peer and answer it on the standard `<type>:response` channel — the
+   * payload on success, `__error` on a throw. Ownership is decided
+   * synchronously: `null` means the dispatcher does not own the channel
+   * and the caller routes onward; otherwise the returned promise settles
+   * once the reply is on the wire and never rejects.
+   */
+  function dispatchSyncFrame(message: RpcMessage, peerClaims: PeerClaims | null): Promise<void> | null {
+    const dispatched = dispatchSyncRpc(
+      message as Record<string, unknown>,
+      peerClaims ? { userId: peerClaims.userId, deviceId: peerClaims.deviceId } : undefined,
+    );
+    if (dispatched === null) return null;
+    const responseChannel = `${message.type}:response`;
+    if (dispatched.kind === 'sync') {
+      send(socket, { type: responseChannel, payload: dispatched.response });
+      return Promise.resolve();
+    }
+    return dispatched.promise.then(
+      (resp) => send(socket, { type: responseChannel, payload: resp }),
+      (err) => {
+        logger.warn(SCOPE, `RPC ${message.type} threw`, err);
+        send(socket, { type: responseChannel, __error: (err as Error)?.message ?? String(err) });
+      },
+    );
+  }
+
   const handshakeTimer = setTimeout(() => {
     if (handshakeDone) return;
     logger.info(SCOPE, 'closing connection: handshake timeout');
@@ -294,51 +355,60 @@ export function handleConnection(socket: WebSocket, request: IncomingMessage, de
         return;
       }
 
+      // Apply-family frames ride the per-socket tail (the header). The
+      // peer is captured NOW, synchronously with arrival; the link
+      // re-checks it is still open when its turn comes, because a frame
+      // that queued behind a slow apply must never dispatch as the
+      // local subject after the socket's 'close' emptied the registry.
+      if (isApplyFamilyFrame(pushType)) {
+        const peerConn = peerBySocket.get(socket);
+        if (!peerConn) {
+          logger.warn(SCOPE, `${pushType} raced the socket close; dropping`);
+          return;
+        }
+        inboundTail = inboundTail.then(() => {
+          if (!peerConn.isOpen()) {
+            logger.info(SCOPE, `peer ${peerConn.peerId} closed with ${pushType} queued; dropping`);
+            return;
+          }
+          return dispatchSyncFrame(parsed as RpcMessage, peerConn.claims) ?? undefined;
+        });
+        return;
+      }
+
       // RBAC subject (Phase 5 slice 2): every capability decision for a
       // peer-originated frame runs as the user the peer authenticated as
       // — never this host's own LocalAdmin. `claims` is absent only on
       // the `requireAuth`-off test seam, which keeps local-subject
       // semantics.
-      const peerClaims = peerBySocket.get(socket)?.claims;
-      const dispatched = dispatchSyncRpc(
-        parsed as Record<string, unknown>,
-        peerClaims ? { userId: peerClaims.userId, deviceId: peerClaims.deviceId } : undefined,
-      );
-      const responseChannel = `${(parsed as RpcMessage).type}:response`;
-      if (dispatched === null) {
-        // Peer-facing RPC seam (admin-console slice): channels the sync
-        // dispatcher does not own may be claimed here, dispatched as the
-        // authenticated peer. Claims-less connections (the
-        // `requireAuth`-off test seam) have no subject to gate as and
-        // fall through to the silent ignore.
-        const frameType = (parsed as RpcMessage).type;
-        if (peerRpc && peerClaims && peerRpc.owns(frameType)) {
-          void peerRpc
-            .dispatch(parsed as Record<string, unknown>, {
-              userId: peerClaims.userId,
-              deviceId: peerClaims.deviceId,
-              isLoopback: summaryBySocket.get(socket)?.isLoopback ?? false,
-            })
-            .then((resp) => send(socket, { type: responseChannel, payload: resp }))
-            .catch((err) => {
-              send(socket, { type: responseChannel, __error: (err as Error)?.message ?? String(err) });
-            });
-          return;
-        }
-        // Channel outside the 22 sync+awareness ones. Silently ignore —
-        // matches the chrome adapter's pass-through semantics.
+      const peerClaims = peerBySocket.get(socket)?.claims ?? null;
+      const owned = dispatchSyncFrame(parsed as RpcMessage, peerClaims);
+      if (owned !== null) {
+        void owned;
         return;
       }
-      if (dispatched.kind === 'sync') {
-        send(socket, { type: responseChannel, payload: dispatched.response });
-      } else {
-        void dispatched.promise
+      // Peer-facing RPC seam (admin-console slice): channels the sync
+      // dispatcher does not own may be claimed here, dispatched as the
+      // authenticated peer. Claims-less connections (the
+      // `requireAuth`-off test seam) have no subject to gate as and
+      // fall through to the silent ignore.
+      const frameType = (parsed as RpcMessage).type;
+      if (peerRpc && peerClaims && peerRpc.owns(frameType)) {
+        const responseChannel = `${frameType}:response`;
+        void peerRpc
+          .dispatch(parsed as Record<string, unknown>, {
+            userId: peerClaims.userId,
+            deviceId: peerClaims.deviceId,
+            isLoopback: summaryBySocket.get(socket)?.isLoopback ?? false,
+          })
           .then((resp) => send(socket, { type: responseChannel, payload: resp }))
           .catch((err) => {
-            logger.warn(SCOPE, `RPC ${(parsed as RpcMessage).type} threw`, err);
             send(socket, { type: responseChannel, __error: (err as Error)?.message ?? String(err) });
           });
+        return;
       }
+      // Channel outside the 22 sync+awareness ones. Silently ignore —
+      // matches the chrome adapter's pass-through semantics.
     })();
   });
 

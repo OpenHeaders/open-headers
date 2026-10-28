@@ -36,7 +36,11 @@
  *     `{ type: '<rpc>:response', ...payload }` back over the same
  *     connection. Channels outside the 22 sync+awareness ones are
  *     offered to the optional `peerRpc` seam (the daemon's gated
- *     admin plane) and silently ignored when unclaimed.
+ *     admin plane) and silently ignored when unclaimed. A socket's
+ *     apply-family frames (`oh.sync.mutation`, `oh.sync.mutationBatch`,
+ *     `oh.sync.apply`) are serialized on a per-socket tail in arrival
+ *     order, so one peer's stream never contends with itself on the
+ *     entity lock; see `./connection`.
  *   - **Broadcasts.** `broadcast` / `broadcastFrame` fan
  *     an oracle event out to every connected peer past handshake. The
  *     host wires this into `OracleHostHooks.broadcastSyncEvent` /
