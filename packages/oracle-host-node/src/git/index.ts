@@ -19,6 +19,7 @@ export {
   updateBranchFromUpstream,
 } from './branch-ops';
 export { type CommitIntent, composeCommitMessage } from './commit-message';
+export { type GitDirs, parseGitfile, resolveGitDirs } from './git-dir';
 export {
   type CreateGitExecOptions,
   createGitExec,

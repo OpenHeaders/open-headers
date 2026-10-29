@@ -11,12 +11,15 @@
  * that matched it (root `.gitignore`, `exclude`, a nested
  * `.gitignore`, or the global excludesfile). The file writes are pure
  * filesystem against the plane's explicit repo addressing
- * (`--git-dir <root>/.git`, §7); `check-ignore` is a read and stays
+ * (`--git-dir <root>/.git`, §7) — the exclude file lives in the
+ * repo's COMMON directory, which a linked worktree's gitfile resolves
+ * to the main checkout's `.git`; `check-ignore` is a read and stays
  * off the audit stream.
  */
 
 import { promises as fs } from 'node:fs';
 import * as path from 'node:path';
+import { resolveGitDirs } from './git-dir';
 import type { GitRunner } from './git-exec';
 
 /** Which ignore file receives the entry — the shared one or the local-only one. */
@@ -24,11 +27,11 @@ export type IgnoreTarget = 'gitignore' | 'exclude';
 
 export type AddIgnoreEntryResult = { ok: true; added: boolean; entry: string } | { ok: false; detail: string };
 
-/** Absolute path of the target ignore file under the binding's root. */
-function ignoreFilePath(rootDir: string, target: IgnoreTarget): string {
-  return target === 'gitignore'
-    ? path.join(rootDir, '.gitignore')
-    : path.join(rootDir, '.git', 'info', 'exclude');
+/** Absolute path of the target ignore file — the root `.gitignore`, or `info/exclude` in the repo's common directory. */
+async function ignoreFilePath(rootDir: string, target: IgnoreTarget): Promise<string> {
+  if (target === 'gitignore') return path.join(rootDir, '.gitignore');
+  const { commonDir } = await resolveGitDirs(rootDir);
+  return path.join(commonDir, 'info', 'exclude');
 }
 
 /**
@@ -42,7 +45,7 @@ export async function addIgnoreEntry(
   target: IgnoreTarget,
 ): Promise<AddIgnoreEntryResult> {
   const entry = `/${filePath}`;
-  const targetFile = ignoreFilePath(rootDir, target);
+  const targetFile = await ignoreFilePath(rootDir, target);
   try {
     let existing = '';
     try {
@@ -73,7 +76,7 @@ export async function removeIgnoreEntry(
   filePath: string,
   target: IgnoreTarget,
 ): Promise<RemoveIgnoreEntryResult> {
-  const targetFile = ignoreFilePath(rootDir, target);
+  const targetFile = await ignoreFilePath(rootDir, target);
   try {
     let existing: string;
     try {
@@ -110,8 +113,10 @@ export interface IgnoreProvenance {
 
 function classifyIgnoreSource(source: string): IgnoreProvenance['kind'] {
   if (source === '.gitignore') return 'gitignore';
-  // git prints the exclude source via the (absolute) --git-dir we pass.
-  if (source === '.git/info/exclude' || source.endsWith('/.git/info/exclude')) return 'exclude';
+  // git prints the exclude source via the (absolute) --git-dir we pass —
+  // the common directory, which is `<main>/.git` for a linked worktree
+  // and `.git/modules/<name>` for a submodule checkout.
+  if (source === '.git/info/exclude' || source.endsWith('/info/exclude')) return 'exclude';
   if (!path.isAbsolute(source) && source.endsWith('/.gitignore')) return 'nested';
   return 'global';
 }

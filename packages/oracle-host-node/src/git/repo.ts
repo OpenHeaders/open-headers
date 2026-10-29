@@ -23,12 +23,16 @@
  *
  * Every invocation addresses the repo explicitly (`--git-dir` +
  * `--work-tree`, §7) and rides the injected {@link GitRunner} seam.
+ * The `.git` entry may be a gitfile (linked worktree, submodule, §3.4
+ * layouts): git resolves it on the command path, and the module's own
+ * filesystem probes resolve it through {@link resolveGitDirs}.
  */
 
 import { promises as fs } from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import type { TreeFile } from '@openheaders/core/workspace-tree';
+import { resolveGitDirs } from './git-dir';
 import type { GitExecResult, GitRunner } from './git-exec';
 import type { IgnoreProvenance } from './ignore-ops';
 
@@ -319,11 +323,16 @@ const IN_PROGRESS_MARKERS = [
   'BISECT_LOG',
 ] as const;
 
-/** The first in-progress marker present in `.git/`, or null when the repo is at rest. */
+/**
+ * The first in-progress marker present in the per-working-tree git
+ * directory (resolved through the gitfile of a worktree or submodule
+ * checkout), or null when the repo is at rest.
+ */
 export async function gitOperationInProgress(rootDir: string): Promise<string | null> {
+  const { gitDir } = await resolveGitDirs(rootDir);
   for (const marker of IN_PROGRESS_MARKERS) {
     try {
-      await fs.access(path.join(rootDir, '.git', marker));
+      await fs.access(path.join(gitDir, marker));
       return marker;
     } catch {
       // marker absent — keep probing
@@ -1291,7 +1300,7 @@ export async function commitWorkspaceTree(options: CommitWorkspaceTreeOptions): 
   }
 
   const mergeParent = options.mergeParent;
-  const mergeHeadPath = path.join(rootDir, '.git', 'MERGE_HEAD');
+  const mergeHeadPath = path.join((await resolveGitDirs(rootDir)).gitDir, 'MERGE_HEAD');
   if (mergeParent !== undefined) {
     // Refuse to clobber a real in-progress merge — the caller's
     // in-progress-op hold should have caught this already (§3.3).

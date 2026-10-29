@@ -104,7 +104,7 @@ export async function openBinding(ctx: RuntimeCtx, record: WorkspaceTreeBindingR
       // §6.3: point the per-branch log at HEAD's branch before any
       // batch lands, and arm the external-checkout trigger.
       await ctx.syncLogBranch(binding);
-      binding.headWatcher.start();
+      await binding.headWatcher.start();
     }
     await ctx.publishGitStatus(binding);
   });

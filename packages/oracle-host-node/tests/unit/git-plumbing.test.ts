@@ -19,6 +19,7 @@ import {
   listCommitRangeLog,
   updateBranchFromUpstream,
 } from '../../src/git/branch-ops';
+import { parseGitfile, resolveGitDirs } from '../../src/git/git-dir';
 import { createGitExec, type GitAuditRow, type GitRunner, probeGitAvailability } from '../../src/git/git-exec';
 import { addIgnoreEntry, checkIgnoreProvenance, removeIgnoreEntry } from '../../src/git/ignore-ops';
 import {
@@ -1797,5 +1798,123 @@ describe('Ignore provenance + removal (S23)', () => {
     expect(rows.find((row) => row.path === 'notes/scratch.yaml')).toMatchObject({ unversioned: true });
     // A missing target file answers removed: false, never an error.
     expect(await removeIgnoreEntry(tmpDir, 'anything.yaml', 'exclude')).toEqual({ ok: true, removed: false });
+  });
+});
+
+describe('Gitfile layouts (S25 D): linked worktrees and submodule checkouts', () => {
+  let main: string;
+
+  const at = (dir: string, ...args: string[]) => run([...repoArgs(dir), ...args], { cwd: dir, env: IDENTITY_ENV });
+
+  const writeIn = async (dir: string, rel: string, content: string): Promise<void> => {
+    const target = path.join(dir, rel);
+    await fs.mkdir(path.dirname(target), { recursive: true });
+    await fs.writeFile(target, content, 'utf-8');
+  };
+
+  const commitIn = async (dir: string, message: string): Promise<string> => {
+    const result = await commitWorkspaceTree({ run, rootDir: dir, message, identityEnv: IDENTITY_ENV });
+    if (!result.ok || !result.committed) throw new Error(`commit failed in ${dir}`);
+    return result.sha;
+  };
+
+  const same = async (a: string, b: string): Promise<void> => {
+    expect(await fs.realpath(a)).toBe(await fs.realpath(b));
+  };
+
+  beforeEach(async () => {
+    main = path.join(tmpDir, 'main');
+    await fs.mkdir(main, { recursive: true });
+    await ensureWorkspaceRepo(run, main);
+    await at(main, 'symbolic-ref', 'HEAD', 'refs/heads/main');
+    await writeIn(main, 'workspace.yaml', 'schemaVersion: 5\nuid: wsaaaaaa\nname: Probe\n');
+    await commitIn(main, 'Initial tree');
+  });
+
+  it('parseGitfile mirrors read_gitfile: relative against the holder, absolute verbatim, non-gitfile null', () => {
+    expect(parseGitfile('gitdir: ../main/.git/worktrees/wt\n', '/repos/wt')).toBe('/repos/main/.git/worktrees/wt');
+    expect(parseGitfile('gitdir: /abs/.git/modules/lib', '/repos/main/lib')).toBe('/abs/.git/modules/lib');
+    expect(parseGitfile('ref: refs/heads/main\n', '/repos/wt')).toBeNull();
+    expect(parseGitfile('', '/repos/wt')).toBeNull();
+  });
+
+  it('a plain clone resolves to its own .git for both directories; a folder with no repo resolves to the would-be one', async () => {
+    const dirs = await resolveGitDirs(main);
+    await same(dirs.gitDir, path.join(main, '.git'));
+    await same(dirs.commonDir, path.join(main, '.git'));
+    const bare = path.join(tmpDir, 'nothing');
+    await fs.mkdir(bare);
+    expect(await resolveGitDirs(bare)).toEqual({ gitDir: path.join(bare, '.git'), commonDir: path.join(bare, '.git') });
+  });
+
+  it('a linked worktree: markers and HEAD in the per-worktree dir, the exclude file in the main .git, commits land', async () => {
+    const wt = path.join(tmpDir, 'wt');
+    const added = await at(main, 'worktree', 'add', '--quiet', wt, '-b', 'wt-branch');
+    expect(added.code).toBe(0);
+    expect((await fs.stat(path.join(wt, '.git'))).isFile()).toBe(true);
+    expect(await isWorkspaceRepo(run, wt)).toBe(true);
+
+    const dirs = await resolveGitDirs(wt);
+    const gitPath = async (name: string): Promise<string> =>
+      (await at(wt, 'rev-parse', '--git-path', name)).stdout.trim();
+    await same(dirs.gitDir, path.dirname(await gitPath('HEAD')));
+    await same(dirs.commonDir, path.join(main, '.git'));
+    await same(path.join(dirs.commonDir, 'info', 'exclude'), await gitPath('info/exclude'));
+
+    // The §3.3 hold reads the per-worktree marker, never `<wt>/.git/<marker>`.
+    expect(await gitOperationInProgress(wt)).toBeNull();
+    await fs.writeFile(path.join(dirs.gitDir, 'MERGE_HEAD'), 'deadbeef\n', 'utf-8');
+    expect(await gitOperationInProgress(wt)).toBe('MERGE_HEAD');
+    expect(await gitOperationInProgress(main)).toBeNull();
+    await fs.rm(path.join(dirs.gitDir, 'MERGE_HEAD'));
+
+    // The local-only ignore target is the COMMON exclude file, and
+    // provenance attributes it as such.
+    await writeIn(wt, 'notes/local.yaml', 'kind: note\n');
+    expect(await addIgnoreEntry(wt, 'notes/local.yaml', 'exclude')).toEqual({
+      ok: true,
+      added: true,
+      entry: '/notes/local.yaml',
+    });
+    expect(await fs.readFile(path.join(main, '.git', 'info', 'exclude'), 'utf-8')).toContain('/notes/local.yaml\n');
+    const provenance = await checkIgnoreProvenance(run, wt, ['notes/local.yaml']);
+    expect(provenance.get('notes/local.yaml')).toMatchObject({ kind: 'exclude', removable: true });
+
+    // A temp-index commit inside the worktree rides the same path.
+    await writeIn(wt, 'rules/wt-r0000009/rule.yaml', 'schemaVersion: 5\nuid: r0000009\n');
+    const sha = await commitIn(wt, 'Worktree rule');
+    expect((await at(wt, 'rev-parse', 'HEAD')).stdout.trim()).toBe(sha);
+    expect(await countDirtyFiles(run, wt)).toBe(0);
+  });
+
+  it('a submodule checkout: the gitfile points into .git/modules and the probes follow it', async () => {
+    const lib = path.join(tmpDir, 'lib');
+    await fs.mkdir(lib, { recursive: true });
+    await ensureWorkspaceRepo(run, lib);
+    await at(lib, 'symbolic-ref', 'HEAD', 'refs/heads/main');
+    await writeIn(lib, 'workspace.yaml', 'schemaVersion: 5\nuid: wsbbbbbb\nname: Lib\n');
+    await commitIn(lib, 'Lib tree');
+    const added = await run(
+      [...repoArgs(main), '-c', 'protocol.file.allow=always', 'submodule', 'add', '--quiet', lib, 'lib'],
+      { cwd: main, env: IDENTITY_ENV },
+    );
+    expect(added.code).toBe(0);
+
+    const sub = path.join(main, 'lib');
+    expect((await fs.stat(path.join(sub, '.git'))).isFile()).toBe(true);
+    const dirs = await resolveGitDirs(sub);
+    await same(dirs.gitDir, path.join(main, '.git', 'modules', 'lib'));
+    await same(dirs.commonDir, dirs.gitDir);
+
+    expect(await gitOperationInProgress(sub)).toBeNull();
+    await fs.writeFile(path.join(dirs.gitDir, 'CHERRY_PICK_HEAD'), 'deadbeef\n', 'utf-8');
+    expect(await gitOperationInProgress(sub)).toBe('CHERRY_PICK_HEAD');
+    await fs.rm(path.join(dirs.gitDir, 'CHERRY_PICK_HEAD'));
+
+    await writeIn(sub, 'local.yaml', 'kind: note\n');
+    await addIgnoreEntry(sub, 'local.yaml', 'exclude');
+    expect(await fs.readFile(path.join(dirs.gitDir, 'info', 'exclude'), 'utf-8')).toContain('/local.yaml\n');
+    const provenance = await checkIgnoreProvenance(run, sub, ['local.yaml']);
+    expect(provenance.get('local.yaml')).toMatchObject({ kind: 'exclude', removable: true });
   });
 });

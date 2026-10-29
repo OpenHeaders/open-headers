@@ -3,9 +3,12 @@
  * Phase 6). The tree watcher deliberately ignores `.git/`, and a
  * terminal `git checkout` between branches with identical trees moves
  * nothing BUT `HEAD` — so branch moves need their own signal: a
- * non-recursive watch on the `.git` directory filtered to the `HEAD`
- * entry (git rewrites the file via rename, so watching the directory
- * survives inode churn where watching the file would not).
+ * non-recursive watch on the per-working-tree git directory filtered
+ * to the `HEAD` entry (git rewrites the file via rename, so watching
+ * the directory survives inode churn where watching the file would
+ * not). The directory is resolved through the gitfile of a linked
+ * worktree or submodule checkout (§3.4 layouts), where it is not
+ * `<root>/.git` at all.
  *
  * Like the tree watcher, this class never touches the engine: the
  * owner (runtime) re-probes the current branch on the §8 chain, flips
@@ -16,7 +19,7 @@
  */
 
 import { type FSWatcher, watch } from 'node:fs';
-import * as path from 'node:path';
+import { resolveGitDirs } from '../git/git-dir';
 
 export interface GitHeadWatcherOptions {
   rootDir: string;
@@ -38,11 +41,13 @@ export class GitHeadWatcher {
     this.options = options;
   }
 
-  /** Returns false when `.git` does not exist (or cannot be watched) yet. */
-  start(): boolean {
+  /** Returns false when the git directory does not exist (or cannot be watched) yet. */
+  async start(): Promise<boolean> {
     if (this.disposed || this.watcher) return this.watcher !== null;
+    const { gitDir } = await resolveGitDirs(this.options.rootDir);
+    if (this.disposed) return false;
     try {
-      this.watcher = watch(path.join(this.options.rootDir, '.git'), (_event, fileName) => {
+      this.watcher = watch(gitDir, (_event, fileName) => {
         if (fileName !== 'HEAD') return;
         this.bump();
       });
