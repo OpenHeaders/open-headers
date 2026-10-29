@@ -11,10 +11,18 @@
  *   ASC_KEY_ID        its key id
  *   ASC_ISSUER_ID     its issuer id
  *
+ * The key authenticates the export and the upload; an App Manager key is
+ * enough for both. It cannot create the Mac App Store provisioning
+ * profile, so the first export on a Mac that has never signed this app
+ * runs with `--xcode-account`: the three ASC variables are not read and
+ * Xcode's signed-in account provisions and uploads instead. Once the
+ * profile exists, the keyed ritual is the routine one.
+ *
  * Usage:
- *   pnpm run release:safari                 # build + version + archive + upload
- *   pnpm run release:safari -- --skip-build # archive the existing dist/safari
- *   pnpm run release:safari -- --no-upload  # export a signed .pkg locally, no upload
+ *   pnpm run release:safari                    # build + version + archive + upload
+ *   pnpm run release:safari -- --skip-build    # archive the existing dist/safari
+ *   pnpm run release:safari -- --no-upload     # export a signed .pkg locally, no upload
+ *   pnpm run release:safari -- --xcode-account # provision and upload as Xcode's account
  */
 
 import { execFileSync } from 'node:child_process';
@@ -33,6 +41,7 @@ const EXPORT_DIR = path.join(ARCHIVE_DIR, 'export');
 
 const skipBuild = process.argv.includes('--skip-build');
 const upload = !process.argv.includes('--no-upload');
+const xcodeAccount = process.argv.includes('--xcode-account');
 
 function env(name: string): string {
   const value = process.env[name];
@@ -48,19 +57,18 @@ function run(file: string, args: string[], cwd = ROOT): void {
 }
 
 const teamId = env('APPLE_TEAM_ID');
-const ascKeyPath = env('ASC_KEY_PATH');
-const ascKeyId = env('ASC_KEY_ID');
-const ascIssuerId = env('ASC_ISSUER_ID');
 
-const authentication = [
-  '-authenticationKeyPath',
-  ascKeyPath,
-  '-authenticationKeyID',
-  ascKeyId,
-  '-authenticationKeyIssuerID',
-  ascIssuerId,
-  '-allowProvisioningUpdates',
-];
+const authentication = xcodeAccount
+  ? ['-allowProvisioningUpdates']
+  : [
+      '-authenticationKeyPath',
+      env('ASC_KEY_PATH'),
+      '-authenticationKeyID',
+      env('ASC_KEY_ID'),
+      '-authenticationKeyIssuerID',
+      env('ASC_ISSUER_ID'),
+      '-allowProvisioningUpdates',
+    ];
 
 // ── Build ───────────────────────────────────────────────────────────
 
@@ -91,7 +99,7 @@ run('xcodebuild', [
   '-archivePath',
   ARCHIVE,
   `DEVELOPMENT_TEAM=${teamId}`,
-  ...authentication,
+  '-allowProvisioningUpdates',
   'archive',
 ]);
 

@@ -42,5 +42,13 @@ APPLE_TEAM_ID=… ASC_KEY_PATH=… ASC_KEY_ID=… ASC_ISSUER_ID=… \
 uploading. The ordinal is bumped on every attempt either way; commit
 `upload-ordinal.json` afterwards.
 
+The API key needs the App Manager role, which uploads but cannot create
+the Mac App Store provisioning profile. On a Mac that has never signed
+this app, run the ritual once with `--xcode-account`: the ASC variables
+are not read and the account signed in to Xcode provisions and uploads.
+The Apple Distribution and Mac Installer Distribution certificates come
+from Xcode › Settings › Accounts › Manage Certificates. The app's
+category is Developer Tools, set in `App/Info.plist`.
+
 The extension target's minimum Safari is 18.4 (`strict_min_version` in the
 manifest); the app's minimum macOS is 15.4 (`MACOSX_DEPLOYMENT_TARGET`).
