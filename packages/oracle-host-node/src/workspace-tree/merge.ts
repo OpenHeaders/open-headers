@@ -17,7 +17,7 @@
  * background fetch keeps remote-tracking refs fresh (§3.2).
  */
 
-import type { TreeIssue } from '@openheaders/core/workspace-tree';
+import type { ForeignHistoryNote, TreeIssue } from '@openheaders/core/workspace-tree';
 import { countLeftRight, currentBranch, gitOperationInProgress, resolveRefSha } from '../git';
 import { type IntegrateForeignDeps, integrateForeignHead } from './pull';
 
@@ -28,7 +28,15 @@ export interface MergeWorkspaceBranchOptions extends IntegrateForeignDeps {
 
 export type MergeWorkspaceBranchResult =
   | { ok: true; upToDate: true }
-  | { ok: true; upToDate: false; sha: string; applied: number; issues: TreeIssue[] }
+  | {
+      ok: true;
+      upToDate: false;
+      sha: string;
+      applied: number;
+      issues: TreeIssue[];
+      /** Set when no merge base was found — every foreign file was treated as changed (§3.4). */
+      history?: ForeignHistoryNote;
+    }
   | {
       ok: false;
       reason:
@@ -66,5 +74,12 @@ export async function mergeWorkspaceBranch(options: MergeWorkspaceBranchOptions)
     mergeMessage: `Merge branch '${ref}'`,
   });
   if (!integrated.ok) return integrated;
-  return { ok: true, upToDate: false, sha: integrated.sha, applied: integrated.applied, issues: integrated.issues };
+  return {
+    ok: true,
+    upToDate: false,
+    sha: integrated.sha,
+    applied: integrated.applied,
+    issues: integrated.issues,
+    ...(integrated.history !== undefined ? { history: integrated.history } : {}),
+  };
 }

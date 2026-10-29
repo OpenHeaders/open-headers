@@ -769,6 +769,9 @@ export const workbenchChrome = {
   'workbench.gitLog.updateBranch.failed': 'Impossible de mettre à jour {branch} : {detail}',
   'workbench.gitLog.fetch.noRemote': 'Aucun dépôt distant configuré.',
   'workbench.gitLog.fetch.failed': 'Échec de la récupération : {detail}',
+  'workbench.gitLog.shallow.tag': 'Clone superficiel',
+  'workbench.gitLog.shallow.tooltip':
+    'Ce clone a un historique tronqué. Le journal et la comparaison s’arrêtent à la limite, et un pull ou un merge qui la dépasse traite chaque fichier distant comme modifié. Exécutez git fetch --unshallow pour le compléter.',
   'workbench.gitLog.compareTab': 'Comparer : {a} et {b}',
   'workbench.gitLog.compare.onlyIn': 'Commits présents dans {a} mais absents de {b}',
   'workbench.gitLog.compare.containsAll': '{a} contient tous les commits de {b}',
@@ -853,6 +856,10 @@ export const workbenchChrome = {
   'workbench.commitTool.menu.comparePickerEmpty': 'Aucune référence correspondante',
   'workbench.commitTool.menu.pullUpToDate': 'Déjà à jour',
   'workbench.commitTool.menu.pullDone': 'Pull terminé',
+  'workbench.commitTool.menu.pullDoneShallow':
+    'Pull terminé. Le clone superficiel masque l’historique commun, chaque fichier distant a donc été traité comme modifié.',
+  'workbench.commitTool.menu.pullDoneUnrelated':
+    'Pull terminé. Les historiques n’ont aucun commit commun, chaque fichier distant a donc été traité comme modifié.',
   'workbench.commitTool.menu.pullFailed': 'Échec du pull : {detail}',
   'workbench.commitTool.menu.ignoreFailed': "Impossible de mettre à jour le fichier d'exclusion : {detail}",
   'workbench.commitTool.menu.stopIgnoring': 'Ne plus ignorer',

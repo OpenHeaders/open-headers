@@ -80,6 +80,14 @@ export interface TreeIssue {
   readonly message: string;
 }
 
+/**
+ * Why an integration found no merge base and classified EVERY foreign
+ * file as changed (the git-sync plan §3.4): the histories genuinely
+ * share no commit, or the local clone is shallow and the common
+ * history sits behind its boundary. Absent when a base was found.
+ */
+export type ForeignHistoryNote = 'unrelated' | 'shallow';
+
 export interface TreeReadResult {
   /**
    * `workspace` is null when `workspace.yaml` is missing or invalid

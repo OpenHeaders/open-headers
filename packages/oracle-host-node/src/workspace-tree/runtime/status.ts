@@ -11,6 +11,7 @@ import {
   composeCommitMessage,
   countDirtyFiles,
   currentBranch,
+  isShallowRepository,
   isWorkspaceRepo,
   listLocalBranches,
   resolveUpstream,
@@ -37,6 +38,7 @@ export function notBoundStatus(): WorkspaceTreeGitStatusRpcResult {
     behind: null,
     autoPushOnCommit: false,
     forcePush: null,
+    shallow: false,
   };
 }
 
@@ -63,6 +65,7 @@ async function computeGitStatus(ctx: RuntimeCtx, binding: OpenBinding): Promise<
       behind: null,
       autoPushOnCommit,
       forcePush: null,
+      shallow: false,
     };
   }
   const repo = await isWorkspaceRepo(ctx.gitRun, rootDir);
@@ -84,6 +87,7 @@ async function computeGitStatus(ctx: RuntimeCtx, binding: OpenBinding): Promise<
     behind: upstream?.behind ?? null,
     autoPushOnCommit,
     forcePush: repo ? await detectForcePush(ctx, binding, branch, upstream) : null,
+    shallow: repo ? await isShallowRepository(ctx.gitRun, rootDir) : false,
   };
 }
 

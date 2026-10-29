@@ -258,5 +258,12 @@ export async function runMergeBranch(
   await ctx.refreshIssuesFromDisk(binding);
   ctx.drainIntents(binding);
   logger.info(SCOPE, `merged ${ref} into ${rootDir}: ${result.sha} (${result.applied} batches)`);
+  if (result.history !== undefined) {
+    logger.warn(
+      SCOPE,
+      `merge of ${ref} found no merge base (${result.history}): every foreign file was treated as changed`,
+    );
+    return { ok: true, upToDate: false, sha: result.sha, applied: result.applied, history: result.history };
+  }
   return { ok: true, upToDate: false, sha: result.sha, applied: result.applied };
 }

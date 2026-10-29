@@ -22,7 +22,7 @@
 
 import { DownOutlined, MinusOutlined } from '@ant-design/icons';
 import { hostBridge } from '@openheaders/core/bridge';
-import { Dropdown, theme } from 'antd';
+import { Dropdown, theme, Tooltip } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useMemo, useReducer, useState } from 'react';
 import { useLocale } from '@openheaders/ui/context/LocaleContext';
@@ -50,6 +50,7 @@ const GitLogPanel: React.FC<GitLogPanelProps> = ({ info, dockSlot, onHide }) => 
 
   const [bound, setBound] = useState(false);
   const [branch, setBranch] = useState<string | null>(null);
+  const [shallow, setShallow] = useState(false);
 
   const workbench = workspaceId !== null ? getGitPanelWorkbench(workspaceId) : null;
   const [, bumpVersion] = useReducer((v: number) => v + 1, 0);
@@ -62,6 +63,7 @@ const GitLogPanel: React.FC<GitLogPanelProps> = ({ info, dockSlot, onHide }) => 
     if (workspaceId === null) {
       setBound(false);
       setBranch(null);
+      setShallow(false);
       return;
     }
     try {
@@ -70,13 +72,16 @@ const GitLogPanel: React.FC<GitLogPanelProps> = ({ info, dockSlot, onHide }) => 
       setBound(isBound);
       if (!isBound) {
         setBranch(null);
+        setShallow(false);
         return;
       }
       const status = await hostBridge.call('oh.workspaceTree.gitStatus', { workspaceId });
       setBranch(status.branch);
+      setShallow(status.shallow);
     } catch {
       setBound(false);
       setBranch(null);
+      setShallow(false);
     }
   }, [workspaceId]);
 
@@ -90,8 +95,34 @@ const GitLogPanel: React.FC<GitLogPanelProps> = ({ info, dockSlot, onHide }) => 
       if (payload.workspaceId !== workspaceId) return;
       setBound(payload.status.bound);
       setBranch(payload.status.bound ? payload.status.branch : null);
+      setShallow(payload.status.bound && payload.status.shallow);
     });
   }, [workspaceId]);
+
+  // §3.4 shallow-clone note: a `--depth` clone's history stops at its
+  // boundary, and a pull or merge reaching past it treats every
+  // remote file as changed. The header names the condition once; the
+  // tooltip says what it costs and how to complete the clone.
+  const shallowNote = shallow ? (
+    <Tooltip placement="bottom" title={t('workbench.gitLog.shallow.tooltip')}>
+      <span
+        data-testid="git-tool-shallow-note"
+        style={{
+          flexShrink: 0,
+          fontSize: token.fontSizeSM,
+          lineHeight: 1,
+          padding: '2px 6px',
+          borderRadius: token.borderRadiusSM,
+          color: token.colorWarningText,
+          background: token.colorWarningBg,
+          border: `1px solid ${token.colorWarningBorder}`,
+          cursor: 'default',
+        }}
+      >
+        {t('workbench.gitLog.shallow.tag')}
+      </span>
+    </Tooltip>
+  ) : null;
 
   const chevronMenu = (
     <Dropdown
@@ -135,12 +166,13 @@ const GitLogPanel: React.FC<GitLogPanelProps> = ({ info, dockSlot, onHide }) => 
           <div style={{ display: 'flex', alignItems: 'center', flex: 1, minWidth: 0, gap: 8 }}>
             <strong style={{ flexShrink: 0 }}>{t('workbench.toolWindows.git')}</strong>
             <InfoTrigger content={info} className="rules-panel-header-info" />
+            {shallowNote}
             {headerContent}
           </div>
         }
       />
     ),
-    [headerWiring, info, t],
+    [headerWiring, info, shallowNote, t],
   );
 
   const renderTrailing = ({ corner }: { corner: boolean }): React.ReactNode => (

@@ -97,6 +97,7 @@ export async function dispatchWorkspaceTreeRpc(
         behind: null,
         autoPushOnCommit: false,
         forcePush: null,
+        shallow: false,
       };
     }
     return await runtime.gitStatus(workspaceId);

@@ -380,7 +380,17 @@ export async function fetchWorkspaceRemote(run: GitRunner, rootDir: string): Pro
   return { ok: true };
 }
 
-/** Merge base of two refs; null when the histories are unrelated. */
+/**
+ * Whether the clone's history is truncated (`clone --depth`, §3.4).
+ * A shallow repo answers a null merge base for any commit behind its
+ * boundary, so the integration passes read this to name the cause.
+ */
+export async function isShallowRepository(run: GitRunner, rootDir: string): Promise<boolean> {
+  const result = await run([...repoArgs(rootDir), 'rev-parse', '--is-shallow-repository'], { cwd: rootDir });
+  return result.code === 0 && result.stdout.trim() === 'true';
+}
+
+/** Merge base of two refs; null when the histories are unrelated (or the base is behind a shallow boundary). */
 export async function mergeBaseOf(run: GitRunner, rootDir: string, a: string, b: string): Promise<string | null> {
   const result = await run([...repoArgs(rootDir), 'merge-base', a, b], { cwd: rootDir });
   const sha = result.stdout.trim();

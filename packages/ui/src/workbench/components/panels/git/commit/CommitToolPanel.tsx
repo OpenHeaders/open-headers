@@ -317,9 +317,22 @@ const CommitToolPanel: React.FC<CommitToolPanelProps> = ({ info, onHide }) => {
         setError(t('workbench.commitTool.menu.pullFailed', { detail: result.detail ?? result.reason }));
         return;
       }
-      message.success(
-        t(result.upToDate ? 'workbench.commitTool.menu.pullUpToDate' : 'workbench.commitTool.menu.pullDone'),
-      );
+      if (!result.upToDate && result.history !== undefined) {
+        // §3.4: no merge base — every remote file was treated as
+        // changed; the user learns why (shallow clone or unrelated
+        // histories) instead of a plain "finished".
+        message.warning(
+          t(
+            result.history === 'shallow'
+              ? 'workbench.commitTool.menu.pullDoneShallow'
+              : 'workbench.commitTool.menu.pullDoneUnrelated',
+          ),
+        );
+      } else {
+        message.success(
+          t(result.upToDate ? 'workbench.commitTool.menu.pullUpToDate' : 'workbench.commitTool.menu.pullDone'),
+        );
+      }
       await refreshChanges();
     } catch (err) {
       setError((err as Error).message);

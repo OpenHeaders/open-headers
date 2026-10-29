@@ -640,9 +640,17 @@ export type WorkspaceTreeCommitWire =
       detail?: string;
     };
 
+/**
+ * Why an integration found no merge base and treated EVERY foreign
+ * file as changed (the git-sync plan §3.4): the histories share no
+ * commit, or the clone is shallow and the common history sits behind
+ * its boundary. Absent from a result that found a base.
+ */
+export type WorkspaceTreeHistoryNoteWire = 'unrelated' | 'shallow';
+
 export type WorkspaceTreePullWire =
   | { ok: true; upToDate: true }
-  | { ok: true; upToDate: false; sha: string; applied: number }
+  | { ok: true; upToDate: false; sha: string; applied: number; history?: WorkspaceTreeHistoryNoteWire }
   | {
       ok: false;
       reason:
@@ -778,7 +786,7 @@ export type WorkspaceTreeCompareRefsWire =
 
 export type WorkspaceTreeMergeBranchWire =
   | { ok: true; upToDate: true }
-  | { ok: true; upToDate: false; sha: string; applied: number }
+  | { ok: true; upToDate: false; sha: string; applied: number; history?: WorkspaceTreeHistoryNoteWire }
   | {
       ok: false;
       reason:
@@ -986,6 +994,8 @@ export interface WorkspaceTreeGitStatusWire {
   autoPushOnCommit: boolean;
   /** Non-null while a remote history rewrite is detected (§16) — holds pull/push. */
   forcePush: WorkspaceTreeForcePushStateWire | null;
+  /** True for a `--depth` clone (§3.4): history views stop at the boundary and a pull past it treats every remote file as changed. */
+  shallow: boolean;
 }
 
 /** One per-document read failure — the §13.3 quarantine seam's wire shape. */

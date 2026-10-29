@@ -767,6 +767,9 @@ export const workbenchChrome = {
   'workbench.gitLog.updateBranch.failed': '{branch} konnte nicht aktualisiert werden: {detail}',
   'workbench.gitLog.fetch.noRemote': 'Keine Remotes konfiguriert.',
   'workbench.gitLog.fetch.failed': 'Abrufen fehlgeschlagen: {detail}',
+  'workbench.gitLog.shallow.tag': 'Flacher Klon',
+  'workbench.gitLog.shallow.tooltip':
+    'Dieser Klon hat eine gekürzte Historie. Log und Vergleich enden an der Grenze, und ein Pull oder Merge darüber hinaus behandelt jede entfernte Datei als geändert. Führen Sie git fetch --unshallow aus, um ihn zu vervollständigen.',
   'workbench.gitLog.compareTab': 'Vergleich: {a} und {b}',
   'workbench.gitLog.compare.onlyIn': 'Commits, die in {a} existieren, aber nicht in {b}',
   'workbench.gitLog.compare.containsAll': '{a} enthält alle Commits aus {b}',
@@ -850,6 +853,10 @@ export const workbenchChrome = {
   'workbench.commitTool.menu.comparePickerEmpty': 'Keine passenden Referenzen',
   'workbench.commitTool.menu.pullUpToDate': 'Bereits aktuell',
   'workbench.commitTool.menu.pullDone': 'Pull abgeschlossen',
+  'workbench.commitTool.menu.pullDoneShallow':
+    'Pull abgeschlossen. Der flache Klon verbirgt die gemeinsame Historie, daher wurde jede entfernte Datei als geändert behandelt.',
+  'workbench.commitTool.menu.pullDoneUnrelated':
+    'Pull abgeschlossen. Die Historien haben keinen gemeinsamen Commit, daher wurde jede entfernte Datei als geändert behandelt.',
   'workbench.commitTool.menu.pullFailed': 'Pull fehlgeschlagen: {detail}',
   'workbench.commitTool.menu.ignoreFailed': 'Ignore-Datei konnte nicht aktualisiert werden: {detail}',
   'workbench.commitTool.menu.stopIgnoring': 'Nicht mehr ignorieren',

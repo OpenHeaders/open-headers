@@ -6,7 +6,7 @@
  */
 
 import type { WorkspaceTreeBindingRecord } from '@openheaders/core/storage';
-import type { TreeIssue } from '@openheaders/core/workspace-tree';
+import type { ForeignHistoryNote, TreeIssue } from '@openheaders/core/workspace-tree';
 import type { OracleSyncBroadcastEvent } from '@openheaders/oracle/sync';
 import type {
   CommitFileDiff,
@@ -41,7 +41,7 @@ export type CommitWorkspaceTreeRpcResult =
 
 export type PullWorkspaceTreeRpcResult =
   | { ok: true; upToDate: true }
-  | { ok: true; upToDate: false; sha: string; applied: number }
+  | { ok: true; upToDate: false; sha: string; applied: number; history?: ForeignHistoryNote }
   | {
       ok: false;
       reason:
@@ -174,7 +174,7 @@ export type FetchWorkspaceTreeRpcResult =
 
 export type MergeBranchRpcResult =
   | { ok: true; upToDate: true }
-  | { ok: true; upToDate: false; sha: string; applied: number }
+  | { ok: true; upToDate: false; sha: string; applied: number; history?: ForeignHistoryNote }
   | {
       ok: false;
       reason:
@@ -331,6 +331,8 @@ export interface WorkspaceTreeGitStatusRpcResult {
   autoPushOnCommit: boolean;
   /** Non-null while a remote history rewrite is detected (§16) — holds pull/push. */
   forcePush: { remoteSha: string; lastSyncedSha: string } | null;
+  /** True for a `--depth` clone (§3.4): history views stop at the boundary and a pull past it treats every remote file as changed. */
+  shallow: boolean;
 }
 
 export interface WorkspaceTreeRuntime {

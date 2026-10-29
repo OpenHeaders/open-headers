@@ -45,7 +45,12 @@ import type {
   LiveSetEntriesReader,
 } from '@openheaders/core/sync-builders/mutations/workspace-import-emission';
 import { synthesizeWorkspaceTreeDelta } from '@openheaders/core/sync-builders/mutations/workspace-tree-delta';
-import { readWorkspaceTree, type TreeIssue, type WorkspaceTreeState } from '@openheaders/core/workspace-tree';
+import {
+  type ForeignHistoryNote,
+  readWorkspaceTree,
+  type TreeIssue,
+  type WorkspaceTreeState,
+} from '@openheaders/core/workspace-tree';
 import {
   commitWorkspaceTree,
   diffForeignPaths,
@@ -54,6 +59,7 @@ import {
   type GitRunner,
   gitOperationInProgress,
   isAncestorOf,
+  isShallowRepository,
   listForeignAuthors,
   mergeBaseOf,
   readCommitTreeFiles,
@@ -105,7 +111,16 @@ export interface PullWorkspaceTreeOptions extends IntegrateForeignDeps {
 
 export type PullWorkspaceTreeResult =
   | { ok: true; upToDate: true; remoteSha: string; issues: TreeIssue[] }
-  | { ok: true; upToDate: false; sha: string; remoteSha: string; applied: number; issues: TreeIssue[] }
+  | {
+      ok: true;
+      upToDate: false;
+      sha: string;
+      remoteSha: string;
+      applied: number;
+      issues: TreeIssue[];
+      /** Set when no merge base was found — every foreign file was treated as changed (§3.4). */
+      history?: ForeignHistoryNote;
+    }
   | {
       ok: false;
       reason:
@@ -201,7 +216,7 @@ export async function releaseHealedQuarantine(rootDir: string, issues: readonly 
 }
 
 export type IntegrateForeignHeadResult =
-  | { ok: true; sha: string; applied: number; issues: TreeIssue[] }
+  | { ok: true; sha: string; applied: number; issues: TreeIssue[]; history?: ForeignHistoryNote }
   | {
       ok: false;
       reason: 'foreign-invalid' | 'identity-mismatch' | 'commit-failed';
@@ -253,6 +268,13 @@ export async function integrateForeignHead(
       issues: foreign.issues,
     };
   }
+  // No base ⇒ the three-way discipline degrades to "everything foreign
+  // is tree-authored". The result names why so the surface can say so
+  // (§3.4): a shallow clone hides the common history; otherwise the
+  // histories genuinely share nothing.
+  const history: ForeignHistoryNote | undefined =
+    base === null ? ((await isShallowRepository(run, rootDir)) ? 'shallow' : 'unrelated') : undefined;
+  const withHistory = history !== undefined ? { history } : {};
 
   const snapshot = await deps.readSnapshot();
   const batches = synthesizeWorkspaceTreeDelta({
@@ -288,7 +310,7 @@ export async function integrateForeignHead(
     });
     if (!residue.ok) return { ok: false, reason: 'commit-failed', detail: residue.detail, issues: foreign.issues };
     const sha = residue.committed ? residue.sha : foreignSha;
-    return { ok: true, sha, applied: batches.length, issues: foreign.issues };
+    return { ok: true, sha, applied: batches.length, issues: foreign.issues, ...withHistory };
   }
 
   const authors = await listForeignAuthors(run, rootDir, 'HEAD', foreignSha);
@@ -305,7 +327,7 @@ export async function integrateForeignHead(
   if (!commit.committed)
     return { ok: false, reason: 'commit-failed', detail: 'merge commit did not land', issues: foreign.issues };
 
-  return { ok: true, sha: commit.sha, applied: batches.length, issues: foreign.issues };
+  return { ok: true, sha: commit.sha, applied: batches.length, issues: foreign.issues, ...withHistory };
 }
 
 export async function pullWorkspaceTree(options: PullWorkspaceTreeOptions): Promise<PullWorkspaceTreeResult> {
@@ -351,5 +373,6 @@ export async function pullWorkspaceTree(options: PullWorkspaceTreeOptions): Prom
     remoteSha: upstream.sha,
     applied: integrated.applied,
     issues: integrated.issues,
+    ...(integrated.history !== undefined ? { history: integrated.history } : {}),
   };
 }

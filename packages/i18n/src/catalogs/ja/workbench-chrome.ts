@@ -600,6 +600,9 @@ export const workbenchChrome = {
   'workbench.gitLog.updateBranch.failed': '{branch} を更新できませんでした：{detail}',
   'workbench.gitLog.fetch.noRemote': 'リモートが設定されていません。',
   'workbench.gitLog.fetch.failed': 'フェッチに失敗しました：{detail}',
+  'workbench.gitLog.shallow.tag': 'シャロークローン',
+  'workbench.gitLog.shallow.tooltip':
+    'このクローンの履歴は途中で切り詰められています。ログと比較は境界で止まり、境界を越えるプルやマージはリモートのすべてのファイルを変更済みとして扱います。git fetch --unshallow を実行すると完全な履歴になります。',
   'workbench.gitLog.compareTab': '比較：{a} と {b}',
   'workbench.gitLog.compare.onlyIn': '{a} にはあるが {b} にはないコミット',
   'workbench.gitLog.compare.containsAll': '{a} は {b} のすべてのコミットを含んでいます',
@@ -682,6 +685,10 @@ export const workbenchChrome = {
   'workbench.commitTool.menu.comparePickerEmpty': '一致する参照がありません',
   'workbench.commitTool.menu.pullUpToDate': '既に最新です',
   'workbench.commitTool.menu.pullDone': 'プルが完了しました',
+  'workbench.commitTool.menu.pullDoneShallow':
+    'プルが完了しました。シャロークローンのため共通の履歴が見えず、リモートのすべてのファイルを変更済みとして扱いました。',
+  'workbench.commitTool.menu.pullDoneUnrelated':
+    'プルが完了しました。履歴に共通のコミットがないため、リモートのすべてのファイルを変更済みとして扱いました。',
   'workbench.commitTool.menu.pullFailed': 'プルに失敗しました：{detail}',
   'workbench.commitTool.menu.ignoreFailed': '無視ファイルを更新できませんでした：{detail}',
   'workbench.commitTool.menu.stopIgnoring': '無視を解除',

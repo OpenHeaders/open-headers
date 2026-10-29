@@ -599,6 +599,9 @@ export const workbenchChrome = {
   'workbench.gitLog.updateBranch.failed': '{branch} 브랜치를 업데이트할 수 없습니다: {detail}',
   'workbench.gitLog.fetch.noRemote': '구성된 원격이 없습니다.',
   'workbench.gitLog.fetch.failed': '가져오기 실패: {detail}',
+  'workbench.gitLog.shallow.tag': '얕은 클론',
+  'workbench.gitLog.shallow.tooltip':
+    '이 클론의 기록은 잘려 있습니다. 로그와 비교는 경계에서 멈추고, 경계를 넘는 풀이나 머지는 원격의 모든 파일을 변경된 것으로 처리합니다. git fetch --unshallow 를 실행하면 완전한 기록이 됩니다.',
   'workbench.gitLog.compareTab': '비교: {a} 및 {b}',
   'workbench.gitLog.compare.onlyIn': '{a}에는 있지만 {b}에는 없는 커밋',
   'workbench.gitLog.compare.containsAll': '{a} 브랜치가 {b}의 모든 커밋을 포함합니다',
@@ -681,6 +684,10 @@ export const workbenchChrome = {
   'workbench.commitTool.menu.comparePickerEmpty': '일치하는 참조 없음',
   'workbench.commitTool.menu.pullUpToDate': '이미 최신 상태입니다',
   'workbench.commitTool.menu.pullDone': '풀 완료',
+  'workbench.commitTool.menu.pullDoneShallow':
+    '풀 완료. 얕은 클론이라 공통 기록이 보이지 않아 원격의 모든 파일을 변경된 것으로 처리했습니다.',
+  'workbench.commitTool.menu.pullDoneUnrelated':
+    '풀 완료. 두 기록에 공통 커밋이 없어 원격의 모든 파일을 변경된 것으로 처리했습니다.',
   'workbench.commitTool.menu.pullFailed': '풀 실패: {detail}',
   'workbench.commitTool.menu.ignoreFailed': '무시 파일을 업데이트할 수 없습니다: {detail}',
   'workbench.commitTool.menu.stopIgnoring': '무시 해제',

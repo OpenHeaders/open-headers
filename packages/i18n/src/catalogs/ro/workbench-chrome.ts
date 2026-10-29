@@ -627,6 +627,9 @@ export const workbenchChrome = {
   'workbench.gitLog.updateBranch.failed': 'Ramura {branch} nu a putut fi actualizată: {detail}',
   'workbench.gitLog.fetch.noRemote': 'Niciun depozit la distanță configurat.',
   'workbench.gitLog.fetch.failed': 'Fetch eșuat: {detail}',
+  'workbench.gitLog.shallow.tag': 'Clonă superficială',
+  'workbench.gitLog.shallow.tooltip':
+    'Această clonă are istoricul trunchiat. Jurnalul și comparația se opresc la limită, iar un pull sau merge care o depășește tratează fiecare fișier de la distanță ca modificat. Rulează git fetch --unshallow pentru a o completa.',
   'workbench.gitLog.compareTab': 'Comparare: {a} și {b}',
   'workbench.gitLog.compare.onlyIn': 'Commit-uri care există în {a}, dar nu există în {b}',
   'workbench.gitLog.compare.containsAll': 'Ramura {a} conține toate commit-urile din {b}',
@@ -709,6 +712,10 @@ export const workbenchChrome = {
   'workbench.commitTool.menu.comparePickerEmpty': 'Nicio referință corespunzătoare',
   'workbench.commitTool.menu.pullUpToDate': 'Deja actualizat',
   'workbench.commitTool.menu.pullDone': 'Pull finalizat',
+  'workbench.commitTool.menu.pullDoneShallow':
+    'Pull finalizat. Clona superficială ascunde istoricul comun, așa că fiecare fișier de la distanță a fost tratat ca modificat.',
+  'workbench.commitTool.menu.pullDoneUnrelated':
+    'Pull finalizat. Istoricele nu au niciun commit comun, așa că fiecare fișier de la distanță a fost tratat ca modificat.',
   'workbench.commitTool.menu.pullFailed': 'Pull eșuat: {detail}',
   'workbench.commitTool.menu.ignoreFailed': 'Fișierul de ignorare nu a putut fi actualizat: {detail}',
   'workbench.commitTool.menu.stopIgnoring': 'Oprire ignorare',

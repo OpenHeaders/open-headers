@@ -118,6 +118,13 @@ export async function runPull(ctx: RuntimeCtx, binding: OpenBinding): Promise<Pu
   if (result.upToDate) return { ok: true, upToDate: true };
   ctx.drainIntents(binding);
   logger.info(SCOPE, `pulled ${rootDir}: merge ${result.sha} (${result.applied} batches)`);
+  if (result.history !== undefined) {
+    logger.warn(
+      SCOPE,
+      `pull of ${rootDir} found no merge base (${result.history}): every remote file was treated as changed`,
+    );
+    return { ok: true, upToDate: false, sha: result.sha, applied: result.applied, history: result.history };
+  }
   return { ok: true, upToDate: false, sha: result.sha, applied: result.applied };
 }
 

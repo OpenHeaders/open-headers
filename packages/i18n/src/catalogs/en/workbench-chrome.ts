@@ -591,6 +591,9 @@ export const workbenchChrome = {
   'workbench.gitLog.updateBranch.failed': 'Could not update {branch}: {detail}',
   'workbench.gitLog.fetch.noRemote': 'No remotes configured.',
   'workbench.gitLog.fetch.failed': 'Fetch failed: {detail}',
+  'workbench.gitLog.shallow.tag': 'Shallow clone',
+  'workbench.gitLog.shallow.tooltip':
+    'This clone carries truncated history. Log and compare stop at the boundary, and a pull or merge reaching past it treats every remote file as changed. Run git fetch --unshallow to complete it.',
   'workbench.gitLog.compareTab': 'Compare: {a} and {b}',
   'workbench.gitLog.compare.onlyIn': "Commits that exist in {a} but don't exist in {b}",
   'workbench.gitLog.compare.containsAll': '{a} contains all commits from {b}',
@@ -674,6 +677,10 @@ export const workbenchChrome = {
   'workbench.commitTool.menu.comparePickerEmpty': 'No matching refs',
   'workbench.commitTool.menu.pullUpToDate': 'Already up to date',
   'workbench.commitTool.menu.pullDone': 'Pull finished',
+  'workbench.commitTool.menu.pullDoneShallow':
+    'Pull finished. The shallow clone hides the common history, so every remote file was treated as changed.',
+  'workbench.commitTool.menu.pullDoneUnrelated':
+    'Pull finished. The histories share no common commit, so every remote file was treated as changed.',
   'workbench.commitTool.menu.pullFailed': 'Pull failed: {detail}',
   'workbench.commitTool.menu.ignoreFailed': 'Could not update the ignore file: {detail}',
   'workbench.commitTool.menu.stopIgnoring': 'Stop Ignoring',

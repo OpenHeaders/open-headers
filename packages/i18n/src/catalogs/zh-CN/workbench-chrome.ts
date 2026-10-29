@@ -587,6 +587,9 @@ export const workbenchChrome = {
   'workbench.gitLog.updateBranch.failed': '无法更新 {branch}：{detail}',
   'workbench.gitLog.fetch.noRemote': '未配置远程仓库。',
   'workbench.gitLog.fetch.failed': '抓取失败：{detail}',
+  'workbench.gitLog.shallow.tag': '浅克隆',
+  'workbench.gitLog.shallow.tooltip':
+    '此克隆的历史被截断。日志和比较在边界处停止，越过边界的拉取或合并会将每个远程文件视为已更改。运行 git fetch --unshallow 可补全历史。',
   'workbench.gitLog.compareTab': '比较：{a} 与 {b}',
   'workbench.gitLog.compare.onlyIn': '存在于 {a} 但不存在于 {b} 的提交',
   'workbench.gitLog.compare.containsAll': '{a} 包含 {b} 的全部提交',
@@ -669,6 +672,8 @@ export const workbenchChrome = {
   'workbench.commitTool.menu.comparePickerEmpty': '没有匹配的引用',
   'workbench.commitTool.menu.pullUpToDate': '已是最新',
   'workbench.commitTool.menu.pullDone': '拉取完成',
+  'workbench.commitTool.menu.pullDoneShallow': '拉取完成。浅克隆隐藏了共同历史，因此每个远程文件都被视为已更改。',
+  'workbench.commitTool.menu.pullDoneUnrelated': '拉取完成。两段历史没有共同提交，因此每个远程文件都被视为已更改。',
   'workbench.commitTool.menu.pullFailed': '拉取失败：{detail}',
   'workbench.commitTool.menu.ignoreFailed': '无法更新忽略文件：{detail}',
   'workbench.commitTool.menu.stopIgnoring': '停止忽略',

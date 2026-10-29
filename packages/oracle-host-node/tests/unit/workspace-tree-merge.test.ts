@@ -122,10 +122,15 @@ async function localEdit(dir: string, rel: string, edit: (content: string) => st
   await fs.writeFile(target, edit(content), 'utf-8');
 }
 
-function doMerge(ref: string, applied: EmissionBatch[], onApply?: () => void): Promise<MergeWorkspaceBranchResult> {
+function doMerge(
+  ref: string,
+  applied: EmissionBatch[],
+  onApply?: () => void,
+  tree: { rootDir: string; materializer: WorkspaceTreeMaterializer } = { rootDir: local, materializer },
+): Promise<MergeWorkspaceBranchResult> {
   return mergeWorkspaceBranch({
     run,
-    rootDir: local,
+    rootDir: tree.rootDir,
     ref,
     workspaceUid: 'wsaaaaaa',
     readSnapshot: async () => state,
@@ -135,7 +140,7 @@ function doMerge(ref: string, applied: EmissionBatch[], onApply?: () => void): P
       applied.push(...batches);
       onApply?.();
     },
-    flush: () => materializer.flush(),
+    flush: () => tree.materializer.flush(),
     identityEnv: IDENTITY_ENV,
     bypassHooks: false,
   });
@@ -268,6 +273,87 @@ describe('mergeWorkspaceBranch', () => {
     const result = await doMerge('stale', applied);
     expect(result).toEqual({ ok: true, upToDate: true });
     expect(applied).toHaveLength(0);
+  });
+
+  it('a merge with no common commit lands and names the history as unrelated (§3.4)', async () => {
+    // An orphan branch: the same workspace, a root of its own.
+    await raw(local, 'checkout', '-q', '--orphan', 'other');
+    await localEdit(local, RULE_FILE, (content) => content.replace('name: Block probes', 'name: Block probes (other)'));
+    const committed = await commitWorkspaceTree({ run, rootDir: local, message: 'Other root', identityEnv: RITA_ENV });
+    if (!committed.ok || !committed.committed) throw new Error('orphan commit failed');
+    await raw(local, 'checkout', '-q', 'main');
+    await rebaseline(local);
+
+    const applied: EmissionBatch[] = [];
+    const result = await doMerge('other', applied, () => {
+      state.rules = [{ ...state.rules[0], name: 'Block probes (other)' } as Rule];
+    });
+    expect(result).toMatchObject({ ok: true, upToDate: false, history: 'unrelated' });
+    expect(applied.flatMap((entry) => entry.batch.mutations.map((m) => m.body))).toContainEqual({
+      kind: 'setField',
+      type: 'rule',
+      id: 'aaaaaaaa',
+      path: 'name',
+      value: 'Block probes (other)',
+    });
+    const parents = await raw(local, 'log', '-1', '--format=%P');
+    expect(parents.stdout.trim().split(/\s+/)).toHaveLength(2);
+    await assertNoConflictMarkers(local);
+  });
+
+  it('a merge from a shallow clone whose fork point sits behind the boundary names the history as shallow (§3.4)', async () => {
+    const branchSha = await branchEdit('feature', 'Rename on feature');
+    // Diverge main so the fork point is strictly older than the
+    // shallow boundary.
+    state.rules = [...state.rules, makeRule('bbbbbbbb', 'Allow health')];
+    await materializer.flush();
+    const mainCommit = await commitWorkspaceTree({
+      run,
+      rootDir: local,
+      message: 'Add health rule',
+      identityEnv: IDENTITY_ENV,
+    });
+    if (!mainCommit.ok || !mainCommit.committed) throw new Error('main divergence commit failed');
+
+    const bare = path.join(tmpDir, 'remote.git');
+    await run(['init', '--bare', bare], { cwd: tmpDir });
+    await run(['--git-dir', bare, 'symbolic-ref', 'HEAD', 'refs/heads/main'], { cwd: tmpDir });
+    await raw(local, 'remote', 'add', 'origin', bare);
+    await raw(local, 'push', '--quiet', 'origin', 'main', 'feature');
+
+    const shallow = path.join(tmpDir, 'shallow');
+    const cloned = await run(['clone', '--quiet', '--depth', '1', `file://${bare}`, shallow], { cwd: tmpDir });
+    expect(cloned.code).toBe(0);
+    // `--depth` implies `--single-branch`: fetch the feature ref by refspec.
+    await raw(shallow, 'fetch', '--quiet', 'origin', '+refs/heads/feature:refs/remotes/origin/feature');
+    await rebaseline(shallow);
+    const shallowMaterializer = new WorkspaceTreeMaterializer({
+      rootDir: shallow,
+      readSnapshot: async () => ({ state }),
+    });
+    try {
+      const applied: EmissionBatch[] = [];
+      const result = await doMerge(
+        'origin/feature',
+        applied,
+        () => {
+          state.rules = [{ ...state.rules[0], name: 'Block probes (branch)' } as Rule, state.rules[1]];
+        },
+        { rootDir: shallow, materializer: shallowMaterializer },
+      );
+      expect(result).toMatchObject({ ok: true, upToDate: false, history: 'shallow' });
+      const parents = await raw(shallow, 'log', '-1', '--format=%P');
+      expect(parents.stdout.trim().split(/\s+/)).toEqual([mainCommit.sha, branchSha]);
+      // No base ⇒ every foreign file classified as changed, nothing
+      // removed: main's own rule survives beside the renamed one.
+      const listing = await raw(shallow, 'ls-tree', '-r', '--name-only', 'HEAD');
+      expect(listing.stdout).toContain('allow-health-bbbbbbbb');
+      const ruleBytes = await fs.readFile(path.join(shallow, ...RULE_FILE.split('/')), 'utf-8');
+      expect(ruleBytes).toContain('name: Block probes (branch)');
+      await assertNoConflictMarkers(shallow);
+    } finally {
+      shallowMaterializer.dispose();
+    }
   });
 
   it('refuses an unknown ref and a self-merge', async () => {

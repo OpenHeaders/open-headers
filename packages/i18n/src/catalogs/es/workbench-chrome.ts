@@ -767,6 +767,9 @@ export const workbenchChrome = {
   'workbench.gitLog.updateBranch.failed': 'No se pudo actualizar {branch}: {detail}',
   'workbench.gitLog.fetch.noRemote': 'No hay remotos configurados.',
   'workbench.gitLog.fetch.failed': 'Error al recuperar: {detail}',
+  'workbench.gitLog.shallow.tag': 'Clon superficial',
+  'workbench.gitLog.shallow.tooltip':
+    'Este clon tiene un historial truncado. El registro y la comparación se detienen en el límite, y un pull o merge que lo sobrepase trata cada archivo remoto como modificado. Ejecuta git fetch --unshallow para completarlo.',
   'workbench.gitLog.compareTab': 'Comparar: {a} y {b}',
   'workbench.gitLog.compare.onlyIn': 'Commits que existen en {a} pero no en {b}',
   'workbench.gitLog.compare.containsAll': '{a} contiene todos los commits de {b}',
@@ -850,6 +853,10 @@ export const workbenchChrome = {
   'workbench.commitTool.menu.comparePickerEmpty': 'Sin referencias coincidentes',
   'workbench.commitTool.menu.pullUpToDate': 'Ya está actualizado',
   'workbench.commitTool.menu.pullDone': 'Pull completado',
+  'workbench.commitTool.menu.pullDoneShallow':
+    'Pull completado. El clon superficial oculta el historial común, así que cada archivo remoto se trató como modificado.',
+  'workbench.commitTool.menu.pullDoneUnrelated':
+    'Pull completado. Los historiales no comparten ningún commit, así que cada archivo remoto se trató como modificado.',
   'workbench.commitTool.menu.pullFailed': 'Error en el pull: {detail}',
   'workbench.commitTool.menu.ignoreFailed': 'No se pudo actualizar el archivo de exclusión: {detail}',
   'workbench.commitTool.menu.stopIgnoring': 'Dejar de ignorar',

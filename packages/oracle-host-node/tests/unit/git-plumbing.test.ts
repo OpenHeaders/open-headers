@@ -40,6 +40,7 @@ import {
   isCommitSha,
   isSafeRefName,
   isSafeTreePath,
+  isShallowRepository,
   isWorkspaceRepo,
   listCommitLog,
   listFileLog,
@@ -713,6 +714,36 @@ describe('remote plumbing (Phase 4)', () => {
     await fs.rm(path.join(repoB, '.git', 'CHERRY_PICK_HEAD'));
     await fs.mkdir(path.join(repoB, '.git', 'rebase-merge'), { recursive: true });
     expect(await gitOperationInProgress(repoB)).toBe('rebase-merge');
+  });
+
+  it('isShallowRepository tells a --depth clone apart; the merge base behind its boundary is null', async () => {
+    // main: Initial tree → Second; feature forks from Initial.
+    const initial = (await raw(repoA, 'rev-parse', 'HEAD')).stdout.trim();
+    await raw(repoA, 'checkout', '--quiet', '-b', 'feature', initial);
+    await writeIn(repoA, 'rules/feature-r0000002/rule.yaml', 'schemaVersion: 5\nuid: r0000002\n');
+    await commitIn(repoA, 'Feature rule');
+    await raw(repoA, 'checkout', '--quiet', 'main');
+    await writeIn(repoA, 'rules/second-r0000003/rule.yaml', 'schemaVersion: 5\nuid: r0000003\n');
+    await commitIn(repoA, 'Second');
+    await raw(repoA, 'push', '--quiet', 'origin', 'main', 'feature');
+
+    const shallow = path.join(tmpDir, 'shallow');
+    const cloned = await run(['clone', '--quiet', '--depth', '1', `file://${bare}`, shallow], { cwd: tmpDir });
+    expect(cloned.code).toBe(0);
+    expect(await isShallowRepository(run, shallow)).toBe(true);
+    expect(await isShallowRepository(run, repoB)).toBe(false);
+
+    // The full clone sees the fork point; the shallow one has cut it
+    // off behind its boundary and answers null — the §3.4 degradation
+    // the integration passes name as `history: 'shallow'`.
+    // `--depth` implies `--single-branch`: the feature ref needs an
+    // explicit refspec to land as a remote-tracking ref.
+    const refspec = '+refs/heads/feature:refs/remotes/origin/feature';
+    await raw(repoB, 'fetch', '--quiet', 'origin', refspec);
+    await raw(shallow, 'fetch', '--quiet', 'origin', refspec);
+    expect(await resolveRefSha(run, shallow, 'refs/remotes/origin/feature')).not.toBeNull();
+    expect(await mergeBaseOf(run, repoB, 'HEAD', 'origin/feature')).toBe(initial);
+    expect(await mergeBaseOf(run, shallow, 'HEAD', 'origin/feature')).toBeNull();
   });
 
   it('a conflicted revert holds through REVERT_HEAD and releases on --abort', async () => {

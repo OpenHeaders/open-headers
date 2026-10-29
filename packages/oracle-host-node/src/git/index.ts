@@ -5,6 +5,7 @@
  * never by surfaces (they reach the git plane via gesture RPCs, §8).
  */
 
+export { isStateChanging, subcommandOf } from './audit-classify';
 export {
   type BranchCreateResult,
   type BranchDeleteResult,
@@ -17,17 +18,7 @@ export {
   listCommitRangeLog,
   updateBranchFromUpstream,
 } from './branch-ops';
-export { isStateChanging, subcommandOf } from './audit-classify';
 export { type CommitIntent, composeCommitMessage } from './commit-message';
-export {
-  type AddIgnoreEntryResult,
-  addIgnoreEntry,
-  checkIgnoreProvenance,
-  type IgnoreProvenance,
-  type IgnoreTarget,
-  type RemoveIgnoreEntryResult,
-  removeIgnoreEntry,
-} from './ignore-ops';
 export {
   type CreateGitExecOptions,
   createGitExec,
@@ -39,6 +30,15 @@ export {
   type GitRunner,
   probeGitAvailability,
 } from './git-exec';
+export {
+  type AddIgnoreEntryResult,
+  addIgnoreEntry,
+  checkIgnoreProvenance,
+  type IgnoreProvenance,
+  type IgnoreTarget,
+  type RemoveIgnoreEntryResult,
+  removeIgnoreEntry,
+} from './ignore-ops';
 export {
   type BranchOpResult,
   COMMIT_FILE_DIFF_MAX_BYTES,
@@ -73,6 +73,7 @@ export {
   isCommitSha,
   isSafeRefName,
   isSafeTreePath,
+  isShallowRepository,
   isWorkspaceRepo,
   type LeftRightCounts,
   listCommitLog,

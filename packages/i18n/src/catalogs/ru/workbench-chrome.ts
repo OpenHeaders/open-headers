@@ -620,6 +620,9 @@ export const workbenchChrome = {
   'workbench.gitLog.updateBranch.failed': 'Не удалось обновить ветку {branch}: {detail}',
   'workbench.gitLog.fetch.noRemote': 'Удалённые репозитории не настроены.',
   'workbench.gitLog.fetch.failed': 'Fetch не выполнен: {detail}',
+  'workbench.gitLog.shallow.tag': 'Неполный клон',
+  'workbench.gitLog.shallow.tooltip':
+    'История этого клона усечена. Журнал и сравнение останавливаются на границе, а pull или merge за её пределы считает каждый удалённый файл изменённым. Выполните git fetch --unshallow, чтобы дополнить её.',
   'workbench.gitLog.compareTab': 'Сравнение: {a} и {b}',
   'workbench.gitLog.compare.onlyIn': 'Коммиты, которые есть в {a}, но отсутствуют в {b}',
   'workbench.gitLog.compare.containsAll': 'В {a} есть все коммиты из {b}',
@@ -702,6 +705,10 @@ export const workbenchChrome = {
   'workbench.commitTool.menu.comparePickerEmpty': 'Нет подходящих ссылок',
   'workbench.commitTool.menu.pullUpToDate': 'Уже актуально',
   'workbench.commitTool.menu.pullDone': 'Pull завершён',
+  'workbench.commitTool.menu.pullDoneShallow':
+    'Pull завершён. Неполный клон скрывает общую историю, поэтому каждый удалённый файл считался изменённым.',
+  'workbench.commitTool.menu.pullDoneUnrelated':
+    'Pull завершён. У историй нет общего коммита, поэтому каждый удалённый файл считался изменённым.',
   'workbench.commitTool.menu.pullFailed': 'Pull не выполнен: {detail}',
   'workbench.commitTool.menu.ignoreFailed': 'Не удалось обновить файл игнорирования: {detail}',
   'workbench.commitTool.menu.stopIgnoring': 'Перестать игнорировать',

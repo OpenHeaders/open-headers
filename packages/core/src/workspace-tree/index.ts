@@ -47,4 +47,11 @@ export {
 } from './order';
 export { planWorkspaceTree, serializeWorkspaceManifest } from './plan';
 export { readWorkspaceTree } from './read';
-export type { TreeFile, TreeIssue, TreeReadResult, TreeUnknownFields, WorkspaceTreeState } from './types';
+export type {
+  ForeignHistoryNote,
+  TreeFile,
+  TreeIssue,
+  TreeReadResult,
+  TreeUnknownFields,
+  WorkspaceTreeState,
+} from './types';
