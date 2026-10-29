@@ -34,6 +34,8 @@
     "locales": "pnpm exec tsx config/scripts/emit-locales.ts",
     "postbuild": "pnpm exec tsx config/scripts/build-report.ts",
     "release": "pnpm exec tsx config/scripts/release.ts",
+    "version:safari": "pnpm exec tsx config/scripts/safari-version.ts",
+    "release:safari": "pnpm exec tsx config/scripts/safari-release.ts",
     "source-zip": "pnpm exec tsx config/scripts/source-zip.ts",
     "clean": "rm -rf dist"
   },

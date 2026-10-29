@@ -1,0 +1,79 @@
+* {
+    -webkit-user-select: none;
+    -webkit-user-drag: none;
+    cursor: default;
+}
+
+:root {
+    color-scheme: light dark;
+
+    --spacing: 16px;
+}
+
+html {
+    height: 100%;
+}
+
+body {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+
+    gap: var(--spacing);
+    margin: 0 calc(var(--spacing) * 2);
+    height: 100%;
+
+    font: -apple-system-short-body;
+    text-align: center;
+}
+
+section {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: calc(var(--spacing) / 2);
+    max-width: 360px;
+}
+
+h1 {
+    font: -apple-system-headline;
+    margin: 0;
+}
+
+p {
+    margin: 0;
+}
+
+.actions {
+    display: flex;
+    gap: calc(var(--spacing) / 2);
+}
+
+body:not(.extension-on, .extension-off) :is(.extension-on, .extension-off) {
+    display: none;
+}
+
+body.extension-on :is(.extension-off, .extension-unknown) {
+    display: none;
+}
+
+body.extension-off :is(.extension-on, .extension-unknown) {
+    display: none;
+}
+
+body:not(.desktop-checked) :is(.desktop-on, .desktop-off) {
+    display: none;
+}
+
+body.desktop-on :is(.desktop-off, .desktop-unknown) {
+    display: none;
+}
+
+body.desktop-off :is(.desktop-on, .desktop-unknown) {
+    display: none;
+}
+
+button {
+    font-size: 1em;
+}

@@ -66,5 +66,8 @@ coverage/
 .env.production.local
 .env.local
 
-# Safari extension build directory
-/manifests/safari/xcode_project/
+# Safari containing app: Xcode user state and local build output
+xcuserdata/
+*.xcuserstate
+/safari/DerivedData/
+/safari/archive/
