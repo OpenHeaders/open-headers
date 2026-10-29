@@ -18,12 +18,14 @@ import {
   BASELINE_RESOURCE_VOCABULARY,
   CHROMIUM_RESOURCE_VOCABULARY,
   FIREFOX_RESOURCE_VOCABULARY,
+  SAFARI_RESOURCE_VOCABULARY,
 } from '@openheaders/rule-engine/builders';
 
 interface BrowserFlags {
   isChrome?: boolean;
   isEdge?: boolean;
   isFirefox?: boolean;
+  isSafari?: boolean;
 }
 
 async function vocabularyUnder(flags: BrowserFlags) {
@@ -32,6 +34,7 @@ async function vocabularyUnder(flags: BrowserFlags) {
     isChrome: flags.isChrome ?? false,
     isEdge: flags.isEdge ?? false,
     isFirefox: flags.isFirefox ?? false,
+    isSafari: flags.isSafari ?? false,
     declarativeNetRequest: {
       getDynamicRules: vi.fn(() => Promise.resolve([])),
       updateDynamicRules: vi.fn(() => Promise.resolve()),
@@ -66,6 +69,13 @@ describe('resourceVocabularyForBrowser — per-browser pinning', () => {
     expect(vocab.all).toEqual(FIREFOX_RESOURCE_VOCABULARY.all);
     expect(vocab.all).toContain('beacon');
     expect(vocab.all).not.toContain('webtransport');
+  });
+
+  it('Safari compiles against the WebKit vocabulary — never the shared members it refuses (object, csp_report reject the whole batch)', async () => {
+    const vocab = await vocabularyUnder({ isSafari: true });
+    expect(vocab.all).toEqual(SAFARI_RESOURCE_VOCABULARY.all);
+    expect(vocab.all).not.toContain('object');
+    expect(vocab.all).not.toContain('csp_report');
   });
 
   it('an unverified engine falls back to the cross-browser baseline', async () => {

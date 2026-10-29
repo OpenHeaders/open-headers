@@ -455,15 +455,15 @@ export function attachLiveBypassExclusion(
 //
 // An unknown resource type rejects the entire updateDynamicRules batch
 // atomically, so the vocabulary a rule folds to must match the running
-// browser. Three vocabularies exist: the BASELINE set every supported
+// browser. Four vocabularies exist: the BASELINE set every supported
 // engine accepts, the CHROMIUM set adding the Chromium-only members
-// (webtransport, webbundle), and the FIREFOX set adding the
-// Gecko-specific members its schema accepts. The orchestrator picks one
-// per browser and threads it through
-// `EngineCompileSettings.resourceVocabulary` — the builders never
-// decide. A rule without resource-type conditions folds to the
-// vocabulary's full set, so a missing member silently exempts that
-// traffic class from every rule.
+// (webtransport, webbundle), the FIREFOX set adding the Gecko-specific
+// members its schema accepts, and the SAFARI set — WebKit's enum as
+// verified on the engine. The orchestrator picks one per browser and
+// threads it through `EngineCompileSettings.resourceVocabulary` — the
+// builders never decide. A rule without resource-type conditions folds
+// to the vocabulary's full set, so a missing member silently exempts
+// that traffic class from every rule.
 
 export interface ResourceTypeVocabulary {
   /** Every resource type the engine may emit on a rule condition. */
@@ -477,7 +477,9 @@ function makeResourceVocabulary(all: chrome.declarativeNetRequest.ResourceType[]
   return { all, subResource: all.filter((t) => t !== 'main_frame') };
 }
 
-const BASELINE_RESOURCE_TYPES = [
+/** Every member Chromium and Gecko both accept, in the order the
+ *  compilers have always emitted it. */
+const CHROMIUM_GECKO_SHARED_RESOURCE_TYPES = [
   'main_frame',
   'sub_frame',
   'stylesheet',
@@ -493,13 +495,37 @@ const BASELINE_RESOURCE_TYPES = [
   'other',
 ] as chrome.declarativeNetRequest.ResourceType[];
 
-/** Cross-browser vocabulary — Safari (and any engine whose accepted
- *  enum is unverified): the intersection every supported engine takes. */
+/**
+ * The shared members WebKit's rule validator refuses ("The value in the
+ * `resourceTypes` array is invalid"), read on Safari 27.0.1 with one
+ * session rule per name (the Safari distribution plan §6). Safari also
+ * refuses every Chromium-only and Gecko-only member.
+ */
+const WEBKIT_REFUSED_RESOURCE_TYPES: ReadonlySet<chrome.declarativeNetRequest.ResourceType> = new Set([
+  'object',
+  'csp_report',
+] as chrome.declarativeNetRequest.ResourceType[]);
+
+const BASELINE_RESOURCE_TYPES = CHROMIUM_GECKO_SHARED_RESOURCE_TYPES.filter(
+  (type) => !WEBKIT_REFUSED_RESOURCE_TYPES.has(type),
+);
+
+/** Cross-browser vocabulary — the intersection every supported engine
+ *  takes; what an engine whose accepted enum is unverified compiles
+ *  against. */
 export const BASELINE_RESOURCE_VOCABULARY: ResourceTypeVocabulary = makeResourceVocabulary(BASELINE_RESOURCE_TYPES);
+
+/**
+ * Safari vocabulary — WebKit's accepted enum as verified on 27.0.1
+ * (above). Equal to the baseline today; its own name so a future
+ * Safari widening is a Safari change, never a baseline one — and the
+ * baseline carries no Safari provenance.
+ */
+export const SAFARI_RESOURCE_VOCABULARY: ResourceTypeVocabulary = makeResourceVocabulary(BASELINE_RESOURCE_TYPES);
 
 /** Chrome / Edge vocabulary — the full Chromium DNR enum. */
 export const CHROMIUM_RESOURCE_VOCABULARY: ResourceTypeVocabulary = makeResourceVocabulary([
-  ...BASELINE_RESOURCE_TYPES,
+  ...CHROMIUM_GECKO_SHARED_RESOURCE_TYPES,
   'webtransport',
   'webbundle',
 ] as chrome.declarativeNetRequest.ResourceType[]);
@@ -523,7 +549,7 @@ export const CHROMIUM_RESOURCE_VOCABULARY: ResourceTypeVocabulary = makeResource
  * classes from every rule on Firefox.
  */
 export const FIREFOX_RESOURCE_VOCABULARY: ResourceTypeVocabulary = makeResourceVocabulary([
-  ...BASELINE_RESOURCE_TYPES,
+  ...CHROMIUM_GECKO_SHARED_RESOURCE_TYPES,
   'beacon',
   'imageset',
   'web_manifest',

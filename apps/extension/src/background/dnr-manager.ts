@@ -44,11 +44,12 @@ import {
   CHROMIUM_RESOURCE_VOCABULARY,
   FIREFOX_RESOURCE_VOCABULARY,
   type ResourceTypeVocabulary,
+  SAFARI_RESOURCE_VOCABULARY,
 } from '@openheaders/rule-engine/builders';
 import { compileRuleSet } from '@openheaders/rule-engine/compile';
 import { report as reportStatus } from '@openheaders/ui/shared/status';
 import { get as getSetting } from '@openheaders/ui/workbench/settings/store';
-import { declarativeNetRequest, isChrome, isEdge, isFirefox } from '@utils/browser-api';
+import { declarativeNetRequest, isChrome, isEdge, isFirefox, isSafari } from '@utils/browser-api';
 import { logger } from '@utils/logger';
 import { updateScriptableRules } from './inject-manager';
 import { recordLog } from './modules/observability-log';
@@ -118,6 +119,7 @@ export function getRulesPaused(): boolean {
 export function resourceVocabularyForBrowser(): ResourceTypeVocabulary {
   if (isChrome || isEdge) return CHROMIUM_RESOURCE_VOCABULARY;
   if (isFirefox) return FIREFOX_RESOURCE_VOCABULARY;
+  if (isSafari) return SAFARI_RESOURCE_VOCABULARY;
   return BASELINE_RESOURCE_VOCABULARY;
 }
 
@@ -422,7 +424,8 @@ async function rebuildAll(rawRules: Rule[], retryFailedSecrets: boolean): Promis
   // orchestrator threads values through every compile. The resource-type
   // vocabulary is the per-browser seam: Chrome/Edge accept the Chromium-only
   // members (webtransport, webbundle), Firefox the Gecko schema's enum
-  // (beacon, imageset, web_manifest, …); an unverified engine gets the
+  // (beacon, imageset, web_manifest, …), Safari WebKit's verified enum
+  // (no object, no csp_report); an unverified engine gets the
   // cross-browser baseline so a vocabulary miss can't atomically reject
   // the whole DNR batch.
   const engineSettings: EngineCompileSettings = {

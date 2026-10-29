@@ -26,5 +26,6 @@ export {
   FIREFOX_RESOURCE_VOCABULARY,
   LIVE_BYPASS_HEADER_NAME,
   resolveResourceTypes,
+  SAFARI_RESOURCE_VOCABULARY,
   stripResourceTypeFields,
 } from './types';

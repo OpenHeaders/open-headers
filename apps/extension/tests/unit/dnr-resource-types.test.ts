@@ -30,6 +30,7 @@ import {
   queryParamCompiler,
   redirectCompiler,
   resolveResourceTypes,
+  SAFARI_RESOURCE_VOCABULARY,
 } from '@openheaders/rule-engine/builders';
 
 const ALL_RESOURCE_TYPES = CHROMIUM_RESOURCE_VOCABULARY.all;
@@ -126,6 +127,8 @@ describe('resolveResourceTypes', () => {
 // would atomically reject their whole DNR batch.
 
 describe('resource-type vocabularies', () => {
+  // The members every supported engine accepts — WebKit refuses object
+  // and csp_report (Safari 27.0.1, one session rule per name).
   const BASELINE = [
     'main_frame',
     'sub_frame',
@@ -133,26 +136,35 @@ describe('resource-type vocabularies', () => {
     'script',
     'image',
     'font',
-    'object',
     'xmlhttprequest',
     'ping',
-    'csp_report',
     'media',
     'websocket',
     'other',
   ];
+  const CHROMIUM_GECKO_SHARED = [...BASELINE, 'object', 'csp_report'];
 
-  it('the baseline vocabulary covers the cross-browser DNR set', () => {
+  it('the baseline vocabulary is the cross-browser intersection — no object, no csp_report', () => {
     expect([...BASELINE_RESOURCE_VOCABULARY.all].sort()).toEqual([...BASELINE].sort());
   });
 
-  it('the Chromium vocabulary adds exactly webtransport + webbundle', () => {
-    expect([...CHROMIUM_RESOURCE_VOCABULARY.all].sort()).toEqual([...BASELINE, 'webtransport', 'webbundle'].sort());
+  it('the Safari vocabulary is the verified WebKit enum — the baseline, nothing Chromium- or Gecko-only', () => {
+    expect([...SAFARI_RESOURCE_VOCABULARY.all].sort()).toEqual([...BASELINE].sort());
+    expect(SAFARI_RESOURCE_VOCABULARY.all).not.toContain('object');
+    expect(SAFARI_RESOURCE_VOCABULARY.all).not.toContain('csp_report');
+    expect(SAFARI_RESOURCE_VOCABULARY.all).not.toContain('webtransport');
+    expect(SAFARI_RESOURCE_VOCABULARY.all).not.toContain('beacon');
   });
 
-  it('the Firefox vocabulary is the Gecko 115 ESR enum — baseline plus the Gecko-only members, no json / object_subrequest / Chromium-only members', () => {
+  it('the Chromium vocabulary adds object + csp_report + webtransport + webbundle', () => {
+    expect([...CHROMIUM_RESOURCE_VOCABULARY.all].sort()).toEqual(
+      [...CHROMIUM_GECKO_SHARED, 'webtransport', 'webbundle'].sort(),
+    );
+  });
+
+  it('the Firefox vocabulary is the Gecko 115 ESR enum — the shared members plus the Gecko-only ones, no json / object_subrequest / Chromium-only members', () => {
     expect([...FIREFOX_RESOURCE_VOCABULARY.all].sort()).toEqual(
-      [...BASELINE, 'beacon', 'imageset', 'web_manifest', 'speculative', 'xslt', 'xml_dtd'].sort(),
+      [...CHROMIUM_GECKO_SHARED, 'beacon', 'imageset', 'web_manifest', 'speculative', 'xslt', 'xml_dtd'].sort(),
     );
     // json arrived after the 115 ESR — an unknown member rejects the whole
     // batch atomically on the versions strict_min_version still allows.
@@ -164,7 +176,12 @@ describe('resource-type vocabularies', () => {
   });
 
   it('each subResource set is exactly its all set minus main_frame', () => {
-    for (const vocab of [BASELINE_RESOURCE_VOCABULARY, CHROMIUM_RESOURCE_VOCABULARY, FIREFOX_RESOURCE_VOCABULARY]) {
+    for (const vocab of [
+      BASELINE_RESOURCE_VOCABULARY,
+      SAFARI_RESOURCE_VOCABULARY,
+      CHROMIUM_RESOURCE_VOCABULARY,
+      FIREFOX_RESOURCE_VOCABULARY,
+    ]) {
       expect(vocab.subResource).toEqual(vocab.all.filter((t) => t !== 'main_frame'));
     }
   });
