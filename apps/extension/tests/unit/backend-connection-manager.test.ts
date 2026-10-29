@@ -53,11 +53,6 @@ vi.mock('@utils/logger', () => ({
 
 vi.mock('@utils/bridge', () => ({ broadcast: vi.fn() }));
 
-vi.mock('@/background/safari-websocket-adapter', () => ({
-  adaptWebSocketUrl: vi.fn((url: string) => url),
-  safariPreCheck: vi.fn(() => Promise.resolve(true)),
-}));
-
 function makeRecord(id: string, overrides: Partial<BackendConnection> = {}): BackendConnection {
   return {
     id,

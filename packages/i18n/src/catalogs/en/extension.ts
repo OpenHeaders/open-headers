@@ -26,5 +26,7 @@ export const extension = {
   'extension.manifest.name': 'Open Headers',
   'extension.manifest.description':
     'The open-source Enterprise API client in your browser. Team Collaboration. Browser Interceptor - modify live traffic.',
+  'extension.manifest.descriptionSafari':
+    'Open-source Enterprise API client in your browser. Team Collaboration. Browser Interceptor - modify traffic.',
   'extension.manifest.actionDescription': 'Open Open Headers popup',
 } as const satisfies Catalog;

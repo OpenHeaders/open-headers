@@ -1,0 +1,11 @@
+{
+  "extName": {
+    "message": "Open Headers"
+  },
+  "extDesc": {
+    "message": "Client API Enterprise open source dans votre navigateur. Travail d'équipe. Intercepteur web – éditez le trafic."
+  },
+  "extActionDesc": {
+    "message": "Ouvrir le popup Open Headers"
+  }
+}

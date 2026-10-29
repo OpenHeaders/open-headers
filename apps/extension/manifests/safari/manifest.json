@@ -2,9 +2,14 @@
   "name": "__MSG_extName__",
   "description": "__MSG_extDesc__",
   "default_locale": "en",
+  "author": "Open Headers",
   "version": "0.0.0",
   "manifest_version": 3,
-  "author": "Open Headers",
+  "browser_specific_settings": {
+    "safari": {
+      "strict_min_version": "18.4"
+    }
+  },
   "action": {
     "default_popup": "popup.html",
     "default_icon": {
@@ -24,20 +29,15 @@
     "webNavigation",
     "activeTab",
     "scripting",
-    "cookies",
-    "sidePanel",
-    "identity"
+    "cookies"
   ],
   "host_permissions": [
     "<all_urls>",
     "file:///*"
   ],
   "background": {
-    "scripts": ["js/safari/SafariAPIs.js", "js/background/index.js"],
+    "scripts": ["js/background/index.js"],
     "type": "module"
-  },
-  "side_panel": {
-    "default_path": "sidepanel.html"
   },
   "content_scripts": [
     {

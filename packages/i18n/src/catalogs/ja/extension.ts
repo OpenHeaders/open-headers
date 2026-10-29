@@ -19,5 +19,7 @@ export const extension = {
   'extension.manifest.name': 'Open Headers',
   'extension.manifest.description':
     'ブラウザーの中のオープンソース Enterprise API クライアント。チームコラボレーション。ブラウザーインターセプター — ライブトラフィックを変更。',
+  'extension.manifest.descriptionSafari':
+    'ブラウザーの中のオープンソース Enterprise API クライアント。チームコラボレーション。ブラウザーインターセプター — トラフィックを変更。',
   'extension.manifest.actionDescription': 'Open Headers のポップアップを開く',
 } as const satisfies Catalog;

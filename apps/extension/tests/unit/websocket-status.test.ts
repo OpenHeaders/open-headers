@@ -59,11 +59,6 @@ vi.mock('@utils/logger', () => ({
 
 vi.mock('@utils/bridge', () => ({ broadcast: vi.fn() }));
 
-vi.mock('@/background/safari-websocket-adapter', () => ({
-  adaptWebSocketUrl: vi.fn((url: string) => url),
-  safariPreCheck: vi.fn(() => Promise.resolve(true)),
-}));
-
 /** A re-import of `websocket.ts` plus the status reader it shares. */
 async function loadWebsocket() {
   vi.resetModules();

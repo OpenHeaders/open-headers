@@ -1,0 +1,11 @@
+{
+  "extName": {
+    "message": "Open Headers"
+  },
+  "extDesc": {
+    "message": "Open-source Enterprise API client in your browser. Team Collaboration. Browser Interceptor - modify traffic."
+  },
+  "extActionDesc": {
+    "message": "Open Open Headers popup"
+  }
+}

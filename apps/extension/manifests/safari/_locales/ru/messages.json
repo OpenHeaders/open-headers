@@ -1,0 +1,11 @@
+{
+  "extName": {
+    "message": "Open Headers"
+  },
+  "extDesc": {
+    "message": "Enterprise API-клиент с открытым кодом в браузере. Работа в команде. Перехватчик браузера — изменяйте трафик."
+  },
+  "extActionDesc": {
+    "message": "Открыть всплывающее окно Open Headers"
+  }
+}

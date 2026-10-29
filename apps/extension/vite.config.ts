@@ -273,9 +273,16 @@ function copyAssetsPlugin() {
     { from: '../../packages/ui/src/assets/fonts/OFL.txt', to: 'fonts/OFL.txt' },
   ];
 
-  // Safari-specific
+  // Safari ships its own `_locales` set over the public one: App Store
+  // Connect caps the manifest description at 112 characters, the other
+  // stores at 132 (the Safari distribution plan §3). Both sets are
+  // committed by `pnpm run locales`; Vite copies `public/` before any
+  // `writeBundle` hook runs, so the overlay below lands on top.
   if (browser === 'safari') {
-    copies.push({ from: 'manifests/safari/SafariAPIs.js', to: 'js/safari/SafariAPIs.js' });
+    const safariLocales = path.resolve(__dirname, 'manifests/safari/_locales');
+    for (const dir of fs.readdirSync(safariLocales)) {
+      copies.push({ from: `manifests/safari/_locales/${dir}/messages.json`, to: `_locales/${dir}/messages.json` });
+    }
   }
 
   return {

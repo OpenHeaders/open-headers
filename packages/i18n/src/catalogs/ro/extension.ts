@@ -23,5 +23,7 @@ export const extension = {
   'extension.manifest.name': 'Open Headers',
   'extension.manifest.description':
     'Clientul API Enterprise open source în browserul tău. Colaborare în echipă. Interceptor de browser – modifică traficul live.',
+  'extension.manifest.descriptionSafari':
+    'Client API Enterprise open source în browser. Colaborare în echipă. Interceptor de browser – modifică traficul.',
   'extension.manifest.actionDescription': 'Deschidere fereastră popup Open Headers',
 } as const satisfies Catalog;

@@ -18,7 +18,7 @@ export const extension = {
       other: '{count} 条规则',
     })} 中有 ${matched} 条在此页面上匹配了请求`,
   'extension.manifest.name': 'Open Headers',
-  'extension.manifest.description':
-    '浏览器里的开源企业级 API 客户端。团队协作。浏览器拦截器——修改实时流量。',
+  'extension.manifest.description': '浏览器里的开源企业级 API 客户端。团队协作。浏览器拦截器——修改实时流量。',
+  'extension.manifest.descriptionSafari': '浏览器里的开源企业级 API 客户端。团队协作。浏览器拦截器——修改流量。',
   'extension.manifest.actionDescription': '打开 Open Headers 弹窗',
 } as const satisfies Catalog;

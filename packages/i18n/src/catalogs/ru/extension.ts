@@ -25,5 +25,7 @@ export const extension = {
   'extension.manifest.name': 'Open Headers',
   'extension.manifest.description':
     'Enterprise API-клиент с открытым кодом в вашем браузере. Работа в команде. Перехватчик браузера — изменяйте живой трафик.',
+  'extension.manifest.descriptionSafari':
+    'Enterprise API-клиент с открытым кодом в браузере. Работа в команде. Перехватчик браузера — изменяйте трафик.',
   'extension.manifest.actionDescription': 'Открыть всплывающее окно Open Headers',
 } as const satisfies Catalog;
