@@ -186,7 +186,7 @@ interface MutationLogStatements {
   knownMutationIds: Database.Statement<[string, string]>;
   readSincePage: Database.Statement<[string, string, string, string, number], PageRow>;
   readAllPage: Database.Statement<[string, string, string, number], PageRow>;
-  truncateBefore: Database.Statement<[string, string, string]>;
+  truncateBefore: Database.Statement<[string, string]>;
   purgeOrgSelect: Database.Statement<[string, string]>;
   purgeOrgDelete: Database.Statement<[string, string]>;
 }
@@ -220,10 +220,12 @@ function prepareStatements(db: Database.Database): MutationLogStatements {
        WHERE scope = ? AND (hlc_key, mutation_id) > (?, ?)
        ORDER BY hlc_key ASC, mutation_id ASC LIMIT ?`,
     ),
-    // Compaction is branch-local: a watermark computed while on branch
-    // A must never drop rows another branch still needs; trunk rows
-    // compact only while the pointer itself is the trunk.
-    truncateBefore: db.prepare(`DELETE FROM mutation_log WHERE scope = ? AND branch = ? AND hlc_key < ?`),
+    // Compaction is SCOPE-WIDE, never branch-local (the header's law):
+    // the boot replay is `readAll`, so a truncate that spared one
+    // branch's rows below the watermark would leave rows no reader
+    // needs while a branch-local cut would drop rows the replay does.
+    // The watermark the caller computes is the scope's (§9.3).
+    truncateBefore: db.prepare(`DELETE FROM mutation_log WHERE scope = ? AND hlc_key < ?`),
     purgeOrgSelect: db.prepare(`SELECT mutation_id FROM mutation_log WHERE scope = ? AND org_id = ?`),
     purgeOrgDelete: db.prepare(`DELETE FROM mutation_log WHERE scope = ? AND org_id = ?`),
   };
@@ -337,7 +339,7 @@ export class SqliteMutationLog implements BranchScopedMutationLog {
 
   async truncateBefore(beforeHlcKey: string): Promise<void> {
     const stmts = statementsFor(this.db);
-    stmts.truncateBefore.run(this.scope, this.branch, beforeHlcKey);
+    stmts.truncateBefore.run(this.scope, beforeHlcKey);
   }
 
   async purgeOrg(orgId: string): Promise<string[]> {

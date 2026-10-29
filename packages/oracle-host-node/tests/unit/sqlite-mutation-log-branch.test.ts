@@ -2,11 +2,12 @@
  * Per-branch mutation log (the data-plane topologies design §6.3; the git-sync plan
  * Phase 6): rows are stamped with the active branch, ordered reads see
  * the branchless trunk plus the active branch only — never a sibling
- * branch's rows — and compaction is branch-local. Also pins the
- * in-place column upgrade for a table created before Phase 6.
+ * branch's rows — and compaction is scope-wide, never branch-local
+ * (the boot replay reads the whole scope). Also pins the in-place
+ * column upgrade for a table created before Phase 6.
  */
 
-import type { MutationEnvelope } from '@openheaders/core/sync';
+import { hlcToString, type MutationEnvelope } from '@openheaders/core/sync';
 import {
   detachedHeadStamp,
   ensureMutationLogSchema,
@@ -112,17 +113,21 @@ describe('SqliteMutationLog per-branch scope', () => {
     expect(await collect(log.readSince(null))).toEqual([]);
   });
 
-  it('compaction is branch-local: truncating on one branch never drops a sibling or the trunk', async () => {
+  it('compaction is scope-wide: a truncate drops every branch and the trunk below the watermark, whatever the pointer says', async () => {
     await log.append(env('trunk-1', 1_000));
     log.setActiveBranch('main');
     await log.append(env('main-1', 2_000));
     log.setActiveBranch('feature');
     await log.append(env('feature-1', 3_000));
-
-    await log.truncateBefore('~');
-    expect(await collect(log.readSince(null))).toEqual(['trunk-1']);
     log.setActiveBranch('main');
-    expect(await collect(log.readSince(null))).toEqual(['trunk-1', 'main-1']);
+    await log.append(env('main-2', 4_000));
+
+    // Pointer on main; the cut sits between feature-1 and main-2.
+    await log.truncateBefore(hlcToString({ physicalMs: 3_500, logical: 0, nodeId: 'n0' }));
+    expect(await collect(log.readAll())).toEqual(['main-2']);
+    expect(await collect(log.readSince(null))).toEqual(['main-2']);
+    log.setActiveBranch('feature');
+    expect(await collect(log.readSince(null))).toEqual([]);
   });
 
   it('purgeOrg is cross-branch (tenancy eviction outranks branch scoping)', async () => {
