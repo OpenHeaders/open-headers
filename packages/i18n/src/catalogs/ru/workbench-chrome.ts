@@ -581,6 +581,7 @@ export const workbenchChrome = {
   'workbench.gitLog.diff.tooLarge': 'Файл слишком велик для предпросмотра ({size} KB).',
   'workbench.gitLog.refs.search': 'Ветка или тег',
   'workbench.gitLog.refs.head': 'HEAD (текущая ветка)',
+  'workbench.gitLog.refs.headDetached': 'HEAD · {sha} (отделён)',
   'workbench.gitLog.refs.local': 'Локальные',
   'workbench.gitLog.refs.remote': 'Удалённые',
   'workbench.gitLog.refs.tags': 'Теги',
@@ -661,6 +662,9 @@ export const workbenchChrome = {
   'workbench.commitTool.counter.unversioned': 'неотслеживаемых: {count}',
   'workbench.commitTool.nothingToCommit': 'В выбранных файлах нет изменений',
   'workbench.commitTool.committed': 'Создан коммит {sha}',
+  'workbench.commitTool.detached.message':
+    'HEAD отделён на {sha} — коммит, сделанный здесь, не принадлежит ни одной ветке. Создайте ветку, чтобы сохранить эту работу.',
+  'workbench.commitTool.detached.newBranch': 'Новая ветка от HEAD…',
   'workbench.commitTool.menu.commitFile': 'Коммит файла…',
   'workbench.commitTool.menu.moveToChangelist': 'Переместить в другой список изменений…',
   'workbench.commitTool.menu.showDiff': 'Показать Diff',

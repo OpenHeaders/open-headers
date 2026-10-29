@@ -809,6 +809,9 @@ export const workbenchChrome = {
   'workbench.commitTool.counter.unversioned': '{count} sin versionar',
   'workbench.commitTool.nothingToCommit': 'No hay cambios en los archivos seleccionados',
   'workbench.commitTool.committed': 'Commit {sha} creado',
+  'workbench.commitTool.detached.message':
+    'HEAD separado en {sha}: un commit hecho aquí no pertenece a ninguna rama. Crea una rama para conservar este trabajo.',
+  'workbench.commitTool.detached.newBranch': 'Nueva rama desde HEAD…',
   'workbench.commitTool.menu.commitFile': 'Commit del archivo…',
   'workbench.commitTool.menu.moveToChangelist': 'Mover a otra lista de cambios…',
   'workbench.commitTool.menu.showDiff': 'Mostrar diferencias',
@@ -877,6 +880,7 @@ export const workbenchChrome = {
   'workbench.commitTool.errors.pushFailed': 'El push falló',
   'workbench.gitLog.refs.search': 'Rama o etiqueta',
   'workbench.gitLog.refs.head': 'HEAD (rama actual)',
+  'workbench.gitLog.refs.headDetached': 'HEAD · {sha} (separado)',
   'workbench.gitLog.refs.local': 'Locales',
   'workbench.gitLog.refs.remote': 'Remotas',
   'workbench.gitLog.refs.tags': 'Etiquetas',

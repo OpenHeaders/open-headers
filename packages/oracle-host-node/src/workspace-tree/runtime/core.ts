@@ -85,8 +85,8 @@ export interface OpenBinding {
   watcher: WorkspaceTreeWatcher;
   /** `.git/HEAD` watch — the external-checkout trigger (started once the repo exists). */
   headWatcher: GitHeadWatcher;
-  /** The branch the §6.3 log pointer currently reflects; null before the first probe. */
-  logBranch: string | null;
+  /** The HEAD identity the §6.3 log pointer currently reflects (branch name or `@{<sha>}`); null before the first probe. */
+  logHead: string | null;
   /** §8 single actor — every sweep + materialize + commit pass chains here. */
   chain: Promise<void>;
   materializeTimer: NodeJS.Timeout | null;

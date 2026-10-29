@@ -86,6 +86,7 @@ export async function dispatchWorkspaceTreeRpc(
         git: { available: false, reason: 'missing' },
         repo: false,
         branch: null,
+        headSha: null,
         branches: [],
         dirtyFiles: null,
         userIndexBusy: false,

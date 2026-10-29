@@ -310,6 +310,8 @@ export interface WorkspaceTreeGitStatusRpcResult {
   repo: boolean;
   /** The checked-out branch (§6 — one active branch per binding); null when detached/unavailable. */
   branch: string | null;
+  /** The commit HEAD resolves to; null when unborn/unavailable. With `branch` null it is the detached HEAD (§3.4). */
+  headSha: string | null;
   /** Local branch names — rescue/fork branches appear here naturally. */
   branches: string[];
   /** `git status --porcelain` entry count; null when unreadable. */

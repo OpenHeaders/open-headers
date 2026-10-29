@@ -552,6 +552,7 @@ export const workbenchChrome = {
   'workbench.gitLog.diff.tooLarge': 'File too large to preview ({size} KB).',
   'workbench.gitLog.refs.search': 'Branch or tag',
   'workbench.gitLog.refs.head': 'HEAD (Current Branch)',
+  'workbench.gitLog.refs.headDetached': 'HEAD · {sha} (detached)',
   'workbench.gitLog.refs.local': 'Local',
   'workbench.gitLog.refs.remote': 'Remote',
   'workbench.gitLog.refs.tags': 'Tags',
@@ -633,6 +634,9 @@ export const workbenchChrome = {
   'workbench.commitTool.counter.unversioned': '{count} unversioned',
   'workbench.commitTool.nothingToCommit': 'No changes in the selected files',
   'workbench.commitTool.committed': 'Committed {sha}',
+  'workbench.commitTool.detached.message':
+    'Detached HEAD at {sha} — a commit made here belongs to no branch. Create a branch to keep this work.',
+  'workbench.commitTool.detached.newBranch': 'New Branch from HEAD…',
   'workbench.commitTool.menu.commitFile': 'Commit File…',
   'workbench.commitTool.menu.moveToChangelist': 'Move to Another Changelist…',
   'workbench.commitTool.menu.showDiff': 'Show Diff',

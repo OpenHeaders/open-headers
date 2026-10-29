@@ -560,6 +560,7 @@ export const workbenchChrome = {
   'workbench.gitLog.diff.tooLarge': '파일이 너무 커서 미리 볼 수 없습니다 ({size} KB).',
   'workbench.gitLog.refs.search': '브랜치 또는 태그',
   'workbench.gitLog.refs.head': 'HEAD (현재 브랜치)',
+  'workbench.gitLog.refs.headDetached': 'HEAD · {sha} (분리됨)',
   'workbench.gitLog.refs.local': '로컬',
   'workbench.gitLog.refs.remote': '원격',
   'workbench.gitLog.refs.tags': '태그',
@@ -640,6 +641,9 @@ export const workbenchChrome = {
   'workbench.commitTool.counter.unversioned': '버전 관리 외 {count}개',
   'workbench.commitTool.nothingToCommit': '선택한 파일에 변경이 없습니다',
   'workbench.commitTool.committed': '{sha} 커밋됨',
+  'workbench.commitTool.detached.message':
+    'HEAD가 {sha}에서 분리되어 있습니다. 여기서 만든 커밋은 어떤 브랜치에도 속하지 않습니다. 이 작업을 보존하려면 브랜치를 만드세요.',
+  'workbench.commitTool.detached.newBranch': 'HEAD에서 새 브랜치…',
   'workbench.commitTool.menu.commitFile': '파일 커밋…',
   'workbench.commitTool.menu.moveToChangelist': '다른 변경 목록으로 이동…',
   'workbench.commitTool.menu.showDiff': 'Diff 표시',

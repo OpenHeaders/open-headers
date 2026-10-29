@@ -42,6 +42,8 @@ export interface RefTreeProps {
    *  IDE posture) instead of asking `log` (the membership gate would
    *  refuse the name). */
   unbornBranch: string | null;
+  /** The detached HEAD's commit (§3.4): the HEAD row reads `HEAD · <sha> (detached)` instead of naming a branch. */
+  detachedSha: string | null;
   /** The tree selection (highlight + bar target); null selects HEAD. */
   selected: RefTreeSelection | null;
   /** Favorite keys (`<kind>:<name>`) — gold ★ rows. */
@@ -69,7 +71,18 @@ const GROUPS = [
 const INDENT = 14;
 
 const RefTree = forwardRef<RefTreeHandle, RefTreeProps>(function RefTree(
-  { refs, currentRef, unbornBranch, selected, favorites, groupByDirectory, showTags, onLeafClick, onHeadClick },
+  {
+    refs,
+    currentRef,
+    unbornBranch,
+    detachedSha,
+    selected,
+    favorites,
+    groupByDirectory,
+    showTags,
+    onLeafClick,
+    onHeadClick,
+  },
   handleRef,
 ) {
   const { token } = theme.useToken();
@@ -259,11 +272,14 @@ const RefTree = forwardRef<RefTreeHandle, RefTreeProps>(function RefTree(
             style={{ ...rowStyle(0), fontWeight: 600 }}
             onClick={onHeadClick}
             data-testid="git-tool-ref-head"
+            data-detached={detachedSha !== null ? 'true' : undefined}
           >
             <span
               style={{ flex: '1 1 auto', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
             >
-              {t('workbench.gitLog.refs.head')}
+              {detachedSha !== null
+                ? t('workbench.gitLog.refs.headDetached', { sha: detachedSha.slice(0, 8) })
+                : t('workbench.gitLog.refs.head')}
             </span>
           </button>
         )}

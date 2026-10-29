@@ -67,6 +67,8 @@ export interface GitGroupRendererProps {
   workspaceId: string;
   /** Checked-out branch — the compare tabs' label + the unborn-HEAD row. */
   branch: string | null;
+  /** The commit HEAD resolves to — with `branch` null, the detached HEAD the rail names (§3.4). */
+  headSha: string | null;
   /** True while the git dock owns focus (strip tint law). */
   dockFocused: boolean;
   /** Renders the panel header row while the tree is a SINGLE pane. */
@@ -84,6 +86,7 @@ export const GitGroupRenderer: React.FC<GitGroupRendererProps> = ({
   workbench,
   workspaceId,
   branch,
+  headSha,
   dockFocused,
   renderHeader,
   titleInfo,
@@ -327,6 +330,7 @@ export const GitGroupRenderer: React.FC<GitGroupRendererProps> = ({
         workspaceId={workspaceId}
         tab={tab}
         branch={branch}
+        detachedSha={branch === null ? headSha : null}
         patchTab={(patch) => registry.patchLogTab(gitPanelTabKey(tab), patch)}
         onOpenCompare={(ref) => registry.openCompare(ref)}
       />

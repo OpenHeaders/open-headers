@@ -812,6 +812,9 @@ export const workbenchChrome = {
   'workbench.commitTool.counter.unversioned': '{count} non versionné(s)',
   'workbench.commitTool.nothingToCommit': 'Aucune modification dans les fichiers sélectionnés',
   'workbench.commitTool.committed': 'Commit {sha} créé',
+  'workbench.commitTool.detached.message':
+    'HEAD détaché sur {sha} — un commit fait ici n’appartient à aucune branche. Créez une branche pour conserver ce travail.',
+  'workbench.commitTool.detached.newBranch': 'Nouvelle branche depuis HEAD…',
   'workbench.commitTool.menu.commitFile': 'Commit du fichier…',
   'workbench.commitTool.menu.moveToChangelist': 'Déplacer vers une autre liste de modifications…',
   'workbench.commitTool.menu.showDiff': 'Afficher les différences',
@@ -880,6 +883,7 @@ export const workbenchChrome = {
   'workbench.commitTool.errors.pushFailed': 'Échec du push',
   'workbench.gitLog.refs.search': 'Branche ou tag',
   'workbench.gitLog.refs.head': 'HEAD (branche actuelle)',
+  'workbench.gitLog.refs.headDetached': 'HEAD · {sha} (détaché)',
   'workbench.gitLog.refs.local': 'Locales',
   'workbench.gitLog.refs.remote': 'Distantes',
   'workbench.gitLog.refs.tags': 'Tags',

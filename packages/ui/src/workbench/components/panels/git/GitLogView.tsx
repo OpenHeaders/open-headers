@@ -41,6 +41,8 @@ export interface GitLogViewProps {
   tab: GitLogTabState;
   /** Checked-out branch from the panel's status feed (unborn included). */
   branch: string | null;
+  /** The detached HEAD's commit (§3.4) from the status feed; null while a branch is checked out. */
+  detachedSha: string | null;
   patchTab: (patch: Partial<Omit<GitLogTabState, 'kind' | 'id'>>) => void;
   /** Open a Compare-with-Current tab (registry gesture — the renderer wires it). */
   onOpenCompare: (ref: string) => void;
@@ -48,7 +50,7 @@ export interface GitLogViewProps {
 
 const LOG_LIMIT = 200;
 
-const GitLogView: React.FC<GitLogViewProps> = ({ workspaceId, tab, branch, patchTab, onOpenCompare }) => {
+const GitLogView: React.FC<GitLogViewProps> = ({ workspaceId, tab, branch, detachedSha, patchTab, onOpenCompare }) => {
   const { token } = theme.useToken();
   const { t } = useLocale();
   const rootRef = useRef<HTMLDivElement>(null);
@@ -272,6 +274,7 @@ const GitLogView: React.FC<GitLogViewProps> = ({ workspaceId, tab, branch, patch
             refs={refs}
             currentRef={currentRef}
             unbornBranch={unbornBranch}
+            detachedSha={detachedSha}
             selection={railSelection}
             onSelectionChange={(selection) => patchTab({ railSelection: selection })}
             scopeRef={selectedRef}

@@ -12,16 +12,18 @@ import {
   createLocalBranch,
   currentBranch,
   deleteLocalBranch,
+  type GitRunner,
   isCommitSha,
   isSafeRefName,
   isWorkspaceRepo,
   listLocalBranches,
   listRepoRefs,
+  localHeadSha,
   resolveCommitIdentity,
   resolveRefSha,
   updateBranchFromUpstream,
 } from '../../git';
-import { supportsBranchScope } from '../../sync/sqlite-mutation-log';
+import { detachedHeadStamp, supportsBranchScope } from '../../sync/sqlite-mutation-log';
 import { mergeWorkspaceBranch } from '../merge';
 import { type SwitchDirtyAction, switchWorkspaceBranch } from '../switch';
 import { syntheticIdentity } from './commit';
@@ -36,18 +38,34 @@ import type {
 } from './types';
 
 /**
+ * The §6.3 stamp HEAD resolves to: the branch name (an unborn branch
+ * included — `symbolic-ref` still answers), or `@{<sha>}` when HEAD is
+ * detached (the git-sync plan §3.4 — the rows never join the trunk,
+ * and a move between two detached commits is a different identity).
+ * `''` only when HEAD resolves to nothing at all.
+ */
+export async function headStampOf(run: GitRunner, rootDir: string): Promise<string> {
+  const branch = await currentBranch(run, rootDir);
+  if (branch !== null) return branch;
+  const sha = await localHeadSha(run, rootDir);
+  return sha !== null ? detachedHeadStamp(sha) : '';
+}
+
+/**
  * Keep the §6.3 per-branch log pointer in step with HEAD — called at
  * bind-open (once the repo exists) and after every checkout, in-app
  * or external. Non-SQLite logs (tests' in-memory doubles) simply
  * don't scope; the pointer is remembered either way so the HEAD
- * watcher can tell a real move from an echo.
+ * watcher can tell a real move from an echo. The comparison is on the
+ * resolved HEAD IDENTITY, not the branch name: a checkout from one
+ * detached commit to another changes the tree and must sweep.
  */
 export async function syncLogBranch(ctx: RuntimeCtx, binding: OpenBinding): Promise<boolean> {
-  const branch = await currentBranch(ctx.gitRun, binding.record.rootDir);
-  const changed = branch !== binding.logBranch;
-  binding.logBranch = branch;
+  const stamp = await headStampOf(ctx.gitRun, binding.record.rootDir);
+  const changed = stamp !== binding.logHead;
+  binding.logHead = stamp;
   if (supportsBranchScope(binding.service.log)) {
-    binding.service.log.setActiveBranch(branch ?? '');
+    binding.service.log.setActiveBranch(stamp);
   }
   return changed;
 }

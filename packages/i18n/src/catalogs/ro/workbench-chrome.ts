@@ -588,6 +588,7 @@ export const workbenchChrome = {
   'workbench.gitLog.diff.tooLarge': 'Fișier prea mare pentru previzualizare ({size} KB).',
   'workbench.gitLog.refs.search': 'Ramură sau etichetă',
   'workbench.gitLog.refs.head': 'HEAD (ramura curentă)',
+  'workbench.gitLog.refs.headDetached': 'HEAD · {sha} (detașat)',
   'workbench.gitLog.refs.local': 'Locale',
   'workbench.gitLog.refs.remote': 'La distanță',
   'workbench.gitLog.refs.tags': 'Etichete',
@@ -668,6 +669,9 @@ export const workbenchChrome = {
   'workbench.commitTool.counter.unversioned': 'neversionate: {count}',
   'workbench.commitTool.nothingToCommit': 'Nicio modificare în fișierele selectate',
   'workbench.commitTool.committed': 'Commit creat: {sha}',
+  'workbench.commitTool.detached.message':
+    'HEAD detașat la {sha} — un commit făcut aici nu aparține niciunei ramuri. Creează o ramură pentru a păstra această lucrare.',
+  'workbench.commitTool.detached.newBranch': 'Ramură nouă din HEAD…',
   'workbench.commitTool.menu.commitFile': 'Commit fișier…',
   'workbench.commitTool.menu.moveToChangelist': 'Mutare în altă listă de modificări…',
   'workbench.commitTool.menu.showDiff': 'Afișare Diff',

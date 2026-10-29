@@ -52,7 +52,7 @@ export async function openBinding(ctx: RuntimeCtx, record: WorkspaceTreeBindingR
           ctx.drainIntents(binding);
           await ctx.runSweep(binding);
           await binding.materializer.flush();
-          logger.info(SCOPE, `external checkout reconciled for ${record.rootDir}: ${binding.logBranch ?? 'HEAD'}`);
+          logger.info(SCOPE, `external checkout reconciled for ${record.rootDir}: ${binding.logHead ?? 'HEAD'}`);
         }
         await ctx.publishGitStatus(binding);
       }),
@@ -64,7 +64,7 @@ export async function openBinding(ctx: RuntimeCtx, record: WorkspaceTreeBindingR
     materializer,
     watcher,
     headWatcher,
-    logBranch: null,
+    logHead: null,
     chain: Promise.resolve(),
     materializeTimer: null,
     commitTimer: null,

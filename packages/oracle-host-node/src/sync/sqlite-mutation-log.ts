@@ -48,7 +48,12 @@
  *     state the host never held. `''` is the branchless trunk (unbound
  *     workspaces, and every row appended before a binding existed):
  *     trunk rows precede any branch-stamped row and are visible from
- *     every branch. Dedup stays scope-global (`mutationId` is minted
+ *     every branch. A DETACHED HEAD stamps `@{<sha>}` ({@link
+ *     detachedHeadStamp}): no ref name may contain `@{` (git's own
+ *     rule, and the plane's validator rejects braces outright), so the
+ *     key collides with no branch and the rows never join the trunk —
+ *     a peer of a detached host sees trunk + that key, exactly as it
+ *     sees trunk + a branch name (the git-sync plan §3.4). Dedup stays scope-global (`mutationId` is minted
  *     fresh per branch — checkout/merge enter as virtual batches with
  *     new ids, so a cross-branch collision is the same envelope).
  *     Compaction, when it is designed, must be scope-wide or
@@ -158,6 +163,14 @@ export interface BranchScopedMutationLog extends MutationLog {
 /** Whether a log supports the §6.3 per-branch pointer. */
 export function supportsBranchScope(log: MutationLog): log is BranchScopedMutationLog {
   return typeof (log as Partial<BranchScopedMutationLog>).setActiveBranch === 'function';
+}
+
+/** Opening of a detached-HEAD stamp — a sequence no ref name may contain. */
+export const DETACHED_HEAD_STAMP_PREFIX = '@{';
+
+/** The §6.3 stamp of rows appended while HEAD is detached at `sha` (the git-sync plan §3.4): `@{<sha>}`. */
+export function detachedHeadStamp(sha: string): string {
+  return `${DETACHED_HEAD_STAMP_PREFIX}${sha}}`;
 }
 
 /** One row of a keyset page: the envelope plus the cursor columns the next page starts above. */

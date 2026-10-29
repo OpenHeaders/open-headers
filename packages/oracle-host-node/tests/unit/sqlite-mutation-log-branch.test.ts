@@ -8,6 +8,7 @@
 
 import type { MutationEnvelope } from '@openheaders/core/sync';
 import {
+  detachedHeadStamp,
   ensureMutationLogSchema,
   SqliteMutationLog,
   supportsBranchScope,
@@ -62,6 +63,22 @@ describe('SqliteMutationLog per-branch scope', () => {
     expect(await collect(log.readSince(null))).toEqual(['trunk-1', 'main-1']);
     log.setActiveBranch('');
     expect(await collect(log.readSince(null))).toEqual(['trunk-1']);
+  });
+
+  it('a detached HEAD stamps @{<sha>}: its rows never join the trunk and no branch sees them (§3.4)', async () => {
+    const detached = detachedHeadStamp('0123456789abcdef0123456789abcdef01234567');
+    await log.append(env('trunk-1', 1_000));
+    log.setActiveBranch('main');
+    await log.append(env('main-1', 2_000));
+    log.setActiveBranch(detached);
+    await log.append(env('detached-1', 3_000));
+
+    expect(await collect(log.readSince(null))).toEqual(['trunk-1', 'detached-1']);
+    log.setActiveBranch('main');
+    expect(await collect(log.readSince(null))).toEqual(['trunk-1', 'main-1']);
+    log.setActiveBranch('');
+    expect(await collect(log.readSince(null))).toEqual(['trunk-1']);
+    expect(await collect(log.readAll())).toEqual(['trunk-1', 'main-1', 'detached-1']);
   });
 
   it('readAll is the boot replay: every branch in HLC order, whatever the pointer says', async () => {

@@ -560,6 +560,7 @@ export const workbenchChrome = {
   'workbench.gitLog.diff.tooLarge': 'ファイルが大きすぎてプレビューできません（{size} KB）。',
   'workbench.gitLog.refs.search': 'ブランチまたはタグ',
   'workbench.gitLog.refs.head': 'HEAD（現在のブランチ）',
+  'workbench.gitLog.refs.headDetached': 'HEAD · {sha}（分離）',
   'workbench.gitLog.refs.local': 'ローカル',
   'workbench.gitLog.refs.remote': 'リモート',
   'workbench.gitLog.refs.tags': 'タグ',
@@ -641,6 +642,9 @@ export const workbenchChrome = {
   'workbench.commitTool.counter.unversioned': '{count} 件のバージョン管理外',
   'workbench.commitTool.nothingToCommit': '選択したファイルに変更はありません',
   'workbench.commitTool.committed': '{sha} をコミットしました',
+  'workbench.commitTool.detached.message':
+    'HEAD は {sha} で分離状態です。ここで作成したコミットはどのブランチにも属しません。この作業を残すにはブランチを作成してください。',
+  'workbench.commitTool.detached.newBranch': 'HEAD から新しいブランチ…',
   'workbench.commitTool.menu.commitFile': 'ファイルをコミット…',
   'workbench.commitTool.menu.moveToChangelist': '別の変更リストへ移動…',
   'workbench.commitTool.menu.showDiff': '差分を表示',

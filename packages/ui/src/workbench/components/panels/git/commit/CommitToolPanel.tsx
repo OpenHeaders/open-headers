@@ -14,7 +14,7 @@ import {
   type WorkspaceTreeFileDiffPairWire,
   type WorkspaceTreeWorkingChangeWire,
 } from '@openheaders/core/bridge';
-import { App as AntApp } from 'antd';
+import { Alert, App as AntApp, Button } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { useLocale } from '@openheaders/ui/context/LocaleContext';
@@ -70,6 +70,7 @@ const CommitToolPanel: React.FC<CommitToolPanelProps> = ({ info, onHide }) => {
   const [error, setError] = useState<string | null>(null);
   const [diff, setDiff] = useState<WorkspaceTreeFileDiffPairWire | null>(null);
   const [currentBranch, setCurrentBranch] = useState<string | null>(null);
+  const [headSha, setHeadSha] = useState<string | null>(null);
   const [compareOpen, setCompareOpen] = useState(false);
   const [createBranchFrom, setCreateBranchFrom] = useState<string | null>(null);
   const treeRef = useRef<CommitChangesTreeHandle>(null);
@@ -119,6 +120,7 @@ const CommitToolPanel: React.FC<CommitToolPanelProps> = ({ info, onHide }) => {
       const status = await hostBridge.call('oh.workspaceTree.gitStatus', { workspaceId });
       setBypassHooksSetting(status.bypassHooks);
       setCurrentBranch(status.branch);
+      setHeadSha(status.headSha);
     } catch {
       setBound(false);
     }
@@ -141,6 +143,7 @@ const CommitToolPanel: React.FC<CommitToolPanelProps> = ({ info, onHide }) => {
       if (!payload.status.bound) return;
       setBypassHooksSetting(payload.status.bypassHooks);
       setCurrentBranch(payload.status.branch);
+      setHeadSha(payload.status.headSha);
       void refreshChanges();
     });
   }, [workspaceId, refreshChanges]);
@@ -420,7 +423,7 @@ const CommitToolPanel: React.FC<CommitToolPanelProps> = ({ info, onHide }) => {
       onFetch: () => void handleFetch(),
       onCompareWithBranch: () => setCompareOpen(true),
       onBranches: handleBranches,
-      onNewBranch: () => setCreateBranchFrom(currentBranch ?? 'HEAD'),
+      onNewBranch: () => setCreateBranchFrom(currentBranch ?? headSha?.slice(0, 8) ?? 'HEAD'),
       onIgnorePath: (filePath, target) => void handleIgnorePath(filePath, target),
       onUnignorePath: (filePath, target) => void handleUnignorePath(filePath, target),
     }),
@@ -435,8 +438,14 @@ const CommitToolPanel: React.FC<CommitToolPanelProps> = ({ info, onHide }) => {
       handleIgnorePath,
       handleUnignorePath,
       currentBranch,
+      headSha,
     ],
   );
+
+  // §3.4: a detached HEAD follows the tree read-write like any other
+  // state, but a commit made here belongs to no branch — the window
+  // says so once and offers the way out (New Branch anchors at HEAD).
+  const detachedSha = currentBranch === null ? headSha : null;
 
   const rowMenu = useCallback(
     (row: WorkspaceTreeWorkingChangeWire) =>
@@ -481,6 +490,28 @@ const CommitToolPanel: React.FC<CommitToolPanelProps> = ({ info, onHide }) => {
           </div>
         }
       />
+      {detachedSha !== null && (
+        <Alert
+          type="warning"
+          showIcon
+          title={
+            <span style={{ fontSize: 12 }}>
+              {t('workbench.commitTool.detached.message', { sha: detachedSha.slice(0, 8) })}
+            </span>
+          }
+          action={
+            <Button
+              size="small"
+              onClick={() => setCreateBranchFrom(detachedSha.slice(0, 8))}
+              data-testid="commit-tool-detached-new-branch"
+            >
+              {t('workbench.commitTool.detached.newBranch')}
+            </Button>
+          }
+          style={{ borderRadius: 0 }}
+          data-testid="commit-tool-detached"
+        />
+      )}
       <CommitToolbar
         onRefresh={() => void refreshChanges()}
         prefs={prefs}

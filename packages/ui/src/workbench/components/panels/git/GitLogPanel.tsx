@@ -50,6 +50,7 @@ const GitLogPanel: React.FC<GitLogPanelProps> = ({ info, dockSlot, onHide }) => 
 
   const [bound, setBound] = useState(false);
   const [branch, setBranch] = useState<string | null>(null);
+  const [headSha, setHeadSha] = useState<string | null>(null);
   const [shallow, setShallow] = useState(false);
 
   const workbench = workspaceId !== null ? getGitPanelWorkbench(workspaceId) : null;
@@ -63,6 +64,7 @@ const GitLogPanel: React.FC<GitLogPanelProps> = ({ info, dockSlot, onHide }) => 
     if (workspaceId === null) {
       setBound(false);
       setBranch(null);
+      setHeadSha(null);
       setShallow(false);
       return;
     }
@@ -72,15 +74,18 @@ const GitLogPanel: React.FC<GitLogPanelProps> = ({ info, dockSlot, onHide }) => 
       setBound(isBound);
       if (!isBound) {
         setBranch(null);
+        setHeadSha(null);
         setShallow(false);
         return;
       }
       const status = await hostBridge.call('oh.workspaceTree.gitStatus', { workspaceId });
       setBranch(status.branch);
+      setHeadSha(status.headSha);
       setShallow(status.shallow);
     } catch {
       setBound(false);
       setBranch(null);
+      setHeadSha(null);
       setShallow(false);
     }
   }, [workspaceId]);
@@ -95,6 +100,7 @@ const GitLogPanel: React.FC<GitLogPanelProps> = ({ info, dockSlot, onHide }) => 
       if (payload.workspaceId !== workspaceId) return;
       setBound(payload.status.bound);
       setBranch(payload.status.bound ? payload.status.branch : null);
+      setHeadSha(payload.status.bound ? payload.status.headSha : null);
       setShallow(payload.status.bound && payload.status.shallow);
     });
   }, [workspaceId]);
@@ -233,6 +239,7 @@ const GitLogPanel: React.FC<GitLogPanelProps> = ({ info, dockSlot, onHide }) => 
         workbench={workbench}
         workspaceId={workspaceId}
         branch={branch}
+        headSha={headSha}
         dockFocused={dockFocused}
         renderHeader={renderHeader}
         titleInfo={<InfoTrigger content={info} className="rules-panel-header-info" />}

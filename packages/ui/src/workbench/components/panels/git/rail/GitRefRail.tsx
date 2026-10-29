@@ -26,6 +26,8 @@ export interface GitRefRailProps {
   refs: WorkspaceTreeRefWire[];
   currentRef: string | null;
   unbornBranch: string | null;
+  /** The detached HEAD's commit (§3.4) — the HEAD row names it where the branch name goes; null on a branch. */
+  detachedSha: string | null;
   /** The tree selection — tab state, survives pane moves. */
   selection: RefTreeSelection | null;
   onSelectionChange: (selection: RefTreeSelection | null) => void;
@@ -45,6 +47,7 @@ const GitRefRail: React.FC<GitRefRailProps> = ({
   refs,
   currentRef,
   unbornBranch,
+  detachedSha,
   selection,
   onSelectionChange,
   scopeRef,
@@ -250,6 +253,7 @@ const GitRefRail: React.FC<GitRefRailProps> = ({
         refs={refs}
         currentRef={currentRef}
         unbornBranch={unbornBranch}
+        detachedSha={detachedSha}
         selected={selection}
         favorites={favoriteSet}
         groupByDirectory={prefs.groupByDirectory}

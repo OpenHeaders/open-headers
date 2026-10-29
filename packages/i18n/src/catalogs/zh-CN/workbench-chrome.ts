@@ -628,6 +628,9 @@ export const workbenchChrome = {
   'workbench.commitTool.counter.unversioned': '{count} 个未版本控制',
   'workbench.commitTool.nothingToCommit': '所选文件中没有更改',
   'workbench.commitTool.committed': '已提交 {sha}',
+  'workbench.commitTool.detached.message':
+    'HEAD 已在 {sha} 处分离——在此创建的提交不属于任何分支。请创建一个分支以保留这些工作。',
+  'workbench.commitTool.detached.newBranch': '从 HEAD 新建分支…',
   'workbench.commitTool.menu.commitFile': '提交文件…',
   'workbench.commitTool.menu.moveToChangelist': '移动到其他更改列表…',
   'workbench.commitTool.menu.showDiff': '显示差异',
@@ -693,6 +696,7 @@ export const workbenchChrome = {
   'workbench.commitTool.errors.pushFailed': '推送失败',
   'workbench.gitLog.refs.search': '分支或标签',
   'workbench.gitLog.refs.head': 'HEAD（当前分支）',
+  'workbench.gitLog.refs.headDetached': 'HEAD · {sha}（分离）',
   'workbench.gitLog.refs.local': '本地',
   'workbench.gitLog.refs.remote': '远程',
   'workbench.gitLog.refs.tags': '标签',
