@@ -304,8 +304,20 @@ export async function commitParents(run: GitRunner, rootDir: string, ref: string
  * Markers of a git operation the user is mid-way through. While any of
  * these exists, watcher sweeps and pull passes hold reconcile — a
  * mid-rebase tree with conflict markers must never enter the engine.
+ * `REVERT_HEAD` is a stopped revert; the `sequencer` directory is a
+ * multi-commit cherry-pick or revert between its steps (present after
+ * a resolved step is committed by hand, when the per-step `*_HEAD`
+ * file is already gone and the remaining todo is still queued).
  */
-const IN_PROGRESS_MARKERS = ['rebase-merge', 'rebase-apply', 'MERGE_HEAD', 'CHERRY_PICK_HEAD', 'BISECT_LOG'] as const;
+const IN_PROGRESS_MARKERS = [
+  'rebase-merge',
+  'rebase-apply',
+  'MERGE_HEAD',
+  'CHERRY_PICK_HEAD',
+  'REVERT_HEAD',
+  'sequencer',
+  'BISECT_LOG',
+] as const;
 
 /** The first in-progress marker present in `.git/`, or null when the repo is at rest. */
 export async function gitOperationInProgress(rootDir: string): Promise<string | null> {

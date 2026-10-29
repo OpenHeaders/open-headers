@@ -11,6 +11,7 @@ import { promises as fs } from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { isStateChanging, subcommandOf } from '../../src/git/audit-classify';
 import {
   createLocalBranch,
   deleteLocalBranch,
@@ -18,7 +19,6 @@ import {
   listCommitRangeLog,
   updateBranchFromUpstream,
 } from '../../src/git/branch-ops';
-import { isStateChanging, subcommandOf } from '../../src/git/audit-classify';
 import { createGitExec, type GitAuditRow, type GitRunner, probeGitAvailability } from '../../src/git/git-exec';
 import { addIgnoreEntry, checkIgnoreProvenance, removeIgnoreEntry } from '../../src/git/ignore-ops';
 import {
@@ -57,6 +57,7 @@ import {
   readCommitFileDiff,
   readCommitTreeFiles,
   readWorkingFileDiff,
+  repoArgs,
   resolveAuthorFilterValue,
   resolveCommitIdentity,
   resolveRefSha,
@@ -713,6 +714,56 @@ describe('remote plumbing (Phase 4)', () => {
     await fs.mkdir(path.join(repoB, '.git', 'rebase-merge'), { recursive: true });
     expect(await gitOperationInProgress(repoB)).toBe('rebase-merge');
   });
+
+  it('a conflicted revert holds through REVERT_HEAD and releases on --abort', async () => {
+    await writeIn(repoB, 'note.txt', 'one\n');
+    await commitIn(repoB, 'note one');
+    await writeIn(repoB, 'note.txt', 'two\n');
+    const two = await commitIn(repoB, 'note two');
+    await writeIn(repoB, 'note.txt', 'three\n');
+    await commitIn(repoB, 'note three');
+
+    const revert = await run([...repoArgs(repoB), 'revert', '--no-edit', two], { cwd: repoB, env: IDENTITY_ENV });
+    expect(revert.code).not.toBe(0);
+    expect(await gitOperationInProgress(repoB)).toBe('REVERT_HEAD');
+
+    expect((await raw(repoB, 'revert', '--abort')).code).toBe(0);
+    expect(await gitOperationInProgress(repoB)).toBeNull();
+    expect((await fs.readFile(path.join(repoB, 'note.txt'), 'utf-8')).trim()).toBe('three');
+  });
+
+  it('a multi-commit cherry-pick holds through the sequencer between steps, not only the per-step head', async () => {
+    await writeIn(repoB, 'note.txt', 'one\n');
+    const one = await commitIn(repoB, 'note one');
+    await writeIn(repoB, 'note.txt', 'three\n');
+    await commitIn(repoB, 'note three');
+    await raw(repoB, 'checkout', '--quiet', '-b', 'side', one);
+    await writeIn(repoB, 'note.txt', 'alpha\n');
+    const first = await commitIn(repoB, 'side alpha');
+    await writeIn(repoB, 'other.txt', 'x\n');
+    const second = await commitIn(repoB, 'side other');
+    await raw(repoB, 'checkout', '--quiet', 'main');
+
+    const pick = await run([...repoArgs(repoB), 'cherry-pick', first, second], { cwd: repoB, env: IDENTITY_ENV });
+    expect(pick.code).not.toBe(0);
+    expect(await gitOperationInProgress(repoB)).toBe('CHERRY_PICK_HEAD');
+
+    // Resolve the first step and commit it BY HAND: the per-step head
+    // is gone, the sequencer still queues the second commit.
+    await writeIn(repoB, 'note.txt', 'alpha\n');
+    await raw(repoB, 'add', 'note.txt');
+    const commit = await run([...repoArgs(repoB), 'commit', '--quiet', '--no-edit'], {
+      cwd: repoB,
+      env: IDENTITY_ENV,
+    });
+    expect(commit.code).toBe(0);
+    expect(await gitOperationInProgress(repoB)).toBe('sequencer');
+
+    const resume = await run([...repoArgs(repoB), 'cherry-pick', '--continue'], { cwd: repoB, env: IDENTITY_ENV });
+    expect(resume.code).toBe(0);
+    expect(await gitOperationInProgress(repoB)).toBeNull();
+    await expect(fs.readFile(path.join(repoB, 'other.txt'), 'utf-8')).resolves.toBe('x\n');
+  });
 });
 
 describe('porcelain feeds', () => {
@@ -725,7 +776,7 @@ describe('porcelain feeds', () => {
   });
 
   it('parsePorcelainCount handles rename records', () => {
-    const z = ['R  old.yaml', 'new.yaml', ' M rules/a/rule.yaml', '?? notes.md'].join('\0') + '\0';
+    const z = `${['R  old.yaml', 'new.yaml', ' M rules/a/rule.yaml', '?? notes.md'].join('\0')}\0`;
     expect(parsePorcelainCount(z)).toBe(3);
   });
 });

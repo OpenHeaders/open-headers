@@ -22,9 +22,11 @@ import {
 
 /**
  * §3.3 in-progress-op hold: while `.git/` carries a rebase/merge/
- * cherry-pick/bisect marker, reconcile passes stand down (a mid-op
- * tree with conflict markers must never be ingested) and a retry
- * timer re-checks until the operation concludes.
+ * cherry-pick/revert/sequencer/bisect marker, reconcile passes stand
+ * down (a mid-op tree with conflict markers must never be ingested)
+ * and a retry timer re-checks until the operation concludes — an
+ * abort or a finished sequence clears the marker and the next retry
+ * sweeps.
  */
 export async function heldByGitOperation(ctx: RuntimeCtx, binding: OpenBinding): Promise<boolean> {
   const marker = await gitOperationInProgress(binding.record.rootDir);
