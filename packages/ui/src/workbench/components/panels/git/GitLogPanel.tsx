@@ -224,6 +224,7 @@ const GitLogPanel: React.FC<GitLogPanelProps> = ({ info, dockSlot, onHide }) => 
               workspaceId={workspaceId}
               allowFolderPicker
               onBound={() => void hydrate()}
+              onAdopted={() => void hydrate()}
               testidPrefix="git-tool-bind"
             />
           </div>

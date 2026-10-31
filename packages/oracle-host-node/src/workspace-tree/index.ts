@@ -5,8 +5,15 @@
  * filesystem and consumes tree-borne changes over the wire.
  */
 
-export type { BindWorkspaceTreeOptions, BindWorkspaceTreeResult } from './bind';
-export { bindWorkspaceTree, probeWorkspaceTree, unbindWorkspaceTree } from './bind';
+export type {
+  BindWorkspaceTreeOptions,
+  BindWorkspaceTreeResult,
+  ProbeWorkspaceTreeResult,
+  ReserveWorkspaceTreeForAdoptOptions,
+  ReserveWorkspaceTreeForAdoptResult,
+  WorkspaceTreeIdentity,
+} from './bind';
+export { bindWorkspaceTree, probeWorkspaceTree, reserveWorkspaceTreeForAdopt, unbindWorkspaceTree } from './bind';
 export type { ForcePushChoice, ResolveForcePushOptions, ResolveForcePushResult } from './force-push';
 export { resolveForcePushWorkspaceTree } from './force-push';
 export type { GitHeadWatcherOptions } from './head-watcher';
@@ -25,6 +32,7 @@ export { integrateForeignHead, pullWorkspaceTree, writeForeignQuarantine } from 
 export { listWorkspaceTreeFiles, readWorkspaceTreeFromDisk } from './reader';
 export { dispatchWorkspaceTreeRpc, ownsWorkspaceTreeRpc, parseCommitCadence } from './rpc-dispatch';
 export type {
+  AdoptWorkspaceTreeRpcResult,
   BindWorkspaceTreeRpcResult,
   CommitWorkspaceTreeRpcResult,
   CompareRefsRpcResult,

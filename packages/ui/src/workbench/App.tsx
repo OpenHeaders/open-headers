@@ -110,6 +110,7 @@ import { InspectorNavProvider, useInspectorNav } from './hooks/useInspectorNav';
 import { type ResponsiveLayout, useResponsiveLayout } from './hooks/useResponsiveLayout';
 import { useAdoptActiveWorkspaceIntoSurface } from './hooks/useAdoptActiveWorkspaceIntoSurface';
 import { SurfaceWorkspaceAdoptProvider } from './hooks/SurfaceWorkspaceAdoptContext';
+import { SwitchWorkspaceProvider } from './hooks/SwitchWorkspaceContext';
 import { useRequestExecutionPlaces } from './execution-place/local-place';
 import { useSaveRequestFlow } from './hooks/useSaveRequestFlow';
 import { useSaveRuleFlow } from './hooks/useSaveRuleFlow';
@@ -1765,6 +1766,7 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
       <OpenServerAdminProvider openServerAdmin={openServerAdminFromAnywhere}>
       <OpenVaultProvider openVault={openVaultFromAnywhere}>
       <ImportTextProvider importText={importText}>
+      <SwitchWorkspaceProvider switchWorkspace={handleSwitchWorkspace}>
       <VariablePopoverProvider>
         {/* The root fault probe: a developer command arms it and the
             root boundary above the providers shows its fallback. */}
@@ -2036,6 +2038,7 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
           </ConnectionProvider>
         </div>
       </VariablePopoverProvider>
+      </SwitchWorkspaceProvider>
       </ImportTextProvider>
       </OpenVaultProvider>
       </OpenServerAdminProvider>

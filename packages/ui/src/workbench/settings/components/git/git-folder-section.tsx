@@ -32,6 +32,11 @@ const GitFolderSection: React.FC<GitFolderSectionProps> = ({ git, allowFolderPic
     void refresh();
   };
 
+  const onAdopted = (_workspaceId: string, name: string): void => {
+    message.success(t('workbench.settings.gitPane.adopted', { name }));
+    void refresh();
+  };
+
   const unbind = async (): Promise<void> => {
     if (workspaceId === null) return;
     try {
@@ -97,6 +102,7 @@ const GitFolderSection: React.FC<GitFolderSectionProps> = ({ git, allowFolderPic
               workspaceId={workspaceId}
               allowFolderPicker={allowFolderPicker}
               onBound={onBound}
+              onAdopted={onAdopted}
               testidPrefix="git-pane"
             />
           </div>

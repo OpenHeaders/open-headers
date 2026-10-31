@@ -645,6 +645,12 @@ export const workbenchSettingsPanes = {
   'workbench.settings.gitPane.refusal.invalidManifest': 'フォルダーの workspace.yaml を読み取れませんでした：{message}',
   'workbench.settings.gitPane.refusal.alreadyBound': 'このワークスペースは既にフォルダーにバインドされています。',
   'workbench.settings.gitPane.refusal.unknownWorkspace': 'バインドするアクティブなワークスペースがありません。',
+  'workbench.settings.gitPane.adoptHint':
+    '代わりにここで独自のワークスペースとして開けます。フォルダーは ID を保持するため、チームがプッシュするワークスペースのままです。サーバーからすでに使用しているワークスペースのプライベートなコピーが必要な場合は、そのワークスペースを複製してください。',
+  'workbench.settings.gitPane.adoptButton': 'ワークスペース「{name}」として開く',
+  'workbench.settings.gitPane.adopted': '「{name}」をフォルダーから新しいワークスペースとして開きました。',
+  'workbench.settings.gitPane.refusal.notAWorkspace': 'このフォルダーには workspace.yaml がありません。',
+  'workbench.settings.gitPane.refusal.adoptFailed': 'フォルダーをワークスペースとして開けませんでした: {detail}',
   'workbench.settings.gitPane.git.available': 'Git {version} が見つかりました',
   'workbench.settings.gitPane.needsRepo':
     'このページにはリポジトリを持つバインド済みフォルダーが必要です。次の場所でバインドしてください：',

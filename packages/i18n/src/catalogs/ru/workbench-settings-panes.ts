@@ -692,6 +692,12 @@ export const workbenchSettingsPanes = {
   'workbench.settings.gitPane.refusal.invalidManifest': 'Не удалось прочитать workspace.yaml в папке: {message}',
   'workbench.settings.gitPane.refusal.alreadyBound': 'Это рабочее пространство уже привязано к папке.',
   'workbench.settings.gitPane.refusal.unknownWorkspace': 'Нет активного рабочего пространства для привязки.',
+  'workbench.settings.gitPane.adoptHint':
+    'Откройте её здесь как отдельное рабочее пространство: папка сохраняет свой идентификатор и остаётся тем рабочим пространством, в которое пушит ваша команда. Для личной копии рабочего пространства, которым вы уже пользуетесь с сервера, продублируйте это рабочее пространство.',
+  'workbench.settings.gitPane.adoptButton': 'Открыть как рабочее пространство «{name}»',
+  'workbench.settings.gitPane.adopted': '«{name}» открыто из своей папки как новое рабочее пространство.',
+  'workbench.settings.gitPane.refusal.notAWorkspace': 'В этой папке нет workspace.yaml.',
+  'workbench.settings.gitPane.refusal.adoptFailed': 'Не удалось открыть папку как рабочее пространство: {detail}',
   'workbench.settings.gitPane.git.available': 'Найден Git {version}',
   'workbench.settings.gitPane.needsRepo':
     'Этой странице нужна привязанная папка с репозиторием — привяжите её в разделе',

@@ -122,6 +122,7 @@ export type { SecretsStorageState } from './secrets';
 export type { TotpRpc } from './totp';
 export type { AppUpdatePhase, AppUpdateSeverity, AppUpdateState } from './updates';
 export type {
+  WorkspaceTreeAdoptWire,
   WorkspaceTreeChangesWire,
   WorkspaceTreeCommitCadence,
   WorkspaceTreeCommitWire,

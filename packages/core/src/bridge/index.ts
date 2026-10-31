@@ -66,6 +66,7 @@ export type {
   StorageScopeWire,
   SystemTrustWire,
   WorkspaceSnapshot,
+  WorkspaceTreeAdoptWire,
   WorkspaceTreeChangesWire,
   WorkspaceTreeCommitCadence,
   WorkspaceTreeCompareRefsWire,

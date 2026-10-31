@@ -186,6 +186,12 @@ function compareWorkspaces(a: ExtensionWorkspace, b: ExtensionWorkspace): number
 // ── SW-internal create ────────────────────────────────────────────────
 
 export interface CreateWorkspaceInput {
+  /**
+   * Identity override — set by the workspace-tree adopt verb, which
+   * preserves a clone's manifest uid (the git-sync plan §4 join key).
+   * Defaults to a fresh id; the caller owns the uniqueness check.
+   */
+  id?: string;
   name: string;
   description?: string;
   color?: string;
@@ -224,7 +230,7 @@ export async function createWorkspace(
   opts: WorkspaceWriteOptions = {},
 ): Promise<ExtensionWorkspace> {
   const now = new Date().toISOString();
-  const id = generateWorkspaceId();
+  const id = input.id ?? generateWorkspaceId();
   // Per §6.4 new workspaces default to the user's home-org. Falls back
   // to the `PRE_BOOTSTRAP_ORG_ID` sentinel when the snapshot isn't
   // installed yet (boot race / test harness); matches the envelope

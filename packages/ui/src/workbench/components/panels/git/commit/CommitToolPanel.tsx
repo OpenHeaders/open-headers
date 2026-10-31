@@ -471,6 +471,7 @@ const CommitToolPanel: React.FC<CommitToolPanelProps> = ({ info, onHide }) => {
               workspaceId={workspaceId}
               allowFolderPicker
               onBound={() => void hydrate()}
+              onAdopted={() => void hydrate()}
               testidPrefix="commit-tool-bind"
             />
           </div>

@@ -25,7 +25,11 @@ import { logger } from '@openheaders/core/utils';
 import type { TreeIssue } from '@openheaders/core/workspace-tree';
 import { hostStorage } from '@openheaders/oracle/storage';
 import type { OracleSyncBroadcastEvent } from '@openheaders/oracle/sync';
-import { listWorkspaces } from '@openheaders/oracle/workspace/extension-workspace-store';
+import {
+  createWorkspace,
+  deleteWorkspace,
+  listWorkspaces,
+} from '@openheaders/oracle/workspace/extension-workspace-store';
 import {
   createGitExec,
   type GitAuditRow,
@@ -37,7 +41,7 @@ import {
   probeGitAvailability,
   pushHeadToNewBranch,
 } from '../../git';
-import { bindWorkspaceTree, probeWorkspaceTree, unbindWorkspaceTree } from '../bind';
+import { bindWorkspaceTree, probeWorkspaceTree, reserveWorkspaceTreeForAdopt, unbindWorkspaceTree } from '../bind';
 import type { ForcePushChoice } from '../force-push';
 import type { SweepWorkspaceTreeResult } from '../sweep';
 import type { SwitchDirtyAction } from '../switch';
@@ -74,6 +78,7 @@ import { notBoundStatus, publishGitStatus, readGitStatus } from './status';
 import { appendIssues, heldByGitOperation, refreshIssuesFromDisk, runSweep, scheduleMaterialize } from './sweep';
 import { enqueueFetch, maybeAutoPush, runFetchAll, runPull, runPush, runResolveForcePush } from './sync';
 import type {
+  AdoptWorkspaceTreeRpcResult,
   BindWorkspaceTreeRpcResult,
   CommitWorkspaceTreeRpcResult,
   CompareRefsRpcResult,
@@ -106,6 +111,7 @@ import { runListChanges, runUserCommit, runWorkingFileDiff, validateUserCommitIn
 import { detectForcePush, recordWatermark, watermarkFor } from './watermark';
 
 export type {
+  AdoptWorkspaceTreeRpcResult,
   BindWorkspaceTreeRpcResult,
   CommitWorkspaceTreeRpcResult,
   CompareRefsRpcResult,
@@ -224,6 +230,43 @@ export function createWorkspaceTreeRuntime(options: WorkspaceTreeRuntimeOptions)
     return result;
   };
 
+  /** Uids of every workspace on this host via any source, minus the one being bound. */
+  const knownWorkspaceUidsExcept = (workspaceId: string | null): string[] =>
+    listWorkspaces()
+      .map((ws) => ws.id)
+      .filter((id) => id !== workspaceId);
+
+  const bind = async (workspaceId: string, rootDir: string): Promise<BindWorkspaceTreeRpcResult> => {
+    if (records.some((record) => record.workspaceId === workspaceId)) {
+      return { ok: false, reason: 'already-bound' };
+    }
+    const workspace = await workspaceEntity(workspaceId);
+    if (!workspace) return { ok: false, reason: 'unknown-workspace' };
+    const bound = await bindWorkspaceTree({
+      rootDir,
+      workspace,
+      knownWorkspaceUids: knownWorkspaceUidsExcept(workspaceId),
+      hostId: options.hostId,
+    });
+    if (!bound.ok) return bound;
+
+    const record: WorkspaceTreeBindingRecord = { workspaceId, rootDir };
+    records = [...records, record];
+    await persistRecords();
+    const binding = await openBinding(ctx, record);
+
+    // The same open ritual as start(): tree wins first, then the
+    // engine materializes what the tree lacks.
+    let sweep: SweepWorkspaceTreeResult | null = null;
+    ctx.enqueue(binding, async () => {
+      sweep = await ctx.runSweep(binding);
+      await binding.materializer.flush();
+      await ctx.publishGitStatus(binding);
+    });
+    await binding.chain;
+    return { ok: true, initialized: bound.initialized, sweep };
+  };
+
   return {
     async start(): Promise<void> {
       records = (await hostStorage.get(OH.workspaceTreeBindings)) ?? [];
@@ -236,9 +279,7 @@ export function createWorkspaceTreeRuntime(options: WorkspaceTreeRuntimeOptions)
         const bound = await bindWorkspaceTree({
           rootDir: record.rootDir,
           workspace,
-          knownWorkspaceUids: listWorkspaces()
-            .map((ws) => ws.id)
-            .filter((id) => id !== record.workspaceId),
+          knownWorkspaceUids: knownWorkspaceUidsExcept(record.workspaceId),
           hostId: options.hostId,
         });
         if (!bound.ok) {
@@ -275,37 +316,38 @@ export function createWorkspaceTreeRuntime(options: WorkspaceTreeRuntimeOptions)
       ctx.scheduleAutoCommit(binding);
     },
 
-    async bind(workspaceId: string, rootDir: string): Promise<BindWorkspaceTreeRpcResult> {
-      if (records.some((record) => record.workspaceId === workspaceId)) {
-        return { ok: false, reason: 'already-bound' };
-      }
-      const workspace = await workspaceEntity(workspaceId);
-      if (!workspace) return { ok: false, reason: 'unknown-workspace' };
-      const bound = await bindWorkspaceTree({
+    bind,
+
+    async adopt(rootDir: string): Promise<AdoptWorkspaceTreeRpcResult> {
+      const reserved = await reserveWorkspaceTreeForAdopt({
         rootDir,
-        workspace,
-        knownWorkspaceUids: listWorkspaces()
-          .map((ws) => ws.id)
-          .filter((id) => id !== workspaceId),
+        knownWorkspaceUids: knownWorkspaceUidsExcept(null),
         hostId: options.hostId,
       });
-      if (!bound.ok) return bound;
-
-      const record: WorkspaceTreeBindingRecord = { workspaceId, rootDir };
-      records = [...records, record];
-      await persistRecords();
-      const binding = await openBinding(ctx, record);
-
-      // The same open ritual as start(): tree wins first, then the
-      // engine materializes what the tree lacks.
-      let sweep: SweepWorkspaceTreeResult | null = null;
-      ctx.enqueue(binding, async () => {
-        sweep = await ctx.runSweep(binding);
-        await binding.materializer.flush();
-        await ctx.publishGitStatus(binding);
-      });
-      await binding.chain;
-      return { ok: true, initialized: bound.initialized, sweep };
+      if (!reserved.ok) return reserved;
+      const { identity } = reserved;
+      // The manifest uid IS the workspace id (the clone join key, §4);
+      // tenancy is the host's home Org (§5) — the store's own default.
+      let workspaceId: string;
+      try {
+        const created = await createWorkspace({
+          id: identity.workspaceUid,
+          name: identity.name,
+          ...(identity.description !== undefined ? { description: identity.description } : {}),
+        });
+        workspaceId = created.id;
+      } catch (err) {
+        await unbindWorkspaceTree(rootDir, options.hostId);
+        return { ok: false, reason: 'create-failed', detail: err instanceof Error ? err.message : String(err) };
+      }
+      const bound = await bind(workspaceId, rootDir);
+      if (!bound.ok) {
+        await deleteWorkspace(workspaceId);
+        await unbindWorkspaceTree(rootDir, options.hostId);
+        return { ok: false, reason: 'bind-failed', detail: bound.reason };
+      }
+      logger.info(SCOPE, `adopted ${rootDir} as workspace ${workspaceId} "${identity.name}"`);
+      return { ok: true, workspaceId, name: identity.name, sweep: bound.sweep };
     },
 
     async unbind(workspaceId: string): Promise<{ ok: boolean }> {

@@ -732,6 +732,13 @@ export const workbenchSettingsPanes = {
   'workbench.settings.gitPane.refusal.invalidManifest': 'Le workspace.yaml du dossier n’a pas pu être lu : {message}',
   'workbench.settings.gitPane.refusal.alreadyBound': 'Cet espace de travail est déjà lié à un dossier.',
   'workbench.settings.gitPane.refusal.unknownWorkspace': 'Aucun espace de travail actif à lier.',
+  'workbench.settings.gitPane.adoptHint':
+    'Ouvrez-le ici comme espace de travail à part entière : le dossier conserve son identité et reste l’espace de travail vers lequel votre équipe pousse. Pour une copie privée d’un espace de travail que vous utilisez déjà depuis un serveur, dupliquez plutôt cet espace de travail.',
+  'workbench.settings.gitPane.adoptButton': 'Ouvrir comme espace de travail « {name} »',
+  'workbench.settings.gitPane.adopted': '« {name} » a été ouvert depuis son dossier comme nouvel espace de travail.',
+  'workbench.settings.gitPane.refusal.notAWorkspace': 'Ce dossier ne contient aucun workspace.yaml.',
+  'workbench.settings.gitPane.refusal.adoptFailed':
+    'Le dossier n’a pas pu être ouvert comme espace de travail : {detail}',
   'workbench.settings.gitPane.git.available': 'Git {version} détecté',
   'workbench.settings.gitPane.needsRepo': 'Cette page nécessite un dossier lié avec un dépôt — liez-en un sous',
   'workbench.settings.gitPane.section.workingTree': 'Arbre de travail',

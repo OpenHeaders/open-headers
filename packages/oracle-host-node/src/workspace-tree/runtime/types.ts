@@ -19,7 +19,7 @@ import type {
   RepoRef,
   WorkingChange,
 } from '../../git';
-import type { BindWorkspaceTreeResult, probeWorkspaceTree } from '../bind';
+import type { BindWorkspaceTreeResult, probeWorkspaceTree, ReserveWorkspaceTreeForAdoptResult } from '../bind';
 import type { ForcePushChoice } from '../force-push';
 import type { SweepWorkspaceTreeResult } from '../sweep';
 import type { SwitchDirtyAction } from '../switch';
@@ -30,6 +30,17 @@ export type BindWorkspaceTreeRpcResult =
   | { ok: true; initialized: boolean; sweep: SweepWorkspaceTreeResult | null }
   | { ok: false; reason: 'unknown-workspace' | 'already-bound' }
   | Exclude<BindWorkspaceTreeResult, { ok: true }>;
+
+/**
+ * Adopt (§3.5 / §5, gap K): the pre-flight's refusals, the mint's
+ * failure, and the ordinary bind's refusal after the mint (an
+ * invariant breach — the store holds the workspace, the tree names
+ * its uid, the lock is ours — reported, never swallowed).
+ */
+export type AdoptWorkspaceTreeRpcResult =
+  | { ok: true; workspaceId: string; name: string; sweep: SweepWorkspaceTreeResult | null }
+  | Exclude<ReserveWorkspaceTreeForAdoptResult, { ok: true }>
+  | { ok: false; reason: 'create-failed' | 'bind-failed'; detail: string };
 
 export type CommitWorkspaceTreeRpcResult =
   | { ok: true; committed: boolean; sha?: string }
@@ -343,6 +354,12 @@ export interface WorkspaceTreeRuntime {
   /** Rung-1 feed — call on every committed envelope (host hook). */
   onSyncEvent(event: OracleSyncBroadcastEvent): void;
   bind(workspaceId: string, rootDir: string): Promise<BindWorkspaceTreeRpcResult>;
+  /**
+   * Open an existing tree as a NEW local workspace: mint the record
+   * from the manifest (uid preserved, home-Org tenancy), then bind it
+   * — the cold sweep fills the workspace from the tree.
+   */
+  adopt(rootDir: string): Promise<AdoptWorkspaceTreeRpcResult>;
   unbind(workspaceId: string): Promise<{ ok: boolean }>;
   probe(rootDir: string): ReturnType<typeof probeWorkspaceTree>;
   list(): WorkspaceTreeBindingRecord[];

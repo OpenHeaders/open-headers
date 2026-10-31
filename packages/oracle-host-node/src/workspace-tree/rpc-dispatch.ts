@@ -54,6 +54,13 @@ export async function dispatchWorkspaceTreeRpc(
     if (!workspaceId || runtime === null) return { ok: false };
     return await runtime.unbind(workspaceId);
   }
+  // Gap K (§3.5 / §5): open a foreign tree as a NEW local workspace —
+  // a write (the workspace record is minted), typed refusals.
+  if (type === 'oh.workspaceTree.adopt') {
+    const rootDir = typeof message.rootDir === 'string' ? message.rootDir : '';
+    if (!rootDir || runtime === null) return { ok: false, reason: 'not-a-workspace' };
+    return await runtime.adopt(rootDir);
+  }
   if (type === 'oh.workspaceTree.probe') {
     const rootDir = typeof message.rootDir === 'string' ? message.rootDir : '';
     if (!rootDir || runtime === null) return { present: false };

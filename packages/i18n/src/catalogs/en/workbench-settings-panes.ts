@@ -633,6 +633,12 @@ export const workbenchSettingsPanes = {
   'workbench.settings.gitPane.refusal.invalidManifest': 'The folder’s workspace.yaml could not be read: {message}',
   'workbench.settings.gitPane.refusal.alreadyBound': 'This workspace is already bound to a folder.',
   'workbench.settings.gitPane.refusal.unknownWorkspace': 'No active workspace to bind.',
+  'workbench.settings.gitPane.adoptHint':
+    'Open it here as its own workspace instead: the folder keeps its identity, so it stays the workspace your teammates push to. For a private copy of a workspace you already use from a server, duplicate that workspace instead.',
+  'workbench.settings.gitPane.adoptButton': 'Open as workspace “{name}”',
+  'workbench.settings.gitPane.adopted': 'Opened “{name}” as a new workspace from its folder.',
+  'workbench.settings.gitPane.refusal.notAWorkspace': 'This folder holds no workspace.yaml.',
+  'workbench.settings.gitPane.refusal.adoptFailed': 'The folder could not be opened as a workspace: {detail}',
   'workbench.settings.gitPane.git.available': 'Git {version} found',
   'workbench.settings.gitPane.needsRepo': 'This page needs a bound folder with a repository — bind one under',
   'workbench.settings.gitPane.section.workingTree': 'Working tree',

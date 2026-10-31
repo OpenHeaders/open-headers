@@ -67,6 +67,13 @@
  *   G28  a `--depth 1` clone binds with the header's shallow tag; a
  *        pull whose fork point sits behind the boundary lands the
  *        two-parent merge and the toast says why.
+ *   G29  open a clone as a workspace (§3.5 gap K): a clone whose
+ *        manifest uid the host has never seen refuses the bind with
+ *        the identity-mismatch line AND the offer; the offer mints the
+ *        workspace under the manifest's uid + name, binds the folder,
+ *        the workbench jumps to it and the sweep fills it; a clone
+ *        whose uid the host already holds keeps the plain collision
+ *        refusal with no offer.
  *
  * BLOCKED until the Git epic's residual-verb migration lands (no
  * desktop surface drives these verbs — the settings card that carried
@@ -120,6 +127,7 @@ let remoteDir: string;
 let cloneDir: string;
 let wtDir: string;
 let shallowDir: string;
+let adoptDir: string;
 let appGitConfig: string;
 let cloneGitConfig: string;
 
@@ -533,6 +541,7 @@ test.beforeAll(async () => {
   cloneDir = path.join(root, 'clone');
   wtDir = path.join(root, 'wt');
   shallowDir = path.join(root, 'shallow');
+  adoptDir = path.join(root, 'adopt');
   appGitConfig = path.join(root, 'app-gitconfig');
   cloneGitConfig = path.join(root, 'clone-gitconfig');
   mkdirSync(userData);
@@ -1265,4 +1274,65 @@ test('G28 — a depth-1 clone binds with the shallow tag; a pull whose fork poin
   }
   await waitClean();
   expect(at(shallowDir, 'status', '--porcelain')).toBe('');
+});
+
+// ── G29: open a clone as a workspace (gap K) ─────────────────────────
+
+test('G29 — a clone under an unseen manifest uid offers Open as workspace: the offer mints + binds + jumps, the sweep fills it; a held uid keeps the plain collision refusal', async () => {
+  // A teammate's clone whose workspace this host has never seen: the
+  // remote's tree under a fresh manifest identity, one entity renamed
+  // so the adopted content is tellable from the default workspace's.
+  at(root, 'clone', '-q', `file://${remoteDir}`, adoptDir);
+  const manifest = path.join(adoptDir, 'workspace.yaml');
+  writeFileSync(
+    manifest,
+    readFileSync(manifest, 'utf-8')
+      .replace(/^uid: .*$/m, 'uid: wsadopt1')
+      .replace(/^name: .*$/m, 'name: Adopted Team'),
+  );
+  setEntityName(entityFileOf(adoptDir, 'e2egreq1') as string, 'Adopted Request');
+  at(adoptDir, 'commit', '-q', '-a', '-m', 'teammate: own identity');
+  const adoptHead = at(adoptDir, 'rev-parse', 'HEAD');
+
+  await unbindOnFolderPage();
+  await pane('git-pane-path-input').fill(adoptDir);
+  await pane('git-pane-bind-button').click();
+  await expect(workbench.getByText('This folder belongs to a different workspace (wsadopt1).')).toBeVisible();
+  await expect(pane('git-pane-adopt-offer')).toBeVisible();
+  await expect(pane('git-pane-adopt-button')).toHaveText('Open as workspace “Adopted Team”');
+
+  await pane('git-pane-adopt-button').click();
+  await expect
+    .poll(
+      async () =>
+        (await invoke<{ activeWorkspaceId: string | null }>({ type: 'getActiveWorkspaceId' })).activeWorkspaceId,
+      { timeout: 10_000 },
+    )
+    .toBe('wsadopt1');
+  // The Folder page now shows the adopted workspace's binding.
+  await expect(pane('git-pane-unbind-button')).toBeVisible();
+  await expect(workbench.locator('.settings-modal').getByText(adoptDir, { exact: true })).toBeVisible();
+  await closeSettings();
+  await openApiRequestsSidebar();
+  await expect(workbench.locator('[data-item-id="request-e2egreq1"]')).toContainText('Adopted Request');
+  // The sweep filled the workspace from the clone: nothing to commit,
+  // no branch moved, the engine's lock is the only new file.
+  await expect.poll(() => at(adoptDir, 'status', '--porcelain'), { timeout: 5_000 }).toBe('');
+  expect(at(adoptDir, 'rev-parse', 'HEAD')).toBe(adoptHead);
+  expect(existsSync(path.join(adoptDir, '.oh', 'lock'))).toBe(true);
+
+  // The default workspace's clone names a uid this host already holds
+  // (the default workspace itself): the §3.5 collision, no offer.
+  await unbindOnFolderPage();
+  await pane('git-pane-path-input').fill(cloneDir);
+  await pane('git-pane-bind-button').click();
+  await expect(
+    workbench.getByText('This folder holds a workspace that already exists on this host via another source.'),
+  ).toBeVisible();
+  await expect(pane('git-pane-adopt-offer')).toHaveCount(0);
+  // Leave the rig bound to the adopted tree (the page is still open).
+  await pane('git-pane-path-input').fill(adoptDir);
+  await pane('git-pane-bind-button').click();
+  await expect(pane('git-pane-unbind-button')).toBeVisible();
+  await closeSettings();
 });

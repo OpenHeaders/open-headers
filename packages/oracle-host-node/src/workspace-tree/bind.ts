@@ -15,6 +15,14 @@
  *     absent so a later `git init` can never commit secrets or let
  *     autocrlf break byte-determinism.
  *
+ * Adopt (§3.5 / §5, the S25 gap K) is the pre-flight for opening a
+ * foreign tree — a teammate's clone — as a NEW local workspace: the
+ * manifest's identity is read, a uid this host already holds refuses
+ * (the clone-collision), and the tree lock is taken BEFORE the caller
+ * mints the workspace record, so a refused lock never orphans a
+ * workspace. The caller then binds through the ordinary ritual (the
+ * lock is re-entrant for the same engine).
+ *
  * Unbind releases the lock and keeps everything else — the tree
  * remains a valid workspace folder (`.oh/` is disposable, §23.9).
  */
@@ -53,15 +61,23 @@ export type BindWorkspaceTreeResult =
   | { ok: true /** true when bind authored a fresh `workspace.yaml` (empty-folder init). */; initialized: boolean }
   | { ok: false; reason: 'locked'; holder: TreeLockHolder }
   | { ok: false; reason: 'uuid-collision'; treeWorkspaceUid: string }
-  | { ok: false; reason: 'identity-mismatch'; treeWorkspaceUid: string }
+  | { ok: false; reason: 'identity-mismatch'; treeWorkspaceUid: string; treeWorkspaceName: string }
   | { ok: false; reason: 'invalid-manifest'; message: string };
 
+/** The manifest identity a probe answers — what adopt mints a workspace from. */
+export interface WorkspaceTreeIdentity {
+  workspaceUid: string;
+  name: string;
+  description?: string;
+}
+
+export type ProbeWorkspaceTreeResult =
+  | { present: false }
+  | ({ present: true } & WorkspaceTreeIdentity)
+  | { present: true; error: string };
+
 /** Identity probe — what workspace (if any) does this folder claim to be? */
-export async function probeWorkspaceTree(
-  rootDir: string,
-): Promise<
-  { present: false } | { present: true; workspaceUid: string; name: string } | { present: true; error: string }
-> {
+export async function probeWorkspaceTree(rootDir: string): Promise<ProbeWorkspaceTreeResult> {
   const manifestPath = path.join(rootDir, WORKSPACE_MANIFEST_FILE);
   let yaml: string;
   try {
@@ -70,8 +86,13 @@ export async function probeWorkspaceTree(
     return { present: false };
   }
   try {
-    const parsed = parseWorkspace(yaml);
-    return { present: true, workspaceUid: parsed.value.uid, name: parsed.value.name };
+    const { value } = parseWorkspace(yaml);
+    return {
+      present: true,
+      workspaceUid: value.uid,
+      name: value.name,
+      ...(value.description !== undefined ? { description: value.description } : {}),
+    };
   } catch (err) {
     return { present: true, error: err instanceof Error ? err.message : String(err) };
   }
@@ -89,7 +110,7 @@ export async function bindWorkspaceTree(options: BindWorkspaceTreeOptions): Prom
     const known = options.knownWorkspaceUids ?? [];
     return known.includes(probe.workspaceUid)
       ? { ok: false, reason: 'uuid-collision', treeWorkspaceUid: probe.workspaceUid }
-      : { ok: false, reason: 'identity-mismatch', treeWorkspaceUid: probe.workspaceUid };
+      : { ok: false, reason: 'identity-mismatch', treeWorkspaceUid: probe.workspaceUid, treeWorkspaceName: probe.name };
   }
 
   const lock = await acquireTreeLock(rootDir, hostId);
@@ -111,6 +132,51 @@ export async function bindWorkspaceTree(options: BindWorkspaceTreeOptions): Prom
   await authorWhenAbsent(GITATTRIBUTES_FILE, WORKSPACE_GITATTRIBUTES_CONTENT);
 
   return { ok: true, initialized };
+}
+
+export interface ReserveWorkspaceTreeForAdoptOptions {
+  /** Absolute path of the existing tree (a clone) to open as a new workspace. */
+  rootDir: string;
+  /** Uids of every workspace already on this host via any source — the manifest naming one is the §3.5 clone-collision. */
+  knownWorkspaceUids: readonly string[];
+  /** Stable identity of this engine instance for the lockfile. */
+  hostId: string;
+}
+
+export type ReserveWorkspaceTreeForAdoptResult =
+  | { ok: true; identity: WorkspaceTreeIdentity }
+  | { ok: false; reason: 'not-a-workspace' }
+  | { ok: false; reason: 'invalid-manifest'; message: string }
+  | { ok: false; reason: 'uuid-collision'; treeWorkspaceUid: string }
+  | { ok: false; reason: 'locked'; holder: TreeLockHolder };
+
+/**
+ * Adopt pre-flight: read the tree's identity, refuse a uid this host
+ * already holds, and take the tree lock so the caller can mint the
+ * workspace record without racing another engine. On success the
+ * caller binds the minted workspace through {@link bindWorkspaceTree}
+ * (same engine — the lock re-enters); on a failed mint it releases the
+ * reservation with {@link unbindWorkspaceTree}.
+ */
+export async function reserveWorkspaceTreeForAdopt(
+  options: ReserveWorkspaceTreeForAdoptOptions,
+): Promise<ReserveWorkspaceTreeForAdoptResult> {
+  const probe = await probeWorkspaceTree(options.rootDir);
+  if (!probe.present) return { ok: false, reason: 'not-a-workspace' };
+  if ('error' in probe) return { ok: false, reason: 'invalid-manifest', message: probe.error };
+  if (options.knownWorkspaceUids.includes(probe.workspaceUid)) {
+    return { ok: false, reason: 'uuid-collision', treeWorkspaceUid: probe.workspaceUid };
+  }
+  const lock = await acquireTreeLock(options.rootDir, options.hostId);
+  if (!lock.ok) return { ok: false, reason: 'locked', holder: lock.holder };
+  return {
+    ok: true,
+    identity: {
+      workspaceUid: probe.workspaceUid,
+      name: probe.name,
+      ...(probe.description !== undefined ? { description: probe.description } : {}),
+    },
+  };
 }
 
 /** Release this engine's hold on the tree; the folder stays a valid workspace tree. */

@@ -639,6 +639,12 @@ export const workbenchSettingsPanes = {
   'workbench.settings.gitPane.refusal.invalidManifest': '폴더의 workspace.yaml 파일을 읽을 수 없습니다: {message}',
   'workbench.settings.gitPane.refusal.alreadyBound': '이 워크스페이스는 이미 폴더에 바인딩되어 있습니다.',
   'workbench.settings.gitPane.refusal.unknownWorkspace': '바인딩할 활성 워크스페이스가 없습니다.',
+  'workbench.settings.gitPane.adoptHint':
+    '대신 여기에서 자체 워크스페이스로 열 수 있습니다. 폴더는 ID를 유지하므로 팀이 푸시하는 워크스페이스 그대로입니다. 서버에서 이미 사용 중인 워크스페이스의 개인 사본이 필요하면 해당 워크스페이스를 복제하세요.',
+  'workbench.settings.gitPane.adoptButton': '워크스페이스 “{name}”(으)로 열기',
+  'workbench.settings.gitPane.adopted': '“{name}”을(를) 폴더에서 새 워크스페이스로 열었습니다.',
+  'workbench.settings.gitPane.refusal.notAWorkspace': '이 폴더에는 workspace.yaml이 없습니다.',
+  'workbench.settings.gitPane.refusal.adoptFailed': '폴더를 워크스페이스로 열 수 없습니다: {detail}',
   'workbench.settings.gitPane.git.available': 'Git {version} 발견',
   'workbench.settings.gitPane.needsRepo':
     '이 페이지에는 리포지토리가 있는 바인딩된 폴더가 필요합니다. 다음 위치에서 바인딩하세요:',

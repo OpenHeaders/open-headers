@@ -279,8 +279,23 @@ export interface WorkspaceRpc {
       | { ok: true; initialized: boolean; sweep: WorkspaceTreeSweepSummary | null }
       | { ok: false; reason: 'unknown-workspace' | 'already-bound' }
       | { ok: false; reason: 'locked'; holder: { pid: number; hostId: string; acquiredAt: string } }
-      | { ok: false; reason: 'uuid-collision' | 'identity-mismatch'; treeWorkspaceUid: string }
+      | { ok: false; reason: 'uuid-collision'; treeWorkspaceUid: string }
+      | { ok: false; reason: 'identity-mismatch'; treeWorkspaceUid: string; treeWorkspaceName: string }
       | { ok: false; reason: 'invalid-manifest'; message: string };
+  };
+  /**
+   * Open an existing workspace tree (a teammate's clone) as a NEW local
+   * workspace under this host's home Org (the git-sync plan §3.5 / §5,
+   * S25 gap K): the manifest's uid and name mint the workspace, then the
+   * folder binds and the cold sweep fills it. The uid is PRESERVED — it
+   * is the clone join key — so a tree whose uid this host already holds
+   * via any source refuses `uuid-collision` (switch-or-abort stays the
+   * answer); onboarding by clone, never isolation for a member who also
+   * consumes the workspace from a server (that is Duplicate-into).
+   */
+  'oh.workspaceTree.adopt': {
+    req: { rootDir: string };
+    res: WorkspaceTreeAdoptWire;
   };
   /** Release the binding; the folder stays a valid workspace tree. */
   'oh.workspaceTree.unbind': {
@@ -290,7 +305,10 @@ export interface WorkspaceRpc {
   /** Identity probe — what workspace (if any) a folder claims to be. */
   'oh.workspaceTree.probe': {
     req: { rootDir: string };
-    res: { present: false } | { present: true; workspaceUid: string; name: string } | { present: true; error: string };
+    res:
+      | { present: false }
+      | { present: true; workspaceUid: string; name: string; description?: string }
+      | { present: true; error: string };
   };
   /** Current bindings + each binding's latest sweep issues. */
   'oh.workspaceTree.list': {
@@ -630,6 +648,14 @@ export interface WorkspaceRpc {
 }
 
 export type WorkspaceTreeCommitCadence = 'off' | 'auto' | 'on-blur' | 'every-5m' | 'every-15m' | 'every-30m';
+
+export type WorkspaceTreeAdoptWire =
+  | { ok: true; workspaceId: string; name: string; sweep: WorkspaceTreeSweepSummary | null }
+  | { ok: false; reason: 'not-a-workspace' }
+  | { ok: false; reason: 'locked'; holder: { pid: number; hostId: string; acquiredAt: string } }
+  | { ok: false; reason: 'uuid-collision'; treeWorkspaceUid: string }
+  | { ok: false; reason: 'invalid-manifest'; message: string }
+  | { ok: false; reason: 'create-failed' | 'bind-failed'; detail: string };
 
 export type WorkspaceTreeCommitWire =
   | { ok: true; committed: boolean; sha?: string }

@@ -735,6 +735,12 @@ export const workbenchSettingsPanes = {
   'workbench.settings.gitPane.refusal.invalidManifest': 'No se pudo leer el workspace.yaml de la carpeta: {message}',
   'workbench.settings.gitPane.refusal.alreadyBound': 'Este espacio de trabajo ya está vinculado a una carpeta.',
   'workbench.settings.gitPane.refusal.unknownWorkspace': 'No hay ningún espacio de trabajo activo que vincular.',
+  'workbench.settings.gitPane.adoptHint':
+    'Ábrelo aquí como su propio espacio de trabajo: la carpeta conserva su identidad, así que sigue siendo el espacio de trabajo al que tu equipo hace push. Para una copia privada de un espacio de trabajo que ya usas desde un servidor, duplica ese espacio de trabajo.',
+  'workbench.settings.gitPane.adoptButton': 'Abrir como espacio de trabajo «{name}»',
+  'workbench.settings.gitPane.adopted': '«{name}» se abrió desde su carpeta como un espacio de trabajo nuevo.',
+  'workbench.settings.gitPane.refusal.notAWorkspace': 'Esta carpeta no contiene ningún workspace.yaml.',
+  'workbench.settings.gitPane.refusal.adoptFailed': 'La carpeta no se pudo abrir como espacio de trabajo: {detail}',
   'workbench.settings.gitPane.git.available': 'Git {version} encontrado',
   'workbench.settings.gitPane.needsRepo': 'Esta página necesita una carpeta vinculada con repositorio — vincula una en',
   'workbench.settings.gitPane.section.workingTree': 'Árbol de trabajo',
