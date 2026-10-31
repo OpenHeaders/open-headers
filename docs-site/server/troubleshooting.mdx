@@ -101,6 +101,13 @@ daemon printed — every message below is quoted verbatim.
 | `'…' is the only server admin — grant the role to someone else first, or the server would be left with no one who can administer it.` | Revoking the last server-admin role | Grant it to another user first; the check counts holders, not who is asking |
 | `the individual-seat key is not usable (invalid, expired, or not an individual seat).` | Bad or wrong-type key | Check the key; team licenses install via `ohd license install <file>` instead |
 
+## Git bindings
+
+| Symptom | Cause | Fix |
+| --- | --- | --- |
+| Every member's workspace reverted to an older state right after a terminal `git stash` in the folder the server has bound | The bound folder is the source of truth: the daemon reads the working tree, and the stash took those edits out of it, so every connected client received the revert as a change | `git stash pop` in the same folder puts the edits back and the daemon syncs them out again. Treat the server's bound folder like a teammate's checkout — commit, push, and pull through the admin console's Git card, and keep terminal stashes off it |
+| Binding a folder on the Git card is refused with `This folder belongs to a different workspace (…)` | The folder's `workspace.yaml` carries another workspace's identity — a teammate's clone of a workspace this server has never served | Use **Open as workspace** under the refusal: the folder opens as its own workspace and keeps its identity, so it stays the workspace your teammates push to. For a private copy of a workspace you already use, duplicate that workspace instead |
+
 ## Still stuck?
 
 `ohd status --verbose` (with a token) shows the daemon's own view of
