@@ -54,6 +54,19 @@
  *   G24  unbind on the Folder page: clean detach (lock released, repo +
  *        tree intact), the bind form returns, the Commit window flips
  *        to its bind posture.
+ *   G25  detached HEAD (§3.4): the rail's HEAD row names the sha, the
+ *        Commit window warns; a detached→detached checkout still
+ *        sweeps; a commit made there stays off main; New Branch from
+ *        HEAD keeps it and clears the warning.
+ *   G26  a conflicted `git revert` holds reconcile like a rebase: Pull
+ *        refuses `op-in-progress`, a held edit never ingests, `--abort`
+ *        resumes on the hold's retry.
+ *   G27  a linked worktree (gitfile layout, §3.4) binds like a clone:
+ *        a mid-rebase worktree holds, a terminal checkout inside it
+ *        moves the rail, commits land on its branch.
+ *   G28  a `--depth 1` clone binds with the header's shallow tag; a
+ *        pull whose fork point sits behind the boundary lands the
+ *        two-parent merge and the toast says why.
  *
  * BLOCKED until the Git epic's residual-verb migration lands (no
  * desktop surface drives these verbs — the settings card that carried
@@ -105,6 +118,8 @@ let root: string;
 let wsDir: string;
 let remoteDir: string;
 let cloneDir: string;
+let wtDir: string;
+let shallowDir: string;
 let appGitConfig: string;
 let cloneGitConfig: string;
 
@@ -146,20 +161,25 @@ function remote(...args: string[]): string {
   return runGit(root, appGitConfig, ['--git-dir', remoteDir, ...args]);
 }
 
-/** App-repo git that tolerates a non-zero exit (`git rebase` stopping on a conflict). */
-function wsTry(...args: string[]): boolean {
+/** Any other checkout under the app's identity (the linked worktree, the shallow clone). */
+function at(dir: string, ...args: string[]): string {
+  return runGit(dir, appGitConfig, args);
+}
+
+/** Whether a git command exits zero (`git rebase` stopping on a conflict, `merge-base` finding none). */
+function tryAt(dir: string, ...args: string[]): boolean {
   try {
-    ws(...args);
+    at(dir, ...args);
     return true;
   } catch {
     return false;
   }
 }
 
-/** Commit count on the app repo's current branch (0 while HEAD is unborn). */
-function commitCount(): number {
+/** Commit count on a bound checkout's current HEAD (0 while HEAD is unborn). */
+function commitCount(dir: string = wsDir): number {
   try {
-    return Number(ws('rev-list', '--count', 'HEAD'));
+    return Number(at(dir, 'rev-list', '--count', 'HEAD'));
   } catch {
     return 0;
   }
@@ -206,14 +226,20 @@ function readEntityName(file: string): string {
   return match ? match[1].trim() : '';
 }
 
+/** The entity name a commit's tree holds for a file (the committed truth, not the working copy). */
+function committedName(sha: string, file: string, dir: string = wsDir): string {
+  const match = at(dir, 'show', `${sha}:${relPosix(file, dir)}`).match(/^name: (.*)$/m);
+  return match ? match[1].trim() : '';
+}
+
 /** Rewrite the seeded header row's value in a request manifest. */
 function setHeaderValue(file: string, value: string): void {
   const text = readFileSync(file, 'utf-8');
   writeFileSync(file, text.replace(/^(\s+)value: .*$/m, `$1value: ${value}`));
 }
 
-function relPosix(file: string): string {
-  return path.relative(wsDir, file).split(path.sep).join('/');
+function relPosix(file: string, rootDir: string = wsDir): string {
+  return path.relative(rootDir, file).split(path.sep).join('/');
 }
 
 // ── app helpers ─────────────────────────────────────────────────────
@@ -268,6 +294,22 @@ async function quit(): Promise<void> {
 
 function pane(testId: string): Locator {
   return workbench.getByTestId(testId);
+}
+
+/** Bind a folder on the Folder page; the page flips to its bound posture. */
+async function bindOnFolderPage(dir: string): Promise<void> {
+  await openGitSettingsPage('Folder');
+  await pane('git-pane-path-input').fill(dir);
+  await pane('git-pane-bind-button').click();
+  await expect(pane('git-pane-unbind-button')).toBeVisible();
+}
+
+/** Unbind on the Folder page through its confirm popover; the bind form returns. */
+async function unbindOnFolderPage(): Promise<void> {
+  await openGitSettingsPage('Folder');
+  await pane('git-pane-unbind-button').click();
+  await workbench.locator('.ant-popover:not(.ant-popover-hidden)').getByRole('button', { name: 'Unbind' }).click();
+  await expect(pane('git-pane-path-input')).toBeVisible();
 }
 
 /**
@@ -348,9 +390,9 @@ async function waitClean(): Promise<void> {
     .toBe(true);
 }
 
-/** The Commit window's row for a tracked file (repo-relative path). */
-function changeRow(file: string): Locator {
-  return workbench.locator(`[data-testid="commit-tool-file"][data-path="${relPosix(file)}"]`);
+/** The Commit window's row for a tracked file (path relative to the bound checkout). */
+function changeRow(file: string, rootDir: string = wsDir): Locator {
+  return workbench.locator(`[data-testid="commit-tool-file"][data-path="${relPosix(file, rootDir)}"]`);
 }
 
 /** Close the window's error alert — open, it takes the tree's room and covers the rows. */
@@ -372,13 +414,13 @@ async function editCommitPush(file: string, name: string, message: string): Prom
   await waitClean();
 }
 
-/** Fill the message box and Commit; the commit lands and the window settles clean. */
-async function commitWithMessage(message: string): Promise<void> {
-  const before = commitCount();
+/** Fill the message box and Commit; the commit lands on the bound checkout and the window settles clean. */
+async function commitWithMessage(message: string, dir: string = wsDir): Promise<void> {
+  const before = commitCount(dir);
   await pane('commit-tool-message').fill(message);
   await expect(pane('commit-tool-commit')).toBeEnabled();
   await pane('commit-tool-commit').click();
-  await expect.poll(() => commitCount(), { timeout: 5_000 }).toBe(before + 1);
+  await expect.poll(() => commitCount(dir), { timeout: 5_000 }).toBe(before + 1);
   await waitClean();
 }
 
@@ -389,8 +431,12 @@ async function commitWithMessage(message: string): Promise<void> {
  * joins its accessible name, so it is matched by its own text), click
  * the verb in the popup.
  */
-async function rowMenuGit(verb: 'push' | 'pull' | 'fetch' | 'new-branch', file: string): Promise<void> {
-  await changeRow(file).click({ button: 'right' });
+async function rowMenuGit(
+  verb: 'push' | 'pull' | 'fetch' | 'new-branch',
+  file: string,
+  rootDir: string = wsDir,
+): Promise<void> {
+  await changeRow(file, rootDir).click({ button: 'right' });
   const title = workbench
     .locator('.ant-dropdown:not(.ant-dropdown-hidden) .ant-dropdown-menu-submenu-title')
     .filter({ hasText: /^Git$/ });
@@ -485,6 +531,8 @@ test.beforeAll(async () => {
   wsDir = path.join(root, 'ws');
   remoteDir = path.join(root, 'remote.git');
   cloneDir = path.join(root, 'clone');
+  wtDir = path.join(root, 'wt');
+  shallowDir = path.join(root, 'shallow');
   appGitConfig = path.join(root, 'app-gitconfig');
   cloneGitConfig = path.join(root, 'clone-gitconfig');
   mkdirSync(userData);
@@ -543,10 +591,7 @@ test.afterAll(async () => {
 // ── G1: bind + repo auto-init + materialization ─────────────────────
 
 test('G1 — bind on the Folder page auto-inits the repo; the Commit window counts the seeded tree unversioned', async () => {
-  await openGitSettingsPage('Folder');
-  await pane('git-pane-path-input').fill(wsDir);
-  await pane('git-pane-bind-button').click();
-  await expect(pane('git-pane-unbind-button')).toBeVisible();
+  await bindOnFolderPage(wsDir);
   expect(existsSync(path.join(wsDir, '.git'))).toBe(true);
   expect(existsSync(path.join(wsDir, '.gitattributes'))).toBe(true);
   expect(existsSync(path.join(wsDir, '.gitignore'))).toBe(true);
@@ -917,7 +962,7 @@ test('G22 — a mid-rebase repo holds reconcile: Pull refuses, held edits never 
   ws('checkout', 'rebase-side');
   await expectCurrentBranch('rebase-side');
 
-  expect(wsTry('rebase', 'main')).toBe(false);
+  expect(tryAt(wsDir, 'rebase', 'main')).toBe(false);
   expect(
     existsSync(path.join(wsDir, '.git', 'rebase-merge')) || existsSync(path.join(wsDir, '.git', 'rebase-apply')),
   ).toBe(true);
@@ -955,6 +1000,108 @@ test('G22 — a mid-rebase repo holds reconcile: Pull refuses, held edits never 
   await commitWithMessage('git e2e: after abort');
 });
 
+// ── G25: detached HEAD — named in the rail and the window, swept, kept ──
+
+test('G25 — a detached HEAD names its sha in the rail and the Commit window, a detached→detached checkout sweeps, New Branch from HEAD keeps the work off main', async () => {
+  const req2 = entityFileOf(wsDir, 'e2egreq2') as string;
+  // Two commits with distinct names so each detached stop has its own
+  // tree — the second stop proves the HEAD-identity sweep with no
+  // branch name on either side.
+  setEntityName(req2, 'Detach One');
+  await waitDirty();
+  await commitWithMessage('git e2e: detach one');
+  setEntityName(req2, 'Detach Two');
+  await waitDirty();
+  await commitWithMessage('git e2e: detach two');
+  const mainTip = ws('rev-parse', 'main');
+  const one = ws('rev-parse', 'main~1');
+  const two = ws('rev-parse', 'main~2');
+  const request = workbench.locator('[data-item-id="request-e2egreq2"]');
+  const headRow = pane('git-tool-ref-head');
+
+  await openToolWindow('git');
+  await expect(headRow).not.toHaveAttribute('data-detached', 'true');
+
+  ws('checkout', '--detach', one);
+  await expect(headRow).toHaveAttribute('data-detached', 'true');
+  await expect(headRow).toContainText(one.slice(0, 8));
+  await expect(pane('commit-tool-detached')).toContainText(one.slice(0, 8));
+  await openApiRequestsSidebar();
+  await expect(request).toContainText(committedName(one, req2));
+
+  ws('checkout', '--detach', two);
+  await expect(headRow).toContainText(two.slice(0, 8));
+  await expect(request).toContainText(committedName(two, req2));
+
+  // An edit made here commits onto the detached HEAD — no branch moves.
+  setEntityName(req2, 'Detached Edit');
+  await waitDirty();
+  await commitWithMessage('git e2e: detached commit');
+  const detachedCommit = ws('rev-parse', 'HEAD');
+  expect(detachedCommit).not.toBe(two);
+  expect(tryAt(wsDir, 'symbolic-ref', '-q', 'HEAD')).toBe(false);
+  expect(ws('rev-parse', 'main')).toBe(mainTip);
+
+  // The warning's way out: New Branch from HEAD checks out a named
+  // branch at the detached commit and the warning clears.
+  await pane('commit-tool-detached-new-branch').click();
+  await settleModal();
+  await pane('git-tool-create-branch-name').fill('from-detached');
+  await expect(pane('git-tool-create-branch-checkout')).toBeChecked();
+  await workbench.getByRole('button', { name: 'Create', exact: true }).click();
+  await expectCurrentBranch('from-detached');
+  expect(ws('symbolic-ref', 'HEAD')).toBe('refs/heads/from-detached');
+  expect(ws('rev-parse', 'HEAD')).toBe(detachedCommit);
+  await expect(pane('commit-tool-detached')).toHaveCount(0);
+  await expect(headRow).not.toHaveAttribute('data-detached', 'true');
+
+  // Back on main the detached work is in neither the view nor the tree.
+  ws('checkout', 'main');
+  await expectCurrentBranch('main');
+  await expect(request).toContainText('Detach Two');
+  expect(readFileSync(req2, 'utf-8')).toContain('Detach Two');
+  await waitClean();
+  ws('branch', '-D', 'from-detached');
+});
+
+// ── G26: a conflicted revert holds reconcile until --abort ──────────
+
+test('G26 — a conflicted git revert holds reconcile: Pull refuses, a held edit never ingests, --abort resumes on the retry', async () => {
+  // Cheap conflict fixture: revert a README commit a later commit
+  // overwrote (README is tracked since G22).
+  const readme = path.join(wsDir, 'README.md');
+  writeFileSync(readme, 'revert one\n');
+  ws('commit', '-a', '-m', 'readme revert one');
+  const target = ws('rev-parse', 'HEAD');
+  writeFileSync(readme, 'revert two\n');
+  ws('commit', '-a', '-m', 'readme revert two');
+
+  expect(tryAt(wsDir, 'revert', '--no-edit', target)).toBe(false);
+  expect(existsSync(path.join(wsDir, '.git', 'REVERT_HEAD'))).toBe(true);
+
+  const req2 = entityFileOf(wsDir, 'e2egreq2') as string;
+  const request = workbench.locator('[data-item-id="request-e2egreq2"]');
+  const before = readEntityName(req2);
+  setEntityName(req2, 'Revert Held');
+  await workbench.waitForTimeout(3_000);
+  await expect(request).toContainText(before);
+  await expect(request).not.toContainText('Revert Held');
+
+  await hideToolWindow('api-requests');
+  await hideToolWindow('git');
+  await rowMenuGit('pull', req2);
+  await expect(pane('commit-tool-error')).toContainText('Pull failed: op-in-progress');
+  await dismissError();
+
+  // The hold re-checks on a 5 s retry timer; the held edit lands on
+  // the first retry after the abort.
+  ws('revert', '--abort');
+  expect(existsSync(path.join(wsDir, '.git', 'REVERT_HEAD'))).toBe(false);
+  await expect(request).toContainText('Revert Held', { timeout: 7_000 });
+  await openToolWindow('git');
+  await commitWithMessage('git e2e: after revert abort');
+});
+
 // ── G23: close-app → vim-edit → reopen — the edit wins in the UI ────
 
 test('G23 — an offline hand edit lands in the UI on relaunch via the cold-boot tree-wins sweep', async () => {
@@ -979,12 +1126,9 @@ test('G24 — unbind detaches cleanly: lock released, tree intact, bind form bac
   setEntityName(req2, 'Unbind Dirty');
   await waitDirty();
 
-  await openGitSettingsPage('Folder');
-  await pane('git-pane-unbind-button').click();
-  await workbench.locator('.ant-popover:not(.ant-popover-hidden)').getByRole('button', { name: 'Unbind' }).click();
+  await unbindOnFolderPage();
 
-  // The page returns to the bind form; the folder stays a valid tree.
-  await expect(pane('git-pane-path-input')).toBeVisible();
+  // The folder stays a valid tree.
   await expect.poll(() => existsSync(path.join(wsDir, '.oh', 'lock')), { timeout: 5_000 }).toBe(false);
   expect(existsSync(path.join(wsDir, '.git'))).toBe(true);
   expect(readFileSync(req2, 'utf-8')).toContain('Unbind Dirty');
@@ -993,4 +1137,132 @@ test('G24 — unbind detaches cleanly: lock released, tree intact, bind form bac
   await closeSettings();
   await expect(pane('commit-tool-not-bound')).toBeVisible();
   await expect(pane('commit-tool-bind-path-input')).toBeVisible();
+});
+
+// ── G27: a linked worktree binds like a clone ───────────────────────
+
+test('G27 — a linked worktree binds: the hold reads the per-worktree dir, a checkout inside it moves the rail, commits land on its branch', async () => {
+  ws('worktree', 'add', '-b', 'wt-branch', wtDir, 'main');
+  expect(statSync(path.join(wtDir, '.git')).isFile()).toBe(true);
+  const wtGitDir = path.join(wsDir, '.git', 'worktrees', path.basename(wtDir));
+
+  await bindOnFolderPage(wtDir);
+  await closeSettings();
+  await openToolWindow('commit');
+  await expect(pane('commit-tool-panel')).toBeVisible();
+  await openToolWindow('git');
+  await expectCurrentBranch('wt-branch');
+  const req2 = entityFileOf(wtDir, 'e2egreq2') as string;
+  const request = workbench.locator('[data-item-id="request-e2egreq2"]');
+  await openApiRequestsSidebar();
+  await expect(request).toContainText(readEntityName(req2));
+
+  // A rebase stopped on a conflict inside the worktree: the marker
+  // lives under the main repo's worktrees dir, never `<wt>/.git/`.
+  const readme = path.join(wtDir, 'README.md');
+  at(wtDir, 'checkout', '-b', 'wt-side');
+  await expectCurrentBranch('wt-side');
+  writeFileSync(readme, 'worktree side\n');
+  at(wtDir, 'commit', '-a', '-m', 'readme worktree side');
+  at(wtDir, 'checkout', 'wt-branch');
+  await expectCurrentBranch('wt-branch');
+  writeFileSync(readme, 'worktree trunk\n');
+  at(wtDir, 'commit', '-a', '-m', 'readme worktree trunk');
+  at(wtDir, 'checkout', 'wt-side');
+  await expectCurrentBranch('wt-side');
+  expect(tryAt(wtDir, 'rebase', 'wt-branch')).toBe(false);
+  expect(existsSync(path.join(wtGitDir, 'rebase-merge'))).toBe(true);
+
+  const before = readEntityName(req2);
+  setEntityName(req2, 'Worktree Held');
+  await workbench.waitForTimeout(3_000);
+  await expect(request).toContainText(before);
+  await expect(request).not.toContainText('Worktree Held');
+
+  await hideToolWindow('api-requests');
+  await hideToolWindow('git');
+  await rowMenuGit('pull', req2, wtDir);
+  await expect(pane('commit-tool-error')).toContainText('Pull failed: op-in-progress');
+  await dismissError();
+
+  // `rebase --abort` resets the worktree hard to the pre-rebase head,
+  // so git itself discards the held edit; the view agrees once the
+  // plane resumes instead of resurrecting bytes git threw away.
+  at(wtDir, 'rebase', '--abort');
+  expect(existsSync(path.join(wtGitDir, 'rebase-merge'))).toBe(false);
+  expect(readEntityName(req2)).toBe(before);
+  // A terminal checkout inside the worktree moves the per-worktree
+  // HEAD — the watcher follows the gitfile and the rail reconciles.
+  at(wtDir, 'checkout', 'wt-branch');
+  await openToolWindow('git');
+  await expectCurrentBranch('wt-branch');
+  await expect(request).toContainText(before);
+
+  // The plane is live again: an edit sweeps in and commits on the
+  // worktree's own branch, never on main.
+  setEntityName(req2, 'Worktree Edit');
+  await waitDirty();
+  await expect(request).toContainText('Worktree Edit');
+  await commitWithMessage('git e2e: worktree commit', wtDir);
+  expect(at(wtDir, 'log', '-1', '--format=%s')).toBe('git e2e: worktree commit');
+  expect(ws('rev-parse', 'main')).not.toBe(at(wtDir, 'rev-parse', 'HEAD'));
+
+  await unbindOnFolderPage();
+  await closeSettings();
+  await expect(pane('commit-tool-not-bound')).toBeVisible();
+});
+
+// ── G28: a shallow clone binds with its tag; a pull past the boundary says why ──
+
+test('G28 — a depth-1 clone binds with the shallow tag; a pull whose fork point sits behind the boundary merges and the toast names the shallow history', async () => {
+  at(root, 'clone', '--depth', '1', `file://${remoteDir}`, shallowDir);
+  expect(at(shallowDir, 'rev-parse', '--is-shallow-repository')).toBe('true');
+
+  await bindOnFolderPage(shallowDir);
+  await closeSettings();
+  await openToolWindow('commit');
+  await expect(pane('commit-tool-panel')).toBeVisible();
+  await openToolWindow('git');
+  await expectCurrentBranch('main');
+  await expect(pane('git-tool-shallow-note')).toBeVisible();
+
+  // The teammate forks from a commit the shallow clone cannot see and
+  // publishes it; the clone takes that ref as its upstream (`--depth`
+  // implies `--single-branch`, so the ref joins the remote's fetch set
+  // first — tracking refuses a ref no fetch refspec maps).
+  clone('fetch');
+  clone('checkout', '-b', 'deep-side', 'origin/main~2');
+  const cReq1 = entityFileOf(cloneDir, 'e2egreq1') as string;
+  setEntityName(cReq1, 'Deep Side');
+  clone('commit', '-a', '-m', 'clone: deep side rename');
+  clone('push', 'origin', 'deep-side');
+  const sideSha = clone('rev-parse', 'HEAD');
+  at(shallowDir, 'remote', 'set-branches', '--add', 'origin', 'deep-side');
+  at(shallowDir, 'fetch', 'origin');
+  at(shallowDir, 'branch', '--set-upstream-to=origin/deep-side', 'main');
+  expect(tryAt(shallowDir, 'merge-base', 'HEAD', 'origin/deep-side')).toBe(false);
+
+  const req2 = entityFileOf(shallowDir, 'e2egreq2') as string;
+  setEntityName(req2, 'Shallow Local');
+  await waitDirty();
+  await hideToolWindow('api-requests');
+  await hideToolWindow('git');
+  await rowMenuGit('pull', req2, shallowDir);
+  await expect(workbench.getByText('The shallow clone hides the common history', { exact: false })).toBeVisible();
+
+  await expect
+    .poll(() => at(shallowDir, 'rev-list', '--parents', '-1', 'HEAD').split(' ').length, { timeout: 5_000 })
+    .toBe(3);
+  expect(at(shallowDir, 'rev-parse', 'HEAD^2')).toBe(sideSha);
+  expect(readFileSync(entityFileOf(shallowDir, 'e2egreq1') as string, 'utf-8')).toContain('Deep Side');
+  // The cost the toast names: with no base every file the foreign side
+  // carries is tree-authored, so its bytes win — the local edit stands
+  // committed on the first parent and is overridden in the merge result.
+  expect(committedName(at(shallowDir, 'rev-parse', 'HEAD^1'), req2, shallowDir)).toBe('Shallow Local');
+  expect(readEntityName(req2)).toBe(committedName(sideSha, req2, shallowDir));
+  for (const file of walkYamlFiles(shallowDir)) {
+    expect(readFileSync(file, 'utf-8')).not.toContain('<<<<<<<');
+  }
+  await waitClean();
+  expect(at(shallowDir, 'status', '--porcelain')).toBe('');
 });
