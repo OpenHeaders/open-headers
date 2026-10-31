@@ -31,10 +31,28 @@
  *        once the peer pushes a fix.
  *   G9   pushing behind the remote raises the push refusal in the
  *        window; pull then push converges.
+ *   G10  a rejecting pre-receive raises the Commit window's
+ *        no-push-access recovery (§8.2); Push as New Branch lands the
+ *        export ref and main converges once the hook is gone.
+ *   G11  a force-pushed remote: the pull refuses `force-push` (over the
+ *        bridge, the G6 idiom), both tool windows raise the rewrite
+ *        banner, Commit and Push refuses naming the rewrite; Abandon
+ *        converges onto the rewrite and drops the banner.
+ *   G12  Preserve on a rescue branch (from the Git window's banner)
+ *        mints `oh-rescue-*` carrying the pre-rewrite work.
+ *   G13  Re-apply on top lands the local work as a fresh commit on the
+ *        rewritten history.
  *   G14  New Branch with checkout carries a dirty tree onto the new
  *        branch; the rail's star moves.
+ *   G15  Checkout on a rail row's context menu with a dirty tree
+ *        raises the §6.2 prompt; Stash, Commit and switch (the edit
+ *        lands on the OLD branch) and Discard (danger-confirmed, total,
+ *        `.oh/` survives) each land their contract.
  *   G16  a terminal `git checkout` while the app runs reconciles the
  *        rail — including a bare HEAD move between identical trees.
+ *   G17  Merge into Current on a rail row lands a clean two-parent
+ *        commit with zero markers; after a clean Checkout, merging the
+ *        other way fast-forwards.
  *   G18  live watcher conflict chip: with the request editor holding a
  *        local edit on a header value, a hand edit to the same leaf
  *        sweeps in and raises the chip; Use saved adopts it.
@@ -75,12 +93,12 @@
  *        whose uid the host already holds keeps the plain collision
  *        refusal with no offer.
  *
- * BLOCKED until the Git epic's residual-verb migration lands (no
- * desktop surface drives these verbs — the settings card that carried
- * them retired 2026-08-27): G10 push-as-new-branch (`pushNewBranch`),
- * G11 / G12 / G13 the force-push trichotomy (`resolveForcePush`), G15
- * the dirty-switch Commit / Stash / Discard trio (`switchBranch`), G17
- * merge (`mergeBranch`). They return with that migration.
+ * The residual verbs' desktop homes (the S28 migration off the retired
+ * settings card): the force-push trichotomy is the banner both tool
+ * windows raise from the status frame; Push as New Branch is the
+ * Commit window's `no-permission` recovery; Checkout and Merge into
+ * Current live on the ref rail's row context menu; Show History on a
+ * log entry's file row is unit-pinned (no leg drives it here).
  *
  * Deliberately NOT here (the manual live pass): the native folder
  * picker, real cmd-tab blur cadence, the ~5m fetch/commit timers
@@ -460,6 +478,29 @@ async function rowMenuGit(
   await pane(`commit-tool-menu-${verb}`).click();
 }
 
+/**
+ * The rail row's context menu: right-click the local branch row in the
+ * Git window, click the verb in the popup. The popup is scoped to the
+ * visible dropdown — antd keeps a closed row's popup mounted, so a
+ * bare testid would match every row opened before.
+ */
+async function railRowMenu(verb: 'checkout' | 'merge', branch: string): Promise<void> {
+  await openToolWindow('git');
+  await workbench
+    .locator(`[data-testid="git-tool-ref-row"][data-kind="local"][data-ref="${branch}"]`)
+    .click({ button: 'right' });
+  await expect(workbench.locator('.ant-dropdown[class*="-appear"], .ant-dropdown[class*="-enter"]')).toHaveCount(0);
+  await workbench.locator('.ant-dropdown:not(.ant-dropdown-hidden)').getByTestId(`git-tool-ref-menu-${verb}`).click();
+}
+
+/** Answer the §6.2 dirty-switch prompt once it is up and its zoom motion has settled. */
+async function chooseSwitch(choice: 'commit' | 'stash' | 'discard'): Promise<void> {
+  const button = pane(`git-tool-switch-${choice}`);
+  await button.waitFor({ state: 'visible' });
+  await settleModal();
+  await button.click();
+}
+
 /** The rail's local branch row carrying the current-branch star. */
 async function expectCurrentBranch(name: string): Promise<void> {
   await expect(
@@ -532,6 +573,14 @@ async function selectEditorTab(name: RegExp): Promise<void> {
 }
 
 test.describe.configure({ mode: 'serial' });
+
+// Every leg starts with the API Requests view tucked away: it shares
+// the Commit window's dock column, and with an Alert above the changes
+// tree (the rewrite banner, the push recovery) the rows lose their
+// room. Legs that need the sidebar open it themselves.
+test.beforeEach(async () => {
+  await hideToolWindow('api-requests');
+});
 
 test.beforeAll(async () => {
   root = await mkdtemp(path.join(tmpdir(), 'oh-git-desktop-e2e-'));
@@ -806,6 +855,144 @@ test('G9 — pushing behind the remote is refused in the window; pull then push 
   await editCommitPush(req2, 'Nudge Local Three', 'git e2e: nudge converge');
 });
 
+// ── G10: §8.2 read-only remote — Push as New Branch from the window ─
+
+test('G10 — a rejecting pre-receive raises the no-push-access recovery; Push as New Branch lands the export ref', async () => {
+  const preReceive = path.join(remoteDir, 'hooks', 'pre-receive');
+  writeFileSync(preReceive, '#!/bin/sh\necho "protected"\nexit 1\n');
+  chmodSync(preReceive, 0o755);
+
+  const req2 = entityFileOf(wsDir, 'e2egreq2') as string;
+  setEntityName(req2, 'Protected Local');
+  await waitDirty();
+  const before = commitCount();
+  await pane('commit-tool-message').fill('git e2e: protected local');
+  await pane('commit-tool-commit-push').click();
+  await expect.poll(() => commitCount(), { timeout: 5_000 }).toBe(before + 1);
+  // The commit landed; the push answered no-permission, which is a
+  // recovery, never an error line.
+  await expect(pane('commit-tool-push-no-permission')).toBeVisible();
+  await expect(pane('commit-tool-error')).toHaveCount(0);
+  expect(remoteMain()).not.toBe(ws('rev-parse', 'HEAD'));
+  await waitClean();
+
+  rmSync(preReceive);
+  await pane('commit-tool-export-branch-input').fill('oh-e2e-export');
+  await pane('commit-tool-export-branch-button').click();
+  await expect
+    .poll(
+      () => {
+        try {
+          return remote('rev-parse', 'refs/heads/oh-e2e-export');
+        } catch {
+          return null;
+        }
+      },
+      { timeout: 5_000 },
+    )
+    .toBe(ws('rev-parse', 'HEAD'));
+  await expect(pane('commit-tool-push-no-permission')).toHaveCount(0);
+
+  // The hook gone, main converges on the next Commit and Push.
+  await editCommitPush(req2, 'Protected Local Two', 'git e2e: protected converge');
+});
+
+// ── G11–G13: the force-push trichotomy ──────────────────────────────
+
+/** Rewind the remote by one commit and force-push a divergent edit from the clone. */
+function forcePushRewrite(marker: string): string {
+  clone('fetch');
+  clone('reset', '--hard', 'origin/main');
+  clone('reset', '--hard', 'HEAD~1');
+  const cReq1 = entityFileOf(cloneDir, 'e2egreq1') as string;
+  setEntityName(cReq1, marker);
+  clone('commit', '-a', '-m', `clone: rewrite ${marker}`);
+  clone('push', '--force');
+  return clone('rev-parse', 'HEAD');
+}
+
+/**
+ * The pull meets the rewrite: it commits the dirty edit, fetches,
+ * refuses `force-push`, and the status frame it publishes raises the
+ * banner in BOTH tool windows. The pull rides the verb the row menu
+ * calls (the G6 spine idiom) — with the banner up the row menu's Git
+ * submenu would open below the window edge.
+ */
+async function meetRewrite(): Promise<void> {
+  const pulled = await invoke<{ ok: boolean; reason?: string }>({ type: 'oh.workspaceTree.pull', workspaceId });
+  expect(pulled).toMatchObject({ ok: false, reason: 'force-push' });
+  await expect(pane('commit-tool-force-push')).toBeVisible();
+  await openToolWindow('git');
+  await expect(pane('git-tool-force-push')).toBeVisible();
+}
+
+test('G11 — a rewritten remote holds pull and push behind the banner in both windows; Abandon converges onto the rewrite', async () => {
+  const req2 = entityFileOf(wsDir, 'e2egreq2') as string;
+  setEntityName(req2, 'Abandon Me');
+  await waitDirty();
+  const rewrittenSha = forcePushRewrite('Rewritten A');
+  await meetRewrite();
+
+  // Push refuses in the window while the banner stands: the commit
+  // lands, the push names the rewrite.
+  setEntityName(req2, 'Abandon Me Too');
+  await waitDirty();
+  const before = commitCount();
+  await pane('commit-tool-message').fill('git e2e: abandon me too');
+  await pane('commit-tool-commit-push').click();
+  await expect.poll(() => commitCount(), { timeout: 5_000 }).toBe(before + 1);
+  await expect(pane('commit-tool-error')).toContainText('The remote history was rewritten');
+  await dismissError();
+
+  await pane('commit-tool-force-push-abandon').click();
+  await workbench.getByRole('button', { name: 'Abandon', exact: true }).click();
+  await expect(pane('commit-tool-force-push')).toHaveCount(0);
+  await openToolWindow('git');
+  await expect(pane('git-tool-force-push')).toHaveCount(0);
+  await expect
+    .poll(() => tryAt(wsDir, 'merge-base', '--is-ancestor', rewrittenSha, 'HEAD'), { timeout: 5_000 })
+    .toBe(true);
+  expect(readFileSync(entityFileOf(wsDir, 'e2egreq1') as string, 'utf-8')).toContain('Rewritten A');
+  expect(readFileSync(req2, 'utf-8')).not.toContain('Abandon Me');
+  await waitClean();
+});
+
+test('G12 — Preserve on a rescue branch from the Git window banner mints oh-rescue-* carrying the pre-rewrite work', async () => {
+  const req2 = entityFileOf(wsDir, 'e2egreq2') as string;
+  setEntityName(req2, 'Pre-rescue Local');
+  await waitDirty();
+  forcePushRewrite('Rewritten B');
+  await meetRewrite();
+
+  await pane('git-tool-force-push-rescue').click();
+  await expect(pane('git-tool-force-push')).toHaveCount(0);
+  await expect(pane('commit-tool-force-push')).toHaveCount(0);
+  const rescueLines = ws('branch', '--list', 'oh-rescue-*')
+    .split('\n')
+    .map((line) => line.replace('*', '').trim())
+    .filter((line) => line !== '');
+  expect(rescueLines.length).toBeGreaterThan(0);
+  const rescue = rescueLines[rescueLines.length - 1];
+  expect(ws('show', `${rescue}:${relPosix(req2)}`)).toContain('Pre-rescue Local');
+  expect(readFileSync(entityFileOf(wsDir, 'e2egreq1') as string, 'utf-8')).toContain('Rewritten B');
+  await waitClean();
+});
+
+test('G13 — Re-apply on top lands the local work as a fresh commit on the rewritten history', async () => {
+  const req2 = entityFileOf(wsDir, 'e2egreq2') as string;
+  setEntityName(req2, 'Reapply Local');
+  await waitDirty();
+  forcePushRewrite('Rewritten C');
+  await meetRewrite();
+
+  await pane('commit-tool-force-push-reapply').click();
+  await expect(pane('commit-tool-force-push')).toHaveCount(0);
+  await expect.poll(() => ws('log', '-1', '--format=%s'), { timeout: 5_000 }).toContain('Re-apply');
+  expect(readFileSync(req2, 'utf-8')).toContain('Reapply Local');
+  expect(readFileSync(entityFileOf(wsDir, 'e2egreq1') as string, 'utf-8')).toContain('Rewritten C');
+  await waitClean();
+});
+
 // ── G14: New Branch with checkout rides dirty work along ────────────
 
 test('G14 — New Branch with checkout carries the dirty tree onto the new branch; the rail star moves', async () => {
@@ -827,13 +1014,52 @@ test('G14 — New Branch with checkout carries the dirty tree onto the new branc
   expect(readFileSync(req2, 'utf-8')).toContain('Branch Dirty Work');
 });
 
+// ── G15: the §6.2 Commit / Stash / Discard trio from the rail ───────
+
+test('G15 — Checkout on a rail row with a dirty tree raises the prompt; Stash, Commit and switch, and Discard land their contracts', async () => {
+  const req2 = entityFileOf(wsDir, 'e2egreq2') as string;
+
+  // Stash: G14's dirty work goes onto the user's own stash stack.
+  await railRowMenu('checkout', 'main');
+  await chooseSwitch('stash');
+  await expectCurrentBranch('main');
+  expect(ws('stash', 'list')).not.toBe('');
+  expect(readFileSync(req2, 'utf-8')).not.toContain('Branch Dirty Work');
+  ws('stash', 'drop');
+
+  // Commit: the edit lands on the OLD branch (main), then the switch.
+  setEntityName(req2, 'Commit Choice Work');
+  await waitDirty();
+  await railRowMenu('checkout', 'local-test');
+  await chooseSwitch('commit');
+  await expectCurrentBranch('local-test');
+  expect(ws('show', `main:${relPosix(req2)}`)).toContain('Commit Choice Work');
+  expect(readFileSync(req2, 'utf-8')).not.toContain('Commit Choice Work');
+
+  // Discard: danger-confirmed and total; .oh/ survives.
+  setEntityName(req2, 'Discard Me');
+  writeFileSync(path.join(wsDir, 'scratch.txt'), 'stray\n');
+  await waitDirty();
+  await railRowMenu('checkout', 'main');
+  await chooseSwitch('discard');
+  await workbench.getByRole('button', { name: 'Discard', exact: true }).click();
+  await expectCurrentBranch('main');
+  expect(existsSync(path.join(wsDir, 'scratch.txt'))).toBe(false);
+  expect(readFileSync(req2, 'utf-8')).not.toContain('Discard Me');
+  expect(existsSync(path.join(wsDir, '.oh'))).toBe(true);
+});
+
 // ── G16: terminal checkout reconciles, incl. the bare HEAD move ─────
 
 test('G16 — a terminal git checkout while the app runs moves the rail, including between identical trees', async () => {
-  // Land the branch's dirty work on the branch, then move HEAD by hand.
+  ws('checkout', 'local-test');
+  await expectCurrentBranch('local-test');
+
+  // Give the branch its own commit for G17's divergence.
+  const req1 = entityFileOf(wsDir, 'e2egreq1') as string;
+  setEntityName(req1, 'Branch Side Edit');
+  await waitDirty();
   await commitWithMessage('git e2e: branch side edit');
-  ws('checkout', 'main');
-  await expectCurrentBranch('main');
 
   // Bare HEAD move: twin points at the same commit — identical trees.
   ws('branch', 'twin');
@@ -841,6 +1067,26 @@ test('G16 — a terminal git checkout while the app runs moves the rail, includi
   await expectCurrentBranch('twin');
   ws('checkout', 'main');
   await expectCurrentBranch('main');
+});
+
+// ── G17: Merge into Current from the rail — two-parent, then ff back ─
+
+test('G17 — Merge into Current on a rail row lands a clean two-parent commit; after a clean Checkout the other way fast-forwards', async () => {
+  await railRowMenu('merge', 'local-test');
+  await expect.poll(() => ws('rev-list', '--parents', '-1', 'HEAD').split(' ').length, { timeout: 5_000 }).toBe(3);
+  for (const file of walkYamlFiles(wsDir)) {
+    expect(readFileSync(file, 'utf-8')).not.toContain('<<<<<<<');
+  }
+  expect(readFileSync(entityFileOf(wsDir, 'e2egreq1') as string, 'utf-8')).toContain('Branch Side Edit');
+  expect(readFileSync(entityFileOf(wsDir, 'e2egreq2') as string, 'utf-8')).toContain('Commit Choice Work');
+  await waitClean();
+
+  // A clean tree checks out without the prompt; local-test is now a
+  // pure ancestor of main — a true fast-forward.
+  await railRowMenu('checkout', 'local-test');
+  await expectCurrentBranch('local-test');
+  await railRowMenu('merge', 'main');
+  await expect.poll(() => ws('rev-parse', 'local-test'), { timeout: 5_000 }).toBe(ws('rev-parse', 'main'));
 });
 
 // ── G18: live watcher conflict chip in the request editor ───────────
@@ -955,6 +1201,9 @@ test('G21 — cadence on-blur commits when the appBlur RPC fires', async () => {
 // ── G22: a mid-rebase repo holds reconcile until --abort ────────────
 
 test('G22 — a mid-rebase repo holds reconcile: Pull refuses, held edits never ingest, abort resumes', async () => {
+  // G17 leaves the rig on local-test; the fixture forks from main.
+  ws('checkout', 'main');
+  await expectCurrentBranch('main');
   // Cheap conflict fixture: the same README line diverges on two branches.
   const readme = path.join(wsDir, 'README.md');
   writeFileSync(readme, 'base\n');

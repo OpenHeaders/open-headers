@@ -18,7 +18,7 @@ import {
   FolderOutlined,
   ShrinkOutlined,
 } from '@ant-design/icons';
-import { Button, Spin, theme } from 'antd';
+import { Button, Dropdown, type MenuProps, Spin, theme } from 'antd';
 import type React from 'react';
 import { forwardRef, useImperativeHandle, useMemo, useState } from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
@@ -52,6 +52,9 @@ export interface FileTreeViewProps {
   groupByDirectory?: boolean;
   /** Legacy inline header (compare pane) — heading + expand/collapse. */
   showHeader?: boolean;
+  /** Right-click menu per file row (the log pane); right-click also
+   *  selects the row when selection is wired. Absent = no menu. */
+  rowMenu?: (path: string) => MenuProps;
 }
 
 export interface FileTreeViewHandle {
@@ -62,7 +65,7 @@ export interface FileTreeViewHandle {
 const INDENT = 14;
 
 const FileTreeView = forwardRef<FileTreeViewHandle, FileTreeViewProps>(function FileTreeView(
-  { files, loadingPath, onOpenFile, selectedPath, onSelectFile, groupByDirectory = true, showHeader = false },
+  { files, loadingPath, onOpenFile, selectedPath, onSelectFile, groupByDirectory = true, showHeader = false, rowMenu },
   handleRef,
 ) {
   const { token } = theme.useToken();
@@ -135,7 +138,7 @@ const FileTreeView = forwardRef<FileTreeViewHandle, FileTreeViewProps>(function 
       }
       const selectable = onSelectFile !== undefined;
       const isSelected = selectable && selectedPath === node.path;
-      return (
+      const row = (
         <button
           key={node.path}
           type="button"
@@ -144,6 +147,7 @@ const FileTreeView = forwardRef<FileTreeViewHandle, FileTreeViewProps>(function 
           title={node.path}
           onClick={() => (selectable ? onSelectFile(node.path) : onOpenFile(node.path))}
           onDoubleClick={selectable ? () => onOpenFile(node.path) : undefined}
+          onContextMenu={selectable ? () => onSelectFile(node.path) : undefined}
           data-testid="git-tool-file"
           data-path={node.path}
         >
@@ -162,6 +166,17 @@ const FileTreeView = forwardRef<FileTreeViewHandle, FileTreeViewProps>(function 
           </span>
           {loadingPath === node.path && <Spin size="small" style={{ flex: '0 0 auto' }} />}
         </button>
+      );
+      if (rowMenu === undefined) return row;
+      return (
+        <Dropdown
+          key={node.path}
+          menu={rowMenu(node.path)}
+          trigger={['contextMenu']}
+          classNames={{ root: 'commit-tool-row-menu' }}
+        >
+          {row}
+        </Dropdown>
       );
     });
 

@@ -52,6 +52,7 @@
  * prefix + glyph + name + suffix).
  */
 
+import { formatMessage, plural } from '../../runtime';
 import type { Catalog } from '../../types';
 
 export const workbenchChrome = {
@@ -635,6 +636,64 @@ export const workbenchChrome = {
   'workbench.gitLog.compare.onlyIn': 'Commit-uri care există în {a}, dar nu există în {b}',
   'workbench.gitLog.compare.containsAll': 'Ramura {a} conține toate commit-urile din {b}',
   'workbench.gitLog.compare.failed': 'Compararea a eșuat: {detail}',
+  'workbench.gitLog.refMenu.checkout': 'Checkout',
+  'workbench.gitLog.refMenu.newBranchFrom': 'Ramură nouă din {name}…',
+  'workbench.gitLog.refMenu.checkoutAndRebase': 'Checkout și rebase pe {current}',
+  'workbench.gitLog.refMenu.compareWithCurrent': 'Comparare cu ramura curentă',
+  'workbench.gitLog.refMenu.showDiffWithWorkingTree': 'Afișare diff față de arborele de lucru',
+  'workbench.gitLog.refMenu.rebaseCurrentOnto': 'Rebase al ramurii curente pe {name}',
+  'workbench.gitLog.refMenu.mergeIntoCurrent': 'Îmbinare {name} în {current}',
+  'workbench.gitLog.refMenu.update': 'Actualizare',
+  'workbench.gitLog.refMenu.push': 'Push…',
+  'workbench.gitLog.refMenu.rename': 'Redenumire…',
+  'workbench.gitLog.refMenu.delete': 'Ștergere',
+  'workbench.gitLog.switch.checkedOut': 'Checkout efectuat pe ramura {branch}',
+  'workbench.gitLog.switch.failed': 'Checkout-ul ramurii {branch} a eșuat: {detail}',
+  'workbench.gitLog.switch.dirtyTitle': 'Aveți modificări fără commit',
+  'workbench.gitLog.switch.dirtyBody': ({ count, branch }, locale) =>
+    formatMessage(
+      plural(locale, Number(count), {
+        one: 'Faceți commit, stocați temporar sau renunțați la {count} modificare fără commit înainte de a comuta la ramura {branch}.',
+        few: 'Faceți commit, stocați temporar sau renunțați la cele {count} modificări fără commit înainte de a comuta la ramura {branch}.',
+        other:
+          'Faceți commit, stocați temporar sau renunțați la cele {count} de modificări fără commit înainte de a comuta la ramura {branch}.',
+      }),
+      { branch: String(branch) },
+    ),
+  'workbench.gitLog.switch.commit': 'Commit și comutare',
+  'workbench.gitLog.switch.stash': 'Stocare temporară și comutare',
+  'workbench.gitLog.switch.discard': 'Renunțare la modificări',
+  'workbench.gitLog.switch.discardConfirm.title': 'Renunțați la modificările fără commit?',
+  'workbench.gitLog.switch.discardConfirm.body':
+    'Fiecare modificare fără commit este ștearsă, inclusiv fișierele noi. Această acțiune nu poate fi anulată.',
+  'workbench.gitLog.switch.discardConfirm.ok': 'Renunțare',
+  'workbench.gitLog.merge.done': '{ref} îmbinată în {branch} ({sha})',
+  'workbench.gitLog.merge.upToDate': '{branch} conține deja {ref}',
+  'workbench.gitLog.merge.doneShallow':
+    '{ref} îmbinată în {branch}. Clona superficială ascunde istoricul comun, așa că fiecare fișier din {ref} a fost tratat ca modificat.',
+  'workbench.gitLog.merge.doneUnrelated':
+    '{ref} îmbinată în {branch}. Istoricele nu au niciun commit comun, așa că fiecare fișier din {ref} a fost tratat ca modificat.',
+  'workbench.gitLog.merge.failed': 'Îmbinarea ramurii {ref} a eșuat: {detail}',
+  'workbench.gitLog.forcePush.title': 'Istoricul de la distanță a fost rescris',
+  'workbench.gitLog.forcePush.body':
+    'Ramura de la distanță nu mai conține istoricul sincronizat ultima dată ({sha}). Pull, push și îmbinarea așteaptă alegerea dvs. — nimic nu se schimbă până nu decideți.',
+  'workbench.gitLog.forcePush.abandon': 'Abandonare modificări locale',
+  'workbench.gitLog.forcePush.abandonConfirm.title': 'Abandonați modificările locale?',
+  'workbench.gitLog.forcePush.abandonConfirm.body':
+    'Commit-urile locale de la ultima sincronizare sunt eliminate, iar istoricul rescris de la distanță devine starea spațiului de lucru.',
+  'workbench.gitLog.forcePush.abandonConfirm.ok': 'Abandonare',
+  'workbench.gitLog.forcePush.rescue': 'Păstrare pe o ramură de salvare',
+  'workbench.gitLog.forcePush.reapply': 'Reaplicare deasupra',
+  'workbench.gitLog.forcePush.resolved': 'Istoricul rescris a fost acceptat ({sha})',
+  'workbench.gitLog.forcePush.rescued': 'Istoricul local a fost păstrat pe ramura {branch}',
+  'workbench.gitLog.forcePush.failed': 'Nu s-a putut rezolva: {detail}',
+  'workbench.gitLog.fileMenu.showDiff': 'Afișare diff',
+  'workbench.gitLog.fileMenu.showHistory': 'Afișare istoric',
+  'workbench.gitLog.fileMenu.showCurrentRevision': 'Afișare revizie curentă',
+  'workbench.gitLog.fileMenu.jumpToSource': 'Salt la sursă',
+  'workbench.gitLog.fileHistory.title': 'Istoric: {path}',
+  'workbench.gitLog.fileHistory.empty': 'Niciun commit nu atinge acest fișier.',
+  'workbench.gitLog.fileHistory.failed': 'Istoricul nu a putut fi citit: {detail}',
 
   // ── Commit tool window ───────────────────────────────────────────
   'workbench.toolWindows.commit': 'Git · Commit',
@@ -738,6 +797,16 @@ export const workbenchChrome = {
   'workbench.commitTool.errors.stageFailed': 'Fișierele selectate nu au putut fi pregătite pentru commit',
   'workbench.commitTool.errors.commitFailed': 'Commit eșuat',
   'workbench.commitTool.errors.pushFailed': 'Push eșuat',
+  'workbench.commitTool.errors.pushRejected':
+    'Depozitul la distanță are commit-uri noi — faceți mai întâi pull, apoi push din nou.',
+  'workbench.commitTool.errors.historyRewritten':
+    'Istoricul de la distanță a fost rescris — rezolvați-l mai întâi în banner.',
+  'workbench.commitTool.pushNoPermission.title': 'Fără acces de push',
+  'workbench.commitTool.pushNoPermission.body':
+    'Acest depozit la distanță este doar în citire pentru dvs. Commit-urile dvs. rămân locale; publicați-le pe o ramură nouă și deschideți o cerere de îmbinare de pe gazda dvs. git.',
+  'workbench.commitTool.pushNoPermission.placeholder': 'nume-ramură-nouă',
+  'workbench.commitTool.pushNoPermission.button': 'Push ca ramură nouă',
+  'workbench.commitTool.pushNoPermission.pushed': 'Push efectuat pe ramura {branch}',
 
   // ── Proxy capture tool window (control strip) ────────────────────
   'workbench.proxyCapture.running': 'În funcțiune · :{port}',

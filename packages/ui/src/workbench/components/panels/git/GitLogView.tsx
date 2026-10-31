@@ -24,6 +24,8 @@ import { useLocale } from '@openheaders/ui/context/LocaleContext';
 import CommitDetails from './CommitDetails';
 import CommitList from './CommitList';
 import DiffModal from './DiffModal';
+import { buildFileRowMenu } from './file-row-menu';
+import FileHistoryModal from './FileHistoryModal';
 import FileTreeView, { type FileTreeViewHandle } from './FileTreeView';
 import { getGitLogViewPrefs, patchGitLogViewPrefs, subscribeGitLogViewPrefs } from './git-log-view-prefs';
 import { GIT_LOG_SCOPE_HEAD, type GitLogTabState, gitPanelTabKey } from './git-panel-view-store';
@@ -43,6 +45,8 @@ export interface GitLogViewProps {
   branch: string | null;
   /** The detached HEAD's commit (§3.4) from the status feed; null while a branch is checked out. */
   detachedSha: string | null;
+  /** A remote history rewrite is pending (§16) — the rail's merge verb holds. */
+  historyRewritten: boolean;
   patchTab: (patch: Partial<Omit<GitLogTabState, 'kind' | 'id'>>) => void;
   /** Open a Compare-with-Current tab (registry gesture — the renderer wires it). */
   onOpenCompare: (ref: string) => void;
@@ -50,7 +54,15 @@ export interface GitLogViewProps {
 
 const LOG_LIMIT = 200;
 
-const GitLogView: React.FC<GitLogViewProps> = ({ workspaceId, tab, branch, detachedSha, patchTab, onOpenCompare }) => {
+const GitLogView: React.FC<GitLogViewProps> = ({
+  workspaceId,
+  tab,
+  branch,
+  detachedSha,
+  historyRewritten,
+  patchTab,
+  onOpenCompare,
+}) => {
   const { token } = theme.useToken();
   const { t } = useLocale();
   const rootRef = useRef<HTMLDivElement>(null);
@@ -63,6 +75,7 @@ const GitLogView: React.FC<GitLogViewProps> = ({ workspaceId, tab, branch, detac
   const [error, setError] = useState<string | null>(null);
   const [scrollTo, setScrollTo] = useState<{ sha: string; nonce: number } | null>(null);
   const [selectedFile, setSelectedFile] = useState<string | null>(null);
+  const [historyPath, setHistoryPath] = useState<string | null>(null);
   const fileDiff = useFileDiff(workspaceId);
 
   const subscribeViewPrefs = useCallback(
@@ -245,6 +258,16 @@ const GitLogView: React.FC<GitLogViewProps> = ({ workspaceId, tab, branch, detac
 
   const container = rootRef.current?.closest<HTMLElement>('.git-tool-panel') ?? null;
 
+  // The changed-file row menu: Show Diff reads the selected commit's
+  // blob pair; Show History opens the path's own timeline.
+  const fileRowMenu = (path: string): ReturnType<typeof buildFileRowMenu> =>
+    buildFileRowMenu(path, t, {
+      onShowDiff: (filePath) => {
+        if (selected !== null) void fileDiff.open(selected.sha, filePath);
+      },
+      onShowHistory: setHistoryPath,
+    });
+
   return (
     <div
       ref={rootRef}
@@ -275,6 +298,7 @@ const GitLogView: React.FC<GitLogViewProps> = ({ workspaceId, tab, branch, detac
             currentRef={currentRef}
             unbornBranch={unbornBranch}
             detachedSha={detachedSha}
+            historyRewritten={historyRewritten}
             selection={railSelection}
             onSelectionChange={(selection) => patchTab({ railSelection: selection })}
             scopeRef={selectedRef}
@@ -382,6 +406,7 @@ const GitLogView: React.FC<GitLogViewProps> = ({ workspaceId, tab, branch, detac
                 selectedPath={selectedFile}
                 onSelectFile={setSelectedFile}
                 groupByDirectory={prefs.groupFilesByDirectory}
+                rowMenu={fileRowMenu}
               />
               {prefs.showDetails && (
                 <div
@@ -404,6 +429,12 @@ const GitLogView: React.FC<GitLogViewProps> = ({ workspaceId, tab, branch, detac
         </div>
       </div>
       <DiffModal diff={fileDiff.diff} onClose={fileDiff.close} />
+      <FileHistoryModal
+        workspaceId={workspaceId}
+        path={historyPath}
+        container={container}
+        onClose={() => setHistoryPath(null)}
+      />
     </div>
   );
 };

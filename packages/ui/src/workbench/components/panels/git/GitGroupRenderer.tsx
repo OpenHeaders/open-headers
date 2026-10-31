@@ -69,6 +69,8 @@ export interface GitGroupRendererProps {
   branch: string | null;
   /** The commit HEAD resolves to — with `branch` null, the detached HEAD the rail names (§3.4). */
   headSha: string | null;
+  /** A remote history rewrite is pending (§16) — the rail's merge verb holds until it resolves. */
+  historyRewritten: boolean;
   /** True while the git dock owns focus (strip tint law). */
   dockFocused: boolean;
   /** Renders the panel header row while the tree is a SINGLE pane. */
@@ -87,6 +89,7 @@ export const GitGroupRenderer: React.FC<GitGroupRendererProps> = ({
   workspaceId,
   branch,
   headSha,
+  historyRewritten,
   dockFocused,
   renderHeader,
   titleInfo,
@@ -331,6 +334,7 @@ export const GitGroupRenderer: React.FC<GitGroupRendererProps> = ({
         tab={tab}
         branch={branch}
         detachedSha={branch === null ? headSha : null}
+        historyRewritten={historyRewritten}
         patchTab={(patch) => registry.patchLogTab(gitPanelTabKey(tab), patch)}
         onOpenCompare={(ref) => registry.openCompare(ref)}
       />

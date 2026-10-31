@@ -26,6 +26,7 @@
  * → / ↵ / esc) and the {chord} / {unit} / {units} holes.
  */
 
+import { formatMessage, plural } from '../../runtime';
 import type { Catalog } from '../../types';
 
 export const workbenchChrome = {
@@ -774,6 +775,62 @@ export const workbenchChrome = {
   'workbench.gitLog.compare.onlyIn': 'Commits, die in {a} existieren, aber nicht in {b}',
   'workbench.gitLog.compare.containsAll': '{a} enthält alle Commits aus {b}',
   'workbench.gitLog.compare.failed': 'Vergleich nicht möglich: {detail}',
+  'workbench.gitLog.refMenu.checkout': 'Auschecken',
+  'workbench.gitLog.refMenu.newBranchFrom': 'Neuer Branch von {name}…',
+  'workbench.gitLog.refMenu.checkoutAndRebase': 'Auschecken und auf {current} rebasen',
+  'workbench.gitLog.refMenu.compareWithCurrent': 'Mit aktuellem vergleichen',
+  'workbench.gitLog.refMenu.showDiffWithWorkingTree': 'Diff zum Arbeitsbaum anzeigen',
+  'workbench.gitLog.refMenu.rebaseCurrentOnto': 'Aktuellen auf {name} rebasen',
+  'workbench.gitLog.refMenu.mergeIntoCurrent': '{name} in {current} mergen',
+  'workbench.gitLog.refMenu.update': 'Aktualisieren',
+  'workbench.gitLog.refMenu.push': 'Pushen…',
+  'workbench.gitLog.refMenu.rename': 'Umbenennen…',
+  'workbench.gitLog.refMenu.delete': 'Löschen',
+  'workbench.gitLog.switch.checkedOut': '{branch} ausgecheckt',
+  'workbench.gitLog.switch.failed': '{branch} konnte nicht ausgecheckt werden: {detail}',
+  'workbench.gitLog.switch.dirtyTitle': 'Du hast nicht committete Änderungen',
+  'workbench.gitLog.switch.dirtyBody': ({ count, branch }, locale) =>
+    formatMessage(
+      plural(locale, Number(count), {
+        one: 'Committe, stashe oder verwirf {count} nicht committete Änderung, bevor du zu {branch} wechselst.',
+        other: 'Committe, stashe oder verwirf {count} nicht committete Änderungen, bevor du zu {branch} wechselst.',
+      }),
+      { branch: String(branch) },
+    ),
+  'workbench.gitLog.switch.commit': 'Committen und wechseln',
+  'workbench.gitLog.switch.stash': 'Stashen und wechseln',
+  'workbench.gitLog.switch.discard': 'Änderungen verwerfen',
+  'workbench.gitLog.switch.discardConfirm.title': 'Nicht committete Änderungen verwerfen?',
+  'workbench.gitLog.switch.discardConfirm.body':
+    'Jede nicht committete Änderung wird gelöscht, neue Dateien eingeschlossen. Das lässt sich nicht rückgängig machen.',
+  'workbench.gitLog.switch.discardConfirm.ok': 'Verwerfen',
+  'workbench.gitLog.merge.done': '{ref} in {branch} gemergt ({sha})',
+  'workbench.gitLog.merge.upToDate': '{branch} enthält {ref} bereits',
+  'workbench.gitLog.merge.doneShallow':
+    '{ref} in {branch} gemergt. Der flache Klon verbirgt die gemeinsame Historie, daher galt jede Datei aus {ref} als geändert.',
+  'workbench.gitLog.merge.doneUnrelated':
+    '{ref} in {branch} gemergt. Die Historien teilen keinen gemeinsamen Commit, daher galt jede Datei aus {ref} als geändert.',
+  'workbench.gitLog.merge.failed': '{ref} konnte nicht gemergt werden: {detail}',
+  'workbench.gitLog.forcePush.title': 'Die Remote-Historie wurde umgeschrieben',
+  'workbench.gitLog.forcePush.body':
+    'Der Remote-Branch enthält die zuletzt synchronisierte Historie ({sha}) nicht mehr. Pull, Push und Merge warten auf deine Wahl — nichts ändert sich, bis du entscheidest.',
+  'workbench.gitLog.forcePush.abandon': 'Lokale Änderungen aufgeben',
+  'workbench.gitLog.forcePush.abandonConfirm.title': 'Lokale Änderungen aufgeben?',
+  'workbench.gitLog.forcePush.abandonConfirm.body':
+    'Lokale Commits seit der letzten Synchronisierung werden verworfen, und die umgeschriebene Remote-Historie wird der Arbeitsbereich-Zustand.',
+  'workbench.gitLog.forcePush.abandonConfirm.ok': 'Aufgeben',
+  'workbench.gitLog.forcePush.rescue': 'Auf einem Rettungs-Branch bewahren',
+  'workbench.gitLog.forcePush.reapply': 'Obendrauf neu anwenden',
+  'workbench.gitLog.forcePush.resolved': 'Umgeschriebene Historie übernommen ({sha})',
+  'workbench.gitLog.forcePush.rescued': 'Lokale Historie auf {branch} bewahrt',
+  'workbench.gitLog.forcePush.failed': 'Ließ sich nicht auflösen: {detail}',
+  'workbench.gitLog.fileMenu.showDiff': 'Diff anzeigen',
+  'workbench.gitLog.fileMenu.showHistory': 'Verlauf anzeigen',
+  'workbench.gitLog.fileMenu.showCurrentRevision': 'Aktuelle Revision anzeigen',
+  'workbench.gitLog.fileMenu.jumpToSource': 'Zur Quelle springen',
+  'workbench.gitLog.fileHistory.title': 'Verlauf: {path}',
+  'workbench.gitLog.fileHistory.empty': 'Kein Commit berührt diese Datei.',
+  'workbench.gitLog.fileHistory.failed': 'Verlauf konnte nicht gelesen werden: {detail}',
 
   // ── Commit tool window ───────────────────────────────────────────
   'workbench.toolWindows.commit': 'Git · Commit',
@@ -878,6 +935,15 @@ export const workbenchChrome = {
   'workbench.commitTool.errors.stageFailed': 'Die ausgewählten Dateien konnten nicht gestagt werden',
   'workbench.commitTool.errors.commitFailed': 'Commit fehlgeschlagen',
   'workbench.commitTool.errors.pushFailed': 'Push fehlgeschlagen',
+  'workbench.commitTool.errors.pushRejected': 'Das Remote hat neue Commits — pulle zuerst und pushe dann erneut.',
+  'workbench.commitTool.errors.historyRewritten':
+    'Die Remote-Historie wurde umgeschrieben — löse das zuerst im Banner auf.',
+  'workbench.commitTool.pushNoPermission.title': 'Kein Push-Zugriff',
+  'workbench.commitTool.pushNoPermission.body':
+    'Dieses Remote ist für dich schreibgeschützt. Deine Commits bleiben lokal; veröffentliche sie als neuen Branch und eröffne bei deinem git-Host einen Merge-Request.',
+  'workbench.commitTool.pushNoPermission.placeholder': 'neuer-branch-name',
+  'workbench.commitTool.pushNoPermission.button': 'Als neuen Branch pushen',
+  'workbench.commitTool.pushNoPermission.pushed': 'Branch {branch} gepusht',
   'workbench.gitLog.refs.search': 'Branch oder Tag',
   'workbench.gitLog.refs.head': 'HEAD (aktueller Branch)',
   'workbench.gitLog.refs.headDetached': 'HEAD · {sha} (losgelöst)',

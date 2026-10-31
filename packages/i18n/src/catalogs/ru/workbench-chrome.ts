@@ -41,6 +41,7 @@
  * with no ending.
  */
 
+import { formatMessage, plural } from '../../runtime';
 import type { Catalog } from '../../types';
 
 export const workbenchChrome = {
@@ -628,6 +629,65 @@ export const workbenchChrome = {
   'workbench.gitLog.compare.onlyIn': 'Коммиты, которые есть в {a}, но отсутствуют в {b}',
   'workbench.gitLog.compare.containsAll': 'В {a} есть все коммиты из {b}',
   'workbench.gitLog.compare.failed': 'Не удалось сравнить: {detail}',
+  'workbench.gitLog.refMenu.checkout': 'Переключиться',
+  'workbench.gitLog.refMenu.newBranchFrom': 'Новая ветка от {name}…',
+  'workbench.gitLog.refMenu.checkoutAndRebase': 'Переключиться и перебазировать на {current}',
+  'workbench.gitLog.refMenu.compareWithCurrent': 'Сравнить с текущей',
+  'workbench.gitLog.refMenu.showDiffWithWorkingTree': 'Показать diff с рабочим деревом',
+  'workbench.gitLog.refMenu.rebaseCurrentOnto': 'Перебазировать текущую на {name}',
+  'workbench.gitLog.refMenu.mergeIntoCurrent': 'Слить {name} в {current}',
+  'workbench.gitLog.refMenu.update': 'Обновить',
+  'workbench.gitLog.refMenu.push': 'Push…',
+  'workbench.gitLog.refMenu.rename': 'Переименовать…',
+  'workbench.gitLog.refMenu.delete': 'Удалить',
+  'workbench.gitLog.switch.checkedOut': 'Переключено на {branch}',
+  'workbench.gitLog.switch.failed': 'Не удалось переключиться на {branch}: {detail}',
+  'workbench.gitLog.switch.dirtyTitle': 'У вас есть незафиксированные изменения',
+  'workbench.gitLog.switch.dirtyBody': ({ count, branch }, locale) =>
+    formatMessage(
+      plural(locale, Number(count), {
+        one: 'Сделайте коммит, спрячьте или отмените {count} незафиксированное изменение, прежде чем переключиться на {branch}.',
+        few: 'Сделайте коммит, спрячьте или отмените {count} незафиксированных изменения, прежде чем переключиться на {branch}.',
+        many: 'Сделайте коммит, спрячьте или отмените {count} незафиксированных изменений, прежде чем переключиться на {branch}.',
+        other:
+          'Сделайте коммит, спрячьте или отмените {count} незафиксированных изменений, прежде чем переключиться на {branch}.',
+      }),
+      { branch: String(branch) },
+    ),
+  'workbench.gitLog.switch.commit': 'Коммит и переключение',
+  'workbench.gitLog.switch.stash': 'Спрятать и переключиться',
+  'workbench.gitLog.switch.discard': 'Отменить изменения',
+  'workbench.gitLog.switch.discardConfirm.title': 'Отменить незафиксированные изменения?',
+  'workbench.gitLog.switch.discardConfirm.body':
+    'Все незафиксированные изменения удаляются, включая новые файлы. Это действие нельзя отменить.',
+  'workbench.gitLog.switch.discardConfirm.ok': 'Отменить изменения',
+  'workbench.gitLog.merge.done': '{ref} слита в {branch} ({sha})',
+  'workbench.gitLog.merge.upToDate': '{branch} уже содержит {ref}',
+  'workbench.gitLog.merge.doneShallow':
+    '{ref} слита в {branch}. Неполный клон скрывает общую историю, поэтому каждый файл из {ref} считался изменённым.',
+  'workbench.gitLog.merge.doneUnrelated':
+    '{ref} слита в {branch}. У историй нет общего коммита, поэтому каждый файл из {ref} считался изменённым.',
+  'workbench.gitLog.merge.failed': 'Не удалось слить {ref}: {detail}',
+  'workbench.gitLog.forcePush.title': 'История удалённого репозитория переписана',
+  'workbench.gitLog.forcePush.body':
+    'Удалённая ветка больше не содержит историю, которую вы синхронизировали последней ({sha}). Pull, Push и слияние ждут вашего выбора — ничего не изменится, пока вы не решите.',
+  'workbench.gitLog.forcePush.abandon': 'Отказаться от локальных изменений',
+  'workbench.gitLog.forcePush.abandonConfirm.title': 'Отказаться от локальных изменений?',
+  'workbench.gitLog.forcePush.abandonConfirm.body':
+    'Локальные коммиты после последней синхронизации отбрасываются, и переписанная удалённая история становится состоянием рабочего пространства.',
+  'workbench.gitLog.forcePush.abandonConfirm.ok': 'Отказаться',
+  'workbench.gitLog.forcePush.rescue': 'Сохранить в спасательной ветке',
+  'workbench.gitLog.forcePush.reapply': 'Применить заново поверх',
+  'workbench.gitLog.forcePush.resolved': 'Переписанная история принята ({sha})',
+  'workbench.gitLog.forcePush.rescued': 'Локальная история сохранена в ветке {branch}',
+  'workbench.gitLog.forcePush.failed': 'Не удалось разрешить: {detail}',
+  'workbench.gitLog.fileMenu.showDiff': 'Показать diff',
+  'workbench.gitLog.fileMenu.showHistory': 'Показать историю',
+  'workbench.gitLog.fileMenu.showCurrentRevision': 'Показать текущую ревизию',
+  'workbench.gitLog.fileMenu.jumpToSource': 'Перейти к исходнику',
+  'workbench.gitLog.fileHistory.title': 'История: {path}',
+  'workbench.gitLog.fileHistory.empty': 'Этот файл не затронут ни одним коммитом.',
+  'workbench.gitLog.fileHistory.failed': 'Не удалось прочитать историю: {detail}',
 
   // ── Commit tool window ───────────────────────────────────────────
   'workbench.toolWindows.commit': 'Git · Коммит',
@@ -731,6 +791,16 @@ export const workbenchChrome = {
   'workbench.commitTool.errors.stageFailed': 'Не удалось проиндексировать выбранные файлы',
   'workbench.commitTool.errors.commitFailed': 'Коммит не выполнен',
   'workbench.commitTool.errors.pushFailed': 'Push не выполнен',
+  'workbench.commitTool.errors.pushRejected':
+    'В удалённом репозитории есть новые коммиты — сначала выполните Pull, затем снова Push.',
+  'workbench.commitTool.errors.historyRewritten':
+    'История удалённого репозитория переписана — сначала разрешите это в баннере.',
+  'workbench.commitTool.pushNoPermission.title': 'Нет доступа на Push',
+  'workbench.commitTool.pushNoPermission.body':
+    'Этот удалённый репозиторий для вас доступен только для чтения. Ваши коммиты остаются локальными; опубликуйте их новой веткой и откройте запрос на слияние на своём git-хостинге.',
+  'workbench.commitTool.pushNoPermission.placeholder': 'new-branch-name',
+  'workbench.commitTool.pushNoPermission.button': 'Push новой веткой',
+  'workbench.commitTool.pushNoPermission.pushed': 'Ветка {branch} отправлена',
 
   // ── Proxy capture tool window (control strip) ────────────────────
   'workbench.proxyCapture.running': 'Работает · :{port}',

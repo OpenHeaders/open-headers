@@ -26,6 +26,7 @@
  * esc) and the {chord} / {unit} / {units} holes.
  */
 
+import { formatMessage, plural } from '../../runtime';
 import type { Catalog } from '../../types';
 
 export const workbenchChrome = {
@@ -774,6 +775,63 @@ export const workbenchChrome = {
   'workbench.gitLog.compare.onlyIn': 'Commits que existen en {a} pero no en {b}',
   'workbench.gitLog.compare.containsAll': '{a} contiene todos los commits de {b}',
   'workbench.gitLog.compare.failed': 'No se pudo comparar: {detail}',
+  'workbench.gitLog.refMenu.checkout': 'Checkout',
+  'workbench.gitLog.refMenu.newBranchFrom': 'Nueva rama desde {name}…',
+  'workbench.gitLog.refMenu.checkoutAndRebase': 'Checkout y rebase sobre {current}',
+  'workbench.gitLog.refMenu.compareWithCurrent': 'Comparar con la actual',
+  'workbench.gitLog.refMenu.showDiffWithWorkingTree': 'Mostrar diff con el árbol de trabajo',
+  'workbench.gitLog.refMenu.rebaseCurrentOnto': 'Rebase de la actual sobre {name}',
+  'workbench.gitLog.refMenu.mergeIntoCurrent': 'Fusionar {name} en {current}',
+  'workbench.gitLog.refMenu.update': 'Actualizar',
+  'workbench.gitLog.refMenu.push': 'Push…',
+  'workbench.gitLog.refMenu.rename': 'Renombrar…',
+  'workbench.gitLog.refMenu.delete': 'Eliminar',
+  'workbench.gitLog.switch.checkedOut': 'Checkout de {branch} realizado',
+  'workbench.gitLog.switch.failed': 'No se pudo hacer checkout de {branch}: {detail}',
+  'workbench.gitLog.switch.dirtyTitle': 'Tienes cambios sin commit',
+  'workbench.gitLog.switch.dirtyBody': ({ count, branch }, locale) =>
+    formatMessage(
+      plural(locale, Number(count), {
+        one: 'Haz commit, guarda en stash o descarta {count} cambio sin commit antes de cambiar a {branch}.',
+        many: 'Haz commit, guarda en stash o descarta {count} cambios sin commit antes de cambiar a {branch}.',
+        other: 'Haz commit, guarda en stash o descarta {count} cambios sin commit antes de cambiar a {branch}.',
+      }),
+      { branch: String(branch) },
+    ),
+  'workbench.gitLog.switch.commit': 'Commit y cambiar',
+  'workbench.gitLog.switch.stash': 'Stash y cambiar',
+  'workbench.gitLog.switch.discard': 'Descartar cambios',
+  'workbench.gitLog.switch.discardConfirm.title': '¿Descartar los cambios sin commit?',
+  'workbench.gitLog.switch.discardConfirm.body':
+    'Se eliminan todos los cambios sin commit, incluidos los archivos nuevos. Esta acción no se puede deshacer.',
+  'workbench.gitLog.switch.discardConfirm.ok': 'Descartar',
+  'workbench.gitLog.merge.done': '{ref} fusionada en {branch} ({sha})',
+  'workbench.gitLog.merge.upToDate': '{branch} ya contiene {ref}',
+  'workbench.gitLog.merge.doneShallow':
+    '{ref} fusionada en {branch}. El clon superficial oculta el historial común, así que cada archivo de {ref} se trató como cambiado.',
+  'workbench.gitLog.merge.doneUnrelated':
+    '{ref} fusionada en {branch}. Los historiales no comparten ningún commit, así que cada archivo de {ref} se trató como cambiado.',
+  'workbench.gitLog.merge.failed': 'No se pudo fusionar {ref}: {detail}',
+  'workbench.gitLog.forcePush.title': 'El historial remoto fue reescrito',
+  'workbench.gitLog.forcePush.body':
+    'La rama remota ya no contiene el historial sincronizado por última vez ({sha}). Pull, push y fusión esperan a que elijas — nada cambia hasta que decidas.',
+  'workbench.gitLog.forcePush.abandon': 'Abandonar los cambios locales',
+  'workbench.gitLog.forcePush.abandonConfirm.title': '¿Abandonar los cambios locales?',
+  'workbench.gitLog.forcePush.abandonConfirm.body':
+    'Los commits locales desde la última sincronización se descartan y el historial remoto reescrito pasa a ser el estado del workspace.',
+  'workbench.gitLog.forcePush.abandonConfirm.ok': 'Abandonar',
+  'workbench.gitLog.forcePush.rescue': 'Preservar en una rama de rescate',
+  'workbench.gitLog.forcePush.reapply': 'Reaplicar encima',
+  'workbench.gitLog.forcePush.resolved': 'Historial reescrito aceptado ({sha})',
+  'workbench.gitLog.forcePush.rescued': 'Historial local preservado en {branch}',
+  'workbench.gitLog.forcePush.failed': 'No se pudo resolver: {detail}',
+  'workbench.gitLog.fileMenu.showDiff': 'Mostrar diff',
+  'workbench.gitLog.fileMenu.showHistory': 'Mostrar historial',
+  'workbench.gitLog.fileMenu.showCurrentRevision': 'Mostrar revisión actual',
+  'workbench.gitLog.fileMenu.jumpToSource': 'Ir al código fuente',
+  'workbench.gitLog.fileHistory.title': 'Historial: {path}',
+  'workbench.gitLog.fileHistory.empty': 'Ningún commit toca este archivo.',
+  'workbench.gitLog.fileHistory.failed': 'No se pudo leer el historial: {detail}',
 
   // ── Commit tool window ───────────────────────────────────────────
   'workbench.toolWindows.commit': 'Git · Commit',
@@ -878,6 +936,15 @@ export const workbenchChrome = {
   'workbench.commitTool.errors.stageFailed': 'No se pudieron preparar los archivos seleccionados',
   'workbench.commitTool.errors.commitFailed': 'El commit falló',
   'workbench.commitTool.errors.pushFailed': 'El push falló',
+  'workbench.commitTool.errors.pushRejected':
+    'El remoto tiene commits nuevos — haz pull primero y vuelve a hacer push.',
+  'workbench.commitTool.errors.historyRewritten': 'El historial remoto fue reescrito — resuélvelo primero en el aviso.',
+  'workbench.commitTool.pushNoPermission.title': 'Sin acceso de escritura',
+  'workbench.commitTool.pushNoPermission.body':
+    'Este remoto es de solo lectura para ti. Tus commits se quedan en local; publícalos como una rama nueva y abre una merge request desde tu servidor git.',
+  'workbench.commitTool.pushNoPermission.placeholder': 'nombre-de-rama',
+  'workbench.commitTool.pushNoPermission.button': 'Enviar como rama nueva',
+  'workbench.commitTool.pushNoPermission.pushed': 'Rama {branch} enviada',
   'workbench.gitLog.refs.search': 'Rama o etiqueta',
   'workbench.gitLog.refs.head': 'HEAD (rama actual)',
   'workbench.gitLog.refs.headDetached': 'HEAD · {sha} (separado)',

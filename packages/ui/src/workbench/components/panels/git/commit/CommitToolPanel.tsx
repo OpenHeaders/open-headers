@@ -12,6 +12,7 @@
 import {
   hostBridge,
   type WorkspaceTreeFileDiffPairWire,
+  type WorkspaceTreeForcePushStateWire,
   type WorkspaceTreeWorkingChangeWire,
 } from '@openheaders/core/bridge';
 import { Alert, App as AntApp, Button } from 'antd';
@@ -26,6 +27,7 @@ import { postGitPanelReveal } from '../../../../data/git-panel-reveal';
 import GitBindForm from '../../../git/GitBindForm';
 import { localWorkspaceTreeTransport } from '../../../git/transport';
 import DiffModal from '../DiffModal';
+import ForcePushBanner from '../ForcePushBanner';
 import { GIT_PRIMARY_TAB_KEY, getGitPanelWorkbench } from '../git-panel-view-store';
 import CreateBranchModal from '../rail/CreateBranchModal';
 import {
@@ -49,6 +51,7 @@ import {
 import CommitChangesTree, { type CommitChangesTreeHandle } from './CommitChangesTree';
 import CommitForm, { type CommitFormHandle } from './CommitForm';
 import CommitToolbar from './CommitToolbar';
+import PushNewBranchAlert from './PushNewBranchAlert';
 
 export interface CommitToolPanelProps {
   info: InfoPopoverContent;
@@ -71,6 +74,8 @@ const CommitToolPanel: React.FC<CommitToolPanelProps> = ({ info, onHide }) => {
   const [diff, setDiff] = useState<WorkspaceTreeFileDiffPairWire | null>(null);
   const [currentBranch, setCurrentBranch] = useState<string | null>(null);
   const [headSha, setHeadSha] = useState<string | null>(null);
+  const [forcePush, setForcePush] = useState<WorkspaceTreeForcePushStateWire | null>(null);
+  const [pushRecovery, setPushRecovery] = useState(false);
   const [compareOpen, setCompareOpen] = useState(false);
   const [createBranchFrom, setCreateBranchFrom] = useState<string | null>(null);
   const treeRef = useRef<CommitChangesTreeHandle>(null);
@@ -121,6 +126,7 @@ const CommitToolPanel: React.FC<CommitToolPanelProps> = ({ info, onHide }) => {
       setBypassHooksSetting(status.bypassHooks);
       setCurrentBranch(status.branch);
       setHeadSha(status.headSha);
+      setForcePush(status.forcePush);
     } catch {
       setBound(false);
     }
@@ -144,6 +150,7 @@ const CommitToolPanel: React.FC<CommitToolPanelProps> = ({ info, onHide }) => {
       setBypassHooksSetting(payload.status.bypassHooks);
       setCurrentBranch(payload.status.branch);
       setHeadSha(payload.status.headSha);
+      setForcePush(payload.status.forcePush);
       void refreshChanges();
     });
   }, [workspaceId, refreshChanges]);
@@ -224,17 +231,28 @@ const CommitToolPanel: React.FC<CommitToolPanelProps> = ({ info, onHide }) => {
     [t],
   );
 
+  // Push's typed refusals (§8.2 / §16): a non-fast-forward names the
+  // pull-first way out, a rewrite points at the banner, a read-only
+  // remote raises the Push-as-New-Branch recovery instead of an error.
   const pushCurrent = useCallback(async (): Promise<void> => {
     if (workspaceId === null) return;
     const push = await hostBridge.call('oh.workspaceTree.push', { workspaceId });
     if (push.ok) {
+      setPushRecovery(false);
       message.success(t(push.pushed ? 'workbench.commitTool.pushed' : 'workbench.commitTool.nothingToPush'));
+      return;
+    }
+    if (push.reason === 'no-permission') {
+      setPushRecovery(true);
+      return;
+    }
+    const failed = t('workbench.commitTool.errors.pushFailed');
+    if (push.reason === 'rejected') {
+      setError(`${failed}\n${t('workbench.commitTool.errors.pushRejected')}`);
+    } else if (push.reason === 'force-push') {
+      setError(`${failed}\n${t('workbench.commitTool.errors.historyRewritten')}`);
     } else {
-      setError(
-        push.detail !== undefined && push.detail.length > 0
-          ? `${t('workbench.commitTool.errors.pushFailed')}\n${push.detail}`
-          : t('workbench.commitTool.errors.pushFailed'),
-      );
+      setError(push.detail !== undefined && push.detail.length > 0 ? `${failed}\n${push.detail}` : failed);
     }
   }, [workspaceId, message, t]);
 
@@ -317,7 +335,11 @@ const CommitToolPanel: React.FC<CommitToolPanelProps> = ({ info, onHide }) => {
     try {
       const result = await hostBridge.call('oh.workspaceTree.pull', { workspaceId });
       if (!result.ok) {
-        setError(t('workbench.commitTool.menu.pullFailed', { detail: result.detail ?? result.reason }));
+        setError(
+          result.reason === 'force-push'
+            ? t('workbench.commitTool.errors.historyRewritten')
+            : t('workbench.commitTool.menu.pullFailed', { detail: result.detail ?? result.reason }),
+        );
         return;
       }
       if (!result.upToDate && result.history !== undefined) {
@@ -513,6 +535,9 @@ const CommitToolPanel: React.FC<CommitToolPanelProps> = ({ info, onHide }) => {
           data-testid="commit-tool-detached"
         />
       )}
+      {forcePush !== null && (
+        <ForcePushBanner workspaceId={workspaceId} state={forcePush} testidPrefix="commit-tool" />
+      )}
       <CommitToolbar
         onRefresh={() => void refreshChanges()}
         prefs={prefs}
@@ -530,6 +555,16 @@ const CommitToolPanel: React.FC<CommitToolPanelProps> = ({ info, onHide }) => {
         showIgnored={prefs.showIgnored}
         rowMenu={rowMenu}
       />
+      {pushRecovery && (
+        <PushNewBranchAlert
+          workspaceId={workspaceId}
+          onPushed={(branch) => {
+            setPushRecovery(false);
+            message.success(t('workbench.commitTool.pushNoPermission.pushed', { branch }));
+          }}
+          onClose={() => setPushRecovery(false)}
+        />
+      )}
       <CommitForm
         ref={formRef}
         draft={prefs.draft}

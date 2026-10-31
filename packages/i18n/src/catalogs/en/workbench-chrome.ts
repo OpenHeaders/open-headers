@@ -7,6 +7,7 @@
  * `index.ts`.
  */
 
+import { formatMessage, plural } from '../../runtime';
 import type { Catalog } from '../../types';
 
 export const workbenchChrome = {
@@ -599,6 +600,62 @@ export const workbenchChrome = {
   'workbench.gitLog.compare.onlyIn': "Commits that exist in {a} but don't exist in {b}",
   'workbench.gitLog.compare.containsAll': '{a} contains all commits from {b}',
   'workbench.gitLog.compare.failed': 'Could not compare: {detail}',
+  'workbench.gitLog.refMenu.checkout': 'Checkout',
+  'workbench.gitLog.refMenu.newBranchFrom': 'New Branch from {name}…',
+  'workbench.gitLog.refMenu.checkoutAndRebase': 'Checkout and Rebase onto {current}',
+  'workbench.gitLog.refMenu.compareWithCurrent': 'Compare with Current',
+  'workbench.gitLog.refMenu.showDiffWithWorkingTree': 'Show Diff with Working Tree',
+  'workbench.gitLog.refMenu.rebaseCurrentOnto': 'Rebase Current onto {name}',
+  'workbench.gitLog.refMenu.mergeIntoCurrent': 'Merge {name} into {current}',
+  'workbench.gitLog.refMenu.update': 'Update',
+  'workbench.gitLog.refMenu.push': 'Push…',
+  'workbench.gitLog.refMenu.rename': 'Rename…',
+  'workbench.gitLog.refMenu.delete': 'Delete',
+  'workbench.gitLog.switch.checkedOut': 'Checked out {branch}',
+  'workbench.gitLog.switch.failed': 'Could not check out {branch}: {detail}',
+  'workbench.gitLog.switch.dirtyTitle': 'You have uncommitted changes',
+  'workbench.gitLog.switch.dirtyBody': ({ count, branch }, locale) =>
+    formatMessage(
+      plural(locale, Number(count), {
+        one: 'Commit, stash, or discard {count} uncommitted change before switching to {branch}.',
+        other: 'Commit, stash, or discard {count} uncommitted changes before switching to {branch}.',
+      }),
+      { branch: String(branch) },
+    ),
+  'workbench.gitLog.switch.commit': 'Commit and switch',
+  'workbench.gitLog.switch.stash': 'Stash and switch',
+  'workbench.gitLog.switch.discard': 'Discard changes',
+  'workbench.gitLog.switch.discardConfirm.title': 'Discard uncommitted changes?',
+  'workbench.gitLog.switch.discardConfirm.body':
+    'Every uncommitted change is deleted, including new files. This cannot be undone.',
+  'workbench.gitLog.switch.discardConfirm.ok': 'Discard',
+  'workbench.gitLog.merge.done': 'Merged {ref} into {branch} ({sha})',
+  'workbench.gitLog.merge.upToDate': '{branch} already contains {ref}',
+  'workbench.gitLog.merge.doneShallow':
+    'Merged {ref} into {branch}. The shallow clone hides the common history, so every file from {ref} was treated as changed.',
+  'workbench.gitLog.merge.doneUnrelated':
+    'Merged {ref} into {branch}. The histories share no common commit, so every file from {ref} was treated as changed.',
+  'workbench.gitLog.merge.failed': 'Could not merge {ref}: {detail}',
+  'workbench.gitLog.forcePush.title': 'Remote history was rewritten',
+  'workbench.gitLog.forcePush.body':
+    'The remote branch no longer contains the history you last synced ({sha}). Pull, push and merge wait until you choose — nothing changes until you decide.',
+  'workbench.gitLog.forcePush.abandon': 'Abandon local changes',
+  'workbench.gitLog.forcePush.abandonConfirm.title': 'Abandon local changes?',
+  'workbench.gitLog.forcePush.abandonConfirm.body':
+    'Local commits since the last sync are discarded and the rewritten remote history becomes the workspace state.',
+  'workbench.gitLog.forcePush.abandonConfirm.ok': 'Abandon',
+  'workbench.gitLog.forcePush.rescue': 'Preserve on a rescue branch',
+  'workbench.gitLog.forcePush.reapply': 'Re-apply on top',
+  'workbench.gitLog.forcePush.resolved': 'Rewritten history accepted ({sha})',
+  'workbench.gitLog.forcePush.rescued': 'Local history preserved on {branch}',
+  'workbench.gitLog.forcePush.failed': 'Could not resolve: {detail}',
+  'workbench.gitLog.fileMenu.showDiff': 'Show Diff',
+  'workbench.gitLog.fileMenu.showHistory': 'Show History',
+  'workbench.gitLog.fileMenu.showCurrentRevision': 'Show Current Revision',
+  'workbench.gitLog.fileMenu.jumpToSource': 'Jump to Source',
+  'workbench.gitLog.fileHistory.title': 'History: {path}',
+  'workbench.gitLog.fileHistory.empty': 'No commits touch this file.',
+  'workbench.gitLog.fileHistory.failed': 'Could not read history: {detail}',
 
   // ── Commit tool window ───────────────────────────────────────────
   'workbench.toolWindows.commit': 'Git · Commit',
@@ -703,6 +760,14 @@ export const workbenchChrome = {
   'workbench.commitTool.errors.stageFailed': 'Could not stage the selected files',
   'workbench.commitTool.errors.commitFailed': 'Commit failed',
   'workbench.commitTool.errors.pushFailed': 'Push failed',
+  'workbench.commitTool.errors.pushRejected': 'The remote has new commits — pull first, then push again.',
+  'workbench.commitTool.errors.historyRewritten': 'The remote history was rewritten — resolve it in the banner first.',
+  'workbench.commitTool.pushNoPermission.title': 'No push access',
+  'workbench.commitTool.pushNoPermission.body':
+    'This remote is read-only for you. Your commits stay local; publish them as a new branch and open a merge request from your git host.',
+  'workbench.commitTool.pushNoPermission.placeholder': 'new-branch-name',
+  'workbench.commitTool.pushNoPermission.button': 'Push as New Branch',
+  'workbench.commitTool.pushNoPermission.pushed': 'Pushed branch {branch}',
 
   // ── Proxy capture tool window (control strip) ────────────────────
   'workbench.proxyCapture.running': 'Running · :{port}',

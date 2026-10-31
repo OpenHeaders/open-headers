@@ -18,6 +18,7 @@
  * {units} holes.
  */
 
+import { formatMessage, plural } from '../../runtime';
 import type { Catalog } from '../../types';
 
 export const workbenchChrome = {
@@ -776,6 +777,63 @@ export const workbenchChrome = {
   'workbench.gitLog.compare.onlyIn': 'Commits présents dans {a} mais absents de {b}',
   'workbench.gitLog.compare.containsAll': '{a} contient tous les commits de {b}',
   'workbench.gitLog.compare.failed': 'Impossible de comparer : {detail}',
+  'workbench.gitLog.refMenu.checkout': 'Checkout',
+  'workbench.gitLog.refMenu.newBranchFrom': 'Nouvelle branche depuis {name}…',
+  'workbench.gitLog.refMenu.checkoutAndRebase': 'Checkout et rebase sur {current}',
+  'workbench.gitLog.refMenu.compareWithCurrent': 'Comparer avec la branche courante',
+  'workbench.gitLog.refMenu.showDiffWithWorkingTree': 'Afficher le diff avec l’arbre de travail',
+  'workbench.gitLog.refMenu.rebaseCurrentOnto': 'Rebase de la branche courante sur {name}',
+  'workbench.gitLog.refMenu.mergeIntoCurrent': 'Fusionner {name} dans {current}',
+  'workbench.gitLog.refMenu.update': 'Mettre à jour',
+  'workbench.gitLog.refMenu.push': 'Pousser…',
+  'workbench.gitLog.refMenu.rename': 'Renommer…',
+  'workbench.gitLog.refMenu.delete': 'Supprimer',
+  'workbench.gitLog.switch.checkedOut': 'Checkout de {branch} effectué',
+  'workbench.gitLog.switch.failed': 'Impossible de faire le checkout de {branch} : {detail}',
+  'workbench.gitLog.switch.dirtyTitle': 'Vous avez des modifications non commitées',
+  'workbench.gitLog.switch.dirtyBody': ({ count, branch }, locale) =>
+    formatMessage(
+      plural(locale, Number(count), {
+        one: 'Commitez, remisez ou abandonnez {count} modification non commitée avant de basculer vers {branch}.',
+        many: 'Commitez, remisez ou abandonnez {count} modifications non commitées avant de basculer vers {branch}.',
+        other: 'Commitez, remisez ou abandonnez {count} modifications non commitées avant de basculer vers {branch}.',
+      }),
+      { branch: String(branch) },
+    ),
+  'workbench.gitLog.switch.commit': 'Commiter puis basculer',
+  'workbench.gitLog.switch.stash': 'Remiser puis basculer',
+  'workbench.gitLog.switch.discard': 'Abandonner les modifications',
+  'workbench.gitLog.switch.discardConfirm.title': 'Abandonner les modifications non commitées ?',
+  'workbench.gitLog.switch.discardConfirm.body':
+    'Toutes les modifications non commitées sont supprimées, y compris les nouveaux fichiers. Cette action est irréversible.',
+  'workbench.gitLog.switch.discardConfirm.ok': 'Abandonner',
+  'workbench.gitLog.merge.done': '{ref} fusionnée dans {branch} ({sha})',
+  'workbench.gitLog.merge.upToDate': '{branch} contient déjà {ref}',
+  'workbench.gitLog.merge.doneShallow':
+    '{ref} fusionnée dans {branch}. Le clone superficiel masque l’historique commun, chaque fichier de {ref} a donc été traité comme modifié.',
+  'workbench.gitLog.merge.doneUnrelated':
+    '{ref} fusionnée dans {branch}. Les historiques n’ont aucun commit commun, chaque fichier de {ref} a donc été traité comme modifié.',
+  'workbench.gitLog.merge.failed': 'Impossible de fusionner {ref} : {detail}',
+  'workbench.gitLog.forcePush.title': 'L’historique distant a été réécrit',
+  'workbench.gitLog.forcePush.body':
+    'La branche distante ne contient plus l’historique synchronisé la dernière fois ({sha}). Pull, push et fusion attendent votre choix — rien ne change tant que vous n’avez pas décidé.',
+  'workbench.gitLog.forcePush.abandon': 'Abandonner les changements locaux',
+  'workbench.gitLog.forcePush.abandonConfirm.title': 'Abandonner les changements locaux ?',
+  'workbench.gitLog.forcePush.abandonConfirm.body':
+    'Les commits locaux depuis la dernière synchronisation sont abandonnés et l’historique distant réécrit devient l’état du workspace.',
+  'workbench.gitLog.forcePush.abandonConfirm.ok': 'Abandonner',
+  'workbench.gitLog.forcePush.rescue': 'Préserver sur une branche de secours',
+  'workbench.gitLog.forcePush.reapply': 'Réappliquer par-dessus',
+  'workbench.gitLog.forcePush.resolved': 'Historique réécrit accepté ({sha})',
+  'workbench.gitLog.forcePush.rescued': 'Historique local préservé sur {branch}',
+  'workbench.gitLog.forcePush.failed': 'Résolution impossible : {detail}',
+  'workbench.gitLog.fileMenu.showDiff': 'Afficher le diff',
+  'workbench.gitLog.fileMenu.showHistory': 'Afficher l’historique',
+  'workbench.gitLog.fileMenu.showCurrentRevision': 'Afficher la révision courante',
+  'workbench.gitLog.fileMenu.jumpToSource': 'Aller à la source',
+  'workbench.gitLog.fileHistory.title': 'Historique : {path}',
+  'workbench.gitLog.fileHistory.empty': 'Aucun commit ne touche ce fichier.',
+  'workbench.gitLog.fileHistory.failed': 'Impossible de lire l’historique : {detail}',
 
   // ── Commit tool window ───────────────────────────────────────────
   'workbench.toolWindows.commit': 'Git · Commit',
@@ -881,6 +939,16 @@ export const workbenchChrome = {
   'workbench.commitTool.errors.stageFailed': 'Impossible d’indexer les fichiers sélectionnés',
   'workbench.commitTool.errors.commitFailed': 'Échec du commit',
   'workbench.commitTool.errors.pushFailed': 'Échec du push',
+  'workbench.commitTool.errors.pushRejected':
+    'Le dépôt distant a de nouveaux commits — faites un pull d’abord, puis poussez à nouveau.',
+  'workbench.commitTool.errors.historyRewritten':
+    'L’historique distant a été réécrit — résolvez-le d’abord dans le bandeau.',
+  'workbench.commitTool.pushNoPermission.title': 'Pas d’accès en écriture',
+  'workbench.commitTool.pushNoPermission.body':
+    'Ce dépôt distant est en lecture seule pour vous. Vos commits restent locaux ; publiez-les sur une nouvelle branche et ouvrez une merge request depuis votre hébergeur git.',
+  'workbench.commitTool.pushNoPermission.placeholder': 'nom-de-branche',
+  'workbench.commitTool.pushNoPermission.button': 'Pousser comme nouvelle branche',
+  'workbench.commitTool.pushNoPermission.pushed': 'Branche {branch} poussée',
   'workbench.gitLog.refs.search': 'Branche ou tag',
   'workbench.gitLog.refs.head': 'HEAD (branche actuelle)',
   'workbench.gitLog.refs.headDetached': 'HEAD · {sha} (détaché)',

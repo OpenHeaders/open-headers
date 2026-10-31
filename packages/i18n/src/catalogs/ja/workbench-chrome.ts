@@ -27,6 +27,7 @@
  * SOV so the raw chip reads as the Japanese subject or object.
  */
 
+import { formatMessage, plural } from '../../runtime';
 import type { Catalog } from '../../types';
 
 export const workbenchChrome = {
@@ -608,6 +609,62 @@ export const workbenchChrome = {
   'workbench.gitLog.compare.onlyIn': '{a} にはあるが {b} にはないコミット',
   'workbench.gitLog.compare.containsAll': '{a} は {b} のすべてのコミットを含んでいます',
   'workbench.gitLog.compare.failed': '比較できませんでした：{detail}',
+  'workbench.gitLog.refMenu.checkout': 'チェックアウト',
+  'workbench.gitLog.refMenu.newBranchFrom': '{name} から新しいブランチ…',
+  'workbench.gitLog.refMenu.checkoutAndRebase': 'チェックアウトして {current} にリベース',
+  'workbench.gitLog.refMenu.compareWithCurrent': '現在のブランチと比較',
+  'workbench.gitLog.refMenu.showDiffWithWorkingTree': '作業ツリーとの差分を表示',
+  'workbench.gitLog.refMenu.rebaseCurrentOnto': '現在のブランチを {name} にリベース',
+  'workbench.gitLog.refMenu.mergeIntoCurrent': '{name} を {current} にマージ',
+  'workbench.gitLog.refMenu.update': '更新',
+  'workbench.gitLog.refMenu.push': 'プッシュ…',
+  'workbench.gitLog.refMenu.rename': '名前を変更…',
+  'workbench.gitLog.refMenu.delete': '削除',
+  'workbench.gitLog.switch.checkedOut': '{branch} をチェックアウトしました',
+  'workbench.gitLog.switch.failed': '{branch} をチェックアウトできませんでした：{detail}',
+  'workbench.gitLog.switch.dirtyTitle': '未コミットの変更があります',
+  'workbench.gitLog.switch.dirtyBody': ({ count, branch }, locale) =>
+    formatMessage(
+      plural(locale, Number(count), {
+        other:
+          '{branch} に切り替える前に、{count} 件の未コミットの変更をコミット、スタッシュ、または破棄してください。',
+      }),
+      { branch: String(branch) },
+    ),
+  'workbench.gitLog.switch.commit': 'コミットして切り替え',
+  'workbench.gitLog.switch.stash': 'スタッシュして切り替え',
+  'workbench.gitLog.switch.discard': '変更を破棄',
+  'workbench.gitLog.switch.discardConfirm.title': '未コミットの変更を破棄しますか？',
+  'workbench.gitLog.switch.discardConfirm.body':
+    '新しいファイルを含め、すべての未コミットの変更が削除されます。この操作は元に戻せません。',
+  'workbench.gitLog.switch.discardConfirm.ok': '破棄',
+  'workbench.gitLog.merge.done': '{ref} を {branch} にマージしました（{sha}）',
+  'workbench.gitLog.merge.upToDate': '{branch} には既に {ref} が含まれています',
+  'workbench.gitLog.merge.doneShallow':
+    '{ref} を {branch} にマージしました。シャロークローンは共通の履歴を隠すため、{ref} のすべてのファイルを変更済みとして扱いました。',
+  'workbench.gitLog.merge.doneUnrelated':
+    '{ref} を {branch} にマージしました。履歴に共通のコミットがないため、{ref} のすべてのファイルを変更済みとして扱いました。',
+  'workbench.gitLog.merge.failed': '{ref} をマージできませんでした：{detail}',
+  'workbench.gitLog.forcePush.title': 'リモートの履歴が書き換えられました',
+  'workbench.gitLog.forcePush.body':
+    'リモートのブランチには、最後に同期した履歴（{sha}）がもう含まれていません。プル、プッシュ、マージは選択するまで待機します。決めるまで何も変わりません。',
+  'workbench.gitLog.forcePush.abandon': 'ローカルの変更を放棄',
+  'workbench.gitLog.forcePush.abandonConfirm.title': 'ローカルの変更を放棄しますか？',
+  'workbench.gitLog.forcePush.abandonConfirm.body':
+    '最後の同期以降のローカルのコミットは破棄され、書き換えられたリモートの履歴がワークスペースの状態になります。',
+  'workbench.gitLog.forcePush.abandonConfirm.ok': '放棄',
+  'workbench.gitLog.forcePush.rescue': '救援ブランチに保存',
+  'workbench.gitLog.forcePush.reapply': '上に再適用',
+  'workbench.gitLog.forcePush.resolved': '書き換えられた履歴を受け入れました（{sha}）',
+  'workbench.gitLog.forcePush.rescued': 'ローカルの履歴を {branch} に保存しました',
+  'workbench.gitLog.forcePush.failed': '解決できませんでした：{detail}',
+  'workbench.gitLog.fileMenu.showDiff': '差分を表示',
+  'workbench.gitLog.fileMenu.showHistory': '履歴を表示',
+  'workbench.gitLog.fileMenu.showCurrentRevision': '現在のリビジョンを表示',
+  'workbench.gitLog.fileMenu.jumpToSource': 'ソースへ移動',
+  'workbench.gitLog.fileHistory.title': '履歴：{path}',
+  'workbench.gitLog.fileHistory.empty': 'このファイルに触れたコミットはありません。',
+  'workbench.gitLog.fileHistory.failed': '履歴を読み取れませんでした：{detail}',
 
   // ── Commit tool window ───────────────────────────────────────────
   'workbench.toolWindows.commit': 'Git · コミット',
@@ -711,6 +768,15 @@ export const workbenchChrome = {
   'workbench.commitTool.errors.stageFailed': '選択したファイルをステージできませんでした',
   'workbench.commitTool.errors.commitFailed': 'コミットに失敗しました',
   'workbench.commitTool.errors.pushFailed': 'プッシュに失敗しました',
+  'workbench.commitTool.errors.pushRejected':
+    'リモートに新しいコミットがあります。まずプルしてから、もう一度プッシュしてください。',
+  'workbench.commitTool.errors.historyRewritten': 'リモートの履歴が書き換えられました。まずバナーで解決してください。',
+  'workbench.commitTool.pushNoPermission.title': 'プッシュ権限がありません',
+  'workbench.commitTool.pushNoPermission.body':
+    'このリモートはあなたには読み取り専用です。コミットはローカルに留まります。新しいブランチとして公開し、git ホストからマージリクエストを開いてください。',
+  'workbench.commitTool.pushNoPermission.placeholder': 'new-branch-name',
+  'workbench.commitTool.pushNoPermission.button': '新しいブランチとしてプッシュ',
+  'workbench.commitTool.pushNoPermission.pushed': 'ブランチ {branch} をプッシュしました',
 
   // ── Proxy capture tool window (control strip) ────────────────────
   'workbench.proxyCapture.running': '実行中 · :{port}',

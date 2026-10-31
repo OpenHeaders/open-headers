@@ -18,7 +18,7 @@
 
 import { CaretDownOutlined, CaretRightOutlined, FolderOutlined, SearchOutlined } from '@ant-design/icons';
 import type { WorkspaceTreeRefWire } from '@openheaders/core/bridge';
-import { Input, theme } from 'antd';
+import { Dropdown, Input, type MenuProps, theme } from 'antd';
 import type React from 'react';
 import { forwardRef, useEffect, useImperativeHandle, useMemo, useState } from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
@@ -55,6 +55,11 @@ export interface RefTreeProps {
   onLeafClick: (node: RefTreeSelection) => void;
   /** HEAD row (and the unborn-branch row) — clears selection + scope. */
   onHeadClick: () => void;
+  /** Right-click on a ref row (the unborn row included): the row
+   *  becomes the selection without the single-click gesture, and the
+   *  menu built here opens beside it. */
+  onLeafContextMenu: (node: RefTreeSelection) => void;
+  rowMenu: (node: RefTreeSelection) => MenuProps;
 }
 
 export interface RefTreeHandle {
@@ -82,6 +87,8 @@ const RefTree = forwardRef<RefTreeHandle, RefTreeProps>(function RefTree(
     showTags,
     onLeafClick,
     onHeadClick,
+    onLeafContextMenu,
+    rowMenu,
   },
   handleRef,
 ) {
@@ -160,6 +167,18 @@ const RefTree = forwardRef<RefTreeHandle, RefTreeProps>(function RefTree(
     });
   };
 
+  /** The row menu wrapper — antd composes the trigger with the row's own onContextMenu. */
+  const withRowMenu = (node: RefTreeSelection, row: React.ReactElement): React.ReactNode => (
+    <Dropdown
+      key={`${node.kind}:${node.name}`}
+      menu={rowMenu(node)}
+      trigger={['contextMenu']}
+      classNames={{ root: 'commit-tool-row-menu' }}
+    >
+      {row}
+    </Dropdown>
+  );
+
   const rowStyle = (depth: number): React.CSSProperties => ({
     display: 'flex',
     alignItems: 'center',
@@ -204,12 +223,14 @@ const RefTree = forwardRef<RefTreeHandle, RefTreeProps>(function RefTree(
       const isCurrent = node.refKind === 'local' && node.name === currentRef;
       const isActive = selected !== null && node.name === selected.name && node.refKind === selected.kind;
       const isFavorite = favorites.has(gitRailFavoriteKey(node.refKind, node.name));
-      return (
+      const leaf: RefTreeSelection = { name: node.name, kind: node.refKind };
+      return withRowMenu(
+        leaf,
         <button
-          key={`${node.refKind}:${node.name}`}
           type="button"
           className={isActive ? 'git-tool-row selected' : 'git-tool-row'}
-          onClick={() => onLeafClick({ name: node.name, kind: node.refKind })}
+          onClick={() => onLeafClick(leaf)}
+          onContextMenu={() => onLeafContextMenu(leaf)}
           title={node.name}
           style={{ ...rowStyle(depth), fontWeight: isCurrent ? 600 : 400 }}
           data-testid="git-tool-ref-row"
@@ -226,7 +247,7 @@ const RefTree = forwardRef<RefTreeHandle, RefTreeProps>(function RefTree(
               ★
             </span>
           )}
-        </button>
+        </button>,
       );
     });
 
@@ -331,39 +352,42 @@ const RefTree = forwardRef<RefTreeHandle, RefTreeProps>(function RefTree(
                   </span>
                   {t(group.labelKey)}
                 </button>
-                {open && showUnborn && (
-                  <button
-                    type="button"
-                    className={
-                      selected !== null && selected.kind === 'local' && selected.name === unbornBranch
-                        ? 'git-tool-row selected'
-                        : 'git-tool-row'
-                    }
-                    onClick={() => {
-                      if (unbornBranch !== null) onLeafClick({ name: unbornBranch, kind: 'local' });
-                    }}
-                    title={unbornBranch ?? undefined}
-                    style={{ ...rowStyle(0), fontWeight: 600 }}
-                    data-testid="git-tool-ref-row"
-                    data-ref={unbornBranch ?? ''}
-                    data-kind="local"
-                  >
-                    <span
-                      style={{
-                        flex: '1 1 auto',
-                        minWidth: 0,
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                        whiteSpace: 'nowrap',
-                      }}
+                {open &&
+                  showUnborn &&
+                  unbornBranch !== null &&
+                  withRowMenu(
+                    { name: unbornBranch, kind: 'local' },
+                    <button
+                      type="button"
+                      className={
+                        selected !== null && selected.kind === 'local' && selected.name === unbornBranch
+                          ? 'git-tool-row selected'
+                          : 'git-tool-row'
+                      }
+                      onClick={() => onLeafClick({ name: unbornBranch, kind: 'local' })}
+                      onContextMenu={() => onLeafContextMenu({ name: unbornBranch, kind: 'local' })}
+                      title={unbornBranch}
+                      style={{ ...rowStyle(0), fontWeight: 600 }}
+                      data-testid="git-tool-ref-row"
+                      data-ref={unbornBranch}
+                      data-kind="local"
                     >
-                      {unbornBranch}
-                    </span>
-                    <span aria-hidden style={{ flex: '0 0 auto', color: token.colorWarningText }}>
-                      ★
-                    </span>
-                  </button>
-                )}
+                      <span
+                        style={{
+                          flex: '1 1 auto',
+                          minWidth: 0,
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap',
+                        }}
+                      >
+                        {unbornBranch}
+                      </span>
+                      <span aria-hidden style={{ flex: '0 0 auto', color: token.colorWarningText }}>
+                        ★
+                      </span>
+                    </button>,
+                  )}
                 {open && renderNodes(group.tree, 0)}
               </div>
             );

@@ -21,7 +21,7 @@
  */
 
 import { DownOutlined, MinusOutlined } from '@ant-design/icons';
-import { hostBridge } from '@openheaders/core/bridge';
+import { hostBridge, type WorkspaceTreeForcePushStateWire } from '@openheaders/core/bridge';
 import { Dropdown, theme, Tooltip } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useMemo, useReducer, useState } from 'react';
@@ -32,6 +32,7 @@ import { useActiveWorkspaceId } from '@openheaders/ui/shared/hooks/readers/useAc
 import { useIsDockFocused } from '../../../stores/focus-region-store';
 import GitBindForm from '../../git/GitBindForm';
 import { localWorkspaceTreeTransport } from '../../git/transport';
+import ForcePushBanner from './ForcePushBanner';
 import { getGitPanelWorkbench } from './git-panel-view-store';
 import GitGroupRenderer from './GitGroupRenderer';
 
@@ -52,6 +53,7 @@ const GitLogPanel: React.FC<GitLogPanelProps> = ({ info, dockSlot, onHide }) => 
   const [branch, setBranch] = useState<string | null>(null);
   const [headSha, setHeadSha] = useState<string | null>(null);
   const [shallow, setShallow] = useState(false);
+  const [forcePush, setForcePush] = useState<WorkspaceTreeForcePushStateWire | null>(null);
 
   const workbench = workspaceId !== null ? getGitPanelWorkbench(workspaceId) : null;
   const [, bumpVersion] = useReducer((v: number) => v + 1, 0);
@@ -60,12 +62,17 @@ const GitLogPanel: React.FC<GitLogPanelProps> = ({ info, dockSlot, onHide }) => 
 
   // Bind/branch lifeline: hydrate once, then fold status frames (the
   // per-view data loads live in GitLogView / GitConsolePane).
+  const clearStatus = (): void => {
+    setBranch(null);
+    setHeadSha(null);
+    setShallow(false);
+    setForcePush(null);
+  };
+
   const hydrate = useCallback(async (): Promise<void> => {
     if (workspaceId === null) {
       setBound(false);
-      setBranch(null);
-      setHeadSha(null);
-      setShallow(false);
+      clearStatus();
       return;
     }
     try {
@@ -73,20 +80,17 @@ const GitLogPanel: React.FC<GitLogPanelProps> = ({ info, dockSlot, onHide }) => 
       const isBound = list.bindings.some((row) => row.workspaceId === workspaceId);
       setBound(isBound);
       if (!isBound) {
-        setBranch(null);
-        setHeadSha(null);
-        setShallow(false);
+        clearStatus();
         return;
       }
       const status = await hostBridge.call('oh.workspaceTree.gitStatus', { workspaceId });
       setBranch(status.branch);
       setHeadSha(status.headSha);
       setShallow(status.shallow);
+      setForcePush(status.forcePush);
     } catch {
       setBound(false);
-      setBranch(null);
-      setHeadSha(null);
-      setShallow(false);
+      clearStatus();
     }
   }, [workspaceId]);
 
@@ -102,6 +106,7 @@ const GitLogPanel: React.FC<GitLogPanelProps> = ({ info, dockSlot, onHide }) => 
       setBranch(payload.status.bound ? payload.status.branch : null);
       setHeadSha(payload.status.bound ? payload.status.headSha : null);
       setShallow(payload.status.bound && payload.status.shallow);
+      setForcePush(payload.status.bound ? payload.status.forcePush : null);
     });
   }, [workspaceId]);
 
@@ -235,12 +240,17 @@ const GitLogPanel: React.FC<GitLogPanelProps> = ({ info, dockSlot, onHide }) => 
 
   return (
     <div className="rules-bottom-panel git-tool-panel">
+      {/* §16: a detected remote history rewrite is an EVENT — the
+          banner stands until the trichotomy resolves it, and pull,
+          push and merge refuse meanwhile. */}
+      {forcePush !== null && <ForcePushBanner workspaceId={workspaceId} state={forcePush} testidPrefix="git-tool" />}
       <GitGroupRenderer
         key={workspaceId}
         workbench={workbench}
         workspaceId={workspaceId}
         branch={branch}
         headSha={headSha}
+        historyRewritten={forcePush !== null}
         dockFocused={dockFocused}
         renderHeader={renderHeader}
         titleInfo={<InfoTrigger content={info} className="rules-panel-header-info" />}

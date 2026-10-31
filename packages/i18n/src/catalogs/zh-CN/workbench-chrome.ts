@@ -28,6 +28,7 @@
  * holes.
  */
 
+import { formatMessage, plural } from '../../runtime';
 import type { Catalog } from '../../types';
 
 export const workbenchChrome = {
@@ -594,6 +595,60 @@ export const workbenchChrome = {
   'workbench.gitLog.compare.onlyIn': '存在于 {a} 但不存在于 {b} 的提交',
   'workbench.gitLog.compare.containsAll': '{a} 包含 {b} 的全部提交',
   'workbench.gitLog.compare.failed': '无法比较：{detail}',
+  'workbench.gitLog.refMenu.checkout': '检出',
+  'workbench.gitLog.refMenu.newBranchFrom': '从 {name} 新建分支…',
+  'workbench.gitLog.refMenu.checkoutAndRebase': '检出并变基到 {current}',
+  'workbench.gitLog.refMenu.compareWithCurrent': '与当前分支比较',
+  'workbench.gitLog.refMenu.showDiffWithWorkingTree': '显示与工作树的差异',
+  'workbench.gitLog.refMenu.rebaseCurrentOnto': '将当前分支变基到 {name}',
+  'workbench.gitLog.refMenu.mergeIntoCurrent': '将 {name} 合并到 {current}',
+  'workbench.gitLog.refMenu.update': '更新',
+  'workbench.gitLog.refMenu.push': '推送…',
+  'workbench.gitLog.refMenu.rename': '重命名…',
+  'workbench.gitLog.refMenu.delete': '删除',
+  'workbench.gitLog.switch.checkedOut': '已检出 {branch}',
+  'workbench.gitLog.switch.failed': '无法检出 {branch}：{detail}',
+  'workbench.gitLog.switch.dirtyTitle': '你有未提交的更改',
+  'workbench.gitLog.switch.dirtyBody': ({ count, branch }, locale) =>
+    formatMessage(
+      plural(locale, Number(count), {
+        other: '切换到 {branch} 之前，请先提交、贮藏或丢弃 {count} 项未提交的更改。',
+      }),
+      { branch: String(branch) },
+    ),
+  'workbench.gitLog.switch.commit': '提交并切换',
+  'workbench.gitLog.switch.stash': '贮藏并切换',
+  'workbench.gitLog.switch.discard': '丢弃更改',
+  'workbench.gitLog.switch.discardConfirm.title': '丢弃未提交的更改？',
+  'workbench.gitLog.switch.discardConfirm.body': '每项未提交的更改都会被删除，包括新文件。此操作无法撤销。',
+  'workbench.gitLog.switch.discardConfirm.ok': '丢弃',
+  'workbench.gitLog.merge.done': '已将 {ref} 合并到 {branch}（{sha}）',
+  'workbench.gitLog.merge.upToDate': '{branch} 已包含 {ref}',
+  'workbench.gitLog.merge.doneShallow':
+    '已将 {ref} 合并到 {branch}。浅克隆隐藏了共同历史，因此 {ref} 中的每个文件都被视为已更改。',
+  'workbench.gitLog.merge.doneUnrelated':
+    '已将 {ref} 合并到 {branch}。两段历史没有共同提交，因此 {ref} 中的每个文件都被视为已更改。',
+  'workbench.gitLog.merge.failed': '无法合并 {ref}：{detail}',
+  'workbench.gitLog.forcePush.title': '远程历史被改写',
+  'workbench.gitLog.forcePush.body':
+    '远程分支不再包含你上次同步的历史（{sha}）。拉取、推送和合并会等待你的选择——在你决定之前什么都不会改变。',
+  'workbench.gitLog.forcePush.abandon': '放弃本地更改',
+  'workbench.gitLog.forcePush.abandonConfirm.title': '放弃本地更改？',
+  'workbench.gitLog.forcePush.abandonConfirm.body':
+    '自上次同步以来的本地提交会被丢弃，改写后的远程历史成为工作区状态。',
+  'workbench.gitLog.forcePush.abandonConfirm.ok': '放弃',
+  'workbench.gitLog.forcePush.rescue': '保留到救援分支',
+  'workbench.gitLog.forcePush.reapply': '在其上重新应用',
+  'workbench.gitLog.forcePush.resolved': '已接受改写后的历史（{sha}）',
+  'workbench.gitLog.forcePush.rescued': '本地历史已保留在 {branch}',
+  'workbench.gitLog.forcePush.failed': '无法解决：{detail}',
+  'workbench.gitLog.fileMenu.showDiff': '显示差异',
+  'workbench.gitLog.fileMenu.showHistory': '显示历史',
+  'workbench.gitLog.fileMenu.showCurrentRevision': '显示当前修订',
+  'workbench.gitLog.fileMenu.jumpToSource': '跳转到源文件',
+  'workbench.gitLog.fileHistory.title': '历史：{path}',
+  'workbench.gitLog.fileHistory.empty': '没有提交涉及此文件。',
+  'workbench.gitLog.fileHistory.failed': '无法读取历史：{detail}',
 
   // ── Commit tool window ───────────────────────────────────────────
   'workbench.toolWindows.commit': 'Git · 提交',
@@ -694,6 +749,14 @@ export const workbenchChrome = {
   'workbench.commitTool.errors.stageFailed': '无法暂存所选文件',
   'workbench.commitTool.errors.commitFailed': '提交失败',
   'workbench.commitTool.errors.pushFailed': '推送失败',
+  'workbench.commitTool.errors.pushRejected': '远程有新提交——先拉取，再推送。',
+  'workbench.commitTool.errors.historyRewritten': '远程历史被改写——请先在横幅中解决。',
+  'workbench.commitTool.pushNoPermission.title': '没有推送权限',
+  'workbench.commitTool.pushNoPermission.body':
+    '此远程对你是只读的。你的提交留在本地；把它们发布为一个新分支，并在你的 git 主机上发起合并请求。',
+  'workbench.commitTool.pushNoPermission.placeholder': 'new-branch-name',
+  'workbench.commitTool.pushNoPermission.button': '推送为新分支',
+  'workbench.commitTool.pushNoPermission.pushed': '已推送分支 {branch}',
   'workbench.gitLog.refs.search': '分支或标签',
   'workbench.gitLog.refs.head': 'HEAD（当前分支）',
   'workbench.gitLog.refs.headDetached': 'HEAD · {sha}（分离）',

@@ -30,6 +30,7 @@
  * subject or object.
  */
 
+import { formatMessage, plural } from '../../runtime';
 import type { Catalog } from '../../types';
 
 export const workbenchChrome = {
@@ -607,6 +608,61 @@ export const workbenchChrome = {
   'workbench.gitLog.compare.onlyIn': '{a}에는 있지만 {b}에는 없는 커밋',
   'workbench.gitLog.compare.containsAll': '{a} 브랜치가 {b}의 모든 커밋을 포함합니다',
   'workbench.gitLog.compare.failed': '비교할 수 없습니다: {detail}',
+  'workbench.gitLog.refMenu.checkout': '체크아웃',
+  'workbench.gitLog.refMenu.newBranchFrom': '{name}에서 새 브랜치…',
+  'workbench.gitLog.refMenu.checkoutAndRebase': '체크아웃 후 {current} 위로 리베이스',
+  'workbench.gitLog.refMenu.compareWithCurrent': '현재 브랜치와 비교',
+  'workbench.gitLog.refMenu.showDiffWithWorkingTree': '작업 트리와의 Diff 표시',
+  'workbench.gitLog.refMenu.rebaseCurrentOnto': '현재 브랜치를 {name} 위로 리베이스',
+  'workbench.gitLog.refMenu.mergeIntoCurrent': '{name}을(를) {current}에 병합',
+  'workbench.gitLog.refMenu.update': '업데이트',
+  'workbench.gitLog.refMenu.push': 'Push…',
+  'workbench.gitLog.refMenu.rename': '이름 바꾸기…',
+  'workbench.gitLog.refMenu.delete': '삭제',
+  'workbench.gitLog.switch.checkedOut': '{branch} 브랜치를 체크아웃했습니다',
+  'workbench.gitLog.switch.failed': '{branch} 브랜치를 체크아웃할 수 없습니다: {detail}',
+  'workbench.gitLog.switch.dirtyTitle': '커밋하지 않은 변경이 있습니다',
+  'workbench.gitLog.switch.dirtyBody': ({ count, branch }, locale) =>
+    formatMessage(
+      plural(locale, Number(count), {
+        other: '{branch} 브랜치로 전환하기 전에 커밋하지 않은 변경 {count}개를 커밋, 스태시 또는 버리세요.',
+      }),
+      { branch: String(branch) },
+    ),
+  'workbench.gitLog.switch.commit': '커밋 후 전환',
+  'workbench.gitLog.switch.stash': '스태시 후 전환',
+  'workbench.gitLog.switch.discard': '변경 버리기',
+  'workbench.gitLog.switch.discardConfirm.title': '커밋하지 않은 변경을 버리시겠습니까?',
+  'workbench.gitLog.switch.discardConfirm.body':
+    '새 파일을 포함해 커밋하지 않은 모든 변경이 삭제됩니다. 되돌릴 수 없습니다.',
+  'workbench.gitLog.switch.discardConfirm.ok': '버리기',
+  'workbench.gitLog.merge.done': '{ref}을(를) {branch}에 병합했습니다 ({sha})',
+  'workbench.gitLog.merge.upToDate': '{branch}에 이미 {ref}이(가) 포함되어 있습니다',
+  'workbench.gitLog.merge.doneShallow':
+    '{ref}을(를) {branch}에 병합했습니다. 얕은 클론은 공통 기록을 숨기므로 {ref}의 모든 파일을 변경된 것으로 처리했습니다.',
+  'workbench.gitLog.merge.doneUnrelated':
+    '{ref}을(를) {branch}에 병합했습니다. 두 기록에 공통 커밋이 없으므로 {ref}의 모든 파일을 변경된 것으로 처리했습니다.',
+  'workbench.gitLog.merge.failed': '{ref}을(를) 병합할 수 없습니다: {detail}',
+  'workbench.gitLog.forcePush.title': '원격 기록이 다시 쓰였습니다',
+  'workbench.gitLog.forcePush.body':
+    '원격 브랜치에 마지막으로 동기화한 기록 ({sha})이 더 이상 없습니다. Pull, Push, 병합은 선택할 때까지 기다립니다. 결정하기 전까지 아무것도 바뀌지 않습니다.',
+  'workbench.gitLog.forcePush.abandon': '로컬 변경 포기',
+  'workbench.gitLog.forcePush.abandonConfirm.title': '로컬 변경을 포기하시겠습니까?',
+  'workbench.gitLog.forcePush.abandonConfirm.body':
+    '마지막 동기화 이후의 로컬 커밋이 버려지고 다시 쓰인 원격 기록이 워크스페이스 상태가 됩니다.',
+  'workbench.gitLog.forcePush.abandonConfirm.ok': '포기',
+  'workbench.gitLog.forcePush.rescue': '구조 브랜치에 보존',
+  'workbench.gitLog.forcePush.reapply': '위에 다시 적용',
+  'workbench.gitLog.forcePush.resolved': '다시 쓰인 기록을 수락했습니다 ({sha})',
+  'workbench.gitLog.forcePush.rescued': '로컬 기록을 {branch} 브랜치에 보존했습니다',
+  'workbench.gitLog.forcePush.failed': '해결할 수 없습니다: {detail}',
+  'workbench.gitLog.fileMenu.showDiff': 'Diff 표시',
+  'workbench.gitLog.fileMenu.showHistory': '기록 표시',
+  'workbench.gitLog.fileMenu.showCurrentRevision': '현재 리비전 표시',
+  'workbench.gitLog.fileMenu.jumpToSource': '소스로 이동',
+  'workbench.gitLog.fileHistory.title': '기록: {path}',
+  'workbench.gitLog.fileHistory.empty': '이 파일을 건드린 커밋이 없습니다.',
+  'workbench.gitLog.fileHistory.failed': '기록을 읽을 수 없습니다: {detail}',
 
   // ── Commit tool window ───────────────────────────────────────────
   'workbench.toolWindows.commit': 'Git · 커밋',
@@ -710,6 +766,14 @@ export const workbenchChrome = {
   'workbench.commitTool.errors.stageFailed': '선택한 파일을 스테이징할 수 없습니다',
   'workbench.commitTool.errors.commitFailed': '커밋 실패',
   'workbench.commitTool.errors.pushFailed': '푸시 실패',
+  'workbench.commitTool.errors.pushRejected': '원격에 새 커밋이 있습니다. 먼저 Pull 한 다음 다시 Push 하세요.',
+  'workbench.commitTool.errors.historyRewritten': '원격 기록이 다시 쓰였습니다. 먼저 배너에서 해결하세요.',
+  'workbench.commitTool.pushNoPermission.title': '푸시 권한 없음',
+  'workbench.commitTool.pushNoPermission.body':
+    '이 원격은 내게 읽기 전용입니다. 커밋은 로컬에 남으며, 새 브랜치로 게시한 뒤 git 호스트에서 병합 요청을 여세요.',
+  'workbench.commitTool.pushNoPermission.placeholder': 'new-branch-name',
+  'workbench.commitTool.pushNoPermission.button': '새 브랜치로 Push',
+  'workbench.commitTool.pushNoPermission.pushed': '{branch} 브랜치를 푸시했습니다',
 
   // ── Proxy capture tool window (control strip) ────────────────────
   'workbench.proxyCapture.running': '실행 중 · :{port}',

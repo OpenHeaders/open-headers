@@ -28,8 +28,8 @@ import {
 } from '@ant-design/icons';
 import type { WorkspaceTreeWorkingChangeWire } from '@openheaders/core/bridge';
 import type { MenuProps } from 'antd';
-import type React from 'react';
 import type { Translate } from '@openheaders/ui/context/LocaleContext';
+import { menuLabel } from '../git-menu-label';
 
 export interface CommitRowMenuHandlers {
   onCommitFile: (path: string) => void;
@@ -46,17 +46,6 @@ export interface CommitRowMenuHandlers {
 }
 
 type MenuItems = NonNullable<MenuProps['items']>;
-
-/** Icon gutter + right-aligned inert shortcut hint (the IDE anatomy). */
-function menuLabel(icon: React.ReactNode | null, text: string, hint?: string, testid?: string): React.ReactNode {
-  return (
-    <span style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 220 }} data-testid={testid}>
-      <span style={{ width: 16, flex: '0 0 auto', display: 'inline-flex', justifyContent: 'center' }}>{icon}</span>
-      <span style={{ flex: '1 1 auto', fontSize: 13 }}>{text}</span>
-      {hint !== undefined && <span style={{ flex: '0 0 auto', fontSize: 12, opacity: 0.55 }}>{hint}</span>}
-    </span>
-  );
-}
 
 /** The Add to .gitignore ▸ submenu — repo-root `.gitignore` (shared) or `.git/info/exclude` (local-only). */
 function gitignoreSubmenu(
