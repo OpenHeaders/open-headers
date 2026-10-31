@@ -7,10 +7,13 @@
  * and contributor-authored commits resolved through the user directory.
  *
  *   D1  the daemon serves the web bundle entry document on its bind.
- *   D2  a directory admin (admitted over the operator wire, signed in at
- *       the front door's password card — a browser never pastes a
- *       token) opens the Server Admin surface from the Backend ›
- *       Connections card's admin affordance.
+ *   D2  the first browser CLAIMS the unclaimed server at the front
+ *       door's setup card (the front-door plan §4.2): from loopback no
+ *       setup code is asked, the claim makes that person owner of the
+ *       seeded workspace and `daemon.admin`, revokes the seed's
+ *       bootstrap token and says so, and lands on Server Admin › Users.
+ *       A browser never pastes a token; the operator plane dies with
+ *       the claim.
  *   D3  the Git domain tab's card binds a daemon-side folder over the
  *       wire: repo auto-init on the daemon's disk, first commit lands.
  *   D4  directory users minted through the Users domain tab: create
@@ -35,6 +38,11 @@
  * its single-machine honest core. The card's dirty count does not
  * stream live to remote console tabs (known P7 residual) — status here
  * is refreshed through real gestures, never asserted on live push.
+ *
+ * The seeded operator token (the offline `ohd show-token` equivalent)
+ * is used ONCE, before any tab loads, to mint the workspace over MCP;
+ * every later act is a browser's — the claim, the Users tab, the Git
+ * card. Nothing here rides the raw admin wire.
  *
  * Every tab is headless Chromium — nothing shows on screen.
  *
@@ -64,6 +72,8 @@ const ORIGIN = `http://127.0.0.1:${DAEMON_PORT}`;
 
 const EMAIL_INPUT = 'input[data-testid=login-gate-email], [data-testid=login-gate-email] input';
 const PASSWORD_INPUT = 'input[data-testid=login-gate-password], [data-testid=login-gate-password] input';
+const setupInput = (field: string): string =>
+  `input[data-testid=login-gate-setup-${field}], [data-testid=login-gate-setup-${field}] input`;
 
 const OPERATOR_NAME = 'OH Operator';
 const OPERATOR_EMAIL = 'operator@openheaders.io';
@@ -232,9 +242,12 @@ async function spawnDaemon(): Promise<void> {
     .toBe(200);
 }
 
-// ── MCP helpers (operator token; seed + assertions only) ────────────
+// ── MCP helpers (operator token; the seed only) ─────────────────────
 
-async function mcpRpc(method: string, params: Record<string, unknown>): Promise<Record<string, unknown>> {
+async function mcpRpc(
+  method: string,
+  params: Record<string, unknown>,
+): Promise<{ status: number; json: Record<string, unknown> }> {
   const response = await fetch(`${ORIGIN}/mcp`, {
     method: 'POST',
     headers: {
@@ -244,96 +257,16 @@ async function mcpRpc(method: string, params: Record<string, unknown>): Promise<
     },
     body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params }),
   });
-  expect(response.status, method).toBe(200);
-  return (await response.json()) as Record<string, unknown>;
+  const json = (await response.json().catch(() => ({}))) as Record<string, unknown>;
+  return { status: response.status, json };
 }
 
 async function callTool(name: string, args: Record<string, unknown>): Promise<Record<string, unknown>> {
-  const json = await mcpRpc('tools/call', { name, arguments: args });
+  const { status, json } = await mcpRpc('tools/call', { name, arguments: args });
+  expect(status, name).toBe(200);
   const result = json.result as { isError?: boolean; content: Array<{ text: string }> };
   expect(result.isError, `${name}: ${result.content?.[0]?.text}`).toBeFalsy();
   return JSON.parse(result.content[0]?.text ?? '{}') as Record<string, unknown>;
-}
-
-// ── operator wire (the admin plane a browser never rides) ───────────
-
-/**
- * Drive the daemon's gated peer admin plane over a raw operator wire
- * (Node's global WebSocket): HELLO with the pre-seeded operator token,
- * then request/response on the `<type>:response` idiom.
- */
-async function adminOverWire(calls: Array<Record<string, unknown>>): Promise<Array<Record<string, unknown>>> {
-  const socket = new WebSocket(`ws://127.0.0.1:${DAEMON_PORT}`);
-  const inbox = new Map<string, Array<Record<string, unknown>>>();
-  const waiters = new Map<string, (frame: Record<string, unknown>) => void>();
-  socket.addEventListener('message', (event) => {
-    const frame = JSON.parse(String(event.data)) as Record<string, unknown> & { type: string };
-    const waiter = waiters.get(frame.type);
-    if (waiter) {
-      waiters.delete(frame.type);
-      waiter(frame);
-      return;
-    }
-    const queue = inbox.get(frame.type) ?? [];
-    queue.push(frame);
-    inbox.set(frame.type, queue);
-  });
-  const awaitFrame = (type: string): Promise<Record<string, unknown>> => {
-    const queued = inbox.get(type)?.shift();
-    if (queued) return Promise.resolve(queued);
-    return new Promise((resolve) => waiters.set(type, resolve));
-  };
-  await new Promise<void>((resolve, reject) => {
-    socket.addEventListener('open', () => resolve(), { once: true });
-    socket.addEventListener('error', () => reject(new Error('admin wire failed to open')), { once: true });
-  });
-  const welcomePromise = awaitFrame('oh.sync.welcome');
-  socket.send(
-    JSON.stringify({
-      type: 'oh.sync.hello',
-      protocolVersion: 1,
-      role: 'web',
-      nodeId: 'e2e-git-console-wire',
-      workspaceId: 'e2e-git-console-wire',
-      agent: '@openheaders/web@e2e',
-      authToken: operatorToken,
-    }),
-  );
-  const welcome = (await welcomePromise) as { accepted?: boolean };
-  expect(welcome.accepted).toBe(true);
-  const responses: Array<Record<string, unknown>> = [];
-  for (const call of calls) {
-    const responsePromise = awaitFrame(`${String(call.type)}:response`);
-    socket.send(JSON.stringify(call));
-    responses.push(await responsePromise);
-  }
-  socket.close();
-  return responses;
-}
-
-/**
- * Admit the directory admin the console tab signs in as: an owner grant
- * on the seeded workspace (admission confers access — one act), a
- * password, and the `daemon.admin` role the Backend card's affordance
- * is probe-gated on.
- */
-async function admitConsoleAdmin(): Promise<void> {
-  const [created] = await adminOverWire([
-    {
-      type: 'oh.daemon.users.create',
-      displayName: ADMIN_NAME,
-      email: ADMIN_EMAIL,
-      grants: [{ workspaceId, role: 'owner' }],
-    },
-  ]);
-  const payload = created.payload as { ok: boolean; userId?: string; error?: string };
-  expect(payload.ok, payload.error).toBe(true);
-  const [passworded, promoted] = await adminOverWire([
-    { type: 'oh.daemon.users.setPassword', userId: payload.userId, password: ADMIN_PASSWORD },
-    { type: 'oh.daemon.users.setDaemonAdmin', userId: payload.userId, allowed: true },
-  ]);
-  expect((passworded.payload as { ok: boolean }).ok).toBe(true);
-  expect((promoted.payload as { ok: boolean }).ok).toBe(true);
 }
 
 // ── page helpers ────────────────────────────────────────────────────
@@ -409,7 +342,30 @@ async function openTab(label: string): Promise<[BrowserContext, Page]> {
   return [context, target];
 }
 
-/** Sign in at the front door's password card (directory users and the admin alike). */
+/**
+ * Claim the unclaimed server from the first browser (the front-door
+ * plan §4.2). Loopback is the proof, so no setup code is asked; the
+ * claim reports the devices it unpaired (the seed's bootstrap token)
+ * and its Continue lands the tab on Server Admin › Users — the
+ * directory is the operator's next job, and the Users tab is the
+ * claim's receipt.
+ */
+async function claimServer(target: Page, name: string, email: string, password: string): Promise<void> {
+  await target.goto(`${ORIGIN}/`);
+  await target.waitForSelector(setupInput('name'), { timeout: 5_000 });
+  await expect(target.locator(setupInput('code'))).toHaveCount(0);
+  await target.fill(setupInput('name'), name);
+  await target.fill(setupInput('email'), email);
+  await target.fill(setupInput('password'), password);
+  await target.fill(setupInput('confirm'), password);
+  await target.click('[data-testid=login-gate-setup-submit]');
+  await expect(target.locator('[data-testid=login-gate-setup-done]')).toContainText('Pair it again');
+  await expect(target.locator('[data-testid=login-gate-setup-continue]')).toHaveText('Continue to Server Admin');
+  await target.click('[data-testid=login-gate-setup-continue]');
+  await target.waitForSelector('[data-testid=login-gate]', { state: 'detached', timeout: 5_000 });
+}
+
+/** Sign in at the front door's password card (the directory users the admin mints). */
 async function joinWithPassword(target: Page, email: string, password: string): Promise<void> {
   await target.goto(`${ORIGIN}/`);
   await target.waitForSelector(EMAIL_INPUT, { timeout: 5_000 });
@@ -566,14 +522,11 @@ test.beforeAll(async () => {
 
   // A distinctly-named workspace: every joined tab also carries its own
   // local "Workspace", so name-keyed pickers need an unambiguous target.
+  // Minted BEFORE the claim — the claim revokes the token this rides,
+  // and makes the claimant owner of every workspace the host serves.
   workspaceName = 'T7 Git Workspace';
   const created = await callTool('workspaces_create', { name: workspaceName, activate: true });
   workspaceId = (created.workspace as { id: string }).id;
-
-  // The admin admitted BEFORE any tab loads: the gate is a pure
-  // function of server state, and an admitted account with a password
-  // turns the unclaimed setup card into the sign-in card.
-  await admitConsoleAdmin();
 
   browser = await chromium.launch();
 });
@@ -596,18 +549,31 @@ test('D1 — the daemon serves the web bundle entry document on its bind', async
   expect(await res.text()).toContain('<div id="root">');
 });
 
-// ── D2: the admin signs in, the Server Admin surface opens ──────────
+// ── D2: the first browser claims the server, lands on Server Admin ──
 
-test('D2 — the admin signs in at the front door and the Backend card opens the Server Admin surface', async () => {
+test('D2 — the first browser claims the unclaimed server at the front door and lands on Server Admin › Users', async () => {
+  // The gate's own probe, asked from this machine: the claim is open
+  // and no code is demanded of a loopback peer.
+  const meta = (await (await fetch(`${ORIGIN}/auth/setup/meta`)).json()) as unknown;
+  expect(meta).toEqual({ unclaimed: true, requiresCode: false });
+
   [adminContext, adminPage] = await openTab('admin');
-  await joinWithPassword(adminPage, ADMIN_EMAIL, ADMIN_PASSWORD);
+  await claimServer(adminPage, ADMIN_NAME, ADMIN_EMAIL, ADMIN_PASSWORD);
 
-  // Settings → Backup and Sync › Sync → the served row's ⋯ → the
-  // probe-gated Administer item → the Users domain tab.
-  await openBackendSettings(adminPage);
-  await adminPage.getByTestId('synced-row-menu').click();
-  await adminPage.getByTestId('open-daemon-admin').click();
+  // The post-claim landing: the Users domain tab with the claimant's
+  // own row, the Server Admin nav window brought forward beside it.
   await expect(adminPage.getByTestId('server-admin-tab')).toBeVisible();
+  await expect(adminPage.getByTestId('server-admin-tab')).toContainText(ADMIN_EMAIL);
+  await expect(adminPage.getByTestId('server-admin-panel')).toBeVisible();
+
+  // The claim closed the box: the server is claimed, and the seeded
+  // operator token — the only unbound credential — answers the MCP
+  // route's refusal from here on. Everything below is a browser's act.
+  expect((await (await fetch(`${ORIGIN}/auth/setup/meta`)).json()) as unknown).toEqual({
+    unclaimed: false,
+    requiresCode: false,
+  });
+  expect((await mcpRpc('tools/list', {})).status).toBe(401);
 });
 
 // ── D3: bind + first commit over the dispatch wire ──────────────────
