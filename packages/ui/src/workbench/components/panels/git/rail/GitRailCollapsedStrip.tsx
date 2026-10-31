@@ -10,6 +10,7 @@ import { theme, Tooltip } from 'antd';
 import type React from 'react';
 import { useState } from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
+import { GIT_RAIL_STRIP_WIDTH } from '../git-log-layout';
 
 export interface GitRailCollapsedStripProps {
   onExpand: () => void;
@@ -35,7 +36,7 @@ const GitRailCollapsedStrip: React.FC<GitRailCollapsedStripProps> = ({ onExpand 
           flexDirection: 'column',
           alignItems: 'center',
           gap: 8,
-          width: 26,
+          width: GIT_RAIL_STRIP_WIDTH,
           padding: '8px 0',
           border: 'none',
           borderRight: `1px solid ${token.colorBorderSecondary}`,

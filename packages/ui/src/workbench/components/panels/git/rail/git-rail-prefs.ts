@@ -3,13 +3,11 @@
  * branches rail (the IDE-log activity bar's stateful options):
  * favorite refs (★), the single-click behavior (Update Branch Filter /
  * Navigate Log to Branch Head), Show Tags, and Group By Directory.
- *
- * Module store with subscribers (the panel's module-state posture —
- * the dock unmounts inactive tool windows) plus localStorage
- * persistence: favorites and view options are durable preferences,
- * unlike the session-scoped tabs. Storage failures degrade to
- * session-only silently (private windows, test DOMs).
+ * Favorites and view options are durable preferences, unlike the
+ * session-scoped tabs — the shared per-workspace prefs posture.
  */
+
+import { createWorkspacePrefsStore } from '../workspace-prefs-store';
 
 export type GitRailSingleClick = 'filter' | 'navigate';
 
@@ -32,66 +30,20 @@ export function gitRailFavoriteKey(kind: string, name: string): string {
   return `${kind}:${name}`;
 }
 
-interface PrefsEntry {
-  prefs: GitRailPrefs;
-  listeners: Set<() => void>;
-}
+const store = createWorkspacePrefsStore<GitRailPrefs>({
+  storagePrefix: 'oh:gitRail',
+  defaults: DEFAULT_PREFS,
+  parse: (p) => ({
+    favorites: Array.isArray(p.favorites) ? p.favorites.filter((key) => typeof key === 'string') : [],
+    singleClick: p.singleClick === 'navigate' ? 'navigate' : 'filter',
+    showTags: p.showTags !== false,
+    groupByDirectory: p.groupByDirectory !== false,
+  }),
+});
 
-const entries = new Map<string, PrefsEntry>();
-
-function storageKey(workspaceId: string): string {
-  return `oh:gitRail:${workspaceId}`;
-}
-
-function readPersisted(workspaceId: string): GitRailPrefs {
-  try {
-    const raw = localStorage.getItem(storageKey(workspaceId));
-    if (raw === null) return DEFAULT_PREFS;
-    const parsed: unknown = JSON.parse(raw);
-    if (typeof parsed !== 'object' || parsed === null) return DEFAULT_PREFS;
-    const p = parsed as Partial<GitRailPrefs>;
-    return {
-      favorites: Array.isArray(p.favorites) ? p.favorites.filter((key) => typeof key === 'string') : [],
-      singleClick: p.singleClick === 'navigate' ? 'navigate' : 'filter',
-      showTags: p.showTags !== false,
-      groupByDirectory: p.groupByDirectory !== false,
-    };
-  } catch {
-    return DEFAULT_PREFS;
-  }
-}
-
-function entryFor(workspaceId: string): PrefsEntry {
-  let entry = entries.get(workspaceId);
-  if (entry === undefined) {
-    entry = { prefs: readPersisted(workspaceId), listeners: new Set() };
-    entries.set(workspaceId, entry);
-  }
-  return entry;
-}
-
-export function getGitRailPrefs(workspaceId: string): GitRailPrefs {
-  return entryFor(workspaceId).prefs;
-}
-
-export function subscribeGitRailPrefs(workspaceId: string, listener: () => void): () => void {
-  const entry = entryFor(workspaceId);
-  entry.listeners.add(listener);
-  return () => {
-    entry.listeners.delete(listener);
-  };
-}
-
-export function patchGitRailPrefs(workspaceId: string, patch: Partial<GitRailPrefs>): void {
-  const entry = entryFor(workspaceId);
-  entry.prefs = { ...entry.prefs, ...patch };
-  try {
-    localStorage.setItem(storageKey(workspaceId), JSON.stringify(entry.prefs));
-  } catch {
-    // Session-only fallback — the in-memory prefs still apply.
-  }
-  for (const listener of entry.listeners) listener();
-}
+export const getGitRailPrefs = store.get;
+export const subscribeGitRailPrefs = store.subscribe;
+export const patchGitRailPrefs = store.patch;
 
 /** Toggle one ref's favorite star. */
 export function toggleGitRailFavorite(workspaceId: string, kind: string, name: string): void {

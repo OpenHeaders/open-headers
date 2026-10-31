@@ -10,6 +10,11 @@
  * the tab registry (travels with the tab); display prefs are
  * per-workspace. Hiding the rail swaps section #1 for the vertical
  * Branches strip (the IDE-log gesture).
+ *
+ * The three panes are grid tracks with a sash on each boundary (the
+ * IDE's splitters): rail | log, log | details, and files | info inside
+ * details. The templates and bounds are `git-log-layout.ts`; the drag
+ * wiring is `use-git-log-layout.ts`.
  */
 
 import {
@@ -21,6 +26,7 @@ import { theme } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { useLocale } from '@openheaders/ui/context/LocaleContext';
+import { Sash } from '@openheaders/ui/shared/dock-layout';
 import CommitDetails from './CommitDetails';
 import CommitList from './CommitList';
 import DiffModal from './DiffModal';
@@ -37,6 +43,7 @@ import GitDetailsToolbar from './toolbar/GitDetailsToolbar';
 import GitLogToolbar from './toolbar/GitLogToolbar';
 import { buildLogWireFilters, hasRowFilters, makeTextMatcher } from './toolbar/log-filters';
 import { useFileDiff } from './use-file-diff';
+import { useGitLogLayout } from './use-git-log-layout';
 
 export interface GitLogViewProps {
   workspaceId: string;
@@ -66,6 +73,11 @@ const GitLogView: React.FC<GitLogViewProps> = ({
   const { token } = theme.useToken();
   const { t } = useLocale();
   const rootRef = useRef<HTMLDivElement>(null);
+  const gridRef = useRef<HTMLDivElement>(null);
+  const railCellRef = useRef<HTMLDivElement>(null);
+  const detailsCellRef = useRef<HTMLDivElement>(null);
+  const detailBodyRef = useRef<HTMLDivElement>(null);
+  const infoCellRef = useRef<HTMLDivElement>(null);
   const fileTreeRef = useRef<FileTreeViewHandle>(null);
 
   const [entries, setEntries] = useState<WorkspaceTreeLogEntryWire[]>([]);
@@ -91,6 +103,11 @@ const GitLogView: React.FC<GitLogViewProps> = ({
   const favoriteSet = useMemo<ReadonlySet<string>>(() => new Set(railPrefs.favorites), [railPrefs.favorites]);
 
   const { selectedRef, filter, filterRegex, filterCase, selectedSha, refsCollapsed, railSelection } = tab;
+  const layout = useGitLogLayout(
+    workspaceId,
+    { root: gridRef, rail: railCellRef, details: detailsCellRef, detailBody: detailBodyRef, info: infoCellRef },
+    { railCollapsed: refsCollapsed, showInfo: prefs.showDetails },
+  );
   const { author, date, paths, sort, firstParent, noMerges } = tab;
   const tabKey = gitPanelTabKey(tab);
   const rowFiltersActive = hasRowFilters(tab);
@@ -288,11 +305,26 @@ const GitLogView: React.FC<GitLogViewProps> = ({
           {combinedError}
         </div>
       )}
-      <div style={{ flex: '1 1 auto', display: 'flex', minHeight: 0 }}>
-        {refsCollapsed ? (
-          <GitRailCollapsedStrip onExpand={() => patchTab({ refsCollapsed: false })} />
-        ) : (
-          <GitRefRail
+      <div
+        ref={gridRef}
+        style={{
+          flex: '1 1 auto',
+          minHeight: 0,
+          display: 'grid',
+          gridTemplateColumns: layout.columns,
+          gridTemplateRows: 'minmax(0, 1fr)',
+        }}
+        data-testid="git-tool-split"
+      >
+        <div
+          ref={railCellRef}
+          style={{ position: 'relative', minWidth: 0, minHeight: 0, display: 'flex' }}
+          data-testid="git-tool-rail-cell"
+        >
+          {refsCollapsed ? (
+            <GitRailCollapsedStrip onExpand={() => patchTab({ refsCollapsed: false })} />
+          ) : (
+            <GitRefRail
             workspaceId={workspaceId}
             refs={refs}
             currentRef={currentRef}
@@ -307,10 +339,11 @@ const GitLogView: React.FC<GitLogViewProps> = ({
             onOpenCompare={onOpenCompare}
             onHide={() => patchTab({ refsCollapsed: true })}
           />
-        )}
+          )}
+          {!refsCollapsed && <Sash axis="x" edge="end" begin={layout.beginRail} onReset={layout.resetRail} />}
+        </div>
         <div
           style={{
-            flex: '1 1 55%',
             minWidth: 0,
             display: 'flex',
             flexDirection: 'column',
@@ -350,9 +383,11 @@ const GitLogView: React.FC<GitLogViewProps> = ({
           />
         </div>
         <div
-          style={{ flex: '1 1 45%', minWidth: 0, display: 'flex', flexDirection: 'column', minHeight: 0 }}
+          ref={detailsCellRef}
+          style={{ position: 'relative', minWidth: 0, display: 'flex', flexDirection: 'column', minHeight: 0 }}
           data-testid="git-tool-detail"
         >
+          <Sash axis="x" edge="start" begin={layout.beginDetails} onReset={layout.resetDetails} />
           <GitDetailsToolbar
             canShowDiff={selected !== null && selectedFile !== null}
             onShowDiff={() => {
@@ -363,69 +398,85 @@ const GitLogView: React.FC<GitLogViewProps> = ({
             onExpandAll={() => fileTreeRef.current?.expandAll()}
             onCollapseAll={() => fileTreeRef.current?.collapseAll()}
           />
-          {selected === null ? (
-            <>
-              <div
-                style={{
-                  flex: '1 1 55%',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontSize: 12,
-                  color: token.colorTextSecondary,
-                }}
-                data-testid="git-tool-detail-placeholder"
-              >
-                {t('workbench.gitLog.selectCommit')}
-              </div>
-              {prefs.showDetails && (
+          <div
+            ref={detailBodyRef}
+            style={{
+              flex: '1 1 auto',
+              minHeight: 0,
+              display: 'grid',
+              gridTemplateRows: layout.detailRows,
+              gridTemplateColumns: 'minmax(0, 1fr)',
+            }}
+            data-testid="git-tool-detail-body"
+          >
+            <div style={{ minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+              {selected === null ? (
                 <div
                   style={{
-                    flex: '1 1 45%',
+                    flex: '1 1 auto',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
                     fontSize: 12,
                     color: token.colorTextSecondary,
-                    borderTop: `1px solid ${token.colorBorderSecondary}`,
                   }}
-                  data-testid="git-tool-detail-none"
+                  data-testid="git-tool-detail-placeholder"
                 >
-                  {t('workbench.gitLog.noneSelected')}
+                  {t('workbench.gitLog.selectCommit')}
                 </div>
+              ) : (
+                <FileTreeView
+                  key={`${tabKey}:${selected.sha}`}
+                  ref={fileTreeRef}
+                  files={selected.files}
+                  loadingPath={fileDiff.loadingPath}
+                  onOpenFile={(path) => void fileDiff.open(selected.sha, path)}
+                  selectedPath={selectedFile}
+                  onSelectFile={setSelectedFile}
+                  groupByDirectory={prefs.groupFilesByDirectory}
+                  rowMenu={fileRowMenu}
+                />
               )}
-            </>
-          ) : (
-            <>
-              <FileTreeView
-                key={`${tabKey}:${selected.sha}`}
-                ref={fileTreeRef}
-                files={selected.files}
-                loadingPath={fileDiff.loadingPath}
-                onOpenFile={(path) => void fileDiff.open(selected.sha, path)}
-                selectedPath={selectedFile}
-                onSelectFile={setSelectedFile}
-                groupByDirectory={prefs.groupFilesByDirectory}
-                rowMenu={fileRowMenu}
-              />
-              {prefs.showDetails && (
-                <div
-                  style={{
-                    flex: '1 1 45%',
-                    minHeight: 0,
-                    overflowY: 'auto',
-                    borderTop: `1px solid ${token.colorBorderSecondary}`,
-                  }}
-                >
-                  <CommitDetails
-                    entry={selected}
-                    refsAtCommit={refsBySha.get(selected.sha) ?? []}
-                    isHead={selected.sha === headSha}
-                  />
-                </div>
-              )}
-            </>
-          )}
+            </div>
+            {prefs.showDetails && (
+              <div
+                ref={infoCellRef}
+                style={{
+                  position: 'relative',
+                  minHeight: 0,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  borderTop: `1px solid ${token.colorBorderSecondary}`,
+                }}
+                data-testid="git-tool-detail-info-cell"
+              >
+                <Sash axis="y" edge="start" begin={layout.beginInfo} onReset={layout.resetInfo} />
+                {selected === null ? (
+                  <div
+                    style={{
+                      flex: '1 1 auto',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontSize: 12,
+                      color: token.colorTextSecondary,
+                    }}
+                    data-testid="git-tool-detail-none"
+                  >
+                    {t('workbench.gitLog.noneSelected')}
+                  </div>
+                ) : (
+                  <div style={{ flex: '1 1 auto', minHeight: 0, overflowY: 'auto' }}>
+                    <CommitDetails
+                      entry={selected}
+                      refsAtCommit={refsBySha.get(selected.sha) ?? []}
+                      isHead={selected.sha === headSha}
+                    />
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
         </div>
       </div>
       <DiffModal diff={fileDiff.diff} onClose={fileDiff.close} />

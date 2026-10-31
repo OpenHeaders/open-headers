@@ -293,10 +293,10 @@ const GitRefRail: React.FC<GitRefRailProps> = ({
     <div
       ref={rootRef}
       style={{
-        flex: '0 0 auto',
+        flex: '1 1 auto',
         display: 'flex',
+        minWidth: 0,
         minHeight: 0,
-        width: 248,
         borderRight: `1px solid ${token.colorBorderSecondary}`,
         background: token.colorFillQuaternary,
       }}
