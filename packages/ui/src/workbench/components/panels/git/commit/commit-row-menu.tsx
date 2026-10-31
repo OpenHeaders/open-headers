@@ -9,6 +9,13 @@
  * shelf, Local History) and unbuilt write verbs render
  * visible-disabled. Shortcut hints mirror the IDE anatomy; bindings
  * ride the keymap plane later.
+ *
+ * Every row carries the menu (the menu law): a directory node or a
+ * group header gets the same anatomy over its subtree — the commit
+ * verb reads Commit Directory… / Commit… and checks exactly those
+ * paths, Show Diff (one file's read) is visible-disabled, Add to
+ * .gitignore names the directory itself. The Ignored Files group and
+ * its directories carry Refresh alone.
  */
 
 import {
@@ -28,11 +35,14 @@ import {
 } from '@ant-design/icons';
 import type { WorkspaceTreeWorkingChangeWire } from '@openheaders/core/bridge';
 import type { MenuProps } from 'antd';
+import type { MessageKey } from '@openheaders/i18n';
 import type { Translate } from '@openheaders/ui/context/LocaleContext';
 import { menuLabel } from '../git-menu-label';
+import type { CommitMenuTarget } from './commit-model';
 
 export interface CommitRowMenuHandlers {
-  onCommitFile: (path: string) => void;
+  /** Check exactly these paths and focus the message box. */
+  onCommitPaths: (paths: readonly string[]) => void;
   onShowDiff: (path: string) => void;
   onRefresh: () => void;
   onPush: () => void;
@@ -47,9 +57,64 @@ export interface CommitRowMenuHandlers {
 
 type MenuItems = NonNullable<MenuProps['items']>;
 
+/** The target's facts the menu anatomy branches on. */
+interface TargetFacts {
+  unversioned: boolean;
+  /** The commit verb's paths — empty on an empty group (the verb disables). */
+  paths: readonly string[];
+  /** Show Diff is one tracked file's read; null elsewhere. */
+  diffPath: string | null;
+  /** Add to .gitignore names one path — an unversioned file or directory; null elsewhere. */
+  ignorePath: string | null;
+  commitLabelKey: MessageKey;
+}
+
+function factsOf(target: CommitMenuTarget): TargetFacts {
+  if (target.kind === 'file') {
+    const unversioned = target.row.unversioned === true;
+    return {
+      unversioned,
+      paths: [target.row.path],
+      diffPath: unversioned ? null : target.row.path,
+      ignorePath: unversioned ? target.row.path : null,
+      commitLabelKey: 'workbench.commitTool.menu.commitFile',
+    };
+  }
+  const unversioned = target.group === 'unversioned';
+  return {
+    unversioned,
+    paths: target.paths,
+    diffPath: null,
+    ignorePath: target.kind === 'dir' && unversioned ? target.path : null,
+    commitLabelKey:
+      target.kind === 'dir' ? 'workbench.commitTool.menu.commitDirectory' : 'workbench.commitTool.menu.commit',
+  };
+}
+
+/** The commit verb — Commit File… / Commit Directory… / Commit… over the target's paths. */
+function commitItem(facts: TargetFacts, h: CommitRowMenuHandlers, t: Translate, key: string): MenuItems[number] {
+  return {
+    key,
+    label: menuLabel(null, t(facts.commitLabelKey)),
+    disabled: facts.paths.length === 0,
+    ...(facts.paths.length === 0 ? {} : { onClick: () => h.onCommitPaths(facts.paths) }),
+  };
+}
+
+/** Show Diff — live for one tracked file, visible-disabled elsewhere. */
+function showDiffItem(facts: TargetFacts, h: CommitRowMenuHandlers, t: Translate, key: string): MenuItems[number] {
+  const diffPath = facts.diffPath;
+  return {
+    key,
+    label: menuLabel(<SwapOutlined />, t('workbench.commitTool.menu.showDiff'), '⌘D'),
+    disabled: diffPath === null,
+    ...(diffPath === null ? {} : { onClick: () => h.onShowDiff(diffPath) }),
+  };
+}
+
 /** The Add to .gitignore ▸ submenu — repo-root `.gitignore` (shared) or `.git/info/exclude` (local-only). */
 function gitignoreSubmenu(
-  row: WorkspaceTreeWorkingChangeWire,
+  ignorePath: string,
   t: Translate,
   h: CommitRowMenuHandlers,
   keyPrefix: string,
@@ -62,43 +127,33 @@ function gitignoreSubmenu(
       {
         key: `${keyPrefix}gitignore-file`,
         label: menuLabel(<StopOutlined />, t('workbench.commitTool.menu.addToGitignore')),
-        onClick: () => h.onIgnorePath(row.path, 'gitignore'),
+        onClick: () => h.onIgnorePath(ignorePath, 'gitignore'),
       },
       {
         key: `${keyPrefix}gitignore-exclude`,
         label: menuLabel(<StopOutlined />, t('workbench.commitTool.menu.excludeFile')),
-        onClick: () => h.onIgnorePath(row.path, 'exclude'),
+        onClick: () => h.onIgnorePath(ignorePath, 'exclude'),
       },
     ],
   };
 }
 
 /** The Git ▸ submenu — verbs with existing machinery are live. */
-function gitSubmenu(row: WorkspaceTreeWorkingChangeWire, t: Translate, h: CommitRowMenuHandlers): MenuItems[number] {
-  const unversioned = row.unversioned === true;
+function gitSubmenu(facts: TargetFacts, t: Translate, h: CommitRowMenuHandlers): MenuItems[number] {
   return {
     key: 'git',
     label: menuLabel(null, t('workbench.commitTool.menu.git')),
     popupClassName: 'commit-tool-row-menu',
     children: [
-      {
-        key: 'git-commit-file',
-        label: menuLabel(null, t('workbench.commitTool.menu.commitFile')),
-        onClick: () => h.onCommitFile(row.path),
-      },
+      commitItem(facts, h, t, 'git-commit-file'),
       {
         key: 'git-add',
         label: menuLabel(<PlusOutlined />, t('workbench.commitTool.menu.add'), '⌥⌘A'),
         disabled: true,
       },
-      ...(unversioned ? [gitignoreSubmenu(row, t, h, 'git-')] : []),
+      ...(facts.ignorePath === null ? [] : [gitignoreSubmenu(facts.ignorePath, t, h, 'git-')]),
       { type: 'divider' },
-      {
-        key: 'git-show-diff',
-        label: menuLabel(<SwapOutlined />, t('workbench.commitTool.menu.showDiff'), '⌘D'),
-        disabled: unversioned,
-        ...(unversioned ? {} : { onClick: () => h.onShowDiff(row.path) }),
-      },
+      showDiffItem(facts, h, t, 'git-show-diff'),
       {
         key: 'git-compare-revision',
         label: menuLabel(null, t('workbench.commitTool.menu.compareRevision')),
@@ -202,23 +257,29 @@ export function buildIgnoredRowMenu(
   return { items, selectable: false };
 }
 
-/**
- * The row menu for a checkable file row (tracked or unversioned).
- * Returned fresh per open; the builder is pure over (row, t,
- * handlers).
- */
-export function buildCommitRowMenu(
-  row: WorkspaceTreeWorkingChangeWire,
-  t: Translate,
-  h: CommitRowMenuHandlers,
-): MenuProps {
-  const unversioned = row.unversioned === true;
+/** The Ignored Files group and its directories — nothing to commit or diff; Refresh alone. */
+function refreshOnlyMenu(t: Translate, h: CommitRowMenuHandlers): MenuProps {
   const items: MenuItems = [
     {
-      key: 'commit-file',
-      label: menuLabel(null, t('workbench.commitTool.menu.commitFile')),
-      onClick: () => h.onCommitFile(row.path),
+      key: 'refresh',
+      label: menuLabel(<SyncOutlined />, t('workbench.commitTool.refresh')),
+      onClick: () => h.onRefresh(),
     },
+  ];
+  return { items, selectable: false };
+}
+
+/**
+ * The row menu for a checkable target — a file row (tracked or
+ * unversioned), a directory node or a group header. Returned fresh per
+ * open; the builder is pure over (target, t, handlers).
+ */
+export function buildCommitRowMenu(target: CommitMenuTarget, t: Translate, h: CommitRowMenuHandlers): MenuProps {
+  if (target.kind !== 'file' && target.group === 'ignored') return refreshOnlyMenu(t, h);
+  const facts = factsOf(target);
+  const unversioned = facts.unversioned;
+  const items: MenuItems = [
+    commitItem(facts, h, t, 'commit-file'),
     {
       key: 'rollback',
       label: menuLabel(<UndoOutlined />, t('workbench.commitTool.rollback'), '⌥⌘Z'),
@@ -229,11 +290,7 @@ export function buildCommitRowMenu(
       label: menuLabel(null, t('workbench.commitTool.menu.moveToChangelist'), '⇧⌘M'),
       disabled: true,
     },
-    {
-      key: 'show-diff',
-      label: menuLabel(<SwapOutlined />, t('workbench.commitTool.menu.showDiff'), '⌘D'),
-      onClick: () => h.onShowDiff(row.path),
-    },
+    showDiffItem(facts, h, t, 'show-diff'),
     {
       key: 'show-diff-new-tab',
       label: menuLabel(<SwapOutlined />, t('workbench.commitTool.menu.showDiffNewTab')),
@@ -247,7 +304,7 @@ export function buildCommitRowMenu(
     { type: 'divider' },
     { key: 'delete', label: menuLabel(null, t('workbench.commitTool.menu.delete')), disabled: true },
     { key: 'add-vcs', label: menuLabel(null, t('workbench.commitTool.menu.addToVcs'), '⌥⌘A'), disabled: true },
-    ...(unversioned ? [gitignoreSubmenu(row, t, h, '')] : []),
+    ...(facts.ignorePath === null ? [] : [gitignoreSubmenu(facts.ignorePath, t, h, '')]),
     { type: 'divider' },
     ...(unversioned
       ? []
@@ -308,7 +365,7 @@ export function buildCommitRowMenu(
         },
       ],
     },
-    gitSubmenu(row, t, h),
+    gitSubmenu(facts, t, h),
   ];
   return { items, selectable: false };
 }

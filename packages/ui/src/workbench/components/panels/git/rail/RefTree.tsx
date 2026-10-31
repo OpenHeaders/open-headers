@@ -4,10 +4,13 @@
  * Local / Remote / Tags groups whose ref names fold on `/` into
  * collapsible folders (`v5/data-model` = folder `v5` → leaf
  * `data-model`; a remote's first segment is its remote-name folder) —
- * or flat full-name rows while Group By Directory is off. The current
- * branch renders bold + ★ with its ancestor folders open by default;
- * favorite refs carry the gold ★ too. Searching prunes to matches and
- * renders them fully expanded.
+ * or flat full-name rows while Group By Directory is off. The IDE
+ * tree anatomy: every row reserves the caret slot, group rows are
+ * plain tree rows, their children sit one indent step in, and a leaf
+ * carries a branch / tag glyph in the icon slot. The current branch
+ * renders bold + ★ in that slot with its ancestor folders open by
+ * default; favorite refs carry the gold ★ too. Searching prunes to
+ * matches and renders them fully expanded.
  *
  * Selection is the TREE selection (the activity bar's target), owned
  * by the rail orchestrator — what a click DOES (scope the log /
@@ -16,7 +19,14 @@
  * handle (the bar sits outside this scroll area).
  */
 
-import { CaretDownOutlined, CaretRightOutlined, FolderOutlined, SearchOutlined } from '@ant-design/icons';
+import {
+  BranchesOutlined,
+  CaretDownOutlined,
+  CaretRightOutlined,
+  FolderOutlined,
+  SearchOutlined,
+  TagOutlined,
+} from '@ant-design/icons';
 import type { WorkspaceTreeRefWire } from '@openheaders/core/bridge';
 import { Dropdown, Input, type MenuProps, theme } from 'antd';
 import type React from 'react';
@@ -74,6 +84,10 @@ const GROUPS = [
 ] as const;
 
 const INDENT = 14;
+// Every row reserves the caret slot — leaves and the HEAD row too — so
+// a child's icon sits one indent step right of its parent's (the IDE
+// tree, the sidebar trees' slot).
+const CARET_SLOT = 12;
 
 const RefTree = forwardRef<RefTreeHandle, RefTreeProps>(function RefTree(
   {
@@ -184,13 +198,53 @@ const RefTree = forwardRef<RefTreeHandle, RefTreeProps>(function RefTree(
     alignItems: 'center',
     gap: 5,
     width: '100%',
-    padding: `2px 12px 2px ${12 + depth * INDENT}px`,
+    padding: `4px 12px 4px ${12 + depth * INDENT}px`,
+    lineHeight: '16px',
+    minHeight: 24,
+    boxSizing: 'border-box',
     border: 'none',
     textAlign: 'left',
     cursor: 'pointer',
     fontSize: 12,
     color: token.colorText,
   });
+
+  const slotStyle: React.CSSProperties = {
+    flex: 'none',
+    width: CARET_SLOT,
+    display: 'inline-flex',
+    justifyContent: 'center',
+    fontSize: 9,
+    color: token.colorTextTertiary,
+  };
+
+  /** The caret slot: a caret on folders and groups, empty on leaves. */
+  const caretSlot = (open: boolean | null): React.ReactNode => (
+    <span aria-hidden style={slotStyle}>
+      {open === null ? null : open ? <CaretDownOutlined /> : <CaretRightOutlined />}
+    </span>
+  );
+
+  const labelStyle: React.CSSProperties = {
+    flex: '1 1 auto',
+    minWidth: 0,
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    whiteSpace: 'nowrap',
+  };
+
+  /** The leaf's icon slot: ★ on the current branch and favorites, the ref-kind glyph otherwise. */
+  const leafIcon = (kind: WorkspaceTreeRefWire['kind'], starred: boolean): React.ReactNode => {
+    if (starred) {
+      return (
+        <span aria-hidden data-testid="git-tool-ref-star" style={{ flex: '0 0 auto', color: token.colorWarningText }}>
+          ★
+        </span>
+      );
+    }
+    const Glyph = kind === 'tag' ? TagOutlined : BranchesOutlined;
+    return <Glyph style={{ flex: '0 0 auto', fontSize: 11, color: token.colorTextTertiary }} />;
+  };
 
   const renderNodes = (nodes: readonly RefTreeNode[], depth: number): React.ReactNode =>
     nodes.map((node) => {
@@ -206,15 +260,9 @@ const RefTree = forwardRef<RefTreeHandle, RefTreeProps>(function RefTree(
               data-testid="git-tool-ref-folder"
               data-key={node.key}
             >
-              <span aria-hidden style={{ flex: '0 0 auto', fontSize: 9, color: token.colorTextTertiary }}>
-                {open ? <CaretDownOutlined /> : <CaretRightOutlined />}
-              </span>
+              {caretSlot(open)}
               <FolderOutlined style={{ flex: '0 0 auto', fontSize: 11, color: token.colorTextTertiary }} />
-              <span
-                style={{ flex: '1 1 auto', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
-              >
-                {node.label}
-              </span>
+              <span style={labelStyle}>{node.label}</span>
             </button>
             {open && renderNodes(node.children, depth + 1)}
           </div>
@@ -237,16 +285,9 @@ const RefTree = forwardRef<RefTreeHandle, RefTreeProps>(function RefTree(
           data-ref={node.name}
           data-kind={node.refKind}
         >
-          <span
-            style={{ flex: '1 1 auto', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
-          >
-            {node.label}
-          </span>
-          {(isCurrent || isFavorite) && (
-            <span aria-hidden data-testid="git-tool-ref-star" style={{ flex: '0 0 auto', color: token.colorWarningText }}>
-              ★
-            </span>
-          )}
+          {caretSlot(null)}
+          {leafIcon(node.refKind, isCurrent || isFavorite)}
+          <span style={labelStyle}>{node.label}</span>
         </button>,
       );
     });
@@ -290,14 +331,13 @@ const RefTree = forwardRef<RefTreeHandle, RefTreeProps>(function RefTree(
           <button
             type="button"
             className={selected === null ? 'git-tool-row selected' : 'git-tool-row'}
-            style={{ ...rowStyle(0), fontWeight: 600 }}
+            style={rowStyle(0)}
             onClick={onHeadClick}
             data-testid="git-tool-ref-head"
             data-detached={detachedSha !== null ? 'true' : undefined}
           >
-            <span
-              style={{ flex: '1 1 auto', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
-            >
+            {caretSlot(null)}
+            <span style={labelStyle}>
               {detachedSha !== null
                 ? t('workbench.gitLog.refs.headDetached', { sha: detachedSha.slice(0, 8) })
                 : t('workbench.gitLog.refs.head')}
@@ -330,27 +370,11 @@ const RefTree = forwardRef<RefTreeHandle, RefTreeProps>(function RefTree(
                       return next;
                     });
                   }}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 5,
-                    width: '100%',
-                    padding: '6px 12px 2px',
-                    border: 'none',
-                    textAlign: 'left',
-                    cursor: 'pointer',
-                    fontSize: 11,
-                    fontWeight: 600,
-                    textTransform: 'uppercase',
-                    letterSpacing: 0.4,
-                    color: token.colorTextSecondary,
-                  }}
+                  style={rowStyle(0)}
                   data-testid="git-tool-ref-group-header"
                 >
-                  <span aria-hidden style={{ flex: '0 0 auto', fontSize: 9 }}>
-                    {open ? <CaretDownOutlined /> : <CaretRightOutlined />}
-                  </span>
-                  {t(group.labelKey)}
+                  {caretSlot(open)}
+                  <span style={labelStyle}>{t(group.labelKey)}</span>
                 </button>
                 {open &&
                   showUnborn &&
@@ -367,28 +391,17 @@ const RefTree = forwardRef<RefTreeHandle, RefTreeProps>(function RefTree(
                       onClick={() => onLeafClick({ name: unbornBranch, kind: 'local' })}
                       onContextMenu={() => onLeafContextMenu({ name: unbornBranch, kind: 'local' })}
                       title={unbornBranch}
-                      style={{ ...rowStyle(0), fontWeight: 600 }}
+                      style={{ ...rowStyle(1), fontWeight: 600 }}
                       data-testid="git-tool-ref-row"
                       data-ref={unbornBranch}
                       data-kind="local"
                     >
-                      <span
-                        style={{
-                          flex: '1 1 auto',
-                          minWidth: 0,
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis',
-                          whiteSpace: 'nowrap',
-                        }}
-                      >
-                        {unbornBranch}
-                      </span>
-                      <span aria-hidden style={{ flex: '0 0 auto', color: token.colorWarningText }}>
-                        ★
-                      </span>
+                      {caretSlot(null)}
+                      {leafIcon('local', true)}
+                      <span style={labelStyle}>{unbornBranch}</span>
                     </button>,
                   )}
-                {open && renderNodes(group.tree, 0)}
+                {open && renderNodes(group.tree, 1)}
               </div>
             );
           })

@@ -5,17 +5,23 @@
  * against the real CommitChangesTree + menu builders, with the tri-arm
  * menu contract: tracked rows get the changelist variant, unversioned
  * rows the gitignore submenu, ignored rows the Stop Ignoring variant.
+ * Directory nodes and group headers carry the menu too (the S29 live
+ * find): the commit verb reads Commit Directory… / Commit… and checks
+ * exactly the subtree's paths.
  */
 
 import type { WorkspaceTreeWorkingChangeWire } from '@openheaders/core/bridge';
+import type { Translate } from '@openheaders/ui/context/LocaleContext';
 import CommitChangesTree from '@openheaders/ui/workbench/components/panels/git/commit/CommitChangesTree';
-import { EMPTY_CHECKED_STATE, splitChangeGroups } from '@openheaders/ui/workbench/components/panels/git/commit/commit-model';
+import {
+  EMPTY_CHECKED_STATE,
+  splitChangeGroups,
+} from '@openheaders/ui/workbench/components/panels/git/commit/commit-model';
 import {
   buildCommitRowMenu,
   buildIgnoredRowMenu,
   type CommitRowMenuHandlers,
 } from '@openheaders/ui/workbench/components/panels/git/commit/commit-row-menu';
-import type { Translate } from '@openheaders/ui/context/LocaleContext';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { App as AntApp } from 'antd';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
@@ -28,7 +34,10 @@ beforeAll(() => {
     unobserve(): void {}
     disconnect(): void {}
   }
-  const scope = globalThis as unknown as { ResizeObserver?: typeof ResizeObserver; CSS?: { escape(v: string): string } };
+  const scope = globalThis as unknown as {
+    ResizeObserver?: typeof ResizeObserver;
+    CSS?: { escape(v: string): string };
+  };
   if (typeof scope.ResizeObserver === 'undefined') {
     scope.ResizeObserver = ResizeObserverStub as unknown as typeof ResizeObserver;
   }
@@ -46,7 +55,7 @@ const t: Translate = (key: string) => key;
 
 function handlers(): CommitRowMenuHandlers {
   return {
-    onCommitFile: vi.fn(),
+    onCommitPaths: vi.fn(),
     onShowDiff: vi.fn(),
     onRefresh: vi.fn(),
     onPush: vi.fn(),
@@ -74,7 +83,11 @@ function renderTree(rows: WorkspaceTreeWorkingChangeWire[], h: CommitRowMenuHand
         onOpenFile={() => undefined}
         groupByDirectory
         showIgnored
-        rowMenu={(r) => (r.ignored ? buildIgnoredRowMenu(r, t, h) : buildCommitRowMenu(r, t, h))}
+        rowMenu={(target) =>
+          target.kind === 'file' && target.row.ignored
+            ? buildIgnoredRowMenu(target.row, t, h)
+            : buildCommitRowMenu(target, t, h)
+        }
       />
     </AntApp>,
   );
@@ -109,6 +122,31 @@ describe('commit tree row context menu', () => {
       const items = await screen.findAllByText('workbench.commitTool.menu.commitFile');
       expect(items.length).toBeGreaterThan(0);
     }
+  });
+
+  it('a directory node carries the menu — Commit Directory… checks exactly its subtree', async () => {
+    const h = handlers();
+    renderTree([row({ path: 'rules/block-r01/rule.yaml' }), row({ path: 'rules/block-r02/rule.yaml' })], h);
+    const dirRow = document.querySelector('[data-testid="commit-tool-dir"][data-key="rules"]');
+    expect(dirRow).not.toBeNull();
+    fireEvent.contextMenu(dirRow as Element);
+    const item = await screen.findByText('workbench.commitTool.menu.commitDirectory');
+    fireEvent.click(item);
+    expect(h.onCommitPaths).toHaveBeenCalledWith(['rules/block-r01/rule.yaml', 'rules/block-r02/rule.yaml']);
+    // Show Diff is one file's read — visible-disabled off a file.
+    const diff = screen.getAllByText('workbench.commitTool.menu.showDiff')[0];
+    expect(diff.closest('.ant-dropdown-menu-item-disabled')).not.toBeNull();
+  });
+
+  it('a group header carries the menu — Commit… checks the whole group', async () => {
+    const h = handlers();
+    renderTree([row({ path: 'workspace.yaml' }), row({ path: 'notes/new.yaml', status: '?', unversioned: true })], h);
+    const header = document.querySelector('[data-testid="commit-tool-group-unversioned"]');
+    expect(header).not.toBeNull();
+    fireEvent.contextMenu(header as Element);
+    const item = await screen.findByText('workbench.commitTool.menu.commit');
+    fireEvent.click(item);
+    expect(h.onCommitPaths).toHaveBeenCalledWith(['notes/new.yaml']);
   });
 
   it('right-click on an ignored row opens the Stop Ignoring variant, gated on removable', async () => {

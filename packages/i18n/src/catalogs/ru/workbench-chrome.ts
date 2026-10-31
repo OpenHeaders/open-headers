@@ -726,6 +726,8 @@ export const workbenchChrome = {
     'HEAD отделён на {sha} — коммит, сделанный здесь, не принадлежит ни одной ветке. Создайте ветку, чтобы сохранить эту работу.',
   'workbench.commitTool.detached.newBranch': 'Новая ветка от HEAD…',
   'workbench.commitTool.menu.commitFile': 'Коммит файла…',
+  'workbench.commitTool.menu.commitDirectory': 'Коммит каталога…',
+  'workbench.commitTool.menu.commit': 'Коммит…',
   'workbench.commitTool.menu.moveToChangelist': 'Переместить в другой список изменений…',
   'workbench.commitTool.menu.showDiff': 'Показать Diff',
   'workbench.commitTool.menu.showDiffNewTab': 'Показать Diff в новой вкладке',

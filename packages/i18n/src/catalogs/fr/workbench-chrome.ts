@@ -874,6 +874,8 @@ export const workbenchChrome = {
     'HEAD détaché sur {sha} — un commit fait ici n’appartient à aucune branche. Créez une branche pour conserver ce travail.',
   'workbench.commitTool.detached.newBranch': 'Nouvelle branche depuis HEAD…',
   'workbench.commitTool.menu.commitFile': 'Commit du fichier…',
+  'workbench.commitTool.menu.commitDirectory': 'Commit du répertoire…',
+  'workbench.commitTool.menu.commit': 'Commit…',
   'workbench.commitTool.menu.moveToChangelist': 'Déplacer vers une autre liste de modifications…',
   'workbench.commitTool.menu.showDiff': 'Afficher les différences',
   'workbench.commitTool.menu.showDiffNewTab': 'Afficher les différences dans un nouvel onglet',

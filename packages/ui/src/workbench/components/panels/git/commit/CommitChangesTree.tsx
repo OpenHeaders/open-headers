@@ -1,10 +1,11 @@
 /**
  * CommitChangesTree — the Commit window's checkable changes tree (IDE
- * reference, font/size/format-exact): the UI font at 13px (never
- * monospace), per-type file glyphs, and the IDE's default FLAT format —
- * basename + a dim directory suffix (`modules.xml  .idea`) sorted by
- * filename — switching to the compressed directory tree when Group By
- * Directory is on. The Changes group header renders even when empty
+ * reference, font/size/format-exact): the UI font at 12px on the
+ * sidebar trees' 24px row (never monospace), per-type file glyphs,
+ * and the IDE's default FLAT format — basename + a dim directory
+ * suffix (`modules.xml  .idea`) sorted by filename — switching to the
+ * compressed directory tree when Group By Directory is on. The
+ * Changes group header renders even when empty
  * (the IDE's default changelist); Unversioned / Ignored appear only
  * with rows, and group headers are transparent like tree rows. The
  * content-root node compresses away when a group's tree is one
@@ -33,7 +34,14 @@ import { forwardRef, Fragment, useCallback, useImperativeHandle, useMemo, useRef
 import { useTheme } from '@openheaders/ui/context';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { allDirKeys, buildFileTree, type FileTreeNode } from '../file-tree';
-import { aggregateChecked, type ChangeGroups, type CheckedState, isRowChecked } from './commit-model';
+import {
+  aggregateChecked,
+  type ChangeGroupKey,
+  type ChangeGroups,
+  type CheckedState,
+  type CommitMenuTarget,
+  isRowChecked,
+} from './commit-model';
 import { baseName, commitFileRowKey, flatSortedRows, rootCompressed, visibleCommitRows } from './commit-tree-nav';
 import { FileTypeIcon } from './FileTypeIcon';
 import { vcsFileColor, vcsPalette } from './vcs-colors';
@@ -46,8 +54,8 @@ export interface CommitChangesTreeProps {
   onOpenFile: (path: string) => void;
   groupByDirectory: boolean;
   showIgnored: boolean;
-  /** Right-click menu for a file row (ignored rows get the Stop Ignoring variant); null = no menu. */
-  rowMenu: (row: WorkspaceTreeWorkingChangeWire) => MenuProps | null;
+  /** Right-click menu for a row — a file, a directory node or a group header (ignored files get the Stop Ignoring variant); null = no menu. */
+  rowMenu: (target: CommitMenuTarget) => MenuProps | null;
 }
 
 export interface CommitChangesTreeHandle {
@@ -56,7 +64,12 @@ export interface CommitChangesTreeHandle {
 }
 
 const INDENT = 14;
-const ROW_FONT = 13;
+const ROW_FONT = 12;
+const ROW_LINE = 16;
+const ROW_MIN_HEIGHT = 24;
+// Every row reserves the caret slot — leaves too — so a child's checkbox
+// sits one indent step right of its parent's (the sidebar trees' slot).
+const CARET_SLOT = 12;
 
 /** Parent directory shown as the IDE's dim suffix; empty at the root. */
 function dirSuffix(filePath: string): string {
@@ -71,7 +84,7 @@ function collectPaths(node: FileTreeNode): string[] {
 }
 
 interface GroupSpec {
-  key: 'changes' | 'unversioned' | 'ignored';
+  key: ChangeGroupKey;
   label: string;
   rows: WorkspaceTreeWorkingChangeWire[];
   checkable: boolean;
@@ -260,7 +273,10 @@ const CommitChangesTree = forwardRef<CommitChangesTreeHandle, CommitChangesTreeP
     alignItems: 'center',
     gap: 6,
     width: '100%',
-    padding: `3px 12px 3px ${12 + depth * INDENT}px`,
+    padding: `4px 12px 4px ${12 + depth * INDENT}px`,
+    lineHeight: `${ROW_LINE}px`,
+    minHeight: ROW_MIN_HEIGHT,
+    boxSizing: 'border-box',
     border: 'none',
     textAlign: 'left',
     cursor: 'pointer',
@@ -270,6 +286,9 @@ const CommitChangesTree = forwardRef<CommitChangesTreeHandle, CommitChangesTreeP
 
   const caretStyle: React.CSSProperties = {
     display: 'inline-flex',
+    justifyContent: 'center',
+    flex: 'none',
+    width: CARET_SLOT,
     border: 'none',
     background: 'transparent',
     padding: 0,
@@ -279,6 +298,32 @@ const CommitChangesTree = forwardRef<CommitChangesTreeHandle, CommitChangesTreeP
   };
 
   const rowClass = (key: string): string => (selectedKey === key ? 'git-tool-row selected' : 'git-tool-row');
+
+  /**
+   * The row's context menu wrapper — focus returns to the tree when the
+   * menu closes, unless the verb already moved it (Commit File… focuses
+   * the message box; the close must not steal it back).
+   */
+  const withMenu = (target: CommitMenuTarget, body: React.ReactElement): React.ReactNode => {
+    const menu = rowMenu(target);
+    if (menu === null) return body;
+    return (
+      <Dropdown
+        menu={menu}
+        trigger={['contextMenu']}
+        autoFocus
+        classNames={{ root: 'commit-tool-row-menu' }}
+        onOpenChange={(open) => {
+          if (open) return;
+          const active = document.activeElement;
+          const idle = active === null || active === document.body || active.closest('.commit-tool-row-menu') !== null;
+          if (idle) containerRef.current?.focus({ preventScroll: true });
+        }}
+      >
+        {body}
+      </Dropdown>
+    );
+  };
 
   /** "1 file" / "{n} files" — the IDE's singular form at one. */
   const filesCountText = (count: number): string =>
@@ -331,6 +376,7 @@ const CommitChangesTree = forwardRef<CommitChangesTreeHandle, CommitChangesTreeP
         data-path={row.path}
         data-row-key={rowKey}
       >
+        <span aria-hidden style={{ flex: 'none', width: CARET_SLOT }} />
         {spec.checkable && (
           <Checkbox
             checked={isRowChecked(row, checked)}
@@ -395,22 +441,7 @@ const CommitChangesTree = forwardRef<CommitChangesTreeHandle, CommitChangesTreeP
         </span>
       </div>
     );
-    const menu = rowMenu(row);
-    if (menu === null) return <Fragment key={row.path}>{rowBody}</Fragment>;
-    return (
-      <Dropdown
-        key={row.path}
-        menu={menu}
-        trigger={['contextMenu']}
-        autoFocus
-        classNames={{ root: 'commit-tool-row-menu' }}
-        onOpenChange={(open) => {
-          if (!open) containerRef.current?.focus({ preventScroll: true });
-        }}
-      >
-        {rowBody}
-      </Dropdown>
-    );
+    return <Fragment key={row.path}>{withMenu({ kind: 'file', row }, rowBody)}</Fragment>;
   };
 
   const renderTreeNodes = (spec: GroupSpec, nodes: readonly FileTreeNode[], depth: number): React.ReactNode =>
@@ -420,13 +451,13 @@ const CommitChangesTree = forwardRef<CommitChangesTreeHandle, CommitChangesTreeP
         const open = !collapsed.has(key);
         const paths = collectPaths(node);
         const aggregate = aggregateChecked(allRows, checked, paths);
-        return (
-          <div key={key}>
+        const dirRow = (
             <div
               className={rowClass(key)}
               style={rowStyle(depth)}
               onClick={() => selectRow(key)}
               onDoubleClick={() => toggleCollapse(key)}
+              onContextMenu={() => selectRow(key)}
               data-testid="commit-tool-dir"
               data-key={node.key}
               data-row-key={key}
@@ -467,6 +498,10 @@ const CommitChangesTree = forwardRef<CommitChangesTreeHandle, CommitChangesTreeP
                 {filesCountText(node.fileCount)}
               </span>
             </div>
+        );
+        return (
+          <div key={key}>
+            {withMenu({ kind: 'dir', group: spec.key, path: node.key, paths }, dirRow)}
             {open && renderTreeNodes(spec, node.children, depth + 1)}
           </div>
         );
@@ -489,13 +524,13 @@ const CommitChangesTree = forwardRef<CommitChangesTreeHandle, CommitChangesTreeP
     const open = !collapsed.has(rootKey);
     const paths = spec.rows.map((row) => row.path);
     const aggregate = spec.checkable ? aggregateChecked(allRows, checked, paths) : 'none';
-    return (
-      <div>
+    const rootRow = (
         <div
           className={rowClass(rootKey)}
           style={rowStyle(1)}
           onClick={() => selectRow(rootKey)}
           onDoubleClick={() => toggleCollapse(rootKey)}
+          onContextMenu={() => selectRow(rootKey)}
           data-testid="commit-tool-root"
           data-row-key={rootKey}
         >
@@ -521,6 +556,10 @@ const CommitChangesTree = forwardRef<CommitChangesTreeHandle, CommitChangesTreeP
           <FolderOutlined style={{ flex: '0 0 auto', fontSize: 14, color: token.colorTextTertiary }} />
           <span style={{ fontSize: ROW_FONT - 1, color: token.colorTextTertiary }}>{groupCountText(spec)}</span>
         </div>
+    );
+    return (
+      <div>
+        {withMenu({ kind: 'group', group: spec.key, paths }, rootRow)}
         {open && renderTreeNodes(spec, trees.get(spec.key) ?? [], 2)}
       </div>
     );
@@ -548,17 +587,28 @@ const CommitChangesTree = forwardRef<CommitChangesTreeHandle, CommitChangesTreeP
         // no count (the IDE's empty default changelist).
         if (spec.rows.length === 0) {
           return (
-            <div
-              key={spec.key}
-              style={{ display: 'flex', alignItems: 'center', padding: '3px 12px' }}
-              data-testid={`commit-tool-group-${spec.key}`}
-            >
-              <span style={{ fontSize: ROW_FONT, fontWeight: 600, color: token.colorText }}>{spec.label}</span>
-            </div>
+            <Fragment key={spec.key}>
+              {withMenu(
+                { kind: 'group', group: spec.key, paths: [] },
+                <div
+                  style={{
+                display: 'flex',
+                alignItems: 'center',
+                padding: '4px 12px',
+                lineHeight: `${ROW_LINE}px`,
+                minHeight: ROW_MIN_HEIGHT,
+                boxSizing: 'border-box',
+              }}
+                  data-testid={`commit-tool-group-${spec.key}`}
+                >
+                  <span style={{ fontSize: ROW_FONT, fontWeight: 600, color: token.colorText }}>{spec.label}</span>
+                </div>,
+              )}
+            </Fragment>
           );
         }
-        return (
-          <div key={spec.key}>
+        const groupPaths = spec.rows.map((row) => row.path);
+        const groupRow = (
             <div
               className={rowClass(spec.key)}
               style={{
@@ -566,11 +616,15 @@ const CommitChangesTree = forwardRef<CommitChangesTreeHandle, CommitChangesTreeP
                 alignItems: 'center',
                 gap: 6,
                 width: '100%',
-                padding: '3px 12px',
+                padding: '4px 12px',
+                lineHeight: `${ROW_LINE}px`,
+                minHeight: ROW_MIN_HEIGHT,
+                boxSizing: 'border-box',
                 cursor: 'pointer',
               }}
               onClick={() => selectRow(spec.key)}
               onDoubleClick={() => toggleCollapse(spec.key)}
+              onContextMenu={() => selectRow(spec.key)}
               data-testid={`commit-tool-group-${spec.key}`}
               data-row-key={spec.key}
             >
@@ -601,6 +655,10 @@ const CommitChangesTree = forwardRef<CommitChangesTreeHandle, CommitChangesTreeP
               <span style={{ fontSize: ROW_FONT, fontWeight: 600 }}>{spec.label}</span>
               <span style={{ fontSize: ROW_FONT - 1, color: token.colorTextTertiary }}>{groupCountText(spec)}</span>
             </div>
+        );
+        return (
+          <div key={spec.key}>
+            {withMenu({ kind: 'group', group: spec.key, paths: groupPaths }, groupRow)}
             {open &&
               (groupByDirectory
                 ? rootCompressed(trees.get(spec.key) ?? [])

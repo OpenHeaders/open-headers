@@ -687,6 +687,8 @@ export const workbenchChrome = {
     'HEAD 已在 {sha} 处分离——在此创建的提交不属于任何分支。请创建一个分支以保留这些工作。',
   'workbench.commitTool.detached.newBranch': '从 HEAD 新建分支…',
   'workbench.commitTool.menu.commitFile': '提交文件…',
+  'workbench.commitTool.menu.commitDirectory': '提交目录…',
+  'workbench.commitTool.menu.commit': '提交…',
   'workbench.commitTool.menu.moveToChangelist': '移动到其他更改列表…',
   'workbench.commitTool.menu.showDiff': '显示差异',
   'workbench.commitTool.menu.showDiffNewTab': '在新标签页中显示差异',

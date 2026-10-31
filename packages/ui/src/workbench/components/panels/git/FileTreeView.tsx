@@ -90,13 +90,27 @@ const FileTreeView = forwardRef<FileTreeViewHandle, FileTreeViewProps>(function 
     alignItems: 'center',
     gap: 5,
     width: '100%',
-    padding: `2px 12px 2px ${12 + depth * INDENT}px`,
+    padding: `4px 12px 4px ${12 + depth * INDENT}px`,
+    lineHeight: '16px',
+    minHeight: 24,
+    boxSizing: 'border-box',
     border: 'none',
     textAlign: 'left',
     cursor: 'pointer',
-    fontSize: 11.5,
+    fontSize: 12,
     color: token.colorText,
   });
+
+  // Every row reserves the caret slot — leaves too — so a file sits one
+  // indent step right of its directory (the sidebar trees' slot).
+  const slotStyle: React.CSSProperties = {
+    flex: 'none',
+    width: 12,
+    display: 'inline-flex',
+    justifyContent: 'center',
+    fontSize: 9,
+    color: token.colorTextTertiary,
+  };
 
   const renderNodes = (nodes: readonly FileTreeNode[], depth: number): React.ReactNode =>
     nodes.map((node) => {
@@ -119,7 +133,7 @@ const FileTreeView = forwardRef<FileTreeViewHandle, FileTreeViewProps>(function 
               data-testid="git-tool-file-dir"
               data-key={node.key}
             >
-              <span aria-hidden style={{ flex: '0 0 auto', fontSize: 9, color: token.colorTextTertiary }}>
+              <span aria-hidden style={slotStyle}>
                 {open ? <CaretDownOutlined /> : <CaretRightOutlined />}
               </span>
               <FolderOutlined style={{ flex: '0 0 auto', fontSize: 11, color: token.colorTextTertiary }} />
@@ -128,7 +142,7 @@ const FileTreeView = forwardRef<FileTreeViewHandle, FileTreeViewProps>(function 
               >
                 {node.label}
               </span>
-              <span style={{ flex: '0 0 auto', fontSize: 10.5, color: token.colorTextTertiary }}>
+              <span style={{ flex: '0 0 auto', fontSize: 11, color: token.colorTextTertiary }}>
                 {t('workbench.gitLog.filesCount', { count: node.fileCount })}
               </span>
             </button>
@@ -151,6 +165,7 @@ const FileTreeView = forwardRef<FileTreeViewHandle, FileTreeViewProps>(function 
           data-testid="git-tool-file"
           data-path={node.path}
         >
+          <span aria-hidden style={slotStyle} />
           <span
             style={{
               flex: '0 1 auto',
@@ -192,7 +207,7 @@ const FileTreeView = forwardRef<FileTreeViewHandle, FileTreeViewProps>(function 
             padding: '4px 8px 2px 12px',
           }}
         >
-          <span style={{ flex: 1, fontSize: 11.5, fontWeight: 600, color: token.colorText }}>
+          <span style={{ flex: 1, fontSize: 12, fontWeight: 600, color: token.colorText }}>
             {t('workbench.gitLog.filesHeading')}
           </span>
           <Button

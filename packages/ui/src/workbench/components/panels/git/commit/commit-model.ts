@@ -79,16 +79,18 @@ export function setPathsChecked(
 }
 
 /**
- * The Commit File… gesture: a checked state where ONLY the given path
- * is checked — every tracked row lands in the unchecked exceptions,
- * the target joins the checked set for its own group.
+ * The Commit File… / Commit Directory… / Commit… gesture: a checked
+ * state where ONLY the given paths are checked — every other tracked
+ * row lands in the unchecked exceptions, the targets join the checked
+ * set for their own group.
  */
-export function checkedOnly(rows: readonly WorkspaceTreeWorkingChangeWire[], path: string): CheckedState {
+export function checkedOnly(rows: readonly WorkspaceTreeWorkingChangeWire[], paths: readonly string[]): CheckedState {
+  const targets = new Set(paths);
   const uncheckedTracked = new Set<string>();
   const checkedUnversioned = new Set<string>();
   for (const row of rows) {
     if (row.ignored) continue;
-    if (row.path === path) {
+    if (targets.has(row.path)) {
       if (row.unversioned) checkedUnversioned.add(row.path);
     } else if (!row.unversioned) {
       uncheckedTracked.add(row.path);
@@ -96,6 +98,20 @@ export function checkedOnly(rows: readonly WorkspaceTreeWorkingChangeWire[], pat
   }
   return { uncheckedTracked, checkedUnversioned };
 }
+
+export type ChangeGroupKey = keyof ChangeGroups;
+
+/**
+ * What a right-click in the changes tree lands on: a file row, a
+ * directory node (its subtree's paths), or a group header / the
+ * content-root node (the whole group's paths). The menu's verbs apply
+ * to the target's paths; a directory names its own path for the
+ * ignore verbs.
+ */
+export type CommitMenuTarget =
+  | { kind: 'file'; row: WorkspaceTreeWorkingChangeWire }
+  | { kind: 'dir'; group: ChangeGroupKey; path: string; paths: readonly string[] }
+  | { kind: 'group'; group: ChangeGroupKey; paths: readonly string[] };
 
 export type CheckAggregate = 'none' | 'some' | 'all';
 

@@ -34,6 +34,7 @@ import {
   type CheckedState,
   checkedOnly,
   checkedPaths,
+  type CommitMenuTarget,
   countChanges,
   EMPTY_CHECKED_STATE,
   setPathsChecked,
@@ -322,9 +323,9 @@ const CommitToolPanel: React.FC<CommitToolPanelProps> = ({ info, onHide }) => {
 
   // Commit File… (IDE gesture, scoped to our own commit UI): check
   // ONLY that file and land in the message box.
-  const handleCommitFile = useCallback(
-    (filePath: string): void => {
-      setChecked(checkedOnly(rows, filePath));
+  const handleCommitPaths = useCallback(
+    (paths: readonly string[]): void => {
+      setChecked(checkedOnly(rows, paths));
       formRef.current?.focusMessage();
     },
     [rows],
@@ -437,7 +438,7 @@ const CommitToolPanel: React.FC<CommitToolPanelProps> = ({ info, onHide }) => {
 
   const rowMenuHandlers = useMemo<CommitRowMenuHandlers>(
     () => ({
-      onCommitFile: handleCommitFile,
+      onCommitPaths: handleCommitPaths,
       onShowDiff: (filePath) => void handleOpenDiff(filePath),
       onRefresh: () => void refreshChanges(),
       onPush: () => void pushCurrent(),
@@ -450,7 +451,7 @@ const CommitToolPanel: React.FC<CommitToolPanelProps> = ({ info, onHide }) => {
       onUnignorePath: (filePath, target) => void handleUnignorePath(filePath, target),
     }),
     [
-      handleCommitFile,
+      handleCommitPaths,
       handleOpenDiff,
       refreshChanges,
       pushCurrent,
@@ -470,8 +471,10 @@ const CommitToolPanel: React.FC<CommitToolPanelProps> = ({ info, onHide }) => {
   const detachedSha = currentBranch === null ? headSha : null;
 
   const rowMenu = useCallback(
-    (row: WorkspaceTreeWorkingChangeWire) =>
-      row.ignored ? buildIgnoredRowMenu(row, t, rowMenuHandlers) : buildCommitRowMenu(row, t, rowMenuHandlers),
+    (target: CommitMenuTarget) =>
+      target.kind === 'file' && target.row.ignored
+        ? buildIgnoredRowMenu(target.row, t, rowMenuHandlers)
+        : buildCommitRowMenu(target, t, rowMenuHandlers),
     [t, rowMenuHandlers],
   );
 

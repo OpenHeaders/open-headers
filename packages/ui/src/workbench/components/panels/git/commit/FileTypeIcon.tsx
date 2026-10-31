@@ -16,7 +16,7 @@ const GLYPH_STYLE: React.CSSProperties = {
   justifyContent: 'center',
   width: 18,
   flex: '0 0 auto',
-  fontSize: 13,
+  fontSize: 12,
   fontWeight: 700,
   lineHeight: 1,
 };

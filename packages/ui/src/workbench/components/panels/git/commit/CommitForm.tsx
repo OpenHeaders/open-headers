@@ -122,14 +122,14 @@ const CommitForm = forwardRef<CommitFormHandle, CommitFormProps>(function Commit
         onChange={(event) => onSignOffChange(event.target.checked)}
         data-testid="commit-tool-sign-off"
       >
-        <span style={{ fontSize: 13 }}>{t('workbench.commitTool.options.signOff')}</span>
+        <span style={{ fontSize: 12 }}>{t('workbench.commitTool.options.signOff')}</span>
       </Checkbox>
       <Checkbox
         checked={runGitHooks}
         onChange={(event) => onRunGitHooksChange(event.target.checked)}
         data-testid="commit-tool-run-hooks"
       >
-        <span style={{ fontSize: 13 }}>{t('workbench.commitTool.options.runGitHooks')}</span>
+        <span style={{ fontSize: 12 }}>{t('workbench.commitTool.options.runGitHooks')}</span>
       </Checkbox>
     </div>
   );
@@ -142,7 +142,7 @@ const CommitForm = forwardRef<CommitFormHandle, CommitFormProps>(function Commit
           onChange={(event) => onAmendChange(event.target.checked)}
           data-testid="commit-tool-amend"
         >
-          <span style={{ fontSize: 13 }}>{t('workbench.commitTool.amend')}</span>
+          <span style={{ fontSize: 12 }}>{t('workbench.commitTool.amend')}</span>
         </Checkbox>
         <Popover
           open={historyOpen}
@@ -163,7 +163,7 @@ const CommitForm = forwardRef<CommitFormHandle, CommitFormProps>(function Commit
         </Popover>
         <span style={{ flex: 1 }} />
         {counterParts.length > 0 && (
-          <span style={{ fontSize: 13, color: token.colorTextTertiary }} data-testid="commit-tool-counter">
+          <span style={{ fontSize: 12, color: token.colorTextTertiary }} data-testid="commit-tool-counter">
             {counterParts.join(', ')}
           </span>
         )}

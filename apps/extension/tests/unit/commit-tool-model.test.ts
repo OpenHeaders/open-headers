@@ -74,17 +74,17 @@ describe('checked-set algebra', () => {
 
 describe('checkedOnly', () => {
   it('checks exactly the target path — tracked target', () => {
-    const state = checkedOnly(ROWS, 'rules/b.yaml');
+    const state = checkedOnly(ROWS, ['rules/b.yaml']);
     expect(checkedPaths(ROWS, state)).toEqual(['rules/b.yaml']);
   });
 
   it('checks exactly the target path — unversioned target', () => {
-    const state = checkedOnly(ROWS, 'notes/new.yaml');
+    const state = checkedOnly(ROWS, ['notes/new.yaml']);
     expect(checkedPaths(ROWS, state)).toEqual(['notes/new.yaml']);
   });
 
   it('an ignored target answers the empty checked set', () => {
-    const state = checkedOnly(ROWS, 'secret.log');
+    const state = checkedOnly(ROWS, ['secret.log']);
     expect(checkedPaths(ROWS, state)).toEqual([]);
   });
 });
