@@ -125,6 +125,13 @@ function subscribeFrames(): void {
     patch(payload.workspaceId, { bound: true, status: payload.status });
     statusHydrated.add(payload.workspaceId);
     void refetchRefs(payload.workspaceId);
+    // A binding made after the list read (bind / adopt while the
+    // workbench runs) arrives as a frame with no root — re-read the
+    // list once so the root lands beside the status.
+    if (snapshotOf(payload.workspaceId).rootDir === null) {
+      listHydrate = null;
+      void hydrateList();
+    }
   });
 }
 

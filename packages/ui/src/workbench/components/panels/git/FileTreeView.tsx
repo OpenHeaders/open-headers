@@ -144,7 +144,9 @@ const FileTreeView = forwardRef<FileTreeViewHandle, FileTreeViewProps>(function 
                 {node.label}
               </span>
               <span style={{ flex: '0 0 auto', fontSize: 11, color: token.colorTextTertiary }}>
-                {t('workbench.gitLog.filesCount', { count: node.fileCount })}
+                {node.fileCount === 1
+                  ? t('workbench.commitTool.oneFile')
+                  : t('workbench.gitLog.filesCount', { count: node.fileCount })}
               </span>
             </button>
             {open && renderNodes(node.children, depth + 1)}
