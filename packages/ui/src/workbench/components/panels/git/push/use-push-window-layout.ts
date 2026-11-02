@@ -1,14 +1,22 @@
 /**
  * use-push-window-layout — the Push window's two sashes, wired the Git
  * window's way: the persisted prefs land on the body as custom
- * properties from a layout effect — re-run on every open, since the
- * window mounts its body only while open — a drag writes the one property its
+ * properties the moment the body attaches (the window portals its
+ * body in after the open commit, so a callback ref is the one honest
+ * mount signal) and again on every prefs change; a drag writes the one property its
  * sash owns per pointer move, the release persists once, and a
  * double-click restores that divider's default.
  */
 
 import type { SashSession } from '@openheaders/ui/shared/dock-layout';
-import { type RefObject, useCallback, useLayoutEffect, useSyncExternalStore } from 'react';
+import {
+  type MutableRefObject,
+  type RefObject,
+  useCallback,
+  useLayoutEffect,
+  useRef,
+  useSyncExternalStore,
+} from 'react';
 import { shareOf, shareTrackValue } from '../git-log-layout';
 import {
   filesBounds,
@@ -26,8 +34,8 @@ import {
 } from './push-window-layout-prefs';
 
 export interface PushWindowLayoutCells {
-  /** The body grid the custom properties live on. */
-  body: RefObject<HTMLDivElement | null>;
+  /** The body grid the custom properties live on — attached through `attachBody`. */
+  body: MutableRefObject<HTMLDivElement | null>;
   files: RefObject<HTMLDivElement | null>;
   /** The files pane below its toolbar — what the tree and the info row split. */
   filesBody: RefObject<HTMLDivElement | null>;
@@ -35,6 +43,8 @@ export interface PushWindowLayoutCells {
 }
 
 export interface PushWindowLayout {
+  /** The body's ref callback: stores the element and seeds its custom properties. */
+  attachBody: (element: HTMLDivElement | null) => void;
   columns: string;
   filesRows: string;
   beginFiles: () => SashSession | null;
@@ -51,7 +61,6 @@ function applyPrefs(body: HTMLElement, prefs: PushWindowLayoutPrefs): void {
 export function usePushWindowLayout(
   workspaceId: string,
   cells: PushWindowLayoutCells,
-  open: boolean,
   showInfo: boolean,
 ): PushWindowLayout {
   const subscribe = useCallback(
@@ -60,10 +69,21 @@ export function usePushWindowLayout(
   );
   const prefs = useSyncExternalStore(subscribe, () => getPushWindowLayoutPrefs(workspaceId));
 
+  const prefsRef = useRef(prefs);
+  prefsRef.current = prefs;
+
+  const attachBody = useCallback(
+    (element: HTMLDivElement | null): void => {
+      cells.body.current = element;
+      if (element) applyPrefs(element, prefsRef.current);
+    },
+    [cells.body],
+  );
+
   useLayoutEffect(() => {
     const body = cells.body.current;
-    if (open && body) applyPrefs(body, prefs);
-  }, [cells.body, prefs, open]);
+    if (body) applyPrefs(body, prefs);
+  }, [cells.body, prefs]);
 
   const beginFiles = useCallback((): SashSession | null => {
     const body = cells.body.current;
@@ -106,6 +126,7 @@ export function usePushWindowLayout(
   );
 
   return {
+    attachBody,
     columns: pushColumnsTemplate(),
     filesRows: pushFilesRowsTemplate(showInfo),
     beginFiles,

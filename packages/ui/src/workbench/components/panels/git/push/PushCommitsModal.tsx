@@ -133,7 +133,6 @@ const PushCommitsModal: React.FC<PushCommitsModalProps> = ({ workspaceId, open, 
   const layout = usePushWindowLayout(
     workspaceId,
     { body: bodyRef, files: filesCellRef, filesBody: filesBodyRef, info: infoCellRef },
-    open,
     showInfo,
   );
   const allFiles = useMemo(() => unionFiles(entries), [entries]);
@@ -186,7 +185,7 @@ const PushCommitsModal: React.FC<PushCommitsModalProps> = ({ workspaceId, open, 
         data-testid="git-push-window"
       >
         <div
-          ref={bodyRef}
+          ref={layout.attachBody}
           style={{
             display: 'grid',
             gridTemplateColumns: layout.columns,
