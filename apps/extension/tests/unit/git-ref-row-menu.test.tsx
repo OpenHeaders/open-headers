@@ -38,15 +38,24 @@ const t: Translate = (key: string) => key;
 function handlers(): RefRowMenuHandlers {
   return {
     onCheckout: vi.fn(),
+    onCheckoutRemote: vi.fn(),
     onNewBranchFrom: vi.fn(),
     onCompareWithCurrent: vi.fn(),
     onMergeIntoCurrent: vi.fn(),
     onUpdate: vi.fn(),
+    onPullCurrent: vi.fn(),
+    onPushCurrent: vi.fn(),
     onDelete: vi.fn(),
   };
 }
 
 type Item = { key?: string | number | null; disabled?: boolean } | null;
+
+function keysOf(menu: MenuProps): string[] {
+  return (menu.items ?? [])
+    .filter((item): item is Item & { key: string } => item !== null && typeof item.key === 'string')
+    .map((item) => item.key);
+}
 
 function disabledKeys(menu: MenuProps): string[] {
   return (menu.items ?? [])
@@ -55,47 +64,67 @@ function disabledKeys(menu: MenuProps): string[] {
     .map((item) => item.key);
 }
 
-const IDE_ONLY = ['checkout-rebase', 'diff-working-tree', 'rebase-onto', 'push', 'rename'];
+function clickKey(menu: MenuProps, key: string): void {
+  const item = (menu.items ?? []).find((entry) => entry !== null && entry.key === key) as { onClick?: () => void };
+  item.onClick?.();
+}
 
-describe('buildRefRowMenu enablement', () => {
-  it('a non-current local branch carries every live verb', () => {
-    const menu = buildRefRowMenu(
-      { name: 'feature', kind: 'local' },
-      { current: 'main', historyRewritten: false },
-      t,
-      handlers(),
-    );
-    expect(disabledKeys(menu).sort()).toEqual([...IDE_ONLY].sort());
+describe('buildRefRowMenu anatomy (the reference popup, plan-adapted)', () => {
+  const ctx = { current: 'main', historyRewritten: false };
+
+  it('a non-current local branch: checkout, fork, compare, merge, update and delete live; diff / push / rename visible-disabled', () => {
+    const menu = buildRefRowMenu({ name: 'feature', kind: 'local' }, ctx, t, handlers());
+    expect(keysOf(menu)).toEqual([
+      'checkout',
+      'new-branch',
+      'compare',
+      'diff-working-tree',
+      'merge',
+      'update',
+      'push',
+      'rename',
+      'delete',
+    ]);
+    expect(disabledKeys(menu).sort()).toEqual(['diff-working-tree', 'push', 'rename']);
   });
 
-  it('the checked-out branch can be neither checked out, merged, compared, updated nor deleted', () => {
-    const menu = buildRefRowMenu(
-      { name: 'main', kind: 'local' },
-      { current: 'main', historyRewritten: false },
-      t,
-      handlers(),
-    );
-    expect(disabledKeys(menu).sort()).toEqual([...IDE_ONLY, 'checkout', 'merge', 'compare', 'update', 'delete'].sort());
+  it('no rebase or worktree entries anywhere — the engine never rewrites history', () => {
+    for (const row of [
+      { name: 'feature', kind: 'local' as const },
+      { name: 'main', kind: 'local' as const },
+      { name: 'origin/feature', kind: 'remote' as const },
+      { name: 'v1', kind: 'tag' as const },
+    ]) {
+      const keys = keysOf(buildRefRowMenu(row, ctx, t, handlers()));
+      expect(keys.some((key) => key.includes('rebase') || key.includes('worktree'))).toBe(false);
+    }
   });
 
-  it('a remote-tracking ref merges and forks but never checks out, updates or deletes', () => {
-    const menu = buildRefRowMenu(
-      { name: 'origin/feature', kind: 'remote' },
-      { current: 'main', historyRewritten: false },
-      t,
-      handlers(),
-    );
-    expect(disabledKeys(menu).sort()).toEqual([...IDE_ONLY, 'checkout', 'update', 'delete'].sort());
+  it('the checked-out branch: new branch, update (the pull) and push live; no checkout, merge or delete', () => {
+    const h = handlers();
+    const menu = buildRefRowMenu({ name: 'main', kind: 'local' }, ctx, t, h);
+    expect(keysOf(menu)).toEqual(['new-branch', 'diff-working-tree', 'update', 'push', 'rename']);
+    expect(disabledKeys(menu).sort()).toEqual(['diff-working-tree', 'rename']);
+    clickKey(menu, 'update');
+    expect(h.onPullCurrent).toHaveBeenCalledTimes(1);
+    expect(h.onUpdate).not.toHaveBeenCalled();
+    clickKey(menu, 'push');
+    expect(h.onPushCurrent).toHaveBeenCalledTimes(1);
+  });
+
+  it('a remote-tracking ref checks out through the tracking path, forks, compares and merges; delete is disabled', () => {
+    const h = handlers();
+    const menu = buildRefRowMenu({ name: 'origin/feature', kind: 'remote' }, ctx, t, h);
+    expect(keysOf(menu)).toEqual(['checkout', 'new-branch', 'compare', 'diff-working-tree', 'merge', 'delete']);
+    expect(disabledKeys(menu).sort()).toEqual(['delete', 'diff-working-tree']);
+    clickKey(menu, 'checkout');
+    expect(h.onCheckoutRemote).toHaveBeenCalledWith('origin/feature');
+    expect(h.onCheckout).not.toHaveBeenCalled();
   });
 
   it('a tag only forks and compares', () => {
-    const menu = buildRefRowMenu(
-      { name: 'v1', kind: 'tag' },
-      { current: 'main', historyRewritten: false },
-      t,
-      handlers(),
-    );
-    expect(disabledKeys(menu).sort()).toEqual([...IDE_ONLY, 'checkout', 'merge', 'update', 'delete'].sort());
+    const menu = buildRefRowMenu({ name: 'v1', kind: 'tag' }, ctx, t, handlers());
+    expect(disabledKeys(menu).sort()).toEqual(['checkout', 'delete', 'diff-working-tree', 'merge']);
   });
 
   it('merge holds while a remote history rewrite is pending and on a detached HEAD', () => {
@@ -118,22 +147,18 @@ describe('buildRefRowMenu enablement', () => {
 
   it('a live verb dispatches the row name', () => {
     const h = handlers();
-    const menu = buildRefRowMenu(
-      { name: 'feature', kind: 'local' },
-      { current: 'main', historyRewritten: false },
-      t,
-      h,
-    );
-    const merge = (menu.items ?? []).find((item) => item !== null && item.key === 'merge') as {
-      onClick?: () => void;
-    };
-    merge.onClick?.();
+    const menu = buildRefRowMenu({ name: 'feature', kind: 'local' }, ctx, t, h);
+    clickKey(menu, 'merge');
     expect(h.onMergeIntoCurrent).toHaveBeenCalledWith('feature');
+    clickKey(menu, 'update');
+    expect(h.onUpdate).toHaveBeenCalledWith('feature');
+    clickKey(menu, 'delete');
+    expect(h.onDelete).toHaveBeenCalledWith('feature');
   });
 });
 
 describe('buildFileRowMenu', () => {
-  it('Show Diff and Show History are live; the IDE-only entries are visible-disabled', () => {
+  it('Show Diff and Show History are live; the placeholder entries are visible-disabled', () => {
     const onShowDiff = vi.fn();
     const onShowHistory = vi.fn();
     const menu = buildFileRowMenu('rules/r1.yaml', t, { onShowDiff, onShowHistory });

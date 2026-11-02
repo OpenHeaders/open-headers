@@ -1,28 +1,28 @@
 /**
- * GitRefRail — section #1 of the IDE-log layout: the vertical activity
+ * GitRefRail — section #1 of the log-window layout: the vertical activity
  * bar + the branches tree, wired to the workspace-tree verbs. Owns the
- * action semantics: what a tree click does (the gear's single-click
- * setting), which bar verbs the selection enables, the row context
- * menu (Checkout with the §6.2 dirty prompt, Merge into Current, and
- * the bar's verbs by row), the New Branch dialog, the delete toast
- * with Restore, and the per-workspace rail prefs (favorites, Show
- * Tags, Group By Directory). Data flows down from GitLogView (refs +
- * current branch); mutations go through the bridge and come back as
+ * rail's own semantics: what a tree click does (the gear's
+ * single-click setting), which bar verbs the selection enables, and
+ * the per-workspace rail prefs (favorites, Show Tags, Group By
+ * Directory). The branch verbs themselves (checkout with the §6.2
+ * dirty prompt, merge into current, update, delete with Restore,
+ * fetch, new branch) are the shared `useGitBranchActions` — the same
+ * implementation the top bar's branch widget drives. Data flows down
+ * from GitLogView (refs + current branch); mutations come back as
  * `workspaceTreeGitStatus` frames — the rail never refetches by hand.
  */
 
-import { hostBridge, type WorkspaceTreeRefWire } from '@openheaders/core/bridge';
-import { App as AntApp, theme } from 'antd';
+import type { WorkspaceTreeRefWire } from '@openheaders/core/bridge';
+import { theme } from 'antd';
 import type React from 'react';
-import { useCallback, useMemo, useRef, useState, useSyncExternalStore } from 'react';
+import { useCallback, useMemo, useRef, useSyncExternalStore } from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
+import { useGitBranchActions } from '../branch-actions/use-git-branch-actions';
 import { GIT_LOG_SCOPE_HEAD } from '../git-panel-view-store';
-import CreateBranchModal from './CreateBranchModal';
 import GitRailActivityBar from './GitRailActivityBar';
 import { getGitRailPrefs, patchGitRailPrefs, subscribeGitRailPrefs, toggleGitRailFavorite } from './git-rail-prefs';
-import { buildRefRowMenu, type RefRowMenuHandlers } from './ref-row-menu';
-import RefTree, { type RefTreeHandle, type RefTreeSelection } from './RefTree';
-import SwitchBranchModal, { type SwitchBranchPrompt, type SwitchDirtyChoice } from './SwitchBranchModal';
+import { buildRefRowMenu, type RefRowMenuHandlers, type RefTreeSelection } from './ref-row-menu';
+import RefTree, { type RefTreeHandle } from './RefTree';
 
 export interface GitRefRailProps {
   workspaceId: string;
@@ -64,7 +64,6 @@ const GitRefRail: React.FC<GitRefRailProps> = ({
 }) => {
   const t = useT();
   const { token } = theme.useToken();
-  const { notification } = AntApp.useApp();
   const treeRef = useRef<RefTreeHandle>(null);
   const rootRef = useRef<HTMLDivElement>(null);
 
@@ -72,12 +71,16 @@ const GitRefRail: React.FC<GitRefRailProps> = ({
   const prefs = useSyncExternalStore(subscribe, () => getGitRailPrefs(workspaceId));
   const favoriteSet = useMemo<ReadonlySet<string>>(() => new Set(prefs.favorites), [prefs.favorites]);
 
-  const [createFrom, setCreateFrom] = useState<string | null>(null);
-  const [updateBusy, setUpdateBusy] = useState(false);
-  const [fetchBusy, setFetchBusy] = useState(false);
-  const [switchPrompt, setSwitchPrompt] = useState<SwitchBranchPrompt | null>(null);
-  const [switching, setSwitching] = useState(false);
-  const [mergeBusy, setMergeBusy] = useState(false);
+  const actions = useGitBranchActions({
+    workspaceId,
+    currentRef,
+    refs,
+    container: rootRef.current?.closest<HTMLElement>('.git-tool-panel') ?? null,
+    onBranchDeleted: (branch) => {
+      if (selection !== null && selection.kind === 'local' && selection.name === branch) onSelectionChange(null);
+      if (scopeRef === branch) onScopeChange(null);
+    },
+  });
 
   const selectedSha = useCallback(
     (target: RefTreeSelection): string | null =>
@@ -88,7 +91,7 @@ const GitRefRail: React.FC<GitRefRailProps> = ({
   const handleLeafClick = (node: RefTreeSelection): void => {
     onSelectionChange(node);
     if (prefs.singleClick === 'filter') {
-      // Re-clicking the scoped branch KEEPS the filter (IDE behavior)
+      // Re-clicking the scoped branch KEEPS the filter (reference behavior)
       // — only the chip's × or another row changes the scope.
       onScopeChange(node.name);
       return;
@@ -98,7 +101,7 @@ const GitRefRail: React.FC<GitRefRailProps> = ({
   };
 
   // The HEAD row mirrors a branch row's gestures: single-click 'filter'
-  // scopes the log to HEAD (the `Branch: HEAD` chip — the IDE move),
+  // scopes the log to HEAD (the `Branch: HEAD` chip — the reference move),
   // 'navigate' jumps to the checked-out tip.
   const handleHeadClick = (): void => {
     onSelectionChange(null);
@@ -113,178 +116,24 @@ const GitRefRail: React.FC<GitRefRailProps> = ({
   const isLocalSelection = selection !== null && selection.kind === 'local';
   const isCurrentSelection = selection !== null && selection.kind === 'local' && selection.name === currentRef;
 
-  const updateBranch = async (branch: string): Promise<void> => {
-    if (updateBusy) return;
-    setUpdateBusy(true);
-    try {
-      const result = await hostBridge.call('oh.workspaceTree.updateBranch', { workspaceId, branch });
-      if (!result.ok) {
-        notification.error({
-          title:
-            result.reason === 'no-upstream'
-              ? t('workbench.gitLog.updateBranch.noUpstream', { branch })
-              : t('workbench.gitLog.updateBranch.failed', { branch, detail: result.detail ?? result.reason }),
-        });
-      }
-    } finally {
-      setUpdateBusy(false);
-    }
-  };
-
-  const deleteBranch = async (branch: string): Promise<void> => {
-    const result = await hostBridge.call('oh.workspaceTree.deleteBranch', { workspaceId, branch });
-    if (!result.ok) {
-      notification.error({
-        title: t('workbench.gitLog.deleteBranch.failed', { detail: result.detail ?? result.reason }),
-      });
-      return;
-    }
-    if (selection !== null && selection.kind === 'local' && selection.name === branch) onSelectionChange(null);
-    if (scopeRef === branch) onScopeChange(null);
-    const key = `git-branch-deleted-${branch}`;
-    notification.info({
-      key,
-      title: t('workbench.gitLog.deleteBranch.deleted', { branch }),
-      duration: 8,
-      btn: (
-        <button
-          type="button"
-          onClick={() => {
-            notification.destroy(key);
-            void hostBridge.call('oh.workspaceTree.createBranch', {
-              workspaceId,
-              branch,
-              from: result.sha,
-              checkout: false,
-            });
-          }}
-          data-testid="git-tool-restore-branch"
-          style={{
-            border: 'none',
-            background: 'transparent',
-            color: token.colorPrimary,
-            cursor: 'pointer',
-            padding: 0,
-            fontSize: 13,
-          }}
-        >
-          {t('workbench.gitLog.deleteBranch.restore')}
-        </button>
-      ),
-    });
-  };
-
-  const handleFetch = async (): Promise<void> => {
-    if (fetchBusy) return;
-    setFetchBusy(true);
-    try {
-      const result = await hostBridge.call('oh.workspaceTree.fetch', { workspaceId });
-      if (!result.ok) {
-        notification.error({
-          title:
-            result.reason === 'no-remote'
-              ? t('workbench.gitLog.fetch.noRemote')
-              : t('workbench.gitLog.fetch.failed', { detail: result.detail ?? result.reason }),
-        });
-      }
-    } finally {
-      setFetchBusy(false);
-    }
-  };
-
-  // Checkout (§6): the wrapped switch; a dirty tree answers `dirty`
-  // with the count and the §6.2 prompt re-enters the verb with the
-  // user's choice. The status frame moves the star.
-  const switchTo = async (branch: string, dirtyAction?: SwitchDirtyChoice): Promise<void> => {
-    if (switching) return;
-    setSwitching(true);
-    try {
-      const result = await hostBridge.call('oh.workspaceTree.switchBranch', {
-        workspaceId,
-        branch,
-        ...(dirtyAction !== undefined ? { dirtyAction } : {}),
-      });
-      if (result.ok) {
-        setSwitchPrompt(null);
-        if (result.switched) {
-          notification.info({ title: t('workbench.gitLog.switch.checkedOut', { branch }), duration: 5 });
-        }
-      } else if (result.reason === 'dirty') {
-        setSwitchPrompt({ branch, dirtyFiles: result.dirtyFiles ?? 0 });
-      } else {
-        setSwitchPrompt(null);
-        notification.error({
-          title: t('workbench.gitLog.switch.failed', { branch, detail: result.detail ?? result.reason }),
-        });
-      }
-    } catch (err) {
-      setSwitchPrompt(null);
-      notification.error({ title: t('workbench.gitLog.switch.failed', { branch, detail: (err as Error).message }) });
-    } finally {
-      setSwitching(false);
-    }
-  };
-
-  // Merge into Current (§6): the Phase 4 machinery on a local or
-  // remote-tracking ref — never raw `git merge`. A no-base merge
-  // (shallow clone, unrelated histories) says why, like pull's toast.
-  const mergeIntoCurrent = async (ref: string): Promise<void> => {
-    if (mergeBusy) return;
-    setMergeBusy(true);
-    const branch = currentRef ?? 'HEAD';
-    try {
-      const result = await hostBridge.call('oh.workspaceTree.mergeBranch', { workspaceId, ref });
-      if (!result.ok) {
-        notification.error({
-          title: t('workbench.gitLog.merge.failed', { ref, detail: result.detail ?? result.reason }),
-        });
-      } else if (result.upToDate) {
-        notification.info({ title: t('workbench.gitLog.merge.upToDate', { ref, branch }), duration: 5 });
-      } else if (result.history !== undefined) {
-        notification.warning({
-          title: t(
-            result.history === 'shallow' ? 'workbench.gitLog.merge.doneShallow' : 'workbench.gitLog.merge.doneUnrelated',
-            { ref, branch },
-          ),
-          duration: 8,
-        });
-      } else {
-        notification.success({
-          title: t('workbench.gitLog.merge.done', { ref, branch, sha: result.sha.slice(0, 8) }),
-          duration: 5,
-        });
-      }
-    } catch (err) {
-      notification.error({ title: t('workbench.gitLog.merge.failed', { ref, detail: (err as Error).message }) });
-    } finally {
-      setMergeBusy(false);
-    }
-  };
-
   const handleNavigate = (): void => {
     if (selection === null) return;
     const sha = selectedSha(selection);
     if (sha !== null) onNavigateToSha(sha);
   };
 
-  const handleCreated = (branch: string, from: string, checkedOut: boolean): void => {
-    if (checkedOut) {
-      notification.info({
-        title: t('workbench.gitLog.createBranch.checkedOut', { branch, from }),
-        duration: 5,
-      });
-    }
-  };
-
   // Built per render like the bar's handlers — a menu is constructed
   // only when a row is right-clicked, so there is nothing to memoize.
   const rowMenuHandlers: RefRowMenuHandlers = {
-    onCheckout: (branch) => void switchTo(branch),
-    onNewBranchFrom: (ref) => setCreateFrom(ref),
-    onCompareWithCurrent: (ref) => onOpenCompare(ref),
-    onMergeIntoCurrent: (ref) => void mergeIntoCurrent(ref),
-    onUpdate: (branch) => void updateBranch(branch),
-    onDelete: (branch) => void deleteBranch(branch),
+    onCheckout: actions.checkout,
+    onCheckoutRemote: actions.checkoutRemote,
+    onNewBranchFrom: actions.newBranchFrom,
+    onCompareWithCurrent: onOpenCompare,
+    onMergeIntoCurrent: actions.mergeIntoCurrent,
+    onUpdate: actions.updateBranch,
+    onPullCurrent: actions.pull,
+    onPushCurrent: actions.push,
+    onDelete: actions.deleteBranch,
   };
   const rowMenu = (node: RefTreeSelection): ReturnType<typeof buildRefRowMenu> =>
     buildRefRowMenu(node, { current: currentRef, historyRewritten }, t, rowMenuHandlers);
@@ -304,25 +153,22 @@ const GitRefRail: React.FC<GitRefRailProps> = ({
     >
       <GitRailActivityBar
         onHide={onHide}
-        onNewBranch={() => {
-          const from = selection?.name ?? currentRef;
-          if (from !== null) setCreateFrom(from);
-        }}
+        onNewBranch={() => actions.newBranchFrom(selection?.name ?? currentRef)}
         onUpdateSelected={() => {
-          if (selection !== null) void updateBranch(selection.name);
+          if (selection !== null) actions.updateBranch(selection.name);
         }}
         updateSelectedEnabled={isLocalSelection && !isCurrentSelection}
-        updateSelectedBusy={updateBusy}
+        updateSelectedBusy={actions.busy.update}
         onDeleteBranch={() => {
-          if (selection !== null) void deleteBranch(selection.name);
+          if (selection !== null) actions.deleteBranch(selection.name);
         }}
         deleteEnabled={isLocalSelection && !isCurrentSelection}
         onCompareWithCurrent={() => {
           if (selection !== null) onOpenCompare(selection.name);
         }}
         compareEnabled={selection !== null && selection.name !== currentRef}
-        onFetch={() => void handleFetch()}
-        fetchBusy={fetchBusy}
+        onFetch={actions.fetch}
+        fetchBusy={actions.busy.fetch}
         onToggleFavorite={() => {
           if (selection !== null) toggleGitRailFavorite(workspaceId, selection.kind, selection.name);
         }}
@@ -353,29 +199,7 @@ const GitRefRail: React.FC<GitRefRailProps> = ({
         onLeafContextMenu={onSelectionChange}
         rowMenu={rowMenu}
       />
-      <CreateBranchModal
-        workspaceId={workspaceId}
-        from={createFrom}
-        fromRef={
-          createFrom !== null && refs.some((ref) => ref.name === createFrom)
-            ? createFrom
-            : // The unborn current branch resolves nowhere yet — anchor
-              // the create at HEAD, which IS that branch.
-              undefined
-        }
-        container={rootRef.current?.closest<HTMLElement>('.git-tool-panel') ?? null}
-        onClose={() => setCreateFrom(null)}
-        onCreated={handleCreated}
-      />
-      <SwitchBranchModal
-        prompt={switchPrompt}
-        busy={switching}
-        container={rootRef.current?.closest<HTMLElement>('.git-tool-panel') ?? null}
-        onChoose={(choice) => {
-          if (switchPrompt !== null) void switchTo(switchPrompt.branch, choice);
-        }}
-        onClose={() => setSwitchPrompt(null)}
-      />
+      {actions.dialogs}
     </div>
   );
 };

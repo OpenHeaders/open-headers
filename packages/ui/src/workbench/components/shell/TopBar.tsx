@@ -34,6 +34,7 @@ import type {
   SidebarLayoutVariantSetting,
 } from '../../settings/schema/workspace-layout';
 import { TOOL_WINDOW_MAP } from '../../tool-windows';
+import GitBranchWidget from '../panels/git/branch-widget/GitBranchWidget';
 import EnvironmentSelector from './EnvironmentSelector';
 import { SettingsGearMenu } from '@openheaders/ui/shared/settings-menu';
 import WorkspaceSwitcher from '../workspace/WorkspaceSwitcher';
@@ -371,6 +372,10 @@ const TopBar: React.FC<TopBarProps> = ({
           onExport={onExportWorkspace}
           onImport={onImportWorkspace}
         />
+        {/* The IDE's toolbar branch widget — only on git hosts for a
+            bound workspace (the shared git status store answers
+            unbound everywhere else, so the row never shifts). */}
+        <GitBranchWidget workspaceId={activeWorkspaceId} onOpenCommit={() => tl.activateWindow('commit')} />
       </div>
 
       <div aria-hidden />

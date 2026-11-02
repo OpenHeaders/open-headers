@@ -1,10 +1,10 @@
 /**
- * RefTree — the Git tool window's branches tree, IDE-log shape: a
+ * RefTree — the Git tool window's branches tree, log-window shape: a
  * "Branch or tag" search box, the `HEAD (Current Branch)` row, then the
  * Local / Remote / Tags groups whose ref names fold on `/` into
  * collapsible folders (`v5/data-model` = folder `v5` → leaf
  * `data-model`; a remote's first segment is its remote-name folder) —
- * or flat full-name rows while Group By Directory is off. The IDE
+ * or flat full-name rows while Group By Directory is off. The reference
  * tree anatomy: every row reserves the caret slot, group rows are
  * plain tree rows, their children sit one indent step in, and a leaf
  * carries a branch / tag glyph in the icon slot. The current branch
@@ -33,13 +33,10 @@ import type React from 'react';
 import { forwardRef, useEffect, useImperativeHandle, useMemo, useState } from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { gitRailFavoriteKey } from './git-rail-prefs';
+import type { RefTreeSelection } from './ref-row-menu';
 import { allFolderKeys, buildRefTree, filterRefTree, folderKeysToRef, type RefTreeNode } from './ref-tree-model';
 
-/** One selectable tree row — the activity bar's action target. */
-export interface RefTreeSelection {
-  name: string;
-  kind: WorkspaceTreeRefWire['kind'];
-}
+export type { RefTreeSelection } from './ref-row-menu';
 
 export interface RefTreeProps {
   refs: WorkspaceTreeRefWire[];
@@ -49,7 +46,7 @@ export interface RefTreeProps {
    *  HEAD — fresh repo, first commit pending). Rendered as the current
    *  Local leaf, selectable and scopeable like any row — the log view
    *  answers the unborn scope with the no-matches empty state (the
-   *  IDE posture) instead of asking `log` (the membership gate would
+   *  reference posture) instead of asking `log` (the membership gate would
    *  refuse the name). */
   unbornBranch: string | null;
   /** The detached HEAD's commit (§3.4): the HEAD row reads `HEAD · <sha> (detached)` instead of naming a branch. */
@@ -85,7 +82,7 @@ const GROUPS = [
 
 const INDENT = 14;
 // Every row reserves the caret slot — leaves and the HEAD row too — so
-// a child's icon sits one indent step right of its parent's (the IDE
+// a child's icon sits one indent step right of its parent's (the reference
 // tree, the sidebar trees' slot).
 const CARET_SLOT = 12;
 
@@ -112,7 +109,7 @@ const RefTree = forwardRef<RefTreeHandle, RefTreeProps>(function RefTree(
   const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(new Set());
   const [autoExpanded, setAutoExpanded] = useState<ReadonlySet<string>>(new Set());
 
-  // The current branch's ancestor folders start open (the IDE default);
+  // The current branch's ancestor folders start open (the reference default);
   // everything else starts collapsed. Collapsed-state is tracked as an
   // explicit user override set so a branch switch reopens the new
   // ancestry without stomping folders the user closed by hand.
@@ -142,7 +139,7 @@ const RefTree = forwardRef<RefTreeHandle, RefTreeProps>(function RefTree(
   );
 
   // Expand All / Collapse All (activity bar): folders AND the three
-  // namespace groups — the IDE gesture flattens everything at once.
+  // namespace groups — the reference gesture flattens everything at once.
   useImperativeHandle(
     handleRef,
     () => ({
