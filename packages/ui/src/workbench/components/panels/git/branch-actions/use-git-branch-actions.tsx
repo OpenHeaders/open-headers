@@ -25,6 +25,7 @@ import type React from 'react';
 import { useState } from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import PushCommitsModal from '../push/PushCommitsModal';
+import PushRejectedModal from '../push/PushRejectedModal';
 import CreateBranchModal from '../rail/CreateBranchModal';
 import SwitchBranchModal, { type SwitchBranchPrompt, type SwitchDirtyChoice } from '../rail/SwitchBranchModal';
 
@@ -85,6 +86,7 @@ export function useGitBranchActions(options: GitBranchActionsOptions): GitBranch
   const [pullBusy, setPullBusy] = useState(false);
   const [pushBusy, setPushBusy] = useState(false);
   const [pushOpen, setPushOpen] = useState(false);
+  const [pushRejected, setPushRejected] = useState(false);
 
   const failure = (err: unknown): string => (err instanceof Error ? err.message : String(err));
 
@@ -276,9 +278,10 @@ export function useGitBranchActions(options: GitBranchActionsOptions): GitBranch
   };
 
   // Update Project — the current branch's pull (§3.4: a no-base pull
-  // says why every remote file was treated as changed).
-  const pull = async (): Promise<void> => {
-    if (pullBusy) return;
+  // says why every remote file was treated as changed). Answers whether
+  // the pull landed, for the Push Rejected prompt's pull-then-push.
+  const pull = async (): Promise<boolean> => {
+    if (pullBusy) return false;
     setPullBusy(true);
     try {
       const result = await hostBridge.call('oh.workspaceTree.pull', { workspaceId });
@@ -289,6 +292,7 @@ export function useGitBranchActions(options: GitBranchActionsOptions): GitBranch
               ? t('workbench.commitTool.errors.historyRewritten')
               : t('workbench.commitTool.menu.pullFailed', { detail: result.detail ?? result.reason }),
         });
+        return false;
       } else if (!result.upToDate && result.history !== undefined) {
         notification.warning({
           title: t(
@@ -304,17 +308,20 @@ export function useGitBranchActions(options: GitBranchActionsOptions): GitBranch
           duration: 5,
         });
       }
+      return true;
     } catch (err) {
       notification.error({ title: t('workbench.commitTool.menu.pullFailed', { detail: failure(err) }) });
+      return false;
     } finally {
       setPullBusy(false);
     }
   };
 
   // Push the current branch — the Push window's confirm (§8.2 / §16
-  // typed refusals): a non-fast-forward names the pull-first way out,
-  // a rewrite points at the banner, a read-only remote names the
-  // Commit window's Push-as-New-Branch recovery.
+  // typed refusals): a non-fast-forward raises the Push Rejected
+  // prompt (Merge = pull, then push again), a rewrite points at the
+  // banner, a read-only remote names the Commit window's
+  // Push-as-New-Branch recovery.
   const pushNow = async (): Promise<void> => {
     if (pushBusy) return;
     setPushBusy(true);
@@ -327,15 +334,17 @@ export function useGitBranchActions(options: GitBranchActionsOptions): GitBranch
         });
         return;
       }
+      if (result.reason === 'rejected') {
+        setPushRejected(true);
+        return;
+      }
       const failed = t('workbench.commitTool.errors.pushFailed');
       const why =
         result.reason === 'no-permission'
           ? t('workbench.gitBranch.pushNoPermission')
-          : result.reason === 'rejected'
-            ? t('workbench.commitTool.errors.pushRejected')
-            : result.reason === 'force-push'
-              ? t('workbench.commitTool.errors.historyRewritten')
-              : (result.detail ?? result.reason);
+          : result.reason === 'force-push'
+            ? t('workbench.commitTool.errors.historyRewritten')
+            : (result.detail ?? result.reason);
       notification.error({ title: failed, description: why });
     } catch (err) {
       notification.error({ title: t('workbench.commitTool.errors.pushFailed'), description: failure(err) });
@@ -377,6 +386,15 @@ export function useGitBranchActions(options: GitBranchActionsOptions): GitBranch
         onClose={() => setSwitchPrompt(null)}
       />
       <PushCommitsModal workspaceId={workspaceId} open={pushOpen} onClose={() => setPushOpen(false)} onConfirm={pushNow} />
+      <PushRejectedModal
+        open={pushRejected}
+        branch={currentRef ?? 'HEAD'}
+        onCancel={() => setPushRejected(false)}
+        onMerge={() => {
+          setPushRejected(false);
+          void pull().then((landed) => (landed ? pushNow() : undefined));
+        }}
+      />
     </>
   );
 

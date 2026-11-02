@@ -665,6 +665,10 @@ export const workbenchChrome = {
   'workbench.gitPush.detached': 'HEAD este detașat. Fă checkout pe un branch pentru a trimite.',
   'workbench.gitPush.push': 'Trimite',
   'workbench.gitPush.cancel': 'Anulează',
+  'workbench.gitPush.rejected.title': 'Push respins',
+  'workbench.gitPush.rejected.body':
+    'Push-ul branch-ului curent „{branch}” a fost respins. Modificările remote trebuie îmbinate înainte de push.',
+  'workbench.gitPush.rejected.merge': 'Îmbină',
   'workbench.gitPush.failed': 'Nu s-au putut lista commit-urile de trimis: {detail}',
   'workbench.gitBranch.pushNoPermission':
     'Remote-ul a refuzat push-ul: fără permisiune. „Commit și Push” din fereastra Commit poate publica lucrul ca o ramură nouă.',

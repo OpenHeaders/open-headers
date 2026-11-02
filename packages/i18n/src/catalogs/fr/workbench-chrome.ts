@@ -806,6 +806,10 @@ export const workbenchChrome = {
   'workbench.gitPush.detached': 'HEAD est détaché. Basculez sur une branche pour pousser.',
   'workbench.gitPush.push': 'Pousser',
   'workbench.gitPush.cancel': 'Annuler',
+  'workbench.gitPush.rejected.title': 'Push refusé',
+  'workbench.gitPush.rejected.body':
+    'Le push de la branche actuelle « {branch} » a été refusé. Les modifications distantes doivent être fusionnées avant de pousser.',
+  'workbench.gitPush.rejected.merge': 'Fusionner',
   'workbench.gitPush.failed': 'Impossible de lister les commits à pousser : {detail}',
   'workbench.gitBranch.pushNoPermission':
     'Le dépôt distant a refusé le push : permission manquante. « Commit et Push » dans la fenêtre Commit peut publier le travail sur une nouvelle branche.',

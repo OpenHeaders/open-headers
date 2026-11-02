@@ -804,6 +804,10 @@ export const workbenchChrome = {
   'workbench.gitPush.detached': 'HEAD ist losgelöst. Zum Pushen einen Branch auschecken.',
   'workbench.gitPush.push': 'Pushen',
   'workbench.gitPush.cancel': 'Abbrechen',
+  'workbench.gitPush.rejected.title': 'Push abgelehnt',
+  'workbench.gitPush.rejected.body':
+    'Der Push des aktuellen Branches „{branch}“ wurde abgelehnt. Remote-Änderungen müssen vor dem Push zusammengeführt werden.',
+  'workbench.gitPush.rejected.merge': 'Zusammenführen',
   'workbench.gitPush.failed': 'Die zu pushenden Commits konnten nicht ermittelt werden: {detail}',
   'workbench.gitBranch.pushNoPermission':
     'Das Remote hat den Push abgelehnt: keine Berechtigung. „Commit und Push“ im Commit-Fenster kann die Arbeit als neuen Branch veröffentlichen.',

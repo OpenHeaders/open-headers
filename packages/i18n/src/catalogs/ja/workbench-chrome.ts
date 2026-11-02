@@ -638,6 +638,10 @@ export const workbenchChrome = {
   'workbench.gitPush.detached': 'HEAD が切り離されています。プッシュするにはブランチをチェックアウトしてください。',
   'workbench.gitPush.push': 'プッシュ',
   'workbench.gitPush.cancel': 'キャンセル',
+  'workbench.gitPush.rejected.title': 'プッシュが拒否されました',
+  'workbench.gitPush.rejected.body':
+    '現在のブランチ「{branch}」のプッシュが拒否されました。プッシュする前にリモートの変更をマージする必要があります。',
+  'workbench.gitPush.rejected.merge': 'マージ',
   'workbench.gitPush.failed': 'プッシュするコミットを一覧できませんでした：{detail}',
   'workbench.gitBranch.pushNoPermission':
     'リモートがプッシュを拒否しました: 権限がありません。コミットウィンドウの「コミットしてプッシュ」で作業を新しいブランチとして公開できます。',

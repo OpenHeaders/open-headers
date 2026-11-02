@@ -53,6 +53,7 @@ import CommitChangesTree, { type CommitChangesTreeHandle } from './CommitChanges
 import CommitForm, { type CommitFormHandle } from './CommitForm';
 import CommitToolbar from './CommitToolbar';
 import PushCommitsModal from '../push/PushCommitsModal';
+import PushRejectedModal from '../push/PushRejectedModal';
 import PushNewBranchAlert from './PushNewBranchAlert';
 
 export interface CommitToolPanelProps {
@@ -80,6 +81,7 @@ const CommitToolPanel: React.FC<CommitToolPanelProps> = ({ info, onHide }) => {
   const [forcePush, setForcePush] = useState<WorkspaceTreeForcePushStateWire | null>(null);
   const [pushRecovery, setPushRecovery] = useState(false);
   const [pushOpen, setPushOpen] = useState(false);
+  const [pushRejected, setPushRejected] = useState(false);
   const [compareOpen, setCompareOpen] = useState(false);
   const [createBranchFrom, setCreateBranchFrom] = useState<string | null>(null);
   const treeRef = useRef<CommitChangesTreeHandle>(null);
@@ -236,9 +238,10 @@ const CommitToolPanel: React.FC<CommitToolPanelProps> = ({ info, onHide }) => {
     [t],
   );
 
-  // Push's typed refusals (§8.2 / §16): a non-fast-forward names the
-  // pull-first way out, a rewrite points at the banner, a read-only
-  // remote raises the Push-as-New-Branch recovery instead of an error.
+  // Push's typed refusals (§8.2 / §16): a non-fast-forward raises the
+  // Push Rejected prompt (Merge = pull, then push again), a rewrite
+  // points at the banner, a read-only remote raises the
+  // Push-as-New-Branch recovery instead of an error.
   const pushCurrent = useCallback(async (): Promise<void> => {
     if (workspaceId === null) return;
     const push = await hostBridge.call('oh.workspaceTree.push', { workspaceId });
@@ -251,10 +254,12 @@ const CommitToolPanel: React.FC<CommitToolPanelProps> = ({ info, onHide }) => {
       setPushRecovery(true);
       return;
     }
-    const failed = t('workbench.commitTool.errors.pushFailed');
     if (push.reason === 'rejected') {
-      setError(`${failed}\n${t('workbench.commitTool.errors.pushRejected')}`);
-    } else if (push.reason === 'force-push') {
+      setPushRejected(true);
+      return;
+    }
+    const failed = t('workbench.commitTool.errors.pushFailed');
+    if (push.reason === 'force-push') {
       setError(`${failed}\n${t('workbench.commitTool.errors.historyRewritten')}`);
     } else {
       setError(push.detail !== undefined && push.detail.length > 0 ? `${failed}\n${push.detail}` : failed);
@@ -334,8 +339,10 @@ const CommitToolPanel: React.FC<CommitToolPanelProps> = ({ info, onHide }) => {
     [rows],
   );
 
-  const handlePull = useCallback(async (): Promise<void> => {
-    if (workspaceId === null) return;
+  // Answers whether the pull landed — the Push Rejected prompt's Merge
+  // pushes again only then.
+  const handlePull = useCallback(async (): Promise<boolean> => {
+    if (workspaceId === null) return false;
     try {
       const result = await hostBridge.call('oh.workspaceTree.pull', { workspaceId });
       if (!result.ok) {
@@ -344,7 +351,7 @@ const CommitToolPanel: React.FC<CommitToolPanelProps> = ({ info, onHide }) => {
             ? t('workbench.commitTool.errors.historyRewritten')
             : t('workbench.commitTool.menu.pullFailed', { detail: result.detail ?? result.reason }),
         );
-        return;
+        return false;
       }
       if (!result.upToDate && result.history !== undefined) {
         // §3.4: no merge base — every remote file was treated as
@@ -363,8 +370,10 @@ const CommitToolPanel: React.FC<CommitToolPanelProps> = ({ info, onHide }) => {
         );
       }
       await refreshChanges();
+      return true;
     } catch (err) {
       setError((err as Error).message);
+      return false;
     }
   }, [workspaceId, message, refreshChanges, t]);
 
@@ -599,6 +608,15 @@ const CommitToolPanel: React.FC<CommitToolPanelProps> = ({ info, onHide }) => {
         open={pushOpen}
         onClose={() => setPushOpen(false)}
         onConfirm={pushCurrent}
+      />
+      <PushRejectedModal
+        open={pushRejected}
+        branch={currentBranch ?? 'HEAD'}
+        onCancel={() => setPushRejected(false)}
+        onMerge={() => {
+          setPushRejected(false);
+          void handlePull().then((landed) => (landed ? pushCurrent() : undefined));
+        }}
       />
       <CompareBranchModal
         workspaceId={workspaceId}

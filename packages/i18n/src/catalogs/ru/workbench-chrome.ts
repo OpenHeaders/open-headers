@@ -658,6 +658,10 @@ export const workbenchChrome = {
   'workbench.gitPush.detached': 'HEAD отсоединён. Переключитесь на ветку, чтобы отправить.',
   'workbench.gitPush.push': 'Отправить',
   'workbench.gitPush.cancel': 'Отмена',
+  'workbench.gitPush.rejected.title': 'Push отклонён',
+  'workbench.gitPush.rejected.body':
+    'Push текущей ветки «{branch}» отклонён. Перед отправкой нужно слить изменения с удалённого репозитория.',
+  'workbench.gitPush.rejected.merge': 'Слить',
   'workbench.gitPush.failed': 'Не удалось получить список коммитов для отправки: {detail}',
   'workbench.gitBranch.pushNoPermission':
     'Удалённый репозиторий отклонил push: нет прав. «Коммит и Push» в окне Commit может опубликовать работу как новую ветку.',

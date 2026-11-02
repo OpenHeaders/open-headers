@@ -629,6 +629,10 @@ export const workbenchChrome = {
   'workbench.gitPush.detached': 'HEAD is detached. Check out a branch to push.',
   'workbench.gitPush.push': 'Push',
   'workbench.gitPush.cancel': 'Cancel',
+  'workbench.gitPush.rejected.title': 'Push Rejected',
+  'workbench.gitPush.rejected.body':
+    'Push of the current branch "{branch}" was rejected. Remote changes need to be merged before pushing.',
+  'workbench.gitPush.rejected.merge': 'Merge',
   'workbench.gitPush.failed': 'Could not list the commits to push: {detail}',
   'workbench.gitBranch.pushNoPermission':
     'The remote refused the push: no permission. Commit and Push in the Commit window can publish the work as a new branch.',

@@ -1,8 +1,9 @@
 /**
- * PushCommitList — the Push window's left pane: the target line
- * (`main → origin : main`, the reference anatomy) and, indented under
- * it, one row per commit that would go, subject with the author and
- * the graduated date. A branch with no upstream names the rule the
+ * PushCommitList — the Push window's left pane: the target row
+ * (`main → origin : main`, the reference anatomy — selected by default,
+ * it stands for every commit) and, indented under it, one row per
+ * commit that would go, subject with the author and the graduated
+ * date. A branch with no upstream names the rule the
  * host applies on the first push; a detached HEAD and an up-to-date
  * branch each say so in place of rows. Pure presentation.
  */
@@ -12,20 +13,20 @@ import { theme } from 'antd';
 import type React from 'react';
 import { useLocale } from '@openheaders/ui/context/LocaleContext';
 import { formatLogDate } from '../log-date';
-import type { PushTarget } from './push-window-model';
+import type { PushSelection, PushTarget } from './push-window-model';
 
 export interface PushCommitListProps {
   target: PushTarget;
   entries: readonly WorkspaceTreeLogEntryWire[];
-  selectedSha: string | null;
-  onSelect: (sha: string) => void;
+  selection: PushSelection;
+  onSelect: (selection: PushSelection) => void;
   /** The list is still arriving — the empty note waits. */
   loading: boolean;
 }
 
 const ROW_HEIGHT = 24;
 
-const PushCommitList: React.FC<PushCommitListProps> = ({ target, entries, selectedSha, onSelect, loading }) => {
+const PushCommitList: React.FC<PushCommitListProps> = ({ target, entries, selection, onSelect, loading }) => {
   const { token } = theme.useToken();
   const { locale, t } = useLocale();
 
@@ -53,6 +54,8 @@ const PushCommitList: React.FC<PushCommitListProps> = ({ target, entries, select
     );
   };
 
+  const selectable = (target.kind === 'upstream' || target.kind === 'new-upstream') && entries.length > 0;
+
   const note =
     !loading && entries.length === 0 && (target.kind === 'upstream' || target.kind === 'new-upstream')
       ? t('workbench.gitPush.nothing')
@@ -60,19 +63,30 @@ const PushCommitList: React.FC<PushCommitListProps> = ({ target, entries, select
 
   return (
     <div style={{ flex: '1 1 auto', minHeight: 0, overflowY: 'auto', padding: '6px 0' }} data-testid="git-push-list">
-      <div
+      <button
+        type="button"
+        className={selection === 'all' && selectable ? 'git-tool-row selected' : 'git-tool-row'}
+        onClick={() => {
+          if (selectable) onSelect('all');
+        }}
         style={{
           display: 'flex',
           alignItems: 'center',
+          width: '100%',
           height: ROW_HEIGHT,
           padding: '0 12px',
+          border: 'none',
+          textAlign: 'left',
+          cursor: selectable ? 'pointer' : 'default',
           fontSize: 12,
           color: token.colorText,
           whiteSpace: 'nowrap',
         }}
+        data-testid="git-push-target-row"
+        data-selected={selection === 'all' && selectable ? 'true' : undefined}
       >
         {targetLine()}
-      </div>
+      </button>
       {note !== null && (
         <div
           style={{ padding: '2px 12px 0 36px', fontSize: 12, color: token.colorTextSecondary }}
@@ -82,13 +96,13 @@ const PushCommitList: React.FC<PushCommitListProps> = ({ target, entries, select
         </div>
       )}
       {entries.map((entry) => {
-        const isSelected = entry.sha === selectedSha;
+        const isSelected = selection !== 'all' && entry.sha === selection.sha;
         return (
           <button
             key={entry.sha}
             type="button"
             className={isSelected ? 'git-tool-row selected' : 'git-tool-row'}
-            onClick={() => onSelect(entry.sha)}
+            onClick={() => onSelect({ sha: entry.sha })}
             style={{
               display: 'flex',
               alignItems: 'center',

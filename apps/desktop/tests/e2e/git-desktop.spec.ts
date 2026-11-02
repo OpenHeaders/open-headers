@@ -858,9 +858,12 @@ test('G9 — pushing behind the remote is refused in the window; pull then push 
   await pane('commit-tool-commit-push').click();
   await confirmPushWindow();
   await expect.poll(() => commitCount(), { timeout: 5_000 }).toBe(before + 1);
-  await expect(pane('commit-tool-error')).toContainText('Push failed');
+  // The non-fast-forward refusal is the Push Rejected prompt, never an
+  // error line; Cancel keeps the commit local.
+  await pane('git-push-rejected-cancel').click();
+  await expect(pane('git-push-rejected-merge')).toHaveCount(0);
+  await expect(pane('commit-tool-error')).toHaveCount(0);
   expect(remoteMain()).not.toBe(ws('rev-parse', 'HEAD'));
-  await dismissError();
 
   setEntityName(req2, 'Nudge Local Two');
   await waitDirty();
@@ -868,6 +871,23 @@ test('G9 — pushing behind the remote is refused in the window; pull then push 
   await expect.poll(() => ws('rev-list', '--parents', '-1', 'HEAD').split(' ').length, { timeout: 5_000 }).toBe(3);
   await waitClean();
   await editCommitPush(req2, 'Nudge Local Three', 'git e2e: nudge converge');
+
+  // The prompt's Merge: the clone moves again, Commit and Push is
+  // refused, Merge pulls (a two-parent merge) and pushes again.
+  clone('pull');
+  setEntityName(cReq1, 'Nudge Foreign Two');
+  clone('commit', '-a', '-m', 'clone: nudge edit two');
+  clone('push');
+  setEntityName(req2, 'Nudge Local Four');
+  await waitDirty();
+  await pane('commit-tool-message').fill('git e2e: nudge merge');
+  await pane('commit-tool-commit-push').click();
+  await confirmPushWindow();
+  await pane('git-push-rejected-merge').click();
+  // HEAD moves with the merge — compare both sides live on every poll.
+  await expect.poll(() => remoteMain() === ws('rev-parse', 'HEAD'), { timeout: 10_000 }).toBe(true);
+  expect(ws('rev-list', '--parents', '-1', 'HEAD').split(' ').length).toBe(3);
+  await waitClean();
 });
 
 // ── G10: §8.2 read-only remote — Push as New Branch from the window ─

@@ -804,6 +804,10 @@ export const workbenchChrome = {
   'workbench.gitPush.detached': 'HEAD está separado. Cambia a una rama para enviar.',
   'workbench.gitPush.push': 'Enviar',
   'workbench.gitPush.cancel': 'Cancelar',
+  'workbench.gitPush.rejected.title': 'Push rechazado',
+  'workbench.gitPush.rejected.body':
+    'El push de la rama actual "{branch}" fue rechazado. Los cambios remotos deben fusionarse antes de enviar.',
+  'workbench.gitPush.rejected.merge': 'Fusionar',
   'workbench.gitPush.failed': 'No se pudieron listar los commits a enviar: {detail}',
   'workbench.gitBranch.pushNoPermission':
     'El remoto rechazó el push: sin permiso. «Commit y Push» en la ventana Commit puede publicar el trabajo como una rama nueva.',

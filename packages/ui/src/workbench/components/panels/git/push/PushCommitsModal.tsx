@@ -1,8 +1,9 @@
 /**
  * PushCommitsModal — the Push window (the reference anatomy): the
  * commits that would go on the left under the `branch → remote :
- * branch` line, the selected commit's files and details on the
- * right, Cancel and Push in the footer. The list is `compareRefs`
+ * branch` row, the selected commit's files and details on the right —
+ * the target row, selected by default, shows every commit's files as
+ * one set — Cancel and Push in the footer. The list is `compareRefs`
  * against the upstream (the commits it lacks) or the branch's log when
  * no upstream exists yet; it refetches on status frames while open.
  * The window never pushes itself — Push runs the caller's routine so
@@ -27,7 +28,7 @@ import DiffModal from '../DiffModal';
 import FileTreeView from '../FileTreeView';
 import { useFileDiff } from '../use-file-diff';
 import PushCommitList from './PushCommitList';
-import { canPush, folderNameOf, pushTarget } from './push-window-model';
+import { canPush, folderNameOf, type PushSelection, pushTarget, unionFiles } from './push-window-model';
 
 export interface PushCommitsModalProps {
   workspaceId: string;
@@ -45,7 +46,7 @@ const PushCommitsModal: React.FC<PushCommitsModalProps> = ({ workspaceId, open, 
   const [entries, setEntries] = useState<WorkspaceTreeLogEntryWire[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [selectedSha, setSelectedSha] = useState<string | null>(null);
+  const [selection, setSelection] = useState<PushSelection>('all');
   const [busy, setBusy] = useState(false);
   const fileDiff = useFileDiff(workspaceId);
 
@@ -82,7 +83,7 @@ const PushCommitsModal: React.FC<PushCommitsModalProps> = ({ workspaceId, open, 
 
   useEffect(() => {
     if (!open) return;
-    setSelectedSha(null);
+    setSelection('all');
     void reload();
   }, [open, reload]);
 
@@ -103,7 +104,8 @@ const PushCommitsModal: React.FC<PushCommitsModalProps> = ({ workspaceId, open, 
     return map;
   }, [snapshot.refs]);
 
-  const selected = selectedSha !== null ? (entries.find((entry) => entry.sha === selectedSha) ?? null) : null;
+  const selected = selection === 'all' ? null : (entries.find((entry) => entry.sha === selection.sha) ?? null);
+  const allFiles = useMemo(() => unionFiles(entries), [entries]);
   const headSha = snapshot.status?.headSha ?? null;
 
   const confirm = async (): Promise<void> => {
@@ -181,13 +183,21 @@ const PushCommitsModal: React.FC<PushCommitsModalProps> = ({ workspaceId, open, 
             <PushCommitList
               target={target}
               entries={entries}
-              selectedSha={selectedSha}
-              onSelect={setSelectedSha}
+              selection={selection}
+              onSelect={setSelection}
               loading={loading}
             />
           </div>
           <div style={{ flex: '1 1 45%', minWidth: 0, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
-            {selected === null ? (
+            {selection === 'all' && entries.length > 0 ? (
+              <FileTreeView
+                key="all"
+                files={allFiles}
+                loadingPath={null}
+                onOpenFile={() => undefined}
+                showHeader
+              />
+            ) : selected === null ? (
               <div
                 style={{
                   flex: '1 1 auto',

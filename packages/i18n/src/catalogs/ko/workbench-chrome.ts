@@ -637,6 +637,10 @@ export const workbenchChrome = {
   'workbench.gitPush.detached': 'HEAD가 분리되어 있습니다. 푸시하려면 브랜치를 체크아웃하세요.',
   'workbench.gitPush.push': '푸시',
   'workbench.gitPush.cancel': '취소',
+  'workbench.gitPush.rejected.title': '푸시 거부됨',
+  'workbench.gitPush.rejected.body':
+    '현재 브랜치 "{branch}"의 푸시가 거부되었습니다. 푸시하기 전에 원격 변경 사항을 병합해야 합니다.',
+  'workbench.gitPush.rejected.merge': '병합',
   'workbench.gitPush.failed': '푸시할 커밋을 나열할 수 없습니다: {detail}',
   'workbench.gitBranch.pushNoPermission':
     '원격 저장소가 푸시를 거부했습니다: 권한이 없습니다. 커밋 창의 “커밋 및 푸시”로 작업을 새 브랜치로 게시할 수 있습니다.',

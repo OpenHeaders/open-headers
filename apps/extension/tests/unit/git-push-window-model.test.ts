@@ -3,14 +3,15 @@
  * tracked branch splits its upstream into remote and branch, a branch
  * without one names the first-push rule, a detached HEAD and an
  * unborn or unbound tree each read typed), the title's folder name,
- * and the Push verb's gate.
+ * the Push verb's gate, and the target row's union of files.
  */
 
-import type { WorkspaceTreeGitStatusWire } from '@openheaders/core/bridge';
+import type { WorkspaceTreeGitStatusWire, WorkspaceTreeLogEntryWire } from '@openheaders/core/bridge';
 import {
   canPush,
   folderNameOf,
   pushTarget,
+  unionFiles,
 } from '@openheaders/ui/workbench/components/panels/git/push/push-window-model';
 import { describe, expect, it } from 'vitest';
 
@@ -80,5 +81,40 @@ describe('folderNameOf / canPush', () => {
     expect(canPush(pushTarget(status()), 0)).toBe(false);
     expect(canPush(pushTarget(status({ upstream: null })), 3)).toBe(true);
     expect(canPush(pushTarget(status({ branch: null })), 3)).toBe(false);
+  });
+});
+
+function entry(sha: string, files: Array<[string, string]>): WorkspaceTreeLogEntryWire {
+  return {
+    sha: sha.padEnd(40, '0'),
+    parents: [],
+    authorName: 'John Doe',
+    authorEmail: 'john@openheaders.io',
+    authoredAt: '2026-11-02T09:00:00Z',
+    subject: sha,
+    coAuthors: [],
+    files: files.map(([path, status]) => ({ path, status })),
+  };
+}
+
+describe('unionFiles', () => {
+  it('folds newest-last so a path reads its net status across the commits', () => {
+    const newest = entry('c', [
+      ['docs/a.md', 'M'],
+      ['docs/b.md', 'D'],
+      ['new.txt', 'D'],
+    ]);
+    const oldest = entry('a', [
+      ['docs/a.md', 'A'],
+      ['docs/b.md', 'M'],
+      ['new.txt', 'A'],
+      ['keep.txt', 'M'],
+    ]);
+    expect(unionFiles([newest, oldest])).toEqual([
+      { path: 'docs/a.md', status: 'A' },
+      { path: 'docs/b.md', status: 'D' },
+      { path: 'keep.txt', status: 'M' },
+    ]);
+    expect(unionFiles([])).toEqual([]);
   });
 });
