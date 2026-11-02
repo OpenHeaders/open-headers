@@ -133,6 +133,7 @@ const PushCommitsModal: React.FC<PushCommitsModalProps> = ({ workspaceId, open, 
   const layout = usePushWindowLayout(
     workspaceId,
     { body: bodyRef, files: filesCellRef, filesBody: filesBodyRef, info: infoCellRef },
+    open,
     showInfo,
   );
   const allFiles = useMemo(() => unionFiles(entries), [entries]);

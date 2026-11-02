@@ -1,7 +1,8 @@
 /**
  * use-push-window-layout — the Push window's two sashes, wired the Git
  * window's way: the persisted prefs land on the body as custom
- * properties from a layout effect, a drag writes the one property its
+ * properties from a layout effect — re-run on every open, since the
+ * window mounts its body only while open — a drag writes the one property its
  * sash owns per pointer move, the release persists once, and a
  * double-click restores that divider's default.
  */
@@ -50,6 +51,7 @@ function applyPrefs(body: HTMLElement, prefs: PushWindowLayoutPrefs): void {
 export function usePushWindowLayout(
   workspaceId: string,
   cells: PushWindowLayoutCells,
+  open: boolean,
   showInfo: boolean,
 ): PushWindowLayout {
   const subscribe = useCallback(
@@ -60,8 +62,8 @@ export function usePushWindowLayout(
 
   useLayoutEffect(() => {
     const body = cells.body.current;
-    if (body) applyPrefs(body, prefs);
-  }, [cells.body, prefs]);
+    if (open && body) applyPrefs(body, prefs);
+  }, [cells.body, prefs, open]);
 
   const beginFiles = useCallback((): SashSession | null => {
     const body = cells.body.current;
