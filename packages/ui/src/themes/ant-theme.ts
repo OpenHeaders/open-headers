@@ -33,25 +33,38 @@ export function buildAntTheme(input: AntThemeInput): ThemeConfig {
   if (isCompactMode) algorithms.push(theme.compactAlgorithm);
   // Dark links read in a pale tint of the primary — see link-tokens.
   if (isDarkMode) algorithms.push(darkLinkAlgorithm(primaryColor));
+  const algorithm = algorithms.length === 1 ? algorithms[0] : algorithms;
+  const token = {
+    ...variant.antdTokens,
+    // Accent color is user-controlled only on variants that opt in.
+    // Tinted / high-contrast variants pin their own primary so the
+    // palette stays internally consistent.
+    ...(variant.honorsAccentColor ? { colorPrimary: accentColor } : {}),
+    // UI scale rides on the seed `fontSize` token. AntD derives
+    // controlHeight, paddings, line-heights, and icon sizes from
+    // this value via its algorithm, so a single multiplier rescales
+    // the entire chrome without per-component overrides. Editor
+    // surfaces read `editor.fontSize` directly and are unaffected.
+    fontSize: Math.round(14 * uiScale),
+    // Chrome font from the appearance preset takes priority over
+    // the variant's default fontFamily. Editor font is independent.
+    fontFamily,
+  };
+  // Dialogs sit on the panels' own ground, not antd's elevated step:
+  // the dark algorithm lifts popups one shade (`colorBgElevated`,
+  // #1f1f1f over the #141414 cards), which reads grey against the
+  // near-black workbench. The reference's dialogs share the panel
+  // ground, so the modal surfaces take the derived container color.
+  const derived = theme.getDesignToken({ algorithm, token });
   return {
-    algorithm: algorithms.length === 1 ? algorithms[0] : algorithms,
-    token: {
-      ...variant.antdTokens,
-      // Accent color is user-controlled only on variants that opt in.
-      // Tinted / high-contrast variants pin their own primary so the
-      // palette stays internally consistent.
-      ...(variant.honorsAccentColor ? { colorPrimary: accentColor } : {}),
-      // UI scale rides on the seed `fontSize` token. AntD derives
-      // controlHeight, paddings, line-heights, and icon sizes from
-      // this value via its algorithm, so a single multiplier rescales
-      // the entire chrome without per-component overrides. Editor
-      // surfaces read `editor.fontSize` directly and are unaffected.
-      fontSize: Math.round(14 * uiScale),
-      // Chrome font from the appearance preset takes priority over
-      // the variant's default fontFamily. Editor font is independent.
-      fontFamily,
-    },
+    algorithm,
+    token,
     components: {
+      Modal: {
+        contentBg: derived.colorBgContainer,
+        headerBg: derived.colorBgContainer,
+        footerBg: derived.colorBgContainer,
+      },
       // Overlay menus (every menu in the app is a Dropdown — create
       // menus, `⋯` menus, context menus, submenus) render at the
       // sidebar trees' 12px density: stock antd menu rows read

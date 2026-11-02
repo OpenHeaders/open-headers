@@ -15,6 +15,7 @@ import type React from 'react';
 import { useTheme } from '@openheaders/ui/context';
 import {
   type FileTypeIconComponent,
+  FolderIcon,
   HtmlIcon,
   IgnoredIcon,
   ImageIcon,
@@ -78,4 +79,10 @@ export const FileTypeIcon: React.FC<FileTypeIconProps> = ({ path, status }) => {
       <Icon dark={isDarkMode} linked={status === 'T'} />
     </span>
   );
+};
+
+/** The directory row's folder, in the theme's fills — every changes tree shares it. */
+export const FolderTypeIcon: React.FC = () => {
+  const { isDarkMode } = useTheme();
+  return <FolderIcon dark={isDarkMode} />;
 };

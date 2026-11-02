@@ -7,7 +7,9 @@
  * range (the upstream's blob against the local head). The files pane
  * carries the Git window's details toolbar — Show Diff, the Group By
  * / Show Details eye, Jump to Source — over the same per-workspace
- * view prefs. Cancel and Push in the footer. The list is `compareRefs`
+ * view prefs, and the two dividers (commits | files, files | info)
+ * are sashes on the Git window's track model, persisted per
+ * workspace. Cancel and Push in the footer. The list is `compareRefs`
  * against the upstream (the commits it lacks) or the branch's log when
  * no upstream exists yet; it refetches on status frames while open.
  * The window never pushes itself — Push runs the caller's routine so
@@ -22,6 +24,7 @@ import {
   type WorkspaceTreeLogEntryWire,
   type WorkspaceTreeRefWire,
 } from '@openheaders/core/bridge';
+import { Sash } from '@openheaders/ui/shared/dock-layout';
 import { Button, Modal, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
@@ -36,6 +39,7 @@ import { useFileDiff } from '../use-file-diff';
 import { useJumpToSource } from '../use-jump-to-source';
 import PushCommitList from './PushCommitList';
 import { canPush, folderNameOf, type PushSelection, pushTarget, rangeDiffBase, unionFiles } from './push-window-model';
+import { usePushWindowLayout } from './use-push-window-layout';
 
 export interface PushCommitsModalProps {
   workspaceId: string;
@@ -59,6 +63,10 @@ const PushCommitsModal: React.FC<PushCommitsModalProps> = ({ workspaceId, open, 
   const fileDiff = useFileDiff(workspaceId);
   const jumpToSource = useJumpToSource(workspaceId);
   const fileTreeRef = useRef<FileTreeViewHandle>(null);
+  const bodyRef = useRef<HTMLDivElement>(null);
+  const filesCellRef = useRef<HTMLDivElement>(null);
+  const filesBodyRef = useRef<HTMLDivElement>(null);
+  const infoCellRef = useRef<HTMLDivElement>(null);
   const subscribePrefs = useCallback(
     (listener: () => void) => subscribeGitLogViewPrefs(workspaceId, listener),
     [workspaceId],
@@ -121,6 +129,12 @@ const PushCommitsModal: React.FC<PushCommitsModalProps> = ({ workspaceId, open, 
   }, [snapshot.refs]);
 
   const selected = selection === 'all' ? null : (entries.find((entry) => entry.sha === selection.sha) ?? null);
+  const showInfo = selected !== null && prefs.showDetails;
+  const layout = usePushWindowLayout(
+    workspaceId,
+    { body: bodyRef, files: filesCellRef, filesBody: filesBodyRef, info: infoCellRef },
+    showInfo,
+  );
   const allFiles = useMemo(() => unionFiles(entries), [entries]);
   const rangeBase = useMemo(() => rangeDiffBase(target, entries, snapshot.refs), [target, entries, snapshot.refs]);
   const headSha = snapshot.status?.headSha ?? null;
@@ -171,18 +185,21 @@ const PushCommitsModal: React.FC<PushCommitsModalProps> = ({ workspaceId, open, 
         data-testid="git-push-window"
       >
         <div
+          ref={bodyRef}
           style={{
-            display: 'flex',
+            display: 'grid',
+            gridTemplateColumns: layout.columns,
+            gridTemplateRows: 'minmax(0, 1fr)',
             height: 460,
             minHeight: 0,
             border: `1px solid ${token.colorBorderSecondary}`,
             borderRadius: token.borderRadiusSM,
             overflow: 'hidden',
           }}
+          data-testid="git-push-body"
         >
           <div
             style={{
-              flex: '1 1 55%',
               minWidth: 0,
               display: 'flex',
               flexDirection: 'column',
@@ -215,7 +232,12 @@ const PushCommitsModal: React.FC<PushCommitsModalProps> = ({ workspaceId, open, 
               loading={loading}
             />
           </div>
-          <div style={{ flex: '1 1 45%', minWidth: 0, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+          <div
+            ref={filesCellRef}
+            style={{ position: 'relative', minWidth: 0, display: 'flex', flexDirection: 'column', minHeight: 0 }}
+            data-testid="git-push-files"
+          >
+            <Sash axis="x" edge="start" begin={layout.beginFiles} onReset={layout.resetFiles} />
             <GitDetailsToolbar
               canShowDiff={selectedPath !== null}
               onShowDiff={() => {
@@ -230,6 +252,17 @@ const PushCommitsModal: React.FC<PushCommitsModalProps> = ({ workspaceId, open, 
               onExpandAll={() => fileTreeRef.current?.expandAll()}
               onCollapseAll={() => fileTreeRef.current?.collapseAll()}
             />
+            <div
+              ref={filesBodyRef}
+              style={{
+                flex: '1 1 auto',
+                minHeight: 0,
+                display: 'grid',
+                gridTemplateRows: layout.filesRows,
+                gridTemplateColumns: 'minmax(0, 1fr)',
+              }}
+              data-testid="git-push-files-body"
+            >
             {selection === 'all' && entries.length > 0 ? (
               <FileTreeView
                 key="all"
@@ -257,35 +290,43 @@ const PushCommitsModal: React.FC<PushCommitsModalProps> = ({ workspaceId, open, 
               </div>
             ) : (
               <>
-                <FileTreeView
-                  key={selected.sha}
-                  ref={fileTreeRef}
-                  files={selected.files}
-                  loadingPath={fileDiff.loadingPath}
-                  selectedPath={selectedPath}
-                  onSelectFile={setSelectedPath}
-                  onOpenFile={openDiff}
-                  groupByDirectory={prefs.groupFilesByDirectory}
-                />
-                {prefs.showDetails && (
+                <div style={{ minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+                  <FileTreeView
+                    key={selected.sha}
+                    ref={fileTreeRef}
+                    files={selected.files}
+                    loadingPath={fileDiff.loadingPath}
+                    selectedPath={selectedPath}
+                    onSelectFile={setSelectedPath}
+                    onOpenFile={openDiff}
+                    groupByDirectory={prefs.groupFilesByDirectory}
+                  />
+                </div>
+                {showInfo && (
                   <div
+                    ref={infoCellRef}
                     style={{
-                      flex: '1 1 45%',
+                      position: 'relative',
                       minHeight: 0,
-                      overflowY: 'auto',
+                      display: 'flex',
+                      flexDirection: 'column',
                       borderTop: `1px solid ${token.colorBorderSecondary}`,
                     }}
                     data-testid="git-push-detail-info"
                   >
-                    <CommitDetails
-                      entry={selected}
-                      refsAtCommit={refsBySha.get(selected.sha) ?? []}
-                      isHead={selected.sha === headSha}
-                    />
+                    <Sash axis="y" edge="start" begin={layout.beginInfo} onReset={layout.resetInfo} />
+                    <div style={{ flex: '1 1 auto', minHeight: 0, overflowY: 'auto' }}>
+                      <CommitDetails
+                        entry={selected}
+                        refsAtCommit={refsBySha.get(selected.sha) ?? []}
+                        isHead={selected.sha === headSha}
+                      />
+                    </div>
                   </div>
                 )}
               </>
             )}
+            </div>
           </div>
         </div>
       </Modal>

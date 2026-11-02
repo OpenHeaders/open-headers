@@ -12,18 +12,12 @@
  * when the toolbar lives outside.
  */
 
-import {
-  ArrowsAltOutlined,
-  CaretDownOutlined,
-  CaretRightOutlined,
-  FolderOutlined,
-  ShrinkOutlined,
-} from '@ant-design/icons';
+import { ArrowsAltOutlined, CaretDownOutlined, CaretRightOutlined, ShrinkOutlined } from '@ant-design/icons';
 import { Button, Dropdown, type MenuProps, Spin, theme } from 'antd';
 import type React from 'react';
 import { forwardRef, useImperativeHandle, useMemo, useState } from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
-import { FileTypeIcon } from './commit/FileTypeIcon';
+import { FileTypeIcon, FolderTypeIcon } from './commit/FileTypeIcon';
 import { allDirKeys, buildFileTree, type FileTreeNode } from './file-tree';
 import { contextMenuAlign } from './git-menu-overflow';
 
@@ -139,7 +133,7 @@ const FileTreeView = forwardRef<FileTreeViewHandle, FileTreeViewProps>(function 
               <span aria-hidden style={slotStyle}>
                 {open ? <CaretDownOutlined /> : <CaretRightOutlined />}
               </span>
-              <FolderOutlined style={{ flex: '0 0 auto', fontSize: 14, color: token.colorTextTertiary }} />
+              <FolderTypeIcon />
               <span
                 style={{ flex: '0 1 auto', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
               >

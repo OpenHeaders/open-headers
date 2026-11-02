@@ -27,7 +27,7 @@
  * the row context menu (focus moves into the menu).
  */
 
-import { CaretDownOutlined, CaretRightOutlined, FolderOutlined } from '@ant-design/icons';
+import { CaretDownOutlined, CaretRightOutlined } from '@ant-design/icons';
 import type { WorkspaceTreeWorkingChangeWire } from '@openheaders/core/bridge';
 import { Checkbox, Dropdown, theme } from 'antd';
 import type { MenuProps } from 'antd';
@@ -47,7 +47,7 @@ import {
   isRowChecked,
 } from './commit-model';
 import { baseName, commitFileRowKey, flatSortedRows, rootCompressed, visibleCommitRows } from './commit-tree-nav';
-import { FileTypeIcon } from './FileTypeIcon';
+import { FileTypeIcon, FolderTypeIcon } from './FileTypeIcon';
 import { vcsFileColor, vcsPalette } from './vcs-colors';
 
 export interface CommitChangesTreeProps {
@@ -542,7 +542,7 @@ const CommitChangesTree = forwardRef<CommitChangesTreeHandle, CommitChangesTreeP
                   data-testid="commit-tool-dir-check"
                 />
               )}
-              <FolderOutlined style={{ flex: '0 0 auto', fontSize: 14, color: token.colorTextTertiary }} />
+              <FolderTypeIcon />
               <span
                 style={{
                   flex: '0 1 auto',
@@ -614,7 +614,7 @@ const CommitChangesTree = forwardRef<CommitChangesTreeHandle, CommitChangesTreeP
               data-testid="commit-tool-root-check"
             />
           )}
-          <FolderOutlined style={{ flex: '0 0 auto', fontSize: 14, color: token.colorTextTertiary }} />
+          <FolderTypeIcon />
           {rootLabel.length > 0 && (
             <span
               style={{

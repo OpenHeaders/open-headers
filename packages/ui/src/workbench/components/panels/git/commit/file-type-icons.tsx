@@ -4,7 +4,8 @@
  * shell box with a prompt, the YAML page with its Y, JSON braces, the
  * XML and HTML chevrons, filled TS / JS badges, the picture frame, the
  * `?` page for a file whose type cannot be read, the module box, and
- * the ⊘ ignored glyph. Every icon carries both themes' fills, chosen
+ * the ⊘ ignored glyph, and the filled folder every changes tree
+ * puts before a directory row. Every icon carries both themes' fills, chosen
  * by the caller; a symlink lays the link arrow over the base icon
  * (the markdown icon drops its own arrow underneath).
  */
@@ -38,6 +39,17 @@ const blue = (dark: boolean): string => (dark ? '#5A8DEE' : '#2E6BDF');
 /** The link arrow in the top-right corner. */
 const LinkOverlay: React.FC<{ dark: boolean }> = ({ dark }) => (
   <path d="M10.5 5.5L15 1M11.5 1H15v3.5" stroke={ink(dark)} {...LINE} />
+);
+
+/** The directory row's filled folder (the reference's 16px shape): a tab on the left, a body below. */
+export const FolderIcon: React.FC<{ dark: boolean }> = ({ dark }) => (
+  <Svg>
+    <path
+      d="M1.5 4a1 1 0 0 1 1-1h3.3a1 1 0 0 1 .7.3L7.6 4.4a1 1 0 0 0 .7.3h5.2a1 1 0 0 1 1 1V12a1 1 0 0 1-1 1h-11a1 1 0 0 1-1-1z"
+      fill={dark ? '#9DA2AB' : '#8C919B'}
+    />
+    <path d="M1.5 6.5h13" stroke={dark ? '#2B2D30' : '#FFFFFF'} strokeWidth="1" />
+  </Svg>
 );
 
 export const TextIcon: FileTypeIconComponent = ({ dark, linked }) => (
