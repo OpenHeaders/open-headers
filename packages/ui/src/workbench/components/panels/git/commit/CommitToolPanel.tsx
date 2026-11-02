@@ -527,14 +527,16 @@ const CommitToolPanel: React.FC<CommitToolPanelProps> = ({ info, onHide }) => {
               {t('workbench.commitTool.detached.message', { sha: detachedSha.slice(0, 8) })}
             </span>
           }
-          action={
-            <Button
-              size="small"
-              onClick={() => setCreateBranchFrom(detachedSha.slice(0, 8))}
-              data-testid="commit-tool-detached-new-branch"
-            >
-              {t('workbench.commitTool.detached.newBranch')}
-            </Button>
+          description={
+            <div style={{ display: 'flex', gap: 8 }}>
+              <Button
+                size="small"
+                onClick={() => setCreateBranchFrom(detachedSha.slice(0, 8))}
+                data-testid="commit-tool-detached-new-branch"
+              >
+                {t('workbench.commitTool.detached.newBranch')}
+              </Button>
+            </div>
           }
           style={{ borderRadius: 0 }}
           data-testid="commit-tool-detached"
