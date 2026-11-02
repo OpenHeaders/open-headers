@@ -644,8 +644,13 @@ export function createWorkspaceTreeRuntime(options: WorkspaceTreeRuntimeOptions)
       return runCompareRefs(ctx, workspaceId, ref);
     },
 
-    fileDiff(workspaceId: string, sha: string, filePath: string): Promise<WorkspaceTreeFileDiffRpcResult> {
-      return runFileDiff(ctx, workspaceId, sha, filePath);
+    fileDiff(
+      workspaceId: string,
+      sha: string,
+      filePath: string,
+      base?: string,
+    ): Promise<WorkspaceTreeFileDiffRpcResult> {
+      return runFileDiff(ctx, workspaceId, sha, filePath, base);
     },
 
     gitConsole(workspaceId: string): Promise<WorkspaceTreeGitConsoleRpcResult> {

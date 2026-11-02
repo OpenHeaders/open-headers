@@ -1244,6 +1244,28 @@ describe('commit file diff (Phase 7 slice 3)', () => {
     expect(added.diff.newContent).toBe('schemaVersion: 5\nuid: r0000001\n');
   });
 
+  it('a base commit moves the old side to that commit across a range', async () => {
+    await initialCommit();
+    await write('workspace.yaml', 'schemaVersion: 5\nuid: wsaaaaaa\nname: Probe One\n');
+    const baseSha = await commitHere('Edit one');
+    await write('workspace.yaml', 'schemaVersion: 5\nuid: wsaaaaaa\nname: Probe Two\n');
+    await commitHere('Edit two');
+    await write('workspace.yaml', 'schemaVersion: 5\nuid: wsaaaaaa\nname: Probe Three\n');
+    const headSha = await commitHere('Edit three');
+
+    const range = await readCommitFileDiff(run, tmpDir, headSha, 'workspace.yaml', undefined, baseSha);
+    if (!range.ok) throw new Error(`diff refused: ${range.reason}`);
+    expect(range.diff.oldContent).toBe('schemaVersion: 5\nuid: wsaaaaaa\nname: Probe One\n');
+    expect(range.diff.newContent).toBe('schemaVersion: 5\nuid: wsaaaaaa\nname: Probe Three\n');
+
+    const single = await readCommitFileDiff(run, tmpDir, headSha, 'workspace.yaml');
+    if (!single.ok) throw new Error(`diff refused: ${single.reason}`);
+    expect(single.diff.oldContent).toBe('schemaVersion: 5\nuid: wsaaaaaa\nname: Probe Two\n');
+
+    const bogus = await readCommitFileDiff(run, tmpDir, headSha, 'workspace.yaml', undefined, 'HEAD~2');
+    expect(bogus).toEqual({ ok: false, reason: 'unknown-commit' });
+  });
+
   it('answers a null new side for a deleted file', async () => {
     await initialCommit();
     await write('rules/block-r0000001/rule.yaml', 'schemaVersion: 5\nuid: r0000001\n');

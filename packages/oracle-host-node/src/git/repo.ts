@@ -1110,11 +1110,14 @@ async function readBlobSize(run: GitRunner, rootDir: string, rev: string): Promi
  * diff read. The old side is the FIRST parent's blob (`<sha>^:<path>`),
  * so an added file answers a null old side and a deleted file a null
  * new side; a rename's old-name blob is not chased (the record already
- * reports where the file lives now, like {@link listCommitLog}). The
- * caller supplies a validated full sha ({@link isCommitSha}) and plain
- * tree path ({@link isSafeTreePath}); both are re-checked here as
- * defense in depth. Binary changes (git's own `--numstat` verdict) and
- * blobs over `maxBytes` answer typed flags with sizes but no contents.
+ * reports where the file lives now, like {@link listCommitLog}). With
+ * `baseSha` the old side is THAT commit's blob instead — one path's
+ * change across a range (the Push window: the upstream's blob against
+ * the local head). The caller supplies validated full shas
+ * ({@link isCommitSha}) and a plain tree path ({@link isSafeTreePath});
+ * all are re-checked here as defense in depth. Binary changes (git's
+ * own `--numstat` verdict) and blobs over `maxBytes` answer typed flags
+ * with sizes but no contents.
  */
 export async function readCommitFileDiff(
   run: GitRunner,
@@ -1122,16 +1125,22 @@ export async function readCommitFileDiff(
   sha: string,
   filePath: string,
   maxBytes: number = COMMIT_FILE_DIFF_MAX_BYTES,
+  baseSha?: string,
 ): Promise<CommitFileDiffResult> {
   if (!isCommitSha(sha)) return { ok: false, reason: 'unknown-commit' };
+  if (baseSha !== undefined && !isCommitSha(baseSha)) return { ok: false, reason: 'unknown-commit' };
   if (!isSafeTreePath(filePath)) return { ok: false, reason: 'unknown-path' };
-  const commit = await run([...repoArgs(rootDir), 'rev-parse', '--verify', '--quiet', `${sha}^{commit}`], {
-    cwd: rootDir,
-  });
-  if (commit.code !== 0) return { ok: false, reason: 'unknown-commit' };
+  for (const target of baseSha === undefined ? [sha] : [sha, baseSha]) {
+    const commit = await run([...repoArgs(rootDir), 'rev-parse', '--verify', '--quiet', `${target}^{commit}`], {
+      cwd: rootDir,
+    });
+    if (commit.code !== 0) return { ok: false, reason: 'unknown-commit' };
+  }
 
   const numstat = await run(
-    [...repoArgs(rootDir), 'diff-tree', '-r', '-z', '--root', '--no-commit-id', '--numstat', sha, '--', filePath],
+    baseSha === undefined
+      ? [...repoArgs(rootDir), 'diff-tree', '-r', '-z', '--root', '--no-commit-id', '--numstat', sha, '--', filePath]
+      : [...repoArgs(rootDir), 'diff-tree', '-r', '-z', '--numstat', baseSha, sha, '--', filePath],
     { cwd: rootDir },
   );
   if (numstat.code !== 0) return { ok: false, reason: 'diff-failed', detail: failureDetail(numstat) };
@@ -1139,7 +1148,7 @@ export async function readCommitFileDiff(
   if (record === undefined) return { ok: false, reason: 'unknown-path' };
   const binary = record.startsWith('-\t-\t');
 
-  const oldRev = `${sha}^:${filePath}`;
+  const oldRev = baseSha === undefined ? `${sha}^:${filePath}` : `${baseSha}:${filePath}`;
   const newRev = `${sha}:${filePath}`;
   const oldSize = await readBlobSize(run, rootDir, oldRev);
   const newSize = await readBlobSize(run, rootDir, newRev);

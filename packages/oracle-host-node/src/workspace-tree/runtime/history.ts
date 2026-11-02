@@ -190,6 +190,7 @@ export async function runFileDiff(
   workspaceId: string,
   sha: string,
   filePath: string,
+  base?: string,
 ): Promise<WorkspaceTreeFileDiffRpcResult> {
   const binding = ctx.open.get(workspaceId);
   if (!binding) return { ok: false, reason: 'not-bound' };
@@ -200,8 +201,9 @@ export async function runFileDiff(
   // Same posture as the ref-scoped log: caller-supplied targets are
   // validated shapes, never revision expressions (§9 slice 2/3).
   if (!isCommitSha(sha)) return { ok: false, reason: 'unknown-commit' };
+  if (base !== undefined && !isCommitSha(base)) return { ok: false, reason: 'unknown-commit' };
   if (!isSafeTreePath(filePath)) return { ok: false, reason: 'unknown-path' };
-  return readCommitFileDiff(ctx.gitRun, rootDir, sha, filePath);
+  return readCommitFileDiff(ctx.gitRun, rootDir, sha, filePath, undefined, base);
 }
 
 /** Console-tab read: this binding's slice of the audit ring (cwd inside its root). */

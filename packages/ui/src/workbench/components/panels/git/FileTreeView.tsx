@@ -2,7 +2,8 @@
  * FileTreeView — the detail pane's changed-paths tree (
  * grouping: single-child dir chains fold into one `a/b/c` node with an
  * `N files` badge, or flat full-path rows while Group By Directory is
- * off), filenames colored by porcelain status. With a selection
+ * off), filenames in the UI face behind the Commit tree's file-type
+ * icon and colored by porcelain status. With a selection
  * handler wired (the log pane), a click selects the row and a
  * double-click opens the diff — the pane toolbar's Show Diff drives
  * the selection; without one (the compare pane) a click opens the diff
@@ -22,6 +23,7 @@ import { Button, Dropdown, type MenuProps, Spin, theme } from 'antd';
 import type React from 'react';
 import { forwardRef, useImperativeHandle, useMemo, useState } from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
+import { FileTypeIcon } from './commit/FileTypeIcon';
 import { allDirKeys, buildFileTree, type FileTreeNode } from './file-tree';
 import { contextMenuAlign } from './git-menu-overflow';
 
@@ -169,6 +171,7 @@ const FileTreeView = forwardRef<FileTreeViewHandle, FileTreeViewProps>(function 
           data-path={node.path}
         >
           <span aria-hidden style={slotStyle} />
+          <FileTypeIcon path={node.path} status={node.status} />
           <span
             style={{
               flex: '0 1 auto',
@@ -176,7 +179,6 @@ const FileTreeView = forwardRef<FileTreeViewHandle, FileTreeViewProps>(function 
               overflow: 'hidden',
               textOverflow: 'ellipsis',
               whiteSpace: 'nowrap',
-              fontFamily: token.fontFamilyCode,
               color: statusColor(node.status, token),
             }}
           >

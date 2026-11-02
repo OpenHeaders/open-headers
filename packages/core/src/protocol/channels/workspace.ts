@@ -610,11 +610,14 @@ export interface WorkspaceRpc {
    * One file's change in one commit (§9, Phase 7 slice 3): the old and
    * new blob contents as a pair — the Monaco diff pane's feed. `sha`
    * must be a full commit hash from `log`'s answer (never a revision
-   * expression); the old side is the first parent's blob. Binary files
-   * and blobs over the size cap answer typed flags with no contents.
+   * expression); the old side is the first parent's blob, or `base`'s
+   * blob when that full commit hash rides along (the Push window's
+   * range read: everything the push carries for one path). Binary
+   * files and blobs over the size cap answer typed flags with no
+   * contents.
    */
   'oh.workspaceTree.fileDiff': {
-    req: { workspaceId: string; sha: string; path: string };
+    req: { workspaceId: string; sha: string; path: string; base?: string };
     res: WorkspaceTreeFileDiffWire;
   };
   /**

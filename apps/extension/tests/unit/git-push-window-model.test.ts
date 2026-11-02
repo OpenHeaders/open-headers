@@ -6,11 +6,16 @@
  * the Push verb's gate, and the target row's union of files.
  */
 
-import type { WorkspaceTreeGitStatusWire, WorkspaceTreeLogEntryWire } from '@openheaders/core/bridge';
+import type {
+  WorkspaceTreeGitStatusWire,
+  WorkspaceTreeLogEntryWire,
+  WorkspaceTreeRefWire,
+} from '@openheaders/core/bridge';
 import {
   canPush,
   folderNameOf,
   pushTarget,
+  rangeDiffBase,
   unionFiles,
 } from '@openheaders/ui/workbench/components/panels/git/push/push-window-model';
 import { describe, expect, it } from 'vitest';
@@ -116,5 +121,24 @@ describe('unionFiles', () => {
       { path: 'keep.txt', status: 'M' },
     ]);
     expect(unionFiles([])).toEqual([]);
+  });
+});
+
+describe('rangeDiffBase', () => {
+  const refs: WorkspaceTreeRefWire[] = [
+    { name: 'main', kind: 'local', sha: 'a'.repeat(40) },
+    { name: 'origin/main', kind: 'remote', sha: 'd'.repeat(40) },
+  ];
+
+  it('a tracked branch diffs against the upstream ref row', () => {
+    expect(rangeDiffBase(pushTarget(status()), [entry('c', [])], refs)).toBe('d'.repeat(40));
+    expect(rangeDiffBase(pushTarget(status({ upstream: 'origin/other' })), [entry('c', [])], refs)).toBeNull();
+  });
+
+  it("a branch without an upstream diffs from the oldest outgoing commit's first parent", () => {
+    const oldest = { ...entry('a', []), parents: ['9'.repeat(40)] };
+    expect(rangeDiffBase(pushTarget(status({ upstream: null })), [entry('c', []), oldest], refs)).toBe('9'.repeat(40));
+    expect(rangeDiffBase(pushTarget(status({ upstream: null })), [entry('c', [])], refs)).toBeNull();
+    expect(rangeDiffBase(pushTarget(status({ branch: null })), [entry('c', [])], refs)).toBeNull();
   });
 });

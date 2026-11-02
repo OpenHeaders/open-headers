@@ -242,8 +242,9 @@ export async function dispatchWorkspaceTreeRpc(
     const workspaceId = typeof message.workspaceId === 'string' ? message.workspaceId : '';
     const sha = typeof message.sha === 'string' ? message.sha : '';
     const filePath = typeof message.path === 'string' ? message.path : '';
+    const base = typeof message.base === 'string' ? message.base : undefined;
     if (!workspaceId || !sha || !filePath || runtime === null) return { ok: false, reason: 'not-bound' };
-    return await runtime.fileDiff(workspaceId, sha, filePath);
+    return await runtime.fileDiff(workspaceId, sha, filePath, base);
   }
   // Commit tool window (§9): the changes-tree read, the working-tree
   // diff, and the user-driven pathspec commit (Amend carve-out with

@@ -3,7 +3,9 @@
  * commits that would go on the left under the `branch → remote :
  * branch` row, the selected commit's files and details on the right —
  * the target row, selected by default, shows every commit's files as
- * one set — Cancel and Push in the footer. The list is `compareRefs`
+ * one set, and a double-click there diffs the path across the whole
+ * range (the upstream's blob against the local head) — Cancel and Push
+ * in the footer. The list is `compareRefs`
  * against the upstream (the commits it lacks) or the branch's log when
  * no upstream exists yet; it refetches on status frames while open.
  * The window never pushes itself — Push runs the caller's routine so
@@ -28,7 +30,7 @@ import DiffModal from '../DiffModal';
 import FileTreeView from '../FileTreeView';
 import { useFileDiff } from '../use-file-diff';
 import PushCommitList from './PushCommitList';
-import { canPush, folderNameOf, type PushSelection, pushTarget, unionFiles } from './push-window-model';
+import { canPush, folderNameOf, type PushSelection, pushTarget, rangeDiffBase, unionFiles } from './push-window-model';
 
 export interface PushCommitsModalProps {
   workspaceId: string;
@@ -47,6 +49,7 @@ const PushCommitsModal: React.FC<PushCommitsModalProps> = ({ workspaceId, open, 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selection, setSelection] = useState<PushSelection>('all');
+  const [selectedPath, setSelectedPath] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const fileDiff = useFileDiff(workspaceId);
 
@@ -84,6 +87,7 @@ const PushCommitsModal: React.FC<PushCommitsModalProps> = ({ workspaceId, open, 
   useEffect(() => {
     if (!open) return;
     setSelection('all');
+    setSelectedPath(null);
     void reload();
   }, [open, reload]);
 
@@ -106,6 +110,7 @@ const PushCommitsModal: React.FC<PushCommitsModalProps> = ({ workspaceId, open, 
 
   const selected = selection === 'all' ? null : (entries.find((entry) => entry.sha === selection.sha) ?? null);
   const allFiles = useMemo(() => unionFiles(entries), [entries]);
+  const rangeBase = useMemo(() => rangeDiffBase(target, entries, snapshot.refs), [target, entries, snapshot.refs]);
   const headSha = snapshot.status?.headSha ?? null;
 
   const confirm = async (): Promise<void> => {
@@ -184,7 +189,10 @@ const PushCommitsModal: React.FC<PushCommitsModalProps> = ({ workspaceId, open, 
               target={target}
               entries={entries}
               selection={selection}
-              onSelect={setSelection}
+              onSelect={(next) => {
+                setSelection(next);
+                setSelectedPath(null);
+              }}
               loading={loading}
             />
           </div>
@@ -193,8 +201,12 @@ const PushCommitsModal: React.FC<PushCommitsModalProps> = ({ workspaceId, open, 
               <FileTreeView
                 key="all"
                 files={allFiles}
-                loadingPath={null}
-                onOpenFile={() => undefined}
+                loadingPath={fileDiff.loadingPath}
+                selectedPath={selectedPath}
+                onSelectFile={setSelectedPath}
+                onOpenFile={(path) => {
+                  if (headSha !== null) void fileDiff.open(headSha, path, rangeBase ?? undefined);
+                }}
                 showHeader
               />
             ) : selected === null ? (
@@ -217,6 +229,8 @@ const PushCommitsModal: React.FC<PushCommitsModalProps> = ({ workspaceId, open, 
                   key={selected.sha}
                   files={selected.files}
                   loadingPath={fileDiff.loadingPath}
+                  selectedPath={selectedPath}
+                  onSelectFile={setSelectedPath}
                   onOpenFile={(path) => void fileDiff.open(selected.sha, path)}
                   showHeader
                 />

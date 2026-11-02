@@ -490,8 +490,10 @@ export interface WorkspaceTreeRuntime {
    * One file's old/new blob pair in one commit (§9, Phase 7 slice 3) —
    * the diff pane's feed. `sha` must be a FULL commit hash from `log`'s
    * answer and `path` a plain tree path; anything else refuses typed.
+   * `base`, another full hash, moves the old side from the first
+   * parent to that commit's blob (the Push window's range read).
    */
-  fileDiff(workspaceId: string, sha: string, path: string): Promise<WorkspaceTreeFileDiffRpcResult>;
+  fileDiff(workspaceId: string, sha: string, path: string, base?: string): Promise<WorkspaceTreeFileDiffRpcResult>;
   /**
    * The Console tab's read-only feed (§9): audit rows of every
    * state-changing git command the engine ran in this binding's repo,

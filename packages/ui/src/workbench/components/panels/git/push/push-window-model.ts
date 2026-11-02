@@ -6,7 +6,11 @@
  * title's folder name. No bridge, no React.
  */
 
-import type { WorkspaceTreeGitStatusWire, WorkspaceTreeLogEntryWire } from '@openheaders/core/bridge';
+import type {
+  WorkspaceTreeGitStatusWire,
+  WorkspaceTreeLogEntryWire,
+  WorkspaceTreeRefWire,
+} from '@openheaders/core/bridge';
 
 /** One changed path of a log entry — the bridge re-exports the entry, not its file row. */
 type PushFile = WorkspaceTreeLogEntryWire['files'][number];
@@ -71,4 +75,22 @@ export function unionFiles(entries: readonly WorkspaceTreeLogEntryWire[]): PushF
     }
   }
   return [...byPath.entries()].map(([path, status]) => ({ path, status }));
+}
+
+/**
+ * The old side of the target row's range diff: the upstream's commit
+ * (its ref row's sha) when the branch tracks one, else the oldest
+ * outgoing commit's first parent; null when the range starts at the
+ * root (the diff then reads the head's own change, old side empty).
+ */
+export function rangeDiffBase(
+  target: PushTarget,
+  entries: readonly WorkspaceTreeLogEntryWire[],
+  refs: readonly WorkspaceTreeRefWire[],
+): string | null {
+  if (target.kind === 'upstream') {
+    return refs.find((ref) => ref.kind === 'remote' && ref.name === target.upstream)?.sha ?? null;
+  }
+  if (target.kind !== 'new-upstream' || entries.length === 0) return null;
+  return entries[entries.length - 1].parents[0] ?? null;
 }
