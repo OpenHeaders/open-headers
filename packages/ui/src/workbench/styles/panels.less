@@ -38,6 +38,15 @@
 .commit-tool-tree {
   outline: none;
   scrollbar-width: thin;
+
+  // The IDE's 24px row: antd's checkbox wrapper carries the body line
+  // height (22px) and would stretch the 16px line box to 30px.
+  .ant-checkbox-wrapper {
+    display: inline-flex;
+    align-items: center;
+    height: 16px;
+    line-height: 16px;
+  }
 }
 
 // Commit tree selection = the sidebar trees' focused-cursor pair

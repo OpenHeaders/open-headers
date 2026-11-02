@@ -1,5 +1,5 @@
 /**
- * CommitToolPanel — the Commit tool window (IDE companion of the Git
+ * CommitToolPanel — the Commit tool window (companion of the Git
  * window, S22): the checkable changes tree over the `changes` verb,
  * the working-tree diff on double-click, and the user-driven pathspec
  * commit with Amend / Sign-off / per-commit hooks. Unbound, the body
@@ -66,6 +66,7 @@ const CommitToolPanel: React.FC<CommitToolPanelProps> = ({ info, onHide }) => {
   const workspaceId = useActiveWorkspaceId();
 
   const [bound, setBound] = useState(false);
+  const [rootDir, setRootDir] = useState<string | null>(null);
   const [bypassHooksSetting, setBypassHooksSetting] = useState(false);
   const [rows, setRows] = useState<WorkspaceTreeWorkingChangeWire[]>([]);
   const [checked, setChecked] = useState<CheckedState>(EMPTY_CHECKED_STATE);
@@ -120,9 +121,10 @@ const CommitToolPanel: React.FC<CommitToolPanelProps> = ({ info, onHide }) => {
     }
     try {
       const list = await hostBridge.call('oh.workspaceTree.list');
-      const isBound = list.bindings.some((row) => row.workspaceId === workspaceId);
-      setBound(isBound);
-      if (!isBound) return;
+      const binding = list.bindings.find((row) => row.workspaceId === workspaceId) ?? null;
+      setBound(binding !== null);
+      setRootDir(binding?.rootDir ?? null);
+      if (binding === null) return;
       const status = await hostBridge.call('oh.workspaceTree.gitStatus', { workspaceId });
       setBypassHooksSetting(status.bypassHooks);
       setCurrentBranch(status.branch);
@@ -169,7 +171,7 @@ const CommitToolPanel: React.FC<CommitToolPanelProps> = ({ info, onHide }) => {
     [rows],
   );
 
-  // Amend prefill (the IDE gesture): checking Amend swaps the box to
+  // Amend prefill (the reference gesture): checking Amend swaps the box to
   // HEAD's subject, unchecking restores the stashed draft.
   const handleAmendChange = useCallback(
     (next: boolean): void => {
@@ -321,7 +323,7 @@ const CommitToolPanel: React.FC<CommitToolPanelProps> = ({ info, onHide }) => {
     [workspaceId],
   );
 
-  // Commit File… (IDE gesture, scoped to our own commit UI): check
+  // Commit File… (reference gesture, scoped to our own commit UI): check
   // ONLY that file and land in the message box.
   const handleCommitPaths = useCallback(
     (paths: readonly string[]): void => {
@@ -556,6 +558,7 @@ const CommitToolPanel: React.FC<CommitToolPanelProps> = ({ info, onHide }) => {
         onOpenFile={(filePath) => void handleOpenDiff(filePath)}
         groupByDirectory={prefs.groupByDirectory}
         showIgnored={prefs.showIgnored}
+        rootLabel={rootDir === null ? '' : (rootDir.replace(/[\\/]+$/, '').split(/[\\/]/).pop() ?? '')}
         rowMenu={rowMenu}
       />
       {pushRecovery && (

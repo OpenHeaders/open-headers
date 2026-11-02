@@ -24,9 +24,18 @@ export function baseName(filePath: string): string {
   return filePath.slice(filePath.lastIndexOf('/') + 1);
 }
 
-/** The IDE's flat order: by filename, ties by full path. */
+/** The reference ordinal case-insensitive compare — non-ASCII sorts after ASCII (`Ünïcode` last). */
+function ordinalIgnoreCase(a: string, b: string): number {
+  const x = a.toLowerCase();
+  const y = b.toLowerCase();
+  return x < y ? -1 : x > y ? 1 : 0;
+}
+
+/** The reference flat order: by filename, ties by full path. */
 export function flatSortedRows(rows: readonly WorkspaceTreeWorkingChangeWire[]): WorkspaceTreeWorkingChangeWire[] {
-  return [...rows].sort((a, b) => baseName(a.path).localeCompare(baseName(b.path)) || a.path.localeCompare(b.path));
+  return [...rows].sort(
+    (a, b) => ordinalIgnoreCase(baseName(a.path), baseName(b.path)) || ordinalIgnoreCase(a.path, b.path),
+  );
 }
 
 export function commitFileRowKey(path: string): string {
@@ -34,7 +43,7 @@ export function commitFileRowKey(path: string): string {
 }
 
 /**
- * The IDE's content-root compression: the nameless root node collapses
+ * The reference content-root compression: the nameless root node collapses
  * away when the whole tree is one single-child directory chain — the
  * chain (already compressed by `buildFileTree`) hangs directly off the
  * group header. A lone top-level FILE cannot merge into a chain, so it

@@ -1,47 +1,81 @@
 /**
- * FileTypeIcon — the per-type glyph before a changes-tree row name
- * (IDE reference): `{}` for JSON, `</>` for markup, a JS/TS badge,
- * ⊘ for git dotfiles, plain file glyphs for text/images/rest. Colored
- * text glyphs mirror the IDE's file-type tints; outline icons stay on
- * the tertiary text color.
+ * FileTypeIcon — the per-type icon before a changes-tree row name,
+ * resolved from the file's extension and porcelain status to one of
+ * the 16px icons in `file-type-icons`: markdown, shell, YAML, JSON,
+ * XML, HTML, TS / JS badges, image, module, the ⊘ glyph for git
+ * dotfiles, text lines for plain text and for any unknown extension
+ * that still exists, `?` for a deleted file whose type cannot be read
+ * (a type is sniffed from content, which a deleted file no longer
+ * has). A type-changed row (`T`, a file that became a symlink) carries
+ * the link arrow overlay. The theme picks the light or dark variant's
+ * fills.
  */
 
-import { FileImageOutlined, FileOutlined, FileTextOutlined, StopOutlined } from '@ant-design/icons';
-import { theme } from 'antd';
 import type React from 'react';
+import { useTheme } from '@openheaders/ui/context';
+import {
+  type FileTypeIconComponent,
+  HtmlIcon,
+  IgnoredIcon,
+  ImageIcon,
+  JavaScriptIcon,
+  JsonIcon,
+  MarkdownIcon,
+  ModuleIcon,
+  ShellIcon,
+  TextIcon,
+  TypeScriptIcon,
+  UnknownIcon,
+  XmlIcon,
+  YamlIcon,
+} from './file-type-icons';
 
-const GLYPH_STYLE: React.CSSProperties = {
-  display: 'inline-flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  width: 18,
-  flex: '0 0 auto',
-  fontSize: 12,
-  fontWeight: 700,
-  lineHeight: 1,
-};
+export interface FileTypeIconProps {
+  path: string;
+  /** Porcelain status letter — `D` reads `?` on unknown types, `T` carries the symlink arrow. */
+  status?: string;
+}
 
-export const FileTypeIcon: React.FC<{ path: string }> = ({ path }) => {
-  const { token } = theme.useToken();
+const IMAGE_EXTS = new Set(['png', 'jpg', 'jpeg', 'gif', 'webp', 'ico', 'bmp', 'svg']);
+const TEXT_EXTS = new Set(['txt', 'log', 'env', 'cfg', 'ini', 'conf', 'properties', 'csv']);
+const SHELL_EXTS = new Set(['sh', 'bash', 'zsh', 'fish']);
+
+function resolve(ext: string, name: string, status: string | undefined): FileTypeIconComponent {
+  if (name === '.gitignore' || name === '.gitattributes') return IgnoredIcon;
+  if (ext === 'md' || ext === 'markdown') return MarkdownIcon;
+  if (ext === 'yaml' || ext === 'yml') return YamlIcon;
+  if (ext === 'json') return JsonIcon;
+  if (ext === 'xml') return XmlIcon;
+  if (ext === 'html' || ext === 'htm') return HtmlIcon;
+  if (ext === 'js' || ext === 'mjs' || ext === 'cjs') return JavaScriptIcon;
+  if (ext === 'ts' || ext === 'tsx') return TypeScriptIcon;
+  if (ext === 'iml') return ModuleIcon;
+  if (SHELL_EXTS.has(ext)) return ShellIcon;
+  if (IMAGE_EXTS.has(ext)) return ImageIcon;
+  if (status === 'D' && !TEXT_EXTS.has(ext)) return UnknownIcon;
+  return TextIcon;
+}
+
+export const FileTypeIcon: React.FC<FileTypeIconProps> = ({ path, status }) => {
+  const { isDarkMode } = useTheme();
   const name = path.slice(path.lastIndexOf('/') + 1).toLowerCase();
-  const ext = name.slice(name.lastIndexOf('.') + 1);
-
-  if (name === '.gitignore' || name === '.gitattributes') {
-    return <StopOutlined style={{ ...GLYPH_STYLE, fontSize: 15, color: token.colorTextTertiary }} />;
-  }
-  if (ext === 'json') return <span style={{ ...GLYPH_STYLE, color: '#9876AA' }}>{'{}'}</span>;
-  if (ext === 'xml' || ext === 'html' || ext === 'svg') {
-    return <span style={{ ...GLYPH_STYLE, fontSize: 12, color: '#E8A33D' }}>{'</>'}</span>;
-  }
-  if (ext === 'js' || ext === 'mjs' || ext === 'cjs') {
-    return <span style={{ ...GLYPH_STYLE, fontSize: 11, color: '#E9CA4B' }}>JS</span>;
-  }
-  if (ext === 'ts' || ext === 'tsx') return <span style={{ ...GLYPH_STYLE, fontSize: 11, color: '#548AF7' }}>TS</span>;
-  if (ext === 'png' || ext === 'jpg' || ext === 'jpeg' || ext === 'gif' || ext === 'webp' || ext === 'ico') {
-    return <FileImageOutlined style={{ ...GLYPH_STYLE, fontSize: 15, color: token.colorTextTertiary }} />;
-  }
-  if (ext === 'yaml' || ext === 'yml' || ext === 'md' || ext === 'txt' || ext === 'log') {
-    return <FileTextOutlined style={{ ...GLYPH_STYLE, fontSize: 15, color: token.colorTextTertiary }} />;
-  }
-  return <FileOutlined style={{ ...GLYPH_STYLE, fontSize: 15, color: token.colorTextTertiary }} />;
+  const dot = name.lastIndexOf('.');
+  const ext = dot === -1 ? '' : name.slice(dot + 1);
+  const Icon = resolve(ext, name, status);
+  return (
+    <span
+      style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        width: 18,
+        height: 16,
+        flex: '0 0 auto',
+      }}
+      data-testid="commit-tool-file-icon"
+      data-ext={ext}
+    >
+      <Icon dark={isDarkMode} linked={status === 'T'} />
+    </span>
+  );
 };

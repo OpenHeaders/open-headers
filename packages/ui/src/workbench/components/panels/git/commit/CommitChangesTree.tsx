@@ -1,20 +1,22 @@
 /**
- * CommitChangesTree — the Commit window's checkable changes tree (IDE
- * reference, font/size/format-exact): the UI font at 12px on the
+ * CommitChangesTree — the Commit window's checkable changes tree (font,
+ * size and format exact to the reference design): the UI font at 12px on the
  * sidebar trees' 24px row (never monospace), per-type file glyphs,
- * and the IDE's default FLAT format — basename + a dim directory
+ * and the reference default FLAT format — basename + a dim directory
  * suffix (`modules.xml  .idea`) sorted by filename — switching to the
- * compressed directory tree when Group By Directory is on. The
- * Changes group header renders even when empty
- * (the IDE's default changelist); Unversioned / Ignored appear only
+ * compressed directory tree when Group By Directory is on. A
+ * root-level file's suffix (and the grouped tree's content-root node)
+ * reads the binding's folder name — the reference names the content root.
+ * The Changes group header renders even when empty
+ * (the reference default changelist); Unversioned / Ignored appear only
  * with rows, and group headers are transparent like tree rows. The
  * content-root node compresses away when a group's tree is one
- * single-child directory chain (the IDE folds the root into the
+ * single-child directory chain (the reference folds the root into the
  * chain); Ignored Files counts read plain files. Checkboxes ride file
  * rows, directory nodes (tri-state), and group headers; ignored rows
  * are read-only.
  *
- * Interaction model (IDE): click selects any row (the shared
+ * Interaction model (reference): click selects any row (the shared
  * grey-echo/vivid-blue selection pair — vivid only while the dock owns
  * focus, so an open context menu greys the band); double-click opens
  * the working diff on files and toggles folders; arrows navigate —
@@ -30,7 +32,8 @@ import type { WorkspaceTreeWorkingChangeWire } from '@openheaders/core/bridge';
 import { Checkbox, Dropdown, theme } from 'antd';
 import type { MenuProps } from 'antd';
 import type React from 'react';
-import { forwardRef, Fragment, useCallback, useImperativeHandle, useMemo, useRef, useState } from 'react';
+import { forwardRef, Fragment, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useTheme } from '@openheaders/ui/context';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { allDirKeys, buildFileTree, type FileTreeNode } from '../file-tree';
@@ -54,6 +57,8 @@ export interface CommitChangesTreeProps {
   onOpenFile: (path: string) => void;
   groupByDirectory: boolean;
   showIgnored: boolean;
+  /** The binding's folder name — a root-level file's dim suffix and the content-root node's label. */
+  rootLabel?: string;
   /** Right-click menu for a row — a file, a directory node or a group header (ignored files get the Stop Ignoring variant); null = no menu. */
   rowMenu: (target: CommitMenuTarget) => MenuProps | null;
 }
@@ -71,7 +76,7 @@ const ROW_MIN_HEIGHT = 24;
 // sits one indent step right of its parent's (the sidebar trees' slot).
 const CARET_SLOT = 12;
 
-/** Parent directory shown as the IDE's dim suffix; empty at the root. */
+/** Parent directory shown as the reference dim suffix; empty at the root. */
 function dirSuffix(filePath: string): string {
   const cut = filePath.lastIndexOf('/');
   return cut === -1 ? '' : filePath.slice(0, cut);
@@ -83,17 +88,35 @@ function collectPaths(node: FileTreeNode): string[] {
   return node.children.flatMap(collectPaths);
 }
 
+/** The hovered clipped row the overlay expands. */
+interface ExpandedRow {
+  key: string;
+  left: number;
+  top: number;
+  height: number;
+  row: WorkspaceTreeWorkingChangeWire;
+  suffix: string;
+}
+
+/** True when any ellipsized span inside `element` hides part of its text. */
+function hasClippedChild(element: HTMLElement): boolean {
+  for (const child of element.querySelectorAll<HTMLElement>('span')) {
+    if (child.scrollWidth > child.clientWidth + 1) return true;
+  }
+  return false;
+}
+
 interface GroupSpec {
   key: ChangeGroupKey;
   label: string;
   rows: WorkspaceTreeWorkingChangeWire[];
   checkable: boolean;
-  /** IDE anatomy: Ignored Files counts read plain files ("6 files"), never "N directories and…". */
+  /** reference anatomy: Ignored Files counts read plain files ("6 files"), never "N directories and…". */
   countDirs: boolean;
 }
 
 const CommitChangesTree = forwardRef<CommitChangesTreeHandle, CommitChangesTreeProps>(function CommitChangesTree(
-  { groups, checked, onSetChecked, onOpenFile, groupByDirectory, showIgnored, rowMenu },
+  { groups, checked, onSetChecked, onOpenFile, groupByDirectory, showIgnored, rootLabel = '', rowMenu },
   handleRef,
 ) {
   const { token } = theme.useToken();
@@ -102,8 +125,21 @@ const CommitChangesTree = forwardRef<CommitChangesTreeHandle, CommitChangesTreeP
   const palette = vcsPalette(isDarkMode);
   const containerRef = useRef<HTMLDivElement>(null);
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
+  const [expanded, setExpanded] = useState<ExpandedRow | null>(null);
 
-  // The Changes group is the IDE's default changelist — always present,
+  useEffect(() => {
+    if (expanded === null) return;
+    const container = containerRef.current;
+    const clear = (): void => setExpanded(null);
+    container?.addEventListener('scroll', clear, { passive: true });
+    window.addEventListener('resize', clear);
+    return () => {
+      container?.removeEventListener('scroll', clear);
+      window.removeEventListener('resize', clear);
+    };
+  }, [expanded]);
+
+  // The Changes group is the reference default changelist — always present,
   // even empty; the other groups appear only with rows.
   const specs = useMemo<GroupSpec[]>(() => {
     const list: GroupSpec[] = [
@@ -170,7 +206,7 @@ const CommitChangesTree = forwardRef<CommitChangesTreeHandle, CommitChangesTreeP
 
   // Collapse keys are `<group>` for headers, `<group>:__root__` for
   // the content-root node, and `<group>:<dirKey>` for dirs —
-  // everything starts expanded (the IDE default).
+  // everything starts expanded (the reference default).
   const collapseKeys = useMemo(() => {
     const keys: string[] = [];
     for (const spec of specs) {
@@ -220,7 +256,7 @@ const CommitChangesTree = forwardRef<CommitChangesTreeHandle, CommitChangesTreeP
     container.querySelector(`[data-row-key="${CSS.escape(key)}"]`)?.scrollIntoView({ block: 'nearest' });
   }, []);
 
-  // IDE tree keys: Up/Down walk visible rows, Right expands / steps
+  // Tree keys: Up/Down walk visible rows, Right expands / steps
   // into, Left collapses / steps to the parent, Enter opens files and
   // toggles folders.
   const handleKeyDown = (event: React.KeyboardEvent): void => {
@@ -325,7 +361,7 @@ const CommitChangesTree = forwardRef<CommitChangesTreeHandle, CommitChangesTreeP
     );
   };
 
-  /** "1 file" / "{n} files" — the IDE's singular form at one. */
+  /** "1 file" / "{n} files" — the reference singular form at one. */
   const filesCountText = (count: number): string =>
     count === 1 ? t('workbench.commitTool.oneFile') : t('workbench.gitLog.filesCount', { count });
 
@@ -343,12 +379,83 @@ const CommitChangesTree = forwardRef<CommitChangesTreeHandle, CommitChangesTreeP
   // Group-level count — "1 directory and 6 files" on the group header
   // and its content-root node when the grouped tree carries folder
   // rows; flat mode (no folder rows) and Ignored Files (plain file
-  // count per the IDE) skip the directories part.
+  // count per the reference) skip the directories part.
   const groupCountText = (spec: GroupSpec): string => {
     const dirCount = groupByDirectory && spec.countDirs ? allDirKeys(trees.get(spec.key) ?? []).length : 0;
     const files = filesCountText(spec.rows.length);
     if (dirCount === 0) return files;
     return t('workbench.commitTool.dirsAndFiles', { dirs: directoriesCountText(dirCount), files });
+  };
+
+  /**
+   * One row's content — the type icon, the colored filename, the
+   * rename note, the dim directory suffix and an ignored row's source.
+   * `clip` renders the in-tree form (the filename holds its width, the
+   * suffix takes the ellipsis); off, the expanded overlay's full form.
+   */
+  const renderRowContent = (row: WorkspaceTreeWorkingChangeWire, suffix: string, clip: boolean): React.ReactNode => {
+    const dim: React.CSSProperties = clip
+      ? {
+          flex: '0 1 auto',
+          minWidth: 0,
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+          whiteSpace: 'nowrap',
+          fontSize: ROW_FONT,
+          color: token.colorTextTertiary,
+        }
+      : { flex: '0 0 auto', whiteSpace: 'nowrap', fontSize: ROW_FONT, color: token.colorTextTertiary };
+    return (
+      <>
+        <FileTypeIcon path={row.path} status={row.status} />
+        <span
+          style={{
+            flex: '0 0 auto',
+            maxWidth: '100%',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+            fontSize: ROW_FONT,
+            color: vcsFileColor(row, palette),
+          }}
+        >
+          {baseName(row.path)}
+        </span>
+        {row.renamedFrom !== undefined && (
+          <span
+            style={{ flex: '0 0 auto', whiteSpace: 'nowrap', fontSize: ROW_FONT, color: token.colorText }}
+            data-testid="commit-tool-renamed-from"
+          >
+            {t('workbench.commitTool.renamedFrom', { name: baseName(row.renamedFrom) })}
+          </span>
+        )}
+        {suffix.length > 0 && <span style={dim}>{suffix}</span>}
+        {row.ignored && row.ignoreSource !== undefined && (
+          <span style={dim} data-testid="commit-tool-ignore-source">
+            {ignoreSourceLabel(row.ignoreSource)}
+          </span>
+        )}
+      </>
+    );
+  };
+
+  // The expanding hover overlay: a row whose content is clipped shows
+  // its full form over itself on hover, reaching past the panel edge
+  // (the reference gesture); a row that fits shows nothing. Measured
+  // on enter only; a scroll or the pointer leaving the row clears it.
+  const revealClippedRow = (
+    rowElement: HTMLElement,
+    key: string,
+    row: WorkspaceTreeWorkingChangeWire,
+    suffix: string,
+  ): void => {
+    const content = rowElement.querySelector<HTMLElement>('[data-row-content]');
+    if (content === null) return;
+    const clipped = content.scrollWidth > content.clientWidth + 1 || hasClippedChild(content);
+    if (!clipped) return;
+    const rowRect = rowElement.getBoundingClientRect();
+    const contentRect = content.getBoundingClientRect();
+    setExpanded({ key, left: contentRect.left, top: rowRect.top, height: rowRect.height, row, suffix });
   };
 
   const renderFileRow = (
@@ -358,20 +465,15 @@ const CommitChangesTree = forwardRef<CommitChangesTreeHandle, CommitChangesTreeP
     suffix: string,
   ): React.ReactNode => {
     const rowKey = commitFileRowKey(row.path);
-    const rowTitle =
-      row.ignored && row.ignoreSource !== undefined
-        ? `${row.path} — ${row.ignoreSource.pattern} (${row.ignoreSource.source})`
-        : row.renamedFrom !== undefined
-          ? `${row.renamedFrom} → ${row.path}`
-          : row.path;
     const rowBody = (
       <div
         className={rowClass(rowKey)}
         style={rowStyle(depth)}
-        title={rowTitle}
         onClick={() => selectRow(rowKey)}
         onDoubleClick={() => onOpenFile(row.path)}
         onContextMenu={() => selectRow(rowKey)}
+        onMouseEnter={(event) => revealClippedRow(event.currentTarget, rowKey, row, suffix)}
+        onMouseLeave={() => setExpanded((prev) => (prev !== null && prev.key === rowKey ? null : prev))}
         data-testid="commit-tool-file"
         data-path={row.path}
         data-row-key={rowKey}
@@ -385,6 +487,7 @@ const CommitChangesTree = forwardRef<CommitChangesTreeHandle, CommitChangesTreeP
           />
         )}
         <span
+          data-row-content
           style={{
             flex: '1 1 auto',
             minWidth: 0,
@@ -393,51 +496,7 @@ const CommitChangesTree = forwardRef<CommitChangesTreeHandle, CommitChangesTreeP
             gap: 6,
           }}
         >
-          <FileTypeIcon path={row.path} />
-          <span
-            style={{
-              flex: '0 1 auto',
-              minWidth: 0,
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-              whiteSpace: 'nowrap',
-              fontSize: ROW_FONT,
-              color: vcsFileColor(row, palette),
-            }}
-          >
-            {baseName(row.path)}
-          </span>
-          {suffix.length > 0 && (
-            <span
-              style={{
-                flex: '0 1 auto',
-                minWidth: 0,
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                whiteSpace: 'nowrap',
-                fontSize: ROW_FONT,
-                color: token.colorTextTertiary,
-              }}
-            >
-              {suffix}
-            </span>
-          )}
-          {row.ignored && row.ignoreSource !== undefined && (
-            <span
-              style={{
-                flex: '0 1 auto',
-                minWidth: 0,
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                whiteSpace: 'nowrap',
-                fontSize: ROW_FONT,
-                color: token.colorTextTertiary,
-              }}
-              data-testid="commit-tool-ignore-source"
-            >
-              {ignoreSourceLabel(row.ignoreSource)}
-            </span>
-          )}
+          {renderRowContent(row, suffix, true)}
         </span>
       </div>
     );
@@ -511,14 +570,14 @@ const CommitChangesTree = forwardRef<CommitChangesTreeHandle, CommitChangesTreeP
       return renderFileRow(spec, row, depth, '');
     });
 
-  // The IDE's default flat format: filename + dim directory suffix,
-  // sorted by filename.
+  // The reference default flat format: filename + dim directory suffix,
+  // sorted by filename; a root-level file names the content root.
   const renderFlatRows = (spec: GroupSpec): React.ReactNode =>
-    flatSortedRows(spec.rows).map((row) => renderFileRow(spec, row, 1, dirSuffix(row.path)));
+    flatSortedRows(spec.rows).map((row) => renderFileRow(spec, row, 1, dirSuffix(row.path) || rootLabel));
 
-  // The IDE's content-root node under each group when grouping: a
-  // nameless folder row carrying only the gray count, its own
-  // tri-state checkbox, and the whole tree beneath it.
+  // The reference content-root node under each group when grouping: a
+  // folder row named after the binding's folder with the gray count,
+  // its own tri-state checkbox, and the whole tree beneath it.
   const renderRootedTree = (spec: GroupSpec): React.ReactNode => {
     const rootKey = `${spec.key}:__root__`;
     const open = !collapsed.has(rootKey);
@@ -554,6 +613,21 @@ const CommitChangesTree = forwardRef<CommitChangesTreeHandle, CommitChangesTreeP
             />
           )}
           <FolderOutlined style={{ flex: '0 0 auto', fontSize: 14, color: token.colorTextTertiary }} />
+          {rootLabel.length > 0 && (
+            <span
+              style={{
+                flex: '0 1 auto',
+                minWidth: 0,
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+                fontSize: ROW_FONT,
+              }}
+              data-testid="commit-tool-root-label"
+            >
+              {rootLabel}
+            </span>
+          )}
           <span style={{ fontSize: ROW_FONT - 1, color: token.colorTextTertiary }}>{groupCountText(spec)}</span>
         </div>
     );
@@ -584,7 +658,7 @@ const CommitChangesTree = forwardRef<CommitChangesTreeHandle, CommitChangesTreeP
             )
           : 'none';
         // An empty group is a plain label row — no caret, no checkbox,
-        // no count (the IDE's empty default changelist).
+        // no count (the reference empty default changelist).
         if (spec.rows.length === 0) {
           return (
             <Fragment key={spec.key}>
@@ -668,6 +742,37 @@ const CommitChangesTree = forwardRef<CommitChangesTreeHandle, CommitChangesTreeP
           </div>
         );
       })}
+      {expanded !== null &&
+        createPortal(
+          <div
+            style={{
+              position: 'fixed',
+              left: expanded.left - 6,
+              top: expanded.top,
+              height: expanded.height,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 6,
+              padding: '0 10px 0 6px',
+              boxSizing: 'border-box',
+              background: token.colorBgElevated,
+              border: `1px solid ${token.colorBorderSecondary}`,
+              borderRadius: token.borderRadiusSM,
+              boxShadow: token.boxShadowSecondary,
+              whiteSpace: 'nowrap',
+              fontSize: ROW_FONT,
+              lineHeight: `${ROW_LINE}px`,
+              color: token.colorText,
+              zIndex: token.zIndexPopupBase,
+              pointerEvents: 'none',
+            }}
+            data-testid="commit-tool-row-expanded"
+            data-path={expanded.row.path}
+          >
+            {renderRowContent(expanded.row, expanded.suffix, false)}
+          </div>,
+          document.body,
+        )}
     </div>
   );
 });
