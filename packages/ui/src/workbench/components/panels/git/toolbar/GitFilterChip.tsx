@@ -1,5 +1,5 @@
 /**
- * GitFilterChip — one filter chip of the log toolbar's IDE row:
+ * GitFilterChip — one filter chip of the log toolbar's reference row:
  * inactive it reads as a grey `Label ⌄` dropdown trigger; active it
  * shows `Label: value ×` with the value emphasized and the × clearing
  * the filter without opening the menu. The dropdown content arrives

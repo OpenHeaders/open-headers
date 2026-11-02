@@ -1,13 +1,13 @@
 /**
  * GitRailActivityBar — the vertical toolbar on the branches rail's
- * left edge (IDE-log anatomy), top to bottom: Hide Git Branches, then
+ * left edge (log-window anatomy), top to bottom: Hide Git Branches, then
  * the branch verbs (New / Update Selected / Delete / Compare with
  * Current / Show My Branches / Fetch / Favorite / Navigate), the gear
  * (Branches Pane Settings: single-click behavior + Show Tags), and
  * the view trio (Group By Directory, Expand All, Collapse All).
  * Presentational: enablement and handlers arrive from the rail
  * orchestrator; Show My Branches ships visible but disabled (the
- * IDE-parity placeholder).
+ * placeholder).
  */
 
 import {
@@ -188,7 +188,7 @@ const GitRailActivityBar: React.FC<GitRailActivityBarProps> = (props) => {
         trigger={['click']}
         placement="bottomLeft"
         menu={{
-          // The ✓ prefix IS the state (IDE convention) — highlight is
+          // The ✓ prefix IS the state (reference convention) — highlight is
           // hover-only, so nothing is ever "selected".
           selectable: false,
           items: [

@@ -1,5 +1,5 @@
 /**
- * CommitToolbar — the Commit window's top icon row (IDE reference):
+ * CommitToolbar — the Commit window's top icon row:
  * Refresh, Rollback… and Shelve Silently (visible placeholders — the
  * destructive write verbs are their own future slice), the View
  * Options eye (Group By Directory, Show Ignored Files), Select Opened

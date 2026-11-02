@@ -1,5 +1,5 @@
 /**
- * Ref-rail tree shaping for the Git tool window — the IDE-log left
+ * Ref-rail tree shaping for the Git tool window — the log-window left
  * rail: inside each namespace group (Local / Remote / Tags) ref names
  * fold on `/` into collapsible folders (`v5/data-model` renders as
  * folder `v5` → leaf `data-model`; a remote's first segment is its
@@ -50,7 +50,7 @@ function emit(dir: BuildFolder, groupKind: string, prefix: string): RefTreeNode[
 
 /**
  * Fold one namespace group's refs into its folder tree. With
- * `groupByDirectory` off (the IDE-log gear toggle) the group stays a
+ * `groupByDirectory` off (the log-window gear toggle) the group stays a
  * flat sorted list — every ref a leaf labeled by its full name.
  */
 export function buildRefTree(

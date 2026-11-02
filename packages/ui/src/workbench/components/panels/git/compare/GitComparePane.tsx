@@ -1,5 +1,5 @@
 /**
- * GitComparePane — one Compare-with-Current tab (IDE-log): two stacked
+ * GitComparePane — one Compare-with-Current tab: two stacked
  * sections, "commits that exist in <current> but don't exist in <ref>"
  * above and the reverse below. Each section is a commit list with its
  * own detail pane (files tree over commit details — the log view's

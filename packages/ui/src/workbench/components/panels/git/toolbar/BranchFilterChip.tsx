@@ -1,5 +1,5 @@
 /**
- * BranchFilterChip — the log toolbar's `Branch:` chip and its IDE
+ * BranchFilterChip — the log toolbar's `Branch:` chip and its
  * picker: Select… (switches the popup to a searchable flat list),
  * the Favorites section (HEAD + starred refs + the current branch's
  * always-★), then one submenu per namespace — Local, each remote's

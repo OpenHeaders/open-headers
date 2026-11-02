@@ -1,5 +1,5 @@
 /**
- * CommitDetails — the detail pane's bottom half, IDE-log shape:
+ * CommitDetails — the detail pane's bottom half, log-window shape:
  * monospace subject, `sha author <email> on date` line, the HEAD /
  * branch / tag chips pointing at the commit, and the co-author
  * trailers. Pure presentation over one selected log entry.

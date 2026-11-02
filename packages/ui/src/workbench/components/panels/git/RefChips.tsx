@@ -1,5 +1,5 @@
 /**
- * RefChips — the branch/tag labels the IDE log paints in the detail
+ * RefChips — the branch/tag labels the reference log paints in the detail
  * pane: small monospace pills for every ref pointing at a sha (plus
  * HEAD where asked). List rows use {@link RefRowLabel} instead — the
  * collapsed right-aligned label with hover details.

@@ -1,5 +1,5 @@
 /**
- * GitLogToolbar — the log pane's top band, the IDE filter row: the
+ * GitLogToolbar — the log pane's top band, the filter row: the
  * text-or-hash field with regex/match-case toggles, the Branch / User /
  * Date / Paths filter chips, Graph Options (sort + walk riders), then
  * the right-aligned action icons — Refresh, Cherry-Pick (placeholder),

@@ -1,5 +1,5 @@
 /**
- * FileTreeView — the detail pane's changed-paths tree (IDE-log
+ * FileTreeView — the detail pane's changed-paths tree (
  * grouping: single-child dir chains fold into one `a/b/c` node with an
  * `N files` badge, or flat full-path rows while Group By Directory is
  * off), filenames colored by porcelain status. With a selection
@@ -24,7 +24,7 @@ import { forwardRef, useImperativeHandle, useMemo, useState } from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { allDirKeys, buildFileTree, type FileTreeNode } from './file-tree';
 
-/** Porcelain status letter → theme color, IDE-style (added green,
+/** Porcelain status letter → theme color, (added green,
  *  modified blue, deleted red, rename/copy amber). */
 export function statusColor(status: string, token: ReturnType<typeof theme.useToken>['token']): string {
   switch (status) {
@@ -72,7 +72,7 @@ const FileTreeView = forwardRef<FileTreeViewHandle, FileTreeViewProps>(function 
   const t = useT();
   const tree = useMemo(() => buildFileTree(files, groupByDirectory), [files, groupByDirectory]);
   const dirKeys = useMemo(() => allDirKeys(tree), [tree]);
-  // Starts fully expanded (the IDE default) — the orchestrator keys this
+  // Starts fully expanded (the reference default) — the orchestrator keys this
   // component by commit sha, so a fresh selection resets the state.
   const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(new Set());
 

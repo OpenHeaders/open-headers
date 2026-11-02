@@ -1,5 +1,5 @@
 /**
- * GitLogView — ONE log tab's view, the IDE-log anatomy: three
+ * GitLogView — ONE log tab's view, the log-window anatomy: three
  * sub-panes (branches rail, commit timeline, changes/details), EACH
  * owning its slice of the shared top band — the rail's Branch-or-tag
  * search, the log toolbar (text filter + Branch/User/Date/Paths chips
@@ -9,10 +9,10 @@
  * refetches on `workspaceTreeGitStatus` frames. Filter state lives in
  * the tab registry (travels with the tab); display prefs are
  * per-workspace. Hiding the rail swaps section #1 for the vertical
- * Branches strip (the IDE-log gesture).
+ * Branches strip (the log-window gesture).
  *
  * The three panes are grid tracks with a sash on each boundary (the
- * IDE's splitters): rail | log, log | details, and files | info inside
+ * reference splitters): rail | log, log | details, and files | info inside
  * details. The templates and bounds are `git-log-layout.ts`; the drag
  * wiring is `use-git-log-layout.ts`.
  */
@@ -131,7 +131,7 @@ const GitLogView: React.FC<GitLogViewProps> = ({
         setCurrentRef(null);
       }
       // The unborn current branch scopes to an EMPTY filtered list (the
-      // IDE posture: `Branch: main` chip + no-matches empty state) —
+      // reference posture: `Branch: main` chip + no-matches empty state) —
       // its name exists only in `gitStatus`, so `log` would refuse it.
       const knownRefs = refsResult.ok ? refsResult.refs : [];
       const scopeIsUnborn =
@@ -142,7 +142,7 @@ const GitLogView: React.FC<GitLogViewProps> = ({
         setEntries([]);
         return;
       }
-      // Scope triad (the IDE model): null = every ref (`allRefs`),
+      // Scope triad (the reference model): null = every ref (`allRefs`),
       // the HEAD sentinel = the default walk, a name = that ref.
       const result = await hostBridge.call('oh.workspaceTree.log', {
         workspaceId,
@@ -222,7 +222,7 @@ const GitLogView: React.FC<GitLogViewProps> = ({
     [entries, selectedSha],
   );
 
-  // The rail-selected branch's commits carry the IDE's blue row wash —
+  // The rail-selected branch's commits carry the reference blue row wash —
   // reachability from the selection's tip, walked over the loaded
   // window (`parents` ride every entry). Null when nothing is selected
   // (the HEAD row clears the selection, so it never highlights).

@@ -1,5 +1,5 @@
 /**
- * Pure-model suite for the Git tool window's IDE-log surfaces: the
+ * Pure-model suite for the Git tool window's log-window surfaces: the
  * multi-lane graph layout, the compressed changed-files tree, the
  * slash-folded ref rail, the graduated date column, and the toolbar's
  * filter model (wire translation + text matcher).

@@ -11,7 +11,7 @@
  * Module-state posture: the dock unmounts inactive tool windows, and
  * both identities and layout must survive a hide/show round-trip.
  * Session-scoped by design — no persisted storage (tabs are cheap
- * scoped views; an app restart starts clean, the IDE posture).
+ * scoped views; an app restart starts clean, the reference posture).
  *
  * The PRIMARY log tab (`log:1`) is permanent: `closeTabs` skips it, so
  * every leaf fold converges back to a panel that still shows the log.
@@ -78,7 +78,7 @@ export const GIT_PRIMARY_TAB_KEY = 'log:1';
 
 /**
  * The log scope's HEAD sentinel — `selectedRef` is a triad: null =
- * every ref (the unfiltered IDE log), this sentinel = the checked-out
+ * every ref (the unfiltered log), this sentinel = the checked-out
  * HEAD, any other string = that ref. Safe as a sentinel because git
  * itself refuses `HEAD` as a branch or tag name.
  */

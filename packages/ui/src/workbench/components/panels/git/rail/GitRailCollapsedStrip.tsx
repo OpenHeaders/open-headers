@@ -1,6 +1,6 @@
 /**
  * GitRailCollapsedStrip — the hidden-branches state of the rail
- * (IDE-log): a narrow vertical bar carrying a `>` chevron and the
+ *: a narrow vertical bar carrying a `>` chevron and the
  * rotated "Branches" label. The whole strip is one button — hover
  * greys it, clicking brings section #1 back.
  */

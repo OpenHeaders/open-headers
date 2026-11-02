@@ -14,7 +14,7 @@ export interface GitLogViewPrefs {
   showTagNames: boolean;
   /** Show > Commit Timestamp — time on dates older than yesterday. */
   showCommitTimestamp: boolean;
-  /** Highlight > Merge Commits — dim merge subjects (the IDE default). */
+  /** Highlight > Merge Commits — dim merge subjects (the reference default). */
   highlightMergeCommits: boolean;
   /** Details eye: Group By > Directory — off renders flat file rows. */
   groupFilesByDirectory: boolean;

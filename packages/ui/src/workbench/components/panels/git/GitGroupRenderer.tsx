@@ -106,7 +106,7 @@ export const GitGroupRenderer: React.FC<GitGroupRendererProps> = ({
   const labelFor = (tab: GitPanelTab): string => {
     if (tab.kind === 'console') return t('workbench.gitLog.console.tab');
     if (tab.kind === 'compare') return t('workbench.gitLog.compareTab', { a: branch ?? 'HEAD', b: tab.ref });
-    // The IDE tab title names the tab's SCOPE: plain `Log` unfiltered,
+    // The tab title names the tab's SCOPE: plain `Log` unfiltered,
     // `Log: HEAD` / `Log: <ref>` when scoped.
     return tab.selectedRef === null
       ? t('workbench.gitLog.logTabAll')

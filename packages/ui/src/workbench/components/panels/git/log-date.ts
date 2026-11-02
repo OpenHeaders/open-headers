@@ -1,5 +1,5 @@
 /**
- * IDE-log date column formatting: fresh commits read relative
+ * log-window date column formatting: fresh commits read relative
  * ("5m ago"), today's read as a bare time, yesterday's as
  * "Yesterday HH:MM", and everything older as a full local date + time —
  * the graduated precision the reference log views use.
@@ -22,7 +22,7 @@ function sameCalendarDay(a: Date, b: Date): boolean {
 }
 
 /** `withTime` is the eye menu's Commit Timestamp toggle — on, dates
- *  older than yesterday carry their time too; off (the IDE default)
+ *  older than yesterday carry their time too; off (the reference default)
  *  they read as a bare date. */
 export function formatLogDate(
   authoredAt: string,

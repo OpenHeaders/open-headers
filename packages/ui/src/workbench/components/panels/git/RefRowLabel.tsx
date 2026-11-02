@@ -1,10 +1,10 @@
 /**
- * RefRowLabel — a log row's ref decoration, the IDE way: ONE
+ * RefRowLabel — a log row's ref decoration, the reference way: ONE
  * right-aligned tag-shaped label naming the row's most relevant ref
  * (local branch over remote over tag; HEAD alone only when nothing
  * else points here), a stacked double-tag glyph when the sha carries
  * more labels, and a hover popup listing every ref — HEAD first on the
- * head row — each with its own icon. Label colors follow the IDE's
+ * head row — each with its own icon. Label colors follow the reference
  * palette: branches green, tags and HEAD yellow (token-mapped so both
  * themes hold).
  */

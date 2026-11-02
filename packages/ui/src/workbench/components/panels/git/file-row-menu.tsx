@@ -1,8 +1,8 @@
 /**
- * file-row-menu — the log's changed-file row right-click menu (IDE
- * reference: the commit details' file tree): Show Diff (the commit's
+ * file-row-menu — the log's changed-file row right-click menu (the
+ * commit details' file tree): Show Diff (the commit's
  * blob pair), Show History (the path's own timeline — `fileLog`,
- * renames followed), then the IDE-only entries (Show Current Revision,
+ * renames followed), then the placeholder entries (Show Current Revision,
  * Jump to Source) visible-disabled. Pure over (path, t, handlers).
  */
 

@@ -1,6 +1,6 @@
 /**
  * Changed-files tree for the Git tool window's commit detail — the
- * IDE-log grouping: paths fold into a directory tree, chains of
+ * log-window grouping: paths fold into a directory tree, chains of
  * single-child directories compress into one node
  * (`packages/ui/src · 4 files`), files sort after nothing (dirs first,
  * then files, each alphabetically). Pure path shaping; no filesystem.

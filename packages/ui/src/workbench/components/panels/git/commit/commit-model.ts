@@ -2,7 +2,7 @@
  * Commit tool window — pure model over the `changes` verb's rows: the
  * three display groups (Changes / Unversioned Files / Ignored Files),
  * the checked-set algebra (tracked rows default checked, unversioned
- * default unchecked — the IDE convention), and the "N modified"
+ * default unchecked — the reference convention), and the "N modified"
  * counter parts. No React, no bridge.
  */
 
@@ -29,7 +29,7 @@ export function splitChangeGroups(rows: readonly WorkspaceTreeWorkingChangeWire[
 
 /**
  * The checked set is stored as EXCEPTIONS so rows appearing between
- * refetches keep the IDE defaults: a tracked row is checked unless the
+ * refetches keep the reference defaults: a tracked row is checked unless the
  * user unchecked it; an unversioned row is unchecked unless the user
  * checked it. Vanished paths in the exception sets are harmless — the
  * resolver only ever consults rows that exist.
@@ -135,7 +135,7 @@ export function aggregateChecked(
 
 /**
  * Counter parts for the Amend row's right edge — "2 modified",
- * "1 added, 1 deleted". Tracked letters fold as the IDE does: A added,
+ * "1 added, 1 deleted". Tracked letters fold as the reference does: A added,
  * D deleted, everything else (M/T/R/C) modified; unversioned rows
  * count separately. Order: modified, added, deleted, unversioned.
  */

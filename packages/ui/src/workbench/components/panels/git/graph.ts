@@ -1,6 +1,6 @@
 /**
  * Commit-graph lane layout for the Git tool window's log list — the
- * IDE-log multi-lane rail. Pure: consumes `(sha, parents)` pairs in log
+ * log-window multi-lane rail. Pure: consumes `(sha, parents)` pairs in log
  * order (newest first) and answers per-row render data — the dot's
  * lane, the half-row edges around it, and the pass-through edges of
  * unrelated lanes — so the list can draw each row as an isolated SVG

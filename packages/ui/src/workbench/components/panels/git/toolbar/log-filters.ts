@@ -1,5 +1,5 @@
 /**
- * Log toolbar filter model — the IDE-log filter row's state shapes
+ * Log toolbar filter model — the log-window filter row's state shapes
  * (User / Date / Paths chips, Graph Options, the text field's regex +
  * match-case toggles) and their pure translations: tab state → the
  * `log` verb's wire filters, and the client-side text matcher the

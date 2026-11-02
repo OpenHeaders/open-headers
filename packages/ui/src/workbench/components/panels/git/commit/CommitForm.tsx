@@ -1,10 +1,10 @@
 /**
- * CommitForm — the Commit window's lower half (IDE reference): the
+ * CommitForm — the Commit window's lower half: the
  * Amend row (checkbox + Commit Message History clock + the "N
  * modified" counter on the right), the Commit Message box, and the
  * button row — Commit, Commit and Push…, and the gear popover with the
  * Git-real commit options (Sign-off; Run Git hooks). Author override
- * and the IDE inspection checks are deliberately absent (§11.5: git
+ * and the inspection checks are deliberately absent (§11.5: git
  * config is the identity authority).
  */
 

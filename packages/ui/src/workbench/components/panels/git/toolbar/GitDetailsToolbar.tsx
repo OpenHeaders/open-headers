@@ -1,5 +1,5 @@
 /**
- * GitDetailsToolbar — the changes pane's top band (IDE reference):
+ * GitDetailsToolbar — the changes pane's top band:
  * Show Diff for the selected file, Revert Selected Changes (visible
  * placeholder — the write verb is a future slice), the View Options
  * eye (Group By Directory, Show Details, Show Diff Preview), then

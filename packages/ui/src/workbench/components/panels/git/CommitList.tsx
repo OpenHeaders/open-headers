@@ -1,8 +1,8 @@
 /**
  * CommitList — the log's middle pane: graph cell, subject (dimmed for
- * merge commits, the IDE convention), the right-aligned ref label
+ * merge commits, the reference convention), the right-aligned ref label
  * column, bold author, and the graduated date column. Rows reachable
- * from the rail-selected branch carry the IDE's blue wash. The graph
+ * from the rail-selected branch carry the reference blue wash. The graph
  * layout arrives from the orchestrator and is null while a text filter
  * hides rows (edges over a non-contiguous list would lie — cells
  * degrade to plain dots). Empty states: filters-active answers "no
@@ -27,7 +27,7 @@ export interface CommitListProps {
   refsBySha: ReadonlyMap<string, WorkspaceTreeRefWire[]>;
   /** The checked-out tip — its row's ref hover leads with HEAD. */
   headSha: string | null;
-  /** Commits reachable from the rail-selected branch — the IDE's blue
+  /** Commits reachable from the rail-selected branch — the reference blue
    *  row wash; null when nothing is selected. */
   highlightShas: ReadonlySet<string> | null;
   selectedSha: string | null;

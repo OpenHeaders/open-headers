@@ -1,5 +1,5 @@
 /**
- * ConsoleView — the Git tool window's read-only Console tab (the IDE
+ * ConsoleView — the Git tool window's read-only Console tab (the reference
  * VCS-console precedent): every state-changing git command the engine
  * ran in this workspace's repo, timestamped, with its combined output
  * beneath — a transparency feed, never an input. Auto-follows the tail

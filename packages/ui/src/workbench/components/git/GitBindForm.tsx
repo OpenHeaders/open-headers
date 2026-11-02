@@ -1,6 +1,6 @@
 /**
  * GitBindForm — the bind-a-folder gesture shared verbatim by the
- * settings Git card and the Git tool window's empty state (the IDE
+ * settings Git card and the Git tool window's empty state (the reference
  * precedent: the log view's no-VCS state offers the create/bind action
  * in place, it never bounces the user to settings). Path input, the
  * native folder picker where the host has one, the Bind button, and the

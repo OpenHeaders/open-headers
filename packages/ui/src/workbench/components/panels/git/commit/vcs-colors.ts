@@ -1,6 +1,6 @@
 /**
  * vcs-colors — the Commit window's file-status palette, matched to the
- * IDE reference per theme: green for files added to VCS, blue for
+ * per theme: green for files added to VCS, blue for
  * modified (renames/copies ride the same tint), gray for deleted,
  * salmon for unversioned, olive for ignored. Pure lookup; the tree
  * resolves a row to one color through {@link vcsFileColor}.

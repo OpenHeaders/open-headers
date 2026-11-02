@@ -1,13 +1,13 @@
 /**
- * commit-row-menu — the Commit tree's right-click menu (IDE reference,
+ * commit-row-menu — the Commit tree's right-click menu (reference design,
  * two variants): tracked rows carry the changelist/patch/shelve block,
  * unversioned rows carry Add to .gitignore instead. S22 posture — reads
  * and gestures with existing machinery are live (Commit File…, Show
  * Diff, Refresh, the Git ▸ verbs Push/Pull/Fetch/Compare with Branch
  * or Tag/Branches…/New Branch…, and the Add to .gitignore ▸ targets
- * over the `ignorePath` verb); IDE-only constructs (changelists,
+ * over the `ignorePath` verb); placeholder constructs (changelists,
  * shelf, Local History) and unbuilt write verbs render
- * visible-disabled. Shortcut hints mirror the IDE anatomy; bindings
+ * visible-disabled. Shortcut hints mirror the reference anatomy; bindings
  * ride the keymap plane later.
  *
  * Every row carries the menu (the menu law): a directory node or a

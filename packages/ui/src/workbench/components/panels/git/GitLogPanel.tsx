@@ -1,6 +1,6 @@
 /**
  * GitLogPanel — the workbench Git tool window (the git-sync plan §9 history
- * view), IDE-log layout on the shared pane-tabs machinery (the
+ * view), log-window layout on the shared pane-tabs machinery (the
  * terminal panel's architecture): a per-workspace tab REGISTRY
  * (git-panel-view-store — log tabs with scope/filter/selection, plus
  * the read-only Console tab) bound to a shared pane store, rendered by

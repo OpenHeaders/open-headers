@@ -121,7 +121,7 @@ describe('git panel workbench (shared pane-tabs machinery)', () => {
     expect(tabs[1]).toMatchObject({ kind: 'log', id: 2, filter: 'fix', selectedRef: 'main' });
   });
 
-  it('log tabs start with every toolbar filter off (the IDE default row)', () => {
+  it('log tabs start with every toolbar filter off (the reference default row)', () => {
     const { registry } = freshWorkbench();
     const [primary] = registry.tabs();
     expect(primary).toMatchObject({

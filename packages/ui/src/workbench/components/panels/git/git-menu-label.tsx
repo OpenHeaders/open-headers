@@ -1,6 +1,6 @@
 /**
  * menuLabel — the one row anatomy every git context menu shares (the
- * IDE reference): an icon gutter, the label, and a right-aligned inert
+ * reference design): an icon gutter, the label, and a right-aligned inert
  * shortcut hint. Used by the Commit tree's row menus, the ref rail's
  * branch menu and the log's changed-file menu so the three read as one
  * family.

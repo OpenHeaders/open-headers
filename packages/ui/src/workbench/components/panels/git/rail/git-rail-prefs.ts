@@ -1,6 +1,6 @@
 /**
  * git-rail-prefs — per-workspace preferences of the Git tool window's
- * branches rail (the IDE-log activity bar's stateful options):
+ * branches rail (the log-window activity bar's stateful options):
  * favorite refs (★), the single-click behavior (Update Branch Filter /
  * Navigate Log to Branch Head), Show Tags, and Group By Directory.
  * Favorites and view options are durable preferences, unlike the

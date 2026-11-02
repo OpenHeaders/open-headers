@@ -1,5 +1,5 @@
 /**
- * CreateBranchModal — the New Branch dialog (IDE-log): "Create Branch
+ * CreateBranchModal — the New Branch dialog: "Create Branch
  * from <start point>", a name input prefilled with the start point's
  * name (selected for quick overtyping), the Checkout-branch checkbox
  * (default on) and the Overwrite-existing-branch checkbox (default
@@ -56,7 +56,7 @@ const CreateBranchModal: React.FC<CreateBranchModalProps> = ({
     setCheckout(true);
     setOverwrite(false);
     setError(null);
-    // Prefill selected-all (the IDE gesture: type to replace).
+    // Prefill selected-all (the reference gesture: type to replace).
     const timer = setTimeout(() => inputRef.current?.select(), 50);
     return () => clearTimeout(timer);
   }, [from]);

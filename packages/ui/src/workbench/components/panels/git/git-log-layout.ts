@@ -1,6 +1,6 @@
 /**
  * git-log-layout — the pure sizing model of the Git tool window's
- * three sashes (the IDE-log splitters): branches rail | commit list,
+ * three sashes (the log-window splitters): branches rail | commit list,
  * commit list | details, and inside details, changed files | commit
  * info. Same posture as the shell's track model: the panes are CSS
  * grid tracks driven by custom properties, a window resize is resolved
@@ -9,7 +9,7 @@
  * sidebar); the details column and the info row keep a SHARE of the
  * space they split, so the window's own resize keeps their proportion.
  *
- * Bounds are the IDE's in spirit: every pane has a floor, the rail and
+ * Bounds are the reference in spirit: every pane has a floor, the rail and
  * the details pane also have a ceiling as a share of the space, and a
  * drag can never push a neighbour under its floor.
  */
