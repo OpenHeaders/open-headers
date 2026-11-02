@@ -631,6 +631,13 @@ export const workbenchChrome = {
   'workbench.gitBranch.action.push': '푸시…',
   'workbench.gitBranch.action.newBranch': '새 브랜치…',
   'workbench.gitBranch.group.recent': '최근',
+  'workbench.gitPush.title': '{folder}에 커밋 푸시',
+  'workbench.gitPush.noUpstream': '첫 푸시에서 업스트림을 설정합니다',
+  'workbench.gitPush.nothing': '모두 최신 상태입니다. 푸시할 내용이 없습니다.',
+  'workbench.gitPush.detached': 'HEAD가 분리되어 있습니다. 푸시하려면 브랜치를 체크아웃하세요.',
+  'workbench.gitPush.push': '푸시',
+  'workbench.gitPush.cancel': '취소',
+  'workbench.gitPush.failed': '푸시할 커밋을 나열할 수 없습니다: {detail}',
   'workbench.gitBranch.pushNoPermission':
     '원격 저장소가 푸시를 거부했습니다: 권한이 없습니다. 커밋 창의 “커밋 및 푸시”로 작업을 새 브랜치로 게시할 수 있습니다.',
   'workbench.gitLog.switch.checkedOut': '{branch} 브랜치를 체크아웃했습니다',

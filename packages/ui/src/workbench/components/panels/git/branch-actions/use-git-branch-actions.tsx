@@ -7,7 +7,8 @@
  * into Current (the Phase 4 machinery on a local or remote-tracking
  * ref — never raw `git merge`), Update (fast-forward a NON-current
  * branch from its upstream), Update Project (pull the current branch),
- * Push (the current branch), Fetch, and Delete with the Restore toast.
+ * Push (the Push window over the current branch), Fetch, and Delete
+ * with the Restore toast.
  * Mutations go through the bridge and come back as
  * `workspaceTreeGitStatus` frames — nothing here refetches by hand.
  * The hook owns the dialogs' state and hands back their elements for
@@ -23,6 +24,7 @@ import { App as AntApp, theme } from 'antd';
 import type React from 'react';
 import { useState } from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
+import PushCommitsModal from '../push/PushCommitsModal';
 import CreateBranchModal from '../rail/CreateBranchModal';
 import SwitchBranchModal, { type SwitchBranchPrompt, type SwitchDirtyChoice } from '../rail/SwitchBranchModal';
 
@@ -58,7 +60,7 @@ export interface GitBranchActions {
   pull: () => void;
   push: () => void;
   busy: GitBranchBusy;
-  /** The New Branch and dirty-switch dialogs — mount once in the caller's tree. */
+  /** The New Branch, dirty-switch and Push dialogs — mount once in the caller's tree. */
   dialogs: React.ReactNode;
 }
 
@@ -82,6 +84,7 @@ export function useGitBranchActions(options: GitBranchActionsOptions): GitBranch
   const [fetchBusy, setFetchBusy] = useState(false);
   const [pullBusy, setPullBusy] = useState(false);
   const [pushBusy, setPushBusy] = useState(false);
+  const [pushOpen, setPushOpen] = useState(false);
 
   const failure = (err: unknown): string => (err instanceof Error ? err.message : String(err));
 
@@ -308,11 +311,11 @@ export function useGitBranchActions(options: GitBranchActionsOptions): GitBranch
     }
   };
 
-  // Push the current branch (§8.2 / §16 typed refusals): a
-  // non-fast-forward names the pull-first way out, a rewrite points at
-  // the banner, a read-only remote names the Commit window's
-  // Push-as-New-Branch recovery.
-  const push = async (): Promise<void> => {
+  // Push the current branch — the Push window's confirm (§8.2 / §16
+  // typed refusals): a non-fast-forward names the pull-first way out,
+  // a rewrite points at the banner, a read-only remote names the
+  // Commit window's Push-as-New-Branch recovery.
+  const pushNow = async (): Promise<void> => {
     if (pushBusy) return;
     setPushBusy(true);
     try {
@@ -373,6 +376,7 @@ export function useGitBranchActions(options: GitBranchActionsOptions): GitBranch
         }}
         onClose={() => setSwitchPrompt(null)}
       />
+      <PushCommitsModal workspaceId={workspaceId} open={pushOpen} onClose={() => setPushOpen(false)} onConfirm={pushNow} />
     </>
   );
 
@@ -385,7 +389,7 @@ export function useGitBranchActions(options: GitBranchActionsOptions): GitBranch
     deleteBranch: (branch) => void deleteBranch(branch),
     fetch: () => void fetch(),
     pull: () => void pull(),
-    push: () => void push(),
+    push: () => setPushOpen(true),
     busy: {
       switching,
       merge: mergeBusy,

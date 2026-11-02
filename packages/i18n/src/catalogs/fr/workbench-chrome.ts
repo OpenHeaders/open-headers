@@ -800,6 +800,13 @@ export const workbenchChrome = {
   'workbench.gitBranch.action.push': 'Push…',
   'workbench.gitBranch.action.newBranch': 'Nouvelle branche…',
   'workbench.gitBranch.group.recent': 'Récentes',
+  'workbench.gitPush.title': 'Pousser les commits vers {folder}',
+  'workbench.gitPush.noUpstream': "l'upstream est défini au premier push",
+  'workbench.gitPush.nothing': 'Tout est à jour. Rien à pousser.',
+  'workbench.gitPush.detached': 'HEAD est détaché. Basculez sur une branche pour pousser.',
+  'workbench.gitPush.push': 'Pousser',
+  'workbench.gitPush.cancel': 'Annuler',
+  'workbench.gitPush.failed': 'Impossible de lister les commits à pousser : {detail}',
   'workbench.gitBranch.pushNoPermission':
     'Le dépôt distant a refusé le push : permission manquante. « Commit et Push » dans la fenêtre Commit peut publier le travail sur une nouvelle branche.',
   'workbench.gitLog.switch.checkedOut': 'Checkout de {branch} effectué',

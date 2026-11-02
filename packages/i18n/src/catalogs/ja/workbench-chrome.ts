@@ -632,6 +632,13 @@ export const workbenchChrome = {
   'workbench.gitBranch.action.push': 'プッシュ…',
   'workbench.gitBranch.action.newBranch': '新しいブランチ…',
   'workbench.gitBranch.group.recent': '最近',
+  'workbench.gitPush.title': '{folder} にコミットをプッシュ',
+  'workbench.gitPush.noUpstream': '最初のプッシュで上流を設定します',
+  'workbench.gitPush.nothing': 'すべて最新です。プッシュするものはありません。',
+  'workbench.gitPush.detached': 'HEAD が切り離されています。プッシュするにはブランチをチェックアウトしてください。',
+  'workbench.gitPush.push': 'プッシュ',
+  'workbench.gitPush.cancel': 'キャンセル',
+  'workbench.gitPush.failed': 'プッシュするコミットを一覧できませんでした：{detail}',
   'workbench.gitBranch.pushNoPermission':
     'リモートがプッシュを拒否しました: 権限がありません。コミットウィンドウの「コミットしてプッシュ」で作業を新しいブランチとして公開できます。',
   'workbench.gitLog.switch.checkedOut': '{branch} をチェックアウトしました',

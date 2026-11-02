@@ -435,9 +435,25 @@ async function editCommitPush(file: string, name: string, message: string): Prom
   await pane('commit-tool-message').fill(message);
   await expect(pane('commit-tool-commit-push')).toBeEnabled();
   await pane('commit-tool-commit-push').click();
+  await confirmPushWindow();
   await expect.poll(() => commitCount(), { timeout: 5_000 }).toBe(before + 1);
   await expect.poll(() => remoteMain(), { timeout: 5_000 }).toBe(ws('rev-parse', 'HEAD'));
   await waitClean();
+}
+
+/**
+ * Commit and Push… and the Push… verbs land in the Push window (the
+ * reference anatomy): the commits that would go on the left, Push in
+ * the footer. Press it once the list has arrived (the button holds
+ * while the list loads) and wait for the window to leave.
+ */
+async function confirmPushWindow(): Promise<void> {
+  // The window's testid sits on antd's modal root, a box-less wrapper
+  // that reads hidden — the footer button is the visibility fact, and
+  // the window destroys its content on close.
+  await pane('git-push-confirm').waitFor({ state: 'visible' });
+  await pane('git-push-confirm').click();
+  await expect(pane('git-push-confirm')).toHaveCount(0);
 }
 
 /** Fill the message box and Commit; the commit lands on the bound checkout and the window settles clean. */
@@ -840,6 +856,7 @@ test('G9 — pushing behind the remote is refused in the window; pull then push 
   const before = commitCount();
   await pane('commit-tool-message').fill('git e2e: nudge local');
   await pane('commit-tool-commit-push').click();
+  await confirmPushWindow();
   await expect.poll(() => commitCount(), { timeout: 5_000 }).toBe(before + 1);
   await expect(pane('commit-tool-error')).toContainText('Push failed');
   expect(remoteMain()).not.toBe(ws('rev-parse', 'HEAD'));
@@ -866,6 +883,7 @@ test('G10 — a rejecting pre-receive raises the no-push-access recovery; Push a
   const before = commitCount();
   await pane('commit-tool-message').fill('git e2e: protected local');
   await pane('commit-tool-commit-push').click();
+  await confirmPushWindow();
   await expect.poll(() => commitCount(), { timeout: 5_000 }).toBe(before + 1);
   // The commit landed; the push answered no-permission, which is a
   // recovery, never an error line.
@@ -938,6 +956,7 @@ test('G11 — a rewritten remote holds pull and push behind the banner in both w
   const before = commitCount();
   await pane('commit-tool-message').fill('git e2e: abandon me too');
   await pane('commit-tool-commit-push').click();
+  await confirmPushWindow();
   await expect.poll(() => commitCount(), { timeout: 5_000 }).toBe(before + 1);
   await expect(pane('commit-tool-error')).toContainText('The remote history was rewritten');
   await dismissError();

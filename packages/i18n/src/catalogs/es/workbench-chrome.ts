@@ -798,6 +798,13 @@ export const workbenchChrome = {
   'workbench.gitBranch.action.push': 'Push…',
   'workbench.gitBranch.action.newBranch': 'Nueva rama…',
   'workbench.gitBranch.group.recent': 'Recientes',
+  'workbench.gitPush.title': 'Enviar commits a {folder}',
+  'workbench.gitPush.noUpstream': 'el upstream se establece con el primer push',
+  'workbench.gitPush.nothing': 'Todo está actualizado. Nada que enviar.',
+  'workbench.gitPush.detached': 'HEAD está separado. Cambia a una rama para enviar.',
+  'workbench.gitPush.push': 'Enviar',
+  'workbench.gitPush.cancel': 'Cancelar',
+  'workbench.gitPush.failed': 'No se pudieron listar los commits a enviar: {detail}',
   'workbench.gitBranch.pushNoPermission':
     'El remoto rechazó el push: sin permiso. «Commit y Push» en la ventana Commit puede publicar el trabajo como una rama nueva.',
   'workbench.gitLog.switch.checkedOut': 'Checkout de {branch} realizado',

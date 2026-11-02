@@ -798,6 +798,13 @@ export const workbenchChrome = {
   'workbench.gitBranch.action.push': 'Push…',
   'workbench.gitBranch.action.newBranch': 'Neuer Branch…',
   'workbench.gitBranch.group.recent': 'Zuletzt verwendet',
+  'workbench.gitPush.title': 'Commits pushen nach {folder}',
+  'workbench.gitPush.noUpstream': 'Upstream wird beim ersten Push gesetzt',
+  'workbench.gitPush.nothing': 'Alles ist aktuell. Nichts zu pushen.',
+  'workbench.gitPush.detached': 'HEAD ist losgelöst. Zum Pushen einen Branch auschecken.',
+  'workbench.gitPush.push': 'Pushen',
+  'workbench.gitPush.cancel': 'Abbrechen',
+  'workbench.gitPush.failed': 'Die zu pushenden Commits konnten nicht ermittelt werden: {detail}',
   'workbench.gitBranch.pushNoPermission':
     'Das Remote hat den Push abgelehnt: keine Berechtigung. „Commit und Push“ im Commit-Fenster kann die Arbeit als neuen Branch veröffentlichen.',
   'workbench.gitLog.switch.checkedOut': '{branch} ausgecheckt',

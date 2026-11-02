@@ -52,6 +52,7 @@ import {
 import CommitChangesTree, { type CommitChangesTreeHandle } from './CommitChangesTree';
 import CommitForm, { type CommitFormHandle } from './CommitForm';
 import CommitToolbar from './CommitToolbar';
+import PushCommitsModal from '../push/PushCommitsModal';
 import PushNewBranchAlert from './PushNewBranchAlert';
 
 export interface CommitToolPanelProps {
@@ -78,6 +79,7 @@ const CommitToolPanel: React.FC<CommitToolPanelProps> = ({ info, onHide }) => {
   const [headSha, setHeadSha] = useState<string | null>(null);
   const [forcePush, setForcePush] = useState<WorkspaceTreeForcePushStateWire | null>(null);
   const [pushRecovery, setPushRecovery] = useState(false);
+  const [pushOpen, setPushOpen] = useState(false);
   const [compareOpen, setCompareOpen] = useState(false);
   const [createBranchFrom, setCreateBranchFrom] = useState<string | null>(null);
   const treeRef = useRef<CommitChangesTreeHandle>(null);
@@ -288,7 +290,7 @@ const CommitToolPanel: React.FC<CommitToolPanelProps> = ({ info, onHide }) => {
         setChecked(EMPTY_CHECKED_STATE);
         message.success(t('workbench.commitTool.committed', { sha: (result.sha ?? '').slice(0, 8) }));
         await refreshChanges();
-        if (andPush) await pushCurrent();
+        if (andPush) setPushOpen(true);
       } catch (err) {
         setError((err as Error).message);
       } finally {
@@ -305,7 +307,6 @@ const CommitToolPanel: React.FC<CommitToolPanelProps> = ({ info, onHide }) => {
       commitErrorText,
       message,
       refreshChanges,
-      pushCurrent,
       t,
     ],
   );
@@ -443,7 +444,7 @@ const CommitToolPanel: React.FC<CommitToolPanelProps> = ({ info, onHide }) => {
       onCommitPaths: handleCommitPaths,
       onShowDiff: (filePath) => void handleOpenDiff(filePath),
       onRefresh: () => void refreshChanges(),
-      onPush: () => void pushCurrent(),
+      onPush: () => setPushOpen(true),
       onPull: () => void handlePull(),
       onFetch: () => void handleFetch(),
       onCompareWithBranch: () => setCompareOpen(true),
@@ -593,6 +594,12 @@ const CommitToolPanel: React.FC<CommitToolPanelProps> = ({ info, onHide }) => {
         onDismissError={() => setError(null)}
       />
       <DiffModal diff={diff} onClose={() => setDiff(null)} />
+      <PushCommitsModal
+        workspaceId={workspaceId}
+        open={pushOpen}
+        onClose={() => setPushOpen(false)}
+        onConfirm={pushCurrent}
+      />
       <CompareBranchModal
         workspaceId={workspaceId}
         open={compareOpen}

@@ -659,6 +659,13 @@ export const workbenchChrome = {
   'workbench.gitBranch.action.push': 'Push…',
   'workbench.gitBranch.action.newBranch': 'Ramură nouă…',
   'workbench.gitBranch.group.recent': 'Recente',
+  'workbench.gitPush.title': 'Trimite commit-urile către {folder}',
+  'workbench.gitPush.noUpstream': 'upstream-ul se setează la primul push',
+  'workbench.gitPush.nothing': 'Totul este la zi. Nimic de trimis.',
+  'workbench.gitPush.detached': 'HEAD este detașat. Fă checkout pe un branch pentru a trimite.',
+  'workbench.gitPush.push': 'Trimite',
+  'workbench.gitPush.cancel': 'Anulează',
+  'workbench.gitPush.failed': 'Nu s-au putut lista commit-urile de trimis: {detail}',
   'workbench.gitBranch.pushNoPermission':
     'Remote-ul a refuzat push-ul: fără permisiune. „Commit și Push” din fereastra Commit poate publica lucrul ca o ramură nouă.',
   'workbench.gitLog.switch.checkedOut': 'Checkout efectuat pe ramura {branch}',
