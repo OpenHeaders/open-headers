@@ -139,7 +139,7 @@ const FileTreeView = forwardRef<FileTreeViewHandle, FileTreeViewProps>(function 
               <span aria-hidden style={slotStyle}>
                 {open ? <CaretDownOutlined /> : <CaretRightOutlined />}
               </span>
-              <FolderOutlined style={{ flex: '0 0 auto', fontSize: 11, color: token.colorTextTertiary }} />
+              <FolderOutlined style={{ flex: '0 0 auto', fontSize: 14, color: token.colorTextTertiary }} />
               <span
                 style={{ flex: '0 1 auto', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
               >

@@ -70,6 +70,7 @@ import {
   type RuntimeCtx,
   SCOPE,
 } from './core';
+import { runEntityAtPath } from './entity-at-path';
 import { runCompareRefs, runFileDiff, runFileLog, runGitConsole, runListRefs, runWorkspaceLog } from './history';
 import { runIgnorePath, runUnignorePath } from './ignore';
 import { closeBinding, openBinding } from './lifecycle';
@@ -94,6 +95,7 @@ import type {
   UpdateBranchRpcResult,
   WorkspaceTreeChangesRpcResult,
   WorkspaceTreeCommitCadence,
+  WorkspaceTreeEntityAtPathRpcResult,
   WorkspaceTreeFileDiffRpcResult,
   WorkspaceTreeGitConsoleRpcResult,
   WorkspaceTreeGitStatusRpcResult,
@@ -651,6 +653,10 @@ export function createWorkspaceTreeRuntime(options: WorkspaceTreeRuntimeOptions)
       base?: string,
     ): Promise<WorkspaceTreeFileDiffRpcResult> {
       return runFileDiff(ctx, workspaceId, sha, filePath, base);
+    },
+
+    entityAtPath(workspaceId: string, filePath: string): Promise<WorkspaceTreeEntityAtPathRpcResult> {
+      return runEntityAtPath(ctx, workspaceId, filePath);
     },
 
     gitConsole(workspaceId: string): Promise<WorkspaceTreeGitConsoleRpcResult> {

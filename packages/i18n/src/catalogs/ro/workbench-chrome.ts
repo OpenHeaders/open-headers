@@ -658,6 +658,7 @@ export const workbenchChrome = {
   'workbench.gitBranch.action.commit': 'Commit…',
   'workbench.gitBranch.action.push': 'Push…',
   'workbench.gitBranch.action.newBranch': 'Ramură nouă…',
+  'workbench.gitLog.jumpToSource.noEditor': 'Niciun editor pentru {path}',
   'workbench.gitBranch.group.recent': 'Recente',
   'workbench.gitPush.title': 'Trimite commit-urile către {folder}',
   'workbench.gitPush.noUpstream': 'upstream-ul se setează la primul push',

@@ -18,7 +18,7 @@
 
 import type { LiveWorkflow } from '@openheaders/core/types';
 import type React from 'react';
-import { lazy, Suspense } from 'react';
+import { lazy, Suspense, useEffect, useRef } from 'react';
 import type { MutableRefObject, RefObject } from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import WorkflowStatusPanel from '../live/WorkflowStatusPanel';
@@ -55,6 +55,7 @@ import type { UseWorkbenchSidebarStateApi } from '../../hooks/useWorkbenchSideba
 import { getToolWindowInfo } from '../../tool-window-info';
 import { isToolWindowTeased, TOOL_WINDOW_MAP } from '../../tool-windows';
 import type { DockSlot, ToolWindowId, WorkbenchTab } from '../../types';
+import { type GitEntityOpeners, registerGitEntityOpeners } from '../panels/git/git-entity-opener';
 
 interface WorkbenchToolWindowProps {
   id: ToolWindowId;
@@ -204,6 +205,34 @@ const WorkbenchToolWindow: React.FC<WorkbenchToolWindowProps> = ({
   liveWorkflows,
 }) => {
   const t = useT();
+
+  // Jump to Source (the git surfaces' changed-file trees): this host
+  // offers its tab openers while mounted; the ref carries the latest
+  // closures so the registration itself happens once.
+  const entityOpeners: GitEntityOpeners = {
+    openEditTab,
+    openRequestEditTab,
+    openGrpcRequestEditTab,
+    openWebSocketRequestEditTab,
+    openMqttRequestEditTab,
+    openGraphqlRequestEditTab,
+    openTemplateEditTab,
+    openSpecEdit,
+    openLiveWorkflowEdit,
+    openLiveVariables,
+    openEnvironmentEdit,
+    openWorkspaceVariables,
+    openVault,
+    openCollectionOverview,
+    openRequestCollectionOverview,
+    openTemplateCollectionOverview,
+    openFolderOverview,
+    openRequestFolderOverview,
+    openTemplateFolderOverview,
+  };
+  const entityOpenersRef = useRef(entityOpeners);
+  entityOpenersRef.current = entityOpeners;
+  useEffect(() => registerGitEntityOpeners(() => entityOpenersRef.current), []);
   // Capability-gated window on a host without the capability: render
   // the desktop teaser instead of the real panel. Checked BEFORE the
   // switch so the lazy chunks below (xterm, git, proxy table) are

@@ -651,6 +651,7 @@ export const workbenchChrome = {
   'workbench.gitBranch.action.commit': 'Коммит…',
   'workbench.gitBranch.action.push': 'Push…',
   'workbench.gitBranch.action.newBranch': 'Новая ветка…',
+  'workbench.gitLog.jumpToSource.noEditor': 'Нет редактора для {path}',
   'workbench.gitBranch.group.recent': 'Недавние',
   'workbench.gitPush.title': 'Отправить коммиты в {folder}',
   'workbench.gitPush.noUpstream': 'upstream задаётся при первом push',

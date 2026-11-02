@@ -6,6 +6,15 @@
  */
 
 export {
+  classifyTreePath,
+  entityRefOfManifest,
+  type TreePathClass,
+  type TreePathManifestCandidate,
+  type WorkspaceTreeCollectionTree,
+  type WorkspaceTreeEntityKind,
+  type WorkspaceTreeEntityRef,
+} from './entity-at-path';
+export {
   COLLECTION_MANIFEST_FILE,
   ENVIRONMENTS_DIR,
   environmentFilePath,

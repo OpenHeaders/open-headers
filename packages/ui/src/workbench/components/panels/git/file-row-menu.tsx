@@ -2,8 +2,9 @@
  * file-row-menu — the log's changed-file row right-click menu (the
  * commit details' file tree): Show Diff (the commit's
  * blob pair), Show History (the path's own timeline — `fileLog`,
- * renames followed), then the placeholder entries (Show Current Revision,
- * Jump to Source) visible-disabled. Pure over (path, t, handlers).
+ * renames followed), Jump to Source (the entity's editor — live when
+ * the surface wires it), then Show Current Revision visible-disabled.
+ * Pure over (path, t, handlers).
  */
 
 import { ClockCircleOutlined, EditOutlined, SwapOutlined } from '@ant-design/icons';
@@ -14,6 +15,7 @@ import { menuLabel } from './git-menu-label';
 export interface FileRowMenuHandlers {
   onShowDiff: (path: string) => void;
   onShowHistory: (path: string) => void;
+  onJumpToSource?: (path: string) => void;
 }
 
 type MenuItems = NonNullable<MenuProps['items']>;
@@ -43,8 +45,14 @@ export function buildFileRowMenu(path: string, t: Translate, h: FileRowMenuHandl
     },
     {
       key: 'jump-to-source',
-      label: menuLabel(<EditOutlined />, t('workbench.gitLog.fileMenu.jumpToSource')),
-      disabled: true,
+      label: menuLabel(
+        <EditOutlined />,
+        t('workbench.gitLog.fileMenu.jumpToSource'),
+        undefined,
+        'git-tool-file-menu-jump',
+      ),
+      disabled: h.onJumpToSource === undefined,
+      ...(h.onJumpToSource === undefined ? {} : { onClick: () => h.onJumpToSource?.(path) }),
     },
   ];
   return { items, selectable: false };

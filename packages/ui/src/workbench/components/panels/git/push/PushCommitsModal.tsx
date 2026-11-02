@@ -4,8 +4,10 @@
  * branch` row, the selected commit's files and details on the right —
  * the target row, selected by default, shows every commit's files as
  * one set, and a double-click there diffs the path across the whole
- * range (the upstream's blob against the local head) — Cancel and Push
- * in the footer. The list is `compareRefs`
+ * range (the upstream's blob against the local head). The files pane
+ * carries the Git window's details toolbar — Show Diff, the Group By
+ * / Show Details eye, Jump to Source — over the same per-workspace
+ * view prefs. Cancel and Push in the footer. The list is `compareRefs`
  * against the upstream (the commits it lacks) or the branch's log when
  * no upstream exists yet; it refetches on status frames while open.
  * The window never pushes itself — Push runs the caller's routine so
@@ -22,13 +24,16 @@ import {
 } from '@openheaders/core/bridge';
 import { Button, Modal, theme } from 'antd';
 import type React from 'react';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { useWorkspaceGitSnapshot } from '../../../../stores/git-status-store';
 import CommitDetails from '../CommitDetails';
 import DiffModal from '../DiffModal';
-import FileTreeView from '../FileTreeView';
+import FileTreeView, { type FileTreeViewHandle } from '../FileTreeView';
+import { getGitLogViewPrefs, patchGitLogViewPrefs, subscribeGitLogViewPrefs } from '../git-log-view-prefs';
+import GitDetailsToolbar from '../toolbar/GitDetailsToolbar';
 import { useFileDiff } from '../use-file-diff';
+import { useJumpToSource } from '../use-jump-to-source';
 import PushCommitList from './PushCommitList';
 import { canPush, folderNameOf, type PushSelection, pushTarget, rangeDiffBase, unionFiles } from './push-window-model';
 
@@ -52,6 +57,13 @@ const PushCommitsModal: React.FC<PushCommitsModalProps> = ({ workspaceId, open, 
   const [selectedPath, setSelectedPath] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const fileDiff = useFileDiff(workspaceId);
+  const jumpToSource = useJumpToSource(workspaceId);
+  const fileTreeRef = useRef<FileTreeViewHandle>(null);
+  const subscribePrefs = useCallback(
+    (listener: () => void) => subscribeGitLogViewPrefs(workspaceId, listener),
+    [workspaceId],
+  );
+  const prefs = useSyncExternalStore(subscribePrefs, () => getGitLogViewPrefs(workspaceId));
 
   const reload = useCallback(async (): Promise<void> => {
     if (target.kind !== 'upstream' && target.kind !== 'new-upstream') {
@@ -112,6 +124,13 @@ const PushCommitsModal: React.FC<PushCommitsModalProps> = ({ workspaceId, open, 
   const allFiles = useMemo(() => unionFiles(entries), [entries]);
   const rangeBase = useMemo(() => rangeDiffBase(target, entries, snapshot.refs), [target, entries, snapshot.refs]);
   const headSha = snapshot.status?.headSha ?? null;
+
+  // The selected file's diff: one commit's change on a commit row, the
+  // whole range on the target row.
+  const openDiff = (path: string): void => {
+    if (selected !== null) void fileDiff.open(selected.sha, path);
+    else if (headSha !== null) void fileDiff.open(headSha, path, rangeBase ?? undefined);
+  };
 
   const confirm = async (): Promise<void> => {
     if (busy) return;
@@ -197,17 +216,30 @@ const PushCommitsModal: React.FC<PushCommitsModalProps> = ({ workspaceId, open, 
             />
           </div>
           <div style={{ flex: '1 1 45%', minWidth: 0, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+            <GitDetailsToolbar
+              canShowDiff={selectedPath !== null}
+              onShowDiff={() => {
+                if (selectedPath !== null) openDiff(selectedPath);
+              }}
+              onJumpToSource={() => {
+                if (selectedPath !== null) jumpToSource(selectedPath);
+              }}
+              canJumpToSource={selectedPath !== null}
+              prefs={prefs}
+              onPatchPrefs={(patch) => patchGitLogViewPrefs(workspaceId, patch)}
+              onExpandAll={() => fileTreeRef.current?.expandAll()}
+              onCollapseAll={() => fileTreeRef.current?.collapseAll()}
+            />
             {selection === 'all' && entries.length > 0 ? (
               <FileTreeView
                 key="all"
+                ref={fileTreeRef}
                 files={allFiles}
                 loadingPath={fileDiff.loadingPath}
                 selectedPath={selectedPath}
                 onSelectFile={setSelectedPath}
-                onOpenFile={(path) => {
-                  if (headSha !== null) void fileDiff.open(headSha, path, rangeBase ?? undefined);
-                }}
-                showHeader
+                onOpenFile={openDiff}
+                groupByDirectory={prefs.groupFilesByDirectory}
               />
             ) : selected === null ? (
               <div
@@ -227,27 +259,31 @@ const PushCommitsModal: React.FC<PushCommitsModalProps> = ({ workspaceId, open, 
               <>
                 <FileTreeView
                   key={selected.sha}
+                  ref={fileTreeRef}
                   files={selected.files}
                   loadingPath={fileDiff.loadingPath}
                   selectedPath={selectedPath}
                   onSelectFile={setSelectedPath}
-                  onOpenFile={(path) => void fileDiff.open(selected.sha, path)}
-                  showHeader
+                  onOpenFile={openDiff}
+                  groupByDirectory={prefs.groupFilesByDirectory}
                 />
-                <div
-                  style={{
-                    flex: '1 1 45%',
-                    minHeight: 0,
-                    overflowY: 'auto',
-                    borderTop: `1px solid ${token.colorBorderSecondary}`,
-                  }}
-                >
-                  <CommitDetails
-                    entry={selected}
-                    refsAtCommit={refsBySha.get(selected.sha) ?? []}
-                    isHead={selected.sha === headSha}
-                  />
-                </div>
+                {prefs.showDetails && (
+                  <div
+                    style={{
+                      flex: '1 1 45%',
+                      minHeight: 0,
+                      overflowY: 'auto',
+                      borderTop: `1px solid ${token.colorBorderSecondary}`,
+                    }}
+                    data-testid="git-push-detail-info"
+                  >
+                    <CommitDetails
+                      entry={selected}
+                      refsAtCommit={refsBySha.get(selected.sha) ?? []}
+                      isHead={selected.sha === headSha}
+                    />
+                  </div>
+                )}
               </>
             )}
           </div>

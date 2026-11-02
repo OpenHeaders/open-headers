@@ -129,6 +129,8 @@ export type {
   WorkspaceTreeCompareRefsWire,
   WorkspaceTreeCreateBranchWire,
   WorkspaceTreeDeleteBranchWire,
+  WorkspaceTreeEntityAtPathWire,
+  WorkspaceTreeEntityRefWire,
   WorkspaceTreeFetchWire,
   WorkspaceTreeFileDiffPairWire,
   WorkspaceTreeFileDiffWire,

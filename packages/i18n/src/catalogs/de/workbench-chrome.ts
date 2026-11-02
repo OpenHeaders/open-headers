@@ -797,6 +797,7 @@ export const workbenchChrome = {
   'workbench.gitBranch.action.commit': 'Commit…',
   'workbench.gitBranch.action.push': 'Push…',
   'workbench.gitBranch.action.newBranch': 'Neuer Branch…',
+  'workbench.gitLog.jumpToSource.noEditor': 'Kein Editor für {path}',
   'workbench.gitBranch.group.recent': 'Zuletzt verwendet',
   'workbench.gitPush.title': 'Commits pushen nach {folder}',
   'workbench.gitPush.noUpstream': 'Upstream wird beim ersten Push gesetzt',

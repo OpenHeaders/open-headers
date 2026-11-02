@@ -1,12 +1,21 @@
 /**
- * GitDetailsToolbar — the changes pane's top band:
- * Show Diff for the selected file, Revert Selected Changes (visible
- * placeholder — the write verb is a future slice), the View Options
- * eye (Group By Directory, Show Details, Show Diff Preview), then
- * Expand All / Collapse All at the far edge driving the files tree.
+ * GitDetailsToolbar — the changes pane's top band (the Git window's
+ * details and the Push window's files): Show Diff for the selected
+ * file, Revert Selected Changes (visible placeholder — the write verb
+ * is a future slice), the View Options eye (Group By Directory, Show
+ * Details, Show Diff Preview), Jump to Source for the selected file
+ * when the host offers it, then Expand All / Collapse All at the far
+ * edge driving the files tree.
  */
 
-import { ArrowsAltOutlined, EyeOutlined, ShrinkOutlined, SwapOutlined, UndoOutlined } from '@ant-design/icons';
+import {
+  ArrowsAltOutlined,
+  EditOutlined,
+  EyeOutlined,
+  ShrinkOutlined,
+  SwapOutlined,
+  UndoOutlined,
+} from '@ant-design/icons';
 import { Dropdown, theme } from 'antd';
 import type React from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
@@ -18,6 +27,9 @@ export interface GitDetailsToolbarProps {
   /** A file row is selected — Show Diff enables. */
   canShowDiff: boolean;
   onShowDiff: () => void;
+  /** Jump to Source for the selected file — absent surfaces carry no button. */
+  onJumpToSource?: () => void;
+  canJumpToSource?: boolean;
   prefs: GitLogViewPrefs;
   onPatchPrefs: (patch: Partial<GitLogViewPrefs>) => void;
   onExpandAll: () => void;
@@ -27,6 +39,8 @@ export interface GitDetailsToolbarProps {
 const GitDetailsToolbar: React.FC<GitDetailsToolbarProps> = ({
   canShowDiff,
   onShowDiff,
+  onJumpToSource,
+  canJumpToSource = false,
   prefs,
   onPatchPrefs,
   onExpandAll,
@@ -113,6 +127,15 @@ const GitDetailsToolbar: React.FC<GitDetailsToolbarProps> = ({
           />
         </span>
       </Dropdown>
+      {onJumpToSource !== undefined && (
+        <ToolbarIconButton
+          icon={<EditOutlined />}
+          title={t('workbench.gitLog.fileMenu.jumpToSource')}
+          onClick={onJumpToSource}
+          disabled={!canJumpToSource}
+          testid="git-tool-details-jump"
+        />
+      )}
       <span style={{ flex: 1 }} />
       <ToolbarIconButton
         icon={<ArrowsAltOutlined />}

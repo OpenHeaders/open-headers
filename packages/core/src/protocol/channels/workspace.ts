@@ -598,6 +598,16 @@ export interface WorkspaceRpc {
     res: WorkspaceTreeUnignoreWire;
   };
   /**
+   * Jump to Source: the workspace entity a tree path belongs to — the
+   * manifest itself or a sibling in an entity's directory — read from
+   * the working tree so the surface can open its editor. The user's
+   * own files (README, scripts) answer `not-an-entity`.
+   */
+  'oh.workspaceTree.entityAtPath': {
+    req: { workspaceId: string; path: string };
+    res: WorkspaceTreeEntityAtPathWire;
+  };
+  /**
    * One path's timeline (`--follow`, renames included) — the blame
    * answer: the newest entry is "who last touched this". Entries carry
    * no file lists (the diff isn't asked for).
@@ -863,6 +873,38 @@ export type WorkspaceTreeLogWire =
       reason: 'not-bound' | 'git-unavailable' | 'not-a-repo' | 'unknown-ref' | 'invalid-filter' | 'log-failed';
       detail?: string;
     };
+
+export type WorkspaceTreeEntityKindWire =
+  | 'rule'
+  | 'request'
+  | 'grpc'
+  | 'websocket'
+  | 'mqtt'
+  | 'graphql'
+  | 'template'
+  | 'spec'
+  | 'workflow'
+  | 'live-variable'
+  | 'collection'
+  | 'folder'
+  | 'environment'
+  | 'workspace-variables'
+  | 'vault';
+
+/** The entity a tree path belongs to — what Jump to Source opens. */
+export interface WorkspaceTreeEntityRefWire {
+  kind: WorkspaceTreeEntityKindWire;
+  /** The collection tree of a collection or folder; null elsewhere. */
+  tree: 'rules' | 'requests' | 'templates' | null;
+  uid: string;
+  name: string;
+  /** An HTTP request's method. */
+  method?: string;
+}
+
+export type WorkspaceTreeEntityAtPathWire =
+  | { ok: true; entity: WorkspaceTreeEntityRefWire }
+  | { ok: false; reason: 'not-bound' | 'unknown-path' | 'not-an-entity' | 'read-failed'; detail?: string };
 
 /** One ref in the log view's tree (Phase 7 slice 2), grouped by namespace. */
 export interface WorkspaceTreeRefWire {

@@ -43,6 +43,7 @@ import GitDetailsToolbar from './toolbar/GitDetailsToolbar';
 import GitLogToolbar from './toolbar/GitLogToolbar';
 import { buildLogWireFilters, hasRowFilters, makeTextMatcher } from './toolbar/log-filters';
 import { useFileDiff } from './use-file-diff';
+import { useJumpToSource } from './use-jump-to-source';
 import { useGitLogLayout } from './use-git-log-layout';
 
 export interface GitLogViewProps {
@@ -89,6 +90,7 @@ const GitLogView: React.FC<GitLogViewProps> = ({
   const [selectedFile, setSelectedFile] = useState<string | null>(null);
   const [historyPath, setHistoryPath] = useState<string | null>(null);
   const fileDiff = useFileDiff(workspaceId);
+  const jumpToSource = useJumpToSource(workspaceId);
 
   const subscribeViewPrefs = useCallback(
     (listener: () => void) => subscribeGitLogViewPrefs(workspaceId, listener),
@@ -283,6 +285,7 @@ const GitLogView: React.FC<GitLogViewProps> = ({
         if (selected !== null) void fileDiff.open(selected.sha, filePath);
       },
       onShowHistory: setHistoryPath,
+      onJumpToSource: jumpToSource,
     });
 
   return (
@@ -393,6 +396,10 @@ const GitLogView: React.FC<GitLogViewProps> = ({
             onShowDiff={() => {
               if (selected !== null && selectedFile !== null) void fileDiff.open(selected.sha, selectedFile);
             }}
+            onJumpToSource={() => {
+              if (selectedFile !== null) jumpToSource(selectedFile);
+            }}
+            canJumpToSource={selectedFile !== null}
             prefs={prefs}
             onPatchPrefs={(patch) => patchGitLogViewPrefs(workspaceId, patch)}
             onExpandAll={() => fileTreeRef.current?.expandAll()}

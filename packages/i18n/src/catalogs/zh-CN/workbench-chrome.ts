@@ -617,6 +617,7 @@ export const workbenchChrome = {
   'workbench.gitBranch.action.commit': '提交…',
   'workbench.gitBranch.action.push': '推送…',
   'workbench.gitBranch.action.newBranch': '新建分支…',
+  'workbench.gitLog.jumpToSource.noEditor': '没有适用于 {path} 的编辑器',
   'workbench.gitBranch.group.recent': '最近',
   'workbench.gitPush.title': '将提交推送到 {folder}',
   'workbench.gitPush.noUpstream': '首次推送时设置上游',

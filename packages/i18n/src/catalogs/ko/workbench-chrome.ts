@@ -630,6 +630,7 @@ export const workbenchChrome = {
   'workbench.gitBranch.action.commit': '커밋…',
   'workbench.gitBranch.action.push': '푸시…',
   'workbench.gitBranch.action.newBranch': '새 브랜치…',
+  'workbench.gitLog.jumpToSource.noEditor': '{path}에 대한 편집기가 없습니다',
   'workbench.gitBranch.group.recent': '최근',
   'workbench.gitPush.title': '{folder}에 커밋 푸시',
   'workbench.gitPush.noUpstream': '첫 푸시에서 업스트림을 설정합니다',

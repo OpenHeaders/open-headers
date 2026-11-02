@@ -631,6 +631,7 @@ export const workbenchChrome = {
   'workbench.gitBranch.action.commit': 'コミット…',
   'workbench.gitBranch.action.push': 'プッシュ…',
   'workbench.gitBranch.action.newBranch': '新しいブランチ…',
+  'workbench.gitLog.jumpToSource.noEditor': '{path} のエディターはありません',
   'workbench.gitBranch.group.recent': '最近',
   'workbench.gitPush.title': '{folder} にコミットをプッシュ',
   'workbench.gitPush.noUpstream': '最初のプッシュで上流を設定します',

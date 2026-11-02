@@ -6,7 +6,7 @@
  */
 
 import type { WorkspaceTreeBindingRecord } from '@openheaders/core/storage';
-import type { ForeignHistoryNote, TreeIssue } from '@openheaders/core/workspace-tree';
+import type { ForeignHistoryNote, TreeIssue, WorkspaceTreeEntityRef } from '@openheaders/core/workspace-tree';
 import type { OracleSyncBroadcastEvent } from '@openheaders/oracle/sync';
 import type {
   CommitFileDiff,
@@ -247,6 +247,11 @@ export type CompareRefsRpcResult =
 
 export type WorkspaceTreeGitConsoleRpcResult = { ok: true; rows: GitAuditRow[] } | { ok: false; reason: 'not-bound' };
 
+/** The Jump to Source answer: the entity a tree path belongs to. */
+export type WorkspaceTreeEntityAtPathRpcResult =
+  | { ok: true; entity: WorkspaceTreeEntityRef }
+  | { ok: false; reason: 'not-bound' | 'unknown-path' | 'not-an-entity' | 'read-failed'; detail?: string };
+
 /** The Commit tool window's changes rows — porcelain, path-sorted. */
 export type WorkspaceTreeChangesRpcResult =
   | { ok: true; changes: WorkingChange[] }
@@ -478,6 +483,12 @@ export interface WorkspaceTreeRuntime {
   unignorePath(workspaceId: string, path: string, target: IgnoreTarget): Promise<WorkspaceTreeUnignoreRpcResult>;
   /** One path's timeline (`--follow`) — the newest entry is "who last touched this". */
   fileLog(workspaceId: string, path: string, limit?: number): Promise<WorkspaceTreeLogRpcResult>;
+  /**
+   * Jump to Source: the entity a tree path belongs to, read from the
+   * working tree — the manifest itself or a sibling in an entity's
+   * directory. The user's own files answer `not-an-entity`.
+   */
+  entityAtPath(workspaceId: string, path: string): Promise<WorkspaceTreeEntityAtPathRpcResult>;
   /** The log view's ref tree (§9, Phase 7 slice 2) — local branches, remote-tracking refs, tags. */
   listRefs(workspaceId: string): Promise<WorkspaceTreeRefsRpcResult>;
   /**
