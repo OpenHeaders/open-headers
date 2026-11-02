@@ -37,6 +37,7 @@ import { createPortal } from 'react-dom';
 import { useTheme } from '@openheaders/ui/context';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { allDirKeys, buildFileTree, type FileTreeNode } from '../file-tree';
+import { contextMenuAlign } from '../git-menu-overflow';
 import {
   aggregateChecked,
   type ChangeGroupKey,
@@ -347,6 +348,7 @@ const CommitChangesTree = forwardRef<CommitChangesTreeHandle, CommitChangesTreeP
       <Dropdown
         menu={menu}
         trigger={['contextMenu']}
+        align={contextMenuAlign}
         autoFocus
         classNames={{ root: 'commit-tool-row-menu' }}
         onOpenChange={(open) => {

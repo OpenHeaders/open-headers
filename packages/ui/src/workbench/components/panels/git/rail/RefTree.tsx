@@ -32,6 +32,7 @@ import { Dropdown, Input, type MenuProps, theme } from 'antd';
 import type React from 'react';
 import { forwardRef, useEffect, useImperativeHandle, useMemo, useState } from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
+import { contextMenuAlign } from '../git-menu-overflow';
 import { gitRailFavoriteKey } from './git-rail-prefs';
 import type { RefTreeSelection } from './ref-row-menu';
 import { allFolderKeys, buildRefTree, filterRefTree, folderKeysToRef, type RefTreeNode } from './ref-tree-model';
@@ -184,6 +185,7 @@ const RefTree = forwardRef<RefTreeHandle, RefTreeProps>(function RefTree(
       key={`${node.kind}:${node.name}`}
       menu={rowMenu(node)}
       trigger={['contextMenu']}
+      align={contextMenuAlign}
       classNames={{ root: 'commit-tool-row-menu' }}
     >
       {row}

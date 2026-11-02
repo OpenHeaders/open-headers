@@ -23,6 +23,7 @@ import type React from 'react';
 import { forwardRef, useImperativeHandle, useMemo, useState } from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { allDirKeys, buildFileTree, type FileTreeNode } from './file-tree';
+import { contextMenuAlign } from './git-menu-overflow';
 
 /** Porcelain status letter → theme color, (added green,
  *  modified blue, deleted red, rename/copy amber). */
@@ -188,6 +189,7 @@ const FileTreeView = forwardRef<FileTreeViewHandle, FileTreeViewProps>(function 
           key={node.path}
           menu={rowMenu(node.path)}
           trigger={['contextMenu']}
+          align={contextMenuAlign}
           classNames={{ root: 'commit-tool-row-menu' }}
         >
           {row}

@@ -451,11 +451,13 @@ async function commitWithMessage(message: string, dir: string = wsDir): Promise<
 }
 
 /**
- * The row menu's Git ▸ verbs: right-click a change row, slide the
- * pointer into the Git submenu title (rc-menu opens a submenu on a
- * real mouse path, not on a teleported hover; the title's arrow icon
- * joins its accessible name, so it is matched by its own text), click
- * the verb in the popup.
+ * The row menu's Git ▸ verbs: right-click a change row, walk the
+ * keyboard to the Git submenu (the menu auto-focuses; End lands on its
+ * last title, ArrowRight opens the popup and focuses its first item),
+ * click the verb in the popup. A hover slide opened the submenu on a
+ * timed pointer path that a stray real pointer over the window could
+ * close again; the keyboard route is the menu's own accessibility
+ * contract and has no delay to race.
  */
 async function rowMenuGit(
   verb: 'push' | 'pull' | 'fetch' | 'new-branch',
@@ -467,14 +469,10 @@ async function rowMenuGit(
     .locator('.ant-dropdown:not(.ant-dropdown-hidden) .ant-dropdown-menu-submenu-title')
     .filter({ hasText: /^Git$/ });
   await title.waitFor({ state: 'visible' });
-  // The dropdown slides in scaled — a box read mid-motion lands the
-  // pointer on the wrong row; wait for rc-motion's classes to drop.
   await expect(workbench.locator('.ant-dropdown[class*="-appear"], .ant-dropdown[class*="-enter"]')).toHaveCount(0);
-  const box = await title.boundingBox();
-  if (box === null) throw new Error('Git submenu title has no box');
-  const midY = box.y + box.height / 2;
-  await workbench.mouse.move(box.x - 40, midY);
-  await workbench.mouse.move(box.x + box.width / 2, midY, { steps: 12 });
+  await workbench.keyboard.press('End');
+  await expect(title.locator('..')).toHaveClass(/ant-dropdown-menu-submenu-active/);
+  await workbench.keyboard.press('ArrowRight');
   await pane(`commit-tool-menu-${verb}`).click();
 }
 
