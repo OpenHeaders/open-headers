@@ -64,6 +64,19 @@ describe('checked-set algebra', () => {
     expect(checkedPaths(ROWS, none)).toEqual([]);
   });
 
+  it('a checked rename row rides as both its paths — the origin must reach the pathspec to delete', () => {
+    const rows = [...ROWS, row({ path: 'docs/getting-started.md', status: 'R', renamedFrom: 'docs/setup.md' })];
+    expect(checkedPaths(rows, EMPTY_CHECKED_STATE)).toEqual([
+      'rules/a.yaml',
+      'rules/b.yaml',
+      'workspace.yaml',
+      'docs/getting-started.md',
+      'docs/setup.md',
+    ]);
+    const unchecked = setPathsChecked(rows, EMPTY_CHECKED_STATE, ['docs/getting-started.md'], false);
+    expect(checkedPaths(rows, unchecked)).toEqual(['rules/a.yaml', 'rules/b.yaml', 'workspace.yaml']);
+  });
+
   it('rows appearing between refetches keep the defaults', () => {
     const state = setPathsChecked(ROWS, EMPTY_CHECKED_STATE, ['rules/a.yaml'], false);
     const grown = [...ROWS, row({ path: 'rules/c.yaml', status: 'M' })];

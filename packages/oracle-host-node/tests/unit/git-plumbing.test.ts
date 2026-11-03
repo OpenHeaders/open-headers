@@ -254,7 +254,7 @@ describe('commitWorkspaceTree', () => {
     expect(second).toEqual({ ok: true, committed: false });
   });
 
-  it("preserves the user's partial staging byte-exactly (§3.3 mid-`git add -p`)", async () => {
+  it('a committed path leaves no staged snapshot behind — index == HEAD for what the commit consumed', async () => {
     await initialCommit();
     // The user stages v1, then keeps editing — the classic add -p
     // shape: index holds their crafted snapshot, worktree moved on.
@@ -274,18 +274,19 @@ describe('commitWorkspaceTree', () => {
     });
     expect(result).toMatchObject({ ok: true, committed: true });
 
-    // The engine committed the worktree (v2), but the user's staged
-    // snapshot is still v1 and still visibly staged.
+    // The commit consumed the worktree (v2); the stale v1 snapshot
+    // would otherwise read as `MM` against a HEAD the worktree already
+    // equals — a row no commit from here could ever change.
     const stagedBlob = await run(
       ['--git-dir', path.join(tmpDir, '.git'), '--work-tree', tmpDir, 'show', ':user-draft.yaml'],
       { cwd: tmpDir },
     );
-    expect(stagedBlob.stdout).toBe('draft: v1\n');
-    const staged = await run(
-      ['--git-dir', path.join(tmpDir, '.git'), '--work-tree', tmpDir, 'diff', '--cached', '--name-only'],
-      { cwd: tmpDir },
-    );
-    expect(staged.stdout.trim()).toBe('user-draft.yaml');
+    expect(stagedBlob.stdout).toBe('draft: v2\n');
+    expect(await userIndexHasStagedChanges(run, tmpDir)).toBe(false);
+    const status = await run(['--git-dir', path.join(tmpDir, '.git'), '--work-tree', tmpDir, 'status', '--porcelain'], {
+      cwd: tmpDir,
+    });
+    expect(status.stdout).toBe('');
   });
 
   it('leaves the repo normal after a clean-index engine commit — git status stays quiet', async () => {
@@ -1550,6 +1551,70 @@ describe('Commit window plumbing (S22)', () => {
     expect(await userIndexHasStagedChanges(run, tmpDir)).toBe(true);
     const log = await listCommitLog(run, tmpDir, 1);
     expect(log?.[0]?.files.map((file) => file.path)).toEqual(['note.yaml']);
+  });
+
+  it('a checked `MM` path commits its worktree bytes and leaves no row behind', async () => {
+    await initialCommit();
+    // The seeded Commit-window shape: staged one version, edited past
+    // it — porcelain `MM`. The commit takes the worktree; afterwards
+    // HEAD, index and worktree agree and the row is gone.
+    await write('scripts/run.sh', '#!/bin/sh\noh run --all --bail\n');
+    await run(['--git-dir', path.join(tmpDir, '.git'), '--work-tree', tmpDir, 'add', '--', 'scripts/run.sh'], {
+      cwd: tmpDir,
+    });
+    await write('scripts/run.sh', '#!/bin/sh\noh run --all --bail --json\n');
+    await write('other.yaml', 'kind: other\n');
+    await run(['--git-dir', path.join(tmpDir, '.git'), '--work-tree', tmpDir, 'add', '--', 'other.yaml'], {
+      cwd: tmpDir,
+    });
+
+    const result = await commitWorkspaceTree({
+      run,
+      rootDir: tmpDir,
+      message: 'Run with json',
+      identityEnv: IDENTITY_ENV,
+      paths: ['scripts/run.sh'],
+    });
+    expect(result).toMatchObject({ ok: true, committed: true });
+
+    const rows = (await listWorkingChanges(run, tmpDir)) ?? [];
+    expect(rows.map((row) => `${row.status} ${row.path}`)).toEqual(['A other.yaml']);
+    const head = await run(['--git-dir', path.join(tmpDir, '.git'), 'show', 'HEAD:scripts/run.sh'], { cwd: tmpDir });
+    expect(head.stdout).toBe('#!/bin/sh\noh run --all --bail --json\n');
+  });
+
+  it('a staged rename commits as a delete plus an add when both paths ride the pathspec', async () => {
+    await initialCommit();
+    await write('docs/setup.md', '# Setup\n');
+    await commitWorkspaceTree({ run, rootDir: tmpDir, message: 'Setup', identityEnv: IDENTITY_ENV });
+    await run(
+      ['--git-dir', path.join(tmpDir, '.git'), '--work-tree', tmpDir, 'mv', 'docs/setup.md', 'docs/getting-started.md'],
+      { cwd: tmpDir },
+    );
+    const before = (await listWorkingChanges(run, tmpDir)) ?? [];
+    expect(before).toEqual([
+      {
+        path: 'docs/getting-started.md',
+        status: 'R',
+        unversioned: false,
+        ignored: false,
+        renamedFrom: 'docs/setup.md',
+      },
+    ]);
+
+    const result = await commitWorkspaceTree({
+      run,
+      rootDir: tmpDir,
+      message: 'Rename the guide',
+      identityEnv: IDENTITY_ENV,
+      paths: ['docs/getting-started.md', 'docs/setup.md'],
+    });
+    expect(result).toMatchObject({ ok: true, committed: true });
+    expect(await listWorkingChanges(run, tmpDir)).toEqual([]);
+    const tree = await run(['--git-dir', path.join(tmpDir, '.git'), 'ls-tree', '--name-only', '-r', 'HEAD', 'docs/'], {
+      cwd: tmpDir,
+    });
+    expect(tree.stdout.trim()).toBe('docs/getting-started.md');
   });
 
   it('unchanged checked paths answer committed:false, never an empty commit', async () => {

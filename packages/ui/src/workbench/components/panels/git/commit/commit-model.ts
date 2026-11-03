@@ -50,9 +50,16 @@ export function isRowChecked(row: WorkspaceTreeWorkingChangeWire, state: Checked
   return !state.uncheckedTracked.has(row.path);
 }
 
-/** Every checked path across both checkable groups — the commit verb's `paths`. */
+/**
+ * Every checked path across both checkable groups — the commit verb's
+ * `paths`. A staged rename rides as BOTH its paths: the new one adds,
+ * the origin deletes — the commit's pathspec stages deletions, so the
+ * old path must be named or it survives in HEAD.
+ */
 export function checkedPaths(rows: readonly WorkspaceTreeWorkingChangeWire[], state: CheckedState): string[] {
-  return rows.filter((row) => isRowChecked(row, state)).map((row) => row.path);
+  return rows
+    .filter((row) => isRowChecked(row, state))
+    .flatMap((row) => (row.renamedFrom !== undefined ? [row.path, row.renamedFrom] : [row.path]));
 }
 
 /** Flip a set of paths (a file row, a directory's descendants, or a whole group) to `checked`. */

@@ -1328,11 +1328,12 @@ export async function commitWorkspaceTree(options: CommitWorkspaceTreeOptions): 
   try {
     const headProbe = await run([...repoArgs(rootDir), 'rev-parse', '--verify', '--quiet', 'HEAD'], { cwd: rootDir });
     const hasHead = headProbe.code === 0;
+    const headBefore = hasHead ? headProbe.stdout.trim() : undefined;
 
     // Snapshot what the USER has staged in the real index before the
-    // commit moves HEAD — these paths are theirs and the post-commit
-    // index refresh below must leave them exactly as found. On an
-    // unborn HEAD anything in the index is a staged entry.
+    // commit moves HEAD — the post-commit index refresh below leaves
+    // the staged paths this commit did not touch exactly as found. On
+    // an unborn HEAD anything in the index is a staged entry.
     const stagedProbe = hasHead
       ? await run([...repoArgs(rootDir), 'diff', '--cached', '--name-only'], { cwd: rootDir })
       : await run([...repoArgs(rootDir), 'ls-files'], { cwd: rootDir });
@@ -1380,17 +1381,27 @@ export async function commitWorkspaceTree(options: CommitWorkspaceTreeOptions): 
     // Keep the repo NORMAL after a temp-index commit: git's own commit
     // would have left index == HEAD, so ours must too — otherwise the
     // user's next `git status` shows phantom staged deletions for every
-    // file this commit touched. Paths the user had staged stay exactly
-    // as found (a mid-`git add -p` partial staging survives, §3.3);
-    // everything else the commit changed is refreshed from HEAD.
+    // file this commit touched. Every path this commit changed is
+    // refreshed from HEAD, staged or not: the commit consumed the
+    // path's working-tree bytes, so an older staged snapshot left
+    // behind it would read as a modification the Commit window can
+    // never commit and a terminal `git commit` would silently revert.
+    // Staged paths the commit did not touch stay exactly as found (a
+    // mid-`git add -p` partial staging elsewhere survives, §3.3).
     if (userStagedPaths.size === 0) {
       await run([...repoArgs(rootDir), 'read-tree', 'HEAD'], { cwd: rootDir });
     } else if (commitSha.length > 0) {
       const changed = await run(
-        [...repoArgs(rootDir), 'diff-tree', '--no-commit-id', '--name-only', '-r', '--root', commitSha],
+        [
+          ...repoArgs(rootDir),
+          'diff-tree',
+          '--name-only',
+          '-r',
+          ...(headBefore !== undefined ? [headBefore, commitSha] : ['--root', '--no-commit-id', commitSha]),
+        ],
         { cwd: rootDir },
       );
-      const toRefresh = changed.stdout.split('\n').filter((line) => line.length > 0 && !userStagedPaths.has(line));
+      const toRefresh = changed.stdout.split('\n').filter((line) => line.length > 0);
       if (toRefresh.length > 0) {
         await run([...repoArgs(rootDir), 'reset', '-q', 'HEAD', '--', ...toRefresh], { cwd: rootDir });
       }
