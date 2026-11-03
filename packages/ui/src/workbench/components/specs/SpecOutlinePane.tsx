@@ -23,11 +23,9 @@
  */
 
 import {
-  BorderLeftOutlined,
   CaretRightOutlined,
   KeyOutlined,
   MailOutlined,
-  MenuUnfoldOutlined,
   MoreOutlined,
   PartitionOutlined,
   PlusOutlined,
@@ -44,6 +42,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import type { Translate } from '@openheaders/ui/context/LocaleContext';
 import { createPanelHeaderWiring, PanelHeader } from '@openheaders/ui/shared/dock-layout';
+import { CollapseAllIcon, ExpandAllIcon } from '@openheaders/ui/shared/icons';
 import { METHOD_COLORS } from '../sidebar/icons';
 import type { SpecInsertTarget } from './spec-outline-insert';
 import type { SpecOutlineNode } from './spec-outline';
@@ -569,7 +568,7 @@ const SpecOutlinePane: React.FC<SpecOutlinePaneProps> = ({
           }}
           aria-label={t('workbench.sidebar.header.expandAllAria')}
         >
-          <MenuUnfoldOutlined />
+          <ExpandAllIcon />
         </span>
       </Tooltip>
       <Tooltip title={t('workbench.sidebar.header.collapseAll')} placement="bottom">
@@ -583,7 +582,7 @@ const SpecOutlinePane: React.FC<SpecOutlinePaneProps> = ({
           }}
           aria-label={t('workbench.sidebar.header.collapseAllAria')}
         >
-          <BorderLeftOutlined />
+          <CollapseAllIcon />
         </span>
       </Tooltip>
     </>

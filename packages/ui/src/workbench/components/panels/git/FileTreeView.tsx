@@ -12,11 +12,12 @@
  * when the toolbar lives outside.
  */
 
-import { ArrowsAltOutlined, CaretDownOutlined, CaretRightOutlined, ShrinkOutlined } from '@ant-design/icons';
+import { CaretDownOutlined, CaretRightOutlined } from '@ant-design/icons';
 import { Button, Dropdown, type MenuProps, Spin, theme } from 'antd';
 import type React from 'react';
 import { forwardRef, useImperativeHandle, useMemo, useState } from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
+import { CollapseAllIcon, ExpandAllIcon } from '@openheaders/ui/shared/icons';
 import { FileTypeIcon, FolderTypeIcon } from './commit/FileTypeIcon';
 import { allDirKeys, buildFileTree, type FileTreeNode } from './file-tree';
 import { contextMenuAlign } from './git-menu-overflow';
@@ -213,7 +214,7 @@ const FileTreeView = forwardRef<FileTreeViewHandle, FileTreeViewProps>(function 
           <Button
             type="text"
             size="small"
-            icon={<ArrowsAltOutlined />}
+            icon={<ExpandAllIcon />}
             title={t('workbench.gitLog.expandAll')}
             onClick={() => setCollapsed(new Set())}
             data-testid="git-tool-files-expand-all"
@@ -221,7 +222,7 @@ const FileTreeView = forwardRef<FileTreeViewHandle, FileTreeViewProps>(function 
           <Button
             type="text"
             size="small"
-            icon={<ShrinkOutlined />}
+            icon={<CollapseAllIcon />}
             title={t('workbench.gitLog.collapseAll')}
             onClick={() => setCollapsed(new Set(dirKeys))}
             data-testid="git-tool-files-collapse-all"

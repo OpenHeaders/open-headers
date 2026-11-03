@@ -10,16 +10,9 @@
  * directly with `<SidebarHeaderActions … />` above the filter row.
  */
 
-import {
-  AimOutlined,
-  BorderLeftOutlined,
-  CloseOutlined,
-  ExportOutlined,
-  MenuUnfoldOutlined,
-  PlusOutlined,
-  SearchOutlined,
-} from '@ant-design/icons';
+import { AimOutlined, CloseOutlined, ExportOutlined, PlusOutlined, SearchOutlined } from '@ant-design/icons';
 import { createPanelHeaderWiring, PanelHeader } from '@openheaders/ui/shared/dock-layout';
+import { CollapseAllIcon, ExpandAllIcon } from '@openheaders/ui/shared/icons';
 import type { InfoPopoverContent } from '@openheaders/ui/shared/info-popover';
 import type { MenuProps } from 'antd';
 import { Divider, Dropdown, Tooltip, theme } from 'antd';
@@ -306,7 +299,7 @@ const SidebarHeaderActions: React.FC<SidebarHeaderActionsProps> = ({
           }}
           aria-label={t('workbench.sidebar.header.expandAllAria')}
         >
-          <MenuUnfoldOutlined />
+          <ExpandAllIcon />
         </span>
       </Tooltip>
       <Tooltip title={t('workbench.sidebar.header.collapseAll')} placement="bottom">
@@ -320,7 +313,7 @@ const SidebarHeaderActions: React.FC<SidebarHeaderActionsProps> = ({
           }}
           aria-label={t('workbench.sidebar.header.collapseAllAria')}
         >
-          <BorderLeftOutlined />
+          <CollapseAllIcon />
         </span>
       </Tooltip>
     </>

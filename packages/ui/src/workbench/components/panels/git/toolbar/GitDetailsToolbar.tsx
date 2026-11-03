@@ -8,17 +8,11 @@
  * edge driving the files tree.
  */
 
-import {
-  ArrowsAltOutlined,
-  EditOutlined,
-  EyeOutlined,
-  ShrinkOutlined,
-  SwapOutlined,
-  UndoOutlined,
-} from '@ant-design/icons';
+import { EditOutlined, EyeOutlined, SwapOutlined, UndoOutlined } from '@ant-design/icons';
 import { Dropdown, theme } from 'antd';
 import type React from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
+import { CollapseAllIcon, ExpandAllIcon } from '@openheaders/ui/shared/icons';
 import type { GitLogViewPrefs } from '../git-log-view-prefs';
 import { menuCheckIcon } from '../../../shared/menu-check';
 import ToolbarIconButton from './ToolbarIconButton';
@@ -138,13 +132,13 @@ const GitDetailsToolbar: React.FC<GitDetailsToolbarProps> = ({
       )}
       <span style={{ flex: 1 }} />
       <ToolbarIconButton
-        icon={<ArrowsAltOutlined />}
+        icon={<ExpandAllIcon />}
         title={t('workbench.gitLog.expandAll')}
         onClick={onExpandAll}
         testid="git-tool-files-expand-all"
       />
       <ToolbarIconButton
-        icon={<ShrinkOutlined />}
+        icon={<CollapseAllIcon />}
         title={t('workbench.gitLog.collapseAll')}
         onClick={onCollapseAll}
         testid="git-tool-files-collapse-all"

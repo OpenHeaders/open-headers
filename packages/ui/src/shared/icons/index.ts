@@ -2,6 +2,8 @@ export { ApiRequestsIcon } from './ApiRequestsIcon';
 export { CaptureActiveIcon } from './CaptureActiveIcon';
 export { CaptureStartIcon } from './CaptureStartIcon';
 export { CliIcon } from './CliIcon';
+export { CollapseAllIcon } from './CollapseAllIcon';
+export { ExpandAllIcon } from './ExpandAllIcon';
 export { GoToIcon } from './GoToIcon';
 export { KeyboardIcon } from './KeyboardIcon';
 export { LanguageIcon, type LanguageIconProps } from './LanguageIcon';

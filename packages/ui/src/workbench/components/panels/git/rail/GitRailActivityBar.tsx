@@ -12,14 +12,12 @@
 
 import {
   AimOutlined,
-  ArrowsAltOutlined,
   DeleteOutlined,
   FolderOutlined,
   LeftOutlined,
   PlusOutlined,
   SearchOutlined,
   SettingOutlined,
-  ShrinkOutlined,
   StarFilled,
   SwapOutlined,
   SyncOutlined,
@@ -28,6 +26,7 @@ import {
 import { Dropdown, theme, Tooltip } from 'antd';
 import type React from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
+import { CollapseAllIcon, ExpandAllIcon } from '@openheaders/ui/shared/icons';
 import { menuCheckIcon } from '../../../shared/menu-check';
 import type { GitRailSingleClick } from './git-rail-prefs';
 
@@ -231,13 +230,13 @@ const GitRailActivityBar: React.FC<GitRailActivityBarProps> = (props) => {
         testid="git-tool-rail-group-dirs"
       />
       <BarButton
-        icon={<ArrowsAltOutlined />}
+        icon={<ExpandAllIcon />}
         title={t('workbench.gitLog.rail.expandAll')}
         onClick={props.onExpandAll}
         testid="git-tool-rail-expand-all"
       />
       <BarButton
-        icon={<ShrinkOutlined />}
+        icon={<CollapseAllIcon />}
         title={t('workbench.gitLog.rail.collapseAll')}
         onClick={props.onCollapseAll}
         testid="git-tool-rail-collapse-all"

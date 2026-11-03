@@ -31,6 +31,7 @@ import type { JsContext } from '@openheaders/core/js-contexts';
 import { hostNavigation } from '@openheaders/core/navigation';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { createPanelHeaderWiring, PanelHeader } from '@openheaders/ui/shared/dock-layout';
+import { CollapseAllIcon, ExpandAllIcon } from '@openheaders/ui/shared/icons';
 import { useSetting } from '@openheaders/ui/workbench/settings/hooks';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { PlaneCollapseCaret } from './PlaneCollapseCaret';
@@ -63,7 +64,7 @@ import { useInspectedTabCdp } from '../data/use-inspected-tab-cdp';
 import { ConsoleContextSelector } from './ConsoleContextSelector';
 import { ConsolePrompt } from './ConsolePrompt';
 import { ConsoleSettingInfo } from './ConsoleSettingInfo';
-import { IconClear, IconCollapseAll, IconExpandAll } from './toolbar-icons';
+import { IconClear } from './toolbar-icons';
 import { ToolbarMenuPopover } from './ToolbarMenuPopover';
 
 /** A search-jump into the console — scroll to and flash the matched
@@ -676,7 +677,7 @@ export function ConsoleView({
               title={allExpanded ? t('panel.console.collapseAll') : t('panel.console.expandAll')}
               aria-label={allExpanded ? t('panel.console.collapseAll') : t('panel.console.expandAll')}
             >
-              {allExpanded ? <IconCollapseAll /> : <IconExpandAll />}
+              {allExpanded ? <CollapseAllIcon /> : <ExpandAllIcon />}
             </button>
             <div className="dt-filter-separator" />
             <ConsoleContextSelector

@@ -7,18 +7,11 @@
  * Collapse All driving the changes tree.
  */
 
-import {
-  AimOutlined,
-  ColumnHeightOutlined,
-  EyeOutlined,
-  SyncOutlined,
-  UndoOutlined,
-  VerticalAlignBottomOutlined,
-  VerticalAlignMiddleOutlined,
-} from '@ant-design/icons';
+import { AimOutlined, EyeOutlined, SyncOutlined, UndoOutlined, VerticalAlignBottomOutlined } from '@ant-design/icons';
 import { Dropdown, theme } from 'antd';
 import type React from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
+import { CollapseAllIcon, ExpandAllIcon } from '@openheaders/ui/shared/icons';
 import { menuCheckIcon } from '../../../shared/menu-check';
 import ToolbarIconButton from '../toolbar/ToolbarIconButton';
 import type { CommitViewPrefs } from './commit-view-prefs';
@@ -123,13 +116,13 @@ const CommitToolbar: React.FC<CommitToolbarProps> = ({ onRefresh, prefs, onPatch
         testid="commit-tool-select-opened"
       />
       <ToolbarIconButton
-        icon={<ColumnHeightOutlined />}
+        icon={<ExpandAllIcon />}
         title={t('workbench.gitLog.expandAll')}
         onClick={onExpandAll}
         testid="commit-tool-expand-all"
       />
       <ToolbarIconButton
-        icon={<VerticalAlignMiddleOutlined />}
+        icon={<CollapseAllIcon />}
         title={t('workbench.gitLog.collapseAll')}
         onClick={onCollapseAll}
         testid="commit-tool-collapse-all"
