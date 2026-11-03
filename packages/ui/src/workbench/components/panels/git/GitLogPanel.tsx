@@ -75,6 +75,8 @@ const GitLogPanel: React.FC<GitLogPanelProps> = ({ info, dockSlot, onHide, onMov
   const [headSha, setHeadSha] = useState<string | null>(null);
   const [shallow, setShallow] = useState(false);
   const [forcePush, setForcePush] = useState<WorkspaceTreeForcePushStateWire | null>(null);
+  const [tabMenuOpen, setTabMenuOpen] = useState(false);
+  const [tabMenuTooltipSuppressed, setTabMenuTooltipSuppressed] = useState(false);
 
   const workbench = workspaceId !== null ? getGitPanelWorkbench(workspaceId) : null;
   const [, bumpVersion] = useReducer((v: number) => v + 1, 0);
@@ -164,11 +166,14 @@ const GitLogPanel: React.FC<GitLogPanelProps> = ({ info, dockSlot, onHide, onMov
     </Tooltip>
   ) : null;
 
-  // The chevron beside the `+`: the panel's tab menu.
+  // The chevron beside the `+`: the panel's tab menu. Its tooltip yields
+  // to the menu — hidden the instant the trigger is clicked and while
+  // the menu is open; re-arms on the next hover-in.
   const newTabMenu = (
     <Dropdown
       trigger={['click']}
       placement="bottomLeft"
+      onOpenChange={setTabMenuOpen}
       menu={{
         items: [
           { key: 'show-console', label: t('workbench.gitLog.console.show') },
@@ -181,12 +186,18 @@ const GitLogPanel: React.FC<GitLogPanelProps> = ({ info, dockSlot, onHide, onMov
         },
       }}
     >
-      <Tooltip placement="bottom" title={t('workbench.gitLog.tabMenu')}>
+      <Tooltip
+        placement="bottom"
+        title={t('workbench.gitLog.tabMenu')}
+        open={tabMenuOpen || tabMenuTooltipSuppressed ? false : undefined}
+      >
         <span
           role="button"
           tabIndex={0}
           aria-label={t('workbench.gitLog.tabMenu')}
           data-testid="git-tool-tab-menu"
+          onClick={() => setTabMenuTooltipSuppressed(true)}
+          onMouseEnter={() => setTabMenuTooltipSuppressed(false)}
           style={{
             display: 'inline-flex',
             alignItems: 'center',
