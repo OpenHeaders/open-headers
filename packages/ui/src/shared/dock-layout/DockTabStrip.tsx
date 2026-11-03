@@ -19,9 +19,8 @@ import { Dropdown, Tooltip, theme } from 'antd';
 import type { ItemType } from 'antd/es/menu/interface';
 import type React from 'react';
 import { useState } from 'react';
-import { ALL_DOCK_SLOTS } from './constants';
-import DockSlotIcon from './DockSlotIcon';
-import { dockSlotLabelKey, resolveToolWindowLabel, resolveToolWindowTooltip } from './tool-window-copy';
+import { buildDockMoveToItems } from './dock-move-to-menu';
+import { resolveToolWindowLabel, resolveToolWindowTooltip } from './tool-window-copy';
 import type { BottomPanelSplit, DockSlot, ToolWindowDef } from './types';
 
 export interface DockTabStripProps<T extends string> {
@@ -226,44 +225,7 @@ function DockTabStripInner<T extends string>({
       {
         key: 'move',
         label: t('shared.dock.moveTo'),
-        children: ALL_DOCK_SLOTS.flatMap((target, index) => {
-          const entry: ItemType = {
-            key: target,
-            icon: (
-              <span
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  width: 22,
-                  height: 18,
-                }}
-              >
-                <DockSlotIcon slot={target} size={20} bottomSplit={bottomSplit} />
-              </span>
-            ),
-            label: (
-              <span
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  width: '100%',
-                  lineHeight: '20px',
-                }}
-              >
-                <span style={{ flex: 1 }}>{t(dockSlotLabelKey(target, bottomSplit))}</span>
-                {target === slot && (
-                  <span style={{ marginLeft: 12, fontSize: 12, opacity: 0.75 }} title={t('shared.dock.currentSlot')}>
-                    {'\u2713'}
-                  </span>
-                )}
-              </span>
-            ),
-            onClick: () => onMove(id, target),
-          };
-          const needsDividerAfter = index === 1 || index === 3;
-          return needsDividerAfter ? [entry, { type: 'divider' as const, key: `move-divider-${index}` }] : [entry];
-        }),
+        children: buildDockMoveToItems({ current: slot, bottomSplit, onMove: (target) => onMove(id, target), t }),
       },
       { type: 'divider' },
       {

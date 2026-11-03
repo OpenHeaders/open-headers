@@ -404,7 +404,13 @@ const WorkbenchToolWindow: React.FC<WorkbenchToolWindowProps> = ({
     case 'git':
       return (
         <Suspense fallback={null}>
-          <GitLogPanel info={getToolWindowInfo('git', t)} dockSlot={slot} onHide={() => tl.closeDock(slot)} />
+          <GitLogPanel
+            info={getToolWindowInfo('git', t)}
+            dockSlot={slot}
+            onHide={() => tl.closeDock(slot)}
+            onMoveTo={(target) => tl.moveWindow('git', target)}
+            onRemoveFromSidebar={() => tl.hideWindow('git')}
+          />
         </Suspense>
       );
     case 'commit':

@@ -3,11 +3,14 @@
  * tool window's log + details panes (the toolbar eye menus): Tag
  * Names and Commit Timestamp in the commit list, the Merge Commits
  * highlight (the dimmed-subject convention), Group By Directory and
- * Show Details in the changes pane. The shared per-workspace prefs
- * posture.
+ * Show Details in the changes pane, and what a double-click on a file
+ * row opens (the ⋯ menu's Show on Double-Click: the diff or the
+ * entity's editor). The shared per-workspace prefs posture.
  */
 
 import { createWorkspacePrefsStore } from './workspace-prefs-store';
+
+export type GitDoubleClickTarget = 'diff' | 'source';
 
 export interface GitLogViewPrefs {
   /** Show > Tag Names — tag chips on commit rows. */
@@ -20,6 +23,8 @@ export interface GitLogViewPrefs {
   groupFilesByDirectory: boolean;
   /** Details eye: Layout > Show Details — the commit-details lower half. */
   showDetails: boolean;
+  /** ⋯ > Show on Double-Click — a file row's double-click opens the diff or jumps to source. */
+  doubleClickOpens: GitDoubleClickTarget;
 }
 
 const DEFAULT_PREFS: GitLogViewPrefs = {
@@ -28,6 +33,7 @@ const DEFAULT_PREFS: GitLogViewPrefs = {
   highlightMergeCommits: true,
   groupFilesByDirectory: true,
   showDetails: true,
+  doubleClickOpens: 'diff',
 };
 
 const store = createWorkspacePrefsStore<GitLogViewPrefs>({
@@ -39,6 +45,7 @@ const store = createWorkspacePrefsStore<GitLogViewPrefs>({
     highlightMergeCommits: p.highlightMergeCommits !== false,
     groupFilesByDirectory: p.groupFilesByDirectory !== false,
     showDetails: p.showDetails !== false,
+    doubleClickOpens: p.doubleClickOpens === 'source' ? 'source' : 'diff',
   }),
 });
 

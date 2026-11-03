@@ -78,7 +78,9 @@ export interface GitGroupRendererProps {
   /** The (i) info trigger — split state renders it after the "Git"
    *  label in the title pane's row. */
   titleInfo: React.ReactNode;
-  /** Right-aligned strip tail (the chevron menu); the split-state
+  /** The chevron beside every strip's `+` — the panel's tab menu. */
+  newTabMenu: React.ReactNode;
+  /** Right-aligned strip tail (the ⋯ options); the split-state
    *  top-right pane passes `corner: true` and additionally hosts
    *  info + hide (the PanelHeader isn't rendered while split). */
   renderTrailing: (options: { corner: boolean }) => React.ReactNode;
@@ -93,6 +95,7 @@ export const GitGroupRenderer: React.FC<GitGroupRendererProps> = ({
   dockFocused,
   renderHeader,
   titleInfo,
+  newTabMenu,
   renderTrailing,
 }) => {
   const t = useT();
@@ -301,6 +304,7 @@ export const GitGroupRenderer: React.FC<GitGroupRendererProps> = ({
           panes.focusLeaf(leaf.id);
           registry.newLogTab();
         }}
+        newTabMenu={newTabMenu}
         trailing={renderTrailing({ corner })}
         onSplitAndMove={(key, direction) => panes.splitAndMove(leaf.id, key, direction)}
         onMoveToOppositeGroup={(key) => panes.moveToOppositeGroup(leaf.id, key)}

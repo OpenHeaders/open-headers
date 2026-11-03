@@ -3,51 +3,72 @@
  * view), log-window layout on the shared pane-tabs machinery (the
  * terminal panel's architecture): a per-workspace tab REGISTRY
  * (git-panel-view-store — log tabs with scope/filter/selection, plus
- * the read-only Console tab) bound to a shared pane store, rendered by
- * GitGroupRenderer with the full terminal feature set — drag-reorder,
- * cross-pane tab moves, edge-drop splits with the shared drop preview,
- * and the shared pane-tab context menu (close family, Split and Move,
- * splitter orientation, unsplit). The primary `Log: <branch>` tab is
- * permanent (never closes; moves freely). Tabs and layout survive dock
- * switches (module stores); nothing persists across app restarts.
+ * the read-only Console tab, open from the start) bound to a shared
+ * pane store, rendered by GitGroupRenderer with the full terminal
+ * feature set — drag-reorder, cross-pane tab moves, edge-drop splits
+ * with the shared drop preview, and the shared pane-tab context menu
+ * (close family, Split and Move, splitter orientation, unsplit). The
+ * primary `Log: <branch>` tab is permanent (never closes; moves
+ * freely). Tabs and layout survive dock switches (module stores);
+ * nothing persists across app restarts.
  *
  * This shell owns what is panel-global: the bind/status lifeline
  * (bound + branch), the header composition (PanelHeader while
- * unsplit — the single-row law), the chevron menu (Show Git console),
- * and the unbound state, which IS the bind gesture (GitBindForm — the
- * settings card's exact form; no bounce to settings). Log data loading
- * lives per view (GitLogView / GitConsolePane). Only hosts registering
- * the `workspaceGit` capability mount this window.
+ * unsplit — the single-row law), the chevron beside the `+` (Show Git
+ * Console, Settings), the ⋯ Options menu (Show on Double-Click, Close
+ * All, Move to, Hide — the reference's tool-window gear mapped onto
+ * this shell's dock vocabulary), and the unbound state, which IS the
+ * bind gesture (GitBindForm — the settings card's exact form; no
+ * bounce to settings). Log data loading lives per view (GitLogView /
+ * GitConsolePane). Only hosts registering the `workspaceGit`
+ * capability mount this window.
  */
 
 import { DownOutlined, MinusOutlined } from '@ant-design/icons';
 import { hostBridge, type WorkspaceTreeForcePushStateWire } from '@openheaders/core/bridge';
-import { Dropdown, theme, Tooltip } from 'antd';
+import { Dropdown, type MenuProps, theme, Tooltip } from 'antd';
 import type React from 'react';
-import { useCallback, useEffect, useMemo, useReducer, useState } from 'react';
+import { useCallback, useEffect, useMemo, useReducer, useState, useSyncExternalStore } from 'react';
 import { useLocale } from '@openheaders/ui/context/LocaleContext';
-import { createPanelHeaderWiring, type DockSlot, PanelHeader } from '@openheaders/ui/shared/dock-layout';
+import {
+  type BottomPanelSplit,
+  buildDockMoveToItems,
+  createPanelHeaderWiring,
+  type DockSlot,
+  PanelHeader,
+  PanelOptionsButton,
+} from '@openheaders/ui/shared/dock-layout';
 import { type InfoPopoverContent, InfoTrigger } from '@openheaders/ui/shared/info-popover';
 import { useActiveWorkspaceId } from '@openheaders/ui/shared/hooks/readers/useActiveWorkspaceId';
+import { useOpenSettings } from '../../../hooks/OpenSettingsContext';
+import { useSettingValue } from '../../../settings/hooks';
 import { useIsDockFocused } from '../../../stores/focus-region-store';
 import GitBindForm from '../../git/GitBindForm';
 import { localWorkspaceTreeTransport } from '../../git/transport';
+import { menuCheckIcon, menuIconGutter } from '../../shared/menu-check';
 import ForcePushBanner from './ForcePushBanner';
-import { getGitPanelWorkbench } from './git-panel-view-store';
+import { getGitLogViewPrefs, patchGitLogViewPrefs, subscribeGitLogViewPrefs } from './git-log-view-prefs';
+import { getGitPanelWorkbench, gitPanelTabKey } from './git-panel-view-store';
 import GitGroupRenderer from './GitGroupRenderer';
 
 export interface GitLogPanelProps {
   info: InfoPopoverContent;
   dockSlot: DockSlot;
   onHide: () => void;
+  /** ⋯ > Move to — re-homes the window on another dock slot. */
+  onMoveTo: (target: DockSlot) => void;
+  /** ⋯ > Hide — drops the window from the dock strip (the strip menu's Hide). */
+  onRemoveFromSidebar: () => void;
 }
 
-const GitLogPanel: React.FC<GitLogPanelProps> = ({ info, dockSlot, onHide }) => {
+const GitLogPanel: React.FC<GitLogPanelProps> = ({ info, dockSlot, onHide, onMoveTo, onRemoveFromSidebar }) => {
   const { token } = theme.useToken();
   const { t } = useLocale();
   const headerWiring = useMemo(() => createPanelHeaderWiring({ onHide }), [onHide]);
   const workspaceId = useActiveWorkspaceId();
   const dockFocused = useIsDockFocused(dockSlot);
+  const openSettings = useOpenSettings();
+  const bottomSplit = useSettingValue('workspaceLayout.bottomPanelSplit') as BottomPanelSplit;
 
   const [bound, setBound] = useState(false);
   const [branch, setBranch] = useState<string | null>(null);
@@ -59,6 +80,14 @@ const GitLogPanel: React.FC<GitLogPanelProps> = ({ info, dockSlot, onHide }) => 
   const [, bumpVersion] = useReducer((v: number) => v + 1, 0);
   useEffect(() => workbench?.registry.onTabsChange(bumpVersion), [workbench]);
   useEffect(() => workbench?.panes.subscribe(bumpVersion), [workbench]);
+
+  // The ⋯ menu's Show on Double-Click reads the log view prefs the
+  // details toolbar's eye writes — one store, two faces.
+  const prefsKey = workspaceId ?? '';
+  const prefs = useSyncExternalStore(
+    (listener) => subscribeGitLogViewPrefs(prefsKey, listener),
+    () => getGitLogViewPrefs(prefsKey),
+  );
 
   // Bind/branch lifeline: hydrate once, then fold status frames (the
   // per-view data loads live in GitLogView / GitConsolePane).
@@ -135,40 +164,95 @@ const GitLogPanel: React.FC<GitLogPanelProps> = ({ info, dockSlot, onHide }) => 
     </Tooltip>
   ) : null;
 
-  const chevronMenu = (
+  // The chevron beside the `+`: the panel's tab menu.
+  const newTabMenu = (
     <Dropdown
       trigger={['click']}
-      placement="bottomRight"
+      placement="bottomLeft"
       menu={{
-        items: [{ key: 'show-console', label: t('workbench.gitLog.console.show') }],
+        items: [
+          { key: 'show-console', label: t('workbench.gitLog.console.show') },
+          { type: 'divider' },
+          { key: 'settings', label: t('workbench.gitLog.tabMenu.settings') },
+        ],
         onClick: ({ key }) => {
           if (key === 'show-console') workbench?.registry.openConsole();
+          else if (key === 'settings') openSettings?.({ categoryId: 'git' });
         },
       }}
     >
-      <span
-        role="button"
-        tabIndex={0}
-        aria-label={t('workbench.gitLog.tabMenu')}
-        data-testid="git-tool-tab-menu"
-        style={{
-          display: 'inline-flex',
-          alignItems: 'center',
-          padding: '3px 2px',
-          borderRadius: token.borderRadiusSM,
-          cursor: 'pointer',
-          flexShrink: 0,
-          color: token.colorTextSecondary,
-        }}
-      >
-        <DownOutlined style={{ fontSize: 8 }} />
-      </span>
+      <Tooltip placement="bottom" title={t('workbench.gitLog.tabMenu')}>
+        <span
+          role="button"
+          tabIndex={0}
+          aria-label={t('workbench.gitLog.tabMenu')}
+          data-testid="git-tool-tab-menu"
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            padding: '3px 2px',
+            borderRadius: token.borderRadiusSM,
+            cursor: 'pointer',
+            flexShrink: 0,
+            color: token.colorTextSecondary,
+          }}
+        >
+          <DownOutlined style={{ fontSize: 8 }} />
+        </span>
+      </Tooltip>
     </Dropdown>
   );
 
+  // The ⋯ Options menu — the reference's tool-window gear on this
+  // shell's vocabulary: the window's own option (Show on Double-Click),
+  // the tab verb (Close All), then the dock verbs (Move to, Hide).
+  const optionsItems: MenuProps['items'] = [
+    {
+      key: 'double-click',
+      icon: menuIconGutter(),
+      label: t('workbench.gitLog.options.showOnDoubleClick'),
+      children: [
+        {
+          key: 'double-click-diff',
+          icon: menuCheckIcon(prefs.doubleClickOpens === 'diff'),
+          label: t('workbench.gitLog.options.showOnDoubleClick.diff'),
+          onClick: () => patchGitLogViewPrefs(prefsKey, { doubleClickOpens: 'diff' }),
+        },
+        {
+          key: 'double-click-source',
+          icon: menuCheckIcon(prefs.doubleClickOpens === 'source'),
+          label: t('workbench.gitLog.options.showOnDoubleClick.source'),
+          onClick: () => patchGitLogViewPrefs(prefsKey, { doubleClickOpens: 'source' }),
+        },
+      ],
+    },
+    { type: 'divider' },
+    {
+      key: 'close-all',
+      icon: menuIconGutter(),
+      label: t('workbench.gitLog.options.closeAll'),
+      // The permanent primary log tab stays — closeTabs skips it.
+      onClick: () => workbench?.registry.closeTabs(workbench.registry.tabs().map(gitPanelTabKey)),
+    },
+    { type: 'divider' },
+    {
+      key: 'move',
+      icon: menuIconGutter(),
+      label: t('shared.dock.moveTo'),
+      children: buildDockMoveToItems({ current: dockSlot, bottomSplit, onMove: onMoveTo, t }),
+    },
+    { type: 'divider' },
+    {
+      key: 'hide',
+      icon: menuIconGutter(),
+      label: t('shared.dock.hide'),
+      onClick: onRemoveFromSidebar,
+    },
+  ];
+
   // Single-pane header row (the terminal single-row law): title +
-  // inline (i) + the pane's strip. Split state renders no PanelHeader —
-  // the corner strip hosts info + hide via renderTrailing.
+  // inline (i) + the pane's strip, then ⋯ and −. Split state renders no
+  // PanelHeader — the corner strip hosts ⋯ + hide via renderTrailing.
   const renderHeader = useCallback(
     (headerContent: React.ReactNode) => (
       <PanelHeader
@@ -181,37 +265,35 @@ const GitLogPanel: React.FC<GitLogPanelProps> = ({ info, dockSlot, onHide }) => 
             {headerContent}
           </div>
         }
+        optionsMenuItems={optionsItems}
       />
     ),
-    [headerWiring, info, shallowNote, t],
+    [headerWiring, info, shallowNote, t, optionsItems],
   );
 
-  const renderTrailing = ({ corner }: { corner: boolean }): React.ReactNode => (
-    <div style={{ display: 'flex', alignItems: 'center' }}>
-      {chevronMenu}
-      {/* PanelHeader isn't rendered while split — its hide affordance
-          re-homes on the top-right pane's strip (the (i) follows the
-          Git label instead), with the header action classes so the
-          dock-hover reveal law still applies. */}
-      {corner && (
-        <div className="rules-panel-header-actions" data-focus-skip style={{ display: 'flex', alignItems: 'center' }}>
-          <span
-            role="button"
-            tabIndex={0}
-            aria-label={t('shared.dock.hidePanel')}
-            className="rules-panel-header-action"
-            onMouseDown={(e) => e.preventDefault()}
-            onClick={onHide}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' || e.key === ' ') onHide();
-            }}
-          >
-            <MinusOutlined />
-          </span>
-        </div>
-      )}
-    </div>
-  );
+  // PanelHeader isn't rendered while split — its ⋯ and hide affordances
+  // re-home on the top-right pane's strip (the (i) follows the Git
+  // label instead), with the header action classes so the dock-hover
+  // reveal law still applies.
+  const renderTrailing = ({ corner }: { corner: boolean }): React.ReactNode =>
+    corner ? (
+      <div className="rules-panel-header-actions" data-focus-skip style={{ display: 'flex', alignItems: 'center' }}>
+        <PanelOptionsButton items={optionsItems} testid="git-tool-options" />
+        <span
+          role="button"
+          tabIndex={0}
+          aria-label={t('shared.dock.hidePanel')}
+          className="rules-panel-header-action"
+          onMouseDown={(e) => e.preventDefault()}
+          onClick={onHide}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') onHide();
+          }}
+        >
+          <MinusOutlined />
+        </span>
+      </div>
+    ) : undefined;
 
   if (workspaceId === null || workbench === null || !bound) {
     // Version Control naming law: unbound, the window keeps its BASE
@@ -254,6 +336,7 @@ const GitLogPanel: React.FC<GitLogPanelProps> = ({ info, dockSlot, onHide }) => 
         dockFocused={dockFocused}
         renderHeader={renderHeader}
         titleInfo={<InfoTrigger content={info} className="rules-panel-header-info" />}
+        newTabMenu={newTabMenu}
         renderTrailing={renderTrailing}
       />
     </div>

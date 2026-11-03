@@ -58,7 +58,10 @@ export interface GitTabStripProps {
   onCloseToRight: (key: string) => void;
   /** New log tab INTO this pane (the renderer focuses the leaf first). */
   onNew: () => void;
-  /** Right-aligned cluster (the chevron menu; the split-state corner
+  /** The chevron beside the `+` (the terminal's split-plus anatomy):
+   *  the panel's tab menu — reopen the console, settings. */
+  newTabMenu?: React.ReactNode;
+  /** Right-aligned cluster (the ⋯ options; the split-state corner
    *  strip additionally hosts info + hide). */
   trailing?: React.ReactNode;
   // Split verbs (context menu) — editor tab strip parity.
@@ -243,6 +246,7 @@ const GitTabStrip: React.FC<GitTabStripProps> = ({
   onCloseToLeft,
   onCloseToRight,
   onNew,
+  newTabMenu,
   trailing,
   onSplitAndMove,
   onMoveToOppositeGroup,
@@ -360,6 +364,10 @@ const GitTabStrip: React.FC<GitTabStripProps> = ({
           <PlusOutlined style={{ fontSize: 12 }} />
         </div>
       </Tooltip>
+
+      {/* The chevron half of the split +, right after the + (the
+          terminal's profile-chevron anatomy). */}
+      {newTabMenu}
 
       {/* Right-aligned cluster — `margin-left: auto` pushes it to the
           bar's edge (the editor chevron's spacing law). */}

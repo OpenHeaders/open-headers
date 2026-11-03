@@ -402,6 +402,7 @@ const GitLogView: React.FC<GitLogViewProps> = ({
             canJumpToSource={selectedFile !== null}
             prefs={prefs}
             onPatchPrefs={(patch) => patchGitLogViewPrefs(workspaceId, patch)}
+            hasFiles={selected !== null}
             onExpandAll={() => fileTreeRef.current?.expandAll()}
             onCollapseAll={() => fileTreeRef.current?.collapseAll()}
           />
@@ -437,7 +438,11 @@ const GitLogView: React.FC<GitLogViewProps> = ({
                   ref={fileTreeRef}
                   files={selected.files}
                   loadingPath={fileDiff.loadingPath}
-                  onOpenFile={(path) => void fileDiff.open(selected.sha, path)}
+                  // ⋯ > Show on Double-Click: the diff, or the entity's editor.
+                  onOpenFile={(path) => {
+                    if (prefs.doubleClickOpens === 'source') jumpToSource(path);
+                    else void fileDiff.open(selected.sha, path);
+                  }}
                   selectedPath={selectedFile}
                   onSelectFile={setSelectedFile}
                   groupByDirectory={prefs.groupFilesByDirectory}

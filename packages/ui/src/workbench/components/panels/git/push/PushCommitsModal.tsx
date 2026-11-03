@@ -249,6 +249,7 @@ const PushCommitsModal: React.FC<PushCommitsModalProps> = ({ workspaceId, open, 
               canJumpToSource={selectedPath !== null}
               prefs={prefs}
               onPatchPrefs={(patch) => patchGitLogViewPrefs(workspaceId, patch)}
+              hasFiles={(selection === 'all' && entries.length > 0) || selected !== null}
               onExpandAll={() => fileTreeRef.current?.expandAll()}
               onCollapseAll={() => fileTreeRef.current?.collapseAll()}
             />

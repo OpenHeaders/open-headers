@@ -171,6 +171,18 @@ function reconcile(state: PanesState, registry: PaneTabsRegistry): void {
       root = insertTabIntoLeaf(root, focused, { id: info.id });
     }
 
+    if (addedAny) {
+      // Every insertion activates, so the LAST one would be the leaf's
+      // active; the registry names the active tab, and a seed that
+      // lists several tabs at once (the git panel opens its log beside
+      // the console) keeps its own choice.
+      const activeId = registry.activeId();
+      const owner = activeId !== null ? findLeafContainingTab(root, activeId) : null;
+      if (activeId !== null && owner && owner.id === focused && owner.activeTabId !== activeId) {
+        root = activateTabInLeaf(root, owner.id, activeId);
+      }
+    }
+
     const changed = root !== state.root || focused !== state.focusedLeafId;
     state.root = root;
     state.focusedLeafId = focused;

@@ -26,6 +26,9 @@ export interface GitDetailsToolbarProps {
   canJumpToSource?: boolean;
   prefs: GitLogViewPrefs;
   onPatchPrefs: (patch: Partial<GitLogViewPrefs>) => void;
+  /** A files tree is mounted — Expand All / Collapse All enable; with
+   *  no commit selected the pane shows its placeholder and both hold. */
+  hasFiles: boolean;
   onExpandAll: () => void;
   onCollapseAll: () => void;
 }
@@ -37,6 +40,7 @@ const GitDetailsToolbar: React.FC<GitDetailsToolbarProps> = ({
   canJumpToSource = false,
   prefs,
   onPatchPrefs,
+  hasFiles,
   onExpandAll,
   onCollapseAll,
 }) => {
@@ -135,12 +139,14 @@ const GitDetailsToolbar: React.FC<GitDetailsToolbarProps> = ({
         icon={<ExpandAllIcon />}
         title={t('workbench.gitLog.expandAll')}
         onClick={onExpandAll}
+        disabled={!hasFiles}
         testid="git-tool-files-expand-all"
       />
       <ToolbarIconButton
         icon={<CollapseAllIcon />}
         title={t('workbench.gitLog.collapseAll')}
         onClick={onCollapseAll}
+        disabled={!hasFiles}
         testid="git-tool-files-collapse-all"
       />
     </div>

@@ -8,6 +8,8 @@ export type { DragData, EditorTabDragData, ToolWindowDragData } from './drag-dat
 export { asDragData } from './drag-data';
 export type { DropZoneRectsInput } from './drop-zone-rects';
 export { computeDropZoneRects } from './drop-zone-rects';
+export type { DockMoveToMenuInput } from './dock-move-to-menu';
+export { buildDockMoveToItems } from './dock-move-to-menu';
 export { makeEditorTabCollisionDetection } from './editor-tab-collision';
 export type { FocusStore } from './focus-store';
 export { createFocusStore } from './focus-store';
@@ -15,6 +17,8 @@ export type { LayoutMenuIconKind } from './LayoutMenuIcon';
 export { default as LayoutMenuIcon } from './LayoutMenuIcon';
 export type { PanelHeaderProps } from './PanelHeader';
 export { default as PanelHeader } from './PanelHeader';
+export type { PanelOptionsButtonProps } from './PanelOptionsButton';
+export { default as PanelOptionsButton } from './PanelOptionsButton';
 export type { CreatePanelHeaderWiringInput, PanelHeaderWiring } from './panel-header-wiring';
 export { createPanelHeaderWiring } from './panel-header-wiring';
 export { default as RegionToggle } from './RegionToggle';

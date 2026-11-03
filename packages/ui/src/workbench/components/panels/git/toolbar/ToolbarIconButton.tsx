@@ -1,7 +1,8 @@
 /**
  * ToolbarIconButton — one icon slot in a pane toolbar (the horizontal
  * sibling of the rail's BarButton): hover fill, disabled grey, active
- * (toggled) fill, tooltip above. Presentational only.
+ * (toggled) fill, tooltip above (or beside, for a vertical gutter).
+ * Presentational only.
  */
 
 import { theme, Tooltip } from 'antd';
@@ -14,12 +15,22 @@ export interface ToolbarIconButtonProps {
   disabled?: boolean;
   active?: boolean;
   testid: string;
+  /** Where the tooltip opens — a vertical gutter reads better beside its button. */
+  tooltipPlacement?: 'top' | 'right';
 }
 
-const ToolbarIconButton: React.FC<ToolbarIconButtonProps> = ({ icon, title, onClick, disabled, active, testid }) => {
+const ToolbarIconButton: React.FC<ToolbarIconButtonProps> = ({
+  icon,
+  title,
+  onClick,
+  disabled,
+  active,
+  testid,
+  tooltipPlacement = 'top',
+}) => {
   const { token } = theme.useToken();
   return (
-    <Tooltip placement="top" title={title}>
+    <Tooltip placement={tooltipPlacement} title={title}>
       <button
         type="button"
         aria-label={title}

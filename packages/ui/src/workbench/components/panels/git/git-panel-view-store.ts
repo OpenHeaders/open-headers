@@ -2,9 +2,10 @@
  * git-panel-view-store — the Git tool window's tab REGISTRY (the
  * terminal-instance analog): per workspace, the flat list of tab
  * identities — log tabs with their scope/filter/selection/rail state,
- * Compare-with-Current tabs, plus the read-only console tab — and the
- * active tab. WHERE each tab
- * lives (splits, per-leaf order, focus) is the shared pane-tabs
+ * Compare-with-Current tabs, plus the read-only console tab (open
+ * from the start beside the primary log, the reference posture;
+ * closable, reopened from the chevron) — and the active tab. WHERE
+ * each tab lives (splits, per-leaf order, focus) is the shared pane-tabs
  * store's business: {@link getGitPanelWorkbench} binds one pane store
  * per workspace to this registry, the exact terminal wiring.
  *
@@ -142,7 +143,7 @@ function makeLogTab(id: number): GitLogTabState {
 
 function createRegistry(): GitPanelTabsRegistry {
   const state: RegistryState = {
-    tabs: [makeLogTab(1)],
+    tabs: [makeLogTab(1), { kind: 'console' }],
     activeId: GIT_PRIMARY_TAB_KEY,
     nextTabId: 2,
     listeners: new Set(),
