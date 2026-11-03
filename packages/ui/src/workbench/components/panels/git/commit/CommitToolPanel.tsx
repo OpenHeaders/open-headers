@@ -42,11 +42,11 @@ import {
 } from './commit-model';
 import { buildCommitRowMenu, buildIgnoredRowMenu, type CommitRowMenuHandlers } from './commit-row-menu';
 import CompareBranchModal from './CompareBranchModal';
+import { COMMIT_MESSAGE_HISTORY_LIMIT, commitMessageHistory } from './commit-message-history';
 import {
   type CommitViewPrefs,
   getCommitViewPrefs,
   patchCommitViewPrefs,
-  pushCommitMessageHistory,
   subscribeCommitViewPrefs,
 } from './commit-view-prefs';
 import CommitChangesTree, { type CommitChangesTreeHandle } from './CommitChangesTree';
@@ -73,6 +73,7 @@ const CommitToolPanel: React.FC<CommitToolPanelProps> = ({ info, onHide }) => {
   const [rows, setRows] = useState<WorkspaceTreeWorkingChangeWire[]>([]);
   const [checked, setChecked] = useState<CheckedState>(EMPTY_CHECKED_STATE);
   const [amend, setAmend] = useState(false);
+  const [history, setHistory] = useState<string[]>([]);
   const [committing, setCommitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [diff, setDiff] = useState<WorkspaceTreeFileDiffPairWire | null>(null);
@@ -175,8 +176,21 @@ const CommitToolPanel: React.FC<CommitToolPanelProps> = ({ info, onHide }) => {
     [rows],
   );
 
+  // The Commit Message History popup reads the bound repo's own log on
+  // every open — a reseeded or rebound repo shows its own subjects.
+  const loadHistory = useCallback((): void => {
+    if (workspaceId === null) return;
+    void hostBridge
+      .call('oh.workspaceTree.log', { workspaceId, limit: COMMIT_MESSAGE_HISTORY_LIMIT })
+      .then((result) => {
+        setHistory(result.ok ? commitMessageHistory(result.entries) : []);
+      })
+      .catch(() => setHistory([]));
+  }, [workspaceId]);
+
   // Amend prefill (the reference gesture): checking Amend swaps the box to
-  // HEAD's subject, unchecking restores the stashed draft.
+  // HEAD's subject, selected whole with the caret at its start;
+  // unchecking restores the stashed draft.
   const handleAmendChange = useCallback(
     (next: boolean): void => {
       setAmend(next);
@@ -188,6 +202,7 @@ const CommitToolPanel: React.FC<CommitToolPanelProps> = ({ info, onHide }) => {
           .then((result) => {
             if (result.ok && result.entries.length > 0) {
               patchCommitViewPrefs(workspaceId, { draft: result.entries[0].subject });
+              formRef.current?.selectMessage();
             }
           })
           .catch(() => undefined);
@@ -288,7 +303,6 @@ const CommitToolPanel: React.FC<CommitToolPanelProps> = ({ info, onHide }) => {
           message.info(t('workbench.commitTool.nothingToCommit'));
           return;
         }
-        pushCommitMessageHistory(workspaceId, prefs.draft);
         patchCommitViewPrefs(workspaceId, { draft: '' });
         preAmendDraft.current = null;
         setAmend(false);
@@ -590,8 +604,8 @@ const CommitToolPanel: React.FC<CommitToolPanelProps> = ({ info, onHide }) => {
         amend={amend}
         onAmendChange={handleAmendChange}
         counter={counter}
-        history={prefs.history}
-        onPickHistory={(picked) => patchPrefs({ draft: picked })}
+        history={history}
+        onHistoryOpen={loadHistory}
         signOff={prefs.signOff}
         onSignOffChange={(signOff) => patchPrefs({ signOff })}
         runGitHooks={runGitHooks}

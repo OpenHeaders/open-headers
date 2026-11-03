@@ -2,18 +2,32 @@
  * CommitForm — the Commit window's lower half: the
  * Amend row (checkbox + Commit Message History clock + the "N
  * modified" counter on the right), the Commit Message box, and the
- * button row — Commit, Commit and Push…, and the gear popover with the
+ * button row — Commit, Commit and Push… (Amend Commit, Amend Commit
+ * and Push… while Amend is on), and the gear popover with the
  * Git-real commit options (Sign-off; Run Git hooks). Author override
  * and the inspection checks are deliberately absent (§11.5: git
  * config is the identity authority).
+ *
+ * The history popup (the clock, ⌃M) previews as it goes: opening it
+ * stashes the draft and lands the first entry in the box, selected;
+ * hovering or arrowing replaces the box live; Enter or a click keeps
+ * the entry, focuses the box with the whole message selected and the
+ * caret at its start; Escape or a click away restores the stash.
  */
 
 import { ClockCircleOutlined, SettingOutlined } from '@ant-design/icons';
 import { Alert, Button, Checkbox, Input, Popover, theme, Tooltip } from 'antd';
 import type { TextAreaRef } from 'antd/es/input/TextArea';
 import type React from 'react';
-import { forwardRef, useImperativeHandle, useRef, useState } from 'react';
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useLayoutEffect, useRef, useState } from 'react';
+import { ShortcutHintTitle } from '@openheaders/ui/components/ShortcutKbd';
 import { useT } from '@openheaders/ui/context/LocaleContext';
+import { formatChord } from '@openheaders/ui/workbench/hooks/useWorkspaceShortcuts';
+import {
+  COMMIT_MESSAGE_HISTORY_CHORD,
+  isCommitMessageHistoryChord,
+  stepHistoryIndex,
+} from './commit-message-history';
 import type { ChangeCounter } from './commit-model';
 
 export interface CommitFormProps {
@@ -22,8 +36,10 @@ export interface CommitFormProps {
   amend: boolean;
   onAmendChange: (amend: boolean) => void;
   counter: ChangeCounter;
+  /** The bound repo's recent commit subjects, newest first. */
   history: string[];
-  onPickHistory: (message: string) => void;
+  /** The popup is opening — refresh `history` from the log. */
+  onHistoryOpen: () => void;
   signOff: boolean;
   onSignOffChange: (signOff: boolean) => void;
   runGitHooks: boolean;
@@ -38,6 +54,12 @@ export interface CommitFormProps {
 export interface CommitFormHandle {
   /** The Commit File… gesture's landing — focus the message box. */
   focusMessage: () => void;
+  /** Focus the box with the whole message selected, caret at the start (the Amend prefill's landing). */
+  selectMessage: () => void;
+}
+
+interface PendingSelection {
+  focus: boolean;
 }
 
 const CommitForm = forwardRef<CommitFormHandle, CommitFormProps>(function CommitForm(
@@ -48,7 +70,7 @@ const CommitForm = forwardRef<CommitFormHandle, CommitFormProps>(function Commit
   onAmendChange,
   counter,
   history,
-  onPickHistory,
+  onHistoryOpen,
   signOff,
   onSignOffChange,
   runGitHooks,
@@ -64,9 +86,111 @@ const CommitForm = forwardRef<CommitFormHandle, CommitFormProps>(function Commit
   const t = useT();
   const { token } = theme.useToken();
   const [historyOpen, setHistoryOpen] = useState(false);
+  const [historyActive, setHistoryActive] = useState(-1);
+  const [tooltipOpen, setTooltipOpen] = useState(false);
+  const [selectTick, setSelectTick] = useState(0);
   const messageRef = useRef<TextAreaRef>(null);
+  const preOpenDraft = useRef<string | null>(null);
+  const pendingSelection = useRef<PendingSelection | null>(null);
 
-  useImperativeHandle(handleRef, () => ({ focusMessage: () => messageRef.current?.focus() }), []);
+  const requestSelection = useCallback((focus: boolean): void => {
+    pendingSelection.current = { focus };
+    setSelectTick((tick) => tick + 1);
+  }, []);
+
+  // The selection lands once the box has laid out the new value: the
+  // autosize writes the box's height after the value commits, and a
+  // height write drops an unfocused textarea's selection — so the
+  // select waits for the next frame.
+  useLayoutEffect(() => {
+    const pending = pendingSelection.current;
+    if (pending === null) return;
+    pendingSelection.current = null;
+    const frame = requestAnimationFrame(() => {
+      const handle = messageRef.current;
+      const textArea = handle?.resizableTextArea?.textArea;
+      if (handle === null || textArea === undefined) return;
+      if (pending.focus) handle.focus();
+      textArea.setSelectionRange(0, textArea.value.length, 'backward');
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [draft, selectTick]);
+
+  useImperativeHandle(
+    handleRef,
+    () => ({
+      focusMessage: () => messageRef.current?.focus(),
+      selectMessage: () => requestSelection(true),
+    }),
+    [requestSelection],
+  );
+
+  const activateHistory = useCallback(
+    (index: number): void => {
+      const message = history[index];
+      if (message === undefined) return;
+      setHistoryActive(index);
+      onDraftChange(message);
+      requestSelection(false);
+    },
+    [history, onDraftChange, requestSelection],
+  );
+
+  const openHistory = useCallback((): void => {
+    if (historyOpen) return;
+    preOpenDraft.current = draft;
+    setTooltipOpen(false);
+    setHistoryActive(-1);
+    setHistoryOpen(true);
+    onHistoryOpen();
+  }, [draft, historyOpen, onHistoryOpen]);
+
+  const cancelHistory = useCallback((): void => {
+    if (!historyOpen) return;
+    setHistoryOpen(false);
+    if (preOpenDraft.current !== null) onDraftChange(preOpenDraft.current);
+    preOpenDraft.current = null;
+  }, [historyOpen, onDraftChange]);
+
+  const pickHistory = useCallback(
+    (index: number): void => {
+      const message = history[index];
+      if (message === undefined) return;
+      setHistoryOpen(false);
+      preOpenDraft.current = null;
+      onDraftChange(message);
+      requestSelection(true);
+    },
+    [history, onDraftChange, requestSelection],
+  );
+
+  // The first entry lands as soon as the list is there (the log
+  // answers after the popup opens).
+  useEffect(() => {
+    if (historyOpen && historyActive < 0 && history.length > 0) activateHistory(0);
+  }, [historyOpen, historyActive, history, activateHistory]);
+
+  // The popup is keyboard-driven while open: arrows walk, Enter keeps,
+  // Escape restores — captured on the window so focus may sit anywhere.
+  useEffect(() => {
+    if (!historyOpen) return;
+    const onKeyDown = (event: KeyboardEvent): void => {
+      if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+        activateHistory(stepHistoryIndex(historyActive, history.length, event.key === 'ArrowDown' ? 1 : -1));
+      } else if (event.key === 'Enter') {
+        if (historyActive >= 0) pickHistory(historyActive);
+        else cancelHistory();
+      } else if (event.key === 'Escape') {
+        cancelHistory();
+      } else {
+        return;
+      }
+      event.preventDefault();
+      event.stopPropagation();
+    };
+    window.addEventListener('keydown', onKeyDown, true);
+    return () => window.removeEventListener('keydown', onKeyDown, true);
+  }, [historyOpen, historyActive, history.length, activateHistory, pickHistory, cancelHistory]);
 
   const counterParts: string[] = [];
   if (counter.modified > 0) counterParts.push(t('workbench.commitTool.counter.modified', { count: counter.modified }));
@@ -83,15 +207,13 @@ const CommitForm = forwardRef<CommitFormHandle, CommitFormProps>(function Commit
           {t('workbench.commitTool.historyEmpty')}
         </span>
       )}
-      {history.map((message) => (
+      {history.map((message, index) => (
         <button
           key={message}
           type="button"
           className="git-tool-row"
-          onClick={() => {
-            onPickHistory(message);
-            setHistoryOpen(false);
-          }}
+          onMouseEnter={() => activateHistory(index)}
+          onClick={() => pickHistory(index)}
           style={{
             border: 'none',
             textAlign: 'left',
@@ -103,8 +225,10 @@ const CommitForm = forwardRef<CommitFormHandle, CommitFormProps>(function Commit
             overflow: 'hidden',
             textOverflow: 'ellipsis',
             whiteSpace: 'nowrap',
+            ...(index === historyActive ? { background: token.controlItemBgActive } : {}),
           }}
           data-testid="commit-tool-history-row"
+          data-active={index === historyActive ? 'true' : undefined}
         >
           {message.split('\n')[0]}
         </button>
@@ -146,12 +270,22 @@ const CommitForm = forwardRef<CommitFormHandle, CommitFormProps>(function Commit
         </Checkbox>
         <Popover
           open={historyOpen}
-          onOpenChange={setHistoryOpen}
+          onOpenChange={(next) => (next ? openHistory() : cancelHistory())}
           trigger="click"
           placement="topLeft"
           content={historyContent}
         >
-          <Tooltip placement="top" title={t('workbench.commitTool.historyTooltip')}>
+          <Tooltip
+            placement="top"
+            open={tooltipOpen && !historyOpen}
+            onOpenChange={setTooltipOpen}
+            styles={{ root: { maxWidth: 360 } }}
+            title={
+              <ShortcutHintTitle label={formatChord(COMMIT_MESSAGE_HISTORY_CHORD)}>
+                {t('workbench.commitTool.historyTooltip')}
+              </ShortcutHintTitle>
+            }
+          >
             <Button
               type="text"
               size="small"
@@ -172,6 +306,12 @@ const CommitForm = forwardRef<CommitFormHandle, CommitFormProps>(function Commit
         ref={messageRef}
         value={draft}
         onChange={(event) => onDraftChange(event.target.value)}
+        onKeyDown={(event) => {
+          if (isCommitMessageHistoryChord(event)) {
+            event.preventDefault();
+            openHistory();
+          }
+        }}
         placeholder={t('workbench.commitTool.messagePlaceholder')}
         autoSize={{ minRows: 3, maxRows: 8 }}
         style={{ fontFamily: token.fontFamilyCode, fontSize: 13 }}
@@ -189,14 +329,14 @@ const CommitForm = forwardRef<CommitFormHandle, CommitFormProps>(function Commit
       )}
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
         <Button
-          type="primary"
+          type={historyOpen ? 'default' : 'primary'}
           size="small"
           loading={committing}
           disabled={!canCommit}
           onClick={() => onCommit(false)}
           data-testid="commit-tool-commit"
         >
-          {t('workbench.commitTool.commit')}
+          {t(amend ? 'workbench.commitTool.amendCommit' : 'workbench.commitTool.commit')}
         </Button>
         <Button
           size="small"
@@ -204,7 +344,7 @@ const CommitForm = forwardRef<CommitFormHandle, CommitFormProps>(function Commit
           onClick={() => onCommit(true)}
           data-testid="commit-tool-commit-push"
         >
-          {t('workbench.commitTool.commitAndPush')}
+          {t(amend ? 'workbench.commitTool.amendCommitAndPush' : 'workbench.commitTool.commitAndPush')}
         </Button>
         <span style={{ flex: 1 }} />
         <Popover trigger="click" placement="topRight" content={gearContent}>

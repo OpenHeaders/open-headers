@@ -3,7 +3,9 @@
  * the eye toggles (Group By Directory, Show Ignored Files), the gear's
  * per-commit options (Sign-off; Run Git hooks — null until the user
  * touches it, so it keeps following the binding's bypassHooks inverse),
- * the message draft, and the Commit Message History ring (the clock).
+ * and the message draft. The Commit Message History popup reads the
+ * bound repo's own log (commit-message-history.ts) — nothing is kept
+ * here for it.
  *
  * Same posture as git-log-view-prefs: module store with subscribers
  * plus localStorage persistence; storage failures degrade to
@@ -27,11 +29,7 @@ export interface CommitViewPrefs {
   runGitHooks: boolean | null;
   /** The Commit Message box draft — survives dock switches and restarts. */
   draft: string;
-  /** Commit Message History, newest first (the clock popover). */
-  history: string[];
 }
-
-export const COMMIT_MESSAGE_HISTORY_CAP = 25;
 
 const DEFAULT_PREFS: CommitViewPrefs = {
   groupByDirectory: false,
@@ -39,7 +37,6 @@ const DEFAULT_PREFS: CommitViewPrefs = {
   signOff: false,
   runGitHooks: null,
   draft: '',
-  history: [],
 };
 
 interface PrefsEntry {
@@ -66,9 +63,6 @@ function readPersisted(workspaceId: string): CommitViewPrefs {
       signOff: p.signOff === true,
       runGitHooks: typeof p.runGitHooks === 'boolean' ? p.runGitHooks : null,
       draft: typeof p.draft === 'string' ? p.draft : '',
-      history: Array.isArray(p.history)
-        ? p.history.filter((entry): entry is string => typeof entry === 'string').slice(0, COMMIT_MESSAGE_HISTORY_CAP)
-        : [],
     };
   } catch {
     return DEFAULT_PREFS;
@@ -105,13 +99,4 @@ export function patchCommitViewPrefs(workspaceId: string, patch: Partial<CommitV
     // Session-only fallback — the in-memory prefs still apply.
   }
   for (const listener of entry.listeners) listener();
-}
-
-/** Record a committed message: dedupe, newest first, capped ring. */
-export function pushCommitMessageHistory(workspaceId: string, message: string): void {
-  const trimmed = message.trim();
-  if (trimmed.length === 0) return;
-  const { history } = getCommitViewPrefs(workspaceId);
-  const next = [trimmed, ...history.filter((entry) => entry !== trimmed)].slice(0, COMMIT_MESSAGE_HISTORY_CAP);
-  patchCommitViewPrefs(workspaceId, { history: next });
 }
