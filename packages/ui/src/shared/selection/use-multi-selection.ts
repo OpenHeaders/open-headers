@@ -2,12 +2,14 @@
  * useMultiSelection — the `MultiSelection` state over an ordered list
  * of visible row ids, with the gestures as handlers: `click` with the
  * pointer event's modifiers, `step` for the keyboard (Shift extends),
- * `contextMenu` for the right-click rule, `clear`. The selection is
- * pruned whenever the order changes — a collapse, a filter or a
- * refresh hides members, and a hidden row is never kept selected.
+ * `contextMenu` for the right-click rule, `clear`. The selection the
+ * consumer reads is the stored one narrowed to the current order —
+ * a collapse, a filter or a refresh hides members and a hidden row is
+ * never selected, in the same render — and every transition starts
+ * from that narrowed selection.
  */
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import {
   clickModifiers,
   EMPTY_SELECTION,
@@ -18,11 +20,18 @@ import {
   selectOnStep,
 } from './multi-selection';
 
+export interface PointerModifiers {
+  metaKey: boolean;
+  ctrlKey: boolean;
+  shiftKey: boolean;
+}
+
 export interface MultiSelectionHandlers {
+  /** The live selection — the stored one narrowed to the current order. */
   selection: MultiSelection;
   isSelected: (id: string) => boolean;
   /** A pointer click on `id` — the event's modifiers decide plain / toggle / range. */
-  click: (id: string, event: { metaKey: boolean; ctrlKey: boolean; shiftKey: boolean }) => void;
+  click: (id: string, event: PointerModifiers) => void;
   /** The keyboard landing on `id` — `extend` is Shift held. */
   step: (id: string, extend: boolean) => void;
   /** A right-click on `id` — kept when the row is already selected. */
@@ -31,30 +40,31 @@ export interface MultiSelectionHandlers {
 }
 
 export function useMultiSelection(order: readonly string[]): MultiSelectionHandlers {
-  const [selection, setSelection] = useState<MultiSelection>(EMPTY_SELECTION);
-
-  useEffect(() => {
-    setSelection((prev) => pruneSelection(prev, order));
-  }, [order]);
+  const [stored, setStored] = useState<MultiSelection>(EMPTY_SELECTION);
+  const selection = useMemo(() => pruneSelection(stored, order), [stored, order]);
 
   const isSelected = useCallback((id: string) => selection.ids.has(id), [selection]);
 
   const click = useCallback(
-    (id: string, event: { metaKey: boolean; ctrlKey: boolean; shiftKey: boolean }) => {
+    (id: string, event: PointerModifiers) => {
       const modifiers = clickModifiers(event);
-      setSelection((prev) => selectOnClick(prev, order, id, modifiers));
+      setStored((prev) => selectOnClick(pruneSelection(prev, order), order, id, modifiers));
     },
     [order],
   );
 
   const step = useCallback(
-    (id: string, extend: boolean) => setSelection((prev) => selectOnStep(prev, order, id, extend)),
+    (id: string, extend: boolean) =>
+      setStored((prev) => selectOnStep(pruneSelection(prev, order), order, id, extend)),
     [order],
   );
 
-  const contextMenu = useCallback((id: string) => setSelection((prev) => selectOnContextMenu(prev, id)), []);
+  const contextMenu = useCallback(
+    (id: string) => setStored((prev) => selectOnContextMenu(pruneSelection(prev, order), id)),
+    [order],
+  );
 
-  const clear = useCallback(() => setSelection(EMPTY_SELECTION), []);
+  const clear = useCallback(() => setStored(EMPTY_SELECTION), []);
 
   return { selection, isSelected, click, step, contextMenu, clear };
 }

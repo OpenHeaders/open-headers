@@ -10,5 +10,5 @@ export {
   selectOnStep,
   toggleId,
 } from './multi-selection';
-export type { MultiSelectionHandlers } from './use-multi-selection';
+export type { MultiSelectionHandlers, PointerModifiers } from './use-multi-selection';
 export { useMultiSelection } from './use-multi-selection';
