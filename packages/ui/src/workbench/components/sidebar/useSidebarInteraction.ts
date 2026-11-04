@@ -24,10 +24,11 @@
  */
 
 import type { TreeNode as CoreTreeNode } from '@openheaders/core/types';
+import { rangeIds, type SelectionAnchor, toggleId } from '@openheaders/ui/shared/selection';
 import type React from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { SidebarExportEntity } from '../workspace-export/build-export-scope';
-import { isSelectableRow, rangeSelection, type SelectionAnchor, toggleSelection } from './tree-selection';
+import { isSelectableRow, selectableRowIds } from './tree-selection';
 import type { SidebarView, TreeNode } from './types';
 import { useSelectOpenedTab } from './useSelectOpenedTab';
 
@@ -117,6 +118,9 @@ export function useSidebarInteraction({
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
   const anchorRef = useRef<SelectionAnchor | null>(null);
 
+  // The order a Shift+click ranges over — the selectable visible rows.
+  const selectableIds = useMemo(() => selectableRowIds(allFlatItems), [allFlatItems]);
+
   const isMultiSelected = useCallback((id: string) => selectedIds.has(id), [selectedIds]);
 
   const clearSelection = useCallback(() => {
@@ -161,16 +165,17 @@ export function useSidebarInteraction({
         // Multi-select gesture — suppress nav. Cmd/Ctrl toggles the row
         // and anchors on it; Shift ranges from the anchor (the last
         // plain or Cmd/Ctrl click, else the keyboard cursor, else this
-        // row) on top of the selection the anchor was set with.
+        // row) on top of the selection the anchor was set with — the
+        // shared selection model's contract.
         e.preventDefault();
         if (modifierRange) {
           const anchor: SelectionAnchor =
             anchorRef.current ??
             (focusedId ? { id: focusedId, base: selectedIds } : { id: node.id, base: selectedIds });
           anchorRef.current = anchor;
-          setSelectedIds(rangeSelection(allFlatItems, anchor, node.id));
+          setSelectedIds(rangeIds(selectableIds, anchor, node.id));
         } else {
-          const next = toggleSelection(selectedIds, node.id);
+          const next = toggleId(selectedIds, node.id);
           anchorRef.current = { id: node.id, base: next };
           setSelectedIds(next);
         }
@@ -192,7 +197,7 @@ export function useSidebarInteraction({
       containerRef.current?.focus({ preventScroll: true });
       if (shouldOpenOnSingleClick(node)) node.onOpen?.();
     },
-    [shouldOpenOnSingleClick, allFlatItems, selectedIds, focusedId, containerRef],
+    [shouldOpenOnSingleClick, selectableIds, selectedIds, focusedId, containerRef],
   );
 
   const handleItemDoubleClick = useCallback(

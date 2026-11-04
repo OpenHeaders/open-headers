@@ -1,13 +1,10 @@
 /**
- * Unit tests for `tree-selection` — the pure math behind the sidebar's
- * Cmd/Ctrl+click toggle and Shift+click range over the visible rows.
+ * Unit tests for `tree-selection` — which sidebar rows take part in
+ * the shared multi-selection (the math itself is pinned under
+ * `shared/multi-selection`).
  */
 
-import {
-  isSelectableRow,
-  rangeSelection,
-  toggleSelection,
-} from '@openheaders/ui/workbench/components/sidebar/tree-selection';
+import { isSelectableRow, selectableRowIds } from '@openheaders/ui/workbench/components/sidebar/tree-selection';
 import type { TreeNode } from '@openheaders/ui/workbench/components/sidebar/types';
 import { describe, expect, it } from 'vitest';
 
@@ -39,35 +36,8 @@ describe('isSelectableRow', () => {
   });
 });
 
-describe('toggleSelection', () => {
-  it('adds an absent id and removes a present one, never mutating the input', () => {
-    const base = new Set(['col-a']);
-    expect([...toggleSelection(base, 'grpc-x')]).toEqual(['col-a', 'grpc-x']);
-    expect([...toggleSelection(base, 'col-a')]).toEqual([]);
-    expect([...base]).toEqual(['col-a']);
-  });
-});
-
-describe('rangeSelection', () => {
-  it('selects the visible run between the anchor and the row, either direction, across depths and kinds', () => {
-    const down = rangeSelection(rows, { id: 'folder-f', base: new Set() }, 'col-b');
-    expect([...down]).toEqual(['folder-f', 'grpc-x', 'col-b']);
-    const up = rangeSelection(rows, { id: 'leaf-y', base: new Set() }, 'grpc-x');
-    expect([...up]).toEqual(['grpc-x', 'col-b', 'leaf-y']);
-  });
-
-  it('grows on the anchor base and skips placeholders', () => {
-    const next = rangeSelection(rows, { id: 'col-a', base: new Set(['leaf-y']) }, 'grpc-x');
-    expect([...next]).toEqual(['leaf-y', 'col-a', 'folder-f', 'grpc-x']);
-  });
-
-  it('a second range from the same anchor replaces the first, not extends it', () => {
-    const anchor = { id: 'col-a', base: new Set<string>() };
-    rangeSelection(rows, anchor, 'col-b');
-    expect([...rangeSelection(rows, anchor, 'folder-f')]).toEqual(['col-a', 'folder-f']);
-  });
-
-  it('an anchor no longer visible falls back to picking the row alone', () => {
-    expect([...rangeSelection(rows, { id: 'gone', base: new Set(['col-a']) }, 'leaf-y')]).toEqual(['col-a', 'leaf-y']);
+describe('selectableRowIds', () => {
+  it('is the display order without the placeholders', () => {
+    expect(selectableRowIds(rows)).toEqual(['col-a', 'folder-f', 'grpc-x', 'col-b', 'leaf-y']);
   });
 });
