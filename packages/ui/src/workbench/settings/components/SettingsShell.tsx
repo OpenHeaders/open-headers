@@ -7,12 +7,12 @@
  * sidebar surfaces per-category match counts.
  */
 
-import { UndoOutlined } from '@ant-design/icons';
 import { Button, ConfigProvider, type InputRef, Popconfirm, Skeleton, theme } from 'antd';
 import type React from 'react';
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { DesktopTeaser } from '@openheaders/ui/shared/desktop-teaser';
+import { RollbackIcon } from '@openheaders/ui/shared/icons';
 import { useServerAdminStatus } from '../../components/server-admin/use-server-admin-status';
 import { useModifiedCount, useResetAllSettings, useSetting } from '../hooks';
 import { SettingsNavigationProvider } from '../NavigationContext';
@@ -413,7 +413,7 @@ const ResetAllButton: React.FC = () => {
       <Button
         size="small"
         type="text"
-        icon={<UndoOutlined />}
+        icon={<RollbackIcon />}
         disabled={disabled}
         style={{ fontSize: 11, color: disabled ? token.colorTextTertiary : token.colorTextSecondary }}
       >

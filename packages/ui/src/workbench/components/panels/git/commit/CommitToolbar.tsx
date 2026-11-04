@@ -7,11 +7,11 @@
  * Collapse All driving the changes tree.
  */
 
-import { AimOutlined, EyeOutlined, SyncOutlined, UndoOutlined, VerticalAlignBottomOutlined } from '@ant-design/icons';
+import { AimOutlined, EyeOutlined, SyncOutlined, VerticalAlignBottomOutlined } from '@ant-design/icons';
 import { Dropdown, theme } from 'antd';
 import type React from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
-import { CollapseAllIcon, ExpandAllIcon } from '@openheaders/ui/shared/icons';
+import { CollapseAllIcon, ExpandAllIcon, RollbackIcon } from '@openheaders/ui/shared/icons';
 import { menuCheckIcon } from '../../../shared/menu-check';
 import ToolbarIconButton from '../toolbar/ToolbarIconButton';
 import type { CommitViewPrefs } from './commit-view-prefs';
@@ -50,7 +50,7 @@ const CommitToolbar: React.FC<CommitToolbarProps> = ({ onRefresh, prefs, onPatch
         testid="commit-tool-refresh"
       />
       <ToolbarIconButton
-        icon={<UndoOutlined />}
+        icon={<RollbackIcon />}
         title={t('workbench.commitTool.rollback')}
         disabled
         testid="commit-tool-rollback"

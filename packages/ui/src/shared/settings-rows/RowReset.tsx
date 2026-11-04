@@ -6,10 +6,10 @@
  * column's edges stay straight whether or not a row is modified.
  */
 
-import { UndoOutlined } from '@ant-design/icons';
 import { Button, Tooltip } from 'antd';
 import type React from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
+import { RollbackIcon } from '@openheaders/ui/shared/icons';
 
 export const RowReset: React.FC<{ label: string; onReset: () => void }> = ({ label, onReset }) => {
   const t = useT();
@@ -20,7 +20,7 @@ export const RowReset: React.FC<{ label: string; onReset: () => void }> = ({ lab
         size="small"
         type="text"
         aria-label={title}
-        icon={<UndoOutlined style={{ fontSize: 11 }} />}
+        icon={<RollbackIcon style={{ fontSize: 11 }} />}
         onClick={onReset}
         style={{ width: 20, height: 20, minWidth: 20 }}
       />

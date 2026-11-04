@@ -19,7 +19,7 @@
  * timer runs.
  */
 
-import { PlusOutlined, ReloadOutlined, UndoOutlined } from '@ant-design/icons';
+import { PlusOutlined, ReloadOutlined } from '@ant-design/icons';
 import { useEnvironments } from '@openheaders/ui/shared/hooks/readers/useEnvironments';
 import { useRules } from '@openheaders/ui/shared/hooks/readers/useRules';
 import { useAllLiveCaches } from '@openheaders/ui/shared/hooks/readers/useLiveCache';
@@ -27,6 +27,7 @@ import { useLiveWorkflows } from '@openheaders/ui/shared/hooks/readers/useLiveWo
 import { hostBridge, type LiveWorkflowRunSnapshot } from '@openheaders/core/bridge';
 import type { RefreshPolicy } from '@openheaders/core/types';
 import { useT } from '@openheaders/ui/context/LocaleContext';
+import { RollbackIcon } from '@openheaders/ui/shared/icons';
 import { App, Badge, Button, Empty, Space, Tag, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -431,7 +432,7 @@ const WorkflowStatusRow: React.FC<RowProps> = ({ row, isActiveEnv, onRefresh, on
         </Button>
         {c && (c.state !== 'closed' || c.consecutiveFailures > 0 || c.consecutiveOpenings > 0) && (
           <Tooltip title={t('workbench.editors.live.status.resetCircuitTooltip')}>
-            <Button size="small" icon={<UndoOutlined />} onClick={onResetCircuit}>
+            <Button size="small" icon={<RollbackIcon />} onClick={onResetCircuit}>
               {t('workbench.editors.live.status.resetCircuit')}
             </Button>
           </Tooltip>

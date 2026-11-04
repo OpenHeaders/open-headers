@@ -8,11 +8,11 @@
  * edge driving the files tree.
  */
 
-import { EditOutlined, EyeOutlined, SwapOutlined, UndoOutlined } from '@ant-design/icons';
+import { EditOutlined, EyeOutlined, SwapOutlined } from '@ant-design/icons';
 import { Dropdown, theme } from 'antd';
 import type React from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
-import { CollapseAllIcon, ExpandAllIcon } from '@openheaders/ui/shared/icons';
+import { CollapseAllIcon, ExpandAllIcon, RollbackIcon } from '@openheaders/ui/shared/icons';
 import type { GitLogViewPrefs } from '../git-log-view-prefs';
 import { menuCheckIcon } from '../../../shared/menu-check';
 import ToolbarIconButton from './ToolbarIconButton';
@@ -70,7 +70,7 @@ const GitDetailsToolbar: React.FC<GitDetailsToolbarProps> = ({
         testid="git-tool-details-diff"
       />
       <ToolbarIconButton
-        icon={<UndoOutlined />}
+        icon={<RollbackIcon />}
         title={t('workbench.gitLog.details.revertSelected')}
         disabled
         testid="git-tool-details-revert"

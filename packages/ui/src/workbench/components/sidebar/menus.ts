@@ -8,10 +8,10 @@ import {
   PauseCircleOutlined,
   PlayCircleOutlined,
   PlusOutlined,
-  RollbackOutlined,
   SisternodeOutlined,
 } from '@ant-design/icons';
 import type { Translate } from '@openheaders/ui/context/LocaleContext';
+import { RollbackIcon } from '@openheaders/ui/shared/icons';
 import type { ItemType } from 'antd/es/menu/interface';
 import { createElement } from 'react';
 import { type RequestKindAddMenuOptions, requestKindAddMenuItems } from '../../request-kind-menu';
@@ -127,7 +127,7 @@ export function containerActionMenuItems(
     if (hasOwnMarker && onClearOverride) {
       items.push({
         key: 'clear-override',
-        icon: createElement(RollbackOutlined),
+        icon: createElement(RollbackIcon),
         label: t(
           isCollection
             ? 'workbench.sidebar.menu.resetCollectionPauseOverride'

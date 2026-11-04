@@ -17,10 +17,11 @@
  * stay reachable by a request's pick.
  */
 
-import { PlusOutlined, UndoOutlined } from '@ant-design/icons';
+import { PlusOutlined } from '@ant-design/icons';
 import type { AuthPoolEntry } from '@openheaders/core/types';
 import { generateUid } from '@openheaders/core/utils';
 import { useT } from '@openheaders/ui/context/LocaleContext';
+import { RollbackIcon } from '@openheaders/ui/shared/icons';
 import { Button, Dropdown, Popconfirm, Select, Tooltip, theme } from 'antd';
 import type React from 'react';
 import { useState } from 'react';
@@ -154,7 +155,7 @@ const AuthPoolSection: React.FC<AuthPoolSectionProps> = ({ kind, pool, onChange,
             <Button
               size="small"
               type="text"
-              icon={<UndoOutlined />}
+              icon={<RollbackIcon />}
               aria-label={t('workbench.editors.requestContainer.auth.resetToInherited')}
               data-testid="oh-auth-pool-reset"
             />

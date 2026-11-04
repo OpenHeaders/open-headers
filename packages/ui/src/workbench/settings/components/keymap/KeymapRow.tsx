@@ -16,12 +16,13 @@
  * links scroll-and-flash to it unchanged.
  */
 
-import { CloseOutlined, UndoOutlined, WarningOutlined } from '@ant-design/icons';
+import { CloseOutlined, WarningOutlined } from '@ant-design/icons';
 import { hasCapability } from '@openheaders/core/capabilities';
 import { Button, Tag, Tooltip, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useMemo, useState } from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
+import { RollbackIcon } from '@openheaders/ui/shared/icons';
 import { getCurrentHost } from '../../../../shared/host-vocabulary';
 import { ShortcutKbd } from '../../../../components/ShortcutKbd';
 import { formatChord, useChordLabel } from '../../../hooks/useWorkspaceShortcuts';
@@ -183,7 +184,7 @@ const KeymapRow: React.FC<KeymapRowProps> = ({ def: rawDef, scopeDefs, conflicts
             <Button
               size="small"
               type="text"
-              icon={<UndoOutlined style={{ fontSize: 11 }} />}
+              icon={<RollbackIcon style={{ fontSize: 11 }} />}
               onClick={reset}
               disabled={capabilityGated}
               aria-label={t('workbench.settings.keymapPane.resetAria', { label: def.label })}

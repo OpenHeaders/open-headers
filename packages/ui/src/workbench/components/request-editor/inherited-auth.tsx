@@ -11,7 +11,7 @@
  * container).
  */
 
-import { EditOutlined, UndoOutlined } from '@ant-design/icons';
+import { EditOutlined } from '@ant-design/icons';
 import {
   type AuthProtocolKind,
   type AuthRefusal,
@@ -23,6 +23,7 @@ import { Button, Tag, Tooltip, Typography } from 'antd';
 import type React from 'react';
 import { useMemo } from 'react';
 import { type Translate, useT } from '@openheaders/ui/context/LocaleContext';
+import { RollbackIcon } from '@openheaders/ui/shared/icons';
 import { type InfoPopoverContent, InfoTrigger } from '@openheaders/ui/shared/info-popover';
 import {
   inheritPoolLevels,
@@ -124,7 +125,7 @@ export const AuthTypeRailHeader: React.FC<{
           <Button
             size="small"
             type="text"
-            icon={<UndoOutlined />}
+            icon={<RollbackIcon />}
             aria-label={t('workbench.editors.request.auth.resetToInheritedAuth')}
             data-testid="oh-auth-reset-inherit"
             onClick={() => onChange({ type: 'inherit' })}

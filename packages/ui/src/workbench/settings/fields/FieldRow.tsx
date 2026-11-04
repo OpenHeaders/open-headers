@@ -11,10 +11,11 @@
 
 import { hasCapability } from '@openheaders/core/capabilities';
 import type { Capabilities } from '@openheaders/core/capabilities';
-import { DisconnectOutlined, LockOutlined, UndoOutlined } from '@ant-design/icons';
+import { DisconnectOutlined, LockOutlined } from '@ant-design/icons';
 import { Button, Tooltip, theme } from 'antd';
 import type React from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
+import { RollbackIcon } from '@openheaders/ui/shared/icons';
 import { type InfoPopoverAction, type InfoPopoverSection, InfoTrigger } from '@openheaders/ui/shared/info-popover';
 import { useSettingsConnection } from '../ConnectionContext';
 import { useIsManaged, useIsModified, useResetSetting } from '../hooks';
@@ -203,7 +204,7 @@ const FieldRow: React.FC<FieldRowProps> = ({
       <Button
         size="small"
         type="text"
-        icon={<UndoOutlined style={{ fontSize: 11 }} />}
+        icon={<RollbackIcon style={{ fontSize: 11 }} />}
         onClick={reset}
         style={{ width: 20, height: 20, minWidth: 20 }}
       />

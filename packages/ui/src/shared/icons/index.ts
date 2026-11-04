@@ -10,6 +10,7 @@ export { LanguageIcon, type LanguageIconProps } from './LanguageIcon';
 export { RecordStartIcon } from './RecordStartIcon';
 export { RecordStopIcon } from './RecordStopIcon';
 export { RequestRulesIcon } from './RequestRulesIcon';
+export { RollbackIcon } from './RollbackIcon';
 export { ScrollToEndIcon } from './ScrollToEndIcon';
 export { SoftWrapIcon } from './SoftWrapIcon';
 export type { GlyphIconProps } from './types';

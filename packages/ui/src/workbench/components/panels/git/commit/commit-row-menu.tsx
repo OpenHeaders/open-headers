@@ -30,13 +30,13 @@ import {
   StopOutlined,
   SwapOutlined,
   SyncOutlined,
-  UndoOutlined,
   VerticalAlignBottomOutlined,
 } from '@ant-design/icons';
 import type { WorkspaceTreeWorkingChangeWire } from '@openheaders/core/bridge';
 import type { MenuProps } from 'antd';
 import type { MessageKey } from '@openheaders/i18n';
 import type { Translate } from '@openheaders/ui/context/LocaleContext';
+import { RollbackIcon } from '@openheaders/ui/shared/icons';
 import { menuLabel } from '../git-menu-label';
 import type { CommitMenuTarget } from './commit-model';
 
@@ -176,7 +176,7 @@ function gitSubmenu(facts: TargetFacts, t: Translate, h: CommitRowMenuHandlers):
       },
       {
         key: 'git-rollback',
-        label: menuLabel(<UndoOutlined />, t('workbench.commitTool.rollback'), '⌥⌘Z'),
+        label: menuLabel(<RollbackIcon />, t('workbench.commitTool.rollback'), '⌥⌘Z'),
         disabled: true,
       },
       { type: 'divider' },
@@ -282,7 +282,7 @@ export function buildCommitRowMenu(target: CommitMenuTarget, t: Translate, h: Co
     commitItem(facts, h, t, 'commit-file'),
     {
       key: 'rollback',
-      label: menuLabel(<UndoOutlined />, t('workbench.commitTool.rollback'), '⌥⌘Z'),
+      label: menuLabel(<RollbackIcon />, t('workbench.commitTool.rollback'), '⌥⌘Z'),
       disabled: true,
     },
     {
