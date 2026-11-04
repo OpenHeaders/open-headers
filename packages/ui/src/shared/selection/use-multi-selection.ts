@@ -5,11 +5,12 @@
  * `contextMenu` for the right-click rule, `clear`. The selection the
  * consumer reads is the stored one narrowed to the current order —
  * a collapse, a filter or a refresh hides members and a hidden row is
- * never selected, in the same render — and every transition starts
- * from that narrowed selection.
+ * never selected, in the same render; the narrowing is then stored,
+ * so a member hidden once does not come back when its row reappears —
+ * and every transition starts from the narrowed selection.
  */
 
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   clickModifiers,
   EMPTY_SELECTION,
@@ -42,6 +43,9 @@ export interface MultiSelectionHandlers {
 export function useMultiSelection(order: readonly string[]): MultiSelectionHandlers {
   const [stored, setStored] = useState<MultiSelection>(EMPTY_SELECTION);
   const selection = useMemo(() => pruneSelection(stored, order), [stored, order]);
+  useEffect(() => {
+    setStored((prev) => pruneSelection(prev, order));
+  }, [order]);
 
   const isSelected = useCallback((id: string) => selection.ids.has(id), [selection]);
 
@@ -54,8 +58,7 @@ export function useMultiSelection(order: readonly string[]): MultiSelectionHandl
   );
 
   const step = useCallback(
-    (id: string, extend: boolean) =>
-      setStored((prev) => selectOnStep(pruneSelection(prev, order), order, id, extend)),
+    (id: string, extend: boolean) => setStored((prev) => selectOnStep(pruneSelection(prev, order), order, id, extend)),
     [order],
   );
 
