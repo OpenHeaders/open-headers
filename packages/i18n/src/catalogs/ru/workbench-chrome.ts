@@ -514,6 +514,8 @@ export const workbenchChrome = {
   'workbench.gitLog.console.softWrap': 'Перенос строк',
   'workbench.gitLog.console.scrollToEnd': 'К концу',
   'workbench.gitLog.console.clearAll': 'Очистить всё',
+  'workbench.gitLog.console.foldOptions': 'Свернуть параметры',
+  'workbench.gitLog.console.shortenPaths': 'Сокращать пути',
   'workbench.gitLog.filterPlaceholder': 'Текст или хеш',
   'workbench.gitLog.filter.regex': 'Регулярное выражение',
   'workbench.gitLog.filter.matchCase': 'Учитывать регистр',

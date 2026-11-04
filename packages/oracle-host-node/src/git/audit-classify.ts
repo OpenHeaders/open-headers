@@ -10,8 +10,8 @@
 /** Global options that precede the subcommand in an arg vector — each consumes one value argument. */
 const VALUED_GLOBAL_OPTIONS = new Set(['--git-dir', '--work-tree', '-C', '-c']);
 
-/** The subcommand of an invocation, skipping `--git-dir <p> --work-tree <p>`-style global options. */
-export function subcommandOf(args: readonly string[]): string | null {
+/** Index of the subcommand in an arg vector, skipping `--git-dir <p> --work-tree <p>`-style global options; -1 when none. */
+export function subcommandIndexOf(args: readonly string[]): number {
   for (let i = 0; i < args.length; i += 1) {
     const arg = args[i];
     if (VALUED_GLOBAL_OPTIONS.has(arg)) {
@@ -19,9 +19,22 @@ export function subcommandOf(args: readonly string[]): string | null {
       continue;
     }
     if (arg.startsWith('-')) continue;
-    return arg;
+    return i;
   }
-  return null;
+  return -1;
+}
+
+/** The subcommand of an invocation, skipping its global options. */
+export function subcommandOf(args: readonly string[]): string | null {
+  const index = subcommandIndexOf(args);
+  return index === -1 ? null : args[index];
+}
+
+/** An arg vector split at git's own seam: the global options before the subcommand, then the subcommand with its operands. */
+export function splitAtSubcommand(args: readonly string[]): { options: readonly string[]; command: readonly string[] } {
+  const index = subcommandIndexOf(args);
+  if (index === -1) return { options: args, command: [] };
+  return { options: args.slice(0, index), command: args.slice(index) };
 }
 
 /**

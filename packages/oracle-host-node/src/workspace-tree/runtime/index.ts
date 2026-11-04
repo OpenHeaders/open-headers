@@ -32,7 +32,6 @@ import {
 } from '@openheaders/oracle/workspace/extension-workspace-store';
 import {
   createGitExec,
-  type GitAuditRow,
   type GitAvailability,
   type GitRunner,
   type IgnoreTarget,
@@ -87,6 +86,7 @@ import type {
   CreateBranchRpcResult,
   DeleteBranchRpcResult,
   FetchWorkspaceTreeRpcResult,
+  GitConsoleRow,
   MergeBranchRpcResult,
   PullWorkspaceTreeRpcResult,
   PushWorkspaceTreeRpcResult,
@@ -158,13 +158,15 @@ export function createWorkspaceTreeRuntime(options: WorkspaceTreeRuntimeOptions)
   // read time. Injected runners (tests, the fault suite) bypass
   // `createGitExec`, so their commands never reach the feed — the
   // console mirrors what actually ran on the user's repo.
-  const consoleRows: GitAuditRow[] = [];
+  const consoleRows: GitConsoleRow[] = [];
+  let consoleSeq = 0;
   const gitRun: GitRunner =
     options.gitRunner ??
     createGitExec({
       audit: (row) => {
-        logger.info(SCOPE, `git ${row.args.join(' ')} → ${row.code} (${row.durationMs}ms)`);
-        consoleRows.push(row);
+        logger.info(SCOPE, `git ${[...row.options, ...row.command].join(' ')} → ${row.code} (${row.durationMs}ms)`);
+        consoleSeq += 1;
+        consoleRows.push({ seq: consoleSeq, ...row });
         if (consoleRows.length > GIT_CONSOLE_CAP) consoleRows.splice(0, consoleRows.length - GIT_CONSOLE_CAP);
       },
     });

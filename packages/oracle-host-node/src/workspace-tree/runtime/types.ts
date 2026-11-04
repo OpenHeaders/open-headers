@@ -245,7 +245,13 @@ export type CompareRefsRpcResult =
       detail?: string;
     };
 
-export type WorkspaceTreeGitConsoleRpcResult = { ok: true; rows: GitAuditRow[] } | { ok: false; reason: 'not-bound' };
+/** One row of the Console-tab ring: the audit row plus its place in the ring. */
+export interface GitConsoleRow extends GitAuditRow {
+  /** Host-global monotonic id — the ring appends in order, so a larger id is a later row. */
+  seq: number;
+}
+
+export type WorkspaceTreeGitConsoleRpcResult = { ok: true; rows: GitConsoleRow[] } | { ok: false; reason: 'not-bound' };
 
 /** The Jump to Source answer: the entity a tree path belongs to. */
 export type WorkspaceTreeEntityAtPathRpcResult =

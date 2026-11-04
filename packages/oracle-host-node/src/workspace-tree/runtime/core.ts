@@ -13,7 +13,6 @@ import type { WorkspaceServiceState } from '@openheaders/oracle/sync/service';
 import type {
   CommitIntent,
   CommitUserAttribution,
-  GitAuditRow,
   GitAvailability,
   GitRunner,
   SyntheticCommitIdentity,
@@ -26,6 +25,7 @@ import type { SweepWorkspaceTreeResult } from '../sweep';
 import type { WorkspaceTreeWatcher } from '../watcher';
 import type {
   CommitWorkspaceTreeRpcResult,
+  GitConsoleRow,
   WorkspaceTreeCommitCadence,
   WorkspaceTreeGitStatusRpcResult,
   WorkspaceTreeRuntimeOptions,
@@ -131,7 +131,7 @@ export interface RuntimeCtx {
   readonly open: Map<string, OpenBinding>;
   readonly gitRun: GitRunner;
   /** Host-global audit ring (Console tab feed) — real-runner rows only. */
-  readonly consoleRows: GitAuditRow[];
+  readonly consoleRows: GitConsoleRow[];
   ensureGitAvailability(cwd: string): Promise<GitAvailability>;
   /** §8 single actor — chain `op` on the binding's serial promise chain. */
   enqueue(binding: OpenBinding, op: () => Promise<void>): void;

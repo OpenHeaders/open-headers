@@ -493,6 +493,8 @@ export const workbenchChrome = {
   'workbench.gitLog.console.softWrap': '자동 줄 바꿈',
   'workbench.gitLog.console.scrollToEnd': '끝으로 스크롤',
   'workbench.gitLog.console.clearAll': '모두 지우기',
+  'workbench.gitLog.console.foldOptions': '옵션 접기',
+  'workbench.gitLog.console.shortenPaths': '경로 줄이기',
   'workbench.gitLog.filterPlaceholder': '텍스트 또는 해시',
   'workbench.gitLog.filter.regex': '정규식',
   'workbench.gitLog.filter.matchCase': '대소문자 구분',

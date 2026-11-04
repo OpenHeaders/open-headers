@@ -493,6 +493,8 @@ export const workbenchChrome = {
   'workbench.gitLog.console.softWrap': '折り返し',
   'workbench.gitLog.console.scrollToEnd': '末尾へスクロール',
   'workbench.gitLog.console.clearAll': 'すべてクリア',
+  'workbench.gitLog.console.foldOptions': 'オプションを折りたたむ',
+  'workbench.gitLog.console.shortenPaths': 'パスを短縮',
   'workbench.gitLog.filterPlaceholder': 'テキストまたはハッシュ',
   'workbench.gitLog.filter.regex': '正規表現',
   'workbench.gitLog.filter.matchCase': '大文字と小文字を区別',

@@ -942,9 +942,14 @@ export type WorkspaceTreeRefsWire =
 
 /** One state-changing git invocation in the Console tab's feed. */
 export interface WorkspaceTreeGitConsoleRowWire {
+  /** Host-global monotonic id — the ring appends in order, so a larger id is a later row. */
+  seq: number;
   /** Invocation wall-clock, strict ISO-8601. */
   at: string;
-  args: readonly string[];
+  /** Git's global options before the subcommand — the host pins the repo (`--git-dir`, `--work-tree`) on every invocation. */
+  options: readonly string[];
+  /** The subcommand and its operands. */
+  command: readonly string[];
   cwd: string;
   code: number;
   durationMs: number;

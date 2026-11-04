@@ -521,6 +521,8 @@ export const workbenchChrome = {
   'workbench.gitLog.console.softWrap': 'Încadrare rânduri',
   'workbench.gitLog.console.scrollToEnd': 'Derulează la sfârșit',
   'workbench.gitLog.console.clearAll': 'Șterge tot',
+  'workbench.gitLog.console.foldOptions': 'Pliază opțiunile',
+  'workbench.gitLog.console.shortenPaths': 'Scurtează căile',
   'workbench.gitLog.filterPlaceholder': 'Text sau hash',
   'workbench.gitLog.filter.regex': 'Expresie regulată',
   'workbench.gitLog.filter.matchCase': 'Potrivire majuscule/minuscule',

@@ -485,6 +485,8 @@ export const workbenchChrome = {
   'workbench.gitLog.console.softWrap': 'Soft-Wrap',
   'workbench.gitLog.console.scrollToEnd': 'Scroll to End',
   'workbench.gitLog.console.clearAll': 'Clear All',
+  'workbench.gitLog.console.foldOptions': 'Fold Options',
+  'workbench.gitLog.console.shortenPaths': 'Shorten Paths',
   'workbench.gitLog.filterPlaceholder': 'Text or hash',
   'workbench.gitLog.filter.regex': 'Regex',
   'workbench.gitLog.filter.matchCase': 'Match Case',

@@ -726,6 +726,8 @@ export const workbenchChrome = {
   'workbench.gitLog.console.softWrap': 'Ajuste de línea',
   'workbench.gitLog.console.scrollToEnd': 'Ir al final',
   'workbench.gitLog.console.clearAll': 'Borrar todo',
+  'workbench.gitLog.console.foldOptions': 'Plegar opciones',
+  'workbench.gitLog.console.shortenPaths': 'Acortar rutas',
   'workbench.gitLog.noMatches': 'Ningún commit coincide con los filtros',
   'workbench.gitLog.resetFilters': 'Restablecer filtros',
   'workbench.gitLog.selectCommit': 'Selecciona un commit para ver sus cambios',

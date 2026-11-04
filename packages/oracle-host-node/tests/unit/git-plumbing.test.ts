@@ -11,7 +11,7 @@ import { promises as fs } from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { isStateChanging, subcommandOf } from '../../src/git/audit-classify';
+import { isStateChanging, splitAtSubcommand } from '../../src/git/audit-classify';
 import {
   createLocalBranch,
   deleteLocalBranch,
@@ -407,16 +407,18 @@ describe('commitWorkspaceTree', () => {
 
   it('audits state-changing commands but not reads', async () => {
     await initialCommit();
-    const audited = auditRows.map((row) => subcommandOf(row.args));
+    const audited = auditRows.map((row) => row.command[0]);
     expect(audited).toContain('init');
     expect(audited).toContain('add');
     expect(audited).toContain('commit');
     expect(audited).not.toContain('status');
     expect(audited).not.toContain('rev-parse');
-    // Console-feed fields: wall-clock + captured output per row.
-    const commitRow = auditRows.find((row) => subcommandOf(row.args) === 'commit');
+    // Console-feed fields: wall-clock + captured output per row, the
+    // arg vector split at the subcommand (the pinned repo options first).
+    const commitRow = auditRows.find((row) => row.command[0] === 'commit');
     expect(commitRow?.at).toMatch(/^\d{4}-\d{2}-\d{2}T/);
     expect(commitRow?.cwd).toBe(tmpDir);
+    expect(commitRow?.options).toEqual(['--git-dir', path.join(tmpDir, '.git'), '--work-tree', tmpDir]);
     expect(commitRow?.output).toContain('Initial tree');
   });
 
@@ -432,6 +434,17 @@ describe('commitWorkspaceTree', () => {
     expect(isStateChanging([...repo, 'symbolic-ref', 'HEAD', 'refs/heads/main'])).toBe(true);
     expect(isStateChanging([...repo, 'symbolic-ref', '--delete', 'refs/heads/tmp'])).toBe(true);
     expect(isStateChanging([...repo, 'config', 'user.email', 'engine@openheaders.io'])).toBe(true);
+  });
+
+  it('splits an arg vector at the subcommand, global options first', () => {
+    const repo = ['--git-dir', '/repo/.git', '--work-tree', '/repo'];
+    expect(splitAtSubcommand([...repo, 'fetch', '--quiet'])).toEqual({ options: repo, command: ['fetch', '--quiet'] });
+    expect(splitAtSubcommand(['-c', 'core.quotepath=false', 'commit', '-m', 'x'])).toEqual({
+      options: ['-c', 'core.quotepath=false'],
+      command: ['commit', '-m', 'x'],
+    });
+    expect(splitAtSubcommand(['version'])).toEqual({ options: [], command: ['version'] });
+    expect(splitAtSubcommand(['--version'])).toEqual({ options: ['--version'], command: [] });
   });
 });
 

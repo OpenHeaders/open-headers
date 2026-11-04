@@ -546,6 +546,8 @@ export const workbenchChrome = {
   'workbench.gitLog.console.softWrap': '自动换行',
   'workbench.gitLog.console.scrollToEnd': '滚动到末尾',
   'workbench.gitLog.console.clearAll': '全部清除',
+  'workbench.gitLog.console.foldOptions': '折叠选项',
+  'workbench.gitLog.console.shortenPaths': '缩短路径',
   'workbench.gitLog.noMatches': '没有符合筛选条件的提交',
   'workbench.gitLog.resetFilters': '重置筛选',
   'workbench.gitLog.selectCommit': '选择一个提交以查看其更改',

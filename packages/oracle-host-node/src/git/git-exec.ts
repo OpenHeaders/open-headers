@@ -25,7 +25,7 @@
  */
 
 import { execFile } from 'node:child_process';
-import { isStateChanging } from './audit-classify';
+import { isStateChanging, splitAtSubcommand } from './audit-classify';
 
 /** Structured outcome of one git invocation. Non-zero exit is a value, not a throw. */
 export interface GitExecResult {
@@ -54,7 +54,10 @@ export type GitRunner = (args: readonly string[], options: GitExecOptions) => Pr
 export interface GitAuditRow {
   /** Invocation wall-clock, strict ISO-8601. */
   at: string;
-  args: readonly string[];
+  /** Git's global options before the subcommand — the host pins the repo (`--git-dir`, `--work-tree`) on every invocation. */
+  options: readonly string[];
+  /** The subcommand and its operands. */
+  command: readonly string[];
   cwd: string;
   code: number;
   durationMs: number;
@@ -144,7 +147,7 @@ export function createGitExec(options: CreateGitExecOptions = {}): GitRunner {
             const output = `${result.stdout}${result.stdout !== '' && result.stderr !== '' ? '\n' : ''}${result.stderr}`;
             options.audit?.({
               at: new Date(startedAt).toISOString(),
-              args,
+              ...splitAtSubcommand(args),
               cwd: invocation.cwd,
               code: result.code,
               durationMs: Date.now() - startedAt,
