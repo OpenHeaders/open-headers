@@ -9,6 +9,8 @@
 
 import type { WorkspaceTreeGitConsoleRowWire } from '@openheaders/core/bridge';
 import { theme } from 'antd';
+
+const { useToken } = theme;
 import type React from 'react';
 import { type ConsoleLinePosture, type ConsoleToken, consoleCommandLine, consoleToken } from './git-console-line-model';
 
@@ -27,8 +29,18 @@ function timestamp(at: string, locale: string): string {
   return `${date.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit', second: '2-digit' })}.${ms}`;
 }
 
-const Token: React.FC<{ token: ConsoleToken }> = ({ token }) =>
-  token.kind === 'path' ? <span data-full={token.full}>{token.text}</span> : <>{token.text}</>;
+/** A shortened path paints its elision as a marker in the chip's fill — the fold announces itself. */
+const Token: React.FC<{ token: ConsoleToken }> = ({ token }) => {
+  const { token: tokens } = useToken();
+  if (token.kind !== 'path') return <>{token.text}</>;
+  return (
+    <span data-full={token.full}>
+      {token.head}
+      <span style={{ background: tokens.colorFillTertiary, borderRadius: tokens.borderRadiusXS, padding: '0 2px' }}>…</span>
+      {token.tail}
+    </span>
+  );
+};
 
 /** Tokens joined by single spaces, each a span so a path keeps its own hover title. */
 const Tokens: React.FC<{ tokens: readonly ConsoleToken[] }> = ({ tokens }) => (

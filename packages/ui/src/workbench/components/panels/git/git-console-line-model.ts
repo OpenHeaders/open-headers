@@ -11,13 +11,13 @@
 
 export type ConsoleToken =
   | { kind: 'word'; text: string }
-  /** A shortened path — `full` is the token exactly as git received it. */
-  | { kind: 'path'; text: string; full: string };
+  /** A shortened path: its head, then the elision marker, then its tail; `full` is the token exactly as git received it. */
+  | { kind: 'path'; head: string; tail: string; full: string };
 
 export type ConsoleOptionsRun =
-  /** The run folded to a chip; `full` is every option joined. */
+  /** The run folded to a chip; `full` is the run, one option per line with its value. */
   | { state: 'folded'; text: string; full: string }
-  /** The run laid open; `collapsible` when a click folds it again. */
+  /** The run laid open; `collapsible` when a click folds it again — then every path is whole, the click was the reveal. */
   | { state: 'open'; tokens: ConsoleToken[]; collapsible: boolean };
 
 export interface ConsoleCommandLine {
@@ -41,8 +41,6 @@ const KEEP_TAIL = 2;
 /** Fewer hidden components than this and the ellipsis saves nothing. */
 const MIN_HIDDEN = 2;
 
-const ELLIPSIS = '…';
-
 function isAbsolutePath(text: string): boolean {
   return text.startsWith('/') || /^[A-Za-z]:[\\/]/.test(text);
 }
@@ -56,27 +54,44 @@ function splitPathToken(token: string): { prefix: string; path: string } | null 
 }
 
 /**
- * The path with its middle components replaced by one ellipsis:
- * `/private/tmp/…/repo/ws`. The root (`/` or `C:`) rides with the head.
- * A path too short to hide at least {@link MIN_HIDDEN} components
- * comes back unchanged.
+ * The path's head and tail around its hidden middle components:
+ * `/private/tmp/` … `/repo/ws`. The root (`/` or `C:`) rides with the
+ * head. Null when fewer than {@link MIN_HIDDEN} components would hide.
  */
-export function elidePath(path: string): string {
+export function elidePath(path: string): { head: string; tail: string } | null {
   const sep = path.includes('/') ? '/' : '\\';
   const parts = path.split(sep);
   const rooted = parts[0] === '' || /^[A-Za-z]:$/.test(parts[0]);
   const head = KEEP_HEAD + (rooted ? 1 : 0);
-  if (parts.length - head - KEEP_TAIL < MIN_HIDDEN) return path;
-  return [...parts.slice(0, head), ELLIPSIS, ...parts.slice(parts.length - KEEP_TAIL)].join(sep);
+  if (parts.length - head - KEEP_TAIL < MIN_HIDDEN) return null;
+  return {
+    head: `${parts.slice(0, head).join(sep)}${sep}`,
+    tail: `${sep}${parts.slice(parts.length - KEEP_TAIL).join(sep)}`,
+  };
 }
 
-/** One token under the posture: a path token elides when the toggle is on and the elision shortens it. */
+/**
+ * The run laid out one option per line with its value: inside the
+ * global-options run every token that does not start with a dash is
+ * the value of the option before it (otherwise git would have read it
+ * as the subcommand), so the pairing needs no option table.
+ */
+export function optionsRunLines(options: readonly string[]): string[] {
+  const lines: string[] = [];
+  for (const token of options) {
+    if (token.startsWith('-') || lines.length === 0) lines.push(token);
+    else lines[lines.length - 1] = `${lines[lines.length - 1]} ${token}`;
+  }
+  return lines;
+}
+
+/** One token under the posture: a path token elides when the toggle is on and the path has a middle to hide. */
 export function consoleToken(token: string, shortenPaths: boolean): ConsoleToken {
   if (shortenPaths) {
     const split = splitPathToken(token);
-    if (split !== null) {
-      const text = `${split.prefix}${elidePath(split.path)}`;
-      if (text !== token) return { kind: 'path', text, full: token };
+    const elided = split === null ? null : elidePath(split.path);
+    if (split !== null && elided !== null) {
+      return { kind: 'path', head: `${split.prefix}${elided.head}`, tail: elided.tail, full: token };
     }
   }
   return { kind: 'word', text: token };
@@ -91,10 +106,10 @@ export function consoleCommandLine(
   if (row.options.length > 0) {
     options =
       posture.foldOptions && !posture.expanded
-        ? { state: 'folded', text: `${row.options[0]} ${ELLIPSIS}`, full: row.options.join(' ') }
+        ? { state: 'folded', text: `${row.options[0]} …`, full: optionsRunLines(row.options).join('\n') }
         : {
             state: 'open',
-            tokens: row.options.map((option) => consoleToken(option, posture.shortenPaths)),
+            tokens: row.options.map((option) => consoleToken(option, posture.shortenPaths && !posture.foldOptions)),
             collapsible: posture.foldOptions,
           };
   }
