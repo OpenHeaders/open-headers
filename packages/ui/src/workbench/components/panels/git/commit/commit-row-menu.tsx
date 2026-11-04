@@ -51,7 +51,8 @@ export interface CommitRowMenuHandlers {
   onCompareWithBranch: () => void;
   onBranches: () => void;
   onNewBranch: () => void;
-  onIgnorePath: (path: string, target: 'gitignore' | 'exclude') => void;
+  /** Append every path's entry to the target ignore file — one unversioned file or directory, or a selection of files. */
+  onIgnorePaths: (paths: readonly string[], target: 'gitignore' | 'exclude') => void;
   onUnignorePath: (path: string, target: 'gitignore' | 'exclude') => void;
 }
 
@@ -64,8 +65,8 @@ interface TargetFacts {
   paths: readonly string[];
   /** Show Diff is one tracked file's read; null elsewhere. */
   diffPath: string | null;
-  /** Add to .gitignore names one path — an unversioned file or directory; null elsewhere. */
-  ignorePath: string | null;
+  /** Add to .gitignore's paths — an unversioned file or directory, or every file of an all-unversioned selection; empty elsewhere. */
+  ignorePaths: readonly string[];
   commitLabelKey: MessageKey;
 }
 
@@ -76,19 +77,21 @@ function factsOf(target: CommitMenuTarget): TargetFacts {
       unversioned,
       paths: [target.row.path],
       diffPath: unversioned ? null : target.row.path,
-      ignorePath: unversioned ? target.row.path : null,
+      ignorePaths: unversioned ? [target.row.path] : [],
       commitLabelKey: 'workbench.commitTool.menu.commitFile',
     };
   }
   // A multi-row selection: the unversioned variant only when every
-  // row is unversioned; Show Diff (one file's read) and the ignore
-  // verbs (one path) stay out.
+  // row is unversioned, and then Add to .gitignore covers them all;
+  // Show Diff (one file's read) stays out.
   if (target.kind === 'files') {
+    const unversioned = target.rows.every((row) => row.unversioned === true);
+    const paths = target.rows.map((row) => row.path);
     return {
-      unversioned: target.rows.every((row) => row.unversioned === true),
-      paths: target.rows.map((row) => row.path),
+      unversioned,
+      paths,
       diffPath: null,
-      ignorePath: null,
+      ignorePaths: unversioned ? paths : [],
       commitLabelKey: 'workbench.commitTool.menu.commitFiles',
     };
   }
@@ -97,7 +100,7 @@ function factsOf(target: CommitMenuTarget): TargetFacts {
     unversioned,
     paths: target.paths,
     diffPath: null,
-    ignorePath: target.kind === 'dir' && unversioned ? target.path : null,
+    ignorePaths: target.kind === 'dir' && unversioned ? [target.path] : [],
     commitLabelKey:
       target.kind === 'dir' ? 'workbench.commitTool.menu.commitDirectory' : 'workbench.commitTool.menu.commit',
   };
@@ -126,7 +129,7 @@ function showDiffItem(facts: TargetFacts, h: CommitRowMenuHandlers, t: Translate
 
 /** The Add to .gitignore ▸ submenu — repo-root `.gitignore` (shared) or `.git/info/exclude` (local-only). */
 function gitignoreSubmenu(
-  ignorePath: string,
+  ignorePaths: readonly string[],
   t: Translate,
   h: CommitRowMenuHandlers,
   keyPrefix: string,
@@ -139,12 +142,12 @@ function gitignoreSubmenu(
       {
         key: `${keyPrefix}gitignore-file`,
         label: menuLabel(<StopOutlined />, t('workbench.commitTool.menu.addToGitignore')),
-        onClick: () => h.onIgnorePath(ignorePath, 'gitignore'),
+        onClick: () => h.onIgnorePaths(ignorePaths, 'gitignore'),
       },
       {
         key: `${keyPrefix}gitignore-exclude`,
         label: menuLabel(<StopOutlined />, t('workbench.commitTool.menu.excludeFile')),
-        onClick: () => h.onIgnorePath(ignorePath, 'exclude'),
+        onClick: () => h.onIgnorePaths(ignorePaths, 'exclude'),
       },
     ],
   };
@@ -163,7 +166,7 @@ function gitSubmenu(facts: TargetFacts, t: Translate, h: CommitRowMenuHandlers):
         label: menuLabel(<PlusOutlined />, t('workbench.commitTool.menu.add'), '⌥⌘A'),
         disabled: true,
       },
-      ...(facts.ignorePath === null ? [] : [gitignoreSubmenu(facts.ignorePath, t, h, 'git-')]),
+      ...(facts.ignorePaths.length === 0 ? [] : [gitignoreSubmenu(facts.ignorePaths, t, h, 'git-')]),
       { type: 'divider' },
       showDiffItem(facts, h, t, 'git-show-diff'),
       {
@@ -316,7 +319,7 @@ export function buildCommitRowMenu(target: CommitMenuTarget, t: Translate, h: Co
     { type: 'divider' },
     { key: 'delete', label: menuLabel(null, t('workbench.commitTool.menu.delete')), disabled: true },
     { key: 'add-vcs', label: menuLabel(null, t('workbench.commitTool.menu.addToVcs'), '⌥⌘A'), disabled: true },
-    ...(facts.ignorePath === null ? [] : [gitignoreSubmenu(facts.ignorePath, t, h, '')]),
+    ...(facts.ignorePaths.length === 0 ? [] : [gitignoreSubmenu(facts.ignorePaths, t, h, '')]),
     { type: 'divider' },
     ...(unversioned
       ? []

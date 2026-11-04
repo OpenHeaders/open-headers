@@ -64,7 +64,7 @@ function handlers(): CommitRowMenuHandlers {
     onCompareWithBranch: vi.fn(),
     onBranches: vi.fn(),
     onNewBranch: vi.fn(),
-    onIgnorePath: vi.fn(),
+    onIgnorePaths: vi.fn(),
     onUnignorePath: vi.fn(),
   };
 }
@@ -149,12 +149,17 @@ describe('commit tree row context menu', () => {
     // Right-click outside the selection collapses it onto that row.
     fireEvent.contextMenu(byPath('notes/new.yaml'));
     expect(document.querySelectorAll('[data-testid="commit-tool-file"].selected')).toHaveLength(1);
-    // Shift-click ranges across the group boundary; both unversioned rows alone take the gitignore variant.
+    // Shift-click ranges over both unversioned rows: the gitignore
+    // variant, and Add to .gitignore ▸ covers the whole selection.
     fireEvent.click(byPath('notes/new.yaml'));
     fireEvent.click(byPath('notes/draft.yaml'), { shiftKey: true });
     fireEvent.contextMenu(byPath('notes/draft.yaml'));
-    const addIgnore = await screen.findAllByText('workbench.commitTool.menu.addToGitignore');
-    expect(addIgnore.length).toBeGreaterThan(0);
+    // antd keeps a closed dropdown's popup in the DOM — the newest one is this menu's.
+    const addIgnore = (await screen.findAllByText('workbench.commitTool.menu.addToGitignore')).at(-1) as Element;
+    fireEvent.mouseEnter(addIgnore);
+    const exclude = await screen.findByText('workbench.commitTool.menu.excludeFile');
+    fireEvent.click(exclude);
+    expect(h.onIgnorePaths).toHaveBeenCalledWith(['notes/new.yaml', 'notes/draft.yaml'], 'exclude');
   });
 
   it('a directory node carries the menu — Commit Directory… checks exactly its subtree', async () => {

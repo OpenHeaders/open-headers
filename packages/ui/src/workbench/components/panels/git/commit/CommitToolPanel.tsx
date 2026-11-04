@@ -410,16 +410,20 @@ const CommitToolPanel: React.FC<CommitToolPanelProps> = ({ info, onHide }) => {
     }
   }, [workspaceId, message, t]);
 
-  // Add to .gitignore ▸ — the row leaves Unversioned Files on the
-  // refetch (and joins Ignored Files while Show Ignored Files is on).
-  const handleIgnorePath = useCallback(
-    async (filePath: string, target: 'gitignore' | 'exclude'): Promise<void> => {
+  // Add to .gitignore ▸ — one entry per path (a selection's files in
+  // sequence, the first refusal stops the pass); the rows leave
+  // Unversioned Files on the refetch (and join Ignored Files while
+  // Show Ignored Files is on).
+  const handleIgnorePaths = useCallback(
+    async (paths: readonly string[], target: 'gitignore' | 'exclude'): Promise<void> => {
       if (workspaceId === null) return;
       try {
-        const result = await hostBridge.call('oh.workspaceTree.ignorePath', { workspaceId, path: filePath, target });
-        if (!result.ok) {
-          setError(t('workbench.commitTool.menu.ignoreFailed', { detail: result.detail ?? result.reason }));
-          return;
+        for (const filePath of paths) {
+          const result = await hostBridge.call('oh.workspaceTree.ignorePath', { workspaceId, path: filePath, target });
+          if (!result.ok) {
+            setError(t('workbench.commitTool.menu.ignoreFailed', { detail: result.detail ?? result.reason }));
+            return;
+          }
         }
         await refreshChanges();
       } catch (err) {
@@ -481,7 +485,7 @@ const CommitToolPanel: React.FC<CommitToolPanelProps> = ({ info, onHide }) => {
       onCompareWithBranch: () => setCompareOpen(true),
       onBranches: handleBranches,
       onNewBranch: () => setCreateBranchFrom(currentBranch ?? headSha?.slice(0, 8) ?? 'HEAD'),
-      onIgnorePath: (filePath, target) => void handleIgnorePath(filePath, target),
+      onIgnorePaths: (paths, target) => void handleIgnorePaths(paths, target),
       onUnignorePath: (filePath, target) => void handleUnignorePath(filePath, target),
     }),
     [
@@ -492,7 +496,7 @@ const CommitToolPanel: React.FC<CommitToolPanelProps> = ({ info, onHide }) => {
       handlePull,
       handleFetch,
       handleBranches,
-      handleIgnorePath,
+      handleIgnorePaths,
       handleUnignorePath,
       currentBranch,
       headSha,
