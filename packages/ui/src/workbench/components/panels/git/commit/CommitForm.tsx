@@ -93,6 +93,10 @@ const CommitForm = forwardRef<CommitFormHandle, CommitFormProps>(function Commit
   const [historyOpen, setHistoryOpen] = useState(false);
   const [historyActive, setHistoryActive] = useState(-1);
   const [tooltipOpen, setTooltipOpen] = useState(false);
+  const [gearOpen, setGearOpen] = useState(false);
+  const [gearTooltipSuppressed, setGearTooltipSuppressed] = useState(false);
+  const [counterTipOpen, setCounterTipOpen] = useState(false);
+  const counterRef = useRef<HTMLSpanElement>(null);
   const [selectTick, setSelectTick] = useState(0);
   const messageRef = useRef<TextAreaRef>(null);
   const preOpenDraft = useRef<string | null>(null);
@@ -196,6 +200,14 @@ const CommitForm = forwardRef<CommitFormHandle, CommitFormProps>(function Commit
     window.addEventListener('keydown', onKeyDown, true);
     return () => window.removeEventListener('keydown', onKeyDown, true);
   }, [historyOpen, historyActive, history.length, activateHistory, pickHistory, cancelHistory]);
+
+  // The counter clips on one line in a narrow dock; its full text is
+  // the tooltip, shown only while it is actually clipped (measured on
+  // hover-in, like the tree rows' overlay).
+  const counterClipped = (): boolean => {
+    const element = counterRef.current;
+    return element !== null && element.scrollWidth > element.clientWidth + 1;
+  };
 
   const counterParts: string[] = [];
   if (counter.modified > 0) counterParts.push(t('workbench.commitTool.counter.modified', { count: counter.modified }));
@@ -302,9 +314,28 @@ const CommitForm = forwardRef<CommitFormHandle, CommitFormProps>(function Commit
         </Popover>
         <span style={{ flex: 1 }} />
         {counterParts.length > 0 && (
-          <span style={{ fontSize: 12, color: token.colorTextTertiary }} data-testid="commit-tool-counter">
-            {counterParts.join(', ')}
-          </span>
+          <Tooltip
+            placement="top"
+            title={counterParts.join(', ')}
+            open={counterTipOpen}
+            onOpenChange={(next) => setCounterTipOpen(next && counterClipped())}
+          >
+            <span
+              ref={counterRef}
+              style={{
+                flex: '0 1 auto',
+                minWidth: 0,
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+                fontSize: 12,
+                color: token.colorTextTertiary,
+              }}
+              data-testid="commit-tool-counter"
+            >
+              {counterParts.join(', ')}
+            </span>
+          </Tooltip>
         )}
       </div>
       <Input.TextArea
@@ -360,14 +391,23 @@ const CommitForm = forwardRef<CommitFormHandle, CommitFormProps>(function Commit
           {t(amend ? 'workbench.commitTool.amendCommitAndPush' : 'workbench.commitTool.commitAndPush')}
         </Button>
         <span style={{ flex: 1 }} />
-        <Popover trigger="click" placement="topRight" content={gearContent}>
-          <Tooltip placement="top" title={t('workbench.commitTool.optionsTooltip')}>
+        {/* The gear's tooltip yields to its popover — hidden the instant the
+            button is clicked and while the popover is open; re-arms on the
+            next hover-in. */}
+        <Popover trigger="click" placement="topRight" content={gearContent} onOpenChange={setGearOpen}>
+          <Tooltip
+            placement="top"
+            title={t('workbench.commitTool.optionsTooltip')}
+            open={gearOpen || gearTooltipSuppressed ? false : undefined}
+          >
             <Button
               type="text"
               size="small"
               icon={<SettingOutlined />}
               aria-label={t('workbench.commitTool.optionsTooltip')}
               data-testid="commit-tool-gear"
+              onClick={() => setGearTooltipSuppressed(true)}
+              onMouseEnter={() => setGearTooltipSuppressed(false)}
             />
           </Tooltip>
         </Popover>
