@@ -41,6 +41,16 @@ export function repoArgs(rootDir: string): string[] {
   return ['--git-dir', path.join(rootDir, '.git'), '--work-tree', rootDir];
 }
 
+/**
+ * The paths of a NUL-separated listing (`-z`), the only form git
+ * emits verbatim — a newline listing C-quotes any path with a byte
+ * outside ASCII (`core.quotePath`), and a quoted path handed back to
+ * git as a pathspec matches nothing.
+ */
+export function nulSeparatedPaths(stdout: string): string[] {
+  return stdout.split('\0').filter((entry) => entry.length > 0);
+}
+
 export function failureDetail(result: GitExecResult): string {
   const parts = [result.stderr.trim(), result.stdout.trim()].filter((part) => part.length > 0);
   return parts.join('\n') || `git exited with code ${result.code}`;
@@ -521,8 +531,8 @@ export async function fastForwardWorkspaceBranch(
   if (head.code !== 0) return { ok: false, detail: 'no local HEAD to fast-forward' };
   const oldHead = head.stdout.trim();
 
-  const stagedProbe = await run([...repoArgs(rootDir), 'diff', '--cached', '--name-only'], { cwd: rootDir });
-  const userStagedPaths = new Set(stagedProbe.stdout.split('\n').filter((line) => line.length > 0));
+  const stagedProbe = await run([...repoArgs(rootDir), 'diff', '--cached', '--name-only', '-z'], { cwd: rootDir });
+  const userStagedPaths = new Set(nulSeparatedPaths(stagedProbe.stdout));
 
   const moved = await run([...repoArgs(rootDir), 'update-ref', 'HEAD', foreignSha, oldHead], { cwd: rootDir });
   if (moved.code !== 0) return { ok: false, detail: failureDetail(moved) };
@@ -531,10 +541,10 @@ export async function fastForwardWorkspaceBranch(
     await run([...repoArgs(rootDir), 'read-tree', 'HEAD'], { cwd: rootDir });
   } else {
     const changed = await run(
-      [...repoArgs(rootDir), 'diff-tree', '--no-commit-id', '--name-only', '-r', oldHead, foreignSha],
+      [...repoArgs(rootDir), 'diff-tree', '--no-commit-id', '--name-only', '-r', '-z', oldHead, foreignSha],
       { cwd: rootDir },
     );
-    const toRefresh = changed.stdout.split('\n').filter((line) => line.length > 0 && !userStagedPaths.has(line));
+    const toRefresh = nulSeparatedPaths(changed.stdout).filter((entry) => !userStagedPaths.has(entry));
     if (toRefresh.length > 0) {
       await run([...repoArgs(rootDir), 'reset', '-q', 'HEAD', '--', ...toRefresh], { cwd: rootDir });
     }
@@ -1335,9 +1345,9 @@ export async function commitWorkspaceTree(options: CommitWorkspaceTreeOptions): 
     // the staged paths this commit did not touch exactly as found. On
     // an unborn HEAD anything in the index is a staged entry.
     const stagedProbe = hasHead
-      ? await run([...repoArgs(rootDir), 'diff', '--cached', '--name-only'], { cwd: rootDir })
-      : await run([...repoArgs(rootDir), 'ls-files'], { cwd: rootDir });
-    const userStagedPaths = new Set(stagedProbe.stdout.split('\n').filter((line) => line.length > 0));
+      ? await run([...repoArgs(rootDir), 'diff', '--cached', '--name-only', '-z'], { cwd: rootDir })
+      : await run([...repoArgs(rootDir), 'ls-files', '-z'], { cwd: rootDir });
+    const userStagedPaths = new Set(nulSeparatedPaths(stagedProbe.stdout));
 
     const seed = await run([...repoArgs(rootDir), 'read-tree', ...(hasHead ? ['HEAD'] : ['--empty'])], {
       cwd: rootDir,
@@ -1397,11 +1407,12 @@ export async function commitWorkspaceTree(options: CommitWorkspaceTreeOptions): 
           'diff-tree',
           '--name-only',
           '-r',
+          '-z',
           ...(headBefore !== undefined ? [headBefore, commitSha] : ['--root', '--no-commit-id', commitSha]),
         ],
         { cwd: rootDir },
       );
-      const toRefresh = changed.stdout.split('\n').filter((line) => line.length > 0);
+      const toRefresh = nulSeparatedPaths(changed.stdout);
       if (toRefresh.length > 0) {
         await run([...repoArgs(rootDir), 'reset', '-q', 'HEAD', '--', ...toRefresh], { cwd: rootDir });
       }

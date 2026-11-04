@@ -289,6 +289,28 @@ describe('commitWorkspaceTree', () => {
     expect(status.stdout).toBe('');
   });
 
+  it('a committed path outside ASCII is refreshed like any other — never left as a staged deletion plus untracked', async () => {
+    await initialCommit();
+    // A staged user path takes the per-path refresh (not the whole-index read-tree).
+    await write('user-draft.yaml', 'draft: v1\n');
+    await run(['--git-dir', path.join(tmpDir, '.git'), '--work-tree', tmpDir, 'add', '--', 'user-draft.yaml'], {
+      cwd: tmpDir,
+    });
+    await write('docs/Ünïcode notes.md', '# notes\n');
+    const result = await commitWorkspaceTree({
+      run,
+      rootDir: tmpDir,
+      message: 'Add notes',
+      identityEnv: IDENTITY_ENV,
+    });
+    expect(result).toMatchObject({ ok: true, committed: true });
+    const status = await run(
+      ['--git-dir', path.join(tmpDir, '.git'), '--work-tree', tmpDir, 'status', '--porcelain', '-z'],
+      { cwd: tmpDir },
+    );
+    expect(status.stdout).toBe('');
+  });
+
   it('leaves the repo normal after a clean-index engine commit — git status stays quiet', async () => {
     await initialCommit();
     await write('rules/block-r0000001/rule.yaml', 'schemaVersion: 5\nuid: r0000001\n');
@@ -615,6 +637,23 @@ describe('remote plumbing (Phase 4)', () => {
     const staged = await raw(repoB, 'diff', '--cached', '--name-only');
     expect(staged.stdout.trim()).toBe('user-draft.yaml');
     // Besides the user's own draft, the repo reads clean.
+    expect(await countDirtyFiles(run, repoB)).toBe(1);
+  });
+
+  it('fastForwardWorkspaceBranch resyncs a foreign path outside ASCII beside a staged user path', async () => {
+    await writeIn(repoA, 'docs/Ünïcode notes.md', '# notes\n');
+    await commitIn(repoA, 'Foreign notes', RITA_ENV);
+    await raw(repoA, 'push', '--quiet', 'origin', 'main');
+    await fetchWorkspaceRemote(run, repoB);
+    const upstream = await resolveUpstream(run, repoB);
+    await writeIn(repoB, 'user-draft.yaml', 'draft: v1\n');
+    await raw(repoB, 'add', '--', 'user-draft.yaml');
+    await writeIn(repoB, 'docs/Ünïcode notes.md', '# notes\n');
+
+    const ff = await fastForwardWorkspaceBranch(run, repoB, upstream?.sha ?? '');
+    expect(ff).toEqual({ ok: true });
+    const staged = await raw(repoB, 'diff', '--cached', '--name-only', '-z');
+    expect(staged.stdout).toBe('user-draft.yaml\0');
     expect(await countDirtyFiles(run, repoB)).toBe(1);
   });
 
