@@ -822,6 +822,12 @@ export const workbenchChrome = {
     'Pull finalizat. Istoricele nu au niciun commit comun, așa că fiecare fișier de la distanță a fost tratat ca modificat.',
   'workbench.commitTool.menu.pullFailed': 'Pull eșuat: {detail}',
   'workbench.commitTool.menu.ignoreFailed': 'Fișierul de ignorare nu a putut fi actualizat: {detail}',
+  'workbench.commitTool.menu.addToVcsFailed': 'Nu s-a putut adăuga la VCS: {detail}',
+  'workbench.commitTool.menu.deleteFailed': 'Nu s-a putut șterge: {detail}',
+  'workbench.commitTool.delete.confirmTitle': 'Ștergi {files}?',
+  'workbench.commitTool.delete.confirmBody':
+    'Fișierele sunt eliminate de pe disc. Un fișier urmărit apare ca șters până la commit; unul neversionat dispare.',
+  'workbench.commitTool.delete.ok': 'Șterge',
   'workbench.commitTool.menu.stopIgnoring': 'Oprire ignorare',
   'workbench.commitTool.ignoreSourceGlobal': 'global',
   'workbench.commitTool.menu.fetchDone': 'Fetch finalizat',

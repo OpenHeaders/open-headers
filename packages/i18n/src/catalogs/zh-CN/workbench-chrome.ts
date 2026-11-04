@@ -773,6 +773,12 @@ export const workbenchChrome = {
   'workbench.commitTool.menu.pullDoneUnrelated': '拉取完成。两段历史没有共同提交，因此每个远程文件都被视为已更改。',
   'workbench.commitTool.menu.pullFailed': '拉取失败：{detail}',
   'workbench.commitTool.menu.ignoreFailed': '无法更新忽略文件：{detail}',
+  'workbench.commitTool.menu.addToVcsFailed': '无法添加到 VCS：{detail}',
+  'workbench.commitTool.menu.deleteFailed': '无法删除：{detail}',
+  'workbench.commitTool.delete.confirmTitle': '删除{files}？',
+  'workbench.commitTool.delete.confirmBody':
+    '文件将从磁盘中移除。已跟踪的文件在提交前显示为已删除；未版本控制的文件将直接消失。',
+  'workbench.commitTool.delete.ok': '删除',
   'workbench.commitTool.menu.stopIgnoring': '停止忽略',
   'workbench.commitTool.ignoreSourceGlobal': '全局',
   'workbench.commitTool.menu.fetchDone': '抓取完成',

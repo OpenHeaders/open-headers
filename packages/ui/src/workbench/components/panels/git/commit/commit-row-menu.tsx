@@ -4,10 +4,11 @@
  * unversioned rows carry Add to .gitignore instead. S22 posture — reads
  * and gestures with existing machinery are live (Commit File…, Show
  * Diff, Refresh, the Git ▸ verbs Push/Pull/Fetch/Compare with Branch
- * or Tag/Branches…/New Branch…, and the Add to .gitignore ▸ targets
- * over the `ignorePath` verb); placeholder constructs (changelists,
- * shelf, Local History) and unbuilt write verbs render
- * visible-disabled. Shortcut hints mirror the reference anatomy; bindings
+ * or Tag/Branches…/New Branch…, the Add to .gitignore ▸ targets
+ * over the `ignorePath` verb, Add to VCS over unversioned rows and
+ * Delete… over any file rows — both over a selection's union);
+ * placeholder constructs (changelists, shelf, Local History) and
+ * unbuilt write verbs render visible-disabled. Shortcut hints mirror the reference anatomy; bindings
  * ride the keymap plane later.
  *
  * Every row carries the menu (the menu law): a directory node or a
@@ -34,6 +35,7 @@ import {
 } from '@ant-design/icons';
 import type { WorkspaceTreeWorkingChangeWire } from '@openheaders/core/bridge';
 import type { MenuProps } from 'antd';
+import type React from 'react';
 import type { MessageKey } from '@openheaders/i18n';
 import type { Translate } from '@openheaders/ui/context/LocaleContext';
 import { RollbackIcon } from '@openheaders/ui/shared/icons';
@@ -53,6 +55,10 @@ export interface CommitRowMenuHandlers {
   onNewBranch: () => void;
   /** Append every path's entry to the target ignore file — one unversioned file or directory, or a selection of files. */
   onIgnorePaths: (paths: readonly string[], target: 'gitignore' | 'exclude') => void;
+  /** Track these unversioned paths (intent-to-add) — the rows move to Changes as added. */
+  onAddToVcs: (paths: readonly string[]) => void;
+  /** Delete these files from disk — the panel confirms first. */
+  onDeletePaths: (paths: readonly string[]) => void;
   onUnignorePath: (path: string, target: 'gitignore' | 'exclude') => void;
 }
 
@@ -67,6 +73,8 @@ interface TargetFacts {
   diffPath: string | null;
   /** Add to .gitignore's paths — an unversioned file or directory, or every file of an all-unversioned selection; empty elsewhere. */
   ignorePaths: readonly string[];
+  /** Add to VCS's paths — the unversioned target's files; empty on a tracked or mixed target. */
+  addPaths: readonly string[];
   commitLabelKey: MessageKey;
 }
 
@@ -78,6 +86,7 @@ function factsOf(target: CommitMenuTarget): TargetFacts {
       paths: [target.row.path],
       diffPath: unversioned ? null : target.row.path,
       ignorePaths: unversioned ? [target.row.path] : [],
+      addPaths: unversioned ? [target.row.path] : [],
       commitLabelKey: 'workbench.commitTool.menu.commitFile',
     };
   }
@@ -92,6 +101,7 @@ function factsOf(target: CommitMenuTarget): TargetFacts {
       paths,
       diffPath: null,
       ignorePaths: unversioned ? paths : [],
+      addPaths: unversioned ? paths : [],
       commitLabelKey: 'workbench.commitTool.menu.commitFiles',
     };
   }
@@ -101,6 +111,7 @@ function factsOf(target: CommitMenuTarget): TargetFacts {
     paths: target.paths,
     diffPath: null,
     ignorePaths: target.kind === 'dir' && unversioned ? [target.path] : [],
+    addPaths: unversioned ? target.paths : [],
     commitLabelKey:
       target.kind === 'dir' ? 'workbench.commitTool.menu.commitDirectory' : 'workbench.commitTool.menu.commit',
   };
@@ -113,6 +124,35 @@ function commitItem(facts: TargetFacts, h: CommitRowMenuHandlers, t: Translate, 
     label: menuLabel(null, t(facts.commitLabelKey)),
     disabled: facts.paths.length === 0,
     ...(facts.paths.length === 0 ? {} : { onClick: () => h.onCommitPaths(facts.paths) }),
+  };
+}
+
+/** Add to VCS — live over an unversioned target's files, visible-disabled on a tracked or mixed one. */
+function addToVcsItem(
+  facts: TargetFacts,
+  h: CommitRowMenuHandlers,
+  t: Translate,
+  key: string,
+  labelKey: MessageKey,
+  icon: React.ReactNode,
+): MenuItems[number] {
+  const paths = facts.addPaths;
+  return {
+    key,
+    label: menuLabel(icon, t(labelKey), '⌥⌘A'),
+    disabled: paths.length === 0,
+    ...(paths.length === 0 ? {} : { onClick: () => h.onAddToVcs(paths) }),
+  };
+}
+
+/** Delete… — live over any file paths; the panel confirms before the disk write. */
+function deleteItem(facts: TargetFacts, h: CommitRowMenuHandlers, t: Translate): MenuItems[number] {
+  const paths = facts.paths;
+  return {
+    key: 'delete',
+    label: menuLabel(null, t('workbench.commitTool.menu.delete')),
+    disabled: paths.length === 0,
+    ...(paths.length === 0 ? {} : { onClick: () => h.onDeletePaths(paths) }),
   };
 }
 
@@ -161,11 +201,7 @@ function gitSubmenu(facts: TargetFacts, t: Translate, h: CommitRowMenuHandlers):
     popupClassName: 'commit-tool-row-menu',
     children: [
       commitItem(facts, h, t, 'git-commit-file'),
-      {
-        key: 'git-add',
-        label: menuLabel(<PlusOutlined />, t('workbench.commitTool.menu.add'), '⌥⌘A'),
-        disabled: true,
-      },
+      addToVcsItem(facts, h, t, 'git-add', 'workbench.commitTool.menu.add', <PlusOutlined />),
       ...(facts.ignorePaths.length === 0 ? [] : [gitignoreSubmenu(facts.ignorePaths, t, h, 'git-')]),
       { type: 'divider' },
       showDiffItem(facts, h, t, 'git-show-diff'),
@@ -317,8 +353,8 @@ export function buildCommitRowMenu(target: CommitMenuTarget, t: Translate, h: Co
       disabled: true,
     },
     { type: 'divider' },
-    { key: 'delete', label: menuLabel(null, t('workbench.commitTool.menu.delete')), disabled: true },
-    { key: 'add-vcs', label: menuLabel(null, t('workbench.commitTool.menu.addToVcs'), '⌥⌘A'), disabled: true },
+    deleteItem(facts, h, t),
+    addToVcsItem(facts, h, t, 'add-vcs', 'workbench.commitTool.menu.addToVcs', null),
     ...(facts.ignorePaths.length === 0 ? [] : [gitignoreSubmenu(facts.ignorePaths, t, h, '')]),
     { type: 'divider' },
     ...(unversioned

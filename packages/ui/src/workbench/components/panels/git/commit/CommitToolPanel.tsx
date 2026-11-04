@@ -65,7 +65,7 @@ export interface CommitToolPanelProps {
 
 const CommitToolPanel: React.FC<CommitToolPanelProps> = ({ info, onHide }) => {
   const { t } = useLocale();
-  const { message } = AntApp.useApp();
+  const { message, modal } = AntApp.useApp();
   const headerWiring = useMemo(() => createPanelHeaderWiring({ onHide }), [onHide]);
   const workspaceId = useActiveWorkspaceId();
 
@@ -433,6 +433,53 @@ const CommitToolPanel: React.FC<CommitToolPanelProps> = ({ info, onHide }) => {
     [workspaceId, refreshChanges, t],
   );
 
+  // Add to VCS — the rows leave Unversioned Files for Changes (added)
+  // on the refetch; nothing is staged.
+  const handleAddToVcs = useCallback(
+    async (paths: readonly string[]): Promise<void> => {
+      if (workspaceId === null) return;
+      try {
+        const result = await hostBridge.call('oh.workspaceTree.addToVcs', { workspaceId, paths: [...paths] });
+        if (!result.ok) {
+          setError(t('workbench.commitTool.menu.addToVcsFailed', { detail: result.detail ?? result.reason }));
+          return;
+        }
+        await refreshChanges();
+      } catch (err) {
+        setError((err as Error).message);
+      }
+    },
+    [workspaceId, refreshChanges, t],
+  );
+
+  // Delete… — confirmed first (the count in the title); a tracked row
+  // reads as deleted on the refetch, an unversioned one is gone.
+  const handleDeletePaths = useCallback(
+    (paths: readonly string[]): void => {
+      if (workspaceId === null || paths.length === 0) return;
+      const files =
+        paths.length === 1 ? t('workbench.commitTool.oneFile') : t('workbench.gitLog.filesCount', { count: paths.length });
+      modal.confirm({
+        title: t('workbench.commitTool.delete.confirmTitle', { files }),
+        content: t('workbench.commitTool.delete.confirmBody'),
+        okText: t('workbench.commitTool.delete.ok'),
+        okButtonProps: { danger: true },
+        onOk: async () => {
+          try {
+            const result = await hostBridge.call('oh.workspaceTree.deletePaths', { workspaceId, paths: [...paths] });
+            if (!result.ok) {
+              setError(t('workbench.commitTool.menu.deleteFailed', { detail: result.detail ?? result.reason }));
+            }
+            await refreshChanges();
+          } catch (err) {
+            setError((err as Error).message);
+          }
+        },
+      });
+    },
+    [workspaceId, refreshChanges, t, modal],
+  );
+
   // Stop Ignoring — deletes the exact entry; the row rejoins
   // Unversioned Files on the refetch.
   const handleUnignorePath = useCallback(
@@ -487,6 +534,8 @@ const CommitToolPanel: React.FC<CommitToolPanelProps> = ({ info, onHide }) => {
       onNewBranch: () => setCreateBranchFrom(currentBranch ?? headSha?.slice(0, 8) ?? 'HEAD'),
       onIgnorePaths: (paths, target) => void handleIgnorePaths(paths, target),
       onUnignorePath: (filePath, target) => void handleUnignorePath(filePath, target),
+      onAddToVcs: (paths) => void handleAddToVcs(paths),
+      onDeletePaths: handleDeletePaths,
     }),
     [
       handleCommitPaths,
@@ -498,6 +547,8 @@ const CommitToolPanel: React.FC<CommitToolPanelProps> = ({ info, onHide }) => {
       handleBranches,
       handleIgnorePaths,
       handleUnignorePath,
+      handleAddToVcs,
+      handleDeletePaths,
       currentBranch,
       headSha,
     ],

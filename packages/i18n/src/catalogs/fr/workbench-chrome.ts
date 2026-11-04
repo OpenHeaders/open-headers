@@ -964,6 +964,12 @@ export const workbenchChrome = {
     'Pull terminé. Les historiques n’ont aucun commit commun, chaque fichier distant a donc été traité comme modifié.',
   'workbench.commitTool.menu.pullFailed': 'Échec du pull : {detail}',
   'workbench.commitTool.menu.ignoreFailed': "Impossible de mettre à jour le fichier d'exclusion : {detail}",
+  'workbench.commitTool.menu.addToVcsFailed': "Impossible d'ajouter au VCS : {detail}",
+  'workbench.commitTool.menu.deleteFailed': 'Impossible de supprimer : {detail}',
+  'workbench.commitTool.delete.confirmTitle': 'Supprimer {files} ?',
+  'workbench.commitTool.delete.confirmBody':
+    "Les fichiers sont supprimés du disque. Un fichier suivi apparaît comme supprimé jusqu'au commit ; un fichier non versionné disparaît.",
+  'workbench.commitTool.delete.ok': 'Supprimer',
   'workbench.commitTool.menu.stopIgnoring': 'Ne plus ignorer',
   'workbench.commitTool.ignoreSourceGlobal': 'global',
   'workbench.commitTool.menu.fetchDone': 'Récupération terminée',

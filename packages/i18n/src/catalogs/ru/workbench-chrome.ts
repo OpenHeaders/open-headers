@@ -816,6 +816,12 @@ export const workbenchChrome = {
     'Pull завершён. У историй нет общего коммита, поэтому каждый удалённый файл считался изменённым.',
   'workbench.commitTool.menu.pullFailed': 'Pull не выполнен: {detail}',
   'workbench.commitTool.menu.ignoreFailed': 'Не удалось обновить файл игнорирования: {detail}',
+  'workbench.commitTool.menu.addToVcsFailed': 'Не удалось добавить в VCS: {detail}',
+  'workbench.commitTool.menu.deleteFailed': 'Не удалось удалить: {detail}',
+  'workbench.commitTool.delete.confirmTitle': 'Удалить {files}?',
+  'workbench.commitTool.delete.confirmBody':
+    'Файлы удаляются с диска. Отслеживаемый файл отображается как удалённый до коммита; неверсионированный файл исчезает.',
+  'workbench.commitTool.delete.ok': 'Удалить',
   'workbench.commitTool.menu.stopIgnoring': 'Перестать игнорировать',
   'workbench.commitTool.ignoreSourceGlobal': 'глобальный',
   'workbench.commitTool.menu.fetchDone': 'Fetch завершён',

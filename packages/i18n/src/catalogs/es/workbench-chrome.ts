@@ -961,6 +961,12 @@ export const workbenchChrome = {
     'Pull completado. Los historiales no comparten ningún commit, así que cada archivo remoto se trató como modificado.',
   'workbench.commitTool.menu.pullFailed': 'Error en el pull: {detail}',
   'workbench.commitTool.menu.ignoreFailed': 'No se pudo actualizar el archivo de exclusión: {detail}',
+  'workbench.commitTool.menu.addToVcsFailed': 'No se pudo añadir al VCS: {detail}',
+  'workbench.commitTool.menu.deleteFailed': 'No se pudo eliminar: {detail}',
+  'workbench.commitTool.delete.confirmTitle': '¿Eliminar {files}?',
+  'workbench.commitTool.delete.confirmBody':
+    'Los archivos se eliminan del disco. Un archivo versionado aparece como eliminado hasta el commit; un archivo no versionado desaparece.',
+  'workbench.commitTool.delete.ok': 'Eliminar',
   'workbench.commitTool.menu.stopIgnoring': 'Dejar de ignorar',
   'workbench.commitTool.ignoreSourceGlobal': 'global',
   'workbench.commitTool.menu.fetchDone': 'Recuperación completada',

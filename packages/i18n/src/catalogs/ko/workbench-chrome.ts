@@ -791,6 +791,12 @@ export const workbenchChrome = {
     '풀 완료. 두 기록에 공통 커밋이 없어 원격의 모든 파일을 변경된 것으로 처리했습니다.',
   'workbench.commitTool.menu.pullFailed': '풀 실패: {detail}',
   'workbench.commitTool.menu.ignoreFailed': '무시 파일을 업데이트할 수 없습니다: {detail}',
+  'workbench.commitTool.menu.addToVcsFailed': 'VCS에 추가할 수 없습니다: {detail}',
+  'workbench.commitTool.menu.deleteFailed': '삭제할 수 없습니다: {detail}',
+  'workbench.commitTool.delete.confirmTitle': '{files}을(를) 삭제하시겠습니까?',
+  'workbench.commitTool.delete.confirmBody':
+    '파일이 디스크에서 제거됩니다. 추적 중인 파일은 커밋할 때까지 삭제됨으로 표시되고, 버전 관리되지 않는 파일은 사라집니다.',
+  'workbench.commitTool.delete.ok': '삭제',
   'workbench.commitTool.menu.stopIgnoring': '무시 해제',
   'workbench.commitTool.ignoreSourceGlobal': '전역',
   'workbench.commitTool.menu.fetchDone': '가져오기 완료',

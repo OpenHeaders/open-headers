@@ -70,6 +70,8 @@ export {
   fastForwardWorkspaceBranch,
   fetchWorkspaceRemote,
   gitOperationInProgress,
+  type IntentToAddResult,
+  intentToAddPaths,
   isAncestorOf,
   isCommitSha,
   isSafeRefName,

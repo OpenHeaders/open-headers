@@ -65,6 +65,8 @@ function handlers(): CommitRowMenuHandlers {
     onBranches: vi.fn(),
     onNewBranch: vi.fn(),
     onIgnorePaths: vi.fn(),
+    onAddToVcs: vi.fn(),
+    onDeletePaths: vi.fn(),
     onUnignorePath: vi.fn(),
   };
 }
@@ -160,6 +162,34 @@ describe('commit tree row context menu', () => {
     const exclude = await screen.findByText('workbench.commitTool.menu.excludeFile');
     fireEvent.click(exclude);
     expect(h.onIgnorePaths).toHaveBeenCalledWith(['notes/new.yaml', 'notes/draft.yaml'], 'exclude');
+  });
+
+  it('Add to VCS and Delete… ride the selection: both over an unversioned union, Add to VCS grey on a tracked row', async () => {
+    const h = handlers();
+    renderTree(
+      [
+        row({ path: 'workspace.yaml' }),
+        row({ path: 'notes/new.yaml', status: '?', unversioned: true }),
+        row({ path: 'notes/draft.yaml', status: '?', unversioned: true }),
+      ],
+      h,
+    );
+    const rows = [...document.querySelectorAll('[data-testid="commit-tool-file"]')];
+    const byPath = (path: string) => rows.find((el) => el.getAttribute('data-path') === path) as Element;
+    fireEvent.click(byPath('notes/new.yaml'));
+    fireEvent.click(byPath('notes/draft.yaml'), { shiftKey: true });
+    fireEvent.contextMenu(byPath('notes/draft.yaml'));
+    fireEvent.click((await screen.findAllByText('workbench.commitTool.menu.addToVcs')).at(-1) as Element);
+    expect(h.onAddToVcs).toHaveBeenCalledWith(['notes/new.yaml', 'notes/draft.yaml']);
+    fireEvent.contextMenu(byPath('notes/draft.yaml'));
+    fireEvent.click((await screen.findAllByText('workbench.commitTool.menu.delete')).at(-1) as Element);
+    expect(h.onDeletePaths).toHaveBeenCalledWith(['notes/new.yaml', 'notes/draft.yaml']);
+    // A tracked row: Delete… lives, Add to VCS is visible-disabled.
+    fireEvent.contextMenu(byPath('workspace.yaml'));
+    const addVcs = (await screen.findAllByText('workbench.commitTool.menu.addToVcs')).at(-1) as Element;
+    expect(addVcs.closest('li')?.classList.contains('ant-dropdown-menu-item-disabled')).toBe(true);
+    fireEvent.click((await screen.findAllByText('workbench.commitTool.menu.delete')).at(-1) as Element);
+    expect(h.onDeletePaths).toHaveBeenLastCalledWith(['workspace.yaml']);
   });
 
   it('a directory node carries the menu — Commit Directory… checks exactly its subtree', async () => {

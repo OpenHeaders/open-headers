@@ -185,9 +185,38 @@ export function withCommitAttribution(
  * auto-commit pause condition (§3.3: someone mid-`git add -p` is never
  * swept). Uses the real index, unlike every commit path below.
  */
+/**
+ * True when the user's real index holds staged content — the cadence
+ * stands down on it. An intent-to-add entry (`git add -N`, the Commit
+ * window's Add to VCS) is not staged content: it marks a file as
+ * tracked and leaves the bytes to the commit, so it reads clean here.
+ */
 export async function userIndexHasStagedChanges(run: GitRunner, rootDir: string): Promise<boolean> {
-  const result = await run([...repoArgs(rootDir), 'diff', '--cached', '--quiet'], { cwd: rootDir });
+  const result = await run([...repoArgs(rootDir), 'diff', '--cached', '--quiet', '--ita-invisible-in-index'], {
+    cwd: rootDir,
+  });
   return result.code === 1;
+}
+
+export type IntentToAddResult = { ok: true } | { ok: false; detail: string };
+
+/**
+ * Track `paths` as intent-to-add in the user's real index (`git add
+ * -N`): the rows leave Unversioned Files for Changes as added with no
+ * content staged, the temp-index commit reads the bytes from the
+ * working tree as for any tracked file, and the post-commit refresh
+ * keeps the entry (it lists the index with intent-to-add entries
+ * visible) until the file is committed.
+ */
+export async function intentToAddPaths(
+  run: GitRunner,
+  rootDir: string,
+  paths: readonly string[],
+): Promise<IntentToAddResult> {
+  if (paths.length === 0) return { ok: true };
+  const result = await run([...repoArgs(rootDir), 'add', '-N', '--', ...paths], { cwd: rootDir });
+  if (result.code !== 0) return { ok: false, detail: failureDetail(result) };
+  return { ok: true };
 }
 
 /** Count entries in `git status --porcelain -z` (rename records carry a second path token — skipped). */
@@ -531,7 +560,10 @@ export async function fastForwardWorkspaceBranch(
   if (head.code !== 0) return { ok: false, detail: 'no local HEAD to fast-forward' };
   const oldHead = head.stdout.trim();
 
-  const stagedProbe = await run([...repoArgs(rootDir), 'diff', '--cached', '--name-only', '-z'], { cwd: rootDir });
+  const stagedProbe = await run(
+    [...repoArgs(rootDir), 'diff', '--cached', '--name-only', '-z', '--ita-visible-in-index'],
+    { cwd: rootDir },
+  );
   const userStagedPaths = new Set(nulSeparatedPaths(stagedProbe.stdout));
 
   const moved = await run([...repoArgs(rootDir), 'update-ref', 'HEAD', foreignSha, oldHead], { cwd: rootDir });
@@ -1342,10 +1374,14 @@ export async function commitWorkspaceTree(options: CommitWorkspaceTreeOptions): 
 
     // Snapshot what the USER has staged in the real index before the
     // commit moves HEAD — the post-commit index refresh below leaves
-    // the staged paths this commit did not touch exactly as found. On
-    // an unborn HEAD anything in the index is a staged entry.
+    // the staged paths this commit did not touch exactly as found. An
+    // intent-to-add entry (Add to VCS) is the user's too, and git
+    // hides it from the staged listing unless asked. On an unborn
+    // HEAD anything in the index is a staged entry.
     const stagedProbe = hasHead
-      ? await run([...repoArgs(rootDir), 'diff', '--cached', '--name-only', '-z'], { cwd: rootDir })
+      ? await run([...repoArgs(rootDir), 'diff', '--cached', '--name-only', '-z', '--ita-visible-in-index'], {
+          cwd: rootDir,
+        })
       : await run([...repoArgs(rootDir), 'ls-files', '-z'], { cwd: rootDir });
     const userStagedPaths = new Set(nulSeparatedPaths(stagedProbe.stdout));
 

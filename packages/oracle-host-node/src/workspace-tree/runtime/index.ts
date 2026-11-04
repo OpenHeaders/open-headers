@@ -93,8 +93,10 @@ import type {
   ResolveForcePushRpcResult,
   SwitchBranchRpcResult,
   UpdateBranchRpcResult,
+  WorkspaceTreeAddToVcsRpcResult,
   WorkspaceTreeChangesRpcResult,
   WorkspaceTreeCommitCadence,
+  WorkspaceTreeDeletePathsRpcResult,
   WorkspaceTreeEntityAtPathRpcResult,
   WorkspaceTreeFileDiffRpcResult,
   WorkspaceTreeGitConsoleRpcResult,
@@ -111,6 +113,7 @@ import type {
 } from './types';
 import { runListChanges, runUserCommit, runWorkingFileDiff, validateUserCommitInput } from './user-commit';
 import { detectForcePush, recordWatermark, watermarkFor } from './watermark';
+import { runAddToVcs, runDeletePaths } from './working-files';
 
 export type {
   AdoptWorkspaceTreeRpcResult,
@@ -127,8 +130,10 @@ export type {
   ResolveForcePushRpcResult,
   SwitchBranchRpcResult,
   UpdateBranchRpcResult,
+  WorkspaceTreeAddToVcsRpcResult,
   WorkspaceTreeChangesRpcResult,
   WorkspaceTreeCommitCadence,
+  WorkspaceTreeDeletePathsRpcResult,
   WorkspaceTreeFileDiffRpcResult,
   WorkspaceTreeGitConsoleRpcResult,
   WorkspaceTreeGitStatusRpcResult,
@@ -632,6 +637,36 @@ export function createWorkspaceTreeRuntime(options: WorkspaceTreeRuntimeOptions)
         { ok: false, reason: 'ignore-failed', detail: 'unignore pass did not run' },
         async () => {
           const result = await runUnignorePath(ctx, binding, filePath, target);
+          await ctx.publishGitStatus(binding);
+          return result;
+        },
+      );
+    },
+
+    async addToVcs(workspaceId: string, paths: readonly string[]): Promise<WorkspaceTreeAddToVcsRpcResult> {
+      const binding = open.get(workspaceId);
+      if (!binding) return { ok: false, reason: 'not-bound' };
+      if (paths.length === 0 || !paths.every(isSafeTreePath)) return { ok: false, reason: 'unknown-path' };
+      return onChain<WorkspaceTreeAddToVcsRpcResult>(
+        binding,
+        { ok: false, reason: 'add-failed', detail: 'add to vcs pass did not run' },
+        async () => {
+          const result = await runAddToVcs(ctx, binding, paths);
+          await ctx.publishGitStatus(binding);
+          return result;
+        },
+      );
+    },
+
+    async deletePaths(workspaceId: string, paths: readonly string[]): Promise<WorkspaceTreeDeletePathsRpcResult> {
+      const binding = open.get(workspaceId);
+      if (!binding) return { ok: false, reason: 'not-bound', deleted: 0 };
+      if (paths.length === 0 || !paths.every(isSafeTreePath)) return { ok: false, reason: 'unknown-path', deleted: 0 };
+      return onChain<WorkspaceTreeDeletePathsRpcResult>(
+        binding,
+        { ok: false, reason: 'delete-failed', deleted: 0, detail: 'delete pass did not run' },
+        async () => {
+          const result = await runDeletePaths(binding, paths);
           await ctx.publishGitStatus(binding);
           return result;
         },

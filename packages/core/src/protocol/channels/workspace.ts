@@ -598,6 +598,27 @@ export interface WorkspaceRpc {
     res: WorkspaceTreeUnignoreWire;
   };
   /**
+   * The Commit window's Add to VCS verb over unversioned rows: the
+   * paths become tracked as intent-to-add (`git add -N`) — the rows
+   * move from Unversioned Files to Changes as added, no content is
+   * staged, and the cadence keeps running (the user-index probe
+   * ignores intent-to-add entries). A status frame follows.
+   */
+  'oh.workspaceTree.addToVcs': {
+    req: { workspaceId: string; paths: string[] };
+    res: WorkspaceTreeAddToVcsWire;
+  };
+  /**
+   * The Commit window's Delete… verb: remove the files from disk. A
+   * tracked file then reads as deleted until committed; an unversioned
+   * one is simply gone. Files only — a directory row hands in its
+   * files. A status frame follows.
+   */
+  'oh.workspaceTree.deletePaths': {
+    req: { workspaceId: string; paths: string[] };
+    res: WorkspaceTreeDeletePathsWire;
+  };
+  /**
    * Jump to Source: the workspace entity a tree path belongs to — the
    * manifest itself or a sibling in an entity's directory — read from
    * the working tree so the surface can open its editor. The user's
@@ -1031,6 +1052,20 @@ export type WorkspaceTreeUnignoreWire =
       reason: 'not-bound' | 'git-unavailable' | 'not-a-repo' | 'unknown-path' | 'ignore-failed';
       detail?: string;
     };
+
+/** Add to VCS: every path is tracked as intent-to-add, or none is. */
+export type WorkspaceTreeAddToVcsWire =
+  | { ok: true }
+  | {
+      ok: false;
+      reason: 'not-bound' | 'git-unavailable' | 'not-a-repo' | 'unknown-path' | 'add-failed';
+      detail?: string;
+    };
+
+/** Delete…: `deleted` counts the files removed before the first refusal, if any. */
+export type WorkspaceTreeDeletePathsWire =
+  | { ok: true; deleted: number }
+  | { ok: false; reason: 'not-bound' | 'unknown-path' | 'delete-failed'; deleted: number; detail?: string };
 
 /** A detected remote history rewrite (§16) — the trichotomy dialog's feed. */
 export interface WorkspaceTreeForcePushStateWire {

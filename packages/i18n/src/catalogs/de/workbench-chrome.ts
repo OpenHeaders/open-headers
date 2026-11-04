@@ -960,6 +960,12 @@ export const workbenchChrome = {
     'Pull abgeschlossen. Die Historien haben keinen gemeinsamen Commit, daher wurde jede entfernte Datei als geändert behandelt.',
   'workbench.commitTool.menu.pullFailed': 'Pull fehlgeschlagen: {detail}',
   'workbench.commitTool.menu.ignoreFailed': 'Ignore-Datei konnte nicht aktualisiert werden: {detail}',
+  'workbench.commitTool.menu.addToVcsFailed': 'Konnte nicht zur VCS hinzufügen: {detail}',
+  'workbench.commitTool.menu.deleteFailed': 'Konnte nicht löschen: {detail}',
+  'workbench.commitTool.delete.confirmTitle': '{files} löschen?',
+  'workbench.commitTool.delete.confirmBody':
+    'Die Dateien werden von der Festplatte entfernt. Eine versionierte Datei gilt bis zum Commit als gelöscht; eine unversionierte Datei ist weg.',
+  'workbench.commitTool.delete.ok': 'Löschen',
   'workbench.commitTool.menu.stopIgnoring': 'Nicht mehr ignorieren',
   'workbench.commitTool.ignoreSourceGlobal': 'global',
   'workbench.commitTool.menu.fetchDone': 'Abrufen abgeschlossen',

@@ -37,6 +37,7 @@ import {
   fastForwardWorkspaceBranch,
   fetchWorkspaceRemote,
   gitOperationInProgress,
+  intentToAddPaths,
   isAncestorOf,
   isCommitSha,
   isSafeRefName,
@@ -309,6 +310,33 @@ describe('commitWorkspaceTree', () => {
       { cwd: tmpDir },
     );
     expect(status.stdout).toBe('');
+  });
+
+  it('intent-to-add tracks a file as added with nothing staged: the busy probe reads clean, an unrelated commit keeps the entry, the next commit lands it', async () => {
+    await initialCommit();
+    await write('notes.md', '# notes\n');
+    expect(await intentToAddPaths(run, tmpDir, ['notes.md'])).toEqual({ ok: true });
+    const porcelain = () =>
+      run(['--git-dir', path.join(tmpDir, '.git'), '--work-tree', tmpDir, 'status', '--porcelain', '-z'], {
+        cwd: tmpDir,
+      });
+    expect((await porcelain()).stdout).toBe(' A notes.md\0');
+    expect(await userIndexHasStagedChanges(run, tmpDir)).toBe(false);
+
+    await write('rules/block-r0000001/rule.yaml', 'schemaVersion: 5\nuid: r0000001\n');
+    const other = await commitWorkspaceTree({
+      run,
+      rootDir: tmpDir,
+      message: 'Add rule',
+      identityEnv: IDENTITY_ENV,
+      paths: ['rules/block-r0000001/rule.yaml'],
+    });
+    expect(other).toMatchObject({ ok: true, committed: true });
+    expect((await porcelain()).stdout).toBe(' A notes.md\0');
+
+    const landed = await commitWorkspaceTree({ run, rootDir: tmpDir, message: 'Add notes', identityEnv: IDENTITY_ENV });
+    expect(landed).toMatchObject({ ok: true, committed: true });
+    expect((await porcelain()).stdout).toBe('');
   });
 
   it('leaves the repo normal after a clean-index engine commit — git status stays quiet', async () => {

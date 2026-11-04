@@ -793,6 +793,12 @@ export const workbenchChrome = {
     'プルが完了しました。履歴に共通のコミットがないため、リモートのすべてのファイルを変更済みとして扱いました。',
   'workbench.commitTool.menu.pullFailed': 'プルに失敗しました：{detail}',
   'workbench.commitTool.menu.ignoreFailed': '無視ファイルを更新できませんでした：{detail}',
+  'workbench.commitTool.menu.addToVcsFailed': 'VCSに追加できませんでした：{detail}',
+  'workbench.commitTool.menu.deleteFailed': '削除できませんでした：{detail}',
+  'workbench.commitTool.delete.confirmTitle': '{files}を削除しますか？',
+  'workbench.commitTool.delete.confirmBody':
+    'ファイルはディスクから削除されます。追跡中のファイルはコミットまで削除済みとして表示され、未バージョン管理のファイルは失われます。',
+  'workbench.commitTool.delete.ok': '削除',
   'workbench.commitTool.menu.stopIgnoring': '無視を解除',
   'workbench.commitTool.ignoreSourceGlobal': 'グローバル',
   'workbench.commitTool.menu.fetchDone': 'フェッチが完了しました',

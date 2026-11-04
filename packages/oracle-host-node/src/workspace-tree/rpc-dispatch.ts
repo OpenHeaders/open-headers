@@ -294,6 +294,18 @@ export async function dispatchWorkspaceTreeRpc(
     }
     return await runtime.unignorePath(workspaceId, filePath, target);
   }
+  if (type === 'oh.workspaceTree.addToVcs' || type === 'oh.workspaceTree.deletePaths') {
+    const workspaceId = typeof message.workspaceId === 'string' ? message.workspaceId : '';
+    const paths = Array.isArray(message.paths) ? message.paths.filter((entry) => typeof entry === 'string') : [];
+    if (!workspaceId || paths.length === 0 || runtime === null) {
+      return type === 'oh.workspaceTree.addToVcs'
+        ? { ok: false, reason: 'not-bound' }
+        : { ok: false, reason: 'not-bound', deleted: 0 };
+    }
+    return type === 'oh.workspaceTree.addToVcs'
+      ? await runtime.addToVcs(workspaceId, paths)
+      : await runtime.deletePaths(workspaceId, paths);
+  }
   if (type === 'oh.workspaceTree.fileLog') {
     const workspaceId = typeof message.workspaceId === 'string' ? message.workspaceId : '';
     const filePath = typeof message.path === 'string' ? message.path : '';

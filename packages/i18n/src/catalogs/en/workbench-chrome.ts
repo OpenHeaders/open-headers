@@ -785,6 +785,12 @@ export const workbenchChrome = {
     'Pull finished. The histories share no common commit, so every remote file was treated as changed.',
   'workbench.commitTool.menu.pullFailed': 'Pull failed: {detail}',
   'workbench.commitTool.menu.ignoreFailed': 'Could not update the ignore file: {detail}',
+  'workbench.commitTool.menu.addToVcsFailed': 'Could not add to VCS: {detail}',
+  'workbench.commitTool.menu.deleteFailed': 'Could not delete: {detail}',
+  'workbench.commitTool.delete.confirmTitle': 'Delete {files}?',
+  'workbench.commitTool.delete.confirmBody':
+    'The files are removed from disk. A tracked file shows as deleted until committed; an unversioned file is gone.',
+  'workbench.commitTool.delete.ok': 'Delete',
   'workbench.commitTool.menu.stopIgnoring': 'Stop Ignoring',
   'workbench.commitTool.ignoreSourceGlobal': 'global',
   'workbench.commitTool.menu.fetchDone': 'Fetch finished',

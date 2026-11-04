@@ -303,6 +303,20 @@ export type WorkspaceTreeIgnoreRpcResult =
       detail?: string;
     };
 
+/** Add to VCS: every path is tracked as intent-to-add, or none is. */
+export type WorkspaceTreeAddToVcsRpcResult =
+  | { ok: true }
+  | {
+      ok: false;
+      reason: 'not-bound' | 'git-unavailable' | 'not-a-repo' | 'unknown-path' | 'add-failed';
+      detail?: string;
+    };
+
+/** Delete…: `deleted` counts the files removed before the first refusal, if any. */
+export type WorkspaceTreeDeletePathsRpcResult =
+  | { ok: true; deleted: number }
+  | { ok: false; reason: 'not-bound' | 'unknown-path' | 'delete-failed'; deleted: number; detail?: string };
+
 /** Stop Ignoring: `removed: false` means the exact entry was not in the target file. */
 export type WorkspaceTreeUnignoreRpcResult =
   | { ok: true; removed: boolean }
@@ -481,6 +495,19 @@ export interface WorkspaceTreeRuntime {
    * globs). On the per-binding chain; a status frame follows.
    */
   unignorePath(workspaceId: string, path: string, target: IgnoreTarget): Promise<WorkspaceTreeUnignoreRpcResult>;
+  /**
+   * The Commit window's Add to VCS verb: track the paths as
+   * intent-to-add in the user's real index — the rows move to Changes
+   * as added, nothing is staged. On the per-binding chain; a status
+   * frame follows.
+   */
+  addToVcs(workspaceId: string, paths: readonly string[]): Promise<WorkspaceTreeAddToVcsRpcResult>;
+  /**
+   * The Commit window's Delete… verb: remove the files from disk (a
+   * tracked file reads as deleted until committed). On the per-binding
+   * chain; a status frame follows.
+   */
+  deletePaths(workspaceId: string, paths: readonly string[]): Promise<WorkspaceTreeDeletePathsRpcResult>;
   /** One path's timeline (`--follow`) — the newest entry is "who last touched this". */
   fileLog(workspaceId: string, path: string, limit?: number): Promise<WorkspaceTreeLogRpcResult>;
   /**
