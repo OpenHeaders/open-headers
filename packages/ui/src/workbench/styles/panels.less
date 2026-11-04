@@ -4,6 +4,9 @@
 .git-tool-ref-row,
 .git-tool-row {
   background: transparent;
+  // Rows are not text: a double-click opens the row (diff, file,
+  // collapse) and must not paint a text selection over it.
+  user-select: none;
 
   &:hover {
     background: rgba(128, 128, 128, 0.08);
