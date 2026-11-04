@@ -124,6 +124,39 @@ describe('commit tree row context menu', () => {
     }
   });
 
+  it('a multi-row selection reads Commit Files… over the union; Show Diff stays out; all-unversioned takes that variant', async () => {
+    const h = handlers();
+    renderTree(
+      [
+        row({ path: 'workspace.yaml' }),
+        row({ path: 'rules/a.yaml' }),
+        row({ path: 'notes/new.yaml', status: '?', unversioned: true }),
+        row({ path: 'notes/draft.yaml', status: '?', unversioned: true }),
+      ],
+      h,
+    );
+    const rows = [...document.querySelectorAll('[data-testid="commit-tool-file"]')];
+    expect(rows).toHaveLength(4);
+    const byPath = (path: string) => rows.find((el) => el.getAttribute('data-path') === path) as Element;
+    // ⌘-click two tracked rows, right-click inside the selection.
+    fireEvent.click(byPath('workspace.yaml'));
+    fireEvent.click(byPath('rules/a.yaml'), { metaKey: true });
+    expect(document.querySelectorAll('[data-testid="commit-tool-file"].selected')).toHaveLength(2);
+    fireEvent.contextMenu(byPath('rules/a.yaml'));
+    const commitFiles = await screen.findAllByText('workbench.commitTool.menu.commitFiles');
+    fireEvent.click(commitFiles[0]);
+    expect(h.onCommitPaths).toHaveBeenCalledWith(['workspace.yaml', 'rules/a.yaml']);
+    // Right-click outside the selection collapses it onto that row.
+    fireEvent.contextMenu(byPath('notes/new.yaml'));
+    expect(document.querySelectorAll('[data-testid="commit-tool-file"].selected')).toHaveLength(1);
+    // Shift-click ranges across the group boundary; both unversioned rows alone take the gitignore variant.
+    fireEvent.click(byPath('notes/new.yaml'));
+    fireEvent.click(byPath('notes/draft.yaml'), { shiftKey: true });
+    fireEvent.contextMenu(byPath('notes/draft.yaml'));
+    const addIgnore = await screen.findAllByText('workbench.commitTool.menu.addToGitignore');
+    expect(addIgnore.length).toBeGreaterThan(0);
+  });
+
   it('a directory node carries the menu — Commit Directory… checks exactly its subtree', async () => {
     const h = handlers();
     renderTree([row({ path: 'rules/block-r01/rule.yaml' }), row({ path: 'rules/block-r02/rule.yaml' })], h);

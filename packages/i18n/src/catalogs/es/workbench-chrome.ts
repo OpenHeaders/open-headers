@@ -909,6 +909,7 @@ export const workbenchChrome = {
     'HEAD separado en {sha}: un commit hecho aquí no pertenece a ninguna rama. Crea una rama para conservar este trabajo.',
   'workbench.commitTool.detached.newBranch': 'Nueva rama desde HEAD…',
   'workbench.commitTool.menu.commitFile': 'Commit del archivo…',
+  'workbench.commitTool.menu.commitFiles': 'Confirmar archivos…',
   'workbench.commitTool.menu.commitDirectory': 'Commit del directorio…',
   'workbench.commitTool.menu.commit': 'Commit…',
   'workbench.commitTool.menu.moveToChangelist': 'Mover a otra lista de cambios…',

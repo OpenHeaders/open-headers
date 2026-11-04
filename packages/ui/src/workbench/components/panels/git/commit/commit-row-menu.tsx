@@ -80,6 +80,18 @@ function factsOf(target: CommitMenuTarget): TargetFacts {
       commitLabelKey: 'workbench.commitTool.menu.commitFile',
     };
   }
+  // A multi-row selection: the unversioned variant only when every
+  // row is unversioned; Show Diff (one file's read) and the ignore
+  // verbs (one path) stay out.
+  if (target.kind === 'files') {
+    return {
+      unversioned: target.rows.every((row) => row.unversioned === true),
+      paths: target.rows.map((row) => row.path),
+      diffPath: null,
+      ignorePath: null,
+      commitLabelKey: 'workbench.commitTool.menu.commitFiles',
+    };
+  }
   const unversioned = target.group === 'unversioned';
   return {
     unversioned,
@@ -275,7 +287,7 @@ function refreshOnlyMenu(t: Translate, h: CommitRowMenuHandlers): MenuProps {
  * open; the builder is pure over (target, t, handlers).
  */
 export function buildCommitRowMenu(target: CommitMenuTarget, t: Translate, h: CommitRowMenuHandlers): MenuProps {
-  if (target.kind !== 'file' && target.group === 'ignored') return refreshOnlyMenu(t, h);
+  if ((target.kind === 'dir' || target.kind === 'group') && target.group === 'ignored') return refreshOnlyMenu(t, h);
   const facts = factsOf(target);
   const unversioned = facts.unversioned;
   const items: MenuItems = [

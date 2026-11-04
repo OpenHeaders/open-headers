@@ -110,15 +110,17 @@ export type ChangeGroupKey = keyof ChangeGroups;
 
 /**
  * What a right-click in the changes tree lands on: a file row, a
- * directory node (its subtree's paths), or a group header / the
- * content-root node (the whole group's paths). The menu's verbs apply
- * to the target's paths; a directory names its own path for the
- * ignore verbs.
+ * directory node (its subtree's paths), a group header / the
+ * content-root node (the whole group's paths), or a multi-row
+ * selection (the union of its file rows — Commit Files…). The menu's
+ * verbs apply to the target's paths; a directory names its own path
+ * for the ignore verbs.
  */
 export type CommitMenuTarget =
   | { kind: 'file'; row: WorkspaceTreeWorkingChangeWire }
   | { kind: 'dir'; group: ChangeGroupKey; path: string; paths: readonly string[] }
-  | { kind: 'group'; group: ChangeGroupKey; paths: readonly string[] };
+  | { kind: 'group'; group: ChangeGroupKey; paths: readonly string[] }
+  | { kind: 'files'; rows: readonly WorkspaceTreeWorkingChangeWire[] };
 
 export type CheckAggregate = 'none' | 'some' | 'all';
 

@@ -908,6 +908,7 @@ export const workbenchChrome = {
     'Losgelöster HEAD bei {sha} — ein Commit hier gehört zu keinem Branch. Erstellen Sie einen Branch, um diese Arbeit zu behalten.',
   'workbench.commitTool.detached.newBranch': 'Neuer Branch von HEAD…',
   'workbench.commitTool.menu.commitFile': 'Datei committen…',
+  'workbench.commitTool.menu.commitFiles': 'Dateien committen…',
   'workbench.commitTool.menu.commitDirectory': 'Verzeichnis committen…',
   'workbench.commitTool.menu.commit': 'Committen…',
   'workbench.commitTool.menu.moveToChangelist': 'In andere Änderungsliste verschieben…',

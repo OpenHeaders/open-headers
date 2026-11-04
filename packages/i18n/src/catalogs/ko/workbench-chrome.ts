@@ -739,6 +739,7 @@ export const workbenchChrome = {
     'HEAD가 {sha}에서 분리되어 있습니다. 여기서 만든 커밋은 어떤 브랜치에도 속하지 않습니다. 이 작업을 보존하려면 브랜치를 만드세요.',
   'workbench.commitTool.detached.newBranch': 'HEAD에서 새 브랜치…',
   'workbench.commitTool.menu.commitFile': '파일 커밋…',
+  'workbench.commitTool.menu.commitFiles': '파일 커밋…',
   'workbench.commitTool.menu.commitDirectory': '디렉터리 커밋…',
   'workbench.commitTool.menu.commit': '커밋…',
   'workbench.commitTool.menu.moveToChangelist': '다른 변경 목록으로 이동…',

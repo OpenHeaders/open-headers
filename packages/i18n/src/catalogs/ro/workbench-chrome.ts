@@ -770,6 +770,7 @@ export const workbenchChrome = {
     'HEAD detașat la {sha} — un commit făcut aici nu aparține niciunei ramuri. Creează o ramură pentru a păstra această lucrare.',
   'workbench.commitTool.detached.newBranch': 'Ramură nouă din HEAD…',
   'workbench.commitTool.menu.commitFile': 'Commit fișier…',
+  'workbench.commitTool.menu.commitFiles': 'Commit fișiere…',
   'workbench.commitTool.menu.commitDirectory': 'Commit director…',
   'workbench.commitTool.menu.commit': 'Commit…',
   'workbench.commitTool.menu.moveToChangelist': 'Mutare în altă listă de modificări…',

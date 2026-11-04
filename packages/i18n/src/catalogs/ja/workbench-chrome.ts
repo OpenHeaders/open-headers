@@ -741,6 +741,7 @@ export const workbenchChrome = {
     'HEAD は {sha} で分離状態です。ここで作成したコミットはどのブランチにも属しません。この作業を残すにはブランチを作成してください。',
   'workbench.commitTool.detached.newBranch': 'HEAD から新しいブランチ…',
   'workbench.commitTool.menu.commitFile': 'ファイルをコミット…',
+  'workbench.commitTool.menu.commitFiles': 'ファイルをコミット…',
   'workbench.commitTool.menu.commitDirectory': 'ディレクトリをコミット…',
   'workbench.commitTool.menu.commit': 'コミット…',
   'workbench.commitTool.menu.moveToChangelist': '別の変更リストへ移動…',

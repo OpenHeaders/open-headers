@@ -18,13 +18,17 @@
  *
  * Interaction model (reference): click selects any row (the shared
  * grey-echo/vivid-blue selection pair — vivid only while the dock owns
- * focus, so an open context menu greys the band); double-click opens
- * the working diff on files and toggles folders; arrows navigate —
- * Up/Down across visible rows, Right expands / steps in, Left
- * collapses / steps to the parent, Enter opens/toggles, Space flips
- * the row's checkbox (folders and groups flip their whole subtree —
- * checked unless already fully checked). Right-click selects and opens
- * the row context menu (focus moves into the menu).
+ * focus, so an open context menu greys the band); Cmd/Ctrl+click
+ * toggles a row in or out of the selection and Shift+click selects the
+ * range from the anchor (the shared selection model); double-click
+ * opens the working diff on files and toggles folders; arrows navigate
+ * — Up/Down across visible rows (Shift extends the range), Right
+ * expands / steps in, Left collapses / steps to the parent, Enter
+ * opens/toggles the lead, Space flips the selection's checkboxes
+ * (folders and groups flip their whole subtree — checked unless
+ * already fully checked). Right-click keeps a selection it lands in
+ * (the menu reads Commit Files… over the union) or selects the row
+ * alone, and opens the row context menu (focus moves into the menu).
  */
 
 import { CaretDownOutlined, CaretRightOutlined } from '@ant-design/icons';
@@ -36,6 +40,7 @@ import { forwardRef, Fragment, useCallback, useEffect, useImperativeHandle, useM
 import { createPortal } from 'react-dom';
 import { useTheme } from '@openheaders/ui/context';
 import { useT } from '@openheaders/ui/context/LocaleContext';
+import { useMultiSelection } from '@openheaders/ui/shared/selection';
 import { allDirKeys, buildFileTree, type FileTreeNode } from '../file-tree';
 import { contextMenuAlign } from '../git-menu-overflow';
 import {
@@ -125,7 +130,6 @@ const CommitChangesTree = forwardRef<CommitChangesTreeHandle, CommitChangesTreeP
   const t = useT();
   const palette = vcsPalette(isDarkMode);
   const containerRef = useRef<HTMLDivElement>(null);
-  const [selectedKey, setSelectedKey] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<ExpandedRow | null>(null);
 
   useEffect(() => {
@@ -250,12 +254,37 @@ const CommitChangesTree = forwardRef<CommitChangesTreeHandle, CommitChangesTreeP
     [specs, trees, collapsed, groupByDirectory],
   );
 
-  const selectRow = useCallback((key: string): void => {
-    setSelectedKey(key);
-    const container = containerRef.current;
-    if (container === null) return;
-    container.querySelector(`[data-row-key="${CSS.escape(key)}"]`)?.scrollIntoView({ block: 'nearest' });
-  }, []);
+  const rowOrder = useMemo(() => visibleRows.map((row) => row.key), [visibleRows]);
+  const { selection, isSelected, click: clickRow, step, contextMenu: contextMenuRow } = useMultiSelection(rowOrder);
+  // The keyboard cursor — the row Enter opens and the arrows move from.
+  const selectedKey = selection.lead;
+
+  // The keyboard lands on a row: plain collapses the selection onto it,
+  // Shift extends the range from the anchor.
+  const selectRow = useCallback(
+    (key: string, extend = false): void => {
+      step(key, extend);
+      const container = containerRef.current;
+      if (container === null) return;
+      container.querySelector(`[data-row-key="${CSS.escape(key)}"]`)?.scrollIntoView({ block: 'nearest' });
+    },
+    [step],
+  );
+
+  // The file rows a multi-row selection covers — every selected key's
+  // paths (a dir or group brings its subtree), ignored rows excluded.
+  const selectedRows = useMemo<WorkspaceTreeWorkingChangeWire[]>(() => {
+    if (selection.ids.size < 2) return [];
+    const paths = new Set<string>();
+    for (const key of selection.ids) for (const path of pathsByRowKey.get(key) ?? []) paths.add(path);
+    const rows: WorkspaceTreeWorkingChangeWire[] = [];
+    for (const row of allRows) if (paths.has(row.path) && !row.ignored) rows.push(row);
+    return rows;
+  }, [selection, pathsByRowKey, allRows]);
+
+  /** The row's menu target — the multi-row union when the row sits in a wider selection. */
+  const menuTargetFor = (key: string, single: CommitMenuTarget): CommitMenuTarget =>
+    selectedRows.length > 0 && isSelected(key) ? { kind: 'files', rows: selectedRows } : single;
 
   // Tree keys: Up/Down walk visible rows, Right expands / steps
   // into, Left collapses / steps to the parent, Enter opens files and
@@ -267,20 +296,19 @@ const CommitChangesTree = forwardRef<CommitChangesTreeHandle, CommitChangesTreeP
     if (event.key === ' ' && event.target instanceof HTMLInputElement) return;
     event.preventDefault();
     if (event.key === ' ') {
-      const paths = selectedKey === null ? undefined : pathsByRowKey.get(selectedKey);
-      if (paths !== undefined && paths.length > 0) {
-        onSetChecked(paths, aggregateChecked(allRows, checked, paths) !== 'all');
-      }
+      const paths: string[] = [];
+      for (const key of selection.ids) paths.push(...(pathsByRowKey.get(key) ?? []));
+      if (paths.length > 0) onSetChecked(paths, aggregateChecked(allRows, checked, paths) !== 'all');
       return;
     }
     const index = visibleRows.findIndex((row) => row.key === selectedKey);
     const current = index === -1 ? null : visibleRows[index];
     if (event.key === 'ArrowDown') {
-      selectRow(visibleRows[Math.min(index + 1, visibleRows.length - 1)].key);
+      selectRow(visibleRows[Math.min(index + 1, visibleRows.length - 1)].key, event.shiftKey);
       return;
     }
     if (event.key === 'ArrowUp') {
-      selectRow(visibleRows[Math.max(index - 1, 0)].key);
+      selectRow(visibleRows[Math.max(index - 1, 0)].key, event.shiftKey);
       return;
     }
     if (current === null) {
@@ -334,7 +362,7 @@ const CommitChangesTree = forwardRef<CommitChangesTreeHandle, CommitChangesTreeP
     cursor: 'pointer',
   };
 
-  const rowClass = (key: string): string => (selectedKey === key ? 'git-tool-row selected' : 'git-tool-row');
+  const rowClass = (key: string): string => (isSelected(key) ? 'git-tool-row selected' : 'git-tool-row');
 
   /**
    * The row's context menu wrapper — focus returns to the tree when the
@@ -471,9 +499,9 @@ const CommitChangesTree = forwardRef<CommitChangesTreeHandle, CommitChangesTreeP
       <div
         className={rowClass(rowKey)}
         style={rowStyle(depth)}
-        onClick={() => selectRow(rowKey)}
+        onClick={(event) => clickRow(rowKey, event)}
         onDoubleClick={() => onOpenFile(row.path)}
-        onContextMenu={() => selectRow(rowKey)}
+        onContextMenu={() => contextMenuRow(rowKey)}
         onMouseEnter={(event) => revealClippedRow(event.currentTarget, rowKey, row, suffix)}
         onMouseLeave={() => setExpanded((prev) => (prev !== null && prev.key === rowKey ? null : prev))}
         data-testid="commit-tool-file"
@@ -502,7 +530,7 @@ const CommitChangesTree = forwardRef<CommitChangesTreeHandle, CommitChangesTreeP
         </span>
       </div>
     );
-    return <Fragment key={row.path}>{withMenu({ kind: 'file', row }, rowBody)}</Fragment>;
+    return <Fragment key={row.path}>{withMenu(menuTargetFor(rowKey, { kind: 'file', row }), rowBody)}</Fragment>;
   };
 
   const renderTreeNodes = (spec: GroupSpec, nodes: readonly FileTreeNode[], depth: number): React.ReactNode =>
@@ -516,9 +544,9 @@ const CommitChangesTree = forwardRef<CommitChangesTreeHandle, CommitChangesTreeP
             <div
               className={rowClass(key)}
               style={rowStyle(depth)}
-              onClick={() => selectRow(key)}
+              onClick={(event) => clickRow(key, event)}
               onDoubleClick={() => toggleCollapse(key)}
-              onContextMenu={() => selectRow(key)}
+              onContextMenu={() => contextMenuRow(key)}
               data-testid="commit-tool-dir"
               data-key={node.key}
               data-row-key={key}
@@ -562,7 +590,7 @@ const CommitChangesTree = forwardRef<CommitChangesTreeHandle, CommitChangesTreeP
         );
         return (
           <div key={key}>
-            {withMenu({ kind: 'dir', group: spec.key, path: node.key, paths }, dirRow)}
+            {withMenu(menuTargetFor(key, { kind: 'dir', group: spec.key, path: node.key, paths }), dirRow)}
             {open && renderTreeNodes(spec, node.children, depth + 1)}
           </div>
         );
@@ -589,9 +617,9 @@ const CommitChangesTree = forwardRef<CommitChangesTreeHandle, CommitChangesTreeP
         <div
           className={rowClass(rootKey)}
           style={rowStyle(1)}
-          onClick={() => selectRow(rootKey)}
+          onClick={(event) => clickRow(rootKey, event)}
           onDoubleClick={() => toggleCollapse(rootKey)}
-          onContextMenu={() => selectRow(rootKey)}
+          onContextMenu={() => contextMenuRow(rootKey)}
           data-testid="commit-tool-root"
           data-row-key={rootKey}
         >
@@ -635,7 +663,7 @@ const CommitChangesTree = forwardRef<CommitChangesTreeHandle, CommitChangesTreeP
     );
     return (
       <div>
-        {withMenu({ kind: 'group', group: spec.key, paths }, rootRow)}
+        {withMenu(menuTargetFor(rootKey, { kind: 'group', group: spec.key, paths }), rootRow)}
         {open && renderTreeNodes(spec, trees.get(spec.key) ?? [], 2)}
       </div>
     );
@@ -698,9 +726,9 @@ const CommitChangesTree = forwardRef<CommitChangesTreeHandle, CommitChangesTreeP
                 boxSizing: 'border-box',
                 cursor: 'pointer',
               }}
-              onClick={() => selectRow(spec.key)}
+              onClick={(event) => clickRow(spec.key, event)}
               onDoubleClick={() => toggleCollapse(spec.key)}
-              onContextMenu={() => selectRow(spec.key)}
+              onContextMenu={() => contextMenuRow(spec.key)}
               data-testid={`commit-tool-group-${spec.key}`}
               data-row-key={spec.key}
             >
@@ -734,7 +762,7 @@ const CommitChangesTree = forwardRef<CommitChangesTreeHandle, CommitChangesTreeP
         );
         return (
           <div key={spec.key}>
-            {withMenu({ kind: 'group', group: spec.key, paths: groupPaths }, groupRow)}
+            {withMenu(menuTargetFor(spec.key, { kind: 'group', group: spec.key, paths: groupPaths }), groupRow)}
             {open &&
               (groupByDirectory
                 ? rootCompressed(trees.get(spec.key) ?? [])
