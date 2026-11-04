@@ -724,6 +724,7 @@ export const workbenchChrome = {
   'workbench.commitTool.commitAndPush': '커밋 후 푸시',
   'workbench.commitTool.amendCommit': '커밋 수정',
   'workbench.commitTool.amendCommitAndPush': '커밋 수정 후 푸시',
+  'workbench.commitTool.amendBy': '작성자:',
   'workbench.commitTool.optionsTooltip': '커밋 옵션 표시',
   'workbench.commitTool.options.gitSection': 'Git',
   'workbench.commitTool.options.signOff': '커밋 사인오프',

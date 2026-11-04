@@ -10,8 +10,10 @@ import {
   aggregateChecked,
   checkedOnly,
   checkedPaths,
+  commitAuthorOf,
   countChanges,
   EMPTY_CHECKED_STATE,
+  formatCommitAuthor,
   isRowChecked,
   setPathsChecked,
   splitChangeGroups,
@@ -136,5 +138,19 @@ describe('countChanges', () => {
       deleted: 0,
       unversioned: 0,
     });
+  });
+});
+
+describe('amend author', () => {
+  it("reads the amended commit's author off its log entry, trimmed, and formats the hover identity", () => {
+    const author = commitAuthorOf({ authorName: ' John Doe ', authorEmail: 'john@openheaders.io ' });
+    expect(author).toEqual({ name: 'John Doe', email: 'john@openheaders.io' });
+    expect(formatCommitAuthor({ name: 'John Doe', email: 'john@openheaders.io' })).toBe(
+      'John Doe <john@openheaders.io>',
+    );
+    // No email: the name stands alone, no empty brackets.
+    expect(formatCommitAuthor({ name: 'John Doe', email: '' })).toBe('John Doe');
+    // No name: no row at all.
+    expect(commitAuthorOf({ authorName: '  ', authorEmail: 'john@openheaders.io' })).toBeNull();
   });
 });

@@ -755,6 +755,7 @@ export const workbenchChrome = {
   'workbench.commitTool.commitAndPush': 'Commit și Push',
   'workbench.commitTool.amendCommit': 'Modifică commit-ul',
   'workbench.commitTool.amendCommitAndPush': 'Modifică commit-ul și Push',
+  'workbench.commitTool.amendBy': 'De',
   'workbench.commitTool.optionsTooltip': 'Afișare opțiuni de commit',
   'workbench.commitTool.options.gitSection': 'Git',
   'workbench.commitTool.options.signOff': 'Adăugare Signed-off-by',

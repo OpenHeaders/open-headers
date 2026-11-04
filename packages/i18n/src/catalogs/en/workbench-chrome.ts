@@ -718,6 +718,7 @@ export const workbenchChrome = {
   'workbench.commitTool.commitAndPush': 'Commit and Push',
   'workbench.commitTool.amendCommit': 'Amend Commit',
   'workbench.commitTool.amendCommitAndPush': 'Amend Commit and Push',
+  'workbench.commitTool.amendBy': 'By',
   'workbench.commitTool.optionsTooltip': 'Show Commit Options',
   'workbench.commitTool.options.gitSection': 'Git',
   'workbench.commitTool.options.signOff': 'Sign-off commit',

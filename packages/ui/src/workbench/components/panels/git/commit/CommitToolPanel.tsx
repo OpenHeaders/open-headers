@@ -34,6 +34,8 @@ import {
   type CheckedState,
   checkedOnly,
   checkedPaths,
+  type CommitAuthor,
+  commitAuthorOf,
   type CommitMenuTarget,
   countChanges,
   EMPTY_CHECKED_STATE,
@@ -73,6 +75,7 @@ const CommitToolPanel: React.FC<CommitToolPanelProps> = ({ info, onHide }) => {
   const [rows, setRows] = useState<WorkspaceTreeWorkingChangeWire[]>([]);
   const [checked, setChecked] = useState<CheckedState>(EMPTY_CHECKED_STATE);
   const [amend, setAmend] = useState(false);
+  const [amendAuthor, setAmendAuthor] = useState<CommitAuthor | null>(null);
   const [history, setHistory] = useState<string[]>([]);
   const [committing, setCommitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -202,13 +205,17 @@ const CommitToolPanel: React.FC<CommitToolPanelProps> = ({ info, onHide }) => {
           .then((result) => {
             if (result.ok && result.entries.length > 0) {
               patchCommitViewPrefs(workspaceId, { draft: result.entries[0].subject });
+              setAmendAuthor(commitAuthorOf(result.entries[0]));
               formRef.current?.selectMessage();
             }
           })
           .catch(() => undefined);
-      } else if (preAmendDraft.current !== null) {
-        patchCommitViewPrefs(workspaceId, { draft: preAmendDraft.current });
-        preAmendDraft.current = null;
+      } else {
+        setAmendAuthor(null);
+        if (preAmendDraft.current !== null) {
+          patchCommitViewPrefs(workspaceId, { draft: preAmendDraft.current });
+          preAmendDraft.current = null;
+        }
       }
     },
     [workspaceId],
@@ -306,6 +313,7 @@ const CommitToolPanel: React.FC<CommitToolPanelProps> = ({ info, onHide }) => {
         patchCommitViewPrefs(workspaceId, { draft: '' });
         preAmendDraft.current = null;
         setAmend(false);
+        setAmendAuthor(null);
         setChecked(EMPTY_CHECKED_STATE);
         message.success(t('workbench.commitTool.committed', { sha: (result.sha ?? '').slice(0, 8) }));
         await refreshChanges();
@@ -603,6 +611,7 @@ const CommitToolPanel: React.FC<CommitToolPanelProps> = ({ info, onHide }) => {
         onDraftChange={(draft) => patchPrefs({ draft })}
         amend={amend}
         onAmendChange={handleAmendChange}
+        amendAuthor={amendAuthor}
         counter={counter}
         history={history}
         onHistoryOpen={loadHistory}

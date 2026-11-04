@@ -708,6 +708,7 @@ export const workbenchChrome = {
   'workbench.commitTool.commitAndPush': '提交并推送',
   'workbench.commitTool.amendCommit': '修正提交',
   'workbench.commitTool.amendCommitAndPush': '修正提交并推送',
+  'workbench.commitTool.amendBy': '作者:',
   'workbench.commitTool.optionsTooltip': '显示提交选项',
   'workbench.commitTool.options.gitSection': 'Git',
   'workbench.commitTool.options.signOff': '签署提交（Sign-off）',

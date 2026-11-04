@@ -726,6 +726,7 @@ export const workbenchChrome = {
   'workbench.commitTool.commitAndPush': 'コミットしてプッシュ',
   'workbench.commitTool.amendCommit': 'コミットを修正',
   'workbench.commitTool.amendCommitAndPush': '修正してプッシュ',
+  'workbench.commitTool.amendBy': '作成者:',
   'workbench.commitTool.optionsTooltip': 'コミットオプションを表示',
   'workbench.commitTool.options.gitSection': 'Git',
   'workbench.commitTool.options.signOff': 'コミットにサインオフ',

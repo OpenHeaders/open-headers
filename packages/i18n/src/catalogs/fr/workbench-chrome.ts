@@ -897,6 +897,7 @@ export const workbenchChrome = {
   'workbench.commitTool.commitAndPush': 'Commit et pousser',
   'workbench.commitTool.amendCommit': 'Amender le commit',
   'workbench.commitTool.amendCommitAndPush': 'Amender le commit et pousser',
+  'workbench.commitTool.amendBy': 'Par',
   'workbench.commitTool.optionsTooltip': 'Afficher les options de commit',
   'workbench.commitTool.options.gitSection': 'Git',
   'workbench.commitTool.options.signOff': 'Commit avec sign-off',

@@ -6,7 +6,7 @@
  * counter parts. No React, no bridge.
  */
 
-import type { WorkspaceTreeWorkingChangeWire } from '@openheaders/core/bridge';
+import type { WorkspaceTreeLogEntryWire, WorkspaceTreeWorkingChangeWire } from '@openheaders/core/bridge';
 
 export interface ChangeGroups {
   /** Tracked changes vs HEAD — checked by default. */
@@ -163,4 +163,28 @@ export function countChanges(rows: readonly WorkspaceTreeWorkingChangeWire[]): C
     else counter.modified += 1;
   }
   return counter;
+}
+
+/**
+ * The author of the commit an Amend rewrites. `--amend` keeps the
+ * original author, so the form's "By" row names whose commit is being
+ * rewritten — read-only; git config stays the identity authority.
+ */
+export interface CommitAuthor {
+  name: string;
+  email: string;
+}
+
+/** The amended commit's author off its log entry; null when the entry carries no name. */
+export function commitAuthorOf(
+  entry: Pick<WorkspaceTreeLogEntryWire, 'authorName' | 'authorEmail'>,
+): CommitAuthor | null {
+  const name = entry.authorName.trim();
+  if (name.length === 0) return null;
+  return { name, email: entry.authorEmail.trim() };
+}
+
+/** The row's hover identity — `Name <email>`, the name alone without an email. */
+export function formatCommitAuthor(author: CommitAuthor): string {
+  return author.email.length === 0 ? author.name : `${author.name} <${author.email}>`;
 }

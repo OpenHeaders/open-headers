@@ -4,9 +4,11 @@
  * modified" counter on the right), the Commit Message box, and the
  * button row — Commit, Commit and Push… (Amend Commit, Amend Commit
  * and Push… while Amend is on), and the gear popover with the
- * Git-real commit options (Sign-off; Run Git hooks). Author override
- * and the inspection checks are deliberately absent (§11.5: git
- * config is the identity authority).
+ * Git-real commit options (Sign-off; Run Git hooks). While Amend is
+ * on a read-only "By <author>" row under the box names whose commit
+ * is being rewritten (`--amend` keeps the author; the full identity
+ * is its tooltip). Author override and the inspection checks are
+ * deliberately absent (§11.5: git config is the identity authority).
  *
  * The history popup (the clock, ⌃M) previews as it goes: opening it
  * stashes the draft and lands the first entry in the box, selected;
@@ -28,13 +30,15 @@ import {
   isCommitMessageHistoryChord,
   stepHistoryIndex,
 } from './commit-message-history';
-import type { ChangeCounter } from './commit-model';
+import { type ChangeCounter, type CommitAuthor, formatCommitAuthor } from './commit-model';
 
 export interface CommitFormProps {
   draft: string;
   onDraftChange: (draft: string) => void;
   amend: boolean;
   onAmendChange: (amend: boolean) => void;
+  /** The author of the commit Amend rewrites — shown under the box while Amend is on. */
+  amendAuthor: CommitAuthor | null;
   counter: ChangeCounter;
   /** The bound repo's recent commit subjects, newest first. */
   history: string[];
@@ -68,6 +72,7 @@ const CommitForm = forwardRef<CommitFormHandle, CommitFormProps>(function Commit
   onDraftChange,
   amend,
   onAmendChange,
+  amendAuthor,
   counter,
   history,
   onHistoryOpen,
@@ -317,6 +322,14 @@ const CommitForm = forwardRef<CommitFormHandle, CommitFormProps>(function Commit
         style={{ fontFamily: token.fontFamilyCode, fontSize: 13 }}
         data-testid="commit-tool-message"
       />
+      {amend && amendAuthor !== null && (
+        <div style={{ fontSize: 12, color: token.colorTextTertiary }} data-testid="commit-tool-amend-author">
+          {t('workbench.commitTool.amendBy')}{' '}
+          <Tooltip placement="top" title={formatCommitAuthor(amendAuthor)}>
+            <span style={{ color: token.colorLink }}>{amendAuthor.name}</span>
+          </Tooltip>
+        </div>
+      )}
       {error !== null && (
         <Alert
           type="error"
