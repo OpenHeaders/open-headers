@@ -391,10 +391,10 @@ const CommitForm = forwardRef<CommitFormHandle, CommitFormProps>(function Commit
           {t(amend ? 'workbench.commitTool.amendCommitAndPush' : 'workbench.commitTool.commitAndPush')}
         </Button>
         <span style={{ flex: 1 }} />
-        {/* The gear's tooltip yields to its popover — hidden the instant the
-            button is clicked and while the popover is open; re-arms on the
-            next hover-in. */}
-        <Popover trigger="click" placement="topRight" content={gearContent} onOpenChange={setGearOpen}>
+        {/* The popover opens beside the gear, never over the box. Its
+            tooltip yields to it — hidden the instant the button is clicked
+            and while the popover is open; re-arms on the next hover-in. */}
+        <Popover trigger="click" placement="rightTop" content={gearContent} onOpenChange={setGearOpen}>
           <Tooltip
             placement="top"
             title={t('workbench.commitTool.optionsTooltip')}
