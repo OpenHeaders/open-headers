@@ -623,7 +623,7 @@ export const workbenchChrome = {
   'workbench.gitBranch.popup.search': '搜索分支和操作',
   'workbench.gitBranch.popup.settings': '分支弹窗设置',
   'workbench.gitBranch.popup.noMatches': '没有匹配的分支或操作',
-  'workbench.gitBranch.action.updateProject': '更新项目…',
+  'workbench.gitBranch.action.updateWorkspace': '更新工作区 (Pull)',
   'workbench.gitBranch.action.commit': '提交…',
   'workbench.gitBranch.action.push': '推送…',
   'workbench.gitBranch.action.newBranch': '新建分支…',

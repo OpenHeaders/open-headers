@@ -129,8 +129,8 @@ describe('withRecentBranch', () => {
 
 describe('actionMatches', () => {
   it('is a case-insensitive substring match; blank matches everything', () => {
-    expect(actionMatches('Update Project…', '')).toBe(true);
-    expect(actionMatches('Update Project…', 'PROJ')).toBe(true);
+    expect(actionMatches('Update Workspace (Pull)', '')).toBe(true);
+    expect(actionMatches('Update Workspace (Pull)', 'WORK')).toBe(true);
     expect(actionMatches('Push…', 'pull')).toBe(false);
   });
 });

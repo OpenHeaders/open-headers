@@ -803,7 +803,7 @@ export const workbenchChrome = {
   'workbench.gitBranch.popup.search': 'Buscar ramas y acciones',
   'workbench.gitBranch.popup.settings': 'Ajustes del menú de ramas',
   'workbench.gitBranch.popup.noMatches': 'Ninguna rama ni acción coincide',
-  'workbench.gitBranch.action.updateProject': 'Actualizar proyecto…',
+  'workbench.gitBranch.action.updateWorkspace': 'Actualizar espacio de trabajo (Pull)',
   'workbench.gitBranch.action.commit': 'Commit…',
   'workbench.gitBranch.action.push': 'Push…',
   'workbench.gitBranch.action.newBranch': 'Nueva rama…',

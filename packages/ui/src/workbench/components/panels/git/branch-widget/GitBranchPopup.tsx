@@ -149,7 +149,7 @@ const GitBranchPopup: React.FC<GitBranchPopupProps> = ({
     {
       key: 'update',
       icon: <PullIcon />,
-      label: t('workbench.gitBranch.action.updateProject'),
+      label: t('workbench.gitBranch.action.updateWorkspace'),
       hint: '⌘T',
       onClick: closeThen(actions.pull),
     },

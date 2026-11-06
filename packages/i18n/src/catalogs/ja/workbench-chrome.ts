@@ -637,7 +637,7 @@ export const workbenchChrome = {
   'workbench.gitBranch.popup.search': 'ブランチとアクションを検索',
   'workbench.gitBranch.popup.settings': 'ブランチポップアップの設定',
   'workbench.gitBranch.popup.noMatches': '一致するブランチやアクションはありません',
-  'workbench.gitBranch.action.updateProject': 'プロジェクトを更新…',
+  'workbench.gitBranch.action.updateWorkspace': 'ワークスペースを更新 (Pull)',
   'workbench.gitBranch.action.commit': 'コミット…',
   'workbench.gitBranch.action.push': 'プッシュ…',
   'workbench.gitBranch.action.newBranch': '新しいブランチ…',

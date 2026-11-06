@@ -803,7 +803,7 @@ export const workbenchChrome = {
   'workbench.gitBranch.popup.search': 'Branches und Aktionen suchen',
   'workbench.gitBranch.popup.settings': 'Einstellungen des Branch-Popups',
   'workbench.gitBranch.popup.noMatches': 'Keine passenden Branches oder Aktionen',
-  'workbench.gitBranch.action.updateProject': 'Projekt aktualisieren…',
+  'workbench.gitBranch.action.updateWorkspace': 'Workspace aktualisieren (Pull)',
   'workbench.gitBranch.action.commit': 'Commit…',
   'workbench.gitBranch.action.push': 'Push…',
   'workbench.gitBranch.action.newBranch': 'Neuer Branch…',

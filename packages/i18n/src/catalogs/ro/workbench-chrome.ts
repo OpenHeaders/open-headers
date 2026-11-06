@@ -664,7 +664,7 @@ export const workbenchChrome = {
   'workbench.gitBranch.popup.search': 'Caută ramuri și acțiuni',
   'workbench.gitBranch.popup.settings': 'Setările meniului de ramuri',
   'workbench.gitBranch.popup.noMatches': 'Nicio ramură sau acțiune nu se potrivește',
-  'workbench.gitBranch.action.updateProject': 'Actualizează proiectul…',
+  'workbench.gitBranch.action.updateWorkspace': 'Actualizează spațiul de lucru (Pull)',
   'workbench.gitBranch.action.commit': 'Commit…',
   'workbench.gitBranch.action.push': 'Push…',
   'workbench.gitBranch.action.newBranch': 'Ramură nouă…',

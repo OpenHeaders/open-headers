@@ -628,7 +628,7 @@ export const workbenchChrome = {
   'workbench.gitBranch.popup.search': 'Search for branches and actions',
   'workbench.gitBranch.popup.settings': 'Branch Popup Settings',
   'workbench.gitBranch.popup.noMatches': 'No branches or actions match',
-  'workbench.gitBranch.action.updateProject': 'Update Project…',
+  'workbench.gitBranch.action.updateWorkspace': 'Update Workspace (Pull)',
   'workbench.gitBranch.action.commit': 'Commit…',
   'workbench.gitBranch.action.push': 'Push…',
   'workbench.gitBranch.action.newBranch': 'New Branch…',

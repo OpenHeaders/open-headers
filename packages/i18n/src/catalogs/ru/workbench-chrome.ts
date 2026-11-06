@@ -657,7 +657,7 @@ export const workbenchChrome = {
   'workbench.gitBranch.popup.search': 'Поиск веток и действий',
   'workbench.gitBranch.popup.settings': 'Настройки меню веток',
   'workbench.gitBranch.popup.noMatches': 'Подходящих веток или действий нет',
-  'workbench.gitBranch.action.updateProject': 'Обновить проект…',
+  'workbench.gitBranch.action.updateWorkspace': 'Обновить рабочее пространство (Pull)',
   'workbench.gitBranch.action.commit': 'Коммит…',
   'workbench.gitBranch.action.push': 'Push…',
   'workbench.gitBranch.action.newBranch': 'Новая ветка…',

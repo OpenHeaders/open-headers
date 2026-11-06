@@ -805,7 +805,7 @@ export const workbenchChrome = {
   'workbench.gitBranch.popup.search': 'Rechercher des branches et des actions',
   'workbench.gitBranch.popup.settings': 'Paramètres du menu des branches',
   'workbench.gitBranch.popup.noMatches': 'Aucune branche ni action ne correspond',
-  'workbench.gitBranch.action.updateProject': 'Mettre à jour le projet…',
+  'workbench.gitBranch.action.updateWorkspace': 'Mettre à jour l’espace de travail (Pull)',
   'workbench.gitBranch.action.commit': 'Commit…',
   'workbench.gitBranch.action.push': 'Push…',
   'workbench.gitBranch.action.newBranch': 'Nouvelle branche…',

@@ -636,7 +636,7 @@ export const workbenchChrome = {
   'workbench.gitBranch.popup.search': '브랜치 및 작업 검색',
   'workbench.gitBranch.popup.settings': '브랜치 팝업 설정',
   'workbench.gitBranch.popup.noMatches': '일치하는 브랜치나 작업이 없습니다',
-  'workbench.gitBranch.action.updateProject': '프로젝트 업데이트…',
+  'workbench.gitBranch.action.updateWorkspace': '워크스페이스 업데이트 (Pull)',
   'workbench.gitBranch.action.commit': '커밋…',
   'workbench.gitBranch.action.push': '푸시…',
   'workbench.gitBranch.action.newBranch': '새 브랜치…',
