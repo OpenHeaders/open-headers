@@ -12,8 +12,8 @@
  * freely). Tabs and layout survive dock switches (module stores);
  * nothing persists across app restarts.
  *
- * This shell owns what is panel-global: the bind/status lifeline
- * (bound + branch), the header composition (PanelHeader while
+ * This shell owns what is panel-global: the bind/status posture
+ * (bound + branch, read from the ONE git status store), the header composition (PanelHeader while
  * unsplit — the single-row law), the chevron beside the `+` (Show Git
  * Console, Settings), the ⋯ Options menu (Show on Double-Click, Close
  * All, Move to, Hide — the reference's tool-window gear mapped onto
@@ -25,7 +25,6 @@
  */
 
 import { DownOutlined, MinusOutlined } from '@ant-design/icons';
-import { hostBridge, type WorkspaceTreeForcePushStateWire } from '@openheaders/core/bridge';
 import { Dropdown, type MenuProps, theme, Tooltip } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useMemo, useReducer, useState, useSyncExternalStore } from 'react';
@@ -43,6 +42,7 @@ import { useActiveWorkspaceId } from '@openheaders/ui/shared/hooks/readers/useAc
 import { useOpenSettings } from '../../../hooks/OpenSettingsContext';
 import { useSettingValue } from '../../../settings/hooks';
 import { useIsDockFocused } from '../../../stores/focus-region-store';
+import { refreshWorkspaceGit, useWorkspaceGitSnapshot } from '../../../stores/git-status-store';
 import GitBindForm from '../../git/GitBindForm';
 import { localWorkspaceTreeTransport } from '../../git/transport';
 import { menuCheckIcon, menuIconGutter } from '../../shared/menu-check';
@@ -70,11 +70,6 @@ const GitLogPanel: React.FC<GitLogPanelProps> = ({ info, dockSlot, onHide, onMov
   const openSettings = useOpenSettings();
   const bottomSplit = useSettingValue('workspaceLayout.bottomPanelSplit') as BottomPanelSplit;
 
-  const [bound, setBound] = useState(false);
-  const [branch, setBranch] = useState<string | null>(null);
-  const [headSha, setHeadSha] = useState<string | null>(null);
-  const [shallow, setShallow] = useState(false);
-  const [forcePush, setForcePush] = useState<WorkspaceTreeForcePushStateWire | null>(null);
   const [tabMenuOpen, setTabMenuOpen] = useState(false);
   const [tabMenuTooltipSuppressed, setTabMenuTooltipSuppressed] = useState(false);
 
@@ -91,54 +86,18 @@ const GitLogPanel: React.FC<GitLogPanelProps> = ({ info, dockSlot, onHide, onMov
     () => getGitLogViewPrefs(prefsKey),
   );
 
-  // Bind/branch lifeline: hydrate once, then fold status frames (the
-  // per-view data loads live in GitLogView / GitConsolePane).
-  const clearStatus = (): void => {
-    setBranch(null);
-    setHeadSha(null);
-    setShallow(false);
-    setForcePush(null);
-  };
-
-  const hydrate = useCallback(async (): Promise<void> => {
-    if (workspaceId === null) {
-      setBound(false);
-      clearStatus();
-      return;
-    }
-    try {
-      const list = await hostBridge.call('oh.workspaceTree.list');
-      const isBound = list.bindings.some((row) => row.workspaceId === workspaceId);
-      setBound(isBound);
-      if (!isBound) {
-        clearStatus();
-        return;
-      }
-      const status = await hostBridge.call('oh.workspaceTree.gitStatus', { workspaceId });
-      setBranch(status.branch);
-      setHeadSha(status.headSha);
-      setShallow(status.shallow);
-      setForcePush(status.forcePush);
-    } catch {
-      setBound(false);
-      clearStatus();
-    }
-  }, [workspaceId]);
-
-  useEffect(() => {
-    void hydrate();
-  }, [hydrate]);
-
-  useEffect(() => {
-    if (workspaceId === null) return;
-    return hostBridge.subscribe('workspaceTreeGitStatus', (payload) => {
-      if (payload.workspaceId !== workspaceId) return;
-      setBound(payload.status.bound);
-      setBranch(payload.status.bound ? payload.status.branch : null);
-      setHeadSha(payload.status.bound ? payload.status.headSha : null);
-      setShallow(payload.status.bound && payload.status.shallow);
-      setForcePush(payload.status.bound ? payload.status.forcePush : null);
-    });
+  // Bind/branch posture from the one git status store — hydrated on
+  // first read, folded from status frames after (the per-view data
+  // loads live in GitLogView / GitConsolePane). A binding made by the
+  // form below asks the store for an explicit re-read.
+  const snapshot = useWorkspaceGitSnapshot(workspaceId);
+  const { bound } = snapshot;
+  const branch = snapshot.status?.branch ?? null;
+  const headSha = snapshot.status?.headSha ?? null;
+  const shallow = snapshot.status?.shallow ?? false;
+  const forcePush = snapshot.status?.forcePush ?? null;
+  const refresh = useCallback((): void => {
+    if (workspaceId !== null) refreshWorkspaceGit(workspaceId);
   }, [workspaceId]);
 
   // §3.4 shallow-clone note: a `--depth` clone's history stops at its
@@ -321,8 +280,8 @@ const GitLogPanel: React.FC<GitLogPanelProps> = ({ info, dockSlot, onHide, onMov
               call={localWorkspaceTreeTransport}
               workspaceId={workspaceId}
               allowFolderPicker
-              onBound={() => void hydrate()}
-              onAdopted={() => void hydrate()}
+              onBound={refresh}
+              onAdopted={refresh}
               testidPrefix="git-tool-bind"
             />
           </div>

@@ -4,15 +4,15 @@
  * the working-tree diff on double-click, and the user-driven pathspec
  * commit with Amend / Sign-off / per-commit hooks. Unbound, the body
  * IS the bind gesture (GitBindForm — the same posture as the Git
- * window); bound, the window refetches on `workspaceTreeGitStatus`
- * frames — no polling. The user's real index is never touched; every
+ * window); the posture (bound, root, status) reads from the ONE git
+ * status store and, bound, the window refetches its changes on every
+ * status frame the store folds — no polling. The user's real index is never touched; every
  * write rides the workspace-tree verb table.
  */
 
 import {
   hostBridge,
   type WorkspaceTreeFileDiffPairWire,
-  type WorkspaceTreeForcePushStateWire,
   type WorkspaceTreeWorkingChangeWire,
 } from '@openheaders/core/bridge';
 import { Alert, App as AntApp, Button } from 'antd';
@@ -26,6 +26,7 @@ import { useActiveWorkspaceId } from '@openheaders/ui/shared/hooks/readers/useAc
 import { postGitPanelReveal } from '../../../../data/git-panel-reveal';
 import GitBindForm from '../../../git/GitBindForm';
 import { localWorkspaceTreeTransport } from '../../../git/transport';
+import { refreshWorkspaceGit, useWorkspaceGitSnapshot } from '../../../../stores/git-status-store';
 import DiffModal from '../DiffModal';
 import ForcePushBanner from '../ForcePushBanner';
 import { GIT_PRIMARY_TAB_KEY, getGitPanelWorkbench } from '../git-panel-view-store';
@@ -71,9 +72,6 @@ const CommitToolPanel: React.FC<CommitToolPanelProps> = ({ info, onHide }) => {
   const headerWiring = useMemo(() => createPanelHeaderWiring({ onHide }), [onHide]);
   const workspaceId = useActiveWorkspaceId();
 
-  const [bound, setBound] = useState(false);
-  const [rootDir, setRootDir] = useState<string | null>(null);
-  const [bypassHooksSetting, setBypassHooksSetting] = useState(false);
   const [rows, setRows] = useState<WorkspaceTreeWorkingChangeWire[]>([]);
   const [selectedRows, setSelectedRows] = useState<readonly WorkspaceTreeWorkingChangeWire[]>([]);
   const [checked, setChecked] = useState<CheckedState>(EMPTY_CHECKED_STATE);
@@ -83,9 +81,6 @@ const CommitToolPanel: React.FC<CommitToolPanelProps> = ({ info, onHide }) => {
   const [committing, setCommitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [diff, setDiff] = useState<WorkspaceTreeFileDiffPairWire | null>(null);
-  const [currentBranch, setCurrentBranch] = useState<string | null>(null);
-  const [headSha, setHeadSha] = useState<string | null>(null);
-  const [forcePush, setForcePush] = useState<WorkspaceTreeForcePushStateWire | null>(null);
   const [pushRecovery, setPushRecovery] = useState(false);
   const [pushOpen, setPushOpen] = useState(false);
   const [pushRejected, setPushRejected] = useState(false);
@@ -96,6 +91,18 @@ const CommitToolPanel: React.FC<CommitToolPanelProps> = ({ info, onHide }) => {
   const formRef = useRef<CommitFormHandle>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const preAmendDraft = useRef<string | null>(null);
+
+  // The posture from the one git status store: hydrated on first
+  // read, folded from status frames after.
+  const snapshot = useWorkspaceGitSnapshot(workspaceId);
+  const { bound, rootDir, status } = snapshot;
+  const bypassHooksSetting = status?.bypassHooks ?? false;
+  const currentBranch = status?.branch ?? null;
+  const headSha = status?.headSha ?? null;
+  const forcePush = status?.forcePush ?? null;
+  const refresh = useCallback((): void => {
+    if (workspaceId !== null) refreshWorkspaceGit(workspaceId);
+  }, [workspaceId]);
 
   const prefs: CommitViewPrefs = useSyncExternalStore(
     useCallback(
@@ -125,50 +132,11 @@ const CommitToolPanel: React.FC<CommitToolPanelProps> = ({ info, onHide }) => {
     }
   }, [workspaceId, prefs.showIgnored]);
 
-  // Bind lifeline + hooks-setting seed: hydrate once, then fold frames.
-  const hydrate = useCallback(async (): Promise<void> => {
-    if (workspaceId === null) {
-      setBound(false);
-      return;
-    }
-    try {
-      const list = await hostBridge.call('oh.workspaceTree.list');
-      const binding = list.bindings.find((row) => row.workspaceId === workspaceId) ?? null;
-      setBound(binding !== null);
-      setRootDir(binding?.rootDir ?? null);
-      if (binding === null) return;
-      const status = await hostBridge.call('oh.workspaceTree.gitStatus', { workspaceId });
-      setBypassHooksSetting(status.bypassHooks);
-      setCurrentBranch(status.branch);
-      setHeadSha(status.headSha);
-      setForcePush(status.forcePush);
-    } catch {
-      setBound(false);
-    }
-  }, [workspaceId]);
-
+  // The changes follow every status frame — a new frame is a new
+  // status object in the store; the first read lands the same way.
   useEffect(() => {
-    void hydrate();
-  }, [hydrate]);
-
-  useEffect(() => {
-    if (!bound) return;
-    void refreshChanges();
-  }, [bound, refreshChanges]);
-
-  useEffect(() => {
-    if (workspaceId === null) return;
-    return hostBridge.subscribe('workspaceTreeGitStatus', (payload) => {
-      if (payload.workspaceId !== workspaceId) return;
-      setBound(payload.status.bound);
-      if (!payload.status.bound) return;
-      setBypassHooksSetting(payload.status.bypassHooks);
-      setCurrentBranch(payload.status.branch);
-      setHeadSha(payload.status.headSha);
-      setForcePush(payload.status.forcePush);
-      void refreshChanges();
-    });
-  }, [workspaceId, refreshChanges]);
+    if (status !== null) void refreshChanges();
+  }, [status, refreshChanges]);
 
   const groups = useMemo(() => splitChangeGroups(rows), [rows]);
   const counter = useMemo(() => countChanges(rows), [rows]);
@@ -620,8 +588,8 @@ const CommitToolPanel: React.FC<CommitToolPanelProps> = ({ info, onHide }) => {
               call={localWorkspaceTreeTransport}
               workspaceId={workspaceId}
               allowFolderPicker
-              onBound={() => void hydrate()}
-              onAdopted={() => void hydrate()}
+              onBound={refresh}
+              onAdopted={refresh}
               testidPrefix="commit-tool-bind"
             />
           </div>
