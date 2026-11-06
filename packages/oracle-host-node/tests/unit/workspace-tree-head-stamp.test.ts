@@ -11,10 +11,10 @@
 import { promises as fs } from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
+import { detachedHeadStamp } from '@openheaders/core/workspace-tree';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { createGitExec, type GitRunner } from '../../src/git/git-exec';
 import { commitWorkspaceTree, ensureWorkspaceRepo, isSafeRefName, repoArgs } from '../../src/git/repo';
-import { detachedHeadStamp } from '../../src/sync/sqlite-mutation-log';
 import { headStampOf } from '../../src/workspace-tree/runtime/branches';
 
 const IDENTITY_ENV = {

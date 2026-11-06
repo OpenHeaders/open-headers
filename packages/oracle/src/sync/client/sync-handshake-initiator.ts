@@ -85,9 +85,11 @@ export interface SyncHandshakeInitiatorDeps {
   /**
    * Fires when the responder reports SYNCED for a scope. The initiator
    * passes the scope id + the peer's `stateVectorAfter` so the wiring
-   * can prune + flush the pending-out queue (Phase C C16).
+   * can prune + flush the pending-out queue (Phase C C16), and the
+   * peer's checked-out HEAD stamp for the scope when the frame carries
+   * one (null otherwise — the git-sync plan §3.5).
    */
-  readonly onSynced: (scope: string, peerVector: StateVector) => Promise<void>;
+  readonly onSynced: (scope: string, peerVector: StateVector, gitHead: string | null) => Promise<void>;
   /** Optional — fired on a rejected WELCOME so the UI can surface the reason. */
   readonly onRejected?: (reason: HandshakeRejectReason, detail?: string) => void;
   /**

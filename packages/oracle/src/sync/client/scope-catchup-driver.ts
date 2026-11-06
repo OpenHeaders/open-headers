@@ -60,9 +60,12 @@ export interface ScopeCatchupDeps {
   /**
    * Fired when the responder reports SYNCED for `scope`. The driver
    * passes the peer's post-catch-up vector so the wiring can prune +
-   * flush the pending-out queue (Phase C C16).
+   * flush the pending-out queue (Phase C C16), and the peer's checked-
+   * out HEAD stamp for the scope when the frame carries one (the
+   * git-sync plan §3.5) — null on the `__global__` scope, on an unbound
+   * workspace and from a responder that predates the field.
    */
-  readonly onSynced: (scope: string, peerVector: StateVector) => Promise<void>;
+  readonly onSynced: (scope: string, peerVector: StateVector, gitHead: string | null) => Promise<void>;
   /** Budget between STATE_VECTOR and SYNCED. Defaults to {@link DEFAULT_CATCHUP_TIMEOUT_MS}. */
   readonly timeoutMs?: number;
   /** Test seam — swap setTimeout / clearTimeout for fake timers. */
@@ -237,7 +240,7 @@ export function createScopeCatchupDriver(deps: ScopeCatchupDeps): ScopeCatchupDr
     // handler resumes and transitions to `synced`.
     clearCatchupTimer();
     try {
-      await deps.onSynced(parsed.output.workspaceId, parsed.output.stateVectorAfter);
+      await deps.onSynced(parsed.output.workspaceId, parsed.output.stateVectorAfter, parsed.output.gitHead ?? null);
     } catch (err) {
       const message = (err as Error)?.message ?? String(err);
       logger.warn(SCOPE, 'onSynced threw — catch-up post-flush failed', err);

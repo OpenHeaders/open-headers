@@ -1696,6 +1696,9 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
         createPeerWorkspacePublicRpc({ store: publishedSnapshots, publicWorkspacesEnabled }),
       ),
       peerPush: composePeerPush(browserLiveRelay.peerPush, proxyRoutingControl.peerPush, captureFeedbackPush.peerPush),
+      // A bound workspace's SYNCED names the branch this host has
+      // checked out (§3.5); the runtime's pointer answers without git.
+      scopeGitHead: (workspaceId) => workspaceTreeRuntime?.headStamp(workspaceId) ?? null,
       httpRequestHandler: admission.wrapHttpHandler(
         (req, res) =>
           healthzHandler(req, res) ||

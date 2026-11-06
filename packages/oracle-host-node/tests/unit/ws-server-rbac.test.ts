@@ -1900,3 +1900,54 @@ describe('delivered-row ledger — a join resumes from its vector and reveals an
     expect(await hostStorage.get(OH.workspaceListDeliveries)).toBeUndefined();
   });
 });
+
+describe('the scope’s checked-out HEAD rides its SYNCED — the git-sync plan §3.5', () => {
+  async function catchUp(client: WebSocket): Promise<Record<string, unknown>> {
+    const synced = new Promise<Record<string, unknown>>((resolve) => {
+      client.on('message', (raw) => {
+        const msg = JSON.parse(raw.toString());
+        if (msg.type === SYNC_SYNCED_TYPE && msg.workspaceId === WS_ID) resolve(msg);
+      });
+    });
+    client.send(JSON.stringify({ type: SYNC_STATE_VECTOR_TYPE, workspaceId: WS_ID, perNodeMaxHlc: {} }));
+    return synced;
+  }
+
+  it('stamps the head the host answers for the scope onto the SYNCED frame', async () => {
+    const nora = await addUserWithGrant('Nora', 'editor');
+    const asked: string[] = [];
+    const port = await freePort();
+    server = await startOracleWsServer({
+      host: '127.0.0.1',
+      port,
+      handshakeIdentity: IDENTITY,
+      scopeGitHead: (workspaceId) => {
+        asked.push(workspaceId);
+        return workspaceId === WS_ID ? 'feature/auth-headers' : null;
+      },
+    });
+    const client = await connectAs(port, nora, 'ext-nora');
+    const synced = await catchUp(client);
+    expect(asked).toEqual([WS_ID]);
+    expect(synced.gitHead).toBe('feature/auth-headers');
+  });
+
+  it('omits the field when the host answers null — an unbound scope — and when no reader is installed', async () => {
+    const nora = await addUserWithGrant('Nora', 'editor');
+    const port = await freePort();
+    server = await startOracleWsServer({
+      host: '127.0.0.1',
+      port,
+      handshakeIdentity: IDENTITY,
+      scopeGitHead: () => null,
+    });
+    const unbound = await catchUp(await connectAs(port, nora, 'ext-nora'));
+    expect(unbound).not.toHaveProperty('gitHead');
+    await server.close();
+
+    const bare = await freePort();
+    server = await startOracleWsServer({ host: '127.0.0.1', port: bare, handshakeIdentity: IDENTITY });
+    const plain = await catchUp(await connectAs(bare, nora, 'ext-nora-2'));
+    expect(plain).not.toHaveProperty('gitHead');
+  });
+});

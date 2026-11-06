@@ -74,7 +74,7 @@ function emptySnapshot(workspaceId: string): WorkspaceSnapshot {
 function makeDeps(overrides: Partial<Parameters<typeof createSyncHandshakeInitiator>[0]> = {}) {
   const send = vi.fn<(frame: object) => boolean>(() => true);
   const applySnapshot = vi.fn<(snapshot: WorkspaceSnapshot) => Promise<void>>(async () => {});
-  const onSynced = vi.fn<(scope: string, peerVector: unknown) => Promise<void>>(async () => {});
+  const onSynced = vi.fn<(scope: string, peerVector: unknown, gitHead: string | null) => Promise<void>>(async () => {});
   const onRejected = vi.fn<(reason: string, detail?: string) => void>();
   const onJoinedOrg = vi.fn<(org: unknown, activeWorkspaceId?: string) => Promise<void>>(async () => {});
   const deps = {
@@ -259,7 +259,7 @@ describe('createSyncHandshakeInitiator — WELCOME → __global__ catch-up', () 
     await initiator.handle(welcomeAccept);
     const synced = globalSynced({ 'desktop-1': { physicalMs: 1_000, logical: 0, nodeId: 'desktop-1' } });
     await initiator.handle(synced);
-    expect(onSynced).toHaveBeenCalledWith(GLOBAL, synced.stateVectorAfter);
+    expect(onSynced).toHaveBeenCalledWith(GLOBAL, synced.stateVectorAfter, null);
     expect(initiator.state()).toBe('synced');
   });
 

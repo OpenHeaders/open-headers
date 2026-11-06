@@ -90,6 +90,8 @@ export interface ConnectionDeps {
   peerRpc?: WsPeerRpcHooks;
   /** Optional peer-facing push seam — see {@link WsPeerPushHooks}. */
   peerPush?: WsPeerPushHooks;
+  /** A scope's checked-out HEAD stamp for its SYNCED — see `OracleWsServerOptions.scopeGitHead`. */
+  scopeGitHead?: (workspaceId: string) => string | null;
 }
 
 /**
@@ -98,7 +100,7 @@ export interface ConnectionDeps {
  * cleanup. All shared state lives in `deps.registry`.
  */
 export function handleConnection(socket: WebSocket, request: IncomingMessage, deps: ConnectionDeps): void {
-  const { registry, handshakeIdentity, reach, classifyLoopback, admission, peerRpc, peerPush } = deps;
+  const { registry, handshakeIdentity, reach, classifyLoopback, admission, peerRpc, peerPush, scopeGitHead } = deps;
   const { ready, peerBySocket, summaryBySocket, alive } = registry;
   // Auth is mandatory on every connection. Loopback is reachable
   // cross-user on a shared box and TCP blocks OS peer-cred, so
@@ -327,12 +329,19 @@ export function handleConnection(socket: WebSocket, request: IncomingMessage, de
           logger.warn(SCOPE, 'STATE_VECTOR raced the socket close; dropping');
           return;
         }
+        // The scope's checked-out HEAD rides its SYNCED (§3.5) — read
+        // here, at the frame, from the workspace-tree runtime's pointer;
+        // the dispatcher validates the scope id and the responder stays
+        // git-blind. The frame names its own scope, never the
+        // connection's HELLO workspace.
+        const scopeId = (parsed as { workspaceId?: unknown }).workspaceId;
+        const gitHead = scopeGitHead && typeof scopeId === 'string' ? scopeGitHead(scopeId) : null;
         void handleStateVector(parsed as Record<string, unknown>, peerConn, {
           // WS-B reach gate on the catch-up path: an off-device peer's
           // snapshot bootstrap + delta replay must omit same-device-only
           // secrets (vault), mirroring the live-broadcast gate so a
           // reconnecting LAN peer can't pull seed history.
-          responder: { offDevicePeer: !isLoopback },
+          responder: { offDevicePeer: !isLoopback, ...(gitHead !== null ? { gitHead } : {}) },
         }).catch((err) => {
           logger.warn(SCOPE, `handleStateVector threw for peer ${peerConn.peerId}`, err);
         });

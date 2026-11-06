@@ -110,6 +110,14 @@ export interface OracleWsServerOptions {
    */
   peerPush?: WsPeerPushHooks;
   /**
+   * The checked-out HEAD stamp of the git working tree a scope's
+   * workspace is bound to, or null when it is not bound (the git-sync
+   * plan §3.5). Consulted per STATE_VECTOR and stamped onto that
+   * scope's SYNCED so a peer can tell the person when this host moved
+   * between two of its connects. Absent = no SYNCED carries a head.
+   */
+  scopeGitHead?: (workspaceId: string) => string | null;
+  /**
    * Override the per-connection loopback classification. Defaults to
    * `isLoopbackRemote` over the socket's remote address. A real
    * bind always sees `127.0.0.1` for same-host clients, so this seam

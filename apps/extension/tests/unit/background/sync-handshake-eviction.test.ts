@@ -17,7 +17,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 // test can invoke `onRejected` / `onSynced` as the transport would.
 let capturedConfig: {
   onRejected?: (reason: string, detail?: string) => void;
-  onSynced?: (scope: unknown, peerVector: unknown) => Promise<void>;
+  onSynced?: (scope: unknown, peerVector: unknown, gitHead: string | null) => Promise<void>;
 } = {};
 
 vi.mock('@openheaders/oracle/sync/client/sync-handshake-initiator', () => ({
@@ -109,7 +109,7 @@ describe('createSyncHandshakeForWire — isBackendEvicting (audit X-1)', () => {
     capturedConfig.onRejected?.(AUTH_REQUIRED);
     expect(handles.isBackendEvicting()).toBe(true);
 
-    await capturedConfig.onSynced?.('scope', {});
+    await capturedConfig.onSynced?.('scope', {}, null);
 
     expect(handles.isBackendEvicting()).toBe(false);
   });

@@ -568,6 +568,14 @@ export interface WorkspaceTreeRuntime {
   notifyAppBlur(): void;
   /** Latest sweep issues per bound workspace — the quarantine seam's surface. */
   issues(workspaceId: string): TreeIssue[];
+  /**
+   * The §6.3 stamp the binding's log pointer currently reflects — the
+   * checked-out HEAD (a branch name, `@{<sha>}` detached, `''` when
+   * HEAD resolves to nothing); null while unbound or before the first
+   * probe. Synchronous: the ws-server stamps it onto a peer's SYNCED
+   * (the git-sync plan §3.5) without touching git.
+   */
+  headStamp(workspaceId: string): string | null;
   dispose(): Promise<void>;
 }
 

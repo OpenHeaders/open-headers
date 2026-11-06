@@ -35,6 +35,7 @@ import {
   recordWorkspaceSnapshotWatermark,
   snapshotAwarenessPresence,
 } from '@openheaders/oracle/sync';
+import { foldScopeGitHead } from '@openheaders/oracle/sync/client/scope-git-head-tracker';
 import type { InitiatorState } from '@openheaders/oracle/sync/client/sync-handshake-initiator';
 import { createSyncHandshakeInitiator } from '@openheaders/oracle/sync/client/sync-handshake-initiator';
 import type { TransportState } from '@openheaders/oracle/sync/client/transport-connection';
@@ -47,6 +48,7 @@ import { peekDaemonToken } from './daemon-token';
 import { handleIncomingDelegatedSocketFrame, handleIncomingDelegatedStreamFrame } from './delegated-wire';
 import { reportServedBackendSlot } from './served-backend-slot';
 import { WEB_DAEMON_BACKEND_ID } from './web-backend-id';
+import { broadcastLocal } from './web-broadcast';
 import { consumedWorkspaceIds, createWireAdoption } from './wire-adoption';
 import { handleInboundWireFrame } from './wire-inbound';
 import { handleIncomingMigrationPullFrame } from './wire-migration-mirror';
@@ -190,9 +192,15 @@ export function installDaemonWire(): DaemonWire {
       }
       return ids;
     },
-    onSynced: async (scope, peerVector) => {
+    onSynced: async (scope, peerVector, gitHead) => {
       await applyPeerVectorToPendingOut(peerVector);
       await flushPendingOut();
+      // The daemon moved its checked-out branch between two of this
+      // tab's connects — the workbench toasts it once (§3.5).
+      const headChange = foldScopeGitHead(scope, gitHead);
+      if (headChange) {
+        broadcastLocal('workspaceGitHeadChanged', { workspaceId: headChange.workspaceId, gitHead: headChange.gitHead });
+      }
       if (scope === EXTENSION_WORKSPACE_GLOBAL_SCOPE) adoption.markGlobalSynced();
       // Push the current presence snapshot so the daemon folds this
       // tab's surfaces immediately rather than on next activity.

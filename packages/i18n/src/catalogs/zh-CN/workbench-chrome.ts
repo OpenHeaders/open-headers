@@ -274,6 +274,8 @@ export const workbenchChrome = {
   'workbench.shell.toast.createEnvironmentFailed': '创建环境失败',
   'workbench.shell.toast.noActiveWorkspace': '没有活动的工作区',
   'workbench.shell.toast.createRuleFailed': '创建规则失败',
+  'workbench.shell.toast.gitHeadBranch': '“{workspace}”在后端已切换到分支 {branch}',
+  'workbench.shell.toast.gitHeadDetached': '“{workspace}”在后端已切换到分离的 HEAD {sha}',
 
   // ── Save: collection modal chrome ───────────────────────────────────
   'workbench.save.title': '保存',

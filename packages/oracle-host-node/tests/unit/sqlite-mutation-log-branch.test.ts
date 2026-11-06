@@ -8,8 +8,8 @@
  */
 
 import { hlcToString, type MutationEnvelope } from '@openheaders/core/sync';
+import { detachedHeadStamp } from '@openheaders/core/workspace-tree';
 import {
-  detachedHeadStamp,
   ensureMutationLogSchema,
   SqliteMutationLog,
   supportsBranchScope,

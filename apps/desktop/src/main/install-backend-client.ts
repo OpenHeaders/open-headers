@@ -136,6 +136,10 @@ export async function installBackendClient(config: InstallBackendClientConfig): 
     onSyncedPresencePush: () => forwardCurrentAwarenessOnConnect('desktop'),
     onJoinedOrg: (orgId) =>
       config.trackProductTelemetry?.({ name: 'share_accepted', route: 'server' }, { workspaceId: orgId }),
+    // A remote backend moved its checked-out branch between two
+    // connects — the renderers toast it once (the git-sync plan §3.5).
+    onScopeGitHeadChanged: (change) =>
+      config.broadcastLocal('workspaceGitHeadChanged', { workspaceId: change.workspaceId, gitHead: change.gitHead }),
     extraInboundHandlers: [(frame) => handleIncomingAwarenessFrame(frame)],
   });
 

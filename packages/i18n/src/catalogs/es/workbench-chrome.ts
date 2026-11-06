@@ -281,6 +281,8 @@ export const workbenchChrome = {
   'workbench.shell.toast.createEnvironmentFailed': 'No se pudo crear el entorno',
   'workbench.shell.toast.noActiveWorkspace': 'No hay espacio de trabajo activo',
   'workbench.shell.toast.createRuleFailed': 'No se pudo crear la regla',
+  'workbench.shell.toast.gitHeadBranch': '"{workspace}" ahora está en la rama {branch} en el back-end',
+  'workbench.shell.toast.gitHeadDetached': '"{workspace}" ahora está desacoplado en {sha} en el back-end',
 
   // ── Save: collection modal chrome ───────────────────────────────────
   'workbench.save.title': 'GUARDAR',

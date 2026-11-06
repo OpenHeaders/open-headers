@@ -89,6 +89,12 @@ interface SupervisorOptions {
    */
   peerPush?: OracleWsServerOptions['peerPush'];
   /**
+   * A scope's checked-out HEAD stamp for its SYNCED (the git-sync plan
+   * §3.5). Passes straight through to `startOracleWsServer` on every
+   * bind the supervisor opens.
+   */
+  scopeGitHead?: OracleWsServerOptions['scopeGitHead'];
+  /**
    * Receives every up-to-date server handle (or null while a rebind is
    * in flight). Wires onto `setMutationForwarderWsServer` and the
    * boot-wiring's local `wsServer` reference.
@@ -177,6 +183,7 @@ export async function startDaemonBindSupervisor(options: SupervisorOptions): Pro
         admission: options.admission,
         peerRpc: options.peerRpc,
         peerPush: options.peerPush,
+        scopeGitHead: options.scopeGitHead,
       });
       if (disposed) {
         await next.close().catch(() => undefined);

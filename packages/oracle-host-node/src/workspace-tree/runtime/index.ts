@@ -751,6 +751,10 @@ export function createWorkspaceTreeRuntime(options: WorkspaceTreeRuntimeOptions)
       return open.get(workspaceId)?.issues ?? [];
     },
 
+    headStamp(workspaceId: string): string | null {
+      return open.get(workspaceId)?.logHead ?? null;
+    },
+
     async dispose(): Promise<void> {
       disposed = true;
       for (const binding of [...open.values()]) {

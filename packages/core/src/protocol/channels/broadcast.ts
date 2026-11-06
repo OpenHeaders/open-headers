@@ -412,6 +412,17 @@ export interface BridgeBroadcastContract {
   workspaceTreeGitStatus: { workspaceId: string; status: WorkspaceTreeGitStatusWire };
 
   /**
+   * A backend this host consumes a workspace from answered a (re)connect's
+   * catch-up on a different checked-out HEAD than it answered the last
+   * time (the git-sync plan §3.5 — reconnect across a checkout). Fired
+   * by the client plane's head tracker once per change, never on the
+   * first SYNCED for a workspace; `gitHead` is the §6.3 stamp (a branch
+   * name or `@{<sha>}` detached). The workbench names the workspace and
+   * the branch in one toast.
+   */
+  workspaceGitHeadChanged: { workspaceId: string; gitHead: string };
+
+  /**
    * Sync-engine broadcast — every committed mutation envelope and its
    * mutator outcome, re-published from the local oracle's broadcast
    * bus (Phase A). Surfaces dedup by `envelope.mutationId` and replay

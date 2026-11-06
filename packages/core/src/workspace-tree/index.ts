@@ -54,6 +54,7 @@ export {
   type TreeSlotReader,
   withOrder,
 } from './order';
+export { DETACHED_HEAD_STAMP_PREFIX, detachedHeadStamp, type HeadStampReading, readHeadStamp } from './head-stamp';
 export { planWorkspaceTree, serializeWorkspaceManifest } from './plan';
 export { readWorkspaceTree } from './read';
 export type {

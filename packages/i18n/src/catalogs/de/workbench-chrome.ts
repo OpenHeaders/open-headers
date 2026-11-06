@@ -281,6 +281,8 @@ export const workbenchChrome = {
   'workbench.shell.toast.createEnvironmentFailed': 'Umgebung konnte nicht erstellt werden',
   'workbench.shell.toast.noActiveWorkspace': 'Kein aktiver Arbeitsbereich',
   'workbench.shell.toast.createRuleFailed': 'Regel konnte nicht erstellt werden',
+  'workbench.shell.toast.gitHeadBranch': '„{workspace}“ steht auf dem Back-end jetzt auf dem Branch {branch}',
+  'workbench.shell.toast.gitHeadDetached': '„{workspace}“ steht auf dem Back-end jetzt losgelöst auf {sha}',
 
   // ── Save: collection modal chrome ───────────────────────────────────
   'workbench.save.title': 'SPEICHERN',

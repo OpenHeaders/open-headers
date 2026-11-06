@@ -60,7 +60,7 @@ function emptySnapshot(workspaceId: string): WorkspaceSnapshot {
 function makeDeps(overrides: Partial<Parameters<typeof createScopeCatchupDriver>[0]> = {}) {
   const send = vi.fn<(frame: object) => boolean>(() => true);
   const applySnapshot = vi.fn<(snapshot: WorkspaceSnapshot) => Promise<void>>(async () => {});
-  const onSynced = vi.fn<(scope: string, peerVector: unknown) => Promise<void>>(async () => {});
+  const onSynced = vi.fn<(scope: string, peerVector: unknown, gitHead: string | null) => Promise<void>>(async () => {});
   const deps = { send, readStateVector: async () => ({}), applySnapshot, onSynced, ...overrides };
   return { deps, send, applySnapshot, onSynced };
 }
@@ -84,7 +84,16 @@ describe('createScopeCatchupDriver', () => {
     expect(applySnapshot).toHaveBeenCalledTimes(1);
     expect(driver.state()).toBe('catching-up');
     await driver.handle({ type: SYNC_SYNCED_TYPE, workspaceId: 'ws-7', stateVectorAfter: {} });
-    expect(onSynced).toHaveBeenCalledWith('ws-7', {});
+    expect(onSynced).toHaveBeenCalledWith('ws-7', {}, null);
+    expect(driver.state()).toBe('synced');
+  });
+
+  it('hands the SYNCED frame’s checked-out HEAD stamp to onSynced when it carries one (§3.5)', async () => {
+    const { deps, onSynced } = makeDeps();
+    const driver = createScopeCatchupDriver(deps);
+    await driver.start('ws-7');
+    await driver.handle({ type: SYNC_SYNCED_TYPE, workspaceId: 'ws-7', stateVectorAfter: {}, gitHead: 'main' });
+    expect(onSynced).toHaveBeenCalledWith('ws-7', {}, 'main');
     expect(driver.state()).toBe('synced');
   });
 
@@ -111,7 +120,7 @@ describe('createScopeCatchupDriver', () => {
     expect(driver.state()).toBe('vector-sent');
     expect(send.mock.calls[1][0]).toMatchObject({ type: SYNC_STATE_VECTOR_TYPE, workspaceId: 'ws-7' });
     await driver.handle({ type: SYNC_SYNCED_TYPE, workspaceId: 'ws-7', stateVectorAfter: {} });
-    expect(onSynced).toHaveBeenNthCalledWith(2, 'ws-7', {});
+    expect(onSynced).toHaveBeenNthCalledWith(2, 'ws-7', {}, null);
   });
 
   it('ignores start(scope) while a catch-up is still running', async () => {

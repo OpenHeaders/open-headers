@@ -280,6 +280,8 @@ export const workbenchChrome = {
   'workbench.shell.toast.createEnvironmentFailed': '환경을 만들지 못했습니다',
   'workbench.shell.toast.noActiveWorkspace': '활성 워크스페이스 없음',
   'workbench.shell.toast.createRuleFailed': '규칙을 만들지 못했습니다',
+  'workbench.shell.toast.gitHeadBranch': '"{workspace}"이(가) 백엔드에서 {branch} 브랜치로 전환되었습니다',
+  'workbench.shell.toast.gitHeadDetached': '"{workspace}"이(가) 백엔드에서 {sha}의 분리된 상태로 전환되었습니다',
 
   // ── Save: collection modal chrome ───────────────────────────────────
   'workbench.save.title': '저장',

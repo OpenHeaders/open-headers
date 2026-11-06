@@ -127,6 +127,7 @@ import {
 } from './hooks/useToolLayout';
 import { useUrlWorkspaceBindingMirror } from './hooks/useUrlWorkspaceBindingMirror';
 import { useWorkbenchShortcutActions } from './hooks/useWorkbenchShortcutActions';
+import { useGitHeadNotice } from './hooks/useGitHeadNotice';
 import { useWorkbenchSidebarState } from './hooks/useWorkbenchSidebarState';
 import { useWorkbenchWorkspaceSlice } from './hooks/useWorkbenchWorkspaceSlice';
 import { subscribeGitPanelReveal } from './data/git-panel-reveal';
@@ -494,6 +495,9 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
   // as a standing suggestion with the relaunch remedy; the footer's
   // status pill carries the same fact as a red `secrets` row.
   useSecretsStorageNotice();
+  // A consumed workspace's backend moved its checked-out branch between
+  // two connects — one toast names the workspace and the branch.
+  useGitHeadNotice();
   // Browser hosts without the companion desktop app get a standing
   // download suggestion; self-gates off on the desktop shell.
   useDesktopAppSuggestion();

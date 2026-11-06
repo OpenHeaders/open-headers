@@ -275,6 +275,8 @@ export const workbenchChrome = {
   'workbench.shell.toast.createEnvironmentFailed': "Impossible de créer l'environnement",
   'workbench.shell.toast.noActiveWorkspace': 'Aucun espace de travail actif',
   'workbench.shell.toast.createRuleFailed': 'Impossible de créer la règle',
+  'workbench.shell.toast.gitHeadBranch': '« {workspace} » est maintenant sur la branche {branch} côté back-end',
+  'workbench.shell.toast.gitHeadDetached': '« {workspace} » est maintenant détaché sur {sha} côté back-end',
 
   // ── Save: collection modal chrome ───────────────────────────────────
   'workbench.save.title': 'ENREGISTRER',

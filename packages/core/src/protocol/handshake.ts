@@ -384,12 +384,25 @@ export interface SyncSyncedMessage {
   type: typeof SYNC_SYNCED_TYPE;
   workspaceId: string;
   stateVectorAfter: StateVector;
+  /**
+   * The responder's checked-out HEAD for this scope when the scope is a
+   * workspace bound to a git working tree (the git-sync plan §3.5): the
+   * §6.3 stamp — a branch NAME, `@{<sha>}` detached, `''` when HEAD
+   * resolves to nothing. A peer compares it with the stamp the previous
+   * SYNCED for the workspace carried and tells the person once when the
+   * host moved while they were away. Absent on the `__global__` scope,
+   * on an unbound workspace, on a scope the peer may not read, and from
+   * a responder that predates the field. Additive — the protocol
+   * integer stays.
+   */
+  gitHead?: string;
 }
 
 export const SyncSyncedMessageSchema = v.object({
   type: v.literal(SYNC_SYNCED_TYPE),
   workspaceId: v.pipe(v.string(), v.minLength(1)),
   stateVectorAfter: StateVectorSchema,
+  gitHead: v.optional(v.string()),
 }) satisfies v.GenericSchema<SyncSyncedMessage>;
 
 // ── Union ─────────────────────────────────────────────────────────────

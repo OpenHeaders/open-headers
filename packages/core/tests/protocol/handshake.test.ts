@@ -163,6 +163,18 @@ describe('SyncSyncedMessageSchema', () => {
   it('round-trips a SYNCED ack', () => {
     expect(v.parse(SyncSyncedMessageSchema, msg)).toEqual(msg);
   });
+
+  it('carries the responder’s checked-out HEAD stamp when present — branch name, detached, or none (§3.5)', () => {
+    for (const gitHead of ['main', '@{0123456789abcdef0123456789abcdef01234567}', '']) {
+      const stamped: SyncSyncedMessage = { ...msg, gitHead };
+      expect(v.parse(SyncSyncedMessageSchema, stamped)).toEqual(stamped);
+    }
+  });
+
+  it('rejects a gitHead that is not a string', () => {
+    expect(() => v.parse(SyncSyncedMessageSchema, { ...msg, gitHead: 7 })).toThrow();
+    expect(() => v.parse(SyncSyncedMessageSchema, { ...msg, gitHead: null })).toThrow();
+  });
 });
 
 describe('SyncHandshakeMessageSchema (union)', () => {

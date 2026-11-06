@@ -11,6 +11,7 @@ import { detectBrowser, readHostProbe } from '@openheaders/core/utils';
 import { forwardCurrentAwarenessOnConnect } from '@openheaders/oracle/sync/client/awareness-forwarder';
 import { handleIncomingAwarenessFrame } from '@openheaders/oracle/sync/client/awareness-receiver';
 import { installBackendSyncPlane, type SyncWiring } from '@openheaders/oracle/sync/client/backend-sync-plane';
+import { broadcast } from '@utils/bridge';
 import { runtime } from '@utils/browser-api';
 import { handleIncomingMigrationPullFrame } from '../modules/migration-mirror';
 import { trackProductTelemetryEvent } from '../modules/product-telemetry';
@@ -29,6 +30,10 @@ export function installWsFrameRouting(): SyncWiring {
     // v2 plan §4), once per Org on this install.
     onJoinedOrg: (orgId) =>
       trackProductTelemetryEvent({ name: 'share_accepted', route: 'server' }, { workspaceId: orgId }),
+    // A backend moved its checked-out branch between two connects — the
+    // open pages toast it once (the git-sync plan §3.5).
+    onScopeGitHeadChanged: (change) =>
+      broadcast('workspaceGitHeadChanged', { workspaceId: change.workspaceId, gitHead: change.gitHead }),
     extraInboundHandlers: [
       (frame) => handleIncomingAwarenessFrame(frame),
       (frame) => handleIncomingMigrationPullFrame(frame),

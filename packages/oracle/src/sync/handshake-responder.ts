@@ -133,6 +133,16 @@ export interface RespondToStateVectorOptions {
    * {@link workspaceListRowFilter}; the filter still gates every row.
    */
   readonly workspaceListRevealIds?: ReadonlySet<string>;
+  /**
+   * The host's checked-out HEAD for this scope — the §6.3 stamp of the
+   * git working tree the workspace is bound to (the git-sync plan
+   * §3.5), stamped onto the closing SYNCED so a peer can tell the
+   * person when the host moved between two of its connects. The host
+   * supplies it; the responder stays git-blind. Absent (the default)
+   * on an unbound workspace and on the `__global__` scope — the SYNCED
+   * then carries no `gitHead`.
+   */
+  readonly gitHead?: string;
 }
 
 export interface RespondToStateVectorResult {
@@ -235,6 +245,7 @@ export async function respondToStateVector(
     type: SYNC_SYNCED_TYPE,
     workspaceId,
     stateVectorAfter,
+    ...(options.gitHead !== undefined ? { gitHead: options.gitHead } : {}),
   };
   const syncedSent = reply.send(syncedFrame);
   return { sentSnapshot, deltasSent, syncedSent, stateVectorAfter };

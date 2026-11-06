@@ -304,6 +304,8 @@ export const workbenchChrome = {
   'workbench.shell.toast.createEnvironmentFailed': 'Crearea mediului a eșuat',
   'workbench.shell.toast.noActiveWorkspace': 'Niciun spațiu de lucru activ',
   'workbench.shell.toast.createRuleFailed': 'Crearea regulii a eșuat',
+  'workbench.shell.toast.gitHeadBranch': '„{workspace}” este acum pe ramura {branch} pe backend',
+  'workbench.shell.toast.gitHeadDetached': '„{workspace}” este acum detașat la {sha} pe backend',
 
   // ── Save: collection modal chrome ───────────────────────────────────
   'workbench.save.title': 'SALVARE',

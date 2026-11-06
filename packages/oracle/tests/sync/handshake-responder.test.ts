@@ -398,3 +398,33 @@ describe('respondToStateVector — workspace-list row filter (Phase 5 slice 2)',
     });
   });
 });
+
+describe('respondToStateVector — the scope’s checked-out HEAD on SYNCED (the git-sync plan §3.5)', () => {
+  beforeEach(() => {
+    deltaEnvelopes.length = 0;
+    vi.mocked(buildSnapshotForWorkspace).mockImplementation(async () => emptySnapshot());
+  });
+
+  it('stamps the host-supplied gitHead onto the closing SYNCED frame', async () => {
+    const reply = collectingReply();
+    const result = await respondToStateVector(MESSAGE, reply, { gitHead: 'feature/auth-headers' });
+    expect(result.syncedSent).toBe(true);
+    const synced = reply.frames.find((f) => f.type === SYNC_SYNCED_TYPE) as Record<string, unknown> | undefined;
+    expect(synced?.gitHead).toBe('feature/auth-headers');
+  });
+
+  it('forwards the empty stamp — HEAD resolving to nothing is still a stamp', async () => {
+    const reply = collectingReply();
+    await respondToStateVector(MESSAGE, reply, { gitHead: '' });
+    const synced = reply.frames.find((f) => f.type === SYNC_SYNCED_TYPE) as Record<string, unknown> | undefined;
+    expect(synced).toHaveProperty('gitHead', '');
+  });
+
+  it('omits the field entirely when the host supplies no head — an unbound scope', async () => {
+    const reply = collectingReply();
+    await respondToStateVector(MESSAGE, reply, {});
+    const synced = reply.frames.find((f) => f.type === SYNC_SYNCED_TYPE) as Record<string, unknown> | undefined;
+    expect(synced).toBeDefined();
+    expect(synced).not.toHaveProperty('gitHead');
+  });
+});

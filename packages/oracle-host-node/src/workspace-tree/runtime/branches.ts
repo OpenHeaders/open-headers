@@ -8,6 +8,7 @@
  */
 
 import { logger } from '@openheaders/core/utils';
+import { detachedHeadStamp } from '@openheaders/core/workspace-tree';
 import {
   createLocalBranch,
   currentBranch,
@@ -23,7 +24,7 @@ import {
   resolveRefSha,
   updateBranchFromUpstream,
 } from '../../git';
-import { detachedHeadStamp, supportsBranchScope } from '../../sync/sqlite-mutation-log';
+import { supportsBranchScope } from '../../sync/sqlite-mutation-log';
 import { mergeWorkspaceBranch } from '../merge';
 import { type SwitchDirtyAction, switchWorkspaceBranch } from '../switch';
 import { syntheticIdentity } from './commit';

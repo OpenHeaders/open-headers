@@ -21,6 +21,7 @@ import { recordWorkspaceSnapshotWatermark } from '../snapshot-watermark';
 import { readWorkspaceStateVector } from '../state-vector-reader';
 import type { BackendWireHandle } from './backend-connection-manager';
 import { applyPeerStateVectorToPendingOut, flushPendingOutToBackend } from './mutation-forwarder';
+import { foldScopeGitHead, type ScopeGitHeadChange } from './scope-git-head-tracker';
 import { createSyncHandshakeInitiator } from './sync-handshake-initiator';
 import { reportBackendSyncStatus } from './sync-status-aggregate';
 
@@ -61,6 +62,15 @@ export interface BackendWireHandshakeDeps {
    * a share, and never fires it.
    */
   readonly onJoinedOrg?: (orgId: string) => void;
+  /**
+   * Optional host hook fired when a backend answers a workspace's
+   * catch-up on a different checked-out HEAD than its previous answer
+   * (the git-sync plan §3.5) — once per change, never on the first
+   * SYNCED. The host fans it to its surfaces as the
+   * `workspaceGitHeadChanged` broadcast; a host without a workbench
+   * omits it.
+   */
+  readonly onScopeGitHeadChanged?: (change: ScopeGitHeadChange) => void;
 }
 
 export interface SyncHandshakeHandles {
@@ -164,13 +174,18 @@ export function createSyncHandshakeForWire(
         releaseWorkspaceService(snapshot.workspaceId);
       }
     },
-    onSynced: async (_scope, peerVector) => {
+    onSynced: async (scope, peerVector, gitHead) => {
       // A clean sync proves the backend accepted us — clear any sticky
       // eviction so the offline election treats a later partition as a
       // genuine outage again (audit X-1).
       lastRejectReason = null;
       await applyPeerStateVectorToPendingOut(wire.backendId, peerVector);
       await flushPendingOutToBackend(wire.backendId);
+      // The host moved its checked-out HEAD since this workspace's last
+      // catch-up — the edits just flushed landed on the branch it is on
+      // NOW (§3.5); the person hears it once.
+      const headChange = foldScopeGitHead(scope, gitHead);
+      if (headChange) deps.onScopeGitHeadChanged?.(headChange);
       tryAdoptPendingWorkspace();
       // Awareness is ephemeral and only flows on local publish events.
       // The host pushes its current snapshot now so the peer folds this

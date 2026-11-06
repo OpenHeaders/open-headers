@@ -165,14 +165,6 @@ export function supportsBranchScope(log: MutationLog): log is BranchScopedMutati
   return typeof (log as Partial<BranchScopedMutationLog>).setActiveBranch === 'function';
 }
 
-/** Opening of a detached-HEAD stamp — a sequence no ref name may contain. */
-export const DETACHED_HEAD_STAMP_PREFIX = '@{';
-
-/** The §6.3 stamp of rows appended while HEAD is detached at `sha` (the git-sync plan §3.4): `@{<sha>}`. */
-export function detachedHeadStamp(sha: string): string {
-  return `${DETACHED_HEAD_STAMP_PREFIX}${sha}}`;
-}
-
 /** One row of a keyset page: the envelope plus the cursor columns the next page starts above. */
 interface PageRow {
   envelope_json: string;

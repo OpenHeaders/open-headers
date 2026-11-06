@@ -180,6 +180,7 @@ export async function startOracleWsServer(options: OracleWsServerOptions): Promi
       admission: options.admission,
       peerRpc: options.peerRpc,
       peerPush: options.peerPush,
+      scopeGitHead: options.scopeGitHead,
     });
   });
 
