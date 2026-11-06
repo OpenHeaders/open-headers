@@ -623,6 +623,7 @@ export const workbenchChrome = {
   'workbench.gitLog.rail.groupByDirectory': 'Grupare după director',
   'workbench.gitLog.rail.expandAll': 'Extindere toate',
   'workbench.gitLog.rail.collapseAll': 'Restrângere toate',
+  'workbench.gitLog.rail.moreActions': 'Mai multe acțiuni',
   'workbench.gitLog.createBranch.title': 'Creare ramură din {from}',
   'workbench.gitLog.createBranch.nameLabel': 'Nume ramură:',
   'workbench.gitLog.createBranch.checkout': 'Comutare pe ramură',

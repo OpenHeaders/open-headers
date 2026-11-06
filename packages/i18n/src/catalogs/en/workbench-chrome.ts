@@ -587,6 +587,7 @@ export const workbenchChrome = {
   'workbench.gitLog.rail.groupByDirectory': 'Group By Directory',
   'workbench.gitLog.rail.expandAll': 'Expand All',
   'workbench.gitLog.rail.collapseAll': 'Collapse All',
+  'workbench.gitLog.rail.moreActions': 'More actions',
   'workbench.gitLog.createBranch.title': 'Create Branch from {from}',
   'workbench.gitLog.createBranch.nameLabel': 'Branch Name:',
   'workbench.gitLog.createBranch.checkout': 'Checkout branch',

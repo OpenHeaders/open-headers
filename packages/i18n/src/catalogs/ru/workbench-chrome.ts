@@ -616,6 +616,7 @@ export const workbenchChrome = {
   'workbench.gitLog.rail.groupByDirectory': 'Группировать по каталогу',
   'workbench.gitLog.rail.expandAll': 'Развернуть всё',
   'workbench.gitLog.rail.collapseAll': 'Свернуть всё',
+  'workbench.gitLog.rail.moreActions': 'Другие действия',
   'workbench.gitLog.createBranch.title': 'Создать ветку от {from}',
   'workbench.gitLog.createBranch.nameLabel': 'Имя ветки:',
   'workbench.gitLog.createBranch.checkout': 'Переключиться на ветку',

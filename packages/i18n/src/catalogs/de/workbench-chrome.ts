@@ -761,6 +761,7 @@ export const workbenchChrome = {
   'workbench.gitLog.rail.groupByDirectory': 'Nach Verzeichnis gruppieren',
   'workbench.gitLog.rail.expandAll': 'Alle aufklappen',
   'workbench.gitLog.rail.collapseAll': 'Alle zuklappen',
+  'workbench.gitLog.rail.moreActions': 'Weitere Aktionen',
   'workbench.gitLog.createBranch.title': 'Branch aus {from} erstellen',
   'workbench.gitLog.createBranch.nameLabel': 'Branch-Name:',
   'workbench.gitLog.createBranch.checkout': 'Branch auschecken',

@@ -595,6 +595,7 @@ export const workbenchChrome = {
   'workbench.gitLog.rail.groupByDirectory': '디렉터리별 그룹',
   'workbench.gitLog.rail.expandAll': '모두 펼치기',
   'workbench.gitLog.rail.collapseAll': '모두 접기',
+  'workbench.gitLog.rail.moreActions': '추가 작업',
   'workbench.gitLog.createBranch.title': '{from}에서 브랜치 만들기',
   'workbench.gitLog.createBranch.nameLabel': '브랜치 이름:',
   'workbench.gitLog.createBranch.checkout': '브랜치 체크아웃',

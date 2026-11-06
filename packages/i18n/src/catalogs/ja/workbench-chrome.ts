@@ -595,6 +595,7 @@ export const workbenchChrome = {
   'workbench.gitLog.rail.groupByDirectory': 'ディレクトリでグループ化',
   'workbench.gitLog.rail.expandAll': 'すべて展開',
   'workbench.gitLog.rail.collapseAll': 'すべて折りたたむ',
+  'workbench.gitLog.rail.moreActions': 'その他の操作',
   'workbench.gitLog.createBranch.title': '{from} からブランチを作成',
   'workbench.gitLog.createBranch.nameLabel': 'ブランチ名：',
   'workbench.gitLog.createBranch.checkout': 'ブランチをチェックアウト',

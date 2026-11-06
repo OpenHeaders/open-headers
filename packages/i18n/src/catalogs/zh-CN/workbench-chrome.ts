@@ -582,6 +582,7 @@ export const workbenchChrome = {
   'workbench.gitLog.rail.groupByDirectory': '按目录分组',
   'workbench.gitLog.rail.expandAll': '全部展开',
   'workbench.gitLog.rail.collapseAll': '全部折叠',
+  'workbench.gitLog.rail.moreActions': '更多操作',
   'workbench.gitLog.createBranch.title': '从 {from} 创建分支',
   'workbench.gitLog.createBranch.nameLabel': '分支名称：',
   'workbench.gitLog.createBranch.checkout': '检出分支',

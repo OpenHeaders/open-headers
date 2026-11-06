@@ -764,6 +764,7 @@ export const workbenchChrome = {
   'workbench.gitLog.rail.groupByDirectory': 'Grouper par répertoire',
   'workbench.gitLog.rail.expandAll': 'Tout développer',
   'workbench.gitLog.rail.collapseAll': 'Tout réduire',
+  'workbench.gitLog.rail.moreActions': 'Autres actions',
   'workbench.gitLog.createBranch.title': 'Créer une branche depuis {from}',
   'workbench.gitLog.createBranch.nameLabel': 'Nom de la branche :',
   'workbench.gitLog.createBranch.checkout': 'Basculer sur la branche',

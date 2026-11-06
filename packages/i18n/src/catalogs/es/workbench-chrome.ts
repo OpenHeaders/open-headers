@@ -762,6 +762,7 @@ export const workbenchChrome = {
   'workbench.gitLog.rail.groupByDirectory': 'Agrupar por directorio',
   'workbench.gitLog.rail.expandAll': 'Expandir todo',
   'workbench.gitLog.rail.collapseAll': 'Contraer todo',
+  'workbench.gitLog.rail.moreActions': 'Más acciones',
   'workbench.gitLog.createBranch.title': 'Crear rama desde {from}',
   'workbench.gitLog.createBranch.nameLabel': 'Nombre de la rama:',
   'workbench.gitLog.createBranch.checkout': 'Cambiar a la rama',
