@@ -113,3 +113,54 @@ export function allDirKeys(nodes: readonly FileTreeNode[]): string[] {
   }
   return keys;
 }
+
+/** One visible row of the tree in render order — the selection model's order and the keyboard's walk. */
+export interface FileTreeRow {
+  /** The dir's key or the file's path — the selection id. */
+  key: string;
+  kind: 'dir' | 'file';
+  depth: number;
+  /** The enclosing dir's key; null at the root. */
+  parentKey: string | null;
+  /** A dir's open state; absent on a file. */
+  expanded?: boolean;
+}
+
+/** The rows the tree paints, top to bottom, with every collapsed dir's subtree left out. */
+export function visibleFileTreeRows(nodes: readonly FileTreeNode[], collapsed: ReadonlySet<string>): FileTreeRow[] {
+  const rows: FileTreeRow[] = [];
+  const walk = (list: readonly FileTreeNode[], depth: number, parentKey: string | null): void => {
+    for (const node of list) {
+      if (node.kind === 'file') {
+        rows.push({ key: node.path, kind: 'file', depth, parentKey });
+        continue;
+      }
+      const expanded = !collapsed.has(node.key);
+      rows.push({ key: node.key, kind: 'dir', depth, parentKey, expanded });
+      if (expanded) walk(node.children, depth + 1, node.key);
+    }
+  };
+  walk(nodes, 0, null);
+  return rows;
+}
+
+/**
+ * The file the single-row verbs act on after a gesture: `preferred`
+ * when it is a selected file, else the first selected file in row
+ * order, else none (a dir-only selection has no diff target).
+ */
+export function leadFilePath(
+  rows: readonly FileTreeRow[],
+  selected: ReadonlySet<string>,
+  preferred: string | null,
+): string | null {
+  if (
+    preferred !== null &&
+    selected.has(preferred) &&
+    rows.some((row) => row.kind === 'file' && row.key === preferred)
+  ) {
+    return preferred;
+  }
+  const first = rows.find((row) => row.kind === 'file' && selected.has(row.key));
+  return first?.key ?? null;
+}

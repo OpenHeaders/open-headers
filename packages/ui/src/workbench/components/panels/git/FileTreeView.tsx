@@ -4,22 +4,31 @@
  * `N files` badge, or flat full-path rows while Group By Directory is
  * off), filenames in the UI face behind the Commit tree's file-type
  * icon and colored by porcelain status. With a selection
- * handler wired (the log pane), a click selects the row and a
- * double-click opens the diff — the pane toolbar's Show Diff drives
- * the selection; without one (the compare pane) a click opens the diff
- * directly and the built-in header keeps the expand/collapse pair.
- * Expand All / Collapse All also arrive through the imperative handle
- * when the toolbar lives outside.
+ * handler wired (the log pane, the Push window) the rows ride the
+ * shared selection model: a click selects a row alone, Cmd/Ctrl+click
+ * toggles, Shift+click ranges from the anchor across dirs and files;
+ * the caret and a double-click toggle a dir, a double-click opens a
+ * file; Up/Down walk the rows (Shift extends), Right expands / steps
+ * in, Left collapses / steps to the parent, Enter opens the cursor's
+ * file or toggles its dir; a right-click keeps a selection it lands in.
+ * The pane's verbs (Show Diff, Jump to Source, the row menu) act on
+ * ONE file — the tree reports it: the clicked file while it stays
+ * selected, else the first selected file, else none. Without a
+ * selection handler (the compare pane) a click opens the diff directly
+ * and the built-in header keeps the expand/collapse pair. Expand All /
+ * Collapse All also arrive through the imperative handle when the
+ * toolbar lives outside.
  */
 
 import { CaretDownOutlined, CaretRightOutlined } from '@ant-design/icons';
 import { Button, Dropdown, type MenuProps, Spin, theme } from 'antd';
 import type React from 'react';
-import { forwardRef, useImperativeHandle, useMemo, useState } from 'react';
+import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { CollapseAllIcon, ExpandAllIcon } from '@openheaders/ui/shared/icons';
+import { clickModifiers, selectOnClick, selectOnStep, useMultiSelection } from '@openheaders/ui/shared/selection';
 import { FileTypeIcon, FolderTypeIcon } from './commit/FileTypeIcon';
-import { allDirKeys, buildFileTree, type FileTreeNode } from './file-tree';
+import { allDirKeys, buildFileTree, type FileTreeNode, leadFilePath, visibleFileTreeRows } from './file-tree';
 import { contextMenuAlign } from './git-menu-overflow';
 
 /** Porcelain status letter → theme color, (added green,
@@ -45,7 +54,8 @@ export interface FileTreeViewProps {
   onOpenFile: (path: string) => void;
   /** Selection wiring (the log pane): click selects, double-click opens. */
   selectedPath?: string | null;
-  onSelectFile?: (path: string) => void;
+  /** The file the pane's verbs act on after a gesture — null when no file is selected. */
+  onSelectFile?: (path: string | null) => void;
   /** Group By Directory (details eye) — off renders flat full paths. */
   groupByDirectory?: boolean;
   /** Legacy inline header (compare pane) — heading + expand/collapse. */
@@ -68,11 +78,16 @@ const FileTreeView = forwardRef<FileTreeViewHandle, FileTreeViewProps>(function 
 ) {
   const { token } = theme.useToken();
   const t = useT();
+  const containerRef = useRef<HTMLDivElement>(null);
   const tree = useMemo(() => buildFileTree(files, groupByDirectory), [files, groupByDirectory]);
   const dirKeys = useMemo(() => allDirKeys(tree), [tree]);
   // Starts fully expanded (the reference default) — the orchestrator keys this
   // component by commit sha, so a fresh selection resets the state.
   const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(new Set());
+  const rows = useMemo(() => visibleFileTreeRows(tree, collapsed), [tree, collapsed]);
+  const order = useMemo(() => rows.map((row) => row.key), [rows]);
+  const { selection, isSelected, click, step, contextMenu } = useMultiSelection(order);
+  const selectable = onSelectFile !== undefined;
 
   useImperativeHandle(
     handleRef,
@@ -82,6 +97,79 @@ const FileTreeView = forwardRef<FileTreeViewHandle, FileTreeViewProps>(function 
     }),
     [dirKeys],
   );
+
+  // A file the pane names from outside (its remembered path) becomes
+  // the selection when its row is visible and not yet selected.
+  useEffect(() => {
+    if (!selectable || selectedPath === null || selectedPath === undefined) return;
+    if (!selection.ids.has(selectedPath) && order.includes(selectedPath)) step(selectedPath, false);
+  }, [selectable, selectedPath, selection, order, step]);
+
+  const setCollapsedKey = (key: string, collapse: boolean): void =>
+    setCollapsed((prev) => {
+      const next = new Set(prev);
+      if (collapse) next.add(key);
+      else next.delete(key);
+      return next;
+    });
+  const toggleCollapse = (key: string): void => setCollapsedKey(key, !collapsed.has(key));
+
+  const report = (ids: ReadonlySet<string>, preferred: string | null): void =>
+    onSelectFile?.(leadFilePath(rows, ids, preferred));
+
+  const handleRowClick = (key: string, event: React.MouseEvent): void => {
+    const next = selectOnClick(selection, order, key, clickModifiers(event));
+    click(key, event);
+    report(next.ids, key);
+  };
+
+  const handleRowContextMenu = (key: string): void => {
+    contextMenu(key);
+    report(selection.ids.has(key) ? selection.ids : new Set([key]), key);
+  };
+
+  const landOn = (key: string, extend: boolean): void => {
+    const next = selectOnStep(selection, order, key, extend);
+    step(key, extend);
+    report(next.ids, key);
+    containerRef.current?.querySelector(`[data-row-key="${CSS.escape(key)}"]`)?.scrollIntoView({ block: 'nearest' });
+  };
+
+  // Tree keys (the Commit tree's): Up/Down walk visible rows, Right
+  // expands / steps into, Left collapses / steps to the parent, Enter
+  // opens a file and toggles a dir.
+  const handleKeyDown = (event: React.KeyboardEvent): void => {
+    if (!selectable || rows.length === 0) return;
+    if (!['ArrowDown', 'ArrowUp', 'ArrowLeft', 'ArrowRight', 'Enter'].includes(event.key)) return;
+    event.preventDefault();
+    const index = rows.findIndex((row) => row.key === selection.lead);
+    const current = index === -1 ? null : rows[index];
+    if (event.key === 'ArrowDown') {
+      landOn(rows[Math.min(index + 1, rows.length - 1)].key, event.shiftKey);
+      return;
+    }
+    if (event.key === 'ArrowUp') {
+      landOn(rows[Math.max(index - 1, 0)].key, event.shiftKey);
+      return;
+    }
+    if (current === null) {
+      landOn(rows[0].key, false);
+      return;
+    }
+    if (event.key === 'ArrowRight') {
+      if (current.kind !== 'dir') return;
+      if (current.expanded !== true) setCollapsedKey(current.key, false);
+      else if (index + 1 < rows.length && rows[index + 1].parentKey === current.key) landOn(rows[index + 1].key, false);
+      return;
+    }
+    if (event.key === 'ArrowLeft') {
+      if (current.kind === 'dir' && current.expanded === true) setCollapsedKey(current.key, true);
+      else if (current.parentKey !== null) landOn(current.parentKey, false);
+      return;
+    }
+    if (current.kind === 'file') onOpenFile(current.key);
+    else toggleCollapse(current.key);
+  };
 
   const rowStyle = (depth: number): React.CSSProperties => ({
     display: 'flex',
@@ -110,6 +198,8 @@ const FileTreeView = forwardRef<FileTreeViewHandle, FileTreeViewProps>(function 
     color: token.colorTextTertiary,
   };
 
+  const rowClass = (key: string): string => (selectable && isSelected(key) ? 'git-tool-row selected' : 'git-tool-row');
+
   const renderNodes = (nodes: readonly FileTreeNode[], depth: number): React.ReactNode =>
     nodes.map((node) => {
       if (node.kind === 'dir') {
@@ -118,20 +208,29 @@ const FileTreeView = forwardRef<FileTreeViewHandle, FileTreeViewProps>(function 
           <div key={node.key}>
             <button
               type="button"
-              className="git-tool-row"
+              className={rowClass(node.key)}
               style={rowStyle(depth)}
-              onClick={() =>
-                setCollapsed((prev) => {
-                  const next = new Set(prev);
-                  if (next.has(node.key)) next.delete(node.key);
-                  else next.add(node.key);
-                  return next;
-                })
-              }
+              onClick={(event) => (selectable ? handleRowClick(node.key, event) : toggleCollapse(node.key))}
+              onDoubleClick={selectable ? () => toggleCollapse(node.key) : undefined}
+              onContextMenu={selectable ? () => handleRowContextMenu(node.key) : undefined}
               data-testid="git-tool-file-dir"
               data-key={node.key}
+              data-row-key={node.key}
+              data-selected={(selectable && isSelected(node.key)) || undefined}
             >
-              <span aria-hidden style={slotStyle}>
+              {/* The caret toggles on its own click when rows select; a plain row click selects. */}
+              <span
+                aria-hidden
+                style={slotStyle}
+                onClick={
+                  selectable
+                    ? (event) => {
+                        event.stopPropagation();
+                        toggleCollapse(node.key);
+                      }
+                    : undefined
+                }
+              >
                 {open ? <CaretDownOutlined /> : <CaretRightOutlined />}
               </span>
               <FolderTypeIcon />
@@ -150,20 +249,20 @@ const FileTreeView = forwardRef<FileTreeViewHandle, FileTreeViewProps>(function 
           </div>
         );
       }
-      const selectable = onSelectFile !== undefined;
-      const isSelected = selectable && selectedPath === node.path;
       const row = (
         <button
           key={node.path}
           type="button"
-          className={isSelected ? 'git-tool-row selected' : 'git-tool-row'}
+          className={rowClass(node.path)}
           style={rowStyle(depth)}
           title={node.path}
-          onClick={() => (selectable ? onSelectFile(node.path) : onOpenFile(node.path))}
+          onClick={(event) => (selectable ? handleRowClick(node.path, event) : onOpenFile(node.path))}
           onDoubleClick={selectable ? () => onOpenFile(node.path) : undefined}
-          onContextMenu={selectable ? () => onSelectFile(node.path) : undefined}
+          onContextMenu={selectable ? () => handleRowContextMenu(node.path) : undefined}
           data-testid="git-tool-file"
           data-path={node.path}
+          data-row-key={node.path}
+          data-selected={(selectable && isSelected(node.path)) || undefined}
         >
           <span aria-hidden style={slotStyle} />
           <FileTypeIcon path={node.path} status={node.status} />
@@ -229,7 +328,14 @@ const FileTreeView = forwardRef<FileTreeViewHandle, FileTreeViewProps>(function 
           />
         </div>
       )}
-      <div style={{ flex: '1 1 auto', minHeight: 0, overflowY: 'auto', paddingBottom: 4 }}>
+      <div
+        ref={containerRef}
+        tabIndex={selectable ? 0 : undefined}
+        onKeyDown={handleKeyDown}
+        className={selectable ? 'git-tool-file-tree' : undefined}
+        style={{ flex: '1 1 auto', minHeight: 0, overflowY: 'auto', paddingBottom: 4 }}
+        data-testid="git-tool-file-tree"
+      >
         {renderNodes(tree, 0)}
       </div>
     </div>

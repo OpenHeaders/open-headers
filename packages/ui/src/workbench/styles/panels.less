@@ -37,8 +37,10 @@
 // thin scrollbar (the un-styled native horizontal bar was the
 // mismatch); the focus outline is suppressed — selection is the
 // keyboard indicator. Bottom padding lives inline on the container so
-// rows clear the bar / the panel edge even without overflow.
-.commit-tool-tree {
+// rows clear the bar / the panel edge even without overflow. The
+// details file tree (the log pane, the Push window) keys the same way.
+.commit-tool-tree,
+.git-tool-file-tree {
   outline: none;
   scrollbar-width: thin;
 
@@ -56,7 +58,8 @@
 // (Interceptor look): vivid blue + inset ring while the tree holds
 // focus; the `.selected` grey echo above takes over when focus leaves
 // — e.g. into an open row context menu.
-.commit-tool-tree:focus-within .git-tool-row.selected {
+.commit-tool-tree:focus-within .git-tool-row.selected,
+.git-tool-file-tree:focus-within .git-tool-row.selected {
   background: rgba(24, 144, 255, 0.12);
   box-shadow: inset 0 0 0 1px rgba(24, 144, 255, 0.35);
 }
