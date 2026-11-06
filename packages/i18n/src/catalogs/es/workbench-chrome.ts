@@ -734,6 +734,7 @@ export const workbenchChrome = {
   'workbench.gitLog.resetFilters': 'Restablecer filtros',
   'workbench.gitLog.selectCommit': 'Selecciona un commit para ver sus cambios',
   'workbench.gitLog.noneSelected': 'Ningún commit seleccionado',
+  'workbench.gitLog.commitsSelected': '{count} commits seleccionados',
   'workbench.gitLog.loadFailed': 'No se pudo cargar el historial: {detail}',
   'workbench.gitLog.authorLine': '{author} <{email}> el {date}',
   'workbench.gitLog.coAuthors': 'Coautoría de {authors}',

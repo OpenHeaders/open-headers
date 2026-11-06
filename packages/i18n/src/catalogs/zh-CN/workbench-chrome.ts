@@ -554,6 +554,7 @@ export const workbenchChrome = {
   'workbench.gitLog.resetFilters': '重置筛选',
   'workbench.gitLog.selectCommit': '选择一个提交以查看其更改',
   'workbench.gitLog.noneSelected': '未选择提交',
+  'workbench.gitLog.commitsSelected': '已选择 {count} 个提交',
   'workbench.gitLog.loadFailed': '无法加载历史：{detail}',
   'workbench.gitLog.authorLine': '{author} <{email}> 于 {date}',
   'workbench.gitLog.coAuthors': '共同作者：{authors}',

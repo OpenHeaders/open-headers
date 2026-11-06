@@ -51,8 +51,14 @@ export function canPush(target: PushTarget, entryCount: number): boolean {
   return (target.kind === 'upstream' || target.kind === 'new-upstream') && entryCount > 0;
 }
 
-/** The left pane's selection: the target row stands for every commit. */
-export type PushSelection = 'all' | { sha: string };
+/**
+ * The left pane's selection: the target row stands for every commit;
+ * otherwise the selected commits (the shared selection model — a
+ * range or a toggled set) with `sha` the one the details follow,
+ * always a member of `shas`. Two or more show their files as one set
+ * and no commit's details.
+ */
+export type PushSelection = 'all' | { sha: string; shas: readonly string[] };
 
 /**
  * The files the push carries as one set — the target row's pane: every

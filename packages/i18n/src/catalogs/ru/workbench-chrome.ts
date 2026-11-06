@@ -581,6 +581,7 @@ export const workbenchChrome = {
   'workbench.gitLog.resetFilters': 'Сбросить фильтры',
   'workbench.gitLog.selectCommit': 'Выберите коммит, чтобы увидеть его изменения',
   'workbench.gitLog.noneSelected': 'Коммит не выбран',
+  'workbench.gitLog.commitsSelected': 'Выбрано коммитов: {count}',
   'workbench.gitLog.loadFailed': 'Не удалось загрузить историю: {detail}',
   'workbench.gitLog.authorLine': '{author} <{email}>, {date}',
   'workbench.gitLog.coAuthors': 'Соавторы: {authors}',

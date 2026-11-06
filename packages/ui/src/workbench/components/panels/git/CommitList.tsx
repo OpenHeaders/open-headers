@@ -8,16 +8,28 @@
  * degrade to plain dots). Empty states: filters-active answers "no
  * matches" with a reset action; a genuinely empty repo keeps the
  * standing first-commit hint.
+ *
+ * Selection (the shared library): a click selects a row alone,
+ * Cmd/Ctrl+click toggles it, Shift+click selects the range from the
+ * anchor; Up/Down move the cursor (Shift extends). The tab remembers
+ * ONE commit — the details commit — and the list reports it on every
+ * gesture (the clicked row while it stays selected, else the first
+ * survivor) and the width of the selection, so the details pane can
+ * answer a multi-selection with its count. A commit the tab remembers
+ * (a navigate from the rail or the toolbar, the tab's own restore)
+ * becomes the selection when its row is visible.
  */
 
 import type { WorkspaceTreeLogEntryWire, WorkspaceTreeRefWire } from '@openheaders/core/bridge';
 import { Button, theme } from 'antd';
 import type React from 'react';
-import { useEffect, useRef } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { useLocale } from '@openheaders/ui/context/LocaleContext';
+import { clickModifiers, useMultiSelection } from '@openheaders/ui/shared/selection';
 import type { GraphRow } from './graph';
 import GraphCell, { GRAPH_ROW_HEIGHT } from './GraphCell';
 import { formatLogDate } from './log-date';
+import { commitClickOutcome, stepTarget } from './log-selection';
 import RefRowLabel from './RefRowLabel';
 
 export interface CommitListProps {
@@ -30,8 +42,12 @@ export interface CommitListProps {
   /** Commits reachable from the rail-selected branch — the reference blue
    *  row wash; null when nothing is selected. */
   highlightShas: ReadonlySet<string> | null;
+  /** The details commit the tab remembers. */
   selectedSha: string | null;
-  onSelect: (sha: string) => void;
+  /** The details commit after a gesture — null when nothing stays selected. */
+  onSelect: (sha: string | null) => void;
+  /** The width of the row selection — the details pane answers two or more with a count. */
+  onSelectionCountChange?: (count: number) => void;
   /** True when a text filter or ref scope is active — drives the
    *  no-matches empty state and its reset action. */
   filtersActive: boolean;
@@ -55,6 +71,7 @@ const CommitList: React.FC<CommitListProps> = ({
   highlightShas,
   selectedSha,
   onSelect,
+  onSelectionCountChange,
   filtersActive,
   onResetFilters,
   scrollTo,
@@ -65,12 +82,50 @@ const CommitList: React.FC<CommitListProps> = ({
   const { token } = theme.useToken();
   const { locale, t } = useLocale();
   const listRef = useRef<HTMLDivElement>(null);
+  const order = useMemo(() => entries.map((entry) => entry.sha), [entries]);
+  const { selection, isSelected, click, step, clear } = useMultiSelection(order);
 
   useEffect(() => {
     if (scrollTo === null || scrollTo === undefined || listRef.current === null) return;
     const row = listRef.current.querySelector(`[data-sha="${scrollTo.sha}"]`);
     row?.scrollIntoView({ behavior: 'instant', block: 'center' });
   }, [scrollTo]);
+
+  // The tab's commit leads the rows: a remembered commit whose row is
+  // visible and not yet selected becomes the selection alone; a
+  // cleared tab clears the rows. A remembered commit a filter hides
+  // keeps its place in the tab and selects nothing.
+  useEffect(() => {
+    if (selectedSha === null) {
+      if (selection.ids.size > 0) clear();
+      return;
+    }
+    if (!selection.ids.has(selectedSha) && order.includes(selectedSha)) step(selectedSha, false);
+  }, [selectedSha, selection, order, step, clear]);
+
+  useEffect(() => {
+    onSelectionCountChange?.(selection.ids.size);
+  }, [onSelectionCountChange, selection.ids.size]);
+
+  const handleClick = (sha: string, event: React.MouseEvent): void => {
+    const outcome = commitClickOutcome(selection, order, sha, clickModifiers(event));
+    click(sha, event);
+    onSelect(outcome.lead);
+  };
+
+  // Up/Down walk the rows from the cursor (Shift extends the range);
+  // focus follows so the next arrow continues from the landed row.
+  const handleKeyDown = (event: React.KeyboardEvent): void => {
+    if (event.key !== 'ArrowDown' && event.key !== 'ArrowUp') return;
+    const target = stepTarget(order, selection.lead ?? selectedSha, event.key === 'ArrowDown' ? 1 : -1);
+    if (target === null) return;
+    event.preventDefault();
+    step(target, event.shiftKey);
+    onSelect(target);
+    const row = listRef.current?.querySelector<HTMLElement>(`[data-sha="${target}"]`);
+    row?.focus({ preventScroll: true });
+    row?.scrollIntoView({ block: 'nearest' });
+  };
 
   if (entries.length === 0) {
     return (
@@ -100,20 +155,25 @@ const CommitList: React.FC<CommitListProps> = ({
   const maxLanes = graph === null ? 1 : Math.max(1, ...graph.map((row) => row.laneCount));
 
   return (
-    <div ref={listRef} style={{ flex: '1 1 auto', minHeight: 0, overflowY: 'auto' }} data-testid="git-tool-list">
+    <div
+      ref={listRef}
+      onKeyDown={handleKeyDown}
+      style={{ flex: '1 1 auto', minHeight: 0, overflowY: 'auto' }}
+      data-testid="git-tool-list"
+    >
       {entries.map((entry, index) => {
-        const isSelected = entry.sha === selectedSha;
+        const selected = isSelected(entry.sha);
         const isMerge = dimMergeCommits && entry.parents.length > 1;
         const row = graph?.[index] ?? null;
         const rowRefs = refsBySha.get(entry.sha) ?? [];
         const labelRefs = showTagChips ? rowRefs : rowRefs.filter((ref) => ref.kind !== 'tag');
-        const isHighlighted = !isSelected && highlightShas !== null && highlightShas.has(entry.sha);
+        const isHighlighted = !selected && highlightShas !== null && highlightShas.has(entry.sha);
         return (
           <button
             key={entry.sha}
             type="button"
-            className={isSelected ? 'git-tool-row selected' : 'git-tool-row'}
-            onClick={() => onSelect(entry.sha)}
+            className={selected ? 'git-tool-row selected' : 'git-tool-row'}
+            onClick={(event) => handleClick(entry.sha, event)}
             style={{
               display: 'flex',
               alignItems: 'center',
@@ -129,6 +189,7 @@ const CommitList: React.FC<CommitListProps> = ({
             }}
             data-testid="git-tool-row"
             data-sha={entry.sha}
+            data-selected={selected || undefined}
             data-highlighted={isHighlighted || undefined}
           >
             <GraphCell row={row} maxLanes={maxLanes} fallbackColor={token.colorTextQuaternary} />

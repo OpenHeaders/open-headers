@@ -5,14 +5,23 @@
  * commit that would go, subject with the author and the graduated
  * date. A branch with no upstream names the rule the
  * host applies on the first push; a detached HEAD and an up-to-date
- * branch each say so in place of rows. Pure presentation.
+ * branch each say so in place of rows.
+ *
+ * The commit rows carry the shared selection model: a click selects
+ * one, Cmd/Ctrl+click toggles, Shift+click ranges from the anchor,
+ * Up/Down walk the rows (Shift extends); the target row is its own
+ * single selection and clears them. Every gesture reports the
+ * selection with the commit the details follow.
  */
 
 import type { WorkspaceTreeLogEntryWire } from '@openheaders/core/bridge';
 import { theme } from 'antd';
 import type React from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { useLocale } from '@openheaders/ui/context/LocaleContext';
+import { clickModifiers, selectOnStep, useMultiSelection } from '@openheaders/ui/shared/selection';
 import { formatLogDate } from '../log-date';
+import { commitClickOutcome, stepTarget } from '../log-selection';
 import type { PushSelection, PushTarget } from './push-window-model';
 
 export interface PushCommitListProps {
@@ -29,6 +38,35 @@ const ROW_HEIGHT = 24;
 const PushCommitList: React.FC<PushCommitListProps> = ({ target, entries, selection, onSelect, loading }) => {
   const { token } = theme.useToken();
   const { locale, t } = useLocale();
+  const listRef = useRef<HTMLDivElement>(null);
+  const order = useMemo(() => entries.map((entry) => entry.sha), [entries]);
+  const rows = useMultiSelection(order);
+
+  // The target row's selection owns the pane alone — the commit rows
+  // clear (the window opens on it and returns to it on a reload).
+  useEffect(() => {
+    if (selection === 'all' && rows.selection.ids.size > 0) rows.clear();
+  }, [selection, rows]);
+
+  const handleRowClick = (sha: string, event: React.MouseEvent): void => {
+    const outcome = commitClickOutcome(rows.selection, order, sha, clickModifiers(event));
+    rows.click(sha, event);
+    onSelect(outcome.lead === null ? 'all' : { sha: outcome.lead, shas: [...outcome.next.ids] });
+  };
+
+  const handleKeyDown = (event: React.KeyboardEvent): void => {
+    if (event.key !== 'ArrowDown' && event.key !== 'ArrowUp') return;
+    const lead = rows.selection.lead ?? (selection === 'all' ? null : selection.sha);
+    const landing = stepTarget(order, lead, event.key === 'ArrowDown' ? 1 : -1);
+    if (landing === null) return;
+    event.preventDefault();
+    const next = selectOnStep(rows.selection, order, landing, event.shiftKey);
+    rows.step(landing, event.shiftKey);
+    onSelect({ sha: landing, shas: [...next.ids] });
+    const row = listRef.current?.querySelector<HTMLElement>(`[data-sha="${landing}"]`);
+    row?.focus({ preventScroll: true });
+    row?.scrollIntoView({ block: 'nearest' });
+  };
 
   const targetLine = (): React.ReactNode => {
     if (target.kind === 'detached') return <span data-testid="git-push-target-detached">{t('workbench.gitPush.detached')}</span>;
@@ -62,7 +100,12 @@ const PushCommitList: React.FC<PushCommitListProps> = ({ target, entries, select
       : null;
 
   return (
-    <div style={{ flex: '1 1 auto', minHeight: 0, overflowY: 'auto', padding: '6px 0' }} data-testid="git-push-list">
+    <div
+      ref={listRef}
+      onKeyDown={handleKeyDown}
+      style={{ flex: '1 1 auto', minHeight: 0, overflowY: 'auto', padding: '6px 0' }}
+      data-testid="git-push-list"
+    >
       <button
         type="button"
         className={selection === 'all' && selectable ? 'git-tool-row selected' : 'git-tool-row'}
@@ -96,13 +139,13 @@ const PushCommitList: React.FC<PushCommitListProps> = ({ target, entries, select
         </div>
       )}
       {entries.map((entry) => {
-        const isSelected = selection !== 'all' && entry.sha === selection.sha;
+        const isSelected = selection !== 'all' && rows.isSelected(entry.sha);
         return (
           <button
             key={entry.sha}
             type="button"
             className={isSelected ? 'git-tool-row selected' : 'git-tool-row'}
-            onClick={() => onSelect({ sha: entry.sha })}
+            onClick={(event) => handleRowClick(entry.sha, event)}
             style={{
               display: 'flex',
               alignItems: 'center',
@@ -117,6 +160,7 @@ const PushCommitList: React.FC<PushCommitListProps> = ({ target, entries, select
             }}
             data-testid="git-push-row"
             data-sha={entry.sha}
+            data-selected={isSelected || undefined}
           >
             <span
               style={{

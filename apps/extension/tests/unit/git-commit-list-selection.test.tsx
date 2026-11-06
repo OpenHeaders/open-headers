@@ -1,0 +1,217 @@
+// @vitest-environment jsdom
+/**
+ * The two commit lists on the shared selection model: the log's
+ * `CommitList` reports the details commit and the selection width on
+ * every gesture (plain / Shift / Cmd clicks, Up/Down with Shift) and
+ * follows the tab's remembered commit; the Push window's
+ * `PushCommitList` reports the selection with its details commit and
+ * returns to the target row when nothing stays selected.
+ */
+
+import type { WorkspaceTreeLogEntryWire } from '@openheaders/core/bridge';
+import CommitList from '@openheaders/ui/workbench/components/panels/git/CommitList';
+import PushCommitList from '@openheaders/ui/workbench/components/panels/git/push/PushCommitList';
+import type { PushSelection } from '@openheaders/ui/workbench/components/panels/git/push/push-window-model';
+import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import type React from 'react';
+import { useEffect, useState } from 'react';
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
+
+function entry(sha: string): WorkspaceTreeLogEntryWire {
+  return {
+    sha,
+    parents: [],
+    authorName: 'John Doe',
+    authorEmail: 'john@openheaders.io',
+    authoredAt: '2026-11-06T10:00:00.000Z',
+    subject: `commit ${sha}`,
+    coAuthors: [],
+    files: [{ path: `docs/${sha}.md`, status: 'M' }],
+  };
+}
+
+const ENTRIES = ['c1', 'c2', 'c3', 'c4'].map(entry);
+
+beforeAll(() => {
+  if (typeof Element.prototype.scrollIntoView !== 'function') {
+    Element.prototype.scrollIntoView = () => undefined;
+  }
+});
+
+afterEach(() => {
+  cleanup();
+});
+
+const row = (sha: string): HTMLElement => {
+  const found = screen.getAllByTestId('git-tool-row').find((el) => el.getAttribute('data-sha') === sha);
+  if (!found) throw new Error(`no row ${sha}`);
+  return found;
+};
+
+const selectedShas = (): string[] =>
+  screen
+    .getAllByTestId('git-tool-row')
+    .filter((el) => el.getAttribute('data-selected') === 'true')
+    .map((el) => el.getAttribute('data-sha') ?? '');
+
+/** The orchestrator's part: the tab remembers the commit the list reports; `navigate` is a change from outside. */
+const LogHarness: React.FC<{
+  initial: string | null;
+  navigate?: string | null;
+  onSelect: (sha: string | null) => void;
+  onCount: (count: number) => void;
+}> = ({ initial, navigate, onSelect, onCount }) => {
+  const [selectedSha, setSelectedSha] = useState(initial);
+  useEffect(() => {
+    if (navigate !== undefined) setSelectedSha(navigate);
+  }, [navigate]);
+  return (
+    <CommitList
+      entries={ENTRIES}
+      graph={null}
+      refsBySha={new Map()}
+      headSha={null}
+      highlightShas={null}
+      selectedSha={selectedSha}
+      onSelect={(sha) => {
+        setSelectedSha(sha);
+        onSelect(sha);
+      }}
+      onSelectionCountChange={onCount}
+      filtersActive={false}
+      onResetFilters={() => undefined}
+    />
+  );
+};
+
+describe('CommitList — the log rows on the shared selection model', () => {
+  function renderList(selectedSha: string | null) {
+    const onSelect = vi.fn<(sha: string | null) => void>();
+    const onCount = vi.fn<(count: number) => void>();
+    const view = render(<LogHarness initial={selectedSha} onSelect={onSelect} onCount={onCount} />);
+    return { onSelect, onCount, view };
+  }
+
+  it('the tab’s remembered commit becomes the selection on mount', () => {
+    renderList('c2');
+    expect(selectedShas()).toEqual(['c2']);
+  });
+
+  it('Shift+click selects the range and reports the clicked commit with the width', () => {
+    const { onSelect, onCount } = renderList('c1');
+    fireEvent.click(row('c3'), { shiftKey: true });
+    expect(selectedShas()).toEqual(['c1', 'c2', 'c3']);
+    expect(onSelect).toHaveBeenLastCalledWith('c3');
+    expect(onCount).toHaveBeenLastCalledWith(3);
+  });
+
+  it('Cmd+click toggles a row in; toggling the details commit out follows the first survivor', () => {
+    const { onSelect } = renderList('c1');
+    fireEvent.click(row('c4'), { metaKey: true });
+    expect(selectedShas()).toEqual(['c1', 'c4']);
+    expect(onSelect).toHaveBeenLastCalledWith('c4');
+    fireEvent.click(row('c4'), { metaKey: true });
+    expect(selectedShas()).toEqual(['c1']);
+    expect(onSelect).toHaveBeenLastCalledWith('c1');
+  });
+
+  it('toggling the only row out reports no commit', () => {
+    const { onSelect } = renderList('c2');
+    fireEvent.click(row('c2'), { ctrlKey: true });
+    expect(selectedShas()).toEqual([]);
+    expect(onSelect).toHaveBeenLastCalledWith(null);
+  });
+
+  it('a plain click collapses a range onto the clicked row', () => {
+    const { onSelect } = renderList('c1');
+    fireEvent.click(row('c3'), { shiftKey: true });
+    fireEvent.click(row('c2'));
+    expect(selectedShas()).toEqual(['c2']);
+    expect(onSelect).toHaveBeenLastCalledWith('c2');
+  });
+
+  it('Down steps the cursor, Shift+Down extends the range', () => {
+    const { onSelect, onCount } = renderList('c1');
+    fireEvent.keyDown(row('c1'), { key: 'ArrowDown' });
+    expect(selectedShas()).toEqual(['c2']);
+    expect(onSelect).toHaveBeenLastCalledWith('c2');
+    fireEvent.keyDown(row('c2'), { key: 'ArrowDown', shiftKey: true });
+    expect(selectedShas()).toEqual(['c2', 'c3']);
+    expect(onCount).toHaveBeenLastCalledWith(2);
+    fireEvent.keyDown(row('c3'), { key: 'ArrowUp', shiftKey: true });
+    expect(selectedShas()).toEqual(['c2']);
+  });
+
+  it('a navigate from outside (the tab’s commit changes) selects that row alone', () => {
+    const { view, onSelect, onCount } = renderList('c1');
+    fireEvent.click(row('c3'), { shiftKey: true });
+    expect(selectedShas()).toEqual(['c1', 'c2', 'c3']);
+    view.rerender(<LogHarness initial="c1" navigate="c4" onSelect={onSelect} onCount={onCount} />);
+    expect(selectedShas()).toEqual(['c4']);
+  });
+});
+
+describe('PushCommitList — the Push window’s commit rows', () => {
+  const pushRow = (sha: string): HTMLElement => {
+    const found = screen.getAllByTestId('git-push-row').find((el) => el.getAttribute('data-sha') === sha);
+    if (!found) throw new Error(`no row ${sha}`);
+    return found;
+  };
+
+  /** The window's part: it holds the selection the list reports. */
+  const PushHarness: React.FC<{ initial: PushSelection; onSelect: (selection: PushSelection) => void }> = ({
+    initial,
+    onSelect,
+  }) => {
+    const [selection, setSelection] = useState<PushSelection>(initial);
+    return (
+      <PushCommitList
+        target={{ kind: 'upstream', branch: 'main', remote: 'origin', remoteBranch: 'main', upstream: 'origin/main' }}
+        entries={ENTRIES}
+        selection={selection}
+        onSelect={(next) => {
+          setSelection(next);
+          onSelect(next);
+        }}
+        loading={false}
+      />
+    );
+  };
+
+  function renderPush(selection: PushSelection) {
+    const onSelect = vi.fn<(selection: PushSelection) => void>();
+    render(<PushHarness initial={selection} onSelect={onSelect} />);
+    return { onSelect };
+  }
+
+  it('opens on the target row; a click on a commit reports it as the selection', () => {
+    const { onSelect } = renderPush('all');
+    expect(screen.getByTestId('git-push-target-row').getAttribute('data-selected')).toBe('true');
+    fireEvent.click(pushRow('c2'));
+    expect(onSelect).toHaveBeenLastCalledWith({ sha: 'c2', shas: ['c2'] });
+  });
+
+  it('Shift+click reports the range with the clicked commit leading', () => {
+    const { onSelect } = renderPush('all');
+    fireEvent.click(pushRow('c1'));
+    fireEvent.click(pushRow('c3'), { shiftKey: true });
+    const last = onSelect.mock.lastCall?.[0];
+    expect(last).not.toBe('all');
+    if (last === 'all' || last === undefined) throw new Error('expected a commit selection');
+    expect(last.sha).toBe('c3');
+    expect([...last.shas].sort()).toEqual(['c1', 'c2', 'c3']);
+  });
+
+  it('toggling the only commit out returns to the target row', () => {
+    const { onSelect } = renderPush('all');
+    fireEvent.click(pushRow('c2'));
+    fireEvent.click(pushRow('c2'), { metaKey: true });
+    expect(onSelect).toHaveBeenLastCalledWith('all');
+  });
+
+  it('Down from the target row lands on the first commit', () => {
+    const { onSelect } = renderPush('all');
+    fireEvent.keyDown(screen.getByTestId('git-push-target-row'), { key: 'ArrowDown' });
+    expect(onSelect).toHaveBeenLastCalledWith({ sha: 'c1', shas: ['c1'] });
+  });
+});

@@ -39,7 +39,7 @@ interface CompareSideProps {
   entries: WorkspaceTreeLogEntryWire[];
   refsBySha: ReadonlyMap<string, WorkspaceTreeRefWire[]>;
   selectedSha: string | null;
-  onSelect: (sha: string) => void;
+  onSelect: (sha: string | null) => void;
   onOpenFile: (sha: string, path: string) => void;
   loadingPath: string | null;
   testid: string;
@@ -59,6 +59,10 @@ const CompareSide: React.FC<CompareSideProps> = ({
   const { token } = theme.useToken();
   const t = useT();
   const selected = selectedSha !== null ? (entries.find((entry) => entry.sha === selectedSha) ?? null) : null;
+  // Two or more rows selected: the detail slot answers with the count
+  // (the log pane's reading), not one commit's files.
+  const [selectionCount, setSelectionCount] = useState(0);
+  const multiSelected = selectionCount >= 2;
 
   return (
     <div style={{ flex: '1 1 50%', minHeight: 0, display: 'flex', flexDirection: 'column' }} data-testid={testid}>
@@ -114,13 +118,14 @@ const CompareSide: React.FC<CompareSideProps> = ({
               highlightShas={null}
               selectedSha={selectedSha}
               onSelect={onSelect}
+              onSelectionCountChange={setSelectionCount}
               filtersActive={false}
               onResetFilters={() => undefined}
             />
           )}
         </div>
         <div style={{ flex: '1 1 45%', minWidth: 0, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
-          {selected === null ? (
+          {multiSelected || selected === null ? (
             <div
               style={{
                 flex: '1 1 auto',
@@ -130,9 +135,11 @@ const CompareSide: React.FC<CompareSideProps> = ({
                 fontSize: 12,
                 color: token.colorTextSecondary,
               }}
-              data-testid="git-tool-compare-detail-placeholder"
+              data-testid={multiSelected ? 'git-tool-compare-detail-multi' : 'git-tool-compare-detail-placeholder'}
             >
-              {t('workbench.gitLog.selectCommit')}
+              {multiSelected
+                ? t('workbench.gitLog.commitsSelected', { count: selectionCount })
+                : t('workbench.gitLog.selectCommit')}
             </div>
           ) : (
             <>

@@ -129,6 +129,15 @@ const PushCommitsModal: React.FC<PushCommitsModalProps> = ({ workspaceId, open, 
   }, [snapshot.refs]);
 
   const selected = selection === 'all' ? null : (entries.find((entry) => entry.sha === selection.sha) ?? null);
+  // Two or more commits selected: their files as one set (the target
+  // row's fold over the subset, in log order), no commit's details and
+  // no diff — a subset has no honest range.
+  const multiSelected = selection !== 'all' && selection.shas.length >= 2;
+  const multiFiles = useMemo(() => {
+    if (selection === 'all') return [];
+    const shas = new Set(selection.shas);
+    return unionFiles(entries.filter((entry) => shas.has(entry.sha)));
+  }, [selection, entries]);
   const showInfo = selected !== null && prefs.showDetails;
   const layout = usePushWindowLayout(
     workspaceId,
@@ -142,6 +151,7 @@ const PushCommitsModal: React.FC<PushCommitsModalProps> = ({ workspaceId, open, 
   // The selected file's diff: one commit's change on a commit row, the
   // whole range on the target row.
   const openDiff = (path: string): void => {
+    if (multiSelected) return;
     if (selected !== null) void fileDiff.open(selected.sha, path);
     else if (headSha !== null) void fileDiff.open(headSha, path, rangeBase ?? undefined);
   };
@@ -239,7 +249,7 @@ const PushCommitsModal: React.FC<PushCommitsModalProps> = ({ workspaceId, open, 
           >
             <Sash axis="x" edge="start" begin={layout.beginFiles} onReset={layout.resetFiles} />
             <GitDetailsToolbar
-              canShowDiff={selectedPath !== null}
+              canShowDiff={!multiSelected && selectedPath !== null}
               onShowDiff={() => {
                 if (selectedPath !== null) openDiff(selectedPath);
               }}
@@ -293,9 +303,9 @@ const PushCommitsModal: React.FC<PushCommitsModalProps> = ({ workspaceId, open, 
               <>
                 <div style={{ minHeight: 0, display: 'flex', flexDirection: 'column' }}>
                   <FileTreeView
-                    key={selected.sha}
+                    key={multiSelected ? `multi:${selection.shas.join(',')}` : selected.sha}
                     ref={fileTreeRef}
-                    files={selected.files}
+                    files={multiSelected ? multiFiles : selected.files}
                     loadingPath={fileDiff.loadingPath}
                     selectedPath={selectedPath}
                     onSelectFile={setSelectedPath}
@@ -316,13 +326,29 @@ const PushCommitsModal: React.FC<PushCommitsModalProps> = ({ workspaceId, open, 
                     data-testid="git-push-detail-info"
                   >
                     <Sash axis="y" edge="start" begin={layout.beginInfo} onReset={layout.resetInfo} />
-                    <div style={{ flex: '1 1 auto', minHeight: 0, overflowY: 'auto' }}>
-                      <CommitDetails
-                        entry={selected}
-                        refsAtCommit={refsBySha.get(selected.sha) ?? []}
-                        isHead={selected.sha === headSha}
-                      />
-                    </div>
+                    {multiSelected ? (
+                      <div
+                        style={{
+                          flex: '1 1 auto',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          fontSize: 12,
+                          color: token.colorTextSecondary,
+                        }}
+                        data-testid="git-push-detail-multi"
+                      >
+                        {t('workbench.gitLog.commitsSelected', { count: selection.shas.length })}
+                      </div>
+                    ) : (
+                      <div style={{ flex: '1 1 auto', minHeight: 0, overflowY: 'auto' }}>
+                        <CommitDetails
+                          entry={selected}
+                          refsAtCommit={refsBySha.get(selected.sha) ?? []}
+                          isHead={selected.sha === headSha}
+                        />
+                      </div>
+                    )}
                   </div>
                 )}
               </>

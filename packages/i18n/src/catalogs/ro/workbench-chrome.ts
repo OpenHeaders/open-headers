@@ -588,6 +588,7 @@ export const workbenchChrome = {
   'workbench.gitLog.resetFilters': 'Resetare filtre',
   'workbench.gitLog.selectCommit': 'Selectați un commit pentru a-i vedea modificările',
   'workbench.gitLog.noneSelected': 'Niciun commit selectat',
+  'workbench.gitLog.commitsSelected': '{count} commituri selectate',
   'workbench.gitLog.loadFailed': 'Istoricul nu a putut fi încărcat: {detail}',
   'workbench.gitLog.authorLine': '{author} <{email}>, {date}',
   'workbench.gitLog.coAuthors': 'Coautori: {authors}',

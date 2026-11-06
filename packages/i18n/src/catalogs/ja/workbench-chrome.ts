@@ -560,6 +560,7 @@ export const workbenchChrome = {
   'workbench.gitLog.resetFilters': 'フィルターをリセット',
   'workbench.gitLog.selectCommit': 'コミットを選択すると変更が表示されます',
   'workbench.gitLog.noneSelected': 'コミットが選択されていません',
+  'workbench.gitLog.commitsSelected': '{count} 件のコミットを選択中',
   'workbench.gitLog.loadFailed': '履歴を読み込めませんでした：{detail}',
   'workbench.gitLog.authorLine': '{author} <{email}>、{date}',
   'workbench.gitLog.coAuthors': '共同作成者：{authors}',

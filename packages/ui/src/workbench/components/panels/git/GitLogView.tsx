@@ -88,6 +88,11 @@ const GitLogView: React.FC<GitLogViewProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [scrollTo, setScrollTo] = useState<{ sha: string; nonce: number } | null>(null);
   const [selectedFile, setSelectedFile] = useState<string | null>(null);
+  // The width of the timeline's row selection — two or more commits
+  // and the details pane answers with the count instead of one commit's
+  // files (the reference reading; a union of files has no honest diff).
+  const [selectionCount, setSelectionCount] = useState(0);
+  const multiSelected = selectionCount >= 2;
   const [historyPath, setHistoryPath] = useState<string | null>(null);
   const fileDiff = useFileDiff(workspaceId);
   const jumpToSource = useJumpToSource(workspaceId);
@@ -277,6 +282,15 @@ const GitLogView: React.FC<GitLogViewProps> = ({
 
   const container = rootRef.current?.closest<HTMLElement>('.git-tool-panel') ?? null;
 
+  const placeholderStyle: React.CSSProperties = {
+    flex: '1 1 auto',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    fontSize: 12,
+    color: token.colorTextSecondary,
+  };
+
   // The changed-file row menu: Show Diff reads the selected commit's
   // blob pair; Show History opens the path's own timeline.
   const fileRowMenu = (path: string): ReturnType<typeof buildFileRowMenu> =>
@@ -377,6 +391,7 @@ const GitLogView: React.FC<GitLogViewProps> = ({
             highlightShas={highlightShas}
             selectedSha={selectedSha}
             onSelect={(sha) => patchTab({ selectedSha: sha })}
+            onSelectionCountChange={setSelectionCount}
             filtersActive={filtersActive}
             onResetFilters={resetFilters}
             scrollTo={scrollTo}
@@ -392,17 +407,19 @@ const GitLogView: React.FC<GitLogViewProps> = ({
         >
           <Sash axis="x" edge="start" begin={layout.beginDetails} onReset={layout.resetDetails} />
           <GitDetailsToolbar
-            canShowDiff={selected !== null && selectedFile !== null}
+            canShowDiff={!multiSelected && selected !== null && selectedFile !== null}
             onShowDiff={() => {
-              if (selected !== null && selectedFile !== null) void fileDiff.open(selected.sha, selectedFile);
+              if (!multiSelected && selected !== null && selectedFile !== null) {
+                void fileDiff.open(selected.sha, selectedFile);
+              }
             }}
             onJumpToSource={() => {
-              if (selectedFile !== null) jumpToSource(selectedFile);
+              if (!multiSelected && selectedFile !== null) jumpToSource(selectedFile);
             }}
-            canJumpToSource={selectedFile !== null}
+            canJumpToSource={!multiSelected && selectedFile !== null}
             prefs={prefs}
             onPatchPrefs={(patch) => patchGitLogViewPrefs(workspaceId, patch)}
-            hasFiles={selected !== null}
+            hasFiles={!multiSelected && selected !== null}
             onExpandAll={() => fileTreeRef.current?.expandAll()}
             onCollapseAll={() => fileTreeRef.current?.collapseAll()}
           />
@@ -418,18 +435,12 @@ const GitLogView: React.FC<GitLogViewProps> = ({
             data-testid="git-tool-detail-body"
           >
             <div style={{ minHeight: 0, display: 'flex', flexDirection: 'column' }}>
-              {selected === null ? (
-                <div
-                  style={{
-                    flex: '1 1 auto',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    fontSize: 12,
-                    color: token.colorTextSecondary,
-                  }}
-                  data-testid="git-tool-detail-placeholder"
-                >
+              {multiSelected ? (
+                <div style={placeholderStyle} data-testid="git-tool-detail-multi">
+                  {t('workbench.gitLog.commitsSelected', { count: selectionCount })}
+                </div>
+              ) : selected === null ? (
+                <div style={placeholderStyle} data-testid="git-tool-detail-placeholder">
                   {t('workbench.gitLog.selectCommit')}
                 </div>
               ) : (
@@ -463,19 +474,11 @@ const GitLogView: React.FC<GitLogViewProps> = ({
                 data-testid="git-tool-detail-info-cell"
               >
                 <Sash axis="y" edge="start" begin={layout.beginInfo} onReset={layout.resetInfo} />
-                {selected === null ? (
-                  <div
-                    style={{
-                      flex: '1 1 auto',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      fontSize: 12,
-                      color: token.colorTextSecondary,
-                    }}
-                    data-testid="git-tool-detail-none"
-                  >
-                    {t('workbench.gitLog.noneSelected')}
+                {multiSelected || selected === null ? (
+                  <div style={placeholderStyle} data-testid="git-tool-detail-none">
+                    {multiSelected
+                      ? t('workbench.gitLog.commitsSelected', { count: selectionCount })
+                      : t('workbench.gitLog.noneSelected')}
                   </div>
                 ) : (
                   <div style={{ flex: '1 1 auto', minHeight: 0, overflowY: 'auto' }}>

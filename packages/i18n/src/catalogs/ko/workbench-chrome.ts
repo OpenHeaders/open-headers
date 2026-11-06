@@ -560,6 +560,7 @@ export const workbenchChrome = {
   'workbench.gitLog.resetFilters': '필터 초기화',
   'workbench.gitLog.selectCommit': '커밋을 선택하면 변경 내용을 볼 수 있습니다',
   'workbench.gitLog.noneSelected': '선택한 커밋 없음',
+  'workbench.gitLog.commitsSelected': '커밋 {count}개 선택됨',
   'workbench.gitLog.loadFailed': '기록을 불러올 수 없습니다: {detail}',
   'workbench.gitLog.authorLine': '{author} <{email}>, {date}',
   'workbench.gitLog.coAuthors': '공동 작성: {authors}',
