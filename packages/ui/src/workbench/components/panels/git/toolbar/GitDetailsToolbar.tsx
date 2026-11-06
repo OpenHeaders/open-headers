@@ -5,16 +5,19 @@
  * is a future slice), the View Options eye (Group By Directory, Show
  * Details, Show Diff Preview), Jump to Source for the selected file
  * when the host offers it, then Expand All / Collapse All at the far
- * edge driving the files tree.
+ * edge driving the files tree. The band is a PaneToolbar: at a narrow
+ * dock the tail folds behind the › chevron's hover strip.
  */
 
 import { EditOutlined, EyeOutlined, SwapOutlined } from '@ant-design/icons';
-import { Dropdown, theme } from 'antd';
+import { Dropdown } from 'antd';
 import type React from 'react';
+import { useState } from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { CollapseAllIcon, ExpandAllIcon, RollbackIcon } from '@openheaders/ui/shared/icons';
 import type { GitLogViewPrefs } from '../git-log-view-prefs';
 import { menuCheckIcon } from '../../../shared/menu-check';
+import PaneToolbar, { type PaneToolbarEntry } from './PaneToolbar';
 import ToolbarIconButton from './ToolbarIconButton';
 
 export interface GitDetailsToolbarProps {
@@ -45,40 +48,14 @@ const GitDetailsToolbar: React.FC<GitDetailsToolbarProps> = ({
   onCollapseAll,
 }) => {
   const t = useT();
-  const { token } = theme.useToken();
+  const [viewOptionsOpen, setViewOptionsOpen] = useState(false);
 
-  return (
-    <div
-      style={{
-        flex: '0 0 auto',
-        display: 'flex',
-        alignItems: 'center',
-        gap: 2,
-        height: 33,
-        padding: '0 8px',
-        borderBottom: `1px solid ${token.colorBorderSecondary}`,
-        background: token.colorFillQuaternary,
-        minWidth: 0,
-      }}
-      data-testid="git-tool-details-toolbar"
-    >
-      <ToolbarIconButton
-        icon={<SwapOutlined />}
-        title={t('workbench.gitLog.details.showDiff')}
-        onClick={onShowDiff}
-        disabled={!canShowDiff}
-        testid="git-tool-details-diff"
-      />
-      <ToolbarIconButton
-        icon={<RollbackIcon />}
-        title={t('workbench.gitLog.details.revertSelected')}
-        disabled
-        testid="git-tool-details-revert"
-      />
-      <Dropdown
-        trigger={['click']}
-        placement="bottomLeft"
-        menu={{
+  const viewOptions = (
+    <Dropdown
+      trigger={['click']}
+      placement="bottomLeft"
+      onOpenChange={setViewOptionsOpen}
+      menu={{
           selectable: false,
           items: [
             {
@@ -111,46 +88,97 @@ const GitDetailsToolbar: React.FC<GitDetailsToolbarProps> = ({
               ],
             },
           ],
-          onClick: ({ key }) => {
-            if (key === 'directory') onPatchPrefs({ groupFilesByDirectory: !prefs.groupFilesByDirectory });
-            else if (key === 'show-details') onPatchPrefs({ showDetails: !prefs.showDetails });
-          },
-        }}
-      >
-        <span style={{ display: 'inline-flex' }}>
-          <ToolbarIconButton
-            icon={<EyeOutlined />}
-            title={t('workbench.gitLog.viewOptions')}
-            testid="git-tool-details-view-options"
-          />
-        </span>
-      </Dropdown>
-      {onJumpToSource !== undefined && (
+        onClick: ({ key }) => {
+          if (key === 'directory') onPatchPrefs({ groupFilesByDirectory: !prefs.groupFilesByDirectory });
+          else if (key === 'show-details') onPatchPrefs({ showDetails: !prefs.showDetails });
+        },
+      }}
+    >
+      <span style={{ display: 'inline-flex' }}>
         <ToolbarIconButton
-          icon={<EditOutlined />}
-          title={t('workbench.gitLog.fileMenu.jumpToSource')}
-          onClick={onJumpToSource}
-          disabled={!canJumpToSource}
-          testid="git-tool-details-jump"
+          icon={<EyeOutlined />}
+          title={t('workbench.gitLog.viewOptions')}
+          popoverOpen={viewOptionsOpen}
+          testid="git-tool-details-view-options"
         />
-      )}
-      <span style={{ flex: 1 }} />
-      <ToolbarIconButton
-        icon={<ExpandAllIcon />}
-        title={t('workbench.gitLog.expandAll')}
-        onClick={onExpandAll}
-        disabled={!hasFiles}
-        testid="git-tool-files-expand-all"
-      />
-      <ToolbarIconButton
-        icon={<CollapseAllIcon />}
-        title={t('workbench.gitLog.collapseAll')}
-        onClick={onCollapseAll}
-        disabled={!hasFiles}
-        testid="git-tool-files-collapse-all"
-      />
-    </div>
+      </span>
+    </Dropdown>
   );
+
+  const entries: PaneToolbarEntry[] = [
+    {
+      kind: 'item',
+      key: 'diff',
+      node: (
+        <ToolbarIconButton
+          icon={<SwapOutlined />}
+          title={t('workbench.gitLog.details.showDiff')}
+          onClick={onShowDiff}
+          disabled={!canShowDiff}
+          testid="git-tool-details-diff"
+        />
+      ),
+    },
+    {
+      kind: 'item',
+      key: 'revert',
+      node: (
+        <ToolbarIconButton
+          icon={<RollbackIcon />}
+          title={t('workbench.gitLog.details.revertSelected')}
+          disabled
+          testid="git-tool-details-revert"
+        />
+      ),
+    },
+    { kind: 'item', key: 'view-options', node: viewOptions },
+    ...(onJumpToSource === undefined
+      ? []
+      : [
+          {
+            kind: 'item' as const,
+            key: 'jump',
+            node: (
+              <ToolbarIconButton
+                icon={<EditOutlined />}
+                title={t('workbench.gitLog.fileMenu.jumpToSource')}
+                onClick={onJumpToSource}
+                disabled={!canJumpToSource}
+                testid="git-tool-details-jump"
+              />
+            ),
+          },
+        ]),
+    { kind: 'spacer', key: 'spacer' },
+    {
+      kind: 'item',
+      key: 'expand-all',
+      node: (
+        <ToolbarIconButton
+          icon={<ExpandAllIcon />}
+          title={t('workbench.gitLog.expandAll')}
+          onClick={onExpandAll}
+          disabled={!hasFiles}
+          testid="git-tool-files-expand-all"
+        />
+      ),
+    },
+    {
+      kind: 'item',
+      key: 'collapse-all',
+      node: (
+        <ToolbarIconButton
+          icon={<CollapseAllIcon />}
+          title={t('workbench.gitLog.collapseAll')}
+          onClick={onCollapseAll}
+          disabled={!hasFiles}
+          testid="git-tool-files-collapse-all"
+        />
+      ),
+    },
+  ];
+
+  return <PaneToolbar entries={entries} testid="git-tool-details-toolbar" />;
 };
 
 export default GitDetailsToolbar;

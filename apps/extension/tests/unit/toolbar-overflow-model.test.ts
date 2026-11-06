@@ -30,7 +30,22 @@ describe('fitToolbarItems', () => {
     expect(fit(30)).toEqual({ visible: 0, overflowStart: 0 });
   });
 
+  it('a zero-extent separator (a band spacer) folds like any separator — never last in the bar, never first in the strip', () => {
+    // diff revert eye | <spacer> | expand collapse: 5 × 24 + 5 gaps × 2 = 130 fits at 130.
+    const band: ToolbarOverflowItem[] = [item(), item(), item(), { kind: 'separator', extent: 0 }, item(), item()];
+    const at = (available: number) => fitToolbarItems({ items: band, available, gap: 2, moreExtent: 24 });
+    expect(at(130)).toEqual({ visible: 6, overflowStart: 6 });
+    // room = 129 - 26 = 103: three buttons (76) and the spacer (78) fit, expand (104) does not — the spacer
+    // may not end the run, so it leaves the bar, and the strip starts past it.
+    expect(at(129)).toEqual({ visible: 3, overflowStart: 4 });
+    // room = 103 - 26 = 77: the spacer itself (78) does not fit — the same cut.
+    expect(at(103)).toEqual({ visible: 3, overflowStart: 4 });
+  });
+
   it('is empty for an empty bar', () => {
-    expect(fitToolbarItems({ items: [], available: 10, gap: 2, moreExtent: 24 })).toEqual({ visible: 0, overflowStart: 0 });
+    expect(fitToolbarItems({ items: [], available: 10, gap: 2, moreExtent: 24 })).toEqual({
+      visible: 0,
+      overflowStart: 0,
+    });
   });
 });

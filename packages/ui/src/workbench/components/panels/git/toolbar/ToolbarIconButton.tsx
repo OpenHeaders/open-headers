@@ -2,11 +2,14 @@
  * ToolbarIconButton — one icon slot in a pane toolbar (the horizontal
  * sibling of the rail's BarButton): hover fill, disabled grey, active
  * (toggled) fill, tooltip above (or beside, for a vertical gutter).
- * Presentational only.
+ * The tooltip yields to a popover the button opens (S35 law): hidden
+ * the instant the button is clicked and while `popoverOpen` holds,
+ * back on the next hover. Presentational only.
  */
 
 import { theme, Tooltip } from 'antd';
 import type React from 'react';
+import { useState } from 'react';
 
 export interface ToolbarIconButtonProps {
   icon: React.ReactNode;
@@ -17,6 +20,10 @@ export interface ToolbarIconButtonProps {
   testid: string;
   /** Where the tooltip opens — a vertical gutter reads better beside its button. */
   tooltipPlacement?: 'top' | 'right';
+  /** False renders the bare button — a chevron whose strip is its own disclosure. */
+  tooltip?: boolean;
+  /** True while a popover this button opened is showing — the tooltip stays away. */
+  popoverOpen?: boolean;
 }
 
 const ToolbarIconButton: React.FC<ToolbarIconButtonProps> = ({
@@ -27,16 +34,22 @@ const ToolbarIconButton: React.FC<ToolbarIconButtonProps> = ({
   active,
   testid,
   tooltipPlacement = 'top',
+  tooltip = true,
+  popoverOpen = false,
 }) => {
   const { token } = theme.useToken();
-  return (
-    <Tooltip placement={tooltipPlacement} title={title}>
+  const [suppressed, setSuppressed] = useState(false);
+  const button = (
       <button
         type="button"
         aria-label={title}
         aria-pressed={active}
         disabled={disabled}
-        onClick={onClick}
+        onClick={() => {
+          setSuppressed(true);
+          onClick?.();
+        }}
+        onMouseEnter={() => setSuppressed(false)}
         className={active ? 'git-tool-rail-button active' : 'git-tool-rail-button'}
         data-testid={testid}
         style={{
@@ -56,6 +69,11 @@ const ToolbarIconButton: React.FC<ToolbarIconButtonProps> = ({
       >
         <span style={{ display: 'inline-flex' }}>{icon}</span>
       </button>
+  );
+  if (!tooltip) return button;
+  return (
+    <Tooltip placement={tooltipPlacement} title={title} open={popoverOpen || suppressed ? false : undefined}>
+      {button}
     </Tooltip>
   );
 };

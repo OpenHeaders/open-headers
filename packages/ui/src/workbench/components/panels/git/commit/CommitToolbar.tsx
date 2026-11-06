@@ -5,15 +5,18 @@
  * slice), Shelve Silently (a visible placeholder), the View
  * Options eye (Group By Directory, Show Ignored Files), Select Opened
  * File (placeholder — needs the editor-tab↔file join), then Expand /
- * Collapse All driving the changes tree.
+ * Collapse All driving the changes tree. The band is a PaneToolbar: at
+ * a narrow dock the tail folds behind the › chevron's hover strip.
  */
 
 import { AimOutlined, EyeOutlined, SyncOutlined, VerticalAlignBottomOutlined } from '@ant-design/icons';
-import { Dropdown, theme } from 'antd';
+import { Dropdown } from 'antd';
 import type React from 'react';
+import { useState } from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { CollapseAllIcon, ExpandAllIcon, RollbackIcon } from '@openheaders/ui/shared/icons';
 import { menuCheckIcon } from '../../../shared/menu-check';
+import PaneToolbar, { type PaneToolbarEntry } from '../toolbar/PaneToolbar';
 import ToolbarIconButton from '../toolbar/ToolbarIconButton';
 import type { CommitViewPrefs } from './commit-view-prefs';
 
@@ -38,46 +41,14 @@ const CommitToolbar: React.FC<CommitToolbarProps> = ({
   onCollapseAll,
 }) => {
   const t = useT();
-  const { token } = theme.useToken();
+  const [viewOptionsOpen, setViewOptionsOpen] = useState(false);
 
-  return (
-    <div
-      style={{
-        flex: '0 0 auto',
-        display: 'flex',
-        alignItems: 'center',
-        gap: 2,
-        height: 33,
-        padding: '0 8px',
-        borderBottom: `1px solid ${token.colorBorderSecondary}`,
-        background: token.colorFillQuaternary,
-        minWidth: 0,
-      }}
-      data-testid="commit-tool-toolbar"
-    >
-      <ToolbarIconButton
-        icon={<SyncOutlined />}
-        title={t('workbench.commitTool.refresh')}
-        onClick={onRefresh}
-        testid="commit-tool-refresh"
-      />
-      <ToolbarIconButton
-        icon={<RollbackIcon />}
-        title={t('workbench.commitTool.rollback')}
-        disabled={rollbackPaths.length === 0}
-        onClick={() => onRollback(rollbackPaths)}
-        testid="commit-tool-rollback"
-      />
-      <ToolbarIconButton
-        icon={<VerticalAlignBottomOutlined />}
-        title={t('workbench.commitTool.shelve')}
-        disabled
-        testid="commit-tool-shelve"
-      />
-      <Dropdown
-        trigger={['click']}
-        placement="bottomLeft"
-        menu={{
+  const viewOptions = (
+    <Dropdown
+      trigger={['click']}
+      placement="bottomLeft"
+      onOpenChange={setViewOptionsOpen}
+      menu={{
           selectable: false,
           items: [
             {
@@ -104,44 +75,102 @@ const CommitToolbar: React.FC<CommitToolbarProps> = ({
               ],
             },
           ],
-          onClick: ({ key }) => {
-            if (key === 'directory') onPatchPrefs({ groupByDirectory: !prefs.groupByDirectory });
-            else if (key === 'ignored') onPatchPrefs({ showIgnored: !prefs.showIgnored });
-          },
-        }}
-      >
-        <span style={{ display: 'inline-flex' }}>
-          <ToolbarIconButton
-            icon={<EyeOutlined />}
-            title={t('workbench.gitLog.viewOptions')}
-            testid="commit-tool-view-options"
-          />
-        </span>
-      </Dropdown>
-      <span
-        aria-hidden
-        style={{ width: 1, height: 16, background: token.colorBorderSecondary, margin: '0 4px', flex: '0 0 auto' }}
-      />
-      <ToolbarIconButton
-        icon={<AimOutlined />}
-        title={t('workbench.commitTool.selectOpened')}
-        disabled
-        testid="commit-tool-select-opened"
-      />
-      <ToolbarIconButton
-        icon={<ExpandAllIcon />}
-        title={t('workbench.gitLog.expandAll')}
-        onClick={onExpandAll}
-        testid="commit-tool-expand-all"
-      />
-      <ToolbarIconButton
-        icon={<CollapseAllIcon />}
-        title={t('workbench.gitLog.collapseAll')}
-        onClick={onCollapseAll}
-        testid="commit-tool-collapse-all"
-      />
-    </div>
+        onClick: ({ key }) => {
+          if (key === 'directory') onPatchPrefs({ groupByDirectory: !prefs.groupByDirectory });
+          else if (key === 'ignored') onPatchPrefs({ showIgnored: !prefs.showIgnored });
+        },
+      }}
+    >
+      <span style={{ display: 'inline-flex' }}>
+        <ToolbarIconButton
+          icon={<EyeOutlined />}
+          title={t('workbench.gitLog.viewOptions')}
+          popoverOpen={viewOptionsOpen}
+          testid="commit-tool-view-options"
+        />
+      </span>
+    </Dropdown>
   );
+
+  const entries: PaneToolbarEntry[] = [
+    {
+      kind: 'item',
+      key: 'refresh',
+      node: (
+        <ToolbarIconButton
+          icon={<SyncOutlined />}
+          title={t('workbench.commitTool.refresh')}
+          onClick={onRefresh}
+          testid="commit-tool-refresh"
+        />
+      ),
+    },
+    {
+      kind: 'item',
+      key: 'rollback',
+      node: (
+        <ToolbarIconButton
+          icon={<RollbackIcon />}
+          title={t('workbench.commitTool.rollback')}
+          disabled={rollbackPaths.length === 0}
+          onClick={() => onRollback(rollbackPaths)}
+          testid="commit-tool-rollback"
+        />
+      ),
+    },
+    {
+      kind: 'item',
+      key: 'shelve',
+      node: (
+        <ToolbarIconButton
+          icon={<VerticalAlignBottomOutlined />}
+          title={t('workbench.commitTool.shelve')}
+          disabled
+          testid="commit-tool-shelve"
+        />
+      ),
+    },
+    { kind: 'item', key: 'view-options', node: viewOptions },
+    { kind: 'separator', key: 'sep-tree' },
+    {
+      kind: 'item',
+      key: 'select-opened',
+      node: (
+        <ToolbarIconButton
+          icon={<AimOutlined />}
+          title={t('workbench.commitTool.selectOpened')}
+          disabled
+          testid="commit-tool-select-opened"
+        />
+      ),
+    },
+    {
+      kind: 'item',
+      key: 'expand-all',
+      node: (
+        <ToolbarIconButton
+          icon={<ExpandAllIcon />}
+          title={t('workbench.gitLog.expandAll')}
+          onClick={onExpandAll}
+          testid="commit-tool-expand-all"
+        />
+      ),
+    },
+    {
+      kind: 'item',
+      key: 'collapse-all',
+      node: (
+        <ToolbarIconButton
+          icon={<CollapseAllIcon />}
+          title={t('workbench.gitLog.collapseAll')}
+          onClick={onCollapseAll}
+          testid="commit-tool-collapse-all"
+        />
+      ),
+    },
+  ];
+
+  return <PaneToolbar entries={entries} testid="commit-tool-toolbar" />;
 };
 
 export default CommitToolbar;
