@@ -13,6 +13,7 @@ import { buildFileRowMenu } from '@openheaders/ui/workbench/components/panels/gi
 import RefTree from '@openheaders/ui/workbench/components/panels/git/rail/RefTree';
 import {
   buildRefRowMenu,
+  buildRemoteGroupMenu,
   type RefRowMenuHandlers,
 } from '@openheaders/ui/workbench/components/panels/git/rail/ref-row-menu';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
@@ -205,6 +206,53 @@ describe('RefTree row context menu (mounted)', () => {
     const checkout = await screen.findByTestId('git-tool-ref-menu-checkout');
     fireEvent.click(checkout);
     expect(h.onCheckout).toHaveBeenCalledWith('feature');
+  });
+});
+
+describe('Remote group header menu (S41)', () => {
+  it('buildRemoteGroupMenu carries one live verb that opens the Git Remotes dialog', () => {
+    const onManageRemotes = vi.fn();
+    const menu = buildRemoteGroupMenu(t, onManageRemotes);
+    expect(keysOf(menu)).toEqual(['manage-remotes']);
+    expect(disabledKeys(menu)).toEqual([]);
+    const item = (menu.items ?? [])[0] as { onClick?: () => void };
+    item.onClick?.();
+    expect(onManageRemotes).toHaveBeenCalledTimes(1);
+  });
+
+  it('right-click on the Remote group header opens it; the Local header stays plain', async () => {
+    const h = handlers();
+    const onManageRemotes = vi.fn();
+    render(
+      <AntApp>
+        <RefTree
+          refs={[...refs, { name: 'origin/main', kind: 'remote', sha: 'c'.repeat(40) }]}
+          currentRef="main"
+          unbornBranch={null}
+          detachedSha={null}
+          selected={null}
+          favorites={new Set()}
+          groupByDirectory
+          showTags
+          onLeafClick={() => undefined}
+          onHeadClick={() => undefined}
+          onLeafContextMenu={() => undefined}
+          rowMenu={(node) => buildRefRowMenu(node, { current: 'main', historyRewritten: false }, t, h)}
+          groupMenu={(kind) => (kind === 'remote' ? buildRemoteGroupMenu(t, onManageRemotes) : null)}
+        />
+      </AntApp>,
+    );
+    const remoteHeader = document.querySelector(
+      '[data-testid="git-tool-ref-group"][data-kind="remote"] [data-testid="git-tool-ref-group-header"]',
+    );
+    expect(remoteHeader).not.toBeNull();
+    fireEvent.contextMenu(remoteHeader as Element);
+    fireEvent.click(await screen.findByTestId('git-tool-ref-menu-manage-remotes'));
+    expect(onManageRemotes).toHaveBeenCalledTimes(1);
+    const localHeader = document.querySelector(
+      '[data-testid="git-tool-ref-group"][data-kind="local"] [data-testid="git-tool-ref-group-header"]',
+    );
+    expect(localHeader?.closest('.ant-dropdown-trigger')).toBeNull();
   });
 });
 

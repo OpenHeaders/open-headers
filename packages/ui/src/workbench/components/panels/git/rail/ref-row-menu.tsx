@@ -20,7 +20,8 @@
  * Tree, Rename…, a non-current Push…, remote/tag Delete, tag
  * Checkout/Merge) render visible-disabled. Merge holds while a remote
  * history rewrite is pending and on a detached HEAD. Pure over
- * (row, context, t, handlers).
+ * (row, context, t, handlers). The Remote group header carries its
+ * own one-line menu: Manage Remotes… (the Git Remotes dialog).
  */
 
 import { DeleteOutlined, EditOutlined, PlusOutlined, SwapOutlined } from '@ant-design/icons';
@@ -61,6 +62,23 @@ export interface RefRowMenuHandlers {
 
 type MenuItems = NonNullable<MenuProps['items']>;
 type MenuItem = MenuItems[number];
+
+/** The Remote group header's menu — one verb, the Git Remotes dialog. */
+export function buildRemoteGroupMenu(t: Translate, onManageRemotes: () => void): MenuProps {
+  const items: MenuItems = [
+    {
+      key: 'manage-remotes',
+      label: menuLabel(
+        null,
+        t('workbench.commitTool.menu.manageRemotes'),
+        undefined,
+        'git-tool-ref-menu-manage-remotes',
+      ),
+      onClick: onManageRemotes,
+    },
+  ];
+  return { items, selectable: false };
+}
 
 interface VerbItem {
   key: string;

@@ -30,6 +30,7 @@ import DiffModal from '../DiffModal';
 import ForcePushBanner from '../ForcePushBanner';
 import { GIT_PRIMARY_TAB_KEY, getGitPanelWorkbench } from '../git-panel-view-store';
 import CreateBranchModal from '../rail/CreateBranchModal';
+import RemotesModal from '../remotes/RemotesModal';
 import {
   type CheckedState,
   checkedOnly,
@@ -89,6 +90,7 @@ const CommitToolPanel: React.FC<CommitToolPanelProps> = ({ info, onHide }) => {
   const [pushOpen, setPushOpen] = useState(false);
   const [pushRejected, setPushRejected] = useState(false);
   const [compareOpen, setCompareOpen] = useState(false);
+  const [remotesOpen, setRemotesOpen] = useState(false);
   const [createBranchFrom, setCreateBranchFrom] = useState<string | null>(null);
   const treeRef = useRef<CommitChangesTreeHandle>(null);
   const formRef = useRef<CommitFormHandle>(null);
@@ -563,6 +565,7 @@ const CommitToolPanel: React.FC<CommitToolPanelProps> = ({ info, onHide }) => {
       onCompareWithBranch: () => setCompareOpen(true),
       onBranches: handleBranches,
       onNewBranch: () => setCreateBranchFrom(currentBranch ?? headSha?.slice(0, 8) ?? 'HEAD'),
+      onManageRemotes: () => setRemotesOpen(true),
       onIgnorePaths: (paths, target) => void handleIgnorePaths(paths, target),
       onUnignorePath: (filePath, target) => void handleUnignorePath(filePath, target),
       onAddToVcs: (paths) => void handleAddToVcs(paths),
@@ -738,6 +741,12 @@ const CommitToolPanel: React.FC<CommitToolPanelProps> = ({ info, onHide }) => {
         container={panelRef.current}
         onClose={() => setCompareOpen(false)}
         onPick={handleComparePick}
+      />
+      <RemotesModal
+        workspaceId={workspaceId}
+        open={remotesOpen}
+        container={panelRef.current}
+        onClose={() => setRemotesOpen(false)}
       />
       <CreateBranchModal
         workspaceId={workspaceId}

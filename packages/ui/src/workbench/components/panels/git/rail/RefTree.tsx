@@ -62,6 +62,8 @@ export interface RefTreeProps {
    *  menu built here opens beside it. */
   onLeafContextMenu: (node: RefTreeSelection) => void;
   rowMenu: (node: RefTreeSelection) => MenuProps;
+  /** A group header's own menu (the Remote group's Manage Remotes…); null leaves the header plain. */
+  groupMenu?: (kind: WorkspaceTreeRefWire['kind']) => MenuProps | null;
 }
 
 export interface RefTreeHandle {
@@ -95,6 +97,7 @@ const RefTree = forwardRef<RefTreeHandle, RefTreeProps>(function RefTree(
     onHeadClick,
     onLeafContextMenu,
     rowMenu,
+    groupMenu,
   },
   handleRef,
 ) {
@@ -350,25 +353,40 @@ const RefTree = forwardRef<RefTreeHandle, RefTreeProps>(function RefTree(
             if (group.tree.length === 0 && !showUnborn) return null;
             const groupKey = `group:${group.kind}`;
             const open = searching ? true : !collapsed.has(groupKey);
+            const headerMenu = groupMenu?.(group.kind) ?? null;
+            const header = (
+              <button
+                type="button"
+                className="git-tool-row"
+                onClick={() => {
+                  setCollapsed((prev) => {
+                    const next = new Set(prev);
+                    if (next.has(groupKey)) next.delete(groupKey);
+                    else next.add(groupKey);
+                    return next;
+                  });
+                }}
+                style={rowStyle(0)}
+                data-testid="git-tool-ref-group-header"
+              >
+                {caretSlot(open)}
+                <span style={labelStyle}>{t(group.labelKey)}</span>
+              </button>
+            );
             return (
               <div key={group.kind} data-testid="git-tool-ref-group" data-kind={group.kind}>
-                <button
-                  type="button"
-                  className="git-tool-row"
-                  onClick={() => {
-                    setCollapsed((prev) => {
-                      const next = new Set(prev);
-                      if (next.has(groupKey)) next.delete(groupKey);
-                      else next.add(groupKey);
-                      return next;
-                    });
-                  }}
-                  style={rowStyle(0)}
-                  data-testid="git-tool-ref-group-header"
-                >
-                  {caretSlot(open)}
-                  <span style={labelStyle}>{t(group.labelKey)}</span>
-                </button>
+                {headerMenu === null ? (
+                  header
+                ) : (
+                  <Dropdown
+                    menu={headerMenu}
+                    trigger={['contextMenu']}
+                    align={contextMenuAlign}
+                    classNames={{ root: 'commit-tool-row-menu' }}
+                  >
+                    {header}
+                  </Dropdown>
+                )}
                 {open &&
                   showUnborn &&
                   unbornBranch !== null &&

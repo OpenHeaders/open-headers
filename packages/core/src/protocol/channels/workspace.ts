@@ -628,6 +628,30 @@ export interface WorkspaceRpc {
     req: { workspaceId: string; paths: string[] };
     res: WorkspaceTreeDeletePathsWire;
   };
+  /** The Git Remotes dialog's list: every configured remote with its fetch url and any separate push url. Pure read. */
+  'oh.workspaceTree.listRemotes': {
+    req: { workspaceId: string };
+    res: WorkspaceTreeRemotesWire;
+  };
+  /** Git Remotes ▸ Add: `git remote add <name> <url>`. A status frame follows. */
+  'oh.workspaceTree.addRemote': {
+    req: { workspaceId: string; name: string; url: string };
+    res: WorkspaceTreeRemoteOpWire;
+  };
+  /**
+   * Git Remotes ▸ Edit: rename the remote (`newName`) and/or set its
+   * fetch url (`url`) — the rename lands first so the url rides the new
+   * name; an absent field is left as it is. A status frame follows.
+   */
+  'oh.workspaceTree.updateRemote': {
+    req: { workspaceId: string; name: string; newName?: string; url?: string };
+    res: WorkspaceTreeRemoteOpWire;
+  };
+  /** Git Remotes ▸ Remove: `git remote remove <name>` — its remote-tracking refs go with it. A status frame follows. */
+  'oh.workspaceTree.removeRemote': {
+    req: { workspaceId: string; name: string };
+    res: WorkspaceTreeRemoteOpWire;
+  };
   /**
    * Jump to Source: the workspace entity a tree path belongs to — the
    * manifest itself or a sibling in an entity's directory — read from
@@ -949,6 +973,39 @@ export interface WorkspaceTreeRefWire {
 export type WorkspaceTreeRefsWire =
   | { ok: true; refs: WorkspaceTreeRefWire[]; current: string | null }
   | { ok: false; reason: 'not-bound' | 'git-unavailable' | 'not-a-repo' | 'refs-failed'; detail?: string };
+
+/** One configured remote — its fetch url and, when set apart, its push url. */
+export interface WorkspaceTreeRemoteWire {
+  name: string;
+  url: string;
+  pushUrl: string | null;
+}
+
+export type WorkspaceTreeRemotesWire =
+  | { ok: true; remotes: WorkspaceTreeRemoteWire[] }
+  | { ok: false; reason: 'not-bound' | 'git-unavailable' | 'not-a-repo' | 'list-failed'; detail?: string };
+
+/**
+ * One remote add / update / remove: it landed, or a typed refusal —
+ * `invalid-name` / `invalid-url` from the host's own gates, `exists` /
+ * `unknown-remote` from the remote list, `remote-failed` with git's
+ * stderr for the rest.
+ */
+export type WorkspaceTreeRemoteOpWire =
+  | { ok: true }
+  | {
+      ok: false;
+      reason:
+        | 'not-bound'
+        | 'git-unavailable'
+        | 'not-a-repo'
+        | 'invalid-name'
+        | 'invalid-url'
+        | 'exists'
+        | 'unknown-remote'
+        | 'remote-failed';
+      detail?: string;
+    };
 
 /** One state-changing git invocation in the Console tab's feed. */
 export interface WorkspaceTreeGitConsoleRowWire {

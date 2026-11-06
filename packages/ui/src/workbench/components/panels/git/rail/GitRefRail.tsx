@@ -21,7 +21,7 @@ import { useGitBranchActions } from '../branch-actions/use-git-branch-actions';
 import { GIT_LOG_SCOPE_HEAD } from '../git-panel-view-store';
 import GitRailActivityBar from './GitRailActivityBar';
 import { getGitRailPrefs, patchGitRailPrefs, subscribeGitRailPrefs, toggleGitRailFavorite } from './git-rail-prefs';
-import { buildRefRowMenu, type RefRowMenuHandlers, type RefTreeSelection } from './ref-row-menu';
+import { buildRefRowMenu, buildRemoteGroupMenu, type RefRowMenuHandlers, type RefTreeSelection } from './ref-row-menu';
 import RefTree, { type RefTreeHandle } from './RefTree';
 
 export interface GitRefRailProps {
@@ -198,6 +198,7 @@ const GitRefRail: React.FC<GitRefRailProps> = ({
         onHeadClick={handleHeadClick}
         onLeafContextMenu={onSelectionChange}
         rowMenu={rowMenu}
+        groupMenu={(kind) => (kind === 'remote' ? buildRemoteGroupMenu(t, actions.manageRemotes) : null)}
       />
       {actions.dialogs}
     </div>

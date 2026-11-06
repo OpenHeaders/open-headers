@@ -17,6 +17,7 @@ import type {
   GitRunner,
   IgnoreTarget,
   RepoRef,
+  RepoRemote,
   WorkingChange,
 } from '../../git';
 import type { BindWorkspaceTreeResult, probeWorkspaceTree, ReserveWorkspaceTreeForAdoptResult } from '../bind';
@@ -235,6 +236,34 @@ export type WorkspaceTreeLogRpcResult =
 export type WorkspaceTreeRefsRpcResult =
   | { ok: true; refs: RepoRef[]; current: string | null }
   | { ok: false; reason: 'not-bound' | 'git-unavailable' | 'not-a-repo' | 'refs-failed'; detail?: string };
+
+/** The Git Remotes dialog's list. */
+export type WorkspaceTreeRemotesRpcResult =
+  | { ok: true; remotes: RepoRemote[] }
+  | { ok: false; reason: 'not-bound' | 'git-unavailable' | 'not-a-repo' | 'list-failed'; detail?: string };
+
+/** The Edit pass's fields — a new name and/or a new fetch url; an absent field is left as it is. */
+export interface WorkspaceTreeRemotePatch {
+  name?: string;
+  url?: string;
+}
+
+/** One remote add / update / remove: it landed, or a typed refusal. */
+export type WorkspaceTreeRemoteOpRpcResult =
+  | { ok: true }
+  | {
+      ok: false;
+      reason:
+        | 'not-bound'
+        | 'git-unavailable'
+        | 'not-a-repo'
+        | 'invalid-name'
+        | 'invalid-url'
+        | 'exists'
+        | 'unknown-remote'
+        | 'remote-failed';
+      detail?: string;
+    };
 
 /** The Compare-with-Current answer (§9 IDE-log): both exclusive sides. */
 export type CompareRefsRpcResult =
@@ -540,6 +569,18 @@ export interface WorkspaceTreeRuntime {
   entityAtPath(workspaceId: string, path: string): Promise<WorkspaceTreeEntityAtPathRpcResult>;
   /** The log view's ref tree (§9, Phase 7 slice 2) — local branches, remote-tracking refs, tags. */
   listRefs(workspaceId: string): Promise<WorkspaceTreeRefsRpcResult>;
+  /** The Git Remotes dialog's list — a pure read. */
+  listRemotes(workspaceId: string): Promise<WorkspaceTreeRemotesRpcResult>;
+  /** Add a remote (`git remote add`). On the per-binding chain; a status frame follows. */
+  addRemote(workspaceId: string, name: string, url: string): Promise<WorkspaceTreeRemoteOpRpcResult>;
+  /** Rename a remote and/or set its fetch url. On the per-binding chain; a status frame follows. */
+  updateRemote(
+    workspaceId: string,
+    name: string,
+    patch: WorkspaceTreeRemotePatch,
+  ): Promise<WorkspaceTreeRemoteOpRpcResult>;
+  /** Remove a remote with its remote-tracking refs. On the per-binding chain; a status frame follows. */
+  removeRemote(workspaceId: string, name: string): Promise<WorkspaceTreeRemoteOpRpcResult>;
   /**
    * Compare with Current (§9 IDE-log): the two exclusive commit lists
    * between the checked-out branch and a validated ref from

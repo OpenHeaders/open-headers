@@ -64,6 +64,7 @@ function handlers(): CommitRowMenuHandlers {
     onCompareWithBranch: vi.fn(),
     onBranches: vi.fn(),
     onNewBranch: vi.fn(),
+    onManageRemotes: vi.fn(),
     onIgnorePaths: vi.fn(),
     onAddToVcs: vi.fn(),
     onRollbackPaths: vi.fn(),

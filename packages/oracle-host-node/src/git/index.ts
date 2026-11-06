@@ -41,6 +41,17 @@ export {
   removeIgnoreEntry,
 } from './ignore-ops';
 export {
+  addRemote,
+  isSafeRemoteName,
+  isSafeRemoteUrl,
+  listRemotes,
+  type RemoteOpResult,
+  type RepoRemote,
+  removeRemote,
+  renameRemote,
+  setRemoteUrl,
+} from './remote-ops';
+export {
   type BranchOpResult,
   COMMIT_FILE_DIFF_MAX_BYTES,
   type CommitFileDiff,

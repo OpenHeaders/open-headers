@@ -73,6 +73,7 @@ import { runEntityAtPath } from './entity-at-path';
 import { runCompareRefs, runFileDiff, runFileLog, runGitConsole, runListRefs, runWorkspaceLog } from './history';
 import { runIgnorePath, runUnignorePath } from './ignore';
 import { closeBinding, openBinding } from './lifecycle';
+import { runAddRemote, runListRemotes, runRemoveRemote, runUpdateRemote } from './remotes';
 import { applyAll, buildSnapshot, workspaceEntity } from './snapshot';
 import { notBoundStatus, publishGitStatus, readGitStatus } from './status';
 import { appendIssues, heldByGitOperation, refreshIssuesFromDisk, runSweep, scheduleMaterialize } from './sweep';
@@ -105,6 +106,9 @@ import type {
   WorkspaceTreeLogFilters,
   WorkspaceTreeLogRpcResult,
   WorkspaceTreeRefsRpcResult,
+  WorkspaceTreeRemoteOpRpcResult,
+  WorkspaceTreeRemotePatch,
+  WorkspaceTreeRemotesRpcResult,
   WorkspaceTreeRuntime,
   WorkspaceTreeRuntimeOptions,
   WorkspaceTreeUnaddPathsRpcResult,
@@ -142,6 +146,9 @@ export type {
   WorkspaceTreeLogFilters,
   WorkspaceTreeLogRpcResult,
   WorkspaceTreeRefsRpcResult,
+  WorkspaceTreeRemoteOpRpcResult,
+  WorkspaceTreeRemotePatch,
+  WorkspaceTreeRemotesRpcResult,
   WorkspaceTreeRuntime,
   WorkspaceTreeRuntimeOptions,
   WorkspaceTreeUnaddPathsRpcResult,
@@ -698,6 +705,58 @@ export function createWorkspaceTreeRuntime(options: WorkspaceTreeRuntimeOptions)
 
     compareRefs(workspaceId: string, ref: string): Promise<CompareRefsRpcResult> {
       return runCompareRefs(ctx, workspaceId, ref);
+    },
+
+    async listRemotes(workspaceId: string): Promise<WorkspaceTreeRemotesRpcResult> {
+      const binding = open.get(workspaceId);
+      if (!binding) return { ok: false, reason: 'not-bound' };
+      return runListRemotes(ctx, binding);
+    },
+
+    async addRemote(workspaceId: string, name: string, url: string): Promise<WorkspaceTreeRemoteOpRpcResult> {
+      const binding = open.get(workspaceId);
+      if (!binding) return { ok: false, reason: 'not-bound' };
+      return onChain<WorkspaceTreeRemoteOpRpcResult>(
+        binding,
+        { ok: false, reason: 'remote-failed', detail: 'remote pass did not run' },
+        async () => {
+          const result = await runAddRemote(ctx, binding, name, url);
+          await ctx.publishGitStatus(binding);
+          return result;
+        },
+      );
+    },
+
+    async updateRemote(
+      workspaceId: string,
+      name: string,
+      patch: WorkspaceTreeRemotePatch,
+    ): Promise<WorkspaceTreeRemoteOpRpcResult> {
+      const binding = open.get(workspaceId);
+      if (!binding) return { ok: false, reason: 'not-bound' };
+      return onChain<WorkspaceTreeRemoteOpRpcResult>(
+        binding,
+        { ok: false, reason: 'remote-failed', detail: 'remote pass did not run' },
+        async () => {
+          const result = await runUpdateRemote(ctx, binding, name, patch);
+          await ctx.publishGitStatus(binding);
+          return result;
+        },
+      );
+    },
+
+    async removeRemote(workspaceId: string, name: string): Promise<WorkspaceTreeRemoteOpRpcResult> {
+      const binding = open.get(workspaceId);
+      if (!binding) return { ok: false, reason: 'not-bound' };
+      return onChain<WorkspaceTreeRemoteOpRpcResult>(
+        binding,
+        { ok: false, reason: 'remote-failed', detail: 'remote pass did not run' },
+        async () => {
+          const result = await runRemoveRemote(ctx, binding, name);
+          await ctx.publishGitStatus(binding);
+          return result;
+        },
+      );
     },
 
     fileDiff(

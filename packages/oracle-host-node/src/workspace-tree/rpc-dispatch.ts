@@ -310,6 +310,33 @@ export async function dispatchWorkspaceTreeRpc(
     if (type === 'oh.workspaceTree.unaddPaths') return await runtime.unaddPaths(workspaceId, paths);
     return await runtime.deletePaths(workspaceId, paths);
   }
+  if (type === 'oh.workspaceTree.listRemotes') {
+    const workspaceId = typeof message.workspaceId === 'string' ? message.workspaceId : '';
+    if (!workspaceId || runtime === null) return { ok: false, reason: 'not-bound' };
+    return await runtime.listRemotes(workspaceId);
+  }
+  if (type === 'oh.workspaceTree.addRemote') {
+    const workspaceId = typeof message.workspaceId === 'string' ? message.workspaceId : '';
+    const name = typeof message.name === 'string' ? message.name : '';
+    const url = typeof message.url === 'string' ? message.url : '';
+    if (!workspaceId || !name || runtime === null) return { ok: false, reason: 'not-bound' };
+    return await runtime.addRemote(workspaceId, name, url);
+  }
+  if (type === 'oh.workspaceTree.updateRemote') {
+    const workspaceId = typeof message.workspaceId === 'string' ? message.workspaceId : '';
+    const name = typeof message.name === 'string' ? message.name : '';
+    if (!workspaceId || !name || runtime === null) return { ok: false, reason: 'not-bound' };
+    return await runtime.updateRemote(workspaceId, name, {
+      ...(typeof message.newName === 'string' ? { name: message.newName } : {}),
+      ...(typeof message.url === 'string' ? { url: message.url } : {}),
+    });
+  }
+  if (type === 'oh.workspaceTree.removeRemote') {
+    const workspaceId = typeof message.workspaceId === 'string' ? message.workspaceId : '';
+    const name = typeof message.name === 'string' ? message.name : '';
+    if (!workspaceId || !name || runtime === null) return { ok: false, reason: 'not-bound' };
+    return await runtime.removeRemote(workspaceId, name);
+  }
   if (type === 'oh.workspaceTree.fileLog') {
     const workspaceId = typeof message.workspaceId === 'string' ? message.workspaceId : '';
     const filePath = typeof message.path === 'string' ? message.path : '';

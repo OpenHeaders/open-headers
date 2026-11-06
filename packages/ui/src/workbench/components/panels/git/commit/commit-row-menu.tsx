@@ -49,6 +49,8 @@ export interface CommitRowMenuHandlers {
   onCompareWithBranch: () => void;
   onBranches: () => void;
   onNewBranch: () => void;
+  /** The Git Remotes dialog. */
+  onManageRemotes: () => void;
   /** Append every path's entry to the target ignore file — one unversioned file or directory, or a selection of files. */
   onIgnorePaths: (paths: readonly string[], target: 'gitignore' | 'exclude') => void;
   /** Track these unversioned paths (intent-to-add) — the rows move to Changes as added. */
@@ -284,8 +286,13 @@ function gitSubmenu(facts: TargetFacts, t: Translate, h: CommitRowMenuHandlers):
       { key: 'git-github', label: menuLabel(<GithubOutlined />, t('workbench.commitTool.menu.github')), disabled: true },
       {
         key: 'git-manage-remotes',
-        label: menuLabel(null, t('workbench.commitTool.menu.manageRemotes')),
-        disabled: true,
+        label: menuLabel(
+          null,
+          t('workbench.commitTool.menu.manageRemotes'),
+          undefined,
+          'commit-tool-menu-manage-remotes',
+        ),
+        onClick: () => h.onManageRemotes(),
       },
       { key: 'git-clone', label: menuLabel(null, t('workbench.commitTool.menu.clone')), disabled: true },
     ],

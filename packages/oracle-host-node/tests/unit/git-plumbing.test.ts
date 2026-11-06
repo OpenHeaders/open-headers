@@ -23,6 +23,15 @@ import { parseGitfile, resolveGitDirs } from '../../src/git/git-dir';
 import { createGitExec, type GitAuditRow, type GitRunner, probeGitAvailability } from '../../src/git/git-exec';
 import { addIgnoreEntry, checkIgnoreProvenance, removeIgnoreEntry } from '../../src/git/ignore-ops';
 import {
+  addRemote,
+  isSafeRemoteName,
+  isSafeRemoteUrl,
+  listRemotes,
+  removeRemote,
+  renameRemote,
+  setRemoteUrl,
+} from '../../src/git/remote-ops';
+import {
   checkoutWorkspaceBranch,
   cleanUntracked,
   commitParents,
@@ -2123,5 +2132,63 @@ describe('Gitfile layouts (S25 D): linked worktrees and submodule checkouts', ()
     expect(await fs.readFile(path.join(dirs.gitDir, 'info', 'exclude'), 'utf-8')).toContain('/local.yaml\n');
     const provenance = await checkIgnoreProvenance(run, sub, ['local.yaml']);
     expect(provenance.get('local.yaml')).toMatchObject({ kind: 'exclude', removable: true });
+  });
+});
+
+describe('Remote ops (S41): the Git Remotes dialog', () => {
+  it('gates names and urls before any spawn', () => {
+    expect(isSafeRemoteName('origin')).toBe(true);
+    expect(isSafeRemoteName('up.stream_2-x')).toBe(true);
+    expect(isSafeRemoteName('')).toBe(false);
+    expect(isSafeRemoteName('-origin')).toBe(false);
+    expect(isSafeRemoteName('a b')).toBe(false);
+    expect(isSafeRemoteName('a..b')).toBe(false);
+    expect(isSafeRemoteName('x.lock')).toBe(false);
+    expect(isSafeRemoteName('a/b')).toBe(false);
+    expect(isSafeRemoteUrl('https://openheaders.io/r.git')).toBe(true);
+    expect(isSafeRemoteUrl('')).toBe(false);
+    expect(isSafeRemoteUrl('--upload-pack=x')).toBe(false);
+    expect(isSafeRemoteUrl('a\nb')).toBe(false);
+  });
+
+  it('lists, adds, renames, re-urls and removes remotes with typed refusals from the list', async () => {
+    await initialCommit();
+    expect(await listRemotes(run, tmpDir)).toEqual([]);
+
+    expect(await addRemote(run, tmpDir, 'origin', 'https://openheaders.io/one.git')).toEqual({ ok: true });
+    expect(await addRemote(run, tmpDir, 'origin', 'https://openheaders.io/two.git')).toEqual({
+      ok: false,
+      reason: 'exists',
+    });
+    expect(await addRemote(run, tmpDir, '-x', 'https://openheaders.io/two.git')).toEqual({
+      ok: false,
+      reason: 'invalid-name',
+    });
+    expect(await addRemote(run, tmpDir, 'evil', '--upload-pack=touch')).toEqual({ ok: false, reason: 'invalid-url' });
+    expect(await listRemotes(run, tmpDir)).toEqual([
+      { name: 'origin', url: 'https://openheaders.io/one.git', pushUrl: null },
+    ]);
+
+    expect(await renameRemote(run, tmpDir, 'origin', 'upstream')).toEqual({ ok: true });
+    expect(await renameRemote(run, tmpDir, 'origin', 'other')).toEqual({ ok: false, reason: 'unknown-remote' });
+    expect(await addRemote(run, tmpDir, 'mirror', 'https://openheaders.io/mirror.git')).toEqual({ ok: true });
+    expect(await renameRemote(run, tmpDir, 'mirror', 'upstream')).toEqual({ ok: false, reason: 'exists' });
+
+    expect(await setRemoteUrl(run, tmpDir, 'upstream', 'https://openheaders.io/three.git')).toEqual({ ok: true });
+    expect(await setRemoteUrl(run, tmpDir, 'nope', 'https://openheaders.io/three.git')).toEqual({
+      ok: false,
+      reason: 'unknown-remote',
+    });
+    await run(['-C', tmpDir, 'remote', 'set-url', '--push', 'upstream', 'https://openheaders.io/push.git'], {
+      cwd: tmpDir,
+    });
+    expect(await listRemotes(run, tmpDir)).toEqual([
+      { name: 'mirror', url: 'https://openheaders.io/mirror.git', pushUrl: null },
+      { name: 'upstream', url: 'https://openheaders.io/three.git', pushUrl: 'https://openheaders.io/push.git' },
+    ]);
+
+    expect(await removeRemote(run, tmpDir, 'mirror')).toEqual({ ok: true });
+    expect(await removeRemote(run, tmpDir, 'mirror')).toEqual({ ok: false, reason: 'unknown-remote' });
+    expect((await listRemotes(run, tmpDir))?.map((remote) => remote.name)).toEqual(['upstream']);
   });
 });

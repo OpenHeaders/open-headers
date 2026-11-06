@@ -7,8 +7,8 @@
  * into Current (the Phase 4 machinery on a local or remote-tracking
  * ref — never raw `git merge`), Update (fast-forward a NON-current
  * branch from its upstream), Update Project (pull the current branch),
- * Push (the Push window over the current branch), Fetch, and Delete
- * with the Restore toast.
+ * Push (the Push window over the current branch), Fetch, Delete
+ * with the Restore toast, and Manage Remotes (the Git Remotes dialog).
  * Mutations go through the bridge and come back as
  * `workspaceTreeGitStatus` frames — nothing here refetches by hand.
  * The hook owns the dialogs' state and hands back their elements for
@@ -27,6 +27,7 @@ import { useT } from '@openheaders/ui/context/LocaleContext';
 import PushCommitsModal from '../push/PushCommitsModal';
 import PushRejectedModal from '../push/PushRejectedModal';
 import CreateBranchModal from '../rail/CreateBranchModal';
+import RemotesModal from '../remotes/RemotesModal';
 import SwitchBranchModal, { type SwitchBranchPrompt, type SwitchDirtyChoice } from '../rail/SwitchBranchModal';
 
 export interface GitBranchActionsOptions {
@@ -60,8 +61,10 @@ export interface GitBranchActions {
   fetch: () => void;
   pull: () => void;
   push: () => void;
+  /** The Git Remotes dialog. */
+  manageRemotes: () => void;
   busy: GitBranchBusy;
-  /** The New Branch, dirty-switch and Push dialogs — mount once in the caller's tree. */
+  /** The New Branch, dirty-switch, Push and Remotes dialogs — mount once in the caller's tree. */
   dialogs: React.ReactNode;
 }
 
@@ -87,6 +90,7 @@ export function useGitBranchActions(options: GitBranchActionsOptions): GitBranch
   const [pushBusy, setPushBusy] = useState(false);
   const [pushOpen, setPushOpen] = useState(false);
   const [pushRejected, setPushRejected] = useState(false);
+  const [remotesOpen, setRemotesOpen] = useState(false);
 
   const failure = (err: unknown): string => (err instanceof Error ? err.message : String(err));
 
@@ -395,6 +399,7 @@ export function useGitBranchActions(options: GitBranchActionsOptions): GitBranch
           void pull().then((landed) => (landed ? pushNow() : undefined));
         }}
       />
+      <RemotesModal workspaceId={workspaceId} open={remotesOpen} container={container} onClose={() => setRemotesOpen(false)} />
     </>
   );
 
@@ -408,6 +413,7 @@ export function useGitBranchActions(options: GitBranchActionsOptions): GitBranch
     fetch: () => void fetch(),
     pull: () => void pull(),
     push: () => setPushOpen(true),
+    manageRemotes: () => setRemotesOpen(true),
     busy: {
       switching,
       merge: mergeBusy,

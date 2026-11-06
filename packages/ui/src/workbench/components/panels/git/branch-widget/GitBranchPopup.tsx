@@ -380,11 +380,22 @@ const GitBranchPopup: React.FC<GitBranchPopupProps> = ({
                 label: t('workbench.gitLog.rail.groupByDirectory'),
                 icon: menuCheckIcon(prefs.groupByDirectory),
               },
+              { type: 'divider' },
+              {
+                key: 'manage-remotes',
+                label: (
+                  <span data-testid="git-branch-popup-manage-remotes">{t('workbench.commitTool.menu.manageRemotes')}</span>
+                ),
+              },
             ],
             onClick: ({ key }) => {
               if (key === 'show-tags') patchBranchWidgetPrefs(workspaceId, { showTags: !prefs.showTags });
               else if (key === 'group-dirs') {
                 patchBranchWidgetPrefs(workspaceId, { groupByDirectory: !prefs.groupByDirectory });
+              } else if (key === 'manage-remotes') {
+                // The dialog is the hook's; the popup steps aside so it is not underneath.
+                onClose();
+                actions.manageRemotes();
               }
             },
           }}
