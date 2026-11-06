@@ -749,7 +749,7 @@ export const workbenchChrome = {
   'workbench.gitLog.rail.show': 'Afficher les branches Git',
   'workbench.gitLog.rail.branchesStrip': 'Branches',
   'workbench.gitLog.rail.newBranch': 'Nouvelle branche',
-  'workbench.gitLog.rail.updateSelected': 'Mettre à jour la sélection',
+  'workbench.gitLog.rail.updateSelected': 'Mettre à jour la sélection (Fast-Forward)',
   'workbench.gitLog.rail.deleteBranch': 'Supprimer la branche',
   'workbench.gitLog.rail.compareWithCurrent': 'Comparer avec la branche actuelle',
   'workbench.gitLog.rail.showMyBranches': 'Afficher mes branches',

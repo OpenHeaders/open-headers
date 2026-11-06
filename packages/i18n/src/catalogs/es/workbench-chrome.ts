@@ -747,7 +747,7 @@ export const workbenchChrome = {
   'workbench.gitLog.rail.show': 'Mostrar ramas de Git',
   'workbench.gitLog.rail.branchesStrip': 'Ramas',
   'workbench.gitLog.rail.newBranch': 'Nueva rama',
-  'workbench.gitLog.rail.updateSelected': 'Actualizar selección',
+  'workbench.gitLog.rail.updateSelected': 'Actualizar selección (Fast-Forward)',
   'workbench.gitLog.rail.deleteBranch': 'Eliminar rama',
   'workbench.gitLog.rail.compareWithCurrent': 'Comparar con la actual',
   'workbench.gitLog.rail.showMyBranches': 'Mostrar mis ramas',

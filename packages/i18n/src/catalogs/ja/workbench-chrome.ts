@@ -580,7 +580,7 @@ export const workbenchChrome = {
   'workbench.gitLog.rail.show': 'Git ブランチを表示',
   'workbench.gitLog.rail.branchesStrip': 'ブランチ',
   'workbench.gitLog.rail.newBranch': '新しいブランチ',
-  'workbench.gitLog.rail.updateSelected': '選択したものを更新',
+  'workbench.gitLog.rail.updateSelected': '選択したものを更新 (Fast-Forward)',
   'workbench.gitLog.rail.deleteBranch': 'ブランチを削除',
   'workbench.gitLog.rail.compareWithCurrent': '現在のブランチと比較',
   'workbench.gitLog.rail.showMyBranches': '自分のブランチを表示',

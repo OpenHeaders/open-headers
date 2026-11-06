@@ -601,7 +601,7 @@ export const workbenchChrome = {
   'workbench.gitLog.rail.show': 'Показать ветки Git',
   'workbench.gitLog.rail.branchesStrip': 'Ветки',
   'workbench.gitLog.rail.newBranch': 'Новая ветка',
-  'workbench.gitLog.rail.updateSelected': 'Обновить выбранную',
+  'workbench.gitLog.rail.updateSelected': 'Обновить выбранную (Fast-Forward)',
   'workbench.gitLog.rail.deleteBranch': 'Удалить ветку',
   'workbench.gitLog.rail.compareWithCurrent': 'Сравнить с текущей',
   'workbench.gitLog.rail.showMyBranches': 'Показать мои ветки',

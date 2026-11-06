@@ -567,7 +567,7 @@ export const workbenchChrome = {
   'workbench.gitLog.rail.show': '显示 Git 分支',
   'workbench.gitLog.rail.branchesStrip': '分支',
   'workbench.gitLog.rail.newBranch': '新建分支',
-  'workbench.gitLog.rail.updateSelected': '更新所选分支',
+  'workbench.gitLog.rail.updateSelected': '更新所选分支 (Fast-Forward)',
   'workbench.gitLog.rail.deleteBranch': '删除分支',
   'workbench.gitLog.rail.compareWithCurrent': '与当前分支比较',
   'workbench.gitLog.rail.showMyBranches': '显示我的分支',

@@ -608,7 +608,7 @@ export const workbenchChrome = {
   'workbench.gitLog.rail.show': 'Afișare ramuri Git',
   'workbench.gitLog.rail.branchesStrip': 'Ramuri',
   'workbench.gitLog.rail.newBranch': 'Ramură nouă',
-  'workbench.gitLog.rail.updateSelected': 'Actualizare selecție',
+  'workbench.gitLog.rail.updateSelected': 'Actualizare selecție (Fast-Forward)',
   'workbench.gitLog.rail.deleteBranch': 'Ștergere ramură',
   'workbench.gitLog.rail.compareWithCurrent': 'Comparare cu cea curentă',
   'workbench.gitLog.rail.showMyBranches': 'Afișare ramurile mele',

@@ -580,7 +580,7 @@ export const workbenchChrome = {
   'workbench.gitLog.rail.show': 'Git 브랜치 표시',
   'workbench.gitLog.rail.branchesStrip': '브랜치',
   'workbench.gitLog.rail.newBranch': '새 브랜치',
-  'workbench.gitLog.rail.updateSelected': '선택 항목 업데이트',
+  'workbench.gitLog.rail.updateSelected': '선택 항목 업데이트 (Fast-Forward)',
   'workbench.gitLog.rail.deleteBranch': '브랜치 삭제',
   'workbench.gitLog.rail.compareWithCurrent': '현재 브랜치와 비교',
   'workbench.gitLog.rail.showMyBranches': '내 브랜치 표시',
