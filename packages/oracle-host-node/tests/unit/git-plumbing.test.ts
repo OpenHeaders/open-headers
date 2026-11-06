@@ -66,6 +66,7 @@ import {
   resolveRefSha,
   resolveUpstream,
   stashWorkspaceTree,
+  unaddPaths,
   userIndexHasStagedChanges,
   withCommitAttribution,
 } from '../../src/git/repo';
@@ -1585,6 +1586,32 @@ describe('Commit window plumbing (S22)', () => {
 
     const withIgnored = await listWorkingChanges(run, tmpDir, { includeIgnored: true });
     expect((withIgnored ?? []).find((row) => row.path === 'secret.log')).toMatchObject({ ignored: true });
+  });
+
+  it('unaddPaths rolls an intent-to-add and a staged-new file back to unversioned with the bytes intact; a HEAD-tracked path is refused', async () => {
+    await initialCommit();
+    await write('notes.md', '# notes\n');
+    await write('staged.md', '# staged\n');
+    expect(await intentToAddPaths(run, tmpDir, ['notes.md'])).toEqual({ ok: true });
+    await run(['--git-dir', path.join(tmpDir, '.git'), '--work-tree', tmpDir, 'add', 'staged.md'], { cwd: tmpDir });
+    const before = (await listWorkingChanges(run, tmpDir)) ?? [];
+    expect(before.find((row) => row.path === 'notes.md')).toMatchObject({ status: 'A', unversioned: false });
+    expect(before.find((row) => row.path === 'staged.md')).toMatchObject({ status: 'A', unversioned: false });
+
+    expect(await unaddPaths(run, tmpDir, ['notes.md', 'staged.md'])).toEqual({ ok: true });
+    const after = (await listWorkingChanges(run, tmpDir)) ?? [];
+    expect(after.find((row) => row.path === 'notes.md')).toMatchObject({ status: '?', unversioned: true });
+    expect(after.find((row) => row.path === 'staged.md')).toMatchObject({ status: '?', unversioned: true });
+    expect(await fs.readFile(path.join(tmpDir, 'notes.md'), 'utf-8')).toBe('# notes\n');
+    expect(await userIndexHasStagedChanges(run, tmpDir)).toBe(false);
+
+    await write('workspace.yaml', 'schemaVersion: 5\nuid: wsaaaaaa\nname: Edited\n');
+    const refused = await unaddPaths(run, tmpDir, ['workspace.yaml']);
+    expect(refused).toMatchObject({ ok: false, detail: 'tracked in HEAD: workspace.yaml' });
+    expect((await listWorkingChanges(run, tmpDir)) ?? []).toContainEqual(
+      expect.objectContaining({ path: 'workspace.yaml', status: 'M' }),
+    );
+    expect(await userIndexHasStagedChanges(run, tmpDir)).toBe(false);
   });
 
   it('listWorkingChanges flags a symbolic link on untracked and added rows, never on a plain file', async () => {

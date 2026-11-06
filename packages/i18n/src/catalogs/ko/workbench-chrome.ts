@@ -801,6 +801,11 @@ export const workbenchChrome = {
   'workbench.commitTool.delete.confirmBody':
     '파일이 디스크에서 제거됩니다. 추적 중인 파일은 커밋할 때까지 삭제됨으로 표시되고, 버전 관리되지 않는 파일은 사라집니다.',
   'workbench.commitTool.delete.ok': '삭제',
+  'workbench.commitTool.menu.rollbackFailed': '롤백할 수 없습니다: {detail}',
+  'workbench.commitTool.rollbackAdded.confirmTitle': '{files}을(를) 롤백하시겠습니까?',
+  'workbench.commitTool.rollbackAdded.confirmBody':
+    '파일이 인덱스에서 제거되어 버전 관리되지 않는 파일로 돌아갑니다. 디스크의 내용은 변경되지 않습니다.',
+  'workbench.commitTool.rollbackAdded.ok': '롤백',
   'workbench.commitTool.menu.stopIgnoring': '무시 해제',
   'workbench.commitTool.ignoreSourceGlobal': '전역',
   'workbench.commitTool.menu.fetchDone': '가져오기 완료',

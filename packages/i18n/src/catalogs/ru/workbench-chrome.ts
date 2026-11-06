@@ -826,6 +826,11 @@ export const workbenchChrome = {
   'workbench.commitTool.delete.confirmBody':
     'Файлы удаляются с диска. Отслеживаемый файл отображается как удалённый до коммита; неверсионированный файл исчезает.',
   'workbench.commitTool.delete.ok': 'Удалить',
+  'workbench.commitTool.menu.rollbackFailed': 'Не удалось откатить: {detail}',
+  'workbench.commitTool.rollbackAdded.confirmTitle': 'Откатить {files}?',
+  'workbench.commitTool.rollbackAdded.confirmBody':
+    'Файлы покидают индекс и возвращаются в неверсионированные файлы. На диске ничего не меняется.',
+  'workbench.commitTool.rollbackAdded.ok': 'Откатить',
   'workbench.commitTool.menu.stopIgnoring': 'Перестать игнорировать',
   'workbench.commitTool.ignoreSourceGlobal': 'глобальный',
   'workbench.commitTool.menu.fetchDone': 'Fetch завершён',

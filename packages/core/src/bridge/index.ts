@@ -94,6 +94,7 @@ export type {
   WorkspaceTreeRefsWire,
   WorkspaceTreeRefWire,
   WorkspaceTreeSwitchBranchWire,
+  WorkspaceTreeUnaddPathsWire,
   WorkspaceTreeUnignoreWire,
   WorkspaceTreeUpdateBranchWire,
   WorkspaceTreeUserCommitWire,

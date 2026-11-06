@@ -39,6 +39,7 @@ import {
   type CommitMenuTarget,
   countChanges,
   EMPTY_CHECKED_STATE,
+  rollbackPaths,
   setPathsChecked,
   splitChangeGroups,
 } from './commit-model';
@@ -73,6 +74,7 @@ const CommitToolPanel: React.FC<CommitToolPanelProps> = ({ info, onHide }) => {
   const [rootDir, setRootDir] = useState<string | null>(null);
   const [bypassHooksSetting, setBypassHooksSetting] = useState(false);
   const [rows, setRows] = useState<WorkspaceTreeWorkingChangeWire[]>([]);
+  const [selectedRows, setSelectedRows] = useState<readonly WorkspaceTreeWorkingChangeWire[]>([]);
   const [checked, setChecked] = useState<CheckedState>(EMPTY_CHECKED_STATE);
   const [amend, setAmend] = useState(false);
   const [amendAuthor, setAmendAuthor] = useState<CommitAuthor | null>(null);
@@ -169,6 +171,7 @@ const CommitToolPanel: React.FC<CommitToolPanelProps> = ({ info, onHide }) => {
   const groups = useMemo(() => splitChangeGroups(rows), [rows]);
   const counter = useMemo(() => countChanges(rows), [rows]);
   const paths = useMemo(() => checkedPaths(rows, checked), [rows, checked]);
+  const toolbarRollback = useMemo(() => rollbackPaths(selectedRows), [selectedRows]);
   const runGitHooks = prefs.runGitHooks ?? !bypassHooksSetting;
   const canCommit = bound && !committing && prefs.draft.trim().length > 0 && (paths.length > 0 || amend);
 
@@ -452,6 +455,34 @@ const CommitToolPanel: React.FC<CommitToolPanelProps> = ({ info, onHide }) => {
     [workspaceId, refreshChanges, t],
   );
 
+  // Rollback… over added rows — confirmed first (the count in the
+  // title); the rows return to Unversioned Files on the refetch, the
+  // files stay on disk.
+  const handleRollbackPaths = useCallback(
+    (paths: readonly string[]): void => {
+      if (workspaceId === null || paths.length === 0) return;
+      const files =
+        paths.length === 1 ? t('workbench.commitTool.oneFile') : t('workbench.gitLog.filesCount', { count: paths.length });
+      modal.confirm({
+        title: t('workbench.commitTool.rollbackAdded.confirmTitle', { files }),
+        content: t('workbench.commitTool.rollbackAdded.confirmBody'),
+        okText: t('workbench.commitTool.rollbackAdded.ok'),
+        onOk: async () => {
+          try {
+            const result = await hostBridge.call('oh.workspaceTree.unaddPaths', { workspaceId, paths: [...paths] });
+            if (!result.ok) {
+              setError(t('workbench.commitTool.menu.rollbackFailed', { detail: result.detail ?? result.reason }));
+            }
+            await refreshChanges();
+          } catch (err) {
+            setError((err as Error).message);
+          }
+        },
+      });
+    },
+    [workspaceId, refreshChanges, t, modal],
+  );
+
   // Delete… — confirmed first (the count in the title); a tracked row
   // reads as deleted on the refetch, an unversioned one is gone.
   const handleDeletePaths = useCallback(
@@ -535,6 +566,7 @@ const CommitToolPanel: React.FC<CommitToolPanelProps> = ({ info, onHide }) => {
       onIgnorePaths: (paths, target) => void handleIgnorePaths(paths, target),
       onUnignorePath: (filePath, target) => void handleUnignorePath(filePath, target),
       onAddToVcs: (paths) => void handleAddToVcs(paths),
+      onRollbackPaths: handleRollbackPaths,
       onDeletePaths: handleDeletePaths,
     }),
     [
@@ -548,6 +580,7 @@ const CommitToolPanel: React.FC<CommitToolPanelProps> = ({ info, onHide }) => {
       handleIgnorePaths,
       handleUnignorePath,
       handleAddToVcs,
+      handleRollbackPaths,
       handleDeletePaths,
       currentBranch,
       headSha,
@@ -634,6 +667,8 @@ const CommitToolPanel: React.FC<CommitToolPanelProps> = ({ info, onHide }) => {
       )}
       <CommitToolbar
         onRefresh={() => void refreshChanges()}
+        rollbackPaths={toolbarRollback}
+        onRollback={handleRollbackPaths}
         prefs={prefs}
         onPatchPrefs={patchPrefs}
         onExpandAll={() => treeRef.current?.expandAll()}
@@ -649,6 +684,7 @@ const CommitToolPanel: React.FC<CommitToolPanelProps> = ({ info, onHide }) => {
         showIgnored={prefs.showIgnored}
         rootLabel={rootDir === null ? '' : (rootDir.replace(/[\\/]+$/, '').split(/[\\/]/).pop() ?? '')}
         rowMenu={rowMenu}
+        onSelectionChange={setSelectedRows}
       />
       {pushRecovery && (
         <PushNewBranchAlert

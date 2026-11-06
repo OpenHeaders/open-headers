@@ -783,6 +783,10 @@ export const workbenchChrome = {
   'workbench.commitTool.delete.confirmBody':
     '文件将从磁盘中移除。已跟踪的文件在提交前显示为已删除；未版本控制的文件将直接消失。',
   'workbench.commitTool.delete.ok': '删除',
+  'workbench.commitTool.menu.rollbackFailed': '无法回滚：{detail}',
+  'workbench.commitTool.rollbackAdded.confirmTitle': '回滚{files}？',
+  'workbench.commitTool.rollbackAdded.confirmBody': '文件将离开索引并回到未版本控制的文件。磁盘上的内容不会改变。',
+  'workbench.commitTool.rollbackAdded.ok': '回滚',
   'workbench.commitTool.menu.stopIgnoring': '停止忽略',
   'workbench.commitTool.ignoreSourceGlobal': '全局',
   'workbench.commitTool.menu.fetchDone': '抓取完成',

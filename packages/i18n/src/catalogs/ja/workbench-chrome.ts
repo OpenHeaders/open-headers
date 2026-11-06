@@ -803,6 +803,11 @@ export const workbenchChrome = {
   'workbench.commitTool.delete.confirmBody':
     'ファイルはディスクから削除されます。追跡中のファイルはコミットまで削除済みとして表示され、未バージョン管理のファイルは失われます。',
   'workbench.commitTool.delete.ok': '削除',
+  'workbench.commitTool.menu.rollbackFailed': 'ロールバックできませんでした：{detail}',
+  'workbench.commitTool.rollbackAdded.confirmTitle': '{files}をロールバックしますか？',
+  'workbench.commitTool.rollbackAdded.confirmBody':
+    'ファイルはインデックスから外れ、未バージョン管理のファイルに戻ります。ディスク上の内容は変わりません。',
+  'workbench.commitTool.rollbackAdded.ok': 'ロールバック',
   'workbench.commitTool.menu.stopIgnoring': '無視を解除',
   'workbench.commitTool.ignoreSourceGlobal': 'グローバル',
   'workbench.commitTool.menu.fetchDone': 'フェッチが完了しました',

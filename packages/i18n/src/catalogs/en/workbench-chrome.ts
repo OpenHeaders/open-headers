@@ -795,6 +795,11 @@ export const workbenchChrome = {
   'workbench.commitTool.delete.confirmBody':
     'The files are removed from disk. A tracked file shows as deleted until committed; an unversioned file is gone.',
   'workbench.commitTool.delete.ok': 'Delete',
+  'workbench.commitTool.menu.rollbackFailed': 'Could not roll back: {detail}',
+  'workbench.commitTool.rollbackAdded.confirmTitle': 'Roll back {files}?',
+  'workbench.commitTool.rollbackAdded.confirmBody':
+    'The files leave the index and return to Unversioned Files. Nothing on disk changes.',
+  'workbench.commitTool.rollbackAdded.ok': 'Roll Back',
   'workbench.commitTool.menu.stopIgnoring': 'Stop Ignoring',
   'workbench.commitTool.ignoreSourceGlobal': 'global',
   'workbench.commitTool.menu.fetchDone': 'Fetch finished',

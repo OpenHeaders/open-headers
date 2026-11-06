@@ -974,6 +974,11 @@ export const workbenchChrome = {
   'workbench.commitTool.delete.confirmBody':
     "Les fichiers sont supprimés du disque. Un fichier suivi apparaît comme supprimé jusqu'au commit ; un fichier non versionné disparaît.",
   'workbench.commitTool.delete.ok': 'Supprimer',
+  'workbench.commitTool.menu.rollbackFailed': "Impossible d'annuler : {detail}",
+  'workbench.commitTool.rollbackAdded.confirmTitle': 'Annuler {files} ?',
+  'workbench.commitTool.rollbackAdded.confirmBody':
+    "Les fichiers quittent l'index et reviennent dans les fichiers non versionnés. Rien ne change sur le disque.",
+  'workbench.commitTool.rollbackAdded.ok': 'Annuler les modifications',
   'workbench.commitTool.menu.stopIgnoring': 'Ne plus ignorer',
   'workbench.commitTool.ignoreSourceGlobal': 'global',
   'workbench.commitTool.menu.fetchDone': 'Récupération terminée',

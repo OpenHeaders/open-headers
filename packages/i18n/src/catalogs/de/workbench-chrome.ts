@@ -970,6 +970,11 @@ export const workbenchChrome = {
   'workbench.commitTool.delete.confirmBody':
     'Die Dateien werden von der Festplatte entfernt. Eine versionierte Datei gilt bis zum Commit als gelöscht; eine unversionierte Datei ist weg.',
   'workbench.commitTool.delete.ok': 'Löschen',
+  'workbench.commitTool.menu.rollbackFailed': 'Konnte nicht zurücksetzen: {detail}',
+  'workbench.commitTool.rollbackAdded.confirmTitle': '{files} zurücksetzen?',
+  'workbench.commitTool.rollbackAdded.confirmBody':
+    'Die Dateien verlassen den Index und kehren zu den unversionierten Dateien zurück. Auf der Festplatte ändert sich nichts.',
+  'workbench.commitTool.rollbackAdded.ok': 'Zurücksetzen',
   'workbench.commitTool.menu.stopIgnoring': 'Nicht mehr ignorieren',
   'workbench.commitTool.ignoreSourceGlobal': 'global',
   'workbench.commitTool.menu.fetchDone': 'Abrufen abgeschlossen',

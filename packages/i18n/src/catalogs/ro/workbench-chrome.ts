@@ -832,6 +832,11 @@ export const workbenchChrome = {
   'workbench.commitTool.delete.confirmBody':
     'Fișierele sunt eliminate de pe disc. Un fișier urmărit apare ca șters până la commit; unul neversionat dispare.',
   'workbench.commitTool.delete.ok': 'Șterge',
+  'workbench.commitTool.menu.rollbackFailed': 'Nu s-a putut anula: {detail}',
+  'workbench.commitTool.rollbackAdded.confirmTitle': 'Anulezi {files}?',
+  'workbench.commitTool.rollbackAdded.confirmBody':
+    'Fișierele părăsesc indexul și revin la Fișiere neversionate. Nimic nu se schimbă pe disc.',
+  'workbench.commitTool.rollbackAdded.ok': 'Anulează',
   'workbench.commitTool.menu.stopIgnoring': 'Oprire ignorare',
   'workbench.commitTool.ignoreSourceGlobal': 'global',
   'workbench.commitTool.menu.fetchDone': 'Fetch finalizat',

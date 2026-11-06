@@ -122,6 +122,21 @@ export type CommitMenuTarget =
   | { kind: 'group'; group: ChangeGroupKey; paths: readonly string[] }
   | { kind: 'files'; rows: readonly WorkspaceTreeWorkingChangeWire[] };
 
+/**
+ * Rollback…'s paths: every row an added file (an intent-to-add or a
+ * staged-new entry, never a rename), or nothing — the verb drops the
+ * rows from the index and they return to Unversioned Files. Tracked
+ * modifications roll back through their own slice, so a mixed target
+ * disables the verb.
+ */
+export function rollbackPaths(rows: readonly WorkspaceTreeWorkingChangeWire[]): string[] {
+  if (rows.length === 0) return [];
+  const added = rows.every(
+    (row) => !row.unversioned && !row.ignored && row.status === 'A' && row.renamedFrom === undefined,
+  );
+  return added ? rows.map((row) => row.path) : [];
+}
+
 export type CheckAggregate = 'none' | 'some' | 'all';
 
 /** Tri-state for a directory node / group header checkbox. */

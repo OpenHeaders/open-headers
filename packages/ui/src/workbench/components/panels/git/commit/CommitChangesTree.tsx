@@ -67,6 +67,8 @@ export interface CommitChangesTreeProps {
   rootLabel?: string;
   /** Right-click menu for a row — a file, a directory node or a group header (ignored files get the Stop Ignoring variant); null = no menu. */
   rowMenu: (target: CommitMenuTarget) => MenuProps | null;
+  /** The file rows the selection covers (a dir or group brings its subtree), ignored rows excluded — the toolbar's target. */
+  onSelectionChange?: (rows: readonly WorkspaceTreeWorkingChangeWire[]) => void;
 }
 
 export interface CommitChangesTreeHandle {
@@ -74,6 +76,7 @@ export interface CommitChangesTreeHandle {
   collapseAll: () => void;
 }
 
+const EMPTY_ROWS: WorkspaceTreeWorkingChangeWire[] = [];
 const INDENT = 14;
 const ROW_FONT = 12;
 const ROW_LINE = 16;
@@ -122,7 +125,7 @@ interface GroupSpec {
 }
 
 const CommitChangesTree = forwardRef<CommitChangesTreeHandle, CommitChangesTreeProps>(function CommitChangesTree(
-  { groups, checked, onSetChecked, onOpenFile, groupByDirectory, showIgnored, rootLabel = '', rowMenu },
+  { groups, checked, onSetChecked, onOpenFile, groupByDirectory, showIgnored, rootLabel = '', rowMenu, onSelectionChange },
   handleRef,
 ) {
   const { token } = theme.useToken();
@@ -271,16 +274,22 @@ const CommitChangesTree = forwardRef<CommitChangesTreeHandle, CommitChangesTreeP
     [step],
   );
 
-  // The file rows a multi-row selection covers — every selected key's
-  // paths (a dir or group brings its subtree), ignored rows excluded.
-  const selectedRows = useMemo<WorkspaceTreeWorkingChangeWire[]>(() => {
-    if (selection.ids.size < 2) return [];
+  // The file rows the selection covers — every selected key's paths
+  // (a dir or group brings its subtree), ignored rows excluded.
+  const selectionRows = useMemo<WorkspaceTreeWorkingChangeWire[]>(() => {
+    if (selection.ids.size === 0) return [];
     const paths = new Set<string>();
     for (const key of selection.ids) for (const path of pathsByRowKey.get(key) ?? []) paths.add(path);
     const rows: WorkspaceTreeWorkingChangeWire[] = [];
     for (const row of allRows) if (paths.has(row.path) && !row.ignored) rows.push(row);
     return rows;
   }, [selection, pathsByRowKey, allRows]);
+  // The multi-row menu target — one selected row keeps its own anatomy.
+  const selectedRows = selection.ids.size < 2 ? EMPTY_ROWS : selectionRows;
+
+  useEffect(() => {
+    onSelectionChange?.(selectionRows);
+  }, [onSelectionChange, selectionRows]);
 
   /** The row's menu target — the multi-row union when the row sits in a wider selection. */
   const menuTargetFor = (key: string, single: CommitMenuTarget): CommitMenuTarget =>

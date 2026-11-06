@@ -971,6 +971,11 @@ export const workbenchChrome = {
   'workbench.commitTool.delete.confirmBody':
     'Los archivos se eliminan del disco. Un archivo versionado aparece como eliminado hasta el commit; un archivo no versionado desaparece.',
   'workbench.commitTool.delete.ok': 'Eliminar',
+  'workbench.commitTool.menu.rollbackFailed': 'No se pudo revertir: {detail}',
+  'workbench.commitTool.rollbackAdded.confirmTitle': '¿Revertir {files}?',
+  'workbench.commitTool.rollbackAdded.confirmBody':
+    'Los archivos salen del índice y vuelven a Archivos no versionados. Nada cambia en el disco.',
+  'workbench.commitTool.rollbackAdded.ok': 'Revertir',
   'workbench.commitTool.menu.stopIgnoring': 'Dejar de ignorar',
   'workbench.commitTool.ignoreSourceGlobal': 'global',
   'workbench.commitTool.menu.fetchDone': 'Recuperación completada',

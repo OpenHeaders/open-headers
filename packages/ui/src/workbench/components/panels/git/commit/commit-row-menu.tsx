@@ -5,8 +5,9 @@
  * and gestures with existing machinery are live (Commit File…, Show
  * Diff, Refresh, the Git ▸ verbs Push/Pull/Fetch/Compare with Branch
  * or Tag/Branches…/New Branch…, the Add to .gitignore ▸ targets
- * over the `ignorePath` verb, Add to VCS over unversioned rows and
- * Delete… over any file rows — both over a selection's union);
+ * over the `ignorePath` verb, Add to VCS over unversioned rows,
+ * Rollback… over added rows (the index drop back to unversioned) and
+ * Delete… over any file rows — each over a selection's union);
  * placeholder constructs (changelists, shelf, Local History) and
  * unbuilt write verbs render visible-disabled. Shortcut hints mirror the reference anatomy; bindings
  * ride the keymap plane later.
@@ -39,7 +40,7 @@ import type { MessageKey } from '@openheaders/i18n';
 import type { Translate } from '@openheaders/ui/context/LocaleContext';
 import { PushIcon, RollbackIcon } from '@openheaders/ui/shared/icons';
 import { menuLabel } from '../git-menu-label';
-import type { CommitMenuTarget } from './commit-model';
+import { type CommitMenuTarget, rollbackPaths } from './commit-model';
 
 export interface CommitRowMenuHandlers {
   /** Check exactly these paths and focus the message box. */
@@ -56,6 +57,8 @@ export interface CommitRowMenuHandlers {
   onIgnorePaths: (paths: readonly string[], target: 'gitignore' | 'exclude') => void;
   /** Track these unversioned paths (intent-to-add) — the rows move to Changes as added. */
   onAddToVcs: (paths: readonly string[]) => void;
+  /** Drop these added paths from the index — the panel confirms first; the rows return to Unversioned Files. */
+  onRollbackPaths: (paths: readonly string[]) => void;
   /** Delete these files from disk — the panel confirms first. */
   onDeletePaths: (paths: readonly string[]) => void;
   onUnignorePath: (path: string, target: 'gitignore' | 'exclude') => void;
@@ -74,6 +77,8 @@ interface TargetFacts {
   ignorePaths: readonly string[];
   /** Add to VCS's paths — the unversioned target's files; empty on a tracked or mixed target. */
   addPaths: readonly string[];
+  /** Rollback…'s paths — the target's files when every one is an added row; empty elsewhere. */
+  rollbackPaths: readonly string[];
   commitLabelKey: MessageKey;
 }
 
@@ -86,6 +91,7 @@ function factsOf(target: CommitMenuTarget): TargetFacts {
       diffPath: unversioned ? null : target.row.path,
       ignorePaths: unversioned ? [target.row.path] : [],
       addPaths: unversioned ? [target.row.path] : [],
+      rollbackPaths: rollbackPaths([target.row]),
       commitLabelKey: 'workbench.commitTool.menu.commitFile',
     };
   }
@@ -101,6 +107,7 @@ function factsOf(target: CommitMenuTarget): TargetFacts {
       diffPath: null,
       ignorePaths: unversioned ? paths : [],
       addPaths: unversioned ? paths : [],
+      rollbackPaths: rollbackPaths(target.rows),
       commitLabelKey: 'workbench.commitTool.menu.commitFiles',
     };
   }
@@ -111,6 +118,7 @@ function factsOf(target: CommitMenuTarget): TargetFacts {
     diffPath: null,
     ignorePaths: target.kind === 'dir' && unversioned ? [target.path] : [],
     addPaths: unversioned ? target.paths : [],
+    rollbackPaths: [],
     commitLabelKey:
       target.kind === 'dir' ? 'workbench.commitTool.menu.commitDirectory' : 'workbench.commitTool.menu.commit',
   };
@@ -141,6 +149,17 @@ function addToVcsItem(
     label: menuLabel(icon, t(labelKey), '⌥⌘A'),
     disabled: paths.length === 0,
     ...(paths.length === 0 ? {} : { onClick: () => h.onAddToVcs(paths) }),
+  };
+}
+
+/** Rollback… — live over added rows (the index drop), visible-disabled on every other target. */
+function rollbackItem(facts: TargetFacts, h: CommitRowMenuHandlers, t: Translate, key: string): MenuItems[number] {
+  const paths = facts.rollbackPaths;
+  return {
+    key,
+    label: menuLabel(<RollbackIcon />, t('workbench.commitTool.rollback'), '⌥⌘Z'),
+    disabled: paths.length === 0,
+    ...(paths.length === 0 ? {} : { onClick: () => h.onRollbackPaths(paths) }),
   };
 }
 
@@ -224,11 +243,7 @@ function gitSubmenu(facts: TargetFacts, t: Translate, h: CommitRowMenuHandlers):
         label: menuLabel(null, t('workbench.commitTool.menu.showCurrentRevision')),
         disabled: true,
       },
-      {
-        key: 'git-rollback',
-        label: menuLabel(<RollbackIcon />, t('workbench.commitTool.rollback'), '⌥⌘Z'),
-        disabled: true,
-      },
+      rollbackItem(facts, h, t, 'git-rollback'),
       { type: 'divider' },
       {
         key: 'git-push',
@@ -330,11 +345,7 @@ export function buildCommitRowMenu(target: CommitMenuTarget, t: Translate, h: Co
   const unversioned = facts.unversioned;
   const items: MenuItems = [
     commitItem(facts, h, t, 'commit-file'),
-    {
-      key: 'rollback',
-      label: menuLabel(<RollbackIcon />, t('workbench.commitTool.rollback'), '⌥⌘Z'),
-      disabled: true,
-    },
+    rollbackItem(facts, h, t, 'rollback'),
     {
       key: 'move-changelist',
       label: menuLabel(null, t('workbench.commitTool.menu.moveToChangelist'), '⇧⌘M'),

@@ -219,6 +219,31 @@ export async function intentToAddPaths(
   return { ok: true };
 }
 
+export type UnaddResult = { ok: true } | { ok: false; detail: string };
+
+/**
+ * Rollback on added rows: drop `paths` from the user's real index
+ * (`git rm --cached`) so an intent-to-add or staged-new file returns
+ * to Unversioned Files. The working-tree bytes are never touched. A
+ * path HEAD tracks is refused HERE — git would stage its deletion
+ * instead of refusing (it only objects when the index differs from
+ * both HEAD and the working tree) — so the verb stays an un-add.
+ */
+export async function unaddPaths(run: GitRunner, rootDir: string, paths: readonly string[]): Promise<UnaddResult> {
+  if (paths.length === 0) return { ok: true };
+  if ((await localHeadSha(run, rootDir)) !== null) {
+    const inHead = await run([...repoArgs(rootDir), 'ls-tree', '-z', '--name-only', 'HEAD', '--', ...paths], {
+      cwd: rootDir,
+    });
+    if (inHead.code !== 0) return { ok: false, detail: failureDetail(inHead) };
+    const tracked = nulSeparatedPaths(inHead.stdout);
+    if (tracked.length > 0) return { ok: false, detail: `tracked in HEAD: ${tracked.join(', ')}` };
+  }
+  const result = await run([...repoArgs(rootDir), 'rm', '--cached', '--quiet', '--', ...paths], { cwd: rootDir });
+  if (result.code !== 0) return { ok: false, detail: failureDetail(result) };
+  return { ok: true };
+}
+
 /** Count entries in `git status --porcelain -z` (rename records carry a second path token — skipped). */
 export function parsePorcelainCount(stdout: string): number {
   const tokens = stdout.split('\0').filter((token) => token.length > 0);

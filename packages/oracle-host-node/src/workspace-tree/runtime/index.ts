@@ -107,13 +107,14 @@ import type {
   WorkspaceTreeRefsRpcResult,
   WorkspaceTreeRuntime,
   WorkspaceTreeRuntimeOptions,
+  WorkspaceTreeUnaddPathsRpcResult,
   WorkspaceTreeUnignoreRpcResult,
   WorkspaceTreeUserCommitInput,
   WorkspaceTreeUserCommitRpcResult,
 } from './types';
 import { runListChanges, runUserCommit, runWorkingFileDiff, validateUserCommitInput } from './user-commit';
 import { detectForcePush, recordWatermark, watermarkFor } from './watermark';
-import { runAddToVcs, runDeletePaths } from './working-files';
+import { runAddToVcs, runDeletePaths, runUnaddPaths } from './working-files';
 
 export type {
   AdoptWorkspaceTreeRpcResult,
@@ -143,6 +144,7 @@ export type {
   WorkspaceTreeRefsRpcResult,
   WorkspaceTreeRuntime,
   WorkspaceTreeRuntimeOptions,
+  WorkspaceTreeUnaddPathsRpcResult,
   WorkspaceTreeUnignoreRpcResult,
   WorkspaceTreeUserCommitInput,
   WorkspaceTreeUserCommitRpcResult,
@@ -654,6 +656,21 @@ export function createWorkspaceTreeRuntime(options: WorkspaceTreeRuntimeOptions)
         { ok: false, reason: 'add-failed', detail: 'add to vcs pass did not run' },
         async () => {
           const result = await runAddToVcs(ctx, binding, paths);
+          await ctx.publishGitStatus(binding);
+          return result;
+        },
+      );
+    },
+
+    async unaddPaths(workspaceId: string, paths: readonly string[]): Promise<WorkspaceTreeUnaddPathsRpcResult> {
+      const binding = open.get(workspaceId);
+      if (!binding) return { ok: false, reason: 'not-bound' };
+      if (paths.length === 0 || !paths.every(isSafeTreePath)) return { ok: false, reason: 'unknown-path' };
+      return onChain<WorkspaceTreeUnaddPathsRpcResult>(
+        binding,
+        { ok: false, reason: 'unadd-failed', detail: 'rollback pass did not run' },
+        async () => {
+          const result = await runUnaddPaths(ctx, binding, paths);
           await ctx.publishGitStatus(binding);
           return result;
         },

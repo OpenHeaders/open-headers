@@ -1,7 +1,8 @@
 /**
  * CommitToolbar — the Commit window's top icon row:
- * Refresh, Rollback… and Shelve Silently (visible placeholders — the
- * destructive write verbs are their own future slice), the View
+ * Refresh, Rollback… (live over a selection of added rows — the index
+ * drop back to unversioned; tracked rollbacks are their own future
+ * slice), Shelve Silently (a visible placeholder), the View
  * Options eye (Group By Directory, Show Ignored Files), Select Opened
  * File (placeholder — needs the editor-tab↔file join), then Expand /
  * Collapse All driving the changes tree.
@@ -18,13 +19,24 @@ import type { CommitViewPrefs } from './commit-view-prefs';
 
 export interface CommitToolbarProps {
   onRefresh: () => void;
+  /** Rollback…'s target — the selected added rows' paths; empty disables the button. */
+  rollbackPaths: readonly string[];
+  onRollback: (paths: readonly string[]) => void;
   prefs: CommitViewPrefs;
   onPatchPrefs: (patch: Partial<CommitViewPrefs>) => void;
   onExpandAll: () => void;
   onCollapseAll: () => void;
 }
 
-const CommitToolbar: React.FC<CommitToolbarProps> = ({ onRefresh, prefs, onPatchPrefs, onExpandAll, onCollapseAll }) => {
+const CommitToolbar: React.FC<CommitToolbarProps> = ({
+  onRefresh,
+  rollbackPaths,
+  onRollback,
+  prefs,
+  onPatchPrefs,
+  onExpandAll,
+  onCollapseAll,
+}) => {
   const t = useT();
   const { token } = theme.useToken();
 
@@ -52,7 +64,8 @@ const CommitToolbar: React.FC<CommitToolbarProps> = ({ onRefresh, prefs, onPatch
       <ToolbarIconButton
         icon={<RollbackIcon />}
         title={t('workbench.commitTool.rollback')}
-        disabled
+        disabled={rollbackPaths.length === 0}
+        onClick={() => onRollback(rollbackPaths)}
         testid="commit-tool-rollback"
       />
       <ToolbarIconButton

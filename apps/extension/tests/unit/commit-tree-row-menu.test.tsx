@@ -66,9 +66,16 @@ function handlers(): CommitRowMenuHandlers {
     onNewBranch: vi.fn(),
     onIgnorePaths: vi.fn(),
     onAddToVcs: vi.fn(),
+    onRollbackPaths: vi.fn(),
     onDeletePaths: vi.fn(),
     onUnignorePath: vi.fn(),
   };
+}
+
+/** Whether antd renders the last visible menu item carrying `label` disabled. */
+async function menuItemDisabled(label: string): Promise<boolean> {
+  const item = (await screen.findAllByText(label)).at(-1) as Element;
+  return item.closest('li')?.classList.contains('ant-dropdown-menu-item-disabled') === true;
 }
 
 function row(overrides: Partial<WorkspaceTreeWorkingChangeWire> & { path: string }): WorkspaceTreeWorkingChangeWire {
@@ -190,6 +197,40 @@ describe('commit tree row context menu', () => {
     expect(addVcs.closest('li')?.classList.contains('ant-dropdown-menu-item-disabled')).toBe(true);
     fireEvent.click((await screen.findAllByText('workbench.commitTool.menu.delete')).at(-1) as Element);
     expect(h.onDeletePaths).toHaveBeenLastCalledWith(['workspace.yaml']);
+  });
+
+  it('Rollback… lives over added rows only — one, a union of added rows — and stays grey on a modified, unversioned or mixed target', async () => {
+    const h = handlers();
+    renderTree(
+      [
+        row({ path: 'workspace.yaml' }),
+        row({ path: 'notes/a.md', status: 'A' }),
+        row({ path: 'notes/b.md', status: 'A' }),
+        row({ path: 'scratch.md', status: '?', unversioned: true }),
+      ],
+      h,
+    );
+    const rows = [...document.querySelectorAll('[data-testid="commit-tool-file"]')];
+    const byPath = (path: string) => rows.find((el) => el.getAttribute('data-path') === path) as Element;
+    fireEvent.contextMenu(byPath('notes/a.md'));
+    expect(await menuItemDisabled('workbench.commitTool.rollback')).toBe(false);
+    fireEvent.click((await screen.findAllByText('workbench.commitTool.rollback')).at(-1) as Element);
+    expect(h.onRollbackPaths).toHaveBeenCalledWith(['notes/a.md']);
+
+    fireEvent.click(byPath('notes/a.md'));
+    fireEvent.click(byPath('notes/b.md'), { shiftKey: true });
+    fireEvent.contextMenu(byPath('notes/b.md'));
+    fireEvent.click((await screen.findAllByText('workbench.commitTool.rollback')).at(-1) as Element);
+    expect(h.onRollbackPaths).toHaveBeenLastCalledWith(['notes/a.md', 'notes/b.md']);
+
+    fireEvent.contextMenu(byPath('workspace.yaml'));
+    expect(await menuItemDisabled('workbench.commitTool.rollback')).toBe(true);
+    fireEvent.contextMenu(byPath('scratch.md'));
+    expect(await menuItemDisabled('workbench.commitTool.rollback')).toBe(true);
+    fireEvent.click(byPath('workspace.yaml'));
+    fireEvent.click(byPath('notes/a.md'), { metaKey: true });
+    fireEvent.contextMenu(byPath('notes/a.md'));
+    expect(await menuItemDisabled('workbench.commitTool.rollback')).toBe(true);
   });
 
   it('a directory node carries the menu — Commit Directory… checks exactly its subtree', async () => {

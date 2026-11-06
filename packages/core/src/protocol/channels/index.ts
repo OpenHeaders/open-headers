@@ -154,6 +154,7 @@ export type {
   WorkspaceTreeRefWire,
   WorkspaceTreeSweepSummary,
   WorkspaceTreeSwitchBranchWire,
+  WorkspaceTreeUnaddPathsWire,
   WorkspaceTreeUnignoreWire,
   WorkspaceTreeUpdateBranchWire,
   WorkspaceTreeUserCommitWire,

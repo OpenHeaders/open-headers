@@ -15,6 +15,7 @@ import {
   EMPTY_CHECKED_STATE,
   formatCommitAuthor,
   isRowChecked,
+  rollbackPaths,
   setPathsChecked,
   splitChangeGroups,
 } from '@openheaders/ui/workbench/components/panels/git/commit/commit-model';
@@ -138,6 +139,20 @@ describe('countChanges', () => {
       deleted: 0,
       unversioned: 0,
     });
+  });
+});
+
+describe('rollbackPaths', () => {
+  it('answers the paths when every row is an added file, nothing on a modified, renamed, unversioned, ignored or empty target', () => {
+    expect(rollbackPaths([row({ path: 'a.md', status: 'A' }), row({ path: 'b.md', status: 'A' })])).toEqual([
+      'a.md',
+      'b.md',
+    ]);
+    expect(rollbackPaths([])).toEqual([]);
+    expect(rollbackPaths([row({ path: 'a.md', status: 'A' }), row({ path: 'm.md', status: 'M' })])).toEqual([]);
+    expect(rollbackPaths([row({ path: 'new.md', status: 'R', renamedFrom: 'old.md' })])).toEqual([]);
+    expect(rollbackPaths([row({ path: 'u.md', status: '?', unversioned: true })])).toEqual([]);
+    expect(rollbackPaths([row({ path: 'i.log', status: '!', ignored: true })])).toEqual([]);
   });
 });
 
