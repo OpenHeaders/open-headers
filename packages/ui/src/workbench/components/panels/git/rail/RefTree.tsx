@@ -19,19 +19,13 @@
  * handle (the bar sits outside this scroll area).
  */
 
-import {
-  BranchesOutlined,
-  CaretDownOutlined,
-  CaretRightOutlined,
-  FolderOutlined,
-  SearchOutlined,
-  TagOutlined,
-} from '@ant-design/icons';
+import { CaretDownOutlined, CaretRightOutlined, FolderOutlined, SearchOutlined } from '@ant-design/icons';
 import type { WorkspaceTreeRefWire } from '@openheaders/core/bridge';
 import { Dropdown, Input, type MenuProps, theme } from 'antd';
 import type React from 'react';
 import { forwardRef, useEffect, useImperativeHandle, useMemo, useState } from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
+import { BranchIcon, TagIcon } from '@openheaders/ui/shared/icons';
 import { contextMenuAlign } from '../git-menu-overflow';
 import { gitRailFavoriteKey } from './git-rail-prefs';
 import type { RefTreeSelection } from './ref-row-menu';
@@ -241,7 +235,7 @@ const RefTree = forwardRef<RefTreeHandle, RefTreeProps>(function RefTree(
         </span>
       );
     }
-    const Glyph = kind === 'tag' ? TagOutlined : BranchesOutlined;
+    const Glyph = kind === 'tag' ? TagIcon : BranchIcon;
     return <Glyph style={{ flex: '0 0 auto', fontSize: 11, color: token.colorTextTertiary }} />;
   };
 

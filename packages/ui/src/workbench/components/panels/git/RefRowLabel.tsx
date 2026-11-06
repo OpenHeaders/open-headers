@@ -9,7 +9,7 @@
  * themes hold).
  */
 
-import { TagOutlined } from '@ant-design/icons';
+import { TagIcon } from '@openheaders/ui/shared/icons';
 import type { WorkspaceTreeRefWire } from '@openheaders/core/bridge';
 import { theme, Tooltip } from 'antd';
 import type React from 'react';
@@ -47,11 +47,11 @@ const RefRowLabel: React.FC<RefRowLabelProps> = ({ refs, isHead }) => {
   const glyph =
     extraCount > 0 ? (
       <span style={{ display: 'inline-flex', alignItems: 'center', gap: 2, flex: '0 0 auto' }}>
-        <TagOutlined style={{ fontSize: 10, color: backColor }} />
-        <TagOutlined style={{ fontSize: 10, color: labelColor }} />
+        <TagIcon style={{ fontSize: 10, color: backColor }} />
+        <TagIcon style={{ fontSize: 10, color: labelColor }} />
       </span>
     ) : (
-      <TagOutlined style={{ fontSize: 10, color: labelColor, flex: '0 0 auto' }} />
+      <TagIcon style={{ fontSize: 10, color: labelColor, flex: '0 0 auto' }} />
     );
 
   const details = (
@@ -61,7 +61,7 @@ const RefRowLabel: React.FC<RefRowLabelProps> = ({ refs, isHead }) => {
     >
       {isHead && (
         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }} data-ref="HEAD">
-          <TagOutlined style={{ fontSize: 11, color: token.colorWarning }} /> HEAD
+          <TagIcon style={{ fontSize: 11, color: token.colorWarning }} /> HEAD
         </span>
       )}
       {refs.map((ref) => (
@@ -70,7 +70,7 @@ const RefRowLabel: React.FC<RefRowLabelProps> = ({ refs, isHead }) => {
           style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
           data-ref={ref.name}
         >
-          <TagOutlined style={{ fontSize: 11, color: refColor(ref.kind, token) }} /> {ref.name}
+          <TagIcon style={{ fontSize: 11, color: refColor(ref.kind, token) }} /> {ref.name}
         </span>
       ))}
     </div>

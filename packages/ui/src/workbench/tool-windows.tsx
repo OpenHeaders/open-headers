@@ -10,7 +10,6 @@
 
 import {
   BookOutlined,
-  BranchesOutlined,
   CodeOutlined,
   FundViewOutlined,
   ScanOutlined,
@@ -24,7 +23,13 @@ import type { DesktopFeature } from '@openheaders/ui/shared/desktop-teaser';
 import type { ToolWindowDef as GenericToolWindowDef } from '@openheaders/ui/shared/dock-layout';
 import ActivityFeedIcon from './components/panels/ActivityFeedIcon';
 import { CommitToolIcon } from './components/panels/git/commit/CommitToolIcon';
-import { ApiRequestsIcon, RequestRulesIcon, VariablesIcon, WorkflowStatusIcon } from '@openheaders/ui/shared/icons';
+import {
+  ApiRequestsIcon,
+  BranchIcon,
+  RequestRulesIcon,
+  VariablesIcon,
+  WorkflowStatusIcon,
+} from '@openheaders/ui/shared/icons';
 import { NotificationsIcon } from '@openheaders/ui/shared/notifications';
 import type { ToolWindowId } from './types';
 
@@ -169,7 +174,7 @@ export const TOOL_WINDOWS: readonly ToolWindowDef[] = [
   {
     id: 'git',
     labelKey: 'workbench.toolWindows.git',
-    icon: <BranchesOutlined />,
+    icon: <BranchIcon />,
     core: false,
     defaultSlot: 'bottom-left',
     openByDefault: false,

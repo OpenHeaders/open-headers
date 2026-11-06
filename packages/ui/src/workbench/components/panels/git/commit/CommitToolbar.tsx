@@ -9,12 +9,12 @@
  * a narrow dock the tail folds behind the › chevron's hover strip.
  */
 
-import { AimOutlined, EyeOutlined, SyncOutlined, VerticalAlignBottomOutlined } from '@ant-design/icons';
+import { AimOutlined, EyeOutlined } from '@ant-design/icons';
 import { Dropdown } from 'antd';
 import type React from 'react';
 import { useState } from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
-import { CollapseAllIcon, ExpandAllIcon, RollbackIcon } from '@openheaders/ui/shared/icons';
+import { CollapseAllIcon, ExpandAllIcon, RefreshIcon, RollbackIcon, ShelveIcon } from '@openheaders/ui/shared/icons';
 import { menuCheckIcon } from '../../../shared/menu-check';
 import PaneToolbar, { type PaneToolbarEntry } from '../toolbar/PaneToolbar';
 import ToolbarIconButton from '../toolbar/ToolbarIconButton';
@@ -98,7 +98,7 @@ const CommitToolbar: React.FC<CommitToolbarProps> = ({
       key: 'refresh',
       node: (
         <ToolbarIconButton
-          icon={<SyncOutlined />}
+          icon={<RefreshIcon />}
           title={t('workbench.commitTool.refresh')}
           onClick={onRefresh}
           testid="commit-tool-refresh"
@@ -123,7 +123,7 @@ const CommitToolbar: React.FC<CommitToolbarProps> = ({
       key: 'shelve',
       node: (
         <ToolbarIconButton
-          icon={<VerticalAlignBottomOutlined />}
+          icon={<ShelveIcon />}
           title={t('workbench.commitTool.shelve')}
           disabled
           testid="commit-tool-shelve"

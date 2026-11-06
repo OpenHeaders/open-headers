@@ -16,7 +16,6 @@ import {
   ApiOutlined,
   AppstoreOutlined,
   BgColorsOutlined,
-  BranchesOutlined,
   BugOutlined,
   CloudSyncOutlined,
   ClusterOutlined,
@@ -41,7 +40,7 @@ import {
   SyncOutlined,
   ToolOutlined,
 } from '@ant-design/icons';
-import { ApiRequestsIcon, KeyboardIcon, RequestRulesIcon } from '@openheaders/ui/shared/icons';
+import { ApiRequestsIcon, BranchIcon, KeyboardIcon, RequestRulesIcon } from '@openheaders/ui/shared/icons';
 import { lazy } from 'react';
 import { getCurrentHost } from '../../shared/host-vocabulary';
 import DevPanelGlyph from './components/DevPanelGlyph';
@@ -520,7 +519,7 @@ registerCategory({
 registerCategory({
   id: 'versionControl',
   labelKey: 'workbench.settings.category.versionControl.label',
-  icon: <BranchesOutlined />,
+  icon: <BranchIcon />,
   order: 60,
   descriptionKey: 'workbench.settings.category.versionControl.description',
   // Group node over the Git binding (desktop, teasered elsewhere) — the
@@ -532,7 +531,7 @@ registerCategory({
   id: 'git',
   labelKey: 'workbench.settings.category.git.label',
   parent: 'versionControl',
-  icon: <BranchesOutlined />,
+  icon: <BranchIcon />,
   order: 10,
   descriptionKey: 'workbench.settings.category.git.description',
   // Group node over the Git pages: Folder (the binding) and Automation

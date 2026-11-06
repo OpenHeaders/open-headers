@@ -20,25 +20,21 @@
  * its directories carry Refresh alone.
  */
 
-import {
-  BranchesOutlined,
-  ClockCircleOutlined,
-  DiffOutlined,
-  EditOutlined,
-  ForkOutlined,
-  GithubOutlined,
-  PlusOutlined,
-  StopOutlined,
-  SwapOutlined,
-  SyncOutlined,
-  VerticalAlignBottomOutlined,
-} from '@ant-design/icons';
+import { ClockCircleOutlined, EditOutlined, GithubOutlined, PlusOutlined, StopOutlined, SwapOutlined } from '@ant-design/icons';
 import type { WorkspaceTreeWorkingChangeWire } from '@openheaders/core/bridge';
 import type { MenuProps } from 'antd';
 import type React from 'react';
 import type { MessageKey } from '@openheaders/i18n';
 import type { Translate } from '@openheaders/ui/context/LocaleContext';
-import { PushIcon, RollbackIcon } from '@openheaders/ui/shared/icons';
+import {
+  BranchIcon,
+  DiffIcon,
+  MergeIcon,
+  PushIcon,
+  RefreshIcon,
+  RollbackIcon,
+  ShelveIcon,
+} from '@openheaders/ui/shared/icons';
 import { menuLabel } from '../git-menu-label';
 import { type CommitMenuTarget, rollbackPaths } from './commit-model';
 
@@ -261,12 +257,12 @@ function gitSubmenu(facts: TargetFacts, t: Translate, h: CommitRowMenuHandlers):
         onClick: () => h.onFetch(),
       },
       { type: 'divider' },
-      { key: 'git-merge', label: menuLabel(<ForkOutlined />, t('workbench.commitTool.menu.merge')), disabled: true },
+      { key: 'git-merge', label: menuLabel(<MergeIcon />, t('workbench.commitTool.menu.merge')), disabled: true },
       { key: 'git-rebase', label: menuLabel(null, t('workbench.commitTool.menu.rebase')), disabled: true },
       { type: 'divider' },
       {
         key: 'git-branches',
-        label: menuLabel(<BranchesOutlined />, t('workbench.commitTool.menu.branches')),
+        label: menuLabel(<BranchIcon />, t('workbench.commitTool.menu.branches')),
         onClick: () => h.onBranches(),
       },
       {
@@ -327,7 +323,7 @@ function refreshOnlyMenu(t: Translate, h: CommitRowMenuHandlers): MenuProps {
   const items: MenuItems = [
     {
       key: 'refresh',
-      label: menuLabel(<SyncOutlined />, t('workbench.commitTool.refresh')),
+      label: menuLabel(<RefreshIcon />, t('workbench.commitTool.refresh')),
       onClick: () => h.onRefresh(),
     },
   ];
@@ -383,19 +379,19 @@ export function buildCommitRowMenu(target: CommitMenuTarget, t: Translate, h: Co
         ]),
     {
       key: 'create-patch',
-      label: menuLabel(<DiffOutlined />, t('workbench.commitTool.menu.createPatch')),
+      label: menuLabel(<DiffIcon />, t('workbench.commitTool.menu.createPatch')),
       disabled: true,
     },
     { key: 'copy-patch', label: menuLabel(null, t('workbench.commitTool.menu.copyPatch')), disabled: true },
     {
       key: 'shelve-changes',
-      label: menuLabel(<VerticalAlignBottomOutlined />, t('workbench.commitTool.menu.shelveChanges')),
+      label: menuLabel(<ShelveIcon />, t('workbench.commitTool.menu.shelveChanges')),
       disabled: true,
     },
     { type: 'divider' },
     {
       key: 'refresh',
-      label: menuLabel(<SyncOutlined />, t('workbench.commitTool.refresh')),
+      label: menuLabel(<RefreshIcon />, t('workbench.commitTool.refresh')),
       onClick: () => h.onRefresh(),
     },
     { type: 'divider' },

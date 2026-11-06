@@ -7,7 +7,7 @@
  * is panel-scoped like every Commit-window dialog.
  */
 
-import { BranchesOutlined, TagOutlined } from '@ant-design/icons';
+import { BranchIcon, TagIcon } from '@openheaders/ui/shared/icons';
 import { hostBridge, type WorkspaceTreeRefWire } from '@openheaders/core/bridge';
 import { Input, Modal, theme } from 'antd';
 import type React from 'react';
@@ -99,9 +99,9 @@ const CompareBranchModal: React.FC<CompareBranchModalProps> = ({ workspaceId, op
               data-ref={ref.name}
             >
               {ref.kind === 'tag' ? (
-                <TagOutlined style={{ fontSize: 13, color: token.colorTextTertiary }} />
+                <TagIcon style={{ fontSize: 13, color: token.colorTextTertiary }} />
               ) : (
-                <BranchesOutlined style={{ fontSize: 13, color: token.colorTextTertiary }} />
+                <BranchIcon style={{ fontSize: 13, color: token.colorTextTertiary }} />
               )}
               <span style={{ flex: '1 1 auto', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                 {ref.name}

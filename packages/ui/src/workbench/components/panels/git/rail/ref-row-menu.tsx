@@ -23,19 +23,12 @@
  * (row, context, t, handlers).
  */
 
-import {
-  BranchesOutlined,
-  DeleteOutlined,
-  EditOutlined,
-  ForkOutlined,
-  PlusOutlined,
-  SwapOutlined,
-} from '@ant-design/icons';
+import { DeleteOutlined, EditOutlined, PlusOutlined, SwapOutlined } from '@ant-design/icons';
 import type { WorkspaceTreeRefWire } from '@openheaders/core/bridge';
 import type { MenuProps } from 'antd';
 import type React from 'react';
 import type { Translate } from '@openheaders/ui/context/LocaleContext';
-import { PullIcon, PushIcon } from '@openheaders/ui/shared/icons';
+import { BranchIcon, MergeIcon, PullIcon, PushIcon } from '@openheaders/ui/shared/icons';
 import { menuLabel } from '../git-menu-label';
 
 /** One selectable ref row — the menu's and the activity bar's target. */
@@ -150,7 +143,7 @@ export function buildRefRowMenu(
   const compare: MenuItem = {
     key: 'compare',
     label: menuLabel(
-      <BranchesOutlined />,
+      <BranchIcon />,
       t('workbench.gitLog.refMenu.compareWithCurrent'),
       undefined,
       'git-tool-ref-menu-compare',
@@ -162,7 +155,7 @@ export function buildRefRowMenu(
     {
       key: 'merge',
       label: menuLabel(
-        <ForkOutlined />,
+        <MergeIcon />,
         t('workbench.gitLog.refMenu.mergeIntoCurrent', { name: row.name, current: currentLabel }),
         undefined,
         'git-tool-ref-menu-merge',

@@ -10,11 +10,12 @@
  * workspace's Recent ring.
  */
 
-import { BranchesOutlined, DownOutlined } from '@ant-design/icons';
+import { DownOutlined } from '@ant-design/icons';
 import { Button, Dropdown, theme } from 'antd';
 import type React from 'react';
 import { useEffect, useState } from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
+import { BranchIcon } from '@openheaders/ui/shared/icons';
 import { postGitPanelReveal } from '../../../../data/git-panel-reveal';
 import { useWorkspaceGitSnapshot } from '../../../../stores/git-status-store';
 import { useGitBranchActions } from '../branch-actions/use-git-branch-actions';
@@ -109,7 +110,7 @@ const GitBranchWidget: React.FC<GitBranchWidgetProps> = ({ workspaceId, onOpenCo
             color: token.colorText,
           }}
         >
-          <BranchesOutlined style={{ fontSize: 13, color: token.colorTextSecondary }} />
+          <BranchIcon style={{ fontSize: 13, color: token.colorTextSecondary }} />
           <span
             style={{ maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
             data-testid="git-branch-widget-name"

@@ -5,7 +5,7 @@
  * collapsed right-aligned label with hover details.
  */
 
-import { BranchesOutlined, TagOutlined } from '@ant-design/icons';
+import { BranchIcon, TagIcon } from '@openheaders/ui/shared/icons';
 import type { WorkspaceTreeRefWire } from '@openheaders/core/bridge';
 import { theme } from 'antd';
 import type React from 'react';
@@ -52,7 +52,7 @@ const RefChips: React.FC<RefChipsProps> = ({ refs, showHead = false, max }) => {
           data-testid="git-tool-ref-chip"
           data-ref={ref.name}
         >
-          {ref.kind === 'tag' ? <TagOutlined style={{ fontSize: 9 }} /> : <BranchesOutlined style={{ fontSize: 9 }} />}
+          {ref.kind === 'tag' ? <TagIcon style={{ fontSize: 9 }} /> : <BranchIcon style={{ fontSize: 9 }} />}
           <span style={{ maxWidth: 140, overflow: 'hidden', textOverflow: 'ellipsis' }}>{ref.name}</span>
         </span>
       ))}

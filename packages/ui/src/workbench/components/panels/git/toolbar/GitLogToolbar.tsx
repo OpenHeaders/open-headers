@@ -7,12 +7,13 @@
  * registry (travels with the tab); display prefs are per-workspace.
  */
 
-import { EyeOutlined, ReloadOutlined, SearchOutlined } from '@ant-design/icons';
+import { EyeOutlined, SearchOutlined } from '@ant-design/icons';
 import type { WorkspaceTreeLogEntryWire, WorkspaceTreeRefWire } from '@openheaders/core/bridge';
 import { Dropdown, Input, theme, Tooltip } from 'antd';
 import type React from 'react';
 import { useMemo, useState } from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
+import { RefreshIcon } from '@openheaders/ui/shared/icons';
 import type { GitLogViewPrefs } from '../git-log-view-prefs';
 import type { GitLogTabState } from '../git-panel-view-store';
 import BranchFilterChip from './BranchFilterChip';
@@ -329,7 +330,7 @@ const GitLogToolbar: React.FC<GitLogToolbarProps> = ({
       </Dropdown>
       <span style={{ flex: 1 }} />
       <ToolbarIconButton
-        icon={<ReloadOutlined spin={loading} />}
+        icon={<RefreshIcon spin={loading} />}
         title={t('workbench.gitLog.refresh')}
         onClick={onRefresh}
         disabled={loading}

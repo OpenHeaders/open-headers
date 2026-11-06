@@ -14,7 +14,6 @@
  */
 
 import {
-  BranchesOutlined,
   CaretDownOutlined,
   CaretRightOutlined,
   FolderOutlined,
@@ -22,14 +21,13 @@ import {
   RightOutlined,
   SearchOutlined,
   SettingOutlined,
-  TagOutlined,
 } from '@ant-design/icons';
 import type { WorkspaceTreeGitStatusWire, WorkspaceTreeRefWire } from '@openheaders/core/bridge';
 import { Divider, Dropdown, Input, type MenuProps, Tooltip, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useMemo, useState, useSyncExternalStore } from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
-import { FetchIcon, PullIcon, PushIcon } from '@openheaders/ui/shared/icons';
+import { BranchIcon, FetchIcon, PullIcon, PushIcon, TagIcon } from '@openheaders/ui/shared/icons';
 import { menuCheckIcon } from '../../../shared/menu-check';
 import type { GitBranchActions } from '../branch-actions/use-git-branch-actions';
 import { CommitToolIcon } from '../commit/CommitToolIcon';
@@ -222,7 +220,7 @@ const GitBranchPopup: React.FC<GitBranchPopupProps> = ({
         </span>
       );
     }
-    const Glyph = kind === 'tag' ? TagOutlined : BranchesOutlined;
+    const Glyph = kind === 'tag' ? TagIcon : BranchIcon;
     return <Glyph style={{ flex: '0 0 auto', fontSize: 12, color: token.colorTextTertiary }} />;
   };
 
