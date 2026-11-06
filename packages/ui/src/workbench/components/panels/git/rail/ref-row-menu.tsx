@@ -119,7 +119,7 @@ export function buildRefRowMenu(
         key: 'update',
         label: menuLabel(
           <PullIcon />,
-          t('workbench.gitLog.refMenu.update'),
+          t('workbench.gitLog.refMenu.updateCurrent'),
           undefined,
           'git-tool-ref-menu-update',
         ),
