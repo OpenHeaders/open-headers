@@ -760,6 +760,29 @@ export const workbenchSettingsPanes = {
   'workbench.settings.gitPane.git.autoPushLabel': 'Push после каждого коммита',
   'workbench.settings.gitPane.git.autoPushDescription':
     'Отправлять текущую ветку в её вышестоящую ветку сразу после каждого коммита, который записывает движок.',
+  'workbench.settings.gitPane.log.tagNamesLabel': 'Имена тегов',
+  'workbench.settings.gitPane.log.tagNamesDescription': 'Показывать метки тегов в строках коммитов.',
+  'workbench.settings.gitPane.log.commitTimestampLabel': 'Время коммита',
+  'workbench.settings.gitPane.log.commitTimestampDescription': 'Показывать время рядом с датами старше вчерашней.',
+  'workbench.settings.gitPane.log.mergeCommitsLabel': 'Выделять коммиты слияния',
+  'workbench.settings.gitPane.log.mergeCommitsDescription':
+    'Приглушать тему коммитов слияния, чтобы выделялась линейная история.',
+  'workbench.settings.gitPane.log.groupByDirectoryLabel': 'Группировать по каталогам',
+  'workbench.settings.gitPane.log.groupByDirectoryDescription':
+    'Вкладывать изменённые файлы коммита в их каталоги; выключено — плоский список.',
+  'workbench.settings.gitPane.log.showDetailsLabel': 'Показывать подробности',
+  'workbench.settings.gitPane.log.showDetailsDescription': 'Держать подробности коммита под изменёнными файлами.',
+  'workbench.settings.gitPane.log.doubleClickLabel': 'Двойной щелчок открывает',
+  'workbench.settings.gitPane.log.doubleClickDescription':
+    'Что открывает двойной щелчок по изменённому файлу: его diff или сущность, к которой он относится, в её редакторе.',
+  'workbench.settings.gitPane.log.softWrapLabel': 'Перенос строк',
+  'workbench.settings.gitPane.log.softWrapDescription': 'Переносить длинные командные строки и вывод у края панели.',
+  'workbench.settings.gitPane.log.foldOptionsLabel': 'Сворачивать параметры',
+  'workbench.settings.gitPane.log.foldOptionsDescription':
+    'Сворачивать закреплённые глобальные параметры каждой команды в одну метку; наведение показывает их, щелчок раскрывает.',
+  'workbench.settings.gitPane.log.shortenPathsLabel': 'Сокращать пути',
+  'workbench.settings.gitPane.log.shortenPathsDescription':
+    'Опускать середину абсолютных путей; наведение показывает путь целиком.',
   'workbench.settings.gitPane.git.branch.current': 'На ветке {branch}',
   'workbench.settings.gitPane.git.branch.detached': 'Отсоединённый HEAD — создайте ветку, чтобы сохранить эту историю.',
   'workbench.settings.gitPane.git.branch.switchLabel': 'Переключиться на',

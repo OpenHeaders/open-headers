@@ -765,6 +765,30 @@ export const workbenchSettingsPanes = {
   'workbench.settings.gitPane.git.autoPushLabel': 'Push după fiecare commit',
   'workbench.settings.gitPane.git.autoPushDescription':
     'Face push ramurii curente către ramura din amonte imediat după fiecare commit înregistrat de motor.',
+  'workbench.settings.gitPane.log.tagNamesLabel': 'Numele etichetelor',
+  'workbench.settings.gitPane.log.tagNamesDescription': 'Afișează cipurile de etichetă pe rândurile de commit.',
+  'workbench.settings.gitPane.log.commitTimestampLabel': 'Ora commit-ului',
+  'workbench.settings.gitPane.log.commitTimestampDescription': 'Afișează ora lângă datele mai vechi de ieri.',
+  'workbench.settings.gitPane.log.mergeCommitsLabel': 'Evidențiază commit-urile de merge',
+  'workbench.settings.gitPane.log.mergeCommitsDescription':
+    'Estompează subiectul commit-urilor de merge, ca istoricul liniar să iasă în evidență.',
+  'workbench.settings.gitPane.log.groupByDirectoryLabel': 'Grupează pe directoare',
+  'workbench.settings.gitPane.log.groupByDirectoryDescription':
+    'Imbrică fișierele modificate ale unui commit sub directoarele lor; dezactivat, le listează plat.',
+  'workbench.settings.gitPane.log.showDetailsLabel': 'Afișează detaliile',
+  'workbench.settings.gitPane.log.showDetailsDescription': 'Păstrează detaliile commit-ului sub fișierele modificate.',
+  'workbench.settings.gitPane.log.doubleClickLabel': 'Dublu-clic deschide',
+  'workbench.settings.gitPane.log.doubleClickDescription':
+    'Ce deschide un dublu-clic pe un fișier modificat: diff-ul lui sau entitatea căreia îi aparține, în editorul ei.',
+  'workbench.settings.gitPane.log.softWrapLabel': 'Încadrare text',
+  'workbench.settings.gitPane.log.softWrapDescription':
+    'Împăturește liniile de comandă și ieșirea lungi la marginea panoului.',
+  'workbench.settings.gitPane.log.foldOptionsLabel': 'Pliază opțiunile',
+  'workbench.settings.gitPane.log.foldOptionsDescription':
+    'Restrânge opțiunile globale fixate ale fiecărei comenzi într-un singur cip; la survol le citești, la clic se desfășoară.',
+  'workbench.settings.gitPane.log.shortenPathsLabel': 'Scurtează căile',
+  'workbench.settings.gitPane.log.shortenPathsDescription':
+    'Elide mijlocul căilor absolute; la survol se vede calea întreagă.',
   'workbench.settings.gitPane.git.branch.current': 'Pe ramura {branch}',
   'workbench.settings.gitPane.git.branch.detached': 'HEAD detașat — creați o ramură pentru a păstra acest istoric.',
   'workbench.settings.gitPane.git.branch.switchLabel': 'Comutare la',

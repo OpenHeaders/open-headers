@@ -801,6 +801,31 @@ export const workbenchSettingsPanes = {
   'workbench.settings.gitPane.git.autoPushLabel': 'Hacer push tras cada commit',
   'workbench.settings.gitPane.git.autoPushDescription':
     'Hacer push de la rama actual a su upstream justo después de cada commit que registre el motor.',
+  'workbench.settings.gitPane.log.tagNamesLabel': 'Nombres de etiquetas',
+  'workbench.settings.gitPane.log.tagNamesDescription': 'Mostrar chips de etiqueta en las filas de commit.',
+  'workbench.settings.gitPane.log.commitTimestampLabel': 'Hora del commit',
+  'workbench.settings.gitPane.log.commitTimestampDescription': 'Mostrar la hora junto a las fechas anteriores a ayer.',
+  'workbench.settings.gitPane.log.mergeCommitsLabel': 'Resaltar commits de fusión',
+  'workbench.settings.gitPane.log.mergeCommitsDescription':
+    'Atenuar el asunto de los commits de fusión para que destaque el historial lineal.',
+  'workbench.settings.gitPane.log.groupByDirectoryLabel': 'Agrupar por directorio',
+  'workbench.settings.gitPane.log.groupByDirectoryDescription':
+    'Anidar los archivos cambiados de un commit bajo sus directorios; desactivado los lista en plano.',
+  'workbench.settings.gitPane.log.showDetailsLabel': 'Mostrar detalles',
+  'workbench.settings.gitPane.log.showDetailsDescription':
+    'Mantener los detalles del commit debajo de los archivos cambiados.',
+  'workbench.settings.gitPane.log.doubleClickLabel': 'El doble clic abre',
+  'workbench.settings.gitPane.log.doubleClickDescription':
+    'Qué abre un doble clic en un archivo cambiado: su diff o la entidad a la que pertenece en su editor.',
+  'workbench.settings.gitPane.log.softWrapLabel': 'Ajuste de línea',
+  'workbench.settings.gitPane.log.softWrapDescription':
+    'Plegar las líneas de comando y la salida largas en el borde del panel.',
+  'workbench.settings.gitPane.log.foldOptionsLabel': 'Plegar opciones',
+  'workbench.settings.gitPane.log.foldOptionsDescription':
+    'Contraer las opciones globales fijadas de cada comando en un chip; al pasar el cursor se leen, al hacer clic se despliegan.',
+  'workbench.settings.gitPane.log.shortenPathsLabel': 'Acortar rutas',
+  'workbench.settings.gitPane.log.shortenPathsDescription':
+    'Omitir el centro de las rutas absolutas; al pasar el cursor se muestra la ruta completa.',
   'workbench.settings.gitPane.git.branch.current': 'En la rama {branch}',
   'workbench.settings.gitPane.git.branch.detached': 'HEAD separado — crea una rama para conservar este historial.',
   'workbench.settings.gitPane.git.branch.switchLabel': 'Cambiar a',

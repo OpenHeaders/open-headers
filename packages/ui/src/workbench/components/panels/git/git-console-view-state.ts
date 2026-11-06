@@ -22,11 +22,11 @@ export interface GitConsolePrefs {
   shortenPaths: boolean;
 }
 
-const DEFAULT_PREFS: GitConsolePrefs = { softWrap: true, foldOptions: true, shortenPaths: true };
+export const DEFAULT_GIT_CONSOLE_PREFS: GitConsolePrefs = { softWrap: true, foldOptions: true, shortenPaths: true };
 
 const prefs = createWorkspacePrefsStore<GitConsolePrefs>({
   storagePrefix: 'oh:gitConsole',
-  defaults: DEFAULT_PREFS,
+  defaults: DEFAULT_GIT_CONSOLE_PREFS,
   parse: (p) => ({
     softWrap: p.softWrap !== false,
     foldOptions: p.foldOptions !== false,

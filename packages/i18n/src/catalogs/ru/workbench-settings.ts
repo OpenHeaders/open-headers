@@ -260,6 +260,12 @@ export const workbenchSettings = {
   'workbench.settings.category.gitAutomation.description': 'Что движок коммитит и отправляет самостоятельно.',
   'workbench.settings.category.gitAutomation.sub.commits': 'Коммиты',
   'workbench.settings.category.gitAutomation.sub.remote': 'Удалённый репозиторий',
+  'workbench.settings.category.gitLog.label': 'Журнал',
+  'workbench.settings.category.gitLog.description':
+    'Как окно инструментов Git показывает историю, изменённые файлы и консоль.',
+  'workbench.settings.category.gitLog.sub.commits': 'Коммиты',
+  'workbench.settings.category.gitLog.sub.changes': 'Изменения',
+  'workbench.settings.category.gitLog.sub.console': 'Консоль',
   'workbench.settings.category.proxy.label': 'Прокси',
   'workbench.settings.category.proxy.description':
     'Исходящий прокси этого устройства — как запросы попадают в сеть — и настройка доверия для прокси захвата.',

@@ -231,6 +231,12 @@ export const workbenchSettings = {
   'workbench.settings.category.gitAutomation.description': 'What the engine commits and pushes on its own.',
   'workbench.settings.category.gitAutomation.sub.commits': 'Commits',
   'workbench.settings.category.gitAutomation.sub.remote': 'Remote',
+  'workbench.settings.category.gitLog.label': 'Log',
+  'workbench.settings.category.gitLog.description':
+    'How the Git tool window shows the history, the changed files and the console.',
+  'workbench.settings.category.gitLog.sub.commits': 'Commits',
+  'workbench.settings.category.gitLog.sub.changes': 'Changes',
+  'workbench.settings.category.gitLog.sub.console': 'Console',
   'workbench.settings.category.proxy.label': 'Proxy',
   'workbench.settings.category.proxy.description':
     'This device’s outbound proxy — how requests reach the network — and trust setup for the capture proxy.',

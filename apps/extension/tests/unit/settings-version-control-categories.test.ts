@@ -32,10 +32,11 @@ describe('version control settings group', () => {
   it('git keeps its teaser and its own children one level deeper', () => {
     expect(getCategory('git')?.teaserWhenUnavailable).toBe('git');
     const ordered = allCategories().map((c) => c.id);
-    expect(ordered.slice(ordered.indexOf('git'), ordered.indexOf('git') + 3)).toEqual([
+    expect(ordered.slice(ordered.indexOf('git'), ordered.indexOf('git') + 4)).toEqual([
       'git',
       'gitFolder',
       'gitAutomation',
+      'gitLog',
     ]);
   });
 });

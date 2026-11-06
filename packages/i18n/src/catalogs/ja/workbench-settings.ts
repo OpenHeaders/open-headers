@@ -193,7 +193,8 @@ export const workbenchSettings = {
   'workbench.settings.category.requests.sub.websocket': 'WebSocket',
   'workbench.settings.category.requests.sub.mqtt': 'MQTT',
   'workbench.settings.category.secretManagers.label': 'シークレットマネージャー',
-  'workbench.settings.category.secretManagers.description': 'このデバイスがボールト参照の解決に使う外部シークレットマネージャーへの接続。',
+  'workbench.settings.category.secretManagers.description':
+    'このデバイスがボールト参照の解決に使う外部シークレットマネージャーへの接続。',
   'workbench.settings.category.secretManagers.sub.connections': '接続',
   'workbench.settings.category.browserInterceptor.label': 'ブラウザーインターセプター',
   'workbench.settings.category.browserInterceptor.description':
@@ -236,6 +237,12 @@ export const workbenchSettings = {
   'workbench.settings.category.gitAutomation.description': 'エンジンが自動でコミットおよびプッシュするもの。',
   'workbench.settings.category.gitAutomation.sub.commits': 'コミット',
   'workbench.settings.category.gitAutomation.sub.remote': 'リモート',
+  'workbench.settings.category.gitLog.label': 'ログ',
+  'workbench.settings.category.gitLog.description':
+    'Git ツールウィンドウが履歴、変更されたファイル、コンソールをどのように表示するか。',
+  'workbench.settings.category.gitLog.sub.commits': 'コミット',
+  'workbench.settings.category.gitLog.sub.changes': '変更',
+  'workbench.settings.category.gitLog.sub.console': 'コンソール',
   'workbench.settings.category.proxy.label': 'プロキシ',
   'workbench.settings.category.proxy.description':
     'このデバイスの送信プロキシ（リクエストがネットワークに到達する方法）と、キャプチャプロキシの信頼設定。',

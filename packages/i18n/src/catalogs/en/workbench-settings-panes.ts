@@ -696,6 +696,30 @@ export const workbenchSettingsPanes = {
   'workbench.settings.gitPane.git.autoPushLabel': 'Push after every commit',
   'workbench.settings.gitPane.git.autoPushDescription':
     'Push the current branch to its upstream right after every commit the engine records.',
+  'workbench.settings.gitPane.log.tagNamesLabel': 'Tag names',
+  'workbench.settings.gitPane.log.tagNamesDescription': 'Show tag chips on the commit rows.',
+  'workbench.settings.gitPane.log.commitTimestampLabel': 'Commit timestamp',
+  'workbench.settings.gitPane.log.commitTimestampDescription':
+    'Show the time of day next to dates older than yesterday.',
+  'workbench.settings.gitPane.log.mergeCommitsLabel': 'Highlight merge commits',
+  'workbench.settings.gitPane.log.mergeCommitsDescription':
+    'Dim the subject of merge commits so the linear history stands out.',
+  'workbench.settings.gitPane.log.groupByDirectoryLabel': 'Group by directory',
+  'workbench.settings.gitPane.log.groupByDirectoryDescription':
+    'Nest a commit’s changed files under their directories; off lists them flat.',
+  'workbench.settings.gitPane.log.showDetailsLabel': 'Show details',
+  'workbench.settings.gitPane.log.showDetailsDescription': 'Keep the commit details below the changed files.',
+  'workbench.settings.gitPane.log.doubleClickLabel': 'Double-click opens',
+  'workbench.settings.gitPane.log.doubleClickDescription':
+    'What a double-click on a changed file opens: its diff, or the entity it belongs to in its editor.',
+  'workbench.settings.gitPane.log.softWrapLabel': 'Soft-wrap',
+  'workbench.settings.gitPane.log.softWrapDescription': 'Fold long command lines and output at the pane’s edge.',
+  'workbench.settings.gitPane.log.foldOptionsLabel': 'Fold options',
+  'workbench.settings.gitPane.log.foldOptionsDescription':
+    'Collapse every command’s pinned global options to one chip; hover reads them, click lays them open.',
+  'workbench.settings.gitPane.log.shortenPathsLabel': 'Shorten paths',
+  'workbench.settings.gitPane.log.shortenPathsDescription':
+    'Elide the middle of absolute paths; hover shows the whole path.',
   'workbench.settings.gitPane.git.branch.current': 'On branch {branch}',
   'workbench.settings.gitPane.git.branch.detached': 'Detached HEAD — create a branch to keep this history.',
   'workbench.settings.gitPane.git.branch.switchLabel': 'Switch to',

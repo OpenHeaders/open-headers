@@ -701,6 +701,29 @@ export const workbenchSettingsPanes = {
   'workbench.settings.gitPane.git.autoPushLabel': '커밋마다 Push',
   'workbench.settings.gitPane.git.autoPushDescription':
     '엔진이 커밋을 기록할 때마다 현재 브랜치를 업스트림에 바로 푸시합니다.',
+  'workbench.settings.gitPane.log.tagNamesLabel': '태그 이름',
+  'workbench.settings.gitPane.log.tagNamesDescription': '커밋 행에 태그 칩을 표시합니다.',
+  'workbench.settings.gitPane.log.commitTimestampLabel': '커밋 타임스탬프',
+  'workbench.settings.gitPane.log.commitTimestampDescription': '어제보다 오래된 날짜 옆에 시각을 표시합니다.',
+  'workbench.settings.gitPane.log.mergeCommitsLabel': '병합 커밋 강조',
+  'workbench.settings.gitPane.log.mergeCommitsDescription':
+    '병합 커밋의 제목을 흐리게 하여 선형 기록이 돋보이게 합니다.',
+  'workbench.settings.gitPane.log.groupByDirectoryLabel': '디렉터리별 그룹화',
+  'workbench.settings.gitPane.log.groupByDirectoryDescription':
+    '커밋의 변경된 파일을 디렉터리 아래에 중첩합니다. 끄면 평면으로 나열합니다.',
+  'workbench.settings.gitPane.log.showDetailsLabel': '세부 정보 표시',
+  'workbench.settings.gitPane.log.showDetailsDescription': '변경된 파일 아래에 커밋 세부 정보를 유지합니다.',
+  'workbench.settings.gitPane.log.doubleClickLabel': '더블 클릭으로 열기',
+  'workbench.settings.gitPane.log.doubleClickDescription':
+    '변경된 파일을 더블 클릭했을 때 여는 것: 해당 diff 또는 파일이 속한 엔터티의 편집기.',
+  'workbench.settings.gitPane.log.softWrapLabel': '자동 줄 바꿈',
+  'workbench.settings.gitPane.log.softWrapDescription': '긴 명령줄과 출력을 창 가장자리에서 접습니다.',
+  'workbench.settings.gitPane.log.foldOptionsLabel': '옵션 접기',
+  'workbench.settings.gitPane.log.foldOptionsDescription':
+    '각 명령의 고정된 전역 옵션을 칩 하나로 접습니다. 마우스를 올리면 읽고, 클릭하면 펼칩니다.',
+  'workbench.settings.gitPane.log.shortenPathsLabel': '경로 단축',
+  'workbench.settings.gitPane.log.shortenPathsDescription':
+    '절대 경로의 가운데를 생략합니다. 마우스를 올리면 전체 경로를 표시합니다.',
   'workbench.settings.gitPane.git.branch.current': '{branch} 브랜치에 있음',
   'workbench.settings.gitPane.git.branch.detached': '분리된 HEAD 상태입니다. 이 기록을 유지하려면 브랜치를 만드세요.',
   'workbench.settings.gitPane.git.branch.switchLabel': '전환 대상',

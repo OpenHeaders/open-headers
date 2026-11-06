@@ -193,7 +193,8 @@ export const workbenchSettings = {
   'workbench.settings.category.requests.sub.websocket': 'WebSocket',
   'workbench.settings.category.requests.sub.mqtt': 'MQTT',
   'workbench.settings.category.secretManagers.label': '시크릿 관리자',
-  'workbench.settings.category.secretManagers.description': '이 기기가 볼트 참조를 해석할 때 사용하는 외부 시크릿 관리자 연결입니다.',
+  'workbench.settings.category.secretManagers.description':
+    '이 기기가 볼트 참조를 해석할 때 사용하는 외부 시크릿 관리자 연결입니다.',
   'workbench.settings.category.secretManagers.sub.connections': '연결',
   'workbench.settings.category.browserInterceptor.label': '브라우저 인터셉터',
   'workbench.settings.category.browserInterceptor.description':
@@ -235,6 +236,11 @@ export const workbenchSettings = {
   'workbench.settings.category.gitAutomation.description': '엔진이 스스로 커밋하고 푸시하는 것입니다.',
   'workbench.settings.category.gitAutomation.sub.commits': '커밋',
   'workbench.settings.category.gitAutomation.sub.remote': '원격',
+  'workbench.settings.category.gitLog.label': '로그',
+  'workbench.settings.category.gitLog.description': 'Git 도구 창이 기록, 변경된 파일, 콘솔을 표시하는 방식입니다.',
+  'workbench.settings.category.gitLog.sub.commits': '커밋',
+  'workbench.settings.category.gitLog.sub.changes': '변경 사항',
+  'workbench.settings.category.gitLog.sub.console': '콘솔',
   'workbench.settings.category.proxy.label': '프록시',
   'workbench.settings.category.proxy.description':
     '이 기기의 아웃바운드 프록시 (요청이 네트워크에 도달하는 방식)와 캡처 프록시의 신뢰 설정입니다.',

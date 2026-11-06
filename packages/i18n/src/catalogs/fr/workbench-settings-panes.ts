@@ -799,6 +799,30 @@ export const workbenchSettingsPanes = {
   'workbench.settings.gitPane.git.autoPushLabel': 'Pousser après chaque commit',
   'workbench.settings.gitPane.git.autoPushDescription':
     'Pousser la branche courante vers son upstream juste après chaque commit enregistré par le moteur.',
+  'workbench.settings.gitPane.log.tagNamesLabel': 'Noms des tags',
+  'workbench.settings.gitPane.log.tagNamesDescription': 'Afficher les puces de tag sur les lignes de commit.',
+  'workbench.settings.gitPane.log.commitTimestampLabel': 'Horodatage du commit',
+  'workbench.settings.gitPane.log.commitTimestampDescription': "Afficher l'heure à côté des dates antérieures à hier.",
+  'workbench.settings.gitPane.log.mergeCommitsLabel': 'Mettre en évidence les commits de fusion',
+  'workbench.settings.gitPane.log.mergeCommitsDescription':
+    "Atténuer le sujet des commits de fusion pour faire ressortir l'historique linéaire.",
+  'workbench.settings.gitPane.log.groupByDirectoryLabel': 'Grouper par répertoire',
+  'workbench.settings.gitPane.log.groupByDirectoryDescription':
+    "Imbriquer les fichiers modifiés d'un commit sous leurs répertoires ; désactivé, ils sont listés à plat.",
+  'workbench.settings.gitPane.log.showDetailsLabel': 'Afficher les détails',
+  'workbench.settings.gitPane.log.showDetailsDescription': 'Garder les détails du commit sous les fichiers modifiés.',
+  'workbench.settings.gitPane.log.doubleClickLabel': 'Le double-clic ouvre',
+  'workbench.settings.gitPane.log.doubleClickDescription':
+    "Ce qu'un double-clic sur un fichier modifié ouvre : son diff, ou l'entité à laquelle il appartient dans son éditeur.",
+  'workbench.settings.gitPane.log.softWrapLabel': 'Retour à la ligne',
+  'workbench.settings.gitPane.log.softWrapDescription':
+    'Replier les longues lignes de commande et la sortie au bord du volet.',
+  'workbench.settings.gitPane.log.foldOptionsLabel': 'Replier les options',
+  'workbench.settings.gitPane.log.foldOptionsDescription':
+    'Réduire les options globales épinglées de chaque commande en une puce ; le survol les lit, le clic les déploie.',
+  'workbench.settings.gitPane.log.shortenPathsLabel': 'Raccourcir les chemins',
+  'workbench.settings.gitPane.log.shortenPathsDescription':
+    'Élider le milieu des chemins absolus ; le survol montre le chemin entier.',
   'workbench.settings.gitPane.git.branch.current': 'Sur la branche {branch}',
   'workbench.settings.gitPane.git.branch.detached': 'HEAD détaché — créez une branche pour conserver cet historique.',
   'workbench.settings.gitPane.git.branch.switchLabel': 'Basculer vers',

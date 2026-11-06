@@ -17,10 +17,10 @@ import {
   AppstoreOutlined,
   BgColorsOutlined,
   BranchesOutlined,
-  ClusterOutlined,
-  CodeOutlined,
   BugOutlined,
   CloudSyncOutlined,
+  ClusterOutlined,
+  CodeOutlined,
   DatabaseOutlined,
   DiffOutlined,
   DownloadOutlined,
@@ -30,6 +30,7 @@ import {
   FunctionOutlined,
   FundViewOutlined,
   GlobalOutlined,
+  HistoryOutlined,
   InfoCircleOutlined,
   KeyOutlined,
   LayoutOutlined,
@@ -56,6 +57,7 @@ const BackendPane = lazy(() => import('./components/BackendPane'));
 const LicensePane = lazy(() => import('./components/license-pane'));
 const GitFolderPane = lazy(() => import('./components/git/git-folder-pane'));
 const GitAutomationPane = lazy(() => import('./components/git/git-automation-pane'));
+const GitLogPane = lazy(() => import('./components/git/git-log-pane'));
 const ProxyTrustPane = lazy(() => import('./components/proxy-trust-pane'));
 const SystemProxyPane = lazy(() => import('./components/system-proxy-pane'));
 const KeymapPane = lazy(() => import('./components/keymap/KeymapPane'));
@@ -575,6 +577,24 @@ registerCategory({
     { id: 'remote', labelKey: 'workbench.settings.category.gitAutomation.sub.remote', order: 20 },
   ],
   renderPane: GitAutomationPane,
+  when: () => getCurrentHost() === 'desktop',
+});
+
+registerCategory({
+  id: 'gitLog',
+  labelKey: 'workbench.settings.category.gitLog.label',
+  parent: 'git',
+  icon: <HistoryOutlined />,
+  order: 30,
+  descriptionKey: 'workbench.settings.category.gitLog.description',
+  // The Git tool window's per-workspace display preferences — the same
+  // values its eye menus flip, as a page.
+  subcategories: [
+    { id: 'commits', labelKey: 'workbench.settings.category.gitLog.sub.commits', order: 10 },
+    { id: 'changes', labelKey: 'workbench.settings.category.gitLog.sub.changes', order: 20 },
+    { id: 'console', labelKey: 'workbench.settings.category.gitLog.sub.console', order: 30 },
+  ],
+  renderPane: GitLogPane,
   when: () => getCurrentHost() === 'desktop',
 });
 

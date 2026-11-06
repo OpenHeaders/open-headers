@@ -804,6 +804,31 @@ export const workbenchSettingsPanes = {
   'workbench.settings.gitPane.git.autoPushLabel': 'Nach jedem Commit pushen',
   'workbench.settings.gitPane.git.autoPushDescription':
     'Den aktuellen Branch direkt nach jedem Commit der Engine zu seinem Upstream pushen.',
+  'workbench.settings.gitPane.log.tagNamesLabel': 'Tag-Namen',
+  'workbench.settings.gitPane.log.tagNamesDescription': 'Tag-Chips in den Commit-Zeilen anzeigen.',
+  'workbench.settings.gitPane.log.commitTimestampLabel': 'Commit-Zeitstempel',
+  'workbench.settings.gitPane.log.commitTimestampDescription':
+    'Die Uhrzeit neben Datumsangaben anzeigen, die älter als gestern sind.',
+  'workbench.settings.gitPane.log.mergeCommitsLabel': 'Merge-Commits hervorheben',
+  'workbench.settings.gitPane.log.mergeCommitsDescription':
+    'Den Betreff von Merge-Commits abdunkeln, damit die lineare Historie hervorsticht.',
+  'workbench.settings.gitPane.log.groupByDirectoryLabel': 'Nach Verzeichnis gruppieren',
+  'workbench.settings.gitPane.log.groupByDirectoryDescription':
+    'Die geänderten Dateien eines Commits unter ihren Verzeichnissen verschachteln; aus listet sie flach.',
+  'workbench.settings.gitPane.log.showDetailsLabel': 'Details anzeigen',
+  'workbench.settings.gitPane.log.showDetailsDescription': 'Die Commit-Details unter den geänderten Dateien behalten.',
+  'workbench.settings.gitPane.log.doubleClickLabel': 'Doppelklick öffnet',
+  'workbench.settings.gitPane.log.doubleClickDescription':
+    'Was ein Doppelklick auf eine geänderte Datei öffnet: ihren Diff oder die zugehörige Entität in ihrem Editor.',
+  'workbench.settings.gitPane.log.softWrapLabel': 'Zeilenumbruch',
+  'workbench.settings.gitPane.log.softWrapDescription':
+    'Lange Befehlszeilen und Ausgaben am Rand des Bereichs umbrechen.',
+  'workbench.settings.gitPane.log.foldOptionsLabel': 'Optionen einklappen',
+  'workbench.settings.gitPane.log.foldOptionsDescription':
+    'Die angehefteten globalen Optionen jedes Befehls zu einem Chip zusammenfassen; Hover liest sie, Klick klappt sie auf.',
+  'workbench.settings.gitPane.log.shortenPathsLabel': 'Pfade kürzen',
+  'workbench.settings.gitPane.log.shortenPathsDescription':
+    'Die Mitte absoluter Pfade auslassen; Hover zeigt den ganzen Pfad.',
   'workbench.settings.gitPane.git.branch.current': 'Auf Branch {branch}',
   'workbench.settings.gitPane.git.branch.detached':
     'Detached HEAD — lege einen Branch an, um diese Historie zu behalten.',

@@ -27,7 +27,7 @@ export interface GitLogViewPrefs {
   doubleClickOpens: GitDoubleClickTarget;
 }
 
-const DEFAULT_PREFS: GitLogViewPrefs = {
+export const DEFAULT_GIT_LOG_VIEW_PREFS: GitLogViewPrefs = {
   showTagNames: true,
   showCommitTimestamp: false,
   highlightMergeCommits: true,
@@ -38,7 +38,7 @@ const DEFAULT_PREFS: GitLogViewPrefs = {
 
 const store = createWorkspacePrefsStore<GitLogViewPrefs>({
   storagePrefix: 'oh:gitLogView',
-  defaults: DEFAULT_PREFS,
+  defaults: DEFAULT_GIT_LOG_VIEW_PREFS,
   parse: (p) => ({
     showTagNames: p.showTagNames !== false,
     showCommitTimestamp: p.showCommitTimestamp === true,

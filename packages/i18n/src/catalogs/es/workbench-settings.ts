@@ -258,6 +258,12 @@ export const workbenchSettings = {
   'workbench.settings.category.gitAutomation.description': 'Lo que el motor confirma y envía por su cuenta.',
   'workbench.settings.category.gitAutomation.sub.commits': 'Commits',
   'workbench.settings.category.gitAutomation.sub.remote': 'Remoto',
+  'workbench.settings.category.gitLog.label': 'Registro',
+  'workbench.settings.category.gitLog.description':
+    'Cómo muestra la ventana de herramientas Git el historial, los archivos cambiados y la consola.',
+  'workbench.settings.category.gitLog.sub.commits': 'Commits',
+  'workbench.settings.category.gitLog.sub.changes': 'Cambios',
+  'workbench.settings.category.gitLog.sub.console': 'Consola',
   'workbench.settings.category.proxy.label': 'Proxy',
   'workbench.settings.category.proxy.description':
     'El proxy de salida de este dispositivo — cómo alcanzan la red las solicitudes — y la configuración ' +

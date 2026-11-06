@@ -36,7 +36,7 @@ describe('git settings group', () => {
     expect(children[0]).toBe('gitFolder');
   });
 
-  it('automation is the second and last child: commits and remote, desktop-only, no defs', () => {
+  it('automation is the second child: commits and remote, desktop-only, no defs', () => {
     // Operating the repository is the Git tool window's job — no Repository page.
     expect(getCategory('gitRepository')).toBeUndefined();
     const automation = getCategory('gitAutomation');
@@ -47,9 +47,20 @@ describe('git settings group', () => {
     expect(automation?.teaserWhenUnavailable).toBeUndefined();
     expect(automation?.subcategories?.map((s) => s.id)).toEqual(['commits', 'remote']);
     expect(byCategory('gitAutomation')).toHaveLength(0);
+  });
+
+  it('log is the third and last child: commits, changes and console, desktop-only, no defs', () => {
+    const log = getCategory('gitLog');
+    expect(log?.parent).toBe('git');
+    expect(log?.labelKey).toBeTruthy();
+    expect(log?.renderPane).toBeDefined();
+    expect(log?.when).toBeDefined();
+    expect(log?.teaserWhenUnavailable).toBeUndefined();
+    expect(log?.subcategories?.map((s) => s.id)).toEqual(['commits', 'changes', 'console']);
+    expect(byCategory('gitLog')).toHaveLength(0);
     const children = allCategories()
       .filter((c) => c.parent === 'git')
       .map((c) => c.id);
-    expect(children).toEqual(['gitFolder', 'gitAutomation']);
+    expect(children).toEqual(['gitFolder', 'gitAutomation', 'gitLog']);
   });
 });

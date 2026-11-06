@@ -264,6 +264,12 @@ export const workbenchSettings = {
   'workbench.settings.category.gitAutomation.description': 'Ce face motorul de la sine prin commit și push.',
   'workbench.settings.category.gitAutomation.sub.commits': 'Commit-uri',
   'workbench.settings.category.gitAutomation.sub.remote': 'Depozit la distanță',
+  'workbench.settings.category.gitLog.label': 'Jurnal',
+  'workbench.settings.category.gitLog.description':
+    'Cum arată fereastra Git istoricul, fișierele modificate și consola.',
+  'workbench.settings.category.gitLog.sub.commits': 'Commit-uri',
+  'workbench.settings.category.gitLog.sub.changes': 'Modificări',
+  'workbench.settings.category.gitLog.sub.console': 'Consolă',
   'workbench.settings.category.proxy.label': 'Proxy',
   'workbench.settings.category.proxy.description':
     'Proxy-ul de ieșire al acestui dispozitiv — cum ajung cererile în rețea — și configurarea încrederii pentru proxy-ul de captură.',

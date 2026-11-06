@@ -607,7 +607,8 @@ export const workbenchSettingsPanes = {
   'workbench.settings.proxyTrustPane.helper.state.enabled': '登録済み',
   'workbench.settings.proxyTrustPane.helper.state.requiresApproval': '承認待ち',
   'workbench.settings.proxyTrustPane.helper.state.notRegistered': '未登録',
-  'workbench.settings.proxyTrustPane.helper.state.notFound': '見つかりません。macOS に記録がありません。もう一度登録してください',
+  'workbench.settings.proxyTrustPane.helper.state.notFound':
+    '見つかりません。macOS に記録がありません。もう一度登録してください',
   'workbench.settings.proxyTrustPane.helper.state.unknown': '不明',
   'workbench.settings.proxyTrustPane.helper.probe.ok': '応答あり',
   'workbench.settings.proxyTrustPane.helper.probe.down': '応答なし',
@@ -709,6 +710,29 @@ export const workbenchSettingsPanes = {
   'workbench.settings.gitPane.git.autoPushLabel': 'コミットのたびにプッシュ',
   'workbench.settings.gitPane.git.autoPushDescription':
     'エンジンがコミットを記録するたびに、現在のブランチをその上流に直ちにプッシュします。',
+  'workbench.settings.gitPane.log.tagNamesLabel': 'タグ名',
+  'workbench.settings.gitPane.log.tagNamesDescription': 'コミット行にタグのチップを表示します。',
+  'workbench.settings.gitPane.log.commitTimestampLabel': 'コミットのタイムスタンプ',
+  'workbench.settings.gitPane.log.commitTimestampDescription': '昨日より古い日付の横に時刻を表示します。',
+  'workbench.settings.gitPane.log.mergeCommitsLabel': 'マージコミットを強調',
+  'workbench.settings.gitPane.log.mergeCommitsDescription':
+    'マージコミットの件名を薄くして、直線的な履歴を際立たせます。',
+  'workbench.settings.gitPane.log.groupByDirectoryLabel': 'ディレクトリでグループ化',
+  'workbench.settings.gitPane.log.groupByDirectoryDescription':
+    'コミットの変更ファイルをディレクトリの下に入れ子にします。オフではフラットに一覧します。',
+  'workbench.settings.gitPane.log.showDetailsLabel': '詳細を表示',
+  'workbench.settings.gitPane.log.showDetailsDescription': '変更ファイルの下にコミットの詳細を表示し続けます。',
+  'workbench.settings.gitPane.log.doubleClickLabel': 'ダブルクリックで開くもの',
+  'workbench.settings.gitPane.log.doubleClickDescription':
+    '変更ファイルをダブルクリックしたときに開くもの：その差分、またはそのファイルが属するエンティティのエディター。',
+  'workbench.settings.gitPane.log.softWrapLabel': 'ソフトラップ',
+  'workbench.settings.gitPane.log.softWrapDescription': '長いコマンド行と出力をペインの端で折り返します。',
+  'workbench.settings.gitPane.log.foldOptionsLabel': 'オプションを折りたたむ',
+  'workbench.settings.gitPane.log.foldOptionsDescription':
+    '各コマンドの固定されたグローバルオプションを 1 つのチップにまとめます。ホバーで読み、クリックで展開します。',
+  'workbench.settings.gitPane.log.shortenPathsLabel': 'パスを短縮',
+  'workbench.settings.gitPane.log.shortenPathsDescription':
+    '絶対パスの中間を省略します。ホバーでパス全体を表示します。',
   'workbench.settings.gitPane.git.branch.current': 'ブランチ {branch} 上',
   'workbench.settings.gitPane.git.branch.detached':
     'Detached HEAD です。この履歴を保つにはブランチを作成してください。',
