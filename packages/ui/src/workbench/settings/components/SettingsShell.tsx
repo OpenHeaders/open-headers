@@ -15,6 +15,7 @@ import { DesktopTeaser } from '@openheaders/ui/shared/desktop-teaser';
 import { RollbackIcon } from '@openheaders/ui/shared/icons';
 import { useServerAdminStatus } from '../../components/server-admin/use-server-admin-status';
 import { useModifiedCount, useResetAllSettings, useSetting } from '../hooks';
+import { initialSettingsCategory, rememberSettingsCategory } from '../last-category';
 import { SettingsNavigationProvider } from '../NavigationContext';
 import { allCategories, getDef } from '../registry';
 import { searchSettings } from '../search';
@@ -89,13 +90,16 @@ const SettingsShell: React.FC<SettingsShellProps> = ({ initialSettingKey, initia
   // The setting's own category wins over an explicit initialCategoryId
   // when both are passed — otherwise deep-linking to a key in a different
   // category would mount the wrong pane and the row wouldn't be in the DOM.
-  const [activeId, setActiveId] = useState<string | null>(() => {
-    if (initialSettingKey) {
-      const def = getDef(initialSettingKey as SettingKey);
-      if (def) return def.category;
-    }
-    return initialCategoryId ?? null;
-  });
+  // An untargeted open lands on the page the shell last showed.
+  const [activeId, setActiveId] = useState<string | null>(() =>
+    initialSettingsCategory(
+      { settingKey: initialSettingKey, categoryId: initialCategoryId },
+      (key) => getDef(key as SettingKey)?.category,
+    ),
+  );
+  useEffect(() => {
+    if (activeId) rememberSettingsCategory(activeId);
+  }, [activeId]);
 
   // Keep activeId valid as the visible set changes (e.g. after search
   // edits). The fallback is the first LEAF in nav order — a group node's

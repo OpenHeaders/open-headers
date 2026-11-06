@@ -9,7 +9,9 @@
  * The shell is destroyed on close so each open applies its deep-link
  * target (`initialSettingKey` / `initialCategoryId`) cleanly. The cost
  * is losing scroll/search state across opens, which the command palette
- * and per-setting deep links make unnecessary.
+ * and per-setting deep links make unnecessary; the page itself is
+ * remembered for the session, so an untargeted reopen lands where the
+ * person left.
  */
 
 import { CloseOutlined, ExportOutlined, FullscreenExitOutlined, FullscreenOutlined } from '@ant-design/icons';
