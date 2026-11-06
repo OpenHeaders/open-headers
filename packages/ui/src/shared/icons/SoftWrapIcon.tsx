@@ -20,10 +20,7 @@ const SoftWrapSvg: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
     strokeLinecap="round"
     strokeLinejoin="round"
   >
-    <path d="M2.5 4h11" fill="none" />
-    <path d="M2.5 8h8.5a2 2 0 0 1 0 4H8" fill="none" />
-    <path d="M9.5 10.5 8 12l1.5 1.5" fill="none" />
-    <path d="M2.5 12h3" fill="none" />
+    <path d="M2.5 4h11M2.5 8h8.5a2 2 0 0 1 0 4H8M9.5 10.5 8 12l1.5 1.5M2.5 12h3" fill="none" />
   </svg>
 );
 

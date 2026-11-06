@@ -21,8 +21,7 @@ const RollbackSvg: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
     strokeLinecap="round"
     strokeLinejoin="round"
   >
-    <path d="M5.5 3 2.5 6l3 3" fill="none" />
-    <path d="M2.5 6H10a3.5 3.5 0 0 1 0 7H5.5" fill="none" />
+    <path d="M5.5 3 2.5 6l3 3M2.5 6H10a3.5 3.5 0 0 1 0 7H5.5" fill="none" />
   </svg>
 );
 

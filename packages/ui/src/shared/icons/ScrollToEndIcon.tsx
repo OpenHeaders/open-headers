@@ -20,11 +20,7 @@ const ScrollToEndSvg: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
     strokeLinecap="round"
     strokeLinejoin="round"
   >
-    <path d="M2.5 3.5h6" fill="none" />
-    <path d="M2.5 7h4" fill="none" />
-    <path d="M11 3v7.5" fill="none" />
-    <path d="M8.5 8 11 10.5 13.5 8" fill="none" />
-    <path d="M2.5 13.5h11" fill="none" />
+    <path d="M2.5 3.5h6M2.5 7h4M11 3v7.5M8.5 8 11 10.5 13.5 8M2.5 13.5h11" fill="none" />
   </svg>
 );
 

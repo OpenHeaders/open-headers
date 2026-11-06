@@ -22,8 +22,7 @@ const PullSvg: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
     strokeLinecap="round"
     strokeLinejoin="round"
   >
-    <path d="M12.5 3.5 4.5 11.5" fill="none" />
-    <path d="M4.5 6.5v5h5" fill="none" />
+    <path d="M12.5 3.5 4.5 11.5M4.5 6.5v5h5" fill="none" />
   </svg>
 );
 

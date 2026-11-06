@@ -21,8 +21,7 @@ const CollapseAllSvg: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
     strokeLinecap="round"
     strokeLinejoin="round"
   >
-    <path d="M5 2.5 8 5.5l3-3" fill="none" />
-    <path d="M5 13.5 8 10.5l3 3" fill="none" />
+    <path d="M5 2.5 8 5.5l3-3M5 13.5 8 10.5l3 3" fill="none" />
   </svg>
 );
 

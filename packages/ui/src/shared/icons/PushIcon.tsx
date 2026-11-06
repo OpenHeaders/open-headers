@@ -21,8 +21,7 @@ const PushSvg: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
     strokeLinecap="round"
     strokeLinejoin="round"
   >
-    <path d="M3.5 12.5 11.5 4.5" fill="none" />
-    <path d="M6.5 4.5h5v5" fill="none" />
+    <path d="M3.5 12.5 11.5 4.5M6.5 4.5h5v5" fill="none" />
   </svg>
 );
 

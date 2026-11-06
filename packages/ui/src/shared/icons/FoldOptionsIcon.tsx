@@ -21,11 +21,7 @@ const FoldOptionsSvg: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
     strokeLinecap="round"
     strokeLinejoin="round"
   >
-    <path d="M2.5 3.5h11" fill="none" />
-    <rect x="2.5" y="6" width="7" height="4" rx="1.25" fill="none" />
-    <path d="M4.5 8h.01M6 8h.01M7.5 8h.01" fill="none" strokeWidth={1.25} />
-    <path d="M11.5 8h2" fill="none" />
-    <path d="M2.5 12.5h7" fill="none" />
+    <path d="M2.5 3.5h11M3.75 6h4.5a1.25 1.25 0 0 1 1.25 1.25v1.5a1.25 1.25 0 0 1-1.25 1.25h-4.5a1.25 1.25 0 0 1-1.25-1.25v-1.5a1.25 1.25 0 0 1 1.25-1.25zM4.5 8h.01M6 8h.01M7.5 8h.01M11.5 8h2M2.5 12.5h7" fill="none" />
   </svg>
 );
 

@@ -21,8 +21,7 @@ const ExpandAllSvg: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
     strokeLinecap="round"
     strokeLinejoin="round"
   >
-    <path d="M5 5.5 8 2.5l3 3" fill="none" />
-    <path d="M5 10.5 8 13.5l3-3" fill="none" />
+    <path d="M5 5.5 8 2.5l3 3M5 10.5 8 13.5l3-3" fill="none" />
   </svg>
 );
 

@@ -20,8 +20,7 @@ const FetchSvg: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
     strokeLinecap="round"
     strokeLinejoin="round"
   >
-    <path d="M12.5 3.5 4.5 11.5" strokeDasharray="1.6 2.6" fill="none" />
-    <path d="M4.5 6.5v5h5" fill="none" />
+    <path d="M12.5 3.5 11.37 4.63M9.53 6.47 8.4 7.6M6.56 9.44 5.43 10.57M4.5 6.5v5h5" fill="none" />
   </svg>
 );
 

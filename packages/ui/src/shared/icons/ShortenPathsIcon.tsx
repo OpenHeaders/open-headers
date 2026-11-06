@@ -20,9 +20,7 @@ const ShortenPathsSvg: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
     strokeLinecap="round"
     strokeLinejoin="round"
   >
-    <path d="M2 12 4.5 4" fill="none" />
-    <path d="M6.25 8h.01M8 8h.01M9.75 8h.01" fill="none" strokeWidth={1.25} />
-    <path d="M11.5 12 14 4" fill="none" />
+    <path d="M2 12 4.5 4M6.25 8h.01M8 8h.01M9.75 8h.01M11.5 12 14 4" fill="none" />
   </svg>
 );
 

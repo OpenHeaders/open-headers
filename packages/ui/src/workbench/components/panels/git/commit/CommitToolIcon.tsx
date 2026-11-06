@@ -1,7 +1,10 @@
 /**
  * CommitToolIcon — the Commit tool window's activity-bar glyph: the
- * git-commit symbol (a commit node on its branch line), inline
- * currentColor SVG sized like the antd outline icons around it.
+ * git-commit symbol, a commit node on its branch line running left to
+ * right (the reference's Commit). One currentColor path — the line
+ * segments and the ring share a single stroke, so a translucent
+ * disabled tone paints every joint once — sized like the antd outline
+ * icons around it.
  */
 
 import type React from 'react';
@@ -17,7 +20,6 @@ export const CommitToolIcon: React.FC = () => (
     strokeLinecap="round"
     aria-hidden
   >
-    <circle cx="8" cy="8" r="2.8" />
-    <path d="M8 1.5 V5.2 M8 10.8 V14.5" />
+    <path d="M1.5 8h3.7M10.8 8h3.7M10.8 8a2.8 2.8 0 1 1-5.6 0 2.8 2.8 0 1 1 5.6 0" />
   </svg>
 );
