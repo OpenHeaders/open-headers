@@ -29,14 +29,13 @@ import {
   EditOutlined,
   ForkOutlined,
   PlusOutlined,
-  RiseOutlined,
   SwapOutlined,
-  VerticalAlignBottomOutlined,
 } from '@ant-design/icons';
 import type { WorkspaceTreeRefWire } from '@openheaders/core/bridge';
 import type { MenuProps } from 'antd';
 import type React from 'react';
 import type { Translate } from '@openheaders/ui/context/LocaleContext';
+import { PullIcon, PushIcon } from '@openheaders/ui/shared/icons';
 import { menuLabel } from '../git-menu-label';
 
 /** One selectable ref row — the menu's and the activity bar's target. */
@@ -119,7 +118,7 @@ export function buildRefRowMenu(
       {
         key: 'update',
         label: menuLabel(
-          <VerticalAlignBottomOutlined />,
+          <PullIcon />,
           t('workbench.gitLog.refMenu.update'),
           undefined,
           'git-tool-ref-menu-update',
@@ -128,7 +127,7 @@ export function buildRefRowMenu(
       },
       {
         key: 'push',
-        label: menuLabel(<RiseOutlined />, t('workbench.gitLog.refMenu.push'), '⇧⌘K', 'git-tool-ref-menu-push'),
+        label: menuLabel(<PushIcon />, t('workbench.gitLog.refMenu.push'), '⇧⌘K', 'git-tool-ref-menu-push'),
         onClick: () => h.onPushCurrent(),
       },
       { type: 'divider' },
@@ -195,7 +194,7 @@ export function buildRefRowMenu(
       {
         key: 'update',
         label: menuLabel(
-          <VerticalAlignBottomOutlined />,
+          <PullIcon />,
           t('workbench.gitLog.refMenu.update'),
           undefined,
           'git-tool-ref-menu-update',
@@ -204,7 +203,7 @@ export function buildRefRowMenu(
       },
       {
         key: 'push',
-        label: menuLabel(<RiseOutlined />, t('workbench.gitLog.refMenu.push'), '⇧⌘K'),
+        label: menuLabel(<PushIcon />, t('workbench.gitLog.refMenu.push'), '⇧⌘K'),
         disabled: true,
       },
       { type: 'divider' },

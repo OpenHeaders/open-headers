@@ -20,18 +20,16 @@ import {
   FolderOutlined,
   PlusOutlined,
   RightOutlined,
-  RiseOutlined,
   SearchOutlined,
   SettingOutlined,
-  SyncOutlined,
   TagOutlined,
-  VerticalAlignBottomOutlined,
 } from '@ant-design/icons';
 import type { WorkspaceTreeGitStatusWire, WorkspaceTreeRefWire } from '@openheaders/core/bridge';
 import { Divider, Dropdown, Input, type MenuProps, Tooltip, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useMemo, useState, useSyncExternalStore } from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
+import { FetchIcon, PullIcon, PushIcon } from '@openheaders/ui/shared/icons';
 import { menuCheckIcon } from '../../../shared/menu-check';
 import type { GitBranchActions } from '../branch-actions/use-git-branch-actions';
 import { CommitToolIcon } from '../commit/CommitToolIcon';
@@ -150,7 +148,7 @@ const GitBranchPopup: React.FC<GitBranchPopupProps> = ({
   const actionRows: Array<{ key: string; icon: React.ReactNode; label: string; hint: string; onClick: () => void }> = [
     {
       key: 'update',
-      icon: <VerticalAlignBottomOutlined />,
+      icon: <PullIcon />,
       label: t('workbench.gitBranch.action.updateProject'),
       hint: '⌘T',
       onClick: closeThen(actions.pull),
@@ -164,7 +162,7 @@ const GitBranchPopup: React.FC<GitBranchPopupProps> = ({
     },
     {
       key: 'push',
-      icon: <RiseOutlined />,
+      icon: <PushIcon />,
       label: t('workbench.gitBranch.action.push'),
       hint: '⇧⌘K',
       onClick: closeThen(actions.push),
@@ -369,7 +367,7 @@ const GitBranchPopup: React.FC<GitBranchPopupProps> = ({
               fontSize: 13,
             }}
           >
-            <SyncOutlined spin={actions.busy.fetch} />
+            <FetchIcon />
           </button>
         </Tooltip>
         <Dropdown

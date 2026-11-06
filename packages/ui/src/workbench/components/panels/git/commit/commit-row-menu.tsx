@@ -27,7 +27,6 @@ import {
   ForkOutlined,
   GithubOutlined,
   PlusOutlined,
-  RiseOutlined,
   StopOutlined,
   SwapOutlined,
   SyncOutlined,
@@ -38,7 +37,7 @@ import type { MenuProps } from 'antd';
 import type React from 'react';
 import type { MessageKey } from '@openheaders/i18n';
 import type { Translate } from '@openheaders/ui/context/LocaleContext';
-import { RollbackIcon } from '@openheaders/ui/shared/icons';
+import { PushIcon, RollbackIcon } from '@openheaders/ui/shared/icons';
 import { menuLabel } from '../git-menu-label';
 import type { CommitMenuTarget } from './commit-model';
 
@@ -233,7 +232,7 @@ function gitSubmenu(facts: TargetFacts, t: Translate, h: CommitRowMenuHandlers):
       { type: 'divider' },
       {
         key: 'git-push',
-        label: menuLabel(<RiseOutlined />, t('workbench.commitTool.menu.push'), '⇧⌘K', 'commit-tool-menu-push'),
+        label: menuLabel(<PushIcon />, t('workbench.commitTool.menu.push'), '⇧⌘K', 'commit-tool-menu-push'),
         onClick: () => h.onPush(),
       },
       {

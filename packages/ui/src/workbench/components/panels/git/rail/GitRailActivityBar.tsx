@@ -20,13 +20,11 @@ import {
   SettingOutlined,
   StarFilled,
   SwapOutlined,
-  SyncOutlined,
-  VerticalAlignBottomOutlined,
 } from '@ant-design/icons';
 import { Dropdown, theme, Tooltip } from 'antd';
 import type React from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
-import { CollapseAllIcon, ExpandAllIcon } from '@openheaders/ui/shared/icons';
+import { CollapseAllIcon, ExpandAllIcon, FetchIcon, PullIcon } from '@openheaders/ui/shared/icons';
 import { menuCheckIcon } from '../../../shared/menu-check';
 import type { GitRailSingleClick } from './git-rail-prefs';
 
@@ -136,7 +134,7 @@ const GitRailActivityBar: React.FC<GitRailActivityBarProps> = (props) => {
         testid="git-tool-rail-new-branch"
       />
       <BarButton
-        icon={props.updateSelectedBusy ? <SyncOutlined spin /> : <VerticalAlignBottomOutlined />}
+        icon={<PullIcon />}
         title={t('workbench.gitLog.rail.updateSelected')}
         onClick={props.onUpdateSelected}
         disabled={!props.updateSelectedEnabled || props.updateSelectedBusy}
@@ -163,7 +161,7 @@ const GitRailActivityBar: React.FC<GitRailActivityBarProps> = (props) => {
         testid="git-tool-rail-my-branches"
       />
       <BarButton
-        icon={<SyncOutlined spin={props.fetchBusy} />}
+        icon={<FetchIcon />}
         title={t('workbench.gitLog.rail.fetch')}
         onClick={props.onFetch}
         disabled={props.fetchBusy}
