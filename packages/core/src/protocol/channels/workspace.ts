@@ -1016,6 +1016,8 @@ export interface WorkspaceTreeWorkingChangeWire {
   renamedFrom?: string;
   /** Ignored rows only: the attributing ignore source (best-effort — absent when unattributed). */
   ignoreSource?: WorkspaceTreeIgnoreSourceWire;
+  /** The working-tree entry is a symbolic link (porcelain types only a tracked type change as `T`). */
+  symlink?: boolean;
 }
 
 export type WorkspaceTreeChangesWire =

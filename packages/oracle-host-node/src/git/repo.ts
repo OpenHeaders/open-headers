@@ -260,6 +260,12 @@ export interface WorkingChange {
   renamedFrom?: string;
   /** Ignored rows only: which ignore source matched (annotated by the runtime, not porcelain). */
   ignoreSource?: IgnoreProvenance;
+  /**
+   * The working-tree entry is a symbolic link (an `lstat` per present
+   * row — porcelain types only a tracked type change as `T`, so an
+   * untracked or newly added link would otherwise read as a file).
+   */
+  symlink?: boolean;
 }
 
 /**
@@ -326,7 +332,26 @@ export async function listWorkingChanges(
     { cwd: rootDir },
   );
   if (result.code !== 0) return null;
-  return parseWorkingChanges(result.stdout);
+  return markSymlinks(rootDir, parseWorkingChanges(result.stdout));
+}
+
+/**
+ * Flag the rows whose working-tree entry is a symbolic link. Deleted
+ * rows have no entry; an unreadable entry stays unflagged.
+ */
+async function markSymlinks(rootDir: string, changes: WorkingChange[]): Promise<WorkingChange[]> {
+  await Promise.all(
+    changes.map(async (change) => {
+      if (change.status === 'D') return;
+      try {
+        const stat = await fs.lstat(path.join(rootDir, change.path));
+        if (stat.isSymbolicLink()) change.symlink = true;
+      } catch {
+        // The entry vanished between the status read and the probe — a plain row.
+      }
+    }),
+  );
+  return changes;
 }
 
 /** Parent shas of a commit (`rev-list --parents -n 1`); null when the ref is unknown. */

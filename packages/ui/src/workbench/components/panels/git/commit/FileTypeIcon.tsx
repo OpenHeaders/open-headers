@@ -6,9 +6,9 @@
  * dotfiles, text lines for plain text and for any unknown extension
  * that still exists, `?` for a deleted file whose type cannot be read
  * (a type is sniffed from content, which a deleted file no longer
- * has). A type-changed row (`T`, a file that became a symlink) carries
- * the link arrow overlay. The theme picks the light or dark variant's
- * fills.
+ * has). A symlink row — a type change (`T`) or a row the host flagged
+ * (an untracked or newly added link) — carries the link arrow overlay.
+ * The theme picks the light or dark variant's fills.
  */
 
 import type React from 'react';
@@ -35,6 +35,8 @@ export interface FileTypeIconProps {
   path: string;
   /** Porcelain status letter — `D` reads `?` on unknown types, `T` carries the symlink arrow. */
   status?: string;
+  /** The host's symlink flag — the arrow overlay on rows porcelain cannot type. */
+  symlink?: boolean;
 }
 
 const IMAGE_EXTS = new Set(['png', 'jpg', 'jpeg', 'gif', 'webp', 'ico', 'bmp', 'svg']);
@@ -57,12 +59,13 @@ function resolve(ext: string, name: string, status: string | undefined): FileTyp
   return TextIcon;
 }
 
-export const FileTypeIcon: React.FC<FileTypeIconProps> = ({ path, status }) => {
+export const FileTypeIcon: React.FC<FileTypeIconProps> = ({ path, status, symlink }) => {
   const { isDarkMode } = useTheme();
   const name = path.slice(path.lastIndexOf('/') + 1).toLowerCase();
   const dot = name.lastIndexOf('.');
   const ext = dot === -1 ? '' : name.slice(dot + 1);
   const Icon = resolve(ext, name, status);
+  const linked = status === 'T' || symlink === true;
   return (
     <span
       style={{
@@ -75,8 +78,9 @@ export const FileTypeIcon: React.FC<FileTypeIconProps> = ({ path, status }) => {
       }}
       data-testid="commit-tool-file-icon"
       data-ext={ext}
+      data-linked={linked ? 'true' : undefined}
     >
-      <Icon dark={isDarkMode} linked={status === 'T'} />
+      <Icon dark={isDarkMode} linked={linked} />
     </span>
   );
 };

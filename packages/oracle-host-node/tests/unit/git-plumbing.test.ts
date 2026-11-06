@@ -1587,6 +1587,19 @@ describe('Commit window plumbing (S22)', () => {
     expect((withIgnored ?? []).find((row) => row.path === 'secret.log')).toMatchObject({ ignored: true });
   });
 
+  it('listWorkingChanges flags a symbolic link on untracked and added rows, never on a plain file', async () => {
+    await initialCommit();
+    await write('docs/guide.md', '# guide\n');
+    await fs.symlink('docs/guide.md', path.join(tmpDir, 'latest.md'));
+    await fs.symlink('docs/guide.md', path.join(tmpDir, 'added.md'));
+    await run(['--git-dir', path.join(tmpDir, '.git'), '--work-tree', tmpDir, 'add', 'added.md'], { cwd: tmpDir });
+
+    const rows = (await listWorkingChanges(run, tmpDir)) ?? [];
+    expect(rows.find((row) => row.path === 'latest.md')).toMatchObject({ unversioned: true, symlink: true });
+    expect(rows.find((row) => row.path === 'added.md')).toMatchObject({ status: 'A', symlink: true });
+    expect(rows.find((row) => row.path === 'docs/guide.md')).not.toHaveProperty('symlink');
+  });
+
   it('pathspec commit takes only the checked paths and leaves the rest dirty', async () => {
     await initialCommit();
     await write('workspace.yaml', 'schemaVersion: 5\nuid: wsaaaaaa\nname: Dirty\n');

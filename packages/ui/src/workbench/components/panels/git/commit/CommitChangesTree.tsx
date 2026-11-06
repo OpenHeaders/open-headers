@@ -437,7 +437,7 @@ const CommitChangesTree = forwardRef<CommitChangesTreeHandle, CommitChangesTreeP
       : { flex: '0 0 auto', whiteSpace: 'nowrap', fontSize: ROW_FONT, color: token.colorTextTertiary };
     return (
       <>
-        <FileTypeIcon path={row.path} status={row.status} />
+        <FileTypeIcon path={row.path} status={row.status} symlink={row.symlink} />
         <span
           style={{
             flex: '0 0 auto',
