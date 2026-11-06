@@ -806,6 +806,9 @@ export const workbenchSettingsPanes = {
   'workbench.settings.gitPane.log.mergeCommitsLabel': 'Mettre en évidence les commits de fusion',
   'workbench.settings.gitPane.log.mergeCommitsDescription':
     "Atténuer le sujet des commits de fusion pour faire ressortir l'historique linéaire.",
+  'workbench.settings.gitPane.log.currentBranchLabel': 'Mettre en évidence la branche courante',
+  'workbench.settings.gitPane.log.currentBranchDescription':
+    'Teinter les lignes des commits présents sur la branche extraite.',
   'workbench.settings.gitPane.log.groupByDirectoryLabel': 'Grouper par répertoire',
   'workbench.settings.gitPane.log.groupByDirectoryDescription':
     "Imbriquer les fichiers modifiés d'un commit sous leurs répertoires ; désactivé, ils sont listés à plat.",

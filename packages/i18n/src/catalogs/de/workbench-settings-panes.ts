@@ -812,6 +812,9 @@ export const workbenchSettingsPanes = {
   'workbench.settings.gitPane.log.mergeCommitsLabel': 'Merge-Commits hervorheben',
   'workbench.settings.gitPane.log.mergeCommitsDescription':
     'Den Betreff von Merge-Commits abdunkeln, damit die lineare Historie hervorsticht.',
+  'workbench.settings.gitPane.log.currentBranchLabel': 'Aktuellen Branch hervorheben',
+  'workbench.settings.gitPane.log.currentBranchDescription':
+    'Die Zeilen der Commits auf dem ausgecheckten Branch leicht einfärben.',
   'workbench.settings.gitPane.log.groupByDirectoryLabel': 'Nach Verzeichnis gruppieren',
   'workbench.settings.gitPane.log.groupByDirectoryDescription':
     'Die geänderten Dateien eines Commits unter ihren Verzeichnissen verschachteln; aus listet sie flach.',

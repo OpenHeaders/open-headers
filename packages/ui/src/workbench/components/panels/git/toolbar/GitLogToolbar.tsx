@@ -407,8 +407,7 @@ const GitLogToolbar: React.FC<GitLogToolbarProps> = ({
                 {
                   key: 'current-branch',
                   label: t('workbench.gitLog.highlight.currentBranch'),
-                  icon: menuCheckIcon(false),
-                  disabled: true,
+                  icon: menuCheckIcon(prefs.highlightCurrentBranch),
                 },
                 {
                   key: 'not-cherry-picked',
@@ -423,6 +422,7 @@ const GitLogToolbar: React.FC<GitLogToolbarProps> = ({
             if (key === 'tag-names') onPatchPrefs({ showTagNames: !prefs.showTagNames });
             else if (key === 'commit-timestamp') onPatchPrefs({ showCommitTimestamp: !prefs.showCommitTimestamp });
             else if (key === 'merge-commits') onPatchPrefs({ highlightMergeCommits: !prefs.highlightMergeCommits });
+            else if (key === 'current-branch') onPatchPrefs({ highlightCurrentBranch: !prefs.highlightCurrentBranch });
           },
         }}
       >

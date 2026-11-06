@@ -107,6 +107,15 @@ const GitLogSection: React.FC<{ git: WorkspaceGit }> = ({ git }) => {
           onChange={(highlightMergeCommits) => patchView({ highlightMergeCommits })}
           testid="git-log-pane-merge-commits"
         />
+        <ToggleRow
+          settingKey="git.log.highlightCurrentBranch"
+          label={t('workbench.settings.gitPane.log.currentBranchLabel')}
+          description={t('workbench.settings.gitPane.log.currentBranchDescription')}
+          value={view.highlightCurrentBranch}
+          defaultValue={DEFAULT_GIT_LOG_VIEW_PREFS.highlightCurrentBranch}
+          onChange={(highlightCurrentBranch) => patchView({ highlightCurrentBranch })}
+          testid="git-log-pane-current-branch"
+        />
       </PaneSection>
       <PaneSection title={t('workbench.settings.category.gitLog.sub.changes')}>
         <ToggleRow

@@ -717,6 +717,9 @@ export const workbenchSettingsPanes = {
   'workbench.settings.gitPane.log.mergeCommitsLabel': 'マージコミットを強調',
   'workbench.settings.gitPane.log.mergeCommitsDescription':
     'マージコミットの件名を薄くして、直線的な履歴を際立たせます。',
+  'workbench.settings.gitPane.log.currentBranchLabel': '現在のブランチを強調',
+  'workbench.settings.gitPane.log.currentBranchDescription':
+    'チェックアウト中のブランチにあるコミットの行に色を付けます。',
   'workbench.settings.gitPane.log.groupByDirectoryLabel': 'ディレクトリでグループ化',
   'workbench.settings.gitPane.log.groupByDirectoryDescription':
     'コミットの変更ファイルをディレクトリの下に入れ子にします。オフではフラットに一覧します。',

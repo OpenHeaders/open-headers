@@ -704,6 +704,9 @@ export const workbenchSettingsPanes = {
   'workbench.settings.gitPane.log.mergeCommitsLabel': 'Highlight merge commits',
   'workbench.settings.gitPane.log.mergeCommitsDescription':
     'Dim the subject of merge commits so the linear history stands out.',
+  'workbench.settings.gitPane.log.currentBranchLabel': 'Highlight current branch',
+  'workbench.settings.gitPane.log.currentBranchDescription':
+    'Tint the rows of commits that are on the checked-out branch.',
   'workbench.settings.gitPane.log.groupByDirectoryLabel': 'Group by directory',
   'workbench.settings.gitPane.log.groupByDirectoryDescription':
     'Nest a commit’s changed files under their directories; off lists them flat.',

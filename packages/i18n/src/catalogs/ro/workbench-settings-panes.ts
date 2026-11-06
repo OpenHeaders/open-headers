@@ -772,6 +772,9 @@ export const workbenchSettingsPanes = {
   'workbench.settings.gitPane.log.mergeCommitsLabel': 'Evidențiază commit-urile de merge',
   'workbench.settings.gitPane.log.mergeCommitsDescription':
     'Estompează subiectul commit-urilor de merge, ca istoricul liniar să iasă în evidență.',
+  'workbench.settings.gitPane.log.currentBranchLabel': 'Evidențiază ramura curentă',
+  'workbench.settings.gitPane.log.currentBranchDescription':
+    'Colorează ușor rândurile commit-urilor aflate pe ramura activă.',
   'workbench.settings.gitPane.log.groupByDirectoryLabel': 'Grupează pe directoare',
   'workbench.settings.gitPane.log.groupByDirectoryDescription':
     'Imbrică fișierele modificate ale unui commit sub directoarele lor; dezactivat, le listează plat.',

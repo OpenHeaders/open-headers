@@ -36,6 +36,7 @@ import FileTreeView, { type FileTreeViewHandle } from './FileTreeView';
 import { getGitLogViewPrefs, patchGitLogViewPrefs, subscribeGitLogViewPrefs } from './git-log-view-prefs';
 import { GIT_LOG_SCOPE_HEAD, type GitLogTabState, gitPanelTabKey } from './git-panel-view-store';
 import { computeLogGraph } from './graph';
+import { reachableFrom } from './log-reachability';
 import { getGitRailPrefs, subscribeGitRailPrefs } from './rail/git-rail-prefs';
 import GitRailCollapsedStrip from './rail/GitRailCollapsedStrip';
 import GitRefRail from './rail/GitRefRail';
@@ -236,20 +237,16 @@ const GitLogView: React.FC<GitLogViewProps> = ({
   const highlightShas = useMemo(() => {
     if (railSelection === null) return null;
     const tip = refs.find((ref) => ref.kind === railSelection.kind && ref.name === railSelection.name)?.sha;
-    if (tip === undefined) return null;
-    const bySha = new Map(entries.map((entry) => [entry.sha, entry]));
-    const reachable = new Set<string>();
-    const queue = [tip];
-    while (queue.length > 0) {
-      const sha = queue.pop() as string;
-      if (reachable.has(sha)) continue;
-      const entry = bySha.get(sha);
-      if (entry === undefined) continue;
-      reachable.add(sha);
-      queue.push(...entry.parents);
-    }
-    return reachable.size > 0 ? reachable : null;
+    return tip === undefined ? null : reachableFrom(tip, entries);
   }, [railSelection, refs, entries]);
+
+  // Highlight > Current Branch: the commits reachable from HEAD carry
+  // the reference's faint band under everything else — the same walk
+  // from the checked-out tip, off with the preference.
+  const currentBranchShas = useMemo(
+    () => (prefs.highlightCurrentBranch && headSha !== null ? reachableFrom(headSha, entries) : null),
+    [prefs.highlightCurrentBranch, headSha, entries],
+  );
 
   // The branch gitStatus reports but listRefs doesn't: an unborn HEAD
   // (fresh repo, first commit pending). Shown as the current branch in
@@ -389,6 +386,7 @@ const GitLogView: React.FC<GitLogViewProps> = ({
             refsBySha={refsBySha}
             headSha={headSha}
             highlightShas={highlightShas}
+            currentBranchShas={currentBranchShas}
             selectedSha={selectedSha}
             onSelect={(sha) => patchTab({ selectedSha: sha })}
             onSelectionCountChange={setSelectionCount}

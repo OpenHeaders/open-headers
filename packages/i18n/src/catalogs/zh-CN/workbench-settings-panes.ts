@@ -650,6 +650,8 @@ export const workbenchSettingsPanes = {
   'workbench.settings.gitPane.log.commitTimestampDescription': '在早于昨天的日期旁显示时刻。',
   'workbench.settings.gitPane.log.mergeCommitsLabel': '突出显示合并提交',
   'workbench.settings.gitPane.log.mergeCommitsDescription': '淡化合并提交的主题，让线性历史更醒目。',
+  'workbench.settings.gitPane.log.currentBranchLabel': '突出显示当前分支',
+  'workbench.settings.gitPane.log.currentBranchDescription': '为已检出分支上的提交行着色。',
   'workbench.settings.gitPane.log.groupByDirectoryLabel': '按目录分组',
   'workbench.settings.gitPane.log.groupByDirectoryDescription':
     '把一次提交的已更改文件嵌套在其目录下；关闭则平铺列出。',

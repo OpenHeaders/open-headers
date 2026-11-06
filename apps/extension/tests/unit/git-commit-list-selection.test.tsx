@@ -84,6 +84,34 @@ const LogHarness: React.FC<{
   );
 };
 
+describe('CommitList — the current-branch band (S41)', () => {
+  it('rows reachable from HEAD carry the band; a selected row does not paint it over its selection', () => {
+    render(
+      <CommitList
+        entries={ENTRIES}
+        graph={null}
+        refsBySha={new Map()}
+        headSha={null}
+        highlightShas={null}
+        currentBranchShas={new Set([ENTRIES[0].sha, ENTRIES[1].sha])}
+        selectedSha={ENTRIES[1].sha}
+        onSelect={() => undefined}
+        onSelectionCountChange={() => undefined}
+        filtersActive={false}
+        onResetFilters={() => undefined}
+      />,
+    );
+    const rows = screen.getAllByTestId('git-tool-row');
+    expect(rows.map((row) => row.getAttribute('data-current-branch'))).toEqual([
+      'true',
+      'true',
+      ...ENTRIES.slice(2).map(() => null),
+    ]);
+    expect(rows[0].style.background).not.toBe('');
+    expect(rows[1].getAttribute('data-selected')).toBe('true');
+  });
+});
+
 describe('CommitList — the log rows on the shared selection model', () => {
   function renderList(selectedSha: string | null) {
     const onSelect = vi.fn<(sha: string | null) => void>();

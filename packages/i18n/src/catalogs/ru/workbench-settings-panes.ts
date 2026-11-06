@@ -767,6 +767,9 @@ export const workbenchSettingsPanes = {
   'workbench.settings.gitPane.log.mergeCommitsLabel': 'Выделять коммиты слияния',
   'workbench.settings.gitPane.log.mergeCommitsDescription':
     'Приглушать тему коммитов слияния, чтобы выделялась линейная история.',
+  'workbench.settings.gitPane.log.currentBranchLabel': 'Выделять текущую ветку',
+  'workbench.settings.gitPane.log.currentBranchDescription':
+    'Подкрашивать строки коммитов, входящих в извлечённую ветку.',
   'workbench.settings.gitPane.log.groupByDirectoryLabel': 'Группировать по каталогам',
   'workbench.settings.gitPane.log.groupByDirectoryDescription':
     'Вкладывать изменённые файлы коммита в их каталоги; выключено — плоский список.',

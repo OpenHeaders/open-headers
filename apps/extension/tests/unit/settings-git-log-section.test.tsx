@@ -76,6 +76,12 @@ describe('Git › Log section', () => {
     fireEvent.click(screen.getByTestId('git-log-pane-shorten-paths'));
     expect(getGitConsolePrefs(WS).shortenPaths).toBe(false);
 
+    // S41: the current-branch band rides the same store.
+    const band = screen.getByTestId('git-log-pane-current-branch');
+    expect(band.getAttribute('aria-checked')).toBe('true');
+    fireEvent.click(band);
+    expect(getGitLogViewPrefs(WS).highlightCurrentBranch).toBe(false);
+
     // The modified row grows a reset; it returns the store's default.
     const row = tagNames.closest('.settings-field-row') as HTMLElement;
     // The row's antd reset button — the (i) trigger is a bare button, the switch a role=switch button.

@@ -42,6 +42,8 @@ export interface CommitListProps {
   /** Commits reachable from the rail-selected branch — the reference blue
    *  row wash; null when nothing is selected. */
   highlightShas: ReadonlySet<string> | null;
+  /** Commits reachable from HEAD — the reference's faint current-branch band; null when off or unknown. */
+  currentBranchShas?: ReadonlySet<string> | null;
   /** The details commit the tab remembers. */
   selectedSha: string | null;
   /** The details commit after a gesture — null when nothing stays selected. */
@@ -69,6 +71,7 @@ const CommitList: React.FC<CommitListProps> = ({
   refsBySha,
   headSha,
   highlightShas,
+  currentBranchShas = null,
   selectedSha,
   onSelect,
   onSelectionCountChange,
@@ -168,6 +171,7 @@ const CommitList: React.FC<CommitListProps> = ({
         const rowRefs = refsBySha.get(entry.sha) ?? [];
         const labelRefs = showTagChips ? rowRefs : rowRefs.filter((ref) => ref.kind !== 'tag');
         const isHighlighted = !selected && highlightShas !== null && highlightShas.has(entry.sha);
+        const onCurrentBranch = currentBranchShas !== null && currentBranchShas.has(entry.sha);
         return (
           <button
             key={entry.sha}
@@ -185,12 +189,17 @@ const CommitList: React.FC<CommitListProps> = ({
               textAlign: 'left',
               cursor: 'pointer',
               color: token.colorText,
-              ...(isHighlighted ? { background: token.colorPrimaryBg } : {}),
+              ...(isHighlighted
+                ? { background: token.colorPrimaryBg }
+                : !selected && onCurrentBranch
+                  ? { background: token.colorFillQuaternary }
+                  : {}),
             }}
             data-testid="git-tool-row"
             data-sha={entry.sha}
             data-selected={selected || undefined}
             data-highlighted={isHighlighted || undefined}
+            data-current-branch={onCurrentBranch || undefined}
           >
             <GraphCell row={row} maxLanes={maxLanes} fallbackColor={token.colorTextQuaternary} />
             <span
