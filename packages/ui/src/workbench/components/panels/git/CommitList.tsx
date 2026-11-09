@@ -1,7 +1,8 @@
 /**
- * CommitList — the log's middle pane: graph cell, subject (dimmed for
- * merge commits, the reference convention), the right-aligned ref label
- * column, bold author, and the graduated date column. Rows reachable
+ * CommitList — the log's middle pane: graph cell, subject, the
+ * right-aligned ref label column, author, and the graduated date column
+ * — subject, author and date in one foreground, all three greyed on a
+ * merge commit (the reference's reading). Rows reachable
  * from HEAD carry the reference's soft current-branch band (the
  * stylesheet paints it under the hover and the selection). The graph
  * layout arrives from the orchestrator and is null while a text filter
@@ -170,6 +171,7 @@ const CommitList: React.FC<CommitListProps> = ({
         const rowRefs = refsBySha.get(entry.sha) ?? [];
         const labelRefs = showTagChips ? rowRefs : rowRefs.filter((ref) => ref.kind !== 'tag');
         const onCurrentBranch = currentBranchShas !== null && currentBranchShas.has(entry.sha);
+        const textColor = isMerge ? token.colorTextTertiary : token.colorText;
         return (
           <button
             key={entry.sha}
@@ -202,23 +204,21 @@ const CommitList: React.FC<CommitListProps> = ({
                 overflow: 'hidden',
                 textOverflow: 'ellipsis',
                 whiteSpace: 'nowrap',
-                color: isMerge ? token.colorTextSecondary : token.colorText,
+                color: textColor,
               }}
             >
               {entry.subject}
             </span>
             <RefRowLabel refs={labelRefs} isHead={entry.sha === headSha} />
-            <span style={{ flex: '0 0 auto', fontSize: 11.5, fontWeight: 600, color: token.colorTextSecondary }}>
-              {entry.authorName}
-            </span>
+            <span style={{ flex: '0 0 auto', fontSize: 12, color: textColor }}>{entry.authorName}</span>
             <span
               title={new Date(entry.authoredAt).toLocaleString(locale)}
               style={{
                 flex: '0 0 auto',
                 minWidth: 64,
                 textAlign: 'right',
-                fontSize: 11.5,
-                color: token.colorTextSecondary,
+                fontSize: 12,
+                color: textColor,
               }}
             >
               {formatLogDate(entry.authoredAt, locale, (time) => t('workbench.gitLog.date.yesterday', { time }), showTimestamp)}

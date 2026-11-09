@@ -175,12 +175,10 @@ const PushCommitList: React.FC<PushCommitListProps> = ({ target, entries, select
             >
               {entry.subject}
             </span>
-            <span style={{ flex: '0 0 auto', fontSize: 11.5, fontWeight: 600, color: token.colorTextSecondary }}>
-              {entry.authorName}
-            </span>
+            <span style={{ flex: '0 0 auto', fontSize: 12 }}>{entry.authorName}</span>
             <span
               title={new Date(entry.authoredAt).toLocaleString(locale)}
-              style={{ flex: '0 0 auto', minWidth: 64, textAlign: 'right', fontSize: 11.5, color: token.colorTextSecondary }}
+              style={{ flex: '0 0 auto', minWidth: 64, textAlign: 'right', fontSize: 12 }}
             >
               {formatLogDate(entry.authoredAt, locale, (time) => t('workbench.gitLog.date.yesterday', { time }), true)}
             </span>

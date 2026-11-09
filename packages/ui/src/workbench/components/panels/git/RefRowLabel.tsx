@@ -4,9 +4,10 @@
  * (local branch over remote over tag; HEAD alone only when nothing
  * else points here), a stacked double-tag glyph when the sha carries
  * more labels, and a hover popup listing every ref — HEAD first on the
- * head row — each with its own icon. Label colors follow the reference
- * palette: branches green, tags and HEAD yellow (token-mapped so both
- * themes hold).
+ * head row — each with its own icon. The label text is the tertiary
+ * grey; the icon colour follows the reference's reading of the ref's
+ * kind (per-theme tokens): the checked-out branch and HEAD gold, local
+ * branches green, remote branches violet, tags grey.
  */
 
 import { TagIcon } from '@openheaders/ui/shared/icons';
@@ -20,10 +21,19 @@ export interface RefRowLabelProps {
   isHead: boolean;
 }
 
-const refColor = (
-  kind: WorkspaceTreeRefWire['kind'],
-  token: ReturnType<typeof theme.useToken>['token'],
-): string => (kind === 'tag' ? token.colorWarning : token.colorSuccess);
+const HEAD_COLOR = 'var(--oh-git-ref-head)';
+
+const refColor = (kind: WorkspaceTreeRefWire['kind']): string => {
+  if (kind === 'tag') return 'var(--oh-git-ref-tag)';
+  if (kind === 'remote') return 'var(--oh-git-ref-remote)';
+  return 'var(--oh-git-ref-local)';
+};
+
+/** The named label's colour — the checked-out branch reads gold on its own row. */
+const labelColorFor = (primary: WorkspaceTreeRefWire | undefined, isHead: boolean): string => {
+  if (primary === undefined) return HEAD_COLOR;
+  return isHead && primary.kind === 'local' ? HEAD_COLOR : refColor(primary.kind);
+};
 
 const RefRowLabel: React.FC<RefRowLabelProps> = ({ refs, isHead }) => {
   const { token } = theme.useToken();
@@ -31,15 +41,15 @@ const RefRowLabel: React.FC<RefRowLabelProps> = ({ refs, isHead }) => {
   if (primary === undefined && !isHead) return null;
 
   const label = primary?.name ?? 'HEAD';
-  const labelColor = primary !== undefined ? refColor(primary.kind, token) : token.colorWarning;
+  const labelColor = labelColorFor(primary, isHead);
   // Labels beyond the named one — the stacked back tag says "more here".
   const extraCount = (primary !== undefined ? refs.length - 1 : 0) + (isHead && primary !== undefined ? 1 : 0);
   const backColor =
     isHead && primary !== undefined
-      ? token.colorWarning
+      ? HEAD_COLOR
       : (() => {
           const second = refs.find((ref) => ref !== primary);
-          return second !== undefined ? refColor(second.kind, token) : labelColor;
+          return second !== undefined ? refColor(second.kind) : labelColor;
         })();
 
   // Side-by-side tags, the extra label's color first so the named
@@ -61,7 +71,7 @@ const RefRowLabel: React.FC<RefRowLabelProps> = ({ refs, isHead }) => {
     >
       {isHead && (
         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }} data-ref="HEAD">
-          <TagIcon style={{ fontSize: 11, color: token.colorWarning }} /> HEAD
+          <TagIcon style={{ fontSize: 11, color: HEAD_COLOR }} /> HEAD
         </span>
       )}
       {refs.map((ref) => (
@@ -70,7 +80,7 @@ const RefRowLabel: React.FC<RefRowLabelProps> = ({ refs, isHead }) => {
           style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
           data-ref={ref.name}
         >
-          <TagIcon style={{ fontSize: 11, color: refColor(ref.kind, token) }} /> {ref.name}
+          <TagIcon style={{ fontSize: 11, color: refColor(ref.kind) }} /> {ref.name}
         </span>
       ))}
     </div>
@@ -85,8 +95,8 @@ const RefRowLabel: React.FC<RefRowLabelProps> = ({ refs, isHead }) => {
           gap: 4,
           flex: '0 1 auto',
           minWidth: 0,
-          fontSize: 11.5,
-          color: token.colorTextSecondary,
+          fontSize: 12,
+          color: token.colorTextTertiary,
           whiteSpace: 'nowrap',
         }}
         data-testid="git-tool-row-ref"
