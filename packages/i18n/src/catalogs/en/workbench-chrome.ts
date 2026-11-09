@@ -560,6 +560,7 @@ export const workbenchChrome = {
   'workbench.gitLog.filesCount': '{count} files',
   'workbench.gitLog.expandAll': 'Expand all',
   'workbench.gitLog.collapseAll': 'Collapse all',
+  'workbench.gitLog.date.today': 'Today {time}',
   'workbench.gitLog.date.yesterday': 'Yesterday {time}',
   'workbench.gitLog.diff.title': 'Diff — {path}',
   'workbench.gitLog.diff.binary': 'Binary file — no text preview.',

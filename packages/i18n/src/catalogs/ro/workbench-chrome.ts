@@ -596,6 +596,7 @@ export const workbenchChrome = {
   'workbench.gitLog.filesCount': 'fișiere: {count}',
   'workbench.gitLog.expandAll': 'Extindere toate',
   'workbench.gitLog.collapseAll': 'Restrângere toate',
+  'workbench.gitLog.date.today': 'Azi, {time}',
   'workbench.gitLog.date.yesterday': 'Ieri, {time}',
   'workbench.gitLog.diff.title': 'Diff — {path}',
   'workbench.gitLog.diff.binary': 'Fișier binar — fără previzualizare text.',

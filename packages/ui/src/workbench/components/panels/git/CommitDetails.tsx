@@ -10,6 +10,8 @@ import { theme } from 'antd';
 import type React from 'react';
 import { useLocale } from '@openheaders/ui/context/LocaleContext';
 import RefChips from './RefChips';
+import { formatLogDateTitle } from './log-date';
+import { useLogHourCycle } from './use-log-hour-cycle';
 
 export interface CommitDetailsProps {
   entry: WorkspaceTreeLogEntryWire;
@@ -21,6 +23,7 @@ export interface CommitDetailsProps {
 const CommitDetails: React.FC<CommitDetailsProps> = ({ entry, refsAtCommit, isHead }) => {
   const { token } = theme.useToken();
   const { locale, t } = useLocale();
+  const hourCycle = useLogHourCycle();
   return (
     <div style={{ padding: '8px 14px 10px' }} data-testid="git-tool-detail-info">
       <div
@@ -46,7 +49,7 @@ const CommitDetails: React.FC<CommitDetailsProps> = ({ entry, refsAtCommit, isHe
         {t('workbench.gitLog.authorLine', {
           author: entry.authorName,
           email: entry.authorEmail,
-          date: new Date(entry.authoredAt).toLocaleString(locale),
+          date: formatLogDateTitle(entry.authoredAt, locale, hourCycle),
         })}
       </div>
       {(isHead || refsAtCommit.length > 0) && (

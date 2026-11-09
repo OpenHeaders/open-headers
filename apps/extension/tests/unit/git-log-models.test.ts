@@ -7,7 +7,7 @@
 
 import { allDirKeys, buildFileTree } from '@openheaders/ui/workbench/components/panels/git/file-tree';
 import { computeLogGraph } from '@openheaders/ui/workbench/components/panels/git/graph';
-import { formatLogDate } from '@openheaders/ui/workbench/components/panels/git/log-date';
+import { formatLogDate, hourCycleFor } from '@openheaders/ui/workbench/components/panels/git/log-date';
 import {
   allFolderKeys,
   buildRefTree,
@@ -250,28 +250,35 @@ describe('ref tree model', () => {
 
 describe('formatLogDate', () => {
   const now = new Date(2026, 7, 9, 14, 30);
+  const labels = { today: (time: string) => `Today ${time}`, yesterday: (time: string) => `Yesterday ${time}` };
 
-  it('renders fresh commits relative, same-day as time, yesterday labeled, older as full date', () => {
+  it('renders fresh commits relative, same-day as Today, yesterday labeled, older as full date', () => {
     const fresh = new Date(2026, 7, 9, 14, 0).toISOString();
-    expect(formatLogDate(fresh, 'en', (time) => `Yesterday ${time}`, true, now)).toMatch(/30/);
+    expect(formatLogDate(fresh, 'en', labels, {}, now)).toMatch(/30/);
 
     const today = new Date(2026, 7, 9, 9, 15).toISOString();
-    const todayOut = formatLogDate(today, 'en', (time) => `Yesterday ${time}`, true, now);
-    expect(todayOut).toContain('15');
-    expect(todayOut).not.toContain('2026');
+    expect(formatLogDate(today, 'en', labels, {}, now)).toBe('Today 09:15');
 
     const yesterday = new Date(2026, 7, 8, 22, 5).toISOString();
-    expect(formatLogDate(yesterday, 'en', (time) => `Yesterday ${time}`, true, now)).toMatch(/^Yesterday /);
+    expect(formatLogDate(yesterday, 'en', labels, {}, now)).toBe('Yesterday 22:05');
 
     const older = new Date(2026, 6, 8, 21, 23).toISOString();
-    expect(formatLogDate(older, 'en', (time) => `Yesterday ${time}`, true, now)).toContain('2026');
+    expect(formatLogDate(older, 'en', labels, {}, now)).toContain('2026');
+  });
+
+  it('the hour cycle follows the clock-format setting, not the locale', () => {
+    const today = new Date(2026, 7, 9, 13, 30).toISOString();
+    expect(formatLogDate(today, 'en-US', labels, { hourCycle: 'h23' }, now)).toBe('Today 13:30');
+    expect(formatLogDate(today, 'en-US', labels, { hourCycle: 'h12' }, now)).toBe('Today 01:30 PM');
+    expect(hourCycleFor('24h')).toBe('h23');
+    expect(hourCycleFor('12h')).toBe('h12');
   });
 
   it('drops the time from older dates while Commit Timestamp is off', () => {
     const older = new Date(2026, 6, 8, 21, 23).toISOString();
-    const withTime = formatLogDate(older, 'en', (time) => `Yesterday ${time}`, true, now);
-    const dateOnly = formatLogDate(older, 'en', (time) => `Yesterday ${time}`, false, now);
-    expect(withTime).toContain('23');
+    const withTime = formatLogDate(older, 'en', labels, { withTime: true }, now);
+    const dateOnly = formatLogDate(older, 'en', labels, { withTime: false }, now);
+    expect(withTime).toContain('21:23');
     expect(dateOnly).toContain('2026');
     expect(dateOnly).not.toContain(':');
   });

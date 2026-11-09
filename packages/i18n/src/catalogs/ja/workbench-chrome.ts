@@ -568,6 +568,7 @@ export const workbenchChrome = {
   'workbench.gitLog.filesCount': '{count} 個のファイル',
   'workbench.gitLog.expandAll': 'すべて展開',
   'workbench.gitLog.collapseAll': 'すべて折りたたむ',
+  'workbench.gitLog.date.today': '今日 {time}',
   'workbench.gitLog.date.yesterday': '昨日 {time}',
   'workbench.gitLog.diff.title': '差分：{path}',
   'workbench.gitLog.diff.binary': 'バイナリファイルです。テキストプレビューはありません。',

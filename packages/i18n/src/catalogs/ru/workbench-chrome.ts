@@ -589,6 +589,7 @@ export const workbenchChrome = {
   'workbench.gitLog.filesCount': 'Файлов: {count}',
   'workbench.gitLog.expandAll': 'Развернуть всё',
   'workbench.gitLog.collapseAll': 'Свернуть всё',
+  'workbench.gitLog.date.today': 'Сегодня, {time}',
   'workbench.gitLog.date.yesterday': 'Вчера, {time}',
   'workbench.gitLog.diff.title': 'Diff — {path}',
   'workbench.gitLog.diff.binary': 'Двоичный файл — текстовый предпросмотр недоступен.',

@@ -562,6 +562,7 @@ export const workbenchChrome = {
   'workbench.gitLog.filesCount': '{count} 个文件',
   'workbench.gitLog.expandAll': '全部展开',
   'workbench.gitLog.collapseAll': '全部折叠',
+  'workbench.gitLog.date.today': '今天 {time}',
   'workbench.gitLog.date.yesterday': '昨天 {time}',
   'workbench.gitLog.diff.title': 'Diff——{path}',
   'workbench.gitLog.diff.binary': '二进制文件——无文本预览。',

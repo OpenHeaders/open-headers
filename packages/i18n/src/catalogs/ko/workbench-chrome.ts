@@ -568,6 +568,7 @@ export const workbenchChrome = {
   'workbench.gitLog.filesCount': '파일 {count}개',
   'workbench.gitLog.expandAll': '모두 펼치기',
   'workbench.gitLog.collapseAll': '모두 접기',
+  'workbench.gitLog.date.today': '오늘 {time}',
   'workbench.gitLog.date.yesterday': '어제 {time}',
   'workbench.gitLog.diff.title': 'Diff: {path}',
   'workbench.gitLog.diff.binary': '바이너리 파일입니다. 텍스트 미리 보기가 없습니다.',

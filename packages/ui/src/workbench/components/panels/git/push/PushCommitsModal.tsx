@@ -39,6 +39,7 @@ import { useFileDiff } from '../use-file-diff';
 import { useJumpToSource } from '../use-jump-to-source';
 import PushCommitList from './PushCommitList';
 import { unionFiles } from '../changed-files-union';
+import { useLogHourCycle } from '../use-log-hour-cycle';
 import { canPush, folderNameOf, type PushSelection, pushTarget, rangeDiffBase } from './push-window-model';
 import { usePushWindowLayout } from './use-push-window-layout';
 
@@ -53,6 +54,7 @@ export interface PushCommitsModalProps {
 const PushCommitsModal: React.FC<PushCommitsModalProps> = ({ workspaceId, open, onClose, onConfirm }) => {
   const { token } = theme.useToken();
   const t = useT();
+  const hourCycle = useLogHourCycle();
   const snapshot = useWorkspaceGitSnapshot(workspaceId);
   const target = useMemo(() => pushTarget(snapshot.status), [snapshot.status]);
   const [entries, setEntries] = useState<WorkspaceTreeLogEntryWire[]>([]);
@@ -241,6 +243,7 @@ const PushCommitsModal: React.FC<PushCommitsModalProps> = ({ workspaceId, open, 
                 setSelectedPath(null);
               }}
               loading={loading}
+              hourCycle={hourCycle}
             />
           </div>
           <div

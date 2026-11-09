@@ -25,6 +25,7 @@ import DiffModal from '../DiffModal';
 import FileTreeView from '../FileTreeView';
 import type { GitCompareTabState } from '../git-panel-view-store';
 import { useFileDiff } from '../use-file-diff';
+import { useLogHourCycle } from '../use-log-hour-cycle';
 
 export interface GitComparePaneProps {
   workspaceId: string;
@@ -58,6 +59,7 @@ const CompareSide: React.FC<CompareSideProps> = ({
 }) => {
   const { token } = theme.useToken();
   const t = useT();
+  const hourCycle = useLogHourCycle();
   const selected = selectedSha !== null ? (entries.find((entry) => entry.sha === selectedSha) ?? null) : null;
   // Two or more rows selected: the detail slot answers with the count
   // (the log pane's reading), not one commit's files.
@@ -120,6 +122,7 @@ const CompareSide: React.FC<CompareSideProps> = ({
               onSelectionChange={(shas) => setSelectionCount(shas.length)}
               filtersActive={false}
               onResetFilters={() => undefined}
+              hourCycle={hourCycle}
             />
           )}
         </div>

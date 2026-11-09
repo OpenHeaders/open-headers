@@ -31,7 +31,7 @@ import { useLocale } from '@openheaders/ui/context/LocaleContext';
 import { clickModifiers, useMultiSelection } from '@openheaders/ui/shared/selection';
 import type { GraphRow } from './graph';
 import GraphCell, { GRAPH_ROW_HEIGHT } from './GraphCell';
-import { formatLogDate } from './log-date';
+import { formatLogDate, formatLogDateTitle, type HourCycle } from './log-date';
 import { commitClickOutcome, stepTarget } from './log-selection';
 import RefRowLabel from './RefRowLabel';
 
@@ -63,6 +63,8 @@ export interface CommitListProps {
   showTimestamp?: boolean;
   /** Eye menu — Highlight > Merge Commits: dim merge subjects. */
   dimMergeCommits?: boolean;
+  /** The workbench clock format's hour cycle for the date column. */
+  hourCycle?: HourCycle;
 }
 
 const CommitList: React.FC<CommitListProps> = ({
@@ -80,9 +82,17 @@ const CommitList: React.FC<CommitListProps> = ({
   showTagChips = true,
   showTimestamp = true,
   dimMergeCommits = true,
+  hourCycle = 'h23',
 }) => {
   const { token } = theme.useToken();
   const { locale, t } = useLocale();
+  const dateLabels = useMemo(
+    () => ({
+      today: (time: string) => t('workbench.gitLog.date.today', { time }),
+      yesterday: (time: string) => t('workbench.gitLog.date.yesterday', { time }),
+    }),
+    [t],
+  );
   const listRef = useRef<HTMLDivElement>(null);
   const order = useMemo(() => entries.map((entry) => entry.sha), [entries]);
   const { selection, isSelected, click, step, clear } = useMultiSelection(order);
@@ -212,7 +222,7 @@ const CommitList: React.FC<CommitListProps> = ({
             <RefRowLabel refs={labelRefs} isHead={entry.sha === headSha} />
             <span style={{ flex: '0 0 auto', fontSize: 12, color: textColor }}>{entry.authorName}</span>
             <span
-              title={new Date(entry.authoredAt).toLocaleString(locale)}
+              title={formatLogDateTitle(entry.authoredAt, locale, hourCycle)}
               style={{
                 flex: '0 0 auto',
                 minWidth: 64,
@@ -221,7 +231,7 @@ const CommitList: React.FC<CommitListProps> = ({
                 color: textColor,
               }}
             >
-              {formatLogDate(entry.authoredAt, locale, (time) => t('workbench.gitLog.date.yesterday', { time }), showTimestamp)}
+              {formatLogDate(entry.authoredAt, locale, dateLabels, { withTime: showTimestamp, hourCycle })}
             </span>
           </button>
         );

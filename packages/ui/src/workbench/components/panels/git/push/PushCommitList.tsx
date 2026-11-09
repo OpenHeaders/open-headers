@@ -20,7 +20,7 @@ import type React from 'react';
 import { useEffect, useMemo, useRef } from 'react';
 import { useLocale } from '@openheaders/ui/context/LocaleContext';
 import { clickModifiers, selectOnStep, useMultiSelection } from '@openheaders/ui/shared/selection';
-import { formatLogDate } from '../log-date';
+import { formatLogDate, formatLogDateTitle, type HourCycle } from '../log-date';
 import { commitClickOutcome, stepTarget } from '../log-selection';
 import type { PushSelection, PushTarget } from './push-window-model';
 
@@ -31,13 +31,29 @@ export interface PushCommitListProps {
   onSelect: (selection: PushSelection) => void;
   /** The list is still arriving — the empty note waits. */
   loading: boolean;
+  /** The workbench clock format's hour cycle for the date column. */
+  hourCycle?: HourCycle;
 }
 
 const ROW_HEIGHT = 24;
 
-const PushCommitList: React.FC<PushCommitListProps> = ({ target, entries, selection, onSelect, loading }) => {
+const PushCommitList: React.FC<PushCommitListProps> = ({
+  target,
+  entries,
+  selection,
+  onSelect,
+  loading,
+  hourCycle = 'h23',
+}) => {
   const { token } = theme.useToken();
   const { locale, t } = useLocale();
+  const dateLabels = useMemo(
+    () => ({
+      today: (time: string) => t('workbench.gitLog.date.today', { time }),
+      yesterday: (time: string) => t('workbench.gitLog.date.yesterday', { time }),
+    }),
+    [t],
+  );
   const listRef = useRef<HTMLDivElement>(null);
   const order = useMemo(() => entries.map((entry) => entry.sha), [entries]);
   const rows = useMultiSelection(order);
@@ -177,10 +193,10 @@ const PushCommitList: React.FC<PushCommitListProps> = ({ target, entries, select
             </span>
             <span style={{ flex: '0 0 auto', fontSize: 12 }}>{entry.authorName}</span>
             <span
-              title={new Date(entry.authoredAt).toLocaleString(locale)}
+              title={formatLogDateTitle(entry.authoredAt, locale, hourCycle)}
               style={{ flex: '0 0 auto', minWidth: 64, textAlign: 'right', fontSize: 12 }}
             >
-              {formatLogDate(entry.authoredAt, locale, (time) => t('workbench.gitLog.date.yesterday', { time }), true)}
+              {formatLogDate(entry.authoredAt, locale, dateLabels, { hourCycle })}
             </span>
           </button>
         );

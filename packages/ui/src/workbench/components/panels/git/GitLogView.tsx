@@ -47,6 +47,7 @@ import { buildLogWireFilters, hasRowFilters, makeTextMatcher } from './toolbar/l
 import { useFileDiff } from './use-file-diff';
 import { useJumpToSource } from './use-jump-to-source';
 import { useGitLogLayout } from './use-git-log-layout';
+import { useLogHourCycle } from './use-log-hour-cycle';
 
 export interface GitLogViewProps {
   workspaceId: string;
@@ -75,6 +76,7 @@ const GitLogView: React.FC<GitLogViewProps> = ({
 }) => {
   const { token } = theme.useToken();
   const { t } = useLocale();
+  const hourCycle = useLogHourCycle();
   const rootRef = useRef<HTMLDivElement>(null);
   const gridRef = useRef<HTMLDivElement>(null);
   const railCellRef = useRef<HTMLDivElement>(null);
@@ -420,6 +422,7 @@ const GitLogView: React.FC<GitLogViewProps> = ({
             showTagChips={prefs.showTagNames}
             showTimestamp={prefs.showCommitTimestamp}
             dimMergeCommits={prefs.highlightMergeCommits}
+            hourCycle={hourCycle}
           />
         </div>
         <div
