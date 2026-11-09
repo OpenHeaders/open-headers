@@ -38,7 +38,8 @@ import GitDetailsToolbar from '../toolbar/GitDetailsToolbar';
 import { useFileDiff } from '../use-file-diff';
 import { useJumpToSource } from '../use-jump-to-source';
 import PushCommitList from './PushCommitList';
-import { canPush, folderNameOf, type PushSelection, pushTarget, rangeDiffBase, unionFiles } from './push-window-model';
+import { unionFiles } from '../changed-files-union';
+import { canPush, folderNameOf, type PushSelection, pushTarget, rangeDiffBase } from './push-window-model';
 import { usePushWindowLayout } from './use-push-window-layout';
 
 export interface PushCommitsModalProps {

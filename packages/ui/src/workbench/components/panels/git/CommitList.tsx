@@ -15,8 +15,9 @@
  * anchor; Up/Down move the cursor (Shift extends). The tab remembers
  * ONE commit — the details commit — and the list reports it on every
  * gesture (the clicked row while it stays selected, else the first
- * survivor) and the width of the selection, so the details pane can
- * answer a multi-selection with its count. A commit the tab remembers
+ * survivor) and the selection itself in list order, so the details
+ * pane can show a multi-selection's files as one set and a card per
+ * commit. A commit the tab remembers
  * (a navigate from the rail or the toolbar, the tab's own restore)
  * becomes the selection when its row is visible.
  */
@@ -46,8 +47,8 @@ export interface CommitListProps {
   selectedSha: string | null;
   /** The details commit after a gesture — null when nothing stays selected. */
   onSelect: (sha: string | null) => void;
-  /** The width of the row selection — the details pane answers two or more with a count. */
-  onSelectionCountChange?: (count: number) => void;
+  /** The row selection in list order (newest first) after every change — the details pane's multi-selection feed. */
+  onSelectionChange?: (shas: readonly string[]) => void;
   /** True when a text filter or ref scope is active — drives the
    *  no-matches empty state and its reset action. */
   filtersActive: boolean;
@@ -71,7 +72,7 @@ const CommitList: React.FC<CommitListProps> = ({
   currentBranchShas = null,
   selectedSha,
   onSelect,
-  onSelectionCountChange,
+  onSelectionChange,
   filtersActive,
   onResetFilters,
   scrollTo,
@@ -104,8 +105,8 @@ const CommitList: React.FC<CommitListProps> = ({
   }, [selectedSha, selection, order, step, clear]);
 
   useEffect(() => {
-    onSelectionCountChange?.(selection.ids.size);
-  }, [onSelectionCountChange, selection.ids.size]);
+    onSelectionChange?.(order.filter((sha) => selection.ids.has(sha)));
+  }, [onSelectionChange, selection.ids, order]);
 
   const handleClick = (sha: string, event: React.MouseEvent): void => {
     const outcome = commitClickOutcome(selection, order, sha, clickModifiers(event));

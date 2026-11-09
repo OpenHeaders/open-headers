@@ -117,7 +117,7 @@ const CompareSide: React.FC<CompareSideProps> = ({
               headSha={null}
               selectedSha={selectedSha}
               onSelect={onSelect}
-              onSelectionCountChange={setSelectionCount}
+              onSelectionChange={(shas) => setSelectionCount(shas.length)}
               filtersActive={false}
               onResetFilters={() => undefined}
             />

@@ -27,6 +27,7 @@ import type React from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { useLocale } from '@openheaders/ui/context/LocaleContext';
 import { Sash } from '@openheaders/ui/shared/dock-layout';
+import { contiguousRangeBase, unionFiles } from './changed-files-union';
 import CommitDetails from './CommitDetails';
 import CommitList from './CommitList';
 import DiffModal from './DiffModal';
@@ -89,11 +90,12 @@ const GitLogView: React.FC<GitLogViewProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [scrollTo, setScrollTo] = useState<{ sha: string; nonce: number } | null>(null);
   const [selectedFile, setSelectedFile] = useState<string | null>(null);
-  // The width of the timeline's row selection — two or more commits
-  // and the details pane answers with the count instead of one commit's
-  // files (the reference reading; a union of files has no honest diff).
-  const [selectionCount, setSelectionCount] = useState(0);
-  const multiSelected = selectionCount >= 2;
+  // The timeline's row selection in list order (newest first). Two or
+  // more commits and the details pane shows their files as ONE set
+  // with a card per commit below (the reference reading); a contiguous
+  // first-parent run also diffs as the range, a gapped set has no diff.
+  const [selectedShas, setSelectedShas] = useState<readonly string[]>([]);
+  const multiSelected = selectedShas.length >= 2;
   const [historyPath, setHistoryPath] = useState<string | null>(null);
   const fileDiff = useFileDiff(workspaceId);
   const jumpToSource = useJumpToSource(workspaceId);
@@ -191,7 +193,7 @@ const GitLogView: React.FC<GitLogViewProps> = ({
   // A fresh commit selection starts with no file row selected.
   useEffect(() => {
     setSelectedFile(null);
-  }, [selectedSha]);
+  }, [selectedSha, selectedShas]);
 
   const matcher = useMemo(() => makeTextMatcher(filter, filterRegex, filterCase), [filter, filterRegex, filterCase]);
 
@@ -231,6 +233,27 @@ const GitLogView: React.FC<GitLogViewProps> = ({
     () => (selectedSha !== null ? (entries.find((entry) => entry.sha === selectedSha) ?? null) : null),
     [entries, selectedSha],
   );
+
+  const selectedEntries = useMemo(() => {
+    if (!multiSelected) return [];
+    const bySha = new Map(entries.map((entry) => [entry.sha, entry]));
+    return selectedShas.flatMap((sha) => {
+      const entry = bySha.get(sha);
+      return entry === undefined ? [] : [entry];
+    });
+  }, [multiSelected, entries, selectedShas]);
+  const unionOfSelected = useMemo(() => unionFiles(selectedEntries), [selectedEntries]);
+  const rangeBase = useMemo(
+    () => (multiSelected ? contiguousRangeBase(selectedShas, entries) : null),
+    [multiSelected, selectedShas, entries],
+  );
+
+  // What Show Diff reads: one commit's change, or the run's range from
+  // its base to its newest commit; null while a gapped set is selected.
+  const diffTarget = useMemo<{ sha: string; base?: string } | null>(() => {
+    if (multiSelected) return rangeBase === null ? null : { sha: selectedShas[0], base: rangeBase };
+    return selected === null ? null : { sha: selected.sha };
+  }, [multiSelected, rangeBase, selectedShas, selected]);
 
   // Highlight > Current Branch: the commits reachable from HEAD carry
   // the reference's soft band under everything else — the host's
@@ -287,13 +310,16 @@ const GitLogView: React.FC<GitLogViewProps> = ({
     color: token.colorTextSecondary,
   };
 
+  const openDiff = (path: string): void => {
+    if (diffTarget !== null) void fileDiff.open(diffTarget.sha, path, diffTarget.base);
+  };
+
   // The changed-file row menu: Show Diff reads the selected commit's
-  // blob pair; Show History opens the path's own timeline.
+  // blob pair or the run's range; Show History opens the path's own
+  // timeline.
   const fileRowMenu = (path: string): ReturnType<typeof buildFileRowMenu> =>
     buildFileRowMenu(path, t, {
-      onShowDiff: (filePath) => {
-        if (selected !== null) void fileDiff.open(selected.sha, filePath);
-      },
+      ...(diffTarget === null ? {} : { onShowDiff: openDiff }),
       onShowHistory: setHistoryPath,
       onJumpToSource: jumpToSource,
     });
@@ -387,7 +413,7 @@ const GitLogView: React.FC<GitLogViewProps> = ({
             currentBranchShas={currentBranchShas}
             selectedSha={selectedSha}
             onSelect={(sha) => patchTab({ selectedSha: sha })}
-            onSelectionCountChange={setSelectionCount}
+            onSelectionChange={setSelectedShas}
             filtersActive={filtersActive}
             onResetFilters={resetFilters}
             scrollTo={scrollTo}
@@ -403,19 +429,17 @@ const GitLogView: React.FC<GitLogViewProps> = ({
         >
           <Sash axis="x" edge="start" begin={layout.beginDetails} onReset={layout.resetDetails} />
           <GitDetailsToolbar
-            canShowDiff={!multiSelected && selected !== null && selectedFile !== null}
+            canShowDiff={diffTarget !== null && selectedFile !== null}
             onShowDiff={() => {
-              if (!multiSelected && selected !== null && selectedFile !== null) {
-                void fileDiff.open(selected.sha, selectedFile);
-              }
+              if (selectedFile !== null) openDiff(selectedFile);
             }}
             onJumpToSource={() => {
-              if (!multiSelected && selectedFile !== null) jumpToSource(selectedFile);
+              if (selectedFile !== null) jumpToSource(selectedFile);
             }}
-            canJumpToSource={!multiSelected && selectedFile !== null}
+            canJumpToSource={selectedFile !== null}
             prefs={prefs}
             onPatchPrefs={(patch) => patchGitLogViewPrefs(workspaceId, patch)}
-            hasFiles={!multiSelected && selected !== null}
+            hasFiles={selected !== null}
             onExpandAll={() => fileTreeRef.current?.expandAll()}
             onCollapseAll={() => fileTreeRef.current?.collapseAll()}
           />
@@ -431,24 +455,24 @@ const GitLogView: React.FC<GitLogViewProps> = ({
             data-testid="git-tool-detail-body"
           >
             <div style={{ minHeight: 0, display: 'flex', flexDirection: 'column' }}>
-              {multiSelected ? (
-                <div style={placeholderStyle} data-testid="git-tool-detail-multi">
-                  {t('workbench.gitLog.commitsSelected', { count: selectionCount })}
-                </div>
-              ) : selected === null ? (
+              {selected === null ? (
                 <div style={placeholderStyle} data-testid="git-tool-detail-placeholder">
                   {t('workbench.gitLog.selectCommit')}
                 </div>
               ) : (
                 <FileTreeView
-                  key={`${tabKey}:${selected.sha}`}
+                  key={
+                    multiSelected
+                      ? `${tabKey}:${selectedShas.length}:${selectedShas[0]}:${selectedShas[selectedShas.length - 1]}`
+                      : `${tabKey}:${selected.sha}`
+                  }
                   ref={fileTreeRef}
-                  files={selected.files}
+                  files={multiSelected ? unionOfSelected : selected.files}
                   loadingPath={fileDiff.loadingPath}
                   // ⋯ > Show on Double-Click: the diff, or the entity's editor.
                   onOpenFile={(path) => {
                     if (prefs.doubleClickOpens === 'source') jumpToSource(path);
-                    else void fileDiff.open(selected.sha, path);
+                    else openDiff(path);
                   }}
                   selectedPath={selectedFile}
                   onSelectFile={setSelectedFile}
@@ -470,11 +494,21 @@ const GitLogView: React.FC<GitLogViewProps> = ({
                 data-testid="git-tool-detail-info-cell"
               >
                 <Sash axis="y" edge="start" begin={layout.beginInfo} onReset={layout.resetInfo} />
-                {multiSelected || selected === null ? (
+                {selected === null ? (
                   <div style={placeholderStyle} data-testid="git-tool-detail-none">
-                    {multiSelected
-                      ? t('workbench.gitLog.commitsSelected', { count: selectionCount })
-                      : t('workbench.gitLog.noneSelected')}
+                    {t('workbench.gitLog.noneSelected')}
+                  </div>
+                ) : multiSelected ? (
+                  <div style={{ flex: '1 1 auto', minHeight: 0, overflowY: 'auto' }} data-testid="git-tool-detail-multi">
+                    {selectedEntries.map((entry) => (
+                      <div key={entry.sha} style={{ padding: '6px 0 10px' }} data-testid="git-tool-detail-card">
+                        <CommitDetails
+                          entry={entry}
+                          refsAtCommit={refsBySha.get(entry.sha) ?? []}
+                          isHead={entry.sha === headSha}
+                        />
+                      </div>
+                    ))}
                   </div>
                 ) : (
                   <div style={{ flex: '1 1 auto', minHeight: 0, overflowY: 'auto' }}>

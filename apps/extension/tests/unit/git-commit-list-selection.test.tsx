@@ -1,8 +1,8 @@
 // @vitest-environment jsdom
 /**
  * The two commit lists on the shared selection model: the log's
- * `CommitList` reports the details commit and the selection width on
- * every gesture (plain / Shift / Cmd clicks, Up/Down with Shift) and
+ * `CommitList` reports the details commit and the selection (list
+ * order) on every gesture (plain / Shift / Cmd clicks, Up/Down with Shift) and
  * follows the tab's remembered commit; the Push window's
  * `PushCommitList` reports the selection with its details commit and
  * returns to the target row when nothing stays selected.
@@ -59,8 +59,8 @@ const LogHarness: React.FC<{
   initial: string | null;
   navigate?: string | null;
   onSelect: (sha: string | null) => void;
-  onCount: (count: number) => void;
-}> = ({ initial, navigate, onSelect, onCount }) => {
+  onSelection: (shas: readonly string[]) => void;
+}> = ({ initial, navigate, onSelect, onSelection }) => {
   const [selectedSha, setSelectedSha] = useState(initial);
   useEffect(() => {
     if (navigate !== undefined) setSelectedSha(navigate);
@@ -76,7 +76,7 @@ const LogHarness: React.FC<{
         setSelectedSha(sha);
         onSelect(sha);
       }}
-      onSelectionCountChange={onCount}
+      onSelectionChange={onSelection}
       filtersActive={false}
       onResetFilters={() => undefined}
     />
@@ -94,7 +94,7 @@ describe('CommitList — the current-branch band (S41, S43)', () => {
         currentBranchShas={new Set([ENTRIES[0].sha, ENTRIES[1].sha])}
         selectedSha={ENTRIES[1].sha}
         onSelect={() => undefined}
-        onSelectionCountChange={() => undefined}
+        onSelectionChange={() => undefined}
         filtersActive={false}
         onResetFilters={() => undefined}
       />,
@@ -113,9 +113,9 @@ describe('CommitList — the current-branch band (S41, S43)', () => {
 describe('CommitList — the log rows on the shared selection model', () => {
   function renderList(selectedSha: string | null) {
     const onSelect = vi.fn<(sha: string | null) => void>();
-    const onCount = vi.fn<(count: number) => void>();
-    const view = render(<LogHarness initial={selectedSha} onSelect={onSelect} onCount={onCount} />);
-    return { onSelect, onCount, view };
+    const onSelection = vi.fn<(shas: readonly string[]) => void>();
+    const view = render(<LogHarness initial={selectedSha} onSelect={onSelect} onSelection={onSelection} />);
+    return { onSelect, onSelection, view };
   }
 
   it('the tab’s remembered commit becomes the selection on mount', () => {
@@ -123,12 +123,12 @@ describe('CommitList — the log rows on the shared selection model', () => {
     expect(selectedShas()).toEqual(['c2']);
   });
 
-  it('Shift+click selects the range and reports the clicked commit with the width', () => {
-    const { onSelect, onCount } = renderList('c1');
+  it('Shift+click selects the range and reports the clicked commit with the selection in list order', () => {
+    const { onSelect, onSelection } = renderList('c1');
     fireEvent.click(row('c3'), { shiftKey: true });
     expect(selectedShas()).toEqual(['c1', 'c2', 'c3']);
     expect(onSelect).toHaveBeenLastCalledWith('c3');
-    expect(onCount).toHaveBeenLastCalledWith(3);
+    expect(onSelection).toHaveBeenLastCalledWith(['c1', 'c2', 'c3']);
   });
 
   it('Cmd+click toggles a row in; toggling the details commit out follows the first survivor', () => {
@@ -157,22 +157,22 @@ describe('CommitList — the log rows on the shared selection model', () => {
   });
 
   it('Down steps the cursor, Shift+Down extends the range', () => {
-    const { onSelect, onCount } = renderList('c1');
+    const { onSelect, onSelection } = renderList('c1');
     fireEvent.keyDown(row('c1'), { key: 'ArrowDown' });
     expect(selectedShas()).toEqual(['c2']);
     expect(onSelect).toHaveBeenLastCalledWith('c2');
     fireEvent.keyDown(row('c2'), { key: 'ArrowDown', shiftKey: true });
     expect(selectedShas()).toEqual(['c2', 'c3']);
-    expect(onCount).toHaveBeenLastCalledWith(2);
+    expect(onSelection).toHaveBeenLastCalledWith(['c2', 'c3']);
     fireEvent.keyDown(row('c3'), { key: 'ArrowUp', shiftKey: true });
     expect(selectedShas()).toEqual(['c2']);
   });
 
   it('a navigate from outside (the tab’s commit changes) selects that row alone', () => {
-    const { view, onSelect, onCount } = renderList('c1');
+    const { view, onSelect, onSelection } = renderList('c1');
     fireEvent.click(row('c3'), { shiftKey: true });
     expect(selectedShas()).toEqual(['c1', 'c2', 'c3']);
-    view.rerender(<LogHarness initial="c1" navigate="c4" onSelect={onSelect} onCount={onCount} />);
+    view.rerender(<LogHarness initial="c1" navigate="c4" onSelect={onSelect} onSelection={onSelection} />);
     expect(selectedShas()).toEqual(['c4']);
   });
 });
