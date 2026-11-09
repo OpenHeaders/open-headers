@@ -41,6 +41,12 @@ export {
   removeIgnoreEntry,
 } from './ignore-ops';
 export {
+  COMMIT_PATCH_MAX_BYTES,
+  COMMIT_PATCH_MAX_COMMITS,
+  type CommitPatchResult,
+  readCommitPatch,
+} from './patch-ops';
+export {
   addRemote,
   isSafeRemoteName,
   isSafeRemoteUrl,

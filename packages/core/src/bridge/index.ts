@@ -70,6 +70,7 @@ export type {
   WorkspaceTreeAdoptWire,
   WorkspaceTreeChangesWire,
   WorkspaceTreeCommitCadence,
+  WorkspaceTreeCommitPatchWire,
   WorkspaceTreeCompareRefsWire,
   WorkspaceTreeCreateBranchWire,
   WorkspaceTreeCreateTagWire,

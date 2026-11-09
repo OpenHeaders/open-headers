@@ -12,6 +12,7 @@
 import type { WorkspaceTreeLogEntryWire } from '@openheaders/core/bridge';
 import type { Translate } from '@openheaders/ui/context/LocaleContext';
 import CommitList from '@openheaders/ui/workbench/components/panels/git/CommitList';
+import { patchApplyOrder, patchFilename } from '@openheaders/ui/workbench/components/panels/git/commit-patch';
 import {
   childInWindow,
   isFullCommitSha,
@@ -69,6 +70,8 @@ type MockedHandlers = { [K in keyof LogRowMenuHandlers]: ReturnType<typeof vi.fn
 function handlers(): MockedHandlers {
   return {
     onCopyRevision: vi.fn<LogRowMenuHandlers['onCopyRevision']>(),
+    onCreatePatch: vi.fn<LogRowMenuHandlers['onCreatePatch']>(),
+    onCopyAsPatch: vi.fn<LogRowMenuHandlers['onCopyAsPatch']>(),
     onNewBranchFrom: vi.fn<LogRowMenuHandlers['onNewBranchFrom']>(),
     onNewTagAt: vi.fn<LogRowMenuHandlers['onNewTagAt']>(),
     onCheckoutRevision: vi.fn<LogRowMenuHandlers['onCheckoutRevision']>(),
@@ -93,12 +96,13 @@ const clickKey = (menu: MenuProps, key: string): void =>
 describe('buildLogRowMenu — the anatomy', () => {
   const single: LogRowMenuTarget = { shas: ['c3'], child: 'c4', parent: 'c2' };
 
-  it('one commit: copy, checkout revision, new branch, new tag and the two walks live; the unbuilt verbs visible-disabled', () => {
+  it('one commit: copy, the two patch rows, checkout revision, new branch, new tag and the two walks live; the unbuilt verbs visible-disabled', () => {
     const h = handlers();
     const menu = buildLogRowMenu(single, t, h);
     expect(keysOf(menu)).toEqual([
       'copy-revision',
       'create-patch',
+      'copy-as-patch',
       'cherry-pick',
       'checkout-revision',
       'compare-with-local',
@@ -108,7 +112,11 @@ describe('buildLogRowMenu — the anatomy', () => {
       'go-to-child',
       'go-to-parent',
     ]);
-    expect(disabledKeys(menu)).toEqual(['create-patch', 'cherry-pick', 'compare-with-local', 'revert']);
+    expect(disabledKeys(menu)).toEqual(['cherry-pick', 'compare-with-local', 'revert']);
+    clickKey(menu, 'create-patch');
+    expect(h.onCreatePatch).toHaveBeenCalledWith(['c3']);
+    clickKey(menu, 'copy-as-patch');
+    expect(h.onCopyAsPatch).toHaveBeenCalledWith(['c3']);
     clickKey(menu, 'checkout-revision');
     expect(h.onCheckoutRevision).toHaveBeenCalledWith('c3');
     clickKey(menu, 'copy-revision');
@@ -135,14 +143,28 @@ describe('buildLogRowMenu — the anatomy', () => {
     expect(disabledKeys(menu)).not.toContain('go-to-parent');
   });
 
-  it('several commits: copy covers the set; checkout revision, new branch, new tag and the walks hold', () => {
+  it('several commits: copy and the patch rows cover the set; checkout revision, new branch, new tag and the walks hold', () => {
     const h = handlers();
     const menu = buildLogRowMenu({ shas: ['c4', 'c3'], child: null, parent: null }, t, h);
     clickKey(menu, 'copy-revision');
     expect(h.onCopyRevision).toHaveBeenCalledWith(['c4', 'c3']);
+    clickKey(menu, 'create-patch');
+    expect(h.onCreatePatch).toHaveBeenCalledWith(['c4', 'c3']);
+    clickKey(menu, 'copy-as-patch');
+    expect(h.onCopyAsPatch).toHaveBeenCalledWith(['c4', 'c3']);
     expect(disabledKeys(menu)).toEqual(
       expect.arrayContaining(['checkout-revision', 'new-branch', 'new-tag', 'go-to-child', 'go-to-parent']),
     );
+  });
+});
+
+describe('commit-patch', () => {
+  it('reads the selection oldest first and names the file by its short shas', () => {
+    const newest = 'a'.repeat(40);
+    const oldest = 'b'.repeat(40);
+    expect(patchApplyOrder([newest, oldest])).toEqual([oldest, newest]);
+    expect(patchFilename([newest])).toBe('aaaaaaa.patch');
+    expect(patchFilename([newest, 'c'.repeat(40), oldest])).toBe('bbbbbbb-aaaaaaa.patch');
   });
 });
 

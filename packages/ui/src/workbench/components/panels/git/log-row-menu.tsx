@@ -3,12 +3,12 @@
  * reference design on this product's vocabulary). A right-click on an
  * unselected row selects it alone; on a selected row the menu covers
  * the set. Live rows: Copy Revision Number (every selected sha, one
- * per line), New Branch… and New Tag… (the dialogs anchored at the
+ * per line), Create Patch… and Copy as Patch to Clipboard (the set as
+ * one patch text — a file, or the clipboard), New Branch… and New Tag… (the dialogs anchored at the
  * commit), Checkout Revision (a detached HEAD at the commit, through
  * the dirty prompt), Go to Child / Parent Commit (within the loaded
  * window). Rows whose verb has no machinery yet render
- * visible-disabled: Create Patch…, Cherry-Pick, Compare with Local,
- * Revert Commit. The reference's history-rewriting rows (reset, undo,
+ * visible-disabled: Cherry-Pick, Compare with Local, Revert Commit. The reference's history-rewriting rows (reset, undo,
  * fixup, squash, drop, rebase, edit message) are DROPPED — the engine
  * never rewrites history. Pure over (target, t, handlers).
  */
@@ -32,6 +32,8 @@ export interface LogRowMenuTarget {
 
 export interface LogRowMenuHandlers {
   onCopyRevision: (shas: readonly string[]) => void;
+  onCreatePatch: (shas: readonly string[]) => void;
+  onCopyAsPatch: (shas: readonly string[]) => void;
   onNewBranchFrom: (sha: string) => void;
   onNewTagAt: (sha: string) => void;
   onCheckoutRevision: (sha: string) => void;
@@ -59,7 +61,26 @@ export function buildLogRowMenu(target: LogRowMenuTarget, t: Translate, h: LogRo
       ),
       onClick: () => h.onCopyRevision(target.shas),
     },
-    { key: 'create-patch', label: menuLabel(<DiffIcon />, t('workbench.gitLog.commitMenu.createPatch')), disabled: true },
+    {
+      key: 'create-patch',
+      label: menuLabel(
+        <DiffIcon />,
+        t('workbench.gitLog.commitMenu.createPatch'),
+        undefined,
+        'git-tool-commit-menu-create-patch',
+      ),
+      onClick: () => h.onCreatePatch(target.shas),
+    },
+    {
+      key: 'copy-as-patch',
+      label: menuLabel(
+        null,
+        t('workbench.gitLog.commitMenu.copyAsPatch'),
+        undefined,
+        'git-tool-commit-menu-copy-as-patch',
+      ),
+      onClick: () => h.onCopyAsPatch(target.shas),
+    },
     { key: 'cherry-pick', label: menuLabel(<CherryPickIcon />, t('workbench.gitLog.cherryPick')), disabled: true },
     { type: 'divider' },
     live(

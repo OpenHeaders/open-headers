@@ -22,6 +22,7 @@ import {
 import { parseGitfile, resolveGitDirs } from '../../src/git/git-dir';
 import { createGitExec, type GitAuditRow, type GitRunner, probeGitAvailability } from '../../src/git/git-exec';
 import { addIgnoreEntry, checkIgnoreProvenance, removeIgnoreEntry } from '../../src/git/ignore-ops';
+import { readCommitPatch } from '../../src/git/patch-ops';
 import {
   addRemote,
   isSafeRemoteName,
@@ -1600,6 +1601,65 @@ describe('Tag ops (S47): the log’s New Tag…', () => {
     expect((await createLightweightTag(run, tmpDir, 'bad..name', first)).ok).toBe(false);
     expect((await createLightweightTag(run, tmpDir, 'v2', first.slice(0, 7))).ok).toBe(false);
     expect((await createLightweightTag(run, tmpDir, 'v3', '0'.repeat(40))).ok).toBe(false);
+  });
+});
+
+describe('Patch ops (S48): the log’s Create Patch…', () => {
+  it('readCommitPatch answers the commits as one mailbox text in the order given; shapes, unknown commits and the cap refuse', async () => {
+    await initialCommit();
+    const first = await localHeadSha(run, tmpDir);
+    await fs.writeFile(path.join(tmpDir, 'NOTES.md'), '# notes\n', 'utf-8');
+    const second = await commitWorkspaceTree({ run, rootDir: tmpDir, message: 'Add notes', identityEnv: IDENTITY_ENV });
+    if (first === null || !second.ok || !second.committed) throw new Error('fixture commits failed');
+    const head = await localHeadSha(run, tmpDir);
+    if (head === null) throw new Error('no head');
+
+    const one = await readCommitPatch(run, tmpDir, [head]);
+    if (!one.ok) throw new Error(`patch failed: ${one.reason}`);
+    expect(one.patch.startsWith(`From ${head} `)).toBe(true);
+    expect(one.patch).toContain('Subject: [PATCH] Add notes');
+    expect(one.patch).toContain('+# notes');
+
+    const both = await readCommitPatch(run, tmpDir, [first, head]);
+    if (!both.ok) throw new Error(`patch failed: ${both.reason}`);
+    expect(both.patch.indexOf(`From ${first} `)).toBe(0);
+    expect(both.patch.indexOf(`From ${head} `)).toBeGreaterThan(0);
+
+    // A pure read: HEAD and the tree are where they were.
+    expect(await localHeadSha(run, tmpDir)).toBe(head);
+    expect(await countDirtyFiles(run, tmpDir)).toBe(0);
+
+    expect(await readCommitPatch(run, tmpDir, [])).toMatchObject({ ok: false, reason: 'unknown-commit' });
+    expect(await readCommitPatch(run, tmpDir, ['HEAD'])).toMatchObject({ ok: false, reason: 'unknown-commit' });
+    expect(await readCommitPatch(run, tmpDir, [head.slice(0, 7)])).toMatchObject({
+      ok: false,
+      reason: 'unknown-commit',
+    });
+    expect(await readCommitPatch(run, tmpDir, ['0'.repeat(40)])).toMatchObject({ ok: false, reason: 'unknown-commit' });
+    expect(await readCommitPatch(run, tmpDir, [head], 16)).toEqual({ ok: false, reason: 'too-large' });
+  });
+
+  it('a merge commit has no patch of its own: alone it answers empty, in a set it is skipped', async () => {
+    await initialCommit();
+    const trunk = await currentBranch(run, tmpDir);
+    if (trunk === null) throw new Error('no branch');
+    const git = (...args: string[]) =>
+      run(['--git-dir', path.join(tmpDir, '.git'), '--work-tree', tmpDir, ...args], { cwd: tmpDir, env: IDENTITY_ENV });
+    await git('checkout', '-q', '-b', 'side');
+    await fs.writeFile(path.join(tmpDir, 'SIDE.md'), '# side\n', 'utf-8');
+    const side = await commitWorkspaceTree({ run, rootDir: tmpDir, message: 'Side work', identityEnv: IDENTITY_ENV });
+    if (!side.ok || !side.committed) throw new Error('side commit failed');
+    const sideSha = await localHeadSha(run, tmpDir);
+    await git('checkout', '-q', trunk);
+    const merged = await git('merge', '-q', '--no-ff', '-m', 'Merge side', 'side');
+    expect(merged.code).toBe(0);
+    const mergeSha = await localHeadSha(run, tmpDir);
+    if (sideSha === null || mergeSha === null) throw new Error('no shas');
+
+    expect(await readCommitPatch(run, tmpDir, [mergeSha])).toEqual({ ok: false, reason: 'empty' });
+    const set = await readCommitPatch(run, tmpDir, [sideSha, mergeSha]);
+    if (!set.ok) throw new Error(`patch failed: ${set.reason}`);
+    expect(set.patch.match(/^From [0-9a-f]{40} /gm)).toEqual([`From ${sideSha} `]);
   });
 });
 

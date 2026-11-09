@@ -697,6 +697,17 @@ export interface WorkspaceRpc {
     res: WorkspaceTreeFileDiffWire;
   };
   /**
+   * The log's Create Patch…: the commits `shas` (FULL commit hashes,
+   * in apply order — oldest first) as ONE mailbox-format patch text.
+   * A pure read: the host writes nothing, the surface saves or copies
+   * the text. A selection with nothing to write (a merge alone)
+   * answers `empty`; a text over the size cap answers `too-large`.
+   */
+  'oh.workspaceTree.commitPatch': {
+    req: { workspaceId: string; shas: string[] };
+    res: WorkspaceTreeCommitPatchWire;
+  };
+  /**
    * The Console tab's read-only feed (§9): audit rows of every
    * state-changing git command the engine ran in this binding's repo,
    * oldest first. Host-side capped ring; reads never appear (the §7
@@ -1071,6 +1082,21 @@ export type WorkspaceTreeFileDiffWire =
   | {
       ok: false;
       reason: 'not-bound' | 'git-unavailable' | 'not-a-repo' | 'unknown-commit' | 'unknown-path' | 'diff-failed';
+      detail?: string;
+    };
+
+export type WorkspaceTreeCommitPatchWire =
+  | { ok: true; patch: string }
+  | {
+      ok: false;
+      reason:
+        | 'not-bound'
+        | 'git-unavailable'
+        | 'not-a-repo'
+        | 'unknown-commit'
+        | 'empty'
+        | 'too-large'
+        | 'patch-failed';
       detail?: string;
     };
 

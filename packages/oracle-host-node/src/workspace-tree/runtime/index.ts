@@ -71,7 +71,15 @@ import {
   SCOPE,
 } from './core';
 import { runEntityAtPath } from './entity-at-path';
-import { runCompareRefs, runFileDiff, runFileLog, runGitConsole, runListRefs, runWorkspaceLog } from './history';
+import {
+  runCommitPatch,
+  runCompareRefs,
+  runFileDiff,
+  runFileLog,
+  runGitConsole,
+  runListRefs,
+  runWorkspaceLog,
+} from './history';
 import { runIgnorePath, runUnignorePath } from './ignore';
 import { closeBinding, openBinding } from './lifecycle';
 import { runAddRemote, runListRemotes, runRemoveRemote, runUpdateRemote } from './remotes';
@@ -99,6 +107,7 @@ import type {
   WorkspaceTreeAddToVcsRpcResult,
   WorkspaceTreeChangesRpcResult,
   WorkspaceTreeCommitCadence,
+  WorkspaceTreeCommitPatchRpcResult,
   WorkspaceTreeDeletePathsRpcResult,
   WorkspaceTreeEntityAtPathRpcResult,
   WorkspaceTreeFileDiffRpcResult,
@@ -141,6 +150,7 @@ export type {
   WorkspaceTreeAddToVcsRpcResult,
   WorkspaceTreeChangesRpcResult,
   WorkspaceTreeCommitCadence,
+  WorkspaceTreeCommitPatchRpcResult,
   WorkspaceTreeDeletePathsRpcResult,
   WorkspaceTreeFileDiffRpcResult,
   WorkspaceTreeGitConsoleRpcResult,
@@ -783,6 +793,10 @@ export function createWorkspaceTreeRuntime(options: WorkspaceTreeRuntimeOptions)
       base?: string,
     ): Promise<WorkspaceTreeFileDiffRpcResult> {
       return runFileDiff(ctx, workspaceId, sha, filePath, base);
+    },
+
+    commitPatch(workspaceId: string, shas: readonly string[]): Promise<WorkspaceTreeCommitPatchRpcResult> {
+      return runCommitPatch(ctx, workspaceId, shas);
     },
 
     entityAtPath(workspaceId: string, filePath: string): Promise<WorkspaceTreeEntityAtPathRpcResult> {

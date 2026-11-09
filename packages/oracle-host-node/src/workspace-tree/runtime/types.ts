@@ -387,6 +387,22 @@ export type WorkspaceTreeFileDiffRpcResult =
       detail?: string;
     };
 
+/** The log's Create Patch… — the selected commits as one mailbox-format text. */
+export type WorkspaceTreeCommitPatchRpcResult =
+  | { ok: true; patch: string }
+  | {
+      ok: false;
+      reason:
+        | 'not-bound'
+        | 'git-unavailable'
+        | 'not-a-repo'
+        | 'unknown-commit'
+        | 'empty'
+        | 'too-large'
+        | 'patch-failed';
+      detail?: string;
+    };
+
 export interface WorkspaceTreeGitStatusRpcResult {
   bound: boolean;
   git: GitAvailability;
@@ -608,6 +624,14 @@ export interface WorkspaceTreeRuntime {
    * parent to that commit's blob (the Push window's range read).
    */
   fileDiff(workspaceId: string, sha: string, path: string, base?: string): Promise<WorkspaceTreeFileDiffRpcResult>;
+  /**
+   * The log's Create Patch…: `shas` (FULL commit hashes, in apply
+   * order) as one mailbox-format patch text. Pure read, off the
+   * per-binding chain; nothing is written anywhere on the host. A
+   * selection git writes no patch for (a merge alone) answers `empty`,
+   * a text over the cap `too-large`.
+   */
+  commitPatch(workspaceId: string, shas: readonly string[]): Promise<WorkspaceTreeCommitPatchRpcResult>;
   /**
    * The Console tab's read-only feed (§9): audit rows of every
    * state-changing git command the engine ran in this binding's repo,

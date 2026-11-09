@@ -1,7 +1,8 @@
 /**
  * Workspace-tree runtime — the history-read plane (§9, Phase 7): the
  * log/fileLog timelines, the ref tree, the per-commit file diff, the
- * compare-with-current range read, and the Console tab's audit slice.
+ * commit patch text, the compare-with-current range read, and the
+ * Console tab's audit slice.
  * Pure repo reads OFF the per-binding chain — they never queue behind
  * a commit/pull pass; caller-supplied targets are validated shapes.
  */
@@ -18,11 +19,13 @@ import {
   listFileLog,
   listRepoRefs,
   readCommitFileDiff,
+  readCommitPatch,
   resolveAuthorFilterValue,
 } from '../../git';
 import { LOG_DEFAULT_LIMIT, LOG_MAX_LIMIT, type RuntimeCtx } from './core';
 import type {
   CompareRefsRpcResult,
+  WorkspaceTreeCommitPatchRpcResult,
   WorkspaceTreeFileDiffRpcResult,
   WorkspaceTreeGitConsoleRpcResult,
   WorkspaceTreeLogFilters,
@@ -204,6 +207,20 @@ export async function runFileDiff(
   if (base !== undefined && !isCommitSha(base)) return { ok: false, reason: 'unknown-commit' };
   if (!isSafeTreePath(filePath)) return { ok: false, reason: 'unknown-path' };
   return readCommitFileDiff(ctx.gitRun, rootDir, sha, filePath, undefined, base);
+}
+
+export async function runCommitPatch(
+  ctx: RuntimeCtx,
+  workspaceId: string,
+  shas: readonly string[],
+): Promise<WorkspaceTreeCommitPatchRpcResult> {
+  const binding = ctx.open.get(workspaceId);
+  if (!binding) return { ok: false, reason: 'not-bound' };
+  const { rootDir } = binding.record;
+  const availability = await ctx.ensureGitAvailability(rootDir);
+  if (!availability.available) return { ok: false, reason: 'git-unavailable' };
+  if (!(await isWorkspaceRepo(ctx.gitRun, rootDir))) return { ok: false, reason: 'not-a-repo' };
+  return readCommitPatch(ctx.gitRun, rootDir, shas);
 }
 
 /** Console-tab read: this binding's slice of the audit ring (cwd inside its root). */
