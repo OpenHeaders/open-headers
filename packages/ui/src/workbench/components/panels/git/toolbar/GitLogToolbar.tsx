@@ -1,8 +1,9 @@
 /**
  * GitLogToolbar — the log pane's top band, the filter row: the
  * text-or-hash field with regex/match-case toggles, the Branch / User /
- * Date / Paths filter chips, Graph Options (sort + walk riders), then
- * the right-aligned action icons — Refresh, Cherry-Pick (placeholder),
+ * Date / Paths filter chips, Graph Options (sort + walk riders + the
+ * Collapse / Expand Linear Branches gestures over the graph's
+ * fragments), then the right-aligned action icons — Refresh, Cherry-Pick (placeholder),
  * View Options, Go To Hash/Branch/Tag. Filter state lives in the tab
  * registry (travels with the tab); display prefs are per-workspace.
  */
@@ -20,7 +21,7 @@ import BranchFilterChip from './BranchFilterChip';
 import DateFilterModal from './DateFilterModal';
 import GitFilterChip from './GitFilterChip';
 import { CherryPickIcon, GraphOptionsIcon } from './icons';
-import { menuCheckIcon } from '../../../shared/menu-check';
+import { menuCheckIcon, menuIconGutter } from '../../../shared/menu-check';
 import PathsFilterModal from './PathsFilterModal';
 import ToolbarIconButton from './ToolbarIconButton';
 
@@ -39,6 +40,12 @@ export interface GitLogToolbarProps {
   onNavigate: (sha: string) => void;
   prefs: GitLogViewPrefs;
   onPatchPrefs: (patch: Partial<GitLogViewPrefs>) => void;
+  /** Graph Options › Collapse Linear Branches — the window still has a fragment to hide. */
+  canCollapseLinear: boolean;
+  onCollapseLinear: () => void;
+  /** Graph Options › Expand Linear Branches — a fragment is held collapsed. */
+  canExpandLinear: boolean;
+  onExpandLinear: () => void;
   /** The text field's regex failed to compile — error styling. */
   textInvalid: boolean;
   /** The Git tool window element — chip dialogs center over the panel. */
@@ -97,6 +104,10 @@ const GitLogToolbar: React.FC<GitLogToolbarProps> = ({
   onNavigate,
   prefs,
   onPatchPrefs,
+  canCollapseLinear,
+  onCollapseLinear,
+  canExpandLinear,
+  onExpandLinear,
   textInvalid,
   container,
 }) => {
@@ -300,14 +311,14 @@ const GitLogToolbar: React.FC<GitLogToolbarProps> = ({
                 {
                   key: 'collapse-linear',
                   label: t('workbench.gitLog.branchActions.collapseLinear'),
-                  icon: menuCheckIcon(false),
-                  disabled: true,
+                  icon: menuIconGutter(),
+                  disabled: !canCollapseLinear,
                 },
                 {
                   key: 'expand-linear',
                   label: t('workbench.gitLog.branchActions.expandLinear'),
-                  icon: menuCheckIcon(false),
-                  disabled: true,
+                  icon: menuIconGutter(),
+                  disabled: !canExpandLinear,
                 },
               ],
             },
@@ -317,6 +328,8 @@ const GitLogToolbar: React.FC<GitLogToolbarProps> = ({
             else if (key === 'sort-topo') patchTab({ sort: 'topo' });
             else if (key === 'first-parent') patchTab({ firstParent: !tab.firstParent });
             else if (key === 'no-merges') patchTab({ noMerges: !tab.noMerges });
+            else if (key === 'collapse-linear') onCollapseLinear();
+            else if (key === 'expand-linear') onExpandLinear();
           },
         }}
       >

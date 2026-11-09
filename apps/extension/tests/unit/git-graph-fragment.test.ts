@@ -4,13 +4,16 @@
  * the run below it, refs and HEAD are anchors, the window's edge ends a
  * run; a collapsed fragment hides its interior and rewires the top end's
  * parent to the bottom end; a hover on either end of a collapsed
- * fragment resolves to it.
+ * fragment resolves to it; the gear's Collapse Linear Branches names
+ * every fragment of the window once, two runs under one merge apart.
  */
 
 import { edgeKey } from '@openheaders/ui/workbench/components/panels/git/graph';
 import {
+  allLinearFragments,
   collapseLog,
   fragmentEdges,
+  fragmentKey,
   fragmentShas,
   hoverFragment,
   linearFragment,
@@ -63,6 +66,22 @@ describe('linearFragment', () => {
   });
 });
 
+describe('allLinearFragments', () => {
+  it('names every fragment of the window once — both runs under the merge and the run below the fork', () => {
+    const fragments = allLinearFragments(LOG, NONE);
+    expect(fragments).toEqual([
+      { top: 'merge', bottom: 'base', interior: ['m2', 'm1'] },
+      { top: 'merge', bottom: 'base', interior: ['f2', 'f1'] },
+      { top: 'base', bottom: 'r1', interior: ['r2'] },
+    ]);
+    expect(new Set(fragments.map(fragmentKey)).size).toBe(3);
+  });
+
+  it('a ref on every plain commit leaves nothing to collapse', () => {
+    expect(allLinearFragments(LOG, new Set(['m2', 'm1', 'f2', 'f1', 'r2']))).toEqual([]);
+  });
+});
+
 describe('collapseLog', () => {
   it('hides the interior and rewires the top end to the bottom end, naming the skipping edge', () => {
     const fragment = { top: 'merge', bottom: 'base', interior: ['f2', 'f1'] };
@@ -70,6 +89,15 @@ describe('collapseLog', () => {
     expect(entries.map((entry) => entry.sha)).toEqual(['merge', 'm2', 'm1', 'base', 'r2', 'r1']);
     expect(entries[0].parents).toEqual(['m2', 'base']);
     expect([...collapsedEdges]).toEqual([edgeKey('merge', 'base')]);
+  });
+
+  it('two collapsed runs under one merge each rewire their own parent pointer', () => {
+    const collapsed = new Map(allLinearFragments(LOG, NONE).map((fragment) => [fragmentKey(fragment), fragment]));
+    const { entries, collapsedEdges } = collapseLog(LOG, collapsed);
+    expect(entries.map((entry) => entry.sha)).toEqual(['merge', 'base', 'r1']);
+    expect(entries[0].parents).toEqual(['base', 'base']);
+    expect(entries[1].parents).toEqual(['r1']);
+    expect([...collapsedEdges]).toEqual([edgeKey('merge', 'base'), edgeKey('base', 'r1')]);
   });
 
   it('ignores a fragment whose ends left the window and leaves the log alone with none', () => {

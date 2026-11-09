@@ -37,7 +37,7 @@ import FileTreeView, { type FileTreeViewHandle } from './FileTreeView';
 import { getGitLogViewPrefs, patchGitLogViewPrefs, subscribeGitLogViewPrefs } from './git-log-view-prefs';
 import { GIT_LOG_SCOPE_HEAD, type GitLogTabState, gitPanelTabKey } from './git-panel-view-store';
 import { computeLogGraph } from './graph';
-import { collapseLog, type LogFragment } from './graph-fragment';
+import { allLinearFragments, collapseLog, fragmentKey, type LogFragment } from './graph-fragment';
 import { currentBranchBandTip, currentBranchShas as bandShas } from './log-reachability';
 import { getGitRailPrefs, subscribeGitRailPrefs } from './rail/git-rail-prefs';
 import GitRailCollapsedStrip from './rail/GitRailCollapsedStrip';
@@ -100,8 +100,9 @@ const GitLogView: React.FC<GitLogViewProps> = ({
   const [selectedShas, setSelectedShas] = useState<readonly string[]>([]);
   const multiSelected = selectedShas.length >= 2;
   const [historyPath, setHistoryPath] = useState<string | null>(null);
-  // The graph's collapsed fragments (a click on a cell), by top sha —
-  // a view state, dropped with the tab; a stale entry is ignored.
+  // The graph's collapsed fragments (a click on a cell, the gear's
+  // Collapse Linear Branches), by fragment key — a view state, dropped
+  // with the tab; a stale entry is ignored.
   const [collapsed, setCollapsed] = useState<ReadonlyMap<string, LogFragment>>(() => new Map());
   const fileDiff = useFileDiff(workspaceId);
   const jumpToSource = useJumpToSource(workspaceId);
@@ -260,11 +261,22 @@ const GitLogView: React.FC<GitLogViewProps> = ({
   const toggleFragment = useCallback((fragment: LogFragment) => {
     setCollapsed((prev) => {
       const next = new Map(prev);
-      if (next.has(fragment.top)) next.delete(fragment.top);
-      else next.set(fragment.top, fragment);
+      const key = fragmentKey(fragment);
+      if (next.has(key)) next.delete(key);
+      else next.set(key, fragment);
       return next;
     });
   }, []);
+  // The gear's Collapse / Expand Linear Branches: every fragment of the
+  // loaded window at once, or none — off while a filter hides the graph.
+  const fragments = useMemo(() => (graphHonest ? allLinearFragments(entries, anchors) : []), [graphHonest, entries, anchors]);
+  const canCollapseLinear = fragments.some((fragment) => !collapsed.has(fragmentKey(fragment)));
+  const canExpandLinear = graphHonest && collapsed.size > 0;
+  const collapseLinear = useCallback(
+    () => setCollapsed(new Map(fragments.map((fragment) => [fragmentKey(fragment), fragment]))),
+    [fragments],
+  );
+  const expandLinear = useCallback(() => setCollapsed(new Map()), []);
 
   const selected = useMemo(
     () => (selectedSha !== null ? (entries.find((entry) => entry.sha === selectedSha) ?? null) : null),
@@ -439,6 +451,10 @@ const GitLogView: React.FC<GitLogViewProps> = ({
             onNavigate={navigateToSha}
             prefs={prefs}
             onPatchPrefs={(patch) => patchGitLogViewPrefs(workspaceId, patch)}
+            canCollapseLinear={canCollapseLinear}
+            onCollapseLinear={collapseLinear}
+            canExpandLinear={canExpandLinear}
+            onExpandLinear={expandLinear}
             textInvalid={matcher.kind === 'invalid'}
             container={container}
           />

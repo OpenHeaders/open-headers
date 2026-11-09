@@ -5,8 +5,12 @@
  * ref points at, HEAD's commit, or the window's edge. Hovering a node
  * lights the fragment it sits in; a click hides the fragment's interior
  * rows and leaves the two ends, a stub on each pointing at the hidden
- * run; a second click brings the rows back. Pure: the view hands the
- * entries in log order (newest first) and keeps the collapsed map.
+ * run; a second click brings the rows back. The graph gear's Collapse
+ * Linear Branches names every fragment of the window at once and Expand
+ * clears them. Pure: the view hands the entries in log order (newest
+ * first) and keeps the collapsed map, keyed by {@link fragmentKey} — the
+ * top end and the first hidden commit, so two runs under one merge
+ * stay apart.
  */
 
 import { edgeKey } from './graph';
@@ -65,17 +69,11 @@ function walkDown<T extends FragmentEntry>(
   return { run, stop: cursor };
 }
 
-/**
- * The fragment `sha` sits in: a plain commit widens both ways to the
- * nearest anchors; an anchor reads the run below it along its first
- * parent. Null when the run has no plain commit to hide.
- */
-export function linearFragment<T extends FragmentEntry>(
-  entries: readonly T[],
-  sha: string,
+function fragmentOf<T extends FragmentEntry>(
+  log: LogIndex<T>,
   anchors: ReadonlySet<string>,
+  sha: string,
 ): LogFragment | null {
-  const log = indexWindow(entries);
   if (!log.bySha.has(sha)) return null;
   let top = sha;
   let first = sha;
@@ -102,6 +100,43 @@ export function linearFragment<T extends FragmentEntry>(
     return { top, bottom, interior: run };
   }
   return { top, bottom: stop, interior: run };
+}
+
+/**
+ * The fragment `sha` sits in: a plain commit widens both ways to the
+ * nearest anchors; an anchor reads the run below it along its first
+ * parent. Null when the run has no plain commit to hide.
+ */
+export function linearFragment<T extends FragmentEntry>(
+  entries: readonly T[],
+  sha: string,
+  anchors: ReadonlySet<string>,
+): LogFragment | null {
+  return fragmentOf(indexWindow(entries), anchors, sha);
+}
+
+/** The key the collapsed map holds a fragment under — its top end and the first commit it hides. */
+export function fragmentKey(fragment: LogFragment): string {
+  return edgeKey(fragment.top, fragment.interior[0]);
+}
+
+/** Every fragment of the window, each once, in the order their commits appear (Collapse Linear Branches). */
+export function allLinearFragments<T extends FragmentEntry>(
+  entries: readonly T[],
+  anchors: ReadonlySet<string>,
+): LogFragment[] {
+  const log = indexWindow(entries);
+  const seen = new Set<string>();
+  const fragments: LogFragment[] = [];
+  for (const entry of entries) {
+    const fragment = fragmentOf(log, anchors, entry.sha);
+    if (fragment === null) continue;
+    const key = fragmentKey(fragment);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    fragments.push(fragment);
+  }
+  return fragments;
 }
 
 /** The fragment a hover resolves to: a collapsed fragment first (either end re-expands it), else the linear run. */
@@ -133,9 +168,9 @@ export function fragmentEdges(fragment: LogFragment): ReadonlySet<string> {
 
 /**
  * The log with every collapsed fragment's interior hidden: the top end's
- * parent pointer skips to the bottom end and the skipping edge is named
- * so the layout can draw it as the stubs. A fragment whose ends are no
- * longer both in the window is ignored.
+ * parent pointer into the run skips to the bottom end and the skipping
+ * edge is named so the layout can draw it as the stubs. A fragment whose
+ * ends are no longer both in the window is ignored.
  */
 export function collapseLog<T extends FragmentEntry>(
   entries: readonly T[],
@@ -144,19 +179,19 @@ export function collapseLog<T extends FragmentEntry>(
   if (collapsed.size === 0) return { entries: [...entries], collapsedEdges: new Set() };
   const present = new Set(entries.map((entry) => entry.sha));
   const hidden = new Set<string>();
-  const skipTo = new Map<string, { from: string; to: string }>();
+  // The parent pointer each collapse rewires (by its edge key) and the bottom end it now reaches.
+  const skipTo = new Map<string, string>();
   const collapsedEdges = new Set<string>();
   for (const fragment of collapsed.values()) {
     if (!present.has(fragment.top) || !present.has(fragment.bottom) || fragment.interior.length === 0) continue;
     for (const sha of fragment.interior) hidden.add(sha);
-    skipTo.set(fragment.top, { from: fragment.interior[0], to: fragment.bottom });
+    skipTo.set(fragmentKey(fragment), fragment.bottom);
     collapsedEdges.add(edgeKey(fragment.top, fragment.bottom));
   }
   const visible = entries.flatMap((entry) => {
     if (hidden.has(entry.sha)) return [];
-    const skip = skipTo.get(entry.sha);
-    if (skip === undefined) return [entry];
-    return [{ ...entry, parents: entry.parents.map((parent) => (parent === skip.from ? skip.to : parent)) }];
+    const parents = entry.parents.map((parent) => skipTo.get(edgeKey(entry.sha, parent)) ?? parent);
+    return [parents.every((parent, i) => parent === entry.parents[i]) ? entry : { ...entry, parents }];
   });
   return { entries: visible, collapsedEdges };
 }
