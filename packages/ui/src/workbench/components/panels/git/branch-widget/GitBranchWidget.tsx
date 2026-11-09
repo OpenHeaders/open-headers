@@ -83,6 +83,9 @@ const GitBranchWidget: React.FC<GitBranchWidgetProps> = ({ workspaceId, onOpenCo
         onOpenChange={setOpen}
         trigger={['click']}
         placement="bottomLeft"
+        // Mounted fresh on every open, so the search field's autoFocus
+        // lands each time (a kept popup mounts once and focuses once).
+        destroyOnHidden
         popupRender={() => (
           <GitBranchPopup
             workspaceId={workspaceId}

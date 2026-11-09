@@ -438,6 +438,9 @@ const GitLogToolbar: React.FC<GitLogToolbarProps> = ({
         trigger={['click']}
         placement="bottomRight"
         open={goToOpen}
+        // Mounted fresh on every open, so the field's autoFocus lands each
+        // time (a kept popup mounts once and focuses once).
+        destroyOnHidden
         onOpenChange={(next) => {
           setGoToOpen(next);
           if (!next) {
