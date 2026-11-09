@@ -100,6 +100,7 @@ import {
   environmentFilePath,
   environmentSecretFilePath,
   type TreeReadResult,
+  WORKSPACE_MANIFEST_FILE,
   type WorkspaceTreeState,
 } from '@openheaders/core/workspace-tree';
 import { buildDeleteCollectionBatch } from './collection-mutations';
@@ -298,7 +299,11 @@ export function synthesizeWorkspaceTreeDelta(args: WorkspaceTreeDeltaArgs): Emis
   // One slot-key minter for the whole round: the emission's creates,
   // the three request kinds below and the path moves all place through
   // it, and a tree-authored `order:` pre-assigns the keys it hands out.
-  const slotOrder = planTreeOrder(treeOrderInput(next, touched), touched, deps.liveSetEntries);
+  const slotOrder = planTreeOrder(
+    treeOrderInput(next, changedPaths.has(WORKSPACE_MANIFEST_FILE)),
+    touched,
+    deps.liveSetEntries,
+  );
   const tail = createTailTracker(deps.liveSetEntries, slotOrder);
   const emissionDeps: ImportEmissionDeps = { ...deps, tail };
 
@@ -403,9 +408,16 @@ export function synthesizeWorkspaceTreeDelta(args: WorkspaceTreeDeltaArgs): Emis
 
 // ── Tree-authored `order:` → slot-order plan ─────────────────────────
 
-/** The read tree as the order planner sees it: every container and leaf of each family, the manifest's roots order when `workspace.yaml` was touched. */
-function treeOrderInput(next: TreeReadResult['state'], touched: (entityPath: string) => boolean): TreeOrderInput {
-  const manifestOrder = touched('') ? next.workspace?.order : undefined;
+/**
+ * The read tree as the order planner sees it: every container and leaf
+ * of each family, and the manifest's roots order when `workspace.yaml`
+ * ITSELF changed. The root directory is not an entity's own — another
+ * file changing there (a README, `.gitignore`, the workspace
+ * variables) says nothing about the manifest, and reading its `order:`
+ * on that account would reset the engine's roots to a stale listing.
+ */
+function treeOrderInput(next: TreeReadResult['state'], manifestChanged: boolean): TreeOrderInput {
+  const manifestOrder = manifestChanged ? next.workspace?.order : undefined;
   return {
     rules: {
       collections: next.collections,

@@ -569,6 +569,40 @@ describe('synthesizeWorkspaceTreeDelta — order:', () => {
     applyTo(store, batches);
     expect(roots()).toEqual(['col0000b', 'col0000a']);
   });
+
+  it('another root file changing leaves the roots alone — only workspace.yaml itself speaks for the manifest', () => {
+    const store = new InMemoryDocumentStore();
+    const colB: Collection = {
+      schemaVersion: 5,
+      uid: 'col0000b',
+      path: 'rules/col-b-col0000b',
+      name: 'B',
+      variables: [],
+      pinnedEnvironmentIds: [],
+      defaultEnvironmentId: null,
+    };
+    const prev = emptyState({ collections: [collection(), colB] });
+    applyTo(
+      store,
+      delta({
+        prev: emptyState(),
+        next: prev,
+        changed: [`${COL_PATH}/_collection.yaml`, `${colB.path}/_collection.yaml`],
+        store,
+      }),
+    );
+    // The engine's roots read A, B; the tree's manifest lists B, A and did not change.
+    const next = emptyState({
+      workspace: { ...workspace, order: { rules: ['col-b-col0000b', 'col-a-col0000a'] } },
+      collections: [collection(), colB],
+    });
+    for (const rootFile of ['README.md', '.gitignore', 'workspace-vars.yaml', 'trusted-roots.yaml']) {
+      expect(delta({ prev, next, changed: [rootFile], store })).toEqual([]);
+    }
+    expect(delta({ prev, next, changed: ['README.md', 'workspace.yaml'], store }).map((batch) => batch.label)).toEqual([
+      'workspace-roots:workspace-roots (reorder)',
+    ]);
+  });
 });
 
 describe('synthesizeWorkspaceTreeDelta — singletons', () => {
