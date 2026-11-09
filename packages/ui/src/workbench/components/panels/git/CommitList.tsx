@@ -157,6 +157,7 @@ const CommitList: React.FC<CommitListProps> = ({
   return (
     <div
       ref={listRef}
+      className="git-tool-commit-list"
       onKeyDown={handleKeyDown}
       style={{ flex: '1 1 auto', minHeight: 0, overflowY: 'auto' }}
       data-testid="git-tool-list"

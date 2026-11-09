@@ -61,12 +61,17 @@
   }
 }
 
-// Commit tree selection = the sidebar trees' focused-cursor pair
+// Git tree selection = the sidebar trees' focused-cursor pair
 // (Interceptor look): vivid blue + inset ring while the tree holds
 // focus; the `.selected` grey echo above takes over when focus leaves
-// — e.g. into an open row context menu.
+// — e.g. into an open row context menu. The four git trees agree: the
+// Commit tree, the details file tree, the commit lists (the log, the
+// Push window) and the branches rail (the reference's strong row while
+// the pane has focus, grey when it does not).
 .commit-tool-tree:focus-within .git-tool-row.selected,
-.git-tool-file-tree:focus-within .git-tool-row.selected {
+.git-tool-file-tree:focus-within .git-tool-row.selected,
+.git-tool-commit-list:focus-within .git-tool-row.selected,
+.git-tool-refs:focus-within .git-tool-row.selected {
   background: rgba(24, 144, 255, 0.12);
   box-shadow: inset 0 0 0 1px rgba(24, 144, 255, 0.35);
 }

@@ -102,6 +102,7 @@ const PushCommitList: React.FC<PushCommitListProps> = ({ target, entries, select
   return (
     <div
       ref={listRef}
+      className="git-tool-commit-list"
       onKeyDown={handleKeyDown}
       style={{ flex: '1 1 auto', minHeight: 0, overflowY: 'auto', padding: '6px 0' }}
       data-testid="git-push-list"

@@ -292,6 +292,7 @@ const RefTree = forwardRef<RefTreeHandle, RefTreeProps>(function RefTree(
 
   return (
     <div
+      className="git-tool-refs"
       style={{
         flex: '1 1 auto',
         minWidth: 0,
