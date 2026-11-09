@@ -95,6 +95,7 @@ export {
   listForeignAuthors,
   listLocalBranches,
   listRepoRefs,
+  listTags,
   listTreeYamlPaths,
   listWorkingChanges,
   localHeadSha,
@@ -122,3 +123,4 @@ export {
   type WorkingChange,
   withCommitAttribution,
 } from './repo';
+export { createLightweightTag, type TagCreateResult } from './tag-ops';

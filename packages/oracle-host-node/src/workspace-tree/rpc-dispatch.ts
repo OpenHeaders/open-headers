@@ -95,6 +95,7 @@ export async function dispatchWorkspaceTreeRpc(
         branch: null,
         headSha: null,
         branches: [],
+        tags: [],
         dirtyFiles: null,
         userIndexBusy: false,
         suggestedMessage: '',
@@ -179,6 +180,13 @@ export async function dispatchWorkspaceTreeRpc(
       checkout: message.checkout !== false,
       overwrite: message.overwrite === true,
     });
+  }
+  if (type === 'oh.workspaceTree.createTag') {
+    const workspaceId = typeof message.workspaceId === 'string' ? message.workspaceId : '';
+    const name = typeof message.name === 'string' ? message.name.trim() : '';
+    const sha = typeof message.sha === 'string' ? message.sha : '';
+    if (!workspaceId || !name || !sha || runtime === null) return { ok: false, reason: 'not-bound' };
+    return await runtime.createTag(workspaceId, name, sha);
   }
   if (type === 'oh.workspaceTree.deleteBranch') {
     const workspaceId = typeof message.workspaceId === 'string' ? message.workspaceId : '';

@@ -46,6 +46,7 @@ import type { SweepWorkspaceTreeResult } from '../sweep';
 import type { SwitchDirtyAction } from '../switch';
 import {
   runCreateBranch,
+  runCreateTag,
   runDeleteBranch,
   runMergeBranch,
   runSwitchBranch,
@@ -85,6 +86,7 @@ import type {
   CompareRefsRpcResult,
   CreateBranchOptions,
   CreateBranchRpcResult,
+  CreateTagRpcResult,
   DeleteBranchRpcResult,
   FetchWorkspaceTreeRpcResult,
   GitConsoleRow,
@@ -127,6 +129,7 @@ export type {
   CompareRefsRpcResult,
   CreateBranchOptions,
   CreateBranchRpcResult,
+  CreateTagRpcResult,
   DeleteBranchRpcResult,
   FetchWorkspaceTreeRpcResult,
   MergeBranchRpcResult,
@@ -498,6 +501,20 @@ export function createWorkspaceTreeRuntime(options: WorkspaceTreeRuntimeOptions)
         { ok: false, reason: 'create-failed', detail: 'create pass did not run' },
         async () => {
           const result = await runCreateBranch(ctx, binding, branch, createOptions);
+          await ctx.publishGitStatus(binding);
+          return result;
+        },
+      );
+    },
+
+    async createTag(workspaceId: string, name: string, sha: string): Promise<CreateTagRpcResult> {
+      const binding = open.get(workspaceId);
+      if (!binding) return { ok: false, reason: 'not-bound' };
+      return onChain<CreateTagRpcResult>(
+        binding,
+        { ok: false, reason: 'create-failed', detail: 'tag pass did not run' },
+        async () => {
+          const result = await runCreateTag(ctx, binding, name, sha);
           await ctx.publishGitStatus(binding);
           return result;
         },

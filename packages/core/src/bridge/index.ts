@@ -72,6 +72,7 @@ export type {
   WorkspaceTreeCommitCadence,
   WorkspaceTreeCompareRefsWire,
   WorkspaceTreeCreateBranchWire,
+  WorkspaceTreeCreateTagWire,
   WorkspaceTreeDeleteBranchWire,
   WorkspaceTreeDeletePathsWire,
   WorkspaceTreeEntityAtPathWire,

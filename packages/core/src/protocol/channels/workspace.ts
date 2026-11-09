@@ -434,6 +434,15 @@ export interface WorkspaceRpc {
     res: WorkspaceTreeCreateBranchWire;
   };
   /**
+   * Mint a lightweight tag at a FULL commit sha (the log's New Tag…).
+   * Never a history edit; tags never ride a push. A taken name
+   * answers `exists`.
+   */
+  'oh.workspaceTree.createTag': {
+    req: { workspaceId: string; name: string; sha: string };
+    res: WorkspaceTreeCreateTagWire;
+  };
+  /**
    * Safe local-branch delete (`git branch -d` — git itself refuses
    * unmerged work; the current branch refuses typed). The pre-delete
    * sha rides the answer so the surface can offer Restore as a plain
@@ -832,6 +841,14 @@ export type WorkspaceTreeCreateBranchWire =
       detail?: string;
     };
 
+export type WorkspaceTreeCreateTagWire =
+  | { ok: true; name: string; sha: string }
+  | {
+      ok: false;
+      reason: 'not-bound' | 'git-unavailable' | 'not-a-repo' | 'unknown-ref' | 'exists' | 'create-failed';
+      detail?: string;
+    };
+
 export type WorkspaceTreeDeleteBranchWire =
   | { ok: true; branch: string; sha: string }
   | {
@@ -1171,6 +1188,8 @@ export interface WorkspaceTreeGitStatusWire {
   headSha: string | null;
   /** Local branch names — rescue/fork branches appear here naturally. */
   branches: string[];
+  /** Tag names — a minted or dropped tag moves the frame (the views refetch on frames). */
+  tags: string[];
   /** `git status --porcelain` entry count — never an app ledger (§3.3); null when unreadable. */
   dirtyFiles: number | null;
   userIndexBusy: boolean;

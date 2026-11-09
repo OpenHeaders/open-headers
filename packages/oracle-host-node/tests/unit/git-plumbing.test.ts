@@ -59,6 +59,7 @@ import {
   listForeignAuthors,
   listLocalBranches,
   listRepoRefs,
+  listTags,
   listTreeYamlPaths,
   listWorkingChanges,
   localHeadSha,
@@ -80,6 +81,7 @@ import {
   userIndexHasStagedChanges,
   withCommitAttribution,
 } from '../../src/git/repo';
+import { createLightweightTag } from '../../src/git/tag-ops';
 import { validateUserCommitInput } from '../../src/workspace-tree/runtime/user-commit';
 
 let tmpDir: string;
@@ -1574,6 +1576,30 @@ describe('branch ops (IDE-log activity bar)', () => {
 
     // A branch with no upstream refuses typed.
     expect(await updateBranchFromUpstream(run, clone, 'parking')).toEqual({ ok: false, reason: 'no-upstream' });
+  });
+});
+
+describe('Tag ops (S47): the log’s New Tag…', () => {
+  it('createLightweightTag mints a tag at a full sha without moving HEAD; a taken name, an unsafe name and a short sha refuse', async () => {
+    await initialCommit();
+    const first = await localHeadSha(run, tmpDir);
+    if (first === null) throw new Error('no head');
+    const head = await currentBranch(run, tmpDir);
+
+    expect(await createLightweightTag(run, tmpDir, 'v2026.11.0-rc1', first)).toEqual({ ok: true, sha: first });
+    expect(await resolveRefSha(run, tmpDir, 'refs/tags/v2026.11.0-rc1')).toBe(first);
+    expect(await currentBranch(run, tmpDir)).toBe(head);
+    expect((await listRepoRefs(run, tmpDir))?.some((ref) => ref.kind === 'tag' && ref.name === 'v2026.11.0-rc1')).toBe(
+      true,
+    );
+    // The status frame's tag fact lists it, so the frame moves and the views refetch.
+    expect(await listTags(run, tmpDir)).toEqual(['v2026.11.0-rc1']);
+
+    expect((await createLightweightTag(run, tmpDir, 'v2026.11.0-rc1', first)).ok).toBe(false);
+    expect((await createLightweightTag(run, tmpDir, '--force', first)).ok).toBe(false);
+    expect((await createLightweightTag(run, tmpDir, 'bad..name', first)).ok).toBe(false);
+    expect((await createLightweightTag(run, tmpDir, 'v2', first.slice(0, 7))).ok).toBe(false);
+    expect((await createLightweightTag(run, tmpDir, 'v3', '0'.repeat(40))).ok).toBe(false);
   });
 });
 

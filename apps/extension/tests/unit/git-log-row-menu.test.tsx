@@ -70,6 +70,7 @@ function handlers(): MockedHandlers {
   return {
     onCopyRevision: vi.fn<LogRowMenuHandlers['onCopyRevision']>(),
     onNewBranchFrom: vi.fn<LogRowMenuHandlers['onNewBranchFrom']>(),
+    onNewTagAt: vi.fn<LogRowMenuHandlers['onNewTagAt']>(),
     onNavigate: vi.fn<LogRowMenuHandlers['onNavigate']>(),
   };
 }
@@ -91,7 +92,7 @@ const clickKey = (menu: MenuProps, key: string): void =>
 describe('buildLogRowMenu — the anatomy', () => {
   const single: LogRowMenuTarget = { shas: ['c3'], child: 'c4', parent: 'c2' };
 
-  it('one commit: copy, new branch and the two walks live; the unbuilt verbs visible-disabled', () => {
+  it('one commit: copy, new branch, new tag and the two walks live; the unbuilt verbs visible-disabled', () => {
     const h = handlers();
     const menu = buildLogRowMenu(single, t, h);
     expect(keysOf(menu)).toEqual([
@@ -112,12 +113,13 @@ describe('buildLogRowMenu — the anatomy', () => {
       'checkout-revision',
       'compare-with-local',
       'revert',
-      'new-tag',
     ]);
     clickKey(menu, 'copy-revision');
     expect(h.onCopyRevision).toHaveBeenCalledWith(['c3']);
     clickKey(menu, 'new-branch');
     expect(h.onNewBranchFrom).toHaveBeenCalledWith('c3');
+    clickKey(menu, 'new-tag');
+    expect(h.onNewTagAt).toHaveBeenCalledWith('c3');
     clickKey(menu, 'go-to-child');
     clickKey(menu, 'go-to-parent');
     expect(h.onNavigate.mock.calls).toEqual([['c4'], ['c2']]);
@@ -136,12 +138,14 @@ describe('buildLogRowMenu — the anatomy', () => {
     expect(disabledKeys(menu)).not.toContain('go-to-parent');
   });
 
-  it('several commits: copy covers the set; new branch and the walks hold', () => {
+  it('several commits: copy covers the set; new branch, new tag and the walks hold', () => {
     const h = handlers();
     const menu = buildLogRowMenu({ shas: ['c4', 'c3'], child: null, parent: null }, t, h);
     clickKey(menu, 'copy-revision');
     expect(h.onCopyRevision).toHaveBeenCalledWith(['c4', 'c3']);
-    expect(disabledKeys(menu)).toEqual(expect.arrayContaining(['new-branch', 'go-to-child', 'go-to-parent']));
+    expect(disabledKeys(menu)).toEqual(
+      expect.arrayContaining(['new-branch', 'new-tag', 'go-to-child', 'go-to-parent']),
+    );
   });
 });
 

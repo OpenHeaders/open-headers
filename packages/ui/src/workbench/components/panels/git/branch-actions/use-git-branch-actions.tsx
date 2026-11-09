@@ -8,7 +8,8 @@
  * ref — never raw `git merge`), Update (fast-forward a NON-current
  * branch from its upstream), Update Project (pull the current branch),
  * Push (the Push window over the current branch), Fetch, Delete
- * with the Restore toast, and Manage Remotes (the Git Remotes dialog).
+ * with the Restore toast, New Tag at a commit (the dialog), and Manage
+ * Remotes (the Git Remotes dialog).
  * Mutations go through the bridge and come back as
  * `workspaceTreeGitStatus` frames — nothing here refetches by hand.
  * The hook owns the dialogs' state and hands back their elements for
@@ -28,6 +29,7 @@ import { isFullCommitSha } from '../log-neighbors';
 import PushCommitsModal from '../push/PushCommitsModal';
 import PushRejectedModal from '../push/PushRejectedModal';
 import CreateBranchModal from '../rail/CreateBranchModal';
+import CreateTagModal from '../rail/CreateTagModal';
 import RemotesModal from '../remotes/RemotesModal';
 import SwitchBranchModal, { type SwitchBranchPrompt, type SwitchDirtyChoice } from '../rail/SwitchBranchModal';
 
@@ -57,6 +59,8 @@ export interface GitBranchActions {
   checkoutRemote: (ref: string) => void;
   /** The New Branch dialog anchored at a ref name or a full commit sha; null = the current branch. */
   newBranchFrom: (ref: string | null) => void;
+  /** The New Tag dialog at a full commit sha. */
+  newTagAt: (sha: string) => void;
   mergeIntoCurrent: (ref: string) => void;
   updateBranch: (branch: string) => void;
   deleteBranch: (branch: string) => void;
@@ -66,7 +70,7 @@ export interface GitBranchActions {
   /** The Git Remotes dialog. */
   manageRemotes: () => void;
   busy: GitBranchBusy;
-  /** The New Branch, dirty-switch, Push and Remotes dialogs — mount once in the caller's tree. */
+  /** The New Branch, New Tag, dirty-switch, Push and Remotes dialogs — mount once in the caller's tree. */
   dialogs: React.ReactNode;
 }
 
@@ -93,6 +97,7 @@ export function useGitBranchActions(options: GitBranchActionsOptions): GitBranch
   const [pushOpen, setPushOpen] = useState(false);
   const [pushRejected, setPushRejected] = useState(false);
   const [remotesOpen, setRemotesOpen] = useState(false);
+  const [tagAt, setTagAt] = useState<string | null>(null);
 
   const failure = (err: unknown): string => (err instanceof Error ? err.message : String(err));
 
@@ -382,6 +387,18 @@ export function useGitBranchActions(options: GitBranchActionsOptions): GitBranch
           }
         }}
       />
+      <CreateTagModal
+        workspaceId={workspaceId}
+        sha={tagAt}
+        container={container}
+        onClose={() => setTagAt(null)}
+        onCreated={(name, sha) => {
+          notification.success({
+            title: t('workbench.gitLog.createTag.created', { name, sha: sha.slice(0, 7) }),
+            duration: 5,
+          });
+        }}
+      />
       <SwitchBranchModal
         prompt={switchPrompt}
         busy={switching}
@@ -409,6 +426,7 @@ export function useGitBranchActions(options: GitBranchActionsOptions): GitBranch
     checkout: (branch) => void switchTo(branch),
     checkoutRemote: (ref) => void checkoutRemote(ref),
     newBranchFrom: (ref) => setCreateFrom(ref ?? currentRef ?? 'HEAD'),
+    newTagAt: (sha) => setTagAt(sha),
     mergeIntoCurrent: (ref) => void mergeIntoCurrent(ref),
     updateBranch: (branch) => void updateBranch(branch),
     deleteBranch: (branch) => void deleteBranch(branch),

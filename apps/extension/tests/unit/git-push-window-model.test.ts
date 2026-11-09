@@ -27,6 +27,7 @@ function status(overrides: Partial<WorkspaceTreeGitStatusWire> = {}): WorkspaceT
     branch: 'main',
     headSha: 'b55ab33c'.padEnd(40, '0'),
     branches: ['main'],
+    tags: [],
     dirtyFiles: 0,
     userIndexBusy: false,
     suggestedMessage: '',

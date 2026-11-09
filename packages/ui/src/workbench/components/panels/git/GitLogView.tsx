@@ -372,12 +372,13 @@ const GitLogView: React.FC<GitLogViewProps> = ({
     },
   });
 
-  // The commit rows' menu: the clipboard read, the New Branch dialog
-  // anchored at the commit, and the parent / child walk.
+  // The commit rows' menu: the clipboard read, the New Branch and New
+  // Tag dialogs anchored at the commit, and the parent / child walk.
   const rowMenu = (target: LogRowMenuTarget): ReturnType<typeof buildLogRowMenu> =>
     buildLogRowMenu(target, t, {
       onCopyRevision: (shas) => void navigator.clipboard.writeText(shas.join('\n')),
       onNewBranchFrom: actions.newBranchFrom,
+      onNewTagAt: actions.newTagAt,
       onNavigate: navigateToSha,
     });
 

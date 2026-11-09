@@ -781,6 +781,16 @@ export async function listLocalBranches(run: GitRunner, rootDir: string): Promis
   return result.stdout.split('\n').filter((line) => line.trim().length > 0);
 }
 
+/** Tag names (`refs/tags`), sorted — the status frame's tag fact, so a minted tag moves the frame. */
+export async function listTags(run: GitRunner, rootDir: string): Promise<string[]> {
+  const result = await run(
+    [...repoArgs(rootDir), 'for-each-ref', '--format=%(refname:short)', '--sort=refname', 'refs/tags'],
+    { cwd: rootDir },
+  );
+  if (result.code !== 0) return [];
+  return result.stdout.split('\n').filter((line) => line.trim().length > 0);
+}
+
 /** Resolve any ref (branch, remote-tracking, sha) to its commit sha; null when unknown. */
 export async function resolveRefSha(run: GitRunner, rootDir: string, ref: string): Promise<string | null> {
   const result = await run([...repoArgs(rootDir), 'rev-parse', '--verify', '--quiet', `${ref}^{commit}`], {

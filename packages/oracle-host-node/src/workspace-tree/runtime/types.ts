@@ -153,6 +153,15 @@ export type CreateBranchRpcResult =
       detail?: string;
     };
 
+/** The log's New Tag… — a lightweight tag at a full commit sha. */
+export type CreateTagRpcResult =
+  | { ok: true; name: string; sha: string }
+  | {
+      ok: false;
+      reason: 'not-bound' | 'git-unavailable' | 'not-a-repo' | 'unknown-ref' | 'exists' | 'create-failed';
+      detail?: string;
+    };
+
 export type DeleteBranchRpcResult =
   | { ok: true; branch: string; sha: string }
   | {
@@ -388,6 +397,8 @@ export interface WorkspaceTreeGitStatusRpcResult {
   headSha: string | null;
   /** Local branch names — rescue/fork branches appear here naturally. */
   branches: string[];
+  /** Tag names — a minted or dropped tag moves the frame (the views refetch on frames). */
+  tags: string[];
   /** `git status --porcelain` entry count; null when unreadable. */
   dirtyFiles: number | null;
   /** True while the user's own staging area is non-empty (§3.3 pause). */
@@ -468,6 +479,8 @@ export interface WorkspaceTreeRuntime {
    * refuses).
    */
   createBranch(workspaceId: string, branch: string, options?: CreateBranchOptions): Promise<CreateBranchRpcResult>;
+  /** Mint a lightweight tag at a FULL commit sha (the log's New Tag…); an existing name refuses typed. */
+  createTag(workspaceId: string, name: string, sha: string): Promise<CreateTagRpcResult>;
   /**
    * Delete a LOCAL branch (`git branch -d` — merged-only, git itself
    * refuses unmerged work). The current branch refuses; the answered

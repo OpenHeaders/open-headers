@@ -10,6 +10,7 @@
 import { logger } from '@openheaders/core/utils';
 import { detachedHeadStamp } from '@openheaders/core/workspace-tree';
 import {
+  createLightweightTag,
   createLocalBranch,
   currentBranch,
   deleteLocalBranch,
@@ -32,6 +33,7 @@ import { type OpenBinding, type RuntimeCtx, SCOPE, TREE_SURFACE_ID } from './cor
 import type {
   CreateBranchOptions,
   CreateBranchRpcResult,
+  CreateTagRpcResult,
   DeleteBranchRpcResult,
   MergeBranchRpcResult,
   SwitchBranchRpcResult,
@@ -175,6 +177,32 @@ export async function runCreateBranch(
   }
   logger.info(SCOPE, `created branch ${branch} at ${rootDir}${from !== undefined ? ` from ${from}` : ''}`);
   return { ok: true, branch, checkedOut: checkout };
+}
+
+/**
+ * One create-tag pass — the log's New Tag…: a lightweight tag at a
+ * FULL commit sha the repo holds; a taken name refuses typed. No tree
+ * moves, no sweep; the status frame after it carries the ref.
+ */
+export async function runCreateTag(
+  ctx: RuntimeCtx,
+  binding: OpenBinding,
+  name: string,
+  sha: string,
+): Promise<CreateTagRpcResult> {
+  const { rootDir } = binding.record;
+  const availability = await ctx.ensureGitAvailability(rootDir);
+  if (!availability.available) return { ok: false, reason: 'git-unavailable' };
+  if (!(await isWorkspaceRepo(ctx.gitRun, rootDir))) return { ok: false, reason: 'not-a-repo' };
+  if (!isSafeRefName(name)) return { ok: false, reason: 'create-failed', detail: `invalid tag name: ${name}` };
+  if (!isCommitSha(sha) || (await resolveRefSha(ctx.gitRun, rootDir, sha)) === null) {
+    return { ok: false, reason: 'unknown-ref' };
+  }
+  if ((await resolveRefSha(ctx.gitRun, rootDir, `refs/tags/${name}`)) !== null) return { ok: false, reason: 'exists' };
+  const created = await createLightweightTag(ctx.gitRun, rootDir, name, sha);
+  if (!created.ok) return { ok: false, reason: 'create-failed', detail: created.detail };
+  logger.info(SCOPE, `created tag ${name} at ${rootDir} (${sha.slice(0, 8)})`);
+  return { ok: true, name, sha: created.sha };
 }
 
 /**
