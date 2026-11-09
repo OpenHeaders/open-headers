@@ -400,3 +400,24 @@ describe('sweepWorkspaceTree', () => {
     if (bodies[0].kind === 'moveBefore') expect(bodies[0].orderKey < 'm').toBe(true);
   });
 });
+
+describe('sweepWorkspaceTree — the hygiene files', () => {
+  it('a hand-edited .gitignore and .gitattributes survive a sweep and the pass after it', async () => {
+    state.rules = [makeRule('aaaaaaaa', 'Block probes')];
+    const materializer = makeMaterializer();
+    await materializer.flush();
+    const ignore = '.oh/\n*.secret.yaml\n.env\nnode_modules/\n';
+    const attributes = '*.yaml text eol=lf\n*.png binary\n';
+    await fs.writeFile(path.join(tmpDir, '.gitignore'), ignore, 'utf-8');
+    await fs.writeFile(path.join(tmpDir, '.gitattributes'), attributes, 'utf-8');
+
+    const applied: EmissionBatch[] = [];
+    expect(await runSweep(applied)).toMatchObject({ ok: true, applied: 0 });
+    const result = await materializer.flush();
+    materializer.dispose();
+
+    expect(result.written).toEqual([]);
+    expect(await fs.readFile(path.join(tmpDir, '.gitignore'), 'utf-8')).toBe(ignore);
+    expect(await fs.readFile(path.join(tmpDir, '.gitattributes'), 'utf-8')).toBe(attributes);
+  });
+});

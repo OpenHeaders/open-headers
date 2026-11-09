@@ -12,8 +12,9 @@
  *     holder's identity so the error can explain itself;
  *   - hygiene: `.gitignore` (`.oh/` + `*.secret.yaml`) and
  *     `.gitattributes` (`*.yaml text eol=lf`, §3.4) are authored when
- *     absent so a later `git init` can never commit secrets or let
- *     autocrlf break byte-determinism.
+ *     absent, and a `.gitignore` the folder already holds gets the
+ *     entries it lacks appended (`hygiene.ts`), so a later `git init`
+ *     can never commit secrets or let autocrlf break byte-determinism.
  *
  * Adopt (§3.5 / §5, the S25 gap K) is the pre-flight for opening a
  * foreign tree — a teammate's clone — as a NEW local workspace: the
@@ -31,14 +32,8 @@ import { promises as fs } from 'node:fs';
 import * as path from 'node:path';
 import { parseWorkspace } from '@openheaders/core/codec/yaml';
 import type { Workspace } from '@openheaders/core/types';
-import {
-  GITATTRIBUTES_FILE,
-  GITIGNORE_FILE,
-  serializeWorkspaceManifest,
-  WORKSPACE_GITATTRIBUTES_CONTENT,
-  WORKSPACE_GITIGNORE_CONTENT,
-  WORKSPACE_MANIFEST_FILE,
-} from '@openheaders/core/workspace-tree';
+import { serializeWorkspaceManifest, WORKSPACE_MANIFEST_FILE } from '@openheaders/core/workspace-tree';
+import { ensureTreeHygiene } from './hygiene';
 import { acquireTreeLock, releaseTreeLock, type TreeLockHolder } from './sidecar';
 
 export interface BindWorkspaceTreeOptions {
@@ -121,15 +116,7 @@ export async function bindWorkspaceTree(options: BindWorkspaceTreeOptions): Prom
     await fs.writeFile(path.join(rootDir, WORKSPACE_MANIFEST_FILE), serializeWorkspaceManifest(workspace), 'utf-8');
     initialized = true;
   }
-  const authorWhenAbsent = async (fileName: string, content: string): Promise<void> => {
-    try {
-      await fs.writeFile(path.join(rootDir, fileName), content, { encoding: 'utf-8', flag: 'wx' });
-    } catch (err) {
-      if ((err as NodeJS.ErrnoException).code !== 'EEXIST') throw err;
-    }
-  };
-  await authorWhenAbsent(GITIGNORE_FILE, WORKSPACE_GITIGNORE_CONTENT);
-  await authorWhenAbsent(GITATTRIBUTES_FILE, WORKSPACE_GITATTRIBUTES_CONTENT);
+  await ensureTreeHygiene(rootDir);
 
   return { ok: true, initialized };
 }

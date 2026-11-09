@@ -16,6 +16,7 @@ export {
   type WorkspaceTreeEntityRef,
 } from './entity-at-path';
 export { DETACHED_HEAD_STAMP_PREFIX, detachedHeadStamp, type HeadStampReading, readHeadStamp } from './head-stamp';
+export { withRequiredIgnoreEntries } from './hygiene';
 export {
   COLLECTION_MANIFEST_FILE,
   ENVIRONMENTS_DIR,

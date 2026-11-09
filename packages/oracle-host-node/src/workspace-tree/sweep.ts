@@ -48,6 +48,7 @@ import {
   WORKSPACE_VARS_DOC_KEY,
   type WorkspaceTreeState,
 } from '@openheaders/core/workspace-tree';
+import { TREE_HYGIENE_FILES } from './hygiene';
 import { listWorkspaceTreeFiles } from './reader';
 import {
   hashTreeContent,
@@ -103,13 +104,15 @@ export async function sweepWorkspaceTree(options: SweepWorkspaceTreeOptions): Pr
   const diskHashes = new Map<string, string>();
   for (const file of files) diskHashes.set(file.path, hashTreeContent(file.content));
 
+  // The hygiene files are kept by their own pass and never baselined
+  // (`hygiene.ts`) — they are not tree input in either direction.
   const changedPaths = new Set<string>();
   for (const [path, hash] of diskHashes) {
-    if (baseline[path] !== hash) changedPaths.add(path);
+    if (baseline[path] !== hash && !TREE_HYGIENE_FILES.has(path)) changedPaths.add(path);
   }
   const removedPaths = new Set<string>();
   for (const path of Object.keys(baseline)) {
-    if (!diskHashes.has(path)) removedPaths.add(path);
+    if (!diskHashes.has(path) && !TREE_HYGIENE_FILES.has(path)) removedPaths.add(path);
   }
 
   const batches = synthesizeWorkspaceTreeDelta({

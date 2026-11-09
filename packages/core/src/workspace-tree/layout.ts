@@ -36,14 +36,15 @@ export const GITIGNORE_FILE = '.gitignore';
 export const GITATTRIBUTES_FILE = '.gitattributes';
 
 /**
- * Authored at bind (the git-sync plan §3.4): byte-determinism guard so
+ * Authored when absent (the git-sync plan §3.4): byte-determinism guard so
  * `core.autocrlf` on Windows can never rewrite the canonical LF
  * serialization on checkout/commit.
  */
 export const WORKSPACE_GITATTRIBUTES_CONTENT = '*.yaml text eol=lf\n';
 
 /**
- * Authored at bind (the git-sync plan §10 Phase 2). `.oh/` is the engine's
+ * Authored when absent, and each line kept present in a file the user
+ * has since edited (the git-sync plan §10 Phase 2). `.oh/` is the engine's
  * cache tier; `*.secret.yaml` keeps environment secrets and the vault
  * out of every commit (the committed `.secret.yaml.template` skeletons
  * carry the key names teammates need to fill in).

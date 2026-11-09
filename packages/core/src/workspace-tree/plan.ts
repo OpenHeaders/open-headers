@@ -8,6 +8,10 @@
  * fields ride back into their documents via the {@link TreeUnknownFields}
  * map. The planner never touches a filesystem — the Node host diffs the
  * returned set against disk and writes/deletes accordingly.
+ *
+ * `.gitignore` and `.gitattributes` are NOT planned: a planned file is
+ * one the materializer rewrites to the plan's bytes, and those two are
+ * the user's after they are authored (`hygiene.ts`).
  */
 
 import {
@@ -38,8 +42,6 @@ import {
   environmentSecretFilePath,
   environmentSecretTemplateFilePath,
   FOLDER_MANIFEST_FILE,
-  GITATTRIBUTES_FILE,
-  GITIGNORE_FILE,
   GRAPHQL_REQUEST_MANIFEST_FILE,
   GRPC_REQUEST_MANIFEST_FILE,
   LIVE_VARIABLE_MANIFEST_FILE,
@@ -55,8 +57,6 @@ import {
   VAULT_FILE,
   WEBSOCKET_REQUEST_MANIFEST_FILE,
   WORKSPACE_DOC_KEY,
-  WORKSPACE_GITATTRIBUTES_CONTENT,
-  WORKSPACE_GITIGNORE_CONTENT,
   WORKSPACE_MANIFEST_FILE,
   WORKSPACE_VARS_DOC_KEY,
   WORKSPACE_VARS_FILE,
@@ -94,8 +94,6 @@ export function planWorkspaceTree(state: WorkspaceTreeState, unknowns: TreeUnkno
     files.push({ path, content });
   };
 
-  add(GITIGNORE_FILE, WORKSPACE_GITIGNORE_CONTENT);
-  add(GITATTRIBUTES_FILE, WORKSPACE_GITATTRIBUTES_CONTENT);
   add(WORKSPACE_MANIFEST_FILE, serializeWorkspace(toWrite(state.workspace, unknowns[WORKSPACE_DOC_KEY])));
 
   if (state.workspaceVariables !== null) {

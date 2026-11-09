@@ -72,6 +72,17 @@ describe('bindWorkspaceTree', () => {
     expect(probe).toEqual({ present: true, workspaceUid: 'wsaaaaaa', name: 'Probe Workspace' });
   });
 
+  it("a folder's own .gitignore and .gitattributes keep their lines; the missing ignore entries are appended", async () => {
+    await fs.writeFile(path.join(tmpDir, '.gitignore'), 'node_modules/\n.env\n', 'utf-8');
+    await fs.writeFile(path.join(tmpDir, '.gitattributes'), '*.png binary\n', 'utf-8');
+    const result = await bindWorkspaceTree({ rootDir: tmpDir, workspace: makeWorkspace(), hostId: 'desktop-1' });
+    expect(result).toEqual({ ok: true, initialized: true });
+    expect(await fs.readFile(path.join(tmpDir, '.gitignore'), 'utf-8')).toBe(
+      'node_modules/\n.env\n.oh/\n*.secret.yaml\n',
+    );
+    expect(await fs.readFile(path.join(tmpDir, '.gitattributes'), 'utf-8')).toBe('*.png binary\n');
+  });
+
   it('the probe carries the manifest description when the workspace has one', async () => {
     await bindWorkspaceTree({
       rootDir: tmpDir,

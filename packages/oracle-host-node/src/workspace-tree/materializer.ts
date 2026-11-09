@@ -13,6 +13,10 @@
  *     directory sweep: the materializer removes only paths it wrote in
  *     a previous pass, so files the user hand-added (and any file
  *     outside the plan) are never destroyed;
+ *   - `.gitignore` and `.gitattributes` are kept by the hygiene pass
+ *     (`hygiene.ts`), not by the plan: authored when absent, a missing
+ *     ignore entry appended, the user's own lines never rewritten —
+ *     and never part of the baseline;
  *   - runs are chained — a materialize never interleaves with another
  *     (§8 single actor per tree).
  */
@@ -20,6 +24,7 @@
 import { promises as fs } from 'node:fs';
 import * as path from 'node:path';
 import { planWorkspaceTree, type TreeUnknownFields, type WorkspaceTreeState } from '@openheaders/core/workspace-tree';
+import { ensureTreeHygiene, TREE_HYGIENE_FILES } from './hygiene';
 import { hashTreeContent, type MaterializedIndex, readMaterializedIndex, writeMaterializedIndex } from './sidecar';
 
 export interface MaterializeSnapshot {
@@ -101,7 +106,7 @@ export class WorkspaceTreeMaterializer {
     const files = planWorkspaceTree(snapshot.state, snapshot.unknowns ?? {});
     const previous = await readMaterializedIndex(this.rootDir);
 
-    const written: string[] = [];
+    const written: string[] = await ensureTreeHygiene(this.rootDir);
     let unchanged = 0;
     const planned: MaterializedIndex = {};
     for (const file of files) {
@@ -135,6 +140,9 @@ export class WorkspaceTreeMaterializer {
     const deleted: string[] = [];
     for (const stale of Object.keys(previous)) {
       if (stale in planned) continue;
+      // An index written while the plan still held the hygiene files
+      // lists them: they leave the baseline here, never the disk.
+      if (TREE_HYGIENE_FILES.has(stale)) continue;
       const target = path.join(this.rootDir, ...stale.split('/'));
       // Same rung-2 guard on the delete side: only sweep away bytes
       // this materializer wrote. A file that changed since is external
