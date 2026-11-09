@@ -21,8 +21,11 @@
  * the head that owns it: the checked-out branch first, then the head
  * that entered the window first (the newest), so the trunk keeps one
  * colour through the whole log and a merged branch's colour ends on
- * its own last commit — its edge still arrives in its own colour. The
- * palette is eight per-theme tokens the stylesheet defines.
+ * its own last commit — its edge still arrives in its own colour. A
+ * lane that reaches another branch's head on its own chain starts that
+ * branch's colour there (the unpushed run above origin's head reads as
+ * its own segment; the edge into the head keeps the colour it came in
+ * with). The palette is eight per-theme tokens the stylesheet defines.
  *
  * Every edge names the two commits it joins, so a view can light the
  * edges of a fragment, and an edge the view collapsed (a hidden linear
@@ -55,6 +58,8 @@ export interface LogGraphOptions {
   headSha?: string | null;
   /** Edges (by `edgeKey`) that skip a collapsed run. */
   collapsedEdges?: ReadonlySet<string>;
+  /** Commits a branch (local or remote) points at — a lane reaching one restarts its colour there. */
+  branchHeads?: ReadonlySet<string>;
 }
 
 /** Render data for one log row. */
@@ -91,6 +96,8 @@ interface ActiveLane {
   /** Ownership precedence where chains meet: lower wins. */
   rank: number;
   collapsed: boolean;
+  /** The lane has not landed yet — its colour was allocated for the commit it expects. */
+  fresh: boolean;
 }
 
 /**
@@ -105,14 +112,26 @@ export function computeLogGraph(
 ): GraphRow[] {
   const headSha = options.headSha ?? null;
   const collapsedEdges = options.collapsedEdges ?? new Set<string>();
+  const branchHeads = options.branchHeads ?? new Set<string>();
   const rows: GraphRow[] = [];
   let active: ActiveLane[] = [];
   let nextColor = 0;
-  const openLane = (sha: string, child: string | null): ActiveLane => {
+  const allocColor = (): string => {
     const color = GRAPH_LANE_COLORS[nextColor % GRAPH_LANE_COLORS.length];
-    const rank = sha === headSha ? HEAD_RANK : nextColor;
     nextColor += 1;
-    return { sha, child, color, rank, collapsed: child !== null && collapsedEdges.has(edgeKey(child, sha)) };
+    return color;
+  };
+  const openLane = (sha: string, child: string | null): ActiveLane => {
+    const rank = sha === headSha ? HEAD_RANK : nextColor;
+    const color = allocColor();
+    return {
+      sha,
+      child,
+      color,
+      rank,
+      fresh: true,
+      collapsed: child !== null && collapsedEdges.has(edgeKey(child, sha)),
+    };
   };
 
   for (const entry of entries) {
@@ -126,7 +145,12 @@ export function computeLogGraph(
     }
     const lane = matches[0];
     const owner = matches.reduce((best, m) => (active[m].rank < active[best].rank ? m : best), lane);
-    const { color, rank } = active[owner];
+    const { rank } = active[owner];
+    // A branch head a travelled lane reaches starts its branch's colour
+    // on its own dot (a lane opened for it already wears a fresh colour);
+    // the owner keeps its precedence below.
+    const reachedHead = !active[owner].fresh && branchHeads.has(entry.sha);
+    const color = reachedHead ? allocColor() : active[owner].color;
 
     // The next cursor: converging lanes collapse into the dot's lane,
     // which the first parent inherits; extra parents fork right of it.
@@ -143,6 +167,7 @@ export function computeLogGraph(
             child: entry.sha,
             color,
             rank,
+            fresh: false,
             collapsed: collapsedEdges.has(edgeKey(entry.sha, parent)),
           });
         }

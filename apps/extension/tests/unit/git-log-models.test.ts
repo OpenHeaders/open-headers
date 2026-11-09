@@ -132,6 +132,41 @@ describe('computeLogGraph', () => {
     expect(rows[2].edges.find((edge) => edge.span === 'top' && edge.child === 'side')?.collapsed).toBe(false);
   });
 
+  it("a branch head reached on the lane's own chain restarts the colour there; the edge into it keeps the old one", () => {
+    // main2 (HEAD) -> main1 -> origin (origin/main) -> old
+    const rows = computeLogGraph(
+      [
+        { sha: 'main2', parents: ['main1'] },
+        { sha: 'main1', parents: ['origin'] },
+        { sha: 'origin', parents: ['old'] },
+        { sha: 'old', parents: [] },
+      ],
+      { headSha: 'main2', branchHeads: new Set(['main2', 'origin']) },
+    );
+    const local = rows[0].color;
+    expect(rows[1].color).toBe(local);
+    expect(rows[2].color).not.toBe(local);
+    expect(rows[3].color).toBe(rows[2].color);
+    expect(rows[2].edges.find((edge) => edge.span === 'top')?.color).toBe(local);
+    expect(rows[2].edges.find((edge) => edge.span === 'bottom')?.color).toBe(rows[2].color);
+  });
+
+  it("a merged branch's head keeps the colour its lane opened with — no restart on a fresh lane", () => {
+    // merge -> [main1, fix]; fix (fix/x) -> base; main1 -> base
+    const rows = computeLogGraph(
+      [
+        { sha: 'merge', parents: ['main1', 'fix'] },
+        { sha: 'main1', parents: ['base'] },
+        { sha: 'fix', parents: ['base'] },
+        { sha: 'base', parents: [] },
+      ],
+      { branchHeads: new Set(['merge', 'fix']) },
+    );
+    const sideEdge = rows[0].edges.find((edge) => edge.span === 'bottom' && edge.parent === 'fix');
+    expect(rows[2].color).toBe(sideEdge?.color);
+    expect(rows[2].color).not.toBe(rows[0].color);
+  });
+
   it('the palette is the eight lane tokens, cycling in allocation order', () => {
     const heads = Array.from({ length: 9 }, (_, i) => ({ sha: `h${i}`, parents: [] }));
     const rows = computeLogGraph(heads);

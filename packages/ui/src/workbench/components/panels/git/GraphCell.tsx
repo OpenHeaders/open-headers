@@ -4,8 +4,8 @@
  * edges), so the list never measures across rows. When the layout is
  * absent (a text-filtered log is no longer contiguous history — edges
  * would lie) the cell degrades to a plain dot. The reference's
- * reading: lanes 16 px apart, 1.5 px edges, the checked-out commit a
- * hollow ring with a centre dot whose edges stop at the ring. Colours
+ * reading: lanes 16 px apart, 2 px edges, 4 px nodes, the checked-out
+ * commit a hollow ring with a centre dot whose edges stop at the ring. Colours
  * arrive as the palette tokens and resolve through the style, so the
  * theme decides the hue.
  *
@@ -23,11 +23,11 @@ import { edgeKey } from './graph';
 export const GRAPH_ROW_HEIGHT = 26;
 const LANE_WIDTH = 16;
 const LEFT_PAD = 8;
-const DOT_RADIUS = 3.5;
-const RING_RADIUS = 4;
-const RING_CORE_RADIUS = 1.5;
-const EDGE_WIDTH = 1.5;
-const LIT_EDGE_WIDTH = 2;
+const DOT_RADIUS = 4;
+const RING_RADIUS = 4.5;
+const RING_CORE_RADIUS = 1.75;
+const EDGE_WIDTH = 2;
+const LIT_EDGE_WIDTH = 2.5;
 const HALO = 1.25;
 const STUB = 5;
 /** The gap an edge leaves before the HEAD ring — the ring's outer edge. */

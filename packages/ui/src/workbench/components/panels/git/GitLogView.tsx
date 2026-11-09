@@ -238,9 +238,18 @@ const GitLogView: React.FC<GitLogViewProps> = ({
     () => (graphHonest ? collapseLog(entries, collapsed) : { entries: filtered, collapsedEdges: new Set<string>() }),
     [graphHonest, entries, filtered, collapsed],
   );
+  // A branch head on a lane's own chain restarts the colour there (the
+  // reference: the unpushed run reads apart from origin's).
+  const branchHeads = useMemo(
+    () => new Set(refs.filter((ref) => ref.kind === 'local' || ref.kind === 'remote').map((ref) => ref.sha)),
+    [refs],
+  );
   const graph = useMemo(
-    () => (graphHonest ? computeLogGraph(shown.entries, { headSha, collapsedEdges: shown.collapsedEdges }) : null),
-    [graphHonest, shown, headSha],
+    () =>
+      graphHonest
+        ? computeLogGraph(shown.entries, { headSha, collapsedEdges: shown.collapsedEdges, branchHeads })
+        : null,
+    [graphHonest, shown, headSha, branchHeads],
   );
   // A fragment never crosses a ref'd commit or HEAD's.
   const anchors = useMemo(() => {
