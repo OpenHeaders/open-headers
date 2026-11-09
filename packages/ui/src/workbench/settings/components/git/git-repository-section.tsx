@@ -15,6 +15,7 @@ import { Alert, App as AntApp, Button, Input, Modal, Popconfirm, Select, theme }
 import type React from 'react';
 import { useState } from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
+import { keptLocalNotice } from '../../../components/panels/git/kept-local';
 import { PaneSection } from '../pane-chrome';
 import GitNeedsRepoNote from './git-needs-repo-note';
 import type { WorkspaceGit } from './use-workspace-git';
@@ -56,6 +57,11 @@ const GitRepositorySection: React.FC<{ git: WorkspaceGit }> = ({ git }) => {
   const t = useT();
   const { message } = AntApp.useApp();
   const { call, workspaceId, gitStatus, refresh, refreshGitStatus } = git;
+  // A file both sides changed kept its local bytes — the pull or merge says which.
+  const warnKeptLocal = (keptLocal: readonly string[] | undefined): void => {
+    const notice = keptLocalNotice(keptLocal, t);
+    if (notice !== null) message.warning(notice, 8);
+  };
   const [commitMessage, setCommitMessage] = useState('');
   const [committing, setCommitting] = useState(false);
   const [commitError, setCommitError] = useState<string | null>(null);
@@ -119,6 +125,7 @@ const GitRepositorySection: React.FC<{ git: WorkspaceGit }> = ({ git }) => {
         message.info(t('workbench.settings.gitPane.git.upToDate'));
       } else if (result.ok) {
         message.success(t('workbench.settings.gitPane.git.pulled', { sha: result.sha.slice(0, 7) }));
+        warnKeptLocal(result.keptLocal);
       } else {
         setPullError(t('workbench.settings.gitPane.git.pullFailed', { detail: result.detail ?? result.reason }));
       }
@@ -267,6 +274,7 @@ const GitRepositorySection: React.FC<{ git: WorkspaceGit }> = ({ git }) => {
       } else if (result.ok) {
         setMergeRef(null);
         message.success(t('workbench.settings.gitPane.git.branch.merged', { sha: result.sha.slice(0, 7) }));
+        warnKeptLocal(result.keptLocal);
       } else {
         setBranchError(
           t('workbench.settings.gitPane.git.branch.mergeFailed', { detail: result.detail ?? result.reason }),

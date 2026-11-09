@@ -26,6 +26,7 @@ import { App as AntApp, theme } from 'antd';
 import type React from 'react';
 import { useState } from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
+import { keptLocalNotice } from '../kept-local';
 import { isFullCommitSha } from '../log-neighbors';
 import PushCommitsModal from '../push/PushCommitsModal';
 import PushRejectedModal from '../push/PushRejectedModal';
@@ -103,6 +104,12 @@ export function useGitBranchActions(options: GitBranchActionsOptions): GitBranch
   const [tagAt, setTagAt] = useState<string | null>(null);
 
   const failure = (err: unknown): string => (err instanceof Error ? err.message : String(err));
+
+  // A file both sides changed kept its local bytes — a second toast names it.
+  const warnKeptLocal = (keptLocal: readonly string[] | undefined): void => {
+    const notice = keptLocalNotice(keptLocal, t);
+    if (notice !== null) notification.warning({ title: notice, duration: 8 });
+  };
 
   // Checkout (§6): the wrapped switch; a dirty tree answers `dirty`
   // with the count and the §6.2 prompt re-enters the verb with the
@@ -198,6 +205,7 @@ export function useGitBranchActions(options: GitBranchActionsOptions): GitBranch
           duration: 5,
         });
       }
+      if (result.ok && !result.upToDate) warnKeptLocal(result.keptLocal);
     } catch (err) {
       notification.error({ title: t('workbench.gitLog.merge.failed', { ref, detail: failure(err) }) });
     } finally {
@@ -324,6 +332,7 @@ export function useGitBranchActions(options: GitBranchActionsOptions): GitBranch
           duration: 5,
         });
       }
+      if (!result.upToDate) warnKeptLocal(result.keptLocal);
       return true;
     } catch (err) {
       notification.error({ title: t('workbench.commitTool.menu.pullFailed', { detail: failure(err) }) });

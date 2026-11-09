@@ -725,6 +725,8 @@ export const workbenchChrome = {
   'workbench.gitLog.merge.doneUnrelated':
     '{ref}을(를) {branch}에 병합했습니다. 두 기록에 공통 커밋이 없으므로 {ref}의 모든 파일을 변경된 것으로 처리했습니다.',
   'workbench.gitLog.merge.failed': '{ref}을(를) 병합할 수 없습니다: {detail}',
+  'workbench.gitLog.keptLocal':
+    '양쪽 모두 {files} 파일을 변경했습니다. 로컬 버전을 유지했으며 들어오는 변경은 적용하지 않았습니다.',
   'workbench.gitLog.forcePush.title': '원격 기록이 다시 쓰였습니다',
   'workbench.gitLog.forcePush.body':
     '원격 브랜치에 마지막으로 동기화한 기록 ({sha})이 더 이상 없습니다. Pull, Push, 병합은 선택할 때까지 기다립니다. 결정하기 전까지 아무것도 바뀌지 않습니다.',

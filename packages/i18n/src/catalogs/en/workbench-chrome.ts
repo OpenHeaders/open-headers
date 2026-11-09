@@ -718,6 +718,8 @@ export const workbenchChrome = {
   'workbench.gitLog.merge.doneUnrelated':
     'Merged {ref} into {branch}. The histories share no common commit, so every file from {ref} was treated as changed.',
   'workbench.gitLog.merge.failed': 'Could not merge {ref}: {detail}',
+  'workbench.gitLog.keptLocal':
+    'Both sides changed {files}. Your version was kept and the incoming change was not taken.',
   'workbench.gitLog.forcePush.title': 'Remote history was rewritten',
   'workbench.gitLog.forcePush.body':
     'The remote branch no longer contains the history you last synced ({sha}). Pull, push and merge wait until you choose — nothing changes until you decide.',

@@ -898,6 +898,8 @@ export const workbenchChrome = {
   'workbench.gitLog.merge.doneUnrelated':
     '{ref} fusionnée dans {branch}. Les historiques n’ont aucun commit commun, chaque fichier de {ref} a donc été traité comme modifié.',
   'workbench.gitLog.merge.failed': 'Impossible de fusionner {ref} : {detail}',
+  'workbench.gitLog.keptLocal':
+    'Les deux côtés ont modifié {files}. Votre version a été conservée et la modification entrante n’a pas été appliquée.',
   'workbench.gitLog.forcePush.title': 'L’historique distant a été réécrit',
   'workbench.gitLog.forcePush.body':
     'La branche distante ne contient plus l’historique synchronisé la dernière fois ({sha}). Pull, push et fusion attendent votre choix — rien ne change tant que vous n’avez pas décidé.',

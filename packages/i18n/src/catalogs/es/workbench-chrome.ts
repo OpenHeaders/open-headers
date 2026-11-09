@@ -896,6 +896,8 @@ export const workbenchChrome = {
   'workbench.gitLog.merge.doneUnrelated':
     '{ref} fusionada en {branch}. Los historiales no comparten ningún commit, así que cada archivo de {ref} se trató como cambiado.',
   'workbench.gitLog.merge.failed': 'No se pudo fusionar {ref}: {detail}',
+  'workbench.gitLog.keptLocal':
+    'Ambos lados modificaron {files}. Se conservó tu versión y no se aplicó el cambio entrante.',
   'workbench.gitLog.forcePush.title': 'El historial remoto fue reescrito',
   'workbench.gitLog.forcePush.body':
     'La rama remota ya no contiene el historial sincronizado por última vez ({sha}). Pull, push y fusión esperan a que elijas — nada cambia hasta que decidas.',

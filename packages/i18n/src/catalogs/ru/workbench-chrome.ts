@@ -751,6 +751,7 @@ export const workbenchChrome = {
   'workbench.gitLog.merge.doneUnrelated':
     '{ref} слита в {branch}. У историй нет общего коммита, поэтому каждый файл из {ref} считался изменённым.',
   'workbench.gitLog.merge.failed': 'Не удалось слить {ref}: {detail}',
+  'workbench.gitLog.keptLocal': 'Обе стороны изменили {files}. Ваша версия сохранена, входящее изменение не применено.',
   'workbench.gitLog.forcePush.title': 'История удалённого репозитория переписана',
   'workbench.gitLog.forcePush.body':
     'Удалённая ветка больше не содержит историю, которую вы синхронизировали последней ({sha}). Pull, Push и слияние ждут вашего выбора — ничего не изменится, пока вы не решите.',

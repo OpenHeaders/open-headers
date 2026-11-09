@@ -894,6 +894,8 @@ export const workbenchChrome = {
   'workbench.gitLog.merge.doneUnrelated':
     '{ref} in {branch} gemergt. Die Historien teilen keinen gemeinsamen Commit, daher galt jede Datei aus {ref} als geändert.',
   'workbench.gitLog.merge.failed': '{ref} konnte nicht gemergt werden: {detail}',
+  'workbench.gitLog.keptLocal':
+    'Beide Seiten haben {files} geändert. Deine Version wurde behalten, die eingehende Änderung wurde nicht übernommen.',
   'workbench.gitLog.forcePush.title': 'Die Remote-Historie wurde umgeschrieben',
   'workbench.gitLog.forcePush.body':
     'Der Remote-Branch enthält die zuletzt synchronisierte Historie ({sha}) nicht mehr. Pull, Push und Merge warten auf deine Wahl — nichts ändert sich, bis du entscheidest.',

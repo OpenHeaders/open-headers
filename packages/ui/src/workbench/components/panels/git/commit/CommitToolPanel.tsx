@@ -29,6 +29,7 @@ import { localWorkspaceTreeTransport } from '../../../git/transport';
 import { refreshWorkspaceGit, useWorkspaceGitSnapshot } from '../../../../stores/git-status-store';
 import DiffModal from '../DiffModal';
 import ForcePushBanner from '../ForcePushBanner';
+import { keptLocalNotice } from '../kept-local';
 import { GIT_PRIMARY_TAB_KEY, getGitPanelWorkbench } from '../git-panel-view-store';
 import CreateBranchModal from '../rail/CreateBranchModal';
 import RemotesModal from '../remotes/RemotesModal';
@@ -364,6 +365,8 @@ const CommitToolPanel: React.FC<CommitToolPanelProps> = ({ info, onHide }) => {
           t(result.upToDate ? 'workbench.commitTool.menu.pullUpToDate' : 'workbench.commitTool.menu.pullDone'),
         );
       }
+      const kept = result.upToDate ? null : keptLocalNotice(result.keptLocal, t);
+      if (kept !== null) message.warning(kept, 8);
       await refreshChanges();
       return true;
     } catch (err) {

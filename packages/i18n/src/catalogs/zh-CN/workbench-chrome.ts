@@ -709,6 +709,7 @@ export const workbenchChrome = {
   'workbench.gitLog.merge.doneUnrelated':
     '已将 {ref} 合并到 {branch}。两段历史没有共同提交，因此 {ref} 中的每个文件都被视为已更改。',
   'workbench.gitLog.merge.failed': '无法合并 {ref}：{detail}',
+  'workbench.gitLog.keptLocal': '双方都更改了 {files}。已保留你的版本，未采用传入的更改。',
   'workbench.gitLog.forcePush.title': '远程历史被改写',
   'workbench.gitLog.forcePush.body':
     '远程分支不再包含你上次同步的历史（{sha}）。拉取、推送和合并会等待你的选择——在你决定之前什么都不会改变。',

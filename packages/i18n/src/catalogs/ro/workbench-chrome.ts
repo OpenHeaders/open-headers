@@ -757,6 +757,8 @@ export const workbenchChrome = {
   'workbench.gitLog.merge.doneUnrelated':
     '{ref} îmbinată în {branch}. Istoricele nu au niciun commit comun, așa că fiecare fișier din {ref} a fost tratat ca modificat.',
   'workbench.gitLog.merge.failed': 'Îmbinarea ramurii {ref} a eșuat: {detail}',
+  'workbench.gitLog.keptLocal':
+    'Ambele părți au modificat {files}. Versiunea dumneavoastră a fost păstrată, iar modificarea primită nu a fost aplicată.',
   'workbench.gitLog.forcePush.title': 'Istoricul de la distanță a fost rescris',
   'workbench.gitLog.forcePush.body':
     'Ramura de la distanță nu mai conține istoricul sincronizat ultima dată ({sha}). Pull, push și îmbinarea așteaptă alegerea dvs. — nimic nu se schimbă până nu decideți.',

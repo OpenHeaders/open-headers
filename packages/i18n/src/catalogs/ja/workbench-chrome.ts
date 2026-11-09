@@ -727,6 +727,8 @@ export const workbenchChrome = {
   'workbench.gitLog.merge.doneUnrelated':
     '{ref} を {branch} にマージしました。履歴に共通のコミットがないため、{ref} のすべてのファイルを変更済みとして扱いました。',
   'workbench.gitLog.merge.failed': '{ref} をマージできませんでした：{detail}',
+  'workbench.gitLog.keptLocal':
+    '{files} は双方で変更されています。ローカルの内容を保持し、取り込み側の変更は適用しませんでした。',
   'workbench.gitLog.forcePush.title': 'リモートの履歴が書き換えられました',
   'workbench.gitLog.forcePush.body':
     'リモートのブランチには、最後に同期した履歴（{sha}）がもう含まれていません。プル、プッシュ、マージは選択するまで待機します。決めるまで何も変わりません。',
