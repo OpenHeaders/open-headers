@@ -768,6 +768,9 @@ export const workbenchSettingsPanes = {
   'workbench.settings.gitPane.log.compactReferencesLabel': 'Referințe compacte',
   'workbench.settings.gitPane.log.compactReferencesDescription':
     'O etichetă pe rând, cu lista completă la trecerea cursorului; dezactivat, afișează fiecare ramură și etichetă în rând.',
+  'workbench.settings.gitPane.log.referencesOnLeftLabel': 'Referințe în stânga',
+  'workbench.settings.gitPane.log.referencesOnLeftDescription':
+    'Așază etichetele de ramură și tag înaintea subiectului, nu după el.',
   'workbench.settings.gitPane.log.tagNamesLabel': 'Numele etichetelor',
   'workbench.settings.gitPane.log.tagNamesDescription': 'Afișează cipurile de etichetă pe rândurile de commit.',
   'workbench.settings.gitPane.log.commitTimestampLabel': 'Ora commit-ului',

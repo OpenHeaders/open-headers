@@ -1,6 +1,7 @@
 /**
  * CommitList — the log's middle pane: graph cell, subject, the
- * right-aligned ref label column, the short hash (off by default),
+ * right-aligned ref label column (or the labels before the subject with
+ * References on the Left), the short hash (off by default),
  * author, and the graduated date column — the eye menu's Columns
  * decide which of the last three show; subject, author and date in one
  * foreground, all three greyed on a merge commit (the reference's
@@ -68,6 +69,8 @@ export interface CommitListProps {
   scrollTo?: { sha: string; nonce: number } | null;
   /** Eye menu — Show > Compact References View: one ref label per row (off: every label inline). */
   compactRefs?: boolean;
+  /** Eye menu — Show > References on the Left: the ref labels before the subject. */
+  refsOnLeft?: boolean;
   /** Eye menu — Show > Tag Names: tag chips on rows. */
   showTagChips?: boolean;
   /** Eye menu — Show > Commit Timestamp: time on older dates. */
@@ -106,6 +109,7 @@ const CommitList: React.FC<CommitListProps> = ({
   onResetFilters,
   scrollTo,
   compactRefs = true,
+  refsOnLeft = false,
   showTagChips = true,
   showTimestamp = true,
   showAuthor = true,
@@ -229,6 +233,7 @@ const CommitList: React.FC<CommitListProps> = ({
         const labelRefs = showTagChips ? rowRefs : rowRefs.filter((ref) => ref.kind !== 'tag');
         const onCurrentBranch = currentBranchShas !== null && currentBranchShas.has(entry.sha);
         const textColor = isMerge ? token.colorTextTertiary : token.colorText;
+        const refLabel = <RefRowLabel refs={labelRefs} isHead={entry.sha === headSha} compact={compactRefs} />;
         return (
           <button
             key={entry.sha}
@@ -264,6 +269,7 @@ const CommitList: React.FC<CommitListProps> = ({
                 if (fragment !== null && onToggleFragment !== undefined) onToggleFragment(fragment);
               }}
             />
+            {refsOnLeft && refLabel}
             <span
               style={{
                 flex: '1 1 auto',
@@ -274,10 +280,11 @@ const CommitList: React.FC<CommitListProps> = ({
                 whiteSpace: 'nowrap',
                 color: textColor,
               }}
+              data-testid="git-tool-row-subject"
             >
               {entry.subject}
             </span>
-            <RefRowLabel refs={labelRefs} isHead={entry.sha === headSha} compact={compactRefs} />
+            {!refsOnLeft && refLabel}
             {showHash && (
               <span
                 style={{ flex: '0 0 auto', fontSize: 11.5, fontFamily: token.fontFamilyCode, color: token.colorTextTertiary }}

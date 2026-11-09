@@ -647,6 +647,8 @@ export const workbenchSettingsPanes = {
   'workbench.settings.gitPane.log.compactReferencesLabel': '紧凑引用',
   'workbench.settings.gitPane.log.compactReferencesDescription':
     '每行一个标签，悬停显示完整列表；关闭后在行内列出每个分支和标签。',
+  'workbench.settings.gitPane.log.referencesOnLeftLabel': '引用靠左显示',
+  'workbench.settings.gitPane.log.referencesOnLeftDescription': '将分支和标签放在提交主题之前而不是之后。',
   'workbench.settings.gitPane.log.tagNamesLabel': '标签名称',
   'workbench.settings.gitPane.log.tagNamesDescription': '在提交行上显示标签芯片。',
   'workbench.settings.gitPane.log.commitTimestampLabel': '提交时间戳',

@@ -82,6 +82,12 @@ describe('Git › Log section', () => {
     fireEvent.click(compact);
     expect(getGitLogViewPrefs(WS).compactReferences).toBe(false);
 
+    // S46: References on the Left is off by default and rides the same store.
+    const left = screen.getByTestId('git-log-pane-references-on-left');
+    expect(left.getAttribute('aria-checked')).toBe('false');
+    fireEvent.click(left);
+    expect(getGitLogViewPrefs(WS).referencesOnLeft).toBe(true);
+
     // S46: the Columns prefs ride the same store — the hash column is off by default.
     const hash = screen.getByTestId('git-log-pane-hash-column');
     expect(hash.getAttribute('aria-checked')).toBe('false');

@@ -200,6 +200,40 @@ describe('CommitList — the ref labels (S46)', () => {
     expect(screen.getAllByTestId('git-tool-row-refs')).toHaveLength(1);
     expect(refLabels()).toEqual(['HEAD', 'main', 'origin/main', 'v1']);
   });
+
+  it('the labels sit after the subject by default and before it with References on the Left', () => {
+    const order = (): string[] =>
+      [...row('c1').children].map((el) => el.getAttribute('data-testid') ?? el.tagName.toLowerCase());
+    const { rerender } = render(
+      <CommitList
+        entries={ENTRIES}
+        graph={null}
+        refsBySha={REFS}
+        headSha="c1"
+        selectedSha={null}
+        onSelect={() => undefined}
+        onSelectionChange={() => undefined}
+        filtersActive={false}
+        onResetFilters={() => undefined}
+      />,
+    );
+    expect(order().slice(0, 3)).toEqual(['git-tool-graph-cell', 'git-tool-row-subject', 'git-tool-row-ref']);
+    rerender(
+      <CommitList
+        entries={ENTRIES}
+        graph={null}
+        refsBySha={REFS}
+        headSha="c1"
+        selectedSha={null}
+        onSelect={() => undefined}
+        onSelectionChange={() => undefined}
+        filtersActive={false}
+        onResetFilters={() => undefined}
+        refsOnLeft
+      />,
+    );
+    expect(order().slice(0, 3)).toEqual(['git-tool-graph-cell', 'git-tool-row-ref', 'git-tool-row-subject']);
+  });
 });
 
 describe('CommitList — the graph cell (S45)', () => {

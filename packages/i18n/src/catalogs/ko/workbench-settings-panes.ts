@@ -704,6 +704,8 @@ export const workbenchSettingsPanes = {
   'workbench.settings.gitPane.log.compactReferencesLabel': '간결한 참조',
   'workbench.settings.gitPane.log.compactReferencesDescription':
     '행마다 레이블 하나를 표시하고 마우스를 올리면 전체 목록을 보여 줍니다. 끄면 모든 브랜치와 태그를 행 안에 표시합니다.',
+  'workbench.settings.gitPane.log.referencesOnLeftLabel': '참조를 왼쪽에',
+  'workbench.settings.gitPane.log.referencesOnLeftDescription': '브랜치와 태그 레이블을 제목 뒤가 아니라 앞에 둡니다.',
   'workbench.settings.gitPane.log.tagNamesLabel': '태그 이름',
   'workbench.settings.gitPane.log.tagNamesDescription': '커밋 행에 태그 칩을 표시합니다.',
   'workbench.settings.gitPane.log.commitTimestampLabel': '커밋 타임스탬프',

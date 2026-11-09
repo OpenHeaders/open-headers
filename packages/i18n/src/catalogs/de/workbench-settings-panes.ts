@@ -807,6 +807,9 @@ export const workbenchSettingsPanes = {
   'workbench.settings.gitPane.log.compactReferencesLabel': 'Kompakte Referenzen',
   'workbench.settings.gitPane.log.compactReferencesDescription':
     'Ein Label pro Zeile mit der vollständigen Liste beim Hovern; aus listet jeden Branch und Tag in der Zeile.',
+  'workbench.settings.gitPane.log.referencesOnLeftLabel': 'Referenzen links',
+  'workbench.settings.gitPane.log.referencesOnLeftDescription':
+    'Branch- und Tag-Labels vor dem Betreff statt dahinter anzeigen.',
   'workbench.settings.gitPane.log.tagNamesLabel': 'Tag-Namen',
   'workbench.settings.gitPane.log.tagNamesDescription': 'Tag-Chips in den Commit-Zeilen anzeigen.',
   'workbench.settings.gitPane.log.commitTimestampLabel': 'Commit-Zeitstempel',

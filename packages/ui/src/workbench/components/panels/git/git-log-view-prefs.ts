@@ -2,7 +2,8 @@
  * git-log-view-prefs — per-workspace display preferences of the Git
  * tool window's log + details panes (the toolbar eye menus): Tag
  * Names and Commit Timestamp in the commit list, the Compact
- * References View, the Author / Hash / Date columns, the Merge Commits highlight (the dimmed-subject
+ * References View, References on the Left, the Author / Hash / Date
+ * columns, the Merge Commits highlight (the dimmed-subject
  * convention), the Current Branch band, Group By Directory and
  * Show Details in the changes pane, and what a double-click on a file
  * row opens (the ⋯ menu's Show on Double-Click: the diff or the
@@ -16,6 +17,8 @@ export type GitDoubleClickTarget = 'diff' | 'source';
 export interface GitLogViewPrefs {
   /** Show > Compact References View — one ref label per row with the hover list; off lists every label inline. */
   compactReferences: boolean;
+  /** Show > References on the Left — the ref labels before the subject instead of right-aligned. */
+  referencesOnLeft: boolean;
   /** Show > Tag Names — tag chips on commit rows. */
   showTagNames: boolean;
   /** Show > Commit Timestamp — time on dates older than yesterday. */
@@ -40,6 +43,7 @@ export interface GitLogViewPrefs {
 
 export const DEFAULT_GIT_LOG_VIEW_PREFS: GitLogViewPrefs = {
   compactReferences: true,
+  referencesOnLeft: false,
   showTagNames: true,
   showCommitTimestamp: false,
   showAuthorColumn: true,
@@ -57,6 +61,7 @@ const store = createWorkspacePrefsStore<GitLogViewPrefs>({
   defaults: DEFAULT_GIT_LOG_VIEW_PREFS,
   parse: (p) => ({
     compactReferences: p.compactReferences !== false,
+    referencesOnLeft: p.referencesOnLeft === true,
     showTagNames: p.showTagNames !== false,
     showCommitTimestamp: p.showCommitTimestamp === true,
     showAuthorColumn: p.showAuthorColumn !== false,

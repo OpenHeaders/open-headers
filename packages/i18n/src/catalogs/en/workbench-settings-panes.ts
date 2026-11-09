@@ -699,6 +699,9 @@ export const workbenchSettingsPanes = {
   'workbench.settings.gitPane.log.compactReferencesLabel': 'Compact references',
   'workbench.settings.gitPane.log.compactReferencesDescription':
     'One label per row with the full list on hover; off lists every branch and tag inline.',
+  'workbench.settings.gitPane.log.referencesOnLeftLabel': 'References on the left',
+  'workbench.settings.gitPane.log.referencesOnLeftDescription':
+    'Place the branch and tag labels before the subject instead of after it.',
   'workbench.settings.gitPane.log.tagNamesLabel': 'Tag names',
   'workbench.settings.gitPane.log.tagNamesDescription': 'Show tag chips on the commit rows.',
   'workbench.settings.gitPane.log.commitTimestampLabel': 'Commit timestamp',

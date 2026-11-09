@@ -389,8 +389,7 @@ const GitLogToolbar: React.FC<GitLogToolbarProps> = ({
                 {
                   key: 'refs-on-left',
                   label: t('workbench.gitLog.show.refsOnLeft'),
-                  icon: menuCheckIcon(false),
-                  disabled: true,
+                  icon: menuCheckIcon(prefs.referencesOnLeft),
                 },
                 {
                   key: 'columns',
@@ -448,6 +447,7 @@ const GitLogToolbar: React.FC<GitLogToolbarProps> = ({
           ],
           onClick: ({ key }) => {
             if (key === 'compact-refs') onPatchPrefs({ compactReferences: !prefs.compactReferences });
+            else if (key === 'refs-on-left') onPatchPrefs({ referencesOnLeft: !prefs.referencesOnLeft });
             else if (key === 'tag-names') onPatchPrefs({ showTagNames: !prefs.showTagNames });
             else if (key === 'commit-timestamp') onPatchPrefs({ showCommitTimestamp: !prefs.showCommitTimestamp });
             else if (key === 'merge-commits') onPatchPrefs({ highlightMergeCommits: !prefs.highlightMergeCommits });

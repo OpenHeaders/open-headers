@@ -804,6 +804,9 @@ export const workbenchSettingsPanes = {
   'workbench.settings.gitPane.log.compactReferencesLabel': 'Referencias compactas',
   'workbench.settings.gitPane.log.compactReferencesDescription':
     'Una etiqueta por fila con la lista completa al pasar el cursor; desactivado muestra cada rama y etiqueta en línea.',
+  'workbench.settings.gitPane.log.referencesOnLeftLabel': 'Referencias a la izquierda',
+  'workbench.settings.gitPane.log.referencesOnLeftDescription':
+    'Colocar las etiquetas de rama y tag antes del asunto en lugar de después.',
   'workbench.settings.gitPane.log.tagNamesLabel': 'Nombres de etiquetas',
   'workbench.settings.gitPane.log.tagNamesDescription': 'Mostrar chips de etiqueta en las filas de commit.',
   'workbench.settings.gitPane.log.commitTimestampLabel': 'Hora del commit',
