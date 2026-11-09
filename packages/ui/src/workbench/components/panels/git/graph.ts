@@ -23,6 +23,10 @@
  * colour through the whole log and a merged branch's colour ends on
  * its own last commit — its edge still arrives in its own colour. The
  * palette is eight per-theme tokens the stylesheet defines.
+ *
+ * Every edge names the two commits it joins, so a view can light the
+ * edges of a fragment, and an edge the view collapsed (a hidden linear
+ * run between two ends) is flagged — the cell draws it as the stubs.
  */
 
 /** One graph edge inside a row's cell, in lane coordinates. */
@@ -35,6 +39,22 @@ export interface GraphEdge {
   /** Which half of the row the edge spans: `top` converges into the
    *  dot, `bottom` forks out of it, `pass` crosses the full row. */
   span: 'top' | 'bottom' | 'pass';
+  /** The newer commit the edge descends from. */
+  child: string;
+  /** The older commit the edge reaches. */
+  parent: string;
+  /** The edge stands for a collapsed run — drawn as stubs, not a line. */
+  collapsed: boolean;
+}
+
+/** The key a view names an edge by — the child and the parent it joins. */
+export const edgeKey = (child: string, parent: string): string => `${child}>${parent}`;
+
+export interface LogGraphOptions {
+  /** The checked-out commit — the lane opening on it owns the shared history below every fork. */
+  headSha?: string | null;
+  /** Edges (by `edgeKey`) that skip a collapsed run. */
+  collapsedEdges?: ReadonlySet<string>;
 }
 
 /** Render data for one log row. */
@@ -63,31 +83,36 @@ export const GRAPH_LANE_COLORS = [
 const HEAD_RANK = -1;
 
 interface ActiveLane {
+  /** The commit the lane expects next. */
   sha: string;
+  /** The commit the lane descends from — null for a head entering the window. */
+  child: string | null;
   color: string;
   /** Ownership precedence where chains meet: lower wins. */
   rank: number;
+  collapsed: boolean;
 }
 
 /**
  * Lay out the graph for `entries` in log order (newest first). Rows are
  * answered in the same order. A truncated log (the tail cut by the
  * fetch limit) simply leaves lanes running off the last row's bottom.
- * `headSha` names the checked-out commit — the lane opening on it owns
- * the shared history below every fork.
+ * A head entering the window draws no edge above its dot.
  */
 export function computeLogGraph(
   entries: ReadonlyArray<{ sha: string; parents: readonly string[] }>,
-  headSha: string | null = null,
+  options: LogGraphOptions = {},
 ): GraphRow[] {
+  const headSha = options.headSha ?? null;
+  const collapsedEdges = options.collapsedEdges ?? new Set<string>();
   const rows: GraphRow[] = [];
   let active: ActiveLane[] = [];
   let nextColor = 0;
-  const openLane = (sha: string): ActiveLane => {
+  const openLane = (sha: string, child: string | null): ActiveLane => {
     const color = GRAPH_LANE_COLORS[nextColor % GRAPH_LANE_COLORS.length];
     const rank = sha === headSha ? HEAD_RANK : nextColor;
     nextColor += 1;
-    return { sha, color, rank };
+    return { sha, child, color, rank, collapsed: child !== null && collapsedEdges.has(edgeKey(child, sha)) };
   };
 
   for (const entry of entries) {
@@ -96,7 +121,7 @@ export function computeLogGraph(
       if (active[i].sha === entry.sha) matches.push(i);
     }
     if (matches.length === 0) {
-      active.push(openLane(entry.sha));
+      active.push(openLane(entry.sha, null));
       matches.push(active.length - 1);
     }
     const lane = matches[0];
@@ -112,7 +137,14 @@ export function computeLogGraph(
       if (i === lane) {
         if (entry.parents.length > 0) {
           dotNextIndex = next.length;
-          next.push({ sha: entry.parents[0], color, rank });
+          const parent = entry.parents[0];
+          next.push({
+            sha: parent,
+            child: entry.sha,
+            color,
+            rank,
+            collapsed: collapsedEdges.has(edgeKey(entry.sha, parent)),
+          });
         }
         continue;
       }
@@ -128,7 +160,7 @@ export function computeLogGraph(
         continue;
       }
       const insertAt = dotNextIndex !== null ? dotNextIndex + 1 : next.length;
-      next.splice(insertAt, 0, openLane(parent));
+      next.splice(insertAt, 0, openLane(parent, entry.sha));
       // Insertion shifts every recorded index at/after the slot.
       for (const [old, idx] of nextIndexByOld) {
         if (idx >= insertAt) nextIndexByOld.set(old, idx + 1);
@@ -141,13 +173,17 @@ export function computeLogGraph(
 
     const edges: GraphEdge[] = [];
     for (const m of matches) {
-      edges.push({ from: m, to: lane, color: active[m].color, span: 'top' });
+      const { child, collapsed } = active[m];
+      if (child === null) continue;
+      edges.push({ from: m, to: lane, color: active[m].color, span: 'top', child, parent: entry.sha, collapsed });
     }
     for (const f of forkLanes) {
-      edges.push({ from: lane, to: f, color: next[f].color, span: 'bottom' });
+      const { sha: parent, collapsed } = next[f];
+      edges.push({ from: lane, to: f, color: next[f].color, span: 'bottom', child: entry.sha, parent, collapsed });
     }
     for (const [old, idx] of nextIndexByOld) {
-      edges.push({ from: old, to: idx, color: next[idx].color, span: 'pass' });
+      const { sha: parent, child, collapsed } = next[idx];
+      edges.push({ from: old, to: idx, color: next[idx].color, span: 'pass', child: child ?? '', parent, collapsed });
     }
 
     rows.push({

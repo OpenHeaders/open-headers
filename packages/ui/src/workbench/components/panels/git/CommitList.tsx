@@ -21,16 +21,23 @@
  * commit. A commit the tab remembers
  * (a navigate from the rail or the toolbar, the tab's own restore)
  * becomes the selection when its row is visible.
+ *
+ * The graph column (the reference): the pointer over a cell lights the
+ * linear fragment its commit sits in — the run of plain commits between
+ * two anchors (a fork, a merge, a ref, HEAD) — and a click on the cell
+ * asks the orchestrator to collapse or re-expand it; the row's own click
+ * is untouched.
  */
 
 import type { WorkspaceTreeLogEntryWire, WorkspaceTreeRefWire } from '@openheaders/core/bridge';
 import { Button, theme } from 'antd';
 import type React from 'react';
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useLocale } from '@openheaders/ui/context/LocaleContext';
 import { clickModifiers, useMultiSelection } from '@openheaders/ui/shared/selection';
 import type { GraphRow } from './graph';
-import GraphCell, { GRAPH_ROW_HEIGHT } from './GraphCell';
+import { fragmentEdges, fragmentShas, hoverFragment, type LogFragment } from './graph-fragment';
+import GraphCell, { GRAPH_ROW_HEIGHT, type GraphHighlight } from './GraphCell';
 import { formatLogDate, formatLogDateTitle, type HourCycle } from './log-date';
 import { commitClickOutcome, stepTarget } from './log-selection';
 import RefRowLabel from './RefRowLabel';
@@ -65,7 +72,16 @@ export interface CommitListProps {
   dimMergeCommits?: boolean;
   /** The workbench clock format's hour cycle for the date column. */
   hourCycle?: HourCycle;
+  /** Commits a fragment never crosses — the ref'd shas and HEAD's. */
+  anchors?: ReadonlySet<string>;
+  /** The fragments the orchestrator holds collapsed, by their top sha. */
+  collapsed?: ReadonlyMap<string, LogFragment>;
+  /** A click on a graph cell — collapse the fragment, or expand it when it is held collapsed. */
+  onToggleFragment?: (fragment: LogFragment) => void;
 }
+
+const NO_ANCHORS: ReadonlySet<string> = new Set();
+const NO_COLLAPSED: ReadonlyMap<string, LogFragment> = new Map();
 
 const CommitList: React.FC<CommitListProps> = ({
   entries,
@@ -83,6 +99,9 @@ const CommitList: React.FC<CommitListProps> = ({
   showTimestamp = true,
   dimMergeCommits = true,
   hourCycle = 'h23',
+  anchors = NO_ANCHORS,
+  collapsed = NO_COLLAPSED,
+  onToggleFragment,
 }) => {
   const { token } = theme.useToken();
   const { locale, t } = useLocale();
@@ -96,6 +115,20 @@ const CommitList: React.FC<CommitListProps> = ({
   const listRef = useRef<HTMLDivElement>(null);
   const order = useMemo(() => entries.map((entry) => entry.sha), [entries]);
   const { selection, isSelected, click, step, clear } = useMultiSelection(order);
+
+  // The graph hover: the fragment under the pointer, lit through the
+  // cells; nothing while the layout is off (a filtered list).
+  const [hoveredSha, setHoveredSha] = useState<string | null>(null);
+  const fragment = useMemo(
+    () => (graph === null || hoveredSha === null ? null : hoverFragment(entries, hoveredSha, anchors, collapsed)),
+    [graph, hoveredSha, entries, anchors, collapsed],
+  );
+  const litShas = useMemo(() => (fragment === null ? null : fragmentShas(fragment)), [fragment]);
+  const litEdges = useMemo(() => (fragment === null ? null : fragmentEdges(fragment)), [fragment]);
+  const highlightFor = (sha: string): GraphHighlight | null => {
+    if (fragment === null || litShas === null || !litShas.has(sha)) return null;
+    return sha === fragment.top || sha === fragment.bottom ? 'end' : 'interior';
+  };
 
   useEffect(() => {
     if (scrollTo === null || scrollTo === undefined || listRef.current === null) return;
@@ -210,6 +243,12 @@ const CommitList: React.FC<CommitListProps> = ({
               maxLanes={maxLanes}
               isHead={entry.sha === headSha}
               fallbackColor={token.colorTextQuaternary}
+              highlight={highlightFor(entry.sha)}
+              litEdges={litEdges}
+              onHover={(hovering) => setHoveredSha((prev) => (hovering ? entry.sha : prev === entry.sha ? null : prev))}
+              onToggle={() => {
+                if (fragment !== null && onToggleFragment !== undefined) onToggleFragment(fragment);
+              }}
             />
             <span
               style={{

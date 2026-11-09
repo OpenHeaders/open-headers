@@ -10,6 +10,7 @@
 
 import type { WorkspaceTreeLogEntryWire } from '@openheaders/core/bridge';
 import CommitList from '@openheaders/ui/workbench/components/panels/git/CommitList';
+import { computeLogGraph } from '@openheaders/ui/workbench/components/panels/git/graph';
 import PushCommitList from '@openheaders/ui/workbench/components/panels/git/push/PushCommitList';
 import type { PushSelection } from '@openheaders/ui/workbench/components/panels/git/push/push-window-model';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
@@ -130,6 +131,58 @@ describe('CommitList — the graph cell (S45)', () => {
     expect(cells[1].querySelectorAll('circle')).toHaveLength(2);
     expect(cells[1].querySelector('circle')?.getAttribute('fill')).toBe('none');
     expect(cells[0].querySelectorAll('circle')).toHaveLength(1);
+  });
+
+  it('the pointer over a cell lights its linear fragment — ends and interior — and a click reports it; the row click stays a selection', () => {
+    // c4 -> c3 -> c2 -> c1, HEAD on c4: the whole run is one fragment with c4 and c1 its ends.
+    const chain = ENTRIES.map((e, i) => ({ ...e, parents: i === 0 ? [] : [ENTRIES[i - 1].sha] })).reverse();
+    const onToggle = vi.fn();
+    const onSelect = vi.fn();
+    render(
+      <CommitList
+        entries={chain}
+        graph={computeLogGraph(chain, { headSha: 'c4' })}
+        refsBySha={new Map()}
+        headSha="c4"
+        selectedSha={null}
+        onSelect={onSelect}
+        onSelectionChange={() => undefined}
+        filtersActive={false}
+        onResetFilters={() => undefined}
+        anchors={new Set(['c4'])}
+        onToggleFragment={onToggle}
+      />,
+    );
+    const cells = screen.getAllByTestId('git-tool-graph-cell');
+    expect(cells.map((cell) => cell.getAttribute('data-highlight'))).toEqual([null, null, null, null]);
+    fireEvent.mouseEnter(cells[1]);
+    expect(cells.map((cell) => cell.getAttribute('data-highlight'))).toEqual(['end', 'interior', 'interior', 'end']);
+    fireEvent.click(cells[1]);
+    expect(onToggle).toHaveBeenCalledWith({ top: 'c4', bottom: 'c1', interior: ['c3', 'c2'] });
+    expect(onSelect).not.toHaveBeenCalled();
+    fireEvent.mouseLeave(cells[1]);
+    expect(cells.map((cell) => cell.getAttribute('data-highlight'))).toEqual([null, null, null, null]);
+  });
+
+  it('a filtered list (no layout) lights nothing', () => {
+    const chain = ENTRIES.map((e, i) => ({ ...e, parents: i === 0 ? [] : [ENTRIES[i - 1].sha] })).reverse();
+    render(
+      <CommitList
+        entries={chain}
+        graph={null}
+        refsBySha={new Map()}
+        headSha="c4"
+        selectedSha={null}
+        onSelect={() => undefined}
+        onSelectionChange={() => undefined}
+        filtersActive={true}
+        onResetFilters={() => undefined}
+        anchors={new Set(['c4'])}
+      />,
+    );
+    const cells = screen.getAllByTestId('git-tool-graph-cell');
+    fireEvent.mouseEnter(cells[1]);
+    expect(cells.map((cell) => cell.getAttribute('data-highlight'))).toEqual([null, null, null, null]);
   });
 });
 

@@ -6,7 +6,7 @@
  */
 
 import { allDirKeys, buildFileTree } from '@openheaders/ui/workbench/components/panels/git/file-tree';
-import { computeLogGraph } from '@openheaders/ui/workbench/components/panels/git/graph';
+import { computeLogGraph, edgeKey } from '@openheaders/ui/workbench/components/panels/git/graph';
 import { formatLogDate, hourCycleFor } from '@openheaders/ui/workbench/components/panels/git/log-date';
 import {
   allFolderKeys,
@@ -34,12 +34,13 @@ describe('computeLogGraph', () => {
       expect(row.lane).toBe(0);
       expect(row.laneCount).toBe(1);
     }
-    // Interior rows connect through the dot: one top edge in, one bottom out.
+    // Interior rows connect through the dot: one top edge in, one bottom out, each naming its commits.
     expect(rows[1].edges).toEqual([
-      { from: 0, to: 0, color: rows[1].color, span: 'top' },
-      { from: 0, to: 0, color: rows[1].color, span: 'bottom' },
+      { from: 0, to: 0, color: rows[1].color, span: 'top', child: 'c3', parent: 'c2', collapsed: false },
+      { from: 0, to: 0, color: rows[1].color, span: 'bottom', child: 'c2', parent: 'c1', collapsed: false },
     ]);
-    // The root commit forks to no parent.
+    // The head entering the window draws nothing above its dot; the root forks to no parent.
+    expect(rows[0].edges.filter((edge) => edge.span === 'top')).toHaveLength(0);
     expect(rows[2].edges.filter((edge) => edge.span === 'bottom')).toHaveLength(0);
   });
 
@@ -95,7 +96,7 @@ describe('computeLogGraph', () => {
   ];
 
   it('the checked-out branch owns the shared history: a newer side head does not recolour it below the fork', () => {
-    const rows = computeLogGraph(FORKED, 'main1');
+    const rows = computeLogGraph(FORKED, { headSha: 'main1' });
     const main = rows[1].color;
     const feature = rows[0].color;
     expect(feature).not.toBe(main);
@@ -113,6 +114,22 @@ describe('computeLogGraph', () => {
     expect(rows[3].color).toBe(rows[0].color);
     expect(rows[4].color).toBe(rows[0].color);
     expect(rows[1].color).not.toBe(rows[0].color);
+  });
+
+  it('a collapsed edge is flagged at both ends and on every row it passes', () => {
+    // main3 -> main2 -> main1 (main2 hidden: the view rewired main3 -> main1); side -> main1 keeps lane 1 busy.
+    const rows = computeLogGraph(
+      [
+        { sha: 'main3', parents: ['main1'] },
+        { sha: 'side', parents: ['main1'] },
+        { sha: 'main1', parents: [] },
+      ],
+      { collapsedEdges: new Set([edgeKey('main3', 'main1')]) },
+    );
+    expect(rows[0].edges.find((edge) => edge.span === 'bottom')?.collapsed).toBe(true);
+    expect(rows[1].edges.find((edge) => edge.span === 'pass')?.collapsed).toBe(true);
+    expect(rows[2].edges.find((edge) => edge.span === 'top' && edge.child === 'main3')?.collapsed).toBe(true);
+    expect(rows[2].edges.find((edge) => edge.span === 'top' && edge.child === 'side')?.collapsed).toBe(false);
   });
 
   it('the palette is the eight lane tokens, cycling in allocation order', () => {
