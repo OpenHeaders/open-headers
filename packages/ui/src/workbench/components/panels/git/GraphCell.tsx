@@ -10,9 +10,8 @@
  * theme decides the hue.
  *
  * The hover fragment (the reference): the lit edges and nodes wear a
- * pale halo, the fragment's two ends grow, its interior nodes a touch;
- * a collapsed edge is a stub out of each end (a dashed trace where it
- * passes other rows). The pointer over the cell reports the hover and
+ * thin pale border and nothing else changes; a collapsed edge is a stub
+ * out of each end (a dashed trace where it passes other rows). The pointer over the cell reports the hover and
  * a click the toggle; the row's own click stays with the row.
  */
 
@@ -27,8 +26,8 @@ const DOT_RADIUS = 4;
 const RING_RADIUS = 4.5;
 const RING_CORE_RADIUS = 1.75;
 const EDGE_WIDTH = 2;
-const LIT_EDGE_WIDTH = 2.5;
-const HALO = 1.25;
+/** The lit fragment's border, each side. */
+const HALO = 1;
 const STUB = 5;
 /** The gap an edge leaves before the HEAD ring — the ring's outer edge. */
 const RING_GAP = RING_RADIUS + EDGE_WIDTH / 2;
@@ -78,13 +77,9 @@ const GraphCell: React.FC<GraphCellProps> = ({
   const mid = GRAPH_ROW_HEIGHT / 2;
   const dotX = laneX(row?.lane ?? 0);
   const dotColor = row?.color ?? fallbackColor;
-  const grow = highlight === 'end' ? 1.5 : highlight === 'interior' ? 0.5 : 0;
-  const dotRadius = DOT_RADIUS + grow;
-  const ringRadius = RING_RADIUS + (highlight === null ? 0 : 1);
-  const ringWidth = highlight === null ? EDGE_WIDTH : LIT_EDGE_WIDTH;
-  const gap = isHead ? ringRadius + ringWidth / 2 : 0;
-  // A stub starts at the node's outer edge — the halo's when lit.
-  const stubGap = (isHead ? gap : dotRadius) + (highlight === null ? 0 : HALO);
+  const gap = isHead ? RING_GAP : 0;
+  // A stub starts at the node's outer edge — the border's when lit.
+  const stubGap = (isHead ? gap : DOT_RADIUS) + (highlight === null ? 0 : HALO);
 
   const edges =
     row === null
@@ -136,7 +131,7 @@ const GraphCell: React.FC<GraphCellProps> = ({
             key={`halo:${edge.key}`}
             d={edge.d}
             style={{ stroke: HALO_COLOR }}
-            strokeWidth={LIT_EDGE_WIDTH + HALO * 2}
+            strokeWidth={EDGE_WIDTH + HALO * 2}
             strokeDasharray={edge.dashed ? '2 3' : undefined}
             fill="none"
           />
@@ -146,7 +141,7 @@ const GraphCell: React.FC<GraphCellProps> = ({
           key={edge.key}
           d={edge.d}
           style={{ stroke: edge.color }}
-          strokeWidth={edge.lit ? LIT_EDGE_WIDTH : EDGE_WIDTH}
+          strokeWidth={EDGE_WIDTH}
           strokeDasharray={edge.dashed ? '2 3' : undefined}
           fill="none"
         />
@@ -157,19 +152,19 @@ const GraphCell: React.FC<GraphCellProps> = ({
             <circle
               cx={dotX}
               cy={mid}
-              r={ringRadius}
+              r={RING_RADIUS}
               style={{ stroke: HALO_COLOR }}
-              strokeWidth={ringWidth + HALO * 2}
+              strokeWidth={EDGE_WIDTH + HALO * 2}
               fill="none"
             />
           )}
-          <circle cx={dotX} cy={mid} r={ringRadius} style={{ stroke: dotColor }} strokeWidth={ringWidth} fill="none" />
-          <circle cx={dotX} cy={mid} r={RING_CORE_RADIUS + grow / 2} style={{ fill: dotColor }} />
+          <circle cx={dotX} cy={mid} r={RING_RADIUS} style={{ stroke: dotColor }} strokeWidth={EDGE_WIDTH} fill="none" />
+          <circle cx={dotX} cy={mid} r={RING_CORE_RADIUS} style={{ fill: dotColor }} />
         </>
       ) : (
         <>
-          {highlight !== null && <circle cx={dotX} cy={mid} r={dotRadius + HALO} style={{ fill: HALO_COLOR }} />}
-          <circle cx={dotX} cy={mid} r={dotRadius} style={{ fill: dotColor }} />
+          {highlight !== null && <circle cx={dotX} cy={mid} r={DOT_RADIUS + HALO} style={{ fill: HALO_COLOR }} />}
+          <circle cx={dotX} cy={mid} r={DOT_RADIUS} style={{ fill: dotColor }} />
         </>
       )}
     </svg>
