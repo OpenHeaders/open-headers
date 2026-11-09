@@ -62,6 +62,11 @@ describe('computeLogGraph', () => {
     expect(rows[3].lane).toBe(0);
     expect(rows[3].edges.filter((edge) => edge.span === 'top')).toHaveLength(2);
     expect(rows[3].laneCount).toBe(2);
+    // The merged branch wears its own colour; the merge and the shared
+    // root keep the trunk's (the newest head owns the history it meets).
+    expect(rows[2].color).not.toBe(rows[0].color);
+    expect(rows[1].color).toBe(rows[0].color);
+    expect(rows[3].color).toBe(rows[0].color);
   });
 
   it('an unrelated branch tip entering mid-log opens its own colored lane', () => {
@@ -73,8 +78,49 @@ describe('computeLogGraph', () => {
     expect(rows[0].lane).toBe(0);
     expect(rows[1].lane).toBe(1);
     expect(rows[1].color).not.toBe(rows[0].color);
-    // Both lanes converge on main1.
+    // Both lanes converge on main1, which keeps the first head's colour
+    // while the side lane's edge arrives in its own.
     expect(rows[2].edges.filter((edge) => edge.span === 'top')).toHaveLength(2);
+    expect(rows[2].color).toBe(rows[0].color);
+    expect(rows[2].edges.find((edge) => edge.span === 'top' && edge.from === 1)?.color).toBe(rows[1].color);
+  });
+
+  // feat2 (the newest row, a side head) -> feat1 -> base; main1 -> base -> root
+  const FORKED = [
+    { sha: 'feat2', parents: ['feat1'] },
+    { sha: 'main1', parents: ['base'] },
+    { sha: 'feat1', parents: ['base'] },
+    { sha: 'base', parents: ['root'] },
+    { sha: 'root', parents: [] },
+  ];
+
+  it('the checked-out branch owns the shared history: a newer side head does not recolour it below the fork', () => {
+    const rows = computeLogGraph(FORKED, 'main1');
+    const main = rows[1].color;
+    const feature = rows[0].color;
+    expect(feature).not.toBe(main);
+    expect(rows[2].color).toBe(feature);
+    expect(rows[3].color).toBe(main);
+    expect(rows[4].color).toBe(main);
+    // The fork row: the feature lane's edge arrives in the feature colour, the trunk's in the trunk's.
+    const into = rows[3].edges.filter((edge) => edge.span === 'top').map((edge) => edge.color);
+    expect(into).toContain(main);
+    expect(into).toContain(feature);
+  });
+
+  it('without the checked-out commit in the window the newest head owns the shared history', () => {
+    const rows = computeLogGraph(FORKED);
+    expect(rows[3].color).toBe(rows[0].color);
+    expect(rows[4].color).toBe(rows[0].color);
+    expect(rows[1].color).not.toBe(rows[0].color);
+  });
+
+  it('the palette is the eight lane tokens, cycling in allocation order', () => {
+    const heads = Array.from({ length: 9 }, (_, i) => ({ sha: `h${i}`, parents: [] }));
+    const rows = computeLogGraph(heads);
+    expect(rows[0].color).toBe('var(--oh-git-lane-0)');
+    expect(rows[7].color).toBe('var(--oh-git-lane-7)');
+    expect(rows[8].color).toBe(rows[0].color);
   });
 });
 

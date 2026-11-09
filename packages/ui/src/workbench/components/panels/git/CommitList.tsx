@@ -40,7 +40,7 @@ export interface CommitListProps {
   /** Per-entry graph rows aligned with `entries`; null while filtered. */
   graph: GraphRow[] | null;
   refsBySha: ReadonlyMap<string, WorkspaceTreeRefWire[]>;
-  /** The checked-out tip — its row's ref hover leads with HEAD. */
+  /** The checked-out commit — its graph dot is the hollow ring and its ref hover leads with HEAD. */
   headSha: string | null;
   /** Commits reachable from HEAD — the reference's current-branch band; null when off, withheld or unknown. */
   currentBranchShas?: ReadonlySet<string> | null;
@@ -205,7 +205,12 @@ const CommitList: React.FC<CommitListProps> = ({
             data-selected={selected || undefined}
             data-current-branch={onCurrentBranch || undefined}
           >
-            <GraphCell row={row} maxLanes={maxLanes} fallbackColor={token.colorTextQuaternary} />
+            <GraphCell
+              row={row}
+              maxLanes={maxLanes}
+              isHead={entry.sha === headSha}
+              fallbackColor={token.colorTextQuaternary}
+            />
             <span
               style={{
                 flex: '1 1 auto',

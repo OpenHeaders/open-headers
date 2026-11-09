@@ -110,6 +110,29 @@ describe('CommitList — the current-branch band (S41, S43)', () => {
   });
 });
 
+describe('CommitList — the graph cell (S45)', () => {
+  it('the checked-out commit draws the hollow ring with its centre dot; every other row a filled dot', () => {
+    render(
+      <CommitList
+        entries={ENTRIES}
+        graph={null}
+        refsBySha={new Map()}
+        headSha={ENTRIES[1].sha}
+        selectedSha={null}
+        onSelect={() => undefined}
+        onSelectionChange={() => undefined}
+        filtersActive={false}
+        onResetFilters={() => undefined}
+      />,
+    );
+    const cells = screen.getAllByTestId('git-tool-graph-cell');
+    expect(cells.map((cell) => cell.getAttribute('data-head'))).toEqual([null, 'true', null, null]);
+    expect(cells[1].querySelectorAll('circle')).toHaveLength(2);
+    expect(cells[1].querySelector('circle')?.getAttribute('fill')).toBe('none');
+    expect(cells[0].querySelectorAll('circle')).toHaveLength(1);
+  });
+});
+
 describe('CommitList — the log rows on the shared selection model', () => {
   function renderList(selectedSha: string | null) {
     const onSelect = vi.fn<(sha: string | null) => void>();

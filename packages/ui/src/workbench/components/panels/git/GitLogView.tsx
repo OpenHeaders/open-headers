@@ -204,14 +204,6 @@ const GitLogView: React.FC<GitLogViewProps> = ({
     return entries.filter((entry) => matcher.test(entry));
   }, [entries, matcher]);
 
-  // Graph edges are honest only over the contiguous log — a text filter
-  // or any row filter hides commits, so rendering degrades to plain
-  // dots (sort order alone keeps the graph).
-  const graph = useMemo(
-    () => (filtered === entries && !rowFiltersActive ? computeLogGraph(entries) : null),
-    [filtered, entries, rowFiltersActive],
-  );
-
   const refsBySha = useMemo(() => {
     const map = new Map<string, WorkspaceTreeRefWire[]>();
     for (const ref of refs) {
@@ -230,6 +222,15 @@ const GitLogView: React.FC<GitLogViewProps> = ({
     if (detachedSha !== null) return detachedSha;
     return selectedRef === GIT_LOG_SCOPE_HEAD ? (entries[0]?.sha ?? null) : null;
   }, [refs, currentRef, detachedSha, selectedRef, entries]);
+
+  // Graph edges are honest only over the contiguous log — a text filter
+  // or any row filter hides commits, so rendering degrades to plain
+  // dots (sort order alone keeps the graph). HEAD's commit names the
+  // lane that owns the shared history (the trunk keeps one colour).
+  const graph = useMemo(
+    () => (filtered === entries && !rowFiltersActive ? computeLogGraph(entries, headSha) : null),
+    [filtered, entries, rowFiltersActive, headSha],
+  );
 
   const selected = useMemo(
     () => (selectedSha !== null ? (entries.find((entry) => entry.sha === selectedSha) ?? null) : null),
