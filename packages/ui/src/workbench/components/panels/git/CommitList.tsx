@@ -30,18 +30,26 @@
  * two anchors (a fork, a merge, a ref, HEAD) — and a click on the cell
  * asks the orchestrator to collapse or re-expand it; the row's own click
  * is untouched.
+ *
+ * The row menu (the reference): a right-click on an unselected row
+ * selects it alone and opens the menu over it; on a selected row the
+ * menu covers the set. Left / Right walk to the child / parent commit
+ * within the window (the menu's Go to rows).
  */
 
 import type { WorkspaceTreeLogEntryWire, WorkspaceTreeRefWire } from '@openheaders/core/bridge';
-import { Button, theme } from 'antd';
+import { Button, Dropdown, type MenuProps, theme } from 'antd';
 import type React from 'react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useLocale } from '@openheaders/ui/context/LocaleContext';
 import { clickModifiers, useMultiSelection } from '@openheaders/ui/shared/selection';
 import type { GraphRow } from './graph';
 import { fragmentEdges, fragmentShas, hoverFragment, type LogFragment } from './graph-fragment';
+import { contextMenuAlign } from './git-menu-overflow';
 import GraphCell, { GRAPH_ROW_HEIGHT, type GraphHighlight } from './GraphCell';
 import { formatLogDate, formatLogDateTitle, type HourCycle } from './log-date';
+import { childInWindow, parentInWindow } from './log-neighbors';
+import type { LogRowMenuTarget } from './log-row-menu';
 import { commitClickOutcome, stepTarget } from './log-selection';
 import RefRowLabel from './RefRowLabel';
 
@@ -91,6 +99,8 @@ export interface CommitListProps {
   collapsed?: ReadonlyMap<string, LogFragment>;
   /** A click on a graph cell — collapse the fragment, or expand it when it is held collapsed. */
   onToggleFragment?: (fragment: LogFragment) => void;
+  /** The row's right-click menu over the commits it covers; absent = no menu. */
+  rowMenu?: (target: LogRowMenuTarget) => MenuProps;
 }
 
 const NO_ANCHORS: ReadonlySet<string> = new Set();
@@ -120,6 +130,7 @@ const CommitList: React.FC<CommitListProps> = ({
   anchors = NO_ANCHORS,
   collapsed = NO_COLLAPSED,
   onToggleFragment,
+  rowMenu,
 }) => {
   const { token } = theme.useToken();
   const { locale, t } = useLocale();
@@ -132,7 +143,7 @@ const CommitList: React.FC<CommitListProps> = ({
   );
   const listRef = useRef<HTMLDivElement>(null);
   const order = useMemo(() => entries.map((entry) => entry.sha), [entries]);
-  const { selection, isSelected, click, step, clear } = useMultiSelection(order);
+  const { selection, isSelected, click, step, contextMenu, clear } = useMultiSelection(order);
 
   // The graph hover: the fragment under the pointer, lit through the
   // cells; nothing while the layout is off (a filtered list).
@@ -176,19 +187,78 @@ const CommitList: React.FC<CommitListProps> = ({
     onSelect(outcome.lead);
   };
 
-  // Up/Down walk the rows from the cursor (Shift extends the range);
-  // focus follows so the next arrow continues from the landed row.
-  const handleKeyDown = (event: React.KeyboardEvent): void => {
-    if (event.key !== 'ArrowDown' && event.key !== 'ArrowUp') return;
-    const target = stepTarget(order, selection.lead ?? selectedSha, event.key === 'ArrowDown' ? 1 : -1);
-    if (target === null) return;
-    event.preventDefault();
-    step(target, event.shiftKey);
+  // The right-click rule: an unselected row becomes the selection
+  // alone (and the details commit); a selected row keeps the set.
+  const handleContextMenu = (sha: string): void => {
+    contextMenu(sha);
+    if (!isSelected(sha)) onSelect(sha);
+  };
+
+  /** The row's menu target — the whole selection when the row sits in a wider one. */
+  const menuTargetFor = (sha: string): LogRowMenuTarget => {
+    const shas = isSelected(sha) && selection.ids.size >= 2 ? order.filter((id) => selection.ids.has(id)) : [sha];
+    return {
+      shas,
+      child: shas.length === 1 ? childInWindow(entries, sha) : null,
+      parent: shas.length === 1 ? parentInWindow(entries, sha) : null,
+    };
+  };
+
+  // The keyboard lands on a row; focus follows so the next arrow
+  // continues from the landed row.
+  const land = (target: string, extend: boolean): void => {
+    step(target, extend);
     onSelect(target);
     const row = listRef.current?.querySelector<HTMLElement>(`[data-sha="${target}"]`);
     row?.focus({ preventScroll: true });
     row?.scrollIntoView({ block: 'nearest' });
   };
+
+  // Up/Down walk the rows from the cursor (Shift extends the range);
+  // Left/Right walk to the child / parent commit within the window.
+  const handleKeyDown = (event: React.KeyboardEvent): void => {
+    const cursor = selection.lead ?? selectedSha;
+    let target: string | null = null;
+    if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+      target = stepTarget(order, cursor, event.key === 'ArrowDown' ? 1 : -1);
+    } else if (cursor !== null && event.key === 'ArrowLeft') {
+      target = childInWindow(entries, cursor);
+    } else if (cursor !== null && event.key === 'ArrowRight') {
+      target = parentInWindow(entries, cursor);
+    } else {
+      return;
+    }
+    if (target === null) return;
+    event.preventDefault();
+    land(target, event.shiftKey && (event.key === 'ArrowDown' || event.key === 'ArrowUp'));
+  };
+
+  /**
+   * The row menu wrapper — antd composes the trigger with the row's own
+   * onContextMenu. Focus returns to the row when the menu closes (a
+   * verb may have moved it elsewhere — then it stays), so the arrows
+   * keep walking from the commit the menu served.
+   */
+  const withRowMenu = (sha: string, row: React.ReactElement): React.ReactNode =>
+    rowMenu === undefined ? (
+      row
+    ) : (
+      <Dropdown
+        key={sha}
+        menu={rowMenu(menuTargetFor(sha))}
+        trigger={['contextMenu']}
+        align={contextMenuAlign}
+        classNames={{ root: 'commit-tool-row-menu' }}
+        onOpenChange={(open) => {
+          if (open) return;
+          const active = document.activeElement;
+          const idle = active === null || active === document.body || active.closest('.commit-tool-row-menu') !== null;
+          if (idle) listRef.current?.querySelector<HTMLElement>(`[data-sha="${sha}"]`)?.focus({ preventScroll: true });
+        }}
+      >
+        {row}
+      </Dropdown>
+    );
 
   if (entries.length === 0) {
     return (
@@ -234,12 +304,14 @@ const CommitList: React.FC<CommitListProps> = ({
         const onCurrentBranch = currentBranchShas !== null && currentBranchShas.has(entry.sha);
         const textColor = isMerge ? token.colorTextTertiary : token.colorText;
         const refLabel = <RefRowLabel refs={labelRefs} isHead={entry.sha === headSha} compact={compactRefs} />;
-        return (
+        return withRowMenu(
+          entry.sha,
           <button
             key={entry.sha}
             type="button"
             className={selected ? 'git-tool-row selected' : 'git-tool-row'}
             onClick={(event) => handleClick(entry.sha, event)}
+            onContextMenu={() => handleContextMenu(entry.sha)}
             style={{
               display: 'flex',
               alignItems: 'center',
@@ -313,7 +385,7 @@ const CommitList: React.FC<CommitListProps> = ({
                 {formatLogDate(entry.authoredAt, locale, dateLabels, { withTime: showTimestamp, hourCycle })}
               </span>
             )}
-          </button>
+          </button>,
         );
       })}
     </div>

@@ -24,6 +24,7 @@ import { App as AntApp, theme } from 'antd';
 import type React from 'react';
 import { useState } from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
+import { isFullCommitSha } from '../log-neighbors';
 import PushCommitsModal from '../push/PushCommitsModal';
 import PushRejectedModal from '../push/PushRejectedModal';
 import CreateBranchModal from '../rail/CreateBranchModal';
@@ -34,7 +35,7 @@ export interface GitBranchActionsOptions {
   workspaceId: string;
   /** The checked-out branch; null on a detached or unborn HEAD. */
   currentRef: string | null;
-  /** The known refs — a start point that resolves here rides the verb by name; otherwise HEAD. */
+  /** The known refs — a start point that resolves here rides the verb by name (a full sha by itself); otherwise HEAD. */
   refs: readonly WorkspaceTreeRefWire[];
   /** The element the dialogs center over; null = the document body. */
   container: HTMLElement | null;
@@ -54,6 +55,7 @@ export interface GitBranchBusy {
 export interface GitBranchActions {
   checkout: (branch: string) => void;
   checkoutRemote: (ref: string) => void;
+  /** The New Branch dialog anchored at a ref name or a full commit sha; null = the current branch. */
   newBranchFrom: (ref: string | null) => void;
   mergeIntoCurrent: (ref: string) => void;
   updateBranch: (branch: string) => void;
@@ -363,7 +365,7 @@ export function useGitBranchActions(options: GitBranchActionsOptions): GitBranch
         workspaceId={workspaceId}
         from={createFrom}
         fromRef={
-          createFrom !== null && refs.some((ref) => ref.name === createFrom)
+          createFrom !== null && (isFullCommitSha(createFrom) || refs.some((ref) => ref.name === createFrom))
             ? createFrom
             : // The unborn current branch (or HEAD itself) resolves
               // nowhere yet — anchor the create at HEAD.

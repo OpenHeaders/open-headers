@@ -1,7 +1,8 @@
 /**
  * CreateBranchModal — the New Branch dialog: "Create Branch
  * from <start point>", a name input prefilled with the start point's
- * name (selected for quick overtyping), the Checkout-branch checkbox
+ * name (selected for quick overtyping; a commit start point reads as
+ * its short sha and prefills nothing), the Checkout-branch checkbox
  * (default on) and the Overwrite-existing-branch checkbox (default
  * off). Create calls the runtime verb; typed refusals render inline
  * (`exists` nudges toward Overwrite).
@@ -13,6 +14,7 @@ import type React from 'react';
 import { useEffect, useRef, useState } from 'react';
 import type { InputRef } from 'antd';
 import { useT } from '@openheaders/ui/context/LocaleContext';
+import { isFullCommitSha } from '../log-neighbors';
 
 export interface CreateBranchModalProps {
   workspaceId: string;
@@ -49,10 +51,11 @@ const CreateBranchModal: React.FC<CreateBranchModalProps> = ({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const inputRef = useRef<InputRef>(null);
+  const fromLabel = from === null ? '' : isFullCommitSha(from) ? from.slice(0, 7) : from;
 
   useEffect(() => {
     if (from === null) return;
-    setName(from);
+    setName(isFullCommitSha(from) ? '' : from);
     setCheckout(true);
     setOverwrite(false);
     setError(null);
@@ -76,7 +79,7 @@ const CreateBranchModal: React.FC<CreateBranchModalProps> = ({
         overwrite,
       });
       if (result.ok) {
-        onCreated(result.branch, from, result.checkedOut);
+        onCreated(result.branch, fromLabel, result.checkedOut);
         onClose();
       } else if (result.reason === 'exists') {
         setError(t('workbench.gitLog.createBranch.exists', { name: branch }));
@@ -93,7 +96,7 @@ const CreateBranchModal: React.FC<CreateBranchModalProps> = ({
   return (
     <Modal
       open={from !== null}
-      title={from !== null ? t('workbench.gitLog.createBranch.title', { from }) : ''}
+      title={from !== null ? t('workbench.gitLog.createBranch.title', { from: fromLabel }) : ''}
       okText={t('workbench.gitLog.createBranch.create')}
       cancelText={t('workbench.gitLog.createBranch.cancel')}
       okButtonProps={{ disabled: name.trim().length === 0, loading: busy }}

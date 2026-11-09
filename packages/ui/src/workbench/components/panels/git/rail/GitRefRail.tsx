@@ -6,10 +6,12 @@
  * the per-workspace rail prefs (favorites, Show Tags, Group By
  * Directory). The branch verbs themselves (checkout with the §6.2
  * dirty prompt, merge into current, update, delete with Restore,
- * fetch, new branch) are the shared `useGitBranchActions` — the same
- * implementation the top bar's branch widget drives. Data flows down
- * from GitLogView (refs + current branch); mutations come back as
- * `workspaceTreeGitStatus` frames — the rail never refetches by hand.
+ * fetch, new branch) are the shared `useGitBranchActions` the view
+ * mounts ONCE and hands down (the log rows' menu drives the same
+ * instance) — the implementation the top bar's branch widget drives
+ * too. Data flows down from GitLogView (refs + current branch);
+ * mutations come back as `workspaceTreeGitStatus` frames — the rail
+ * never refetches by hand.
  */
 
 import type { WorkspaceTreeRefWire } from '@openheaders/core/bridge';
@@ -17,7 +19,7 @@ import { theme } from 'antd';
 import type React from 'react';
 import { useCallback, useMemo, useRef, useSyncExternalStore } from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
-import { useGitBranchActions } from '../branch-actions/use-git-branch-actions';
+import type { GitBranchActions } from '../branch-actions/use-git-branch-actions';
 import { GIT_LOG_SCOPE_HEAD } from '../git-panel-view-store';
 import GitRailActivityBar from './GitRailActivityBar';
 import { getGitRailPrefs, patchGitRailPrefs, subscribeGitRailPrefs, toggleGitRailFavorite } from './git-rail-prefs';
@@ -33,6 +35,8 @@ export interface GitRefRailProps {
   detachedSha: string | null;
   /** A remote history rewrite is pending (§16) — Merge into Current holds until the banner resolves it. */
   historyRewritten: boolean;
+  /** The branch verbs — the view's ONE `useGitBranchActions`; its dialogs mount in the view. */
+  actions: GitBranchActions;
   /** The tree selection — tab state, survives pane moves. */
   selection: RefTreeSelection | null;
   onSelectionChange: (selection: RefTreeSelection | null) => void;
@@ -54,6 +58,7 @@ const GitRefRail: React.FC<GitRefRailProps> = ({
   unbornBranch,
   detachedSha,
   historyRewritten,
+  actions,
   selection,
   onSelectionChange,
   scopeRef,
@@ -70,17 +75,6 @@ const GitRefRail: React.FC<GitRefRailProps> = ({
   const subscribe = useCallback((listener: () => void) => subscribeGitRailPrefs(workspaceId, listener), [workspaceId]);
   const prefs = useSyncExternalStore(subscribe, () => getGitRailPrefs(workspaceId));
   const favoriteSet = useMemo<ReadonlySet<string>>(() => new Set(prefs.favorites), [prefs.favorites]);
-
-  const actions = useGitBranchActions({
-    workspaceId,
-    currentRef,
-    refs,
-    container: rootRef.current?.closest<HTMLElement>('.git-tool-panel') ?? null,
-    onBranchDeleted: (branch) => {
-      if (selection !== null && selection.kind === 'local' && selection.name === branch) onSelectionChange(null);
-      if (scopeRef === branch) onScopeChange(null);
-    },
-  });
 
   const selectedSha = useCallback(
     (target: RefTreeSelection): string | null =>
@@ -200,7 +194,6 @@ const GitRefRail: React.FC<GitRefRailProps> = ({
         rowMenu={rowMenu}
         groupMenu={(kind) => (kind === 'remote' ? buildRemoteGroupMenu(t, actions.manageRemotes) : null)}
       />
-      {actions.dialogs}
     </div>
   );
 };

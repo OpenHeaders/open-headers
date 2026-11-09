@@ -15,6 +15,10 @@
  * reference splitters): rail | log, log | details, and files | info inside
  * details. The templates and bounds are `git-log-layout.ts`; the drag
  * wiring is `use-git-log-layout.ts`.
+ *
+ * The branch verbs are ONE `useGitBranchActions` mounted here and
+ * handed to the rail and the log rows' menu alike; its dialogs mount
+ * once at the view's root, so they outlive a collapsed rail.
  */
 
 import {
@@ -27,6 +31,7 @@ import type React from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { useLocale } from '@openheaders/ui/context/LocaleContext';
 import { Sash } from '@openheaders/ui/shared/dock-layout';
+import { useGitBranchActions } from './branch-actions/use-git-branch-actions';
 import { contiguousRangeBase, unionFiles } from './changed-files-union';
 import CommitDetails from './CommitDetails';
 import CommitList from './CommitList';
@@ -39,6 +44,7 @@ import { GIT_LOG_SCOPE_HEAD, type GitLogTabState, gitPanelTabKey } from './git-p
 import { computeLogGraph } from './graph';
 import { allLinearFragments, collapseLog, fragmentKey, type LogFragment } from './graph-fragment';
 import { currentBranchBandTip, currentBranchShas as bandShas } from './log-reachability';
+import { buildLogRowMenu, type LogRowMenuTarget } from './log-row-menu';
 import { getGitRailPrefs, subscribeGitRailPrefs } from './rail/git-rail-prefs';
 import GitRailCollapsedStrip from './rail/GitRailCollapsedStrip';
 import GitRefRail from './rail/GitRefRail';
@@ -350,6 +356,31 @@ const GitLogView: React.FC<GitLogViewProps> = ({
 
   const container = rootRef.current?.closest<HTMLElement>('.git-tool-panel') ?? null;
 
+  // A deleted branch leaves the rail selection and the scope that named it.
+  const actions = useGitBranchActions({
+    workspaceId,
+    currentRef,
+    refs,
+    container,
+    onBranchDeleted: (deleted) => {
+      const patch: Partial<Omit<GitLogTabState, 'kind' | 'id'>> = {};
+      if (railSelection !== null && railSelection.kind === 'local' && railSelection.name === deleted) {
+        patch.railSelection = null;
+      }
+      if (selectedRef === deleted) patch.selectedRef = null;
+      if (Object.keys(patch).length > 0) patchTab(patch);
+    },
+  });
+
+  // The commit rows' menu: the clipboard read, the New Branch dialog
+  // anchored at the commit, and the parent / child walk.
+  const rowMenu = (target: LogRowMenuTarget): ReturnType<typeof buildLogRowMenu> =>
+    buildLogRowMenu(target, t, {
+      onCopyRevision: (shas) => void navigator.clipboard.writeText(shas.join('\n')),
+      onNewBranchFrom: actions.newBranchFrom,
+      onNavigate: navigateToSha,
+    });
+
   const placeholderStyle: React.CSSProperties = {
     flex: '1 1 auto',
     display: 'flex',
@@ -419,6 +450,7 @@ const GitLogView: React.FC<GitLogViewProps> = ({
             unbornBranch={unbornBranch}
             detachedSha={detachedSha}
             historyRewritten={historyRewritten}
+            actions={actions}
             selection={railSelection}
             onSelectionChange={(selection) => patchTab({ railSelection: selection })}
             scopeRef={selectedRef}
@@ -482,6 +514,7 @@ const GitLogView: React.FC<GitLogViewProps> = ({
             anchors={anchors}
             collapsed={collapsed}
             onToggleFragment={toggleFragment}
+            rowMenu={rowMenu}
           />
         </div>
         <div
@@ -586,6 +619,7 @@ const GitLogView: React.FC<GitLogViewProps> = ({
           </div>
         </div>
       </div>
+      {actions.dialogs}
       <DiffModal diff={fileDiff.diff} onClose={fileDiff.close} />
       <FileHistoryModal
         workspaceId={workspaceId}
