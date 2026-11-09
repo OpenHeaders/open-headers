@@ -8,6 +8,13 @@
   // collapse) and must not paint a text selection over it.
   user-select: none;
 
+  // The log's current-branch band (the reference's soft tint on every
+  // row reachable from HEAD) — under the hover and the selection, which
+  // follow and win on order.
+  &[data-current-branch] {
+    background: var(--oh-git-current-branch-bg);
+  }
+
   &:hover {
     background: rgba(128, 128, 128, 0.08);
   }

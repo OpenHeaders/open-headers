@@ -2,7 +2,8 @@
  * CommitList — the log's middle pane: graph cell, subject (dimmed for
  * merge commits, the reference convention), the right-aligned ref label
  * column, bold author, and the graduated date column. Rows reachable
- * from the rail-selected branch carry the reference blue wash. The graph
+ * from HEAD carry the reference's soft current-branch band (the
+ * stylesheet paints it under the hover and the selection). The graph
  * layout arrives from the orchestrator and is null while a text filter
  * hides rows (edges over a non-contiguous list would lie — cells
  * degrade to plain dots). Empty states: filters-active answers "no
@@ -39,10 +40,7 @@ export interface CommitListProps {
   refsBySha: ReadonlyMap<string, WorkspaceTreeRefWire[]>;
   /** The checked-out tip — its row's ref hover leads with HEAD. */
   headSha: string | null;
-  /** Commits reachable from the rail-selected branch — the reference blue
-   *  row wash; null when nothing is selected. */
-  highlightShas: ReadonlySet<string> | null;
-  /** Commits reachable from HEAD — the reference's faint current-branch band; null when off or unknown. */
+  /** Commits reachable from HEAD — the reference's current-branch band; null when off, withheld or unknown. */
   currentBranchShas?: ReadonlySet<string> | null;
   /** The details commit the tab remembers. */
   selectedSha: string | null;
@@ -70,7 +68,6 @@ const CommitList: React.FC<CommitListProps> = ({
   graph,
   refsBySha,
   headSha,
-  highlightShas,
   currentBranchShas = null,
   selectedSha,
   onSelect,
@@ -170,7 +167,6 @@ const CommitList: React.FC<CommitListProps> = ({
         const row = graph?.[index] ?? null;
         const rowRefs = refsBySha.get(entry.sha) ?? [];
         const labelRefs = showTagChips ? rowRefs : rowRefs.filter((ref) => ref.kind !== 'tag');
-        const isHighlighted = !selected && highlightShas !== null && highlightShas.has(entry.sha);
         const onCurrentBranch = currentBranchShas !== null && currentBranchShas.has(entry.sha);
         return (
           <button
@@ -189,16 +185,10 @@ const CommitList: React.FC<CommitListProps> = ({
               textAlign: 'left',
               cursor: 'pointer',
               color: token.colorText,
-              ...(isHighlighted
-                ? { background: token.colorPrimaryBg }
-                : !selected && onCurrentBranch
-                  ? { background: token.colorFillQuaternary }
-                  : {}),
             }}
             data-testid="git-tool-row"
             data-sha={entry.sha}
             data-selected={selected || undefined}
-            data-highlighted={isHighlighted || undefined}
             data-current-branch={onCurrentBranch || undefined}
           >
             <GraphCell row={row} maxLanes={maxLanes} fallbackColor={token.colorTextQuaternary} />

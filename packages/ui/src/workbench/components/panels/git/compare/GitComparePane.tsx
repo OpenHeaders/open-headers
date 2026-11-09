@@ -115,7 +115,6 @@ const CompareSide: React.FC<CompareSideProps> = ({
               graph={null}
               refsBySha={refsBySha}
               headSha={null}
-              highlightShas={null}
               selectedSha={selectedSha}
               onSelect={onSelect}
               onSelectionCountChange={setSelectionCount}

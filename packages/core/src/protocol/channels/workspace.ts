@@ -919,6 +919,9 @@ export interface WorkspaceTreeLogEntryWire {
   coAuthors: string[];
   /** Changed paths; empty on path-scoped (`fileLog`) entries. */
   files: WorkspaceTreeLogFileWire[];
+  /** Reachable from HEAD — the log view's current-branch band (additive).
+   *  Present on `log` entries; absent on `fileLog` and range entries. */
+  onHead?: boolean;
 }
 
 export type WorkspaceTreeLogWire =

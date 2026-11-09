@@ -71,7 +71,6 @@ const LogHarness: React.FC<{
       graph={null}
       refsBySha={new Map()}
       headSha={null}
-      highlightShas={null}
       selectedSha={selectedSha}
       onSelect={(sha) => {
         setSelectedSha(sha);
@@ -84,15 +83,14 @@ const LogHarness: React.FC<{
   );
 };
 
-describe('CommitList — the current-branch band (S41)', () => {
-  it('rows reachable from HEAD carry the band; a selected row does not paint it over its selection', () => {
+describe('CommitList — the current-branch band (S41, S43)', () => {
+  it('rows reachable from HEAD carry the band attribute (the stylesheet paints it); a selected row keeps its selection', () => {
     render(
       <CommitList
         entries={ENTRIES}
         graph={null}
         refsBySha={new Map()}
         headSha={null}
-        highlightShas={null}
         currentBranchShas={new Set([ENTRIES[0].sha, ENTRIES[1].sha])}
         selectedSha={ENTRIES[1].sha}
         onSelect={() => undefined}
@@ -107,7 +105,7 @@ describe('CommitList — the current-branch band (S41)', () => {
       'true',
       ...ENTRIES.slice(2).map(() => null),
     ]);
-    expect(rows[0].style.background).not.toBe('');
+    expect(rows[0].style.background).toBe('');
     expect(rows[1].getAttribute('data-selected')).toBe('true');
   });
 });

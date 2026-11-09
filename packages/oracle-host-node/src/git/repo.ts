@@ -899,6 +899,11 @@ export interface CommitLogEntry {
   coAuthors: string[];
   /** Changed paths; empty for a path-scoped log (the diff wasn't asked for). */
   files: CommitLogFileChange[];
+  /** Reachable from HEAD — the log view's current-branch band. Present on
+   *  {@link listCommitLog} answers (the HEAD walk marks every row; a ref or
+   *  all-refs scope asks `rev-list <scope> --not HEAD` once); absent on
+   *  path and range logs, which never band. */
+  onHead?: boolean;
 }
 
 /**
@@ -1048,7 +1053,26 @@ export async function listCommitLog(
     // not a failure.
     return allRefs && headSha === null ? [] : null;
   }
-  return parseCommitLog(result.stdout);
+  const entries = parseCommitLog(result.stdout);
+  if (ref === undefined && !allRefs) {
+    for (const entry of entries) entry.onHead = true;
+    return entries;
+  }
+  const offHead = await shasNotOnHead(run, rootDir, ref !== undefined ? [ref] : ['--branches', '--tags', '--remotes']);
+  for (const entry of entries) entry.onHead = offHead !== null && !offHead.has(entry.sha);
+  return entries;
+}
+
+/**
+ * The commits of a scope that HEAD does not reach (`rev-list <scope>
+ * --not HEAD`) — the complement marks the scope's rows that are already
+ * on the current branch. Null when HEAD does not resolve (unborn):
+ * nothing is on it.
+ */
+async function shasNotOnHead(run: GitRunner, rootDir: string, scope: string[]): Promise<Set<string> | null> {
+  const result = await run([...repoArgs(rootDir), 'rev-list', ...scope, '--not', 'HEAD'], { cwd: rootDir });
+  if (result.code !== 0) return null;
+  return new Set(result.stdout.split('\n').filter((sha) => sha.length > 0));
 }
 
 /**

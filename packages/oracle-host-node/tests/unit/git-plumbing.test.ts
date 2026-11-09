@@ -32,6 +32,7 @@ import {
   setRemoteUrl,
 } from '../../src/git/remote-ops';
 import {
+  type CommitLogEntry,
   checkoutWorkspaceBranch,
   cleanUntracked,
   commitParents,
@@ -1259,6 +1260,41 @@ describe('ref tree (Phase 7 slice 2)', () => {
   it('answers an empty all-refs timeline on a fresh repo', async () => {
     await ensureWorkspaceRepo(run, tmpDir);
     expect(await listCommitLog(run, tmpDir, 20, undefined, { allRefs: true })).toEqual([]);
+  });
+
+  it('marks every row with whether HEAD reaches it (the current-branch band)', async () => {
+    await ensureWorkspaceRepo(run, tmpDir);
+    await raw(tmpDir, 'symbolic-ref', 'HEAD', 'refs/heads/main');
+    await write('workspace.yaml', 'schemaVersion: 5\nuid: wsaaaaaa\nname: Probe\n');
+    await commitIn(tmpDir, 'Initial tree');
+    await raw(tmpDir, 'checkout', '-q', '-b', 'feature');
+    await write('rules/block-r0000001/rule.yaml', 'schemaVersion: 5\nuid: r0000001\n');
+    await commitIn(tmpDir, 'Feature edit');
+    await raw(tmpDir, 'checkout', '-q', 'main');
+    await write('rules/block-r0000002/rule.yaml', 'schemaVersion: 5\nuid: r0000002\n');
+    await commitIn(tmpDir, 'Main edit');
+
+    const onHeadBySubject = (entries: CommitLogEntry[]): Record<string, boolean | undefined> =>
+      Object.fromEntries(entries.map((entry) => [entry.subject, entry.onHead]));
+
+    // The HEAD walk: every row is on it, no second spawn's answer needed.
+    const head = await listCommitLog(run, tmpDir, 20);
+    if (head === null) throw new Error('log failed');
+    expect(onHeadBySubject(head)).toEqual({ 'Main edit': true, 'Initial tree': true });
+
+    // A scope that leaves HEAD's tip out of the window still knows which rows main already has.
+    const scoped = await listCommitLog(run, tmpDir, 20, 'feature');
+    if (scoped === null) throw new Error('scoped log failed');
+    expect(onHeadBySubject(scoped)).toEqual({ 'Feature edit': false, 'Initial tree': true });
+
+    const all = await listCommitLog(run, tmpDir, 20, undefined, { allRefs: true });
+    if (all === null) throw new Error('all-refs log failed');
+    expect(onHeadBySubject(all)).toEqual({ 'Main edit': true, 'Feature edit': false, 'Initial tree': true });
+
+    // Path logs never band.
+    const fileLog = await listFileLog(run, tmpDir, 'workspace.yaml', 20);
+    if (fileLog === null) throw new Error('file log failed');
+    expect(fileLog.map((entry) => entry.onHead)).toEqual([undefined]);
   });
 });
 

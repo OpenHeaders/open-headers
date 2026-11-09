@@ -36,7 +36,7 @@ import FileTreeView, { type FileTreeViewHandle } from './FileTreeView';
 import { getGitLogViewPrefs, patchGitLogViewPrefs, subscribeGitLogViewPrefs } from './git-log-view-prefs';
 import { GIT_LOG_SCOPE_HEAD, type GitLogTabState, gitPanelTabKey } from './git-panel-view-store';
 import { computeLogGraph } from './graph';
-import { reachableFrom } from './log-reachability';
+import { currentBranchBandTip, currentBranchShas as bandShas } from './log-reachability';
 import { getGitRailPrefs, subscribeGitRailPrefs } from './rail/git-rail-prefs';
 import GitRailCollapsedStrip from './rail/GitRailCollapsedStrip';
 import GitRefRail from './rail/GitRefRail';
@@ -218,35 +218,34 @@ const GitLogView: React.FC<GitLogViewProps> = ({
     return map;
   }, [refs]);
 
+  // HEAD's commit: the checked-out branch's tip, the detached sha, else
+  // (a HEAD-scoped walk alone guarantees it) row 0.
   const headSha = useMemo(() => {
     const current = refs.find((ref) => ref.kind === 'local' && ref.name === currentRef);
     if (current !== undefined) return current.sha;
-    // Only a HEAD-scoped walk guarantees row 0 is the head tip.
+    if (detachedSha !== null) return detachedSha;
     return selectedRef === GIT_LOG_SCOPE_HEAD ? (entries[0]?.sha ?? null) : null;
-  }, [refs, currentRef, selectedRef, entries]);
+  }, [refs, currentRef, detachedSha, selectedRef, entries]);
 
   const selected = useMemo(
     () => (selectedSha !== null ? (entries.find((entry) => entry.sha === selectedSha) ?? null) : null),
     [entries, selectedSha],
   );
 
-  // The rail-selected branch's commits carry the reference blue row wash —
-  // reachability from the selection's tip, walked over the loaded
-  // window (`parents` ride every entry). Null when nothing is selected
-  // (the HEAD row clears the selection, so it never highlights).
-  const highlightShas = useMemo(() => {
-    if (railSelection === null) return null;
-    const tip = refs.find((ref) => ref.kind === railSelection.kind && ref.name === railSelection.name)?.sha;
-    return tip === undefined ? null : reachableFrom(tip, entries);
-  }, [railSelection, refs, entries]);
-
   // Highlight > Current Branch: the commits reachable from HEAD carry
-  // the reference's faint band under everything else — the same walk
-  // from the checked-out tip, off with the preference.
-  const currentBranchShas = useMemo(
-    () => (prefs.highlightCurrentBranch && headSha !== null ? reachableFrom(headSha, entries) : null),
-    [prefs.highlightCurrentBranch, headSha, entries],
-  );
+  // the reference's soft band under everything else — the host's
+  // containment flags (the window walk from HEAD's commit when a host
+  // sends none), off with the preference and withheld on the HEAD /
+  // current-branch scope (the pure rule).
+  const currentBranchShas = useMemo(() => {
+    if (!prefs.highlightCurrentBranch) return null;
+    const tip = currentBranchBandTip(headSha, {
+      selectedRef,
+      headScope: GIT_LOG_SCOPE_HEAD,
+      currentBranch: currentRef ?? branch,
+    });
+    return tip === null ? null : bandShas(tip, entries);
+  }, [prefs.highlightCurrentBranch, headSha, selectedRef, currentRef, branch, entries]);
 
   // The branch gitStatus reports but listRefs doesn't: an unborn HEAD
   // (fresh repo, first commit pending). Shown as the current branch in
@@ -385,7 +384,6 @@ const GitLogView: React.FC<GitLogViewProps> = ({
             graph={graph}
             refsBySha={refsBySha}
             headSha={headSha}
-            highlightShas={highlightShas}
             currentBranchShas={currentBranchShas}
             selectedSha={selectedSha}
             onSelect={(sha) => patchTab({ selectedSha: sha })}
