@@ -75,6 +75,7 @@ export async function syncLogBranch(ctx: RuntimeCtx, binding: OpenBinding): Prom
 
 /**
  * One branch-switch pass — always on the binding's chain (§8). The
+ * target is a local branch or a full commit sha (a detached HEAD). The
  * wrapped checkout runs with the user's §6.2 answer; a successful
  * switch flips the §6.3 log pointer, then converges the engine to
  * the new branch's tree through the same rung-2 tree-wins sweep an

@@ -15,6 +15,9 @@ import { useT } from '@openheaders/ui/context/LocaleContext';
 export type SwitchDirtyChoice = 'commit' | 'stash' | 'discard';
 
 export interface SwitchBranchPrompt {
+  /** What the verb re-enters with: the branch name, or a full commit sha. */
+  target: string;
+  /** How the target reads in the prompt — the branch name, or the short sha. */
   branch: string;
   dirtyFiles: number;
 }

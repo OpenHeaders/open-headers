@@ -379,6 +379,7 @@ const GitLogView: React.FC<GitLogViewProps> = ({
       onCopyRevision: (shas) => void navigator.clipboard.writeText(shas.join('\n')),
       onNewBranchFrom: actions.newBranchFrom,
       onNewTagAt: actions.newTagAt,
+      onCheckoutRevision: actions.checkoutRevision,
       onNavigate: navigateToSha,
     });
 

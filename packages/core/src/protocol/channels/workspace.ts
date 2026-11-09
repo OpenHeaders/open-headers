@@ -415,7 +415,9 @@ export interface WorkspaceRpc {
    * cleans (danger-confirmed in the card). A dirty tree with no
    * `dirtyAction` refuses with the count so the surface raises the
    * prompt. The engine converges to the new branch's tree through the
-   * same rung-2 sweep an external terminal checkout takes.
+   * same rung-2 sweep an external terminal checkout takes. `branch` is
+   * a local branch name, or a FULL commit sha the repo holds — the
+   * log's Checkout Revision, a detached HEAD at that commit.
    */
   'oh.workspaceTree.switchBranch': {
     req: { workspaceId: string; branch: string; dirtyAction?: 'commit' | 'stash' | 'discard' };

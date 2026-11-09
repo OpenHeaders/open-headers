@@ -3,7 +3,8 @@
  * every surface that offers them (the Git window's ref rail, the top
  * bar's branch widget): Checkout (the wrapped switch with the §6.2
  * dirty prompt; a remote-tracking row checks out its local branch or
- * creates the tracking branch), New Branch from… (the dialog), Merge
+ * creates the tracking branch; a commit of the log checks out as a
+ * detached HEAD through the same prompt), New Branch from… (the dialog), Merge
  * into Current (the Phase 4 machinery on a local or remote-tracking
  * ref — never raw `git merge`), Update (fast-forward a NON-current
  * branch from its upstream), Update Project (pull the current branch),
@@ -57,6 +58,8 @@ export interface GitBranchBusy {
 export interface GitBranchActions {
   checkout: (branch: string) => void;
   checkoutRemote: (ref: string) => void;
+  /** Checkout Revision — a detached HEAD at a full commit sha, through the dirty prompt. */
+  checkoutRevision: (sha: string) => void;
   /** The New Branch dialog anchored at a ref name or a full commit sha; null = the current branch. */
   newBranchFrom: (ref: string | null) => void;
   /** The New Tag dialog at a full commit sha. */
@@ -103,14 +106,16 @@ export function useGitBranchActions(options: GitBranchActionsOptions): GitBranch
 
   // Checkout (§6): the wrapped switch; a dirty tree answers `dirty`
   // with the count and the §6.2 prompt re-enters the verb with the
-  // user's choice. The status frame moves the star.
-  const switchTo = async (branch: string, dirtyAction?: SwitchDirtyChoice): Promise<void> => {
+  // user's choice. The status frame moves the star. The target is a
+  // branch name or a full commit sha, which reads short in the words.
+  const switchTo = async (target: string, dirtyAction?: SwitchDirtyChoice): Promise<void> => {
     if (switching) return;
     setSwitching(true);
+    const branch = isFullCommitSha(target) ? target.slice(0, 7) : target;
     try {
       const result = await hostBridge.call('oh.workspaceTree.switchBranch', {
         workspaceId,
-        branch,
+        branch: target,
         ...(dirtyAction !== undefined ? { dirtyAction } : {}),
       });
       if (result.ok) {
@@ -119,7 +124,7 @@ export function useGitBranchActions(options: GitBranchActionsOptions): GitBranch
           notification.info({ title: t('workbench.gitLog.switch.checkedOut', { branch }), duration: 5 });
         }
       } else if (result.reason === 'dirty') {
-        setSwitchPrompt({ branch, dirtyFiles: result.dirtyFiles ?? 0 });
+        setSwitchPrompt({ target, branch, dirtyFiles: result.dirtyFiles ?? 0 });
       } else {
         setSwitchPrompt(null);
         notification.error({
@@ -404,7 +409,7 @@ export function useGitBranchActions(options: GitBranchActionsOptions): GitBranch
         busy={switching}
         container={container}
         onChoose={(choice) => {
-          if (switchPrompt !== null) void switchTo(switchPrompt.branch, choice);
+          if (switchPrompt !== null) void switchTo(switchPrompt.target, choice);
         }}
         onClose={() => setSwitchPrompt(null)}
       />
@@ -425,6 +430,7 @@ export function useGitBranchActions(options: GitBranchActionsOptions): GitBranch
   return {
     checkout: (branch) => void switchTo(branch),
     checkoutRemote: (ref) => void checkoutRemote(ref),
+    checkoutRevision: (sha) => void switchTo(sha),
     newBranchFrom: (ref) => setCreateFrom(ref ?? currentRef ?? 'HEAD'),
     newTagAt: (sha) => setTagAt(sha),
     mergeIntoCurrent: (ref) => void mergeIntoCurrent(ref),

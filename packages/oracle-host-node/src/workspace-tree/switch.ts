@@ -13,6 +13,11 @@
  *   - absent — a dirty tree refuses with the count so the surface can
  *     raise the §6.2 prompt.
  *
+ * The target is a local branch NAME, or a FULL commit sha the repo
+ * holds (the log's Checkout Revision) — the sha checks out as a
+ * detached HEAD through the same prompt. A branch that happens to be
+ * named like a sha wins: the name is looked up first.
+ *
  * The caller (runtime) owns what follows a successful switch: flip the
  * §6.3 per-branch log pointer, then the rung-2 tree-wins sweep that
  * converges the engine to the new branch's tree — the same path an
@@ -26,6 +31,8 @@ import {
   currentBranch,
   type GitRunner,
   gitOperationInProgress,
+  isCommitSha,
+  localHeadSha,
   resolveRefSha,
   stashWorkspaceTree,
 } from '../git';
@@ -35,7 +42,7 @@ export type SwitchDirtyAction = 'commit' | 'stash' | 'discard';
 export interface SwitchWorkspaceBranchOptions {
   run: GitRunner;
   rootDir: string;
-  /** The local branch to check out. */
+  /** The local branch to check out, or a full commit sha to detach at. */
   branch: string;
   /** The user's §6.2 prompt answer; absent = refuse when dirty. */
   dirtyAction?: SwitchDirtyAction;
@@ -63,8 +70,14 @@ export async function switchWorkspaceBranch(
   const active = await currentBranch(run, rootDir);
   if (active === branch) return { ok: true, branch, switched: false };
 
-  if ((await resolveRefSha(run, rootDir, `refs/heads/${branch}`)) === null) {
-    return { ok: false, reason: 'unknown-branch', detail: branch };
+  const detach = (await resolveRefSha(run, rootDir, `refs/heads/${branch}`)) === null;
+  if (detach) {
+    if (!isCommitSha(branch) || (await resolveRefSha(run, rootDir, branch)) === null) {
+      return { ok: false, reason: 'unknown-branch', detail: branch };
+    }
+    if (active === null && (await localHeadSha(run, rootDir)) === branch) {
+      return { ok: true, branch, switched: false };
+    }
   }
 
   const dirty = (await countDirtyFiles(run, rootDir)) ?? 0;
@@ -80,13 +93,14 @@ export async function switchWorkspaceBranch(
         };
       }
     } else if (options.dirtyAction === 'stash') {
-      const stashed = await stashWorkspaceTree(run, rootDir, `OpenHeaders: switch to ${branch}`);
+      const label = detach ? branch.slice(0, 7) : branch;
+      const stashed = await stashWorkspaceTree(run, rootDir, `OpenHeaders: switch to ${label}`);
       if (!stashed.ok) return { ok: false, reason: 'stash-failed', detail: stashed.detail };
     }
   }
 
   const force = dirty > 0 && options.dirtyAction === 'discard';
-  const checkedOut = await checkoutWorkspaceBranch(run, rootDir, branch, { force });
+  const checkedOut = await checkoutWorkspaceBranch(run, rootDir, branch, { force, detach });
   if (!checkedOut.ok) return { ok: false, reason: 'checkout-failed', detail: checkedOut.detail };
 
   if (force) {

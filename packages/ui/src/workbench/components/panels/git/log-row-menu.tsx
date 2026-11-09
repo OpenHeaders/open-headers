@@ -4,9 +4,10 @@
  * unselected row selects it alone; on a selected row the menu covers
  * the set. Live rows: Copy Revision Number (every selected sha, one
  * per line), New Branch… and New Tag… (the dialogs anchored at the
- * commit), Go to Child / Parent Commit (within the loaded window).
- * Rows whose verb has no machinery yet render visible-disabled:
- * Create Patch…, Cherry-Pick, Checkout Revision, Compare with Local,
+ * commit), Checkout Revision (a detached HEAD at the commit, through
+ * the dirty prompt), Go to Child / Parent Commit (within the loaded
+ * window). Rows whose verb has no machinery yet render
+ * visible-disabled: Create Patch…, Cherry-Pick, Compare with Local,
  * Revert Commit. The reference's history-rewriting rows (reset, undo,
  * fixup, squash, drop, rebase, edit message) are DROPPED — the engine
  * never rewrites history. Pure over (target, t, handlers).
@@ -33,6 +34,7 @@ export interface LogRowMenuHandlers {
   onCopyRevision: (shas: readonly string[]) => void;
   onNewBranchFrom: (sha: string) => void;
   onNewTagAt: (sha: string) => void;
+  onCheckoutRevision: (sha: string) => void;
   onNavigate: (sha: string) => void;
 }
 
@@ -60,7 +62,21 @@ export function buildLogRowMenu(target: LogRowMenuTarget, t: Translate, h: LogRo
     { key: 'create-patch', label: menuLabel(<DiffIcon />, t('workbench.gitLog.commitMenu.createPatch')), disabled: true },
     { key: 'cherry-pick', label: menuLabel(<CherryPickIcon />, t('workbench.gitLog.cherryPick')), disabled: true },
     { type: 'divider' },
-    { key: 'checkout-revision', label: menuLabel(null, t('workbench.gitLog.commitMenu.checkoutRevision')), disabled: true },
+    live(
+      {
+        key: 'checkout-revision',
+        label: menuLabel(
+          null,
+          t('workbench.gitLog.commitMenu.checkoutRevision'),
+          undefined,
+          'git-tool-commit-menu-checkout-revision',
+        ),
+      },
+      single !== null,
+      () => {
+        if (single !== null) h.onCheckoutRevision(single);
+      },
+    ),
     { key: 'compare-with-local', label: menuLabel(null, t('workbench.gitLog.commitMenu.compareWithLocal')), disabled: true },
     { type: 'divider' },
     { key: 'revert', label: menuLabel(<RollbackIcon />, t('workbench.gitLog.commitMenu.revert')), disabled: true },

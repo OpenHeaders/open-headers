@@ -846,16 +846,23 @@ export async function createAndSwitchBranch(run: GitRunner, rootDir: string, bra
  * The wrapped checkout behind the in-app switch gesture (§6.2). Plain
  * by default — git itself refuses when uncommitted work would be
  * clobbered (the caller's dirty prompt should have handled it);
- * `force` is the user's explicit Discard choice.
+ * `force` is the user's explicit Discard choice; `detach` checks a
+ * commit out as a detached HEAD (Checkout Revision).
  */
 export async function checkoutWorkspaceBranch(
   run: GitRunner,
   rootDir: string,
   branch: string,
-  options?: { force?: boolean },
+  options?: { force?: boolean; detach?: boolean },
 ): Promise<BranchOpResult> {
   const result = await run(
-    [...repoArgs(rootDir), 'checkout', ...(options?.force === true ? ['--force'] : []), branch],
+    [
+      ...repoArgs(rootDir),
+      'checkout',
+      ...(options?.force === true ? ['--force'] : []),
+      ...(options?.detach === true ? ['--detach'] : []),
+      branch,
+    ],
     { cwd: rootDir },
   );
   if (result.code !== 0) return { ok: false, detail: failureDetail(result) };

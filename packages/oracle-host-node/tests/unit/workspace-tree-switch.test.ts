@@ -12,7 +12,14 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { createGitExec, type GitRunner } from '../../src/git/git-exec';
-import { commitWorkspaceTree, countDirtyFiles, currentBranch, ensureWorkspaceRepo } from '../../src/git/repo';
+import {
+  commitWorkspaceTree,
+  countDirtyFiles,
+  currentBranch,
+  ensureWorkspaceRepo,
+  localHeadSha,
+  resolveRefSha,
+} from '../../src/git/repo';
 import { switchWorkspaceBranch } from '../../src/workspace-tree/switch';
 
 const IDENTITY_ENV = {
@@ -134,6 +141,39 @@ describe('switchWorkspaceBranch', () => {
     expect((await fs.readFile(path.join(repo, 'config.yaml'), 'utf-8')).trim()).toBe('name: feature content');
     const stashes = await raw('stash', 'list');
     expect(stashes.stdout.trim()).toBe('');
+  });
+
+  it('a full commit sha checks out as a detached HEAD and no-ops when already there', async () => {
+    const sha = await resolveRefSha(run, repo, 'refs/heads/feature');
+    if (sha === null) throw new Error('feature did not resolve');
+    expect(await doSwitch(sha)).toEqual({ ok: true, branch: sha, switched: true });
+    expect(await currentBranch(run, repo)).toBeNull();
+    expect(await localHeadSha(run, repo)).toBe(sha);
+    expect((await fs.readFile(path.join(repo, 'config.yaml'), 'utf-8')).trim()).toBe('name: feature content');
+    expect(await doSwitch(sha)).toEqual({ ok: true, branch: sha, switched: false });
+    // Back onto a branch from the detached posture.
+    expect(await doSwitch('main')).toEqual({ ok: true, branch: 'main', switched: true });
+    expect(await currentBranch(run, repo)).toBe('main');
+  });
+
+  it('a sha the repo does not hold and a short sha refuse', async () => {
+    const sha = await resolveRefSha(run, repo, 'refs/heads/feature');
+    if (sha === null) throw new Error('feature did not resolve');
+    expect(await doSwitch('0'.repeat(40))).toMatchObject({ ok: false, reason: 'unknown-branch' });
+    expect(await doSwitch(sha.slice(0, 7))).toMatchObject({ ok: false, reason: 'unknown-branch' });
+    expect(await currentBranch(run, repo)).toBe('main');
+  });
+
+  it('a sha target on a dirty tree raises the same prompt, and Stash names the short sha', async () => {
+    const sha = await resolveRefSha(run, repo, 'refs/heads/feature');
+    if (sha === null) throw new Error('feature did not resolve');
+    await write('NOTES.md', '# scratch\n');
+    expect(await doSwitch(sha)).toMatchObject({ ok: false, reason: 'dirty', dirtyFiles: 1 });
+    expect(await currentBranch(run, repo)).toBe('main');
+    expect(await doSwitch(sha, 'stash')).toEqual({ ok: true, branch: sha, switched: true });
+    expect(await localHeadSha(run, repo)).toBe(sha);
+    const stashes = await raw('stash', 'list');
+    expect(stashes.stdout).toContain(`OpenHeaders: switch to ${sha.slice(0, 7)}`);
   });
 
   it('holds while a git operation is in progress (§3.3)', async () => {
