@@ -1,8 +1,10 @@
 /**
  * CommitList — the log's middle pane: graph cell, subject, the
- * right-aligned ref label column, author, and the graduated date column
- * — subject, author and date in one foreground, all three greyed on a
- * merge commit (the reference's reading). Rows reachable
+ * right-aligned ref label column, the short hash (off by default),
+ * author, and the graduated date column — the eye menu's Columns
+ * decide which of the last three show; subject, author and date in one
+ * foreground, all three greyed on a merge commit (the reference's
+ * reading), the hash in the code face and the tertiary grey. Rows reachable
  * from HEAD carry the reference's soft current-branch band (the
  * stylesheet paints it under the hover and the selection). The graph
  * layout arrives from the orchestrator and is null while a text filter
@@ -68,6 +70,12 @@ export interface CommitListProps {
   showTagChips?: boolean;
   /** Eye menu — Show > Commit Timestamp: time on older dates. */
   showTimestamp?: boolean;
+  /** Eye menu — Show > Columns: the author column. */
+  showAuthor?: boolean;
+  /** Eye menu — Show > Columns: the 7-character hash column. */
+  showHash?: boolean;
+  /** Eye menu — Show > Columns: the date column. */
+  showDate?: boolean;
   /** Eye menu — Highlight > Merge Commits: dim merge subjects. */
   dimMergeCommits?: boolean;
   /** The workbench clock format's hour cycle for the date column. */
@@ -97,6 +105,9 @@ const CommitList: React.FC<CommitListProps> = ({
   scrollTo,
   showTagChips = true,
   showTimestamp = true,
+  showAuthor = true,
+  showHash = false,
+  showDate = true,
   dimMergeCommits = true,
   hourCycle = 'h23',
   anchors = NO_ANCHORS,
@@ -264,19 +275,34 @@ const CommitList: React.FC<CommitListProps> = ({
               {entry.subject}
             </span>
             <RefRowLabel refs={labelRefs} isHead={entry.sha === headSha} />
-            <span style={{ flex: '0 0 auto', fontSize: 12, color: textColor }}>{entry.authorName}</span>
-            <span
-              title={formatLogDateTitle(entry.authoredAt, locale, hourCycle)}
-              style={{
-                flex: '0 0 auto',
-                minWidth: 64,
-                textAlign: 'right',
-                fontSize: 12,
-                color: textColor,
-              }}
-            >
-              {formatLogDate(entry.authoredAt, locale, dateLabels, { withTime: showTimestamp, hourCycle })}
-            </span>
+            {showHash && (
+              <span
+                style={{ flex: '0 0 auto', fontSize: 11.5, fontFamily: token.fontFamilyCode, color: token.colorTextTertiary }}
+                data-testid="git-tool-row-hash"
+              >
+                {entry.sha.slice(0, 7)}
+              </span>
+            )}
+            {showAuthor && (
+              <span style={{ flex: '0 0 auto', fontSize: 12, color: textColor }} data-testid="git-tool-row-author">
+                {entry.authorName}
+              </span>
+            )}
+            {showDate && (
+              <span
+                title={formatLogDateTitle(entry.authoredAt, locale, hourCycle)}
+                style={{
+                  flex: '0 0 auto',
+                  minWidth: 64,
+                  textAlign: 'right',
+                  fontSize: 12,
+                  color: textColor,
+                }}
+                data-testid="git-tool-row-date"
+              >
+                {formatLogDate(entry.authoredAt, locale, dateLabels, { withTime: showTimestamp, hourCycle })}
+              </span>
+            )}
           </button>
         );
       })}

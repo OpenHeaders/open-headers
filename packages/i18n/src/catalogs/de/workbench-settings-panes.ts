@@ -815,6 +815,12 @@ export const workbenchSettingsPanes = {
   'workbench.settings.gitPane.log.currentBranchLabel': 'Aktuellen Branch hervorheben',
   'workbench.settings.gitPane.log.currentBranchDescription':
     'Die Zeilen der Commits auf dem ausgecheckten Branch leicht einfärben.',
+  'workbench.settings.gitPane.log.authorColumnLabel': 'Spalte „Autor“',
+  'workbench.settings.gitPane.log.authorColumnDescription': 'Den Namen des Autors in den Commit-Zeilen anzeigen.',
+  'workbench.settings.gitPane.log.hashColumnLabel': 'Spalte „Hash“',
+  'workbench.settings.gitPane.log.hashColumnDescription': 'Den kurzen Commit-Hash in den Commit-Zeilen anzeigen.',
+  'workbench.settings.gitPane.log.dateColumnLabel': 'Spalte „Datum“',
+  'workbench.settings.gitPane.log.dateColumnDescription': 'Das Commit-Datum in den Commit-Zeilen anzeigen.',
   'workbench.settings.gitPane.log.groupByDirectoryLabel': 'Nach Verzeichnis gruppieren',
   'workbench.settings.gitPane.log.groupByDirectoryDescription':
     'Die geänderten Dateien eines Commits unter ihren Verzeichnissen verschachteln; aus listet sie flach.',

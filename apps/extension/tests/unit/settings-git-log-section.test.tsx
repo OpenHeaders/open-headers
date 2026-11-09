@@ -76,6 +76,13 @@ describe('Git › Log section', () => {
     fireEvent.click(screen.getByTestId('git-log-pane-shorten-paths'));
     expect(getGitConsolePrefs(WS).shortenPaths).toBe(false);
 
+    // S46: the Columns prefs ride the same store — the hash column is off by default.
+    const hash = screen.getByTestId('git-log-pane-hash-column');
+    expect(hash.getAttribute('aria-checked')).toBe('false');
+    fireEvent.click(hash);
+    expect(getGitLogViewPrefs(WS).showHashColumn).toBe(true);
+    expect(screen.getByTestId('git-log-pane-author-column').getAttribute('aria-checked')).toBe('true');
+
     // S41: the current-branch band rides the same store.
     const band = screen.getByTestId('git-log-pane-current-branch');
     expect(band.getAttribute('aria-checked')).toBe('true');

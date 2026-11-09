@@ -396,8 +396,24 @@ const GitLogToolbar: React.FC<GitLogToolbarProps> = ({
                 {
                   key: 'columns',
                   label: t('workbench.gitLog.show.columns'),
-                  icon: menuCheckIcon(false),
-                  disabled: true,
+                  icon: menuIconGutter(),
+                  children: [
+                    {
+                      key: 'column-author',
+                      label: t('workbench.gitLog.columns.author'),
+                      icon: menuCheckIcon(prefs.showAuthorColumn),
+                    },
+                    {
+                      key: 'column-hash',
+                      label: t('workbench.gitLog.columns.hash'),
+                      icon: menuCheckIcon(prefs.showHashColumn),
+                    },
+                    {
+                      key: 'column-date',
+                      label: t('workbench.gitLog.columns.date'),
+                      icon: menuCheckIcon(prefs.showDateColumn),
+                    },
+                  ],
                 },
               ],
             },
@@ -436,6 +452,9 @@ const GitLogToolbar: React.FC<GitLogToolbarProps> = ({
             else if (key === 'commit-timestamp') onPatchPrefs({ showCommitTimestamp: !prefs.showCommitTimestamp });
             else if (key === 'merge-commits') onPatchPrefs({ highlightMergeCommits: !prefs.highlightMergeCommits });
             else if (key === 'current-branch') onPatchPrefs({ highlightCurrentBranch: !prefs.highlightCurrentBranch });
+            else if (key === 'column-author') onPatchPrefs({ showAuthorColumn: !prefs.showAuthorColumn });
+            else if (key === 'column-hash') onPatchPrefs({ showHashColumn: !prefs.showHashColumn });
+            else if (key === 'column-date') onPatchPrefs({ showDateColumn: !prefs.showDateColumn });
           },
         }}
       >

@@ -1,8 +1,8 @@
 /**
  * Git › Log sections — the Git tool window's per-workspace display
  * preferences, the same values the window's eye menus and ⋯ Options
- * flip: Commits (tag names, commit timestamp, the merge-commit
- * highlight), Changes (group by directory, show details, what a
+ * flip: Commits (tag names, commit timestamp, the author / hash / date
+ * columns, the merge-commit highlight, the current-branch band), Changes (group by directory, show details, what a
  * double-click opens) and Console (the gutter toggles). The values
  * live in the window's own per-workspace stores, so the rows patch
  * those stores directly and an open window follows at once; a row's
@@ -97,6 +97,33 @@ const GitLogSection: React.FC<{ git: WorkspaceGit }> = ({ git }) => {
           defaultValue={DEFAULT_GIT_LOG_VIEW_PREFS.showCommitTimestamp}
           onChange={(showCommitTimestamp) => patchView({ showCommitTimestamp })}
           testid="git-log-pane-commit-timestamp"
+        />
+        <ToggleRow
+          settingKey="git.log.authorColumn"
+          label={t('workbench.settings.gitPane.log.authorColumnLabel')}
+          description={t('workbench.settings.gitPane.log.authorColumnDescription')}
+          value={view.showAuthorColumn}
+          defaultValue={DEFAULT_GIT_LOG_VIEW_PREFS.showAuthorColumn}
+          onChange={(showAuthorColumn) => patchView({ showAuthorColumn })}
+          testid="git-log-pane-author-column"
+        />
+        <ToggleRow
+          settingKey="git.log.hashColumn"
+          label={t('workbench.settings.gitPane.log.hashColumnLabel')}
+          description={t('workbench.settings.gitPane.log.hashColumnDescription')}
+          value={view.showHashColumn}
+          defaultValue={DEFAULT_GIT_LOG_VIEW_PREFS.showHashColumn}
+          onChange={(showHashColumn) => patchView({ showHashColumn })}
+          testid="git-log-pane-hash-column"
+        />
+        <ToggleRow
+          settingKey="git.log.dateColumn"
+          label={t('workbench.settings.gitPane.log.dateColumnLabel')}
+          description={t('workbench.settings.gitPane.log.dateColumnDescription')}
+          value={view.showDateColumn}
+          defaultValue={DEFAULT_GIT_LOG_VIEW_PREFS.showDateColumn}
+          onChange={(showDateColumn) => patchView({ showDateColumn })}
+          testid="git-log-pane-date-column"
         />
         <ToggleRow
           settingKey="git.log.highlightMergeCommits"

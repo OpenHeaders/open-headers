@@ -809,6 +809,12 @@ export const workbenchSettingsPanes = {
   'workbench.settings.gitPane.log.currentBranchLabel': 'Mettre en évidence la branche courante',
   'workbench.settings.gitPane.log.currentBranchDescription':
     'Teinter les lignes des commits présents sur la branche extraite.',
+  'workbench.settings.gitPane.log.authorColumnLabel': 'Colonne Auteur',
+  'workbench.settings.gitPane.log.authorColumnDescription': 'Afficher le nom de l’auteur sur les lignes de commits.',
+  'workbench.settings.gitPane.log.hashColumnLabel': 'Colonne Hash',
+  'workbench.settings.gitPane.log.hashColumnDescription': 'Afficher le hash court du commit sur les lignes de commits.',
+  'workbench.settings.gitPane.log.dateColumnLabel': 'Colonne Date',
+  'workbench.settings.gitPane.log.dateColumnDescription': 'Afficher la date du commit sur les lignes de commits.',
   'workbench.settings.gitPane.log.groupByDirectoryLabel': 'Grouper par répertoire',
   'workbench.settings.gitPane.log.groupByDirectoryDescription':
     "Imbriquer les fichiers modifiés d'un commit sous leurs répertoires ; désactivé, ils sont listés à plat.",

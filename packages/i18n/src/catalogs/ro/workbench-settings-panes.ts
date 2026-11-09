@@ -775,6 +775,13 @@ export const workbenchSettingsPanes = {
   'workbench.settings.gitPane.log.currentBranchLabel': 'Evidențiază ramura curentă',
   'workbench.settings.gitPane.log.currentBranchDescription':
     'Colorează ușor rândurile commit-urilor aflate pe ramura activă.',
+  'workbench.settings.gitPane.log.authorColumnLabel': 'Coloana autor',
+  'workbench.settings.gitPane.log.authorColumnDescription': 'Afișează numele autorului pe rândurile commit-urilor.',
+  'workbench.settings.gitPane.log.hashColumnLabel': 'Coloana hash',
+  'workbench.settings.gitPane.log.hashColumnDescription':
+    'Afișează hash-ul scurt al commit-ului pe rândurile commit-urilor.',
+  'workbench.settings.gitPane.log.dateColumnLabel': 'Coloana dată',
+  'workbench.settings.gitPane.log.dateColumnDescription': 'Afișează data commit-ului pe rândurile commit-urilor.',
   'workbench.settings.gitPane.log.groupByDirectoryLabel': 'Grupează pe directoare',
   'workbench.settings.gitPane.log.groupByDirectoryDescription':
     'Imbrică fișierele modificate ale unui commit sub directoarele lor; dezactivat, le listează plat.',

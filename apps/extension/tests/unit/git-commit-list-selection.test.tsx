@@ -111,6 +111,48 @@ describe('CommitList — the current-branch band (S41, S43)', () => {
   });
 });
 
+describe('CommitList — the columns (S46)', () => {
+  it('author and date show by default and the hash does not; each column follows its flag', () => {
+    const { rerender } = render(
+      <CommitList
+        entries={ENTRIES}
+        graph={null}
+        refsBySha={new Map()}
+        headSha={null}
+        selectedSha={null}
+        onSelect={() => undefined}
+        onSelectionChange={() => undefined}
+        filtersActive={false}
+        onResetFilters={() => undefined}
+      />,
+    );
+    expect(screen.getAllByTestId('git-tool-row-author')).toHaveLength(ENTRIES.length);
+    expect(screen.getAllByTestId('git-tool-row-date')).toHaveLength(ENTRIES.length);
+    expect(screen.queryAllByTestId('git-tool-row-hash')).toHaveLength(0);
+    rerender(
+      <CommitList
+        entries={ENTRIES}
+        graph={null}
+        refsBySha={new Map()}
+        headSha={null}
+        selectedSha={null}
+        onSelect={() => undefined}
+        onSelectionChange={() => undefined}
+        filtersActive={false}
+        onResetFilters={() => undefined}
+        showAuthor={false}
+        showHash={true}
+        showDate={false}
+      />,
+    );
+    expect(screen.queryAllByTestId('git-tool-row-author')).toHaveLength(0);
+    expect(screen.queryAllByTestId('git-tool-row-date')).toHaveLength(0);
+    const hashes = screen.getAllByTestId('git-tool-row-hash');
+    expect(hashes).toHaveLength(ENTRIES.length);
+    expect(hashes[0].textContent).toBe(ENTRIES[0].sha.slice(0, 7));
+  });
+});
+
 describe('CommitList — the graph cell (S45)', () => {
   it('the checked-out commit draws the hollow ring with its centre dot; every other row a filled dot', () => {
     render(

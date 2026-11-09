@@ -710,6 +710,12 @@ export const workbenchSettingsPanes = {
     '병합 커밋의 제목을 흐리게 하여 선형 기록이 돋보이게 합니다.',
   'workbench.settings.gitPane.log.currentBranchLabel': '현재 브랜치 강조',
   'workbench.settings.gitPane.log.currentBranchDescription': '체크아웃된 브랜치에 있는 커밋 행에 옅은 색을 입힙니다.',
+  'workbench.settings.gitPane.log.authorColumnLabel': '작성자 열',
+  'workbench.settings.gitPane.log.authorColumnDescription': '커밋 행에 작성자 이름을 표시합니다.',
+  'workbench.settings.gitPane.log.hashColumnLabel': '해시 열',
+  'workbench.settings.gitPane.log.hashColumnDescription': '커밋 행에 짧은 커밋 해시를 표시합니다.',
+  'workbench.settings.gitPane.log.dateColumnLabel': '날짜 열',
+  'workbench.settings.gitPane.log.dateColumnDescription': '커밋 행에 커밋 날짜를 표시합니다.',
   'workbench.settings.gitPane.log.groupByDirectoryLabel': '디렉터리별 그룹화',
   'workbench.settings.gitPane.log.groupByDirectoryDescription':
     '커밋의 변경된 파일을 디렉터리 아래에 중첩합니다. 끄면 평면으로 나열합니다.',

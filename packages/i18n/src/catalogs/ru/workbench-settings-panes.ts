@@ -770,6 +770,12 @@ export const workbenchSettingsPanes = {
   'workbench.settings.gitPane.log.currentBranchLabel': 'Выделять текущую ветку',
   'workbench.settings.gitPane.log.currentBranchDescription':
     'Подкрашивать строки коммитов, входящих в извлечённую ветку.',
+  'workbench.settings.gitPane.log.authorColumnLabel': 'Колонка «Автор»',
+  'workbench.settings.gitPane.log.authorColumnDescription': 'Показывать имя автора в строках коммитов.',
+  'workbench.settings.gitPane.log.hashColumnLabel': 'Колонка «Хеш»',
+  'workbench.settings.gitPane.log.hashColumnDescription': 'Показывать короткий хеш коммита в строках коммитов.',
+  'workbench.settings.gitPane.log.dateColumnLabel': 'Колонка «Дата»',
+  'workbench.settings.gitPane.log.dateColumnDescription': 'Показывать дату коммита в строках коммитов.',
   'workbench.settings.gitPane.log.groupByDirectoryLabel': 'Группировать по каталогам',
   'workbench.settings.gitPane.log.groupByDirectoryDescription':
     'Вкладывать изменённые файлы коммита в их каталоги; выключено — плоский список.',

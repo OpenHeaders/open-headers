@@ -811,6 +811,12 @@ export const workbenchSettingsPanes = {
   'workbench.settings.gitPane.log.currentBranchLabel': 'Resaltar la rama actual',
   'workbench.settings.gitPane.log.currentBranchDescription':
     'Tintar las filas de los commits que están en la rama activa.',
+  'workbench.settings.gitPane.log.authorColumnLabel': 'Columna de autor',
+  'workbench.settings.gitPane.log.authorColumnDescription': 'Mostrar el nombre del autor en las filas de commits.',
+  'workbench.settings.gitPane.log.hashColumnLabel': 'Columna de hash',
+  'workbench.settings.gitPane.log.hashColumnDescription': 'Mostrar el hash corto del commit en las filas de commits.',
+  'workbench.settings.gitPane.log.dateColumnLabel': 'Columna de fecha',
+  'workbench.settings.gitPane.log.dateColumnDescription': 'Mostrar la fecha del commit en las filas de commits.',
   'workbench.settings.gitPane.log.groupByDirectoryLabel': 'Agrupar por directorio',
   'workbench.settings.gitPane.log.groupByDirectoryDescription':
     'Anidar los archivos cambiados de un commit bajo sus directorios; desactivado los lista en plano.',

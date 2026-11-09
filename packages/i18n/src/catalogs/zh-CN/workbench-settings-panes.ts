@@ -652,6 +652,12 @@ export const workbenchSettingsPanes = {
   'workbench.settings.gitPane.log.mergeCommitsDescription': '淡化合并提交的主题，让线性历史更醒目。',
   'workbench.settings.gitPane.log.currentBranchLabel': '突出显示当前分支',
   'workbench.settings.gitPane.log.currentBranchDescription': '为已检出分支上的提交行着色。',
+  'workbench.settings.gitPane.log.authorColumnLabel': '作者列',
+  'workbench.settings.gitPane.log.authorColumnDescription': '在提交行中显示作者姓名。',
+  'workbench.settings.gitPane.log.hashColumnLabel': '哈希列',
+  'workbench.settings.gitPane.log.hashColumnDescription': '在提交行中显示短提交哈希。',
+  'workbench.settings.gitPane.log.dateColumnLabel': '日期列',
+  'workbench.settings.gitPane.log.dateColumnDescription': '在提交行中显示提交日期。',
   'workbench.settings.gitPane.log.groupByDirectoryLabel': '按目录分组',
   'workbench.settings.gitPane.log.groupByDirectoryDescription':
     '把一次提交的已更改文件嵌套在其目录下；关闭则平铺列出。',

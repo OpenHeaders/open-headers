@@ -707,6 +707,12 @@ export const workbenchSettingsPanes = {
   'workbench.settings.gitPane.log.currentBranchLabel': 'Highlight current branch',
   'workbench.settings.gitPane.log.currentBranchDescription':
     'Tint the rows of commits that are on the checked-out branch.',
+  'workbench.settings.gitPane.log.authorColumnLabel': 'Author column',
+  'workbench.settings.gitPane.log.authorColumnDescription': 'Show the author’s name on the commit rows.',
+  'workbench.settings.gitPane.log.hashColumnLabel': 'Hash column',
+  'workbench.settings.gitPane.log.hashColumnDescription': 'Show the short commit hash on the commit rows.',
+  'workbench.settings.gitPane.log.dateColumnLabel': 'Date column',
+  'workbench.settings.gitPane.log.dateColumnDescription': 'Show the commit date on the commit rows.',
   'workbench.settings.gitPane.log.groupByDirectoryLabel': 'Group by directory',
   'workbench.settings.gitPane.log.groupByDirectoryDescription':
     'Nest a commit’s changed files under their directories; off lists them flat.',

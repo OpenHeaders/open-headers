@@ -720,6 +720,12 @@ export const workbenchSettingsPanes = {
   'workbench.settings.gitPane.log.currentBranchLabel': '現在のブランチを強調',
   'workbench.settings.gitPane.log.currentBranchDescription':
     'チェックアウト中のブランチにあるコミットの行に色を付けます。',
+  'workbench.settings.gitPane.log.authorColumnLabel': '作成者列',
+  'workbench.settings.gitPane.log.authorColumnDescription': 'コミット行に作成者名を表示します。',
+  'workbench.settings.gitPane.log.hashColumnLabel': 'ハッシュ列',
+  'workbench.settings.gitPane.log.hashColumnDescription': 'コミット行に短いコミットハッシュを表示します。',
+  'workbench.settings.gitPane.log.dateColumnLabel': '日付列',
+  'workbench.settings.gitPane.log.dateColumnDescription': 'コミット行にコミット日付を表示します。',
   'workbench.settings.gitPane.log.groupByDirectoryLabel': 'ディレクトリでグループ化',
   'workbench.settings.gitPane.log.groupByDirectoryDescription':
     'コミットの変更ファイルをディレクトリの下に入れ子にします。オフではフラットに一覧します。',
