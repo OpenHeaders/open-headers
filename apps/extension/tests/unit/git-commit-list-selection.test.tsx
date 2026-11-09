@@ -153,6 +153,55 @@ describe('CommitList — the columns (S46)', () => {
   });
 });
 
+describe('CommitList — the ref labels (S46)', () => {
+  const REFS = new Map([
+    [
+      'c1',
+      [
+        { kind: 'tag' as const, name: 'v1', sha: 'c1' },
+        { kind: 'remote' as const, name: 'origin/main', sha: 'c1' },
+        { kind: 'local' as const, name: 'main', sha: 'c1' },
+      ],
+    ],
+  ]);
+  const refLabels = (): string[] =>
+    screen.getAllByTestId('git-tool-row-ref').map((el) => el.getAttribute('data-ref') ?? '');
+
+  it('the compact form names one ref per row; the full form lists every label in kind order with HEAD first', () => {
+    const { rerender } = render(
+      <CommitList
+        entries={ENTRIES}
+        graph={null}
+        refsBySha={REFS}
+        headSha="c1"
+        selectedSha={null}
+        onSelect={() => undefined}
+        onSelectionChange={() => undefined}
+        filtersActive={false}
+        onResetFilters={() => undefined}
+      />,
+    );
+    expect(refLabels()).toEqual(['main']);
+    expect(screen.queryAllByTestId('git-tool-row-refs')).toHaveLength(0);
+    rerender(
+      <CommitList
+        entries={ENTRIES}
+        graph={null}
+        refsBySha={REFS}
+        headSha="c1"
+        selectedSha={null}
+        onSelect={() => undefined}
+        onSelectionChange={() => undefined}
+        filtersActive={false}
+        onResetFilters={() => undefined}
+        compactRefs={false}
+      />,
+    );
+    expect(screen.getAllByTestId('git-tool-row-refs')).toHaveLength(1);
+    expect(refLabels()).toEqual(['HEAD', 'main', 'origin/main', 'v1']);
+  });
+});
+
 describe('CommitList — the graph cell (S45)', () => {
   it('the checked-out commit draws the hollow ring with its centre dot; every other row a filled dot', () => {
     render(

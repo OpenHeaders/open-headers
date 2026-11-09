@@ -799,6 +799,9 @@ export const workbenchSettingsPanes = {
   'workbench.settings.gitPane.git.autoPushLabel': 'Pousser après chaque commit',
   'workbench.settings.gitPane.git.autoPushDescription':
     'Pousser la branche courante vers son upstream juste après chaque commit enregistré par le moteur.',
+  'workbench.settings.gitPane.log.compactReferencesLabel': 'Références compactes',
+  'workbench.settings.gitPane.log.compactReferencesDescription':
+    'Une étiquette par ligne avec la liste complète au survol ; désactivé, chaque branche et tag s’affiche en ligne.',
   'workbench.settings.gitPane.log.tagNamesLabel': 'Noms des tags',
   'workbench.settings.gitPane.log.tagNamesDescription': 'Afficher les puces de tag sur les lignes de commit.',
   'workbench.settings.gitPane.log.commitTimestampLabel': 'Horodatage du commit',

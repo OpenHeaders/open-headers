@@ -368,8 +368,7 @@ const GitLogToolbar: React.FC<GitLogToolbarProps> = ({
                 {
                   key: 'compact-refs',
                   label: t('workbench.gitLog.show.compactRefs'),
-                  icon: menuCheckIcon(false),
-                  disabled: true,
+                  icon: menuCheckIcon(prefs.compactReferences),
                 },
                 {
                   key: 'tag-names',
@@ -448,7 +447,8 @@ const GitLogToolbar: React.FC<GitLogToolbarProps> = ({
             },
           ],
           onClick: ({ key }) => {
-            if (key === 'tag-names') onPatchPrefs({ showTagNames: !prefs.showTagNames });
+            if (key === 'compact-refs') onPatchPrefs({ compactReferences: !prefs.compactReferences });
+            else if (key === 'tag-names') onPatchPrefs({ showTagNames: !prefs.showTagNames });
             else if (key === 'commit-timestamp') onPatchPrefs({ showCommitTimestamp: !prefs.showCommitTimestamp });
             else if (key === 'merge-commits') onPatchPrefs({ highlightMergeCommits: !prefs.highlightMergeCommits });
             else if (key === 'current-branch') onPatchPrefs({ highlightCurrentBranch: !prefs.highlightCurrentBranch });

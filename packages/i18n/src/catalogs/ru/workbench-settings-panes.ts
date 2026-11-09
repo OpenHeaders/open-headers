@@ -760,6 +760,9 @@ export const workbenchSettingsPanes = {
   'workbench.settings.gitPane.git.autoPushLabel': 'Push после каждого коммита',
   'workbench.settings.gitPane.git.autoPushDescription':
     'Отправлять текущую ветку в её вышестоящую ветку сразу после каждого коммита, который записывает движок.',
+  'workbench.settings.gitPane.log.compactReferencesLabel': 'Компактные ссылки',
+  'workbench.settings.gitPane.log.compactReferencesDescription':
+    'Одна метка в строке, полный список при наведении; выключено — каждая ветка и тег в строке.',
   'workbench.settings.gitPane.log.tagNamesLabel': 'Имена тегов',
   'workbench.settings.gitPane.log.tagNamesDescription': 'Показывать метки тегов в строках коммитов.',
   'workbench.settings.gitPane.log.commitTimestampLabel': 'Время коммита',

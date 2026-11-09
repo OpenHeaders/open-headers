@@ -470,6 +470,7 @@ const GitLogView: React.FC<GitLogViewProps> = ({
             filtersActive={filtersActive}
             onResetFilters={resetFilters}
             scrollTo={scrollTo}
+            compactRefs={prefs.compactReferences}
             showTagChips={prefs.showTagNames}
             showTimestamp={prefs.showCommitTimestamp}
             showAuthor={prefs.showAuthorColumn}

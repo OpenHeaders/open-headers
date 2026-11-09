@@ -1,8 +1,8 @@
 /**
  * Git › Log sections — the Git tool window's per-workspace display
  * preferences, the same values the window's eye menus and ⋯ Options
- * flip: Commits (tag names, commit timestamp, the author / hash / date
- * columns, the merge-commit highlight, the current-branch band), Changes (group by directory, show details, what a
+ * flip: Commits (compact references, tag names, commit timestamp, the
+ * author / hash / date columns, the merge-commit highlight, the current-branch band), Changes (group by directory, show details, what a
  * double-click opens) and Console (the gutter toggles). The values
  * live in the window's own per-workspace stores, so the rows patch
  * those stores directly and an open window follows at once; a row's
@@ -80,6 +80,15 @@ const GitLogSection: React.FC<{ git: WorkspaceGit }> = ({ git }) => {
   return (
     <>
       <PaneSection title={t('workbench.settings.category.gitLog.sub.commits')}>
+        <ToggleRow
+          settingKey="git.log.compactReferences"
+          label={t('workbench.settings.gitPane.log.compactReferencesLabel')}
+          description={t('workbench.settings.gitPane.log.compactReferencesDescription')}
+          value={view.compactReferences}
+          defaultValue={DEFAULT_GIT_LOG_VIEW_PREFS.compactReferences}
+          onChange={(compactReferences) => patchView({ compactReferences })}
+          testid="git-log-pane-compact-references"
+        />
         <ToggleRow
           settingKey="git.log.tagNames"
           label={t('workbench.settings.gitPane.log.tagNamesLabel')}

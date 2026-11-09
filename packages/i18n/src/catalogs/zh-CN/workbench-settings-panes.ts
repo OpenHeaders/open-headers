@@ -644,6 +644,9 @@ export const workbenchSettingsPanes = {
   'workbench.settings.gitPane.git.exportedBranch': '已推送分支 {branch}。',
   'workbench.settings.gitPane.git.autoPushLabel': '每次提交后推送',
   'workbench.settings.gitPane.git.autoPushDescription': '引擎每次记录提交后，立即把当前分支推送到其上游。',
+  'workbench.settings.gitPane.log.compactReferencesLabel': '紧凑引用',
+  'workbench.settings.gitPane.log.compactReferencesDescription':
+    '每行一个标签，悬停显示完整列表；关闭后在行内列出每个分支和标签。',
   'workbench.settings.gitPane.log.tagNamesLabel': '标签名称',
   'workbench.settings.gitPane.log.tagNamesDescription': '在提交行上显示标签芯片。',
   'workbench.settings.gitPane.log.commitTimestampLabel': '提交时间戳',

@@ -76,6 +76,12 @@ describe('Git › Log section', () => {
     fireEvent.click(screen.getByTestId('git-log-pane-shorten-paths'));
     expect(getGitConsolePrefs(WS).shortenPaths).toBe(false);
 
+    // S46: Compact References View is on by default and rides the same store.
+    const compact = screen.getByTestId('git-log-pane-compact-references');
+    expect(compact.getAttribute('aria-checked')).toBe('true');
+    fireEvent.click(compact);
+    expect(getGitLogViewPrefs(WS).compactReferences).toBe(false);
+
     // S46: the Columns prefs ride the same store — the hash column is off by default.
     const hash = screen.getByTestId('git-log-pane-hash-column');
     expect(hash.getAttribute('aria-checked')).toBe('false');

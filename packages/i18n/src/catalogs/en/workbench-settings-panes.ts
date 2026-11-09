@@ -696,6 +696,9 @@ export const workbenchSettingsPanes = {
   'workbench.settings.gitPane.git.autoPushLabel': 'Push after every commit',
   'workbench.settings.gitPane.git.autoPushDescription':
     'Push the current branch to its upstream right after every commit the engine records.',
+  'workbench.settings.gitPane.log.compactReferencesLabel': 'Compact references',
+  'workbench.settings.gitPane.log.compactReferencesDescription':
+    'One label per row with the full list on hover; off lists every branch and tag inline.',
   'workbench.settings.gitPane.log.tagNamesLabel': 'Tag names',
   'workbench.settings.gitPane.log.tagNamesDescription': 'Show tag chips on the commit rows.',
   'workbench.settings.gitPane.log.commitTimestampLabel': 'Commit timestamp',

@@ -710,6 +710,9 @@ export const workbenchSettingsPanes = {
   'workbench.settings.gitPane.git.autoPushLabel': 'コミットのたびにプッシュ',
   'workbench.settings.gitPane.git.autoPushDescription':
     'エンジンがコミットを記録するたびに、現在のブランチをその上流に直ちにプッシュします。',
+  'workbench.settings.gitPane.log.compactReferencesLabel': '参照のコンパクト表示',
+  'workbench.settings.gitPane.log.compactReferencesDescription':
+    '行ごとにラベルを1つ表示し、ホバーで全リストを表示します。オフにするとすべてのブランチとタグを行内に表示します。',
   'workbench.settings.gitPane.log.tagNamesLabel': 'タグ名',
   'workbench.settings.gitPane.log.tagNamesDescription': 'コミット行にタグのチップを表示します。',
   'workbench.settings.gitPane.log.commitTimestampLabel': 'コミットのタイムスタンプ',

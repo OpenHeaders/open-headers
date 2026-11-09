@@ -66,6 +66,8 @@ export interface CommitListProps {
   /** Navigate gesture: scroll the row for `sha` into view. The nonce
    *  distinguishes repeated navigations to the same sha. */
   scrollTo?: { sha: string; nonce: number } | null;
+  /** Eye menu — Show > Compact References View: one ref label per row (off: every label inline). */
+  compactRefs?: boolean;
   /** Eye menu — Show > Tag Names: tag chips on rows. */
   showTagChips?: boolean;
   /** Eye menu — Show > Commit Timestamp: time on older dates. */
@@ -103,6 +105,7 @@ const CommitList: React.FC<CommitListProps> = ({
   filtersActive,
   onResetFilters,
   scrollTo,
+  compactRefs = true,
   showTagChips = true,
   showTimestamp = true,
   showAuthor = true,
@@ -274,7 +277,7 @@ const CommitList: React.FC<CommitListProps> = ({
             >
               {entry.subject}
             </span>
-            <RefRowLabel refs={labelRefs} isHead={entry.sha === headSha} />
+            <RefRowLabel refs={labelRefs} isHead={entry.sha === headSha} compact={compactRefs} />
             {showHash && (
               <span
                 style={{ flex: '0 0 auto', fontSize: 11.5, fontFamily: token.fontFamilyCode, color: token.colorTextTertiary }}

@@ -765,6 +765,9 @@ export const workbenchSettingsPanes = {
   'workbench.settings.gitPane.git.autoPushLabel': 'Push după fiecare commit',
   'workbench.settings.gitPane.git.autoPushDescription':
     'Face push ramurii curente către ramura din amonte imediat după fiecare commit înregistrat de motor.',
+  'workbench.settings.gitPane.log.compactReferencesLabel': 'Referințe compacte',
+  'workbench.settings.gitPane.log.compactReferencesDescription':
+    'O etichetă pe rând, cu lista completă la trecerea cursorului; dezactivat, afișează fiecare ramură și etichetă în rând.',
   'workbench.settings.gitPane.log.tagNamesLabel': 'Numele etichetelor',
   'workbench.settings.gitPane.log.tagNamesDescription': 'Afișează cipurile de etichetă pe rândurile de commit.',
   'workbench.settings.gitPane.log.commitTimestampLabel': 'Ora commit-ului',
