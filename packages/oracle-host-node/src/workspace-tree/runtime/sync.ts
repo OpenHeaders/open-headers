@@ -123,9 +123,21 @@ export async function runPull(ctx: RuntimeCtx, binding: OpenBinding): Promise<Pu
       SCOPE,
       `pull of ${rootDir} found no merge base (${result.history}): every remote file was treated as changed`,
     );
-    return { ok: true, upToDate: false, sha: result.sha, applied: result.applied, history: result.history };
   }
-  return { ok: true, upToDate: false, sha: result.sha, applied: result.applied };
+  if (result.keptLocal !== undefined) {
+    logger.warn(
+      SCOPE,
+      `pull of ${rootDir} kept the local file where both sides changed: ${result.keptLocal.join(', ')}`,
+    );
+  }
+  return {
+    ok: true,
+    upToDate: false,
+    sha: result.sha,
+    applied: result.applied,
+    ...(result.history !== undefined ? { history: result.history } : {}),
+    ...(result.keptLocal !== undefined ? { keptLocal: result.keptLocal } : {}),
+  };
 }
 
 /**

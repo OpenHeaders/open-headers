@@ -23,7 +23,9 @@
  *      materializer's rung-2 guard protects them and the next sweep
  *      keeps reporting them), the engine keeps its own value, and the
  *      issue rows surface through the card's quarantine list;
- *   6. materialize the converged tree, then record the pull:
+ *   6. materialize the converged tree, carry the foreign side's changes
+ *      to the user's own files onto disk (`own-files.ts` — the files
+ *      no entity stands behind), then record the pull:
  *      an un-diverged local branch FAST-FORWARDS (plain-git pull
  *      semantics — no merge bubble; engine canonicalization residue
  *      commits as an ordinary follow-up), while genuine divergence
@@ -65,6 +67,7 @@ import {
   readCommitTreeFiles,
   resolveUpstream,
 } from '../git';
+import { landForeignOwnFiles } from './own-files';
 import {
   hashTreeContent,
   type QuarantineIndex,
@@ -120,6 +123,8 @@ export type PullWorkspaceTreeResult =
       issues: TreeIssue[];
       /** Set when no merge base was found — every foreign file was treated as changed (§3.4). */
       history?: ForeignHistoryNote;
+      /** The user's own files both sides changed — the local file stood. */
+      keptLocal?: string[];
     }
   | {
       ok: false;
@@ -216,7 +221,15 @@ export async function releaseHealedQuarantine(rootDir: string, issues: readonly 
 }
 
 export type IntegrateForeignHeadResult =
-  | { ok: true; sha: string; applied: number; issues: TreeIssue[]; history?: ForeignHistoryNote }
+  | {
+      ok: true;
+      sha: string;
+      applied: number;
+      issues: TreeIssue[];
+      history?: ForeignHistoryNote;
+      /** The user's own files BOTH sides changed — the local file stood (`own-files.ts`). */
+      keptLocal?: string[];
+    }
   | {
       ok: false;
       reason: 'foreign-invalid' | 'identity-mismatch' | 'commit-failed';
@@ -293,6 +306,12 @@ export async function integrateForeignHead(
 
   await deps.flush();
 
+  // The commit below stages the working tree — the foreign side's
+  // changes to the user's own files must be on disk before it does.
+  const own = await landForeignOwnFiles(run, rootDir, { baseRef: base, foreignRef: foreignSha });
+  if (!own.ok) return { ok: false, reason: 'commit-failed', detail: own.detail, issues: foreign.issues };
+  const withKept = own.kept.length > 0 ? { keptLocal: own.kept } : {};
+
   // Un-diverged local branch ⇒ plain-git pull semantics: a true
   // fast-forward, no merge bubble (git itself would reduce the
   // redundant parent anyway). Foreign commits keep their own
@@ -310,7 +329,7 @@ export async function integrateForeignHead(
     });
     if (!residue.ok) return { ok: false, reason: 'commit-failed', detail: residue.detail, issues: foreign.issues };
     const sha = residue.committed ? residue.sha : foreignSha;
-    return { ok: true, sha, applied: batches.length, issues: foreign.issues, ...withHistory };
+    return { ok: true, sha, applied: batches.length, issues: foreign.issues, ...withHistory, ...withKept };
   }
 
   const authors = await listForeignAuthors(run, rootDir, 'HEAD', foreignSha);
@@ -327,7 +346,7 @@ export async function integrateForeignHead(
   if (!commit.committed)
     return { ok: false, reason: 'commit-failed', detail: 'merge commit did not land', issues: foreign.issues };
 
-  return { ok: true, sha: commit.sha, applied: batches.length, issues: foreign.issues, ...withHistory };
+  return { ok: true, sha: commit.sha, applied: batches.length, issues: foreign.issues, ...withHistory, ...withKept };
 }
 
 export async function pullWorkspaceTree(options: PullWorkspaceTreeOptions): Promise<PullWorkspaceTreeResult> {
@@ -374,5 +393,6 @@ export async function pullWorkspaceTree(options: PullWorkspaceTreeOptions): Prom
     applied: integrated.applied,
     issues: integrated.issues,
     ...(integrated.history !== undefined ? { history: integrated.history } : {}),
+    ...(integrated.keptLocal !== undefined ? { keptLocal: integrated.keptLocal } : {}),
   };
 }

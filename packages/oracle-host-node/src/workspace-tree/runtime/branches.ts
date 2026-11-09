@@ -311,7 +311,16 @@ export async function runMergeBranch(
       SCOPE,
       `merge of ${ref} found no merge base (${result.history}): every foreign file was treated as changed`,
     );
-    return { ok: true, upToDate: false, sha: result.sha, applied: result.applied, history: result.history };
   }
-  return { ok: true, upToDate: false, sha: result.sha, applied: result.applied };
+  if (result.keptLocal !== undefined) {
+    logger.warn(SCOPE, `merge of ${ref} kept the local file where both sides changed: ${result.keptLocal.join(', ')}`);
+  }
+  return {
+    ok: true,
+    upToDate: false,
+    sha: result.sha,
+    applied: result.applied,
+    ...(result.history !== undefined ? { history: result.history } : {}),
+    ...(result.keptLocal !== undefined ? { keptLocal: result.keptLocal } : {}),
+  };
 }

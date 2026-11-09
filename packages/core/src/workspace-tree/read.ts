@@ -38,6 +38,7 @@ import {
 import type { ParsedDocument } from '../schemas/document';
 import {
   COLLECTION_MANIFEST_FILE,
+  ENTITY_MANIFEST_FILES,
   ENVIRONMENTS_DIR,
   FOLDER_MANIFEST_FILE,
   GRAPHQL_REQUEST_MANIFEST_FILE,
@@ -68,21 +69,6 @@ interface SiblingFile {
   fileName: string;
   content: string;
 }
-
-const ENTITY_MANIFEST_FILES: ReadonlySet<string> = new Set([
-  COLLECTION_MANIFEST_FILE,
-  FOLDER_MANIFEST_FILE,
-  RULE_MANIFEST_FILE,
-  REQUEST_MANIFEST_FILE,
-  GRPC_REQUEST_MANIFEST_FILE,
-  WEBSOCKET_REQUEST_MANIFEST_FILE,
-  MQTT_REQUEST_MANIFEST_FILE,
-  GRAPHQL_REQUEST_MANIFEST_FILE,
-  TEMPLATE_MANIFEST_FILE,
-  SPEC_MANIFEST_FILE,
-  LIVE_WORKFLOW_MANIFEST_FILE,
-  LIVE_VARIABLE_MANIFEST_FILE,
-]);
 
 function dirOf(path: string): string {
   const idx = path.lastIndexOf('/');

@@ -321,6 +321,50 @@ describe('resolveForcePushWorkspaceTree', () => {
     expect((await resolveUpstream(run, local))?.behind).toBe(0);
   });
 
+  describe("the user's own files follow the choice", () => {
+    /** A peer README on the rewritten history and a local-only notes file, both committed. */
+    async function divergeOwnFiles(): Promise<void> {
+      await fs.writeFile(path.join(peer, 'README.md'), '# peer readme\n', 'utf-8');
+      const peerCommit = await commitWorkspaceTree({ run, rootDir: peer, message: 'Readme', identityEnv: RITA_ENV });
+      if (!peerCommit.ok || !peerCommit.committed) throw new Error('peer readme commit failed');
+      await raw(peer, 'push', '--quiet', 'origin', 'main');
+      await fs.writeFile(path.join(local, 'NOTES.md'), '# local notes\n', 'utf-8');
+      const localCommit = await commitWorkspaceTree({
+        run,
+        rootDir: local,
+        message: 'Local notes',
+        identityEnv: IDENTITY_ENV,
+      });
+      if (!localCommit.ok || !localCommit.committed) throw new Error('local notes commit failed');
+    }
+
+    it("abandon: the tree holds the rewritten head's own files and nothing local-only", async () => {
+      await divergeOwnFiles();
+      const result = await doResolve('abandon', [], () => {
+        state.rules = [{ ...state.rules[0], name: 'Rewritten probes' } as Rule];
+      });
+      if (!result.ok) throw new Error(`abandon failed: ${result.reason} ${result.detail ?? ''}`);
+      // No follow-up commit: the tree IS the rewritten head's.
+      expect(result.sha).toBe(result.remoteSha);
+      expect(await fs.readFile(path.join(local, 'README.md'), 'utf-8')).toBe('# peer readme\n');
+      await expect(fs.access(path.join(local, 'NOTES.md'))).rejects.toThrow();
+      expect(await countDirtyFiles(run, local)).toBe(0);
+    });
+
+    it("re-apply: the rewritten head's own file lands and the local-only one rides the fresh commit", async () => {
+      await divergeOwnFiles();
+      const result = await doResolve('reapply', [], () => {
+        state.rules = state.rules.map((rule) =>
+          rule.uid === 'aaaaaaaa' ? ({ ...rule, name: 'Rewritten probes' } as Rule) : rule,
+        );
+      });
+      if (!result.ok) throw new Error(`reapply failed: ${result.reason} ${result.detail ?? ''}`);
+      expect((await raw(local, 'show', 'HEAD:README.md')).stdout).toBe('# peer readme\n');
+      expect((await raw(local, 'show', 'HEAD:NOTES.md')).stdout).toBe('# local notes\n');
+      expect(await countDirtyFiles(run, local)).toBe(0);
+    });
+  });
+
   it('a resolution against a NOT-rewritten remote refuses as not-rewritten', async () => {
     const applied: EmissionBatch[] = [];
     const result = await resolveForcePushWorkspaceTree({

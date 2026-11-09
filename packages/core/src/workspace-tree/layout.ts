@@ -65,6 +65,22 @@ export const SPEC_MANIFEST_FILE = 'spec.yaml';
 export const LIVE_WORKFLOW_MANIFEST_FILE = 'workflow.yaml';
 export const LIVE_VARIABLE_MANIFEST_FILE = 'variable.yaml';
 
+/** Every manifest name — a directory holding one is an entity's own. */
+export const ENTITY_MANIFEST_FILES: ReadonlySet<string> = new Set([
+  COLLECTION_MANIFEST_FILE,
+  FOLDER_MANIFEST_FILE,
+  RULE_MANIFEST_FILE,
+  REQUEST_MANIFEST_FILE,
+  GRPC_REQUEST_MANIFEST_FILE,
+  WEBSOCKET_REQUEST_MANIFEST_FILE,
+  MQTT_REQUEST_MANIFEST_FILE,
+  GRAPHQL_REQUEST_MANIFEST_FILE,
+  TEMPLATE_MANIFEST_FILE,
+  SPEC_MANIFEST_FILE,
+  LIVE_WORKFLOW_MANIFEST_FILE,
+  LIVE_VARIABLE_MANIFEST_FILE,
+]);
+
 // ── Environment file naming (no `path` field — name-derived) ─────────
 
 export const SECRET_FILE_SUFFIX = '.secret.yaml';

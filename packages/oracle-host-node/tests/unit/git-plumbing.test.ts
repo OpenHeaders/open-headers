@@ -83,6 +83,7 @@ import {
   withCommitAttribution,
 } from '../../src/git/repo';
 import { createLightweightTag } from '../../src/git/tag-ops';
+import { checkoutPathsFromCommit, listTreeEntries } from '../../src/git/tree-ops';
 import { validateUserCommitInput } from '../../src/workspace-tree/runtime/user-commit';
 
 let tmpDir: string;
@@ -533,21 +534,30 @@ describe('remote plumbing (Phase 4)', () => {
     expect(await resolveUpstream(run, lone)).toBeNull();
   });
 
-  it('readCommitTreeFiles reads a ref as string-in yaml files, skipping non-yaml', async () => {
+  it("readCommitTreeFiles reads a ref's documents — a manifest with the files beside it — and leaves the user's own files out", async () => {
+    const requestDir = 'requests/probes-c0000001/health-r0000001';
     await writeIn(repoA, 'rules/block-r0000001/rule.yaml', 'schemaVersion: 5\nuid: r0000001\n');
+    await writeIn(repoA, `${requestDir}/request.yaml`, 'schemaVersion: 5\nuid: r0000002\n');
+    await writeIn(repoA, `${requestDir}/body.json`, '{"probe":true}\n');
+    await writeIn(repoA, `${requestDir}/pre-request.js`, 'console.log(1);\n');
     await writeIn(repoA, 'README.md', '# mine\n');
-    await commitIn(repoA, 'Add rule + readme');
+    await writeIn(repoA, 'k8s/deploy.yaml', 'kind: Deployment\n');
+    await commitIn(repoA, 'Add rule, request + own files');
     await raw(repoA, 'push', '--quiet', 'origin', 'main');
     await fetchWorkspaceRemote(run, repoB);
     const upstream = await resolveUpstream(run, repoB);
     const files = await readCommitTreeFiles(run, repoB, upstream?.sha ?? '');
     expect(files).not.toBeNull();
-    const paths = (files ?? []).map((file) => file.path);
-    expect(paths).toContain('workspace.yaml');
-    expect(paths).toContain('rules/block-r0000001/rule.yaml');
-    expect(paths).not.toContain('README.md');
-    const rule = (files ?? []).find((file) => file.path.endsWith('rule.yaml'));
-    expect(rule?.content).toBe('schemaVersion: 5\nuid: r0000001\n');
+    const byPath = new Map((files ?? []).map((file) => [file.path, file.content]));
+    expect([...byPath.keys()].sort()).toEqual([
+      `${requestDir}/body.json`,
+      `${requestDir}/pre-request.js`,
+      `${requestDir}/request.yaml`,
+      'rules/block-r0000001/rule.yaml',
+      'workspace.yaml',
+    ]);
+    expect(byPath.get('rules/block-r0000001/rule.yaml')).toBe('schemaVersion: 5\nuid: r0000001\n');
+    expect(byPath.get(`${requestDir}/body.json`)).toBe('{"probe":true}\n');
   });
 
   it('diffForeignPaths classifies changed/removed against the merge base; null base lists everything', async () => {
@@ -1601,6 +1611,58 @@ describe('Tag ops (S47): the log’s New Tag…', () => {
     expect((await createLightweightTag(run, tmpDir, 'bad..name', first)).ok).toBe(false);
     expect((await createLightweightTag(run, tmpDir, 'v2', first.slice(0, 7))).ok).toBe(false);
     expect((await createLightweightTag(run, tmpDir, 'v3', '0'.repeat(40))).ok).toBe(false);
+  });
+});
+
+describe('Tree ops: a commit’s blobs and a paths checkout off the real index', () => {
+  const git = (...args: string[]) => run([...repoArgs(tmpDir), ...args], { cwd: tmpDir });
+
+  it('listTreeEntries keys every blob by path with its mode and sha; an unknown ref answers null', async () => {
+    await initialCommit();
+    await write('docs/guide.md', '# guide\n');
+    await commitWorkspaceTree({ run, rootDir: tmpDir, message: 'Docs', identityEnv: IDENTITY_ENV });
+    const entries = await listTreeEntries(run, tmpDir, 'HEAD');
+    expect([...(entries ?? new Map()).keys()].sort()).toEqual(['docs/guide.md', 'workspace.yaml']);
+    const blob = (await git('rev-parse', 'HEAD:docs/guide.md')).stdout.trim();
+    expect(entries?.get('docs/guide.md')).toBe(`100644 ${blob}`);
+    expect(await listTreeEntries(run, tmpDir, 'refs/heads/absent')).toBeNull();
+  });
+
+  it('checkoutPathsFromCommit writes the named paths as the commit holds them — literal names, the real index untouched', async () => {
+    await initialCommit();
+    await write('docs/guide.md', '# guide\n');
+    await write('docs/[draft].md', '# draft\n');
+    await write('docs/other.md', '# other\n');
+    const first = await commitWorkspaceTree({ run, rootDir: tmpDir, message: 'Docs', identityEnv: IDENTITY_ENV });
+    if (!first.ok || !first.committed) throw new Error('docs commit failed');
+    await write('docs/guide.md', '# guide v2\n');
+    await write('docs/[draft].md', '# draft v2\n');
+    await write('docs/other.md', '# other v2\n');
+    await write('new/deep/added.md', '# added\n');
+    const second = await commitWorkspaceTree({ run, rootDir: tmpDir, message: 'Docs v2', identityEnv: IDENTITY_ENV });
+    if (!second.ok || !second.committed) throw new Error('docs v2 commit failed');
+
+    // Back on the first commit's files, with something the user staged.
+    await git('checkout', '--quiet', '--detach', first.sha);
+    await write('staged.md', '# staged\n');
+    await git('add', 'staged.md');
+    const indexBefore = (await git('ls-files', '--stage')).stdout;
+
+    const result = await checkoutPathsFromCommit(run, tmpDir, second.sha, [
+      'docs/guide.md',
+      'docs/[draft].md',
+      'new/deep/added.md',
+    ]);
+    expect(result).toEqual({ ok: true });
+    expect(await fs.readFile(path.join(tmpDir, 'docs/guide.md'), 'utf-8')).toBe('# guide v2\n');
+    expect(await fs.readFile(path.join(tmpDir, 'docs/[draft].md'), 'utf-8')).toBe('# draft v2\n');
+    expect(await fs.readFile(path.join(tmpDir, 'new/deep/added.md'), 'utf-8')).toBe('# added\n');
+    // A path that was not named stays; the bracket name matched itself, not a pattern.
+    expect(await fs.readFile(path.join(tmpDir, 'docs/other.md'), 'utf-8')).toBe('# other\n');
+    expect((await git('ls-files', '--stage')).stdout).toBe(indexBefore);
+
+    expect((await checkoutPathsFromCommit(run, tmpDir, second.sha, ['docs/absent.md'])).ok).toBe(false);
+    expect(await checkoutPathsFromCommit(run, tmpDir, second.sha, [])).toEqual({ ok: true });
   });
 });
 

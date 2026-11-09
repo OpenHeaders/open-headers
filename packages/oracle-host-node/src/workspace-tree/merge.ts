@@ -36,6 +36,8 @@ export type MergeWorkspaceBranchResult =
       issues: TreeIssue[];
       /** Set when no merge base was found — every foreign file was treated as changed (§3.4). */
       history?: ForeignHistoryNote;
+      /** The user's own files both sides changed — the local file stood. */
+      keptLocal?: string[];
     }
   | {
       ok: false;
@@ -81,5 +83,6 @@ export async function mergeWorkspaceBranch(options: MergeWorkspaceBranchOptions)
     applied: integrated.applied,
     issues: integrated.issues,
     ...(integrated.history !== undefined ? { history: integrated.history } : {}),
+    ...(integrated.keptLocal !== undefined ? { keptLocal: integrated.keptLocal } : {}),
   };
 }

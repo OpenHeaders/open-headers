@@ -52,6 +52,7 @@ import {
   readCommitTreeFiles,
   resolveUpstream,
 } from '../git';
+import { landForeignOwnFiles } from './own-files';
 import { releaseHealedQuarantine, writeForeignQuarantine } from './pull';
 
 export type ForcePushChoice = 'abandon' | 'rescue' | 'reapply';
@@ -193,6 +194,16 @@ export async function resolveForcePushWorkspaceTree(options: ResolveForcePushOpt
   await writeForeignQuarantine(rootDir, foreignFiles, foreign.issues, changed);
 
   await options.flush();
+
+  // The user's own files follow the choice too (`own-files.ts`), while
+  // HEAD is still the pre-resolution head: `reapply` reads three-way
+  // against the watermark, so a local change survives; `abandon` and
+  // `rescue` take the foreign side's file wherever the two heads differ.
+  const own = await landForeignOwnFiles(run, rootDir, {
+    baseRef: choice === 'reapply' ? options.lastSyncedRemoteSha : 'HEAD',
+    foreignRef: upstream.sha,
+  });
+  if (!own.ok) return { ok: false, reason: 'commit-failed', detail: own.detail, issues: foreign.issues };
 
   // The deliberate ref move the user chose in the dialog — CAS on the
   // pre-resolution head, §3.3 index resync; ancestry is irrelevant by

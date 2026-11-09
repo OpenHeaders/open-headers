@@ -5,7 +5,11 @@
  * as a TWO-PARENT merge commit with `Co-Authored-By:` trailers, and
  * `git merge` is never invoked. Also pins the §3.3 in-progress-op
  * refusal, the identity guard, the no-upstream refusal, and the §13.3
- * quarantine posture for schema-invalid foreign documents.
+ * quarantine posture for schema-invalid foreign documents. The last
+ * describe pins the files no entity stands behind: the peer's change
+ * to one lands on disk before the pull is recorded, a file both sides
+ * changed keeps its local bytes and is named, and a request's body and
+ * script ride the foreign read with their manifest.
  */
 
 import { promises as fs } from 'node:fs';
@@ -13,7 +17,7 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 import type { MutatorContext } from '@openheaders/core/sync';
 import type { EmissionBatch } from '@openheaders/core/sync-builders/mutations/workspace-import-emission';
-import type { Rule, Workspace } from '@openheaders/core/types';
+import type { Collection, Request, Rule, Workspace } from '@openheaders/core/types';
 import type { WorkspaceTreeState } from '@openheaders/core/workspace-tree';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { createGitExec, type GitRunner } from '../../src/git/git-exec';
@@ -412,5 +416,133 @@ describe('pullWorkspaceTree', () => {
       bypassHooks: false,
     });
     expect(result).toEqual({ ok: false, reason: 'no-upstream', issues: [] });
+  });
+});
+
+describe("pullWorkspaceTree — the user's own files and a document's siblings", () => {
+  const onLocal = (rel: string): string => path.join(local, ...rel.split('/'));
+
+  async function commitLocal(message: string): Promise<string> {
+    const result = await commitWorkspaceTree({ run, rootDir: local, message, identityEnv: IDENTITY_ENV });
+    if (!result.ok || !result.committed) throw new Error(`local commit failed: ${message}`);
+    return result.sha;
+  }
+
+  /** Files both clones hold before the peer moves on. */
+  async function shareOwnFiles(files: Record<string, string>): Promise<void> {
+    for (const [rel, content] of Object.entries(files)) {
+      await fs.mkdir(path.dirname(onLocal(rel)), { recursive: true });
+      await fs.writeFile(onLocal(rel), content, 'utf-8');
+    }
+    await commitLocal('Own files');
+    await raw(local, 'push', '--quiet', 'origin', 'main');
+    const pulled = await raw(peer, 'pull', '--quiet', 'origin', 'main');
+    if (pulled.code !== 0) throw new Error(`peer pull failed: ${pulled.stderr}`);
+  }
+
+  it("a fast-forward pull lands the peer's added, edited and deleted own files — nothing is committed on top", async () => {
+    await shareOwnFiles({ 'docs/guide.md': '# guide\n', 'scripts/run.sh': 'echo run\n' });
+    await peerEdit('README.md', () => '# peer readme\n');
+    await peerEdit('docs/guide.md', () => '# guide (peer)\n');
+    await fs.rm(path.join(peer, 'scripts'), { recursive: true });
+    const foreignSha = await peerCommitPush('Docs');
+
+    const result = await doPull([]);
+    expect(result).toMatchObject({ ok: true, upToDate: false, sha: foreignSha });
+    expect(result).not.toHaveProperty('keptLocal');
+
+    expect((await raw(local, 'rev-parse', 'HEAD')).stdout.trim()).toBe(foreignSha);
+    expect(await fs.readFile(onLocal('README.md'), 'utf-8')).toBe('# peer readme\n');
+    expect(await fs.readFile(onLocal('docs/guide.md'), 'utf-8')).toBe('# guide (peer)\n');
+    await expect(fs.access(onLocal('scripts'))).rejects.toThrow();
+    expect(await countDirtyFiles(run, local)).toBe(0);
+  });
+
+  it("a diverged pull records the peer's own file in the merge beside the local one", async () => {
+    await fs.writeFile(onLocal('NOTES.md'), '# local notes\n', 'utf-8');
+    await commitLocal('Local notes');
+    await peerEdit('README.md', () => '# peer readme\n');
+    const foreignSha = await peerCommitPush('Add readme');
+
+    const result = await doPull([]);
+    expect(result).toMatchObject({ ok: true, upToDate: false });
+    expect((await raw(local, 'rev-parse', 'HEAD^2')).stdout.trim()).toBe(foreignSha);
+    expect((await raw(local, 'show', 'HEAD:README.md')).stdout).toBe('# peer readme\n');
+    expect((await raw(local, 'show', 'HEAD:NOTES.md')).stdout).toBe('# local notes\n');
+    expect(await fs.readFile(onLocal('README.md'), 'utf-8')).toBe('# peer readme\n');
+    expect(await countDirtyFiles(run, local)).toBe(0);
+  });
+
+  it('an own file both sides changed keeps the local bytes and is named; the rest still lands', async () => {
+    await shareOwnFiles({ 'docs/guide.md': '# guide\n' });
+    await fs.writeFile(onLocal('docs/guide.md'), '# guide (local)\n', 'utf-8');
+    await commitLocal('Local guide');
+    await peerEdit('docs/guide.md', () => '# guide (peer)\n');
+    await peerEdit('README.md', () => '# peer readme\n');
+    await peerCommitPush('Peer guide + readme');
+
+    const result = await doPull([]);
+    expect(result).toMatchObject({ ok: true, upToDate: false, keptLocal: ['docs/guide.md'] });
+    expect(await fs.readFile(onLocal('docs/guide.md'), 'utf-8')).toBe('# guide (local)\n');
+    expect((await raw(local, 'show', 'HEAD:docs/guide.md')).stdout).toBe('# guide (local)\n');
+    expect((await raw(local, 'show', 'HEAD:README.md')).stdout).toBe('# peer readme\n');
+    expect(await countDirtyFiles(run, local)).toBe(0);
+  });
+
+  it('an uncommitted local file where the peer adds one is local work — kept and named', async () => {
+    await fs.writeFile(onLocal('README.md'), '# mine\n', 'utf-8');
+    await peerEdit('README.md', () => '# peer readme\n');
+    await peerCommitPush('Add readme');
+
+    const result = await doPull([]);
+    expect(result).toMatchObject({ ok: true, upToDate: false, keptLocal: ['README.md'] });
+    expect(await fs.readFile(onLocal('README.md'), 'utf-8')).toBe('# mine\n');
+  });
+
+  it("a peer's edit to a request leaves the body and the script beside it alone", async () => {
+    const collection: Collection = {
+      schemaVersion: 5,
+      uid: 'rco0000a',
+      path: 'requests/api-rco0000a',
+      name: 'API',
+      variables: [],
+      pinnedEnvironmentIds: [],
+      defaultEnvironmentId: null,
+    };
+    const request = {
+      schemaVersion: 5,
+      uid: 'req00001',
+      path: 'requests/api-rco0000a/ping-req00001',
+      name: 'Ping',
+      method: 'POST',
+      url: 'https://api.openheaders.io/ping',
+      headers: [],
+      params: [],
+      auth: { type: 'none' },
+      body: { type: 'json', content: '{"probe":true}\n' },
+      preRequestScript: 'console.log(1);\n',
+    } as unknown as Request;
+    const requestDir = 'requests/api-rco0000a/ping-req00001';
+    state.requestCollections = [collection];
+    state.requests = [request];
+    await materializer.flush();
+    await shareOwnFiles({});
+    expect(await fs.readFile(onLocal(`${requestDir}/body.json`), 'utf-8')).toBe('{"probe":true}\n');
+
+    await peerEdit(`${requestDir}/request.yaml`, (content) => content.replace('name: Ping', 'name: Ping (peer)'));
+    const foreignSha = await peerCommitPush('Rename request');
+
+    const applied: EmissionBatch[] = [];
+    const result = await doPull(applied, () => {
+      state.requests = [{ ...request, name: 'Ping (peer)' }];
+    });
+    // The rename alone — a read without the siblings would also clear the body and the script.
+    expect(applied.flatMap((entry) => entry.batch.mutations.map((m) => m.body))).toEqual([
+      { kind: 'setField', type: 'request', id: 'req00001', path: 'name', value: 'Ping (peer)' },
+    ]);
+    expect(result).toMatchObject({ ok: true, upToDate: false, sha: foreignSha });
+    expect(await fs.readFile(onLocal(`${requestDir}/body.json`), 'utf-8')).toBe('{"probe":true}\n');
+    expect(await fs.readFile(onLocal(`${requestDir}/pre-request.js`), 'utf-8')).toBe('console.log(1);\n');
+    expect(await countDirtyFiles(run, local)).toBe(0);
   });
 });

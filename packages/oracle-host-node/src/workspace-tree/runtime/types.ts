@@ -53,7 +53,15 @@ export type CommitWorkspaceTreeRpcResult =
 
 export type PullWorkspaceTreeRpcResult =
   | { ok: true; upToDate: true }
-  | { ok: true; upToDate: false; sha: string; applied: number; history?: ForeignHistoryNote }
+  | {
+      ok: true;
+      upToDate: false;
+      sha: string;
+      applied: number;
+      history?: ForeignHistoryNote;
+      /** The user's own files both sides changed — the local file stood. */
+      keptLocal?: string[];
+    }
   | {
       ok: false;
       reason:
@@ -195,7 +203,15 @@ export type FetchWorkspaceTreeRpcResult =
 
 export type MergeBranchRpcResult =
   | { ok: true; upToDate: true }
-  | { ok: true; upToDate: false; sha: string; applied: number; history?: ForeignHistoryNote }
+  | {
+      ok: true;
+      upToDate: false;
+      sha: string;
+      applied: number;
+      history?: ForeignHistoryNote;
+      /** The user's own files both sides changed — the local file stood. */
+      keptLocal?: string[];
+    }
   | {
       ok: false;
       reason:

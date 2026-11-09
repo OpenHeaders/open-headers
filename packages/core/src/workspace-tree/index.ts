@@ -5,6 +5,7 @@
  * layer filesystem I/O, the `.oh/` sidecar, and bind exclusivity on top.
  */
 
+export { treeDocumentPaths } from './document-paths';
 export {
   classifyTreePath,
   entityRefOfManifest,
@@ -14,6 +15,7 @@ export {
   type WorkspaceTreeEntityKind,
   type WorkspaceTreeEntityRef,
 } from './entity-at-path';
+export { DETACHED_HEAD_STAMP_PREFIX, detachedHeadStamp, type HeadStampReading, readHeadStamp } from './head-stamp';
 export {
   COLLECTION_MANIFEST_FILE,
   ENVIRONMENTS_DIR,
@@ -54,7 +56,6 @@ export {
   type TreeSlotReader,
   withOrder,
 } from './order';
-export { DETACHED_HEAD_STAMP_PREFIX, detachedHeadStamp, type HeadStampReading, readHeadStamp } from './head-stamp';
 export { planWorkspaceTree, serializeWorkspaceManifest } from './plan';
 export { readWorkspaceTree } from './read';
 export type {

@@ -766,7 +766,19 @@ export type WorkspaceTreeHistoryNoteWire = 'unrelated' | 'shallow';
 
 export type WorkspaceTreePullWire =
   | { ok: true; upToDate: true }
-  | { ok: true; upToDate: false; sha: string; applied: number; history?: WorkspaceTreeHistoryNoteWire }
+  | {
+      ok: true;
+      upToDate: false;
+      sha: string;
+      applied: number;
+      history?: WorkspaceTreeHistoryNoteWire;
+      /**
+       * Tracked files outside the workspace documents that BOTH sides
+       * changed: the local file stood and the foreign change to it was
+       * not taken (never a textual merge). Absent when there were none.
+       */
+      keptLocal?: string[];
+    }
   | {
       ok: false;
       reason:
@@ -910,7 +922,19 @@ export type WorkspaceTreeCompareRefsWire =
 
 export type WorkspaceTreeMergeBranchWire =
   | { ok: true; upToDate: true }
-  | { ok: true; upToDate: false; sha: string; applied: number; history?: WorkspaceTreeHistoryNoteWire }
+  | {
+      ok: true;
+      upToDate: false;
+      sha: string;
+      applied: number;
+      history?: WorkspaceTreeHistoryNoteWire;
+      /**
+       * Tracked files outside the workspace documents that BOTH sides
+       * changed: the local file stood and the foreign change to it was
+       * not taken (never a textual merge). Absent when there were none.
+       */
+      keptLocal?: string[];
+    }
   | {
       ok: false;
       reason:
