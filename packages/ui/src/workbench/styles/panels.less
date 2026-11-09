@@ -36,7 +36,8 @@
   }
 
   &.selected:focus-visible {
-    background: rgba(24, 144, 255, 0.12);
+    background: var(--oh-row-selected-focused-bg);
+    box-shadow: none;
   }
 }
 
@@ -61,19 +62,17 @@
   }
 }
 
-// Git tree selection = the sidebar trees' focused-cursor pair
-// (Interceptor look): vivid blue + inset ring while the tree holds
-// focus; the `.selected` grey echo above takes over when focus leaves
-// — e.g. into an open row context menu. The four git trees agree: the
-// Commit tree, the details file tree, the commit lists (the log, the
-// Push window) and the branches rail (the reference's strong row while
-// the pane has focus, grey when it does not).
+// Git tree selection = the sidebar trees' focused-cursor blue: the
+// reference's one solid selection colour while the tree holds focus;
+// the `.selected` grey echo above takes over when focus leaves — e.g.
+// into an open row context menu. The four git trees agree: the Commit
+// tree, the details file tree, the commit lists (the log, the Push
+// window) and the branches rail.
 .commit-tool-tree:focus-within .git-tool-row.selected,
 .git-tool-file-tree:focus-within .git-tool-row.selected,
 .git-tool-commit-list:focus-within .git-tool-row.selected,
 .git-tool-refs:focus-within .git-tool-row.selected {
-  background: rgba(24, 144, 255, 0.12);
-  box-shadow: inset 0 0 0 1px rgba(24, 144, 255, 0.35);
+  background: var(--oh-row-selected-focused-bg);
 }
 
 // Commit tree tri-state checkboxes, the IDE minus: a partially-checked
@@ -114,7 +113,7 @@
   .ant-dropdown-menu-item-active:not(.ant-dropdown-menu-item-disabled),
   .ant-dropdown-menu-submenu-title:hover,
   .ant-dropdown-menu-submenu-active > .ant-dropdown-menu-submenu-title {
-    background: rgba(24, 144, 255, 0.12);
+    background: var(--oh-row-selected-focused-bg);
   }
 }
 
