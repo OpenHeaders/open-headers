@@ -42,7 +42,7 @@
  *      file the branch also changed that could not be shown keeps its
  *      local bytes and is named). The working tree is read as a tree
  *      object before and after — the two differ in exactly the files
- *      the pass wrote;
+ *      the pass wrote (`pass-writes.ts`);
  *   5. one temp-index commit records those files and no other, authored
  *      by the operator. Uncommitted work elsewhere — a modified file
  *      the change did not touch, an unversioned file — is not the
@@ -79,7 +79,8 @@ import {
   snapshotWorkingTree,
 } from '../git';
 import { landForeignOwnFiles, readOwnFileConflicts } from './own-files';
-import { plannedDocumentWrites, uncommittedAmong } from './pick-writes';
+import { readPassWrites, uncommittedAmong } from './pass-writes';
+import { plannedDocumentWrites } from './pick-writes';
 import type { IntegrateForeignDeps } from './pull';
 import { hashTreeContent } from './sidecar';
 
@@ -107,22 +108,6 @@ export interface ApplyWorkspaceCommitOptions extends IntegrateForeignDeps {
   mode: ApplyCommitMode;
   /** Answers to the documents both sides changed — absent on the first call. */
   resolution?: ApplyCommitResolution;
-  /**
-   * Uncommitted work in a file the change writes may be committed first
-   * without asking — the person said so for this pass, or commits are
-   * automatic here. Otherwise the pass refuses `local-changes` before
-   * it writes, naming those files.
-   */
-  mayCommitLocalWork: boolean;
-  /** Record the uncommitted work in the files the change wrote, as its own commit, before the change's. */
-  commitLocalWork: (work: LocalWorkFirst) => Promise<{ ok: true } | { ok: false; detail: string }>;
-}
-
-/** Uncommitted work the change's commit would otherwise carry: `paths` as `tree` holds them. */
-export interface LocalWorkFirst {
-  /** The working tree as it stood before the pass wrote (`snapshotWorkingTree`). */
-  tree: string;
-  paths: string[];
 }
 
 export type ApplyWorkspaceCommitResult =
@@ -366,13 +351,11 @@ export async function applyWorkspaceCommit(options: ApplyWorkspaceCommitOptions)
   if (!own.ok) return { ok: false, reason: 'commit-failed', detail: own.detail, issues: [] };
   const withKept = own.kept.length > 0 ? { keptLocal: own.kept } : {};
 
-  const after = await snapshotWorkingTree(run, rootDir);
-  const wrote = after === null ? null : await diffForeignPaths(run, rootDir, before, after);
-  const uncommitted = await diffForeignPaths(run, rootDir, 'HEAD', before);
-  if (after === null || wrote === null || uncommitted === null) {
+  const pass = await readPassWrites(run, rootDir, before);
+  if (pass === null) {
     return { ok: false, reason: 'commit-failed', detail: 'the working tree could not be read', issues: [] };
   }
-  const paths = [...wrote.changed, ...wrote.removed].sort();
+  const paths = pass.wrote;
   const empty: ApplyWorkspaceCommitResult = {
     ok: false,
     reason: 'empty',
@@ -385,7 +368,7 @@ export async function applyWorkspaceCommit(options: ApplyWorkspaceCommitOptions)
   // Uncommitted work in a file the change wrote would ride into the
   // change's commit — it is recorded first, as the file stood before
   // the pass. Work in any other file is not the pass's to commit.
-  const shared = paths.filter((filePath) => uncommitted.changed.has(filePath) || uncommitted.removed.has(filePath));
+  const shared = paths.filter((filePath) => pass.uncommitted.has(filePath));
   if (shared.length > 0) {
     const local = await options.commitLocalWork({ tree: before, paths: shared });
     if (!local.ok) return { ok: false, reason: 'commit-failed', detail: local.detail, issues: [] };
@@ -398,7 +381,7 @@ export async function applyWorkspaceCommit(options: ApplyWorkspaceCommitOptions)
     message: picking ? composePickMessage(source, sha, operator?.email ?? null) : composeRevertMessage(source, sha),
     identityEnv: options.identityEnv,
     bypassHooks: options.bypassHooks,
-    fromTree: after,
+    fromTree: pass.after,
     paths,
   });
   if (!commit.ok) return { ok: false, reason: 'commit-failed', detail: commit.detail, issues: [] };

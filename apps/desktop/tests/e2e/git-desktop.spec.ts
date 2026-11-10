@@ -23,9 +23,10 @@
  *        bare remote holds the local head.
  *   G6   a foreign push fast-forwards on Pull — no merge bubble, the
  *        local head IS the foreign sha, the edit reaches the worktree.
- *   G7   both sides edited → Pull lands a TWO-PARENT merge commit with
- *        a Co-Authored-By trailer and zero conflict markers; Push
- *        converges the remote.
+ *   G7   both sides committed → Pull lands a TWO-PARENT merge commit
+ *        with a Co-Authored-By trailer and zero conflict markers, the
+ *        merge carries the pull's own file and an uncommitted edit
+ *        elsewhere stays uncommitted; Push converges the remote.
  *   G8   a schema-broken foreign file quarantines on Pull (issue row on
  *        the Folder page, foreign bytes preserved on disk) and clears
  *        once the peer pushes a fix.
@@ -108,12 +109,11 @@
  *
  * The Commit window's Git ▸ verbs (Push, Pull, Fetch, New Branch…) live
  * on a change row's context menu, so every window-driven pull rides a
- * local hand edit (the pull commits it first under the engine's draft,
- * then merges — G7's own contract) and every push rides Commit and
- * Push. A clean tree has no row: G6's fast-forward pull calls the verb
- * the menu calls over the bridge (the spine leg, the appBlur idiom).
- * An untracked file cannot stand in as the row — the engine's own
- * commits sweep the whole tree.
+ * local hand edit. The pull leaves that edit alone — it records the
+ * files it wrote and no other — so the row is still there afterwards
+ * (G7's own contract), and every push rides Commit and Push. A clean
+ * tree has no row: G6's fast-forward pull calls the verb the menu
+ * calls over the bridge (the spine leg, the appBlur idiom).
  *
  * The Electron window shows on screen for the whole run.
  *
@@ -773,9 +773,16 @@ test('G6 — a foreign push fast-forwards on Pull with no merge bubble', async (
 
 // ── G7: divergence → two-parent merge with trailers ─────────────────
 
-test('G7 — both sides edited: Pull lands a two-parent merge with Co-Authored-By and zero markers; Push converges', async () => {
+test('G7 — both sides committed: Pull lands a two-parent merge with Co-Authored-By and zero markers, an uncommitted edit stays uncommitted; Push converges', async () => {
   const req2 = entityFileOf(wsDir, 'e2egreq2') as string;
+  // The local side of the divergence is a commit of its own: a pull
+  // never commits work it does not write.
   setEntityName(req2, 'Local Edit');
+  await waitDirty();
+  await commitWithMessage('git e2e: local edit');
+  // An uncommitted edit the pull has no business with — the row its
+  // menu opens from.
+  setEntityName(req2, 'Local Edit Two');
   await waitDirty();
 
   const cReq1 = entityFileOf(cloneDir, 'e2egreq1') as string;
@@ -789,9 +796,13 @@ test('G7 — both sides edited: Pull lands a two-parent merge with Co-Authored-B
   for (const file of walkYamlFiles(wsDir)) {
     expect(readFileSync(file, 'utf-8')).not.toContain('<<<<<<<');
   }
-  expect(readFileSync(entityFileOf(wsDir, 'e2egreq1') as string, 'utf-8')).toContain('Foreign Edit Two');
-  expect(readFileSync(entityFileOf(wsDir, 'e2egreq2') as string, 'utf-8')).toContain('Local Edit');
-  await waitClean();
+  const req1 = entityFileOf(wsDir, 'e2egreq1') as string;
+  expect(readFileSync(req1, 'utf-8')).toContain('Foreign Edit Two');
+  expect(readFileSync(req2, 'utf-8')).toContain('Local Edit Two');
+  // The merge recorded the pull's own file; the local edit is still a row.
+  expect(ws('diff-tree', '--no-commit-id', '--name-only', '-r', 'HEAD^1', 'HEAD')).toBe(relPosix(req1));
+  expect(ws('status', '--porcelain')).toBe(`M ${relPosix(req2)}`);
+  await expect(changeRow(req2)).toBeVisible();
 
   await editCommitPush(req2, 'Local Edit Pushed', 'git e2e: local edit pushed');
 });
@@ -869,7 +880,8 @@ test('G9 — pushing behind the remote is refused in the window; pull then push 
   await waitDirty();
   await rowMenuGit('pull', req2);
   await expect.poll(() => ws('rev-list', '--parents', '-1', 'HEAD').split(' ').length, { timeout: 5_000 }).toBe(3);
-  await waitClean();
+  // The edit the menu opened from is not the pull's — it is still uncommitted.
+  expect(ws('status', '--porcelain')).toBe(`M ${relPosix(req2)}`);
   await editCommitPush(req2, 'Nudge Local Three', 'git e2e: nudge converge');
 
   // The prompt's Merge: the clone moves again, Commit and Push is
@@ -948,9 +960,9 @@ function forcePushRewrite(marker: string): string {
 }
 
 /**
- * The pull meets the rewrite: it commits the dirty edit, fetches,
- * refuses `force-push`, and the status frame it publishes raises the
- * banner in BOTH tool windows. The pull rides the verb the row menu
+ * The pull meets the rewrite: it fetches, refuses `force-push` with
+ * the dirty edit left as it was, and the status frame it publishes
+ * raises the banner in BOTH tool windows. The pull rides the verb the row menu
  * calls (the G6 spine idiom) — with the banner up the row menu's Git
  * submenu would open below the window edge.
  */

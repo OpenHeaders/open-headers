@@ -13,7 +13,10 @@
  * describe pins the gitignored half of an environment: a peer's edit
  * to another variable leaves the local secret rows alone, and a secret
  * row the peer added, renamed or removed follows the committed
- * template with the local value kept.
+ * template with the local value kept. The uncommitted-work describe
+ * pins what the pull records: its own files and no other — work
+ * elsewhere stays uncommitted across a fast-forward and a merge, work
+ * in a file the pull writes is asked about and committed first, alone.
  */
 
 import { promises as fs } from 'node:fs';
@@ -27,6 +30,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { createGitExec, type GitRunner } from '../../src/git/git-exec';
 import { commitWorkspaceTree, countDirtyFiles, ensureWorkspaceRepo, resolveUpstream } from '../../src/git/repo';
 import { WorkspaceTreeMaterializer } from '../../src/workspace-tree/materializer';
+import type { LocalWorkDeps } from '../../src/workspace-tree/pass-writes';
 import { type PullWorkspaceTreeResult, pullWorkspaceTree } from '../../src/workspace-tree/pull';
 
 const ORG_ID = '019637a2-7b9a-7b9a-8b9a-1234567890ab';
@@ -139,6 +143,29 @@ async function peerCommitPush(message: string): Promise<string> {
   return result.sha;
 }
 
+let mayCommitLocalWork: boolean;
+/** The path sets the pass asked to have committed first, in order. */
+let localWorkCommits: string[][];
+
+/** The pass's way to commit local work first — one commit of exactly the paths it names. */
+function localWork(rootDir: string): LocalWorkDeps {
+  return {
+    mayCommitLocalWork,
+    commitLocalWork: async ({ tree, paths }) => {
+      localWorkCommits.push(paths);
+      const result = await commitWorkspaceTree({
+        run,
+        rootDir,
+        message: 'Local work',
+        identityEnv: IDENTITY_ENV,
+        fromTree: tree,
+        paths,
+      });
+      return result.ok ? { ok: true } : { ok: false, detail: result.detail };
+    },
+  };
+}
+
 function doPull(
   applied: EmissionBatch[],
   onApply?: () => void,
@@ -156,6 +183,7 @@ function doPull(
       onApply?.();
     },
     flush: () => materializer.flush(),
+    ...localWork(local),
     identityEnv: IDENTITY_ENV,
     bypassHooks: false,
     ...(lastSyncedRemoteSha !== undefined ? { lastSyncedRemoteSha } : {}),
@@ -171,6 +199,8 @@ beforeEach(async () => {
   state.rules = [makeRule('aaaaaaaa', 'Block probes')];
   hlcMs = 1_000;
   run = isolated(createGitExec());
+  mayCommitLocalWork = true;
+  localWorkCommits = [];
 
   await fs.mkdir(local, { recursive: true });
   materializer = new WorkspaceTreeMaterializer({ rootDir: local, readSnapshot: async () => ({ state }) });
@@ -416,6 +446,7 @@ describe('pullWorkspaceTree', () => {
       liveSetEntries: () => [],
       apply: async () => undefined,
       flush: async () => undefined,
+      ...localWork(lone),
       identityEnv: IDENTITY_ENV,
       bypassHooks: false,
     });
@@ -551,6 +582,141 @@ describe("pullWorkspaceTree — the user's own files and a document's siblings",
   });
 });
 
+describe('pullWorkspaceTree — uncommitted work', () => {
+  const onLocal = (rel: string): string => path.join(local, ...rel.split('/'));
+  const out = async (...args: string[]): Promise<string> => (await raw(local, ...args)).stdout;
+  const porcelain = (): Promise<string> => out('status', '--porcelain', '--untracked-files=all');
+  const filesOf = async (commit: string): Promise<string[]> =>
+    (await out('diff-tree', '--no-commit-id', '--name-only', '-r', `${commit}^1`, commit)).split('\n').filter(Boolean);
+  const renameOnApply = (): void => {
+    state.rules = [{ ...state.rules[0], name: 'Block probes (peer)' } as Rule];
+  };
+
+  /** Own files both clones hold, then local work no commit has: an edit to one, an unversioned file. */
+  beforeEach(async () => {
+    await fs.writeFile(onLocal('NOTES.md'), '# notes\n', 'utf-8');
+    await fs.writeFile(onLocal('SHARED.md'), '# shared\nbase line\n', 'utf-8');
+    const seeded = await commitWorkspaceTree({ run, rootDir: local, message: 'Own files', identityEnv: IDENTITY_ENV });
+    if (!seeded.ok || !seeded.committed) throw new Error('own files commit failed');
+    await raw(local, 'push', '--quiet', 'origin', 'main');
+    const pulled = await raw(peer, 'pull', '--quiet', 'origin', 'main');
+    if (pulled.code !== 0) throw new Error(`peer pull failed: ${pulled.stderr}`);
+    await fs.writeFile(onLocal('NOTES.md'), '# notes\nnot committed\n', 'utf-8');
+    await fs.writeFile(onLocal('scratch.txt'), 'unversioned\n', 'utf-8');
+  });
+
+  it('work the pull does not touch stays uncommitted and the branch fast-forwards under it', async () => {
+    const before = await porcelain();
+    await peerEdit(RULE_FILE, (content) => content.replace('name: Block probes', 'name: Block probes (peer)'));
+    const foreignSha = await peerCommitPush('Rename rule');
+
+    mayCommitLocalWork = false;
+    const result = await doPull([], renameOnApply);
+    expect(result).toMatchObject({ ok: true, upToDate: false, sha: foreignSha });
+    expect(result).not.toHaveProperty('committedLocal');
+    expect(localWorkCommits).toEqual([]);
+
+    expect((await out('rev-parse', 'HEAD')).trim()).toBe(foreignSha);
+    expect(await porcelain()).toBe(before);
+    expect(await fs.readFile(onLocal('NOTES.md'), 'utf-8')).toBe('# notes\nnot committed\n');
+    expect(await fs.readFile(onLocal(RULE_FILE), 'utf-8')).toContain('name: Block probes (peer)');
+  });
+
+  it("a diverged pull's merge commit carries the pull's files and no other", async () => {
+    await fs.writeFile(onLocal('LOCAL.md'), '# committed here\n', 'utf-8');
+    const localCommit = await commitWorkspaceTree({
+      run,
+      rootDir: local,
+      message: 'Local file',
+      identityEnv: IDENTITY_ENV,
+      paths: ['LOCAL.md'],
+    });
+    if (!localCommit.ok || !localCommit.committed) throw new Error('local commit failed');
+    const before = await porcelain();
+    await peerEdit(RULE_FILE, (content) => content.replace('name: Block probes', 'name: Block probes (peer)'));
+    await peerEdit('PEER.md', () => '# peer\n');
+    const foreignSha = await peerCommitPush('Rename rule, add a file');
+
+    mayCommitLocalWork = false;
+    const result = await doPull([], renameOnApply);
+    expect(result).toMatchObject({ ok: true, upToDate: false });
+    expect(localWorkCommits).toEqual([]);
+
+    expect((await out('rev-parse', 'HEAD^1')).trim()).toBe(localCommit.sha);
+    expect((await out('rev-parse', 'HEAD^2')).trim()).toBe(foreignSha);
+    expect(await filesOf('HEAD')).toEqual(['PEER.md', RULE_FILE]);
+    expect(await porcelain()).toBe(before);
+  });
+
+  it('work in a document the pull writes is asked about first; on the word it is committed alone, then merged', async () => {
+    state.rules = [{ ...state.rules[0], name: 'Local name' } as Rule];
+    await materializer.flush();
+    const before = await porcelain();
+    const headBefore = (await out('rev-parse', 'HEAD')).trim();
+    await peerEdit(RULE_FILE, (content) => content.replace('name: Block probes', 'name: Block probes (peer)'));
+    const foreignSha = await peerCommitPush('Rename rule');
+
+    mayCommitLocalWork = false;
+    const applied: EmissionBatch[] = [];
+    expect(await doPull(applied, renameOnApply)).toEqual({
+      ok: false,
+      reason: 'local-changes',
+      localChanges: [RULE_FILE],
+      issues: [],
+    });
+    expect(applied).toHaveLength(0);
+    expect(localWorkCommits).toEqual([]);
+    expect((await out('rev-parse', 'HEAD')).trim()).toBe(headBefore);
+    expect(await porcelain()).toBe(before);
+
+    mayCommitLocalWork = true;
+    const result = await doPull(applied, renameOnApply);
+    expect(result).toMatchObject({ ok: true, upToDate: false, committedLocal: [RULE_FILE] });
+    expect(localWorkCommits).toEqual([[RULE_FILE]]);
+
+    // The person's work is one commit of that file; the merge stands on it.
+    expect((await out('log', '-1', '--format=%s', 'HEAD^1')).trim()).toBe('Local work');
+    expect(await filesOf('HEAD^1')).toEqual([RULE_FILE]);
+    expect(await out('show', `HEAD^1:${RULE_FILE}`)).toContain('name: Local name');
+    expect((await out('rev-parse', 'HEAD^2')).trim()).toBe(foreignSha);
+    expect(await fs.readFile(onLocal(RULE_FILE), 'utf-8')).toContain('name: Block probes (peer)');
+    // The rows that were uncommitted elsewhere still are.
+    expect(await porcelain()).toBe(' M NOTES.md\n?? scratch.txt\n');
+  });
+
+  it('work in an own file the peer also changed is named, committed first on the word, and the local file stands', async () => {
+    await fs.writeFile(onLocal('SHARED.md'), '# shared\nbase line\nlocal line\n', 'utf-8');
+    await peerEdit('SHARED.md', () => '# shared\nbase line\npeer line\n');
+    await peerCommitPush('Peer line');
+
+    mayCommitLocalWork = false;
+    expect(await doPull([])).toMatchObject({ ok: false, reason: 'local-changes', localChanges: ['SHARED.md'] });
+
+    mayCommitLocalWork = true;
+    const result = await doPull([]);
+    expect(result).toMatchObject({ ok: true, committedLocal: ['SHARED.md'], keptLocal: ['SHARED.md'] });
+    expect(await filesOf('HEAD^1')).toEqual(['SHARED.md']);
+    expect(await out('show', 'HEAD:SHARED.md')).toBe('# shared\nbase line\nlocal line\n');
+    expect(await fs.readFile(onLocal('SHARED.md'), 'utf-8')).toBe('# shared\nbase line\nlocal line\n');
+    expect(await porcelain()).toBe(' M NOTES.md\n?? scratch.txt\n');
+  });
+
+  it('a document the peer rewrote without changing it is normalized in the follow-up — that file alone', async () => {
+    const before = await porcelain();
+    await peerEdit(RULE_FILE, (content) => `${content}# a note from the peer\n`);
+    const foreignSha = await peerCommitPush('Annotate the rule file');
+
+    mayCommitLocalWork = false;
+    const result = await doPull([]);
+    expect(result).toMatchObject({ ok: true, upToDate: false });
+
+    expect((await out('rev-parse', 'HEAD^1')).trim()).toBe(foreignSha);
+    expect((await out('log', '-1', '--format=%s')).trim()).toBe('Normalize pulled changes');
+    expect(await filesOf('HEAD')).toEqual([RULE_FILE]);
+    expect(await porcelain()).toBe(before);
+  });
+});
+
 describe("pullWorkspaceTree — an environment's secret rows", () => {
   const DEFAULT_FILE = 'environments/staging-envaaaaa.yaml';
   const TEMPLATE_FILE = 'environments/staging-envaaaaa.secret.yaml.template';
@@ -587,6 +753,7 @@ describe("pullWorkspaceTree — an environment's secret rows", () => {
         applied.push(...batches);
       },
       flush: () => materializer.flush(),
+      ...localWork(local),
       identityEnv: IDENTITY_ENV,
       bypassHooks: false,
     });

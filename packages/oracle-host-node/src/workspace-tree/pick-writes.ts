@@ -5,12 +5,11 @@
  *
  * This reading decides a QUESTION and nothing else. What the pass
  * records is decided afterwards, from the working tree as it stood
- * before and after the pass (`pick.ts`), so a file this reading misses
- * is still recorded right.
+ * before and after the pass (`pass-writes.ts`), so a file this reading
+ * misses is still recorded right.
  */
 
 import { planWorkspaceTree, type TreeReadResult, type WorkspaceTreeState } from '@openheaders/core/workspace-tree';
-import { type GitRunner, listWorkingChanges } from '../git';
 
 /**
  * The document files the tree would hold differently once `next`
@@ -32,19 +31,4 @@ export function plannedDocumentWrites(current: WorkspaceTreeState, next: TreeRea
     if (!after.has(filePath)) paths.add(filePath);
   }
   return [...paths].sort();
-}
-
-/** The `paths` that hold uncommitted work — modified, deleted or unversioned. Null when the tree cannot be read. */
-export async function uncommittedAmong(
-  run: GitRunner,
-  rootDir: string,
-  paths: readonly string[],
-): Promise<string[] | null> {
-  if (paths.length === 0) return [];
-  const changes = await listWorkingChanges(run, rootDir);
-  if (changes === null) return null;
-  const dirty = new Set(
-    changes.flatMap((change) => (change.renamedFrom !== undefined ? [change.path, change.renamedFrom] : [change.path])),
-  );
-  return [...new Set(paths)].filter((filePath) => dirty.has(filePath)).sort();
 }

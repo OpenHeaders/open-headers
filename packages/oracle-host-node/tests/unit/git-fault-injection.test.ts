@@ -185,6 +185,8 @@ describe('fetch/pull fault surfaces', () => {
         throw new Error('no batches on a refused pull');
       },
       flush: async () => undefined,
+      mayCommitLocalWork: true,
+      commitLocalWork: async () => ({ ok: true }),
       identityEnv: {},
       bypassHooks: false,
       lastSyncedRemoteSha: WATERMARK,
@@ -211,6 +213,8 @@ describe('fetch/pull fault surfaces', () => {
       liveSetEntries: () => [],
       apply: async () => undefined,
       flush: async () => undefined,
+      mayCommitLocalWork: true,
+      commitLocalWork: async () => ({ ok: true }),
       identityEnv: {},
       bypassHooks: false,
     });

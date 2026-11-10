@@ -91,9 +91,9 @@ import { appendIssues, heldByGitOperation, refreshIssuesFromDisk, runSweep, sche
 import { enqueueFetch, maybeAutoPush, runFetchAll, runPull, runPush, runResolveForcePush } from './sync';
 import type {
   AdoptWorkspaceTreeRpcResult,
-  ApplyCommitLocalWork,
   ApplyCommitRpcResult,
   BindWorkspaceTreeRpcResult,
+  CommitLocalWork,
   CommitWorkspaceTreeRpcResult,
   CompareRefsRpcResult,
   CreateBranchOptions,
@@ -137,9 +137,9 @@ import { runAddToVcs, runDeletePaths, runUnaddPaths } from './working-files';
 
 export type {
   AdoptWorkspaceTreeRpcResult,
-  ApplyCommitLocalWork,
   ApplyCommitRpcResult,
   BindWorkspaceTreeRpcResult,
+  CommitLocalWork,
   CommitWorkspaceTreeRpcResult,
   CompareRefsRpcResult,
   CreateBranchOptions,
@@ -419,14 +419,14 @@ export function createWorkspaceTreeRuntime(options: WorkspaceTreeRuntimeOptions)
       );
     },
 
-    async pull(workspaceId: string): Promise<PullWorkspaceTreeRpcResult> {
+    async pull(workspaceId: string, commitLocal?: CommitLocalWork): Promise<PullWorkspaceTreeRpcResult> {
       const binding = open.get(workspaceId);
       if (!binding) return { ok: false, reason: 'not-bound' };
       return onChain<PullWorkspaceTreeRpcResult>(
         binding,
         { ok: false, reason: 'fetch-failed', detail: 'pull pass did not run' },
         async () => {
-          const result = await runPull(ctx, binding);
+          const result = await runPull(ctx, binding, commitLocal);
           if (result.ok && !result.upToDate) await ctx.maybeAutoPush(binding);
           await ctx.publishGitStatus(binding);
           return result;
@@ -579,14 +579,14 @@ export function createWorkspaceTreeRuntime(options: WorkspaceTreeRuntimeOptions)
       );
     },
 
-    async mergeBranch(workspaceId: string, ref: string): Promise<MergeBranchRpcResult> {
+    async mergeBranch(workspaceId: string, ref: string, commitLocal?: CommitLocalWork): Promise<MergeBranchRpcResult> {
       const binding = open.get(workspaceId);
       if (!binding) return { ok: false, reason: 'not-bound' };
       return onChain<MergeBranchRpcResult>(
         binding,
         { ok: false, reason: 'commit-failed', detail: 'merge pass did not run' },
         async () => {
-          const result = await runMergeBranch(ctx, binding, ref);
+          const result = await runMergeBranch(ctx, binding, ref, commitLocal);
           if (result.ok && !result.upToDate) await ctx.maybeAutoPush(binding);
           await ctx.publishGitStatus(binding);
           return result;
@@ -599,7 +599,7 @@ export function createWorkspaceTreeRuntime(options: WorkspaceTreeRuntimeOptions)
       sha: string,
       mode: 'pick' | 'revert',
       resolution?: ApplyCommitResolution,
-      commitLocal?: ApplyCommitLocalWork,
+      commitLocal?: CommitLocalWork,
     ): Promise<ApplyCommitRpcResult> {
       const binding = open.get(workspaceId);
       if (!binding) return { ok: false, reason: 'not-bound' };

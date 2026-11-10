@@ -62,6 +62,8 @@ export type PullWorkspaceTreeRpcResult =
       history?: ForeignHistoryNote;
       /** The user's own files both sides changed — the local file stood. */
       keptLocal?: string[];
+      /** Files of the pull that held uncommitted work — that work was committed first. */
+      committedLocal?: string[];
     }
   | {
       ok: false;
@@ -75,8 +77,13 @@ export type PullWorkspaceTreeRpcResult =
         | 'force-push'
         | 'foreign-invalid'
         | 'identity-mismatch'
+        | 'local-changes'
         | 'commit-failed';
       detail?: string;
+      /** `local-changes`: the files the pull would write that hold uncommitted work. */
+      localChanges?: string[];
+      /** `local-changes`: the pending draft — the message offered for the commit of that work. */
+      suggestedMessage?: string;
     };
 
 export type PushWorkspaceTreeRpcResult =
@@ -209,8 +216,12 @@ export interface ApplyCommitSkip {
   reason: 'missing' | 'parent-missing' | 'not-empty' | 'conflict-unshown';
 }
 
-/** The person's word that uncommitted work in the files a pick writes is committed first, under this message. */
-export interface ApplyCommitLocalWork {
+/**
+ * The person's word that uncommitted work in the files a pass writes (a
+ * pick, a revert, a pull, a branch merge) is committed first, under
+ * this message.
+ */
+export interface CommitLocalWork {
   message: string;
 }
 
@@ -267,6 +278,8 @@ export type MergeBranchRpcResult =
       history?: ForeignHistoryNote;
       /** The user's own files both sides changed — the local file stood. */
       keptLocal?: string[];
+      /** Files of the merge that held uncommitted work — that work was committed first. */
+      committedLocal?: string[];
     }
   | {
       ok: false;
@@ -280,8 +293,13 @@ export type MergeBranchRpcResult =
         | 'detached-head'
         | 'foreign-invalid'
         | 'identity-mismatch'
+        | 'local-changes'
         | 'commit-failed';
       detail?: string;
+      /** `local-changes`: the files the merge would write that hold uncommitted work. */
+      localChanges?: string[];
+      /** `local-changes`: the pending draft — the message offered for the commit of that work. */
+      suggestedMessage?: string;
     };
 
 /**
@@ -529,11 +547,13 @@ export interface WorkspaceTreeRuntime {
   commit(workspaceId: string, message?: string): Promise<CommitWorkspaceTreeRpcResult>;
   /**
    * Explicit Pull gesture (§9, Phase 4): fetch, converge foreign
-   * history through the mutators, record the two-parent merge commit.
-   * Local uncommitted work commits first under its own semantic draft
-   * so the merge commit stays a pure merge.
+   * history through the mutators, then fast-forward or record the
+   * two-parent merge commit. The pull records the files it wrote and no
+   * other; uncommitted work in one of those files is committed first,
+   * on `commitLocal` — the pass refuses `local-changes` without it
+   * unless commits are automatic on the binding.
    */
-  pull(workspaceId: string): Promise<PullWorkspaceTreeRpcResult>;
+  pull(workspaceId: string, commitLocal?: CommitLocalWork): Promise<PullWorkspaceTreeRpcResult>;
   /**
    * Explicit Push gesture (§9, Phase 5): push the current branch to
    * its upstream. Typed non-fast-forward / permission failures feed
@@ -586,10 +606,11 @@ export interface WorkspaceTreeRuntime {
   fetch(workspaceId: string): Promise<FetchWorkspaceTreeRpcResult>;
   /**
    * In-app branch merge (§6): the Phase 4 pull machinery pointed at a
-   * local or remote-tracking ref — never raw `git merge`. Local
-   * uncommitted work commits first, exactly like pull.
+   * local or remote-tracking ref — never raw `git merge`. Uncommitted
+   * work is treated exactly like pull's: left alone unless the merge
+   * writes its file, then committed first on `commitLocal`.
    */
-  mergeBranch(workspaceId: string, ref: string): Promise<MergeBranchRpcResult>;
+  mergeBranch(workspaceId: string, ref: string, commitLocal?: CommitLocalWork): Promise<MergeBranchRpcResult>;
   /**
    * Cherry-Pick (`pick`) or Revert (`revert`) of ONE commit of the log,
    * by its FULL sha, onto the current branch as a new one-parent
@@ -606,7 +627,7 @@ export interface WorkspaceTreeRuntime {
     sha: string,
     mode: 'pick' | 'revert',
     resolution?: ApplyCommitResolution,
-    commitLocal?: ApplyCommitLocalWork,
+    commitLocal?: CommitLocalWork,
   ): Promise<ApplyCommitRpcResult>;
   /** Focus returned to the app — throttled background fetch trigger. */
   notifyAppFocus(): void;

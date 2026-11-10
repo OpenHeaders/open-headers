@@ -14,7 +14,7 @@
  */
 
 import type { ApplyCommitResolution } from './pick';
-import type { ApplyCommitLocalWork, WorkspaceTreeCommitCadence, WorkspaceTreeRuntime } from './runtime';
+import type { CommitLocalWork, WorkspaceTreeCommitCadence, WorkspaceTreeRuntime } from './runtime';
 
 const COMMIT_CADENCE_VALUES: WorkspaceTreeCommitCadence[] = [
   'off',
@@ -56,11 +56,12 @@ function readApplyCommitResolution(value: unknown): ApplyCommitResolution | unde
 }
 
 /**
- * The `commitLocal` of an applyCommit call — the person's word that
- * uncommitted work in the files the pick writes is committed first:
- * undefined when the caller sent none, null when it carries no message.
+ * The `commitLocal` of a pull, mergeBranch or applyCommit call — the
+ * person's word that uncommitted work in the files the pass writes is
+ * committed first: undefined when the caller sent none, null when it
+ * carries no message.
  */
-function readApplyCommitLocalWork(value: unknown): ApplyCommitLocalWork | undefined | null {
+function readCommitLocalWork(value: unknown): CommitLocalWork | undefined | null {
   if (value === undefined) return undefined;
   if (!isRecord(value) || typeof value.message !== 'string') return null;
   const message = value.message.trim();
@@ -154,7 +155,9 @@ export async function dispatchWorkspaceTreeRpc(
   if (type === 'oh.workspaceTree.pull') {
     const workspaceId = typeof message.workspaceId === 'string' ? message.workspaceId : '';
     if (!workspaceId || runtime === null) return { ok: false, reason: 'not-bound' };
-    return await runtime.pull(workspaceId);
+    const commitLocal = readCommitLocalWork(message.commitLocal);
+    if (commitLocal === null) return { ok: false, reason: 'commit-failed', detail: 'empty commit message' };
+    return await runtime.pull(workspaceId, commitLocal);
   }
   // Phase 5 push + safety (§3.2 / §16 / §8.2): the explicit Push
   // gesture, the read-only-remote new-branch affordance, the
@@ -247,7 +250,9 @@ export async function dispatchWorkspaceTreeRpc(
     const workspaceId = typeof message.workspaceId === 'string' ? message.workspaceId : '';
     const ref = typeof message.ref === 'string' ? message.ref.trim() : '';
     if (!workspaceId || !ref || runtime === null) return { ok: false, reason: 'not-bound' };
-    return await runtime.mergeBranch(workspaceId, ref);
+    const commitLocal = readCommitLocalWork(message.commitLocal);
+    if (commitLocal === null) return { ok: false, reason: 'commit-failed', detail: 'empty commit message' };
+    return await runtime.mergeBranch(workspaceId, ref, commitLocal);
   }
   if (type === 'oh.workspaceTree.applyCommit') {
     const workspaceId = typeof message.workspaceId === 'string' ? message.workspaceId : '';
@@ -256,7 +261,7 @@ export async function dispatchWorkspaceTreeRpc(
     if (!workspaceId || !sha || mode === null || runtime === null) return { ok: false, reason: 'not-bound' };
     const resolution = readApplyCommitResolution(message.resolution);
     if (resolution === null) return { ok: false, reason: 'resolution-invalid', detail: 'malformed resolution' };
-    const commitLocal = readApplyCommitLocalWork(message.commitLocal);
+    const commitLocal = readCommitLocalWork(message.commitLocal);
     if (commitLocal === null) return { ok: false, reason: 'commit-failed', detail: 'empty commit message' };
     return await runtime.applyCommit(workspaceId, sha, mode, resolution, commitLocal);
   }

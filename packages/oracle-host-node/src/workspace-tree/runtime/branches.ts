@@ -10,6 +10,7 @@
 import { logger } from '@openheaders/core/utils';
 import { detachedHeadStamp } from '@openheaders/core/workspace-tree';
 import {
+  composeCommitMessage,
   createLightweightTag,
   createLocalBranch,
   currentBranch,
@@ -30,7 +31,9 @@ import { mergeWorkspaceBranch } from '../merge';
 import { type SwitchDirtyAction, switchWorkspaceBranch } from '../switch';
 import { syntheticIdentity } from './commit';
 import { type OpenBinding, type RuntimeCtx, SCOPE, TREE_SURFACE_ID } from './core';
+import { holdDraft, localWorkFirst, settleDraft } from './local-work';
 import type {
+  CommitLocalWork,
   CreateBranchOptions,
   CreateBranchRpcResult,
   CreateTagRpcResult,
@@ -261,15 +264,17 @@ export async function runUpdateBranch(
 }
 
 /**
- * One branch-merge pass — always on the binding's chain. Local
- * uncommitted work commits FIRST under its own semantic draft
- * (exactly like pull: the merge commit stays a pure merge); the
- * watermark is untouched — merging a local ref is not a remote sync.
+ * One branch-merge pass — always on the binding's chain. Exactly like
+ * pull, the merge records the files it wrote and no other, and
+ * uncommitted work in one of them is committed first on the person's
+ * word (`commitLocal`) or when commits are automatic; the watermark is
+ * untouched — merging a local ref is not a remote sync.
  */
 export async function runMergeBranch(
   ctx: RuntimeCtx,
   binding: OpenBinding,
   ref: string,
+  commitLocal?: CommitLocalWork,
 ): Promise<MergeBranchRpcResult> {
   const { rootDir } = binding.record;
   const availability = await ctx.ensureGitAvailability(rootDir);
@@ -278,10 +283,8 @@ export async function runMergeBranch(
   if (await ctx.heldByGitOperation(binding)) return { ok: false, reason: 'op-in-progress' };
   await binding.service.hydrated;
 
-  const pre = await ctx.runCommit(binding);
-  if (!pre.ok) return { ok: false, reason: 'commit-failed', detail: pre.detail ?? pre.reason };
-
   const identity = await resolveCommitIdentity(ctx.gitRun, rootDir, syntheticIdentity());
+  const draft = holdDraft(binding);
   const result = await mergeWorkspaceBranch({
     run: ctx.gitRun,
     rootDir,
@@ -295,16 +298,24 @@ export async function runMergeBranch(
         .map((entry) => ({ itemId: entry.itemId, orderKey: entry.key, item: entry.item })),
     apply: (batches) => ctx.applyAll(binding.service, batches),
     flush: () => binding.materializer.flush(),
+    ...localWorkFirst(ctx, binding, identity.env, commitLocal),
     identityEnv: identity.env,
     bypassHooks: binding.record.bypassHooks === true,
   });
   if (!result.ok) {
     ctx.appendIssues(binding, result.issues);
-    return { ok: false, reason: result.reason, detail: result.detail };
+    return {
+      ok: false,
+      reason: result.reason,
+      detail: result.detail,
+      ...(result.localChanges !== undefined
+        ? { localChanges: result.localChanges, suggestedMessage: composeCommitMessage(binding.intents) }
+        : {}),
+    };
   }
   if (result.upToDate) return { ok: true, upToDate: true };
   await ctx.refreshIssuesFromDisk(binding);
-  ctx.drainIntents(binding);
+  await settleDraft(ctx, binding, draft);
   logger.info(SCOPE, `merged ${ref} into ${rootDir}: ${result.sha} (${result.applied} batches)`);
   if (result.history !== undefined) {
     logger.warn(
@@ -322,5 +333,6 @@ export async function runMergeBranch(
     applied: result.applied,
     ...(result.history !== undefined ? { history: result.history } : {}),
     ...(result.keptLocal !== undefined ? { keptLocal: result.keptLocal } : {}),
+    ...(result.committedLocal !== undefined ? { committedLocal: result.committedLocal } : {}),
   };
 }

@@ -8,6 +8,7 @@
 
 import { logger } from '@openheaders/core/utils';
 import {
+  composeCommitMessage,
   currentBranch,
   fetchAllRemotes,
   fetchWorkspaceRemote,
@@ -21,7 +22,9 @@ import { resolveForcePushWorkspaceTree } from '../force-push';
 import { pullWorkspaceTree } from '../pull';
 import { syntheticIdentity } from './commit';
 import { type OpenBinding, type RuntimeCtx, SCOPE, TREE_SURFACE_ID } from './core';
+import { holdDraft, localWorkFirst, settleDraft } from './local-work';
 import type {
+  CommitLocalWork,
   FetchWorkspaceTreeRpcResult,
   PullWorkspaceTreeRpcResult,
   PushWorkspaceTreeRpcResult,
@@ -72,12 +75,19 @@ export async function runFetchAll(ctx: RuntimeCtx, binding: OpenBinding): Promis
 }
 
 /**
- * One pull pass — always on the binding's chain (§8 single actor).
- * Local uncommitted work commits FIRST under its own semantic draft
- * (the merge commit stays a pure merge); the intent ring drains with
- * the merge since everything applied is now committed.
+ * One pull pass — always on the binding's chain (§8 single actor). The
+ * pass records the files it wrote and no other: uncommitted work
+ * elsewhere stays as it was, and uncommitted work in a file the pull
+ * writes is committed first on the person's word (`commitLocal`) — the
+ * pass refuses `local-changes` without it unless commits are automatic
+ * on the binding. The pending draft is spent only when no uncommitted
+ * work is left; otherwise it goes back to what was pending before.
  */
-export async function runPull(ctx: RuntimeCtx, binding: OpenBinding): Promise<PullWorkspaceTreeRpcResult> {
+export async function runPull(
+  ctx: RuntimeCtx,
+  binding: OpenBinding,
+  commitLocal?: CommitLocalWork,
+): Promise<PullWorkspaceTreeRpcResult> {
   const { rootDir } = binding.record;
   const availability = await ctx.ensureGitAvailability(rootDir);
   if (!availability.available) return { ok: false, reason: 'git-unavailable' };
@@ -85,11 +95,9 @@ export async function runPull(ctx: RuntimeCtx, binding: OpenBinding): Promise<Pu
   if (await ctx.heldByGitOperation(binding)) return { ok: false, reason: 'op-in-progress' };
   await binding.service.hydrated;
 
-  const pre = await ctx.runCommit(binding);
-  if (!pre.ok) return { ok: false, reason: 'commit-failed', detail: pre.detail ?? pre.reason };
-
   const identity = await resolveCommitIdentity(ctx.gitRun, rootDir, syntheticIdentity());
   const pullWatermark = ctx.watermarkFor(binding, await currentBranch(ctx.gitRun, rootDir));
+  const draft = holdDraft(binding);
   const result = await pullWorkspaceTree({
     run: ctx.gitRun,
     rootDir,
@@ -102,6 +110,7 @@ export async function runPull(ctx: RuntimeCtx, binding: OpenBinding): Promise<Pu
         .map((entry) => ({ itemId: entry.itemId, orderKey: entry.key, item: entry.item })),
     apply: (batches) => ctx.applyAll(binding.service, batches),
     flush: () => binding.materializer.flush(),
+    ...localWorkFirst(ctx, binding, identity.env, commitLocal),
     identityEnv: identity.env,
     bypassHooks: binding.record.bypassHooks === true,
     ...(pullWatermark !== undefined ? { lastSyncedRemoteSha: pullWatermark } : {}),
@@ -109,15 +118,22 @@ export async function runPull(ctx: RuntimeCtx, binding: OpenBinding): Promise<Pu
   binding.lastFetchAt = Date.now();
   if (!result.ok) {
     ctx.appendIssues(binding, result.issues);
-    return { ok: false, reason: result.reason, detail: result.detail };
+    return {
+      ok: false,
+      reason: result.reason,
+      detail: result.detail,
+      ...(result.localChanges !== undefined
+        ? { localChanges: result.localChanges, suggestedMessage: composeCommitMessage(binding.intents) }
+        : {}),
+    };
   }
   await ctx.refreshIssuesFromDisk(binding);
   // §16 watermark: this remote head is now integrated — the next
   // fetch compares ancestry against it.
   await ctx.recordWatermark(binding, result.remoteSha);
   if (result.upToDate) return { ok: true, upToDate: true };
-  ctx.drainIntents(binding);
-  logger.info(SCOPE, `pulled ${rootDir}: merge ${result.sha} (${result.applied} batches)`);
+  await settleDraft(ctx, binding, draft);
+  logger.info(SCOPE, `pulled ${rootDir}: ${result.sha} (${result.applied} batches)`);
   if (result.history !== undefined) {
     logger.warn(
       SCOPE,
@@ -137,6 +153,7 @@ export async function runPull(ctx: RuntimeCtx, binding: OpenBinding): Promise<Pu
     applied: result.applied,
     ...(result.history !== undefined ? { history: result.history } : {}),
     ...(result.keptLocal !== undefined ? { keptLocal: result.keptLocal } : {}),
+    ...(result.committedLocal !== undefined ? { committedLocal: result.committedLocal } : {}),
   };
 }
 

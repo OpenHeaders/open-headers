@@ -8,7 +8,9 @@
  * merge base → virtual mutation batches → mutator convergence →
  * converged tree written → a true fast-forward when the current branch
  * has not diverged, a two-parent commit with `Co-Authored-By:`
- * trailers otherwise.
+ * trailers otherwise. Like the pull, the merge records its own files
+ * and no other, and uncommitted work in one of them is committed first
+ * — asked, unless it may be done without (`pass-writes.ts`).
  *
  * The ref may be a local branch (`local-test`) or a remote-tracking
  * ref (`origin/main`) — the §6 teammate scenario's "pull `main` into
@@ -38,6 +40,8 @@ export type MergeWorkspaceBranchResult =
       history?: ForeignHistoryNote;
       /** The user's own files both sides changed — the local file stood. */
       keptLocal?: string[];
+      /** Files of the merge that held uncommitted work — that work was committed first. */
+      committedLocal?: string[];
     }
   | {
       ok: false;
@@ -48,8 +52,11 @@ export type MergeWorkspaceBranchResult =
         | 'detached-head'
         | 'foreign-invalid'
         | 'identity-mismatch'
+        | 'local-changes'
         | 'commit-failed';
       detail?: string;
+      /** `local-changes`: the files the merged ref changed that hold uncommitted work. */
+      localChanges?: string[];
       issues: TreeIssue[];
     };
 
@@ -84,5 +91,6 @@ export async function mergeWorkspaceBranch(options: MergeWorkspaceBranchOptions)
     issues: integrated.issues,
     ...(integrated.history !== undefined ? { history: integrated.history } : {}),
     ...(integrated.keptLocal !== undefined ? { keptLocal: integrated.keptLocal } : {}),
+    ...(integrated.committedLocal !== undefined ? { committedLocal: integrated.committedLocal } : {}),
   };
 }

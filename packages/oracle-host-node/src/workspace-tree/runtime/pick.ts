@@ -7,17 +7,12 @@
  */
 
 import { logger } from '@openheaders/core/utils';
-import {
-  commitWorkspaceTree,
-  composeCommitMessage,
-  countDirtyFiles,
-  isWorkspaceRepo,
-  resolveCommitIdentity,
-} from '../../git';
+import { composeCommitMessage, countDirtyFiles, isWorkspaceRepo, resolveCommitIdentity } from '../../git';
 import { type ApplyCommitMode, type ApplyCommitResolution, applyWorkspaceCommit } from '../pick';
 import { syntheticIdentity } from './commit';
 import { type OpenBinding, type RuntimeCtx, SCOPE, TREE_SURFACE_ID } from './core';
-import type { ApplyCommitLocalWork, ApplyCommitRpcResult } from './types';
+import { localWorkFirst } from './local-work';
+import type { ApplyCommitRpcResult, CommitLocalWork } from './types';
 
 export async function runApplyCommit(
   ctx: RuntimeCtx,
@@ -25,7 +20,7 @@ export async function runApplyCommit(
   sha: string,
   mode: ApplyCommitMode,
   resolution?: ApplyCommitResolution,
-  commitLocal?: ApplyCommitLocalWork,
+  commitLocal?: CommitLocalWork,
 ): Promise<ApplyCommitRpcResult> {
   const { rootDir } = binding.record;
   const availability = await ctx.ensureGitAvailability(rootDir);
@@ -50,24 +45,7 @@ export async function runApplyCommit(
         .map((entry) => ({ itemId: entry.itemId, orderKey: entry.key, item: entry.item })),
     apply: (batches) => ctx.applyAll(binding.service, batches),
     flush: () => binding.materializer.flush(),
-    // Asked of the person unless commits are automatic on this binding —
-    // then the work would have been committed without a word anyway.
-    mayCommitLocalWork: commitLocal !== undefined || (binding.record.commitCadence ?? 'off') !== 'off',
-    // The operator's gesture, like a commit from the Commit window: their
-    // identity, their message (the pending draft when they were not
-    // asked), those files alone.
-    commitLocalWork: async ({ tree, paths }) => {
-      const first = await commitWorkspaceTree({
-        run: ctx.gitRun,
-        rootDir,
-        message: commitLocal?.message ?? composeCommitMessage(binding.intents),
-        identityEnv: identity.env,
-        bypassHooks: binding.record.bypassHooks === true,
-        fromTree: tree,
-        paths,
-      });
-      return first.ok ? { ok: true } : { ok: false, detail: first.detail };
-    },
+    ...localWorkFirst(ctx, binding, identity.env, commitLocal),
     identityEnv: identity.env,
     bypassHooks: binding.record.bypassHooks === true,
   });

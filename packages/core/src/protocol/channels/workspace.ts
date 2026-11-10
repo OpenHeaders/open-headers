@@ -356,12 +356,18 @@ export interface WorkspaceRpc {
   /**
    * Explicit Pull gesture (the git-sync plan §9, Phase 4; §11.4 mechanics):
    * fetch, then converge the foreign head through the mutators as
-   * virtual batches and record a TWO-PARENT merge commit through the
-   * temp-index path — `git merge` is never invoked. Local uncommitted
-   * work commits first under its own semantic draft.
+   * virtual batches, then fast-forward or record a TWO-PARENT merge
+   * commit through the temp-index path — `git merge` is never invoked.
+   *
+   * The pull records the files it wrote and no other: uncommitted work
+   * elsewhere stays as it was. Uncommitted work in a file the foreign
+   * history changed has to be committed first: the call refuses
+   * `local-changes` before anything is written, naming the files, and
+   * goes on when it is sent again with `commitLocal` — the message for
+   * that commit. A host that commits automatically does not ask.
    */
   'oh.workspaceTree.pull': {
-    req: { workspaceId: string };
+    req: { workspaceId: string; commitLocal?: { message: string } };
     res: WorkspaceTreePullWire;
   };
   /**
@@ -482,13 +488,14 @@ export interface WorkspaceRpc {
   /**
    * In-app branch merge (§6): the Phase 4 pull machinery pointed at a
    * local or remote-tracking ref — raw `git merge` is never invoked,
-   * so the no-`<<<<<<<` guarantee holds. Local uncommitted work
-   * commits first; an un-diverged branch fast-forwards, genuine
-   * divergence records a two-parent commit with `Co-Authored-By:`
-   * trailers.
+   * so the no-`<<<<<<<` guarantee holds. An un-diverged branch
+   * fast-forwards, genuine divergence records a two-parent commit with
+   * `Co-Authored-By:` trailers. Uncommitted work is treated as on
+   * `oh.workspaceTree.pull`: left as it was unless the merge writes its
+   * file — then `local-changes`, and `commitLocal` is the word.
    */
   'oh.workspaceTree.mergeBranch': {
-    req: { workspaceId: string; ref: string };
+    req: { workspaceId: string; ref: string; commitLocal?: { message: string } };
     res: WorkspaceTreeMergeBranchWire;
   };
   /**
@@ -811,6 +818,12 @@ export type WorkspaceTreePullWire =
        * not taken (never a textual merge). Absent when there were none.
        */
       keptLocal?: string[];
+      /**
+       * Files of the pull that held uncommitted work: that work was
+       * committed first, under its own commit. Uncommitted work in any
+       * other file is left as it was.
+       */
+      committedLocal?: string[];
     }
   | {
       ok: false;
@@ -824,9 +837,14 @@ export type WorkspaceTreePullWire =
         | 'force-push'
         | 'foreign-invalid'
         | 'identity-mismatch'
+        | 'local-changes'
         | 'commit-failed';
       /** stderr of the failing git invocation / the offending marker or uid. */
       detail?: string;
+      /** `local-changes`: the files the pull would write that hold uncommitted work. */
+      localChanges?: string[];
+      /** `local-changes`: the message offered for the commit of that work. */
+      suggestedMessage?: string;
     };
 
 export type WorkspaceTreePushWire =
@@ -1066,6 +1084,12 @@ export type WorkspaceTreeMergeBranchWire =
        * not taken (never a textual merge). Absent when there were none.
        */
       keptLocal?: string[];
+      /**
+       * Files of the merge that held uncommitted work: that work was
+       * committed first, under its own commit. Uncommitted work in any
+       * other file is left as it was.
+       */
+      committedLocal?: string[];
     }
   | {
       ok: false;
@@ -1079,8 +1103,13 @@ export type WorkspaceTreeMergeBranchWire =
         | 'detached-head'
         | 'foreign-invalid'
         | 'identity-mismatch'
+        | 'local-changes'
         | 'commit-failed';
       detail?: string;
+      /** `local-changes`: the files the merge would write that hold uncommitted work. */
+      localChanges?: string[];
+      /** `local-changes`: the message offered for the commit of that work. */
+      suggestedMessage?: string;
     };
 
 /** One changed path in a history entry; rename/copy records report the new path. */

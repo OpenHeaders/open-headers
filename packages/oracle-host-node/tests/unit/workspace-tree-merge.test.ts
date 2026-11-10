@@ -19,6 +19,7 @@ import { createGitExec, type GitRunner } from '../../src/git/git-exec';
 import { commitWorkspaceTree, countDirtyFiles, ensureWorkspaceRepo } from '../../src/git/repo';
 import { WorkspaceTreeMaterializer } from '../../src/workspace-tree/materializer';
 import { type MergeWorkspaceBranchResult, mergeWorkspaceBranch } from '../../src/workspace-tree/merge';
+import type { LocalWorkDeps } from '../../src/workspace-tree/pass-writes';
 import { listWorkspaceTreeFiles } from '../../src/workspace-tree/reader';
 import { hashTreeContent, type MaterializedIndex, writeMaterializedIndex } from '../../src/workspace-tree/sidecar';
 
@@ -122,6 +123,29 @@ async function localEdit(dir: string, rel: string, edit: (content: string) => st
   await fs.writeFile(target, edit(content), 'utf-8');
 }
 
+let mayCommitLocalWork: boolean;
+/** The path sets the pass asked to have committed first, in order. */
+let localWorkCommits: string[][];
+
+/** The pass's way to commit local work first — one commit of exactly the paths it names. */
+function localWork(rootDir: string): LocalWorkDeps {
+  return {
+    mayCommitLocalWork,
+    commitLocalWork: async ({ tree, paths }) => {
+      localWorkCommits.push(paths);
+      const result = await commitWorkspaceTree({
+        run,
+        rootDir,
+        message: 'Local work',
+        identityEnv: IDENTITY_ENV,
+        fromTree: tree,
+        paths,
+      });
+      return result.ok ? { ok: true } : { ok: false, detail: result.detail };
+    },
+  };
+}
+
 function doMerge(
   ref: string,
   applied: EmissionBatch[],
@@ -141,6 +165,7 @@ function doMerge(
       onApply?.();
     },
     flush: () => tree.materializer.flush(),
+    ...localWork(tree.rootDir),
     identityEnv: IDENTITY_ENV,
     bypassHooks: false,
   });
@@ -177,6 +202,8 @@ beforeEach(async () => {
   state.rules = [makeRule('aaaaaaaa', 'Block probes')];
   hlcMs = 1_000;
   run = isolated(createGitExec());
+  mayCommitLocalWork = true;
+  localWorkCommits = [];
 
   await fs.mkdir(local, { recursive: true });
   materializer = new WorkspaceTreeMaterializer({ rootDir: local, readSnapshot: async () => ({ state }) });
@@ -265,6 +292,40 @@ describe('mergeWorkspaceBranch', () => {
     expect(listing.stdout).toContain('allow-health-bbbbbbbb');
     expect(await countDirtyFiles(run, local)).toBe(0);
     await assertNoConflictMarkers(local);
+  });
+
+  it('uncommitted work the merge does not touch stays uncommitted; in a file it writes it is asked about first', async () => {
+    const branchSha = await branchEdit('local-test', 'Rename on branch');
+    await fs.writeFile(path.join(local, 'scratch.txt'), 'unversioned\n', 'utf-8');
+    const status = async (): Promise<string> =>
+      (await raw(local, 'status', '--porcelain', '--untracked-files=all')).stdout;
+
+    // Local work in the very document the branch renamed.
+    state.rules = [{ ...state.rules[0], name: 'Local name' } as Rule];
+    await materializer.flush();
+    const before = await status();
+
+    mayCommitLocalWork = false;
+    const applied: EmissionBatch[] = [];
+    expect(await doMerge('local-test', applied)).toEqual({
+      ok: false,
+      reason: 'local-changes',
+      localChanges: [RULE_FILE],
+      issues: [],
+    });
+    expect(applied).toHaveLength(0);
+    expect(await status()).toBe(before);
+
+    mayCommitLocalWork = true;
+    const result = await doMerge('local-test', applied, () => {
+      state.rules = [{ ...state.rules[0], name: 'Block probes (branch)' } as Rule];
+    });
+    expect(result).toMatchObject({ ok: true, upToDate: false, committedLocal: [RULE_FILE] });
+    expect(localWorkCommits).toEqual([[RULE_FILE]]);
+    expect((await raw(local, 'rev-parse', 'HEAD^2')).stdout.trim()).toBe(branchSha);
+    expect((await raw(local, 'log', '-1', '--format=%s', 'HEAD^1')).stdout.trim()).toBe('Local work');
+    // The unversioned file is no commit's — it is still only on disk.
+    expect(await status()).toBe('?? scratch.txt\n');
   });
 
   it('merging an already-contained ref is a clean up-to-date no-op', async () => {
