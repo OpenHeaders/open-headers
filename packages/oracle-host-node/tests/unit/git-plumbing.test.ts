@@ -129,6 +129,30 @@ async function write(rel: string, content: string): Promise<void> {
   await fs.writeFile(target, content, 'utf-8');
 }
 
+/**
+ * A runner under which another git process holds the REAL index's lock
+ * during the first `times` writes to it — what a `git status` in a
+ * terminal, an IDE or a file watcher does for a moment while it
+ * refreshes the index. Writes to a throwaway index are left alone.
+ */
+function contended(rootDir: string, times: number): { run: GitRunner; collisions: () => number } {
+  const lock = path.join(rootDir, '.git', 'index.lock');
+  let collisions = 0;
+  const contendedRun: GitRunner = async (args, options) => {
+    const writesRealIndex =
+      (args.includes('read-tree') || args.includes('reset')) && options.env?.GIT_INDEX_FILE === undefined;
+    if (!writesRealIndex || collisions >= times) return run(args, options);
+    collisions += 1;
+    await fs.writeFile(lock, '');
+    try {
+      return await run(args, options);
+    } finally {
+      await fs.rm(lock, { force: true });
+    }
+  };
+  return { run: contendedRun, collisions: () => collisions };
+}
+
 async function initialCommit(): Promise<void> {
   await ensureWorkspaceRepo(run, tmpDir);
   await write('workspace.yaml', 'schemaVersion: 5\nuid: wsaaaaaa\nname: Probe\n');
@@ -309,6 +333,64 @@ describe('commitWorkspaceTree', () => {
       cwd: tmpDir,
     });
     expect(status.stdout).toBe('');
+  });
+
+  it('the index follows the commit when another git process held its lock for a moment', async () => {
+    await initialCommit();
+    await write('rules/block-r0000001/rule.yaml', 'schemaVersion: 5\nuid: r0000001\n');
+    const busy = contended(tmpDir, 2);
+    const result = await commitWorkspaceTree({
+      run: busy.run,
+      rootDir: tmpDir,
+      message: 'Add rule',
+      identityEnv: IDENTITY_ENV,
+    });
+    expect(result).toMatchObject({ ok: true, committed: true });
+    expect(busy.collisions()).toBe(2);
+    // A refresh lost to the lock would leave the committed file staged-deleted beside itself.
+    const status = await run(['--git-dir', path.join(tmpDir, '.git'), '--work-tree', tmpDir, 'status', '--porcelain'], {
+      cwd: tmpDir,
+    });
+    expect(status.stdout).toBe('');
+  });
+
+  it('the per-path refresh beside a staged user path is tried again past a held lock too', async () => {
+    await initialCommit();
+    await write('user-draft.yaml', 'draft: v1\n');
+    await run(['--git-dir', path.join(tmpDir, '.git'), '--work-tree', tmpDir, 'add', '--', 'user-draft.yaml'], {
+      cwd: tmpDir,
+    });
+    await write('user-draft.yaml', 'draft: v2\n');
+    await write('rules/block-r0000001/rule.yaml', 'schemaVersion: 5\nuid: r0000001\n');
+    const busy = contended(tmpDir, 1);
+    const result = await commitWorkspaceTree({
+      run: busy.run,
+      rootDir: tmpDir,
+      message: 'Add rule',
+      identityEnv: IDENTITY_ENV,
+    });
+    expect(result).toMatchObject({ ok: true, committed: true });
+    expect(busy.collisions()).toBe(1);
+    const status = await run(['--git-dir', path.join(tmpDir, '.git'), '--work-tree', tmpDir, 'status', '--porcelain'], {
+      cwd: tmpDir,
+    });
+    expect(status.stdout).toBe('');
+  });
+
+  it('a lock that never clears bounds the tries — the commit still stands', async () => {
+    await initialCommit();
+    await write('rules/block-r0000001/rule.yaml', 'schemaVersion: 5\nuid: r0000001\n');
+    const busy = contended(tmpDir, Number.POSITIVE_INFINITY);
+    const result = await commitWorkspaceTree({
+      run: busy.run,
+      rootDir: tmpDir,
+      message: 'Add rule',
+      identityEnv: IDENTITY_ENV,
+    });
+    expect(result).toMatchObject({ ok: true, committed: true });
+    expect(busy.collisions()).toBe(6);
+    const head = await run(['--git-dir', path.join(tmpDir, '.git'), 'log', '-1', '--format=%s'], { cwd: tmpDir });
+    expect(head.stdout.trim()).toBe('Add rule');
   });
 
   it('a committed path outside ASCII is refreshed like any other — never left as a staged deletion plus untracked', async () => {
@@ -709,6 +791,23 @@ describe('remote plumbing (Phase 4)', () => {
     expect(staged.stdout.trim()).toBe('user-draft.yaml');
     // Besides the user's own draft, the repo reads clean.
     expect(await countDirtyFiles(run, repoB)).toBe(1);
+  });
+
+  it('fastForwardWorkspaceBranch resyncs the index past a lock another git process held for a moment', async () => {
+    await writeIn(repoA, 'rules/block-r0000001/rule.yaml', 'schemaVersion: 5\nuid: r0000001\n');
+    await commitIn(repoA, 'Foreign rule', RITA_ENV);
+    await raw(repoA, 'push', '--quiet', 'origin', 'main');
+    await fetchWorkspaceRemote(run, repoB);
+    const upstream = await resolveUpstream(run, repoB);
+    // The converged worktree already carries the foreign bytes.
+    await writeIn(repoB, 'rules/block-r0000001/rule.yaml', 'schemaVersion: 5\nuid: r0000001\n');
+
+    const busy = contended(repoB, 2);
+    const ff = await fastForwardWorkspaceBranch(busy.run, repoB, upstream?.sha ?? '');
+    expect(ff).toEqual({ ok: true });
+    expect(busy.collisions()).toBe(2);
+    expect((await raw(repoB, 'rev-parse', 'HEAD')).stdout.trim()).toBe(upstream?.sha);
+    expect(await countDirtyFiles(run, repoB)).toBe(0);
   });
 
   it('fastForwardWorkspaceBranch resyncs a foreign path outside ASCII beside a staged user path', async () => {

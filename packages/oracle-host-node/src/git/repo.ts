@@ -31,6 +31,7 @@
 import { promises as fs } from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
+import { setTimeout as delay } from 'node:timers/promises';
 import { type TreeFile, treeDocumentPaths } from '@openheaders/core/workspace-tree';
 import { resolveGitDirs } from './git-dir';
 import type { GitExecResult, GitRunner } from './git-exec';
@@ -54,6 +55,33 @@ export function nulSeparatedPaths(stdout: string): string[] {
 export function failureDetail(result: GitExecResult): string {
   const parts = [result.stderr.trim(), result.stdout.trim()].filter((part) => part.length > 0);
   return parts.join('\n') || `git exited with code ${result.code}`;
+}
+
+/** The waits between tries of a real-index write that found the index locked — under a second in all. */
+const INDEX_LOCK_WAITS_MS: readonly number[] = [25, 50, 100, 200, 400];
+
+/** Git could not take the index lock: another git process holds `index.lock`. */
+const lostIndexLock = (result: GitExecResult): boolean => result.code !== 0 && result.stderr.includes('index.lock');
+
+/**
+ * One write to the user's REAL index, tried again while another git
+ * process holds its lock. A `git status` in a terminal, an IDE or a
+ * file watcher takes that lock for a moment to refresh the index; a
+ * resync that lost to it left the index behind the HEAD the pass had
+ * just moved, and every file the pass wrote read as a staged change
+ * beside itself until something else resynced it. Any other failure,
+ * and a lock that outlasts the waits, is answered as it came — the
+ * caller's commit or ref move already stands.
+ */
+async function writeRealIndex(run: GitRunner, rootDir: string, args: readonly string[]): Promise<GitExecResult> {
+  const write = (): Promise<GitExecResult> => run([...repoArgs(rootDir), ...args], { cwd: rootDir });
+  let result = await write();
+  for (const wait of INDEX_LOCK_WAITS_MS) {
+    if (!lostIndexLock(result)) break;
+    await delay(wait);
+    result = await write();
+  }
+  return result;
 }
 
 // ── Repo presence + init/adopt ───────────────────────────────────────
@@ -621,7 +649,7 @@ export async function fastForwardWorkspaceBranch(
   if (moved.code !== 0) return { ok: false, detail: failureDetail(moved) };
 
   if (userStagedPaths.size === 0) {
-    await run([...repoArgs(rootDir), 'read-tree', 'HEAD'], { cwd: rootDir });
+    await writeRealIndex(run, rootDir, ['read-tree', 'HEAD']);
   } else {
     const changed = await run(
       [...repoArgs(rootDir), 'diff-tree', '--no-commit-id', '--name-only', '-r', '-z', oldHead, foreignSha],
@@ -629,7 +657,7 @@ export async function fastForwardWorkspaceBranch(
     );
     const toRefresh = nulSeparatedPaths(changed.stdout).filter((entry) => !userStagedPaths.has(entry));
     if (toRefresh.length > 0) {
-      await run([...repoArgs(rootDir), 'reset', '-q', 'HEAD', '--', ...toRefresh], { cwd: rootDir });
+      await writeRealIndex(run, rootDir, ['reset', '-q', 'HEAD', '--', ...toRefresh]);
     }
   }
   return { ok: true };
@@ -1587,7 +1615,7 @@ export async function commitWorkspaceTree(options: CommitWorkspaceTreeOptions): 
     // Staged paths the commit did not touch stay exactly as found (a
     // mid-`git add -p` partial staging elsewhere survives, §3.3).
     if (userStagedPaths.size === 0) {
-      await run([...repoArgs(rootDir), 'read-tree', 'HEAD'], { cwd: rootDir });
+      await writeRealIndex(run, rootDir, ['read-tree', 'HEAD']);
     } else if (commitSha.length > 0) {
       const changed = await run(
         [
@@ -1602,7 +1630,7 @@ export async function commitWorkspaceTree(options: CommitWorkspaceTreeOptions): 
       );
       const toRefresh = nulSeparatedPaths(changed.stdout);
       if (toRefresh.length > 0) {
-        await run([...repoArgs(rootDir), 'reset', '-q', 'HEAD', '--', ...toRefresh], { cwd: rootDir });
+        await writeRealIndex(run, rootDir, ['reset', '-q', 'HEAD', '--', ...toRefresh]);
       }
     }
 
