@@ -67,11 +67,13 @@ import {
   diffForeignPaths,
   gitOperationInProgress,
   isCommitSha,
+  lockRefusalReason,
   readCommitAuthorIdentity,
   readCommitMeta,
   readCommitTreeFiles,
   resolveRefSha,
   snapshotWorkingTree,
+  withIndexLock,
 } from '../git';
 import { type ApplyCommitResolution, type ApplyCommitResolve, decideChange } from './change-answers';
 import { landForeignOwnFiles } from './own-files';
@@ -113,6 +115,7 @@ export type ApplyWorkspaceCommitResult =
         | 'conflicts'
         | 'resolution-invalid'
         | 'empty'
+        | 'index-locked'
         | 'commit-failed';
       detail?: string;
       /** `local-changes`: the files the change would write that hold uncommitted work. */
@@ -213,65 +216,83 @@ export async function applyWorkspaceCommit(options: ApplyWorkspaceCommitOptions)
   if (!decided.ok) return { ...decided, issues: [] };
   const { change, skipped, ownAnswers } = decided;
 
-  // From here the pass writes. What the engine still has pending is
-  // local work, not the change's: it reaches the disk first, and the
-  // working tree is read as it stands before and after the pass — the
-  // two readings differ in the change's own writes and nothing else.
-  await options.flush();
-  const before = await snapshotWorkingTree(run, rootDir);
-  if (before === null) {
-    return { ok: false, reason: 'commit-failed', detail: 'the working tree could not be read', issues: [] };
-  }
-
-  const batches = synthesizeWorkspaceTreeDelta({
-    prev: snapshot,
-    next: change.next,
-    changedPaths: change.changedPaths,
-    removedPaths: change.removedPaths,
-    deps: { nextCtx: options.nextCtx, liveSetEntries: options.liveSetEntries },
-  });
-  if (batches.length > 0) await options.apply(batches);
-  await options.flush();
-
-  // The second reading is taken once the change's own files are on disk too.
-  const own = await landForeignOwnFiles(run, rootDir, ownRefs, ownAnswers);
-  if (!own.ok) return { ok: false, reason: 'commit-failed', detail: own.detail, issues: [] };
-  const withKept = own.kept.length > 0 ? { keptLocal: own.kept } : {};
-
-  const pass = await readPassWrites(run, rootDir, before);
-  if (pass === null) {
-    return { ok: false, reason: 'commit-failed', detail: 'the working tree could not be read', issues: [] };
-  }
-  const paths = pass.wrote;
-  const empty: ApplyWorkspaceCommitResult = {
-    ok: false,
-    reason: 'empty',
-    ...(skipped.length > 0 ? { skipped } : {}),
-    ...withKept,
-    issues: [],
-  };
-  if (paths.length === 0) return empty;
-
-  // Uncommitted work in a file the change wrote would ride into the
-  // change's commit — it is recorded first, as the file stood before
-  // the pass. Work in any other file is not the pass's to commit.
-  const shared = paths.filter((filePath) => pass.uncommitted.has(filePath));
-  if (shared.length > 0) {
-    const local = await options.commitLocalWork({ tree: before, paths: shared });
-    if (!local.ok) return { ok: false, reason: 'commit-failed', detail: local.detail, issues: [] };
-  }
-
-  const operator = await readCommitAuthorIdentity(run, rootDir, options.identityEnv);
-  const commit = await commitWorkspaceTree({
+  // The pass writes from here on, and holds the real index's lock while
+  // it does: the index follows every commit the pass records, and an
+  // index another git process is writing refuses the pass here, with
+  // nothing written.
+  return withIndexLock<ApplyWorkspaceCommitResult>(
     run,
     rootDir,
-    message: picking ? composePickMessage(source, sha, operator?.email ?? null) : composeRevertMessage(source, sha),
-    identityEnv: options.identityEnv,
-    bypassHooks: options.bypassHooks,
-    fromTree: pass.after,
-    paths,
-  });
-  if (!commit.ok) return { ok: false, reason: 'commit-failed', detail: commit.detail, issues: [] };
-  if (!commit.committed) return empty;
-  return { ok: true, sha: commit.sha, skipped, ...withKept, ...(shared.length > 0 ? { committedLocal: shared } : {}) };
+    (refusal) => ({ ok: false, reason: lockRefusalReason(refusal), detail: refusal.detail, issues: [] }),
+    async (indexLock) => {
+      // From here the pass writes. What the engine still has pending is
+      // local work, not the change's: it reaches the disk first, and the
+      // working tree is read as it stands before and after the pass — the
+      // two readings differ in the change's own writes and nothing else.
+      await options.flush();
+      const before = await snapshotWorkingTree(run, rootDir);
+      if (before === null) {
+        return { ok: false, reason: 'commit-failed', detail: 'the working tree could not be read', issues: [] };
+      }
+
+      const batches = synthesizeWorkspaceTreeDelta({
+        prev: snapshot,
+        next: change.next,
+        changedPaths: change.changedPaths,
+        removedPaths: change.removedPaths,
+        deps: { nextCtx: options.nextCtx, liveSetEntries: options.liveSetEntries },
+      });
+      if (batches.length > 0) await options.apply(batches);
+      await options.flush();
+
+      // The second reading is taken once the change's own files are on disk too.
+      const own = await landForeignOwnFiles(run, rootDir, ownRefs, ownAnswers);
+      if (!own.ok) return { ok: false, reason: 'commit-failed', detail: own.detail, issues: [] };
+      const withKept = own.kept.length > 0 ? { keptLocal: own.kept } : {};
+
+      const pass = await readPassWrites(run, rootDir, before);
+      if (pass === null) {
+        return { ok: false, reason: 'commit-failed', detail: 'the working tree could not be read', issues: [] };
+      }
+      const paths = pass.wrote;
+      const empty: ApplyWorkspaceCommitResult = {
+        ok: false,
+        reason: 'empty',
+        ...(skipped.length > 0 ? { skipped } : {}),
+        ...withKept,
+        issues: [],
+      };
+      if (paths.length === 0) return empty;
+
+      // Uncommitted work in a file the change wrote would ride into the
+      // change's commit — it is recorded first, as the file stood before
+      // the pass. Work in any other file is not the pass's to commit.
+      const shared = paths.filter((filePath) => pass.uncommitted.has(filePath));
+      if (shared.length > 0) {
+        const local = await options.commitLocalWork({ tree: before, paths: shared, indexLock });
+        if (!local.ok) return { ok: false, reason: 'commit-failed', detail: local.detail, issues: [] };
+      }
+
+      const operator = await readCommitAuthorIdentity(run, rootDir, options.identityEnv);
+      const commit = await commitWorkspaceTree({
+        run,
+        rootDir,
+        message: picking ? composePickMessage(source, sha, operator?.email ?? null) : composeRevertMessage(source, sha),
+        identityEnv: options.identityEnv,
+        bypassHooks: options.bypassHooks,
+        fromTree: pass.after,
+        indexLock,
+        paths,
+      });
+      if (!commit.ok) return { ok: false, reason: 'commit-failed', detail: commit.detail, issues: [] };
+      if (!commit.committed) return empty;
+      return {
+        ok: true,
+        sha: commit.sha,
+        skipped,
+        ...withKept,
+        ...(shared.length > 0 ? { committedLocal: shared } : {}),
+      };
+    },
+  );
 }

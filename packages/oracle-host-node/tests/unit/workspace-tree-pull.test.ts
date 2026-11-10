@@ -159,7 +159,7 @@ let localWorkCommits: string[][];
 function localWork(rootDir: string): LocalWorkDeps {
   return {
     mayCommitLocalWork,
-    commitLocalWork: async ({ tree, paths }) => {
+    commitLocalWork: async ({ tree, paths, indexLock }) => {
       localWorkCommits.push(paths);
       const result = await commitWorkspaceTree({
         run,
@@ -168,6 +168,7 @@ function localWork(rootDir: string): LocalWorkDeps {
         identityEnv: IDENTITY_ENV,
         fromTree: tree,
         paths,
+        indexLock,
       });
       return result.ok ? { ok: true } : { ok: false, detail: result.detail };
     },
@@ -272,6 +273,28 @@ describe('pullWorkspaceTree', () => {
     expect(onDisk).toContain('name: Block probes (peer)');
     expect(await countDirtyFiles(run, local)).toBe(0);
     expect((await resolveUpstream(run, local))?.behind).toBe(0);
+  });
+
+  it('an index another git process is writing refuses the pull before anything is written — it goes through once free', async () => {
+    await peerEdit(RULE_FILE, (content) => content.replace('name: Block probes', 'name: Block probes (peer)'));
+    const foreignSha = await peerCommitPush('Rename rule');
+    const headBefore = (await raw(local, 'rev-parse', 'HEAD')).stdout.trim();
+    const lock = path.join(local, '.git', 'index.lock');
+    await fs.writeFile(lock, '', { flag: 'wx' });
+
+    const applied: EmissionBatch[] = [];
+    const refused = await doPull(applied);
+    expect(refused).toMatchObject({ ok: false, reason: 'index-locked' });
+    expect(applied).toHaveLength(0);
+    expect((await raw(local, 'rev-parse', 'HEAD')).stdout.trim()).toBe(headBefore);
+    expect(await fs.readFile(path.join(local, ...RULE_FILE.split('/')), 'utf-8')).not.toContain('(peer)');
+    await fs.rm(lock);
+
+    const result = await doPull(applied, () => {
+      state.rules = [{ ...state.rules[0], name: 'Block probes (peer)' } as Rule];
+    });
+    expect(result).toMatchObject({ ok: true, upToDate: false, sha: foreignSha });
+    expect(await countDirtyFiles(run, local)).toBe(0);
   });
 
   it('a diverged pull records a two-parent merge with Co-Authored-By trailers', async () => {

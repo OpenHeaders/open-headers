@@ -112,8 +112,12 @@ export function enqueueAutoCommit(ctx: RuntimeCtx, binding: OpenBinding, trigger
       return;
     }
     const result = await runCommit(ctx, binding);
-    if (!result.ok) logger.warn(SCOPE, `${trigger} commit failed for ${binding.record.rootDir}: ${result.reason}`);
-    else if (result.committed) await ctx.maybeAutoPush(binding);
+    if (!result.ok && result.reason === 'index-locked') {
+      // Another git process is writing the index: the work waits for the cadence's next trigger.
+      logger.info(SCOPE, `${trigger} commit stood down for ${binding.record.rootDir}: the index is locked`);
+    } else if (!result.ok) {
+      logger.warn(SCOPE, `${trigger} commit failed for ${binding.record.rootDir}: ${result.reason}`);
+    } else if (result.committed) await ctx.maybeAutoPush(binding);
     await ctx.publishGitStatus(binding);
   });
 }

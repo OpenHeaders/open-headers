@@ -898,6 +898,8 @@ export const workbenchChrome = {
   'workbench.gitLog.merge.failed': 'No se pudo fusionar {ref}: {detail}',
   'workbench.gitLog.keptLocal':
     'Ambos lados modificaron {files}. Se conservó tu versión y no se aplicó el cambio entrante.',
+  'workbench.gitLog.indexLocked':
+    'Otro proceso de Git está usando este repositorio. Vuelve a intentarlo en un momento.',
   'workbench.gitLog.applyCommit.picked': 'Cherry-pick completado',
   'workbench.gitLog.applyCommit.reverted': 'Reversión completada',
   'workbench.gitLog.applyCommit.pickFailed': 'No se pudo hacer cherry-pick de {commit}: {detail}',

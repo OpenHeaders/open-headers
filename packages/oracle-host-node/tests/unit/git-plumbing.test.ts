@@ -130,28 +130,23 @@ async function write(rel: string, content: string): Promise<void> {
 }
 
 /**
- * A runner under which another git process holds the REAL index's lock
- * during the first `times` writes to it — what a `git status` in a
- * terminal, an IDE or a file watcher does for a moment while it
- * refreshes the index. Writes to a throwaway index are left alone.
+ * Another git process holding the REAL index's lock — what a `git add`
+ * or a commit in a terminal or an IDE does while it writes the index.
+ * `forMs` gives it up after that long; absent, it is held until `end`.
  */
-function contended(rootDir: string, times: number): { run: GitRunner; collisions: () => number } {
-  const lock = path.join(rootDir, '.git', 'index.lock');
-  let collisions = 0;
-  const contendedRun: GitRunner = async (args, options) => {
-    const writesRealIndex =
-      (args.includes('read-tree') || args.includes('reset')) && options.env?.GIT_INDEX_FILE === undefined;
-    if (!writesRealIndex || collisions >= times) return run(args, options);
-    collisions += 1;
-    await fs.writeFile(lock, '');
-    try {
-      return await run(args, options);
-    } finally {
-      await fs.rm(lock, { force: true });
-    }
-  };
-  return { run: contendedRun, collisions: () => collisions };
+async function heldElsewhere(rootDir: string, forMs?: number): Promise<{ lock: string; end: () => Promise<void> }> {
+  const lock = path.join((await resolveGitDirs(rootDir)).gitDir, 'index.lock');
+  await fs.writeFile(lock, '', { flag: 'wx' });
+  const end = (): Promise<void> => fs.rm(lock, { force: true });
+  if (forMs !== undefined) setTimeout(() => void end(), forMs);
+  return { lock, end };
 }
+
+const exists = (target: string): Promise<boolean> =>
+  fs.access(target).then(
+    () => true,
+    () => false,
+  );
 
 const realIndexPath = (rootDir: string): string => path.join(rootDir, '.git', 'index');
 
@@ -383,62 +378,92 @@ describe('commitWorkspaceTree', () => {
     expect(await indexIsRefreshed(tmpDir)).toBe(true);
   });
 
-  it('the index follows the commit when another git process held its lock for a moment', async () => {
+  it('a commit waits out a lock another git process held for a moment — the index follows it', async () => {
     await initialCommit();
     await write('rules/block-r0000001/rule.yaml', 'schemaVersion: 5\nuid: r0000001\n');
-    const busy = contended(tmpDir, 2);
+    const busy = await heldElsewhere(tmpDir, 120);
     const result = await commitWorkspaceTree({
-      run: busy.run,
+      run,
       rootDir: tmpDir,
       message: 'Add rule',
       identityEnv: IDENTITY_ENV,
     });
     expect(result).toMatchObject({ ok: true, committed: true });
-    expect(busy.collisions()).toBe(2);
-    // A refresh lost to the lock would leave the committed file staged-deleted beside itself.
-    const status = await run(['--git-dir', path.join(tmpDir, '.git'), '--work-tree', tmpDir, 'status', '--porcelain'], {
-      cwd: tmpDir,
-    });
+    expect(await exists(busy.lock)).toBe(false);
+    const status = await run([...repoArgs(tmpDir), 'status', '--porcelain'], { cwd: tmpDir });
     expect(status.stdout).toBe('');
   });
 
-  it('the per-path refresh beside a staged user path is tried again past a held lock too', async () => {
+  it('a lock that never clears refuses the commit — nothing is recorded and the lock is left to its owner', async () => {
     await initialCommit();
+    await write('rules/block-r0000001/rule.yaml', 'schemaVersion: 5\nuid: r0000001\n');
+    const before = await fs.readFile(realIndexPath(tmpDir));
+    const busy = await heldElsewhere(tmpDir);
+    const result = await commitWorkspaceTree({
+      run,
+      rootDir: tmpDir,
+      message: 'Add rule',
+      identityEnv: IDENTITY_ENV,
+    });
+    expect(result).toMatchObject({ ok: false, reason: 'index-locked' });
+    const head = await run([...repoArgs(tmpDir), 'log', '-1', '--format=%s'], { cwd: tmpDir });
+    expect(head.stdout.trim()).toBe('Initial tree');
+    expect((await fs.readFile(realIndexPath(tmpDir))).equals(before)).toBe(true);
+    // A lock found held is never ours to remove, however long it has stood.
+    expect(await exists(busy.lock)).toBe(true);
+    await busy.end();
+
+    const retried = await commitWorkspaceTree({ run, rootDir: tmpDir, message: 'Add rule', identityEnv: IDENTITY_ENV });
+    expect(retried).toMatchObject({ ok: true, committed: true });
+  });
+
+  it('the lock is held across the commit and its hooks — a hook that stages a file still works under it', async () => {
+    await initialCommit();
+    const gitDir = path.join(tmpDir, '.git');
+    await fs.mkdir(path.join(gitDir, 'hooks'), { recursive: true });
+    await fs.writeFile(
+      path.join(gitDir, 'hooks', 'pre-commit'),
+      [
+        '#!/bin/sh',
+        `test -f "${gitDir}/index.lock" || { echo "the index lock is not held" >&2; exit 1; }`,
+        `grep -q "^pid ${process.pid}$" "${gitDir}/index~pid.lock" || { echo "the lock names no holder" >&2; exit 1; }`,
+        // An outside writer of the real index is refused while the pass runs.
+        'env -u GIT_INDEX_FILE git add workspace.yaml 2>&1 | grep -q "index.lock" || { echo "an outside add was not refused by the lock" >&2; exit 1; }',
+        'echo generated > generated.txt',
+        'git add generated.txt',
+        '',
+      ].join('\n'),
+      { mode: 0o755 },
+    );
+    await write('rules/block-r0000001/rule.yaml', 'schemaVersion: 5\nuid: r0000001\n');
+    const result = await commitWorkspaceTree({ run, rootDir: tmpDir, message: 'Add rule', identityEnv: IDENTITY_ENV });
+    expect(result).toMatchObject({ ok: true, committed: true });
+
+    const committed = await run([...repoArgs(tmpDir), 'show', '--name-only', '--format=', 'HEAD'], { cwd: tmpDir });
+    expect(committed.stdout.trim().split('\n').sort()).toEqual(['generated.txt', 'rules/block-r0000001/rule.yaml']);
+    for (const leftover of ['index.lock', 'index~pid.lock', 'index.oh-next']) {
+      expect(await exists(path.join(gitDir, leftover))).toBe(false);
+    }
+    const status = await run([...repoArgs(tmpDir), 'status', '--porcelain'], { cwd: tmpDir });
+    expect(status.stdout).toBe('');
+    expect(await indexIsRefreshed(tmpDir)).toBe(true);
+  });
+
+  it('a commit a hook rejects gives the lock up and leaves the index as found', async () => {
+    await initialCommit();
+    const gitDir = path.join(tmpDir, '.git');
+    await fs.mkdir(path.join(gitDir, 'hooks'), { recursive: true });
+    await fs.writeFile(path.join(gitDir, 'hooks', 'pre-commit'), '#!/bin/sh\necho "hook says no" >&2\nexit 1\n', {
+      mode: 0o755,
+    });
     await write('user-draft.yaml', 'draft: v1\n');
-    await run(['--git-dir', path.join(tmpDir, '.git'), '--work-tree', tmpDir, 'add', '--', 'user-draft.yaml'], {
-      cwd: tmpDir,
-    });
-    await write('user-draft.yaml', 'draft: v2\n');
-    await write('rules/block-r0000001/rule.yaml', 'schemaVersion: 5\nuid: r0000001\n');
-    const busy = contended(tmpDir, 1);
-    const result = await commitWorkspaceTree({
-      run: busy.run,
-      rootDir: tmpDir,
-      message: 'Add rule',
-      identityEnv: IDENTITY_ENV,
-    });
-    expect(result).toMatchObject({ ok: true, committed: true });
-    expect(busy.collisions()).toBe(1);
-    const status = await run(['--git-dir', path.join(tmpDir, '.git'), '--work-tree', tmpDir, 'status', '--porcelain'], {
-      cwd: tmpDir,
-    });
-    expect(status.stdout).toBe('');
-  });
+    await run([...repoArgs(tmpDir), 'add', '--', 'user-draft.yaml'], { cwd: tmpDir });
+    const before = await fs.readFile(realIndexPath(tmpDir));
 
-  it('a lock that never clears bounds the tries — the commit still stands', async () => {
-    await initialCommit();
-    await write('rules/block-r0000001/rule.yaml', 'schemaVersion: 5\nuid: r0000001\n');
-    const busy = contended(tmpDir, Number.POSITIVE_INFINITY);
-    const result = await commitWorkspaceTree({
-      run: busy.run,
-      rootDir: tmpDir,
-      message: 'Add rule',
-      identityEnv: IDENTITY_ENV,
-    });
-    expect(result).toMatchObject({ ok: true, committed: true });
-    expect(busy.collisions()).toBe(6);
-    const head = await run(['--git-dir', path.join(tmpDir, '.git'), 'log', '-1', '--format=%s'], { cwd: tmpDir });
-    expect(head.stdout.trim()).toBe('Add rule');
+    const result = await commitWorkspaceTree({ run, rootDir: tmpDir, message: 'Blocked', identityEnv: IDENTITY_ENV });
+    expect(result).toMatchObject({ ok: false, reason: 'commit-failed' });
+    expect(await exists(path.join(gitDir, 'index.lock'))).toBe(false);
+    expect((await fs.readFile(realIndexPath(tmpDir))).equals(before)).toBe(true);
   });
 
   it('a committed path outside ASCII is refreshed like any other — never left as a staged deletion plus untracked', async () => {
@@ -841,19 +866,25 @@ describe('remote plumbing (Phase 4)', () => {
     expect(await countDirtyFiles(run, repoB)).toBe(1);
   });
 
-  it('fastForwardWorkspaceBranch resyncs the index past a lock another git process held for a moment', async () => {
+  it('fastForwardWorkspaceBranch waits out a lock held for a moment and refuses one that never clears, the branch unmoved', async () => {
     await writeIn(repoA, 'rules/block-r0000001/rule.yaml', 'schemaVersion: 5\nuid: r0000001\n');
     await commitIn(repoA, 'Foreign rule', RITA_ENV);
     await raw(repoA, 'push', '--quiet', 'origin', 'main');
     await fetchWorkspaceRemote(run, repoB);
     const upstream = await resolveUpstream(run, repoB);
+    const oldHead = (await raw(repoB, 'rev-parse', 'HEAD')).stdout.trim();
     // The converged worktree already carries the foreign bytes.
     await writeIn(repoB, 'rules/block-r0000001/rule.yaml', 'schemaVersion: 5\nuid: r0000001\n');
 
-    const busy = contended(repoB, 2);
-    const ff = await fastForwardWorkspaceBranch(busy.run, repoB, upstream?.sha ?? '');
+    const stuck = await heldElsewhere(repoB);
+    const refused = await fastForwardWorkspaceBranch(run, repoB, upstream?.sha ?? '');
+    expect(refused).toMatchObject({ ok: false, reason: 'index-locked' });
+    expect((await raw(repoB, 'rev-parse', 'HEAD')).stdout.trim()).toBe(oldHead);
+    await stuck.end();
+
+    await heldElsewhere(repoB, 120);
+    const ff = await fastForwardWorkspaceBranch(run, repoB, upstream?.sha ?? '');
     expect(ff).toEqual({ ok: true });
-    expect(busy.collisions()).toBe(2);
     expect((await raw(repoB, 'rev-parse', 'HEAD')).stdout.trim()).toBe(upstream?.sha);
     expect(await countDirtyFiles(run, repoB)).toBe(0);
     expect(await indexIsRefreshed(repoB)).toBe(true);
@@ -2520,6 +2551,23 @@ describe('Gitfile layouts (S25 D): linked worktrees and submodule checkouts', ()
     const bare = path.join(tmpDir, 'nothing');
     await fs.mkdir(bare);
     expect(await resolveGitDirs(bare)).toEqual({ gitDir: path.join(bare, '.git'), commonDir: path.join(bare, '.git') });
+  });
+
+  it('a linked worktree: the index lock is its own — held there it refuses the commit, the main tree still commits', async () => {
+    const wt = path.join(tmpDir, 'wt');
+    expect((await at(main, 'worktree', 'add', '--quiet', wt, '-b', 'wt-branch')).code).toBe(0);
+    const busy = await heldElsewhere(wt);
+    expect(busy.lock).toContain(path.join('.git', 'worktrees'));
+
+    await writeIn(wt, 'rules/block-r0000001/rule.yaml', 'schemaVersion: 5\nuid: r0000001\n');
+    const refused = await commitWorkspaceTree({ run, rootDir: wt, message: 'In worktree', identityEnv: IDENTITY_ENV });
+    expect(refused).toMatchObject({ ok: false, reason: 'index-locked' });
+
+    await writeIn(main, 'rules/block-r0000002/rule.yaml', 'schemaVersion: 5\nuid: r0000002\n');
+    await commitIn(main, 'In main');
+    await busy.end();
+    await commitIn(wt, 'In worktree');
+    expect(await countDirtyFiles(run, wt)).toBe(0);
   });
 
   it('a linked worktree: markers and HEAD in the per-worktree dir, the exclude file in the main .git, commits land', async () => {

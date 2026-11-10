@@ -30,7 +30,7 @@ export function localWorkFirst(
   const message = word?.message ?? composeCommitMessage(binding.intents);
   return {
     mayCommitLocalWork: word !== undefined || (binding.record.commitCadence ?? 'off') !== 'off',
-    commitLocalWork: async ({ tree, paths }) => {
+    commitLocalWork: async ({ tree, paths, indexLock }) => {
       const first = await commitWorkspaceTree({
         run: ctx.gitRun,
         rootDir: binding.record.rootDir,
@@ -39,6 +39,7 @@ export function localWorkFirst(
         bypassHooks: binding.record.bypassHooks === true,
         fromTree: tree,
         paths,
+        indexLock,
       });
       return first.ok ? { ok: true } : { ok: false, detail: first.detail };
     },

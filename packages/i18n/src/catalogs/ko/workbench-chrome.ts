@@ -727,6 +727,7 @@ export const workbenchChrome = {
   'workbench.gitLog.merge.failed': '{ref}을(를) 병합할 수 없습니다: {detail}',
   'workbench.gitLog.keptLocal':
     '양쪽 모두 {files} 파일을 변경했습니다. 로컬 버전을 유지했으며 들어오는 변경은 적용하지 않았습니다.',
+  'workbench.gitLog.indexLocked': '다른 Git 프로세스가 이 저장소를 사용하고 있습니다. 잠시 후 다시 시도하세요.',
   'workbench.gitLog.applyCommit.picked': '체리픽 완료',
   'workbench.gitLog.applyCommit.reverted': '되돌리기(Revert) 완료',
   'workbench.gitLog.applyCommit.pickFailed': '{commit} 체리픽 실패: {detail}',

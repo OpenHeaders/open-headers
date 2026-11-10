@@ -64,6 +64,7 @@ export type MergeWorkspaceBranchResult =
         | 'local-changes'
         | 'conflicts'
         | 'resolution-invalid'
+        | 'index-locked'
         | 'commit-failed';
       detail?: string;
       /** `local-changes`: the files the merged ref changed that hold uncommitted work. */

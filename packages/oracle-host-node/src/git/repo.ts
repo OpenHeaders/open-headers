@@ -31,16 +31,14 @@
 import { promises as fs } from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
-import { setTimeout as delay } from 'node:timers/promises';
 import { type TreeFile, treeDocumentPaths } from '@openheaders/core/workspace-tree';
 import { resolveGitDirs } from './git-dir';
 import type { GitExecResult, GitRunner } from './git-exec';
 import type { IgnoreProvenance } from './ignore-ops';
+import { type HeldIndexLock, lockRefusalReason, withIndexLock } from './index-lock';
+import { repoArgs } from './repo-args';
 
-/** Explicit repo addressing prefix for every command (the git-sync plan §7). */
-export function repoArgs(rootDir: string): string[] {
-  return ['--git-dir', path.join(rootDir, '.git'), '--work-tree', rootDir];
-}
+export { repoArgs };
 
 /**
  * The paths of a NUL-separated listing (`-z`), the only form git
@@ -57,43 +55,33 @@ export function failureDetail(result: GitExecResult): string {
   return parts.join('\n') || `git exited with code ${result.code}`;
 }
 
-/** The waits between tries of a real-index write that found the index locked — under a second in all. */
-const INDEX_LOCK_WAITS_MS: readonly number[] = [25, 50, 100, 200, 400];
-
-/** Git could not take the index lock: another git process holds `index.lock`. */
-const lostIndexLock = (result: GitExecResult): boolean => result.code !== 0 && result.stderr.includes('index.lock');
-
 /**
- * One write to the user's REAL index, tried again while another git
- * process holds its lock. A `git status` in a terminal, an IDE or a
- * file watcher takes that lock for a moment to refresh the index; a
- * resync that lost to it left the index behind the HEAD the pass had
- * just moved, and every file the pass wrote read as a staged change
- * beside itself until something else resynced it. Any other failure,
- * and a lock that outlasts the waits, is answered as it came — the
- * caller's commit or ref move already stands.
+ * Bring the user's index to the HEAD a pass just moved, inside the held
+ * lock, and publish it. `paths` null resyncs the whole index (nothing
+ * of the user's is staged): the entries the move did not change keep
+ * their stat data. Otherwise those paths alone are set to HEAD's and
+ * every other entry stays as found. The refresh gives the changed
+ * entries the stat data of their files — no read of ours writes it back
+ * later (the runner opts every invocation out of the optional lock).
  */
-async function writeRealIndex(run: GitRunner, rootDir: string, args: readonly string[]): Promise<GitExecResult> {
-  const write = (): Promise<GitExecResult> => run([...repoArgs(rootDir), ...args], { cwd: rootDir });
-  let result = await write();
-  for (const wait of INDEX_LOCK_WAITS_MS) {
-    if (!lostIndexLock(result)) break;
-    await delay(wait);
-    result = await write();
-  }
-  return result;
-}
-
-/**
- * Give the REAL index the stat data of the files it lists, after a
- * resync: entries read from a tree carry none, and no read of ours
- * writes it back (the runner opts every invocation out of the optional
- * lock), so each later status would hash every tracked file again.
- * Tried once — a refresh that loses the lock costs a later read time,
- * never what the index holds.
- */
-async function refreshRealIndex(run: GitRunner, rootDir: string): Promise<void> {
-  await run([...repoArgs(rootDir), 'update-index', '-q', '--refresh'], { cwd: rootDir });
+async function resyncHeldIndex(
+  run: GitRunner,
+  rootDir: string,
+  lock: HeldIndexLock,
+  paths: readonly string[] | null,
+): Promise<void> {
+  if (paths !== null && paths.length === 0) return;
+  const options = { cwd: rootDir, env: lock.env };
+  const moved = await run(
+    [
+      ...repoArgs(rootDir),
+      ...(paths === null ? ['read-tree', '--reset', 'HEAD'] : ['reset', '-q', 'HEAD', '--', ...paths]),
+    ],
+    options,
+  );
+  if (moved.code !== 0) return;
+  await run([...repoArgs(rootDir), 'update-index', '-q', '--refresh'], options);
+  await lock.publish();
 }
 
 // ── Repo presence + init/adopt ───────────────────────────────────────
@@ -629,7 +617,9 @@ export async function listForeignAuthors(
   return authors;
 }
 
-export type FastForwardResult = { ok: true } | { ok: false; detail: string };
+export type FastForwardResult =
+  | { ok: true }
+  | { ok: false; reason: 'index-locked' | 'ref-update-failed'; detail: string };
 
 /**
  * Move the current branch to `foreignSha` — the pull leg for a local
@@ -640,15 +630,37 @@ export type FastForwardResult = { ok: true } | { ok: false; detail: string };
  * concurrent move fails loudly instead of clobbering; afterwards the
  * REAL index is resynced to the new HEAD with the same §3.3
  * discipline as the temp-index commit — paths the user had staged
- * stay exactly as found.
+ * stay exactly as found. The index's lock is taken before the ref
+ * moves (`indexLock`: the one the caller's pass holds), so a busy
+ * index refuses with the branch where it was.
  */
 export async function fastForwardWorkspaceBranch(
   run: GitRunner,
   rootDir: string,
   foreignSha: string,
+  indexLock?: HeldIndexLock,
+): Promise<FastForwardResult> {
+  return withIndexLock<FastForwardResult>(
+    run,
+    rootDir,
+    (refusal) => ({
+      ok: false,
+      reason: refusal.reason === 'index-locked' ? 'index-locked' : 'ref-update-failed',
+      detail: refusal.detail,
+    }),
+    (lock) => fastForwardHoldingIndex(run, rootDir, foreignSha, lock),
+    indexLock,
+  );
+}
+
+async function fastForwardHoldingIndex(
+  run: GitRunner,
+  rootDir: string,
+  foreignSha: string,
+  lock: HeldIndexLock,
 ): Promise<FastForwardResult> {
   const head = await run([...repoArgs(rootDir), 'rev-parse', '--verify', '--quiet', 'HEAD'], { cwd: rootDir });
-  if (head.code !== 0) return { ok: false, detail: 'no local HEAD to fast-forward' };
+  if (head.code !== 0) return { ok: false, reason: 'ref-update-failed', detail: 'no local HEAD to fast-forward' };
   const oldHead = head.stdout.trim();
 
   const stagedProbe = await run(
@@ -658,21 +670,22 @@ export async function fastForwardWorkspaceBranch(
   const userStagedPaths = new Set(nulSeparatedPaths(stagedProbe.stdout));
 
   const moved = await run([...repoArgs(rootDir), 'update-ref', 'HEAD', foreignSha, oldHead], { cwd: rootDir });
-  if (moved.code !== 0) return { ok: false, detail: failureDetail(moved) };
+  if (moved.code !== 0) return { ok: false, reason: 'ref-update-failed', detail: failureDetail(moved) };
 
   if (userStagedPaths.size === 0) {
-    await writeRealIndex(run, rootDir, ['read-tree', 'HEAD']);
+    await resyncHeldIndex(run, rootDir, lock, null);
   } else {
     const changed = await run(
       [...repoArgs(rootDir), 'diff-tree', '--no-commit-id', '--name-only', '-r', '-z', oldHead, foreignSha],
       { cwd: rootDir },
     );
-    const toRefresh = nulSeparatedPaths(changed.stdout).filter((entry) => !userStagedPaths.has(entry));
-    if (toRefresh.length > 0) {
-      await writeRealIndex(run, rootDir, ['reset', '-q', 'HEAD', '--', ...toRefresh]);
-    }
+    await resyncHeldIndex(
+      run,
+      rootDir,
+      lock,
+      nulSeparatedPaths(changed.stdout).filter((entry) => !userStagedPaths.has(entry)),
+    );
   }
-  await refreshRealIndex(run, rootDir);
   return { ok: true };
 }
 
@@ -1469,6 +1482,12 @@ export interface CommitWorkspaceTreeOptions {
   amend?: boolean;
   /** Per-commit `Signed-off-by` trailer (`--signoff`) — the gear's Sign-off option. */
   signOff?: boolean;
+  /**
+   * The real index's lock when the caller's pass already holds it — a
+   * pass that writes before it commits takes the lock before its first
+   * write. Absent: the commit takes the lock for itself.
+   */
+  indexLock?: HeldIndexLock;
 }
 
 /** Paths per plumbing invocation — keeps the arg vector under every platform's limit. */
@@ -1523,7 +1542,7 @@ async function stagePathsFromTree(
 export type CommitWorkspaceTreeResult =
   | { ok: true; committed: false }
   | { ok: true; committed: true; sha: string }
-  | { ok: false; reason: 'not-a-repo' | 'stage-failed' | 'commit-failed'; detail: string };
+  | { ok: false; reason: 'not-a-repo' | 'index-locked' | 'stage-failed' | 'commit-failed'; detail: string };
 
 /**
  * One engine commit of the working tree's current bytes, through a
@@ -1532,13 +1551,30 @@ export type CommitWorkspaceTreeResult =
  * whose `.gitignore` went missing. `git add -A` inside that index
  * respects `.gitignore` (secrets and the sidecar can never be staged),
  * hooks and signing run on `git commit` exactly as configured, and the
- * user's real index never participates.
+ * user's real index never participates in the commit. Its lock is held
+ * from before the commit until the index has followed it to the new
+ * HEAD: a real index another git process is writing refuses the commit
+ * (`index-locked`) with nothing recorded.
  */
 export async function commitWorkspaceTree(options: CommitWorkspaceTreeOptions): Promise<CommitWorkspaceTreeResult> {
-  const { run, rootDir, message } = options;
+  const { run, rootDir } = options;
   if (!(await isWorkspaceRepo(run, rootDir))) {
     return { ok: false, reason: 'not-a-repo', detail: `${rootDir} is not a git repository` };
   }
+  return withIndexLock<CommitWorkspaceTreeResult>(
+    run,
+    rootDir,
+    (refusal) => ({ ok: false, reason: lockRefusalReason(refusal), detail: refusal.detail }),
+    (lock) => commitHoldingIndex(options, lock),
+    options.indexLock,
+  );
+}
+
+async function commitHoldingIndex(
+  options: CommitWorkspaceTreeOptions,
+  lock: HeldIndexLock,
+): Promise<CommitWorkspaceTreeResult> {
+  const { run, rootDir, message } = options;
 
   const mergeParent = options.mergeParent;
   const mergeHeadPath = path.join((await resolveGitDirs(rootDir)).gitDir, 'MERGE_HEAD');
@@ -1628,7 +1664,7 @@ export async function commitWorkspaceTree(options: CommitWorkspaceTreeOptions): 
     // Staged paths the commit did not touch stay exactly as found (a
     // mid-`git add -p` partial staging elsewhere survives, §3.3).
     if (userStagedPaths.size === 0) {
-      await writeRealIndex(run, rootDir, ['read-tree', 'HEAD']);
+      await resyncHeldIndex(run, rootDir, lock, null);
     } else if (commitSha.length > 0) {
       const changed = await run(
         [
@@ -1641,12 +1677,8 @@ export async function commitWorkspaceTree(options: CommitWorkspaceTreeOptions): 
         ],
         { cwd: rootDir },
       );
-      const toRefresh = nulSeparatedPaths(changed.stdout);
-      if (toRefresh.length > 0) {
-        await writeRealIndex(run, rootDir, ['reset', '-q', 'HEAD', '--', ...toRefresh]);
-      }
+      await resyncHeldIndex(run, rootDir, lock, nulSeparatedPaths(changed.stdout));
     }
-    await refreshRealIndex(run, rootDir);
 
     return { ok: true, committed: true, sha: commitSha };
   } finally {

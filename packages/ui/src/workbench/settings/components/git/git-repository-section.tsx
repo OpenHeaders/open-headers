@@ -22,6 +22,7 @@ import {
   integrationRefusalDetail,
   keptLocalNotice,
   leftOutNotice,
+  refusalDetail,
 } from '../../../components/panels/git/kept-local';
 import { usePassAnswers } from '../../../components/panels/git/use-pass-answers';
 import { PaneSection } from '../pane-chrome';
@@ -124,7 +125,7 @@ const GitRepositorySection: React.FC<{ git: WorkspaceGit }> = ({ git }) => {
         message.info(t('workbench.settings.gitPane.git.nothingToCommit'));
       } else {
         setCommitError(
-          t('workbench.settings.gitPane.git.commitFailed', { detail: result.detail ?? result.reason }),
+          t('workbench.settings.gitPane.git.commitFailed', { detail: refusalDetail(result, t) }),
         );
       }
       await refreshGitStatus();
@@ -220,7 +221,7 @@ const GitRepositorySection: React.FC<{ git: WorkspaceGit }> = ({ git }) => {
         sayLocalWork(result);
       } else {
         setResolveError(
-          t('workbench.settings.gitPane.git.forcePush.failed', { detail: result.detail ?? result.reason }),
+          t('workbench.settings.gitPane.git.forcePush.failed', { detail: refusalDetail(result, t) }),
         );
       }
       await refreshGitStatus();

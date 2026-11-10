@@ -896,6 +896,8 @@ export const workbenchChrome = {
   'workbench.gitLog.merge.failed': '{ref} konnte nicht gemergt werden: {detail}',
   'workbench.gitLog.keptLocal':
     'Beide Seiten haben {files} geändert. Deine Version wurde behalten, die eingehende Änderung wurde nicht übernommen.',
+  'workbench.gitLog.indexLocked':
+    'Ein anderer Git-Prozess verwendet dieses Repository gerade. Versuche es gleich noch einmal.',
   'workbench.gitLog.applyCommit.picked': 'Cherry-Pick abgeschlossen',
   'workbench.gitLog.applyCommit.reverted': 'Revert abgeschlossen',
   'workbench.gitLog.applyCommit.pickFailed': 'Cherry-Pick von {commit} fehlgeschlagen: {detail}',

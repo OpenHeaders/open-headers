@@ -200,7 +200,7 @@ function apply(
     },
     flush: () => materializer.flush(),
     mayCommitLocalWork,
-    commitLocalWork: async ({ tree, paths }) => {
+    commitLocalWork: async ({ tree, paths, indexLock }) => {
       trace.order.push('local');
       const result = await commitWorkspaceTree({
         run,
@@ -209,6 +209,7 @@ function apply(
         identityEnv: OPERATOR_ENV,
         fromTree: tree,
         paths,
+        indexLock,
       });
       return result.ok ? { ok: true } : { ok: false, detail: result.detail };
     },
@@ -279,6 +280,27 @@ describe('applyWorkspaceCommit — cherry-pick', () => {
     expect(await git(local, 'rev-list', '--parents', '-n', '1', 'HEAD')).toBe(
       `${result.ok ? result.sha : ''} ${before}`,
     );
+    expect(await countDirtyFiles(run, local)).toBe(0);
+  });
+
+  it('an index another git process is writing refuses the pick before anything is written — it goes through once free', async () => {
+    await peerReplace(RULE_FILE, 'enabled: true', 'enabled: false');
+    const picked = await peerCommit('Disable the probe rule');
+    const lock = path.join(local, '.git', 'index.lock');
+    await fs.writeFile(lock, '', { flag: 'wx' });
+
+    const held = trace();
+    const refused = await apply(picked, 'pick', held);
+    expect(refused).toMatchObject({ ok: false, reason: 'index-locked' });
+    expect(held.order).toEqual([]);
+    expect(await git(local, 'rev-parse', 'HEAD')).toBe(initialSha);
+    expect(await read(local, RULE_FILE)).toContain('enabled: true');
+    await fs.rm(lock);
+
+    const result = await apply(picked, 'pick', trace(), () => {
+      state = { ...state, rules: [makeRule({ enabled: false })] };
+    });
+    expect(result).toMatchObject({ ok: true });
     expect(await countDirtyFiles(run, local)).toBe(0);
   });
 

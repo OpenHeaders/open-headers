@@ -752,6 +752,8 @@ export const workbenchChrome = {
     '{ref} слита в {branch}. У историй нет общего коммита, поэтому каждый файл из {ref} считался изменённым.',
   'workbench.gitLog.merge.failed': 'Не удалось слить {ref}: {detail}',
   'workbench.gitLog.keptLocal': 'Обе стороны изменили {files}. Ваша версия сохранена, входящее изменение не применено.',
+  'workbench.gitLog.indexLocked':
+    'Другой процесс Git использует этот репозиторий. Повторите попытку через несколько секунд.',
   'workbench.gitLog.applyCommit.picked': 'Cherry-pick завершён',
   'workbench.gitLog.applyCommit.reverted': 'Revert завершён',
   'workbench.gitLog.applyCommit.pickFailed': 'Не удалось выполнить cherry-pick для {commit}: {detail}',

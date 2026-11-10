@@ -48,7 +48,7 @@ export type CommitWorkspaceTreeRpcResult =
   | { ok: true; committed: boolean; sha?: string }
   | {
       ok: false;
-      reason: 'not-bound' | 'git-unavailable' | 'not-a-repo' | 'stage-failed' | 'commit-failed';
+      reason: 'not-bound' | 'git-unavailable' | 'not-a-repo' | 'stage-failed' | 'index-locked' | 'commit-failed';
       detail?: string;
     };
 
@@ -82,6 +82,7 @@ export type PullWorkspaceTreeRpcResult =
         | 'local-changes'
         | 'conflicts'
         | 'resolution-invalid'
+        | 'index-locked'
         | 'commit-failed';
       detail?: string;
       /** `local-changes`: the files the pull would write that hold uncommitted work. */
@@ -135,6 +136,7 @@ export type ResolveForcePushRpcResult =
         | 'foreign-invalid'
         | 'identity-mismatch'
         | 'ref-update-failed'
+        | 'index-locked'
         | 'commit-failed';
       detail?: string;
     };
@@ -268,6 +270,7 @@ export type ApplyCommitRpcResult =
         | 'conflicts'
         | 'resolution-invalid'
         | 'empty'
+        | 'index-locked'
         | 'commit-failed';
       detail?: string;
       /** `local-changes`: the files the change would write that hold uncommitted work. */
@@ -316,6 +319,7 @@ export type MergeBranchRpcResult =
         | 'local-changes'
         | 'conflicts'
         | 'resolution-invalid'
+        | 'index-locked'
         | 'commit-failed';
       detail?: string;
       /** `local-changes`: the files the merge would write that hold uncommitted work. */
@@ -451,6 +455,7 @@ export type WorkspaceTreeUserCommitRpcResult =
         | 'amend-merge'
         | 'amend-pushed'
         | 'stage-failed'
+        | 'index-locked'
         | 'commit-failed';
       detail?: string;
     };

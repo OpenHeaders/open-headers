@@ -199,6 +199,7 @@ const CommitToolPanel: React.FC<CommitToolPanelProps> = ({ info, onHide }) => {
 
   const commitErrorText = useCallback(
     (reason: string, detail?: string): string => {
+      if (reason === 'index-locked') return t('workbench.gitLog.indexLocked');
       let label: string;
       switch (reason) {
         case 'not-bound':

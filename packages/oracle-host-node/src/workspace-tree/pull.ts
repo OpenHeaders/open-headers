@@ -100,11 +100,13 @@ import {
   isAncestorOf,
   isShallowRepository,
   listForeignAuthors,
+  lockRefusalReason,
   mergeBaseOf,
   readCommitTreeFiles,
   resolveUpstream,
   snapshotWorkingTree,
   treeWithFiles,
+  withIndexLock,
 } from '../git';
 import { type ApplyCommitResolution, type ApplyCommitResolve, decideChange } from './change-answers';
 import { type CommittedSide, NOTHING_CARRIED, readCommittedSide } from './committed-side';
@@ -186,6 +188,7 @@ export type PullWorkspaceTreeResult =
         | 'local-changes'
         | 'conflicts'
         | 'resolution-invalid'
+        | 'index-locked'
         | 'commit-failed';
       detail?: string;
       /** `local-changes`: the files the foreign history changed that hold uncommitted work. */
@@ -305,6 +308,7 @@ export interface IntegrateForeignRefusal {
     | 'local-changes'
     | 'conflicts'
     | 'resolution-invalid'
+    | 'index-locked'
     | 'commit-failed';
   detail?: string;
   /** `local-changes`: the files the foreign history changed that hold uncommitted work. */
@@ -521,125 +525,138 @@ export async function integrateForeignHead(
   const foreignPaths = [...diff.changed, ...diff.removed];
   const withSkipped = laid.skipped.length > 0 ? { skipped: laid.skipped } : {};
 
-  // From here the pass writes. The working tree is read as it stands
-  // before and after — the two readings differ in the integration's own
-  // writes and nothing else.
-  const before = await snapshotWorkingTree(run, rootDir);
-  if (before === null) return unreadable();
-
-  const batches = synthesizeWorkspaceTreeDelta({
-    prev: snapshot,
-    next: laid.next,
-    changedPaths: laid.changedPaths,
-    removedPaths: laid.removedPaths,
-    deps: { nextCtx: deps.nextCtx, liveSetEntries: deps.liveSetEntries },
-  });
-  if (batches.length > 0) {
-    await deps.apply(batches);
-  }
-
-  await releaseHealedQuarantine(rootDir, foreign.issues);
-  await writeForeignQuarantine(rootDir, foreignFiles, foreign.issues, diff.changed);
-
-  await deps.flush();
-
-  // The second reading is taken once the foreign side's changes to the
-  // user's own files are on disk too.
-  const own = await landForeignOwnFiles(run, rootDir, { baseRef: base, foreignRef: foreignSha }, laid.ownAnswers);
-  if (!own.ok) return { ok: false, reason: 'commit-failed', detail: own.detail, issues: foreign.issues };
-  const withKept = own.kept.length > 0 ? { keptLocal: own.kept } : {};
-
-  const pass = await readPassWrites(run, rootDir, before);
-  if (pass === null) return unreadable();
-
-  // The integration's files: what the pass wrote, and what the foreign
-  // history changed even where the pass had nothing to write (a document
-  // the engine reads the same keeps its own bytes — the residue). A
-  // file both sides changed kept its local bytes: recorded as the
-  // branch holds it, or not at all where the reading could not see it.
-  const touched = [...new Set([...pass.wrote, ...foreignPaths])].sort();
-  const paths = await recordablePaths(run, rootDir, pass.after, touched);
-  if (paths === null) return unreadable();
-
-  // Uncommitted work in one of those files would ride into the
-  // integration's commit. A document carries it across the pass: the
-  // commit records that document as the change reads over HEAD alone.
-  // Anywhere else it is recorded first, as the file stood before the
-  // pass. Work in any other file is not the pass's to commit.
-  const shared = touched.filter((filePath) => pass.uncommitted.has(filePath));
-  const carried = shared.filter((filePath) => laid.committed.carries(filePath));
-  const first = shared.filter((filePath) => !laid.committed.carries(filePath));
-  if (first.length > 0) {
-    const local = await deps.commitLocalWork({ tree: before, paths: first });
-    if (!local.ok) return { ok: false, reason: 'commit-failed', detail: local.detail, issues: foreign.issues };
-  }
-  const withLocal = first.length > 0 ? { committedLocal: first } : {};
-  const recorded = await treeWithFiles(
+  // The pass writes from here on, and holds the real index's lock while
+  // it does: the index follows every commit the pass records, and an
+  // index another git process is writing refuses the pass here, with
+  // nothing written.
+  return withIndexLock<IntegrateForeignHeadResult>(
     run,
     rootDir,
-    pass.after,
-    new Map(carried.map((filePath) => [filePath, laid.committed.contentOf(filePath)] as const)),
+    (refusal) => ({ ok: false, reason: lockRefusalReason(refusal), detail: refusal.detail, issues: foreign.issues }),
+    async (indexLock) => {
+      // From here the pass writes. The working tree is read as it stands
+      // before and after — the two readings differ in the integration's own
+      // writes and nothing else.
+      const before = await snapshotWorkingTree(run, rootDir);
+      if (before === null) return unreadable();
+
+      const batches = synthesizeWorkspaceTreeDelta({
+        prev: snapshot,
+        next: laid.next,
+        changedPaths: laid.changedPaths,
+        removedPaths: laid.removedPaths,
+        deps: { nextCtx: deps.nextCtx, liveSetEntries: deps.liveSetEntries },
+      });
+      if (batches.length > 0) {
+        await deps.apply(batches);
+      }
+
+      await releaseHealedQuarantine(rootDir, foreign.issues);
+      await writeForeignQuarantine(rootDir, foreignFiles, foreign.issues, diff.changed);
+
+      await deps.flush();
+
+      // The second reading is taken once the foreign side's changes to the
+      // user's own files are on disk too.
+      const own = await landForeignOwnFiles(run, rootDir, { baseRef: base, foreignRef: foreignSha }, laid.ownAnswers);
+      if (!own.ok) return { ok: false, reason: 'commit-failed', detail: own.detail, issues: foreign.issues };
+      const withKept = own.kept.length > 0 ? { keptLocal: own.kept } : {};
+
+      const pass = await readPassWrites(run, rootDir, before);
+      if (pass === null) return unreadable();
+
+      // The integration's files: what the pass wrote, and what the foreign
+      // history changed even where the pass had nothing to write (a document
+      // the engine reads the same keeps its own bytes — the residue). A
+      // file both sides changed kept its local bytes: recorded as the
+      // branch holds it, or not at all where the reading could not see it.
+      const touched = [...new Set([...pass.wrote, ...foreignPaths])].sort();
+      const paths = await recordablePaths(run, rootDir, pass.after, touched);
+      if (paths === null) return unreadable();
+
+      // Uncommitted work in one of those files would ride into the
+      // integration's commit. A document carries it across the pass: the
+      // commit records that document as the change reads over HEAD alone.
+      // Anywhere else it is recorded first, as the file stood before the
+      // pass. Work in any other file is not the pass's to commit.
+      const shared = touched.filter((filePath) => pass.uncommitted.has(filePath));
+      const carried = shared.filter((filePath) => laid.committed.carries(filePath));
+      const first = shared.filter((filePath) => !laid.committed.carries(filePath));
+      if (first.length > 0) {
+        const local = await deps.commitLocalWork({ tree: before, paths: first, indexLock });
+        if (!local.ok) return { ok: false, reason: 'commit-failed', detail: local.detail, issues: foreign.issues };
+      }
+      const withLocal = first.length > 0 ? { committedLocal: first } : {};
+      const recorded = await treeWithFiles(
+        run,
+        rootDir,
+        pass.after,
+        new Map(carried.map((filePath) => [filePath, laid.committed.contentOf(filePath)] as const)),
+      );
+      if (recorded === null) return unreadable();
+
+      // Un-diverged local branch ⇒ plain-git pull semantics: a true
+      // fast-forward, no merge bubble (git itself would reduce the
+      // redundant parent anyway). The ref moves under whatever uncommitted
+      // work the tree holds elsewhere. Foreign commits keep their own
+      // authorship; any canonicalization residue the engine produced on
+      // top commits as an ordinary follow-up (no-op when byte-identical).
+      // A commit of local work just above makes the branch diverged.
+      if (args.localAhead === 0 && first.length === 0) {
+        const ff = await fastForwardWorkspaceBranch(run, rootDir, foreignSha, indexLock);
+        if (!ff.ok) return { ok: false, reason: 'commit-failed', detail: ff.detail, issues: foreign.issues };
+        const residue = await commitWorkspaceTree({
+          run,
+          rootDir,
+          message: 'Normalize pulled changes',
+          identityEnv: deps.identityEnv,
+          bypassHooks: deps.bypassHooks,
+          fromTree: recorded,
+          indexLock,
+          paths,
+        });
+        if (!residue.ok) return { ok: false, reason: 'commit-failed', detail: residue.detail, issues: foreign.issues };
+        const sha = residue.committed ? residue.sha : foreignSha;
+        return {
+          ok: true,
+          sha,
+          applied: batches.length,
+          issues: foreign.issues,
+          ...withHistory,
+          ...withKept,
+          ...withSkipped,
+        };
+      }
+
+      const authors = await listForeignAuthors(run, rootDir, 'HEAD', foreignSha);
+      const trailerBlock = authors.length > 0 ? `\n\n${authors.map((a) => `Co-Authored-By: ${a}`).join('\n')}` : '';
+      const commit = await commitWorkspaceTree({
+        run,
+        rootDir,
+        message: `${args.mergeMessage}${trailerBlock}`,
+        identityEnv: deps.identityEnv,
+        bypassHooks: deps.bypassHooks,
+        mergeParent: foreignSha,
+        fromTree: recorded,
+        indexLock,
+        paths,
+      });
+      if (!commit.ok) return { ok: false, reason: 'commit-failed', detail: commit.detail, issues: foreign.issues };
+      if (!commit.committed)
+        return { ok: false, reason: 'commit-failed', detail: 'merge commit did not land', issues: foreign.issues };
+
+      return {
+        ok: true,
+        sha: commit.sha,
+        applied: batches.length,
+        issues: foreign.issues,
+        ...withHistory,
+        ...withKept,
+        ...withLocal,
+        ...withSkipped,
+      };
+    },
   );
-  if (recorded === null) return unreadable();
-
-  // Un-diverged local branch ⇒ plain-git pull semantics: a true
-  // fast-forward, no merge bubble (git itself would reduce the
-  // redundant parent anyway). The ref moves under whatever uncommitted
-  // work the tree holds elsewhere. Foreign commits keep their own
-  // authorship; any canonicalization residue the engine produced on
-  // top commits as an ordinary follow-up (no-op when byte-identical).
-  // A commit of local work just above makes the branch diverged.
-  if (args.localAhead === 0 && first.length === 0) {
-    const ff = await fastForwardWorkspaceBranch(run, rootDir, foreignSha);
-    if (!ff.ok) return { ok: false, reason: 'commit-failed', detail: ff.detail, issues: foreign.issues };
-    const residue = await commitWorkspaceTree({
-      run,
-      rootDir,
-      message: 'Normalize pulled changes',
-      identityEnv: deps.identityEnv,
-      bypassHooks: deps.bypassHooks,
-      fromTree: recorded,
-      paths,
-    });
-    if (!residue.ok) return { ok: false, reason: 'commit-failed', detail: residue.detail, issues: foreign.issues };
-    const sha = residue.committed ? residue.sha : foreignSha;
-    return {
-      ok: true,
-      sha,
-      applied: batches.length,
-      issues: foreign.issues,
-      ...withHistory,
-      ...withKept,
-      ...withSkipped,
-    };
-  }
-
-  const authors = await listForeignAuthors(run, rootDir, 'HEAD', foreignSha);
-  const trailerBlock = authors.length > 0 ? `\n\n${authors.map((a) => `Co-Authored-By: ${a}`).join('\n')}` : '';
-  const commit = await commitWorkspaceTree({
-    run,
-    rootDir,
-    message: `${args.mergeMessage}${trailerBlock}`,
-    identityEnv: deps.identityEnv,
-    bypassHooks: deps.bypassHooks,
-    mergeParent: foreignSha,
-    fromTree: recorded,
-    paths,
-  });
-  if (!commit.ok) return { ok: false, reason: 'commit-failed', detail: commit.detail, issues: foreign.issues };
-  if (!commit.committed)
-    return { ok: false, reason: 'commit-failed', detail: 'merge commit did not land', issues: foreign.issues };
-
-  return {
-    ok: true,
-    sha: commit.sha,
-    applied: batches.length,
-    issues: foreign.issues,
-    ...withHistory,
-    ...withKept,
-    ...withLocal,
-    ...withSkipped,
-  };
 }
 
 export async function pullWorkspaceTree(options: PullWorkspaceTreeOptions): Promise<PullWorkspaceTreeResult> {

@@ -16,13 +16,22 @@
 
 import { promises as fs } from 'node:fs';
 import * as path from 'node:path';
-import { diffForeignPaths, type GitRunner, listTreeEntries, listWorkingChanges, snapshotWorkingTree } from '../git';
+import {
+  diffForeignPaths,
+  type GitRunner,
+  type HeldIndexLock,
+  listTreeEntries,
+  listWorkingChanges,
+  snapshotWorkingTree,
+} from '../git';
 
 /** Uncommitted work the pass's commit would otherwise carry: `paths` as `tree` holds them. */
 export interface LocalWorkFirst {
   /** The working tree as it stood before the pass wrote (`snapshotWorkingTree`). */
   tree: string;
   paths: string[];
+  /** The real index's lock the pass holds — the commit rides it. */
+  indexLock: HeldIndexLock;
 }
 
 /** How a pass gets uncommitted work in the files it writes committed first. */

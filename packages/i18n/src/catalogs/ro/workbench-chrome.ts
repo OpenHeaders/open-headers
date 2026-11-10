@@ -759,6 +759,7 @@ export const workbenchChrome = {
   'workbench.gitLog.merge.failed': 'Îmbinarea ramurii {ref} a eșuat: {detail}',
   'workbench.gitLog.keptLocal':
     'Ambele părți au modificat {files}. Versiunea dumneavoastră a fost păstrată, iar modificarea primită nu a fost aplicată.',
+  'workbench.gitLog.indexLocked': 'Un alt proces Git folosește acest depozit. Încercați din nou peste câteva momente.',
   'workbench.gitLog.applyCommit.picked': 'Cherry-pick finalizat',
   'workbench.gitLog.applyCommit.reverted': 'Revert finalizat',
   'workbench.gitLog.applyCommit.pickFailed': 'Cherry-pick-ul pentru {commit} nu a reușit: {detail}',

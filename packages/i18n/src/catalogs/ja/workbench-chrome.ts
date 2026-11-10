@@ -729,6 +729,8 @@ export const workbenchChrome = {
   'workbench.gitLog.merge.failed': '{ref} をマージできませんでした：{detail}',
   'workbench.gitLog.keptLocal':
     '{files} は双方で変更されています。ローカルの内容を保持し、取り込み側の変更は適用しませんでした。',
+  'workbench.gitLog.indexLocked':
+    '別の Git プロセスがこのリポジトリを使用中です。しばらくしてからもう一度お試しください。',
   'workbench.gitLog.applyCommit.picked': 'チェリーピックが完了しました',
   'workbench.gitLog.applyCommit.reverted': 'リバートが完了しました',
   'workbench.gitLog.applyCommit.pickFailed': '{commit} をチェリーピックできませんでした：{detail}',

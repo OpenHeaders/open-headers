@@ -132,7 +132,7 @@ let localWorkCommits: string[][];
 function localWork(rootDir: string): LocalWorkDeps {
   return {
     mayCommitLocalWork,
-    commitLocalWork: async ({ tree, paths }) => {
+    commitLocalWork: async ({ tree, paths, indexLock }) => {
       localWorkCommits.push(paths);
       const result = await commitWorkspaceTree({
         run,
@@ -141,6 +141,7 @@ function localWork(rootDir: string): LocalWorkDeps {
         identityEnv: IDENTITY_ENV,
         fromTree: tree,
         paths,
+        indexLock,
       });
       return result.ok ? { ok: true } : { ok: false, detail: result.detail };
     },

@@ -720,6 +720,7 @@ export const workbenchChrome = {
   'workbench.gitLog.merge.failed': 'Could not merge {ref}: {detail}',
   'workbench.gitLog.keptLocal':
     'Both sides changed {files}. Your version was kept and the incoming change was not taken.',
+  'workbench.gitLog.indexLocked': 'Another Git process is using this repository. Try again in a moment.',
   'workbench.gitLog.applyCommit.picked': 'Cherry-pick finished',
   'workbench.gitLog.applyCommit.reverted': 'Revert finished',
   'workbench.gitLog.applyCommit.pickFailed': 'Could not cherry-pick {commit}: {detail}',

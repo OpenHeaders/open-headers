@@ -60,10 +60,12 @@ import {
   isAncestorOf,
   listTreeYamlPaths,
   localHeadSha,
+  lockRefusalReason,
   readCommitTreeFiles,
   resolveRefSha,
   resolveUpstream,
   snapshotWorkingTree,
+  withIndexLock,
 } from '../git';
 import { landForeignOwnFiles } from './own-files';
 import { type LocalWorkDeps, readPassWrites, recordablePaths, uncommittedAmong } from './pass-writes';
@@ -112,6 +114,7 @@ export type ResolveForcePushResult =
         | 'foreign-invalid'
         | 'identity-mismatch'
         | 'ref-update-failed'
+        | 'index-locked'
         | 'commit-failed';
       detail?: string;
       issues: TreeIssue[];
@@ -192,130 +195,148 @@ export async function resolveForcePushWorkspaceTree(options: ResolveForcePushOpt
     }
   }
 
-  // Local work first. What the engine still has pending reaches the
-  // disk, the working tree is read once, and uncommitted work in a file
-  // the two heads hold differently is committed on the pre-resolution
-  // head — the resolution is about to replace or re-apply those files.
-  // Uncommitted work anywhere else is not the resolution's to commit.
-  await options.flush();
-  const heads = await diffForeignPaths(run, rootDir, oldHead, upstream.sha);
-  const before = await snapshotWorkingTree(run, rootDir);
-  if (heads === null || before === null) return unreadable();
-  const between = [...heads.changed, ...heads.removed];
-  const committedFirst = await uncommittedAmong(run, rootDir, between);
-  if (committedFirst === null) return unreadable();
-  if (committedFirst.length > 0) {
-    const local = await options.commitLocalWork({ tree: before, paths: committedFirst });
-    if (!local.ok) return { ok: false, reason: 'commit-failed', detail: local.detail, issues: foreign.issues };
-  }
-
-  // The path classification that gates the delta: `abandon`/`rescue`
-  // converge the FULL tree to the foreign snapshot (everything foreign
-  // is tree-authored; everything local-only tombstones); `reapply`
-  // ingests only what the remote genuinely changed since the watermark
-  // — everything else stays engine-owned, so local work survives.
-  let changed: Set<string>;
-  let removed: Set<string>;
-  if (choice === 'reapply') {
-    const diff = await diffForeignPaths(run, rootDir, options.lastSyncedRemoteSha, upstream.sha);
-    if (diff === null) {
-      return {
-        ok: false,
-        reason: 'foreign-invalid',
-        detail: `undiffable range ${options.lastSyncedRemoteSha}..${upstream.sha}`,
-        issues: foreign.issues,
-      };
-    }
-    changed = diff.changed;
-    removed = diff.removed;
-  } else {
-    const foreignPaths = new Set(foreignFiles.map((file) => file.path));
-    const localPaths = (await listTreeYamlPaths(run, rootDir, 'HEAD')) ?? [];
-    changed = foreignPaths;
-    removed = new Set(localPaths.filter((entry) => !foreignPaths.has(entry)));
-  }
-
-  const snapshot = await options.readSnapshot();
-  const batches = synthesizeWorkspaceTreeDelta({
-    prev: snapshot,
-    next: withCommitSecretRows({
-      state: foreign.state,
-      files: foreignFiles,
-      local: snapshot.environments,
-      touched: (filePath) => changed.has(filePath) || removed.has(filePath),
-    }),
-    changedPaths: changed,
-    removedPaths: removed,
-    deps: { nextCtx: options.nextCtx, liveSetEntries: options.liveSetEntries },
-  });
-  if (batches.length > 0) {
-    await options.apply(batches);
-  }
-
-  await releaseHealedQuarantine(rootDir, foreign.issues);
-  await writeForeignQuarantine(rootDir, foreignFiles, foreign.issues, changed);
-
-  await options.flush();
-
-  // The user's own files follow the choice too (`own-files.ts`), while
-  // HEAD is still the pre-resolution head: `reapply` reads three-way
-  // against the watermark, so a local change survives; `abandon` and
-  // `rescue` take the foreign side's file wherever the two heads differ.
-  const own = await landForeignOwnFiles(run, rootDir, {
-    baseRef: choice === 'reapply' ? options.lastSyncedRemoteSha : 'HEAD',
-    foreignRef: upstream.sha,
-  });
-  if (!own.ok) return { ok: false, reason: 'commit-failed', detail: own.detail, issues: foreign.issues };
-
-  // The second reading: what the two differ in is what the resolution
-  // wrote. A file it wrote outside the two heads' difference that held
-  // uncommitted work is committed first too, as it stood before.
-  const pass = await readPassWrites(run, rootDir, before);
-  if (pass === null) return unreadable();
-  const late = pass.wrote.filter((filePath) => pass.uncommitted.has(filePath));
-  if (late.length > 0) {
-    const local = await options.commitLocalWork({ tree: before, paths: late });
-    if (!local.ok) return { ok: false, reason: 'commit-failed', detail: local.detail, issues: foreign.issues };
-  }
-  const committedLocal = [...new Set([...committedFirst, ...late])].sort();
-
-  // The rescue ref takes the pre-resolution head with those commits on
-  // it — the complete local history, never a history edit.
-  if (rescueBranch !== null) {
-    const rescued = await createRescueBranch(run, rootDir, rescueBranch, (await localHeadSha(run, rootDir)) ?? oldHead);
-    if (!rescued.ok) return { ok: false, reason: 'ref-update-failed', detail: rescued.detail, issues: foreign.issues };
-  }
-
-  // The deliberate ref move the user chose in the dialog — CAS on the
-  // pre-resolution head, §3.3 index resync; ancestry is irrelevant by
-  // construction here.
-  const moved = await fastForwardWorkspaceBranch(run, rootDir, upstream.sha);
-  if (!moved.ok) return { ok: false, reason: 'ref-update-failed', detail: moved.detail, issues: foreign.issues };
-
-  // The follow-up carries the resolution's own files — where the two
-  // heads differed, and what the pass wrote — as the tree holds them
-  // now: on `reapply` that is the local side re-applied, otherwise the
-  // engine's residue. Uncommitted work elsewhere stays uncommitted.
-  const paths = await recordablePaths(run, rootDir, pass.after, [...new Set([...between, ...pass.wrote])].sort());
-  if (paths === null) return unreadable();
-  const followUp = await commitWorkspaceTree({
+  // The pass writes from here on, and holds the real index's lock while
+  // it does: the index follows every commit the pass records, and an
+  // index another git process is writing refuses the pass here, with
+  // nothing written.
+  return withIndexLock<ResolveForcePushResult>(
     run,
     rootDir,
-    message: choice === 'reapply' ? 'Re-apply local changes' : 'Normalize pulled changes',
-    identityEnv: options.identityEnv,
-    bypassHooks: options.bypassHooks,
-    fromTree: pass.after,
-    paths,
-  });
-  if (!followUp.ok) return { ok: false, reason: 'commit-failed', detail: followUp.detail, issues: foreign.issues };
-  const sha = followUp.committed ? followUp.sha : upstream.sha;
+    (refusal) => ({ ok: false, reason: lockRefusalReason(refusal), detail: refusal.detail, issues: foreign.issues }),
+    async (indexLock) => {
+      // Local work first. What the engine still has pending reaches the
+      // disk, the working tree is read once, and uncommitted work in a file
+      // the two heads hold differently is committed on the pre-resolution
+      // head — the resolution is about to replace or re-apply those files.
+      // Uncommitted work anywhere else is not the resolution's to commit.
+      await options.flush();
+      const heads = await diffForeignPaths(run, rootDir, oldHead, upstream.sha);
+      const before = await snapshotWorkingTree(run, rootDir);
+      if (heads === null || before === null) return unreadable();
+      const between = [...heads.changed, ...heads.removed];
+      const committedFirst = await uncommittedAmong(run, rootDir, between);
+      if (committedFirst === null) return unreadable();
+      if (committedFirst.length > 0) {
+        const local = await options.commitLocalWork({ tree: before, paths: committedFirst, indexLock });
+        if (!local.ok) return { ok: false, reason: 'commit-failed', detail: local.detail, issues: foreign.issues };
+      }
 
-  return {
-    ok: true,
-    sha,
-    remoteSha: upstream.sha,
-    rescueBranch,
-    issues: foreign.issues,
-    ...(committedLocal.length > 0 ? { committedLocal } : {}),
-  };
+      // The path classification that gates the delta: `abandon`/`rescue`
+      // converge the FULL tree to the foreign snapshot (everything foreign
+      // is tree-authored; everything local-only tombstones); `reapply`
+      // ingests only what the remote genuinely changed since the watermark
+      // — everything else stays engine-owned, so local work survives.
+      let changed: Set<string>;
+      let removed: Set<string>;
+      if (choice === 'reapply') {
+        const diff = await diffForeignPaths(run, rootDir, options.lastSyncedRemoteSha, upstream.sha);
+        if (diff === null) {
+          return {
+            ok: false,
+            reason: 'foreign-invalid',
+            detail: `undiffable range ${options.lastSyncedRemoteSha}..${upstream.sha}`,
+            issues: foreign.issues,
+          };
+        }
+        changed = diff.changed;
+        removed = diff.removed;
+      } else {
+        const foreignPaths = new Set(foreignFiles.map((file) => file.path));
+        const localPaths = (await listTreeYamlPaths(run, rootDir, 'HEAD')) ?? [];
+        changed = foreignPaths;
+        removed = new Set(localPaths.filter((entry) => !foreignPaths.has(entry)));
+      }
+
+      const snapshot = await options.readSnapshot();
+      const batches = synthesizeWorkspaceTreeDelta({
+        prev: snapshot,
+        next: withCommitSecretRows({
+          state: foreign.state,
+          files: foreignFiles,
+          local: snapshot.environments,
+          touched: (filePath) => changed.has(filePath) || removed.has(filePath),
+        }),
+        changedPaths: changed,
+        removedPaths: removed,
+        deps: { nextCtx: options.nextCtx, liveSetEntries: options.liveSetEntries },
+      });
+      if (batches.length > 0) {
+        await options.apply(batches);
+      }
+
+      await releaseHealedQuarantine(rootDir, foreign.issues);
+      await writeForeignQuarantine(rootDir, foreignFiles, foreign.issues, changed);
+
+      await options.flush();
+
+      // The user's own files follow the choice too (`own-files.ts`), while
+      // HEAD is still the pre-resolution head: `reapply` reads three-way
+      // against the watermark, so a local change survives; `abandon` and
+      // `rescue` take the foreign side's file wherever the two heads differ.
+      const own = await landForeignOwnFiles(run, rootDir, {
+        baseRef: choice === 'reapply' ? options.lastSyncedRemoteSha : 'HEAD',
+        foreignRef: upstream.sha,
+      });
+      if (!own.ok) return { ok: false, reason: 'commit-failed', detail: own.detail, issues: foreign.issues };
+
+      // The second reading: what the two differ in is what the resolution
+      // wrote. A file it wrote outside the two heads' difference that held
+      // uncommitted work is committed first too, as it stood before.
+      const pass = await readPassWrites(run, rootDir, before);
+      if (pass === null) return unreadable();
+      const late = pass.wrote.filter((filePath) => pass.uncommitted.has(filePath));
+      if (late.length > 0) {
+        const local = await options.commitLocalWork({ tree: before, paths: late, indexLock });
+        if (!local.ok) return { ok: false, reason: 'commit-failed', detail: local.detail, issues: foreign.issues };
+      }
+      const committedLocal = [...new Set([...committedFirst, ...late])].sort();
+
+      // The rescue ref takes the pre-resolution head with those commits on
+      // it — the complete local history, never a history edit.
+      if (rescueBranch !== null) {
+        const rescued = await createRescueBranch(
+          run,
+          rootDir,
+          rescueBranch,
+          (await localHeadSha(run, rootDir)) ?? oldHead,
+        );
+        if (!rescued.ok)
+          return { ok: false, reason: 'ref-update-failed', detail: rescued.detail, issues: foreign.issues };
+      }
+
+      // The deliberate ref move the user chose in the dialog — CAS on the
+      // pre-resolution head, §3.3 index resync; ancestry is irrelevant by
+      // construction here.
+      const moved = await fastForwardWorkspaceBranch(run, rootDir, upstream.sha, indexLock);
+      if (!moved.ok) return { ok: false, reason: 'ref-update-failed', detail: moved.detail, issues: foreign.issues };
+
+      // The follow-up carries the resolution's own files — where the two
+      // heads differed, and what the pass wrote — as the tree holds them
+      // now: on `reapply` that is the local side re-applied, otherwise the
+      // engine's residue. Uncommitted work elsewhere stays uncommitted.
+      const paths = await recordablePaths(run, rootDir, pass.after, [...new Set([...between, ...pass.wrote])].sort());
+      if (paths === null) return unreadable();
+      const followUp = await commitWorkspaceTree({
+        run,
+        rootDir,
+        message: choice === 'reapply' ? 'Re-apply local changes' : 'Normalize pulled changes',
+        identityEnv: options.identityEnv,
+        bypassHooks: options.bypassHooks,
+        fromTree: pass.after,
+        indexLock,
+        paths,
+      });
+      if (!followUp.ok) return { ok: false, reason: 'commit-failed', detail: followUp.detail, issues: foreign.issues };
+      const sha = followUp.committed ? followUp.sha : upstream.sha;
+
+      return {
+        ok: true,
+        sha,
+        remoteSha: upstream.sha,
+        rescueBranch,
+        issues: foreign.issues,
+        ...(committedLocal.length > 0 ? { committedLocal } : {}),
+      };
+    },
+  );
 }

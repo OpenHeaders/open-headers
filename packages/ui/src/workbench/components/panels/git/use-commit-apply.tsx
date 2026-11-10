@@ -20,7 +20,7 @@ import { useT } from '@openheaders/ui/context/LocaleContext';
 import { App as AntApp } from 'antd';
 import type { ReactNode } from 'react';
 import { type CommitApplyMode, commitApplyOrder, shortSha } from './commit-apply';
-import { committedLocalNotice, keptLocalNotice, leftOutNotice, namePaths } from './kept-local';
+import { committedLocalNotice, keptLocalNotice, leftOutNotice, namePaths, refusalDetail } from './kept-local';
 import { usePassAnswers } from './use-pass-answers';
 
 export interface CommitApplyActions {
@@ -60,7 +60,7 @@ export function useCommitApply(workspaceId: string, container: HTMLElement | nul
     }
     return t(
       mode === 'pick' ? 'workbench.gitLog.applyCommit.pickFailed' : 'workbench.gitLog.applyCommit.revertFailed',
-      { commit, detail: refusal.detail ?? refusal.reason },
+      { commit, detail: refusalDetail(refusal, t) },
     );
   };
 

@@ -710,6 +710,7 @@ export const workbenchChrome = {
     '已将 {ref} 合并到 {branch}。两段历史没有共同提交，因此 {ref} 中的每个文件都被视为已更改。',
   'workbench.gitLog.merge.failed': '无法合并 {ref}：{detail}',
   'workbench.gitLog.keptLocal': '双方都更改了 {files}。已保留你的版本，未采用传入的更改。',
+  'workbench.gitLog.indexLocked': '另一个 Git 进程正在使用此仓库。请稍后重试。',
   'workbench.gitLog.applyCommit.picked': '拣选完成',
   'workbench.gitLog.applyCommit.reverted': '还原完成',
   'workbench.gitLog.applyCommit.pickFailed': '无法拣选 {commit}：{detail}',

@@ -815,7 +815,7 @@ export type WorkspaceTreeCommitWire =
   | { ok: true; committed: boolean; sha?: string }
   | {
       ok: false;
-      reason: 'not-bound' | 'git-unavailable' | 'not-a-repo' | 'stage-failed' | 'commit-failed';
+      reason: 'not-bound' | 'git-unavailable' | 'not-a-repo' | 'stage-failed' | 'index-locked' | 'commit-failed';
       /** stderr/stdout of the failing git invocation — hook output lands here (§3.3). */
       detail?: string;
     };
@@ -866,6 +866,7 @@ export type WorkspaceTreePullWire =
         | 'local-changes'
         | 'conflicts'
         | 'resolution-invalid'
+        | 'index-locked'
         | 'commit-failed';
       /** stderr of the failing git invocation / the offending marker or uid. `resolution-invalid`: why the answer was not taken. */
       detail?: string;
@@ -921,6 +922,7 @@ export type WorkspaceTreeForcePushResolveWire =
         | 'foreign-invalid'
         | 'identity-mismatch'
         | 'ref-update-failed'
+        | 'index-locked'
         | 'commit-failed';
       detail?: string;
     };
@@ -1093,6 +1095,7 @@ export type WorkspaceTreeApplyCommitWire =
         | 'conflicts'
         | 'resolution-invalid'
         | 'empty'
+        | 'index-locked'
         | 'commit-failed';
       /** `unsupported-commit`: `merge` or `root`. `resolution-invalid`: why the answer was not taken. */
       detail?: string;
@@ -1150,6 +1153,7 @@ export type WorkspaceTreeMergeBranchWire =
         | 'local-changes'
         | 'conflicts'
         | 'resolution-invalid'
+        | 'index-locked'
         | 'commit-failed';
       detail?: string;
       /** `local-changes`: the files the merge would write that hold uncommitted work. */
@@ -1393,6 +1397,7 @@ export type WorkspaceTreeUserCommitWire =
         | 'amend-merge'
         | 'amend-pushed'
         | 'stage-failed'
+        | 'index-locked'
         | 'commit-failed';
       /** stderr/stdout of the failing git invocation — hook output lands here (§3.3). */
       detail?: string;

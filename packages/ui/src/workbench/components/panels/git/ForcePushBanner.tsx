@@ -15,7 +15,7 @@ import { Alert, App as AntApp, Button, Popconfirm, theme } from 'antd';
 import type React from 'react';
 import { useState } from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
-import { committedLocalNotice } from './kept-local';
+import { committedLocalNotice, refusalDetail } from './kept-local';
 
 type ForcePushChoice = 'abandon' | 'rescue' | 'reapply';
 
@@ -47,7 +47,7 @@ const ForcePushBanner: React.FC<ForcePushBannerProps> = ({ workspaceId, state, t
         const first = committedLocalNotice(result.committedLocal, t);
         if (first !== null) message.info(first, 8);
       } else {
-        setError(t('workbench.gitLog.forcePush.failed', { detail: result.detail ?? result.reason }));
+        setError(t('workbench.gitLog.forcePush.failed', { detail: refusalDetail(result, t) }));
       }
     } catch (err) {
       setError(t('workbench.gitLog.forcePush.failed', { detail: (err as Error).message }));

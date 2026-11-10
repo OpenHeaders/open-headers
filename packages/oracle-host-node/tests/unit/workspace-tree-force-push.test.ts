@@ -137,7 +137,7 @@ async function peerEdit(rel: string, edit: (content: string) => string): Promise
 let localWorkCommits: string[][];
 
 /** The pass's way to commit local work first — one commit of exactly the paths it names. */
-const commitLocalWork: LocalWorkDeps['commitLocalWork'] = async ({ tree, paths }) => {
+const commitLocalWork: LocalWorkDeps['commitLocalWork'] = async ({ tree, paths, indexLock }) => {
   localWorkCommits.push(paths);
   const result = await commitWorkspaceTree({
     run,
@@ -146,6 +146,7 @@ const commitLocalWork: LocalWorkDeps['commitLocalWork'] = async ({ tree, paths }
     identityEnv: IDENTITY_ENV,
     fromTree: tree,
     paths,
+    indexLock,
   });
   return result.ok ? { ok: true } : { ok: false, detail: result.detail };
 };
@@ -401,6 +402,28 @@ describe('resolveForcePushWorkspaceTree', () => {
       await materializer.flush();
       await fs.writeFile(path.join(local, 'scratch.txt'), 'unversioned\n', 'utf-8');
     }
+
+    it('an index another git process is writing refuses the resolution before anything is written', async () => {
+      const headBefore = await localHeadSha(run, local);
+      const lock = path.join(local, '.git', 'index.lock');
+      await fs.writeFile(lock, '', { flag: 'wx' });
+
+      const applied: EmissionBatch[] = [];
+      const refused = await doResolve('rescue', applied);
+      expect(refused).toMatchObject({ ok: false, reason: 'index-locked' });
+      expect(applied).toHaveLength(0);
+      expect(localWorkCommits).toEqual([]);
+      expect(await localHeadSha(run, local)).toBe(headBefore);
+      const branches = await raw(local, 'for-each-ref', '--format=%(refname:short)', 'refs/heads');
+      expect(branches.stdout.trim()).toBe('main');
+      await fs.rm(lock);
+
+      const result = await doResolve('abandon', applied, () => {
+        state.rules = [{ ...state.rules[0], name: 'Rewritten probes' } as Rule];
+      });
+      if (!result.ok) throw new Error(`abandon failed: ${result.reason} ${result.detail ?? ''}`);
+      expect(await countDirtyFiles(run, local)).toBe(0);
+    });
 
     it('abandon: work in no file the heads differ in stays as it was and nothing is committed first', async () => {
       await fs.writeFile(path.join(local, 'scratch.txt'), 'unversioned\n', 'utf-8');
