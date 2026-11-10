@@ -1,14 +1,14 @@
 /**
  * Modal shell — single MergePane plus an optional file-list sidebar
- * (Phase 5). Per-file result text is cached so switching files
- * preserves user edits without recreating Monaco editors (plan
- * §11.8): `MergePane` re-seeds its result buffer when `file.initialResult`
- * changes, but the same editor instance keeps its scroll/cursor/sash
- * state.
+ * (Phase 5). One pane serves every file: what a file holds when the
+ * person selects another (its result text, its per-hunk picks, what
+ * was still pending) is kept, and the picks are replayed into the pane
+ * when the file returns — an answered file stays answered without
+ * recreating Monaco editors (plan §11.8; `session-progress.ts`).
  *
- * Apply flow: read every file's editable result text (active file
- * via pane handle; inactive files via the cache) and hand the
- * `Map<fileId, text>` to the session adapter. The modal stays open
+ * Apply flow: read every file's result text (active file via pane
+ * handle; a visited file as it was left; any other its seed) and hand
+ * the `Map<fileId, text>` to the session adapter. The modal stays open
  * if any outcome is `ok: false`.
  */
 
@@ -17,7 +17,7 @@ import { Allotment, LayoutPriority } from 'allotment';
 import { Alert, Button, Dropdown, Modal, Segmented, Space, Switch, Tag, Tooltip, Typography, theme } from 'antd';
 import { type ReactElement, type ReactNode, useCallback, useMemo, useRef, useState } from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
-import { diffLinesPatience } from '../diff/patience-diff';
+import { type LeftFile, remainingByFile, sessionResults } from '../session-progress';
 import type { MergeApplyOutcome, MergeSession } from '../types';
 import { usePersistedLayout } from '../use-persisted-layout';
 import MergeFileList, { type MergeFileRowState } from './MergeFileList';
@@ -103,19 +103,6 @@ const MergeConflictModal = ({
   // because compact view loses the surrounding YAML context which is
   // often useful for understanding the rule's overall shape.
   const [compactView, setCompactView] = useState(false);
-  // Bumped whenever any file's pick-state changes via MergePane's
-  // `onPickStateChange`. Forces the modal's memoized hunk-count diff
-  // to re-run so the sidebar pill / Complete Merge gate reflect the
-  // user's clicks immediately (without waiting for the next stats
-  // emission, which only covers the active file).
-  const [pickStateRev, setPickStateRev] = useState(0);
-  // Stable callback so MergePane's `useMemo([..., onPickStateChange])`
-  // doesn't recreate the pick-state controller on every modal render.
-  // (MergePane also ref-mirrors this internally, but stabilizing here
-  // avoids unnecessary churn through the prop chain.)
-  const handlePickStateChange = useCallback(() => {
-    setPickStateRev((n) => n + 1);
-  }, []);
   const [layout, setLayout] = usePersistedLayout(surfaceId, 'column');
   // Side gutters are spatially correct only in Column layout — in
   // base-on-top / base-in-center the result pane is on a separate
@@ -157,64 +144,46 @@ const MergeConflictModal = ({
     return session.files[0].id;
   });
 
-  // Per-file result-text cache. Updated on every file switch + on Apply
-  // so inactive files contribute their last user edit. Apply payload
-  // also fetches the active file via the pane handle to capture any
-  // post-edit text the cache hasn't seen.
-  const [resultsByFileId, setResultsByFileId] = useState<Map<string, string>>(() => new Map());
+  // Seeds a session-wide accept wrote: the text a file's pane opens
+  // on in place of the adapter's `initialResult`.
+  const [seedByFileId, setSeedByFileId] = useState<Map<string, string>>(() => new Map());
+  // The files the person opened and left for another, as they left
+  // them. A session-wide accept replaces every file, so it clears this.
+  const [leftByFileId, setLeftByFileId] = useState<Map<string, LeftFile>>(() => new Map());
 
   const activeFile = useMemo(() => {
     if (!activeFileId) return null;
     const file = session.files.find((f) => f.id === activeFileId);
     if (!file) return null;
-    const cached = resultsByFileId.get(file.id);
-    return cached !== undefined ? { ...file, initialResult: cached } : file;
-  }, [activeFileId, session.files, resultsByFileId]);
+    const seed = seedByFileId.get(file.id);
+    return seed !== undefined ? { ...file, initialResult: seed } : file;
+  }, [activeFileId, session.files, seedByFileId]);
 
-  // Initial per-file hunk count — diffs every file on session open so
-  // the sidebar can show a "N" badge per row. Recomputes when the
-  // session changes (reasonable since the session is the unit of work).
-  // For very large sessions (>200 files) this could become expensive;
-  // defer that optimization to a real consumer.
-  //
-  // Hoisted above `fileStates` because in-session status derives from
-  // the per-file hunk count (resolved iff zero remaining).
-  const initialHunkCounts = useMemo<Map<string, number>>(() => {
-    const map = new Map<string, number>();
-    for (const f of session.files) {
-      const seed = resultsByFileId.get(f.id) ?? f.initialResult;
-      // Symmetric to MergePane's per-kind diff gating: `kind: 'add'`
-      // skips the mine-vs-result diff (mine is empty by design),
-      // `kind: 'remove'` skips the theirs-vs-result diff. Without
-      // these gates, every add file shows a phantom whole-content
-      // hunk on the mine side and never resolves.
-      const t = f.kind === 'remove' ? 0 : diffLinesPatience(f.theirs, seed).length;
-      const m = f.kind === 'add' ? 0 : diffLinesPatience(f.mine, seed).length;
-      map.set(f.id, t + m);
-    }
-    // Read pickStateRev so a controller-driven state change in the
-    // active MergePane re-runs this memo. The diff itself doesn't
-    // depend on the rev — the dependency just busts the cache so the
-    // sidebar pill catches up to the user's clicks immediately.
-    void pickStateRev;
-    return map;
-  }, [session.files, resultsByFileId, pickStateRev]);
-
-  // Active file shows live count from MergePane stats; inactive files
-  // show the (possibly stale) initial count. Live wins on collision.
-  const sidebarHunkCounts = useMemo<Map<string, number>>(() => {
-    const map = new Map(initialHunkCounts);
-    if (activeFileId) map.set(activeFileId, stats.totalRemaining);
-    return map;
-  }, [initialHunkCounts, activeFileId, stats.totalRemaining]);
+  // What is left to answer per file — the sidebar's "N" badge and the
+  // status below. The active file reads live from MergePane's stats; a
+  // file the person left keeps the count it left with; a file never
+  // opened counts the hunks of its seed. For very large sessions (>200
+  // files) the seed diffs could become expensive; defer that
+  // optimization to a real consumer.
+  const sidebarHunkCounts = useMemo<Map<string, number>>(
+    () =>
+      remainingByFile({
+        files: session.files,
+        seeds: seedByFileId,
+        left: leftByFileId,
+        activeFileId,
+        activeRemaining: stats.totalRemaining,
+      }),
+    [session.files, seedByFileId, leftByFileId, activeFileId, stats.totalRemaining],
+  );
 
   // File-row status map. Three layers (later layers override earlier):
-  //   1. In-session derived: every file with zero hunks remaining is
-  //      `resolved` — bulk actions (Accept All Incoming, Apply Non-
-  //      Conflicting) drive this by writing to `resultsByFileId`,
-  //      which the initial-count diff picks up. Files that never
-  //      diverged (kind: 'add' on a fresh workspace) start at zero
-  //      and surface as resolved immediately. Plan §5.3's "or
+  //   1. In-session derived: every file with nothing left to answer
+  //      is `resolved` — answered hunk by hunk (and kept that way
+  //      after the person moves to another file), or through a
+  //      session-wide accept whose seed leaves no hunk. Files that
+  //      never diverged (kind: 'add' on a fresh workspace) start at
+  //      zero and surface as resolved immediately. Plan §5.3's "or
   //      accepted-all hunks" branch.
   //   2. Apply outcomes: success → `resolved`, failure → `failed`
   //      (with the adapter error in the sidebar tooltip).
@@ -247,20 +216,20 @@ const MergeConflictModal = ({
   const handleFileSelect = useCallback(
     (nextFileId: string) => {
       if (!activeFileId || nextFileId === activeFileId) return;
-      // Cache the active file's current text BEFORE switching so the
-      // user's in-progress edits ride along.
-      const text = paneRef.current?.getResultText();
-      if (text !== undefined) {
-        setResultsByFileId((prev) => {
-          if (prev.get(activeFileId) === text) return prev;
-          const next = new Map(prev);
-          next.set(activeFileId, text);
-          return next;
-        });
+      // Keep what the active file holds BEFORE switching: its text for
+      // Apply, its picks for its return, its count for the gate.
+      const pane = paneRef.current;
+      if (pane) {
+        const leaving: LeftFile = {
+          text: pane.getResultText(),
+          picks: pane.getPickStates(),
+          remaining: stats.totalRemaining,
+        };
+        setLeftByFileId((prev) => new Map(prev).set(activeFileId, leaving));
       }
       setActiveFileId(nextFileId);
     },
-    [activeFileId],
+    [activeFileId, stats.totalRemaining],
   );
 
   const handleCancel = useCallback(() => {
@@ -313,13 +282,14 @@ const MergeConflictModal = ({
         cancelText: t('shared.mergeEditor.confirm.cancel'),
         okButtonProps: { danger: side === 'theirs' },
         onOk: () => {
-          setResultsByFileId(() => {
+          setSeedByFileId(() => {
             const next = new Map<string, string>();
             for (const f of session.files) {
               next.set(f.id, side === 'theirs' ? f.theirs : f.mine);
             }
             return next;
           });
+          setLeftByFileId(new Map());
         },
       });
     },
@@ -330,25 +300,22 @@ const MergeConflictModal = ({
     if (!activeFile) return;
     setApplying(true);
     try {
-      // Build the results map: cached text for inactive files, live
-      // pane text for the active file. Files the user never opened
-      // fall back to their adapter-supplied initialResult.
-      const results = new Map<string, string>();
-      for (const f of session.files) {
-        const cached = resultsByFileId.get(f.id);
-        results.set(f.id, cached ?? f.initialResult);
-      }
-      const liveText = paneRef.current?.getResultText();
-      if (liveText !== undefined && activeFileId) {
-        results.set(activeFileId, liveText);
-      }
+      // Live pane text for the active file, a visited file as it was
+      // left, any other its seed.
+      const results = sessionResults({
+        files: session.files,
+        seeds: seedByFileId,
+        left: leftByFileId,
+        activeFileId,
+        activeText: paneRef.current?.getResultText(),
+      });
       const next = await session.onApply(session.files, results);
       setOutcomes(next);
       if (next.every((o) => o.ok)) onClose();
     } finally {
       setApplying(false);
     }
-  }, [activeFile, activeFileId, resultsByFileId, session, onClose]);
+  }, [activeFile, activeFileId, seedByFileId, leftByFileId, session, onClose]);
 
   return (
     <Modal
@@ -598,8 +565,8 @@ const MergeConflictModal = ({
                     sideActionGutters={effectiveSideGutters}
                     compactView={compactView}
                     layout={layout}
+                    restoredPickStates={leftByFileId.get(activeFile.id)?.picks}
                     onHunkStatsChange={setStats}
-                    onPickStateChange={handlePickStateChange}
                     onAnnounce={announce}
                   />
                 ) : (
@@ -624,7 +591,6 @@ const MergeConflictModal = ({
                   compactView={compactView}
                   layout={layout}
                   onHunkStatsChange={setStats}
-                  onPickStateChange={handlePickStateChange}
                   onAnnounce={announce}
                 />
               ) : (

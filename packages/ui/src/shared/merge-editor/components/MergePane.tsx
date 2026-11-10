@@ -53,7 +53,7 @@ import { type MergeActionsContext, useMergeActions } from '../monaco/use-merge-a
 import { useMonacoEditorLifecycle } from '../monaco/use-monaco-editor-lifecycle';
 import { useSyncScroll } from '../monaco/use-sync-scroll';
 import type { MergeFile } from '../types';
-import { createPickStateController, type PickStateController } from '../use-hunk-pick-state';
+import { createPickStateController, type HunkPickState, type PickStateController } from '../use-hunk-pick-state';
 import { useMergeCompactView } from '../use-merge-compact-view';
 import { useMergeDiffs } from '../use-merge-diffs';
 import { type HunkStats, useMergeResolutionCommands } from '../use-merge-resolution-commands';
@@ -115,6 +115,11 @@ export interface MergePaneProps {
    *  for the modal to derive the sidebar status pill + Complete Merge
    *  gate from a single source of truth. */
   onPickStateChange?: (hunkId: string | null) => void;
+  /** The picks this file held when it last left the pane (a session
+   *  with several files shares one pane). Replayed once the file is
+   *  in: every answered hunk is written again and reads answered.
+   *  Read when `file.id` changes; absent for a file not seen before. */
+  restoredPickStates?: ReadonlyMap<string, HunkPickState>;
   /** When true, collapse unchanged regions across all three panes so
    *  the editor focuses on hunk regions + a few lines of context.
    *  Same Monaco primitive (`setHiddenAreas`) upstream merge editors
@@ -124,6 +129,8 @@ export interface MergePaneProps {
 
 export interface MergePaneHandle {
   getResultText(): string;
+  /** A copy of the per-hunk picks as they stand — what the modal keeps when the file leaves the pane. */
+  getPickStates(): ReadonlyMap<string, HunkPickState>;
   gotoNextHunk(): void;
   gotoPrevHunk(): void;
   applyNonConflicting(): void;
@@ -152,6 +159,7 @@ const MergePane = forwardRef<MergePaneHandle, MergePaneProps>(function MergePane
     inlineActionLabels = true,
     sideActionGutters = true,
     onPickStateChange,
+    restoredPickStates,
     compactView = false,
   } = props;
   const t = useT();
@@ -399,10 +407,19 @@ const MergePane = forwardRef<MergePaneHandle, MergePaneProps>(function MergePane
 
   // Reset the controller's state when the file switches — stale entries
   // would carry false signals for hunks that don't exist in the new
-  // file's diff.
+  // file's diff. A file that was in the pane before gets its picks
+  // back: by now the result buffer holds the file's seed and the
+  // tracked ranges are anchored on it (both effects run above this
+  // one), so replaying the picks writes each answered hunk again.
+  const restoredPickStatesRef = useRef(restoredPickStates);
+  restoredPickStatesRef.current = restoredPickStates;
   // biome-ignore lint/correctness/useExhaustiveDependencies: file id is the lifecycle handle
   useEffect(() => {
     pickController.reset();
+    const restored = restoredPickStatesRef.current;
+    if (restored !== undefined && restored.size > 0) {
+      pickController.bulkSet([...restored].map(([hunkId, next]) => ({ hunkId, next })));
+    }
     // pickController is stable by construction (ref-mirror above);
     // dropping it from deps avoids the reset cascade that triggered
     // React #185 on Chrome split-tab drag bursts.
@@ -458,6 +475,7 @@ const MergePane = forwardRef<MergePaneHandle, MergePaneProps>(function MergePane
     ref,
     () => ({
       getResultText: () => resultHandle.current.model?.getValue() ?? '',
+      getPickStates: () => new Map(pickController.states()),
       gotoNextHunk,
       gotoPrevHunk,
       applyNonConflicting,
@@ -469,7 +487,16 @@ const MergePane = forwardRef<MergePaneHandle, MergePaneProps>(function MergePane
         // with new templates. Editor.layout fires through onSashResize.
       },
     }),
-    [resultHandle, gotoNextHunk, gotoPrevHunk, applyNonConflicting, acceptAllTheirs, acceptAllMine, gridResize],
+    [
+      resultHandle,
+      pickController,
+      gotoNextHunk,
+      gotoPrevHunk,
+      applyNonConflicting,
+      acceptAllTheirs,
+      acceptAllMine,
+      gridResize,
+    ],
   );
 
   // Monaco command palette actions. Bundled into a ref so action

@@ -1,4 +1,3 @@
-import { describe, expect, it } from 'vitest';
 import type { Hunk } from '@openheaders/ui/shared/merge-editor/diff/line-diff';
 import type { HunkTrackedRangesHandle } from '@openheaders/ui/shared/merge-editor/monaco/use-hunk-tracked-ranges';
 import {
@@ -8,6 +7,7 @@ import {
   PENDING_HUNK,
   writeTextFor,
 } from '@openheaders/ui/shared/merge-editor/use-hunk-pick-state';
+import { describe, expect, it } from 'vitest';
 
 function makeHunk(overrides: Partial<Hunk> = {}): Hunk {
   return {
@@ -250,6 +250,37 @@ describe('createPickStateController', () => {
       { hunkId: 'b', text: 'Tb\n' },
     ]);
     expect(controller.stackDepths().undo).toBe(2);
+  });
+
+  it('a copy of the states replayed after a reset answers every hunk again — a file returning to the pane', () => {
+    const hunks: Hunk[] = [
+      makeHunk({ id: 'a', theirsLines: ['Ta'], mineLines: ['Ma'] }),
+      makeHunk({ id: 'b', theirsLines: ['Tb'], mineLines: ['Mb'] }),
+    ];
+    const { handle, calls } = makeTrackedHandle();
+    const controller = createPickStateController({
+      hunksRef: { current: hunks },
+      trackedRangesRef: { current: handle },
+      singleClickResolveRef: { current: false },
+    });
+    controller.dispatch({ hunkId: 'a', slot: 'left', action: 'arrow' });
+    controller.dispatch({ hunkId: 'a', slot: 'right', action: 'x' });
+    controller.dispatch({ hunkId: 'b', slot: 'left', action: 'x' });
+    controller.dispatch({ hunkId: 'b', slot: 'right', action: 'x' });
+    const left = new Map(controller.states());
+
+    controller.reset();
+    calls.length = 0;
+    expect(left.size).toBe(2);
+    controller.bulkSet([...left].map(([hunkId, next]) => ({ hunkId, next })));
+
+    expect(controller.get('a')).toEqual({ theirs: 'accepted', mine: 'dismissed' });
+    expect(controller.get('b')).toEqual({ theirs: 'dismissed', mine: 'dismissed' });
+    expect(isResolved(controller.get('a')) && isResolved(controller.get('b'))).toBe(true);
+    expect(calls).toEqual([
+      { hunkId: 'a', text: 'Ta\n' },
+      { hunkId: 'b', text: 'Mb\n' },
+    ]);
   });
 
   it('reset clears state + undo/redo and notifies onChange once', () => {
