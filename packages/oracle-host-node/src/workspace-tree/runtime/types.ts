@@ -206,7 +206,7 @@ export type FetchWorkspaceTreeRpcResult =
 export interface ApplyCommitSkip {
   uid: string;
   path: string;
-  reason: 'missing' | 'parent-missing' | 'not-empty';
+  reason: 'missing' | 'parent-missing' | 'not-empty' | 'conflict-unshown';
 }
 
 export type ApplyCommitRpcResult =

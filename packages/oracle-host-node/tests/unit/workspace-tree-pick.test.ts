@@ -9,7 +9,8 @@
  * own-files rule, and every typed refusal. The answered-conflict
  * describe pins the second call: the refusal's files and token, the
  * pick recorded with the document as answered, a token the branch
- * moved away from, and an answer that does not read.
+ * moved away from, and an answer that does not read. The last describe
+ * pins a conflict no file shows: the branch's document stands, named.
  */
 
 import { promises as fs } from 'node:fs';
@@ -17,7 +18,7 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 import type { MutatorContext } from '@openheaders/core/sync';
 import type { EmissionBatch } from '@openheaders/core/sync-builders/mutations/workspace-import-emission';
-import type { Rule, Workspace } from '@openheaders/core/types';
+import type { Environment, Rule, Workspace } from '@openheaders/core/types';
 import type { WorkspaceTreeState } from '@openheaders/core/workspace-tree';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { createGitExec, type GitRunner } from '../../src/git/git-exec';
@@ -618,6 +619,37 @@ describe('applyWorkspaceCommit — refusals', () => {
     const result = await apply(broken, 'pick', t);
     expect(result).toMatchObject({ ok: false, reason: 'foreign-invalid', detail: RULE_FILE });
     expect(t.order).toEqual([]);
+    expect(await git(local, 'rev-parse', 'HEAD')).toBe(head);
+  });
+});
+
+describe('applyWorkspaceCommit — a conflict no file shows', () => {
+  const ENV_FILE = 'environments/staging-eeeeeeee.yaml';
+  const staging = (secretName: string): Environment => ({
+    schemaVersion: 5,
+    uid: 'eeeeeeee',
+    name: 'Staging',
+    variables: [
+      { uid: 'vvvvvvv1', name: 'host', value: 'staging.openheaders.io', type: 'default' },
+      { uid: 'vvvvvvv2', name: secretName, value: 's3cret', type: 'secret' },
+    ],
+  });
+
+  it("a secret row both sides renamed keeps the branch's name and is named as left out", async () => {
+    await localCommit('Add staging', { environments: [staging('token')] });
+    await git(peer, 'pull', '--quiet', local, 'main');
+    await peerReplace(`${ENV_FILE.replace('.yaml', '.secret.yaml.template')}`, 'name: token', 'name: apiToken');
+    const picked = await peerCommit('Rename the secret on the peer');
+    const head = await localCommit('Rename the secret locally', { environments: [staging('authToken')] });
+
+    const t = trace();
+    const result = await apply(picked, 'pick', t);
+    expect(result).toMatchObject({
+      ok: false,
+      reason: 'empty',
+      skipped: [{ uid: 'eeeeeeee', path: ENV_FILE, reason: 'conflict-unshown' }],
+    });
+    expect(state.environments[0].variables[1].name).toBe('authToken');
     expect(await git(local, 'rev-parse', 'HEAD')).toBe(head);
   });
 });

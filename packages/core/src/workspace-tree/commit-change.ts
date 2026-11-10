@@ -94,7 +94,13 @@ export type CommitChangeSkipReason =
   /** The change creates or moves an entity under a container the branch does not have. */
   | 'parent-missing'
   /** The change deletes a container the branch still keeps something in. */
-  | 'not-empty';
+  | 'not-empty'
+  /**
+   * Both sides changed the document where none of its files shows it (a
+   * secret row's name) — there is nothing to answer, the branch's stands.
+   * Named by the caller that builds the conflict texts, never by the model.
+   */
+  | 'conflict-unshown';
 
 export interface CommitChangeSkip extends CommitChangeDocument {
   reason: CommitChangeSkipReason;

@@ -215,14 +215,20 @@ export async function applyWorkspaceCommit(options: ApplyWorkspaceCommitOptions)
   const from = picking ? parentState : commitState;
   const to = picking ? commitState : parentState;
   let change = applyCommitChange({ current: snapshot, from, to });
+  // Conflicts no file shows: the branch's document stands, and the answer says so.
+  const unshown: CommitChangeSkip[] = [];
   if (change.conflicts.length > 0) {
     const conflicts = change.conflicts.map((document) => document.path);
     const documents = commitConflictDocuments({ current: snapshot, from, to, conflicts: change.conflicts });
     const files = documents.flatMap((document) => document.files);
+    const shown = new Set(documents.filter((document) => document.files.length > 0).map((document) => document.uid));
+    for (const conflict of change.conflicts) {
+      if (!shown.has(conflict.uid)) unshown.push({ ...conflict, reason: 'conflict-unshown' });
+    }
     const token = conflictToken(sha, mode, files);
     const answered = options.resolution;
     // A conflict whose texts show nothing apart has no file to answer —
-    // the branch's document stands and the pass goes on.
+    // the branch's document stands, named as left out, and the pass goes on.
     if (files.length > 0 && answered?.token !== token) {
       return {
         ok: false,
@@ -246,6 +252,8 @@ export async function applyWorkspaceCommit(options: ApplyWorkspaceCommitOptions)
       };
     }
   }
+
+  const skipped = [...change.skipped, ...unshown];
 
   const local = await options.commitLocalWork();
   if (!local.ok) return { ok: false, reason: 'commit-failed', detail: local.detail, issues: [] };
@@ -283,10 +291,10 @@ export async function applyWorkspaceCommit(options: ApplyWorkspaceCommitOptions)
     return {
       ok: false,
       reason: 'empty',
-      ...(change.skipped.length > 0 ? { skipped: change.skipped } : {}),
+      ...(skipped.length > 0 ? { skipped } : {}),
       ...withKept,
       issues: [],
     };
   }
-  return { ok: true, sha: commit.sha, skipped: change.skipped, ...withKept };
+  return { ok: true, sha: commit.sha, skipped, ...withKept };
 }

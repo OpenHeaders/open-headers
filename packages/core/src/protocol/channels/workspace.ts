@@ -954,9 +954,11 @@ export interface WorkspaceTreeApplyCommitSkipWire {
    * `missing` — the change edits an entity the branch no longer has;
    * `parent-missing` — it creates or moves one under a container the
    * branch does not have; `not-empty` — it deletes a container the
-   * branch still keeps something in.
+   * branch still keeps something in; `conflict-unshown` — both sides
+   * changed the document where none of its files shows it, and the
+   * branch's stands.
    */
-  reason: 'missing' | 'parent-missing' | 'not-empty';
+  reason: 'missing' | 'parent-missing' | 'not-empty' | 'conflict-unshown';
 }
 
 /**
