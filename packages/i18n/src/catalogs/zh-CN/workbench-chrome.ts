@@ -717,6 +717,8 @@ export const workbenchChrome = {
   'workbench.gitLog.applyCommit.pickEmpty': '{commit} 没有可拣选的内容：分支已包含此更改。',
   'workbench.gitLog.applyCommit.revertEmpty': '{commit} 没有可还原的内容：分支已不再包含此更改。',
   'workbench.gitLog.applyCommit.conflicts': '分支和提交 {commit} 都更改了 {files}。未应用任何更改。',
+  'workbench.gitLog.applyCommit.conflictsTooLarge':
+    '分支和提交 {commit} 都更改了 {files}，且文件过大，无法在此解决。未应用任何更改。',
   'workbench.gitLog.applyCommit.unsupported': '提交 {commit} 没有可应用的单一更改：它是合并提交或首个提交。',
   'workbench.gitLog.applyCommit.leftOut': '由于分支与之不匹配，部分更改已被略过：{files}',
   'workbench.gitLog.applyCommit.resolvePickTitle': '拣选 {commit}：解决冲突',

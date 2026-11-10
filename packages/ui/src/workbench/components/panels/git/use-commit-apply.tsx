@@ -60,7 +60,12 @@ export function useCommitApply(workspaceId: string): CommitApplyActions {
   const refusalTitle = (mode: CommitApplyMode, sha: string, refusal: Refusal): string => {
     const commit = shortSha(sha);
     if (refusal.reason === 'conflicts') {
-      return t('workbench.gitLog.applyCommit.conflicts', { commit, files: namePaths(refusal.conflicts ?? []) });
+      return t(
+        refusal.tooLarge === true
+          ? 'workbench.gitLog.applyCommit.conflictsTooLarge'
+          : 'workbench.gitLog.applyCommit.conflicts',
+        { commit, files: namePaths(refusal.conflicts ?? []) },
+      );
     }
     if (refusal.reason === 'unsupported-commit') return t('workbench.gitLog.applyCommit.unsupported', { commit });
     if (refusal.reason === 'empty') {

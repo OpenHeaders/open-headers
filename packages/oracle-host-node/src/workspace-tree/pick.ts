@@ -123,6 +123,8 @@ export type ApplyWorkspaceCommitResult =
       conflicts?: string[];
       /** `conflicts`: the files to answer — absent when their texts are too large to send. */
       resolve?: ApplyCommitResolve;
+      /** `conflicts`: the files' texts are too large to send — there is nothing to answer here. */
+      tooLarge?: true;
       /** `resolution-invalid`: the answered file that could not be taken. */
       file?: string;
       /** `empty`: what was not taken, when that is why nothing changed. */
@@ -230,13 +232,8 @@ export async function applyWorkspaceCommit(options: ApplyWorkspaceCommitOptions)
     // A conflict whose texts show nothing apart has no file to answer —
     // the branch's document stands, named as left out, and the pass goes on.
     if (files.length > 0 && answered?.token !== token) {
-      return {
-        ok: false,
-        reason: 'conflicts',
-        conflicts,
-        ...(fitsOnTheWire(files) ? { resolve: { token, files } } : {}),
-        issues: [],
-      };
+      if (!fitsOnTheWire(files)) return { ok: false, reason: 'conflicts', conflicts, tooLarge: true, issues: [] };
+      return { ok: false, reason: 'conflicts', conflicts, resolve: { token, files }, issues: [] };
     }
     const read = readCommitResolutions({ current: snapshot, documents, resolutions: answered?.files ?? [] });
     if (!read.ok) {

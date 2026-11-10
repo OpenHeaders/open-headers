@@ -237,6 +237,8 @@ export type ApplyCommitRpcResult =
       conflicts?: string[];
       /** `conflicts`: the files to answer and the token naming this reading of them. */
       resolve?: ApplyCommitResolve;
+      /** `conflicts`: the files' texts are too large to send. */
+      tooLarge?: true;
       /** `resolution-invalid`: the answered file that could not be taken. */
       file?: string;
       skipped?: ApplyCommitSkip[];

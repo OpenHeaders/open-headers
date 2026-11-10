@@ -58,6 +58,7 @@ export async function runApplyCommit(
       ...(result.detail !== undefined ? { detail: result.detail } : {}),
       ...(result.conflicts !== undefined ? { conflicts: result.conflicts } : {}),
       ...(result.resolve !== undefined ? { resolve: result.resolve } : {}),
+      ...(result.tooLarge !== undefined ? { tooLarge: result.tooLarge } : {}),
       ...(result.file !== undefined ? { file: result.file } : {}),
       ...(result.skipped !== undefined ? { skipped: result.skipped } : {}),
       ...(result.keptLocal !== undefined ? { keptLocal: result.keptLocal } : {}),

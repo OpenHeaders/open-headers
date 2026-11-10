@@ -30,6 +30,7 @@ import {
   type ApplyCommitResolve,
   type ApplyWorkspaceCommitResult,
   applyWorkspaceCommit,
+  COMMIT_CONFLICT_MAX_CHARS,
 } from '../../src/workspace-tree/pick';
 
 const ORG_ID = '019637a2-7b9a-7b9a-8b9a-1234567890ab';
@@ -393,6 +394,18 @@ describe('applyWorkspaceCommit — a conflict answered', () => {
     expect(file.mine).toContain('name: Local name\n');
     // The same branch and commit read the same way.
     expect((await refusal()).token).toBe(resolve.token);
+  });
+
+  it('texts over the cap refuse as too large — no files, no token, nothing written', async () => {
+    const head = await localCommit('Grow locally', {
+      rules: [makeRule({ name: 'L'.repeat(COMMIT_CONFLICT_MAX_CHARS) })],
+    });
+    const t = trace();
+    const result = await apply(picked, 'pick', t);
+    expect(result).toMatchObject({ ok: false, reason: 'conflicts', conflicts: [RULE_FILE], tooLarge: true });
+    expect(result.ok === false && result.resolve).toBeUndefined();
+    expect(t.order).toEqual([]);
+    expect(await git(local, 'rev-parse', 'HEAD')).toBe(head);
   });
 
   it('the token with an answer records the pick, the document as answered', async () => {

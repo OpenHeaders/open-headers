@@ -767,6 +767,8 @@ export const workbenchChrome = {
   'workbench.gitLog.applyCommit.revertEmpty': 'Nimic de anulat din {commit}: ramura nu mai are această modificare.',
   'workbench.gitLog.applyCommit.conflicts':
     'Ramura și commit-ul {commit} au modificat amândouă {files}. Nu s-a aplicat nimic.',
+  'workbench.gitLog.applyCommit.conflictsTooLarge':
+    'Ramura și commit-ul {commit} au modificat amândouă {files}, iar fișierele sunt prea mari pentru a fi rezolvate aici. Nu s-a aplicat nimic.',
   'workbench.gitLog.applyCommit.unsupported':
     'Commit-ul {commit} nu are o singură modificare de aplicat: este un commit de îmbinare sau primul commit.',
   'workbench.gitLog.applyCommit.leftOut':

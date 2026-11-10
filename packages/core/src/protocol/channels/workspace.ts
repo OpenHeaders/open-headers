@@ -1023,6 +1023,8 @@ export type WorkspaceTreeApplyCommitWire =
       conflicts?: string[];
       /** `conflicts`: the files to answer — absent when there are too many bytes to send. */
       resolve?: WorkspaceTreeApplyCommitResolveWire;
+      /** `conflicts`: the files' texts are too large to send — the conflict cannot be answered here. */
+      tooLarge?: true;
       /** `resolution-invalid`: the answered file that could not be taken. */
       file?: string;
       skipped?: WorkspaceTreeApplyCommitSkipWire[];

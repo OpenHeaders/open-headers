@@ -737,6 +737,8 @@ export const workbenchChrome = {
     '{commit} 에서 되돌릴 내용이 없습니다: 브랜치에 이 변경 사항이 더 이상 없습니다.',
   'workbench.gitLog.applyCommit.conflicts':
     '브랜치와 커밋 {commit} 모두 {files} 파일을 변경했습니다. 아무것도 적용되지 않았습니다.',
+  'workbench.gitLog.applyCommit.conflictsTooLarge':
+    '브랜치와 커밋 {commit} 모두 {files} 파일을 변경했으며, 파일이 너무 커서 여기에서 해결할 수 없습니다. 아무것도 적용되지 않았습니다.',
   'workbench.gitLog.applyCommit.unsupported':
     '커밋 {commit} 에는 적용할 단일 변경 사항이 없습니다: 병합 커밋이거나 첫 번째 커밋입니다.',
   'workbench.gitLog.applyCommit.leftOut': '브랜치와 맞지 않아 변경 사항의 일부가 제외되었습니다: {files}',

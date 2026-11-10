@@ -906,6 +906,8 @@ export const workbenchChrome = {
     'Kein Revert von {commit} nötig: Der Branch enthält diese Änderung nicht mehr.',
   'workbench.gitLog.applyCommit.conflicts':
     'Der Branch und der Commit {commit} haben beide {files} geändert. Es wurde nichts angewendet.',
+  'workbench.gitLog.applyCommit.conflictsTooLarge':
+    'Der Branch und der Commit {commit} haben beide {files} geändert, und die Dateien sind zu groß, um sie hier aufzulösen. Es wurde nichts angewendet.',
   'workbench.gitLog.applyCommit.unsupported':
     'Der Commit {commit} hat keine einzelne Änderung, die sich anwenden lässt: Er ist ein Merge oder der erste Commit.',
   'workbench.gitLog.applyCommit.leftOut':

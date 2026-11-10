@@ -727,6 +727,8 @@ export const workbenchChrome = {
   'workbench.gitLog.applyCommit.pickEmpty': 'Nothing to cherry-pick from {commit}: the branch already has this change.',
   'workbench.gitLog.applyCommit.revertEmpty': 'Nothing to revert from {commit}: the branch no longer has this change.',
   'workbench.gitLog.applyCommit.conflicts': 'The branch and commit {commit} both changed {files}. Nothing was applied.',
+  'workbench.gitLog.applyCommit.conflictsTooLarge':
+    'The branch and commit {commit} both changed {files}, and the files are too large to resolve here. Nothing was applied.',
   'workbench.gitLog.applyCommit.unsupported':
     'Commit {commit} has no single change to apply: it is a merge or the first commit.',
   'workbench.gitLog.applyCommit.leftOut':

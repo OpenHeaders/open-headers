@@ -905,6 +905,8 @@ export const workbenchChrome = {
   'workbench.gitLog.applyCommit.pickEmpty': 'Nada que aplicar de {commit}: la rama ya tiene este cambio.',
   'workbench.gitLog.applyCommit.revertEmpty': 'Nada que revertir de {commit}: la rama ya no tiene este cambio.',
   'workbench.gitLog.applyCommit.conflicts': 'La rama y el commit {commit} modificaron {files}. No se aplicó nada.',
+  'workbench.gitLog.applyCommit.conflictsTooLarge':
+    'La rama y el commit {commit} modificaron {files}, y los archivos son demasiado grandes para resolverlos aquí. No se aplicó nada.',
   'workbench.gitLog.applyCommit.unsupported':
     'El commit {commit} no tiene un único cambio que aplicar: es un merge o el primer commit.',
   'workbench.gitLog.applyCommit.leftOut': 'Parte del cambio se omitió porque la rama no coincide con él: {files}.',

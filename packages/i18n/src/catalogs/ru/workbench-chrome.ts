@@ -759,6 +759,8 @@ export const workbenchChrome = {
   'workbench.gitLog.applyCommit.pickEmpty': 'Из {commit} нечего переносить: в ветке уже есть это изменение.',
   'workbench.gitLog.applyCommit.revertEmpty': 'В {commit} нечего отменять: в ветке больше нет этого изменения.',
   'workbench.gitLog.applyCommit.conflicts': 'И ветка, и коммит {commit} изменили {files}. Ничего не применено.',
+  'workbench.gitLog.applyCommit.conflictsTooLarge':
+    'И ветка, и коммит {commit} изменили {files}, а файлы слишком велики, чтобы разрешить конфликт здесь. Ничего не применено.',
   'workbench.gitLog.applyCommit.unsupported':
     'У коммита {commit} нет единственного изменения для применения: это коммит слияния или первый коммит.',
   'workbench.gitLog.applyCommit.leftOut': 'Часть изменения пропущена, потому что ветка ему не соответствует: {files}.',

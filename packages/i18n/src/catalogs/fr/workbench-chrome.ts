@@ -910,6 +910,8 @@ export const workbenchChrome = {
     'Rien à annuler dans {commit} : la branche ne contient plus cette modification.',
   'workbench.gitLog.applyCommit.conflicts':
     'La branche et le commit {commit} ont tous deux modifié {files}. Rien n’a été appliqué.',
+  'workbench.gitLog.applyCommit.conflictsTooLarge':
+    'La branche et le commit {commit} ont tous deux modifié {files}, et les fichiers sont trop volumineux pour être résolus ici. Rien n’a été appliqué.',
   'workbench.gitLog.applyCommit.unsupported':
     'Le commit {commit} n’a pas de modification unique à appliquer : c’est un merge ou le premier commit.',
   'workbench.gitLog.applyCommit.leftOut':

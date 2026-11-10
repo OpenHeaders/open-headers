@@ -159,6 +159,25 @@ describe('useCommitApply', () => {
     expect(screen.getByText('Cherry-pick finished')).toBeTruthy();
   });
 
+  it('a conflict whose files are too large to send says so and opens no editor', async () => {
+    mockCall.mockResolvedValueOnce({
+      ok: false,
+      reason: 'conflicts',
+      conflicts: ['rules/a/rule.yaml'],
+      tooLarge: true,
+    });
+    const actions = mount();
+    act(() => actions.cherryPick([OLDEST]));
+    await waitFor(() =>
+      expect(
+        screen.getByText(
+          'The branch and commit ccccccc both changed rules/a/rule.yaml, and the files are too large to resolve here. Nothing was applied.',
+        ),
+      ).toBeTruthy(),
+    );
+    expect(mockCall).toHaveBeenCalledTimes(1);
+  });
+
   it('a refused single commit raises no finished toast', async () => {
     mockCall.mockResolvedValue({ ok: false, reason: 'unsupported-commit', detail: 'merge' });
     const actions = mount();

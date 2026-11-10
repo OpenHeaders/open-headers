@@ -739,6 +739,8 @@ export const workbenchChrome = {
     '{commit} からリバートするものはありません：ブランチにこの変更はもうありません。',
   'workbench.gitLog.applyCommit.conflicts':
     'ブランチとコミット {commit} の両方が {files} を変更しました。何も適用されていません。',
+  'workbench.gitLog.applyCommit.conflictsTooLarge':
+    'ブランチとコミット {commit} の両方が {files} を変更しましたが、ファイルが大きすぎるため、ここでは解決できません。何も適用されていません。',
   'workbench.gitLog.applyCommit.unsupported':
     'コミット {commit} には適用できる単一の変更がありません：マージまたは最初のコミットです。',
   'workbench.gitLog.applyCommit.leftOut': 'ブランチと一致しないため、変更の一部は適用されませんでした：{files}',
