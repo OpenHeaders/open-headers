@@ -87,7 +87,7 @@ import {
   snapshotWorkingTree,
 } from '../git';
 import { landForeignOwnFiles } from './own-files';
-import { type LocalWorkDeps, readPassWrites, uncommittedAmong } from './pass-writes';
+import { type LocalWorkDeps, readPassWrites, recordablePaths, uncommittedAmong } from './pass-writes';
 import {
   hashTreeContent,
   type QuarantineIndex,
@@ -381,10 +381,11 @@ export async function integrateForeignHead(
   // The integration's files: what the pass wrote, and what the foreign
   // history changed even where the pass had nothing to write (a document
   // the engine reads the same keeps its own bytes — the residue). A
-  // file both sides changed kept its local bytes and is not recorded.
-  const kept = new Set(own.kept);
+  // file both sides changed kept its local bytes: recorded as the
+  // branch holds it, or not at all where the reading could not see it.
   const touched = [...new Set([...pass.wrote, ...foreignPaths])].sort();
-  const paths = touched.filter((filePath) => !kept.has(filePath));
+  const paths = await recordablePaths(run, rootDir, pass.after, touched);
+  if (paths === null) return unreadable();
 
   // Uncommitted work in one of those files would ride into the
   // integration's commit — it is recorded first, as the file stood

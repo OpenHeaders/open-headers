@@ -103,7 +103,13 @@ export type PushWorkspaceTreeRpcResult =
     };
 
 export type ResolveForcePushRpcResult =
-  | { ok: true; sha: string; rescueBranch: string | null }
+  | {
+      ok: true;
+      sha: string;
+      rescueBranch: string | null;
+      /** Files of the resolution that held uncommitted work — that work was committed first. */
+      committedLocal?: string[];
+    }
   | {
       ok: false;
       reason:
@@ -567,8 +573,9 @@ export interface WorkspaceTreeRuntime {
   setAutoPushOnCommit(workspaceId: string, autoPushOnCommit: boolean): Promise<{ ok: boolean }>;
   /**
    * Resolve a detected remote history rewrite (§16 trichotomy).
-   * Local uncommitted work commits first so every choice operates on
-   * complete local material.
+   * Uncommitted work in the files the resolution replaces or re-applies
+   * commits first so every choice operates on complete local material;
+   * uncommitted work elsewhere stays as it was.
    */
   resolveForcePush(workspaceId: string, choice: ForcePushChoice): Promise<ResolveForcePushRpcResult>;
   /**

@@ -4,10 +4,16 @@
  * auto-rebased (the git-sync plan §10 Phase 5; the sync-engine design §16;
  * the data-plane topologies design §6.4).
  *
- * The caller (runtime) has already committed local uncommitted work
- * under its own semantic draft, so the pre-resolution HEAD carries the
- * complete local material — the §9.3 commit watermark guarantees the
- * mutations behind it were never compacted away. The three choices:
+ * The resolution records the files IT wrote and no other
+ * (`pass-writes.ts`). Uncommitted work in a file the two heads hold
+ * differently — the files the resolution replaces or re-applies — is
+ * committed first on the pre-resolution head, without a second
+ * question: the dialog's choice is the word. Uncommitted work anywhere
+ * else, and every unversioned file, stays as it was across the ref
+ * move. The pre-resolution HEAD with those commits carries the local
+ * material every choice works from — the §9.3 commit watermark
+ * guarantees the mutations behind it were never compacted away. The
+ * three choices:
  *
  *   - `abandon` — the rewritten remote head becomes the workspace
  *     state: the engine converges to the foreign snapshot wholesale
@@ -16,7 +22,7 @@
  *     canonicalization residue commits as an ordinary follow-up. The
  *     pre-resolution history stays reachable only through the reflog.
  *   - `rescue` — identical to `abandon`, but the pre-resolution HEAD
- *     is first preserved on a NEW `oh-rescue-<ts>` branch
+ *     is preserved on a NEW `oh-rescue-<ts>` branch
  *     (`update-ref` with a must-not-exist guard — a rescue is never a
  *     history edit) so the user can merge or inspect it later.
  *   - `reapply` — local changes survive on top of the new history:
@@ -55,9 +61,12 @@ import {
   listTreeYamlPaths,
   localHeadSha,
   readCommitTreeFiles,
+  resolveRefSha,
   resolveUpstream,
+  snapshotWorkingTree,
 } from '../git';
 import { landForeignOwnFiles } from './own-files';
+import { type LocalWorkDeps, readPassWrites, recordablePaths, uncommittedAmong } from './pass-writes';
 import { releaseHealedQuarantine, writeForeignQuarantine } from './pull';
 
 export type ForcePushChoice = 'abandon' | 'rescue' | 'reapply';
@@ -77,12 +86,22 @@ export interface ResolveForcePushOptions {
   liveSetEntries: LiveSetEntriesReader;
   apply: (batches: EmissionBatch[]) => Promise<void>;
   flush: () => Promise<unknown>;
+  /** Record uncommitted work in the files the resolution writes, as its own commit on the pre-resolution head. */
+  commitLocalWork: LocalWorkDeps['commitLocalWork'];
   identityEnv: Record<string, string>;
   bypassHooks: boolean;
 }
 
 export type ResolveForcePushResult =
-  | { ok: true; sha: string; remoteSha: string; rescueBranch: string | null; issues: TreeIssue[] }
+  | {
+      ok: true;
+      sha: string;
+      remoteSha: string;
+      rescueBranch: string | null;
+      issues: TreeIssue[];
+      /** Files of the resolution that held uncommitted work — that work was committed first. */
+      committedLocal?: string[];
+    }
   | {
       ok: false;
       reason:
@@ -150,11 +169,44 @@ export async function resolveForcePushWorkspaceTree(options: ResolveForcePushOpt
   const oldHead = await localHeadSha(run, rootDir);
   if (oldHead === null) return { ok: false, reason: 'ref-update-failed', detail: 'no local HEAD', issues: [] };
 
+  const unreadable = (): ResolveForcePushResult => ({
+    ok: false,
+    reason: 'commit-failed',
+    detail: 'the working tree could not be read',
+    issues: foreign.issues,
+  });
+
+  // The rescue ref is cut further down, on the head that holds every
+  // commit of local work — its name has to be free before anything is
+  // written.
   let rescueBranch: string | null = null;
   if (choice === 'rescue') {
     rescueBranch = rescueBranchName((options.now ?? (() => new Date()))());
-    const rescued = await createRescueBranch(run, rootDir, rescueBranch, oldHead);
-    if (!rescued.ok) return { ok: false, reason: 'ref-update-failed', detail: rescued.detail, issues: foreign.issues };
+    if ((await resolveRefSha(run, rootDir, `refs/heads/${rescueBranch}`)) !== null) {
+      return {
+        ok: false,
+        reason: 'ref-update-failed',
+        detail: `${rescueBranch} already exists`,
+        issues: foreign.issues,
+      };
+    }
+  }
+
+  // Local work first. What the engine still has pending reaches the
+  // disk, the working tree is read once, and uncommitted work in a file
+  // the two heads hold differently is committed on the pre-resolution
+  // head — the resolution is about to replace or re-apply those files.
+  // Uncommitted work anywhere else is not the resolution's to commit.
+  await options.flush();
+  const heads = await diffForeignPaths(run, rootDir, oldHead, upstream.sha);
+  const before = await snapshotWorkingTree(run, rootDir);
+  if (heads === null || before === null) return unreadable();
+  const between = [...heads.changed, ...heads.removed];
+  const committedFirst = await uncommittedAmong(run, rootDir, between);
+  if (committedFirst === null) return unreadable();
+  if (committedFirst.length > 0) {
+    const local = await options.commitLocalWork({ tree: before, paths: committedFirst });
+    if (!local.ok) return { ok: false, reason: 'commit-failed', detail: local.detail, issues: foreign.issues };
   }
 
   // The path classification that gates the delta: `abandon`/`rescue`
@@ -215,21 +267,55 @@ export async function resolveForcePushWorkspaceTree(options: ResolveForcePushOpt
   });
   if (!own.ok) return { ok: false, reason: 'commit-failed', detail: own.detail, issues: foreign.issues };
 
+  // The second reading: what the two differ in is what the resolution
+  // wrote. A file it wrote outside the two heads' difference that held
+  // uncommitted work is committed first too, as it stood before.
+  const pass = await readPassWrites(run, rootDir, before);
+  if (pass === null) return unreadable();
+  const late = pass.wrote.filter((filePath) => pass.uncommitted.has(filePath));
+  if (late.length > 0) {
+    const local = await options.commitLocalWork({ tree: before, paths: late });
+    if (!local.ok) return { ok: false, reason: 'commit-failed', detail: local.detail, issues: foreign.issues };
+  }
+  const committedLocal = [...new Set([...committedFirst, ...late])].sort();
+
+  // The rescue ref takes the pre-resolution head with those commits on
+  // it — the complete local history, never a history edit.
+  if (rescueBranch !== null) {
+    const rescued = await createRescueBranch(run, rootDir, rescueBranch, (await localHeadSha(run, rootDir)) ?? oldHead);
+    if (!rescued.ok) return { ok: false, reason: 'ref-update-failed', detail: rescued.detail, issues: foreign.issues };
+  }
+
   // The deliberate ref move the user chose in the dialog — CAS on the
   // pre-resolution head, §3.3 index resync; ancestry is irrelevant by
   // construction here.
   const moved = await fastForwardWorkspaceBranch(run, rootDir, upstream.sha);
   if (!moved.ok) return { ok: false, reason: 'ref-update-failed', detail: moved.detail, issues: foreign.issues };
 
+  // The follow-up carries the resolution's own files — where the two
+  // heads differed, and what the pass wrote — as the tree holds them
+  // now: on `reapply` that is the local side re-applied, otherwise the
+  // engine's residue. Uncommitted work elsewhere stays uncommitted.
+  const paths = await recordablePaths(run, rootDir, pass.after, [...new Set([...between, ...pass.wrote])].sort());
+  if (paths === null) return unreadable();
   const followUp = await commitWorkspaceTree({
     run,
     rootDir,
     message: choice === 'reapply' ? 'Re-apply local changes' : 'Normalize pulled changes',
     identityEnv: options.identityEnv,
     bypassHooks: options.bypassHooks,
+    fromTree: pass.after,
+    paths,
   });
   if (!followUp.ok) return { ok: false, reason: 'commit-failed', detail: followUp.detail, issues: foreign.issues };
   const sha = followUp.committed ? followUp.sha : upstream.sha;
 
-  return { ok: true, sha, remoteSha: upstream.sha, rescueBranch, issues: foreign.issues };
+  return {
+    ok: true,
+    sha,
+    remoteSha: upstream.sha,
+    rescueBranch,
+    issues: foreign.issues,
+    ...(committedLocal.length > 0 ? { committedLocal } : {}),
+  };
 }

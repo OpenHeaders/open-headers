@@ -31,6 +31,7 @@ import {
 } from '../../src/git/repo';
 import { type ForcePushChoice, resolveForcePushWorkspaceTree } from '../../src/workspace-tree/force-push';
 import { WorkspaceTreeMaterializer } from '../../src/workspace-tree/materializer';
+import type { LocalWorkDeps } from '../../src/workspace-tree/pass-writes';
 
 const ORG_ID = '019637a2-7b9a-7b9a-8b9a-1234567890ab';
 const PEER_RULE_FILE = 'rules/block-probes-aaaaaaaa/rule.yaml';
@@ -132,6 +133,23 @@ async function peerEdit(rel: string, edit: (content: string) => string): Promise
   await fs.writeFile(target, edit(content), 'utf-8');
 }
 
+/** The path sets the pass asked to have committed first, in order. */
+let localWorkCommits: string[][];
+
+/** The pass's way to commit local work first — one commit of exactly the paths it names. */
+const commitLocalWork: LocalWorkDeps['commitLocalWork'] = async ({ tree, paths }) => {
+  localWorkCommits.push(paths);
+  const result = await commitWorkspaceTree({
+    run,
+    rootDir: local,
+    message: 'Local work',
+    identityEnv: IDENTITY_ENV,
+    fromTree: tree,
+    paths,
+  });
+  return result.ok ? { ok: true } : { ok: false, detail: result.detail };
+};
+
 function doResolve(
   choice: ForcePushChoice,
   applied: EmissionBatch[],
@@ -152,6 +170,7 @@ function doResolve(
       onApply?.();
     },
     flush: () => materializer.flush(),
+    commitLocalWork,
     identityEnv: IDENTITY_ENV,
     bypassHooks: false,
   });
@@ -165,6 +184,7 @@ beforeEach(async () => {
   state = baseState();
   hlcMs = 1_000;
   run = isolated(createGitExec());
+  localWorkCommits = [];
 
   // Shared base: the local engine tree, committed and pushed.
   await fs.mkdir(local, { recursive: true });
@@ -365,6 +385,91 @@ describe('resolveForcePushWorkspaceTree', () => {
     });
   });
 
+  describe('uncommitted work', () => {
+    const status = async (): Promise<string> =>
+      (await raw(local, 'status', '--porcelain', '--untracked-files=all')).stdout;
+    const filesOf = async (commit: string): Promise<string[]> =>
+      (await raw(local, 'diff-tree', '--no-commit-id', '--name-only', '-r', `${commit}^1`, commit)).stdout
+        .split('\n')
+        .filter(Boolean);
+
+    /** An edit to the local-only rule no commit has, and an unversioned file — the first in a file the two heads hold differently, the second in none. */
+    async function leaveLocalWork(): Promise<void> {
+      state.rules = state.rules.map((rule) =>
+        rule.uid === 'bbbbbbbb' ? ({ ...rule, name: 'Allow health, edited' } as Rule) : rule,
+      );
+      await materializer.flush();
+      await fs.writeFile(path.join(local, 'scratch.txt'), 'unversioned\n', 'utf-8');
+    }
+
+    it('abandon: work in no file the heads differ in stays as it was and nothing is committed first', async () => {
+      await fs.writeFile(path.join(local, 'scratch.txt'), 'unversioned\n', 'utf-8');
+      const result = await doResolve('abandon', [], () => {
+        state.rules = [{ ...state.rules[0], name: 'Rewritten probes' } as Rule];
+      });
+      if (!result.ok) throw new Error(`abandon failed: ${result.reason} ${result.detail ?? ''}`);
+      expect(result).not.toHaveProperty('committedLocal');
+      expect(localWorkCommits).toEqual([]);
+      // The tree is the rewritten head's, the unversioned file beside it.
+      expect(result.sha).toBe(rewrittenSha);
+      expect(await status()).toBe('?? scratch.txt\n');
+    });
+
+    it('rescue: work in a file the resolution replaces is committed first, alone, and the rescue ref holds it', async () => {
+      await leaveLocalWork();
+      const result = await doResolve('rescue', [], () => {
+        state.rules = [{ ...state.rules[0], name: 'Rewritten probes' } as Rule];
+      });
+      if (!result.ok) throw new Error(`rescue failed: ${result.reason} ${result.detail ?? ''}`);
+      expect(result.committedLocal).toEqual([LOCAL_RULE_FILE]);
+      expect(localWorkCommits).toEqual([[LOCAL_RULE_FILE]]);
+
+      const rescue = `refs/heads/${result.rescueBranch}`;
+      expect((await raw(local, 'rev-parse', `${rescue}^1`)).stdout.trim()).toBe(localHead);
+      expect(await filesOf(rescue)).toEqual([LOCAL_RULE_FILE]);
+      expect((await raw(local, 'show', `${rescue}:${LOCAL_RULE_FILE}`)).stdout).toContain('name: Allow health, edited');
+      // The branch is on the rewrite; the unversioned file is no commit's.
+      await expect(fs.access(path.join(local, ...LOCAL_RULE_FILE.split('/')))).rejects.toThrow();
+      expect(await status()).toBe('?? scratch.txt\n');
+    });
+
+    it('re-apply: the fresh commit carries the local side as committed first — never the unversioned file', async () => {
+      await leaveLocalWork();
+      const result = await doResolve('reapply', [], () => {
+        state.rules = state.rules.map((rule) =>
+          rule.uid === 'aaaaaaaa' ? ({ ...rule, name: 'Rewritten probes' } as Rule) : rule,
+        );
+      });
+      if (!result.ok) throw new Error(`reapply failed: ${result.reason} ${result.detail ?? ''}`);
+      expect(result.committedLocal).toEqual([LOCAL_RULE_FILE]);
+      expect(localWorkCommits).toEqual([[LOCAL_RULE_FILE]]);
+
+      expect((await raw(local, 'rev-parse', 'HEAD^1')).stdout.trim()).toBe(rewrittenSha);
+      expect((await raw(local, 'log', '-1', '--format=%s')).stdout.trim()).toBe('Re-apply local changes');
+      expect(await filesOf('HEAD')).toEqual([LOCAL_RULE_FILE]);
+      expect((await raw(local, 'show', `HEAD:${LOCAL_RULE_FILE}`)).stdout).toContain('name: Allow health, edited');
+      expect(await status()).toBe('?? scratch.txt\n');
+    });
+  });
+
+  it('re-apply: an ignored local file where the rewritten head adds one is never recorded as a deletion', async () => {
+    await fs.appendFile(path.join(local, '.git', 'info', 'exclude'), 'local.cfg\n', 'utf-8');
+    await fs.writeFile(path.join(local, 'local.cfg'), 'mine\n', 'utf-8');
+    await fs.writeFile(path.join(peer, 'local.cfg'), 'theirs\n', 'utf-8');
+    const added = await commitWorkspaceTree({ run, rootDir: peer, message: 'Config', identityEnv: RITA_ENV });
+    if (!added.ok || !added.committed) throw new Error('peer config commit failed');
+    await raw(peer, 'push', '--quiet', 'origin', 'main');
+
+    const result = await doResolve('reapply', [], () => {
+      state.rules = state.rules.map((rule) =>
+        rule.uid === 'aaaaaaaa' ? ({ ...rule, name: 'Rewritten probes' } as Rule) : rule,
+      );
+    });
+    if (!result.ok) throw new Error(`reapply failed: ${result.reason} ${result.detail ?? ''}`);
+    expect((await raw(local, 'show', 'HEAD:local.cfg')).stdout).toBe('theirs\n');
+    expect(await fs.readFile(path.join(local, 'local.cfg'), 'utf-8')).toBe('mine\n');
+  });
+
   it('a resolution against a NOT-rewritten remote refuses as not-rewritten', async () => {
     const applied: EmissionBatch[] = [];
     const result = await resolveForcePushWorkspaceTree({
@@ -381,6 +486,7 @@ describe('resolveForcePushWorkspaceTree', () => {
         applied.push(...batches);
       },
       flush: () => materializer.flush(),
+      commitLocalWork,
       identityEnv: IDENTITY_ENV,
       bypassHooks: false,
     });

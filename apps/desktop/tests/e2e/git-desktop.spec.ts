@@ -40,9 +40,10 @@
  *        banner, Commit and Push refuses naming the rewrite; Abandon
  *        converges onto the rewrite and drops the banner.
  *   G12  Preserve on a rescue branch (from the Git window's banner)
- *        mints `oh-rescue-*` carrying the pre-rewrite work.
- *   G13  Re-apply on top lands the local work as a fresh commit on the
- *        rewritten history.
+ *        mints `oh-rescue-*` carrying the pre-rewrite commit.
+ *   G13  Re-apply on top lands the local commit as a fresh commit on
+ *        the rewritten history; an uncommitted edit in the same file is
+ *        committed first and said in a toast.
  *   G14  New Branch with checkout carries a dirty tree onto the new
  *        branch; the rail's star moves.
  *   G15  Checkout on a rail row's context menu with a dirty tree
@@ -1010,8 +1011,10 @@ test('G11 — a rewritten remote holds pull and push behind the banner in both w
 
 test('G12 — Preserve on a rescue branch from the Git window banner mints oh-rescue-* carrying the pre-rewrite work', async () => {
   const req2 = entityFileOf(wsDir, 'e2egreq2') as string;
+  // The local history the rescue ref preserves is a commit of its own.
   setEntityName(req2, 'Pre-rescue Local');
   await waitDirty();
+  await commitWithMessage('git e2e: pre-rescue local');
   forcePushRewrite('Rewritten B');
   await meetRewrite();
 
@@ -1033,13 +1036,19 @@ test('G13 — Re-apply on top lands the local work as a fresh commit on the rewr
   const req2 = entityFileOf(wsDir, 'e2egreq2') as string;
   setEntityName(req2, 'Reapply Local');
   await waitDirty();
+  await commitWithMessage('git e2e: reapply local');
+  // A further edit no commit has, in a file the two heads now hold
+  // differently: the resolution commits it first and says so.
+  setEntityName(req2, 'Reapply Local Two');
+  await waitDirty();
   forcePushRewrite('Rewritten C');
   await meetRewrite();
 
   await pane('commit-tool-force-push-reapply').click();
   await expect(pane('commit-tool-force-push')).toHaveCount(0);
+  await expect(workbench.getByText(/were committed first/)).toBeVisible();
   await expect.poll(() => ws('log', '-1', '--format=%s'), { timeout: 5_000 }).toContain('Re-apply');
-  expect(readFileSync(req2, 'utf-8')).toContain('Reapply Local');
+  expect(readFileSync(req2, 'utf-8')).toContain('Reapply Local Two');
   expect(readFileSync(entityFileOf(wsDir, 'e2egreq1') as string, 'utf-8')).toContain('Rewritten C');
   await waitClean();
 });

@@ -14,7 +14,9 @@
  * file, is not the pass's to commit and stays as it was.
  */
 
-import { diffForeignPaths, type GitRunner, listWorkingChanges, snapshotWorkingTree } from '../git';
+import { promises as fs } from 'node:fs';
+import * as path from 'node:path';
+import { diffForeignPaths, type GitRunner, listTreeEntries, listWorkingChanges, snapshotWorkingTree } from '../git';
 
 /** Uncommitted work the pass's commit would otherwise carry: `paths` as `tree` holds them. */
 export interface LocalWorkFirst {
@@ -61,6 +63,36 @@ export async function readPassWrites(run: GitRunner, rootDir: string, before: st
     wrote: [...wrote.changed, ...wrote.removed].sort(),
     uncommitted: new Set([...uncommitted.changed, ...uncommitted.removed]),
   };
+}
+
+/**
+ * The `paths` a commit staged from the reading `tree` may carry. A file
+ * the reading could not see — an ignored file standing on disk where
+ * the tree holds none — is left out: staged, its absence from the tree
+ * would be recorded as a deletion of whatever the branch holds there.
+ * Null when the tree cannot be read.
+ */
+export async function recordablePaths(
+  run: GitRunner,
+  rootDir: string,
+  tree: string,
+  paths: readonly string[],
+): Promise<string[] | null> {
+  const held = await listTreeEntries(run, rootDir, tree);
+  if (held === null) return null;
+  const recordable: string[] = [];
+  for (const filePath of paths) {
+    if (held.has(filePath)) {
+      recordable.push(filePath);
+      continue;
+    }
+    const unseen = await fs
+      .lstat(path.join(rootDir, ...filePath.split('/')))
+      .then(() => true)
+      .catch(() => false);
+    if (!unseen) recordable.push(filePath);
+  }
+  return recordable;
 }
 
 /** The `paths` that hold uncommitted work — modified, deleted or unversioned. Null when the tree cannot be read. */

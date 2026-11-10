@@ -186,10 +186,13 @@ export async function maybeAutoPush(ctx: RuntimeCtx, binding: OpenBinding): Prom
 }
 
 /**
- * One §16 resolution pass — always on the binding's chain. Local
- * uncommitted work commits first (under its own semantic draft) so
- * every choice — including the rescue branch — operates on complete
- * local material; the watermark advances to the accepted head.
+ * One §16 resolution pass — always on the binding's chain. The pass
+ * commits uncommitted work first only in the files it replaces or
+ * re-applies (under the pending draft, no second question — the
+ * dialog's choice is the word), so every choice — including the rescue
+ * branch — works from the complete local material while uncommitted
+ * work elsewhere stays as it was; the watermark advances to the
+ * accepted head.
  */
 export async function runResolveForcePush(
   ctx: RuntimeCtx,
@@ -204,10 +207,8 @@ export async function runResolveForcePush(
   if (lastSyncedSha === undefined) return { ok: false, reason: 'not-rewritten' };
   await binding.service.hydrated;
 
-  const pre = await ctx.runCommit(binding);
-  if (!pre.ok) return { ok: false, reason: 'commit-failed', detail: pre.detail ?? pre.reason };
-
   const identity = await resolveCommitIdentity(ctx.gitRun, rootDir, syntheticIdentity());
+  const draft = holdDraft(binding);
   const result = await resolveForcePushWorkspaceTree({
     run: ctx.gitRun,
     rootDir,
@@ -222,6 +223,7 @@ export async function runResolveForcePush(
         .map((entry) => ({ itemId: entry.itemId, orderKey: entry.key, item: entry.item })),
     apply: (batches) => ctx.applyAll(binding.service, batches),
     flush: () => binding.materializer.flush(),
+    commitLocalWork: localWorkFirst(ctx, binding, identity.env, undefined).commitLocalWork,
     identityEnv: identity.env,
     bypassHooks: binding.record.bypassHooks === true,
   });
@@ -231,8 +233,13 @@ export async function runResolveForcePush(
     return { ok: false, reason: result.reason, detail: result.detail };
   }
   await ctx.refreshIssuesFromDisk(binding);
-  ctx.drainIntents(binding);
+  await settleDraft(ctx, binding, draft);
   await ctx.recordWatermark(binding, result.remoteSha);
   logger.info(SCOPE, `force-push resolved (${choice}) for ${rootDir}: ${result.sha}`);
-  return { ok: true, sha: result.sha, rescueBranch: result.rescueBranch };
+  return {
+    ok: true,
+    sha: result.sha,
+    rescueBranch: result.rescueBranch,
+    ...(result.committedLocal !== undefined ? { committedLocal: result.committedLocal } : {}),
+  };
 }

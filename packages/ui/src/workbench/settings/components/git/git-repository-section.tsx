@@ -205,6 +205,7 @@ const GitRepositorySection: React.FC<{ git: WorkspaceGit }> = ({ git }) => {
             ? t('workbench.settings.gitPane.git.forcePush.rescued', { branch: result.rescueBranch })
             : t('workbench.settings.gitPane.git.forcePush.resolved', { sha: result.sha.slice(0, 7) }),
         );
+        sayLocalWork(result);
       } else {
         setResolveError(
           t('workbench.settings.gitPane.git.forcePush.failed', { detail: result.detail ?? result.reason }),

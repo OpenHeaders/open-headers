@@ -407,7 +407,9 @@ export interface WorkspaceRpc {
    * first preserves the pre-rewrite local history on a new
    * `oh-rescue-<ts>` branch (never a history edit), `reapply`
    * re-lands local changes as a fresh commit on top of the new
-   * history. Local uncommitted work commits first in every case.
+   * history. In every case uncommitted work in the files the resolution
+   * replaces or re-applies commits first (`committedLocal` names them)
+   * and uncommitted work in any other file stays as it was.
    */
   'oh.workspaceTree.resolveForcePush': {
     req: { workspaceId: string; choice: 'abandon' | 'rescue' | 'reapply' };
@@ -865,7 +867,13 @@ export type WorkspaceTreePushWire =
     };
 
 export type WorkspaceTreeForcePushResolveWire =
-  | { ok: true; sha: string; rescueBranch: string | null }
+  | {
+      ok: true;
+      sha: string;
+      rescueBranch: string | null;
+      /** Files of the resolution that held uncommitted work: that work was committed first, on the pre-resolution head. */
+      committedLocal?: string[];
+    }
   | {
       ok: false;
       reason:

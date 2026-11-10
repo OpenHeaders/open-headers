@@ -701,6 +701,24 @@ describe('pullWorkspaceTree — uncommitted work', () => {
     expect(await porcelain()).toBe(' M NOTES.md\n?? scratch.txt\n');
   });
 
+  it('an ignored local file where the peer adds one stays the local file — the pull records no deletion of the peer’s', async () => {
+    await fs.appendFile(path.join(local, '.git', 'info', 'exclude'), 'local.cfg\n', 'utf-8');
+    await fs.writeFile(onLocal('local.cfg'), 'mine\n', 'utf-8');
+    await peerEdit('local.cfg', () => 'theirs\n');
+    const foreignSha = await peerCommitPush('Add a config file');
+
+    mayCommitLocalWork = false;
+    const result = await doPull([]);
+    expect(result).toMatchObject({ ok: true, upToDate: false, sha: foreignSha, keptLocal: ['local.cfg'] });
+    expect(localWorkCommits).toEqual([]);
+
+    // No follow-up: the branch holds the peer's file, the disk the local one.
+    expect((await out('rev-parse', 'HEAD')).trim()).toBe(foreignSha);
+    expect(await out('show', 'HEAD:local.cfg')).toBe('theirs\n');
+    expect(await fs.readFile(onLocal('local.cfg'), 'utf-8')).toBe('mine\n');
+    expect(await porcelain()).toBe(' M NOTES.md\n M local.cfg\n?? scratch.txt\n');
+  });
+
   it('a document the peer rewrote without changing it is normalized in the follow-up — that file alone', async () => {
     const before = await porcelain();
     await peerEdit(RULE_FILE, (content) => `${content}# a note from the peer\n`);
