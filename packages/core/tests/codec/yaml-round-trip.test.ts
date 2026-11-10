@@ -354,6 +354,21 @@ describe('yaml codec — round-trip parity', () => {
     expect(out.template).toContain('value: ""'); // template has blanked values
   });
 
+  it('environment — a disabled secret row stays disabled through the secret file', () => {
+    const parsed = parseEnvironment({
+      default: loadFixture('environment-default.yaml'),
+      secret: loadFixture('environment-secret.yaml'),
+    });
+    const write = mergePatch(parsed, (draft) => {
+      const secret = draft.variables.find((x) => x.type === 'secret');
+      if (secret) secret.enabled = false;
+    });
+    const out = serializeEnvironment(write);
+    const back = parseEnvironment({ default: out.default, secret: out.secret });
+    expect(back.value.variables.filter((x) => x.enabled === false).map((x) => x.type)).toEqual(['secret']);
+    expect(serializeEnvironment(mergePatch(back, () => {})).secret).toBe(out.secret);
+  });
+
   it('live-workflow-single.yaml', () => {
     const raw = loadFixture('live-workflow-single.yaml');
     const parsed = parseLiveWorkflow(raw, { path: 'live-workflows/debug-auth-wflow001' });

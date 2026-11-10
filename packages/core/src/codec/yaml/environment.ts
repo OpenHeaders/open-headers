@@ -67,6 +67,7 @@ const SecretEnvelope = v.object({
       name: v.string(),
       value: v.string(),
       type: v.picklist(['secret']),
+      enabled: v.optional(v.boolean()),
     }),
   ),
 });
