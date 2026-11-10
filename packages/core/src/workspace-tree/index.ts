@@ -5,6 +5,14 @@
  * layer filesystem I/O, the `.oh/` sidecar, and bind exclusivity on top.
  */
 
+export {
+  applyCommitChange,
+  type CommitChange,
+  type CommitChangeArgs,
+  type CommitChangeDocument,
+  type CommitChangeSkip,
+  type CommitChangeSkipReason,
+} from './commit-change';
 export { treeDocumentPaths } from './document-paths';
 export {
   classifyTreePath,
