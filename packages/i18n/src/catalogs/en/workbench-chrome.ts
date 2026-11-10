@@ -740,6 +740,12 @@ export const workbenchChrome = {
     'Commit {commit} changes files that hold uncommitted changes of yours. Those changes are committed first, in a commit of their own. Everything else you have not committed stays as it is.',
   'workbench.gitLog.applyCommit.localChanges.okPick': 'Commit and Cherry-Pick',
   'workbench.gitLog.applyCommit.localChanges.okRevert': 'Commit and Revert',
+  'workbench.gitLog.localChanges.pullBody':
+    'The pull changes files that hold uncommitted changes of yours. Those changes are committed first, in a commit of their own, so the history keeps them whatever the pull brings. Everything else you have not committed stays as it is.',
+  'workbench.gitLog.localChanges.mergeBody':
+    'Merging {ref} changes files that hold uncommitted changes of yours. Those changes are committed first, in a commit of their own, so the history keeps them whatever the merge brings. Everything else you have not committed stays as it is.',
+  'workbench.gitLog.localChanges.okPull': 'Commit and Pull',
+  'workbench.gitLog.localChanges.okMerge': 'Commit and Merge',
   'workbench.gitLog.applyCommit.resolvePickTitle': 'Cherry-Pick {commit}: Resolve Conflicts',
   'workbench.gitLog.applyCommit.resolveRevertTitle': 'Revert {commit}: Resolve Conflicts',
   'workbench.gitLog.applyCommit.resolveStale':

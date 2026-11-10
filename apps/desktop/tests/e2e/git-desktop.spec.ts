@@ -84,8 +84,10 @@
  *        a mid-rebase worktree holds, a terminal checkout inside it
  *        moves the rail, commits land on its branch.
  *   G28  a `--depth 1` clone binds with the header's shallow tag; a
- *        pull whose fork point sits behind the boundary lands the
- *        two-parent merge and the toast says why.
+ *        pull whose fork point sits behind the boundary writes the
+ *        file that holds the local edit, so it asks first; on the word
+ *        that edit is committed alone, the two-parent merge lands and
+ *        the toast says why.
  *   G29  open a clone as a workspace (§3.5 gap K): a clone whose
  *        manifest uid the host has never seen refuses the bind with
  *        the identity-mismatch line AND the offer; the offer mints the
@@ -1555,6 +1557,15 @@ test('G28 — a depth-1 clone binds with the shallow tag; a pull whose fork poin
   await hideToolWindow('api-requests');
   await hideToolWindow('git');
   await rowMenuGit('pull', req2, shallowDir);
+  // With no base every foreign file is the pull's to write — the edited
+  // one among them, so the pull asks before that edit is committed.
+  const commitAndPull = workbench.getByRole('button', { name: 'Commit and Pull' });
+  await commitAndPull.waitFor({ state: 'visible' });
+  await settleModal();
+  await expect(pane('git-tool-local-changes-first-files')).toHaveText(relPosix(req2, shallowDir));
+  expect(at(shallowDir, 'status', '--porcelain')).toBe(`M ${relPosix(req2, shallowDir)}`);
+  await pane('git-tool-local-changes-first-message').fill('git e2e: shallow local');
+  await commitAndPull.click();
   await expect(workbench.getByText('The shallow clone hides the common history', { exact: false })).toBeVisible();
 
   await expect
@@ -1566,6 +1577,7 @@ test('G28 — a depth-1 clone binds with the shallow tag; a pull whose fork poin
   // carries is tree-authored, so its bytes win — the local edit stands
   // committed on the first parent and is overridden in the merge result.
   expect(committedName(at(shallowDir, 'rev-parse', 'HEAD^1'), req2, shallowDir)).toBe('Shallow Local');
+  expect(at(shallowDir, 'log', '-1', '--format=%s', 'HEAD^1')).toBe('git e2e: shallow local');
   expect(readEntityName(req2)).toBe(committedName(sideSha, req2, shallowDir));
   for (const file of walkYamlFiles(shallowDir)) {
     expect(readFileSync(file, 'utf-8')).not.toContain('<<<<<<<');

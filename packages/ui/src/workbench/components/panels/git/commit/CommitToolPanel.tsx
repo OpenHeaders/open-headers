@@ -29,7 +29,8 @@ import { localWorkspaceTreeTransport } from '../../../git/transport';
 import { refreshWorkspaceGit, useWorkspaceGitSnapshot } from '../../../../stores/git-status-store';
 import DiffModal from '../DiffModal';
 import ForcePushBanner from '../ForcePushBanner';
-import { keptLocalNotice } from '../kept-local';
+import { committedLocalNotice, keptLocalNotice } from '../kept-local';
+import { useLocalChangesQuestion } from '../use-local-changes-question';
 import { GIT_PRIMARY_TAB_KEY, getGitPanelWorkbench } from '../git-panel-view-store';
 import CreateBranchModal from '../rail/CreateBranchModal';
 import RemotesModal from '../remotes/RemotesModal';
@@ -92,6 +93,7 @@ const CommitToolPanel: React.FC<CommitToolPanelProps> = ({ info, onHide }) => {
   const formRef = useRef<CommitFormHandle>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const preAmendDraft = useRef<string | null>(null);
+  const question = useLocalChangesQuestion(panelRef.current);
 
   // The posture from the one git status store: hydrated on first
   // read, folded from status frames after.
@@ -336,11 +338,19 @@ const CommitToolPanel: React.FC<CommitToolPanelProps> = ({ info, onHide }) => {
   );
 
   // Answers whether the pull landed — the Push Rejected prompt's Merge
-  // pushes again only then.
+  // pushes again only then. A pull about to write a file that holds
+  // uncommitted work asks first; Cancel there is not a failure.
+  const askLocalChanges = question.withWord;
   const handlePull = useCallback(async (): Promise<boolean> => {
     if (workspaceId === null) return false;
     try {
-      const result = await hostBridge.call('oh.workspaceTree.pull', { workspaceId });
+      const result = await askLocalChanges({ kind: 'pull' }, (commitLocal) =>
+        hostBridge.call('oh.workspaceTree.pull', {
+          workspaceId,
+          ...(commitLocal !== undefined ? { commitLocal } : {}),
+        }),
+      );
+      if (result === null) return false;
       if (!result.ok) {
         setError(
           result.reason === 'force-push'
@@ -367,13 +377,15 @@ const CommitToolPanel: React.FC<CommitToolPanelProps> = ({ info, onHide }) => {
       }
       const kept = result.upToDate ? null : keptLocalNotice(result.keptLocal, t);
       if (kept !== null) message.warning(kept, 8);
+      const first = result.upToDate ? null : committedLocalNotice(result.committedLocal, t);
+      if (first !== null) message.info(first, 8);
       await refreshChanges();
       return true;
     } catch (err) {
       setError((err as Error).message);
       return false;
     }
-  }, [workspaceId, message, refreshChanges, t]);
+  }, [workspaceId, message, refreshChanges, t, askLocalChanges]);
 
   const handleFetch = useCallback(async (): Promise<void> => {
     if (workspaceId === null) return;
@@ -691,6 +703,7 @@ const CommitToolPanel: React.FC<CommitToolPanelProps> = ({ info, onHide }) => {
         onDismissError={() => setError(null)}
       />
       <DiffModal diff={diff} onClose={() => setDiff(null)} />
+      {question.dialog}
       <PushCommitsModal
         workspaceId={workspaceId}
         open={pushOpen}

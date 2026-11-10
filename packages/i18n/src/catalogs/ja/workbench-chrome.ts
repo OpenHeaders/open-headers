@@ -750,6 +750,12 @@ export const workbenchChrome = {
     'コミット {commit} は、未コミットの変更があるファイルを変更します。これらの変更は先に別のコミットとして記録されます。それ以外の未コミットの変更はそのまま残ります。',
   'workbench.gitLog.applyCommit.localChanges.okPick': 'コミットしてチェリーピック',
   'workbench.gitLog.applyCommit.localChanges.okRevert': 'コミットしてリバート',
+  'workbench.gitLog.localChanges.pullBody':
+    'プルは、未コミットの変更があるファイルを変更します。これらの変更は先に別のコミットとして記録されるため、プルの内容にかかわらず履歴に残ります。それ以外の未コミットの変更はそのまま残ります。',
+  'workbench.gitLog.localChanges.mergeBody':
+    '{ref} のマージは、未コミットの変更があるファイルを変更します。これらの変更は先に別のコミットとして記録されるため、マージの内容にかかわらず履歴に残ります。それ以外の未コミットの変更はそのまま残ります。',
+  'workbench.gitLog.localChanges.okPull': 'コミットしてプル',
+  'workbench.gitLog.localChanges.okMerge': 'コミットしてマージ',
   'workbench.gitLog.applyCommit.resolvePickTitle': '{commit} のチェリーピック：競合を解決',
   'workbench.gitLog.applyCommit.resolveRevertTitle': '{commit} のリバート：競合を解決',
   'workbench.gitLog.applyCommit.resolveStale': '解決中にブランチが変更されました。競合をもう一度確認してください。',

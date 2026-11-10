@@ -771,6 +771,12 @@ export const workbenchChrome = {
     'Коммит {commit} меняет файлы, в которых есть ваши незафиксированные изменения. Эти изменения сначала сохраняются отдельным коммитом. Остальные незафиксированные изменения остаются как есть.',
   'workbench.gitLog.applyCommit.localChanges.okPick': 'Коммит и cherry-pick',
   'workbench.gitLog.applyCommit.localChanges.okRevert': 'Коммит и revert',
+  'workbench.gitLog.localChanges.pullBody':
+    'Pull меняет файлы, в которых есть ваши незафиксированные изменения. Эти изменения сначала сохраняются отдельным коммитом, поэтому история сохранит их, что бы ни принёс pull. Остальные незафиксированные изменения остаются как есть.',
+  'workbench.gitLog.localChanges.mergeBody':
+    'Слияние {ref} меняет файлы, в которых есть ваши незафиксированные изменения. Эти изменения сначала сохраняются отдельным коммитом, поэтому история сохранит их, что бы ни принесло слияние. Остальные незафиксированные изменения остаются как есть.',
+  'workbench.gitLog.localChanges.okPull': 'Коммит и pull',
+  'workbench.gitLog.localChanges.okMerge': 'Коммит и слияние',
   'workbench.gitLog.applyCommit.resolvePickTitle': 'Cherry-pick {commit}: разрешение конфликтов',
   'workbench.gitLog.applyCommit.resolveRevertTitle': 'Revert {commit}: разрешение конфликтов',
   'workbench.gitLog.applyCommit.resolveStale': 'Ветка изменилась, пока вы разрешали конфликты. Проверьте их ещё раз.',

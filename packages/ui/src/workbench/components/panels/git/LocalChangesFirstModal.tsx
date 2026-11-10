@@ -1,37 +1,58 @@
 /**
- * LocalChangesFirstModal — the question a Cherry-Pick or a Revert
- * raises when its change is about to write a file that holds
- * uncommitted work: that work has to be committed first, or it would
- * ride into the pick's commit. The dialog names the files and offers
- * the commit under the pending draft — the person's to edit — or
- * Cancel, which leaves the branch and the tree as they were. Work in
- * any other file is not part of the question: the pick never commits
- * it.
+ * LocalChangesFirstModal — the question a pass raises when it is about
+ * to write a file that holds uncommitted work (a Cherry-Pick, a Revert,
+ * a Pull, a branch Merge): that work has to be committed first, or it
+ * would ride into the pass's own commit. The dialog names the files
+ * and offers the commit under the pending draft — the person's to edit
+ * — or Cancel, which leaves the branch and the tree as they were. Work
+ * in any other file is not part of the question: the pass never
+ * commits it.
  */
 
 import { Input, Modal, theme } from 'antd';
 import type React from 'react';
 import { useEffect, useState } from 'react';
-import { useT } from '@openheaders/ui/context/LocaleContext';
-import { type CommitApplyMode, shortSha } from './commit-apply';
+import { type Translate, useT } from '@openheaders/ui/context/LocaleContext';
+import { shortSha } from './commit-apply';
+
+/** What is about to write the files. */
+export type LocalChangesOperation =
+  | { kind: 'pick' | 'revert'; sha: string }
+  | { kind: 'pull' }
+  | { kind: 'merge'; ref: string };
 
 export interface LocalChangesFirstPrompt {
-  sha: string;
-  mode: CommitApplyMode;
-  /** The files the change would write that hold uncommitted work. */
+  operation: LocalChangesOperation;
+  /** The files the pass would write that hold uncommitted work. */
   files: readonly string[];
   /** The pending draft — the message the field opens on. */
   suggestedMessage: string;
 }
 
 export interface LocalChangesFirstModalProps {
-  /** The refused pick; null keeps the modal unmounted. */
+  /** The refused pass; null keeps the modal unmounted. */
   prompt: LocalChangesFirstPrompt | null;
-  /** The Git tool window element — the modal centers over the panel. Null falls back to the document body. */
+  /** The element the modal centers over. Null falls back to the document body. */
   container: HTMLElement | null;
   /** The person's word, with the message for the commit of their work. */
   onCommit: (message: string) => void;
   onCancel: () => void;
+}
+
+function bodyOf(operation: LocalChangesOperation, t: Translate): string {
+  if (operation.kind === 'pull') return t('workbench.gitLog.localChanges.pullBody');
+  if (operation.kind === 'merge') return t('workbench.gitLog.localChanges.mergeBody', { ref: operation.ref });
+  return t('workbench.gitLog.applyCommit.localChanges.body', { commit: shortSha(operation.sha) });
+}
+
+function okOf(operation: LocalChangesOperation, t: Translate): string {
+  if (operation.kind === 'pull') return t('workbench.gitLog.localChanges.okPull');
+  if (operation.kind === 'merge') return t('workbench.gitLog.localChanges.okMerge');
+  return t(
+    operation.kind === 'revert'
+      ? 'workbench.gitLog.applyCommit.localChanges.okRevert'
+      : 'workbench.gitLog.applyCommit.localChanges.okPick',
+  );
 }
 
 const LocalChangesFirstModal: React.FC<LocalChangesFirstModalProps> = ({ prompt, container, onCommit, onCancel }) => {
@@ -48,11 +69,7 @@ const LocalChangesFirstModal: React.FC<LocalChangesFirstModalProps> = ({ prompt,
     <Modal
       open={prompt !== null}
       title={t('workbench.gitLog.applyCommit.localChanges.title')}
-      okText={t(
-        prompt?.mode === 'revert'
-          ? 'workbench.gitLog.applyCommit.localChanges.okRevert'
-          : 'workbench.gitLog.applyCommit.localChanges.okPick',
-      )}
+      okText={prompt !== null ? okOf(prompt.operation, t) : ''}
       cancelText={t('workbench.gitLog.createBranch.cancel')}
       okButtonProps={{ disabled: trimmed.length === 0 }}
       onOk={() => {
@@ -68,11 +85,7 @@ const LocalChangesFirstModal: React.FC<LocalChangesFirstModalProps> = ({ prompt,
         style={{ display: 'flex', flexDirection: 'column', gap: 12, paddingTop: 4 }}
         data-testid="git-tool-local-changes-first"
       >
-        <span style={{ fontSize: 12.5 }}>
-          {prompt !== null
-            ? t('workbench.gitLog.applyCommit.localChanges.body', { commit: shortSha(prompt.sha) })
-            : ''}
-        </span>
+        <span style={{ fontSize: 12.5 }}>{prompt !== null ? bodyOf(prompt.operation, t) : ''}</span>
         <div
           style={{
             maxHeight: 132,

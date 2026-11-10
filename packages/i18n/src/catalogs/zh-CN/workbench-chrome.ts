@@ -727,6 +727,12 @@ export const workbenchChrome = {
     '提交 {commit} 会更改含有你未提交更改的文件。这些更改会先单独提交。其余未提交的更改保持不变。',
   'workbench.gitLog.applyCommit.localChanges.okPick': '提交并拣选',
   'workbench.gitLog.applyCommit.localChanges.okRevert': '提交并还原',
+  'workbench.gitLog.localChanges.pullBody':
+    '拉取会更改含有你未提交更改的文件。这些更改会先单独提交，因此无论拉取带来什么，历史中都会保留它们。其余未提交的更改保持不变。',
+  'workbench.gitLog.localChanges.mergeBody':
+    '合并 {ref} 会更改含有你未提交更改的文件。这些更改会先单独提交，因此无论合并带来什么，历史中都会保留它们。其余未提交的更改保持不变。',
+  'workbench.gitLog.localChanges.okPull': '提交并拉取',
+  'workbench.gitLog.localChanges.okMerge': '提交并合并',
   'workbench.gitLog.applyCommit.resolvePickTitle': '拣选 {commit}：解决冲突',
   'workbench.gitLog.applyCommit.resolveRevertTitle': '还原 {commit}：解决冲突',
   'workbench.gitLog.applyCommit.resolveStale': '在你解决冲突期间，分支发生了变化。请重新检查冲突。',

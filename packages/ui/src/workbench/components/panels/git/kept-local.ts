@@ -1,9 +1,11 @@
 /**
- * kept-local — the line a finished pull, merge, pick or revert adds
- * when the host kept the local file where both sides changed one of
- * the user's own files (`keptLocal` on the result): the paths by name,
- * the first few and an ellipsis past that. Null when the result names
- * none — the caller raises nothing.
+ * kept-local — the lines a finished pull, merge, pick or revert adds
+ * about the person's own work: the host kept the local file where both
+ * sides changed one of the user's own files (`keptLocal` on the
+ * result), or committed uncommitted work first because the pass wrote
+ * its file (`committedLocal`). The paths by name, the first few and an
+ * ellipsis past that. Null when the result names none — the caller
+ * raises nothing.
  */
 
 import type { Translate } from '@openheaders/ui/context/LocaleContext';
@@ -20,4 +22,9 @@ export function namePaths(paths: readonly string[]): string {
 export function keptLocalNotice(keptLocal: readonly string[] | undefined, t: Translate): string | null {
   if (keptLocal === undefined || keptLocal.length === 0) return null;
   return t('workbench.gitLog.keptLocal', { files: namePaths(keptLocal) });
+}
+
+export function committedLocalNotice(committedLocal: readonly string[] | undefined, t: Translate): string | null {
+  if (committedLocal === undefined || committedLocal.length === 0) return null;
+  return t('workbench.gitLog.applyCommit.localFirst', { files: namePaths(committedLocal) });
 }

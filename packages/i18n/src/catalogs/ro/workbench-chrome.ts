@@ -780,6 +780,12 @@ export const workbenchChrome = {
     'Commitul {commit} modifică fișiere care conțin modificări ale dumneavoastră fără commit. Aceste modificări sunt salvate mai întâi, într-un commit separat. Restul modificărilor fără commit rămân neschimbate.',
   'workbench.gitLog.applyCommit.localChanges.okPick': 'Commit și cherry-pick',
   'workbench.gitLog.applyCommit.localChanges.okRevert': 'Commit și revert',
+  'workbench.gitLog.localChanges.pullBody':
+    'Operația de pull modifică fișiere care conțin modificări ale dumneavoastră fără commit. Aceste modificări sunt salvate mai întâi, într-un commit separat, astfel încât istoricul le păstrează indiferent ce aduce operația de pull. Restul modificărilor fără commit rămân neschimbate.',
+  'workbench.gitLog.localChanges.mergeBody':
+    'Îmbinarea {ref} modifică fișiere care conțin modificări ale dumneavoastră fără commit. Aceste modificări sunt salvate mai întâi, într-un commit separat, astfel încât istoricul le păstrează indiferent ce aduce îmbinarea. Restul modificărilor fără commit rămân neschimbate.',
+  'workbench.gitLog.localChanges.okPull': 'Commit și pull',
+  'workbench.gitLog.localChanges.okMerge': 'Commit și îmbinare',
   'workbench.gitLog.applyCommit.resolvePickTitle': 'Cherry-pick {commit}: rezolvarea conflictelor',
   'workbench.gitLog.applyCommit.resolveRevertTitle': 'Revert {commit}: rezolvarea conflictelor',
   'workbench.gitLog.applyCommit.resolveStale':

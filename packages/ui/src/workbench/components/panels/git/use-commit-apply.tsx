@@ -34,8 +34,8 @@ import { MergeConflictModal } from '@openheaders/ui/shared/merge-editor';
 import { App as AntApp } from 'antd';
 import { type ReactNode, useMemo, useState } from 'react';
 import { type CommitApplyMode, commitApplyOrder, shortSha } from './commit-apply';
-import { keptLocalNotice, namePaths } from './kept-local';
-import LocalChangesFirstModal, { type LocalChangesFirstPrompt } from './LocalChangesFirstModal';
+import { committedLocalNotice, keptLocalNotice, namePaths } from './kept-local';
+import { type CommitLocalWord, useLocalChangesQuestion } from './use-local-changes-question';
 
 export interface CommitApplyActions {
   /** Apply the commits' own changes onto the current branch (list order in, newest first). */
@@ -46,11 +46,6 @@ export interface CommitApplyActions {
   dialogs: ReactNode;
 }
 
-/** The person's word that uncommitted work in the files a pick writes is committed first, under this message. */
-interface CommitLocal {
-  message: string;
-}
-
 type Refusal = Extract<WorkspaceTreeApplyCommitWire, { ok: false }>;
 
 /** One commit waiting on the editor. `settle` hands the set its answer — null when the person cancelled. */
@@ -59,13 +54,8 @@ interface OpenConflict {
   mode: CommitApplyMode;
   resolve: WorkspaceTreeApplyCommitResolveWire;
   /** Given before the editor opened — it rides the call that carries the answers. */
-  commitLocal: CommitLocal | undefined;
+  commitLocal: CommitLocalWord | undefined;
   settle: (result: WorkspaceTreeApplyCommitWire | null) => void;
-}
-
-/** One commit waiting on the uncommitted-work question. `settle` takes the message, or null on Cancel. */
-interface OpenQuestion extends LocalChangesFirstPrompt {
-  settle: (message: string | null) => void;
 }
 
 const messageOf = (err: unknown): string => (err instanceof Error ? err.message : String(err));
@@ -75,7 +65,7 @@ export function useCommitApply(workspaceId: string, container: HTMLElement | nul
   const { notification } = AntApp.useApp();
   const { isDarkMode, monacoTheme } = useUiTheme();
   const [conflict, setConflict] = useState<OpenConflict | null>(null);
-  const [question, setQuestion] = useState<OpenQuestion | null>(null);
+  const question = useLocalChangesQuestion(container);
 
   const refusalTitle = (mode: CommitApplyMode, sha: string, refusal: Refusal): string => {
     const commit = shortSha(sha);
@@ -110,33 +100,18 @@ export function useCommitApply(workspaceId: string, container: HTMLElement | nul
     }
     const kept = keptLocalNotice(result.keptLocal, t);
     if (kept !== null) notification.warning({ title: kept, duration: 0 });
-    if (result.ok && result.committedLocal !== undefined && result.committedLocal.length > 0) {
-      notification.info({
-        title: t('workbench.gitLog.applyCommit.localFirst', { files: namePaths(result.committedLocal) }),
-        duration: 0,
-      });
-    }
+    const first = result.ok ? committedLocalNotice(result.committedLocal, t) : null;
+    if (first !== null) notification.info({ title: first, duration: 0 });
   };
 
   const answerInEditor = (
     sha: string,
     mode: CommitApplyMode,
     resolve: WorkspaceTreeApplyCommitResolveWire,
-    commitLocal: CommitLocal | undefined,
+    commitLocal: CommitLocalWord | undefined,
   ): Promise<WorkspaceTreeApplyCommitWire | null> =>
     new Promise((settle) => {
       setConflict({ sha, mode, resolve, commitLocal, settle });
-    });
-
-  const askLocalChanges = (sha: string, mode: CommitApplyMode, refusal: Refusal): Promise<string | null> =>
-    new Promise((settle) => {
-      setQuestion({
-        sha,
-        mode,
-        files: refusal.localChanges ?? [],
-        suggestedMessage: refusal.suggestedMessage ?? '',
-        settle,
-      });
     });
 
   const run = async (shas: readonly string[], mode: CommitApplyMode): Promise<void> => {
@@ -144,9 +119,9 @@ export function useCommitApply(workspaceId: string, container: HTMLElement | nul
     for (const sha of commitApplyOrder(shas, mode)) {
       try {
         let result = await hostBridge.call('oh.workspaceTree.applyCommit', { workspaceId, sha, mode });
-        let commitLocal: CommitLocal | undefined;
+        let commitLocal: CommitLocalWord | undefined;
         if (!result.ok && result.reason === 'local-changes') {
-          const message = await askLocalChanges(sha, mode, result);
+          const message = await question.ask({ kind: mode, sha }, result);
           if (message === null) break;
           commitLocal = { message };
           result = await hostBridge.call('oh.workspaceTree.applyCommit', { workspaceId, sha, mode, commitLocal });
@@ -229,19 +204,9 @@ export function useCommitApply(workspaceId: string, container: HTMLElement | nul
     });
   }, [conflict]);
 
-  const answerQuestion = (message: string | null): void => {
-    question?.settle(message);
-    setQuestion(null);
-  };
-
   const dialogs = (
     <>
-      <LocalChangesFirstModal
-        prompt={question}
-        container={container}
-        onCommit={answerQuestion}
-        onCancel={() => answerQuestion(null)}
-      />
+      {question.dialog}
       {conflict !== null && session !== null ? (
         <MergeConflictModal
           key={conflict.resolve.token}

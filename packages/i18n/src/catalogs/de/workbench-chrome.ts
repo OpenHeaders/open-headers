@@ -919,6 +919,12 @@ export const workbenchChrome = {
     'Commit {commit} ändert Dateien, die nicht committete Änderungen von dir enthalten. Diese Änderungen werden zuerst in einem eigenen Commit festgehalten. Alles andere, was du nicht committet hast, bleibt unverändert.',
   'workbench.gitLog.applyCommit.localChanges.okPick': 'Committen und Cherry-Pick',
   'workbench.gitLog.applyCommit.localChanges.okRevert': 'Committen und Revert',
+  'workbench.gitLog.localChanges.pullBody':
+    'Der Pull ändert Dateien, die nicht committete Änderungen von dir enthalten. Diese Änderungen werden zuerst in einem eigenen Commit festgehalten, sodass sie in der Historie erhalten bleiben, was auch immer der Pull bringt. Alles andere, was du nicht committet hast, bleibt unverändert.',
+  'workbench.gitLog.localChanges.mergeBody':
+    'Der Merge von {ref} ändert Dateien, die nicht committete Änderungen von dir enthalten. Diese Änderungen werden zuerst in einem eigenen Commit festgehalten, sodass sie in der Historie erhalten bleiben, was auch immer der Merge bringt. Alles andere, was du nicht committet hast, bleibt unverändert.',
+  'workbench.gitLog.localChanges.okPull': 'Committen und Pull',
+  'workbench.gitLog.localChanges.okMerge': 'Committen und Merge',
   'workbench.gitLog.applyCommit.resolvePickTitle': 'Cherry-Pick {commit}: Konflikte lösen',
   'workbench.gitLog.applyCommit.resolveRevertTitle': 'Revert {commit}: Konflikte lösen',
   'workbench.gitLog.applyCommit.resolveStale':

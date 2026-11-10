@@ -4,6 +4,8 @@
  * with Pull / Push and their typed failures), Branches (switch with the
  * dirty prompt, create, merge), Commit (the explicit gesture with its
  * semantic draft) and History (the recent log with per-file history).
+ * A Pull or a Merge about to write a file that holds uncommitted work
+ * asks first, through the same question the tool windows raise.
  * Lives on the Server Admin git card only — against a remote daemon
  * there is no Git tool window; on the desktop the tool windows own
  * these gestures. Without a bound repository the sections give way to
@@ -15,7 +17,8 @@ import { Alert, App as AntApp, Button, Input, Modal, Popconfirm, Select, theme }
 import type React from 'react';
 import { useState } from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
-import { keptLocalNotice } from '../../../components/panels/git/kept-local';
+import { committedLocalNotice, keptLocalNotice } from '../../../components/panels/git/kept-local';
+import { useLocalChangesQuestion } from '../../../components/panels/git/use-local-changes-question';
 import { PaneSection } from '../pane-chrome';
 import GitNeedsRepoNote from './git-needs-repo-note';
 import type { WorkspaceGit } from './use-workspace-git';
@@ -57,10 +60,15 @@ const GitRepositorySection: React.FC<{ git: WorkspaceGit }> = ({ git }) => {
   const t = useT();
   const { message } = AntApp.useApp();
   const { call, workspaceId, gitStatus, refresh, refreshGitStatus } = git;
-  // A file both sides changed kept its local bytes — the pull or merge says which.
-  const warnKeptLocal = (keptLocal: readonly string[] | undefined): void => {
-    const notice = keptLocalNotice(keptLocal, t);
-    if (notice !== null) message.warning(notice, 8);
+  const question = useLocalChangesQuestion(null);
+  // What a pull or a merge did with the person's own work: a file both
+  // sides changed kept its local bytes, uncommitted work in a file the
+  // pass wrote was committed first.
+  const sayLocalWork = (result: { keptLocal?: string[]; committedLocal?: string[] }): void => {
+    const kept = keptLocalNotice(result.keptLocal, t);
+    if (kept !== null) message.warning(kept, 8);
+    const first = committedLocalNotice(result.committedLocal, t);
+    if (first !== null) message.info(first, 8);
   };
   const [commitMessage, setCommitMessage] = useState('');
   const [committing, setCommitting] = useState(false);
@@ -120,12 +128,15 @@ const GitRepositorySection: React.FC<{ git: WorkspaceGit }> = ({ git }) => {
     setPulling(true);
     setPullError(null);
     try {
-      const result = await call('oh.workspaceTree.pull', { workspaceId });
+      const result = await question.withWord({ kind: 'pull' }, (commitLocal) =>
+        call('oh.workspaceTree.pull', { workspaceId, ...(commitLocal !== undefined ? { commitLocal } : {}) }),
+      );
+      if (result === null) return;
       if (result.ok && result.upToDate) {
         message.info(t('workbench.settings.gitPane.git.upToDate'));
       } else if (result.ok) {
         message.success(t('workbench.settings.gitPane.git.pulled', { sha: result.sha.slice(0, 7) }));
-        warnKeptLocal(result.keptLocal);
+        sayLocalWork(result);
       } else {
         setPullError(t('workbench.settings.gitPane.git.pullFailed', { detail: result.detail ?? result.reason }));
       }
@@ -268,13 +279,21 @@ const GitRepositorySection: React.FC<{ git: WorkspaceGit }> = ({ git }) => {
     setMerging(true);
     setBranchError(null);
     try {
-      const result = await call('oh.workspaceTree.mergeBranch', { workspaceId, ref: mergeRef });
+      const ref = mergeRef;
+      const result = await question.withWord({ kind: 'merge', ref }, (commitLocal) =>
+        call('oh.workspaceTree.mergeBranch', {
+          workspaceId,
+          ref,
+          ...(commitLocal !== undefined ? { commitLocal } : {}),
+        }),
+      );
+      if (result === null) return;
       if (result.ok && result.upToDate) {
         message.info(t('workbench.settings.gitPane.git.branch.mergeUpToDate'));
       } else if (result.ok) {
         setMergeRef(null);
         message.success(t('workbench.settings.gitPane.git.branch.merged', { sha: result.sha.slice(0, 7) }));
-        warnKeptLocal(result.keptLocal);
+        sayLocalWork(result);
       } else {
         setBranchError(
           t('workbench.settings.gitPane.git.branch.mergeFailed', { detail: result.detail ?? result.reason }),
@@ -342,6 +361,7 @@ const GitRepositorySection: React.FC<{ git: WorkspaceGit }> = ({ git }) => {
 
   return (
     <>
+      {question.dialog}
       <PaneSection title={t('workbench.settings.gitPane.section.workingTree')}>
         {gitStatus.forcePush !== null && (
           <Alert

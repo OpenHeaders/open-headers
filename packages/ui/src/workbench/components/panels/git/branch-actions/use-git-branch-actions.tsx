@@ -11,6 +11,9 @@
  * Push (the Push window over the current branch), Fetch, Delete
  * with the Restore toast, New Tag at a commit (the dialog), and Manage
  * Remotes (the Git Remotes dialog).
+ * A Pull or a Merge that is about to write a file holding uncommitted
+ * work asks first, through the shared question
+ * (`use-local-changes-question`).
  * Mutations go through the bridge and come back as
  * `workspaceTreeGitStatus` frames — nothing here refetches by hand.
  * The hook owns the dialogs' state and hands back their elements for
@@ -26,7 +29,7 @@ import { App as AntApp, theme } from 'antd';
 import type React from 'react';
 import { useState } from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
-import { keptLocalNotice } from '../kept-local';
+import { committedLocalNotice, keptLocalNotice } from '../kept-local';
 import { isFullCommitSha } from '../log-neighbors';
 import PushCommitsModal from '../push/PushCommitsModal';
 import PushRejectedModal from '../push/PushRejectedModal';
@@ -34,6 +37,7 @@ import CreateBranchModal from '../rail/CreateBranchModal';
 import CreateTagModal from '../rail/CreateTagModal';
 import RemotesModal from '../remotes/RemotesModal';
 import SwitchBranchModal, { type SwitchBranchPrompt, type SwitchDirtyChoice } from '../rail/SwitchBranchModal';
+import { useLocalChangesQuestion } from '../use-local-changes-question';
 
 export interface GitBranchActionsOptions {
   workspaceId: string;
@@ -74,7 +78,7 @@ export interface GitBranchActions {
   /** The Git Remotes dialog. */
   manageRemotes: () => void;
   busy: GitBranchBusy;
-  /** The New Branch, New Tag, dirty-switch, Push and Remotes dialogs — mount once in the caller's tree. */
+  /** The New Branch, New Tag, dirty-switch, Push, Remotes and uncommitted-work dialogs — mount once in the caller's tree. */
   dialogs: React.ReactNode;
 }
 
@@ -102,13 +106,18 @@ export function useGitBranchActions(options: GitBranchActionsOptions): GitBranch
   const [pushRejected, setPushRejected] = useState(false);
   const [remotesOpen, setRemotesOpen] = useState(false);
   const [tagAt, setTagAt] = useState<string | null>(null);
+  const question = useLocalChangesQuestion(container);
 
   const failure = (err: unknown): string => (err instanceof Error ? err.message : String(err));
 
-  // A file both sides changed kept its local bytes — a second toast names it.
-  const warnKeptLocal = (keptLocal: readonly string[] | undefined): void => {
-    const notice = keptLocalNotice(keptLocal, t);
-    if (notice !== null) notification.warning({ title: notice, duration: 8 });
+  // What a pull or a merge did with the person's own work: a file both
+  // sides changed kept its local bytes, uncommitted work in a file the
+  // pass wrote was committed first — each a toast of its own.
+  const sayLocalWork = (result: { keptLocal?: string[]; committedLocal?: string[] }): void => {
+    const kept = keptLocalNotice(result.keptLocal, t);
+    if (kept !== null) notification.warning({ title: kept, duration: 8 });
+    const first = committedLocalNotice(result.committedLocal, t);
+    if (first !== null) notification.info({ title: first, duration: 8 });
   };
 
   // Checkout (§6): the wrapped switch; a dirty tree answers `dirty`
@@ -184,7 +193,14 @@ export function useGitBranchActions(options: GitBranchActionsOptions): GitBranch
     setMergeBusy(true);
     const branch = currentRef ?? 'HEAD';
     try {
-      const result = await hostBridge.call('oh.workspaceTree.mergeBranch', { workspaceId, ref });
+      const result = await question.withWord({ kind: 'merge', ref }, (commitLocal) =>
+        hostBridge.call('oh.workspaceTree.mergeBranch', {
+          workspaceId,
+          ref,
+          ...(commitLocal !== undefined ? { commitLocal } : {}),
+        }),
+      );
+      if (result === null) return;
       if (!result.ok) {
         notification.error({
           title: t('workbench.gitLog.merge.failed', { ref, detail: result.detail ?? result.reason }),
@@ -205,7 +221,7 @@ export function useGitBranchActions(options: GitBranchActionsOptions): GitBranch
           duration: 5,
         });
       }
-      if (result.ok && !result.upToDate) warnKeptLocal(result.keptLocal);
+      if (result.ok && !result.upToDate) sayLocalWork(result);
     } catch (err) {
       notification.error({ title: t('workbench.gitLog.merge.failed', { ref, detail: failure(err) }) });
     } finally {
@@ -308,7 +324,13 @@ export function useGitBranchActions(options: GitBranchActionsOptions): GitBranch
     if (pullBusy) return false;
     setPullBusy(true);
     try {
-      const result = await hostBridge.call('oh.workspaceTree.pull', { workspaceId });
+      const result = await question.withWord({ kind: 'pull' }, (commitLocal) =>
+        hostBridge.call('oh.workspaceTree.pull', {
+          workspaceId,
+          ...(commitLocal !== undefined ? { commitLocal } : {}),
+        }),
+      );
+      if (result === null) return false;
       if (!result.ok) {
         notification.error({
           title:
@@ -332,7 +354,7 @@ export function useGitBranchActions(options: GitBranchActionsOptions): GitBranch
           duration: 5,
         });
       }
-      if (!result.upToDate) warnKeptLocal(result.keptLocal);
+      if (!result.upToDate) sayLocalWork(result);
       return true;
     } catch (err) {
       notification.error({ title: t('workbench.commitTool.menu.pullFailed', { detail: failure(err) }) });
@@ -433,6 +455,7 @@ export function useGitBranchActions(options: GitBranchActionsOptions): GitBranch
         }}
       />
       <RemotesModal workspaceId={workspaceId} open={remotesOpen} container={container} onClose={() => setRemotesOpen(false)} />
+      {question.dialog}
     </>
   );
 

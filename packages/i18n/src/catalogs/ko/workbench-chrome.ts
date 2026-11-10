@@ -748,6 +748,12 @@ export const workbenchChrome = {
     '커밋 {commit}은(는) 커밋하지 않은 변경이 있는 파일을 변경합니다. 이 변경은 먼저 별도의 커밋으로 기록됩니다. 그 밖의 커밋하지 않은 변경은 그대로 유지됩니다.',
   'workbench.gitLog.applyCommit.localChanges.okPick': '커밋 후 체리픽',
   'workbench.gitLog.applyCommit.localChanges.okRevert': '커밋 후 되돌리기',
+  'workbench.gitLog.localChanges.pullBody':
+    '풀은 커밋하지 않은 변경이 있는 파일을 변경합니다. 이 변경은 먼저 별도의 커밋으로 기록되므로 풀의 내용과 관계없이 기록에 남습니다. 그 밖의 커밋하지 않은 변경은 그대로 유지됩니다.',
+  'workbench.gitLog.localChanges.mergeBody':
+    '{ref} 병합은 커밋하지 않은 변경이 있는 파일을 변경합니다. 이 변경은 먼저 별도의 커밋으로 기록되므로 병합의 내용과 관계없이 기록에 남습니다. 그 밖의 커밋하지 않은 변경은 그대로 유지됩니다.',
+  'workbench.gitLog.localChanges.okPull': '커밋 후 풀',
+  'workbench.gitLog.localChanges.okMerge': '커밋 후 병합',
   'workbench.gitLog.applyCommit.resolvePickTitle': '{commit} 체리픽: 충돌 해결',
   'workbench.gitLog.applyCommit.resolveRevertTitle': '{commit} 되돌리기(Revert): 충돌 해결',
   'workbench.gitLog.applyCommit.resolveStale': '충돌을 해결하는 동안 브랜치가 변경되었습니다. 다시 확인하세요.',

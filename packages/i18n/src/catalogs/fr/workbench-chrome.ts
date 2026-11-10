@@ -923,6 +923,12 @@ export const workbenchChrome = {
     'Le commit {commit} modifie des fichiers qui contiennent vos modifications non commitées. Ces modifications sont d’abord enregistrées dans un commit distinct. Le reste de vos modifications non commitées ne change pas.',
   'workbench.gitLog.applyCommit.localChanges.okPick': 'Commiter puis cherry-pick',
   'workbench.gitLog.applyCommit.localChanges.okRevert': 'Commiter puis revert',
+  'workbench.gitLog.localChanges.pullBody':
+    'Le pull modifie des fichiers qui contiennent vos modifications non commitées. Ces modifications sont d’abord enregistrées dans un commit distinct, l’historique les conserve donc quoi qu’apporte le pull. Le reste de vos modifications non commitées ne change pas.',
+  'workbench.gitLog.localChanges.mergeBody':
+    'La fusion de {ref} modifie des fichiers qui contiennent vos modifications non commitées. Ces modifications sont d’abord enregistrées dans un commit distinct, l’historique les conserve donc quoi qu’apporte la fusion. Le reste de vos modifications non commitées ne change pas.',
+  'workbench.gitLog.localChanges.okPull': 'Commiter puis pull',
+  'workbench.gitLog.localChanges.okMerge': 'Commiter puis fusionner',
   'workbench.gitLog.applyCommit.resolvePickTitle': 'Cherry-pick de {commit} : résoudre les conflits',
   'workbench.gitLog.applyCommit.resolveRevertTitle': 'Revert de {commit} : résoudre les conflits',
   'workbench.gitLog.applyCommit.resolveStale':
