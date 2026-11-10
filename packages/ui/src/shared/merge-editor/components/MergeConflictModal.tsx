@@ -593,9 +593,13 @@ const MergeConflictModal = ({
                     isDarkMode={isDarkMode}
                     monacoTheme={monacoTheme}
                     showNonConflicting={showNonConflicting}
+                    singleClickResolve={singleClickResolve}
+                    inlineActionLabels={inlineActionLabels}
+                    sideActionGutters={effectiveSideGutters}
                     compactView={compactView}
                     layout={layout}
                     onHunkStatsChange={setStats}
+                    onPickStateChange={handlePickStateChange}
                     onAnnounce={announce}
                   />
                 ) : (
