@@ -914,6 +914,11 @@ export const workbenchChrome = {
     'Ein Teil der Änderung wurde ausgelassen, weil der Branch nicht dazu passt: {files}.',
   'workbench.gitLog.applyCommit.localFirst':
     'Deine nicht committeten Änderungen an {files} wurden zuerst in einem eigenen Commit festgehalten.',
+  'workbench.gitLog.applyCommit.localChanges.title': 'Deine Änderungen an diesen Dateien zuerst committen?',
+  'workbench.gitLog.applyCommit.localChanges.body':
+    'Commit {commit} ändert Dateien, die nicht committete Änderungen von dir enthalten. Diese Änderungen werden zuerst in einem eigenen Commit festgehalten. Alles andere, was du nicht committet hast, bleibt unverändert.',
+  'workbench.gitLog.applyCommit.localChanges.okPick': 'Committen und Cherry-Pick',
+  'workbench.gitLog.applyCommit.localChanges.okRevert': 'Committen und Revert',
   'workbench.gitLog.applyCommit.resolvePickTitle': 'Cherry-Pick {commit}: Konflikte lösen',
   'workbench.gitLog.applyCommit.resolveRevertTitle': 'Revert {commit}: Konflikte lösen',
   'workbench.gitLog.applyCommit.resolveStale':

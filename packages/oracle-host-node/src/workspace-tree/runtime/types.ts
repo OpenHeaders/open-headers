@@ -209,6 +209,11 @@ export interface ApplyCommitSkip {
   reason: 'missing' | 'parent-missing' | 'not-empty' | 'conflict-unshown';
 }
 
+/** The person's word that uncommitted work in the files a pick writes is committed first, under this message. */
+export interface ApplyCommitLocalWork {
+  message: string;
+}
+
 export type ApplyCommitRpcResult =
   | {
       ok: true;
@@ -230,11 +235,16 @@ export type ApplyCommitRpcResult =
         | 'unsupported-commit'
         | 'foreign-invalid'
         | 'identity-mismatch'
+        | 'local-changes'
         | 'conflicts'
         | 'resolution-invalid'
         | 'empty'
         | 'commit-failed';
       detail?: string;
+      /** `local-changes`: the files the change would write that hold uncommitted work. */
+      localChanges?: string[];
+      /** `local-changes`: the pending draft — the message offered for the commit of that work. */
+      suggestedMessage?: string;
       /** `conflicts`: the documents both sides changed, by their path in the commit, then the user's own files. */
       conflicts?: string[];
       /** `conflicts`: the files to answer and the token naming this reading of them. */
@@ -585,14 +595,18 @@ export interface WorkspaceTreeRuntime {
    * by its FULL sha, onto the current branch as a new one-parent
    * commit. Never `git cherry-pick` / `git revert`: the commit's own
    * change converges through the mutators. A document both sides
-   * changed refuses `conflicts` with nothing written; local
-   * uncommitted work commits first once the change is known to apply.
+   * changed refuses `conflicts` with nothing written. The commit
+   * records the files the change wrote and no other; uncommitted work
+   * in one of those files is committed first, on `commitLocal` — the
+   * pass refuses `local-changes` without it unless commits are
+   * automatic on the binding.
    */
   applyCommit(
     workspaceId: string,
     sha: string,
     mode: 'pick' | 'revert',
     resolution?: ApplyCommitResolution,
+    commitLocal?: ApplyCommitLocalWork,
   ): Promise<ApplyCommitRpcResult>;
   /** Focus returned to the app — throttled background fetch trigger. */
   notifyAppFocus(): void;

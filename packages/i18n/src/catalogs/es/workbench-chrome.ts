@@ -912,6 +912,11 @@ export const workbenchChrome = {
   'workbench.gitLog.applyCommit.leftOut': 'Parte del cambio se omitió porque la rama no coincide con él: {files}.',
   'workbench.gitLog.applyCommit.localFirst':
     'Tus cambios sin commit en {files} se guardaron primero, en un commit propio.',
+  'workbench.gitLog.applyCommit.localChanges.title': '¿Hacer primero commit de tus cambios en estos archivos?',
+  'workbench.gitLog.applyCommit.localChanges.body':
+    'El commit {commit} modifica archivos que tienen cambios tuyos sin commit. Esos cambios se guardan primero, en un commit propio. El resto de tus cambios sin commit queda como está.',
+  'workbench.gitLog.applyCommit.localChanges.okPick': 'Commit y cherry-pick',
+  'workbench.gitLog.applyCommit.localChanges.okRevert': 'Commit y revertir',
   'workbench.gitLog.applyCommit.resolvePickTitle': 'Cherry-pick de {commit}: resolver conflictos',
   'workbench.gitLog.applyCommit.resolveRevertTitle': 'Reversión de {commit}: resolver conflictos',
   'workbench.gitLog.applyCommit.resolveStale': 'La rama cambió mientras resolvías los conflictos. Revísalos de nuevo.',

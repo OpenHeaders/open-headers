@@ -91,6 +91,7 @@ import { appendIssues, heldByGitOperation, refreshIssuesFromDisk, runSweep, sche
 import { enqueueFetch, maybeAutoPush, runFetchAll, runPull, runPush, runResolveForcePush } from './sync';
 import type {
   AdoptWorkspaceTreeRpcResult,
+  ApplyCommitLocalWork,
   ApplyCommitRpcResult,
   BindWorkspaceTreeRpcResult,
   CommitWorkspaceTreeRpcResult,
@@ -136,6 +137,7 @@ import { runAddToVcs, runDeletePaths, runUnaddPaths } from './working-files';
 
 export type {
   AdoptWorkspaceTreeRpcResult,
+  ApplyCommitLocalWork,
   ApplyCommitRpcResult,
   BindWorkspaceTreeRpcResult,
   CommitWorkspaceTreeRpcResult,
@@ -597,6 +599,7 @@ export function createWorkspaceTreeRuntime(options: WorkspaceTreeRuntimeOptions)
       sha: string,
       mode: 'pick' | 'revert',
       resolution?: ApplyCommitResolution,
+      commitLocal?: ApplyCommitLocalWork,
     ): Promise<ApplyCommitRpcResult> {
       const binding = open.get(workspaceId);
       if (!binding) return { ok: false, reason: 'not-bound' };
@@ -604,7 +607,7 @@ export function createWorkspaceTreeRuntime(options: WorkspaceTreeRuntimeOptions)
         binding,
         { ok: false, reason: 'commit-failed', detail: 'pick pass did not run' },
         async () => {
-          const result = await runApplyCommit(ctx, binding, sha, mode, resolution);
+          const result = await runApplyCommit(ctx, binding, sha, mode, resolution, commitLocal);
           if (result.ok) await ctx.maybeAutoPush(binding);
           await ctx.publishGitStatus(binding);
           return result;

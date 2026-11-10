@@ -722,6 +722,11 @@ export const workbenchChrome = {
   'workbench.gitLog.applyCommit.unsupported': '提交 {commit} 没有可应用的单一更改：它是合并提交或首个提交。',
   'workbench.gitLog.applyCommit.leftOut': '由于分支与之不匹配，部分更改已被略过：{files}',
   'workbench.gitLog.applyCommit.localFirst': '{files} 中未提交的更改已先单独提交。',
+  'workbench.gitLog.applyCommit.localChanges.title': '先提交你对这些文件的更改？',
+  'workbench.gitLog.applyCommit.localChanges.body':
+    '提交 {commit} 会更改含有你未提交更改的文件。这些更改会先单独提交。其余未提交的更改保持不变。',
+  'workbench.gitLog.applyCommit.localChanges.okPick': '提交并拣选',
+  'workbench.gitLog.applyCommit.localChanges.okRevert': '提交并还原',
   'workbench.gitLog.applyCommit.resolvePickTitle': '拣选 {commit}：解决冲突',
   'workbench.gitLog.applyCommit.resolveRevertTitle': '还原 {commit}：解决冲突',
   'workbench.gitLog.applyCommit.resolveStale': '在你解决冲突期间，分支发生了变化。请重新检查冲突。',

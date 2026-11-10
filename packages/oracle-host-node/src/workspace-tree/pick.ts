@@ -31,7 +31,11 @@
  *      token the branch has moved away from refuses again, with the
  *      files as they stand now. A file of the user's own (a README, a
  *      script) both sides changed is one more file to answer when it is
- *      text on every side — the working tree is the branch's side;
+ *      text on every side — the working tree is the branch's side.
+ *      Before either, a change about to write a file that holds
+ *      uncommitted work refuses `local-changes`, naming the files
+ *      (`pick-writes.ts`), unless that work may be committed first
+ *      without asking;
  *   4. the delta's batches apply, the tree materializes, and the
  *      commit's changes to the user's own files land by the own-files
  *      rule (`own-files.ts`: an answered file is written as answered; a
@@ -75,6 +79,7 @@ import {
   snapshotWorkingTree,
 } from '../git';
 import { landForeignOwnFiles, readOwnFileConflicts } from './own-files';
+import { plannedDocumentWrites, uncommittedAmong } from './pick-writes';
 import type { IntegrateForeignDeps } from './pull';
 import { hashTreeContent } from './sidecar';
 
@@ -102,6 +107,13 @@ export interface ApplyWorkspaceCommitOptions extends IntegrateForeignDeps {
   mode: ApplyCommitMode;
   /** Answers to the documents both sides changed — absent on the first call. */
   resolution?: ApplyCommitResolution;
+  /**
+   * Uncommitted work in a file the change writes may be committed first
+   * without asking — the person said so for this pass, or commits are
+   * automatic here. Otherwise the pass refuses `local-changes` before
+   * it writes, naming those files.
+   */
+  mayCommitLocalWork: boolean;
   /** Record the uncommitted work in the files the change wrote, as its own commit, before the change's. */
   commitLocalWork: (work: LocalWorkFirst) => Promise<{ ok: true } | { ok: false; detail: string }>;
 }
@@ -132,11 +144,14 @@ export type ApplyWorkspaceCommitResult =
         | 'unsupported-commit'
         | 'foreign-invalid'
         | 'identity-mismatch'
+        | 'local-changes'
         | 'conflicts'
         | 'resolution-invalid'
         | 'empty'
         | 'commit-failed';
       detail?: string;
+      /** `local-changes`: the files the change would write that hold uncommitted work. */
+      localChanges?: string[];
       /** `conflicts`: the documents both sides changed, by their path in the commit, then the user's own files. */
       conflicts?: string[];
       /** `conflicts`: the files to answer — absent when their texts are too large to send. */
@@ -251,6 +266,18 @@ export async function applyWorkspaceCommit(options: ApplyWorkspaceCommitOptions)
   // that they stay kept and named, and the documents alone are asked.
   const ownFiles = fitsOnTheWire([...documentFiles, ...ownConflicts.files]) ? ownConflicts.files : [];
   const files = [...documentFiles, ...ownFiles];
+
+  // Uncommitted work in a file the change is about to write has to be
+  // committed first, or it would ride into the change's commit — that
+  // is asked before anything else, while nothing is written.
+  if (!options.mayCommitLocalWork) {
+    const writes = [...plannedDocumentWrites(snapshot, change.next), ...ownFiles.map((file) => file.path)];
+    const localChanges = await uncommittedAmong(run, rootDir, writes);
+    if (localChanges === null) {
+      return { ok: false, reason: 'commit-failed', detail: 'the working tree could not be read', issues: [] };
+    }
+    if (localChanges.length > 0) return { ok: false, reason: 'local-changes', localChanges, issues: [] };
+  }
 
   // Conflicts no file shows: the branch's document stands, and the answer says so.
   const shown = new Set(documents.filter((document) => document.files.length > 0).map((document) => document.uid));

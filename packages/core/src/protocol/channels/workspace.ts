@@ -506,6 +506,13 @@ export interface WorkspaceRpc {
    * was given — applies the commit with those documents as answered. A
    * token that no longer names the branch's documents refuses
    * `conflicts` again, with the files as they stand now.
+   *
+   * The commit records the files its change wrote and no other.
+   * Uncommitted work in one of THOSE files has to be committed first:
+   * the call refuses `local-changes` before anything is written,
+   * naming the files, and goes on when it is sent again with
+   * `commitLocal` — the message for that commit. A host that commits
+   * automatically does not ask.
    */
   'oh.workspaceTree.applyCommit': {
     req: {
@@ -513,6 +520,7 @@ export interface WorkspaceRpc {
       sha: string;
       mode: 'pick' | 'revert';
       resolution?: WorkspaceTreeApplyCommitResolutionWire;
+      commitLocal?: { message: string };
     };
     res: WorkspaceTreeApplyCommitWire;
   };
@@ -1021,12 +1029,17 @@ export type WorkspaceTreeApplyCommitWire =
         | 'unsupported-commit'
         | 'foreign-invalid'
         | 'identity-mismatch'
+        | 'local-changes'
         | 'conflicts'
         | 'resolution-invalid'
         | 'empty'
         | 'commit-failed';
       /** `unsupported-commit`: `merge` or `root`. `resolution-invalid`: why the answer was not taken. */
       detail?: string;
+      /** `local-changes`: the files the change would write that hold uncommitted work. */
+      localChanges?: string[];
+      /** `local-changes`: the message offered for the commit of that work. */
+      suggestedMessage?: string;
       /** `conflicts`: the documents both sides changed, by their path in the commit, then the user's own files. */
       conflicts?: string[];
       /** `conflicts`: the files to answer — absent when there are too many bytes to send. */

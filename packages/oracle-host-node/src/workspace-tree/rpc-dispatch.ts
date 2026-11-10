@@ -14,7 +14,7 @@
  */
 
 import type { ApplyCommitResolution } from './pick';
-import type { WorkspaceTreeCommitCadence, WorkspaceTreeRuntime } from './runtime';
+import type { ApplyCommitLocalWork, WorkspaceTreeCommitCadence, WorkspaceTreeRuntime } from './runtime';
 
 const COMMIT_CADENCE_VALUES: WorkspaceTreeCommitCadence[] = [
   'off',
@@ -53,6 +53,18 @@ function readApplyCommitResolution(value: unknown): ApplyCommitResolution | unde
     answers.push({ path: entry.path, content: entry.content });
   }
   return { token, files: answers };
+}
+
+/**
+ * The `commitLocal` of an applyCommit call — the person's word that
+ * uncommitted work in the files the pick writes is committed first:
+ * undefined when the caller sent none, null when it carries no message.
+ */
+function readApplyCommitLocalWork(value: unknown): ApplyCommitLocalWork | undefined | null {
+  if (value === undefined) return undefined;
+  if (!isRecord(value) || typeof value.message !== 'string') return null;
+  const message = value.message.trim();
+  return message.length === 0 ? null : { message };
 }
 
 export function ownsWorkspaceTreeRpc(type: unknown): type is string {
@@ -244,7 +256,9 @@ export async function dispatchWorkspaceTreeRpc(
     if (!workspaceId || !sha || mode === null || runtime === null) return { ok: false, reason: 'not-bound' };
     const resolution = readApplyCommitResolution(message.resolution);
     if (resolution === null) return { ok: false, reason: 'resolution-invalid', detail: 'malformed resolution' };
-    return await runtime.applyCommit(workspaceId, sha, mode, resolution);
+    const commitLocal = readApplyCommitLocalWork(message.commitLocal);
+    if (commitLocal === null) return { ok: false, reason: 'commit-failed', detail: 'empty commit message' };
+    return await runtime.applyCommit(workspaceId, sha, mode, resolution, commitLocal);
   }
   // Phase 7 history view (§9 / the data-plane topologies design §7.1): pure
   // repo reads — the workspace timeline and the per-path blame answer.

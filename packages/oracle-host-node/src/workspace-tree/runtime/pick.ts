@@ -17,7 +17,7 @@ import {
 import { type ApplyCommitMode, type ApplyCommitResolution, applyWorkspaceCommit } from '../pick';
 import { syntheticIdentity } from './commit';
 import { type OpenBinding, type RuntimeCtx, SCOPE, TREE_SURFACE_ID } from './core';
-import type { ApplyCommitRpcResult } from './types';
+import type { ApplyCommitLocalWork, ApplyCommitRpcResult } from './types';
 
 export async function runApplyCommit(
   ctx: RuntimeCtx,
@@ -25,6 +25,7 @@ export async function runApplyCommit(
   sha: string,
   mode: ApplyCommitMode,
   resolution?: ApplyCommitResolution,
+  commitLocal?: ApplyCommitLocalWork,
 ): Promise<ApplyCommitRpcResult> {
   const { rootDir } = binding.record;
   const availability = await ctx.ensureGitAvailability(rootDir);
@@ -49,13 +50,17 @@ export async function runApplyCommit(
         .map((entry) => ({ itemId: entry.itemId, orderKey: entry.key, item: entry.item })),
     apply: (batches) => ctx.applyAll(binding.service, batches),
     flush: () => binding.materializer.flush(),
+    // Asked of the person unless commits are automatic on this binding —
+    // then the work would have been committed without a word anyway.
+    mayCommitLocalWork: commitLocal !== undefined || (binding.record.commitCadence ?? 'off') !== 'off',
     // The operator's gesture, like a commit from the Commit window: their
-    // identity, the pending draft, those files alone.
+    // identity, their message (the pending draft when they were not
+    // asked), those files alone.
     commitLocalWork: async ({ tree, paths }) => {
       const first = await commitWorkspaceTree({
         run: ctx.gitRun,
         rootDir,
-        message: composeCommitMessage(binding.intents),
+        message: commitLocal?.message ?? composeCommitMessage(binding.intents),
         identityEnv: identity.env,
         bypassHooks: binding.record.bypassHooks === true,
         fromTree: tree,
@@ -72,6 +77,9 @@ export async function runApplyCommit(
       ok: false,
       reason: result.reason,
       ...(result.detail !== undefined ? { detail: result.detail } : {}),
+      ...(result.localChanges !== undefined
+        ? { localChanges: result.localChanges, suggestedMessage: composeCommitMessage(binding.intents) }
+        : {}),
       ...(result.conflicts !== undefined ? { conflicts: result.conflicts } : {}),
       ...(result.resolve !== undefined ? { resolve: result.resolve } : {}),
       ...(result.tooLarge !== undefined ? { tooLarge: result.tooLarge } : {}),

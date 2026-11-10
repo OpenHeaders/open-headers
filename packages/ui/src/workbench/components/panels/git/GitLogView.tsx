@@ -112,9 +112,10 @@ const GitLogView: React.FC<GitLogViewProps> = ({
   // Collapse Linear Branches), by fragment key — a view state, dropped
   // with the tab; a stale entry is ignored.
   const [collapsed, setCollapsed] = useState<ReadonlyMap<string, LogFragment>>(() => new Map());
+  const container = rootRef.current?.closest<HTMLElement>('.git-tool-panel') ?? null;
   const fileDiff = useFileDiff(workspaceId);
   const commitPatch = useCommitPatch(workspaceId);
-  const commitApply = useCommitApply(workspaceId);
+  const commitApply = useCommitApply(workspaceId, container);
   const jumpToSource = useJumpToSource(workspaceId);
 
   const subscribeViewPrefs = useCallback(
@@ -360,8 +361,6 @@ const GitLogView: React.FC<GitLogViewProps> = ({
       noMerges: false,
       firstParent: false,
     });
-
-  const container = rootRef.current?.closest<HTMLElement>('.git-tool-panel') ?? null;
 
   // A deleted branch leaves the rail selection and the scope that named it.
   const actions = useGitBranchActions({

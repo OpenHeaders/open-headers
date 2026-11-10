@@ -918,6 +918,11 @@ export const workbenchChrome = {
     'Une partie de la modification a été laissée de côté, car la branche ne lui correspond pas : {files}.',
   'workbench.gitLog.applyCommit.localFirst':
     'Vos modifications non commitées dans {files} ont d’abord été enregistrées dans un commit distinct.',
+  'workbench.gitLog.applyCommit.localChanges.title': 'Commiter d’abord vos modifications dans ces fichiers ?',
+  'workbench.gitLog.applyCommit.localChanges.body':
+    'Le commit {commit} modifie des fichiers qui contiennent vos modifications non commitées. Ces modifications sont d’abord enregistrées dans un commit distinct. Le reste de vos modifications non commitées ne change pas.',
+  'workbench.gitLog.applyCommit.localChanges.okPick': 'Commiter puis cherry-pick',
+  'workbench.gitLog.applyCommit.localChanges.okRevert': 'Commiter puis revert',
   'workbench.gitLog.applyCommit.resolvePickTitle': 'Cherry-pick de {commit} : résoudre les conflits',
   'workbench.gitLog.applyCommit.resolveRevertTitle': 'Revert de {commit} : résoudre les conflits',
   'workbench.gitLog.applyCommit.resolveStale':

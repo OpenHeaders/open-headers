@@ -115,6 +115,8 @@ let hlcMs: number;
 let run: GitRunner;
 let materializer: WorkspaceTreeMaterializer;
 let initialSha: string;
+/** The person's word (or an automatic cadence) that uncommitted work in a written file is committed first. */
+let mayCommitLocalWork: boolean;
 
 const nextCtx = (): MutatorContext => {
   hlcMs += 1_000;
@@ -195,6 +197,7 @@ function apply(
       onApply?.();
     },
     flush: () => materializer.flush(),
+    mayCommitLocalWork,
     commitLocalWork: async ({ tree, paths }) => {
       trace.order.push('local');
       const result = await commitWorkspaceTree({
@@ -222,6 +225,7 @@ beforeEach(async () => {
   state = emptyState();
   state.rules = [makeRule()];
   hlcMs = 1_000;
+  mayCommitLocalWork = true;
   run = isolated(createGitExec());
 
   await fs.mkdir(local, { recursive: true });
@@ -418,6 +422,83 @@ describe('applyWorkspaceCommit — cherry-pick', () => {
     expect(await apply(picked, 'pick', t)).toEqual({ ok: false, reason: 'empty', issues: [] });
     expect(t.applied).toEqual([]);
     expect(await git(local, 'rev-parse', 'HEAD')).toBe(head);
+  });
+});
+
+describe('applyWorkspaceCommit — uncommitted work in a file the change writes is asked about first', () => {
+  beforeEach(() => {
+    mayCommitLocalWork = false;
+  });
+
+  it('refuses local-changes naming the file, with nothing written; the word given, the pass goes on', async () => {
+    await peerReplace(RULE_FILE, 'enabled: true', 'enabled: false');
+    const picked = await peerCommit('Disable the probe rule');
+    state = { ...state, rules: [makeRule({ name: 'Local name' })] };
+    await materializer.flush();
+    await write(local, 'NOTES.md', 'uncommitted\n');
+    const porcelain = await raw(local, 'status', '--porcelain').then((r) => r.stdout);
+
+    const t = trace();
+    expect(await apply(picked, 'pick', t)).toEqual({
+      ok: false,
+      reason: 'local-changes',
+      localChanges: [RULE_FILE],
+      issues: [],
+    });
+    expect(t.order).toEqual([]);
+    expect(await git(local, 'rev-parse', 'HEAD')).toBe(initialSha);
+    expect(await raw(local, 'status', '--porcelain').then((r) => r.stdout)).toBe(porcelain);
+
+    mayCommitLocalWork = true;
+    const result = await apply(picked, 'pick', trace(), () => {
+      state = { ...state, rules: [makeRule({ name: 'Local name', enabled: false })] };
+    });
+    expect(result).toMatchObject({ ok: true, committedLocal: [RULE_FILE] });
+  });
+
+  it('uncommitted work in files the change does not write raises no question', async () => {
+    await write(local, 'README.md', 'readme\n');
+    await localCommit('Add a readme', {});
+    await peerReplace(RULE_FILE, 'enabled: true', 'enabled: false');
+    const picked = await peerCommit('Disable the probe rule');
+    await write(local, 'README.md', 'readme, edited\n');
+    await write(local, 'NOTES.md', 'uncommitted\n');
+
+    const result = await apply(picked, 'pick', trace(), () => {
+      state = { ...state, rules: [makeRule({ enabled: false })] };
+    });
+    expect(result.ok).toBe(true);
+    expect(result.ok && result.committedLocal).toBeUndefined();
+  });
+
+  it('the question comes before the conflict — a document both sides changed, one side uncommitted', async () => {
+    await peerReplace(RULE_FILE, 'name: Block probes', 'name: Picked name');
+    const picked = await peerCommit('Rename on the peer');
+    state = { ...state, rules: [makeRule({ name: 'Local name' })] };
+    await materializer.flush();
+
+    expect(await apply(picked, 'pick', trace())).toMatchObject({
+      ok: false,
+      reason: 'local-changes',
+      localChanges: [RULE_FILE],
+    });
+    mayCommitLocalWork = true;
+    expect(await apply(picked, 'pick', trace())).toMatchObject({ ok: false, reason: 'conflicts' });
+  });
+
+  it('an own text file the commit changed and the person edited without committing is named too', async () => {
+    await write(local, 'NOTES.md', 'shared notes\n');
+    await localCommit('Add notes', {});
+    await git(peer, 'pull', '--quiet', local, 'main');
+    await write(peer, 'NOTES.md', 'peer notes\n');
+    const picked = await peerCommit('Peer notes');
+    await write(local, 'NOTES.md', 'local notes, not committed\n');
+
+    expect(await apply(picked, 'pick', trace())).toMatchObject({
+      ok: false,
+      reason: 'local-changes',
+      localChanges: ['NOTES.md'],
+    });
   });
 });
 

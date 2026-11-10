@@ -766,6 +766,11 @@ export const workbenchChrome = {
   'workbench.gitLog.applyCommit.leftOut': 'Часть изменения пропущена, потому что ветка ему не соответствует: {files}.',
   'workbench.gitLog.applyCommit.localFirst':
     'Ваши незафиксированные изменения в {files} сначала сохранены отдельным коммитом.',
+  'workbench.gitLog.applyCommit.localChanges.title': 'Сначала зафиксировать ваши изменения в этих файлах?',
+  'workbench.gitLog.applyCommit.localChanges.body':
+    'Коммит {commit} меняет файлы, в которых есть ваши незафиксированные изменения. Эти изменения сначала сохраняются отдельным коммитом. Остальные незафиксированные изменения остаются как есть.',
+  'workbench.gitLog.applyCommit.localChanges.okPick': 'Коммит и cherry-pick',
+  'workbench.gitLog.applyCommit.localChanges.okRevert': 'Коммит и revert',
   'workbench.gitLog.applyCommit.resolvePickTitle': 'Cherry-pick {commit}: разрешение конфликтов',
   'workbench.gitLog.applyCommit.resolveRevertTitle': 'Revert {commit}: разрешение конфликтов',
   'workbench.gitLog.applyCommit.resolveStale': 'Ветка изменилась, пока вы разрешали конфликты. Проверьте их ещё раз.',

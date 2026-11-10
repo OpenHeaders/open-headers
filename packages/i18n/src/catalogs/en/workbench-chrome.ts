@@ -735,6 +735,11 @@ export const workbenchChrome = {
     'Part of the change was left out because the branch does not match it: {files}.',
   'workbench.gitLog.applyCommit.localFirst':
     'Your uncommitted changes to {files} were committed first, in a commit of their own.',
+  'workbench.gitLog.applyCommit.localChanges.title': 'Commit your changes to these files first?',
+  'workbench.gitLog.applyCommit.localChanges.body':
+    'Commit {commit} changes files that hold uncommitted changes of yours. Those changes are committed first, in a commit of their own. Everything else you have not committed stays as it is.',
+  'workbench.gitLog.applyCommit.localChanges.okPick': 'Commit and Cherry-Pick',
+  'workbench.gitLog.applyCommit.localChanges.okRevert': 'Commit and Revert',
   'workbench.gitLog.applyCommit.resolvePickTitle': 'Cherry-Pick {commit}: Resolve Conflicts',
   'workbench.gitLog.applyCommit.resolveRevertTitle': 'Revert {commit}: Resolve Conflicts',
   'workbench.gitLog.applyCommit.resolveStale':

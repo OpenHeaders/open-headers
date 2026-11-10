@@ -10,6 +10,9 @@
  * refusal that carries files opens the shared merge editor, the same
  * verb goes again with the answers and the token, the set waits and
  * resumes, Cancel ends it, and a stale token reopens on the new files.
+ * The last describe pins the uncommitted-work question: the refusal
+ * that names files raises the dialog, the word goes back with the
+ * message — through the editor's call too — and Cancel sends nothing.
  */
 
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
@@ -78,6 +81,15 @@ const MIDDLE = 'b'.repeat(40);
 const OLDEST = 'c'.repeat(40);
 
 beforeAll(() => {
+  // jsdom has none; the question's message field sizes itself through one.
+  vi.stubGlobal(
+    'ResizeObserver',
+    class {
+      observe(): void {}
+      unobserve(): void {}
+      disconnect(): void {}
+    },
+  );
   Object.defineProperty(window, 'matchMedia', {
     writable: true,
     value: (query: string) => ({
@@ -102,7 +114,7 @@ beforeEach(() => {
 function mount(): CommitApplyActions {
   let actions: CommitApplyActions | null = null;
   const Probe: React.FC = () => {
-    actions = useCommitApply('ws-1');
+    actions = useCommitApply('ws-1', null);
     return <>{actions.dialogs}</>;
   };
   render(
@@ -380,5 +392,101 @@ describe('useCommitApply — a conflict answered in the merge editor', () => {
     await waitFor(() => expect(screen.getByText('Cherry-pick finished')).toBeTruthy());
     expect(mockCall.mock.calls[3]).toEqual(answered('tok-2', NEWEST));
     expect(screen.queryByTestId('merge-modal')).toBeNull();
+  });
+});
+
+describe('useCommitApply — uncommitted work in a file the commit writes', () => {
+  const REQUEST = 'requests/status-probe/request.yaml';
+  const localChanges = {
+    ok: false,
+    reason: 'local-changes',
+    localChanges: [REQUEST],
+    suggestedMessage: 'Update 1 request',
+  };
+  const first = ['oh.workspaceTree.applyCommit', { workspaceId: 'ws-1', sha: NEWEST, mode: 'pick' }];
+
+  it('asks first, naming the files under the pending draft, and sends the word with the message', async () => {
+    mockCall.mockResolvedValueOnce(localChanges).mockResolvedValueOnce({
+      ok: true,
+      sha: 'd'.repeat(40),
+      committedLocal: [REQUEST],
+    });
+    const actions = mount();
+    act(() => actions.cherryPick([NEWEST]));
+
+    await waitFor(() => expect(screen.getByText('Commit your changes to these files first?')).toBeTruthy());
+    expect(screen.getByTestId('git-tool-local-changes-first-files').textContent).toBe(REQUEST);
+    const message = screen.getByTestId('git-tool-local-changes-first-message') as HTMLTextAreaElement;
+    expect(message.value).toBe('Update 1 request');
+    expect(mockCall).toHaveBeenCalledTimes(1);
+
+    fireEvent.change(message, { target: { value: 'Probe header, as I had it' } });
+    fireEvent.click(screen.getByText('Commit and Cherry-Pick'));
+    await waitFor(() => expect(screen.getByText('Cherry-pick finished')).toBeTruthy());
+    expect(mockCall.mock.calls).toEqual([
+      first,
+      [
+        'oh.workspaceTree.applyCommit',
+        { workspaceId: 'ws-1', sha: NEWEST, mode: 'pick', commitLocal: { message: 'Probe header, as I had it' } },
+      ],
+    ]);
+  });
+
+  it('a revert names its own verb on the button', async () => {
+    mockCall.mockResolvedValueOnce(localChanges);
+    const actions = mount();
+    act(() => actions.revert([NEWEST]));
+    await waitFor(() => expect(screen.getByText('Commit and Revert')).toBeTruthy());
+  });
+
+  it('Cancel sends nothing more and says nothing about the commit', async () => {
+    mockCall.mockResolvedValueOnce(localChanges);
+    const actions = mount();
+    act(() => actions.cherryPick([NEWEST, MIDDLE]));
+    await waitFor(() => expect(screen.getByText('Commit your changes to these files first?')).toBeTruthy());
+
+    fireEvent.click(screen.getByText('Cancel'));
+    // The set ends here: the second commit of the selection is never sent.
+    await act(async () => {});
+    expect(mockCall).toHaveBeenCalledTimes(1);
+    expect(screen.queryByText('Cherry-pick finished')).toBeNull();
+    expect(screen.queryByText(/Could not cherry-pick/)).toBeNull();
+  });
+
+  it('the word rides the call that carries the editor’s answers', async () => {
+    const FILE = { path: REQUEST, base: 'value: a\n', theirs: 'value: picked\n', mine: 'value: local\n' };
+    mockCall
+      .mockResolvedValueOnce(localChanges)
+      .mockResolvedValueOnce({
+        ok: false,
+        reason: 'conflicts',
+        conflicts: [REQUEST],
+        resolve: { token: 'tok-1', files: [FILE] },
+      })
+      .mockResolvedValueOnce({ ok: true, sha: 'd'.repeat(40), committedLocal: [REQUEST] });
+    const actions = mount();
+    act(() => actions.cherryPick([NEWEST]));
+
+    await waitFor(() => expect(screen.getByText('Commit and Cherry-Pick')).toBeTruthy());
+    fireEvent.click(screen.getByText('Commit and Cherry-Pick'));
+    await waitFor(() => expect(screen.getByTestId('merge-modal')).toBeTruthy());
+    fireEvent.click(screen.getByTestId('merge-apply'));
+    await waitFor(() => expect(screen.getByText('Cherry-pick finished')).toBeTruthy());
+
+    const commitLocal = { message: 'Update 1 request' };
+    expect(mockCall.mock.calls).toEqual([
+      first,
+      ['oh.workspaceTree.applyCommit', { workspaceId: 'ws-1', sha: NEWEST, mode: 'pick', commitLocal }],
+      [
+        'oh.workspaceTree.applyCommit',
+        {
+          workspaceId: 'ws-1',
+          sha: NEWEST,
+          mode: 'pick',
+          resolution: { token: 'tok-1', files: [{ path: REQUEST, content: FILE.theirs }] },
+          commitLocal,
+        },
+      ],
+    ]);
   });
 });

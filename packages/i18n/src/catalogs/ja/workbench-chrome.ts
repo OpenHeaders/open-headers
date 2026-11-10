@@ -745,6 +745,11 @@ export const workbenchChrome = {
     'コミット {commit} には適用できる単一の変更がありません：マージまたは最初のコミットです。',
   'workbench.gitLog.applyCommit.leftOut': 'ブランチと一致しないため、変更の一部は適用されませんでした：{files}',
   'workbench.gitLog.applyCommit.localFirst': '{files} の未コミットの変更は、先に別のコミットとして記録しました。',
+  'workbench.gitLog.applyCommit.localChanges.title': '先にこれらのファイルの変更をコミットしますか？',
+  'workbench.gitLog.applyCommit.localChanges.body':
+    'コミット {commit} は、未コミットの変更があるファイルを変更します。これらの変更は先に別のコミットとして記録されます。それ以外の未コミットの変更はそのまま残ります。',
+  'workbench.gitLog.applyCommit.localChanges.okPick': 'コミットしてチェリーピック',
+  'workbench.gitLog.applyCommit.localChanges.okRevert': 'コミットしてリバート',
   'workbench.gitLog.applyCommit.resolvePickTitle': '{commit} のチェリーピック：競合を解決',
   'workbench.gitLog.applyCommit.resolveRevertTitle': '{commit} のリバート：競合を解決',
   'workbench.gitLog.applyCommit.resolveStale': '解決中にブランチが変更されました。競合をもう一度確認してください。',

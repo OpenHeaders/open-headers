@@ -775,6 +775,11 @@ export const workbenchChrome = {
     'O parte din modificare a fost omisă, deoarece ramura nu se potrivește cu ea: {files}.',
   'workbench.gitLog.applyCommit.localFirst':
     'Modificările dumneavoastră fără commit din {files} au fost salvate mai întâi, într-un commit separat.',
+  'workbench.gitLog.applyCommit.localChanges.title': 'Faceți mai întâi commit pentru modificările din aceste fișiere?',
+  'workbench.gitLog.applyCommit.localChanges.body':
+    'Commitul {commit} modifică fișiere care conțin modificări ale dumneavoastră fără commit. Aceste modificări sunt salvate mai întâi, într-un commit separat. Restul modificărilor fără commit rămân neschimbate.',
+  'workbench.gitLog.applyCommit.localChanges.okPick': 'Commit și cherry-pick',
+  'workbench.gitLog.applyCommit.localChanges.okRevert': 'Commit și revert',
   'workbench.gitLog.applyCommit.resolvePickTitle': 'Cherry-pick {commit}: rezolvarea conflictelor',
   'workbench.gitLog.applyCommit.resolveRevertTitle': 'Revert {commit}: rezolvarea conflictelor',
   'workbench.gitLog.applyCommit.resolveStale':
