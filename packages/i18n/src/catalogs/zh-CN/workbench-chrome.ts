@@ -721,6 +721,7 @@ export const workbenchChrome = {
     '分支和提交 {commit} 都更改了 {files}，且文件过大，无法在此解决。未应用任何更改。',
   'workbench.gitLog.applyCommit.unsupported': '提交 {commit} 没有可应用的单一更改：它是合并提交或首个提交。',
   'workbench.gitLog.applyCommit.leftOut': '由于分支与之不匹配，部分更改已被略过：{files}',
+  'workbench.gitLog.applyCommit.localFirst': '{files} 中未提交的更改已先单独提交。',
   'workbench.gitLog.applyCommit.resolvePickTitle': '拣选 {commit}：解决冲突',
   'workbench.gitLog.applyCommit.resolveRevertTitle': '还原 {commit}：解决冲突',
   'workbench.gitLog.applyCommit.resolveStale': '在你解决冲突期间，分支发生了变化。请重新检查冲突。',

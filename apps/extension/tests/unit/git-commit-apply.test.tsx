@@ -5,7 +5,8 @@
  * host verb per commit with the FULL sha, the stop at the first commit
  * the host does not record, and what each answer says — the finished
  * toast, the documents both sides changed, what was left out, the
- * files the branch kept. The conflict describe pins the editor leg: a
+ * files the branch kept, the uncommitted work that was committed
+ * first. The conflict describe pins the editor leg: a
  * refusal that carries files opens the shared merge editor, the same
  * verb goes again with the answers and the token, the set waits and
  * resumes, Cancel ends it, and a stale token reopens on the new files.
@@ -215,6 +216,29 @@ describe('useCommitApply', () => {
     expect(
       screen.getByText('Both sides changed README.md. Your version was kept and the incoming change was not taken.'),
     ).toBeTruthy();
+  });
+
+  it('names the files whose uncommitted work was committed first; a pick that committed none says nothing of it', async () => {
+    mockCall.mockResolvedValue({
+      ok: true,
+      sha: 'd'.repeat(40),
+      committedLocal: ['requests/status-probe/request.yaml'],
+    });
+    const actions = mount();
+    act(() => actions.cherryPick([NEWEST]));
+    await waitFor(() => expect(screen.getByText('Cherry-pick finished')).toBeTruthy());
+    expect(
+      screen.getByText(
+        'Your uncommitted changes to requests/status-probe/request.yaml were committed first, in a commit of their own.',
+      ),
+    ).toBeTruthy();
+
+    cleanup();
+    mockCall.mockResolvedValue({ ok: true, sha: 'd'.repeat(40) });
+    const again = mount();
+    act(() => again.cherryPick([NEWEST]));
+    await waitFor(() => expect(screen.getByText('Cherry-pick finished')).toBeTruthy());
+    expect(screen.queryByText(/were committed first/)).toBeNull();
   });
 
   it('any other refusal names the commit and the host reason', async () => {

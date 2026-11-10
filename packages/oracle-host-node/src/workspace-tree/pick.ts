@@ -32,15 +32,20 @@
  *      files as they stand now. A file of the user's own (a README, a
  *      script) both sides changed is one more file to answer when it is
  *      text on every side — the working tree is the branch's side;
- *   4. local uncommitted work commits first under its own draft (the
- *      pull's posture), so the pick's commit carries the pick alone;
- *   5. the delta's batches apply, the tree materializes, and the
+ *   4. the delta's batches apply, the tree materializes, and the
  *      commit's changes to the user's own files land by the own-files
  *      rule (`own-files.ts`: an answered file is written as answered; a
  *      file the branch also changed that could not be shown keeps its
- *      local bytes and is named);
- *   6. one temp-index commit records it, authored by the operator.
- *      A pick that changes nothing answers `empty`.
+ *      local bytes and is named). The working tree is read as a tree
+ *      object before and after — the two differ in exactly the files
+ *      the pass wrote;
+ *   5. one temp-index commit records those files and no other, authored
+ *      by the operator. Uncommitted work elsewhere — a modified file
+ *      the change did not touch, an unversioned file — is not the
+ *      pass's to commit and stays as it was. Uncommitted work IN a file
+ *      the pass wrote is committed first, from the first reading, so
+ *      the pick's commit still carries the pick alone.
+ *      A pick that writes nothing answers `empty`.
  */
 
 import { synthesizeWorkspaceTreeDelta } from '@openheaders/core/sync-builders/mutations/workspace-tree-delta';
@@ -67,6 +72,7 @@ import {
   readCommitMeta,
   readCommitTreeFiles,
   resolveRefSha,
+  snapshotWorkingTree,
 } from '../git';
 import { landForeignOwnFiles, readOwnFileConflicts } from './own-files';
 import type { IntegrateForeignDeps } from './pull';
@@ -96,8 +102,15 @@ export interface ApplyWorkspaceCommitOptions extends IntegrateForeignDeps {
   mode: ApplyCommitMode;
   /** Answers to the documents both sides changed — absent on the first call. */
   resolution?: ApplyCommitResolution;
-  /** Commit the local uncommitted work under its own draft — called once the change is known to apply. */
-  commitLocalWork: () => Promise<{ ok: true } | { ok: false; detail: string }>;
+  /** Record the uncommitted work in the files the change wrote, as its own commit, before the change's. */
+  commitLocalWork: (work: LocalWorkFirst) => Promise<{ ok: true } | { ok: false; detail: string }>;
+}
+
+/** Uncommitted work the change's commit would otherwise carry: `paths` as `tree` holds them. */
+export interface LocalWorkFirst {
+  /** The working tree as it stood before the pass wrote (`snapshotWorkingTree`). */
+  tree: string;
+  paths: string[];
 }
 
 export type ApplyWorkspaceCommitResult =
@@ -108,6 +121,8 @@ export type ApplyWorkspaceCommitResult =
       skipped: CommitChangeSkip[];
       /** The user's own files both sides changed — the local file stood. */
       keptLocal?: string[];
+      /** Files the change wrote that held uncommitted work — that work was committed first. */
+      committedLocal?: string[];
     }
   | {
       ok: false;
@@ -299,8 +314,15 @@ export async function applyWorkspaceCommit(options: ApplyWorkspaceCommitOptions)
 
   const skipped = [...change.skipped, ...unshown];
 
-  const local = await options.commitLocalWork();
-  if (!local.ok) return { ok: false, reason: 'commit-failed', detail: local.detail, issues: [] };
+  // From here the pass writes. What the engine still has pending is
+  // local work, not the change's: it reaches the disk first, and the
+  // working tree is read as it stands before and after the pass — the
+  // two readings differ in the change's own writes and nothing else.
+  await options.flush();
+  const before = await snapshotWorkingTree(run, rootDir);
+  if (before === null) {
+    return { ok: false, reason: 'commit-failed', detail: 'the working tree could not be read', issues: [] };
+  }
 
   const batches = synthesizeWorkspaceTreeDelta({
     prev: snapshot,
@@ -312,11 +334,35 @@ export async function applyWorkspaceCommit(options: ApplyWorkspaceCommitOptions)
   if (batches.length > 0) await options.apply(batches);
   await options.flush();
 
-  // The commit below stages the working tree — the change's own files
-  // must be on disk before it does.
+  // The second reading is taken once the change's own files are on disk too.
   const own = await landForeignOwnFiles(run, rootDir, ownRefs, ownAnswers);
   if (!own.ok) return { ok: false, reason: 'commit-failed', detail: own.detail, issues: [] };
   const withKept = own.kept.length > 0 ? { keptLocal: own.kept } : {};
+
+  const after = await snapshotWorkingTree(run, rootDir);
+  const wrote = after === null ? null : await diffForeignPaths(run, rootDir, before, after);
+  const uncommitted = await diffForeignPaths(run, rootDir, 'HEAD', before);
+  if (after === null || wrote === null || uncommitted === null) {
+    return { ok: false, reason: 'commit-failed', detail: 'the working tree could not be read', issues: [] };
+  }
+  const paths = [...wrote.changed, ...wrote.removed].sort();
+  const empty: ApplyWorkspaceCommitResult = {
+    ok: false,
+    reason: 'empty',
+    ...(skipped.length > 0 ? { skipped } : {}),
+    ...withKept,
+    issues: [],
+  };
+  if (paths.length === 0) return empty;
+
+  // Uncommitted work in a file the change wrote would ride into the
+  // change's commit — it is recorded first, as the file stood before
+  // the pass. Work in any other file is not the pass's to commit.
+  const shared = paths.filter((filePath) => uncommitted.changed.has(filePath) || uncommitted.removed.has(filePath));
+  if (shared.length > 0) {
+    const local = await options.commitLocalWork({ tree: before, paths: shared });
+    if (!local.ok) return { ok: false, reason: 'commit-failed', detail: local.detail, issues: [] };
+  }
 
   const operator = await readCommitAuthorIdentity(run, rootDir, options.identityEnv);
   const commit = await commitWorkspaceTree({
@@ -325,16 +371,10 @@ export async function applyWorkspaceCommit(options: ApplyWorkspaceCommitOptions)
     message: picking ? composePickMessage(source, sha, operator?.email ?? null) : composeRevertMessage(source, sha),
     identityEnv: options.identityEnv,
     bypassHooks: options.bypassHooks,
+    fromTree: after,
+    paths,
   });
   if (!commit.ok) return { ok: false, reason: 'commit-failed', detail: commit.detail, issues: [] };
-  if (!commit.committed) {
-    return {
-      ok: false,
-      reason: 'empty',
-      ...(skipped.length > 0 ? { skipped } : {}),
-      ...withKept,
-      issues: [],
-    };
-  }
-  return { ok: true, sha: commit.sha, skipped, ...withKept };
+  if (!commit.committed) return empty;
+  return { ok: true, sha: commit.sha, skipped, ...withKept, ...(shared.length > 0 ? { committedLocal: shared } : {}) };
 }

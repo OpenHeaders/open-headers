@@ -83,7 +83,12 @@ import {
   withCommitAttribution,
 } from '../../src/git/repo';
 import { createLightweightTag } from '../../src/git/tag-ops';
-import { checkoutPathsFromCommit, listTreeEntries, readTreeEntryText } from '../../src/git/tree-ops';
+import {
+  checkoutPathsFromCommit,
+  listTreeEntries,
+  readTreeEntryText,
+  snapshotWorkingTree,
+} from '../../src/git/tree-ops';
 import { validateUserCommitInput } from '../../src/workspace-tree/runtime/user-commit';
 
 let tmpDir: string;
@@ -1681,6 +1686,68 @@ describe('Tree ops: a commit’s blobs and a paths checkout off the real index',
 
     expect((await checkoutPathsFromCommit(run, tmpDir, second.sha, ['docs/absent.md'])).ok).toBe(false);
     expect(await checkoutPathsFromCommit(run, tmpDir, second.sha, [])).toEqual({ ok: true });
+  });
+
+  it('snapshotWorkingTree writes the tree as it stands — edits, deletions and untracked files, never an ignored one, the real index untouched', async () => {
+    await initialCommit();
+    await write('.gitignore', '*.secret.yaml\n');
+    await write('docs/guide.md', '# guide\n');
+    await write('docs/gone.md', '# gone\n');
+    await commitWorkspaceTree({ run, rootDir: tmpDir, message: 'Docs', identityEnv: IDENTITY_ENV });
+    expect(await snapshotWorkingTree(run, tmpDir)).toBe((await git('rev-parse', 'HEAD^{tree}')).stdout.trim());
+
+    await write('docs/guide.md', '# guide v2\n');
+    await fs.rm(path.join(tmpDir, 'docs/gone.md'));
+    await write('notes.txt', 'untracked\n');
+    await write('env.secret.yaml', 'token: 1\n');
+    await write('staged.md', '# staged\n');
+    await git('add', 'staged.md');
+    const indexBefore = (await git('ls-files', '--stage')).stdout;
+    const headBefore = (await git('rev-parse', 'HEAD')).stdout;
+
+    const tree = await snapshotWorkingTree(run, tmpDir);
+    const names = (await git('ls-tree', '-r', '--name-only', tree ?? '')).stdout.trim().split('\n');
+    expect(names).toEqual(['.gitignore', 'docs/guide.md', 'notes.txt', 'staged.md', 'workspace.yaml']);
+    expect((await git('cat-file', 'blob', `${tree}:docs/guide.md`)).stdout).toBe('# guide v2\n');
+    expect((await git('ls-files', '--stage')).stdout).toBe(indexBefore);
+    expect((await git('rev-parse', 'HEAD')).stdout).toBe(headBefore);
+  });
+
+  it('commitWorkspaceTree with fromTree records the named paths as the tree holds them, whatever the working tree holds now', async () => {
+    await initialCommit();
+    await write('docs/guide.md', '# guide\n');
+    await write('docs/gone.md', '# gone\n');
+    await write('docs/other.md', '# other\n');
+    await commitWorkspaceTree({ run, rootDir: tmpDir, message: 'Docs', identityEnv: IDENTITY_ENV });
+
+    await write('docs/guide.md', '# guide, as snapshotted\n');
+    await fs.rm(path.join(tmpDir, 'docs/gone.md'));
+    await write('docs/added, later.md', '# added\n');
+    await write('docs/other.md', '# other, as snapshotted\n');
+    const tree = await snapshotWorkingTree(run, tmpDir);
+    if (tree === null) throw new Error('snapshot failed');
+    // The working tree moves on after the reading.
+    await write('docs/guide.md', '# guide, moved on\n');
+
+    const result = await commitWorkspaceTree({
+      run,
+      rootDir: tmpDir,
+      message: 'From the snapshot',
+      identityEnv: IDENTITY_ENV,
+      fromTree: tree,
+      paths: ['docs/guide.md', 'docs/gone.md', 'docs/added, later.md', 'docs/never-there.md'],
+    });
+    expect(result).toMatchObject({ ok: true, committed: true });
+    expect((await git('show', '--name-status', '--format=', 'HEAD')).stdout.trim().split('\n')).toEqual([
+      'A\tdocs/added, later.md',
+      'D\tdocs/gone.md',
+      'M\tdocs/guide.md',
+    ]);
+    expect((await git('cat-file', 'blob', 'HEAD:docs/guide.md')).stdout).toBe('# guide, as snapshotted\n');
+    // A path that was not named stays at HEAD; the working tree is as it was left.
+    expect((await git('cat-file', 'blob', 'HEAD:docs/other.md')).stdout).toBe('# other\n');
+    expect(await fs.readFile(path.join(tmpDir, 'docs/guide.md'), 'utf-8')).toBe('# guide, moved on\n');
+    expect((await git('status', '--porcelain')).stdout).toBe(' M docs/guide.md\n M docs/other.md\n');
   });
 });
 

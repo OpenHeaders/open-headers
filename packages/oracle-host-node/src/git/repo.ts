@@ -1411,6 +1411,14 @@ export interface CommitWorkspaceTreeOptions {
    */
   paths?: readonly string[];
   /**
+   * Take `paths` as this tree object holds them instead of from the
+   * working tree: the tree's file where it has the path, no file where
+   * it has none. The commit then records a state the working tree may
+   * have moved past (a `snapshotWorkingTree` taken earlier) and leaves
+   * every other path at HEAD. Requires `paths`.
+   */
+  fromTree?: string;
+  /**
    * User-explicit Amend (the Commit window carve-out — never FROM the
    * engine): `git commit --amend` on the temp index. The CALLER owns
    * the refusal conditions (unborn/merge/pushed HEAD); an unchanged
@@ -1420,6 +1428,55 @@ export interface CommitWorkspaceTreeOptions {
   amend?: boolean;
   /** Per-commit `Signed-off-by` trailer (`--signoff`) — the gear's Sign-off option. */
   signOff?: boolean;
+}
+
+/** Paths per plumbing invocation — keeps the arg vector under every platform's limit. */
+const TREE_PATHS_PER_CALL = 100;
+
+/**
+ * Set `paths` in the index `env` names to what `tree` holds: its entry
+ * where the tree has the path, none where it has not. Index plumbing
+ * only — the working tree is not read. Null on success, else the
+ * failed invocation.
+ */
+async function stagePathsFromTree(
+  run: GitRunner,
+  rootDir: string,
+  env: Record<string, string>,
+  tree: string,
+  paths: readonly string[],
+): Promise<GitExecResult | null> {
+  for (let start = 0; start < paths.length; start += TREE_PATHS_PER_CALL) {
+    const chunk = paths.slice(start, start + TREE_PATHS_PER_CALL);
+    const listing = await run(
+      [...repoArgs(rootDir), '--literal-pathspecs', 'ls-tree', '-r', '-z', tree, '--', ...chunk],
+      {
+        cwd: rootDir,
+      },
+    );
+    if (listing.code !== 0) return listing;
+    const held = new Map<string, string>();
+    for (const record of listing.stdout.split('\0')) {
+      const tab = record.indexOf('\t');
+      if (tab === -1) continue;
+      const [mode, , sha] = record.slice(0, tab).split(' ');
+      held.set(record.slice(tab + 1), `${mode},${sha}`);
+    }
+    const present = chunk.filter((filePath) => held.has(filePath));
+    const absent = chunk.filter((filePath) => !held.has(filePath));
+    const update = await run(
+      [
+        ...repoArgs(rootDir),
+        'update-index',
+        '--add',
+        ...present.flatMap((filePath) => ['--cacheinfo', `${held.get(filePath)},${filePath}`]),
+        ...(absent.length > 0 ? ['--force-remove', '--', ...absent] : []),
+      ],
+      { cwd: rootDir, env },
+    );
+    if (update.code !== 0) return update;
+  }
+  return null;
 }
 
 export type CommitWorkspaceTreeResult =
@@ -1483,7 +1540,10 @@ export async function commitWorkspaceTree(options: CommitWorkspaceTreeOptions): 
     });
     if (seed.code !== 0) return { ok: false, reason: 'stage-failed', detail: failureDetail(seed) };
 
-    if (options.paths === undefined || options.paths.length > 0) {
+    if (options.fromTree !== undefined) {
+      const stage = await stagePathsFromTree(run, rootDir, indexEnv, options.fromTree, options.paths ?? []);
+      if (stage !== null) return { ok: false, reason: 'stage-failed', detail: failureDetail(stage) };
+    } else if (options.paths === undefined || options.paths.length > 0) {
       const stage = await run([...repoArgs(rootDir), 'add', '-A', '--', ...(options.paths ?? ['.'])], {
         cwd: rootDir,
         env: indexEnv,

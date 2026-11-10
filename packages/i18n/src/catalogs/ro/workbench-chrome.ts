@@ -773,6 +773,8 @@ export const workbenchChrome = {
     'Commit-ul {commit} nu are o singură modificare de aplicat: este un commit de îmbinare sau primul commit.',
   'workbench.gitLog.applyCommit.leftOut':
     'O parte din modificare a fost omisă, deoarece ramura nu se potrivește cu ea: {files}.',
+  'workbench.gitLog.applyCommit.localFirst':
+    'Modificările dumneavoastră fără commit din {files} au fost salvate mai întâi, într-un commit separat.',
   'workbench.gitLog.applyCommit.resolvePickTitle': 'Cherry-pick {commit}: rezolvarea conflictelor',
   'workbench.gitLog.applyCommit.resolveRevertTitle': 'Revert {commit}: rezolvarea conflictelor',
   'workbench.gitLog.applyCommit.resolveStale':

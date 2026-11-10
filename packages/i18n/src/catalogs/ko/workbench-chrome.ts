@@ -742,6 +742,7 @@ export const workbenchChrome = {
   'workbench.gitLog.applyCommit.unsupported':
     '커밋 {commit} 에는 적용할 단일 변경 사항이 없습니다: 병합 커밋이거나 첫 번째 커밋입니다.',
   'workbench.gitLog.applyCommit.leftOut': '브랜치와 맞지 않아 변경 사항의 일부가 제외되었습니다: {files}',
+  'workbench.gitLog.applyCommit.localFirst': '{files} 파일의 커밋하지 않은 변경은 먼저 별도의 커밋으로 기록했습니다.',
   'workbench.gitLog.applyCommit.resolvePickTitle': '{commit} 체리픽: 충돌 해결',
   'workbench.gitLog.applyCommit.resolveRevertTitle': '{commit} 되돌리기(Revert): 충돌 해결',
   'workbench.gitLog.applyCommit.resolveStale': '충돌을 해결하는 동안 브랜치가 변경되었습니다. 다시 확인하세요.',

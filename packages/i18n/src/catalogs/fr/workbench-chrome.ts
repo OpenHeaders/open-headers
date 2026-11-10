@@ -916,6 +916,8 @@ export const workbenchChrome = {
     'Le commit {commit} n’a pas de modification unique à appliquer : c’est un merge ou le premier commit.',
   'workbench.gitLog.applyCommit.leftOut':
     'Une partie de la modification a été laissée de côté, car la branche ne lui correspond pas : {files}.',
+  'workbench.gitLog.applyCommit.localFirst':
+    'Vos modifications non commitées dans {files} ont d’abord été enregistrées dans un commit distinct.',
   'workbench.gitLog.applyCommit.resolvePickTitle': 'Cherry-pick de {commit} : résoudre les conflits',
   'workbench.gitLog.applyCommit.resolveRevertTitle': 'Revert de {commit} : résoudre les conflits',
   'workbench.gitLog.applyCommit.resolveStale':

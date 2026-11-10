@@ -216,6 +216,8 @@ export type ApplyCommitRpcResult =
       skipped?: ApplyCommitSkip[];
       /** The user's own files both sides changed — the local file stood. */
       keptLocal?: string[];
+      /** Files the change wrote that held uncommitted work — that work was committed first. */
+      committedLocal?: string[];
     }
   | {
       ok: false;

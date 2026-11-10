@@ -733,6 +733,8 @@ export const workbenchChrome = {
     'Commit {commit} has no single change to apply: it is a merge or the first commit.',
   'workbench.gitLog.applyCommit.leftOut':
     'Part of the change was left out because the branch does not match it: {files}.',
+  'workbench.gitLog.applyCommit.localFirst':
+    'Your uncommitted changes to {files} were committed first, in a commit of their own.',
   'workbench.gitLog.applyCommit.resolvePickTitle': 'Cherry-Pick {commit}: Resolve Conflicts',
   'workbench.gitLog.applyCommit.resolveRevertTitle': 'Revert {commit}: Resolve Conflicts',
   'workbench.gitLog.applyCommit.resolveStale':

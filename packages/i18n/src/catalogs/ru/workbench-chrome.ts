@@ -764,6 +764,8 @@ export const workbenchChrome = {
   'workbench.gitLog.applyCommit.unsupported':
     'У коммита {commit} нет единственного изменения для применения: это коммит слияния или первый коммит.',
   'workbench.gitLog.applyCommit.leftOut': 'Часть изменения пропущена, потому что ветка ему не соответствует: {files}.',
+  'workbench.gitLog.applyCommit.localFirst':
+    'Ваши незафиксированные изменения в {files} сначала сохранены отдельным коммитом.',
   'workbench.gitLog.applyCommit.resolvePickTitle': 'Cherry-pick {commit}: разрешение конфликтов',
   'workbench.gitLog.applyCommit.resolveRevertTitle': 'Revert {commit}: разрешение конфликтов',
   'workbench.gitLog.applyCommit.resolveStale': 'Ветка изменилась, пока вы разрешали конфликты. Проверьте их ещё раз.',

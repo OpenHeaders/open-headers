@@ -910,6 +910,8 @@ export const workbenchChrome = {
   'workbench.gitLog.applyCommit.unsupported':
     'El commit {commit} no tiene un único cambio que aplicar: es un merge o el primer commit.',
   'workbench.gitLog.applyCommit.leftOut': 'Parte del cambio se omitió porque la rama no coincide con él: {files}.',
+  'workbench.gitLog.applyCommit.localFirst':
+    'Tus cambios sin commit en {files} se guardaron primero, en un commit propio.',
   'workbench.gitLog.applyCommit.resolvePickTitle': 'Cherry-pick de {commit}: resolver conflictos',
   'workbench.gitLog.applyCommit.resolveRevertTitle': 'Reversión de {commit}: resolver conflictos',
   'workbench.gitLog.applyCommit.resolveStale': 'La rama cambió mientras resolvías los conflictos. Revísalos de nuevo.',

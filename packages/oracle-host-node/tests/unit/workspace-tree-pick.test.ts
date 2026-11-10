@@ -5,8 +5,10 @@
  * cherry-pick` / `git revert` never run. Pins that only the commit's
  * own change travels (the branch's edit to the same document
  * survives), the message rules, the order of the pass (a refusal
- * writes nothing, the local work commits before the pick), the
- * own-files rule, and every typed refusal. The answered-conflict
+ * writes nothing), what the pick records (the files it wrote and no
+ * other — uncommitted work elsewhere stays, uncommitted work in a file
+ * it wrote is committed first, that file alone), the own-files rule,
+ * and every typed refusal. The answered-conflict
  * describe pins the second call: the refusal's files and token, the
  * pick recorded with the document as answered, a token the branch
  * moved away from, and an answer that does not read. The last describe
@@ -193,13 +195,15 @@ function apply(
       onApply?.();
     },
     flush: () => materializer.flush(),
-    commitLocalWork: async () => {
+    commitLocalWork: async ({ tree, paths }) => {
       trace.order.push('local');
       const result = await commitWorkspaceTree({
         run,
         rootDir: local,
         message: 'Local work',
         identityEnv: OPERATOR_ENV,
+        fromTree: tree,
+        paths,
       });
       return result.ok ? { ok: true } : { ok: false, detail: result.detail };
     },
@@ -324,9 +328,12 @@ describe('applyWorkspaceCommit — cherry-pick', () => {
     expect(await git(local, 'status', '--porcelain')).toBe('?? NOTES.md');
   });
 
-  it('local uncommitted work commits first, under its own commit', async () => {
+  it('uncommitted work the pick does not touch is left as it was — an edited file, an unversioned one', async () => {
+    await write(local, 'README.md', 'readme\n');
+    await localCommit('Add a readme', {});
     await peerReplace(RULE_FILE, 'enabled: true', 'enabled: false');
     const picked = await peerCommit('Disable the probe rule');
+    await write(local, 'README.md', 'readme, edited\n');
     await write(local, 'NOTES.md', 'uncommitted\n');
 
     const t = trace();
@@ -334,9 +341,54 @@ describe('applyWorkspaceCommit — cherry-pick', () => {
       state = { ...state, rules: [makeRule({ enabled: false })] };
     });
     expect(result.ok).toBe(true);
-    expect(t.order).toEqual(['local', 'apply']);
-    expect(await git(local, 'log', '-2', '--format=%s')).toBe('Disable the probe rule\nLocal work');
+    expect(result.ok && result.committedLocal).toBeUndefined();
+    expect(t.order).toEqual(['apply']);
+    expect(await git(local, 'log', '-2', '--format=%s')).toBe('Disable the probe rule\nAdd a readme');
     expect(await git(local, 'show', '--name-only', '--format=', 'HEAD')).toBe(RULE_FILE);
+    expect(await raw(local, 'status', '--porcelain').then((r) => r.stdout)).toBe(' M README.md\n?? NOTES.md\n');
+  });
+
+  it('uncommitted work in a file the pick writes is committed first — that file alone, as it stood', async () => {
+    await peerReplace(RULE_FILE, 'enabled: true', 'enabled: false');
+    const picked = await peerCommit('Disable the probe rule');
+    // The engine holds a rename nobody committed; a note sits beside it.
+    state = { ...state, rules: [makeRule({ name: 'Local name' })] };
+    await materializer.flush();
+    await write(local, 'NOTES.md', 'uncommitted\n');
+
+    const t = trace();
+    const result = await apply(picked, 'pick', t, () => {
+      state = { ...state, rules: [makeRule({ name: 'Local name', enabled: false })] };
+    });
+    expect(result).toMatchObject({ ok: true, committedLocal: [RULE_FILE] });
+    expect(t.order).toEqual(['apply', 'local']);
+    expect(await git(local, 'log', '-3', '--format=%s')).toBe('Disable the probe rule\nLocal work\nInitial tree');
+
+    expect(await git(local, 'show', '--name-only', '--format=', 'HEAD~1')).toBe(RULE_FILE);
+    const first = await git(local, 'show', `HEAD~1:${RULE_FILE}`);
+    expect(first).toContain('name: Local name');
+    expect(first).toContain('enabled: true');
+
+    expect(await git(local, 'show', '--name-only', '--format=', 'HEAD')).toBe(RULE_FILE);
+    const second = await git(local, 'show', `HEAD:${RULE_FILE}`);
+    expect(second).toContain('name: Local name');
+    expect(second).toContain('enabled: false');
+    expect(await raw(local, 'status', '--porcelain').then((r) => r.stdout)).toBe('?? NOTES.md\n');
+  });
+
+  it('a pending engine change reaches the disk before the pass reads the tree — it is local work, not the pick’s', async () => {
+    await peerReplace(RULE_FILE, 'enabled: true', 'enabled: false');
+    const picked = await peerCommit('Disable the probe rule');
+    // Applied to the engine, not yet materialized.
+    state = { ...state, rules: [makeRule({ name: 'Local name' })] };
+
+    const result = await apply(picked, 'pick', trace(), () => {
+      state = { ...state, rules: [makeRule({ name: 'Local name', enabled: false })] };
+    });
+    expect(result).toMatchObject({ ok: true, committedLocal: [RULE_FILE] });
+    const first = await git(local, 'show', `HEAD~1:${RULE_FILE}`);
+    expect(first).toContain('name: Local name');
+    expect(first).toContain('enabled: true');
   });
 
   it("the commit's own file lands; a binary the branch also changed keeps its local bytes and is named", async () => {
@@ -427,12 +479,13 @@ describe('applyWorkspaceCommit — a conflict answered', () => {
       { token: resolve.token, files: [{ path: RULE_FILE, content: answer }] },
     );
     expect(result).toMatchObject({ ok: true, skipped: [] });
-    expect(t.order).toEqual(['local', 'apply']);
+    expect(t.order).toEqual(['apply']);
     expect(bodies(t)).toEqual([{ kind: 'setField', type: 'rule', id: 'aaaaaaaa', path: 'name', value: 'Agreed name' }]);
     expect(await read(local, RULE_FILE)).toContain('name: Agreed name');
-    expect(await git(local, 'log', '-3', '--format=%s')).toBe('Rename on the peer\nLocal work\nRename locally');
+    expect(await git(local, 'log', '-2', '--format=%s')).toBe('Rename on the peer\nRename locally');
     expect(await git(local, 'show', '--name-only', '--format=', 'HEAD')).toBe(RULE_FILE);
-    expect(await countDirtyFiles(run, local)).toBe(0);
+    // The note beside it was never the pick's to commit.
+    expect(await git(local, 'status', '--porcelain')).toBe('?? NOTES.md');
   });
 
   it("the commit's text as the answer is the commit's value", async () => {
@@ -451,7 +504,7 @@ describe('applyWorkspaceCommit — a conflict answered', () => {
     expect(await read(local, RULE_FILE)).toContain('name: Picked name');
   });
 
-  it("the branch's text as the answer leaves nothing to record — empty, after the local work", async () => {
+  it("the branch's text as the answer leaves nothing to record — empty, and no commit of any kind", async () => {
     const resolve = await refusal();
     const t = trace();
     const result = await apply(picked, 'pick', t, undefined, {
@@ -460,6 +513,8 @@ describe('applyWorkspaceCommit — a conflict answered', () => {
     });
     expect(result).toMatchObject({ ok: false, reason: 'empty' });
     expect(t.applied).toEqual([]);
+    expect(t.order).toEqual([]);
+    expect(await git(local, 'rev-parse', 'HEAD')).toBe(before);
     expect(await read(local, RULE_FILE)).toContain('name: Local name');
   });
 

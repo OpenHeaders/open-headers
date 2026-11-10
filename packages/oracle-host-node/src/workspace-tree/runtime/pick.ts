@@ -1,13 +1,19 @@
 /**
  * Workspace-tree runtime — the pick plane: Cherry-Pick and Revert of
  * one commit of the log, always on the binding's chain (§8 single
- * actor). The pass itself (`../pick.ts`) decides the order — it
- * commits the local uncommitted work only once it knows the change
- * applies, so a refused pick leaves the branch and the tree untouched.
+ * actor). The pass itself (`../pick.ts`) decides the order and what is
+ * recorded — a refused pick leaves the branch and the tree untouched,
+ * and a recorded one commits the files it wrote and no other.
  */
 
 import { logger } from '@openheaders/core/utils';
-import { isWorkspaceRepo, resolveCommitIdentity } from '../../git';
+import {
+  commitWorkspaceTree,
+  composeCommitMessage,
+  countDirtyFiles,
+  isWorkspaceRepo,
+  resolveCommitIdentity,
+} from '../../git';
 import { type ApplyCommitMode, type ApplyCommitResolution, applyWorkspaceCommit } from '../pick';
 import { syntheticIdentity } from './commit';
 import { type OpenBinding, type RuntimeCtx, SCOPE, TREE_SURFACE_ID } from './core';
@@ -43,9 +49,19 @@ export async function runApplyCommit(
         .map((entry) => ({ itemId: entry.itemId, orderKey: entry.key, item: entry.item })),
     apply: (batches) => ctx.applyAll(binding.service, batches),
     flush: () => binding.materializer.flush(),
-    commitLocalWork: async () => {
-      const pre = await ctx.runCommit(binding);
-      return pre.ok ? { ok: true } : { ok: false, detail: pre.detail ?? pre.reason };
+    // The operator's gesture, like a commit from the Commit window: their
+    // identity, the pending draft, those files alone.
+    commitLocalWork: async ({ tree, paths }) => {
+      const first = await commitWorkspaceTree({
+        run: ctx.gitRun,
+        rootDir,
+        message: composeCommitMessage(binding.intents),
+        identityEnv: identity.env,
+        bypassHooks: binding.record.bypassHooks === true,
+        fromTree: tree,
+        paths,
+      });
+      return first.ok ? { ok: true } : { ok: false, detail: first.detail };
     },
     identityEnv: identity.env,
     bypassHooks: binding.record.bypassHooks === true,
@@ -65,7 +81,8 @@ export async function runApplyCommit(
     };
   }
   await ctx.refreshIssuesFromDisk(binding);
-  ctx.drainIntents(binding);
+  // The pending draft describes uncommitted work: it is spent only when none is left.
+  if ((await countDirtyFiles(ctx.gitRun, rootDir)) === 0) ctx.drainIntents(binding);
   logger.info(SCOPE, `${mode} of ${sha.slice(0, 8)} onto ${rootDir}: ${result.sha}`);
   if (result.skipped.length > 0) {
     logger.warn(
@@ -81,5 +98,6 @@ export async function runApplyCommit(
     sha: result.sha,
     ...(result.skipped.length > 0 ? { skipped: result.skipped } : {}),
     ...(result.keptLocal !== undefined ? { keptLocal: result.keptLocal } : {}),
+    ...(result.committedLocal !== undefined ? { committedLocal: result.committedLocal } : {}),
   };
 }

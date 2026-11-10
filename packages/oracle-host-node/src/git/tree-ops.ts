@@ -1,8 +1,9 @@
 /**
  * Tree plumbing for the passes that carry files between a commit and
  * the working tree without a checkout of the branch: the listing of a
- * commit's blobs, one blob read as text, and a paths checkout out of a
- * commit that never touches the user's real index. Same discipline as
+ * commit's blobs, one blob read as text, the working tree written as a
+ * tree object, and a paths checkout out of a commit that never touches
+ * the user's real index. Same discipline as
  * `branch-ops.ts`:
  * explicit repo addressing, the injected {@link GitRunner} seam, typed
  * failures with git's own stderr.
@@ -70,6 +71,34 @@ export async function readTreeEntryText(
   if (size === null || size > maxBytes) return { kind: 'opaque' };
   const blob = await run([...repoArgs(rootDir), 'cat-file', 'blob', sha], { cwd: rootDir });
   return blob.code === 0 ? asFileText(blob.stdout) : { kind: 'opaque' };
+}
+
+/**
+ * The working tree as it stands, written as a tree object: HEAD's files
+ * with every modification, deletion and untracked file over them
+ * (`.gitignore` applies — a secret or the sidecar is never in it).
+ * Nothing is committed and the user's real index is never read or
+ * written (§3.3). Two snapshots taken around a pass differ in exactly
+ * the files the pass wrote. Null when the tree cannot be read.
+ */
+export async function snapshotWorkingTree(run: GitRunner, rootDir: string): Promise<string | null> {
+  const indexDir = await fs.mkdtemp(path.join(os.tmpdir(), 'oh-snapshot-index-'));
+  try {
+    const env = { GIT_INDEX_FILE: path.join(indexDir, 'index') };
+    const head = await run([...repoArgs(rootDir), 'rev-parse', '--verify', '--quiet', 'HEAD'], { cwd: rootDir });
+    const seed = await run([...repoArgs(rootDir), 'read-tree', ...(head.code === 0 ? ['HEAD'] : ['--empty'])], {
+      cwd: rootDir,
+      env,
+    });
+    if (seed.code !== 0) return null;
+    const stage = await run([...repoArgs(rootDir), 'add', '-A', '--', '.'], { cwd: rootDir, env });
+    if (stage.code !== 0) return null;
+    const tree = await run([...repoArgs(rootDir), 'write-tree'], { cwd: rootDir, env });
+    const sha = tree.stdout.trim();
+    return tree.code === 0 && sha.length > 0 ? sha : null;
+  } finally {
+    await fs.rm(indexDir, { recursive: true, force: true }).catch(() => undefined);
+  }
 }
 
 /**

@@ -4,7 +4,8 @@
  * does not record. The host converges the commit's own change and
  * commits it, or refuses with nothing written — the surface says what
  * happened: the finished toast, what was left out, the files the
- * branch kept, or why the commit was not applied.
+ * branch kept, the uncommitted work that was committed first (only in
+ * a file the commit's change wrote), or why the commit was not applied.
  *
  * A commit that changed a document the branch also changed is answered
  * in the shared merge editor: the host's refusal carries the files, the
@@ -90,6 +91,12 @@ export function useCommitApply(workspaceId: string): CommitApplyActions {
     }
     const kept = keptLocalNotice(result.keptLocal, t);
     if (kept !== null) notification.warning({ title: kept, duration: 0 });
+    if (result.ok && result.committedLocal !== undefined && result.committedLocal.length > 0) {
+      notification.info({
+        title: t('workbench.gitLog.applyCommit.localFirst', { files: namePaths(result.committedLocal) }),
+        duration: 0,
+      });
+    }
   };
 
   const answerInEditor = (

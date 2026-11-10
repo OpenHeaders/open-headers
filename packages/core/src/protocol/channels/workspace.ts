@@ -1003,6 +1003,12 @@ export type WorkspaceTreeApplyCommitWire =
       skipped?: WorkspaceTreeApplyCommitSkipWire[];
       /** Own files both sides changed: the local file stood (see {@link WorkspaceTreeMergeBranchWire}). */
       keptLocal?: string[];
+      /**
+       * Files the commit's change wrote that held uncommitted work: that
+       * work was committed first, under its own commit. Uncommitted work
+       * in any other file is left as it was.
+       */
+      committedLocal?: string[];
     }
   | {
       ok: false;
