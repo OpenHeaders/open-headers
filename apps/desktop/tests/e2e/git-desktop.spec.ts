@@ -802,9 +802,10 @@ test('G7 — both sides committed: Pull lands a two-parent merge with Co-Authore
   const req1 = entityFileOf(wsDir, 'e2egreq1') as string;
   expect(readFileSync(req1, 'utf-8')).toContain('Foreign Edit Two');
   expect(readFileSync(req2, 'utf-8')).toContain('Local Edit Two');
-  // The merge recorded the pull's own file; the local edit is still a row.
+  // The merge recorded the pull's own file; the local edit is still a row —
+  // once the index has followed the commit (the pass refreshes it last).
   expect(ws('diff-tree', '--no-commit-id', '--name-only', '-r', 'HEAD^1', 'HEAD')).toBe(relPosix(req1));
-  expect(ws('status', '--porcelain')).toBe(`M ${relPosix(req2)}`);
+  await expect.poll(() => ws('status', '--porcelain'), { timeout: 5_000 }).toBe(`M ${relPosix(req2)}`);
   await expect(changeRow(req2)).toBeVisible();
 
   await editCommitPush(req2, 'Local Edit Pushed', 'git e2e: local edit pushed');
@@ -883,8 +884,9 @@ test('G9 — pushing behind the remote is refused in the window; pull then push 
   await waitDirty();
   await rowMenuGit('pull', req2);
   await expect.poll(() => ws('rev-list', '--parents', '-1', 'HEAD').split(' ').length, { timeout: 5_000 }).toBe(3);
-  // The edit the menu opened from is not the pull's — it is still uncommitted.
-  expect(ws('status', '--porcelain')).toBe(`M ${relPosix(req2)}`);
+  // The edit the menu opened from is not the pull's — it is still uncommitted
+  // (read once the index has followed the commit: the pass refreshes it last).
+  await expect.poll(() => ws('status', '--porcelain'), { timeout: 5_000 }).toBe(`M ${relPosix(req2)}`);
   await editCommitPush(req2, 'Nudge Local Three', 'git e2e: nudge converge');
 
   // The prompt's Merge: the clone moves again, Commit and Push is
