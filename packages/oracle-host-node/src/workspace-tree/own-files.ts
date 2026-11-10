@@ -107,7 +107,8 @@ async function removeFromDisk(rootDir: string, filePath: string): Promise<void> 
   }
 }
 
-interface OwnFileRefs {
+/** The two commits an integration's own files are read between; `baseRef` null when the histories share none. */
+export interface OwnFileRefs {
   baseRef: string | null;
   foreignRef: string;
 }

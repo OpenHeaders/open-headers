@@ -17,6 +17,7 @@ import {
   resolveCommitIdentity,
   resolveUpstream,
 } from '../../git';
+import type { ApplyCommitResolution } from '../change-answers';
 import type { ForcePushChoice } from '../force-push';
 import { resolveForcePushWorkspaceTree } from '../force-push';
 import { pullWorkspaceTree } from '../pull';
@@ -87,6 +88,7 @@ export async function runPull(
   ctx: RuntimeCtx,
   binding: OpenBinding,
   commitLocal?: CommitLocalWork,
+  resolution?: ApplyCommitResolution,
 ): Promise<PullWorkspaceTreeRpcResult> {
   const { rootDir } = binding.record;
   const availability = await ctx.ensureGitAvailability(rootDir);
@@ -114,6 +116,7 @@ export async function runPull(
     identityEnv: identity.env,
     bypassHooks: binding.record.bypassHooks === true,
     ...(pullWatermark !== undefined ? { lastSyncedRemoteSha: pullWatermark } : {}),
+    ...(resolution !== undefined ? { resolution } : {}),
   });
   binding.lastFetchAt = Date.now();
   if (!result.ok) {
@@ -125,6 +128,10 @@ export async function runPull(
       ...(result.localChanges !== undefined
         ? { localChanges: result.localChanges, suggestedMessage: composeCommitMessage(binding.intents) }
         : {}),
+      ...(result.conflicts !== undefined ? { conflicts: result.conflicts } : {}),
+      ...(result.resolve !== undefined ? { resolve: result.resolve } : {}),
+      ...(result.tooLarge !== undefined ? { tooLarge: result.tooLarge } : {}),
+      ...(result.file !== undefined ? { file: result.file } : {}),
     };
   }
   await ctx.refreshIssuesFromDisk(binding);
@@ -146,6 +153,12 @@ export async function runPull(
       `pull of ${rootDir} kept the local file where both sides changed: ${result.keptLocal.join(', ')}`,
     );
   }
+  if (result.skipped !== undefined) {
+    logger.warn(
+      SCOPE,
+      `pull of ${rootDir} left out: ${result.skipped.map((skip) => `${skip.path} (${skip.reason})`).join(', ')}`,
+    );
+  }
   return {
     ok: true,
     upToDate: false,
@@ -154,6 +167,7 @@ export async function runPull(
     ...(result.history !== undefined ? { history: result.history } : {}),
     ...(result.keptLocal !== undefined ? { keptLocal: result.keptLocal } : {}),
     ...(result.committedLocal !== undefined ? { committedLocal: result.committedLocal } : {}),
+    ...(result.skipped !== undefined ? { skipped: result.skipped } : {}),
   };
 }
 

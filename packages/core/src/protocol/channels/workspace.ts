@@ -365,9 +365,20 @@ export interface WorkspaceRpc {
    * `local-changes` before anything is written, naming the files, and
    * goes on when it is sent again with `commitLocal` — the message for
    * that commit. A host that commits automatically does not ask.
+   *
+   * The foreign history's change is laid over the branch value by value:
+   * what only one side changed stands on both. A document both sides
+   * changed in one value refuses `conflicts` with nothing written,
+   * carrying the files to answer (`resolve`); the same call with
+   * `resolution` goes on with those documents as answered — the shape
+   * `oh.workspaceTree.applyCommit` answers in.
    */
   'oh.workspaceTree.pull': {
-    req: { workspaceId: string; commitLocal?: { message: string } };
+    req: {
+      workspaceId: string;
+      resolution?: WorkspaceTreeApplyCommitResolutionWire;
+      commitLocal?: { message: string };
+    };
     res: WorkspaceTreePullWire;
   };
   /**
@@ -494,10 +505,17 @@ export interface WorkspaceRpc {
    * fast-forwards, genuine divergence records a two-parent commit with
    * `Co-Authored-By:` trailers. Uncommitted work is treated as on
    * `oh.workspaceTree.pull`: left as it was unless the merge writes its
-   * file — then `local-changes`, and `commitLocal` is the word.
+   * file — then `local-changes`, and `commitLocal` is the word. A
+   * document both branches changed in one value is answered as on the
+   * pull: `conflicts` with `resolve`, then `resolution`.
    */
   'oh.workspaceTree.mergeBranch': {
-    req: { workspaceId: string; ref: string; commitLocal?: { message: string } };
+    req: {
+      workspaceId: string;
+      ref: string;
+      resolution?: WorkspaceTreeApplyCommitResolutionWire;
+      commitLocal?: { message: string };
+    };
     res: WorkspaceTreeMergeBranchWire;
   };
   /**
@@ -826,6 +844,8 @@ export type WorkspaceTreePullWire =
        * other file is left as it was.
        */
       committedLocal?: string[];
+      /** Parts of the foreign change that were not taken — the branch's side stands there. */
+      skipped?: WorkspaceTreeApplyCommitSkipWire[];
     }
   | {
       ok: false;
@@ -840,13 +860,23 @@ export type WorkspaceTreePullWire =
         | 'foreign-invalid'
         | 'identity-mismatch'
         | 'local-changes'
+        | 'conflicts'
+        | 'resolution-invalid'
         | 'commit-failed';
-      /** stderr of the failing git invocation / the offending marker or uid. */
+      /** stderr of the failing git invocation / the offending marker or uid. `resolution-invalid`: why the answer was not taken. */
       detail?: string;
       /** `local-changes`: the files the pull would write that hold uncommitted work. */
       localChanges?: string[];
       /** `local-changes`: the message offered for the commit of that work. */
       suggestedMessage?: string;
+      /** `conflicts`: the documents both sides changed, by their path in the foreign history, then the user's own files. */
+      conflicts?: string[];
+      /** `conflicts`: the files to answer — absent when their texts are too large to send. */
+      resolve?: WorkspaceTreeApplyCommitResolveWire;
+      /** `conflicts`: the files' texts are too large to send — the conflict cannot be answered here. */
+      tooLarge?: true;
+      /** `resolution-invalid`: the answered file that could not be taken. */
+      file?: string;
     };
 
 export type WorkspaceTreePushWire =
@@ -1098,6 +1128,8 @@ export type WorkspaceTreeMergeBranchWire =
        * other file is left as it was.
        */
       committedLocal?: string[];
+      /** Parts of the merged branch's change that were not taken — the current branch's side stands there. */
+      skipped?: WorkspaceTreeApplyCommitSkipWire[];
     }
   | {
       ok: false;
@@ -1112,12 +1144,22 @@ export type WorkspaceTreeMergeBranchWire =
         | 'foreign-invalid'
         | 'identity-mismatch'
         | 'local-changes'
+        | 'conflicts'
+        | 'resolution-invalid'
         | 'commit-failed';
       detail?: string;
       /** `local-changes`: the files the merge would write that hold uncommitted work. */
       localChanges?: string[];
       /** `local-changes`: the message offered for the commit of that work. */
       suggestedMessage?: string;
+      /** `conflicts`: the documents both branches changed, by their path in the merged branch, then the user's own files. */
+      conflicts?: string[];
+      /** `conflicts`: the files to answer — absent when their texts are too large to send. */
+      resolve?: WorkspaceTreeApplyCommitResolveWire;
+      /** `conflicts`: the files' texts are too large to send — the conflict cannot be answered here. */
+      tooLarge?: true;
+      /** `resolution-invalid`: the answered file that could not be taken. */
+      file?: string;
     };
 
 /** One changed path in a history entry; rename/copy records report the new path. */

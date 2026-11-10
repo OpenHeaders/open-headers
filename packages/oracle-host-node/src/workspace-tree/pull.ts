@@ -9,18 +9,25 @@
  *      tree is never ingested);
  *   2. `git fetch` (non-mutating), then ahead/behind against the
  *      branch's upstream — behind 0 is a clean no-op;
- *   3. the foreign head's tree is read as a checkout snapshot
- *      (string-in, the same `readWorkspaceTree` the sweep uses) and
- *      diffed at file level against the MERGE BASE — three-way
- *      discipline: only paths the foreign history touched are
- *      tree-authored; everything else stays engine-owned;
- *   4. `synthesizeWorkspaceTreeDelta` (engine snapshot = `prev`,
- *      foreign snapshot = `next`) mints ordinary virtual batches with
+ *   3. the foreign head's tree and the MERGE BASE's are read as
+ *      checkout snapshots (string-in, the same `readWorkspaceTree` the
+ *      sweep uses), and the foreign history's change — base → foreign
+ *      head — is laid over the engine's snapshot value by value
+ *      (`applyCommitChange`, the model a pick uses): what only one side
+ *      changed stands on both, so an edit of the branch's beside an edit
+ *      of the foreign side's in ONE document keeps both. A document both
+ *      sides changed in one value stops the pass before anything is
+ *      written — the refusal carries the files to answer, and the same
+ *      call with the answers goes on (`change-answers.ts`). Histories
+ *      with no common commit have nothing to lay the change against:
+ *      every document the foreign side holds is then taken whole, and
+ *      the result says why (§3.4);
+ *   4. `synthesizeWorkspaceTreeDelta` (engine snapshot = `prev`, the
+ *      laid-over tree = `next`) mints ordinary virtual batches with
  *      fresh HLCs; the mutators converge — there is no second data
  *      plane (plan law #1). An environment's secret rows are not in a
- *      commit (the secret file is gitignored): they are read from the
- *      committed template where the foreign history touched it and
- *      stand as the engine holds them where it did not
+ *      commit (the secret file is gitignored): both ends of the change
+ *      read them from the template they committed
  *      (`withCommitSecretRows`);
  *   5. schema-invalid foreign documents QUARANTINE (§13.3): their
  *      foreign bytes land in the working tree off-baseline (so the
@@ -65,15 +72,21 @@ import type {
 } from '@openheaders/core/sync-builders/mutations/workspace-import-emission';
 import { synthesizeWorkspaceTreeDelta } from '@openheaders/core/sync-builders/mutations/workspace-tree-delta';
 import {
+  type CommitChangeDocument,
+  type CommitChangeSkip,
+  ENTITY_MANIFEST_FILES,
   type ForeignHistoryNote,
   readWorkspaceTree,
+  type TreeFile,
   type TreeIssue,
+  type TreeReadResult,
   type WorkspaceTreeState,
   withCommitSecretRows,
 } from '@openheaders/core/workspace-tree';
 import {
   commitWorkspaceTree,
   diffForeignPaths,
+  type ForeignTreeDiff,
   fastForwardWorkspaceBranch,
   fetchWorkspaceRemote,
   type GitRunner,
@@ -86,6 +99,7 @@ import {
   resolveUpstream,
   snapshotWorkingTree,
 } from '../git';
+import { type ApplyCommitResolution, type ApplyCommitResolve, decideChange } from './change-answers';
 import { landForeignOwnFiles } from './own-files';
 import { type LocalWorkDeps, readPassWrites, recordablePaths, uncommittedAmong } from './pass-writes';
 import {
@@ -130,6 +144,8 @@ export interface PullWorkspaceTreeOptions extends IntegrateForeignDeps {
    * rewrite deliberately; absent = first sync, detection off.
    */
   lastSyncedRemoteSha?: string;
+  /** Answers to a `conflicts` refusal — absent on the first call. */
+  resolution?: ApplyCommitResolution;
 }
 
 export type PullWorkspaceTreeResult =
@@ -147,6 +163,8 @@ export type PullWorkspaceTreeResult =
       keptLocal?: string[];
       /** Files of the pull that held uncommitted work — that work was committed first. */
       committedLocal?: string[];
+      /** Parts of the foreign change that were not taken (`applyCommitChange`). */
+      skipped?: CommitChangeSkip[];
     }
   | {
       ok: false;
@@ -158,10 +176,20 @@ export type PullWorkspaceTreeResult =
         | 'foreign-invalid'
         | 'identity-mismatch'
         | 'local-changes'
+        | 'conflicts'
+        | 'resolution-invalid'
         | 'commit-failed';
       detail?: string;
       /** `local-changes`: the files the foreign history changed that hold uncommitted work. */
       localChanges?: string[];
+      /** `conflicts`: the documents both sides changed, then the user's own files. */
+      conflicts?: string[];
+      /** `conflicts`: the files to answer — absent when their texts are too large to send. */
+      resolve?: ApplyCommitResolve;
+      /** `conflicts`: the files' texts are too large to send — there is nothing to answer here. */
+      tooLarge?: true;
+      /** `resolution-invalid`: the answered file that could not be taken. */
+      file?: string;
       issues: TreeIssue[];
     };
 
@@ -256,21 +284,150 @@ export type IntegrateForeignHeadResult =
       keptLocal?: string[];
       /** Files of the integration that held uncommitted work — that work was committed first. */
       committedLocal?: string[];
+      /** Parts of the foreign change that were not taken (`applyCommitChange`). */
+      skipped?: CommitChangeSkip[];
     }
-  | {
-      ok: false;
-      reason: 'foreign-invalid' | 'identity-mismatch' | 'local-changes' | 'commit-failed';
-      detail?: string;
-      /** `local-changes`: the files the foreign history changed that hold uncommitted work. */
-      localChanges?: string[];
-      issues: TreeIssue[];
+  | IntegrateForeignRefusal;
+
+export interface IntegrateForeignRefusal {
+  ok: false;
+  reason:
+    | 'foreign-invalid'
+    | 'identity-mismatch'
+    | 'local-changes'
+    | 'conflicts'
+    | 'resolution-invalid'
+    | 'commit-failed';
+  detail?: string;
+  /** `local-changes`: the files the foreign history changed that hold uncommitted work. */
+  localChanges?: string[];
+  /** `conflicts`: the documents both sides changed, then the user's own files. */
+  conflicts?: string[];
+  /** `conflicts`: the files to answer — absent when their texts are too large to send. */
+  resolve?: ApplyCommitResolve;
+  /** `conflicts`: the files' texts are too large to send — there is nothing to answer here. */
+  tooLarge?: true;
+  /** `resolution-invalid`: the answered file that could not be taken. */
+  file?: string;
+  issues: TreeIssue[];
+}
+
+/** What an integration is about to apply, decided before anything is written. */
+interface ForeignChange {
+  /** The tree the engine converges to — the delta's `next`. */
+  next: TreeReadResult['state'];
+  changedPaths: ReadonlySet<string>;
+  removedPaths: ReadonlySet<string>;
+  /** Parts of the foreign change that were not taken. */
+  skipped: CommitChangeSkip[];
+  /** The answers to the user's own files, by path. */
+  ownAnswers: ReadonlyMap<string, string>;
+}
+
+/**
+ * A conflict in a document the merge base did not read. There is no
+ * value there to compare the two sides against, so the foreign document
+ * stands — the rule a pull with no merge base applies to every document.
+ */
+function baselessConflict(baseIssues: readonly TreeIssue[]): (conflict: CommitChangeDocument) => boolean {
+  const files = new Set(baseIssues.map((issue) => issue.path));
+  const dirs = new Set(baseIssues.map((issue) => dirOf(issue.path)));
+  return (conflict) => {
+    const name = conflict.path.slice(conflict.path.lastIndexOf('/') + 1);
+    return ENTITY_MANIFEST_FILES.has(name) ? dirs.has(dirOf(conflict.path)) : files.has(conflict.path);
+  };
+}
+
+/**
+ * Read the foreign history's change and decide it against the branch:
+ * the question about uncommitted work, the files to answer, the answers
+ * read. Writes nothing — a refusal leaves the branch and the tree as
+ * they were.
+ */
+async function readForeignChange(
+  deps: IntegrateForeignDeps,
+  args: {
+    base: string | null;
+    foreignSha: string;
+    foreign: TreeReadResult;
+    foreignFiles: readonly TreeFile[];
+    diff: ForeignTreeDiff;
+    snapshot: WorkspaceTreeState;
+    resolution?: ApplyCommitResolution;
+  },
+): Promise<({ ok: true } & ForeignChange) | IntegrateForeignRefusal> {
+  const { run, rootDir } = deps;
+  const { base, foreignSha, foreign, foreignFiles, diff, snapshot } = args;
+  // Uncommitted work in a file the foreign history changed has to be
+  // committed first, or it would ride into the integration's commit —
+  // that is asked while nothing is written.
+  const foreignPaths = [...diff.changed, ...diff.removed];
+
+  if (base === null) {
+    // No common history: nothing to lay the change against, so every
+    // document the foreign side holds is taken whole (§3.4).
+    if (!deps.mayCommitLocalWork) {
+      const localChanges = await uncommittedAmong(run, rootDir, foreignPaths);
+      if (localChanges === null) {
+        return { ok: false, reason: 'commit-failed', detail: 'the working tree could not be read', issues: [] };
+      }
+      if (localChanges.length > 0) return { ok: false, reason: 'local-changes', localChanges, issues: [] };
+    }
+    return {
+      ok: true,
+      next: withCommitSecretRows({
+        state: foreign.state,
+        files: foreignFiles,
+        local: snapshot.environments,
+        touched: (filePath) => diff.changed.has(filePath) || diff.removed.has(filePath),
+      }),
+      changedPaths: diff.changed,
+      removedPaths: diff.removed,
+      skipped: [],
+      ownAnswers: new Map(),
     };
+  }
+
+  const baseFiles = await readCommitTreeFiles(run, rootDir, base);
+  if (baseFiles === null) {
+    return { ok: false, reason: 'foreign-invalid', detail: `unreadable tree for ${base}`, issues: [] };
+  }
+  const baseTree = readWorkspaceTree(baseFiles);
+  // Neither commit carries a secret file; both ends of the change read
+  // their secret rows from the template they committed, so a history
+  // that did not touch one leaves the branch's secret rows out of it.
+  const decided = await decideChange({
+    run,
+    rootDir,
+    subject: [foreignSha],
+    current: snapshot,
+    from: withCommitSecretRows({ state: baseTree.state, files: baseFiles, local: snapshot.environments }),
+    to: withCommitSecretRows({ state: foreign.state, files: foreignFiles, local: snapshot.environments }),
+    // A foreign document that did not read is quarantined, never read as a deletion.
+    removedPaths: diff.removed,
+    ownRefs: { baseRef: base, foreignRef: foreignSha },
+    ...(args.resolution !== undefined ? { resolution: args.resolution } : {}),
+    mayCommitLocalWork: deps.mayCommitLocalWork,
+    writes: () => foreignPaths,
+    unasked: baselessConflict(baseTree.issues),
+  });
+  if (!decided.ok) return { ...decided, issues: [] };
+  return {
+    ok: true,
+    next: decided.change.next,
+    changedPaths: decided.change.changedPaths,
+    removedPaths: decided.change.removedPaths,
+    skipped: decided.skipped,
+    ownAnswers: decided.ownAnswers,
+  };
+}
 
 /**
  * The shared integration core (§11.4 mechanics, ratified S6): read the
- * foreign head's tree as a checkout snapshot, three-way classify
- * against the merge base, converge through the mutators as virtual
- * batches, quarantine schema-invalid documents, materialize, then
+ * foreign head's tree as a checkout snapshot, lay its change since the
+ * merge base over the branch (asking where both sides changed one
+ * value), converge through the mutators as virtual batches, quarantine
+ * schema-invalid documents, materialize, then
  * record the result — a true fast-forward when the local branch has
  * not diverged (`localAhead` 0, and no uncommitted work had to be
  * committed first), a TWO-PARENT temp-index commit otherwise. Either
@@ -280,7 +437,7 @@ export type IntegrateForeignHeadResult =
  */
 export async function integrateForeignHead(
   deps: IntegrateForeignDeps,
-  args: { foreignSha: string; localAhead: number; mergeMessage: string },
+  args: { foreignSha: string; localAhead: number; mergeMessage: string; resolution?: ApplyCommitResolution },
 ): Promise<IntegrateForeignHeadResult> {
   const { run, rootDir } = deps;
   const { foreignSha } = args;
@@ -332,15 +489,18 @@ export async function integrateForeignHead(
   const snapshot = await deps.readSnapshot();
   await deps.flush();
 
-  // Uncommitted work in a file the foreign history changed has to be
-  // committed first, or it would ride into the integration's commit —
-  // that is asked while nothing is written.
+  const laid = await readForeignChange(deps, {
+    base,
+    foreignSha,
+    foreign,
+    foreignFiles,
+    diff,
+    snapshot,
+    ...(args.resolution !== undefined ? { resolution: args.resolution } : {}),
+  });
+  if (!laid.ok) return laid;
   const foreignPaths = [...diff.changed, ...diff.removed];
-  if (!deps.mayCommitLocalWork) {
-    const localChanges = await uncommittedAmong(run, rootDir, foreignPaths);
-    if (localChanges === null) return unreadable();
-    if (localChanges.length > 0) return { ok: false, reason: 'local-changes', localChanges, issues: [] };
-  }
+  const withSkipped = laid.skipped.length > 0 ? { skipped: laid.skipped } : {};
 
   // From here the pass writes. The working tree is read as it stands
   // before and after — the two readings differ in the integration's own
@@ -350,14 +510,9 @@ export async function integrateForeignHead(
 
   const batches = synthesizeWorkspaceTreeDelta({
     prev: snapshot,
-    next: withCommitSecretRows({
-      state: foreign.state,
-      files: foreignFiles,
-      local: snapshot.environments,
-      touched: (filePath) => diff.changed.has(filePath) || diff.removed.has(filePath),
-    }),
-    changedPaths: diff.changed,
-    removedPaths: diff.removed,
+    next: laid.next,
+    changedPaths: laid.changedPaths,
+    removedPaths: laid.removedPaths,
     deps: { nextCtx: deps.nextCtx, liveSetEntries: deps.liveSetEntries },
   });
   if (batches.length > 0) {
@@ -371,7 +526,7 @@ export async function integrateForeignHead(
 
   // The second reading is taken once the foreign side's changes to the
   // user's own files are on disk too.
-  const own = await landForeignOwnFiles(run, rootDir, { baseRef: base, foreignRef: foreignSha });
+  const own = await landForeignOwnFiles(run, rootDir, { baseRef: base, foreignRef: foreignSha }, laid.ownAnswers);
   if (!own.ok) return { ok: false, reason: 'commit-failed', detail: own.detail, issues: foreign.issues };
   const withKept = own.kept.length > 0 ? { keptLocal: own.kept } : {};
 
@@ -418,7 +573,15 @@ export async function integrateForeignHead(
     });
     if (!residue.ok) return { ok: false, reason: 'commit-failed', detail: residue.detail, issues: foreign.issues };
     const sha = residue.committed ? residue.sha : foreignSha;
-    return { ok: true, sha, applied: batches.length, issues: foreign.issues, ...withHistory, ...withKept };
+    return {
+      ok: true,
+      sha,
+      applied: batches.length,
+      issues: foreign.issues,
+      ...withHistory,
+      ...withKept,
+      ...withSkipped,
+    };
   }
 
   const authors = await listForeignAuthors(run, rootDir, 'HEAD', foreignSha);
@@ -445,6 +608,7 @@ export async function integrateForeignHead(
     ...withHistory,
     ...withKept,
     ...withLocal,
+    ...withSkipped,
   };
 }
 
@@ -482,6 +646,7 @@ export async function pullWorkspaceTree(options: PullWorkspaceTreeOptions): Prom
     foreignSha: upstream.sha,
     localAhead: upstream.ahead,
     mergeMessage: `Merge ${upstream.upstream}`,
+    ...(options.resolution !== undefined ? { resolution: options.resolution } : {}),
   });
   if (!integrated.ok) return integrated;
   return {
@@ -494,5 +659,6 @@ export async function pullWorkspaceTree(options: PullWorkspaceTreeOptions): Prom
     ...(integrated.history !== undefined ? { history: integrated.history } : {}),
     ...(integrated.keptLocal !== undefined ? { keptLocal: integrated.keptLocal } : {}),
     ...(integrated.committedLocal !== undefined ? { committedLocal: integrated.committedLocal } : {}),
+    ...(integrated.skipped !== undefined ? { skipped: integrated.skipped } : {}),
   };
 }

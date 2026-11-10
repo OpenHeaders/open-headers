@@ -17,6 +17,10 @@
  * pins what the pull records: its own files and no other — work
  * elsewhere stays uncommitted across a fast-forward and a merge, work
  * in a file the pull writes is asked about and committed first, alone.
+ * The change-over-the-branch describe pins the merge itself: the
+ * foreign history's change is laid over the branch value by value — an
+ * edit of each side to one document keeps both, a value both changed is
+ * asked about with nothing written and recorded as answered.
  */
 
 import { promises as fs } from 'node:fs';
@@ -29,6 +33,7 @@ import type { WorkspaceTreeState } from '@openheaders/core/workspace-tree';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { createGitExec, type GitRunner } from '../../src/git/git-exec';
 import { commitWorkspaceTree, countDirtyFiles, ensureWorkspaceRepo, resolveUpstream } from '../../src/git/repo';
+import type { ApplyCommitResolution, ApplyCommitResolve } from '../../src/workspace-tree/change-answers';
 import { WorkspaceTreeMaterializer } from '../../src/workspace-tree/materializer';
 import type { LocalWorkDeps } from '../../src/workspace-tree/pass-writes';
 import { type PullWorkspaceTreeResult, pullWorkspaceTree } from '../../src/workspace-tree/pull';
@@ -170,6 +175,7 @@ function doPull(
   applied: EmissionBatch[],
   onApply?: () => void,
   lastSyncedRemoteSha?: string,
+  resolution?: ApplyCommitResolution,
 ): Promise<PullWorkspaceTreeResult> {
   return pullWorkspaceTree({
     run,
@@ -187,7 +193,16 @@ function doPull(
     identityEnv: IDENTITY_ENV,
     bypassHooks: false,
     ...(lastSyncedRemoteSha !== undefined ? { lastSyncedRemoteSha } : {}),
+    ...(resolution !== undefined ? { resolution } : {}),
   });
+}
+
+/** The files a pull refused `conflicts` with, and the token to answer them under. */
+function filesToAnswer(result: PullWorkspaceTreeResult): ApplyCommitResolve {
+  if (result.ok || result.reason !== 'conflicts' || result.resolve === undefined) {
+    throw new Error(`expected files to answer, got ${JSON.stringify(result)}`);
+  }
+  return result.resolve;
 }
 
 beforeEach(async () => {
@@ -508,29 +523,67 @@ describe("pullWorkspaceTree — the user's own files and a document's siblings",
     expect(await countDirtyFiles(run, local)).toBe(0);
   });
 
-  it('an own file both sides changed keeps the local bytes and is named; the rest still lands', async () => {
+  it('an own text file both sides changed is asked about with nothing written; the answer is recorded and the rest lands', async () => {
     await shareOwnFiles({ 'docs/guide.md': '# guide\n' });
     await fs.writeFile(onLocal('docs/guide.md'), '# guide (local)\n', 'utf-8');
-    await commitLocal('Local guide');
+    const localSha = await commitLocal('Local guide');
     await peerEdit('docs/guide.md', () => '# guide (peer)\n');
     await peerEdit('README.md', () => '# peer readme\n');
     await peerCommitPush('Peer guide + readme');
 
-    const result = await doPull([]);
-    expect(result).toMatchObject({ ok: true, upToDate: false, keptLocal: ['docs/guide.md'] });
-    expect(await fs.readFile(onLocal('docs/guide.md'), 'utf-8')).toBe('# guide (local)\n');
-    expect((await raw(local, 'show', 'HEAD:docs/guide.md')).stdout).toBe('# guide (local)\n');
+    const first = await doPull([]);
+    expect(first).toMatchObject({ ok: false, reason: 'conflicts', conflicts: ['docs/guide.md'] });
+    const resolve = filesToAnswer(first);
+    expect(resolve.files).toEqual([
+      { path: 'docs/guide.md', base: '# guide\n', theirs: '# guide (peer)\n', mine: '# guide (local)\n' },
+    ]);
+    expect((await raw(local, 'rev-parse', 'HEAD')).stdout.trim()).toBe(localSha);
+    await expect(fs.access(onLocal('README.md'))).rejects.toThrow();
+
+    const result = await doPull([], undefined, undefined, {
+      token: resolve.token,
+      files: [{ path: 'docs/guide.md', content: '# guide (both)\n' }],
+    });
+    expect(result).toMatchObject({ ok: true, upToDate: false });
+    expect(result).not.toHaveProperty('keptLocal');
+    expect(await fs.readFile(onLocal('docs/guide.md'), 'utf-8')).toBe('# guide (both)\n');
+    expect((await raw(local, 'show', 'HEAD:docs/guide.md')).stdout).toBe('# guide (both)\n');
     expect((await raw(local, 'show', 'HEAD:README.md')).stdout).toBe('# peer readme\n');
     expect(await countDirtyFiles(run, local)).toBe(0);
   });
 
-  it('an uncommitted local file where the peer adds one is local work — kept and named', async () => {
+  it('an own file both sides changed that is not text keeps the local bytes and is named', async () => {
+    const bytes = (tail: number): Buffer => Buffer.from([0x89, 0x50, 0x00, 0x01, tail]);
+    await fs.writeFile(onLocal('logo.bin'), bytes(1));
+    await commitLocal('Logo');
+    await raw(local, 'push', '--quiet', 'origin', 'main');
+    await raw(peer, 'pull', '--quiet', 'origin', 'main');
+    await fs.writeFile(onLocal('logo.bin'), bytes(2));
+    await commitLocal('Local logo');
+    await fs.writeFile(path.join(peer, 'logo.bin'), bytes(3));
+    await peerCommitPush('Peer logo');
+
+    const result = await doPull([]);
+    expect(result).toMatchObject({ ok: true, upToDate: false, keptLocal: ['logo.bin'] });
+    expect(await fs.readFile(onLocal('logo.bin'))).toEqual(bytes(2));
+    expect(await countDirtyFiles(run, local)).toBe(0);
+  });
+
+  it('an uncommitted local file where the peer adds one is asked about — the answer stands on disk', async () => {
     await fs.writeFile(onLocal('README.md'), '# mine\n', 'utf-8');
     await peerEdit('README.md', () => '# peer readme\n');
     await peerCommitPush('Add readme');
 
-    const result = await doPull([]);
-    expect(result).toMatchObject({ ok: true, upToDate: false, keptLocal: ['README.md'] });
+    const resolve = filesToAnswer(await doPull([]));
+    expect(resolve.files).toEqual([{ path: 'README.md', theirs: '# peer readme\n', mine: '# mine\n' }]);
+    expect(await fs.readFile(onLocal('README.md'), 'utf-8')).toBe('# mine\n');
+
+    const result = await doPull([], undefined, undefined, {
+      token: resolve.token,
+      files: [{ path: 'README.md', content: '# mine\n' }],
+    });
+    expect(result).toMatchObject({ ok: true, upToDate: false });
+    expect(result).not.toHaveProperty('keptLocal');
     expect(await fs.readFile(onLocal('README.md'), 'utf-8')).toBe('# mine\n');
   });
 
@@ -648,7 +701,7 @@ describe('pullWorkspaceTree — uncommitted work', () => {
     expect(await porcelain()).toBe(before);
   });
 
-  it('work in a document the pull writes is asked about first; on the word it is committed alone, then merged', async () => {
+  it('work in a document the pull writes is asked about first; on the word it is committed alone, then merged as answered', async () => {
     state.rules = [{ ...state.rules[0], name: 'Local name' } as Rule];
     await materializer.flush();
     const before = await porcelain();
@@ -669,8 +722,18 @@ describe('pullWorkspaceTree — uncommitted work', () => {
     expect((await out('rev-parse', 'HEAD')).trim()).toBe(headBefore);
     expect(await porcelain()).toBe(before);
 
+    // On the word the pass goes on — to the value both sides changed, still with nothing written.
     mayCommitLocalWork = true;
-    const result = await doPull(applied, renameOnApply);
+    const resolve = filesToAnswer(await doPull(applied, renameOnApply));
+    expect(resolve.files.map((file) => file.path)).toEqual([RULE_FILE]);
+    expect(applied).toHaveLength(0);
+    expect(localWorkCommits).toEqual([]);
+    expect(await porcelain()).toBe(before);
+
+    const result = await doPull(applied, renameOnApply, undefined, {
+      token: resolve.token,
+      files: [{ path: RULE_FILE, content: resolve.files[0].theirs ?? '' }],
+    });
     expect(result).toMatchObject({ ok: true, upToDate: false, committedLocal: [RULE_FILE] });
     expect(localWorkCommits).toEqual([[RULE_FILE]]);
 
@@ -684,7 +747,7 @@ describe('pullWorkspaceTree — uncommitted work', () => {
     expect(await porcelain()).toBe(' M NOTES.md\n?? scratch.txt\n');
   });
 
-  it('work in an own file the peer also changed is named, committed first on the word, and the local file stands', async () => {
+  it('work in an own file the peer also changed is named, committed first on the word, and merged as answered', async () => {
     await fs.writeFile(onLocal('SHARED.md'), '# shared\nbase line\nlocal line\n', 'utf-8');
     await peerEdit('SHARED.md', () => '# shared\nbase line\npeer line\n');
     await peerCommitPush('Peer line');
@@ -693,11 +756,29 @@ describe('pullWorkspaceTree — uncommitted work', () => {
     expect(await doPull([])).toMatchObject({ ok: false, reason: 'local-changes', localChanges: ['SHARED.md'] });
 
     mayCommitLocalWork = true;
-    const result = await doPull([]);
-    expect(result).toMatchObject({ ok: true, committedLocal: ['SHARED.md'], keptLocal: ['SHARED.md'] });
+    const resolve = filesToAnswer(await doPull([]));
+    expect(resolve.files).toEqual([
+      {
+        path: 'SHARED.md',
+        base: '# shared\nbase line\n',
+        theirs: '# shared\nbase line\npeer line\n',
+        mine: '# shared\nbase line\nlocal line\n',
+      },
+    ]);
+    expect(localWorkCommits).toEqual([]);
+
+    const both = '# shared\nbase line\nlocal line\npeer line\n';
+    const result = await doPull([], undefined, undefined, {
+      token: resolve.token,
+      files: [{ path: 'SHARED.md', content: both }],
+    });
+    expect(result).toMatchObject({ ok: true, committedLocal: ['SHARED.md'] });
+    expect(result).not.toHaveProperty('keptLocal');
+    // The person's work is its own commit, as the file stood; the merge holds the answer.
     expect(await filesOf('HEAD^1')).toEqual(['SHARED.md']);
-    expect(await out('show', 'HEAD:SHARED.md')).toBe('# shared\nbase line\nlocal line\n');
-    expect(await fs.readFile(onLocal('SHARED.md'), 'utf-8')).toBe('# shared\nbase line\nlocal line\n');
+    expect(await out('show', 'HEAD^1:SHARED.md')).toBe('# shared\nbase line\nlocal line\n');
+    expect(await out('show', 'HEAD:SHARED.md')).toBe(both);
+    expect(await fs.readFile(onLocal('SHARED.md'), 'utf-8')).toBe(both);
     expect(await porcelain()).toBe(' M NOTES.md\n?? scratch.txt\n');
   });
 
@@ -707,9 +788,15 @@ describe('pullWorkspaceTree — uncommitted work', () => {
     await peerEdit('local.cfg', () => 'theirs\n');
     const foreignSha = await peerCommitPush('Add a config file');
 
+    // An ignored file is no uncommitted work to ask about; the two texts are.
     mayCommitLocalWork = false;
-    const result = await doPull([]);
-    expect(result).toMatchObject({ ok: true, upToDate: false, sha: foreignSha, keptLocal: ['local.cfg'] });
+    const resolve = filesToAnswer(await doPull([]));
+    expect(resolve.files).toEqual([{ path: 'local.cfg', theirs: 'theirs\n', mine: 'mine\n' }]);
+    const result = await doPull([], undefined, undefined, {
+      token: resolve.token,
+      files: [{ path: 'local.cfg', content: 'mine\n' }],
+    });
+    expect(result).toMatchObject({ ok: true, upToDate: false, sha: foreignSha });
     expect(localWorkCommits).toEqual([]);
 
     // No follow-up: the branch holds the peer's file, the disk the local one.
@@ -732,6 +819,132 @@ describe('pullWorkspaceTree — uncommitted work', () => {
     expect((await out('log', '-1', '--format=%s')).trim()).toBe('Normalize pulled changes');
     expect(await filesOf('HEAD')).toEqual([RULE_FILE]);
     expect(await porcelain()).toBe(before);
+  });
+});
+
+describe('pullWorkspaceTree — the foreign change over the branch', () => {
+  const out = async (...args: string[]): Promise<string> => (await raw(local, ...args)).stdout;
+  const bodies = (applied: EmissionBatch[]) => applied.flatMap((entry) => entry.batch.mutations.map((m) => m.body));
+
+  /** The branch commits a rename the remote never saw. */
+  async function commitLocalRename(name: string): Promise<string> {
+    state.rules = [{ ...state.rules[0], name } as Rule];
+    await materializer.flush();
+    const result = await commitWorkspaceTree({ run, rootDir: local, message: 'Rename', identityEnv: IDENTITY_ENV });
+    if (!result.ok || !result.committed) throw new Error('local rename commit failed');
+    return result.sha;
+  }
+
+  it('an edit of the branch beside an edit of the peer in one document keeps both', async () => {
+    const localSha = await commitLocalRename('Local name');
+    await peerEdit(RULE_FILE, (content) => content.replace('enabled: true', 'enabled: false'));
+    const foreignSha = await peerCommitPush('Disable rule');
+
+    const applied: EmissionBatch[] = [];
+    const result = await doPull(applied, () => {
+      state.rules = [{ ...state.rules[0], enabled: false } as Rule];
+    });
+    expect(result).toMatchObject({ ok: true, upToDate: false });
+    // The peer's edit alone converges — the branch's rename is not written back.
+    expect(bodies(applied)).toEqual([
+      { kind: 'setField', type: 'rule', id: 'aaaaaaaa', path: 'enabled', value: false },
+    ]);
+
+    expect((await out('rev-parse', 'HEAD^1')).trim()).toBe(localSha);
+    expect((await out('rev-parse', 'HEAD^2')).trim()).toBe(foreignSha);
+    const merged = await out('show', `HEAD:${RULE_FILE}`);
+    expect(merged).toContain('name: Local name');
+    expect(merged).toContain('enabled: false');
+    expect(await countDirtyFiles(run, local)).toBe(0);
+  });
+
+  it('a value both sides changed is asked about with nothing written; the answer is what the merge records', async () => {
+    const localSha = await commitLocalRename('Local name');
+    await peerEdit(RULE_FILE, (content) => content.replace('name: Block probes', 'name: Block probes (peer)'));
+    const foreignSha = await peerCommitPush('Rename rule');
+
+    const applied: EmissionBatch[] = [];
+    const first = await doPull(applied);
+    expect(first).toMatchObject({ ok: false, reason: 'conflicts', conflicts: [RULE_FILE] });
+    const resolve = filesToAnswer(first);
+    expect(resolve.files).toHaveLength(1);
+    expect(resolve.files[0].path).toBe(RULE_FILE);
+    expect(resolve.files[0].base).toContain('name: Block probes\n');
+    expect(resolve.files[0].theirs).toContain('name: Block probes (peer)');
+    expect(resolve.files[0].mine).toContain('name: Local name');
+    expect(applied).toHaveLength(0);
+    expect((await out('rev-parse', 'HEAD')).trim()).toBe(localSha);
+    expect(await countDirtyFiles(run, local)).toBe(0);
+
+    const answer = (resolve.files[0].mine ?? '').replace('name: Local name', 'name: Both names');
+    const result = await doPull(
+      applied,
+      () => {
+        state.rules = [{ ...state.rules[0], name: 'Both names' } as Rule];
+      },
+      undefined,
+      { token: resolve.token, files: [{ path: RULE_FILE, content: answer }] },
+    );
+    expect(result).toMatchObject({ ok: true, upToDate: false });
+    expect(bodies(applied)).toEqual([
+      { kind: 'setField', type: 'rule', id: 'aaaaaaaa', path: 'name', value: 'Both names' },
+    ]);
+    expect((await out('rev-parse', 'HEAD^1')).trim()).toBe(localSha);
+    expect((await out('rev-parse', 'HEAD^2')).trim()).toBe(foreignSha);
+    expect(await out('show', `HEAD:${RULE_FILE}`)).toContain('name: Both names');
+    expect(await countDirtyFiles(run, local)).toBe(0);
+  });
+
+  it("answered with the branch's side, the merge records the branch's document and applies nothing", async () => {
+    await commitLocalRename('Local name');
+    await peerEdit(RULE_FILE, (content) => content.replace('name: Block probes', 'name: Block probes (peer)'));
+    const foreignSha = await peerCommitPush('Rename rule');
+
+    const resolve = filesToAnswer(await doPull([]));
+    const applied: EmissionBatch[] = [];
+    const result = await doPull(applied, undefined, undefined, {
+      token: resolve.token,
+      files: [{ path: RULE_FILE, content: resolve.files[0].mine ?? '' }],
+    });
+    expect(result).toMatchObject({ ok: true, upToDate: false });
+    expect(applied).toHaveLength(0);
+    expect((await out('rev-parse', 'HEAD^2')).trim()).toBe(foreignSha);
+    expect(await out('show', `HEAD:${RULE_FILE}`)).toContain('name: Local name');
+    expect((await resolveUpstream(run, local))?.behind).toBe(0);
+  });
+
+  it('an answer made against another reading of the files is asked again, as they stand', async () => {
+    await commitLocalRename('Local name');
+    await peerEdit(RULE_FILE, (content) => content.replace('name: Block probes', 'name: Block probes (peer)'));
+    await peerCommitPush('Rename rule');
+
+    const first = filesToAnswer(await doPull([]));
+    // The branch moves on while the answer is being made.
+    state.rules = [{ ...state.rules[0], name: 'Local name, again' } as Rule];
+    const applied: EmissionBatch[] = [];
+    const again = await doPull(applied, undefined, undefined, {
+      token: first.token,
+      files: [{ path: RULE_FILE, content: first.files[0].theirs ?? '' }],
+    });
+    const resolve = filesToAnswer(again);
+    expect(resolve.token).not.toBe(first.token);
+    expect(resolve.files[0].mine).toContain('name: Local name, again');
+    expect(applied).toHaveLength(0);
+  });
+
+  it('an answer that does not read as the document is refused, naming the file', async () => {
+    await commitLocalRename('Local name');
+    await peerEdit(RULE_FILE, (content) => content.replace('name: Block probes', 'name: Block probes (peer)'));
+    await peerCommitPush('Rename rule');
+
+    const resolve = filesToAnswer(await doPull([]));
+    const applied: EmissionBatch[] = [];
+    const result = await doPull(applied, undefined, undefined, {
+      token: resolve.token,
+      files: [{ path: RULE_FILE, content: 'schemaVersion: 5\nuid: [broken\n' }],
+    });
+    expect(result).toMatchObject({ ok: false, reason: 'resolution-invalid', file: RULE_FILE });
+    expect(applied).toHaveLength(0);
   });
 });
 

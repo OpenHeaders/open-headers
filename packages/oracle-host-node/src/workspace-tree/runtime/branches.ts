@@ -27,6 +27,7 @@ import {
   updateBranchFromUpstream,
 } from '../../git';
 import { supportsBranchScope } from '../../sync/sqlite-mutation-log';
+import type { ApplyCommitResolution } from '../change-answers';
 import { mergeWorkspaceBranch } from '../merge';
 import { type SwitchDirtyAction, switchWorkspaceBranch } from '../switch';
 import { syntheticIdentity } from './commit';
@@ -275,6 +276,7 @@ export async function runMergeBranch(
   binding: OpenBinding,
   ref: string,
   commitLocal?: CommitLocalWork,
+  resolution?: ApplyCommitResolution,
 ): Promise<MergeBranchRpcResult> {
   const { rootDir } = binding.record;
   const availability = await ctx.ensureGitAvailability(rootDir);
@@ -301,6 +303,7 @@ export async function runMergeBranch(
     ...localWorkFirst(ctx, binding, identity.env, commitLocal),
     identityEnv: identity.env,
     bypassHooks: binding.record.bypassHooks === true,
+    ...(resolution !== undefined ? { resolution } : {}),
   });
   if (!result.ok) {
     ctx.appendIssues(binding, result.issues);
@@ -311,6 +314,10 @@ export async function runMergeBranch(
       ...(result.localChanges !== undefined
         ? { localChanges: result.localChanges, suggestedMessage: composeCommitMessage(binding.intents) }
         : {}),
+      ...(result.conflicts !== undefined ? { conflicts: result.conflicts } : {}),
+      ...(result.resolve !== undefined ? { resolve: result.resolve } : {}),
+      ...(result.tooLarge !== undefined ? { tooLarge: result.tooLarge } : {}),
+      ...(result.file !== undefined ? { file: result.file } : {}),
     };
   }
   if (result.upToDate) return { ok: true, upToDate: true };
@@ -326,6 +333,12 @@ export async function runMergeBranch(
   if (result.keptLocal !== undefined) {
     logger.warn(SCOPE, `merge of ${ref} kept the local file where both sides changed: ${result.keptLocal.join(', ')}`);
   }
+  if (result.skipped !== undefined) {
+    logger.warn(
+      SCOPE,
+      `merge of ${ref} left out: ${result.skipped.map((skip) => `${skip.path} (${skip.reason})`).join(', ')}`,
+    );
+  }
   return {
     ok: true,
     upToDate: false,
@@ -334,5 +347,6 @@ export async function runMergeBranch(
     ...(result.history !== undefined ? { history: result.history } : {}),
     ...(result.keptLocal !== undefined ? { keptLocal: result.keptLocal } : {}),
     ...(result.committedLocal !== undefined ? { committedLocal: result.committedLocal } : {}),
+    ...(result.skipped !== undefined ? { skipped: result.skipped } : {}),
   };
 }

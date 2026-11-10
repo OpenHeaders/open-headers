@@ -926,6 +926,10 @@ export const workbenchChrome = {
   'workbench.gitLog.applyCommit.resolvePickTitle': 'Cherry-pick de {commit}: resolver conflictos',
   'workbench.gitLog.applyCommit.resolveRevertTitle': 'Reversión de {commit}: resolver conflictos',
   'workbench.gitLog.applyCommit.resolveStale': 'La rama cambió mientras resolvías los conflictos. Revísalos de nuevo.',
+  'workbench.gitLog.resolve.pullTitle': 'Pull: resolver conflictos',
+  'workbench.gitLog.resolve.mergeTitle': 'Fusión de {ref}: resolver conflictos',
+  'workbench.gitLog.resolve.tooLarge':
+    'Ambos lados modificaron {files}, y los archivos son demasiado grandes para resolverlos aquí. No se cambió nada.',
   'workbench.gitLog.forcePush.title': 'El historial remoto fue reescrito',
   'workbench.gitLog.forcePush.body':
     'La rama remota ya no contiene el historial sincronizado por última vez ({sha}). Pull, push y fusión esperan a que elijas — nada cambia hasta que decidas.',

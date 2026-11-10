@@ -14,6 +14,8 @@ export type {
   WorkspaceTreeIdentity,
 } from './bind';
 export { bindWorkspaceTree, probeWorkspaceTree, reserveWorkspaceTreeForAdopt, unbindWorkspaceTree } from './bind';
+export type { ApplyCommitResolution, ApplyCommitResolve } from './change-answers';
+export { COMMIT_CONFLICT_MAX_CHARS } from './change-answers';
 export type { ForcePushChoice, ResolveForcePushOptions, ResolveForcePushResult } from './force-push';
 export { resolveForcePushWorkspaceTree } from './force-push';
 export type { GitHeadWatcherOptions } from './head-watcher';
@@ -22,14 +24,8 @@ export type { MaterializeResult, MaterializeSnapshot, WorkspaceTreeMaterializerO
 export { WorkspaceTreeMaterializer } from './materializer';
 export type { MergeWorkspaceBranchOptions, MergeWorkspaceBranchResult } from './merge';
 export { mergeWorkspaceBranch } from './merge';
-export type {
-  ApplyCommitMode,
-  ApplyCommitResolution,
-  ApplyCommitResolve,
-  ApplyWorkspaceCommitOptions,
-  ApplyWorkspaceCommitResult,
-} from './pick';
-export { applyWorkspaceCommit, COMMIT_CONFLICT_MAX_CHARS } from './pick';
+export type { ApplyCommitMode, ApplyWorkspaceCommitOptions, ApplyWorkspaceCommitResult } from './pick';
+export { applyWorkspaceCommit } from './pick';
 export type {
   IntegrateForeignDeps,
   IntegrateForeignHeadResult,

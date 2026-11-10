@@ -13,7 +13,7 @@
  * with intent.
  */
 
-import type { ApplyCommitResolution } from './pick';
+import type { ApplyCommitResolution } from './change-answers';
 import type { CommitLocalWork, WorkspaceTreeCommitCadence, WorkspaceTreeRuntime } from './runtime';
 
 const COMMIT_CADENCE_VALUES: WorkspaceTreeCommitCadence[] = [
@@ -37,8 +37,9 @@ const isRecord = (value: unknown): value is Record<string, unknown> =>
 const APPLY_COMMIT_MAX_RESOLUTION_FILES = 2_000;
 
 /**
- * The `resolution` of an applyCommit call: undefined when the caller
- * sent none, null when what it sent is not one.
+ * The `resolution` of an applyCommit, pull or mergeBranch call:
+ * undefined when the caller sent none, null when what it sent is not
+ * one.
  */
 function readApplyCommitResolution(value: unknown): ApplyCommitResolution | undefined | null {
   if (value === undefined) return undefined;
@@ -155,9 +156,11 @@ export async function dispatchWorkspaceTreeRpc(
   if (type === 'oh.workspaceTree.pull') {
     const workspaceId = typeof message.workspaceId === 'string' ? message.workspaceId : '';
     if (!workspaceId || runtime === null) return { ok: false, reason: 'not-bound' };
+    const resolution = readApplyCommitResolution(message.resolution);
+    if (resolution === null) return { ok: false, reason: 'resolution-invalid', detail: 'malformed resolution' };
     const commitLocal = readCommitLocalWork(message.commitLocal);
     if (commitLocal === null) return { ok: false, reason: 'commit-failed', detail: 'empty commit message' };
-    return await runtime.pull(workspaceId, commitLocal);
+    return await runtime.pull(workspaceId, commitLocal, resolution);
   }
   // Phase 5 push + safety (§3.2 / §16 / §8.2): the explicit Push
   // gesture, the read-only-remote new-branch affordance, the
@@ -250,9 +253,11 @@ export async function dispatchWorkspaceTreeRpc(
     const workspaceId = typeof message.workspaceId === 'string' ? message.workspaceId : '';
     const ref = typeof message.ref === 'string' ? message.ref.trim() : '';
     if (!workspaceId || !ref || runtime === null) return { ok: false, reason: 'not-bound' };
+    const resolution = readApplyCommitResolution(message.resolution);
+    if (resolution === null) return { ok: false, reason: 'resolution-invalid', detail: 'malformed resolution' };
     const commitLocal = readCommitLocalWork(message.commitLocal);
     if (commitLocal === null) return { ok: false, reason: 'commit-failed', detail: 'empty commit message' };
-    return await runtime.mergeBranch(workspaceId, ref, commitLocal);
+    return await runtime.mergeBranch(workspaceId, ref, commitLocal, resolution);
   }
   if (type === 'oh.workspaceTree.applyCommit') {
     const workspaceId = typeof message.workspaceId === 'string' ? message.workspaceId : '';

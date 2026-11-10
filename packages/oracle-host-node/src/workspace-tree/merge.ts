@@ -8,9 +8,11 @@
  * merge base → virtual mutation batches → mutator convergence →
  * converged tree written → a true fast-forward when the current branch
  * has not diverged, a two-parent commit with `Co-Authored-By:`
- * trailers otherwise. Like the pull, the merge records its own files
- * and no other, and uncommitted work in one of them is committed first
- * — asked, unless it may be done without (`pass-writes.ts`).
+ * trailers otherwise. Like the pull, the merge lays the other branch's
+ * change over this one value by value and asks where both changed one
+ * (`change-answers.ts`), records its own files and no other, and
+ * commits uncommitted work in one of them first — asked, unless it may
+ * be done without (`pass-writes.ts`).
  *
  * The ref may be a local branch (`local-test`) or a remote-tracking
  * ref (`origin/main`) — the §6 teammate scenario's "pull `main` into
@@ -19,13 +21,16 @@
  * background fetch keeps remote-tracking refs fresh (§3.2).
  */
 
-import type { ForeignHistoryNote, TreeIssue } from '@openheaders/core/workspace-tree';
+import type { CommitChangeSkip, ForeignHistoryNote, TreeIssue } from '@openheaders/core/workspace-tree';
 import { countLeftRight, currentBranch, gitOperationInProgress, resolveRefSha } from '../git';
+import type { ApplyCommitResolution, ApplyCommitResolve } from './change-answers';
 import { type IntegrateForeignDeps, integrateForeignHead } from './pull';
 
 export interface MergeWorkspaceBranchOptions extends IntegrateForeignDeps {
   /** The ref to merge into the current branch (local branch or remote-tracking ref). */
   ref: string;
+  /** Answers to a `conflicts` refusal — absent on the first call. */
+  resolution?: ApplyCommitResolution;
 }
 
 export type MergeWorkspaceBranchResult =
@@ -42,6 +47,8 @@ export type MergeWorkspaceBranchResult =
       keptLocal?: string[];
       /** Files of the merge that held uncommitted work — that work was committed first. */
       committedLocal?: string[];
+      /** Parts of the merged branch's change that were not taken (`applyCommitChange`). */
+      skipped?: CommitChangeSkip[];
     }
   | {
       ok: false;
@@ -53,10 +60,20 @@ export type MergeWorkspaceBranchResult =
         | 'foreign-invalid'
         | 'identity-mismatch'
         | 'local-changes'
+        | 'conflicts'
+        | 'resolution-invalid'
         | 'commit-failed';
       detail?: string;
       /** `local-changes`: the files the merged ref changed that hold uncommitted work. */
       localChanges?: string[];
+      /** `conflicts`: the documents both branches changed, then the user's own files. */
+      conflicts?: string[];
+      /** `conflicts`: the files to answer — absent when their texts are too large to send. */
+      resolve?: ApplyCommitResolve;
+      /** `conflicts`: the files' texts are too large to send — there is nothing to answer here. */
+      tooLarge?: true;
+      /** `resolution-invalid`: the answered file that could not be taken. */
+      file?: string;
       issues: TreeIssue[];
     };
 
@@ -81,6 +98,7 @@ export async function mergeWorkspaceBranch(options: MergeWorkspaceBranchOptions)
     foreignSha,
     localAhead: counts.ahead,
     mergeMessage: `Merge branch '${ref}'`,
+    ...(options.resolution !== undefined ? { resolution: options.resolution } : {}),
   });
   if (!integrated.ok) return integrated;
   return {
@@ -92,5 +110,6 @@ export async function mergeWorkspaceBranch(options: MergeWorkspaceBranchOptions)
     ...(integrated.history !== undefined ? { history: integrated.history } : {}),
     ...(integrated.keptLocal !== undefined ? { keptLocal: integrated.keptLocal } : {}),
     ...(integrated.committedLocal !== undefined ? { committedLocal: integrated.committedLocal } : {}),
+    ...(integrated.skipped !== undefined ? { skipped: integrated.skipped } : {}),
   };
 }

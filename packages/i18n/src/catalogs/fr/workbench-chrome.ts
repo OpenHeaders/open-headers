@@ -933,6 +933,10 @@ export const workbenchChrome = {
   'workbench.gitLog.applyCommit.resolveRevertTitle': 'Revert de {commit} : résoudre les conflits',
   'workbench.gitLog.applyCommit.resolveStale':
     'La branche a changé pendant que vous résolviez les conflits. Vérifiez-les à nouveau.',
+  'workbench.gitLog.resolve.pullTitle': 'Pull : résoudre les conflits',
+  'workbench.gitLog.resolve.mergeTitle': 'Fusion de {ref} : résoudre les conflits',
+  'workbench.gitLog.resolve.tooLarge':
+    'Les deux côtés ont modifié {files}, et les fichiers sont trop volumineux pour être résolus ici. Rien n’a été modifié.',
   'workbench.gitLog.forcePush.title': 'L’historique distant a été réécrit',
   'workbench.gitLog.forcePush.body':
     'La branche distante ne contient plus l’historique synchronisé la dernière fois ({sha}). Pull, push et fusion attendent votre choix — rien ne change tant que vous n’avez pas décidé.',

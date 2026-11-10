@@ -21,8 +21,8 @@ import type {
   WorkingChange,
 } from '../../git';
 import type { BindWorkspaceTreeResult, probeWorkspaceTree, ReserveWorkspaceTreeForAdoptResult } from '../bind';
+import type { ApplyCommitResolution, ApplyCommitResolve } from '../change-answers';
 import type { ForcePushChoice } from '../force-push';
-import type { ApplyCommitResolution, ApplyCommitResolve } from '../pick';
 import type { SweepWorkspaceTreeResult } from '../sweep';
 import type { SwitchDirtyAction } from '../switch';
 
@@ -64,6 +64,8 @@ export type PullWorkspaceTreeRpcResult =
       keptLocal?: string[];
       /** Files of the pull that held uncommitted work — that work was committed first. */
       committedLocal?: string[];
+      /** Parts of the foreign change that were not taken. */
+      skipped?: ApplyCommitSkip[];
     }
   | {
       ok: false;
@@ -78,12 +80,22 @@ export type PullWorkspaceTreeRpcResult =
         | 'foreign-invalid'
         | 'identity-mismatch'
         | 'local-changes'
+        | 'conflicts'
+        | 'resolution-invalid'
         | 'commit-failed';
       detail?: string;
       /** `local-changes`: the files the pull would write that hold uncommitted work. */
       localChanges?: string[];
       /** `local-changes`: the pending draft — the message offered for the commit of that work. */
       suggestedMessage?: string;
+      /** `conflicts`: the documents both sides changed, then the user's own files. */
+      conflicts?: string[];
+      /** `conflicts`: the files to answer and the token naming this reading of them. */
+      resolve?: ApplyCommitResolve;
+      /** `conflicts`: the files' texts are too large to send. */
+      tooLarge?: true;
+      /** `resolution-invalid`: the answered file that could not be taken. */
+      file?: string;
     };
 
 export type PushWorkspaceTreeRpcResult =
@@ -286,6 +298,8 @@ export type MergeBranchRpcResult =
       keptLocal?: string[];
       /** Files of the merge that held uncommitted work — that work was committed first. */
       committedLocal?: string[];
+      /** Parts of the merged branch's change that were not taken. */
+      skipped?: ApplyCommitSkip[];
     }
   | {
       ok: false;
@@ -300,12 +314,22 @@ export type MergeBranchRpcResult =
         | 'foreign-invalid'
         | 'identity-mismatch'
         | 'local-changes'
+        | 'conflicts'
+        | 'resolution-invalid'
         | 'commit-failed';
       detail?: string;
       /** `local-changes`: the files the merge would write that hold uncommitted work. */
       localChanges?: string[];
       /** `local-changes`: the pending draft — the message offered for the commit of that work. */
       suggestedMessage?: string;
+      /** `conflicts`: the documents both branches changed, then the user's own files. */
+      conflicts?: string[];
+      /** `conflicts`: the files to answer and the token naming this reading of them. */
+      resolve?: ApplyCommitResolve;
+      /** `conflicts`: the files' texts are too large to send. */
+      tooLarge?: true;
+      /** `resolution-invalid`: the answered file that could not be taken. */
+      file?: string;
     };
 
 /**
@@ -559,7 +583,11 @@ export interface WorkspaceTreeRuntime {
    * on `commitLocal` — the pass refuses `local-changes` without it
    * unless commits are automatic on the binding.
    */
-  pull(workspaceId: string, commitLocal?: CommitLocalWork): Promise<PullWorkspaceTreeRpcResult>;
+  pull(
+    workspaceId: string,
+    commitLocal?: CommitLocalWork,
+    resolution?: ApplyCommitResolution,
+  ): Promise<PullWorkspaceTreeRpcResult>;
   /**
    * Explicit Push gesture (§9, Phase 5): push the current branch to
    * its upstream. Typed non-fast-forward / permission failures feed
@@ -617,7 +645,12 @@ export interface WorkspaceTreeRuntime {
    * work is treated exactly like pull's: left alone unless the merge
    * writes its file, then committed first on `commitLocal`.
    */
-  mergeBranch(workspaceId: string, ref: string, commitLocal?: CommitLocalWork): Promise<MergeBranchRpcResult>;
+  mergeBranch(
+    workspaceId: string,
+    ref: string,
+    commitLocal?: CommitLocalWork,
+    resolution?: ApplyCommitResolution,
+  ): Promise<MergeBranchRpcResult>;
   /**
    * Cherry-Pick (`pick`) or Revert (`revert`) of ONE commit of the log,
    * by its FULL sha, onto the current branch as a new one-parent

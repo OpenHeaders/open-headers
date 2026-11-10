@@ -17,6 +17,7 @@ import type { WorkspaceTreeState } from '@openheaders/core/workspace-tree';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { createGitExec, type GitRunner } from '../../src/git/git-exec';
 import { commitWorkspaceTree, countDirtyFiles, ensureWorkspaceRepo } from '../../src/git/repo';
+import type { ApplyCommitResolution } from '../../src/workspace-tree/change-answers';
 import { WorkspaceTreeMaterializer } from '../../src/workspace-tree/materializer';
 import { type MergeWorkspaceBranchResult, mergeWorkspaceBranch } from '../../src/workspace-tree/merge';
 import type { LocalWorkDeps } from '../../src/workspace-tree/pass-writes';
@@ -151,6 +152,7 @@ function doMerge(
   applied: EmissionBatch[],
   onApply?: () => void,
   tree: { rootDir: string; materializer: WorkspaceTreeMaterializer } = { rootDir: local, materializer },
+  resolution?: ApplyCommitResolution,
 ): Promise<MergeWorkspaceBranchResult> {
   return mergeWorkspaceBranch({
     run,
@@ -168,6 +170,7 @@ function doMerge(
     ...localWork(tree.rootDir),
     identityEnv: IDENTITY_ENV,
     bypassHooks: false,
+    ...(resolution !== undefined ? { resolution } : {}),
   });
 }
 
@@ -294,7 +297,7 @@ describe('mergeWorkspaceBranch', () => {
     await assertNoConflictMarkers(local);
   });
 
-  it('uncommitted work the merge does not touch stays uncommitted; in a file it writes it is asked about first', async () => {
+  it('uncommitted work the merge does not touch stays uncommitted; in a file it writes it is asked about first, then merged as answered', async () => {
     const branchSha = await branchEdit('local-test', 'Rename on branch');
     await fs.writeFile(path.join(local, 'scratch.txt'), 'unversioned\n', 'utf-8');
     const status = async (): Promise<string> =>
@@ -316,10 +319,25 @@ describe('mergeWorkspaceBranch', () => {
     expect(applied).toHaveLength(0);
     expect(await status()).toBe(before);
 
+    // On the word the merge goes on — to the name both branches changed, still with nothing written.
     mayCommitLocalWork = true;
-    const result = await doMerge('local-test', applied, () => {
-      state.rules = [{ ...state.rules[0], name: 'Block probes (branch)' } as Rule];
-    });
+    const asked = await doMerge('local-test', applied);
+    expect(asked).toMatchObject({ ok: false, reason: 'conflicts', conflicts: [RULE_FILE] });
+    if (asked.ok || asked.resolve === undefined) throw new Error('expected files to answer');
+    expect(asked.resolve.files[0].mine).toContain('name: Local name');
+    expect(applied).toHaveLength(0);
+    expect(localWorkCommits).toEqual([]);
+    expect(await status()).toBe(before);
+
+    const result = await doMerge(
+      'local-test',
+      applied,
+      () => {
+        state.rules = [{ ...state.rules[0], name: 'Block probes (branch)' } as Rule];
+      },
+      undefined,
+      { token: asked.resolve.token, files: [{ path: RULE_FILE, content: asked.resolve.files[0].theirs ?? '' }] },
+    );
     expect(result).toMatchObject({ ok: true, upToDate: false, committedLocal: [RULE_FILE] });
     expect(localWorkCommits).toEqual([[RULE_FILE]]);
     expect((await raw(local, 'rev-parse', 'HEAD^2')).stdout.trim()).toBe(branchSha);

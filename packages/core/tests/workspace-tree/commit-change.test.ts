@@ -427,3 +427,33 @@ describe('applyCommitChange — environments and singletons', () => {
     expect([...change.changedPaths]).toEqual(['workspace-vars.yaml']);
   });
 });
+
+describe('applyCommitChange — a document that did not read is not a deletion', () => {
+  const staging = { schemaVersion: 5, uid: 'env0000a', name: 'Staging', variables: [] } as Environment;
+  const vars: WorkspaceVariables = { schemaVersion: 5, variables: [] };
+  const held = state({ rules: [a, b], environments: [staging], workspaceVariables: vars });
+
+  it('what the end tree lacks stands when the change removed no such file', () => {
+    const change = applyCommitChange({ current: held, from: held, to: state({ rules: [b] }), removedPaths: new Set() });
+    expect(change.next.rules).toEqual([a, b]);
+    expect(change.next.environments).toEqual([staging]);
+    expect(change.next.workspaceVariables).toEqual(vars);
+    expect([...change.removedPaths]).toEqual([]);
+    expect(change.conflicts).toEqual([]);
+  });
+
+  it('what the end tree lacks leaves where the change removed its file', () => {
+    const change = applyCommitChange({
+      current: held,
+      from: held,
+      to: state({ rules: [b] }),
+      removedPaths: new Set([manifestOf(a), 'environments/staging-env0000a.yaml', 'workspace-vars.yaml']),
+    });
+    expect(change.next.rules).toEqual([b]);
+    expect(change.next.environments).toEqual([]);
+    expect(change.next.workspaceVariables).toBeNull();
+    expect([...change.removedPaths].sort()).toEqual(
+      [manifestOf(a), 'environments/staging-env0000a.yaml', 'workspace-vars.yaml'].sort(),
+    );
+  });
+});

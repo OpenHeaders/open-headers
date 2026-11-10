@@ -8,7 +8,8 @@
 
 import { logger } from '@openheaders/core/utils';
 import { composeCommitMessage, countDirtyFiles, isWorkspaceRepo, resolveCommitIdentity } from '../../git';
-import { type ApplyCommitMode, type ApplyCommitResolution, applyWorkspaceCommit } from '../pick';
+import type { ApplyCommitResolution } from '../change-answers';
+import { type ApplyCommitMode, applyWorkspaceCommit } from '../pick';
 import { syntheticIdentity } from './commit';
 import { type OpenBinding, type RuntimeCtx, SCOPE, TREE_SURFACE_ID } from './core';
 import { localWorkFirst } from './local-work';

@@ -11,9 +11,9 @@
  * Push (the Push window over the current branch), Fetch, Delete
  * with the Restore toast, New Tag at a commit (the dialog), and Manage
  * Remotes (the Git Remotes dialog).
- * A Pull or a Merge that is about to write a file holding uncommitted
- * work asks first, through the shared question
- * (`use-local-changes-question`).
+ * A Pull or a Merge asks before it writes — about uncommitted work in a
+ * file it is about to write, and about a value both sides changed —
+ * through the shared answers (`use-pass-answers`).
  * Mutations go through the bridge and come back as
  * `workspaceTreeGitStatus` frames — nothing here refetches by hand.
  * The hook owns the dialogs' state and hands back their elements for
@@ -29,7 +29,7 @@ import { App as AntApp, theme } from 'antd';
 import type React from 'react';
 import { useState } from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
-import { committedLocalNotice, keptLocalNotice } from '../kept-local';
+import { committedLocalNotice, integrationRefusalDetail, keptLocalNotice, leftOutNotice } from '../kept-local';
 import { isFullCommitSha } from '../log-neighbors';
 import PushCommitsModal from '../push/PushCommitsModal';
 import PushRejectedModal from '../push/PushRejectedModal';
@@ -37,7 +37,7 @@ import CreateBranchModal from '../rail/CreateBranchModal';
 import CreateTagModal from '../rail/CreateTagModal';
 import RemotesModal from '../remotes/RemotesModal';
 import SwitchBranchModal, { type SwitchBranchPrompt, type SwitchDirtyChoice } from '../rail/SwitchBranchModal';
-import { useLocalChangesQuestion } from '../use-local-changes-question';
+import { usePassAnswers } from '../use-pass-answers';
 
 export interface GitBranchActionsOptions {
   workspaceId: string;
@@ -78,7 +78,7 @@ export interface GitBranchActions {
   /** The Git Remotes dialog. */
   manageRemotes: () => void;
   busy: GitBranchBusy;
-  /** The New Branch, New Tag, dirty-switch, Push, Remotes and uncommitted-work dialogs — mount once in the caller's tree. */
+  /** The New Branch, New Tag, dirty-switch, Push, Remotes, uncommitted-work and conflict dialogs — mount once in the caller's tree. */
   dialogs: React.ReactNode;
 }
 
@@ -106,18 +106,25 @@ export function useGitBranchActions(options: GitBranchActionsOptions): GitBranch
   const [pushRejected, setPushRejected] = useState(false);
   const [remotesOpen, setRemotesOpen] = useState(false);
   const [tagAt, setTagAt] = useState<string | null>(null);
-  const question = useLocalChangesQuestion(container);
+  const answers = usePassAnswers(container);
 
   const failure = (err: unknown): string => (err instanceof Error ? err.message : String(err));
 
   // What a pull or a merge did with the person's own work: a file both
   // sides changed kept its local bytes, uncommitted work in a file the
-  // pass wrote was committed first — each a toast of its own.
-  const sayLocalWork = (result: { keptLocal?: string[]; committedLocal?: string[] }): void => {
+  // pass wrote was committed first, part of the incoming change was left
+  // out — each a toast of its own.
+  const sayLocalWork = (result: {
+    keptLocal?: string[];
+    committedLocal?: string[];
+    skipped?: { path: string }[];
+  }): void => {
     const kept = keptLocalNotice(result.keptLocal, t);
     if (kept !== null) notification.warning({ title: kept, duration: 8 });
     const first = committedLocalNotice(result.committedLocal, t);
     if (first !== null) notification.info({ title: first, duration: 8 });
+    const leftOut = leftOutNotice(result.skipped, t);
+    if (leftOut !== null) notification.warning({ title: leftOut, duration: 0 });
   };
 
   // Checkout (§6): the wrapped switch; a dirty tree answers `dirty`
@@ -193,17 +200,13 @@ export function useGitBranchActions(options: GitBranchActionsOptions): GitBranch
     setMergeBusy(true);
     const branch = currentRef ?? 'HEAD';
     try {
-      const result = await question.withWord({ kind: 'merge', ref }, (commitLocal) =>
-        hostBridge.call('oh.workspaceTree.mergeBranch', {
-          workspaceId,
-          ref,
-          ...(commitLocal !== undefined ? { commitLocal } : {}),
-        }),
+      const result = await answers.run({ kind: 'merge', ref }, (given) =>
+        hostBridge.call('oh.workspaceTree.mergeBranch', { workspaceId, ref, ...given }),
       );
       if (result === null) return;
       if (!result.ok) {
         notification.error({
-          title: t('workbench.gitLog.merge.failed', { ref, detail: result.detail ?? result.reason }),
+          title: t('workbench.gitLog.merge.failed', { ref, detail: integrationRefusalDetail(result, t) }),
         });
       } else if (result.upToDate) {
         notification.info({ title: t('workbench.gitLog.merge.upToDate', { ref, branch }), duration: 5 });
@@ -324,11 +327,8 @@ export function useGitBranchActions(options: GitBranchActionsOptions): GitBranch
     if (pullBusy) return false;
     setPullBusy(true);
     try {
-      const result = await question.withWord({ kind: 'pull' }, (commitLocal) =>
-        hostBridge.call('oh.workspaceTree.pull', {
-          workspaceId,
-          ...(commitLocal !== undefined ? { commitLocal } : {}),
-        }),
+      const result = await answers.run({ kind: 'pull' }, (given) =>
+        hostBridge.call('oh.workspaceTree.pull', { workspaceId, ...given }),
       );
       if (result === null) return false;
       if (!result.ok) {
@@ -336,7 +336,7 @@ export function useGitBranchActions(options: GitBranchActionsOptions): GitBranch
           title:
             result.reason === 'force-push'
               ? t('workbench.commitTool.errors.historyRewritten')
-              : t('workbench.commitTool.menu.pullFailed', { detail: result.detail ?? result.reason }),
+              : t('workbench.commitTool.menu.pullFailed', { detail: integrationRefusalDetail(result, t) }),
         });
         return false;
       } else if (!result.upToDate && result.history !== undefined) {
@@ -455,7 +455,7 @@ export function useGitBranchActions(options: GitBranchActionsOptions): GitBranch
         }}
       />
       <RemotesModal workspaceId={workspaceId} open={remotesOpen} container={container} onClose={() => setRemotesOpen(false)} />
-      {question.dialog}
+      {answers.dialogs}
     </>
   );
 

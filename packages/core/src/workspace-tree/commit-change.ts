@@ -70,6 +70,14 @@ export interface CommitChangeArgs {
   to: TreeState;
   /** Answers to documents both sides changed — absent on the first pass. */
   resolved?: CommitChangeResolved;
+  /**
+   * The files the change removed, when the caller has them (a diff of
+   * the change's two commits). A document `from` holds and `to` lacks is
+   * then deleted only where its file is among them — one that merely did
+   * not read on the `to` side stands as the branch holds it. Absent =
+   * every document `to` lacks is deleted.
+   */
+  removedPaths?: ReadonlySet<string>;
 }
 
 /** Documents resolved by hand, taken in place of the patch (`commit-conflicts.ts` reads them). */
@@ -136,6 +144,8 @@ interface Pass {
   /** Uids answered with a document, and uids answered as gone. */
   answered: ReadonlySet<string>;
   answeredGone: ReadonlySet<string>;
+  /** Whether the change removed the document at this path — false for one that only failed to read. */
+  removed: (path: string) => boolean;
 }
 
 interface Family<T extends PathEntity> {
@@ -257,7 +267,10 @@ function follow<T extends PathEntity>(group: Family<T>, pass: Pass): void {
 function withdraw<T extends PathEntity>(group: Family<T>, pass: Pass, occupied: (path: string) => boolean): void {
   const kept = new Set(group.to.map((entity) => entity.uid));
   const leaving = group.from
-    .filter((before) => !kept.has(before.uid) && group.next.has(before.uid))
+    .filter(
+      (before) =>
+        !kept.has(before.uid) && group.next.has(before.uid) && pass.removed(`${before.path}/${group.manifest}`),
+    )
     .sort((a, b) => depthOf(b.path) - depthOf(a.path));
   for (const before of leaving) {
     const mine = group.next.get(before.uid);
@@ -318,7 +331,7 @@ function layOverEnvironments(
   }
   for (const before of from) {
     const mine = next.get(before.uid);
-    if (kept.has(before.uid) || mine === undefined) continue;
+    if (kept.has(before.uid) || mine === undefined || !pass.removed(environmentFilePath(before))) continue;
     const answer = answerOf(answers, before.uid, pass);
     if (answer !== undefined) {
       if (differs(mine, answer)) {
@@ -347,6 +360,7 @@ function layOverSingleton<T extends Row>(
 ): T | null {
   if (!differs(from, to)) return current;
   if (to === null) {
+    if (!pass.removed(document.path)) return current;
     if (current !== null) pass.removedPaths.add(document.path);
     return null;
   }
@@ -381,6 +395,7 @@ export function applyCommitChange(args: CommitChangeArgs): CommitChange {
     moved: new Map(),
     answered: args.resolved?.documents ?? new Set(),
     answeredGone: args.resolved?.removed ?? new Set(),
+    removed: (path) => args.removedPaths?.has(path) ?? true,
   };
 
   const collections = family(

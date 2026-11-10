@@ -17,8 +17,13 @@ import { Alert, App as AntApp, Button, Input, Modal, Popconfirm, Select, theme }
 import type React from 'react';
 import { useState } from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
-import { committedLocalNotice, keptLocalNotice } from '../../../components/panels/git/kept-local';
-import { useLocalChangesQuestion } from '../../../components/panels/git/use-local-changes-question';
+import {
+  committedLocalNotice,
+  integrationRefusalDetail,
+  keptLocalNotice,
+  leftOutNotice,
+} from '../../../components/panels/git/kept-local';
+import { usePassAnswers } from '../../../components/panels/git/use-pass-answers';
 import { PaneSection } from '../pane-chrome';
 import GitNeedsRepoNote from './git-needs-repo-note';
 import type { WorkspaceGit } from './use-workspace-git';
@@ -60,15 +65,22 @@ const GitRepositorySection: React.FC<{ git: WorkspaceGit }> = ({ git }) => {
   const t = useT();
   const { message } = AntApp.useApp();
   const { call, workspaceId, gitStatus, refresh, refreshGitStatus } = git;
-  const question = useLocalChangesQuestion(null);
+  const answers = usePassAnswers(null);
   // What a pull or a merge did with the person's own work: a file both
   // sides changed kept its local bytes, uncommitted work in a file the
-  // pass wrote was committed first.
-  const sayLocalWork = (result: { keptLocal?: string[]; committedLocal?: string[] }): void => {
+  // pass wrote was committed first, part of the incoming change was left
+  // out.
+  const sayLocalWork = (result: {
+    keptLocal?: string[];
+    committedLocal?: string[];
+    skipped?: { path: string }[];
+  }): void => {
     const kept = keptLocalNotice(result.keptLocal, t);
     if (kept !== null) message.warning(kept, 8);
     const first = committedLocalNotice(result.committedLocal, t);
     if (first !== null) message.info(first, 8);
+    const leftOut = leftOutNotice(result.skipped, t);
+    if (leftOut !== null) message.warning(leftOut, 8);
   };
   const [commitMessage, setCommitMessage] = useState('');
   const [committing, setCommitting] = useState(false);
@@ -128,8 +140,8 @@ const GitRepositorySection: React.FC<{ git: WorkspaceGit }> = ({ git }) => {
     setPulling(true);
     setPullError(null);
     try {
-      const result = await question.withWord({ kind: 'pull' }, (commitLocal) =>
-        call('oh.workspaceTree.pull', { workspaceId, ...(commitLocal !== undefined ? { commitLocal } : {}) }),
+      const result = await answers.run({ kind: 'pull' }, (given) =>
+        call('oh.workspaceTree.pull', { workspaceId, ...given }),
       );
       if (result === null) return;
       if (result.ok && result.upToDate) {
@@ -138,7 +150,7 @@ const GitRepositorySection: React.FC<{ git: WorkspaceGit }> = ({ git }) => {
         message.success(t('workbench.settings.gitPane.git.pulled', { sha: result.sha.slice(0, 7) }));
         sayLocalWork(result);
       } else {
-        setPullError(t('workbench.settings.gitPane.git.pullFailed', { detail: result.detail ?? result.reason }));
+        setPullError(t('workbench.settings.gitPane.git.pullFailed', { detail: integrationRefusalDetail(result, t) }));
       }
       await refreshGitStatus();
       await refresh();
@@ -281,12 +293,8 @@ const GitRepositorySection: React.FC<{ git: WorkspaceGit }> = ({ git }) => {
     setBranchError(null);
     try {
       const ref = mergeRef;
-      const result = await question.withWord({ kind: 'merge', ref }, (commitLocal) =>
-        call('oh.workspaceTree.mergeBranch', {
-          workspaceId,
-          ref,
-          ...(commitLocal !== undefined ? { commitLocal } : {}),
-        }),
+      const result = await answers.run({ kind: 'merge', ref }, (given) =>
+        call('oh.workspaceTree.mergeBranch', { workspaceId, ref, ...given }),
       );
       if (result === null) return;
       if (result.ok && result.upToDate) {
@@ -297,7 +305,7 @@ const GitRepositorySection: React.FC<{ git: WorkspaceGit }> = ({ git }) => {
         sayLocalWork(result);
       } else {
         setBranchError(
-          t('workbench.settings.gitPane.git.branch.mergeFailed', { detail: result.detail ?? result.reason }),
+          t('workbench.settings.gitPane.git.branch.mergeFailed', { detail: integrationRefusalDetail(result, t) }),
         );
       }
       await refreshGitStatus();
@@ -362,7 +370,7 @@ const GitRepositorySection: React.FC<{ git: WorkspaceGit }> = ({ git }) => {
 
   return (
     <>
-      {question.dialog}
+      {answers.dialogs}
       <PaneSection title={t('workbench.settings.gitPane.section.workingTree')}>
         {gitStatus.forcePush !== null && (
           <Alert

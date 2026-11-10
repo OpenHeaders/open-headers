@@ -38,6 +38,7 @@ export { DETACHED_HEAD_STAMP_PREFIX, detachedHeadStamp, type HeadStampReading, r
 export { withRequiredIgnoreEntries } from './hygiene';
 export {
   COLLECTION_MANIFEST_FILE,
+  ENTITY_MANIFEST_FILES,
   ENVIRONMENTS_DIR,
   environmentFilePath,
   environmentSecretFilePath,

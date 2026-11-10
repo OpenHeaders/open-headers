@@ -780,6 +780,10 @@ export const workbenchChrome = {
   'workbench.gitLog.applyCommit.resolvePickTitle': 'Cherry-pick {commit}: разрешение конфликтов',
   'workbench.gitLog.applyCommit.resolveRevertTitle': 'Revert {commit}: разрешение конфликтов',
   'workbench.gitLog.applyCommit.resolveStale': 'Ветка изменилась, пока вы разрешали конфликты. Проверьте их ещё раз.',
+  'workbench.gitLog.resolve.pullTitle': 'Pull: разрешение конфликтов',
+  'workbench.gitLog.resolve.mergeTitle': 'Слияние {ref}: разрешение конфликтов',
+  'workbench.gitLog.resolve.tooLarge':
+    'Обе стороны изменили {files}, а файлы слишком велики, чтобы разрешить конфликт здесь. Ничего не изменено.',
   'workbench.gitLog.forcePush.title': 'История удалённого репозитория переписана',
   'workbench.gitLog.forcePush.body':
     'Удалённая ветка больше не содержит историю, которую вы синхронизировали последней ({sha}). Pull, Push и слияние ждут вашего выбора — ничего не изменится, пока вы не решите.',

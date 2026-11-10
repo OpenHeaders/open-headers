@@ -54,12 +54,7 @@
 
 import { synthesizeWorkspaceTreeDelta } from '@openheaders/core/sync-builders/mutations/workspace-tree-delta';
 import {
-  applyCommitChange,
   type CommitChangeSkip,
-  type CommitConflictFile,
-  type CommitResolution,
-  commitConflictDocuments,
-  readCommitResolutions,
   readWorkspaceTree,
   type TreeIssue,
   withCommitSecretRows,
@@ -78,29 +73,14 @@ import {
   resolveRefSha,
   snapshotWorkingTree,
 } from '../git';
-import { landForeignOwnFiles, readOwnFileConflicts } from './own-files';
-import { readPassWrites, uncommittedAmong } from './pass-writes';
+import { type ApplyCommitResolution, type ApplyCommitResolve, decideChange } from './change-answers';
+import { landForeignOwnFiles } from './own-files';
+import { readPassWrites } from './pass-writes';
 import { plannedDocumentWrites } from './pick-writes';
 import type { IntegrateForeignDeps } from './pull';
-import { hashTreeContent } from './sidecar';
 
 /** `pick` lays the commit's change over the branch; `revert` lays its opposite. */
 export type ApplyCommitMode = 'pick' | 'revert';
-
-/** A `conflicts` refusal sends its files only while their texts fit in this many characters. */
-export const COMMIT_CONFLICT_MAX_CHARS = 2 * 1_048_576;
-
-/** The files of a `conflicts` refusal, and the token that names this reading of them. */
-export interface ApplyCommitResolve {
-  token: string;
-  files: CommitConflictFile[];
-}
-
-/** The answers to a `conflicts` refusal, with the token they were made against. */
-export interface ApplyCommitResolution {
-  token: string;
-  files: CommitResolution[];
-}
 
 export interface ApplyWorkspaceCommitOptions extends IntegrateForeignDeps {
   /** The FULL sha of the commit whose change is applied. */
@@ -155,25 +135,6 @@ const dirOf = (filePath: string): string => {
   const idx = filePath.lastIndexOf('/');
   return idx === -1 ? '' : filePath.slice(0, idx);
 };
-
-const textsOf = (file: CommitConflictFile): Array<string | null> => [
-  file.base ?? null,
-  file.theirs ?? null,
-  file.mine ?? null,
-];
-
-/** Names one reading of the conflicted files: the commit, the direction, and every text on every side. */
-function conflictToken(sha: string, mode: ApplyCommitMode, files: readonly CommitConflictFile[]): string {
-  return hashTreeContent(JSON.stringify([sha, mode, files.map((file) => [file.path, ...textsOf(file)])]));
-}
-
-function fitsOnTheWire(files: readonly CommitConflictFile[]): boolean {
-  let chars = 0;
-  for (const file of files) {
-    for (const text of textsOf(file)) chars += text?.length ?? 0;
-  }
-  return chars <= COMMIT_CONFLICT_MAX_CHARS;
-}
 
 export async function applyWorkspaceCommit(options: ApplyWorkspaceCommitOptions): Promise<ApplyWorkspaceCommitResult> {
   const { run, rootDir, sha, mode } = options;
@@ -234,97 +195,23 @@ export async function applyWorkspaceCommit(options: ApplyWorkspaceCommitOptions)
   });
   const from = picking ? parentState : commitState;
   const to = picking ? commitState : parentState;
-  // The user's own files both sides changed, as far as a person can
-  // answer them. Read before anything is written — the working tree is
-  // still the branch's side, uncommitted work included.
+  // The question about uncommitted work, the files to answer and the
+  // answers read — all before anything is written (`change-answers.ts`).
   const ownRefs = picking ? { baseRef: parent, foreignRef: sha } : { baseRef: sha, foreignRef: parent };
-  const ownConflicts = await readOwnFileConflicts(run, rootDir, ownRefs);
-  if (!ownConflicts.ok) return { ok: false, reason: 'foreign-invalid', detail: ownConflicts.detail, issues: [] };
-
-  let change = applyCommitChange({ current: snapshot, from, to });
-  const documents =
-    change.conflicts.length > 0
-      ? commitConflictDocuments({ current: snapshot, from, to, conflicts: change.conflicts })
-      : [];
-  const documentFiles = documents.flatMap((document) => document.files);
-  // The own files join the answer while every text still fits; past
-  // that they stay kept and named, and the documents alone are asked.
-  const ownFiles = fitsOnTheWire([...documentFiles, ...ownConflicts.files]) ? ownConflicts.files : [];
-  const files = [...documentFiles, ...ownFiles];
-
-  // Uncommitted work in a file the change is about to write has to be
-  // committed first, or it would ride into the change's commit — that
-  // is asked before anything else, while nothing is written.
-  if (!options.mayCommitLocalWork) {
-    const writes = [...plannedDocumentWrites(snapshot, change.next), ...ownFiles.map((file) => file.path)];
-    const localChanges = await uncommittedAmong(run, rootDir, writes);
-    if (localChanges === null) {
-      return { ok: false, reason: 'commit-failed', detail: 'the working tree could not be read', issues: [] };
-    }
-    if (localChanges.length > 0) return { ok: false, reason: 'local-changes', localChanges, issues: [] };
-  }
-
-  // Conflicts no file shows: the branch's document stands, and the answer says so.
-  const shown = new Set(documents.filter((document) => document.files.length > 0).map((document) => document.uid));
-  const unshown: CommitChangeSkip[] = change.conflicts
-    .filter((conflict) => !shown.has(conflict.uid))
-    .map((conflict) => ({ ...conflict, reason: 'conflict-unshown' }));
-
-  const ownAnswers = new Map<string, string>();
-  let documentAnswers: readonly CommitResolution[] = options.resolution?.files ?? [];
-  if (files.length > 0) {
-    const token = conflictToken(sha, mode, files);
-    const answered = options.resolution;
-    if (answered?.token !== token) {
-      const conflicts = [...change.conflicts.map((document) => document.path), ...ownFiles.map((file) => file.path)];
-      if (!fitsOnTheWire(files)) return { ok: false, reason: 'conflicts', conflicts, tooLarge: true, issues: [] };
-      return { ok: false, reason: 'conflicts', conflicts, resolve: { token, files }, issues: [] };
-    }
-    const ownPaths = new Set(ownFiles.map((file) => file.path));
-    for (const answer of answered.files) {
-      if (ownPaths.has(answer.path)) ownAnswers.set(answer.path, answer.content);
-    }
-    for (const file of ownFiles) {
-      if (!ownAnswers.has(file.path)) {
-        return {
-          ok: false,
-          reason: 'resolution-invalid',
-          detail: 'no answer for this file',
-          file: file.path,
-          issues: [],
-        };
-      }
-    }
-    documentAnswers = answered.files.filter((answer) => !ownPaths.has(answer.path));
-    if (documentFiles.length === 0 && documentAnswers.length > 0) {
-      return {
-        ok: false,
-        reason: 'resolution-invalid',
-        detail: 'not a file of this conflict',
-        file: documentAnswers[0].path,
-        issues: [],
-      };
-    }
-  }
-  if (change.conflicts.length > 0) {
-    // A conflict whose texts show nothing apart has no file to answer —
-    // the branch's document stands, named as left out, and the pass goes on.
-    const read = readCommitResolutions({ current: snapshot, documents, resolutions: documentAnswers });
-    if (!read.ok) {
-      return { ok: false, reason: 'resolution-invalid', detail: read.message, file: read.path, issues: [] };
-    }
-    change = applyCommitChange({ current: snapshot, from, to, resolved: read.resolved });
-    if (change.conflicts.length > 0) {
-      return {
-        ok: false,
-        reason: 'conflicts',
-        conflicts: change.conflicts.map((document) => document.path),
-        issues: [],
-      };
-    }
-  }
-
-  const skipped = [...change.skipped, ...unshown];
+  const decided = await decideChange({
+    run,
+    rootDir,
+    subject: [sha, mode],
+    current: snapshot,
+    from,
+    to,
+    ownRefs,
+    ...(options.resolution !== undefined ? { resolution: options.resolution } : {}),
+    mayCommitLocalWork: options.mayCommitLocalWork,
+    writes: (laid, ownFiles) => [...plannedDocumentWrites(snapshot, laid.next), ...ownFiles.map((file) => file.path)],
+  });
+  if (!decided.ok) return { ...decided, issues: [] };
+  const { change, skipped, ownAnswers } = decided;
 
   // From here the pass writes. What the engine still has pending is
   // local work, not the change's: it reaches the disk first, and the

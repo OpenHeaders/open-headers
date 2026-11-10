@@ -28,15 +28,17 @@ import type { WorkspaceTreeState } from '@openheaders/core/workspace-tree';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { createGitExec, type GitRunner } from '../../src/git/git-exec';
 import { commitWorkspaceTree, countDirtyFiles, ensureWorkspaceRepo } from '../../src/git/repo';
+import {
+  type ApplyCommitResolution,
+  type ApplyCommitResolve,
+  COMMIT_CONFLICT_MAX_CHARS,
+} from '../../src/workspace-tree/change-answers';
 import { WorkspaceTreeMaterializer } from '../../src/workspace-tree/materializer';
 import { OWN_FILE_CONFLICT_MAX_BYTES } from '../../src/workspace-tree/own-files';
 import {
   type ApplyCommitMode,
-  type ApplyCommitResolution,
-  type ApplyCommitResolve,
   type ApplyWorkspaceCommitResult,
   applyWorkspaceCommit,
-  COMMIT_CONFLICT_MAX_CHARS,
 } from '../../src/workspace-tree/pick';
 
 const ORG_ID = '019637a2-7b9a-7b9a-8b9a-1234567890ab';
