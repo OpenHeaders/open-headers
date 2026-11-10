@@ -84,6 +84,18 @@ async function writeRealIndex(run: GitRunner, rootDir: string, args: readonly st
   return result;
 }
 
+/**
+ * Give the REAL index the stat data of the files it lists, after a
+ * resync: entries read from a tree carry none, and no read of ours
+ * writes it back (the runner opts every invocation out of the optional
+ * lock), so each later status would hash every tracked file again.
+ * Tried once — a refresh that loses the lock costs a later read time,
+ * never what the index holds.
+ */
+async function refreshRealIndex(run: GitRunner, rootDir: string): Promise<void> {
+  await run([...repoArgs(rootDir), 'update-index', '-q', '--refresh'], { cwd: rootDir });
+}
+
 // ── Repo presence + init/adopt ───────────────────────────────────────
 
 export async function isWorkspaceRepo(run: GitRunner, rootDir: string): Promise<boolean> {
@@ -660,6 +672,7 @@ export async function fastForwardWorkspaceBranch(
       await writeRealIndex(run, rootDir, ['reset', '-q', 'HEAD', '--', ...toRefresh]);
     }
   }
+  await refreshRealIndex(run, rootDir);
   return { ok: true };
 }
 
@@ -1633,6 +1646,7 @@ export async function commitWorkspaceTree(options: CommitWorkspaceTreeOptions): 
         await writeRealIndex(run, rootDir, ['reset', '-q', 'HEAD', '--', ...toRefresh]);
       }
     }
+    await refreshRealIndex(run, rootDir);
 
     return { ok: true, committed: true, sha: commitSha };
   } finally {

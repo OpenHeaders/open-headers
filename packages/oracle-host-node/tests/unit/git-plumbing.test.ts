@@ -153,6 +153,20 @@ function contended(rootDir: string, times: number): { run: GitRunner; collisions
   return { run: contendedRun, collisions: () => collisions };
 }
 
+const realIndexPath = (rootDir: string): string => path.join(rootDir, '.git', 'index');
+
+/**
+ * True when a `git status` that MAY write the index back finds nothing
+ * to write: every entry already carries the stat data of its file. The
+ * app's own reads never write it back, so an index left without that
+ * data costs every later read a hash of every tracked file.
+ */
+async function indexIsRefreshed(rootDir: string): Promise<boolean> {
+  const before = await fs.readFile(realIndexPath(rootDir));
+  await run([...repoArgs(rootDir), 'status', '--porcelain', '-z'], { cwd: rootDir, env: { GIT_OPTIONAL_LOCKS: '1' } });
+  return (await fs.readFile(realIndexPath(rootDir))).equals(before);
+}
+
 async function initialCommit(): Promise<void> {
   await ensureWorkspaceRepo(run, tmpDir);
   await write('workspace.yaml', 'schemaVersion: 5\nuid: wsaaaaaa\nname: Probe\n');
@@ -185,6 +199,18 @@ describe('git-exec process discipline', () => {
     const gc = await run(['config', '--get', 'gc.autoDetach'], { cwd: tmpDir });
     expect(maintenance.stdout.trim()).toBe('false');
     expect(gc.stdout.trim()).toBe('false');
+  });
+
+  it('a read never writes the index — every invocation opts out of the optional lock', async () => {
+    await initialCommit();
+    // Same bytes, another mtime: the index's stat data no longer matches the file.
+    const past = new Date('2020-01-01T00:00:00Z');
+    await fs.utimes(path.join(tmpDir, 'workspace.yaml'), past, past);
+    const before = await fs.readFile(realIndexPath(tmpDir));
+
+    expect(await countDirtyFiles(run, tmpDir)).toBe(0);
+    // A status that refreshed the entry and wrote it back would have held `index.lock` to do it.
+    expect((await fs.readFile(realIndexPath(tmpDir))).equals(before)).toBe(true);
   });
 });
 
@@ -333,6 +359,28 @@ describe('commitWorkspaceTree', () => {
       cwd: tmpDir,
     });
     expect(status.stdout).toBe('');
+  });
+
+  it('the resynced index carries the stat data of every file — no later read hashes the tree again', async () => {
+    await initialCommit();
+    await write('rules/block-r0000001/rule.yaml', 'schemaVersion: 5\nuid: r0000001\n');
+    const whole = await commitWorkspaceTree({ run, rootDir: tmpDir, message: 'Add rule', identityEnv: IDENTITY_ENV });
+    expect(whole).toMatchObject({ ok: true, committed: true });
+    expect(await indexIsRefreshed(tmpDir)).toBe(true);
+
+    // Beside a staged user path the resync is per path.
+    await write('user-draft.yaml', 'draft: v1\n');
+    await run([...repoArgs(tmpDir), 'add', '--', 'user-draft.yaml'], { cwd: tmpDir });
+    await write('rules/block-r0000001/rule.yaml', 'schemaVersion: 5\nuid: r0000001\nname: Block\n');
+    const perPath = await commitWorkspaceTree({
+      run,
+      rootDir: tmpDir,
+      message: 'Name rule',
+      identityEnv: IDENTITY_ENV,
+      paths: ['rules/block-r0000001/rule.yaml'],
+    });
+    expect(perPath).toMatchObject({ ok: true, committed: true });
+    expect(await indexIsRefreshed(tmpDir)).toBe(true);
   });
 
   it('the index follows the commit when another git process held its lock for a moment', async () => {
@@ -808,6 +856,7 @@ describe('remote plumbing (Phase 4)', () => {
     expect(busy.collisions()).toBe(2);
     expect((await raw(repoB, 'rev-parse', 'HEAD')).stdout.trim()).toBe(upstream?.sha);
     expect(await countDirtyFiles(run, repoB)).toBe(0);
+    expect(await indexIsRefreshed(repoB)).toBe(true);
   });
 
   it('fastForwardWorkspaceBranch resyncs a foreign path outside ASCII beside a staged user path', async () => {

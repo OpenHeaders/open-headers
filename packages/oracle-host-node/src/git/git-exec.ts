@@ -6,6 +6,7 @@
  *   - arg-vector only (`execFile`, never a shell-interpolated string);
  *   - `GIT_TERMINAL_PROMPT=0` pinned so no invocation can hang on a
  *     credential prompt (fetch/push phases inherit the discipline);
+ *   - `GIT_OPTIONAL_LOCKS=0` pinned so no read takes the index lock;
  *   - auto-maintenance pinned to the foreground (`maintenance.autoDetach`
  *     and `gc.autoDetach` off at command scope) so no detached git child
  *     of ours is still writing to the repo once the promise resolves;
@@ -92,7 +93,11 @@ const PINNED_CONFIG: ReadonlyArray<readonly [key: string, value: string]> = [
 
 /**
  * Environment the wrapper pins on every invocation. `GIT_TERMINAL_PROMPT=0`
- * turns would-be credential prompts into fast failures; the `GIT_DIR` /
+ * turns would-be credential prompts into fast failures;
+ * `GIT_OPTIONAL_LOCKS=0` keeps a READ from taking `index.lock` to write
+ * refreshed stat data back — a status that follows a commit would
+ * otherwise hold the lock the next pass's index write needs (a write
+ * that must lock still does); the `GIT_DIR` /
  * `GIT_WORK_TREE` / `GIT_INDEX_FILE` deletions ensure ambient state from
  * the launching shell can never retarget a command (callers re-supply
  * `GIT_INDEX_FILE` deliberately via `env` for temp-index commits); the
@@ -100,7 +105,7 @@ const PINNED_CONFIG: ReadonlyArray<readonly [key: string, value: string]> = [
  * shell already carries.
  */
 function baseEnv(extra: Record<string, string> | undefined): NodeJS.ProcessEnv {
-  const env: NodeJS.ProcessEnv = { ...process.env, GIT_TERMINAL_PROMPT: '0' };
+  const env: NodeJS.ProcessEnv = { ...process.env, GIT_TERMINAL_PROMPT: '0', GIT_OPTIONAL_LOCKS: '0' };
   delete env.GIT_DIR;
   delete env.GIT_WORK_TREE;
   delete env.GIT_INDEX_FILE;

@@ -160,7 +160,7 @@ function runGit(cwd: string, config: string, args: string[], attempt = 0): strin
       cwd,
       encoding: 'utf-8',
       stdio: ['ignore', 'pipe', 'pipe'],
-      env: { ...process.env, GIT_CONFIG_GLOBAL: config, GIT_TERMINAL_PROMPT: '0' },
+      env: { ...process.env, GIT_CONFIG_GLOBAL: config, GIT_TERMINAL_PROMPT: '0', GIT_OPTIONAL_LOCKS: '0' },
     }).trim();
   } catch (err) {
     // A terminal git command can race the engine's own passes on the
