@@ -11,6 +11,15 @@
   pointer-events: none;
 }
 
+// Dialogs sit on the panels' own ground (see `themes/ant-theme.ts`) and
+// the dark variants cast no visible shadow, so a dark dialog has no
+// edge of its own against the dimmed app — a hairline on the shell
+// gives it one. A light dialog reads by contrast; the hairline is
+// near-invisible there.
+.ant-modal .ant-modal-container {
+  border: 1px solid var(--ant-color-border-secondary);
+}
+
 // ── Command Palette ───────────────────────────────────────────────
 
 .rules-cmd-backdrop {
