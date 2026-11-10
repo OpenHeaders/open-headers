@@ -731,6 +731,10 @@ export const workbenchChrome = {
     'Commit {commit} has no single change to apply: it is a merge or the first commit.',
   'workbench.gitLog.applyCommit.leftOut':
     'Part of the change was left out because the branch does not match it: {files}.',
+  'workbench.gitLog.applyCommit.resolvePickTitle': 'Cherry-Pick {commit}: Resolve Conflicts',
+  'workbench.gitLog.applyCommit.resolveRevertTitle': 'Revert {commit}: Resolve Conflicts',
+  'workbench.gitLog.applyCommit.resolveStale':
+    'The branch changed while you were resolving. Review the conflicts again.',
   'workbench.gitLog.forcePush.title': 'Remote history was rewritten',
   'workbench.gitLog.forcePush.body':
     'The remote branch no longer contains the history you last synced ({sha}). Pull, push and merge wait until you choose — nothing changes until you decide.',

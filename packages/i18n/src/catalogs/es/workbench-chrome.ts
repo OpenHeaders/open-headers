@@ -908,6 +908,9 @@ export const workbenchChrome = {
   'workbench.gitLog.applyCommit.unsupported':
     'El commit {commit} no tiene un único cambio que aplicar: es un merge o el primer commit.',
   'workbench.gitLog.applyCommit.leftOut': 'Parte del cambio se omitió porque la rama no coincide con él: {files}.',
+  'workbench.gitLog.applyCommit.resolvePickTitle': 'Cherry-pick de {commit}: resolver conflictos',
+  'workbench.gitLog.applyCommit.resolveRevertTitle': 'Reversión de {commit}: resolver conflictos',
+  'workbench.gitLog.applyCommit.resolveStale': 'La rama cambió mientras resolvías los conflictos. Revísalos de nuevo.',
   'workbench.gitLog.forcePush.title': 'El historial remoto fue reescrito',
   'workbench.gitLog.forcePush.body':
     'La rama remota ya no contiene el historial sincronizado por última vez ({sha}). Pull, push y fusión esperan a que elijas — nada cambia hasta que decidas.',

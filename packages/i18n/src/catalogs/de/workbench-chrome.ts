@@ -910,6 +910,10 @@ export const workbenchChrome = {
     'Der Commit {commit} hat keine einzelne Änderung, die sich anwenden lässt: Er ist ein Merge oder der erste Commit.',
   'workbench.gitLog.applyCommit.leftOut':
     'Ein Teil der Änderung wurde ausgelassen, weil der Branch nicht dazu passt: {files}.',
+  'workbench.gitLog.applyCommit.resolvePickTitle': 'Cherry-Pick {commit}: Konflikte lösen',
+  'workbench.gitLog.applyCommit.resolveRevertTitle': 'Revert {commit}: Konflikte lösen',
+  'workbench.gitLog.applyCommit.resolveStale':
+    'Der Branch hat sich geändert, während du die Konflikte gelöst hast. Prüfe sie erneut.',
   'workbench.gitLog.forcePush.title': 'Die Remote-Historie wurde umgeschrieben',
   'workbench.gitLog.forcePush.body':
     'Der Remote-Branch enthält die zuletzt synchronisierte Historie ({sha}) nicht mehr. Pull, Push und Merge warten auf deine Wahl — nichts ändert sich, bis du entscheidest.',

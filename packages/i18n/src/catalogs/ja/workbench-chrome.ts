@@ -742,6 +742,9 @@ export const workbenchChrome = {
   'workbench.gitLog.applyCommit.unsupported':
     'コミット {commit} には適用できる単一の変更がありません：マージまたは最初のコミットです。',
   'workbench.gitLog.applyCommit.leftOut': 'ブランチと一致しないため、変更の一部は適用されませんでした：{files}',
+  'workbench.gitLog.applyCommit.resolvePickTitle': '{commit} のチェリーピック：競合を解決',
+  'workbench.gitLog.applyCommit.resolveRevertTitle': '{commit} のリバート：競合を解決',
+  'workbench.gitLog.applyCommit.resolveStale': '解決中にブランチが変更されました。競合をもう一度確認してください。',
   'workbench.gitLog.forcePush.title': 'リモートの履歴が書き換えられました',
   'workbench.gitLog.forcePush.body':
     'リモートのブランチには、最後に同期した履歴（{sha}）がもう含まれていません。プル、プッシュ、マージは選択するまで待機します。決めるまで何も変わりません。',

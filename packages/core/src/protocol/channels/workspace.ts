@@ -982,7 +982,10 @@ export interface WorkspaceTreeApplyCommitResolveWire {
   files: WorkspaceTreeApplyCommitConflictFileWire[];
 }
 
-/** The answers to a `conflicts` refusal — one per file. Empty content means the file is gone. */
+/**
+ * The answers to a `conflicts` refusal — one per file. Content that is
+ * empty, or whitespace alone, means the file is gone.
+ */
 export interface WorkspaceTreeApplyCommitResolutionWire {
   token: string;
   files: { path: string; content: string }[];

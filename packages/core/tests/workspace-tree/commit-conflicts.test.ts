@@ -280,7 +280,7 @@ describe('readCommitResolutions', () => {
     const gone = readCommitResolutions({
       current: sides.current,
       documents: shown,
-      resolutions: [{ path: manifest.path, content: '' }],
+      resolutions: [{ path: manifest.path, content: '\n' }],
     });
     if (!gone.ok) throw new Error(gone.message);
     expect([...gone.resolved.removed]).toEqual(['req00001']);

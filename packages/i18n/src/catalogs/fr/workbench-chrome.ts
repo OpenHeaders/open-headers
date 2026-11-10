@@ -914,6 +914,10 @@ export const workbenchChrome = {
     'Le commit {commit} n’a pas de modification unique à appliquer : c’est un merge ou le premier commit.',
   'workbench.gitLog.applyCommit.leftOut':
     'Une partie de la modification a été laissée de côté, car la branche ne lui correspond pas : {files}.',
+  'workbench.gitLog.applyCommit.resolvePickTitle': 'Cherry-pick de {commit} : résoudre les conflits',
+  'workbench.gitLog.applyCommit.resolveRevertTitle': 'Revert de {commit} : résoudre les conflits',
+  'workbench.gitLog.applyCommit.resolveStale':
+    'La branche a changé pendant que vous résolviez les conflits. Vérifiez-les à nouveau.',
   'workbench.gitLog.forcePush.title': 'L’historique distant a été réécrit',
   'workbench.gitLog.forcePush.body':
     'La branche distante ne contient plus l’historique synchronisé la dernière fois ({sha}). Pull, push et fusion attendent votre choix — rien ne change tant que vous n’avez pas décidé.',

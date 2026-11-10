@@ -771,6 +771,10 @@ export const workbenchChrome = {
     'Commit-ul {commit} nu are o singură modificare de aplicat: este un commit de îmbinare sau primul commit.',
   'workbench.gitLog.applyCommit.leftOut':
     'O parte din modificare a fost omisă, deoarece ramura nu se potrivește cu ea: {files}.',
+  'workbench.gitLog.applyCommit.resolvePickTitle': 'Cherry-pick {commit}: rezolvarea conflictelor',
+  'workbench.gitLog.applyCommit.resolveRevertTitle': 'Revert {commit}: rezolvarea conflictelor',
+  'workbench.gitLog.applyCommit.resolveStale':
+    'Ramura s-a schimbat în timp ce rezolvați conflictele. Verificați-le din nou.',
   'workbench.gitLog.forcePush.title': 'Istoricul de la distanță a fost rescris',
   'workbench.gitLog.forcePush.body':
     'Ramura de la distanță nu mai conține istoricul sincronizat ultima dată ({sha}). Pull, push și îmbinarea așteaptă alegerea dvs. — nimic nu se schimbă până nu decideți.',

@@ -635,6 +635,7 @@ const GitLogView: React.FC<GitLogViewProps> = ({
         </div>
       </div>
       {actions.dialogs}
+      {commitApply.dialogs}
       <DiffModal diff={fileDiff.diff} onClose={fileDiff.close} />
       <FileHistoryModal
         workspaceId={workspaceId}

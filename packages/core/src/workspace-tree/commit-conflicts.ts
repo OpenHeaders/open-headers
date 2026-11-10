@@ -69,7 +69,7 @@ export interface CommitConflictDocumentsArgs {
   conflicts: readonly CommitChangeDocument[];
 }
 
-/** One answered file. Empty content means the file is gone. */
+/** One answered file. Content that is empty, or whitespace alone, means the file is gone. */
 export interface CommitResolution {
   path: string;
   content: string;
@@ -250,15 +250,16 @@ export function readCommitResolutions(args: {
     if (!answers.has(path)) return { ok: false, path, message: 'no answer for this file' };
   }
 
+  const gone = (path: string): boolean => (answers.get(path) ?? '').trim().length === 0;
   const files = new Map(planWorkspaceTree(current).map((file) => [file.path, file.content] as const));
   for (const [path, content] of answers) {
-    if (content.length === 0) files.delete(path);
+    if (gone(path)) files.delete(path);
     else files.set(path, content);
   }
 
   const removed = new Set<string>();
   for (const document of documents) {
-    if (document.deleted && document.files.some((file) => answers.get(file.path) === '')) removed.add(document.uid);
+    if (document.deleted && document.files.some((file) => gone(file.path))) removed.add(document.uid);
   }
 
   const read = readWorkspaceTree([...files].map(([path, content]) => ({ path, content })));
