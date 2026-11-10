@@ -10,9 +10,19 @@ export {
   type CommitChange,
   type CommitChangeArgs,
   type CommitChangeDocument,
+  type CommitChangeResolved,
   type CommitChangeSkip,
   type CommitChangeSkipReason,
 } from './commit-change';
+export {
+  type CommitConflictDocument,
+  type CommitConflictDocumentsArgs,
+  type CommitConflictFile,
+  type CommitResolution,
+  type CommitResolutionsRead,
+  commitConflictDocuments,
+  readCommitResolutions,
+} from './commit-conflicts';
 export { type CommitSecretRowsArgs, withCommitSecretRows } from './commit-secrets';
 export { treeDocumentPaths } from './document-paths';
 export {

@@ -13,6 +13,7 @@
  * with intent.
  */
 
+import type { ApplyCommitResolution } from './pick';
 import type { WorkspaceTreeCommitCadence, WorkspaceTreeRuntime } from './runtime';
 
 const COMMIT_CADENCE_VALUES: WorkspaceTreeCommitCadence[] = [
@@ -29,6 +30,31 @@ export function parseCommitCadence(value: unknown): WorkspaceTreeCommitCadence {
 }
 
 /** True when `type` names a workspace-tree channel this dispatcher owns. */
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null && !Array.isArray(value);
+
+/** The files a resolution may carry — far above any real conflict, well below a flood. */
+const APPLY_COMMIT_MAX_RESOLUTION_FILES = 2_000;
+
+/**
+ * The `resolution` of an applyCommit call: undefined when the caller
+ * sent none, null when what it sent is not one.
+ */
+function readApplyCommitResolution(value: unknown): ApplyCommitResolution | undefined | null {
+  if (value === undefined) return undefined;
+  if (!isRecord(value)) return null;
+  const { token, files } = value;
+  if (typeof token !== 'string' || !Array.isArray(files) || files.length > APPLY_COMMIT_MAX_RESOLUTION_FILES) {
+    return null;
+  }
+  const answers: ApplyCommitResolution['files'] = [];
+  for (const entry of files) {
+    if (!isRecord(entry) || typeof entry.path !== 'string' || typeof entry.content !== 'string') return null;
+    answers.push({ path: entry.path, content: entry.content });
+  }
+  return { token, files: answers };
+}
+
 export function ownsWorkspaceTreeRpc(type: unknown): type is string {
   return typeof type === 'string' && type.startsWith('oh.workspaceTree.');
 }
@@ -216,7 +242,9 @@ export async function dispatchWorkspaceTreeRpc(
     const sha = typeof message.sha === 'string' ? message.sha : '';
     const mode = message.mode === 'pick' || message.mode === 'revert' ? message.mode : null;
     if (!workspaceId || !sha || mode === null || runtime === null) return { ok: false, reason: 'not-bound' };
-    return await runtime.applyCommit(workspaceId, sha, mode);
+    const resolution = readApplyCommitResolution(message.resolution);
+    if (resolution === null) return { ok: false, reason: 'resolution-invalid', detail: 'malformed resolution' };
+    return await runtime.applyCommit(workspaceId, sha, mode, resolution);
   }
   // Phase 7 history view (§9 / the data-plane topologies design §7.1): pure
   // repo reads — the workspace timeline and the per-path blame answer.

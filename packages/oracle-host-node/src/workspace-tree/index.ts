@@ -22,8 +22,14 @@ export type { MaterializeResult, MaterializeSnapshot, WorkspaceTreeMaterializerO
 export { WorkspaceTreeMaterializer } from './materializer';
 export type { MergeWorkspaceBranchOptions, MergeWorkspaceBranchResult } from './merge';
 export { mergeWorkspaceBranch } from './merge';
-export type { ApplyCommitMode, ApplyWorkspaceCommitOptions, ApplyWorkspaceCommitResult } from './pick';
-export { applyWorkspaceCommit } from './pick';
+export type {
+  ApplyCommitMode,
+  ApplyCommitResolution,
+  ApplyCommitResolve,
+  ApplyWorkspaceCommitOptions,
+  ApplyWorkspaceCommitResult,
+} from './pick';
+export { applyWorkspaceCommit, COMMIT_CONFLICT_MAX_CHARS } from './pick';
 export type {
   IntegrateForeignDeps,
   IntegrateForeignHeadResult,

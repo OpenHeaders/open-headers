@@ -6,7 +6,10 @@
  * own change travels (the branch's edit to the same document
  * survives), the message rules, the order of the pass (a refusal
  * writes nothing, the local work commits before the pick), the
- * own-files rule, and every typed refusal.
+ * own-files rule, and every typed refusal. The answered-conflict
+ * describe pins the second call: the refusal's files and token, the
+ * pick recorded with the document as answered, a token the branch
+ * moved away from, and an answer that does not read.
  */
 
 import { promises as fs } from 'node:fs';
@@ -22,6 +25,8 @@ import { commitWorkspaceTree, countDirtyFiles, ensureWorkspaceRepo } from '../..
 import { WorkspaceTreeMaterializer } from '../../src/workspace-tree/materializer';
 import {
   type ApplyCommitMode,
+  type ApplyCommitResolution,
+  type ApplyCommitResolve,
   type ApplyWorkspaceCommitResult,
   applyWorkspaceCommit,
 } from '../../src/workspace-tree/pick';
@@ -164,12 +169,14 @@ function apply(
   mode: ApplyCommitMode,
   trace: Trace,
   onApply?: () => void,
+  resolution?: ApplyCommitResolution,
 ): Promise<ApplyWorkspaceCommitResult> {
   return applyWorkspaceCommit({
     run,
     rootDir: local,
     sha,
     mode,
+    ...(resolution !== undefined ? { resolution } : {}),
     workspaceUid: 'wsaaaaaa',
     readSnapshot: async () => state,
     nextCtx,
@@ -304,7 +311,7 @@ describe('applyWorkspaceCommit — cherry-pick', () => {
 
     const t = trace();
     const result = await apply(picked, 'pick', t);
-    expect(result).toEqual({ ok: false, reason: 'conflicts', conflicts: [RULE_FILE], issues: [] });
+    expect(result).toMatchObject({ ok: false, reason: 'conflicts', conflicts: [RULE_FILE], issues: [] });
     expect(t.order).toEqual([]);
     expect(await git(local, 'rev-parse', 'HEAD')).toBe(before);
     expect(await read(local, RULE_FILE)).toContain('name: Local name');
@@ -353,6 +360,167 @@ describe('applyWorkspaceCommit — cherry-pick', () => {
     expect(await apply(picked, 'pick', t)).toEqual({ ok: false, reason: 'empty', issues: [] });
     expect(t.applied).toEqual([]);
     expect(await git(local, 'rev-parse', 'HEAD')).toBe(head);
+  });
+});
+
+describe('applyWorkspaceCommit — a conflict answered', () => {
+  let picked: string;
+  let before: string;
+
+  /** Both sides renamed the rule; the local side also holds uncommitted work. */
+  beforeEach(async () => {
+    await peerReplace(RULE_FILE, 'name: Block probes', 'name: Picked name');
+    picked = await peerCommit('Rename on the peer');
+    before = await localCommit('Rename locally', { rules: [makeRule({ name: 'Local name' })] });
+    await write(local, 'NOTES.md', 'uncommitted\n');
+  });
+
+  async function refusal(): Promise<ApplyCommitResolve> {
+    const result = await apply(picked, 'pick', trace());
+    if (result.ok || result.resolve === undefined) throw new Error('expected a conflicts refusal with files');
+    return result.resolve;
+  }
+
+  it('the refusal carries the file three times over, at its path on the branch, and a token', async () => {
+    const resolve = await refusal();
+    expect(resolve.token).toMatch(/^[0-9a-f]{16,}$/);
+    expect(resolve.files).toHaveLength(1);
+    const [file] = resolve.files;
+    expect(file.path).toBe(RULE_FILE);
+    expect(file.base).toContain('name: Block probes\n');
+    expect(file.theirs).toContain('name: Picked name\n');
+    expect(file.mine).toContain('name: Local name\n');
+    // The same branch and commit read the same way.
+    expect((await refusal()).token).toBe(resolve.token);
+  });
+
+  it('the token with an answer records the pick, the document as answered', async () => {
+    const resolve = await refusal();
+    const answer = (resolve.files[0].mine ?? '').replace('name: Local name', 'name: Agreed name');
+
+    const t = trace();
+    const result = await apply(
+      picked,
+      'pick',
+      t,
+      () => {
+        state = { ...state, rules: [makeRule({ name: 'Agreed name' })] };
+      },
+      { token: resolve.token, files: [{ path: RULE_FILE, content: answer }] },
+    );
+    expect(result).toMatchObject({ ok: true, skipped: [] });
+    expect(t.order).toEqual(['local', 'apply']);
+    expect(bodies(t)).toEqual([{ kind: 'setField', type: 'rule', id: 'aaaaaaaa', path: 'name', value: 'Agreed name' }]);
+    expect(await read(local, RULE_FILE)).toContain('name: Agreed name');
+    expect(await git(local, 'log', '-3', '--format=%s')).toBe('Rename on the peer\nLocal work\nRename locally');
+    expect(await git(local, 'show', '--name-only', '--format=', 'HEAD')).toBe(RULE_FILE);
+    expect(await countDirtyFiles(run, local)).toBe(0);
+  });
+
+  it("the commit's text as the answer is the commit's value", async () => {
+    const resolve = await refusal();
+    const t = trace();
+    const result = await apply(
+      picked,
+      'pick',
+      t,
+      () => {
+        state = { ...state, rules: [makeRule({ name: 'Picked name' })] };
+      },
+      { token: resolve.token, files: [{ path: RULE_FILE, content: resolve.files[0].theirs ?? '' }] },
+    );
+    expect(result.ok).toBe(true);
+    expect(await read(local, RULE_FILE)).toContain('name: Picked name');
+  });
+
+  it("the branch's text as the answer leaves nothing to record — empty, after the local work", async () => {
+    const resolve = await refusal();
+    const t = trace();
+    const result = await apply(picked, 'pick', t, undefined, {
+      token: resolve.token,
+      files: [{ path: RULE_FILE, content: resolve.files[0].mine ?? '' }],
+    });
+    expect(result).toMatchObject({ ok: false, reason: 'empty' });
+    expect(t.applied).toEqual([]);
+    expect(await read(local, RULE_FILE)).toContain('name: Local name');
+  });
+
+  it('a token the branch moved away from refuses again, with the files as they stand now', async () => {
+    const resolve = await refusal();
+    state = { ...state, rules: [makeRule({ name: 'Moved on' })] };
+
+    const t = trace();
+    const result = await apply(picked, 'pick', t, undefined, {
+      token: resolve.token,
+      files: [{ path: RULE_FILE, content: resolve.files[0].theirs ?? '' }],
+    });
+    if (result.ok || result.resolve === undefined) throw new Error('expected a conflicts refusal with files');
+    expect(result.reason).toBe('conflicts');
+    expect(result.resolve.token).not.toBe(resolve.token);
+    expect(result.resolve.files[0].mine).toContain('name: Moved on\n');
+    expect(t.order).toEqual([]);
+    expect(await git(local, 'rev-parse', 'HEAD')).toBe(before);
+  });
+
+  it('an answer that does not read, a missing one and a stray path refuse with nothing written', async () => {
+    const resolve = await refusal();
+    const t = trace();
+    const unreadable = await apply(picked, 'pick', t, undefined, {
+      token: resolve.token,
+      files: [{ path: RULE_FILE, content: 'name: [unclosed\n' }],
+    });
+    expect(unreadable).toMatchObject({ ok: false, reason: 'resolution-invalid', file: RULE_FILE });
+
+    const missing = await apply(picked, 'pick', t, undefined, { token: resolve.token, files: [] });
+    expect(missing).toMatchObject({ ok: false, reason: 'resolution-invalid', file: RULE_FILE });
+
+    const stray = await apply(picked, 'pick', t, undefined, {
+      token: resolve.token,
+      files: [
+        { path: RULE_FILE, content: resolve.files[0].theirs ?? '' },
+        { path: 'workspace.yaml', content: 'name: Hijacked\n' },
+      ],
+    });
+    expect(stray).toMatchObject({ ok: false, reason: 'resolution-invalid', file: 'workspace.yaml' });
+
+    expect(t.order).toEqual([]);
+    expect(await git(local, 'rev-parse', 'HEAD')).toBe(before);
+    expect(await git(local, 'status', '--porcelain')).toBe('?? NOTES.md');
+  });
+
+  it('a revert that meets a later edit is answered the same way', async () => {
+    // The peer's rename is on the branch's own history here: pick it clean first.
+    const resolve = await refusal();
+    const landed = await apply(
+      picked,
+      'pick',
+      trace(),
+      () => {
+        state = { ...state, rules: [makeRule({ name: 'Picked name' })] };
+      },
+      { token: resolve.token, files: [{ path: RULE_FILE, content: resolve.files[0].theirs ?? '' }] },
+    );
+    if (!landed.ok) throw new Error('pick did not land');
+    await localCommit('Rename again', { rules: [makeRule({ name: 'Later name' })] });
+
+    const refused = await apply(landed.sha, 'revert', trace());
+    if (refused.ok || refused.resolve === undefined) throw new Error('expected a conflicts refusal with files');
+    const [file] = refused.resolve.files;
+    expect(file.base).toContain('name: Picked name\n');
+    expect(file.theirs).toContain('name: Local name\n');
+    expect(file.mine).toContain('name: Later name\n');
+
+    const reverted = await apply(
+      landed.sha,
+      'revert',
+      trace(),
+      () => {
+        state = { ...state, rules: [makeRule({ name: 'Local name' })] };
+      },
+      { token: refused.resolve.token, files: [{ path: RULE_FILE, content: file.theirs ?? '' }] },
+    );
+    expect(reverted.ok).toBe(true);
+    expect(await read(local, RULE_FILE)).toContain('name: Local name');
   });
 });
 

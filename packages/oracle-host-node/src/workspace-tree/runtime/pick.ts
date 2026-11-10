@@ -8,7 +8,7 @@
 
 import { logger } from '@openheaders/core/utils';
 import { isWorkspaceRepo, resolveCommitIdentity } from '../../git';
-import { type ApplyCommitMode, applyWorkspaceCommit } from '../pick';
+import { type ApplyCommitMode, type ApplyCommitResolution, applyWorkspaceCommit } from '../pick';
 import { syntheticIdentity } from './commit';
 import { type OpenBinding, type RuntimeCtx, SCOPE, TREE_SURFACE_ID } from './core';
 import type { ApplyCommitRpcResult } from './types';
@@ -18,6 +18,7 @@ export async function runApplyCommit(
   binding: OpenBinding,
   sha: string,
   mode: ApplyCommitMode,
+  resolution?: ApplyCommitResolution,
 ): Promise<ApplyCommitRpcResult> {
   const { rootDir } = binding.record;
   const availability = await ctx.ensureGitAvailability(rootDir);
@@ -32,6 +33,7 @@ export async function runApplyCommit(
     rootDir,
     sha,
     mode,
+    ...(resolution !== undefined ? { resolution } : {}),
     workspaceUid: binding.record.workspaceId,
     readSnapshot: () => ctx.buildSnapshot(binding.record.workspaceId, binding.service),
     nextCtx: () => binding.service.context.next({ surfaceId: TREE_SURFACE_ID }),
@@ -55,6 +57,8 @@ export async function runApplyCommit(
       reason: result.reason,
       ...(result.detail !== undefined ? { detail: result.detail } : {}),
       ...(result.conflicts !== undefined ? { conflicts: result.conflicts } : {}),
+      ...(result.resolve !== undefined ? { resolve: result.resolve } : {}),
+      ...(result.file !== undefined ? { file: result.file } : {}),
       ...(result.skipped !== undefined ? { skipped: result.skipped } : {}),
       ...(result.keptLocal !== undefined ? { keptLocal: result.keptLocal } : {}),
     };

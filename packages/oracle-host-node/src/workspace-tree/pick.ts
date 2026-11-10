@@ -24,7 +24,12 @@
  *      creation or a deletion;
  *   3. lay the change over the snapshot. A document BOTH sides changed
  *      in the same place stops the pass here, named, with nothing
- *      written — not even the local work's commit;
+ *      written — not even the local work's commit. The refusal carries
+ *      the files to answer and a token naming this reading of them; a
+ *      call that hands the token back with an answer per file goes on,
+ *      with those documents as answered (`commit-conflicts.ts`). A
+ *      token the branch has moved away from refuses again, with the
+ *      files as they stand now;
  *   4. local uncommitted work commits first under its own draft (the
  *      pull's posture), so the pick's commit carries the pick alone;
  *   5. the delta's batches apply, the tree materializes, and the
@@ -39,6 +44,10 @@ import { synthesizeWorkspaceTreeDelta } from '@openheaders/core/sync-builders/mu
 import {
   applyCommitChange,
   type CommitChangeSkip,
+  type CommitConflictFile,
+  type CommitResolution,
+  commitConflictDocuments,
+  readCommitResolutions,
   readWorkspaceTree,
   type TreeIssue,
   withCommitSecretRows,
@@ -58,14 +67,32 @@ import {
 } from '../git';
 import { landForeignOwnFiles } from './own-files';
 import type { IntegrateForeignDeps } from './pull';
+import { hashTreeContent } from './sidecar';
 
 /** `pick` lays the commit's change over the branch; `revert` lays its opposite. */
 export type ApplyCommitMode = 'pick' | 'revert';
+
+/** A `conflicts` refusal sends its files only while their texts fit in this many characters. */
+export const COMMIT_CONFLICT_MAX_CHARS = 2 * 1_048_576;
+
+/** The files of a `conflicts` refusal, and the token that names this reading of them. */
+export interface ApplyCommitResolve {
+  token: string;
+  files: CommitConflictFile[];
+}
+
+/** The answers to a `conflicts` refusal, with the token they were made against. */
+export interface ApplyCommitResolution {
+  token: string;
+  files: CommitResolution[];
+}
 
 export interface ApplyWorkspaceCommitOptions extends IntegrateForeignDeps {
   /** The FULL sha of the commit whose change is applied. */
   sha: string;
   mode: ApplyCommitMode;
+  /** Answers to the documents both sides changed — absent on the first call. */
+  resolution?: ApplyCommitResolution;
   /** Commit the local uncommitted work under its own draft — called once the change is known to apply. */
   commitLocalWork: () => Promise<{ ok: true } | { ok: false; detail: string }>;
 }
@@ -88,11 +115,16 @@ export type ApplyWorkspaceCommitResult =
         | 'foreign-invalid'
         | 'identity-mismatch'
         | 'conflicts'
+        | 'resolution-invalid'
         | 'empty'
         | 'commit-failed';
       detail?: string;
       /** `conflicts`: the documents both sides changed, by their path in the commit. */
       conflicts?: string[];
+      /** `conflicts`: the files to answer — absent when their texts are too large to send. */
+      resolve?: ApplyCommitResolve;
+      /** `resolution-invalid`: the answered file that could not be taken. */
+      file?: string;
       /** `empty`: what was not taken, when that is why nothing changed. */
       skipped?: CommitChangeSkip[];
       keptLocal?: string[];
@@ -103,6 +135,25 @@ const dirOf = (filePath: string): string => {
   const idx = filePath.lastIndexOf('/');
   return idx === -1 ? '' : filePath.slice(0, idx);
 };
+
+const textsOf = (file: CommitConflictFile): Array<string | null> => [
+  file.base ?? null,
+  file.theirs ?? null,
+  file.mine ?? null,
+];
+
+/** Names one reading of the conflicted files: the commit, the direction, and every text on every side. */
+function conflictToken(sha: string, mode: ApplyCommitMode, files: readonly CommitConflictFile[]): string {
+  return hashTreeContent(JSON.stringify([sha, mode, files.map((file) => [file.path, ...textsOf(file)])]));
+}
+
+function fitsOnTheWire(files: readonly CommitConflictFile[]): boolean {
+  let chars = 0;
+  for (const file of files) {
+    for (const text of textsOf(file)) chars += text?.length ?? 0;
+  }
+  return chars <= COMMIT_CONFLICT_MAX_CHARS;
+}
 
 export async function applyWorkspaceCommit(options: ApplyWorkspaceCommitOptions): Promise<ApplyWorkspaceCommitResult> {
   const { run, rootDir, sha, mode } = options;
@@ -161,13 +212,39 @@ export async function applyWorkspaceCommit(options: ApplyWorkspaceCommitOptions)
     files: parentFiles,
     local: snapshot.environments,
   });
-  const change = applyCommitChange({
-    current: snapshot,
-    from: picking ? parentState : commitState,
-    to: picking ? commitState : parentState,
-  });
+  const from = picking ? parentState : commitState;
+  const to = picking ? commitState : parentState;
+  let change = applyCommitChange({ current: snapshot, from, to });
   if (change.conflicts.length > 0) {
-    return { ok: false, reason: 'conflicts', conflicts: change.conflicts.map((document) => document.path), issues: [] };
+    const conflicts = change.conflicts.map((document) => document.path);
+    const documents = commitConflictDocuments({ current: snapshot, from, to, conflicts: change.conflicts });
+    const files = documents.flatMap((document) => document.files);
+    const token = conflictToken(sha, mode, files);
+    const answered = options.resolution;
+    // A conflict whose texts show nothing apart has no file to answer —
+    // the branch's document stands and the pass goes on.
+    if (files.length > 0 && answered?.token !== token) {
+      return {
+        ok: false,
+        reason: 'conflicts',
+        conflicts,
+        ...(fitsOnTheWire(files) ? { resolve: { token, files } } : {}),
+        issues: [],
+      };
+    }
+    const read = readCommitResolutions({ current: snapshot, documents, resolutions: answered?.files ?? [] });
+    if (!read.ok) {
+      return { ok: false, reason: 'resolution-invalid', detail: read.message, file: read.path, issues: [] };
+    }
+    change = applyCommitChange({ current: snapshot, from, to, resolved: read.resolved });
+    if (change.conflicts.length > 0) {
+      return {
+        ok: false,
+        reason: 'conflicts',
+        conflicts: change.conflicts.map((document) => document.path),
+        issues: [],
+      };
+    }
   }
 
   const local = await options.commitLocalWork();

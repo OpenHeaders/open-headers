@@ -42,6 +42,7 @@ import {
 } from '../../git';
 import { bindWorkspaceTree, probeWorkspaceTree, reserveWorkspaceTreeForAdopt, unbindWorkspaceTree } from '../bind';
 import type { ForcePushChoice } from '../force-push';
+import type { ApplyCommitResolution } from '../pick';
 import type { SweepWorkspaceTreeResult } from '../sweep';
 import type { SwitchDirtyAction } from '../switch';
 import {
@@ -591,14 +592,19 @@ export function createWorkspaceTreeRuntime(options: WorkspaceTreeRuntimeOptions)
       );
     },
 
-    async applyCommit(workspaceId: string, sha: string, mode: 'pick' | 'revert'): Promise<ApplyCommitRpcResult> {
+    async applyCommit(
+      workspaceId: string,
+      sha: string,
+      mode: 'pick' | 'revert',
+      resolution?: ApplyCommitResolution,
+    ): Promise<ApplyCommitRpcResult> {
       const binding = open.get(workspaceId);
       if (!binding) return { ok: false, reason: 'not-bound' };
       return onChain<ApplyCommitRpcResult>(
         binding,
         { ok: false, reason: 'commit-failed', detail: 'pick pass did not run' },
         async () => {
-          const result = await runApplyCommit(ctx, binding, sha, mode);
+          const result = await runApplyCommit(ctx, binding, sha, mode, resolution);
           if (result.ok) await ctx.maybeAutoPush(binding);
           await ctx.publishGitStatus(binding);
           return result;

@@ -500,9 +500,20 @@ export interface WorkspaceRpc {
    * commit with other than one parent refuses `unsupported-commit`; a
    * document both sides changed refuses `conflicts` with nothing
    * written; a change the branch already holds answers `empty`.
+   *
+   * A `conflicts` refusal carries the files to answer (`resolve`). The
+   * same call with `resolution` — an answer per file and the token it
+   * was given — applies the commit with those documents as answered. A
+   * token that no longer names the branch's documents refuses
+   * `conflicts` again, with the files as they stand now.
    */
   'oh.workspaceTree.applyCommit': {
-    req: { workspaceId: string; sha: string; mode: 'pick' | 'revert' };
+    req: {
+      workspaceId: string;
+      sha: string;
+      mode: 'pick' | 'revert';
+      resolution?: WorkspaceTreeApplyCommitResolutionWire;
+    };
     res: WorkspaceTreeApplyCommitWire;
   };
   /**
@@ -948,6 +959,35 @@ export interface WorkspaceTreeApplyCommitSkipWire {
   reason: 'missing' | 'parent-missing' | 'not-empty';
 }
 
+/**
+ * One file of a document a picked change and the branch both changed,
+ * serialized the same way on every side. A side that has no such file
+ * leaves its text absent — `theirs` absent means the change removes it.
+ */
+export interface WorkspaceTreeApplyCommitConflictFileWire {
+  /** The file's path on the branch. */
+  path: string;
+  /** The file where the change starts. */
+  base?: string;
+  /** The file where the change ends. */
+  theirs?: string;
+  /** The file as the branch holds it. */
+  mine?: string;
+}
+
+/** What a `conflicts` refusal offers to be answered. */
+export interface WorkspaceTreeApplyCommitResolveWire {
+  /** Names exactly this reading of the files; handed back with the answers. */
+  token: string;
+  files: WorkspaceTreeApplyCommitConflictFileWire[];
+}
+
+/** The answers to a `conflicts` refusal — one per file. Empty content means the file is gone. */
+export interface WorkspaceTreeApplyCommitResolutionWire {
+  token: string;
+  files: { path: string; content: string }[];
+}
+
 export type WorkspaceTreeApplyCommitWire =
   | {
       ok: true;
@@ -969,12 +1009,17 @@ export type WorkspaceTreeApplyCommitWire =
         | 'foreign-invalid'
         | 'identity-mismatch'
         | 'conflicts'
+        | 'resolution-invalid'
         | 'empty'
         | 'commit-failed';
-      /** `unsupported-commit`: `merge` or `root`. */
+      /** `unsupported-commit`: `merge` or `root`. `resolution-invalid`: why the answer was not taken. */
       detail?: string;
       /** `conflicts`: the documents both sides changed, by their path in the commit. */
       conflicts?: string[];
+      /** `conflicts`: the files to answer — absent when there are too many bytes to send. */
+      resolve?: WorkspaceTreeApplyCommitResolveWire;
+      /** `resolution-invalid`: the answered file that could not be taken. */
+      file?: string;
       skipped?: WorkspaceTreeApplyCommitSkipWire[];
       keptLocal?: string[];
     };

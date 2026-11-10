@@ -22,6 +22,7 @@ import type {
 } from '../../git';
 import type { BindWorkspaceTreeResult, probeWorkspaceTree, ReserveWorkspaceTreeForAdoptResult } from '../bind';
 import type { ForcePushChoice } from '../force-push';
+import type { ApplyCommitResolution, ApplyCommitResolve } from '../pick';
 import type { SweepWorkspaceTreeResult } from '../sweep';
 import type { SwitchDirtyAction } from '../switch';
 
@@ -228,11 +229,16 @@ export type ApplyCommitRpcResult =
         | 'foreign-invalid'
         | 'identity-mismatch'
         | 'conflicts'
+        | 'resolution-invalid'
         | 'empty'
         | 'commit-failed';
       detail?: string;
       /** `conflicts`: the documents both sides changed, by their path in the commit. */
       conflicts?: string[];
+      /** `conflicts`: the files to answer and the token naming this reading of them. */
+      resolve?: ApplyCommitResolve;
+      /** `resolution-invalid`: the answered file that could not be taken. */
+      file?: string;
       skipped?: ApplyCommitSkip[];
       keptLocal?: string[];
     };
@@ -578,7 +584,12 @@ export interface WorkspaceTreeRuntime {
    * changed refuses `conflicts` with nothing written; local
    * uncommitted work commits first once the change is known to apply.
    */
-  applyCommit(workspaceId: string, sha: string, mode: 'pick' | 'revert'): Promise<ApplyCommitRpcResult>;
+  applyCommit(
+    workspaceId: string,
+    sha: string,
+    mode: 'pick' | 'revert',
+    resolution?: ApplyCommitResolution,
+  ): Promise<ApplyCommitRpcResult>;
   /** Focus returned to the app — throttled background fetch trigger. */
   notifyAppFocus(): void;
   /** Git slot feed for the card/pill — availability, dirty count, draft message. */

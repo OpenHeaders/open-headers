@@ -24,6 +24,10 @@
  * change touched (`changedPaths`) and removed (`removedPaths`), with
  * the engine's snapshot as its `prev`. Pure — the caller reads the two
  * trees and applies the delta.
+ *
+ * A document both sides changed is named in `conflicts`. The caller may
+ * answer it (`resolved`): the document as a person resolved it stands
+ * where the patch would have, or the change's deletion of it is taken.
  */
 
 import { canonicalJson } from '../sync';
@@ -64,6 +68,18 @@ export interface CommitChangeArgs {
   from: TreeState;
   /** The tree the change ends at. */
   to: TreeState;
+  /** Answers to documents both sides changed — absent on the first pass. */
+  resolved?: CommitChangeResolved;
+}
+
+/** Documents resolved by hand, taken in place of the patch (`commit-conflicts.ts` reads them). */
+export interface CommitChangeResolved {
+  /** A tree holding the resolved documents, each entity at its path on the branch. */
+  state: TreeState;
+  /** The uids (a singleton's doc key) whose value in `state` is the answer. */
+  documents: ReadonlySet<string>;
+  /** The uids answered as gone — the change's deletion of a document the branch edited is taken. */
+  removed: ReadonlySet<string>;
 }
 
 /** One document of the change: its entity uid (a singleton's doc key) and its manifest path in the change. */
@@ -111,6 +127,9 @@ interface Pass {
   containerAt: Map<string, string>;
   /** Containers the change moved: the path the branch held → the path in `next`. */
   moved: Map<string, string>;
+  /** Uids answered with a document, and uids answered as gone. */
+  answered: ReadonlySet<string>;
+  answeredGone: ReadonlySet<string>;
 }
 
 interface Family<T extends PathEntity> {
@@ -120,6 +139,8 @@ interface Family<T extends PathEntity> {
   to: readonly T[];
   /** The family as it will stand, by uid — the branch's entities first, in their order. */
   next: Map<string, T>;
+  /** The family in the resolved tree, by uid. */
+  resolved: Map<string, T>;
 }
 
 const differs = (a: unknown, b: unknown): boolean => canonicalJson(a) !== canonicalJson(b);
@@ -163,8 +184,14 @@ function family<T extends PathEntity>(
   current: readonly T[],
   from: readonly T[],
   to: readonly T[],
+  resolved: readonly T[] | undefined,
 ): Family<T> {
-  return { manifest, container, from, to, next: byUid(current) };
+  return { manifest, container, from, to, next: byUid(current), resolved: byUid(resolved ?? []) };
+}
+
+/** The document as resolved by hand, when the caller answered this uid with one. */
+function answerOf<T extends { uid: string }>(resolved: ReadonlyMap<string, T>, uid: string, pass: Pass): T | undefined {
+  return pass.answered.has(uid) ? resolved.get(uid) : undefined;
 }
 
 /** Creations, edits and moves — parents before children, so a child re-homes against a settled parent. */
@@ -190,7 +217,8 @@ function layOver<T extends PathEntity>(group: Family<T>, pass: Pass): void {
       const relocated = before !== undefined && before.path !== after.path;
       const destination = relocated ? rehome(after.path, pass) : mine.path;
       if (destination === null) pass.skipped.push({ ...document, reason: 'parent-missing' });
-      const landed = { ...patched(mine, before, after, document, pass), path: destination ?? mine.path };
+      const answer = answerOf(group.resolved, after.uid, pass);
+      const landed = { ...(answer ?? patched(mine, before, after, document, pass)), path: destination ?? mine.path };
       if (differs(mine, landed)) {
         group.next.set(after.uid, landed);
         pass.changedPaths.add(`${landed.path}/${group.manifest}`);
@@ -229,11 +257,23 @@ function withdraw<T extends PathEntity>(group: Family<T>, pass: Pass, occupied: 
     const mine = group.next.get(before.uid);
     if (mine === undefined) continue;
     const document = { uid: before.uid, path: `${before.path}/${group.manifest}` };
+    const answer = answerOf(group.resolved, before.uid, pass);
+    if (answer !== undefined) {
+      // Answered as kept: the document stays, as resolved.
+      const kept = { ...answer, path: mine.path };
+      if (differs(mine, kept)) {
+        group.next.set(before.uid, kept);
+        pass.changedPaths.add(`${mine.path}/${group.manifest}`);
+      }
+      continue;
+    }
     if (group.container && occupied(mine.path)) {
       pass.skipped.push({ ...document, reason: 'not-empty' });
       continue;
     }
-    if (differs({ ...mine, path: before.path }, before)) pass.conflicts.push(document);
+    if (!pass.answeredGone.has(before.uid) && differs({ ...mine, path: before.path }, before)) {
+      pass.conflicts.push(document);
+    }
     group.next.delete(before.uid);
     pass.removedPaths.add(`${mine.path}/${group.manifest}`);
   }
@@ -244,8 +284,10 @@ function layOverEnvironments(
   current: readonly Environment[],
   from: readonly Environment[],
   to: readonly Environment[],
+  resolved: readonly Environment[] | undefined,
   pass: Pass,
 ): Environment[] {
+  const answers = byUid(resolved ?? []);
   const next = byUid(current);
   const fromByUid = byUid(from);
   const kept = new Set(to.map((environment) => environment.uid));
@@ -261,7 +303,7 @@ function layOverEnvironments(
         pass.skipped.push({ ...document, reason: 'missing' });
       }
     } else if (differs(before, after)) {
-      const landed = patched(mine, before, after, document, pass);
+      const landed = answerOf(answers, after.uid, pass) ?? patched(mine, before, after, document, pass);
       if (differs(mine, landed)) {
         next.set(after.uid, landed);
         pass.changedPaths.add(environmentFilePath(landed));
@@ -271,7 +313,17 @@ function layOverEnvironments(
   for (const before of from) {
     const mine = next.get(before.uid);
     if (kept.has(before.uid) || mine === undefined) continue;
-    if (differs(mine, before)) pass.conflicts.push({ uid: before.uid, path: environmentFilePath(before) });
+    const answer = answerOf(answers, before.uid, pass);
+    if (answer !== undefined) {
+      if (differs(mine, answer)) {
+        next.set(before.uid, answer);
+        pass.changedPaths.add(environmentFilePath(answer));
+      }
+      continue;
+    }
+    if (!pass.answeredGone.has(before.uid) && differs(mine, before)) {
+      pass.conflicts.push({ uid: before.uid, path: environmentFilePath(before) });
+    }
     next.delete(before.uid);
     pass.removedPaths.add(environmentFilePath(mine));
   }
@@ -283,6 +335,7 @@ function layOverSingleton<T extends Row>(
   current: T | null,
   from: T | null,
   to: T | null,
+  resolved: T | null | undefined,
   document: CommitChangeDocument,
   pass: Pass,
 ): T | null {
@@ -292,7 +345,9 @@ function layOverSingleton<T extends Row>(
     return null;
   }
   pass.changedPaths.add(document.path);
-  return current === null ? to : patched(current, from ?? undefined, to, document, pass);
+  if (current === null) return to;
+  const answer = pass.answered.has(document.uid) ? (resolved ?? null) : null;
+  return answer ?? patched(current, from ?? undefined, to, document, pass);
 }
 
 /** The manifest's roots order — the one part of `workspace.yaml` the entity plane reads. */
@@ -310,6 +365,7 @@ function layOverRootOrder(
 
 export function applyCommitChange(args: CommitChangeArgs): CommitChange {
   const { current, from, to } = args;
+  const answers = args.resolved?.state;
   const pass: Pass = {
     changedPaths: new Set(),
     removedPaths: new Set(),
@@ -317,15 +373,25 @@ export function applyCommitChange(args: CommitChangeArgs): CommitChange {
     skipped: [],
     containerAt: new Map(),
     moved: new Map(),
+    answered: args.resolved?.documents ?? new Set(),
+    answeredGone: args.resolved?.removed ?? new Set(),
   };
 
-  const collections = family(COLLECTION_MANIFEST_FILE, true, current.collections, from.collections, to.collections);
+  const collections = family(
+    COLLECTION_MANIFEST_FILE,
+    true,
+    current.collections,
+    from.collections,
+    to.collections,
+    answers?.collections,
+  );
   const requestCollections = family(
     COLLECTION_MANIFEST_FILE,
     true,
     current.requestCollections,
     from.requestCollections,
     to.requestCollections,
+    answers?.requestCollections,
   );
   const templateCollections = family(
     COLLECTION_MANIFEST_FILE,
@@ -333,14 +399,16 @@ export function applyCommitChange(args: CommitChangeArgs): CommitChange {
     current.templateCollections,
     from.templateCollections,
     to.templateCollections,
+    answers?.templateCollections,
   );
-  const folders = family(FOLDER_MANIFEST_FILE, true, current.folders, from.folders, to.folders);
+  const folders = family(FOLDER_MANIFEST_FILE, true, current.folders, from.folders, to.folders, answers?.folders);
   const requestFolders = family(
     FOLDER_MANIFEST_FILE,
     true,
     current.requestFolders,
     from.requestFolders,
     to.requestFolders,
+    answers?.requestFolders,
   );
   const templateFolders = family(
     FOLDER_MANIFEST_FILE,
@@ -348,15 +416,24 @@ export function applyCommitChange(args: CommitChangeArgs): CommitChange {
     current.templateFolders,
     from.templateFolders,
     to.templateFolders,
+    answers?.templateFolders,
   );
-  const rules = family(RULE_MANIFEST_FILE, false, current.rules, from.rules, to.rules);
-  const requests = family(REQUEST_MANIFEST_FILE, false, current.requests, from.requests, to.requests);
+  const rules = family(RULE_MANIFEST_FILE, false, current.rules, from.rules, to.rules, answers?.rules);
+  const requests = family(
+    REQUEST_MANIFEST_FILE,
+    false,
+    current.requests,
+    from.requests,
+    to.requests,
+    answers?.requests,
+  );
   const grpcRequests = family(
     GRPC_REQUEST_MANIFEST_FILE,
     false,
     current.grpcRequests,
     from.grpcRequests,
     to.grpcRequests,
+    answers?.grpcRequests,
   );
   const websocketRequests = family(
     WEBSOCKET_REQUEST_MANIFEST_FILE,
@@ -364,6 +441,7 @@ export function applyCommitChange(args: CommitChangeArgs): CommitChange {
     current.websocketRequests,
     from.websocketRequests,
     to.websocketRequests,
+    answers?.websocketRequests,
   );
   const mqttRequests = family(
     MQTT_REQUEST_MANIFEST_FILE,
@@ -371,6 +449,7 @@ export function applyCommitChange(args: CommitChangeArgs): CommitChange {
     current.mqttRequests,
     from.mqttRequests,
     to.mqttRequests,
+    answers?.mqttRequests,
   );
   const graphqlRequests = family(
     GRAPHQL_REQUEST_MANIFEST_FILE,
@@ -378,15 +457,24 @@ export function applyCommitChange(args: CommitChangeArgs): CommitChange {
     current.graphqlRequests,
     from.graphqlRequests,
     to.graphqlRequests,
+    answers?.graphqlRequests,
   );
-  const templates = family(TEMPLATE_MANIFEST_FILE, false, current.templates, from.templates, to.templates);
-  const specs = family(SPEC_MANIFEST_FILE, false, current.specs, from.specs, to.specs);
+  const templates = family(
+    TEMPLATE_MANIFEST_FILE,
+    false,
+    current.templates,
+    from.templates,
+    to.templates,
+    answers?.templates,
+  );
+  const specs = family(SPEC_MANIFEST_FILE, false, current.specs, from.specs, to.specs, answers?.specs);
   const liveWorkflows = family(
     LIVE_WORKFLOW_MANIFEST_FILE,
     false,
     current.liveWorkflows,
     from.liveWorkflows,
     to.liveWorkflows,
+    answers?.liveWorkflows,
   );
   const liveVariables = family(
     LIVE_VARIABLE_MANIFEST_FILE,
@@ -394,6 +482,7 @@ export function applyCommitChange(args: CommitChangeArgs): CommitChange {
     current.liveVariables,
     from.liveVariables,
     to.liveVariables,
+    answers?.liveVariables,
   );
 
   // Containers settle before what they hold: collections, then folders
@@ -474,19 +563,34 @@ export function applyCommitChange(args: CommitChangeArgs): CommitChange {
     templates: [...templates.next.values()],
     templateCollections: [...templateCollections.next.values()],
     templateFolders: [...templateFolders.next.values()],
-    environments: layOverEnvironments(current.environments, from.environments, to.environments, pass),
+    environments: layOverEnvironments(
+      current.environments,
+      from.environments,
+      to.environments,
+      answers?.environments,
+      pass,
+    ),
     workspaceVariables: layOverSingleton(
       current.workspaceVariables,
       from.workspaceVariables,
       to.workspaceVariables,
+      answers?.workspaceVariables,
       { uid: WORKSPACE_VARS_DOC_KEY, path: WORKSPACE_VARS_FILE },
       pass,
     ),
-    vault: layOverSingleton(current.vault, from.vault, to.vault, { uid: VAULT_DOC_KEY, path: VAULT_FILE }, pass),
+    vault: layOverSingleton(
+      current.vault,
+      from.vault,
+      to.vault,
+      answers?.vault,
+      { uid: VAULT_DOC_KEY, path: VAULT_FILE },
+      pass,
+    ),
     trustedRoots: layOverSingleton(
       current.trustedRoots,
       from.trustedRoots,
       to.trustedRoots,
+      answers?.trustedRoots,
       { uid: TRUSTED_ROOTS_DOC_KEY, path: TRUSTED_ROOTS_FILE },
       pass,
     ),
