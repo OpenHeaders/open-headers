@@ -2,8 +2,9 @@
  * Tree plumbing for the passes that carry files between a commit and
  * the working tree without a checkout of the branch: the listing of a
  * commit's blobs, one blob read as text, the working tree written as a
- * tree object, and a paths checkout out of a commit that never touches
- * the user's real index. Same discipline as
+ * tree object, a tree with given files laid over it, and a paths
+ * checkout out of a commit that never touches the user's real index.
+ * Same discipline as
  * `branch-ops.ts`:
  * explicit repo addressing, the injected {@link GitRunner} seam, typed
  * failures with git's own stderr.
@@ -98,6 +99,62 @@ export async function snapshotWorkingTree(run: GitRunner, rootDir: string): Prom
     return tree.code === 0 && sha.length > 0 ? sha : null;
   } finally {
     await fs.rm(indexDir, { recursive: true, force: true }).catch(() => undefined);
+  }
+}
+
+/** The mode a file the tree does not hold yet is written under. */
+const NEW_FILE_MODE = '100644';
+
+/**
+ * `tree` with `files` laid over it — each path holding the given text,
+ * or no file where the text is null — written as a tree object. A path
+ * the tree already holds keeps its mode. Object plumbing on a throwaway
+ * index: the working tree and the user's real index are never read or
+ * written (§3.3), and nothing is committed. Null when the tree cannot be
+ * read or written.
+ */
+export async function treeWithFiles(
+  run: GitRunner,
+  rootDir: string,
+  tree: string,
+  files: ReadonlyMap<string, string | null>,
+): Promise<string | null> {
+  if (files.size === 0) return tree;
+  const held = await listTreeEntries(run, rootDir, tree);
+  if (held === null) return null;
+  const scratch = await fs.mkdtemp(path.join(os.tmpdir(), 'oh-tree-files-'));
+  try {
+    const env = { GIT_INDEX_FILE: path.join(scratch, 'index') };
+    const seed = await run([...repoArgs(rootDir), 'read-tree', tree], { cwd: rootDir, env });
+    if (seed.code !== 0) return null;
+    const blobFile = path.join(scratch, 'blob');
+    for (const [filePath, content] of files) {
+      if (content === null) {
+        const removed = await run([...repoArgs(rootDir), 'update-index', '--force-remove', '--', filePath], {
+          cwd: rootDir,
+          env,
+        });
+        if (removed.code !== 0) return null;
+        continue;
+      }
+      await fs.writeFile(blobFile, content, 'utf-8');
+      const blob = await run([...repoArgs(rootDir), 'hash-object', '-w', '--no-filters', '--', blobFile], {
+        cwd: rootDir,
+      });
+      const sha = blob.stdout.trim();
+      if (blob.code !== 0 || sha.length === 0) return null;
+      const mode = held.get(filePath)?.split(' ')[0] ?? NEW_FILE_MODE;
+      const staged = await run(
+        [...repoArgs(rootDir), 'update-index', '--add', '--cacheinfo', `${mode},${sha},${filePath}`],
+        { cwd: rootDir, env },
+      );
+      if (staged.code !== 0) return null;
+    }
+    const written = await run([...repoArgs(rootDir), 'write-tree'], { cwd: rootDir, env });
+    const sha = written.stdout.trim();
+    return written.code === 0 && sha.length > 0 ? sha : null;
+  } finally {
+    await fs.rm(scratch, { recursive: true, force: true }).catch(() => undefined);
   }
 }
 

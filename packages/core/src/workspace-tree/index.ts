@@ -21,6 +21,7 @@ export {
   type CommitResolution,
   type CommitResolutionsRead,
   commitConflictDocuments,
+  commitDocumentFiles,
   readCommitResolutions,
 } from './commit-conflicts';
 export { type CommitSecretRowsArgs, withCommitSecretRows } from './commit-secrets';

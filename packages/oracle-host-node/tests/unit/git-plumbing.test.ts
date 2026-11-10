@@ -88,6 +88,7 @@ import {
   listTreeEntries,
   readTreeEntryText,
   snapshotWorkingTree,
+  treeWithFiles,
 } from '../../src/git/tree-ops';
 import { validateUserCommitInput } from '../../src/workspace-tree/runtime/user-commit';
 
@@ -1748,6 +1749,47 @@ describe('Tree ops: a commit’s blobs and a paths checkout off the real index',
     expect((await git('cat-file', 'blob', 'HEAD:docs/other.md')).stdout).toBe('# other\n');
     expect(await fs.readFile(path.join(tmpDir, 'docs/guide.md'), 'utf-8')).toBe('# guide, moved on\n');
     expect((await git('status', '--porcelain')).stdout).toBe(' M docs/guide.md\n M docs/other.md\n');
+  });
+
+  it('treeWithFiles lays given texts over a tree — written, added, removed — keeping a held file’s mode and touching nothing else', async () => {
+    await initialCommit();
+    await write('docs/guide.md', '# guide\n');
+    await write('docs/gone.md', '# gone\n');
+    await write('scripts/run.sh', 'echo run\n');
+    await fs.chmod(path.join(tmpDir, 'scripts/run.sh'), 0o755);
+    await commitWorkspaceTree({ run, rootDir: tmpDir, message: 'Docs', identityEnv: IDENTITY_ENV });
+    const head = (await git('rev-parse', 'HEAD^{tree}')).stdout.trim();
+    expect(await treeWithFiles(run, tmpDir, head, new Map())).toBe(head);
+
+    await write('docs/guide.md', '# guide, on disk\n');
+    const indexBefore = (await git('ls-files', '--stage')).stdout;
+    const tree = await treeWithFiles(
+      run,
+      tmpDir,
+      head,
+      new Map([
+        ['docs/guide.md', '# guide, as given\n'],
+        ['docs/new, file.md', '# new\n'],
+        ['docs/gone.md', null],
+        ['docs/never-there.md', null],
+        ['scripts/run.sh', 'echo given\n'],
+      ]),
+    );
+    const listing = (await git('ls-tree', '-r', tree ?? '')).stdout.trim().split('\n');
+    expect(listing.map((row) => row.slice(row.indexOf('\t') + 1))).toEqual([
+      'docs/guide.md',
+      'docs/new, file.md',
+      'scripts/run.sh',
+      'workspace.yaml',
+    ]);
+    expect((await git('cat-file', 'blob', `${tree}:docs/guide.md`)).stdout).toBe('# guide, as given\n');
+    expect((await git('cat-file', 'blob', `${tree}:docs/new, file.md`)).stdout).toBe('# new\n');
+    expect(listing.find((row) => row.endsWith('\tscripts/run.sh'))?.startsWith('100755 ')).toBe(true);
+    expect(listing.find((row) => row.endsWith('\tdocs/new, file.md'))?.startsWith('100644 ')).toBe(true);
+    // Object plumbing only: the working tree, the index and the branch are as they were.
+    expect(await fs.readFile(path.join(tmpDir, 'docs/guide.md'), 'utf-8')).toBe('# guide, on disk\n');
+    expect((await git('ls-files', '--stage')).stdout).toBe(indexBefore);
+    expect(await treeWithFiles(run, tmpDir, 'not-a-tree', new Map([['a.md', 'a\n']]))).toBeNull();
   });
 });
 

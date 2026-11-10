@@ -51,12 +51,18 @@
  * wrote and the files the foreign history changed. Uncommitted work
  * anywhere else — a modified file the foreign side did not touch, an
  * unversioned file — is not the pull's to commit and stays as it was; a
- * fast-forward moves the branch under it. Uncommitted work IN one of
- * those files is committed first, from the first reading, those files
- * alone — and that is asked: before anything is written the pass
- * refuses `local-changes`, naming the files the foreign history changed
- * that hold uncommitted work, unless that work may be committed without
- * asking. The foreign history's own listing decides the QUESTION only.
+ * fast-forward moves the branch under it.
+ *
+ * Uncommitted work IN one of those files stays uncommitted too where the
+ * file is a document's: the commit records that document as the change
+ * reads over HEAD alone (`committed-side.ts`), and the working tree
+ * keeps the change over what the person has. It is committed first only
+ * where the commit could not be read that way — one of the user's own
+ * files, or a document where HEAD and the foreign side changed one
+ * value — from the first reading, those files alone, and that is asked:
+ * before anything is written the pass refuses `local-changes`, naming
+ * them, unless that work may be committed without asking. The foreign
+ * history's own listing decides the QUESTION only.
  *
  * Tracked files only by construction: the foreign snapshot comes from
  * the commit's tree, so a gitignored local-only entity can never be
@@ -98,8 +104,10 @@ import {
   readCommitTreeFiles,
   resolveUpstream,
   snapshotWorkingTree,
+  treeWithFiles,
 } from '../git';
 import { type ApplyCommitResolution, type ApplyCommitResolve, decideChange } from './change-answers';
+import { type CommittedSide, NOTHING_CARRIED, readCommittedSide } from './committed-side';
 import { landForeignOwnFiles } from './own-files';
 import { type LocalWorkDeps, readPassWrites, recordablePaths, uncommittedAmong } from './pass-writes';
 import {
@@ -322,6 +330,8 @@ interface ForeignChange {
   skipped: CommitChangeSkip[];
   /** The answers to the user's own files, by path. */
   ownAnswers: ReadonlyMap<string, string>;
+  /** What the pass's commit records for a document that holds uncommitted work. */
+  committed: CommittedSide;
 }
 
 /**
@@ -358,14 +368,14 @@ async function readForeignChange(
 ): Promise<({ ok: true } & ForeignChange) | IntegrateForeignRefusal> {
   const { run, rootDir } = deps;
   const { base, foreignSha, foreign, foreignFiles, diff, snapshot } = args;
-  // Uncommitted work in a file the foreign history changed has to be
-  // committed first, or it would ride into the integration's commit —
-  // that is asked while nothing is written.
   const foreignPaths = [...diff.changed, ...diff.removed];
 
   if (base === null) {
     // No common history: nothing to lay the change against, so every
-    // document the foreign side holds is taken whole (§3.4).
+    // document the foreign side holds is taken whole (§3.4), and
+    // uncommitted work in a file the foreign history changed has to be
+    // committed first, or it would ride into the integration's commit —
+    // that is asked while nothing is written.
     if (!deps.mayCommitLocalWork) {
       const localChanges = await uncommittedAmong(run, rootDir, foreignPaths);
       if (localChanges === null) {
@@ -385,6 +395,7 @@ async function readForeignChange(
       removedPaths: diff.removed,
       skipped: [],
       ownAnswers: new Map(),
+      committed: NOTHING_CARRIED,
     };
   }
 
@@ -396,20 +407,26 @@ async function readForeignChange(
   // Neither commit carries a secret file; both ends of the change read
   // their secret rows from the template they committed, so a history
   // that did not touch one leaves the branch's secret rows out of it.
+  const from = withCommitSecretRows({ state: baseTree.state, files: baseFiles, local: snapshot.environments });
+  const to = withCommitSecretRows({ state: foreign.state, files: foreignFiles, local: snapshot.environments });
+  const unasked = baselessConflict(baseTree.issues);
+  // A foreign document that did not read is quarantined, never read as a deletion.
+  const removedPaths = diff.removed;
+  const committed = await readCommittedSide(run, rootDir, { from, to, removedPaths, snapshot, unasked });
   const decided = await decideChange({
     run,
     rootDir,
     subject: [foreignSha],
     current: snapshot,
-    from: withCommitSecretRows({ state: baseTree.state, files: baseFiles, local: snapshot.environments }),
-    to: withCommitSecretRows({ state: foreign.state, files: foreignFiles, local: snapshot.environments }),
-    // A foreign document that did not read is quarantined, never read as a deletion.
-    removedPaths: diff.removed,
+    from,
+    to,
+    removedPaths,
     ownRefs: { baseRef: base, foreignRef: foreignSha },
     ...(args.resolution !== undefined ? { resolution: args.resolution } : {}),
     mayCommitLocalWork: deps.mayCommitLocalWork,
-    writes: () => foreignPaths,
-    unasked: baselessConflict(baseTree.issues),
+    // Uncommitted work a document carries across the pass is not asked about.
+    writes: () => foreignPaths.filter((filePath) => !committed.carries(filePath)),
+    unasked,
   });
   if (!decided.ok) return { ...decided, issues: [] };
   return {
@@ -419,6 +436,7 @@ async function readForeignChange(
     removedPaths: decided.change.removedPaths,
     skipped: decided.skipped,
     ownAnswers: decided.ownAnswers,
+    committed,
   };
 }
 
@@ -432,7 +450,8 @@ async function readForeignChange(
  * not diverged (`localAhead` 0, and no uncommitted work had to be
  * committed first), a TWO-PARENT temp-index commit otherwise. Either
  * way the commit carries the integration's own files and no other
- * (`pass-writes.ts`). Pull points this at the fetched upstream head;
+ * (`pass-writes.ts`), and a document that holds uncommitted work as
+ * the change reads over HEAD alone (`committed-side.ts`). Pull points this at the fetched upstream head;
  * the Phase 6 branch merge points it at a local ref (§6).
  */
 export async function integrateForeignHead(
@@ -543,14 +562,25 @@ export async function integrateForeignHead(
   if (paths === null) return unreadable();
 
   // Uncommitted work in one of those files would ride into the
-  // integration's commit — it is recorded first, as the file stood
-  // before the pass. Work in any other file is not the pass's to commit.
+  // integration's commit. A document carries it across the pass: the
+  // commit records that document as the change reads over HEAD alone.
+  // Anywhere else it is recorded first, as the file stood before the
+  // pass. Work in any other file is not the pass's to commit.
   const shared = touched.filter((filePath) => pass.uncommitted.has(filePath));
-  if (shared.length > 0) {
-    const local = await deps.commitLocalWork({ tree: before, paths: shared });
+  const carried = shared.filter((filePath) => laid.committed.carries(filePath));
+  const first = shared.filter((filePath) => !laid.committed.carries(filePath));
+  if (first.length > 0) {
+    const local = await deps.commitLocalWork({ tree: before, paths: first });
     if (!local.ok) return { ok: false, reason: 'commit-failed', detail: local.detail, issues: foreign.issues };
   }
-  const withLocal = shared.length > 0 ? { committedLocal: shared } : {};
+  const withLocal = first.length > 0 ? { committedLocal: first } : {};
+  const recorded = await treeWithFiles(
+    run,
+    rootDir,
+    pass.after,
+    new Map(carried.map((filePath) => [filePath, laid.committed.contentOf(filePath)] as const)),
+  );
+  if (recorded === null) return unreadable();
 
   // Un-diverged local branch ⇒ plain-git pull semantics: a true
   // fast-forward, no merge bubble (git itself would reduce the
@@ -559,7 +589,7 @@ export async function integrateForeignHead(
   // authorship; any canonicalization residue the engine produced on
   // top commits as an ordinary follow-up (no-op when byte-identical).
   // A commit of local work just above makes the branch diverged.
-  if (args.localAhead === 0 && shared.length === 0) {
+  if (args.localAhead === 0 && first.length === 0) {
     const ff = await fastForwardWorkspaceBranch(run, rootDir, foreignSha);
     if (!ff.ok) return { ok: false, reason: 'commit-failed', detail: ff.detail, issues: foreign.issues };
     const residue = await commitWorkspaceTree({
@@ -568,7 +598,7 @@ export async function integrateForeignHead(
       message: 'Normalize pulled changes',
       identityEnv: deps.identityEnv,
       bypassHooks: deps.bypassHooks,
-      fromTree: pass.after,
+      fromTree: recorded,
       paths,
     });
     if (!residue.ok) return { ok: false, reason: 'commit-failed', detail: residue.detail, issues: foreign.issues };
@@ -593,7 +623,7 @@ export async function integrateForeignHead(
     identityEnv: deps.identityEnv,
     bypassHooks: deps.bypassHooks,
     mergeParent: foreignSha,
-    fromTree: pass.after,
+    fromTree: recorded,
     paths,
   });
   if (!commit.ok) return { ok: false, reason: 'commit-failed', detail: commit.detail, issues: foreign.issues };

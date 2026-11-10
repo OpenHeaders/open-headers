@@ -77,11 +77,12 @@ export async function runFetchAll(ctx: RuntimeCtx, binding: OpenBinding): Promis
 
 /**
  * One pull pass — always on the binding's chain (§8 single actor). The
- * pass records the files it wrote and no other: uncommitted work
- * elsewhere stays as it was, and uncommitted work in a file the pull
- * writes is committed first on the person's word (`commitLocal`) — the
- * pass refuses `local-changes` without it unless commits are automatic
- * on the binding. The pending draft is spent only when no uncommitted
+ * pass records the files it wrote and no other: uncommitted work stays
+ * as it was, in a document the pull writes too. Where the pull's commit
+ * cannot be read without that work it is committed first on the
+ * person's word (`commitLocal`) — the pass refuses `local-changes`
+ * without it unless commits are automatic on the binding. A value both
+ * sides changed is answered the same way (`resolution`). The pending draft is spent only when no uncommitted
  * work is left; otherwise it goes back to what was pending before.
  */
 export async function runPull(

@@ -178,6 +178,23 @@ function sideDocuments(state: TreeState, current: WorkspaceTreeState): Map<strin
   return documents;
 }
 
+/**
+ * The files the planner writes for these documents of `state`, at their
+ * paths there: a directory entity's own files, an environment's or a
+ * root singleton's one file. A uid `state` holds no document for names
+ * none.
+ */
+export function commitDocumentFiles(state: WorkspaceTreeState, uids: Iterable<string>): Set<string> {
+  const documents = sideDocuments(state, state);
+  const paths = new Set<string>();
+  for (const uid of uids) {
+    const document = documents.get(uid);
+    if (document === undefined) continue;
+    for (const name of document.files.keys()) paths.add(document.pathOf(name));
+  }
+  return paths;
+}
+
 function withText(file: CommitConflictFile, key: 'base' | 'theirs' | 'mine', text: string | undefined): void {
   if (text !== undefined) file[key] = text;
 }

@@ -16,7 +16,10 @@
  * template with the local value kept. The uncommitted-work describe
  * pins what the pull records: its own files and no other — work
  * elsewhere stays uncommitted across a fast-forward and a merge, work
- * in a file the pull writes is asked about and committed first, alone.
+ * in a document the pull writes stays uncommitted too (the commit holds
+ * the document without it), and work the commit cannot be read without
+ * — an own file, a document the branch's commits and the peer both
+ * changed in one value — is asked about and committed first, alone.
  * The change-over-the-branch describe pins the merge itself: the
  * foreign history's change is laid over the branch value by value — an
  * edit of each side to one document keeps both, a value both changed is
@@ -701,7 +704,70 @@ describe('pullWorkspaceTree — uncommitted work', () => {
     expect(await porcelain()).toBe(before);
   });
 
-  it('work in a document the pull writes is asked about first; on the word it is committed alone, then merged as answered', async () => {
+  it("work in a document beside the peer's edit to another value stays uncommitted across a fast-forward", async () => {
+    state.rules = [{ ...state.rules[0], name: 'Local name' } as Rule];
+    await materializer.flush();
+    const before = await porcelain();
+    await peerEdit(RULE_FILE, (content) => content.replace('enabled: true', 'enabled: false'));
+    const foreignSha = await peerCommitPush('Disable rule');
+
+    mayCommitLocalWork = false;
+    const applied: EmissionBatch[] = [];
+    const result = await doPull(applied, () => {
+      state.rules = [{ ...state.rules[0], enabled: false } as Rule];
+    });
+    expect(result).toMatchObject({ ok: true, upToDate: false, sha: foreignSha });
+    expect(result).not.toHaveProperty('committedLocal');
+    expect(localWorkCommits).toEqual([]);
+
+    // The branch is the peer's head; the working file holds both edits, the person's still uncommitted.
+    expect((await out('rev-parse', 'HEAD')).trim()).toBe(foreignSha);
+    const onDisk = await fs.readFile(onLocal(RULE_FILE), 'utf-8');
+    expect(onDisk).toContain('name: Local name');
+    expect(onDisk).toContain('enabled: false');
+    expect(await porcelain()).toBe(before);
+    expect(await out('diff', '--unified=0', 'HEAD', '--', RULE_FILE)).toContain('+name: Local name');
+    expect(await out('diff', '--unified=0', 'HEAD', '--', RULE_FILE)).not.toContain('enabled');
+  });
+
+  it('a diverged pull records the document without the uncommitted work it holds, which stays', async () => {
+    await fs.writeFile(onLocal('LOCAL.md'), '# committed here\n', 'utf-8');
+    const localCommit = await commitWorkspaceTree({
+      run,
+      rootDir: local,
+      message: 'Local file',
+      identityEnv: IDENTITY_ENV,
+      paths: ['LOCAL.md'],
+    });
+    if (!localCommit.ok || !localCommit.committed) throw new Error('local commit failed');
+    state.rules = [{ ...state.rules[0], name: 'Local name' } as Rule];
+    await materializer.flush();
+    const before = await porcelain();
+    await peerEdit(RULE_FILE, (content) => content.replace('enabled: true', 'enabled: false'));
+    const foreignSha = await peerCommitPush('Disable rule');
+
+    mayCommitLocalWork = false;
+    const result = await doPull([], () => {
+      state.rules = [{ ...state.rules[0], enabled: false } as Rule];
+    });
+    expect(result).toMatchObject({ ok: true, upToDate: false });
+    expect(result).not.toHaveProperty('committedLocal');
+    expect(localWorkCommits).toEqual([]);
+
+    // The merge holds the peer's edit over what the branch had committed — not the uncommitted name.
+    expect((await out('rev-parse', 'HEAD^1')).trim()).toBe(localCommit.sha);
+    expect((await out('rev-parse', 'HEAD^2')).trim()).toBe(foreignSha);
+    expect(await filesOf('HEAD')).toEqual([RULE_FILE]);
+    const merged = await out('show', `HEAD:${RULE_FILE}`);
+    expect(merged).toContain('name: Block probes\n');
+    expect(merged).toContain('enabled: false');
+    const onDisk = await fs.readFile(onLocal(RULE_FILE), 'utf-8');
+    expect(onDisk).toContain('name: Local name');
+    expect(onDisk).toContain('enabled: false');
+    expect(await porcelain()).toBe(before);
+  });
+
+  it('work in a document that changed the value the peer changed is answered, not committed: the branch takes the peer’s', async () => {
     state.rules = [{ ...state.rules[0], name: 'Local name' } as Rule];
     await materializer.flush();
     const before = await porcelain();
@@ -709,6 +775,67 @@ describe('pullWorkspaceTree — uncommitted work', () => {
     await peerEdit(RULE_FILE, (content) => content.replace('name: Block probes', 'name: Block probes (peer)'));
     const foreignSha = await peerCommitPush('Rename rule');
 
+    // No question about committing it first — the two names are what is asked, with nothing written.
+    mayCommitLocalWork = false;
+    const applied: EmissionBatch[] = [];
+    const resolve = filesToAnswer(await doPull(applied, renameOnApply));
+    expect(resolve.files.map((file) => file.path)).toEqual([RULE_FILE]);
+    expect(resolve.files[0].mine).toContain('name: Local name');
+    expect(applied).toHaveLength(0);
+    expect((await out('rev-parse', 'HEAD')).trim()).toBe(headBefore);
+    expect(await porcelain()).toBe(before);
+
+    // Answered with the branch's side: the work is kept and is still uncommitted.
+    const kept = await doPull(applied, undefined, undefined, {
+      token: resolve.token,
+      files: [{ path: RULE_FILE, content: resolve.files[0].mine ?? '' }],
+    });
+    expect(kept).toMatchObject({ ok: true, upToDate: false, sha: foreignSha });
+    expect(kept).not.toHaveProperty('committedLocal');
+    expect(localWorkCommits).toEqual([]);
+    expect(applied).toHaveLength(0);
+    expect((await out('rev-parse', 'HEAD')).trim()).toBe(foreignSha);
+    expect(await out('show', `HEAD:${RULE_FILE}`)).toContain('name: Block probes (peer)');
+    expect(await fs.readFile(onLocal(RULE_FILE), 'utf-8')).toContain('name: Local name');
+    expect(await porcelain()).toBe(before);
+  });
+
+  it('answered with the peer’s side, the uncommitted value gives way and the row leaves', async () => {
+    state.rules = [{ ...state.rules[0], name: 'Local name' } as Rule];
+    await materializer.flush();
+    await peerEdit(RULE_FILE, (content) => content.replace('name: Block probes', 'name: Block probes (peer)'));
+    const foreignSha = await peerCommitPush('Rename rule');
+
+    mayCommitLocalWork = false;
+    const resolve = filesToAnswer(await doPull([]));
+    const result = await doPull([], renameOnApply, undefined, {
+      token: resolve.token,
+      files: [{ path: RULE_FILE, content: resolve.files[0].theirs ?? '' }],
+    });
+    expect(result).toMatchObject({ ok: true, upToDate: false, sha: foreignSha });
+    expect(localWorkCommits).toEqual([]);
+    expect(await fs.readFile(onLocal(RULE_FILE), 'utf-8')).toContain('name: Block probes (peer)');
+    expect(await porcelain()).toBe(' M NOTES.md\n?? scratch.txt\n');
+  });
+
+  it('work in a document where the branch’s own commit and the peer changed one value is committed first, on the word', async () => {
+    state.rules = [{ ...state.rules[0], name: 'Committed name' } as Rule];
+    await materializer.flush();
+    const renamed = await commitWorkspaceTree({
+      run,
+      rootDir: local,
+      message: 'Rename',
+      identityEnv: IDENTITY_ENV,
+      paths: [RULE_FILE],
+    });
+    if (!renamed.ok || !renamed.committed) throw new Error('local rename commit failed');
+    state.rules = [{ ...state.rules[0], enabled: false } as Rule];
+    await materializer.flush();
+    const before = await porcelain();
+    await peerEdit(RULE_FILE, (content) => content.replace('name: Block probes', 'name: Block probes (peer)'));
+    const foreignSha = await peerCommitPush('Rename rule');
+
+    // The merge has to record the person's answer to the two names — the work beside it goes in first.
     mayCommitLocalWork = false;
     const applied: EmissionBatch[] = [];
     expect(await doPull(applied, renameOnApply)).toEqual({
@@ -718,18 +845,11 @@ describe('pullWorkspaceTree — uncommitted work', () => {
       issues: [],
     });
     expect(applied).toHaveLength(0);
-    expect(localWorkCommits).toEqual([]);
-    expect((await out('rev-parse', 'HEAD')).trim()).toBe(headBefore);
     expect(await porcelain()).toBe(before);
 
-    // On the word the pass goes on — to the value both sides changed, still with nothing written.
     mayCommitLocalWork = true;
     const resolve = filesToAnswer(await doPull(applied, renameOnApply));
-    expect(resolve.files.map((file) => file.path)).toEqual([RULE_FILE]);
-    expect(applied).toHaveLength(0);
     expect(localWorkCommits).toEqual([]);
-    expect(await porcelain()).toBe(before);
-
     const result = await doPull(applied, renameOnApply, undefined, {
       token: resolve.token,
       files: [{ path: RULE_FILE, content: resolve.files[0].theirs ?? '' }],
@@ -740,7 +860,7 @@ describe('pullWorkspaceTree — uncommitted work', () => {
     // The person's work is one commit of that file; the merge stands on it.
     expect((await out('log', '-1', '--format=%s', 'HEAD^1')).trim()).toBe('Local work');
     expect(await filesOf('HEAD^1')).toEqual([RULE_FILE]);
-    expect(await out('show', `HEAD^1:${RULE_FILE}`)).toContain('name: Local name');
+    expect(await out('show', `HEAD^1:${RULE_FILE}`)).toContain('enabled: false');
     expect((await out('rev-parse', 'HEAD^2')).trim()).toBe(foreignSha);
     expect(await fs.readFile(onLocal(RULE_FILE), 'utf-8')).toContain('name: Block probes (peer)');
     // The rows that were uncommitted elsewhere still are.

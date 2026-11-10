@@ -14,6 +14,7 @@ import {
   applyCommitChange,
   type CommitConflictDocument,
   commitConflictDocuments,
+  commitDocumentFiles,
   readCommitResolutions,
   type WorkspaceTreeState,
 } from '../../src/workspace-tree';
@@ -324,5 +325,24 @@ describe('readCommitResolutions', () => {
     if (!read.ok) throw new Error(read.message);
     const change = applyCommitChange({ ...sides, resolved: read.resolved });
     expect(change.next.environments[0].variables).toEqual([row('picked'), secret]);
+  });
+});
+
+describe('commitDocumentFiles', () => {
+  it('names every file the planner writes for a document, and none for a uid the tree does not hold', () => {
+    const staging: Environment = { schemaVersion: 5, uid: 'env0000a', name: 'Staging', variables: [] };
+    const vars: WorkspaceVariables = { schemaVersion: 5, variables: [] };
+    const tree = state({ rules: [rule()], requests: [request()], environments: [staging], workspaceVariables: vars });
+
+    expect([...commitDocumentFiles(tree, ['req00001'])].sort()).toEqual([
+      `${REQUEST_DIR}/body.json`,
+      `${REQUEST_DIR}/pre-request.js`,
+      `${REQUEST_DIR}/request.yaml`,
+    ]);
+    expect([...commitDocumentFiles(tree, ['rul0000a', 'env0000a'])].sort()).toEqual([
+      'environments/staging-env0000a.yaml',
+      RULE_FILE,
+    ]);
+    expect([...commitDocumentFiles(tree, ['gone0000'])]).toEqual([]);
   });
 });

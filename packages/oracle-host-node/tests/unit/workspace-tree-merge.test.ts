@@ -297,7 +297,7 @@ describe('mergeWorkspaceBranch', () => {
     await assertNoConflictMarkers(local);
   });
 
-  it('uncommitted work the merge does not touch stays uncommitted; in a file it writes it is asked about first, then merged as answered', async () => {
+  it('uncommitted work stays uncommitted across a merge — in a document the merge writes too, answered where both changed one value', async () => {
     const branchSha = await branchEdit('local-test', 'Rename on branch');
     await fs.writeFile(path.join(local, 'scratch.txt'), 'unversioned\n', 'utf-8');
     const status = async (): Promise<string> =>
@@ -308,42 +308,27 @@ describe('mergeWorkspaceBranch', () => {
     await materializer.flush();
     const before = await status();
 
+    // No question about committing it first — the two names are asked, with nothing written.
     mayCommitLocalWork = false;
     const applied: EmissionBatch[] = [];
-    expect(await doMerge('local-test', applied)).toEqual({
-      ok: false,
-      reason: 'local-changes',
-      localChanges: [RULE_FILE],
-      issues: [],
-    });
-    expect(applied).toHaveLength(0);
-    expect(await status()).toBe(before);
-
-    // On the word the merge goes on — to the name both branches changed, still with nothing written.
-    mayCommitLocalWork = true;
     const asked = await doMerge('local-test', applied);
     expect(asked).toMatchObject({ ok: false, reason: 'conflicts', conflicts: [RULE_FILE] });
     if (asked.ok || asked.resolve === undefined) throw new Error('expected files to answer');
     expect(asked.resolve.files[0].mine).toContain('name: Local name');
     expect(applied).toHaveLength(0);
-    expect(localWorkCommits).toEqual([]);
     expect(await status()).toBe(before);
 
-    const result = await doMerge(
-      'local-test',
-      applied,
-      () => {
-        state.rules = [{ ...state.rules[0], name: 'Block probes (branch)' } as Rule];
-      },
-      undefined,
-      { token: asked.resolve.token, files: [{ path: RULE_FILE, content: asked.resolve.files[0].theirs ?? '' }] },
-    );
-    expect(result).toMatchObject({ ok: true, upToDate: false, committedLocal: [RULE_FILE] });
-    expect(localWorkCommits).toEqual([[RULE_FILE]]);
-    expect((await raw(local, 'rev-parse', 'HEAD^2')).stdout.trim()).toBe(branchSha);
-    expect((await raw(local, 'log', '-1', '--format=%s', 'HEAD^1')).stdout.trim()).toBe('Local work');
-    // The unversioned file is no commit's — it is still only on disk.
-    expect(await status()).toBe('?? scratch.txt\n');
+    // Answered with this branch's side: the merge records the other branch's name, the work stays.
+    const result = await doMerge('local-test', applied, undefined, undefined, {
+      token: asked.resolve.token,
+      files: [{ path: RULE_FILE, content: asked.resolve.files[0].mine ?? '' }],
+    });
+    expect(result).toMatchObject({ ok: true, upToDate: false });
+    expect(result).not.toHaveProperty('committedLocal');
+    expect(localWorkCommits).toEqual([]);
+    expect((await raw(local, 'rev-parse', 'HEAD')).stdout.trim()).toBe(branchSha);
+    expect(await fs.readFile(path.join(local, ...RULE_FILE.split('/')), 'utf-8')).toContain('name: Local name');
+    expect(await status()).toBe(before);
   });
 
   it('merging an already-contained ref is a clean up-to-date no-op', async () => {

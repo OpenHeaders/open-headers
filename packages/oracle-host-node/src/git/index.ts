@@ -139,4 +139,5 @@ export {
   listTreeEntries,
   readTreeEntryText,
   snapshotWorkingTree,
+  treeWithFiles,
 } from './tree-ops';

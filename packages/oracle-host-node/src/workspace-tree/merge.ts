@@ -10,9 +10,11 @@
  * has not diverged, a two-parent commit with `Co-Authored-By:`
  * trailers otherwise. Like the pull, the merge lays the other branch's
  * change over this one value by value and asks where both changed one
- * (`change-answers.ts`), records its own files and no other, and
- * commits uncommitted work in one of them first — asked, unless it may
- * be done without (`pass-writes.ts`).
+ * (`change-answers.ts`), records its own files and no other
+ * (`pass-writes.ts`), and leaves uncommitted work uncommitted — in a
+ * document it writes too, which the commit records without that work
+ * (`committed-side.ts`); only where the commit cannot be read that way
+ * is the work committed first, asked.
  *
  * The ref may be a local branch (`local-test`) or a remote-tracking
  * ref (`origin/main`) — the §6 teammate scenario's "pull `main` into

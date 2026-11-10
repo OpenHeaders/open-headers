@@ -360,11 +360,15 @@ export interface WorkspaceRpc {
    * commit through the temp-index path — `git merge` is never invoked.
    *
    * The pull records the files it wrote and no other: uncommitted work
-   * elsewhere stays as it was. Uncommitted work in a file the foreign
-   * history changed has to be committed first: the call refuses
-   * `local-changes` before anything is written, naming the files, and
-   * goes on when it is sent again with `commitLocal` — the message for
-   * that commit. A host that commits automatically does not ask.
+   * elsewhere stays as it was, and so does uncommitted work in a
+   * document the foreign history changed — the commit records that
+   * document without it. Where the commit cannot be read without the
+   * work (one of the user's own files, or a document the branch's
+   * commits and the foreign history changed in one value) it has to be
+   * committed first: the call refuses `local-changes` before anything
+   * is written, naming the files, and goes on when it is sent again
+   * with `commitLocal` — the message for that commit. A host that
+   * commits automatically does not ask.
    *
    * The foreign history's change is laid over the branch value by value:
    * what only one side changed stands on both. A document both sides
