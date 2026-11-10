@@ -77,12 +77,7 @@ export function parseEnvironment(input: EnvironmentCodecInput): ParsedDocument<E
   const defaultVarsRaw = Array.isArray(defaultRaw.variables) ? defaultRaw.variables : [];
   const defaultVars: Variable[] = defaultVarsRaw.map(mintUidIfMissing);
 
-  let secretVars: Variable[] = [];
-  if (input.secret !== undefined && input.secret.trim().length > 0) {
-    const secretDoc = YAML.parseDocument(input.secret);
-    const secretRaw = v.parse(SecretEnvelope, secretDoc.toJS());
-    secretVars = secretRaw.variables.map(mintUidIfMissing);
-  }
+  const secretVars = input.secret !== undefined ? parseEnvironmentSecretRows(input.secret) : [];
 
   const merged = {
     ...defaultRaw,
@@ -90,6 +85,16 @@ export function parseEnvironment(input: EnvironmentCodecInput): ParsedDocument<E
   };
   const value = v.parse(EnvironmentSchema, merged);
   return makeParsed(value, extractUnknownFields(defaultRaw, EnvironmentSchema, ENVIRONMENT_FIELD_ORDER));
+}
+
+/**
+ * The rows of a secret sibling — the secret file, or the template
+ * beside it (the same shape, every value blank). An empty file has none.
+ */
+export function parseEnvironmentSecretRows(text: string): Variable[] {
+  if (text.trim().length === 0) return [];
+  const raw = v.parse(SecretEnvelope, YAML.parseDocument(text).toJS());
+  return raw.variables.map(mintUidIfMissing);
 }
 
 /**

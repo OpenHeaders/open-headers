@@ -41,6 +41,7 @@ import {
   type CommitChangeSkip,
   readWorkspaceTree,
   type TreeIssue,
+  withCommitSecretRows,
 } from '@openheaders/core/workspace-tree';
 import {
   commitParents,
@@ -147,10 +148,23 @@ export async function applyWorkspaceCommit(options: ApplyWorkspaceCommitOptions)
 
   const picking = mode === 'pick';
   const snapshot = await options.readSnapshot();
+  // Neither tree carries a secret file; both read their secret rows
+  // from the template they committed, so a commit that did not touch
+  // one leaves the branch's secret rows out of the change.
+  const commitState = withCommitSecretRows({
+    state: commitTree.state,
+    files: commitFiles,
+    local: snapshot.environments,
+  });
+  const parentState = withCommitSecretRows({
+    state: parentTree.state,
+    files: parentFiles,
+    local: snapshot.environments,
+  });
   const change = applyCommitChange({
     current: snapshot,
-    from: picking ? parentTree.state : commitTree.state,
-    to: picking ? commitTree.state : parentTree.state,
+    from: picking ? parentState : commitState,
+    to: picking ? commitState : parentState,
   });
   if (change.conflicts.length > 0) {
     return { ok: false, reason: 'conflicts', conflicts: change.conflicts.map((document) => document.path), issues: [] };

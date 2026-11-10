@@ -17,7 +17,11 @@
  *   4. `synthesizeWorkspaceTreeDelta` (engine snapshot = `prev`,
  *      foreign snapshot = `next`) mints ordinary virtual batches with
  *      fresh HLCs; the mutators converge — there is no second data
- *      plane (plan law #1);
+ *      plane (plan law #1). An environment's secret rows are not in a
+ *      commit (the secret file is gitignored): they are read from the
+ *      committed template where the foreign history touched it and
+ *      stand as the engine holds them where it did not
+ *      (`withCommitSecretRows`);
  *   5. schema-invalid foreign documents QUARANTINE (§13.3): their
  *      foreign bytes land in the working tree off-baseline (so the
  *      materializer's rung-2 guard protects them and the next sweep
@@ -52,6 +56,7 @@ import {
   readWorkspaceTree,
   type TreeIssue,
   type WorkspaceTreeState,
+  withCommitSecretRows,
 } from '@openheaders/core/workspace-tree';
 import {
   commitWorkspaceTree,
@@ -292,7 +297,12 @@ export async function integrateForeignHead(
   const snapshot = await deps.readSnapshot();
   const batches = synthesizeWorkspaceTreeDelta({
     prev: snapshot,
-    next: foreign.state,
+    next: withCommitSecretRows({
+      state: foreign.state,
+      files: foreignFiles,
+      local: snapshot.environments,
+      touched: (filePath) => diff.changed.has(filePath) || diff.removed.has(filePath),
+    }),
     changedPaths: diff.changed,
     removedPaths: diff.removed,
     deps: { nextCtx: deps.nextCtx, liveSetEntries: deps.liveSetEntries },

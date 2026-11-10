@@ -31,7 +31,7 @@ export { emitCanonicalYaml } from './canonical-emit';
 export type { CollectionCodecContext, CollectionSerializeOutput } from './collection';
 export { parseCollection, serializeCollection } from './collection';
 export type { EnvironmentCodecInput, EnvironmentSerializeOutput } from './environment';
-export { parseEnvironment, serializeEnvironment } from './environment';
+export { parseEnvironment, parseEnvironmentSecretRows, serializeEnvironment } from './environment';
 export type { FolderCodecContext, FolderSerializeOutput } from './folder';
 export { parseFolder, serializeFolder } from './folder';
 export type {

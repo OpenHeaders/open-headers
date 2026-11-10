@@ -37,7 +37,12 @@ import type {
   LiveSetEntriesReader,
 } from '@openheaders/core/sync-builders/mutations/workspace-import-emission';
 import { synthesizeWorkspaceTreeDelta } from '@openheaders/core/sync-builders/mutations/workspace-tree-delta';
-import { readWorkspaceTree, type TreeIssue, type WorkspaceTreeState } from '@openheaders/core/workspace-tree';
+import {
+  readWorkspaceTree,
+  type TreeIssue,
+  type WorkspaceTreeState,
+  withCommitSecretRows,
+} from '@openheaders/core/workspace-tree';
 import {
   commitWorkspaceTree,
   createRescueBranch,
@@ -181,7 +186,12 @@ export async function resolveForcePushWorkspaceTree(options: ResolveForcePushOpt
   const snapshot = await options.readSnapshot();
   const batches = synthesizeWorkspaceTreeDelta({
     prev: snapshot,
-    next: foreign.state,
+    next: withCommitSecretRows({
+      state: foreign.state,
+      files: foreignFiles,
+      local: snapshot.environments,
+      touched: (filePath) => changed.has(filePath) || removed.has(filePath),
+    }),
     changedPaths: changed,
     removedPaths: removed,
     deps: { nextCtx: options.nextCtx, liveSetEntries: options.liveSetEntries },

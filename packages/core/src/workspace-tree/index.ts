@@ -13,6 +13,7 @@ export {
   type CommitChangeSkip,
   type CommitChangeSkipReason,
 } from './commit-change';
+export { type CommitSecretRowsArgs, withCommitSecretRows } from './commit-secrets';
 export { treeDocumentPaths } from './document-paths';
 export {
   classifyTreePath,

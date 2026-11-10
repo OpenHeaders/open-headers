@@ -28,7 +28,17 @@ import {
 } from '../../src/sync';
 import type { EmissionBatch } from '../../src/sync-builders/mutations/workspace-import-emission';
 import { synthesizeWorkspaceTreeDelta } from '../../src/sync-builders/mutations/workspace-tree-delta';
-import type { Collection, Folder, GrpcRequest, HeaderRule, Rule, Vault, WebSocketRequest } from '../../src/types';
+import type {
+  Collection,
+  Environment,
+  Folder,
+  GrpcRequest,
+  HeaderRule,
+  Rule,
+  Variable,
+  Vault,
+  WebSocketRequest,
+} from '../../src/types';
 import type { TreeReadResult, WorkspaceTreeState } from '../../src/workspace-tree';
 
 let hlcMs = 1_000;
@@ -638,6 +648,73 @@ describe('synthesizeWorkspaceTreeDelta — singletons', () => {
       prev: emptyState({ vault: vaultValue }),
       next: emptyState({ vault: null }),
       changed: ['workspace-vars.secret.yaml'],
+    });
+    expect(batches).toHaveLength(0);
+  });
+});
+
+describe("synthesizeWorkspaceTreeDelta — an environment's secret template", () => {
+  const host: Variable = { uid: 'varaaaa1', name: 'host', value: 'staging.openheaders.io', type: 'default' };
+  const token: Variable = { uid: 'varaaaa2', name: 'token', value: 's3cret', type: 'secret' };
+  const staging = (variables: Variable[]): Environment => ({
+    schemaVersion: 5,
+    uid: 'envaaaaa',
+    name: 'Staging',
+    variables,
+  });
+  const DEFAULT_FILE = 'environments/staging-envaaaaa.yaml';
+  const TEMPLATE_FILE = 'environments/staging-envaaaaa.secret.yaml.template';
+
+  function seeded(variables: Variable[]): InMemoryDocumentStore {
+    const store = new InMemoryDocumentStore();
+    applyTo(
+      store,
+      delta({
+        prev: emptyState(),
+        next: emptyState({ environments: [staging(variables)] }),
+        changed: [DEFAULT_FILE],
+        store,
+      }),
+    );
+    return store;
+  }
+
+  const bodiesOf = (batches: EmissionBatch[]) => batches.flatMap((entry) => entry.batch.mutations.map((m) => m.body));
+
+  it('a side that changed only the template reaches the environment — an added secret row lands', () => {
+    const added: Variable = { uid: 'varaaaa9', name: 'webhookSecret', value: '', type: 'secret' };
+    const bodies = bodiesOf(
+      delta({
+        prev: emptyState({ environments: [staging([host, token])] }),
+        next: emptyState({ environments: [staging([host, token, added])] }),
+        changed: [TEMPLATE_FILE],
+        store: seeded([host, token]),
+      }),
+    );
+    expect(bodies).toHaveLength(1);
+    expect(bodies[0]).toMatchObject({ kind: 'addToSet', type: 'environment', id: 'envaaaaa', itemId: 'varaaaa9' });
+  });
+
+  it('a side that removed the template takes the secret rows with it', () => {
+    const bodies = bodiesOf(
+      delta({
+        prev: emptyState({ environments: [staging([host, token])] }),
+        next: emptyState({ environments: [staging([host])] }),
+        removed: [TEMPLATE_FILE],
+        store: seeded([host, token]),
+      }),
+    );
+    expect(bodies).toEqual([
+      { kind: 'removeFromSet', type: 'environment', id: 'envaaaaa', path: 'variables', itemId: 'varaaaa2' },
+    ]);
+  });
+
+  it('an environment neither file of which moved stays the engine’s', () => {
+    const batches = delta({
+      prev: emptyState({ environments: [staging([host, token])] }),
+      next: emptyState({ environments: [staging([host])] }),
+      changed: [],
+      store: seeded([host, token]),
     });
     expect(batches).toHaveLength(0);
   });

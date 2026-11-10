@@ -9,7 +9,11 @@
  * describe pins the files no entity stands behind: the peer's change
  * to one lands on disk before the pull is recorded, a file both sides
  * changed keeps its local bytes and is named, and a request's body and
- * script ride the foreign read with their manifest.
+ * script ride the foreign read with their manifest. The secret-rows
+ * describe pins the gitignored half of an environment: a peer's edit
+ * to another variable leaves the local secret rows alone, and a secret
+ * row the peer added, renamed or removed follows the committed
+ * template with the local value kept.
  */
 
 import { promises as fs } from 'node:fs';
@@ -17,7 +21,7 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 import type { MutatorContext } from '@openheaders/core/sync';
 import type { EmissionBatch } from '@openheaders/core/sync-builders/mutations/workspace-import-emission';
-import type { Collection, Request, Rule, Workspace } from '@openheaders/core/types';
+import type { Collection, Request, Rule, Variable, Workspace } from '@openheaders/core/types';
 import type { WorkspaceTreeState } from '@openheaders/core/workspace-tree';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { createGitExec, type GitRunner } from '../../src/git/git-exec';
@@ -544,5 +548,108 @@ describe("pullWorkspaceTree — the user's own files and a document's siblings",
     expect(await fs.readFile(onLocal(`${requestDir}/body.json`), 'utf-8')).toBe('{"probe":true}\n');
     expect(await fs.readFile(onLocal(`${requestDir}/pre-request.js`), 'utf-8')).toBe('console.log(1);\n');
     expect(await countDirtyFiles(run, local)).toBe(0);
+  });
+});
+
+describe("pullWorkspaceTree — an environment's secret rows", () => {
+  const DEFAULT_FILE = 'environments/staging-envaaaaa.yaml';
+  const TEMPLATE_FILE = 'environments/staging-envaaaaa.secret.yaml.template';
+  const host: Variable = { uid: 'varaaaa1', name: 'host', value: 'staging.openheaders.io', type: 'default' };
+  const token: Variable = { uid: 'varaaaa2', name: 'token', value: 's3cret', type: 'secret' };
+
+  /** Both clones hold the environment; the secret file exists on the local side alone (it is gitignored). */
+  beforeEach(async () => {
+    state.environments = [{ schemaVersion: 5, uid: 'envaaaaa', name: 'Staging', variables: [host, token] }];
+    await materializer.flush();
+    const seeded = await commitWorkspaceTree({ run, rootDir: local, message: 'Add env', identityEnv: IDENTITY_ENV });
+    if (!seeded.ok || !seeded.committed) throw new Error('environment commit failed');
+    await raw(local, 'push', '--quiet', 'origin', 'main');
+    const pulled = await raw(peer, 'pull', '--quiet', 'origin', 'main');
+    if (pulled.code !== 0) throw new Error(`peer pull failed: ${pulled.stderr}`);
+  });
+
+  /** A pull whose set reader answers the environment's rows as the engine holds them. */
+  async function pullBodies(): Promise<unknown[]> {
+    const applied: EmissionBatch[] = [];
+    const live = state.environments[0].variables.map((variable, index) => ({
+      itemId: variable.uid,
+      orderKey: `a${index}`,
+      item: variable,
+    }));
+    const result = await pullWorkspaceTree({
+      run,
+      rootDir: local,
+      workspaceUid: 'wsaaaaaa',
+      readSnapshot: async () => state,
+      nextCtx,
+      liveSetEntries: (_type, id) => (id === 'envaaaaa' ? live : []),
+      apply: async (batches) => {
+        applied.push(...batches);
+      },
+      flush: () => materializer.flush(),
+      identityEnv: IDENTITY_ENV,
+      bypassHooks: false,
+    });
+    expect(result).toMatchObject({ ok: true, upToDate: false });
+    return applied.flatMap((entry) => entry.batch.mutations.map((m) => m.body));
+  }
+
+  it('the secret file never reaches the peer — only its template does', async () => {
+    const files = (await fs.readdir(path.join(peer, 'environments'))).sort();
+    expect(files).toEqual(['staging-envaaaaa.secret.yaml.template', 'staging-envaaaaa.yaml']);
+  });
+
+  it("a peer's edit to another variable leaves the local secret row alone", async () => {
+    await peerEdit(DEFAULT_FILE, (content) => content.replace('staging.openheaders.io', 'staging-eu.openheaders.io'));
+    await peerCommitPush('Move staging host');
+
+    expect(await pullBodies()).toEqual([
+      {
+        kind: 'addToSet',
+        type: 'environment',
+        id: 'envaaaaa',
+        path: 'variables',
+        itemId: 'varaaaa1',
+        item: { ...host, value: 'staging-eu.openheaders.io' },
+        orderKey: 'a0',
+      },
+    ]);
+  });
+
+  it('a secret row the peer added lands blank beside the local one, whose value stands', async () => {
+    await peerEdit(TEMPLATE_FILE, (content) =>
+      content.replace(/\n$/, '\n  - uid: varaaaa9\n    name: webhookSecret\n    value: ""\n    type: secret\n'),
+    );
+    await peerCommitPush('Add webhook secret');
+
+    const bodies = await pullBodies();
+    expect(bodies).toHaveLength(1);
+    expect(bodies[0]).toMatchObject({
+      kind: 'addToSet',
+      itemId: 'varaaaa9',
+      item: { uid: 'varaaaa9', name: 'webhookSecret', value: '', type: 'secret' },
+    });
+  });
+
+  it('a secret row the peer renamed keeps the local value under the new name', async () => {
+    await peerEdit(TEMPLATE_FILE, (content) => content.replace('name: token', 'name: accessToken'));
+    await peerCommitPush('Rename secret');
+
+    const bodies = await pullBodies();
+    expect(bodies).toHaveLength(1);
+    expect(bodies[0]).toMatchObject({
+      kind: 'addToSet',
+      itemId: 'varaaaa2',
+      item: { ...token, name: 'accessToken' },
+    });
+  });
+
+  it('a secret row the peer removed leaves', async () => {
+    await fs.rm(path.join(peer, ...TEMPLATE_FILE.split('/')));
+    await peerCommitPush('Drop secret');
+
+    expect(await pullBodies()).toEqual([
+      { kind: 'removeFromSet', type: 'environment', id: 'envaaaaa', path: 'variables', itemId: 'varaaaa2' },
+    ]);
   });
 });

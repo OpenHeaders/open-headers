@@ -99,6 +99,7 @@ import type { LocalFolder, PlanEntry } from '@openheaders/core/workspace-export'
 import {
   environmentFilePath,
   environmentSecretFilePath,
+  environmentSecretTemplateFilePath,
   type TreeReadResult,
   WORKSPACE_MANIFEST_FILE,
   type WorkspaceTreeState,
@@ -250,8 +251,18 @@ export function synthesizeWorkspaceTreeDelta(args: WorkspaceTreeDeltaArgs): Emis
       );
   };
 
-  const envTouched = (env: Environment): boolean =>
-    changedPaths.has(environmentFilePath(env)) || changedPaths.has(environmentSecretFilePath(env));
+  // The template stands for the secret file in a commit (the secret
+  // file is gitignored) — a side that added, renamed or removed a secret
+  // row changed the template and nothing else.
+  const envTouched = (env: Environment): boolean => {
+    const template = environmentSecretTemplateFilePath(env);
+    return (
+      changedPaths.has(environmentFilePath(env)) ||
+      changedPaths.has(environmentSecretFilePath(env)) ||
+      changedPaths.has(template) ||
+      removedPaths.has(template)
+    );
+  };
   const envEntries: PlanEntry<Environment>[] = (() => {
     const prevByUid = byUid(prev.environments);
     return next.environments
