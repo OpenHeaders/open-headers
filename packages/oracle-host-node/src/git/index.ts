@@ -132,4 +132,4 @@ export {
   withCommitAttribution,
 } from './repo';
 export { createLightweightTag, type TagCreateResult } from './tag-ops';
-export { checkoutPathsFromCommit, listTreeEntries } from './tree-ops';
+export { asFileText, checkoutPathsFromCommit, type FileText, listTreeEntries, readTreeEntryText } from './tree-ops';

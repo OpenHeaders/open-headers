@@ -83,7 +83,7 @@ import {
   withCommitAttribution,
 } from '../../src/git/repo';
 import { createLightweightTag } from '../../src/git/tag-ops';
-import { checkoutPathsFromCommit, listTreeEntries } from '../../src/git/tree-ops';
+import { checkoutPathsFromCommit, listTreeEntries, readTreeEntryText } from '../../src/git/tree-ops';
 import { validateUserCommitInput } from '../../src/workspace-tree/runtime/user-commit';
 
 let tmpDir: string;
@@ -1626,6 +1626,24 @@ describe('Tree ops: a commit’s blobs and a paths checkout off the real index',
     const blob = (await git('rev-parse', 'HEAD:docs/guide.md')).stdout.trim();
     expect(entries?.get('docs/guide.md')).toBe(`100644 ${blob}`);
     expect(await listTreeEntries(run, tmpDir, 'refs/heads/absent')).toBeNull();
+  });
+
+  it('readTreeEntryText answers text; a link, a binary, bytes that are not UTF-8 and a blob over the cap are opaque', async () => {
+    await initialCommit();
+    await write('notes.md', '# notes\n');
+    await write('logo.bin', 'head\0tail\n');
+    await fs.writeFile(path.join(tmpDir, 'latin.txt'), Buffer.from([0x63, 0x61, 0x66, 0xe9, 0x0a]));
+    await fs.symlink('notes.md', path.join(tmpDir, 'link.md'));
+    await commitWorkspaceTree({ run, rootDir: tmpDir, message: 'Files', identityEnv: IDENTITY_ENV });
+    const entries = (await listTreeEntries(run, tmpDir, 'HEAD')) ?? new Map<string, string>();
+    const text = (name: string, maxBytes = 1024) => readTreeEntryText(run, tmpDir, entries.get(name), maxBytes);
+
+    expect(await text('notes.md')).toEqual({ kind: 'text', text: '# notes\n' });
+    expect(await text('absent.md')).toEqual({ kind: 'absent' });
+    expect(await text('link.md')).toEqual({ kind: 'opaque' });
+    expect(await text('logo.bin')).toEqual({ kind: 'opaque' });
+    expect(await text('latin.txt')).toEqual({ kind: 'opaque' });
+    expect(await text('notes.md', 4)).toEqual({ kind: 'opaque' });
   });
 
   it('checkoutPathsFromCommit writes the named paths as the commit holds them — literal names, the real index untouched', async () => {

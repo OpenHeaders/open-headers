@@ -15,7 +15,8 @@
  *     the answer "gone".
  *
  * Files group by the directory that holds them, so the files of one
- * request (its manifest, its body, its scripts) sit together.
+ * request (its manifest, its body, its scripts) sit together. One of
+ * the user's own text files (a README, a script) rides the same shape.
  *
  * Apply hands every file's result to the caller as one answer set. A
  * refusal that names a file marks that file; any other marks them all.
@@ -55,6 +56,9 @@ const LANGUAGE_BY_EXTENSION: Readonly<Record<string, string>> = {
   yml: 'yaml',
   json: 'json',
   js: 'javascript',
+  ts: 'typescript',
+  md: 'markdown',
+  sh: 'shell',
   xml: 'xml',
   html: 'html',
   graphql: 'graphql',

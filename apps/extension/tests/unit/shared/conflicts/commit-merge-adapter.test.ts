@@ -61,6 +61,19 @@ describe('commitMergeFiles', () => {
     ]);
   });
 
+  it("the user's own files read in their language, a name with no known extension as plain text", () => {
+    const files = commitMergeFiles([
+      { path: 'README.md', theirs: 'a\n', mine: 'b\n' },
+      { path: 'scripts/ci/run.sh', theirs: 'a\n', mine: 'b\n' },
+      { path: 'LICENSE', theirs: 'a\n', mine: 'b\n' },
+    ]);
+    expect(files.map((file) => [file.label, file.group, file.language])).toEqual([
+      ['README.md', undefined, 'markdown'],
+      ['run.sh', 'scripts/ci', 'shell'],
+      ['LICENSE', undefined, 'plaintext'],
+    ]);
+  });
+
   it('a file with no ancestor carries no base — two panes, never a made-up one', () => {
     const [file] = commitMergeFiles([{ path: 'requests/ping/pre-request.js', theirs: 'a();\n', mine: 'b();\n' }]);
     expect('base' in file).toBe(false);

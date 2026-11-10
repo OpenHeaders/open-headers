@@ -963,8 +963,10 @@ export interface WorkspaceTreeApplyCommitSkipWire {
 
 /**
  * One file of a document a picked change and the branch both changed,
- * serialized the same way on every side. A side that has no such file
- * leaves its text absent — `theirs` absent means the change removes it.
+ * serialized the same way on every side — or one of the user's own
+ * text files both changed, as each side holds it (the branch's side is
+ * the working tree). A side that has no such file leaves its text
+ * absent — `theirs` absent means the change removes it.
  */
 export interface WorkspaceTreeApplyCommitConflictFileWire {
   /** The file's path on the branch. */
@@ -1019,7 +1021,7 @@ export type WorkspaceTreeApplyCommitWire =
         | 'commit-failed';
       /** `unsupported-commit`: `merge` or `root`. `resolution-invalid`: why the answer was not taken. */
       detail?: string;
-      /** `conflicts`: the documents both sides changed, by their path in the commit. */
+      /** `conflicts`: the documents both sides changed, by their path in the commit, then the user's own files. */
       conflicts?: string[];
       /** `conflicts`: the files to answer — absent when there are too many bytes to send. */
       resolve?: WorkspaceTreeApplyCommitResolveWire;

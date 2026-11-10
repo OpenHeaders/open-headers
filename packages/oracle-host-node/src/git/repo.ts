@@ -1233,7 +1233,7 @@ export type CommitFileDiffResult =
   | { ok: false; reason: 'unknown-commit' | 'unknown-path' | 'diff-failed'; detail?: string };
 
 /** A blob side of the diff (`<sha>:<path>` / `<sha>^:<path>`); absent when that side doesn't exist. */
-async function readBlobSize(run: GitRunner, rootDir: string, rev: string): Promise<number | null> {
+export async function readBlobSize(run: GitRunner, rootDir: string, rev: string): Promise<number | null> {
   const result = await run([...repoArgs(rootDir), 'cat-file', '-s', rev], { cwd: rootDir });
   const size = Number(result.stdout.trim());
   return result.code === 0 && Number.isFinite(size) ? size : null;
@@ -1316,7 +1316,7 @@ export async function readCommitFileDiff(
 }
 
 /** Git's own binary heuristic: a NUL in the first 8000 bytes. */
-function looksBinary(content: string): boolean {
+export function looksBinary(content: string): boolean {
   return content.slice(0, 8000).includes('\0');
 }
 

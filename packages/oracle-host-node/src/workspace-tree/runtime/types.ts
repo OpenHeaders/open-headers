@@ -233,7 +233,7 @@ export type ApplyCommitRpcResult =
         | 'empty'
         | 'commit-failed';
       detail?: string;
-      /** `conflicts`: the documents both sides changed, by their path in the commit. */
+      /** `conflicts`: the documents both sides changed, by their path in the commit, then the user's own files. */
       conflicts?: string[];
       /** `conflicts`: the files to answer and the token naming this reading of them. */
       resolve?: ApplyCommitResolve;

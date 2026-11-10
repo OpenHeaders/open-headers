@@ -11,6 +11,9 @@
  * pick recorded with the document as answered, a token the branch
  * moved away from, and an answer that does not read. The last describe
  * pins a conflict no file shows: the branch's document stands, named.
+ * The own-text-file describe pins the user's own file both sides
+ * changed: shown as each side holds it, written as answered, and kept
+ * and named only when it cannot be shown.
  */
 
 import { promises as fs } from 'node:fs';
@@ -24,6 +27,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { createGitExec, type GitRunner } from '../../src/git/git-exec';
 import { commitWorkspaceTree, countDirtyFiles, ensureWorkspaceRepo } from '../../src/git/repo';
 import { WorkspaceTreeMaterializer } from '../../src/workspace-tree/materializer';
+import { OWN_FILE_CONFLICT_MAX_BYTES } from '../../src/workspace-tree/own-files';
 import {
   type ApplyCommitMode,
   type ApplyCommitResolution,
@@ -335,17 +339,17 @@ describe('applyWorkspaceCommit — cherry-pick', () => {
     expect(await git(local, 'show', '--name-only', '--format=', 'HEAD')).toBe(RULE_FILE);
   });
 
-  it("the commit's own file lands; a file the branch also changed keeps its local bytes and is named", async () => {
+  it("the commit's own file lands; a binary the branch also changed keeps its local bytes and is named", async () => {
     await write(peer, 'README.md', 'from the peer\n');
-    await write(peer, 'NOTES.md', 'peer notes\n');
-    const picked = await peerCommit('Add a readme and notes');
-    await write(local, 'NOTES.md', 'local notes\n');
-    await localCommit('Local notes', {});
+    await write(peer, 'logo.bin', 'peer\0bytes\n');
+    const picked = await peerCommit('Add a readme and a logo');
+    await write(local, 'logo.bin', 'local\0bytes\n');
+    await localCommit('Local logo', {});
 
     const result = await apply(picked, 'pick', trace());
-    expect(result).toMatchObject({ ok: true, keptLocal: ['NOTES.md'] });
+    expect(result).toMatchObject({ ok: true, keptLocal: ['logo.bin'] });
     expect(await read(local, 'README.md')).toBe('from the peer\n');
-    expect(await read(local, 'NOTES.md')).toBe('local notes\n');
+    expect(await read(local, 'logo.bin')).toBe('local\0bytes\n');
     expect(await git(local, 'show', '--name-only', '--format=', 'HEAD')).toBe('README.md');
   });
 
@@ -633,6 +637,147 @@ describe('applyWorkspaceCommit — refusals', () => {
     expect(result).toMatchObject({ ok: false, reason: 'foreign-invalid', detail: RULE_FILE });
     expect(t.order).toEqual([]);
     expect(await git(local, 'rev-parse', 'HEAD')).toBe(head);
+  });
+});
+
+describe("applyWorkspaceCommit — the user's own text file both sides changed", () => {
+  let picked: string;
+  let before: string;
+
+  /** A shared notes file; the peer rewrites its line and adds a script, the branch rewrites the same line. */
+  beforeEach(async () => {
+    await write(local, 'NOTES.md', 'shared notes\n');
+    await localCommit('Add notes', {});
+    await git(peer, 'pull', '--quiet', local, 'main');
+    await write(peer, 'NOTES.md', 'peer notes\n');
+    await write(peer, 'scripts/run.sh', '#!/bin/sh\n');
+    picked = await peerCommit('Peer notes and a script');
+    await write(local, 'NOTES.md', 'local notes\n');
+    before = await localCommit('Local notes', {});
+  });
+
+  async function refusal(): Promise<ApplyCommitResolve> {
+    const result = await apply(picked, 'pick', trace());
+    if (result.ok || result.resolve === undefined) throw new Error('expected a conflicts refusal with files');
+    return result.resolve;
+  }
+
+  it('refuses with the file as each side holds it, nothing written', async () => {
+    const t = trace();
+    const result = await apply(picked, 'pick', t);
+    expect(result).toMatchObject({ ok: false, reason: 'conflicts', conflicts: ['NOTES.md'] });
+    expect(result.ok === false && result.resolve?.files).toEqual([
+      { path: 'NOTES.md', base: 'shared notes\n', theirs: 'peer notes\n', mine: 'local notes\n' },
+    ]);
+    expect(t.order).toEqual([]);
+    expect(await git(local, 'rev-parse', 'HEAD')).toBe(before);
+    expect(await git(local, 'status', '--porcelain')).toBe('');
+  });
+
+  it("the branch's side is the working tree — an uncommitted edit is the text shown and the token moves with it", async () => {
+    const first = await refusal();
+    await write(local, 'NOTES.md', 'local notes, edited\n');
+    const second = await refusal();
+    expect(second.files[0].mine).toBe('local notes, edited\n');
+    expect(second.token).not.toBe(first.token);
+  });
+
+  it('the answer is written, recorded in the pick beside the file only the commit changed, and not named as kept', async () => {
+    const resolve = await refusal();
+    const t = trace();
+    const result = await apply(picked, 'pick', t, undefined, {
+      token: resolve.token,
+      files: [{ path: 'NOTES.md', content: 'agreed notes\n' }],
+    });
+    expect(result).toMatchObject({ ok: true });
+    expect(result.ok && result.keptLocal).toBeUndefined();
+    expect(await read(local, 'NOTES.md')).toBe('agreed notes\n');
+    expect(await read(local, 'scripts/run.sh')).toBe('#!/bin/sh\n');
+    expect(await git(local, 'show', '--name-only', '--format=', 'HEAD')).toBe('NOTES.md\nscripts/run.sh');
+    expect(await git(local, 'status', '--porcelain')).toBe('');
+  });
+
+  it("the branch's text as the answer keeps the file and still records what only the commit changed", async () => {
+    const resolve = await refusal();
+    const result = await apply(picked, 'pick', trace(), undefined, {
+      token: resolve.token,
+      files: [{ path: 'NOTES.md', content: 'local notes\n' }],
+    });
+    expect(result).toMatchObject({ ok: true });
+    expect(await read(local, 'NOTES.md')).toBe('local notes\n');
+    expect(await git(local, 'show', '--name-only', '--format=', 'HEAD')).toBe('scripts/run.sh');
+  });
+
+  it('an empty answer removes the file', async () => {
+    const resolve = await refusal();
+    const result = await apply(picked, 'pick', trace(), undefined, {
+      token: resolve.token,
+      files: [{ path: 'NOTES.md', content: '' }],
+    });
+    expect(result).toMatchObject({ ok: true });
+    await expect(read(local, 'NOTES.md')).rejects.toThrow();
+    expect(await git(local, 'show', '--name-status', '--format=', 'HEAD')).toBe('D\tNOTES.md\nA\tscripts/run.sh');
+  });
+
+  it('a missing answer and a stray path refuse with nothing written', async () => {
+    const resolve = await refusal();
+    expect(await apply(picked, 'pick', trace(), undefined, { token: resolve.token, files: [] })).toMatchObject({
+      ok: false,
+      reason: 'resolution-invalid',
+      file: 'NOTES.md',
+    });
+    expect(
+      await apply(picked, 'pick', trace(), undefined, {
+        token: resolve.token,
+        files: [
+          { path: 'NOTES.md', content: 'agreed notes\n' },
+          { path: 'scripts/run.sh', content: 'stray\n' },
+        ],
+      }),
+    ).toMatchObject({ ok: false, reason: 'resolution-invalid', file: 'scripts/run.sh' });
+    expect(await git(local, 'rev-parse', 'HEAD')).toBe(before);
+    expect(await read(local, 'NOTES.md')).toBe('local notes\n');
+  });
+
+  it('a document and an own file both changed are answered in one set — the manifest first', async () => {
+    await peerReplace(RULE_FILE, 'name: Block probes', 'name: Picked name');
+    await write(peer, 'NOTES.md', 'peer notes again\n');
+    const both = await peerCommit('Rename and more notes');
+    await localCommit('Rename locally', { rules: [makeRule({ name: 'Local name' })] });
+
+    const first = await apply(both, 'pick', trace());
+    if (first.ok || first.resolve === undefined) throw new Error('expected a conflicts refusal with files');
+    expect(first.conflicts).toEqual([RULE_FILE, 'NOTES.md']);
+    expect(first.resolve.files.map((file) => file.path)).toEqual([RULE_FILE, 'NOTES.md']);
+
+    const t = trace();
+    const result = await apply(
+      both,
+      'pick',
+      t,
+      () => {
+        state = { ...state, rules: [makeRule({ name: 'Agreed name' })] };
+      },
+      {
+        token: first.resolve.token,
+        files: [
+          { path: RULE_FILE, content: (first.resolve.files[0].mine ?? '').replace('Local name', 'Agreed name') },
+          { path: 'NOTES.md', content: 'agreed notes\n' },
+        ],
+      },
+    );
+    expect(result).toMatchObject({ ok: true });
+    expect(bodies(t)).toEqual([{ kind: 'setField', type: 'rule', id: 'aaaaaaaa', path: 'name', value: 'Agreed name' }]);
+    expect(await read(local, 'NOTES.md')).toBe('agreed notes\n');
+    expect(await git(local, 'show', '--name-only', '--format=', 'HEAD')).toBe(`NOTES.md\n${RULE_FILE}`);
+  });
+
+  it('a file over the cap on one side is not shown — it stays kept and named', async () => {
+    await write(local, 'NOTES.md', `${'n'.repeat(OWN_FILE_CONFLICT_MAX_BYTES)}\n`);
+    await localCommit('Grow the notes', {});
+    const result = await apply(picked, 'pick', trace());
+    expect(result).toMatchObject({ ok: true, keptLocal: ['NOTES.md'] });
+    expect(await git(local, 'show', '--name-only', '--format=', 'HEAD')).toBe('scripts/run.sh');
   });
 });
 

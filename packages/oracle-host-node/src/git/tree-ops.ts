@@ -1,8 +1,9 @@
 /**
  * Tree plumbing for the passes that carry files between a commit and
  * the working tree without a checkout of the branch: the listing of a
- * commit's blobs, and a paths checkout out of a commit that never
- * touches the user's real index. Same discipline as `branch-ops.ts`:
+ * commit's blobs, one blob read as text, and a paths checkout out of a
+ * commit that never touches the user's real index. Same discipline as
+ * `branch-ops.ts`:
  * explicit repo addressing, the injected {@link GitRunner} seam, typed
  * failures with git's own stderr.
  */
@@ -11,7 +12,7 @@ import { promises as fs } from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import type { GitRunner } from './git-exec';
-import { type BranchOpResult, failureDetail, repoArgs } from './repo';
+import { type BranchOpResult, failureDetail, looksBinary, readBlobSize, repoArgs } from './repo';
 
 /** Paths per `checkout` invocation — keeps the arg vector under every platform's limit. */
 const CHECKOUT_PATHS_PER_CALL = 100;
@@ -38,6 +39,37 @@ export async function listTreeEntries(
     entries.set(record.slice(tab + 1), `${mode} ${sha}`);
   }
   return entries;
+}
+
+/**
+ * A file read for a person to compare: its text, `absent` when the side
+ * has no such file, `opaque` when it is not text a person can answer in
+ * an editor — a symbolic link, a binary, bytes that are not UTF-8, or
+ * more than the cap.
+ */
+export type FileText = { kind: 'absent' } | { kind: 'text'; text: string } | { kind: 'opaque' };
+
+const REGULAR_FILE_MODES: ReadonlySet<string> = new Set(['100644', '100755']);
+
+/** Decoded text a person can read: no NUL up front (git's own test) and no byte the decoder had to replace. */
+export function asFileText(content: string): FileText {
+  return looksBinary(content) || content.includes('\uFFFD') ? { kind: 'opaque' } : { kind: 'text', text: content };
+}
+
+/** One blob of a commit as text, from its {@link listTreeEntries} value (`undefined` — the commit has no such file). */
+export async function readTreeEntryText(
+  run: GitRunner,
+  rootDir: string,
+  entry: string | undefined,
+  maxBytes: number,
+): Promise<FileText> {
+  if (entry === undefined) return { kind: 'absent' };
+  const [mode, sha] = entry.split(' ');
+  if (!REGULAR_FILE_MODES.has(mode)) return { kind: 'opaque' };
+  const size = await readBlobSize(run, rootDir, sha);
+  if (size === null || size > maxBytes) return { kind: 'opaque' };
+  const blob = await run([...repoArgs(rootDir), 'cat-file', 'blob', sha], { cwd: rootDir });
+  return blob.code === 0 ? asFileText(blob.stdout) : { kind: 'opaque' };
 }
 
 /**

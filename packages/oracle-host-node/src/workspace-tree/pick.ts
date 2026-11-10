@@ -29,12 +29,15 @@
  *      call that hands the token back with an answer per file goes on,
  *      with those documents as answered (`commit-conflicts.ts`). A
  *      token the branch has moved away from refuses again, with the
- *      files as they stand now;
+ *      files as they stand now. A file of the user's own (a README, a
+ *      script) both sides changed is one more file to answer when it is
+ *      text on every side — the working tree is the branch's side;
  *   4. local uncommitted work commits first under its own draft (the
  *      pull's posture), so the pick's commit carries the pick alone;
  *   5. the delta's batches apply, the tree materializes, and the
  *      commit's changes to the user's own files land by the own-files
- *      rule (`own-files.ts`: a file the branch also changed keeps its
+ *      rule (`own-files.ts`: an answered file is written as answered; a
+ *      file the branch also changed that could not be shown keeps its
  *      local bytes and is named);
  *   6. one temp-index commit records it, authored by the operator.
  *      A pick that changes nothing answers `empty`.
@@ -65,7 +68,7 @@ import {
   readCommitTreeFiles,
   resolveRefSha,
 } from '../git';
-import { landForeignOwnFiles } from './own-files';
+import { landForeignOwnFiles, readOwnFileConflicts } from './own-files';
 import type { IntegrateForeignDeps } from './pull';
 import { hashTreeContent } from './sidecar';
 
@@ -119,7 +122,7 @@ export type ApplyWorkspaceCommitResult =
         | 'empty'
         | 'commit-failed';
       detail?: string;
-      /** `conflicts`: the documents both sides changed, by their path in the commit. */
+      /** `conflicts`: the documents both sides changed, by their path in the commit, then the user's own files. */
       conflicts?: string[];
       /** `conflicts`: the files to answer — absent when their texts are too large to send. */
       resolve?: ApplyCommitResolve;
@@ -216,26 +219,70 @@ export async function applyWorkspaceCommit(options: ApplyWorkspaceCommitOptions)
   });
   const from = picking ? parentState : commitState;
   const to = picking ? commitState : parentState;
+  // The user's own files both sides changed, as far as a person can
+  // answer them. Read before anything is written — the working tree is
+  // still the branch's side, uncommitted work included.
+  const ownRefs = picking ? { baseRef: parent, foreignRef: sha } : { baseRef: sha, foreignRef: parent };
+  const ownConflicts = await readOwnFileConflicts(run, rootDir, ownRefs);
+  if (!ownConflicts.ok) return { ok: false, reason: 'foreign-invalid', detail: ownConflicts.detail, issues: [] };
+
   let change = applyCommitChange({ current: snapshot, from, to });
+  const documents =
+    change.conflicts.length > 0
+      ? commitConflictDocuments({ current: snapshot, from, to, conflicts: change.conflicts })
+      : [];
+  const documentFiles = documents.flatMap((document) => document.files);
+  // The own files join the answer while every text still fits; past
+  // that they stay kept and named, and the documents alone are asked.
+  const ownFiles = fitsOnTheWire([...documentFiles, ...ownConflicts.files]) ? ownConflicts.files : [];
+  const files = [...documentFiles, ...ownFiles];
+
   // Conflicts no file shows: the branch's document stands, and the answer says so.
-  const unshown: CommitChangeSkip[] = [];
-  if (change.conflicts.length > 0) {
-    const conflicts = change.conflicts.map((document) => document.path);
-    const documents = commitConflictDocuments({ current: snapshot, from, to, conflicts: change.conflicts });
-    const files = documents.flatMap((document) => document.files);
-    const shown = new Set(documents.filter((document) => document.files.length > 0).map((document) => document.uid));
-    for (const conflict of change.conflicts) {
-      if (!shown.has(conflict.uid)) unshown.push({ ...conflict, reason: 'conflict-unshown' });
-    }
+  const shown = new Set(documents.filter((document) => document.files.length > 0).map((document) => document.uid));
+  const unshown: CommitChangeSkip[] = change.conflicts
+    .filter((conflict) => !shown.has(conflict.uid))
+    .map((conflict) => ({ ...conflict, reason: 'conflict-unshown' }));
+
+  const ownAnswers = new Map<string, string>();
+  let documentAnswers: readonly CommitResolution[] = options.resolution?.files ?? [];
+  if (files.length > 0) {
     const token = conflictToken(sha, mode, files);
     const answered = options.resolution;
-    // A conflict whose texts show nothing apart has no file to answer —
-    // the branch's document stands, named as left out, and the pass goes on.
-    if (files.length > 0 && answered?.token !== token) {
+    if (answered?.token !== token) {
+      const conflicts = [...change.conflicts.map((document) => document.path), ...ownFiles.map((file) => file.path)];
       if (!fitsOnTheWire(files)) return { ok: false, reason: 'conflicts', conflicts, tooLarge: true, issues: [] };
       return { ok: false, reason: 'conflicts', conflicts, resolve: { token, files }, issues: [] };
     }
-    const read = readCommitResolutions({ current: snapshot, documents, resolutions: answered?.files ?? [] });
+    const ownPaths = new Set(ownFiles.map((file) => file.path));
+    for (const answer of answered.files) {
+      if (ownPaths.has(answer.path)) ownAnswers.set(answer.path, answer.content);
+    }
+    for (const file of ownFiles) {
+      if (!ownAnswers.has(file.path)) {
+        return {
+          ok: false,
+          reason: 'resolution-invalid',
+          detail: 'no answer for this file',
+          file: file.path,
+          issues: [],
+        };
+      }
+    }
+    documentAnswers = answered.files.filter((answer) => !ownPaths.has(answer.path));
+    if (documentFiles.length === 0 && documentAnswers.length > 0) {
+      return {
+        ok: false,
+        reason: 'resolution-invalid',
+        detail: 'not a file of this conflict',
+        file: documentAnswers[0].path,
+        issues: [],
+      };
+    }
+  }
+  if (change.conflicts.length > 0) {
+    // A conflict whose texts show nothing apart has no file to answer —
+    // the branch's document stands, named as left out, and the pass goes on.
+    const read = readCommitResolutions({ current: snapshot, documents, resolutions: documentAnswers });
     if (!read.ok) {
       return { ok: false, reason: 'resolution-invalid', detail: read.message, file: read.path, issues: [] };
     }
@@ -267,11 +314,7 @@ export async function applyWorkspaceCommit(options: ApplyWorkspaceCommitOptions)
 
   // The commit below stages the working tree — the change's own files
   // must be on disk before it does.
-  const own = await landForeignOwnFiles(
-    run,
-    rootDir,
-    picking ? { baseRef: parent, foreignRef: sha } : { baseRef: sha, foreignRef: parent },
-  );
+  const own = await landForeignOwnFiles(run, rootDir, ownRefs, ownAnswers);
   if (!own.ok) return { ok: false, reason: 'commit-failed', detail: own.detail, issues: [] };
   const withKept = own.kept.length > 0 ? { keptLocal: own.kept } : {};
 
