@@ -720,6 +720,17 @@ export const workbenchChrome = {
   'workbench.gitLog.merge.failed': 'Could not merge {ref}: {detail}',
   'workbench.gitLog.keptLocal':
     'Both sides changed {files}. Your version was kept and the incoming change was not taken.',
+  'workbench.gitLog.applyCommit.picked': 'Cherry-pick finished',
+  'workbench.gitLog.applyCommit.reverted': 'Revert finished',
+  'workbench.gitLog.applyCommit.pickFailed': 'Could not cherry-pick {commit}: {detail}',
+  'workbench.gitLog.applyCommit.revertFailed': 'Could not revert {commit}: {detail}',
+  'workbench.gitLog.applyCommit.pickEmpty': 'Nothing to cherry-pick from {commit}: the branch already has this change.',
+  'workbench.gitLog.applyCommit.revertEmpty': 'Nothing to revert from {commit}: the branch no longer has this change.',
+  'workbench.gitLog.applyCommit.conflicts': 'The branch and commit {commit} both changed {files}. Nothing was applied.',
+  'workbench.gitLog.applyCommit.unsupported':
+    'Commit {commit} has no single change to apply: it is a merge or the first commit.',
+  'workbench.gitLog.applyCommit.leftOut':
+    'Part of the change was left out because the branch does not match it: {files}.',
   'workbench.gitLog.forcePush.title': 'Remote history was rewritten',
   'workbench.gitLog.forcePush.body':
     'The remote branch no longer contains the history you last synced ({sha}). Pull, push and merge wait until you choose — nothing changes until you decide.',

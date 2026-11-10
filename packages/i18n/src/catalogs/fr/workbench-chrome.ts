@@ -900,6 +900,20 @@ export const workbenchChrome = {
   'workbench.gitLog.merge.failed': 'Impossible de fusionner {ref} : {detail}',
   'workbench.gitLog.keptLocal':
     'Les deux côtés ont modifié {files}. Votre version a été conservée et la modification entrante n’a pas été appliquée.',
+  'workbench.gitLog.applyCommit.picked': 'Cherry-pick terminé',
+  'workbench.gitLog.applyCommit.reverted': 'Revert terminé',
+  'workbench.gitLog.applyCommit.pickFailed': 'Impossible de faire le cherry-pick de {commit} : {detail}',
+  'workbench.gitLog.applyCommit.revertFailed': 'Impossible d’annuler {commit} : {detail}',
+  'workbench.gitLog.applyCommit.pickEmpty':
+    'Rien à reprendre de {commit} : la branche contient déjà cette modification.',
+  'workbench.gitLog.applyCommit.revertEmpty':
+    'Rien à annuler dans {commit} : la branche ne contient plus cette modification.',
+  'workbench.gitLog.applyCommit.conflicts':
+    'La branche et le commit {commit} ont tous deux modifié {files}. Rien n’a été appliqué.',
+  'workbench.gitLog.applyCommit.unsupported':
+    'Le commit {commit} n’a pas de modification unique à appliquer : c’est un merge ou le premier commit.',
+  'workbench.gitLog.applyCommit.leftOut':
+    'Une partie de la modification a été laissée de côté, car la branche ne lui correspond pas : {files}.',
   'workbench.gitLog.forcePush.title': 'L’historique distant a été réécrit',
   'workbench.gitLog.forcePush.body':
     'La branche distante ne contient plus l’historique synchronisé la dernière fois ({sha}). Pull, push et fusion attendent votre choix — rien ne change tant que vous n’avez pas décidé.',

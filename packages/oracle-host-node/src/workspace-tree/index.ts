@@ -22,6 +22,8 @@ export type { MaterializeResult, MaterializeSnapshot, WorkspaceTreeMaterializerO
 export { WorkspaceTreeMaterializer } from './materializer';
 export type { MergeWorkspaceBranchOptions, MergeWorkspaceBranchResult } from './merge';
 export { mergeWorkspaceBranch } from './merge';
+export type { ApplyCommitMode, ApplyWorkspaceCommitOptions, ApplyWorkspaceCommitResult } from './pick';
+export { applyWorkspaceCommit } from './pick';
 export type {
   IntegrateForeignDeps,
   IntegrateForeignHeadResult,
@@ -33,6 +35,7 @@ export { listWorkspaceTreeFiles, readWorkspaceTreeFromDisk } from './reader';
 export { dispatchWorkspaceTreeRpc, ownsWorkspaceTreeRpc, parseCommitCadence } from './rpc-dispatch';
 export type {
   AdoptWorkspaceTreeRpcResult,
+  ApplyCommitRpcResult,
   BindWorkspaceTreeRpcResult,
   CommitWorkspaceTreeRpcResult,
   CompareRefsRpcResult,

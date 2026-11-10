@@ -211,6 +211,13 @@ export async function dispatchWorkspaceTreeRpc(
     if (!workspaceId || !ref || runtime === null) return { ok: false, reason: 'not-bound' };
     return await runtime.mergeBranch(workspaceId, ref);
   }
+  if (type === 'oh.workspaceTree.applyCommit') {
+    const workspaceId = typeof message.workspaceId === 'string' ? message.workspaceId : '';
+    const sha = typeof message.sha === 'string' ? message.sha : '';
+    const mode = message.mode === 'pick' || message.mode === 'revert' ? message.mode : null;
+    if (!workspaceId || !sha || mode === null || runtime === null) return { ok: false, reason: 'not-bound' };
+    return await runtime.applyCommit(workspaceId, sha, mode);
+  }
   // Phase 7 history view (§9 / the data-plane topologies design §7.1): pure
   // repo reads — the workspace timeline and the per-path blame answer.
   if (type === 'oh.workspaceTree.log') {

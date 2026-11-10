@@ -19,6 +19,7 @@ export {
   updateBranchFromUpstream,
 } from './branch-ops';
 export { type CommitIntent, composeCommitMessage } from './commit-message';
+export { type CommitMeta, type CommitPerson, readCommitAuthorIdentity, readCommitMeta } from './commit-meta';
 export { type GitDirs, parseGitfile, resolveGitDirs } from './git-dir';
 export {
   type CreateGitExecOptions,
@@ -46,6 +47,7 @@ export {
   type CommitPatchResult,
   readCommitPatch,
 } from './patch-ops';
+export { composePickMessage, composeRevertMessage } from './pick-message';
 export {
   addRemote,
   isSafeRemoteName,

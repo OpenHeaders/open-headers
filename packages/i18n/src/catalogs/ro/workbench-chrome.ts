@@ -759,6 +759,18 @@ export const workbenchChrome = {
   'workbench.gitLog.merge.failed': 'Îmbinarea ramurii {ref} a eșuat: {detail}',
   'workbench.gitLog.keptLocal':
     'Ambele părți au modificat {files}. Versiunea dumneavoastră a fost păstrată, iar modificarea primită nu a fost aplicată.',
+  'workbench.gitLog.applyCommit.picked': 'Cherry-pick finalizat',
+  'workbench.gitLog.applyCommit.reverted': 'Revert finalizat',
+  'workbench.gitLog.applyCommit.pickFailed': 'Cherry-pick-ul pentru {commit} nu a reușit: {detail}',
+  'workbench.gitLog.applyCommit.revertFailed': 'Revert-ul pentru {commit} nu a reușit: {detail}',
+  'workbench.gitLog.applyCommit.pickEmpty': 'Nimic de preluat din {commit}: ramura are deja această modificare.',
+  'workbench.gitLog.applyCommit.revertEmpty': 'Nimic de anulat din {commit}: ramura nu mai are această modificare.',
+  'workbench.gitLog.applyCommit.conflicts':
+    'Ramura și commit-ul {commit} au modificat amândouă {files}. Nu s-a aplicat nimic.',
+  'workbench.gitLog.applyCommit.unsupported':
+    'Commit-ul {commit} nu are o singură modificare de aplicat: este un commit de îmbinare sau primul commit.',
+  'workbench.gitLog.applyCommit.leftOut':
+    'O parte din modificare a fost omisă, deoarece ramura nu se potrivește cu ea: {files}.',
   'workbench.gitLog.forcePush.title': 'Istoricul de la distanță a fost rescris',
   'workbench.gitLog.forcePush.body':
     'Ramura de la distanță nu mai conține istoricul sincronizat ultima dată ({sha}). Pull, push și îmbinarea așteaptă alegerea dvs. — nimic nu se schimbă până nu decideți.',

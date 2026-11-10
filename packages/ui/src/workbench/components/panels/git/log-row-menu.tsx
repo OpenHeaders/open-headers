@@ -4,11 +4,14 @@
  * unselected row selects it alone; on a selected row the menu covers
  * the set. Live rows: Copy Revision Number (every selected sha, one
  * per line), Create Patch… and Copy as Patch to Clipboard (the set as
- * one patch text — a file, or the clipboard), New Branch… and New Tag… (the dialogs anchored at the
- * commit), Checkout Revision (a detached HEAD at the commit, through
- * the dirty prompt), Go to Child / Parent Commit (within the loaded
- * window). Rows whose verb has no machinery yet render
- * visible-disabled: Cherry-Pick, Compare with Local, Revert Commit. The reference's history-rewriting rows (reset, undo,
+ * one patch text — a file, or the clipboard), Cherry-Pick and Revert
+ * Commit (the set's own changes applied to, or undone on, the current
+ * branch — each as a new commit), New Branch… and New Tag… (the
+ * dialogs anchored at the commit), Checkout Revision (a detached HEAD
+ * at the commit, through the dirty prompt), Go to Child / Parent
+ * Commit (within the loaded window). A row whose verb has no machinery
+ * yet renders visible-disabled: Compare with Local. The reference's
+ * history-rewriting rows (reset, undo,
  * fixup, squash, drop, rebase, edit message) are DROPPED — the engine
  * never rewrites history. Pure over (target, t, handlers).
  */
@@ -34,6 +37,8 @@ export interface LogRowMenuHandlers {
   onCopyRevision: (shas: readonly string[]) => void;
   onCreatePatch: (shas: readonly string[]) => void;
   onCopyAsPatch: (shas: readonly string[]) => void;
+  onCherryPick: (shas: readonly string[]) => void;
+  onRevert: (shas: readonly string[]) => void;
   onNewBranchFrom: (sha: string) => void;
   onNewTagAt: (sha: string) => void;
   onCheckoutRevision: (sha: string) => void;
@@ -81,7 +86,16 @@ export function buildLogRowMenu(target: LogRowMenuTarget, t: Translate, h: LogRo
       ),
       onClick: () => h.onCopyAsPatch(target.shas),
     },
-    { key: 'cherry-pick', label: menuLabel(<CherryPickIcon />, t('workbench.gitLog.cherryPick')), disabled: true },
+    {
+      key: 'cherry-pick',
+      label: menuLabel(
+        <CherryPickIcon />,
+        t('workbench.gitLog.cherryPick'),
+        undefined,
+        'git-tool-commit-menu-cherry-pick',
+      ),
+      onClick: () => h.onCherryPick(target.shas),
+    },
     { type: 'divider' },
     live(
       {
@@ -100,7 +114,16 @@ export function buildLogRowMenu(target: LogRowMenuTarget, t: Translate, h: LogRo
     ),
     { key: 'compare-with-local', label: menuLabel(null, t('workbench.gitLog.commitMenu.compareWithLocal')), disabled: true },
     { type: 'divider' },
-    { key: 'revert', label: menuLabel(<RollbackIcon />, t('workbench.gitLog.commitMenu.revert')), disabled: true },
+    {
+      key: 'revert',
+      label: menuLabel(
+        <RollbackIcon />,
+        t('workbench.gitLog.commitMenu.revert'),
+        undefined,
+        'git-tool-commit-menu-revert',
+      ),
+      onClick: () => h.onRevert(target.shas),
+    },
     { type: 'divider' },
     live(
       {

@@ -68,6 +68,8 @@ export type {
   WorkspaceSnapshot,
   WorkspaceTreeAddToVcsWire,
   WorkspaceTreeAdoptWire,
+  WorkspaceTreeApplyCommitSkipWire,
+  WorkspaceTreeApplyCommitWire,
   WorkspaceTreeChangesWire,
   WorkspaceTreeCommitCadence,
   WorkspaceTreeCommitPatchWire,

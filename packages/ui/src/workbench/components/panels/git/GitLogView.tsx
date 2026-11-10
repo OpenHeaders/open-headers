@@ -51,6 +51,7 @@ import GitRefRail from './rail/GitRefRail';
 import GitDetailsToolbar from './toolbar/GitDetailsToolbar';
 import GitLogToolbar from './toolbar/GitLogToolbar';
 import { buildLogWireFilters, hasRowFilters, makeTextMatcher } from './toolbar/log-filters';
+import { useCommitApply } from './use-commit-apply';
 import { useCommitPatch } from './use-commit-patch';
 import { useFileDiff } from './use-file-diff';
 import { useJumpToSource } from './use-jump-to-source';
@@ -113,6 +114,7 @@ const GitLogView: React.FC<GitLogViewProps> = ({
   const [collapsed, setCollapsed] = useState<ReadonlyMap<string, LogFragment>>(() => new Map());
   const fileDiff = useFileDiff(workspaceId);
   const commitPatch = useCommitPatch(workspaceId);
+  const commitApply = useCommitApply(workspaceId);
   const jumpToSource = useJumpToSource(workspaceId);
 
   const subscribeViewPrefs = useCallback(
@@ -291,6 +293,9 @@ const GitLogView: React.FC<GitLogViewProps> = ({
     [entries, selectedSha],
   );
 
+  // What the toolbar's Cherry-Pick acts on: the selected set, else the one selected commit.
+  const pickTargets = selectedShas.length > 0 ? selectedShas : selected !== null ? [selected.sha] : [];
+
   const selectedEntries = useMemo(() => {
     if (!multiSelected) return [];
     const bySha = new Map(entries.map((entry) => [entry.sha, entry]));
@@ -375,13 +380,15 @@ const GitLogView: React.FC<GitLogViewProps> = ({
   });
 
   // The commit rows' menu: the clipboard read, the patch of the set,
-  // the detached checkout, the New Branch and New Tag dialogs anchored
+  // the pick and the revert of the set, the detached checkout, the New Branch and New Tag dialogs anchored
   // at the commit, and the parent / child walk.
   const rowMenu = (target: LogRowMenuTarget): ReturnType<typeof buildLogRowMenu> =>
     buildLogRowMenu(target, t, {
       onCopyRevision: (shas) => void navigator.clipboard.writeText(shas.join('\n')),
       onCreatePatch: commitPatch.createPatch,
       onCopyAsPatch: commitPatch.copyAsPatch,
+      onCherryPick: commitApply.cherryPick,
+      onRevert: commitApply.revert,
       onNewBranchFrom: actions.newBranchFrom,
       onNewTagAt: actions.newTagAt,
       onCheckoutRevision: actions.checkoutRevision,
@@ -487,6 +494,7 @@ const GitLogView: React.FC<GitLogViewProps> = ({
             entries={entries}
             loading={loading}
             onRefresh={() => void reload()}
+            onCherryPick={pickTargets.length > 0 ? () => commitApply.cherryPick(pickTargets) : undefined}
             onNavigate={navigateToSha}
             prefs={prefs}
             onPatchPrefs={(patch) => patchGitLogViewPrefs(workspaceId, patch)}

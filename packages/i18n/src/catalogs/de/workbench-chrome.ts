@@ -896,6 +896,20 @@ export const workbenchChrome = {
   'workbench.gitLog.merge.failed': '{ref} konnte nicht gemergt werden: {detail}',
   'workbench.gitLog.keptLocal':
     'Beide Seiten haben {files} geändert. Deine Version wurde behalten, die eingehende Änderung wurde nicht übernommen.',
+  'workbench.gitLog.applyCommit.picked': 'Cherry-Pick abgeschlossen',
+  'workbench.gitLog.applyCommit.reverted': 'Revert abgeschlossen',
+  'workbench.gitLog.applyCommit.pickFailed': 'Cherry-Pick von {commit} fehlgeschlagen: {detail}',
+  'workbench.gitLog.applyCommit.revertFailed': 'Revert von {commit} fehlgeschlagen: {detail}',
+  'workbench.gitLog.applyCommit.pickEmpty':
+    'Kein Cherry-Pick aus {commit} nötig: Der Branch enthält diese Änderung bereits.',
+  'workbench.gitLog.applyCommit.revertEmpty':
+    'Kein Revert von {commit} nötig: Der Branch enthält diese Änderung nicht mehr.',
+  'workbench.gitLog.applyCommit.conflicts':
+    'Der Branch und der Commit {commit} haben beide {files} geändert. Es wurde nichts angewendet.',
+  'workbench.gitLog.applyCommit.unsupported':
+    'Der Commit {commit} hat keine einzelne Änderung, die sich anwenden lässt: Er ist ein Merge oder der erste Commit.',
+  'workbench.gitLog.applyCommit.leftOut':
+    'Ein Teil der Änderung wurde ausgelassen, weil der Branch nicht dazu passt: {files}.',
   'workbench.gitLog.forcePush.title': 'Die Remote-Historie wurde umgeschrieben',
   'workbench.gitLog.forcePush.body':
     'Der Remote-Branch enthält die zuletzt synchronisierte Historie ({sha}) nicht mehr. Pull, Push und Merge warten auf deine Wahl — nichts ändert sich, bis du entscheidest.',

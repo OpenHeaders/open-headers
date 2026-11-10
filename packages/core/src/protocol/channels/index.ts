@@ -124,6 +124,8 @@ export type { AppUpdatePhase, AppUpdateSeverity, AppUpdateState } from './update
 export type {
   WorkspaceTreeAddToVcsWire,
   WorkspaceTreeAdoptWire,
+  WorkspaceTreeApplyCommitSkipWire,
+  WorkspaceTreeApplyCommitWire,
   WorkspaceTreeChangesWire,
   WorkspaceTreeCommitCadence,
   WorkspaceTreeCommitPatchWire,

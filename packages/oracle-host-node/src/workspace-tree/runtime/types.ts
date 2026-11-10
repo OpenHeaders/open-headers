@@ -201,6 +201,42 @@ export type FetchWorkspaceTreeRpcResult =
       detail?: string;
     };
 
+/** One part of a picked or reverted change that was not taken (`CommitChangeSkip`). */
+export interface ApplyCommitSkip {
+  uid: string;
+  path: string;
+  reason: 'missing' | 'parent-missing' | 'not-empty';
+}
+
+export type ApplyCommitRpcResult =
+  | {
+      ok: true;
+      sha: string;
+      skipped?: ApplyCommitSkip[];
+      /** The user's own files both sides changed — the local file stood. */
+      keptLocal?: string[];
+    }
+  | {
+      ok: false;
+      reason:
+        | 'not-bound'
+        | 'git-unavailable'
+        | 'not-a-repo'
+        | 'op-in-progress'
+        | 'unknown-commit'
+        | 'unsupported-commit'
+        | 'foreign-invalid'
+        | 'identity-mismatch'
+        | 'conflicts'
+        | 'empty'
+        | 'commit-failed';
+      detail?: string;
+      /** `conflicts`: the documents both sides changed, by their path in the commit. */
+      conflicts?: string[];
+      skipped?: ApplyCommitSkip[];
+      keptLocal?: string[];
+    };
+
 export type MergeBranchRpcResult =
   | { ok: true; upToDate: true }
   | {
@@ -534,6 +570,15 @@ export interface WorkspaceTreeRuntime {
    * uncommitted work commits first, exactly like pull.
    */
   mergeBranch(workspaceId: string, ref: string): Promise<MergeBranchRpcResult>;
+  /**
+   * Cherry-Pick (`pick`) or Revert (`revert`) of ONE commit of the log,
+   * by its FULL sha, onto the current branch as a new one-parent
+   * commit. Never `git cherry-pick` / `git revert`: the commit's own
+   * change converges through the mutators. A document both sides
+   * changed refuses `conflicts` with nothing written; local
+   * uncommitted work commits first once the change is known to apply.
+   */
+  applyCommit(workspaceId: string, sha: string, mode: 'pick' | 'revert'): Promise<ApplyCommitRpcResult>;
   /** Focus returned to the app — throttled background fetch trigger. */
   notifyAppFocus(): void;
   /** Git slot feed for the card/pill — availability, dirty count, draft message. */

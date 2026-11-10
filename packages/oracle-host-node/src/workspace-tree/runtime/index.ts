@@ -82,6 +82,7 @@ import {
 } from './history';
 import { runIgnorePath, runUnignorePath } from './ignore';
 import { closeBinding, openBinding } from './lifecycle';
+import { runApplyCommit } from './pick';
 import { runAddRemote, runListRemotes, runRemoveRemote, runUpdateRemote } from './remotes';
 import { applyAll, buildSnapshot, workspaceEntity } from './snapshot';
 import { notBoundStatus, publishGitStatus, readGitStatus } from './status';
@@ -89,6 +90,7 @@ import { appendIssues, heldByGitOperation, refreshIssuesFromDisk, runSweep, sche
 import { enqueueFetch, maybeAutoPush, runFetchAll, runPull, runPush, runResolveForcePush } from './sync';
 import type {
   AdoptWorkspaceTreeRpcResult,
+  ApplyCommitRpcResult,
   BindWorkspaceTreeRpcResult,
   CommitWorkspaceTreeRpcResult,
   CompareRefsRpcResult,
@@ -133,6 +135,7 @@ import { runAddToVcs, runDeletePaths, runUnaddPaths } from './working-files';
 
 export type {
   AdoptWorkspaceTreeRpcResult,
+  ApplyCommitRpcResult,
   BindWorkspaceTreeRpcResult,
   CommitWorkspaceTreeRpcResult,
   CompareRefsRpcResult,
@@ -582,6 +585,21 @@ export function createWorkspaceTreeRuntime(options: WorkspaceTreeRuntimeOptions)
         async () => {
           const result = await runMergeBranch(ctx, binding, ref);
           if (result.ok && !result.upToDate) await ctx.maybeAutoPush(binding);
+          await ctx.publishGitStatus(binding);
+          return result;
+        },
+      );
+    },
+
+    async applyCommit(workspaceId: string, sha: string, mode: 'pick' | 'revert'): Promise<ApplyCommitRpcResult> {
+      const binding = open.get(workspaceId);
+      if (!binding) return { ok: false, reason: 'not-bound' };
+      return onChain<ApplyCommitRpcResult>(
+        binding,
+        { ok: false, reason: 'commit-failed', detail: 'pick pass did not run' },
+        async () => {
+          const result = await runApplyCommit(ctx, binding, sha, mode);
+          if (result.ok) await ctx.maybeAutoPush(binding);
           await ctx.publishGitStatus(binding);
           return result;
         },

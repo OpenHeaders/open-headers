@@ -752,6 +752,16 @@ export const workbenchChrome = {
     '{ref} слита в {branch}. У историй нет общего коммита, поэтому каждый файл из {ref} считался изменённым.',
   'workbench.gitLog.merge.failed': 'Не удалось слить {ref}: {detail}',
   'workbench.gitLog.keptLocal': 'Обе стороны изменили {files}. Ваша версия сохранена, входящее изменение не применено.',
+  'workbench.gitLog.applyCommit.picked': 'Cherry-pick завершён',
+  'workbench.gitLog.applyCommit.reverted': 'Revert завершён',
+  'workbench.gitLog.applyCommit.pickFailed': 'Не удалось выполнить cherry-pick для {commit}: {detail}',
+  'workbench.gitLog.applyCommit.revertFailed': 'Не удалось отменить {commit}: {detail}',
+  'workbench.gitLog.applyCommit.pickEmpty': 'Из {commit} нечего переносить: в ветке уже есть это изменение.',
+  'workbench.gitLog.applyCommit.revertEmpty': 'В {commit} нечего отменять: в ветке больше нет этого изменения.',
+  'workbench.gitLog.applyCommit.conflicts': 'И ветка, и коммит {commit} изменили {files}. Ничего не применено.',
+  'workbench.gitLog.applyCommit.unsupported':
+    'У коммита {commit} нет единственного изменения для применения: это коммит слияния или первый коммит.',
+  'workbench.gitLog.applyCommit.leftOut': 'Часть изменения пропущена, потому что ветка ему не соответствует: {files}.',
   'workbench.gitLog.forcePush.title': 'История удалённого репозитория переписана',
   'workbench.gitLog.forcePush.body':
     'Удалённая ветка больше не содержит историю, которую вы синхронизировали последней ({sha}). Pull, Push и слияние ждут вашего выбора — ничего не изменится, пока вы не решите.',

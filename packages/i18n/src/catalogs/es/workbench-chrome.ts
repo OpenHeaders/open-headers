@@ -898,6 +898,16 @@ export const workbenchChrome = {
   'workbench.gitLog.merge.failed': 'No se pudo fusionar {ref}: {detail}',
   'workbench.gitLog.keptLocal':
     'Ambos lados modificaron {files}. Se conservó tu versión y no se aplicó el cambio entrante.',
+  'workbench.gitLog.applyCommit.picked': 'Cherry-pick completado',
+  'workbench.gitLog.applyCommit.reverted': 'Reversión completada',
+  'workbench.gitLog.applyCommit.pickFailed': 'No se pudo hacer cherry-pick de {commit}: {detail}',
+  'workbench.gitLog.applyCommit.revertFailed': 'No se pudo revertir {commit}: {detail}',
+  'workbench.gitLog.applyCommit.pickEmpty': 'Nada que aplicar de {commit}: la rama ya tiene este cambio.',
+  'workbench.gitLog.applyCommit.revertEmpty': 'Nada que revertir de {commit}: la rama ya no tiene este cambio.',
+  'workbench.gitLog.applyCommit.conflicts': 'La rama y el commit {commit} modificaron {files}. No se aplicó nada.',
+  'workbench.gitLog.applyCommit.unsupported':
+    'El commit {commit} no tiene un único cambio que aplicar: es un merge o el primer commit.',
+  'workbench.gitLog.applyCommit.leftOut': 'Parte del cambio se omitió porque la rama no coincide con él: {files}.',
   'workbench.gitLog.forcePush.title': 'El historial remoto fue reescrito',
   'workbench.gitLog.forcePush.body':
     'La rama remota ya no contiene el historial sincronizado por última vez ({sha}). Pull, push y fusión esperan a que elijas — nada cambia hasta que decidas.',

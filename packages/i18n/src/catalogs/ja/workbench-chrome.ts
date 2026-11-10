@@ -729,6 +729,19 @@ export const workbenchChrome = {
   'workbench.gitLog.merge.failed': '{ref} をマージできませんでした：{detail}',
   'workbench.gitLog.keptLocal':
     '{files} は双方で変更されています。ローカルの内容を保持し、取り込み側の変更は適用しませんでした。',
+  'workbench.gitLog.applyCommit.picked': 'チェリーピックが完了しました',
+  'workbench.gitLog.applyCommit.reverted': 'リバートが完了しました',
+  'workbench.gitLog.applyCommit.pickFailed': '{commit} をチェリーピックできませんでした：{detail}',
+  'workbench.gitLog.applyCommit.revertFailed': '{commit} をリバートできませんでした：{detail}',
+  'workbench.gitLog.applyCommit.pickEmpty':
+    '{commit} からチェリーピックするものはありません：ブランチにはすでにこの変更があります。',
+  'workbench.gitLog.applyCommit.revertEmpty':
+    '{commit} からリバートするものはありません：ブランチにこの変更はもうありません。',
+  'workbench.gitLog.applyCommit.conflicts':
+    'ブランチとコミット {commit} の両方が {files} を変更しました。何も適用されていません。',
+  'workbench.gitLog.applyCommit.unsupported':
+    'コミット {commit} には適用できる単一の変更がありません：マージまたは最初のコミットです。',
+  'workbench.gitLog.applyCommit.leftOut': 'ブランチと一致しないため、変更の一部は適用されませんでした：{files}',
   'workbench.gitLog.forcePush.title': 'リモートの履歴が書き換えられました',
   'workbench.gitLog.forcePush.body':
     'リモートのブランチには、最後に同期した履歴（{sha}）がもう含まれていません。プル、プッシュ、マージは選択するまで待機します。決めるまで何も変わりません。',

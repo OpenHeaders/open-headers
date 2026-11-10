@@ -492,6 +492,20 @@ export interface WorkspaceRpc {
     res: WorkspaceTreeMergeBranchWire;
   };
   /**
+   * Cherry-Pick (`pick`) or Revert (`revert`) of ONE commit, by its
+   * FULL sha, onto the current branch as a new one-parent commit the
+   * operator authors. The commit's own change converges through the
+   * mutators — raw `git cherry-pick` / `git revert` are never invoked,
+   * so no markers and no in-progress state can come out of it. A
+   * commit with other than one parent refuses `unsupported-commit`; a
+   * document both sides changed refuses `conflicts` with nothing
+   * written; a change the branch already holds answers `empty`.
+   */
+  'oh.workspaceTree.applyCommit': {
+    req: { workspaceId: string; sha: string; mode: 'pick' | 'revert' };
+    res: WorkspaceTreeApplyCommitWire;
+  };
+  /**
    * Workspace history timeline (the git-sync plan §9, Phase 7): recent
    * commits with their changed paths — `git log` as the canonical
    * audit trail (the data-plane topologies design §7.1). Read-only; an unborn
@@ -918,6 +932,51 @@ export type WorkspaceTreeCompareRefsWire =
       ok: false;
       reason: 'not-bound' | 'git-unavailable' | 'not-a-repo' | 'detached-head' | 'unknown-ref' | 'compare-failed';
       detail?: string;
+    };
+
+/** One part of a picked or reverted change that was not taken. */
+export interface WorkspaceTreeApplyCommitSkipWire {
+  uid: string;
+  /** The document's path in the commit. */
+  path: string;
+  /**
+   * `missing` — the change edits an entity the branch no longer has;
+   * `parent-missing` — it creates or moves one under a container the
+   * branch does not have; `not-empty` — it deletes a container the
+   * branch still keeps something in.
+   */
+  reason: 'missing' | 'parent-missing' | 'not-empty';
+}
+
+export type WorkspaceTreeApplyCommitWire =
+  | {
+      ok: true;
+      /** The new commit. */
+      sha: string;
+      skipped?: WorkspaceTreeApplyCommitSkipWire[];
+      /** Own files both sides changed: the local file stood (see {@link WorkspaceTreeMergeBranchWire}). */
+      keptLocal?: string[];
+    }
+  | {
+      ok: false;
+      reason:
+        | 'not-bound'
+        | 'git-unavailable'
+        | 'not-a-repo'
+        | 'op-in-progress'
+        | 'unknown-commit'
+        | 'unsupported-commit'
+        | 'foreign-invalid'
+        | 'identity-mismatch'
+        | 'conflicts'
+        | 'empty'
+        | 'commit-failed';
+      /** `unsupported-commit`: `merge` or `root`. */
+      detail?: string;
+      /** `conflicts`: the documents both sides changed, by their path in the commit. */
+      conflicts?: string[];
+      skipped?: WorkspaceTreeApplyCommitSkipWire[];
+      keptLocal?: string[];
     };
 
 export type WorkspaceTreeMergeBranchWire =

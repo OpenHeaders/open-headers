@@ -36,6 +36,8 @@ export interface GitLogToolbarProps {
   entries: WorkspaceTreeLogEntryWire[];
   loading: boolean;
   onRefresh: () => void;
+  /** Cherry-pick the log's selected commits; absent while nothing is selected. */
+  onCherryPick?: () => void;
   /** Navigate gesture (Go To): select the commit + scroll it into view. */
   onNavigate: (sha: string) => void;
   prefs: GitLogViewPrefs;
@@ -101,6 +103,7 @@ const GitLogToolbar: React.FC<GitLogToolbarProps> = ({
   entries,
   loading,
   onRefresh,
+  onCherryPick,
   onNavigate,
   prefs,
   onPatchPrefs,
@@ -352,7 +355,8 @@ const GitLogToolbar: React.FC<GitLogToolbarProps> = ({
       <ToolbarIconButton
         icon={<CherryPickIcon />}
         title={t('workbench.gitLog.cherryPick')}
-        disabled
+        onClick={onCherryPick}
+        disabled={onCherryPick === undefined}
         testid="git-tool-cherry-pick"
       />
       <Dropdown

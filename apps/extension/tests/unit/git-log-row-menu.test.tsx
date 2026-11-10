@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 /**
  * The log timeline's commit row menu (S47): the builder's anatomy on
- * this product's vocabulary (the live rows, the visible-disabled rows,
+ * this product's vocabulary (the live rows, the visible-disabled row,
  * no history-rewriting row), the right-click selection rule on the
  * mounted list (an unselected row becomes the selection alone, a
  * selected row keeps the set and the menu covers it), the Left / Right
@@ -72,6 +72,8 @@ function handlers(): MockedHandlers {
     onCopyRevision: vi.fn<LogRowMenuHandlers['onCopyRevision']>(),
     onCreatePatch: vi.fn<LogRowMenuHandlers['onCreatePatch']>(),
     onCopyAsPatch: vi.fn<LogRowMenuHandlers['onCopyAsPatch']>(),
+    onCherryPick: vi.fn<LogRowMenuHandlers['onCherryPick']>(),
+    onRevert: vi.fn<LogRowMenuHandlers['onRevert']>(),
     onNewBranchFrom: vi.fn<LogRowMenuHandlers['onNewBranchFrom']>(),
     onNewTagAt: vi.fn<LogRowMenuHandlers['onNewTagAt']>(),
     onCheckoutRevision: vi.fn<LogRowMenuHandlers['onCheckoutRevision']>(),
@@ -96,7 +98,7 @@ const clickKey = (menu: MenuProps, key: string): void =>
 describe('buildLogRowMenu — the anatomy', () => {
   const single: LogRowMenuTarget = { shas: ['c3'], child: 'c4', parent: 'c2' };
 
-  it('one commit: copy, the two patch rows, checkout revision, new branch, new tag and the two walks live; the unbuilt verbs visible-disabled', () => {
+  it('one commit: copy, the two patch rows, cherry-pick, revert, checkout revision, new branch, new tag and the two walks live; the unbuilt verb visible-disabled', () => {
     const h = handlers();
     const menu = buildLogRowMenu(single, t, h);
     expect(keysOf(menu)).toEqual([
@@ -112,7 +114,11 @@ describe('buildLogRowMenu — the anatomy', () => {
       'go-to-child',
       'go-to-parent',
     ]);
-    expect(disabledKeys(menu)).toEqual(['cherry-pick', 'compare-with-local', 'revert']);
+    expect(disabledKeys(menu)).toEqual(['compare-with-local']);
+    clickKey(menu, 'cherry-pick');
+    expect(h.onCherryPick).toHaveBeenCalledWith(['c3']);
+    clickKey(menu, 'revert');
+    expect(h.onRevert).toHaveBeenCalledWith(['c3']);
     clickKey(menu, 'create-patch');
     expect(h.onCreatePatch).toHaveBeenCalledWith(['c3']);
     clickKey(menu, 'copy-as-patch');
@@ -143,7 +149,7 @@ describe('buildLogRowMenu — the anatomy', () => {
     expect(disabledKeys(menu)).not.toContain('go-to-parent');
   });
 
-  it('several commits: copy and the patch rows cover the set; checkout revision, new branch, new tag and the walks hold', () => {
+  it('several commits: copy, the patch rows, cherry-pick and revert cover the set; checkout revision, new branch, new tag and the walks hold', () => {
     const h = handlers();
     const menu = buildLogRowMenu({ shas: ['c4', 'c3'], child: null, parent: null }, t, h);
     clickKey(menu, 'copy-revision');
@@ -152,6 +158,10 @@ describe('buildLogRowMenu — the anatomy', () => {
     expect(h.onCreatePatch).toHaveBeenCalledWith(['c4', 'c3']);
     clickKey(menu, 'copy-as-patch');
     expect(h.onCopyAsPatch).toHaveBeenCalledWith(['c4', 'c3']);
+    clickKey(menu, 'cherry-pick');
+    expect(h.onCherryPick).toHaveBeenCalledWith(['c4', 'c3']);
+    clickKey(menu, 'revert');
+    expect(h.onRevert).toHaveBeenCalledWith(['c4', 'c3']);
     expect(disabledKeys(menu)).toEqual(
       expect.arrayContaining(['checkout-revision', 'new-branch', 'new-tag', 'go-to-child', 'go-to-parent']),
     );

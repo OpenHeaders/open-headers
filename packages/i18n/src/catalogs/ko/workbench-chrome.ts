@@ -727,6 +727,19 @@ export const workbenchChrome = {
   'workbench.gitLog.merge.failed': '{ref}을(를) 병합할 수 없습니다: {detail}',
   'workbench.gitLog.keptLocal':
     '양쪽 모두 {files} 파일을 변경했습니다. 로컬 버전을 유지했으며 들어오는 변경은 적용하지 않았습니다.',
+  'workbench.gitLog.applyCommit.picked': '체리픽 완료',
+  'workbench.gitLog.applyCommit.reverted': '되돌리기(Revert) 완료',
+  'workbench.gitLog.applyCommit.pickFailed': '{commit} 체리픽 실패: {detail}',
+  'workbench.gitLog.applyCommit.revertFailed': '{commit} 되돌리기 실패: {detail}',
+  'workbench.gitLog.applyCommit.pickEmpty':
+    '{commit} 에서 체리픽할 내용이 없습니다: 브랜치에 이미 이 변경 사항이 있습니다.',
+  'workbench.gitLog.applyCommit.revertEmpty':
+    '{commit} 에서 되돌릴 내용이 없습니다: 브랜치에 이 변경 사항이 더 이상 없습니다.',
+  'workbench.gitLog.applyCommit.conflicts':
+    '브랜치와 커밋 {commit} 모두 {files} 파일을 변경했습니다. 아무것도 적용되지 않았습니다.',
+  'workbench.gitLog.applyCommit.unsupported':
+    '커밋 {commit} 에는 적용할 단일 변경 사항이 없습니다: 병합 커밋이거나 첫 번째 커밋입니다.',
+  'workbench.gitLog.applyCommit.leftOut': '브랜치와 맞지 않아 변경 사항의 일부가 제외되었습니다: {files}',
   'workbench.gitLog.forcePush.title': '원격 기록이 다시 쓰였습니다',
   'workbench.gitLog.forcePush.body':
     '원격 브랜치에 마지막으로 동기화한 기록 ({sha})이 더 이상 없습니다. Pull, Push, 병합은 선택할 때까지 기다립니다. 결정하기 전까지 아무것도 바뀌지 않습니다.',
