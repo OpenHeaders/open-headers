@@ -1,0 +1,10 @@
+/* File rail rows. A row answers the pointer with the wash the
+ * workbench's tree rows use; the open file's own fill is set inline and
+ * stands under the pointer. */
+.oh-merge__file-row {
+  background: transparent;
+}
+
+.oh-merge__file-row:hover {
+  background: rgba(128, 128, 128, 0.08);
+}

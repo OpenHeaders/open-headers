@@ -44,6 +44,9 @@ export interface MergeSession {
   title: string;
   files: MergeFile[];
   initialFileId?: string;
+  /** List the files even when there is one — for a session whose title
+   *  does not name what is being resolved. Several files always list. */
+  alwaysListFiles?: boolean;
   onApply(files: MergeFile[], results: Map<string, string>): Promise<MergeApplyOutcome[]>;
   onCancel(): void;
 }

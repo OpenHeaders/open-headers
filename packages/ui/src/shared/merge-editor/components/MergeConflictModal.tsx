@@ -1,6 +1,7 @@
 /**
- * Modal shell — single MergePane plus an optional file-list sidebar
- * (Phase 5). One pane serves every file: what a file holds when the
+ * Modal shell — single MergePane plus the file-list sidebar (Phase 5;
+ * shown for several files, and for one when the session asks). One
+ * pane serves every file: what a file holds when the
  * person selects another (its result text, its per-hunk picks, what
  * was still pending) is kept, and the picks are replayed into the pane
  * when the file returns — an answered file stays answered without
@@ -113,6 +114,7 @@ const MergeConflictModal = ({
   const effectiveSideGutters = sideGuttersAvailable && sideActionGutters;
   const failedOutcomes = useMemo(() => outcomes.filter((o) => !o.ok), [outcomes]);
   const baseAvailable = useMemo(() => session.files.some((f) => f.base !== undefined), [session]);
+  const listsFiles = session.files.length > 1 || session.alwaysListFiles === true;
 
   // ARIA live announcer. Polite — won't interrupt the screen reader's
   // current utterance. The remaining-hunk count is appended so each
@@ -538,10 +540,9 @@ const MergeConflictModal = ({
         >
           {/* Sidebar lives outside MergePane's CSS-grid layout, so an
               outer Allotment can resize it without crossing the
-              "editor containers must stay mounted" invariant. Allotment
-              renders nothing for the sidebar pane in single-file mode
-              because MergeFileList returns null at files.length === 1. */}
-          {session.files.length > 1 && activeFileId ? (
+              "editor containers must stay mounted" invariant. A session
+              of one file lists it only when the session asks for it. */}
+          {listsFiles && activeFileId ? (
             <Allotment proportionalLayout={false}>
               <Allotment.Pane preferredSize={280} minSize={200} maxSize={480} snap priority={LayoutPriority.Low}>
                 <MergeFileList

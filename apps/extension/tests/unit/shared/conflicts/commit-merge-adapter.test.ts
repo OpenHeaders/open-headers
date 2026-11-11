@@ -117,6 +117,17 @@ describe('buildCommitMergeSession', () => {
     expect(outcomes.every((outcome) => !outcome.ok && outcome.error === 'host unreachable')).toBe(true);
   });
 
+  it('asks for its files to be listed even when there is one — the title names the pass, never the file', () => {
+    const built = buildCommitMergeSession({
+      title: 'Pull: Resolve Conflicts',
+      files: [MANIFEST],
+      apply: vi.fn(),
+      onCancel: vi.fn(),
+    });
+    expect(built.files).toHaveLength(1);
+    expect(built.alwaysListFiles).toBe(true);
+  });
+
   it('cancel is the caller’s', () => {
     const onCancel = vi.fn();
     const built = buildCommitMergeSession({ title: 't', files: [MANIFEST], apply: vi.fn(), onCancel });

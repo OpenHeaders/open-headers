@@ -101,6 +101,8 @@ export function buildCommitMergeSession(args: BuildCommitMergeSessionArgs): Merg
   return {
     title,
     files: commitMergeFiles(args.files),
+    // The title names the pass, never the file — one file is listed too.
+    alwaysListFiles: true,
     onApply: async (filesArg, results) => {
       const answers = filesArg.map((file) => ({ path: file.id, content: results.get(file.id) ?? file.initialResult }));
       const outcome = await apply(answers);

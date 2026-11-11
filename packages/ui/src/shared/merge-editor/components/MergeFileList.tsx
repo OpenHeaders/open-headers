@@ -6,8 +6,16 @@
  * adapter-supplied badges. Group headers (`MergeFile.group`) sort
  * groups alphabetically and render a small uppercase strip.
  *
- * Hidden entirely when `files.length === 1` — single-file callers
- * never see the sidebar even if they pass an `initialFileId`.
+ * The modal decides whether a session lists its files; the list
+ * renders whatever it is handed, one file included.
+ *
+ * The rail sits one fill step off the surface under it — the modal's,
+ * which the editors beside it leave for their own — so it reads as a
+ * panel of its own in every theme; the open file is the stronger fill
+ * with the accent edge, and any other row answers the pointer
+ * (`merge-file-list.css`). The neutral chips (the count, `unresolved`)
+ * are a translucent fill too: an opaque one is the rail's own colour
+ * and would show only on a hovered or open row.
  *
  * Status pill colors mirror the plan's vocabulary:
  *   unresolved  = neutral
@@ -28,6 +36,7 @@ import type { ReactElement } from 'react';
 import type { MessageKey } from '@openheaders/i18n';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import type { MergeFile, MergeFileKind } from '../types';
+import './merge-file-list.css';
 
 const { Text } = Typography;
 
@@ -95,12 +104,13 @@ const MergeFileList = ({
   states,
   hunkCounts,
   onSelect,
-}: MergeFileListProps): ReactElement | null => {
+}: MergeFileListProps): ReactElement => {
   const { token } = theme.useToken();
   const t = useT();
 
-  if (files.length <= 1) return null;
   const grouped = groupFiles(files);
+  const chipStyle = { margin: 0, fontSize: 10, lineHeight: '16px' };
+  const neutralChipStyle = { ...chipStyle, background: token.colorFillTertiary };
   const showGroupHeaders = grouped.some((g) => g.group !== '');
 
   // Paired-row resolution (plan §5.3 v1: visual pairing only,
@@ -116,10 +126,11 @@ const MergeFileList = ({
   return (
     <div
       style={{
-        width: 280,
-        minWidth: 220,
+        width: '100%',
         height: '100%',
-        overflowY: 'auto', overscrollBehavior: 'none',
+        overflowY: 'auto',
+        overscrollBehavior: 'none',
+        background: token.colorFillTertiary,
         borderRight: `1px solid ${token.colorBorderSecondary}`,
         display: 'flex',
         flexDirection: 'column',
@@ -152,11 +163,13 @@ const MergeFileList = ({
               <button
                 type="button"
                 key={f.id}
+                className="oh-merge__file-row"
+                aria-current={isActive}
                 onClick={() => onSelect(f.id)}
                 style={{
                   width: '100%',
                   textAlign: 'left',
-                  background: isActive ? token.colorFillSecondary : 'transparent',
+                  ...(isActive ? { background: token.colorFillSecondary } : {}),
                   border: 'none',
                   padding: '6px 12px',
                   cursor: 'pointer',
@@ -197,10 +210,10 @@ const MergeFileList = ({
                 ) : null}
                 {hunkCounts?.has(f.id) && (hunkCounts.get(f.id) ?? 0) > 0 ? (
                   <Tooltip title={t('shared.mergeEditor.fileList.hunksRemaining', { count: hunkCounts.get(f.id) ?? 0 })}>
-                    <Tag style={{ margin: 0, fontSize: 10, lineHeight: '16px' }}>{hunkCounts.get(f.id)}</Tag>
+                    <Tag style={neutralChipStyle}>{hunkCounts.get(f.id)}</Tag>
                   </Tooltip>
                 ) : null}
-                <Tag color={status.color} style={{ margin: 0, fontSize: 10, lineHeight: '16px' }}>
+                <Tag color={status.color} style={status.color === 'default' ? neutralChipStyle : chipStyle}>
                   {t(status.labelKey)}
                 </Tag>
                 {state.status === 'resolved' ? (
