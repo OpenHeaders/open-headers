@@ -2,10 +2,12 @@
 /**
  * The merge editor's file rail: it renders whatever it is handed — one
  * file included, under its group — marks the open file, and hands a
- * click on any row back as that file's id.
+ * click on any row back as that file's id. Collapsed, it is a strip of
+ * one chip per file in the same order, wearing the caller's icon where
+ * one is given and the kind glyph where none is.
  */
 
-import { type MergeFile, MergeFileList } from '@openheaders/ui/shared/merge-editor';
+import { type MergeFile, MergeFileList, MergeFileStrip } from '@openheaders/ui/shared/merge-editor';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
@@ -56,6 +58,34 @@ describe('MergeFileList', () => {
     expect(orders.getAttribute('aria-current')).toBe('false');
     expect(probe.getAttribute('aria-current')).toBe('true');
     fireEvent.click(orders);
+    expect(onSelect).toHaveBeenCalledWith(ORDERS.id);
+  });
+
+  it('wears the caller’s icon before the name, and the kind glyph where the caller gives none', () => {
+    const renderIcon = (shown: MergeFile) => (shown.id === PROBE.id ? <i data-testid="own-icon" /> : null);
+    render(
+      <MergeFileList files={[PROBE, ORDERS]} activeFileId={PROBE.id} renderIcon={renderIcon} onSelect={vi.fn()} />,
+    );
+    const [orders, probe] = screen.getAllByRole('button');
+    expect(probe.querySelector('[data-testid="own-icon"]')).not.toBeNull();
+    expect(probe.textContent).toBe('request.yamlunresolved');
+    expect(orders.textContent).toBe('·orders.mdunresolved');
+  });
+});
+
+describe('MergeFileStrip', () => {
+  it('is one chip per file in the rail’s order, named by its file, the open one marked', () => {
+    const onSelect = vi.fn();
+    const renderIcon = (shown: MergeFile) => <i data-testid={`icon-${shown.label}`} />;
+    render(
+      <MergeFileStrip files={[PROBE, ORDERS]} activeFileId={PROBE.id} renderIcon={renderIcon} onSelect={onSelect} />,
+    );
+    const chips = screen.getAllByRole('button');
+    expect(chips.map((chip) => chip.getAttribute('aria-label'))).toEqual(['orders.md', 'request.yaml']);
+    expect(chips.map((chip) => chip.getAttribute('aria-current'))).toEqual(['false', 'true']);
+    expect(chips[0].querySelector('[data-testid="icon-orders.md"]')).not.toBeNull();
+    expect(chips[0].textContent).toBe('');
+    fireEvent.click(chips[0]);
     expect(onSelect).toHaveBeenCalledWith(ORDERS.id);
   });
 });

@@ -30,6 +30,7 @@ import {
 import { MergeConflictModal } from '@openheaders/ui/shared/merge-editor';
 import { App as AntApp } from 'antd';
 import { type ReactNode, useCallback, useMemo, useState } from 'react';
+import { ConflictFileIcon } from './ConflictFileIcon';
 import ConflictFilesModal, { type ConflictSide } from './ConflictFilesModal';
 
 /** What a verb's answer carries when it is about the files both sides changed. */
@@ -77,6 +78,9 @@ interface OpenConflict {
 }
 
 const messageOf = (err: unknown): string => (err instanceof Error ? err.message : String(err));
+
+/** A merge file's id is its path on the branch (`commit-merge-adapter`). */
+const fileIconOf = (file: { id: string }): ReactNode => <ConflictFileIcon path={file.id} />;
 
 export function useConflictAnswers(): ConflictAnswers {
   const t = useT();
@@ -173,6 +177,7 @@ export function useConflictAnswers(): ConflictAnswers {
           isDarkMode={isDarkMode}
           monacoTheme={monacoTheme}
           surfaceId="git"
+          renderFileIcon={fileIconOf}
           // A set may already have opened the next pass's conflict — only this one closes.
           onClose={() => setConflict((open) => (open === conflict ? null : open))}
         />

@@ -2,8 +2,9 @@
  * Phase 5 — multi-file shell sidebar.
  *
  * Plan §5.3: ~280px collapsible left rail with one row per file. Each
- * row carries a kind icon (add/modify/remove), a status pill, and any
- * adapter-supplied badges. Group headers (`MergeFile.group`) render a
+ * row carries its glyph (the caller's icon for the file, else the
+ * add/modify/remove kind), a status pill, and any adapter-supplied
+ * badges. Group headers (`MergeFile.group`) render a
  * small uppercase strip, in the order `file-groups.ts` lists them.
  *
  * The modal decides whether a session lists its files; the list
@@ -24,30 +25,22 @@
  *   failed      = error  (after Apply outcome)
  */
 
-import {
-  CheckCircleFilled,
-  MinusCircleOutlined,
-  PlusCircleOutlined,
-  SwapOutlined,
-  WarningFilled,
-} from '@ant-design/icons';
+import { CheckCircleFilled, SwapOutlined, WarningFilled } from '@ant-design/icons';
 import { Tag, Tooltip, Typography, theme } from 'antd';
 import type { ReactElement } from 'react';
-import type { MessageKey } from '@openheaders/i18n';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { groupFiles } from '../file-groups';
-import type { MergeFile, MergeFileKind } from '../types';
+import type { MergeFile } from '../types';
+import {
+  KIND_ICONS,
+  MergeFileGlyph,
+  type MergeFileRowState,
+  type RenderMergeFileIcon,
+  STATUS_TAG,
+} from './merge-file-glyph';
 import './merge-file-list.css';
 
 const { Text } = Typography;
-
-export type MergeFileStatus = 'unresolved' | 'partial' | 'resolved' | 'failed';
-
-export interface MergeFileRowState {
-  status: MergeFileStatus;
-  /** Adapter-side error from Apply, when status === 'failed'. */
-  error?: string;
-}
 
 export interface MergeFileListProps {
   files: ReadonlyArray<MergeFile>;
@@ -58,31 +51,17 @@ export interface MergeFileListProps {
    *  badge. Active file should reflect live stats; inactive files get
    *  the initial-state count from session-open. */
   hunkCounts?: ReadonlyMap<string, number>;
+  /** The caller's icon per file, in place of the kind glyph. */
+  renderIcon?: RenderMergeFileIcon;
   onSelect(fileId: string): void;
 }
-
-const KIND_ICONS: Record<MergeFileKind, { icon: ReactElement; color: string; tooltipKey: MessageKey }> = {
-  add: { icon: <PlusCircleOutlined />, color: '#52c41a', tooltipKey: 'shared.mergeEditor.fileList.kindAdded' },
-  modify: {
-    icon: <span style={{ fontWeight: 700 }}>·</span>,
-    color: '#1677ff',
-    tooltipKey: 'shared.mergeEditor.fileList.kindModified',
-  },
-  remove: { icon: <MinusCircleOutlined />, color: '#ff4d4f', tooltipKey: 'shared.mergeEditor.fileList.kindRemoved' },
-};
-
-const STATUS_TAG: Record<MergeFileStatus, { color: string; labelKey: MessageKey }> = {
-  unresolved: { color: 'default', labelKey: 'shared.mergeEditor.fileList.statusUnresolved' },
-  partial: { color: 'warning', labelKey: 'shared.mergeEditor.fileList.statusPartial' },
-  resolved: { color: 'success', labelKey: 'shared.mergeEditor.fileList.statusResolved' },
-  failed: { color: 'error', labelKey: 'shared.mergeEditor.fileList.statusFailed' },
-};
 
 const MergeFileList = ({
   files,
   activeFileId,
   states,
   hunkCounts,
+  renderIcon,
   onSelect,
 }: MergeFileListProps): ReactElement => {
   const { token } = theme.useToken();
@@ -159,9 +138,7 @@ const MergeFileList = ({
                 }}
               >
                 <Tooltip title={t(kind.tooltipKey)}>
-                  <span style={{ color: kind.color, fontSize: 12, flexShrink: 0, width: 14, textAlign: 'center' }}>
-                    {kind.icon}
-                  </span>
+                  <MergeFileGlyph file={f} renderIcon={renderIcon} size={14} />
                 </Tooltip>
                 <span
                   style={{

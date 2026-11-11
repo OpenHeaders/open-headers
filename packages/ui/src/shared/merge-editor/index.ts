@@ -17,8 +17,11 @@
 
 export type { MergeConflictModalProps } from './components/MergeConflictModal';
 export { default as MergeConflictModal } from './components/MergeConflictModal';
-export type { MergeFileListProps, MergeFileRowState, MergeFileStatus } from './components/MergeFileList';
+export type { MergeFileListProps } from './components/MergeFileList';
 export { default as MergeFileList } from './components/MergeFileList';
+export type { MergeFileStripProps } from './components/MergeFileStrip';
+export { default as MergeFileStrip } from './components/MergeFileStrip';
+export type { MergeFileRowState, MergeFileStatus, RenderMergeFileIcon } from './components/merge-file-glyph';
 export type { HunkStats, MergeLayout, MergePaneHandle, MergePaneProps } from './components/MergePane';
 export { default as MergePane } from './components/MergePane';
 export type {

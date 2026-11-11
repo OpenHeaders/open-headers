@@ -22,7 +22,9 @@ import { firstListedFile } from '../file-groups';
 import { type LeftFile, remainingByFile, sessionResults } from '../session-progress';
 import type { MergeApplyOutcome, MergeSession } from '../types';
 import { usePersistedLayout } from '../use-persisted-layout';
-import MergeFileList, { type MergeFileRowState } from './MergeFileList';
+import MergeFileList from './MergeFileList';
+import MergeFileStrip from './MergeFileStrip';
+import type { MergeFileRowState, RenderMergeFileIcon } from './merge-file-glyph';
 import MergePane, { type HunkStats, type MergeLayout, type MergePaneHandle } from './MergePane';
 import './merge-conflict-modal.css';
 
@@ -55,6 +57,10 @@ export interface MergeConflictModalProps {
    *  Merge buttons in the modal footer. Use for adapter-specific
    *  Advanced toggles or back-to-legacy buttons. */
   footerLeading?: ReactNode;
+  /** Optional icon per file — what the file is, in the caller's own
+   *  vocabulary. Shown before the file's name in the sidebar, and alone
+   *  on the strip the sidebar collapses to. */
+  renderFileIcon?: RenderMergeFileIcon;
 }
 
 const MergeConflictModal = ({
@@ -66,6 +72,7 @@ const MergeConflictModal = ({
   surfaceId = 'default',
   headerSlot,
   footerLeading,
+  renderFileIcon,
 }: MergeConflictModalProps): ReactElement => {
   const { token } = theme.useToken();
   const t = useT();
@@ -116,6 +123,9 @@ const MergeConflictModal = ({
   const failedOutcomes = useMemo(() => outcomes.filter((o) => !o.ok), [outcomes]);
   const baseAvailable = useMemo(() => session.files.some((f) => f.base !== undefined), [session]);
   const listsFiles = session.files.length > 1 || session.alwaysListFiles === true;
+  // The sidebar's sash snaps it shut; the strip stands in for it until
+  // the sash is dragged back out, so the files never leave the editor.
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   // ARIA live announcer. Polite — won't interrupt the screen reader's
   // current utterance. The remaining-hunk count is appended so each
@@ -542,42 +552,69 @@ const MergeConflictModal = ({
           {/* Sidebar lives outside MergePane's CSS-grid layout, so an
               outer Allotment can resize it without crossing the
               "editor containers must stay mounted" invariant. A session
-              of one file lists it only when the session asks for it. */}
+              of one file lists it only when the session asks for it.
+              Snapped shut, the sidebar leaves its strip beside the
+              split; the sash at the strip's edge drags it back out. */}
+          {listsFiles && activeFileId && sidebarCollapsed ? (
+            <MergeFileStrip
+              files={session.files}
+              activeFileId={activeFileId}
+              states={fileStates}
+              hunkCounts={sidebarHunkCounts}
+              renderIcon={renderFileIcon}
+              onSelect={handleFileSelect}
+            />
+          ) : null}
           {listsFiles && activeFileId ? (
-            <Allotment proportionalLayout={false}>
-              <Allotment.Pane preferredSize={280} minSize={200} maxSize={480} snap priority={LayoutPriority.Low}>
-                <MergeFileList
-                  files={session.files}
-                  activeFileId={activeFileId}
-                  states={fileStates}
-                  hunkCounts={sidebarHunkCounts}
-                  onSelect={handleFileSelect}
-                />
-              </Allotment.Pane>
-              <Allotment.Pane priority={LayoutPriority.High}>
-                {activeFile ? (
-                  <MergePane
-                    ref={paneRef}
-                    file={activeFile}
-                    isDarkMode={isDarkMode}
-                    monacoTheme={monacoTheme}
-                    showNonConflicting={showNonConflicting}
-                    singleClickResolve={singleClickResolve}
-                    inlineActionLabels={inlineActionLabels}
-                    sideActionGutters={effectiveSideGutters}
-                    compactView={compactView}
-                    layout={layout}
-                    restoredPickStates={leftByFileId.get(activeFile.id)?.picks}
-                    onHunkStatsChange={setStats}
-                    onAnnounce={announce}
+            <div style={{ flex: 1, minWidth: 0, minHeight: 0 }}>
+              <Allotment
+                proportionalLayout={false}
+                onVisibleChange={(index, visible) => {
+                  if (index === 0) setSidebarCollapsed(!visible);
+                }}
+              >
+                <Allotment.Pane
+                  preferredSize={280}
+                  minSize={200}
+                  maxSize={480}
+                  snap
+                  visible={!sidebarCollapsed}
+                  priority={LayoutPriority.Low}
+                >
+                  <MergeFileList
+                    files={session.files}
+                    activeFileId={activeFileId}
+                    states={fileStates}
+                    hunkCounts={sidebarHunkCounts}
+                    renderIcon={renderFileIcon}
+                    onSelect={handleFileSelect}
                   />
-                ) : (
-                  <div style={{ padding: 16 }}>
-                    <Text type="secondary">{t('shared.mergeEditor.emptySession')}</Text>
-                  </div>
-                )}
-              </Allotment.Pane>
-            </Allotment>
+                </Allotment.Pane>
+                <Allotment.Pane priority={LayoutPriority.High}>
+                  {activeFile ? (
+                    <MergePane
+                      ref={paneRef}
+                      file={activeFile}
+                      isDarkMode={isDarkMode}
+                      monacoTheme={monacoTheme}
+                      showNonConflicting={showNonConflicting}
+                      singleClickResolve={singleClickResolve}
+                      inlineActionLabels={inlineActionLabels}
+                      sideActionGutters={effectiveSideGutters}
+                      compactView={compactView}
+                      layout={layout}
+                      restoredPickStates={leftByFileId.get(activeFile.id)?.picks}
+                      onHunkStatsChange={setStats}
+                      onAnnounce={announce}
+                    />
+                  ) : (
+                    <div style={{ padding: 16 }}>
+                      <Text type="secondary">{t('shared.mergeEditor.emptySession')}</Text>
+                    </div>
+                  )}
+                </Allotment.Pane>
+              </Allotment>
+            </div>
           ) : (
             <div style={{ flex: 1, minWidth: 0, minHeight: 0 }}>
               {activeFile ? (
