@@ -10,8 +10,10 @@
  * caller's icon for the file, else the add/modify/remove kind), a
  * status pill, and any adapter-supplied badges.
  *
- * The modal decides whether a session lists its files; the list
- * renders whatever it is handed, one file included.
+ * The modal decides whether a session lists its files and which of
+ * them — the section of the open file, beside the strip that holds a
+ * chip per section (`MergeFileStrip`); the list renders whatever it is
+ * handed, one file included.
  *
  * The rail sits one fill step off the surface under it — the modal's,
  * which the editors beside it leave for their own — so it reads as a

@@ -114,32 +114,60 @@ describe('MergeFileList', () => {
 });
 
 describe('MergeFileStrip', () => {
-  it('is one chip per section in the rail’s order, the open file’s section marked, a click opening its first file left to answer', () => {
-    const onSelect = vi.fn();
+  const strip = (panelHidden: boolean, onSelect = vi.fn(), onPanelHidden = vi.fn()) => {
     render(
       <MergeFileStrip
         files={[SECTIONED_ORDERS, SECTIONED_PROBE, SECTIONED_BODY]}
         activeFileId={SECTIONED_ORDERS.id}
         hunkCounts={new Map([[SECTIONED_BODY.id, 2]])}
         rail={RAIL}
+        panelHidden={panelHidden}
+        onPanelHidden={onPanelHidden}
         onSelect={onSelect}
       />,
     );
-    const chips = screen.getAllByRole('button');
+    return { onSelect, onPanelHidden, chips: screen.getAllByRole('button') };
+  };
+
+  it('is one chip per section in the rail’s order, the open file’s section the active one', () => {
+    const { chips } = strip(false);
     expect(chips.map((chip) => chip.getAttribute('aria-label'))).toEqual(['API Requests', 'Files']);
     expect(chips.map((chip) => chip.getAttribute('aria-current'))).toEqual(['false', 'true']);
     expect(chips[0].querySelector('[data-testid="section-api-requests"]')).not.toBeNull();
+    expect(chips[1].getAttribute('aria-expanded')).toBe('true');
+  });
+
+  it('a click on another section opens its first file left to answer and shows the panel', () => {
+    const { chips, onSelect, onPanelHidden } = strip(true);
     fireEvent.click(chips[0]);
     expect(onSelect).toHaveBeenCalledWith(SECTIONED_BODY.id);
+    expect(onPanelHidden).toHaveBeenCalledWith(false);
+  });
+
+  it('a click on the active section shuts the panel, and brings it back when it is shut', () => {
+    const shown = strip(false);
+    fireEvent.click(shown.chips[1]);
+    expect(shown.onPanelHidden).toHaveBeenCalledWith(true);
+    expect(shown.onSelect).not.toHaveBeenCalled();
+    cleanup();
+    const shut = strip(true);
+    fireEvent.click(shut.chips[1]);
+    expect(shut.onPanelHidden).toHaveBeenCalledWith(false);
   });
 
   it('is one chip over all the files of a session that names no sections', () => {
     const onSelect = vi.fn();
-    render(<MergeFileStrip files={[PROBE, ORDERS]} activeFileId={PROBE.id} onSelect={onSelect} />);
+    render(
+      <MergeFileStrip
+        files={[PROBE, ORDERS]}
+        activeFileId={PROBE.id}
+        panelHidden={false}
+        onPanelHidden={vi.fn()}
+        onSelect={onSelect}
+      />,
+    );
     const chips = screen.getAllByRole('button');
     expect(chips.map((chip) => chip.getAttribute('aria-label'))).toEqual(['2 files']);
     expect(chips[0].getAttribute('aria-current')).toBe('true');
-    fireEvent.click(chips[0]);
-    expect(onSelect).toHaveBeenCalledWith(ORDERS.id);
   });
 });

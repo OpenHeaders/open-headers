@@ -123,8 +123,8 @@ const MergeConflictModal = ({
   const failedOutcomes = useMemo(() => outcomes.filter((o) => !o.ok), [outcomes]);
   const baseAvailable = useMemo(() => session.files.some((f) => f.base !== undefined), [session]);
   const listsFiles = session.files.length > 1 || session.alwaysListFiles === true;
-  // The sidebar's sash snaps it shut; the strip stands in for it until
-  // the sash is dragged back out, so the files never leave the editor.
+  // The files panel shuts — by its sash, which snaps it, or by the
+  // strip's active chip — while the strip beside it always stands.
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   // ARIA live announcer. Polite — won't interrupt the screen reader's
@@ -176,6 +176,13 @@ const MergeConflictModal = ({
     const seed = seedByFileId.get(file.id);
     return seed !== undefined ? { ...file, initialResult: seed } : file;
   }, [activeFileId, session.files, seedByFileId]);
+
+  // The sidebar lists the section the open file belongs to — the
+  // strip's active chip; a session naming no sections is one section.
+  const panelFiles = useMemo(() => {
+    const section = activeFile?.section ?? '';
+    return session.files.filter((file) => (file.section ?? '') === section);
+  }, [session.files, activeFile]);
 
   // What is left to answer per file — the sidebar's "N" badge and the
   // status below. The active file reads live from MergePane's stats; a
@@ -558,14 +565,17 @@ const MergeConflictModal = ({
               outer Allotment can resize it without crossing the
               "editor containers must stay mounted" invariant. A session
               of one file lists it only when the session asks for it.
-              Snapped shut, the sidebar leaves its strip beside the
-              split; the sash at the strip's edge drags it back out. */}
-          {listsFiles && activeFileId && sidebarCollapsed ? (
+              The strip of sections always stands beside the split; the
+              sidebar lists the open file's section and snaps shut by
+              its sash, which drags it back out from the strip's edge. */}
+          {listsFiles && activeFileId ? (
             <MergeFileStrip
               files={session.files}
               activeFileId={activeFileId}
               hunkCounts={sidebarHunkCounts}
               rail={rail}
+              panelHidden={sidebarCollapsed}
+              onPanelHidden={setSidebarCollapsed}
               onSelect={handleFileSelect}
             />
           ) : null}
@@ -586,7 +596,7 @@ const MergeConflictModal = ({
                   priority={LayoutPriority.Low}
                 >
                   <MergeFileList
-                    files={session.files}
+                    files={panelFiles}
                     activeFileId={activeFileId}
                     states={fileStates}
                     hunkCounts={sidebarHunkCounts}
