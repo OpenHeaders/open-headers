@@ -10,10 +10,10 @@
  * caller's icon for the file, else the add/modify/remove kind), a
  * status pill, and any adapter-supplied badges.
  *
- * The modal decides whether a session lists its files and which of
- * them — the section of the open file, beside the strip that holds a
- * chip per section (`MergeFileStrip`); the list renders whatever it is
- * handed, one file included.
+ * The modal decides whether a session lists its files; the list
+ * renders whatever it is handed, one file included, and keeps the open
+ * file's row in view — a chip of the strip beside it (`MergeFileStrip`)
+ * opens a file of its section, and the list follows.
  *
  * The rail sits one fill step off the surface under it — the modal's,
  * which the editors beside it leave for their own — so it reads as a
@@ -32,7 +32,7 @@
 
 import { CheckCircleFilled, SwapOutlined, WarningFilled } from '@ant-design/icons';
 import { Tag, Tooltip, theme } from 'antd';
-import type { CSSProperties, ReactElement } from 'react';
+import { type CSSProperties, type ReactElement, useEffect, useRef } from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { listFiles } from '../file-groups';
 import type { MergeFile } from '../types';
@@ -74,6 +74,13 @@ const MergeFileList = ({
 }: MergeFileListProps): ReactElement => {
   const { token } = theme.useToken();
   const t = useT();
+  const listRef = useRef<HTMLDivElement>(null);
+
+  // The open file's row stays in view: a file opened from elsewhere
+  // (the strip, the editor's first file) may sit below the fold.
+  useEffect(() => {
+    listRef.current?.querySelector('.oh-merge__file-row[aria-current="true"]')?.scrollIntoView({ block: 'nearest' });
+  }, [activeFileId]);
 
   const sections = listFiles(
     files,
@@ -151,6 +158,7 @@ const MergeFileList = ({
 
   return (
     <div
+      ref={listRef}
       style={{
         width: '100%',
         height: '100%',

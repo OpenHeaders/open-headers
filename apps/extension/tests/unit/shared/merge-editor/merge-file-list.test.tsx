@@ -16,11 +16,17 @@ import {
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-vi.hoisted(() => {
+const scrolledIntoView = vi.hoisted(() => {
   // The editor's barrel loads the code editor, which probes this jsdom-missing API at import.
   if (typeof document.queryCommandSupported !== 'function') {
     document.queryCommandSupported = () => false;
   }
+  // jsdom has no layout: the rail's "keep the open row in view" is recorded instead.
+  const scrolled: string[] = [];
+  Element.prototype.scrollIntoView = function scrollIntoView(this: Element) {
+    scrolled.push(this.textContent ?? '');
+  };
+  return scrolled;
 });
 
 const file = (id: string, group: string): MergeFile => ({
@@ -83,6 +89,14 @@ describe('MergeFileList', () => {
     expect(onSelect).toHaveBeenCalledWith(ORDERS.id);
   });
 
+  it('keeps the open file’s row in view, and follows when another file opens', () => {
+    scrolledIntoView.length = 0;
+    const { rerender } = render(<MergeFileList files={[PROBE, ORDERS]} activeFileId={PROBE.id} onSelect={vi.fn()} />);
+    expect(scrolledIntoView).toEqual(['·request.yamlunresolved']);
+    rerender(<MergeFileList files={[PROBE, ORDERS]} activeFileId={ORDERS.id} onSelect={vi.fn()} />);
+    expect(scrolledIntoView).toEqual(['·request.yamlunresolved', '·orders.mdunresolved']);
+  });
+
   it('wears the caller’s icon before the name, and the kind glyph where the caller gives none', () => {
     const rail: MergeRailVocabulary = {
       sections: [],
@@ -135,6 +149,11 @@ describe('MergeFileStrip', () => {
     expect(chips.map((chip) => chip.getAttribute('aria-current'))).toEqual(['false', 'true']);
     expect(chips[0].querySelector('[data-testid="section-api-requests"]')).not.toBeNull();
     expect(chips[1].getAttribute('aria-expanded')).toBe('true');
+  });
+
+  it('counts each section’s files left to answer, and says nothing for a section with none', () => {
+    strip(false);
+    expect(screen.getAllByTestId('merge-file-strip-count').map((count) => count.textContent)).toEqual(['1']);
   });
 
   it('a click on another section opens its first file left to answer and shows the panel', () => {
