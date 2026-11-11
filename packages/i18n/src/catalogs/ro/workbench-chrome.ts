@@ -797,6 +797,7 @@ export const workbenchChrome = {
     'Ambele părți au modificat aceste fișiere. Încă nu s-a scris nimic. Acceptați o parte pentru valorile modificate de ambele sau examinați fiecare conflict.',
   'workbench.gitLog.resolve.review': 'Examinare conflicte…',
   'workbench.gitLog.resolve.keepMine': 'Păstrare a mea',
+  'workbench.gitLog.resolve.otherFiles': 'Fișiere',
   'workbench.gitLog.resolve.tooLarge':
     'Ambele părți au modificat {files}, iar fișierele sunt prea mari pentru a fi rezolvate aici. Nu s-a modificat nimic.',
   'workbench.gitLog.forcePush.title': 'Istoricul de la distanță a fost rescris',

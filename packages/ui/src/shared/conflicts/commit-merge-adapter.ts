@@ -14,15 +14,17 @@
  *     side: accepting it empties the result, and an empty result is
  *     the answer "gone".
  *
- * Files group by the directory that holds them, so the files of one
- * request (its manifest, its body, its scripts) sit together. One of
- * the user's own text files (a README, a script) rides the same shape.
+ * Files are listed by the surface they belong to and their place in it
+ * (`commit-file-section`), so the files of one request (its manifest,
+ * its body, its scripts) sit together under API Requests. One of the
+ * user's own text files (a README, a script) rides the same shape.
  *
  * Apply hands every file's result to the caller as one answer set. A
  * refusal that names a file marks that file; any other marks them all.
  */
 
 import type { MergeApplyOutcome, MergeFile, MergeSession } from '@openheaders/ui/shared/merge-editor';
+import { commitFilePlace } from './commit-file-section';
 
 /** One file of a conflicted document — the host's wire shape, structurally. */
 export interface CommitMergeFile {
@@ -66,9 +68,8 @@ const LANGUAGE_BY_EXTENSION: Readonly<Record<string, string>> = {
   proto: 'protobuf',
 };
 
-function splitPath(path: string): { dir: string; name: string } {
-  const cut = path.lastIndexOf('/');
-  return cut === -1 ? { dir: '', name: path } : { dir: path.slice(0, cut), name: path.slice(cut + 1) };
+function nameOf(path: string): string {
+  return path.slice(path.lastIndexOf('/') + 1);
 }
 
 function languageOf(name: string): string {
@@ -80,14 +81,16 @@ function languageOf(name: string): string {
 /** The merge files of a conflict, in the host's order. */
 export function commitMergeFiles(files: readonly CommitMergeFile[]): MergeFile[] {
   return files.map((file) => {
-    const { dir, name } = splitPath(file.path);
+    const name = nameOf(file.path);
+    const { section, group } = commitFilePlace(file.path);
     const mine = file.mine ?? '';
     return {
       id: file.path,
       label: name,
       language: languageOf(name),
       kind: 'modify',
-      ...(dir !== '' ? { group: dir } : {}),
+      section,
+      ...(group !== '' ? { group } : {}),
       ...(file.base !== undefined ? { base: file.base } : {}),
       theirs: file.theirs ?? '',
       mine,

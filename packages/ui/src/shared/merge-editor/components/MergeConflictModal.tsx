@@ -24,7 +24,7 @@ import type { MergeApplyOutcome, MergeSession } from '../types';
 import { usePersistedLayout } from '../use-persisted-layout';
 import MergeFileList from './MergeFileList';
 import MergeFileStrip from './MergeFileStrip';
-import type { MergeFileRowState, RenderMergeFileIcon } from './merge-file-glyph';
+import type { MergeFileRowState, MergeRailVocabulary } from './merge-file-glyph';
 import MergePane, { type HunkStats, type MergeLayout, type MergePaneHandle } from './MergePane';
 import './merge-conflict-modal.css';
 
@@ -57,10 +57,10 @@ export interface MergeConflictModalProps {
    *  Merge buttons in the modal footer. Use for adapter-specific
    *  Advanced toggles or back-to-legacy buttons. */
   footerLeading?: ReactNode;
-  /** Optional icon per file — what the file is, in the caller's own
-   *  vocabulary. Shown before the file's name in the sidebar, and alone
-   *  on the strip the sidebar collapses to. */
-  renderFileIcon?: RenderMergeFileIcon;
+  /** Optional names and glyphs for the session's sections, groups and
+   *  files, in the caller's own vocabulary — the sidebar's headers and
+   *  row icons, and the chips of the strip the sidebar collapses to. */
+  rail?: MergeRailVocabulary;
 }
 
 const MergeConflictModal = ({
@@ -72,7 +72,7 @@ const MergeConflictModal = ({
   surfaceId = 'default',
   headerSlot,
   footerLeading,
-  renderFileIcon,
+  rail,
 }: MergeConflictModalProps): ReactElement => {
   const { token } = theme.useToken();
   const t = useT();
@@ -154,7 +154,12 @@ const MergeConflictModal = ({
     if (session.initialFileId && session.files.some((f) => f.id === session.initialFileId)) {
       return session.initialFileId;
     }
-    return firstListedFile(session.files)?.id ?? null;
+    return (
+      firstListedFile(
+        session.files,
+        rail?.sections.map((section) => section.id),
+      )?.id ?? null
+    );
   });
 
   // Seeds a session-wide accept wrote: the text a file's pane opens
@@ -559,9 +564,8 @@ const MergeConflictModal = ({
             <MergeFileStrip
               files={session.files}
               activeFileId={activeFileId}
-              states={fileStates}
               hunkCounts={sidebarHunkCounts}
-              renderIcon={renderFileIcon}
+              rail={rail}
               onSelect={handleFileSelect}
             />
           ) : null}
@@ -586,7 +590,7 @@ const MergeConflictModal = ({
                     activeFileId={activeFileId}
                     states={fileStates}
                     hunkCounts={sidebarHunkCounts}
-                    renderIcon={renderFileIcon}
+                    rail={rail}
                     onSelect={handleFileSelect}
                   />
                 </Allotment.Pane>

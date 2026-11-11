@@ -934,6 +934,7 @@ export const workbenchChrome = {
     'Ambos lados modificaron estos archivos. Todavía no se ha escrito nada. Acepta un lado para los valores que ambos cambiaron, o revisa cada conflicto tú mismo.',
   'workbench.gitLog.resolve.review': 'Revisar conflictos…',
   'workbench.gitLog.resolve.keepMine': 'Conservar el mío',
+  'workbench.gitLog.resolve.otherFiles': 'Archivos',
   'workbench.gitLog.resolve.tooLarge':
     'Ambos lados modificaron {files}, y los archivos son demasiado grandes para resolverlos aquí. No se cambió nada.',
   'workbench.gitLog.forcePush.title': 'El historial remoto fue reescrito',

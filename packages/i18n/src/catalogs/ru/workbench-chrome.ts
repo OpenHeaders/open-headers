@@ -788,6 +788,7 @@ export const workbenchChrome = {
     'Обе стороны изменили эти файлы. Пока ничего не записано. Примите одну сторону для значений, которые изменили обе, или просмотрите каждый конфликт сами.',
   'workbench.gitLog.resolve.review': 'Просмотреть конфликты…',
   'workbench.gitLog.resolve.keepMine': 'Оставить моё',
+  'workbench.gitLog.resolve.otherFiles': 'Файлы',
   'workbench.gitLog.resolve.tooLarge':
     'Обе стороны изменили {files}, а файлы слишком велики, чтобы разрешить конфликт здесь. Ничего не изменено.',
   'workbench.gitLog.forcePush.title': 'История удалённого репозитория переписана',

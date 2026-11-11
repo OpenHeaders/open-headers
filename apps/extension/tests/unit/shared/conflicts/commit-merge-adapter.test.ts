@@ -44,7 +44,8 @@ describe('commitMergeFiles', () => {
       label: 'request.yaml',
       language: 'yaml',
       kind: 'modify',
-      group: 'requests/api-rco0000a/ping-req00001',
+      section: 'api-requests',
+      group: 'api-rco0000a/ping-req00001',
       base: 'name: Ping\n',
       theirs: 'name: Picked ping\n',
       mine: 'name: Local ping\n',
@@ -52,12 +53,12 @@ describe('commitMergeFiles', () => {
     });
   });
 
-  it('the files of one document share a group; each reads in its own language', () => {
+  it('the files of one document share a section and a group; each reads in its own language', () => {
     const files = commitMergeFiles([MANIFEST, BODY, { path: 'workspace-vars.yaml', theirs: 'a\n', mine: 'b\n' }]);
-    expect(files.map((file) => [file.label, file.group, file.language])).toEqual([
-      ['request.yaml', 'requests/api-rco0000a/ping-req00001', 'yaml'],
-      ['body.json', 'requests/api-rco0000a/ping-req00001', 'json'],
-      ['workspace-vars.yaml', undefined, 'yaml'],
+    expect(files.map((file) => [file.label, file.section, file.group, file.language])).toEqual([
+      ['request.yaml', 'api-requests', 'api-rco0000a/ping-req00001', 'yaml'],
+      ['body.json', 'api-requests', 'api-rco0000a/ping-req00001', 'json'],
+      ['workspace-vars.yaml', 'variables', 'workspace-variables', 'yaml'],
     ]);
   });
 
@@ -67,10 +68,10 @@ describe('commitMergeFiles', () => {
       { path: 'scripts/ci/run.sh', theirs: 'a\n', mine: 'b\n' },
       { path: 'LICENSE', theirs: 'a\n', mine: 'b\n' },
     ]);
-    expect(files.map((file) => [file.label, file.group, file.language])).toEqual([
-      ['README.md', undefined, 'markdown'],
-      ['run.sh', 'scripts/ci', 'shell'],
-      ['LICENSE', undefined, 'plaintext'],
+    expect(files.map((file) => [file.label, file.section, file.group, file.language])).toEqual([
+      ['README.md', 'files', undefined, 'markdown'],
+      ['run.sh', 'files', 'scripts/ci', 'shell'],
+      ['LICENSE', 'files', undefined, 'plaintext'],
     ]);
   });
 

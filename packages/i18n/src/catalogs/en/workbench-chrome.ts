@@ -757,6 +757,7 @@ export const workbenchChrome = {
     'Both sides changed these files. Nothing has been written yet. Accept one side for the values both changed, or review each conflict yourself.',
   'workbench.gitLog.resolve.review': 'Review Conflicts…',
   'workbench.gitLog.resolve.keepMine': 'Keep Mine',
+  'workbench.gitLog.resolve.otherFiles': 'Files',
   'workbench.gitLog.resolve.tooLarge':
     'Both sides changed {files}, and the files are too large to resolve here. Nothing was changed.',
   'workbench.gitLog.forcePush.title': 'Remote history was rewritten',

@@ -28,6 +28,9 @@ export interface MergeFile {
   kind: MergeFileKind;
   pairedWith?: string;
   group?: string;
+  /** The section the file's group sits in — an id the caller's rail
+   *  vocabulary names and draws. Files naming none list by group alone. */
+  section?: string;
   badges?: ReadonlyArray<MergeBadge>;
 }
 

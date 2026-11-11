@@ -937,6 +937,7 @@ export const workbenchChrome = {
     'Beide Seiten haben diese Dateien geändert. Bisher wurde nichts geschrieben. Übernimm eine Seite für die Werte, die beide geändert haben, oder prüfe jeden Konflikt selbst.',
   'workbench.gitLog.resolve.review': 'Konflikte prüfen…',
   'workbench.gitLog.resolve.keepMine': 'Meins behalten',
+  'workbench.gitLog.resolve.otherFiles': 'Dateien',
   'workbench.gitLog.resolve.tooLarge':
     'Beide Seiten haben {files} geändert, und die Dateien sind zu groß, um sie hier aufzulösen. Es wurde nichts geändert.',
   'workbench.gitLog.forcePush.title': 'Die Remote-Historie wurde umgeschrieben',

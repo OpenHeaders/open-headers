@@ -1,9 +1,10 @@
 /**
- * The glyph before a file's name in the rail, and alone on the
- * collapsed rail: the caller's own icon for the file when it supplies
- * one (what the file is, in the host's vocabulary — the editor stays
- * domain-agnostic), else the kind glyph (added / modified / removed).
- * The statuses a rail row and a strip chip share live here too.
+ * What the file rail draws that the editor cannot know by itself — the
+ * caller's vocabulary for a session's sections, groups and files (the
+ * editor stays domain-agnostic) — and the glyph before a file's name:
+ * the caller's icon for the file when it supplies one, else the kind
+ * glyph (added / modified / removed). The statuses a rail row and the
+ * collapsed rail share live here too.
  */
 
 import { MinusCircleOutlined, PlusCircleOutlined } from '@ant-design/icons';
@@ -19,8 +20,27 @@ export interface MergeFileRowState {
   error?: string;
 }
 
-/** The caller's icon for a file; null or undefined falls back to the kind glyph. */
-export type RenderMergeFileIcon = (file: MergeFile) => ReactNode;
+/** A section files can name (`MergeFile.section`). */
+export interface MergeRailSection {
+  id: string;
+  label: string;
+  icon: ReactNode;
+}
+
+/** A group's name and glyph within its section. */
+export interface MergeRailGroup {
+  label: string;
+  icon?: ReactNode;
+}
+
+export interface MergeRailVocabulary {
+  /** The sections, in listing order. */
+  sections: ReadonlyArray<MergeRailSection>;
+  /** A group as the rail names it; absent = the group as written, no glyph. */
+  group?(section: string, group: string): MergeRailGroup;
+  /** A file's glyph; absent (or null) = the kind glyph. */
+  fileIcon?(file: MergeFile): ReactNode;
+}
 
 export const KIND_ICONS: Record<MergeFileKind, { icon: ReactElement; color: string; tooltipKey: MessageKey }> = {
   add: { icon: <PlusCircleOutlined />, color: '#52c41a', tooltipKey: 'shared.mergeEditor.fileList.kindAdded' },
@@ -39,16 +59,8 @@ export const STATUS_TAG: Record<MergeFileStatus, { color: string; labelKey: Mess
   failed: { color: 'error', labelKey: 'shared.mergeEditor.fileList.statusFailed' },
 };
 
-export interface MergeFileGlyphProps {
-  file: MergeFile;
-  renderIcon?: RenderMergeFileIcon;
-  /** The caller's icon size in px; the kind glyph keeps its own. */
-  size: number;
-}
-
-export function MergeFileGlyph({ file, renderIcon, size }: MergeFileGlyphProps): ReactElement {
-  const own = renderIcon?.(file) ?? null;
-  const kind = KIND_ICONS[file.kind];
+/** A fixed-width slot a header's or a row's glyph sits in. */
+export function RailGlyph({ children, size }: { children: ReactNode; size: number }): ReactElement {
   return (
     <span
       style={{
@@ -57,11 +69,21 @@ export function MergeFileGlyph({ file, renderIcon, size }: MergeFileGlyphProps):
         justifyContent: 'center',
         flexShrink: 0,
         width: 18,
-        fontSize: own !== null ? size : 12,
-        ...(own !== null ? {} : { color: kind.color }),
+        fontSize: size,
       }}
     >
-      {own ?? kind.icon}
+      {children}
     </span>
+  );
+}
+
+export function MergeFileGlyph({ file, rail }: { file: MergeFile; rail?: MergeRailVocabulary }): ReactElement {
+  const own = rail?.fileIcon?.(file) ?? null;
+  if (own !== null) return <RailGlyph size={14}>{own}</RailGlyph>;
+  const kind = KIND_ICONS[file.kind];
+  return (
+    <RailGlyph size={12}>
+      <span style={{ color: kind.color, display: 'inline-flex' }}>{kind.icon}</span>
+    </RailGlyph>
   );
 }
