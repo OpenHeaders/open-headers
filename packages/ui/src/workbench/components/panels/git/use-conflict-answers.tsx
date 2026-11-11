@@ -5,6 +5,10 @@
  * and writes nothing; the person resolves them in the shared merge
  * editor, and the same verb goes again with the answers.
  *
+ * The files are named first, in a small dialog under the pass's title
+ * (`ConflictFilesModal`): the editor opens on the person's word, never
+ * unannounced, and Cancel there ends the pass the same way.
+ *
  * The editor stays open while the host cannot take the answers — a file
  * that does not read is marked, and a branch that moved while the
  * editor was open brings the files back as they stand now. It closes
@@ -26,6 +30,7 @@ import {
 import { MergeConflictModal } from '@openheaders/ui/shared/merge-editor';
 import { App as AntApp } from 'antd';
 import { type ReactNode, useCallback, useMemo, useState } from 'react';
+import ConflictFilesModal from './ConflictFilesModal';
 
 /** What a verb's answer carries when it is about the files both sides changed. */
 export interface ConflictsRefusal {
@@ -40,22 +45,24 @@ export interface ConflictsRefusal {
 
 export interface ConflictAnswers {
   /**
-   * Open the editor over the files of a `conflicts` refusal. `send` runs
-   * the verb again with the answers. Resolves with the verb's answer
-   * once the pass is over, or null when the person cancelled — nothing
-   * was written and nothing is said.
+   * Name the files of a `conflicts` refusal, then open the editor over
+   * them. `send` runs the verb again with the answers. Resolves with
+   * the verb's answer once the pass is over, or null when the person
+   * cancelled at either — nothing was written and nothing is said.
    */
   answer: <R extends ConflictsRefusal>(
     title: string,
     resolve: WorkspaceTreeApplyCommitResolveWire,
     send: (resolution: WorkspaceTreeApplyCommitResolutionWire) => Promise<R>,
   ) => Promise<R | null>;
-  /** The editor — mount once in the caller's tree. */
+  /** The files dialog and the editor — mount once in the caller's tree. */
   dialog: ReactNode;
 }
 
-/** One pass waiting on the editor. */
+/** One pass waiting on the person. */
 interface OpenConflict {
+  /** `files` names what both sides changed; `editor` is where they are answered. */
+  step: 'files' | 'editor';
   title: string;
   resolve: WorkspaceTreeApplyCommitResolveWire;
   /** Send the answers made against `token`; resolves `ok` once the pass is over. */
@@ -65,7 +72,7 @@ interface OpenConflict {
 
 const messageOf = (err: unknown): string => (err instanceof Error ? err.message : String(err));
 
-export function useConflictAnswers(): ConflictAnswers {
+export function useConflictAnswers(container: HTMLElement | null): ConflictAnswers {
   const t = useT();
   const { notification } = AntApp.useApp();
   const { isDarkMode, monacoTheme } = useUiTheme();
@@ -97,20 +104,20 @@ export function useConflictAnswers(): ConflictAnswers {
             // The branch moved while the editor was open — the same question, as it stands now.
             const stale = t('workbench.gitLog.applyCommit.resolveStale');
             notification.warning({ title: stale, duration: 0 });
-            setConflict({ title, resolve: result.resolve, apply, cancel });
+            setConflict({ step: 'editor', title, resolve: result.resolve, apply, cancel });
             return { ok: false, error: stale };
           }
           // Recorded, or refused for a reason no answer changes — the caller takes it from here.
           settle(result);
           return { ok: true };
         };
-        setConflict({ title, resolve, apply, cancel });
+        setConflict({ step: 'files', title, resolve, apply, cancel });
       }),
     [t, notification],
   );
 
   const session = useMemo(() => {
-    if (conflict === null) return null;
+    if (conflict === null || conflict.step !== 'editor') return null;
     const { title, resolve, apply, cancel } = conflict;
     return buildCommitMergeSession({
       title,
@@ -120,19 +127,34 @@ export function useConflictAnswers(): ConflictAnswers {
     });
   }, [conflict]);
 
-  const dialog =
-    conflict !== null && session !== null ? (
-      <MergeConflictModal
-        key={conflict.resolve.token}
-        open
-        session={session}
-        isDarkMode={isDarkMode}
-        monacoTheme={monacoTheme}
-        surfaceId="git"
-        // A set may already have opened the next pass's conflict — only this one closes.
-        onClose={() => setConflict((open) => (open === conflict ? null : open))}
+  const listed = conflict !== null && conflict.step === 'files' ? conflict : null;
+  const dialog = (
+    <>
+      <ConflictFilesModal
+        prompt={listed !== null ? { title: listed.title, files: listed.resolve.files.map((file) => file.path) } : null}
+        container={container}
+        onMerge={() => {
+          if (listed !== null) setConflict({ ...listed, step: 'editor' });
+        }}
+        onCancel={() => {
+          listed?.cancel();
+          setConflict(null);
+        }}
       />
-    ) : null;
+      {conflict !== null && session !== null ? (
+        <MergeConflictModal
+          key={conflict.resolve.token}
+          open
+          session={session}
+          isDarkMode={isDarkMode}
+          monacoTheme={monacoTheme}
+          surfaceId="git"
+          // A set may already have opened the next pass's conflict — only this one closes.
+          onClose={() => setConflict((open) => (open === conflict ? null : open))}
+        />
+      ) : null}
+    </>
+  );
 
   return { answer, dialog };
 }

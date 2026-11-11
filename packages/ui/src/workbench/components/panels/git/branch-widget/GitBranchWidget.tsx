@@ -4,13 +4,16 @@
  * only on git hosts for a bound workspace: the branch glyph, the
  * checked-out branch (the detached head's short sha, or the unborn
  * branch), the incoming / outgoing counts against the upstream, and
- * the caret. Click opens `GitBranchPopup`. Reads the shared git status
+ * the caret. While one of the widget's own transfer verbs is at the
+ * host the glyph gives way to a spinner — the popup has closed by then
+ * and nothing else says the verb is running. Click opens
+ * `GitBranchPopup`. Reads the shared git status
  * store; the verbs are the shared `useGitBranchActions`, whose dialogs
  * mount beside the trigger. Every observed HEAD change feeds the
  * workspace's Recent ring.
  */
 
-import { DownOutlined } from '@ant-design/icons';
+import { DownOutlined, LoadingOutlined } from '@ant-design/icons';
 import { Button, Dropdown, theme } from 'antd';
 import type React from 'react';
 import { useEffect, useState } from 'react';
@@ -103,6 +106,7 @@ const GitBranchWidget: React.FC<GitBranchWidgetProps> = ({ workspaceId, onOpenCo
           type="text"
           size="small"
           aria-label={t('workbench.gitBranch.widget.aria', { branch: name })}
+          aria-busy={actions.busy.working}
           data-testid="git-branch-widget"
           style={{
             padding: '0 8px',
@@ -113,7 +117,14 @@ const GitBranchWidget: React.FC<GitBranchWidgetProps> = ({ workspaceId, onOpenCo
             color: token.colorText,
           }}
         >
-          <BranchIcon style={{ fontSize: 13, color: token.colorTextSecondary }} />
+          {actions.busy.working ? (
+            <LoadingOutlined
+              style={{ fontSize: 13, color: token.colorTextSecondary }}
+              data-testid="git-branch-widget-working"
+            />
+          ) : (
+            <BranchIcon style={{ fontSize: 13, color: token.colorTextSecondary }} />
+          )}
           <span
             style={{ maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
             data-testid="git-branch-widget-name"

@@ -793,6 +793,7 @@ export const workbenchChrome = {
     'Ramura s-a schimbat în timp ce rezolvați conflictele. Verificați-le din nou.',
   'workbench.gitLog.resolve.pullTitle': 'Pull: rezolvarea conflictelor',
   'workbench.gitLog.resolve.mergeTitle': 'Îmbinarea ramurii {ref}: rezolvarea conflictelor',
+  'workbench.gitLog.resolve.filesBody': 'Ambele părți au modificat aceste fișiere. Încă nu s-a scris nimic.',
   'workbench.gitLog.resolve.tooLarge':
     'Ambele părți au modificat {files}, iar fișierele sunt prea mari pentru a fi rezolvate aici. Nu s-a modificat nimic.',
   'workbench.gitLog.forcePush.title': 'Istoricul de la distanță a fost rescris',

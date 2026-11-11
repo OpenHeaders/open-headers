@@ -933,6 +933,7 @@ export const workbenchChrome = {
     'Der Branch hat sich geändert, während du die Konflikte gelöst hast. Prüfe sie erneut.',
   'workbench.gitLog.resolve.pullTitle': 'Pull: Konflikte lösen',
   'workbench.gitLog.resolve.mergeTitle': 'Merge von {ref}: Konflikte lösen',
+  'workbench.gitLog.resolve.filesBody': 'Beide Seiten haben diese Dateien geändert. Bisher wurde nichts geschrieben.',
   'workbench.gitLog.resolve.tooLarge':
     'Beide Seiten haben {files} geändert, und die Dateien sind zu groß, um sie hier aufzulösen. Es wurde nichts geändert.',
   'workbench.gitLog.forcePush.title': 'Die Remote-Historie wurde umgeschrieben',

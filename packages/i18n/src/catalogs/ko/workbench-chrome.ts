@@ -760,6 +760,7 @@ export const workbenchChrome = {
   'workbench.gitLog.applyCommit.resolveStale': '충돌을 해결하는 동안 브랜치가 변경되었습니다. 다시 확인하세요.',
   'workbench.gitLog.resolve.pullTitle': '풀: 충돌 해결',
   'workbench.gitLog.resolve.mergeTitle': '{ref} 병합: 충돌 해결',
+  'workbench.gitLog.resolve.filesBody': '양쪽 모두 이 파일들을 변경했습니다. 아직 아무것도 기록되지 않았습니다.',
   'workbench.gitLog.resolve.tooLarge':
     '양쪽 모두 {files} 파일을 변경했으며, 파일이 너무 커서 여기에서 해결할 수 없습니다. 아무것도 변경되지 않았습니다.',
   'workbench.gitLog.forcePush.title': '원격 기록이 다시 쓰였습니다',

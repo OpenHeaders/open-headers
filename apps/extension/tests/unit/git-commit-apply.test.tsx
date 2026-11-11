@@ -126,6 +126,15 @@ function mount(): CommitApplyActions {
   return actions;
 }
 
+// The files step comes first and Merge… opens the editor. A click that lands before the step is up does
+// nothing, so it is repeated until the editor (under `title`, when given) is there.
+const toEditor = (title = ''): Promise<void> =>
+  waitFor(() => {
+    if (screen.queryByTestId('merge-title')?.textContent?.includes(title)) return;
+    fireEvent.click(screen.getByText('Merge…'));
+    throw new Error('the editor is not open yet');
+  });
+
 const calledShas = (): string[] => mockCall.mock.calls.map(([, payload]) => (payload as { sha: string }).sha);
 
 describe('commitApplyOrder', () => {
@@ -275,13 +284,18 @@ describe('useCommitApply — a conflict answered in the merge editor', () => {
     { workspaceId: 'ws-1', sha, mode: 'pick', resolution: { token, files: [{ path: RULE, content }] } },
   ];
 
-  it('opens the editor on the files, sends the answers with the token, and the set resumes', async () => {
+  it('names the files, opens the editor on them, sends the answers with the token, and the set resumes', async () => {
     mockCall
       .mockResolvedValueOnce(conflicts('tok-1'))
       .mockResolvedValueOnce({ ok: true, sha: 'd'.repeat(40) })
       .mockResolvedValueOnce({ ok: true, sha: 'e'.repeat(40) });
     const actions = mount();
     act(() => actions.cherryPick([NEWEST, OLDEST]));
+
+    await waitFor(() => expect(screen.getByTestId('git-tool-conflict-files-list').textContent).toBe(RULE));
+    expect(screen.getByText('Cherry-Pick ccccccc: Resolve Conflicts')).toBeTruthy();
+    expect(screen.queryByTestId('merge-modal')).toBeNull();
+    fireEvent.click(screen.getByText('Merge…'));
 
     await waitFor(() =>
       expect(screen.getByTestId('merge-title').textContent).toBe('Cherry-Pick ccccccc: Resolve Conflicts'),
@@ -304,16 +318,29 @@ describe('useCommitApply — a conflict answered in the merge editor', () => {
     mockCall.mockResolvedValueOnce({ ...conflicts('tok-1') });
     const actions = mount();
     act(() => actions.revert([NEWEST]));
-    await waitFor(() =>
-      expect(screen.getByTestId('merge-title').textContent).toBe('Revert aaaaaaa: Resolve Conflicts'),
-    );
+    await waitFor(() => expect(screen.getByText('Revert aaaaaaa: Resolve Conflicts')).toBeTruthy());
+    await toEditor();
+    expect(screen.getByTestId('merge-title').textContent).toBe('Revert aaaaaaa: Resolve Conflicts');
+  });
+
+  it('Cancel on the files step ends the set like Cancel in the editor', async () => {
+    mockCall.mockResolvedValueOnce({ ok: true, sha: 'd'.repeat(40) }).mockResolvedValueOnce(conflicts('tok-1'));
+    const actions = mount();
+    act(() => actions.cherryPick([NEWEST, MIDDLE, OLDEST]));
+    await waitFor(() => expect(screen.getByTestId('git-tool-conflict-files-list').textContent).toBe(RULE));
+
+    fireEvent.click(screen.getByText('Cancel'));
+    await waitFor(() => expect(screen.getByText('Cherry-pick finished')).toBeTruthy());
+    expect(calledShas()).toEqual([OLDEST, MIDDLE]);
+    expect(screen.queryByTestId('merge-modal')).toBeNull();
+    expect(screen.queryByText(/Could not cherry-pick/)).toBeNull();
   });
 
   it('Cancel ends the set with nothing sent and nothing said about the commit', async () => {
     mockCall.mockResolvedValueOnce({ ok: true, sha: 'd'.repeat(40) }).mockResolvedValueOnce(conflicts('tok-1'));
     const actions = mount();
     act(() => actions.cherryPick([NEWEST, MIDDLE, OLDEST]));
-    await waitFor(() => expect(screen.getByTestId('merge-modal')).toBeTruthy());
+    await toEditor();
 
     fireEvent.click(screen.getByTestId('merge-cancel'));
     await waitFor(() => expect(screen.getByText('Cherry-pick finished')).toBeTruthy());
@@ -330,7 +357,7 @@ describe('useCommitApply — a conflict answered in the merge editor', () => {
       .mockResolvedValueOnce({ ok: true, sha: 'd'.repeat(40) });
     const actions = mount();
     act(() => actions.cherryPick([NEWEST]));
-    await waitFor(() => expect(screen.getByTestId('merge-modal')).toBeTruthy());
+    await toEditor();
 
     fireEvent.click(screen.getByTestId('merge-apply'));
     await waitFor(() => expect(screen.getByTestId('merge-errors').textContent).toBe(`${RULE}: bad indentation`));
@@ -349,7 +376,7 @@ describe('useCommitApply — a conflict answered in the merge editor', () => {
       .mockResolvedValueOnce({ ok: true, sha: 'd'.repeat(40) });
     const actions = mount();
     act(() => actions.cherryPick([NEWEST]));
-    await waitFor(() => expect(screen.getByTestId('merge-modal')).toBeTruthy());
+    await toEditor();
 
     fireEvent.click(screen.getByTestId('merge-apply'));
     await waitFor(() =>
@@ -367,7 +394,7 @@ describe('useCommitApply — a conflict answered in the merge editor', () => {
     mockCall.mockResolvedValueOnce(conflicts('tok-1')).mockResolvedValueOnce({ ok: false, reason: 'empty' });
     const actions = mount();
     act(() => actions.cherryPick([NEWEST]));
-    await waitFor(() => expect(screen.getByTestId('merge-modal')).toBeTruthy());
+    await toEditor();
 
     fireEvent.click(screen.getByTestId('merge-apply'));
     await waitFor(() =>
@@ -385,9 +412,9 @@ describe('useCommitApply — a conflict answered in the merge editor', () => {
     const actions = mount();
     act(() => actions.cherryPick([NEWEST, OLDEST]));
 
-    await waitFor(() => expect(screen.getByTestId('merge-title').textContent).toContain('ccccccc'));
+    await toEditor('ccccccc');
     fireEvent.click(screen.getByTestId('merge-apply'));
-    await waitFor(() => expect(screen.getByTestId('merge-title').textContent).toContain('aaaaaaa'));
+    await toEditor('aaaaaaa');
     fireEvent.click(screen.getByTestId('merge-apply'));
     await waitFor(() => expect(screen.getByText('Cherry-pick finished')).toBeTruthy());
     expect(mockCall.mock.calls[3]).toEqual(answered('tok-2', NEWEST));
@@ -469,7 +496,7 @@ describe('useCommitApply — uncommitted work in a file the commit writes', () =
 
     await waitFor(() => expect(screen.getByText('Commit and Cherry-Pick')).toBeTruthy());
     fireEvent.click(screen.getByText('Commit and Cherry-Pick'));
-    await waitFor(() => expect(screen.getByTestId('merge-modal')).toBeTruthy());
+    await toEditor();
     fireEvent.click(screen.getByTestId('merge-apply'));
     await waitFor(() => expect(screen.getByText('Cherry-pick finished')).toBeTruthy());
 

@@ -739,6 +739,7 @@ export const workbenchChrome = {
   'workbench.gitLog.applyCommit.resolveStale': '在你解决冲突期间，分支发生了变化。请重新检查冲突。',
   'workbench.gitLog.resolve.pullTitle': '拉取：解决冲突',
   'workbench.gitLog.resolve.mergeTitle': '合并 {ref}：解决冲突',
+  'workbench.gitLog.resolve.filesBody': '双方都更改了这些文件。尚未写入任何内容。',
   'workbench.gitLog.resolve.tooLarge': '双方都更改了 {files}，且文件过大，无法在此解决。未做任何更改。',
   'workbench.gitLog.forcePush.title': '远程历史被改写',
   'workbench.gitLog.forcePush.body':

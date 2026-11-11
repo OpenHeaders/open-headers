@@ -9,11 +9,12 @@
  * commits it.
  */
 
-import { Input, Modal, theme } from 'antd';
+import { Input, Modal } from 'antd';
 import type React from 'react';
 import { useEffect, useState } from 'react';
 import { type Translate, useT } from '@openheaders/ui/context/LocaleContext';
 import { shortSha } from './commit-apply';
+import PassFileList from './PassFileList';
 
 /** What is about to write the files. */
 export type LocalChangesOperation =
@@ -57,7 +58,6 @@ function okOf(operation: LocalChangesOperation, t: Translate): string {
 
 const LocalChangesFirstModal: React.FC<LocalChangesFirstModalProps> = ({ prompt, container, onCommit, onCancel }) => {
   const t = useT();
-  const { token } = theme.useToken();
   const [message, setMessage] = useState('');
 
   useEffect(() => {
@@ -86,26 +86,7 @@ const LocalChangesFirstModal: React.FC<LocalChangesFirstModalProps> = ({ prompt,
         data-testid="git-tool-local-changes-first"
       >
         <span style={{ fontSize: 12.5 }}>{prompt !== null ? bodyOf(prompt.operation, t) : ''}</span>
-        <div
-          style={{
-            maxHeight: 132,
-            overflowY: 'auto',
-            overscrollBehavior: 'none',
-            padding: '6px 8px',
-            border: `1px solid ${token.colorBorderSecondary}`,
-            borderRadius: 4,
-            fontFamily: token.fontFamilyCode,
-            fontSize: 12,
-            lineHeight: '18px',
-          }}
-          data-testid="git-tool-local-changes-first-files"
-        >
-          {(prompt?.files ?? []).map((filePath) => (
-            <div key={filePath} style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={filePath}>
-              {filePath}
-            </div>
-          ))}
-        </div>
+        <PassFileList files={prompt?.files ?? []} testId="git-tool-local-changes-first-files" />
         <Input.TextArea
           value={message}
           onChange={(event) => setMessage(event.target.value)}

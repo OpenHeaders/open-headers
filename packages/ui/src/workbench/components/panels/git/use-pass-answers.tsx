@@ -11,9 +11,9 @@
  *                     the message) for committing that work first
  *                     (`use-local-changes-question`);
  *   `conflicts`     — both sides changed one value of a document, or
- *                     one of the user's own text files; the person
- *                     resolves them in the merge editor
- *                     (`use-conflict-answers`).
+ *                     one of the user's own text files; the files are
+ *                     named, and on the person's word resolved in the
+ *                     merge editor (`use-conflict-answers`).
  *
  * Each answer rides the next call of the same verb, the word included
  * when the editor's answers go. Cancel at either sends nothing more and
@@ -47,7 +47,7 @@ export interface PassAnswers {
     operation: LocalChangesOperation,
     verb: (answers: PassAnswerSet) => Promise<R>,
   ) => Promise<R | null>;
-  /** The question and the conflict editor — mount once in the caller's tree. */
+  /** The question, the conflicts step and the conflict editor — mount once in the caller's tree. */
   dialogs: ReactNode;
 }
 
@@ -65,7 +65,7 @@ function editorTitle(operation: LocalChangesOperation, t: Translate): string {
 export function usePassAnswers(container: HTMLElement | null): PassAnswers {
   const t = useT();
   const { ask, dialog: questionDialog } = useLocalChangesQuestion(container);
-  const { answer, dialog: editorDialog } = useConflictAnswers();
+  const { answer, dialog: editorDialog } = useConflictAnswers(container);
 
   // Stable across renders — a caller may hold it in a callback's dependencies.
   const run = useCallback(

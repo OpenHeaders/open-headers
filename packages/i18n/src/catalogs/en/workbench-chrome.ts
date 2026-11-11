@@ -753,6 +753,7 @@ export const workbenchChrome = {
     'The branch changed while you were resolving. Review the conflicts again.',
   'workbench.gitLog.resolve.pullTitle': 'Pull: Resolve Conflicts',
   'workbench.gitLog.resolve.mergeTitle': 'Merge {ref}: Resolve Conflicts',
+  'workbench.gitLog.resolve.filesBody': 'Both sides changed these files. Nothing has been written yet.',
   'workbench.gitLog.resolve.tooLarge':
     'Both sides changed {files}, and the files are too large to resolve here. Nothing was changed.',
   'workbench.gitLog.forcePush.title': 'Remote history was rewritten',
