@@ -8,9 +8,12 @@
  * one value. Those, and the user's own text files both sides changed,
  * are files a person answers: the pass refuses `conflicts` carrying them
  * with a token naming this reading, and the same call with an answer
- * per file and that token goes on with the documents as answered. A
- * token the branch has moved away from refuses again, with the files as
- * they stand now. A conflict none of its files shows keeps the branch's
+ * per file and that token goes on with the documents as answered. The
+ * answer may instead be one side for all of them: every value both
+ * sides changed goes to that side, what only one side changed still
+ * stands on both, and an own file takes that side whole. A token the
+ * branch has moved away from refuses again, with the files as they
+ * stand now. A conflict none of its files shows keeps the branch's
  * document and is named among the parts not taken.
  *
  * Before either, a change about to write a file that holds uncommitted
@@ -25,6 +28,7 @@ import {
   applyCommitChange,
   type CommitChange,
   type CommitChangeDocument,
+  type CommitChangeSide,
   type CommitChangeSkip,
   type CommitConflictFile,
   type CommitResolution,
@@ -47,11 +51,10 @@ export interface ApplyCommitResolve {
   files: CommitConflictFile[];
 }
 
-/** The answers to a `conflicts` refusal, with the token they were made against. */
-export interface ApplyCommitResolution {
-  token: string;
-  files: CommitResolution[];
-}
+/** The answers to a `conflicts` refusal, with the token they were made against: one per file, or one side for all. */
+export type ApplyCommitResolution =
+  | { token: string; files: CommitResolution[] }
+  | { token: string; side: CommitChangeSide };
 
 export interface DecideChangeArgs {
   run: GitRunner;
@@ -163,17 +166,23 @@ export async function decideChange(args: DecideChangeArgs): Promise<ChangeDecisi
     .map((conflict) => ({ ...conflict, reason: 'conflict-unshown' }));
 
   const ownAnswers = new Map<string, string>();
-  let documentAnswers: readonly CommitResolution[] = args.resolution?.files ?? [];
+  const answered = args.resolution;
+  const side = answered !== undefined && 'side' in answered ? answered.side : undefined;
+  const fileAnswers: readonly CommitResolution[] = answered !== undefined && 'files' in answered ? answered.files : [];
+  let documentAnswers = fileAnswers;
   if (files.length > 0) {
     const token = conflictToken(args.subject, files);
-    const answered = args.resolution;
     if (answered?.token !== token) {
       const named = [...conflicts.map((document) => document.path), ...ownFiles.map((file) => file.path)];
       if (!fitsOnTheWire(files)) return { ok: false, reason: 'conflicts', conflicts: named, tooLarge: true };
       return { ok: false, reason: 'conflicts', conflicts: named, resolve: { token, files } };
     }
     const ownPaths = new Set(ownFiles.map((file) => file.path));
-    for (const answer of answered.files) {
+    if (side !== undefined) {
+      // One side for all: an own file takes that side's text whole — a side that holds none means gone.
+      for (const file of ownFiles) ownAnswers.set(file.path, file[side] ?? '');
+    }
+    for (const answer of fileAnswers) {
       if (ownPaths.has(answer.path)) ownAnswers.set(answer.path, answer.content);
     }
     for (const file of ownFiles) {
@@ -181,7 +190,7 @@ export async function decideChange(args: DecideChangeArgs): Promise<ChangeDecisi
         return { ok: false, reason: 'resolution-invalid', detail: 'no answer for this file', file: file.path };
       }
     }
-    documentAnswers = answered.files.filter((answer) => !ownPaths.has(answer.path));
+    documentAnswers = fileAnswers.filter((answer) => !ownPaths.has(answer.path));
     if (documentFiles.length === 0 && documentAnswers.length > 0) {
       return {
         ok: false,
@@ -194,9 +203,15 @@ export async function decideChange(args: DecideChangeArgs): Promise<ChangeDecisi
   if (conflicts.length > 0) {
     // A conflict whose texts show nothing apart has no file to answer —
     // the branch's document stands, named as left out, and the pass goes on.
-    const read = readCommitResolutions({ current, documents, resolutions: documentAnswers });
+    // With one side ruled for all, only those documents are read as
+    // answers; every other takes its values from the model.
+    const read = readCommitResolutions(
+      side === undefined
+        ? { current, documents, resolutions: documentAnswers }
+        : { current, documents: documents.filter((document) => document.files.length === 0), resolutions: [] },
+    );
     if (!read.ok) return { ok: false, reason: 'resolution-invalid', detail: read.message, file: read.path };
-    change = applyCommitChange({ ...range, resolved: read.resolved });
+    change = applyCommitChange({ ...range, resolved: read.resolved, ...(side !== undefined ? { side } : {}) });
     const left = asked(change);
     if (left.length > 0) {
       return { ok: false, reason: 'conflicts', conflicts: left.map((document) => document.path) };

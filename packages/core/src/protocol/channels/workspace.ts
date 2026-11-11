@@ -1057,13 +1057,16 @@ export interface WorkspaceTreeApplyCommitResolveWire {
 }
 
 /**
- * The answers to a `conflicts` refusal — one per file. Content that is
- * empty, or whitespace alone, means the file is gone.
+ * The answers to a `conflicts` refusal, with the token they were made
+ * against. Either one per file — content that is empty, or whitespace
+ * alone, means the file is gone — or one side for all of them: every
+ * value both sides changed takes the incoming change's (`theirs`) or
+ * stays as the branch holds it (`mine`), what only one side changed
+ * stands on both, and one of the user's own files takes that side whole.
  */
-export interface WorkspaceTreeApplyCommitResolutionWire {
-  token: string;
-  files: { path: string; content: string }[];
-}
+export type WorkspaceTreeApplyCommitResolutionWire =
+  | { token: string; files: { path: string; content: string }[] }
+  | { token: string; side: 'theirs' | 'mine' };
 
 export type WorkspaceTreeApplyCommitWire =
   | {

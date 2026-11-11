@@ -1,19 +1,20 @@
 /**
- * useConflictAnswers — the conflict editor for a pass whose refusal
- * carries files to answer: a Cherry-Pick, a Revert, a Pull, a branch
- * Merge. The host refuses `conflicts` with the files both sides changed
- * and writes nothing; the person resolves them in the shared merge
- * editor, and the same verb goes again with the answers.
+ * useConflictAnswers — how a pass whose refusal carries files is
+ * answered: a Cherry-Pick, a Revert, a Pull, a branch Merge. The host
+ * refuses `conflicts` with the files both sides changed and writes
+ * nothing; the same verb goes again with the answers.
  *
  * The files are named first, in a small dialog under the pass's title
- * (`ConflictFilesModal`): the editor opens on the person's word, never
- * unannounced, and Cancel there ends the pass the same way.
+ * (`ConflictFilesModal`). There the person takes one side for all of
+ * them — the host rules every value both sides changed for that side
+ * and keeps what only one side changed — or asks for the shared merge
+ * editor, which never opens unannounced. Cancel at either ends the pass
+ * the same way: the branch and the tree stay as they were.
  *
- * The editor stays open while the host cannot take the answers — a file
- * that does not read is marked, and a branch that moved while the
- * editor was open brings the files back as they stand now. It closes
- * when the pass is over, whichever way, and hands the verb's answer
- * back. Cancel leaves the branch and the tree as they were.
+ * Either stays open while the host cannot take the answers — a file
+ * that does not read is marked in the editor, and a branch that moved
+ * meanwhile brings the files back as they stand now. It closes when the
+ * pass is over, whichever way, and hands the verb's answer back.
  */
 
 import type {
@@ -24,13 +25,12 @@ import { useUiTheme } from '@openheaders/ui/context';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import {
   buildCommitMergeSession,
-  type CommitMergeAnswer,
   type CommitMergeApplyResult,
 } from '@openheaders/ui/shared/conflicts/commit-merge-adapter';
 import { MergeConflictModal } from '@openheaders/ui/shared/merge-editor';
 import { App as AntApp } from 'antd';
 import { type ReactNode, useCallback, useMemo, useState } from 'react';
-import ConflictFilesModal from './ConflictFilesModal';
+import ConflictFilesModal, { type ConflictSide } from './ConflictFilesModal';
 
 /** What a verb's answer carries when it is about the files both sides changed. */
 export interface ConflictsRefusal {
@@ -45,10 +45,11 @@ export interface ConflictsRefusal {
 
 export interface ConflictAnswers {
   /**
-   * Name the files of a `conflicts` refusal, then open the editor over
-   * them. `send` runs the verb again with the answers. Resolves with
-   * the verb's answer once the pass is over, or null when the person
-   * cancelled at either — nothing was written and nothing is said.
+   * Name the files of a `conflicts` refusal and take the person's
+   * answer — one side for all, or each file in the editor. `send` runs
+   * the verb again with it. Resolves with the verb's answer once the
+   * pass is over, or null when the person cancelled — nothing was
+   * written and nothing is said.
    */
   answer: <R extends ConflictsRefusal>(
     title: string,
@@ -59,14 +60,19 @@ export interface ConflictAnswers {
   dialog: ReactNode;
 }
 
+type ConflictStep = 'files' | 'editor';
+
+/** How an answer fared. `again` = the branch moved, and the files are asked again as they stand. */
+type Delivery = CommitMergeApplyResult | { ok: false; error: string; again: true };
+
 /** One pass waiting on the person. */
 interface OpenConflict {
-  /** `files` names what both sides changed; `editor` is where they are answered. */
-  step: 'files' | 'editor';
+  /** `files` names what both sides changed; `editor` is where each is answered. */
+  step: ConflictStep;
   title: string;
   resolve: WorkspaceTreeApplyCommitResolveWire;
-  /** Send the answers made against `token`; resolves `ok` once the pass is over. */
-  apply: (token: string, answers: CommitMergeAnswer[]) => Promise<CommitMergeApplyResult>;
+  /** Send an answer made at `step`; resolves `ok` once the pass is over. */
+  deliver: (resolution: WorkspaceTreeApplyCommitResolutionWire, step: ConflictStep) => Promise<Delivery>;
   cancel: () => void;
 }
 
@@ -77,6 +83,7 @@ export function useConflictAnswers(container: HTMLElement | null): ConflictAnswe
   const { notification } = AntApp.useApp();
   const { isDarkMode, monacoTheme } = useUiTheme();
   const [conflict, setConflict] = useState<OpenConflict | null>(null);
+  const [sending, setSending] = useState<ConflictSide | null>(null);
 
   const answer = useCallback(
     <R extends ConflictsRefusal>(
@@ -86,10 +93,13 @@ export function useConflictAnswers(container: HTMLElement | null): ConflictAnswe
     ): Promise<R | null> =>
       new Promise((settle) => {
         const cancel = (): void => settle(null);
-        const apply = async (token: string, answers: CommitMergeAnswer[]): Promise<CommitMergeApplyResult> => {
+        const deliver = async (
+          resolution: WorkspaceTreeApplyCommitResolutionWire,
+          step: ConflictStep,
+        ): Promise<Delivery> => {
           let result: R;
           try {
-            result = await send({ token, files: answers });
+            result = await send(resolution);
           } catch (err) {
             return { ok: false, error: messageOf(err) };
           }
@@ -101,39 +111,54 @@ export function useConflictAnswers(container: HTMLElement | null): ConflictAnswe
             };
           }
           if (!result.ok && result.reason === 'conflicts' && result.resolve !== undefined) {
-            // The branch moved while the editor was open — the same question, as it stands now.
+            // The branch moved while the answer was being made — the same question, as it stands now.
             const stale = t('workbench.gitLog.applyCommit.resolveStale');
             notification.warning({ title: stale, duration: 0 });
-            setConflict({ step: 'editor', title, resolve: result.resolve, apply, cancel });
-            return { ok: false, error: stale };
+            setConflict({ step, title, resolve: result.resolve, deliver, cancel });
+            return { ok: false, error: stale, again: true };
           }
           // Recorded, or refused for a reason no answer changes — the caller takes it from here.
           settle(result);
           return { ok: true };
         };
-        setConflict({ step: 'files', title, resolve, apply, cancel });
+        setConflict({ step: 'files', title, resolve, deliver, cancel });
       }),
     [t, notification],
   );
 
   const session = useMemo(() => {
     if (conflict === null || conflict.step !== 'editor') return null;
-    const { title, resolve, apply, cancel } = conflict;
+    const { title, resolve, deliver, cancel } = conflict;
     return buildCommitMergeSession({
       title,
       files: resolve.files,
-      apply: (answers) => apply(resolve.token, answers),
+      apply: (answers) => deliver({ token: resolve.token, files: answers }, 'editor'),
       onCancel: cancel,
     });
   }, [conflict]);
 
   const listed = conflict !== null && conflict.step === 'files' ? conflict : null;
+
+  // One side for every file. A branch that moved brings the files back
+  // in this same dialog (`deliver` says so); any other failure is said
+  // here, with the dialog left as it was.
+  const takeSide = async (side: ConflictSide): Promise<void> => {
+    if (listed === null || sending !== null) return;
+    setSending(side);
+    const outcome = await listed.deliver({ token: listed.resolve.token, side }, 'files');
+    setSending(null);
+    if (outcome.ok) setConflict((open) => (open === listed ? null : open));
+    else if (!('again' in outcome)) notification.error({ title: outcome.error });
+  };
+
   const dialog = (
     <>
       <ConflictFilesModal
         prompt={listed !== null ? { title: listed.title, files: listed.resolve.files.map((file) => file.path) } : null}
         container={container}
-        onMerge={() => {
+        sending={sending}
+        onSide={(side) => void takeSide(side)}
+        onReview={() => {
           if (listed !== null) setConflict({ ...listed, step: 'editor' });
         }}
         onCancel={() => {

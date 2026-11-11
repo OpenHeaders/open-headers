@@ -28,6 +28,9 @@
  * A document both sides changed is named in `conflicts`. The caller may
  * answer it (`resolved`): the document as a person resolved it stands
  * where the patch would have, or the change's deletion of it is taken.
+ * Or the caller rules every such value for one side at once (`side`):
+ * the change's value or the branch's stands there, everything only one
+ * side changed still stands on both, and no conflict is named.
  */
 
 import { canonicalJson } from '../sync';
@@ -71,6 +74,14 @@ export interface CommitChangeArgs {
   /** Answers to documents both sides changed — absent on the first pass. */
   resolved?: CommitChangeResolved;
   /**
+   * The side every value both sides changed goes to, wherever `resolved`
+   * holds no answer: the change's (`theirs`) or the branch's (`mine`). A
+   * document the change deletes and the branch edited leaves, or stands.
+   * Absent = such a document takes the change's value and is named in
+   * `conflicts`.
+   */
+  side?: CommitChangeSide;
+  /**
    * The files the change removed, when the caller has them (a diff of
    * the change's two commits). A document `from` holds and `to` lacks is
    * then deleted only where its file is among them — one that merely did
@@ -79,6 +90,9 @@ export interface CommitChangeArgs {
    */
   removedPaths?: ReadonlySet<string>;
 }
+
+/** One side of a change laid over the branch: the change's end, or the branch as it stands. */
+export type CommitChangeSide = 'theirs' | 'mine';
 
 /** Documents resolved by hand, taken in place of the patch (`commit-conflicts.ts` reads them). */
 export interface CommitChangeResolved {
@@ -144,6 +158,8 @@ interface Pass {
   /** Uids answered with a document, and uids answered as gone. */
   answered: ReadonlySet<string>;
   answeredGone: ReadonlySet<string>;
+  /** The side ruled for every value both sides changed; null = such a document is a conflict. */
+  side: CommitChangeSide | null;
   /** Whether the change removed the document at this path — false for one that only failed to read. */
   removed: (path: string) => boolean;
 }
@@ -172,12 +188,23 @@ function byUid<T extends { uid: string }>(items: readonly T[]): Map<string, T> {
   return new Map(items.map((item) => [item.uid, item] as const));
 }
 
-/** `current` patched by the change, noting the document when both sides changed one value. */
+/** `current` patched by the change; a document where both sides changed one value is noted unless a side is ruled. */
 function patched<T extends Row>(current: T, from: T | undefined, to: T, document: CommitChangeDocument, pass: Pass): T {
   const tally: PatchTally = { overridden: 0 };
-  const out = patchRecord(current, from, to, ENTITY_SKIP, tally);
-  if (tally.overridden > 0) pass.conflicts.push(document);
+  const out = patchRecord(current, from, to, ENTITY_SKIP, tally, pass.side === 'mine' ? 'current' : 'change');
+  if (tally.overridden > 0 && pass.side === null) pass.conflicts.push(document);
   return out;
+}
+
+/**
+ * The change deletes a document the branch edited. True when the
+ * branch's document stands (`mine` is ruled); otherwise the deletion is
+ * taken, noted as a conflict unless a side is ruled.
+ */
+function keepsEdited(document: CommitChangeDocument, pass: Pass): boolean {
+  if (pass.side === 'mine') return true;
+  if (pass.side === null) pass.conflicts.push(document);
+  return false;
 }
 
 /**
@@ -290,8 +317,12 @@ function withdraw<T extends PathEntity>(group: Family<T>, pass: Pass, occupied: 
       pass.skipped.push({ ...document, reason: 'not-empty' });
       continue;
     }
-    if (!pass.answeredGone.has(before.uid) && differs({ ...mine, path: before.path }, before)) {
-      pass.conflicts.push(document);
+    if (
+      !pass.answeredGone.has(before.uid) &&
+      differs({ ...mine, path: before.path }, before) &&
+      keepsEdited(document, pass)
+    ) {
+      continue;
     }
     group.next.delete(before.uid);
     pass.removedPaths.add(`${mine.path}/${group.manifest}`);
@@ -340,8 +371,12 @@ function layOverEnvironments(
       }
       continue;
     }
-    if (!pass.answeredGone.has(before.uid) && differs(mine, before)) {
-      pass.conflicts.push({ uid: before.uid, path: environmentFilePath(before) });
+    if (
+      !pass.answeredGone.has(before.uid) &&
+      differs(mine, before) &&
+      keepsEdited({ uid: before.uid, path: environmentFilePath(before) }, pass)
+    ) {
+      continue;
     }
     next.delete(before.uid);
     pass.removedPaths.add(environmentFilePath(mine));
@@ -395,6 +430,7 @@ export function applyCommitChange(args: CommitChangeArgs): CommitChange {
     moved: new Map(),
     answered: args.resolved?.documents ?? new Set(),
     answeredGone: args.resolved?.removed ?? new Set(),
+    side: args.side ?? null,
     removed: (path) => args.removedPaths?.has(path) ?? true,
   };
 

@@ -578,6 +578,22 @@ describe("pullWorkspaceTree — the user's own files and a document's siblings",
     expect(await countDirtyFiles(run, local)).toBe(0);
   });
 
+  it('one side for all takes an own text file whole from that side', async () => {
+    await shareOwnFiles({ 'docs/guide.md': '# guide\n' });
+    await fs.writeFile(onLocal('docs/guide.md'), '# guide (local)\n', 'utf-8');
+    await commitLocal('Local guide');
+    await peerEdit('docs/guide.md', () => '# guide (peer)\n');
+    await peerCommitPush('Peer guide');
+
+    const resolve = filesToAnswer(await doPull([]));
+    const result = await doPull([], undefined, undefined, { token: resolve.token, side: 'theirs' });
+    expect(result).toMatchObject({ ok: true, upToDate: false });
+    expect(result).not.toHaveProperty('keptLocal');
+    expect(await fs.readFile(onLocal('docs/guide.md'), 'utf-8')).toBe('# guide (peer)\n');
+    expect((await raw(local, 'show', 'HEAD:docs/guide.md')).stdout).toBe('# guide (peer)\n');
+    expect(await countDirtyFiles(run, local)).toBe(0);
+  });
+
   it('an own file both sides changed that is not text keeps the local bytes and is named', async () => {
     const bytes = (tail: number): Buffer => Buffer.from([0x89, 0x50, 0x00, 0x01, tail]);
     await fs.writeFile(onLocal('logo.bin'), bytes(1));
@@ -1054,6 +1070,78 @@ describe('pullWorkspaceTree — the foreign change over the branch', () => {
     expect((await out('rev-parse', 'HEAD^2')).trim()).toBe(foreignSha);
     expect(await out('show', `HEAD:${RULE_FILE}`)).toContain('name: Local name');
     expect((await resolveUpstream(run, local))?.behind).toBe(0);
+  });
+
+  it("one side for all, the peer's: the value both changed takes the peer's and the branch's own edit beside it stays", async () => {
+    state.rules = [{ ...state.rules[0], name: 'Local name', enabled: false } as Rule];
+    await materializer.flush();
+    const committed = await commitWorkspaceTree({
+      run,
+      rootDir: local,
+      message: 'Rename, disable',
+      identityEnv: IDENTITY_ENV,
+    });
+    expect(committed).toMatchObject({ ok: true, committed: true });
+    await peerEdit(RULE_FILE, (content) => content.replace('name: Block probes', 'name: Block probes (peer)'));
+    await peerCommitPush('Rename rule');
+
+    const resolve = filesToAnswer(await doPull([]));
+    const applied: EmissionBatch[] = [];
+    const result = await doPull(
+      applied,
+      () => {
+        state.rules = [{ ...state.rules[0], name: 'Block probes (peer)' } as Rule];
+      },
+      undefined,
+      { token: resolve.token, side: 'theirs' },
+    );
+    expect(result).toMatchObject({ ok: true, upToDate: false });
+    expect(bodies(applied)).toEqual([
+      { kind: 'setField', type: 'rule', id: 'aaaaaaaa', path: 'name', value: 'Block probes (peer)' },
+    ]);
+    const merged = await out('show', `HEAD:${RULE_FILE}`);
+    expect(merged).toContain('name: Block probes (peer)');
+    expect(merged).toContain('enabled: false');
+    expect(await countDirtyFiles(run, local)).toBe(0);
+  });
+
+  it("one side for all, the branch's: the value both changed stays and the peer's edit beside it lands", async () => {
+    await commitLocalRename('Local name');
+    await peerEdit(RULE_FILE, (content) =>
+      content.replace('name: Block probes', 'name: Block probes (peer)').replace('enabled: true', 'enabled: false'),
+    );
+    await peerCommitPush('Rename, disable');
+
+    const resolve = filesToAnswer(await doPull([]));
+    const applied: EmissionBatch[] = [];
+    const result = await doPull(
+      applied,
+      () => {
+        state.rules = [{ ...state.rules[0], enabled: false } as Rule];
+      },
+      undefined,
+      { token: resolve.token, side: 'mine' },
+    );
+    expect(result).toMatchObject({ ok: true, upToDate: false });
+    expect(bodies(applied)).toEqual([
+      { kind: 'setField', type: 'rule', id: 'aaaaaaaa', path: 'enabled', value: false },
+    ]);
+    const merged = await out('show', `HEAD:${RULE_FILE}`);
+    expect(merged).toContain('name: Local name');
+    expect(merged).toContain('enabled: false');
+  });
+
+  it('one side given against another reading of the files is asked again, as they stand', async () => {
+    await commitLocalRename('Local name');
+    await peerEdit(RULE_FILE, (content) => content.replace('name: Block probes', 'name: Block probes (peer)'));
+    await peerCommitPush('Rename rule');
+
+    const first = filesToAnswer(await doPull([]));
+    state.rules = [{ ...state.rules[0], name: 'Local name, again' } as Rule];
+    const applied: EmissionBatch[] = [];
+    const again = filesToAnswer(await doPull(applied, undefined, undefined, { token: first.token, side: 'theirs' }));
+    expect(again.token).not.toBe(first.token);
+    expect(applied).toHaveLength(0);
   });
 
   it('an answer made against another reading of the files is asked again, as they stand', async () => {

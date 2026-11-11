@@ -126,12 +126,12 @@ function mount(): CommitApplyActions {
   return actions;
 }
 
-// The files step comes first and Merge… opens the editor. A click that lands before the step is up does
+// The files step comes first and Review Conflicts… opens the editor. A click that lands before the step is up does
 // nothing, so it is repeated until the editor (under `title`, when given) is there.
 const toEditor = (title = ''): Promise<void> =>
   waitFor(() => {
     if (screen.queryByTestId('merge-title')?.textContent?.includes(title)) return;
-    fireEvent.click(screen.getByText('Merge…'));
+    fireEvent.click(screen.getByText('Review Conflicts…'));
     throw new Error('the editor is not open yet');
   });
 
@@ -295,14 +295,14 @@ describe('useCommitApply — a conflict answered in the merge editor', () => {
     await waitFor(() => expect(screen.getByTestId('git-tool-conflict-files-list').textContent).toBe(RULE));
     expect(screen.getByText('Cherry-Pick ccccccc: Resolve Conflicts')).toBeTruthy();
     expect(screen.queryByTestId('merge-modal')).toBeNull();
-    fireEvent.click(screen.getByText('Merge…'));
+    fireEvent.click(screen.getByText('Review Conflicts…'));
 
     await waitFor(() =>
       expect(screen.getByTestId('merge-title').textContent).toBe('Cherry-Pick ccccccc: Resolve Conflicts'),
     );
     expect(screen.getByTestId('merge-files').textContent).toBe(RULE);
     expect(mockCall).toHaveBeenCalledTimes(1);
-    expect(screen.queryByText(/both changed/)).toBeNull();
+    expect(screen.queryByText(/^The branch and commit .* both changed/)).toBeNull();
 
     fireEvent.click(screen.getByTestId('merge-apply'));
     await waitFor(() => expect(screen.getByText('Cherry-pick finished')).toBeTruthy());
@@ -347,7 +347,7 @@ describe('useCommitApply — a conflict answered in the merge editor', () => {
     expect(calledShas()).toEqual([OLDEST, MIDDLE]);
     expect(screen.queryByTestId('merge-modal')).toBeNull();
     expect(screen.queryByText(/Could not cherry-pick/)).toBeNull();
-    expect(screen.queryByText(/both changed/)).toBeNull();
+    expect(screen.queryByText(/^The branch and commit .* both changed/)).toBeNull();
   });
 
   it('an answer the host cannot read keeps the editor open on that file', async () => {

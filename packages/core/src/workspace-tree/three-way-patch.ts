@@ -2,7 +2,9 @@
  * three-way-patch — one change (`from` → `to`) laid over a value that
  * has moved on its own since (`current`). Never a textual merge and
  * never a conflict: what the change did not touch stays as it stands,
- * what it touched takes the change's value.
+ * what it touched takes the change's value. A value BOTH sides changed
+ * is counted, and goes to the side the caller keeps there — the
+ * change's unless it asks for the current one.
  *
  * The grain is a record's own keys. A key holding a list of identified
  * members — rows carrying a `uid`, or an `order:` list of names — is
@@ -15,10 +17,13 @@
 
 import { canonicalJson } from '../sync';
 
-/** Counts the values BOTH sides changed, where the change's value won. */
+/** Counts the values BOTH sides changed — each went to the side kept there. */
 export interface PatchTally {
   overridden: number;
 }
+
+/** Whose value stands where both sides changed one: the change's, or the current side's. */
+export type PatchKeep = 'change' | 'current';
 
 /** A keyed value — an entity, a singleton document, or one row of a list. */
 export type Row = Record<string, unknown>;
@@ -48,7 +53,7 @@ function indexMembers(list: readonly unknown[]): Map<string, unknown> | null {
  * `current` with the keys the change touched taken from `to` (a key the
  * change removed leaves). `from` undefined = the change created the
  * record, so every key of `to` is its own. `skip` names keys the caller
- * decides itself.
+ * decides itself; `keep` rules the values both sides changed.
  */
 export function patchRecord<T extends Row>(
   current: T,
@@ -56,30 +61,34 @@ export function patchRecord<T extends Row>(
   to: T,
   skip: ReadonlySet<string>,
   tally: PatchTally,
+  keep: PatchKeep = 'change',
 ): T {
   const before: Row = { ...from };
   const after: Row = { ...to };
   const out: Row = { ...current };
   for (const key of new Set([...Object.keys(before), ...Object.keys(after)])) {
     if (skip.has(key) || !differs(before[key], after[key])) continue;
-    const next = patchValue(out[key], before[key], after[key], tally);
+    const next = patchValue(out[key], before[key], after[key], tally, keep);
     if (next === undefined) delete out[key];
     else out[key] = next;
   }
   return out as T;
 }
 
-function patchValue(current: unknown, from: unknown, to: unknown, tally: PatchTally): unknown {
+function patchValue(current: unknown, from: unknown, to: unknown, tally: PatchTally, keep: PatchKeep): unknown {
   if (Array.isArray(current) && Array.isArray(to)) {
     const before = Array.isArray(from) ? from : [];
     const currentById = indexMembers(current);
     const fromById = indexMembers(before);
     const toById = indexMembers(to);
     if (currentById !== null && fromById !== null && toById !== null) {
-      return patchList(current, before, to, { currentById, fromById, toById }, tally);
+      return patchList(current, before, to, { currentById, fromById, toById }, tally, keep);
     }
   }
-  if (differs(current, from) && differs(current, to)) tally.overridden += 1;
+  if (differs(current, from) && differs(current, to)) {
+    tally.overridden += 1;
+    if (keep === 'current') return current;
+  }
   return to;
 }
 
@@ -95,6 +104,7 @@ function patchList(
   to: readonly unknown[],
   index: ListIndex,
   tally: PatchTally,
+  keep: PatchKeep,
 ): unknown[] {
   const { currentById, fromById, toById } = index;
   const ids = (list: readonly unknown[]): string[] => list.flatMap((member) => memberId(member) ?? []);
@@ -107,11 +117,15 @@ function patchList(
     const before = fromById.get(id);
     if (!toById.has(id)) {
       if (!fromById.has(id)) out.push(member);
-      else if (differs(member, before)) tally.overridden += 1;
+      else if (differs(member, before)) {
+        // Removed by the change, edited by the current side.
+        tally.overridden += 1;
+        if (keep === 'current') out.push(member);
+      }
       continue;
     }
     const after = toById.get(id);
-    out.push(differs(before, after) ? patchMember(member, before, after, tally) : member);
+    out.push(differs(before, after) ? patchMember(member, before, after, tally, keep) : member);
   }
 
   // A reorder of the members both ends of the change hold, replayed
@@ -159,12 +173,15 @@ function patchList(
  * exactly the edited row's shape; a row that has drifted to another
  * shape (a different variant) takes the edited row whole.
  */
-function patchMember(current: unknown, from: unknown, to: unknown, tally: PatchTally): unknown {
+function patchMember(current: unknown, from: unknown, to: unknown, tally: PatchTally, keep: PatchKeep): unknown {
   if (!differs(current, from)) return to;
   if (isRow(current) && isRow(from) && isRow(to) && sameKeys(current, from)) {
-    return patchRecord(current, from, to, NO_SKIP, tally);
+    return patchRecord(current, from, to, NO_SKIP, tally, keep);
   }
-  if (differs(current, to)) tally.overridden += 1;
+  if (differs(current, to)) {
+    tally.overridden += 1;
+    if (keep === 'current') return current;
+  }
   return to;
 }
 

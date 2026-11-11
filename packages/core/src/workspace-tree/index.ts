@@ -11,6 +11,7 @@ export {
   type CommitChangeArgs,
   type CommitChangeDocument,
   type CommitChangeResolved,
+  type CommitChangeSide,
   type CommitChangeSkip,
   type CommitChangeSkipReason,
 } from './commit-change';

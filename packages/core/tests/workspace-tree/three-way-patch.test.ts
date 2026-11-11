@@ -9,18 +9,29 @@
  *     current side's own rows survive the change's adds, removes, edits
  *     and reorders;
  *   - a value both sides changed takes the change's value and is
- *     counted — nothing is merged textually and nothing throws.
+ *     counted — nothing is merged textually and nothing throws;
+ *   - asked to keep the current side there, exactly those values stay
+ *     as the current side has them and everything else still lands.
  */
 
 import { describe, expect, it } from 'vitest';
-import { type PatchTally, patchRecord } from '../../src/workspace-tree/three-way-patch';
+import { type PatchKeep, type PatchTally, patchRecord } from '../../src/workspace-tree/three-way-patch';
 
 const NO_SKIP: ReadonlySet<string> = new Set();
 
-function patch<T extends Record<string, unknown>>(current: T, from: T | undefined, to: T, skip = NO_SKIP) {
+function patch<T extends Record<string, unknown>>(
+  current: T,
+  from: T | undefined,
+  to: T,
+  skip = NO_SKIP,
+  keep: PatchKeep = 'change',
+) {
   const tally: PatchTally = { overridden: 0 };
-  return { value: patchRecord(current, from, to, skip, tally), overridden: tally.overridden };
+  return { value: patchRecord(current, from, to, skip, tally, keep), overridden: tally.overridden };
 }
+
+const keepCurrent = <T extends Record<string, unknown>>(current: T, from: T, to: T) =>
+  patch(current, from, to, NO_SKIP, 'current');
 
 const header = (uid: string, value: string, extra: Record<string, unknown> = {}) => ({
   uid,
@@ -85,6 +96,53 @@ describe('patchRecord — keys', () => {
     const current = { name: 'Probe', method: 'POST', enabled: true };
     expect(patch<Record<string, unknown>>(current, undefined, to)).toEqual({
       value: { name: 'Probe', method: 'GET', enabled: true },
+      overridden: 1,
+    });
+  });
+});
+
+describe('patchRecord — the current side kept where both changed', () => {
+  it('a value both sides changed stays, counted; what the change alone touched still lands', () => {
+    const from = { name: 'Probe', url: 'https://api.openheaders.io/status', method: 'GET' };
+    const to = { name: 'Probe (picked)', url: 'https://api.openheaders.io/v2/status', method: 'GET' };
+    const current = { name: 'Probe (local)', url: 'https://api.openheaders.io/status', method: 'POST' };
+    expect(keepCurrent(current, from, to)).toEqual({
+      value: { name: 'Probe (local)', url: 'https://api.openheaders.io/v2/status', method: 'POST' },
+      overridden: 1,
+    });
+  });
+
+  it('a key the current side removed stays removed when the change edited it', () => {
+    const from: Record<string, unknown> = { name: 'Probe', description: 'old' };
+    const to: Record<string, unknown> = { name: 'Probe', description: 'new' };
+    expect(keepCurrent({ name: 'Probe' }, from, to)).toEqual({ value: { name: 'Probe' }, overridden: 1 });
+  });
+
+  it('a row edited on both sides keeps its own value in that key and takes the change in another', () => {
+    const from = { headers: [header('h1', 'one', { enabled: true })] };
+    const to = { headers: [header('h1', 'two', { enabled: false })] };
+    const current = { headers: [header('h1', 'mine', { enabled: true })] };
+    expect(keepCurrent(current, from, to)).toEqual({
+      value: { headers: [header('h1', 'mine', { enabled: false })] },
+      overridden: 1,
+    });
+  });
+
+  it('a row the change removed stays when the current side edited it; an untouched one still leaves', () => {
+    const from = { headers: [header('h1', 'one'), header('h2', 'two')] };
+    const to = { headers: [] as ReturnType<typeof header>[] };
+    expect(keepCurrent({ headers: [header('h1', 'edited'), header('h2', 'two')] }, from, to)).toEqual({
+      value: { headers: [header('h1', 'edited')] },
+      overridden: 1,
+    });
+  });
+
+  it('a row that drifted to another shape stays as the current side has it', () => {
+    const from = { parts: [{ uid: 'p1', kind: 'text', name: 'a', value: '1' }] as Record<string, unknown>[] };
+    const to = { parts: [{ uid: 'p1', kind: 'text', name: 'a', value: '2' }] as Record<string, unknown>[] };
+    const current = { parts: [{ uid: 'p1', kind: 'file', name: 'a', files: [] }] as Record<string, unknown>[] };
+    expect(keepCurrent(current, from, to)).toEqual({
+      value: { parts: [{ uid: 'p1', kind: 'file', name: 'a', files: [] }] },
       overridden: 1,
     });
   });

@@ -13,6 +13,7 @@
  * with intent.
  */
 
+import type { CommitResolution } from '@openheaders/core/workspace-tree';
 import type { ApplyCommitResolution } from './change-answers';
 import type { CommitLocalWork, WorkspaceTreeCommitCadence, WorkspaceTreeRuntime } from './runtime';
 
@@ -44,11 +45,14 @@ const APPLY_COMMIT_MAX_RESOLUTION_FILES = 2_000;
 function readApplyCommitResolution(value: unknown): ApplyCommitResolution | undefined | null {
   if (value === undefined) return undefined;
   if (!isRecord(value)) return null;
-  const { token, files } = value;
-  if (typeof token !== 'string' || !Array.isArray(files) || files.length > APPLY_COMMIT_MAX_RESOLUTION_FILES) {
+  const { token, files, side } = value;
+  if (typeof token !== 'string') return null;
+  // One side for every file, in place of an answer per file.
+  if (files === undefined) return side === 'theirs' || side === 'mine' ? { token, side } : null;
+  if (side !== undefined || !Array.isArray(files) || files.length > APPLY_COMMIT_MAX_RESOLUTION_FILES) {
     return null;
   }
-  const answers: ApplyCommitResolution['files'] = [];
+  const answers: CommitResolution[] = [];
   for (const entry of files) {
     if (!isRecord(entry) || typeof entry.path !== 'string' || typeof entry.content !== 'string') return null;
     answers.push({ path: entry.path, content: entry.content });

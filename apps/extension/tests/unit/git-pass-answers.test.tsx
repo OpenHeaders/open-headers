@@ -5,10 +5,11 @@
  * a verb that answers `local-changes` raises the question naming the
  * files under the offered message and goes again with the word; one
  * that answers `conflicts` with files names them first under the
- * pass's own title, opens the merge editor on Merge… and goes again
- * with the answers and the token, the word riding that call too;
- * Cancel at any of the three sends nothing more and answers null; any
- * other answer passes through with no dialog. The
+ * pass's own title, and goes again with the token and either one side
+ * for all of them (Accept Incoming / Accept Current — no editor) or
+ * the answers made in the merge editor (Review Conflicts…), the word
+ * riding that call too; Cancel at any of the three sends nothing more
+ * and answers null; any other answer passes through with no dialog. The
  * second pins the branch verbs on it: Pull and Merge into Current each
  * name their own verb, send what was answered, and say afterwards what
  * was committed first, what was left out, or that the files are too
@@ -135,12 +136,12 @@ beforeEach(() => {
   mockCall.mockReset();
 });
 
-// The files step comes first and Merge… opens the editor. A click that lands before the step is up does
+// The files step comes first and Review Conflicts… opens the editor. A click that lands before the step is up does
 // nothing, so it is repeated until the editor (under `title`, when given) is there.
 const toEditor = (title = ''): Promise<void> =>
   waitFor(() => {
     if (screen.queryByTestId('merge-title')?.textContent?.includes(title)) return;
-    fireEvent.click(screen.getByText('Merge…'));
+    fireEvent.click(screen.getByText('Review Conflicts…'));
     throw new Error('the editor is not open yet');
   });
 
@@ -240,7 +241,7 @@ describe('usePassAnswers', () => {
     expect(screen.getByText('Commit and Pull').closest('button')?.disabled).toBe(true);
   });
 
-  it('conflicts name the files first; Merge… opens the editor and the answers go back with the token', async () => {
+  it('conflicts name the files first; Review Conflicts… opens the editor and the answers go back with the token', async () => {
     const done = { ok: true };
     const verb = verbOf().mockResolvedValueOnce(conflicts).mockResolvedValueOnce(done);
     const answers = mount();
@@ -251,11 +252,11 @@ describe('usePassAnswers', () => {
 
     await waitFor(() => expect(screen.getByTestId('git-tool-conflict-files-list').textContent).toBe(REQUEST));
     expect(screen.getByText('Pull: Resolve Conflicts')).toBeTruthy();
-    expect(screen.getByText('Both sides changed these files. Nothing has been written yet.')).toBeTruthy();
+    expect(screen.getByText(/^Both sides changed these files\. Nothing has been written yet\./)).toBeTruthy();
     expect(screen.queryByTestId('merge-modal')).toBeNull();
     expect(verb).toHaveBeenCalledTimes(1);
 
-    fireEvent.click(screen.getByText('Merge…'));
+    fireEvent.click(screen.getByText('Review Conflicts…'));
     await waitFor(() => expect(screen.getByTestId('merge-title').textContent).toBe('Pull: Resolve Conflicts'));
     expect(screen.getByTestId('merge-files').textContent).toBe(REQUEST);
     expect(verb).toHaveBeenCalledTimes(1);
@@ -266,6 +267,55 @@ describe('usePassAnswers', () => {
     });
     expect(verb.mock.calls).toEqual([[{}], [{ resolution: answered }]]);
     await waitFor(() => expect(screen.queryByTestId('merge-modal')).toBeNull());
+  });
+
+  it('Accept Incoming sends that one side with the token; the editor never opens', async () => {
+    const done = { ok: true };
+    const verb = verbOf().mockResolvedValueOnce(conflicts).mockResolvedValueOnce(done);
+    const answers = mount();
+    let answer: Promise<PassRefusal | null> | null = null;
+    act(() => {
+      answer = answers.run({ kind: 'pull' }, verb);
+    });
+    await waitFor(() => expect(screen.getByTestId('git-tool-conflict-files-list').textContent).toBe(REQUEST));
+
+    fireEvent.click(screen.getByTestId('git-tool-conflict-files-theirs'));
+    await act(async () => {
+      expect(await answer).toBe(done);
+    });
+    expect(verb.mock.calls).toEqual([[{}], [{ resolution: { token: 'token-1', side: 'theirs' } }]]);
+    expect(screen.queryByTestId('merge-modal')).toBeNull();
+  });
+
+  it('one side given while the branch moved lists the files again, says so, and goes with the new token', async () => {
+    const moved = { ...conflicts, resolve: { ...conflicts.resolve, token: 'token-2' } };
+    const verb = verbOf()
+      .mockResolvedValueOnce(conflicts)
+      .mockResolvedValueOnce(moved)
+      .mockResolvedValueOnce({ ok: true });
+    const answers = mount();
+    let answer: Promise<PassRefusal | null> | null = null;
+    act(() => {
+      answer = answers.run({ kind: 'pull' }, verb);
+    });
+    await waitFor(() => expect(screen.getByTestId('git-tool-conflict-files-list').textContent).toBe(REQUEST));
+
+    fireEvent.click(screen.getByTestId('git-tool-conflict-files-mine'));
+    await waitFor(() =>
+      expect(screen.getByText('The branch changed while you were resolving. Review the conflicts again.')).toBeTruthy(),
+    );
+    expect(screen.getByTestId('git-tool-conflict-files-list').textContent).toBe(REQUEST);
+    expect(screen.queryByTestId('merge-modal')).toBeNull();
+
+    fireEvent.click(screen.getByTestId('git-tool-conflict-files-mine'));
+    await act(async () => {
+      expect(await answer).toEqual({ ok: true });
+    });
+    expect(verb.mock.calls).toEqual([
+      [{}],
+      [{ resolution: { token: 'token-1', side: 'mine' } }],
+      [{ resolution: { token: 'token-2', side: 'mine' } }],
+    ]);
   });
 
   it('Cancel on the files step answers null, opens no editor and sends nothing more', async () => {
@@ -444,6 +494,23 @@ describe('useGitBranchActions — Pull and Merge ask before they write', () => {
     expect(
       screen.getByText(`Part of the change was left out because the branch does not match it: ${NOTES}.`),
     ).toBeTruthy();
+  });
+
+  it('a Pull answered with Accept Current sends the branch’s side on its own verb and finishes', async () => {
+    mockCall
+      .mockResolvedValueOnce(conflicts)
+      .mockResolvedValueOnce({ ok: true, upToDate: false, sha: 'd'.repeat(40), applied: 0 });
+    const actions = mount();
+    act(() => actions.pull());
+    await waitFor(() => expect(screen.getByTestId('git-tool-conflict-files-list').textContent).toBe(REQUEST));
+
+    fireEvent.click(screen.getByTestId('git-tool-conflict-files-mine'));
+    await waitFor(() => expect(screen.getByText('Pull finished')).toBeTruthy());
+    expect(mockCall.mock.calls).toEqual([
+      ['oh.workspaceTree.pull', { workspaceId: 'ws-1' }],
+      ['oh.workspaceTree.pull', { workspaceId: 'ws-1', resolution: { token: 'token-1', side: 'mine' } }],
+    ]);
+    expect(screen.queryByTestId('merge-modal')).toBeNull();
   });
 
   it('Cancel in a Pull’s editor sends nothing more and raises no toast', async () => {

@@ -930,7 +930,9 @@ export const workbenchChrome = {
   'workbench.gitLog.applyCommit.resolveStale': 'La rama cambió mientras resolvías los conflictos. Revísalos de nuevo.',
   'workbench.gitLog.resolve.pullTitle': 'Pull: resolver conflictos',
   'workbench.gitLog.resolve.mergeTitle': 'Fusión de {ref}: resolver conflictos',
-  'workbench.gitLog.resolve.filesBody': 'Ambos lados modificaron estos archivos. Todavía no se ha escrito nada.',
+  'workbench.gitLog.resolve.filesBody':
+    'Ambos lados modificaron estos archivos. Todavía no se ha escrito nada. Acepta un lado para los valores que ambos cambiaron, o revisa cada conflicto tú mismo.',
+  'workbench.gitLog.resolve.review': 'Revisar conflictos…',
   'workbench.gitLog.resolve.tooLarge':
     'Ambos lados modificaron {files}, y los archivos son demasiado grandes para resolverlos aquí. No se cambió nada.',
   'workbench.gitLog.forcePush.title': 'El historial remoto fue reescrito',

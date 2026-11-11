@@ -203,6 +203,36 @@ describe('applyCommitChange — only what the commit did travels', () => {
     expect(change.next.rules[0].name).toBe('Picked name');
     expect(change.conflicts).toEqual([{ uid: 'rul0000a', path: manifestOf(a) }]);
   });
+
+  it('with one side ruled, a value both changed goes to it, what one side changed stands, and no conflict is named', () => {
+    const current = state({ rules: [{ ...a, name: 'Local name' } as Rule] });
+    const from = state({ rules: [a] });
+    const to = state({ rules: [withHeaderValue({ ...a, name: 'Picked name' } as Rule, 'probe-auth')] });
+
+    const theirs = applyCommitChange({ current, from, to, side: 'theirs' });
+    expect(theirs.next.rules).toEqual([withHeaderValue({ ...a, name: 'Picked name' } as Rule, 'probe-auth')]);
+    expect(theirs.conflicts).toEqual([]);
+
+    const mine = applyCommitChange({ current, from, to, side: 'mine' });
+    expect(mine.next.rules).toEqual([withHeaderValue({ ...a, name: 'Local name' } as Rule, 'probe-auth')]);
+    expect([...mine.changedPaths]).toEqual([manifestOf(a)]);
+    expect(mine.conflicts).toEqual([]);
+  });
+
+  it('an answered document stands over the ruled side', () => {
+    const current = state({ rules: [{ ...a, name: 'Local name' } as Rule] });
+    const from = state({ rules: [a] });
+    const to = state({ rules: [{ ...a, name: 'Picked name' } as Rule] });
+    const change = applyCommitChange({
+      current,
+      from,
+      to,
+      side: 'theirs',
+      resolved: { state: current, documents: new Set(['rul0000a']), removed: new Set() },
+    });
+    expect(change.next.rules[0].name).toBe('Local name');
+    expect(change.conflicts).toEqual([]);
+  });
 });
 
 describe('applyCommitChange — creations and order', () => {
@@ -372,6 +402,21 @@ describe('applyCommitChange — what is not taken is named', () => {
     expect(change.next.rules).toEqual([]);
     expect(change.conflicts).toEqual([{ uid: 'rul0000a', path: manifestOf(a) }]);
   });
+
+  it('with one side ruled, the edited entity leaves for the change or stands for the branch', () => {
+    const edited = { ...a, name: 'Local name' } as Rule;
+    const range = { current: state({ rules: [edited] }), from: state({ rules: [a] }), to: state() };
+
+    const theirs = applyCommitChange({ ...range, side: 'theirs' });
+    expect(theirs.next.rules).toEqual([]);
+    expect([...theirs.removedPaths]).toEqual([manifestOf(a)]);
+    expect(theirs.conflicts).toEqual([]);
+
+    const mine = applyCommitChange({ ...range, side: 'mine' });
+    expect(mine.next.rules).toEqual([edited]);
+    expect([...mine.removedPaths]).toEqual([]);
+    expect(mine.conflicts).toEqual([]);
+  });
 });
 
 describe('applyCommitChange — environments and singletons', () => {
@@ -410,6 +455,16 @@ describe('applyCommitChange — environments and singletons', () => {
     expect(deleted.next.environments).toEqual([]);
     expect([...deleted.removedPaths]).toEqual(['environments/staging-eu-env0000a.yaml']);
     expect(deleted.conflicts).toEqual([{ uid: 'env0000a', path: 'environments/staging-env0000a.yaml' }]);
+
+    const kept = applyCommitChange({
+      current: state({ environments: [renamed] }),
+      from: state({ environments: [staging] }),
+      to: state(),
+      side: 'mine',
+    });
+    expect(kept.next.environments).toEqual([renamed]);
+    expect([...kept.removedPaths]).toEqual([]);
+    expect(kept.conflicts).toEqual([]);
   });
 
   it('the workspace variables are patched row by row', () => {

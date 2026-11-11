@@ -784,7 +784,9 @@ export const workbenchChrome = {
   'workbench.gitLog.applyCommit.resolveStale': 'Ветка изменилась, пока вы разрешали конфликты. Проверьте их ещё раз.',
   'workbench.gitLog.resolve.pullTitle': 'Pull: разрешение конфликтов',
   'workbench.gitLog.resolve.mergeTitle': 'Слияние {ref}: разрешение конфликтов',
-  'workbench.gitLog.resolve.filesBody': 'Обе стороны изменили эти файлы. Пока ничего не записано.',
+  'workbench.gitLog.resolve.filesBody':
+    'Обе стороны изменили эти файлы. Пока ничего не записано. Примите одну сторону для значений, которые изменили обе, или просмотрите каждый конфликт сами.',
+  'workbench.gitLog.resolve.review': 'Просмотреть конфликты…',
   'workbench.gitLog.resolve.tooLarge':
     'Обе стороны изменили {files}, а файлы слишком велики, чтобы разрешить конфликт здесь. Ничего не изменено.',
   'workbench.gitLog.forcePush.title': 'История удалённого репозитория переписана',

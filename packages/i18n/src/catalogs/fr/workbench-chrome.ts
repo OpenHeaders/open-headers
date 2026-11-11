@@ -936,7 +936,9 @@ export const workbenchChrome = {
     'La branche a changé pendant que vous résolviez les conflits. Vérifiez-les à nouveau.',
   'workbench.gitLog.resolve.pullTitle': 'Pull : résoudre les conflits',
   'workbench.gitLog.resolve.mergeTitle': 'Fusion de {ref} : résoudre les conflits',
-  'workbench.gitLog.resolve.filesBody': 'Les deux côtés ont modifié ces fichiers. Rien n’a encore été écrit.',
+  'workbench.gitLog.resolve.filesBody':
+    'Les deux côtés ont modifié ces fichiers. Rien n’a encore été écrit. Acceptez un côté pour les valeurs que les deux ont modifiées, ou examinez chaque conflit vous-même.',
+  'workbench.gitLog.resolve.review': 'Examiner les conflits…',
   'workbench.gitLog.resolve.tooLarge':
     'Les deux côtés ont modifié {files}, et les fichiers sont trop volumineux pour être résolus ici. Rien n’a été modifié.',
   'workbench.gitLog.forcePush.title': 'L’historique distant a été réécrit',
