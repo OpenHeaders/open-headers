@@ -1,10 +1,15 @@
 /* File rail rows. A row answers the pointer with the wash the
- * workbench's tree rows use; the open file's own fill is set inline and
- * stands under the pointer. */
+ * workbench's tree rows use, and the open file wears their one solid
+ * selection blue — the shell's token where a shell defines it, the
+ * theme's primary wash anywhere else. */
 .oh-merge__file-row {
   background: transparent;
 }
 
 .oh-merge__file-row:hover {
   background: rgba(128, 128, 128, 0.08);
+}
+
+.oh-merge__file-row[aria-current='true'] {
+  background: var(--oh-row-selected-focused-bg, var(--ant-color-primary-bg, rgba(24, 144, 255, 0.16)));
 }

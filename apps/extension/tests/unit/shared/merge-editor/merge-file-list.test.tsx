@@ -55,8 +55,6 @@ describe('MergeFileList', () => {
     expect(orders.textContent).toContain('orders.md');
     expect(orders.getAttribute('aria-current')).toBe('false');
     expect(probe.getAttribute('aria-current')).toBe('true');
-    expect(probe.style.background).not.toBe('');
-    expect(orders.style.background).toBe('');
     fireEvent.click(orders);
     expect(onSelect).toHaveBeenCalledWith(ORDERS.id);
   });

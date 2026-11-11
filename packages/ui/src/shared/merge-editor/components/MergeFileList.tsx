@@ -3,17 +3,17 @@
  *
  * Plan §5.3: ~280px collapsible left rail with one row per file. Each
  * row carries a kind icon (add/modify/remove), a status pill, and any
- * adapter-supplied badges. Group headers (`MergeFile.group`) sort
- * groups alphabetically and render a small uppercase strip.
+ * adapter-supplied badges. Group headers (`MergeFile.group`) render a
+ * small uppercase strip, in the order `file-groups.ts` lists them.
  *
  * The modal decides whether a session lists its files; the list
  * renders whatever it is handed, one file included.
  *
  * The rail sits one fill step off the surface under it — the modal's,
  * which the editors beside it leave for their own — so it reads as a
- * panel of its own in every theme; the open file is the stronger fill
- * with the accent edge, and any other row answers the pointer
- * (`merge-file-list.css`). The neutral chips (the count, `unresolved`)
+ * panel of its own in every theme; the open file is the one solid
+ * selection blue the workbench's tree rows wear, and any other row
+ * answers the pointer (`merge-file-list.css`). The neutral chips (the count, `unresolved`)
  * are a translucent fill too: an opaque one is the rail's own colour
  * and would show only on a hovered or open row.
  *
@@ -35,6 +35,7 @@ import { Tag, Tooltip, Typography, theme } from 'antd';
 import type { ReactElement } from 'react';
 import type { MessageKey } from '@openheaders/i18n';
 import { useT } from '@openheaders/ui/context/LocaleContext';
+import { groupFiles } from '../file-groups';
 import type { MergeFile, MergeFileKind } from '../types';
 import './merge-file-list.css';
 
@@ -76,27 +77,6 @@ const STATUS_TAG: Record<MergeFileStatus, { color: string; labelKey: MessageKey 
   resolved: { color: 'success', labelKey: 'shared.mergeEditor.fileList.statusResolved' },
   failed: { color: 'error', labelKey: 'shared.mergeEditor.fileList.statusFailed' },
 };
-
-interface GroupedFile {
-  group: string;
-  files: MergeFile[];
-}
-
-function groupFiles(files: ReadonlyArray<MergeFile>): GroupedFile[] {
-  const map = new Map<string, MergeFile[]>();
-  for (const f of files) {
-    const key = f.group ?? '';
-    let list = map.get(key);
-    if (!list) {
-      list = [];
-      map.set(key, list);
-    }
-    list.push(f);
-  }
-  return Array.from(map.entries())
-    .map(([group, files]) => ({ group, files }))
-    .sort((a, b) => a.group.localeCompare(b.group));
-}
 
 const MergeFileList = ({
   files,
@@ -169,15 +149,13 @@ const MergeFileList = ({
                 style={{
                   width: '100%',
                   textAlign: 'left',
-                  ...(isActive ? { background: token.colorFillSecondary } : {}),
                   border: 'none',
-                  padding: '6px 12px',
+                  padding: '6px 12px 6px 15px',
                   cursor: 'pointer',
                   display: 'flex',
                   alignItems: 'center',
                   gap: 8,
                   color: token.colorText,
-                  borderLeft: `3px solid ${isActive ? token.colorPrimary : 'transparent'}`,
                 }}
               >
                 <Tooltip title={t(kind.tooltipKey)}>

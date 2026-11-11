@@ -18,6 +18,7 @@ import { Allotment, LayoutPriority } from 'allotment';
 import { Alert, Button, Dropdown, Modal, Segmented, Space, Switch, Tag, Tooltip, Typography, theme } from 'antd';
 import { type ReactElement, type ReactNode, useCallback, useMemo, useRef, useState } from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
+import { firstListedFile } from '../file-groups';
 import { type LeftFile, remainingByFile, sessionResults } from '../session-progress';
 import type { MergeApplyOutcome, MergeSession } from '../types';
 import { usePersistedLayout } from '../use-persisted-layout';
@@ -137,13 +138,13 @@ const MergeConflictModal = ({
   );
 
   // Active file id — initialized from `session.initialFileId` or the
-  // first file. Multi-file selection updates this from the sidebar.
+  // file the sidebar lists first, so the editor opens on its top row.
+  // Multi-file selection updates this from the sidebar.
   const [activeFileId, setActiveFileId] = useState<string | null>(() => {
-    if (session.files.length === 0) return null;
     if (session.initialFileId && session.files.some((f) => f.id === session.initialFileId)) {
       return session.initialFileId;
     }
-    return session.files[0].id;
+    return firstListedFile(session.files)?.id ?? null;
   });
 
   // Seeds a session-wide accept wrote: the text a file's pane opens
