@@ -47,7 +47,12 @@ export interface PassAnswers {
     operation: LocalChangesOperation,
     verb: (answers: PassAnswerSet) => Promise<R>,
   ) => Promise<R | null>;
-  /** The question, the conflicts step and the conflict editor — mount once in the caller's tree. */
+  /**
+   * The question, the conflicts step and the conflict editor — mount once
+   * in the caller's tree. All three center on the window, whichever
+   * surface started the pass: they are about the repository, not the
+   * tool window the verb was pressed in.
+   */
   dialogs: ReactNode;
 }
 
@@ -62,10 +67,10 @@ function editorTitle(operation: LocalChangesOperation, t: Translate): string {
   );
 }
 
-export function usePassAnswers(container: HTMLElement | null): PassAnswers {
+export function usePassAnswers(): PassAnswers {
   const t = useT();
-  const { ask, dialog: questionDialog } = useLocalChangesQuestion(container);
-  const { answer, dialog: editorDialog } = useConflictAnswers(container);
+  const { ask, dialog: questionDialog } = useLocalChangesQuestion();
+  const { answer, dialog: editorDialog } = useConflictAnswers();
 
   // Stable across renders — a caller may hold it in a callback's dependencies.
   const run = useCallback(

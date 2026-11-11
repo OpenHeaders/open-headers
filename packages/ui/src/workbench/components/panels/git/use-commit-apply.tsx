@@ -36,10 +36,10 @@ type Refusal = Extract<WorkspaceTreeApplyCommitWire, { ok: false }>;
 
 const messageOf = (err: unknown): string => (err instanceof Error ? err.message : String(err));
 
-export function useCommitApply(workspaceId: string, container: HTMLElement | null): CommitApplyActions {
+export function useCommitApply(workspaceId: string): CommitApplyActions {
   const t = useT();
   const { notification } = AntApp.useApp();
-  const answers = usePassAnswers(container);
+  const answers = usePassAnswers();
 
   const refusalTitle = (mode: CommitApplyMode, sha: string, refusal: Refusal): string => {
     const commit = shortSha(sha);

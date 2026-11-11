@@ -39,7 +39,7 @@ interface OpenQuestion extends LocalChangesFirstPrompt {
   settle: (message: string | null) => void;
 }
 
-export function useLocalChangesQuestion(container: HTMLElement | null): LocalChangesQuestion {
+export function useLocalChangesQuestion(): LocalChangesQuestion {
   const [question, setQuestion] = useState<OpenQuestion | null>(null);
 
   // Stable across renders — a caller may hold it in a callback's dependencies.
@@ -64,12 +64,7 @@ export function useLocalChangesQuestion(container: HTMLElement | null): LocalCha
   return {
     ask,
     dialog: (
-      <LocalChangesFirstModal
-        prompt={question}
-        container={container}
-        onCommit={answer}
-        onCancel={() => answer(null)}
-      />
+      <LocalChangesFirstModal prompt={question} onCommit={answer} onCancel={() => answer(null)} />
     ),
   };
 }

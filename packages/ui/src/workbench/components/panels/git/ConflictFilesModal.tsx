@@ -30,8 +30,6 @@ export interface ConflictFilesPrompt {
 export interface ConflictFilesModalProps {
   /** The refused pass; null keeps the modal unmounted. */
   prompt: ConflictFilesPrompt | null;
-  /** The element the modal centers over. Null falls back to the document body. */
-  container: HTMLElement | null;
   /** The side on its way to the host — every answer is held until it is back. */
   sending: ConflictSide | null;
   onSide: (side: ConflictSide) => void;
@@ -42,7 +40,6 @@ export interface ConflictFilesModalProps {
 
 const ConflictFilesModal: React.FC<ConflictFilesModalProps> = ({
   prompt,
-  container,
   sending,
   onSide,
   onReview,
@@ -60,7 +57,6 @@ const ConflictFilesModal: React.FC<ConflictFilesModalProps> = ({
       keyboard={!held}
       width={640}
       centered
-      getContainer={container ?? undefined}
       destroyOnHidden
       footer={
         <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', gap: 8 }}>

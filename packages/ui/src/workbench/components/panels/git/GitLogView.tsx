@@ -115,7 +115,7 @@ const GitLogView: React.FC<GitLogViewProps> = ({
   const container = rootRef.current?.closest<HTMLElement>('.git-tool-panel') ?? null;
   const fileDiff = useFileDiff(workspaceId);
   const commitPatch = useCommitPatch(workspaceId);
-  const commitApply = useCommitApply(workspaceId, container);
+  const commitApply = useCommitApply(workspaceId);
   const jumpToSource = useJumpToSource(workspaceId);
 
   const subscribeViewPrefs = useCallback(

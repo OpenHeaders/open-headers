@@ -112,7 +112,7 @@ export function useGitBranchActions(options: GitBranchActionsOptions): GitBranch
   const [remotesOpen, setRemotesOpen] = useState(false);
   const [tagAt, setTagAt] = useState<string | null>(null);
   const [hostCalls, setHostCalls] = useState(0);
-  const answers = usePassAnswers(container);
+  const answers = usePassAnswers();
 
   // A transfer verb at the host, counted: a pass's own questions sit
   // between its calls, and the surface shows work only while one is out.

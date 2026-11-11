@@ -33,8 +33,6 @@ export interface LocalChangesFirstPrompt {
 export interface LocalChangesFirstModalProps {
   /** The refused pass; null keeps the modal unmounted. */
   prompt: LocalChangesFirstPrompt | null;
-  /** The element the modal centers over. Null falls back to the document body. */
-  container: HTMLElement | null;
   /** The person's word, with the message for the commit of their work. */
   onCommit: (message: string) => void;
   onCancel: () => void;
@@ -56,7 +54,7 @@ function okOf(operation: LocalChangesOperation, t: Translate): string {
   );
 }
 
-const LocalChangesFirstModal: React.FC<LocalChangesFirstModalProps> = ({ prompt, container, onCommit, onCancel }) => {
+const LocalChangesFirstModal: React.FC<LocalChangesFirstModalProps> = ({ prompt, onCommit, onCancel }) => {
   const t = useT();
   const [message, setMessage] = useState('');
 
@@ -78,7 +76,6 @@ const LocalChangesFirstModal: React.FC<LocalChangesFirstModalProps> = ({ prompt,
       onCancel={onCancel}
       width={520}
       centered
-      getContainer={container ?? undefined}
       destroyOnHidden
     >
       <div

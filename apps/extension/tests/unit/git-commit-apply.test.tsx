@@ -114,7 +114,7 @@ beforeEach(() => {
 function mount(): CommitApplyActions {
   let actions: CommitApplyActions | null = null;
   const Probe: React.FC = () => {
-    actions = useCommitApply('ws-1', null);
+    actions = useCommitApply('ws-1');
     return <>{actions.dialogs}</>;
   };
   render(

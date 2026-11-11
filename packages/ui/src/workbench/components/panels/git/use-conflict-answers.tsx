@@ -78,7 +78,7 @@ interface OpenConflict {
 
 const messageOf = (err: unknown): string => (err instanceof Error ? err.message : String(err));
 
-export function useConflictAnswers(container: HTMLElement | null): ConflictAnswers {
+export function useConflictAnswers(): ConflictAnswers {
   const t = useT();
   const { notification } = AntApp.useApp();
   const { isDarkMode, monacoTheme } = useUiTheme();
@@ -155,7 +155,6 @@ export function useConflictAnswers(container: HTMLElement | null): ConflictAnswe
     <>
       <ConflictFilesModal
         prompt={listed !== null ? { title: listed.title, files: listed.resolve.files.map((file) => file.path) } : null}
-        container={container}
         sending={sending}
         onSide={(side) => void takeSide(side)}
         onReview={() => {

@@ -150,7 +150,7 @@ describe('usePassAnswers', () => {
   function mount(): PassAnswers {
     let answers: PassAnswers | null = null;
     const Probe: React.FC = () => {
-      answers = usePassAnswers(null);
+      answers = usePassAnswers();
       return <>{answers.dialogs}</>;
     };
     render(

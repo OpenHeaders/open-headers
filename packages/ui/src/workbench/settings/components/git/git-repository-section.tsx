@@ -66,7 +66,7 @@ const GitRepositorySection: React.FC<{ git: WorkspaceGit }> = ({ git }) => {
   const t = useT();
   const { message } = AntApp.useApp();
   const { call, workspaceId, gitStatus, refresh, refreshGitStatus } = git;
-  const answers = usePassAnswers(null);
+  const answers = usePassAnswers();
   // What a pull or a merge did with the person's own work: a file both
   // sides changed kept its local bytes, uncommitted work in a file the
   // pass wrote was committed first, part of the incoming change was left

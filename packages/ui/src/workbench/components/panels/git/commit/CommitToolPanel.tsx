@@ -93,7 +93,7 @@ const CommitToolPanel: React.FC<CommitToolPanelProps> = ({ info, onHide }) => {
   const formRef = useRef<CommitFormHandle>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const preAmendDraft = useRef<string | null>(null);
-  const answers = usePassAnswers(panelRef.current);
+  const answers = usePassAnswers();
 
   // The posture from the one git status store: hydrated on first
   // read, folded from status frames after.
