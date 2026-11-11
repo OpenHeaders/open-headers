@@ -3,7 +3,7 @@
  * Pull, a branch Merge, a Cherry-Pick, a Revert) found files both sides
  * changed and has written nothing; the dialog names them under the
  * pass's own title and takes one of three answers: one side for all of
- * them (Accept Incoming / Accept Current — the host rules the values
+ * them (Accept Incoming / Keep Mine — the host rules the values
  * both sides changed for that side and keeps what only one side
  * changed), Review Conflicts… for the editor, where each is answered by
  * hand, or Cancel, which leaves the branch and the tree as they were.
@@ -79,7 +79,7 @@ const ConflictFilesModal: React.FC<ConflictFilesModalProps> = ({
               disabled={sending === 'theirs'}
               data-testid="git-tool-conflict-files-mine"
             >
-              {t('shared.mergeEditor.zone.acceptCurrent')}
+              {t('workbench.gitLog.resolve.keepMine')}
             </Button>
           </div>
           <div style={{ display: 'flex', gap: 8, marginInlineStart: 'auto' }}>

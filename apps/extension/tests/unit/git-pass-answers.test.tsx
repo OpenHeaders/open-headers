@@ -6,7 +6,7 @@
  * files under the offered message and goes again with the word; one
  * that answers `conflicts` with files names them first under the
  * pass's own title, and goes again with the token and either one side
- * for all of them (Accept Incoming / Accept Current — no editor) or
+ * for all of them (Accept Incoming / Keep Mine — no editor) or
  * the answers made in the merge editor (Review Conflicts…), the word
  * riding that call too; Cancel at any of the three sends nothing more
  * and answers null; any other answer passes through with no dialog. The
@@ -299,6 +299,8 @@ describe('usePassAnswers', () => {
       answer = answers.run({ kind: 'pull' }, verb);
     });
     await waitFor(() => expect(screen.getByTestId('git-tool-conflict-files-list').textContent).toBe(REQUEST));
+    expect(screen.getByTestId('git-tool-conflict-files-theirs').textContent).toBe('Accept Incoming');
+    expect(screen.getByTestId('git-tool-conflict-files-mine').textContent).toBe('Keep Mine');
 
     fireEvent.click(screen.getByTestId('git-tool-conflict-files-mine'));
     await waitFor(() =>
@@ -496,7 +498,7 @@ describe('useGitBranchActions — Pull and Merge ask before they write', () => {
     ).toBeTruthy();
   });
 
-  it('a Pull answered with Accept Current sends the branch’s side on its own verb and finishes', async () => {
+  it('a Pull answered with Keep Mine sends the branch’s side on its own verb and finishes', async () => {
     mockCall
       .mockResolvedValueOnce(conflicts)
       .mockResolvedValueOnce({ ok: true, upToDate: false, sha: 'd'.repeat(40), applied: 0 });

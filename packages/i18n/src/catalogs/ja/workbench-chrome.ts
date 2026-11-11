@@ -766,6 +766,7 @@ export const workbenchChrome = {
   'workbench.gitLog.resolve.filesBody':
     '両方の側がこれらのファイルを変更しました。まだ何も書き込まれていません。両方が変更した値について一方の側を採用するか、競合を一つずつ確認してください。',
   'workbench.gitLog.resolve.review': '競合を確認…',
+  'workbench.gitLog.resolve.keepMine': '自分のを保持',
   'workbench.gitLog.resolve.tooLarge':
     '両方の側が {files} を変更しましたが、ファイルが大きすぎるため、ここでは解決できません。何も変更されていません。',
   'workbench.gitLog.forcePush.title': 'リモートの履歴が書き換えられました',
