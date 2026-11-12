@@ -2,7 +2,8 @@
  * LocalChangesFirstModal — the question a pass raises when it is about
  * to write a file that holds uncommitted work (a Cherry-Pick, a Revert,
  * a Pull, a branch Merge): that work has to be committed first, or it
- * would ride into the pass's own commit. The dialog names the files
+ * would ride into the pass's own commit. The dialog names the files —
+ * by what they belong to, as the workbench lists it (`PassFileTree`) —
  * and offers the commit under the pending draft — the person's to edit
  * — or Cancel, which leaves the branch and the tree as they were. Work
  * in any other file is not part of the question: the pass never
@@ -14,7 +15,7 @@ import type React from 'react';
 import { useEffect, useState } from 'react';
 import { type Translate, useT } from '@openheaders/ui/context/LocaleContext';
 import { shortSha } from './commit-apply';
-import PassFileList from './PassFileList';
+import PassFileTree from './PassFileTree';
 
 /** What is about to write the files. */
 export type LocalChangesOperation =
@@ -83,7 +84,7 @@ const LocalChangesFirstModal: React.FC<LocalChangesFirstModalProps> = ({ prompt,
         data-testid="git-tool-local-changes-first"
       >
         <span style={{ fontSize: 12.5 }}>{prompt !== null ? bodyOf(prompt.operation, t) : ''}</span>
-        <PassFileList files={prompt?.files ?? []} testId="git-tool-local-changes-first-files" />
+        {prompt !== null ? <PassFileTree files={prompt.files} testId="git-tool-local-changes-first-files" /> : null}
         <Input.TextArea
           value={message}
           onChange={(event) => setMessage(event.target.value)}

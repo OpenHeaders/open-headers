@@ -762,7 +762,7 @@ export const workbenchChrome = {
   'workbench.gitLog.resolve.mergeTitle': '{ref} 병합: 충돌 해결',
   'workbench.gitLog.resolve.filesBody':
     '양쪽 모두 이 파일들을 변경했습니다. 아직 아무것도 기록되지 않았습니다. 양쪽이 모두 변경한 값에 대해 한쪽을 수락하거나, 각 충돌을 직접 검토하세요.',
-  'workbench.gitLog.resolve.review': '충돌 검토…',
+  'workbench.gitLog.resolve.review': '충돌 검토',
   'workbench.gitLog.resolve.keepMine': '내 것 유지',
   'workbench.gitLog.resolve.otherFiles': '파일',
   'workbench.gitLog.resolve.partDetails': '세부 정보',

@@ -1573,7 +1573,8 @@ test('G28 — a depth-1 clone binds with the shallow tag; a pull whose fork poin
   const commitAndPull = workbench.getByRole('button', { name: 'Commit and Pull' });
   await commitAndPull.waitFor({ state: 'visible' });
   await settleModal();
-  await expect(pane('git-tool-local-changes-first-files')).toHaveText(relPosix(req2, shallowDir));
+  // The question names the request as the workbench does, not its file.
+  await expect(pane('git-tool-local-changes-first-files')).toContainText('Shallow Local');
   expect(at(shallowDir, 'status', '--porcelain')).toBe(`M ${relPosix(req2, shallowDir)}`);
   await pane('git-tool-local-changes-first-message').fill('git e2e: shallow local');
   await commitAndPull.click();

@@ -3,10 +3,10 @@
  * Pull, a branch Merge, a Cherry-Pick, a Revert) found files both sides
  * changed and has written nothing; the dialog names them under the
  * pass's own title — as the editor's files panel will, by what they
- * belong to (`ConflictFilesTree`) — and takes one of three answers: one side for all of
+ * belong to (`PassFileTree`) — and takes one of three answers: one side for all of
  * them (Accept Incoming / Keep Mine — the host rules the values
  * both sides changed for that side and keeps what only one side
- * changed), Review Conflicts… for the editor, where each is answered by
+ * changed), Review Conflicts for the editor, where each is answered by
  * hand, or Cancel, which leaves the branch and the tree as they were.
  * Review is the default: it writes nothing by itself. The two sides sit
  * apart from Cancel and Review, at the footer's start, and the footer
@@ -16,7 +16,7 @@
 import { Button, Modal } from 'antd';
 import type React from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
-import ConflictFilesTree from './ConflictFilesTree';
+import PassFileTree from './PassFileTree';
 
 /** One side for every file: the incoming change's, or the branch's. */
 export type ConflictSide = 'theirs' | 'mine';
@@ -92,7 +92,7 @@ const ConflictFilesModal: React.FC<ConflictFilesModalProps> = ({
     >
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12, paddingTop: 4 }} data-testid="git-tool-conflict-files">
         <span style={{ fontSize: 12.5 }}>{t('workbench.gitLog.resolve.filesBody')}</span>
-        {prompt !== null ? <ConflictFilesTree files={prompt.files} testId="git-tool-conflict-files-list" /> : null}
+        {prompt !== null ? <PassFileTree files={prompt.files} testId="git-tool-conflict-files-list" /> : null}
       </div>
     </Modal>
   );

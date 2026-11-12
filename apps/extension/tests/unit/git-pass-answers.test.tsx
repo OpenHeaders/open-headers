@@ -7,7 +7,7 @@
  * that answers `conflicts` with files names them first under the
  * pass's own title, and goes again with the token and either one side
  * for all of them (Accept Incoming / Keep Mine — no editor) or
- * the answers made in the merge editor (Review Conflicts…), the word
+ * the answers made in the merge editor (Review Conflicts), the word
  * riding that call too; Cancel at any of the three sends nothing more
  * and answers null; any other answer passes through with no dialog. The
  * second pins the branch verbs on it: Pull and Merge into Current each
@@ -136,21 +136,21 @@ beforeEach(() => {
   mockCall.mockReset();
 });
 
-// The files step comes first and Review Conflicts… opens the editor. A click that lands before the step is up does
+// The files step comes first and Review Conflicts opens the editor. A click that lands before the step is up does
 // nothing, so it is repeated until the editor (under `title`, when given) is there.
 const toEditor = (title = ''): Promise<void> =>
   waitFor(() => {
     if (screen.queryByTestId('merge-title')?.textContent?.includes(title)) return;
-    fireEvent.click(screen.getByText('Review Conflicts…'));
+    fireEvent.click(screen.getByText('Review Conflicts'));
     throw new Error('the editor is not open yet');
   });
 
 // The locale context answers English here, so the pin reads the words.
-/** The files step's list as a path: with no workspace behind the pin, a file is named by its directory, then its name. */
-const listedFile = (): string =>
-  [...screen.getByTestId('git-tool-conflict-files-list').querySelectorAll('.rules-sidebar-item-label')]
-    .map((label) => label.textContent)
-    .join('/');
+/** A dialog's list of files, row by row: with no workspace behind the pin, a file is named by its directory, then its name. */
+const namedIn = (testId: string): string[] =>
+  [...screen.getByTestId(testId).querySelectorAll('.rules-sidebar-item-label')].map((label) => label.textContent ?? '');
+/** The files step's one file, as a path. */
+const listedFile = (): string => namedIn('git-tool-conflict-files-list').join('/');
 
 describe('usePassAnswers', () => {
   function mount(): PassAnswers {
@@ -206,7 +206,7 @@ describe('usePassAnswers', () => {
 
     await waitFor(() => expect(screen.getByText(TITLE)).toBeTruthy());
     expect(screen.getByText(/^The pull changes files that hold uncommitted changes of yours\./)).toBeTruthy();
-    expect(screen.getByTestId('git-tool-local-changes-first-files').textContent).toBe(`${REQUEST}${NOTES}`);
+    expect(namedIn('git-tool-local-changes-first-files').join('/')).toBe(`${NOTES}/${REQUEST}`);
     const message = screen.getByTestId('git-tool-local-changes-first-message') as HTMLTextAreaElement;
     expect(message.value).toBe('Update 1 request');
     expect(verb).toHaveBeenCalledTimes(1);
@@ -247,7 +247,7 @@ describe('usePassAnswers', () => {
     expect(screen.getByText('Commit and Pull').closest('button')?.disabled).toBe(true);
   });
 
-  it('conflicts name the files first; Review Conflicts… opens the editor and the answers go back with the token', async () => {
+  it('conflicts name the files first; Review Conflicts opens the editor and the answers go back with the token', async () => {
     const done = { ok: true };
     const verb = verbOf().mockResolvedValueOnce(conflicts).mockResolvedValueOnce(done);
     const answers = mount();
@@ -262,7 +262,7 @@ describe('usePassAnswers', () => {
     expect(screen.queryByTestId('merge-modal')).toBeNull();
     expect(verb).toHaveBeenCalledTimes(1);
 
-    fireEvent.click(screen.getByText('Review Conflicts…'));
+    fireEvent.click(screen.getByText('Review Conflicts'));
     await waitFor(() => expect(screen.getByTestId('merge-title').textContent).toBe('Pull: Resolve Conflicts'));
     expect(screen.getByTestId('merge-files').textContent).toBe(REQUEST);
     expect(verb).toHaveBeenCalledTimes(1);

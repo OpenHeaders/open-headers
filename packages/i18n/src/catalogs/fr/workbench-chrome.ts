@@ -938,7 +938,7 @@ export const workbenchChrome = {
   'workbench.gitLog.resolve.mergeTitle': 'Fusion de {ref} : résoudre les conflits',
   'workbench.gitLog.resolve.filesBody':
     'Les deux côtés ont modifié ces fichiers. Rien n’a encore été écrit. Acceptez un côté pour les valeurs que les deux ont modifiées, ou examinez chaque conflit vous-même.',
-  'workbench.gitLog.resolve.review': 'Examiner les conflits…',
+  'workbench.gitLog.resolve.review': 'Examiner les conflits',
   'workbench.gitLog.resolve.keepMine': 'Garder la mienne',
   'workbench.gitLog.resolve.otherFiles': 'Fichiers',
   'workbench.gitLog.resolve.partDetails': 'Détails',

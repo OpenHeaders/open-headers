@@ -741,7 +741,7 @@ export const workbenchChrome = {
   'workbench.gitLog.resolve.mergeTitle': '合并 {ref}：解决冲突',
   'workbench.gitLog.resolve.filesBody':
     '双方都更改了这些文件。尚未写入任何内容。可对双方都更改的值采用其中一方，或逐个查看冲突。',
-  'workbench.gitLog.resolve.review': '查看冲突…',
+  'workbench.gitLog.resolve.review': '查看冲突',
   'workbench.gitLog.resolve.keepMine': '保留我的',
   'workbench.gitLog.resolve.otherFiles': '文件',
   'workbench.gitLog.resolve.partDetails': '详情',

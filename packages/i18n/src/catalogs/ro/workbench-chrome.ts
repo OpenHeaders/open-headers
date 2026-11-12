@@ -795,7 +795,7 @@ export const workbenchChrome = {
   'workbench.gitLog.resolve.mergeTitle': 'Îmbinarea ramurii {ref}: rezolvarea conflictelor',
   'workbench.gitLog.resolve.filesBody':
     'Ambele părți au modificat aceste fișiere. Încă nu s-a scris nimic. Acceptați o parte pentru valorile modificate de ambele sau examinați fiecare conflict.',
-  'workbench.gitLog.resolve.review': 'Examinare conflicte…',
+  'workbench.gitLog.resolve.review': 'Examinare conflicte',
   'workbench.gitLog.resolve.keepMine': 'Păstrare a mea',
   'workbench.gitLog.resolve.otherFiles': 'Fișiere',
   'workbench.gitLog.resolve.partDetails': 'Detalii',

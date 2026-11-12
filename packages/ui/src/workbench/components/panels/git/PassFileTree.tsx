@@ -1,12 +1,12 @@
 /**
- * ConflictFilesTree — the files of a conflicted pass as the step before
- * the editor names them: by what they belong to, in the tree the
- * editor's files panel draws (`ConflictTree`) — its sections, the
- * collections and entities by name, an entity's several files by part.
- * It names; a row opens nothing, and nothing is counted yet. Scrolls
- * past a handful of rows.
+ * PassFileTree — the files a pass names in a dialog of its own (the
+ * uncommitted-work question, the conflicts step): by what they belong
+ * to, in the tree the merge editor's files panel draws (`ConflictTree`)
+ * — its sections, the collections and entities by name, an entity's
+ * several files by part. It names; a row opens nothing, and nothing is
+ * counted. Scrolls past a handful of rows.
  *
- * Mounted only while the step is open — the workspace is read here.
+ * Mounted only while its dialog is open — the workspace is read here.
  */
 
 import type { MergeFile } from '@openheaders/ui/shared/merge-editor';
@@ -15,8 +15,8 @@ import type { ReactElement } from 'react';
 import ConflictTree from './ConflictTree';
 import { useConflictTree } from './use-conflict-tree';
 
-export interface ConflictFilesTreeProps {
-  /** The files both sides changed, at the branch's paths. */
+export interface PassFileTreeProps {
+  /** The files, at the branch's paths. */
   files: readonly string[];
   testId: string;
 }
@@ -24,7 +24,7 @@ export interface ConflictFilesTreeProps {
 const NO_FILES: readonly MergeFile[] = [];
 const noop = (): void => {};
 
-const ConflictFilesTree = ({ files, testId }: ConflictFilesTreeProps): ReactElement => {
+const PassFileTree = ({ files, testId }: PassFileTreeProps): ReactElement => {
   const { token } = theme.useToken();
   const tree = useConflictTree(files);
   return (
@@ -37,4 +37,4 @@ const ConflictFilesTree = ({ files, testId }: ConflictFilesTreeProps): ReactElem
   );
 };
 
-export default ConflictFilesTree;
+export default PassFileTree;

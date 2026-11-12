@@ -18,7 +18,7 @@
  *
  * Handed one `section` (a surface), it lists that surface alone — the
  * strip's flyout while the panel is shut. As a `listing` it names the
- * files and opens none — the step before the editor (`ConflictFilesTree`).
+ * files and opens none — a pass's own dialogs (`PassFileTree`).
  */
 
 import { CheckCircleFilled, FileTextOutlined, FolderOpenOutlined, FolderOutlined, WarningFilled } from '@ant-design/icons';

@@ -126,22 +126,22 @@ function mount(): CommitApplyActions {
   return actions;
 }
 
-// The files step comes first and Review Conflicts… opens the editor. A click that lands before the step is up does
+// The files step comes first and Review Conflicts opens the editor. A click that lands before the step is up does
 // nothing, so it is repeated until the editor (under `title`, when given) is there.
 const toEditor = (title = ''): Promise<void> =>
   waitFor(() => {
     if (screen.queryByTestId('merge-title')?.textContent?.includes(title)) return;
-    fireEvent.click(screen.getByText('Review Conflicts…'));
+    fireEvent.click(screen.getByText('Review Conflicts'));
     throw new Error('the editor is not open yet');
   });
 
 const calledShas = (): string[] => mockCall.mock.calls.map(([, payload]) => (payload as { sha: string }).sha);
 
-/** The files step's list as a path: with no workspace behind the pin, a file is named by its directory, then its name. */
-const listedFile = (): string =>
-  [...screen.getByTestId('git-tool-conflict-files-list').querySelectorAll('.rules-sidebar-item-label')]
-    .map((label) => label.textContent)
-    .join('/');
+/** A dialog's list of files, row by row: with no workspace behind the pin, a file is named by its directory, then its name. */
+const namedIn = (testId: string): string[] =>
+  [...screen.getByTestId(testId).querySelectorAll('.rules-sidebar-item-label')].map((label) => label.textContent ?? '');
+/** The files step's one file, as a path. */
+const listedFile = (): string => namedIn('git-tool-conflict-files-list').join('/');
 
 describe('commitApplyOrder', () => {
   it('a pick replays oldest first; a revert unwinds newest first', () => {
@@ -301,7 +301,7 @@ describe('useCommitApply — a conflict answered in the merge editor', () => {
     await waitFor(() => expect(listedFile()).toBe(RULE));
     expect(screen.getByText('Cherry-Pick ccccccc: Resolve Conflicts')).toBeTruthy();
     expect(screen.queryByTestId('merge-modal')).toBeNull();
-    fireEvent.click(screen.getByText('Review Conflicts…'));
+    fireEvent.click(screen.getByText('Review Conflicts'));
 
     await waitFor(() =>
       expect(screen.getByTestId('merge-title').textContent).toBe('Cherry-Pick ccccccc: Resolve Conflicts'),
@@ -448,7 +448,7 @@ describe('useCommitApply — uncommitted work in a file the commit writes', () =
     act(() => actions.cherryPick([NEWEST]));
 
     await waitFor(() => expect(screen.getByText('Commit your changes to these files first?')).toBeTruthy());
-    expect(screen.getByTestId('git-tool-local-changes-first-files').textContent).toBe(REQUEST);
+    expect(namedIn('git-tool-local-changes-first-files').join('/')).toBe(REQUEST);
     const message = screen.getByTestId('git-tool-local-changes-first-message') as HTMLTextAreaElement;
     expect(message.value).toBe('Update 1 request');
     expect(mockCall).toHaveBeenCalledTimes(1);
