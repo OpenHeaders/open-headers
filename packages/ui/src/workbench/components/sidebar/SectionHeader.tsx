@@ -75,7 +75,8 @@ export function SectionHeader({
  * one row — the node's icon plus the section-title typography — whose
  * click opens the node's editor tab directly instead of expanding a
  * caret over a single nested leaf. `actions` sit at the row's end, as a
- * section header's do.
+ * section header's do. The title wears the node's `labelColor`, as a
+ * tree row's name does.
  */
 export function SectionOpenerRow({
   title,
@@ -107,7 +108,7 @@ export function SectionOpenerRow({
       <span className="rules-sidebar-section-title" style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
         {leading && <Leading>{leading}</Leading>}
         {node.icon}
-        {title}
+        {node.labelColor ? <span style={{ color: node.labelColor }}>{title}</span> : title}
       </span>
       {actions}
     </div>

@@ -39,7 +39,7 @@ import {
   type CommitRowMenuHandlers,
 } from '@openheaders/ui/workbench/components/panels/git/commit/commit-row-menu';
 import { namedSections } from '@openheaders/ui/workbench/components/panels/git/named-file-tree';
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { App as AntApp } from 'antd';
 import { useState } from 'react';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
@@ -396,6 +396,13 @@ describe('CommitChangesTree, by what the files belong to', () => {
     expect(byKey('changes:dir:docs').getAttribute('data-testid')).toBe('commit-tool-dir');
     expect(byKey('changes:dir:docs').getAttribute('data-key')).toBe('docs');
     expect(byKey('changes:requests:req00003').getAttribute('data-testid')).toBe('commit-tool-named');
+  });
+
+  it('a page’s title wears its change, as a row’s name does', () => {
+    renderTree();
+    const staging = byKey(`file:${STAGING}`).querySelector<HTMLElement>('.rules-sidebar-item-label')?.style.color ?? '';
+    expect(staging).not.toBe('');
+    expect(within(byKey(`file:${WORKSPACE_FILE}`)).getByText('Workspace').style.color).toBe(staging);
   });
 
   it('a row’s checkbox flips exactly the files under it and reads tri-state up its containers; the ignored group carries none', () => {

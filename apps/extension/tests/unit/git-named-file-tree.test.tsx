@@ -294,6 +294,8 @@ describe('NamedFileTree', () => {
     expect(colourOf(BODY)).not.toBe(colourOf(MANIFEST));
     expect(colourOf('requests:req00003')).toBe(colourOf(MANIFEST));
     expect(colourOf('requests:col00001')).toBe('');
+    // The workspace's variables are the header-styled opener: its title wears the change too.
+    expect(screen.getByText('WORKSPACE VARIABLES').style.color).toBe(colourOf(MANIFEST));
   });
 
   it('a click selects a row and reports its file; Shift+click ranges across entities, parts and the opener', () => {
