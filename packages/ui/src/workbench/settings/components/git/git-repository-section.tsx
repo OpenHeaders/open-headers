@@ -75,14 +75,15 @@ const GitRepositorySection: React.FC<{ git: WorkspaceGit }> = ({ git }) => {
     keptLocal?: string[];
     committedLocal?: string[];
     skipped?: { path: string }[];
-  }): void => {
-    const kept = keptLocalNotice(result.keptLocal, t);
-    if (kept !== null) message.warning(kept, 8);
-    const first = committedLocalNotice(result.committedLocal, t);
-    if (first !== null) message.info(first, 8);
-    const leftOut = leftOutNotice(result.skipped, t);
-    if (leftOut !== null) message.warning(leftOut, 8);
-  };
+  }): void =>
+    answers.say((nameOf) => {
+      const kept = keptLocalNotice(result.keptLocal, t, nameOf);
+      if (kept !== null) message.warning(kept, 8);
+      const first = committedLocalNotice(result.committedLocal, t, nameOf);
+      if (first !== null) message.info(first, 8);
+      const leftOut = leftOutNotice(result.skipped, t, nameOf);
+      if (leftOut !== null) message.warning(leftOut, 8);
+    });
   const [commitMessage, setCommitMessage] = useState('');
   const [committing, setCommitting] = useState(false);
   const [commitError, setCommitError] = useState<string | null>(null);

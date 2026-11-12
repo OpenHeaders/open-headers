@@ -135,14 +135,15 @@ export function useGitBranchActions(options: GitBranchActionsOptions): GitBranch
     keptLocal?: string[];
     committedLocal?: string[];
     skipped?: { path: string }[];
-  }): void => {
-    const kept = keptLocalNotice(result.keptLocal, t);
-    if (kept !== null) notification.warning({ title: kept, duration: 8 });
-    const first = committedLocalNotice(result.committedLocal, t);
-    if (first !== null) notification.info({ title: first, duration: 8 });
-    const leftOut = leftOutNotice(result.skipped, t);
-    if (leftOut !== null) notification.warning({ title: leftOut, duration: 0 });
-  };
+  }): void =>
+    answers.say((nameOf) => {
+      const kept = keptLocalNotice(result.keptLocal, t, nameOf);
+      if (kept !== null) notification.warning({ title: kept, duration: 8 });
+      const first = committedLocalNotice(result.committedLocal, t, nameOf);
+      if (first !== null) notification.info({ title: first, duration: 8 });
+      const leftOut = leftOutNotice(result.skipped, t, nameOf);
+      if (leftOut !== null) notification.warning({ title: leftOut, duration: 0 });
+    });
 
   // Checkout (§6): the wrapped switch; a dirty tree answers `dirty`
   // with the count and the §6.2 prompt re-enters the verb with the

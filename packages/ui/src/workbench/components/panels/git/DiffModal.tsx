@@ -2,7 +2,8 @@
  * DiffModal — one file's change in one commit as an old/new Monaco
  * pair (the workbench RichDiffEditor), with plain notices for binary
  * and over-cap blobs. Lifted out of the orchestrator unchanged in
- * behavior; the diff data arrives fetched.
+ * behavior; the diff data arrives fetched. The title names the file as
+ * the workbench names it (`NamedFileTitle`).
  */
 
 import type { WorkspaceTreeFileDiffPairWire } from '@openheaders/core/bridge';
@@ -16,6 +17,7 @@ import {
   type DiffViewerOptions,
   RichDiffEditor,
 } from '@openheaders/ui/workbench/components/diff-viewer';
+import NamedFileTitle from './NamedFileTitle';
 
 /** Monaco language for a tree path — the workspace tree is YAML-first. */
 function diffLanguage(filePath: string): string {
@@ -36,7 +38,7 @@ const DiffModal: React.FC<DiffModalProps> = ({ diff, onClose }) => {
   return (
     <Modal
       open={diff !== null}
-      title={diff !== null ? t('workbench.gitLog.diff.title', { path: diff.path }) : ''}
+      title={diff !== null ? <NamedFileTitle messageKey="workbench.gitLog.diff.title" path={diff.path} /> : ''}
       onCancel={onClose}
       footer={null}
       width="82%"

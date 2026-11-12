@@ -65,14 +65,15 @@ export function useCommitApply(workspaceId: string): CommitApplyActions {
   };
 
   /** What a commit's pass left behind, whether it recorded a commit or not. */
-  const sayRemainder = (result: WorkspaceTreeApplyCommitWire): void => {
-    const leftOut = leftOutNotice(result.skipped, t);
-    if (leftOut !== null) notification.warning({ title: leftOut, duration: 0 });
-    const kept = keptLocalNotice(result.keptLocal, t);
-    if (kept !== null) notification.warning({ title: kept, duration: 0 });
-    const first = result.ok ? committedLocalNotice(result.committedLocal, t) : null;
-    if (first !== null) notification.info({ title: first, duration: 0 });
-  };
+  const sayRemainder = (result: WorkspaceTreeApplyCommitWire): void =>
+    answers.say((nameOf) => {
+      const leftOut = leftOutNotice(result.skipped, t, nameOf);
+      if (leftOut !== null) notification.warning({ title: leftOut, duration: 0 });
+      const kept = keptLocalNotice(result.keptLocal, t, nameOf);
+      if (kept !== null) notification.warning({ title: kept, duration: 0 });
+      const first = result.ok ? committedLocalNotice(result.committedLocal, t, nameOf) : null;
+      if (first !== null) notification.info({ title: first, duration: 0 });
+    });
 
   const run = async (shas: readonly string[], mode: CommitApplyMode): Promise<void> => {
     let applied = 0;

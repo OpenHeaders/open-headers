@@ -702,6 +702,10 @@ test('G3 — a live hand edit sweeps in: the file joins Changes, the counter rea
   await waitDirty();
   await expect(changeRow(req1)).toBeVisible();
   await expect(pane('commit-tool-counter')).toContainText('1 modified');
+  // The row reads as the workbench names the request, under its panel's section — never as its file.
+  await expect(pane('commit-tool-section-changes-requests')).toBeVisible();
+  await expect(changeRow(req1)).toContainText('Status Probe Renamed');
+  await expect(changeRow(req1)).not.toContainText('request.yaml');
 
   await commitWithMessage('git e2e: status probe renamed');
   expect(ws('log', '-1', '--format=%s')).toBe('git e2e: status probe renamed');

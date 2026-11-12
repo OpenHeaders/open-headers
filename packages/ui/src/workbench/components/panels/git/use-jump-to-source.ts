@@ -2,7 +2,8 @@
  * useJumpToSource — the surface-side half of Jump to Source: open the
  * entity a named row knows, else run the jump for a path, and raise the
  * one notice when nothing opened (the user's own file, or a host
- * without the verb).
+ * without the verb) — naming the entity when a row gave one, the path
+ * otherwise.
  */
 
 import type { WorkspaceTreeEntityRefWire } from '@openheaders/core/bridge';
@@ -21,7 +22,7 @@ export function useJumpToSource(workspaceId: string): JumpToSource {
     (path, entity) => {
       const settle = (outcome: JumpToSourceOutcome): void => {
         if (outcome === 'opened') return;
-        const named = path ?? entity?.name ?? '';
+        const named = entity?.name || path || '';
         notification.info({ title: t('workbench.gitLog.jumpToSource.noEditor', { path: named }), duration: 5 });
       };
       if (entity !== undefined) settle(jumpToEntity(entity));

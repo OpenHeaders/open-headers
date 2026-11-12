@@ -3,6 +3,7 @@
  * the newest entry is "who last touched this". Fetches on open,
  * renders sha · subject · author line · co-authors per entry; typed
  * refusals render inline. Panel-scoped like every Git window dialog.
+ * The title names the file as the workbench names it (`NamedFileTitle`).
  */
 
 import { hostBridge, type WorkspaceTreeLogEntryWire } from '@openheaders/core/bridge';
@@ -10,6 +11,7 @@ import { Modal, Spin, theme } from 'antd';
 import type React from 'react';
 import { useEffect, useState } from 'react';
 import { useLocale } from '@openheaders/ui/context/LocaleContext';
+import NamedFileTitle from './NamedFileTitle';
 
 const HISTORY_LIMIT = 50;
 
@@ -56,7 +58,7 @@ const FileHistoryModal: React.FC<FileHistoryModalProps> = ({ workspaceId, path, 
   return (
     <Modal
       open={path !== null}
-      title={path !== null ? t('workbench.gitLog.fileHistory.title', { path }) : ''}
+      title={path !== null ? <NamedFileTitle messageKey="workbench.gitLog.fileHistory.title" path={path} /> : ''}
       footer={null}
       onCancel={onClose}
       width={560}

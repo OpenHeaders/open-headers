@@ -18,6 +18,10 @@
  * Each answer rides the next call of the same verb, the word included
  * when the editor's answers go. Cancel at either sends nothing more and
  * says nothing: the branch and the tree stay as they were.
+ *
+ * What the surface says of the pass's files afterwards it says through
+ * `say`, which lends it the workbench's names for them
+ * (`use-named-notices`).
  */
 
 import type { WorkspaceTreeApplyCommitResolutionWire } from '@openheaders/core/bridge';
@@ -25,6 +29,7 @@ import { type Translate, useT } from '@openheaders/ui/context/LocaleContext';
 import { type ReactNode, useCallback } from 'react';
 import { shortSha } from './commit-apply';
 import type { LocalChangesOperation } from './LocalChangesFirstModal';
+import { type NamedNotices, useNamedNotices } from './use-named-notices';
 import { type ConflictsRefusal, useConflictAnswers } from './use-conflict-answers';
 import { type CommitLocalWord, type LocalChangesRefusal, useLocalChangesQuestion } from './use-local-changes-question';
 
@@ -47,6 +52,8 @@ export interface PassAnswers {
     operation: LocalChangesOperation,
     verb: (answers: PassAnswerSet) => Promise<R>,
   ) => Promise<R | null>;
+  /** Say what a finished pass did with the person's files, the files named as the workbench names them. */
+  say: NamedNotices['say'];
   /**
    * The question, the conflicts step and the conflict editor — mount once
    * in the caller's tree. All three center on the window, whichever
@@ -71,6 +78,7 @@ export function usePassAnswers(): PassAnswers {
   const t = useT();
   const { ask, dialog: questionDialog } = useLocalChangesQuestion();
   const { answer, dialog: editorDialog } = useConflictAnswers();
+  const { say, holder } = useNamedNotices();
 
   // Stable across renders — a caller may hold it in a callback's dependencies.
   const run = useCallback(
@@ -96,10 +104,12 @@ export function usePassAnswers(): PassAnswers {
 
   return {
     run,
+    say,
     dialogs: (
       <>
         {questionDialog}
         {editorDialog}
+        {holder}
       </>
     ),
   };

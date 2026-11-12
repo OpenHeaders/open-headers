@@ -347,6 +347,7 @@ const CommitToolPanel: React.FC<CommitToolPanelProps> = ({ info, onHide }) => {
   // uncommitted work in a file it is about to write, and about a value
   // both sides changed; Cancel there is not a failure.
   const answerPass = answers.run;
+  const sayOfPass = answers.say;
   const handlePull = useCallback(async (): Promise<boolean> => {
     if (workspaceId === null) return false;
     try {
@@ -378,19 +379,23 @@ const CommitToolPanel: React.FC<CommitToolPanelProps> = ({ info, onHide }) => {
           t(result.upToDate ? 'workbench.commitTool.menu.pullUpToDate' : 'workbench.commitTool.menu.pullDone'),
         );
       }
-      const kept = result.upToDate ? null : keptLocalNotice(result.keptLocal, t);
-      if (kept !== null) message.warning(kept, 8);
-      const first = result.upToDate ? null : committedLocalNotice(result.committedLocal, t);
-      if (first !== null) message.info(first, 8);
-      const leftOut = result.upToDate ? null : leftOutNotice(result.skipped, t);
-      if (leftOut !== null) message.warning(leftOut, 8);
+      if (!result.upToDate) {
+        sayOfPass((nameOf) => {
+          const kept = keptLocalNotice(result.keptLocal, t, nameOf);
+          if (kept !== null) message.warning(kept, 8);
+          const first = committedLocalNotice(result.committedLocal, t, nameOf);
+          if (first !== null) message.info(first, 8);
+          const leftOut = leftOutNotice(result.skipped, t, nameOf);
+          if (leftOut !== null) message.warning(leftOut, 8);
+        });
+      }
       await refreshChanges();
       return true;
     } catch (err) {
       setError((err as Error).message);
       return false;
     }
-  }, [workspaceId, message, refreshChanges, t, answerPass]);
+  }, [workspaceId, message, refreshChanges, t, answerPass, sayOfPass]);
 
   const handleFetch = useCallback(async (): Promise<void> => {
     if (workspaceId === null) return;

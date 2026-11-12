@@ -278,6 +278,18 @@ function environmentFile(name: string): { part: WorkspaceFilePart; stem: string 
   );
 }
 
+/**
+ * The part of its entity a file holds, by where it is and what it is
+ * called alone — null for one with no name of its own, undefined for a
+ * file outside the directories the workspace keeps its entities in.
+ */
+export function workspaceFilePartAt(path: string): WorkspaceFilePart | null | undefined {
+  const root = rootOf(path);
+  if (!Object.hasOwn(TREE_SECTIONS, root)) return undefined;
+  const name = nameOf(path);
+  return root === ENVIRONMENTS_DIR ? (environmentFile(name)?.part ?? null) : workspaceFilePartOf(name);
+}
+
 function partNode(file: string, part: WorkspaceFilePart | null): PartNode {
   return { type: 'part', id: file, part, name: nameOf(file), file };
 }
