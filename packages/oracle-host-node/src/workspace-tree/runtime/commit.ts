@@ -17,7 +17,14 @@ import {
   userIndexHasStagedChanges,
   withCommitAttribution,
 } from '../../git';
-import { CADENCE_INTERVAL_MS, COMMIT_QUIESCENCE_MS, type OpenBinding, type RuntimeCtx, SCOPE } from './core';
+import {
+  CADENCE_INTERVAL_MS,
+  COMMIT_QUIESCENCE_MS,
+  COMMIT_STAND_DOWN_MAX_WAIT_MS,
+  type OpenBinding,
+  type RuntimeCtx,
+  SCOPE,
+} from './core';
 import type { CommitWorkspaceTreeRpcResult } from './types';
 
 /** The synthetic fallback for commits nothing in git config covers (§11.3). */
@@ -95,10 +102,22 @@ export async function runCommit(
 }
 
 /**
+ * How long the `auto` cadence waits before it tries again after
+ * `standDowns` passes in a row found the index locked: the quiescence,
+ * doubled each time, to a minute at most.
+ */
+export function standDownRetryMs(standDowns: number): number {
+  return Math.min(COMMIT_QUIESCENCE_MS * 2 ** standDowns, COMMIT_STAND_DOWN_MAX_WAIT_MS);
+}
+
+/**
  * One automated commit pass, shared by every cadence trigger
  * (quiescence, blur, interval): pauses while the user's own index is
  * non-empty (§3.3), then runs the ordinary commit path (no-op trees
- * never produce empty commits).
+ * never produce empty commits). A pass that finds the index locked
+ * stands down; under `auto` — where nothing else would try again before
+ * the next edit — it re-arms itself, each wait longer than the last,
+ * and only the first stand-down of a run is logged.
  */
 export function enqueueAutoCommit(ctx: RuntimeCtx, binding: OpenBinding, trigger: string): void {
   ctx.enqueue(binding, async () => {
@@ -114,22 +133,33 @@ export function enqueueAutoCommit(ctx: RuntimeCtx, binding: OpenBinding, trigger
     const result = await runCommit(ctx, binding);
     if (!result.ok && result.reason === 'index-locked') {
       // Another git process is writing the index: the work waits for the cadence's next trigger.
-      logger.info(SCOPE, `${trigger} commit stood down for ${binding.record.rootDir}: the index is locked`);
-    } else if (!result.ok) {
-      logger.warn(SCOPE, `${trigger} commit failed for ${binding.record.rootDir}: ${result.reason}`);
-    } else if (result.committed) await ctx.maybeAutoPush(binding);
+      if (binding.commitStandDowns === 0) {
+        logger.info(SCOPE, `${trigger} commit stood down for ${binding.record.rootDir}: the index is locked`);
+      }
+      // An edit that arrived meanwhile has already armed the quiescence — that timer stands.
+      if (!binding.commitTimer) scheduleAutoCommit(ctx, binding, standDownRetryMs(binding.commitStandDowns));
+      binding.commitStandDowns += 1;
+    } else {
+      binding.commitStandDowns = 0;
+      if (!result.ok) {
+        logger.warn(SCOPE, `${trigger} commit failed for ${binding.record.rootDir}: ${result.reason}`);
+      } else if (result.committed) await ctx.maybeAutoPush(binding);
+    }
     await ctx.publishGitStatus(binding);
   });
 }
 
-/** Cadence `auto`: commit after quiescence, pausing while the user's index is non-empty (§3.3). */
-export function scheduleAutoCommit(ctx: RuntimeCtx, binding: OpenBinding): void {
+/**
+ * Cadence `auto`: commit after quiescence, pausing while the user's
+ * index is non-empty (§3.3). `waitMs` is the stand-down's longer wait.
+ */
+export function scheduleAutoCommit(ctx: RuntimeCtx, binding: OpenBinding, waitMs: number = COMMIT_QUIESCENCE_MS): void {
   if (binding.closed || (binding.record.commitCadence ?? 'off') !== 'auto') return;
   if (binding.commitTimer) clearTimeout(binding.commitTimer);
   binding.commitTimer = setTimeout(() => {
     binding.commitTimer = null;
     enqueueAutoCommit(ctx, binding, 'auto');
-  }, COMMIT_QUIESCENCE_MS);
+  }, waitMs);
 }
 
 /**

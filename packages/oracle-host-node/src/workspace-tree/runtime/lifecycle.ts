@@ -68,6 +68,7 @@ export async function openBinding(ctx: RuntimeCtx, record: WorkspaceTreeBindingR
     chain: Promise.resolve(),
     materializeTimer: null,
     commitTimer: null,
+    commitStandDowns: 0,
     commitInterval: null,
     fetchInterval: null,
     lastFetchAt: 0,

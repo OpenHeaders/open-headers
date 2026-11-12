@@ -46,6 +46,13 @@ export const MATERIALIZE_DEBOUNCE_MS = 500;
  */
 export const COMMIT_QUIESCENCE_MS = 2_000;
 
+/**
+ * The longest the `auto` cadence waits before it tries again after
+ * finding the index locked — its wait doubles from the quiescence up to
+ * this, so a lock nobody releases costs one try a minute.
+ */
+export const COMMIT_STAND_DOWN_MAX_WAIT_MS = 60_000;
+
 /** Intent ring cap — beyond this the semantic message is already a summary. */
 export const MAX_PENDING_INTENTS = 1_000;
 
@@ -92,6 +99,8 @@ export interface OpenBinding {
   materializeTimer: NodeJS.Timeout | null;
   /** Auto-commit quiescence timer (cadence `auto` only). */
   commitTimer: NodeJS.Timeout | null;
+  /** Automated commit passes in a row that found the index locked — the `auto` cadence's next wait grows with it. */
+  commitStandDowns: number;
   /** Wall-clock commit interval (cadence `every-Nm` only). */
   commitInterval: NodeJS.Timeout | null;
   /** Background fetch interval (§3.2 — always on while bound). */
