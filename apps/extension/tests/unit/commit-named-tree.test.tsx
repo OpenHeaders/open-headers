@@ -381,7 +381,8 @@ describe('CommitChangesTree, by what the files belong to', () => {
       'readme.md',
     ]);
     expect(labelsIn('unversioned')).toEqual(['Orders', 'Refund Order', 'notes', 'new.md']);
-    expect(labelsIn('ignored')).toEqual(['Staging']);
+    // An entity's one listed file that is not its details says which of its files it is.
+    expect(labelsIn('ignored')).toEqual(['Staging · Secret Values']);
     expect(screen.getByTestId('commit-tool-named-changes').textContent).not.toContain('request.yaml');
     expect(byKey(`file:${STAGING_SECRETS}`).textContent).toContain('.gitignore');
   });

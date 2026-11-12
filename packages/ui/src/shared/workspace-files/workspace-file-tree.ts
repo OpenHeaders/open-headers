@@ -25,7 +25,9 @@
  * workspace still holds is its own row, one it does not is a former row
  * too. Without that it is listed under Files, by its directory.
  *
- *   - an entity with one file is the row that stands for it;
+ *   - an entity with one file is the row that stands for it — and
+ *     keeps that file's part when it is not the entity's details, so
+ *     the row can say which of its files it is;
  *   - one with several lists them under it by the part of the entity
  *     each holds (its details, its body, a script), a part with no name
  *     of its own by its file name;
@@ -189,8 +191,19 @@ interface FormerRow {
 }
 
 export type WorkspaceFileNode =
-  /** `file` set: the row stands for that file. Otherwise its parts and what it holds are under it. */
-  | { type: 'entity'; id: string; entity: WorkspaceFileEntity; file?: string; children: WorkspaceFileNode[] }
+  /**
+   * `file` set: the row stands for that file — `part` with it when the
+   * file is not the entity's details (null = named by its file).
+   * Otherwise its parts and what it holds are under it.
+   */
+  | {
+      type: 'entity';
+      id: string;
+      entity: WorkspaceFileEntity;
+      file?: string;
+      part?: WorkspaceFilePart | null;
+      children: WorkspaceFileNode[];
+    }
   /** One file of an entity that lists several; `part` null = named by its file. */
   | { type: 'part'; id: string; part: WorkspaceFilePart | null; name: string; file: string }
   | { type: 'directory'; id: string; path: string; children: WorkspaceFileNode[] }
@@ -231,7 +244,11 @@ export interface ListedWorkspaceFile {
   surface: WorkspaceFileSurface;
   /** The entity the file belongs to; absent for one of the user's own files. */
   entity?: WorkspaceFileEntity;
-  /** Set when the entity lists several files: this one's part, null = named by its file. */
+  /**
+   * The file's part of its entity, null = named by its file — set when
+   * the entity lists several files, and on its one listed file when
+   * that is not its details.
+   */
   part?: WorkspaceFilePart | null;
   /** The file's name. */
   name: string;
@@ -278,18 +295,6 @@ function environmentFile(name: string): { part: WorkspaceFilePart; stem: string 
   );
 }
 
-/**
- * The part of its entity a file holds, by where it is and what it is
- * called alone — null for one with no name of its own, undefined for a
- * file outside the directories the workspace keeps its entities in.
- */
-export function workspaceFilePartAt(path: string): WorkspaceFilePart | null | undefined {
-  const root = rootOf(path);
-  if (!Object.hasOwn(TREE_SECTIONS, root)) return undefined;
-  const name = nameOf(path);
-  return root === ENVIRONMENTS_DIR ? (environmentFile(name)?.part ?? null) : workspaceFilePartOf(name);
-}
-
 function partNode(file: string, part: WorkspaceFilePart | null): PartNode {
   return { type: 'part', id: file, part, name: nameOf(file), file };
 }
@@ -307,7 +312,11 @@ function partsOf(files: readonly string[]): PartNode[] {
     .map(({ file, part }) => partNode(file, part));
 }
 
-/** An entity's row: the file itself when it is all there is, its parts and what it holds otherwise. */
+/**
+ * An entity's row: the file itself when it is all there is — with its
+ * part unless it is the entity's details — its parts and what it holds
+ * otherwise.
+ */
 function entityNode(
   id: string,
   entity: WorkspaceFileEntity,
@@ -315,7 +324,10 @@ function entityNode(
   held: WorkspaceFileNode[],
 ): WorkspaceFileNode | null {
   if (parts.length === 0 && held.length === 0) return null;
-  if (parts.length === 1 && held.length === 0) return { type: 'entity', id, entity, file: parts[0].file, children: [] };
+  if (parts.length === 1 && held.length === 0) {
+    const [{ file, part }] = parts;
+    return { type: 'entity', id, entity, file, ...(part !== 'details' ? { part } : {}), children: [] };
+  }
   return { type: 'entity', id, entity, children: [...parts, ...held] };
 }
 
@@ -591,7 +603,13 @@ export function listedWorkspaceFiles(sections: readonly WorkspaceFileSection[]):
     for (const node of nodes) {
       if (node.type === 'entity') {
         if (node.file !== undefined) {
-          out.push({ path: node.file, surface, entity: node.entity, name: nameOf(node.file) });
+          out.push({
+            path: node.file,
+            surface,
+            entity: node.entity,
+            ...(node.part !== undefined ? { part: node.part } : {}),
+            name: nameOf(node.file),
+          });
         }
         visit(surface, node.children, node.entity);
       } else if (node.type === 'directory') {

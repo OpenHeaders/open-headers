@@ -4,7 +4,8 @@
  * by path and, where the entity has moved or an environment has been
  * renamed, by the uid in the name; the pruning to what holds a listed
  * file, the one-file row against the parts of an entity that lists
- * several, the sections and their order under each surface, the pages
+ * several, the part a one-file row keeps when its file is not the
+ * entity's details, the sections and their order under each surface, the pages
  * (the vault, the workspace's variables, the workspace, its trusted
  * certificates) as one row each, an environment's secrets as parts,
  * the user's own files by directory, every file listed once, the flat
@@ -116,6 +117,19 @@ describe('workspaceFileTree', () => {
     expect(shapes([`${LIST}/request.yaml`])).toEqual([
       `api-requests/requests: Orders{Reads{List Orders[${LIST}/request.yaml]}}`,
     ]);
+  });
+
+  it('an entity’s one listed file keeps its part unless it is the entity’s details — the row can say which file it is', () => {
+    const lone = (path: string) =>
+      listedWorkspaceFiles(workspaceFileTree([path], WORKSPACE)).map((file) => [file.entity !== undefined, file.part]);
+    expect(lone(`${CREATE}/request.yaml`)).toEqual([[true, undefined]]);
+    expect(lone(`${CREATE}/body.json`)).toEqual([[true, 'body']]);
+    expect(lone(`${CREATE}/notes.txt`)).toEqual([[true, null]]);
+    expect(lone(environmentFilePath(STAGING))).toEqual([[true, undefined]]);
+    expect(lone(environmentSecretTemplateFilePath(STAGING))).toEqual([[true, 'secret-names']]);
+    expect(lone(environmentSecretFilePath(STAGING))).toEqual([[true, 'secret-values']]);
+    expect(lone('workspace.yaml')).toEqual([[true, undefined]]);
+    expect(lone('notes/orders.md')).toEqual([[false, undefined]]);
   });
 
   it('an entity with several lists them by part — the details first, a part with no name of its own by its file', () => {

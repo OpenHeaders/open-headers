@@ -3,8 +3,10 @@
  * (`workspace-file-tree`) reads and is drawn: the section's title as
  * its panel shows it, an entity by its name and its panel's own icon, a
  * part by the word its editor uses ("Details" for the entity's
- * manifest), a page (the vault, the workspace's variables, the
- * workspace, its trusted certificates) as a header-styled row, a file
+ * manifest), an entity's row that stands for one file other than its
+ * details by its name and that part ("Staging · Secret Values"), a page
+ * (the vault, the workspace's variables, the workspace, its trusted
+ * certificates) as a header-styled row, a file
  * of the user's own by its name and file-type icon. An entity the
  * workspace no longer holds reads as its commit named it, in its kind's
  * icon.
@@ -22,6 +24,7 @@ import { type Translate, useT } from '@openheaders/ui/context/LocaleContext';
 import { useRules } from '@openheaders/ui/shared/hooks/readers/useRules';
 import type {
   FormerEntity,
+  ListedWorkspaceFile,
   WorkspaceFileEntity,
   WorkspaceFileNode,
   WorkspaceFilePage,
@@ -35,6 +38,7 @@ import { buildRuleIcon } from '../../shared/rule-icon';
 import { scopeBadge } from '../../shared/scope-colors';
 import { renderTwoToneIcon } from '../../shared/TwoToneIconPicker';
 import { folderTag, graphqlTag, grpcTag, iconEl, methodTag, mqttTag, websocketTag } from '../../sidebar/icons';
+import { baseName } from './commit/commit-tree-nav';
 import { FileTypeIcon } from './commit/FileTypeIcon';
 
 const SECTION_TITLES: Readonly<Record<WorkspaceFileSectionId, MessageKey>> = {
@@ -95,6 +99,29 @@ export function workspaceFileEntityName(t: Translate, entity: WorkspaceFileEntit
   // A manifest may carry no name: its uid is what is left to tell it by.
   if (entity.kind === 'former') return entity.was.name || entity.was.uid;
   return 'name' in entity ? entity.name : t(PAGE_NAMES[entity.kind]);
+}
+
+/** An entity's file on one line: the entity, then the part of it the file holds. */
+function entityFileLine(
+  t: Translate,
+  entity: WorkspaceFileEntity,
+  part: WorkspaceFilePart | null,
+  file: string,
+): string {
+  return `${workspaceFileEntityName(t, entity)} · ${workspaceFilePartLabel(t, part, baseName(file))}`;
+}
+
+/**
+ * The one line a listed file goes by outside a tree: its entity, and
+ * its part where the listing gives one — the entity lists several
+ * files, or this one is not its details; a file no entity owns by its
+ * path.
+ */
+export function workspaceFileLine(t: Translate, file: ListedWorkspaceFile): string {
+  if (file.entity === undefined) return file.path;
+  return file.part === undefined
+    ? workspaceFileEntityName(t, file.entity)
+    : entityFileLine(t, file.entity, file.part, file.path);
 }
 
 export interface WorkspaceFileFace {
@@ -163,7 +190,11 @@ export function useWorkspaceFileFace(): WorkspaceFileFace {
     return {
       sectionTitle: (id) => t(SECTION_TITLES[id]),
       labelOf: (node) => {
-        if (node.type === 'entity') return workspaceFileEntityName(t, node.entity);
+        if (node.type === 'entity') {
+          return node.file === undefined || node.part === undefined
+            ? workspaceFileEntityName(t, node.entity)
+            : entityFileLine(t, node.entity, node.part, node.file);
+        }
         if (node.type === 'part') return workspaceFilePartLabel(t, node.part, node.name);
         return node.type === 'directory' ? node.path : node.name;
       },

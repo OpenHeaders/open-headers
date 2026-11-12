@@ -7,23 +7,15 @@
  * Mounted only while the merge editor is open.
  */
 
-import { type Translate, useT } from '@openheaders/ui/context/LocaleContext';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import {
-  type ListedWorkspaceFile,
   listedWorkspaceFiles,
   type WorkspaceFileSection,
   workspaceFileTree,
 } from '@openheaders/ui/shared/workspace-files';
 import { useMemo } from 'react';
 import { useListedWorkspace } from './use-listed-workspace';
-import { workspaceFileEntityName, workspaceFilePartLabel } from './workspace-file-face';
-
-/** The one line a file goes by outside the tree — its entity, and its part where the entity lists several. */
-function fileLabel(t: Translate, file: ListedWorkspaceFile): string {
-  if (file.entity === undefined) return file.path;
-  const name = workspaceFileEntityName(t, file.entity);
-  return file.part === undefined ? name : `${name} · ${workspaceFilePartLabel(t, file.part, file.name)}`;
-}
+import { workspaceFileLine } from './workspace-file-face';
 
 export interface ConflictTree {
   sections: WorkspaceFileSection[];
@@ -40,7 +32,9 @@ export function useConflictTree(paths: readonly string[]): ConflictTree {
   return useMemo(() => {
     const sections = workspaceFileTree(paths, workspace);
     const listed = listedWorkspaceFiles(sections);
-    const places = new Map(listed.map((file) => [file.path, { section: file.surface, label: fileLabel(t, file) }]));
+    const places = new Map(
+      listed.map((file) => [file.path, { section: file.surface, label: workspaceFileLine(t, file) }]),
+    );
     return {
       sections,
       order: listed.map((file) => file.path),

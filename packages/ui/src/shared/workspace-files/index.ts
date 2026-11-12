@@ -18,7 +18,6 @@ export {
   isWorkspaceFilePage,
   listedWorkspaceFiles,
   WORKSPACE_FILE_SURFACES,
-  workspaceFilePartAt,
   workspaceFilePartOf,
   workspaceFileTree,
 } from './workspace-file-tree';
