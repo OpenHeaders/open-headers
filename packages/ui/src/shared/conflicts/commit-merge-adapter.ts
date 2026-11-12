@@ -15,7 +15,7 @@
  *     the answer "gone".
  *
  * The caller lists the files — in its own order, each in the section
- * and under the name it knows it by (`commit-conflict-tree` is the
+ * and under the name it knows it by (`workspace-file-tree` is the
  * workbench's listing). One of the user's own text files (a README, a
  * script) rides the same shape.
  *

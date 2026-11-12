@@ -7,7 +7,7 @@
  * entities in the panel's own rows — the same caret, icon and name
  * (`sidebar/TreeNodeRow`, `sidebar/SectionHeader`). The surfaces
  * themselves are the strip's chips beside the panel, which mark the
- * open file's; no row here names one. `commit-conflict-tree` is the
+ * open file's; no row here names one. `workspace-file-tree` is the
  * listing.
  *
  * A row that stands for one conflicted file opens it; any other folds
@@ -25,11 +25,11 @@ import { CheckCircleFilled, FileTextOutlined, FolderOpenOutlined, FolderOutlined
 import type { MessageKey } from '@openheaders/i18n';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import type {
-  ConflictLeafNode,
-  ConflictNode,
-  ConflictSection,
-  ConflictSectionId,
-} from '@openheaders/ui/shared/conflicts/commit-conflict-tree';
+  WorkspaceLeafNode,
+  WorkspaceFileNode,
+  WorkspaceFileSection,
+  WorkspaceFileSectionId,
+} from '@openheaders/ui/shared/workspace-files';
 import { useRules } from '@openheaders/ui/shared/hooks/readers/useRules';
 import type { MergeFilesPanelProps } from '@openheaders/ui/shared/merge-editor';
 import { Tooltip, theme } from 'antd';
@@ -45,12 +45,12 @@ import { FileTypeIcon } from './commit/FileTypeIcon';
 import { conflictEntityName, conflictPartLabel } from './use-conflict-tree';
 
 export interface ConflictTreeProps extends MergeFilesPanelProps {
-  tree: readonly ConflictSection[];
+  tree: readonly WorkspaceFileSection[];
   /** Name the files only: nothing is open, and a file's row opens nothing. */
   listing?: boolean;
 }
 
-const SECTION_TITLES: Readonly<Record<ConflictSectionId, MessageKey>> = {
+const SECTION_TITLES: Readonly<Record<WorkspaceFileSectionId, MessageKey>> = {
   rules: 'workbench.sidebar.section.rules',
   templates: 'workbench.sidebar.section.templates',
   requests: 'workbench.sidebar.section.requests',
@@ -64,21 +64,21 @@ const SECTION_TITLES: Readonly<Record<ConflictSectionId, MessageKey>> = {
 
 const QUIET = 'var(--ant-color-text-tertiary, #999)';
 
-const sectionKey = (id: ConflictSectionId): string => `section:${id}`;
+const sectionKey = (id: WorkspaceFileSectionId): string => `section:${id}`;
 
 const noop = (): void => {};
 
 /** The file a row opens, when it stands for one. */
-function fileOf(node: ConflictNode): string | undefined {
+function fileOf(node: WorkspaceFileNode): string | undefined {
   return node.type === 'directory' ? undefined : node.file;
 }
 
-function childrenOf(node: ConflictNode): readonly ConflictNode[] {
+function childrenOf(node: WorkspaceFileNode): readonly WorkspaceFileNode[] {
   return node.type === 'entity' || node.type === 'directory' ? node.children : [];
 }
 
 /** Every file at or under a row. */
-function filesUnder(node: ConflictNode): string[] {
+function filesUnder(node: WorkspaceFileNode): string[] {
   const own = fileOf(node);
   return [...(own !== undefined ? [own] : []), ...childrenOf(node).flatMap(filesUnder)];
 }
@@ -108,7 +108,7 @@ const ConflictTree = ({
   /** The rows and the section a file sits under. */
   const trails = useMemo(() => {
     const out = new Map<string, string[]>();
-    const visit = (nodes: readonly ConflictNode[], trail: string[]): void => {
+    const visit = (nodes: readonly WorkspaceFileNode[], trail: string[]): void => {
       for (const node of nodes) {
         const own = fileOf(node);
         if (own !== undefined) out.set(own, trail);
@@ -174,7 +174,7 @@ const ConflictTree = ({
     );
   };
 
-  const leafIcon = (node: ConflictLeafNode): ReactNode => {
+  const leafIcon = (node: WorkspaceLeafNode): ReactNode => {
     switch (node.type) {
       case 'request':
         return methodTag(node.method);
@@ -197,7 +197,7 @@ const ConflictTree = ({
     }
   };
 
-  const iconOf = (listed: ConflictSectionId, node: ConflictNode): ReactNode => {
+  const iconOf = (listed: WorkspaceFileSectionId, node: WorkspaceFileNode): ReactNode => {
     if (node.type === 'directory') return iconEl(FolderOutlined, QUIET);
     if (node.type !== 'entity') return <FileTypeIcon path={node.file} />;
     const { entity } = node;
@@ -225,14 +225,14 @@ const ConflictTree = ({
     }
   };
 
-  const labelOf = (node: ConflictNode): string => {
+  const labelOf = (node: WorkspaceFileNode): string => {
     if (node.type === 'entity') return conflictEntityName(t, node.entity);
     if (node.type === 'part') return conflictPartLabel(t, node.part, node.name);
     return node.type === 'directory' ? node.path : node.name;
   };
 
   /** A row in the panels' own shape — nothing of theirs to rename, add or delete here. */
-  const rowOf = (listed: ConflictSectionId, node: ConflictNode, depth: number, unfolded: boolean): TreeNode => {
+  const rowOf = (listed: WorkspaceFileSectionId, node: WorkspaceFileNode, depth: number, unfolded: boolean): TreeNode => {
     const holds = childrenOf(node).length > 0;
     return {
       id: node.id,
@@ -248,7 +248,7 @@ const ConflictTree = ({
     };
   };
 
-  const rows = (listed: ConflictSectionId, nodes: readonly ConflictNode[], depth: number): ReactNode[] =>
+  const rows = (listed: WorkspaceFileSectionId, nodes: readonly WorkspaceFileNode[], depth: number): ReactNode[] =>
     nodes.flatMap((node) => {
       const own = fileOf(node);
       const unfolded = childrenOf(node).length > 0 && !folded.has(node.id);
@@ -268,7 +268,7 @@ const ConflictTree = ({
       return unfolded ? [row, ...rows(listed, childrenOf(node), depth + 1)] : [row];
     });
 
-  const sectionOf = (listed: ConflictSection): ReactNode => {
+  const sectionOf = (listed: WorkspaceFileSection): ReactNode => {
     const title = t(SECTION_TITLES[listed.id]);
     const key = sectionKey(listed.id);
     // The workspace's variables are one page: its panel opens it from a header-styled row.

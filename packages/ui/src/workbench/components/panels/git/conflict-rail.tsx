@@ -10,13 +10,13 @@
 import { SisternodeOutlined } from '@ant-design/icons';
 import type { MessageKey } from '@openheaders/i18n';
 import { useT } from '@openheaders/ui/context/LocaleContext';
-import { CONFLICT_SURFACES, type ConflictSurface } from '@openheaders/ui/shared/conflicts/commit-conflict-tree';
+import { WORKSPACE_FILE_SURFACES, type WorkspaceFileSurface } from '@openheaders/ui/shared/workspace-files';
 import { ApiRequestsIcon, RequestRulesIcon, VariablesIcon } from '@openheaders/ui/shared/icons';
 import type { MergeRailVocabulary } from '@openheaders/ui/shared/merge-editor';
 import { useMemo } from 'react';
 import { FolderTypeIcon } from './commit/FileTypeIcon';
 
-const SURFACES: Readonly<Record<ConflictSurface, { labelKey: MessageKey; icon: React.ReactNode }>> = {
+const SURFACES: Readonly<Record<WorkspaceFileSurface, { labelKey: MessageKey; icon: React.ReactNode }>> = {
   'http-rules': { labelKey: 'workbench.toolWindows.httpRules', icon: <RequestRulesIcon /> },
   'api-requests': { labelKey: 'workbench.toolWindows.apiRequests', icon: <ApiRequestsIcon /> },
   workflows: { labelKey: 'workbench.toolWindows.workflows', icon: <SisternodeOutlined /> },
@@ -28,7 +28,7 @@ export function useConflictRail(): MergeRailVocabulary {
   const t = useT();
   return useMemo(
     () => ({
-      sections: CONFLICT_SURFACES.map((id) => ({ id, label: t(SURFACES[id].labelKey), icon: SURFACES[id].icon })),
+      sections: WORKSPACE_FILE_SURFACES.map((id) => ({ id, label: t(SURFACES[id].labelKey), icon: SURFACES[id].icon })),
     }),
     [t],
   );

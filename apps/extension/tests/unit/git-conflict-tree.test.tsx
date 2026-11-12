@@ -14,8 +14,8 @@
  */
 
 import type { TreeNode } from '@openheaders/core/types';
-import { type ConflictWorkspace, commitConflictTree } from '@openheaders/ui/shared/conflicts/commit-conflict-tree';
 import type { MergeFileRowState } from '@openheaders/ui/shared/merge-editor';
+import { type ListedWorkspace, workspaceFileTree } from '@openheaders/ui/shared/workspace-files';
 import ConflictTree from '@openheaders/ui/workbench/components/panels/git/ConflictTree';
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { useState } from 'react';
@@ -39,7 +39,7 @@ const REQUESTS: TreeNode[] = [
   { type: 'request', uid: 'req00004', name: 'List Orders', path: LIST, method: 'GET' },
 ];
 
-const WORKSPACE: ConflictWorkspace = {
+const WORKSPACE: ListedWorkspace = {
   ruleCollections: [],
   templateCollections: [],
   requestCollections: [{ uid: 'col00001', name: 'Orders', path: 'requests/orders-col00001', tree: REQUESTS }],
@@ -50,7 +50,7 @@ const WORKSPACE: ConflictWorkspace = {
 };
 
 const PATHS = [MANIFEST, BODY, LISTED, VARS, NOTES];
-const TREE = commitConflictTree(PATHS, WORKSPACE);
+const TREE = workspaceFileTree(PATHS, WORKSPACE);
 
 const COUNTS = new Map([
   [MANIFEST, 4],
