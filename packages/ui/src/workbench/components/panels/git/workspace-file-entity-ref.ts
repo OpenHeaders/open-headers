@@ -2,7 +2,9 @@
  * workspace-file-entity-ref — the entity of a named file tree's row
  * (`workspace-file-tree`) as Jump to Source opens it
  * (`git-entity-opener`): the workspace already holds it, so its editor
- * opens by uid — wherever its files were when the commit was made. Pure.
+ * opens by uid — wherever its files were when the commit was made. The
+ * workspace's own file and its trusted certificates have no editor tab
+ * and answer none. Pure.
  */
 
 import type { WorkspaceTreeEntityRefWire } from '@openheaders/core/bridge';
@@ -30,10 +32,14 @@ function treeOf(section: WorkspaceFileSectionId): WorkspaceTreeEntityRefWire['tr
 export function workspaceFileEntityRef(
   section: WorkspaceFileSectionId,
   entity: WorkspaceFileEntity,
-): WorkspaceTreeEntityRefWire {
+): WorkspaceTreeEntityRefWire | undefined {
   switch (entity.kind) {
+    case 'workspace':
+    case 'trusted-roots':
+      return undefined;
+    case 'vault':
     case 'workspace-variables':
-      return { kind: 'workspace-variables', tree: null, uid: '', name: '' };
+      return { kind: entity.kind, tree: null, uid: '', name: '' };
     case 'collection':
     case 'folder':
       return { kind: entity.kind, tree: treeOf(section), uid: entity.uid, name: entity.name };

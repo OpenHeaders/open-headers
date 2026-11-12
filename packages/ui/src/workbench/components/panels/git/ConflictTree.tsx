@@ -24,10 +24,11 @@
 import { CheckCircleFilled, WarningFilled } from '@ant-design/icons';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import type { MergeFilesPanelProps } from '@openheaders/ui/shared/merge-editor';
-import type {
-  WorkspaceFileNode,
-  WorkspaceFileSection,
-  WorkspaceFileSectionId,
+import {
+  isWorkspaceFilePage,
+  type WorkspaceFileNode,
+  type WorkspaceFileSection,
+  type WorkspaceFileSectionId,
 } from '@openheaders/ui/shared/workspace-files';
 import { Tooltip, theme } from 'antd';
 import { Fragment, type ReactElement, type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -192,9 +193,10 @@ const ConflictTree = ({
   const sectionOf = (listed: WorkspaceFileSection): ReactNode => {
     const title = face.sectionTitle(listed.id);
     const key = sectionKey(listed.id);
-    // The workspace's variables are one page: its panel opens it from a header-styled row.
+    // A page — the workspace's variables, the vault, the workspace, its trusted
+    // certificates — is one file: a header-styled row, as its panel opens it.
     const [only] = listed.nodes;
-    const page = listed.id === 'workspace-variables' && only !== undefined ? fileOf(only) : undefined;
+    const page = isWorkspaceFilePage(listed.id) && only !== undefined ? fileOf(only) : undefined;
     if (only !== undefined && page !== undefined) {
       return (
         <SectionOpenerRow

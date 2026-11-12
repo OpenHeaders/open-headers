@@ -3,6 +3,7 @@ export type {
   ListedWorkspaceFile,
   WorkspaceFileEntity,
   WorkspaceFileNode,
+  WorkspaceFilePage,
   WorkspaceFilePart,
   WorkspaceFileSection,
   WorkspaceFileSectionId,
@@ -10,6 +11,7 @@ export type {
   WorkspaceLeafNode,
 } from './workspace-file-tree';
 export {
+  isWorkspaceFilePage,
   listedWorkspaceFiles,
   WORKSPACE_FILE_SURFACES,
   workspaceFilePartOf,

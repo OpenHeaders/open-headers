@@ -2,7 +2,9 @@
  * A named file tree's row as Jump to Source opens it: the entity the
  * workbench holds, by uid, through the registered tab openers — a
  * request with its method, a collection or folder with the tree its
- * section lists, the workspace's variables as the one page.
+ * section lists, the workspace's variables and the vault as their one
+ * page; the workspace's own file and its trusted certificates have no
+ * editor.
  */
 
 import type { WorkspaceTreeEntityRefWire } from '@openheaders/core/bridge';
@@ -19,6 +21,13 @@ const REQUEST: WorkspaceFileEntity = {
   kind: 'node',
   node: { type: 'request', uid: 'req00003', name: 'Create Order', path: 'requests/orders-col00001/x', method: 'POST' },
 };
+
+/** The ref of an entity that has an editor. */
+function refOf(...args: Parameters<typeof workspaceFileEntityRef>): WorkspaceTreeEntityRefWire {
+  const ref = workspaceFileEntityRef(...args);
+  if (ref === undefined) throw new Error('no editor for the entity');
+  return ref;
+}
 
 function openers(): GitEntityOpeners {
   return {
@@ -54,7 +63,7 @@ describe('workspaceFileEntityRef', () => {
       method: 'POST',
     });
     const kindOf = (node: Extract<WorkspaceFileEntity, { kind: 'node' }>['node']): string =>
-      workspaceFileEntityRef('requests', { kind: 'node', node }).kind;
+      refOf('requests', { kind: 'node', node }).kind;
     const at = { uid: 'u0000001', name: 'n', path: 'p' };
     expect(kindOf({ type: 'graphql-request', ...at })).toBe('graphql');
     expect(kindOf({ type: 'grpc-request', ...at })).toBe('grpc');
@@ -69,12 +78,10 @@ describe('workspaceFileEntityRef', () => {
       uid: 'col00001',
       name: 'Orders',
     });
-    expect(workspaceFileEntityRef('templates', { kind: 'folder', uid: 'fol00001', name: 'Auth' }).tree).toBe(
-      'templates',
-    );
+    expect(refOf('templates', { kind: 'folder', uid: 'fol00001', name: 'Auth' }).tree).toBe('templates');
   });
 
-  it('a spec, a workflow, a live variable and an environment go by uid; the workspace’s variables are the one page', () => {
+  it('a spec, a workflow, a live variable and an environment go by uid; the workspace’s variables and the vault are their one page; the workspace and its trusted certificates have no editor', () => {
     for (const kind of ['spec', 'workflow', 'live-variable', 'environment'] as const) {
       expect(workspaceFileEntityRef('files', { kind, uid: 'ent00001', name: 'Staging' })).toEqual({
         kind,
@@ -89,28 +96,34 @@ describe('workspaceFileEntityRef', () => {
       uid: '',
       name: '',
     });
+    expect(workspaceFileEntityRef('vault', { kind: 'vault' })).toEqual({
+      kind: 'vault',
+      tree: null,
+      uid: '',
+      name: '',
+    });
+    expect(workspaceFileEntityRef('workspace', { kind: 'workspace' })).toBeUndefined();
+    expect(workspaceFileEntityRef('trusted-roots', { kind: 'trusted-roots' })).toBeUndefined();
   });
 });
 
 describe('jumpToEntity', () => {
   it('opens nothing while no host has offered its openers', () => {
-    expect(jumpToEntity(workspaceFileEntityRef('requests', REQUEST))).toBe('no-editor');
+    expect(jumpToEntity(refOf('requests', REQUEST))).toBe('no-editor');
   });
 
   it('opens the entity’s editor by uid through the registered openers', () => {
     const registered = openers();
     const withdraw = registerGitEntityOpeners(() => registered);
     try {
-      expect(jumpToEntity(workspaceFileEntityRef('requests', REQUEST))).toBe('opened');
+      expect(jumpToEntity(refOf('requests', REQUEST))).toBe('opened');
       expect(registered.openRequestEditTab).toHaveBeenCalledWith('req00003', 'Create Order', 'POST');
-      const collection: WorkspaceTreeEntityRefWire = workspaceFileEntityRef('requests', {
-        kind: 'collection',
-        uid: 'col00001',
-        name: 'Orders',
-      });
+      const collection = refOf('requests', { kind: 'collection', uid: 'col00001', name: 'Orders' });
       expect(jumpToEntity(collection)).toBe('opened');
       expect(registered.openRequestCollectionOverview).toHaveBeenCalledWith('col00001', 'Orders');
       expect(jumpToEntity({ ...collection, tree: null })).toBe('no-editor');
+      expect(jumpToEntity(refOf('vault', { kind: 'vault' }))).toBe('opened');
+      expect(registered.openVault).toHaveBeenCalledTimes(1);
     } finally {
       withdraw();
     }

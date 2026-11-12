@@ -22,7 +22,11 @@
  * workspace is read there, only while this view is the one shown.
  */
 
-import { type WorkspaceFileSection, workspaceFileTree } from '@openheaders/ui/shared/workspace-files';
+import {
+  isWorkspaceFilePage,
+  type WorkspaceFileSection,
+  workspaceFileTree,
+} from '@openheaders/ui/shared/workspace-files';
 import { Dropdown, Spin, theme } from 'antd';
 import type React from 'react';
 import { type ForwardedRef, Fragment, useCallback, useMemo } from 'react';
@@ -33,7 +37,6 @@ import FileTreeFrame from './FileTreeFrame';
 import { type FileTreeViewProps, fileStatusColor } from './file-tree-view-props';
 import { contextMenuAlign } from './git-menu-overflow';
 import {
-  isOpenerSection,
   type NamedFileRow,
   namedFoldKeys,
   namedRowStatus,
@@ -152,7 +155,7 @@ export const NamedFileTree = ({
         data-row-key={row.key}
         data-selected={selected || undefined}
       >
-        {isOpenerSection(row.section) ? (
+        {isWorkspaceFilePage(row.section) ? (
           <SectionOpenerRow title={face.sectionTitle(row.section)} node={nodeOf(row)} selected={selected} />
         ) : (
           <TreeNodeRow
@@ -195,7 +198,7 @@ export const NamedFileTree = ({
     >
       {listed.map((section) => {
         const rows = behaviour.rows.filter((row) => row.section === section.id).map(rowOf);
-        if (isOpenerSection(section.id)) return <Fragment key={section.id}>{rows}</Fragment>;
+        if (isWorkspaceFilePage(section.id)) return <Fragment key={section.id}>{rows}</Fragment>;
         const key = namedSectionKey(section.id);
         return (
           <Fragment key={section.id}>

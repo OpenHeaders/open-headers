@@ -6,15 +6,17 @@
  * (`file-tree`), so one selection and one keyboard serve both. A row
  * that stands for one file is keyed by that file's path; a row that
  * holds others by its node's id. Sections fold but are no rows — but
- * for the workspace's variables, one page its panel opens from a
- * header-styled row: that section is its row, and does not fold. Pure.
+ * for a page (the workspace's variables, the vault, the workspace, its
+ * trusted certificates), one file its panel opens from a header-styled
+ * row: that section is its row, and does not fold. Pure.
  */
 
-import type {
-  WorkspaceFileEntity,
-  WorkspaceFileNode,
-  WorkspaceFileSection,
-  WorkspaceFileSectionId,
+import {
+  isWorkspaceFilePage,
+  type WorkspaceFileEntity,
+  type WorkspaceFileNode,
+  type WorkspaceFileSection,
+  type WorkspaceFileSectionId,
 } from '@openheaders/ui/shared/workspace-files';
 import { buildFileTree, type FileTreeNode, type FileTreeRow } from './file-tree';
 
@@ -34,9 +36,6 @@ export interface NamedFileSection {
 }
 
 export const namedSectionKey = (id: WorkspaceFileSectionId): string => `section:${id}`;
-
-/** A section its panel shows as one header-styled row that opens a page. */
-export const isOpenerSection = (id: WorkspaceFileSectionId): boolean => id === 'workspace-variables';
 
 /** The file a row stands for; none on a row that holds others. */
 export function namedRowFile(node: WorkspaceFileNode): string | undefined {
@@ -91,7 +90,7 @@ export function namedFoldKeys(sections: readonly WorkspaceFileSection[]): string
     }
   };
   for (const section of sections) {
-    if (!isOpenerSection(section.id)) keys.push(namedSectionKey(section.id));
+    if (!isWorkspaceFilePage(section.id)) keys.push(namedSectionKey(section.id));
     walk(section.nodes);
   }
   return keys;
@@ -103,7 +102,7 @@ export function visibleNamedSections(
 ): NamedFileSection[] {
   return sections.map((section) => {
     const key = namedSectionKey(section.id);
-    const expanded = isOpenerSection(section.id) || !collapsed.has(key);
+    const expanded = isWorkspaceFilePage(section.id) || !collapsed.has(key);
     const rows: NamedFileRow[] = [];
     const walk = (
       nodes: readonly WorkspaceFileNode[],

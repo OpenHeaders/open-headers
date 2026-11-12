@@ -800,6 +800,9 @@ export const workbenchChrome = {
   'workbench.gitLog.resolve.keepMine': 'Păstrare a mea',
   'workbench.gitLog.resolve.otherFiles': 'Fișiere',
   'workbench.gitLog.resolve.partDetails': 'Detalii',
+  'workbench.gitLog.resolve.partSecretNames': 'Nume de secrete',
+  'workbench.gitLog.resolve.partSecretValues': 'Valori de secrete',
+  'workbench.gitLog.resolve.workspaceFile': 'Spațiu de lucru',
   'workbench.gitLog.resolve.tooLarge':
     'Ambele părți au modificat {files}, iar fișierele sunt prea mari pentru a fi rezolvate aici. Nu s-a modificat nimic.',
   'workbench.gitLog.forcePush.title': 'Istoricul de la distanță a fost rescris',

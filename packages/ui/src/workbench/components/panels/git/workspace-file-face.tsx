@@ -3,16 +3,25 @@
  * (`workspace-file-tree`) reads and is drawn: the section's title as
  * its panel shows it, an entity by its name and its panel's own icon, a
  * part by the word its editor uses ("Details" for the entity's
- * manifest), a file of the user's own by its name and file-type icon.
+ * manifest), a page (the vault, the workspace's variables, the
+ * workspace, its trusted certificates) as a header-styled row, a file
+ * of the user's own by its name and file-type icon.
  */
 
-import { FileTextOutlined, FolderOpenOutlined, FolderOutlined } from '@ant-design/icons';
+import {
+  AppstoreOutlined,
+  FileTextOutlined,
+  FolderOpenOutlined,
+  FolderOutlined,
+  SafetyCertificateOutlined,
+} from '@ant-design/icons';
 import type { MessageKey } from '@openheaders/i18n';
 import { type Translate, useT } from '@openheaders/ui/context/LocaleContext';
 import { useRules } from '@openheaders/ui/shared/hooks/readers/useRules';
 import type {
   WorkspaceFileEntity,
   WorkspaceFileNode,
+  WorkspaceFilePage,
   WorkspaceFilePart,
   WorkspaceFileSectionId,
   WorkspaceLeafNode,
@@ -31,13 +40,28 @@ const SECTION_TITLES: Readonly<Record<WorkspaceFileSectionId, MessageKey>> = {
   requests: 'workbench.sidebar.section.requests',
   specs: 'workbench.sidebar.section.specs',
   workflows: 'workbench.sidebar.section.workflows',
+  vault: 'workbench.sidebar.section.vault',
   'workspace-variables': 'workbench.sidebar.section.workspaceVariables',
   'live-variables': 'workbench.sidebar.section.liveVariables',
   environments: 'workbench.sidebar.section.environments',
+  workspace: 'workbench.gitLog.resolve.workspaceFile',
+  'trusted-roots': 'workbench.trustedRoots.title',
   files: 'workbench.gitLog.resolve.otherFiles',
 };
 
-const PART_LABELS: Readonly<Record<'details' | 'body' | 'variables' | 'query' | 'message', MessageKey>> = {
+/** A page by the name its panel — or, for the two no panel shows, this listing — gives it. */
+const PAGE_NAMES: Readonly<Record<WorkspaceFilePage, MessageKey>> = {
+  vault: 'workbench.sidebar.singleton.vault',
+  'workspace-variables': 'workbench.sidebar.singleton.workspaceVariables',
+  workspace: 'workbench.gitLog.resolve.workspaceFile',
+  'trusted-roots': 'workbench.trustedRoots.title',
+};
+
+type NamedPart = 'details' | 'body' | 'variables' | 'query' | 'message' | 'secret-names' | 'secret-values';
+
+const PART_LABELS: Readonly<Record<NamedPart, MessageKey>> = {
+  'secret-names': 'workbench.gitLog.resolve.partSecretNames',
+  'secret-values': 'workbench.gitLog.resolve.partSecretValues',
   details: 'workbench.gitLog.resolve.partDetails',
   body: 'workbench.editors.request.tab.body',
   variables: 'workbench.editors.graphql.variables.title',
@@ -47,7 +71,7 @@ const PART_LABELS: Readonly<Record<'details' | 'body' | 'variables' | 'query' | 
 
 const QUIET = 'var(--ant-color-text-tertiary, #999)';
 
-function isNamedPart(part: WorkspaceFilePart): part is keyof typeof PART_LABELS {
+function isNamedPart(part: WorkspaceFilePart): part is NamedPart {
   return Object.hasOwn(PART_LABELS, part);
 }
 
@@ -58,8 +82,8 @@ export function workspaceFilePartLabel(t: Translate, part: WorkspaceFilePart | n
 }
 
 export function workspaceFileEntityName(t: Translate, entity: WorkspaceFileEntity): string {
-  if (entity.kind === 'workspace-variables') return t('workbench.sidebar.singleton.workspaceVariables');
-  return entity.kind === 'node' ? entity.node.name : entity.name;
+  if (entity.kind === 'node') return entity.node.name;
+  return 'name' in entity ? entity.name : t(PAGE_NAMES[entity.kind]);
 }
 
 export interface WorkspaceFileFace {
@@ -134,8 +158,14 @@ export function useWorkspaceFileFace(): WorkspaceFileFace {
             return scopeBadge('live');
           case 'environment':
             return scopeBadge('environment');
+          case 'vault':
+            return scopeBadge('vault');
           case 'workspace-variables':
             return scopeBadge('workspace');
+          case 'workspace':
+            return iconEl(AppstoreOutlined, QUIET);
+          case 'trusted-roots':
+            return iconEl(SafetyCertificateOutlined, QUIET);
         }
       },
     };

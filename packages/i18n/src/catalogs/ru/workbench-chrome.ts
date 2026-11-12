@@ -791,6 +791,9 @@ export const workbenchChrome = {
   'workbench.gitLog.resolve.keepMine': 'Оставить моё',
   'workbench.gitLog.resolve.otherFiles': 'Файлы',
   'workbench.gitLog.resolve.partDetails': 'Сведения',
+  'workbench.gitLog.resolve.partSecretNames': 'Имена секретов',
+  'workbench.gitLog.resolve.partSecretValues': 'Значения секретов',
+  'workbench.gitLog.resolve.workspaceFile': 'Рабочее пространство',
   'workbench.gitLog.resolve.tooLarge':
     'Обе стороны изменили {files}, а файлы слишком велики, чтобы разрешить конфликт здесь. Ничего не изменено.',
   'workbench.gitLog.forcePush.title': 'История удалённого репозитория переписана',

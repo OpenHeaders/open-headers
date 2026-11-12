@@ -169,6 +169,31 @@ describe('ConflictTree', () => {
     expect(opener.classList.contains('rules-sidebar-section--selected')).toBe(true);
   });
 
+  it('the workspace’s own file is a header-styled row of its own, ahead of the user’s files', () => {
+    const onSelect = vi.fn();
+    const paths = ['workspace.yaml', NOTES, 'trusted-roots.yaml'];
+    render(
+      <ConflictTree
+        tree={workspaceFileTree(paths, WORKSPACE)}
+        files={[]}
+        activeFileId="workspace.yaml"
+        hunkCounts={new Map([['workspace.yaml', 2]])}
+        onSelect={onSelect}
+      />,
+    );
+    expect(
+      [...document.querySelectorAll('.rules-sidebar-section-title')].map((title) =>
+        title.textContent?.replace('▶', ''),
+      ),
+    ).toEqual(['Workspace', 'Trusted certificates', 'Files']);
+    const opener = screen.getByText('Workspace').closest('.rules-sidebar-section');
+    if (!(opener instanceof HTMLElement)) throw new Error('no opener row');
+    expect(opener.classList.contains('rules-sidebar-section--selected')).toBe(true);
+    expect(opener.textContent).toContain('2');
+    fireEvent.click(screen.getByText('Trusted certificates'));
+    expect(onSelect).toHaveBeenLastCalledWith('trusted-roots.yaml');
+  });
+
   it('a file opened from elsewhere is unfolded to — its rows and its section', () => {
     render(<Harness open={NOTES} elsewhere={BODY} />);
     fireEvent.click(rowOf('Create Order'));

@@ -937,6 +937,9 @@ export const workbenchChrome = {
   'workbench.gitLog.resolve.keepMine': 'Conservar el mío',
   'workbench.gitLog.resolve.otherFiles': 'Archivos',
   'workbench.gitLog.resolve.partDetails': 'Detalles',
+  'workbench.gitLog.resolve.partSecretNames': 'Nombres de secretos',
+  'workbench.gitLog.resolve.partSecretValues': 'Valores de secretos',
+  'workbench.gitLog.resolve.workspaceFile': 'Espacio de trabajo',
   'workbench.gitLog.resolve.tooLarge':
     'Ambos lados modificaron {files}, y los archivos son demasiado grandes para resolverlos aquí. No se cambió nada.',
   'workbench.gitLog.forcePush.title': 'El historial remoto fue reescrito',

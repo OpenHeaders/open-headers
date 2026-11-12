@@ -32,6 +32,7 @@ const MANIFEST = `${CREATE}/request.yaml`;
 const BODY = `${CREATE}/body.json`;
 const LISTED = `${LIST}/request.yaml`;
 const VARS = 'workspace-vars.yaml';
+const MANIFEST_OF_WORKSPACE = 'workspace.yaml';
 const NOTES = 'notes/orders.md';
 const README = 'README.md';
 
@@ -152,11 +153,7 @@ describe('named-file-tree', () => {
     const entityOf = (key: string): string | undefined => {
       const entity = rows.find((row) => row.key === key)?.entity;
       if (entity === undefined) return undefined;
-      return entity.kind === 'node'
-        ? entity.node.uid
-        : entity.kind === 'workspace-variables'
-          ? entity.kind
-          : entity.uid;
+      return entity.kind === 'node' ? entity.node.uid : 'uid' in entity ? entity.uid : entity.kind;
     };
     expect(entityOf('requests:col00001')).toBe('col00001');
     expect(entityOf('requests:req00003')).toBe('req00003');
@@ -166,6 +163,19 @@ describe('named-file-tree', () => {
     expect(entityOf(VARS)).toBe('workspace-variables');
     expect(entityOf('dir:notes')).toBeUndefined();
     expect(entityOf(NOTES)).toBeUndefined();
+  });
+
+  it('the workspace’s own file is a page — one row that never folds, ahead of the user’s files, naming no entity to jump to', () => {
+    const sections = workspaceFileTree([NOTES, MANIFEST_OF_WORKSPACE, VARS], WORKSPACE);
+    const listed = visibleNamedSections(namedSections(sections, true), new Set(['section:workspace']));
+    expect(listed.map((section) => `${section.id}: ${section.rows.map((row) => row.key).join(' ')}`)).toEqual([
+      `workspace-variables: ${VARS}`,
+      `workspace: ${MANIFEST_OF_WORKSPACE}`,
+      `files: dir:notes ${NOTES}`,
+    ]);
+    expect(namedFoldKeys(namedSections(sections, true))).toEqual(['section:files', 'dir:notes']);
+    const [row] = listed[1].rows;
+    expect(row.entity).toEqual({ kind: 'workspace' });
   });
 
   it('a file’s row reads as its change; an entity that lists several as added or deleted only when all its files are', () => {

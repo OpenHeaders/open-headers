@@ -940,6 +940,9 @@ export const workbenchChrome = {
   'workbench.gitLog.resolve.keepMine': 'Meins behalten',
   'workbench.gitLog.resolve.otherFiles': 'Dateien',
   'workbench.gitLog.resolve.partDetails': 'Details',
+  'workbench.gitLog.resolve.partSecretNames': 'Secret-Namen',
+  'workbench.gitLog.resolve.partSecretValues': 'Secret-Werte',
+  'workbench.gitLog.resolve.workspaceFile': 'Arbeitsbereich',
   'workbench.gitLog.resolve.tooLarge':
     'Beide Seiten haben {files} geändert, und die Dateien sind zu groß, um sie hier aufzulösen. Es wurde nichts geändert.',
   'workbench.gitLog.forcePush.title': 'Die Remote-Historie wurde umgeschrieben',

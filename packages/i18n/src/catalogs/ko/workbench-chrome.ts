@@ -767,6 +767,9 @@ export const workbenchChrome = {
   'workbench.gitLog.resolve.keepMine': '내 것 유지',
   'workbench.gitLog.resolve.otherFiles': '파일',
   'workbench.gitLog.resolve.partDetails': '세부 정보',
+  'workbench.gitLog.resolve.partSecretNames': '시크릿 이름',
+  'workbench.gitLog.resolve.partSecretValues': '시크릿 값',
+  'workbench.gitLog.resolve.workspaceFile': '워크스페이스',
   'workbench.gitLog.resolve.tooLarge':
     '양쪽 모두 {files} 파일을 변경했으며, 파일이 너무 커서 여기에서 해결할 수 없습니다. 아무것도 변경되지 않았습니다.',
   'workbench.gitLog.forcePush.title': '원격 기록이 다시 쓰였습니다',

@@ -8,7 +8,10 @@
  *
  * A file is matched to its entity by its path: every entity of the tree
  * owns a directory whose name ends in its uid, an environment files
- * whose name does, the workspace's variables one file. An entity's
+ * whose name does. What the workspace keeps in one file of its own — the
+ * vault, its variables, the workspace itself (its name and the order of
+ * its collections), its trusted certificates — is a page: a section
+ * that is one row. An entity's
  * directory keeps its name through a rename and changes place on a
  * move, so a file under a directory no entity is at now is its
  * entity's by that uid — where it was before a move. Only what holds a
@@ -21,6 +24,8 @@
  *     of its own by its file name;
  *   - a collection or a folder lists its own parts ahead of what it
  *     holds;
+ *   - an environment lists its secrets' names (the committed template)
+ *     and their values (the ignored file) as parts beside its details;
  *   - a file no entity owns is listed under Files by its directory.
  *
  * Pure data: the names and the glyphs are the caller's.
@@ -34,6 +39,9 @@ import {
   ENVIRONMENTS_DIR,
   SECRET_FILE_SUFFIX,
   SECRET_TEMPLATE_FILE_SUFFIX,
+  TRUSTED_ROOTS_FILE,
+  VAULT_FILE,
+  WORKSPACE_MANIFEST_FILE,
   WORKSPACE_VARS_FILE,
 } from '@openheaders/core/workspace-tree';
 
@@ -48,32 +56,61 @@ export const WORKSPACE_FILE_SURFACES: readonly WorkspaceFileSurface[] = [
   'files',
 ];
 
+/** What the workspace keeps in one file of its own — a section that is one row. */
+export type WorkspaceFilePage = 'vault' | 'workspace-variables' | 'workspace' | 'trusted-roots';
+
 export type WorkspaceFileSectionId =
   | 'rules'
   | 'templates'
   | 'requests'
   | 'specs'
   | 'workflows'
-  | 'workspace-variables'
   | 'live-variables'
   | 'environments'
+  | WorkspaceFilePage
   | 'files';
 
-/** The sections in listing order, each under the surface whose panel shows it. */
+const PAGE_FILES: Readonly<Record<WorkspaceFilePage, string>> = {
+  vault: VAULT_FILE,
+  'workspace-variables': WORKSPACE_VARS_FILE,
+  workspace: WORKSPACE_MANIFEST_FILE,
+  'trusted-roots': TRUSTED_ROOTS_FILE,
+};
+
+export function isWorkspaceFilePage(id: WorkspaceFileSectionId): id is WorkspaceFilePage {
+  return Object.hasOwn(PAGE_FILES, id);
+}
+
+/**
+ * The sections in listing order, each under the surface whose panel
+ * shows it; the two pages no panel shows — the workspace and its
+ * trusted certificates — sit with the user's own files, ahead of them.
+ */
 const SECTIONS: ReadonlyArray<readonly [WorkspaceFileSectionId, WorkspaceFileSurface]> = [
   ['rules', 'http-rules'],
   ['templates', 'http-rules'],
   ['requests', 'api-requests'],
   ['specs', 'api-requests'],
   ['workflows', 'workflows'],
+  ['vault', 'variables'],
   ['workspace-variables', 'variables'],
   ['live-variables', 'variables'],
   ['environments', 'variables'],
+  ['workspace', 'files'],
+  ['trusted-roots', 'files'],
   ['files', 'files'],
 ];
 
 /** The part of an entity one of its files holds. */
-export type WorkspaceFilePart = 'details' | 'body' | 'variables' | 'query' | 'message' | ScriptKind;
+export type WorkspaceFilePart =
+  | 'details'
+  | 'body'
+  | 'variables'
+  | 'query'
+  | 'message'
+  | 'secret-names'
+  | 'secret-values'
+  | ScriptKind;
 
 export type WorkspaceLeafNode = Exclude<CoreTreeNode, FolderNode>;
 
@@ -82,7 +119,7 @@ export type WorkspaceFileEntity =
   | { kind: 'collection' | 'folder'; uid: string; name: string }
   | { kind: 'node'; node: WorkspaceLeafNode }
   | { kind: 'spec' | 'workflow' | 'live-variable' | 'environment'; uid: string; name: string }
-  | { kind: 'workspace-variables' };
+  | { kind: WorkspaceFilePage };
 
 export type WorkspaceFileNode =
   /** `file` set: the row stands for that file. Otherwise its parts and what it holds are under it. */
@@ -158,6 +195,20 @@ export function workspaceFilePartOf(fileName: string): WorkspaceFilePart | null 
   if (fileName === 'query.graphql') return 'query';
   if (/^(message|payload)\.(json|txt)$/.test(fileName)) return 'message';
   return null;
+}
+
+/** An environment's parts in listing order. */
+const ENVIRONMENT_PARTS: readonly WorkspaceFilePart[] = ['details', 'secret-names', 'secret-values'];
+
+/** What a file of the environments directory holds, and the `<slug>-<uid>` stem of its name. */
+function environmentFile(name: string): { part: WorkspaceFilePart; stem: string } | null {
+  const held = (suffix: string, part: WorkspaceFilePart) =>
+    name.endsWith(suffix) ? { part, stem: name.slice(0, -suffix.length) } : null;
+  return (
+    held(SECRET_TEMPLATE_FILE_SUFFIX, 'secret-names') ??
+    held(SECRET_FILE_SUFFIX, 'secret-values') ??
+    held('.yaml', 'details')
+  );
 }
 
 function partNode(file: string, part: WorkspaceFilePart | null): PartNode {
@@ -294,26 +345,36 @@ export function workspaceFileTree(paths: readonly string[], workspace: ListedWor
     return out;
   };
 
-  /** An environment's files by its uid — its document under any name it has had, then its secret template. */
+  /**
+   * An environment's files by its uid — its document under any name it
+   * has had, then its secrets' names (the template), then their values.
+   */
   const environmentFiles = (): Map<string, PartNode[]> => {
     const byUid = new Map<string, PartNode[]>();
     const files = (byDir.get(ENVIRONMENTS_DIR) ?? [])
-      .map((file) => {
+      .flatMap((file) => {
         const name = nameOf(file);
-        const template = name.endsWith(SECRET_TEMPLATE_FILE_SUFFIX);
-        const stem = template ? name.slice(0, -SECRET_TEMPLATE_FILE_SUFFIX.length) : name.replace(/\.yaml$/, '');
-        const document = !template && name.endsWith('.yaml') && !name.endsWith(SECRET_FILE_SUFFIX);
-        return { file, name, template, uid: template || document ? uidOf(stem) : null };
+        const held = environmentFile(name);
+        const uid = held === null ? null : uidOf(held.stem);
+        return held === null || uid === null ? [] : [{ file, name, part: held.part, uid }];
       })
-      .sort((a, b) => Number(a.template) - Number(b.template) || a.name.localeCompare(b.name));
-    for (const { file, template, uid } of files) {
-      if (uid === null) continue;
-      const node = partNode(file, template ? null : 'details');
+      .sort(
+        (a, b) => ENVIRONMENT_PARTS.indexOf(a.part) - ENVIRONMENT_PARTS.indexOf(b.part) || a.name.localeCompare(b.name),
+      );
+    for (const { file, part, uid } of files) {
+      const node = partNode(file, part);
       const nodes = byUid.get(uid);
       if (nodes) nodes.push(node);
       else byUid.set(uid, [node]);
     }
     return byUid;
+  };
+
+  /** A page's row, when its file is listed. */
+  const page = (kind: WorkspaceFilePage) => (): WorkspaceFileNode[] => {
+    const file = PAGE_FILES[kind];
+    if (!left.delete(file)) return [];
+    return [{ type: 'entity', id: kind, entity: { kind }, file, children: [] }];
   };
 
   const nodesOf: Record<WorkspaceFileSectionId, () => WorkspaceFileNode[]> = {
@@ -322,18 +383,10 @@ export function workspaceFileTree(paths: readonly string[], workspace: ListedWor
     requests: () => collections('requests', workspace.requestCollections),
     specs: () => flat('specs', 'spec', workspace.specs),
     workflows: () => flat('workflows', 'workflow', workspace.workflows),
-    'workspace-variables': () => {
-      if (!left.delete(WORKSPACE_VARS_FILE)) return [];
-      return [
-        {
-          type: 'entity',
-          id: 'workspace-variables',
-          entity: { kind: 'workspace-variables' },
-          file: WORKSPACE_VARS_FILE,
-          children: [],
-        },
-      ];
-    },
+    vault: page('vault'),
+    'workspace-variables': page('workspace-variables'),
+    workspace: page('workspace'),
+    'trusted-roots': page('trusted-roots'),
     'live-variables': () => flat('live-variables', 'live-variable', workspace.liveVariables),
     environments: () => {
       const byUid = environmentFiles();

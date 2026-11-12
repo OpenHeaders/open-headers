@@ -4,18 +4,26 @@
  * by path and, where the entity has moved or an environment has been
  * renamed, by the uid in the name; the pruning to what holds a listed
  * file, the one-file row against the parts of an entity that lists
- * several, the sections and their order under each surface, the user's
- * own files by directory, every file listed once, and the flat reading
- * in listing order.
+ * several, the sections and their order under each surface, the pages
+ * (the vault, the workspace's variables, the workspace, its trusted
+ * certificates) as one row each, an environment's secrets as parts,
+ * the user's own files by directory, every file listed once, and the
+ * flat reading in listing order.
  */
 
 import type { TreeNode } from '@openheaders/core/types';
-import { environmentFilePath, environmentSecretTemplateFilePath } from '@openheaders/core/workspace-tree';
 import {
+  environmentFilePath,
+  environmentSecretFilePath,
+  environmentSecretTemplateFilePath,
+} from '@openheaders/core/workspace-tree';
+import {
+  isWorkspaceFilePage,
   type ListedWorkspace,
   listedWorkspaceFiles,
   WORKSPACE_FILE_SURFACES,
   type WorkspaceFileNode,
+  type WorkspaceFileSectionId,
   workspaceFilePartOf,
   workspaceFileTree,
 } from '@openheaders/ui/shared/workspace-files';
@@ -78,9 +86,9 @@ function shape(node: WorkspaceFileNode): string {
     node.type === 'entity'
       ? node.entity.kind === 'node'
         ? node.entity.node.name
-        : node.entity.kind === 'workspace-variables'
-          ? 'workspace-variables'
-          : node.entity.name
+        : 'name' in node.entity
+          ? node.entity.name
+          : node.entity.kind
       : node.type === 'part'
         ? (node.part ?? node.name)
         : node.type === 'directory'
@@ -188,6 +196,8 @@ describe('workspaceFileTree', () => {
       environmentSecretTemplateFilePath(STAGING),
       'environments/staging-env00001.secret.yaml',
       'workspace-vars.yaml',
+      'workspace-vars.secret.yaml',
+      'trusted-roots.yaml',
       'workspace.yaml',
       'requests/gone-col00007/ping/request.yaml',
       'notes/orders.md',
@@ -197,12 +207,47 @@ describe('workspaceFileTree', () => {
     expect(listed.map((file) => file.path).sort()).toEqual([...paths].sort());
   });
 
-  it("an environment's secret template is the environment's second file", () => {
+  it("an environment lists its secrets' names (the template) and their values as parts after its details", () => {
     const env = environmentFilePath(STAGING);
     const template = environmentSecretTemplateFilePath(STAGING);
-    expect(shapes([template, env])).toEqual([
-      `variables/environments: Staging{details[${env}] ${template.slice(template.lastIndexOf('/') + 1)}[${template}]}`,
+    const values = environmentSecretFilePath(STAGING);
+    expect(shapes([values, template, env])).toEqual([
+      `variables/environments: Staging{details[${env}] secret-names[${template}] secret-values[${values}]}`,
     ]);
+    expect(shapes([template])).toEqual([`variables/environments: Staging[${template}]`]);
+    expect(shapes(['environments/other-env00002.secret.yaml'])).toEqual([
+      'files/files: environments{other-env00002.secret.yaml[environments/other-env00002.secret.yaml]}',
+    ]);
+  });
+
+  it('what the workspace keeps in one file is a page — a section that is one row: the vault ahead of the variables, the workspace and its trusted certificates ahead of the user’s files', () => {
+    expect(
+      shapes([
+        'README.md',
+        'trusted-roots.yaml',
+        'workspace.yaml',
+        'workspace-vars.yaml',
+        'workspace-vars.secret.yaml',
+        environmentFilePath(STAGING),
+      ]),
+    ).toEqual([
+      'variables/vault: vault[workspace-vars.secret.yaml]',
+      'variables/workspace-variables: workspace-variables[workspace-vars.yaml]',
+      `variables/environments: Staging[${environmentFilePath(STAGING)}]`,
+      'files/workspace: workspace[workspace.yaml]',
+      'files/trusted-roots: trusted-roots[trusted-roots.yaml]',
+      'files/files: README.md[README.md]',
+    ]);
+    const ids: WorkspaceFileSectionId[] = [
+      'vault',
+      'workspace-variables',
+      'workspace',
+      'trusted-roots',
+      'environments',
+      'files',
+    ];
+    expect(ids.filter(isWorkspaceFilePage)).toEqual(['vault', 'workspace-variables', 'workspace', 'trusted-roots']);
+    expect(shapes(['docs/workspace.yaml'])).toEqual(['files/files: docs{workspace.yaml[docs/workspace.yaml]}']);
   });
 
   it('a file no entity owns is listed under Files — by its directory, or bare at the root', () => {
