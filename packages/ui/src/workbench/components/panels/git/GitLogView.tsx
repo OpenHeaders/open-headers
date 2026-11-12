@@ -585,6 +585,7 @@ const GitLogView: React.FC<GitLogViewProps> = ({
                   }}
                   selectedPath={selectedFile}
                   onSelectFile={setSelectedFile}
+                  groupByWorkspace={prefs.groupFilesByWorkspace}
                   groupByDirectory={prefs.groupFilesByDirectory}
                   rowMenu={fileRowMenu}
                 />

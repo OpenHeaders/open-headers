@@ -707,6 +707,7 @@ export const workbenchChrome = {
   'workbench.gitLog.details.showDiff': 'Diff anzeigen',
   'workbench.gitLog.details.revertSelected': 'Ausgewählte Änderungen zurücksetzen',
   'workbench.gitLog.details.groupBy': 'Gruppieren nach',
+  'workbench.gitLog.details.workspace': 'Arbeitsbereich',
   'workbench.gitLog.details.directory': 'Verzeichnis',
   'workbench.gitLog.details.layout': 'Layout',
   'workbench.gitLog.details.showDetails': 'Details anzeigen',

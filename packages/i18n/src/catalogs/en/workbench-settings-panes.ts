@@ -719,6 +719,9 @@ export const workbenchSettingsPanes = {
   'workbench.settings.gitPane.log.hashColumnDescription': 'Show the short commit hash on the commit rows.',
   'workbench.settings.gitPane.log.dateColumnLabel': 'Date column',
   'workbench.settings.gitPane.log.dateColumnDescription': 'Show the commit date on the commit rows.',
+  'workbench.settings.gitPane.log.groupByWorkspaceLabel': 'Group by workspace',
+  'workbench.settings.gitPane.log.groupByWorkspaceDescription':
+    'List a commit’s changed files by what they belong to in the workspace, by name; off lists them by path.',
   'workbench.settings.gitPane.log.groupByDirectoryLabel': 'Group by directory',
   'workbench.settings.gitPane.log.groupByDirectoryDescription':
     'Nest a commit’s changed files under their directories; off lists them flat.',

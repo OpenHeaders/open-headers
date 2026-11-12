@@ -782,6 +782,9 @@ export const workbenchSettingsPanes = {
   'workbench.settings.gitPane.log.hashColumnDescription': 'Показывать короткий хеш коммита в строках коммитов.',
   'workbench.settings.gitPane.log.dateColumnLabel': 'Колонка «Дата»',
   'workbench.settings.gitPane.log.dateColumnDescription': 'Показывать дату коммита в строках коммитов.',
+  'workbench.settings.gitPane.log.groupByWorkspaceLabel': 'Группировать по рабочему пространству',
+  'workbench.settings.gitPane.log.groupByWorkspaceDescription':
+    'Показывать изменённые файлы коммита по тому, чему они принадлежат в рабочем пространстве, по именам; выключено — по путям.',
   'workbench.settings.gitPane.log.groupByDirectoryLabel': 'Группировать по каталогам',
   'workbench.settings.gitPane.log.groupByDirectoryDescription':
     'Вкладывать изменённые файлы коммита в их каталоги; выключено — плоский список.',

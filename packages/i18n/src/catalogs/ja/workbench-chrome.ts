@@ -552,6 +552,7 @@ export const workbenchChrome = {
   'workbench.gitLog.details.showDiff': '差分を表示',
   'workbench.gitLog.details.revertSelected': '選択した変更を元に戻す',
   'workbench.gitLog.details.groupBy': 'グループ化',
+  'workbench.gitLog.details.workspace': 'ワークスペース',
   'workbench.gitLog.details.directory': 'ディレクトリ',
   'workbench.gitLog.details.layout': 'レイアウト',
   'workbench.gitLog.details.showDetails': '詳細を表示',

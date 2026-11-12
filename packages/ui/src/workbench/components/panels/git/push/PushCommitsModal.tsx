@@ -287,6 +287,7 @@ const PushCommitsModal: React.FC<PushCommitsModalProps> = ({ workspaceId, open, 
                 selectedPath={selectedPath}
                 onSelectFile={setSelectedPath}
                 onOpenFile={openDiff}
+                groupByWorkspace={prefs.groupFilesByWorkspace}
                 groupByDirectory={prefs.groupFilesByDirectory}
               />
             ) : selected === null ? (
@@ -314,6 +315,7 @@ const PushCommitsModal: React.FC<PushCommitsModalProps> = ({ workspaceId, open, 
                     selectedPath={selectedPath}
                     onSelectFile={setSelectedPath}
                     onOpenFile={openDiff}
+                    groupByWorkspace={prefs.groupFilesByWorkspace}
                     groupByDirectory={prefs.groupFilesByDirectory}
                   />
                 </div>

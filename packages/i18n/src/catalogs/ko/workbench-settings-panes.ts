@@ -721,6 +721,9 @@ export const workbenchSettingsPanes = {
   'workbench.settings.gitPane.log.hashColumnDescription': '커밋 행에 짧은 커밋 해시를 표시합니다.',
   'workbench.settings.gitPane.log.dateColumnLabel': '날짜 열',
   'workbench.settings.gitPane.log.dateColumnDescription': '커밋 행에 커밋 날짜를 표시합니다.',
+  'workbench.settings.gitPane.log.groupByWorkspaceLabel': '워크스페이스별 그룹화',
+  'workbench.settings.gitPane.log.groupByWorkspaceDescription':
+    '커밋의 변경된 파일을 워크스페이스에서 속한 항목별로 이름으로 나열합니다. 끄면 경로로 나열합니다.',
   'workbench.settings.gitPane.log.groupByDirectoryLabel': '디렉터리별 그룹화',
   'workbench.settings.gitPane.log.groupByDirectoryDescription':
     '커밋의 변경된 파일을 디렉터리 아래에 중첩합니다. 끄면 평면으로 나열합니다.',

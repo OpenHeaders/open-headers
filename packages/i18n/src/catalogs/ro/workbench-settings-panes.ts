@@ -788,6 +788,9 @@ export const workbenchSettingsPanes = {
     'Afișează hash-ul scurt al commit-ului pe rândurile commit-urilor.',
   'workbench.settings.gitPane.log.dateColumnLabel': 'Coloana dată',
   'workbench.settings.gitPane.log.dateColumnDescription': 'Afișează data commit-ului pe rândurile commit-urilor.',
+  'workbench.settings.gitPane.log.groupByWorkspaceLabel': 'Grupează după spațiul de lucru',
+  'workbench.settings.gitPane.log.groupByWorkspaceDescription':
+    'Listează fișierele modificate ale unui commit după elementul din spațiul de lucru căruia îi aparțin, cu numele lui; dezactivat, le listează după cale.',
   'workbench.settings.gitPane.log.groupByDirectoryLabel': 'Grupează pe directoare',
   'workbench.settings.gitPane.log.groupByDirectoryDescription':
     'Imbrică fișierele modificate ale unui commit sub directoarele lor; dezactivat, le listează plat.',

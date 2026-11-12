@@ -4,8 +4,8 @@
  * Names and Commit Timestamp in the commit list, the Compact
  * References View, References on the Left, the Author / Hash / Date
  * columns, the Merge Commits highlight (the dimmed-subject
- * convention), the Current Branch band, Group By Directory and
- * Show Details in the changes pane, and what a double-click on a file
+ * convention), the Current Branch band, Group By Workspace and
+ * Directory and Show Details in the changes pane, and what a double-click on a file
  * row opens (the ⋯ menu's Show on Double-Click: the diff or the
  * entity's editor). The shared per-workspace prefs posture.
  */
@@ -33,6 +33,8 @@ export interface GitLogViewPrefs {
   highlightMergeCommits: boolean;
   /** Highlight > Current Branch — the faint band under the commits reachable from HEAD. */
   highlightCurrentBranch: boolean;
+  /** Details eye: Group By > Workspace — the files by what they belong to in the workbench. */
+  groupFilesByWorkspace: boolean;
   /** Details eye: Group By > Directory — off renders flat file rows. */
   groupFilesByDirectory: boolean;
   /** Details eye: Layout > Show Details — the commit-details lower half. */
@@ -51,6 +53,7 @@ export const DEFAULT_GIT_LOG_VIEW_PREFS: GitLogViewPrefs = {
   showDateColumn: true,
   highlightMergeCommits: true,
   highlightCurrentBranch: true,
+  groupFilesByWorkspace: true,
   groupFilesByDirectory: true,
   showDetails: true,
   doubleClickOpens: 'diff',
@@ -69,6 +72,7 @@ const store = createWorkspacePrefsStore<GitLogViewPrefs>({
     showDateColumn: p.showDateColumn !== false,
     highlightMergeCommits: p.highlightMergeCommits !== false,
     highlightCurrentBranch: p.highlightCurrentBranch !== false,
+    groupFilesByWorkspace: p.groupFilesByWorkspace !== false,
     groupFilesByDirectory: p.groupFilesByDirectory !== false,
     showDetails: p.showDetails !== false,
     doubleClickOpens: p.doubleClickOpens === 'source' ? 'source' : 'diff',

@@ -49,6 +49,8 @@ export interface TreeNode {
   // Rendering
   icon: React.ReactNode;
   badge?: React.ReactNode;
+  /** The label's own colour — a file's change status in the git trees; absent = the row's. */
+  labelColor?: string;
 
   // Capabilities
   canRename: boolean;

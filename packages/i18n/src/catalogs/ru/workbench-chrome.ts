@@ -573,6 +573,7 @@ export const workbenchChrome = {
   'workbench.gitLog.details.showDiff': 'Показать Diff',
   'workbench.gitLog.details.revertSelected': 'Откатить выбранные изменения',
   'workbench.gitLog.details.groupBy': 'Группировать по',
+  'workbench.gitLog.details.workspace': 'Рабочее пространство',
   'workbench.gitLog.details.directory': 'Каталог',
   'workbench.gitLog.details.layout': 'Компоновка',
   'workbench.gitLog.details.showDetails': 'Показывать подробности',

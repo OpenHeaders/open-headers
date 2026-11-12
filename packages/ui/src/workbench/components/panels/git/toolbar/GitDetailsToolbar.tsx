@@ -2,8 +2,8 @@
  * GitDetailsToolbar — the changes pane's top band (the Git window's
  * details and the Push window's files): Show Diff for the selected
  * file, Revert Selected Changes (visible placeholder — the write verb
- * is a future slice), the View Options eye (Group By Directory, Show
- * Details, Show Diff Preview), Jump to Source for the selected file
+ * is a future slice), the View Options eye (Group By Workspace and
+ * Directory, Show Details, Show Diff Preview), Jump to Source for the selected file
  * when the host offers it, then Expand All / Collapse All at the far
  * edge driving the files tree. The band is a PaneToolbar: at a narrow
  * dock the tail folds behind the › chevron's hover strip.
@@ -63,6 +63,11 @@ const GitDetailsToolbar: React.FC<GitDetailsToolbarProps> = ({
               label: t('workbench.gitLog.details.groupBy'),
               children: [
                 {
+                  key: 'workspace',
+                  label: t('workbench.gitLog.details.workspace'),
+                  icon: menuCheckIcon(prefs.groupFilesByWorkspace),
+                },
+                {
                   key: 'directory',
                   label: t('workbench.gitLog.details.directory'),
                   icon: menuCheckIcon(prefs.groupFilesByDirectory),
@@ -89,7 +94,8 @@ const GitDetailsToolbar: React.FC<GitDetailsToolbarProps> = ({
             },
           ],
         onClick: ({ key }) => {
-          if (key === 'directory') onPatchPrefs({ groupFilesByDirectory: !prefs.groupFilesByDirectory });
+          if (key === 'workspace') onPatchPrefs({ groupFilesByWorkspace: !prefs.groupFilesByWorkspace });
+          else if (key === 'directory') onPatchPrefs({ groupFilesByDirectory: !prefs.groupFilesByDirectory });
           else if (key === 'show-details') onPatchPrefs({ showDetails: !prefs.showDetails });
         },
       }}

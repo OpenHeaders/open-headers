@@ -164,6 +164,15 @@ const GitLogSection: React.FC<{ git: WorkspaceGit }> = ({ git }) => {
       </PaneSection>
       <PaneSection title={t('workbench.settings.category.gitLog.sub.changes')}>
         <ToggleRow
+          settingKey="git.log.groupFilesByWorkspace"
+          label={t('workbench.settings.gitPane.log.groupByWorkspaceLabel')}
+          description={t('workbench.settings.gitPane.log.groupByWorkspaceDescription')}
+          value={view.groupFilesByWorkspace}
+          defaultValue={DEFAULT_GIT_LOG_VIEW_PREFS.groupFilesByWorkspace}
+          onChange={(groupFilesByWorkspace) => patchView({ groupFilesByWorkspace })}
+          testid="git-log-pane-group-by-workspace"
+        />
+        <ToggleRow
           settingKey="git.log.groupFilesByDirectory"
           label={t('workbench.settings.gitPane.log.groupByDirectoryLabel')}
           description={t('workbench.settings.gitPane.log.groupByDirectoryDescription')}

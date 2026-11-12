@@ -732,6 +732,9 @@ export const workbenchSettingsPanes = {
   'workbench.settings.gitPane.log.hashColumnDescription': 'コミット行に短いコミットハッシュを表示します。',
   'workbench.settings.gitPane.log.dateColumnLabel': '日付列',
   'workbench.settings.gitPane.log.dateColumnDescription': 'コミット行にコミット日付を表示します。',
+  'workbench.settings.gitPane.log.groupByWorkspaceLabel': 'ワークスペースでグループ化',
+  'workbench.settings.gitPane.log.groupByWorkspaceDescription':
+    'コミットの変更ファイルを、ワークスペース内で属するものごとに名前で一覧します。オフではパスで一覧します。',
   'workbench.settings.gitPane.log.groupByDirectoryLabel': 'ディレクトリでグループ化',
   'workbench.settings.gitPane.log.groupByDirectoryDescription':
     'コミットの変更ファイルをディレクトリの下に入れ子にします。オフではフラットに一覧します。',

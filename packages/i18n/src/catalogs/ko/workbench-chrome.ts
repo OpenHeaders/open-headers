@@ -552,6 +552,7 @@ export const workbenchChrome = {
   'workbench.gitLog.details.showDiff': 'Diff 표시',
   'workbench.gitLog.details.revertSelected': '선택한 변경 되돌리기',
   'workbench.gitLog.details.groupBy': '그룹 기준',
+  'workbench.gitLog.details.workspace': '워크스페이스',
   'workbench.gitLog.details.directory': '디렉터리',
   'workbench.gitLog.details.layout': '레이아웃',
   'workbench.gitLog.details.showDetails': '세부 정보 표시',

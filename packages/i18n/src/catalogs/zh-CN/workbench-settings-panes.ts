@@ -663,6 +663,9 @@ export const workbenchSettingsPanes = {
   'workbench.settings.gitPane.log.hashColumnDescription': '在提交行中显示短提交哈希。',
   'workbench.settings.gitPane.log.dateColumnLabel': '日期列',
   'workbench.settings.gitPane.log.dateColumnDescription': '在提交行中显示提交日期。',
+  'workbench.settings.gitPane.log.groupByWorkspaceLabel': '按工作区分组',
+  'workbench.settings.gitPane.log.groupByWorkspaceDescription':
+    '把一次提交的已更改文件按其在工作区中所属的内容、以名称列出；关闭则按路径列出。',
   'workbench.settings.gitPane.log.groupByDirectoryLabel': '按目录分组',
   'workbench.settings.gitPane.log.groupByDirectoryDescription':
     '把一次提交的已更改文件嵌套在其目录下；关闭则平铺列出。',

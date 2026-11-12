@@ -558,6 +558,7 @@ export const workbenchChrome = {
   'workbench.gitLog.details.showDiff': 'Afficher le diff',
   'workbench.gitLog.details.revertSelected': 'Annuler les modifications sélectionnées',
   'workbench.gitLog.details.groupBy': 'Grouper par',
+  'workbench.gitLog.details.workspace': 'Espace de travail',
   'workbench.gitLog.details.directory': 'Répertoire',
   'workbench.gitLog.details.layout': 'Disposition',
   'workbench.gitLog.details.showDetails': 'Afficher les détails',

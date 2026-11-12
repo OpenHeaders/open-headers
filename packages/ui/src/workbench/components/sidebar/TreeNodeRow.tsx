@@ -244,7 +244,7 @@ export function TreeNodeRow({
         )
       ) : (
         <>
-          <span className="rules-sidebar-item-label">
+          <span className="rules-sidebar-item-label" style={node.labelColor ? { color: node.labelColor } : undefined}>
             {highlightQuery ? highlightLabel(node.label, highlightQuery) : node.label}
           </span>
 

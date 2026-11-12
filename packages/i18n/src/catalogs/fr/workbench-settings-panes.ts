@@ -821,6 +821,9 @@ export const workbenchSettingsPanes = {
   'workbench.settings.gitPane.log.hashColumnDescription': 'Afficher le hash court du commit sur les lignes de commits.',
   'workbench.settings.gitPane.log.dateColumnLabel': 'Colonne Date',
   'workbench.settings.gitPane.log.dateColumnDescription': 'Afficher la date du commit sur les lignes de commits.',
+  'workbench.settings.gitPane.log.groupByWorkspaceLabel': 'Grouper par espace de travail',
+  'workbench.settings.gitPane.log.groupByWorkspaceDescription':
+    "Lister les fichiers modifiés d'un commit selon ce à quoi ils appartiennent dans l'espace de travail, par nom ; désactivé, ils sont listés par chemin.",
   'workbench.settings.gitPane.log.groupByDirectoryLabel': 'Grouper par répertoire',
   'workbench.settings.gitPane.log.groupByDirectoryDescription':
     "Imbriquer les fichiers modifiés d'un commit sous leurs répertoires ; désactivé, ils sont listés à plat.",

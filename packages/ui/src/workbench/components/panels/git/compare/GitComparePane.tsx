@@ -17,12 +17,13 @@ import {
 } from '@openheaders/core/bridge';
 import { theme } from 'antd';
 import type React from 'react';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import CommitDetails from '../CommitDetails';
 import CommitList from '../CommitList';
 import DiffModal from '../DiffModal';
 import FileTreeView from '../FileTreeView';
+import { getGitLogViewPrefs, subscribeGitLogViewPrefs } from '../git-log-view-prefs';
 import type { GitCompareTabState } from '../git-panel-view-store';
 import { useFileDiff } from '../use-file-diff';
 import { useLogHourCycle } from '../use-log-hour-cycle';
@@ -34,6 +35,7 @@ export interface GitComparePaneProps {
 }
 
 interface CompareSideProps {
+  workspaceId: string;
   /** Banner copy: commits in `a` that `b` lacks. */
   a: string;
   b: string;
@@ -47,6 +49,7 @@ interface CompareSideProps {
 }
 
 const CompareSide: React.FC<CompareSideProps> = ({
+  workspaceId,
   a,
   b,
   entries,
@@ -60,6 +63,11 @@ const CompareSide: React.FC<CompareSideProps> = ({
   const { token } = theme.useToken();
   const t = useT();
   const hourCycle = useLogHourCycle();
+  const subscribePrefs = useCallback(
+    (listener: () => void) => subscribeGitLogViewPrefs(workspaceId, listener),
+    [workspaceId],
+  );
+  const prefs = useSyncExternalStore(subscribePrefs, () => getGitLogViewPrefs(workspaceId));
   const selected = selectedSha !== null ? (entries.find((entry) => entry.sha === selectedSha) ?? null) : null;
   // Two or more rows selected: the detail slot answers with the count
   // (the log pane's reading), not one commit's files.
@@ -150,6 +158,8 @@ const CompareSide: React.FC<CompareSideProps> = ({
                 files={selected.files}
                 loadingPath={loadingPath}
                 onOpenFile={(path) => onOpenFile(selected.sha, path)}
+                groupByWorkspace={prefs.groupFilesByWorkspace}
+                groupByDirectory={prefs.groupFilesByDirectory}
                 showHeader
               />
               <div
@@ -244,6 +254,7 @@ const GitComparePane: React.FC<GitComparePaneProps> = ({ workspaceId, tab, patch
         </div>
       )}
       <CompareSide
+        workspaceId={workspaceId}
         a={currentLabel}
         b={tab.ref}
         entries={onlyInCurrent}
@@ -256,6 +267,7 @@ const GitComparePane: React.FC<GitComparePaneProps> = ({ workspaceId, tab, patch
       />
       <div aria-hidden style={{ flex: '0 0 auto', height: 1, background: token.colorBorderSecondary }} />
       <CompareSide
+        workspaceId={workspaceId}
         a={tab.ref}
         b={currentLabel}
         entries={onlyInRef}

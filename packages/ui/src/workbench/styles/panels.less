@@ -85,6 +85,21 @@
   }
 }
 
+// A changed-files tree listed by what the files belong to draws the
+// sidebar trees' own rows. The workspace's variables are the panel's
+// header-styled opener inside a row of the tree: it keeps the section
+// hairline unless it is the first thing listed, and wears the one
+// selection blue while the tree holds focus, as the rows do.
+.git-named-file-tree {
+  > [data-row-key]:not(:first-child) > .rules-sidebar-section::before {
+    display: block;
+  }
+
+  &:focus-within .rules-sidebar-section.rules-sidebar-section--selected {
+    background: var(--oh-row-selected-focused-bg);
+  }
+}
+
 // Listed in the step before the editor, a file's row (one with no
 // caret) and the one-page opener name a file and open nothing.
 .git-conflict-tree--listing {

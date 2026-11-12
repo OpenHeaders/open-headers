@@ -8,7 +8,7 @@
  * (`sidebar/TreeNodeRow`, `sidebar/SectionHeader`). The surfaces
  * themselves are the strip's chips beside the panel, which mark the
  * open file's; no row here names one. `workspace-file-tree` is the
- * listing.
+ * listing, `workspace-file-face` the names and icons.
  *
  * A row that stands for one conflicted file opens it; any other folds
  * and unfolds. A file's row ends in what it has left to answer, or a
@@ -21,48 +21,26 @@
  * files and opens none — a pass's own dialogs (`PassFileTree`).
  */
 
-import { CheckCircleFilled, FileTextOutlined, FolderOpenOutlined, FolderOutlined, WarningFilled } from '@ant-design/icons';
-import type { MessageKey } from '@openheaders/i18n';
+import { CheckCircleFilled, WarningFilled } from '@ant-design/icons';
 import { useT } from '@openheaders/ui/context/LocaleContext';
+import type { MergeFilesPanelProps } from '@openheaders/ui/shared/merge-editor';
 import type {
-  WorkspaceLeafNode,
   WorkspaceFileNode,
   WorkspaceFileSection,
   WorkspaceFileSectionId,
 } from '@openheaders/ui/shared/workspace-files';
-import { useRules } from '@openheaders/ui/shared/hooks/readers/useRules';
-import type { MergeFilesPanelProps } from '@openheaders/ui/shared/merge-editor';
 import { Tooltip, theme } from 'antd';
 import { Fragment, type ReactElement, type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { buildRuleIcon } from '../../shared/rule-icon';
-import { scopeBadge } from '../../shared/scope-colors';
-import { renderTwoToneIcon } from '../../shared/TwoToneIconPicker';
-import { folderTag, graphqlTag, grpcTag, iconEl, methodTag, mqttTag, websocketTag } from '../../sidebar/icons';
 import { SectionHeader, SectionOpenerRow } from '../../sidebar/SectionHeader';
 import { TreeNodeRow } from '../../sidebar/TreeNodeRow';
 import type { TreeNode } from '../../sidebar/types';
-import { FileTypeIcon } from './commit/FileTypeIcon';
-import { conflictEntityName, conflictPartLabel } from './use-conflict-tree';
+import { useWorkspaceFileFace } from './workspace-file-face';
 
 export interface ConflictTreeProps extends MergeFilesPanelProps {
   tree: readonly WorkspaceFileSection[];
   /** Name the files only: nothing is open, and a file's row opens nothing. */
   listing?: boolean;
 }
-
-const SECTION_TITLES: Readonly<Record<WorkspaceFileSectionId, MessageKey>> = {
-  rules: 'workbench.sidebar.section.rules',
-  templates: 'workbench.sidebar.section.templates',
-  requests: 'workbench.sidebar.section.requests',
-  specs: 'workbench.sidebar.section.specs',
-  workflows: 'workbench.sidebar.section.workflows',
-  'workspace-variables': 'workbench.sidebar.section.workspaceVariables',
-  'live-variables': 'workbench.sidebar.section.liveVariables',
-  environments: 'workbench.sidebar.section.environments',
-  files: 'workbench.gitLog.resolve.otherFiles',
-};
-
-const QUIET = 'var(--ant-color-text-tertiary, #999)';
 
 const sectionKey = (id: WorkspaceFileSectionId): string => `section:${id}`;
 
@@ -94,7 +72,7 @@ const ConflictTree = ({
 }: ConflictTreeProps): ReactElement => {
   const { token } = theme.useToken();
   const t = useT();
-  const { rules } = useRules();
+  const face = useWorkspaceFileFace();
   const hostRef = useRef<HTMLDivElement>(null);
   const [folded, setFolded] = useState<ReadonlySet<string>>(() => new Set());
   const toggle = useCallback((key: string) => {
@@ -174,73 +152,16 @@ const ConflictTree = ({
     );
   };
 
-  const leafIcon = (node: WorkspaceLeafNode): ReactNode => {
-    switch (node.type) {
-      case 'request':
-        return methodTag(node.method);
-      case 'graphql-request':
-        return graphqlTag();
-      case 'grpc-request':
-        return grpcTag();
-      case 'websocket-request':
-        return websocketTag(node.flavor);
-      case 'mqtt-request':
-        return mqttTag();
-      case 'rule':
-        return buildRuleIcon({
-          ruleType: node.ruleType,
-          rule: rules.find((rule) => rule.uid === node.uid),
-          isActive: node.enabled,
-        });
-      case 'template':
-        return renderTwoToneIcon(node.icon, { fontSize: 12 }) || iconEl(FileTextOutlined, QUIET);
-    }
-  };
-
-  const iconOf = (listed: WorkspaceFileSectionId, node: WorkspaceFileNode): ReactNode => {
-    if (node.type === 'directory') return iconEl(FolderOutlined, QUIET);
-    if (node.type !== 'entity') return <FileTypeIcon path={node.file} />;
-    const { entity } = node;
-    switch (entity.kind) {
-      case 'collection':
-        return iconEl(FolderOpenOutlined, QUIET);
-      case 'folder':
-        return listed === 'requests' ? folderTag(FolderOutlined) : iconEl(FolderOutlined, QUIET);
-      case 'node':
-        return leafIcon(entity.node);
-      case 'spec':
-        return iconEl(FileTextOutlined, QUIET);
-      case 'workflow':
-        return (
-          <span
-            style={{ display: 'inline-block', width: 8, height: 8, borderRadius: '50%', background: QUIET, marginRight: 2 }}
-          />
-        );
-      case 'live-variable':
-        return scopeBadge('live');
-      case 'environment':
-        return scopeBadge('environment');
-      case 'workspace-variables':
-        return scopeBadge('workspace');
-    }
-  };
-
-  const labelOf = (node: WorkspaceFileNode): string => {
-    if (node.type === 'entity') return conflictEntityName(t, node.entity);
-    if (node.type === 'part') return conflictPartLabel(t, node.part, node.name);
-    return node.type === 'directory' ? node.path : node.name;
-  };
-
   /** A row in the panels' own shape — nothing of theirs to rename, add or delete here. */
   const rowOf = (listed: WorkspaceFileSectionId, node: WorkspaceFileNode, depth: number, unfolded: boolean): TreeNode => {
     const holds = childrenOf(node).length > 0;
     return {
       id: node.id,
       kind: holds ? 'folder' : 'leaf',
-      label: labelOf(node),
+      label: face.labelOf(node),
       depth,
       expandable: holds,
-      icon: iconOf(listed, node),
+      icon: face.iconOf(listed, node),
       badge: unfolded ? undefined : endOf(filesUnder(node)),
       canRename: false,
       canDelete: false,
@@ -269,7 +190,7 @@ const ConflictTree = ({
     });
 
   const sectionOf = (listed: WorkspaceFileSection): ReactNode => {
-    const title = t(SECTION_TITLES[listed.id]);
+    const title = face.sectionTitle(listed.id);
     const key = sectionKey(listed.id);
     // The workspace's variables are one page: its panel opens it from a header-styled row.
     const [only] = listed.nodes;

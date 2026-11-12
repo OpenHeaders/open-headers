@@ -580,6 +580,7 @@ export const workbenchChrome = {
   'workbench.gitLog.details.showDiff': 'Afișare Diff',
   'workbench.gitLog.details.revertSelected': 'Revenire asupra modificărilor selectate',
   'workbench.gitLog.details.groupBy': 'Grupare după',
+  'workbench.gitLog.details.workspace': 'Spațiu de lucru',
   'workbench.gitLog.details.directory': 'Director',
   'workbench.gitLog.details.layout': 'Aspect',
   'workbench.gitLog.details.showDetails': 'Afișare detalii',
