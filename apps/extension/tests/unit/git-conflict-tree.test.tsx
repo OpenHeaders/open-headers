@@ -8,7 +8,9 @@
  * file), what a click does (a file's row opens it, any other
  * folds), what a row ends in (the count left, a check once none is, the
  * sum under a folded row or section), the unfolding to the open file,
- * and the one-surface listing the strip's flyout shows.
+ * the one-surface listing the strip's flyout shows, and the listing of
+ * the step before the editor — the same names, nothing open, nothing
+ * counted, a file's row opening nothing.
  */
 
 import type { TreeNode } from '@openheaders/core/types';
@@ -181,5 +183,17 @@ describe('ConflictTree', () => {
     render(<Harness section="api-requests" />);
     expect(labels()).toEqual(['Orders', 'Create Order', 'Details', 'Body', 'List Orders']);
     expect(screen.queryByText('WORKSPACE VARIABLES')).toBeNull();
+  });
+
+  it('as a listing it names the files the same way — nothing open, nothing counted, a row folding and no file opened', () => {
+    const onSelect = vi.fn();
+    render(<ConflictTree tree={TREE} files={[]} activeFileId="" hunkCounts={undefined} onSelect={onSelect} listing />);
+    expect(labels()).toEqual(['Orders', 'Create Order', 'Details', 'Body', 'List Orders', 'notes', 'orders.md']);
+    expect(document.querySelector('.git-conflict-tree--listing')).toBeTruthy();
+    expect(document.querySelectorAll('.selected, .rules-sidebar-item-badge')).toHaveLength(0);
+    fireEvent.click(rowOf('Body'));
+    fireEvent.click(rowOf('Create Order'));
+    expect(labels()).not.toContain('Body');
+    expect(onSelect).not.toHaveBeenCalled();
   });
 });

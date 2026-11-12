@@ -1,6 +1,6 @@
 /**
  * PassFileList — the files a pass names in a dialog of its own (the
- * uncommitted-work question, the conflicts step): one path per line in
+ * uncommitted-work question): one path per line in
  * the code face, clipped with its full text in the title, scrolling
  * past a handful of rows.
  */

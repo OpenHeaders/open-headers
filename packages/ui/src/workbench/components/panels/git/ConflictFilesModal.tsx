@@ -2,7 +2,8 @@
  * ConflictFilesModal — the step before the conflict editor. A pass (a
  * Pull, a branch Merge, a Cherry-Pick, a Revert) found files both sides
  * changed and has written nothing; the dialog names them under the
- * pass's own title and takes one of three answers: one side for all of
+ * pass's own title — as the editor's files panel will, by what they
+ * belong to (`ConflictFilesTree`) — and takes one of three answers: one side for all of
  * them (Accept Incoming / Keep Mine — the host rules the values
  * both sides changed for that side and keeps what only one side
  * changed), Review Conflicts… for the editor, where each is answered by
@@ -15,7 +16,7 @@
 import { Button, Modal } from 'antd';
 import type React from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
-import PassFileList from './PassFileList';
+import ConflictFilesTree from './ConflictFilesTree';
 
 /** One side for every file: the incoming change's, or the branch's. */
 export type ConflictSide = 'theirs' | 'mine';
@@ -91,7 +92,7 @@ const ConflictFilesModal: React.FC<ConflictFilesModalProps> = ({
     >
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12, paddingTop: 4 }} data-testid="git-tool-conflict-files">
         <span style={{ fontSize: 12.5 }}>{t('workbench.gitLog.resolve.filesBody')}</span>
-        <PassFileList files={prompt?.files ?? []} testId="git-tool-conflict-files-list" />
+        {prompt !== null ? <ConflictFilesTree files={prompt.files} testId="git-tool-conflict-files-list" /> : null}
       </div>
     </Modal>
   );

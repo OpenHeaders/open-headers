@@ -17,7 +17,8 @@
  * view, and wears the one selection blue (`styles/panels.less`).
  *
  * Handed one `section` (a surface), it lists that surface alone — the
- * strip's flyout while the panel is shut.
+ * strip's flyout while the panel is shut. As a `listing` it names the
+ * files and opens none — the step before the editor (`ConflictFilesTree`).
  */
 
 import { CheckCircleFilled, FileTextOutlined, FolderOpenOutlined, FolderOutlined, WarningFilled } from '@ant-design/icons';
@@ -45,6 +46,8 @@ import { conflictEntityName, conflictPartLabel } from './use-conflict-tree';
 
 export interface ConflictTreeProps extends MergeFilesPanelProps {
   tree: readonly ConflictSection[];
+  /** Name the files only: nothing is open, and a file's row opens nothing. */
+  listing?: boolean;
 }
 
 const SECTION_TITLES: Readonly<Record<ConflictSectionId, MessageKey>> = {
@@ -86,6 +89,7 @@ const ConflictTree = ({
   states,
   hunkCounts,
   section,
+  listing = false,
   onSelect,
 }: ConflictTreeProps): ReactElement => {
   const { token } = theme.useToken();
@@ -131,6 +135,11 @@ const ConflictTree = ({
       ?.querySelector('.rules-sidebar-item.selected, .rules-sidebar-section--selected')
       ?.scrollIntoView({ block: 'nearest' });
   }, [activeFileId, trails, folded]);
+
+  /** A file's row opens it — except in a listing, which names files and opens none. */
+  const open = (file: string): void => {
+    if (!listing) onSelect(file);
+  };
 
   const remainingOf = (files: readonly string[]): number =>
     files.reduce((sum, file) => sum + (hunkCounts?.get(file) ?? 0), 0);
@@ -251,7 +260,7 @@ const ConflictTree = ({
           isFocused={false}
           isRenaming={false}
           isExpanded={unfolded}
-          onClick={() => (own !== undefined ? onSelect(own) : toggle(node.id))}
+          onClick={() => (own !== undefined ? open(own) : toggle(node.id))}
           onDoubleClick={noop}
           onStartRename={noop}
         />
@@ -270,7 +279,7 @@ const ConflictTree = ({
         <SectionOpenerRow
           key={key}
           title={title}
-          node={{ ...rowOf(listed.id, only, 0, false), onOpen: () => onSelect(page) }}
+          node={{ ...rowOf(listed.id, only, 0, false), onOpen: () => open(page) }}
           selected={page === activeFileId}
           actions={endOf([page])}
         />
@@ -295,12 +304,14 @@ const ConflictTree = ({
   return (
     <div
       ref={hostRef}
-      className="rules-sidebar-content git-conflict-tree"
+      className={`rules-sidebar-content git-conflict-tree${listing ? ' git-conflict-tree--listing' : ''}`}
       data-testid="git-conflict-tree"
       style={
-        flyout
-          ? { maxHeight: 360 }
-          : {
+        listing
+          ? { maxHeight: 220 }
+          : flyout
+            ? { maxHeight: 360 }
+            : {
               height: '100%',
               boxSizing: 'border-box',
               padding: '4px 0',

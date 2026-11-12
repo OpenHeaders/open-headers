@@ -132,6 +132,10 @@ export function useConflictAnswers(): ConflictAnswers {
   );
 
   const listed = conflict !== null && conflict.step === 'files' ? conflict : null;
+  const prompt = useMemo(
+    () => (listed !== null ? { title: listed.title, files: listed.resolve.files.map((file) => file.path) } : null),
+    [listed],
+  );
 
   // One side for every file. A branch that moved brings the files back
   // in this same dialog (`deliver` says so); any other failure is said
@@ -148,7 +152,7 @@ export function useConflictAnswers(): ConflictAnswers {
   const dialog = (
     <>
       <ConflictFilesModal
-        prompt={listed !== null ? { title: listed.title, files: listed.resolve.files.map((file) => file.path) } : null}
+        prompt={prompt}
         sending={sending}
         onSide={(side) => void takeSide(side)}
         onReview={() => {

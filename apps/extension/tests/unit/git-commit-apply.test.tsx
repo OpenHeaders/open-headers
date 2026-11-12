@@ -137,6 +137,12 @@ const toEditor = (title = ''): Promise<void> =>
 
 const calledShas = (): string[] => mockCall.mock.calls.map(([, payload]) => (payload as { sha: string }).sha);
 
+/** The files step's list as a path: with no workspace behind the pin, a file is named by its directory, then its name. */
+const listedFile = (): string =>
+  [...screen.getByTestId('git-tool-conflict-files-list').querySelectorAll('.rules-sidebar-item-label')]
+    .map((label) => label.textContent)
+    .join('/');
+
 describe('commitApplyOrder', () => {
   it('a pick replays oldest first; a revert unwinds newest first', () => {
     expect(commitApplyOrder([NEWEST, MIDDLE, OLDEST], 'pick')).toEqual([OLDEST, MIDDLE, NEWEST]);
@@ -292,7 +298,7 @@ describe('useCommitApply — a conflict answered in the merge editor', () => {
     const actions = mount();
     act(() => actions.cherryPick([NEWEST, OLDEST]));
 
-    await waitFor(() => expect(screen.getByTestId('git-tool-conflict-files-list').textContent).toBe(RULE));
+    await waitFor(() => expect(listedFile()).toBe(RULE));
     expect(screen.getByText('Cherry-Pick ccccccc: Resolve Conflicts')).toBeTruthy();
     expect(screen.queryByTestId('merge-modal')).toBeNull();
     fireEvent.click(screen.getByText('Review Conflicts…'));
@@ -327,7 +333,7 @@ describe('useCommitApply — a conflict answered in the merge editor', () => {
     mockCall.mockResolvedValueOnce({ ok: true, sha: 'd'.repeat(40) }).mockResolvedValueOnce(conflicts('tok-1'));
     const actions = mount();
     act(() => actions.cherryPick([NEWEST, MIDDLE, OLDEST]));
-    await waitFor(() => expect(screen.getByTestId('git-tool-conflict-files-list').textContent).toBe(RULE));
+    await waitFor(() => expect(listedFile()).toBe(RULE));
 
     fireEvent.click(screen.getByText('Cancel'));
     await waitFor(() => expect(screen.getByText('Cherry-pick finished')).toBeTruthy());

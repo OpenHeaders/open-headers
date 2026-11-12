@@ -146,6 +146,12 @@ const toEditor = (title = ''): Promise<void> =>
   });
 
 // The locale context answers English here, so the pin reads the words.
+/** The files step's list as a path: with no workspace behind the pin, a file is named by its directory, then its name. */
+const listedFile = (): string =>
+  [...screen.getByTestId('git-tool-conflict-files-list').querySelectorAll('.rules-sidebar-item-label')]
+    .map((label) => label.textContent)
+    .join('/');
+
 describe('usePassAnswers', () => {
   function mount(): PassAnswers {
     let answers: PassAnswers | null = null;
@@ -250,7 +256,7 @@ describe('usePassAnswers', () => {
       answer = answers.run({ kind: 'pull' }, verb);
     });
 
-    await waitFor(() => expect(screen.getByTestId('git-tool-conflict-files-list').textContent).toBe(REQUEST));
+    await waitFor(() => expect(listedFile()).toBe(REQUEST));
     expect(screen.getByText('Pull: Resolve Conflicts')).toBeTruthy();
     expect(screen.getByText(/^Both sides changed these files\. Nothing has been written yet\./)).toBeTruthy();
     expect(screen.queryByTestId('merge-modal')).toBeNull();
@@ -277,7 +283,7 @@ describe('usePassAnswers', () => {
     act(() => {
       answer = answers.run({ kind: 'pull' }, verb);
     });
-    await waitFor(() => expect(screen.getByTestId('git-tool-conflict-files-list').textContent).toBe(REQUEST));
+    await waitFor(() => expect(listedFile()).toBe(REQUEST));
 
     fireEvent.click(screen.getByTestId('git-tool-conflict-files-theirs'));
     await act(async () => {
@@ -298,7 +304,7 @@ describe('usePassAnswers', () => {
     act(() => {
       answer = answers.run({ kind: 'pull' }, verb);
     });
-    await waitFor(() => expect(screen.getByTestId('git-tool-conflict-files-list').textContent).toBe(REQUEST));
+    await waitFor(() => expect(listedFile()).toBe(REQUEST));
     expect(screen.getByTestId('git-tool-conflict-files-theirs').textContent).toBe('Accept Incoming');
     expect(screen.getByTestId('git-tool-conflict-files-mine').textContent).toBe('Keep Mine');
 
@@ -306,7 +312,7 @@ describe('usePassAnswers', () => {
     await waitFor(() =>
       expect(screen.getByText('The branch changed while you were resolving. Review the conflicts again.')).toBeTruthy(),
     );
-    expect(screen.getByTestId('git-tool-conflict-files-list').textContent).toBe(REQUEST);
+    expect(listedFile()).toBe(REQUEST);
     expect(screen.queryByTestId('merge-modal')).toBeNull();
 
     fireEvent.click(screen.getByTestId('git-tool-conflict-files-mine'));
@@ -504,7 +510,7 @@ describe('useGitBranchActions — Pull and Merge ask before they write', () => {
       .mockResolvedValueOnce({ ok: true, upToDate: false, sha: 'd'.repeat(40), applied: 0 });
     const actions = mount();
     act(() => actions.pull());
-    await waitFor(() => expect(screen.getByTestId('git-tool-conflict-files-list').textContent).toBe(REQUEST));
+    await waitFor(() => expect(listedFile()).toBe(REQUEST));
 
     fireEvent.click(screen.getByTestId('git-tool-conflict-files-mine'));
     await waitFor(() => expect(screen.getByText('Pull finished')).toBeTruthy());

@@ -85,6 +85,19 @@
   }
 }
 
+// Listed in the step before the editor, a file's row (one with no
+// caret) and the one-page opener name a file and open nothing.
+.git-conflict-tree--listing {
+  .rules-sidebar-item:has(> .rules-sidebar-item-caret:empty),
+  .rules-sidebar-section[data-item-id] {
+    cursor: default;
+
+    &:hover {
+      background: transparent;
+    }
+  }
+}
+
 // Commit tree tri-state checkboxes, the IDE minus: a partially-checked
 // group/root/dir box fills solid primary with a white dash (antd's
 // default indeterminate is a small inner square that reads as empty at
