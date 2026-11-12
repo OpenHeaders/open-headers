@@ -1,10 +1,10 @@
 /**
  * ConflictEditor — the shared merge editor over the files of a
  * conflicted pass, listed as the workbench's own panels list what they
- * belong to: the strip's surfaces (`conflict-rail`), and beside it the
- * sections, collections and entities of each (`ConflictTree`). The
- * session's files follow that listing, so the editor opens on its top
- * row.
+ * belong to: the strip's surfaces (`conflict-rail`), and beside it
+ * every surface's sections, collections and entities (`ConflictTree`).
+ * The session's files follow that listing, so the editor opens on its
+ * top row.
  *
  * Mounted only while the editor is open — the workspace is read here,
  * not by every surface that can start a pass.
@@ -50,8 +50,8 @@ const ConflictEditor = ({ title, files, apply, onCancel, onClose }: ConflictEdit
   }, [title, files, tree, apply, onCancel]);
 
   const renderFiles = useCallback(
-    (panel: MergeFilesPanelProps): ReactNode => <ConflictTree {...panel} tree={tree.sections} rail={rail} />,
-    [tree.sections, rail],
+    (panel: MergeFilesPanelProps): ReactNode => <ConflictTree {...panel} tree={tree.sections} />,
+    [tree.sections],
   );
 
   return (

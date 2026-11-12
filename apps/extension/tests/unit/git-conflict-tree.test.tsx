@@ -2,9 +2,10 @@
 /**
  * The merge editor's files panel for a conflicted pass: the files as
  * the workbench's panels list what they belong to. Pins what is drawn
- * (a surface's name, its sections' titles, the collections and entities
- * by name, a part by its editor's word — never a file path for an
- * entity's file), what a click does (a file's row opens it, any other
+ * (the sections' titles one after another — no row names a surface,
+ * the strip beside the panel does — the collections and entities by
+ * name, a part by its editor's word, never a file path for an entity's
+ * file), what a click does (a file's row opens it, any other
  * folds), what a row ends in (the count left, a check once none is, the
  * sum under a folded row or section), the unfolding to the open file,
  * and the one-surface listing the strip's flyout shows.
@@ -12,7 +13,7 @@
 
 import type { TreeNode } from '@openheaders/core/types';
 import { type ConflictWorkspace, commitConflictTree } from '@openheaders/ui/shared/conflicts/commit-conflict-tree';
-import type { MergeFileRowState, MergeRailVocabulary } from '@openheaders/ui/shared/merge-editor';
+import type { MergeFileRowState } from '@openheaders/ui/shared/merge-editor';
 import ConflictTree from '@openheaders/ui/workbench/components/panels/git/ConflictTree';
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { useState } from 'react';
@@ -49,14 +50,6 @@ const WORKSPACE: ConflictWorkspace = {
 const PATHS = [MANIFEST, BODY, LISTED, VARS, NOTES];
 const TREE = commitConflictTree(PATHS, WORKSPACE);
 
-const RAIL: MergeRailVocabulary = {
-  sections: [
-    { id: 'api-requests', label: 'API Requests', icon: <i /> },
-    { id: 'variables', label: 'Variables', icon: <i /> },
-    { id: 'files', label: 'Files', icon: <i /> },
-  ],
-};
-
 const COUNTS = new Map([
   [MANIFEST, 4],
   [BODY, 2],
@@ -87,7 +80,6 @@ function Harness({ open = MANIFEST, elsewhere, section, states, counts = COUNTS,
       ) : null}
       <ConflictTree
         tree={TREE}
-        rail={RAIL}
         files={[]}
         activeFileId={active}
         states={states}
@@ -114,13 +106,12 @@ const endOf = (row: HTMLElement): string => row.querySelector('.rules-sidebar-it
 afterEach(cleanup);
 
 describe('ConflictTree', () => {
-  it("lists a surface's sections under its name, and under them the collections and entities by name — a part by its editor's word", () => {
+  it("lists the sections one after another, and under them the collections and entities by name — a part by its editor's word, no row for a surface", () => {
     render(<Harness />);
-    expect([...document.querySelectorAll('.git-conflict-tree-surface')].map((surface) => surface.textContent)).toEqual([
-      'API Requests',
-      'Variables',
-      'Files',
-    ]);
+    expect(
+      [...document.querySelectorAll('.rules-sidebar-section')].map((header) => header.getAttribute('data-testid')),
+    ).toEqual(['git-conflict-tree-section-requests', null, 'git-conflict-tree-section-files']);
+    expect(document.body.textContent).not.toContain('API Requests');
     expect(screen.getByTestId('git-conflict-tree-section-requests').textContent).toContain('REQUESTS');
     expect(screen.getByTestId('git-conflict-tree-section-files').textContent).toContain('Files');
     expect(screen.getByText('WORKSPACE VARIABLES')).toBeTruthy();
@@ -186,9 +177,8 @@ describe('ConflictTree', () => {
     expect(labels()).toEqual(['Orders', 'Create Order', 'Details', 'Body', 'List Orders', 'notes', 'orders.md']);
   });
 
-  it('handed one surface, it lists that surface alone, without its title', () => {
+  it('handed one surface, it lists that surface alone', () => {
     render(<Harness section="api-requests" />);
-    expect(document.querySelectorAll('.git-conflict-tree-surface')).toHaveLength(0);
     expect(labels()).toEqual(['Orders', 'Create Order', 'Details', 'Body', 'List Orders']);
     expect(screen.queryByText('WORKSPACE VARIABLES')).toBeNull();
   });

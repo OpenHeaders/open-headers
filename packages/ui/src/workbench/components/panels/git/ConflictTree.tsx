@@ -1,11 +1,14 @@
 /**
  * ConflictTree — the merge editor's files panel for a conflicted pass,
  * drawn as the workbench's own panels draw what the files belong to:
- * under each surface's name, the sections its panel shows (REQUESTS,
- * SPECS, RULES, ENVIRONMENTS, …) with the panel's own header, and under
- * a section the collections, folders and entities in the panel's own
- * rows — the same caret, icon and name (`sidebar/TreeNodeRow`,
- * `sidebar/SectionHeader`). `commit-conflict-tree` is the listing.
+ * the sections a surface's panel shows (REQUESTS, SPECS, RULES,
+ * ENVIRONMENTS, …) with the panel's own header, one after another in
+ * the surfaces' order, and under a section the collections, folders and
+ * entities in the panel's own rows — the same caret, icon and name
+ * (`sidebar/TreeNodeRow`, `sidebar/SectionHeader`). The surfaces
+ * themselves are the strip's chips beside the panel, which mark the
+ * open file's; no row here names one. `commit-conflict-tree` is the
+ * listing.
  *
  * A row that stands for one conflicted file opens it; any other folds
  * and unfolds. A file's row ends in what it has left to answer, or a
@@ -20,15 +23,14 @@
 import { CheckCircleFilled, FileTextOutlined, FolderOpenOutlined, FolderOutlined, WarningFilled } from '@ant-design/icons';
 import type { MessageKey } from '@openheaders/i18n';
 import { useT } from '@openheaders/ui/context/LocaleContext';
-import {
-  CONFLICT_SURFACES,
-  type ConflictLeafNode,
-  type ConflictNode,
-  type ConflictSection,
-  type ConflictSectionId,
+import type {
+  ConflictLeafNode,
+  ConflictNode,
+  ConflictSection,
+  ConflictSectionId,
 } from '@openheaders/ui/shared/conflicts/commit-conflict-tree';
 import { useRules } from '@openheaders/ui/shared/hooks/readers/useRules';
-import type { MergeFilesPanelProps, MergeRailVocabulary } from '@openheaders/ui/shared/merge-editor';
+import type { MergeFilesPanelProps } from '@openheaders/ui/shared/merge-editor';
 import { Tooltip, theme } from 'antd';
 import { Fragment, type ReactElement, type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { buildRuleIcon } from '../../shared/rule-icon';
@@ -43,8 +45,6 @@ import { conflictEntityName, conflictPartLabel } from './use-conflict-tree';
 
 export interface ConflictTreeProps extends MergeFilesPanelProps {
   tree: readonly ConflictSection[];
-  /** The surfaces' names and glyphs. */
-  rail: MergeRailVocabulary;
 }
 
 const SECTION_TITLES: Readonly<Record<ConflictSectionId, MessageKey>> = {
@@ -82,7 +82,6 @@ function filesUnder(node: ConflictNode): string[] {
 
 const ConflictTree = ({
   tree,
-  rail,
   activeFileId,
   states,
   hunkCounts,
@@ -310,33 +309,7 @@ const ConflictTree = ({
             }
       }
     >
-      {CONFLICT_SURFACES.filter((surface) => !flyout || surface === section).map((surface) => {
-        const held = tree.filter((listed) => listed.surface === surface);
-        if (held.length === 0) return null;
-        const named = rail.sections.find((known) => known.id === surface);
-        return (
-          <div key={surface} data-section={surface} style={{ flexShrink: 0, marginBottom: flyout ? 0 : 6 }}>
-            {!flyout && named !== undefined ? (
-              <div
-                className="git-conflict-tree-surface"
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 6,
-                  padding: '6px 14px 4px',
-                  fontSize: 12,
-                  fontWeight: 600,
-                  color: token.colorText,
-                }}
-              >
-                <span style={{ display: 'inline-flex', fontSize: 14 }}>{named.icon}</span>
-                <span>{named.label}</span>
-              </div>
-            ) : null}
-            {held.map(sectionOf)}
-          </div>
-        );
-      })}
+      {tree.filter((listed) => !flyout || listed.surface === section).map(sectionOf)}
     </div>
   );
 };
