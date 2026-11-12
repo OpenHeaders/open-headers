@@ -836,6 +836,19 @@ export async function listLocalBranches(run: GitRunner, rootDir: string): Promis
   return result.stdout.split('\n').filter((line) => line.trim().length > 0);
 }
 
+/**
+ * Whether the repo holds a local branch of exactly this name — asked of
+ * the ref itself, so a revision expression that resolves through a
+ * branch (`main~1`) is not one, and a branch that shares its name with a
+ * tag still is (its short name would read `heads/<name>`).
+ */
+export async function hasLocalBranch(run: GitRunner, rootDir: string, branch: string): Promise<boolean> {
+  const result = await run([...repoArgs(rootDir), 'show-ref', '--verify', '--quiet', `refs/heads/${branch}`], {
+    cwd: rootDir,
+  });
+  return result.code === 0;
+}
+
 /** Tag names (`refs/tags`), sorted — the status frame's tag fact, so a minted tag moves the frame. */
 export async function listTags(run: GitRunner, rootDir: string): Promise<string[]> {
   const result = await run(

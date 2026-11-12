@@ -164,6 +164,22 @@ describe('switchWorkspaceBranch', () => {
     expect(await currentBranch(run, repo)).toBe('main');
   });
 
+  it('a revision expression is no target — one that resolves through a branch refuses and HEAD stays', async () => {
+    const head = await localHeadSha(run, repo);
+    for (const expression of ['feature~1', 'feature^', 'feature@{0}', 'feature^{commit}']) {
+      expect(await doSwitch(expression)).toMatchObject({ ok: false, reason: 'unknown-branch', detail: expression });
+    }
+    expect(await currentBranch(run, repo)).toBe('main');
+    expect(await localHeadSha(run, repo)).toBe(head);
+  });
+
+  it('a branch that shares its name with a tag switches as the branch', async () => {
+    await raw('tag', 'feature', 'refs/heads/main');
+    expect(await doSwitch('feature')).toEqual({ ok: true, branch: 'feature', switched: true });
+    // Git's short names read `heads/feature` beside the tag — the full ref is the fact.
+    expect((await raw('symbolic-ref', 'HEAD')).stdout.trim()).toBe('refs/heads/feature');
+  });
+
   it('a sha target on a dirty tree raises the same prompt, and Stash names the short sha', async () => {
     const sha = await resolveRefSha(run, repo, 'refs/heads/feature');
     if (sha === null) throw new Error('feature did not resolve');

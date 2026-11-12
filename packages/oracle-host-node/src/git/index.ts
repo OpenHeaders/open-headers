@@ -90,6 +90,7 @@ export {
   fastForwardWorkspaceBranch,
   fetchWorkspaceRemote,
   gitOperationInProgress,
+  hasLocalBranch,
   type IntentToAddResult,
   intentToAddPaths,
   isAncestorOf,

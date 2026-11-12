@@ -16,7 +16,9 @@
  * The target is a local branch NAME, or a FULL commit sha the repo
  * holds (the log's Checkout Revision) — the sha checks out as a
  * detached HEAD through the same prompt. A branch that happens to be
- * named like a sha wins: the name is looked up first.
+ * named like a sha wins: the name is looked up first. Nothing else is a
+ * target — a revision expression (`main~1`) would resolve and detach,
+ * so the branch is asked of the ref itself, never resolved.
  *
  * The caller (runtime) owns what follows a successful switch: flip the
  * §6.3 per-branch log pointer, then the rung-2 tree-wins sweep that
@@ -31,6 +33,7 @@ import {
   currentBranch,
   type GitRunner,
   gitOperationInProgress,
+  hasLocalBranch,
   isCommitSha,
   localHeadSha,
   resolveRefSha,
@@ -70,7 +73,7 @@ export async function switchWorkspaceBranch(
   const active = await currentBranch(run, rootDir);
   if (active === branch) return { ok: true, branch, switched: false };
 
-  const detach = (await resolveRefSha(run, rootDir, `refs/heads/${branch}`)) === null;
+  const detach = !(await hasLocalBranch(run, rootDir, branch));
   if (detach) {
     if (!isCommitSha(branch) || (await resolveRefSha(run, rootDir, branch)) === null) {
       return { ok: false, reason: 'unknown-branch', detail: branch };
