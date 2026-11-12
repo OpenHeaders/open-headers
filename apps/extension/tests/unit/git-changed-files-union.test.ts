@@ -23,7 +23,7 @@ function entry(sha: string, files: Array<[string, string]>, parents: string[] = 
 }
 
 describe('unionFiles', () => {
-  it('folds newest-last so a path reads its net status across the commits', () => {
+  it('folds newest-last so a path reads its net status across the commits, with the newest commit that changed it', () => {
     const newest = entry('c', [
       ['docs/a.md', 'M'],
       ['docs/b.md', 'D'],
@@ -36,9 +36,9 @@ describe('unionFiles', () => {
       ['keep.txt', 'M'],
     ]);
     expect(unionFiles([newest, oldest])).toEqual([
-      { path: 'docs/a.md', status: 'A' },
-      { path: 'docs/b.md', status: 'D' },
-      { path: 'keep.txt', status: 'M' },
+      { path: 'docs/a.md', status: 'A', sha: newest.sha },
+      { path: 'docs/b.md', status: 'D', sha: newest.sha },
+      { path: 'keep.txt', status: 'M', sha: oldest.sha },
     ]);
     expect(unionFiles([])).toEqual([]);
   });

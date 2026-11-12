@@ -19,11 +19,15 @@
  * row that lists several files has that one verb and a menu of its own.
  *
  * `WorkspaceFileTree` is the tree over the live workspace — the
- * workspace is read there, only while this view is the one shown.
+ * workspace is read there, only while this view is the one shown. A
+ * file the workspace holds no entity for is then named from its commit
+ * (`use-former-files`) and listed where that entity sat.
  */
 
 import {
+  isEntityTreePath,
   isWorkspaceFilePage,
+  listedWorkspaceFiles,
   type WorkspaceFileSection,
   workspaceFileTree,
 } from '@openheaders/ui/shared/workspace-files';
@@ -45,6 +49,7 @@ import {
   visibleNamedSections,
 } from './named-file-tree';
 import { type FileTreeViewHandle, useFileTreeBehaviour } from './use-file-tree-behaviour';
+import { type CommitFile, useFormerFiles } from './use-former-files';
 import { useListedWorkspace } from './use-listed-workspace';
 import { workspaceFileEntityRef } from './workspace-file-entity-ref';
 import { useWorkspaceFileFace } from './workspace-file-face';
@@ -218,14 +223,23 @@ export const NamedFileTree = ({
 
 export const WorkspaceFileTree = (props: FileTreeViewProps & { handleRef: ForwardedRef<FileTreeViewHandle> }) => {
   const workspace = useListedWorkspace();
-  const { files } = props;
+  const { files, workspaceId, sha } = props;
+  const paths = useMemo(() => files.map((file) => file.path), [files]);
+  const held = useMemo(() => workspaceFileTree(paths, workspace), [paths, workspace]);
+  // What the workspace could not name, each with the commit to read its name from.
+  const unnamed = useMemo(() => {
+    const shaOf = new Map(files.map((file) => [file.path, file.sha ?? sha]));
+    return listedWorkspaceFiles(held).flatMap((file): CommitFile[] => {
+      const from = shaOf.get(file.path);
+      return file.entity === undefined && from !== undefined && isEntityTreePath(file.path)
+        ? [{ path: file.path, sha: from }]
+        : [];
+    });
+  }, [held, files, sha]);
+  const former = useFormerFiles(workspaceId, unnamed);
   const sections = useMemo(
-    () =>
-      workspaceFileTree(
-        files.map((file) => file.path),
-        workspace,
-      ),
-    [files, workspace],
+    () => (former.size === 0 ? held : workspaceFileTree(paths, workspace, former)),
+    [held, paths, workspace, former],
   );
   return <NamedFileTree {...props} sections={sections} />;
 };

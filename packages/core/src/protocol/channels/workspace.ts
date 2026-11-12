@@ -738,6 +738,17 @@ export interface WorkspaceRpc {
     res: WorkspaceTreeEntityAtPathWire;
   };
   /**
+   * The entities a commit's files belonged to, named from the commit's
+   * own manifests — or, for a path the commit removes, its first
+   * parent's — each with the collection and folders above it. What
+   * names a changed file when the workspace no longer holds its entity.
+   * Paths that belong to none are left out of the answer.
+   */
+  'oh.workspaceTree.entitiesAtCommit': {
+    req: { workspaceId: string; sha: string; paths: string[] };
+    res: WorkspaceTreeEntitiesAtCommitWire;
+  };
+  /**
    * One path's timeline (`--follow`, renames included) — the blame
    * answer: the newest entry is "who last touched this". Entries carry
    * no file lists (the diff isn't asked for).
@@ -1239,6 +1250,18 @@ export interface WorkspaceTreeEntityRefWire {
 export type WorkspaceTreeEntityAtPathWire =
   | { ok: true; entity: WorkspaceTreeEntityRefWire }
   | { ok: false; reason: 'not-bound' | 'unknown-path' | 'not-an-entity' | 'read-failed'; detail?: string };
+
+/** One file of a commit with the entity it belonged to there. */
+export interface WorkspaceTreeCommitEntityWire {
+  path: string;
+  entity: WorkspaceTreeEntityRefWire;
+  /** The collection and the folders that held the entity, outermost first. */
+  containers: WorkspaceTreeEntityRefWire[];
+}
+
+export type WorkspaceTreeEntitiesAtCommitWire =
+  | { ok: true; entities: WorkspaceTreeCommitEntityWire[] }
+  | { ok: false; reason: 'not-bound' | 'git-unavailable' | 'not-a-repo' | 'unknown-commit' | 'unknown-path' };
 
 /** One ref in the log view's tree (Phase 7 slice 2), grouped by namespace. */
 export interface WorkspaceTreeRefWire {

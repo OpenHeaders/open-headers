@@ -22,6 +22,7 @@ import type {
 } from '../../git';
 import type { BindWorkspaceTreeResult, probeWorkspaceTree, ReserveWorkspaceTreeForAdoptResult } from '../bind';
 import type { ApplyCommitResolution, ApplyCommitResolve } from '../change-answers';
+import type { CommitFileEntity } from '../commit-entities';
 import type { ForcePushChoice } from '../force-push';
 import type { SweepWorkspaceTreeResult } from '../sweep';
 import type { SwitchDirtyAction } from '../switch';
@@ -415,6 +416,11 @@ export interface GitConsoleRow extends GitAuditRow {
 
 export type WorkspaceTreeGitConsoleRpcResult = { ok: true; rows: GitConsoleRow[] } | { ok: false; reason: 'not-bound' };
 
+/** A commit's files named by what they belonged to there. */
+export type WorkspaceTreeEntitiesAtCommitRpcResult =
+  | { ok: true; entities: CommitFileEntity[] }
+  | { ok: false; reason: 'not-bound' | 'git-unavailable' | 'not-a-repo' | 'unknown-commit' | 'unknown-path' };
+
 /** The Jump to Source answer: the entity a tree path belongs to. */
 export type WorkspaceTreeEntityAtPathRpcResult =
   | { ok: true; entity: WorkspaceTreeEntityRef }
@@ -752,6 +758,16 @@ export interface WorkspaceTreeRuntime {
    * directory. The user's own files answer `not-an-entity`.
    */
   entityAtPath(workspaceId: string, path: string): Promise<WorkspaceTreeEntityAtPathRpcResult>;
+  /**
+   * The entities a commit's files belonged to, from the commit's own
+   * manifests (its first parent's for a path it removes), each with the
+   * collection and folders above it. A pure read; `sha` is a full sha.
+   */
+  entitiesAtCommit(
+    workspaceId: string,
+    sha: string,
+    paths: readonly string[],
+  ): Promise<WorkspaceTreeEntitiesAtCommitRpcResult>;
   /** The log view's ref tree (§9, Phase 7 slice 2) — local branches, remote-tracking refs, tags. */
   listRefs(workspaceId: string): Promise<WorkspaceTreeRefsRpcResult>;
   /** The Git Remotes dialog's list — a pure read. */

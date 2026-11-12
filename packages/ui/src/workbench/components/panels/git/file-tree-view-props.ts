@@ -23,7 +23,15 @@ export function fileStatusColor(status: string, token: ReturnType<typeof theme.u
 }
 
 export interface FileTreeViewProps {
-  files: ReadonlyArray<{ path: string; status: string }>;
+  /** `sha` — the commit that changed the file, where the files are of several (a union). */
+  files: ReadonlyArray<{ path: string; status: string; sha?: string }>;
+  /**
+   * The workspace and the commit the files are of — what a file is named
+   * from when the workspace no longer holds the entity it belonged to
+   * (Group By Workspace). Absent: such a file is listed by its path.
+   */
+  workspaceId?: string;
+  sha?: string;
   /** Path currently fetching its diff (per-file spinner). */
   loadingPath: string | null;
   /** `entity` — where the files are listed by what they belong to: the one the file is, or is a part of. */

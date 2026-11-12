@@ -18,6 +18,13 @@
  * listed file is listed, with the containers above it, and every file
  * exactly once.
  *
+ * A file of an entity the workspace no longer holds — deleted since, or
+ * living on another branch — is named by what the caller learned of it
+ * from the commit (`FormerFiles`): the entity as the commit called it,
+ * under the collection and folders that held it — a container the
+ * workspace still holds is its own row, one it does not is a former row
+ * too. Without that it is listed under Files, by its directory.
+ *
  *   - an entity with one file is the row that stands for it;
  *   - one with several lists them under it by the part of the entity
  *     each holds (its details, its body, a script), a part with no name
@@ -119,7 +126,67 @@ export type WorkspaceFileEntity =
   | { kind: 'collection' | 'folder'; uid: string; name: string }
   | { kind: 'node'; node: WorkspaceLeafNode }
   | { kind: 'spec' | 'workflow' | 'live-variable' | 'environment'; uid: string; name: string }
-  | { kind: WorkspaceFilePage };
+  | { kind: WorkspaceFilePage }
+  /** One the workspace no longer holds, as a commit names it. */
+  | { kind: 'former'; was: FormerEntity };
+
+/** An entity as a commit's own manifest names it. */
+export interface FormerEntity {
+  kind:
+    | 'collection'
+    | 'folder'
+    | 'rule'
+    | 'template'
+    | 'request'
+    | 'graphql'
+    | 'grpc'
+    | 'websocket'
+    | 'mqtt'
+    | 'spec'
+    | 'workflow'
+    | 'live-variable'
+    | 'environment';
+  uid: string;
+  name: string;
+  /** An HTTP request's method. */
+  method?: string;
+}
+
+/** What a file belonged to in the commit that changed it. */
+export interface FormerFile {
+  entity: FormerEntity;
+  /** The collection and the folders that held it, outermost first. */
+  containers: readonly FormerEntity[];
+}
+
+/** By path: the files the caller could name from their commit. */
+export type FormerFiles = ReadonlyMap<string, FormerFile>;
+
+const NO_FORMER_FILES: FormerFiles = new Map();
+
+/** The section an entity's files sit under, by the tree's directory they are in. */
+const TREE_SECTIONS: Readonly<Record<string, WorkspaceFileSectionId>> = {
+  rules: 'rules',
+  templates: 'templates',
+  requests: 'requests',
+  specs: 'specs',
+  'live-workflows': 'workflows',
+  'live-variables': 'live-variables',
+  [ENVIRONMENTS_DIR]: 'environments',
+};
+
+/** A path inside one of the directories the workspace keeps its entities in. */
+export function isEntityTreePath(path: string): boolean {
+  return Object.hasOwn(TREE_SECTIONS, rootOf(path));
+}
+
+/** An entity the workspace no longer holds, with what it held. */
+interface FormerRow {
+  was: FormerEntity;
+  /** The directories its listed files are in. */
+  dirs: Set<string>;
+  held: Map<string, FormerRow>;
+}
 
 export type WorkspaceFileNode =
   /** `file` set: the row stands for that file. Otherwise its parts and what it holds are under it. */
@@ -240,12 +307,17 @@ function entityNode(
   return { type: 'entity', id, entity, children: [...parts, ...held] };
 }
 
-/** Every directory an entity of the workspace is at. */
-function entityDirectories(workspace: ListedWorkspace): Set<string> {
+/** Every directory an entity of the workspace is at, and every entity's uid. */
+function entitiesOf(workspace: ListedWorkspace): { dirs: Set<string>; uids: Set<string> } {
   const dirs = new Set<string>();
+  const uids = new Set<string>();
+  const hold = (entity: { uid: string; path: string }): void => {
+    dirs.add(entity.path);
+    uids.add(entity.uid);
+  };
   const walk = (nodes: readonly CoreTreeNode[]): void => {
     for (const node of nodes) {
-      dirs.add(node.path);
+      hold(node);
       if (node.type === 'folder') walk(node.children);
     }
   };
@@ -254,14 +326,19 @@ function entityDirectories(workspace: ListedWorkspace): Set<string> {
     ...workspace.templateCollections,
     ...workspace.requestCollections,
   ]) {
-    dirs.add(collection.path);
+    hold(collection);
     walk(collection.tree);
   }
-  for (const item of [...workspace.specs, ...workspace.workflows, ...workspace.liveVariables]) dirs.add(item.path);
-  return dirs;
+  for (const item of [...workspace.specs, ...workspace.workflows, ...workspace.liveVariables]) hold(item);
+  for (const environment of workspace.environments) uids.add(environment.uid);
+  return { dirs, uids };
 }
 
-export function workspaceFileTree(paths: readonly string[], workspace: ListedWorkspace): WorkspaceFileSection[] {
+export function workspaceFileTree(
+  paths: readonly string[],
+  workspace: ListedWorkspace,
+  former: FormerFiles = NO_FORMER_FILES,
+): WorkspaceFileSection[] {
   const left = new Set(paths);
   const byDir = new Map<string, string[]>();
   for (const path of left) {
@@ -273,7 +350,7 @@ export function workspaceFileTree(paths: readonly string[], workspace: ListedWor
 
   /** Where an entity was before a move: the directories no entity is at now, by the uid their name ends in. */
   const formerByUid = new Map<string, string[]>();
-  const at = entityDirectories(workspace);
+  const { dirs: at, uids: heldUids } = entitiesOf(workspace);
   for (const dir of byDir.keys()) {
     if (dir === '' || at.has(dir)) continue;
     const uid = uidOf(nameOf(dir));
@@ -300,18 +377,69 @@ export function workspaceFileTree(paths: readonly string[], workspace: ListedWor
     return partsOf(files);
   };
 
+  /**
+   * What the workspace no longer holds, by the row it goes under: the
+   * deepest container of its chain the workspace still holds, else its
+   * section. The containers below that one are former rows above it.
+   */
+  const formerRows = new Map<string, Map<string, FormerRow>>();
+  for (const [path, file] of former) {
+    const section = TREE_SECTIONS[rootOf(path)];
+    if (section === undefined || !left.has(path) || heldUids.has(file.entity.uid)) continue;
+    const chain = file.containers;
+    let anchor = chain.length - 1;
+    while (anchor >= 0 && !heldUids.has(chain[anchor].uid)) anchor -= 1;
+    const key = anchor === -1 ? section : `${section}:${chain[anchor].uid}`;
+    let rows = formerRows.get(key);
+    if (rows === undefined) {
+      rows = new Map();
+      formerRows.set(key, rows);
+    }
+    let row: FormerRow | undefined;
+    for (const was of [...chain.slice(anchor + 1), file.entity]) {
+      row = rows.get(was.uid);
+      if (row === undefined) {
+        row = { was, dirs: new Set(), held: new Map() };
+        rows.set(was.uid, row);
+      }
+      rows = row.held;
+    }
+    if (row === undefined) continue;
+    row.dirs.add(split(path).dir);
+    // Its own manifest's answer names it: across several commits that is the name it had last.
+    if (ENTITY_MANIFEST_FILES.has(nameOf(path)) || section === 'environments') row.was = file.entity;
+  }
+
+  /** The former rows under a live container, or under the section itself. */
+  const formerUnder = (section: WorkspaceFileSectionId, uid?: string): WorkspaceFileNode[] => {
+    const emit = (rows: ReadonlyMap<string, FormerRow>): WorkspaceFileNode[] =>
+      [...rows.values()]
+        .sort((a, b) => a.was.name.localeCompare(b.was.name) || a.was.uid.localeCompare(b.was.uid))
+        .flatMap((row) => {
+          // An environment is files of one shared directory, told apart by the uid in their names.
+          const parts =
+            section === 'environments' ? environmentParts(row.was.uid) : partsOf([...row.dirs].flatMap(take));
+          const built = entityNode(
+            `${section}:${row.was.uid}`,
+            { kind: 'former', was: row.was },
+            parts,
+            emit(row.held),
+          );
+          return built === null ? [] : [built];
+        });
+    return emit(formerRows.get(uid === undefined ? section : `${section}:${uid}`) ?? new Map());
+  };
+
   const walk = (section: WorkspaceFileSectionId, nodes: readonly CoreTreeNode[]): WorkspaceFileNode[] => {
     const out: WorkspaceFileNode[] = [];
     for (const node of nodes) {
       const id = `${section}:${node.uid}`;
       const built =
         node.type === 'folder'
-          ? entityNode(
-              id,
-              { kind: 'folder', uid: node.uid, name: node.name },
-              claim(node),
-              walk(section, node.children),
-            )
+          ? entityNode(id, { kind: 'folder', uid: node.uid, name: node.name }, claim(node), [
+              ...walk(section, node.children),
+              ...formerUnder(section, node.uid),
+            ])
           : entityNode(id, { kind: 'node', node }, claim(node), []);
       if (built !== null) out.push(built);
     }
@@ -325,11 +453,11 @@ export function workspaceFileTree(paths: readonly string[], workspace: ListedWor
         `${section}:${collection.uid}`,
         { kind: 'collection', uid: collection.uid, name: collection.name },
         claim(collection),
-        walk(section, collection.tree),
+        [...walk(section, collection.tree), ...formerUnder(section, collection.uid)],
       );
       if (built !== null) out.push(built);
     }
-    return out;
+    return [...out, ...formerUnder(section)];
   };
 
   const flat = (
@@ -342,7 +470,7 @@ export function workspaceFileTree(paths: readonly string[], workspace: ListedWor
       const built = entityNode(`${section}:${item.uid}`, { kind, uid: item.uid, name: item.name }, claim(item), []);
       if (built !== null) out.push(built);
     }
-    return out;
+    return [...out, ...formerUnder(section)];
   };
 
   /**
@@ -370,6 +498,15 @@ export function workspaceFileTree(paths: readonly string[], workspace: ListedWor
     return byUid;
   };
 
+  let environmentFilesByUid: Map<string, PartNode[]> | null = null;
+  /** An environment's listed files — taken, so no other row lists them. */
+  const environmentParts = (uid: string): PartNode[] => {
+    environmentFilesByUid ??= environmentFiles();
+    const parts = environmentFilesByUid.get(uid) ?? [];
+    for (const part of parts) left.delete(part.file);
+    return parts;
+  };
+
   /** A page's row, when its file is listed. */
   const page = (kind: WorkspaceFilePage) => (): WorkspaceFileNode[] => {
     const file = PAGE_FILES[kind];
@@ -389,20 +526,17 @@ export function workspaceFileTree(paths: readonly string[], workspace: ListedWor
     'trusted-roots': page('trusted-roots'),
     'live-variables': () => flat('live-variables', 'live-variable', workspace.liveVariables),
     environments: () => {
-      const byUid = environmentFiles();
       const out: WorkspaceFileNode[] = [];
       for (const environment of workspace.environments) {
-        const parts = byUid.get(environment.uid) ?? [];
-        for (const part of parts) left.delete(part.file);
         const node = entityNode(
           `environments:${environment.uid}`,
           { kind: 'environment', uid: environment.uid, name: environment.name },
-          parts,
+          environmentParts(environment.uid),
           [],
         );
         if (node !== null) out.push(node);
       }
-      return out;
+      return [...out, ...formerUnder('environments')];
     },
     // Last: whatever no entity claimed, by directory.
     files: () => {

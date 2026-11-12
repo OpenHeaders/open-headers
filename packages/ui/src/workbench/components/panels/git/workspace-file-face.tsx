@@ -5,7 +5,9 @@
  * part by the word its editor uses ("Details" for the entity's
  * manifest), a page (the vault, the workspace's variables, the
  * workspace, its trusted certificates) as a header-styled row, a file
- * of the user's own by its name and file-type icon.
+ * of the user's own by its name and file-type icon. An entity the
+ * workspace no longer holds reads as its commit named it, in its kind's
+ * icon.
  */
 
 import {
@@ -19,6 +21,7 @@ import type { MessageKey } from '@openheaders/i18n';
 import { type Translate, useT } from '@openheaders/ui/context/LocaleContext';
 import { useRules } from '@openheaders/ui/shared/hooks/readers/useRules';
 import type {
+  FormerEntity,
   WorkspaceFileEntity,
   WorkspaceFileNode,
   WorkspaceFilePage,
@@ -71,6 +74,12 @@ const PART_LABELS: Readonly<Record<NamedPart, MessageKey>> = {
 
 const QUIET = 'var(--ant-color-text-tertiary, #999)';
 
+const workflowDot = (
+  <span
+    style={{ display: 'inline-block', width: 8, height: 8, borderRadius: '50%', background: QUIET, marginRight: 2 }}
+  />
+);
+
 function isNamedPart(part: WorkspaceFilePart): part is NamedPart {
   return Object.hasOwn(PART_LABELS, part);
 }
@@ -83,6 +92,8 @@ export function workspaceFilePartLabel(t: Translate, part: WorkspaceFilePart | n
 
 export function workspaceFileEntityName(t: Translate, entity: WorkspaceFileEntity): string {
   if (entity.kind === 'node') return entity.node.name;
+  // A manifest may carry no name: its uid is what is left to tell it by.
+  if (entity.kind === 'former') return entity.was.name || entity.was.uid;
   return 'name' in entity ? entity.name : t(PAGE_NAMES[entity.kind]);
 }
 
@@ -121,6 +132,34 @@ export function useWorkspaceFileFace(): WorkspaceFileFace {
       }
     };
 
+    /** An entity the workspace no longer holds, drawn from what its commit says of it: kind, and a request's method. */
+    const formerIcon = (section: WorkspaceFileSectionId, was: FormerEntity): ReactNode => {
+      switch (was.kind) {
+        case 'collection':
+          return iconEl(FolderOpenOutlined, QUIET);
+        case 'folder':
+          return section === 'requests' ? folderTag(FolderOutlined) : iconEl(FolderOutlined, QUIET);
+        case 'request':
+          return methodTag(was.method ?? '');
+        case 'graphql':
+          return graphqlTag();
+        case 'grpc':
+          return grpcTag();
+        case 'websocket':
+          return websocketTag('raw');
+        case 'mqtt':
+          return mqttTag();
+        case 'workflow':
+          return workflowDot;
+        case 'live-variable':
+          return scopeBadge('live');
+        case 'environment':
+          return scopeBadge('environment');
+        default:
+          return iconEl(FileTextOutlined, QUIET);
+      }
+    };
+
     return {
       sectionTitle: (id) => t(SECTION_TITLES[id]),
       labelOf: (node) => {
@@ -142,18 +181,9 @@ export function useWorkspaceFileFace(): WorkspaceFileFace {
           case 'spec':
             return iconEl(FileTextOutlined, QUIET);
           case 'workflow':
-            return (
-              <span
-                style={{
-                  display: 'inline-block',
-                  width: 8,
-                  height: 8,
-                  borderRadius: '50%',
-                  background: QUIET,
-                  marginRight: 2,
-                }}
-              />
-            );
+            return workflowDot;
+          case 'former':
+            return formerIcon(section, entity.was);
           case 'live-variable':
             return scopeBadge('live');
           case 'environment':

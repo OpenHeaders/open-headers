@@ -428,6 +428,14 @@ export async function dispatchWorkspaceTreeRpc(
     if (!workspaceId || !filePath || runtime === null) return { ok: false, reason: 'not-bound' };
     return await runtime.entityAtPath(workspaceId, filePath);
   }
+  if (type === 'oh.workspaceTree.entitiesAtCommit') {
+    const workspaceId = typeof message.workspaceId === 'string' ? message.workspaceId : '';
+    const sha = typeof message.sha === 'string' ? message.sha : '';
+    if (!workspaceId || runtime === null) return { ok: false, reason: 'not-bound' };
+    const paths = Array.isArray(message.paths) ? message.paths : [];
+    if (!paths.every((path): path is string => typeof path === 'string')) return { ok: false, reason: 'unknown-path' };
+    return await runtime.entitiesAtCommit(workspaceId, sha, paths);
+  }
   if (type === 'oh.workspaceTree.gitConsole') {
     const workspaceId = typeof message.workspaceId === 'string' ? message.workspaceId : '';
     if (!workspaceId || runtime === null) return { ok: false, reason: 'not-bound' };

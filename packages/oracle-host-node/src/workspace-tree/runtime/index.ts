@@ -71,6 +71,7 @@ import {
   type RuntimeCtx,
   SCOPE,
 } from './core';
+import { runEntitiesAtCommit } from './entities-at-commit';
 import { runEntityAtPath } from './entity-at-path';
 import {
   runCommitPatch,
@@ -113,6 +114,7 @@ import type {
   WorkspaceTreeCommitCadence,
   WorkspaceTreeCommitPatchRpcResult,
   WorkspaceTreeDeletePathsRpcResult,
+  WorkspaceTreeEntitiesAtCommitRpcResult,
   WorkspaceTreeEntityAtPathRpcResult,
   WorkspaceTreeFileDiffRpcResult,
   WorkspaceTreeGitConsoleRpcResult,
@@ -837,6 +839,14 @@ export function createWorkspaceTreeRuntime(options: WorkspaceTreeRuntimeOptions)
 
     entityAtPath(workspaceId: string, filePath: string): Promise<WorkspaceTreeEntityAtPathRpcResult> {
       return runEntityAtPath(ctx, workspaceId, filePath);
+    },
+
+    entitiesAtCommit(
+      workspaceId: string,
+      sha: string,
+      paths: readonly string[],
+    ): Promise<WorkspaceTreeEntitiesAtCommitRpcResult> {
+      return runEntitiesAtCommit(ctx, workspaceId, sha, paths);
     },
 
     gitConsole(workspaceId: string): Promise<WorkspaceTreeGitConsoleRpcResult> {

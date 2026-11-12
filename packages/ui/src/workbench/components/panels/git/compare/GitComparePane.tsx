@@ -156,6 +156,8 @@ const CompareSide: React.FC<CompareSideProps> = ({
               <FileTreeView
                 key={selected.sha}
                 files={selected.files}
+                workspaceId={workspaceId}
+                sha={selected.sha}
                 loadingPath={loadingPath}
                 onOpenFile={(path) => onOpenFile(selected.sha, path)}
                 groupByWorkspace={prefs.groupFilesByWorkspace}

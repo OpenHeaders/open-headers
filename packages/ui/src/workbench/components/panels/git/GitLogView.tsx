@@ -587,6 +587,8 @@ const GitLogView: React.FC<GitLogViewProps> = ({
                   key={filesKey}
                   ref={fileTreeRef}
                   files={multiSelected ? unionOfSelected : selected.files}
+                  workspaceId={workspaceId}
+                  sha={selected.sha}
                   loadingPath={fileDiff.loadingPath}
                   // ⋯ > Show on Double-Click: the diff, or the entity's editor.
                   onOpenFile={(path, entity) => {

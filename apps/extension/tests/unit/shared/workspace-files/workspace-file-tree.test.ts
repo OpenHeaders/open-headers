@@ -7,8 +7,10 @@
  * several, the sections and their order under each surface, the pages
  * (the vault, the workspace's variables, the workspace, its trusted
  * certificates) as one row each, an environment's secrets as parts,
- * the user's own files by directory, every file listed once, and the
- * flat reading in listing order.
+ * the user's own files by directory, every file listed once, the flat
+ * reading in listing order — and a file of an entity the workspace no
+ * longer holds, named from its commit and listed under the containers
+ * that held it.
  */
 
 import type { TreeNode } from '@openheaders/core/types';
@@ -18,6 +20,9 @@ import {
   environmentSecretTemplateFilePath,
 } from '@openheaders/core/workspace-tree';
 import {
+  type FormerEntity,
+  type FormerFile,
+  isEntityTreePath,
   isWorkspaceFilePage,
   type ListedWorkspace,
   listedWorkspaceFiles,
@@ -86,9 +91,11 @@ function shape(node: WorkspaceFileNode): string {
     node.type === 'entity'
       ? node.entity.kind === 'node'
         ? node.entity.node.name
-        : 'name' in node.entity
-          ? node.entity.name
-          : node.entity.kind
+        : node.entity.kind === 'former'
+          ? `~${node.entity.was.name}`
+          : 'name' in node.entity
+            ? node.entity.name
+            : node.entity.kind
       : node.type === 'part'
         ? (node.part ?? node.name)
         : node.type === 'directory'
@@ -99,8 +106,8 @@ function shape(node: WorkspaceFileNode): string {
   return `${name}[${node.file}]`;
 }
 
-const shapes = (paths: string[], workspace = WORKSPACE): string[] =>
-  workspaceFileTree(paths, workspace).map(
+const shapes = (paths: string[], workspace = WORKSPACE, former?: ReadonlyMap<string, FormerFile>): string[] =>
+  workspaceFileTree(paths, workspace, former).map(
     (section) => `${section.surface}/${section.id}: ${section.nodes.map(shape).join(' ')}`,
   );
 
@@ -256,6 +263,122 @@ describe('workspaceFileTree', () => {
     ).toEqual([
       'files/files: README.md[README.md] requests/gone-col00007/ping{request.yaml[requests/gone-col00007/ping/request.yaml]} scripts/ci{lint.sh[scripts/ci/lint.sh] run.sh[scripts/ci/run.sh]}',
     ]);
+  });
+});
+
+describe('workspaceFileTree — what the workspace no longer holds', () => {
+  const ORDERS: FormerEntity = { kind: 'collection', uid: 'col00001', name: 'Orders' };
+  const READS: FormerEntity = { kind: 'folder', uid: 'fld00001', name: 'Reads' };
+  const ARCHIVE: FormerEntity = { kind: 'folder', uid: 'fld00009', name: 'Archive' };
+  const CANCEL: FormerEntity = { kind: 'request', uid: 'req00009', name: 'Cancel Order', method: 'DELETE' };
+  const GONE: FormerEntity = { kind: 'collection', uid: 'col00007', name: 'Gone' };
+  const PING: FormerEntity = { kind: 'request', uid: 'req00007', name: 'Ping', method: 'GET' };
+  const CANCEL_DIR = 'requests/orders-col00001/reads-fld00001/cancel-order-req00009';
+
+  it('a deleted entity is listed by the name its commit gave it, under the containers the workspace still holds — after their own rows', () => {
+    const former = new Map([[`${CANCEL_DIR}/request.yaml`, { entity: CANCEL, containers: [ORDERS, READS] }]]);
+    expect(shapes([`${CANCEL_DIR}/request.yaml`, `${LIST}/request.yaml`], WORKSPACE, former)).toEqual([
+      `api-requests/requests: Orders{Reads{List Orders[${LIST}/request.yaml] ~Cancel Order[${CANCEL_DIR}/request.yaml]}}`,
+    ]);
+  });
+
+  it('it takes every listed file of its directory — one answer names them all', () => {
+    const former = new Map([[`${CANCEL_DIR}/request.yaml`, { entity: CANCEL, containers: [ORDERS, READS] }]]);
+    expect(shapes([`${CANCEL_DIR}/body.json`, `${CANCEL_DIR}/request.yaml`], WORKSPACE, former)).toEqual([
+      `api-requests/requests: Orders{Reads{~Cancel Order{details[${CANCEL_DIR}/request.yaml] body[${CANCEL_DIR}/body.json]}}}`,
+    ]);
+  });
+
+  it('across commits that named it differently, it goes by what its own manifest’s commit called it', () => {
+    const renamed: FormerEntity = { ...CANCEL, name: 'Void Order' };
+    const answers: Array<[string, FormerFile]> = [
+      [`${CANCEL_DIR}/body.json`, { entity: CANCEL, containers: [ORDERS, READS] }],
+      [`${CANCEL_DIR}/request.yaml`, { entity: renamed, containers: [ORDERS, READS] }],
+    ];
+    const paths = answers.map(([path]) => path);
+    for (const former of [new Map(answers), new Map([...answers].reverse())]) {
+      expect(shapes(paths, WORKSPACE, former)).toEqual([
+        `api-requests/requests: Orders{Reads{~Void Order{details[${CANCEL_DIR}/request.yaml] body[${CANCEL_DIR}/body.json]}}}`,
+      ]);
+    }
+  });
+
+  it('a container the workspace no longer holds is a former row too — under the deepest one it still holds, or its section', () => {
+    const inArchive = 'requests/orders-col00001/archive-fld00009/cancel-order-req00009/request.yaml';
+    const ping = 'requests/gone-col00007/ping-req00007/request.yaml';
+    const former = new Map<string, FormerFile>([
+      [inArchive, { entity: CANCEL, containers: [ORDERS, ARCHIVE] }],
+      ['requests/orders-col00001/archive-fld00009/_folder.yaml', { entity: ARCHIVE, containers: [ORDERS] }],
+      [ping, { entity: PING, containers: [GONE] }],
+    ]);
+    expect(
+      shapes([ping, inArchive, 'requests/orders-col00001/archive-fld00009/_folder.yaml'], WORKSPACE, former),
+    ).toEqual([
+      `api-requests/requests: Orders{~Archive{details[requests/orders-col00001/archive-fld00009/_folder.yaml] ~Cancel Order[${inArchive}]}} ~Gone{~Ping[${ping}]}`,
+    ]);
+  });
+
+  it('a former environment takes its files by the uid in their names; a former spec the files of its directory', () => {
+    const former = new Map<string, FormerFile>([
+      [
+        'environments/prod-env00009.yaml',
+        { entity: { kind: 'environment', uid: 'env00009', name: 'Prod' }, containers: [] },
+      ],
+      [
+        'specs/billing-spc00009/spec.yaml',
+        { entity: { kind: 'spec', uid: 'spc00009', name: 'Billing API' }, containers: [] },
+      ],
+    ]);
+    expect(
+      shapes(
+        [
+          'environments/prod-env00009.yaml',
+          'environments/prod-env00009.secret.yaml.template',
+          'specs/billing-spc00009/spec.yaml',
+          'specs/billing-spc00009/openapi.yaml',
+        ],
+        WORKSPACE,
+        former,
+      ),
+    ).toEqual([
+      'api-requests/specs: ~Billing API{details[specs/billing-spc00009/spec.yaml] openapi.yaml[specs/billing-spc00009/openapi.yaml]}',
+      'variables/environments: ~Prod{details[environments/prod-env00009.yaml] secret-names[environments/prod-env00009.secret.yaml.template]}',
+    ]);
+  });
+
+  it('an answer about an entity the workspace holds, or about a file not listed, names nothing; every file is still listed once', () => {
+    const stray = 'requests/orders-col00001/old-name/request.yaml';
+    const former = new Map<string, FormerFile>([
+      [
+        stray,
+        { entity: { kind: 'request', uid: 'req00003', name: 'Create Order', method: 'POST' }, containers: [ORDERS] },
+      ],
+      ['requests/orders-col00001/never-listed-req00008/request.yaml', { entity: CANCEL, containers: [ORDERS] }],
+      [`${CANCEL_DIR}/request.yaml`, { entity: CANCEL, containers: [ORDERS, READS] }],
+    ]);
+    const paths = [
+      stray,
+      `${CANCEL_DIR}/request.yaml`,
+      `${CANCEL_DIR}/body.json`,
+      `${CREATE}/request.yaml`,
+      'README.md',
+    ];
+    const sections = workspaceFileTree(paths, WORKSPACE, former);
+    expect(sections.map((section) => section.id)).toEqual(['requests', 'files']);
+    expect(
+      listedWorkspaceFiles(sections)
+        .map((file) => file.path)
+        .sort(),
+    ).toEqual([...paths].sort());
+  });
+
+  it('only a path inside a directory the workspace keeps entities in is worth asking about', () => {
+    expect(
+      ['requests/a/b/request.yaml', 'rules/x/rule.yaml', 'environments/e.yaml', 'specs/s/spec.yaml'].every(
+        isEntityTreePath,
+      ),
+    ).toBe(true);
+    expect(['README.md', 'notes/orders.md', 'workspace.yaml', 'requests'].some(isEntityTreePath)).toBe(false);
   });
 });
 

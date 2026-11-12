@@ -3,11 +3,17 @@
  * sibling in a collection-tree directory names every candidate
  * manifest, the user's own files and secrets answer none, and the
  * manifest's YAML yields the editor identity (uid, name, a request's
- * method), refusing a manifest without a uid.
+ * method), refusing a manifest without a uid; and the manifests that
+ * may name the folders and the collection above an entity are those of
+ * the directories above its own, nearest first.
  */
 
 import { describe, expect, it } from 'vitest';
-import { classifyTreePath, entityRefOfManifest } from '../../src/workspace-tree/entity-at-path';
+import {
+  classifyTreePath,
+  containerCandidatesAbove,
+  entityRefOfManifest,
+} from '../../src/workspace-tree/entity-at-path';
 
 describe('classifyTreePath', () => {
   it('a manifest names its entity and tree', () => {
@@ -45,6 +51,40 @@ describe('classifyTreePath', () => {
     expect(classifyTreePath('workspace.yaml')).toEqual({ kind: 'none' });
     expect(classifyTreePath('environments/staging-e1.secret.yaml')).toEqual({ kind: 'none' });
     expect(classifyTreePath('scripts/_collection.yaml')).toEqual({ kind: 'none' });
+  });
+});
+
+describe('containerCandidatesAbove', () => {
+  it('names the folder and collection manifests of each directory above the entity’s own, nearest first', () => {
+    const above = containerCandidatesAbove({
+      kind: 'request',
+      tree: 'requests',
+      manifestPath: 'requests/probes-c0000001/reads-f0000001/health-r0000001/request.yaml',
+    });
+    expect(above.map((group) => group.map((candidate) => `${candidate.kind} ${candidate.manifestPath}`))).toEqual([
+      [
+        'folder requests/probes-c0000001/reads-f0000001/_folder.yaml',
+        'collection requests/probes-c0000001/reads-f0000001/_collection.yaml',
+      ],
+      ['folder requests/probes-c0000001/_folder.yaml', 'collection requests/probes-c0000001/_collection.yaml'],
+    ]);
+    expect(above.flat().every((candidate) => candidate.tree === 'requests')).toBe(true);
+  });
+
+  it('a collection has nothing above it, and nothing outside the collection trees has', () => {
+    expect(
+      containerCandidatesAbove({
+        kind: 'collection',
+        tree: 'rules',
+        manifestPath: 'rules/headers-c0000001/_collection.yaml',
+      }),
+    ).toEqual([]);
+    expect(
+      containerCandidatesAbove({ kind: 'spec', tree: null, manifestPath: 'specs/orders-s0000001/spec.yaml' }),
+    ).toEqual([]);
+    expect(
+      containerCandidatesAbove({ kind: 'environment', tree: null, manifestPath: 'environments/staging-e0000001.yaml' }),
+    ).toEqual([]);
   });
 });
 

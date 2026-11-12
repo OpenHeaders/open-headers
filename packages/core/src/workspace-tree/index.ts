@@ -29,6 +29,7 @@ export { type CommitSecretRowsArgs, withCommitSecretRows } from './commit-secret
 export { treeDocumentPaths } from './document-paths';
 export {
   classifyTreePath,
+  containerCandidatesAbove,
   entityRefOfManifest,
   type TreePathClass,
   type TreePathManifestCandidate,

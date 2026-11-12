@@ -13,27 +13,29 @@ import type { WorkspaceTreeLogEntryWire } from '@openheaders/core/bridge';
 /** One changed path of a log entry — the bridge re-exports the entry, not its file row. */
 export type ChangedFile = WorkspaceTreeLogEntryWire['files'][number];
 
+/** A path of the set, with the newest of the commits that changed it. */
+export type UnionFile = ChangedFile & { sha: string };
+
 /**
  * The commits' files as one set: every commit's paths folded newest-last
  * so a path's status reads net (added then modified stays added; added
- * then deleted leaves). `entries` arrive newest first, as `log` and
- * `compareRefs` answer.
+ * then deleted leaves), each with the newest commit that changed it.
+ * `entries` arrive newest first, as `log` and `compareRefs` answer.
  */
-export function unionFiles(entries: readonly WorkspaceTreeLogEntryWire[]): ChangedFile[] {
-  const byPath = new Map<string, string>();
+export function unionFiles(entries: readonly WorkspaceTreeLogEntryWire[]): UnionFile[] {
+  const byPath = new Map<string, { status: string; sha: string }>();
   for (let index = entries.length - 1; index >= 0; index -= 1) {
+    const { sha } = entries[index];
     for (const file of entries[index].files) {
-      const prior = byPath.get(file.path);
+      const prior = byPath.get(file.path)?.status;
       if (prior === 'A' && file.status === 'D') {
         byPath.delete(file.path);
-      } else if (prior === 'A' && file.status === 'M') {
-        byPath.set(file.path, 'A');
       } else {
-        byPath.set(file.path, file.status);
+        byPath.set(file.path, { status: prior === 'A' && file.status === 'M' ? 'A' : file.status, sha });
       }
     }
   }
-  return [...byPath.entries()].map(([path, status]) => ({ path, status }));
+  return [...byPath.entries()].map(([path, { status, sha }]) => ({ path, status, sha }));
 }
 
 export interface ParentedEntry {

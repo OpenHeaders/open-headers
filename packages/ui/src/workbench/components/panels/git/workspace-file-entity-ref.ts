@@ -3,8 +3,9 @@
  * (`workspace-file-tree`) as Jump to Source opens it
  * (`git-entity-opener`): the workspace already holds it, so its editor
  * opens by uid — wherever its files were when the commit was made. The
- * workspace's own file and its trusted certificates have no editor tab
- * and answer none. Pure.
+ * workspace's own file and its trusted certificates have no editor tab,
+ * and an entity the workspace no longer holds none to open: they answer
+ * none. Pure.
  */
 
 import type { WorkspaceTreeEntityRefWire } from '@openheaders/core/bridge';
@@ -36,6 +37,7 @@ export function workspaceFileEntityRef(
   switch (entity.kind) {
     case 'workspace':
     case 'trusted-roots':
+    case 'former':
       return undefined;
     case 'vault':
     case 'workspace-variables':
