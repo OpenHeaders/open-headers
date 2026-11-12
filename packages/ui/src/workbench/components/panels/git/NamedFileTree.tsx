@@ -14,6 +14,10 @@
  * click and folds on its caret or a double-click. A section folds on a
  * click and is not a row.
  *
+ * A row knows the entity it is or is a part of, and hands it to the
+ * pane with its file — Jump to Source opens it by uid — so an entity's
+ * row that lists several files has that one verb and a menu of its own.
+ *
  * `WorkspaceFileTree` is the tree over the live workspace — the
  * workspace is read there, only while this view is the one shown.
  */
@@ -39,6 +43,7 @@ import {
 } from './named-file-tree';
 import { type FileTreeViewHandle, useFileTreeBehaviour } from './use-file-tree-behaviour';
 import { useListedWorkspace } from './use-listed-workspace';
+import { workspaceFileEntityRef } from './workspace-file-entity-ref';
 import { useWorkspaceFileFace } from './workspace-file-face';
 
 export interface NamedFileTreeProps extends FileTreeViewProps {
@@ -51,6 +56,11 @@ const noop = (): void => {};
 
 const onCaret = (event: React.MouseEvent): boolean =>
   event.target instanceof Element && event.target.closest('.rules-sidebar-item-caret') !== null;
+
+const entityRefOf = (row: NamedFileRow) =>
+  row.entity === undefined ? undefined : workspaceFileEntityRef(row.section, row.entity);
+
+const UNFOLDED: ReadonlySet<string> = new Set();
 
 export const NamedFileTree = ({
   sections,
@@ -72,7 +82,38 @@ export const NamedFileTree = ({
     (collapsed: ReadonlySet<string>) => visibleNamedSections(listed, collapsed).flatMap((section) => section.rows),
     [listed],
   );
-  const behaviour = useFileTreeBehaviour({ rowsOf, foldKeys, onOpenFile, selectedPath, onSelectFile }, handleRef);
+  const entityByFile = useMemo(
+    () =>
+      new Map(
+        rowsOf(UNFOLDED).flatMap((row) => {
+          const entity = entityRefOf(row);
+          return row.kind === 'file' && entity !== undefined ? [[row.key, entity] as const] : [];
+        }),
+      ),
+    [rowsOf],
+  );
+  const behaviour = useFileTreeBehaviour<NamedFileRow>(
+    {
+      rowsOf,
+      foldKeys,
+      onOpenFile: (path) => onOpenFile(path, entityByFile.get(path)),
+      selectedPath,
+      ...(onSelectFile === undefined
+        ? {}
+        : {
+            // One target for the pane's verbs: the reported file's entity, or — no file
+            // selected — the entity of the first selected row that names one.
+            onSelect: (file, selected) =>
+              onSelectFile(
+                file,
+                file !== null
+                  ? entityByFile.get(file)
+                  : selected.map(entityRefOf).find((entity) => entity !== undefined),
+              ),
+          }),
+    },
+    handleRef,
+  );
   const { selectable, collapsed, isSelected } = behaviour;
   const statuses = useMemo(() => new Map(files.map((file) => [file.path, file.status])), [files]);
 
@@ -127,11 +168,12 @@ export const NamedFileTree = ({
         )}
       </div>
     );
-    if (file === undefined || rowMenu === undefined) return body;
+    const entity = entityRefOf(row);
+    if (rowMenu === undefined || (file === undefined && entity === undefined)) return body;
     return (
       <Dropdown
         key={row.key}
-        menu={rowMenu(file)}
+        menu={rowMenu(file ?? null, entity)}
         trigger={['contextMenu']}
         align={contextMenuAlign}
         classNames={{ root: 'commit-tool-row-menu' }}

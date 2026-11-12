@@ -21,6 +21,7 @@
 
 import {
   hostBridge,
+  type WorkspaceTreeEntityRefWire,
   type WorkspaceTreeLogEntryWire,
   type WorkspaceTreeRefWire,
 } from '@openheaders/core/bridge';
@@ -62,6 +63,12 @@ const PushCommitsModal: React.FC<PushCommitsModalProps> = ({ workspaceId, open, 
   const [error, setError] = useState<string | null>(null);
   const [selection, setSelection] = useState<PushSelection>('all');
   const [selectedPath, setSelectedPath] = useState<string | null>(null);
+  // The entity the files tree names for the selection — what Jump to Source opens.
+  const [selectedEntity, setSelectedEntity] = useState<WorkspaceTreeEntityRefWire | null>(null);
+  const selectFile = (path: string | null, entity?: WorkspaceTreeEntityRefWire): void => {
+    setSelectedPath(path);
+    setSelectedEntity(entity ?? null);
+  };
   const [busy, setBusy] = useState(false);
   const fileDiff = useFileDiff(workspaceId);
   const jumpToSource = useJumpToSource(workspaceId);
@@ -111,6 +118,7 @@ const PushCommitsModal: React.FC<PushCommitsModalProps> = ({ workspaceId, open, 
     if (!open) return;
     setSelection('all');
     setSelectedPath(null);
+    setSelectedEntity(null);
     void reload();
   }, [open, reload]);
 
@@ -240,7 +248,7 @@ const PushCommitsModal: React.FC<PushCommitsModalProps> = ({ workspaceId, open, 
               selection={selection}
               onSelect={(next) => {
                 setSelection(next);
-                setSelectedPath(null);
+                selectFile(null);
               }}
               loading={loading}
               hourCycle={hourCycle}
@@ -257,10 +265,8 @@ const PushCommitsModal: React.FC<PushCommitsModalProps> = ({ workspaceId, open, 
               onShowDiff={() => {
                 if (selectedPath !== null) openDiff(selectedPath);
               }}
-              onJumpToSource={() => {
-                if (selectedPath !== null) jumpToSource(selectedPath);
-              }}
-              canJumpToSource={selectedPath !== null}
+              onJumpToSource={() => jumpToSource(selectedPath, selectedEntity ?? undefined)}
+              canJumpToSource={selectedPath !== null || selectedEntity !== null}
               prefs={prefs}
               onPatchPrefs={(patch) => patchGitLogViewPrefs(workspaceId, patch)}
               hasFiles={(selection === 'all' && entries.length > 0) || selected !== null}
@@ -285,7 +291,7 @@ const PushCommitsModal: React.FC<PushCommitsModalProps> = ({ workspaceId, open, 
                 files={allFiles}
                 loadingPath={fileDiff.loadingPath}
                 selectedPath={selectedPath}
-                onSelectFile={setSelectedPath}
+                onSelectFile={selectFile}
                 onOpenFile={openDiff}
                 groupByWorkspace={prefs.groupFilesByWorkspace}
                 groupByDirectory={prefs.groupFilesByDirectory}
@@ -313,7 +319,7 @@ const PushCommitsModal: React.FC<PushCommitsModalProps> = ({ workspaceId, open, 
                     files={multiSelected ? multiFiles : selected.files}
                     loadingPath={fileDiff.loadingPath}
                     selectedPath={selectedPath}
-                    onSelectFile={setSelectedPath}
+                    onSelectFile={selectFile}
                     onOpenFile={openDiff}
                     groupByWorkspace={prefs.groupFilesByWorkspace}
                     groupByDirectory={prefs.groupFilesByDirectory}

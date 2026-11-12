@@ -23,6 +23,7 @@
 
 import {
   hostBridge,
+  type WorkspaceTreeEntityRefWire,
   type WorkspaceTreeLogEntryWire,
   type WorkspaceTreeRefWire,
 } from '@openheaders/core/bridge';
@@ -101,6 +102,10 @@ const GitLogView: React.FC<GitLogViewProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [scrollTo, setScrollTo] = useState<{ sha: string; nonce: number } | null>(null);
   const [selectedFile, setSelectedFile] = useState<string | null>(null);
+  // The entity the files tree names for the selection (Group By
+  // Workspace) — what Jump to Source opens, a row that lists several
+  // files included; set with the file, by the one report.
+  const [selectedEntity, setSelectedEntity] = useState<WorkspaceTreeEntityRefWire | null>(null);
   // The timeline's row selection in list order (newest first). Two or
   // more commits and the details pane shows their files as ONE set
   // with a card per commit below (the reference reading); a contiguous
@@ -208,11 +213,6 @@ const GitLogView: React.FC<GitLogViewProps> = ({
     });
   }, [workspaceId, reload]);
 
-  // A fresh commit selection starts with no file row selected.
-  useEffect(() => {
-    setSelectedFile(null);
-  }, [selectedSha, selectedShas]);
-
   const matcher = useMemo(() => makeTextMatcher(filter, filterRegex, filterCase), [filter, filterRegex, filterCase]);
 
   const filtered = useMemo(() => {
@@ -310,6 +310,21 @@ const GitLogView: React.FC<GitLogViewProps> = ({
     () => (multiSelected ? contiguousRangeBase(selectedShas, entries) : null),
     [multiSelected, selectedShas, entries],
   );
+
+  // What the files tree lists — the selected commit, or the set. The
+  // tree is keyed by it, and the pane's file selection lives exactly as
+  // long: a fresh commit selection starts with no file row selected,
+  // and a refetch of the same log leaves the selected row its verbs.
+  const filesKey =
+    selected === null
+      ? null
+      : multiSelected
+        ? `${tabKey}:${selectedShas.length}:${selectedShas[0]}:${selectedShas[selectedShas.length - 1]}`
+        : `${tabKey}:${selected.sha}`;
+  useEffect(() => {
+    setSelectedFile(null);
+    setSelectedEntity(null);
+  }, [filesKey]);
 
   // What Show Diff reads: one commit's change, or the run's range from
   // its base to its newest commit; null while a gapped set is selected.
@@ -409,12 +424,13 @@ const GitLogView: React.FC<GitLogViewProps> = ({
 
   // The changed-file row menu: Show Diff reads the selected commit's
   // blob pair or the run's range; Show History opens the path's own
-  // timeline.
-  const fileRowMenu = (path: string): ReturnType<typeof buildFileRowMenu> =>
-    buildFileRowMenu(path, t, {
-      ...(diffTarget === null ? {} : { onShowDiff: openDiff }),
-      onShowHistory: setHistoryPath,
-      onJumpToSource: jumpToSource,
+  // timeline. An entity's row that lists several files has no path —
+  // the two file verbs hold and Jump to Source opens the entity.
+  const fileRowMenu = (path: string | null, entity?: WorkspaceTreeEntityRefWire): ReturnType<typeof buildFileRowMenu> =>
+    buildFileRowMenu(t, {
+      ...(diffTarget === null || path === null ? {} : { onShowDiff: () => openDiff(path) }),
+      ...(path === null ? {} : { onShowHistory: () => setHistoryPath(path) }),
+      onJumpToSource: () => jumpToSource(path, entity),
     });
 
   return (
@@ -542,10 +558,8 @@ const GitLogView: React.FC<GitLogViewProps> = ({
             onShowDiff={() => {
               if (selectedFile !== null) openDiff(selectedFile);
             }}
-            onJumpToSource={() => {
-              if (selectedFile !== null) jumpToSource(selectedFile);
-            }}
-            canJumpToSource={selectedFile !== null}
+            onJumpToSource={() => jumpToSource(selectedFile, selectedEntity ?? undefined)}
+            canJumpToSource={selectedFile !== null || selectedEntity !== null}
             prefs={prefs}
             onPatchPrefs={(patch) => patchGitLogViewPrefs(workspaceId, patch)}
             hasFiles={selected !== null}
@@ -570,21 +584,20 @@ const GitLogView: React.FC<GitLogViewProps> = ({
                 </div>
               ) : (
                 <FileTreeView
-                  key={
-                    multiSelected
-                      ? `${tabKey}:${selectedShas.length}:${selectedShas[0]}:${selectedShas[selectedShas.length - 1]}`
-                      : `${tabKey}:${selected.sha}`
-                  }
+                  key={filesKey}
                   ref={fileTreeRef}
                   files={multiSelected ? unionOfSelected : selected.files}
                   loadingPath={fileDiff.loadingPath}
                   // ⋯ > Show on Double-Click: the diff, or the entity's editor.
-                  onOpenFile={(path) => {
-                    if (prefs.doubleClickOpens === 'source') jumpToSource(path);
+                  onOpenFile={(path, entity) => {
+                    if (prefs.doubleClickOpens === 'source') jumpToSource(path, entity);
                     else openDiff(path);
                   }}
                   selectedPath={selectedFile}
-                  onSelectFile={setSelectedFile}
+                  onSelectFile={(path, entity) => {
+                    setSelectedFile(path);
+                    setSelectedEntity(entity ?? null);
+                  }}
                   groupByWorkspace={prefs.groupFilesByWorkspace}
                   groupByDirectory={prefs.groupFilesByDirectory}
                   rowMenu={fileRowMenu}

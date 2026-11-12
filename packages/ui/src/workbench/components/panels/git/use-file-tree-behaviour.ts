@@ -6,16 +6,18 @@
  * Shift+click ranges from the anchor; a right-click keeps a selection
  * it lands in), the keys (Up/Down walk the rows, Shift extends; Right
  * expands / steps in, Left collapses / steps to the parent, Enter opens
- * the cursor's file or toggles its row), and the ONE file the pane's
- * verbs act on — the clicked file while it stays selected, else the
- * first selected file, else none. Without a selection handler a click
- * opens a file directly and toggles a row that holds others.
+ * the cursor's file or toggles its row), and what the pane's verbs act
+ * on after a gesture — the ONE file (the clicked file while it stays
+ * selected, else the first selected file, else none) and the selected
+ * rows it was picked from, for a tree whose rows name more than a file.
+ * Without a selection handler a click opens a file directly and toggles
+ * a row that holds others.
  */
 
 import { clickModifiers, selectOnClick, selectOnStep, useMultiSelection } from '@openheaders/ui/shared/selection';
 import type React from 'react';
 import { type ForwardedRef, type RefObject, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
-import { type FileTreeRow, leadFilePath } from './file-tree';
+import { type FileTreeRow, leadFilePath, selectedRowsLeadFirst } from './file-tree';
 
 export interface FileTreeViewHandle {
   expandAll: () => void;
@@ -29,7 +31,12 @@ export interface FileTreeBehaviourInput<Row extends FileTreeRow> {
   foldKeys: readonly string[];
   onOpenFile: (path: string) => void;
   selectedPath?: string | null;
-  onSelectFile?: (path: string | null) => void;
+  /**
+   * After a gesture: the file the pane's verbs act on, and the selected
+   * rows — the one the gesture landed on first while it stays selected,
+   * the rest in paint order. Absent: rows do not select.
+   */
+  onSelect?: (file: string | null, selected: readonly Row[]) => void;
 }
 
 export interface FileTreeBehaviour<Row extends FileTreeRow> {
@@ -50,7 +57,7 @@ export interface FileTreeBehaviour<Row extends FileTreeRow> {
 }
 
 export function useFileTreeBehaviour<Row extends FileTreeRow>(
-  { rowsOf, foldKeys, onOpenFile, selectedPath, onSelectFile }: FileTreeBehaviourInput<Row>,
+  { rowsOf, foldKeys, onOpenFile, selectedPath, onSelect }: FileTreeBehaviourInput<Row>,
   handleRef: ForwardedRef<FileTreeViewHandle>,
 ): FileTreeBehaviour<Row> {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -59,7 +66,7 @@ export function useFileTreeBehaviour<Row extends FileTreeRow>(
   const rows = useMemo(() => rowsOf(collapsed), [rowsOf, collapsed]);
   const order = useMemo(() => rows.map((row) => row.key), [rows]);
   const { selection, isSelected, click, step, contextMenu } = useMultiSelection(order);
-  const selectable = onSelectFile !== undefined;
+  const selectable = onSelect !== undefined;
 
   const expandAll = (): void => setCollapsed(new Set());
   const collapseAll = (): void => setCollapsed(new Set(foldKeys));
@@ -89,7 +96,7 @@ export function useFileTreeBehaviour<Row extends FileTreeRow>(
   const toggleCollapse = (key: string): void => setCollapsedKey(key, !collapsed.has(key));
 
   const report = (ids: ReadonlySet<string>, preferred: string | null): void =>
-    onSelectFile?.(leadFilePath(rows, ids, preferred));
+    onSelect?.(leadFilePath(rows, ids, preferred), selectedRowsLeadFirst(rows, ids, preferred));
 
   const landOn = (key: string, extend: boolean): void => {
     const next = selectOnStep(selection, order, key, extend);

@@ -1,12 +1,14 @@
 /**
- * The files tree's visible-row walk and its lead-file rule
+ * The files tree's visible-row walk and its lead rules
  * (`file-tree.ts`): rows in paint order with collapsed subtrees left
- * out, and the one file the pane's verbs act on after a gesture.
+ * out, the one file the pane's verbs act on after a gesture, and the
+ * selected rows a single-row verb picks its target from.
  */
 
 import {
   buildFileTree,
   leadFilePath,
+  selectedRowsLeadFirst,
   visibleFileTreeRows,
 } from '@openheaders/ui/workbench/components/panels/git/file-tree';
 import { describe, expect, it } from 'vitest';
@@ -63,5 +65,25 @@ describe('leadFilePath', () => {
   it('a dir is never the lead — a dir-only selection has no file', () => {
     expect(leadFilePath(rows, new Set(['docs/guides']), 'docs/guides')).toBeNull();
     expect(leadFilePath(rows, new Set(), null)).toBeNull();
+  });
+});
+
+describe('selectedRowsLeadFirst', () => {
+  const rows = visibleFileTreeRows(buildFileTree(FILES), new Set());
+  const keys = (selected: string[], preferred: string | null): string[] =>
+    selectedRowsLeadFirst(rows, new Set(selected), preferred).map((row) => row.key);
+
+  it('lists the selected rows in row order, the gesture’s row first while it is one of them', () => {
+    expect(keys(['README.md', 'docs/guides', 'scripts/local.sh'], 'scripts/local.sh')).toEqual([
+      'scripts/local.sh',
+      'docs/guides',
+      'README.md',
+    ]);
+    expect(keys(['README.md', 'docs/guides'], 'docs/guides')).toEqual(['docs/guides', 'README.md']);
+  });
+
+  it('a gesture’s row that is not selected leads nothing', () => {
+    expect(keys(['README.md', 'docs/guides'], 'scripts/local.sh')).toEqual(['docs/guides', 'README.md']);
+    expect(keys([], 'README.md')).toEqual([]);
   });
 });

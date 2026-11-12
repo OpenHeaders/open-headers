@@ -11,6 +11,7 @@
  */
 
 import type {
+  WorkspaceFileEntity,
   WorkspaceFileNode,
   WorkspaceFileSection,
   WorkspaceFileSectionId,
@@ -20,6 +21,8 @@ import { buildFileTree, type FileTreeNode, type FileTreeRow } from './file-tree'
 export interface NamedFileRow extends FileTreeRow {
   section: WorkspaceFileSectionId;
   node: WorkspaceFileNode;
+  /** The entity the row is, or is a part of; absent on a file of the user's own and its directories. */
+  entity?: WorkspaceFileEntity;
 }
 
 export interface NamedFileSection {
@@ -102,20 +105,27 @@ export function visibleNamedSections(
     const key = namedSectionKey(section.id);
     const expanded = isOpenerSection(section.id) || !collapsed.has(key);
     const rows: NamedFileRow[] = [];
-    const walk = (nodes: readonly WorkspaceFileNode[], depth: number, parentKey: string | null): void => {
+    const walk = (
+      nodes: readonly WorkspaceFileNode[],
+      depth: number,
+      parentKey: string | null,
+      owner: WorkspaceFileEntity | undefined,
+    ): void => {
       for (const node of nodes) {
+        const entity = node.type === 'entity' ? node.entity : node.type === 'part' ? owner : undefined;
+        const named = { section: section.id, node, ...(entity !== undefined ? { entity } : {}) };
         const held = childrenOf(node);
         if (held.length === 0) {
           const file = namedRowFile(node);
-          if (file !== undefined) rows.push({ key: file, kind: 'file', depth, parentKey, section: section.id, node });
+          if (file !== undefined) rows.push({ key: file, kind: 'file', depth, parentKey, ...named });
           continue;
         }
         const open = !collapsed.has(node.id);
-        rows.push({ key: node.id, kind: 'dir', depth, parentKey, expanded: open, section: section.id, node });
-        if (open) walk(held, depth + 1, node.id);
+        rows.push({ key: node.id, kind: 'dir', depth, parentKey, expanded: open, ...named });
+        if (open) walk(held, depth + 1, node.id, entity);
       }
     };
-    if (expanded) walk(section.nodes, 0, null);
+    if (expanded) walk(section.nodes, 0, null, undefined);
     return { id: section.id, key, expanded, rows };
   });
 }

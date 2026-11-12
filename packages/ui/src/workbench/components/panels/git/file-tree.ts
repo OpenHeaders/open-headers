@@ -145,6 +145,21 @@ export function visibleFileTreeRows(nodes: readonly FileTreeNode[], collapsed: R
 }
 
 /**
+ * The selected rows as a single-row verb picks its target from them:
+ * `preferred` (the row the gesture landed on) first while it is one of
+ * them, the rest in row order.
+ */
+export function selectedRowsLeadFirst<Row extends FileTreeRow>(
+  rows: readonly Row[],
+  selected: ReadonlySet<string>,
+  preferred: string | null,
+): Row[] {
+  const picked = rows.filter((row) => selected.has(row.key));
+  const lead = picked.findIndex((row) => row.key === preferred);
+  return lead <= 0 ? picked : [picked[lead], ...picked.slice(0, lead), ...picked.slice(lead + 1)];
+}
+
+/**
  * The file the single-row verbs act on after a gesture: `preferred`
  * when it is a selected file, else the first selected file in row
  * order, else none (a dir-only selection has no diff target).
@@ -154,13 +169,5 @@ export function leadFilePath(
   selected: ReadonlySet<string>,
   preferred: string | null,
 ): string | null {
-  if (
-    preferred !== null &&
-    selected.has(preferred) &&
-    rows.some((row) => row.kind === 'file' && row.key === preferred)
-  ) {
-    return preferred;
-  }
-  const first = rows.find((row) => row.kind === 'file' && selected.has(row.key));
-  return first?.key ?? null;
+  return selectedRowsLeadFirst(rows, selected, preferred).find((row) => row.kind === 'file')?.key ?? null;
 }

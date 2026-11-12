@@ -162,13 +162,24 @@ describe('buildFileRowMenu', () => {
   it('Show Diff and Show History are live; the placeholder entries are visible-disabled', () => {
     const onShowDiff = vi.fn();
     const onShowHistory = vi.fn();
-    const menu = buildFileRowMenu('rules/r1.yaml', t, { onShowDiff, onShowHistory });
+    const menu = buildFileRowMenu(t, { onShowDiff, onShowHistory });
     expect(disabledKeys(menu).sort()).toEqual(['current-revision', 'jump-to-source']);
     const history = (menu.items ?? []).find((item) => item !== null && item.key === 'show-history') as {
       onClick?: () => void;
     };
     history.onClick?.();
-    expect(onShowHistory).toHaveBeenCalledWith('rules/r1.yaml');
+    expect(onShowHistory).toHaveBeenCalledTimes(1);
+  });
+
+  it('a row with no file of its own holds the two file verbs and keeps Jump to Source', () => {
+    const onJumpToSource = vi.fn();
+    const menu = buildFileRowMenu(t, { onJumpToSource });
+    expect(disabledKeys(menu).sort()).toEqual(['current-revision', 'show-diff', 'show-history']);
+    const jump = (menu.items ?? []).find((item) => item !== null && item.key === 'jump-to-source') as {
+      onClick?: () => void;
+    };
+    jump.onClick?.();
+    expect(onJumpToSource).toHaveBeenCalledTimes(1);
   });
 });
 
@@ -268,7 +279,9 @@ describe('FileTreeView row context menu (mounted)', () => {
           onOpenFile={() => undefined}
           selectedPath={null}
           onSelectFile={onSelectFile}
-          rowMenu={(path) => buildFileRowMenu(path, t, { onShowDiff: () => undefined, onShowHistory })}
+          rowMenu={(path) =>
+            buildFileRowMenu(t, { onShowDiff: () => undefined, onShowHistory: () => onShowHistory(path) })
+          }
         />
       </AntApp>,
     );

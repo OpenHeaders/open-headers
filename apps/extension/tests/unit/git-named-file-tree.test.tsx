@@ -8,9 +8,12 @@
  * reads as, and — mounted — what is drawn (the panels' names, never a
  * path for an entity's file), that the rows select, fold, open and take
  * the row menu as the path tree's do, and that the pane hears the one
- * file its verbs act on.
+ * file its verbs act on with the entity that file belongs to — an
+ * entity's row that lists several files reporting its entity alone and
+ * taking a menu of its own.
  */
 
+import type { WorkspaceTreeEntityRefWire } from '@openheaders/core/bridge';
 import type { TreeNode } from '@openheaders/core/types';
 import { type ListedWorkspace, workspaceFileTree } from '@openheaders/ui/shared/workspace-files';
 import { NamedFileTree } from '@openheaders/ui/workbench/components/panels/git/NamedFileTree';
@@ -59,6 +62,23 @@ const SECTIONS = workspaceFileTree(
   FILES.map((file) => file.path),
   WORKSPACE,
 );
+const CREATE_ORDER: WorkspaceTreeEntityRefWire = {
+  kind: 'request',
+  tree: null,
+  uid: 'req00003',
+  name: 'Create Order',
+  method: 'POST',
+};
+const LIST_ORDERS: WorkspaceTreeEntityRefWire = {
+  kind: 'request',
+  tree: null,
+  uid: 'req00004',
+  name: 'List Orders',
+  method: 'GET',
+};
+const ORDERS: WorkspaceTreeEntityRefWire = { kind: 'collection', tree: 'requests', uid: 'col00001', name: 'Orders' };
+const WORKSPACE_VARS: WorkspaceTreeEntityRefWire = { kind: 'workspace-variables', tree: null, uid: '', name: '' };
+
 const STATUS = new Map(FILES.map((file) => [file.path, file.status]));
 const statusOf = (path: string): string | undefined => STATUS.get(path);
 
@@ -127,6 +147,27 @@ describe('named-file-tree', () => {
     ]);
   });
 
+  it('a row carries the entity it is or is a part of — none on a file of the user’s own or its directory', () => {
+    const rows = visibleNamedSections(namedSections(SECTIONS, true), new Set()).flatMap((section) => section.rows);
+    const entityOf = (key: string): string | undefined => {
+      const entity = rows.find((row) => row.key === key)?.entity;
+      if (entity === undefined) return undefined;
+      return entity.kind === 'node'
+        ? entity.node.uid
+        : entity.kind === 'workspace-variables'
+          ? entity.kind
+          : entity.uid;
+    };
+    expect(entityOf('requests:col00001')).toBe('col00001');
+    expect(entityOf('requests:req00003')).toBe('req00003');
+    expect(entityOf(MANIFEST)).toBe('req00003');
+    expect(entityOf(BODY)).toBe('req00003');
+    expect(entityOf(LISTED)).toBe('req00004');
+    expect(entityOf(VARS)).toBe('workspace-variables');
+    expect(entityOf('dir:notes')).toBeUndefined();
+    expect(entityOf(NOTES)).toBeUndefined();
+  });
+
   it('a file’s row reads as its change; an entity that lists several as added or deleted only when all its files are', () => {
     const [requests] = SECTIONS;
     const [orders] = requests.nodes;
@@ -176,9 +217,9 @@ const labels = (): string[] =>
   [...document.querySelectorAll('.rules-sidebar-item-label')].map((label) => label.textContent ?? '');
 
 function renderTree(selecting = true) {
-  const onSelectFile = vi.fn<(path: string | null) => void>();
-  const onOpenFile = vi.fn<(path: string) => void>();
-  const onMenu = vi.fn<(path: string) => void>();
+  const onSelectFile = vi.fn<(path: string | null, entity?: WorkspaceTreeEntityRefWire) => void>();
+  const onOpenFile = vi.fn<(path: string, entity?: WorkspaceTreeEntityRefWire) => void>();
+  const onMenu = vi.fn<(path: string | null, entity?: WorkspaceTreeEntityRefWire) => void>();
   render(
     <NamedFileTree
       sections={SECTIONS}
@@ -190,9 +231,13 @@ function renderTree(selecting = true) {
         ? {
             selectedPath: null,
             onSelectFile,
-            rowMenu: (path: string) => ({
+            rowMenu: (path: string | null, entity?: WorkspaceTreeEntityRefWire) => ({
               items: [
-                { key: 'probe', label: <span data-testid="menu-probe">{path}</span>, onClick: () => onMenu(path) },
+                {
+                  key: 'probe',
+                  label: <span data-testid="menu-probe">{path ?? entity?.name}</span>,
+                  onClick: () => onMenu(path, entity),
+                },
               ],
             }),
           }
@@ -245,18 +290,22 @@ describe('NamedFileTree', () => {
     const { onSelectFile } = renderTree();
     fireEvent.click(byKey(BODY));
     expect(selectedKeys()).toEqual([BODY]);
-    expect(onSelectFile).toHaveBeenLastCalledWith(BODY);
+    expect(onSelectFile).toHaveBeenLastCalledWith(BODY, CREATE_ORDER);
     fireEvent.click(byKey(VARS), { shiftKey: true });
     expect(selectedKeys()).toEqual([BODY, LISTED, VARS]);
-    expect(onSelectFile).toHaveBeenLastCalledWith(VARS);
+    expect(onSelectFile).toHaveBeenLastCalledWith(VARS, WORKSPACE_VARS);
     expect(byKey(VARS).querySelector('.rules-sidebar-section--selected')).toBeTruthy();
   });
 
-  it('a row that holds others selects on a click and reports no file; its caret, or a double-click, folds it', () => {
+  it('a row that holds others selects on a click and reports no file — an entity’s its entity; its caret, or a double-click, folds it', () => {
     const { onSelectFile } = renderTree();
+    fireEvent.click(byKey('dir:notes'));
+    expect(onSelectFile).toHaveBeenLastCalledWith(null, undefined);
+    fireEvent.click(byKey('requests:col00001'));
+    expect(onSelectFile).toHaveBeenLastCalledWith(null, ORDERS);
     fireEvent.click(byKey('requests:req00003'));
     expect(selectedKeys()).toEqual(['requests:req00003']);
-    expect(onSelectFile).toHaveBeenLastCalledWith(null);
+    expect(onSelectFile).toHaveBeenLastCalledWith(null, CREATE_ORDER);
     expect(labels()).toContain('Body');
     const caret = byKey('requests:req00003').querySelector('.rules-sidebar-item-caret');
     if (!caret) throw new Error('no caret');
@@ -274,7 +323,9 @@ describe('NamedFileTree', () => {
     fireEvent.click(screen.getByTestId('git-tool-file-section-requests'));
 
     fireEvent.doubleClick(byKey(LISTED));
-    expect(onOpenFile).toHaveBeenLastCalledWith(LISTED);
+    expect(onOpenFile).toHaveBeenLastCalledWith(LISTED, LIST_ORDERS);
+    fireEvent.doubleClick(byKey(NOTES));
+    expect(onOpenFile).toHaveBeenLastCalledWith(NOTES, undefined);
 
     const tree = screen.getByTestId('git-tool-file-tree');
     fireEvent.keyDown(tree, { key: 'ArrowDown' });
@@ -283,26 +334,52 @@ describe('NamedFileTree', () => {
     fireEvent.keyDown(tree, { key: 'ArrowRight' });
     expect(selectedKeys()).toEqual([MANIFEST]);
     fireEvent.keyDown(tree, { key: 'Enter' });
-    expect(onOpenFile).toHaveBeenLastCalledWith(MANIFEST);
+    expect(onOpenFile).toHaveBeenLastCalledWith(MANIFEST, CREATE_ORDER);
     fireEvent.keyDown(tree, { key: 'ArrowLeft' });
     expect(selectedKeys()).toEqual(['requests:req00003']);
     fireEvent.keyDown(tree, { key: 'ArrowLeft' });
     expect(labels()).not.toContain('Details');
   });
 
-  it('a right-click selects the row and opens the file’s menu', async () => {
+  it('a right-click selects the row and opens the file’s menu, with the entity the file belongs to', async () => {
     const { onSelectFile, onMenu } = renderTree();
     fireEvent.contextMenu(byKey(LISTED));
     expect(selectedKeys()).toEqual([LISTED]);
-    expect(onSelectFile).toHaveBeenLastCalledWith(LISTED);
+    expect(onSelectFile).toHaveBeenLastCalledWith(LISTED, LIST_ORDERS);
     fireEvent.click(await screen.findByTestId('menu-probe'));
-    expect(onMenu).toHaveBeenCalledWith(LISTED);
+    expect(onMenu).toHaveBeenCalledWith(LISTED, LIST_ORDERS);
+  });
+
+  it('an entity’s row that lists several files takes a menu of its own — no file, its entity; a directory of the user’s takes none', async () => {
+    const { onSelectFile, onMenu } = renderTree();
+    fireEvent.contextMenu(byKey('dir:notes'));
+    expect(selectedKeys()).toEqual(['dir:notes']);
+    expect(screen.queryByTestId('menu-probe')).toBeNull();
+    fireEvent.contextMenu(byKey('requests:req00003'));
+    expect(selectedKeys()).toEqual(['requests:req00003']);
+    expect(onSelectFile).toHaveBeenLastCalledWith(null, CREATE_ORDER);
+    fireEvent.click(await screen.findByTestId('menu-probe'));
+    expect(onMenu).toHaveBeenCalledWith(null, CREATE_ORDER);
+  });
+
+  it('the entity reported is the reported file’s — none for a file of the user’s own; with no file selected, the first selected row’s that names one', () => {
+    const { onSelectFile } = renderTree();
+    fireEvent.click(byKey(LISTED));
+    fireEvent.click(byKey(NOTES), { metaKey: true });
+    expect(selectedKeys()).toEqual([LISTED, NOTES]);
+    expect(onSelectFile).toHaveBeenLastCalledWith(NOTES, undefined);
+    fireEvent.click(byKey(BODY), { metaKey: true });
+    expect(onSelectFile).toHaveBeenLastCalledWith(BODY, CREATE_ORDER);
+    fireEvent.click(byKey('requests:req00003'));
+    fireEvent.click(byKey('dir:notes'), { metaKey: true });
+    expect(selectedKeys()).toEqual(['requests:req00003', 'dir:notes']);
+    expect(onSelectFile).toHaveBeenLastCalledWith(null, CREATE_ORDER);
   });
 
   it('without a selection handler a click opens the file, a click on a row that holds others folds it, nothing selects', () => {
     const { onOpenFile } = renderTree(false);
     fireEvent.click(byKey(BODY));
-    expect(onOpenFile).toHaveBeenCalledWith(BODY);
+    expect(onOpenFile).toHaveBeenCalledWith(BODY, CREATE_ORDER);
     fireEvent.click(byKey('requests:req00003'));
     expect(labels()).not.toContain('Body');
     expect(selectedKeys()).toEqual([]);

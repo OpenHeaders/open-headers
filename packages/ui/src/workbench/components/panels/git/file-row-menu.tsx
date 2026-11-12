@@ -5,7 +5,9 @@
  * no honest diff), Show History (the path's own timeline — `fileLog`,
  * renames followed), Jump to Source (the entity's editor — live when
  * the surface wires it), then Show Current Revision visible-disabled.
- * Pure over (path, t, handlers).
+ * An entity's row that lists several files takes the same menu with
+ * the two file verbs held. Pure over (t, handlers) — a verb with no
+ * handler is visible-disabled.
  */
 
 import { ClockCircleOutlined, EditOutlined, SwapOutlined } from '@ant-design/icons';
@@ -14,20 +16,20 @@ import type { Translate } from '@openheaders/ui/context/LocaleContext';
 import { menuLabel } from './git-menu-label';
 
 export interface FileRowMenuHandlers {
-  onShowDiff?: (path: string) => void;
-  onShowHistory: (path: string) => void;
-  onJumpToSource?: (path: string) => void;
+  onShowDiff?: () => void;
+  onShowHistory?: () => void;
+  onJumpToSource?: () => void;
 }
 
 type MenuItems = NonNullable<MenuProps['items']>;
 
-export function buildFileRowMenu(path: string, t: Translate, h: FileRowMenuHandlers): MenuProps {
+export function buildFileRowMenu(t: Translate, h: FileRowMenuHandlers): MenuProps {
   const items: MenuItems = [
     {
       key: 'show-diff',
       label: menuLabel(<SwapOutlined />, t('workbench.gitLog.fileMenu.showDiff'), '⌘D', 'git-tool-file-menu-diff'),
       disabled: h.onShowDiff === undefined,
-      ...(h.onShowDiff === undefined ? {} : { onClick: () => h.onShowDiff?.(path) }),
+      ...(h.onShowDiff === undefined ? {} : { onClick: h.onShowDiff }),
     },
     {
       key: 'show-history',
@@ -37,7 +39,8 @@ export function buildFileRowMenu(path: string, t: Translate, h: FileRowMenuHandl
         undefined,
         'git-tool-file-menu-history',
       ),
-      onClick: () => h.onShowHistory(path),
+      disabled: h.onShowHistory === undefined,
+      ...(h.onShowHistory === undefined ? {} : { onClick: h.onShowHistory }),
     },
     { type: 'divider' },
     {
@@ -54,7 +57,7 @@ export function buildFileRowMenu(path: string, t: Translate, h: FileRowMenuHandl
         'git-tool-file-menu-jump',
       ),
       disabled: h.onJumpToSource === undefined,
-      ...(h.onJumpToSource === undefined ? {} : { onClick: () => h.onJumpToSource?.(path) }),
+      ...(h.onJumpToSource === undefined ? {} : { onClick: h.onJumpToSource }),
     },
   ];
   return { items, selectable: false };

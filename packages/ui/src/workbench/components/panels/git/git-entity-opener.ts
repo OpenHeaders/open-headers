@@ -2,9 +2,9 @@
  * git-entity-opener — Jump to Source's seam between the git surfaces
  * (the Git window's changed files, the Push window) and the workbench's
  * editor tabs. The tool-window host registers its tab openers once per
- * mounted instance; a jump asks the host which entity a tree path
- * belongs to and opens that entity's editor through the registered
- * openers. Module state, like the git panel registry: the dock
+ * mounted instance; a jump opens an entity's editor through them — the
+ * entity a named row already knows, or the one the host says a tree
+ * path belongs to. Module state, like the git panel registry: the dock
  * unmounts inactive tool windows and the openers must survive that.
  */
 
@@ -107,6 +107,13 @@ export function openGitEntity(openers: GitEntityOpeners, entity: WorkspaceTreeEn
 
 export type JumpToSourceOutcome = 'opened' | 'no-editor' | 'failed';
 
+/** Open an entity the surface already knows — a named row's — through the registered openers. */
+export function jumpToEntity(entity: WorkspaceTreeEntityRefWire): JumpToSourceOutcome {
+  const getOpeners = registered.values().next().value;
+  if (getOpeners === undefined) return 'no-editor';
+  return openGitEntity(getOpeners(), entity) ? 'opened' : 'no-editor';
+}
+
 /** Resolve the path on the host and open its editor; the outcome drives the surface's notice. */
 export async function jumpToSource(workspaceId: string, path: string): Promise<JumpToSourceOutcome> {
   let entity: WorkspaceTreeEntityRefWire;
@@ -117,7 +124,5 @@ export async function jumpToSource(workspaceId: string, path: string): Promise<J
   } catch {
     return 'failed';
   }
-  const getOpeners = registered.values().next().value;
-  if (getOpeners === undefined) return 'no-editor';
-  return openGitEntity(getOpeners(), entity) ? 'opened' : 'no-editor';
+  return jumpToEntity(entity);
 }

@@ -53,7 +53,16 @@ const PathFileTree = ({
   const tree = useMemo(() => buildFileTree(files, groupByDirectory), [files, groupByDirectory]);
   const foldKeys = useMemo(() => allDirKeys(tree), [tree]);
   const rowsOf = useCallback((collapsed: ReadonlySet<string>) => visibleFileTreeRows(tree, collapsed), [tree]);
-  const behaviour = useFileTreeBehaviour({ rowsOf, foldKeys, onOpenFile, selectedPath, onSelectFile }, handleRef);
+  const behaviour = useFileTreeBehaviour(
+    {
+      rowsOf,
+      foldKeys,
+      onOpenFile: (path) => onOpenFile(path),
+      selectedPath,
+      ...(onSelectFile === undefined ? {} : { onSelect: (file) => onSelectFile(file) }),
+    },
+    handleRef,
+  );
   const { selectable, collapsed, isSelected } = behaviour;
   const rowByKey = useMemo(() => new Map(behaviour.rows.map((row) => [row.key, row])), [behaviour.rows]);
   const rowOf = (key: string, kind: FileTreeRow['kind']): FileTreeRow =>
