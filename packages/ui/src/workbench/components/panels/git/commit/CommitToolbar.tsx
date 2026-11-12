@@ -3,7 +3,7 @@
  * Refresh, Rollback… (live over a selection of added rows — the index
  * drop back to unversioned; tracked rollbacks are their own future
  * slice), Shelve Silently (a visible placeholder), the View
- * Options eye (Group By Directory, Show Ignored Files), Select Opened
+ * Options eye (Group By Workspace / Directory, Show Ignored Files), Select Opened
  * File (placeholder — needs the editor-tab↔file join), then Expand /
  * Collapse All driving the changes tree. The band is a PaneToolbar: at
  * a narrow dock the tail folds behind the › chevron's hover strip.
@@ -56,6 +56,11 @@ const CommitToolbar: React.FC<CommitToolbarProps> = ({
               label: t('workbench.gitLog.details.groupBy'),
               children: [
                 {
+                  key: 'workspace',
+                  label: t('workbench.gitLog.details.workspace'),
+                  icon: menuCheckIcon(prefs.groupByWorkspace),
+                },
+                {
                   key: 'directory',
                   label: t('workbench.gitLog.details.directory'),
                   icon: menuCheckIcon(prefs.groupByDirectory),
@@ -76,7 +81,8 @@ const CommitToolbar: React.FC<CommitToolbarProps> = ({
             },
           ],
         onClick: ({ key }) => {
-          if (key === 'directory') onPatchPrefs({ groupByDirectory: !prefs.groupByDirectory });
+          if (key === 'workspace') onPatchPrefs({ groupByWorkspace: !prefs.groupByWorkspace });
+          else if (key === 'directory') onPatchPrefs({ groupByDirectory: !prefs.groupByDirectory });
           else if (key === 'ignored') onPatchPrefs({ showIgnored: !prefs.showIgnored });
         },
       }}

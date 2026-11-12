@@ -39,6 +39,8 @@ interface TreeNodeRowProps {
   highlightQuery?: string;
   /** True when this row is the speed-search's active match. */
   isSearchActive?: boolean;
+  /** Ahead of the icon, after the caret slot — the Commit tree's checkbox. */
+  leading?: React.ReactNode;
   onClick: (e: React.MouseEvent) => void;
   onDoubleClick: () => void;
   onStartRename: () => void;
@@ -103,6 +105,10 @@ function InlineRenameInput({
   );
 }
 
+/** A click that landed on a row's caret slot — for a host that takes the row's clicks itself. */
+export const isRowCaretClick = (event: React.MouseEvent): boolean =>
+  event.target instanceof Element && event.target.closest('.rules-sidebar-item-caret') !== null;
+
 export function TreeNodeRow({
   node,
   isSelected,
@@ -112,6 +118,7 @@ export function TreeNodeRow({
   isMultiSelected,
   highlightQuery,
   isSearchActive,
+  leading,
   onClick,
   onDoubleClick,
   onStartRename,
@@ -213,6 +220,8 @@ export function TreeNodeRow({
           />
         )}
       </span>
+
+      {leading}
 
       {node.icon}
 

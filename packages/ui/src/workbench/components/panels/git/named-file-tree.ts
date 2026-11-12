@@ -42,23 +42,30 @@ export function namedRowFile(node: WorkspaceFileNode): string | undefined {
   return node.type === 'directory' ? undefined : node.file;
 }
 
-function childrenOf(node: WorkspaceFileNode): readonly WorkspaceFileNode[] {
+export function namedRowChildren(node: WorkspaceFileNode): readonly WorkspaceFileNode[] {
   return node.type === 'entity' || node.type === 'directory' ? node.children : [];
 }
 
 /** Every file at or under the rows. */
-function filesUnder(nodes: readonly WorkspaceFileNode[]): string[] {
+export function namedFilesUnder(nodes: readonly WorkspaceFileNode[]): string[] {
   return nodes.flatMap((node) => {
     const file = namedRowFile(node);
-    return file !== undefined ? [file] : filesUnder(childrenOf(node));
+    return file !== undefined ? [file] : namedFilesUnder(namedRowChildren(node));
   });
+}
+
+const DIRECTORY_ID = 'dir:';
+
+/** The whole path of a directory row of the user's own files — its label is the last stretch alone. */
+export function namedDirectoryPath(node: Extract<WorkspaceFileNode, { type: 'directory' }>): string {
+  return node.id.slice(DIRECTORY_ID.length);
 }
 
 /** The path tree's rows (`file-tree`) as rows of the user's own files. */
 function ownFileNodes(nodes: readonly FileTreeNode[]): WorkspaceFileNode[] {
   return nodes.map((node) =>
     node.kind === 'dir'
-      ? { type: 'directory', id: `dir:${node.key}`, path: node.label, children: ownFileNodes(node.children) }
+      ? { type: 'directory', id: `${DIRECTORY_ID}${node.key}`, path: node.label, children: ownFileNodes(node.children) }
       : { type: 'file', id: node.path, name: node.label, file: node.path },
   );
 }
@@ -74,7 +81,7 @@ export function namedSections(
 ): readonly WorkspaceFileSection[] {
   return sections.map((section) => {
     if (section.id !== 'files') return section;
-    const files = filesUnder(section.nodes).map((path) => ({ path, status: '' }));
+    const files = namedFilesUnder(section.nodes).map((path) => ({ path, status: '' }));
     return { ...section, nodes: ownFileNodes(buildFileTree(files, groupByDirectory)) };
   });
 }
@@ -84,9 +91,9 @@ export function namedFoldKeys(sections: readonly WorkspaceFileSection[]): string
   const keys: string[] = [];
   const walk = (nodes: readonly WorkspaceFileNode[]): void => {
     for (const node of nodes) {
-      if (childrenOf(node).length === 0) continue;
+      if (namedRowChildren(node).length === 0) continue;
       keys.push(node.id);
-      walk(childrenOf(node));
+      walk(namedRowChildren(node));
     }
   };
   for (const section of sections) {
@@ -113,7 +120,7 @@ export function visibleNamedSections(
       for (const node of nodes) {
         const entity = node.type === 'entity' ? node.entity : node.type === 'part' ? owner : undefined;
         const named = { section: section.id, node, ...(entity !== undefined ? { entity } : {}) };
-        const held = childrenOf(node);
+        const held = namedRowChildren(node);
         if (held.length === 0) {
           const file = namedRowFile(node);
           if (file !== undefined) rows.push({ key: file, kind: 'file', depth, parentKey, ...named });

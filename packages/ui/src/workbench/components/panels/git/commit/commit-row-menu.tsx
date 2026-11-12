@@ -17,11 +17,14 @@
  * verb reads Commit Directory… / Commit… and checks exactly those
  * paths, Show Diff (one file's read) is visible-disabled, Add to
  * .gitignore names the directory itself. The Ignored Files group and
- * its directories carry Refresh alone.
+ * its directories carry Refresh alone. With the files listed by what
+ * they belong to, a named row that holds several reads as a selection
+ * of them (Commit Files…), and Jump to Source opens the entity a row is
+ * or is a part of — a file's row in any shape by its path.
  */
 
 import { ClockCircleOutlined, EditOutlined, GithubOutlined, PlusOutlined, StopOutlined, SwapOutlined } from '@ant-design/icons';
-import type { WorkspaceTreeWorkingChangeWire } from '@openheaders/core/bridge';
+import type { WorkspaceTreeEntityRefWire, WorkspaceTreeWorkingChangeWire } from '@openheaders/core/bridge';
 import type { MenuProps } from 'antd';
 import type React from 'react';
 import type { MessageKey } from '@openheaders/i18n';
@@ -60,6 +63,8 @@ export interface CommitRowMenuHandlers {
   /** Delete these files from disk — the panel confirms first. */
   onDeletePaths: (paths: readonly string[]) => void;
   onUnignorePath: (path: string, target: 'gitignore' | 'exclude') => void;
+  /** Open the editor of the entity a row is or is a part of — by the entity a named row knows, else by the file's path. Absent: the verb is held. */
+  onJumpToSource?: (path: string | null, entity?: WorkspaceTreeEntityRefWire) => void;
 }
 
 type MenuItems = NonNullable<MenuProps['items']>;
@@ -77,6 +82,8 @@ interface TargetFacts {
   addPaths: readonly string[];
   /** Rollback…'s paths — the target's files when every one is an added row; empty elsewhere. */
   rollbackPaths: readonly string[];
+  /** Jump to Source's target — one file's row, or a named row whose entity has an editor; null elsewhere. */
+  jump: { path: string | null; entity?: WorkspaceTreeEntityRefWire } | null;
   commitLabelKey: MessageKey;
 }
 
@@ -90,13 +97,15 @@ function factsOf(target: CommitMenuTarget): TargetFacts {
       ignorePaths: unversioned ? [target.row.path] : [],
       addPaths: unversioned ? [target.row.path] : [],
       rollbackPaths: rollbackPaths([target.row]),
+      jump: { path: target.row.path, ...(target.entity !== undefined ? { entity: target.entity } : {}) },
       commitLabelKey: 'workbench.commitTool.menu.commitFile',
     };
   }
-  // A multi-row selection: the unversioned variant only when every
-  // row is unversioned, and then Add to .gitignore covers them all;
-  // Show Diff (one file's read) stays out.
-  if (target.kind === 'files') {
+  // A multi-row selection, or a named row that holds several files:
+  // the unversioned variant only when every row is unversioned, and
+  // then Add to .gitignore covers them all; Show Diff (one file's read)
+  // stays out.
+  if (target.kind === 'files' || target.kind === 'named') {
     const unversioned = target.rows.every((row) => row.unversioned === true);
     const paths = target.rows.map((row) => row.path);
     return {
@@ -106,6 +115,7 @@ function factsOf(target: CommitMenuTarget): TargetFacts {
       ignorePaths: unversioned ? paths : [],
       addPaths: unversioned ? paths : [],
       rollbackPaths: rollbackPaths(target.rows),
+      jump: target.kind === 'named' && target.entity !== undefined ? { path: null, entity: target.entity } : null,
       commitLabelKey: 'workbench.commitTool.menu.commitFiles',
     };
   }
@@ -117,6 +127,7 @@ function factsOf(target: CommitMenuTarget): TargetFacts {
     ignorePaths: target.kind === 'dir' && unversioned ? [target.path] : [],
     addPaths: unversioned ? target.paths : [],
     rollbackPaths: [],
+    jump: null,
     commitLabelKey:
       target.kind === 'dir' ? 'workbench.commitTool.menu.commitDirectory' : 'workbench.commitTool.menu.commit',
   };
@@ -180,6 +191,24 @@ function showDiffItem(facts: TargetFacts, h: CommitRowMenuHandlers, t: Translate
     label: menuLabel(<SwapOutlined />, t('workbench.commitTool.menu.showDiff'), '⌘D'),
     disabled: diffPath === null,
     ...(diffPath === null ? {} : { onClick: () => h.onShowDiff(diffPath) }),
+  };
+}
+
+/** Jump to Source — live on a row that names one target and a surface that wires the verb, visible-disabled elsewhere. */
+function jumpToSourceItem(facts: TargetFacts, h: CommitRowMenuHandlers, t: Translate): MenuItems[number] {
+  const { jump } = facts;
+  const run = h.onJumpToSource;
+  const live = jump !== null && run !== undefined;
+  return {
+    key: 'jump-to-source',
+    label: menuLabel(
+      <EditOutlined />,
+      t('workbench.commitTool.menu.jumpToSource'),
+      undefined,
+      'commit-tool-menu-jump',
+    ),
+    disabled: !live,
+    ...(live ? { onClick: () => run(jump.path, jump.entity) } : {}),
   };
 }
 
@@ -343,7 +372,7 @@ function refreshOnlyMenu(t: Translate, h: CommitRowMenuHandlers): MenuProps {
  * open; the builder is pure over (target, t, handlers).
  */
 export function buildCommitRowMenu(target: CommitMenuTarget, t: Translate, h: CommitRowMenuHandlers): MenuProps {
-  if ((target.kind === 'dir' || target.kind === 'group') && target.group === 'ignored') return refreshOnlyMenu(t, h);
+  if (target.kind !== 'file' && target.kind !== 'files' && target.group === 'ignored') return refreshOnlyMenu(t, h);
   const facts = factsOf(target);
   const unversioned = facts.unversioned;
   const items: MenuItems = [
@@ -360,11 +389,7 @@ export function buildCommitRowMenu(target: CommitMenuTarget, t: Translate, h: Co
       label: menuLabel(<SwapOutlined />, t('workbench.commitTool.menu.showDiffNewTab')),
       disabled: true,
     },
-    {
-      key: 'jump-to-source',
-      label: menuLabel(<EditOutlined />, t('workbench.commitTool.menu.jumpToSource')),
-      disabled: true,
-    },
+    jumpToSourceItem(facts, h, t),
     { type: 'divider' },
     deleteItem(facts, h, t),
     addToVcsItem(facts, h, t, 'add-vcs', 'workbench.commitTool.menu.addToVcs', null),

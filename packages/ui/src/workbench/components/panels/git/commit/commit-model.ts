@@ -6,7 +6,11 @@
  * counter parts. No React, no bridge.
  */
 
-import type { WorkspaceTreeLogEntryWire, WorkspaceTreeWorkingChangeWire } from '@openheaders/core/bridge';
+import type {
+  WorkspaceTreeEntityRefWire,
+  WorkspaceTreeLogEntryWire,
+  WorkspaceTreeWorkingChangeWire,
+} from '@openheaders/core/bridge';
 
 export interface ChangeGroups {
   /** Tracked changes vs HEAD — checked by default. */
@@ -111,16 +115,25 @@ export type ChangeGroupKey = keyof ChangeGroups;
 /**
  * What a right-click in the changes tree lands on: a file row, a
  * directory node (its subtree's paths), a group header / the
- * content-root node (the whole group's paths), or a multi-row
- * selection (the union of its file rows — Commit Files…). The menu's
- * verbs apply to the target's paths; a directory names its own path
- * for the ignore verbs.
+ * content-root node (the whole group's paths), a multi-row selection
+ * (the union of its file rows — Commit Files…), or — the files listed
+ * by what they belong to — a named row that holds several (an entity
+ * and its parts, a collection, a folder: the files under it). The
+ * menu's verbs apply to the target's paths; a directory names its own
+ * path for the ignore verbs. `entity` is the one a named row is, or is
+ * a part of — what Jump to Source opens.
  */
 export type CommitMenuTarget =
-  | { kind: 'file'; row: WorkspaceTreeWorkingChangeWire }
+  | { kind: 'file'; row: WorkspaceTreeWorkingChangeWire; entity?: WorkspaceTreeEntityRefWire }
   | { kind: 'dir'; group: ChangeGroupKey; path: string; paths: readonly string[] }
   | { kind: 'group'; group: ChangeGroupKey; paths: readonly string[] }
-  | { kind: 'files'; rows: readonly WorkspaceTreeWorkingChangeWire[] };
+  | { kind: 'files'; rows: readonly WorkspaceTreeWorkingChangeWire[] }
+  | {
+      kind: 'named';
+      group: ChangeGroupKey;
+      rows: readonly WorkspaceTreeWorkingChangeWire[];
+      entity?: WorkspaceTreeEntityRefWire;
+    };
 
 /**
  * Rollback…'s paths: every row an added file (an intent-to-add or a

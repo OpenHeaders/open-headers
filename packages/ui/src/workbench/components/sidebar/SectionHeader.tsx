@@ -2,16 +2,29 @@ import { theme } from 'antd';
 import type React from 'react';
 import type { TreeNode } from './types';
 
+/** A header's leading slot: its clicks are its own — they neither fold the section nor open the row. */
+function Leading({ children }: { children: React.ReactNode }) {
+  return (
+    // biome-ignore lint/a11y/noStaticElementInteractions: stopPropagation guard for nested click handlers
+    <span style={{ display: 'inline-flex' }} onClick={(e) => e.stopPropagation()} onKeyDown={() => {}}>
+      {children}
+    </span>
+  );
+}
+
 export function SectionHeader({
   title,
   expanded,
   onToggle,
+  leading,
   actions,
   testid,
 }: {
   title: string;
   expanded: boolean;
   onToggle: () => void;
+  /** Between the fold mark and the title — the Commit tree's checkbox. */
+  leading?: React.ReactNode;
   actions?: React.ReactNode;
   testid?: string;
 }) {
@@ -29,18 +42,22 @@ export function SectionHeader({
       tabIndex={-1}
       aria-expanded={expanded}
     >
-      <span className="rules-sidebar-section-title">
+      <span
+        className="rules-sidebar-section-title"
+        style={leading ? { display: 'inline-flex', alignItems: 'center', gap: 4 } : undefined}
+      >
         <span
           style={{
             display: 'inline-block',
             fontSize: 10,
-            marginRight: 4,
+            marginRight: leading ? 0 : 4,
             transition: 'transform 0.2s ease',
             transform: expanded ? 'rotate(90deg)' : 'rotate(0deg)',
           }}
         >
           &#9654;
         </span>
+        {leading && <Leading>{leading}</Leading>}
         {title}
       </span>
       {actions && (
@@ -64,11 +81,14 @@ export function SectionOpenerRow({
   title,
   node,
   selected,
+  leading,
   actions,
 }: {
   title: string;
   node: TreeNode;
   selected: boolean;
+  /** Ahead of the icon — the Commit tree's checkbox. */
+  leading?: React.ReactNode;
   actions?: React.ReactNode;
 }) {
   const { token } = theme.useToken();
@@ -85,6 +105,7 @@ export function SectionOpenerRow({
       tabIndex={-1}
     >
       <span className="rules-sidebar-section-title" style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+        {leading && <Leading>{leading}</Leading>}
         {node.icon}
         {title}
       </span>

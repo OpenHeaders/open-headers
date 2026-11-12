@@ -1,7 +1,8 @@
 /**
  * CommitToolPanel — the Commit tool window (companion of the Git
  * window, S22): the checkable changes tree over the `changes` verb,
- * the working-tree diff on double-click, and the user-driven pathspec
+ * the working-tree diff on double-click, Jump to Source from a row,
+ * and the user-driven pathspec
  * commit with Amend / Sign-off / per-commit hooks. Unbound, the body
  * IS the bind gesture (GitBindForm — the same posture as the Git
  * window); the posture (bound, root, status) reads from the ONE git
@@ -30,6 +31,7 @@ import { refreshWorkspaceGit, useWorkspaceGitSnapshot } from '../../../../stores
 import DiffModal from '../DiffModal';
 import ForcePushBanner from '../ForcePushBanner';
 import { committedLocalNotice, integrationRefusalDetail, keptLocalNotice, leftOutNotice } from '../kept-local';
+import { useJumpToSource } from '../use-jump-to-source';
 import { usePassAnswers } from '../use-pass-answers';
 import { GIT_PRIMARY_TAB_KEY, getGitPanelWorkbench } from '../git-panel-view-store';
 import CreateBranchModal from '../rail/CreateBranchModal';
@@ -56,9 +58,10 @@ import {
   patchCommitViewPrefs,
   subscribeCommitViewPrefs,
 } from './commit-view-prefs';
-import CommitChangesTree, { type CommitChangesTreeHandle } from './CommitChangesTree';
+import CommitChangesTree, { type CommitChangesTreeHandle, type CommitChangesTreeProps } from './CommitChangesTree';
 import CommitForm, { type CommitFormHandle } from './CommitForm';
 import CommitToolbar from './CommitToolbar';
+import CommitWorkspaceTree from './CommitWorkspaceTree';
 import PushCommitsModal from '../push/PushCommitsModal';
 import PushRejectedModal from '../push/PushRejectedModal';
 import PushNewBranchAlert from './PushNewBranchAlert';
@@ -94,6 +97,7 @@ const CommitToolPanel: React.FC<CommitToolPanelProps> = ({ info, onHide }) => {
   const panelRef = useRef<HTMLDivElement>(null);
   const preAmendDraft = useRef<string | null>(null);
   const answers = usePassAnswers();
+  const jumpToSource = useJumpToSource(workspaceId ?? '');
 
   // The posture from the one git status store: hydrated on first
   // read, folded from status frames after.
@@ -555,6 +559,7 @@ const CommitToolPanel: React.FC<CommitToolPanelProps> = ({ info, onHide }) => {
       onAddToVcs: (paths) => void handleAddToVcs(paths),
       onRollbackPaths: handleRollbackPaths,
       onDeletePaths: handleDeletePaths,
+      onJumpToSource: jumpToSource,
     }),
     [
       handleCommitPaths,
@@ -569,6 +574,7 @@ const CommitToolPanel: React.FC<CommitToolPanelProps> = ({ info, onHide }) => {
       handleAddToVcs,
       handleRollbackPaths,
       handleDeletePaths,
+      jumpToSource,
       currentBranch,
       headSha,
     ],
@@ -586,6 +592,18 @@ const CommitToolPanel: React.FC<CommitToolPanelProps> = ({ info, onHide }) => {
         : buildCommitRowMenu(target, t, rowMenuHandlers),
     [t, rowMenuHandlers],
   );
+
+  const treeProps: CommitChangesTreeProps = {
+    groups,
+    checked,
+    onSetChecked: handleSetChecked,
+    onOpenFile: (filePath) => void handleOpenDiff(filePath),
+    groupByDirectory: prefs.groupByDirectory,
+    showIgnored: prefs.showIgnored,
+    rootLabel: rootDir === null ? '' : (rootDir.replace(/[\\/]+$/, '').split(/[\\/]/).pop() ?? ''),
+    rowMenu,
+    onSelectionChange: setSelectedRows,
+  };
 
   if (workspaceId === null || !bound) {
     return (
@@ -661,18 +679,11 @@ const CommitToolPanel: React.FC<CommitToolPanelProps> = ({ info, onHide }) => {
         onExpandAll={() => treeRef.current?.expandAll()}
         onCollapseAll={() => treeRef.current?.collapseAll()}
       />
-      <CommitChangesTree
-        ref={treeRef}
-        groups={groups}
-        checked={checked}
-        onSetChecked={handleSetChecked}
-        onOpenFile={(filePath) => void handleOpenDiff(filePath)}
-        groupByDirectory={prefs.groupByDirectory}
-        showIgnored={prefs.showIgnored}
-        rootLabel={rootDir === null ? '' : (rootDir.replace(/[\\/]+$/, '').split(/[\\/]/).pop() ?? '')}
-        rowMenu={rowMenu}
-        onSelectionChange={setSelectedRows}
-      />
+      {prefs.groupByWorkspace ? (
+        <CommitWorkspaceTree ref={treeRef} {...treeProps} workspaceId={workspaceId} headSha={headSha} />
+      ) : (
+        <CommitChangesTree ref={treeRef} {...treeProps} />
+      )}
       {pushRecovery && (
         <PushNewBranchAlert
           workspaceId={workspaceId}

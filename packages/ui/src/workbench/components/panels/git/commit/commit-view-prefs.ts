@@ -1,6 +1,7 @@
 /**
  * commit-view-prefs — per-workspace state of the Commit tool window:
- * the eye toggles (Group By Directory, Show Ignored Files), the gear's
+ * the eye toggles (Group By Workspace, Group By Directory, Show Ignored
+ * Files), the gear's
  * per-commit options (Sign-off; Run Git hooks — null until the user
  * touches it, so it keeps following the binding's bypassHooks inverse),
  * and the message draft. The Commit Message History popup reads the
@@ -13,6 +14,12 @@
  */
 
 export interface CommitViewPrefs {
+  /** Eye: Group By > Workspace — ON by default: under each git group the
+   *  files are listed by what they belong to in the workbench (the
+   *  panels' sections, collections and entities by name); Group By
+   *  Directory then shapes only the user's own files. Off lists them by
+   *  path. */
+  groupByWorkspace: boolean;
   /** Eye: Group By > Directory — OFF by default (the reference reference
    *  view: flat filename + dim-directory-suffix, sorted by filename);
    *  on folds the rows into the compressed directory tree. */
@@ -32,6 +39,7 @@ export interface CommitViewPrefs {
 }
 
 const DEFAULT_PREFS: CommitViewPrefs = {
+  groupByWorkspace: true,
   groupByDirectory: false,
   showIgnored: false,
   signOff: false,
@@ -58,6 +66,7 @@ function readPersisted(workspaceId: string): CommitViewPrefs {
     if (typeof parsed !== 'object' || parsed === null) return DEFAULT_PREFS;
     const p = parsed as Partial<CommitViewPrefs>;
     return {
+      groupByWorkspace: p.groupByWorkspace !== false,
       groupByDirectory: p.groupByDirectory === true,
       showIgnored: p.showIgnored === true,
       signOff: p.signOff === true,

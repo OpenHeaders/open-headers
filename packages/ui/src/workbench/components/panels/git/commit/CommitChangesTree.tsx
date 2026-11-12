@@ -4,7 +4,9 @@
  * sidebar trees' 24px row (never monospace), per-type file glyphs,
  * and the reference default FLAT format — basename + a dim directory
  * suffix (`modules.xml  .idea`) sorted by filename — switching to the
- * compressed directory tree when Group By Directory is on. A
+ * compressed directory tree when Group By Directory is on, or — Group
+ * By Workspace, `named` — each group's files listed by what they belong
+ * to in the workbench, in the panels' own rows (`CommitNamedRows`). A
  * root-level file's suffix (and the grouped tree's content-root node)
  * reads the binding's folder name — the reference names the content root.
  * The Changes group header renders even when empty
@@ -43,6 +45,7 @@ import { useT } from '@openheaders/ui/context/LocaleContext';
 import { useMultiSelection } from '@openheaders/ui/shared/selection';
 import { allDirKeys, buildFileTree, type FileTreeNode } from '../file-tree';
 import { contextMenuAlign } from '../git-menu-overflow';
+import { namedSections } from '../named-file-tree';
 import {
   aggregateChecked,
   type ChangeGroupKey,
@@ -51,8 +54,17 @@ import {
   type CommitMenuTarget,
   isRowChecked,
 } from './commit-model';
+import {
+  type CommitNamedGroups,
+  commitNamedFoldKeys,
+  commitNamedPaths,
+  commitNamedSections,
+  visibleCommitNamedRows,
+} from './commit-named-tree';
 import { baseName, commitFileRowKey, flatSortedRows, rootCompressed, visibleCommitRows } from './commit-tree-nav';
+import CommitNamedRows from './CommitNamedRows';
 import { FileTypeIcon, FolderTypeIcon } from './FileTypeIcon';
+import { ignoreSourceLabel } from './ignore-source-label';
 import { vcsFileColor, vcsPalette } from './vcs-colors';
 
 export interface CommitChangesTreeProps {
@@ -62,6 +74,12 @@ export interface CommitChangesTreeProps {
   /** Double-click / Enter — open the working diff. */
   onOpenFile: (path: string) => void;
   groupByDirectory: boolean;
+  /**
+   * Group By Workspace: each group's files as the workbench lists what
+   * they belong to — Group By Directory then shapes only the user's own
+   * files. Absent: the files are listed by path.
+   */
+  named?: CommitNamedGroups;
   showIgnored: boolean;
   /** The binding's folder name — a root-level file's dim suffix and the content-root node's label. */
   rootLabel?: string;
@@ -125,7 +143,18 @@ interface GroupSpec {
 }
 
 const CommitChangesTree = forwardRef<CommitChangesTreeHandle, CommitChangesTreeProps>(function CommitChangesTree(
-  { groups, checked, onSetChecked, onOpenFile, groupByDirectory, showIgnored, rootLabel = '', rowMenu, onSelectionChange },
+  {
+    groups,
+    checked,
+    onSetChecked,
+    onOpenFile,
+    groupByDirectory,
+    named,
+    showIgnored,
+    rootLabel = '',
+    rowMenu,
+    onSelectionChange,
+  },
   handleRef,
 ) {
   const { token } = theme.useToken();
@@ -180,18 +209,28 @@ const CommitChangesTree = forwardRef<CommitChangesTreeHandle, CommitChangesTreeP
     return list;
   }, [groups, showIgnored, t]);
 
+  // By what the files belong to: each group's sections, the user's own
+  // files shaped by Group By Directory; null while listed by path.
+  const namedByGroup = useMemo(
+    () =>
+      named === undefined
+        ? null
+        : new Map(specs.map((spec) => [spec.key, namedSections(named.get(spec.key) ?? [], groupByDirectory)])),
+    [named, specs, groupByDirectory],
+  );
   const trees = useMemo(
     () =>
-      groupByDirectory
+      groupByDirectory && namedByGroup === null
         ? new Map(specs.map((spec) => [spec.key, buildFileTree(spec.rows, true)]))
         : new Map<GroupSpec['key'], FileTreeNode[]>(),
-    [specs, groupByDirectory],
+    [specs, groupByDirectory, namedByGroup],
   );
   const allRows = useMemo(() => specs.flatMap((spec) => spec.rows), [specs]);
   const rowsByPath = useMemo(() => new Map(allRows.map((row) => [row.path, row])), [allRows]);
 
   // Space toggles the selected row's checkbox: each checkable row key
-  // maps to its target path set (a file, a dir's subtree, a group).
+  // maps to its target path set (a file, a dir's subtree, a group — and,
+  // by what the files belong to, a named row's or a section's files).
   const pathsByRowKey = useMemo(() => {
     const map = new Map<string, string[]>();
     for (const spec of specs) {
@@ -207,23 +246,31 @@ const CommitChangesTree = forwardRef<CommitChangesTreeHandle, CommitChangesTreeP
         }
       };
       walk(trees.get(spec.key) ?? []);
+      for (const [key, paths] of commitNamedPaths(spec.key, namedByGroup?.get(spec.key) ?? [])) map.set(key, paths);
       for (const row of spec.rows) map.set(commitFileRowKey(row.path), [row.path]);
     }
     return map;
-  }, [specs, trees]);
+  }, [specs, trees, namedByGroup]);
 
   // Collapse keys are `<group>` for headers, `<group>:__root__` for
-  // the content-root node, and `<group>:<dirKey>` for dirs —
-  // everything starts expanded (the reference default).
+  // the content-root node, and `<group>:<dirKey>` for dirs — by what
+  // the files belong to, a group's sections and its rows that hold
+  // others (`commit-named-tree`). Everything starts expanded (the
+  // reference default).
   const collapseKeys = useMemo(() => {
     const keys: string[] = [];
     for (const spec of specs) {
       keys.push(spec.key);
+      const sections = namedByGroup?.get(spec.key);
+      if (sections !== undefined) {
+        keys.push(...commitNamedFoldKeys(spec.key, sections));
+        continue;
+      }
       if (!rootCompressed(trees.get(spec.key) ?? [])) keys.push(`${spec.key}:__root__`);
       for (const dirKey of allDirKeys(trees.get(spec.key) ?? [])) keys.push(`${spec.key}:${dirKey}`);
     }
     return keys;
-  }, [specs, trees]);
+  }, [specs, trees, namedByGroup]);
   const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(new Set());
 
   useImperativeHandle(
@@ -252,9 +299,19 @@ const CommitChangesTree = forwardRef<CommitChangesTreeHandle, CommitChangesTreeP
       return next;
     });
 
+  const namedShown = useMemo(
+    () =>
+      namedByGroup === null
+        ? null
+        : new Map(specs.map((spec) => [spec.key, commitNamedSections(spec.key, namedByGroup.get(spec.key) ?? [], collapsed)])),
+    [specs, namedByGroup, collapsed],
+  );
   const visibleRows = useMemo(
-    () => visibleCommitRows(specs, trees, collapsed, groupByDirectory),
-    [specs, trees, collapsed, groupByDirectory],
+    () =>
+      namedShown === null
+        ? visibleCommitRows(specs, trees, collapsed, groupByDirectory)
+        : visibleCommitNamedRows(specs, namedShown, collapsed),
+    [specs, trees, collapsed, groupByDirectory, namedShown],
   );
 
   const rowOrder = useMemo(() => visibleRows.map((row) => row.key), [visibleRows]);
@@ -404,14 +461,6 @@ const CommitChangesTree = forwardRef<CommitChangesTreeHandle, CommitChangesTreeP
   const filesCountText = (count: number): string =>
     count === 1 ? t('workbench.commitTool.oneFile') : t('workbench.gitLog.filesCount', { count });
 
-  /** Ignored rows' dim provenance suffix — which ignore source matched. */
-  const ignoreSourceLabel = (source: NonNullable<WorkspaceTreeWorkingChangeWire['ignoreSource']>): string => {
-    if (source.kind === 'gitignore') return '.gitignore';
-    if (source.kind === 'exclude') return 'exclude';
-    if (source.kind === 'nested') return source.source;
-    return t('workbench.commitTool.ignoreSourceGlobal');
-  };
-
   const directoriesCountText = (count: number): string =>
     count === 1 ? t('workbench.commitTool.oneDirectory') : t('workbench.commitTool.directoriesCount', { count });
 
@@ -471,7 +520,7 @@ const CommitChangesTree = forwardRef<CommitChangesTreeHandle, CommitChangesTreeP
         {suffix.length > 0 && <span style={dim}>{suffix}</span>}
         {row.ignored && row.ignoreSource !== undefined && (
           <span style={dim} data-testid="commit-tool-ignore-source">
-            {ignoreSourceLabel(row.ignoreSource)}
+            {ignoreSourceLabel(t, row.ignoreSource)}
           </span>
         )}
       </>
@@ -683,7 +732,7 @@ const CommitChangesTree = forwardRef<CommitChangesTreeHandle, CommitChangesTreeP
       ref={containerRef}
       tabIndex={0}
       onKeyDown={handleKeyDown}
-      className="commit-tool-tree rules-thin-scrollbar"
+      className={`commit-tool-tree rules-thin-scrollbar${namedShown === null ? '' : ' rules-sidebar-content'}`}
       style={{ flex: '1 1 auto', minHeight: 0, overflow: 'auto', paddingBottom: 12 }}
       data-testid="commit-tool-tree"
     >
@@ -773,11 +822,31 @@ const CommitChangesTree = forwardRef<CommitChangesTreeHandle, CommitChangesTreeP
           <div key={spec.key}>
             {withMenu(menuTargetFor(spec.key, { kind: 'group', group: spec.key, paths: groupPaths }), groupRow)}
             {open &&
-              (groupByDirectory
-                ? rootCompressed(trees.get(spec.key) ?? [])
-                  ? renderTreeNodes(spec, trees.get(spec.key) ?? [], 1)
-                  : renderRootedTree(spec)
-                : renderFlatRows(spec))}
+              (namedShown !== null ? (
+                <CommitNamedRows
+                  group={spec.key}
+                  checkable={spec.checkable}
+                  sections={namedShown.get(spec.key) ?? []}
+                  rowsByPath={rowsByPath}
+                  pathsByRowKey={pathsByRowKey}
+                  aggregateOf={(paths) => aggregateChecked(allRows, checked, paths)}
+                  onSetChecked={onSetChecked}
+                  isSelected={isSelected}
+                  onToggleFold={toggleCollapse}
+                  onRowClick={clickRow}
+                  onRowContextMenu={contextMenuRow}
+                  onOpenFile={onOpenFile}
+                  withMenu={(key, target, body) => withMenu(menuTargetFor(key, target), body)}
+                />
+              ) : groupByDirectory ? (
+                rootCompressed(trees.get(spec.key) ?? []) ? (
+                  renderTreeNodes(spec, trees.get(spec.key) ?? [], 1)
+                ) : (
+                  renderRootedTree(spec)
+                )
+              ) : (
+                renderFlatRows(spec)
+              ))}
           </div>
         );
       })}

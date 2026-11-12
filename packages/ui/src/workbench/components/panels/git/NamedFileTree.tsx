@@ -35,7 +35,7 @@ import { Dropdown, Spin, theme } from 'antd';
 import type React from 'react';
 import { type ForwardedRef, Fragment, useCallback, useMemo } from 'react';
 import { SectionHeader, SectionOpenerRow } from '../../sidebar/SectionHeader';
-import { TreeNodeRow } from '../../sidebar/TreeNodeRow';
+import { isRowCaretClick, TreeNodeRow } from '../../sidebar/TreeNodeRow';
 import type { TreeNode } from '../../sidebar/types';
 import FileTreeFrame from './FileTreeFrame';
 import { type FileTreeViewProps, fileStatusColor } from './file-tree-view-props';
@@ -61,9 +61,6 @@ export interface NamedFileTreeProps extends FileTreeViewProps {
 }
 
 const noop = (): void => {};
-
-const onCaret = (event: React.MouseEvent): boolean =>
-  event.target instanceof Element && event.target.closest('.rules-sidebar-item-caret') !== null;
 
 const entityRefOf = (row: NamedFileRow) =>
   row.entity === undefined ? undefined : workspaceFileEntityRef(row.section, row.entity);
@@ -150,7 +147,7 @@ export const NamedFileTree = ({
         key={row.key}
         title={file}
         onClick={(event) => {
-          if (selectable && row.kind === 'dir' && onCaret(event)) behaviour.toggleCollapse(row.key);
+          if (selectable && row.kind === 'dir' && isRowCaretClick(event)) behaviour.toggleCollapse(row.key);
           else behaviour.onRowClick(row, event);
         }}
         onDoubleClick={() => behaviour.onRowDoubleClick(row)}

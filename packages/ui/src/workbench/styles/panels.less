@@ -100,6 +100,12 @@
   }
 }
 
+// The Commit tree lists each git group's files this way under the
+// group's header: the tree, not a group's rows, holds the focus.
+.commit-tool-tree:focus-within .git-named-file-tree .rules-sidebar-section.rules-sidebar-section--selected {
+  background: var(--oh-row-selected-focused-bg);
+}
+
 // Listed in the step before the editor, a file's row (one with no
 // caret) and the one-page opener name a file and open nothing.
 .git-conflict-tree--listing {
