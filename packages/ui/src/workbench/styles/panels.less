@@ -75,6 +75,16 @@
   background: var(--oh-row-selected-focused-bg);
 }
 
+// The merge editor's files panel for a conflicted pass draws the
+// sidebar trees' own rows inside a dialog: no dock holds focus there,
+// so the open file wears the one selection blue outright.
+.git-conflict-tree {
+  .rules-sidebar-item.selected,
+  .rules-sidebar-section.rules-sidebar-section--selected {
+    background: var(--oh-row-selected-focused-bg);
+  }
+}
+
 // Commit tree tri-state checkboxes, the IDE minus: a partially-checked
 // group/root/dir box fills solid primary with a white dash (antd's
 // default indeterminate is a small inner square that reads as empty at

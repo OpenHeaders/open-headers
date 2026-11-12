@@ -21,15 +21,17 @@ export type { MergeFileListProps } from './components/MergeFileList';
 export { default as MergeFileList } from './components/MergeFileList';
 export type { MergeFileStripProps } from './components/MergeFileStrip';
 export { default as MergeFileStrip } from './components/MergeFileStrip';
+export type { HunkStats, MergeLayout, MergePaneHandle, MergePaneProps } from './components/MergePane';
+export { default as MergePane } from './components/MergePane';
 export type {
   MergeFileRowState,
   MergeFileStatus,
+  MergeFilesPanelProps,
+  MergeFilesRenderer,
   MergeRailGroup,
   MergeRailSection,
   MergeRailVocabulary,
 } from './components/merge-file-glyph';
-export type { HunkStats, MergeLayout, MergePaneHandle, MergePaneProps } from './components/MergePane';
-export { default as MergePane } from './components/MergePane';
 export type {
   DecorationKind,
   FindPathRegion,

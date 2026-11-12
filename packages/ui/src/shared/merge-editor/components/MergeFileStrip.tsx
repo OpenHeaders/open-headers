@@ -11,17 +11,24 @@
  * — its first file left to answer opens, the panel shows if it was
  * shut, and its list follows to that file. A click on the active chip shuts the
  * panel or brings it back, as dragging its sash does. While the panel
- * is shut, pointing at a chip lists the section's files in a flyout; a
- * session that names no sections is one chip over all its files.
+ * is shut, pointing at a chip lists the section's files in a flyout —
+ * the caller's own panel for that section when it draws one; a session
+ * that names no sections is one chip over all its files.
  */
 
 import { FileTextOutlined } from '@ant-design/icons';
 import { Popover, Tooltip, theme } from 'antd';
-import type { ReactElement } from 'react';
+import type { ReactElement, ReactNode } from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { listFiles, type MergeFileSection, sectionFiles } from '../file-groups';
 import type { MergeFile } from '../types';
-import { MergeFileGlyph, type MergeRailVocabulary, RailGlyph } from './merge-file-glyph';
+import {
+  MergeFileGlyph,
+  type MergeFileRowState,
+  type MergeFilesRenderer,
+  type MergeRailVocabulary,
+  RailGlyph,
+} from './merge-file-glyph';
 import './merge-file-list.css';
 
 /** The strip's width in px — the modal reserves it beside the panel. */
@@ -30,8 +37,11 @@ export const MERGE_FILE_STRIP_WIDTH = 40;
 export interface MergeFileStripProps {
   files: ReadonlyArray<MergeFile>;
   activeFileId: string;
+  states?: ReadonlyMap<string, MergeFileRowState>;
   hunkCounts?: ReadonlyMap<string, number>;
   rail?: MergeRailVocabulary;
+  /** The caller's own files panel; a flyout shows it for the chip's section. */
+  renderFiles?: MergeFilesRenderer;
   /** Whether the files panel is shut — by its sash or by the active chip. */
   panelHidden: boolean;
   onPanelHidden(hidden: boolean): void;
@@ -41,8 +51,10 @@ export interface MergeFileStripProps {
 const MergeFileStrip = ({
   files,
   activeFileId,
+  states,
   hunkCounts,
   rail,
+  renderFiles,
   panelHidden,
   onPanelHidden,
   onSelect,
@@ -54,6 +66,13 @@ const MergeFileStrip = ({
     rail?.sections.map((section) => section.id),
   );
   const remainingOf = (file: MergeFile): number => hunkCounts?.get(file.id) ?? 0;
+
+  // The caller's own panel for one section, in the flyout's width.
+  const ownFlyoutOf = (section: string): ReactNode => (
+    <div style={{ minWidth: 220, maxWidth: 360, margin: '0 -6px' }}>
+      {renderFiles?.({ files, activeFileId, states, hunkCounts, section, onSelect })}
+    </div>
+  );
 
   // The flyout: the section's files under their groups, at the rail's own density.
   const flyoutOf = (listed: MergeFileSection): ReactElement => (
@@ -207,7 +226,13 @@ const MergeFileStrip = ({
           </span>
         );
         return panelHidden ? (
-          <Popover key={listed.section || '_'} placement="rightTop" arrow={false} title={label} content={flyoutOf(listed)}>
+          <Popover
+            key={listed.section || '_'}
+            placement="rightTop"
+            arrow={false}
+            title={label}
+            content={renderFiles !== undefined ? ownFlyoutOf(listed.section) : flyoutOf(listed)}
+          >
             {badged}
           </Popover>
         ) : (

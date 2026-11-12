@@ -24,7 +24,7 @@ import type { MergeApplyOutcome, MergeSession } from '../types';
 import { usePersistedLayout } from '../use-persisted-layout';
 import MergeFileList from './MergeFileList';
 import MergeFileStrip from './MergeFileStrip';
-import type { MergeFileRowState, MergeRailVocabulary } from './merge-file-glyph';
+import type { MergeFileRowState, MergeFilesRenderer, MergeRailVocabulary } from './merge-file-glyph';
 import MergePane, { type HunkStats, type MergeLayout, type MergePaneHandle } from './MergePane';
 import './merge-conflict-modal.css';
 
@@ -61,6 +61,10 @@ export interface MergeConflictModalProps {
    *  files, in the caller's own vocabulary — the sidebar's headers and
    *  row icons, and the chips of the strip the sidebar collapses to. */
   rail?: MergeRailVocabulary;
+  /** Optional files panel of the caller's own, in place of the editor's
+   *  list — the session's files as the caller's surfaces show them. The
+   *  strip's flyout shows it for one section. */
+  renderFiles?: MergeFilesRenderer;
 }
 
 const MergeConflictModal = ({
@@ -73,6 +77,7 @@ const MergeConflictModal = ({
   headerSlot,
   footerLeading,
   rail,
+  renderFiles,
 }: MergeConflictModalProps): ReactElement => {
   const { token } = theme.useToken();
   const t = useT();
@@ -565,8 +570,10 @@ const MergeConflictModal = ({
             <MergeFileStrip
               files={session.files}
               activeFileId={activeFileId}
+              states={fileStates}
               hunkCounts={sidebarHunkCounts}
               rail={rail}
+              renderFiles={renderFiles}
               panelHidden={sidebarCollapsed}
               onPanelHidden={setSidebarCollapsed}
               onSelect={handleFileSelect}
@@ -588,14 +595,24 @@ const MergeConflictModal = ({
                   visible={!sidebarCollapsed}
                   priority={LayoutPriority.Low}
                 >
-                  <MergeFileList
-                    files={session.files}
-                    activeFileId={activeFileId}
-                    states={fileStates}
-                    hunkCounts={sidebarHunkCounts}
-                    rail={rail}
-                    onSelect={handleFileSelect}
-                  />
+                  {renderFiles !== undefined ? (
+                    renderFiles({
+                      files: session.files,
+                      activeFileId,
+                      states: fileStates,
+                      hunkCounts: sidebarHunkCounts,
+                      onSelect: handleFileSelect,
+                    })
+                  ) : (
+                    <MergeFileList
+                      files={session.files}
+                      activeFileId={activeFileId}
+                      states={fileStates}
+                      hunkCounts={sidebarHunkCounts}
+                      rail={rail}
+                      onSelect={handleFileSelect}
+                    />
+                  )}
                 </Allotment.Pane>
                 <Allotment.Pane priority={LayoutPriority.High}>
                   {activeFile ? (

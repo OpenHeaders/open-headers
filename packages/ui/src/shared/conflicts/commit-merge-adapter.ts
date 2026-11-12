@@ -14,17 +14,16 @@
  *     side: accepting it empties the result, and an empty result is
  *     the answer "gone".
  *
- * Files are listed by the surface they belong to and their place in it
- * (`commit-file-section`), so the files of one request (its manifest,
- * its body, its scripts) sit together under API Requests. One of the
- * user's own text files (a README, a script) rides the same shape.
+ * The caller lists the files — in its own order, each in the section
+ * and under the name it knows it by (`commit-conflict-tree` is the
+ * workbench's listing). One of the user's own text files (a README, a
+ * script) rides the same shape.
  *
  * Apply hands every file's result to the caller as one answer set. A
  * refusal that names a file marks that file; any other marks them all.
  */
 
 import type { MergeApplyOutcome, MergeFile, MergeSession } from '@openheaders/ui/shared/merge-editor';
-import { commitFilePlace } from './commit-file-section';
 
 /** One file of a conflicted document — the host's wire shape, structurally. */
 export interface CommitMergeFile {
@@ -45,9 +44,17 @@ export type CommitMergeApplyResult =
   /** `path` names the one file the refusal is about, when it is about one. */
   | { ok: false; error: string; path?: string };
 
+/** Where the caller lists a file: the section it sits in and the name it goes by. */
+export interface CommitMergePlace {
+  section: string;
+  label: string;
+}
+
 export interface BuildCommitMergeSessionArgs {
   title: string;
+  /** The files, in the order they are listed. */
   files: readonly CommitMergeFile[];
+  place(path: string): CommitMergePlace;
   /** Send the answers. Resolve `ok` once the commit is recorded or the pass is otherwise over. */
   apply(answers: CommitMergeAnswer[]): Promise<CommitMergeApplyResult>;
   onCancel(): void;
@@ -78,19 +85,20 @@ function languageOf(name: string): string {
   return LANGUAGE_BY_EXTENSION[extension] ?? 'plaintext';
 }
 
-/** The merge files of a conflict, in the host's order. */
-export function commitMergeFiles(files: readonly CommitMergeFile[]): MergeFile[] {
+/** The merge files of a conflict, in the order given. */
+export function commitMergeFiles(
+  files: readonly CommitMergeFile[],
+  place: (path: string) => CommitMergePlace,
+): MergeFile[] {
   return files.map((file) => {
-    const name = nameOf(file.path);
-    const { section, group } = commitFilePlace(file.path);
+    const { section, label } = place(file.path);
     const mine = file.mine ?? '';
     return {
       id: file.path,
-      label: name,
-      language: languageOf(name),
+      label,
+      language: languageOf(nameOf(file.path)),
       kind: 'modify',
       section,
-      ...(group !== '' ? { group } : {}),
       ...(file.base !== undefined ? { base: file.base } : {}),
       theirs: file.theirs ?? '',
       mine,
@@ -103,7 +111,7 @@ export function buildCommitMergeSession(args: BuildCommitMergeSessionArgs): Merg
   const { title, apply, onCancel } = args;
   return {
     title,
-    files: commitMergeFiles(args.files),
+    files: commitMergeFiles(args.files, args.place),
     // The title names the pass, never the file — one file is listed too.
     alwaysListFiles: true,
     onApply: async (filesArg, results) => {

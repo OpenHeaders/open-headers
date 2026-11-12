@@ -758,6 +758,7 @@ export const workbenchChrome = {
   'workbench.gitLog.resolve.review': 'Review Conflicts…',
   'workbench.gitLog.resolve.keepMine': 'Keep Mine',
   'workbench.gitLog.resolve.otherFiles': 'Files',
+  'workbench.gitLog.resolve.partDetails': 'Details',
   'workbench.gitLog.resolve.tooLarge':
     'Both sides changed {files}, and the files are too large to resolve here. Nothing was changed.',
   'workbench.gitLog.forcePush.title': 'Remote history was rewritten',

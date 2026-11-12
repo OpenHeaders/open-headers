@@ -941,6 +941,7 @@ export const workbenchChrome = {
   'workbench.gitLog.resolve.review': 'Examiner les conflits…',
   'workbench.gitLog.resolve.keepMine': 'Garder la mienne',
   'workbench.gitLog.resolve.otherFiles': 'Fichiers',
+  'workbench.gitLog.resolve.partDetails': 'Détails',
   'workbench.gitLog.resolve.tooLarge':
     'Les deux côtés ont modifié {files}, et les fichiers sont trop volumineux pour être résolus ici. Rien n’a été modifié.',
   'workbench.gitLog.forcePush.title': 'L’historique distant a été réécrit',

@@ -42,6 +42,22 @@ export interface MergeRailVocabulary {
   fileIcon?(file: MergeFile): ReactNode;
 }
 
+/** What a files panel is handed — the modal's own state for the session's files. */
+export interface MergeFilesPanelProps {
+  files: ReadonlyArray<MergeFile>;
+  activeFileId: string;
+  /** State per file id. Missing entries are unresolved. */
+  states?: ReadonlyMap<string, MergeFileRowState>;
+  /** What is left to answer per file id. */
+  hunkCounts?: ReadonlyMap<string, number>;
+  /** Set when one section alone is wanted — the strip's flyout over a shut panel. */
+  section?: string;
+  onSelect(fileId: string): void;
+}
+
+/** A caller's own files panel, in place of the editor's list — a tree in the caller's vocabulary. */
+export type MergeFilesRenderer = (panel: MergeFilesPanelProps) => ReactNode;
+
 export const KIND_ICONS: Record<MergeFileKind, { icon: ReactElement; color: string; tooltipKey: MessageKey }> = {
   add: { icon: <PlusCircleOutlined />, color: '#52c41a', tooltipKey: 'shared.mergeEditor.fileList.kindAdded' },
   modify: {

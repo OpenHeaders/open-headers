@@ -57,9 +57,20 @@ export function SectionHeader({
  * Header-styled opener for singleton sections (Vault, Package Library…):
  * one row — the node's icon plus the section-title typography — whose
  * click opens the node's editor tab directly instead of expanding a
- * caret over a single nested leaf.
+ * caret over a single nested leaf. `actions` sit at the row's end, as a
+ * section header's do.
  */
-export function SectionOpenerRow({ title, node, selected }: { title: string; node: TreeNode; selected: boolean }) {
+export function SectionOpenerRow({
+  title,
+  node,
+  selected,
+  actions,
+}: {
+  title: string;
+  node: TreeNode;
+  selected: boolean;
+  actions?: React.ReactNode;
+}) {
   const { token } = theme.useToken();
   return (
     <div
@@ -77,6 +88,7 @@ export function SectionOpenerRow({ title, node, selected }: { title: string; nod
         {node.icon}
         {title}
       </span>
+      {actions}
     </div>
   );
 }

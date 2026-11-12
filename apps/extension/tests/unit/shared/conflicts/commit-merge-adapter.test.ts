@@ -2,8 +2,8 @@
  * The git commit adapter: a conflicted pick's files as a merge session.
  * Pins the projection (the branch's text as the opening result, a file
  * with no ancestor in two panes, a removed file as an empty incoming
- * side, the files of one document grouped by their directory) and the
- * apply contract (every file answered, a refusal about one file marks
+ * side, each file in the caller's section under the caller's name, in
+ * the caller's order) and the apply contract (every file answered, a refusal about one file marks
  * that file alone).
  */
 
@@ -27,10 +27,17 @@ const BODY = {
   mine: '{"probe":true}\n',
 };
 
+/** The caller's listing: a request's files under API Requests by its name, anything else under Files by its path. */
+const place = (path: string): { section: string; label: string } =>
+  path.startsWith('requests/')
+    ? { section: 'api-requests', label: `Ping · ${path.slice(path.lastIndexOf('/') + 1)}` }
+    : { section: 'files', label: path };
+
 function session(apply: (answers: { path: string; content: string }[]) => Promise<CommitMergeApplyResult>) {
   return buildCommitMergeSession({
     title: 'Cherry-Pick aaaaaaa: Resolve Conflicts',
     files: [MANIFEST, BODY],
+    place,
     apply,
     onCancel: vi.fn(),
   });
@@ -38,14 +45,13 @@ function session(apply: (answers: { path: string; content: string }[]) => Promis
 
 describe('commitMergeFiles', () => {
   it("a file opens three panes with the branch's text as its result", () => {
-    const [file] = commitMergeFiles([MANIFEST]);
+    const [file] = commitMergeFiles([MANIFEST], place);
     expect(file).toEqual({
       id: MANIFEST.path,
-      label: 'request.yaml',
+      label: 'Ping · request.yaml',
       language: 'yaml',
       kind: 'modify',
       section: 'api-requests',
-      group: 'api-rco0000a/ping-req00001',
       base: 'name: Ping\n',
       theirs: 'name: Picked ping\n',
       mine: 'name: Local ping\n',
@@ -53,36 +59,45 @@ describe('commitMergeFiles', () => {
     });
   });
 
-  it('the files of one document share a section and a group; each reads in its own language', () => {
-    const files = commitMergeFiles([MANIFEST, BODY, { path: 'workspace-vars.yaml', theirs: 'a\n', mine: 'b\n' }]);
+  it("the files keep the caller's order, section and name, and carry no group; each reads in its own language", () => {
+    const files = commitMergeFiles(
+      [BODY, { path: 'workspace-vars.yaml', theirs: 'a\n', mine: 'b\n' }, MANIFEST],
+      place,
+    );
     expect(files.map((file) => [file.label, file.section, file.group, file.language])).toEqual([
-      ['request.yaml', 'api-requests', 'api-rco0000a/ping-req00001', 'yaml'],
-      ['body.json', 'api-requests', 'api-rco0000a/ping-req00001', 'json'],
-      ['workspace-vars.yaml', 'variables', 'workspace-variables', 'yaml'],
+      ['Ping · body.json', 'api-requests', undefined, 'json'],
+      ['workspace-vars.yaml', 'files', undefined, 'yaml'],
+      ['Ping · request.yaml', 'api-requests', undefined, 'yaml'],
     ]);
   });
 
   it("the user's own files read in their language, a name with no known extension as plain text", () => {
-    const files = commitMergeFiles([
-      { path: 'README.md', theirs: 'a\n', mine: 'b\n' },
-      { path: 'scripts/ci/run.sh', theirs: 'a\n', mine: 'b\n' },
-      { path: 'LICENSE', theirs: 'a\n', mine: 'b\n' },
-    ]);
-    expect(files.map((file) => [file.label, file.section, file.group, file.language])).toEqual([
-      ['README.md', 'files', undefined, 'markdown'],
-      ['run.sh', 'files', 'scripts/ci', 'shell'],
-      ['LICENSE', 'files', undefined, 'plaintext'],
+    const files = commitMergeFiles(
+      [
+        { path: 'README.md', theirs: 'a\n', mine: 'b\n' },
+        { path: 'scripts/ci/run.sh', theirs: 'a\n', mine: 'b\n' },
+        { path: 'LICENSE', theirs: 'a\n', mine: 'b\n' },
+      ],
+      place,
+    );
+    expect(files.map((file) => [file.label, file.section, file.language])).toEqual([
+      ['README.md', 'files', 'markdown'],
+      ['scripts/ci/run.sh', 'files', 'shell'],
+      ['LICENSE', 'files', 'plaintext'],
     ]);
   });
 
   it('a file with no ancestor carries no base — two panes, never a made-up one', () => {
-    const [file] = commitMergeFiles([{ path: 'requests/ping/pre-request.js', theirs: 'a();\n', mine: 'b();\n' }]);
+    const [file] = commitMergeFiles(
+      [{ path: 'requests/ping/pre-request.js', theirs: 'a();\n', mine: 'b();\n' }],
+      place,
+    );
     expect('base' in file).toBe(false);
     expect(file.language).toBe('javascript');
   });
 
   it('a file the change removes is an empty incoming side over the branch’s text', () => {
-    const [file] = commitMergeFiles([{ path: MANIFEST.path, base: MANIFEST.base, mine: MANIFEST.mine }]);
+    const [file] = commitMergeFiles([{ path: MANIFEST.path, base: MANIFEST.base, mine: MANIFEST.mine }], place);
     expect(file).toMatchObject({ kind: 'modify', base: MANIFEST.base, theirs: '', mine: MANIFEST.mine });
     expect(file.initialResult).toBe(MANIFEST.mine);
   });
@@ -122,6 +137,7 @@ describe('buildCommitMergeSession', () => {
     const built = buildCommitMergeSession({
       title: 'Pull: Resolve Conflicts',
       files: [MANIFEST],
+      place,
       apply: vi.fn(),
       onCancel: vi.fn(),
     });
@@ -131,7 +147,7 @@ describe('buildCommitMergeSession', () => {
 
   it('cancel is the caller’s', () => {
     const onCancel = vi.fn();
-    const built = buildCommitMergeSession({ title: 't', files: [MANIFEST], apply: vi.fn(), onCancel });
+    const built = buildCommitMergeSession({ title: 't', files: [MANIFEST], place, apply: vi.fn(), onCancel });
     built.onCancel();
     expect(onCancel).toHaveBeenCalledTimes(1);
   });

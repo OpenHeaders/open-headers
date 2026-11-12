@@ -21,17 +21,12 @@ import type {
   WorkspaceTreeApplyCommitResolutionWire,
   WorkspaceTreeApplyCommitResolveWire,
 } from '@openheaders/core/bridge';
-import { useUiTheme } from '@openheaders/ui/context';
 import { useT } from '@openheaders/ui/context/LocaleContext';
-import {
-  buildCommitMergeSession,
-  type CommitMergeApplyResult,
-} from '@openheaders/ui/shared/conflicts/commit-merge-adapter';
-import { MergeConflictModal } from '@openheaders/ui/shared/merge-editor';
+import type { CommitMergeAnswer, CommitMergeApplyResult } from '@openheaders/ui/shared/conflicts/commit-merge-adapter';
 import { App as AntApp } from 'antd';
 import { type ReactNode, useCallback, useMemo, useState } from 'react';
+import ConflictEditor from './ConflictEditor';
 import ConflictFilesModal, { type ConflictSide } from './ConflictFilesModal';
-import { useConflictRail } from './conflict-rail';
 
 /** What a verb's answer carries when it is about the files both sides changed. */
 export interface ConflictsRefusal {
@@ -82,8 +77,6 @@ const messageOf = (err: unknown): string => (err instanceof Error ? err.message 
 export function useConflictAnswers(): ConflictAnswers {
   const t = useT();
   const { notification } = AntApp.useApp();
-  const { isDarkMode, monacoTheme } = useUiTheme();
-  const rail = useConflictRail();
   const [conflict, setConflict] = useState<OpenConflict | null>(null);
   const [sending, setSending] = useState<ConflictSide | null>(null);
 
@@ -128,16 +121,15 @@ export function useConflictAnswers(): ConflictAnswers {
     [t, notification],
   );
 
-  const session = useMemo(() => {
-    if (conflict === null || conflict.step !== 'editor') return null;
-    const { title, resolve, deliver, cancel } = conflict;
-    return buildCommitMergeSession({
-      title,
-      files: resolve.files,
-      apply: (answers) => deliver({ token: resolve.token, files: answers }, 'editor'),
-      onCancel: cancel,
-    });
-  }, [conflict]);
+  const reviewed = conflict !== null && conflict.step === 'editor' ? conflict : null;
+  const sendAnswers = useMemo(
+    () =>
+      reviewed === null
+        ? null
+        : (answers: CommitMergeAnswer[]) =>
+            reviewed.deliver({ token: reviewed.resolve.token, files: answers }, 'editor'),
+    [reviewed],
+  );
 
   const listed = conflict !== null && conflict.step === 'files' ? conflict : null;
 
@@ -167,17 +159,15 @@ export function useConflictAnswers(): ConflictAnswers {
           setConflict(null);
         }}
       />
-      {conflict !== null && session !== null ? (
-        <MergeConflictModal
-          key={conflict.resolve.token}
-          open
-          session={session}
-          isDarkMode={isDarkMode}
-          monacoTheme={monacoTheme}
-          surfaceId="git"
-          rail={rail}
+      {reviewed !== null && sendAnswers !== null ? (
+        <ConflictEditor
+          key={reviewed.resolve.token}
+          title={reviewed.title}
+          files={reviewed.resolve.files}
+          apply={sendAnswers}
+          onCancel={reviewed.cancel}
           // A set may already have opened the next pass's conflict — only this one closes.
-          onClose={() => setConflict((open) => (open === conflict ? null : open))}
+          onClose={() => setConflict((open) => (open === reviewed ? null : open))}
         />
       ) : null}
     </>

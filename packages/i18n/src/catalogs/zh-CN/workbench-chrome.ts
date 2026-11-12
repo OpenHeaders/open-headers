@@ -744,6 +744,7 @@ export const workbenchChrome = {
   'workbench.gitLog.resolve.review': '查看冲突…',
   'workbench.gitLog.resolve.keepMine': '保留我的',
   'workbench.gitLog.resolve.otherFiles': '文件',
+  'workbench.gitLog.resolve.partDetails': '详情',
   'workbench.gitLog.resolve.tooLarge': '双方都更改了 {files}，且文件过大，无法在此解决。未做任何更改。',
   'workbench.gitLog.forcePush.title': '远程历史被改写',
   'workbench.gitLog.forcePush.body':

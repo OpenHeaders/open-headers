@@ -768,6 +768,7 @@ export const workbenchChrome = {
   'workbench.gitLog.resolve.review': '競合を確認…',
   'workbench.gitLog.resolve.keepMine': '自分のを保持',
   'workbench.gitLog.resolve.otherFiles': 'ファイル',
+  'workbench.gitLog.resolve.partDetails': '詳細',
   'workbench.gitLog.resolve.tooLarge':
     '両方の側が {files} を変更しましたが、ファイルが大きすぎるため、ここでは解決できません。何も変更されていません。',
   'workbench.gitLog.forcePush.title': 'リモートの履歴が書き換えられました',
