@@ -405,18 +405,71 @@ async function waitDirty(): Promise<void> {
   await expect(pane('commit-tool-counter')).toContainText(/modified|added|deleted/);
 }
 
-/** No tracked change left in the Commit window — the counter is gone or reads unversioned only. */
+/**
+ * No tracked change left in the Commit window — the counter is gone or
+ * reads unversioned only. A red says what the window drew beside what
+ * git and the host answer, so a stale window reads apart from a tree
+ * that really is dirty.
+ */
 async function waitClean(): Promise<void> {
-  await expect
-    .poll(
-      async () => {
-        const counter = pane('commit-tool-counter');
-        if ((await counter.count()) === 0) return true;
-        return !/modified|added|deleted/.test(await counter.innerText());
-      },
-      { timeout: 5_000 },
-    )
-    .toBe(true);
+  try {
+    await expect
+      .poll(
+        async () => {
+          const counter = pane('commit-tool-counter');
+          if ((await counter.count()) === 0) return true;
+          return !/modified|added|deleted/.test(await counter.innerText());
+        },
+        { timeout: 5_000 },
+      )
+      .toBe(true);
+  } catch (err) {
+    const reason = err instanceof Error ? err.message : String(err);
+    throw new Error(`${reason}\n${await commitWindowAgainstGit()}`);
+  }
+}
+
+/** The Commit window as drawn: its counter and the tracked rows it lists. */
+async function drawnChanges(): Promise<string> {
+  const counter = pane('commit-tool-counter');
+  const text = (await counter.count()) === 0 ? '(no counter)' : await counter.innerText();
+  const rows = await workbench
+    .locator('[data-testid="commit-tool-file"]')
+    .evaluateAll((els) => els.map((el) => el.getAttribute('data-path') ?? ''));
+  return `"${text}" over ${rows.length} rows ${JSON.stringify(rows.slice(0, 6))}`;
+}
+
+/**
+ * The reading a red `waitClean` carries: the window, git's own status,
+ * the host's `changes` and status answers, then the window again after
+ * a wait and after its own Refresh — whichever of those clears it names
+ * the half that held the stale rows.
+ */
+async function commitWindowAgainstGit(): Promise<string> {
+  const lines = [`  window        : ${await drawnChanges()}`];
+  lines.push(`  git status    : ${JSON.stringify(ws('status', '--porcelain', '--untracked-files=no'))}`);
+  lines.push(`  git HEAD      : ${ws('rev-parse', 'HEAD')}`);
+  const changes = await invoke<{ ok: boolean; changes?: { path: string; status: string; unversioned: boolean }[] }>({
+    type: 'oh.workspaceTree.changes',
+    workspaceId,
+  });
+  const tracked = (changes.changes ?? []).filter((change) => !change.unversioned);
+  lines.push(`  host changes  : ok=${changes.ok} tracked=${JSON.stringify(tracked.slice(0, 6))}`);
+  const status = await invoke<{ headSha?: string | null; dirtyFiles?: number | null; userIndexBusy?: boolean }>({
+    type: 'oh.workspaceTree.gitStatus',
+    workspaceId,
+  });
+  lines.push(
+    `  host status   : head=${status.headSha} dirty=${status.dirtyFiles} userIndexBusy=${status.userIndexBusy}`,
+  );
+  await workbench.waitForTimeout(2_000);
+  lines.push(`  2 s later     : ${await drawnChanges()}`);
+  await pane('commit-tool-refresh')
+    .click({ timeout: 2_000 })
+    .catch(() => undefined);
+  await workbench.waitForTimeout(1_000);
+  lines.push(`  after Refresh : ${await drawnChanges()}`);
+  return lines.join('\n');
 }
 
 /** The Commit window's row for a tracked file (path relative to the bound checkout). */
