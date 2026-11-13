@@ -23,6 +23,7 @@ import {
   readCommitParentChanges,
   readCommitPatch,
   resolveAuthorFilterValue,
+  unlistedScopeRefs,
 } from '../../git';
 import { LOG_DEFAULT_LIMIT, LOG_MAX_LIMIT, type RuntimeCtx } from './core';
 import type {
@@ -37,16 +38,17 @@ import type {
 } from './types';
 
 /**
- * One history read — shared by `log` and `fileLog`. A caller-supplied
- * scope must be a ref NAME the tree lists — never a revision
- * expression (no `..`, no flags, §9 slice 2).
+ * One history read — shared by `log` and `fileLog`. Every member of a
+ * caller-supplied scope must be a ref NAME the tree lists (or HEAD) —
+ * never a revision expression (no `..`, no flags, §9 slice 2); the
+ * refusal names the members that are not.
  */
 export async function runLog(
   ctx: RuntimeCtx,
   workspaceId: string,
   read: (rootDir: string, limit: number) => Promise<CommitLogEntry[] | null>,
   limit?: number,
-  ref?: string,
+  scope?: readonly string[],
 ): Promise<WorkspaceTreeLogRpcResult> {
   const binding = ctx.open.get(workspaceId);
   if (!binding) return { ok: false, reason: 'not-bound' };
@@ -54,12 +56,10 @@ export async function runLog(
   const availability = await ctx.ensureGitAvailability(rootDir);
   if (!availability.available) return { ok: false, reason: 'git-unavailable' };
   if (!(await isWorkspaceRepo(ctx.gitRun, rootDir))) return { ok: false, reason: 'not-a-repo' };
-  if (ref !== undefined) {
-    if (!isSafeRefName(ref)) return { ok: false, reason: 'unknown-ref' };
-    const refs = await listRepoRefs(ctx.gitRun, rootDir);
-    if (refs === null || !refs.some((repoRef) => repoRef.name === ref)) {
-      return { ok: false, reason: 'unknown-ref' };
-    }
+  if (scope !== undefined) {
+    const unlisted = await unlistedScopeRefs(ctx.gitRun, rootDir, scope);
+    if (unlisted === null) return { ok: false, reason: 'unknown-ref' };
+    if (unlisted.length > 0) return { ok: false, reason: 'unknown-ref', unknownRefs: unlisted };
   }
   const capped = Math.min(Math.max(1, Math.floor(limit ?? LOG_DEFAULT_LIMIT)), LOG_MAX_LIMIT);
   const entries = await read(rootDir, capped);
@@ -68,6 +68,7 @@ export async function runLog(
 }
 
 const LOG_FILTER_MAX_PATHS = 32;
+const LOG_SCOPE_MAX_REFS = 64;
 const LOG_FILTER_MAX_AUTHOR = 200;
 // Strict ISO-8601: a date, optionally with a time and zone — the only
 // shapes the Date chip composes; anything else refuses.
@@ -117,16 +118,18 @@ export function runWorkspaceLog(
   ctx: RuntimeCtx,
   workspaceId: string,
   limit?: number,
-  ref?: string,
+  scope?: readonly string[],
   filters?: WorkspaceTreeLogFilters,
 ): Promise<WorkspaceTreeLogRpcResult> {
   const validated = filters !== undefined ? validateLogFilters(filters) : { ok: true as const, filters: {} };
   if (!validated.ok) return Promise.resolve({ ok: false, reason: 'invalid-filter' });
   const authorMe = filters?.authorMe === true;
   if (authorMe && filters?.author !== undefined) return Promise.resolve({ ok: false, reason: 'invalid-filter' });
-  // `allRefs` is a scope, not a filter — it and a `ref` scope are
-  // mutually exclusive by construction.
-  if (filters?.allRefs === true && ref !== undefined) return Promise.resolve({ ok: false, reason: 'invalid-filter' });
+  // `allRefs` is a scope, not a filter — it and a scope of refs are
+  // mutually exclusive by construction. A scope names something.
+  if (scope !== undefined && (filters?.allRefs === true || scope.length === 0 || scope.length > LOG_SCOPE_MAX_REFS)) {
+    return Promise.resolve({ ok: false, reason: 'invalid-filter' });
+  }
   return runLog(
     ctx,
     workspaceId,
@@ -135,10 +138,10 @@ export function runWorkspaceLog(
       // `User: me` resolves HOST-SIDE to the identity the commit pass
       // itself runs under (§11.3) — the client never supplies it.
       if (authorMe) plumbing.author = await resolveAuthorFilterValue(ctx.gitRun, rootDir, ctx.syntheticIdentity());
-      return listCommitLog(ctx.gitRun, rootDir, capped, ref, plumbing);
+      return listCommitLog(ctx.gitRun, rootDir, capped, scope, plumbing);
     },
     limit,
-    ref,
+    scope,
   );
 }
 

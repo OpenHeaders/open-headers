@@ -55,6 +55,7 @@ import {
   isSafeTreePath,
   isShallowRepository,
   isWorkspaceRepo,
+  LOG_SCOPE_HEAD,
   listCommitLog,
   listFileLog,
   listForeignAuthors,
@@ -79,6 +80,7 @@ import {
   resolveUpstream,
   stashWorkspaceTree,
   unaddPaths,
+  unlistedScopeRefs,
   userIndexHasStagedChanges,
   withCommitAttribution,
 } from '../../src/git/repo';
@@ -1428,7 +1430,7 @@ describe('ref tree (Phase 7 slice 2)', () => {
     await commitIn(tmpDir, 'Feature edit');
     await raw(tmpDir, 'checkout', '-q', 'main');
 
-    const scoped = await listCommitLog(run, tmpDir, 20, 'feature');
+    const scoped = await listCommitLog(run, tmpDir, 20, ['feature']);
     if (scoped === null) throw new Error('scoped log failed');
     expect(scoped.map((entry) => entry.subject)).toEqual(['Feature edit', 'Initial tree']);
 
@@ -1436,8 +1438,87 @@ describe('ref tree (Phase 7 slice 2)', () => {
     if (head === null) throw new Error('log failed');
     expect(head.map((entry) => entry.subject)).toEqual(['Initial tree']);
 
-    expect(await listCommitLog(run, tmpDir, 20, 'main..feature')).toBeNull();
-    expect(await listCommitLog(run, tmpDir, 20, '--all')).toBeNull();
+    expect(await listCommitLog(run, tmpDir, 20, ['main..feature'])).toBeNull();
+    expect(await listCommitLog(run, tmpDir, 20, ['--all'])).toBeNull();
+    expect(await listCommitLog(run, tmpDir, 20, ['main', '--all'])).toBeNull();
+  });
+
+  it('walks several refs together — their union, HEAD a member, each row marked against HEAD', async () => {
+    const second = 1_760_000_000;
+    const empty = (subject: string, at: number): Promise<void> =>
+      rawAt(tmpDir, at, 'commit', '-q', '--allow-empty', '-m', subject);
+    await ensureWorkspaceRepo(run, tmpDir);
+    await raw(tmpDir, 'symbolic-ref', 'HEAD', 'refs/heads/main');
+    await empty('root', second);
+    await raw(tmpDir, 'checkout', '-q', '-b', 'feature');
+    await empty('feature edit', second + 10);
+    await raw(tmpDir, 'checkout', '-q', '-b', 'fix', 'main');
+    await empty('fix edit', second + 20);
+    await raw(tmpDir, 'tag', 'v1');
+    await raw(tmpDir, 'checkout', '-q', 'main');
+    await empty('main edit', second + 30);
+
+    const rows = (entries: CommitLogEntry[] | null): [string, boolean | undefined][] | undefined =>
+      entries?.map((entry) => [entry.subject, entry.onHead]);
+
+    // Two branches neither of which is HEAD's: the union, without main's own commit.
+    expect(rows(await listCommitLog(run, tmpDir, 20, ['feature', 'fix']))).toEqual([
+      ['fix edit', false],
+      ['feature edit', false],
+      ['root', true],
+    ]);
+    // HEAD beside a branch: the checked-out commit's history joins the walk.
+    expect(rows(await listCommitLog(run, tmpDir, 20, [LOG_SCOPE_HEAD, 'feature']))).toEqual([
+      ['main edit', true],
+      ['feature edit', false],
+      ['root', true],
+    ]);
+    // HEAD alone is the default walk; a name twice is walked once; a tag is a member like a branch.
+    expect(rows(await listCommitLog(run, tmpDir, 20, [LOG_SCOPE_HEAD]))).toEqual([
+      ['main edit', true],
+      ['root', true],
+    ]);
+    expect(rows(await listCommitLog(run, tmpDir, 20, ['v1', 'v1', 'feature']))).toEqual([
+      ['fix edit', false],
+      ['feature edit', false],
+      ['root', true],
+    ]);
+    // The riders ride a scope of several.
+    expect(rows(await listCommitLog(run, tmpDir, 1, ['feature', 'fix']))).toEqual([['fix edit', false]]);
+  });
+
+  it('a scope beside an unborn HEAD walks its refs alone', async () => {
+    await ensureWorkspaceRepo(run, tmpDir);
+    await raw(tmpDir, 'symbolic-ref', 'HEAD', 'refs/heads/main');
+    await write('workspace.yaml', 'schemaVersion: 5\nuid: wsaaaaaa\nname: Probe\n');
+    await commitIn(tmpDir, 'Initial tree');
+    await raw(tmpDir, 'branch', 'feature');
+    await raw(tmpDir, 'symbolic-ref', 'HEAD', 'refs/heads/unborn');
+
+    expect(await listCommitLog(run, tmpDir, 20, [LOG_SCOPE_HEAD])).toEqual([]);
+    const scoped = await listCommitLog(run, tmpDir, 20, [LOG_SCOPE_HEAD, 'feature']);
+    expect(scoped?.map((entry) => [entry.subject, entry.onHead])).toEqual([['Initial tree', false]]);
+  });
+
+  it('names the members of a scope the repo does not list', async () => {
+    await ensureWorkspaceRepo(run, tmpDir);
+    await raw(tmpDir, 'symbolic-ref', 'HEAD', 'refs/heads/main');
+    await write('workspace.yaml', 'schemaVersion: 5\nuid: wsaaaaaa\nname: Probe\n');
+    await commitIn(tmpDir, 'Initial tree');
+    await raw(tmpDir, 'branch', 'feature');
+    await raw(tmpDir, 'tag', 'v1');
+
+    expect(await unlistedScopeRefs(run, tmpDir, ['main', 'feature', 'v1', LOG_SCOPE_HEAD])).toEqual([]);
+    expect(await unlistedScopeRefs(run, tmpDir, [LOG_SCOPE_HEAD])).toEqual([]);
+    // One unknown ref among known ones, and a revision expression that names a known one.
+    expect(await unlistedScopeRefs(run, tmpDir, ['main', 'gone', 'feature'])).toEqual(['gone']);
+    expect(await unlistedScopeRefs(run, tmpDir, ['feature', 'main~1', '--all'])).toEqual(['main~1', '--all']);
+    // Git walks nothing for a scope with an unknown member — the listing is asked first.
+    expect(await listCommitLog(run, tmpDir, 20, ['main', 'gone'])).toBeNull();
+
+    const outside = path.join(tmpDir, 'not-a-repo');
+    await fs.mkdir(outside, { recursive: true });
+    expect(await unlistedScopeRefs(run, outside, ['main'])).toBeNull();
   });
 
   it('walks every ref under allRefs, and a ref scope wins over the flag', async () => {
@@ -1460,7 +1541,7 @@ describe('ref tree (Phase 7 slice 2)', () => {
     expect(all.map((entry) => entry.subject).sort()).toEqual(['Feature edit', 'Initial tree']);
 
     // A ref scope wins: the flag never widens an explicit scope.
-    const scoped = await listCommitLog(run, tmpDir, 20, 'main', { allRefs: true });
+    const scoped = await listCommitLog(run, tmpDir, 20, ['main'], { allRefs: true });
     if (scoped === null) throw new Error('scoped log failed');
     expect(scoped.map((entry) => entry.subject)).toEqual(['Initial tree']);
   });
@@ -1545,7 +1626,7 @@ describe('ref tree (Phase 7 slice 2)', () => {
     expect(onHeadBySubject(head)).toEqual({ 'Main edit': true, 'Initial tree': true });
 
     // A scope that leaves HEAD's tip out of the window still knows which rows main already has.
-    const scoped = await listCommitLog(run, tmpDir, 20, 'feature');
+    const scoped = await listCommitLog(run, tmpDir, 20, ['feature']);
     if (scoped === null) throw new Error('scoped log failed');
     expect(onHeadBySubject(scoped)).toEqual({ 'Feature edit': false, 'Initial tree': true });
 

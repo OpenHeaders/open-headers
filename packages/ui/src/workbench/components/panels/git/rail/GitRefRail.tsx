@@ -42,9 +42,8 @@ export interface GitRefRailProps {
   /** The tree selection — tab state, survives pane moves. */
   selection: RefTreeSelection | null;
   onSelectionChange: (selection: RefTreeSelection | null) => void;
-  /** The log scope (the toolbar chip) — the single-click 'filter' target. */
-  scopeRef: string | null;
-  onScopeChange: (ref: string | null) => void;
+  /** Scope the log (the toolbar chip) to ONE ref — the single-click 'filter' gesture. */
+  onScopeChange: (ref: string) => void;
   /** Scroll the commit list to a sha and select it (navigate gestures). */
   onNavigateToSha: (sha: string) => void;
   /** Open a Compare-with-Current tab for a ref. */
@@ -63,7 +62,6 @@ const GitRefRail: React.FC<GitRefRailProps> = ({
   actions,
   selection,
   onSelectionChange,
-  scopeRef,
   onScopeChange,
   onNavigateToSha,
   onOpenCompare,

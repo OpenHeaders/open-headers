@@ -580,6 +580,12 @@ export interface WorkspaceRpc {
       /** Scope the walk to a branch/tag from `listRefs` — a validated
        *  ref NAME, never a revision expression; unknown names refuse. */
       ref?: string;
+      /** Scope the walk to SEVERAL refs from `listRefs`, walked together
+       *  — the union of their histories; `HEAD` is a possible member
+       *  (the checked-out commit beside them). In place of `ref`: both,
+       *  or an empty list, refuse `invalid-filter`; a name the tree does
+       *  not list refuses `unknown-ref`, naming it. */
+      refs?: string[];
       /** Author filter (`User:` chip) — a plain string matched literally
        *  and case-insensitively against author name/email; the host
        *  escapes it before git's regex machinery. */
@@ -600,7 +606,7 @@ export interface WorkspaceRpc {
       topoOrder?: boolean;
       /** Walk every ref (branches + tags + remotes + HEAD) instead of
        *  one scope — the IDE log's unfiltered view; mutually exclusive
-       *  with `ref`, refused `invalid-filter`. */
+       *  with `ref` and `refs`, refused `invalid-filter`. */
       allRefs?: boolean;
     };
     res: WorkspaceTreeLogWire;
@@ -1239,6 +1245,8 @@ export type WorkspaceTreeLogWire =
       ok: false;
       reason: 'not-bound' | 'git-unavailable' | 'not-a-repo' | 'unknown-ref' | 'invalid-filter' | 'log-failed';
       detail?: string;
+      /** `unknown-ref`: the scope's members the tree does not list (additive). */
+      unknownRefs?: string[];
     };
 
 export type WorkspaceTreeEntityKindWire =

@@ -377,6 +377,8 @@ export type WorkspaceTreeLogRpcResult =
       ok: false;
       reason: 'not-bound' | 'git-unavailable' | 'not-a-repo' | 'unknown-ref' | 'invalid-filter' | 'log-failed';
       detail?: string;
+      /** `unknown-ref`: the scope's members the tree does not list. */
+      unknownRefs?: string[];
     };
 
 export type WorkspaceTreeRefsRpcResult =
@@ -716,16 +718,17 @@ export interface WorkspaceTreeRuntime {
   gitStatus(workspaceId: string): Promise<WorkspaceTreeGitStatusRpcResult>;
   /**
    * Workspace history timeline (§9, Phase 7) — recent commits with
-   * changed paths. `ref` scopes the walk to a branch/tag from
-   * {@link WorkspaceTreeRuntime.listRefs}'s answer; anything else
-   * refuses `unknown-ref`. `filters` are the toolbar's row filters
+   * changed paths. `scope` walks branches and tags from
+   * {@link WorkspaceTreeRuntime.listRefs}'s answer together (HEAD a
+   * possible member); anything else refuses `unknown-ref`, naming it.
+   * `filters` are the toolbar's row filters
    * ({@link WorkspaceTreeLogFilters}) — validated shapes, refusing
    * `invalid-filter`.
    */
   log(
     workspaceId: string,
     limit?: number,
-    ref?: string,
+    scope?: readonly string[],
     filters?: WorkspaceTreeLogFilters,
   ): Promise<WorkspaceTreeLogRpcResult>;
   /**

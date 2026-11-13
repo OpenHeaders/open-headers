@@ -124,10 +124,10 @@ describe('git panel workbench (shared pane-tabs machinery)', () => {
   it('patchLogTab updates one tab and preserves the others', () => {
     const { registry } = freshWorkbench();
     registry.newLogTab();
-    registry.patchLogTab('log:2', { filter: 'fix', selectedRef: 'main' });
+    registry.patchLogTab('log:2', { filter: 'fix', selectedRefs: ['main'] });
     const tabs = registry.tabs();
     expect(tabs[0]).toMatchObject({ kind: 'log', id: 1, filter: '' });
-    expect(tabs[2]).toMatchObject({ kind: 'log', id: 2, filter: 'fix', selectedRef: 'main' });
+    expect(tabs[2]).toMatchObject({ kind: 'log', id: 2, filter: 'fix', selectedRefs: ['main'] });
   });
 
   it('log tabs start with every toolbar filter off (the reference default row)', () => {

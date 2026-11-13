@@ -1009,6 +1009,12 @@ export const LOG_FORMAT = '%x1e%H%x1f%P%x1f%an%x1f%ae%x1f%aI%x1f%s%x1f%b';
  */
 export const LOG_ORDER = '--date-order';
 
+/**
+ * The checked-out commit as a member of a log scope. Safe beside ref
+ * names: git itself refuses `HEAD` as a branch or tag name.
+ */
+export const LOG_SCOPE_HEAD = 'HEAD';
+
 const CO_AUTHOR_TRAILER = /^co-authored-by:\s*(.+)$/gim;
 
 /** `-z --name-status` tokens as changed paths: a status, then its path — a rename or copy carries old then new. */
@@ -1099,24 +1105,29 @@ export async function resolveAuthorFilterValue(
 /**
  * Recent commits with their changed paths — the §9 history view's
  * workspace timeline. One invocation regardless of `limit`; an unborn
- * HEAD answers an empty list (a fresh repo has no history yet). `ref`
- * scopes the walk to a branch/tag instead of HEAD — a validated ref
- * NAME only ({@link isSafeRefName}), never a revision expression.
+ * HEAD answers an empty list (a fresh repo has no history yet). `scope`
+ * walks branches and tags TOGETHER instead of HEAD — the union of their
+ * histories; each member a validated ref NAME ({@link isSafeRefName}),
+ * never a revision expression, or {@link LOG_SCOPE_HEAD} for the
+ * checked-out commit beside them.
  */
 export async function listCommitLog(
   run: GitRunner,
   rootDir: string,
   limit: number,
-  ref?: string,
+  scope?: readonly string[],
   filters?: CommitLogFilters,
 ): Promise<CommitLogEntry[] | null> {
-  if (ref !== undefined && !isSafeRefName(ref)) return null;
-  const allRefs = ref === undefined && filters?.allRefs === true;
-  // HEAD is the default walk root, and under `allRefs` it still rides
-  // along explicitly — but only when it resolves: an unborn HEAD would
-  // fail the whole spawn, while other refs may still exist.
-  const headSha = ref === undefined ? await localHeadSha(run, rootDir) : null;
-  if (ref === undefined && !allRefs && headSha === null) return [];
+  const named = [...new Set(scope ?? [])].filter((ref) => ref !== LOG_SCOPE_HEAD);
+  if (!named.every(isSafeRefName)) return null;
+  const scoped = named.length > 0;
+  const allRefs = !scoped && filters?.allRefs === true;
+  // HEAD is the default walk root; under `allRefs`, and as a member of
+  // a scope, it rides along explicitly — but only when it resolves: an
+  // unborn HEAD would fail the whole spawn, while other refs may still
+  // exist.
+  const headSha = !scoped || scope?.includes(LOG_SCOPE_HEAD) === true ? await localHeadSha(run, rootDir) : null;
+  if (!scoped && !allRefs && headSha === null) return [];
   const paths = filters?.paths ?? [];
   const result = await run(
     [
@@ -1136,8 +1147,8 @@ export async function listCommitLog(
         : []),
       ...(filters?.since !== undefined ? [`--since=${filters.since}`] : []),
       ...(filters?.until !== undefined ? [`--until=${filters.until}`] : []),
-      ...(ref !== undefined
-        ? [ref]
+      ...(scoped
+        ? [...named, ...(headSha !== null ? ['HEAD'] : [])]
         : allRefs
           ? ['--branches', '--tags', '--remotes', ...(headSha !== null ? ['HEAD'] : [])]
           : []),
@@ -1153,11 +1164,11 @@ export async function listCommitLog(
     return allRefs && headSha === null ? [] : null;
   }
   const entries = parseCommitLog(result.stdout);
-  if (ref === undefined && !allRefs) {
+  if (!scoped && !allRefs) {
     for (const entry of entries) entry.onHead = true;
     return entries;
   }
-  const offHead = await shasNotOnHead(run, rootDir, ref !== undefined ? [ref] : ['--branches', '--tags', '--remotes']);
+  const offHead = await shasNotOnHead(run, rootDir, scoped ? named : ['--branches', '--tags', '--remotes']);
   for (const entry of entries) entry.onHead = offHead !== null && !offHead.has(entry.sha);
   return entries;
 }
@@ -1258,6 +1269,24 @@ export async function listRepoRefs(run: GitRunner, rootDir: string): Promise<Rep
     }
   }
   return refs;
+}
+
+/**
+ * The members of a caller's log scope the repo does not list — a name
+ * that is no plain ref name among them. {@link LOG_SCOPE_HEAD} is always
+ * a member. Null when the refs cannot be read.
+ */
+export async function unlistedScopeRefs(
+  run: GitRunner,
+  rootDir: string,
+  scope: readonly string[],
+): Promise<string[] | null> {
+  const named = scope.filter((ref) => ref !== LOG_SCOPE_HEAD);
+  if (named.length === 0) return [];
+  const refs = await listRepoRefs(run, rootDir);
+  if (refs === null) return null;
+  const listed = new Set(refs.map((ref) => ref.name));
+  return named.filter((ref) => !isSafeRefName(ref) || !listed.has(ref));
 }
 
 // ── Commit file diff (Phase 7 slice 3: §9 log view's diff pane) ──────

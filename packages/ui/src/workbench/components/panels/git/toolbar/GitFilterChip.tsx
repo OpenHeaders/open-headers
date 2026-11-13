@@ -16,6 +16,8 @@ export interface GitFilterChipProps {
   label: string;
   /** Active value rendered after `Label:`; null renders the idle chip. */
   value: string | null;
+  /** The value's hover — what a value cut short stands for. */
+  valueTitle?: string;
   onClear?: () => void;
   /** Dropdown wiring — either a menu or a custom popup renderer. */
   menu?: DropdownProps['menu'];
@@ -28,6 +30,7 @@ export interface GitFilterChipProps {
 const GitFilterChip: React.FC<GitFilterChipProps> = ({
   label,
   value,
+  valueTitle,
   onClear,
   menu,
   popupRender,
@@ -72,7 +75,9 @@ const GitFilterChip: React.FC<GitFilterChipProps> = ({
         ) : (
           <>
             <span>{label}:</span>
-            <span style={{ color: token.colorText, fontWeight: 600 }}>{value}</span>
+            <span title={valueTitle} style={{ color: token.colorText, fontWeight: 600 }}>
+              {value}
+            </span>
             {onClear !== undefined && (
               <span
                 role="button"

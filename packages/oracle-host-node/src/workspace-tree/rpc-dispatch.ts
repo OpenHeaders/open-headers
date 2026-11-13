@@ -73,6 +73,18 @@ function readCommitLocalWork(value: unknown): CommitLocalWork | undefined | null
   return message.length === 0 ? null : { message };
 }
 
+/**
+ * The scope of a log call — its `ref`, or its `refs` walked together:
+ * undefined when the caller sent neither, null when `refs` is no list
+ * of names or rides beside a `ref`.
+ */
+function readLogScope(ref: unknown, refs: unknown): string[] | undefined | null {
+  const one = typeof ref === 'string' && ref.length > 0 ? ref : undefined;
+  if (refs === undefined) return one === undefined ? undefined : [one];
+  if (one !== undefined || !Array.isArray(refs)) return null;
+  return refs.every((name): name is string => typeof name === 'string' && name.length > 0) ? refs : null;
+}
+
 export function ownsWorkspaceTreeRpc(type: unknown): type is string {
   return typeof type === 'string' && type.startsWith('oh.workspaceTree.');
 }
@@ -285,24 +297,21 @@ export async function dispatchWorkspaceTreeRpc(
   if (type === 'oh.workspaceTree.log') {
     const workspaceId = typeof message.workspaceId === 'string' ? message.workspaceId : '';
     if (!workspaceId || runtime === null) return { ok: false, reason: 'not-bound' };
-    return await runtime.log(
-      workspaceId,
-      typeof message.limit === 'number' ? message.limit : undefined,
-      typeof message.ref === 'string' && message.ref.length > 0 ? message.ref : undefined,
-      {
-        ...(typeof message.author === 'string' && message.author.length > 0 ? { author: message.author } : {}),
-        ...(message.authorMe === true ? { authorMe: true } : {}),
-        ...(typeof message.since === 'string' && message.since.length > 0 ? { since: message.since } : {}),
-        ...(typeof message.until === 'string' && message.until.length > 0 ? { until: message.until } : {}),
-        ...(Array.isArray(message.paths) && message.paths.every((path): path is string => typeof path === 'string')
-          ? { paths: message.paths }
-          : {}),
-        ...(message.noMerges === true ? { noMerges: true } : {}),
-        ...(message.firstParent === true ? { firstParent: true } : {}),
-        ...(message.topoOrder === true ? { topoOrder: true } : {}),
-        ...(message.allRefs === true ? { allRefs: true } : {}),
-      },
-    );
+    const scope = readLogScope(message.ref, message.refs);
+    if (scope === null) return { ok: false, reason: 'invalid-filter' };
+    return await runtime.log(workspaceId, typeof message.limit === 'number' ? message.limit : undefined, scope, {
+      ...(typeof message.author === 'string' && message.author.length > 0 ? { author: message.author } : {}),
+      ...(message.authorMe === true ? { authorMe: true } : {}),
+      ...(typeof message.since === 'string' && message.since.length > 0 ? { since: message.since } : {}),
+      ...(typeof message.until === 'string' && message.until.length > 0 ? { until: message.until } : {}),
+      ...(Array.isArray(message.paths) && message.paths.every((path): path is string => typeof path === 'string')
+        ? { paths: message.paths }
+        : {}),
+      ...(message.noMerges === true ? { noMerges: true } : {}),
+      ...(message.firstParent === true ? { firstParent: true } : {}),
+      ...(message.topoOrder === true ? { topoOrder: true } : {}),
+      ...(message.allRefs === true ? { allRefs: true } : {}),
+    });
   }
   if (type === 'oh.workspaceTree.listRefs') {
     const workspaceId = typeof message.workspaceId === 'string' ? message.workspaceId : '';

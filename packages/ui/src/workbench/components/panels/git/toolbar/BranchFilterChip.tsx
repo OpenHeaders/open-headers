@@ -10,9 +10,10 @@
  * can be put back. HEAD's star is fixed. Typing with the menu open
  * starts the search with what was typed.
  *
- * Scope triad: idle (null) = the unfiltered all-refs log; picking HEAD
- * or a ref scopes it and the chip reads `Branch: <scope>`; the ×
- * clears back to unfiltered.
+ * The scope: idle (empty) = the unfiltered all-refs log; picking HEAD
+ * or a ref scopes it to that one and the chip reads `Branch: <ref>`; a
+ * scope of several reads them joined (`HEAD|main`, cut to a length)
+ * with every member in the hover; the × clears back to unfiltered.
  */
 
 import { StarFilled, StarOutlined } from '@ant-design/icons';
@@ -23,6 +24,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { GIT_LOG_SCOPE_HEAD } from '../git-panel-view-store';
 import { GIT_TEXT_SIZE } from '../git-type-scale';
+import { type GitLogScope, scopeChipText, scopeHoverText } from '../log-scope';
 import { gitRailFavoriteKey } from '../rail/git-rail-prefs';
 import GitFilterChip from './GitFilterChip';
 
@@ -34,10 +36,9 @@ export interface BranchFilterChipProps {
   favorites: ReadonlySet<string>;
   /** A star was clicked. */
   onToggleFavorite: (kind: RefKind, name: string) => void;
-  scopeRef: string | null;
-  /** Kind of the scoped ref — the chip label reads Tag: for tags. */
-  scopeKind: RefKind;
-  onScopeChange: (ref: string | null) => void;
+  /** The log's scope — empty = every ref. */
+  scope: GitLogScope;
+  onScopeChange: (scope: GitLogScope) => void;
 }
 
 interface StarProps {
@@ -96,8 +97,7 @@ const BranchFilterChip: React.FC<BranchFilterChipProps> = ({
   refs,
   favorites,
   onToggleFavorite,
-  scopeRef,
-  scopeKind,
+  scope,
   onScopeChange,
 }) => {
   const t = useT();
@@ -175,12 +175,12 @@ const BranchFilterChip: React.FC<BranchFilterChipProps> = ({
           return;
         }
         if (key === 'head') {
-          onScopeChange(GIT_LOG_SCOPE_HEAD);
+          onScopeChange([GIT_LOG_SCOPE_HEAD]);
           close();
           return;
         }
         if (key.startsWith('ref:')) {
-          onScopeChange(key.slice(key.indexOf(':', 4) + 1));
+          onScopeChange([key.slice(key.indexOf(':', 4) + 1)]);
           close();
         }
       }}
@@ -236,7 +236,7 @@ const BranchFilterChip: React.FC<BranchFilterChipProps> = ({
                 type="button"
                 className="git-tool-row git-branch-row"
                 onClick={() => {
-                  onScopeChange(ref.name);
+                  onScopeChange([ref.name]);
                   close();
                 }}
                 title={ref.name}
@@ -267,13 +267,15 @@ const BranchFilterChip: React.FC<BranchFilterChipProps> = ({
     </div>
   );
 
+  // The chip reads Tag: while its one scoped ref is a tag.
+  const scopedTag = scope.length === 1 && refs.find((ref) => ref.name === scope[0])?.kind === 'tag';
+
   return (
     <GitFilterChip
-      label={
-        scopeRef !== null && scopeKind === 'tag' ? t('workbench.gitLog.chip.tag') : t('workbench.gitLog.chip.branch')
-      }
-      value={scopeRef}
-      onClear={() => onScopeChange(null)}
+      label={scopedTag ? t('workbench.gitLog.chip.tag') : t('workbench.gitLog.chip.branch')}
+      value={scopeChipText(scope)}
+      valueTitle={scopeHoverText(scope) ?? undefined}
+      onClear={() => onScopeChange([])}
       open={open}
       onOpenChange={(next) => {
         setOpen(next);

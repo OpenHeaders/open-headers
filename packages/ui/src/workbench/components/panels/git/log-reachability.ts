@@ -5,9 +5,9 @@
  * rows already on the current branch), else a walk down `parents` from
  * the tip over the loaded window (the edge-stopping fallback for an
  * older host). The band's tip is HEAD's commit (a branch tip or a
- * detached sha) and it is withheld while the log is scoped to HEAD or to
- * the checked-out branch itself (the reference rule: every row would
- * carry it, so it says nothing). Pure.
+ * detached sha) and it is withheld while the log is scoped to HEAD, to
+ * the checked-out branch itself, or to the two together (the reference
+ * rule: every row would carry it, so it says nothing). Pure.
  */
 
 export interface LogParentEntry {
@@ -34,8 +34,8 @@ export function reachableFrom(tip: string, entries: readonly LogParentEntry[]): 
 }
 
 export interface CurrentBranchBandScope {
-  /** The log scope: null = every ref, the HEAD sentinel, or a ref name. */
-  selectedRef: string | null;
+  /** The log scope: empty = every ref; a member is the HEAD sentinel or a ref name. */
+  selectedRefs: readonly string[];
   /** The HEAD sentinel the scope triad uses. */
   headScope: string;
   /** The checked-out branch's name; null when detached or unborn. */
@@ -44,13 +44,14 @@ export interface CurrentBranchBandScope {
 
 /**
  * The tip the current-branch band walks from: HEAD's commit, unless the
- * scope is HEAD or the checked-out branch (every row reachable — the
- * reference paints nothing) or HEAD's commit is unknown.
+ * scope holds nothing but HEAD and the checked-out branch (every row
+ * reachable — the reference paints nothing) or HEAD's commit is unknown.
  */
 export function currentBranchBandTip(headSha: string | null, scope: CurrentBranchBandScope): string | null {
   if (headSha === null) return null;
-  if (scope.selectedRef === scope.headScope) return null;
-  if (scope.currentBranch !== null && scope.selectedRef === scope.currentBranch) return null;
+  const onHead = (ref: string): boolean =>
+    ref === scope.headScope || (scope.currentBranch !== null && ref === scope.currentBranch);
+  if (scope.selectedRefs.length > 0 && scope.selectedRefs.every(onHead)) return null;
   return headSha;
 }
 

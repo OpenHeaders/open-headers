@@ -131,6 +131,7 @@ export {
   type UnaddResult,
   type UpstreamState,
   unaddPaths,
+  unlistedScopeRefs,
   userIndexHasStagedChanges,
   type WorkingChange,
   withCommitAttribution,

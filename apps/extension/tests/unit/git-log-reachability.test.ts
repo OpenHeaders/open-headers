@@ -3,8 +3,8 @@
  * current-branch band — reachable commits, the window's edge, a tip
  * outside the window — the band's set over the host's containment flags
  * (the walk when a host sends none) — and the band's tip rule: HEAD's
- * commit, withheld on the HEAD scope and on the checked-out branch's own
- * scope.
+ * commit, withheld on the HEAD scope, on the checked-out branch's own
+ * scope and on the two together.
  */
 
 import {
@@ -37,29 +37,36 @@ describe('reachableFrom', () => {
 });
 
 describe('currentBranchBandTip', () => {
-  const scope = (selectedRef: string | null, currentBranch: string | null = 'main') => ({
-    selectedRef,
+  const scope = (selectedRefs: readonly string[], currentBranch: string | null = 'main') => ({
+    selectedRefs,
     headScope: 'HEAD',
     currentBranch,
   });
 
   it('walks from HEAD over every ref and over another branch’s scope', () => {
-    expect(currentBranchBandTip('c4', scope(null))).toBe('c4');
-    expect(currentBranchBandTip('c4', scope('feature/auth-headers'))).toBe('c4');
+    expect(currentBranchBandTip('c4', scope([]))).toBe('c4');
+    expect(currentBranchBandTip('c4', scope(['feature/auth-headers']))).toBe('c4');
   });
 
   it('withholds the band on the HEAD scope and on the checked-out branch’s scope', () => {
-    expect(currentBranchBandTip('c4', scope('HEAD'))).toBeNull();
-    expect(currentBranchBandTip('c4', scope('main'))).toBeNull();
+    expect(currentBranchBandTip('c4', scope(['HEAD']))).toBeNull();
+    expect(currentBranchBandTip('c4', scope(['main']))).toBeNull();
+  });
+
+  it('over several refs the band shows unless HEAD reaches every row', () => {
+    expect(currentBranchBandTip('c4', scope(['HEAD', 'main']))).toBeNull();
+    expect(currentBranchBandTip('c4', scope(['HEAD', 'main', 'origin/main']))).toBe('c4');
+    expect(currentBranchBandTip('c4', scope(['main', 'feature/auth-headers']))).toBe('c4');
+    expect(currentBranchBandTip('c4', scope(['HEAD', 'main'], null))).toBe('c4');
   });
 
   it('a detached head bands from its sha and scopes by name still band', () => {
-    expect(currentBranchBandTip('c4', scope('main', null))).toBe('c4');
-    expect(currentBranchBandTip('c4', scope(null, null))).toBe('c4');
+    expect(currentBranchBandTip('c4', scope(['main'], null))).toBe('c4');
+    expect(currentBranchBandTip('c4', scope([], null))).toBe('c4');
   });
 
   it('no head commit, no band', () => {
-    expect(currentBranchBandTip(null, scope(null))).toBeNull();
+    expect(currentBranchBandTip(null, scope([]))).toBeNull();
   });
 });
 

@@ -48,6 +48,7 @@ import { contractLog, firstParentOnly, firstParentReach } from './graph-filtered
 import { topologicalOrder } from './log-topological';
 import { allLinearFragments, collapseLog, fragmentKey, type LogFragment } from './graph-fragment';
 import { currentBranchBandTip, currentBranchShas as bandShas } from './log-reachability';
+import { logScopeWire, scopeWithout } from './log-scope';
 import { buildLogRowMenu, type LogRowMenuTarget } from './log-row-menu';
 import { getGitRailPrefs, subscribeGitRailPrefs, toggleGitRailFavorite } from './rail/git-rail-prefs';
 import { defaultFavoriteKeys, favoriteKeys } from './rail/ref-favorites';
@@ -147,7 +148,7 @@ const GitLogView: React.FC<GitLogViewProps> = ({
     [railPrefs, defaultFavorites],
   );
 
-  const { selectedRef, filter, filterRegex, filterCase, selectedSha, refsCollapsed, railSelection } = tab;
+  const { selectedRefs, filter, filterRegex, filterCase, selectedSha, refsCollapsed, railSelection } = tab;
   const layout = useGitLogLayout(
     workspaceId,
     { root: gridRef, rail: railCellRef, details: detailsCellRef, detailBody: detailBodyRef, info: infoCellRef },
@@ -175,33 +176,36 @@ const GitLogView: React.FC<GitLogViewProps> = ({
         setRefs([]);
         setCurrentRef(null);
       }
-      // The unborn current branch scopes to an EMPTY filtered list (the
-      // reference posture: `Branch: main` chip + no-matches empty state) —
-      // its name exists only in `gitStatus`, so `log` would refuse it.
+      // The unborn current branch has no history to walk: alone it
+      // scopes to an EMPTY filtered list (the reference posture:
+      // `Branch: main` chip + no-matches empty state), beside other refs
+      // it adds nothing — its name exists only in `gitStatus`, so `log`
+      // would refuse it.
       const knownRefs = refsResult.ok ? refsResult.refs : [];
-      const scopeIsUnborn =
-        selectedRef !== null &&
-        selectedRef === branch &&
-        !knownRefs.some((ref) => ref.kind === 'local' && ref.name === selectedRef);
-      if (scopeIsUnborn) {
+      const unborn =
+        branch !== null && !knownRefs.some((ref) => ref.kind === 'local' && ref.name === branch) ? branch : null;
+      const walked = unborn === null ? selectedRefs : scopeWithout(selectedRefs, [unborn]);
+      if (selectedRefs.length > 0 && walked.length === 0) {
         setLoaded([]);
         return;
       }
-      // Scope triad (the reference model): null = every ref (`allRefs`),
-      // the HEAD sentinel = the default walk, a name = that ref.
+      // The scope (the reference model): empty = every ref (`allRefs`),
+      // the HEAD sentinel alone = the default walk, names = those refs
+      // walked together.
       const result = await hostBridge.call('oh.workspaceTree.log', {
         workspaceId,
         limit: LOG_LIMIT,
-        ...(selectedRef !== null && selectedRef !== GIT_LOG_SCOPE_HEAD ? { ref: selectedRef } : {}),
-        ...(selectedRef === null ? { allRefs: true } : {}),
+        ...logScopeWire(walked),
         ...wireFilters,
       });
       if (result.ok) {
         setLoaded(result.entries);
       } else if (result.reason === 'unknown-ref') {
-        // The scoped ref vanished (branch deleted, tag dropped) —
-        // fall back to HEAD; the effect below refetches.
-        patchTab({ selectedRef: null });
+        // Scoped refs vanished (branch deleted, tag dropped): the scope
+        // keeps the rest — every ref once none is left; the effect below
+        // refetches. A host that names none clears the scope.
+        const kept = scopeWithout(selectedRefs, result.unknownRefs ?? selectedRefs);
+        patchTab({ selectedRefs: kept.length < selectedRefs.length ? kept : [] });
       } else {
         setLoaded([]);
         setError(t('workbench.gitLog.loadFailed', { detail: result.detail ?? result.reason }));
@@ -212,7 +216,7 @@ const GitLogView: React.FC<GitLogViewProps> = ({
     } finally {
       setLoading(false);
     }
-  }, [workspaceId, selectedRef, branch, wireFilters, patchTab, t]);
+  }, [workspaceId, selectedRefs, branch, wireFilters, patchTab, t]);
 
   useEffect(() => {
     void reload();
@@ -248,7 +252,9 @@ const GitLogView: React.FC<GitLogViewProps> = ({
   const filtered = useMemo(() => {
     if (matcher.kind !== 'match' && !noMerges && !firstParent) return entries;
     const roots =
-      selectedRef === null ? [...refs.map((ref) => ref.sha), ...(detachedSha !== null ? [detachedSha] : [])] : [];
+      selectedRefs.length === 0
+        ? [...refs.map((ref) => ref.sha), ...(detachedSha !== null ? [detachedSha] : [])]
+        : [];
     const reached = firstParent ? firstParentReach(entries, roots) : null;
     return entries.filter(
       (entry) =>
@@ -256,7 +262,7 @@ const GitLogView: React.FC<GitLogViewProps> = ({
         (matcher.kind !== 'match' || matcher.test(entry)) &&
         !(noMerges && isMergeCommit(entry)),
     );
-  }, [entries, matcher, noMerges, firstParent, selectedRef, refs, detachedSha]);
+  }, [entries, matcher, noMerges, firstParent, selectedRefs, refs, detachedSha]);
 
   const refsBySha = useMemo(() => {
     const map = new Map<string, WorkspaceTreeRefWire[]>();
@@ -274,8 +280,8 @@ const GitLogView: React.FC<GitLogViewProps> = ({
     const current = refs.find((ref) => ref.kind === 'local' && ref.name === currentRef);
     if (current !== undefined) return current.sha;
     if (detachedSha !== null) return detachedSha;
-    return selectedRef === GIT_LOG_SCOPE_HEAD ? (entries[0]?.sha ?? null) : null;
-  }, [refs, currentRef, detachedSha, selectedRef, entries]);
+    return selectedRefs.length === 1 && selectedRefs[0] === GIT_LOG_SCOPE_HEAD ? (entries[0]?.sha ?? null) : null;
+  }, [refs, currentRef, detachedSha, selectedRefs, entries]);
 
   // Graph edges are honest only over the contiguous log. A ROW filter
   // (author, date, paths, the walk riders) is the host's: the hidden
@@ -392,12 +398,12 @@ const GitLogView: React.FC<GitLogViewProps> = ({
   const currentBranchShas = useMemo(() => {
     if (!prefs.highlightCurrentBranch) return null;
     const tip = currentBranchBandTip(headSha, {
-      selectedRef,
+      selectedRefs,
       headScope: GIT_LOG_SCOPE_HEAD,
       currentBranch: currentRef ?? branch,
     });
     return tip === null ? null : bandShas(tip, entries);
-  }, [prefs.highlightCurrentBranch, headSha, selectedRef, currentRef, branch, entries]);
+  }, [prefs.highlightCurrentBranch, headSha, selectedRefs, currentRef, branch, entries]);
 
   // The branch gitStatus reports but listRefs doesn't: an unborn HEAD
   // (fresh repo, first commit pending). Shown as the current branch in
@@ -417,11 +423,11 @@ const GitLogView: React.FC<GitLogViewProps> = ({
     error ?? (fileDiff.error !== null ? t('workbench.gitLog.loadFailed', { detail: fileDiff.error }) : null);
 
   const filtersActive =
-    matcher.kind !== 'none' || selectedRef !== null || rowFiltersActive || noMerges || firstParent;
+    matcher.kind !== 'none' || selectedRefs.length > 0 || rowFiltersActive || noMerges || firstParent;
   const resetFilters = (): void =>
     patchTab({
       filter: '',
-      selectedRef: null,
+      selectedRefs: [],
       author: null,
       date: null,
       paths: [],
@@ -440,7 +446,7 @@ const GitLogView: React.FC<GitLogViewProps> = ({
       if (railSelection !== null && railSelection.kind === 'local' && railSelection.name === deleted) {
         patch.railSelection = null;
       }
-      if (selectedRef === deleted) patch.selectedRef = null;
+      if (selectedRefs.includes(deleted)) patch.selectedRefs = scopeWithout(selectedRefs, [deleted]);
       if (Object.keys(patch).length > 0) patchTab(patch);
     },
   });
@@ -539,8 +545,7 @@ const GitLogView: React.FC<GitLogViewProps> = ({
             actions={actions}
             selection={railSelection}
             onSelectionChange={(selection) => patchTab({ railSelection: selection })}
-            scopeRef={selectedRef}
-            onScopeChange={(ref) => patchTab({ selectedRef: ref })}
+            onScopeChange={(ref) => patchTab({ selectedRefs: [ref] })}
             onNavigateToSha={navigateToSha}
             onOpenCompare={onOpenCompare}
             onHide={() => patchTab({ refsCollapsed: true })}

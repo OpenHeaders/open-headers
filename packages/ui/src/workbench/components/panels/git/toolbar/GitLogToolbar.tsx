@@ -104,11 +104,6 @@ const GitLogToolbar: React.FC<GitLogToolbarProps> = ({
     return [...names].sort((a, b) => a.localeCompare(b));
   }, [entries]);
 
-  const scopeKind = useMemo(
-    () => refs.find((ref) => ref.name === tab.selectedRef)?.kind ?? 'local',
-    [refs, tab.selectedRef],
-  );
-
   const dateValue = useMemo(() => {
     if (tab.date === null) return null;
     if (tab.date.kind === 'preset') {
@@ -172,9 +167,8 @@ const GitLogToolbar: React.FC<GitLogToolbarProps> = ({
           refs={refs}
           favorites={favorites}
           onToggleFavorite={onToggleFavorite}
-          scopeRef={tab.selectedRef}
-          scopeKind={scopeKind}
-          onScopeChange={(ref) => patchTab({ selectedRef: ref })}
+          scope={tab.selectedRefs}
+          onScopeChange={(scope) => patchTab({ selectedRefs: scope })}
         />
       ),
     },

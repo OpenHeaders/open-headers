@@ -33,9 +33,10 @@ export interface GitRailSelection {
 export interface GitLogTabState {
   kind: 'log';
   id: number;
-  /** Log scope triad — null: all refs; {@link GIT_LOG_SCOPE_HEAD}:
-   *  the checked-out HEAD; any other string: that ref. */
-  selectedRef: string | null;
+  /** Log scope — the refs walked together: empty = every ref; a
+   *  member is a ref name or {@link GIT_LOG_SCOPE_HEAD}, the
+   *  checked-out HEAD. */
+  selectedRefs: readonly string[];
   filter: string;
   /** The text field's `.*` toggle — interpret `filter` as a regex. */
   filterRegex: boolean;
@@ -78,10 +79,10 @@ export const GIT_CONSOLE_TAB_KEY = 'console';
 export const GIT_PRIMARY_TAB_KEY = 'log:1';
 
 /**
- * The log scope's HEAD sentinel — `selectedRef` is a triad: null =
- * every ref (the unfiltered log), this sentinel = the checked-out
- * HEAD, any other string = that ref. Safe as a sentinel because git
- * itself refuses `HEAD` as a branch or tag name.
+ * The log scope's HEAD sentinel — `selectedRefs` empty is every ref
+ * (the unfiltered log); a member is this sentinel (the checked-out
+ * HEAD) or a ref's name. Safe as a sentinel because git itself refuses
+ * `HEAD` as a branch or tag name.
  */
 export const GIT_LOG_SCOPE_HEAD = 'HEAD';
 
@@ -125,7 +126,7 @@ function makeLogTab(id: number): GitLogTabState {
   return {
     kind: 'log',
     id,
-    selectedRef: null,
+    selectedRefs: [],
     filter: '',
     filterRegex: false,
     filterCase: false,

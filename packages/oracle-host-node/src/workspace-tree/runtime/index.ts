@@ -661,10 +661,10 @@ export function createWorkspaceTreeRuntime(options: WorkspaceTreeRuntimeOptions)
     log(
       workspaceId: string,
       limit?: number,
-      ref?: string,
+      scope?: readonly string[],
       filters?: WorkspaceTreeLogFilters,
     ): Promise<WorkspaceTreeLogRpcResult> {
-      return runWorkspaceLog(ctx, workspaceId, limit, ref, filters);
+      return runWorkspaceLog(ctx, workspaceId, limit, scope, filters);
     },
 
     fileLog(workspaceId: string, filePath: string, limit?: number): Promise<WorkspaceTreeLogRpcResult> {
