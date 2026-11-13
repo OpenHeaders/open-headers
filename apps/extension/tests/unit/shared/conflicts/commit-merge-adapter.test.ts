@@ -127,10 +127,9 @@ describe('buildCommitMergeSession', () => {
     ]);
   });
 
-  it('a refusal about none marks them all', async () => {
+  it('a refusal about no one file is the apply’s as a whole: it rejects, and no file is marked', async () => {
     const built = session(async () => ({ ok: false, error: 'host unreachable' }));
-    const outcomes = await built.onApply(built.files, new Map());
-    expect(outcomes.every((outcome) => !outcome.ok && outcome.error === 'host unreachable')).toBe(true);
+    await expect(built.onApply(built.files, new Map())).rejects.toThrow('host unreachable');
   });
 
   it('asks for its files to be listed even when there is one — the title names the pass, never the file', () => {

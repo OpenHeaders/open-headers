@@ -50,6 +50,12 @@ export interface MergeSession {
   /** List the files even when there is one — for a session whose title
    *  does not name what is being resolved. Several files always list. */
   alwaysListFiles?: boolean;
+  /**
+   * Take the results. Resolves with what became of each file. Rejects
+   * when the apply as a whole could not be made, for a reason that is no
+   * one file's: nothing was taken, the editor says the reason once and
+   * stays as it was — the same press goes again.
+   */
   onApply(files: MergeFile[], results: Map<string, string>): Promise<MergeApplyOutcome[]>;
   onCancel(): void;
 }

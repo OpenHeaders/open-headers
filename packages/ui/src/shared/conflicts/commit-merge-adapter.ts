@@ -117,6 +117,8 @@ export function buildCommitMergeSession(args: BuildCommitMergeSessionArgs): Merg
     onApply: async (filesArg, results) => {
       const answers = filesArg.map((file) => ({ path: file.id, content: results.get(file.id) ?? file.initialResult }));
       const outcome = await apply(answers);
+      // A refusal about no one file is the apply's as a whole — the editor says it once and keeps the answers.
+      if (!outcome.ok && outcome.path === undefined) throw new Error(outcome.error);
       return filesArg.map((file): MergeApplyOutcome => {
         if (outcome.ok || (outcome.path !== undefined && outcome.path !== file.id)) {
           return { fileId: file.id, ok: true, status: 'resolved' };

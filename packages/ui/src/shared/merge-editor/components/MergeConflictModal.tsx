@@ -84,6 +84,8 @@ const MergeConflictModal = ({
   const paneRef = useRef<MergePaneHandle>(null);
   const [applying, setApplying] = useState(false);
   const [outcomes, setOutcomes] = useState<MergeApplyOutcome[]>([]);
+  // Why the last apply could not be made at all — no one file's fault, said once.
+  const [refusal, setRefusal] = useState<string | null>(null);
   const [stats, setStats] = useState<HunkStats>({
     theirsRemaining: 0,
     mineRemaining: 0,
@@ -333,8 +335,13 @@ const MergeConflictModal = ({
         activeText: paneRef.current?.getResultText(),
       });
       const next = await session.onApply(session.files, results);
+      setRefusal(null);
       setOutcomes(next);
       if (next.every((o) => o.ok)) onClose();
+    } catch (err) {
+      // Nothing was taken: every answer stands and Complete Merge can be pressed again.
+      setOutcomes([]);
+      setRefusal(err instanceof Error ? err.message : String(err));
     } finally {
       setApplying(false);
     }
@@ -528,6 +535,7 @@ const MergeConflictModal = ({
             </Text>
           </Space>
         </div>
+        {refusal !== null ? <Alert type="error" showIcon title={refusal} data-testid="merge-apply-refusal" /> : null}
         {failedOutcomes.length > 0 ? (
           <Alert
             type="error"

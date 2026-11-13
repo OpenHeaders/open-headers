@@ -46,9 +46,13 @@ vi.mock('@openheaders/ui/shared/merge-editor', () => {
           data-testid="merge-apply"
           onClick={async () => {
             const results = new Map(session.files.map((file) => [file.id, file.theirs] as const));
-            const outcomes = await session.onApply(session.files, results);
-            setErrors(outcomes.flatMap((outcome) => (outcome.ok ? [] : [`${outcome.fileId}: ${outcome.error}`])));
-            if (outcomes.every((outcome) => outcome.ok)) onClose();
+            try {
+              const outcomes = await session.onApply(session.files, results);
+              setErrors(outcomes.flatMap((outcome) => (outcome.ok ? [] : [`${outcome.fileId}: ${outcome.error}`])));
+              if (outcomes.every((outcome) => outcome.ok)) onClose();
+            } catch (err) {
+              setErrors([`refused: ${err instanceof Error ? err.message : String(err)}`]);
+            }
           }}
         >
           apply

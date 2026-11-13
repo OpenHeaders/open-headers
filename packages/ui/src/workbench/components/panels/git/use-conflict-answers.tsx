@@ -12,8 +12,10 @@
  * the same way: the branch and the tree stay as they were.
  *
  * Either stays open while the host cannot take the answers — a file
- * that does not read is marked in the editor, and a branch that moved
- * meanwhile brings the files back as they stand now. It closes when the
+ * that does not read is marked in the editor, a branch that moved
+ * meanwhile brings the files back as they stand now, and an index
+ * another git process holds is said with the answers kept, to be sent
+ * again. It closes when the
  * pass is over, whichever way, and hands the verb's answer back.
  */
 
@@ -111,6 +113,10 @@ export function useConflictAnswers(): ConflictAnswers {
             notification.warning({ title: stale, duration: 0 });
             setConflict({ step, title, resolve: result.resolve, deliver, cancel });
             return { ok: false, error: stale, again: true };
+          }
+          if (!result.ok && result.reason === 'index-locked') {
+            // Another git process holds the index: nothing was written and the answer stands — it can be sent again.
+            return { ok: false, error: t('workbench.gitLog.indexLocked') };
           }
           // Recorded, or refused for a reason no answer changes — the caller takes it from here.
           settle(result);

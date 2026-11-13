@@ -36,7 +36,8 @@ vi.mock('@openheaders/core/bridge', async (importOriginal) => {
 vi.mock('@openheaders/ui/workbench/components/panels/git/DiffModal', () => ({ default: () => null }));
 
 // The Monaco editor stays out of jsdom: the stub keeps the modal's contract — Complete Merge answers
-// every file with the incoming text and closes when every outcome is ok; Cancel tells the session.
+// every file with the incoming text and closes when every outcome is ok, an apply that rejects is said and the
+// modal stays; Cancel tells the session.
 vi.mock('@openheaders/ui/shared/merge-editor', () => {
   const MergeConflictModal = ({ session, onClose }: MergeConflictModalProps): React.ReactElement => {
     const [errors, setErrors] = useState<string[]>([]);
@@ -50,9 +51,13 @@ vi.mock('@openheaders/ui/shared/merge-editor', () => {
           data-testid="merge-apply"
           onClick={async () => {
             const results = new Map(session.files.map((file) => [file.id, file.theirs] as const));
-            const outcomes = await session.onApply(session.files, results);
-            setErrors(outcomes.flatMap((outcome) => (outcome.ok ? [] : [`${outcome.fileId}: ${outcome.error}`])));
-            if (outcomes.every((outcome) => outcome.ok)) onClose();
+            try {
+              const outcomes = await session.onApply(session.files, results);
+              setErrors(outcomes.flatMap((outcome) => (outcome.ok ? [] : [`${outcome.fileId}: ${outcome.error}`])));
+              if (outcomes.every((outcome) => outcome.ok)) onClose();
+            } catch (err) {
+              setErrors([`refused: ${err instanceof Error ? err.message : String(err)}`]);
+            }
           }}
         >
           apply
@@ -392,6 +397,67 @@ describe('usePassAnswers', () => {
     fireEvent.click(screen.getByTestId('merge-apply'));
     await waitFor(() => expect(screen.getByTestId('merge-errors').textContent).toBe(`${REQUEST}: bad yaml`));
     expect(screen.getByTestId('merge-modal')).toBeTruthy();
+  });
+
+  it('an index another git process holds keeps the editor and its answers; the same press goes again', async () => {
+    const done = { ok: true };
+    const verb = verbOf()
+      .mockResolvedValueOnce(conflicts)
+      .mockResolvedValueOnce({ ok: false, reason: 'index-locked' })
+      .mockResolvedValueOnce(done);
+    const answers = mount();
+    let answer: Promise<PassRefusal | null> | null = null;
+    let settled = false;
+    act(() => {
+      answer = answers.run({ kind: 'pull' }, verb);
+      void answer.then(() => {
+        settled = true;
+      });
+    });
+    await toEditor();
+    fireEvent.click(screen.getByTestId('merge-apply'));
+    await waitFor(() =>
+      expect(screen.getByTestId('merge-errors').textContent).toBe(
+        'refused: Another Git process is using this repository. Try again in a moment.',
+      ),
+    );
+    expect(screen.getByTestId('merge-modal')).toBeTruthy();
+    expect(settled).toBe(false);
+
+    fireEvent.click(screen.getByTestId('merge-apply'));
+    await act(async () => {
+      expect(await answer).toBe(done);
+    });
+    expect(verb.mock.calls).toEqual([[{}], [{ resolution: answered }], [{ resolution: answered }]]);
+    expect(screen.queryByTestId('merge-modal')).toBeNull();
+  });
+
+  it('one side given under a held index says so and leaves the files listed; the side goes again', async () => {
+    const done = { ok: true };
+    const verb = verbOf()
+      .mockResolvedValueOnce(conflicts)
+      .mockResolvedValueOnce({ ok: false, reason: 'index-locked' })
+      .mockResolvedValueOnce(done);
+    const answers = mount();
+    let answer: Promise<PassRefusal | null> | null = null;
+    act(() => {
+      answer = answers.run({ kind: 'pull' }, verb);
+    });
+    await waitFor(() => expect(listedFile()).toBe(REQUEST));
+
+    fireEvent.click(screen.getByTestId('git-tool-conflict-files-mine'));
+    await waitFor(() =>
+      expect(screen.getByText('Another Git process is using this repository. Try again in a moment.')).toBeTruthy(),
+    );
+    expect(listedFile()).toBe(REQUEST);
+    expect(verb).toHaveBeenCalledTimes(2);
+
+    fireEvent.click(screen.getByTestId('git-tool-conflict-files-mine'));
+    await act(async () => {
+      expect(await answer).toBe(done);
+    });
+    const side = { resolution: { token: 'token-1', side: 'mine' } };
+    expect(verb.mock.calls).toEqual([[{}], [side], [side]]);
   });
 });
 
