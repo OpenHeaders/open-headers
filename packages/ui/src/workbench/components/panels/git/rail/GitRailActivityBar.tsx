@@ -8,7 +8,8 @@
  * short for the run, the tail folds behind a › chevron whose hover or
  * click lays the folded buttons out in a strip beside it (the
  * reference's overflow) — the shared toolbar-overflow fit decides the
- * cut. Presentational: enablement and handlers arrive from the rail
+ * cut. A button's tooltip opens beside the bar, and above the strip.
+ * Presentational: enablement and handlers arrive from the rail
  * orchestrator; Show My Branches ships visible but disabled (the
  * placeholder).
  */
@@ -26,7 +27,7 @@ import {
 } from '@ant-design/icons';
 import { Dropdown, theme, Tooltip } from 'antd';
 import type React from 'react';
-import { useState } from 'react';
+import { createContext, useContext, useState } from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { CollapseAllIcon, ExpandAllIcon, FetchIcon, PullIcon } from '@openheaders/ui/shared/icons';
 import { type ToolbarOverflowItem, useToolbarOverflow } from '@openheaders/ui/shared/toolbar-overflow';
@@ -75,6 +76,13 @@ interface BarButtonProps {
 
 const BUTTON_EXTENT = 24;
 const SEPARATOR_EXTENT = 7;
+
+/**
+ * Where a button's tooltip opens: beside it in the bar; above it in the
+ * › chevron's strip, which lies along the bar's side — beside would
+ * cover the strip's next buttons.
+ */
+const TooltipSide = createContext<'right' | 'top'>('right');
 const GAP = 2;
 const BAR_PADDING = 12;
 
@@ -89,6 +97,7 @@ const BarButton: React.FC<BarButtonProps> = ({
   popoverOpen = false,
 }) => {
   const { token } = theme.useToken();
+  const side = useContext(TooltipSide);
   // Hidden the instant the button is clicked, back on the next hover —
   // so a popover the click opens is never covered by its own tooltip.
   const [suppressed, setSuppressed] = useState(false);
@@ -126,7 +135,7 @@ const BarButton: React.FC<BarButtonProps> = ({
   );
   if (!tooltip) return button;
   return (
-    <Tooltip placement="right" title={title} open={popoverOpen || suppressed ? false : undefined}>
+    <Tooltip placement={side} title={title} open={popoverOpen || suppressed ? false : undefined}>
       {button}
     </Tooltip>
   );
@@ -411,7 +420,7 @@ const GitRailActivityBar: React.FC<GitRailActivityBarProps> = (props) => {
                 boxShadow: token.boxShadowSecondary,
               }}
             >
-              {folded.map((entry) => render(entry, true))}
+              <TooltipSide.Provider value="top">{folded.map((entry) => render(entry, true))}</TooltipSide.Provider>
             </div>
           )}
         >
