@@ -56,6 +56,14 @@ body {
   font-family: var(--oh-ui-font-family, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif);
 }
 
+// A native button takes the browser's own font, not its parent's — a
+// row or a chip built on a plain `<button>` would paint in the
+// platform's default face under every preset. A button that wants
+// another face (code, the terminal) names it itself.
+button {
+  font-family: inherit;
+}
+
 // ── Shell layout ───────────────────────────────────────────────────
 
 .rules-shell {
