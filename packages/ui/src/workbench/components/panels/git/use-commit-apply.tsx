@@ -13,14 +13,19 @@
  * changed a document the branch also changed is answered in the merge
  * editor. The set waits on each and resumes after it; Cancel leaves the
  * branch as it was and ends the set.
+ *
+ * Each call says it is at the host (`use-git-work`) — a pick answers
+ * in about a second, with nothing else on the surface until then. One
+ * set runs at a time: a second press while one is out is not taken.
  */
 
 import { hostBridge, type WorkspaceTreeApplyCommitWire } from '@openheaders/core/bridge';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { App as AntApp } from 'antd';
-import type { ReactNode } from 'react';
+import { type ReactNode, useRef } from 'react';
 import { type CommitApplyMode, commitApplyOrder, shortSha } from './commit-apply';
 import { committedLocalNotice, keptLocalNotice, leftOutNotice, namePaths, refusalDetail } from './kept-local';
+import { useGitWork } from './use-git-work';
 import { usePassAnswers } from './use-pass-answers';
 
 export interface CommitApplyActions {
@@ -28,6 +33,8 @@ export interface CommitApplyActions {
   cherryPick: (shas: readonly string[]) => void;
   /** Undo the commits' own changes on the current branch. */
   revert: (shas: readonly string[]) => void;
+  /** A pick or a revert is at the host right now — not while it waits on the person's answer. */
+  working: boolean;
   /** The uncommitted-work question and the conflict editor — mount once in the caller's tree. */
   dialogs: ReactNode;
 }
@@ -40,6 +47,8 @@ export function useCommitApply(workspaceId: string): CommitApplyActions {
   const t = useT();
   const { notification } = AntApp.useApp();
   const answers = usePassAnswers();
+  const work = useGitWork();
+  const running = useRef(false);
 
   const refusalTitle = (mode: CommitApplyMode, sha: string, refusal: Refusal): string => {
     const commit = shortSha(sha);
@@ -75,12 +84,17 @@ export function useCommitApply(workspaceId: string): CommitApplyActions {
       if (first !== null) notification.info({ title: first, duration: 0 });
     });
 
-  const run = async (shas: readonly string[], mode: CommitApplyMode): Promise<void> => {
+  const apply = async (shas: readonly string[], mode: CommitApplyMode): Promise<void> => {
     let applied = 0;
     for (const sha of commitApplyOrder(shas, mode)) {
+      const title = t(mode === 'pick' ? 'workbench.gitLog.working.cherryPick' : 'workbench.gitLog.working.revert', {
+        commit: shortSha(sha),
+      });
       try {
         const result = await answers.run({ kind: mode, sha }, (given) =>
-          hostBridge.call('oh.workspaceTree.applyCommit', { workspaceId, sha, mode, ...given }),
+          work.atHost(title, () =>
+            hostBridge.call('oh.workspaceTree.applyCommit', { workspaceId, sha, mode, ...given }),
+          ),
         );
         if (result === null) break;
         sayRemainder(result);
@@ -108,9 +122,20 @@ export function useCommitApply(workspaceId: string): CommitApplyActions {
     }
   };
 
+  const run = async (shas: readonly string[], mode: CommitApplyMode): Promise<void> => {
+    if (running.current) return;
+    running.current = true;
+    try {
+      await apply(shas, mode);
+    } finally {
+      running.current = false;
+    }
+  };
+
   return {
     cherryPick: (shas) => void run(shas, 'pick'),
     revert: (shas) => void run(shas, 'revert'),
+    working: work.working,
     dialogs: answers.dialogs,
   };
 }

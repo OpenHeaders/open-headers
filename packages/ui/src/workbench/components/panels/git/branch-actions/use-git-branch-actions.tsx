@@ -40,6 +40,7 @@ import CreateBranchModal from '../rail/CreateBranchModal';
 import CreateTagModal from '../rail/CreateTagModal';
 import RemotesModal from '../remotes/RemotesModal';
 import SwitchBranchModal, { type SwitchBranchPrompt, type SwitchDirtyChoice } from '../rail/SwitchBranchModal';
+import { useGitWork } from '../use-git-work';
 import { usePassAnswers } from '../use-pass-answers';
 
 export interface GitBranchActionsOptions {
@@ -60,8 +61,8 @@ export interface GitBranchBusy {
   pull: boolean;
   push: boolean;
   /**
-   * A fetch, pull, merge, update or push is at the host right now — not
-   * while one of them waits on the person's answer.
+   * A checkout, fetch, pull, merge, update, push or abort is at the host
+   * right now — not while one of them waits on the person's answer.
    */
   working: boolean;
 }
@@ -114,19 +115,11 @@ export function useGitBranchActions(options: GitBranchActionsOptions): GitBranch
   const [pushRejected, setPushRejected] = useState(false);
   const [remotesOpen, setRemotesOpen] = useState(false);
   const [tagAt, setTagAt] = useState<string | null>(null);
-  const [hostCalls, setHostCalls] = useState(0);
   const answers = usePassAnswers();
-
-  // A transfer verb at the host, counted: a pass's own questions sit
-  // between its calls, and the surface shows work only while one is out.
-  const atHost = async <R,>(call: () => Promise<R>): Promise<R> => {
-    setHostCalls((count) => count + 1);
-    try {
-      return await call();
-    } finally {
-      setHostCalls((count) => count - 1);
-    }
-  };
+  // A verb at the host, named and counted (`use-git-work`): a pass's own
+  // questions sit between its calls, and the surface shows work only
+  // while one is out.
+  const { atHost, working } = useGitWork();
 
   const failure = (err: unknown): string => (err instanceof Error ? err.message : String(err));
 
@@ -157,11 +150,13 @@ export function useGitBranchActions(options: GitBranchActionsOptions): GitBranch
     setSwitching(true);
     const branch = isFullCommitSha(target) ? target.slice(0, 7) : target;
     try {
-      const result = await hostBridge.call('oh.workspaceTree.switchBranch', {
-        workspaceId,
-        branch: target,
-        ...(dirtyAction !== undefined ? { dirtyAction } : {}),
-      });
+      const result = await atHost(t('workbench.gitLog.working.checkout', { branch }), () =>
+        hostBridge.call('oh.workspaceTree.switchBranch', {
+          workspaceId,
+          branch: target,
+          ...(dirtyAction !== undefined ? { dirtyAction } : {}),
+        }),
+      );
       if (result.ok) {
         setSwitchPrompt(null);
         if (result.switched) {
@@ -192,12 +187,9 @@ export function useGitBranchActions(options: GitBranchActionsOptions): GitBranch
       return;
     }
     try {
-      const result = await hostBridge.call('oh.workspaceTree.createBranch', {
-        workspaceId,
-        branch: local,
-        from: ref,
-        checkout: true,
-      });
+      const result = await atHost(t('workbench.gitLog.working.checkout', { branch: local }), () =>
+        hostBridge.call('oh.workspaceTree.createBranch', { workspaceId, branch: local, from: ref, checkout: true }),
+      );
       if (result.ok) {
         notification.info({
           title: t('workbench.gitLog.createBranch.checkedOut', { branch: result.branch, from: ref }),
@@ -222,7 +214,9 @@ export function useGitBranchActions(options: GitBranchActionsOptions): GitBranch
     const branch = currentRef ?? 'HEAD';
     try {
       const result = await answers.run({ kind: 'merge', ref }, (given) =>
-        atHost(() => hostBridge.call('oh.workspaceTree.mergeBranch', { workspaceId, ref, ...given })),
+        atHost(t('workbench.gitLog.working.merge', { ref }), () =>
+          hostBridge.call('oh.workspaceTree.mergeBranch', { workspaceId, ref, ...given }),
+        ),
       );
       if (result === null) return;
       if (!result.ok) {
@@ -257,7 +251,9 @@ export function useGitBranchActions(options: GitBranchActionsOptions): GitBranch
     if (updateBusy) return;
     setUpdateBusy(true);
     try {
-      const result = await atHost(() => hostBridge.call('oh.workspaceTree.updateBranch', { workspaceId, branch }));
+      const result = await atHost(t('workbench.gitLog.working.update', { branch }), () =>
+        hostBridge.call('oh.workspaceTree.updateBranch', { workspaceId, branch }),
+      );
       if (!result.ok) {
         notification.error({
           title:
@@ -285,7 +281,7 @@ export function useGitBranchActions(options: GitBranchActionsOptions): GitBranch
       cancelText: t('workbench.gitLog.modal.cancel'),
       onOk: async () => {
         try {
-          const result = await atHost(() => hostBridge.call('oh.workspaceTree.abortOperation', { workspaceId }));
+          const result = await atHost(label, () => hostBridge.call('oh.workspaceTree.abortOperation', { workspaceId }));
           if (result.ok) notification.success({ title: t('workbench.gitBranch.abort.done') });
           else {
             notification.error({
@@ -351,7 +347,9 @@ export function useGitBranchActions(options: GitBranchActionsOptions): GitBranch
     if (fetchBusy) return;
     setFetchBusy(true);
     try {
-      const result = await atHost(() => hostBridge.call('oh.workspaceTree.fetch', { workspaceId }));
+      const result = await atHost(t('workbench.gitLog.working.fetch'), () =>
+        hostBridge.call('oh.workspaceTree.fetch', { workspaceId }),
+      );
       if (!result.ok) {
         notification.error({
           title:
@@ -375,7 +373,9 @@ export function useGitBranchActions(options: GitBranchActionsOptions): GitBranch
     setPullBusy(true);
     try {
       const result = await answers.run({ kind: 'pull' }, (given) =>
-        atHost(() => hostBridge.call('oh.workspaceTree.pull', { workspaceId, ...given })),
+        atHost(t('workbench.gitLog.working.pull'), () =>
+          hostBridge.call('oh.workspaceTree.pull', { workspaceId, ...given }),
+        ),
       );
       if (result === null) return false;
       if (!result.ok) {
@@ -420,7 +420,9 @@ export function useGitBranchActions(options: GitBranchActionsOptions): GitBranch
     if (pushBusy) return;
     setPushBusy(true);
     try {
-      const result = await atHost(() => hostBridge.call('oh.workspaceTree.push', { workspaceId }));
+      const result = await atHost(t('workbench.gitLog.working.push'), () =>
+        hostBridge.call('oh.workspaceTree.push', { workspaceId }),
+      );
       if (result.ok) {
         notification.success({
           title: t(result.pushed ? 'workbench.commitTool.pushed' : 'workbench.commitTool.nothingToPush'),
@@ -524,7 +526,7 @@ export function useGitBranchActions(options: GitBranchActionsOptions): GitBranch
       fetch: fetchBusy,
       pull: pullBusy,
       push: pushBusy,
-      working: hostCalls > 0,
+      working,
     },
     dialogs,
   };

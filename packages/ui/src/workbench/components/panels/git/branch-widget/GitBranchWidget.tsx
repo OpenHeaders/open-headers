@@ -6,7 +6,7 @@
  * branch), the incoming / outgoing counts against the upstream, and
  * the caret. While a git operation started outside the app stands (a
  * rebase, a merge, a cherry-pick, a revert, a bisect) the glyph is the
- * warning and the name says which. While one of the widget's own transfer verbs is at the
+ * warning and the name says which. While one of the widget's own verbs is at the
  * host the glyph gives way to a spinner — the popup has closed by then
  * and nothing else says the verb is running. Click opens
  * `GitBranchPopup`. Reads the shared git status

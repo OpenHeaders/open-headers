@@ -10,12 +10,15 @@ import { hostBridge } from '@openheaders/core/bridge';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { App as AntApp } from 'antd';
 import { patchApplyOrder, patchFilename } from './commit-patch';
+import { useGitWork } from './use-git-work';
 
 export interface CommitPatchActions {
   /** Save the commits (list order, newest first) as one patch file. */
   createPatch: (shas: readonly string[]) => void;
   /** Put the same patch text on the clipboard. */
   copyAsPatch: (shas: readonly string[]) => void;
+  /** The patch is being read at the host right now. */
+  working: boolean;
 }
 
 function downloadPatch(filename: string, patch: string): void {
@@ -35,13 +38,13 @@ function downloadPatch(filename: string, patch: string): void {
 export function useCommitPatch(workspaceId: string): CommitPatchActions {
   const t = useT();
   const { notification } = AntApp.useApp();
+  const work = useGitWork();
 
   const read = async (shas: readonly string[]): Promise<string | null> => {
     try {
-      const result = await hostBridge.call('oh.workspaceTree.commitPatch', {
-        workspaceId,
-        shas: patchApplyOrder(shas),
-      });
+      const result = await work.atHost(t('workbench.gitLog.working.patch'), () =>
+        hostBridge.call('oh.workspaceTree.commitPatch', { workspaceId, shas: patchApplyOrder(shas) }),
+      );
       if (result.ok) return result.patch;
       notification.error({
         title:
@@ -74,5 +77,6 @@ export function useCommitPatch(workspaceId: string): CommitPatchActions {
   return {
     createPatch: (shas) => void createPatch(shas),
     copyAsPatch: (shas) => void copyAsPatch(shas),
+    working: work.working,
   };
 }

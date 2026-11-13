@@ -49,6 +49,7 @@ import {
 } from './git-log-recent-filters';
 import { getGitLogViewPrefs, patchGitLogViewPrefs, subscribeGitLogViewPrefs } from './git-log-view-prefs';
 import { GIT_LOG_SCOPE_HEAD, type GitLogTabState, gitPanelTabKey } from './git-panel-view-store';
+import GitWorkingLine from './GitWorkingLine';
 import { computeLogGraph } from './graph';
 import { contractLog, firstParentOnly, firstParentReach } from './graph-filtered';
 import { topologicalOrder } from './log-topological';
@@ -494,6 +495,10 @@ const GitLogView: React.FC<GitLogViewProps> = ({
     },
   });
 
+  // One of this window's verbs is at the host — a pick, a revert, a
+  // patch read, a branch verb: the log says so until the host answers.
+  const atHost = commitApply.working || commitPatch.working || actions.busy.working;
+
   // The commit rows' menu: the clipboard read, the patch of the set,
   // the pick and the revert of the set, the detached checkout, the New Branch and New Tag dialogs anchored
   // at the commit, and the parent / child walk.
@@ -619,7 +624,9 @@ const GitLogView: React.FC<GitLogViewProps> = ({
             entries={entries}
             loading={loading}
             onRefresh={() => void reload()}
-            onCherryPick={pickTargets.length > 0 ? () => commitApply.cherryPick(pickTargets) : undefined}
+            onCherryPick={
+              pickTargets.length > 0 && !commitApply.working ? () => commitApply.cherryPick(pickTargets) : undefined
+            }
             onNavigate={navigateToSha}
             prefs={prefs}
             onPatchPrefs={(patch) => patchGitLogViewPrefs(workspaceId, patch)}
@@ -630,6 +637,7 @@ const GitLogView: React.FC<GitLogViewProps> = ({
             textInvalid={matcher.kind === 'invalid'}
             container={container}
           />
+          <GitWorkingLine active={atHost} />
           <CommitList
             entries={shown.entries}
             graph={graph}

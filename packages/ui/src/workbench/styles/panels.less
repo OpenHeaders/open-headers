@@ -52,6 +52,57 @@
   }
 }
 
+// A git verb at the host: a thin line along the top edge of the log
+// until the host answers — a faint track that is there on the first
+// frame, and a brighter run travelling over it that starts in view (a
+// verb answers in half a second; a run that eases in from outside
+// shows nothing for the first part of it). Its colour is the element's
+// own (`color`, set from the theme); where motion is reduced the run
+// stands still over the whole track.
+.git-working-line {
+  position: absolute;
+  inset: 0 0 auto 0;
+  z-index: 1;
+  height: 2px;
+  overflow: hidden;
+  pointer-events: none;
+
+  &::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: currentColor;
+    opacity: 0.25;
+  }
+
+  &::before {
+    content: '';
+    position: absolute;
+    inset: 0 auto 0 0;
+    width: 40%;
+    background: currentColor;
+    animation: git-working-line 1.1s linear infinite;
+  }
+}
+
+@keyframes git-working-line {
+  from {
+    transform: translateX(-40%);
+  }
+
+  to {
+    transform: translateX(250%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .git-working-line::before {
+    width: 100%;
+    opacity: 0.6;
+    animation: none;
+  }
+}
+
 // The Branch chip's menu: a row's star is gold while the ref is a
 // favorite; off, it is an outline that shows only under the pointer (or
 // on the row the keys stand on) — in the menu, its submenus and the
