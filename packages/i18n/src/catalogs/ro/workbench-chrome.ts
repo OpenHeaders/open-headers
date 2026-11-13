@@ -538,6 +538,7 @@ export const workbenchChrome = {
   'workbench.gitLog.menu.select': 'Selectare…',
   'workbench.gitLog.menu.selectInTree': 'Selectare în arbore…',
   'workbench.gitLog.menu.favorites': 'Favorite',
+  'workbench.gitLog.menu.clearHint': 'Apasă {key} pentru a șterge filtrul',
   'workbench.gitLog.user.me': 'eu',
   'workbench.gitLog.date.last24h': 'Ultimele 24 de ore',
   'workbench.gitLog.date.last7d': 'Ultimele 7 zile',

@@ -510,6 +510,7 @@ export const workbenchChrome = {
   'workbench.gitLog.menu.select': '선택…',
   'workbench.gitLog.menu.selectInTree': '트리에서 선택…',
   'workbench.gitLog.menu.favorites': '즐겨찾기',
+  'workbench.gitLog.menu.clearHint': '{key} 키를 눌러 필터 지우기',
   'workbench.gitLog.user.me': '나',
   'workbench.gitLog.date.last24h': '최근 24시간',
   'workbench.gitLog.date.last7d': '최근 7일',

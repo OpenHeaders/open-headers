@@ -6,7 +6,9 @@
  * the tab read it. Pure.
  */
 
+import type { WorkspaceTreeRefWire } from '@openheaders/core/bridge';
 import { GIT_LOG_SCOPE_HEAD } from './git-panel-view-store';
+import { refFavoriteKey } from './rail/ref-favorites';
 
 export type GitLogScope = readonly string[];
 
@@ -32,6 +34,15 @@ export function logScopeWire(scope: GitLogScope): GitLogScopeWire {
 export function scopeWithout(scope: GitLogScope, gone: Iterable<string>): string[] {
   const dropped = new Set(gone);
   return scope.filter((ref) => !dropped.has(ref));
+}
+
+/** What the Branch menu's Favorites row scopes the log to: HEAD, then every favorite ref — a name once. */
+export function favoritesScope(
+  refs: readonly Pick<WorkspaceTreeRefWire, 'name' | 'kind'>[],
+  favorites: ReadonlySet<string>,
+): string[] {
+  const starred = refs.filter((ref) => favorites.has(refFavoriteKey(ref.kind, ref.name))).map((ref) => ref.name);
+  return [...new Set([GIT_LOG_SCOPE_HEAD, ...starred])];
 }
 
 const CHIP_TEXT_MAX = 20;

@@ -510,6 +510,7 @@ export const workbenchChrome = {
   'workbench.gitLog.menu.select': '選択…',
   'workbench.gitLog.menu.selectInTree': 'ツリーで選択…',
   'workbench.gitLog.menu.favorites': 'お気に入り',
+  'workbench.gitLog.menu.clearHint': '{key} でフィルターをクリア',
   'workbench.gitLog.user.me': '自分',
   'workbench.gitLog.date.last24h': '過去 24 時間',
   'workbench.gitLog.date.last7d': '過去 7 日間',

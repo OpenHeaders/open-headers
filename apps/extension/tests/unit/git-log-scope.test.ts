@@ -2,10 +2,12 @@
  * log-scope (S66): a log tab's scope as a list of refs walked together —
  * what it asks of the host (every ref, the default walk, one ref by the
  * field every host reads, several by `refs`), what is left when refs go,
- * and how the chip, its hover and the tab read it.
+ * what the Branch menu's Favorites row applies, and how the chip, its
+ * hover and the tab read it.
  */
 
 import {
+  favoritesScope,
   logScopeWire,
   scopeChipText,
   scopeHoverText,
@@ -38,6 +40,41 @@ describe('scopeWithout', () => {
     ]);
     expect(scopeWithout(['main'], ['main'])).toEqual([]);
     expect(scopeWithout(['main', 'fix/probe-timeout'], ['gone'])).toEqual(['main', 'fix/probe-timeout']);
+  });
+});
+
+describe('favoritesScope', () => {
+  const refs = [
+    { name: 'feature/orders-v2', kind: 'local' as const },
+    { name: 'main', kind: 'local' as const },
+    { name: 'origin/main', kind: 'remote' as const },
+    { name: 'v2026.10.3', kind: 'tag' as const },
+  ];
+
+  it('is HEAD, then every favorite ref in the listing’s order', () => {
+    expect(favoritesScope(refs, new Set(['local:main', 'remote:origin/main']))).toEqual([
+      'HEAD',
+      'main',
+      'origin/main',
+    ]);
+    expect(favoritesScope(refs, new Set(['tag:v2026.10.3', 'local:feature/orders-v2']))).toEqual([
+      'HEAD',
+      'feature/orders-v2',
+      'v2026.10.3',
+    ]);
+  });
+
+  it('is HEAD alone with no favorite, and names a branch and its same-named tag once', () => {
+    expect(favoritesScope(refs, new Set())).toEqual(['HEAD']);
+    const twins = [
+      { name: 'release', kind: 'local' as const },
+      { name: 'release', kind: 'tag' as const },
+    ];
+    expect(favoritesScope(twins, new Set(['local:release', 'tag:release']))).toEqual(['HEAD', 'release']);
+  });
+
+  it('skips a favorite the listing no longer holds', () => {
+    expect(favoritesScope(refs, new Set(['local:gone', 'local:main']))).toEqual(['HEAD', 'main']);
   });
 });
 

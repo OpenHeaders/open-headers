@@ -502,6 +502,7 @@ export const workbenchChrome = {
   'workbench.gitLog.menu.select': 'Select…',
   'workbench.gitLog.menu.selectInTree': 'Select in Tree…',
   'workbench.gitLog.menu.favorites': 'Favorites',
+  'workbench.gitLog.menu.clearHint': 'Press {key} to clear the filter',
   'workbench.gitLog.user.me': 'me',
   'workbench.gitLog.date.last24h': 'Last 24 hours',
   'workbench.gitLog.date.last7d': 'Last 7 days',

@@ -1,14 +1,16 @@
 /**
  * BranchFilterChip — the log toolbar's `Branch:` chip and its picker,
  * the reference's reading: Select… (the searchable list), the
- * Favorites section — HEAD, then the favorite refs — and one submenu
+ * Favorites row — a click scopes the log to HEAD and every favorite at
+ * once — over HEAD and the favorite refs, and one submenu
  * per namespace: Local, each remote's `<remote>/…`, Tags. Every ref
  * row carries its STAR in the icon slot: gold while the ref is a
  * favorite, an outline on hover while it is not; a click on the star
  * toggles the favorite and picks nothing. A ref un-starred in the
  * Favorites section stays listed until the menu closes, so the star
  * can be put back. HEAD's star is fixed. Typing with the menu open
- * starts the search with what was typed.
+ * starts the search with what was typed; the delete key clears the
+ * scope, as the menu's last line says.
  *
  * The scope: idle (empty) = the unfiltered all-refs log; picking HEAD
  * or a ref scopes it to that one and the chip reads `Branch: <ref>`; a
@@ -22,9 +24,10 @@ import { Input, Menu, theme } from 'antd';
 import type React from 'react';
 import { useEffect, useMemo, useState } from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
+import { isMac } from '@openheaders/ui/shared/platform';
 import { GIT_LOG_SCOPE_HEAD } from '../git-panel-view-store';
 import { GIT_TEXT_SIZE } from '../git-type-scale';
-import { type GitLogScope, scopeChipText, scopeHoverText } from '../log-scope';
+import { favoritesScope, type GitLogScope, scopeChipText, scopeHoverText } from '../log-scope';
 import { gitRailFavoriteKey } from '../rail/git-rail-prefs';
 import GitFilterChip from './GitFilterChip';
 
@@ -120,9 +123,17 @@ const BranchFilterChip: React.FC<BranchFilterChipProps> = ({
 
   // Typing with the menu open is a search (the reference): the first
   // printable key opens the list with it; the field takes the rest.
+  // The delete key clears a held scope and closes.
   useEffect(() => {
     if (!open || mode !== 'menu') return;
     const onKey = (event: KeyboardEvent): void => {
+      if ((event.key === 'Backspace' || event.key === 'Delete') && scope.length > 0) {
+        event.preventDefault();
+        event.stopPropagation();
+        onScopeChange([]);
+        setOpen(false);
+        return;
+      }
       if (event.key.length !== 1 || event.key === ' ' || event.metaKey || event.ctrlKey || event.altKey) return;
       event.preventDefault();
       event.stopPropagation();
@@ -131,7 +142,7 @@ const BranchFilterChip: React.FC<BranchFilterChipProps> = ({
     };
     document.addEventListener('keydown', onKey, true);
     return () => document.removeEventListener('keydown', onKey, true);
-  }, [open, mode]);
+  }, [open, mode, scope, onScopeChange]);
 
   const namespaces = useMemo(() => {
     const byRemote = new Map<string, WorkspaceTreeRefWire[]>();
@@ -174,6 +185,11 @@ const BranchFilterChip: React.FC<BranchFilterChipProps> = ({
           setMode('search');
           return;
         }
+        if (key === 'favorites') {
+          onScopeChange(favoritesScope(refs, favorites));
+          close();
+          return;
+        }
         if (key === 'head') {
           onScopeChange([GIT_LOG_SCOPE_HEAD]);
           close();
@@ -188,13 +204,11 @@ const BranchFilterChip: React.FC<BranchFilterChipProps> = ({
         { key: 'select', label: t('workbench.gitLog.menu.select') },
         { type: 'divider' },
         {
-          type: 'group',
-          label: t('workbench.gitLog.menu.favorites'),
-          children: [
-            { key: 'head', label: 'HEAD', icon: <Star on label="HEAD" /> },
-            ...listed.map((ref) => ({ ...refItem(ref), key: `ref:${ref.kind}:${ref.name}` })),
-          ],
+          key: 'favorites',
+          label: <span data-testid="git-tool-chip-branch-favorites">{t('workbench.gitLog.menu.favorites')}</span>,
         },
+        { key: 'head', label: 'HEAD', icon: <Star on label="HEAD" /> },
+        ...listed.map(refItem),
         { type: 'divider' },
         ...namespaces.map((namespace) => ({
           key: namespace.key,
@@ -294,7 +308,24 @@ const BranchFilterChip: React.FC<BranchFilterChipProps> = ({
             overflow: 'hidden',
           }}
         >
-          {mode === 'menu' ? menuContent : searchContent}
+          {mode === 'menu' ? (
+            <>
+              {menuContent}
+              <div
+                style={{
+                  padding: '4px 12px 5px',
+                  borderTop: `1px solid ${token.colorBorderSecondary}`,
+                  fontSize: 12,
+                  color: token.colorTextTertiary,
+                }}
+                data-testid="git-tool-chip-branch-hint"
+              >
+                {t('workbench.gitLog.menu.clearHint', { key: isMac ? '⌫' : 'Backspace' })}
+              </div>
+            </>
+          ) : (
+            searchContent
+          )}
         </div>
       )}
       testid="git-tool-scope-chip"
