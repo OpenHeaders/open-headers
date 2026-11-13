@@ -1,19 +1,23 @@
 /**
  * BranchFilterChip — the log toolbar's `Branch:` chip and its picker,
  * the reference's reading: Select… (the field that takes several refs
- * — `BranchScopeField`), the
- * Favorites row — a click scopes the log to HEAD and every favorite at
- * once — over HEAD and the favorite refs, then Recent (the scopes
- * applied last, a click applies one again) and one submenu
- * per namespace: Local, each remote's `<remote>/…`, Tags. Every ref
- * row carries its STAR in the icon slot: gold while the ref is a
- * favorite, an outline on hover while it is not; a click on the star
- * toggles the favorite and picks nothing. A ref un-starred in the
- * Favorites section stays listed until the menu closes, so the star
- * can be put back. HEAD's star is fixed. Typing with the menu open
- * starts the search list with what was typed — one ref a pick, by
- * namespace; the delete key clears the
- * scope, as the menu's last line says.
+ * — `BranchScopeField`), Recent (the scopes applied last, a click
+ * applies one again), the Favorites row — a click scopes the log to
+ * HEAD and every favorite at once — over HEAD and the favorite refs,
+ * and one submenu per namespace: Local, each remote's `<remote>/…`,
+ * Tags. Every ref row carries its STAR in the icon slot: gold while the
+ * ref is a favorite, an outline on hover while it is not; a star that
+ * can be clicked takes a small fill under the pointer, and a click on
+ * it toggles the favorite and picks nothing. A row with no star keeps
+ * the slot empty, so every label starts on one x. A ref un-starred in
+ * the Favorites section stays listed until the menu closes, so the
+ * star can be put back. HEAD's star is fixed.
+ *
+ * Typing with the menu open starts the search list with what was typed
+ * — one ref a pick, by namespace: the popup keeps the menu's own size
+ * and the list scrolls inside it; emptied, the search gives the menu
+ * back with its first row under the keys. The delete key clears the
+ * scope, as the popup's last line says.
  *
  * The scope: idle (empty) = the unfiltered all-refs log; picking HEAD
  * or a ref scopes it to that one and the chip reads `Branch: <ref>`; a
@@ -23,9 +27,9 @@
 
 import { StarFilled, StarOutlined } from '@ant-design/icons';
 import type { WorkspaceTreeRefWire } from '@openheaders/core/bridge';
-import { Input, Menu, theme } from 'antd';
+import { Input, Menu, type MenuRef, theme } from 'antd';
 import type React from 'react';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { isMac } from '@openheaders/ui/shared/platform';
 import { GIT_LOG_SCOPE_HEAD } from '../git-panel-view-store';
@@ -65,20 +69,37 @@ interface StarProps {
   className?: string;
 }
 
+/** The icon slot's width — a star's, and the empty slot's on a row that has none. */
+const STAR_SLOT = 14;
+
+/**
+ * The slot's own measure. The menu sizes an item's icon slot and a
+ * submenu title's differently; saying it here puts every label on one x.
+ */
+const SLOT_BOX: React.CSSProperties = { width: STAR_SLOT, minWidth: STAR_SLOT, marginInlineEnd: 8 };
+
+/** The empty slot of a row with no star: its label starts where a starred row's does. */
+const StarSlot: React.FC<{ className?: string }> = ({ className }) => (
+  <span aria-hidden className={className} style={{ display: 'inline-block', ...SLOT_BOX }} />
+);
+
 /** A row's star: the favorite's state and, where it can be toggled, its own click target. */
 const Star: React.FC<StarProps> = ({ on, onToggle, label, className }) => {
   const { token } = theme.useToken();
+  // In a menu's icon slot the star takes the slot's measure; in the search list the row's own gap spaces it.
+  const slot: React.CSSProperties = className === undefined ? { width: STAR_SLOT } : SLOT_BOX;
   const glyph = on ? <StarFilled /> : <StarOutlined />;
   const classes = ['git-branch-star', on ? 'git-branch-star--on' : '', className ?? ''].filter(Boolean).join(' ');
   const style: React.CSSProperties = {
     display: 'inline-flex',
+    alignItems: 'center',
     justifyContent: 'center',
-    width: 14,
+    height: STAR_SLOT,
     color: token.colorWarningText,
   };
   if (onToggle === undefined) {
     return (
-      <span aria-hidden className={classes} style={style}>
+      <span aria-hidden className={classes} style={{ ...style, ...slot }}>
         {glyph}
       </span>
     );
@@ -92,7 +113,7 @@ const Star: React.FC<StarProps> = ({ on, onToggle, label, className }) => {
       className={classes}
       data-testid="git-tool-chip-branch-star"
       data-on={on}
-      style={{ ...style, cursor: 'pointer' }}
+      style={{ ...style, ...slot, cursor: 'pointer' }}
       onClick={(event) => {
         event.stopPropagation();
         onToggle();
@@ -121,6 +142,13 @@ const BranchFilterChip: React.FC<BranchFilterChipProps> = ({
   const [open, setOpen] = useState(false);
   const [mode, setMode] = useState<'menu' | 'search' | 'select'>('menu');
   const [search, setSearch] = useState('');
+  // The popup's own box as the menu left it — the search list keeps it and scrolls inside.
+  const popupRef = useRef<HTMLDivElement>(null);
+  const [menuBox, setMenuBox] = useState<{ width: number; height: number } | null>(null);
+  // The menu came back from an emptied search: its first row takes the
+  // focus, and with it the keys (a focused row is the menu's active one).
+  const menuRef = useRef<MenuRef>(null);
+  const [fromSearch, setFromSearch] = useState(false);
   // The Favorites section as it stood when the menu opened: a ref
   // un-starred there keeps its row (and its star to put back) until the
   // menu closes.
@@ -128,11 +156,20 @@ const BranchFilterChip: React.FC<BranchFilterChipProps> = ({
 
   const isFavorite = (ref: WorkspaceTreeRefWire): boolean => favorites.has(gitRailFavoriteKey(ref.kind, ref.name));
 
-  const close = (): void => {
-    setOpen(false);
+  const toMenu = (): void => {
     setMode('menu');
     setSearch('');
   };
+
+  const close = (): void => {
+    setOpen(false);
+    setFromSearch(false);
+    toMenu();
+  };
+
+  useEffect(() => {
+    if (open && mode === 'menu' && fromSearch) menuRef.current?.focus();
+  }, [open, mode, fromSearch]);
 
   // Typing with the menu open is a search (the reference): the first
   // printable key opens the list with it; the field takes the rest.
@@ -150,6 +187,8 @@ const BranchFilterChip: React.FC<BranchFilterChipProps> = ({
       if (event.key.length !== 1 || event.key === ' ' || event.metaKey || event.ctrlKey || event.altKey) return;
       event.preventDefault();
       event.stopPropagation();
+      const box = popupRef.current;
+      setMenuBox(box === null ? null : { width: box.offsetWidth, height: box.offsetHeight });
       setMode('search');
       setSearch(event.key);
     };
@@ -191,10 +230,14 @@ const BranchFilterChip: React.FC<BranchFilterChipProps> = ({
 
   const menuContent = (
     <Menu
+      ref={menuRef}
       selectable={false}
       style={{ minWidth: 240, maxHeight: 420, overflowY: 'auto', boxShadow: 'none', border: 'none' }}
-      onClick={({ key }) => {
+      onClick={({ key, domEvent }) => {
         if (key === 'select') {
+          // Opened by Enter, the field mounts and takes the focus inside this
+          // very key press — which would then write its line break into it.
+          domEvent.preventDefault();
           setMode('select');
           return;
         }
@@ -220,20 +263,13 @@ const BranchFilterChip: React.FC<BranchFilterChipProps> = ({
         }
       }}
       items={[
-        { key: 'select', label: t('workbench.gitLog.menu.select') },
-        { type: 'divider' },
-        {
-          key: 'favorites',
-          label: <span data-testid="git-tool-chip-branch-favorites">{t('workbench.gitLog.menu.favorites')}</span>,
-        },
-        { key: 'head', label: 'HEAD', icon: <Star on label="HEAD" /> },
-        ...listed.map(refItem),
-        { type: 'divider' },
+        { key: 'select', label: t('workbench.gitLog.menu.select'), icon: <StarSlot /> },
         ...(recent.length > 0
           ? [
               {
                 key: 'group-recent',
                 label: t('workbench.gitBranch.group.recent'),
+                icon: <StarSlot />,
                 children: recent.map((entry, index) => ({
                   key: `recent:${index}`,
                   label: (
@@ -245,9 +281,18 @@ const BranchFilterChip: React.FC<BranchFilterChipProps> = ({
               },
             ]
           : []),
+        {
+          key: 'favorites',
+          label: <span data-testid="git-tool-chip-branch-favorites">{t('workbench.gitLog.menu.favorites')}</span>,
+          icon: <StarSlot />,
+        },
+        { key: 'head', label: 'HEAD', icon: <Star on label="HEAD" /> },
+        ...listed.map(refItem),
+        { type: 'divider' },
         ...namespaces.map((namespace) => ({
           key: namespace.key,
           label: namespace.label,
+          icon: <StarSlot />,
           children: namespace.rows.map(refItem),
         })),
       ]}
@@ -261,14 +306,20 @@ const BranchFilterChip: React.FC<BranchFilterChipProps> = ({
     .filter((namespace) => namespace.rows.length > 0);
 
   const searchContent = (
-    <div style={{ display: 'flex', flexDirection: 'column', minWidth: 240, maxHeight: 420 }}>
+    <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', flexDirection: 'column', minWidth: 240 }}>
       <div style={{ padding: '6px 8px 4px' }}>
         <Input
           size="small"
           autoFocus
           allowClear
           value={search}
-          onChange={(e) => setSearch(e.target.value)}
+          onChange={(e) => {
+            // Emptied — by the keys or the field's × — the search gives the menu back.
+            if (e.target.value === '') {
+              setFromSearch(true);
+              toMenu();
+            } else setSearch(e.target.value);
+          }}
           placeholder={t('workbench.gitLog.refs.search')}
           data-testid="git-tool-chip-branch-search"
         />
@@ -316,6 +367,22 @@ const BranchFilterChip: React.FC<BranchFilterChipProps> = ({
     </div>
   );
 
+  // The popup's last line, under the menu and under the search list alike.
+  const clearHint = (
+    <div
+      style={{
+        flex: '0 0 auto',
+        padding: '4px 12px 5px',
+        borderTop: `1px solid ${token.colorBorderSecondary}`,
+        fontSize: 12,
+        color: token.colorTextTertiary,
+      }}
+      data-testid="git-tool-chip-branch-hint"
+    >
+      {t('workbench.gitLog.menu.clearHint', { key: isMac ? '⌫' : 'Backspace' })}
+    </div>
+  );
+
   // Every name the Select… field may hold.
   const names = useMemo(() => [...new Set([GIT_LOG_SCOPE_HEAD, ...refs.map((ref) => ref.name)])], [refs]);
 
@@ -336,33 +403,30 @@ const BranchFilterChip: React.FC<BranchFilterChipProps> = ({
         setOpen(next);
         if (next) setListed(refs.filter(isFavorite));
         else {
-          setMode('menu');
-          setSearch('');
+          setFromSearch(false);
+          toMenu();
         }
       }}
       popupRender={() => (
         <div
+          ref={popupRef}
           style={{
             background: token.colorBgElevated,
             borderRadius: token.borderRadiusLG,
             boxShadow: token.boxShadowSecondary,
             overflow: 'hidden',
+            // The search list lives in the box the menu had.
+            ...(mode === 'search' && menuBox !== null
+              ? { display: 'flex', flexDirection: 'column', width: menuBox.width, height: menuBox.height }
+              : {}),
           }}
+          data-testid="git-tool-chip-branch-popup"
+          data-mode={mode}
         >
           {mode === 'menu' ? (
             <>
               {menuContent}
-              <div
-                style={{
-                  padding: '4px 12px 5px',
-                  borderTop: `1px solid ${token.colorBorderSecondary}`,
-                  fontSize: 12,
-                  color: token.colorTextTertiary,
-                }}
-                data-testid="git-tool-chip-branch-hint"
-              >
-                {t('workbench.gitLog.menu.clearHint', { key: isMac ? '⌫' : 'Backspace' })}
-              </div>
+              {clearHint}
             </>
           ) : mode === 'select' ? (
             <BranchScopeField
@@ -374,7 +438,10 @@ const BranchFilterChip: React.FC<BranchFilterChipProps> = ({
               }}
             />
           ) : (
-            searchContent
+            <>
+              {searchContent}
+              {clearHint}
+            </>
           )}
         </div>
       )}

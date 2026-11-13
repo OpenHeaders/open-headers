@@ -6,7 +6,8 @@
  * caret to a new line, the arrows move the highlight; the finishing
  * chord applies every value as the log's scope. A value that is no ref
  * keeps the field open and is named. It opens holding the scope as it
- * stands.
+ * stands, and is as tall as its lines — the suggestions sit directly
+ * under what is being typed, the hint under them.
  */
 
 import { Input, theme } from 'antd';
@@ -103,14 +104,14 @@ const BranchScopeField: React.FC<BranchScopeFieldProps> = ({ names, scope, onFin
 
   return (
     <div
-      style={{ display: 'flex', flexDirection: 'column', gap: 6, width: FIELD_WIDTH, padding: 8 }}
+      style={{ display: 'flex', flexDirection: 'column', gap: 4, width: FIELD_WIDTH, padding: 8 }}
       data-testid="git-tool-chip-branch-select"
     >
       <Input.TextArea
         ref={fieldRef}
         autoFocus
         spellCheck={false}
-        autoSize={{ minRows: 4, maxRows: 10 }}
+        autoSize={{ minRows: 1, maxRows: 10 }}
         value={text}
         status={unknown.length > 0 ? 'error' : undefined}
         onChange={(event) => {
@@ -142,7 +143,8 @@ const BranchScopeField: React.FC<BranchScopeFieldProps> = ({ names, scope, onFin
               style={{
                 display: 'block',
                 width: '100%',
-                padding: '3px 8px',
+                // The name starts where the typed text does: the field's own inset.
+                padding: '3px 12px',
                 border: 'none',
                 borderRadius: token.borderRadiusSM,
                 background: index === highlighted ? token.controlItemBgActive : undefined,

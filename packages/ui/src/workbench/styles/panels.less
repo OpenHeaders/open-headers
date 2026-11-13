@@ -67,6 +67,18 @@
   opacity: 1;
 }
 
+// A star that can be clicked says so under the pointer, gold or outline
+// alike: a small fill around it. The ring is the same fill drawn past
+// the glyph's box, so the slot keeps its width.
+.git-branch-star[role='button'] {
+  border-radius: 2px;
+}
+
+.git-branch-star[role='button']:hover {
+  background: var(--ant-color-fill-secondary, rgba(128, 128, 128, 0.16));
+  box-shadow: 0 0 0 3px var(--ant-color-fill-secondary, rgba(128, 128, 128, 0.16));
+}
+
 // The log's text filter paints what it matched in a row — over the
 // band, the hover and the selection alike.
 .git-tool-match {

@@ -374,19 +374,6 @@ const CommitList: React.FC<CommitListProps> = ({
               <MatchedText text={entry.subject} ranges={matchRanges} />
             </span>
             {!refsOnLeft && refLabel}
-            {showHash && (
-              <span
-                style={{
-                  flex: '0 0 auto',
-                  fontSize: GIT_CODE_SIZE,
-                  fontFamily: token.fontFamilyCode,
-                  color: token.colorTextTertiary,
-                }}
-                data-testid="git-tool-row-hash"
-              >
-                {entry.sha.slice(0, 7)}
-              </span>
-            )}
             {showAuthor && (
               <span
                 style={{ flex: '0 0 auto', fontSize: GIT_TEXT_SIZE, color: textColor }}
@@ -408,6 +395,19 @@ const CommitList: React.FC<CommitListProps> = ({
                 data-testid="git-tool-row-date"
               >
                 {formatLogDate(entry.authoredAt, locale, dateLabels, { withTime: showTimestamp, hourCycle })}
+              </span>
+            )}
+            {showHash && (
+              <span
+                style={{
+                  flex: '0 0 auto',
+                  fontSize: GIT_CODE_SIZE,
+                  fontFamily: token.fontFamilyCode,
+                  color: token.colorTextTertiary,
+                }}
+                data-testid="git-tool-row-hash"
+              >
+                {entry.sha.slice(0, 7)}
               </span>
             )}
           </button>,
