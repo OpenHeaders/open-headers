@@ -1335,6 +1335,16 @@ describe('ref tree (Phase 7 slice 2)', () => {
   const raw = (dir: string, ...args: string[]) =>
     run(['--git-dir', path.join(dir, '.git'), '--work-tree', dir, ...args], { cwd: dir });
 
+  /** A commit dated to the second, so two related commits can share one — as a script's do. */
+  const rawAt = async (dir: string, epochSeconds: number, ...args: string[]): Promise<void> => {
+    const date = `@${epochSeconds} +0000`;
+    const result = await run(['--git-dir', path.join(dir, '.git'), '--work-tree', dir, ...args], {
+      cwd: dir,
+      env: { ...IDENTITY_ENV, GIT_AUTHOR_DATE: date, GIT_COMMITTER_DATE: date },
+    });
+    if (result.code !== 0) throw new Error(`git ${args.join(' ')} failed: ${result.stderr}`);
+  };
+
   const writeIn = async (dir: string, rel: string, content: string): Promise<void> => {
     const target = path.join(dir, rel);
     await fs.mkdir(path.dirname(target), { recursive: true });
@@ -1453,6 +1463,60 @@ describe('ref tree (Phase 7 slice 2)', () => {
     const scoped = await listCommitLog(run, tmpDir, 20, 'main', { allRefs: true });
     if (scoped === null) throw new Error('scoped log failed');
     expect(scoped.map((entry) => entry.subject)).toEqual(['Initial tree']);
+  });
+
+  it('lists a child above its parent when the two share a second — all refs, HEAD and a range', async () => {
+    const second = 1_760_000_000;
+    const empty = (subject: string, at: number): Promise<void> =>
+      rawAt(tmpDir, at, 'commit', '-q', '--allow-empty', '-m', subject);
+    await ensureWorkspaceRepo(run, tmpDir);
+    await raw(tmpDir, 'symbolic-ref', 'HEAD', 'refs/heads/main');
+    await empty('root', second - 1000);
+    await empty('parent', second);
+    // A branch whose first commit lands in its parent's second and is no tip…
+    await raw(tmpDir, 'checkout', '-q', '-b', 'feature');
+    await empty('child', second);
+    await empty('grandchild', second + 10);
+    // …while main goes on, so the walk reaches the parent before the child.
+    await raw(tmpDir, 'checkout', '-q', 'main');
+    await empty('main tip', second + 20);
+    // A one-commit branch made in its base's second, merged by a commit of its own.
+    await raw(tmpDir, 'checkout', '-q', '-b', 'side');
+    await empty('side child', second + 20);
+    await raw(tmpDir, 'checkout', '-q', 'main');
+    await rawAt(tmpDir, second + 30, 'merge', '-q', '--no-ff', '-m', 'merge side', 'side');
+
+    const subjects = (entries: CommitLogEntry[] | null): string[] | undefined => entries?.map((entry) => entry.subject);
+
+    expect(subjects(await listCommitLog(run, tmpDir, 20, undefined, { allRefs: true }))).toEqual([
+      'merge side',
+      'side child',
+      'main tip',
+      'grandchild',
+      'child',
+      'parent',
+      'root',
+    ]);
+    expect(subjects(await listCommitLog(run, tmpDir, 20))).toEqual([
+      'merge side',
+      'side child',
+      'main tip',
+      'parent',
+      'root',
+    ]);
+    expect(subjects(await listCommitRangeLog(run, tmpDir, 'feature', 'main', 20))).toEqual([
+      'merge side',
+      'side child',
+      'main tip',
+    ]);
+    // The topological sort is its own order and keeps the same promise.
+    expect(subjects(await listCommitLog(run, tmpDir, 20, undefined, { topoOrder: true }))).toEqual([
+      'merge side',
+      'side child',
+      'main tip',
+      'parent',
+      'root',
+    ]);
   });
 
   it('answers an empty all-refs timeline on a fresh repo', async () => {

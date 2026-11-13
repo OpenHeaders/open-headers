@@ -1000,6 +1000,15 @@ export interface CommitLogEntry {
  */
 export const LOG_FORMAT = '%x1e%H%x1f%P%x1f%an%x1f%ae%x1f%aI%x1f%s%x1f%b';
 
+/**
+ * The log's row order. Git's default sorts by commit time alone and
+ * promises nothing about a commit and its parent: two that share a
+ * second, or dates that run backwards, can list the parent first — and
+ * the graph draws an edge only into a row further down. This is the
+ * same sort with that one promise: no parent before all its children.
+ */
+export const LOG_ORDER = '--date-order';
+
 const CO_AUTHOR_TRAILER = /^co-authored-by:\s*(.+)$/gim;
 
 /** `-z --name-status` tokens as changed paths: a status, then its path — a rename or copy carries old then new. */
@@ -1121,7 +1130,7 @@ export async function listCommitLog(
       `--format=${LOG_FORMAT}`,
       ...(filters?.noMerges === true ? ['--no-merges'] : []),
       ...(filters?.firstParent === true ? ['--first-parent'] : []),
-      ...(filters?.topoOrder === true ? ['--topo-order'] : []),
+      filters?.topoOrder === true ? '--topo-order' : LOG_ORDER,
       ...(filters?.author !== undefined
         ? [`--author=${escapeAuthorPattern(filters.author)}`, '--regexp-ignore-case']
         : []),
