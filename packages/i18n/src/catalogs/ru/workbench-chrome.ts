@@ -501,6 +501,7 @@ export const workbenchChrome = {
   // ── Git tool window (log view) ───────────────────────────────────
   'workbench.gitLog.logTab': 'Журнал: {branch}',
   'workbench.gitLog.logTabAll': 'Журнал',
+  'workbench.gitLog.searchTab': 'Поиск: {text}',
   'workbench.gitLog.closeTab': 'Закрыть вкладку',
   'workbench.gitLog.newLogTab': 'Новая вкладка журнала',
   'workbench.gitLog.tabMenu': 'Параметры вкладки',

@@ -720,6 +720,7 @@ export const workbenchChrome = {
     'Aucun commit pour le moment — les commits arrivent selon la cadence configurée, ou committez manuellement dans Paramètres › Git.',
   'workbench.gitLog.logTab': 'Log : {branch}',
   'workbench.gitLog.logTabAll': 'Log',
+  'workbench.gitLog.searchTab': 'Recherche : {text}',
   'workbench.gitLog.closeTab': "Fermer l'onglet",
   'workbench.gitLog.newLogTab': 'Nouvel onglet Log',
   'workbench.gitLog.tabMenu': 'Options des onglets',

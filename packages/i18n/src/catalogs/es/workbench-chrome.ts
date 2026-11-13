@@ -718,6 +718,7 @@ export const workbenchChrome = {
     'Aún no hay commits — los commits llegan según la cadencia configurada, o haz commit manualmente en Configuración › Git.',
   'workbench.gitLog.logTab': 'Log: {branch}',
   'workbench.gitLog.logTabAll': 'Log',
+  'workbench.gitLog.searchTab': 'Búsqueda: {text}',
   'workbench.gitLog.closeTab': 'Cerrar pestaña',
   'workbench.gitLog.newLogTab': 'Nueva pestaña de Log',
   'workbench.gitLog.tabMenu': 'Opciones de pestañas',

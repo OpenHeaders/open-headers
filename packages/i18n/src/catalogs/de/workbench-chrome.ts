@@ -717,6 +717,7 @@ export const workbenchChrome = {
     'Noch keine Commits — Commits entstehen gemäß der konfigurierten Kadenz, oder committe manuell unter Einstellungen › Git.',
   'workbench.gitLog.logTab': 'Log: {branch}',
   'workbench.gitLog.logTabAll': 'Log',
+  'workbench.gitLog.searchTab': 'Suche: {text}',
   'workbench.gitLog.closeTab': 'Tab schließen',
   'workbench.gitLog.newLogTab': 'Neuer Log-Tab',
   'workbench.gitLog.tabMenu': 'Tab-Optionen',

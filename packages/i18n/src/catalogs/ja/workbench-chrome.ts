@@ -481,6 +481,7 @@ export const workbenchChrome = {
   // ── Git tool window (log view) ───────────────────────────────────
   'workbench.gitLog.logTab': 'ログ：{branch}',
   'workbench.gitLog.logTabAll': 'ログ',
+  'workbench.gitLog.searchTab': '検索：{text}',
   'workbench.gitLog.closeTab': 'タブを閉じる',
   'workbench.gitLog.newLogTab': '新しいログタブ',
   'workbench.gitLog.tabMenu': 'タブのオプション',

@@ -538,6 +538,7 @@ export const workbenchChrome = {
   'workbench.gitLog.empty': '还没有提交',
   'workbench.gitLog.logTab': 'Log：{branch}',
   'workbench.gitLog.logTabAll': 'Log',
+  'workbench.gitLog.searchTab': '搜索：{text}',
   'workbench.gitLog.closeTab': '关闭标签页',
   'workbench.gitLog.newLogTab': '新建 Log 标签页',
   'workbench.gitLog.tabMenu': '标签页选项',

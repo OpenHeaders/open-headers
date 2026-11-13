@@ -509,6 +509,7 @@ export const workbenchChrome = {
   // ── Git tool window (log view) ───────────────────────────────────
   'workbench.gitLog.logTab': 'Jurnal: {branch}',
   'workbench.gitLog.logTabAll': 'Jurnal',
+  'workbench.gitLog.searchTab': 'Căutare: {text}',
   'workbench.gitLog.closeTab': 'Închidere filă',
   'workbench.gitLog.newLogTab': 'Filă de jurnal nouă',
   'workbench.gitLog.tabMenu': 'Opțiuni filă',
