@@ -193,11 +193,22 @@ const GitLogView: React.FC<GitLogViewProps> = ({
     [author, date, paths, sort],
   );
 
+  // The newest read's number. Reads overlap — a filter changes while
+  // the one before is still at the host — and they come back in any
+  // order (`User: me` takes the host a step longer): only the newest
+  // read's answer is taken, or an older one would list its rows under
+  // the filter that replaced it.
+  const latestRead = useRef(0);
+
   const reload = useCallback(async (): Promise<void> => {
+    latestRead.current += 1;
+    const read = latestRead.current;
+    const superseded = (): boolean => latestRead.current !== read;
     setLoading(true);
     setError(null);
     try {
       const refsResult = await hostBridge.call('oh.workspaceTree.listRefs', { workspaceId });
+      if (superseded()) return;
       if (refsResult.ok) {
         setRefs(refsResult.refs);
         setCurrentRef(refsResult.current);
@@ -227,6 +238,7 @@ const GitLogView: React.FC<GitLogViewProps> = ({
         ...logScopeWire(walked),
         ...wireFilters,
       });
+      if (superseded()) return;
       if (result.ok) {
         setLoaded(result.entries);
       } else if (result.reason === 'unknown-ref') {
@@ -240,10 +252,11 @@ const GitLogView: React.FC<GitLogViewProps> = ({
         setError(t('workbench.gitLog.loadFailed', { detail: result.detail ?? result.reason }));
       }
     } catch (err) {
+      if (superseded()) return;
       setLoaded([]);
       setError((err as Error).message);
     } finally {
-      setLoading(false);
+      if (!superseded()) setLoading(false);
     }
   }, [workspaceId, selectedRefs, branch, wireFilters, patchTab, t]);
 
