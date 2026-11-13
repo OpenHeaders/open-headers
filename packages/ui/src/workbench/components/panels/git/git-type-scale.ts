@@ -18,8 +18,8 @@ export const GIT_ROW_GLYPH_SIZE = 14;
 /** A fold caret, and the small chevron that ends a chip. */
 export const GIT_CARET_SIZE = 10;
 
-/** The tag-shaped glyph that leads a log row's ref label. */
-export const GIT_LABEL_GLYPH_SIZE = 12;
+/** The tag-shaped glyph that leads a log row's ref label — the reference's size, a step over a rail row's. */
+export const GIT_LABEL_GLYPH_SIZE = 16;
 
 /** A band button's glyph — the rail's vertical bar and the pane toolbars. */
 export const GIT_BAR_GLYPH_SIZE = 16;

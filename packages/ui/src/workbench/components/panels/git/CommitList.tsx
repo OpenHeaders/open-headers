@@ -356,7 +356,11 @@ const CommitList: React.FC<CommitListProps> = ({
             {refsOnLeft && refLabel}
             <span
               style={{
-                flex: '1 1 auto',
+                // The subject takes what is LEFT (the reference's reading): from a
+                // zero basis it only grows into spare room, so the ref label
+                // beside it keeps its whole width and is clipped only once the
+                // subject is gone — the columns at the far end never move.
+                flex: '1 1 0%',
                 minWidth: 0,
                 fontSize: GIT_TEXT_SIZE,
                 overflow: 'hidden',

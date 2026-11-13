@@ -49,6 +49,27 @@
   border-radius: 2px;
 }
 
+// A log row's ref label: a joined name (`origin & feature/x`) gives way
+// to its short form (`../x`) once the list itself is narrow — the
+// list is the container the label answers to.
+.git-tool-commit-list {
+  container-type: inline-size;
+}
+
+.git-ref-label__short {
+  display: none;
+}
+
+@container (max-width: 560px) {
+  .git-ref-label--shortens .git-ref-label__full {
+    display: none;
+  }
+
+  .git-ref-label--shortens .git-ref-label__short {
+    display: inline;
+  }
+}
+
 // Commit changes tree: one scroll host for BOTH axes on the standards
 // thin scrollbar (the un-styled native horizontal bar was the
 // mismatch); the focus outline is suppressed — selection is the
