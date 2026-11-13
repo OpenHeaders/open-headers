@@ -4,8 +4,8 @@
  * band measured narrower than its run, the leading buttons that fit
  * stay, the › chevron takes the right edge, and hovering it lays the
  * folded buttons out in the strip; the spacer never joins the strip.
- * A band led by a control that is no entry keeps that control's floor
- * and folds by the widths its entries have where they stand.
+ * A band led by a control that is no entry keeps that control's one
+ * width and folds by the widths its entries have where they stand.
  */
 
 import PaneToolbar, {
@@ -113,7 +113,7 @@ describe('PaneToolbar', () => {
       button('refresh'),
       button('goto'),
     ];
-    const lead = { node: <input data-testid="band-field" />, basis: 220, floor: 140 };
+    const lead = { node: <input data-testid="band-field" />, width: 140 };
     const inBand = (): (string | null)[] =>
       [...screen.getByTestId('band').querySelectorAll('button')].map((el) => el.getAttribute('data-testid'));
     const mount = (width: number): void => {
@@ -122,7 +122,7 @@ describe('PaneToolbar', () => {
       render(<PaneToolbar entries={led} testid="band" lead={lead} gap={6} />);
     };
 
-    it('keeps every entry while the run fits beside the field at its floor', () => {
+    it('keeps every entry while the run fits beside the field', () => {
       // 16 padding + the field's 140 + 6, then 70 + 6 + 54 + 6 + 0 + 6 + 24 + 6 + 24 = 196: 358 in all.
       mount(358);
       expect(inBand()).toEqual(['band-branch', 'band-user', 'band-refresh', 'band-goto']);

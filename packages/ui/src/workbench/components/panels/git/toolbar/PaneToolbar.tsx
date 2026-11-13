@@ -9,9 +9,9 @@
  * separators (a 1px rule) or one spacer (the flex gap that pushes the
  * rest to the far edge); a spacer folds like a separator and never
  * appears in the strip. A band may open with a LEAD — a control that
- * is no entry (the log's text field): it never folds, gives way down
- * to its floor before any entry does, and takes its basis back as the
- * entries fold.
+ * is no entry (the log's text field): it never folds and keeps ONE
+ * width at every band size (the reference's reading) — only the
+ * entries after it give way.
  */
 
 import { RightOutlined } from '@ant-design/icons';
@@ -29,10 +29,8 @@ export type PaneToolbarEntry =
 
 export interface PaneToolbarLead {
   node: React.ReactNode;
-  /** The width it holds while the band has room. */
-  basis: number;
-  /** The width it never goes under — the entries fold before it does. */
-  floor: number;
+  /** The width it holds, whatever the band's. */
+  width: number;
 }
 
 export interface PaneToolbarProps {
@@ -78,7 +76,7 @@ const PaneToolbar: React.FC<PaneToolbarProps> = ({ entries, testid, lead, gap = 
     axis: 'horizontal',
     gap,
     moreExtent: BUTTON_EXTENT,
-    padding: BAND_PADDING + (lead === undefined ? 0 : lead.floor + gap),
+    padding: BAND_PADDING + (lead === undefined ? 0 : lead.width + gap),
     ref,
   });
 
@@ -122,7 +120,7 @@ const PaneToolbar: React.FC<PaneToolbarProps> = ({ entries, testid, lead, gap = 
       }}
     >
       {lead !== undefined && (
-        <span style={{ display: 'inline-flex', flex: `0 1 ${lead.basis}px`, minWidth: lead.floor }}>{lead.node}</span>
+        <span style={{ display: 'inline-flex', flex: '0 0 auto', width: lead.width }}>{lead.node}</span>
       )}
       {visible.map((entry) => render(entry, false))}
       {folded.length > 0 && (

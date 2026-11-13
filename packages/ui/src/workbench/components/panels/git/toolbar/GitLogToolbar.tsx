@@ -6,8 +6,8 @@
  * fragments), then the right-aligned action icons — Refresh, Cherry-Pick,
  * View Options, Go To Hash/Branch/Tag. Filter state lives in the tab
  * registry (travels with the tab); display prefs are per-workspace.
- * The band is a PaneToolbar led by the text field: at a narrow pane the
- * field keeps its floor and everything after it that does not fit —
+ * The band is a PaneToolbar led by the text field: the field keeps its
+ * width at every pane size and everything after it that does not fit —
  * the far end first — folds behind the › chevron's hover strip (the
  * reference's reading).
  */
@@ -62,10 +62,9 @@ export interface GitLogToolbarProps {
 
 const SHA_PREFIX = /^[0-9a-f]{4,40}$/;
 
-/** The text field holds this width while the band has room, and gives way to its floor before a chip folds. */
-const FIELD_WIDTH = 220;
-const FIELD_FLOOR = 140;
-const BAND_GAP = 6;
+/** The text field's one width — room for its placeholder beside the two toggles; it never resizes with the pane. */
+const FIELD_WIDTH = 190;
+const BAND_GAP = 4;
 
 interface FilterToggleProps {
   glyph: string;
@@ -581,7 +580,7 @@ const GitLogToolbar: React.FC<GitLogToolbarProps> = ({
       <PaneToolbar
         entries={band}
         testid="git-tool-toolbar"
-        lead={{ node: field, basis: FIELD_WIDTH, floor: FIELD_FLOOR }}
+        lead={{ node: field, width: FIELD_WIDTH }}
         gap={BAND_GAP}
       />
       <DateFilterModal
