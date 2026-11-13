@@ -7,9 +7,12 @@
  * or flat full-name rows while Group By Directory is off. The reference
  * tree anatomy: every row reserves the caret slot, group rows are
  * plain tree rows, their children sit one indent step in, and a leaf
- * carries a branch / tag glyph in the icon slot. The current branch
- * renders bold + ★ in that slot with its ancestor folders open by
- * default; favorite refs carry the gold ★ too. Searching prunes to
+ * carries a branch / tag glyph in the icon slot. The checked-out branch
+ * renders bold with a gold TAG in that slot — solid while it is a
+ * favorite, an outline once un-starred — its incoming / outgoing counts
+ * beside its name, its ancestor folders open by default; a favorite
+ * ref carries the gold ★. In a level the checked-out branch leads, then
+ * the favorites, then the folders and the rest. Searching prunes to
  * matches and renders them fully expanded.
  *
  * Selection is the TREE selection (the activity bar's target), owned
@@ -19,18 +22,25 @@
  * handle (the bar sits outside this scroll area).
  */
 
-import { CaretDownOutlined, CaretRightOutlined, FolderOutlined, SearchOutlined } from '@ant-design/icons';
+import { CaretDownOutlined, CaretRightOutlined, FolderOutlined, SearchOutlined, StarFilled } from '@ant-design/icons';
 import type { WorkspaceTreeRefWire } from '@openheaders/core/bridge';
 import { Dropdown, Input, type MenuProps, theme } from 'antd';
 import type React from 'react';
 import { forwardRef, useEffect, useImperativeHandle, useMemo, useState } from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
-import { BranchIcon, TagIcon } from '@openheaders/ui/shared/icons';
+import { BranchIcon, TagFilledIcon, TagIcon } from '@openheaders/ui/shared/icons';
 import { contextMenuAlign } from '../git-menu-overflow';
 import { GIT_CARET_SIZE, GIT_ROW_GLYPH_SIZE, GIT_TEXT_SIZE } from '../git-type-scale';
 import { gitRailFavoriteKey } from './git-rail-prefs';
 import type { RefTreeSelection } from './ref-row-menu';
-import { allFolderKeys, buildRefTree, filterRefTree, folderKeysToRef, type RefTreeNode } from './ref-tree-model';
+import {
+  allFolderKeys,
+  buildRefTree,
+  filterRefTree,
+  folderKeysToRef,
+  type RefRank,
+  type RefTreeNode,
+} from './ref-tree-model';
 
 export type { RefTreeSelection } from './ref-row-menu';
 
@@ -49,8 +59,10 @@ export interface RefTreeProps {
   detachedSha: string | null;
   /** The tree selection (highlight + bar target); null selects HEAD. */
   selected: RefTreeSelection | null;
-  /** Favorite keys (`<kind>:<name>`) — gold ★ rows. */
+  /** Favorite keys (`<kind>:<name>`) — gold ★ rows; the checked-out branch's tag is solid while it is one. */
   favorites: ReadonlySet<string>;
+  /** The checked-out branch against its upstream — shown beside its name; zeros show nothing. */
+  currentSync?: { incoming: number; outgoing: number };
   /** Group By Directory (gear toggle) — off renders flat full names. */
   groupByDirectory: boolean;
   /** Show Tags (gear toggle) — off drops the Tags group. */
@@ -92,6 +104,7 @@ const RefTree = forwardRef<RefTreeHandle, RefTreeProps>(function RefTree(
     detachedSha,
     selected,
     favorites,
+    currentSync,
     groupByDirectory,
     showTags,
     onLeafClick,
@@ -125,10 +138,14 @@ const RefTree = forwardRef<RefTreeHandle, RefTreeProps>(function RefTree(
           refs.filter((ref) => ref.kind === group.kind),
           group.kind,
           groupByDirectory,
+          (ref): RefRank => {
+            if (ref.kind === 'local' && ref.name === currentRef) return 'current';
+            return favorites.has(gitRailFavoriteKey(ref.kind, ref.name)) ? 'favorite' : 'plain';
+          },
         );
         return { ...group, tree: filterRefTree(tree, search) };
       }),
-    [refs, search, visibleGroups, groupByDirectory],
+    [refs, search, visibleGroups, groupByDirectory, currentRef, favorites],
   );
 
   const searching = search.trim() !== '';
@@ -230,18 +247,49 @@ const RefTree = forwardRef<RefTreeHandle, RefTreeProps>(function RefTree(
     whiteSpace: 'nowrap',
   };
 
-  /** The leaf's icon slot: ★ on the current branch and favorites, the ref-kind glyph otherwise. */
-  const leafIcon = (kind: WorkspaceTreeRefWire['kind'], starred: boolean): React.ReactNode => {
-    if (starred) {
+  /**
+   * The leaf's icon slot: the gold tag on the checked-out branch (solid
+   * while it is a favorite), the gold ★ on any other favorite, the
+   * ref-kind glyph otherwise.
+   */
+  const leafIcon = (kind: WorkspaceTreeRefWire['kind'], current: boolean, favorite: boolean): React.ReactNode => {
+    const gold: React.CSSProperties = { flex: '0 0 auto', fontSize: GIT_ROW_GLYPH_SIZE, color: token.colorWarningText };
+    if (current) {
+      const Mark = favorite ? TagFilledIcon : TagIcon;
       return (
-        <span aria-hidden data-testid="git-tool-ref-star" style={{ flex: '0 0 auto', color: token.colorWarningText }}>
-          ★
+        <span
+          aria-hidden
+          data-testid="git-tool-ref-current"
+          data-favorite={favorite}
+          style={{ display: 'inline-flex', flex: '0 0 auto' }}
+        >
+          <Mark style={gold} />
+        </span>
+      );
+    }
+    if (favorite) {
+      return (
+        <span aria-hidden data-testid="git-tool-ref-star" style={{ display: 'inline-flex', flex: '0 0 auto' }}>
+          <StarFilled style={gold} />
         </span>
       );
     }
     const Glyph = kind === 'tag' ? TagIcon : BranchIcon;
     return <Glyph style={{ flex: '0 0 auto', fontSize: GIT_ROW_GLYPH_SIZE, color: token.colorTextTertiary }} />;
   };
+
+  // The checked-out branch against its upstream (the reference's reading,
+  // the branch widget's own glyphs): what would come in, what would go out.
+  const syncCounts =
+    currentSync === undefined || (currentSync.incoming === 0 && currentSync.outgoing === 0) ? null : (
+      <span
+        style={{ display: 'inline-flex', flex: '0 0 auto', gap: 6, marginInlineStart: 6, fontWeight: 400 }}
+        data-testid="git-tool-ref-sync"
+      >
+        {currentSync.incoming > 0 && <span style={{ color: token.colorInfoText }}>↙ {currentSync.incoming}</span>}
+        {currentSync.outgoing > 0 && <span style={{ color: token.colorSuccessText }}>↗ {currentSync.outgoing}</span>}
+      </span>
+    );
 
   const renderNodes = (nodes: readonly RefTreeNode[], depth: number): React.ReactNode =>
     nodes.map((node) => {
@@ -285,8 +333,9 @@ const RefTree = forwardRef<RefTreeHandle, RefTreeProps>(function RefTree(
           data-kind={node.refKind}
         >
           {caretSlot(null)}
-          {leafIcon(node.refKind, isCurrent || isFavorite)}
-          <span style={labelStyle}>{node.label}</span>
+          {leafIcon(node.refKind, isCurrent, isFavorite)}
+          <span style={isCurrent ? { ...labelStyle, flex: '0 1 auto' } : labelStyle}>{node.label}</span>
+          {isCurrent && syncCounts}
         </button>,
       );
     });
@@ -412,7 +461,7 @@ const RefTree = forwardRef<RefTreeHandle, RefTreeProps>(function RefTree(
                       data-kind="local"
                     >
                       {caretSlot(null)}
-                      {leafIcon('local', true)}
+                      {leafIcon('local', true, favorites.has(gitRailFavoriteKey('local', unbornBranch)))}
                       <span style={labelStyle}>{unbornBranch}</span>
                     </button>,
                   )}

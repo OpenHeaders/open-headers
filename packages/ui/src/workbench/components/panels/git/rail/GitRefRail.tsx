@@ -18,11 +18,13 @@ import type { WorkspaceTreeRefWire } from '@openheaders/core/bridge';
 import { theme } from 'antd';
 import type React from 'react';
 import { useCallback, useMemo, useRef, useSyncExternalStore } from 'react';
+import { useWorkspaceGitSnapshot } from '../../../../stores/git-status-store';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import type { GitBranchActions } from '../branch-actions/use-git-branch-actions';
 import { GIT_LOG_SCOPE_HEAD } from '../git-panel-view-store';
 import GitRailActivityBar from './GitRailActivityBar';
 import { getGitRailPrefs, patchGitRailPrefs, subscribeGitRailPrefs, toggleGitRailFavorite } from './git-rail-prefs';
+import { defaultFavoriteKeys, favoriteKeys } from './ref-favorites';
 import { buildRefRowMenu, buildRemoteGroupMenu, type RefRowMenuHandlers, type RefTreeSelection } from './ref-row-menu';
 import RefTree, { type RefTreeHandle } from './RefTree';
 
@@ -74,7 +76,14 @@ const GitRefRail: React.FC<GitRefRailProps> = ({
 
   const subscribe = useCallback((listener: () => void) => subscribeGitRailPrefs(workspaceId, listener), [workspaceId]);
   const prefs = useSyncExternalStore(subscribe, () => getGitRailPrefs(workspaceId));
-  const favoriteSet = useMemo<ReadonlySet<string>>(() => new Set(prefs.favorites), [prefs.favorites]);
+  const defaultFavorites = useMemo(() => defaultFavoriteKeys(refs, currentRef), [refs, currentRef]);
+  const favoriteSet = useMemo<ReadonlySet<string>>(() => favoriteKeys(prefs, defaultFavorites), [prefs, defaultFavorites]);
+  // The checked-out branch against its upstream, from the one status store.
+  const { status } = useWorkspaceGitSnapshot(workspaceId);
+  const currentSync = useMemo(
+    () => ({ incoming: status?.behind ?? 0, outgoing: status?.ahead ?? 0 }),
+    [status?.behind, status?.ahead],
+  );
 
   const selectedSha = useCallback(
     (target: RefTreeSelection): string | null =>
@@ -164,7 +173,7 @@ const GitRefRail: React.FC<GitRefRailProps> = ({
         onFetch={actions.fetch}
         fetchBusy={actions.busy.fetch}
         onToggleFavorite={() => {
-          if (selection !== null) toggleGitRailFavorite(workspaceId, selection.kind, selection.name);
+          if (selection !== null) toggleGitRailFavorite(workspaceId, selection.kind, selection.name, defaultFavorites);
         }}
         favoriteEnabled={selection !== null}
         onNavigateToHead={handleNavigate}
@@ -186,6 +195,7 @@ const GitRefRail: React.FC<GitRefRailProps> = ({
         detachedSha={detachedSha}
         selected={selection}
         favorites={favoriteSet}
+        currentSync={currentSync}
         groupByDirectory={prefs.groupByDirectory}
         showTags={prefs.showTags}
         onLeafClick={handleLeafClick}

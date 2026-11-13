@@ -23,6 +23,7 @@ export { ScrollToEndIcon } from './ScrollToEndIcon';
 export { ShelveIcon } from './ShelveIcon';
 export { ShortenPathsIcon } from './ShortenPathsIcon';
 export { SoftWrapIcon } from './SoftWrapIcon';
+export { TagFilledIcon } from './TagFilledIcon';
 export { TagIcon } from './TagIcon';
 export type { GlyphIconProps } from './types';
 export { VariablesIcon } from './VariablesIcon';

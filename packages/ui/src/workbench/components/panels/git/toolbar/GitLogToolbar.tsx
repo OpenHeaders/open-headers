@@ -36,9 +36,10 @@ export interface GitLogToolbarProps {
   tab: GitLogTabState;
   patchTab: (patch: Partial<Omit<GitLogTabState, 'kind' | 'id'>>) => void;
   refs: WorkspaceTreeRefWire[];
-  currentRef: string | null;
-  /** Favorite keys (`<kind>:<name>`) from the rail prefs. */
+  /** Favorite keys (`<kind>:<name>`) — the starred refs, the defaults among them. */
   favorites: ReadonlySet<string>;
+  /** A star in the Branch chip's menu was clicked. */
+  onToggleFavorite: (kind: WorkspaceTreeRefWire['kind'], name: string) => void;
   /** Loaded entries — the Go To resolver and the User submenu feed. */
   entries: WorkspaceTreeLogEntryWire[];
   loading: boolean;
@@ -71,8 +72,8 @@ const GitLogToolbar: React.FC<GitLogToolbarProps> = ({
   tab,
   patchTab,
   refs,
-  currentRef,
   favorites,
+  onToggleFavorite,
   entries,
   loading,
   onRefresh,
@@ -169,8 +170,8 @@ const GitLogToolbar: React.FC<GitLogToolbarProps> = ({
       node: (
         <BranchFilterChip
           refs={refs}
-          currentRef={currentRef}
           favorites={favorites}
+          onToggleFavorite={onToggleFavorite}
           scopeRef={tab.selectedRef}
           scopeKind={scopeKind}
           onScopeChange={(ref) => patchTab({ selectedRef: ref })}

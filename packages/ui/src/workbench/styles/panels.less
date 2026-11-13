@@ -41,6 +41,32 @@
   }
 }
 
+// A band button — the rail's vertical bar, the pane toolbars: a grey
+// fill under the pointer (the reference's reading). A pressed button's
+// own fill is its inline style and stands over this.
+.git-tool-rail-button {
+  background: transparent;
+
+  &:not(:disabled):hover {
+    background: var(--ant-color-fill-secondary, rgba(128, 128, 128, 0.16));
+  }
+}
+
+// The Branch chip's menu: a row's star is gold while the ref is a
+// favorite; off, it is an outline that shows only under the pointer (or
+// on the row the keys stand on) — in the menu, its submenus and the
+// search list alike. The rows are named by their role: the menu's own
+// class prefix follows the surface that hosts it.
+.git-branch-star:not(.git-branch-star--on) {
+  opacity: 0;
+}
+
+[role='menuitem']:hover .git-branch-star,
+[role='menuitem'][class*='-active'] .git-branch-star,
+.git-branch-row:hover .git-branch-star {
+  opacity: 1;
+}
+
 // The log's text filter paints what it matched in a row — over the
 // band, the hover and the selection alike.
 .git-tool-match {

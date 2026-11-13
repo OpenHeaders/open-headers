@@ -124,7 +124,8 @@ const BarButton: React.FC<BarButtonProps> = ({
           height: BUTTON_EXTENT,
           padding: 0,
           border: 'none',
-          background: active ? token.colorFillSecondary : 'transparent',
+          // At rest the stylesheet's (transparent, a grey fill under the pointer); pressed, its own.
+          background: active ? token.colorFillSecondary : undefined,
           borderRadius: token.borderRadiusSM,
           cursor: disabled ? 'default' : 'pointer',
           color: disabled ? token.colorTextQuaternary : token.colorTextSecondary,

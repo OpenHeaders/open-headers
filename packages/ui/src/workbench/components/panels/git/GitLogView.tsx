@@ -49,7 +49,8 @@ import { topologicalOrder } from './log-topological';
 import { allLinearFragments, collapseLog, fragmentKey, type LogFragment } from './graph-fragment';
 import { currentBranchBandTip, currentBranchShas as bandShas } from './log-reachability';
 import { buildLogRowMenu, type LogRowMenuTarget } from './log-row-menu';
-import { getGitRailPrefs, subscribeGitRailPrefs } from './rail/git-rail-prefs';
+import { getGitRailPrefs, subscribeGitRailPrefs, toggleGitRailFavorite } from './rail/git-rail-prefs';
+import { defaultFavoriteKeys, favoriteKeys } from './rail/ref-favorites';
 import GitRailCollapsedStrip from './rail/GitRailCollapsedStrip';
 import GitRefRail from './rail/GitRefRail';
 import GitDetailsToolbar from './toolbar/GitDetailsToolbar';
@@ -140,7 +141,11 @@ const GitLogView: React.FC<GitLogViewProps> = ({
     [workspaceId],
   );
   const railPrefs = useSyncExternalStore(subscribeRailPrefs, () => getGitRailPrefs(workspaceId));
-  const favoriteSet = useMemo<ReadonlySet<string>>(() => new Set(railPrefs.favorites), [railPrefs.favorites]);
+  const defaultFavorites = useMemo(() => defaultFavoriteKeys(refs, currentRef), [refs, currentRef]);
+  const favoriteSet = useMemo<ReadonlySet<string>>(
+    () => favoriteKeys(railPrefs, defaultFavorites),
+    [railPrefs, defaultFavorites],
+  );
 
   const { selectedRef, filter, filterRegex, filterCase, selectedSha, refsCollapsed, railSelection } = tab;
   const layout = useGitLogLayout(
@@ -556,8 +561,8 @@ const GitLogView: React.FC<GitLogViewProps> = ({
             tab={tab}
             patchTab={patchTab}
             refs={refs}
-            currentRef={currentRef}
             favorites={favoriteSet}
+            onToggleFavorite={(kind, name) => toggleGitRailFavorite(workspaceId, kind, name, defaultFavorites)}
             entries={entries}
             loading={loading}
             onRefresh={() => void reload()}

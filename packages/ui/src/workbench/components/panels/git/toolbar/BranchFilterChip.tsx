@@ -1,44 +1,101 @@
 /**
- * BranchFilterChip — the log toolbar's `Branch:` chip and its
- * picker: Select… (switches the popup to a searchable flat list),
- * the Favorites section (HEAD + starred refs + the current branch's
- * always-★), then one submenu per namespace — Local, each remote's
- * `<remote>/…`, Tags. Scope triad: idle (null) = the unfiltered
- * all-refs log; picking HEAD or a ref scopes it and the chip reads
- * `Branch: <scope>`; the × clears back to unfiltered.
+ * BranchFilterChip — the log toolbar's `Branch:` chip and its picker,
+ * the reference's reading: Select… (the searchable list), the
+ * Favorites section — HEAD, then the favorite refs — and one submenu
+ * per namespace: Local, each remote's `<remote>/…`, Tags. Every ref
+ * row carries its STAR in the icon slot: gold while the ref is a
+ * favorite, an outline on hover while it is not; a click on the star
+ * toggles the favorite and picks nothing. A ref un-starred in the
+ * Favorites section stays listed until the menu closes, so the star
+ * can be put back. HEAD's star is fixed. Typing with the menu open
+ * starts the search with what was typed.
+ *
+ * Scope triad: idle (null) = the unfiltered all-refs log; picking HEAD
+ * or a ref scopes it and the chip reads `Branch: <scope>`; the ×
+ * clears back to unfiltered.
  */
 
+import { StarFilled, StarOutlined } from '@ant-design/icons';
 import type { WorkspaceTreeRefWire } from '@openheaders/core/bridge';
 import { Input, Menu, theme } from 'antd';
 import type React from 'react';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { GIT_LOG_SCOPE_HEAD } from '../git-panel-view-store';
 import { GIT_TEXT_SIZE } from '../git-type-scale';
 import { gitRailFavoriteKey } from '../rail/git-rail-prefs';
 import GitFilterChip from './GitFilterChip';
 
+type RefKind = WorkspaceTreeRefWire['kind'];
+
 export interface BranchFilterChipProps {
   refs: WorkspaceTreeRefWire[];
-  currentRef: string | null;
-  /** Favorite keys (`<kind>:<name>`) from the rail prefs. */
+  /** Favorite keys (`<kind>:<name>`) — the starred refs, the defaults among them. */
   favorites: ReadonlySet<string>;
+  /** A star was clicked. */
+  onToggleFavorite: (kind: RefKind, name: string) => void;
   scopeRef: string | null;
   /** Kind of the scoped ref — the chip label reads Tag: for tags. */
-  scopeKind: WorkspaceTreeRefWire['kind'];
+  scopeKind: RefKind;
   onScopeChange: (ref: string | null) => void;
 }
 
-const STAR = (
-  <span aria-hidden style={{ width: 14, display: 'inline-flex', justifyContent: 'center' }}>
-    ★
-  </span>
-);
+interface StarProps {
+  on: boolean;
+  /** Absent = a fixed star (HEAD's). */
+  onToggle?: () => void;
+  label: string;
+  /** The menu hands its icon slot's class (the gap before the name) to whatever sits in it. */
+  className?: string;
+}
+
+/** A row's star: the favorite's state and, where it can be toggled, its own click target. */
+const Star: React.FC<StarProps> = ({ on, onToggle, label, className }) => {
+  const { token } = theme.useToken();
+  const glyph = on ? <StarFilled /> : <StarOutlined />;
+  const classes = ['git-branch-star', on ? 'git-branch-star--on' : '', className ?? ''].filter(Boolean).join(' ');
+  const style: React.CSSProperties = {
+    display: 'inline-flex',
+    justifyContent: 'center',
+    width: 14,
+    color: token.colorWarningText,
+  };
+  if (onToggle === undefined) {
+    return (
+      <span aria-hidden className={classes} style={style}>
+        {glyph}
+      </span>
+    );
+  }
+  return (
+    <span
+      role="button"
+      tabIndex={-1}
+      aria-label={label}
+      aria-pressed={on}
+      className={classes}
+      data-testid="git-tool-chip-branch-star"
+      data-on={on}
+      style={{ ...style, cursor: 'pointer' }}
+      onClick={(event) => {
+        event.stopPropagation();
+        onToggle();
+      }}
+      onKeyDown={(event) => {
+        if (event.key !== 'Enter' && event.key !== ' ') return;
+        event.stopPropagation();
+        onToggle();
+      }}
+    >
+      {glyph}
+    </span>
+  );
+};
 
 const BranchFilterChip: React.FC<BranchFilterChipProps> = ({
   refs,
-  currentRef,
   favorites,
+  onToggleFavorite,
   scopeRef,
   scopeKind,
   onScopeChange,
@@ -48,6 +105,12 @@ const BranchFilterChip: React.FC<BranchFilterChipProps> = ({
   const [open, setOpen] = useState(false);
   const [mode, setMode] = useState<'menu' | 'search'>('menu');
   const [search, setSearch] = useState('');
+  // The Favorites section as it stood when the menu opened: a ref
+  // un-starred there keeps its row (and its star to put back) until the
+  // menu closes.
+  const [listed, setListed] = useState<readonly WorkspaceTreeRefWire[]>([]);
+
+  const isFavorite = (ref: WorkspaceTreeRefWire): boolean => favorites.has(gitRailFavoriteKey(ref.kind, ref.name));
 
   const close = (): void => {
     setOpen(false);
@@ -55,18 +118,22 @@ const BranchFilterChip: React.FC<BranchFilterChipProps> = ({
     setSearch('');
   };
 
-  const favoriteRows = useMemo(() => {
-    const rows: Array<{ key: string; name: string }> = [];
-    for (const ref of refs) {
-      const isCurrent = ref.kind === 'local' && ref.name === currentRef;
-      if (isCurrent || favorites.has(gitRailFavoriteKey(ref.kind, ref.name))) {
-        rows.push({ key: `${ref.kind}:${ref.name}`, name: ref.name });
-      }
-    }
-    return rows;
-  }, [refs, currentRef, favorites]);
+  // Typing with the menu open is a search (the reference): the first
+  // printable key opens the list with it; the field takes the rest.
+  useEffect(() => {
+    if (!open || mode !== 'menu') return;
+    const onKey = (event: KeyboardEvent): void => {
+      if (event.key.length !== 1 || event.key === ' ' || event.metaKey || event.ctrlKey || event.altKey) return;
+      event.preventDefault();
+      event.stopPropagation();
+      setMode('search');
+      setSearch(event.key);
+    };
+    document.addEventListener('keydown', onKey, true);
+    return () => document.removeEventListener('keydown', onKey, true);
+  }, [open, mode]);
 
-  const remotes = useMemo(() => {
+  const namespaces = useMemo(() => {
     const byRemote = new Map<string, WorkspaceTreeRefWire[]>();
     for (const ref of refs) {
       if (ref.kind !== 'remote') continue;
@@ -75,16 +142,27 @@ const BranchFilterChip: React.FC<BranchFilterChipProps> = ({
       if (rows !== undefined) rows.push(ref);
       else byRemote.set(remote, [ref]);
     }
-    return [...byRemote.entries()].sort(([a], [b]) => a.localeCompare(b));
-  }, [refs]);
+    return [
+      { key: 'group-local', label: t('workbench.gitLog.refs.local'), rows: refs.filter((ref) => ref.kind === 'local') },
+      ...[...byRemote.entries()]
+        .sort(([a], [b]) => a.localeCompare(b))
+        .map(([remote, rows]) => ({ key: `group-remote-${remote}`, label: `${remote}/…`, rows })),
+      { key: 'group-tags', label: t('workbench.gitLog.refs.tags'), rows: refs.filter((ref) => ref.kind === 'tag') },
+    ].filter((namespace) => namespace.rows.length > 0);
+  }, [refs, t]);
 
-  const locals = useMemo(() => refs.filter((ref) => ref.kind === 'local'), [refs]);
-  const tags = useMemo(() => refs.filter((ref) => ref.kind === 'tag'), [refs]);
+  const star = (ref: WorkspaceTreeRefWire): React.ReactNode => (
+    <Star
+      on={isFavorite(ref)}
+      onToggle={() => onToggleFavorite(ref.kind, ref.name)}
+      label={t('workbench.gitLog.rail.toggleFavorite')}
+    />
+  );
 
-  const refItem = (ref: { kind: string; name: string }, starred: boolean): { key: string; label: string; icon?: React.ReactNode } => ({
+  const refItem = (ref: WorkspaceTreeRefWire): { key: string; label: string; icon: React.ReactNode } => ({
     key: `ref:${ref.kind}:${ref.name}`,
     label: ref.name,
-    ...(starred ? { icon: STAR } : {}),
+    icon: star(ref),
   });
 
   const menuContent = (
@@ -113,40 +191,25 @@ const BranchFilterChip: React.FC<BranchFilterChipProps> = ({
           type: 'group',
           label: t('workbench.gitLog.menu.favorites'),
           children: [
-            { key: 'head', label: 'HEAD', icon: STAR },
-            ...favoriteRows.map((row) => ({ key: `ref:${row.key}`, label: row.name, icon: STAR })),
+            { key: 'head', label: 'HEAD', icon: <Star on label="HEAD" /> },
+            ...listed.map((ref) => ({ ...refItem(ref), key: `ref:${ref.kind}:${ref.name}` })),
           ],
         },
         { type: 'divider' },
-        ...(locals.length > 0
-          ? [
-              {
-                key: 'group-local',
-                label: t('workbench.gitLog.refs.local'),
-                children: locals.map((ref) => refItem(ref, false)),
-              },
-            ]
-          : []),
-        ...remotes.map(([remote, rows]) => ({
-          key: `group-remote-${remote}`,
-          label: `${remote}/…`,
-          children: rows.map((ref) => refItem(ref, false)),
+        ...namespaces.map((namespace) => ({
+          key: namespace.key,
+          label: namespace.label,
+          children: namespace.rows.map(refItem),
         })),
-        ...(tags.length > 0
-          ? [
-              {
-                key: 'group-tags',
-                label: t('workbench.gitLog.refs.tags'),
-                children: tags.map((ref) => refItem(ref, false)),
-              },
-            ]
-          : []),
       ]}
     />
   );
 
   const needle = search.trim().toLowerCase();
-  const searchRows = needle === '' ? refs : refs.filter((ref) => ref.name.toLowerCase().includes(needle));
+  const matches = (ref: WorkspaceTreeRefWire): boolean => needle === '' || ref.name.toLowerCase().includes(needle);
+  const found = namespaces
+    .map((namespace) => ({ ...namespace, rows: namespace.rows.filter(matches) }))
+    .filter((namespace) => namespace.rows.length > 0);
 
   const searchContent = (
     <div style={{ display: 'flex', flexDirection: 'column', minWidth: 240, maxHeight: 420 }}>
@@ -162,35 +225,43 @@ const BranchFilterChip: React.FC<BranchFilterChipProps> = ({
         />
       </div>
       <div style={{ flex: '1 1 auto', minHeight: 0, overflowY: 'auto', padding: '2px 0 4px' }}>
-        {searchRows.map((ref) => (
-          <button
-            key={`${ref.kind}:${ref.name}`}
-            type="button"
-            className="git-tool-row"
-            onClick={() => {
-              onScopeChange(ref.name);
-              close();
-            }}
-            title={ref.name}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 5,
-              width: '100%',
-              padding: '3px 12px',
-              border: 'none',
-              textAlign: 'left',
-              cursor: 'pointer',
-              fontSize: GIT_TEXT_SIZE,
-              color: token.colorText,
-            }}
-            data-testid="git-tool-chip-branch-row"
-            data-ref={ref.name}
-          >
-            <span style={{ flex: '1 1 auto', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis' }}>
-              {ref.name}
-            </span>
-          </button>
+        {found.map((namespace) => (
+          <div key={namespace.key} data-testid="git-tool-chip-branch-section">
+            <div style={{ padding: '4px 12px 2px', fontSize: 12, fontWeight: 600, color: token.colorTextTertiary }}>
+              {namespace.label}
+            </div>
+            {namespace.rows.map((ref) => (
+              <button
+                key={`${ref.kind}:${ref.name}`}
+                type="button"
+                className="git-tool-row git-branch-row"
+                onClick={() => {
+                  onScopeChange(ref.name);
+                  close();
+                }}
+                title={ref.name}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 8,
+                  width: '100%',
+                  padding: '3px 12px',
+                  border: 'none',
+                  textAlign: 'left',
+                  cursor: 'pointer',
+                  fontSize: GIT_TEXT_SIZE,
+                  color: token.colorText,
+                }}
+                data-testid="git-tool-chip-branch-row"
+                data-ref={ref.name}
+              >
+                {star(ref)}
+                <span style={{ flex: '1 1 auto', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  {ref.name}
+                </span>
+              </button>
+            ))}
+          </div>
         ))}
       </div>
     </div>
@@ -206,7 +277,8 @@ const BranchFilterChip: React.FC<BranchFilterChipProps> = ({
       open={open}
       onOpenChange={(next) => {
         setOpen(next);
-        if (!next) {
+        if (next) setListed(refs.filter(isFavorite));
+        else {
           setMode('menu');
           setSearch('');
         }

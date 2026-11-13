@@ -3,8 +3,10 @@
  * rail: inside each namespace group (Local / Remote / Tags) ref names
  * fold on `/` into collapsible folders (`v5/data-model` renders as
  * folder `v5` → leaf `data-model`; a remote's first segment is its
- * remote-name folder). Pure shaping + search filtering; selection and
- * expansion state stay with the view.
+ * remote-name folder). Inside a level the refs that lead come first
+ * (the checked-out branch, then the favorites — the reference's
+ * order), then the folders, then every other ref by name. Pure shaping
+ * + search filtering; selection and expansion state stay with the view.
  */
 
 import type { WorkspaceTreeRefWire } from '@openheaders/core/bridge';
@@ -27,24 +29,45 @@ export interface RefTreeLeaf {
 
 export type RefTreeNode = RefTreeFolder | RefTreeLeaf;
 
+/** Where a ref stands in its level: the checked-out branch, a favorite, any other. */
+export type RefRank = 'current' | 'favorite' | 'plain';
+
+const RANK_ORDER: Record<RefRank, number> = { current: 0, favorite: 1, plain: 2 };
+
+interface BuildLeaf {
+  label: string;
+  name: string;
+  refKind: WorkspaceTreeRefWire['kind'];
+  rank: RefRank;
+}
+
 interface BuildFolder {
   folders: Map<string, BuildFolder>;
-  leaves: Array<{ label: string; name: string; refKind: WorkspaceTreeRefWire['kind'] }>;
+  leaves: BuildLeaf[];
 }
+
+const byRankThenLabel = (a: BuildLeaf, b: BuildLeaf): number =>
+  RANK_ORDER[a.rank] - RANK_ORDER[b.rank] || a.label.localeCompare(b.label);
+
+const leafNode = (leaf: BuildLeaf): RefTreeLeaf => ({
+  kind: 'leaf',
+  label: leaf.label,
+  name: leaf.name,
+  refKind: leaf.refKind,
+});
 
 function newBuildFolder(): BuildFolder {
   return { folders: new Map(), leaves: [] };
 }
 
 function emit(dir: BuildFolder, groupKind: string, prefix: string): RefTreeNode[] {
-  const nodes: RefTreeNode[] = [];
+  const leaves = [...dir.leaves].sort(byRankThenLabel);
+  const nodes: RefTreeNode[] = leaves.filter((leaf) => leaf.rank !== 'plain').map(leafNode);
   for (const [name, child] of [...dir.folders.entries()].sort(([a], [b]) => a.localeCompare(b))) {
     const path = prefix === '' ? name : `${prefix}/${name}`;
     nodes.push({ kind: 'folder', label: name, key: `${groupKind}:${path}`, children: emit(child, groupKind, path) });
   }
-  for (const leaf of [...dir.leaves].sort((a, b) => a.label.localeCompare(b.label))) {
-    nodes.push({ kind: 'leaf', label: leaf.label, name: leaf.name, refKind: leaf.refKind });
-  }
+  nodes.push(...leaves.filter((leaf) => leaf.rank === 'plain').map(leafNode));
   return nodes;
 }
 
@@ -52,16 +75,19 @@ function emit(dir: BuildFolder, groupKind: string, prefix: string): RefTreeNode[
  * Fold one namespace group's refs into its folder tree. With
  * `groupByDirectory` off (the log-window gear toggle) the group stays a
  * flat sorted list — every ref a leaf labeled by its full name.
+ * `rankOf` says which refs lead their level; absent, none does.
  */
 export function buildRefTree(
   refs: readonly WorkspaceTreeRefWire[],
   groupKind: string,
   groupByDirectory = true,
+  rankOf: (ref: WorkspaceTreeRefWire) => RefRank = () => 'plain',
 ): RefTreeNode[] {
   if (!groupByDirectory) {
-    return [...refs]
-      .sort((a, b) => a.name.localeCompare(b.name))
-      .map((ref) => ({ kind: 'leaf', label: ref.name, name: ref.name, refKind: ref.kind }));
+    return refs
+      .map((ref): BuildLeaf => ({ label: ref.name, name: ref.name, refKind: ref.kind, rank: rankOf(ref) }))
+      .sort(byRankThenLabel)
+      .map(leafNode);
   }
   const root = newBuildFolder();
   for (const ref of refs) {
@@ -76,7 +102,7 @@ export function buildRefTree(
       }
       dir = child;
     }
-    dir.leaves.push({ label: segments[segments.length - 1], name: ref.name, refKind: ref.kind });
+    dir.leaves.push({ label: segments[segments.length - 1], name: ref.name, refKind: ref.kind, rank: rankOf(ref) });
   }
   return emit(root, groupKind, '');
 }

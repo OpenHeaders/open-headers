@@ -62,7 +62,8 @@ const ToolbarIconButton: React.FC<ToolbarIconButtonProps> = ({
           height: 24,
           padding: 0,
           border: 'none',
-          background: active === true ? token.colorFillSecondary : 'transparent',
+          // At rest the stylesheet's (transparent, a grey fill under the pointer); pressed, its own.
+          background: active === true ? token.colorFillSecondary : undefined,
           borderRadius: token.borderRadiusSM,
           cursor: disabled === true ? 'default' : 'pointer',
           color: disabled === true ? token.colorTextQuaternary : token.colorTextSecondary,

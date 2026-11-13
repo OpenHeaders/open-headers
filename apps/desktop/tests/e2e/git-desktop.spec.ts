@@ -572,11 +572,11 @@ async function chooseSwitch(choice: 'commit' | 'stash' | 'discard'): Promise<voi
   await button.click();
 }
 
-/** The rail's local branch row carrying the current-branch star. */
+/** The rail's local branch row carrying the checked-out branch's mark (the gold tag). */
 async function expectCurrentBranch(name: string): Promise<void> {
   await expect(
     workbench.locator(
-      `[data-testid="git-tool-ref-row"][data-kind="local"][data-ref="${name}"] [data-testid="git-tool-ref-star"]`,
+      `[data-testid="git-tool-ref-row"][data-kind="local"][data-ref="${name}"] [data-testid="git-tool-ref-current"]`,
     ),
   ).toBeVisible();
 }
