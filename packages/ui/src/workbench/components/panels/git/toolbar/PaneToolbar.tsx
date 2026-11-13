@@ -1,21 +1,25 @@
 /**
- * PaneToolbar — a pane's horizontal icon band (the Commit window's top
- * row, the changes pane's details band) over the shared
- * toolbar-overflow fit: the leading entries that fit stay in the band
- * and the tail folds behind a › chevron at the right edge whose HOVER
- * lays the folded buttons out in a strip beneath it — the band never
- * shrinks or clips a button (S38 law). Entries are buttons (24px),
+ * PaneToolbar — a pane's horizontal band (the Commit window's top row,
+ * the changes pane's details band, the log's filter row) over the
+ * shared toolbar-overflow fit: the leading entries that fit stay in
+ * the band and the tail folds behind a › chevron at the right edge
+ * whose HOVER lays the folded entries out in a strip beneath it — the
+ * band never shrinks or clips an entry (S38 law). Entries are items (a
+ * 24px button, or anything wider — a chip is read where it stands),
  * separators (a 1px rule) or one spacer (the flex gap that pushes the
  * rest to the far edge); a spacer folds like a separator and never
- * appears in the strip.
+ * appears in the strip. A band may open with a LEAD — a control that
+ * is no entry (the log's text field): it never folds, gives way down
+ * to its floor before any entry does, and takes its basis back as the
+ * entries fold.
  */
 
 import { RightOutlined } from '@ant-design/icons';
 import { Dropdown, theme } from 'antd';
 import type React from 'react';
-import { useMemo } from 'react';
+import { useMemo, useRef } from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
-import { type ToolbarOverflowItem, useToolbarOverflow } from '@openheaders/ui/shared/toolbar-overflow';
+import { type ToolbarOverflowItem, useEntryExtents, useToolbarOverflow } from '@openheaders/ui/shared/toolbar-overflow';
 import ToolbarIconButton from './ToolbarIconButton';
 
 export type PaneToolbarEntry =
@@ -23,39 +27,59 @@ export type PaneToolbarEntry =
   | { kind: 'separator'; key: string }
   | { kind: 'spacer'; key: string };
 
+export interface PaneToolbarLead {
+  node: React.ReactNode;
+  /** The width it holds while the band has room. */
+  basis: number;
+  /** The width it never goes under — the entries fold before it does. */
+  floor: number;
+}
+
 export interface PaneToolbarProps {
   entries: readonly PaneToolbarEntry[];
   /** The band's testid; the chevron is `<testid>-more-button`, its strip `<testid>-overflow`. */
   testid: string;
+  lead?: PaneToolbarLead;
+  /** The space between entries — an icon band's 2px unless the band says otherwise. */
+  gap?: number;
 }
 
 const BUTTON_EXTENT = 24;
 /** The 1px rule plus its 4px margins. */
 const SEPARATOR_EXTENT = 9;
-const GAP = 2;
+const ICON_GAP = 2;
 const BAND_PADDING = 16;
 const BAND_HEIGHT = 33;
 
-/** The fit's extents from the entries' kinds — a spacer takes no room of its own. */
-function extentsOf(shape: string): ToolbarOverflowItem[] {
+const entryWrap: React.CSSProperties = { display: 'inline-flex', flex: '0 0 auto' };
+
+/** The fit's extents from the entries' `kind:key` shape and the widths read so far. */
+function extentsOf(shape: string, widths: ReadonlyMap<string, number>): ToolbarOverflowItem[] {
   if (shape.length === 0) return [];
-  return shape.split(',').map((kind) => {
-    if (kind === 'item') return { kind: 'item', extent: BUTTON_EXTENT };
+  return shape.split(',').map((entry) => {
+    const cut = entry.indexOf(':');
+    const kind = entry.slice(0, cut);
+    if (kind === 'item') return { kind: 'item', extent: widths.get(entry.slice(cut + 1)) ?? BUTTON_EXTENT };
     return { kind: 'separator', extent: kind === 'separator' ? SEPARATOR_EXTENT : 0 };
   });
 }
 
-const PaneToolbar: React.FC<PaneToolbarProps> = ({ entries, testid }) => {
+const PaneToolbar: React.FC<PaneToolbarProps> = ({ entries, testid, lead, gap = ICON_GAP }) => {
   const t = useT();
   const { token } = theme.useToken();
-  const shape = entries.map((entry) => entry.kind).join(',');
-  const extents = useMemo(() => extentsOf(shape), [shape]);
-  const { ref, fit } = useToolbarOverflow<HTMLDivElement>({
-    items: extents,
+  const ref = useRef<HTMLDivElement | null>(null);
+  // An item is as wide as it was last read in the band (a button's 24px
+  // until then), a separator its rule and margins, the spacer nothing.
+  const widths = useEntryExtents(ref);
+  const shape = entries.map((entry) => `${entry.kind}:${entry.key}`).join(',');
+  const items = useMemo(() => extentsOf(shape, widths), [shape, widths]);
+  const { fit } = useToolbarOverflow<HTMLDivElement>({
+    items,
     axis: 'horizontal',
-    gap: GAP,
+    gap,
     moreExtent: BUTTON_EXTENT,
-    padding: BAND_PADDING,
+    padding: BAND_PADDING + (lead === undefined ? 0 : lead.floor + gap),
+    ref,
   });
 
   const render = (entry: PaneToolbarEntry, inStrip: boolean): React.ReactNode => {
@@ -70,7 +94,7 @@ const PaneToolbar: React.FC<PaneToolbarProps> = ({ entries, testid }) => {
       );
     }
     return (
-      <span key={entry.key} style={{ display: 'contents' }}>
+      <span key={entry.key} data-overflow-key={inStrip ? undefined : entry.key} style={entryWrap}>
         {entry.node}
       </span>
     );
@@ -88,7 +112,7 @@ const PaneToolbar: React.FC<PaneToolbarProps> = ({ entries, testid }) => {
         flex: '0 0 auto',
         display: 'flex',
         alignItems: 'center',
-        gap: GAP,
+        gap,
         height: BAND_HEIGHT,
         padding: '0 8px',
         borderBottom: `1px solid ${token.colorBorderSecondary}`,
@@ -97,6 +121,9 @@ const PaneToolbar: React.FC<PaneToolbarProps> = ({ entries, testid }) => {
         overflow: 'hidden',
       }}
     >
+      {lead !== undefined && (
+        <span style={{ display: 'inline-flex', flex: `0 1 ${lead.basis}px`, minWidth: lead.floor }}>{lead.node}</span>
+      )}
       {visible.map((entry) => render(entry, false))}
       {folded.length > 0 && (
         <Dropdown
@@ -113,7 +140,7 @@ const PaneToolbar: React.FC<PaneToolbarProps> = ({ entries, testid }) => {
               style={{
                 display: 'flex',
                 alignItems: 'center',
-                gap: GAP,
+                gap,
                 padding: 4,
                 background: token.colorBgElevated,
                 borderRadius: token.borderRadiusLG,

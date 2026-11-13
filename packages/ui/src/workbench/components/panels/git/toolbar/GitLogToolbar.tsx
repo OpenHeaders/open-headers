@@ -3,9 +3,13 @@
  * text-or-hash field with regex/match-case toggles, the Branch / User /
  * Date / Paths filter chips, Graph Options (sort + walk riders + the
  * Collapse / Expand Linear Branches gestures over the graph's
- * fragments), then the right-aligned action icons — Refresh, Cherry-Pick (placeholder),
+ * fragments), then the right-aligned action icons — Refresh, Cherry-Pick,
  * View Options, Go To Hash/Branch/Tag. Filter state lives in the tab
  * registry (travels with the tab); display prefs are per-workspace.
+ * The band is a PaneToolbar led by the text field: at a narrow pane the
+ * field keeps its floor and everything after it that does not fit —
+ * the far end first — folds behind the › chevron's hover strip (the
+ * reference's reading).
  */
 
 import { EyeOutlined, SearchOutlined } from '@ant-design/icons';
@@ -23,6 +27,7 @@ import DateFilterModal from './DateFilterModal';
 import GitFilterChip from './GitFilterChip';
 import { CherryPickIcon, GraphOptionsIcon } from './icons';
 import { menuCheckIcon, menuIconGutter } from '../../../shared/menu-check';
+import PaneToolbar, { type PaneToolbarEntry } from './PaneToolbar';
 import PathsFilterModal from './PathsFilterModal';
 import ToolbarIconButton from './ToolbarIconButton';
 
@@ -56,6 +61,11 @@ export interface GitLogToolbarProps {
 }
 
 const SHA_PREFIX = /^[0-9a-f]{4,40}$/;
+
+/** The text field holds this width while the band has room, and gives way to its floor before a chip folds. */
+const FIELD_WIDTH = 220;
+const FIELD_FLOOR = 140;
+const BAND_GAP = 6;
 
 interface FilterToggleProps {
   glyph: string;
@@ -172,354 +182,408 @@ const GitLogToolbar: React.FC<GitLogToolbarProps> = ({
     setGoToMissed(false);
   };
 
-  return (
-    <div
-      style={{
-        flex: '0 0 auto',
-        display: 'flex',
-        alignItems: 'center',
-        gap: 6,
-        height: 33,
-        padding: '0 8px',
-        borderBottom: `1px solid ${token.colorBorderSecondary}`,
-        background: token.colorFillQuaternary,
-        minWidth: 0,
-      }}
-      data-testid="git-tool-toolbar"
-    >
-      <Input
-        size="small"
-        allowClear
-        value={tab.filter}
-        status={textInvalid ? 'error' : undefined}
-        onChange={(e) => patchTab({ filter: e.target.value })}
-        placeholder={t('workbench.gitLog.filterPlaceholder')}
-        prefix={<SearchOutlined style={{ color: token.colorTextTertiary }} />}
-        suffix={
-          <span style={{ display: 'inline-flex', gap: 2 }}>
-            <FilterToggle
-              glyph=".*"
-              title={t('workbench.gitLog.filter.regex')}
-              active={tab.filterRegex}
-              onToggle={() => patchTab({ filterRegex: !tab.filterRegex })}
-              testid="git-tool-filter-regex"
-            />
-            <FilterToggle
-              glyph="Cc"
-              title={t('workbench.gitLog.filter.matchCase')}
-              active={tab.filterCase}
-              onToggle={() => patchTab({ filterCase: !tab.filterCase })}
-              testid="git-tool-filter-case"
+  const field = (
+    <Input
+      size="small"
+      allowClear
+      value={tab.filter}
+      status={textInvalid ? 'error' : undefined}
+      onChange={(e) => patchTab({ filter: e.target.value })}
+      placeholder={t('workbench.gitLog.filterPlaceholder')}
+      prefix={<SearchOutlined style={{ color: token.colorTextTertiary }} />}
+      suffix={
+        <span style={{ display: 'inline-flex', gap: 2 }}>
+          <FilterToggle
+            glyph=".*"
+            title={t('workbench.gitLog.filter.regex')}
+            active={tab.filterRegex}
+            onToggle={() => patchTab({ filterRegex: !tab.filterRegex })}
+            testid="git-tool-filter-regex"
+          />
+          <FilterToggle
+            glyph="Cc"
+            title={t('workbench.gitLog.filter.matchCase')}
+            active={tab.filterCase}
+            onToggle={() => patchTab({ filterCase: !tab.filterCase })}
+            testid="git-tool-filter-case"
+          />
+        </span>
+      }
+      style={{ width: '100%' }}
+      data-testid="git-tool-filter"
+    />
+  );
+
+  // The band's entries after the text field, in the order they fold from the far end.
+  const band: PaneToolbarEntry[] = [
+    {
+      kind: 'item',
+      key: 'branch',
+      node: (
+        <BranchFilterChip
+          refs={refs}
+          currentRef={currentRef}
+          favorites={favorites}
+          scopeRef={tab.selectedRef}
+          scopeKind={scopeKind}
+          onScopeChange={(ref) => patchTab({ selectedRef: ref })}
+        />
+      ),
+    },
+    {
+      kind: 'item',
+      key: 'user',
+      node: (
+        <GitFilterChip
+          label={t('workbench.gitLog.chip.user')}
+          value={tab.author === null ? null : tab.author.kind === 'me' ? t('workbench.gitLog.user.me') : tab.author.value}
+          onClear={() => patchTab({ author: null })}
+          menu={{
+            selectable: false,
+            items: [
+              {
+                key: 'select',
+                label: t('workbench.gitLog.menu.select'),
+                disabled: authors.length === 0,
+                children: authors.map((name) => ({ key: `author:${name}`, label: name })),
+              },
+              { key: 'me', label: t('workbench.gitLog.user.me') },
+            ],
+            onClick: ({ key }) => {
+              if (key === 'me') patchTab({ author: { kind: 'me' } });
+              else if (key.startsWith('author:')) patchTab({ author: { kind: 'user', value: key.slice(7) } });
+            },
+          }}
+          testid="git-tool-chip-user"
+        />
+      ),
+    },
+    {
+      kind: 'item',
+      key: 'date',
+      node: (
+        <GitFilterChip
+          label={t('workbench.gitLog.chip.date')}
+          value={dateValue}
+          onClear={() => patchTab({ date: null })}
+          menu={{
+            selectable: false,
+            items: [
+              { key: 'select', label: t('workbench.gitLog.menu.select') },
+              { key: '24h', label: t('workbench.gitLog.date.last24h') },
+              { key: '7d', label: t('workbench.gitLog.date.last7d') },
+            ],
+            onClick: ({ key }) => {
+              if (key === 'select') setDateModalOpen(true);
+              else patchTab({ date: { kind: 'preset', preset: key === '24h' ? '24h' : '7d' } });
+            },
+          }}
+          testid="git-tool-chip-date"
+        />
+      ),
+    },
+    {
+      kind: 'item',
+      key: 'paths',
+      node: (
+        <GitFilterChip
+          label={t('workbench.gitLog.chip.paths')}
+          value={pathsValue}
+          onClear={() => patchTab({ paths: [] })}
+          menu={{
+            selectable: false,
+            items: [
+              { key: 'select', label: t('workbench.gitLog.menu.select') },
+              { key: 'select-in-tree', label: t('workbench.gitLog.menu.selectInTree'), disabled: true },
+            ],
+            onClick: ({ key }) => {
+              if (key === 'select') setPathsModalOpen(true);
+            },
+          }}
+          testid="git-tool-chip-paths"
+        />
+      ),
+    },
+    {
+      kind: 'item',
+      key: 'graph-options',
+      node: (
+        <Dropdown
+          trigger={['click']}
+          placement="bottomLeft"
+          menu={{
+            selectable: false,
+            items: [
+              {
+                type: 'group',
+                label: t('workbench.gitLog.sort.heading'),
+                children: [
+                  { key: 'sort-date', label: t('workbench.gitLog.sort.byDate'), icon: menuCheckIcon(tab.sort === 'date') },
+                  { key: 'sort-topo', label: t('workbench.gitLog.sort.topo'), icon: menuCheckIcon(tab.sort === 'topo') },
+                ],
+              },
+              { type: 'divider' },
+              {
+                type: 'group',
+                label: t('workbench.gitLog.options.heading'),
+                children: [
+                  {
+                    key: 'first-parent',
+                    label: t('workbench.gitLog.options.firstParent'),
+                    icon: menuCheckIcon(tab.firstParent),
+                  },
+                  { key: 'no-merges', label: t('workbench.gitLog.options.noMerges'), icon: menuCheckIcon(tab.noMerges) },
+                ],
+              },
+              { type: 'divider' },
+              {
+                type: 'group',
+                label: t('workbench.gitLog.branchActions.heading'),
+                children: [
+                  {
+                    key: 'collapse-linear',
+                    label: t('workbench.gitLog.branchActions.collapseLinear'),
+                    icon: menuIconGutter(),
+                    disabled: !canCollapseLinear,
+                  },
+                  {
+                    key: 'expand-linear',
+                    label: t('workbench.gitLog.branchActions.expandLinear'),
+                    icon: menuIconGutter(),
+                    disabled: !canExpandLinear,
+                  },
+                ],
+              },
+            ],
+            onClick: ({ key }) => {
+              if (key === 'sort-date') patchTab({ sort: 'date' });
+              else if (key === 'sort-topo') patchTab({ sort: 'topo' });
+              else if (key === 'first-parent') patchTab({ firstParent: !tab.firstParent });
+              else if (key === 'no-merges') patchTab({ noMerges: !tab.noMerges });
+              else if (key === 'collapse-linear') onCollapseLinear();
+              else if (key === 'expand-linear') onExpandLinear();
+            },
+          }}
+        >
+          <span style={{ display: 'inline-flex' }}>
+            <ToolbarIconButton
+              icon={<GraphOptionsIcon />}
+              title={t('workbench.gitLog.graphOptions')}
+              testid="git-tool-graph-options"
             />
           </span>
-        }
-        style={{ maxWidth: 220, flex: '0 1 auto' }}
-        data-testid="git-tool-filter"
-      />
-      <BranchFilterChip
-        refs={refs}
-        currentRef={currentRef}
-        favorites={favorites}
-        scopeRef={tab.selectedRef}
-        scopeKind={scopeKind}
-        onScopeChange={(ref) => patchTab({ selectedRef: ref })}
-      />
-      <GitFilterChip
-        label={t('workbench.gitLog.chip.user')}
-        value={tab.author === null ? null : tab.author.kind === 'me' ? t('workbench.gitLog.user.me') : tab.author.value}
-        onClear={() => patchTab({ author: null })}
-        menu={{
-          selectable: false,
-          items: [
-            {
-              key: 'select',
-              label: t('workbench.gitLog.menu.select'),
-              disabled: authors.length === 0,
-              children: authors.map((name) => ({ key: `author:${name}`, label: name })),
+        </Dropdown>
+      ),
+    },
+    { kind: 'spacer', key: 'spacer' },
+    {
+      kind: 'item',
+      key: 'refresh',
+      node: (
+        <ToolbarIconButton
+          icon={<RefreshIcon spin={loading} />}
+          title={t('workbench.gitLog.refresh')}
+          onClick={onRefresh}
+          disabled={loading}
+          testid="git-tool-refresh"
+        />
+      ),
+    },
+    {
+      kind: 'item',
+      key: 'cherry-pick',
+      node: (
+        <ToolbarIconButton
+          icon={<CherryPickIcon />}
+          title={t('workbench.gitLog.cherryPick')}
+          onClick={onCherryPick}
+          disabled={onCherryPick === undefined}
+          testid="git-tool-cherry-pick"
+        />
+      ),
+    },
+    {
+      kind: 'item',
+      key: 'view-options',
+      node: (
+        <Dropdown
+          trigger={['click']}
+          placement="bottomRight"
+          menu={{
+            selectable: false,
+            items: [
+              {
+                type: 'group',
+                label: t('workbench.gitLog.show.heading'),
+                children: [
+                  {
+                    key: 'compact-refs',
+                    label: t('workbench.gitLog.show.compactRefs'),
+                    icon: menuCheckIcon(prefs.compactReferences),
+                  },
+                  {
+                    key: 'tag-names',
+                    label: t('workbench.gitLog.show.tagNames'),
+                    icon: menuCheckIcon(prefs.showTagNames),
+                  },
+                  {
+                    key: 'long-edges',
+                    label: t('workbench.gitLog.show.longEdges'),
+                    icon: menuCheckIcon(false),
+                    disabled: true,
+                  },
+                  {
+                    key: 'commit-timestamp',
+                    label: t('workbench.gitLog.show.commitTimestamp'),
+                    icon: menuCheckIcon(prefs.showCommitTimestamp),
+                  },
+                  {
+                    key: 'refs-on-left',
+                    label: t('workbench.gitLog.show.refsOnLeft'),
+                    icon: menuCheckIcon(prefs.referencesOnLeft),
+                  },
+                  {
+                    key: 'columns',
+                    label: t('workbench.gitLog.show.columns'),
+                    icon: menuIconGutter(),
+                    children: [
+                      {
+                        key: 'column-author',
+                        label: t('workbench.gitLog.columns.author'),
+                        icon: menuCheckIcon(prefs.showAuthorColumn),
+                      },
+                      {
+                        key: 'column-hash',
+                        label: t('workbench.gitLog.columns.hash'),
+                        icon: menuCheckIcon(prefs.showHashColumn),
+                      },
+                      {
+                        key: 'column-date',
+                        label: t('workbench.gitLog.columns.date'),
+                        icon: menuCheckIcon(prefs.showDateColumn),
+                      },
+                    ],
+                  },
+                ],
+              },
+              { type: 'divider' },
+              {
+                type: 'group',
+                label: t('workbench.gitLog.highlight.heading'),
+                children: [
+                  {
+                    key: 'my-commits',
+                    label: t('workbench.gitLog.highlight.myCommits'),
+                    icon: menuCheckIcon(false),
+                    disabled: true,
+                  },
+                  {
+                    key: 'merge-commits',
+                    label: t('workbench.gitLog.highlight.mergeCommits'),
+                    icon: menuCheckIcon(prefs.highlightMergeCommits),
+                  },
+                  {
+                    key: 'current-branch',
+                    label: t('workbench.gitLog.highlight.currentBranch'),
+                    icon: menuCheckIcon(prefs.highlightCurrentBranch),
+                  },
+                  {
+                    key: 'not-cherry-picked',
+                    label: t('workbench.gitLog.highlight.notCherryPicked'),
+                    icon: menuCheckIcon(false),
+                    disabled: true,
+                  },
+                ],
+              },
+            ],
+            onClick: ({ key }) => {
+              if (key === 'compact-refs') onPatchPrefs({ compactReferences: !prefs.compactReferences });
+              else if (key === 'refs-on-left') onPatchPrefs({ referencesOnLeft: !prefs.referencesOnLeft });
+              else if (key === 'tag-names') onPatchPrefs({ showTagNames: !prefs.showTagNames });
+              else if (key === 'commit-timestamp') onPatchPrefs({ showCommitTimestamp: !prefs.showCommitTimestamp });
+              else if (key === 'merge-commits') onPatchPrefs({ highlightMergeCommits: !prefs.highlightMergeCommits });
+              else if (key === 'current-branch') onPatchPrefs({ highlightCurrentBranch: !prefs.highlightCurrentBranch });
+              else if (key === 'column-author') onPatchPrefs({ showAuthorColumn: !prefs.showAuthorColumn });
+              else if (key === 'column-hash') onPatchPrefs({ showHashColumn: !prefs.showHashColumn });
+              else if (key === 'column-date') onPatchPrefs({ showDateColumn: !prefs.showDateColumn });
             },
-            { key: 'me', label: t('workbench.gitLog.user.me') },
-          ],
-          onClick: ({ key }) => {
-            if (key === 'me') patchTab({ author: { kind: 'me' } });
-            else if (key.startsWith('author:')) patchTab({ author: { kind: 'user', value: key.slice(7) } });
-          },
-        }}
-        testid="git-tool-chip-user"
-      />
-      <GitFilterChip
-        label={t('workbench.gitLog.chip.date')}
-        value={dateValue}
-        onClear={() => patchTab({ date: null })}
-        menu={{
-          selectable: false,
-          items: [
-            { key: 'select', label: t('workbench.gitLog.menu.select') },
-            { key: '24h', label: t('workbench.gitLog.date.last24h') },
-            { key: '7d', label: t('workbench.gitLog.date.last7d') },
-          ],
-          onClick: ({ key }) => {
-            if (key === 'select') setDateModalOpen(true);
-            else patchTab({ date: { kind: 'preset', preset: key === '24h' ? '24h' : '7d' } });
-          },
-        }}
-        testid="git-tool-chip-date"
-      />
-      <GitFilterChip
-        label={t('workbench.gitLog.chip.paths')}
-        value={pathsValue}
-        onClear={() => patchTab({ paths: [] })}
-        menu={{
-          selectable: false,
-          items: [
-            { key: 'select', label: t('workbench.gitLog.menu.select') },
-            { key: 'select-in-tree', label: t('workbench.gitLog.menu.selectInTree'), disabled: true },
-          ],
-          onClick: ({ key }) => {
-            if (key === 'select') setPathsModalOpen(true);
-          },
-        }}
-        testid="git-tool-chip-paths"
-      />
-      <Dropdown
-        trigger={['click']}
-        placement="bottomLeft"
-        menu={{
-          selectable: false,
-          items: [
-            {
-              type: 'group',
-              label: t('workbench.gitLog.sort.heading'),
-              children: [
-                { key: 'sort-date', label: t('workbench.gitLog.sort.byDate'), icon: menuCheckIcon(tab.sort === 'date') },
-                { key: 'sort-topo', label: t('workbench.gitLog.sort.topo'), icon: menuCheckIcon(tab.sort === 'topo') },
-              ],
-            },
-            { type: 'divider' },
-            {
-              type: 'group',
-              label: t('workbench.gitLog.options.heading'),
-              children: [
-                {
-                  key: 'first-parent',
-                  label: t('workbench.gitLog.options.firstParent'),
-                  icon: menuCheckIcon(tab.firstParent),
-                },
-                { key: 'no-merges', label: t('workbench.gitLog.options.noMerges'), icon: menuCheckIcon(tab.noMerges) },
-              ],
-            },
-            { type: 'divider' },
-            {
-              type: 'group',
-              label: t('workbench.gitLog.branchActions.heading'),
-              children: [
-                {
-                  key: 'collapse-linear',
-                  label: t('workbench.gitLog.branchActions.collapseLinear'),
-                  icon: menuIconGutter(),
-                  disabled: !canCollapseLinear,
-                },
-                {
-                  key: 'expand-linear',
-                  label: t('workbench.gitLog.branchActions.expandLinear'),
-                  icon: menuIconGutter(),
-                  disabled: !canExpandLinear,
-                },
-              ],
-            },
-          ],
-          onClick: ({ key }) => {
-            if (key === 'sort-date') patchTab({ sort: 'date' });
-            else if (key === 'sort-topo') patchTab({ sort: 'topo' });
-            else if (key === 'first-parent') patchTab({ firstParent: !tab.firstParent });
-            else if (key === 'no-merges') patchTab({ noMerges: !tab.noMerges });
-            else if (key === 'collapse-linear') onCollapseLinear();
-            else if (key === 'expand-linear') onExpandLinear();
-          },
-        }}
-      >
-        <span style={{ display: 'inline-flex' }}>
-          <ToolbarIconButton
-            icon={<GraphOptionsIcon />}
-            title={t('workbench.gitLog.graphOptions')}
-            testid="git-tool-graph-options"
-          />
-        </span>
-      </Dropdown>
-      <span style={{ flex: 1 }} />
-      <ToolbarIconButton
-        icon={<RefreshIcon spin={loading} />}
-        title={t('workbench.gitLog.refresh')}
-        onClick={onRefresh}
-        disabled={loading}
-        testid="git-tool-refresh"
-      />
-      <ToolbarIconButton
-        icon={<CherryPickIcon />}
-        title={t('workbench.gitLog.cherryPick')}
-        onClick={onCherryPick}
-        disabled={onCherryPick === undefined}
-        testid="git-tool-cherry-pick"
-      />
-      <Dropdown
-        trigger={['click']}
-        placement="bottomRight"
-        menu={{
-          selectable: false,
-          items: [
-            {
-              type: 'group',
-              label: t('workbench.gitLog.show.heading'),
-              children: [
-                {
-                  key: 'compact-refs',
-                  label: t('workbench.gitLog.show.compactRefs'),
-                  icon: menuCheckIcon(prefs.compactReferences),
-                },
-                {
-                  key: 'tag-names',
-                  label: t('workbench.gitLog.show.tagNames'),
-                  icon: menuCheckIcon(prefs.showTagNames),
-                },
-                {
-                  key: 'long-edges',
-                  label: t('workbench.gitLog.show.longEdges'),
-                  icon: menuCheckIcon(false),
-                  disabled: true,
-                },
-                {
-                  key: 'commit-timestamp',
-                  label: t('workbench.gitLog.show.commitTimestamp'),
-                  icon: menuCheckIcon(prefs.showCommitTimestamp),
-                },
-                {
-                  key: 'refs-on-left',
-                  label: t('workbench.gitLog.show.refsOnLeft'),
-                  icon: menuCheckIcon(prefs.referencesOnLeft),
-                },
-                {
-                  key: 'columns',
-                  label: t('workbench.gitLog.show.columns'),
-                  icon: menuIconGutter(),
-                  children: [
-                    {
-                      key: 'column-author',
-                      label: t('workbench.gitLog.columns.author'),
-                      icon: menuCheckIcon(prefs.showAuthorColumn),
-                    },
-                    {
-                      key: 'column-hash',
-                      label: t('workbench.gitLog.columns.hash'),
-                      icon: menuCheckIcon(prefs.showHashColumn),
-                    },
-                    {
-                      key: 'column-date',
-                      label: t('workbench.gitLog.columns.date'),
-                      icon: menuCheckIcon(prefs.showDateColumn),
-                    },
-                  ],
-                },
-              ],
-            },
-            { type: 'divider' },
-            {
-              type: 'group',
-              label: t('workbench.gitLog.highlight.heading'),
-              children: [
-                {
-                  key: 'my-commits',
-                  label: t('workbench.gitLog.highlight.myCommits'),
-                  icon: menuCheckIcon(false),
-                  disabled: true,
-                },
-                {
-                  key: 'merge-commits',
-                  label: t('workbench.gitLog.highlight.mergeCommits'),
-                  icon: menuCheckIcon(prefs.highlightMergeCommits),
-                },
-                {
-                  key: 'current-branch',
-                  label: t('workbench.gitLog.highlight.currentBranch'),
-                  icon: menuCheckIcon(prefs.highlightCurrentBranch),
-                },
-                {
-                  key: 'not-cherry-picked',
-                  label: t('workbench.gitLog.highlight.notCherryPicked'),
-                  icon: menuCheckIcon(false),
-                  disabled: true,
-                },
-              ],
-            },
-          ],
-          onClick: ({ key }) => {
-            if (key === 'compact-refs') onPatchPrefs({ compactReferences: !prefs.compactReferences });
-            else if (key === 'refs-on-left') onPatchPrefs({ referencesOnLeft: !prefs.referencesOnLeft });
-            else if (key === 'tag-names') onPatchPrefs({ showTagNames: !prefs.showTagNames });
-            else if (key === 'commit-timestamp') onPatchPrefs({ showCommitTimestamp: !prefs.showCommitTimestamp });
-            else if (key === 'merge-commits') onPatchPrefs({ highlightMergeCommits: !prefs.highlightMergeCommits });
-            else if (key === 'current-branch') onPatchPrefs({ highlightCurrentBranch: !prefs.highlightCurrentBranch });
-            else if (key === 'column-author') onPatchPrefs({ showAuthorColumn: !prefs.showAuthorColumn });
-            else if (key === 'column-hash') onPatchPrefs({ showHashColumn: !prefs.showHashColumn });
-            else if (key === 'column-date') onPatchPrefs({ showDateColumn: !prefs.showDateColumn });
-          },
-        }}
-      >
-        <span style={{ display: 'inline-flex' }}>
-          <ToolbarIconButton
-            icon={<EyeOutlined />}
-            title={t('workbench.gitLog.viewOptions')}
-            testid="git-tool-view-options"
-          />
-        </span>
-      </Dropdown>
-      <Dropdown
-        trigger={['click']}
-        placement="bottomRight"
-        open={goToOpen}
-        // Mounted fresh on every open, so the field's autoFocus lands each
-        // time (a kept popup mounts once and focuses once).
-        destroyOnHidden
-        onOpenChange={(next) => {
-          setGoToOpen(next);
-          if (!next) {
-            setGoToValue('');
-            setGoToMissed(false);
-          }
-        }}
-        popupRender={() => (
-          <div
-            style={{
-              background: token.colorBgElevated,
-              borderRadius: token.borderRadiusLG,
-              boxShadow: token.boxShadowSecondary,
-              padding: 8,
-              minWidth: 260,
-            }}
-          >
-            <Input
-              size="small"
-              autoFocus
-              value={goToValue}
-              status={goToMissed ? 'error' : undefined}
-              onChange={(e) => {
-                setGoToValue(e.target.value);
-                setGoToMissed(false);
-              }}
-              onPressEnter={resolveGoTo}
-              placeholder={t('workbench.gitLog.goTo.placeholder')}
-              data-testid="git-tool-goto-input"
+          }}
+        >
+          <span style={{ display: 'inline-flex' }}>
+            <ToolbarIconButton
+              icon={<EyeOutlined />}
+              title={t('workbench.gitLog.viewOptions')}
+              testid="git-tool-view-options"
             />
-            {goToMissed && (
-              <div style={{ paddingTop: 6, fontSize: 11.5, color: token.colorError }} data-testid="git-tool-goto-miss">
-                {t('workbench.gitLog.goTo.notFound')}
-              </div>
-            )}
-          </div>
-        )}
-      >
-        <span style={{ display: 'inline-flex' }}>
-          <ToolbarIconButton icon={<SearchOutlined />} title={t('workbench.gitLog.goTo')} testid="git-tool-goto" />
-        </span>
-      </Dropdown>
+          </span>
+        </Dropdown>
+      ),
+    },
+    {
+      kind: 'item',
+      key: 'go-to',
+      node: (
+        <Dropdown
+          trigger={['click']}
+          placement="bottomRight"
+          open={goToOpen}
+          // Mounted fresh on every open, so the field's autoFocus lands each
+          // time (a kept popup mounts once and focuses once).
+          destroyOnHidden
+          onOpenChange={(next) => {
+            setGoToOpen(next);
+            if (!next) {
+              setGoToValue('');
+              setGoToMissed(false);
+            }
+          }}
+          popupRender={() => (
+            <div
+              style={{
+                background: token.colorBgElevated,
+                borderRadius: token.borderRadiusLG,
+                boxShadow: token.boxShadowSecondary,
+                padding: 8,
+                minWidth: 260,
+              }}
+            >
+              <Input
+                size="small"
+                autoFocus
+                value={goToValue}
+                status={goToMissed ? 'error' : undefined}
+                onChange={(e) => {
+                  setGoToValue(e.target.value);
+                  setGoToMissed(false);
+                }}
+                onPressEnter={resolveGoTo}
+                placeholder={t('workbench.gitLog.goTo.placeholder')}
+                data-testid="git-tool-goto-input"
+              />
+              {goToMissed && (
+                <div style={{ paddingTop: 6, fontSize: 11.5, color: token.colorError }} data-testid="git-tool-goto-miss">
+                  {t('workbench.gitLog.goTo.notFound')}
+                </div>
+              )}
+            </div>
+          )}
+        >
+          <span style={{ display: 'inline-flex' }}>
+            <ToolbarIconButton icon={<SearchOutlined />} title={t('workbench.gitLog.goTo')} testid="git-tool-goto" />
+          </span>
+        </Dropdown>
+      ),
+    },
+  ];
+
+  return (
+    <>
+      <PaneToolbar
+        entries={band}
+        testid="git-tool-toolbar"
+        lead={{ node: field, basis: FIELD_WIDTH, floor: FIELD_FLOOR }}
+        gap={BAND_GAP}
+      />
       <DateFilterModal
         open={dateModalOpen}
         since={tab.date !== null && tab.date.kind === 'range' ? tab.date.since : null}
@@ -537,7 +601,7 @@ const GitLogToolbar: React.FC<GitLogToolbarProps> = ({
         onClose={() => setPathsModalOpen(false)}
         onApply={(paths) => patchTab({ paths })}
       />
-    </div>
+    </>
   );
 };
 
