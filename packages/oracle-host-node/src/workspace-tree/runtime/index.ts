@@ -82,6 +82,7 @@ import {
   runFileLog,
   runGitConsole,
   runListRefs,
+  runTreeFiles,
   runWorkspaceLog,
 } from './history';
 import { runIgnorePath, runUnignorePath } from './ignore';
@@ -134,6 +135,7 @@ import type {
   WorkspaceTreeRemotesRpcResult,
   WorkspaceTreeRuntime,
   WorkspaceTreeRuntimeOptions,
+  WorkspaceTreeTreeFilesRpcResult,
   WorkspaceTreeUnaddPathsRpcResult,
   WorkspaceTreeUnignoreRpcResult,
   WorkspaceTreeUserCommitInput,
@@ -179,6 +181,7 @@ export type {
   WorkspaceTreeRemotesRpcResult,
   WorkspaceTreeRuntime,
   WorkspaceTreeRuntimeOptions,
+  WorkspaceTreeTreeFilesRpcResult,
   WorkspaceTreeUnaddPathsRpcResult,
   WorkspaceTreeUnignoreRpcResult,
   WorkspaceTreeUserCommitInput,
@@ -864,6 +867,10 @@ export function createWorkspaceTreeRuntime(options: WorkspaceTreeRuntimeOptions)
 
     commitSignatures(workspaceId: string, shas: readonly string[]): Promise<WorkspaceTreeCommitSignaturesRpcResult> {
       return runCommitSignatures(ctx, workspaceId, shas);
+    },
+
+    treeFiles(workspaceId: string): Promise<WorkspaceTreeTreeFilesRpcResult> {
+      return runTreeFiles(ctx, workspaceId);
     },
 
     entityAtPath(workspaceId: string, filePath: string): Promise<WorkspaceTreeEntityAtPathRpcResult> {

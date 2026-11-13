@@ -545,6 +545,11 @@ export type WorkspaceTreeCommitSignaturesRpcResult =
   | { ok: true; signatures: CommitSignature[] }
   | { ok: false; reason: 'not-bound' | 'git-unavailable' | 'not-a-repo' | 'unknown-commit' };
 
+/** The files of the checked-out commit's tree — what the log's path picker lists. */
+export type WorkspaceTreeTreeFilesRpcResult =
+  | { ok: true; paths: string[]; truncated: boolean }
+  | { ok: false; reason: 'not-bound' | 'git-unavailable' | 'not-a-repo' | 'list-failed' };
+
 /** The log's Create Patch… — the selected commits as one mailbox-format text. */
 export type WorkspaceTreeCommitPatchRpcResult =
   | { ok: true; patch: string }
@@ -851,6 +856,12 @@ export interface WorkspaceTreeRuntime {
    * part of the log read.
    */
   commitSignatures(workspaceId: string, shas: readonly string[]): Promise<WorkspaceTreeCommitSignaturesRpcResult>;
+  /**
+   * The log's Paths › Select in Tree…: every file of the checked-out
+   * commit's tree, by path (a bounded list — `truncated` past it). A
+   * pure read; an unborn HEAD answers none.
+   */
+  treeFiles(workspaceId: string): Promise<WorkspaceTreeTreeFilesRpcResult>;
   /**
    * The log's Create Patch…: `shas` (FULL commit hashes, in apply
    * order) as one mailbox-format patch text. Pure read, off the

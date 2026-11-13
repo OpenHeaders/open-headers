@@ -50,6 +50,7 @@ import GitComparePane from './compare/GitComparePane';
 import { GIT_PRIMARY_TAB_KEY, type GitPanelTab, type GitPanelWorkbench, gitPanelTabKey } from './git-panel-view-store';
 import GitConsolePane from './GitConsolePane';
 import GitLogView from './GitLogView';
+import { getGitLogRecentFilters } from './git-log-recent-filters';
 import GitTabStrip, { type GitTabDescriptor } from './GitTabStrip';
 import { scopeTabText } from './log-scope';
 import { pathLabel } from './toolbar/log-filters';
@@ -119,7 +120,10 @@ export const GitGroupRenderer: React.FC<GitGroupRendererProps> = ({
     if (text !== '') return t('workbench.gitLog.searchTab', { text });
     const users =
       tab.author === null ? [] : tab.author.kind === 'me' ? [t('workbench.gitLog.user.me')] : tab.author.values;
-    const scope = scopeTabText([...tab.selectedRefs, ...users, ...tab.paths.map((path) => pathLabel(path, false))]);
+    // A path picked in the tree by what it belongs to reads by that name.
+    const { pathNames } = getGitLogRecentFilters(workspaceId);
+    const paths = tab.paths.map((path) => pathNames[path] ?? pathLabel(path, false));
+    const scope = scopeTabText([...tab.selectedRefs, ...users, ...paths]);
     return scope === null ? t('workbench.gitLog.logTabAll') : t('workbench.gitLog.logTab', { branch: scope });
   };
   const leafDescriptors = (leaf: EditorLeaf<PaneTabRef>): GitTabDescriptor[] =>

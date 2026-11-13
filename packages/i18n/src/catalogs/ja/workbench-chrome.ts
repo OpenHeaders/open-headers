@@ -509,6 +509,9 @@ export const workbenchChrome = {
   'workbench.gitLog.chip.pathsCount': '{count} 件のパス',
   'workbench.gitLog.menu.select': '選択…',
   'workbench.gitLog.menu.selectInTree': 'ツリーで選択…',
+  'workbench.gitLog.paths.treeTitle': 'フィルターするパスを選択',
+  'workbench.gitLog.paths.treeTruncated':
+    'ツリーにはここに表示されている以上のファイルがあります。残りは「選択…」から入力してください。',
   'workbench.gitLog.menu.favorites': 'お気に入り',
   'workbench.gitLog.menu.clearHint': '{key} でフィルターをクリア',
   'workbench.gitLog.select.hint': '1 つ以上の値を | または改行で区切って指定します。{key} で確定',

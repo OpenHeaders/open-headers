@@ -31,11 +31,13 @@ import { CherryPickIcon, GraphOptionsIcon } from './icons';
 import { menuCheckIcon, menuIconGutter } from '../../../shared/menu-check';
 import { pathsChipText } from './log-filters';
 import PaneToolbar, { type PaneToolbarEntry } from './PaneToolbar';
+import PathsTreeModal from './PathsTreeModal';
 import ToolbarIconButton from './ToolbarIconButton';
 import ValuesFilterChip from './ValuesFilterChip';
 import { useOptionMenu } from '../use-option-menu';
 
 export interface GitLogToolbarProps {
+  workspaceId: string;
   tab: GitLogTabState;
   patchTab: (patch: Partial<Omit<GitLogTabState, 'kind' | 'id'>>) => void;
   refs: WorkspaceTreeRefWire[];
@@ -49,8 +51,8 @@ export interface GitLogToolbarProps {
   onScopeChange: (scope: GitLogScope) => void;
   /** The User chip applied a list of authors — empty clears it. */
   onUsersChange: (users: readonly string[]) => void;
-  /** The Paths chip applied a list of paths — empty clears it. */
-  onPathsChange: (paths: readonly string[]) => void;
+  /** The Paths chip applied a list of paths — empty clears it; `names` for those picked in the tree by name. */
+  onPathsChange: (paths: readonly string[], names?: Readonly<Record<string, string>>) => void;
   /** Loaded entries — the Go To resolver and the User submenu feed. */
   entries: WorkspaceTreeLogEntryWire[];
   loading: boolean;
@@ -80,6 +82,7 @@ const FIELD_WIDTH = 190;
 const BAND_GAP = 4;
 
 const GitLogToolbar: React.FC<GitLogToolbarProps> = ({
+  workspaceId,
   tab,
   patchTab,
   refs,
@@ -106,6 +109,7 @@ const GitLogToolbar: React.FC<GitLogToolbarProps> = ({
   const t = useT();
   const { token } = theme.useToken();
   const [dateModalOpen, setDateModalOpen] = useState(false);
+  const [pathsTreeOpen, setPathsTreeOpen] = useState(false);
   const [goToOpen, setGoToOpen] = useState(false);
   const graphOptions = useOptionMenu();
   const viewOptions = useOptionMenu();
@@ -234,7 +238,7 @@ const GitLogToolbar: React.FC<GitLogToolbarProps> = ({
       node: (
         <ValuesFilterChip
           label={t('workbench.gitLog.chip.paths')}
-          value={pathsChipText(tab.paths)}
+          value={pathsChipText(tab.paths, recent.pathNames)}
           valueTitle={tab.paths.length > 1 ? tab.paths.join('\n') : undefined}
           values={tab.paths}
           onApply={onPathsChange}
@@ -242,10 +246,10 @@ const GitLogToolbar: React.FC<GitLogToolbarProps> = ({
           names={[]}
           bar={false}
           rows={[
-            { key: 'tree', label: t('workbench.gitLog.menu.selectInTree'), disabled: true, onPick: () => undefined },
+            { key: 'tree', label: t('workbench.gitLog.menu.selectInTree'), onPick: () => setPathsTreeOpen(true) },
           ]}
           recent={recent.paths}
-          recentText={(paths) => pathsChipText(paths) ?? ''}
+          recentText={(paths) => pathsChipText(paths, recent.pathNames) ?? ''}
           testid="git-tool-chip-paths"
         />
       ),
@@ -570,6 +574,15 @@ const GitLogToolbar: React.FC<GitLogToolbarProps> = ({
         onApply={(since, until) => {
           patchTab({ date: since === null && until === null ? null : { kind: 'range', since, until } });
         }}
+      />
+      <PathsTreeModal
+        workspaceId={workspaceId}
+        open={pathsTreeOpen}
+        named={prefs.groupFilesByWorkspace}
+        paths={tab.paths}
+        names={recent.pathNames}
+        onClose={() => setPathsTreeOpen(false)}
+        onApply={onPathsChange}
       />
     </>
   );

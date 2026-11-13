@@ -815,6 +815,15 @@ export interface WorkspaceRpc {
     res: WorkspaceTreeCommitSignaturesWire;
   };
   /**
+   * Every file of the checked-out commit's tree, by path — what the
+   * log's Paths › Select in Tree… lists. A pure read, bounded
+   * (`truncated` past the bound); an unborn HEAD answers none.
+   */
+  'oh.workspaceTree.treeFiles': {
+    req: { workspaceId: string };
+    res: WorkspaceTreeTreeFilesWire;
+  };
+  /**
    * The log's Create Patch…: the commits `shas` (FULL commit hashes,
    * in apply order — oldest first) as ONE mailbox-format patch text.
    * A pure read: the host writes nothing, the surface saves or copies
@@ -1438,6 +1447,15 @@ export type WorkspaceTreeCommitSignaturesWire =
       signatures: WorkspaceTreeCommitSignatureWire[];
     }
   | { ok: false; reason: 'not-bound' | 'git-unavailable' | 'not-a-repo' | 'unknown-commit' };
+
+export type WorkspaceTreeTreeFilesWire =
+  | {
+      ok: true;
+      paths: string[];
+      /** The tree holds more files than one answer lists. */
+      truncated: boolean;
+    }
+  | { ok: false; reason: 'not-bound' | 'git-unavailable' | 'not-a-repo' | 'list-failed' };
 
 export type WorkspaceTreeCommitPatchWire =
   | { ok: true; patch: string }

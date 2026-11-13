@@ -73,16 +73,18 @@ function ownFileNodes(nodes: readonly FileTreeNode[]): WorkspaceFileNode[] {
 /**
  * The sections as this tree lists them: the user's own files shaped as
  * the path tree shapes any — nested by directory with single-child
- * chains folded, or one flat run by full path without Group By Directory.
+ * chains folded (every directory its own row with `compress` off), or
+ * one flat run by full path without Group By Directory.
  */
 export function namedSections(
   sections: readonly WorkspaceFileSection[],
   groupByDirectory: boolean,
+  compress = true,
 ): readonly WorkspaceFileSection[] {
   return sections.map((section) => {
     if (section.id !== 'files') return section;
     const files = namedFilesUnder(section.nodes).map((path) => ({ path, status: '' }));
-    return { ...section, nodes: ownFileNodes(buildFileTree(files, groupByDirectory)) };
+    return { ...section, nodes: ownFileNodes(buildFileTree(files, groupByDirectory, compress)) };
   });
 }
 

@@ -215,6 +215,22 @@ describe('buildFileTree', () => {
     expect(rules.children.map((node) => (node.kind === 'dir' ? node.label : ''))).toEqual(['a', 'b']);
   });
 
+  it('keeps every directory a row of its own when asked not to compress — a tree that picks directories', () => {
+    const tree = buildFileTree(
+      [
+        { path: 'requests/git-pass-e2egcol1/collection.yaml', status: '' },
+        { path: 'config/envs/dev.env', status: '' },
+      ],
+      true,
+      false,
+    );
+    expect(allDirKeys(tree)).toEqual(['config', 'config/envs', 'requests', 'requests/git-pass-e2egcol1']);
+    const config = tree[0];
+    if (config.kind !== 'dir') throw new Error('expected dir');
+    expect(config.label).toBe('config');
+    expect(config.children.map((node) => (node.kind === 'dir' ? node.label : ''))).toEqual(['envs']);
+  });
+
   it('answers flat sorted full-path leaves while Group By Directory is off', () => {
     const flat = buildFileTree(
       [
@@ -255,6 +271,10 @@ describe('log filter model', () => {
     expect(pathsChipText([])).toBeNull();
     expect(pathsChipText(['notes/orders.md'])).toBe('orders.md');
     expect(pathsChipText(['assets/', 'config/envs/', 'workspace.yaml'])).toBe('assets/ + 2');
+    // A path picked in the tree by what it belongs to reads by that name.
+    expect(
+      pathsChipText(['requests/git-pass-e2egcol1/', 'workspace.yaml'], { 'requests/git-pass-e2egcol1/': 'Git Pass' }),
+    ).toBe('Git Pass + 1');
     expect(pathLabel('config/envs/')).toBe('envs/');
     expect(pathLabel('config/envs/', false)).toBe('envs');
     expect(buildLogWireFilters({ ...base, author: { kind: 'users', values: ['John Doe'] } }, now)).toEqual({

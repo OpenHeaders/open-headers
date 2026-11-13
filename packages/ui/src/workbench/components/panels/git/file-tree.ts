@@ -44,14 +44,14 @@ function countFiles(dir: BuildDir): number {
   return count;
 }
 
-function emit(dir: BuildDir, prefix: string): FileTreeNode[] {
+function emit(dir: BuildDir, prefix: string, compress: boolean): FileTreeNode[] {
   const nodes: FileTreeNode[] = [];
   for (const [name, child] of [...dir.dirs.entries()].sort(([a], [b]) => a.localeCompare(b))) {
     // Compress single-child pure-directory chains into one label.
     let label = name;
     let key = prefix === '' ? name : `${prefix}/${name}`;
     let cursor = child;
-    while (cursor.files.length === 0 && cursor.dirs.size === 1) {
+    while (compress && cursor.files.length === 0 && cursor.dirs.size === 1) {
       const [nextName, nextDir] = [...cursor.dirs.entries()][0];
       label = `${label}/${nextName}`;
       key = `${key}/${nextName}`;
@@ -62,7 +62,7 @@ function emit(dir: BuildDir, prefix: string): FileTreeNode[] {
       label,
       key,
       fileCount: countFiles(cursor),
-      children: emit(cursor, key),
+      children: emit(cursor, key, compress),
     });
   }
   for (const file of [...dir.files].sort((a, b) => a.name.localeCompare(b.name))) {
@@ -74,11 +74,14 @@ function emit(dir: BuildDir, prefix: string): FileTreeNode[] {
 /**
  * Fold one commit's changed paths into the compressed display tree.
  * With `groupByDirectory` off (the details eye toggle) the answer is a
- * flat sorted list — every file a leaf labeled by its full path.
+ * flat sorted list — every file a leaf labeled by its full path. With
+ * `compress` off every directory is a row of its own — a tree that
+ * PICKS directories needs each one.
  */
 export function buildFileTree(
   files: ReadonlyArray<{ path: string; status: string }>,
   groupByDirectory = true,
+  compress = true,
 ): FileTreeNode[] {
   if (!groupByDirectory) {
     return [...files]
@@ -100,7 +103,7 @@ export function buildFileTree(
     }
     dir.files.push({ name: segments[segments.length - 1], path: file.path, status: file.status });
   }
-  return emit(root, '');
+  return emit(root, '', compress);
 }
 
 /** Every dir key in the tree — the expand-all feed. */

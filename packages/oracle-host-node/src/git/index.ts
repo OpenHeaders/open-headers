@@ -147,6 +147,8 @@ export {
   asFileText,
   checkoutPathsFromCommit,
   type FileText,
+  HEAD_TREE_PATHS_MAX,
+  listHeadTreePaths,
   listTreeEntries,
   readTreeEntryText,
   snapshotWorkingTree,

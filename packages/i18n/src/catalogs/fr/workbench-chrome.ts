@@ -514,6 +514,9 @@ export const workbenchChrome = {
   'workbench.gitLog.chip.pathsCount': '{count} chemins',
   'workbench.gitLog.menu.select': 'Sélectionner…',
   'workbench.gitLog.menu.selectInTree': "Sélectionner dans l'arborescence…",
+  'workbench.gitLog.paths.treeTitle': 'Sélectionner les chemins à filtrer',
+  'workbench.gitLog.paths.treeTruncated':
+    "L'arborescence contient plus de fichiers que ceux listés ici. Utilisez Sélectionner… pour saisir les autres.",
   'workbench.gitLog.menu.favorites': 'Favoris',
   'workbench.gitLog.menu.clearHint': 'Appuyez sur {key} pour effacer le filtre',
   'workbench.gitLog.select.hint':

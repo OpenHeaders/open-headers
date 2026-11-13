@@ -20,6 +20,7 @@ import {
   listCommitLog,
   listCommitRangeLog,
   listFileLog,
+  listHeadTreePaths,
   listRepoRefs,
   readCommitFileDiff,
   readCommitParentChanges,
@@ -39,6 +40,7 @@ import type {
   WorkspaceTreeLogFilters,
   WorkspaceTreeLogRpcResult,
   WorkspaceTreeRefsRpcResult,
+  WorkspaceTreeTreeFilesRpcResult,
 } from './types';
 
 /**
@@ -283,6 +285,18 @@ export async function runCommitSignatures(
   if (shas.length > COMMIT_SIGNATURES_MAX_COMMITS) return { ok: false, reason: 'unknown-commit' };
   const signatures = await readCommitSignatures(ctx.gitRun, rootDir, shas);
   return signatures === null ? { ok: false, reason: 'unknown-commit' } : { ok: true, signatures };
+}
+
+/** Every file of the checked-out commit's tree — the log's path picker's listing. */
+export async function runTreeFiles(ctx: RuntimeCtx, workspaceId: string): Promise<WorkspaceTreeTreeFilesRpcResult> {
+  const binding = ctx.open.get(workspaceId);
+  if (!binding) return { ok: false, reason: 'not-bound' };
+  const { rootDir } = binding.record;
+  const availability = await ctx.ensureGitAvailability(rootDir);
+  if (!availability.available) return { ok: false, reason: 'git-unavailable' };
+  if (!(await isWorkspaceRepo(ctx.gitRun, rootDir))) return { ok: false, reason: 'not-a-repo' };
+  const listed = await listHeadTreePaths(ctx.gitRun, rootDir);
+  return listed === null ? { ok: false, reason: 'list-failed' } : { ok: true, ...listed };
 }
 
 /** Console-tab read: this binding's slice of the audit ring (cwd inside its root). */

@@ -537,6 +537,9 @@ export const workbenchChrome = {
   'workbench.gitLog.chip.pathsCount': 'căi: {count}',
   'workbench.gitLog.menu.select': 'Selectare…',
   'workbench.gitLog.menu.selectInTree': 'Selectare în arbore…',
+  'workbench.gitLog.paths.treeTitle': 'Selectează căile pentru filtrare',
+  'workbench.gitLog.paths.treeTruncated':
+    'Arborele conține mai multe fișiere decât cele listate aici. Folosește Selectare… pentru a le scrie pe celelalte.',
   'workbench.gitLog.menu.favorites': 'Favorite',
   'workbench.gitLog.menu.clearHint': 'Apasă {key} pentru a șterge filtrul',
   'workbench.gitLog.select.hint':

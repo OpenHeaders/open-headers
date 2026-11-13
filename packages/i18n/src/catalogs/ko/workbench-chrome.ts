@@ -509,6 +509,9 @@ export const workbenchChrome = {
   'workbench.gitLog.chip.pathsCount': '경로 {count}개',
   'workbench.gitLog.menu.select': '선택…',
   'workbench.gitLog.menu.selectInTree': '트리에서 선택…',
+  'workbench.gitLog.paths.treeTitle': '필터링할 경로 선택',
+  'workbench.gitLog.paths.treeTruncated':
+    '트리에 여기에 표시된 것보다 많은 파일이 있습니다. 나머지는 선택…에서 입력하세요.',
   'workbench.gitLog.menu.favorites': '즐겨찾기',
   'workbench.gitLog.menu.clearHint': '{key} 키를 눌러 필터 지우기',
   'workbench.gitLog.select.hint': '하나 이상의 값을 | 또는 줄바꿈으로 구분해 선택하세요. {key} 키로 완료',

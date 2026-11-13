@@ -501,6 +501,9 @@ export const workbenchChrome = {
   'workbench.gitLog.chip.pathsCount': '{count} paths',
   'workbench.gitLog.menu.select': 'Select…',
   'workbench.gitLog.menu.selectInTree': 'Select in Tree…',
+  'workbench.gitLog.paths.treeTitle': 'Select Paths to Filter by',
+  'workbench.gitLog.paths.treeTruncated':
+    'The tree holds more files than are listed here. Use Select… to type the others.',
   'workbench.gitLog.menu.favorites': 'Favorites',
   'workbench.gitLog.menu.clearHint': 'Press {key} to clear the filter',
   'workbench.gitLog.select.hint': 'Select one or more values separated with | or new lines, use {key} to finish',

@@ -172,6 +172,7 @@ export type {
   WorkspaceTreeRemoteWire,
   WorkspaceTreeSweepSummary,
   WorkspaceTreeSwitchBranchWire,
+  WorkspaceTreeTreeFilesWire,
   WorkspaceTreeUnaddPathsWire,
   WorkspaceTreeUnignoreWire,
   WorkspaceTreeUpdateBranchWire,

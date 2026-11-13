@@ -14,7 +14,7 @@ import { promises as fs } from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import type { GitRunner } from './git-exec';
-import { type BranchOpResult, failureDetail, looksBinary, readBlobSize, repoArgs } from './repo';
+import { type BranchOpResult, failureDetail, localHeadSha, looksBinary, readBlobSize, repoArgs } from './repo';
 
 /** Paths per `checkout` invocation — keeps the arg vector under every platform's limit. */
 const CHECKOUT_PATHS_PER_CALL = 100;
@@ -41,6 +41,27 @@ export async function listTreeEntries(
     entries.set(record.slice(tab + 1), `${mode} ${sha}`);
   }
   return entries;
+}
+
+/** The files one listing answers — a tree of any size gives a bounded list. */
+export const HEAD_TREE_PATHS_MAX = 20_000;
+
+/**
+ * Every file the checked-out commit's tree holds, by path, in git's own
+ * order — what a path picker lists. An unborn HEAD holds none.
+ * `truncated` when the tree holds more than `max`. Null when the
+ * listing fails.
+ */
+export async function listHeadTreePaths(
+  run: GitRunner,
+  rootDir: string,
+  max = HEAD_TREE_PATHS_MAX,
+): Promise<{ paths: string[]; truncated: boolean } | null> {
+  if ((await localHeadSha(run, rootDir)) === null) return { paths: [], truncated: false };
+  const listing = await run([...repoArgs(rootDir), 'ls-tree', '-r', '-z', '--name-only', 'HEAD'], { cwd: rootDir });
+  if (listing.code !== 0) return null;
+  const paths = listing.stdout.split('\0').filter((path) => path.length > 0);
+  return { paths: paths.slice(0, max), truncated: paths.length > max };
 }
 
 /**

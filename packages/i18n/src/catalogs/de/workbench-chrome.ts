@@ -663,6 +663,9 @@ export const workbenchChrome = {
   'workbench.gitLog.chip.pathsCount': '{count} Pfade',
   'workbench.gitLog.menu.select': 'Auswählen…',
   'workbench.gitLog.menu.selectInTree': 'Im Baum auswählen…',
+  'workbench.gitLog.paths.treeTitle': 'Pfade für den Filter auswählen',
+  'workbench.gitLog.paths.treeTruncated':
+    'Der Baum enthält mehr Dateien, als hier aufgelistet sind. Weitere lassen sich über „Auswählen…“ eingeben.',
   'workbench.gitLog.menu.favorites': 'Favoriten',
   'workbench.gitLog.menu.clearHint': '{key} drücken, um den Filter zu löschen',
   'workbench.gitLog.select.hint':

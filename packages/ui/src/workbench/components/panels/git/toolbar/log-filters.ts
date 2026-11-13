@@ -79,10 +79,14 @@ export function pathLabel(path: string, slash = true): string {
   return slash && path.endsWith('/') ? `${name}/` : name;
 }
 
-/** The Paths chip's reading — `assets/ + 4`; null with no path. */
-export function pathsChipText(paths: readonly string[]): string | null {
+/**
+ * The Paths chip's reading — `assets/ + 4`; null with no path. A path
+ * picked in the tree by what it belongs to reads by that name.
+ */
+export function pathsChipText(paths: readonly string[], names: Readonly<Record<string, string>> = {}): string | null {
   if (paths.length === 0) return null;
-  return paths.length === 1 ? pathLabel(paths[0]) : `${pathLabel(paths[0])} + ${paths.length - 1}`;
+  const first = names[paths[0]] ?? pathLabel(paths[0]);
+  return paths.length === 1 ? first : `${first} + ${paths.length - 1}`;
 }
 
 /**

@@ -530,6 +530,9 @@ export const workbenchChrome = {
   'workbench.gitLog.chip.pathsCount': 'Путей: {count}',
   'workbench.gitLog.menu.select': 'Выбрать…',
   'workbench.gitLog.menu.selectInTree': 'Выбрать в дереве…',
+  'workbench.gitLog.paths.treeTitle': 'Выберите пути для фильтра',
+  'workbench.gitLog.paths.treeTruncated':
+    'В дереве больше файлов, чем показано здесь. Остальные можно ввести через «Выбрать…».',
   'workbench.gitLog.menu.favorites': 'Избранное',
   'workbench.gitLog.menu.clearHint': 'Нажмите {key}, чтобы сбросить фильтр',
   'workbench.gitLog.select.hint': 'Выберите одно или несколько значений через | или с новой строки; {key} — завершить',

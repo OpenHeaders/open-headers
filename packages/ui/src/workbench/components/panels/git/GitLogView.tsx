@@ -43,6 +43,7 @@ import FileHistoryModal from './FileHistoryModal';
 import type { FileTreeViewHandle } from './FileTreeView';
 import {
   getGitLogRecentFilters,
+  nameGitLogPaths,
   rememberGitLogFilter,
   subscribeGitLogRecentFilters,
 } from './git-log-recent-filters';
@@ -174,9 +175,10 @@ const GitLogView: React.FC<GitLogViewProps> = ({
     patchTab({ author: users.length === 0 ? null : { kind: 'users', values: users } });
     rememberGitLogFilter(workspaceId, 'users', users);
   };
-  const applyPaths = (next: readonly string[]): void => {
+  const applyPaths = (next: readonly string[], names?: Readonly<Record<string, string>>): void => {
     patchTab({ paths: next });
     rememberGitLogFilter(workspaceId, 'paths', next);
+    if (names !== undefined) nameGitLogPaths(workspaceId, names);
   };
   const layout = useGitLogLayout(
     workspaceId,
@@ -604,6 +606,7 @@ const GitLogView: React.FC<GitLogViewProps> = ({
           }}
         >
           <GitLogToolbar
+            workspaceId={workspaceId}
             tab={tab}
             patchTab={patchTab}
             refs={refs}

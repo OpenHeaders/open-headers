@@ -485,6 +485,8 @@ export const workbenchChrome = {
   'workbench.gitLog.chip.pathsCount': '{count} 个路径',
   'workbench.gitLog.menu.select': '选择…',
   'workbench.gitLog.menu.selectInTree': '在树中选择…',
+  'workbench.gitLog.paths.treeTitle': '选择要筛选的路径',
+  'workbench.gitLog.paths.treeTruncated': '树中的文件多于此处列出的文件。其余的请通过“选择…”输入。',
   'workbench.gitLog.menu.favorites': '收藏',
   'workbench.gitLog.menu.clearHint': '按 {key} 清除筛选',
   'workbench.gitLog.select.hint': '选择一个或多个值，以 | 或换行分隔，按 {key} 完成',

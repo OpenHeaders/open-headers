@@ -87,6 +87,7 @@ import {
 import { createLightweightTag } from '../../src/git/tag-ops';
 import {
   checkoutPathsFromCommit,
+  listHeadTreePaths,
   listTreeEntries,
   readTreeEntryText,
   snapshotWorkingTree,
@@ -2120,6 +2121,40 @@ describe('Tree ops: a commit’s blobs and a paths checkout off the real index',
     expect(await fs.readFile(path.join(tmpDir, 'docs/guide.md'), 'utf-8')).toBe('# guide, on disk\n');
     expect((await git('ls-files', '--stage')).stdout).toBe(indexBefore);
     expect(await treeWithFiles(run, tmpDir, 'not-a-tree', new Map([['a.md', 'a\n']]))).toBeNull();
+  });
+});
+
+describe('The checked-out tree’s files (S66): the log’s path picker', () => {
+  it('lists every file of HEAD’s tree by path, none on an unborn HEAD, and says when it cut the list', async () => {
+    await ensureWorkspaceRepo(run, tmpDir);
+    expect(await listHeadTreePaths(run, tmpDir)).toEqual({ paths: [], truncated: false });
+
+    await write('workspace.yaml', 'schemaVersion: 5\nuid: wsaaaaaa\nname: Probe\n');
+    await write('requests/git-pass-e2egcol1/status-probe-e2egreq1/request.yaml', 'uid: e2egreq1\n');
+    await write('notes/with space/orders.md', '# orders\n');
+    const committed = await commitWorkspaceTree({ run, rootDir: tmpDir, message: 'Tree', identityEnv: IDENTITY_ENV });
+    if (!committed.ok || !committed.committed) throw new Error('commit failed');
+    // An uncommitted file is not of HEAD's tree.
+    await write('scratch.txt', 'not committed\n');
+
+    const listed = await listHeadTreePaths(run, tmpDir);
+    expect(listed?.truncated).toBe(false);
+    expect(listed?.paths).toEqual(
+      expect.arrayContaining([
+        'workspace.yaml',
+        'requests/git-pass-e2egcol1/status-probe-e2egreq1/request.yaml',
+        'notes/with space/orders.md',
+      ]),
+    );
+    expect(listed?.paths).not.toContain('scratch.txt');
+
+    const cut = await listHeadTreePaths(run, tmpDir, 2);
+    expect(cut?.paths).toHaveLength(2);
+    expect(cut?.truncated).toBe(true);
+
+    const outside = path.join(tmpDir, 'not-a-repo');
+    await fs.mkdir(outside, { recursive: true });
+    expect(await listHeadTreePaths(run, outside)).toEqual({ paths: [], truncated: false });
   });
 });
 
