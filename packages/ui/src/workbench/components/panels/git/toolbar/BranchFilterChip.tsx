@@ -168,7 +168,11 @@ const BranchFilterChip: React.FC<BranchFilterChipProps> = ({
   };
 
   useEffect(() => {
-    if (open && mode === 'menu' && fromSearch) menuRef.current?.focus();
+    if (!open || mode !== 'menu' || !fromSearch) return;
+    // The first row itself, not the menu's own `focus()`: right after a
+    // mount the menu has not registered every row yet and picks among
+    // the ones it has — the second row as often as the first.
+    menuRef.current?.menu?.list.querySelector<HTMLElement>('[role="menuitem"]')?.focus();
   }, [open, mode, fromSearch]);
 
   // Typing with the menu open is a search (the reference): the first
