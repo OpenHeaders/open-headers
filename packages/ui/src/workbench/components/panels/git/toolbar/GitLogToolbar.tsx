@@ -143,6 +143,9 @@ const GitLogToolbar: React.FC<GitLogToolbarProps> = ({
     setGoToMissed(false);
   };
 
+  // The reference's mark on the button: an option of its menu is off its default.
+  const graphOptionsChanged = tab.sort !== 'date' || tab.firstParent || tab.noMerges;
+
   const field = (
     <GitLogTextField
       applied={tab.filter}
@@ -308,7 +311,26 @@ const GitLogToolbar: React.FC<GitLogToolbarProps> = ({
         >
           <span style={{ display: 'inline-flex' }}>
             <ToolbarIconButton
-              icon={<GraphOptionsIcon />}
+              icon={
+                <span style={{ position: 'relative', display: 'inline-flex' }}>
+                  <GraphOptionsIcon />
+                  {graphOptionsChanged && (
+                    <span
+                      aria-hidden
+                      data-testid="git-tool-graph-options-changed"
+                      style={{
+                        position: 'absolute',
+                        top: -2,
+                        right: -3,
+                        width: 6,
+                        height: 6,
+                        borderRadius: '50%',
+                        background: token.colorSuccess,
+                      }}
+                    />
+                  )}
+                </span>
+              }
               title={t('workbench.gitLog.graphOptions')}
               testid="git-tool-graph-options"
             />

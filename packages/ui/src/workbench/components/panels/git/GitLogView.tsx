@@ -45,6 +45,7 @@ import { getGitLogViewPrefs, patchGitLogViewPrefs, subscribeGitLogViewPrefs } fr
 import { GIT_LOG_SCOPE_HEAD, type GitLogTabState, gitPanelTabKey } from './git-panel-view-store';
 import { computeLogGraph } from './graph';
 import { contractLog } from './graph-filtered';
+import { topologicalOrder } from './log-topological';
 import { allLinearFragments, collapseLog, fragmentKey, type LogFragment } from './graph-fragment';
 import { currentBranchBandTip, currentBranchShas as bandShas } from './log-reachability';
 import { buildLogRowMenu, type LogRowMenuTarget } from './log-row-menu';
@@ -97,7 +98,8 @@ const GitLogView: React.FC<GitLogViewProps> = ({
   const infoCellRef = useRef<HTMLDivElement>(null);
   const fileTreeRef = useRef<FileTreeViewHandle>(null);
 
-  const [entries, setEntries] = useState<WorkspaceTreeLogEntryWire[]>([]);
+  // The window as the host answered it; `entries` below is what the view lists.
+  const [loaded, setLoaded] = useState<WorkspaceTreeLogEntryWire[]>([]);
   const [refs, setRefs] = useState<WorkspaceTreeRefWire[]>([]);
   const [currentRef, setCurrentRef] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -177,7 +179,7 @@ const GitLogView: React.FC<GitLogViewProps> = ({
         selectedRef === branch &&
         !knownRefs.some((ref) => ref.kind === 'local' && ref.name === selectedRef);
       if (scopeIsUnborn) {
-        setEntries([]);
+        setLoaded([]);
         return;
       }
       // Scope triad (the reference model): null = every ref (`allRefs`),
@@ -190,17 +192,17 @@ const GitLogView: React.FC<GitLogViewProps> = ({
         ...wireFilters,
       });
       if (result.ok) {
-        setEntries(result.entries);
+        setLoaded(result.entries);
       } else if (result.reason === 'unknown-ref') {
         // The scoped ref vanished (branch deleted, tag dropped) —
         // fall back to HEAD; the effect below refetches.
         patchTab({ selectedRef: null });
       } else {
-        setEntries([]);
+        setLoaded([]);
         setError(t('workbench.gitLog.loadFailed', { detail: result.detail ?? result.reason }));
       }
     } catch (err) {
-      setEntries([]);
+      setLoaded([]);
       setError((err as Error).message);
     } finally {
       setLoading(false);
@@ -217,6 +219,18 @@ const GitLogView: React.FC<GitLogViewProps> = ({
       void reload();
     });
   }, [workspaceId, reload]);
+
+  // Sort › Topologically is the reference's order, made here over the
+  // window (git's own topological walk keeps the window's cut honest):
+  // the checked-out commit leads, the checked-out branch's upstream is
+  // the last head listed above the trunk.
+  const entries = useMemo(() => {
+    if (sort !== 'topo') return loaded;
+    const lead = refs.find((ref) => ref.kind === 'local' && ref.name === currentRef)?.sha ?? detachedSha;
+    const upstream =
+      currentRef === null ? [] : refs.filter((ref) => ref.kind === 'remote' && ref.name.endsWith(`/${currentRef}`));
+    return topologicalOrder(loaded, { lead, last: new Set(upstream.map((ref) => ref.sha)) });
+  }, [loaded, sort, refs, currentRef, detachedSha]);
 
   const matcher = useMemo(() => makeTextMatcher(filter, filterRegex, filterCase), [filter, filterRegex, filterCase]);
 
