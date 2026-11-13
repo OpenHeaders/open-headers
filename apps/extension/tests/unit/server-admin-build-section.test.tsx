@@ -27,6 +27,9 @@ vi.mock('@openheaders/core/bridge', async (importOriginal) => {
   };
 });
 
+// The code editors stay out of jsdom: the tab reaches them only through its Git section's conflict dialogs.
+vi.mock('@openheaders/ui/shared/merge-editor', () => ({ MergeConflictModal: () => null }));
+
 /** The server's switch state the rig answers — flipped by the set channel like the daemon's record. */
 let remote = true;
 let hostKind: 'daemon' | 'desktop' = 'daemon';
