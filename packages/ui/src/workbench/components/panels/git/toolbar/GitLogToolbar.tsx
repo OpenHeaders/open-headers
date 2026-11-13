@@ -325,7 +325,7 @@ const GitLogToolbar: React.FC<GitLogToolbarProps> = ({
                         width: 6,
                         height: 6,
                         borderRadius: '50%',
-                        background: token.colorSuccess,
+                        background: token.colorPrimary,
                       }}
                     />
                   )}

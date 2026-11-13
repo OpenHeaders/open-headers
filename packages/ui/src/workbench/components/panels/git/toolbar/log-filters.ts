@@ -17,7 +17,10 @@ export type GitLogDateFilter =
 
 export type GitLogSort = 'date' | 'topo';
 
-/** The row-filter slice of one log tab's state (text filter aside). */
+/**
+ * The slice of one log tab's state the HOST's walk takes (the text
+ * filter and No Merges aside — both sift the window the view holds).
+ */
 export interface GitLogRowFilterState {
   author: GitLogAuthorFilter | null;
   date: GitLogDateFilter | null;
@@ -25,7 +28,6 @@ export interface GitLogRowFilterState {
   paths: readonly string[];
   sort: GitLogSort;
   firstParent: boolean;
-  noMerges: boolean;
 }
 
 /** The `log` verb's optional filter fields, wire shape. */
@@ -35,7 +37,6 @@ export interface GitLogWireFilters {
   since?: string;
   until?: string;
   paths?: string[];
-  noMerges?: boolean;
   firstParent?: boolean;
   topoOrder?: boolean;
 }
@@ -61,19 +62,25 @@ export function buildLogWireFilters(state: GitLogRowFilterState, now: Date): Git
     }
   }
   if (state.paths.length > 0) out.paths = [...state.paths];
-  if (state.noMerges) out.noMerges = true;
   if (state.firstParent) out.firstParent = true;
   if (state.sort === 'topo') out.topoOrder = true;
   return out;
 }
 
 /**
- * True when any filter HIDES rows (author/date/paths/no-merges/
- * first-parent) — the graph-suppression and reset-filters feed. Sort
- * order alone keeps the walk contiguous, so it never counts.
+ * True when the HOST hides rows (author/date/paths/first-parent): the
+ * commits it leaves out never reach the window, so no graph can be
+ * drawn over what is left. Sort order alone keeps the walk contiguous,
+ * so it never counts; No Merges is the view's own sift (below) and
+ * keeps its graph.
  */
 export function hasRowFilters(state: GitLogRowFilterState): boolean {
-  return state.author !== null || state.date !== null || state.paths.length > 0 || state.noMerges || state.firstParent;
+  return state.author !== null || state.date !== null || state.paths.length > 0 || state.firstParent;
+}
+
+/** A merge commit — what Graph Options › No Merges leaves out of the list. */
+export function isMergeCommit(entry: { parents: readonly string[] }): boolean {
+  return entry.parents.length > 1;
 }
 
 export interface GitLogTextFields {

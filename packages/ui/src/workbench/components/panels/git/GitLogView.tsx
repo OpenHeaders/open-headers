@@ -54,7 +54,7 @@ import GitRailCollapsedStrip from './rail/GitRailCollapsedStrip';
 import GitRefRail from './rail/GitRefRail';
 import GitDetailsToolbar from './toolbar/GitDetailsToolbar';
 import GitLogToolbar from './toolbar/GitLogToolbar';
-import { buildLogWireFilters, hasRowFilters, makeTextMatcher } from './toolbar/log-filters';
+import { buildLogWireFilters, hasRowFilters, isMergeCommit, makeTextMatcher } from './toolbar/log-filters';
 import { useCommitApply } from './use-commit-apply';
 import { useCommitPatch } from './use-commit-patch';
 import { useFileDiff } from './use-file-diff';
@@ -154,8 +154,8 @@ const GitLogView: React.FC<GitLogViewProps> = ({
   // Keyed on the filter fields alone — a selection or rail patch must
   // never refetch the log.
   const wireFilters = useMemo(
-    () => buildLogWireFilters({ author, date, paths, sort, firstParent, noMerges }, new Date()),
-    [author, date, paths, sort, firstParent, noMerges],
+    () => buildLogWireFilters({ author, date, paths, sort, firstParent }, new Date()),
+    [author, date, paths, sort, firstParent],
   );
 
   const reload = useCallback(async (): Promise<void> => {
@@ -234,10 +234,14 @@ const GitLogView: React.FC<GitLogViewProps> = ({
 
   const matcher = useMemo(() => makeTextMatcher(filter, filterRegex, filterCase), [filter, filterRegex, filterCase]);
 
+  // The view's own sifts of the window: the text filter and No Merges.
+  // Both hide rows the window still holds, so the list keeps a graph.
   const filtered = useMemo(() => {
-    if (matcher.kind !== 'match') return entries;
-    return entries.filter((entry) => matcher.test(entry));
-  }, [entries, matcher]);
+    if (matcher.kind !== 'match' && !noMerges) return entries;
+    return entries.filter(
+      (entry) => (matcher.kind !== 'match' || matcher.test(entry)) && !(noMerges && isMergeCommit(entry)),
+    );
+  }, [entries, matcher, noMerges]);
 
   const refsBySha = useMemo(() => {
     const map = new Map<string, WorkspaceTreeRefWire[]>();
@@ -266,10 +270,10 @@ const GitLogView: React.FC<GitLogViewProps> = ({
   // trunk keeps one colour); a collapsed fragment hides its interior
   // rows and its skipping edge draws as the stubs.
   const graphHonest = filtered === entries && !rowFiltersActive;
-  // The TEXT filter hides rows of a window that still holds them, so
-  // its list keeps a graph (the reference's reading): every listed
-  // commit joined to the nearest listed commits it descends from, a
-  // join through hidden commits drawn as the stubs.
+  // The text filter and No Merges hide rows of a window that still
+  // holds them, so their list keeps a graph (the reference's reading):
+  // every listed commit joined to the nearest listed commits it
+  // descends from, a join through hidden commits drawn as the stubs.
   const searched = useMemo(
     () => (filtered !== entries && !rowFiltersActive ? contractLog(entries, new Set(filtered.map((e) => e.sha))) : null),
     [entries, filtered, rowFiltersActive],
@@ -397,7 +401,7 @@ const GitLogView: React.FC<GitLogViewProps> = ({
   const combinedError =
     error ?? (fileDiff.error !== null ? t('workbench.gitLog.loadFailed', { detail: fileDiff.error }) : null);
 
-  const filtersActive = matcher.kind !== 'none' || selectedRef !== null || rowFiltersActive;
+  const filtersActive = matcher.kind !== 'none' || selectedRef !== null || rowFiltersActive || noMerges;
   const resetFilters = (): void =>
     patchTab({
       filter: '',

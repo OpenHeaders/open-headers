@@ -18,6 +18,7 @@ import {
   buildLogWireFilters,
   type GitLogRowFilterState,
   hasRowFilters,
+  isMergeCommit,
   makeTextMatcher,
 } from '@openheaders/ui/workbench/components/panels/git/toolbar/log-filters';
 import { describe, expect, it } from 'vitest';
@@ -237,7 +238,6 @@ describe('log filter model', () => {
     paths: [],
     sort: 'date',
     firstParent: false,
-    noMerges: false,
   };
   const now = new Date('2026-08-09T12:00:00Z');
 
@@ -247,9 +247,8 @@ describe('log filter model', () => {
     expect(buildLogWireFilters({ ...base, author: { kind: 'user', value: 'John Doe' } }, now)).toEqual({
       author: 'John Doe',
     });
-    expect(buildLogWireFilters({ ...base, paths: ['rules/a'], noMerges: true, firstParent: true }, now)).toEqual({
+    expect(buildLogWireFilters({ ...base, paths: ['rules/a'], firstParent: true }, now)).toEqual({
       paths: ['rules/a'],
-      noMerges: true,
       firstParent: true,
     });
     expect(buildLogWireFilters({ ...base, sort: 'topo' }, now)).toEqual({ topoOrder: true });
@@ -273,8 +272,13 @@ describe('log filter model', () => {
     expect(hasRowFilters({ ...base, author: { kind: 'me' } })).toBe(true);
     expect(hasRowFilters({ ...base, date: { kind: 'preset', preset: '7d' } })).toBe(true);
     expect(hasRowFilters({ ...base, paths: ['a'] })).toBe(true);
-    expect(hasRowFilters({ ...base, noMerges: true })).toBe(true);
     expect(hasRowFilters({ ...base, firstParent: true })).toBe(true);
+  });
+
+  it('No Merges is the view’s own sift — never the host’s: a merge is a commit with two parents or more', () => {
+    expect(isMergeCommit({ parents: [] })).toBe(false);
+    expect(isMergeCommit({ parents: ['a'] })).toBe(false);
+    expect(isMergeCommit({ parents: ['a', 'b'] })).toBe(true);
   });
 
   it('text matcher: substring by default, sha prefix, case + regex toggles, invalid regex flagged', () => {

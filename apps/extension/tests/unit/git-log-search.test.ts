@@ -88,6 +88,14 @@ describe('contractLog — the graph of a filtered list', () => {
     expect(entries).toEqual([commit('t', 'x', 'y'), commit('x'), commit('y')]);
   });
 
+  it('bridges a hidden merge: the commit above it joins the merged branch, which joins the base', () => {
+    // status → merge (of bump and fix); fix → bump — No Merges on the seed.
+    const seed = [commit('status', 'merge'), commit('merge', 'bump', 'fix'), commit('fix', 'bump'), commit('bump')];
+    const { entries, skipped } = contractLog(seed, listed('status', 'fix', 'bump'));
+    expect(entries).toEqual([commit('status', 'fix'), commit('fix', 'bump'), commit('bump')]);
+    expect([...skipped]).toEqual([edgeKey('status', 'fix')]);
+  });
+
   it('ends the line at a parent the window does not hold', () => {
     expect(contractLog([commit('a', 'gone')], listed('a')).entries).toEqual([commit('a')]);
   });
