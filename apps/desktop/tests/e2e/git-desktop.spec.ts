@@ -407,18 +407,20 @@ async function waitDirty(): Promise<void> {
 
 /**
  * No tracked change left in the Commit window — the counter is gone or
- * reads unversioned only. A red says what the window drew beside what
- * git and the host answer, so a stale window reads apart from a tree
- * that really is dirty.
+ * reads unversioned only. The counter is read in ONE step: it leaves
+ * the window the moment the last tracked change does, and a read that
+ * first counts it and then asks its text waits on an element that is
+ * no longer there until the poll gives up. A red says what the window
+ * drew beside what git and the host answer, so a stale window reads
+ * apart from a tree that really is dirty.
  */
 async function waitClean(): Promise<void> {
   try {
     await expect
       .poll(
         async () => {
-          const counter = pane('commit-tool-counter');
-          if ((await counter.count()) === 0) return true;
-          return !/modified|added|deleted/.test(await counter.innerText());
+          const texts = await pane('commit-tool-counter').allInnerTexts();
+          return texts.every((text) => !/modified|added|deleted/.test(text));
         },
         { timeout: 5_000 },
       )
@@ -431,8 +433,7 @@ async function waitClean(): Promise<void> {
 
 /** The Commit window as drawn: its counter and the tracked rows it lists. */
 async function drawnChanges(): Promise<string> {
-  const counter = pane('commit-tool-counter');
-  const text = (await counter.count()) === 0 ? '(no counter)' : await counter.innerText();
+  const [text = '(no counter)'] = await pane('commit-tool-counter').allInnerTexts();
   const rows = await workbench
     .locator('[data-testid="commit-tool-file"]')
     .evaluateAll((els) => els.map((el) => el.getAttribute('data-path') ?? ''));
