@@ -1,6 +1,6 @@
 /**
  * GitLogToolbar — the log pane's top band, the filter row: the
- * text-or-hash field with regex/match-case toggles, the Branch / User /
+ * text-or-hash field (applied on Enter — `GitLogTextField`), the Branch / User /
  * Date / Paths filter chips, Graph Options (sort + walk riders + the
  * Collapse / Expand Linear Branches gestures over the graph's
  * fragments), then the right-aligned action icons — Refresh, Cherry-Pick,
@@ -14,17 +14,17 @@
 
 import { EyeOutlined, SearchOutlined } from '@ant-design/icons';
 import type { WorkspaceTreeLogEntryWire, WorkspaceTreeRefWire } from '@openheaders/core/bridge';
-import { Dropdown, Input, theme, Tooltip } from 'antd';
+import { Dropdown, Input, theme } from 'antd';
 import type React from 'react';
 import { useMemo, useState } from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { RefreshIcon } from '@openheaders/ui/shared/icons';
 import type { GitLogViewPrefs } from '../git-log-view-prefs';
 import type { GitLogTabState } from '../git-panel-view-store';
-import { GIT_CODE_SIZE } from '../git-type-scale';
 import BranchFilterChip from './BranchFilterChip';
 import DateFilterModal from './DateFilterModal';
 import GitFilterChip from './GitFilterChip';
+import GitLogTextField from './GitLogTextField';
 import { CherryPickIcon, GraphOptionsIcon } from './icons';
 import { menuCheckIcon, menuIconGutter } from '../../../shared/menu-check';
 import PaneToolbar, { type PaneToolbarEntry } from './PaneToolbar';
@@ -65,44 +65,6 @@ const SHA_PREFIX = /^[0-9a-f]{4,40}$/;
 /** The text field's one width — room for its placeholder beside the two toggles; it never resizes with the pane. */
 const FIELD_WIDTH = 190;
 const BAND_GAP = 4;
-
-interface FilterToggleProps {
-  glyph: string;
-  title: string;
-  active: boolean;
-  onToggle: () => void;
-  testid: string;
-}
-
-const FilterToggle: React.FC<FilterToggleProps> = ({ glyph, title, active, onToggle, testid }) => {
-  const { token } = theme.useToken();
-  return (
-    <Tooltip placement="top" title={title}>
-      <button
-        type="button"
-        aria-label={title}
-        aria-pressed={active}
-        onClick={onToggle}
-        data-testid={testid}
-        style={{
-          display: 'inline-flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          padding: '0 3px',
-          border: 'none',
-          background: active ? token.colorFillSecondary : 'transparent',
-          borderRadius: token.borderRadiusSM,
-          cursor: 'pointer',
-          fontFamily: token.fontFamilyCode,
-          fontSize: GIT_CODE_SIZE,
-          color: active ? token.colorPrimaryText : token.colorTextTertiary,
-        }}
-      >
-        {glyph}
-      </button>
-    </Tooltip>
-  );
-};
 
 const GitLogToolbar: React.FC<GitLogToolbarProps> = ({
   tab,
@@ -182,34 +144,14 @@ const GitLogToolbar: React.FC<GitLogToolbarProps> = ({
   };
 
   const field = (
-    <Input
-      size="small"
-      allowClear
-      value={tab.filter}
-      status={textInvalid ? 'error' : undefined}
-      onChange={(e) => patchTab({ filter: e.target.value })}
-      placeholder={t('workbench.gitLog.filterPlaceholder')}
-      prefix={<SearchOutlined style={{ color: token.colorTextTertiary }} />}
-      suffix={
-        <span style={{ display: 'inline-flex', gap: 2 }}>
-          <FilterToggle
-            glyph=".*"
-            title={t('workbench.gitLog.filter.regex')}
-            active={tab.filterRegex}
-            onToggle={() => patchTab({ filterRegex: !tab.filterRegex })}
-            testid="git-tool-filter-regex"
-          />
-          <FilterToggle
-            glyph="Cc"
-            title={t('workbench.gitLog.filter.matchCase')}
-            active={tab.filterCase}
-            onToggle={() => patchTab({ filterCase: !tab.filterCase })}
-            testid="git-tool-filter-case"
-          />
-        </span>
-      }
-      style={{ width: '100%' }}
-      data-testid="git-tool-filter"
+    <GitLogTextField
+      applied={tab.filter}
+      onApply={(filter) => patchTab({ filter })}
+      regex={tab.filterRegex}
+      onToggleRegex={() => patchTab({ filterRegex: !tab.filterRegex })}
+      matchCase={tab.filterCase}
+      onToggleMatchCase={() => patchTab({ filterCase: !tab.filterCase })}
+      invalid={textInvalid}
     />
   );
 
