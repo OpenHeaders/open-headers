@@ -30,6 +30,7 @@ import { menuCheckIcon, menuIconGutter } from '../../../shared/menu-check';
 import PaneToolbar, { type PaneToolbarEntry } from './PaneToolbar';
 import PathsFilterModal from './PathsFilterModal';
 import ToolbarIconButton from './ToolbarIconButton';
+import { useOptionMenu } from '../use-option-menu';
 
 export interface GitLogToolbarProps {
   tab: GitLogTabState;
@@ -91,7 +92,8 @@ const GitLogToolbar: React.FC<GitLogToolbarProps> = ({
   const [dateModalOpen, setDateModalOpen] = useState(false);
   const [pathsModalOpen, setPathsModalOpen] = useState(false);
   const [goToOpen, setGoToOpen] = useState(false);
-  const [graphOptionsOpen, setGraphOptionsOpen] = useState(false);
+  const graphOptions = useOptionMenu();
+  const viewOptions = useOptionMenu();
   const [goToValue, setGoToValue] = useState('');
   const [goToMissed, setGoToMissed] = useState(false);
 
@@ -256,12 +258,8 @@ const GitLogToolbar: React.FC<GitLogToolbarProps> = ({
         <Dropdown
           trigger={['click']}
           placement="bottomLeft"
-          open={graphOptionsOpen}
-          // A pick leaves the menu open — its options are tried one against
-          // another; a click outside or Escape closes it.
-          onOpenChange={(next, info) => {
-            if (next || info.source === 'trigger') setGraphOptionsOpen(next);
-          }}
+          open={graphOptions.open}
+          onOpenChange={graphOptions.onOpenChange}
           menu={{
             selectable: false,
             items: [
@@ -339,7 +337,7 @@ const GitLogToolbar: React.FC<GitLogToolbarProps> = ({
                 </span>
               }
               title={t('workbench.gitLog.graphOptions')}
-              popoverOpen={graphOptionsOpen}
+              popoverOpen={graphOptions.open}
               testid="git-tool-graph-options"
             />
           </span>
@@ -380,6 +378,8 @@ const GitLogToolbar: React.FC<GitLogToolbarProps> = ({
         <Dropdown
           trigger={['click']}
           placement="bottomRight"
+          open={viewOptions.open}
+          onOpenChange={viewOptions.onOpenChange}
           menu={{
             selectable: false,
             items: [
@@ -484,6 +484,7 @@ const GitLogToolbar: React.FC<GitLogToolbarProps> = ({
             <ToolbarIconButton
               icon={<EyeOutlined />}
               title={t('workbench.gitLog.viewOptions')}
+              popoverOpen={viewOptions.open}
               testid="git-tool-view-options"
             />
           </span>

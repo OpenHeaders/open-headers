@@ -33,6 +33,7 @@ import { CollapseAllIcon, ExpandAllIcon, FetchIcon, PullIcon } from '@openheader
 import { type ToolbarOverflowItem, useToolbarOverflow } from '@openheaders/ui/shared/toolbar-overflow';
 import { menuCheckIcon } from '../../../shared/menu-check';
 import { GIT_BAR_GLYPH_SIZE } from '../git-type-scale';
+import { useOptionMenu } from '../use-option-menu';
 import type { GitRailSingleClick } from './git-rail-prefs';
 
 export interface GitRailActivityBarProps {
@@ -168,7 +169,7 @@ const EXTENTS: readonly ToolbarOverflowItem[] = SHAPE.map((kind) => ({
 const GitRailActivityBar: React.FC<GitRailActivityBarProps> = (props) => {
   const t = useT();
   const { token } = theme.useToken();
-  const [settingsOpen, setSettingsOpen] = useState(false);
+  const settingsMenu = useOptionMenu();
   const { ref, fit } = useToolbarOverflow<HTMLDivElement>({
     items: EXTENTS,
     axis: 'vertical',
@@ -193,7 +194,8 @@ const GitRailActivityBar: React.FC<GitRailActivityBarProps> = (props) => {
     <Dropdown
       trigger={['click']}
       placement="bottomLeft"
-      onOpenChange={setSettingsOpen}
+      open={settingsMenu.open}
+      onOpenChange={settingsMenu.onOpenChange}
       menu={{
         // The ✓ prefix IS the state (reference convention) — highlight is
         // hover-only, so nothing is ever "selected".
@@ -235,7 +237,7 @@ const GitRailActivityBar: React.FC<GitRailActivityBarProps> = (props) => {
         <BarButton
           icon={<SettingOutlined />}
           title={t('workbench.gitLog.rail.paneSettings')}
-          popoverOpen={settingsOpen}
+          popoverOpen={settingsMenu.open}
           testid="git-tool-rail-settings-button"
         />
       </span>

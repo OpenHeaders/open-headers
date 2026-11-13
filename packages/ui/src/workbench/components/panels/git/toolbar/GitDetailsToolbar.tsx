@@ -12,12 +12,12 @@
 import { EditOutlined, EyeOutlined, SwapOutlined } from '@ant-design/icons';
 import { Dropdown } from 'antd';
 import type React from 'react';
-import { useState } from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { CollapseAllIcon, ExpandAllIcon, RollbackIcon } from '@openheaders/ui/shared/icons';
 import type { GitLogViewPrefs } from '../git-log-view-prefs';
 import { menuCheckIcon } from '../../../shared/menu-check';
 import PaneToolbar, { type PaneToolbarEntry } from './PaneToolbar';
+import { useOptionMenu } from '../use-option-menu';
 import ToolbarIconButton from './ToolbarIconButton';
 
 export interface GitDetailsToolbarProps {
@@ -48,13 +48,14 @@ const GitDetailsToolbar: React.FC<GitDetailsToolbarProps> = ({
   onCollapseAll,
 }) => {
   const t = useT();
-  const [viewOptionsOpen, setViewOptionsOpen] = useState(false);
+  const viewOptionsMenu = useOptionMenu();
 
   const viewOptions = (
     <Dropdown
       trigger={['click']}
       placement="bottomLeft"
-      onOpenChange={setViewOptionsOpen}
+      open={viewOptionsMenu.open}
+      onOpenChange={viewOptionsMenu.onOpenChange}
       menu={{
           selectable: false,
           items: [
@@ -104,7 +105,7 @@ const GitDetailsToolbar: React.FC<GitDetailsToolbarProps> = ({
         <ToolbarIconButton
           icon={<EyeOutlined />}
           title={t('workbench.gitLog.viewOptions')}
-          popoverOpen={viewOptionsOpen}
+          popoverOpen={viewOptionsMenu.open}
           testid="git-tool-details-view-options"
         />
       </span>
