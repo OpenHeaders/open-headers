@@ -824,6 +824,9 @@ export const workbenchSettingsPanes = {
   'workbench.settings.gitPane.log.hashColumnDescription': 'Mostrar el hash corto del commit en las filas de commits.',
   'workbench.settings.gitPane.log.dateColumnLabel': 'Columna de fecha',
   'workbench.settings.gitPane.log.dateColumnDescription': 'Mostrar la fecha del commit en las filas de commits.',
+  'workbench.settings.gitPane.log.signatureColumnLabel': 'Columna de firma',
+  'workbench.settings.gitPane.log.signatureColumnDescription':
+    'Marcar los commits firmados en las filas de commits y si Git pudo verificar cada firma.',
   'workbench.settings.gitPane.log.groupByWorkspaceLabel': 'Agrupar por espacio de trabajo',
   'workbench.settings.gitPane.log.groupByWorkspaceDescription':
     'Listar los archivos cambiados de un commit según a qué pertenecen en el espacio de trabajo, por nombre; desactivado los lista por ruta.',

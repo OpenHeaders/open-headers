@@ -12,6 +12,7 @@ import type {
   CommitFileDiff,
   CommitLogEntry,
   CommitParentChanges,
+  CommitSignature,
   CommitUserAttribution,
   GitAuditRow,
   GitAvailability,
@@ -537,6 +538,11 @@ export type WorkspaceTreeCommitParentChangesRpcResult =
   | ({ ok: true } & CommitParentChanges)
   | { ok: false; reason: 'not-bound' | 'git-unavailable' | 'not-a-repo' | 'unknown-commit' };
 
+/** The signed commits of a list, each with what git makes of its signature. */
+export type WorkspaceTreeCommitSignaturesRpcResult =
+  | { ok: true; signatures: CommitSignature[] }
+  | { ok: false; reason: 'not-bound' | 'git-unavailable' | 'not-a-repo' | 'unknown-commit' };
+
 /** The log's Create Patch… — the selected commits as one mailbox-format text. */
 export type WorkspaceTreeCommitPatchRpcResult =
   | { ok: true; patch: string }
@@ -836,6 +842,13 @@ export interface WorkspaceTreeRuntime {
    * read; `sha` is a full sha.
    */
   commitParentChanges(workspaceId: string, sha: string): Promise<WorkspaceTreeCommitParentChangesRpcResult>;
+  /**
+   * The log's GPG Signature column: which of `shas` (FULL commit
+   * hashes) carry a signature, and whether git verifies each. A pure
+   * read that runs git's own check on the signed ones alone — never
+   * part of the log read.
+   */
+  commitSignatures(workspaceId: string, shas: readonly string[]): Promise<WorkspaceTreeCommitSignaturesRpcResult>;
   /**
    * The log's Create Patch…: `shas` (FULL commit hashes, in apply
    * order) as one mailbox-format patch text. Pure read, off the

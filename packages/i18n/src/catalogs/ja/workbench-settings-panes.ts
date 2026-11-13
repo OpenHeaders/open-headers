@@ -733,6 +733,9 @@ export const workbenchSettingsPanes = {
   'workbench.settings.gitPane.log.hashColumnDescription': 'コミット行に短いコミットハッシュを表示します。',
   'workbench.settings.gitPane.log.dateColumnLabel': '日付列',
   'workbench.settings.gitPane.log.dateColumnDescription': 'コミット行にコミット日付を表示します。',
+  'workbench.settings.gitPane.log.signatureColumnLabel': '署名列',
+  'workbench.settings.gitPane.log.signatureColumnDescription':
+    'コミット行で署名付きコミットを示し、各署名を Git が検証できたかどうかも表示します。',
   'workbench.settings.gitPane.log.groupByWorkspaceLabel': 'ワークスペースでグループ化',
   'workbench.settings.gitPane.log.groupByWorkspaceDescription':
     'コミットの変更ファイルを、ワークスペース内で属するものごとに名前で一覧します。オフではパスで一覧します。',

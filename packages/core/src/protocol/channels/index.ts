@@ -136,6 +136,8 @@ export type {
   WorkspaceTreeCommitParentChangesWire,
   WorkspaceTreeCommitParentWire,
   WorkspaceTreeCommitPatchWire,
+  WorkspaceTreeCommitSignaturesWire,
+  WorkspaceTreeCommitSignatureWire,
   WorkspaceTreeCommitWire,
   WorkspaceTreeCompareRefsWire,
   WorkspaceTreeCreateBranchWire,

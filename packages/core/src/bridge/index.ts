@@ -80,6 +80,8 @@ export type {
   WorkspaceTreeCommitParentChangesWire,
   WorkspaceTreeCommitParentWire,
   WorkspaceTreeCommitPatchWire,
+  WorkspaceTreeCommitSignaturesWire,
+  WorkspaceTreeCommitSignatureWire,
   WorkspaceTreeCompareRefsWire,
   WorkspaceTreeCreateBranchWire,
   WorkspaceTreeCreateTagWire,

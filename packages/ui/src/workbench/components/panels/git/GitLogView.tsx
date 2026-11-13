@@ -60,6 +60,7 @@ import GitLogToolbar from './toolbar/GitLogToolbar';
 import { buildLogWireFilters, hasRowFilters, isMergeCommit, makeTextMatcher } from './toolbar/log-filters';
 import { useCommitApply } from './use-commit-apply';
 import { useCommitPatch } from './use-commit-patch';
+import { useCommitSignatures } from './use-commit-signatures';
 import { useFileDiff } from './use-file-diff';
 import { useJumpToSource } from './use-jump-to-source';
 import { useGitLogLayout } from './use-git-log-layout';
@@ -148,6 +149,10 @@ const GitLogView: React.FC<GitLogViewProps> = ({
     () => favoriteKeys(railPrefs, defaultFavorites),
     [railPrefs, defaultFavorites],
   );
+
+  // The signature column's marks: asked of the host only while the column shows.
+  const windowShas = useMemo(() => loaded.map((entry) => entry.sha), [loaded]);
+  const signatures = useCommitSignatures(workspaceId, windowShas, prefs.showSignatureColumn);
 
   const subscribeRecentScopes = useCallback(
     (listener: () => void) => subscribeGitLogRecentScopes(workspaceId, listener),
@@ -617,6 +622,8 @@ const GitLogView: React.FC<GitLogViewProps> = ({
             showAuthor={prefs.showAuthorColumn}
             showHash={prefs.showHashColumn}
             showDate={prefs.showDateColumn}
+            showSignature={prefs.showSignatureColumn}
+            signatures={signatures}
             dimMergeCommits={prefs.highlightMergeCommits}
             hourCycle={hourCycle}
             anchors={anchors}

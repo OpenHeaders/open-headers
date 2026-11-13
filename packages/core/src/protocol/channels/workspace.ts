@@ -800,6 +800,17 @@ export interface WorkspaceRpc {
     res: WorkspaceTreeCommitParentChangesWire;
   };
   /**
+   * The log's GPG Signature column: which of `shas` (FULL commit
+   * hashes, a log window's worth) carry a signature, and what git makes
+   * of each. A pure read, apart from `log` because git's check is slow —
+   * it looks a key up per signed commit; unsigned commits cost nothing
+   * and are not listed.
+   */
+  'oh.workspaceTree.commitSignatures': {
+    req: { workspaceId: string; shas: string[] };
+    res: WorkspaceTreeCommitSignaturesWire;
+  };
+  /**
    * The log's Create Patch…: the commits `shas` (FULL commit hashes,
    * in apply order — oldest first) as ONE mailbox-format patch text.
    * A pure read: the host writes nothing, the surface saves or copies
@@ -1398,6 +1409,29 @@ export type WorkspaceTreeCommitParentChangesWire =
       parents: WorkspaceTreeCommitParentWire[];
       /** A merge's files that differ from every parent; empty for any other commit. */
       merged: WorkspaceTreeLogFileWire[];
+    }
+  | { ok: false; reason: 'not-bound' | 'git-unavailable' | 'not-a-repo' | 'unknown-commit' };
+
+/**
+ * One signed commit: `good` — git verified the signature; `unverified`
+ * — it is signed and git could not vouch for it (an unknown or expired
+ * key, nothing to check with, a signer the allowed list does not hold);
+ * `bad` — the signature does not verify, or its key is revoked.
+ */
+export interface WorkspaceTreeCommitSignatureWire {
+  sha: string;
+  state: 'good' | 'unverified' | 'bad';
+  /** Who signed, as git names them. */
+  signer?: string;
+  /** The key's id or fingerprint. */
+  key?: string;
+}
+
+export type WorkspaceTreeCommitSignaturesWire =
+  | {
+      ok: true;
+      /** The SIGNED commits among those asked about; a commit with no signature is absent. */
+      signatures: WorkspaceTreeCommitSignatureWire[];
     }
   | { ok: false; reason: 'not-bound' | 'git-unavailable' | 'not-a-repo' | 'unknown-commit' };
 

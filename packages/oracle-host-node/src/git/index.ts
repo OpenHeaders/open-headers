@@ -136,6 +136,12 @@ export {
   type WorkingChange,
   withCommitAttribution,
 } from './repo';
+export {
+  COMMIT_SIGNATURES_MAX_COMMITS,
+  type CommitSignature,
+  type CommitSignatureState,
+  readCommitSignatures,
+} from './signature-ops';
 export { createLightweightTag, type TagCreateResult } from './tag-ops';
 export {
   asFileText,

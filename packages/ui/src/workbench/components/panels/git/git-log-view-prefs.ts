@@ -2,8 +2,8 @@
  * git-log-view-prefs — per-workspace display preferences of the Git
  * tool window's log + details panes (the toolbar eye menus): Tag
  * Names and Commit Timestamp in the commit list, the Compact
- * References View, References on the Left, the Author / Hash / Date
- * columns, the Merge Commits highlight (the dimmed-subject
+ * References View, References on the Left, the Author / Hash / Date /
+ * Signature columns, the Merge Commits highlight (the dimmed-subject
  * convention), the Current Branch band, Group By Workspace and
  * Directory and Show Details in the changes pane, and what a double-click on a file
  * row opens (the ⋯ menu's Show on Double-Click: the diff or the
@@ -29,6 +29,8 @@ export interface GitLogViewPrefs {
   showHashColumn: boolean;
   /** Show > Columns > Date — the date column on commit rows. */
   showDateColumn: boolean;
+  /** Show > Columns > GPG Signature — a mark on signed commits, at the far end (the reference default: off). */
+  showSignatureColumn: boolean;
   /** Highlight > Merge Commits — dim merge subjects (the reference default). */
   highlightMergeCommits: boolean;
   /** Highlight > Current Branch — the faint band under the commits reachable from HEAD. */
@@ -51,6 +53,7 @@ export const DEFAULT_GIT_LOG_VIEW_PREFS: GitLogViewPrefs = {
   showAuthorColumn: true,
   showHashColumn: false,
   showDateColumn: true,
+  showSignatureColumn: false,
   highlightMergeCommits: true,
   highlightCurrentBranch: true,
   groupFilesByWorkspace: true,
@@ -70,6 +73,7 @@ const store = createWorkspacePrefsStore<GitLogViewPrefs>({
     showAuthorColumn: p.showAuthorColumn !== false,
     showHashColumn: p.showHashColumn === true,
     showDateColumn: p.showDateColumn !== false,
+    showSignatureColumn: p.showSignatureColumn === true,
     highlightMergeCommits: p.highlightMergeCommits !== false,
     highlightCurrentBranch: p.highlightCurrentBranch !== false,
     groupFilesByWorkspace: p.groupFilesByWorkspace !== false,

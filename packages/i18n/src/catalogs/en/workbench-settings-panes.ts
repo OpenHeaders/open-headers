@@ -720,6 +720,9 @@ export const workbenchSettingsPanes = {
   'workbench.settings.gitPane.log.hashColumnDescription': 'Show the short commit hash on the commit rows.',
   'workbench.settings.gitPane.log.dateColumnLabel': 'Date column',
   'workbench.settings.gitPane.log.dateColumnDescription': 'Show the commit date on the commit rows.',
+  'workbench.settings.gitPane.log.signatureColumnLabel': 'Signature column',
+  'workbench.settings.gitPane.log.signatureColumnDescription':
+    'Mark the signed commits on the commit rows, and whether Git could verify each signature.',
   'workbench.settings.gitPane.log.groupByWorkspaceLabel': 'Group by workspace',
   'workbench.settings.gitPane.log.groupByWorkspaceDescription':
     'List a commit’s changed files by what they belong to in the workspace, by name; off lists them by path.',

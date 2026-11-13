@@ -828,6 +828,9 @@ export const workbenchSettingsPanes = {
   'workbench.settings.gitPane.log.hashColumnDescription': 'Den kurzen Commit-Hash in den Commit-Zeilen anzeigen.',
   'workbench.settings.gitPane.log.dateColumnLabel': 'Spalte „Datum“',
   'workbench.settings.gitPane.log.dateColumnDescription': 'Das Commit-Datum in den Commit-Zeilen anzeigen.',
+  'workbench.settings.gitPane.log.signatureColumnLabel': 'Spalte „Signatur“',
+  'workbench.settings.gitPane.log.signatureColumnDescription':
+    'Signierte Commits in den Commit-Zeilen kennzeichnen – und ob Git die jeweilige Signatur verifizieren konnte.',
   'workbench.settings.gitPane.log.groupByWorkspaceLabel': 'Nach Arbeitsbereich gruppieren',
   'workbench.settings.gitPane.log.groupByWorkspaceDescription':
     'Die geänderten Dateien eines Commits danach auflisten, wozu sie im Arbeitsbereich gehören, mit Namen; aus listet sie nach Pfad.',

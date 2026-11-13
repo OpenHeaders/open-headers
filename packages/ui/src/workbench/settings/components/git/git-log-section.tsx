@@ -144,6 +144,15 @@ const GitLogSection: React.FC<{ git: WorkspaceGit }> = ({ git }) => {
           testid="git-log-pane-date-column"
         />
         <ToggleRow
+          settingKey="git.log.signatureColumn"
+          label={t('workbench.settings.gitPane.log.signatureColumnLabel')}
+          description={t('workbench.settings.gitPane.log.signatureColumnDescription')}
+          value={view.showSignatureColumn}
+          defaultValue={DEFAULT_GIT_LOG_VIEW_PREFS.showSignatureColumn}
+          onChange={(showSignatureColumn) => patchView({ showSignatureColumn })}
+          testid="git-log-pane-signature-column"
+        />
+        <ToggleRow
           settingKey="git.log.highlightMergeCommits"
           label={t('workbench.settings.gitPane.log.mergeCommitsLabel')}
           description={t('workbench.settings.gitPane.log.mergeCommitsDescription')}

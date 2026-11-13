@@ -95,6 +95,12 @@ describe('Git › Log section', () => {
     expect(getGitLogViewPrefs(WS).showHashColumn).toBe(true);
     expect(screen.getByTestId('git-log-pane-author-column').getAttribute('aria-checked')).toBe('true');
 
+    // S66: the signature column is off by default and rides the same store.
+    const signature = screen.getByTestId('git-log-pane-signature-column');
+    expect(signature.getAttribute('aria-checked')).toBe('false');
+    fireEvent.click(signature);
+    expect(getGitLogViewPrefs(WS).showSignatureColumn).toBe(true);
+
     // S41: the current-branch band rides the same store.
     const band = screen.getByTestId('git-log-pane-current-branch');
     expect(band.getAttribute('aria-checked')).toBe('true');

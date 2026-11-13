@@ -436,6 +436,11 @@ const GitLogToolbar: React.FC<GitLogToolbarProps> = ({
                         label: t('workbench.gitLog.columns.date'),
                         icon: menuCheckIcon(prefs.showDateColumn),
                       },
+                      {
+                        key: 'column-signature',
+                        label: t('workbench.gitLog.columns.signature'),
+                        icon: menuCheckIcon(prefs.showSignatureColumn),
+                      },
                     ],
                   },
                 ],
@@ -480,6 +485,7 @@ const GitLogToolbar: React.FC<GitLogToolbarProps> = ({
               else if (key === 'column-author') onPatchPrefs({ showAuthorColumn: !prefs.showAuthorColumn });
               else if (key === 'column-hash') onPatchPrefs({ showHashColumn: !prefs.showHashColumn });
               else if (key === 'column-date') onPatchPrefs({ showDateColumn: !prefs.showDateColumn });
+              else if (key === 'column-signature') onPatchPrefs({ showSignatureColumn: !prefs.showSignatureColumn });
             },
           }}
         >

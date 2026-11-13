@@ -1,7 +1,8 @@
 /**
  * Workspace-tree runtime — the history-read plane (§9, Phase 7): the
  * log/fileLog timelines, the ref tree, the per-commit file diff, a
- * commit's change against each parent, the commit patch text, the
+ * commit's change against each parent, the commits' signatures, the
+ * commit patch text, the
  * compare-with-current range read, and the
  * Console tab's audit slice.
  * Pure repo reads OFF the per-binding chain — they never queue behind
@@ -9,6 +10,7 @@
  */
 
 import {
+  COMMIT_SIGNATURES_MAX_COMMITS,
   type CommitLogEntry,
   type CommitLogFilters,
   isCommitSha,
@@ -22,6 +24,7 @@ import {
   readCommitFileDiff,
   readCommitParentChanges,
   readCommitPatch,
+  readCommitSignatures,
   resolveAuthorFilterValue,
   unlistedScopeRefs,
 } from '../../git';
@@ -30,6 +33,7 @@ import type {
   CompareRefsRpcResult,
   WorkspaceTreeCommitParentChangesRpcResult,
   WorkspaceTreeCommitPatchRpcResult,
+  WorkspaceTreeCommitSignaturesRpcResult,
   WorkspaceTreeFileDiffRpcResult,
   WorkspaceTreeGitConsoleRpcResult,
   WorkspaceTreeLogFilters,
@@ -247,6 +251,27 @@ export async function runCommitParentChanges(
   if (!isCommitSha(sha)) return { ok: false, reason: 'unknown-commit' };
   const changes = await readCommitParentChanges(ctx.gitRun, rootDir, sha);
   return changes === null ? { ok: false, reason: 'unknown-commit' } : { ok: true, ...changes };
+}
+
+/**
+ * The signed commits among `shas`, each with what git makes of its
+ * signature — the log's GPG Signature column. Full shas only, a bounded
+ * list; the check runs on the signed ones alone.
+ */
+export async function runCommitSignatures(
+  ctx: RuntimeCtx,
+  workspaceId: string,
+  shas: readonly string[],
+): Promise<WorkspaceTreeCommitSignaturesRpcResult> {
+  const binding = ctx.open.get(workspaceId);
+  if (!binding) return { ok: false, reason: 'not-bound' };
+  const { rootDir } = binding.record;
+  const availability = await ctx.ensureGitAvailability(rootDir);
+  if (!availability.available) return { ok: false, reason: 'git-unavailable' };
+  if (!(await isWorkspaceRepo(ctx.gitRun, rootDir))) return { ok: false, reason: 'not-a-repo' };
+  if (shas.length > COMMIT_SIGNATURES_MAX_COMMITS) return { ok: false, reason: 'unknown-commit' };
+  const signatures = await readCommitSignatures(ctx.gitRun, rootDir, shas);
+  return signatures === null ? { ok: false, reason: 'unknown-commit' } : { ok: true, signatures };
 }
 
 /** Console-tab read: this binding's slice of the audit ring (cwd inside its root). */

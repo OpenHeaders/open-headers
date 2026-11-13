@@ -54,7 +54,9 @@ import MatchedText from './MatchedText';
 import type { LogRowMenuTarget } from './log-row-menu';
 import { commitClickOutcome, stepTarget } from './log-selection';
 import RefRowLabel from './RefRowLabel';
+import SignatureMark from './SignatureMark';
 import type { TextRange } from './toolbar/log-filters';
+import type { CommitSignature } from './use-commit-signatures';
 
 export interface CommitListProps {
   entries: WorkspaceTreeLogEntryWire[];
@@ -92,6 +94,10 @@ export interface CommitListProps {
   showHash?: boolean;
   /** Eye menu — Show > Columns: the date column. */
   showDate?: boolean;
+  /** Eye menu — Show > Columns: the signature column, at the far end. */
+  showSignature?: boolean;
+  /** The window's signed commits by sha — what the signature column marks. */
+  signatures?: ReadonlyMap<string, CommitSignature>;
   /** Eye menu — Highlight > Merge Commits: dim merge subjects. */
   dimMergeCommits?: boolean;
   /** The workbench clock format's hour cycle for the date column. */
@@ -132,6 +138,8 @@ const CommitList: React.FC<CommitListProps> = ({
   showAuthor = true,
   showHash = false,
   showDate = true,
+  showSignature = false,
+  signatures,
   dimMergeCommits = true,
   hourCycle = 'h23',
   anchors = NO_ANCHORS,
@@ -408,6 +416,14 @@ const CommitList: React.FC<CommitListProps> = ({
                 data-testid="git-tool-row-hash"
               >
                 {entry.sha.slice(0, 7)}
+              </span>
+            )}
+            {showSignature && (
+              <span
+                style={{ flex: '0 0 auto', display: 'inline-flex', justifyContent: 'center', width: 16 }}
+                data-testid="git-tool-row-signature"
+              >
+                <SignatureMark signature={signatures?.get(entry.sha)} />
               </span>
             )}
           </button>,
