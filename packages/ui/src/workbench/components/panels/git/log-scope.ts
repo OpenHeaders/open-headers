@@ -45,7 +45,7 @@ export function favoritesScope(
   return [...new Set([GIT_LOG_SCOPE_HEAD, ...starred])];
 }
 
-const CHIP_TEXT_MAX = 20;
+const CHIP_TEXT_MAX = 28;
 const TAB_TEXT_MAX = 30;
 
 function shortened(text: string, max: number): string {

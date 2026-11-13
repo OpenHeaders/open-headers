@@ -511,6 +511,8 @@ export const workbenchChrome = {
   'workbench.gitLog.menu.selectInTree': 'ツリーで選択…',
   'workbench.gitLog.menu.favorites': 'お気に入り',
   'workbench.gitLog.menu.clearHint': '{key} でフィルターをクリア',
+  'workbench.gitLog.select.hint': '1 つ以上の値を | または改行で区切って指定します。{key} で確定',
+  'workbench.gitLog.select.unknown': '{names} という名前のブランチまたはタグはありません',
   'workbench.gitLog.user.me': '自分',
   'workbench.gitLog.date.last24h': '過去 24 時間',
   'workbench.gitLog.date.last7d': '過去 7 日間',

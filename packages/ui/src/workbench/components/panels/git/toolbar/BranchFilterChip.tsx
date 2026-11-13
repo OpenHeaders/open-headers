@@ -1,6 +1,7 @@
 /**
  * BranchFilterChip — the log toolbar's `Branch:` chip and its picker,
- * the reference's reading: Select… (the searchable list), the
+ * the reference's reading: Select… (the field that takes several refs
+ * — `BranchScopeField`), the
  * Favorites row — a click scopes the log to HEAD and every favorite at
  * once — over HEAD and the favorite refs, and one submenu
  * per namespace: Local, each remote's `<remote>/…`, Tags. Every ref
@@ -9,7 +10,8 @@
  * toggles the favorite and picks nothing. A ref un-starred in the
  * Favorites section stays listed until the menu closes, so the star
  * can be put back. HEAD's star is fixed. Typing with the menu open
- * starts the search with what was typed; the delete key clears the
+ * starts the search list with what was typed — one ref a pick, by
+ * namespace; the delete key clears the
  * scope, as the menu's last line says.
  *
  * The scope: idle (empty) = the unfiltered all-refs log; picking HEAD
@@ -29,6 +31,7 @@ import { GIT_LOG_SCOPE_HEAD } from '../git-panel-view-store';
 import { GIT_TEXT_SIZE } from '../git-type-scale';
 import { favoritesScope, type GitLogScope, scopeChipText, scopeHoverText } from '../log-scope';
 import { gitRailFavoriteKey } from '../rail/git-rail-prefs';
+import BranchScopeField from './BranchScopeField';
 import GitFilterChip from './GitFilterChip';
 
 type RefKind = WorkspaceTreeRefWire['kind'];
@@ -106,7 +109,7 @@ const BranchFilterChip: React.FC<BranchFilterChipProps> = ({
   const t = useT();
   const { token } = theme.useToken();
   const [open, setOpen] = useState(false);
-  const [mode, setMode] = useState<'menu' | 'search'>('menu');
+  const [mode, setMode] = useState<'menu' | 'search' | 'select'>('menu');
   const [search, setSearch] = useState('');
   // The Favorites section as it stood when the menu opened: a ref
   // un-starred there keeps its row (and its star to put back) until the
@@ -182,7 +185,7 @@ const BranchFilterChip: React.FC<BranchFilterChipProps> = ({
       style={{ minWidth: 240, maxHeight: 420, overflowY: 'auto', boxShadow: 'none', border: 'none' }}
       onClick={({ key }) => {
         if (key === 'select') {
-          setMode('search');
+          setMode('select');
           return;
         }
         if (key === 'favorites') {
@@ -281,6 +284,9 @@ const BranchFilterChip: React.FC<BranchFilterChipProps> = ({
     </div>
   );
 
+  // Every name the Select… field may hold.
+  const names = useMemo(() => [...new Set([GIT_LOG_SCOPE_HEAD, ...refs.map((ref) => ref.name)])], [refs]);
+
   // The chip reads Tag: while its one scoped ref is a tag.
   const scopedTag = scope.length === 1 && refs.find((ref) => ref.name === scope[0])?.kind === 'tag';
 
@@ -291,7 +297,10 @@ const BranchFilterChip: React.FC<BranchFilterChipProps> = ({
       valueTitle={scopeHoverText(scope) ?? undefined}
       onClear={() => onScopeChange([])}
       open={open}
-      onOpenChange={(next) => {
+      onOpenChange={(next, info) => {
+        // The Dropdown closes on any click in a menu it hosts; a row that
+        // picks closes the chip itself, and Select… and a star keep it open.
+        if (!next && info.source === 'menu') return;
         setOpen(next);
         if (next) setListed(refs.filter(isFavorite));
         else {
@@ -323,6 +332,15 @@ const BranchFilterChip: React.FC<BranchFilterChipProps> = ({
                 {t('workbench.gitLog.menu.clearHint', { key: isMac ? '⌫' : 'Backspace' })}
               </div>
             </>
+          ) : mode === 'select' ? (
+            <BranchScopeField
+              names={names}
+              scope={scope}
+              onFinish={(next) => {
+                onScopeChange(next);
+                close();
+              }}
+            />
           ) : (
             searchContent
           )}

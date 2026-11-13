@@ -100,7 +100,8 @@ describe('the scope as text', () => {
 
   it('cuts a long join to its length with an ellipsis', () => {
     const scope = ['feature/orders-v2', 'fix/probe-timeout', 'origin/main'];
-    expect(scopeChipText(scope)).toBe('feature/orders-v2|f…');
+    expect(scopeChipText(scope)).toBe('feature/orders-v2|fix/probe…');
+    expect(scopeChipText(['HEAD', 'main', 'origin/main'])).toBe('HEAD|main|origin/main');
     expect(scopeTabText(scope)).toBe('feature/orders-v2, fix/probe-…');
     expect(scopeHoverText(scope)).toBe('feature/orders-v2\nfix/probe-timeout\norigin/main');
   });

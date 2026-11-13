@@ -23,7 +23,7 @@ export interface GitFilterChipProps {
   menu?: DropdownProps['menu'];
   popupRender?: () => React.ReactNode;
   open?: boolean;
-  onOpenChange?: (open: boolean) => void;
+  onOpenChange?: DropdownProps['onOpenChange'];
   testid: string;
 }
 

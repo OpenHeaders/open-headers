@@ -487,6 +487,8 @@ export const workbenchChrome = {
   'workbench.gitLog.menu.selectInTree': '在树中选择…',
   'workbench.gitLog.menu.favorites': '收藏',
   'workbench.gitLog.menu.clearHint': '按 {key} 清除筛选',
+  'workbench.gitLog.select.hint': '选择一个或多个值，以 | 或换行分隔，按 {key} 完成',
+  'workbench.gitLog.select.unknown': '没有名为 {names} 的分支或标签',
   'workbench.gitLog.user.me': '我',
   'workbench.gitLog.date.last24h': '最近 24 小时',
   'workbench.gitLog.date.last7d': '最近 7 天',

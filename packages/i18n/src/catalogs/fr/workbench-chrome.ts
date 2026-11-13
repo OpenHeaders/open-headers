@@ -516,6 +516,9 @@ export const workbenchChrome = {
   'workbench.gitLog.menu.selectInTree': "Sélectionner dans l'arborescence…",
   'workbench.gitLog.menu.favorites': 'Favoris',
   'workbench.gitLog.menu.clearHint': 'Appuyez sur {key} pour effacer le filtre',
+  'workbench.gitLog.select.hint':
+    'Sélectionnez une ou plusieurs valeurs séparées par | ou des retours à la ligne ; {key} pour terminer',
+  'workbench.gitLog.select.unknown': 'Aucune branche ni aucun tag nommé {names}',
   'workbench.gitLog.user.me': 'moi',
   'workbench.gitLog.date.last24h': 'Dernières 24 heures',
   'workbench.gitLog.date.last7d': '7 derniers jours',

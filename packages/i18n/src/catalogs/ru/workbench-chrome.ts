@@ -532,6 +532,8 @@ export const workbenchChrome = {
   'workbench.gitLog.menu.selectInTree': 'Выбрать в дереве…',
   'workbench.gitLog.menu.favorites': 'Избранное',
   'workbench.gitLog.menu.clearHint': 'Нажмите {key}, чтобы сбросить фильтр',
+  'workbench.gitLog.select.hint': 'Выберите одно или несколько значений через | или с новой строки; {key} — завершить',
+  'workbench.gitLog.select.unknown': 'Нет ветки или тега с именем {names}',
   'workbench.gitLog.user.me': 'я',
   'workbench.gitLog.date.last24h': 'Последние 24 часа',
   'workbench.gitLog.date.last7d': 'Последние 7 дней',
