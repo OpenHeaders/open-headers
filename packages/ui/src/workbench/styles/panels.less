@@ -41,6 +41,14 @@
   }
 }
 
+// The log's text filter paints what it matched in a row — over the
+// band, the hover and the selection alike.
+.git-tool-match {
+  background: var(--oh-git-match-bg);
+  color: var(--oh-git-match-text);
+  border-radius: 2px;
+}
+
 // Commit changes tree: one scroll host for BOTH axes on the standards
 // thin scrollbar (the un-styled native horizontal bar was the
 // mismatch); the focus outline is suppressed — selection is the

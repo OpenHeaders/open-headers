@@ -82,11 +82,33 @@ export interface GitLogTextFields {
   sha: string;
 }
 
+/** A stretch of a text the filter matched: `[start, end)`. */
+export type TextRange = readonly [number, number];
+
 /** The text field's client-side matcher over the loaded window. */
 export type GitLogTextMatcher =
   | { kind: 'none' }
   | { kind: 'invalid' }
-  | { kind: 'match'; test: (entry: GitLogTextFields) => boolean };
+  | {
+      kind: 'match';
+      test: (entry: GitLogTextFields) => boolean;
+      /** Every stretch of `text` the filter matches, in order — what a row paints. */
+      ranges: (text: string) => TextRange[];
+    };
+
+/** Every non-empty match of a global pattern in `text`. */
+function patternRanges(pattern: RegExp, text: string): TextRange[] {
+  const ranges: TextRange[] = [];
+  for (const match of text.matchAll(pattern)) {
+    if (match[0].length > 0) ranges.push([match.index, match.index + match[0].length]);
+  }
+  return ranges;
+}
+
+/** A literal text as a pattern that matches it and nothing else. */
+function literalPattern(needle: string, matchCase: boolean): RegExp {
+  return new RegExp(needle.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), matchCase ? 'g' : 'gi');
+}
 
 export function makeTextMatcher(filter: string, regex: boolean, matchCase: boolean): GitLogTextMatcher {
   const needle = filter.trim();
@@ -98,14 +120,18 @@ export function makeTextMatcher(filter: string, regex: boolean, matchCase: boole
     } catch {
       return { kind: 'invalid' };
     }
+    const everywhere = new RegExp(needle, matchCase ? 'g' : 'gi');
     return {
       kind: 'match',
       test: (entry) => pattern.test(entry.subject) || pattern.test(entry.authorName) || pattern.test(entry.sha),
+      ranges: (text) => patternRanges(everywhere, text),
     };
   }
   const lowered = needle.toLowerCase();
+  const literal = literalPattern(needle, matchCase);
   return {
     kind: 'match',
+    ranges: (text) => patternRanges(literal, text),
     test: (entry) => {
       if (matchCase) {
         return entry.subject.includes(needle) || entry.authorName.includes(needle) || entry.sha.startsWith(lowered);

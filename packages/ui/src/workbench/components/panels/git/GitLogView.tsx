@@ -44,6 +44,7 @@ import type { FileTreeViewHandle } from './FileTreeView';
 import { getGitLogViewPrefs, patchGitLogViewPrefs, subscribeGitLogViewPrefs } from './git-log-view-prefs';
 import { GIT_LOG_SCOPE_HEAD, type GitLogTabState, gitPanelTabKey } from './git-panel-view-store';
 import { computeLogGraph } from './graph';
+import { contractLog } from './graph-filtered';
 import { allLinearFragments, collapseLog, fragmentKey, type LogFragment } from './graph-fragment';
 import { currentBranchBandTip, currentBranchShas as bandShas } from './log-reachability';
 import { buildLogRowMenu, type LogRowMenuTarget } from './log-row-menu';
@@ -243,13 +244,22 @@ const GitLogView: React.FC<GitLogViewProps> = ({
     return selectedRef === GIT_LOG_SCOPE_HEAD ? (entries[0]?.sha ?? null) : null;
   }, [refs, currentRef, detachedSha, selectedRef, entries]);
 
-  // Graph edges are honest only over the contiguous log — a text filter
-  // or any row filter hides commits, so rendering degrades to plain
+  // Graph edges are honest only over the contiguous log. A ROW filter
+  // (author, date, paths, the walk riders) is the host's: the hidden
+  // commits never reach the window, so rendering degrades to plain
   // dots (sort order alone keeps the graph) and no fragment collapses.
   // HEAD's commit names the lane that owns the shared history (the
   // trunk keeps one colour); a collapsed fragment hides its interior
   // rows and its skipping edge draws as the stubs.
   const graphHonest = filtered === entries && !rowFiltersActive;
+  // The TEXT filter hides rows of a window that still holds them, so
+  // its list keeps a graph (the reference's reading): every listed
+  // commit joined to the nearest listed commits it descends from, a
+  // join through hidden commits drawn as the stubs.
+  const searched = useMemo(
+    () => (filtered !== entries && !rowFiltersActive ? contractLog(entries, new Set(filtered.map((e) => e.sha))) : null),
+    [entries, filtered, rowFiltersActive],
+  );
   const shown = useMemo(
     () => (graphHonest ? collapseLog(entries, collapsed) : { entries: filtered, collapsedEdges: new Set<string>() }),
     [graphHonest, entries, filtered, collapsed],
@@ -260,13 +270,16 @@ const GitLogView: React.FC<GitLogViewProps> = ({
     () => new Set(refs.filter((ref) => ref.kind === 'local' || ref.kind === 'remote').map((ref) => ref.sha)),
     [refs],
   );
-  const graph = useMemo(
-    () =>
-      graphHonest
-        ? computeLogGraph(shown.entries, { headSha, collapsedEdges: shown.collapsedEdges, branchHeads })
-        : null,
-    [graphHonest, shown, headSha, branchHeads],
-  );
+  const graph = useMemo(() => {
+    if (graphHonest) {
+      return computeLogGraph(shown.entries, { headSha, collapsedEdges: shown.collapsedEdges, branchHeads });
+    }
+    if (searched === null) return null;
+    // A listed commit wears the colour it has in the whole log.
+    const whole = computeLogGraph(entries, { headSha, branchHeads });
+    const colors = new Map(entries.map((entry, index) => [entry.sha, whole[index].color]));
+    return computeLogGraph(searched.entries, { headSha, collapsedEdges: searched.skipped, colors });
+  }, [graphHonest, shown, searched, entries, headSha, branchHeads]);
   // A fragment never crosses a ref'd commit or HEAD's.
   const anchors = useMemo(() => {
     const set = new Set(refsBySha.keys());
@@ -541,6 +554,8 @@ const GitLogView: React.FC<GitLogViewProps> = ({
             onSelectionChange={setSelectedShas}
             filtersActive={filtersActive}
             onResetFilters={resetFilters}
+            matchRanges={matcher.kind === 'match' ? matcher.ranges : undefined}
+            fragments={graphHonest}
             scrollTo={scrollTo}
             compactRefs={prefs.compactReferences}
             refsOnLeft={prefs.referencesOnLeft}

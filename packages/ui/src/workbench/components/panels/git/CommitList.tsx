@@ -50,9 +50,11 @@ import { GIT_CODE_SIZE, GIT_TEXT_SIZE } from './git-type-scale';
 import GraphCell, { GRAPH_ROW_HEIGHT, type GraphHighlight } from './GraphCell';
 import { formatLogDate, formatLogDateTitle, type HourCycle } from './log-date';
 import { childInWindow, parentInWindow } from './log-neighbors';
+import MatchedText from './MatchedText';
 import type { LogRowMenuTarget } from './log-row-menu';
 import { commitClickOutcome, stepTarget } from './log-selection';
 import RefRowLabel from './RefRowLabel';
+import type { TextRange } from './toolbar/log-filters';
 
 export interface CommitListProps {
   entries: WorkspaceTreeLogEntryWire[];
@@ -102,6 +104,10 @@ export interface CommitListProps {
   onToggleFragment?: (fragment: LogFragment) => void;
   /** The row's right-click menu over the commits it covers; absent = no menu. */
   rowMenu?: (target: LogRowMenuTarget) => MenuProps;
+  /** The text filter's matches in a subject or an author — painted where they stand; absent = no filter. */
+  matchRanges?: (text: string) => readonly TextRange[];
+  /** False over a filtered list: its edges may skip hidden commits, so no fragment lights or folds. */
+  fragments?: boolean;
 }
 
 const NO_ANCHORS: ReadonlySet<string> = new Set();
@@ -132,6 +138,8 @@ const CommitList: React.FC<CommitListProps> = ({
   collapsed = NO_COLLAPSED,
   onToggleFragment,
   rowMenu,
+  matchRanges,
+  fragments = true,
 }) => {
   const { token } = theme.useToken();
   const { locale, t } = useLocale();
@@ -150,8 +158,11 @@ const CommitList: React.FC<CommitListProps> = ({
   // cells; nothing while the layout is off (a filtered list).
   const [hoveredSha, setHoveredSha] = useState<string | null>(null);
   const fragment = useMemo(
-    () => (graph === null || hoveredSha === null ? null : hoverFragment(entries, hoveredSha, anchors, collapsed)),
-    [graph, hoveredSha, entries, anchors, collapsed],
+    () =>
+      graph === null || !fragments || hoveredSha === null
+        ? null
+        : hoverFragment(entries, hoveredSha, anchors, collapsed),
+    [graph, fragments, hoveredSha, entries, anchors, collapsed],
   );
   const litShas = useMemo(() => (fragment === null ? null : fragmentShas(fragment)), [fragment]);
   const litEdges = useMemo(() => (fragment === null ? null : fragmentEdges(fragment)), [fragment]);
@@ -355,7 +366,7 @@ const CommitList: React.FC<CommitListProps> = ({
               }}
               data-testid="git-tool-row-subject"
             >
-              {entry.subject}
+              <MatchedText text={entry.subject} ranges={matchRanges} />
             </span>
             {!refsOnLeft && refLabel}
             {showHash && (
@@ -376,7 +387,7 @@ const CommitList: React.FC<CommitListProps> = ({
                 style={{ flex: '0 0 auto', fontSize: GIT_TEXT_SIZE, color: textColor }}
                 data-testid="git-tool-row-author"
               >
-                {entry.authorName}
+                <MatchedText text={entry.authorName} ranges={matchRanges} />
               </span>
             )}
             {showDate && (

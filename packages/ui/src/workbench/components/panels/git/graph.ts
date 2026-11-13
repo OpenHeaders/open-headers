@@ -30,6 +30,10 @@
  * Every edge names the two commits it joins, so a view can light the
  * edges of a fragment, and an edge the view collapsed (a hidden linear
  * run between two ends) is flagged — the cell draws it as the stubs.
+ *
+ * A view that lays out only SOME of a log's commits (a filtered list)
+ * hands in the colour each commit wears in the whole log's layout, so
+ * a commit keeps its colour whatever else is hidden.
  */
 
 /** One graph edge inside a row's cell, in lane coordinates. */
@@ -60,6 +64,8 @@ export interface LogGraphOptions {
   collapsedEdges?: ReadonlySet<string>;
   /** Commits a branch (local or remote) points at — a lane reaching one restarts its colour there. */
   branchHeads?: ReadonlySet<string>;
+  /** A commit's colour in the whole log's layout — it wears that one here, and so does the lane that reaches it. */
+  colors?: ReadonlyMap<string, string>;
 }
 
 /** Render data for one log row. */
@@ -113,6 +119,7 @@ export function computeLogGraph(
   const headSha = options.headSha ?? null;
   const collapsedEdges = options.collapsedEdges ?? new Set<string>();
   const branchHeads = options.branchHeads ?? new Set<string>();
+  const known = options.colors ?? new Map<string, string>();
   const rows: GraphRow[] = [];
   let active: ActiveLane[] = [];
   let nextColor = 0;
@@ -123,7 +130,8 @@ export function computeLogGraph(
   };
   const openLane = (sha: string, child: string | null): ActiveLane => {
     const rank = sha === headSha ? HEAD_RANK : nextColor;
-    const color = allocColor();
+    const allocated = allocColor();
+    const color = known.get(sha) ?? allocated;
     return {
       sha,
       child,
@@ -150,7 +158,7 @@ export function computeLogGraph(
     // on its own dot (a lane opened for it already wears a fresh colour);
     // the owner keeps its precedence below.
     const reachedHead = !active[owner].fresh && branchHeads.has(entry.sha);
-    const color = reachedHead ? allocColor() : active[owner].color;
+    const color = known.get(entry.sha) ?? (reachedHead ? allocColor() : active[owner].color);
 
     // The next cursor: converging lanes collapse into the dot's lane,
     // which the first parent inherits; extra parents fork right of it.
