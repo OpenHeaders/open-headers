@@ -806,7 +806,8 @@ export const workbenchSettingsPanes = {
   'workbench.settings.gitPane.log.referencesOnLeftDescription':
     'Placer les étiquettes de branche et de tag avant le sujet plutôt qu’après.',
   'workbench.settings.gitPane.log.tagNamesLabel': 'Noms des tags',
-  'workbench.settings.gitPane.log.tagNamesDescription': 'Afficher les puces de tag sur les lignes de commit.',
+  'workbench.settings.gitPane.log.tagNamesDescription':
+    "Nommer les tags sur les lignes de commit ; désactivé, un tag n'apparaît que par son icône.",
   'workbench.settings.gitPane.log.commitTimestampLabel': 'Horodatage du commit',
   'workbench.settings.gitPane.log.commitTimestampDescription': "Afficher l'heure à côté des dates antérieures à hier.",
   'workbench.settings.gitPane.log.mergeCommitsLabel': 'Mettre en évidence les commits de fusion',

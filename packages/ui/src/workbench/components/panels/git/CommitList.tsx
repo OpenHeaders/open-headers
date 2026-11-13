@@ -82,7 +82,7 @@ export interface CommitListProps {
   compactRefs?: boolean;
   /** Eye menu — Show > References on the Left: the ref labels before the subject. */
   refsOnLeft?: boolean;
-  /** Eye menu — Show > Tag Names: tag chips on rows. */
+  /** Eye menu — Show > Tag Names: a tag's name beside its glyph (the glyph always shows). */
   showTagChips?: boolean;
   /** Eye menu — Show > Commit Timestamp: time on older dates. */
   showTimestamp?: boolean;
@@ -312,10 +312,11 @@ const CommitList: React.FC<CommitListProps> = ({
         const isMerge = dimMergeCommits && entry.parents.length > 1;
         const row = graph?.[index] ?? null;
         const rowRefs = refsBySha.get(entry.sha) ?? [];
-        const labelRefs = showTagChips ? rowRefs : rowRefs.filter((ref) => ref.kind !== 'tag');
         const onCurrentBranch = currentBranchShas !== null && currentBranchShas.has(entry.sha);
         const textColor = isMerge ? token.colorTextTertiary : token.colorText;
-        const refLabel = <RefRowLabel refs={labelRefs} isHead={entry.sha === headSha} compact={compactRefs} />;
+        const refLabel = (
+          <RefRowLabel refs={rowRefs} isHead={entry.sha === headSha} compact={compactRefs} tagNames={showTagChips} />
+        );
         return withRowMenu(
           entry.sha,
           <button

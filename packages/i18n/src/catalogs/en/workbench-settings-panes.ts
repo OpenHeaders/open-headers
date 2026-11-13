@@ -703,7 +703,8 @@ export const workbenchSettingsPanes = {
   'workbench.settings.gitPane.log.referencesOnLeftDescription':
     'Place the branch and tag labels before the subject instead of after it.',
   'workbench.settings.gitPane.log.tagNamesLabel': 'Tag names',
-  'workbench.settings.gitPane.log.tagNamesDescription': 'Show tag chips on the commit rows.',
+  'workbench.settings.gitPane.log.tagNamesDescription':
+    'Name the tags on the commit rows; off, a tag is its glyph alone.',
   'workbench.settings.gitPane.log.commitTimestampLabel': 'Commit timestamp',
   'workbench.settings.gitPane.log.commitTimestampDescription':
     'Show the time of day next to dates older than yesterday.',

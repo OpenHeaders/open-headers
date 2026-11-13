@@ -167,7 +167,7 @@ describe('CommitList — the ref labels (S46)', () => {
   const refLabels = (): string[] =>
     screen.getAllByTestId('git-tool-row-ref').map((el) => el.getAttribute('data-ref') ?? '');
 
-  it('the compact form names one ref per row; the full form lists every label in kind order with HEAD first', () => {
+  it('the compact form is one label per row; the full form is a label per branch (its remote joined) and per tag', () => {
     const { rerender } = render(
       <CommitList
         entries={ENTRIES}
@@ -198,7 +198,7 @@ describe('CommitList — the ref labels (S46)', () => {
       />,
     );
     expect(screen.getAllByTestId('git-tool-row-refs')).toHaveLength(1);
-    expect(refLabels()).toEqual(['HEAD', 'main', 'origin/main', 'v1']);
+    expect(refLabels()).toEqual(['main', 'v1']);
   });
 
   it('the labels sit after the subject by default and before it with References on the Left', () => {

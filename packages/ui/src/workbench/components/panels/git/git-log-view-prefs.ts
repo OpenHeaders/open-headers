@@ -19,7 +19,7 @@ export interface GitLogViewPrefs {
   compactReferences: boolean;
   /** Show > References on the Left — the ref labels before the subject instead of right-aligned. */
   referencesOnLeft: boolean;
-  /** Show > Tag Names — tag chips on commit rows. */
+  /** Show > Tag Names — a tag's name beside its glyph on commit rows (the glyph always shows). */
   showTagNames: boolean;
   /** Show > Commit Timestamp — time on dates older than yesterday. */
   showCommitTimestamp: boolean;

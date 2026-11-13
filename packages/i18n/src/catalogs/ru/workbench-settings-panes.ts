@@ -767,7 +767,8 @@ export const workbenchSettingsPanes = {
   'workbench.settings.gitPane.log.referencesOnLeftDescription':
     'Показывать метки веток и тегов перед темой коммита, а не после неё.',
   'workbench.settings.gitPane.log.tagNamesLabel': 'Имена тегов',
-  'workbench.settings.gitPane.log.tagNamesDescription': 'Показывать метки тегов в строках коммитов.',
+  'workbench.settings.gitPane.log.tagNamesDescription':
+    'Показывать имена тегов в строках коммитов; если выключено, тег отображается только значком.',
   'workbench.settings.gitPane.log.commitTimestampLabel': 'Время коммита',
   'workbench.settings.gitPane.log.commitTimestampDescription': 'Показывать время рядом с датами старше вчерашней.',
   'workbench.settings.gitPane.log.mergeCommitsLabel': 'Выделять коммиты слияния',

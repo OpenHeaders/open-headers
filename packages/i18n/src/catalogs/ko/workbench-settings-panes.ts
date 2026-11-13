@@ -707,7 +707,8 @@ export const workbenchSettingsPanes = {
   'workbench.settings.gitPane.log.referencesOnLeftLabel': '참조를 왼쪽에',
   'workbench.settings.gitPane.log.referencesOnLeftDescription': '브랜치와 태그 레이블을 제목 뒤가 아니라 앞에 둡니다.',
   'workbench.settings.gitPane.log.tagNamesLabel': '태그 이름',
-  'workbench.settings.gitPane.log.tagNamesDescription': '커밋 행에 태그 칩을 표시합니다.',
+  'workbench.settings.gitPane.log.tagNamesDescription':
+    '커밋 행에 태그 이름을 표시합니다. 끄면 태그는 아이콘으로만 표시됩니다.',
   'workbench.settings.gitPane.log.commitTimestampLabel': '커밋 타임스탬프',
   'workbench.settings.gitPane.log.commitTimestampDescription': '어제보다 오래된 날짜 옆에 시각을 표시합니다.',
   'workbench.settings.gitPane.log.mergeCommitsLabel': '병합 커밋 강조',

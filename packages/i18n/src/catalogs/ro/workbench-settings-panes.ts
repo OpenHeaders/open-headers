@@ -772,7 +772,8 @@ export const workbenchSettingsPanes = {
   'workbench.settings.gitPane.log.referencesOnLeftDescription':
     'Așază etichetele de ramură și tag înaintea subiectului, nu după el.',
   'workbench.settings.gitPane.log.tagNamesLabel': 'Numele etichetelor',
-  'workbench.settings.gitPane.log.tagNamesDescription': 'Afișează cipurile de etichetă pe rândurile de commit.',
+  'workbench.settings.gitPane.log.tagNamesDescription':
+    'Afișează numele tagurilor pe rândurile de commit; dezactivat, un tag apare doar ca pictogramă.',
   'workbench.settings.gitPane.log.commitTimestampLabel': 'Ora commit-ului',
   'workbench.settings.gitPane.log.commitTimestampDescription': 'Afișează ora lângă datele mai vechi de ieri.',
   'workbench.settings.gitPane.log.mergeCommitsLabel': 'Evidențiază commit-urile de merge',

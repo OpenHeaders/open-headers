@@ -811,7 +811,8 @@ export const workbenchSettingsPanes = {
   'workbench.settings.gitPane.log.referencesOnLeftDescription':
     'Branch- und Tag-Labels vor dem Betreff statt dahinter anzeigen.',
   'workbench.settings.gitPane.log.tagNamesLabel': 'Tag-Namen',
-  'workbench.settings.gitPane.log.tagNamesDescription': 'Tag-Chips in den Commit-Zeilen anzeigen.',
+  'workbench.settings.gitPane.log.tagNamesDescription':
+    'Tags in den Commit-Zeilen benennen; ausgeschaltet erscheint ein Tag nur als Symbol.',
   'workbench.settings.gitPane.log.commitTimestampLabel': 'Commit-Zeitstempel',
   'workbench.settings.gitPane.log.commitTimestampDescription':
     'Die Uhrzeit neben Datumsangaben anzeigen, die älter als gestern sind.',

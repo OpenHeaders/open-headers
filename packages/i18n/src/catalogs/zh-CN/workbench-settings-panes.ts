@@ -650,7 +650,7 @@ export const workbenchSettingsPanes = {
   'workbench.settings.gitPane.log.referencesOnLeftLabel': '引用靠左显示',
   'workbench.settings.gitPane.log.referencesOnLeftDescription': '将分支和标签放在提交主题之前而不是之后。',
   'workbench.settings.gitPane.log.tagNamesLabel': '标签名称',
-  'workbench.settings.gitPane.log.tagNamesDescription': '在提交行上显示标签芯片。',
+  'workbench.settings.gitPane.log.tagNamesDescription': '在提交行上显示标签名称；关闭后，标签仅显示图标。',
   'workbench.settings.gitPane.log.commitTimestampLabel': '提交时间戳',
   'workbench.settings.gitPane.log.commitTimestampDescription': '在早于昨天的日期旁显示时刻。',
   'workbench.settings.gitPane.log.mergeCommitsLabel': '突出显示合并提交',

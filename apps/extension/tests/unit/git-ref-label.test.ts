@@ -2,10 +2,11 @@
  * A log row's ref label — the order its refs are listed in (local,
  * remote, tag) and the one name it reads: the leading ref's, a local
  * branch and its same-named remote said as one, with the short form a
- * narrow list falls back to.
+ * narrow list falls back to; then the labels a row draws in each view,
+ * and that a tag is always a glyph — Tag Names switches its name alone.
  */
 
-import { orderedRefs, refLabelName } from '@openheaders/ui/workbench/components/panels/git/ref-label';
+import { orderedRefs, refLabelName, refLabels } from '@openheaders/ui/workbench/components/panels/git/ref-label';
 import { describe, expect, it } from 'vitest';
 
 const local = (name: string) => ({ name, kind: 'local' as const });
@@ -48,5 +49,67 @@ describe('refLabelName', () => {
     // `origin/feature/main` is another branch — its remote part would hold a slash.
     expect(refLabelName([local('main'), remote('origin/feature/main')])).toEqual({ full: 'main', short: null });
     expect(refLabelName([local('x/main'), remote('origin/main')])).toEqual({ full: 'x/main', short: null });
+  });
+});
+
+describe('refLabels — what a row draws', () => {
+  const auth = [local('feature/auth-headers'), remote('origin/feature/auth-headers'), tag('v2026.11.0-rc1')];
+  const joined = { full: 'origin & feature/auth-headers', short: '../auth-headers' };
+
+  it('compact: one label — a glyph for everything on the commit, the leading branch named', () => {
+    expect(refLabels(auth, { isHead: false, compact: true, tagNames: true })).toEqual([
+      { lead: 'feature/auth-headers', glyphs: ['local', 'remote', 'tag'], name: joined },
+    ]);
+    expect(refLabels([local('main')], { isHead: true, compact: true, tagNames: true })).toEqual([
+      { lead: 'main', glyphs: ['head', 'local'], name: { full: 'main', short: null } },
+    ]);
+  });
+
+  it('full: a label per branch with its remote joined, and a label per tag', () => {
+    expect(refLabels(auth, { isHead: false, compact: false, tagNames: true })).toEqual([
+      { lead: 'feature/auth-headers', glyphs: ['local', 'remote'], name: joined },
+      { lead: 'v2026.11.0-rc1', glyphs: ['tag'], name: { full: 'v2026.11.0-rc1', short: null } },
+    ]);
+    expect(
+      refLabels([local('main'), local('work'), remote('origin/release')], {
+        isHead: true,
+        compact: false,
+        tagNames: true,
+      }),
+    ).toEqual([
+      { lead: 'main', glyphs: ['head', 'local'], name: { full: 'main', short: null } },
+      { lead: 'work', glyphs: ['local'], name: { full: 'work', short: null } },
+      { lead: 'origin/release', glyphs: ['remote'], name: { full: 'origin/release', short: null } },
+    ]);
+  });
+
+  it('Tag Names off keeps a tag’s glyph and drops its name — in both views', () => {
+    expect(refLabels(auth, { isHead: false, compact: false, tagNames: false })).toEqual([
+      { lead: 'feature/auth-headers', glyphs: ['local', 'remote'], name: joined },
+      { lead: 'v2026.11.0-rc1', glyphs: ['tag'], name: null },
+    ]);
+    expect(refLabels(auth, { isHead: false, compact: true, tagNames: false })).toEqual([
+      { lead: 'feature/auth-headers', glyphs: ['local', 'remote', 'tag'], name: joined },
+    ]);
+    for (const compact of [true, false]) {
+      expect(refLabels([tag('v2026.10.3')], { isHead: false, compact, tagNames: false })).toEqual([
+        { lead: 'v2026.10.3', glyphs: ['tag'], name: null },
+      ]);
+      expect(refLabels([tag('v2026.10.3')], { isHead: false, compact, tagNames: true })).toEqual([
+        { lead: 'v2026.10.3', glyphs: ['tag'], name: { full: 'v2026.10.3', short: null } },
+      ]);
+    }
+  });
+
+  it('HEAD stands alone as a label only when nothing else points at the commit', () => {
+    const alone = [{ lead: 'HEAD', glyphs: ['head'], name: { full: 'HEAD', short: null } }];
+    expect(refLabels([], { isHead: true, compact: true, tagNames: true })).toEqual(alone);
+    expect(refLabels([], { isHead: true, compact: false, tagNames: true })).toEqual(alone);
+    expect(refLabels([], { isHead: false, compact: true, tagNames: true })).toEqual([]);
+    // A tag alone on the checked-out commit (detached at a tag): HEAD's label, then the tag's.
+    expect(refLabels([tag('v1')], { isHead: true, compact: false, tagNames: true })).toEqual([
+      ...alone,
+      { lead: 'v1', glyphs: ['tag'], name: { full: 'v1', short: null } },
+    ]);
   });
 });

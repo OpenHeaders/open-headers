@@ -717,7 +717,8 @@ export const workbenchSettingsPanes = {
   'workbench.settings.gitPane.log.referencesOnLeftDescription':
     'ブランチとタグのラベルを件名の後ではなく前に配置します。',
   'workbench.settings.gitPane.log.tagNamesLabel': 'タグ名',
-  'workbench.settings.gitPane.log.tagNamesDescription': 'コミット行にタグのチップを表示します。',
+  'workbench.settings.gitPane.log.tagNamesDescription':
+    'コミット行にタグ名を表示します。オフの場合、タグはアイコンのみで表示されます。',
   'workbench.settings.gitPane.log.commitTimestampLabel': 'コミットのタイムスタンプ',
   'workbench.settings.gitPane.log.commitTimestampDescription': '昨日より古い日付の横に時刻を表示します。',
   'workbench.settings.gitPane.log.mergeCommitsLabel': 'マージコミットを強調',

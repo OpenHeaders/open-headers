@@ -808,7 +808,8 @@ export const workbenchSettingsPanes = {
   'workbench.settings.gitPane.log.referencesOnLeftDescription':
     'Colocar las etiquetas de rama y tag antes del asunto en lugar de después.',
   'workbench.settings.gitPane.log.tagNamesLabel': 'Nombres de etiquetas',
-  'workbench.settings.gitPane.log.tagNamesDescription': 'Mostrar chips de etiqueta en las filas de commit.',
+  'workbench.settings.gitPane.log.tagNamesDescription':
+    'Nombrar las etiquetas en las filas de commit; desactivado, una etiqueta se muestra solo con su icono.',
   'workbench.settings.gitPane.log.commitTimestampLabel': 'Hora del commit',
   'workbench.settings.gitPane.log.commitTimestampDescription': 'Mostrar la hora junto a las fechas anteriores a ayer.',
   'workbench.settings.gitPane.log.mergeCommitsLabel': 'Resaltar commits de fusión',
