@@ -46,6 +46,7 @@ import { clickModifiers, useMultiSelection } from '@openheaders/ui/shared/select
 import type { GraphRow } from './graph';
 import { fragmentEdges, fragmentShas, hoverFragment, type LogFragment } from './graph-fragment';
 import { contextMenuAlign } from './git-menu-overflow';
+import { GIT_CODE_SIZE, GIT_TEXT_SIZE } from './git-type-scale';
 import GraphCell, { GRAPH_ROW_HEIGHT, type GraphHighlight } from './GraphCell';
 import { formatLogDate, formatLogDateTitle, type HourCycle } from './log-date';
 import { childInWindow, parentInWindow } from './log-neighbors';
@@ -270,7 +271,7 @@ const CommitList: React.FC<CommitListProps> = ({
           alignItems: 'center',
           justifyContent: 'center',
           gap: 2,
-          fontSize: 12,
+          fontSize: GIT_TEXT_SIZE,
           color: token.colorTextSecondary,
         }}
         data-testid="git-tool-empty"
@@ -346,7 +347,7 @@ const CommitList: React.FC<CommitListProps> = ({
               style={{
                 flex: '1 1 auto',
                 minWidth: 0,
-                fontSize: 12,
+                fontSize: GIT_TEXT_SIZE,
                 overflow: 'hidden',
                 textOverflow: 'ellipsis',
                 whiteSpace: 'nowrap',
@@ -359,14 +360,22 @@ const CommitList: React.FC<CommitListProps> = ({
             {!refsOnLeft && refLabel}
             {showHash && (
               <span
-                style={{ flex: '0 0 auto', fontSize: 11.5, fontFamily: token.fontFamilyCode, color: token.colorTextTertiary }}
+                style={{
+                  flex: '0 0 auto',
+                  fontSize: GIT_CODE_SIZE,
+                  fontFamily: token.fontFamilyCode,
+                  color: token.colorTextTertiary,
+                }}
                 data-testid="git-tool-row-hash"
               >
                 {entry.sha.slice(0, 7)}
               </span>
             )}
             {showAuthor && (
-              <span style={{ flex: '0 0 auto', fontSize: 12, color: textColor }} data-testid="git-tool-row-author">
+              <span
+                style={{ flex: '0 0 auto', fontSize: GIT_TEXT_SIZE, color: textColor }}
+                data-testid="git-tool-row-author"
+              >
                 {entry.authorName}
               </span>
             )}
@@ -377,7 +386,7 @@ const CommitList: React.FC<CommitListProps> = ({
                   flex: '0 0 auto',
                   minWidth: 64,
                   textAlign: 'right',
-                  fontSize: 12,
+                  fontSize: GIT_TEXT_SIZE,
                   color: textColor,
                 }}
                 data-testid="git-tool-row-date"

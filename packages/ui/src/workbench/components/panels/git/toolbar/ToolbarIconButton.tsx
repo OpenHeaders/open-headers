@@ -10,6 +10,7 @@
 import { theme, Tooltip } from 'antd';
 import type React from 'react';
 import { useState } from 'react';
+import { GIT_BAR_GLYPH_SIZE } from '../git-type-scale';
 
 export interface ToolbarIconButtonProps {
   icon: React.ReactNode;
@@ -53,6 +54,7 @@ const ToolbarIconButton: React.FC<ToolbarIconButtonProps> = ({
         className={active ? 'git-tool-rail-button active' : 'git-tool-rail-button'}
         data-testid={testid}
         style={{
+          flex: '0 0 auto',
           display: 'inline-flex',
           alignItems: 'center',
           justifyContent: 'center',
@@ -64,7 +66,7 @@ const ToolbarIconButton: React.FC<ToolbarIconButtonProps> = ({
           borderRadius: token.borderRadiusSM,
           cursor: disabled === true ? 'default' : 'pointer',
           color: disabled === true ? token.colorTextQuaternary : token.colorTextSecondary,
-          fontSize: 13,
+          fontSize: GIT_BAR_GLYPH_SIZE,
         }}
       >
         <span style={{ display: 'inline-flex' }}>{icon}</span>

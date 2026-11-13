@@ -10,6 +10,7 @@ import { CloseOutlined, DownOutlined } from '@ant-design/icons';
 import { Dropdown, theme } from 'antd';
 import type { DropdownProps } from 'antd';
 import type React from 'react';
+import { GIT_CARET_SIZE, GIT_TEXT_SIZE } from '../git-type-scale';
 
 export interface GitFilterChipProps {
   label: string;
@@ -58,7 +59,7 @@ const GitFilterChip: React.FC<GitFilterChipProps> = ({
           background: 'transparent',
           borderRadius: token.borderRadiusSM,
           cursor: 'pointer',
-          fontSize: 12,
+          fontSize: GIT_TEXT_SIZE,
           color: token.colorTextSecondary,
           whiteSpace: 'nowrap',
         }}
@@ -66,7 +67,7 @@ const GitFilterChip: React.FC<GitFilterChipProps> = ({
         {value === null ? (
           <>
             <span>{label}</span>
-            <DownOutlined style={{ fontSize: 9 }} />
+            <DownOutlined style={{ fontSize: GIT_CARET_SIZE }} />
           </>
         ) : (
           <>
@@ -90,7 +91,7 @@ const GitFilterChip: React.FC<GitFilterChipProps> = ({
                 }}
                 style={{ display: 'inline-flex', alignItems: 'center', cursor: 'pointer' }}
               >
-                <CloseOutlined style={{ fontSize: 9 }} />
+                <CloseOutlined style={{ fontSize: GIT_CARET_SIZE }} />
               </span>
             )}
           </>

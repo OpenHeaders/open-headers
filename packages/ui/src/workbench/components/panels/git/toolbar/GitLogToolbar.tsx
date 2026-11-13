@@ -17,6 +17,7 @@ import { useT } from '@openheaders/ui/context/LocaleContext';
 import { RefreshIcon } from '@openheaders/ui/shared/icons';
 import type { GitLogViewPrefs } from '../git-log-view-prefs';
 import type { GitLogTabState } from '../git-panel-view-store';
+import { GIT_CODE_SIZE } from '../git-type-scale';
 import BranchFilterChip from './BranchFilterChip';
 import DateFilterModal from './DateFilterModal';
 import GitFilterChip from './GitFilterChip';
@@ -84,7 +85,7 @@ const FilterToggle: React.FC<FilterToggleProps> = ({ glyph, title, active, onTog
           borderRadius: token.borderRadiusSM,
           cursor: 'pointer',
           fontFamily: token.fontFamilyCode,
-          fontSize: 11,
+          fontSize: GIT_CODE_SIZE,
           color: active ? token.colorPrimaryText : token.colorTextTertiary,
         }}
       >

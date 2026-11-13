@@ -17,6 +17,7 @@ import { TagIcon } from '@openheaders/ui/shared/icons';
 import type { WorkspaceTreeRefWire } from '@openheaders/core/bridge';
 import { theme, Tooltip } from 'antd';
 import type React from 'react';
+import { GIT_LABEL_GLYPH_SIZE, GIT_TEXT_SIZE } from './git-type-scale';
 
 export interface RefRowLabelProps {
   refs: readonly WorkspaceTreeRefWire[];
@@ -48,7 +49,7 @@ const labelStyle = (color: string): React.CSSProperties => ({
   gap: 4,
   flex: '0 1 auto',
   minWidth: 0,
-  fontSize: 12,
+  fontSize: GIT_TEXT_SIZE,
   color,
   whiteSpace: 'nowrap',
 });
@@ -67,7 +68,7 @@ const RefRowLabel: React.FC<RefRowLabelProps> = ({ refs, isHead, compact = true 
       >
         {isHead && (
           <span style={labelStyle(token.colorTextTertiary)} data-testid="git-tool-row-ref" data-ref="HEAD">
-            <TagIcon style={{ fontSize: 10, color: HEAD_COLOR, flex: '0 0 auto' }} />
+            <TagIcon style={{ fontSize: GIT_LABEL_GLYPH_SIZE, color: HEAD_COLOR, flex: '0 0 auto' }} />
             <span>HEAD</span>
           </span>
         )}
@@ -80,7 +81,7 @@ const RefRowLabel: React.FC<RefRowLabelProps> = ({ refs, isHead, compact = true 
           >
             <TagIcon
               style={{
-                fontSize: 10,
+                fontSize: GIT_LABEL_GLYPH_SIZE,
                 color: ref === primary ? labelColorFor(primary, isHead) : refColor(ref.kind),
                 flex: '0 0 auto',
               }}
@@ -109,11 +110,11 @@ const RefRowLabel: React.FC<RefRowLabelProps> = ({ refs, isHead, compact = true 
   const glyph =
     extraCount > 0 ? (
       <span style={{ display: 'inline-flex', alignItems: 'center', gap: 2, flex: '0 0 auto' }}>
-        <TagIcon style={{ fontSize: 10, color: backColor }} />
-        <TagIcon style={{ fontSize: 10, color: labelColor }} />
+        <TagIcon style={{ fontSize: GIT_LABEL_GLYPH_SIZE, color: backColor }} />
+        <TagIcon style={{ fontSize: GIT_LABEL_GLYPH_SIZE, color: labelColor }} />
       </span>
     ) : (
-      <TagIcon style={{ fontSize: 10, color: labelColor, flex: '0 0 auto' }} />
+      <TagIcon style={{ fontSize: GIT_LABEL_GLYPH_SIZE, color: labelColor, flex: '0 0 auto' }} />
     );
 
   const details = (

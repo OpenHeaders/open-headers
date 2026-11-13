@@ -14,6 +14,7 @@ import type React from 'react';
 import { useMemo, useState } from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { GIT_LOG_SCOPE_HEAD } from '../git-panel-view-store';
+import { GIT_TEXT_SIZE } from '../git-type-scale';
 import { gitRailFavoriteKey } from '../rail/git-rail-prefs';
 import GitFilterChip from './GitFilterChip';
 
@@ -180,7 +181,7 @@ const BranchFilterChip: React.FC<BranchFilterChipProps> = ({
               border: 'none',
               textAlign: 'left',
               cursor: 'pointer',
-              fontSize: 12,
+              fontSize: GIT_TEXT_SIZE,
               color: token.colorText,
             }}
             data-testid="git-tool-chip-branch-row"

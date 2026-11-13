@@ -31,6 +31,7 @@ import { useT } from '@openheaders/ui/context/LocaleContext';
 import { CollapseAllIcon, ExpandAllIcon, FetchIcon, PullIcon } from '@openheaders/ui/shared/icons';
 import { type ToolbarOverflowItem, useToolbarOverflow } from '@openheaders/ui/shared/toolbar-overflow';
 import { menuCheckIcon } from '../../../shared/menu-check';
+import { GIT_BAR_GLYPH_SIZE } from '../git-type-scale';
 import type { GitRailSingleClick } from './git-rail-prefs';
 
 export interface GitRailActivityBarProps {
@@ -117,7 +118,7 @@ const BarButton: React.FC<BarButtonProps> = ({
           borderRadius: token.borderRadiusSM,
           cursor: disabled ? 'default' : 'pointer',
           color: disabled ? token.colorTextQuaternary : token.colorTextSecondary,
-          fontSize: 13,
+          fontSize: GIT_BAR_GLYPH_SIZE,
         }}
       >
         <span style={{ display: 'inline-flex' }}>{icon}</span>

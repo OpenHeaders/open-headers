@@ -27,6 +27,7 @@ import { forwardRef, useEffect, useImperativeHandle, useMemo, useState } from 'r
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { BranchIcon, TagIcon } from '@openheaders/ui/shared/icons';
 import { contextMenuAlign } from '../git-menu-overflow';
+import { GIT_CARET_SIZE, GIT_ROW_GLYPH_SIZE, GIT_TEXT_SIZE } from '../git-type-scale';
 import { gitRailFavoriteKey } from './git-rail-prefs';
 import type { RefTreeSelection } from './ref-row-menu';
 import { allFolderKeys, buildRefTree, filterRefTree, folderKeysToRef, type RefTreeNode } from './ref-tree-model';
@@ -201,7 +202,7 @@ const RefTree = forwardRef<RefTreeHandle, RefTreeProps>(function RefTree(
     border: 'none',
     textAlign: 'left',
     cursor: 'pointer',
-    fontSize: 12,
+    fontSize: GIT_TEXT_SIZE,
     color: token.colorText,
   });
 
@@ -210,7 +211,7 @@ const RefTree = forwardRef<RefTreeHandle, RefTreeProps>(function RefTree(
     width: CARET_SLOT,
     display: 'inline-flex',
     justifyContent: 'center',
-    fontSize: 9,
+    fontSize: GIT_CARET_SIZE,
     color: token.colorTextTertiary,
   };
 
@@ -239,7 +240,7 @@ const RefTree = forwardRef<RefTreeHandle, RefTreeProps>(function RefTree(
       );
     }
     const Glyph = kind === 'tag' ? TagIcon : BranchIcon;
-    return <Glyph style={{ flex: '0 0 auto', fontSize: 11, color: token.colorTextTertiary }} />;
+    return <Glyph style={{ flex: '0 0 auto', fontSize: GIT_ROW_GLYPH_SIZE, color: token.colorTextTertiary }} />;
   };
 
   const renderNodes = (nodes: readonly RefTreeNode[], depth: number): React.ReactNode =>
@@ -257,7 +258,9 @@ const RefTree = forwardRef<RefTreeHandle, RefTreeProps>(function RefTree(
               data-key={node.key}
             >
               {caretSlot(open)}
-              <FolderOutlined style={{ flex: '0 0 auto', fontSize: 11, color: token.colorTextTertiary }} />
+              <FolderOutlined
+                style={{ flex: '0 0 auto', fontSize: GIT_ROW_GLYPH_SIZE, color: token.colorTextTertiary }}
+              />
               <span style={labelStyle}>{node.label}</span>
             </button>
             {open && renderNodes(node.children, depth + 1)}
@@ -343,7 +346,7 @@ const RefTree = forwardRef<RefTreeHandle, RefTreeProps>(function RefTree(
         )}
         {empty ? (
           <div
-            style={{ padding: '10px 12px', fontSize: 12, color: token.colorTextSecondary }}
+            style={{ padding: '10px 12px', fontSize: GIT_TEXT_SIZE, color: token.colorTextSecondary }}
             data-testid="git-tool-refs-empty"
           >
             {t('workbench.gitLog.refs.empty')}

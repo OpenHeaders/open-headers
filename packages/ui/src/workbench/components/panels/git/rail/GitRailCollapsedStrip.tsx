@@ -11,6 +11,7 @@ import type React from 'react';
 import { useState } from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { GIT_RAIL_STRIP_WIDTH } from '../git-log-layout';
+import { GIT_CARET_SIZE, GIT_TEXT_SIZE } from '../git-type-scale';
 
 export interface GitRailCollapsedStripProps {
   onExpand: () => void;
@@ -45,11 +46,11 @@ const GitRailCollapsedStrip: React.FC<GitRailCollapsedStripProps> = ({ onExpand 
           color: token.colorTextSecondary,
         }}
       >
-        <RightOutlined style={{ fontSize: 10, flexShrink: 0 }} />
+        <RightOutlined style={{ fontSize: GIT_CARET_SIZE, flexShrink: 0 }} />
         <span
           style={{
             writingMode: 'vertical-lr',
-            fontSize: 12,
+            fontSize: GIT_TEXT_SIZE,
             letterSpacing: 0.3,
             whiteSpace: 'nowrap',
           }}
