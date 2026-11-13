@@ -7,7 +7,11 @@
  */
 
 import { computeLogGraph, edgeKey } from '@openheaders/ui/workbench/components/panels/git/graph';
-import { contractLog } from '@openheaders/ui/workbench/components/panels/git/graph-filtered';
+import {
+  contractLog,
+  firstParentOnly,
+  firstParentReach,
+} from '@openheaders/ui/workbench/components/panels/git/graph-filtered';
 import { makeTextMatcher } from '@openheaders/ui/workbench/components/panels/git/toolbar/log-filters';
 import { describe, expect, it } from 'vitest';
 
@@ -98,6 +102,43 @@ describe('contractLog — the graph of a filtered list', () => {
 
   it('ends the line at a parent the window does not hold', () => {
     expect(contractLog([commit('a', 'gone')], listed('a')).entries).toEqual([commit('a')]);
+  });
+});
+
+describe('First Parent — the view’s own walk', () => {
+  // status → merge (of bump and fix); fix → bump — the seed's merged branch.
+  const seed = [commit('status', 'merge'), commit('merge', 'bump', 'fix'), commit('fix', 'bump'), commit('bump')];
+
+  it('joins every commit to its first parent alone', () => {
+    expect(firstParentOnly(seed)).toEqual([
+      commit('status', 'merge'),
+      commit('merge', 'bump'),
+      commit('fix', 'bump'),
+      commit('bump'),
+    ]);
+  });
+
+  it('lists a merged branch a ref still names, and not one no ref does', () => {
+    expect([...firstParentReach(seed, ['fix'])].sort()).toEqual(['bump', 'fix', 'merge', 'status']);
+    expect([...firstParentReach(seed, [])].sort()).toEqual(['bump', 'merge', 'status']);
+    expect([...firstParentReach(seed, ['gone'])].sort()).toEqual(['bump', 'merge', 'status']);
+  });
+
+  it('draws the merge without its side line, the merged branch on its own', () => {
+    const { entries, skipped } = contractLog(firstParentOnly(seed), firstParentReach(seed, ['fix']));
+    expect(entries).toEqual([
+      commit('status', 'merge'),
+      commit('merge', 'bump'),
+      commit('fix', 'bump'),
+      commit('bump'),
+    ]);
+    expect(skipped.size).toBe(0);
+  });
+
+  it('with No Merges too, the commit above the merge joins the trunk under it — not the merged branch', () => {
+    const { entries, skipped } = contractLog(firstParentOnly(seed), listed('status', 'fix', 'bump'));
+    expect(entries).toEqual([commit('status', 'bump'), commit('fix', 'bump'), commit('bump')]);
+    expect([...skipped]).toEqual([edgeKey('status', 'bump')]);
   });
 });
 

@@ -19,7 +19,8 @@ export type GitLogSort = 'date' | 'topo';
 
 /**
  * The slice of one log tab's state the HOST's walk takes (the text
- * filter and No Merges aside — both sift the window the view holds).
+ * filter, No Merges and First Parent aside — those sift the window the
+ * view holds).
  */
 export interface GitLogRowFilterState {
   author: GitLogAuthorFilter | null;
@@ -27,7 +28,6 @@ export interface GitLogRowFilterState {
   /** Repo-relative tree paths; empty = no path scope. */
   paths: readonly string[];
   sort: GitLogSort;
-  firstParent: boolean;
 }
 
 /** The `log` verb's optional filter fields, wire shape. */
@@ -37,7 +37,6 @@ export interface GitLogWireFilters {
   since?: string;
   until?: string;
   paths?: string[];
-  firstParent?: boolean;
   topoOrder?: boolean;
 }
 
@@ -62,20 +61,19 @@ export function buildLogWireFilters(state: GitLogRowFilterState, now: Date): Git
     }
   }
   if (state.paths.length > 0) out.paths = [...state.paths];
-  if (state.firstParent) out.firstParent = true;
   if (state.sort === 'topo') out.topoOrder = true;
   return out;
 }
 
 /**
- * True when the HOST hides rows (author/date/paths/first-parent): the
- * commits it leaves out never reach the window, so no graph can be
- * drawn over what is left. Sort order alone keeps the walk contiguous,
- * so it never counts; No Merges is the view's own sift (below) and
- * keeps its graph.
+ * True when the HOST hides rows (author/date/paths): the commits it
+ * leaves out never reach the window, so no graph can be drawn over
+ * what is left. Sort order alone keeps the walk contiguous, so it
+ * never counts; No Merges and First Parent are the view's own sifts
+ * and keep their graph.
  */
 export function hasRowFilters(state: GitLogRowFilterState): boolean {
-  return state.author !== null || state.date !== null || state.paths.length > 0 || state.firstParent;
+  return state.author !== null || state.date !== null || state.paths.length > 0;
 }
 
 /** A merge commit — what Graph Options › No Merges leaves out of the list. */

@@ -44,7 +44,7 @@ import type { FileTreeViewHandle } from './FileTreeView';
 import { getGitLogViewPrefs, patchGitLogViewPrefs, subscribeGitLogViewPrefs } from './git-log-view-prefs';
 import { GIT_LOG_SCOPE_HEAD, type GitLogTabState, gitPanelTabKey } from './git-panel-view-store';
 import { computeLogGraph } from './graph';
-import { contractLog } from './graph-filtered';
+import { contractLog, firstParentOnly, firstParentReach } from './graph-filtered';
 import { topologicalOrder } from './log-topological';
 import { allLinearFragments, collapseLog, fragmentKey, type LogFragment } from './graph-fragment';
 import { currentBranchBandTip, currentBranchShas as bandShas } from './log-reachability';
@@ -154,8 +154,8 @@ const GitLogView: React.FC<GitLogViewProps> = ({
   // Keyed on the filter fields alone — a selection or rail patch must
   // never refetch the log.
   const wireFilters = useMemo(
-    () => buildLogWireFilters({ author, date, paths, sort, firstParent }, new Date()),
-    [author, date, paths, sort, firstParent],
+    () => buildLogWireFilters({ author, date, paths, sort }, new Date()),
+    [author, date, paths, sort],
   );
 
   const reload = useCallback(async (): Promise<void> => {
@@ -234,14 +234,24 @@ const GitLogView: React.FC<GitLogViewProps> = ({
 
   const matcher = useMemo(() => makeTextMatcher(filter, filterRegex, filterCase), [filter, filterRegex, filterCase]);
 
-  // The view's own sifts of the window: the text filter and No Merges.
-  // Both hide rows the window still holds, so the list keeps a graph.
+  // The view's own sifts of the window: the text filter, No Merges and
+  // First Parent. Each hides rows (or lines) the window still holds, so
+  // the list keeps a graph. First Parent follows a commit's first
+  // parent alone, from every ref the log walks — a merged branch a ref
+  // still names stays listed, on a lane of its own.
+  const walked = useMemo(() => (firstParent ? firstParentOnly(entries) : entries), [entries, firstParent]);
   const filtered = useMemo(() => {
-    if (matcher.kind !== 'match' && !noMerges) return entries;
+    if (matcher.kind !== 'match' && !noMerges && !firstParent) return entries;
+    const roots =
+      selectedRef === null ? [...refs.map((ref) => ref.sha), ...(detachedSha !== null ? [detachedSha] : [])] : [];
+    const reached = firstParent ? firstParentReach(entries, roots) : null;
     return entries.filter(
-      (entry) => (matcher.kind !== 'match' || matcher.test(entry)) && !(noMerges && isMergeCommit(entry)),
+      (entry) =>
+        (reached === null || reached.has(entry.sha)) &&
+        (matcher.kind !== 'match' || matcher.test(entry)) &&
+        !(noMerges && isMergeCommit(entry)),
     );
-  }, [entries, matcher, noMerges]);
+  }, [entries, matcher, noMerges, firstParent, selectedRef, refs, detachedSha]);
 
   const refsBySha = useMemo(() => {
     const map = new Map<string, WorkspaceTreeRefWire[]>();
@@ -270,13 +280,13 @@ const GitLogView: React.FC<GitLogViewProps> = ({
   // trunk keeps one colour); a collapsed fragment hides its interior
   // rows and its skipping edge draws as the stubs.
   const graphHonest = filtered === entries && !rowFiltersActive;
-  // The text filter and No Merges hide rows of a window that still
-  // holds them, so their list keeps a graph (the reference's reading):
-  // every listed commit joined to the nearest listed commits it
-  // descends from, a join through hidden commits drawn as the stubs.
+  // The view's sifts hide rows of a window that still holds them, so
+  // their list keeps a graph (the reference's reading): every listed
+  // commit joined to the nearest listed commits it descends from, a
+  // join through hidden commits drawn as the stubs.
   const searched = useMemo(
-    () => (filtered !== entries && !rowFiltersActive ? contractLog(entries, new Set(filtered.map((e) => e.sha))) : null),
-    [entries, filtered, rowFiltersActive],
+    () => (filtered !== entries && !rowFiltersActive ? contractLog(walked, new Set(filtered.map((e) => e.sha))) : null),
+    [entries, walked, filtered, rowFiltersActive],
   );
   const shown = useMemo(
     () => (graphHonest ? collapseLog(entries, collapsed) : { entries: filtered, collapsedEdges: new Set<string>() }),
@@ -401,7 +411,8 @@ const GitLogView: React.FC<GitLogViewProps> = ({
   const combinedError =
     error ?? (fileDiff.error !== null ? t('workbench.gitLog.loadFailed', { detail: fileDiff.error }) : null);
 
-  const filtersActive = matcher.kind !== 'none' || selectedRef !== null || rowFiltersActive || noMerges;
+  const filtersActive =
+    matcher.kind !== 'none' || selectedRef !== null || rowFiltersActive || noMerges || firstParent;
   const resetFilters = (): void =>
     patchTab({
       filter: '',

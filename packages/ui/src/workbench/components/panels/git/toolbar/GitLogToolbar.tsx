@@ -91,6 +91,7 @@ const GitLogToolbar: React.FC<GitLogToolbarProps> = ({
   const [dateModalOpen, setDateModalOpen] = useState(false);
   const [pathsModalOpen, setPathsModalOpen] = useState(false);
   const [goToOpen, setGoToOpen] = useState(false);
+  const [graphOptionsOpen, setGraphOptionsOpen] = useState(false);
   const [goToValue, setGoToValue] = useState('');
   const [goToMissed, setGoToMissed] = useState(false);
 
@@ -255,6 +256,12 @@ const GitLogToolbar: React.FC<GitLogToolbarProps> = ({
         <Dropdown
           trigger={['click']}
           placement="bottomLeft"
+          open={graphOptionsOpen}
+          // A pick leaves the menu open — its options are tried one against
+          // another; a click outside or Escape closes it.
+          onOpenChange={(next, info) => {
+            if (next || info.source === 'trigger') setGraphOptionsOpen(next);
+          }}
           menu={{
             selectable: false,
             items: [
@@ -332,6 +339,7 @@ const GitLogToolbar: React.FC<GitLogToolbarProps> = ({
                 </span>
               }
               title={t('workbench.gitLog.graphOptions')}
+              popoverOpen={graphOptionsOpen}
               testid="git-tool-graph-options"
             />
           </span>

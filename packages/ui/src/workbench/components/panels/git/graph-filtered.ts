@@ -27,6 +27,39 @@ export interface ContractedLog {
   skipped: Set<string>;
 }
 
+/**
+ * The window as Graph Options › First Parent walks it: every commit
+ * joined to its first parent alone — a merge's other parents are not
+ * followed and no line is drawn to them.
+ */
+export function firstParentOnly(window: readonly FilteredLogEntry[]): FilteredLogEntry[] {
+  return window.map((entry) => ({ sha: entry.sha, parents: entry.parents.slice(0, 1) }));
+}
+
+/**
+ * The commits a first-parent walk lists: what the window's heads and
+ * `roots` (the refs the log walks from) reach through first parents. A
+ * commit that only a merge's side parent leads to is listed when a ref
+ * still names it, and not otherwise — as git's own walk has it.
+ */
+export function firstParentReach(window: readonly FilteredLogEntry[], roots: Iterable<string>): Set<string> {
+  const firstParentOf = new Map<string, string | undefined>();
+  const hasChild = new Set<string>();
+  for (const entry of window) {
+    firstParentOf.set(entry.sha, entry.parents[0]);
+    for (const parent of entry.parents) hasChild.add(parent);
+  }
+  const reached = new Set<string>();
+  const starts = [...window.filter((entry) => !hasChild.has(entry.sha)).map((entry) => entry.sha), ...roots];
+  for (const start of starts) {
+    for (let sha: string | undefined = start; sha !== undefined && firstParentOf.has(sha) && !reached.has(sha); ) {
+      reached.add(sha);
+      sha = firstParentOf.get(sha);
+    }
+  }
+  return reached;
+}
+
 export function contractLog(window: readonly FilteredLogEntry[], listed: ReadonlySet<string>): ContractedLog {
   // Oldest first, so every parent is answered before the commits above it.
   const nearest = new Map<string, readonly string[]>();
