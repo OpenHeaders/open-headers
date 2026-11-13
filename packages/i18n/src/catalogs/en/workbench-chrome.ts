@@ -504,6 +504,7 @@ export const workbenchChrome = {
   'workbench.gitLog.menu.favorites': 'Favorites',
   'workbench.gitLog.menu.clearHint': 'Press {key} to clear the filter',
   'workbench.gitLog.select.hint': 'Select one or more values separated with | or new lines, use {key} to finish',
+  'workbench.gitLog.select.hintLines': 'Select one or more values separated with new lines, use {key} to finish',
   'workbench.gitLog.select.unknown': 'No branch or tag named {names}',
   'workbench.gitLog.user.me': 'me',
   'workbench.gitLog.date.last24h': 'Last 24 hours',

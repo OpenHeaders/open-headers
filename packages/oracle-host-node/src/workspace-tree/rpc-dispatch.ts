@@ -301,6 +301,9 @@ export async function dispatchWorkspaceTreeRpc(
     if (scope === null) return { ok: false, reason: 'invalid-filter' };
     return await runtime.log(workspaceId, typeof message.limit === 'number' ? message.limit : undefined, scope, {
       ...(typeof message.author === 'string' && message.author.length > 0 ? { author: message.author } : {}),
+      ...(Array.isArray(message.authors) && message.authors.every((name): name is string => typeof name === 'string')
+        ? { authors: message.authors }
+        : {}),
       ...(message.authorMe === true ? { authorMe: true } : {}),
       ...(typeof message.since === 'string' && message.since.length > 0 ? { since: message.since } : {}),
       ...(typeof message.until === 'string' && message.until.length > 0 ? { until: message.until } : {}),

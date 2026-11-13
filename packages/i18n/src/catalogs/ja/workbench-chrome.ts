@@ -512,6 +512,7 @@ export const workbenchChrome = {
   'workbench.gitLog.menu.favorites': 'お気に入り',
   'workbench.gitLog.menu.clearHint': '{key} でフィルターをクリア',
   'workbench.gitLog.select.hint': '1 つ以上の値を | または改行で区切って指定します。{key} で確定',
+  'workbench.gitLog.select.hintLines': '1 つ以上の値を改行で区切って指定します。{key} で確定',
   'workbench.gitLog.select.unknown': '{names} という名前のブランチまたはタグはありません',
   'workbench.gitLog.user.me': '自分',
   'workbench.gitLog.date.last24h': '過去 24 時間',

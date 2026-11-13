@@ -41,7 +41,11 @@ import DiffModal from './DiffModal';
 import { buildFileRowMenu } from './file-row-menu';
 import FileHistoryModal from './FileHistoryModal';
 import type { FileTreeViewHandle } from './FileTreeView';
-import { getGitLogRecentScopes, rememberGitLogScope, subscribeGitLogRecentScopes } from './git-log-recent-scopes';
+import {
+  getGitLogRecentFilters,
+  rememberGitLogFilter,
+  subscribeGitLogRecentFilters,
+} from './git-log-recent-filters';
 import { getGitLogViewPrefs, patchGitLogViewPrefs, subscribeGitLogViewPrefs } from './git-log-view-prefs';
 import { GIT_LOG_SCOPE_HEAD, type GitLogTabState, gitPanelTabKey } from './git-panel-view-store';
 import { computeLogGraph } from './graph';
@@ -154,17 +158,25 @@ const GitLogView: React.FC<GitLogViewProps> = ({
   const windowShas = useMemo(() => loaded.map((entry) => entry.sha), [loaded]);
   const signatures = useCommitSignatures(workspaceId, windowShas, prefs.showSignatureColumn);
 
-  const subscribeRecentScopes = useCallback(
-    (listener: () => void) => subscribeGitLogRecentScopes(workspaceId, listener),
+  const subscribeRecentFilters = useCallback(
+    (listener: () => void) => subscribeGitLogRecentFilters(workspaceId, listener),
     [workspaceId],
   );
-  const recentScopes = useSyncExternalStore(subscribeRecentScopes, () => getGitLogRecentScopes(workspaceId));
+  const recentFilters = useSyncExternalStore(subscribeRecentFilters, () => getGitLogRecentFilters(workspaceId));
 
   const { selectedRefs, filter, filterRegex, filterCase, selectedSha, refsCollapsed, railSelection } = tab;
-  // A scope the person applies — from the chip's menu or the rail — is remembered as a recent one.
+  // A filter the person applies — from a chip's menu, its field or the rail — is remembered as a recent one.
   const applyScope = (scope: GitLogScope): void => {
     patchTab({ selectedRefs: scope });
-    rememberGitLogScope(workspaceId, scope);
+    rememberGitLogFilter(workspaceId, 'scopes', scope);
+  };
+  const applyUsers = (users: readonly string[]): void => {
+    patchTab({ author: users.length === 0 ? null : { kind: 'users', values: users } });
+    rememberGitLogFilter(workspaceId, 'users', users);
+  };
+  const applyPaths = (next: readonly string[]): void => {
+    patchTab({ paths: next });
+    rememberGitLogFilter(workspaceId, 'paths', next);
   };
   const layout = useGitLogLayout(
     workspaceId,
@@ -584,8 +596,10 @@ const GitLogView: React.FC<GitLogViewProps> = ({
             refs={refs}
             favorites={favoriteSet}
             onToggleFavorite={(kind, name) => toggleGitRailFavorite(workspaceId, kind, name, defaultFavorites)}
-            recentScopes={recentScopes}
+            recent={recentFilters}
             onScopeChange={applyScope}
+            onUsersChange={applyUsers}
+            onPathsChange={applyPaths}
             entries={entries}
             loading={loading}
             onRefresh={() => void reload()}

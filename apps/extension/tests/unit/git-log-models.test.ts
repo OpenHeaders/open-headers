@@ -20,6 +20,8 @@ import {
   hasRowFilters,
   isMergeCommit,
   makeTextMatcher,
+  pathLabel,
+  pathsChipText,
 } from '@openheaders/ui/workbench/components/panels/git/toolbar/log-filters';
 import { describe, expect, it } from 'vitest';
 
@@ -243,7 +245,19 @@ describe('log filter model', () => {
   it('translates chips to wire fields — me stays a host-side flag', () => {
     expect(buildLogWireFilters(base, now)).toEqual({});
     expect(buildLogWireFilters({ ...base, author: { kind: 'me' } }, now)).toEqual({ authorMe: true });
-    expect(buildLogWireFilters({ ...base, author: { kind: 'user', value: 'John Doe' } }, now)).toEqual({
+    // Several authors travel by `authors`; a directory's closing slash is the view's own.
+    expect(
+      buildLogWireFilters({ ...base, author: { kind: 'users', values: ['John Doe', 'Dana Reyes'] } }, now),
+    ).toEqual({ authors: ['John Doe', 'Dana Reyes'] });
+    expect(buildLogWireFilters({ ...base, paths: ['assets/', 'notes/orders.md'] }, now)).toEqual({
+      paths: ['assets', 'notes/orders.md'],
+    });
+    expect(pathsChipText([])).toBeNull();
+    expect(pathsChipText(['notes/orders.md'])).toBe('orders.md');
+    expect(pathsChipText(['assets/', 'config/envs/', 'workspace.yaml'])).toBe('assets/ + 2');
+    expect(pathLabel('config/envs/')).toBe('envs/');
+    expect(pathLabel('config/envs/', false)).toBe('envs');
+    expect(buildLogWireFilters({ ...base, author: { kind: 'users', values: ['John Doe'] } }, now)).toEqual({
       author: 'John Doe',
     });
     expect(buildLogWireFilters({ ...base, paths: ['rules/a'] }, now)).toEqual({ paths: ['rules/a'] });
@@ -266,6 +280,7 @@ describe('log filter model', () => {
     expect(hasRowFilters(base)).toBe(false);
     expect(hasRowFilters({ ...base, sort: 'topo' })).toBe(false);
     expect(hasRowFilters({ ...base, author: { kind: 'me' } })).toBe(true);
+    expect(hasRowFilters({ ...base, author: { kind: 'users', values: ['John Doe', 'Dana Reyes'] } })).toBe(true);
     expect(hasRowFilters({ ...base, date: { kind: 'preset', preset: '7d' } })).toBe(true);
     expect(hasRowFilters({ ...base, paths: ['a'] })).toBe(true);
   });

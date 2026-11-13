@@ -1,7 +1,7 @@
 /**
  * GitLogToolbar — the log pane's top band, the filter row: the
  * text-or-hash field (applied on Enter — `GitLogTextField`), the Branch / User /
- * Date / Paths filter chips, Graph Options (sort + walk riders + the
+ * Date / Paths filter chips (User and Paths hold LISTS — `ValuesFilterChip`), Graph Options (sort + walk riders + the
  * Collapse / Expand Linear Branches gestures over the graph's
  * fragments), then the right-aligned action icons — Refresh, Cherry-Pick,
  * View Options, Go To Hash/Branch/Tag. Filter state lives in the tab
@@ -19,18 +19,20 @@ import type React from 'react';
 import { useMemo, useState } from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { RefreshIcon } from '@openheaders/ui/shared/icons';
+import type { GitLogRecentFilters } from '../git-log-recent-filters';
 import type { GitLogViewPrefs } from '../git-log-view-prefs';
 import type { GitLogTabState } from '../git-panel-view-store';
-import type { GitLogScope } from '../log-scope';
+import { type GitLogScope, scopeChipText, scopeHoverText, scopeMenuText } from '../log-scope';
 import BranchFilterChip from './BranchFilterChip';
 import DateFilterModal from './DateFilterModal';
 import GitFilterChip from './GitFilterChip';
 import GitLogTextField from './GitLogTextField';
 import { CherryPickIcon, GraphOptionsIcon } from './icons';
 import { menuCheckIcon, menuIconGutter } from '../../../shared/menu-check';
+import { pathsChipText } from './log-filters';
 import PaneToolbar, { type PaneToolbarEntry } from './PaneToolbar';
-import PathsFilterModal from './PathsFilterModal';
 import ToolbarIconButton from './ToolbarIconButton';
+import ValuesFilterChip from './ValuesFilterChip';
 import { useOptionMenu } from '../use-option-menu';
 
 export interface GitLogToolbarProps {
@@ -41,10 +43,14 @@ export interface GitLogToolbarProps {
   favorites: ReadonlySet<string>;
   /** A star in the Branch chip's menu was clicked. */
   onToggleFavorite: (kind: WorkspaceTreeRefWire['kind'], name: string) => void;
-  /** The Branch filter's last applied scopes, newest first. */
-  recentScopes: readonly GitLogScope[];
+  /** The filters applied last, newest first — the chips' Recent rows. */
+  recent: GitLogRecentFilters;
   /** The Branch chip applied a scope — empty clears it. */
   onScopeChange: (scope: GitLogScope) => void;
+  /** The User chip applied a list of authors — empty clears it. */
+  onUsersChange: (users: readonly string[]) => void;
+  /** The Paths chip applied a list of paths — empty clears it. */
+  onPathsChange: (paths: readonly string[]) => void;
   /** Loaded entries — the Go To resolver and the User submenu feed. */
   entries: WorkspaceTreeLogEntryWire[];
   loading: boolean;
@@ -79,8 +85,10 @@ const GitLogToolbar: React.FC<GitLogToolbarProps> = ({
   refs,
   favorites,
   onToggleFavorite,
-  recentScopes,
+  recent,
   onScopeChange,
+  onUsersChange,
+  onPathsChange,
   entries,
   loading,
   onRefresh,
@@ -98,7 +106,6 @@ const GitLogToolbar: React.FC<GitLogToolbarProps> = ({
   const t = useT();
   const { token } = theme.useToken();
   const [dateModalOpen, setDateModalOpen] = useState(false);
-  const [pathsModalOpen, setPathsModalOpen] = useState(false);
   const [goToOpen, setGoToOpen] = useState(false);
   const graphOptions = useOptionMenu();
   const viewOptions = useOptionMenu();
@@ -119,12 +126,7 @@ const GitLogToolbar: React.FC<GitLogToolbarProps> = ({
     return `${tab.date.since ?? '…'} – ${tab.date.until ?? '…'}`;
   }, [tab.date, t]);
 
-  const pathsValue =
-    tab.paths.length === 0
-      ? null
-      : tab.paths.length === 1
-        ? tab.paths[0]
-        : t('workbench.gitLog.chip.pathsCount', { count: tab.paths.length });
+  const users = tab.author !== null && tab.author.kind === 'users' ? tab.author.values : [];
 
   const resolveGoTo = (): void => {
     const query = goToValue.trim();
@@ -174,7 +176,7 @@ const GitLogToolbar: React.FC<GitLogToolbarProps> = ({
           refs={refs}
           favorites={favorites}
           onToggleFavorite={onToggleFavorite}
-          recent={recentScopes}
+          recent={recent.scopes}
           scope={tab.selectedRefs}
           onScopeChange={onScopeChange}
         />
@@ -184,26 +186,20 @@ const GitLogToolbar: React.FC<GitLogToolbarProps> = ({
       kind: 'item',
       key: 'user',
       node: (
-        <GitFilterChip
+        <ValuesFilterChip
           label={t('workbench.gitLog.chip.user')}
-          value={tab.author === null ? null : tab.author.kind === 'me' ? t('workbench.gitLog.user.me') : tab.author.value}
+          value={tab.author !== null && tab.author.kind === 'me' ? t('workbench.gitLog.user.me') : scopeChipText(users)}
+          valueTitle={scopeHoverText(users) ?? undefined}
+          values={users}
+          onApply={onUsersChange}
           onClear={() => patchTab({ author: null })}
-          menu={{
-            selectable: false,
-            items: [
-              {
-                key: 'select',
-                label: t('workbench.gitLog.menu.select'),
-                disabled: authors.length === 0,
-                children: authors.map((name) => ({ key: `author:${name}`, label: name })),
-              },
-              { key: 'me', label: t('workbench.gitLog.user.me') },
-            ],
-            onClick: ({ key }) => {
-              if (key === 'me') patchTab({ author: { kind: 'me' } });
-              else if (key.startsWith('author:')) patchTab({ author: { kind: 'user', value: key.slice(7) } });
-            },
-          }}
+          names={authors}
+          bar
+          rows={[
+            { key: 'me', label: t('workbench.gitLog.user.me'), onPick: () => patchTab({ author: { kind: 'me' } }) },
+          ]}
+          recent={recent.users}
+          recentText={scopeMenuText}
           testid="git-tool-chip-user"
         />
       ),
@@ -236,20 +232,20 @@ const GitLogToolbar: React.FC<GitLogToolbarProps> = ({
       kind: 'item',
       key: 'paths',
       node: (
-        <GitFilterChip
+        <ValuesFilterChip
           label={t('workbench.gitLog.chip.paths')}
-          value={pathsValue}
+          value={pathsChipText(tab.paths)}
+          valueTitle={tab.paths.length > 1 ? tab.paths.join('\n') : undefined}
+          values={tab.paths}
+          onApply={onPathsChange}
           onClear={() => patchTab({ paths: [] })}
-          menu={{
-            selectable: false,
-            items: [
-              { key: 'select', label: t('workbench.gitLog.menu.select') },
-              { key: 'select-in-tree', label: t('workbench.gitLog.menu.selectInTree'), disabled: true },
-            ],
-            onClick: ({ key }) => {
-              if (key === 'select') setPathsModalOpen(true);
-            },
-          }}
+          names={[]}
+          bar={false}
+          rows={[
+            { key: 'tree', label: t('workbench.gitLog.menu.selectInTree'), disabled: true, onPick: () => undefined },
+          ]}
+          recent={recent.paths}
+          recentText={(paths) => pathsChipText(paths) ?? ''}
           testid="git-tool-chip-paths"
         />
       ),
@@ -574,13 +570,6 @@ const GitLogToolbar: React.FC<GitLogToolbarProps> = ({
         onApply={(since, until) => {
           patchTab({ date: since === null && until === null ? null : { kind: 'range', since, until } });
         }}
-      />
-      <PathsFilterModal
-        open={pathsModalOpen}
-        paths={tab.paths}
-        container={container}
-        onClose={() => setPathsModalOpen(false)}
-        onApply={(paths) => patchTab({ paths })}
       />
     </>
   );

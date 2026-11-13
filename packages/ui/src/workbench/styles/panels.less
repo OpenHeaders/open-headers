@@ -67,6 +67,14 @@
   opacity: 1;
 }
 
+// A filter chip's menu: the rows under a heading (Recent) start where
+// the rows above it do — the menu insets a group's list by default, by
+// a rule three classes deep; this one names the popup, the menu and the
+// group's own item to outrank it.
+.git-filter-popup .git-filter-menu li > [class*='-item-group-list'] {
+  margin: 0;
+}
+
 // A star that can be clicked says so under the pointer, gold or outline
 // alike: a small fill around it. The ring is the same fill drawn past
 // the glyph's box, so the slot keeps its width.

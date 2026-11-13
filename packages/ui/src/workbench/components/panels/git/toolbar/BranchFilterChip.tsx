@@ -1,7 +1,7 @@
 /**
  * BranchFilterChip — the log toolbar's `Branch:` chip and its picker,
  * the reference's reading: Select… (the field that takes several refs
- * — `BranchScopeField`), Recent (the scopes applied last, a click
+ * — `FilterValuesField`), Recent (the scopes applied last, a click
  * applies one again), the Favorites row — a click scopes the log to
  * HEAD and every favorite at once — over HEAD and the favorite refs,
  * and one submenu per namespace: Local, each remote's `<remote>/…`,
@@ -42,7 +42,7 @@ import {
   scopeMenuText,
 } from '../log-scope';
 import { gitRailFavoriteKey } from '../rail/git-rail-prefs';
-import BranchScopeField from './BranchScopeField';
+import FilterValuesField from './FilterValuesField';
 import GitFilterChip from './GitFilterChip';
 
 type RefKind = WorkspaceTreeRefWire['kind'];
@@ -429,13 +429,16 @@ const BranchFilterChip: React.FC<BranchFilterChipProps> = ({
               {clearHint}
             </>
           ) : mode === 'select' ? (
-            <BranchScopeField
+            <FilterValuesField
               names={names}
-              scope={scope}
+              values={scope}
+              bar
+              strict
               onFinish={(next) => {
                 onScopeChange(next);
                 close();
               }}
+              testid="git-tool-chip-branch-select"
             />
           ) : (
             <>

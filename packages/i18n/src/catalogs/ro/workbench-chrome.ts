@@ -541,6 +541,8 @@ export const workbenchChrome = {
   'workbench.gitLog.menu.clearHint': 'Apasă {key} pentru a șterge filtrul',
   'workbench.gitLog.select.hint':
     'Selectează una sau mai multe valori separate prin | sau rânduri noi; folosește {key} pentru a încheia',
+  'workbench.gitLog.select.hintLines':
+    'Selectează una sau mai multe valori separate prin rânduri noi; folosește {key} pentru a încheia',
   'workbench.gitLog.select.unknown': 'Nu există nicio ramură și niciun tag cu numele {names}',
   'workbench.gitLog.user.me': 'eu',
   'workbench.gitLog.date.last24h': 'Ultimele 24 de ore',

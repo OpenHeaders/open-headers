@@ -512,6 +512,7 @@ export const workbenchChrome = {
   'workbench.gitLog.menu.favorites': '즐겨찾기',
   'workbench.gitLog.menu.clearHint': '{key} 키를 눌러 필터 지우기',
   'workbench.gitLog.select.hint': '하나 이상의 값을 | 또는 줄바꿈으로 구분해 선택하세요. {key} 키로 완료',
+  'workbench.gitLog.select.hintLines': '하나 이상의 값을 줄바꿈으로 구분해 선택하세요. {key} 키로 완료',
   'workbench.gitLog.select.unknown': '브랜치나 태그를 찾을 수 없습니다: {names}',
   'workbench.gitLog.user.me': '나',
   'workbench.gitLog.date.last24h': '최근 24시간',

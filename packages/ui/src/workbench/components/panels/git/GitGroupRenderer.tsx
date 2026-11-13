@@ -52,6 +52,7 @@ import GitConsolePane from './GitConsolePane';
 import GitLogView from './GitLogView';
 import GitTabStrip, { type GitTabDescriptor } from './GitTabStrip';
 import { scopeTabText } from './log-scope';
+import { pathLabel } from './toolbar/log-filters';
 
 const CONTENT_SELECTOR = '.git-leaf-content';
 
@@ -111,11 +112,14 @@ export const GitGroupRenderer: React.FC<GitGroupRendererProps> = ({
     if (tab.kind === 'console') return t('workbench.gitLog.console.tab');
     if (tab.kind === 'compare') return t('workbench.gitLog.compareTab', { a: branch ?? 'HEAD', b: tab.ref });
     // While a text is applied the tab names the search; cleared, it is
-    // back to its SCOPE: plain `Log` unfiltered, `Log: HEAD` /
-    // `Log: <ref>` when scoped, `Log: <ref>, <ref>…` over several.
+    // back to what it is FILTERED to — its refs, its users, its paths:
+    // plain `Log` unfiltered, `Log: HEAD` / `Log: <ref>` when scoped,
+    // `Log: <ref>, <user>, <path>…` over several.
     const text = tab.filter.trim();
     if (text !== '') return t('workbench.gitLog.searchTab', { text });
-    const scope = scopeTabText(tab.selectedRefs);
+    const users =
+      tab.author === null ? [] : tab.author.kind === 'me' ? [t('workbench.gitLog.user.me')] : tab.author.values;
+    const scope = scopeTabText([...tab.selectedRefs, ...users, ...tab.paths.map((path) => pathLabel(path, false))]);
     return scope === null ? t('workbench.gitLog.logTabAll') : t('workbench.gitLog.logTab', { branch: scope });
   };
   const leafDescriptors = (leaf: EditorLeaf<PaneTabRef>): GitTabDescriptor[] =>

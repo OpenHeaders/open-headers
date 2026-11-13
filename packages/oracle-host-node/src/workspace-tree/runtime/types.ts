@@ -360,6 +360,8 @@ export type MergeBranchRpcResult =
  */
 export interface WorkspaceTreeLogFilters {
   author?: string;
+  /** Several authors, any of whom matches — in place of `author`. */
+  authors?: string[];
   authorMe?: boolean;
   since?: string;
   until?: string;

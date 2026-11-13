@@ -667,6 +667,8 @@ export const workbenchChrome = {
   'workbench.gitLog.menu.clearHint': '{key} drücken, um den Filter zu löschen',
   'workbench.gitLog.select.hint':
     'Einen oder mehrere Werte wählen, getrennt durch | oder Zeilenumbrüche; mit {key} abschließen',
+  'workbench.gitLog.select.hintLines':
+    'Einen oder mehrere Werte wählen, getrennt durch Zeilenumbrüche; mit {key} abschließen',
   'workbench.gitLog.select.unknown': 'Kein Branch oder Tag mit dem Namen {names}',
   'workbench.gitLog.user.me': 'ich',
   'workbench.gitLog.date.last24h': 'Letzte 24 Stunden',

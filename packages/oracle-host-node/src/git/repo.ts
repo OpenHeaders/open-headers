@@ -1063,12 +1063,13 @@ export function parseCommitLog(stdout: string): CommitLogEntry[] {
  * Row filters for {@link listCommitLog} — the log toolbar's User /
  * Date / Paths chips and Graph Options riding the walk itself, so
  * answers are honest over real history rather than the loaded window.
- * `author` is matched as a literal substring (escaped before git's
- * regex machinery, case-insensitive); dates are ISO-8601 strings the
+ * `author` — and each of `authors`, any of whom matches — is a literal
+ * substring (escaped before git's regex machinery, case-insensitive); dates are ISO-8601 strings the
  * dispatch layer validated; `paths` are validated tree paths.
  */
 export interface CommitLogFilters {
   author?: string;
+  authors?: string[];
   since?: string;
   until?: string;
   paths?: string[];
@@ -1129,6 +1130,7 @@ export async function listCommitLog(
   const headSha = !scoped || scope?.includes(LOG_SCOPE_HEAD) === true ? await localHeadSha(run, rootDir) : null;
   if (!scoped && !allRefs && headSha === null) return [];
   const paths = filters?.paths ?? [];
+  const authors = [...(filters?.author !== undefined ? [filters.author] : []), ...(filters?.authors ?? [])];
   const result = await run(
     [
       ...repoArgs(rootDir),
@@ -1142,9 +1144,8 @@ export async function listCommitLog(
       ...(filters?.noMerges === true ? ['--no-merges'] : []),
       ...(filters?.firstParent === true ? ['--first-parent'] : []),
       filters?.topoOrder === true ? '--topo-order' : LOG_ORDER,
-      ...(filters?.author !== undefined
-        ? [`--author=${escapeAuthorPattern(filters.author)}`, '--regexp-ignore-case']
-        : []),
+      ...authors.map((author) => `--author=${escapeAuthorPattern(author)}`),
+      ...(authors.length > 0 ? ['--regexp-ignore-case'] : []),
       ...(filters?.since !== undefined ? [`--since=${filters.since}`] : []),
       ...(filters?.until !== undefined ? [`--until=${filters.until}`] : []),
       ...(scoped

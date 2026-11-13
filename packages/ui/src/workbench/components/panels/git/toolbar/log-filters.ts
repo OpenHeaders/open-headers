@@ -7,8 +7,8 @@
  * these per log tab.
  */
 
-/** `User:` chip — `me` resolves HOST-SIDE to the commit identity. */
-export type GitLogAuthorFilter = { kind: 'me' } | { kind: 'user'; value: string };
+/** `User:` chip — `me` resolves HOST-SIDE to the commit identity; else the authors, any of whom matches. */
+export type GitLogAuthorFilter = { kind: 'me' } | { kind: 'users'; values: readonly string[] };
 
 /** `Date:` chip — a rolling preset or an explicit inclusive range. */
 export type GitLogDateFilter =
@@ -25,7 +25,7 @@ export type GitLogSort = 'date' | 'topo';
 export interface GitLogRowFilterState {
   author: GitLogAuthorFilter | null;
   date: GitLogDateFilter | null;
-  /** Repo-relative tree paths; empty = no path scope. */
+  /** Repo-relative tree paths, a directory's with its closing slash kept; empty = no path scope. */
   paths: readonly string[];
   sort: GitLogSort;
 }
@@ -33,6 +33,7 @@ export interface GitLogRowFilterState {
 /** The `log` verb's optional filter fields, wire shape. */
 export interface GitLogWireFilters {
   author?: string;
+  authors?: string[];
   authorMe?: boolean;
   since?: string;
   until?: string;
@@ -48,8 +49,10 @@ const HOUR_MS = 60 * 60 * 1000;
 export function buildLogWireFilters(state: GitLogRowFilterState, now: Date): GitLogWireFilters {
   const out: GitLogWireFilters = {};
   if (state.author !== null) {
+    // One author travels by the field every host reads; several by `authors`.
     if (state.author.kind === 'me') out.authorMe = true;
-    else out.author = state.author.value;
+    else if (state.author.values.length === 1) out.author = state.author.values[0];
+    else if (state.author.values.length > 1) out.authors = [...state.author.values];
   }
   if (state.date !== null) {
     if (state.date.kind === 'preset') {
@@ -60,9 +63,26 @@ export function buildLogWireFilters(state: GitLogRowFilterState, now: Date): Git
       if (state.date.until !== null) out.until = `${state.date.until}T23:59:59`;
     }
   }
-  if (state.paths.length > 0) out.paths = [...state.paths];
+  if (state.paths.length > 0) out.paths = state.paths.map(barePath);
   if (state.sort === 'topo') out.topoOrder = true;
   return out;
+}
+
+/** A path as git takes it: a directory's closing slash is the view's own mark. */
+function barePath(path: string): string {
+  return path.replace(/\/+$/, '');
+}
+
+/** A path as a chip or a tab names it: its last segment — a directory keeps its slash when asked. */
+export function pathLabel(path: string, slash = true): string {
+  const name = barePath(path).split('/').pop() ?? '';
+  return slash && path.endsWith('/') ? `${name}/` : name;
+}
+
+/** The Paths chip's reading — `assets/ + 4`; null with no path. */
+export function pathsChipText(paths: readonly string[]): string | null {
+  if (paths.length === 0) return null;
+  return paths.length === 1 ? pathLabel(paths[0]) : `${pathLabel(paths[0])} + ${paths.length - 1}`;
 }
 
 /**

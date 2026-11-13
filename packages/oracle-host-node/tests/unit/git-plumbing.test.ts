@@ -1301,6 +1301,12 @@ describe('history feeds (Phase 7)', () => {
     expect(byAuthor?.map((entry) => entry.subject)).toEqual(['Add rule a']);
     const noWildcard = await listCommitLog(run, tmpDir, 20, undefined, { author: 'dana rX reyes' });
     expect(noWildcard).toEqual([]);
+    // Several authors: a commit by ANY of them is listed — each still a literal, case aside.
+    const either = await listCommitLog(run, tmpDir, 20, undefined, { authors: ['dana r. reyes', 'probe operator'] });
+    expect(either?.map((entry) => entry.subject)).toEqual(['Add rule a', 'Initial tree']);
+    const oneOfTwo = await listCommitLog(run, tmpDir, 20, undefined, { authors: ['nobody at all', 'probe operator'] });
+    expect(oneOfTwo?.map((entry) => entry.subject)).toEqual(['Initial tree']);
+    expect(await listCommitLog(run, tmpDir, 20, undefined, { authors: ['dana rX reyes', 'no.ody'] })).toEqual([]);
 
     // Dates: an all-inclusive window keeps both; an ancient until drops both.
     const wide = await listCommitLog(run, tmpDir, 20, undefined, { since: '2000-01-01' });

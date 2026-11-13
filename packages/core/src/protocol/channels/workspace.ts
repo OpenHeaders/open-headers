@@ -590,8 +590,12 @@ export interface WorkspaceRpc {
        *  and case-insensitively against author name/email; the host
        *  escapes it before git's regex machinery. */
       author?: string;
+      /** SEVERAL authors, any of whom matches (the `User:` chip holding
+       *  a list) — in place of `author`; both, or an empty list, refuse
+       *  `invalid-filter` (additive). */
+      authors?: string[];
       /** `User: me` — resolved HOST-SIDE to the identity the commit
-       *  pass runs under; mutually exclusive with `author`. */
+       *  pass runs under; mutually exclusive with `author` and `authors`. */
       authorMe?: boolean;
       /** Date window (`Date:` chip) — strict ISO-8601 date or date-time
        *  strings; anything else refuses `invalid-filter`. */

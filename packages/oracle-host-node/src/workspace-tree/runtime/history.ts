@@ -72,6 +72,7 @@ export async function runLog(
 }
 
 const LOG_FILTER_MAX_PATHS = 32;
+const LOG_FILTER_MAX_AUTHORS = 32;
 const LOG_SCOPE_MAX_REFS = 64;
 const LOG_FILTER_MAX_AUTHOR = 200;
 // Strict ISO-8601: a date, optionally with a time and zone — the only
@@ -96,6 +97,14 @@ function validateLogFilters(filters: WorkspaceTreeLogFilters): { ok: true; filte
   if (filters.author !== undefined) {
     if (!isValidAuthorFilter(filters.author)) return { ok: false };
     out.author = filters.author;
+  }
+  if (filters.authors !== undefined) {
+    const { authors } = filters;
+    if (filters.author !== undefined || authors.length === 0 || authors.length > LOG_FILTER_MAX_AUTHORS) {
+      return { ok: false };
+    }
+    if (!authors.every(isValidAuthorFilter)) return { ok: false };
+    out.authors = [...authors];
   }
   if (filters.since !== undefined) {
     if (!isValidDateFilter(filters.since)) return { ok: false };
@@ -128,7 +137,9 @@ export function runWorkspaceLog(
   const validated = filters !== undefined ? validateLogFilters(filters) : { ok: true as const, filters: {} };
   if (!validated.ok) return Promise.resolve({ ok: false, reason: 'invalid-filter' });
   const authorMe = filters?.authorMe === true;
-  if (authorMe && filters?.author !== undefined) return Promise.resolve({ ok: false, reason: 'invalid-filter' });
+  if (authorMe && (filters?.author !== undefined || filters?.authors !== undefined)) {
+    return Promise.resolve({ ok: false, reason: 'invalid-filter' });
+  }
   // `allRefs` is a scope, not a filter — it and a scope of refs are
   // mutually exclusive by construction. A scope names something.
   if (scope !== undefined && (filters?.allRefs === true || scope.length === 0 || scope.length > LOG_SCOPE_MAX_REFS)) {

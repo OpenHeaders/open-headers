@@ -2,8 +2,8 @@
  * log-scope (S66): a log tab's scope as a list of refs walked together —
  * what it asks of the host (every ref, the default walk, one ref by the
  * field every host reads, several by `refs`), what is left when refs go,
- * what the Branch menu's Favorites row applies, which scopes its Recent
- * keeps, and how the chip, its hover, a menu row and the tab read it.
+ * what the Branch menu's Favorites row applies, and how the chip, its
+ * hover, a menu row and the tab read a list of names.
  */
 
 import {
@@ -14,7 +14,6 @@ import {
   scopeMenuText,
   scopeTabText,
   scopeWithout,
-  withRecentScope,
 } from '@openheaders/ui/workbench/components/panels/git/log-scope';
 import { describe, expect, it } from 'vitest';
 
@@ -80,28 +79,6 @@ describe('favoritesScope', () => {
   });
 });
 
-describe('withRecentScope', () => {
-  it('leads with the scope just applied', () => {
-    expect(withRecentScope([], ['main'])).toEqual([['main']]);
-    expect(withRecentScope([['main']], ['HEAD', 'main'])).toEqual([['HEAD', 'main'], ['main']]);
-  });
-
-  it('lists a scope applied again once, in front', () => {
-    const recent = [['HEAD', 'main'], ['main'], ['feature/orders-v2']];
-    expect(withRecentScope(recent, ['main'])).toEqual([['main'], ['HEAD', 'main'], ['feature/orders-v2']]);
-    // The same refs in another order are another scope: the chip and the tab read them in order.
-    expect(withRecentScope([['HEAD', 'main']], ['main', 'HEAD'])).toEqual([
-      ['main', 'HEAD'],
-      ['HEAD', 'main'],
-    ]);
-  });
-
-  it('keeps five — the oldest falls off', () => {
-    const recent = [['e'], ['d'], ['c'], ['b'], ['a']];
-    expect(withRecentScope(recent, ['f'])).toEqual([['f'], ['e'], ['d'], ['c'], ['b']]);
-  });
-});
-
 describe('the scope as text', () => {
   it('reads nothing on the unfiltered log', () => {
     expect(scopeChipText([])).toBeNull();
@@ -126,7 +103,10 @@ describe('the scope as text', () => {
     const scope = ['feature/orders-v2', 'fix/probe-timeout', 'origin/main'];
     expect(scopeChipText(scope)).toBe('feature/orders-v2|fix/probe…');
     expect(scopeChipText(['HEAD', 'main', 'origin/main'])).toBe('HEAD|main|origin/main');
-    expect(scopeTabText(scope)).toBe('feature/orders-v2, fix/probe-…');
+    expect(scopeTabText(scope)).toBe('feature/orders-v2, fix/probe-timeout, origin/main');
+    expect(scopeTabText([...scope, 'feature/auth-headers', 'local-test'])).toBe(
+      'feature/orders-v2, fix/probe-timeout, origin/main, feature/…',
+    );
     expect(scopeHoverText(scope)).toBe('feature/orders-v2\nfix/probe-timeout\norigin/main');
     expect(scopeMenuText(scope)).toBe('feature/orders-v2|fix/probe-timeout|origin/…');
     expect(scopeMenuText(['HEAD', 'main', 'origin/main'])).toBe('HEAD|main|origin/main');
