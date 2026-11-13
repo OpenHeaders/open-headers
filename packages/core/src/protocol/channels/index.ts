@@ -122,6 +122,7 @@ export type { SecretsStorageState } from './secrets';
 export type { TotpRpc } from './totp';
 export type { AppUpdatePhase, AppUpdateSeverity, AppUpdateState } from './updates';
 export type {
+  WorkspaceTreeAbortOperationWire,
   WorkspaceTreeAddToVcsWire,
   WorkspaceTreeAdoptWire,
   WorkspaceTreeApplyCommitConflictFileWire,
@@ -151,6 +152,7 @@ export type {
   WorkspaceTreeForcePushStateWire,
   WorkspaceTreeGitConsoleRowWire,
   WorkspaceTreeGitConsoleWire,
+  WorkspaceTreeGitOperationWire,
   WorkspaceTreeGitStatusWire,
   WorkspaceTreeIgnoreSourceWire,
   WorkspaceTreeIgnoreWire,

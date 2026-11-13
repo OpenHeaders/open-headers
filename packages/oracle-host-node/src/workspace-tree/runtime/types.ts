@@ -15,6 +15,7 @@ import type {
   CommitUserAttribution,
   GitAuditRow,
   GitAvailability,
+  GitOperation,
   GitRunner,
   IgnoreTarget,
   RepoRef,
@@ -192,6 +193,16 @@ export type CreateBranchRpcResult =
     };
 
 /** The log's New Tag… — a lightweight tag at a full commit sha. */
+/** The way out of a git operation started outside the app — git's own abort, then a reconcile. */
+export type AbortOperationRpcResult =
+  | { ok: true; operation: GitOperation }
+  | {
+      ok: false;
+      reason: 'not-bound' | 'git-unavailable' | 'not-a-repo' | 'nothing-in-progress' | 'abort-failed';
+      operation?: GitOperation;
+      detail?: string;
+    };
+
 export type CreateTagRpcResult =
   | { ok: true; name: string; sha: string }
   | {
@@ -573,6 +584,12 @@ export interface WorkspaceTreeGitStatusRpcResult {
   forcePush: { remoteSha: string; lastSyncedSha: string } | null;
   /** True for a `--depth` clone (§3.4): history views stop at the boundary and a pull past it treats every remote file as changed. */
   shallow: boolean;
+  /**
+   * The git operation the working tree is mid-way through — started
+   * outside the app, since no pass of ours leaves one. While it stands
+   * every reconcile pass holds; null at rest.
+   */
+  operation: GitOperation | null;
 }
 
 export interface WorkspaceTreeRuntime {
@@ -641,6 +658,13 @@ export interface WorkspaceTreeRuntime {
   createBranch(workspaceId: string, branch: string, options?: CreateBranchOptions): Promise<CreateBranchRpcResult>;
   /** Mint a lightweight tag at a FULL commit sha (the log's New Tag…); an existing name refuses typed. */
   createTag(workspaceId: string, name: string, sha: string): Promise<CreateTagRpcResult>;
+  /**
+   * End the git operation the working tree is mid-way through (the
+   * status frame's `operation`) with git's own abort, then reconcile as
+   * after any change made outside. On the per-binding chain; a status
+   * frame follows. Nothing in progress answers `nothing-in-progress`.
+   */
+  abortOperation(workspaceId: string): Promise<AbortOperationRpcResult>;
   /**
    * Delete a LOCAL branch (`git branch -d` — merged-only, git itself
    * refuses unmerged work). The current branch refuses; the answered

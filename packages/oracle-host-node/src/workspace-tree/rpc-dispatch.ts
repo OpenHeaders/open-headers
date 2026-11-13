@@ -151,6 +151,7 @@ export async function dispatchWorkspaceTreeRpc(
         autoPushOnCommit: false,
         forcePush: null,
         shallow: false,
+        operation: null,
       };
     }
     return await runtime.gitStatus(workspaceId);
@@ -235,6 +236,11 @@ export async function dispatchWorkspaceTreeRpc(
     const sha = typeof message.sha === 'string' ? message.sha : '';
     if (!workspaceId || !name || !sha || runtime === null) return { ok: false, reason: 'not-bound' };
     return await runtime.createTag(workspaceId, name, sha);
+  }
+  if (type === 'oh.workspaceTree.abortOperation') {
+    const workspaceId = typeof message.workspaceId === 'string' ? message.workspaceId : '';
+    if (!workspaceId || runtime === null) return { ok: false, reason: 'not-bound' };
+    return await runtime.abortOperation(workspaceId);
   }
   if (type === 'oh.workspaceTree.deleteBranch') {
     const workspaceId = typeof message.workspaceId === 'string' ? message.workspaceId : '';

@@ -85,6 +85,7 @@ import {
 } from './history';
 import { runIgnorePath, runUnignorePath } from './ignore';
 import { closeBinding, openBinding } from './lifecycle';
+import { runAbortOperation } from './operation';
 import { runApplyCommit } from './pick';
 import { runAddRemote, runListRemotes, runRemoveRemote, runUpdateRemote } from './remotes';
 import { applyAll, buildSnapshot, workspaceEntity } from './snapshot';
@@ -92,6 +93,7 @@ import { notBoundStatus, publishGitStatus, readGitStatus } from './status';
 import { appendIssues, heldByGitOperation, refreshIssuesFromDisk, runSweep, scheduleMaterialize } from './sweep';
 import { enqueueFetch, maybeAutoPush, runFetchAll, runPull, runPush, runResolveForcePush } from './sync';
 import type {
+  AbortOperationRpcResult,
   AdoptWorkspaceTreeRpcResult,
   ApplyCommitRpcResult,
   BindWorkspaceTreeRpcResult,
@@ -539,6 +541,20 @@ export function createWorkspaceTreeRuntime(options: WorkspaceTreeRuntimeOptions)
         { ok: false, reason: 'create-failed', detail: 'tag pass did not run' },
         async () => {
           const result = await runCreateTag(ctx, binding, name, sha);
+          await ctx.publishGitStatus(binding);
+          return result;
+        },
+      );
+    },
+
+    async abortOperation(workspaceId: string): Promise<AbortOperationRpcResult> {
+      const binding = open.get(workspaceId);
+      if (!binding) return { ok: false, reason: 'not-bound' };
+      return onChain<AbortOperationRpcResult>(
+        binding,
+        { ok: false, reason: 'abort-failed', detail: 'abort pass did not run' },
+        async () => {
+          const result = await runAbortOperation(ctx, binding);
           await ctx.publishGitStatus(binding);
           return result;
         },

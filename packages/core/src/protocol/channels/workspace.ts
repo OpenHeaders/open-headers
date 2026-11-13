@@ -459,6 +459,18 @@ export interface WorkspaceRpc {
     res: WorkspaceTreeCreateBranchWire;
   };
   /**
+   * End the git operation the working tree is mid-way through (the
+   * status frame's `operation` — a rebase, merge, cherry-pick, revert
+   * or bisect started outside the app) with git's own abort; the host
+   * then reconciles as after any change made outside. The tree and
+   * HEAD go back to where the operation found them — what was resolved
+   * in it so far is given up.
+   */
+  'oh.workspaceTree.abortOperation': {
+    req: { workspaceId: string };
+    res: WorkspaceTreeAbortOperationWire;
+  };
+  /**
    * Mint a lightweight tag at a FULL commit sha (the log's New Tag…).
    * Never a history edit; tags never ride a push. A taken name
    * answers `exists`.
@@ -1534,7 +1546,26 @@ export interface WorkspaceTreeGitStatusWire {
   forcePush: WorkspaceTreeForcePushStateWire | null;
   /** True for a `--depth` clone (§3.4): history views stop at the boundary and a pull past it treats every remote file as changed. */
   shallow: boolean;
+  /**
+   * The git operation the working tree is mid-way through (additive) —
+   * one started outside the app; every pass holds while it stands.
+   * Null, or absent from an older host, at rest.
+   */
+  operation?: WorkspaceTreeGitOperationWire | null;
 }
+
+/** A git operation a person can be mid-way through. */
+export type WorkspaceTreeGitOperationWire = 'rebase' | 'merge' | 'cherry-pick' | 'revert' | 'bisect';
+
+export type WorkspaceTreeAbortOperationWire =
+  | { ok: true; operation: WorkspaceTreeGitOperationWire }
+  | {
+      ok: false;
+      reason: 'not-bound' | 'git-unavailable' | 'not-a-repo' | 'nothing-in-progress' | 'abort-failed';
+      operation?: WorkspaceTreeGitOperationWire;
+      /** `abort-failed`: git's own words. */
+      detail?: string;
+    };
 
 /** One per-document read failure — the §13.3 quarantine seam's wire shape. */
 export interface WorkspaceTreeIssueWire {

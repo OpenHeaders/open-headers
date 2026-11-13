@@ -23,12 +23,14 @@
 import {
   hostBridge,
   type WorkspaceTreeDeleteBranchWire,
+  type WorkspaceTreeGitOperationWire,
   type WorkspaceTreeRefWire,
 } from '@openheaders/core/bridge';
 import { App as AntApp, theme } from 'antd';
 import type React from 'react';
 import { useState } from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
+import { GIT_OPERATION_ABORTS } from '../git-operation';
 import { committedLocalNotice, integrationRefusalDetail, keptLocalNotice, leftOutNotice } from '../kept-local';
 import { isFullCommitSha } from '../log-neighbors';
 import PushCommitsModal from '../push/PushCommitsModal';
@@ -77,6 +79,8 @@ export interface GitBranchActions {
   mergeIntoCurrent: (ref: string) => void;
   updateBranch: (branch: string) => void;
   deleteBranch: (branch: string) => void;
+  /** End the git operation in progress (one started outside the app) with git's own abort, behind a confirm. */
+  abortOperation: (operation: WorkspaceTreeGitOperationWire) => void;
   fetch: () => void;
   pull: () => void;
   push: () => void;
@@ -97,7 +101,7 @@ export function useGitBranchActions(options: GitBranchActionsOptions): GitBranch
   const { workspaceId, currentRef, refs, container, onBranchDeleted } = options;
   const t = useT();
   const { token } = theme.useToken();
-  const { notification } = AntApp.useApp();
+  const { notification, modal } = AntApp.useApp();
 
   const [createFrom, setCreateFrom] = useState<string | null>(null);
   const [switchPrompt, setSwitchPrompt] = useState<SwitchBranchPrompt | null>(null);
@@ -268,6 +272,33 @@ export function useGitBranchActions(options: GitBranchActionsOptions): GitBranch
     } finally {
       setUpdateBusy(false);
     }
+  };
+
+  // The way out of a git operation started outside the app: git's own abort, asked first — what was
+  // resolved in it so far is given up. The status frame that follows clears the widget's reading.
+  const abortOperation = (operation: WorkspaceTreeGitOperationWire): void => {
+    const label = t(GIT_OPERATION_ABORTS[operation]);
+    modal.confirm({
+      title: label,
+      content: t('workbench.gitBranch.abort.confirmBody'),
+      okText: label,
+      okButtonProps: { danger: true, 'data-testid': 'git-abort-operation-ok' },
+      cancelText: t('workbench.gitLog.modal.cancel'),
+      getContainer: container ?? undefined,
+      onOk: async () => {
+        try {
+          const result = await atHost(() => hostBridge.call('oh.workspaceTree.abortOperation', { workspaceId }));
+          if (result.ok) notification.success({ title: t('workbench.gitBranch.abort.done') });
+          else {
+            notification.error({
+              title: t('workbench.gitBranch.abort.failed', { detail: result.detail ?? result.reason }),
+            });
+          }
+        } catch (err) {
+          notification.error({ title: t('workbench.gitBranch.abort.failed', { detail: failure(err) }) });
+        }
+      },
+    });
   };
 
   const deleteBranch = async (branch: string): Promise<void> => {
@@ -486,6 +517,7 @@ export function useGitBranchActions(options: GitBranchActionsOptions): GitBranch
     mergeIntoCurrent: (ref) => void mergeIntoCurrent(ref),
     updateBranch: (branch) => void updateBranch(branch),
     deleteBranch: (branch) => void deleteBranch(branch),
+    abortOperation,
     fetch: () => void fetch(),
     pull: () => void pull(),
     push: () => setPushOpen(true),

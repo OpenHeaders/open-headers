@@ -27,10 +27,11 @@ import { Divider, Dropdown, Input, type MenuProps, Tooltip, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useMemo, useState, useSyncExternalStore } from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
-import { BranchIcon, FetchIcon, PullIcon, PushIcon, TagIcon } from '@openheaders/ui/shared/icons';
+import { BranchIcon, FetchIcon, PullIcon, PushIcon, RollbackIcon, TagIcon } from '@openheaders/ui/shared/icons';
 import { menuCheckIcon } from '../../../shared/menu-check';
 import type { GitBranchActions } from '../branch-actions/use-git-branch-actions';
 import { CommitToolIcon } from '../commit/CommitToolIcon';
+import { GIT_OPERATION_ABORTS, gitOperationOf } from '../git-operation';
 import { getGitRailPrefs, gitRailFavoriteKey, subscribeGitRailPrefs } from '../rail/git-rail-prefs';
 import { buildRefRowMenu, type RefRowMenuHandlers, type RefTreeSelection } from '../rail/ref-row-menu';
 import { allFolderKeys, type RefTreeNode } from '../rail/ref-tree-model';
@@ -143,7 +144,20 @@ const GitBranchPopup: React.FC<GitBranchPopupProps> = ({
   const rowMenu = (row: RefTreeSelection): MenuProps =>
     buildRefRowMenu(row, { current, historyRewritten: status.forcePush !== null }, t, menuHandlers);
 
+  // A git operation started outside the app stands until it ends: its way out leads the actions.
+  const operation = gitOperationOf(status);
   const actionRows: Array<{ key: string; icon: React.ReactNode; label: string; hint: string; onClick: () => void }> = [
+    ...(operation === null
+      ? []
+      : [
+          {
+            key: 'abort',
+            icon: <RollbackIcon />,
+            label: t(GIT_OPERATION_ABORTS[operation]),
+            hint: '',
+            onClick: closeThen(() => actions.abortOperation(operation)),
+          },
+        ]),
     {
       key: 'update',
       icon: <PullIcon />,
@@ -426,7 +440,10 @@ const GitBranchPopup: React.FC<GitBranchPopupProps> = ({
       <div className="rules-thin-scrollbar" style={{ flex: '1 1 auto', minHeight: 0, overflowY: 'auto' }}>
         {actionRows.map((row, index) => (
           <div key={row.key}>
-            {index === 3 && <Divider style={{ margin: '4px 0' }} />}
+            {/* The way out of an operation stands apart, as New Branch does from the transfer verbs. */}
+            {index > 0 && (row.key === 'new-branch' || actionRows[index - 1].key === 'abort') && (
+              <Divider style={{ margin: '4px 0' }} />
+            )}
             <div
               role="menuitem"
               className="oh-env-row"
