@@ -26,9 +26,6 @@ export interface CreateBranchModalProps {
    *  exists only as `gitStatus.branch`, so the membership gate would
    *  refuse it; HEAD IS that branch). */
   fromRef: string | undefined;
-  /** The Git tool window element — the modal centers over the panel,
-   *  not the app window. Null falls back to the document body. */
-  container: HTMLElement | null;
   onClose: () => void;
   /** A branch was created (and possibly checked out) — the caller
    *  raises the balloon and the status frame refreshes the views. */
@@ -39,7 +36,6 @@ const CreateBranchModal: React.FC<CreateBranchModalProps> = ({
   workspaceId,
   from,
   fromRef,
-  container,
   onClose,
   onCreated,
 }) => {
@@ -104,7 +100,6 @@ const CreateBranchModal: React.FC<CreateBranchModalProps> = ({
       onCancel={onClose}
       width={480}
       centered
-      getContainer={container ?? undefined}
       destroyOnHidden
     >
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12, paddingTop: 4 }}>

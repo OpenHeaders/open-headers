@@ -17,7 +17,8 @@
  * Mutations go through the bridge and come back as
  * `workspaceTreeGitStatus` frames — nothing here refetches by hand.
  * The hook owns the dialogs' state and hands back their elements for
- * the caller to mount inside its own container.
+ * the caller to mount; they center on the window, wherever they are
+ * opened from.
  */
 
 import {
@@ -47,8 +48,6 @@ export interface GitBranchActionsOptions {
   currentRef: string | null;
   /** The known refs — a start point that resolves here rides the verb by name (a full sha by itself); otherwise HEAD. */
   refs: readonly WorkspaceTreeRefWire[];
-  /** The element the dialogs center over; null = the document body. */
-  container: HTMLElement | null;
   /** A local branch was deleted — the caller drops any selection or scope naming it. */
   onBranchDeleted?: (branch: string) => void;
 }
@@ -98,7 +97,7 @@ export function localNameOfRemoteRef(ref: string): string {
 }
 
 export function useGitBranchActions(options: GitBranchActionsOptions): GitBranchActions {
-  const { workspaceId, currentRef, refs, container, onBranchDeleted } = options;
+  const { workspaceId, currentRef, refs, onBranchDeleted } = options;
   const t = useT();
   const { token } = theme.useToken();
   const { notification, modal } = AntApp.useApp();
@@ -284,7 +283,6 @@ export function useGitBranchActions(options: GitBranchActionsOptions): GitBranch
       okText: label,
       okButtonProps: { danger: true, 'data-testid': 'git-abort-operation-ok' },
       cancelText: t('workbench.gitLog.modal.cancel'),
-      getContainer: container ?? undefined,
       onOk: async () => {
         try {
           const result = await atHost(() => hostBridge.call('oh.workspaceTree.abortOperation', { workspaceId }));
@@ -461,7 +459,6 @@ export function useGitBranchActions(options: GitBranchActionsOptions): GitBranch
               // nowhere yet — anchor the create at HEAD.
               undefined
         }
-        container={container}
         onClose={() => setCreateFrom(null)}
         onCreated={(branch, from, checkedOut) => {
           if (checkedOut) {
@@ -475,7 +472,6 @@ export function useGitBranchActions(options: GitBranchActionsOptions): GitBranch
       <CreateTagModal
         workspaceId={workspaceId}
         sha={tagAt}
-        container={container}
         onClose={() => setTagAt(null)}
         onCreated={(name, sha) => {
           notification.success({
@@ -487,7 +483,6 @@ export function useGitBranchActions(options: GitBranchActionsOptions): GitBranch
       <SwitchBranchModal
         prompt={switchPrompt}
         busy={switching}
-        container={container}
         onChoose={(choice) => {
           if (switchPrompt !== null) void switchTo(switchPrompt.target, choice);
         }}
@@ -503,7 +498,7 @@ export function useGitBranchActions(options: GitBranchActionsOptions): GitBranch
           void pull().then((landed) => (landed ? pushNow() : undefined));
         }}
       />
-      <RemotesModal workspaceId={workspaceId} open={remotesOpen} container={container} onClose={() => setRemotesOpen(false)} />
+      <RemotesModal workspaceId={workspaceId} open={remotesOpen} onClose={() => setRemotesOpen(false)} />
       {answers.dialogs}
     </>
   );

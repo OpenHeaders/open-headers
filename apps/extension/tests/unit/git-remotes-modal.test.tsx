@@ -92,7 +92,7 @@ const ORIGIN = { name: 'origin', url: 'https://openheaders.io/one.git', pushUrl:
 function mount(): void {
   render(
     <AntApp>
-      <RemotesModal workspaceId="ws-1" open container={null} onClose={() => undefined} />
+      <RemotesModal workspaceId="ws-1" open onClose={() => undefined} />
     </AntApp>,
   );
 }

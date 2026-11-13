@@ -67,7 +67,6 @@ const GitBranchWidget: React.FC<GitBranchWidgetProps> = ({ workspaceId, onOpenCo
     workspaceId: workspaceId ?? '',
     currentRef: current,
     refs,
-    container: null,
   });
 
   if (workspaceId === null || status === null || !status.bound) return null;

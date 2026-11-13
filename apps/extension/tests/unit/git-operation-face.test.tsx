@@ -153,7 +153,7 @@ describe('useGitBranchActions — the way out of an operation', () => {
   function mount(): GitBranchActions {
     let actions: GitBranchActions | null = null;
     const Probe: React.FC = () => {
-      actions = useGitBranchActions({ workspaceId: 'ws-1', currentRef: 'main', refs: [], container: null });
+      actions = useGitBranchActions({ workspaceId: 'ws-1', currentRef: 'main', refs: [] });
       return <>{actions.dialogs}</>;
     };
     render(

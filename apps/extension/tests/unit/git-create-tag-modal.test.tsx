@@ -45,7 +45,7 @@ afterEach(cleanup);
 function mount(onCreated = vi.fn(), onClose = vi.fn()) {
   render(
     <AntApp>
-      <CreateTagModal workspaceId="ws-1" sha={SHA} container={null} onClose={onClose} onCreated={onCreated} />
+      <CreateTagModal workspaceId="ws-1" sha={SHA} onClose={onClose} onCreated={onCreated} />
     </AntApp>,
   );
   return { onCreated, onClose };

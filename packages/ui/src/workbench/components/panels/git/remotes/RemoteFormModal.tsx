@@ -15,7 +15,6 @@ import { type RemoteDraft, type RemoteDraftIssue, type RemoteRow, remoteDraftIss
 export interface RemoteFormModalProps {
   /** Null keeps the form closed; a row prefills Edit, an empty name prefills Add. */
   initial: RemoteRow | null;
-  container: HTMLElement | null;
   busy: boolean;
   /** The host's refusal for the last submit, already worded. */
   error: string | null;
@@ -30,7 +29,7 @@ const ISSUE_KEY: Record<RemoteDraftIssue, 'nameEmpty' | 'nameInvalid' | 'urlEmpt
   'url-invalid': 'urlInvalid',
 };
 
-const RemoteFormModal: React.FC<RemoteFormModalProps> = ({ initial, container, busy, error, onSubmit, onClose }) => {
+const RemoteFormModal: React.FC<RemoteFormModalProps> = ({ initial, busy, error, onSubmit, onClose }) => {
   const t = useT();
   const { token } = theme.useToken();
   const [name, setName] = useState('');
@@ -64,7 +63,6 @@ const RemoteFormModal: React.FC<RemoteFormModalProps> = ({ initial, container, b
       onCancel={onClose}
       width={480}
       centered
-      getContainer={container ?? undefined}
       destroyOnHidden
     >
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12, paddingTop: 4 }} data-testid="git-remote-form">

@@ -457,7 +457,6 @@ const GitLogView: React.FC<GitLogViewProps> = ({
     workspaceId,
     currentRef,
     refs,
-    container,
     onBranchDeleted: (deleted) => {
       const patch: Partial<Omit<GitLogTabState, 'kind' | 'id'>> = {};
       if (railSelection !== null && railSelection.kind === 'local' && railSelection.name === deleted) {

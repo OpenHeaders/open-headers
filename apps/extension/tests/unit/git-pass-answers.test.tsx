@@ -465,7 +465,7 @@ describe('useGitBranchActions — Pull and Merge ask before they write', () => {
   function mount(): GitBranchActions {
     let actions: GitBranchActions | null = null;
     const Probe: React.FC = () => {
-      actions = useGitBranchActions({ workspaceId: 'ws-1', currentRef: 'main', refs: [], container: null });
+      actions = useGitBranchActions({ workspaceId: 'ws-1', currentRef: 'main', refs: [] });
       return <>{actions.dialogs}</>;
     };
     render(
@@ -486,7 +486,7 @@ describe('useGitBranchActions — Pull and Merge ask before they write', () => {
     );
     let pull: () => void = () => undefined;
     const Probe: React.FC = () => {
-      const actions = useGitBranchActions({ workspaceId: 'ws-1', currentRef: 'main', refs: [], container: null });
+      const actions = useGitBranchActions({ workspaceId: 'ws-1', currentRef: 'main', refs: [] });
       pull = actions.pull;
       return (
         <>

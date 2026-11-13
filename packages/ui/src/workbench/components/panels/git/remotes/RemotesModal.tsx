@@ -19,14 +19,12 @@ import { type RemoteDraft, type RemoteRow, remoteUpdatePatch } from './remote-fo
 export interface RemotesModalProps {
   workspaceId: string;
   open: boolean;
-  /** The element the dialog centers over; null = the document body. */
-  container: HTMLElement | null;
   onClose: () => void;
 }
 
 type FormState = { mode: 'add' } | { mode: 'edit'; row: RemoteRow };
 
-const RemotesModal: React.FC<RemotesModalProps> = ({ workspaceId, open, container, onClose }) => {
+const RemotesModal: React.FC<RemotesModalProps> = ({ workspaceId, open, onClose }) => {
   const t = useT();
   const { token } = theme.useToken();
   const { modal, notification } = AntApp.useApp();
@@ -115,7 +113,6 @@ const RemotesModal: React.FC<RemotesModalProps> = ({ workspaceId, open, containe
       okText: t('workbench.gitRemotes.removeOk'),
       okButtonProps: { danger: true, 'data-testid': 'git-remotes-remove-ok' },
       cancelText: t('workbench.gitLog.modal.cancel'),
-      getContainer: container ?? undefined,
       onOk: async () => {
         try {
           const result = await hostBridge.call('oh.workspaceTree.removeRemote', { workspaceId, name: row.name });
@@ -155,7 +152,6 @@ const RemotesModal: React.FC<RemotesModalProps> = ({ workspaceId, open, containe
         onCancel={onClose}
         width={560}
         centered
-        getContainer={container ?? undefined}
         destroyOnHidden
       >
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6, paddingTop: 4 }} data-testid="git-remotes">
@@ -254,7 +250,6 @@ const RemotesModal: React.FC<RemotesModalProps> = ({ workspaceId, open, containe
       </Modal>
       <RemoteFormModal
         initial={form === null ? null : form.mode === 'edit' ? form.row : { name: '', url: '' }}
-        container={container}
         busy={formBusy}
         error={formError}
         onSubmit={(draft) => void submit(draft)}

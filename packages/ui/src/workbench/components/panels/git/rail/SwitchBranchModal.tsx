@@ -5,7 +5,7 @@
  * user's own stash stack — `git stash pop` recovers it), Discard
  * changes (danger-confirmed; `checkout --force` + `clean -fd`, the
  * sidecar survives). The choice re-enters the verb as `dirtyAction`;
- * the rail owns the call. Panel-scoped like every Git window dialog.
+ * the rail owns the call. Centered on the window, like every dialog of a branch verb.
  */
 
 import { Button, Modal, Popconfirm } from 'antd';
@@ -27,13 +27,11 @@ export interface SwitchBranchModalProps {
   prompt: SwitchBranchPrompt | null;
   /** A choice is in flight — every button shows the spinner. */
   busy: boolean;
-  /** The Git tool window element — the modal centers over the panel. */
-  container: HTMLElement | null;
   onChoose: (choice: SwitchDirtyChoice) => void;
   onClose: () => void;
 }
 
-const SwitchBranchModal: React.FC<SwitchBranchModalProps> = ({ prompt, busy, container, onChoose, onClose }) => {
+const SwitchBranchModal: React.FC<SwitchBranchModalProps> = ({ prompt, busy, onChoose, onClose }) => {
   const t = useT();
   return (
     <Modal
@@ -43,7 +41,6 @@ const SwitchBranchModal: React.FC<SwitchBranchModalProps> = ({ prompt, busy, con
       footer={null}
       width={480}
       centered
-      getContainer={container ?? undefined}
       destroyOnHidden
       data-testid="git-tool-switch-modal"
     >

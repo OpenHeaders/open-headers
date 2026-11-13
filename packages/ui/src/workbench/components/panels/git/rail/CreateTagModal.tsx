@@ -17,14 +17,12 @@ export interface CreateTagModalProps {
   workspaceId: string;
   /** The FULL sha the tag is minted at. Null keeps the modal unmounted. */
   sha: string | null;
-  /** The Git tool window element — the modal centers over the panel. Null falls back to the document body. */
-  container: HTMLElement | null;
   onClose: () => void;
   /** A tag was created — the caller raises the balloon; the status frame refreshes the views. */
   onCreated: (name: string, sha: string) => void;
 }
 
-const CreateTagModal: React.FC<CreateTagModalProps> = ({ workspaceId, sha, container, onClose, onCreated }) => {
+const CreateTagModal: React.FC<CreateTagModalProps> = ({ workspaceId, sha, onClose, onCreated }) => {
   const t = useT();
   const { token } = theme.useToken();
   const [name, setName] = useState('');
@@ -74,7 +72,6 @@ const CreateTagModal: React.FC<CreateTagModalProps> = ({ workspaceId, sha, conta
       onCancel={onClose}
       width={480}
       centered
-      getContainer={container ?? undefined}
       destroyOnHidden
     >
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12, paddingTop: 4 }}>

@@ -746,14 +746,12 @@ const CommitToolPanel: React.FC<CommitToolPanelProps> = ({ info, onHide }) => {
       <RemotesModal
         workspaceId={workspaceId}
         open={remotesOpen}
-        container={panelRef.current}
         onClose={() => setRemotesOpen(false)}
       />
       <CreateBranchModal
         workspaceId={workspaceId}
         from={createBranchFrom}
         fromRef={undefined}
-        container={panelRef.current}
         onClose={() => setCreateBranchFrom(null)}
         onCreated={(branch, from, checkedOut) => {
           if (checkedOut) {
