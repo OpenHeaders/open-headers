@@ -41,6 +41,7 @@ import DiffModal from './DiffModal';
 import { buildFileRowMenu } from './file-row-menu';
 import FileHistoryModal from './FileHistoryModal';
 import type { FileTreeViewHandle } from './FileTreeView';
+import { getGitLogRecentScopes, rememberGitLogScope, subscribeGitLogRecentScopes } from './git-log-recent-scopes';
 import { getGitLogViewPrefs, patchGitLogViewPrefs, subscribeGitLogViewPrefs } from './git-log-view-prefs';
 import { GIT_LOG_SCOPE_HEAD, type GitLogTabState, gitPanelTabKey } from './git-panel-view-store';
 import { computeLogGraph } from './graph';
@@ -48,7 +49,7 @@ import { contractLog, firstParentOnly, firstParentReach } from './graph-filtered
 import { topologicalOrder } from './log-topological';
 import { allLinearFragments, collapseLog, fragmentKey, type LogFragment } from './graph-fragment';
 import { currentBranchBandTip, currentBranchShas as bandShas } from './log-reachability';
-import { logScopeWire, scopeWithout } from './log-scope';
+import { type GitLogScope, logScopeWire, scopeWithout } from './log-scope';
 import { buildLogRowMenu, type LogRowMenuTarget } from './log-row-menu';
 import { getGitRailPrefs, subscribeGitRailPrefs, toggleGitRailFavorite } from './rail/git-rail-prefs';
 import { defaultFavoriteKeys, favoriteKeys } from './rail/ref-favorites';
@@ -148,7 +149,18 @@ const GitLogView: React.FC<GitLogViewProps> = ({
     [railPrefs, defaultFavorites],
   );
 
+  const subscribeRecentScopes = useCallback(
+    (listener: () => void) => subscribeGitLogRecentScopes(workspaceId, listener),
+    [workspaceId],
+  );
+  const recentScopes = useSyncExternalStore(subscribeRecentScopes, () => getGitLogRecentScopes(workspaceId));
+
   const { selectedRefs, filter, filterRegex, filterCase, selectedSha, refsCollapsed, railSelection } = tab;
+  // A scope the person applies — from the chip's menu or the rail — is remembered as a recent one.
+  const applyScope = (scope: GitLogScope): void => {
+    patchTab({ selectedRefs: scope });
+    rememberGitLogScope(workspaceId, scope);
+  };
   const layout = useGitLogLayout(
     workspaceId,
     { root: gridRef, rail: railCellRef, details: detailsCellRef, detailBody: detailBodyRef, info: infoCellRef },
@@ -545,7 +557,7 @@ const GitLogView: React.FC<GitLogViewProps> = ({
             actions={actions}
             selection={railSelection}
             onSelectionChange={(selection) => patchTab({ railSelection: selection })}
-            onScopeChange={(ref) => patchTab({ selectedRefs: [ref] })}
+            onScopeChange={(ref) => applyScope([ref])}
             onNavigateToSha={navigateToSha}
             onOpenCompare={onOpenCompare}
             onHide={() => patchTab({ refsCollapsed: true })}
@@ -568,6 +580,8 @@ const GitLogView: React.FC<GitLogViewProps> = ({
             refs={refs}
             favorites={favoriteSet}
             onToggleFavorite={(kind, name) => toggleGitRailFavorite(workspaceId, kind, name, defaultFavorites)}
+            recentScopes={recentScopes}
+            onScopeChange={applyScope}
             entries={entries}
             loading={loading}
             onRefresh={() => void reload()}

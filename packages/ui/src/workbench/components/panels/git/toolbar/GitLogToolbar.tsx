@@ -21,6 +21,7 @@ import { useT } from '@openheaders/ui/context/LocaleContext';
 import { RefreshIcon } from '@openheaders/ui/shared/icons';
 import type { GitLogViewPrefs } from '../git-log-view-prefs';
 import type { GitLogTabState } from '../git-panel-view-store';
+import type { GitLogScope } from '../log-scope';
 import BranchFilterChip from './BranchFilterChip';
 import DateFilterModal from './DateFilterModal';
 import GitFilterChip from './GitFilterChip';
@@ -40,6 +41,10 @@ export interface GitLogToolbarProps {
   favorites: ReadonlySet<string>;
   /** A star in the Branch chip's menu was clicked. */
   onToggleFavorite: (kind: WorkspaceTreeRefWire['kind'], name: string) => void;
+  /** The Branch filter's last applied scopes, newest first. */
+  recentScopes: readonly GitLogScope[];
+  /** The Branch chip applied a scope — empty clears it. */
+  onScopeChange: (scope: GitLogScope) => void;
   /** Loaded entries — the Go To resolver and the User submenu feed. */
   entries: WorkspaceTreeLogEntryWire[];
   loading: boolean;
@@ -74,6 +79,8 @@ const GitLogToolbar: React.FC<GitLogToolbarProps> = ({
   refs,
   favorites,
   onToggleFavorite,
+  recentScopes,
+  onScopeChange,
   entries,
   loading,
   onRefresh,
@@ -167,8 +174,9 @@ const GitLogToolbar: React.FC<GitLogToolbarProps> = ({
           refs={refs}
           favorites={favorites}
           onToggleFavorite={onToggleFavorite}
+          recent={recentScopes}
           scope={tab.selectedRefs}
-          onScopeChange={(scope) => patchTab({ selectedRefs: scope })}
+          onScopeChange={onScopeChange}
         />
       ),
     },

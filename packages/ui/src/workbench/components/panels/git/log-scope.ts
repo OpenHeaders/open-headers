@@ -2,8 +2,8 @@
  * log-scope — a log tab's SCOPE: the refs whose histories the log walks
  * together. Empty = every ref (the unfiltered log); a member is a ref's
  * name or the HEAD sentinel (the checked-out commit). What a scope asks
- * of the host, what is left of it when refs go, and how the chip and
- * the tab read it. Pure.
+ * of the host, what is left of it when refs go, which scopes were
+ * applied last, and how the chip, a menu row and the tab read it. Pure.
  */
 
 import type { WorkspaceTreeRefWire } from '@openheaders/core/bridge';
@@ -45,7 +45,17 @@ export function favoritesScope(
   return [...new Set([GIT_LOG_SCOPE_HEAD, ...starred])];
 }
 
+/** How many past scopes the Branch menu's Recent keeps. */
+export const RECENT_SCOPES_MAX = 5;
+
+/** The recent scopes once one more is applied: it leads, listed once, and the oldest fall off. */
+export function withRecentScope(recent: readonly GitLogScope[], scope: GitLogScope): GitLogScope[] {
+  const same = scope.join('|');
+  return [scope, ...recent.filter((entry) => entry.join('|') !== same)].slice(0, RECENT_SCOPES_MAX);
+}
+
 const CHIP_TEXT_MAX = 28;
+const MENU_TEXT_MAX = 44;
 const TAB_TEXT_MAX = 30;
 
 function shortened(text: string, max: number): string {
@@ -61,6 +71,11 @@ function scopeText(scope: GitLogScope, separator: string, max: number): string |
 /** The Branch chip's value — `HEAD|main`; null on the unfiltered log. */
 export function scopeChipText(scope: GitLogScope): string | null {
   return scopeText(scope, '|', CHIP_TEXT_MAX);
+}
+
+/** A scope as a row of the Branch menu's Recent. */
+export function scopeMenuText(scope: GitLogScope): string {
+  return scopeText(scope, '|', MENU_TEXT_MAX) ?? '';
 }
 
 /** The tab's name for its scope — `a, b, origin/c…`; null on the unfiltered log. */

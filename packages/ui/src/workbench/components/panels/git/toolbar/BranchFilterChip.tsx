@@ -3,7 +3,8 @@
  * the reference's reading: Select… (the field that takes several refs
  * — `BranchScopeField`), the
  * Favorites row — a click scopes the log to HEAD and every favorite at
- * once — over HEAD and the favorite refs, and one submenu
+ * once — over HEAD and the favorite refs, then Recent (the scopes
+ * applied last, a click applies one again) and one submenu
  * per namespace: Local, each remote's `<remote>/…`, Tags. Every ref
  * row carries its STAR in the icon slot: gold while the ref is a
  * favorite, an outline on hover while it is not; a click on the star
@@ -29,7 +30,13 @@ import { useT } from '@openheaders/ui/context/LocaleContext';
 import { isMac } from '@openheaders/ui/shared/platform';
 import { GIT_LOG_SCOPE_HEAD } from '../git-panel-view-store';
 import { GIT_TEXT_SIZE } from '../git-type-scale';
-import { favoritesScope, type GitLogScope, scopeChipText, scopeHoverText } from '../log-scope';
+import {
+  favoritesScope,
+  type GitLogScope,
+  scopeChipText,
+  scopeHoverText,
+  scopeMenuText,
+} from '../log-scope';
 import { gitRailFavoriteKey } from '../rail/git-rail-prefs';
 import BranchScopeField from './BranchScopeField';
 import GitFilterChip from './GitFilterChip';
@@ -42,6 +49,8 @@ export interface BranchFilterChipProps {
   favorites: ReadonlySet<string>;
   /** A star was clicked. */
   onToggleFavorite: (kind: RefKind, name: string) => void;
+  /** The scopes applied last, newest first — the Recent submenu. */
+  recent: readonly GitLogScope[];
   /** The log's scope — empty = every ref. */
   scope: GitLogScope;
   onScopeChange: (scope: GitLogScope) => void;
@@ -103,6 +112,7 @@ const BranchFilterChip: React.FC<BranchFilterChipProps> = ({
   refs,
   favorites,
   onToggleFavorite,
+  recent,
   scope,
   onScopeChange,
 }) => {
@@ -198,6 +208,12 @@ const BranchFilterChip: React.FC<BranchFilterChipProps> = ({
           close();
           return;
         }
+        if (key.startsWith('recent:')) {
+          const again = recent[Number(key.slice('recent:'.length))];
+          if (again !== undefined) onScopeChange(again);
+          close();
+          return;
+        }
         if (key.startsWith('ref:')) {
           onScopeChange([key.slice(key.indexOf(':', 4) + 1)]);
           close();
@@ -213,6 +229,22 @@ const BranchFilterChip: React.FC<BranchFilterChipProps> = ({
         { key: 'head', label: 'HEAD', icon: <Star on label="HEAD" /> },
         ...listed.map(refItem),
         { type: 'divider' },
+        ...(recent.length > 0
+          ? [
+              {
+                key: 'group-recent',
+                label: t('workbench.gitBranch.group.recent'),
+                children: recent.map((entry, index) => ({
+                  key: `recent:${index}`,
+                  label: (
+                    <span title={scopeHoverText(entry) ?? undefined} data-testid="git-tool-chip-branch-recent">
+                      {scopeMenuText(entry)}
+                    </span>
+                  ),
+                })),
+              },
+            ]
+          : []),
         ...namespaces.map((namespace) => ({
           key: namespace.key,
           label: namespace.label,
