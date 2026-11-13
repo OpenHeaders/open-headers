@@ -32,6 +32,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { useWorkspaceGitSnapshot } from '../../../../stores/git-status-store';
 import CommitDetails from '../CommitDetails';
+import CommitFilesView from '../CommitFilesView';
 import DiffModal from '../DiffModal';
 import FileTreeView, { type FileTreeViewHandle } from '../FileTreeView';
 import { getGitLogViewPrefs, patchGitLogViewPrefs, subscribeGitLogViewPrefs } from '../git-log-view-prefs';
@@ -65,9 +66,12 @@ const PushCommitsModal: React.FC<PushCommitsModalProps> = ({ workspaceId, open, 
   const [selectedPath, setSelectedPath] = useState<string | null>(null);
   // The entity the files tree names for the selection — what Jump to Source opens.
   const [selectedEntity, setSelectedEntity] = useState<WorkspaceTreeEntityRefWire | null>(null);
-  const selectFile = (path: string | null, entity?: WorkspaceTreeEntityRefWire): void => {
+  // The commit the selected file's change is read against, where the files are listed by parent (a merge's).
+  const [selectedBase, setSelectedBase] = useState<string | undefined>(undefined);
+  const selectFile = (path: string | null, entity?: WorkspaceTreeEntityRefWire, base?: string): void => {
     setSelectedPath(path);
     setSelectedEntity(entity ?? null);
+    setSelectedBase(base);
   };
   const [busy, setBusy] = useState(false);
   const fileDiff = useFileDiff(workspaceId);
@@ -159,11 +163,12 @@ const PushCommitsModal: React.FC<PushCommitsModalProps> = ({ workspaceId, open, 
   const rangeBase = useMemo(() => rangeDiffBase(target, entries, snapshot.refs), [target, entries, snapshot.refs]);
   const headSha = snapshot.status?.headSha ?? null;
 
-  // The selected file's diff: one commit's change on a commit row, the
-  // whole range on the target row.
-  const openDiff = (path: string): void => {
+  // The selected file's diff: one commit's change on a commit row — a
+  // merge's against the parent its group is of — the whole range on the
+  // target row.
+  const openDiff = (path: string, base?: string): void => {
     if (multiSelected) return;
-    if (selected !== null) void fileDiff.open(selected.sha, path);
+    if (selected !== null) void fileDiff.open(selected.sha, path, base);
     else if (headSha !== null) void fileDiff.open(headSha, path, rangeBase ?? undefined);
   };
 
@@ -263,7 +268,7 @@ const PushCommitsModal: React.FC<PushCommitsModalProps> = ({ workspaceId, open, 
             <GitDetailsToolbar
               canShowDiff={!multiSelected && selectedPath !== null}
               onShowDiff={() => {
-                if (selectedPath !== null) openDiff(selectedPath);
+                if (selectedPath !== null) openDiff(selectedPath, selectedBase);
               }}
               onJumpToSource={() => jumpToSource(selectedPath, selectedEntity ?? undefined)}
               canJumpToSource={selectedPath !== null || selectedEntity !== null}
@@ -293,7 +298,7 @@ const PushCommitsModal: React.FC<PushCommitsModalProps> = ({ workspaceId, open, 
                 loadingPath={fileDiff.loadingPath}
                 selectedPath={selectedPath}
                 onSelectFile={selectFile}
-                onOpenFile={openDiff}
+                onOpenFile={(path) => openDiff(path)}
                 groupByWorkspace={prefs.groupFilesByWorkspace}
                 groupByDirectory={prefs.groupFilesByDirectory}
               />
@@ -314,16 +319,17 @@ const PushCommitsModal: React.FC<PushCommitsModalProps> = ({ workspaceId, open, 
             ) : (
               <>
                 <div style={{ minHeight: 0, display: 'flex', flexDirection: 'column' }}>
-                  <FileTreeView
+                  <CommitFilesView
                     key={multiSelected ? `multi:${selection.shas.join(',')}` : selected.sha}
                     ref={fileTreeRef}
                     files={multiSelected ? multiFiles : selected.files}
+                    {...(multiSelected ? {} : { commit: selected })}
                     workspaceId={workspaceId}
                     sha={selected.sha}
                     loadingPath={fileDiff.loadingPath}
                     selectedPath={selectedPath}
                     onSelectFile={selectFile}
-                    onOpenFile={openDiff}
+                    onOpenFile={(path, _entity, base) => openDiff(path, base)}
                     groupByWorkspace={prefs.groupFilesByWorkspace}
                     groupByDirectory={prefs.groupFilesByDirectory}
                   />

@@ -42,6 +42,7 @@ export {
   removeIgnoreEntry,
 } from './ignore-ops';
 export { type HeldIndexLock, type IndexLockRefusal, lockRefusalReason, withIndexLock } from './index-lock';
+export { type CommitParentChange, type CommitParentChanges, readCommitParentChanges } from './parent-changes';
 export {
   COMMIT_PATCH_MAX_BYTES,
   COMMIT_PATCH_MAX_COMMITS,

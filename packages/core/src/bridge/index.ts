@@ -76,6 +76,8 @@ export type {
   WorkspaceTreeChangesWire,
   WorkspaceTreeCommitCadence,
   WorkspaceTreeCommitEntityWire,
+  WorkspaceTreeCommitParentChangesWire,
+  WorkspaceTreeCommitParentWire,
   WorkspaceTreeCommitPatchWire,
   WorkspaceTreeCompareRefsWire,
   WorkspaceTreeCreateBranchWire,

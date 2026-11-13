@@ -772,6 +772,16 @@ export interface WorkspaceRpc {
     res: WorkspaceTreeFileDiffWire;
   };
   /**
+   * A commit's change against EACH of its parents (first parent first,
+   * each with its subject) and — for a merge — the files that differ
+   * from every parent. What lists a merge's files: `log` entries carry
+   * none for a merge. A pure read; `sha` is a FULL commit hash.
+   */
+  'oh.workspaceTree.commitParentChanges': {
+    req: { workspaceId: string; sha: string };
+    res: WorkspaceTreeCommitParentChangesWire;
+  };
+  /**
    * The log's Create Patch…: the commits `shas` (FULL commit hashes,
    * in apply order — oldest first) as ONE mailbox-format patch text.
    * A pure read: the host writes nothing, the surface saves or copies
@@ -1353,6 +1363,23 @@ export type WorkspaceTreeFileDiffWire =
       reason: 'not-bound' | 'git-unavailable' | 'not-a-repo' | 'unknown-commit' | 'unknown-path' | 'diff-failed';
       detail?: string;
     };
+
+/** One parent of a commit with what the commit holds differently from it. */
+export interface WorkspaceTreeCommitParentWire {
+  sha: string;
+  subject: string;
+  files: WorkspaceTreeLogFileWire[];
+}
+
+export type WorkspaceTreeCommitParentChangesWire =
+  | {
+      ok: true;
+      /** One per parent, first parent first; none for the root commit. */
+      parents: WorkspaceTreeCommitParentWire[];
+      /** A merge's files that differ from every parent; empty for any other commit. */
+      merged: WorkspaceTreeLogFileWire[];
+    }
+  | { ok: false; reason: 'not-bound' | 'git-unavailable' | 'not-a-repo' | 'unknown-commit' };
 
 export type WorkspaceTreeCommitPatchWire =
   | { ok: true; patch: string }

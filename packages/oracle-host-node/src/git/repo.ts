@@ -1002,6 +1002,22 @@ export const LOG_FORMAT = '%x1e%H%x1f%P%x1f%an%x1f%ae%x1f%aI%x1f%s%x1f%b';
 
 const CO_AUTHOR_TRAILER = /^co-authored-by:\s*(.+)$/gim;
 
+/** `-z --name-status` tokens as changed paths: a status, then its path — a rename or copy carries old then new. */
+export function parseNameStatus(tokens: readonly string[]): CommitLogFileChange[] {
+  const files: CommitLogFileChange[] = [];
+  for (let i = 0; i < tokens.length; i += 1) {
+    const status = tokens[i].replace(/^\n/, '');
+    if (!/^[A-Z]\d*$/.test(status)) continue;
+    // Rename/copy records carry old then new — report where the file lives now.
+    const pathIndex = status[0] === 'R' || status[0] === 'C' ? i + 2 : i + 1;
+    const filePath = tokens[pathIndex];
+    if (filePath === undefined || filePath.length === 0) continue;
+    files.push({ status: status[0], path: filePath });
+    i = pathIndex;
+  }
+  return files;
+}
+
 export function parseCommitLog(stdout: string): CommitLogEntry[] {
   const entries: CommitLogEntry[] = [];
   for (const record of stdout.split('\x1e')) {
@@ -1014,17 +1030,6 @@ export function parseCommitLog(stdout: string): CommitLogEntry[] {
       const author = match[1].trim();
       if (author.length > 0 && !coAuthors.includes(author)) coAuthors.push(author);
     }
-    const files: CommitLogFileChange[] = [];
-    for (let i = 1; i < tokens.length; i += 1) {
-      const status = tokens[i].replace(/^\n/, '');
-      if (!/^[A-Z]\d*$/.test(status)) continue;
-      // Rename/copy records carry old then new — report where the file lives now.
-      const pathIndex = status[0] === 'R' || status[0] === 'C' ? i + 2 : i + 1;
-      const filePath = tokens[pathIndex];
-      if (filePath === undefined || filePath.length === 0) continue;
-      files.push({ status: status[0], path: filePath });
-      i = pathIndex;
-    }
     entries.push({
       sha: header[0],
       parents: header[1].split(' ').filter((parent) => parent.length > 0),
@@ -1033,7 +1038,7 @@ export function parseCommitLog(stdout: string): CommitLogEntry[] {
       authoredAt: header[4],
       subject: header[5],
       coAuthors,
-      files,
+      files: parseNameStatus(tokens.slice(1)),
     });
   }
   return entries;

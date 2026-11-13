@@ -74,6 +74,7 @@ import {
 import { runEntitiesAtCommit } from './entities-at-commit';
 import { runEntityAtPath } from './entity-at-path';
 import {
+  runCommitParentChanges,
   runCommitPatch,
   runCompareRefs,
   runFileDiff,
@@ -112,6 +113,7 @@ import type {
   WorkspaceTreeAddToVcsRpcResult,
   WorkspaceTreeChangesRpcResult,
   WorkspaceTreeCommitCadence,
+  WorkspaceTreeCommitParentChangesRpcResult,
   WorkspaceTreeCommitPatchRpcResult,
   WorkspaceTreeDeletePathsRpcResult,
   WorkspaceTreeEntitiesAtCommitRpcResult,
@@ -835,6 +837,10 @@ export function createWorkspaceTreeRuntime(options: WorkspaceTreeRuntimeOptions)
 
     commitPatch(workspaceId: string, shas: readonly string[]): Promise<WorkspaceTreeCommitPatchRpcResult> {
       return runCommitPatch(ctx, workspaceId, shas);
+    },
+
+    commitParentChanges(workspaceId: string, sha: string): Promise<WorkspaceTreeCommitParentChangesRpcResult> {
+      return runCommitParentChanges(ctx, workspaceId, sha);
     },
 
     entityAtPath(workspaceId: string, filePath: string): Promise<WorkspaceTreeEntityAtPathRpcResult> {

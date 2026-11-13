@@ -22,7 +22,7 @@ import { useT } from '@openheaders/ui/context/LocaleContext';
 import CommitDetails from '../CommitDetails';
 import CommitList from '../CommitList';
 import DiffModal from '../DiffModal';
-import FileTreeView from '../FileTreeView';
+import CommitFilesView from '../CommitFilesView';
 import { getGitLogViewPrefs, subscribeGitLogViewPrefs } from '../git-log-view-prefs';
 import type { GitCompareTabState } from '../git-panel-view-store';
 import { useFileDiff } from '../use-file-diff';
@@ -43,7 +43,8 @@ interface CompareSideProps {
   refsBySha: ReadonlyMap<string, WorkspaceTreeRefWire[]>;
   selectedSha: string | null;
   onSelect: (sha: string | null) => void;
-  onOpenFile: (sha: string, path: string) => void;
+  /** `base` — a merge's file reads against the parent its group is of. */
+  onOpenFile: (sha: string, path: string, base?: string) => void;
   loadingPath: string | null;
   testid: string;
 }
@@ -153,13 +154,14 @@ const CompareSide: React.FC<CompareSideProps> = ({
             </div>
           ) : (
             <>
-              <FileTreeView
+              <CommitFilesView
                 key={selected.sha}
                 files={selected.files}
+                commit={selected}
                 workspaceId={workspaceId}
                 sha={selected.sha}
                 loadingPath={loadingPath}
-                onOpenFile={(path) => onOpenFile(selected.sha, path)}
+                onOpenFile={(path, _entity, base) => onOpenFile(selected.sha, path, base)}
                 groupByWorkspace={prefs.groupFilesByWorkspace}
                 groupByDirectory={prefs.groupFilesByDirectory}
                 showHeader
@@ -263,7 +265,7 @@ const GitComparePane: React.FC<GitComparePaneProps> = ({ workspaceId, tab, patch
         refsBySha={refsBySha}
         selectedSha={tab.selectedInCurrent}
         onSelect={(sha) => patchTab({ selectedInCurrent: sha })}
-        onOpenFile={(sha, path) => void fileDiff.open(sha, path)}
+        onOpenFile={(sha, path, base) => void fileDiff.open(sha, path, base)}
         loadingPath={fileDiff.loadingPath}
         testid="git-tool-compare-current-side"
       />
@@ -276,7 +278,7 @@ const GitComparePane: React.FC<GitComparePaneProps> = ({ workspaceId, tab, patch
         refsBySha={refsBySha}
         selectedSha={tab.selectedInRef}
         onSelect={(sha) => patchTab({ selectedInRef: sha })}
-        onOpenFile={(sha, path) => void fileDiff.open(sha, path)}
+        onOpenFile={(sha, path, base) => void fileDiff.open(sha, path, base)}
         loadingPath={fileDiff.loadingPath}
         testid="git-tool-compare-ref-side"
       />

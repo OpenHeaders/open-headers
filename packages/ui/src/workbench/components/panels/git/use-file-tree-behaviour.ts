@@ -39,22 +39,35 @@ export interface FileTreeBehaviourInput<Row extends FileTreeRow> {
   onSelect?: (file: string | null, selected: readonly Row[]) => void;
 }
 
-export interface FileTreeBehaviour<Row extends FileTreeRow> {
-  containerRef: RefObject<HTMLDivElement | null>;
+/**
+ * What a tree's rows are drawn against — the fold state, the selection
+ * and the gestures, on the rows' own keys. The behaviour itself for a
+ * tree of one listing; one group's share of it (`grouped-file-tree`)
+ * where a tree lists several.
+ */
+export interface FileTreeRowScope<Row extends FileTreeRow> {
   /** Rows select (the log pane, the Push window); otherwise a click acts. */
   selectable: boolean;
   collapsed: ReadonlySet<string>;
   rows: readonly Row[];
   isSelected: (key: string) => boolean;
   toggleCollapse: (key: string) => void;
-  expandAll: () => void;
-  collapseAll: () => void;
   /** A click on a row's body: selects it, or — without selection — opens its file / toggles it. */
   onRowClick: (row: FileTreeRow, event: React.MouseEvent) => void;
   onRowDoubleClick: (row: FileTreeRow) => void;
   onRowContextMenu: (row: FileTreeRow) => void;
+  /** A row's key in the tree's one selection — what its `data-row-key` carries. */
+  keyOf: (key: string) => string;
+}
+
+export interface FileTreeBehaviour<Row extends FileTreeRow> extends FileTreeRowScope<Row> {
+  containerRef: RefObject<HTMLDivElement | null>;
+  expandAll: () => void;
+  collapseAll: () => void;
   onKeyDown: (event: React.KeyboardEvent) => void;
 }
+
+const ownKey = (key: string): string => key;
 
 export function useFileTreeBehaviour<Row extends FileTreeRow>(
   { rowsOf, foldKeys, onOpenFile, selectedPath, onSelect }: FileTreeBehaviourInput<Row>,
@@ -174,5 +187,6 @@ export function useFileTreeBehaviour<Row extends FileTreeRow>(
     onRowDoubleClick,
     onRowContextMenu,
     onKeyDown,
+    keyOf: ownKey,
   };
 }

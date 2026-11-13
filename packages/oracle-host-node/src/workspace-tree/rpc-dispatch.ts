@@ -325,6 +325,12 @@ export async function dispatchWorkspaceTreeRpc(
     if (!workspaceId || shas.length === 0 || runtime === null) return { ok: false, reason: 'not-bound' };
     return await runtime.commitPatch(workspaceId, shas);
   }
+  if (type === 'oh.workspaceTree.commitParentChanges') {
+    const workspaceId = typeof message.workspaceId === 'string' ? message.workspaceId : '';
+    const sha = typeof message.sha === 'string' ? message.sha : '';
+    if (!workspaceId || runtime === null) return { ok: false, reason: 'not-bound' };
+    return await runtime.commitParentChanges(workspaceId, sha);
+  }
   // Commit tool window (§9): the changes-tree read, the working-tree
   // diff, and the user-driven pathspec commit (Amend carve-out with
   // typed refusals; the user's real index is never touched).

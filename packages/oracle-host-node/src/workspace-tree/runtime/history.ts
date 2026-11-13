@@ -1,7 +1,8 @@
 /**
  * Workspace-tree runtime — the history-read plane (§9, Phase 7): the
- * log/fileLog timelines, the ref tree, the per-commit file diff, the
- * commit patch text, the compare-with-current range read, and the
+ * log/fileLog timelines, the ref tree, the per-commit file diff, a
+ * commit's change against each parent, the commit patch text, the
+ * compare-with-current range read, and the
  * Console tab's audit slice.
  * Pure repo reads OFF the per-binding chain — they never queue behind
  * a commit/pull pass; caller-supplied targets are validated shapes.
@@ -19,12 +20,14 @@ import {
   listFileLog,
   listRepoRefs,
   readCommitFileDiff,
+  readCommitParentChanges,
   readCommitPatch,
   resolveAuthorFilterValue,
 } from '../../git';
 import { LOG_DEFAULT_LIMIT, LOG_MAX_LIMIT, type RuntimeCtx } from './core';
 import type {
   CompareRefsRpcResult,
+  WorkspaceTreeCommitParentChangesRpcResult,
   WorkspaceTreeCommitPatchRpcResult,
   WorkspaceTreeFileDiffRpcResult,
   WorkspaceTreeGitConsoleRpcResult,
@@ -221,6 +224,26 @@ export async function runCommitPatch(
   if (!availability.available) return { ok: false, reason: 'git-unavailable' };
   if (!(await isWorkspaceRepo(ctx.gitRun, rootDir))) return { ok: false, reason: 'not-a-repo' };
   return readCommitPatch(ctx.gitRun, rootDir, shas);
+}
+
+/**
+ * A commit's change against each of its parents — a merge's files, which
+ * the log's own listing leaves empty. The commit is a full sha.
+ */
+export async function runCommitParentChanges(
+  ctx: RuntimeCtx,
+  workspaceId: string,
+  sha: string,
+): Promise<WorkspaceTreeCommitParentChangesRpcResult> {
+  const binding = ctx.open.get(workspaceId);
+  if (!binding) return { ok: false, reason: 'not-bound' };
+  const { rootDir } = binding.record;
+  const availability = await ctx.ensureGitAvailability(rootDir);
+  if (!availability.available) return { ok: false, reason: 'git-unavailable' };
+  if (!(await isWorkspaceRepo(ctx.gitRun, rootDir))) return { ok: false, reason: 'not-a-repo' };
+  if (!isCommitSha(sha)) return { ok: false, reason: 'unknown-commit' };
+  const changes = await readCommitParentChanges(ctx.gitRun, rootDir, sha);
+  return changes === null ? { ok: false, reason: 'unknown-commit' } : { ok: true, ...changes };
 }
 
 /** Console-tab read: this binding's slice of the audit ring (cwd inside its root). */

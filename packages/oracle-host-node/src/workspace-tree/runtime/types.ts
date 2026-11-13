@@ -11,6 +11,7 @@ import type { OracleSyncBroadcastEvent } from '@openheaders/oracle/sync';
 import type {
   CommitFileDiff,
   CommitLogEntry,
+  CommitParentChanges,
   CommitUserAttribution,
   GitAuditRow,
   GitAvailability,
@@ -518,6 +519,11 @@ export type WorkspaceTreeFileDiffRpcResult =
       detail?: string;
     };
 
+/** A commit's change against each of its parents — a merge's files. */
+export type WorkspaceTreeCommitParentChangesRpcResult =
+  | ({ ok: true } & CommitParentChanges)
+  | { ok: false; reason: 'not-bound' | 'git-unavailable' | 'not-a-repo' | 'unknown-commit' };
+
 /** The log's Create Patch… — the selected commits as one mailbox-format text. */
 export type WorkspaceTreeCommitPatchRpcResult =
   | { ok: true; patch: string }
@@ -796,6 +802,13 @@ export interface WorkspaceTreeRuntime {
    * parent to that commit's blob (the Push window's range read).
    */
   fileDiff(workspaceId: string, sha: string, path: string, base?: string): Promise<WorkspaceTreeFileDiffRpcResult>;
+  /**
+   * A commit's change against EACH of its parents, first parent first,
+   * and — for a merge — the files that differ from every parent. What
+   * lists a merge's files: the log's own listing is empty there. A pure
+   * read; `sha` is a full sha.
+   */
+  commitParentChanges(workspaceId: string, sha: string): Promise<WorkspaceTreeCommitParentChangesRpcResult>;
   /**
    * The log's Create Patch…: `shas` (FULL commit hashes, in apply
    * order) as one mailbox-format patch text. Pure read, off the

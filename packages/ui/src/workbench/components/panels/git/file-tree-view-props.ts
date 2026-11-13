@@ -22,9 +22,26 @@ export function fileStatusColor(status: string, token: ReturnType<typeof theme.u
   }
 }
 
+/** A set of a commit's files under a heading of its own — a merge's change against one parent. */
+export interface FileTreeGroup {
+  id: string;
+  title: string;
+  files: ReadonlyArray<{ path: string; status: string }>;
+  /** The commit the group's changes are read against; absent: the commit's first parent. */
+  base?: string;
+}
+
 export interface FileTreeViewProps {
   /** `sha` — the commit that changed the file, where the files are of several (a union). */
   files: ReadonlyArray<{ path: string; status: string; sha?: string }>;
+  /**
+   * The files in groups, each under its heading, in place of `files` — a
+   * merge's, by parent. A file may sit in several; the tree hands the
+   * pane the group's `base` with every file it reports.
+   */
+  groups?: readonly FileTreeGroup[];
+  /** A line ahead of the groups. */
+  groupsNote?: string;
   /**
    * The workspace and the commit the files are of — what a file is named
    * from when the workspace no longer holds the entity it belonged to
@@ -34,8 +51,12 @@ export interface FileTreeViewProps {
   sha?: string;
   /** Path currently fetching its diff (per-file spinner). */
   loadingPath: string | null;
-  /** `entity` — where the files are listed by what they belong to: the one the file is, or is a part of. */
-  onOpenFile: (path: string, entity?: WorkspaceTreeEntityRefWire) => void;
+  /**
+   * `entity` — where the files are listed by what they belong to: the
+   * one the file is, or is a part of. `base` — where they are listed in
+   * groups: the commit the file's group reads its change against.
+   */
+  onOpenFile: (path: string, entity?: WorkspaceTreeEntityRefWire, base?: string) => void;
   /** Selection wiring (the log pane): click selects, double-click opens. */
   selectedPath?: string | null;
   /**
@@ -43,9 +64,10 @@ export interface FileTreeViewProps {
    * is selected — and, where the files are listed by what they belong
    * to, the entity its Jump to Source opens: the one that file is or is
    * a part of, or — no file selected — the entity of the gesture's row,
-   * else of the first selected row that names one.
+   * else of the first selected row that names one. `base` as on
+   * `onOpenFile`.
    */
-  onSelectFile?: (path: string | null, entity?: WorkspaceTreeEntityRefWire) => void;
+  onSelectFile?: (path: string | null, entity?: WorkspaceTreeEntityRefWire, base?: string) => void;
   /** Group By Workspace (details eye) — the files by what they belong to in the workbench. */
   groupByWorkspace?: boolean;
   /** Group By Directory (details eye) — off renders flat full paths. */
@@ -55,6 +77,6 @@ export interface FileTreeViewProps {
   /** Right-click menu of a file's row (the log pane) and — by what the
    *  files belong to — of an entity's row that lists several (no path);
    *  right-click also selects the row when selection is wired. Absent =
-   *  no menu. */
-  rowMenu?: (path: string | null, entity?: WorkspaceTreeEntityRefWire) => MenuProps;
+   *  no menu. `base` as on `onOpenFile`. */
+  rowMenu?: (path: string | null, entity?: WorkspaceTreeEntityRefWire, base?: string) => MenuProps;
 }

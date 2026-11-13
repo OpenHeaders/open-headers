@@ -35,11 +35,12 @@ import { Sash } from '@openheaders/ui/shared/dock-layout';
 import { useGitBranchActions } from './branch-actions/use-git-branch-actions';
 import { contiguousRangeBase, unionFiles } from './changed-files-union';
 import CommitDetails from './CommitDetails';
+import CommitFilesView from './CommitFilesView';
 import CommitList from './CommitList';
 import DiffModal from './DiffModal';
 import { buildFileRowMenu } from './file-row-menu';
 import FileHistoryModal from './FileHistoryModal';
-import FileTreeView, { type FileTreeViewHandle } from './FileTreeView';
+import type { FileTreeViewHandle } from './FileTreeView';
 import { getGitLogViewPrefs, patchGitLogViewPrefs, subscribeGitLogViewPrefs } from './git-log-view-prefs';
 import { GIT_LOG_SCOPE_HEAD, type GitLogTabState, gitPanelTabKey } from './git-panel-view-store';
 import { computeLogGraph } from './graph';
@@ -106,6 +107,9 @@ const GitLogView: React.FC<GitLogViewProps> = ({
   // Workspace) — what Jump to Source opens, a row that lists several
   // files included; set with the file, by the one report.
   const [selectedEntity, setSelectedEntity] = useState<WorkspaceTreeEntityRefWire | null>(null);
+  // The commit the selected file's change is read against, where the
+  // files are listed by parent (a merge's); set with the file.
+  const [selectedBase, setSelectedBase] = useState<string | undefined>(undefined);
   // The timeline's row selection in list order (newest first). Two or
   // more commits and the details pane shows their files as ONE set
   // with a card per commit below (the reference reading); a contiguous
@@ -324,6 +328,7 @@ const GitLogView: React.FC<GitLogViewProps> = ({
   useEffect(() => {
     setSelectedFile(null);
     setSelectedEntity(null);
+    setSelectedBase(undefined);
   }, [filesKey]);
 
   // What Show Diff reads: one commit's change, or the run's range from
@@ -418,17 +423,22 @@ const GitLogView: React.FC<GitLogViewProps> = ({
     color: token.colorTextSecondary,
   };
 
-  const openDiff = (path: string): void => {
-    if (diffTarget !== null) void fileDiff.open(diffTarget.sha, path, diffTarget.base);
+  // A file of a merge reads against the parent its group is of.
+  const openDiff = (path: string, base?: string): void => {
+    if (diffTarget !== null) void fileDiff.open(diffTarget.sha, path, base ?? diffTarget.base);
   };
 
   // The changed-file row menu: Show Diff reads the selected commit's
   // blob pair or the run's range; Show History opens the path's own
   // timeline. An entity's row that lists several files has no path —
   // the two file verbs hold and Jump to Source opens the entity.
-  const fileRowMenu = (path: string | null, entity?: WorkspaceTreeEntityRefWire): ReturnType<typeof buildFileRowMenu> =>
+  const fileRowMenu = (
+    path: string | null,
+    entity?: WorkspaceTreeEntityRefWire,
+    base?: string,
+  ): ReturnType<typeof buildFileRowMenu> =>
     buildFileRowMenu(t, {
-      ...(diffTarget === null || path === null ? {} : { onShowDiff: () => openDiff(path) }),
+      ...(diffTarget === null || path === null ? {} : { onShowDiff: () => openDiff(path, base) }),
       ...(path === null ? {} : { onShowHistory: () => setHistoryPath(path) }),
       onJumpToSource: () => jumpToSource(path, entity),
     });
@@ -556,7 +566,7 @@ const GitLogView: React.FC<GitLogViewProps> = ({
           <GitDetailsToolbar
             canShowDiff={diffTarget !== null && selectedFile !== null}
             onShowDiff={() => {
-              if (selectedFile !== null) openDiff(selectedFile);
+              if (selectedFile !== null) openDiff(selectedFile, selectedBase);
             }}
             onJumpToSource={() => jumpToSource(selectedFile, selectedEntity ?? undefined)}
             canJumpToSource={selectedFile !== null || selectedEntity !== null}
@@ -583,22 +593,24 @@ const GitLogView: React.FC<GitLogViewProps> = ({
                   {t('workbench.gitLog.selectCommit')}
                 </div>
               ) : (
-                <FileTreeView
+                <CommitFilesView
                   key={filesKey}
                   ref={fileTreeRef}
                   files={multiSelected ? unionOfSelected : selected.files}
+                  {...(multiSelected ? {} : { commit: selected })}
                   workspaceId={workspaceId}
                   sha={selected.sha}
                   loadingPath={fileDiff.loadingPath}
                   // ⋯ > Show on Double-Click: the diff, or the entity's editor.
-                  onOpenFile={(path, entity) => {
+                  onOpenFile={(path, entity, base) => {
                     if (prefs.doubleClickOpens === 'source') jumpToSource(path, entity);
-                    else openDiff(path);
+                    else openDiff(path, base);
                   }}
                   selectedPath={selectedFile}
-                  onSelectFile={(path, entity) => {
+                  onSelectFile={(path, entity, base) => {
                     setSelectedFile(path);
                     setSelectedEntity(entity ?? null);
+                    setSelectedBase(base);
                   }}
                   groupByWorkspace={prefs.groupFilesByWorkspace}
                   groupByDirectory={prefs.groupFilesByDirectory}
