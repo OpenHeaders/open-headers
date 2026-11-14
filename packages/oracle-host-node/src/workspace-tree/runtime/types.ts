@@ -948,6 +948,14 @@ export interface WorkspaceTreeRuntimeOptions {
    */
   onGitStatus?: (workspaceId: string, status: WorkspaceTreeGitStatusRpcResult) => void;
   /**
+   * The Console feed's own signal: git commands the feed lists ran in a
+   * bound workspace's repo — `seq` is the feed's newest row. One call
+   * per burst of rows. The spine fans it to local surfaces as the
+   * `workspaceTreeGitConsole` broadcast; a status frame alone would
+   * miss every command that moved no status.
+   */
+  onGitConsole?: (workspaceId: string, seq: number) => void;
+  /**
    * §23.6 authorship (multi-user hosts): map a contributing userId to
    * its git-author identity. A sole contributor becomes the commit
    * author; several ride as `Co-Authored-By:` trailers under the

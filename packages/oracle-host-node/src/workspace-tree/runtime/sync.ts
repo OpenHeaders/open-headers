@@ -22,7 +22,7 @@ import type { ForcePushChoice } from '../force-push';
 import { resolveForcePushWorkspaceTree } from '../force-push';
 import { pullWorkspaceTree } from '../pull';
 import { syntheticIdentity } from './commit';
-import { type OpenBinding, type RuntimeCtx, SCOPE, TREE_SURFACE_ID } from './core';
+import { BACKGROUND_FETCH_MIN_GAP_MS, type OpenBinding, type RuntimeCtx, SCOPE, TREE_SURFACE_ID } from './core';
 import { holdDraft, localWorkFirst, settleDraft } from './local-work';
 import type {
   CommitLocalWork,
@@ -32,20 +32,30 @@ import type {
   ResolveForcePushRpcResult,
 } from './types';
 
+/** Whether a background fetch is worth queuing: none was asked for within the minimum gap. */
+export function backgroundFetchDue(lastFetchAt: number, now: number): boolean {
+  return now - lastFetchAt >= BACKGROUND_FETCH_MIN_GAP_MS;
+}
+
 /**
  * One background fetch pass (§3.2: fetch always on, non-mutating) —
  * refreshes the remote-tracking ref so ahead/behind is honest, then
  * republishes the status. Skipped without a repo or an upstream;
  * failures (offline, credentials) log and keep the last-known counts.
+ * A trigger that follows another fetch within the minimum gap queues
+ * nothing — the stamp is set when the pass is QUEUED, so two triggers
+ * that arrive together are one fetch.
  */
 export function enqueueFetch(ctx: RuntimeCtx, binding: OpenBinding, trigger: string): void {
+  const now = Date.now();
+  if (!backgroundFetchDue(binding.lastFetchAt, now)) return;
+  binding.lastFetchAt = now;
   ctx.enqueue(binding, async () => {
     const { rootDir } = binding.record;
     const availability = await ctx.ensureGitAvailability(rootDir);
     if (!availability.available) return;
     if (!(await isWorkspaceRepo(ctx.gitRun, rootDir))) return;
     if ((await resolveUpstream(ctx.gitRun, rootDir)) === null) return;
-    binding.lastFetchAt = Date.now();
     const fetched = await fetchWorkspaceRemote(ctx.gitRun, rootDir);
     if (!fetched.ok) {
       logger.warn(SCOPE, `${trigger} fetch failed for ${rootDir}: ${fetched.detail}`);

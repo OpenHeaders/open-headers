@@ -304,8 +304,10 @@ export async function runGitConsole(ctx: RuntimeCtx, workspaceId: string): Promi
   const binding = ctx.open.get(workspaceId);
   if (!binding) return { ok: false, reason: 'not-bound' };
   const { rootDir } = binding.record;
-  return {
-    ok: true,
-    rows: ctx.consoleRows.filter((row) => row.cwd === rootDir || row.cwd.startsWith(`${rootDir}/`)),
-  };
+  return { ok: true, rows: ctx.consoleRows.filter((row) => consoleRowIsOf(rootDir, row.cwd)) };
+}
+
+/** Whether a console row belongs to the repo at `rootDir`: the command ran in its work tree. */
+export function consoleRowIsOf(rootDir: string, cwd: string): boolean {
+  return cwd === rootDir || cwd.startsWith(`${rootDir}/`);
 }

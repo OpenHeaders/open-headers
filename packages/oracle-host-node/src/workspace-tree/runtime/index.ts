@@ -64,8 +64,8 @@ import {
   syntheticIdentity,
 } from './commit';
 import {
-  FETCH_FOCUS_MIN_MS,
   GIT_CONSOLE_CAP,
+  GIT_CONSOLE_NOTICE_MS,
   MAX_PENDING_INTENTS,
   type OpenBinding,
   type RuntimeCtx,
@@ -74,6 +74,7 @@ import {
 import { runEntitiesAtCommit } from './entities-at-commit';
 import { runEntityAtPath } from './entity-at-path';
 import {
+  consoleRowIsOf,
   runCommitParentChanges,
   runCommitPatch,
   runCommitSignatures,
@@ -212,8 +213,29 @@ export function createWorkspaceTreeRuntime(options: WorkspaceTreeRuntimeOptions)
         consoleSeq += 1;
         consoleRows.push({ seq: consoleSeq, ...row });
         if (consoleRows.length > GIT_CONSOLE_CAP) consoleRows.splice(0, consoleRows.length - GIT_CONSOLE_CAP);
+        announceConsoleRow(row.cwd);
       },
     });
+
+  // The feed's own signal: a row landed for a bound repo. A status frame follows only a pass that MOVED the
+  // status, and a background fetch that brought nothing, or a check of a url, moves none — so the Console is
+  // told of its rows directly, one notice per burst of them.
+  const consoleNotices = new Map<string, NodeJS.Timeout>();
+  const announceConsoleRow = (cwd: string): void => {
+    const sink = options.onGitConsole;
+    if (sink === undefined || disposed) return;
+    for (const binding of open.values()) {
+      const { rootDir, workspaceId } = binding.record;
+      if (!consoleRowIsOf(rootDir, cwd) || consoleNotices.has(workspaceId)) continue;
+      consoleNotices.set(
+        workspaceId,
+        setTimeout(() => {
+          consoleNotices.delete(workspaceId);
+          if (!disposed) sink(workspaceId, consoleSeq);
+        }, GIT_CONSOLE_NOTICE_MS),
+      );
+    }
+  };
 
   // Availability is a property of the machine, probed once per process
   // (missing git ⇒ the git plane disables itself loudly, §7 — bindings
@@ -656,10 +678,7 @@ export function createWorkspaceTreeRuntime(options: WorkspaceTreeRuntimeOptions)
 
     notifyAppFocus(): void {
       if (disposed) return;
-      for (const binding of open.values()) {
-        if (Date.now() - binding.lastFetchAt < FETCH_FOCUS_MIN_MS) continue;
-        ctx.enqueueFetch(binding, 'focus');
-      }
+      for (const binding of open.values()) ctx.enqueueFetch(binding, 'focus');
     },
 
     async gitStatus(workspaceId: string): Promise<WorkspaceTreeGitStatusRpcResult> {
@@ -958,6 +977,8 @@ export function createWorkspaceTreeRuntime(options: WorkspaceTreeRuntimeOptions)
 
     async dispose(): Promise<void> {
       disposed = true;
+      for (const timer of consoleNotices.values()) clearTimeout(timer);
+      consoleNotices.clear();
       for (const binding of [...open.values()]) {
         await closeBinding(ctx, binding);
         await unbindWorkspaceTree(binding.record.rootDir, options.hostId);

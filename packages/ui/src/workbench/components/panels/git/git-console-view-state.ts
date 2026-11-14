@@ -3,9 +3,10 @@
  * workspace: the persisted gutter toggles (Soft-Wrap, Fold Options,
  * Shorten Paths — the shared per-workspace prefs posture) and the
  * session-only Clear All mark. The host keeps the audit ring whole —
- * reads never alter the §7 audit — so Clear All hides what the viewer
- * has already seen: every row up to and including the last row on
- * screen at the clear. Rows carry the ring's monotonic id, so the mark
+ * reads never alter the §7 audit — so Clear All hides everything the
+ * host ran up to the press: every row up to and including the feed's
+ * newest at the clear (the pane reads the feed first — a row it had
+ * not drawn yet is cleared with the rest). Rows carry the ring's monotonic id, so the mark
  * is that id and every later refetch hides exactly the rows at or
  * below it and nothing newer.
  */

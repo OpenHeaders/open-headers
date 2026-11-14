@@ -412,6 +412,15 @@ export interface BridgeBroadcastContract {
   workspaceTreeGitStatus: { workspaceId: string; status: WorkspaceTreeGitStatusWire };
 
   /**
+   * The Git Console's feed gained rows for a bound workspace — `seq` is
+   * the id of its newest row. Fired by the Node host once per burst of
+   * git commands the feed lists, whether or not they moved the status
+   * (a background fetch that brought nothing, a check of a url); the
+   * Console reads its feed again on it.
+   */
+  workspaceTreeGitConsole: { workspaceId: string; seq: number };
+
+  /**
    * A backend this host consumes a workspace from answered a (re)connect's
    * catch-up on a different checked-out HEAD than it answered the last
    * time (the git-sync plan §3.5 — reconnect across a checkout). Fired

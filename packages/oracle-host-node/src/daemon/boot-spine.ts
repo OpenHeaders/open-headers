@@ -833,6 +833,7 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
   workspaceTreeRuntime = createWorkspaceTreeRuntime({
     hostId: config.handshakeIdentity.nodeId,
     onGitStatus: onWorkspaceTreeGitStatus,
+    onGitConsole: (workspaceId, seq) => broadcastLocal('workspaceTreeGitConsole', { workspaceId, seq }),
     // §23.6 authorship: contributing directory users (ingest-stamped
     // per envelope) resolve through the directory — a sole contributor
     // authors the commit, several ride as Co-Authored-By trailers.

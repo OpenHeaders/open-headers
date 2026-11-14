@@ -1,13 +1,16 @@
 /**
  * GitConsolePane — the Console tab's self-sufficient pane wrapper:
- * fetches the engine's git-command audit feed on mount and refetches
- * on `workspaceTreeGitStatus` frames (every frame follows a pass that
- * may have run git) and whenever a call this window sent has answered
- * (a check, or a fetch that brought nothing, moves no frame),
- * rendering the read-only ConsoleView over the
- * workspace's view state — the gutter prefs, the Clear All mark (the
- * host ring stays whole; the mark hides what was already seen) and
- * the session's clicked-open option runs — in the terminal's face.
+ * fetches the engine's git-command audit feed on mount and reads it
+ * again whenever the host says the feed gained rows
+ * (`workspaceTreeGitConsole` — every command the feed lists, the
+ * background ones and those that moved no status included), and on
+ * `workspaceTreeGitStatus` frames (all a host older than that signal
+ * sends), rendering the read-only ConsoleView over the workspace's
+ * view state — the gutter prefs, the Clear All mark and the session's
+ * clicked-open option runs — in the terminal's face. Clear All hides
+ * everything the host ran up to the press: it reads the feed first,
+ * so a row the pane had not drawn yet is not left behind (the host
+ * ring stays whole; the mark is the id of its newest row then).
  */
 
 import { hostBridge, type WorkspaceTreeGitConsoleRowWire } from '@openheaders/core/bridge';
@@ -25,7 +28,6 @@ import {
   visibleConsoleRows,
 } from './git-console-view-state';
 import { useConsoleFont } from './use-console-font';
-import { subscribeGitWorkSettled } from './use-git-work';
 
 export interface GitConsolePaneProps {
   workspaceId: string;
@@ -43,13 +45,17 @@ const GitConsolePane: React.FC<GitConsolePaneProps> = ({ workspaceId }) => {
   );
   const font = useConsoleFont();
 
-  const load = useCallback(async (): Promise<void> => {
+  /** Read the feed as the host holds it now; null when the host did not answer with one (the pane then shows none). */
+  const load = useCallback(async (): Promise<WorkspaceTreeGitConsoleRowWire[] | null> => {
+    let next: WorkspaceTreeGitConsoleRowWire[] | null = null;
     try {
       const result = await hostBridge.call('oh.workspaceTree.gitConsole', { workspaceId });
-      setRows(result.ok ? result.rows : []);
+      if (result.ok) next = result.rows;
     } catch {
-      setRows([]);
+      // No feed to show.
     }
+    setRows(next ?? []);
+    return next;
   }, [workspaceId]);
 
   useEffect(() => {
@@ -63,12 +69,19 @@ const GitConsolePane: React.FC<GitConsolePaneProps> = ({ workspaceId }) => {
     });
   }, [workspaceId, load]);
 
-  useEffect(() => subscribeGitWorkSettled(() => void load()), [load]);
+  useEffect(() => {
+    return hostBridge.subscribe('workspaceTreeGitConsole', (payload) => {
+      if (payload.workspaceId !== workspaceId) return;
+      void load();
+    });
+  }, [workspaceId, load]);
 
   const visible = visibleConsoleRows(rows, clearMark);
 
-  const clear = (): void => {
-    const mark = consoleClearMarkFor(rows);
+  const clear = async (): Promise<void> => {
+    // The host's newest row, not the pane's: what ran before the press and was not drawn yet goes with the rest.
+    // A read the host did not answer leaves the mark on what the pane held.
+    const mark = consoleClearMarkFor((await load()) ?? rows);
     setGitConsoleClearMark(workspaceId, mark);
     setClearMark(mark);
   };
@@ -96,7 +109,7 @@ const GitConsolePane: React.FC<GitConsolePaneProps> = ({ workspaceId }) => {
       expanded={expanded}
       onToggleExpanded={toggleExpanded}
       onTogglePref={togglePref}
-      onClear={clear}
+      onClear={() => void clear()}
     />
   );
 };

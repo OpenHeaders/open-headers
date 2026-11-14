@@ -63,8 +63,16 @@ export const MAX_PENDING_INTENTS = 1_000;
  */
 export const FETCH_INTERVAL_MS = 5 * 60_000;
 
-/** Minimum spacing between focus-triggered fetches (cmd-tab is bursty). */
-export const FETCH_FOCUS_MIN_MS = 30_000;
+/**
+ * Minimum spacing between BACKGROUND fetches, whatever asked for them:
+ * the triggers arrive in bursts (cmd-tab, a wake-up's late timer beside
+ * its focus), and a second fetch within the window brings nothing the
+ * first did not.
+ */
+export const BACKGROUND_FETCH_MIN_GAP_MS = 30_000;
+
+/** How long a burst of console rows is gathered before the feed's one notice (a pass runs several commands). */
+export const GIT_CONSOLE_NOTICE_MS = 100;
 
 /** Trailing debounce for the §9 status feed — a bind/sweep/flush burst probes once. */
 export const STATUS_PUBLISH_DEBOUNCE_MS = 150;
@@ -105,7 +113,7 @@ export interface OpenBinding {
   commitInterval: NodeJS.Timeout | null;
   /** Background fetch interval (§3.2 — always on while bound). */
   fetchInterval: NodeJS.Timeout | null;
-  /** Wall-clock of the last fetch attempt — focus-trigger throttle. */
+  /** Wall-clock of the last fetch asked for — a gesture's, or a background one's when it was queued: the background triggers' throttle. */
   lastFetchAt: number;
   /** Retry timer while an in-progress git op holds reconcile (§3.3). */
   holdRetryTimer: NodeJS.Timeout | null;
