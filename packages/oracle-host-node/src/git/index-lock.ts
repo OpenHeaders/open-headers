@@ -19,6 +19,13 @@
  * between; one that tries is told by git that another git process is
  * running, and a read still answers.
  *
+ * The copy keeps the index's own TIME as well as its bytes, and the
+ * published index the time git last wrote the lock. Git reads an
+ * index's time to know which files it must compare by content: one
+ * whose recorded time is not older than the index may have been
+ * rewritten in the same instant, at the same size. A copy stamped "now"
+ * would read every such file as unchanged.
+ *
  * A lock found held is never removed here, however old it looks: only
  * its owner knows whether it is stale.
  */
@@ -100,6 +107,12 @@ async function createExclusively(lockPath: string): Promise<FileHandle | { busy:
   }
 }
 
+/** Give `to` the modification time of `from` — a copy of an index stands for it only with its time. */
+async function carryTime(from: string, to: string): Promise<void> {
+  const { atime, mtime } = await fs.stat(from);
+  await fs.utimes(to, atime, mtime);
+}
+
 async function renameOver(from: string, to: string): Promise<boolean> {
   for (let attempt = 0; ; attempt += 1) {
     try {
@@ -149,6 +162,7 @@ export async function acquireIndexLock(run: GitRunner, rootDir: string): Promise
     });
     if (current !== null) await created.writeFile(current);
     await created.close();
+    if (current !== null) await carryTime(indexPath, lockPath);
     if (current === null) {
       const seeded = await run([...repoArgs(rootDir), 'read-tree', '--empty'], { cwd: rootDir, env });
       if (seeded.code !== 0) throw new Error(seeded.stderr.trim() || 'the index could not be read');
@@ -168,6 +182,7 @@ export async function acquireIndexLock(run: GitRunner, rootDir: string): Promise
         if (released) return false;
         try {
           await fs.copyFile(lockPath, nextPath);
+          await carryTime(lockPath, nextPath);
         } catch {
           return false;
         }
