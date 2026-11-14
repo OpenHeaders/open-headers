@@ -38,6 +38,19 @@ export interface GitWork {
 
 let lastTask = 0;
 
+const settled = new Set<() => void>();
+
+/**
+ * A call at the host answered. A view of what the host RAN (the Console) reads again on it: a status frame
+ * follows only a call that moved the repo, and a check, or a fetch that brought nothing, moves none.
+ */
+export function subscribeGitWorkSettled(listener: () => void): () => void {
+  settled.add(listener);
+  return () => {
+    settled.delete(listener);
+  };
+}
+
 /** Name one host call in the processes slot until it answers — all a call needs when a dialog's own button signs it. */
 export async function nameGitWork<R>(title: string, call: () => Promise<R>): Promise<R> {
   lastTask += 1;
@@ -47,6 +60,7 @@ export async function nameGitWork<R>(title: string, call: () => Promise<R>): Pro
     return await call();
   } finally {
     removeBackgroundTask(id);
+    for (const listener of settled) listener();
   }
 }
 

@@ -248,6 +248,52 @@
   }
 }
 
+// The Git Console reads as a text view: its feed takes focus without a
+// ring (the caret is the sign), the pointer is the text one, and the
+// caret is drawn at the selection's moving end — blinking only while
+// the feed holds the keyboard. The selection's other occurrences wear
+// a quiet fill through the page's highlight registry.
+.git-console-feed {
+  cursor: text;
+  outline: none;
+
+  [role='button'] {
+    cursor: pointer;
+  }
+}
+
+.git-console-caret {
+  position: absolute;
+  width: 2px;
+  margin-left: -1px;
+  border-radius: 1px;
+  background: var(--ant-color-text, currentColor);
+  pointer-events: none;
+
+  &[data-blink] {
+    animation: git-console-caret-blink 1.06s step-end infinite;
+  }
+}
+
+@keyframes git-console-caret-blink {
+  0% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .git-console-caret[data-blink] {
+    animation: none;
+  }
+}
+
+::highlight(oh-feed-occurrence) {
+  background-color: var(--ant-color-fill, rgba(128, 128, 128, 0.24));
+}
+
 // Commit row context menu: the selection-blue band on hover AND on
 // keyboard-active items (antd marks both as -active); submenu titles
 // follow. Same ONE-global-blue family as the tree selection.

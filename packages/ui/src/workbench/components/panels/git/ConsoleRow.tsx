@@ -4,7 +4,9 @@
  * while folded, a click lays it open and folds it back), the command
  * with its operands, a non-zero exit, and the captured output beneath.
  * Tokens with more to say than they show carry `data-full` for the
- * feed's one hover title.
+ * feed's one hover title and `data-copy` for what a selection through
+ * them copies (the path whole, the run with every option); each line
+ * of the row is marked for the feed's copy and its occurrence marks.
  */
 
 import type { WorkspaceTreeGitConsoleRowWire } from '@openheaders/core/bridge';
@@ -34,7 +36,7 @@ const Token: React.FC<{ token: ConsoleToken }> = ({ token }) => {
   const { token: tokens } = useToken();
   if (token.kind !== 'path') return <>{token.text}</>;
   return (
-    <span data-full={token.full}>
+    <span data-full={token.full} data-copy={token.full}>
       {token.head}
       <span style={{ background: tokens.colorFillTertiary, borderRadius: tokens.borderRadiusXS, padding: '0 2px' }}>…</span>
       {token.tail}
@@ -67,7 +69,7 @@ const ConsoleRow: React.FC<ConsoleRowProps> = ({ row, posture, locale, lineStyle
 
   return (
     <div data-testid="git-tool-console-row" data-seq={row.seq}>
-      <div style={{ color: token.colorText, ...lineStyle }}>
+      <div data-line="" style={{ color: token.colorText, ...lineStyle }}>
         <span style={{ color: token.colorTextTertiary }}>{timestamp(row.at, locale)}: </span>
         <span style={{ color: token.colorTextSecondary }}>
           [<Token token={cwd} />]{' '}
@@ -81,6 +83,7 @@ const ConsoleRow: React.FC<ConsoleRowProps> = ({ row, posture, locale, lineStyle
                 tabIndex={0}
                 data-testid="git-tool-console-fold"
                 data-full={line.options.full}
+                data-copy={row.options.join(' ')}
                 onClick={toggle}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' || e.key === ' ') toggle();
@@ -113,6 +116,7 @@ const ConsoleRow: React.FC<ConsoleRowProps> = ({ row, posture, locale, lineStyle
       </div>
       {row.output !== '' && (
         <div
+          data-line=""
           style={{
             ...lineStyle,
             color: row.code === 0 ? token.colorTextSecondary : token.colorErrorText,

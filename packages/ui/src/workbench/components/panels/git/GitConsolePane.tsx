@@ -2,7 +2,9 @@
  * GitConsolePane — the Console tab's self-sufficient pane wrapper:
  * fetches the engine's git-command audit feed on mount and refetches
  * on `workspaceTreeGitStatus` frames (every frame follows a pass that
- * may have run git), rendering the read-only ConsoleView over the
+ * may have run git) and whenever a call this window sent has answered
+ * (a check, or a fetch that brought nothing, moves no frame),
+ * rendering the read-only ConsoleView over the
  * workspace's view state — the gutter prefs, the Clear All mark (the
  * host ring stays whole; the mark hides what was already seen) and
  * the session's clicked-open option runs — in the terminal's face.
@@ -23,6 +25,7 @@ import {
   visibleConsoleRows,
 } from './git-console-view-state';
 import { useConsoleFont } from './use-console-font';
+import { subscribeGitWorkSettled } from './use-git-work';
 
 export interface GitConsolePaneProps {
   workspaceId: string;
@@ -59,6 +62,8 @@ const GitConsolePane: React.FC<GitConsolePaneProps> = ({ workspaceId }) => {
       void load();
     });
   }, [workspaceId, load]);
+
+  useEffect(() => subscribeGitWorkSettled(() => void load()), [load]);
 
   const visible = visibleConsoleRows(rows, clearMark);
 
