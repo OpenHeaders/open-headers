@@ -55,7 +55,6 @@ export interface GitLogToolbarProps {
   onPathsChange: (paths: readonly string[], names?: Readonly<Record<string, string>>) => void;
   /** Loaded entries — the Go To resolver and the User submenu feed. */
   entries: WorkspaceTreeLogEntryWire[];
-  loading: boolean;
   onRefresh: () => void;
   /** Cherry-pick the log's selected commits; absent while nothing is selected. */
   onCherryPick?: () => void;
@@ -93,7 +92,6 @@ const GitLogToolbar: React.FC<GitLogToolbarProps> = ({
   onUsersChange,
   onPathsChange,
   entries,
-  loading,
   onRefresh,
   onCherryPick,
   onNavigate,
@@ -351,11 +349,11 @@ const GitLogToolbar: React.FC<GitLogToolbarProps> = ({
     {
       kind: 'item',
       key: 'refresh',
-      // Never held while a read is out: the glyph turns, and a second
-      // press reads again — the log takes its newest read's answer.
+      // Never held while a read is out: a second press reads again — the
+      // log takes its newest read's answer. The log's pulse says the read.
       node: (
         <ToolbarIconButton
-          icon={<RefreshIcon spin={loading} />}
+          icon={<RefreshIcon />}
           title={t('workbench.gitLog.refresh')}
           onClick={onRefresh}
           testid="git-tool-refresh"

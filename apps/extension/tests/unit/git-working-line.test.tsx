@@ -1,8 +1,8 @@
 /**
- * `GitWorkingLine` — the Git window's line of work: bright while one of
- * its verbs is at the host and gone the moment the host answers; dim
- * while the log is read again, in whole passes — a pass once begun is
- * finished; a verb outranks a read.
+ * `GitWorkingLine` — the Git window's one sign of work is the pulse a
+ * request's Send plays: the sweep while a verb is at the host or the
+ * log is read again, the pass it is on finished when the work ends,
+ * and no line after it — the window lands on no state of its own.
  */
 
 import GitWorkingLine from '@openheaders/ui/workbench/components/panels/git/GitWorkingLine';
@@ -18,34 +18,31 @@ vi.hoisted(() => {
 
 afterEach(cleanup);
 
-const tone = (): string | null => screen.queryByTestId('git-tool-working')?.getAttribute('data-tone') ?? null;
+const phase = (): string | null => screen.queryByTestId('oh-send-pulse')?.getAttribute('data-phase') ?? null;
 
 describe('GitWorkingLine', () => {
   it('shows nothing at rest', () => {
-    render(<GitWorkingLine working={false} reading={false} />);
-    expect(tone()).toBeNull();
+    render(<GitWorkingLine active={false} />);
+    expect(phase()).toBeNull();
   });
 
-  it('is the bright line while a verb is at the host, and gone when it answers', () => {
-    const view = render(<GitWorkingLine working reading={false} />);
-    expect(tone()).toBe('work');
-    view.rerender(<GitWorkingLine working={false} reading={false} />);
-    expect(tone()).toBeNull();
+  it('plays the sweep along the top edge while work is out', () => {
+    render(<GitWorkingLine active />);
+    expect(phase()).toBe('inflight');
+    expect(screen.getByTestId('oh-send-pulse').getAttribute('data-axis')).toBe('x');
   });
 
-  it('is the dim line for a read, and finishes the pass it is in', () => {
-    const view = render(<GitWorkingLine working={false} reading />);
-    expect(tone()).toBe('read');
-    view.rerender(<GitWorkingLine working={false} reading={false} />);
-    expect(tone()).toBe('read');
-    fireEvent.animationIteration(screen.getByTestId('git-tool-working'));
-    expect(tone()).toBeNull();
+  it('finishes the pass it is on when the work ends, then goes dark with no line', () => {
+    const view = render(<GitWorkingLine active />);
+    view.rerender(<GitWorkingLine active={false} />);
+    expect(phase()).toBe('inflight');
+    fireEvent.animationIteration(screen.getByTestId('oh-send-pulse'));
+    expect(phase()).toBeNull();
   });
 
-  it('lets a verb outrank a read', () => {
-    const view = render(<GitWorkingLine working reading />);
-    expect(tone()).toBe('work');
-    view.rerender(<GitWorkingLine working={false} reading />);
-    expect(tone()).toBe('read');
+  it('keeps sweeping past the end of a pass while the work is still out', () => {
+    render(<GitWorkingLine active />);
+    fireEvent.animationIteration(screen.getByTestId('oh-send-pulse'));
+    expect(phase()).toBe('inflight');
   });
 });

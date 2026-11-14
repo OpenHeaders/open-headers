@@ -16,7 +16,7 @@ export { PullIcon } from './PullIcon';
 export { PushIcon } from './PushIcon';
 export { RecordStartIcon } from './RecordStartIcon';
 export { RecordStopIcon } from './RecordStopIcon';
-export { RefreshIcon, type RefreshIconProps } from './RefreshIcon';
+export { RefreshIcon } from './RefreshIcon';
 export { RequestRulesIcon } from './RequestRulesIcon';
 export { RollbackIcon } from './RollbackIcon';
 export { ScrollToEndIcon } from './ScrollToEndIcon';

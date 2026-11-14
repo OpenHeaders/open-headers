@@ -203,6 +203,15 @@ const GitLogView: React.FC<GitLogViewProps> = ({
   // the filter that replaced it.
   const latestRead = useRef(0);
 
+  // The read is keyed on what it asks the host — the scope and the
+  // filters — and on nothing else. `patchTab` is a function the tab
+  // group makes anew on every render of its own (a resize of the
+  // window, a theme change, a click that focuses the pane): held as a
+  // dependency it made each of those read the log again. The read
+  // reaches the newest one through a ref.
+  const patchTabRef = useRef(patchTab);
+  patchTabRef.current = patchTab;
+
   const reload = useCallback(async (): Promise<void> => {
     latestRead.current += 1;
     const read = latestRead.current;
@@ -249,7 +258,7 @@ const GitLogView: React.FC<GitLogViewProps> = ({
         // keeps the rest — every ref once none is left; the effect below
         // refetches. A host that names none clears the scope.
         const kept = scopeWithout(selectedRefs, result.unknownRefs ?? selectedRefs);
-        patchTab({ selectedRefs: kept.length < selectedRefs.length ? kept : [] });
+        patchTabRef.current({ selectedRefs: kept.length < selectedRefs.length ? kept : [] });
       } else {
         setLoaded([]);
         setError(t('workbench.gitLog.loadFailed', { detail: result.detail ?? result.reason }));
@@ -261,7 +270,7 @@ const GitLogView: React.FC<GitLogViewProps> = ({
     } finally {
       if (!superseded()) setLoading(false);
     }
-  }, [workspaceId, selectedRefs, branch, wireFilters, patchTab, t]);
+  }, [workspaceId, selectedRefs, branch, wireFilters, t]);
 
   useEffect(() => {
     void reload();
@@ -496,7 +505,8 @@ const GitLogView: React.FC<GitLogViewProps> = ({
   });
 
   // One of this window's verbs is at the host — a pick, a revert, a
-  // patch read, a branch verb: the log says so until the host answers.
+  // patch read, a branch verb: with a read of the log, what the pulse
+  // along the log's top edge says.
   const atHost = commitApply.working || commitPatch.working || actions.busy.working;
 
   // The commit rows' menu: the clipboard read, the patch of the set,
@@ -622,7 +632,6 @@ const GitLogView: React.FC<GitLogViewProps> = ({
             onUsersChange={applyUsers}
             onPathsChange={applyPaths}
             entries={entries}
-            loading={loading}
             onRefresh={() => void reload()}
             onCherryPick={
               pickTargets.length > 0 && !commitApply.working ? () => commitApply.cherryPick(pickTargets) : undefined
@@ -637,7 +646,7 @@ const GitLogView: React.FC<GitLogViewProps> = ({
             textInvalid={matcher.kind === 'invalid'}
             container={container}
           />
-          <GitWorkingLine working={atHost} reading={loading} />
+          <GitWorkingLine active={atHost || loading} />
           <CommitList
             entries={shown.entries}
             graph={graph}

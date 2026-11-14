@@ -1,47 +1,23 @@
 /**
- * GitWorkingLine — the Git window's own sign of work: a thin line
- * travelling along the top edge of the pane under it.
+ * GitWorkingLine — the Git window's ONE sign of work: the pulse a
+ * request's Send plays over its response (`SendPulseBar`), along the
+ * top edge of the pane under it — while one of the window's verbs is
+ * at the host, or the log is being read again. The pulse finishes the
+ * pass it is on when the work ends, so work that is over in a tenth of
+ * a second still reads as one whole sweep; it lands on no state of its
+ * own, so no line follows it.
  *
- *   working — one of the window's verbs is at the host: the line in
- *             the theme's primary, from the press until the host
- *             answers, gone the moment its dialog or toast shows;
- *   reading — the log is being read again (Refresh, a status frame):
- *             the same line much dimmer, in whole passes
- *             (`useWholeCycles`) — a read is over in a tenth of a
- *             second, and a pass once begun is finished.
- *
- * A verb outranks a read. The line takes no room (the pane does not
- * move when it comes and goes) and no pointer, and says nothing to a
- * reader — the status bar's processes slot names a verb in words, the
- * Refresh button turns for a read. The travel is a rule in
- * `styles/panels.less`.
+ * It takes no room (the pane does not move when it comes and goes) and
+ * no pointer; the status bar's processes slot names a verb in words.
  */
 
-import { theme } from 'antd';
 import type React from 'react';
-import { useWholeCycles } from '@openheaders/ui/shared/hooks/useWholeCycles';
+import { SendPulseBar } from '../../request-editor/response/SendPulse';
 
-export interface GitWorkingLineProps {
-  working: boolean;
-  reading: boolean;
-}
-
-const GitWorkingLine: React.FC<GitWorkingLineProps> = ({ working, reading }) => {
-  const { token } = theme.useToken();
-  const read = useWholeCycles(reading);
-  return (
-    <div style={{ position: 'relative', flex: '0 0 auto', height: 0 }} aria-hidden>
-      {(working || read.running) && (
-        <div
-          className={working ? 'git-working-line' : 'git-working-line git-working-line--read'}
-          style={{ color: token.colorPrimary }}
-          onAnimationIteration={read.onAnimationIteration}
-          data-testid="git-tool-working"
-          data-tone={working ? 'work' : 'read'}
-        />
-      )}
-    </div>
-  );
-};
+const GitWorkingLine: React.FC<{ active: boolean }> = ({ active }) => (
+  <div style={{ position: 'relative', flex: '0 0 auto', height: 0 }}>
+    <SendPulseBar inflight={active} landing={null} axis="x" />
+  </div>
+);
 
 export default GitWorkingLine;
