@@ -16,6 +16,7 @@ import type React from 'react';
 import { useState } from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { committedLocalNotice, refusalDetail } from './kept-local';
+import { nameGitWork } from './use-git-work';
 
 type ForcePushChoice = 'abandon' | 'rescue' | 'reapply';
 
@@ -37,7 +38,9 @@ const ForcePushBanner: React.FC<ForcePushBannerProps> = ({ workspaceId, state, t
     setResolving(choice);
     setError(null);
     try {
-      const result = await hostBridge.call('oh.workspaceTree.resolveForcePush', { workspaceId, choice });
+      const result = await nameGitWork(t('workbench.gitLog.working.resolveForcePush'), () =>
+        hostBridge.call('oh.workspaceTree.resolveForcePush', { workspaceId, choice }),
+      );
       if (result.ok) {
         message.success(
           result.rescueBranch !== null

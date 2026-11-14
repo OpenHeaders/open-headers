@@ -15,6 +15,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import RemoteFormModal from './RemoteFormModal';
 import { type RemoteDraft, type RemoteRow, remoteUpdatePatch } from './remote-form-model';
+import { nameGitWork } from '../use-git-work';
 
 export interface RemotesModalProps {
   workspaceId: string;
@@ -90,8 +91,12 @@ const RemotesModal: React.FC<RemotesModalProps> = ({ workspaceId, open, onClose 
     try {
       const result =
         form.mode === 'add'
-          ? await hostBridge.call('oh.workspaceTree.addRemote', { workspaceId, name: draft.name, url: draft.url })
-          : await hostBridge.call('oh.workspaceTree.updateRemote', { workspaceId, name: form.row.name, ...patch });
+          ? await nameGitWork(t('workbench.gitLog.working.addRemote', { name: draft.name }), () =>
+              hostBridge.call('oh.workspaceTree.addRemote', { workspaceId, name: draft.name, url: draft.url }),
+            )
+          : await nameGitWork(t('workbench.gitLog.working.updateRemote', { name: form.row.name }), () =>
+              hostBridge.call('oh.workspaceTree.updateRemote', { workspaceId, name: form.row.name, ...patch }),
+            );
       if (result.ok) {
         setForm(null);
         setSelected(draft.name);
@@ -115,7 +120,9 @@ const RemotesModal: React.FC<RemotesModalProps> = ({ workspaceId, open, onClose 
       cancelText: t('workbench.gitLog.modal.cancel'),
       onOk: async () => {
         try {
-          const result = await hostBridge.call('oh.workspaceTree.removeRemote', { workspaceId, name: row.name });
+          const result = await nameGitWork(t('workbench.gitLog.working.removeRemote', { name: row.name }), () =>
+            hostBridge.call('oh.workspaceTree.removeRemote', { workspaceId, name: row.name }),
+          );
           if (!result.ok) notification.error({ title: refusal(result, row.name) });
         } catch (err) {
           notification.error({ title: t('workbench.gitRemotes.failed', { detail: failure(err) }) });

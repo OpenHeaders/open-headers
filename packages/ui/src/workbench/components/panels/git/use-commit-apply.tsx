@@ -26,7 +26,7 @@ import { type ReactNode, useRef } from 'react';
 import { type CommitApplyMode, commitApplyOrder, shortSha } from './commit-apply';
 import { committedLocalNotice, keptLocalNotice, leftOutNotice, namePaths, refusalDetail } from './kept-local';
 import { useGitWork } from './use-git-work';
-import { usePassAnswers } from './use-pass-answers';
+import { passAnswersSign, usePassAnswers } from './use-pass-answers';
 
 export interface CommitApplyActions {
   /** Apply the commits' own changes onto the current branch (list order in, newest first). */
@@ -92,8 +92,10 @@ export function useCommitApply(workspaceId: string): CommitApplyActions {
       });
       try {
         const result = await answers.run({ kind: mode, sha }, (given) =>
-          work.atHost(title, () =>
-            hostBridge.call('oh.workspaceTree.applyCommit', { workspaceId, sha, mode, ...given }),
+          work.atHost(
+            title,
+            () => hostBridge.call('oh.workspaceTree.applyCommit', { workspaceId, sha, mode, ...given }),
+            passAnswersSign(given),
           ),
         );
         if (result === null) break;

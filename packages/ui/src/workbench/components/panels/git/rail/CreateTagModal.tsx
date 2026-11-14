@@ -12,6 +12,7 @@ import type React from 'react';
 import { useEffect, useRef, useState } from 'react';
 import type { InputRef } from 'antd';
 import { useT } from '@openheaders/ui/context/LocaleContext';
+import { nameGitWork } from '../use-git-work';
 
 export interface CreateTagModalProps {
   workspaceId: string;
@@ -45,7 +46,9 @@ const CreateTagModal: React.FC<CreateTagModalProps> = ({ workspaceId, sha, onClo
     setBusy(true);
     setError(null);
     try {
-      const result = await hostBridge.call('oh.workspaceTree.createTag', { workspaceId, name: tag, sha });
+      const result = await nameGitWork(t('workbench.gitLog.working.createTag', { name: tag }), () =>
+        hostBridge.call('oh.workspaceTree.createTag', { workspaceId, name: tag, sha }),
+      );
       if (result.ok) {
         onCreated(result.name, result.sha);
         onClose();

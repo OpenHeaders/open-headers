@@ -11,6 +11,7 @@ import { Alert, Button, Input, theme } from 'antd';
 import type React from 'react';
 import { useState } from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
+import { nameGitWork } from '../use-git-work';
 
 export interface PushNewBranchAlertProps {
   workspaceId: string;
@@ -32,7 +33,9 @@ const PushNewBranchAlert: React.FC<PushNewBranchAlertProps> = ({ workspaceId, on
     setBusy(true);
     setError(null);
     try {
-      const result = await hostBridge.call('oh.workspaceTree.pushNewBranch', { workspaceId, branch });
+      const result = await nameGitWork(t('workbench.gitLog.working.push'), () =>
+        hostBridge.call('oh.workspaceTree.pushNewBranch', { workspaceId, branch }),
+      );
       if (result.ok) onPushed(branch);
       else setError(`${t('workbench.commitTool.errors.pushFailed')}: ${result.detail ?? result.reason}`);
     } catch (err) {

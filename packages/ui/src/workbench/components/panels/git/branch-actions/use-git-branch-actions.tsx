@@ -40,8 +40,8 @@ import CreateBranchModal from '../rail/CreateBranchModal';
 import CreateTagModal from '../rail/CreateTagModal';
 import RemotesModal from '../remotes/RemotesModal';
 import SwitchBranchModal, { type SwitchBranchPrompt, type SwitchDirtyChoice } from '../rail/SwitchBranchModal';
-import { useGitWork } from '../use-git-work';
-import { usePassAnswers } from '../use-pass-answers';
+import { type GitWorkSign, useGitWork } from '../use-git-work';
+import { passAnswersSign, usePassAnswers } from '../use-pass-answers';
 
 export interface GitBranchActionsOptions {
   workspaceId: string;
@@ -61,8 +61,9 @@ export interface GitBranchBusy {
   pull: boolean;
   push: boolean;
   /**
-   * A checkout, fetch, pull, merge, update, push or abort is at the host
-   * right now — not while one of them waits on the person's answer.
+   * A checkout, fetch, pull, merge, update, push, delete or restore sent
+   * with no dialog up is at the host right now — not while one of them
+   * waits on the person's answer, and not one a dialog's own button sent.
    */
   working: boolean;
 }
@@ -118,7 +119,9 @@ export function useGitBranchActions(options: GitBranchActionsOptions): GitBranch
   const answers = usePassAnswers();
   // A verb at the host, named and counted (`use-git-work`): a pass's own
   // questions sit between its calls, and the surface shows work only
-  // while one is out.
+  // while one is out. A call a dialog's own button sent — the dirty
+  // prompt's choice, the Push window's Push, the abort's confirm, an
+  // answer from the conflicts step — is named and not counted.
   const { atHost, working } = useGitWork();
 
   const failure = (err: unknown): string => (err instanceof Error ? err.message : String(err));
@@ -150,12 +153,15 @@ export function useGitBranchActions(options: GitBranchActionsOptions): GitBranch
     setSwitching(true);
     const branch = isFullCommitSha(target) ? target.slice(0, 7) : target;
     try {
-      const result = await atHost(t('workbench.gitLog.working.checkout', { branch }), () =>
-        hostBridge.call('oh.workspaceTree.switchBranch', {
-          workspaceId,
-          branch: target,
-          ...(dirtyAction !== undefined ? { dirtyAction } : {}),
-        }),
+      const result = await atHost(
+        t('workbench.gitLog.working.checkout', { branch }),
+        () =>
+          hostBridge.call('oh.workspaceTree.switchBranch', {
+            workspaceId,
+            branch: target,
+            ...(dirtyAction !== undefined ? { dirtyAction } : {}),
+          }),
+        dirtyAction !== undefined ? 'dialog' : 'surface',
       );
       if (result.ok) {
         setSwitchPrompt(null);
@@ -214,8 +220,10 @@ export function useGitBranchActions(options: GitBranchActionsOptions): GitBranch
     const branch = currentRef ?? 'HEAD';
     try {
       const result = await answers.run({ kind: 'merge', ref }, (given) =>
-        atHost(t('workbench.gitLog.working.merge', { ref }), () =>
-          hostBridge.call('oh.workspaceTree.mergeBranch', { workspaceId, ref, ...given }),
+        atHost(
+          t('workbench.gitLog.working.merge', { ref }),
+          () => hostBridge.call('oh.workspaceTree.mergeBranch', { workspaceId, ref, ...given }),
+          passAnswersSign(given),
         ),
       );
       if (result === null) return;
@@ -281,7 +289,11 @@ export function useGitBranchActions(options: GitBranchActionsOptions): GitBranch
       cancelText: t('workbench.gitLog.modal.cancel'),
       onOk: async () => {
         try {
-          const result = await atHost(label, () => hostBridge.call('oh.workspaceTree.abortOperation', { workspaceId }));
+          const result = await atHost(
+            label,
+            () => hostBridge.call('oh.workspaceTree.abortOperation', { workspaceId }),
+            'dialog',
+          );
           if (result.ok) notification.success({ title: t('workbench.gitBranch.abort.done') });
           else {
             notification.error({
@@ -298,7 +310,9 @@ export function useGitBranchActions(options: GitBranchActionsOptions): GitBranch
   const deleteBranch = async (branch: string): Promise<void> => {
     let result: WorkspaceTreeDeleteBranchWire;
     try {
-      result = await hostBridge.call('oh.workspaceTree.deleteBranch', { workspaceId, branch });
+      result = await atHost(t('workbench.gitLog.working.deleteBranch', { branch }), () =>
+        hostBridge.call('oh.workspaceTree.deleteBranch', { workspaceId, branch }),
+      );
     } catch (err) {
       notification.error({ title: t('workbench.gitLog.deleteBranch.failed', { detail: failure(err) }) });
       return;
@@ -320,12 +334,14 @@ export function useGitBranchActions(options: GitBranchActionsOptions): GitBranch
           type="button"
           onClick={() => {
             notification.destroy(key);
-            void hostBridge.call('oh.workspaceTree.createBranch', {
-              workspaceId,
-              branch,
-              from: result.sha,
-              checkout: false,
-            });
+            void atHost(t('workbench.gitLog.working.restoreBranch', { branch }), () =>
+              hostBridge.call('oh.workspaceTree.createBranch', {
+                workspaceId,
+                branch,
+                from: result.sha,
+                checkout: false,
+              }),
+            );
           }}
           data-testid="git-tool-restore-branch"
           style={{
@@ -373,8 +389,10 @@ export function useGitBranchActions(options: GitBranchActionsOptions): GitBranch
     setPullBusy(true);
     try {
       const result = await answers.run({ kind: 'pull' }, (given) =>
-        atHost(t('workbench.gitLog.working.pull'), () =>
-          hostBridge.call('oh.workspaceTree.pull', { workspaceId, ...given }),
+        atHost(
+          t('workbench.gitLog.working.pull'),
+          () => hostBridge.call('oh.workspaceTree.pull', { workspaceId, ...given }),
+          passAnswersSign(given),
         ),
       );
       if (result === null) return false;
@@ -415,13 +433,16 @@ export function useGitBranchActions(options: GitBranchActionsOptions): GitBranch
   // typed refusals): a non-fast-forward raises the Push Rejected
   // prompt (Merge = pull, then push again), a rewrite points at the
   // banner, a read-only remote names the Commit window's
-  // Push-as-New-Branch recovery.
-  const pushNow = async (): Promise<void> => {
+  // Push-as-New-Branch recovery. The Push window's own button signs the
+  // push it confirms; one sent after a merge has no dialog up.
+  const pushNow = async (sign: GitWorkSign): Promise<void> => {
     if (pushBusy) return;
     setPushBusy(true);
     try {
-      const result = await atHost(t('workbench.gitLog.working.push'), () =>
-        hostBridge.call('oh.workspaceTree.push', { workspaceId }),
+      const result = await atHost(
+        t('workbench.gitLog.working.push'),
+        () => hostBridge.call('oh.workspaceTree.push', { workspaceId }),
+        sign,
       );
       if (result.ok) {
         notification.success({
@@ -490,14 +511,14 @@ export function useGitBranchActions(options: GitBranchActionsOptions): GitBranch
         }}
         onClose={() => setSwitchPrompt(null)}
       />
-      <PushCommitsModal workspaceId={workspaceId} open={pushOpen} onClose={() => setPushOpen(false)} onConfirm={pushNow} />
+      <PushCommitsModal workspaceId={workspaceId} open={pushOpen} onClose={() => setPushOpen(false)} onConfirm={() => pushNow('dialog')} />
       <PushRejectedModal
         open={pushRejected}
         branch={currentRef ?? 'HEAD'}
         onCancel={() => setPushRejected(false)}
         onMerge={() => {
           setPushRejected(false);
-          void pull().then((landed) => (landed ? pushNow() : undefined));
+          void pull().then((landed) => (landed ? pushNow('surface') : undefined));
         }}
       />
       <RemotesModal workspaceId={workspaceId} open={remotesOpen} onClose={() => setRemotesOpen(false)} />

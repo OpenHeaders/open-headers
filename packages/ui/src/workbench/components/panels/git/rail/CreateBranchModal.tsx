@@ -15,6 +15,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { InputRef } from 'antd';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { isFullCommitSha } from '../log-neighbors';
+import { nameGitWork } from '../use-git-work';
 
 export interface CreateBranchModalProps {
   workspaceId: string;
@@ -67,13 +68,15 @@ const CreateBranchModal: React.FC<CreateBranchModalProps> = ({
     setBusy(true);
     setError(null);
     try {
-      const result = await hostBridge.call('oh.workspaceTree.createBranch', {
-        workspaceId,
-        branch,
-        ...(fromRef !== undefined ? { from: fromRef } : {}),
-        checkout,
-        overwrite,
-      });
+      const result = await nameGitWork(t('workbench.gitLog.working.createBranch', { branch }), () =>
+        hostBridge.call('oh.workspaceTree.createBranch', {
+          workspaceId,
+          branch,
+          ...(fromRef !== undefined ? { from: fromRef } : {}),
+          checkout,
+          overwrite,
+        }),
+      );
       if (result.ok) {
         onCreated(result.branch, fromLabel, result.checkedOut);
         onClose();
