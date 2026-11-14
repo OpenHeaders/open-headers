@@ -642,6 +642,7 @@ export const workbenchChrome = {
   'workbench.gitRemotes.edit': '编辑远程仓库',
   'workbench.gitRemotes.remove': '移除远程仓库',
   'workbench.gitRemotes.define.title': '定义远程仓库',
+  'workbench.gitRemotes.define.fetch': '抓取远程仓库',
   'workbench.gitRemotes.define.nameEmpty': '请输入远程仓库名称。',
   'workbench.gitRemotes.define.nameInvalid': '远程仓库名称只能使用字母、数字、点、短横线和下划线。',
   'workbench.gitRemotes.define.urlEmpty': '请输入 URL。',

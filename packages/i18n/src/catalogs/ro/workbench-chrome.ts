@@ -686,6 +686,7 @@ export const workbenchChrome = {
   'workbench.gitRemotes.edit': 'Editare depozit la distanță',
   'workbench.gitRemotes.remove': 'Eliminare depozit la distanță',
   'workbench.gitRemotes.define.title': 'Definire depozit la distanță',
+  'workbench.gitRemotes.define.fetch': 'Preia depozitul la distanță',
   'workbench.gitRemotes.define.nameEmpty': 'Introduceți un nume pentru depozitul la distanță.',
   'workbench.gitRemotes.define.nameInvalid':
     'Un nume de depozit la distanță folosește litere, cifre, puncte, cratime și liniuțe de subliniere.',

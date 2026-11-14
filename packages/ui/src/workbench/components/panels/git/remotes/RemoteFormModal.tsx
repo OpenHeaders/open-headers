@@ -1,12 +1,14 @@
 /**
  * RemoteFormModal — the Define Remote form the Git Remotes dialog
- * opens for Add and Edit: a name and a url, OK held while the draft
- * is not sendable (the pure model says what is missing), the host's
- * typed refusal rendered inline under the fields. The caller owns the
- * verb; this form owns only the draft.
+ * opens for Add and Edit (the reference's): a name, a url and "Fetch
+ * remote" — checked on every opening; with it the caller fetches once
+ * the change is in. OK is held while the draft is not sendable (the
+ * pure model says what is missing), the host's typed refusal rendered
+ * inline under the fields. The caller owns the verb; this form owns
+ * only the draft.
  */
 
-import { Input, type InputRef, Modal, theme } from 'antd';
+import { Checkbox, Input, type InputRef, Modal, theme } from 'antd';
 import type React from 'react';
 import { useEffect, useRef, useState } from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
@@ -18,7 +20,8 @@ export interface RemoteFormModalProps {
   busy: boolean;
   /** The host's refusal for the last submit, already worded. */
   error: string | null;
-  onSubmit: (draft: RemoteDraft) => void;
+  /** The draft, and whether to fetch the remotes once the change is in. */
+  onSubmit: (draft: RemoteDraft, fetch: boolean) => void;
   onClose: () => void;
 }
 
@@ -34,12 +37,14 @@ const RemoteFormModal: React.FC<RemoteFormModalProps> = ({ initial, busy, error,
   const { token } = theme.useToken();
   const [name, setName] = useState('');
   const [url, setUrl] = useState('');
+  const [fetch, setFetch] = useState(true);
   const nameRef = useRef<InputRef>(null);
 
   useEffect(() => {
     if (initial === null) return;
     setName(initial.name);
     setUrl(initial.url);
+    setFetch(true);
     const timer = setTimeout(() => nameRef.current?.focus(), 50);
     return () => clearTimeout(timer);
   }, [initial]);
@@ -49,7 +54,7 @@ const RemoteFormModal: React.FC<RemoteFormModalProps> = ({ initial, busy, error,
   const issueText = issue === 'name-invalid' || issue === 'url-invalid' ? t(`workbench.gitRemotes.define.${ISSUE_KEY[issue]}`) : null;
   const submit = (): void => {
     if (busy || issue !== null) return;
-    onSubmit({ name: name.trim(), url: url.trim() });
+    onSubmit({ name: name.trim(), url: url.trim() }, fetch);
   };
 
   return (
@@ -85,6 +90,9 @@ const RemoteFormModal: React.FC<RemoteFormModalProps> = ({ initial, busy, error,
             data-testid="git-remote-form-url"
           />
         </div>
+        <Checkbox checked={fetch} onChange={(event) => setFetch(event.target.checked)} data-testid="git-remote-form-fetch">
+          {t('workbench.gitRemotes.define.fetch')}
+        </Checkbox>
         {(error ?? issueText) !== null && (
           <div style={{ fontSize: 12, color: token.colorError }} data-testid="git-remote-form-error">
             {error ?? issueText}

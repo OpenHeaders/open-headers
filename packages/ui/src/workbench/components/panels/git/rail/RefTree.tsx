@@ -13,7 +13,12 @@
  * beside its name, its ancestor folders open by default; a favorite
  * ref carries the gold ★. In a level the checked-out branch leads, then
  * the favorites, then the folders and the rest. Searching prunes to
- * matches and renders them fully expanded.
+ * matches and renders them fully expanded. A remote's own folder wears
+ * the open folder — it is a container of its own kind, as a collection
+ * is in the panels' trees; a grouping of branch names keeps the plain
+ * one. A row whose menu is open and that is no selection of the tree's —
+ * a group's header, a remote — wears the grey of a menu's target for as
+ * long, and the selection steps back: one row says what the menu is of.
  *
  * Selection is the TREE selection (the activity bar's target), owned
  * by the rail orchestrator — what a click DOES (scope the log /
@@ -22,7 +27,14 @@
  * handle (the bar sits outside this scroll area).
  */
 
-import { CaretDownOutlined, CaretRightOutlined, FolderOutlined, SearchOutlined, StarFilled } from '@ant-design/icons';
+import {
+  CaretDownOutlined,
+  CaretRightOutlined,
+  FolderOpenOutlined,
+  FolderOutlined,
+  SearchOutlined,
+  StarFilled,
+} from '@ant-design/icons';
 import type { WorkspaceTreeRefWire } from '@openheaders/core/bridge';
 import { Dropdown, Input, type MenuProps, theme } from 'antd';
 import type React from 'react';
@@ -77,6 +89,8 @@ export interface RefTreeProps {
   rowMenu: (node: RefTreeSelection) => MenuProps;
   /** A group header's own menu (the Remote group's Manage Remotes…); null leaves the header plain. */
   groupMenu?: (kind: WorkspaceTreeRefWire['kind']) => MenuProps | null;
+  /** A remote's own menu, on its folder row under Remote (Edit Remote, Remove Remote). */
+  remoteMenu?: (remote: string) => MenuProps;
 }
 
 export interface RefTreeHandle {
@@ -112,6 +126,7 @@ const RefTree = forwardRef<RefTreeHandle, RefTreeProps>(function RefTree(
     onLeafContextMenu,
     rowMenu,
     groupMenu,
+    remoteMenu,
   },
   handleRef,
 ) {
@@ -120,6 +135,8 @@ const RefTree = forwardRef<RefTreeHandle, RefTreeProps>(function RefTree(
   const [search, setSearch] = useState('');
   const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(new Set());
   const [autoExpanded, setAutoExpanded] = useState<ReadonlySet<string>>(new Set());
+  // The header or the remote whose menu is open — the menu's target, by its key.
+  const [menuTarget, setMenuTarget] = useState<string | null>(null);
 
   // The current branch's ancestor folders start open (the reference default);
   // everything else starts collapsed. Collapsed-state is tracked as an
@@ -193,6 +210,20 @@ const RefTree = forwardRef<RefTreeHandle, RefTreeProps>(function RefTree(
       return next;
     });
   };
+
+  /** A menu on a row the tree does not select: the row is the menu's target while it is open. */
+  const withTargetMenu = (key: string, menu: MenuProps, row: React.ReactElement): React.ReactNode => (
+    <Dropdown
+      menu={menu}
+      trigger={['contextMenu']}
+      align={contextMenuAlign}
+      classNames={{ root: 'commit-tool-row-menu' }}
+      onOpenChange={(open) => setMenuTarget((prev) => (open ? key : prev === key ? null : prev))}
+    >
+      {row}
+    </Dropdown>
+  );
+  const targetClass = (key: string): string => (menuTarget === key ? 'git-tool-row menu-target' : 'git-tool-row');
 
   /** The row menu wrapper — antd composes the trigger with the row's own onContextMenu. */
   const withRowMenu = (node: RefTreeSelection, row: React.ReactElement): React.ReactNode => (
@@ -291,32 +322,37 @@ const RefTree = forwardRef<RefTreeHandle, RefTreeProps>(function RefTree(
       </span>
     );
 
-  const renderNodes = (nodes: readonly RefTreeNode[], depth: number): React.ReactNode =>
+  const renderNodes = (nodes: readonly RefTreeNode[], depth: number, remotes = false): React.ReactNode =>
     nodes.map((node) => {
       if (node.kind === 'folder') {
         const open = isOpen(node.key);
+        // The Remote group's own folders are the remotes — each a container with edits of its own.
+        const Glyph = remotes ? FolderOpenOutlined : FolderOutlined;
+        const folder = (
+          <button
+            type="button"
+            className={targetClass(node.key)}
+            style={rowStyle(depth)}
+            onClick={() => toggle(node.key)}
+            data-testid="git-tool-ref-folder"
+            data-key={node.key}
+            data-remote={remotes ? node.label : undefined}
+          >
+            {caretSlot(open)}
+            <Glyph style={{ flex: '0 0 auto', fontSize: GIT_ROW_GLYPH_SIZE, color: token.colorTextTertiary }} />
+            <span style={labelStyle}>{node.label}</span>
+          </button>
+        );
         return (
           <div key={node.key}>
-            <button
-              type="button"
-              className="git-tool-row"
-              style={rowStyle(depth)}
-              onClick={() => toggle(node.key)}
-              data-testid="git-tool-ref-folder"
-              data-key={node.key}
-            >
-              {caretSlot(open)}
-              <FolderOutlined
-                style={{ flex: '0 0 auto', fontSize: GIT_ROW_GLYPH_SIZE, color: token.colorTextTertiary }}
-              />
-              <span style={labelStyle}>{node.label}</span>
-            </button>
+            {remotes && remoteMenu !== undefined ? withTargetMenu(node.key, remoteMenu(node.label), folder) : folder}
             {open && renderNodes(node.children, depth + 1)}
           </div>
         );
       }
       const isCurrent = node.refKind === 'local' && node.name === currentRef;
-      const isActive = selected !== null && node.name === selected.name && node.refKind === selected.kind;
+      const isActive =
+        menuTarget === null && selected !== null && node.name === selected.name && node.refKind === selected.kind;
       const isFavorite = favorites.has(gitRailFavoriteKey(node.refKind, node.name));
       const leaf: RefTreeSelection = { name: node.name, kind: node.refKind };
       return withRowMenu(
@@ -379,7 +415,7 @@ const RefTree = forwardRef<RefTreeHandle, RefTreeProps>(function RefTree(
         {!searching && (
           <button
             type="button"
-            className={selected === null ? 'git-tool-row selected' : 'git-tool-row'}
+            className={selected === null && menuTarget === null ? 'git-tool-row selected' : 'git-tool-row'}
             style={rowStyle(0)}
             onClick={onHeadClick}
             data-testid="git-tool-ref-head"
@@ -410,7 +446,7 @@ const RefTree = forwardRef<RefTreeHandle, RefTreeProps>(function RefTree(
             const header = (
               <button
                 type="button"
-                className="git-tool-row"
+                className={targetClass(groupKey)}
                 onClick={() => {
                   setCollapsed((prev) => {
                     const next = new Set(prev);
@@ -428,18 +464,7 @@ const RefTree = forwardRef<RefTreeHandle, RefTreeProps>(function RefTree(
             );
             return (
               <div key={group.kind} data-testid="git-tool-ref-group" data-kind={group.kind}>
-                {headerMenu === null ? (
-                  header
-                ) : (
-                  <Dropdown
-                    menu={headerMenu}
-                    trigger={['contextMenu']}
-                    align={contextMenuAlign}
-                    classNames={{ root: 'commit-tool-row-menu' }}
-                  >
-                    {header}
-                  </Dropdown>
-                )}
+                {headerMenu === null ? header : withTargetMenu(groupKey, headerMenu, header)}
                 {open &&
                   showUnborn &&
                   unbornBranch !== null &&
@@ -465,7 +490,7 @@ const RefTree = forwardRef<RefTreeHandle, RefTreeProps>(function RefTree(
                       <span style={labelStyle}>{unbornBranch}</span>
                     </button>,
                   )}
-                {open && renderNodes(group.tree, 1)}
+                {open && renderNodes(group.tree, 1, group.kind === 'remote' && groupByDirectory)}
               </div>
             );
           })

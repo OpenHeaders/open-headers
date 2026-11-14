@@ -656,6 +656,7 @@ export const workbenchChrome = {
   'workbench.gitRemotes.edit': '원격 편집',
   'workbench.gitRemotes.remove': '원격 제거',
   'workbench.gitRemotes.define.title': '원격 정의',
+  'workbench.gitRemotes.define.fetch': '원격 가져오기',
   'workbench.gitRemotes.define.nameEmpty': '원격 이름을 입력하세요.',
   'workbench.gitRemotes.define.nameInvalid': '원격 이름에는 영문자, 숫자, 점, 대시, 밑줄만 사용할 수 있습니다.',
   'workbench.gitRemotes.define.urlEmpty': 'URL 주소를 입력하세요.',

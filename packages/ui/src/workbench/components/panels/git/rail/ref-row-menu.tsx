@@ -80,6 +80,23 @@ export function buildRemoteGroupMenu(t: Translate, onManageRemotes: () => void):
   return { items, selectable: false };
 }
 
+/** A remote's own menu (its folder row under Remote) — its two edits. */
+export function buildRemoteMenu(t: Translate, onEdit: () => void, onRemove: () => void): MenuProps {
+  const items: MenuItems = [
+    {
+      key: 'edit-remote',
+      label: menuLabel(null, t('workbench.gitRemotes.edit'), undefined, 'git-tool-ref-menu-edit-remote'),
+      onClick: onEdit,
+    },
+    {
+      key: 'remove-remote',
+      label: menuLabel(null, t('workbench.gitRemotes.remove'), undefined, 'git-tool-ref-menu-remove-remote'),
+      onClick: onRemove,
+    },
+  ];
+  return { items, selectable: false };
+}
+
 interface VerbItem {
   key: string;
   label: React.ReactNode;

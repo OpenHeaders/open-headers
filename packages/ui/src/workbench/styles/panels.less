@@ -167,6 +167,14 @@
   }
 }
 
+// The row a context menu is of, where the tree does not select it (the
+// branches rail's group headers and remotes): the grey of a selection
+// that has lost focus, for as long as the menu is open.
+.git-tool-row.menu-target,
+.git-tool-refs:focus-within .git-tool-row.menu-target {
+  background: var(--ant-color-fill-secondary, rgba(128, 128, 128, 0.12));
+}
+
 // The Git Remotes dialog's list is a list in a dialog as well: the
 // selected remote wears the selection blue outright, and a row under
 // the pointer the rows' own grey.

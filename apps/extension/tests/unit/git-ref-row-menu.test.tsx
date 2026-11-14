@@ -14,6 +14,7 @@ import RefTree from '@openheaders/ui/workbench/components/panels/git/rail/RefTre
 import {
   buildRefRowMenu,
   buildRemoteGroupMenu,
+  buildRemoteMenu,
   type RefRowMenuHandlers,
 } from '@openheaders/ui/workbench/components/panels/git/rail/ref-row-menu';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
@@ -264,6 +265,95 @@ describe('Remote group header menu (S41)', () => {
       '[data-testid="git-tool-ref-group"][data-kind="local"] [data-testid="git-tool-ref-group-header"]',
     );
     expect(localHeader?.closest('.ant-dropdown-trigger')).toBeNull();
+  });
+});
+
+describe('A remote’s own row (the rail’s remotes)', () => {
+  const mountRail = (onEdit: (remote: string) => void, onRemove: (remote: string) => void): void => {
+    const h = handlers();
+    render(
+      <AntApp>
+        <RefTree
+          refs={[
+            ...refs,
+            { name: 'feature/login', kind: 'local', sha: 'd'.repeat(40) },
+            { name: 'origin/main', kind: 'remote', sha: 'c'.repeat(40) },
+          ]}
+          currentRef="main"
+          unbornBranch={null}
+          detachedSha={null}
+          selected={{ name: 'main', kind: 'local' }}
+          favorites={new Set()}
+          groupByDirectory
+          showTags
+          onLeafClick={() => undefined}
+          onHeadClick={() => undefined}
+          onLeafContextMenu={() => undefined}
+          rowMenu={(node) => buildRefRowMenu(node, { current: 'main', historyRewritten: false }, t, h)}
+          groupMenu={(kind) => (kind === 'remote' ? buildRemoteGroupMenu(t, () => undefined) : null)}
+          remoteMenu={(remote) =>
+            buildRemoteMenu(
+              t,
+              () => onEdit(remote),
+              () => onRemove(remote),
+            )
+          }
+        />
+      </AntApp>,
+    );
+  };
+  const remoteRow = (): Element =>
+    document.querySelector('[data-testid="git-tool-ref-folder"][data-remote="origin"]') as Element;
+  const branchRow = (name: string): Element =>
+    [...document.querySelectorAll('[data-testid="git-tool-ref-row"]')].find(
+      (row) => row.getAttribute('data-ref') === name,
+    ) as Element;
+
+  it('buildRemoteMenu carries the remote’s two edits', () => {
+    const onEdit = vi.fn();
+    const onRemove = vi.fn();
+    const menu = buildRemoteMenu(t, onEdit, onRemove);
+    expect(keysOf(menu)).toEqual(['edit-remote', 'remove-remote']);
+    expect(disabledKeys(menu)).toEqual([]);
+    for (const item of menu.items ?? []) (item as { onClick?: () => void }).onClick?.();
+    expect([onEdit.mock.calls.length, onRemove.mock.calls.length]).toEqual([1, 1]);
+  });
+
+  it('a remote wears the open folder, a grouping of branch names the plain one', () => {
+    mountRail(vi.fn(), vi.fn());
+    expect(remoteRow().querySelector('.anticon-folder-open')).not.toBeNull();
+    const grouping = document.querySelector('[data-testid="git-tool-ref-folder"][data-key="local:feature"]') as Element;
+    expect(grouping.getAttribute('data-remote')).toBeNull();
+    expect(grouping.querySelector('.anticon-folder')).not.toBeNull();
+    expect(grouping.querySelector('.anticon-folder-open')).toBeNull();
+  });
+
+  it('right-click on a remote opens its edits; the row is the menu’s target and the selection steps back', async () => {
+    const onEdit = vi.fn();
+    const onRemove = vi.fn();
+    mountRail(onEdit, onRemove);
+    expect(branchRow('main').classList.contains('selected')).toBe(true);
+    fireEvent.contextMenu(remoteRow());
+    const edit = await screen.findByTestId('git-tool-ref-menu-edit-remote');
+    expect(remoteRow().classList.contains('menu-target')).toBe(true);
+    expect(branchRow('main').classList.contains('selected')).toBe(false);
+    fireEvent.click(edit);
+    expect(onEdit).toHaveBeenCalledWith('origin');
+    fireEvent.contextMenu(remoteRow());
+    fireEvent.click(await screen.findByTestId('git-tool-ref-menu-remove-remote'));
+    expect(onRemove).toHaveBeenCalledWith('origin');
+  });
+
+  it('a group header whose menu is open is the menu’s target too', async () => {
+    mountRail(vi.fn(), vi.fn());
+    const header = document.querySelector(
+      '[data-testid="git-tool-ref-group"][data-kind="remote"] [data-testid="git-tool-ref-group-header"]',
+    ) as Element;
+    expect(header.classList.contains('menu-target')).toBe(false);
+    fireEvent.contextMenu(header);
+    await screen.findByTestId('git-tool-ref-menu-manage-remotes');
+    expect(header.classList.contains('menu-target')).toBe(true);
+    expect(branchRow('main').classList.contains('selected')).toBe(false);
   });
 });
 

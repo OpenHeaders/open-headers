@@ -150,6 +150,33 @@ describe('RemotesModal (mounted)', () => {
     await waitFor(() => expect(callsOf('oh.workspaceTree.listRemotes')).toHaveLength(2));
   });
 
+  it('Fetch remote is checked on every opening — the remotes are fetched once the change is in; unchecked, they are not', async () => {
+    mount();
+    await screen.findByTestId('git-remotes-row');
+    // The list is read again once a change is through, the fetch included — the sign a define is over.
+    const define = async (name: string, fetch: boolean): Promise<void> => {
+      const reads = callsOf('oh.workspaceTree.listRemotes').length;
+      fireEvent.click(screen.getByTestId('git-remotes-add'));
+      const ok = (await screen.findByTestId('git-remote-form-ok')) as HTMLButtonElement;
+      const box = screen.getByTestId('git-remote-form-fetch') as HTMLInputElement;
+      expect(box.checked).toBe(true);
+      if (!fetch) fireEvent.click(box);
+      fireEvent.change(screen.getByTestId('git-remote-form-name'), { target: { value: name } });
+      fireEvent.change(screen.getByTestId('git-remote-form-url'), {
+        target: { value: 'https://openheaders.io/up.git' },
+      });
+      await waitFor(() => expect(ok.disabled).toBe(false));
+      fireEvent.click(ok);
+      await waitFor(() => expect(callsOf('oh.workspaceTree.listRemotes')).toHaveLength(reads + 1));
+    };
+    await define('upstream', true);
+    expect(callsOf('oh.workspaceTree.addRemote')).toHaveLength(1);
+    expect(callsOf('oh.workspaceTree.fetch')).toHaveLength(1);
+    await define('mirror', false);
+    expect(callsOf('oh.workspaceTree.addRemote')).toHaveLength(2);
+    expect(callsOf('oh.workspaceTree.fetch')).toHaveLength(1);
+  });
+
   it('a typed refusal reads inline under the form', async () => {
     mockCall.mockImplementation(async (type: string) => {
       if (type === 'oh.workspaceTree.listRemotes') return { ok: true, remotes: [ORIGIN] };

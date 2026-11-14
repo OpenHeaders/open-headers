@@ -657,6 +657,7 @@ export const workbenchChrome = {
   'workbench.gitRemotes.edit': 'リモートを編集',
   'workbench.gitRemotes.remove': 'リモートを削除',
   'workbench.gitRemotes.define.title': 'リモートの定義',
+  'workbench.gitRemotes.define.fetch': 'リモートをフェッチ',
   'workbench.gitRemotes.define.nameEmpty': 'リモート名を入力してください。',
   'workbench.gitRemotes.define.nameInvalid': 'リモート名に使えるのは英字、数字、ドット、ハイフン、アンダースコアです。',
   'workbench.gitRemotes.define.urlEmpty': 'URL を入力してください。',

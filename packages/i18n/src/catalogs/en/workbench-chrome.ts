@@ -648,6 +648,7 @@ export const workbenchChrome = {
   'workbench.gitRemotes.edit': 'Edit Remote',
   'workbench.gitRemotes.remove': 'Remove Remote',
   'workbench.gitRemotes.define.title': 'Define Remote',
+  'workbench.gitRemotes.define.fetch': 'Fetch remote',
   'workbench.gitRemotes.define.nameEmpty': 'Enter a remote name.',
   'workbench.gitRemotes.define.nameInvalid': 'A remote name uses letters, digits, dots, dashes and underscores.',
   'workbench.gitRemotes.define.urlEmpty': 'Enter a URL.',

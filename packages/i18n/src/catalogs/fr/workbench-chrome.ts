@@ -828,6 +828,7 @@ export const workbenchChrome = {
   'workbench.gitRemotes.edit': 'Modifier le dépôt distant',
   'workbench.gitRemotes.remove': 'Supprimer le dépôt distant',
   'workbench.gitRemotes.define.title': 'Définir un dépôt distant',
+  'workbench.gitRemotes.define.fetch': 'Récupérer le dépôt distant',
   'workbench.gitRemotes.define.nameEmpty': 'Saisissez un nom de dépôt distant.',
   'workbench.gitRemotes.define.nameInvalid':
     'Un nom de dépôt distant utilise des lettres, des chiffres, des points, des tirets et des traits de soulignement.',

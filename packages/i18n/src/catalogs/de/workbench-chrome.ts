@@ -825,6 +825,7 @@ export const workbenchChrome = {
   'workbench.gitRemotes.edit': 'Remote bearbeiten',
   'workbench.gitRemotes.remove': 'Remote entfernen',
   'workbench.gitRemotes.define.title': 'Remote definieren',
+  'workbench.gitRemotes.define.fetch': 'Remote abrufen',
   'workbench.gitRemotes.define.nameEmpty': 'Geben Sie einen Remote-Namen ein.',
   'workbench.gitRemotes.define.nameInvalid':
     'Ein Remote-Name besteht aus Buchstaben, Ziffern, Punkten, Bindestrichen und Unterstrichen.',

@@ -9,8 +9,9 @@
  * ref — never raw `git merge`), Update (fast-forward a NON-current
  * branch from its upstream), Update Project (pull the current branch),
  * Push (the Push window over the current branch), Fetch, Delete
- * with the Restore toast, New Tag at a commit (the dialog), and Manage
- * Remotes (the Git Remotes dialog).
+ * with the Restore toast, New Tag at a commit (the dialog), Manage
+ * Remotes (the Git Remotes dialog), and a remote's own Edit and Remove
+ * (the Define Remote form and the confirm — `use-remote-ops`).
  * A Pull or a Merge asks before it writes — about uncommitted work in a
  * file it is about to write, and about a value both sides changed —
  * through the shared answers (`use-pass-answers`).
@@ -39,6 +40,7 @@ import PushRejectedModal from '../push/PushRejectedModal';
 import CreateBranchModal from '../rail/CreateBranchModal';
 import CreateTagModal from '../rail/CreateTagModal';
 import RemotesModal from '../remotes/RemotesModal';
+import { useRemoteOps } from '../remotes/use-remote-ops';
 import SwitchBranchModal, { type SwitchBranchPrompt, type SwitchDirtyChoice } from '../rail/SwitchBranchModal';
 import { type GitWorkSign, useGitWork } from '../use-git-work';
 import { passAnswersSign, usePassAnswers } from '../use-pass-answers';
@@ -87,6 +89,10 @@ export interface GitBranchActions {
   push: () => void;
   /** The Git Remotes dialog. */
   manageRemotes: () => void;
+  /** The Define Remote form on the remote of that name. */
+  editRemote: (name: string) => void;
+  /** Remove the remote of that name, asked first. */
+  removeRemote: (name: string) => void;
   busy: GitBranchBusy;
   /** The New Branch, New Tag, dirty-switch, Push, Remotes, uncommitted-work and conflict dialogs — mount once in the caller's tree. */
   dialogs: React.ReactNode;
@@ -117,6 +123,7 @@ export function useGitBranchActions(options: GitBranchActionsOptions): GitBranch
   const [remotesOpen, setRemotesOpen] = useState(false);
   const [tagAt, setTagAt] = useState<string | null>(null);
   const answers = usePassAnswers();
+  const remoteOps = useRemoteOps(workspaceId);
   // A verb at the host, named and counted (`use-git-work`): a pass's own
   // questions sit between its calls, and the surface shows work only
   // while one is out. A call a dialog's own button sent — the dirty
@@ -522,6 +529,7 @@ export function useGitBranchActions(options: GitBranchActionsOptions): GitBranch
         }}
       />
       <RemotesModal workspaceId={workspaceId} open={remotesOpen} onClose={() => setRemotesOpen(false)} />
+      {remoteOps.dialogs}
       {answers.dialogs}
     </>
   );
@@ -540,6 +548,8 @@ export function useGitBranchActions(options: GitBranchActionsOptions): GitBranch
     pull: () => void pull(),
     push: () => setPushOpen(true),
     manageRemotes: () => setRemotesOpen(true),
+    editRemote: remoteOps.editNamed,
+    removeRemote: remoteOps.remove,
     busy: {
       switching,
       merge: mergeBusy,

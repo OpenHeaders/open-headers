@@ -677,6 +677,7 @@ export const workbenchChrome = {
   'workbench.gitRemotes.edit': 'Изменить удалённый репозиторий',
   'workbench.gitRemotes.remove': 'Удалить удалённый репозиторий',
   'workbench.gitRemotes.define.title': 'Определить удалённый репозиторий',
+  'workbench.gitRemotes.define.fetch': 'Получить удалённый репозиторий',
   'workbench.gitRemotes.define.nameEmpty': 'Введите имя удалённого репозитория.',
   'workbench.gitRemotes.define.nameInvalid':
     'Имя удалённого репозитория состоит из букв, цифр, точек, дефисов и подчёркиваний.',
