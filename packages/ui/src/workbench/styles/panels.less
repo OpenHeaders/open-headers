@@ -167,6 +167,13 @@
   }
 }
 
+// The Git Remotes dialog's list is a list in a dialog as well: the
+// selected remote wears the selection blue outright, and a row under
+// the pointer the rows' own grey.
+.git-remotes-list .git-tool-row.selected {
+  background: var(--oh-row-selected-focused-bg);
+}
+
 // A changed-files tree listed by what the files belong to draws the
 // sidebar trees' own rows. The workspace's variables are the panel's
 // header-styled opener inside a row of the tree: it keeps the section

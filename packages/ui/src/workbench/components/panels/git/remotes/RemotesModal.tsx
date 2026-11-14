@@ -184,7 +184,7 @@ const RemotesModal: React.FC<RemotesModalProps> = ({ workspaceId, open, onClose 
             )}
           </div>
           <div
-            className="rules-thin-scrollbar"
+            className="rules-thin-scrollbar git-remotes-list"
             style={{
               border: `1px solid ${token.colorBorderSecondary}`,
               borderRadius: token.borderRadiusSM,
@@ -230,7 +230,7 @@ const RemotesModal: React.FC<RemotesModalProps> = ({ workspaceId, open, onClose 
                   width: '100%',
                   padding: '3px 10px',
                   border: 'none',
-                  background: 'transparent',
+                  // No background here: the row's fill at rest, under the pointer and selected is the stylesheet's.
                   textAlign: 'left',
                   cursor: 'default',
                   fontSize: 13,

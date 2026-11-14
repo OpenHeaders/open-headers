@@ -119,6 +119,17 @@ describe('RemotesModal (mounted)', () => {
     expect((screen.getByTestId('git-remotes-remove') as HTMLButtonElement).disabled).toBe(true);
   });
 
+  it('a row leaves its fill to the stylesheet — the hover and the selection paint it — and a click selects it', async () => {
+    mount();
+    const row = await screen.findByTestId('git-remotes-row');
+    // An inline background would paint over the rows' hover and selected rules.
+    expect(row.style.background).toBe('');
+    expect(row.closest('.git-remotes-list')).not.toBeNull();
+    expect(row.classList.contains('selected')).toBe(false);
+    fireEvent.click(row);
+    expect(row.classList.contains('selected')).toBe(true);
+  });
+
   it('Add opens the form, holds OK until the draft is sendable, then sends addRemote and re-reads', async () => {
     mount();
     await screen.findByTestId('git-remotes-row');
