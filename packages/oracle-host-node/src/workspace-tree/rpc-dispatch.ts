@@ -439,6 +439,12 @@ export async function dispatchWorkspaceTreeRpc(
     if (!workspaceId || runtime === null) return { ok: false, reason: 'not-bound' };
     return await runtime.listRemotes(workspaceId);
   }
+  if (type === 'oh.workspaceTree.checkRemoteUrl') {
+    const workspaceId = typeof message.workspaceId === 'string' ? message.workspaceId : '';
+    const url = typeof message.url === 'string' ? message.url : '';
+    if (!workspaceId || runtime === null) return { ok: false, reason: 'not-bound' };
+    return await runtime.checkRemoteUrl(workspaceId, url);
+  }
   if (type === 'oh.workspaceTree.addRemote') {
     const workspaceId = typeof message.workspaceId === 'string' ? message.workspaceId : '';
     const name = typeof message.name === 'string' ? message.name : '';

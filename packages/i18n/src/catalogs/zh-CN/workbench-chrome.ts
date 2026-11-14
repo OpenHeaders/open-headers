@@ -766,6 +766,7 @@ export const workbenchChrome = {
   'workbench.gitLog.working.addRemote': '正在添加远程仓库 {name}…',
   'workbench.gitLog.working.updateRemote': '正在更新远程仓库 {name}…',
   'workbench.gitLog.working.removeRemote': '正在移除远程仓库 {name}…',
+  'workbench.gitLog.working.checkRemote': '正在检查 URL…',
   'workbench.gitLog.working.resolveForcePush': '正在处理改写后的历史…',
   'workbench.gitLog.applyCommit.pickFailed': '无法拣选 {commit}：{detail}',
   'workbench.gitLog.applyCommit.revertFailed': '无法还原 {commit}：{detail}',

@@ -959,6 +959,7 @@ export const workbenchChrome = {
   'workbench.gitLog.working.addRemote': 'Añadiendo el remoto {name}…',
   'workbench.gitLog.working.updateRemote': 'Actualizando el remoto {name}…',
   'workbench.gitLog.working.removeRemote': 'Eliminando el remoto {name}…',
+  'workbench.gitLog.working.checkRemote': 'Comprobando la URL…',
   'workbench.gitLog.working.resolveForcePush': 'Resolviendo el historial reescrito…',
   'workbench.gitLog.applyCommit.pickFailed': 'No se pudo hacer cherry-pick de {commit}: {detail}',
   'workbench.gitLog.applyCommit.revertFailed': 'No se pudo revertir {commit}: {detail}',

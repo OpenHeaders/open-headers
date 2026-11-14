@@ -399,6 +399,15 @@ export interface WorkspaceTreeRemotePatch {
   url?: string;
 }
 
+/** A url's check: a repository answers there, or the refusal — `unreachable` carries git's own words. */
+export type WorkspaceTreeRemoteCheckRpcResult =
+  | { ok: true }
+  | {
+      ok: false;
+      reason: 'not-bound' | 'git-unavailable' | 'not-a-repo' | 'invalid-url' | 'unreachable';
+      detail?: string;
+    };
+
 /** One remote add / update / remove: it landed, or a typed refusal. */
 export type WorkspaceTreeRemoteOpRpcResult =
   | { ok: true }
@@ -846,6 +855,8 @@ export interface WorkspaceTreeRuntime {
   listRefs(workspaceId: string): Promise<WorkspaceTreeRefsRpcResult>;
   /** The Git Remotes dialog's list — a pure read. */
   listRemotes(workspaceId: string): Promise<WorkspaceTreeRemotesRpcResult>;
+  /** Whether a repository answers at a url (`git ls-remote`) — a read, off the chain: the network never holds a write. */
+  checkRemoteUrl(workspaceId: string, url: string): Promise<WorkspaceTreeRemoteCheckRpcResult>;
   /** Add a remote (`git remote add`). On the per-binding chain; a status frame follows. */
   addRemote(workspaceId: string, name: string, url: string): Promise<WorkspaceTreeRemoteOpRpcResult>;
   /** Rename a remote and/or set its fetch url. On the per-binding chain; a status frame follows. */

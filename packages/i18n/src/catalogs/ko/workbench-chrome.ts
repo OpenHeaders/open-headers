@@ -785,6 +785,7 @@ export const workbenchChrome = {
   'workbench.gitLog.working.addRemote': '원격 {name} 추가하는 중…',
   'workbench.gitLog.working.updateRemote': '원격 {name} 업데이트 중…',
   'workbench.gitLog.working.removeRemote': '원격 {name} 제거하는 중…',
+  'workbench.gitLog.working.checkRemote': 'URL 확인하는 중…',
   'workbench.gitLog.working.resolveForcePush': '다시 쓰인 기록을 해결하는 중…',
   'workbench.gitLog.applyCommit.pickFailed': '{commit} 체리픽 실패: {detail}',
   'workbench.gitLog.applyCommit.revertFailed': '{commit} 되돌리기 실패: {detail}',

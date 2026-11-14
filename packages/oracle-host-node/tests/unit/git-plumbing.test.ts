@@ -25,6 +25,7 @@ import { addIgnoreEntry, checkIgnoreProvenance, removeIgnoreEntry } from '../../
 import { readCommitPatch } from '../../src/git/patch-ops';
 import {
   addRemote,
+  checkRemoteUrl,
   isSafeRemoteName,
   isSafeRemoteUrl,
   listRemotes,
@@ -2883,5 +2884,26 @@ describe('Remote ops (S41): the Git Remotes dialog', () => {
     expect(await removeRemote(run, tmpDir, 'mirror')).toEqual({ ok: true });
     expect(await removeRemote(run, tmpDir, 'mirror')).toEqual({ ok: false, reason: 'unknown-remote' });
     expect((await listRemotes(run, tmpDir))?.map((remote) => remote.name)).toEqual(['upstream']);
+  });
+
+  it('checks that a repository answers at a url, in git’s own words when none does, and writes nothing', async () => {
+    await initialCommit();
+    const bare = path.join(tmpDir, 'answering.git');
+    await run(['init', '--bare', bare], { cwd: tmpDir });
+
+    expect(await checkRemoteUrl(run, tmpDir, bare)).toEqual({ ok: true });
+    // A relative url is read against the work tree, as the remote's own would be.
+    expect(await checkRemoteUrl(run, tmpDir, 'answering.git')).toEqual({ ok: true });
+
+    const missing = await checkRemoteUrl(run, tmpDir, 'nothing-here.git');
+    expect(missing).toMatchObject({ ok: false, reason: 'unreachable' });
+    const words = missing.ok ? '' : (missing.detail ?? '');
+    expect(words.split('\n')[0]).toBe("'nothing-here.git' does not appear to be a git repository");
+    expect(words).not.toMatch(/fatal:|\n\n/);
+
+    expect(await checkRemoteUrl(run, tmpDir, '--upload-pack=touch')).toEqual({ ok: false, reason: 'invalid-url' });
+    expect(await checkRemoteUrl(run, tmpDir, '')).toEqual({ ok: false, reason: 'invalid-url' });
+
+    expect(await listRemotes(run, tmpDir)).toEqual([]);
   });
 });

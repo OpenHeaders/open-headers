@@ -2,7 +2,10 @@
  * useRemoteOps — the edits of the configured remotes, ONE implementation
  * for every surface that offers them (the Git Remotes dialog's bar, the
  * branches rail's menu on a remote): Add and Edit through the Define
- * Remote form, Remove behind its confirm. Each change is one host verb,
+ * Remote form, Remove behind its confirm. A url the form would write is
+ * CHECKED first — the host asks whether a repository answers there — and
+ * a url nothing answers at is said on its field in git's own words: the
+ * form stays and nothing is written. Each change is one host verb,
  * named in the processes slot while it is out (the form's and the
  * confirm's own button sign it); with "Fetch remote" checked the remotes
  * are fetched once the change is in, so the new or edited remote's
@@ -20,7 +23,7 @@ import { App as AntApp } from 'antd';
 import { type ReactNode, useState } from 'react';
 import { nameGitWork } from '../use-git-work';
 import RemoteFormModal from './RemoteFormModal';
-import { type RemoteDraft, type RemoteRow, remoteUpdatePatch } from './remote-form-model';
+import { type RemoteDraft, type RemoteFormError, type RemoteRow, remoteUpdatePatch } from './remote-form-model';
 
 export interface RemoteOps {
   /** The Define Remote form, empty. */
@@ -37,6 +40,18 @@ export interface RemoteOps {
 
 type FormState = { mode: 'add' } | { mode: 'edit'; row: RemoteRow };
 
+/** What Add opens on — ONE row: the form refills from the row it is handed whenever that row is another. */
+const BLANK_REMOTE: RemoteRow = { name: '', url: '' };
+
+type Refusal = Extract<WorkspaceTreeRemoteOpWire, { ok: false }>;
+
+/** The field of the form a refusal is about; one about neither is said under both. */
+const REFUSAL_FIELD: Partial<Record<Refusal['reason'], RemoteFormError['field']>> = {
+  exists: 'name',
+  'invalid-name': 'name',
+  'invalid-url': 'url',
+};
+
 const failure = (err: unknown): string => (err instanceof Error ? err.message : String(err));
 
 /** `onChanged` — a remote was added, edited or removed; the name it now has, or null once it is gone. */
@@ -45,9 +60,9 @@ export function useRemoteOps(workspaceId: string, onChanged?: (name: string | nu
   const { modal, notification } = AntApp.useApp();
   const [form, setForm] = useState<FormState | null>(null);
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<RemoteFormError | null>(null);
 
-  const refusal = (result: Extract<WorkspaceTreeRemoteOpWire, { ok: false }>, name: string): string => {
+  const refusal = (result: Refusal, name: string): string => {
     switch (result.reason) {
       case 'exists':
         return t('workbench.gitRemotes.exists', { name });
@@ -81,12 +96,32 @@ export function useRemoteOps(workspaceId: string, onChanged?: (name: string | nu
     }
   };
 
+  /** Whether a repository answers at the url — its error for the form when none does. */
+  const checkUrl = async (url: string): Promise<RemoteFormError | null> => {
+    const check = await nameGitWork(t('workbench.gitLog.working.checkRemote'), () =>
+      hostBridge.call('oh.workspaceTree.checkRemoteUrl', { workspaceId, url }),
+    );
+    if (check.ok) return null;
+    if (check.reason === 'invalid-url') return { field: 'url', text: t('workbench.gitRemotes.define.urlInvalid') };
+    // Git's own words say what is wrong with the url better than a sentence around them would.
+    if (check.reason === 'unreachable' && check.detail !== undefined) return { field: 'url', text: check.detail };
+    return { field: null, text: t('workbench.gitRemotes.failed', { detail: check.detail ?? check.reason }) };
+  };
+
   const submit = async (draft: RemoteDraft, fetch: boolean): Promise<void> => {
     if (form === null || busy) return;
     const patch = form.mode === 'edit' ? remoteUpdatePatch(form.row, draft) : null;
     setBusy(true);
     setError(null);
     try {
+      // A url about to be written is checked first; one the remote already has is not asked about again.
+      if (form.mode === 'add' || patch?.url !== undefined) {
+        const unanswered = await checkUrl(draft.url);
+        if (unanswered !== null) {
+          setError(unanswered);
+          return;
+        }
+      }
       // An edit that changes nothing sends nothing — the fetch, when asked, still runs.
       if (form.mode === 'add' || patch !== null) {
         const result =
@@ -98,7 +133,10 @@ export function useRemoteOps(workspaceId: string, onChanged?: (name: string | nu
                 hostBridge.call('oh.workspaceTree.updateRemote', { workspaceId, name: form.row.name, ...patch }),
               );
         if (!result.ok) {
-          setError(refusal(result, form.mode === 'add' ? draft.name : form.row.name));
+          setError({
+            field: REFUSAL_FIELD[result.reason] ?? null,
+            text: refusal(result, form.mode === 'add' ? draft.name : form.row.name),
+          });
           return;
         }
       }
@@ -106,7 +144,7 @@ export function useRemoteOps(workspaceId: string, onChanged?: (name: string | nu
       setForm(null);
       onChanged?.(draft.name);
     } catch (err) {
-      setError(t('workbench.gitRemotes.failed', { detail: failure(err) }));
+      setError({ field: null, text: t('workbench.gitRemotes.failed', { detail: failure(err) }) });
     } finally {
       setBusy(false);
     }
@@ -155,10 +193,11 @@ export function useRemoteOps(workspaceId: string, onChanged?: (name: string | nu
     remove,
     dialogs: (
       <RemoteFormModal
-        initial={form === null ? null : form.mode === 'edit' ? form.row : { name: '', url: '' }}
+        initial={form === null ? null : form.mode === 'edit' ? form.row : BLANK_REMOTE}
         busy={busy}
         error={error}
         onSubmit={(draft, fetch) => void submit(draft, fetch)}
+        onDraftChange={() => setError(null)}
         onClose={() => setForm(null)}
       />
     ),

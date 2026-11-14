@@ -1,7 +1,8 @@
 /**
  * Workspace-tree runtime — the Git Remotes dialog's verbs: list the
- * configured remotes, add one, update one (a rename and/or a new
- * fetch url, in that order), remove one. The reads and the writes
+ * configured remotes, check that a repository answers at a url, add a
+ * remote, update one (a rename and/or a new fetch url, in that order),
+ * remove one. The reads and the writes
  * share the availability / repo guards; the verb wiring runs every
  * write on the per-binding chain and publishes a status frame after,
  * so the rail's remote folders and the upstream counts follow on
@@ -11,6 +12,7 @@
 import { logger } from '@openheaders/core/utils';
 import {
   addRemote,
+  checkRemoteUrl,
   isWorkspaceRepo,
   listRemotes,
   type RemoteOpResult,
@@ -19,7 +21,12 @@ import {
   setRemoteUrl,
 } from '../../git';
 import { type OpenBinding, type RuntimeCtx, SCOPE } from './core';
-import type { WorkspaceTreeRemoteOpRpcResult, WorkspaceTreeRemotePatch, WorkspaceTreeRemotesRpcResult } from './types';
+import type {
+  WorkspaceTreeRemoteCheckRpcResult,
+  WorkspaceTreeRemoteOpRpcResult,
+  WorkspaceTreeRemotePatch,
+  WorkspaceTreeRemotesRpcResult,
+} from './types';
 
 type Guarded = { ok: true; rootDir: string } | { ok: false; reason: 'git-unavailable' | 'not-a-repo' };
 
@@ -43,6 +50,17 @@ export async function runListRemotes(ctx: RuntimeCtx, binding: OpenBinding): Pro
   const remotes = await listRemotes(ctx.gitRun, guarded.rootDir);
   if (remotes === null) return { ok: false, reason: 'list-failed' };
   return { ok: true, remotes };
+}
+
+/** The Define Remote form's check that a repository answers at a url — a read; nothing is written. */
+export async function runCheckRemoteUrl(
+  ctx: RuntimeCtx,
+  binding: OpenBinding,
+  url: string,
+): Promise<WorkspaceTreeRemoteCheckRpcResult> {
+  const guarded = await guard(ctx, binding);
+  if (!guarded.ok) return guarded;
+  return checkRemoteUrl(ctx.gitRun, guarded.rootDir, url);
 }
 
 /** One Add pass. */

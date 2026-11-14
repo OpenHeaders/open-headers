@@ -819,6 +819,7 @@ export const workbenchChrome = {
   'workbench.gitLog.working.addRemote': 'Se adaugă depozitul la distanță {name}…',
   'workbench.gitLog.working.updateRemote': 'Se actualizează depozitul la distanță {name}…',
   'workbench.gitLog.working.removeRemote': 'Se elimină depozitul la distanță {name}…',
+  'workbench.gitLog.working.checkRemote': 'Se verifică URL-ul…',
   'workbench.gitLog.working.resolveForcePush': 'Se rezolvă istoricul rescris…',
   'workbench.gitLog.applyCommit.pickFailed': 'Cherry-pick-ul pentru {commit} nu a reușit: {detail}',
   'workbench.gitLog.applyCommit.revertFailed': 'Revert-ul pentru {commit} nu a reușit: {detail}',

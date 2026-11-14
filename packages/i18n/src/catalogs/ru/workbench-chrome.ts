@@ -811,6 +811,7 @@ export const workbenchChrome = {
   'workbench.gitLog.working.addRemote': 'Добавление удалённого репозитория {name}…',
   'workbench.gitLog.working.updateRemote': 'Обновление удалённого репозитория {name}…',
   'workbench.gitLog.working.removeRemote': 'Удаление удалённого репозитория {name}…',
+  'workbench.gitLog.working.checkRemote': 'Проверка URL…',
   'workbench.gitLog.working.resolveForcePush': 'Обработка переписанной истории…',
   'workbench.gitLog.applyCommit.pickFailed': 'Не удалось выполнить cherry-pick для {commit}: {detail}',
   'workbench.gitLog.applyCommit.revertFailed': 'Не удалось отменить {commit}: {detail}',

@@ -17,6 +17,12 @@ export interface RemoteRow {
   url: string;
 }
 
+/** What stopped the last submit, already worded, and the field it is about (null: neither). */
+export interface RemoteFormError {
+  field: 'name' | 'url' | null;
+  text: string;
+}
+
 export type RemoteDraftIssue = 'name-empty' | 'name-invalid' | 'url-empty' | 'url-invalid';
 
 /** The host's remote-name gate, mirrored for the inline nudge. */

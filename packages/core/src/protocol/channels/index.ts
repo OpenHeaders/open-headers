@@ -167,6 +167,7 @@ export type {
   WorkspaceTreePushWire,
   WorkspaceTreeRefsWire,
   WorkspaceTreeRefWire,
+  WorkspaceTreeRemoteCheckWire,
   WorkspaceTreeRemoteOpWire,
   WorkspaceTreeRemotesWire,
   WorkspaceTreeRemoteWire,

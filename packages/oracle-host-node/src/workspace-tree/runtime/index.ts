@@ -89,7 +89,7 @@ import { runIgnorePath, runUnignorePath } from './ignore';
 import { closeBinding, openBinding } from './lifecycle';
 import { runAbortOperation } from './operation';
 import { runApplyCommit } from './pick';
-import { runAddRemote, runListRemotes, runRemoveRemote, runUpdateRemote } from './remotes';
+import { runAddRemote, runCheckRemoteUrl, runListRemotes, runRemoveRemote, runUpdateRemote } from './remotes';
 import { applyAll, buildSnapshot, workspaceEntity } from './snapshot';
 import { notBoundStatus, publishGitStatus, readGitStatus } from './status';
 import { appendIssues, heldByGitOperation, refreshIssuesFromDisk, runSweep, scheduleMaterialize } from './sweep';
@@ -130,6 +130,7 @@ import type {
   WorkspaceTreeLogFilters,
   WorkspaceTreeLogRpcResult,
   WorkspaceTreeRefsRpcResult,
+  WorkspaceTreeRemoteCheckRpcResult,
   WorkspaceTreeRemoteOpRpcResult,
   WorkspaceTreeRemotePatch,
   WorkspaceTreeRemotesRpcResult,
@@ -177,6 +178,7 @@ export type {
   WorkspaceTreeLogFilters,
   WorkspaceTreeLogRpcResult,
   WorkspaceTreeRefsRpcResult,
+  WorkspaceTreeRemoteCheckRpcResult,
   WorkspaceTreeRemoteOpRpcResult,
   WorkspaceTreeRemotePatch,
   WorkspaceTreeRemotesRpcResult,
@@ -821,6 +823,12 @@ export function createWorkspaceTreeRuntime(options: WorkspaceTreeRuntimeOptions)
       const binding = open.get(workspaceId);
       if (!binding) return { ok: false, reason: 'not-bound' };
       return runListRemotes(ctx, binding);
+    },
+
+    async checkRemoteUrl(workspaceId: string, url: string): Promise<WorkspaceTreeRemoteCheckRpcResult> {
+      const binding = open.get(workspaceId);
+      if (!binding) return { ok: false, reason: 'not-bound' };
+      return runCheckRemoteUrl(ctx, binding, url);
     },
 
     async addRemote(workspaceId: string, name: string, url: string): Promise<WorkspaceTreeRemoteOpRpcResult> {

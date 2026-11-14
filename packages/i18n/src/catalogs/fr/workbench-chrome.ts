@@ -960,6 +960,7 @@ export const workbenchChrome = {
   'workbench.gitLog.working.addRemote': 'Ajout du dépôt distant {name}…',
   'workbench.gitLog.working.updateRemote': 'Mise à jour du dépôt distant {name}…',
   'workbench.gitLog.working.removeRemote': 'Suppression du dépôt distant {name}…',
+  'workbench.gitLog.working.checkRemote': "Vérification de l'URL…",
   'workbench.gitLog.working.resolveForcePush': "Résolution de l'historique réécrit…",
   'workbench.gitLog.applyCommit.pickFailed': 'Impossible de faire le cherry-pick de {commit} : {detail}',
   'workbench.gitLog.applyCommit.revertFailed': 'Impossible d’annuler {commit} : {detail}',

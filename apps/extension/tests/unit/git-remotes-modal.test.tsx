@@ -3,9 +3,11 @@
  * The Git Remotes dialog (S41): the pure form model (what a draft is
  * missing, which fields an edit changes) and the mounted dialog over
  * a mocked bridge — the list reads on open, Add opens the Define
- * Remote form and sends the draft through `addRemote`, a typed
- * refusal reads inline, Edit sends only the changed field through
- * `updateRemote`, Remove confirms then calls `removeRemote`.
+ * Remote form, has the host check the url and then sends the draft
+ * through `addRemote`; a url nothing answers at reads on its field in
+ * git's own words and nothing is sent; a typed refusal reads inline;
+ * Edit sends only the changed field through `updateRemote` and checks
+ * a url only when it changed; Remove confirms then calls `removeRemote`.
  */
 
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
@@ -99,6 +101,7 @@ function mount(): void {
 
 type Call = [string, Record<string, unknown>];
 const callsOf = (type: string): Call[] => (mockCall.mock.calls as Call[]).filter(([t]) => t === type);
+const typesSent = (): string[] => (mockCall.mock.calls as Call[]).map(([type]) => type);
 
 describe('RemotesModal (mounted)', () => {
   beforeEach(() => {
@@ -147,7 +150,56 @@ describe('RemotesModal (mounted)', () => {
       name: 'upstream',
       url: 'https://openheaders.io/up.git',
     });
+    // The url was checked before anything was written.
+    expect(
+      typesSent()
+        .filter((type) => type !== 'oh.workspaceTree.listRemotes')
+        .slice(0, 2),
+    ).toEqual(['oh.workspaceTree.checkRemoteUrl', 'oh.workspaceTree.addRemote']);
+    expect(callsOf('oh.workspaceTree.checkRemoteUrl')[0][1]).toEqual({
+      workspaceId: 'ws-1',
+      url: 'https://openheaders.io/up.git',
+    });
     await waitFor(() => expect(callsOf('oh.workspaceTree.listRemotes')).toHaveLength(2));
+  });
+
+  it('a url nothing answers at reads on its field in git’s own words — nothing is written, the form stays, an edit clears it', async () => {
+    const words = "'openheaders.io' does not appear to be a git repository\nCould not read from remote repository.";
+    mockCall.mockImplementation(async (type: string) => {
+      if (type === 'oh.workspaceTree.listRemotes') return { ok: true, remotes: [ORIGIN] };
+      if (type === 'oh.workspaceTree.checkRemoteUrl') return { ok: false, reason: 'unreachable', detail: words };
+      return { ok: true };
+    });
+    mount();
+    await screen.findByTestId('git-remotes-row');
+    fireEvent.click(screen.getByTestId('git-remotes-add'));
+    fireEvent.change(await screen.findByTestId('git-remote-form-name'), { target: { value: 'upstream' } });
+    const url = screen.getByTestId('git-remote-form-url') as HTMLInputElement;
+    fireEvent.change(url, { target: { value: 'openheaders.io' } });
+    const ok = screen.getByTestId('git-remote-form-ok') as HTMLButtonElement;
+    await waitFor(() => expect(ok.disabled).toBe(false));
+    fireEvent.click(ok);
+
+    const error = await screen.findByTestId('git-remote-form-error');
+    expect(error.textContent).toBe(words);
+    expect(error.getAttribute('data-field')).toBe('url');
+    expect(url.className).toContain('status-error');
+    expect((screen.getByTestId('git-remote-form-name') as HTMLInputElement).className).not.toContain('status-error');
+    expect(callsOf('oh.workspaceTree.addRemote')).toHaveLength(0);
+    expect(callsOf('oh.workspaceTree.fetch')).toHaveLength(0);
+    expect(callsOf('oh.workspaceTree.listRemotes')).toHaveLength(1);
+    expect(screen.getByTestId('git-remote-form')).toBeTruthy();
+    // The draft is still what was typed.
+    expect((screen.getByTestId('git-remote-form-name') as HTMLInputElement).value).toBe('upstream');
+    expect(url.value).toBe('openheaders.io');
+
+    // What the last submit said is about the draft it was sent with.
+    fireEvent.change(url, { target: { value: 'openheaders.io/r.git' } });
+    await waitFor(() => expect(screen.queryByTestId('git-remote-form-error')).toBeNull());
+    expect(url.className).not.toContain('status-error');
+    expect(url.value).toBe('openheaders.io/r.git');
+    expect((screen.getByTestId('git-remote-form-name') as HTMLInputElement).value).toBe('upstream');
+    expect(ok.disabled).toBe(false);
   });
 
   it('Fetch remote is checked on every opening — the remotes are fetched once the change is in; unchecked, they are not', async () => {
@@ -180,6 +232,7 @@ describe('RemotesModal (mounted)', () => {
   it('a typed refusal reads inline under the form', async () => {
     mockCall.mockImplementation(async (type: string) => {
       if (type === 'oh.workspaceTree.listRemotes') return { ok: true, remotes: [ORIGIN] };
+      if (type === 'oh.workspaceTree.checkRemoteUrl') return { ok: true };
       return { ok: false, reason: 'exists' };
     });
     mount();
@@ -192,6 +245,9 @@ describe('RemotesModal (mounted)', () => {
     fireEvent.click(ok);
     const error = await screen.findByTestId('git-remote-form-error');
     expect(error.textContent).toContain('origin');
+    // A name that is taken is about the name.
+    expect(error.getAttribute('data-field')).toBe('name');
+    expect((screen.getByTestId('git-remote-form-name') as HTMLInputElement).className).toContain('status-error');
     expect(callsOf('oh.workspaceTree.listRemotes')).toHaveLength(1);
   });
 
@@ -214,6 +270,29 @@ describe('RemotesModal (mounted)', () => {
       name: 'origin',
       url: 'https://openheaders.io/two.git',
     });
+    // The new url was checked first.
+    expect(callsOf('oh.workspaceTree.checkRemoteUrl').map(([, payload]) => payload.url)).toEqual([
+      'https://openheaders.io/two.git',
+    ]);
+  });
+
+  it('an Edit that only renames checks nothing — the url is the one the remote already has', async () => {
+    mount();
+    fireEvent.click(await screen.findByTestId('git-remotes-row'));
+    const edit = screen.getByTestId('git-remotes-edit') as HTMLButtonElement;
+    await waitFor(() => expect(edit.disabled).toBe(false));
+    fireEvent.click(edit);
+    const name = (await screen.findByTestId('git-remote-form-name')) as HTMLInputElement;
+    await waitFor(() => expect(name.value).toBe('origin'));
+    fireEvent.change(name, { target: { value: 'upstream' } });
+    fireEvent.click(screen.getByTestId('git-remote-form-ok'));
+    await waitFor(() => expect(callsOf('oh.workspaceTree.updateRemote')).toHaveLength(1));
+    expect(callsOf('oh.workspaceTree.updateRemote')[0][1]).toEqual({
+      workspaceId: 'ws-1',
+      name: 'origin',
+      newName: 'upstream',
+    });
+    expect(callsOf('oh.workspaceTree.checkRemoteUrl')).toHaveLength(0);
   });
 
   it('Remove confirms, then calls removeRemote and re-reads', async () => {

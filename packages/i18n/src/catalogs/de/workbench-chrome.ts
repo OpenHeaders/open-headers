@@ -957,6 +957,7 @@ export const workbenchChrome = {
   'workbench.gitLog.working.addRemote': 'Remote {name} wird hinzugefügt…',
   'workbench.gitLog.working.updateRemote': 'Remote {name} wird aktualisiert…',
   'workbench.gitLog.working.removeRemote': 'Remote {name} wird entfernt…',
+  'workbench.gitLog.working.checkRemote': 'URL wird geprüft…',
   'workbench.gitLog.working.resolveForcePush': 'Umgeschriebene Historie wird aufgelöst…',
   'workbench.gitLog.applyCommit.pickFailed': 'Cherry-Pick von {commit} fehlgeschlagen: {detail}',
   'workbench.gitLog.applyCommit.revertFailed': 'Revert von {commit} fehlgeschlagen: {detail}',

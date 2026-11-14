@@ -53,10 +53,12 @@ export {
 export { composePickMessage, composeRevertMessage } from './pick-message';
 export {
   addRemote,
+  checkRemoteUrl,
   isSafeRemoteName,
   isSafeRemoteUrl,
   listRemotes,
   type RemoteOpResult,
+  type RemoteUrlCheck,
   type RepoRemote,
   removeRemote,
   renameRemote,

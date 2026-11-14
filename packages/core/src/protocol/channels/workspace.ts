@@ -742,6 +742,15 @@ export interface WorkspaceRpc {
     req: { workspaceId: string };
     res: WorkspaceTreeRemotesWire;
   };
+  /**
+   * Define Remote's check before a remote is written: whether a
+   * repository answers at `url` (`git ls-remote`). Pure read — nothing
+   * is written here or at the remote.
+   */
+  'oh.workspaceTree.checkRemoteUrl': {
+    req: { workspaceId: string; url: string };
+    res: WorkspaceTreeRemoteCheckWire;
+  };
   /** Git Remotes ▸ Add: `git remote add <name> <url>`. A status frame follows. */
   'oh.workspaceTree.addRemote': {
     req: { workspaceId: string; name: string; url: string };
@@ -1352,6 +1361,19 @@ export interface WorkspaceTreeRemoteWire {
 export type WorkspaceTreeRemotesWire =
   | { ok: true; remotes: WorkspaceTreeRemoteWire[] }
   | { ok: false; reason: 'not-bound' | 'git-unavailable' | 'not-a-repo' | 'list-failed'; detail?: string };
+
+/**
+ * A url's check: a repository answers there, or a typed refusal —
+ * `invalid-url` from the host's own gate, `unreachable` with git's own
+ * words for why nothing answered.
+ */
+export type WorkspaceTreeRemoteCheckWire =
+  | { ok: true }
+  | {
+      ok: false;
+      reason: 'not-bound' | 'git-unavailable' | 'not-a-repo' | 'invalid-url' | 'unreachable';
+      detail?: string;
+    };
 
 /**
  * One remote add / update / remove: it landed, or a typed refusal —

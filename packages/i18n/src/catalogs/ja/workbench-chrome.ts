@@ -788,6 +788,7 @@ export const workbenchChrome = {
   'workbench.gitLog.working.addRemote': 'リモート {name} を追加中…',
   'workbench.gitLog.working.updateRemote': 'リモート {name} を更新中…',
   'workbench.gitLog.working.removeRemote': 'リモート {name} を削除中…',
+  'workbench.gitLog.working.checkRemote': 'URL を確認中…',
   'workbench.gitLog.working.resolveForcePush': '書き換えられた履歴を解決中…',
   'workbench.gitLog.applyCommit.pickFailed': '{commit} をチェリーピックできませんでした：{detail}',
   'workbench.gitLog.applyCommit.revertFailed': '{commit} をリバートできませんでした：{detail}',

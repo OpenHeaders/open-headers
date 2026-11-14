@@ -1,6 +1,7 @@
 /**
  * Remote operations of the Git Remotes dialog: list, add, rename,
- * set-url, remove — `git remote …` behind the same discipline as
+ * set-url, remove, and the check that a repository answers at a url —
+ * `git remote …` and `git ls-remote` behind the same discipline as
  * `branch-ops.ts`: explicit repo addressing, the injected
  * {@link GitRunner} seam, caller-supplied names and urls re-checked
  * here as defense in depth (a name that is not a valid remote name or
@@ -45,6 +46,36 @@ export function isSafeRemoteUrl(url: string): boolean {
   if (url.length === 0 || url.startsWith('-')) return false;
   for (const ch of url) if (ch.charCodeAt(0) < 0x20 || ch === '\x7f') return false;
   return true;
+}
+
+/** A url's check: a repository answers there, or git's own words for why none does. */
+export type RemoteUrlCheck = { ok: true } | { ok: false; reason: 'invalid-url' | 'unreachable'; detail?: string };
+
+/** Git's refusal as a person reads it: its lines without the `fatal:` / `error:` lead, blank ones dropped. */
+function refusalWords(detail: string): string {
+  return detail
+    .split('\n')
+    .map((line) => line.replace(/^(fatal|error): /, '').trimEnd())
+    .filter((line) => line.length > 0)
+    .join('\n');
+}
+
+/**
+ * Whether a repository answers at `url` — the Define Remote form's
+ * check before a remote is written: `git ls-remote` asks the url for
+ * its HEAD and writes nothing, here or there. A relative url resolves
+ * against the work tree, as it would for the remote itself. No prompt
+ * can hang it (the runner pins that) and the runner's timeout bounds it.
+ */
+export async function checkRemoteUrl(run: GitRunner, rootDir: string, url: string): Promise<RemoteUrlCheck> {
+  if (!isSafeRemoteUrl(url)) return { ok: false, reason: 'invalid-url' };
+  const result = await run([...repoArgs(rootDir), 'ls-remote', '--', url, 'HEAD'], { cwd: rootDir });
+  if (result.code === 0) return { ok: true };
+  return {
+    ok: false,
+    reason: 'unreachable',
+    detail: result.timedOut ? 'the remote did not answer in time' : refusalWords(failureDetail(result)),
+  };
 }
 
 const URL_KEY = /^remote\.(.+)\.(url|pushurl)$/;
