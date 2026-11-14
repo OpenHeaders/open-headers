@@ -5,10 +5,15 @@
  * strokes and wrapped in antd's Icon so it inherits `.anticon` sizing,
  * currentColor and `spin` like every stock icon. It stands in for
  * every refresh affordance on the git surfaces.
+ *
+ * `spin` turns it while a read is out — in WHOLE turns: a turn once
+ * begun is finished, so a read that answers in a tenth of a second
+ * shows one full turn instead of a twitch that snaps back to rest.
  */
 
 import Icon from '@ant-design/icons';
 import type React from 'react';
+import { useState } from 'react';
 import type { GlyphIconProps } from './types';
 
 export interface RefreshIconProps extends GlyphIconProps {
@@ -32,4 +37,18 @@ const RefreshSvg: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
   </svg>
 );
 
-export const RefreshIcon: React.FC<RefreshIconProps> = (props) => <Icon component={RefreshSvg} {...props} />;
+export const RefreshIcon: React.FC<RefreshIconProps> = ({ spin = false, ...rest }) => {
+  // Turning from the moment `spin` asks for it until the end of the turn in which it stops asking.
+  const [turning, setTurning] = useState(spin);
+  if (spin && !turning) setTurning(true);
+  return (
+    <Icon
+      component={RefreshSvg}
+      {...rest}
+      spin={turning}
+      onAnimationIteration={() => {
+        if (!spin) setTurning(false);
+      }}
+    />
+  );
+};

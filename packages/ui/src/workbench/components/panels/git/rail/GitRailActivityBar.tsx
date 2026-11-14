@@ -107,8 +107,11 @@ const BarButton: React.FC<BarButtonProps> = ({
         type="button"
         aria-label={title}
         aria-pressed={active}
-        disabled={disabled}
+        // Unavailable is `aria-disabled`, never the native attribute: a natively
+        // disabled button drops the focus it holds to the page (`ToolbarIconButton`).
+        aria-disabled={disabled === true ? true : undefined}
         onClick={() => {
+          if (disabled === true) return;
           setSuppressed(true);
           onClick?.();
         }}

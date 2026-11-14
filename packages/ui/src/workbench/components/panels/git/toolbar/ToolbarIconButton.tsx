@@ -2,6 +2,12 @@
  * ToolbarIconButton — one icon slot in a pane toolbar (the horizontal
  * sibling of the rail's BarButton): hover fill, disabled grey, active
  * (toggled) fill, tooltip above (or beside, for a vertical gutter).
+ * A button that is unavailable is `aria-disabled`, never natively
+ * disabled: a press often makes its own button unavailable (a read
+ * goes out, the selection it acted on is gone), and a natively
+ * disabled button drops the keyboard focus it holds to the page — the
+ * tool window then reads as unfocused until the next click. It keeps
+ * its focus and takes no press.
  * The tooltip yields to a popover the button opens (S35 law): hidden
  * the instant the button is clicked and while `popoverOpen` holds,
  * back on the next hover. Presentational only.
@@ -45,8 +51,9 @@ const ToolbarIconButton: React.FC<ToolbarIconButtonProps> = ({
         type="button"
         aria-label={title}
         aria-pressed={active}
-        disabled={disabled}
+        aria-disabled={disabled === true ? true : undefined}
         onClick={() => {
+          if (disabled === true) return;
           setSuppressed(true);
           onClick?.();
         }}

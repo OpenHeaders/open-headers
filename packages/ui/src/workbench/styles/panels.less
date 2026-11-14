@@ -43,11 +43,12 @@
 
 // A band button — the rail's vertical bar, the pane toolbars: a grey
 // fill under the pointer (the reference's reading). A pressed button's
-// own fill is its inline style and stands over this.
+// own fill is its inline style and stands over this. An unavailable
+// one is `aria-disabled` (it keeps the focus it holds) and takes none.
 .git-tool-rail-button {
   background: transparent;
 
-  &:not(:disabled):hover {
+  &:not([aria-disabled='true']):hover {
     background: var(--ant-color-fill-secondary, rgba(128, 128, 128, 0.16));
   }
 }

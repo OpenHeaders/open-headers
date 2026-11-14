@@ -351,12 +351,13 @@ const GitLogToolbar: React.FC<GitLogToolbarProps> = ({
     {
       kind: 'item',
       key: 'refresh',
+      // Never held while a read is out: the glyph turns, and a second
+      // press reads again — the log takes its newest read's answer.
       node: (
         <ToolbarIconButton
           icon={<RefreshIcon spin={loading} />}
           title={t('workbench.gitLog.refresh')}
           onClick={onRefresh}
-          disabled={loading}
           testid="git-tool-refresh"
         />
       ),
