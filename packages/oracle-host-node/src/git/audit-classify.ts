@@ -1,9 +1,11 @@
 /**
  * Audit classification of git invocations — decides, from the arg
- * vector alone, whether a command mutates repo state and therefore
- * belongs in the audit stream (the Console tab feed). Reads (`status`,
- * `rev-parse`, `version`, `diff`, ref listing) stay out by design;
- * dual-use subcommands (`config`, `symbolic-ref`) audit only their
+ * vector alone, whether a command belongs in the audit stream (the
+ * Console tab feed): it mutates repo state, or it asks something of a
+ * remote (`ls-remote` — what went over the network is the person's to
+ * see, with the remote's answer). Local reads (`status`, `rev-parse`,
+ * `version`, `diff`, ref listing) stay out by design; dual-use
+ * subcommands (`config`, `symbolic-ref`, `remote`) audit only their
  * write forms via a per-subcommand discriminator.
  */
 
@@ -62,23 +64,50 @@ function operandsAfterSubcommand(args: readonly string[]): number {
   return count;
 }
 
-/** Discriminator over the full arg vector: does this invocation of the subcommand mutate state? */
-type WriteForm = (args: readonly string[]) => boolean;
+/** Discriminator over the full arg vector: does this invocation of the subcommand belong in the stream? */
+type AuditedForm = (args: readonly string[]) => boolean;
 
-const always: WriteForm = () => true;
+const always: AuditedForm = () => true;
 
-/** `config --get` / `config --list` read; every other config form writes. */
-const configWrites: WriteForm = (args) => !args.includes('--get') && !args.includes('--list');
+/** Every `config --get…` form (`--get`, `--get-all`, `--get-regexp`, `--get-urlmatch`) and `--list` / `-l` read; every other config form writes. */
+const configWrites: AuditedForm = (args) =>
+  !args.some((arg) => arg === '--get' || arg.startsWith('--get-') || arg === '--list' || arg === '-l');
 
 /** `symbolic-ref [--short] [-q] <name>` reads; a second operand or a delete flag writes. */
-const symbolicRefWrites: WriteForm = (args) =>
+const symbolicRefWrites: AuditedForm = (args) =>
   args.includes('--delete') || args.includes('-d') || operandsAfterSubcommand(args) >= 2;
 
+/** The first operand after the subcommand — a many-verbed subcommand's own verb (`remote add`); null when it has none. */
+function verbAfterSubcommand(args: readonly string[]): string | null {
+  const index = subcommandIndexOf(args);
+  if (index === -1) return null;
+  return args.slice(index + 1).find((arg) => !arg.startsWith('-')) ?? null;
+}
+
+const REMOTE_WRITE_VERBS = new Set([
+  'add',
+  'rename',
+  'remove',
+  'rm',
+  'set-head',
+  'set-branches',
+  'set-url',
+  'prune',
+  'update',
+]);
+
+/** Bare `remote` (and `-v`) lists, `remote show` / `get-url` read; the verbs that define, rename, drop or refetch a remote write. */
+const remoteWrites: AuditedForm = (args) => {
+  const verb = verbAfterSubcommand(args);
+  return verb !== null && REMOTE_WRITE_VERBS.has(verb);
+};
+
 /**
- * Subcommands that can mutate repo state, each with its write-form
- * discriminator. Subcommands absent from this table never audit.
+ * Subcommands that can mutate repo state or that reach a remote, each
+ * with the discriminator of its audited forms. Subcommands absent from
+ * this table never audit.
  */
-const WRITE_FORMS: Record<string, WriteForm> = {
+const AUDITED_FORMS: Record<string, AuditedForm> = {
   init: always,
   add: always,
   rm: always,
@@ -100,17 +129,19 @@ const WRITE_FORMS: Record<string, WriteForm> = {
   fetch: always,
   pull: always,
   push: always,
+  'ls-remote': always,
   branch: always,
   tag: always,
   reset: always,
   'update-index': always,
   config: configWrites,
+  remote: remoteWrites,
 };
 
-/** Whether this invocation mutates repo state — the audit-stream gate. */
-export function isStateChanging(args: readonly string[]): boolean {
+/** Whether this invocation mutates repo state or reaches a remote — the audit-stream gate. */
+export function isAudited(args: readonly string[]): boolean {
   const subcommand = subcommandOf(args);
   if (subcommand === null) return false;
-  const writes = WRITE_FORMS[subcommand];
-  return writes !== undefined && writes(args);
+  const audited = AUDITED_FORMS[subcommand];
+  return audited !== undefined && audited(args);
 }

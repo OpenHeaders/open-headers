@@ -11,7 +11,7 @@ import { promises as fs } from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { isStateChanging, splitAtSubcommand } from '../../src/git/audit-classify';
+import { isAudited, splitAtSubcommand } from '../../src/git/audit-classify';
 import {
   createLocalBranch,
   deleteLocalBranch,
@@ -609,11 +609,38 @@ describe('commitWorkspaceTree', () => {
     expect(auditRows.length).toBe(before);
 
     const repo = ['--git-dir', '/repo/.git', '--work-tree', '/repo'];
-    expect(isStateChanging([...repo, 'symbolic-ref', '--short', '-q', 'HEAD'])).toBe(false);
-    expect(isStateChanging([...repo, 'config', '--get', 'user.email'])).toBe(false);
-    expect(isStateChanging([...repo, 'symbolic-ref', 'HEAD', 'refs/heads/main'])).toBe(true);
-    expect(isStateChanging([...repo, 'symbolic-ref', '--delete', 'refs/heads/tmp'])).toBe(true);
-    expect(isStateChanging([...repo, 'config', 'user.email', 'engine@openheaders.io'])).toBe(true);
+    expect(isAudited([...repo, 'symbolic-ref', '--short', '-q', 'HEAD'])).toBe(false);
+    expect(isAudited([...repo, 'config', '--get', 'user.email'])).toBe(false);
+    expect(isAudited([...repo, 'symbolic-ref', 'HEAD', 'refs/heads/main'])).toBe(true);
+    expect(isAudited([...repo, 'symbolic-ref', '--delete', 'refs/heads/tmp'])).toBe(true);
+    expect(isAudited([...repo, 'config', 'user.email', 'engine@openheaders.io'])).toBe(true);
+    // Every reading form of config stays out — the remotes' list is one.
+    expect(isAudited([...repo, 'config', '-z', '--get-regexp', '^remote\\..*\\.(url|pushurl)$'])).toBe(false);
+    expect(isAudited([...repo, 'config', '--get-all', 'remote.origin.fetch'])).toBe(false);
+    expect(isAudited([...repo, 'config', '--list'])).toBe(false);
+    expect(isAudited([...repo, 'config', '-l'])).toBe(false);
+    expect(isAudited([...repo, 'config', '--unset', 'user.email'])).toBe(true);
+    // A remote's list and its readings stay out; what defines, renames or drops one is listed.
+    expect(isAudited([...repo, 'remote'])).toBe(false);
+    expect(isAudited([...repo, 'remote', '-v'])).toBe(false);
+    expect(isAudited([...repo, 'remote', 'get-url', 'origin'])).toBe(false);
+    expect(isAudited([...repo, 'remote', 'add', 'origin', 'https://openheaders.io/one.git'])).toBe(true);
+    expect(isAudited([...repo, 'remote', 'set-url', '--push', 'origin', 'https://openheaders.io/one.git'])).toBe(true);
+    expect(isAudited([...repo, 'remote', 'rename', 'origin', 'upstream'])).toBe(true);
+    expect(isAudited([...repo, 'remote', 'remove', 'origin'])).toBe(true);
+  });
+
+  it('audits what is asked of a remote, with its answer — it writes nothing, and it left the machine', async () => {
+    await initialCommit();
+    const before = auditRows.length;
+    await listRemotes(run, tmpDir);
+    expect(auditRows.length).toBe(before);
+
+    await checkRemoteUrl(run, tmpDir, 'nothing-here.git');
+    const asked = auditRows.slice(before);
+    expect(asked.map((row) => row.command)).toEqual([['ls-remote', '--', 'nothing-here.git', 'HEAD']]);
+    expect(asked[0].code).not.toBe(0);
+    expect(asked[0].output).toContain("'nothing-here.git' does not appear to be a git repository");
   });
 
   it('splits an arg vector at the subcommand, global options first', () => {
@@ -2884,6 +2911,17 @@ describe('Remote ops (S41): the Git Remotes dialog', () => {
     expect(await removeRemote(run, tmpDir, 'mirror')).toEqual({ ok: true });
     expect(await removeRemote(run, tmpDir, 'mirror')).toEqual({ ok: false, reason: 'unknown-remote' });
     expect((await listRemotes(run, tmpDir))?.map((remote) => remote.name)).toEqual(['upstream']);
+
+    // Every change of a remote is in the audit stream; no listing of them is.
+    expect(auditRows.filter((row) => row.command[0] === 'remote').map((row) => row.command[1])).toEqual([
+      'add',
+      'rename',
+      'add',
+      'set-url',
+      'set-url',
+      'remove',
+    ]);
+    expect(auditRows.some((row) => row.command[0] === 'config')).toBe(false);
   });
 
   it('checks that a repository answers at a url, in git’s own words when none does, and writes nothing', async () => {

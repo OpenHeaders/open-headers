@@ -5,7 +5,7 @@
  * never by surfaces (they reach the git plane via gesture RPCs, §8).
  */
 
-export { isStateChanging, subcommandOf } from './audit-classify';
+export { isAudited, subcommandOf } from './audit-classify';
 export {
   type BranchCreateResult,
   type BranchDeleteResult,

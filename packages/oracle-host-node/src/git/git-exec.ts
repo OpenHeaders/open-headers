@@ -17,8 +17,9 @@
  *   - timeout with structured failure (no orphaned hangs);
  *   - structured result — exit code, stdout, stderr — instead of
  *     thrown strings;
- *   - one audit row per STATE-CHANGING command through the injected
- *     sink (reads are high-volume/low-signal and stay silent).
+ *   - one audit row per command that CHANGES STATE or reaches a remote,
+ *     through the injected sink (local reads are high-volume/low-signal
+ *     and stay silent).
  *
  * The returned {@link GitRunner} function type is the seam the Phase 5
  * fault-injection suite mocks — modules above this one (repo, commit,
@@ -26,7 +27,7 @@
  */
 
 import { execFile } from 'node:child_process';
-import { isStateChanging, splitAtSubcommand } from './audit-classify';
+import { isAudited, splitAtSubcommand } from './audit-classify';
 
 /** Structured outcome of one git invocation. Non-zero exit is a value, not a throw. */
 export interface GitExecResult {
@@ -148,7 +149,7 @@ export function createGitExec(options: CreateGitExecOptions = {}): GitRunner {
             spawnFailed,
             timedOut,
           };
-          if (isStateChanging(args)) {
+          if (isAudited(args)) {
             const output = `${result.stdout}${result.stdout !== '' && result.stderr !== '' ? '\n' : ''}${result.stderr}`;
             options.audit?.({
               at: new Date(startedAt).toISOString(),

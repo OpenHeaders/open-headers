@@ -13,7 +13,7 @@ import { promises as fs } from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { isStateChanging } from '../../src/git/audit-classify';
+import { isAudited } from '../../src/git/audit-classify';
 import { createGitExec, type GitRunner } from '../../src/git/git-exec';
 import { abortGitOperation, gitOperationKind } from '../../src/git/operation';
 import { ensureWorkspaceRepo, localHeadSha } from '../../src/git/repo';
@@ -164,7 +164,7 @@ describe('gitOperationKind / abortGitOperation', () => {
       ['revert', '--abort'],
       ['bisect', 'reset'],
     ]) {
-      expect(isStateChanging([...repo, ...command])).toBe(true);
+      expect(isAudited([...repo, ...command])).toBe(true);
     }
   });
 });
