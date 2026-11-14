@@ -163,3 +163,4 @@ export {
   snapshotWorkingTree,
   treeWithFiles,
 } from './tree-ops';
+export { removeWorkingFile } from './working-file';

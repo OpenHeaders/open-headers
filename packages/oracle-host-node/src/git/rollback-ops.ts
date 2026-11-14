@@ -11,6 +11,8 @@
  *                                            goes, the one under its old
  *                                            name comes back from HEAD.
  *
+ * A file that goes takes the directories it leaves empty with it.
+ *
  * What is done is decided from the rows git itself lists, before
  * anything is written (`planRollback`): a path with no change row, an
  * unversioned or an ignored one is not the verb's and is left alone.
@@ -21,8 +23,6 @@
  * is recoverable: the working bytes that are rolled back are gone.
  */
 
-import { promises as fs } from 'node:fs';
-import * as path from 'node:path';
 import type { GitRunner } from './git-exec';
 import { withIndexLock } from './index-lock';
 import {
@@ -33,6 +33,7 @@ import {
   repoArgs,
   type WorkingChange,
 } from './repo';
+import { removeWorkingFile } from './working-file';
 
 export interface RollbackOptions {
   /** Delete an added file from disk instead of leaving it unversioned. */
@@ -148,7 +149,7 @@ export async function rollbackWorkingPaths(
       }
       for (const filePath of plan.remove) {
         try {
-          await fs.rm(path.join(rootDir, filePath), { force: true });
+          await removeWorkingFile(rootDir, filePath);
         } catch (err) {
           return { ok: false, reason: 'rollback-failed', detail: err instanceof Error ? err.message : String(err) };
         }

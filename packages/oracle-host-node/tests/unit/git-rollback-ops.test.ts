@@ -152,6 +152,23 @@ describe('rollbackWorkingPaths', () => {
     expect(await status()).toEqual([]);
   });
 
+  it('a file that goes takes the directories it leaves empty — one that still holds a file stands', async () => {
+    await write('moved/deep/setup.md', 'setup v1\n');
+    await fs.rm(path.join(rootDir, 'docs/setup.md'));
+    await git('add', '-N', 'moved/deep/setup.md');
+    await write('drafts/new/added.md', 'tracked by intent\n');
+    await git('add', '-N', 'drafts/new/added.md');
+    await write('drafts/loose.md', 'never added\n');
+
+    expect(
+      await rollbackWorkingPaths(run, rootDir, ['moved/deep/setup.md', 'drafts/new/added.md'], { deleteAdded: true }),
+    ).toEqual({ ok: true, rolledBack: 2 });
+    expect(await read('docs/setup.md')).toBe('setup v1\n');
+    expect(await fs.readdir(rootDir)).not.toContain('moved');
+    expect(await fs.readdir(path.join(rootDir, 'drafts'))).toEqual(['loose.md']);
+    expect(await status()).toEqual(['?? drafts/loose.md']);
+  });
+
   it('a path that is no change row is left alone — clean, unversioned, unknown', async () => {
     await write('loose.md', 'never added\n');
 

@@ -45,6 +45,7 @@ import {
   listTreeEntries,
   listWorkingChanges,
   readTreeEntryText,
+  removeWorkingFile,
 } from '../git';
 
 /** An own file joins the files to answer only while every side of it is at most this many bytes. */
@@ -90,20 +91,6 @@ async function existsOnDisk(rootDir: string, filePath: string): Promise<boolean>
     return true;
   } catch {
     return false;
-  }
-}
-
-/** Remove a file the foreign side deleted, and the directories it leaves empty, up to the tree root. */
-async function removeFromDisk(rootDir: string, filePath: string): Promise<void> {
-  const root = path.resolve(rootDir);
-  const target = path.join(root, ...filePath.split('/'));
-  await fs.rm(target, { force: true });
-  for (let dir = path.dirname(target); dir !== root && dir.startsWith(root); dir = path.dirname(dir)) {
-    try {
-      await fs.rmdir(dir);
-    } catch {
-      return;
-    }
   }
 }
 
@@ -250,10 +237,10 @@ export async function landForeignOwnFiles(
   ]);
   if (!checkedOut.ok) return { ok: false, detail: checkedOut.detail };
   for (const filePath of landed) {
-    if (!plan.foreign.has(filePath)) await removeFromDisk(rootDir, filePath);
+    if (!plan.foreign.has(filePath)) await removeWorkingFile(rootDir, filePath);
   }
   for (const [filePath, content] of answers) {
-    if (content.trim().length === 0) await removeFromDisk(rootDir, filePath);
+    if (content.trim().length === 0) await removeWorkingFile(rootDir, filePath);
     else await writeAnswer(rootDir, filePath, content);
   }
 
