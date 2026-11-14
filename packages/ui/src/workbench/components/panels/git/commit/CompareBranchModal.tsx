@@ -88,7 +88,7 @@ const CompareBranchModal: React.FC<CompareBranchModalProps> = ({ workspaceId, op
                 alignItems: 'center',
                 gap: 8,
                 border: 'none',
-                background: 'transparent',
+                // No background here: the row's fill at rest and under the pointer is the stylesheet's.
                 textAlign: 'left',
                 padding: '3px 6px',
                 fontSize: 13,
