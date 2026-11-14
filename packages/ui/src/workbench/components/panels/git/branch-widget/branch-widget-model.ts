@@ -6,11 +6,13 @@
  * popup folds the refs into the reference sections — Recent (the
  * per-workspace ring, recency order, only names that still exist as
  * local branches), then Local / Remote / Tags as the rail's folder
- * trees — and prunes every section to a search needle. No React.
+ * trees — every section folded on `/` while Group By Directory is on,
+ * flat full names while it is off — and prunes every section to a
+ * search needle. No React.
  */
 
 import type { WorkspaceTreeGitStatusWire, WorkspaceTreeRefWire } from '@openheaders/core/bridge';
-import { buildRefTree, filterRefTree, type RefTreeNode } from '../rail/ref-tree-model';
+import { buildOrderedRefTree, buildRefTree, filterRefTree, type RefTreeNode } from '../rail/ref-tree-model';
 
 export type BranchTriggerLabel =
   | { kind: 'branch'; name: string }
@@ -60,10 +62,11 @@ export interface BranchPopupInput {
 }
 
 /**
- * The popup's sections. Recent keeps recency order as flat leaves
- * (a name is enough there — the folders live in Local); the three
- * namespace sections fold on `/` like the rail. A section with no
- * rows (or no match while searching) is omitted.
+ * The popup's sections. Group By Directory shapes ALL of them: Recent
+ * folds on `/` in recency order (a folder stands where its newest
+ * branch did), the three namespace sections fold like the rail; off,
+ * every section lists full names. A section with no rows (or no match
+ * while searching) is omitted.
  */
 export function buildBranchPopupSections(input: BranchPopupInput): BranchPopupSection[] {
   const { refs, unbornBranch, recent, showTags, groupByDirectory, search } = input;
@@ -71,9 +74,10 @@ export function buildBranchPopupSections(input: BranchPopupInput): BranchPopupSe
 
   const localNames = new Set(refs.filter((ref) => ref.kind === 'local').map((ref) => ref.name));
   if (unbornBranch !== null) localNames.add(unbornBranch);
-  const recentNodes: RefTreeNode[] = recent
-    .filter((name) => localNames.has(name))
-    .map((name) => ({ kind: 'leaf', label: name, name, refKind: 'local' }));
+  const recentNames = recent.filter((name) => localNames.has(name));
+  const recentNodes: RefTreeNode[] = groupByDirectory
+    ? buildOrderedRefTree(recentNames, 'local', 'recent')
+    : recentNames.map((name) => ({ kind: 'leaf', label: name, name, refKind: 'local' }));
   const recentFiltered = filterRefTree(recentNodes, search);
   if (recentFiltered.length > 0) sections.push({ kind: 'recent', nodes: recentFiltered });
 

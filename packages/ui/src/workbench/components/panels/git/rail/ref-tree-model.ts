@@ -108,6 +108,40 @@ export function buildRefTree(
 }
 
 /**
+ * Fold ref names on `/` in the ORDER GIVEN — for a list whose order
+ * says something (the branch popup's Recent, newest first): a folder
+ * stands where its first member did and holds its members in their
+ * order; nothing is sorted.
+ */
+export function buildOrderedRefTree(
+  names: readonly string[],
+  refKind: WorkspaceTreeRefWire['kind'],
+  groupKind: string,
+): RefTreeNode[] {
+  const root: RefTreeNode[] = [];
+  const folders = new Map<string, RefTreeFolder>();
+  for (const name of names) {
+    const segments = name.split('/').filter((segment) => segment.length > 0);
+    if (segments.length === 0) continue;
+    let level = root;
+    let path = '';
+    for (const segment of segments.slice(0, -1)) {
+      path = path === '' ? segment : `${path}/${segment}`;
+      const key = `${groupKind}:${path}`;
+      let folder = folders.get(key);
+      if (folder === undefined) {
+        folder = { kind: 'folder', label: segment, key, children: [] };
+        folders.set(key, folder);
+        level.push(folder);
+      }
+      level = folder.children;
+    }
+    level.push({ kind: 'leaf', label: segments[segments.length - 1], name, refKind });
+  }
+  return root;
+}
+
+/**
  * Prune the tree to leaves whose full ref name contains `needle`
  * (case-insensitive); folders survive only while they still hold a
  * match. An empty needle answers the tree untouched.

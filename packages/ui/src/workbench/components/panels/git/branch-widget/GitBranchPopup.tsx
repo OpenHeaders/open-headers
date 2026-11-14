@@ -4,9 +4,12 @@
  * with Fetch and the view-options gear beside it, the action rows
  * (Update Project…, Commit…, Push…, New Branch…), then the sections —
  * Recent, Local, Remote, Tags — as collapsible tree rows (folders on
- * `/`, the rail's anatomy: a caret slot on every row, ★ in the icon
+ * `/` while Group By Directory is on, Recent's among them and open;
+ * the rail's anatomy: a caret slot on every row, ★ in the icon
  * slot on the current branch and favorites, the branch / tag glyph
- * otherwise). The current row carries its incoming count and the
+ * otherwise, the open folder on a remote and the plain one on a
+ * grouping of branch names). The gear's options stay open on a pick.
+ * The current row carries its incoming count and the
  * tracked upstream dimmed; every leaf ends in a › that opens the row's
  * action menu — clicking the row does the same (the reference gesture).
  * Verbs ride the shared `useGitBranchActions` the caller supplies and
@@ -16,6 +19,7 @@
 import {
   CaretDownOutlined,
   CaretRightOutlined,
+  FolderOpenOutlined,
   FolderOutlined,
   PlusOutlined,
   RightOutlined,
@@ -34,7 +38,8 @@ import { CommitToolIcon } from '../commit/CommitToolIcon';
 import { GIT_OPERATION_ABORTS, gitOperationOf } from '../git-operation';
 import { getGitRailPrefs, gitRailFavoriteKey, subscribeGitRailPrefs } from '../rail/git-rail-prefs';
 import { buildRefRowMenu, type RefRowMenuHandlers, type RefTreeSelection } from '../rail/ref-row-menu';
-import { allFolderKeys, type RefTreeNode } from '../rail/ref-tree-model';
+import type { RefTreeNode } from '../rail/ref-tree-model';
+import { useOptionMenu } from '../use-option-menu';
 import { actionMatches, type BranchPopupSectionKind, buildBranchPopupSections } from './branch-widget-model';
 import { getBranchWidgetPrefs, patchBranchWidgetPrefs, subscribeBranchWidgetPrefs } from './branch-widget-prefs';
 
@@ -78,6 +83,7 @@ const GitBranchPopup: React.FC<GitBranchPopupProps> = ({
   // Expansion overrides per section / folder key; a key the user never
   // touched follows its default.
   const [expansion, setExpansion] = useState<ReadonlyMap<string, boolean>>(new Map());
+  const settingsMenu = useOptionMenu();
 
   const subscribePrefs = useCallback(
     (listener: () => void) => subscribeBranchWidgetPrefs(workspaceId, listener),
@@ -111,8 +117,9 @@ const GitBranchPopup: React.FC<GitBranchPopupProps> = ({
   const searching = search.trim() !== '';
   const hasRecent = sections.some((section) => section.kind === 'recent');
 
-  // Default expansion (the reference popup): Recent open, Local open only
-  // without a Recent section, Remote and Tags collapsed; folders
+  // Default expansion (the reference popup): Recent open with its folders
+  // (the few branches last worked on are what it is for), Local open only
+  // without a Recent section, Remote and Tags collapsed, their folders
   // collapsed; a search renders everything open.
   const isOpen = (key: string, defaultOpen: boolean): boolean =>
     searching ? true : (expansion.get(key) ?? defaultOpen);
@@ -300,25 +307,28 @@ const GitBranchPopup: React.FC<GitBranchPopupProps> = ({
     );
   };
 
-  const renderNodes = (nodes: readonly RefTreeNode[], depth: number): React.ReactNode =>
+  const renderNodes = (nodes: readonly RefTreeNode[], depth: number, kind: BranchPopupSectionKind): React.ReactNode =>
     nodes.map((node) => {
       if (node.kind === 'folder') {
-        const open = isOpen(node.key, false);
+        const defaultOpen = kind === 'recent';
+        const open = isOpen(node.key, defaultOpen);
+        // The Remote section's own folders are the remotes — the rail's glyph for them.
+        const Glyph = kind === 'remote' && depth === 1 ? FolderOpenOutlined : FolderOutlined;
         return (
           <div key={node.key}>
             <div
               role="button"
               className="oh-env-row"
               style={rowStyle(depth)}
-              onClick={() => toggle(node.key, false)}
+              onClick={() => toggle(node.key, defaultOpen)}
               data-testid="git-branch-popup-folder"
               data-key={node.key}
             >
               {caretSlot(open)}
-              <FolderOutlined style={{ flex: '0 0 auto', fontSize: 12, color: token.colorTextTertiary }} />
+              <Glyph style={{ flex: '0 0 auto', fontSize: 12, color: token.colorTextTertiary }} />
               <span style={labelStyle}>{node.label}</span>
             </div>
-            {open && renderNodes(node.children, depth + 1)}
+            {open && renderNodes(node.children, depth + 1, kind)}
           </div>
         );
       }
@@ -385,6 +395,8 @@ const GitBranchPopup: React.FC<GitBranchPopupProps> = ({
         <Dropdown
           trigger={['click']}
           placement="bottomRight"
+          open={settingsMenu.open}
+          onOpenChange={settingsMenu.onOpenChange}
           menu={{
             selectable: false,
             items: [
@@ -483,7 +495,7 @@ const GitBranchPopup: React.FC<GitBranchPopupProps> = ({
                 {caretSlot(open)}
                 <span style={labelStyle}>{t(SECTION_LABEL_KEY[section.kind])}</span>
               </div>
-              {open && renderNodes(section.nodes, 1)}
+              {open && renderNodes(section.nodes, 1, section.kind)}
             </div>
           );
         })}

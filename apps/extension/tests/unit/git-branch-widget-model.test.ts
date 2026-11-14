@@ -1,7 +1,8 @@
 /**
  * Branch widget model pins: the trigger label (branch / detached /
  * none) and counts off the status frame, the popup's sections (Recent
- * in recency order over existing branches only, the unborn branch
+ * in recency order over existing branches only — folded on slashes
+ * with Group By Directory, flat full names without — the unborn branch
  * leading Local, Tags behind the toggle, the search pruning every
  * section), and the Recent ring's algebra.
  */
@@ -83,6 +84,36 @@ describe('buildBranchPopupSections', () => {
     const remote = sections[2].nodes;
     expect(remote).toHaveLength(1);
     expect(remote[0].kind === 'folder' && remote[0].label).toBe('origin');
+  });
+
+  it('Group By Directory shapes Recent too: folded on slashes in recency order, flat full names with it off', () => {
+    const slashed: WorkspaceTreeRefWire[] = [
+      ...refs,
+      { name: 'feature/orders-v2', kind: 'local', sha: '1'.repeat(40) },
+      { name: 'fix/probe-timeout', kind: 'local', sha: '2'.repeat(40) },
+    ];
+    const recent = ['main', 'feature/orders-v2', 'fix/probe-timeout', 'local-test', 'feature/auth-headers'];
+    const shape = (nodes: (typeof folded)[number]['nodes']): unknown[] =>
+      nodes.map((node) => (node.kind === 'folder' ? [node.key, shape(node.children)] : node.name));
+
+    const folded = buildBranchPopupSections({ ...base, refs: slashed, recent });
+    // A folder stands where its newest branch did and holds its branches newest first; nothing is sorted by name.
+    expect(shape(folded[0].nodes)).toEqual([
+      'main',
+      ['recent:feature', ['feature/orders-v2', 'feature/auth-headers']],
+      ['recent:fix', ['fix/probe-timeout']],
+      'local-test',
+    ]);
+    const leaf = folded[0].nodes[1];
+    expect(leaf.kind === 'folder' && leaf.children.map((node) => node.label)).toEqual(['orders-v2', 'auth-headers']);
+
+    const flat = buildBranchPopupSections({ ...base, refs: slashed, recent, groupByDirectory: false });
+    expect(shape(flat[0].nodes)).toEqual(recent);
+    expect(flat[0].nodes.map((node) => node.label)).toEqual(recent);
+
+    // A search keeps a Recent folder only while it still holds a match.
+    const searched = buildBranchPopupSections({ ...base, refs: slashed, recent, search: 'orders' });
+    expect(shape(searched[0].nodes)).toEqual([['recent:feature', ['feature/orders-v2']]]);
   });
 
   it('an empty ring omits Recent; Show Tags off drops Tags; flat mode lists full names', () => {
