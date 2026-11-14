@@ -35,7 +35,7 @@
 
 import { CaretDownOutlined, CaretRightOutlined } from '@ant-design/icons';
 import type { WorkspaceTreeWorkingChangeWire } from '@openheaders/core/bridge';
-import { Checkbox, Dropdown, theme } from 'antd';
+import { Checkbox, Dropdown, Spin, theme } from 'antd';
 import type { MenuProps } from 'antd';
 import type React from 'react';
 import { forwardRef, Fragment, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
@@ -73,6 +73,8 @@ export interface CommitChangesTreeProps {
   onSetChecked: (paths: readonly string[], checked: boolean) => void;
   /** Double-click / Enter — open the working diff. */
   onOpenFile: (path: string) => void;
+  /** The file whose working diff is being read — its row says so at its end; null when none is. */
+  loadingPath?: string | null;
   groupByDirectory: boolean;
   /**
    * Group By Workspace: each group's files as the workbench lists what
@@ -148,6 +150,7 @@ const CommitChangesTree = forwardRef<CommitChangesTreeHandle, CommitChangesTreeP
     checked,
     onSetChecked,
     onOpenFile,
+    loadingPath = null,
     groupByDirectory,
     named,
     showIgnored,
@@ -586,6 +589,7 @@ const CommitChangesTree = forwardRef<CommitChangesTreeHandle, CommitChangesTreeP
         >
           {renderRowContent(row, suffix, true)}
         </span>
+        {loadingPath === row.path && <Spin size="small" style={{ flex: '0 0 auto' }} />}
       </div>
     );
     return <Fragment key={row.path}>{withMenu(menuTargetFor(rowKey, { kind: 'file', row }), rowBody)}</Fragment>;
@@ -836,6 +840,7 @@ const CommitChangesTree = forwardRef<CommitChangesTreeHandle, CommitChangesTreeP
                   onRowClick={clickRow}
                   onRowContextMenu={contextMenuRow}
                   onOpenFile={onOpenFile}
+                  loadingPath={loadingPath}
                   withMenu={(key, target, body) => withMenu(menuTargetFor(key, target), body)}
                 />
               ) : groupByDirectory ? (

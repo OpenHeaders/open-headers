@@ -92,6 +92,7 @@ const CommitToolPanel: React.FC<CommitToolPanelProps> = ({ info, onHide }) => {
   const [committing, setCommitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [diff, setDiff] = useState<WorkspaceTreeFileDiffPairWire | null>(null);
+  const [diffLoading, setDiffLoading] = useState<string | null>(null);
   const [pushRecovery, setPushRecovery] = useState(false);
   const [pushOpen, setPushOpen] = useState(false);
   const [pushRejected, setPushRejected] = useState(false);
@@ -342,11 +343,15 @@ const CommitToolPanel: React.FC<CommitToolPanelProps> = ({ info, onHide }) => {
   const handleOpenDiff = useCallback(
     async (filePath: string): Promise<void> => {
       if (workspaceId === null) return;
+      // A file's read is signed at its row, as in the Git window — never by the window's pulse.
+      setDiffLoading(filePath);
       try {
         const result = await hostBridge.call('oh.workspaceTree.workingFileDiff', { workspaceId, path: filePath });
         if (result.ok) setDiff(result.diff);
       } catch {
         // Host without the verb — double-click stays inert.
+      } finally {
+        setDiffLoading(null);
       }
     },
     [workspaceId],
@@ -641,6 +646,7 @@ const CommitToolPanel: React.FC<CommitToolPanelProps> = ({ info, onHide }) => {
     checked,
     onSetChecked: handleSetChecked,
     onOpenFile: (filePath) => void handleOpenDiff(filePath),
+    loadingPath: diffLoading,
     groupByDirectory: prefs.groupByDirectory,
     showIgnored: prefs.showIgnored,
     rootLabel: rootDir === null ? '' : (rootDir.replace(/[\\/]+$/, '').split(/[\\/]/).pop() ?? ''),

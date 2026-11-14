@@ -324,7 +324,7 @@ const menuItem = async (label: string): Promise<Element> => (await screen.findAl
 const held = (item: Element): boolean =>
   item.closest('li')?.classList.contains('ant-dropdown-menu-item-disabled') === true;
 
-function renderTree(named: boolean = true) {
+function renderTree(named: boolean = true, loadingPath: string | null = null) {
   const h = handlers();
   const onOpenFile = vi.fn<(path: string) => void>();
   const onSetChecked = vi.fn<(paths: readonly string[], checked: boolean) => void>();
@@ -340,6 +340,7 @@ function renderTree(named: boolean = true) {
             setChecked((prev) => setPathsChecked(ROWS, prev, paths, value));
           }}
           onOpenFile={onOpenFile}
+          loadingPath={loadingPath}
           groupByDirectory
           showIgnored
           {...(named ? { named: NAMED } : {})}
@@ -487,6 +488,18 @@ describe('CommitChangesTree, by what the files belong to', () => {
     fireEvent.contextMenu(byKey(`file:${README}`));
     fireEvent.click(await menuItem('workbench.commitTool.menu.jumpToSource'));
     expect(h.onJumpToSource).toHaveBeenLastCalledWith(README, undefined);
+  });
+
+  it('a file whose diff is being read says so at its own row, in either shape — and no other row does', () => {
+    for (const named of [true, false]) {
+      renderTree(named, README);
+      expect(byKey(`file:${README}`).querySelector('.ant-spin')).not.toBeNull();
+      expect(document.querySelectorAll('.ant-spin')).toHaveLength(1);
+      cleanup();
+      renderTree(named);
+      expect(document.querySelector('.ant-spin')).toBeNull();
+      cleanup();
+    }
   });
 
   it('listed by path, a file’s row jumps by its path too', async () => {

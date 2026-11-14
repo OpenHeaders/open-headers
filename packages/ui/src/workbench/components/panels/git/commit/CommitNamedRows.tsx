@@ -22,7 +22,7 @@ import type { WorkspaceTreeWorkingChangeWire } from '@openheaders/core/bridge';
 import { useTheme } from '@openheaders/ui/context';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { isWorkspaceFilePage } from '@openheaders/ui/shared/workspace-files';
-import { Checkbox, theme } from 'antd';
+import { Checkbox, Spin, theme } from 'antd';
 import type React from 'react';
 import { Fragment } from 'react';
 import { SectionHeader, SectionOpenerRow } from '../../../sidebar/SectionHeader';
@@ -53,6 +53,8 @@ export interface CommitNamedRowsProps {
   onRowClick: (key: string, event: React.MouseEvent) => void;
   onRowContextMenu: (key: string) => void;
   onOpenFile: (path: string) => void;
+  /** The file whose working diff is being read — its row says so at its end. */
+  loadingPath: string | null;
   /** The row inside its context menu — its own target, or the selection it sits in. */
   withMenu: (key: string, target: CommitMenuTarget, body: React.ReactElement) => React.ReactNode;
 }
@@ -75,6 +77,7 @@ const CommitNamedRows: React.FC<CommitNamedRowsProps> = ({
   onRowClick,
   onRowContextMenu,
   onOpenFile,
+  loadingPath,
   withMenu,
 }) => {
   const { token } = theme.useToken();
@@ -98,8 +101,12 @@ const CommitNamedRows: React.FC<CommitNamedRowsProps> = ({
     );
   };
 
-  /** What a file's row says beside its name: where a rename came from, which source ignores it. */
+  /**
+   * What a file's row says beside its name: its diff being read, where
+   * a rename came from, which source ignores it.
+   */
   const noteOf = (change: WorkspaceTreeWorkingChangeWire): React.ReactNode => {
+    if (loadingPath === change.path) return <Spin size="small" />;
     if (change.renamedFrom !== undefined) {
       return (
         <span style={dim} data-testid="commit-tool-renamed-from">
