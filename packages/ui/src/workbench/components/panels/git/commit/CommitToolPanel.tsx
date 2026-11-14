@@ -30,7 +30,9 @@ import { localWorkspaceTreeTransport } from '../../../git/transport';
 import { refreshWorkspaceGit, useWorkspaceGitSnapshot } from '../../../../stores/git-status-store';
 import DiffModal from '../DiffModal';
 import ForcePushBanner from '../ForcePushBanner';
+import GitWorkingLine from '../GitWorkingLine';
 import { committedLocalNotice, integrationRefusalDetail, keptLocalNotice, leftOutNotice } from '../kept-local';
+import { useAskedRead } from '../use-asked-read';
 import { useJumpToSource } from '../use-jump-to-source';
 import { usePassAnswers } from '../use-pass-answers';
 import { GIT_PRIMARY_TAB_KEY, getGitPanelWorkbench } from '../git-panel-view-store';
@@ -144,6 +146,10 @@ const CommitToolPanel: React.FC<CommitToolPanelProps> = ({ info, onHide }) => {
   useEffect(() => {
     if (status !== null) void refreshChanges();
   }, [status, refreshChanges]);
+
+  // The press of Refresh — the toolbar's and the row menu's: the one
+  // read of the changes the window answers with its sign of work.
+  const refreshAsked = useAskedRead(refreshChanges);
 
   const groups = useMemo(() => splitChangeGroups(rows), [rows]);
   const counter = useMemo(() => countChanges(rows), [rows]);
@@ -551,7 +557,7 @@ const CommitToolPanel: React.FC<CommitToolPanelProps> = ({ info, onHide }) => {
     () => ({
       onCommitPaths: handleCommitPaths,
       onShowDiff: (filePath) => void handleOpenDiff(filePath),
-      onRefresh: () => void refreshChanges(),
+      onRefresh: refreshAsked.ask,
       onPush: () => setPushOpen(true),
       onPull: () => void handlePull(),
       onFetch: () => void handleFetch(),
@@ -569,7 +575,7 @@ const CommitToolPanel: React.FC<CommitToolPanelProps> = ({ info, onHide }) => {
     [
       handleCommitPaths,
       handleOpenDiff,
-      refreshChanges,
+      refreshAsked.ask,
       pushCurrent,
       handlePull,
       handleFetch,
@@ -676,7 +682,7 @@ const CommitToolPanel: React.FC<CommitToolPanelProps> = ({ info, onHide }) => {
         <ForcePushBanner workspaceId={workspaceId} state={forcePush} testidPrefix="commit-tool" />
       )}
       <CommitToolbar
-        onRefresh={() => void refreshChanges()}
+        onRefresh={refreshAsked.ask}
         rollbackPaths={toolbarRollback}
         onRollback={handleRollbackPaths}
         prefs={prefs}
@@ -684,6 +690,7 @@ const CommitToolPanel: React.FC<CommitToolPanelProps> = ({ info, onHide }) => {
         onExpandAll={() => treeRef.current?.expandAll()}
         onCollapseAll={() => treeRef.current?.collapseAll()}
       />
+      <GitWorkingLine active={refreshAsked.asked} />
       {prefs.groupByWorkspace ? (
         <CommitWorkspaceTree ref={treeRef} {...treeProps} workspaceId={workspaceId} headSha={headSha} />
       ) : (

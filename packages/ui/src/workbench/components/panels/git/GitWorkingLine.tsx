@@ -1,8 +1,9 @@
 /**
- * GitWorkingLine — the Git window's ONE sign of work: the pulse a
+ * GitWorkingLine — a git tool window's ONE sign of work: the pulse a
  * request's Send plays over its response (`SendPulseBar`), along the
  * top edge of the pane under it — while one of the window's verbs is
- * at the host, or the log is being read again. The pulse finishes the
+ * at the host, or a read the person pressed Refresh for is out (the
+ * Git window's log, the Commit window's changes). The pulse finishes the
  * pass it is on when the work ends, so work that is over in a tenth of
  * a second still reads as one whole sweep; it lands on no state of its
  * own, so no line follows it.

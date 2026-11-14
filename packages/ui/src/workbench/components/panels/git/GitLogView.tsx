@@ -64,6 +64,7 @@ import GitRefRail from './rail/GitRefRail';
 import GitDetailsToolbar from './toolbar/GitDetailsToolbar';
 import GitLogToolbar from './toolbar/GitLogToolbar';
 import { buildLogWireFilters, hasRowFilters, isMergeCommit, makeTextMatcher } from './toolbar/log-filters';
+import { useAskedRead } from './use-asked-read';
 import { useCommitApply } from './use-commit-apply';
 import { useCommitPatch } from './use-commit-patch';
 import { useCommitSignatures } from './use-commit-signatures';
@@ -112,7 +113,6 @@ const GitLogView: React.FC<GitLogViewProps> = ({
   const [loaded, setLoaded] = useState<WorkspaceTreeLogEntryWire[]>([]);
   const [refs, setRefs] = useState<WorkspaceTreeRefWire[]>([]);
   const [currentRef, setCurrentRef] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [scrollTo, setScrollTo] = useState<{ sha: string; nonce: number } | null>(null);
   const [selectedFile, setSelectedFile] = useState<string | null>(null);
@@ -216,7 +216,6 @@ const GitLogView: React.FC<GitLogViewProps> = ({
     latestRead.current += 1;
     const read = latestRead.current;
     const superseded = (): boolean => latestRead.current !== read;
-    setLoading(true);
     setError(null);
     try {
       const refsResult = await hostBridge.call('oh.workspaceTree.listRefs', { workspaceId });
@@ -267,14 +266,15 @@ const GitLogView: React.FC<GitLogViewProps> = ({
       if (superseded()) return;
       setLoaded([]);
       setError((err as Error).message);
-    } finally {
-      if (!superseded()) setLoading(false);
     }
   }, [workspaceId, selectedRefs, branch, wireFilters, t]);
 
   useEffect(() => {
     void reload();
   }, [reload]);
+
+  // The press of Refresh: the one read of the log the window answers with its sign of work.
+  const refresh = useAskedRead(reload);
 
   useEffect(() => {
     return hostBridge.subscribe('workspaceTreeGitStatus', (payload) => {
@@ -505,8 +505,8 @@ const GitLogView: React.FC<GitLogViewProps> = ({
   });
 
   // One of this window's verbs is at the host — a pick, a revert, a
-  // patch read, a branch verb: with a read of the log, what the pulse
-  // along the log's top edge says.
+  // patch read, a branch verb: with a read the person pressed Refresh
+  // for, what the pulse along the log's top edge says.
   const atHost = commitApply.working || commitPatch.working || actions.busy.working;
 
   // The commit rows' menu: the clipboard read, the patch of the set,
@@ -632,7 +632,7 @@ const GitLogView: React.FC<GitLogViewProps> = ({
             onUsersChange={applyUsers}
             onPathsChange={applyPaths}
             entries={entries}
-            onRefresh={() => void reload()}
+            onRefresh={refresh.ask}
             onCherryPick={
               pickTargets.length > 0 && !commitApply.working ? () => commitApply.cherryPick(pickTargets) : undefined
             }
@@ -646,7 +646,7 @@ const GitLogView: React.FC<GitLogViewProps> = ({
             textInvalid={matcher.kind === 'invalid'}
             container={container}
           />
-          <GitWorkingLine active={atHost || loading} />
+          <GitWorkingLine active={atHost || refresh.asked} />
           <CommitList
             entries={shown.entries}
             graph={graph}
