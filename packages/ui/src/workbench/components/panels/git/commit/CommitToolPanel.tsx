@@ -71,6 +71,7 @@ import CommitWorkspaceTree from './CommitWorkspaceTree';
 import PushCommitsModal from '../push/PushCommitsModal';
 import PushRejectedModal from '../push/PushRejectedModal';
 import PushNewBranchAlert from './PushNewBranchAlert';
+import RollbackChangesModal from './RollbackChangesModal';
 
 export interface CommitToolPanelProps {
   info: InfoPopoverContent;
@@ -93,6 +94,8 @@ const CommitToolPanel: React.FC<CommitToolPanelProps> = ({ info, onHide }) => {
   const [error, setError] = useState<string | null>(null);
   const [diff, setDiff] = useState<WorkspaceTreeFileDiffPairWire | null>(null);
   const [diffLoading, setDiffLoading] = useState<string | null>(null);
+  // The paths Rollback Changes opens with checked; null while it is closed.
+  const [rollback, setRollback] = useState<readonly string[] | null>(null);
   const [pushRecovery, setPushRecovery] = useState(false);
   const [pushOpen, setPushOpen] = useState(false);
   const [pushRejected, setPushRejected] = useState(false);
@@ -487,35 +490,10 @@ const CommitToolPanel: React.FC<CommitToolPanelProps> = ({ info, onHide }) => {
     [workspaceId, refreshChanges, t, atHost],
   );
 
-  // Rollback… over added rows — confirmed first (the count in the
-  // title); the rows return to Unversioned Files on the refetch, the
-  // files stay on disk.
-  const handleRollbackPaths = useCallback(
-    (paths: readonly string[]): void => {
-      if (workspaceId === null || paths.length === 0) return;
-      const files =
-        paths.length === 1 ? t('workbench.commitTool.oneFile') : t('workbench.gitLog.filesCount', { count: paths.length });
-      modal.confirm({
-        title: t('workbench.commitTool.rollbackAdded.confirmTitle', { files }),
-        content: t('workbench.commitTool.rollbackAdded.confirmBody'),
-        okText: t('workbench.commitTool.rollbackAdded.ok'),
-        onOk: async () => {
-          try {
-            const result = await nameGitWork(t('workbench.gitLog.working.rollback'), () =>
-              hostBridge.call('oh.workspaceTree.unaddPaths', { workspaceId, paths: [...paths] }),
-            );
-            if (!result.ok) {
-              setError(t('workbench.commitTool.menu.rollbackFailed', { detail: result.detail ?? result.reason }));
-            }
-            await refreshChanges();
-          } catch (err) {
-            setError((err as Error).message);
-          }
-        },
-      });
-    },
-    [workspaceId, refreshChanges, t, modal],
-  );
+  // Rollback… — the Rollback Changes dialog, opened with the gesture's
+  // tracked changes checked. The dialog is the whole gesture: the files
+  // go back to the last commit from there, and nothing asks again.
+  const handleRollbackPaths = useCallback((paths: readonly string[]): void => setRollback(paths), []);
 
   // Delete… — confirmed first (the count in the title); a tracked row
   // reads as deleted on the refetch, an unversioned one is gone.
@@ -721,6 +699,7 @@ const CommitToolPanel: React.FC<CommitToolPanelProps> = ({ info, onHide }) => {
       )}
       <CommitToolbar
         onRefresh={refreshAsked.ask}
+        canRollback={groups.changes.length > 0}
         rollbackPaths={toolbarRollback}
         onRollback={handleRollbackPaths}
         prefs={prefs}
@@ -764,6 +743,17 @@ const CommitToolPanel: React.FC<CommitToolPanelProps> = ({ info, onHide }) => {
         onDismissError={() => setError(null)}
       />
       <DiffModal diff={diff} onClose={() => setDiff(null)} />
+      <RollbackChangesModal
+        workspaceId={workspaceId}
+        paths={rollback}
+        rows={groups.changes}
+        groupByWorkspace={prefs.groupByWorkspace}
+        groupByDirectory={prefs.groupByDirectory}
+        rootLabel={treeProps.rootLabel ?? ''}
+        headSha={headSha}
+        onClose={() => setRollback(null)}
+        onRolledBack={() => void refreshChanges()}
+      />
       {answers.dialogs}
       <PushCommitsModal
         workspaceId={workspaceId}

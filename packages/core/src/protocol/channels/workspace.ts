@@ -716,6 +716,18 @@ export interface WorkspaceRpc {
     res: WorkspaceTreeUnaddPathsWire;
   };
   /**
+   * The Commit window's Rollback Changes: each path's working change is
+   * given up for what HEAD holds — a changed or deleted file is restored,
+   * an added one leaves the index (and is deleted from disk with
+   * `deleteAdded`), a renamed one returns under its old name; a path with
+   * no change is left alone. The engine follows the files. Irreversible.
+   * A status frame follows.
+   */
+  'oh.workspaceTree.rollbackPaths': {
+    req: { workspaceId: string; paths: string[]; deleteAdded?: boolean };
+    res: WorkspaceTreeRollbackPathsWire;
+  };
+  /**
    * The Commit window's Delete… verb: remove the files from disk. A
    * tracked file then reads as deleted until committed; an unversioned
    * one is simply gone. Files only — a directory row hands in its
@@ -1563,6 +1575,22 @@ export type WorkspaceTreeUnaddPathsWire =
   | {
       ok: false;
       reason: 'not-bound' | 'git-unavailable' | 'not-a-repo' | 'unknown-path' | 'unadd-failed';
+      detail?: string;
+    };
+
+/** Rollback Changes: `rolledBack` counts the change rows put back as HEAD holds them. */
+export type WorkspaceTreeRollbackPathsWire =
+  | { ok: true; rolledBack: number }
+  | {
+      ok: false;
+      reason:
+        | 'not-bound'
+        | 'git-unavailable'
+        | 'not-a-repo'
+        | 'unknown-path'
+        | 'op-in-progress'
+        | 'index-locked'
+        | 'rollback-failed';
       detail?: string;
     };
 

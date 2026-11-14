@@ -136,18 +136,13 @@ export type CommitMenuTarget =
     };
 
 /**
- * Rollback…'s paths: every row an added file (an intent-to-add or a
- * staged-new entry, never a rename), or nothing — the verb drops the
- * rows from the index and they return to Unversioned Files. Tracked
- * modifications roll back through their own slice, so a mixed target
- * disables the verb.
+ * Rollback…'s paths: the target's rows that are changes git tracks —
+ * changed, deleted, renamed or added. An unversioned or an ignored row
+ * has nothing to roll back and is left out; a target with no tracked
+ * change holds the verb.
  */
 export function rollbackPaths(rows: readonly WorkspaceTreeWorkingChangeWire[]): string[] {
-  if (rows.length === 0) return [];
-  const added = rows.every(
-    (row) => !row.unversioned && !row.ignored && row.status === 'A' && row.renamedFrom === undefined,
-  );
-  return added ? rows.map((row) => row.path) : [];
+  return rows.filter((row) => !row.unversioned && !row.ignored).map((row) => row.path);
 }
 
 export type CheckAggregate = 'none' | 'some' | 'all';

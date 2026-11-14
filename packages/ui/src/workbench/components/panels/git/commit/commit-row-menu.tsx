@@ -6,8 +6,9 @@
  * Diff, Refresh, the Git ▸ verbs Push/Pull/Fetch/Compare with Branch
  * or Tag/Branches…/New Branch…, the Add to .gitignore ▸ targets
  * over the `ignorePath` verb, Add to VCS over unversioned rows,
- * Rollback… over added rows (the index drop back to unversioned) and
- * Delete… over any file rows — each over a selection's union);
+ * Rollback… over a target's tracked changes (the Rollback Changes
+ * dialog opens with them checked) and Delete… over any file rows — each
+ * over a selection's union);
  * placeholder constructs (changelists, shelf, Local History) and
  * unbuilt write verbs render visible-disabled. Shortcut hints mirror the reference anatomy; bindings
  * ride the keymap plane later.
@@ -58,7 +59,7 @@ export interface CommitRowMenuHandlers {
   onIgnorePaths: (paths: readonly string[], target: 'gitignore' | 'exclude') => void;
   /** Track these unversioned paths (intent-to-add) — the rows move to Changes as added. */
   onAddToVcs: (paths: readonly string[]) => void;
-  /** Drop these added paths from the index — the panel confirms first; the rows return to Unversioned Files. */
+  /** Open Rollback Changes with these paths checked — the dialog is where the files go back to the last commit. */
   onRollbackPaths: (paths: readonly string[]) => void;
   /** Delete these files from disk — the panel confirms first. */
   onDeletePaths: (paths: readonly string[]) => void;
@@ -80,7 +81,7 @@ interface TargetFacts {
   ignorePaths: readonly string[];
   /** Add to VCS's paths — the unversioned target's files; empty on a tracked or mixed target. */
   addPaths: readonly string[];
-  /** Rollback…'s paths — the target's files when every one is an added row; empty elsewhere. */
+  /** Rollback…'s paths — the target's tracked changes; empty where it has none. */
   rollbackPaths: readonly string[];
   /** Jump to Source's target — one file's row, or a named row whose entity has an editor; null elsewhere. */
   jump: { path: string | null; entity?: WorkspaceTreeEntityRefWire } | null;
@@ -126,7 +127,7 @@ function factsOf(target: CommitMenuTarget): TargetFacts {
     diffPath: null,
     ignorePaths: target.kind === 'dir' && unversioned ? [target.path] : [],
     addPaths: unversioned ? target.paths : [],
-    rollbackPaths: [],
+    rollbackPaths: target.group === 'changes' ? target.paths : [],
     jump: null,
     commitLabelKey:
       target.kind === 'dir' ? 'workbench.commitTool.menu.commitDirectory' : 'workbench.commitTool.menu.commit',
@@ -161,7 +162,7 @@ function addToVcsItem(
   };
 }
 
-/** Rollback… — live over added rows (the index drop), visible-disabled on every other target. */
+/** Rollback… — live over a target's tracked changes, visible-disabled where it has none. */
 function rollbackItem(facts: TargetFacts, h: CommitRowMenuHandlers, t: Translate, key: string): MenuItems[number] {
   const paths = facts.rollbackPaths;
   return {

@@ -143,14 +143,19 @@ describe('countChanges', () => {
 });
 
 describe('rollbackPaths', () => {
-  it('answers the paths when every row is an added file, nothing on a modified, renamed, unversioned, ignored or empty target', () => {
-    expect(rollbackPaths([row({ path: 'a.md', status: 'A' }), row({ path: 'b.md', status: 'A' })])).toEqual([
-      'a.md',
-      'b.md',
-    ]);
+  it('answers the target’s tracked changes — added, changed, deleted, renamed — and leaves an unversioned or an ignored row out', () => {
+    expect(
+      rollbackPaths([
+        row({ path: 'a.md', status: 'A' }),
+        row({ path: 'm.md', status: 'M' }),
+        row({ path: 'd.md', status: 'D' }),
+        row({ path: 'new.md', status: 'R', renamedFrom: 'old.md' }),
+      ]),
+    ).toEqual(['a.md', 'm.md', 'd.md', 'new.md']);
     expect(rollbackPaths([])).toEqual([]);
-    expect(rollbackPaths([row({ path: 'a.md', status: 'A' }), row({ path: 'm.md', status: 'M' })])).toEqual([]);
-    expect(rollbackPaths([row({ path: 'new.md', status: 'R', renamedFrom: 'old.md' })])).toEqual([]);
+    expect(
+      rollbackPaths([row({ path: 'a.md', status: 'A' }), row({ path: 'u.md', status: '?', unversioned: true })]),
+    ).toEqual(['a.md']);
     expect(rollbackPaths([row({ path: 'u.md', status: '?', unversioned: true })])).toEqual([]);
     expect(rollbackPaths([row({ path: 'i.log', status: '!', ignored: true })])).toEqual([]);
   });

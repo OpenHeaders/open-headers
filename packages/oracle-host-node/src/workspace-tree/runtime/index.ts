@@ -133,6 +133,7 @@ import type {
   WorkspaceTreeRemoteOpRpcResult,
   WorkspaceTreeRemotePatch,
   WorkspaceTreeRemotesRpcResult,
+  WorkspaceTreeRollbackPathsRpcResult,
   WorkspaceTreeRuntime,
   WorkspaceTreeRuntimeOptions,
   WorkspaceTreeTreeFilesRpcResult,
@@ -143,7 +144,7 @@ import type {
 } from './types';
 import { runListChanges, runUserCommit, runWorkingFileDiff, validateUserCommitInput } from './user-commit';
 import { detectForcePush, recordWatermark, watermarkFor } from './watermark';
-import { runAddToVcs, runDeletePaths, runUnaddPaths } from './working-files';
+import { runAddToVcs, runDeletePaths, runRollbackPaths, runUnaddPaths } from './working-files';
 
 export type {
   AdoptWorkspaceTreeRpcResult,
@@ -179,6 +180,7 @@ export type {
   WorkspaceTreeRemoteOpRpcResult,
   WorkspaceTreeRemotePatch,
   WorkspaceTreeRemotesRpcResult,
+  WorkspaceTreeRollbackPathsRpcResult,
   WorkspaceTreeRuntime,
   WorkspaceTreeRuntimeOptions,
   WorkspaceTreeTreeFilesRpcResult,
@@ -767,6 +769,25 @@ export function createWorkspaceTreeRuntime(options: WorkspaceTreeRuntimeOptions)
         { ok: false, reason: 'unadd-failed', detail: 'rollback pass did not run' },
         async () => {
           const result = await runUnaddPaths(ctx, binding, paths);
+          await ctx.publishGitStatus(binding);
+          return result;
+        },
+      );
+    },
+
+    async rollbackPaths(
+      workspaceId: string,
+      paths: readonly string[],
+      deleteAdded: boolean,
+    ): Promise<WorkspaceTreeRollbackPathsRpcResult> {
+      const binding = open.get(workspaceId);
+      if (!binding) return { ok: false, reason: 'not-bound' };
+      if (paths.length === 0 || !paths.every(isSafeTreePath)) return { ok: false, reason: 'unknown-path' };
+      return onChain<WorkspaceTreeRollbackPathsRpcResult>(
+        binding,
+        { ok: false, reason: 'rollback-failed', detail: 'rollback pass did not run' },
+        async () => {
+          const result = await runRollbackPaths(ctx, binding, paths, deleteAdded);
           await ctx.publishGitStatus(binding);
           return result;
         },

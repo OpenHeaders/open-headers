@@ -1,8 +1,8 @@
 /**
  * CommitToolbar — the Commit window's top icon row:
- * Refresh, Rollback… (live over a selection of added rows — the index
- * drop back to unversioned; tracked rollbacks are their own future
- * slice), Shelve Silently (a visible placeholder), the View
+ * Refresh, Rollback… (live while anything is changed — it opens
+ * Rollback Changes with the selection's changes checked), Shelve
+ * Silently (a visible placeholder), the View
  * Options eye (Group By Workspace / Directory, Show Ignored Files), Select Opened
  * File (placeholder — needs the editor-tab↔file join), then Expand /
  * Collapse All driving the changes tree. The band is a PaneToolbar: at
@@ -22,7 +22,9 @@ import type { CommitViewPrefs } from './commit-view-prefs';
 
 export interface CommitToolbarProps {
   onRefresh: () => void;
-  /** Rollback…'s target — the selected added rows' paths; empty disables the button. */
+  /** Something is changed — Rollback… has a dialog to open. */
+  canRollback: boolean;
+  /** The selection's tracked changes — what Rollback Changes opens with checked. */
   rollbackPaths: readonly string[];
   onRollback: (paths: readonly string[]) => void;
   prefs: CommitViewPrefs;
@@ -33,6 +35,7 @@ export interface CommitToolbarProps {
 
 const CommitToolbar: React.FC<CommitToolbarProps> = ({
   onRefresh,
+  canRollback,
   rollbackPaths,
   onRollback,
   prefs,
@@ -119,7 +122,7 @@ const CommitToolbar: React.FC<CommitToolbarProps> = ({
         <ToolbarIconButton
           icon={<RollbackIcon />}
           title={t('workbench.commitTool.rollback')}
-          disabled={rollbackPaths.length === 0}
+          disabled={!canRollback}
           onClick={() => onRollback(rollbackPaths)}
           testid="commit-tool-rollback"
         />

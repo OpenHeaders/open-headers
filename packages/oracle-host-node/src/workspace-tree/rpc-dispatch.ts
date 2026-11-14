@@ -428,6 +428,12 @@ export async function dispatchWorkspaceTreeRpc(
     if (type === 'oh.workspaceTree.unaddPaths') return await runtime.unaddPaths(workspaceId, paths);
     return await runtime.deletePaths(workspaceId, paths);
   }
+  if (type === 'oh.workspaceTree.rollbackPaths') {
+    const workspaceId = typeof message.workspaceId === 'string' ? message.workspaceId : '';
+    const paths = Array.isArray(message.paths) ? message.paths.filter((entry) => typeof entry === 'string') : [];
+    if (!workspaceId || paths.length === 0 || runtime === null) return { ok: false, reason: 'not-bound' };
+    return await runtime.rollbackPaths(workspaceId, paths, message.deleteAdded === true);
+  }
   if (type === 'oh.workspaceTree.listRemotes') {
     const workspaceId = typeof message.workspaceId === 'string' ? message.workspaceId : '';
     if (!workspaceId || runtime === null) return { ok: false, reason: 'not-bound' };

@@ -200,7 +200,7 @@ describe('commit tree row context menu', () => {
     expect(h.onDeletePaths).toHaveBeenLastCalledWith(['workspace.yaml']);
   });
 
-  it('Rollback… lives over added rows only — one, a union of added rows — and stays grey on a modified, unversioned or mixed target', async () => {
+  it('Rollback… lives over a target’s tracked changes — one row, a union, a directory — and stays grey where there is none', async () => {
     const h = handlers();
     renderTree(
       [
@@ -225,13 +225,14 @@ describe('commit tree row context menu', () => {
     expect(h.onRollbackPaths).toHaveBeenLastCalledWith(['notes/a.md', 'notes/b.md']);
 
     fireEvent.contextMenu(byPath('workspace.yaml'));
-    expect(await menuItemDisabled('workbench.commitTool.rollback')).toBe(true);
+    fireEvent.click((await screen.findAllByText('workbench.commitTool.rollback')).at(-1) as Element);
+    expect(h.onRollbackPaths).toHaveBeenLastCalledWith(['workspace.yaml']);
     fireEvent.contextMenu(byPath('scratch.md'));
     expect(await menuItemDisabled('workbench.commitTool.rollback')).toBe(true);
-    fireEvent.click(byPath('workspace.yaml'));
-    fireEvent.click(byPath('notes/a.md'), { metaKey: true });
-    fireEvent.contextMenu(byPath('notes/a.md'));
-    expect(await menuItemDisabled('workbench.commitTool.rollback')).toBe(true);
+    // A directory of changes names every file under it.
+    fireEvent.contextMenu(document.querySelector('[data-testid="commit-tool-dir"][data-key="notes"]') as Element);
+    fireEvent.click((await screen.findAllByText('workbench.commitTool.rollback')).at(-1) as Element);
+    expect(h.onRollbackPaths).toHaveBeenLastCalledWith(['notes/a.md', 'notes/b.md']);
   });
 
   it('a directory node carries the menu — Commit Directory… checks exactly its subtree', async () => {

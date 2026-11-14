@@ -513,6 +513,22 @@ export type WorkspaceTreeUnaddPathsRpcResult =
       detail?: string;
     };
 
+/** Rollback Changes: `rolledBack` counts the change rows put back as HEAD holds them. */
+export type WorkspaceTreeRollbackPathsRpcResult =
+  | { ok: true; rolledBack: number }
+  | {
+      ok: false;
+      reason:
+        | 'not-bound'
+        | 'git-unavailable'
+        | 'not-a-repo'
+        | 'unknown-path'
+        | 'op-in-progress'
+        | 'index-locked'
+        | 'rollback-failed';
+      detail?: string;
+    };
+
 /** Delete…: `deleted` counts the files removed before the first refusal, if any. */
 export type WorkspaceTreeDeletePathsRpcResult =
   | { ok: true; deleted: number }
@@ -790,6 +806,18 @@ export interface WorkspaceTreeRuntime {
    * chain; a status frame follows.
    */
   unaddPaths(workspaceId: string, paths: readonly string[]): Promise<WorkspaceTreeUnaddPathsRpcResult>;
+  /**
+   * The Commit window's Rollback Changes: each path's working change is
+   * given up for what HEAD holds — a changed or deleted file is restored,
+   * an added one leaves the index (and the disk, with `deleteAdded`), a
+   * renamed one returns under its old name — and the engine follows the
+   * files. Irreversible. On the per-binding chain; a status frame follows.
+   */
+  rollbackPaths(
+    workspaceId: string,
+    paths: readonly string[],
+    deleteAdded: boolean,
+  ): Promise<WorkspaceTreeRollbackPathsRpcResult>;
   /**
    * The Commit window's Delete… verb: remove the files from disk (a
    * tracked file reads as deleted until committed). On the per-binding

@@ -137,6 +137,13 @@ export {
   withCommitAttribution,
 } from './repo';
 export {
+  planRollback,
+  type RollbackOptions,
+  type RollbackPlan,
+  type RollbackResult,
+  rollbackWorkingPaths,
+} from './rollback-ops';
+export {
   COMMIT_SIGNATURES_MAX_COMMITS,
   type CommitSignature,
   type CommitSignatureState,
