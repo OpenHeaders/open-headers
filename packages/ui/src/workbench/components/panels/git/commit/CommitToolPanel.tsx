@@ -164,6 +164,8 @@ const CommitToolPanel: React.FC<CommitToolPanelProps> = ({ info, onHide }) => {
   const counter = useMemo(() => countChanges(rows), [rows]);
   const paths = useMemo(() => checkedPaths(rows, checked), [rows, checked]);
   const toolbarRollback = useMemo(() => rollbackPaths(selectedRows), [selectedRows]);
+  // With no change selected the toolbar's Rollback names them all (the reference).
+  const allChangePaths = useMemo(() => groups.changes.map((row) => row.path), [groups]);
   const runGitHooks = prefs.runGitHooks ?? !bypassHooksSetting;
   const canCommit = bound && !committing && prefs.draft.trim().length > 0 && (paths.length > 0 || amend);
 
@@ -700,7 +702,7 @@ const CommitToolPanel: React.FC<CommitToolPanelProps> = ({ info, onHide }) => {
       <CommitToolbar
         onRefresh={refreshAsked.ask}
         canRollback={groups.changes.length > 0}
-        rollbackPaths={toolbarRollback}
+        rollbackPaths={toolbarRollback.length > 0 ? toolbarRollback : allChangePaths}
         onRollback={handleRollbackPaths}
         prefs={prefs}
         onPatchPrefs={patchPrefs}

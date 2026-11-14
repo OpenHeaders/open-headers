@@ -1,7 +1,8 @@
 /**
  * CommitToolbar — the Commit window's top icon row:
  * Refresh, Rollback… (live while anything is changed — it opens
- * Rollback Changes with the selection's changes checked), Shelve
+ * Rollback Changes with the selection's changes checked, or every
+ * change when the selection holds none), Shelve
  * Silently (a visible placeholder), the View
  * Options eye (Group By Workspace / Directory, Show Ignored Files), Select Opened
  * File (placeholder — needs the editor-tab↔file join), then Expand /

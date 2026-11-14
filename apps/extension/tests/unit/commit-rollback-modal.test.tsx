@@ -2,7 +2,8 @@
 /**
  * `RollbackChangesModal` — the Commit window's Rollback Changes dialog:
  * it opens with the gesture's files checked and no other, more can be
- * checked there, the count follows what is checked, Rollback sends ONE
+ * checked there, the count follows what is checked — added, modified,
+ * deleted, a part per kind — Rollback sends ONE
  * host call with exactly the checked files (and the delete of added
  * files when its box is on) and closes — nothing asks again; with
  * nothing checked Rollback is held; a refusal is said in the dialog,
@@ -92,6 +93,12 @@ const fileRow = (path: string): Element =>
 const box = (path: string): HTMLInputElement =>
   fileRow(path).querySelector('input[type="checkbox"]') as HTMLInputElement;
 const confirm = (): HTMLButtonElement => screen.getByTestId('commit-rollback-confirm') as HTMLButtonElement;
+/** The count line's parts: the kind each is coloured as, and its words. */
+const counted = (): (string | null)[][] =>
+  [...screen.getByTestId('commit-rollback-counter').children].map((part) => [
+    part.getAttribute('data-kind'),
+    part.textContent,
+  ]);
 
 describe('RollbackChangesModal', () => {
   it('opens with the gesture’s files checked and no other; the count follows what is checked', () => {
@@ -101,10 +108,18 @@ describe('RollbackChangesModal', () => {
       false,
       false,
     ]);
-    expect(screen.getByTestId('commit-rollback-counter').textContent).toBe('1 modified');
+    expect(counted()).toEqual([['modified', '1 modified']]);
     fireEvent.click(box('docs/new.md'));
     fireEvent.click(box('notes.md'));
-    expect(screen.getByTestId('commit-rollback-counter').textContent).toBe('1 modified, 1 added, 1 deleted');
+    expect(counted()).toEqual([
+      ['added', '1 added'],
+      ['modified', '1 modified'],
+      ['deleted', '1 deleted'],
+    ]);
+    const colours = [...screen.getByTestId('commit-rollback-counter').children].map(
+      (part) => (part as HTMLElement).style.color,
+    );
+    expect(new Set(colours).size).toBe(3);
   });
 
   it('Rollback sends one call with exactly the checked files and closes — nothing asks again', async () => {

@@ -3,7 +3,8 @@
  * (the reference's): the Changes group in the Commit window's own
  * checkable tree, opening in the shape the window is in with the files
  * the gesture named checked — more can be checked or unchecked there —
- * a count of what is checked, "Delete local copies of added files", and
+ * a count of what is checked (added, modified, deleted, each in its
+ * change's colour), "Delete local copies of added files", and
  * Close / Rollback. Rollback is the whole gesture: nothing asks again.
  *
  * One host verb puts every checked file back as the last commit holds
@@ -20,6 +21,7 @@ import { hostBridge, type WorkspaceTreeWorkingChangeWire } from '@openheaders/co
 import { Button, Checkbox, Dropdown, Modal, theme } from 'antd';
 import type React from 'react';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { useTheme } from '@openheaders/ui/context';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { CollapseAllIcon, ExpandAllIcon } from '@openheaders/ui/shared/icons';
 import { menuCheckIcon } from '../../../shared/menu-check';
@@ -29,6 +31,7 @@ import { useOptionMenu } from '../use-option-menu';
 import CommitChangesTree, { type CommitChangesTreeHandle, type CommitChangesTreeProps } from './CommitChangesTree';
 import { type ChangeGroups, type CheckedState, countChanges } from './commit-model';
 import CommitWorkspaceTree from './CommitWorkspaceTree';
+import { vcsPalette } from './vcs-colors';
 
 export interface RollbackChangesModalProps {
   workspaceId: string;
@@ -63,6 +66,8 @@ const RollbackChangesModal: React.FC<RollbackChangesModalProps> = ({
 }) => {
   const t = useT();
   const { token } = theme.useToken();
+  const { isDarkMode } = useTheme();
+  const palette = vcsPalette(isDarkMode);
   const open = paths !== null;
   // What is checked is held by NAME: a change that appears while the dialog is open arrives unchecked.
   const [checkedPaths, setCheckedPaths] = useState<ReadonlySet<string>>(new Set());
@@ -95,10 +100,20 @@ const RollbackChangesModal: React.FC<RollbackChangesModalProps> = ({
     [rows, checkedPaths],
   );
   const counter = useMemo(() => countChanges(picked), [picked]);
-  const counted: string[] = [];
-  if (counter.modified > 0) counted.push(t('workbench.commitTool.counter.modified', { count: counter.modified }));
-  if (counter.added > 0) counted.push(t('workbench.commitTool.counter.added', { count: counter.added }));
-  if (counter.deleted > 0) counted.push(t('workbench.commitTool.counter.deleted', { count: counter.deleted }));
+  // The reference's order and colours: added, modified, deleted — each as the tree paints that change.
+  const counted = [
+    { kind: 'added', count: counter.added, text: t('workbench.commitTool.counter.added', { count: counter.added }) },
+    {
+      kind: 'modified',
+      count: counter.modified,
+      text: t('workbench.commitTool.counter.modified', { count: counter.modified }),
+    },
+    {
+      kind: 'deleted',
+      count: counter.deleted,
+      text: t('workbench.commitTool.counter.deleted', { count: counter.deleted }),
+    },
+  ] as const;
 
   const rollBack = async (): Promise<void> => {
     if (busy || picked.length === 0) return;
@@ -255,8 +270,14 @@ const RollbackChangesModal: React.FC<RollbackChangesModalProps> = ({
             )}
           </div>
         </div>
-        <div style={{ minHeight: 18, fontSize: 12, color: token.colorTextTertiary }} data-testid="commit-rollback-counter">
-          {counted.join(', ')}
+        <div style={{ display: 'flex', gap: 12, minHeight: 18, fontSize: 12 }} data-testid="commit-rollback-counter">
+          {counted
+            .filter((part) => part.count > 0)
+            .map((part) => (
+              <span key={part.kind} style={{ color: palette[part.kind] }} data-kind={part.kind}>
+                {part.text}
+              </span>
+            ))}
         </div>
         <Checkbox
           checked={deleteAdded}
