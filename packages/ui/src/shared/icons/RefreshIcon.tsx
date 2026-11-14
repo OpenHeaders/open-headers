@@ -6,21 +6,25 @@
  * currentColor and `spin` like every stock icon. It stands in for
  * every refresh affordance on the git surfaces.
  *
- * `spin` turns it while a read is out — in WHOLE turns: a turn once
- * begun is finished, so a read that answers in a tenth of a second
- * shows one full turn instead of a twitch that snaps back to rest.
+ * `spin` turns it while a read is out — in WHOLE turns
+ * (`useWholeCycles`): a turn once begun is finished, so a read that
+ * answers in a tenth of a second shows one full turn instead of a
+ * twitch that snaps back to rest. ONE turn a second: the wrapper turns
+ * its own box and hands the same class to the drawing — taken by
+ * both, the glyph went round twice in the time of one turn — so the
+ * drawing takes no class and the box alone turns.
  */
 
 import Icon from '@ant-design/icons';
 import type React from 'react';
-import { useState } from 'react';
+import { useWholeCycles } from '../hooks/useWholeCycles';
 import type { GlyphIconProps } from './types';
 
 export interface RefreshIconProps extends GlyphIconProps {
   spin?: boolean;
 }
 
-const RefreshSvg: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
+const RefreshSvg: React.FC<React.SVGProps<SVGSVGElement>> = ({ className: _turnsWithTheBox, ...props }) => (
   <svg
     {...props}
     viewBox="0 0 16 16"
@@ -38,17 +42,6 @@ const RefreshSvg: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
 );
 
 export const RefreshIcon: React.FC<RefreshIconProps> = ({ spin = false, ...rest }) => {
-  // Turning from the moment `spin` asks for it until the end of the turn in which it stops asking.
-  const [turning, setTurning] = useState(spin);
-  if (spin && !turning) setTurning(true);
-  return (
-    <Icon
-      component={RefreshSvg}
-      {...rest}
-      spin={turning}
-      onAnimationIteration={() => {
-        if (!spin) setTurning(false);
-      }}
-    />
-  );
+  const turn = useWholeCycles(spin);
+  return <Icon component={RefreshSvg} {...rest} spin={turn.running} onAnimationIteration={turn.onAnimationIteration} />;
 };

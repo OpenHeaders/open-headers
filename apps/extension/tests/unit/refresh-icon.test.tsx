@@ -33,6 +33,12 @@ describe('RefreshIcon', () => {
     expect(turning(view.container)).toBe(true);
   });
 
+  it('turns its box alone — the drawing inside takes no turn of its own', () => {
+    const view = render(<RefreshIcon spin />);
+    expect(glyph(view.container).classList.contains('anticon-spin')).toBe(true);
+    expect(view.container.querySelector('svg')?.getAttribute('class') ?? '').not.toContain('anticon-spin');
+  });
+
   it('finishes the turn it is in when the read answers', () => {
     const view = render(<RefreshIcon spin />);
     view.rerender(<RefreshIcon spin={false} />);

@@ -43,13 +43,19 @@
 
 // A band button — the rail's vertical bar, the pane toolbars: a grey
 // fill under the pointer (the reference's reading). A pressed button's
-// own fill is its inline style and stands over this. An unavailable
-// one is `aria-disabled` (it keeps the focus it holds) and takes none.
+// own fill is its inline style and stands over this. Held down, the
+// fill is a step stronger — the press is answered before its release.
+// An unavailable one is `aria-disabled` (it keeps the focus it holds)
+// and takes neither.
 .git-tool-rail-button {
   background: transparent;
 
   &:not([aria-disabled='true']):hover {
     background: var(--ant-color-fill-secondary, rgba(128, 128, 128, 0.16));
+  }
+
+  &:not([aria-disabled='true']):active {
+    background: var(--ant-color-fill, rgba(128, 128, 128, 0.24));
   }
 }
 
@@ -59,7 +65,8 @@
 // verb answers in half a second; a run that eases in from outside
 // shows nothing for the first part of it). Its colour is the element's
 // own (`color`, set from the theme); where motion is reduced the run
-// stands still over the whole track.
+// stands still over the whole track. A read of the log wears the same
+// line much dimmer: it is the log looking again, not a verb at work.
 .git-working-line {
   position: absolute;
   inset: 0 0 auto 0;
@@ -82,8 +89,12 @@
     inset: 0 auto 0 0;
     width: 40%;
     background: currentColor;
-    animation: git-working-line 1.1s linear infinite;
+    animation: git-working-line 1s linear infinite;
   }
+}
+
+.git-working-line--read {
+  opacity: 0.35;
 }
 
 @keyframes git-working-line {

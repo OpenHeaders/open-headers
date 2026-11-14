@@ -637,7 +637,7 @@ const GitLogView: React.FC<GitLogViewProps> = ({
             textInvalid={matcher.kind === 'invalid'}
             container={container}
           />
-          <GitWorkingLine active={atHost} />
+          <GitWorkingLine working={atHost} reading={loading} />
           <CommitList
             entries={shown.entries}
             graph={graph}
