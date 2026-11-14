@@ -772,6 +772,11 @@ export const workbenchChrome = {
   'workbench.gitLog.working.merge': '{ref} 병합 중…',
   'workbench.gitLog.working.update': '{branch} 업데이트 중…',
   'workbench.gitLog.working.push': '푸시하는 중…',
+  'workbench.gitLog.working.commit': '커밋하는 중…',
+  'workbench.gitLog.working.add': 'VCS에 추가하는 중…',
+  'workbench.gitLog.working.ignore': '무시할 파일을 업데이트하는 중…',
+  'workbench.gitLog.working.rollback': '롤백하는 중…',
+  'workbench.gitLog.working.delete': '삭제하는 중…',
   'workbench.gitLog.applyCommit.pickFailed': '{commit} 체리픽 실패: {detail}',
   'workbench.gitLog.applyCommit.revertFailed': '{commit} 되돌리기 실패: {detail}',
   'workbench.gitLog.applyCommit.pickEmpty':

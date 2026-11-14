@@ -947,6 +947,11 @@ export const workbenchChrome = {
   'workbench.gitLog.working.merge': 'Fusion de {ref} en cours…',
   'workbench.gitLog.working.update': 'Mise à jour de {branch}…',
   'workbench.gitLog.working.push': 'Push en cours…',
+  'workbench.gitLog.working.commit': 'Commit en cours…',
+  'workbench.gitLog.working.add': 'Ajout au VCS…',
+  'workbench.gitLog.working.ignore': 'Mise à jour des fichiers ignorés…',
+  'workbench.gitLog.working.rollback': 'Annulation des modifications…',
+  'workbench.gitLog.working.delete': 'Suppression…',
   'workbench.gitLog.applyCommit.pickFailed': 'Impossible de faire le cherry-pick de {commit} : {detail}',
   'workbench.gitLog.applyCommit.revertFailed': 'Impossible d’annuler {commit} : {detail}',
   'workbench.gitLog.applyCommit.pickEmpty':

@@ -775,6 +775,11 @@ export const workbenchChrome = {
   'workbench.gitLog.working.merge': '{ref} をマージ中…',
   'workbench.gitLog.working.update': '{branch} を更新中…',
   'workbench.gitLog.working.push': 'プッシュ中…',
+  'workbench.gitLog.working.commit': 'コミット中…',
+  'workbench.gitLog.working.add': 'VCS に追加中…',
+  'workbench.gitLog.working.ignore': '無視するファイルを更新中…',
+  'workbench.gitLog.working.rollback': 'ロールバック中…',
+  'workbench.gitLog.working.delete': '削除中…',
   'workbench.gitLog.applyCommit.pickFailed': '{commit} をチェリーピックできませんでした：{detail}',
   'workbench.gitLog.applyCommit.revertFailed': '{commit} をリバートできませんでした：{detail}',
   'workbench.gitLog.applyCommit.pickEmpty':

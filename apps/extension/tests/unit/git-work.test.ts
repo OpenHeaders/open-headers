@@ -3,10 +3,12 @@
  * is named in the processes slot and counted from the press until the
  * host answers, a refusal that throws included; two calls out at once
  * are two entries, and the surface is at work until the last is back.
+ * A call a dialog's own button sent is named and not counted — the
+ * surface under the dialog shows no work for it.
  */
 
 import { __resetBackgroundTasksForTests, useBackgroundTasks } from '@openheaders/ui/shared/background-tasks';
-import { useGitWork } from '@openheaders/ui/workbench/components/panels/git/use-git-work';
+import { nameGitWork, useGitWork } from '@openheaders/ui/workbench/components/panels/git/use-git-work';
 import { act, renderHook } from '@testing-library/react';
 import { beforeEach, describe, expect, it } from 'vitest';
 
@@ -100,6 +102,43 @@ describe('useGitWork', () => {
       await pushed;
     });
     expect(work.result.current.working).toBe(false);
+    expect(tasks.result.current).toEqual([]);
+  });
+
+  it('names a call a dialog signs without counting it', async () => {
+    const work = renderHook(() => useGitWork());
+    const tasks = renderHook(() => useBackgroundTasks());
+    const push = held<string>();
+    let answered: Promise<string> = Promise.resolve('');
+    act(() => {
+      answered = work.result.current.atHost('Pushing…', push.call, 'dialog');
+    });
+    expect(work.result.current.working).toBe(false);
+    expect(titles(tasks.result.current)).toEqual(['Pushing…']);
+
+    await act(async () => {
+      push.answer('pushed');
+      await answered;
+    });
+    expect(await answered).toBe('pushed');
+    expect(work.result.current.working).toBe(false);
+    expect(tasks.result.current).toEqual([]);
+  });
+
+  it('names a call for a dialog that holds no hook, a refusal that throws included', async () => {
+    const tasks = renderHook(() => useBackgroundTasks());
+    const create = held<string>();
+    let answered: Promise<string> = Promise.resolve('');
+    act(() => {
+      answered = nameGitWork('Deleting…', create.call);
+    });
+    expect(titles(tasks.result.current)).toEqual(['Deleting…']);
+
+    await act(async () => {
+      create.fail(new Error('host gone'));
+      await answered.catch(() => undefined);
+    });
+    await expect(answered).rejects.toThrow('host gone');
     expect(tasks.result.current).toEqual([]);
   });
 });

@@ -4,7 +4,12 @@
  * modified" counter on the right), the Commit Message box, and the
  * button row — Commit, Commit and Push… (Amend Commit, Amend Commit
  * and Push… while Amend is on), and the gear popover with the
- * Git-real commit options (Sign-off; Run Git hooks). While Amend is
+ * Git-real commit options (Sign-off; Run Git hooks). Both buttons are
+ * held while a commit is out — the window's pulse is its sign, the
+ * button plays none of its own. A held button is `aria-disabled`, never
+ * natively disabled: the press that sends a commit makes its own button
+ * unavailable, and a natively disabled button drops the focus it holds
+ * to the page — the window then reads as unfocused. While Amend is
  * on a read-only "By <author>" row under the box names whose commit
  * is being rewritten (`--amend` keeps the author; the full identity
  * is its tooltip). Author override and the inspection checks are
@@ -48,7 +53,7 @@ export interface CommitFormProps {
   onSignOffChange: (signOff: boolean) => void;
   runGitHooks: boolean;
   onRunGitHooksChange: (runGitHooks: boolean) => void;
-  committing: boolean;
+  /** A message, something to commit, and no commit out right now. */
   canCommit: boolean;
   onCommit: (andPush: boolean) => void;
   error: string | null;
@@ -66,6 +71,11 @@ interface PendingSelection {
   focus: boolean;
 }
 
+/** A button's press while it is available; held, the library's own non-native disabled form and no press. */
+function pressOrHeld(available: boolean, onClick: () => void) {
+  return available ? { onClick } : { 'aria-disabled': true, className: 'ant-btn-disabled' };
+}
+
 const CommitForm = forwardRef<CommitFormHandle, CommitFormProps>(function CommitForm(
   {
     draft,
@@ -80,7 +90,6 @@ const CommitForm = forwardRef<CommitFormHandle, CommitFormProps>(function Commit
   onSignOffChange,
   runGitHooks,
   onRunGitHooksChange,
-    committing,
     canCommit,
     onCommit,
     error,
@@ -375,17 +384,14 @@ const CommitForm = forwardRef<CommitFormHandle, CommitFormProps>(function Commit
         <Button
           type={historyOpen ? 'default' : 'primary'}
           size="small"
-          loading={committing}
-          disabled={!canCommit}
-          onClick={() => onCommit(false)}
+          {...pressOrHeld(canCommit, () => onCommit(false))}
           data-testid="commit-tool-commit"
         >
           {t(amend ? 'workbench.commitTool.amendCommit' : 'workbench.commitTool.commit')}
         </Button>
         <Button
           size="small"
-          disabled={!canCommit || committing}
-          onClick={() => onCommit(true)}
+          {...pressOrHeld(canCommit, () => onCommit(true))}
           data-testid="commit-tool-commit-push"
         >
           {t(amend ? 'workbench.commitTool.amendCommitAndPush' : 'workbench.commitTool.commitAndPush')}

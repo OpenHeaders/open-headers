@@ -29,6 +29,7 @@ import { type Translate, useT } from '@openheaders/ui/context/LocaleContext';
 import { type ReactNode, useCallback } from 'react';
 import { shortSha } from './commit-apply';
 import type { LocalChangesOperation } from './LocalChangesFirstModal';
+import type { GitWorkSign } from './use-git-work';
 import { type NamedNotices, useNamedNotices } from './use-named-notices';
 import { type ConflictsRefusal, useConflictAnswers } from './use-conflict-answers';
 import { type CommitLocalWord, type LocalChangesRefusal, useLocalChangesQuestion } from './use-local-changes-question';
@@ -37,6 +38,16 @@ import { type CommitLocalWord, type LocalChangesRefusal, useLocalChangesQuestion
 export interface PassAnswerSet {
   commitLocal?: CommitLocalWord;
   resolution?: WorkspaceTreeApplyCommitResolutionWire;
+}
+
+/**
+ * What signs the call that carries `answers`: an answer to the files both
+ * sides changed is sent by the conflicts step or the editor, which stays
+ * open over the window until the host has taken it; every other call of
+ * the pass goes out with no dialog up.
+ */
+export function passAnswersSign(answers: PassAnswerSet): GitWorkSign {
+  return answers.resolution !== undefined ? 'dialog' : 'surface';
 }
 
 /** What a verb's answer carries when it is one of the two questions. */

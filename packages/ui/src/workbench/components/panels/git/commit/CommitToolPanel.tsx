@@ -8,7 +8,10 @@
  * window); the posture (bound, root, status) reads from the ONE git
  * status store and, bound, the window refetches its changes on every
  * status frame the store folds — no polling. The user's real index is never touched; every
- * write rides the workspace-tree verb table.
+ * write rides the workspace-tree verb table. A verb pressed here says
+ * it is at the host (`use-git-work`): the pulse along the top of the
+ * changes, and its name in the status bar; one confirmed in a dialog is
+ * signed by that dialog's own button and named alone.
  */
 
 import {
@@ -33,8 +36,9 @@ import ForcePushBanner from '../ForcePushBanner';
 import GitWorkingLine from '../GitWorkingLine';
 import { committedLocalNotice, integrationRefusalDetail, keptLocalNotice, leftOutNotice } from '../kept-local';
 import { useAskedRead } from '../use-asked-read';
+import { type GitWorkSign, nameGitWork, useGitWork } from '../use-git-work';
 import { useJumpToSource } from '../use-jump-to-source';
-import { usePassAnswers } from '../use-pass-answers';
+import { passAnswersSign, usePassAnswers } from '../use-pass-answers';
 import { GIT_PRIMARY_TAB_KEY, getGitPanelWorkbench } from '../git-panel-view-store';
 import CreateBranchModal from '../rail/CreateBranchModal';
 import RemotesModal from '../remotes/RemotesModal';
@@ -99,6 +103,7 @@ const CommitToolPanel: React.FC<CommitToolPanelProps> = ({ info, onHide }) => {
   const panelRef = useRef<HTMLDivElement>(null);
   const preAmendDraft = useRef<string | null>(null);
   const answers = usePassAnswers();
+  const { atHost, working } = useGitWork();
   const jumpToSource = useJumpToSource(workspaceId ?? '');
 
   // The posture from the one git status store: hydrated on first
@@ -250,10 +255,16 @@ const CommitToolPanel: React.FC<CommitToolPanelProps> = ({ info, onHide }) => {
   // Push's typed refusals (§8.2 / §16): a non-fast-forward raises the
   // Push Rejected prompt (Merge = pull, then push again), a rewrite
   // points at the banner, a read-only remote raises the
-  // Push-as-New-Branch recovery instead of an error.
-  const pushCurrent = useCallback(async (): Promise<void> => {
+  // Push-as-New-Branch recovery instead of an error. The Push window's
+  // own button signs the push it confirms; one sent after a merge has no
+  // dialog up.
+  const pushCurrent = useCallback(async (sign: GitWorkSign): Promise<void> => {
     if (workspaceId === null) return;
-    const push = await hostBridge.call('oh.workspaceTree.push', { workspaceId });
+    const push = await atHost(
+      t('workbench.gitLog.working.push'),
+      () => hostBridge.call('oh.workspaceTree.push', { workspaceId }),
+      sign,
+    );
     if (push.ok) {
       setPushRecovery(false);
       message.success(t(push.pushed ? 'workbench.commitTool.pushed' : 'workbench.commitTool.nothingToPush'));
@@ -273,7 +284,7 @@ const CommitToolPanel: React.FC<CommitToolPanelProps> = ({ info, onHide }) => {
     } else {
       setError(push.detail !== undefined && push.detail.length > 0 ? `${failed}\n${push.detail}` : failed);
     }
-  }, [workspaceId, message, t]);
+  }, [workspaceId, message, t, atHost]);
 
   const handleCommit = useCallback(
     async (andPush: boolean): Promise<void> => {
@@ -281,14 +292,16 @@ const CommitToolPanel: React.FC<CommitToolPanelProps> = ({ info, onHide }) => {
       setCommitting(true);
       setError(null);
       try {
-        const result = await hostBridge.call('oh.workspaceTree.userCommit', {
-          workspaceId,
-          message: prefs.draft,
-          paths,
-          ...(amend ? { amend: true } : {}),
-          ...(prefs.signOff ? { signOff: true } : {}),
-          ...(runGitHooks ? {} : { bypassHooks: true }),
-        });
+        const result = await atHost(t('workbench.gitLog.working.commit'), () =>
+          hostBridge.call('oh.workspaceTree.userCommit', {
+            workspaceId,
+            message: prefs.draft,
+            paths,
+            ...(amend ? { amend: true } : {}),
+            ...(prefs.signOff ? { signOff: true } : {}),
+            ...(runGitHooks ? {} : { bypassHooks: true }),
+          }),
+        );
         if (!result.ok) {
           setError(commitErrorText(result.reason, result.detail));
           return;
@@ -322,6 +335,7 @@ const CommitToolPanel: React.FC<CommitToolPanelProps> = ({ info, onHide }) => {
       message,
       refreshChanges,
       t,
+      atHost,
     ],
   );
 
@@ -358,7 +372,11 @@ const CommitToolPanel: React.FC<CommitToolPanelProps> = ({ info, onHide }) => {
     if (workspaceId === null) return false;
     try {
       const result = await answerPass({ kind: 'pull' }, (given) =>
-        hostBridge.call('oh.workspaceTree.pull', { workspaceId, ...given }),
+        atHost(
+          t('workbench.gitLog.working.pull'),
+          () => hostBridge.call('oh.workspaceTree.pull', { workspaceId, ...given }),
+          passAnswersSign(given),
+        ),
       );
       if (result === null) return false;
       if (!result.ok) {
@@ -401,18 +419,20 @@ const CommitToolPanel: React.FC<CommitToolPanelProps> = ({ info, onHide }) => {
       setError((err as Error).message);
       return false;
     }
-  }, [workspaceId, message, refreshChanges, t, answerPass, sayOfPass]);
+  }, [workspaceId, message, refreshChanges, t, answerPass, sayOfPass, atHost]);
 
   const handleFetch = useCallback(async (): Promise<void> => {
     if (workspaceId === null) return;
     try {
-      const result = await hostBridge.call('oh.workspaceTree.fetch', { workspaceId });
+      const result = await atHost(t('workbench.gitLog.working.fetch'), () =>
+        hostBridge.call('oh.workspaceTree.fetch', { workspaceId }),
+      );
       if (result.ok) message.success(t('workbench.commitTool.menu.fetchDone'));
       else setError(t('workbench.gitLog.fetch.failed', { detail: result.detail ?? result.reason }));
     } catch (err) {
       setError((err as Error).message);
     }
-  }, [workspaceId, message, t]);
+  }, [workspaceId, message, t, atHost]);
 
   // Add to .gitignore ▸ — one entry per path (a selection's files in
   // sequence, the first refusal stops the pass); the rows leave
@@ -422,19 +442,23 @@ const CommitToolPanel: React.FC<CommitToolPanelProps> = ({ info, onHide }) => {
     async (paths: readonly string[], target: 'gitignore' | 'exclude'): Promise<void> => {
       if (workspaceId === null) return;
       try {
-        for (const filePath of paths) {
-          const result = await hostBridge.call('oh.workspaceTree.ignorePath', { workspaceId, path: filePath, target });
-          if (!result.ok) {
-            setError(t('workbench.commitTool.menu.ignoreFailed', { detail: result.detail ?? result.reason }));
-            return;
+        const refused = await atHost(t('workbench.gitLog.working.ignore'), async () => {
+          for (const filePath of paths) {
+            const result = await hostBridge.call('oh.workspaceTree.ignorePath', { workspaceId, path: filePath, target });
+            if (!result.ok) return result.detail ?? result.reason;
           }
+          return null;
+        });
+        if (refused !== null) {
+          setError(t('workbench.commitTool.menu.ignoreFailed', { detail: refused }));
+          return;
         }
         await refreshChanges();
       } catch (err) {
         setError((err as Error).message);
       }
     },
-    [workspaceId, refreshChanges, t],
+    [workspaceId, refreshChanges, t, atHost],
   );
 
   // Add to VCS — the rows leave Unversioned Files for Changes (added)
@@ -443,7 +467,9 @@ const CommitToolPanel: React.FC<CommitToolPanelProps> = ({ info, onHide }) => {
     async (paths: readonly string[]): Promise<void> => {
       if (workspaceId === null) return;
       try {
-        const result = await hostBridge.call('oh.workspaceTree.addToVcs', { workspaceId, paths: [...paths] });
+        const result = await atHost(t('workbench.gitLog.working.add'), () =>
+          hostBridge.call('oh.workspaceTree.addToVcs', { workspaceId, paths: [...paths] }),
+        );
         if (!result.ok) {
           setError(t('workbench.commitTool.menu.addToVcsFailed', { detail: result.detail ?? result.reason }));
           return;
@@ -453,7 +479,7 @@ const CommitToolPanel: React.FC<CommitToolPanelProps> = ({ info, onHide }) => {
         setError((err as Error).message);
       }
     },
-    [workspaceId, refreshChanges, t],
+    [workspaceId, refreshChanges, t, atHost],
   );
 
   // Rollback… over added rows — confirmed first (the count in the
@@ -470,7 +496,9 @@ const CommitToolPanel: React.FC<CommitToolPanelProps> = ({ info, onHide }) => {
         okText: t('workbench.commitTool.rollbackAdded.ok'),
         onOk: async () => {
           try {
-            const result = await hostBridge.call('oh.workspaceTree.unaddPaths', { workspaceId, paths: [...paths] });
+            const result = await nameGitWork(t('workbench.gitLog.working.rollback'), () =>
+              hostBridge.call('oh.workspaceTree.unaddPaths', { workspaceId, paths: [...paths] }),
+            );
             if (!result.ok) {
               setError(t('workbench.commitTool.menu.rollbackFailed', { detail: result.detail ?? result.reason }));
             }
@@ -498,7 +526,9 @@ const CommitToolPanel: React.FC<CommitToolPanelProps> = ({ info, onHide }) => {
         okButtonProps: { danger: true },
         onOk: async () => {
           try {
-            const result = await hostBridge.call('oh.workspaceTree.deletePaths', { workspaceId, paths: [...paths] });
+            const result = await nameGitWork(t('workbench.gitLog.working.delete'), () =>
+              hostBridge.call('oh.workspaceTree.deletePaths', { workspaceId, paths: [...paths] }),
+            );
             if (!result.ok) {
               setError(t('workbench.commitTool.menu.deleteFailed', { detail: result.detail ?? result.reason }));
             }
@@ -518,7 +548,9 @@ const CommitToolPanel: React.FC<CommitToolPanelProps> = ({ info, onHide }) => {
     async (filePath: string, target: 'gitignore' | 'exclude'): Promise<void> => {
       if (workspaceId === null) return;
       try {
-        const result = await hostBridge.call('oh.workspaceTree.unignorePath', { workspaceId, path: filePath, target });
+        const result = await atHost(t('workbench.gitLog.working.ignore'), () =>
+          hostBridge.call('oh.workspaceTree.unignorePath', { workspaceId, path: filePath, target }),
+        );
         if (!result.ok) {
           setError(t('workbench.commitTool.menu.ignoreFailed', { detail: result.detail ?? result.reason }));
           return;
@@ -528,7 +560,7 @@ const CommitToolPanel: React.FC<CommitToolPanelProps> = ({ info, onHide }) => {
         setError((err as Error).message);
       }
     },
-    [workspaceId, refreshChanges, t],
+    [workspaceId, refreshChanges, t, atHost],
   );
 
   // Compare with Branch or Tag… — the picked ref opens the Git
@@ -690,7 +722,7 @@ const CommitToolPanel: React.FC<CommitToolPanelProps> = ({ info, onHide }) => {
         onExpandAll={() => treeRef.current?.expandAll()}
         onCollapseAll={() => treeRef.current?.collapseAll()}
       />
-      <GitWorkingLine active={refreshAsked.asked} />
+      <GitWorkingLine active={working || refreshAsked.asked} />
       {prefs.groupByWorkspace ? (
         <CommitWorkspaceTree ref={treeRef} {...treeProps} workspaceId={workspaceId} headSha={headSha} />
       ) : (
@@ -720,7 +752,6 @@ const CommitToolPanel: React.FC<CommitToolPanelProps> = ({ info, onHide }) => {
         onSignOffChange={(signOff) => patchPrefs({ signOff })}
         runGitHooks={runGitHooks}
         onRunGitHooksChange={(next) => patchPrefs({ runGitHooks: next })}
-        committing={committing}
         canCommit={canCommit}
         onCommit={(andPush) => void handleCommit(andPush)}
         error={error}
@@ -732,7 +763,7 @@ const CommitToolPanel: React.FC<CommitToolPanelProps> = ({ info, onHide }) => {
         workspaceId={workspaceId}
         open={pushOpen}
         onClose={() => setPushOpen(false)}
-        onConfirm={pushCurrent}
+        onConfirm={() => pushCurrent('dialog')}
       />
       <PushRejectedModal
         open={pushRejected}
@@ -740,7 +771,7 @@ const CommitToolPanel: React.FC<CommitToolPanelProps> = ({ info, onHide }) => {
         onCancel={() => setPushRejected(false)}
         onMerge={() => {
           setPushRejected(false);
-          void handlePull().then((landed) => (landed ? pushCurrent() : undefined));
+          void handlePull().then((landed) => (landed ? pushCurrent('surface') : undefined));
         }}
       />
       <CompareBranchModal
