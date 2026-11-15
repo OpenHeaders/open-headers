@@ -34,6 +34,7 @@ import { useLocale } from '@openheaders/ui/context/LocaleContext';
 import { Sash } from '@openheaders/ui/shared/dock-layout';
 import { useGitBranchActions } from './branch-actions/use-git-branch-actions';
 import { contiguousRangeBase, unionFiles } from './changed-files-union';
+import { commitsApply } from './commit-apply';
 import CommitDetails from './CommitDetails';
 import CommitFilesView from './CommitFilesView';
 import CommitList from './CommitList';
@@ -401,6 +402,8 @@ const GitLogView: React.FC<GitLogViewProps> = ({
 
   // What the toolbar's Cherry-Pick acts on: the selected set, else the one selected commit.
   const pickTargets = selectedShas.length > 0 ? selectedShas : selected !== null ? [selected.sha] : [];
+  // It holds, as the row menu's does, over a set a pick does not take.
+  const canPick = pickTargets.length > 0 && commitsApply(entries, pickTargets);
 
   const selectedEntries = useMemo(() => {
     if (!multiSelected) return [];
@@ -627,9 +630,7 @@ const GitLogView: React.FC<GitLogViewProps> = ({
             onPathsChange={applyPaths}
             entries={entries}
             onRefresh={refresh.ask}
-            onCherryPick={
-              pickTargets.length > 0 && !commitApply.working ? () => commitApply.cherryPick(pickTargets) : undefined
-            }
+            onCherryPick={canPick && !commitApply.working ? () => commitApply.cherryPick(pickTargets) : undefined}
             onNavigate={navigateToSha}
             prefs={prefs}
             onPatchPrefs={(patch) => patchGitLogViewPrefs(workspaceId, patch)}

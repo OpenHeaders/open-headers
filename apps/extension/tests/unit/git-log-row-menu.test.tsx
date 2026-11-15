@@ -96,7 +96,7 @@ const clickKey = (menu: MenuProps, key: string): void =>
     ?.onClick?.();
 
 describe('buildLogRowMenu — the anatomy', () => {
-  const single: LogRowMenuTarget = { shas: ['c3'], child: 'c4', parent: 'c2' };
+  const single: LogRowMenuTarget = { shas: ['c3'], child: 'c4', parent: 'c2', applies: true };
 
   it('one commit: copy, the two patch rows, cherry-pick, revert, checkout revision, new branch, new tag and the two walks live; the unbuilt verb visible-disabled', () => {
     const h = handlers();
@@ -144,14 +144,26 @@ describe('buildLogRowMenu — the anatomy', () => {
   });
 
   it('a walk holds at the window’s edge', () => {
-    const menu = buildLogRowMenu({ shas: ['c4'], child: null, parent: 'c3' }, t, handlers());
+    const menu = buildLogRowMenu({ shas: ['c4'], child: null, parent: 'c3', applies: true }, t, handlers());
     expect(disabledKeys(menu)).toContain('go-to-child');
     expect(disabledKeys(menu)).not.toContain('go-to-parent');
   });
 
+  it('a set a pick does not take — a merge or the first commit in it — holds Cherry-Pick and Revert; the patch rows stay live', () => {
+    const h = handlers();
+    const menu = buildLogRowMenu({ ...single, applies: false }, t, h);
+    expect(disabledKeys(menu)).toEqual(['cherry-pick', 'compare-with-local', 'revert']);
+    clickKey(menu, 'cherry-pick');
+    clickKey(menu, 'revert');
+    expect(h.onCherryPick).not.toHaveBeenCalled();
+    expect(h.onRevert).not.toHaveBeenCalled();
+    clickKey(menu, 'create-patch');
+    expect(h.onCreatePatch).toHaveBeenCalledWith(['c3']);
+  });
+
   it('several commits: copy, the patch rows, cherry-pick and revert cover the set; checkout revision, new branch, new tag and the walks hold', () => {
     const h = handlers();
-    const menu = buildLogRowMenu({ shas: ['c4', 'c3'], child: null, parent: null }, t, h);
+    const menu = buildLogRowMenu({ shas: ['c4', 'c3'], child: null, parent: null, applies: true }, t, h);
     clickKey(menu, 'copy-revision');
     expect(h.onCopyRevision).toHaveBeenCalledWith(['c4', 'c3']);
     clickKey(menu, 'create-patch');
@@ -252,7 +264,13 @@ describe('CommitList — the row menu and the walks', () => {
     fireEvent.contextMenu(row('c3'));
     expect(selectedShas()).toEqual(['c3']);
     expect(onSelect).toHaveBeenLastCalledWith('c3');
-    expect(lastTarget(rowMenu, 'c3')).toEqual({ shas: ['c3'], child: 'c4', parent: 'c2' });
+    expect(lastTarget(rowMenu, 'c3')).toEqual({ shas: ['c3'], child: 'c4', parent: 'c2', applies: true });
+  });
+
+  it('the first commit’s menu is told a pick does not take it', () => {
+    const { rowMenu } = renderList(null);
+    fireEvent.contextMenu(row('c1'));
+    expect(lastTarget(rowMenu, 'c1')).toEqual({ shas: ['c1'], child: 'c2', parent: null, applies: false });
   });
 
   it('a right-click on a selected row keeps the set and the menu covers it in list order', () => {
@@ -263,7 +281,8 @@ describe('CommitList — the row menu and the walks', () => {
     fireEvent.contextMenu(row('c2'));
     expect(selectedShas()).toEqual(['c3', 'c2', 'c1']);
     expect(onSelect).not.toHaveBeenCalled();
-    expect(lastTarget(rowMenu, 'c2')).toEqual({ shas: ['c3', 'c2', 'c1'], child: null, parent: null });
+    // The set holds the first commit, which no pick takes.
+    expect(lastTarget(rowMenu, 'c2')).toEqual({ shas: ['c3', 'c2', 'c1'], child: null, parent: null, applies: false });
   });
 
   it('Right walks to the parent, Left back to the child; the edges hold', () => {

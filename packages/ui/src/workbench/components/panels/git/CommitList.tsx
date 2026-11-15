@@ -43,6 +43,7 @@ import type React from 'react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useLocale } from '@openheaders/ui/context/LocaleContext';
 import { clickModifiers, useMultiSelection } from '@openheaders/ui/shared/selection';
+import { commitsApply } from './commit-apply';
 import type { GraphRow } from './graph';
 import { fragmentEdges, fragmentShas, hoverFragment, type LogFragment } from './graph-fragment';
 import { contextMenuAlign } from './git-menu-overflow';
@@ -222,6 +223,7 @@ const CommitList: React.FC<CommitListProps> = ({
       shas,
       child: shas.length === 1 ? childInWindow(entries, sha) : null,
       parent: shas.length === 1 ? parentInWindow(entries, sha) : null,
+      applies: commitsApply(entries, shas),
     };
   };
 

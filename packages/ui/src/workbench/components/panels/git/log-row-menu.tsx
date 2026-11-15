@@ -9,7 +9,9 @@
  * branch — each as a new commit), New Branch… and New Tag… (the
  * dialogs anchored at the commit), Checkout Revision (a detached HEAD
  * at the commit, through the dirty prompt), Go to Child / Parent
- * Commit (within the loaded window). A row whose verb has no machinery
+ * Commit (within the loaded window). Cherry-Pick and Revert Commit hold
+ * over a set that holds a merge or the first commit — neither has one
+ * change to apply. A row whose verb has no machinery
  * yet renders visible-disabled: Compare with Local. The reference's
  * history-rewriting rows (reset, undo,
  * fixup, squash, drop, rebase, edit message) are DROPPED — the engine
@@ -31,6 +33,8 @@ export interface LogRowMenuTarget {
   child: string | null;
   /** The row's first parent in the loaded window; null at the edge or on a multi-selection. */
   parent: string | null;
+  /** A pick or a revert takes every commit of the set — none is a merge or the first commit. */
+  applies: boolean;
 }
 
 export interface LogRowMenuHandlers {
@@ -86,16 +90,19 @@ export function buildLogRowMenu(target: LogRowMenuTarget, t: Translate, h: LogRo
       ),
       onClick: () => h.onCopyAsPatch(target.shas),
     },
-    {
-      key: 'cherry-pick',
-      label: menuLabel(
-        <CherryPickIcon />,
-        t('workbench.gitLog.cherryPick'),
-        undefined,
-        'git-tool-commit-menu-cherry-pick',
-      ),
-      onClick: () => h.onCherryPick(target.shas),
-    },
+    live(
+      {
+        key: 'cherry-pick',
+        label: menuLabel(
+          <CherryPickIcon />,
+          t('workbench.gitLog.cherryPick'),
+          undefined,
+          'git-tool-commit-menu-cherry-pick',
+        ),
+      },
+      target.applies,
+      () => h.onCherryPick(target.shas),
+    ),
     { type: 'divider' },
     live(
       {
@@ -114,16 +121,19 @@ export function buildLogRowMenu(target: LogRowMenuTarget, t: Translate, h: LogRo
     ),
     { key: 'compare-with-local', label: menuLabel(null, t('workbench.gitLog.commitMenu.compareWithLocal')), disabled: true },
     { type: 'divider' },
-    {
-      key: 'revert',
-      label: menuLabel(
-        <RollbackIcon />,
-        t('workbench.gitLog.commitMenu.revert'),
-        undefined,
-        'git-tool-commit-menu-revert',
-      ),
-      onClick: () => h.onRevert(target.shas),
-    },
+    live(
+      {
+        key: 'revert',
+        label: menuLabel(
+          <RollbackIcon />,
+          t('workbench.gitLog.commitMenu.revert'),
+          undefined,
+          'git-tool-commit-menu-revert',
+        ),
+      },
+      target.applies,
+      () => h.onRevert(target.shas),
+    ),
     { type: 'divider' },
     live(
       {

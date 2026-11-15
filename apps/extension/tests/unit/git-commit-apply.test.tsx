@@ -74,7 +74,7 @@ vi.mock('@openheaders/ui/shared/merge-editor', () => {
 });
 
 import type { MergeConflictModalProps } from '@openheaders/ui/shared/merge-editor';
-import { commitApplyOrder } from '@openheaders/ui/workbench/components/panels/git/commit-apply';
+import { commitApplyOrder, commitsApply } from '@openheaders/ui/workbench/components/panels/git/commit-apply';
 import { shortSha } from '@openheaders/ui/workbench/components/panels/git/short-sha';
 import {
   type CommitApplyActions,
@@ -153,6 +153,24 @@ describe('commitApplyOrder', () => {
     expect(commitApplyOrder([NEWEST, MIDDLE, OLDEST], 'pick')).toEqual([OLDEST, MIDDLE, NEWEST]);
     expect(commitApplyOrder([NEWEST, MIDDLE, OLDEST], 'revert')).toEqual([NEWEST, MIDDLE, OLDEST]);
     expect(shortSha(NEWEST)).toBe('aaaaaaaa');
+  });
+});
+
+describe('commitsApply', () => {
+  const WINDOW = [
+    { sha: 'merge', parents: ['plain', 'side'] },
+    { sha: 'plain', parents: ['first'] },
+    { sha: 'side', parents: ['first'] },
+    { sha: 'first', parents: [] },
+  ];
+
+  it('a set is taken when every commit of it has one parent — a merge or the first commit in it holds the whole set', () => {
+    expect(commitsApply(WINDOW, ['plain'])).toBe(true);
+    expect(commitsApply(WINDOW, ['plain', 'side'])).toBe(true);
+    expect(commitsApply(WINDOW, ['merge'])).toBe(false);
+    expect(commitsApply(WINDOW, ['first'])).toBe(false);
+    expect(commitsApply(WINDOW, ['merge', 'plain'])).toBe(false);
+    expect(commitsApply(WINDOW, ['side', 'first'])).toBe(false);
   });
 });
 
