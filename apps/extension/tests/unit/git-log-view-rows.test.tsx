@@ -215,6 +215,27 @@ const cellOf = (at: number): Element => {
   if (!cell) throw new Error(`no cell in row ${at}`);
   return cell;
 };
+/** The faces the details pane is given from now on, by test id — one that stood for a single draw is among them. */
+function watchDetailFaces(): () => string[] {
+  const seen: string[] = [];
+  const take = (records: MutationRecord[]): void => {
+    for (const record of records) {
+      for (const node of record.addedNodes) {
+        if (!(node instanceof HTMLElement)) continue;
+        for (const el of [node, ...node.querySelectorAll<HTMLElement>('[data-testid]')]) {
+          const id = el.getAttribute('data-testid');
+          if (id !== null) seen.push(id);
+        }
+      }
+    }
+  };
+  const observer = new MutationObserver(take);
+  observer.observe(screen.getByTestId('git-tool-detail'), { childList: true, subtree: true });
+  return () => {
+    take(observer.takeRecords());
+    return seen;
+  };
+}
 const listReads = (): RowsRequest[] => rowReads.filter((read) => read.key === 'log:1');
 /** The newest read of the list's first page — what a new ask reads first. */
 const firstPageRead = (): RowsRequest | undefined =>
@@ -509,6 +530,7 @@ describe('GitLogView — the selection read through the list', () => {
     listed = [commit(TOTAL + 1), ...listed];
     listId = 'g2';
     holdLocates = [];
+    const faces = watchDetailFaces();
     await emit('workspaceTreeLogHistory');
     await waitFor(() => expect(holdLocates).toHaveLength(1));
     await settle();
@@ -521,6 +543,8 @@ describe('GitLogView — the selection read through the list', () => {
     await settle(() => holdLocates?.[0]());
     await waitFor(() => expect(selectedRows()).toEqual([8]));
     expect(screen.queryByTestId('git-tool-detail-placeholder')).toBeNull();
+    // The row is found one draw before the list selects it: that draw shows the pane empty no more than any other.
+    expect(faces()).not.toContain('git-tool-detail-placeholder');
     expect(locates).toEqual([selected]);
     expect(tabNow.selectedSha).toBe(selected);
   });

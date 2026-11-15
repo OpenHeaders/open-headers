@@ -135,12 +135,13 @@ export function selectedSet(kept: SelectedCommits, ranges: readonly RowRange[]):
 
 /**
  * What the panes beside the list show for the selection: the set itself
- * — but while its commits are being read, or while the list is finding
- * the tab's commit again (`finding`: a list read anew holds no selected
- * row yet), what they showed before (`shown`) stays. A pane never
- * blinks empty between two answers.
+ * — but while its commits are being read, or while the tab's commit is
+ * on its way to a selected row (`arriving`: a list read anew holds no
+ * selected row until the commit's row is found, and the list selects it
+ * a draw after that), what they showed before (`shown`) stays. A pane
+ * never blinks empty between two answers.
  */
-export function shownSelectedSet(set: SelectedSet, shown: SelectedSet, finding: boolean): SelectedSet {
+export function shownSelectedSet(set: SelectedSet, shown: SelectedSet, arriving: boolean): SelectedSet {
   if (set.kind === 'reading') return shown;
-  return set.kind === 'none' && finding ? shown : set;
+  return set.kind === 'none' && arriving ? shown : set;
 }

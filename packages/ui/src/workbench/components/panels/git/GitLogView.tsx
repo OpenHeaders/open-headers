@@ -435,9 +435,12 @@ const GitLogView: React.FC<GitLogViewProps> = ({
     return entries.length === 0 ? NO_SELECTION : { kind: 'commits', entries };
   }, [searchCommits, searchShas]);
   const set = searches ? searchSet : rowSet;
+  // The tab's commit is on its way to a selected row: its row is asked of the host, or is known and the list
+  // selects it on its next draw.
+  const arriving = tabRow.finding || tabRow.row !== null;
   // What the panes show: the set — held as it was while its commits are read, or the tab's commit found again.
   const before = useRef<SelectedSet>(NO_SELECTION);
-  const shown = searches ? set : shownSelectedSet(set, before.current, tabRow.finding);
+  const shown = searches ? set : shownSelectedSet(set, before.current, arriving);
   useEffect(() => {
     before.current = shown;
   }, [shown]);
