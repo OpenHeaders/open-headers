@@ -122,6 +122,11 @@ describe('RollbackChangesModal', () => {
     expect(new Set(colours).size).toBe(3);
   });
 
+  it('says that what is rolled back cannot be restored', () => {
+    mount();
+    expect(screen.getByTestId('commit-rollback-note').textContent).toBe('Rolled-back changes cannot be restored');
+  });
+
   it('Rollback sends one call with exactly the checked files and closes — nothing asks again', async () => {
     mockCall.mockResolvedValue({ ok: true, rolledBack: 2 });
     const { onClose, onRolledBack } = mount();

@@ -954,6 +954,7 @@ export const workbenchChrome = {
   'workbench.commitTool.menu.rollbackFailed': 'ロールバックできませんでした：{detail}',
   'workbench.commitTool.rollbackChanges.title': '変更をロールバック',
   'workbench.commitTool.rollbackChanges.deleteAdded': '追加したファイルのローカルコピーを削除',
+  'workbench.commitTool.rollbackChanges.irreversible': 'ロールバックした変更は元に戻せません',
   'workbench.commitTool.rollbackChanges.rollback': 'ロールバック',
   'workbench.commitTool.rollbackChanges.close': '閉じる',
   'workbench.commitTool.menu.stopIgnoring': '無視を解除',

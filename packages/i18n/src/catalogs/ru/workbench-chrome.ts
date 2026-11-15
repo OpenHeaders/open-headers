@@ -975,6 +975,7 @@ export const workbenchChrome = {
   'workbench.commitTool.menu.rollbackFailed': 'Не удалось откатить: {detail}',
   'workbench.commitTool.rollbackChanges.title': 'Откатить изменения',
   'workbench.commitTool.rollbackChanges.deleteAdded': 'Удалить локальные копии добавленных файлов',
+  'workbench.commitTool.rollbackChanges.irreversible': 'Откаченные изменения нельзя восстановить',
   'workbench.commitTool.rollbackChanges.rollback': 'Откатить',
   'workbench.commitTool.rollbackChanges.close': 'Закрыть',
   'workbench.commitTool.menu.stopIgnoring': 'Перестать игнорировать',

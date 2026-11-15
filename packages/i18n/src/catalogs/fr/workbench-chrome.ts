@@ -1131,6 +1131,7 @@ export const workbenchChrome = {
   'workbench.commitTool.menu.rollbackFailed': "Impossible d'annuler : {detail}",
   'workbench.commitTool.rollbackChanges.title': 'Annuler les modifications',
   'workbench.commitTool.rollbackChanges.deleteAdded': 'Supprimer les copies locales des fichiers ajoutés',
+  'workbench.commitTool.rollbackChanges.irreversible': 'Les modifications annulées ne peuvent pas être récupérées',
   'workbench.commitTool.rollbackChanges.rollback': 'Annuler les modifications',
   'workbench.commitTool.rollbackChanges.close': 'Fermer',
   'workbench.commitTool.menu.stopIgnoring': 'Ne plus ignorer',

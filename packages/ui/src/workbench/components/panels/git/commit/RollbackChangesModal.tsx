@@ -4,8 +4,9 @@
  * checkable tree, opening in the shape the window is in with the files
  * the gesture named checked — more can be checked or unchecked there —
  * a count of what is checked (added, modified, deleted, each in its
- * change's colour), "Delete local copies of added files", and
- * Close / Rollback. Rollback is the whole gesture: nothing asks again.
+ * change's colour), "Delete local copies of added files", a line saying
+ * that what is rolled back cannot be restored, and Close / Rollback.
+ * Rollback is the whole gesture: nothing asks again.
  *
  * One host verb puts every checked file back as the last commit holds
  * it — a changed or deleted file restored, an added one back to
@@ -286,6 +287,9 @@ const RollbackChangesModal: React.FC<RollbackChangesModalProps> = ({
         >
           <span style={{ fontSize: 12 }}>{t('workbench.commitTool.rollbackChanges.deleteAdded')}</span>
         </Checkbox>
+        <div style={{ fontSize: 12, color: token.colorTextTertiary }} data-testid="commit-rollback-note">
+          {t('workbench.commitTool.rollbackChanges.irreversible')}
+        </div>
         {error !== null && (
           <div style={{ fontSize: 12, color: token.colorError, whiteSpace: 'pre-wrap' }} data-testid="commit-rollback-error">
             {error}

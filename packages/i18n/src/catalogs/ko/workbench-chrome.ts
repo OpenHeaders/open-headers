@@ -951,6 +951,7 @@ export const workbenchChrome = {
   'workbench.commitTool.menu.rollbackFailed': '롤백할 수 없습니다: {detail}',
   'workbench.commitTool.rollbackChanges.title': '변경 사항 롤백',
   'workbench.commitTool.rollbackChanges.deleteAdded': '추가된 파일의 로컬 복사본 삭제',
+  'workbench.commitTool.rollbackChanges.irreversible': '롤백한 변경 사항은 복구할 수 없습니다',
   'workbench.commitTool.rollbackChanges.rollback': '롤백',
   'workbench.commitTool.rollbackChanges.close': '닫기',
   'workbench.commitTool.menu.stopIgnoring': '무시 해제',

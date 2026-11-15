@@ -1124,6 +1124,7 @@ export const workbenchChrome = {
   'workbench.commitTool.menu.rollbackFailed': 'No se pudo revertir: {detail}',
   'workbench.commitTool.rollbackChanges.title': 'Revertir cambios',
   'workbench.commitTool.rollbackChanges.deleteAdded': 'Eliminar las copias locales de los archivos añadidos',
+  'workbench.commitTool.rollbackChanges.irreversible': 'Los cambios revertidos no se pueden recuperar',
   'workbench.commitTool.rollbackChanges.rollback': 'Revertir',
   'workbench.commitTool.rollbackChanges.close': 'Cerrar',
   'workbench.commitTool.menu.stopIgnoring': 'Dejar de ignorar',

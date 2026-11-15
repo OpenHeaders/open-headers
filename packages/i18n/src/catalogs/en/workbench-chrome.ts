@@ -945,6 +945,7 @@ export const workbenchChrome = {
   'workbench.commitTool.menu.rollbackFailed': 'Could not roll back: {detail}',
   'workbench.commitTool.rollbackChanges.title': 'Rollback Changes',
   'workbench.commitTool.rollbackChanges.deleteAdded': 'Delete local copies of added files',
+  'workbench.commitTool.rollbackChanges.irreversible': 'Rolled-back changes cannot be restored',
   'workbench.commitTool.rollbackChanges.rollback': 'Rollback',
   'workbench.commitTool.rollbackChanges.close': 'Close',
   'workbench.commitTool.menu.stopIgnoring': 'Stop Ignoring',

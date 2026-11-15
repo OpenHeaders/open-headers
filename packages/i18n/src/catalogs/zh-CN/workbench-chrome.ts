@@ -925,6 +925,7 @@ export const workbenchChrome = {
   'workbench.commitTool.menu.rollbackFailed': '无法回滚：{detail}',
   'workbench.commitTool.rollbackChanges.title': '回滚更改',
   'workbench.commitTool.rollbackChanges.deleteAdded': '删除已添加文件的本地副本',
+  'workbench.commitTool.rollbackChanges.irreversible': '回滚的更改无法恢复',
   'workbench.commitTool.rollbackChanges.rollback': '回滚',
   'workbench.commitTool.rollbackChanges.close': '关闭',
   'workbench.commitTool.menu.stopIgnoring': '停止忽略',

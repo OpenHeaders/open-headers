@@ -986,6 +986,7 @@ export const workbenchChrome = {
   'workbench.commitTool.menu.rollbackFailed': 'Nu s-a putut anula: {detail}',
   'workbench.commitTool.rollbackChanges.title': 'Revenire asupra modificărilor',
   'workbench.commitTool.rollbackChanges.deleteAdded': 'Șterge copiile locale ale fișierelor adăugate',
+  'workbench.commitTool.rollbackChanges.irreversible': 'Modificările anulate nu mai pot fi recuperate',
   'workbench.commitTool.rollbackChanges.rollback': 'Anulează',
   'workbench.commitTool.rollbackChanges.close': 'Închide',
   'workbench.commitTool.menu.stopIgnoring': 'Oprire ignorare',

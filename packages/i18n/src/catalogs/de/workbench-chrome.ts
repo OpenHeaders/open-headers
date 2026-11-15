@@ -1127,6 +1127,7 @@ export const workbenchChrome = {
   'workbench.commitTool.menu.rollbackFailed': 'Konnte nicht zurücksetzen: {detail}',
   'workbench.commitTool.rollbackChanges.title': 'Änderungen zurücksetzen',
   'workbench.commitTool.rollbackChanges.deleteAdded': 'Lokale Kopien hinzugefügter Dateien löschen',
+  'workbench.commitTool.rollbackChanges.irreversible': 'Zurückgesetzte Änderungen lassen sich nicht wiederherstellen',
   'workbench.commitTool.rollbackChanges.rollback': 'Zurücksetzen',
   'workbench.commitTool.rollbackChanges.close': 'Schließen',
   'workbench.commitTool.menu.stopIgnoring': 'Nicht mehr ignorieren',
