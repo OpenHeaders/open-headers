@@ -132,3 +132,15 @@ export function selectedSet(kept: SelectedCommits, ranges: readonly RowRange[]):
   }
   return { kind: 'commits', entries };
 }
+
+/**
+ * What the panes beside the list show for the selection: the set itself
+ * — but while its commits are being read, or while the list is finding
+ * the tab's commit again (`finding`: a list read anew holds no selected
+ * row yet), what they showed before (`shown`) stays. A pane never
+ * blinks empty between two answers.
+ */
+export function shownSelectedSet(set: SelectedSet, shown: SelectedSet, finding: boolean): SelectedSet {
+  if (set.kind === 'reading') return shown;
+  return set.kind === 'none' && finding ? shown : set;
+}

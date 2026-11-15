@@ -566,7 +566,9 @@ export const workbenchChrome = {
   'workbench.gitLog.highlight.notCherryPicked': 'Commits non cherry-pickés',
   'workbench.gitLog.goTo': 'Aller au hash/branche/tag',
   'workbench.gitLog.goTo.placeholder': 'Hash, branche ou tag',
-  'workbench.gitLog.goTo.notFound': 'Introuvable dans le journal chargé.',
+  'workbench.gitLog.goTo.notFound': 'Aucun commit, branche ou tag de ce nom.',
+  'workbench.gitLog.goTo.notListed':
+    'Ce commit n’est pas dans cette liste : un filtre ou la portée des branches l’exclut.',
   'workbench.gitLog.details.showDiff': 'Afficher le diff',
   'workbench.gitLog.details.revertSelected': 'Annuler les modifications sélectionnées',
   'workbench.gitLog.details.groupBy': 'Grouper par',

@@ -24,6 +24,7 @@ import {
   type SelectedCommits,
   selectedCommitRows,
   selectedSet,
+  shownSelectedSet,
   takeSelectedRows,
 } from '@openheaders/ui/workbench/components/panels/git/log-selected-commits';
 import { describe, expect, it } from 'vitest';
@@ -223,5 +224,35 @@ describe('the selection as its readers take it', () => {
       count: SELECTED_COMMITS_MAX + 1,
     });
     expect(selectedSet(NO_SELECTED_COMMITS, [range(0, 999_999)])).toEqual({ kind: 'over', count: 1_000_000 });
+  });
+});
+
+describe('what the panes beside the list show', () => {
+  const kept = keepSelectedCommits(NO_SELECTED_COMMITS, holding([0]), [3, 4]);
+  const before = selectedSet(kept, [range(3, 4)]);
+  const one = selectedSet(kept, [range(3, 3)]);
+
+  it('is the selection once its commits are read', () => {
+    expect(shownSelectedSet(one, before, false)).toBe(one);
+    expect(shownSelectedSet(one, before, true)).toBe(one);
+  });
+
+  it('is what they showed before while the selection’s commits are being read', () => {
+    expect(shownSelectedSet({ kind: 'reading', count: 3 }, before, false)).toBe(before);
+    expect(shownSelectedSet({ kind: 'reading', count: 3 }, { kind: 'none' }, false)).toEqual({ kind: 'none' });
+  });
+
+  it('is what they showed before while no row is selected and the tab’s commit is being found', () => {
+    expect(shownSelectedSet({ kind: 'none' }, before, true)).toBe(before);
+  });
+
+  it('is nothing once no row is selected and nothing is being found', () => {
+    expect(shownSelectedSet({ kind: 'none' }, before, false)).toEqual({ kind: 'none' });
+  });
+
+  it('is the number of rows past the most read together, found or not', () => {
+    const over = { kind: 'over' as const, count: 301 };
+    expect(shownSelectedSet(over, before, true)).toBe(over);
+    expect(shownSelectedSet(over, before, false)).toBe(over);
   });
 });

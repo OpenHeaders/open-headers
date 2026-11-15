@@ -589,7 +589,9 @@ export const workbenchChrome = {
   'workbench.gitLog.highlight.notCherryPicked': 'Commit-uri fără cherry-pick',
   'workbench.gitLog.goTo': 'Salt la hash/ramură/etichetă',
   'workbench.gitLog.goTo.placeholder': 'Hash, ramură sau etichetă',
-  'workbench.gitLog.goTo.notFound': 'Negăsit în jurnalul încărcat.',
+  'workbench.gitLog.goTo.notFound': 'Niciun commit, ramură sau etichetă cu acest nume.',
+  'workbench.gitLog.goTo.notListed':
+    'Acest commit nu este în această listă — un filtru sau domeniul ramurilor îl lasă pe dinafară.',
   'workbench.gitLog.details.showDiff': 'Afișare Diff',
   'workbench.gitLog.details.revertSelected': 'Revenire asupra modificărilor selectate',
   'workbench.gitLog.details.groupBy': 'Grupare după',

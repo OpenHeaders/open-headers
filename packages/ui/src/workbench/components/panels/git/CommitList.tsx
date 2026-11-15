@@ -61,7 +61,7 @@ import { commitClickOutcome, stepTarget } from './log-selection';
 import type { CommitSignature } from './use-commit-signatures';
 
 export interface CommitListProps {
-  entries: WorkspaceTreeLogEntryWire[];
+  entries: readonly WorkspaceTreeLogEntryWire[];
   /** Per-entry graph rows aligned with `entries`; null while filtered. */
   graph: GraphRow[] | null;
   refsBySha: ReadonlyMap<string, WorkspaceTreeRefWire[]>;

@@ -2,8 +2,9 @@
  * log-scope (S66): a log tab's scope as a list of refs walked together —
  * what it asks of the host (every ref, the default walk, one ref by the
  * field every host reads, several by `refs`), what is left when refs go,
- * what the Branch menu's Favorites row applies, and how the chip, its
- * hover, a menu row and the tab read a list of names.
+ * what the Branch menu's Favorites row applies, how the chip, its
+ * hover, a menu row and the tab read a list of names, and whether the
+ * current-branch band says anything of it.
  */
 
 import {
@@ -12,6 +13,7 @@ import {
   scopeChipText,
   scopeHoverText,
   scopeMenuText,
+  scopeShowsCurrentBranch,
   scopeTabText,
   scopeWithout,
   searchScopeWire,
@@ -54,6 +56,31 @@ describe('scopeWithout', () => {
     ]);
     expect(scopeWithout(['main'], ['main'])).toEqual([]);
     expect(scopeWithout(['main', 'fix/probe-timeout'], ['gone'])).toEqual(['main', 'fix/probe-timeout']);
+  });
+});
+
+describe('scopeShowsCurrentBranch', () => {
+  it('shows the band over every ref and over another branch’s scope', () => {
+    expect(scopeShowsCurrentBranch([], 'main')).toBe(true);
+    expect(scopeShowsCurrentBranch(['feature/auth-headers'], 'main')).toBe(true);
+  });
+
+  it('withholds the band on the HEAD scope and on the checked-out branch’s scope', () => {
+    expect(scopeShowsCurrentBranch(['HEAD'], 'main')).toBe(false);
+    expect(scopeShowsCurrentBranch(['main'], 'main')).toBe(false);
+  });
+
+  it('over several refs the band shows unless HEAD reaches every row', () => {
+    expect(scopeShowsCurrentBranch(['HEAD', 'main'], 'main')).toBe(false);
+    expect(scopeShowsCurrentBranch(['HEAD', 'main', 'origin/main'], 'main')).toBe(true);
+    expect(scopeShowsCurrentBranch(['main', 'feature/auth-headers'], 'main')).toBe(true);
+  });
+
+  it('a detached head still bands a scope by name, and never the HEAD scope alone', () => {
+    expect(scopeShowsCurrentBranch(['main'], null)).toBe(true);
+    expect(scopeShowsCurrentBranch(['HEAD', 'main'], null)).toBe(true);
+    expect(scopeShowsCurrentBranch([], null)).toBe(true);
+    expect(scopeShowsCurrentBranch(['HEAD'], null)).toBe(false);
   });
 });
 

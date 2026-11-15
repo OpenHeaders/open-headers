@@ -4,18 +4,25 @@
  * owning its slice of the shared top band — the rail's Branch-or-tag
  * search, the log toolbar (text filter + Branch/User/Date/Paths chips
  * + Graph Options + actions), and the details toolbar (Show Diff /
- * View Options / expand-collapse). Self-sufficient per pane: it
- * fetches its own refs + log for its tab's scope and filters and
- * refetches on `workspaceTreeGitStatus` frames. Filter state lives in
- * the tab registry (travels with the tab); display prefs are
- * per-workspace. Hiding the rail swaps section #1 for the vertical
- * Branches strip (the log-window gesture).
+ * View Options / expand-collapse). Filter state lives in the tab
+ * registry (travels with the tab); display prefs are per-workspace.
+ * Hiding the rail swaps section #1 for the vertical Branches strip (the
+ * log-window gesture).
  *
- * An applied text sifts the window at once and, past a full window, is
- * asked of the whole history (`use-log-search.ts`): an answer that
- * reaches past the window takes the list — the host's page, in its
- * order, with no graph — and everything beside the list reads the
- * commits that are listed (`commits`).
+ * The timeline lists the WHOLE history its scope reaches. The host
+ * keeps the list the tab asks for (`log-rows-ask.ts`) and the view
+ * reads the rows it shows (`use-log-rows.ts`), listed by row number
+ * (`LogRowList`). What stands beside the list reads through it: the
+ * tab's one commit as a row (`use-log-tab-row.ts`), the selected rows'
+ * commits for the details, the files, the pick and the patch
+ * (`use-selected-commits.ts`), the signatures of the rows in view.
+ *
+ * An applied text sifts the list's first page at once and, where the
+ * list is longer than that, is asked of the whole history
+ * (`use-log-search.ts`): an answer that reaches past the page takes
+ * the list — the host's page, in its order, with no graph. Either is
+ * a list of named commits (`CommitList`), and everything beside it
+ * reads the commits that are listed.
  *
  * The three panes are grid tracks with a sash on each boundary (the
  * reference splitters): rail | log, log | details, and files | info inside
@@ -27,11 +34,11 @@
  * once at the view's root, so they outlive a collapsed rail.
  */
 
-import {
-  hostBridge,
-  type WorkspaceTreeEntityRefWire,
-  type WorkspaceTreeLogEntryWire,
-  type WorkspaceTreeRefWire,
+import type {
+  WorkspaceTreeEntityRefWire,
+  WorkspaceTreeLogEntryWire,
+  WorkspaceTreeLogRunWire,
+  WorkspaceTreeRefWire,
 } from '@openheaders/core/bridge';
 import { makeLogTextMatcher } from '@openheaders/core/workspace-tree';
 import { theme } from 'antd';
@@ -39,12 +46,14 @@ import type React from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { useLocale } from '@openheaders/ui/context/LocaleContext';
 import { Sash } from '@openheaders/ui/shared/dock-layout';
+import { useRowSelection } from '@openheaders/ui/shared/selection';
 import { useGitBranchActions } from './branch-actions/use-git-branch-actions';
 import { contiguousRangeBase, unionFiles } from './changed-files-union';
 import { commitsApply } from './commit-apply';
 import CommitDetails from './CommitDetails';
 import CommitFilesView from './CommitFilesView';
 import CommitList from './CommitList';
+import type { CommitRowColumns } from './CommitRowCells';
 import DiffModal from './DiffModal';
 import { buildFileRowMenu } from './file-row-menu';
 import FileHistoryModal from './FileHistoryModal';
@@ -58,31 +67,44 @@ import {
 import { getGitLogViewPrefs, patchGitLogViewPrefs, subscribeGitLogViewPrefs } from './git-log-view-prefs';
 import { GIT_LOG_SCOPE_HEAD, type GitLogTabState, gitPanelTabKey } from './git-panel-view-store';
 import GitWorkingLine from './GitWorkingLine';
-import { computeLogGraph } from './graph';
-import { contractLog, firstParentOnly, firstParentReach } from './graph-filtered';
-import { topologicalOrder } from './log-topological';
-import { allLinearFragments, collapseLog, fragmentKey, type LogFragment } from './graph-fragment';
-import { currentBranchBandTip, currentBranchShas as bandShas } from './log-reachability';
+import { ALL_LOG_FOLDS, canFoldAll, canUnfoldAll, NO_LOG_FOLDS, toggleLogFold } from './log-folds';
+import { buildLogRowMenu, type LogRowMenuHandlers } from './log-row-menu';
+import { logRowMenuTarget } from './log-row-menu-target';
+import {
+  firstLogRows,
+  heldLogAuthors,
+  LOG_PAGE_ROWS,
+  type LogRowRange,
+  logRowAt,
+  NO_LOG_ROW_RANGE,
+  NO_LOG_ROWS,
+} from './log-row-pages';
+import { logListingName, logRowsAsk } from './log-rows-ask';
+import { type GitLogScope, scopeShowsCurrentBranch, scopeWithout } from './log-scope';
 import { logSearchFace, logSearchRequest } from './log-search';
-import { type GitLogScope, logScopeWire, scopeWithout } from './log-scope';
-import { buildLogRowMenu, type LogRowMenuTarget } from './log-row-menu';
+import { type SelectedSet, shownSelectedSet } from './log-selected-commits';
+import { siftLogWindow } from './log-sifted-window';
+import LogRowList from './LogRowList';
 import { getGitRailPrefs, subscribeGitRailPrefs, toggleGitRailFavorite } from './rail/git-rail-prefs';
 import { defaultFavoriteKeys, favoriteKeys } from './rail/ref-favorites';
 import GitRailCollapsedStrip from './rail/GitRailCollapsedStrip';
 import GitRefRail from './rail/GitRefRail';
 import GitDetailsToolbar from './toolbar/GitDetailsToolbar';
 import GitLogToolbar from './toolbar/GitLogToolbar';
-import { buildLogWireFilters, hasRowFilters, isMergeCommit } from './toolbar/log-filters';
-import { useAskedRead } from './use-asked-read';
+import { buildLogWireFilters, hasRowFilters } from './toolbar/log-filters';
 import { useCommitApply } from './use-commit-apply';
 import { useCommitPatch } from './use-commit-patch';
 import { useCommitSignatures } from './use-commit-signatures';
 import { useFileDiff } from './use-file-diff';
 import { useJumpToSource } from './use-jump-to-source';
+import { useLogRefs } from './use-log-refs';
+import { useLogRows } from './use-log-rows';
+import { useLogRowsInView } from './use-log-rows-in-view';
 import { useLogSearch } from './use-log-search';
+import { useLogTabRow } from './use-log-tab-row';
 import { useGitLogLayout } from './use-git-log-layout';
 import { useLogHourCycle } from './use-log-hour-cycle';
-import { useNewestRead } from './use-newest-read';
+import { useSelectedCommits } from './use-selected-commits';
 
 export interface GitLogViewProps {
   workspaceId: string;
@@ -98,7 +120,8 @@ export interface GitLogViewProps {
   onOpenCompare: (ref: string) => void;
 }
 
-const LOG_LIMIT = 200;
+const NO_COMMITS: readonly WorkspaceTreeLogEntryWire[] = [];
+const NO_SELECTION: SelectedSet = { kind: 'none' };
 
 const GitLogView: React.FC<GitLogViewProps> = ({
   workspaceId,
@@ -119,16 +142,8 @@ const GitLogView: React.FC<GitLogViewProps> = ({
   const infoCellRef = useRef<HTMLDivElement>(null);
   const fileTreeRef = useRef<FileTreeViewHandle>(null);
 
-  // The window as the host answered it; `entries` below is what the view lists.
-  const [loaded, setLoaded] = useState<WorkspaceTreeLogEntryWire[]>([]);
-  // What the window was read for — a search asks about the window the view holds.
-  const [loadedFor, setLoadedFor] = useState<object | null>(null);
   // Presses of Refresh: each reads the log again and asks a search again.
   const [refreshes, setRefreshes] = useState(0);
-  const [refs, setRefs] = useState<WorkspaceTreeRefWire[]>([]);
-  const [currentRef, setCurrentRef] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [scrollTo, setScrollTo] = useState<{ sha: string; nonce: number } | null>(null);
   const [selectedFile, setSelectedFile] = useState<string | null>(null);
   // The entity the files tree names for the selection (Group By
   // Workspace) — what Jump to Source opens, a row that lists several
@@ -137,17 +152,10 @@ const GitLogView: React.FC<GitLogViewProps> = ({
   // The commit the selected file's change is read against, where the
   // files are listed by parent (a merge's); set with the file.
   const [selectedBase, setSelectedBase] = useState<string | undefined>(undefined);
-  // The timeline's row selection in list order (newest first). Two or
-  // more commits and the details pane shows their files as ONE set
-  // with a card per commit below (the reference reading); a contiguous
-  // first-parent run also diffs as the range, a gapped set has no diff.
-  const [selectedShas, setSelectedShas] = useState<readonly string[]>([]);
-  const multiSelected = selectedShas.length >= 2;
+  // A search's list selects by commit: its selection in list order, and the commit a navigation brings into view.
+  const [searchShas, setSearchShas] = useState<readonly string[]>([]);
+  const [searchScrollTo, setSearchScrollTo] = useState<{ sha: string; nonce: number } | null>(null);
   const [historyPath, setHistoryPath] = useState<string | null>(null);
-  // The graph's collapsed fragments (a click on a cell, the gear's
-  // Collapse Linear Branches), by fragment key — a view state, dropped
-  // with the tab; a stale entry is ignored.
-  const [collapsed, setCollapsed] = useState<ReadonlyMap<string, LogFragment>>(() => new Map());
   const fileDiff = useFileDiff(workspaceId);
   const commitPatch = useCommitPatch(workspaceId);
   const commitApply = useCommitApply(workspaceId);
@@ -163,6 +171,7 @@ const GitLogView: React.FC<GitLogViewProps> = ({
     [workspaceId],
   );
   const railPrefs = useSyncExternalStore(subscribeRailPrefs, () => getGitRailPrefs(workspaceId));
+  const { refs, current: currentRef, read: refsRead, reload: reloadRefs } = useLogRefs(workspaceId);
   const defaultFavorites = useMemo(() => defaultFavoriteKeys(refs, currentRef), [refs, currentRef]);
   const favoriteSet = useMemo<ReadonlySet<string>>(
     () => favoriteKeys(railPrefs, defaultFavorites),
@@ -175,7 +184,7 @@ const GitLogView: React.FC<GitLogViewProps> = ({
   );
   const recentFilters = useSyncExternalStore(subscribeRecentFilters, () => getGitLogRecentFilters(workspaceId));
 
-  const { selectedRefs, filter, filterRegex, filterCase, selectedSha, refsCollapsed, railSelection } = tab;
+  const { selectedRefs, filter, filterRegex, filterCase, selectedSha, refsCollapsed, railSelection, folds } = tab;
   // A filter the person applies — from a chip's menu, its field or the rail — is remembered as a recent one.
   const applyScope = (scope: GitLogScope): void => {
     patchTab({ selectedRefs: scope });
@@ -199,159 +208,118 @@ const GitLogView: React.FC<GitLogViewProps> = ({
   const tabKey = gitPanelTabKey(tab);
   const rowFiltersActive = hasRowFilters(tab);
   // Keyed on the filter fields alone — a selection or rail patch must
-  // never refetch the log.
+  // never ask for the list again.
   const wireFilters = useMemo(
     () => buildLogWireFilters({ author, date, paths, sort }, new Date()),
     [author, date, paths, sort],
   );
 
-  // What the log asks the host: its scope and its filters, one object while neither moves.
-  const logAsk = useMemo(() => ({ selectedRefs, wireFilters }), [selectedRefs, wireFilters]);
-
-  // Reads overlap — a filter changes while the one before is still at
-  // the host — and they come back in any order (`User: me` takes the
-  // host a step longer): only the newest read's answer is taken.
-  const beginRead = useNewestRead();
-
-  // The read is keyed on what it asks the host — the scope and the
-  // filters — and on nothing else. `patchTab` is a function the tab
-  // group makes anew on every render of its own (a resize of the
-  // window, a theme change, a click that focuses the pane): held as a
-  // dependency it made each of those read the log again. The read
-  // reaches the newest one through a ref.
-  const patchTabRef = useRef(patchTab);
-  patchTabRef.current = patchTab;
-
-  const reload = useCallback(async (): Promise<void> => {
-    const superseded = beginRead();
-    setError(null);
-    try {
-      const refsResult = await hostBridge.call('oh.workspaceTree.listRefs', { workspaceId });
-      if (superseded()) return;
-      if (refsResult.ok) {
-        setRefs(refsResult.refs);
-        setCurrentRef(refsResult.current);
-      } else {
-        setRefs([]);
-        setCurrentRef(null);
-      }
-      // The unborn current branch has no history to walk: alone it
-      // scopes to an EMPTY filtered list (the reference posture:
-      // `Branch: main` chip + no-matches empty state), beside other refs
-      // it adds nothing — its name exists only in `gitStatus`, so `log`
-      // would refuse it.
-      const knownRefs = refsResult.ok ? refsResult.refs : [];
-      const unborn =
-        branch !== null && !knownRefs.some((ref) => ref.kind === 'local' && ref.name === branch) ? branch : null;
-      const walked = unborn === null ? selectedRefs : scopeWithout(selectedRefs, [unborn]);
-      if (selectedRefs.length > 0 && walked.length === 0) {
-        setLoaded([]);
-        setLoadedFor(logAsk);
-        return;
-      }
-      // The scope (the reference model): empty = every ref (`allRefs`),
-      // the HEAD sentinel alone = the default walk, names = those refs
-      // walked together.
-      const result = await hostBridge.call('oh.workspaceTree.log', {
-        workspaceId,
-        limit: LOG_LIMIT,
-        ...logScopeWire(walked),
-        ...wireFilters,
-      });
-      if (superseded()) return;
-      if (result.ok) {
-        setLoaded(result.entries);
-        setLoadedFor(logAsk);
-      } else if (result.reason === 'unknown-ref') {
-        // Scoped refs vanished (branch deleted, tag dropped): the scope
-        // keeps the rest — every ref once none is left; the effect below
-        // refetches. A host that names none clears the scope.
-        const kept = scopeWithout(selectedRefs, result.unknownRefs ?? selectedRefs);
-        patchTabRef.current({ selectedRefs: kept.length < selectedRefs.length ? kept : [] });
-      } else {
-        setLoaded([]);
-        setError(t('workbench.gitLog.loadFailed', { detail: result.detail ?? result.reason }));
-      }
-    } catch (err) {
-      if (superseded()) return;
-      setLoaded([]);
-      setError((err as Error).message);
-    }
-  }, [beginRead, workspaceId, selectedRefs, branch, wireFilters, logAsk, t]);
-
-  useEffect(() => {
-    void reload();
-  }, [reload]);
-
-  // The press of Refresh: the one read of the log the window answers with its sign of work.
-  const refresh = useAskedRead(reload);
-  const pressRefresh = useCallback((): void => {
-    refresh.ask();
-    setRefreshes((count) => count + 1);
-  }, [refresh.ask]);
-
-  useEffect(() => {
-    return hostBridge.subscribe('workspaceTreeGitStatus', (payload) => {
-      if (payload.workspaceId !== workspaceId) return;
-      void reload();
-    });
-  }, [workspaceId, reload]);
-
-  // Sort › Topologically is the reference's order, made here over the
-  // window (git's own topological walk keeps the window's cut honest):
-  // the checked-out commit leads, the checked-out branch's upstream is
-  // the last head listed above the trunk.
-  const entries = useMemo(() => {
-    if (sort !== 'topo') return loaded;
-    const lead = refs.find((ref) => ref.kind === 'local' && ref.name === currentRef)?.sha ?? detachedSha;
-    const upstream =
-      currentRef === null ? [] : refs.filter((ref) => ref.kind === 'remote' && ref.name.endsWith(`/${currentRef}`));
-    return topologicalOrder(loaded, { lead, last: new Set(upstream.map((ref) => ref.sha)) });
-  }, [loaded, sort, refs, currentRef, detachedSha]);
-
-  const matcher = useMemo(() => makeLogTextMatcher(filter, filterRegex, filterCase), [filter, filterRegex, filterCase]);
+  // `patchTab` is a function the tab group makes anew on every render
+  // of its own (a resize of the window, a theme change, a click that
+  // focuses the pane): whatever must stand still reaches the newest one
+  // through a ref, and reads the tab as it stands then.
+  const live = useRef({ patchTab, tab });
+  live.current = { patchTab, tab };
+  const setSelectedSha = useCallback((sha: string | null): void => live.current.patchTab({ selectedSha: sha }), []);
 
   // The branch gitStatus reports but listRefs doesn't: an unborn HEAD
   // (fresh repo, first commit pending). Shown as the current branch in
-  // the Local group; its name must never scope `log` — the membership
-  // gate would refuse it — so selecting it is HEAD scope.
+  // the Local group; its name must never scope the log — the host would
+  // refuse it — so selecting it is HEAD scope.
   const unbornBranch = useMemo(
-    () => (branch !== null && !refs.some((ref) => ref.kind === 'local' && ref.name === branch) ? branch : null),
-    [branch, refs],
+    () =>
+      refsRead && branch !== null && !refs.some((ref) => ref.kind === 'local' && ref.name === branch) ? branch : null,
+    [refsRead, branch, refs],
   );
+  // The unborn current branch has no history to walk: alone it scopes
+  // to an EMPTY filtered list (the reference posture: `Branch: main`
+  // chip + no-matches empty state), beside other refs it adds nothing.
+  const walked = useMemo(
+    () => (unbornBranch === null ? selectedRefs : scopeWithout(selectedRefs, [unbornBranch])),
+    [selectedRefs, unbornBranch],
+  );
+  // A scope that names the checked-out branch waits for the refs: until they are read it may be the unborn one.
+  const scopeKnown = refsRead || branch === null || !selectedRefs.includes(branch);
+  const nothingListed = selectedRefs.length > 0 && walked.length === 0;
 
-  // The text asked of the whole history. Only past a FULL window: one
-  // under its limit is the whole history its scope reaches, and the
-  // sift below is already exact. The request is one object while what
-  // it asks stands, so a status frame alone asks nothing.
-  const windowFull = loaded.length >= LOG_LIMIT;
-  const windowCurrent = loadedFor === logAsk;
+  // What the tab asks the host to list — one object while what it asks stands.
+  const ask = useMemo(
+    () =>
+      !scopeKnown || nothingListed
+        ? null
+        : logRowsAsk({ workspaceId, key: tabKey, scope: walked, filters: wireFilters, noMerges, firstParent, folds }),
+    [scopeKnown, nothingListed, workspaceId, tabKey, walked, wireFilters, noMerges, firstParent, folds],
+  );
+  const rows = useLogRows(ask);
+  const refusal = rows.refusal;
+
+  // Scoped refs vanished (branch deleted, tag dropped): the scope keeps
+  // the rest — every ref once none is left — and the new scope is
+  // asked. A host that names none clears the scope.
+  useEffect(() => {
+    if (refusal === null || refusal.reason !== 'unknown-ref') return;
+    const scope = live.current.tab.selectedRefs;
+    const kept = scopeWithout(scope, refusal.unknownRefs ?? scope);
+    live.current.patchTab({ selectedRefs: kept.length < scope.length ? kept : [] });
+  }, [refusal]);
+  const refused = refusal !== null && refusal.reason !== 'unknown-ref' ? refusal : null;
+
+  // The list drawn: the rows held — none under a refusal, whose rows would be another ask's.
+  const held = refused === null ? rows.held : NO_LOG_ROWS;
+  // The held rows are the ask's own: until then the ask before's stay drawn.
+  const landed = ask !== null && held.ask === ask;
+  const pending = rows.pending || !scopeKnown;
+
+  // The press of Refresh: the host looks at the repo again, and the window answers with its sign of work.
+  const pressRefresh = useCallback((): void => {
+    rows.refresh();
+    void reloadRefs();
+    setRefreshes((count) => count + 1);
+  }, [rows.refresh, reloadRefs]);
+
+  const matcher = useMemo(() => makeLogTextMatcher(filter, filterRegex, filterCase), [filter, filterRegex, filterCase]);
   const searches = matcher.kind === 'match';
+
+  // A text sifts the list's first page — its newest rows — at once. The
+  // page is kept while a text is applied: the list over row numbers is
+  // not mounted then, and nothing else asks for it.
+  const wantRows = rows.want;
+  useEffect(() => {
+    if (searches) wantRows(NO_LOG_ROW_RANGE);
+  }, [searches, wantRows]);
+  const firstRows = useMemo(() => (landed ? firstLogRows(held) : null), [landed, held]);
+  const firstCommits = useMemo(() => firstRows?.map((row) => row.entry) ?? NO_COMMITS, [firstRows]);
+
+  // The text asked of the whole history. Only where the list is longer
+  // than its first page: a shorter one is held whole, and the sift
+  // below is already exact. The request is one object while what it
+  // asks stands, so a status frame alone asks nothing.
+  const pageHeld = firstRows !== null;
+  const listLonger = held.total > LOG_PAGE_ROWS;
   const searchRequest = useMemo(() => {
-    if (!searches || !windowFull || !windowCurrent) return null;
+    if (!searches || !pageHeld || !listLonger) return null;
     return logSearchRequest({
       workspaceId,
       key: tabKey,
       text: filter,
       regex: filterRegex,
       matchCase: filterCase,
-      scope: unbornBranch === null ? selectedRefs : scopeWithout(selectedRefs, [unbornBranch]),
+      scope: walked,
       filters: wireFilters,
       noMerges,
       firstParent,
-      limit: LOG_LIMIT,
+      limit: LOG_PAGE_ROWS,
     });
   }, [
     searches,
-    windowFull,
-    windowCurrent,
+    pageHeld,
+    listLonger,
     workspaceId,
     tabKey,
     filter,
     filterRegex,
     filterCase,
-    unbornBranch,
-    selectedRefs,
+    walked,
     wireFilters,
     noMerges,
     firstParent,
@@ -367,177 +335,187 @@ const GitLogView: React.FC<GitLogViewProps> = ({
     `${tips}\n${refreshes}`,
     `${filter}\n${filterRegex}\n${filterCase}\n${refreshes}`,
   );
-  const searchFace = useMemo(() => logSearchFace(loaded, search.answer), [loaded, search.answer]);
-  // The host's page, when its answer reaches past the window.
+  const searchFace = useMemo(() => logSearchFace(firstCommits, search.answer), [firstCommits, search.answer]);
+  // The host's page, when its answer reaches past the list's first.
   const page = searchFace.kind === 'page' ? searchFace.entries : null;
-
-  // The view's own sifts of the window: the text filter, No Merges and
-  // First Parent. Each hides rows (or lines) the window still holds, so
-  // the list keeps a graph. First Parent follows a commit's first
-  // parent alone, from every ref the log walks — a merged branch a ref
-  // still names stays listed, on a lane of its own.
-  const walked = useMemo(() => (firstParent ? firstParentOnly(entries) : entries), [entries, firstParent]);
-  const filtered = useMemo(() => {
-    if (matcher.kind !== 'match' && !noMerges && !firstParent) return entries;
-    const roots =
-      selectedRefs.length === 0
-        ? [...refs.map((ref) => ref.sha), ...(detachedSha !== null ? [detachedSha] : [])]
-        : [];
-    const reached = firstParent ? firstParentReach(entries, roots) : null;
-    return entries.filter(
-      (entry) =>
-        (reached === null || reached.has(entry.sha)) &&
-        (matcher.kind !== 'match' || matcher.test(entry)) &&
-        !(noMerges && isMergeCommit(entry)),
-    );
-  }, [entries, matcher, noMerges, firstParent, selectedRefs, refs, detachedSha]);
 
   const refsBySha = useMemo(() => {
     const map = new Map<string, WorkspaceTreeRefWire[]>();
     for (const ref of refs) {
-      const rows = map.get(ref.sha);
-      if (rows !== undefined) rows.push(ref);
+      const at = map.get(ref.sha);
+      if (at !== undefined) at.push(ref);
       else map.set(ref.sha, [ref]);
     }
     return map;
   }, [refs]);
 
   // HEAD's commit: the checked-out branch's tip, the detached sha, else
-  // (a HEAD-scoped walk alone guarantees it) row 0.
+  // (a HEAD-scoped walk alone guarantees it) the list's first row.
+  const firstSha = logRowAt(held, 0)?.entry.sha ?? null;
   const headSha = useMemo(() => {
     const current = refs.find((ref) => ref.kind === 'local' && ref.name === currentRef);
     if (current !== undefined) return current.sha;
     if (detachedSha !== null) return detachedSha;
-    return selectedRefs.length === 1 && selectedRefs[0] === GIT_LOG_SCOPE_HEAD ? (entries[0]?.sha ?? null) : null;
-  }, [refs, currentRef, detachedSha, selectedRefs, entries]);
+    return selectedRefs.length === 1 && selectedRefs[0] === GIT_LOG_SCOPE_HEAD ? firstSha : null;
+  }, [refs, currentRef, detachedSha, selectedRefs, firstSha]);
 
-  // Graph edges are honest only over the contiguous log. A ROW filter
-  // (author, date, paths, the walk riders) is the host's: the hidden
-  // commits never reach the window, so rendering degrades to plain
-  // dots (sort order alone keeps the graph) and no fragment collapses.
-  // HEAD's commit names the lane that owns the shared history (the
-  // trunk keeps one colour); a collapsed fragment hides its interior
-  // rows and its skipping edge draws as the stubs.
-  // A page past the window is the host's too: its commits are listed
+  // The sift keeps a graph (the reference's reading): every listed
+  // commit joined to the nearest listed commits it descends from. A
+  // page past the list's first is the host's: its commits are listed
   // as the host found them, with no graph between them.
-  const graphHonest = page === null && filtered === entries && !rowFiltersActive;
-  // The view's sifts hide rows of a window that still holds them, so
-  // their list keeps a graph (the reference's reading): every listed
-  // commit joined to the nearest listed commits it descends from, a
-  // join through hidden commits drawn as the stubs.
-  const searched = useMemo(
+  const sifted = useMemo(
     () =>
-      page === null && filtered !== entries && !rowFiltersActive
-        ? contractLog(walked, new Set(filtered.map((e) => e.sha)))
-        : null,
-    [page, entries, walked, filtered, rowFiltersActive],
+      matcher.kind === 'match' && firstRows !== null && page === null ? siftLogWindow(firstRows, matcher.test) : null,
+    [matcher, firstRows, page],
   );
-  const shown = useMemo(
-    () =>
-      graphHonest
-        ? collapseLog(entries, collapsed)
-        : { entries: page ?? filtered, collapsedEdges: new Set<string>() },
-    [graphHonest, entries, page, filtered, collapsed],
-  );
-  // The commits the view holds: the host's page past the window, else
-  // the window. Everything beside the list — the details, the files,
-  // the pick's rule, the toolbar's Go To — reads these.
-  const commits = page ?? entries;
-
-  // The signature column's marks: asked of the host only while the column shows.
-  const commitShas = useMemo(() => commits.map((entry) => entry.sha), [commits]);
-  const signatures = useCommitSignatures(workspaceId, commitShas, prefs.showSignatureColumn);
+  // The commits a search lists — and everything beside its list reads these.
+  const searchCommits = page ?? sifted?.entries ?? NO_COMMITS;
 
   // What the list says under its last row: matches past the page, or a
-  // search past the window that did not finish. An EMPTY sift while the
-  // host is still asked says so — "no matches" is not known yet.
-  const searchNote =
-    search.pending && shown.entries.length === 0
+  // search past the first page that did not finish. An EMPTY sift while
+  // the host is still asked — or the page still read — says so: "no
+  // matches" is not known yet.
+  const searchUnanswered = search.pending || (searches && !pageHeld && ask !== null);
+  const searchNote = !searches
+    ? null
+    : searchUnanswered && searchCommits.length === 0
       ? t('workbench.gitLog.search.searching')
       : searchFace.kind === 'page'
-      ? searchFace.more
+        ? searchFace.more
           ? t('workbench.gitLog.search.more', { count: searchFace.entries.length })
           : null
         : searchFace.kind === 'timeout'
-          ? t(shown.entries.length === 0 ? 'workbench.gitLog.search.timeoutEmpty' : 'workbench.gitLog.search.timeout', {
-              count: loaded.length,
-            })
+          ? t(
+              searchCommits.length === 0 ? 'workbench.gitLog.search.timeoutEmpty' : 'workbench.gitLog.search.timeout',
+              { count: firstCommits.length },
+            )
           : null;
-  // A branch head on a lane's own chain restarts the colour there (the
-  // reference: the unpushed run reads apart from origin's).
-  const branchHeads = useMemo(
-    () => new Set(refs.filter((ref) => ref.kind === 'local' || ref.kind === 'remote').map((ref) => ref.sha)),
-    [refs],
-  );
-  const graph = useMemo(() => {
-    if (graphHonest) {
-      return computeLogGraph(shown.entries, { headSha, collapsedEdges: shown.collapsedEdges, branchHeads });
-    }
-    if (searched === null) return null;
-    // A listed commit wears the colour it has in the whole log.
-    const whole = computeLogGraph(entries, { headSha, branchHeads });
-    const colors = new Map(entries.map((entry, index) => [entry.sha, whole[index].color]));
-    return computeLogGraph(searched.entries, { headSha, collapsedEdges: searched.skipped, colors });
-  }, [graphHonest, shown, searched, entries, headSha, branchHeads]);
-  // A fragment never crosses a ref'd commit or HEAD's.
-  const anchors = useMemo(() => {
-    const set = new Set(refsBySha.keys());
-    if (headSha !== null) set.add(headSha);
-    return set;
-  }, [refsBySha, headSha]);
-  const toggleFragment = useCallback((fragment: LogFragment) => {
-    setCollapsed((prev) => {
-      const next = new Map(prev);
-      const key = fragmentKey(fragment);
-      if (next.has(key)) next.delete(key);
-      else next.set(key, fragment);
-      return next;
-    });
-  }, []);
-  // The gear's Collapse / Expand Linear Branches: every fragment of the
-  // loaded window at once, or none — off while a filter hides the graph.
-  const fragments = useMemo(() => (graphHonest ? allLinearFragments(entries, anchors) : []), [graphHonest, entries, anchors]);
-  const canCollapseLinear = fragments.some((fragment) => !collapsed.has(fragmentKey(fragment)));
-  const canExpandLinear = graphHonest && collapsed.size > 0;
-  const collapseLinear = useCallback(
-    () => setCollapsed(new Map(fragments.map((fragment) => [fragmentKey(fragment), fragment]))),
-    [fragments],
-  );
-  const expandLinear = useCallback(() => setCollapsed(new Map()), []);
 
-  const selected = useMemo(
-    () => (selectedSha !== null ? (commits.find((entry) => entry.sha === selectedSha) ?? null) : null),
-    [commits, selectedSha],
+  // Highlight > Current Branch: the commits the checked-out one reaches
+  // carry the reference's soft band — the host's flag on every row —
+  // off with the preference and withheld on the HEAD / current-branch
+  // scope. A page past the list's first never bands: its rows carry no
+  // flag.
+  const band =
+    prefs.highlightCurrentBranch && headSha !== null && scopeShowsCurrentBranch(selectedRefs, currentRef ?? branch);
+  const searchBand = useMemo(
+    () =>
+      band && sifted !== null
+        ? new Set(sifted.entries.filter((entry) => entry.onHead === true).map((entry) => entry.sha))
+        : null,
+    [band, sifted],
   );
 
-  // What the toolbar's Cherry-Pick acts on: the selected set, else the one selected commit.
-  const pickTargets = selectedShas.length > 0 ? selectedShas : selected !== null ? [selected.sha] : [];
-  // It holds, as the row menu's does, over a set a pick does not take.
-  const canPick = pickTargets.length > 0 && commitsApply(commits, pickTargets);
+  // A row number means something under the list's two names: the
+  // selection is that list's, and gone with it.
+  const listName = useMemo(() => ({ ask: held.ask, list: held.list }), [held.ask, held.list]);
+  const selection = useRowSelection(listName);
+  const { ranges } = selection.selection;
 
-  const selectedEntries = useMemo(() => {
-    if (!multiSelected) return [];
-    const bySha = new Map(commits.map((entry) => [entry.sha, entry]));
-    return selectedShas.flatMap((sha) => {
+  // What the person is looking at: a listing — the ask before its folds
+  // — or a search over it. Another one is looked at from its top.
+  const listing = useMemo(
+    () => (ask === null ? null : `${logListingName(ask)}${searches ? '\nsearch' : ''}`),
+    [ask, searches],
+  );
+  const tabRow = useLogTabRow(held, listing, landed, selectedSha, setSelectedSha);
+
+  // The selected commits, newest first — the list's rows read through,
+  // or the search's own. Two or more and the details pane shows their
+  // files as ONE set with a card per commit below (the reference
+  // reading); a contiguous first-parent run also diffs as the range, a
+  // gapped set has no diff.
+  const rowSet = useSelectedCommits(held, ranges);
+  const searchSet = useMemo<SelectedSet>(() => {
+    const bySha = new Map(searchCommits.map((entry) => [entry.sha, entry]));
+    const entries = searchShas.flatMap((sha) => {
       const entry = bySha.get(sha);
       return entry === undefined ? [] : [entry];
     });
-  }, [multiSelected, commits, selectedShas]);
-  const unionOfSelected = useMemo(() => unionFiles(selectedEntries), [selectedEntries]);
+    return entries.length === 0 ? NO_SELECTION : { kind: 'commits', entries };
+  }, [searchCommits, searchShas]);
+  const set = searches ? searchSet : rowSet;
+  // What the panes show: the set — held as it was while its commits are read, or the tab's commit found again.
+  const before = useRef<SelectedSet>(NO_SELECTION);
+  const shown = searches ? set : shownSelectedSet(set, before.current, tabRow.finding);
+  useEffect(() => {
+    before.current = shown;
+  }, [shown]);
+
+  const shownCommits = shown.kind === 'commits' ? shown.entries : NO_COMMITS;
+  const multiSelected = shownCommits.length >= 2;
+  // The commit the details follow: the tab's own among the ones shown, else the newest.
+  const selected = shownCommits.find((entry) => entry.sha === selectedSha) ?? shownCommits[0] ?? null;
+  const shownShas = useMemo(() => shownCommits.map((entry) => entry.sha), [shownCommits]);
+
+  // What the set's verbs act on — the selection as it IS: none while its commits are read, or past what is read together.
+  const setShas = useMemo(() => (set.kind === 'commits' ? set.entries.map((entry) => entry.sha) : null), [set]);
+  // The toolbar's Cherry-Pick holds, as the row menu's does, over a set a pick does not take.
+  const canPick = set.kind === 'commits' && setShas !== null && commitsApply(set.entries, setShas);
+
+  const unionOfSelected = useMemo(() => unionFiles(multiSelected ? shownCommits : []), [multiSelected, shownCommits]);
   const rangeBase = useMemo(
-    () => (multiSelected ? contiguousRangeBase(selectedShas, commits) : null),
-    [multiSelected, selectedShas, commits],
+    () => (multiSelected ? contiguousRangeBase(shownShas, shownCommits) : null),
+    [multiSelected, shownShas, shownCommits],
+  );
+
+  // The signature column's marks: asked of the host only while the column shows, for the commits in view.
+  const inView = useLogRowsInView(held, prefs.showSignatureColumn && !searches);
+  const searchCommitShas = useMemo(() => searchCommits.map((entry) => entry.sha), [searchCommits]);
+  const signatures = useCommitSignatures(
+    workspaceId,
+    searches ? searchCommitShas : inView.shas,
+    prefs.showSignatureColumn,
+  );
+  const reportInView = inView.onWindow;
+  const onWindow = useCallback(
+    (mounted: LogRowRange): void => {
+      wantRows(mounted);
+      reportInView(mounted);
+    },
+    [wantRows, reportInView],
+  );
+
+  // The graph's linear runs fold on a list that sifts nothing (the
+  // host's rule); a press on a run's dot folds it or opens it again,
+  // the gear's Collapse / Expand Linear Branches every one at once.
+  const runsFold = !rowFiltersActive && !noMerges && !firstParent && !searches;
+  const toggleRun = useCallback(
+    (run: WorkspaceTreeLogRunWire): void =>
+      live.current.patchTab({ folds: toggleLogFold(live.current.tab.folds, run.first, run.folded) }),
+    [],
+  );
+
+  // The names the User filter offers: the authors of the rows held — the same list while they are the same names.
+  const heldAuthors = useMemo(() => heldLogAuthors(held), [held]);
+  const authorsKey = heldAuthors.join('\n');
+  const authors = useMemo(() => heldAuthors, [authorsKey]);
+
+  const columns = useMemo<CommitRowColumns>(
+    () => ({
+      compactRefs: prefs.compactReferences,
+      refsOnLeft: prefs.referencesOnLeft,
+      showTagChips: prefs.showTagNames,
+      showTimestamp: prefs.showCommitTimestamp,
+      showAuthor: prefs.showAuthorColumn,
+      showHash: prefs.showHashColumn,
+      showDate: prefs.showDateColumn,
+      showSignature: prefs.showSignatureColumn,
+      dimMergeCommits: prefs.highlightMergeCommits,
+      hourCycle,
+    }),
+    [prefs, hourCycle],
   );
 
   // What the files tree lists — the selected commit, or the set. The
   // tree is keyed by it, and the pane's file selection lives exactly as
   // long: a fresh commit selection starts with no file row selected,
-  // and a refetch of the same log leaves the selected row its verbs.
+  // and a list read again leaves the selected row its verbs.
   const filesKey =
     selected === null
       ? null
       : multiSelected
-        ? `${tabKey}:${selectedShas.length}:${selectedShas[0]}:${selectedShas[selectedShas.length - 1]}`
+        ? `${tabKey}:${shownShas.length}:${shownShas[0]}:${shownShas[shownShas.length - 1]}`
         : `${tabKey}:${selected.sha}`;
   useEffect(() => {
     setSelectedFile(null);
@@ -548,34 +526,31 @@ const GitLogView: React.FC<GitLogViewProps> = ({
   // What Show Diff reads: one commit's change, or the run's range from
   // its base to its newest commit; null while a gapped set is selected.
   const diffTarget = useMemo<{ sha: string; base?: string } | null>(() => {
-    if (multiSelected) return rangeBase === null ? null : { sha: selectedShas[0], base: rangeBase };
+    if (multiSelected) return rangeBase === null ? null : { sha: shownShas[0], base: rangeBase };
     return selected === null ? null : { sha: selected.sha };
-  }, [multiSelected, rangeBase, selectedShas, selected]);
+  }, [multiSelected, rangeBase, shownShas, selected]);
 
-  // Highlight > Current Branch: the commits reachable from HEAD carry
-  // the reference's soft band under everything else — the host's
-  // containment flags (the window walk from HEAD's commit when a host
-  // sends none), off with the preference and withheld on the HEAD /
-  // current-branch scope (the pure rule). A page past the window never
-  // bands: its rows carry no flag, and a walk over them would band the
-  // few that happen to be listed.
-  const currentBranchShas = useMemo(() => {
-    if (!prefs.highlightCurrentBranch || page !== null) return null;
-    const tip = currentBranchBandTip(headSha, {
-      selectedRefs,
-      headScope: GIT_LOG_SCOPE_HEAD,
-      currentBranch: currentRef ?? branch,
-    });
-    return tip === null ? null : bandShas(tip, entries);
-  }, [prefs.highlightCurrentBranch, page, headSha, selectedRefs, currentRef, branch, entries]);
-
-  const navigateToSha = (sha: string): void => {
-    patchTab({ selectedSha: sha });
-    setScrollTo((prev) => ({ sha, nonce: (prev?.nonce ?? 0) + 1 }));
-  };
+  // A navigation to a commit by its hash (the rail's): the log's list
+  // asks the host where it sits; a search's list holds it or does not.
+  const goTo = tabRow.goTo;
+  const navigateToSha = useCallback(
+    (sha: string): void => {
+      if (!searches) {
+        void goTo(sha, true);
+        return;
+      }
+      live.current.patchTab({ selectedSha: sha });
+      setSearchScrollTo((prev) => ({ sha, nonce: (prev?.nonce ?? 0) + 1 }));
+    },
+    [searches, goTo],
+  );
 
   const combinedError =
-    error ?? (fileDiff.error !== null ? t('workbench.gitLog.loadFailed', { detail: fileDiff.error }) : null);
+    refused !== null
+      ? t('workbench.gitLog.loadFailed', { detail: refused.detail ?? refused.reason })
+      : fileDiff.error !== null
+        ? t('workbench.gitLog.loadFailed', { detail: fileDiff.error })
+        : null;
 
   const filtersActive =
     matcher.kind !== 'none' || selectedRefs.length > 0 || rowFiltersActive || noMerges || firstParent;
@@ -606,25 +581,24 @@ const GitLogView: React.FC<GitLogViewProps> = ({
   });
 
   // One of this window's verbs is at the host — a pick, a revert, a
-  // patch read, a branch verb: with a read the person pressed Refresh
-  // for, what the pulse along the log's top edge says.
+  // patch read, a branch verb: with a list not yet answered and a read
+  // the person pressed for, what the pulse along the log's top edge says.
   const atHost = commitApply.working || commitPatch.working || actions.busy.working;
 
   // The commit rows' menu: the clipboard read, the patch of the set,
   // the pick and the revert of the set, the detached checkout, the New Branch and New Tag dialogs anchored
-  // at the commit, and the parent / child walk.
-  const rowMenu = (target: LogRowMenuTarget): ReturnType<typeof buildLogRowMenu> =>
-    buildLogRowMenu(target, t, {
-      onCopyRevision: (shas) => void navigator.clipboard.writeText(shas.join('\n')),
-      onCreatePatch: commitPatch.createPatch,
-      onCopyAsPatch: commitPatch.copyAsPatch,
-      onCherryPick: commitApply.cherryPick,
-      onRevert: commitApply.revert,
-      onNewBranchFrom: actions.newBranchFrom,
-      onNewTagAt: actions.newTagAt,
-      onCheckoutRevision: actions.checkoutRevision,
-      onNavigate: navigateToSha,
-    });
+  // at the commit, and the parent / child walk — by row in the log's
+  // list, by commit in a search's.
+  const menuVerbs: Omit<LogRowMenuHandlers, 'onNavigate'> = {
+    onCopyRevision: (shas) => void navigator.clipboard.writeText(shas.join('\n')),
+    onCreatePatch: commitPatch.createPatch,
+    onCopyAsPatch: commitPatch.copyAsPatch,
+    onCherryPick: commitApply.cherryPick,
+    onRevert: commitApply.revert,
+    onNewBranchFrom: actions.newBranchFrom,
+    onNewTagAt: actions.newTagAt,
+    onCheckoutRevision: actions.checkoutRevision,
+  };
 
   const placeholderStyle: React.CSSProperties = {
     flex: '1 1 auto',
@@ -731,50 +705,75 @@ const GitLogView: React.FC<GitLogViewProps> = ({
             onScopeChange={applyScope}
             onUsersChange={applyUsers}
             onPathsChange={applyPaths}
-            entries={commits}
+            authors={authors}
             onRefresh={pressRefresh}
-            onCherryPick={canPick && !commitApply.working ? () => commitApply.cherryPick(pickTargets) : undefined}
-            onNavigate={navigateToSha}
+            onCherryPick={
+              canPick && setShas !== null && !commitApply.working ? () => commitApply.cherryPick(setShas) : undefined
+            }
+            onGoTo={(target) => goTo(target, false)}
             prefs={prefs}
             onPatchPrefs={(patch) => patchGitLogViewPrefs(workspaceId, patch)}
-            canCollapseLinear={canCollapseLinear}
-            onCollapseLinear={collapseLinear}
-            canExpandLinear={canExpandLinear}
-            onExpandLinear={expandLinear}
+            canCollapseLinear={runsFold && canFoldAll(folds)}
+            onCollapseLinear={() => patchTab({ folds: ALL_LOG_FOLDS })}
+            canExpandLinear={runsFold && canUnfoldAll(folds)}
+            onExpandLinear={() => patchTab({ folds: NO_LOG_FOLDS })}
             textInvalid={matcher.kind === 'invalid'}
           />
-          <GitWorkingLine active={atHost || refresh.asked || search.asked} />
-          <CommitList
-            entries={shown.entries}
-            graph={graph}
-            refsBySha={refsBySha}
-            headSha={headSha}
-            currentBranchShas={currentBranchShas}
-            selectedSha={selectedSha}
-            onSelect={(sha) => patchTab({ selectedSha: sha })}
-            onSelectionChange={setSelectedShas}
-            filtersActive={filtersActive}
-            onResetFilters={resetFilters}
-            note={searchNote}
-            matchRanges={matcher.kind === 'match' ? matcher.ranges : undefined}
-            fragments={graphHonest}
-            scrollTo={scrollTo}
-            compactRefs={prefs.compactReferences}
-            refsOnLeft={prefs.referencesOnLeft}
-            showTagChips={prefs.showTagNames}
-            showTimestamp={prefs.showCommitTimestamp}
-            showAuthor={prefs.showAuthorColumn}
-            showHash={prefs.showHashColumn}
-            showDate={prefs.showDateColumn}
-            showSignature={prefs.showSignatureColumn}
-            signatures={signatures}
-            dimMergeCommits={prefs.highlightMergeCommits}
-            hourCycle={hourCycle}
-            anchors={anchors}
-            collapsed={collapsed}
-            onToggleFragment={toggleFragment}
-            rowMenu={rowMenu}
-          />
+          <GitWorkingLine active={atHost || pending || rows.asked || search.asked} />
+          {matcher.kind === 'match' ? (
+            <CommitList
+              entries={searchCommits}
+              graph={page === null ? (sifted?.graph ?? null) : null}
+              refsBySha={refsBySha}
+              headSha={headSha}
+              currentBranchShas={searchBand}
+              selectedSha={selectedSha}
+              onSelect={setSelectedSha}
+              onSelectionChange={setSearchShas}
+              filtersActive={filtersActive}
+              onResetFilters={resetFilters}
+              note={searchNote}
+              matchRanges={matcher.ranges}
+              fragments={false}
+              scrollTo={searchScrollTo}
+              compactRefs={columns.compactRefs}
+              refsOnLeft={columns.refsOnLeft}
+              showTagChips={columns.showTagChips}
+              showTimestamp={columns.showTimestamp}
+              showAuthor={columns.showAuthor}
+              showHash={columns.showHash}
+              showDate={columns.showDate}
+              showSignature={columns.showSignature}
+              signatures={signatures}
+              dimMergeCommits={columns.dimMergeCommits}
+              hourCycle={columns.hourCycle}
+              rowMenu={(target) => buildLogRowMenu(target, t, { ...menuVerbs, onNavigate: navigateToSha })}
+            />
+          ) : (
+            <LogRowList
+              held={held}
+              pending={pending}
+              onWindow={onWindow}
+              selection={selection}
+              selectedRow={tabRow.row}
+              onSelect={tabRow.select}
+              refsBySha={refsBySha}
+              headSha={headSha}
+              band={band}
+              filtersActive={filtersActive}
+              onResetFilters={resetFilters}
+              scrollTo={tabRow.scrollTo}
+              columns={columns}
+              signatures={signatures}
+              onToggleRun={runsFold ? toggleRun : undefined}
+              rowMenu={(row) =>
+                buildLogRowMenu(logRowMenuTarget(held, ranges, set, row), t, {
+                  ...menuVerbs,
+                  onNavigate: tabRow.walkTo,
+                })
+              }
+            />
+          )}
         </div>
         <div
           ref={detailsCellRef}
@@ -807,7 +806,12 @@ const GitLogView: React.FC<GitLogViewProps> = ({
             data-testid="git-tool-detail-body"
           >
             <div style={{ minHeight: 0, display: 'flex', flexDirection: 'column' }}>
-              {selected === null ? (
+              {shown.kind === 'over' ? (
+                // More commits than are read together: their number, and no files that would read as the set's.
+                <div style={placeholderStyle} data-testid="git-tool-detail-over">
+                  {t('workbench.gitLog.commitsSelected', { count: shown.count })}
+                </div>
+              ) : selected === null ? (
                 <div style={placeholderStyle} data-testid="git-tool-detail-placeholder">
                   {t('workbench.gitLog.selectCommit')}
                 </div>
@@ -850,13 +854,15 @@ const GitLogView: React.FC<GitLogViewProps> = ({
                 data-testid="git-tool-detail-info-cell"
               >
                 <Sash axis="y" edge="start" begin={layout.beginInfo} onReset={layout.resetInfo} />
-                {selected === null ? (
+                {shown.kind === 'over' ? (
+                  <div style={{ flex: '1 1 auto' }} data-testid="git-tool-detail-over-info" />
+                ) : selected === null ? (
                   <div style={placeholderStyle} data-testid="git-tool-detail-none">
                     {t('workbench.gitLog.noneSelected')}
                   </div>
                 ) : multiSelected ? (
                   <div style={{ flex: '1 1 auto', minHeight: 0, overflowY: 'auto' }} data-testid="git-tool-detail-multi">
-                    {selectedEntries.map((entry) => (
+                    {shownCommits.map((entry) => (
                       <div key={entry.sha} style={{ padding: '6px 0 10px' }} data-testid="git-tool-detail-card">
                         <CommitDetails
                           entry={entry}

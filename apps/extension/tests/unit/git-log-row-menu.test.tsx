@@ -161,6 +161,52 @@ describe('buildLogRowMenu — the anatomy', () => {
     expect(h.onCreatePatch).toHaveBeenCalledWith(['c3']);
   });
 
+  it('a set whose commits are not read covers no commit yet — every verb over them holds, the unbuilt one as ever', () => {
+    const h = handlers();
+    const menu = buildLogRowMenu({ shas: null, child: null, parent: null, applies: false }, t, h);
+    expect(disabledKeys(menu)).toEqual([
+      'copy-revision',
+      'create-patch',
+      'copy-as-patch',
+      'cherry-pick',
+      'checkout-revision',
+      'compare-with-local',
+      'revert',
+      'new-branch',
+      'new-tag',
+      'go-to-child',
+      'go-to-parent',
+    ]);
+    for (const key of ['copy-revision', 'create-patch', 'copy-as-patch', 'cherry-pick', 'revert']) clickKey(menu, key);
+    expect(h.onCopyRevision).not.toHaveBeenCalled();
+    expect(h.onCreatePatch).not.toHaveBeenCalled();
+    expect(h.onCopyAsPatch).not.toHaveBeenCalled();
+    expect(h.onCherryPick).not.toHaveBeenCalled();
+    expect(h.onRevert).not.toHaveBeenCalled();
+    // A set said to apply is still held while it names no commit.
+    expect(disabledKeys(buildLogRowMenu({ shas: null, child: null, parent: null, applies: true }, t, h))).toEqual(
+      expect.arrayContaining(['cherry-pick', 'revert']),
+    );
+  });
+
+  it('walks by whatever its list selects by — a row’s number as well as a commit’s hash', () => {
+    const onNavigate = vi.fn<(row: number) => void>();
+    const menu = buildLogRowMenu<number>({ shas: ['c3'], child: 41, parent: 500_000, applies: true }, t, {
+      ...handlers(),
+      onNavigate,
+    });
+    clickKey(menu, 'go-to-child');
+    clickKey(menu, 'go-to-parent');
+    expect(onNavigate.mock.calls).toEqual([[41], [500_000]]);
+    // Row 0 is a place, not "none".
+    const top = buildLogRowMenu<number>({ shas: ['c3'], child: 0, parent: null, applies: true }, t, {
+      ...handlers(),
+      onNavigate,
+    });
+    expect(disabledKeys(top)).not.toContain('go-to-child');
+    expect(disabledKeys(top)).toContain('go-to-parent');
+  });
+
   it('several commits: copy, the patch rows, cherry-pick and revert cover the set; checkout revision, new branch, new tag and the walks hold', () => {
     const h = handlers();
     const menu = buildLogRowMenu({ shas: ['c4', 'c3'], child: null, parent: null, applies: true }, t, h);
@@ -255,7 +301,7 @@ describe('CommitList — the row menu and the walks', () => {
   }
 
   const lastTarget = (rowMenu: ReturnType<typeof renderList>['rowMenu'], sha: string): LogRowMenuTarget | undefined => {
-    const calls = rowMenu.mock.calls.filter(([target]) => target.shas[0] === sha || target.shas.includes(sha));
+    const calls = rowMenu.mock.calls.filter(([target]) => target.shas?.includes(sha) === true);
     return calls[calls.length - 1]?.[0];
   };
 

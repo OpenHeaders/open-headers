@@ -4,8 +4,9 @@
  * Date / Paths filter chips (User and Paths hold LISTS — `ValuesFilterChip`), Graph Options (sort + walk riders + the
  * Collapse / Expand Linear Branches gestures over the graph's
  * fragments), then the right-aligned action icons — Refresh, Cherry-Pick,
- * View Options, Go To Hash/Branch/Tag. Filter state lives in the tab
- * registry (travels with the tab); display prefs are per-workspace.
+ * View Options, Go To Hash/Branch/Tag (asked of the list: the log says
+ * where the commit sits, or why it is on no row). Filter state lives in
+ * the tab registry (travels with the tab); display prefs are per-workspace.
  * The band is a PaneToolbar led by the text field: the field keeps its
  * width at every pane size and everything after it that does not fit —
  * the far end first — folds behind the › chevron's hover strip (the
@@ -13,7 +14,7 @@
  */
 
 import { EyeOutlined, SearchOutlined } from '@ant-design/icons';
-import type { WorkspaceTreeLogEntryWire, WorkspaceTreeRefWire } from '@openheaders/core/bridge';
+import type { WorkspaceTreeRefWire } from '@openheaders/core/bridge';
 import { Dropdown, Input, theme } from 'antd';
 import type React from 'react';
 import { useMemo, useState } from 'react';
@@ -36,6 +37,7 @@ import PathsTreeModal from './PathsTreeModal';
 import ToolbarIconButton from './ToolbarIconButton';
 import { useHeadTreeFiles } from './use-head-tree-files';
 import ValuesFilterChip from './ValuesFilterChip';
+import type { LogGoToOutcome } from '../use-log-tab-row';
 import { useOptionMenu } from '../use-option-menu';
 
 export interface GitLogToolbarProps {
@@ -55,26 +57,24 @@ export interface GitLogToolbarProps {
   onUsersChange: (users: readonly string[]) => void;
   /** The Paths chip applied a list of paths — empty clears it; `names` for those picked in the tree by name. */
   onPathsChange: (paths: readonly string[], names?: Readonly<Record<string, string>>) => void;
-  /** Loaded entries — the Go To resolver and the User submenu feed. */
-  entries: WorkspaceTreeLogEntryWire[];
+  /** The authors of the rows the log holds — the names the User filter offers. */
+  authors: readonly string[];
   onRefresh: () => void;
   /** Cherry-pick the log's selected commits; absent while nothing is selected. */
   onCherryPick?: () => void;
-  /** Navigate gesture (Go To): select the commit + scroll it into view. */
-  onNavigate: (sha: string) => void;
+  /** Go To: a hash, the start of one or a ref's name — the log selects the commit and brings it into view, or says why not. */
+  onGoTo: (target: string) => Promise<LogGoToOutcome>;
   prefs: GitLogViewPrefs;
   onPatchPrefs: (patch: Partial<GitLogViewPrefs>) => void;
-  /** Graph Options › Collapse Linear Branches — the window still has a fragment to hide. */
+  /** Graph Options › Collapse Linear Branches — the list has a run left to fold. */
   canCollapseLinear: boolean;
   onCollapseLinear: () => void;
-  /** Graph Options › Expand Linear Branches — a fragment is held collapsed. */
+  /** Graph Options › Expand Linear Branches — a run is held folded. */
   canExpandLinear: boolean;
   onExpandLinear: () => void;
   /** The text field's regex failed to compile — error styling. */
   textInvalid: boolean;
 }
-
-const SHA_PREFIX = /^[0-9a-f]{4,40}$/;
 
 /** The text field's one width — room for its placeholder beside the two toggles; it never resizes with the pane. */
 const FIELD_WIDTH = 190;
@@ -91,10 +91,10 @@ const GitLogToolbar: React.FC<GitLogToolbarProps> = ({
   onScopeChange,
   onUsersChange,
   onPathsChange,
-  entries,
+  authors,
   onRefresh,
   onCherryPick,
-  onNavigate,
+  onGoTo,
   prefs,
   onPatchPrefs,
   canCollapseLinear,
@@ -111,13 +111,8 @@ const GitLogToolbar: React.FC<GitLogToolbarProps> = ({
   const graphOptions = useOptionMenu();
   const viewOptions = useOptionMenu();
   const [goToValue, setGoToValue] = useState('');
-  const [goToMissed, setGoToMissed] = useState(false);
-
-  const authors = useMemo(() => {
-    const names = new Set<string>();
-    for (const entry of entries) names.add(entry.authorName);
-    return [...names].sort((a, b) => a.localeCompare(b));
-  }, [entries]);
+  // Why the last Go To landed on no row; null while it has not missed.
+  const [goToMiss, setGoToMiss] = useState<Exclude<LogGoToOutcome, 'found'> | null>(null);
 
   const dateValue = useMemo(() => {
     if (tab.date === null) return null;
@@ -132,27 +127,20 @@ const GitLogToolbar: React.FC<GitLogToolbarProps> = ({
   const headTree = useHeadTreeFiles(workspaceId);
   const pathNames = useMemo(() => pathFieldNames(headTree.listing?.paths ?? []), [headTree.listing]);
 
-  const resolveGoTo = (): void => {
+  // A ref typed in another case goes by its own name; anything else is the host's to read.
+  const resolveGoTo = async (): Promise<void> => {
     const query = goToValue.trim();
     if (query.length === 0) return;
     const ref =
       refs.find((row) => row.name === query) ?? refs.find((row) => row.name.toLowerCase() === query.toLowerCase());
-    const targetSha =
-      ref !== undefined
-        ? entries.some((entry) => entry.sha === ref.sha)
-          ? ref.sha
-          : null
-        : SHA_PREFIX.test(query.toLowerCase())
-          ? (entries.find((entry) => entry.sha.startsWith(query.toLowerCase()))?.sha ?? null)
-          : null;
-    if (targetSha === null) {
-      setGoToMissed(true);
+    const outcome = await onGoTo(ref?.name ?? query);
+    if (outcome !== 'found') {
+      setGoToMiss(outcome);
       return;
     }
-    onNavigate(targetSha);
     setGoToOpen(false);
     setGoToValue('');
-    setGoToMissed(false);
+    setGoToMiss(null);
   };
 
   // The reference's mark on the button: an option of its menu is off its default.
@@ -517,7 +505,7 @@ const GitLogToolbar: React.FC<GitLogToolbarProps> = ({
             setGoToOpen(next);
             if (!next) {
               setGoToValue('');
-              setGoToMissed(false);
+              setGoToMiss(null);
             }
           }}
           popupRender={() => (
@@ -534,18 +522,22 @@ const GitLogToolbar: React.FC<GitLogToolbarProps> = ({
                 size="small"
                 autoFocus
                 value={goToValue}
-                status={goToMissed ? 'error' : undefined}
+                status={goToMiss !== null ? 'error' : undefined}
                 onChange={(e) => {
                   setGoToValue(e.target.value);
-                  setGoToMissed(false);
+                  setGoToMiss(null);
                 }}
-                onPressEnter={resolveGoTo}
+                onPressEnter={() => void resolveGoTo()}
                 placeholder={t('workbench.gitLog.goTo.placeholder')}
                 data-testid="git-tool-goto-input"
               />
-              {goToMissed && (
-                <div style={{ paddingTop: 6, fontSize: 11.5, color: token.colorError }} data-testid="git-tool-goto-miss">
-                  {t('workbench.gitLog.goTo.notFound')}
+              {goToMiss !== null && (
+                <div
+                  style={{ paddingTop: 6, fontSize: 11.5, color: token.colorError }}
+                  data-testid="git-tool-goto-miss"
+                  data-miss={goToMiss}
+                >
+                  {t(goToMiss === 'not-listed' ? 'workbench.gitLog.goTo.notListed' : 'workbench.gitLog.goTo.notFound')}
                 </div>
               )}
             </div>

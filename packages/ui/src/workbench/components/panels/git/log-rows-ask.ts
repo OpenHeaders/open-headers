@@ -43,3 +43,13 @@ export function logRowsAsk(parts: LogRowsAskParts): LogRowsAsk {
     ...(parts.folds.runs.length > 0 ? { folds: [...parts.folds.runs] } : {}),
   };
 }
+
+/**
+ * What an ask lists before its folds — its scope, its filters, its
+ * order. Two asks of one listing differ by a folded run alone, and the
+ * rows a person is looking at stay where they are; another listing is
+ * another list to look at, from its top.
+ */
+export function logListingName(ask: LogRowsAsk): string {
+  return JSON.stringify({ ...ask, foldAll: undefined, folds: undefined });
+}

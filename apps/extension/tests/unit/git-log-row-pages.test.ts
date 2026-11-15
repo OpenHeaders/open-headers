@@ -3,13 +3,16 @@
  * (`panels/git/log-row-pages`): pages read once and kept under the
  * list's two names — what was asked and the id the host answers with —
  * the stretch to read next for the rows mounted, and the bound on the
- * pages kept. And what a tab asks the host to list
- * (`panels/git/log-rows-ask`).
+ * pages kept, the list's first page and the authors of the rows held.
+ * And what a tab asks the host to list (`panels/git/log-rows-ask`),
+ * with the listing an ask is of before its folds.
  */
 
 import type { WorkspaceTreeLogRowWire, WorkspaceTreeLogRunWire } from '@openheaders/core/bridge';
 import { NO_LOG_FOLDS } from '@openheaders/ui/workbench/components/panels/git/log-folds';
 import {
+  firstLogRows,
+  heldLogAuthors,
   LOG_PAGE_ROWS,
   LOG_PAGES_HELD,
   type LogRowPages,
@@ -23,7 +26,7 @@ import {
   nextLogRead,
   takeLogRows,
 } from '@openheaders/ui/workbench/components/panels/git/log-row-pages';
-import { logRowsAsk } from '@openheaders/ui/workbench/components/panels/git/log-rows-ask';
+import { logListingName, logRowsAsk } from '@openheaders/ui/workbench/components/panels/git/log-rows-ask';
 import { describe, expect, it } from 'vitest';
 
 const ASK: LogRowsAsk = { workspaceId: 'ws-1', key: 'log:1', allRefs: true };
@@ -196,6 +199,50 @@ describe('the rows held', () => {
   });
 });
 
+describe('the list’s first page', () => {
+  it('is the newest rows once they are held', () => {
+    const first = firstLogRows(holding(10_000, [0, 3]));
+    expect(first).toHaveLength(LOG_PAGE_ROWS);
+    expect(first?.[0].entry.subject).toBe('commit 0');
+    expect(first?.[199].entry.subject).toBe('commit 199');
+  });
+
+  it('is not known while it is not held, or no list is', () => {
+    expect(firstLogRows(holding(10_000, [3]))).toBeNull();
+    expect(firstLogRows(NO_LOG_ROWS)).toBeNull();
+  });
+
+  it('is empty for a list that holds no row, and short for a short one', () => {
+    expect(firstLogRows(takeLogRows(NO_LOG_ROWS, ASK, 0, answer(0, 200, 0), NO_LOG_ROW_RANGE))).toEqual([]);
+    expect(firstLogRows(takeLogRows(NO_LOG_ROWS, ASK, 0, answer(0, 200, 12), NO_LOG_ROW_RANGE))).toHaveLength(12);
+  });
+});
+
+describe('the authors of the rows held', () => {
+  const by = (at: number, authorName: string): WorkspaceTreeLogRowWire => {
+    const made = row(at);
+    return { ...made, entry: { ...made.entry, authorName } };
+  };
+  const pageOf = (from: number, names: string[]): LogRowsAnswer => ({
+    ok: true,
+    list: 'g1',
+    total: 10_000,
+    widest: 1,
+    rows: names.map((name, at) => by(from + at, name)),
+    runs: [],
+  });
+
+  it('names each author once across every page held, in the locale’s order', () => {
+    let held = takeLogRows(NO_LOG_ROWS, ASK, 0, pageOf(0, ['John Doe', 'jane doe', 'John Doe']), mounted(0, 2));
+    held = takeLogRows(held, ASK, 400, pageOf(400, ['Ada Doe', 'John Doe']), mounted(400, 401));
+    expect(heldLogAuthors(held)).toEqual(['Ada Doe', 'jane doe', 'John Doe']);
+  });
+
+  it('names none while no row is held', () => {
+    expect(heldLogAuthors(NO_LOG_ROWS)).toEqual([]);
+  });
+});
+
 describe('the bound on the pages kept', () => {
   const pagesOf = (held: LogRowPages): number[] => [...held.pages.keys()].sort((a, b) => a - b);
 
@@ -222,6 +269,41 @@ describe('the bound on the pages kept', () => {
     expect(around).toHaveLength(LOG_PAGES_HELD);
     const held = takeLogRows(holding(100_000, around, at), ASK, 2_200, answer(2_200, 200, 100_000), at);
     expect(pagesOf(held)).toEqual([3, 4, 5, 6, 7, 8, 9, 10, 11, 13, 14, 15, 16, 17, 18, 19]);
+  });
+});
+
+describe('the listing an ask is of', () => {
+  const parts = {
+    workspaceId: 'ws-1',
+    key: 'log:1',
+    scope: ['main'] as string[],
+    filters: { topoOrder: true },
+    noMerges: false,
+    firstParent: false,
+    folds: NO_LOG_FOLDS,
+  };
+  const name = logListingName(logRowsAsk(parts));
+
+  it('is the same whatever runs the ask folds', () => {
+    expect(logListingName(logRowsAsk({ ...parts, folds: { all: false, runs: [sha(4)] } }))).toBe(name);
+    expect(logListingName(logRowsAsk({ ...parts, folds: { all: true, runs: [] } }))).toBe(name);
+    expect(logListingName(logRowsAsk({ ...parts, folds: { all: true, runs: [sha(4), sha(9)] } }))).toBe(name);
+  });
+
+  it('is another for another scope, filter, order or sift', () => {
+    const others = [
+      { ...parts, scope: ['main', 'origin/main'] },
+      { ...parts, scope: [] },
+      { ...parts, filters: {} },
+      { ...parts, filters: { topoOrder: true, authorMe: true } },
+      { ...parts, filters: { topoOrder: true, paths: ['docs'] } },
+      { ...parts, noMerges: true },
+      { ...parts, firstParent: true },
+      { ...parts, workspaceId: 'ws-2' },
+    ];
+    const names = others.map((other) => logListingName(logRowsAsk(other)));
+    expect(names).not.toContain(name);
+    expect(new Set(names).size).toBe(others.length);
   });
 });
 

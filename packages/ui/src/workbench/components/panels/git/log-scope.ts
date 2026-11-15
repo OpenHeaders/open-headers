@@ -39,6 +39,17 @@ export function searchScopeWire(scope: GitLogScope): Pick<GitLogScopeWire, 'refs
   return scope.length === 1 && scope[0] === GIT_LOG_SCOPE_HEAD ? {} : { refs: [...scope] };
 }
 
+/**
+ * Highlight › Current Branch says something of a scope — unless the
+ * scope holds nothing but HEAD and the checked-out branch: every row
+ * would carry the band (the reference's rule). `currentBranch` is null
+ * when detached or unborn.
+ */
+export function scopeShowsCurrentBranch(scope: GitLogScope, currentBranch: string | null): boolean {
+  const onHead = (ref: string): boolean => ref === GIT_LOG_SCOPE_HEAD || ref === currentBranch;
+  return scope.length === 0 || !scope.every(onHead);
+}
+
 /** The scope without the refs that went — its order kept. */
 export function scopeWithout(scope: GitLogScope, gone: Iterable<string>): string[] {
   const dropped = new Set(gone);

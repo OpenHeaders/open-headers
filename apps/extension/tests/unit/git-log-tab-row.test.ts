@@ -151,14 +151,19 @@ describe('the commit to ask the host the row of', () => {
 });
 
 describe('the host’s answer to where a commit sits', () => {
-  it('is the tab’s row in the held list, with its commit where its page is held', () => {
-    expect(tabRowFound(HELD, ASK, 'g1', 12)).toEqual(at(12, sha(12)));
-    expect(tabRowFound(HELD, ASK, 'g1', 4_321)).toEqual(at(4_321, null));
+  it('is the tab’s row in the held list — a place found by a name takes its commit from its page', () => {
+    expect(tabRowFound(HELD, ASK, 'g1', 12, null)).toEqual(at(12, sha(12)));
+    expect(tabRowFound(HELD, ASK, 'g1', 4_321, null)).toEqual(at(4_321, null));
+  });
+
+  it('carries the commit it was asked for by its hash, its page held or not', () => {
+    expect(tabRowFound(HELD, ASK, 'g1', 4_321, sha(4_321))).toEqual(at(4_321, sha(4_321)));
+    expect(tabRowFound(HELD, ASK, 'g1', 12, sha(12))).toEqual(at(12, sha(12)));
   });
 
   it('is no row of the held list when it answers for another ask or another id', () => {
-    expect(tabRowFound(HELD, OTHER, 'g1', 12)).toBeNull();
-    expect(tabRowFound(HELD, ASK, 'g2', 12)).toBeNull();
+    expect(tabRowFound(HELD, OTHER, 'g1', 12, null)).toBeNull();
+    expect(tabRowFound(HELD, ASK, 'g2', 12, null)).toBeNull();
   });
 
   it('keeps a commit the list leaves out as the tab’s, on no row', () => {

@@ -44,10 +44,19 @@ export function tabRowAt(held: LogRowPages, row: number): LogTabRow | null {
 /**
  * The host's answer to where a commit sits in the list `ask` names, as
  * the tab's row: null when it answers for another list than the one
- * held — the row is not this list's.
+ * held — the row is not this list's. `sha` is the commit where it was
+ * asked for by its hash; a place found by a name or the start of a hash
+ * (null) takes its commit from its page.
  */
-export function tabRowFound(held: LogRowPages, ask: LogRowsAsk, list: string, row: number): LogTabRow | null {
-  return held.ask === ask && held.list === list ? tabRowAt(held, row) : null;
+export function tabRowFound(
+  held: LogRowPages,
+  ask: LogRowsAsk,
+  list: string,
+  row: number,
+  sha: string | null,
+): LogTabRow | null {
+  if (held.ask !== ask || held.list !== list) return null;
+  return { ask, list, row, sha: sha ?? logRowAt(held, row)?.entry.sha ?? null };
 }
 
 /** The tab's commit `sha` as one the held list leaves out; null while no list is held. */

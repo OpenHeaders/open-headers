@@ -559,7 +559,9 @@ export const workbenchChrome = {
   'workbench.gitLog.highlight.notCherryPicked': 'チェリーピックされていないコミット',
   'workbench.gitLog.goTo': 'ハッシュ / ブランチ / タグへ移動',
   'workbench.gitLog.goTo.placeholder': 'ハッシュ、ブランチ、またはタグ',
-  'workbench.gitLog.goTo.notFound': '読み込み済みのログに見つかりません。',
+  'workbench.gitLog.goTo.notFound': 'その名前のコミット、ブランチ、タグはありません。',
+  'workbench.gitLog.goTo.notListed':
+    'そのコミットはこの一覧にありません。フィルターまたはブランチの範囲で除外されています。',
   'workbench.gitLog.details.showDiff': '差分を表示',
   'workbench.gitLog.details.revertSelected': '選択した変更を元に戻す',
   'workbench.gitLog.details.groupBy': 'グループ化',
