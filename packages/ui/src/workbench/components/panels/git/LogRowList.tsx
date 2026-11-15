@@ -107,7 +107,7 @@ const LogRowList: React.FC<LogRowListProps> = ({
   const listRef = useRef<HTMLDivElement>(null);
   const { total } = held;
   const rowWindow = useFixedRowWindow(listRef, total, GRAPH_ROW_HEIGHT);
-  const { start, end } = rowWindow;
+  const { start, end, inView } = rowWindow;
   const { ranges, lead } = selection.selection;
 
   useEffect(() => {
@@ -125,10 +125,13 @@ const LogRowList: React.FC<LogRowListProps> = ({
     [],
   );
 
-  // The rows in view decide the graph column's width; rows not read yet leave it as it was.
+  // The rows the viewport shows decide the graph column's width — never the ones mounted beyond it; rows not
+  // read yet leave it as it was.
   const lanes = useRef(1);
   let widest = 0;
-  for (let row = start; row < end; row += 1) widest = Math.max(widest, logRowAt(held, row)?.cell.laneCount ?? 0);
+  for (let row = inView.first; row <= inView.last; row += 1) {
+    widest = Math.max(widest, logRowAt(held, row)?.cell.laneCount ?? 0);
+  }
   if (widest > 0) lanes.current = widest;
   const maxLanes = lanes.current;
 

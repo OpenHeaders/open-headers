@@ -1,8 +1,9 @@
 // @vitest-environment jsdom
 /**
  * The fixed-row window's hook over a scroller whose numbers are set by
- * hand: the rows to mount follow the scroll position and the scroller's
- * resize, the height the engine gave the spacer is read back, a
+ * hand: the rows to mount and the rows in view follow the scroll
+ * position and the scroller's resize, the height the engine gave the
+ * spacer is read back, a
  * scroller with no height yet mounts the list's first rows, and a row
  * is brought into view from where the scroller stands.
  */
@@ -70,6 +71,17 @@ describe('useFixedRowWindow', () => {
     expect(result.current).toMatchObject({ start: 76, end: 144, offsetPx: 76 * ROW });
   });
 
+  it('names the rows the viewport itself shows — none of the ones mounted beyond it', () => {
+    const el = scroller(520, 10_000 * ROW, 13_000);
+    const { result } = mount(el, 10_000);
+    expect(result.current.inView).toEqual({ first: 500, last: 519 });
+    // A pixel further and a pixel of row 520 shows.
+    el.scrollTop = 13_001;
+    act(() => result.current.onScroll());
+    expect(result.current.inView).toEqual({ first: 500, last: 520 });
+    expect(result.current).toMatchObject({ start: 476, end: 544 });
+  });
+
   it('keeps a pixel scrolled a pixel of rows when the scroller holds more than its rows', () => {
     // A line under the last row makes the content taller than the list: the list's own height is what counts.
     const el = scroller(520, 10_000 * ROW + 40, 2_600);
@@ -100,12 +112,17 @@ describe('useFixedRowWindow', () => {
 
   it('mounts the list’s first rows while the scroller has no height', () => {
     const { result } = mount(scroller(0, 0), 1_000_000);
-    expect(result.current).toMatchObject({ start: 0, end: 200, offsetPx: 0 });
-    expect(mount(scroller(0, 0), 12).result.current.end).toBe(12);
+    expect(result.current).toMatchObject({ start: 0, end: 200, offsetPx: 0, inView: { first: 0, last: 199 } });
+    expect(mount(scroller(0, 0), 12).result.current).toMatchObject({ end: 12, inView: { first: 0, last: 11 } });
   });
 
   it('mounts nothing with no scroller', () => {
-    expect(mount(null, 1_000).result.current).toMatchObject({ start: 0, end: 0, offsetPx: 0 });
+    expect(mount(null, 1_000).result.current).toMatchObject({
+      start: 0,
+      end: 0,
+      offsetPx: 0,
+      inView: { first: 0, last: -1 },
+    });
   });
 
   it('asks for the tallest spacer on a list past it, and reads back the height the engine gave', () => {

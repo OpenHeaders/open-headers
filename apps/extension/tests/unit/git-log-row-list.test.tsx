@@ -557,6 +557,30 @@ describe('LogRowList — over a laid-out scroller', () => {
     );
   });
 
+  it('takes the graph column’s width from the rows the viewport shows, not the ones mounted beyond it', () => {
+    // 20 rows show and 44 are mounted: row 30 is three lanes wide, under the viewport.
+    render(<Harness held={holding(10_000, [0], (at) => (at === 30 ? 3 : 1))} />);
+    expect(mountedRows()).toContain(30);
+    expect(cellOf(0).getAttribute('width')).toBe('24');
+
+    // Row 29 is the last one showing: row 30 sits right under the edge.
+    const list = screen.getByTestId('git-tool-list');
+    list.scrollTop = 10 * ROW_PX;
+    fireEvent.scroll(list);
+    expect(cellOf(29).getAttribute('width')).toBe('24');
+
+    // A pixel of row 30 shows: the column is as wide as it needs.
+    list.scrollTop = 10 * ROW_PX + 1;
+    fireEvent.scroll(list);
+    expect(cellOf(29).getAttribute('width')).toBe('56');
+
+    // Row 31 at the viewport's top: row 30 is mounted above it, and the column is a lane wide again.
+    list.scrollTop = 31 * ROW_PX;
+    fireEvent.scroll(list);
+    expect(mountedRows()).toContain(30);
+    expect(cellOf(31).getAttribute('width')).toBe('24');
+  });
+
   it('brings a navigation’s row into view, and the same row again on a new nonce', () => {
     const held = holding(10_000, [0]);
     const { rerender } = render(<Harness held={held} />);

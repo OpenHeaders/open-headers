@@ -1,13 +1,14 @@
 /**
  * useFixedRowWindow — the window over rows of one height
  * (`fixed-rows.ts`) read off a scroller: the rows to mount and where to
- * draw them, re-made on scroll and on the scroller's resize, and the
- * scroll position that brings a row into view from where it stands.
+ * draw them, and the rows the viewport itself shows, re-made on scroll
+ * and on the scroller's resize, and the scroll position that brings a
+ * row into view from where it stands.
  *
  * The height the engine gave the spacer is read back from the scroller
  * every time, so an engine that clamps lower than the one asked for is
  * followed, not assumed. A scroller with no height yet (an unlaid-out
- * mount, jsdom) mounts the list's first rows.
+ * mount, jsdom) mounts the list's first rows, and has them all in view.
  */
 
 import { type RefObject, useCallback, useLayoutEffect, useState } from 'react';
@@ -17,12 +18,35 @@ import {
   type FixedRowWindow,
   fixedRowSpacerPx,
   scrollTopForRow,
+  visibleFixedRows,
 } from './fixed-rows';
 
 /** Rows mounted while the scroller has no height yet. */
 const UNLAID_ROWS = 200;
 
+/** The rows the viewport itself shows: `[first, last]`, both inclusive. */
+interface FixedRowsInView {
+  first: number;
+  last: number;
+}
+
+interface Measured {
+  rowWindow: FixedRowWindow;
+  inView: FixedRowsInView;
+}
+
+const NOTHING_MEASURED: Measured = { rowWindow: { start: 0, end: 0, offsetPx: 0 }, inView: { first: 0, last: -1 } };
+
+const sameMeasure = (a: Measured, b: Measured): boolean =>
+  a.rowWindow.start === b.rowWindow.start &&
+  a.rowWindow.end === b.rowWindow.end &&
+  a.rowWindow.offsetPx === b.rowWindow.offsetPx &&
+  a.inView.first === b.inView.first &&
+  a.inView.last === b.inView.last;
+
 export interface FixedRowWindowApi extends FixedRowWindow {
+  /** The rows the viewport shows — no overscan. */
+  inView: FixedRowsInView;
   /** Scroll handler for the list container (chain with the caller's). */
   onScroll: () => void;
   /** The spacer's height to give the scroller's content. */
@@ -32,7 +56,7 @@ export interface FixedRowWindowApi extends FixedRowWindow {
 }
 
 export function useFixedRowWindow(ref: RefObject<HTMLElement | null>, count: number, rowPx: number): FixedRowWindowApi {
-  const [rowWindow, setRowWindow] = useState<FixedRowWindow>({ start: 0, end: 0, offsetPx: 0 });
+  const [measured, setMeasured] = useState<Measured>(NOTHING_MEASURED);
   const spacerPx = fixedRowSpacerPx(count, rowPx);
 
   const geometryOf = useCallback(
@@ -49,13 +73,18 @@ export function useFixedRowWindow(ref: RefObject<HTMLElement | null>, count: num
   const recompute = useCallback(() => {
     const el = ref.current;
     if (!el) return;
-    const next =
-      el.clientHeight === 0
-        ? { start: 0, end: Math.min(count, UNLAID_ROWS), offsetPx: 0 }
-        : computeFixedRowWindow(geometryOf(el), el.scrollTop);
-    setRowWindow((prev) =>
-      prev.start === next.start && prev.end === next.end && prev.offsetPx === next.offsetPx ? prev : next,
-    );
+    let next: Measured;
+    if (el.clientHeight === 0) {
+      const end = Math.min(count, UNLAID_ROWS);
+      next = { rowWindow: { start: 0, end, offsetPx: 0 }, inView: { first: 0, last: end - 1 } };
+    } else {
+      const geometry = geometryOf(el);
+      next = {
+        rowWindow: computeFixedRowWindow(geometry, el.scrollTop),
+        inView: visibleFixedRows(geometry, el.scrollTop),
+      };
+    }
+    setMeasured((prev) => (sameMeasure(prev, next) ? prev : next));
   }, [ref, count, geometryOf]);
 
   // Measured before paint, so the first populated frame is already windowed; the observer tracks the pane's resizes.
@@ -77,5 +106,5 @@ export function useFixedRowWindow(ref: RefObject<HTMLElement | null>, count: num
     [ref, geometryOf],
   );
 
-  return { ...rowWindow, onScroll: recompute, spacerPx, scrollTopFor };
+  return { ...measured.rowWindow, inView: measured.inView, onScroll: recompute, spacerPx, scrollTopFor };
 }
