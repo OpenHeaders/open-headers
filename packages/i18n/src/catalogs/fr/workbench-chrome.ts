@@ -751,6 +751,7 @@ export const workbenchChrome = {
   'workbench.gitLog.console.shortenPaths': 'Raccourcir les chemins',
   'workbench.gitLog.noMatches': 'Aucun commit ne correspond aux filtres',
   'workbench.gitLog.resetFilters': 'Réinitialiser les filtres',
+  'workbench.gitLog.search.searching': "Recherche dans tout l'historique…",
   'workbench.gitLog.search.more':
     'Affichage des {count} correspondances les plus récentes. Des commits plus anciens correspondent aussi — affinez la recherche.',
   'workbench.gitLog.search.timeout':

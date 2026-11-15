@@ -5,7 +5,8 @@
  * request drops the answer it replaces at once; a moved basis asks
  * again while the answer stands; the newest read's answer is the tab's;
  * a host that cannot search answers nothing and says nothing; only a
- * read the person pressed for counts as asked.
+ * read the person pressed for counts as asked; a request the host has
+ * said nothing of yet is pending.
  */
 
 import type { WorkspaceTreeLogEntryWire, WorkspaceTreeSearchLogWire } from '@openheaders/core/bridge';
@@ -85,7 +86,7 @@ describe('useLogSearch', () => {
   it('asks the host nothing while there is no request', () => {
     const hook = mount({ request: null, basis: 'a', press: 'p' });
     expect(mockCall).not.toHaveBeenCalled();
-    expect(hook.result.current).toEqual({ answer: null, asked: false });
+    expect(hook.result.current).toEqual({ answer: null, pending: false, asked: false });
   });
 
   it('asks once for a request and takes the host’s page', async () => {
@@ -160,7 +161,7 @@ describe('useLogSearch', () => {
       const hook = mount({ request: PROBE, basis: 'a', press: 'p' });
       await waitFor(() => expect(held).toHaveLength(1));
       await settle(() => held[0].resolve({ ok: false, reason }));
-      expect(hook.result.current).toEqual({ answer: null, asked: false });
+      expect(hook.result.current).toEqual({ answer: null, pending: false, asked: false });
     },
   );
 
@@ -168,7 +169,7 @@ describe('useLogSearch', () => {
     const hook = mount({ request: PROBE, basis: 'a', press: 'p' });
     await waitFor(() => expect(held).toHaveLength(1));
     await settle(() => held[0].reject(new Error("host: RPC 'oh.workspaceTree.searchLog' is not implemented")));
-    expect(hook.result.current).toEqual({ answer: null, asked: false });
+    expect(hook.result.current).toEqual({ answer: null, pending: false, asked: false });
   });
 
   it('drops the answer it had when a newer read is refused', async () => {
@@ -200,6 +201,37 @@ describe('useLogSearch', () => {
     expect(hook.result.current.asked).toBe(true);
     await settle(() => held[2].resolve(page(['o1'])));
     expect(hook.result.current.asked).toBe(false);
+  });
+
+  it('is pending from the ask until the host has said something of this request', async () => {
+    const hook = mount({ request: PROBE, basis: 'a', press: 'p' });
+    await waitFor(() => expect(held).toHaveLength(1));
+    expect(hook.result.current.pending).toBe(true);
+    await settle(() => held[0].resolve(page(['c1'])));
+    expect(hook.result.current.pending).toBe(false);
+
+    // Asked again under a moved basis: the answer it has stands, nothing is pending.
+    hook.rerender({ request: PROBE, basis: 'b', press: 'p' });
+    await waitFor(() => expect(held).toHaveLength(2));
+    expect(hook.result.current.pending).toBe(false);
+
+    // Another request: pending again until ITS read answers — the older read landing does not end it.
+    hook.rerender({ request: OTHER, basis: 'b', press: 'p2' });
+    await waitFor(() => expect(held).toHaveLength(3));
+    expect(hook.result.current.pending).toBe(true);
+    await settle(() => held[1].resolve(page(['c1'])));
+    expect(hook.result.current.pending).toBe(true);
+    await settle(() => held[2].resolve({ ok: false, reason: 'search-timeout' }));
+    expect(hook.result.current.pending).toBe(false);
+  });
+
+  it('is pending no longer once a refused read has landed, and never without a request', async () => {
+    const hook = mount({ request: PROBE, basis: 'a', press: 'p' });
+    await waitFor(() => expect(held).toHaveLength(1));
+    await settle(() => held[0].resolve({ ok: false, reason: 'log-failed' }));
+    expect(hook.result.current.pending).toBe(false);
+    hook.rerender({ request: null, basis: 'a', press: 'p' });
+    expect(hook.result.current.pending).toBe(false);
   });
 
   it('counts a press with nothing to ask as no read, and the next frame’s read as none of the person’s', async () => {

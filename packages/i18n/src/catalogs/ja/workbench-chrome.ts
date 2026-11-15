@@ -573,6 +573,7 @@ export const workbenchChrome = {
     'コミットはまだありません。設定した周期でコミットされるか、設定 › Git から手動でコミットしてください。',
   'workbench.gitLog.noMatches': 'フィルターに一致するコミットはありません',
   'workbench.gitLog.resetFilters': 'フィルターをリセット',
+  'workbench.gitLog.search.searching': '履歴全体を検索しています…',
   'workbench.gitLog.search.more':
     '最新の {count} 件の一致を表示しています。さらに古いコミットにも一致があります。検索を絞り込んでください。',
   'workbench.gitLog.search.timeout':

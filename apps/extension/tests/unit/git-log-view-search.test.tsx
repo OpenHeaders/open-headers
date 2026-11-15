@@ -308,12 +308,30 @@ describe('GitLogView — a text search over the whole history', () => {
   it('says the search did not finish in place of “no matches” when the window holds none', async () => {
     render(<Harness initial={{ ...TAB, filter: 'zzz' }} />);
     await waitFor(() => expect(held).toHaveLength(1));
-    expect(screen.getByTestId('git-tool-empty').textContent).toContain('No commits matching filters');
+    // While the host is asked, "no matches" is not known: the list says it is searching.
+    expect(screen.getByTestId('git-tool-list-note').textContent).toBe('Searching the whole history…');
+    expect(screen.getByTestId('git-tool-empty').textContent).not.toContain('No commits matching filters');
     await settle(() => held[0].resolve({ ok: false, reason: 'search-timeout' }));
     expect(screen.getByTestId('git-tool-list-note').textContent).toBe(
       'The search ran out of time before it reached the whole history. Nothing matched in the newest 200 commits.',
     );
     expect(screen.getByTestId('git-tool-reset-filters')).toBeTruthy();
+  });
+
+  it('says “no matches” over an empty sift only once the host has answered that nothing matches', async () => {
+    render(<Harness initial={{ ...TAB, filter: 'zzz' }} />);
+    await waitFor(() => expect(held).toHaveLength(1));
+    expect(screen.getByTestId('git-tool-empty').textContent).toContain('Searching the whole history…');
+    await settle(() => held[0].resolve(page([])));
+    expect(screen.getByTestId('git-tool-empty').textContent).toContain('No commits matching filters');
+    expect(screen.queryByTestId('git-tool-list-note')).toBeNull();
+  });
+
+  it('says nothing of the search under a sift that lists rows while the host is asked', async () => {
+    render(<Harness initial={{ ...TAB, filter: 'probe' }} />);
+    await waitFor(() => expect(held).toHaveLength(1));
+    expect(rows()).toEqual(probes(WINDOW));
+    expect(screen.queryByTestId('git-tool-list-note')).toBeNull();
   });
 
   it('keeps the window’s sift, silently, over a host that predates the verb', async () => {

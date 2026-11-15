@@ -603,6 +603,7 @@ export const workbenchChrome = {
     'Niciun commit încă — commit-urile se fac la cadența configurată sau manual, din „Setări › Git”.',
   'workbench.gitLog.noMatches': 'Niciun commit nu corespunde filtrelor',
   'workbench.gitLog.resetFilters': 'Resetare filtre',
+  'workbench.gitLog.search.searching': 'Se caută în tot istoricul…',
   'workbench.gitLog.search.more':
     'Se afișează cele mai recente {count} de potriviri. Se potrivesc și commituri mai vechi — restrânge căutarea.',
   'workbench.gitLog.search.timeout':

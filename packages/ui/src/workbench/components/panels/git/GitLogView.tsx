@@ -449,17 +449,20 @@ const GitLogView: React.FC<GitLogViewProps> = ({
   const signatures = useCommitSignatures(workspaceId, commitShas, prefs.showSignatureColumn);
 
   // What the list says under its last row: matches past the page, or a
-  // search past the window that did not finish.
+  // search past the window that did not finish. An EMPTY sift while the
+  // host is still asked says so — "no matches" is not known yet.
   const searchNote =
-    searchFace.kind === 'page'
+    search.pending && shown.entries.length === 0
+      ? t('workbench.gitLog.search.searching')
+      : searchFace.kind === 'page'
       ? searchFace.more
-        ? t('workbench.gitLog.search.more', { count: searchFace.entries.length })
-        : null
-      : searchFace.kind === 'timeout'
-        ? t(shown.entries.length === 0 ? 'workbench.gitLog.search.timeoutEmpty' : 'workbench.gitLog.search.timeout', {
-            count: loaded.length,
-          })
-        : null;
+          ? t('workbench.gitLog.search.more', { count: searchFace.entries.length })
+          : null
+        : searchFace.kind === 'timeout'
+          ? t(shown.entries.length === 0 ? 'workbench.gitLog.search.timeoutEmpty' : 'workbench.gitLog.search.timeout', {
+              count: loaded.length,
+            })
+          : null;
   // A branch head on a lane's own chain restarts the colour there (the
   // reference: the unpushed run reads apart from origin's).
   const branchHeads = useMemo(

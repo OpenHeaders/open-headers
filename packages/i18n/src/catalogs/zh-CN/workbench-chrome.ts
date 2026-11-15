@@ -566,6 +566,7 @@ export const workbenchChrome = {
   'workbench.gitLog.console.shortenPaths': '缩短路径',
   'workbench.gitLog.noMatches': '没有符合筛选条件的提交',
   'workbench.gitLog.resetFilters': '重置筛选',
+  'workbench.gitLog.search.searching': '正在搜索全部历史…',
   'workbench.gitLog.search.more': '显示最新的 {count} 个匹配项。更早的提交中也有匹配——请缩小搜索范围。',
   'workbench.gitLog.search.timeout': '搜索在覆盖全部历史之前已超时。这些匹配项来自最新的 {count} 个提交。',
   'workbench.gitLog.search.timeoutEmpty': '搜索在覆盖全部历史之前已超时。最新的 {count} 个提交中没有匹配项。',

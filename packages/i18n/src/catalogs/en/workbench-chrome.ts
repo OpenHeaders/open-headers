@@ -565,6 +565,7 @@ export const workbenchChrome = {
     'No commits yet — commits land on your configured cadence, or commit manually under Settings › Git.',
   'workbench.gitLog.noMatches': 'No commits matching filters',
   'workbench.gitLog.resetFilters': 'Reset filters',
+  'workbench.gitLog.search.searching': 'Searching the whole history…',
   'workbench.gitLog.search.more': 'Showing the newest {count} matches. Older commits match too — refine the search.',
   'workbench.gitLog.search.timeout':
     'The search ran out of time before it reached the whole history. These matches are from the newest {count} commits.',

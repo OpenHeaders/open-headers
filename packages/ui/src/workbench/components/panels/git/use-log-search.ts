@@ -22,6 +22,8 @@ import { useNewestRead } from './use-newest-read';
 export interface LogSearch {
   /** What the host said of the request the view holds now; null while it has said nothing. */
   answer: LogSearchAnswer | null;
+  /** The host is being asked and has said nothing of this request yet — what the window lists is not the whole answer. */
+  pending: boolean;
   /** A search the person pressed for is out. */
   asked: boolean;
 }
@@ -48,6 +50,8 @@ export function useLogSearch(request: LogSearchRequest | null, basis: string, pr
   const beginRead = useNewestRead();
   const [held, setHeld] = useState<{ request: LogSearchRequest; answer: LogSearchAnswer } | null>(null);
   const [out, setOut] = useState(0);
+  // The newest read while it is out.
+  const [reading, setReading] = useState<{ request: LogSearchRequest } | null>(null);
   const pressed = useRef(press);
   // One read: what it asks, under what its answer stands on.
   const read = useMemo(() => ({ request, basis }), [request, basis]);
@@ -59,14 +63,19 @@ export function useLogSearch(request: LogSearchRequest | null, basis: string, pr
     const asking = read.request;
     if (asking === null) {
       setHeld(null);
+      setReading(null);
       return;
     }
+    const mine = { request: asking };
+    setReading(mine);
     if (byPress) setOut((count) => count + 1);
     void readLogSearch(asking).then((answer) => {
       if (byPress) setOut((count) => count - 1);
+      setReading((newest) => (newest === mine ? null : newest));
       if (!superseded()) setHeld(answer === null ? null : { request: asking, answer });
     });
   }, [beginRead, read, press]);
 
-  return { answer: held !== null && held.request === request ? held.answer : null, asked: out > 0 };
+  const answer = held !== null && held.request === request ? held.answer : null;
+  return { answer, pending: answer === null && reading !== null && reading.request === request, asked: out > 0 };
 }
