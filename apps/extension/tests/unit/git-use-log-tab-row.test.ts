@@ -4,9 +4,9 @@
  * on the list knows its row and asks nothing; the tab's commit is asked
  * of the host whenever its row in the held list is not known, one ask
  * at a time; a row walked to gets its commit when its page lands; a
- * navigation goes first and says what became of it; a new listing is
- * looked at from its top, then on the tab's commit; a fold and a list
- * read anew move nothing.
+ * navigation goes first and says what became of it; another listing
+ * moves nothing until its rows are held and has the row its entrance
+ * found from its first draw; a fold and a list read anew move nothing.
  */
 
 import type { WorkspaceTreeLocateLogRowWire, WorkspaceTreeLogRowWire } from '@openheaders/core/bridge';
@@ -21,6 +21,7 @@ vi.mock('@openheaders/core/bridge', async (importOriginal) => ({
   hostBridge: { call: mockCall, subscribe: vi.fn(), broadcast: vi.fn(), presence: vi.fn() },
 }));
 
+import type { LogEntranceState } from '@openheaders/ui/workbench/components/panels/git/log-entrance';
 import {
   LOG_PAGE_ROWS,
   type LogRowPages,
@@ -87,6 +88,8 @@ interface Props {
   held: LogRowPages;
   listing: string | null;
   landed: boolean;
+  /** Where the asked list is entered; none where the case enters nothing. */
+  entrance?: LogEntranceState;
 }
 
 /** The tab's part: it remembers the commit the hook gives it. */
@@ -94,7 +97,11 @@ function mount(initial: Props, commit: string | null = null) {
   return renderHook(
     (props: Props) => {
       const [tabSha, setTabSha] = useState(commit);
-      return { tabSha, setTabSha, row: useLogTabRow(props.held, props.listing, props.landed, tabSha, setTabSha) };
+      return {
+        tabSha,
+        setTabSha,
+        row: useLogTabRow(props.held, props.listing, props.landed, tabSha, setTabSha, props.entrance ?? null),
+      };
     },
     { initialProps: initial },
   );
@@ -278,37 +285,89 @@ describe('useLogTabRow — the tab’s commit in the held list', () => {
 });
 
 describe('useLogTabRow — another listing', () => {
-  it('is looked at from its top at once, then on the tab’s commit once its rows are held', async () => {
+  /** The listing after: its rows held, entered as `entrance` says. */
+  const entered = (entrance: LogEntranceState): Props => ({
+    held: holding([0], OTHER),
+    listing: 'no merges',
+    landed: true,
+    entrance,
+  });
+
+  it('moves nothing and asks nothing while it is asked — the rows before stay where they are looked at', async () => {
     const hook = mount(AT_REST);
     await settle(() => hook.result.current.row.select(150));
+    await settle(() => hook.rerender({ ...AT_REST, listing: 'no merges', landed: false, entrance: 'finding' }));
     expect(hook.result.current.row.scrollTo).toBeNull();
-
-    // The filter is asked: the old rows stay drawn, from their top.
-    await settle(() => hook.rerender({ ...AT_REST, listing: 'no merges', landed: false }));
-    expect(hook.result.current.row.scrollTo?.row).toBe(0);
+    expect(hook.result.current.row.row).toBe(150);
     expect(asked).toHaveLength(0);
+  });
 
-    await settle(() => hook.rerender({ held: holding([0], OTHER), listing: 'no merges', landed: true }));
+  it('has the row its entrance found from its first draw, and asks the host nothing', async () => {
+    const hook = mount(AT_REST);
+    await settle(() => hook.result.current.row.select(150));
+    await settle(() => hook.rerender(entered({ ask: OTHER, row: 120, list: 'g1', sha: sha(150) })));
+    expect(hook.result.current.row).toMatchObject({ row: 120, finding: false });
+    expect(hook.result.current.row.scrollTo?.row).toBe(120);
+    expect(hook.result.current.tabSha).toBe(sha(150));
+    expect(asked).toHaveLength(0);
+  });
+
+  it('takes no row from an entrance of another reading, or of another commit — the host is asked', async () => {
+    const reading = mount(AT_REST);
+    await settle(() => reading.result.current.row.select(150));
+    await settle(() => reading.rerender(entered({ ask: OTHER, row: 120, list: 'g0', sha: sha(150) })));
+    expect(reading.result.current.row).toMatchObject({ row: null, finding: true });
     expect(asked).toHaveLength(1);
-    expect(hook.result.current.row.scrollTo?.row).toBe(0);
+
+    const commit = mount(AT_REST);
+    await settle(() => commit.result.current.row.select(150));
+    await settle(() => commit.rerender(entered({ ask: OTHER, row: 120, list: 'g1', sha: sha(151) })));
+    expect(commit.result.current.row).toMatchObject({ row: null, finding: true });
+    expect(asked).toHaveLength(2);
+  });
+
+  it('keeps the row its entrance found once another listing is asked — nothing is asked under the list that is going', async () => {
+    const hook = mount(AT_REST);
+    await settle(() => hook.result.current.row.select(150));
+    await settle(() => hook.rerender(entered({ ask: OTHER, row: 120, list: 'g1', sha: sha(150) })));
+    await settle(() => hook.rerender({ ...entered('finding'), listing: 'one user', landed: false }));
+    expect(hook.result.current.row).toMatchObject({ row: 120, finding: false });
+    expect(asked).toHaveLength(0);
+  });
+
+  it('keeps the row a press gave over the one the entrance found', async () => {
+    const hook = mount(AT_REST);
+    await settle(() => hook.result.current.row.select(150));
+    await settle(() => hook.rerender(entered({ ask: OTHER, row: 120, list: 'g1', sha: sha(150) })));
+    await settle(() => hook.result.current.row.select(33));
+    expect(hook.result.current.row.row).toBe(33);
+    expect(hook.result.current.tabSha).toBe(sha(33));
+    expect(asked).toHaveLength(0);
+  });
+
+  it('entered at its top, moves nothing where it leaves the tab’s commit out, or the tab has none', async () => {
+    const hook = mount(AT_REST);
+    await settle(() => hook.result.current.row.select(150));
+    await settle(() => hook.rerender(entered({ ask: OTHER, row: null })));
+    expect(asked).toHaveLength(1);
+    await settle(() => asked[0].resolve({ ok: false, reason: 'not-listed' }));
+    expect(hook.result.current.row).toMatchObject({ row: null, finding: false, scrollTo: null });
+
+    const none = mount(AT_REST);
+    await settle(() => none.rerender(entered({ ask: OTHER, row: null })));
+    expect(none.result.current.row.scrollTo).toBeNull();
+    expect(asked).toHaveLength(1);
+  });
+
+  it('brings a row found only after the listing was drawn into view', async () => {
+    // The entrance had no answer of the host: the list was entered at its top, and the commit is asked about after.
+    const hook = mount(AT_REST);
+    await settle(() => hook.result.current.row.select(150));
+    await settle(() => hook.rerender(entered({ ask: OTHER, row: null })));
+    expect(hook.result.current.row.scrollTo).toBeNull();
     await settle(() => asked[0].resolve(found(120)));
     expect(hook.result.current.row.row).toBe(120);
     expect(hook.result.current.row.scrollTo?.row).toBe(120);
-  });
-
-  it('stays at its top where it leaves the tab’s commit out, or the tab has none', async () => {
-    const hook = mount(AT_REST);
-    await settle(() => hook.result.current.row.select(150));
-    await settle(() => hook.rerender({ held: holding([0], OTHER), listing: 'no merges', landed: true }));
-    const top = hook.result.current.row.scrollTo;
-    expect(top?.row).toBe(0);
-    await settle(() => asked[0].resolve({ ok: false, reason: 'not-listed' }));
-    expect(hook.result.current.row.scrollTo).toBe(top);
-
-    const none = mount(AT_REST);
-    await settle(() => none.rerender({ held: holding([0], OTHER), listing: 'no merges', landed: true }));
-    expect(none.result.current.row.scrollTo?.row).toBe(0);
-    expect(asked).toHaveLength(1);
   });
 
   it('comes to the tab’s commit once only: a later answer of the same listing moves nothing', async () => {

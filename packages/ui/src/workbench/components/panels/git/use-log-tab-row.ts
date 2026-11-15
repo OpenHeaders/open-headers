@@ -2,26 +2,28 @@
  * useLogTabRow — the tab's ONE commit as a row of the list drawn
  * (`log-tab-row.ts`), and the navigations that move it.
  *
- * A gesture on the list knows its row. Anything else is asked of the
- * host (`oh.workspaceTree.locateLogRow`), one ask at a time: a commit
- * gone to by its hash, a ref or the start of a hash (`goTo`) first,
- * else the tab's commit whenever its row in the held list is not known
- * — a list read anew, another ask, a tab that mounts with a commit. An
- * answer for another list than the held one is no answer; the held
- * list's change asks again.
+ * A gesture on the list knows its row, and a list just entered has the
+ * row its entrance found (`log-entrance.ts`). Anything else is asked of
+ * the host (`oh.workspaceTree.locateLogRow`), one ask at a time: a
+ * commit gone to by its hash, a ref or the start of a hash (`goTo`)
+ * first, else the tab's commit whenever its row in the held list is not
+ * known — a list read anew, a fold. An answer for another list than the
+ * held one is no answer; the held list's change asks again.
  *
- * A listing — what is asked before its folds — is looked at from its
- * top: a new one brings the list there at once, and once its rows are
- * held, to the tab's commit where it lists it. A fold, a frame of the
- * repo and a history read anew move nothing.
+ * The list itself enters a listing on the tab's row (`LogRowList`). A
+ * row found only after the listing was drawn — a text taken off, an
+ * entrance the host did not answer — is brought into view here, once.
+ * A fold, a frame of the repo and a history read anew move nothing.
  */
 
-import { hostBridge, type WorkspaceTreeLocateLogRowWire } from '@openheaders/core/bridge';
-import { useCallback, useEffect, useRef, useState } from 'react';
-import type { LogRowPages, LogRowsAsk } from './log-row-pages';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import type { LogEntranceState } from './log-entrance';
+import { locateLogRow } from './log-row-locate';
+import type { LogRowPages } from './log-row-pages';
 import {
   type LogTabRow,
   tabRowAt,
+  tabRowEntered,
   tabRowFound,
   tabRowIn,
   tabRowLeftOut,
@@ -60,18 +62,11 @@ interface Wanted {
   settle: (outcome: LogGoToOutcome) => void;
 }
 
-async function locate(ask: LogRowsAsk, target: string): Promise<WorkspaceTreeLocateLogRowWire> {
-  try {
-    return await hostBridge.call('oh.workspaceTree.locateLogRow', { ...ask, target });
-  } catch (fault) {
-    return { ok: false, reason: 'log-failed', detail: fault instanceof Error ? fault.message : String(fault) };
-  }
-}
-
 /**
  * `held` is the list drawn; `listing` names what the person is looking
  * at (null while nothing is asked) and `landed` says the held rows are
- * its own; `sha` is the tab's commit and `setSha` gives the tab another.
+ * its own; `sha` is the tab's commit and `setSha` gives the tab another;
+ * `entrance` is where the asked list is entered.
  */
 export function useLogTabRow(
   held: LogRowPages,
@@ -79,9 +74,16 @@ export function useLogTabRow(
   landed: boolean,
   sha: string | null,
   setSha: (sha: string | null) => void,
+  entrance: LogEntranceState,
 ): LogTabRowApi {
   const beginRead = useNewestRead();
-  const [known, setKnown] = useState<LogTabRow | null>(null);
+  const [stored, setKnown] = useState<LogTabRow | null>(null);
+  // The row the list's entrance found is the tab's from the list's first draw — and stays it once the entrance
+  // is another listing's.
+  const known = useMemo(() => tabRowEntered(stored, held, entrance, sha), [stored, held, entrance, sha]);
+  useEffect(() => {
+    if (known !== stored) setKnown(known);
+  }, [known, stored]);
   const [wanted, setWanted] = useState<Wanted | null>(null);
   const [scrollTo, setScrollTo] = useState<{ row: number; nonce: number } | null>(null);
   const live = useRef({ held, sha, setSha });
@@ -144,7 +146,7 @@ export function useLogTabRow(
       return;
     }
     if (target === null) return;
-    void locate(ask, target).then((answer) => {
+    void locateLogRow(ask, target).then((answer) => {
       if (superseded() || (!answer.ok && answer.reason === 'superseded')) return;
       const now = live.current;
       const named = isFullCommitSha(target) ? target : null;
@@ -169,15 +171,7 @@ export function useLogTabRow(
     });
   }, [beginRead, target, ask, list, wanted, reveal, arrived]);
 
-  // Another listing is looked at from its top — at once, over whatever rows are still drawn.
-  const looked = useRef(listing);
-  useEffect(() => {
-    if (listing === looked.current) return;
-    looked.current = listing;
-    if (listing !== null) reveal(0);
-  }, [listing, reveal]);
-
-  // Once its rows are held: on the tab's commit, where the list has it.
+  // A listing whose rows are held is looked at on the tab's commit, where the list has it — once its row is known.
   const shown = useRef<string | null>(null);
   useEffect(() => {
     if (listing === null || listing === shown.current || !landed) return;

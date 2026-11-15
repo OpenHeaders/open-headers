@@ -15,6 +15,10 @@
  * becomes the selection alone. The list itself holds the focus and the
  * keys, so a row scrolled out of the window takes neither with it.
  *
+ * A listing is ENTERED on the tab's row, else at its top — before its
+ * first rows are painted, so the list is never seen where the listing
+ * before was looked at.
+ *
  * The graph column (the reference): a row's cell arrives whole with the
  * row; the pointer over a cell lights the linear run the row names, and
  * a press on it asks for the run to be folded or opened again. The
@@ -30,7 +34,7 @@ import type { WorkspaceTreeLogRunWire, WorkspaceTreeRefWire } from '@openheaders
 import type { LogTextRange } from '@openheaders/core/workspace-tree';
 import { Dropdown, type MenuProps } from 'antd';
 import type React from 'react';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { clickModifiers, type RowSelectionHandlers, rowSelected } from '@openheaders/ui/shared/selection';
 import { useFixedRowWindow } from '@openheaders/ui/shared/virtual-window';
 import CommitListEmpty from './CommitListEmpty';
@@ -46,6 +50,8 @@ import type { CommitSignature } from './use-commit-signatures';
 export interface LogRowListProps {
   /** The rows held, and the list they are of. */
   held: LogRowPages;
+  /** The listing the held rows are of — what was asked before its folds; null while none is held. */
+  listing: string | null;
   /** The list asked for has no answer yet: an empty list says nothing of itself. */
   pending: boolean;
   /** The rows mounted — what the read follows. */
@@ -87,6 +93,7 @@ function rowOf(target: EventTarget): number | null {
 
 const LogRowList: React.FC<LogRowListProps> = ({
   held,
+  listing,
   pending,
   onWindow,
   selection,
@@ -141,6 +148,12 @@ const LogRowList: React.FC<LogRowListProps> = ({
     listRef.current.scrollTop = top;
     rowWindow.onScroll();
   };
+
+  // A listing is entered on the tab's row, else at its top — before it is painted. A fold, a frame of the repo
+  // and a history read anew are the same listing: the list stays where it is looked at.
+  useLayoutEffect(() => {
+    if (listing !== null) bringIntoView(selectedRow ?? 0, 'center');
+  }, [listing]);
 
   // A navigation is its nonce: the same row asked for again comes into view again.
   useEffect(() => {

@@ -7,6 +7,8 @@
  * list — a press shows its commit with no read, a set its cards, more
  * than are read together their number — and the tab's commit is found
  * again when the history was read anew, the panes never blinking empty.
+ * Another listing is entered on the tab's commit: its row is asked
+ * first, its first rows are read around it, and the list moves once.
  * The row menu walks by row and covers the set; a press on a run folds
  * it into what the tab asks; the band follows the host's flag and the
  * scope; the signature column asks about the rows in view alone.
@@ -553,7 +555,8 @@ describe('GitLogView — the selection read through the list', () => {
     await mount();
     await settle(() => fireEvent.click(rowEl(7)));
     await apply({ noMerges: true });
-    await waitFor(() => expect(locates).toEqual([sha(TOTAL - 7)]));
+    // Asked where the list is entered, and once more under the list held: a commit left out names no reading.
+    await waitFor(() => expect(locates).toEqual([sha(TOTAL - 7), sha(TOTAL - 7)]));
     await settle();
     expect(selectedRows()).toEqual([]);
     expect(screen.getByTestId('git-tool-detail-placeholder')).toBeTruthy();
@@ -565,12 +568,13 @@ describe('GitLogView — the selection read through the list', () => {
     expect(screen.queryByTestId('git-tool-detail-placeholder')).toBeNull();
   });
 
-  it('selects the row of a commit the tab remembers when it mounts, and reads it where its page is not held', async () => {
+  it('selects the row of a commit the tab remembers when it mounts: its rows are the first read, and no other read finds it', async () => {
     await mount({ selectedSha: sha(TOTAL - 640) });
-    await waitFor(() => expect(locates).toEqual([sha(TOTAL - 640)]));
-    await waitFor(() => expect(selectionReads()).toHaveLength(1));
-    expect(selectionReads()[0]).toMatchObject({ from: 640, count: 1 });
     await waitFor(() => expect(screen.getByTestId('git-tool-detail-info')).toBeTruthy());
+    // Asked where it sits before any row: the first rows read are the ones around it.
+    expect(locates).toEqual([sha(TOTAL - 640)]);
+    expect(listReads()[0]).toMatchObject({ from: 400, count: 400 });
+    expect(selectionReads()).toHaveLength(0);
   });
 });
 
@@ -594,12 +598,91 @@ describe('GitLogView — where the list is looked at', () => {
     await waitFor(() => expect(scrollTop()).toBe(centred(641)));
 
     await apply({ noMerges: true });
-    await waitFor(() => expect(locates).toHaveLength(2));
+    await waitFor(() => expect(locates).toHaveLength(3));
     await settle();
     expect(scrollTop()).toBe(0);
+    expect(listReads().filter((read) => read.noMerges === true)[0]).toMatchObject({ from: 0, count: 200 });
 
     await apply({ noMerges: false });
     await waitFor(() => expect(scrollTop()).toBe(centred(641)));
+  });
+
+  it('enters another listing from deep in the list in ONE move: nothing read and nothing moved until the tab’s commit is found, then the rows around it', async () => {
+    viewportPx = VIEW;
+    // Row 640; No Merges lists every other commit, and this one on its row 320.
+    await mount({ selectedSha: sha(TOTAL - 640) });
+    await waitFor(() => expect(scrollTop()).toBe(centred(640)));
+    await waitFor(() => expect(rowEl(640).getAttribute('data-sha')).toBe(sha(TOTAL - 640)));
+    await settle();
+
+    // Every position the list is given from now on.
+    const list = screen.getByTestId('git-tool-list');
+    let at = list.scrollTop;
+    const moves: number[] = [];
+    Object.defineProperty(list, 'scrollTop', {
+      configurable: true,
+      get: () => at,
+      set: (next: number) => {
+        at = next;
+        moves.push(next);
+      },
+    });
+
+    holdLocates = [];
+    const reads = listReads().length;
+    await apply({ noMerges: true });
+    await waitFor(() => expect(holdLocates).toHaveLength(1));
+    await settle();
+    // The host is asked where the commit sits; until it says, the list before stands where it was looked at.
+    expect(listReads()).toHaveLength(reads);
+    expect(moves).toEqual([]);
+    expect(rowEl(640).getAttribute('data-sha')).toBe(sha(TOTAL - 640));
+
+    await settle(() => holdLocates?.[0]());
+    await waitFor(() => expect(selectedRows()).toEqual([320]));
+    await settle();
+    const asked = listReads().filter((read) => read.noMerges === true);
+    // The first rows read are the ones the list is entered on — none where the list before was looked at.
+    expect(asked[0]).toMatchObject({ from: 200, count: 200 });
+    expect(asked.some((read) => read.from === 600)).toBe(false);
+    expect(new Set(moves)).toEqual(new Set([centred(320)]));
+    expect(rowEl(320).getAttribute('data-sha')).toBe(sha(TOTAL - 640));
+    // No row in view waits for a read.
+    for (let row = 316; row <= 325; row += 1) expect(rowEl(row).getAttribute('data-pending')).toBeNull();
+    // The commit was found once, before the rows: nothing asks for it again.
+    expect(locates.filter((target) => target === sha(TOTAL - 640))).toHaveLength(2);
+  });
+
+  it('enters another listing at its top where the tab has no commit — its first page the first read', async () => {
+    viewportPx = VIEW;
+    await mount();
+    const list = screen.getByTestId('git-tool-list');
+    list.scrollTop = 600 * ROW_PX;
+    await settle(() => fireEvent.scroll(list));
+    await waitFor(() => expect(rowEl(600).getAttribute('data-sha')).toBe(sha(TOTAL - 600)));
+
+    await apply({ noMerges: true });
+    await waitFor(() => expect(screen.getByTestId('git-tool-list').getAttribute('data-total')).toBe(String(TOTAL / 2)));
+    await settle();
+    expect(scrollTop()).toBe(0);
+    const asked = listReads().filter((read) => read.noMerges === true);
+    expect(asked[0]).toMatchObject({ from: 0, count: 200 });
+    expect(asked.some((read) => read.from === 600 || read.from === 400)).toBe(false);
+    expect(locates).toEqual([]);
+  });
+
+  it('enters another listing at its top under a text, the tab’s commit deep in it — the first page is what the text sifts', async () => {
+    viewportPx = VIEW;
+    await mount({ selectedSha: sha(TOTAL - 640) });
+    await waitFor(() => expect(scrollTop()).toBe(centred(640)));
+    // Commits 990–999 match, all on the first page.
+    await apply({ filter: 'commit 99' });
+    await waitFor(() => expect(screen.getAllByTestId('git-tool-row')).toHaveLength(10));
+
+    // No Merges lists every other commit: five of the ten, once ITS first page is read.
+    await apply({ noMerges: true });
+    await waitFor(() => expect(screen.getAllByTestId('git-tool-row')).toHaveLength(5));
+    expect(listReads().filter((read) => read.noMerges === true)[0]).toMatchObject({ from: 0, count: 200 });
   });
 
   it('stays where it is under a fold, a frame of the repo and a history read anew', async () => {

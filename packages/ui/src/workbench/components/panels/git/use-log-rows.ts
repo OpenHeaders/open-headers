@@ -14,16 +14,24 @@
  *
  * The rows of the ask before stay until the new ask's first answer:
  * `pending` says the list shown is not yet the one asked for.
+ *
+ * A list that is ENTERED (`log-entrance.ts`) — another listing than the
+ * one drawn — is first read around the row the view will stand on, and
+ * not before that row is found: no read goes to where the list before
+ * was looked at. Any other first read (a fold, the same listing asked
+ * again) is where the view stands.
  */
 
 import { hostBridge, type WorkspaceTreeLogRowsWire } from '@openheaders/core/bridge';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import type { LogEntranceState } from './log-entrance';
 import {
   type LogRowPages,
   type LogRowRange,
   type LogRowStretch,
   type LogRowsAsk,
   logReadOver,
+  logRowsAround,
   NO_LOG_ROW_RANGE,
   NO_LOG_ROWS,
   nextLogRead,
@@ -50,12 +58,36 @@ export interface LogRows {
 
 interface Live {
   ask: LogRowsAsk | null;
+  entrance: LogEntranceState;
   held: LogRowPages;
   mounted: LogRowRange;
   /** The ask of the read that is out. */
   out: LogRowsAsk | null;
   /** The ask the host refused — not asked again by a scroll. */
   refused: LogRowsAsk | null;
+  /** A press of Refresh made while the list's entrance was being found: the ask's next read carries it. */
+  owed: 'refresh' | null;
+}
+
+/** A list's first read where it is entered: the stretch, and the rows the view will stand on. */
+interface EntranceRead {
+  stretch: LogRowStretch;
+  enters: LogRowRange;
+}
+
+/**
+ * The first read of the ask's list where that list is ENTERED: null
+ * while the row it is entered at is being found, `undefined` where
+ * nothing is entered — the ask's rows are held, or its list is the
+ * listing drawn (a fold): that read is where the view stands.
+ */
+function entranceRead(state: Live): EntranceRead | null | undefined {
+  const { ask, entrance, held, mounted } = state;
+  if (ask === null || held.ask === ask || entrance === null) return undefined;
+  if (entrance === 'finding') return null;
+  if (entrance.ask !== ask) return undefined;
+  const enters = logRowsAround(entrance.row ?? 0, mounted);
+  return { stretch: logReadOver(enters), enters };
 }
 
 async function readLogRows(
@@ -74,27 +106,43 @@ async function readLogRows(
   }
 }
 
-/** `ask` is null while there is nothing to list; it is compared as it stands, so the caller holds it still. */
-export function useLogRows(ask: LogRowsAsk | null): LogRows {
+/**
+ * `ask` is null while there is nothing to list; it is compared as it
+ * stands, so the caller holds it still. `entrance` is where the ask's
+ * list is entered (`use-log-entrance.ts`).
+ */
+export function useLogRows(ask: LogRowsAsk | null, entrance: LogEntranceState): LogRows {
   const beginRead = useNewestRead();
   const [held, setHeld] = useState<LogRowPages>(NO_LOG_ROWS);
   const [refused, setRefused] = useState<{ ask: LogRowsAsk; refusal: LogRowsRefusal } | null>(null);
   const [pressed, setPressed] = useState(0);
-  const live = useRef<Live>({ ask, held: NO_LOG_ROWS, mounted: NO_LOG_ROW_RANGE, out: null, refused: null });
+  const live = useRef<Live>({
+    ask,
+    entrance,
+    held: NO_LOG_ROWS,
+    mounted: NO_LOG_ROW_RANGE,
+    out: null,
+    refused: null,
+    owed: null,
+  });
   live.current.ask = ask;
+  live.current.entrance = entrance;
 
   const send = useCallback(
-    (asking: LogRowsAsk, stretch: LogRowStretch, press: 'refresh' | null): void => {
+    (asking: LogRowsAsk, stretch: LogRowStretch, press: 'refresh' | null, enters: LogRowRange | null): void => {
       const superseded = beginRead();
       const state = live.current;
       state.out = asking;
       state.refused = null;
+      state.owed = null;
       if (press !== null) setPressed((count) => count + 1);
       void readLogRows(asking, stretch, press === 'refresh').then((answer) => {
         if (press !== null) setPressed((count) => count - 1);
         if (superseded()) return;
         state.out = null;
         if (answer.ok) {
+          // A list entered is looked at where its first rows were read: the view stands there from its first draw.
+          if (enters !== null) state.mounted = enters;
           state.held = takeLogRows(state.held, asking, stretch.from, answer, state.mounted);
           setHeld(state.held);
           setRefused(null);
@@ -110,24 +158,39 @@ export function useLogRows(ask: LogRowsAsk | null): LogRows {
   const pump = useCallback((): void => {
     const state = live.current;
     if (state.ask === null || state.out === state.ask || state.refused === state.ask) return;
+    const entering = entranceRead(state);
+    if (entering === null) return;
+    if (entering !== undefined) {
+      send(state.ask, entering.stretch, state.owed, entering.enters);
+      return;
+    }
     const stretch = nextLogRead(state.held, state.ask, state.mounted);
-    if (stretch !== null) send(state.ask, stretch, null);
+    if (stretch !== null) send(state.ask, stretch, state.owed, null);
   }, [send]);
 
-  // The same ask read again where the view stands — it ends the read that is out.
+  // The same ask read again where the view stands — it ends the read that is out. A list whose entrance is
+  // being found has no read to end: a press waits for the entrance's.
   const again = useCallback(
     (press: 'refresh' | null): void => {
       const state = live.current;
-      if (state.ask !== null) send(state.ask, logReadOver(state.mounted), press);
+      if (state.ask === null) return;
+      const entering = entranceRead(state);
+      if (entering === null) {
+        state.owed = press ?? state.owed;
+        return;
+      }
+      if (entering !== undefined) send(state.ask, entering.stretch, press ?? state.owed, entering.enters);
+      else send(state.ask, logReadOver(state.mounted), press ?? state.owed, null);
     },
     [send],
   );
 
-  // A new ask is read at once; an answer taken is followed by the rows the view moved to meanwhile.
-  // biome-ignore lint/correctness/useExhaustiveDependencies: `held` is the answer landing
+  // A new ask is read at once — a list entered, once its entrance is found; an answer taken is followed by
+  // the rows the view moved to meanwhile.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: `held` is the answer landing, `entrance` the row found
   useEffect(() => {
     if (ask !== null) pump();
-  }, [ask, held, pump]);
+  }, [ask, entrance, held, pump]);
 
   // Nothing to list: a read that is out answers no one.
   useEffect(() => {
@@ -135,6 +198,7 @@ export function useLogRows(ask: LogRowsAsk | null): LogRows {
     const state = live.current;
     beginRead();
     state.out = null;
+    state.owed = null;
     state.held = NO_LOG_ROWS;
     setHeld(NO_LOG_ROWS);
     setRefused(null);

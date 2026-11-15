@@ -6,7 +6,8 @@
  * and the press of Refresh each end the read that is out; the rows of
  * the ask before stay until the new ask is answered; a list the host
  * names anew drops the rows held; a refusal is the ask's own and a
- * scroll does not ask it again.
+ * scroll does not ask it again; a list that is entered is first read
+ * around the row it is entered at, and not before that row is found.
  */
 
 import type { WorkspaceTreeLogRowsWire, WorkspaceTreeLogRowWire } from '@openheaders/core/bridge';
@@ -20,6 +21,7 @@ vi.mock('@openheaders/core/bridge', async (importOriginal) => ({
   hostBridge: { call: mockCall, subscribe: mockSubscribe, broadcast: vi.fn(), presence: vi.fn() },
 }));
 
+import type { LogEntranceState } from '@openheaders/ui/workbench/components/panels/git/log-entrance';
 import { type LogRowsAsk, logRowAt } from '@openheaders/ui/workbench/components/panels/git/log-row-pages';
 import { useLogRows } from '@openheaders/ui/workbench/components/panels/git/use-log-rows';
 
@@ -72,8 +74,16 @@ const settle = async (step: () => void): Promise<void> => {
   });
 };
 
-const mount = (ask: LogRowsAsk | null) =>
-  renderHook(({ asking }: { asking: LogRowsAsk | null }) => useLogRows(asking), { initialProps: { asking: ask } });
+interface Asking {
+  asking: LogRowsAsk | null;
+  /** Where the ask's list is entered; null where nothing is entered — the read is where the view stands. */
+  entering: LogEntranceState;
+}
+
+const mount = (ask: LogRowsAsk | null, entering: LogEntranceState = null) =>
+  renderHook(({ asking, entering: entrance }: Asking) => useLogRows(asking, entrance), {
+    initialProps: { asking: ask, entering },
+  });
 
 /** The stretch a read asked for. */
 const stretch = (read: Held) => ({ from: read.request.from, count: read.request.count });
@@ -165,7 +175,7 @@ describe('useLogRows', () => {
     await settle(() => hook.result.current.want({ first: 410, last: 490 }));
     expect(held).toHaveLength(2);
 
-    hook.rerender({ asking: OTHER });
+    hook.rerender({ asking: OTHER, entering: null });
     await waitFor(() => expect(held).toHaveLength(3));
     expect(held[2].request).toEqual({ ...OTHER, from: 400, count: 200 });
     expect(hook.result.current.pending).toBe(true);
@@ -187,7 +197,7 @@ describe('useLogRows', () => {
     await settle(() => hook.result.current.want({ first: 210, last: 290 }));
     expect(held).toHaveLength(2);
 
-    await settle(() => hook.rerender({ asking: null }));
+    await settle(() => hook.rerender({ asking: null, entering: null }));
     expect(hook.result.current.held.total).toBe(0);
     expect(logRowAt(hook.result.current.held, 7)).toBeNull();
 
@@ -286,7 +296,7 @@ describe('useLogRows', () => {
     const hook = mount(ASK);
     await waitFor(() => expect(held).toHaveLength(1));
     await settle(() => held[0].resolve({ ok: false, reason: 'log-timeout' }));
-    hook.rerender({ asking: OTHER });
+    hook.rerender({ asking: OTHER, entering: null });
     await waitFor(() => expect(held).toHaveLength(2));
     expect(hook.result.current.refusal).toBeNull();
     expect(hook.result.current.pending).toBe(true);
@@ -312,5 +322,110 @@ describe('useLogRows', () => {
     await waitFor(() => expect(held).toHaveLength(1));
     hook.unmount();
     expect(listeners.size).toBe(0);
+  });
+});
+
+describe('useLogRows — a list that is entered', () => {
+  const SHA = 'c'.repeat(40);
+
+  /** The first list held, the view standing on rows 410–490 of it. */
+  const standing = async () => {
+    const hook = mount(ASK);
+    await waitFor(() => expect(held).toHaveLength(1));
+    await settle(() => held[0].resolve(rows(held[0].request, 100_000)));
+    await settle(() => hook.result.current.want({ first: 410, last: 490 }));
+    await settle(() => held[1].resolve(rows(held[1].request, 100_000)));
+    return hook;
+  };
+
+  it('reads nothing while the row it is entered at is being found — the rows before stay', async () => {
+    const hook = await standing();
+    const before = held.length;
+    await settle(() => hook.rerender({ asking: OTHER, entering: 'finding' }));
+    expect(held).toHaveLength(before);
+    expect(hook.result.current.pending).toBe(true);
+    expect(hook.result.current.held.ask).toBe(ASK);
+
+    // The view goes on reporting the rows of the list before: nothing is read for them under the new ask.
+    await settle(() => hook.result.current.want({ first: 430, last: 510 }));
+    await settle(() => listeners.get('workspaceTreeGitStatus')?.({ workspaceId: 'ws-1' }));
+    expect(held).toHaveLength(before);
+  });
+
+  it('reads first around the row found, as many rows as the view has mounted — never where the list before was looked at', async () => {
+    const hook = await standing();
+    const before = held.length;
+    await settle(() => hook.rerender({ asking: OTHER, entering: 'finding' }));
+    await settle(() => hook.rerender({ asking: OTHER, entering: { ask: OTHER, row: 3_100, list: 'g1', sha: SHA } }));
+    // 81 rows are mounted: rows 3,060–3,140 will be, all on one page.
+    expect(held).toHaveLength(before + 1);
+    expect(held[before].request).toEqual({ ...OTHER, from: 3_000, count: 200 });
+
+    await settle(() => held[before].resolve(rows(held[before].request, 90_000)));
+    expect(hook.result.current.pending).toBe(false);
+    expect(logRowAt(hook.result.current.held, 3_100)?.entry.subject).toBe('g1 commit 3100');
+    // The view stands there from the list's first draw: what is read next is ahead of THOSE rows.
+    expect(held).toHaveLength(before + 2);
+    expect(stretch(held[before + 1])).toEqual({ from: 2_800, count: 200 });
+  });
+
+  it('reads two pages at once where the rows around the row found sit on two', async () => {
+    const hook = await standing();
+    const before = held.length;
+    await settle(() => hook.rerender({ asking: OTHER, entering: { ask: OTHER, row: 3_010, list: 'g1', sha: SHA } }));
+    expect(stretch(held[before])).toEqual({ from: 2_800, count: 400 });
+  });
+
+  it('reads the list’s first page where it is entered at its top', async () => {
+    const hook = await standing();
+    const before = held.length;
+    await settle(() => hook.rerender({ asking: OTHER, entering: { ask: OTHER, row: null } }));
+    expect(held).toHaveLength(before + 1);
+    expect(held[before].request).toEqual({ ...OTHER, from: 0, count: 200 });
+  });
+
+  it('reads the first rows of a list entered before any view has mounted', async () => {
+    mount(ASK, { ask: ASK, row: 5_020, list: 'g1', sha: SHA });
+    await waitFor(() => expect(held).toHaveLength(1));
+    // 50 rows each way of the row.
+    expect(held[0].request).toEqual({ ...ASK, from: 4_800, count: 400 });
+  });
+
+  it('reads where the view stands where the entrance is another ask’s — a fold of the listing drawn', async () => {
+    const hook = await standing();
+    const before = held.length;
+    await settle(() => hook.rerender({ asking: OTHER, entering: { ask: ASK, row: 3_100, list: 'g1', sha: SHA } }));
+    expect(held[before].request).toEqual({ ...OTHER, from: 400, count: 200 });
+  });
+
+  it('reads the same rows again on a frame while the entrance’s read is out, and still enters there', async () => {
+    const hook = await standing();
+    const before = held.length;
+    await settle(() => hook.rerender({ asking: OTHER, entering: { ask: OTHER, row: 3_100, list: 'g1', sha: SHA } }));
+    await settle(() => listeners.get('workspaceTreeLogHistory')?.({ workspaceId: 'ws-1' }));
+    expect(held).toHaveLength(before + 2);
+    expect(held[before + 1].request).toEqual({ ...OTHER, from: 3_000, count: 200 });
+
+    await settle(() => held[before + 1].resolve(rows(held[before + 1].request, 90_000, 'g2')));
+    await settle(() => held[before].resolve(rows(held[before].request, 90_000)));
+    expect(hook.result.current.held).toMatchObject({ ask: OTHER, list: 'g2' });
+    expect(stretch(held[before + 2])).toEqual({ from: 2_800, count: 200 });
+  });
+
+  it('carries a press of Refresh made while the row is being found on the entrance’s read', async () => {
+    const hook = await standing();
+    const before = held.length;
+    await settle(() => hook.rerender({ asking: OTHER, entering: 'finding' }));
+    await settle(() => hook.result.current.refresh());
+    expect(held).toHaveLength(before);
+
+    await settle(() => hook.rerender({ asking: OTHER, entering: { ask: OTHER, row: null } }));
+    expect(held[before].request).toEqual({ ...OTHER, from: 0, count: 200, refresh: true });
+    expect(hook.result.current.asked).toBe(true);
+    await settle(() => held[before].resolve(rows(held[before].request, 900)));
+    expect(hook.result.current.asked).toBe(false);
+    // The press is spent: the reads that follow are the view's own.
+    await settle(() => hook.result.current.want({ first: 210, last: 290 }));
+    expect(held[before + 1].request).toEqual({ ...OTHER, from: 200, count: 200 });
   });
 });

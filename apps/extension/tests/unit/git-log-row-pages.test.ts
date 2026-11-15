@@ -20,6 +20,7 @@ import {
   type LogRowsAsk,
   logReadOver,
   logRowAt,
+  logRowsAround,
   logRunAt,
   NO_LOG_ROW_RANGE,
   NO_LOG_ROWS,
@@ -136,6 +137,22 @@ describe('the stretch to read next', () => {
     expect(logReadOver(mounted(410, 520))).toEqual({ from: 400, count: 200 });
     expect(logReadOver(mounted(590, 700))).toEqual({ from: 400, count: 400 });
     expect(logReadOver(mounted(590, 1_300))).toEqual({ from: 400, count: 400 });
+  });
+});
+
+describe('the rows a view mounts once it stands on a row', () => {
+  it('are as many as it has mounted, the row in their middle', () => {
+    expect(logRowsAround(3_100, mounted(410, 490))).toEqual({ first: 3_060, last: 3_140 });
+    expect(logRowsAround(3_100, mounted(410, 475))).toEqual({ first: 3_067, last: 3_133 });
+  });
+
+  it('start at the list’s first row where the row is near it', () => {
+    expect(logRowsAround(0, mounted(410, 490))).toEqual({ first: 0, last: 40 });
+    expect(logRowsAround(12, mounted(410, 490))).toEqual({ first: 0, last: 52 });
+  });
+
+  it('are fifty each way while no view has mounted any', () => {
+    expect(logRowsAround(5_020, NO_LOG_ROW_RANGE)).toEqual({ first: 4_970, last: 5_070 });
   });
 });
 

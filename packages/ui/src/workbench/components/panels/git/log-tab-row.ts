@@ -8,7 +8,8 @@
  * sits in the list the view holds, and what to do when that is not
  * known.
  *
- * A press knows its row and reads nothing. Anything else — a commit
+ * A press knows its row and reads nothing. A list just entered has the
+ * row its entrance found (`log-entrance.ts`). Anything else — a commit
  * navigated to, a list that changed under the tab — is asked of the
  * host (`oh.workspaceTree.locateLogRow`). A row walked to whose commit
  * is not read yet (an arrow to a far parent, a place Go To found)
@@ -17,6 +18,7 @@
  * Pure.
  */
 
+import type { LogEntranceState } from './log-entrance';
 import { type LogRowPages, type LogRowsAsk, logRowAt } from './log-row-pages';
 
 /** The tab's commit as a row of one list. */
@@ -33,6 +35,25 @@ export interface LogTabRow {
 /** `known` is of the list the view holds. */
 function ofHeld(known: LogTabRow | null, held: LogRowPages): known is LogTabRow {
   return known !== null && known.ask === held.ask && known.list === held.list;
+}
+
+/**
+ * The tab's row with what the list's entrance found: where the held
+ * list is the very reading the tab's commit `sha` was found in before
+ * its rows were read, that row is the tab's from the list's first draw
+ * — nothing asks for it again. `known` stands wherever it is the held
+ * list's own, or the entrance is another list's, another commit's, or
+ * found no row.
+ */
+export function tabRowEntered(
+  known: LogTabRow | null,
+  held: LogRowPages,
+  entrance: LogEntranceState,
+  sha: string | null,
+): LogTabRow | null {
+  if (ofHeld(known, held) || entrance === null || entrance === 'finding' || entrance.row === null) return known;
+  if (entrance.ask !== held.ask || entrance.list !== held.list || entrance.sha !== sha) return known;
+  return { ask: entrance.ask, list: entrance.list, row: entrance.row, sha: entrance.sha };
 }
 
 /** Row `row` of the held list as the tab's — with its commit where its page is held; null while no list is. */

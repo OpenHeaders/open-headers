@@ -12,8 +12,11 @@
  * The timeline lists the WHOLE history its scope reaches. The host
  * keeps the list the tab asks for (`log-rows-ask.ts`) and the view
  * reads the rows it shows (`use-log-rows.ts`), listed by row number
- * (`LogRowList`). What stands beside the list reads through it: the
- * tab's one commit as a row (`use-log-tab-row.ts`), the selected rows'
+ * (`LogRowList`). Another listing is entered on the tab's commit: its
+ * row is asked first (`use-log-entrance.ts`), its first rows are read
+ * around it, and the list moves once, when they land. What stands
+ * beside the list reads through it: the tab's one commit as a row
+ * (`use-log-tab-row.ts`), the selected rows'
  * commits for the details, the files, the pick and the patch
  * (`use-selected-commits.ts`), the signatures of the rows in view.
  *
@@ -97,6 +100,7 @@ import { useCommitPatch } from './use-commit-patch';
 import { useCommitSignatures } from './use-commit-signatures';
 import { useFileDiff } from './use-file-diff';
 import { useJumpToSource } from './use-jump-to-source';
+import { useLogEntrance } from './use-log-entrance';
 import { useLogRefs } from './use-log-refs';
 import { useLogRows } from './use-log-rows';
 import { useLogRowsInView } from './use-log-rows-in-view';
@@ -250,7 +254,14 @@ const GitLogView: React.FC<GitLogViewProps> = ({
         : logRowsAsk({ workspaceId, key: tabKey, scope: walked, filters: wireFilters, noMerges, firstParent, folds }),
     [scopeKnown, nothingListed, workspaceId, tabKey, walked, wireFilters, noMerges, firstParent, folds],
   );
-  const rows = useLogRows(ask);
+
+  const matcher = useMemo(() => makeLogTextMatcher(filter, filterRegex, filterCase), [filter, filterRegex, filterCase]);
+  const searches = matcher.kind === 'match';
+
+  // Another listing is entered on the tab's commit, its row asked before any of its rows is read. Under a
+  // text it is entered at its top: the first page is what the text sifts.
+  const entrance = useLogEntrance(ask, searches ? null : selectedSha);
+  const rows = useLogRows(ask, entrance);
   const refusal = rows.refusal;
 
   // Scoped refs vanished (branch deleted, tag dropped): the scope keeps
@@ -276,9 +287,6 @@ const GitLogView: React.FC<GitLogViewProps> = ({
     void reloadRefs();
     setRefreshes((count) => count + 1);
   }, [rows.refresh, reloadRefs]);
-
-  const matcher = useMemo(() => makeLogTextMatcher(filter, filterRegex, filterCase), [filter, filterRegex, filterCase]);
-  const searches = matcher.kind === 'match';
 
   // A text sifts the list's first page — its newest rows — at once. The
   // page is kept while a text is applied: the list over row numbers is
@@ -413,12 +421,14 @@ const GitLogView: React.FC<GitLogViewProps> = ({
   const { ranges } = selection.selection;
 
   // What the person is looking at: a listing — the ask before its folds
-  // — or a search over it. Another one is looked at from its top.
+  // — or a search over it. Another one is looked at on the tab's commit.
   const listing = useMemo(
     () => (ask === null ? null : `${logListingName(ask)}${searches ? '\nsearch' : ''}`),
     [ask, searches],
   );
-  const tabRow = useLogTabRow(held, listing, landed, selectedSha, setSelectedSha);
+  const tabRow = useLogTabRow(held, listing, landed, selectedSha, setSelectedSha, entrance);
+  // The listing of the rows drawn: the list enters another one on the tab's row.
+  const drawnListing = useMemo(() => (held.ask === null ? null : logListingName(held.ask)), [held.ask]);
 
   // The selected commits, newest first — the list's rows read through,
   // or the search's own. Two or more and the details pane shows their
@@ -754,6 +764,7 @@ const GitLogView: React.FC<GitLogViewProps> = ({
           ) : (
             <LogRowList
               held={held}
+              listing={drawnListing}
               pending={pending}
               onWindow={onWindow}
               selection={selection}

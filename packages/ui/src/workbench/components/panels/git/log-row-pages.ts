@@ -96,6 +96,15 @@ export function heldLogAuthors(held: LogRowPages): string[] {
   return [...names].sort((a, b) => a.localeCompare(b));
 }
 
+/** Rows taken each way of a row a view will stand on, while the view has not said how many it mounts. */
+const ROWS_AROUND = 50;
+
+/** The rows a view mounts once it stands on `row`: as many as it has mounted now, `row` in their middle. */
+export function logRowsAround(row: number, mounted: LogRowRange): LogRowRange {
+  const half = mounted.last >= mounted.first ? Math.ceil((mounted.last - mounted.first) / 2) : ROWS_AROUND;
+  return { first: Math.max(0, row - half), last: row + half };
+}
+
 /** The pages the mounted rows sit on — the list's first while none is mounted. */
 function mountedPages(mounted: LogRowRange): { first: number; last: number } {
   return { first: pageOf(Math.max(0, mounted.first)), last: pageOf(Math.max(0, mounted.last)) };

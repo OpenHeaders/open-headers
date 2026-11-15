@@ -4,7 +4,7 @@
  * is not known under the held list's two names is asked of the host; a
  * row walked to stands for itself until its page gives the tab its
  * commit; a commit the list leaves out stays the tab's and selects no
- * row.
+ * row; a list just entered has the row its entrance found.
  */
 
 import type { WorkspaceTreeLogRowWire } from '@openheaders/core/bridge';
@@ -19,6 +19,7 @@ import {
 import {
   type LogTabRow,
   tabRowAt,
+  tabRowEntered,
   tabRowFound,
   tabRowIn,
   tabRowLeftOut,
@@ -117,6 +118,37 @@ describe('the row the list selects as the tab’s', () => {
 
   it('is none for a commit the list leaves out', () => {
     expect(tabRowIn(at(null, sha(7)), HELD, sha(7))).toBeNull();
+  });
+});
+
+describe('the row a list’s entrance found', () => {
+  const ENTERED = { ask: ASK, row: 120, list: 'g1', sha: sha(7) };
+
+  it('is the tab’s where the held list is the reading it was found in, for the tab’s commit', () => {
+    expect(tabRowEntered(null, HELD, ENTERED, sha(7))).toEqual(at(120, sha(7)));
+    // A row known under the list before is replaced by it.
+    expect(tabRowEntered(at(7, sha(7), OTHER), HELD, ENTERED, sha(7))).toEqual(at(120, sha(7)));
+  });
+
+  it('leaves a row known under the held list’s own names as it is', () => {
+    const pressed = at(33, sha(33));
+    expect(tabRowEntered(pressed, HELD, ENTERED, sha(33))).toBe(pressed);
+    const leftOut = at(null, sha(7));
+    expect(tabRowEntered(leftOut, HELD, ENTERED, sha(7))).toBe(leftOut);
+  });
+
+  it('is not taken from an entrance of another ask, another reading or another commit', () => {
+    expect(tabRowEntered(null, holding([0], OTHER), ENTERED, sha(7))).toBeNull();
+    expect(tabRowEntered(null, holding([0], ASK, 'g2'), ENTERED, sha(7))).toBeNull();
+    expect(tabRowEntered(null, HELD, ENTERED, sha(9))).toBeNull();
+    expect(tabRowEntered(null, HELD, ENTERED, null)).toBeNull();
+  });
+
+  it('is none where the list was entered at its top, is being entered, or nothing is', () => {
+    const before = at(7, sha(7), OTHER);
+    expect(tabRowEntered(before, HELD, { ask: ASK, row: null }, sha(7))).toBe(before);
+    expect(tabRowEntered(before, HELD, 'finding', sha(7))).toBe(before);
+    expect(tabRowEntered(before, HELD, null, sha(7))).toBe(before);
   });
 });
 

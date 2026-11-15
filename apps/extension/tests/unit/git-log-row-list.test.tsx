@@ -7,7 +7,8 @@
  * row; the pointer over a graph cell lights the run its row names and a
  * press asks for its fold; the graph column is as wide as the rows in
  * view need; and over a laid-out scroller only the rows around the
- * scroll position are mounted, a navigation bringing its row into view.
+ * scroll position are mounted, a navigation bringing its row into view,
+ * and a listing entered on the tab's row before it is painted.
  */
 
 import type { WorkspaceTreeLogRowWire, WorkspaceTreeLogRunWire, WorkspaceTreeRefWire } from '@openheaders/core/bridge';
@@ -88,7 +89,12 @@ function row(at: number, total: number, lanes = 1): WorkspaceTreeLogRowWire {
 }
 
 /** A list of `total` rows with the named pages held; `lanes` widens a row's cell. */
-function holding(total: number, pages: number[] = [0], lanes: (at: number) => number = () => 1): LogRowPages {
+function holding(
+  total: number,
+  pages: number[] = [0],
+  lanes: (at: number) => number = () => 1,
+  list = 'g1',
+): LogRowPages {
   let held = NO_LOG_ROWS;
   for (const page of pages) {
     const rows: WorkspaceTreeLogRowWire[] = [];
@@ -97,7 +103,7 @@ function holding(total: number, pages: number[] = [0], lanes: (at: number) => nu
       held,
       ASK,
       page * 200,
-      { ok: true, list: 'g1', total, widest: 4, rows, runs: [RUN] },
+      { ok: true, list, total, widest: 4, rows, runs: [RUN] },
       NO_LOG_ROW_RANGE,
     );
   }
@@ -158,8 +164,12 @@ const cellOf = (at: number): Element => {
 
 interface HarnessProps {
   held: LogRowPages;
+  /** The listing the held rows are of. */
+  listing?: string | null;
   pending?: boolean;
   initial?: number | null;
+  /** The tab's row as the view hands it down — in the same draw as the rows, where it is given. */
+  tabRow?: number | null;
   /** A change of the tab's row from outside the list. */
   navigate?: number | null;
   scrollTo?: { row: number; nonce: number } | null;
@@ -178,8 +188,10 @@ interface HarnessProps {
 /** The view's part: it holds the selection and remembers the row the list reports. */
 const Harness: React.FC<HarnessProps> = ({
   held,
+  listing = 'all',
   pending = false,
   initial = null,
+  tabRow,
   navigate,
   scrollTo,
   band = false,
@@ -200,10 +212,11 @@ const Harness: React.FC<HarnessProps> = ({
   return (
     <LogRowList
       held={held}
+      listing={held.ask === null ? null : listing}
       pending={pending}
       onWindow={onWindow}
       selection={selection}
-      selectedRow={selectedRow}
+      selectedRow={tabRow === undefined ? selectedRow : tabRow}
       onSelect={(next) => {
         setSelectedRow(next);
         onSelect?.(next);
@@ -596,11 +609,63 @@ describe('LogRowList — over a laid-out scroller', () => {
   });
 
   it('brings the row the keyboard lands on into view', () => {
-    render(<Harness held={holding(10_000, [0])} initial={19} />);
+    render(<Harness held={holding(10_000, [0])} />);
     const list = screen.getByTestId('git-tool-list');
+    fireEvent.click(rowEl(19));
     // 20 rows show: row 20 is the first one under the viewport.
     fireEvent.keyDown(list, { key: 'ArrowDown' });
     expect(selectedRows()).toEqual([20]);
     expect(list.scrollTop).toBe(21 * ROW_PX - 520);
+  });
+});
+
+describe('LogRowList — a listing entered', () => {
+  const VIEW = 520;
+  /** The scroll position that centres a row in the viewport. */
+  const centred = (at: number): number => at * ROW_PX - (VIEW - ROW_PX) / 2;
+
+  beforeEach(() => {
+    viewportPx = VIEW;
+  });
+
+  it('enters its first listing on the tab’s row', () => {
+    render(<Harness held={holding(10_000, [25])} tabRow={5_000} />);
+    expect(screen.getByTestId('git-tool-list').scrollTop).toBe(centred(5_000));
+    expect(mountedRows()).toContain(5_000);
+  });
+
+  it('enters another listing on the tab’s row in the draw its rows arrive in — and reports the rows it stands on alone', () => {
+    const onWindow = vi.fn();
+    const { rerender } = render(<Harness held={holding(10_000, [25])} tabRow={5_000} onWindow={onWindow} />);
+    const list = screen.getByTestId('git-tool-list');
+    onWindow.mockClear();
+
+    rerender(
+      <Harness held={holding(9_000, [10], undefined, 'g2')} listing="no merges" tabRow={2_100} onWindow={onWindow} />,
+    );
+    expect(list.scrollTop).toBe(centred(2_100));
+    expect(mountedRows()).toContain(2_100);
+    // Never the rows the listing before was looked at: nothing reads them under the new list.
+    expect(onWindow.mock.calls).toEqual([[{ first: 2_067, last: 2_133 }]]);
+  });
+
+  it('enters another listing at its top where the tab has no row in it', () => {
+    const { rerender } = render(<Harness held={holding(10_000, [25])} tabRow={5_000} />);
+    const list = screen.getByTestId('git-tool-list');
+    rerender(<Harness held={holding(9_000, [0], undefined, 'g2')} listing="no merges" tabRow={null} />);
+    expect(list.scrollTop).toBe(0);
+    expect(mountedRows()[0]).toBe(0);
+  });
+
+  it('stays where it is looked at under another list of the same listing — a fold, a history read anew', () => {
+    const { rerender } = render(<Harness held={holding(10_000, [25])} tabRow={5_000} />);
+    const list = screen.getByTestId('git-tool-list');
+    list.scrollTop = 300 * ROW_PX;
+    fireEvent.scroll(list);
+
+    rerender(<Harness held={holding(9_990, [1], undefined, 'g2')} tabRow={5_000} />);
+    expect(list.scrollTop).toBe(300 * ROW_PX);
+    rerender(<Harness held={holding(9_990, [1], undefined, 'g2')} tabRow={4_990} />);
+    expect(list.scrollTop).toBe(300 * ROW_PX);
   });
 });
