@@ -1,9 +1,9 @@
 /**
- * The log's text search, the reference's reading: the filter says WHERE
- * it matched (what a row paints), and the commits that stay keep a
- * graph — each joined to the nearest listed commits it descends from, a
- * join through hidden commits named so it draws as stubs, every commit
- * in the colour it wears in the whole log.
+ * The log's text search, the reference's reading: the commits that stay
+ * keep a graph — each joined to the nearest listed commits it descends
+ * from, a join through hidden commits named so it draws as stubs, every
+ * commit in the colour it wears in the whole log. (WHERE a text matched
+ * is the matcher's, pinned in core.)
  */
 
 import { computeLogGraph, edgeKey } from '@openheaders/ui/workbench/components/panels/git/graph';
@@ -12,47 +12,10 @@ import {
   firstParentOnly,
   firstParentReach,
 } from '@openheaders/ui/workbench/components/panels/git/graph-filtered';
-import { makeTextMatcher } from '@openheaders/ui/workbench/components/panels/git/toolbar/log-filters';
 import { describe, expect, it } from 'vitest';
 
 const commit = (sha: string, ...parents: string[]) => ({ sha, parents });
 const listed = (...shas: string[]) => new Set(shas);
-
-const rangesOf = (filter: string, regex: boolean, matchCase: boolean, text: string) => {
-  const matcher = makeTextMatcher(filter, regex, matchCase);
-  if (matcher.kind !== 'match') throw new Error(`no matcher for ${filter}`);
-  return matcher.ranges(text);
-};
-
-describe('the text filter says where it matched', () => {
-  it('ranges every occurrence, whatever its case, on the text itself', () => {
-    expect(rangesOf('or', false, false, 'Orders for workers')).toEqual([
-      [0, 2],
-      [8, 10],
-      [12, 14],
-    ]);
-  });
-
-  it('keeps the case when asked to', () => {
-    expect(rangesOf('or', false, true, 'Orders for workers')).toEqual([
-      [8, 10],
-      [12, 14],
-    ]);
-  });
-
-  it('reads a plain text as itself — a dot is a dot', () => {
-    expect(rangesOf('v2.', false, false, 'v2x then v2.')).toEqual([[9, 12]]);
-  });
-
-  it('ranges a pattern’s matches and nothing for a text it misses', () => {
-    expect(rangesOf('o.d', true, false, 'order old')).toEqual([
-      [0, 3],
-      [6, 9],
-    ]);
-    expect(rangesOf('zzz', false, false, 'order old')).toEqual([]);
-    expect(makeTextMatcher('(', true, false).kind).toBe('invalid');
-  });
-});
 
 describe('contractLog — the graph of a filtered list', () => {
   // e → d → c → b → a, newest first.

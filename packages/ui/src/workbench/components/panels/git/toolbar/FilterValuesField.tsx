@@ -12,6 +12,7 @@
  * them.
  */
 
+import { makeLogTextMatcher } from '@openheaders/core/workspace-tree';
 import { Input, theme } from 'antd';
 import type { TextAreaRef } from 'antd/es/input/TextArea';
 import type React from 'react';
@@ -21,7 +22,6 @@ import { isMac } from '@openheaders/ui/shared/platform';
 import { GIT_TEXT_SIZE } from '../git-type-scale';
 import MatchedText from '../MatchedText';
 import { fieldSuggestions, fieldValues, unknownValues, withSuggestion, wordAtCaret } from './filter-values';
-import { makeTextMatcher } from './log-filters';
 
 export interface FilterValuesFieldProps {
   /** The names a typed word may become — the completion's list. */
@@ -61,7 +61,7 @@ const FilterValuesField: React.FC<FilterValuesFieldProps> = ({ names, values, ba
   const suggestions = useMemo(() => fieldSuggestions(text, caret, names, bar), [text, caret, names, bar]);
   const highlighted = Math.min(active, suggestions.length - 1);
   const matcher = useMemo(
-    () => makeTextMatcher(wordAtCaret(text, caret, bar).typed, false, false),
+    () => makeLogTextMatcher(wordAtCaret(text, caret, bar).typed, false, false),
     [text, caret, bar],
   );
 

@@ -38,6 +38,7 @@
  */
 
 import type { WorkspaceTreeLogEntryWire, WorkspaceTreeRefWire } from '@openheaders/core/bridge';
+import type { LogTextRange } from '@openheaders/core/workspace-tree';
 import { Button, Dropdown, type MenuProps, theme } from 'antd';
 import type React from 'react';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -57,7 +58,6 @@ import { commitClickOutcome, stepTarget } from './log-selection';
 import RefRowLabel from './RefRowLabel';
 import { shortSha } from './short-sha';
 import SignatureMark from './SignatureMark';
-import type { TextRange } from './toolbar/log-filters';
 import type { CommitSignature } from './use-commit-signatures';
 
 export interface CommitListProps {
@@ -113,7 +113,7 @@ export interface CommitListProps {
   /** The row's right-click menu over the commits it covers; absent = no menu. */
   rowMenu?: (target: LogRowMenuTarget) => MenuProps;
   /** The text filter's matches in a subject or an author — painted where they stand; absent = no filter. */
-  matchRanges?: (text: string) => readonly TextRange[];
+  matchRanges?: (text: string) => readonly LogTextRange[];
   /** False over a filtered list: its edges may skip hidden commits, so no fragment lights or folds. */
   fragments?: boolean;
 }

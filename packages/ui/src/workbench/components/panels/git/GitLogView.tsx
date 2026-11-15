@@ -27,6 +27,7 @@ import {
   type WorkspaceTreeLogEntryWire,
   type WorkspaceTreeRefWire,
 } from '@openheaders/core/bridge';
+import { makeLogTextMatcher } from '@openheaders/core/workspace-tree';
 import { theme } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
@@ -64,7 +65,7 @@ import GitRailCollapsedStrip from './rail/GitRailCollapsedStrip';
 import GitRefRail from './rail/GitRefRail';
 import GitDetailsToolbar from './toolbar/GitDetailsToolbar';
 import GitLogToolbar from './toolbar/GitLogToolbar';
-import { buildLogWireFilters, hasRowFilters, isMergeCommit, makeTextMatcher } from './toolbar/log-filters';
+import { buildLogWireFilters, hasRowFilters, isMergeCommit } from './toolbar/log-filters';
 import { useAskedRead } from './use-asked-read';
 import { useCommitApply } from './use-commit-apply';
 import { useCommitPatch } from './use-commit-patch';
@@ -291,7 +292,7 @@ const GitLogView: React.FC<GitLogViewProps> = ({
     return topologicalOrder(loaded, { lead, last: new Set(upstream.map((ref) => ref.sha)) });
   }, [loaded, sort, refs, currentRef, detachedSha]);
 
-  const matcher = useMemo(() => makeTextMatcher(filter, filterRegex, filterCase), [filter, filterRegex, filterCase]);
+  const matcher = useMemo(() => makeLogTextMatcher(filter, filterRegex, filterCase), [filter, filterRegex, filterCase]);
 
   // The view's own sifts of the window: the text filter, No Merges and
   // First Parent. Each hides rows (or lines) the window still holds, so

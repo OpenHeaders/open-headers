@@ -4,13 +4,13 @@
  * filter, or nothing matched in this text, it is the text alone.
  */
 
+import type { LogTextRange } from '@openheaders/core/workspace-tree';
 import type React from 'react';
-import type { TextRange } from './toolbar/log-filters';
 
 export interface MatchedTextProps {
   text: string;
   /** The filter's matches in a text, in order; absent = no filter. */
-  ranges?: (text: string) => readonly TextRange[];
+  ranges?: (text: string) => readonly LogTextRange[];
 }
 
 const MatchedText: React.FC<MatchedTextProps> = ({ text, ranges }) => {

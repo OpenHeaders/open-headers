@@ -71,6 +71,7 @@ export {
   WORKSPACE_VARS_DOC_KEY,
   WORKSPACE_VARS_FILE,
 } from './layout';
+export { type LogTextFields, type LogTextMatcher, type LogTextRange, makeLogTextMatcher } from './log-text-match';
 export {
   applyTreeOrder,
   indexSegments,

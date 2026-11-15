@@ -2,7 +2,7 @@
  * Pure-model suite for the Git tool window's log-window surfaces: the
  * multi-lane graph layout, the compressed changed-files tree, the
  * slash-folded ref rail, the graduated date column, and the toolbar's
- * filter model (wire translation + text matcher).
+ * filter model (wire translation).
  */
 
 import { allDirKeys, buildFileTree } from '@openheaders/ui/workbench/components/panels/git/file-tree';
@@ -19,7 +19,6 @@ import {
   type GitLogRowFilterState,
   hasRowFilters,
   isMergeCommit,
-  makeTextMatcher,
   pathLabel,
   pathsChipText,
 } from '@openheaders/ui/workbench/components/panels/git/toolbar/log-filters';
@@ -309,24 +308,6 @@ describe('log filter model', () => {
     expect(isMergeCommit({ parents: [] })).toBe(false);
     expect(isMergeCommit({ parents: ['a'] })).toBe(false);
     expect(isMergeCommit({ parents: ['a', 'b'] })).toBe(true);
-  });
-
-  it('text matcher: substring by default, sha prefix, case + regex toggles, invalid regex flagged', () => {
-    const entry = { subject: 'Fix Response panel', authorName: 'John', sha: 'abc123def' };
-    const plain = makeTextMatcher('response', false, false);
-    if (plain.kind !== 'match') throw new Error('expected matcher');
-    expect(plain.test(entry)).toBe(true);
-    const cased = makeTextMatcher('response', false, true);
-    if (cased.kind !== 'match') throw new Error('expected matcher');
-    expect(cased.test(entry)).toBe(false);
-    const sha = makeTextMatcher('abc12', false, false);
-    if (sha.kind !== 'match') throw new Error('expected matcher');
-    expect(sha.test(entry)).toBe(true);
-    const regex = makeTextMatcher('^fix .*panel$', true, false);
-    if (regex.kind !== 'match') throw new Error('expected matcher');
-    expect(regex.test(entry)).toBe(true);
-    expect(makeTextMatcher('(', true, false).kind).toBe('invalid');
-    expect(makeTextMatcher('  ', false, false).kind).toBe('none');
   });
 });
 
