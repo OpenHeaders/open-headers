@@ -23,9 +23,10 @@ import { hostBridge, type WorkspaceTreeApplyCommitWire } from '@openheaders/core
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { App as AntApp } from 'antd';
 import { type ReactNode, useRef } from 'react';
-import { type CommitApplyMode, commitApplyOrder, shortSha } from './commit-apply';
+import { type CommitApplyMode, commitApplyOrder } from './commit-apply';
 import { committedLocalNotice, keptLocalNotice, leftOutNotice, namePaths, refusalDetail } from './kept-local';
 import { useGitWork } from './use-git-work';
+import { shortSha } from './short-sha';
 import { passAnswersSign, usePassAnswers } from './use-pass-answers';
 
 export interface CommitApplyActions {

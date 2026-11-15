@@ -61,7 +61,7 @@ describe('CreateTagModal', () => {
 
   it('names the short sha, starts with an empty name and Create disabled', () => {
     mount();
-    expect(screen.getByText(`Create Tag at ${SHA.slice(0, 7)}`)).toBeTruthy();
+    expect(screen.getByText(`Create Tag at ${SHA.slice(0, 8)}`)).toBeTruthy();
     const input = screen.getByTestId('git-tool-create-tag-name') as HTMLInputElement;
     expect(input.value).toBe('');
     expect(okButton().hasAttribute('disabled')).toBe(true);

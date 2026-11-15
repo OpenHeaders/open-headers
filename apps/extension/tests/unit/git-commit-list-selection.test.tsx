@@ -149,7 +149,7 @@ describe('CommitList — the columns (S46)', () => {
     expect(screen.queryAllByTestId('git-tool-row-date')).toHaveLength(0);
     const hashes = screen.getAllByTestId('git-tool-row-hash');
     expect(hashes).toHaveLength(ENTRIES.length);
-    expect(hashes[0].textContent).toBe(ENTRIES[0].sha.slice(0, 7));
+    expect(hashes[0].textContent).toBe(ENTRIES[0].sha.slice(0, 8));
   });
 });
 

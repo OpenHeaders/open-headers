@@ -14,7 +14,7 @@ import { Input, Modal } from 'antd';
 import type React from 'react';
 import { useEffect, useState } from 'react';
 import { type Translate, useT } from '@openheaders/ui/context/LocaleContext';
-import { shortSha } from './commit-apply';
+import { shortSha } from './short-sha';
 import PassFileTree from './PassFileTree';
 
 /** What is about to write the files. */

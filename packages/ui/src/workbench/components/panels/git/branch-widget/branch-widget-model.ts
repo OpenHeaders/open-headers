@@ -13,6 +13,7 @@
 
 import type { WorkspaceTreeGitStatusWire, WorkspaceTreeRefWire } from '@openheaders/core/bridge';
 import { buildOrderedRefTree, buildRefTree, filterRefTree, type RefTreeNode } from '../rail/ref-tree-model';
+import { shortSha } from '../short-sha';
 
 export type BranchTriggerLabel =
   | { kind: 'branch'; name: string }
@@ -23,7 +24,7 @@ export type BranchTriggerLabel =
 export function branchTriggerLabel(status: WorkspaceTreeGitStatusWire | null): BranchTriggerLabel {
   if (status === null || !status.bound) return { kind: 'none' };
   if (status.branch !== null) return { kind: 'branch', name: status.branch };
-  if (status.headSha !== null) return { kind: 'detached', sha: status.headSha.slice(0, 8) };
+  if (status.headSha !== null) return { kind: 'detached', sha: shortSha(status.headSha) };
   return { kind: 'none' };
 }
 

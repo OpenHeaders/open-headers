@@ -11,8 +11,3 @@ export type CommitApplyMode = 'pick' | 'revert';
 export function commitApplyOrder(shas: readonly string[], mode: CommitApplyMode): string[] {
   return mode === 'pick' ? [...shas].reverse() : [...shas];
 }
-
-/** The short form a toast names a commit by. */
-export function shortSha(sha: string): string {
-  return sha.slice(0, 7);
-}

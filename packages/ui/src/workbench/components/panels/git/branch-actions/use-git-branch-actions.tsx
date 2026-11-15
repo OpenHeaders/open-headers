@@ -42,6 +42,7 @@ import CreateTagModal from '../rail/CreateTagModal';
 import RemotesModal from '../remotes/RemotesModal';
 import { useRemoteOps } from '../remotes/use-remote-ops';
 import SwitchBranchModal, { type SwitchBranchPrompt, type SwitchDirtyChoice } from '../rail/SwitchBranchModal';
+import { shortSha } from '../short-sha';
 import { type GitWorkSign, useGitWork } from '../use-git-work';
 import { passAnswersSign, usePassAnswers } from '../use-pass-answers';
 
@@ -158,7 +159,7 @@ export function useGitBranchActions(options: GitBranchActionsOptions): GitBranch
   const switchTo = async (target: string, dirtyAction?: SwitchDirtyChoice): Promise<void> => {
     if (switching) return;
     setSwitching(true);
-    const branch = isFullCommitSha(target) ? target.slice(0, 7) : target;
+    const branch = isFullCommitSha(target) ? shortSha(target) : target;
     try {
       const result = await atHost(
         t('workbench.gitLog.working.checkout', { branch }),
@@ -250,7 +251,7 @@ export function useGitBranchActions(options: GitBranchActionsOptions): GitBranch
         });
       } else {
         notification.success({
-          title: t('workbench.gitLog.merge.done', { ref, branch, sha: result.sha.slice(0, 8) }),
+          title: t('workbench.gitLog.merge.done', { ref, branch, sha: shortSha(result.sha) }),
           duration: 5,
         });
       }
@@ -505,7 +506,7 @@ export function useGitBranchActions(options: GitBranchActionsOptions): GitBranch
         onClose={() => setTagAt(null)}
         onCreated={(name, sha) => {
           notification.success({
-            title: t('workbench.gitLog.createTag.created', { name, sha: sha.slice(0, 7) }),
+            title: t('workbench.gitLog.createTag.created', { name, sha: shortSha(sha) }),
             duration: 5,
           });
         }}

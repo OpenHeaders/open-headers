@@ -10,8 +10,7 @@
 
 import { readHeadStamp } from '@openheaders/core/workspace-tree';
 import type { Translate } from '@openheaders/ui/context/LocaleContext';
-
-const SHORT_SHA_LENGTH = 8;
+import { shortSha } from './components/panels/git/short-sha';
 
 /** The toast's text for a workspace now on `gitHead`, or null when the stamp names no HEAD. */
 export function gitHeadNoticeText(t: Translate, workspaceName: string, gitHead: string): string | null {
@@ -20,7 +19,7 @@ export function gitHeadNoticeText(t: Translate, workspaceName: string, gitHead: 
   if (reading.kind === 'detached') {
     return t('workbench.shell.toast.gitHeadDetached', {
       workspace: workspaceName,
-      sha: reading.sha.slice(0, SHORT_SHA_LENGTH),
+      sha: shortSha(reading.sha),
     });
   }
   return t('workbench.shell.toast.gitHeadBranch', { workspace: workspaceName, branch: reading.name });

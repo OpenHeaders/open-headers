@@ -11,6 +11,7 @@ import type React from 'react';
 import { useLocale } from '@openheaders/ui/context/LocaleContext';
 import RefChips from './RefChips';
 import { formatLogDateTitle } from './log-date';
+import { shortSha } from './short-sha';
 import { useLogHourCycle } from './use-log-hour-cycle';
 
 export interface CommitDetailsProps {
@@ -44,7 +45,7 @@ const CommitDetails: React.FC<CommitDetailsProps> = ({ entry, refsAtCommit, isHe
           style={{ fontFamily: token.fontFamilyCode, fontSize: 11, userSelect: 'all' }}
           data-testid="git-tool-detail-sha"
         >
-          {entry.sha.slice(0, 8)}
+          {shortSha(entry.sha)}
         </span>{' '}
         {t('workbench.gitLog.authorLine', {
           author: entry.authorName,

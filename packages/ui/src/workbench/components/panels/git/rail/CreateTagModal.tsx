@@ -12,6 +12,7 @@ import type React from 'react';
 import { useEffect, useRef, useState } from 'react';
 import type { InputRef } from 'antd';
 import { useT } from '@openheaders/ui/context/LocaleContext';
+import { shortSha } from '../short-sha';
 import { nameGitWork } from '../use-git-work';
 
 export interface CreateTagModalProps {
@@ -67,7 +68,7 @@ const CreateTagModal: React.FC<CreateTagModalProps> = ({ workspaceId, sha, onClo
   return (
     <Modal
       open={sha !== null}
-      title={sha !== null ? t('workbench.gitLog.createTag.title', { sha: sha.slice(0, 7) }) : ''}
+      title={sha !== null ? t('workbench.gitLog.createTag.title', { sha: shortSha(sha) }) : ''}
       okText={t('workbench.gitLog.createTag.create')}
       cancelText={t('workbench.gitLog.createBranch.cancel')}
       okButtonProps={{ disabled: name.trim().length === 0, loading: busy }}

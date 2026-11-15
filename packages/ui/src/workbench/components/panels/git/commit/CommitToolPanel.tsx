@@ -70,6 +70,7 @@ import CommitToolbar from './CommitToolbar';
 import CommitWorkspaceTree from './CommitWorkspaceTree';
 import PushCommitsModal from '../push/PushCommitsModal';
 import PushRejectedModal from '../push/PushRejectedModal';
+import { shortSha } from '../short-sha';
 import PushNewBranchAlert from './PushNewBranchAlert';
 import RollbackChangesModal from './RollbackChangesModal';
 
@@ -320,7 +321,7 @@ const CommitToolPanel: React.FC<CommitToolPanelProps> = ({ info, onHide }) => {
         setAmend(false);
         setAmendAuthor(null);
         setChecked(EMPTY_CHECKED_STATE);
-        message.success(t('workbench.commitTool.committed', { sha: (result.sha ?? '').slice(0, 8) }));
+        message.success(t('workbench.commitTool.committed', { sha: shortSha(result.sha ?? '') }));
         await refreshChanges();
         if (andPush) setPushOpen(true);
       } catch (err) {
@@ -579,7 +580,7 @@ const CommitToolPanel: React.FC<CommitToolPanelProps> = ({ info, onHide }) => {
       onFetch: () => void handleFetch(),
       onCompareWithBranch: () => setCompareOpen(true),
       onBranches: handleBranches,
-      onNewBranch: () => setCreateBranchFrom(currentBranch ?? headSha?.slice(0, 8) ?? 'HEAD'),
+      onNewBranch: () => setCreateBranchFrom(currentBranch ?? (headSha !== null ? shortSha(headSha) : 'HEAD')),
       onManageRemotes: () => setRemotesOpen(true),
       onIgnorePaths: (paths, target) => void handleIgnorePaths(paths, target),
       onUnignorePath: (filePath, target) => void handleUnignorePath(filePath, target),
@@ -677,14 +678,14 @@ const CommitToolPanel: React.FC<CommitToolPanelProps> = ({ info, onHide }) => {
           showIcon
           title={
             <span style={{ fontSize: 12 }}>
-              {t('workbench.commitTool.detached.message', { sha: detachedSha.slice(0, 8) })}
+              {t('workbench.commitTool.detached.message', { sha: shortSha(detachedSha) })}
             </span>
           }
           description={
             <div style={{ display: 'flex', gap: 8 }}>
               <Button
                 size="small"
-                onClick={() => setCreateBranchFrom(detachedSha.slice(0, 8))}
+                onClick={() => setCreateBranchFrom(shortSha(detachedSha))}
                 data-testid="commit-tool-detached-new-branch"
               >
                 {t('workbench.commitTool.detached.newBranch')}

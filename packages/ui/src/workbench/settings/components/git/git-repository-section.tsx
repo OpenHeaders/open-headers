@@ -24,6 +24,7 @@ import {
   leftOutNotice,
   refusalDetail,
 } from '../../../components/panels/git/kept-local';
+import { shortSha } from '../../../components/panels/git/short-sha';
 import { usePassAnswers } from '../../../components/panels/git/use-pass-answers';
 import { PaneSection } from '../pane-chrome';
 import GitNeedsRepoNote from './git-needs-repo-note';
@@ -42,7 +43,7 @@ const LogEntryLines: React.FC<{ entry: WorkspaceTreeLogEntryWire; subjectSize: n
     <>
       <div style={{ display: 'flex', gap: 8, alignItems: 'baseline' }}>
         <span style={{ fontFamily: token.fontFamilyCode, fontSize: 11, color: token.colorTextSecondary }}>
-          {entry.sha.slice(0, 7)}
+          {shortSha(entry.sha)}
         </span>
         <span style={{ fontSize: subjectSize, color: token.colorText, flex: 1 }}>{entry.subject}</span>
       </div>
@@ -121,7 +122,7 @@ const GitRepositorySection: React.FC<{ git: WorkspaceGit }> = ({ git }) => {
       });
       if (result.ok && result.committed) {
         setCommitMessage('');
-        message.success(t('workbench.settings.gitPane.git.committed', { sha: (result.sha ?? '').slice(0, 7) }));
+        message.success(t('workbench.settings.gitPane.git.committed', { sha: shortSha(result.sha ?? '') }));
       } else if (result.ok) {
         message.info(t('workbench.settings.gitPane.git.nothingToCommit'));
       } else {
@@ -149,7 +150,7 @@ const GitRepositorySection: React.FC<{ git: WorkspaceGit }> = ({ git }) => {
       if (result.ok && result.upToDate) {
         message.info(t('workbench.settings.gitPane.git.upToDate'));
       } else if (result.ok) {
-        message.success(t('workbench.settings.gitPane.git.pulled', { sha: result.sha.slice(0, 7) }));
+        message.success(t('workbench.settings.gitPane.git.pulled', { sha: shortSha(result.sha) }));
         sayLocalWork(result);
       } else {
         setPullError(t('workbench.settings.gitPane.git.pullFailed', { detail: integrationRefusalDetail(result, t) }));
@@ -170,7 +171,7 @@ const GitRepositorySection: React.FC<{ git: WorkspaceGit }> = ({ git }) => {
     try {
       const result = await call('oh.workspaceTree.push', { workspaceId });
       if (result.ok && result.pushed) {
-        message.success(t('workbench.settings.gitPane.git.pushed', { sha: result.remoteSha.slice(0, 7) }));
+        message.success(t('workbench.settings.gitPane.git.pushed', { sha: shortSha(result.remoteSha) }));
       } else if (result.ok) {
         message.info(t('workbench.settings.gitPane.git.nothingToPush'));
       } else {
@@ -217,7 +218,7 @@ const GitRepositorySection: React.FC<{ git: WorkspaceGit }> = ({ git }) => {
         message.success(
           result.rescueBranch !== null
             ? t('workbench.settings.gitPane.git.forcePush.rescued', { branch: result.rescueBranch })
-            : t('workbench.settings.gitPane.git.forcePush.resolved', { sha: result.sha.slice(0, 7) }),
+            : t('workbench.settings.gitPane.git.forcePush.resolved', { sha: shortSha(result.sha) }),
         );
         sayLocalWork(result);
       } else {
@@ -303,7 +304,7 @@ const GitRepositorySection: React.FC<{ git: WorkspaceGit }> = ({ git }) => {
         message.info(t('workbench.settings.gitPane.git.branch.mergeUpToDate'));
       } else if (result.ok) {
         setMergeRef(null);
-        message.success(t('workbench.settings.gitPane.git.branch.merged', { sha: result.sha.slice(0, 7) }));
+        message.success(t('workbench.settings.gitPane.git.branch.merged', { sha: shortSha(result.sha) }));
         sayLocalWork(result);
       } else {
         setBranchError(
@@ -385,7 +386,7 @@ const GitRepositorySection: React.FC<{ git: WorkspaceGit }> = ({ git }) => {
               <div style={{ fontSize: 11.5 }}>
                 <p style={{ margin: '0 0 8px' }}>
                   {t('workbench.settings.gitPane.git.forcePush.body', {
-                    sha: gitStatus.forcePush.lastSyncedSha.slice(0, 7),
+                    sha: shortSha(gitStatus.forcePush.lastSyncedSha),
                   })}
                 </p>
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>

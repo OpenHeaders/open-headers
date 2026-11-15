@@ -27,7 +27,7 @@
 import type { WorkspaceTreeApplyCommitResolutionWire } from '@openheaders/core/bridge';
 import { type Translate, useT } from '@openheaders/ui/context/LocaleContext';
 import { type ReactNode, useCallback } from 'react';
-import { shortSha } from './commit-apply';
+import { shortSha } from './short-sha';
 import type { LocalChangesOperation } from './LocalChangesFirstModal';
 import type { GitWorkSign } from './use-git-work';
 import { type NamedNotices, useNamedNotices } from './use-named-notices';

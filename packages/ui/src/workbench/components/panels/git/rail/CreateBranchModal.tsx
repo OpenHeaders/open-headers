@@ -15,6 +15,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { InputRef } from 'antd';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { isFullCommitSha } from '../log-neighbors';
+import { shortSha } from '../short-sha';
 import { nameGitWork } from '../use-git-work';
 
 export interface CreateBranchModalProps {
@@ -48,7 +49,7 @@ const CreateBranchModal: React.FC<CreateBranchModalProps> = ({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const inputRef = useRef<InputRef>(null);
-  const fromLabel = from === null ? '' : isFullCommitSha(from) ? from.slice(0, 7) : from;
+  const fromLabel = from === null ? '' : isFullCommitSha(from) ? shortSha(from) : from;
 
   useEffect(() => {
     if (from === null) return;

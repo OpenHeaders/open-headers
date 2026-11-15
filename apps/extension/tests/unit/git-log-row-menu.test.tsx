@@ -173,8 +173,8 @@ describe('commit-patch', () => {
     const newest = 'a'.repeat(40);
     const oldest = 'b'.repeat(40);
     expect(patchApplyOrder([newest, oldest])).toEqual([oldest, newest]);
-    expect(patchFilename([newest])).toBe('aaaaaaa.patch');
-    expect(patchFilename([newest, 'c'.repeat(40), oldest])).toBe('bbbbbbb-aaaaaaa.patch');
+    expect(patchFilename([newest])).toBe('aaaaaaaa.patch');
+    expect(patchFilename([newest, 'c'.repeat(40), oldest])).toBe('bbbbbbbb-aaaaaaaa.patch');
   });
 });
 

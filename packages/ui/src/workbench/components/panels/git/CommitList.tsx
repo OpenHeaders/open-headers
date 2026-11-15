@@ -3,9 +3,9 @@
  * right-aligned ref label column (or the labels before the subject with
  * References on the Left), the short hash (off by default),
  * author, and the graduated date column — the eye menu's Columns
- * decide which of the last three show; subject, author and date in one
- * foreground, all three greyed on a merge commit (the reference's
- * reading), the hash in the code face and the tertiary grey. Rows reachable
+ * decide which of the last three show; subject, author, date and hash
+ * in one face and one foreground, all four greyed on a merge commit
+ * (the reference's reading). Rows reachable
  * from HEAD carry the reference's soft current-branch band (the
  * stylesheet paints it under the hover and the selection). The graph
  * layout arrives from the orchestrator and is null while a text filter
@@ -46,7 +46,7 @@ import { clickModifiers, useMultiSelection } from '@openheaders/ui/shared/select
 import type { GraphRow } from './graph';
 import { fragmentEdges, fragmentShas, hoverFragment, type LogFragment } from './graph-fragment';
 import { contextMenuAlign } from './git-menu-overflow';
-import { GIT_CODE_SIZE, GIT_TEXT_SIZE } from './git-type-scale';
+import { GIT_TEXT_SIZE } from './git-type-scale';
 import GraphCell, { GRAPH_ROW_HEIGHT, type GraphHighlight } from './GraphCell';
 import { formatLogDate, formatLogDateTitle, type HourCycle } from './log-date';
 import { childInWindow, parentInWindow } from './log-neighbors';
@@ -54,6 +54,7 @@ import MatchedText from './MatchedText';
 import type { LogRowMenuTarget } from './log-row-menu';
 import { commitClickOutcome, stepTarget } from './log-selection';
 import RefRowLabel from './RefRowLabel';
+import { shortSha } from './short-sha';
 import SignatureMark from './SignatureMark';
 import type { TextRange } from './toolbar/log-filters';
 import type { CommitSignature } from './use-commit-signatures';
@@ -90,7 +91,7 @@ export interface CommitListProps {
   showTimestamp?: boolean;
   /** Eye menu — Show > Columns: the author column. */
   showAuthor?: boolean;
-  /** Eye menu — Show > Columns: the 7-character hash column. */
+  /** Eye menu — Show > Columns: the short hash column. */
   showHash?: boolean;
   /** Eye menu — Show > Columns: the date column. */
   showDate?: boolean;
@@ -407,15 +408,10 @@ const CommitList: React.FC<CommitListProps> = ({
             )}
             {showHash && (
               <span
-                style={{
-                  flex: '0 0 auto',
-                  fontSize: GIT_CODE_SIZE,
-                  fontFamily: token.fontFamilyCode,
-                  color: token.colorTextTertiary,
-                }}
+                style={{ flex: '0 0 auto', fontSize: GIT_TEXT_SIZE, color: textColor }}
                 data-testid="git-tool-row-hash"
               >
-                {entry.sha.slice(0, 7)}
+                {shortSha(entry.sha)}
               </span>
             )}
             {showSignature && (

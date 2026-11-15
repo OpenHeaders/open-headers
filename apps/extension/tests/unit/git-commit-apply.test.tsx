@@ -74,7 +74,8 @@ vi.mock('@openheaders/ui/shared/merge-editor', () => {
 });
 
 import type { MergeConflictModalProps } from '@openheaders/ui/shared/merge-editor';
-import { commitApplyOrder, shortSha } from '@openheaders/ui/workbench/components/panels/git/commit-apply';
+import { commitApplyOrder } from '@openheaders/ui/workbench/components/panels/git/commit-apply';
+import { shortSha } from '@openheaders/ui/workbench/components/panels/git/short-sha';
 import {
   type CommitApplyActions,
   useCommitApply,
@@ -151,7 +152,7 @@ describe('commitApplyOrder', () => {
   it('a pick replays oldest first; a revert unwinds newest first', () => {
     expect(commitApplyOrder([NEWEST, MIDDLE, OLDEST], 'pick')).toEqual([OLDEST, MIDDLE, NEWEST]);
     expect(commitApplyOrder([NEWEST, MIDDLE, OLDEST], 'revert')).toEqual([NEWEST, MIDDLE, OLDEST]);
-    expect(shortSha(NEWEST)).toBe('aaaaaaa');
+    expect(shortSha(NEWEST)).toBe('aaaaaaaa');
   });
 });
 
@@ -184,7 +185,7 @@ describe('useCommitApply', () => {
     act(() => actions.cherryPick([NEWEST, MIDDLE, OLDEST]));
     await waitFor(() =>
       expect(
-        screen.getByText('The branch and commit bbbbbbb both changed rules/a/rule.yaml. Nothing was applied.'),
+        screen.getByText('The branch and commit bbbbbbbb both changed rules/a/rule.yaml. Nothing was applied.'),
       ).toBeTruthy(),
     );
     expect(calledShas()).toEqual([OLDEST, MIDDLE]);
@@ -203,7 +204,7 @@ describe('useCommitApply', () => {
     await waitFor(() =>
       expect(
         screen.getByText(
-          'The branch and commit ccccccc both changed rules/a/rule.yaml, and the files are too large to resolve here. Nothing was applied.',
+          'The branch and commit cccccccc both changed rules/a/rule.yaml, and the files are too large to resolve here. Nothing was applied.',
         ),
       ).toBeTruthy(),
     );
@@ -216,7 +217,7 @@ describe('useCommitApply', () => {
     act(() => actions.revert([NEWEST]));
     await waitFor(() =>
       expect(
-        screen.getByText('Commit aaaaaaa has no single change to apply: it is a merge or the first commit.'),
+        screen.getByText('Commit aaaaaaaa has no single change to apply: it is a merge or the first commit.'),
       ).toBeTruthy(),
     );
     expect(screen.queryByText('Revert finished')).toBeNull();
@@ -227,7 +228,9 @@ describe('useCommitApply', () => {
     const actions = mount();
     act(() => actions.cherryPick([NEWEST]));
     await waitFor(() =>
-      expect(screen.getByText('Nothing to cherry-pick from aaaaaaa: the branch already has this change.')).toBeTruthy(),
+      expect(
+        screen.getByText('Nothing to cherry-pick from aaaaaaaa: the branch already has this change.'),
+      ).toBeTruthy(),
     );
   });
 
@@ -276,7 +279,7 @@ describe('useCommitApply', () => {
     mockCall.mockResolvedValue({ ok: false, reason: 'op-in-progress' });
     const actions = mount();
     act(() => actions.cherryPick([NEWEST]));
-    await waitFor(() => expect(screen.getByText('Could not cherry-pick aaaaaaa: op-in-progress')).toBeTruthy());
+    await waitFor(() => expect(screen.getByText('Could not cherry-pick aaaaaaaa: op-in-progress')).toBeTruthy());
   });
 });
 
@@ -303,12 +306,12 @@ describe('useCommitApply — a conflict answered in the merge editor', () => {
     act(() => actions.cherryPick([NEWEST, OLDEST]));
 
     await waitFor(() => expect(listedFile()).toBe(RULE));
-    expect(screen.getByText('Cherry-Pick ccccccc: Resolve Conflicts')).toBeTruthy();
+    expect(screen.getByText('Cherry-Pick cccccccc: Resolve Conflicts')).toBeTruthy();
     expect(screen.queryByTestId('merge-modal')).toBeNull();
     fireEvent.click(screen.getByText('Review Conflicts'));
 
     await waitFor(() =>
-      expect(screen.getByTestId('merge-title').textContent).toBe('Cherry-Pick ccccccc: Resolve Conflicts'),
+      expect(screen.getByTestId('merge-title').textContent).toBe('Cherry-Pick cccccccc: Resolve Conflicts'),
     );
     expect(screen.getByTestId('merge-files').textContent).toBe(RULE);
     expect(mockCall).toHaveBeenCalledTimes(1);
@@ -328,9 +331,9 @@ describe('useCommitApply — a conflict answered in the merge editor', () => {
     mockCall.mockResolvedValueOnce({ ...conflicts('tok-1') });
     const actions = mount();
     act(() => actions.revert([NEWEST]));
-    await waitFor(() => expect(screen.getByText('Revert aaaaaaa: Resolve Conflicts')).toBeTruthy());
+    await waitFor(() => expect(screen.getByText('Revert aaaaaaaa: Resolve Conflicts')).toBeTruthy());
     await toEditor();
-    expect(screen.getByTestId('merge-title').textContent).toBe('Revert aaaaaaa: Resolve Conflicts');
+    expect(screen.getByTestId('merge-title').textContent).toBe('Revert aaaaaaaa: Resolve Conflicts');
   });
 
   it('Cancel on the files step ends the set like Cancel in the editor', async () => {
@@ -408,7 +411,9 @@ describe('useCommitApply — a conflict answered in the merge editor', () => {
 
     fireEvent.click(screen.getByTestId('merge-apply'));
     await waitFor(() =>
-      expect(screen.getByText('Nothing to cherry-pick from aaaaaaa: the branch already has this change.')).toBeTruthy(),
+      expect(
+        screen.getByText('Nothing to cherry-pick from aaaaaaaa: the branch already has this change.'),
+      ).toBeTruthy(),
     );
     expect(screen.queryByTestId('merge-modal')).toBeNull();
   });
@@ -422,9 +427,9 @@ describe('useCommitApply — a conflict answered in the merge editor', () => {
     const actions = mount();
     act(() => actions.cherryPick([NEWEST, OLDEST]));
 
-    await toEditor('ccccccc');
+    await toEditor('cccccccc');
     fireEvent.click(screen.getByTestId('merge-apply'));
-    await toEditor('aaaaaaa');
+    await toEditor('aaaaaaaa');
     fireEvent.click(screen.getByTestId('merge-apply'));
     await waitFor(() => expect(screen.getByText('Cherry-pick finished')).toBeTruthy());
     expect(mockCall.mock.calls[3]).toEqual(answered('tok-2', NEWEST));

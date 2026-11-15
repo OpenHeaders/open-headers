@@ -12,6 +12,7 @@ import type React from 'react';
 import { useEffect, useState } from 'react';
 import { useLocale } from '@openheaders/ui/context/LocaleContext';
 import NamedFileTitle from './NamedFileTitle';
+import { shortSha } from './short-sha';
 
 const HISTORY_LIMIT = 50;
 
@@ -96,7 +97,7 @@ const FileHistoryModal: React.FC<FileHistoryModalProps> = ({ workspaceId, path, 
                   title={entry.sha}
                   style={{ fontFamily: token.fontFamilyCode, fontSize: 11, color: token.colorTextSecondary }}
                 >
-                  {entry.sha.slice(0, 8)}
+                  {shortSha(entry.sha)}
                 </span>
                 <span style={{ fontSize: 12, color: token.colorText, flex: 1, overflowWrap: 'anywhere' }}>
                   {entry.subject}

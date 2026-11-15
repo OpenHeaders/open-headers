@@ -43,6 +43,7 @@ import { useT } from '@openheaders/ui/context/LocaleContext';
 import { BranchIcon, TagFilledIcon, TagIcon } from '@openheaders/ui/shared/icons';
 import { contextMenuAlign } from '../git-menu-overflow';
 import { GIT_CARET_SIZE, GIT_ROW_GLYPH_SIZE, GIT_TEXT_SIZE } from '../git-type-scale';
+import { shortSha } from '../short-sha';
 import { gitRailFavoriteKey } from './git-rail-prefs';
 import type { RefTreeSelection } from './ref-row-menu';
 import {
@@ -424,7 +425,7 @@ const RefTree = forwardRef<RefTreeHandle, RefTreeProps>(function RefTree(
             {caretSlot(null)}
             <span style={labelStyle}>
               {detachedSha !== null
-                ? t('workbench.gitLog.refs.headDetached', { sha: detachedSha.slice(0, 8) })
+                ? t('workbench.gitLog.refs.headDetached', { sha: shortSha(detachedSha) })
                 : t('workbench.gitLog.refs.head')}
             </span>
           </button>

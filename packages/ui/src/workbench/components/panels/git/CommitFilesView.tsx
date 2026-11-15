@@ -13,6 +13,7 @@ import { theme } from 'antd';
 import { forwardRef, useMemo } from 'react';
 import { commitFileGroups } from './commit-file-groups';
 import FileTreeView from './FileTreeView';
+import { shortSha } from './short-sha';
 import type { FileTreeGroup, FileTreeViewProps } from './file-tree-view-props';
 import { useCommitParentChanges } from './use-commit-parent-changes';
 import type { FileTreeViewHandle } from './use-file-tree-behaviour';
@@ -21,8 +22,6 @@ export interface CommitFilesViewProps extends Omit<FileTreeViewProps, 'groups' |
   /** The ONE commit the files are of — a merge's are listed by parent. Absent where they are of several. */
   commit?: { sha: string; parents: readonly string[] };
 }
-
-const SHORT_SHA = 8;
 
 const CommitFilesView = forwardRef<FileTreeViewHandle, CommitFilesViewProps>(function CommitFilesView(
   { commit, ...tree },
@@ -44,7 +43,7 @@ const CommitFilesView = forwardRef<FileTreeViewHandle, CommitFilesViewProps>(fun
                     id: group.id,
                     base: group.base,
                     title: t('workbench.gitLog.parents.changesTo', {
-                      sha: group.base.slice(0, SHORT_SHA),
+                      sha: shortSha(group.base),
                       subject: group.subject,
                     }),
                     files: group.files,

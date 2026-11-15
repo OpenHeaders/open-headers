@@ -16,6 +16,7 @@ import type React from 'react';
 import { useState } from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { committedLocalNotice, refusalDetail } from './kept-local';
+import { shortSha } from './short-sha';
 import { nameGitWork } from './use-git-work';
 
 type ForcePushChoice = 'abandon' | 'rescue' | 'reapply';
@@ -45,7 +46,7 @@ const ForcePushBanner: React.FC<ForcePushBannerProps> = ({ workspaceId, state, t
         message.success(
           result.rescueBranch !== null
             ? t('workbench.gitLog.forcePush.rescued', { branch: result.rescueBranch })
-            : t('workbench.gitLog.forcePush.resolved', { sha: result.sha.slice(0, 8) }),
+            : t('workbench.gitLog.forcePush.resolved', { sha: shortSha(result.sha) }),
         );
         const first = committedLocalNotice(result.committedLocal, t);
         if (first !== null) message.info(first, 8);
@@ -81,7 +82,7 @@ const ForcePushBanner: React.FC<ForcePushBannerProps> = ({ workspaceId, state, t
       description={
         <div style={{ fontSize: 11.5 }}>
           <p style={{ margin: '0 0 8px' }}>
-            {t('workbench.gitLog.forcePush.body', { sha: state.lastSyncedSha.slice(0, 8) })}
+            {t('workbench.gitLog.forcePush.body', { sha: shortSha(state.lastSyncedSha) })}
           </p>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             <Popconfirm
