@@ -9,6 +9,8 @@
  * slot on the current branch and favorites, the branch / tag glyph
  * otherwise, the open folder on a remote and the plain one on a
  * grouping of branch names). The gear's options stay open on a pick.
+ * A remote's folder takes the rail's own menu on a right-click (Edit
+ * Remote, Remove Remote) and is the menu's target while it is open.
  * The current row carries its incoming count and the
  * tracked upstream dimmed; every leaf ends in a › that opens the row's
  * action menu — clicking the row does the same (the reference gesture).
@@ -35,9 +37,15 @@ import { BranchIcon, FetchIcon, PullIcon, PushIcon, RollbackIcon, TagIcon } from
 import { menuCheckIcon } from '../../../shared/menu-check';
 import type { GitBranchActions } from '../branch-actions/use-git-branch-actions';
 import { CommitToolIcon } from '../commit/CommitToolIcon';
+import { contextMenuAlign } from '../git-menu-overflow';
 import { GIT_OPERATION_ABORTS, gitOperationOf } from '../git-operation';
 import { getGitRailPrefs, gitRailFavoriteKey, subscribeGitRailPrefs } from '../rail/git-rail-prefs';
-import { buildRefRowMenu, type RefRowMenuHandlers, type RefTreeSelection } from '../rail/ref-row-menu';
+import {
+  buildRefRowMenu,
+  buildRemoteMenu,
+  type RefRowMenuHandlers,
+  type RefTreeSelection,
+} from '../rail/ref-row-menu';
 import type { RefTreeNode } from '../rail/ref-tree-model';
 import { useOptionMenu } from '../use-option-menu';
 import { actionMatches, type BranchPopupSectionKind, buildBranchPopupSections } from './branch-widget-model';
@@ -84,6 +92,8 @@ const GitBranchPopup: React.FC<GitBranchPopupProps> = ({
   // touched follows its default.
   const [expansion, setExpansion] = useState<ReadonlyMap<string, boolean>>(new Map());
   const settingsMenu = useOptionMenu();
+  // The remote whose menu is open — the row the menu is of.
+  const [menuTarget, setMenuTarget] = useState<string | null>(null);
 
   const subscribePrefs = useCallback(
     (listener: () => void) => subscribeBranchWidgetPrefs(workspaceId, listener),
@@ -150,6 +160,13 @@ const GitBranchPopup: React.FC<GitBranchPopupProps> = ({
   };
   const rowMenu = (row: RefTreeSelection): MenuProps =>
     buildRefRowMenu(row, { current, historyRewritten: status.forcePush !== null }, t, menuHandlers);
+
+  const remoteMenu = (remote: string): MenuProps =>
+    buildRemoteMenu(
+      t,
+      closeThen(() => actions.editRemote(remote)),
+      closeThen(() => actions.removeRemote(remote)),
+    );
 
   // A git operation started outside the app stands until it ends: its way out leads the actions.
   const operation = gitOperationOf(status);
@@ -312,22 +329,41 @@ const GitBranchPopup: React.FC<GitBranchPopupProps> = ({
       if (node.kind === 'folder') {
         const defaultOpen = kind === 'recent';
         const open = isOpen(node.key, defaultOpen);
-        // The Remote section's own folders are the remotes — the rail's glyph for them.
-        const Glyph = kind === 'remote' && depth === 1 ? FolderOpenOutlined : FolderOutlined;
+        // The Remote section's own folders are the remotes — the rail's glyph and menu for them.
+        const remote = kind === 'remote' && depth === 1;
+        const Glyph = remote ? FolderOpenOutlined : FolderOutlined;
+        const folder = (
+          <div
+            role="button"
+            className={menuTarget === node.key ? 'oh-env-row menu-target' : 'oh-env-row'}
+            style={rowStyle(depth)}
+            onClick={() => toggle(node.key, defaultOpen)}
+            data-testid="git-branch-popup-folder"
+            data-key={node.key}
+            data-remote={remote ? node.label : undefined}
+          >
+            {caretSlot(open)}
+            <Glyph style={{ flex: '0 0 auto', fontSize: 12, color: token.colorTextTertiary }} />
+            <span style={labelStyle}>{node.label}</span>
+          </div>
+        );
         return (
           <div key={node.key}>
-            <div
-              role="button"
-              className="oh-env-row"
-              style={rowStyle(depth)}
-              onClick={() => toggle(node.key, defaultOpen)}
-              data-testid="git-branch-popup-folder"
-              data-key={node.key}
-            >
-              {caretSlot(open)}
-              <Glyph style={{ flex: '0 0 auto', fontSize: 12, color: token.colorTextTertiary }} />
-              <span style={labelStyle}>{node.label}</span>
-            </div>
+            {remote ? (
+              <Dropdown
+                menu={remoteMenu(node.label)}
+                trigger={['contextMenu']}
+                align={contextMenuAlign}
+                classNames={{ root: 'commit-tool-row-menu' }}
+                onOpenChange={(shown) =>
+                  setMenuTarget((prev) => (shown ? node.key : prev === node.key ? null : prev))
+                }
+              >
+                {folder}
+              </Dropdown>
+            ) : (
+              folder
+            )}
             {open && renderNodes(node.children, depth + 1, kind)}
           </div>
         );
