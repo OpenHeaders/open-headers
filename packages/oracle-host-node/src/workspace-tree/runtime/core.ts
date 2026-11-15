@@ -15,11 +15,13 @@ import type {
   CommitUserAttribution,
   GitAvailability,
   GitRunner,
+  GitStreamRunner,
   SyntheticCommitIdentity,
   UpstreamState,
 } from '../../git';
 import type { GitHeadWatcher } from '../head-watcher';
 import type { WorkspaceTreeMaterializer } from '../materializer';
+import type { SearchTurns } from '../search-turns';
 import type { StatusCache } from '../status-cache';
 import type { SweepWorkspaceTreeResult } from '../sweep';
 import type { WorkspaceTreeWatcher } from '../watcher';
@@ -90,6 +92,10 @@ export const CADENCE_INTERVAL_MS: Partial<Record<WorkspaceTreeCommitCadence, num
 /** History reads (§9, Phase 7): default page + hard cap — a recent timeline, not a full log browser. */
 export const LOG_DEFAULT_LIMIT = 20;
 export const LOG_MAX_LIMIT = 200;
+/** A search over a whole history ends here, found or not — a walk nobody bounds is nobody's to wait for. */
+export const LOG_SEARCH_DEADLINE_MS = 5_000;
+/** Searches of one workspace's history in flight at once; one more ends the oldest. */
+export const LOG_SEARCH_MAX_IN_FLIGHT = 4;
 /** Console-tab ring cap — enough scrollback without unbounded growth. */
 export const GIT_CONSOLE_CAP = 300;
 
@@ -147,6 +153,10 @@ export interface RuntimeCtx {
   readonly options: WorkspaceTreeRuntimeOptions;
   readonly open: Map<string, OpenBinding>;
   readonly gitRun: GitRunner;
+  /** The reading runner — a git read handed over as it arrives (a whole history's walk). */
+  readonly gitStream: GitStreamRunner;
+  /** Whose turn a history search has — the bound on searches in flight. */
+  readonly searchTurns: SearchTurns;
   /** Host-global audit ring (Console tab feed) — real-runner rows only. */
   readonly consoleRows: GitConsoleRow[];
   ensureGitAvailability(cwd: string): Promise<GitAvailability>;

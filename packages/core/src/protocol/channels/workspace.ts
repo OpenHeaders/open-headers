@@ -616,6 +616,39 @@ export interface WorkspaceRpc {
     res: WorkspaceTreeLogWire;
   };
   /**
+   * The log's text field asked of the WHOLE history a scope reaches,
+   * not of the window `log` answered: the newest `limit` commits whose
+   * subject, author or hash matches, in full, and whether more exist.
+   * The scope and the row filters read as `log`'s. Bounded host-side —
+   * one deadline (`search-timeout`), and a newer search under the same
+   * `key` ends the older one (`superseded`). A host that predates the
+   * verb answers it as not implemented (additive).
+   */
+  'oh.workspaceTree.searchLog': {
+    req: {
+      workspaceId: string;
+      /** What to match — a bounded plain string; anything else refuses `invalid-filter`. */
+      text: string;
+      /** `text` is a pattern. */
+      regex?: boolean;
+      matchCase?: boolean;
+      /** The surface that asks (a log tab) — its newer search ends its older one. */
+      key?: string;
+      limit?: number;
+      refs?: string[];
+      allRefs?: boolean;
+      author?: string;
+      authors?: string[];
+      authorMe?: boolean;
+      since?: string;
+      until?: string;
+      paths?: string[];
+      noMerges?: boolean;
+      firstParent?: boolean;
+    };
+    res: WorkspaceTreeSearchLogWire;
+  };
+  /**
    * The log view's ref tree (§9, Phase 7 slice 2): local branches,
    * remote-tracking refs (as of the last background fetch — the panel
    * never touches the network), and tags. Pure read; `current` names
@@ -1281,6 +1314,30 @@ export type WorkspaceTreeLogWire =
       reason: 'not-bound' | 'git-unavailable' | 'not-a-repo' | 'unknown-ref' | 'invalid-filter' | 'log-failed';
       detail?: string;
       /** `unknown-ref`: the scope's members the tree does not list (additive). */
+      unknownRefs?: string[];
+    };
+
+export type WorkspaceTreeSearchLogWire =
+  | {
+      ok: true;
+      /** The newest matching commits — at most the page asked for. Their `onHead` is absent: a searched page never bands. */
+      entries: WorkspaceTreeLogEntryWire[];
+      /** The history holds matches past this page. */
+      more: boolean;
+    }
+  | {
+      ok: false;
+      /** `search-timeout`: the deadline came before the history ended. `superseded`: a newer search took this one's place. */
+      reason:
+        | 'not-bound'
+        | 'git-unavailable'
+        | 'not-a-repo'
+        | 'unknown-ref'
+        | 'invalid-filter'
+        | 'log-failed'
+        | 'search-timeout'
+        | 'superseded';
+      detail?: string;
       unknownRefs?: string[];
     };
 

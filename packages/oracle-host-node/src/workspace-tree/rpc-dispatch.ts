@@ -15,7 +15,12 @@
 
 import type { CommitResolution } from '@openheaders/core/workspace-tree';
 import type { ApplyCommitResolution } from './change-answers';
-import type { CommitLocalWork, WorkspaceTreeCommitCadence, WorkspaceTreeRuntime } from './runtime';
+import type {
+  CommitLocalWork,
+  WorkspaceTreeCommitCadence,
+  WorkspaceTreeLogFilters,
+  WorkspaceTreeRuntime,
+} from './runtime';
 
 const COMMIT_CADENCE_VALUES: WorkspaceTreeCommitCadence[] = [
   'off',
@@ -83,6 +88,26 @@ function readLogScope(ref: unknown, refs: unknown): string[] | undefined | null 
   if (refs === undefined) return one === undefined ? undefined : [one];
   if (one !== undefined || !Array.isArray(refs)) return null;
   return refs.every((name): name is string => typeof name === 'string' && name.length > 0) ? refs : null;
+}
+
+/** The row filters of a log or a search call — each field as the runtime's validation takes it, the rest left out. */
+function readLogFilters(message: Record<string, unknown>): WorkspaceTreeLogFilters {
+  return {
+    ...(typeof message.author === 'string' && message.author.length > 0 ? { author: message.author } : {}),
+    ...(Array.isArray(message.authors) && message.authors.every((name): name is string => typeof name === 'string')
+      ? { authors: message.authors }
+      : {}),
+    ...(message.authorMe === true ? { authorMe: true } : {}),
+    ...(typeof message.since === 'string' && message.since.length > 0 ? { since: message.since } : {}),
+    ...(typeof message.until === 'string' && message.until.length > 0 ? { until: message.until } : {}),
+    ...(Array.isArray(message.paths) && message.paths.every((path): path is string => typeof path === 'string')
+      ? { paths: message.paths }
+      : {}),
+    ...(message.noMerges === true ? { noMerges: true } : {}),
+    ...(message.firstParent === true ? { firstParent: true } : {}),
+    ...(message.topoOrder === true ? { topoOrder: true } : {}),
+    ...(message.allRefs === true ? { allRefs: true } : {}),
+  };
 }
 
 export function ownsWorkspaceTreeRpc(type: unknown): type is string {
@@ -299,22 +324,33 @@ export async function dispatchWorkspaceTreeRpc(
     if (!workspaceId || runtime === null) return { ok: false, reason: 'not-bound' };
     const scope = readLogScope(message.ref, message.refs);
     if (scope === null) return { ok: false, reason: 'invalid-filter' };
-    return await runtime.log(workspaceId, typeof message.limit === 'number' ? message.limit : undefined, scope, {
-      ...(typeof message.author === 'string' && message.author.length > 0 ? { author: message.author } : {}),
-      ...(Array.isArray(message.authors) && message.authors.every((name): name is string => typeof name === 'string')
-        ? { authors: message.authors }
-        : {}),
-      ...(message.authorMe === true ? { authorMe: true } : {}),
-      ...(typeof message.since === 'string' && message.since.length > 0 ? { since: message.since } : {}),
-      ...(typeof message.until === 'string' && message.until.length > 0 ? { until: message.until } : {}),
-      ...(Array.isArray(message.paths) && message.paths.every((path): path is string => typeof path === 'string')
-        ? { paths: message.paths }
-        : {}),
-      ...(message.noMerges === true ? { noMerges: true } : {}),
-      ...(message.firstParent === true ? { firstParent: true } : {}),
-      ...(message.topoOrder === true ? { topoOrder: true } : {}),
-      ...(message.allRefs === true ? { allRefs: true } : {}),
-    });
+    return await runtime.log(
+      workspaceId,
+      typeof message.limit === 'number' ? message.limit : undefined,
+      scope,
+      readLogFilters(message),
+    );
+  }
+  // The log's text field over the whole history: the text and its
+  // toggles travel as sent — the runtime refuses what is no search.
+  if (type === 'oh.workspaceTree.searchLog') {
+    const workspaceId = typeof message.workspaceId === 'string' ? message.workspaceId : '';
+    if (!workspaceId || runtime === null) return { ok: false, reason: 'not-bound' };
+    const scope = readLogScope(undefined, message.refs);
+    if (scope === null || typeof message.text !== 'string') return { ok: false, reason: 'invalid-filter' };
+    if (message.key !== undefined && typeof message.key !== 'string') return { ok: false, reason: 'invalid-filter' };
+    return await runtime.searchLog(
+      workspaceId,
+      {
+        text: message.text,
+        ...(message.regex === true ? { regex: true } : {}),
+        ...(message.matchCase === true ? { matchCase: true } : {}),
+        ...(message.key !== undefined ? { key: message.key } : {}),
+      },
+      typeof message.limit === 'number' ? message.limit : undefined,
+      scope,
+      readLogFilters(message),
+    );
   }
   if (type === 'oh.workspaceTree.listRefs') {
     const workspaceId = typeof message.workspaceId === 'string' ? message.workspaceId : '';

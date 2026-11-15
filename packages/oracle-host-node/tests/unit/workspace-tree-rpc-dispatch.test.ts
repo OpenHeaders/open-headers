@@ -39,6 +39,7 @@ function runtime(): WorkspaceTreeRuntime {
     notifyAppFocus: vi.fn(),
     gitStatus: vi.fn(),
     log: vi.fn(),
+    searchLog: vi.fn(),
     changes: vi.fn(),
     workingFileDiff: vi.fn(),
     userCommit: vi.fn(),
@@ -214,5 +215,77 @@ describe('a pass with no host behind it', () => {
     expect(
       await dispatchWorkspaceTreeRpc(null, pass.type, { workspaceId: WORKSPACE, ...pass.fields, resolution: 'nope' }),
     ).toEqual({ ok: false, reason: 'not-bound' });
+  });
+});
+
+describe('oh.workspaceTree.searchLog — the search as the runtime is handed it', () => {
+  const SEARCH = 'oh.workspaceTree.searchLog';
+
+  it('a text alone travels as the search, with no scope, no page and no filter', async () => {
+    const host = runtime();
+    await dispatchWorkspaceTreeRpc(host, SEARCH, { workspaceId: WORKSPACE, text: 'orders' });
+    expect(host.searchLog).toHaveBeenCalledWith(WORKSPACE, { text: 'orders' }, undefined, undefined, {});
+  });
+
+  it('the toggles, the key, the page, the scope and the row filters each travel in their own place', async () => {
+    const host = runtime();
+    await dispatchWorkspaceTreeRpc(host, SEARCH, {
+      workspaceId: WORKSPACE,
+      text: '^fix',
+      regex: true,
+      matchCase: true,
+      key: 'log-2',
+      limit: 50,
+      refs: ['main', 'HEAD'],
+      authors: ['John Doe'],
+      since: '2026-08-01',
+      paths: ['requests/orders'],
+      noMerges: true,
+      firstParent: true,
+    });
+    expect(host.searchLog).toHaveBeenCalledWith(
+      WORKSPACE,
+      { text: '^fix', regex: true, matchCase: true, key: 'log-2' },
+      50,
+      ['main', 'HEAD'],
+      { authors: ['John Doe'], since: '2026-08-01', paths: ['requests/orders'], noMerges: true, firstParent: true },
+    );
+  });
+
+  it('a toggle that is not the word true is left out', async () => {
+    const host = runtime();
+    await dispatchWorkspaceTreeRpc(host, SEARCH, {
+      workspaceId: WORKSPACE,
+      text: 'orders',
+      regex: 'yes',
+      matchCase: 1,
+    });
+    expect(host.searchLog).toHaveBeenCalledWith(WORKSPACE, { text: 'orders' }, undefined, undefined, {});
+  });
+
+  it.each([
+    ['no text', {}],
+    ['a text that is no string', { text: 7 }],
+    ['a key that is no string', { text: 'orders', key: 7 }],
+    ['a scope that is no list of names', { text: 'orders', refs: 'main' }],
+    ['a scope with a member that is no name', { text: 'orders', refs: ['main', 3] }],
+  ])('%s is refused before the runtime is asked', async (_name, fields) => {
+    const host = runtime();
+    expect(await dispatchWorkspaceTreeRpc(host, SEARCH, { workspaceId: WORKSPACE, ...fields })).toEqual({
+      ok: false,
+      reason: 'invalid-filter',
+    });
+    expect(host.searchLog).not.toHaveBeenCalled();
+  });
+
+  it('answers not-bound with no workspace or no host behind it', async () => {
+    expect(await dispatchWorkspaceTreeRpc(runtime(), SEARCH, { text: 'orders' })).toEqual({
+      ok: false,
+      reason: 'not-bound',
+    });
+    expect(await dispatchWorkspaceTreeRpc(null, SEARCH, { workspaceId: WORKSPACE, text: 'orders' })).toEqual({
+      ok: false,
+      reason: 'not-bound',
+    });
   });
 });

@@ -32,6 +32,7 @@ export {
   type GitRunner,
   probeGitAvailability,
 } from './git-exec';
+export { createGitStream, type GitStreamRunner } from './git-stream';
 export {
   type AddIgnoreEntryResult,
   addIgnoreEntry,
@@ -42,6 +43,7 @@ export {
   removeIgnoreEntry,
 } from './ignore-ops';
 export { type HeldIndexLock, type IndexLockRefusal, lockRefusalReason, withIndexLock } from './index-lock';
+export { type CommitLogSearchResult, type LogSearchMatch, plainTextMatch, searchCommitLog } from './log-search';
 export { type AbortGitOperationResult, abortGitOperation, type GitOperation, gitOperationKind } from './operation';
 export { type CommitParentChange, type CommitParentChanges, readCommitParentChanges } from './parent-changes';
 export {

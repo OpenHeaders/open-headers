@@ -105,7 +105,7 @@ const PINNED_CONFIG: ReadonlyArray<readonly [key: string, value: string]> = [
  * pinned config entries follow any command-scope entries the launching
  * shell already carries.
  */
-function baseEnv(extra: Record<string, string> | undefined): NodeJS.ProcessEnv {
+export function baseEnv(extra: Record<string, string> | undefined): NodeJS.ProcessEnv {
   const env: NodeJS.ProcessEnv = { ...process.env, GIT_TERMINAL_PROMPT: '0', GIT_OPTIONAL_LOCKS: '0' };
   delete env.GIT_DIR;
   delete env.GIT_WORK_TREE;

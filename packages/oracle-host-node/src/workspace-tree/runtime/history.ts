@@ -22,14 +22,16 @@ import {
   listFileLog,
   listHeadTreePaths,
   listRepoRefs,
+  plainTextMatch,
   readCommitFileDiff,
   readCommitParentChanges,
   readCommitPatch,
   readCommitSignatures,
   resolveAuthorFilterValue,
+  searchCommitLog,
   unlistedScopeRefs,
 } from '../../git';
-import { LOG_DEFAULT_LIMIT, LOG_MAX_LIMIT, type RuntimeCtx } from './core';
+import { LOG_DEFAULT_LIMIT, LOG_MAX_LIMIT, LOG_SEARCH_DEADLINE_MS, type RuntimeCtx } from './core';
 import type {
   CompareRefsRpcResult,
   WorkspaceTreeCommitParentChangesRpcResult,
@@ -39,7 +41,9 @@ import type {
   WorkspaceTreeGitConsoleRpcResult,
   WorkspaceTreeLogFilters,
   WorkspaceTreeLogRpcResult,
+  WorkspaceTreeLogSearch,
   WorkspaceTreeRefsRpcResult,
+  WorkspaceTreeSearchLogRpcResult,
   WorkspaceTreeTreeFilesRpcResult,
 } from './types';
 
@@ -56,6 +60,21 @@ export async function runLog(
   limit?: number,
   scope?: readonly string[],
 ): Promise<WorkspaceTreeLogRpcResult> {
+  const history = await openHistory(ctx, workspaceId, scope);
+  if (!history.ok) return history;
+  const entries = await read(history.rootDir, cappedLimit(limit));
+  if (entries === null) return { ok: false, reason: 'log-failed' };
+  return { ok: true, entries };
+}
+
+type HistoryRefusal = Extract<WorkspaceTreeLogRpcResult, { ok: false }>;
+
+/** What every history read stands on: a bound workspace, a git that runs, a repo, and a scope the tree lists. */
+async function openHistory(
+  ctx: RuntimeCtx,
+  workspaceId: string,
+  scope?: readonly string[],
+): Promise<{ ok: true; rootDir: string } | HistoryRefusal> {
   const binding = ctx.open.get(workspaceId);
   if (!binding) return { ok: false, reason: 'not-bound' };
   const { rootDir } = binding.record;
@@ -67,10 +86,11 @@ export async function runLog(
     if (unlisted === null) return { ok: false, reason: 'unknown-ref' };
     if (unlisted.length > 0) return { ok: false, reason: 'unknown-ref', unknownRefs: unlisted };
   }
-  const capped = Math.min(Math.max(1, Math.floor(limit ?? LOG_DEFAULT_LIMIT)), LOG_MAX_LIMIT);
-  const entries = await read(rootDir, capped);
-  if (entries === null) return { ok: false, reason: 'log-failed' };
-  return { ok: true, entries };
+  return { ok: true, rootDir };
+}
+
+function cappedLimit(limit: number | undefined): number {
+  return Math.min(Math.max(1, Math.floor(limit ?? LOG_DEFAULT_LIMIT)), LOG_MAX_LIMIT);
 }
 
 const LOG_FILTER_MAX_PATHS = 32;
@@ -129,6 +149,35 @@ function validateLogFilters(filters: WorkspaceTreeLogFilters): { ok: true; filte
   return { ok: true, filters: out };
 }
 
+/**
+ * A log call's scope and row filters as plumbing takes them — null for
+ * a shape that is none. `resolve` settles what only the repo knows.
+ */
+function readLogRequest(
+  ctx: RuntimeCtx,
+  scope?: readonly string[],
+  filters?: WorkspaceTreeLogFilters,
+): { resolve(rootDir: string): Promise<CommitLogFilters> } | null {
+  const validated = filters !== undefined ? validateLogFilters(filters) : { ok: true as const, filters: {} };
+  if (!validated.ok) return null;
+  const authorMe = filters?.authorMe === true;
+  if (authorMe && (filters?.author !== undefined || filters?.authors !== undefined)) return null;
+  // `allRefs` is a scope, not a filter — it and a scope of refs are
+  // mutually exclusive by construction. A scope names something.
+  if (scope !== undefined && (filters?.allRefs === true || scope.length === 0 || scope.length > LOG_SCOPE_MAX_REFS)) {
+    return null;
+  }
+  return {
+    resolve: async (rootDir) => {
+      const plumbing = { ...validated.filters };
+      // `User: me` resolves HOST-SIDE to the identity the commit pass
+      // itself runs under (§11.3) — the client never supplies it.
+      if (authorMe) plumbing.author = await resolveAuthorFilterValue(ctx.gitRun, rootDir, ctx.syntheticIdentity());
+      return plumbing;
+    },
+  };
+}
+
 export function runWorkspaceLog(
   ctx: RuntimeCtx,
   workspaceId: string,
@@ -136,30 +185,58 @@ export function runWorkspaceLog(
   scope?: readonly string[],
   filters?: WorkspaceTreeLogFilters,
 ): Promise<WorkspaceTreeLogRpcResult> {
-  const validated = filters !== undefined ? validateLogFilters(filters) : { ok: true as const, filters: {} };
-  if (!validated.ok) return Promise.resolve({ ok: false, reason: 'invalid-filter' });
-  const authorMe = filters?.authorMe === true;
-  if (authorMe && (filters?.author !== undefined || filters?.authors !== undefined)) {
-    return Promise.resolve({ ok: false, reason: 'invalid-filter' });
-  }
-  // `allRefs` is a scope, not a filter — it and a scope of refs are
-  // mutually exclusive by construction. A scope names something.
-  if (scope !== undefined && (filters?.allRefs === true || scope.length === 0 || scope.length > LOG_SCOPE_MAX_REFS)) {
-    return Promise.resolve({ ok: false, reason: 'invalid-filter' });
-  }
+  const request = readLogRequest(ctx, scope, filters);
+  if (request === null) return Promise.resolve({ ok: false, reason: 'invalid-filter' });
   return runLog(
     ctx,
     workspaceId,
-    async (rootDir, capped) => {
-      const plumbing = { ...validated.filters };
-      // `User: me` resolves HOST-SIDE to the identity the commit pass
-      // itself runs under (§11.3) — the client never supplies it.
-      if (authorMe) plumbing.author = await resolveAuthorFilterValue(ctx.gitRun, rootDir, ctx.syntheticIdentity());
-      return listCommitLog(ctx.gitRun, rootDir, capped, scope, plumbing);
-    },
+    async (rootDir, capped) => listCommitLog(ctx.gitRun, rootDir, capped, scope, await request.resolve(rootDir)),
     limit,
     scope,
   );
+}
+
+const LOG_SEARCH_MAX_KEY = 64;
+
+/**
+ * The log's text field over the whole history a scope reaches. The
+ * text's shape and the walk's bounds are the plumbing's; here the
+ * search takes its turn — a newer one under the same key ends it — and
+ * the plumbing's outcome becomes the verb's typed answer.
+ */
+export async function runSearchLog(
+  ctx: RuntimeCtx,
+  workspaceId: string,
+  search: WorkspaceTreeLogSearch,
+  limit?: number,
+  scope?: readonly string[],
+  filters?: WorkspaceTreeLogFilters,
+): Promise<WorkspaceTreeSearchLogRpcResult> {
+  const request = readLogRequest(ctx, scope, filters);
+  const key = search.key ?? '';
+  if (request === null || key.length > LOG_SEARCH_MAX_KEY) return { ok: false, reason: 'invalid-filter' };
+  // A pattern is never run on the host's own thread.
+  const match = search.regex === true ? null : plainTextMatch(search.text, search.matchCase === true);
+  if (match === null) return { ok: false, reason: 'invalid-filter' };
+  const history = await openHistory(ctx, workspaceId, scope);
+  if (!history.ok) return history;
+  const turn = ctx.searchTurns.take(workspaceId, key);
+  try {
+    const result = await searchCommitLog(ctx.gitStream, ctx.gitRun, history.rootDir, {
+      scope,
+      filters: await request.resolve(history.rootDir),
+      limit: cappedLimit(limit),
+      match,
+      deadlineMs: LOG_SEARCH_DEADLINE_MS,
+      signal: turn.signal,
+    });
+    if (result.ok) return result;
+    if (result.reason === 'timeout') return { ok: false, reason: 'search-timeout' };
+    if (result.reason === 'aborted') return { ok: false, reason: 'superseded' };
+    return { ok: false, reason: result.reason === 'invalid-scope' ? 'unknown-ref' : 'log-failed' };
+  } finally {
+    turn.done();
+  }
 }
 
 export function runFileLog(

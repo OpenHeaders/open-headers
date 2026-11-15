@@ -1079,21 +1079,35 @@ export async function resolveAuthorFilterValue(
 }
 
 /**
- * Recent commits with their changed paths — the §9 history view's
- * workspace timeline. One invocation regardless of `limit`; an unborn
- * HEAD answers an empty list (a fresh repo has no history yet). `scope`
- * walks branches and tags TOGETHER instead of HEAD — the union of their
- * histories; each member a validated ref NAME ({@link isSafeRefName}),
- * never a revision expression, or {@link LOG_SCOPE_HEAD} for the
- * checked-out commit beside them.
+ * What a log walk starts from and leaves out, as git takes it — shared
+ * by the timeline's read and the search over the same history, so both
+ * walk one scope under one set of row filters.
  */
-export async function listCommitLog(
+export interface CommitWalk {
+  /** The row filters, the revisions walked, then `--` and the paths. */
+  args: string[];
+  /** The scope names refs (the checked-out commit aside). */
+  named: string[];
+  /** Every ref is walked. */
+  allRefs: boolean;
+  /** Under `allRefs`, HEAD does not resolve: a repo with no refs fails the spawn and reads as empty. */
+  mayBeEmpty: boolean;
+}
+
+/**
+ * The walk of a scope under row filters. `scope` walks branches and
+ * tags TOGETHER instead of HEAD — the union of their histories; each
+ * member a validated ref NAME ({@link isSafeRefName}), never a revision
+ * expression, or {@link LOG_SCOPE_HEAD} for the checked-out commit
+ * beside them. Null for a member that is no ref name; `'empty'` when
+ * there is nothing to walk (an unborn HEAD alone).
+ */
+export async function resolveCommitWalk(
   run: GitRunner,
   rootDir: string,
-  limit: number,
   scope?: readonly string[],
   filters?: CommitLogFilters,
-): Promise<CommitLogEntry[] | null> {
+): Promise<CommitWalk | 'empty' | null> {
   const named = [...new Set(scope ?? [])].filter((ref) => ref !== LOG_SCOPE_HEAD);
   if (!named.every(isSafeRefName)) return null;
   const scoped = named.length > 0;
@@ -1103,22 +1117,12 @@ export async function listCommitLog(
   // unborn HEAD would fail the whole spawn, while other refs may still
   // exist.
   const headSha = !scoped || scope?.includes(LOG_SCOPE_HEAD) === true ? await localHeadSha(run, rootDir) : null;
-  if (!scoped && !allRefs && headSha === null) return [];
-  const paths = filters?.paths ?? [];
+  if (!scoped && !allRefs && headSha === null) return 'empty';
   const authors = [...(filters?.author !== undefined ? [filters.author] : []), ...(filters?.authors ?? [])];
-  const result = await run(
-    [
-      ...repoArgs(rootDir),
-      'log',
-      '-z',
-      '--name-status',
-      '-M',
-      `-n`,
-      String(limit),
-      `--format=${LOG_FORMAT}`,
+  return {
+    args: [
       ...(filters?.noMerges === true ? ['--no-merges'] : []),
       ...(filters?.firstParent === true ? ['--first-parent'] : []),
-      filters?.topoOrder === true ? '--topo-order' : LOG_ORDER,
       ...authors.map((author) => `--author=${escapeAuthorPattern(author)}`),
       ...(authors.length > 0 ? ['--regexp-ignore-case'] : []),
       ...(filters?.since !== undefined ? [`--since=${filters.since}`] : []),
@@ -1129,7 +1133,42 @@ export async function listCommitLog(
           ? ['--branches', '--tags', '--remotes', ...(headSha !== null ? ['HEAD'] : [])]
           : []),
       '--',
-      ...paths,
+      ...(filters?.paths ?? []),
+    ],
+    named,
+    allRefs,
+    mayBeEmpty: allRefs && headSha === null,
+  };
+}
+
+/**
+ * Recent commits with their changed paths — the §9 history view's
+ * workspace timeline. One invocation regardless of `limit`; an unborn
+ * HEAD answers an empty list (a fresh repo has no history yet). The
+ * scope and the row filters are {@link resolveCommitWalk}'s.
+ */
+export async function listCommitLog(
+  run: GitRunner,
+  rootDir: string,
+  limit: number,
+  scope?: readonly string[],
+  filters?: CommitLogFilters,
+): Promise<CommitLogEntry[] | null> {
+  const walk = await resolveCommitWalk(run, rootDir, scope, filters);
+  if (walk === null) return null;
+  if (walk === 'empty') return [];
+  const result = await run(
+    [
+      ...repoArgs(rootDir),
+      'log',
+      '-z',
+      '--name-status',
+      '-M',
+      `-n`,
+      String(limit),
+      `--format=${LOG_FORMAT}`,
+      filters?.topoOrder === true ? '--topo-order' : LOG_ORDER,
+      ...walk.args,
     ],
     { cwd: rootDir },
   );
@@ -1137,14 +1176,15 @@ export async function listCommitLog(
     // All-refs over an empty repo (no refs, unborn HEAD): rev machinery
     // falls back to the unresolvable HEAD default — an empty timeline,
     // not a failure.
-    return allRefs && headSha === null ? [] : null;
+    return walk.mayBeEmpty ? [] : null;
   }
   const entries = parseCommitLog(result.stdout);
-  if (!scoped && !allRefs) {
+  const scoped = walk.named.length > 0;
+  if (!scoped && !walk.allRefs) {
     for (const entry of entries) entry.onHead = true;
     return entries;
   }
-  const offHead = await shasNotOnHead(run, rootDir, scoped ? named : ['--branches', '--tags', '--remotes']);
+  const offHead = await shasNotOnHead(run, rootDir, scoped ? walk.named : ['--branches', '--tags', '--remotes']);
   for (const entry of entries) entry.onHead = offHead !== null && !offHead.has(entry.sha);
   return entries;
 }

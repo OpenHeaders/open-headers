@@ -32,6 +32,7 @@ import {
 } from '@openheaders/oracle/workspace/extension-workspace-store';
 import {
   createGitExec,
+  createGitStream,
   type GitAvailability,
   type GitRunner,
   type IgnoreTarget,
@@ -43,6 +44,7 @@ import {
 import { bindWorkspaceTree, probeWorkspaceTree, reserveWorkspaceTreeForAdopt, unbindWorkspaceTree } from '../bind';
 import type { ApplyCommitResolution } from '../change-answers';
 import type { ForcePushChoice } from '../force-push';
+import { createSearchTurns } from '../search-turns';
 import type { SweepWorkspaceTreeResult } from '../sweep';
 import type { SwitchDirtyAction } from '../switch';
 import {
@@ -66,6 +68,7 @@ import {
 import {
   GIT_CONSOLE_CAP,
   GIT_CONSOLE_NOTICE_MS,
+  LOG_SEARCH_MAX_IN_FLIGHT,
   MAX_PENDING_INTENTS,
   type OpenBinding,
   type RuntimeCtx,
@@ -83,6 +86,7 @@ import {
   runFileLog,
   runGitConsole,
   runListRefs,
+  runSearchLog,
   runTreeFiles,
   runWorkspaceLog,
 } from './history';
@@ -130,6 +134,7 @@ import type {
   WorkspaceTreeIgnoreRpcResult,
   WorkspaceTreeLogFilters,
   WorkspaceTreeLogRpcResult,
+  WorkspaceTreeLogSearch,
   WorkspaceTreeRefsRpcResult,
   WorkspaceTreeRemoteCheckRpcResult,
   WorkspaceTreeRemoteOpRpcResult,
@@ -138,6 +143,7 @@ import type {
   WorkspaceTreeRollbackPathsRpcResult,
   WorkspaceTreeRuntime,
   WorkspaceTreeRuntimeOptions,
+  WorkspaceTreeSearchLogRpcResult,
   WorkspaceTreeTreeFilesRpcResult,
   WorkspaceTreeUnignoreRpcResult,
   WorkspaceTreeUserCommitInput,
@@ -177,6 +183,7 @@ export type {
   WorkspaceTreeIgnoreRpcResult,
   WorkspaceTreeLogFilters,
   WorkspaceTreeLogRpcResult,
+  WorkspaceTreeLogSearch,
   WorkspaceTreeRefsRpcResult,
   WorkspaceTreeRemoteCheckRpcResult,
   WorkspaceTreeRemoteOpRpcResult,
@@ -185,6 +192,7 @@ export type {
   WorkspaceTreeRollbackPathsRpcResult,
   WorkspaceTreeRuntime,
   WorkspaceTreeRuntimeOptions,
+  WorkspaceTreeSearchLogRpcResult,
   WorkspaceTreeTreeFilesRpcResult,
   WorkspaceTreeUnignoreRpcResult,
   WorkspaceTreeUserCommitInput,
@@ -244,10 +252,14 @@ export function createWorkspaceTreeRuntime(options: WorkspaceTreeRuntimeOptions)
     await hostStorage.set(OH.workspaceTreeBindings, records);
   };
 
+  const searchTurns = createSearchTurns(LOG_SEARCH_MAX_IN_FLIGHT);
+
   const ctx: RuntimeCtx = {
     options,
     open,
     gitRun,
+    gitStream: options.gitStreamRunner ?? createGitStream(),
+    searchTurns,
     consoleRows,
     ensureGitAvailability: (cwd) => {
       gitAvailability ??= probeGitAvailability(gitRun, cwd);
@@ -694,6 +706,16 @@ export function createWorkspaceTreeRuntime(options: WorkspaceTreeRuntimeOptions)
       return runWorkspaceLog(ctx, workspaceId, limit, scope, filters);
     },
 
+    searchLog(
+      workspaceId: string,
+      search: WorkspaceTreeLogSearch,
+      limit?: number,
+      scope?: readonly string[],
+      filters?: WorkspaceTreeLogFilters,
+    ): Promise<WorkspaceTreeSearchLogRpcResult> {
+      return runSearchLog(ctx, workspaceId, search, limit, scope, filters);
+    },
+
     fileLog(workspaceId: string, filePath: string, limit?: number): Promise<WorkspaceTreeLogRpcResult> {
       return runFileLog(ctx, workspaceId, filePath, limit);
     },
@@ -960,6 +982,7 @@ export function createWorkspaceTreeRuntime(options: WorkspaceTreeRuntimeOptions)
 
     async dispose(): Promise<void> {
       disposed = true;
+      searchTurns.endAll();
       for (const timer of consoleNotices.values()) clearTimeout(timer);
       consoleNotices.clear();
       for (const binding of [...open.values()]) {
