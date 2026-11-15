@@ -603,6 +603,12 @@ export const workbenchChrome = {
     'Niciun commit încă — commit-urile se fac la cadența configurată sau manual, din „Setări › Git”.',
   'workbench.gitLog.noMatches': 'Niciun commit nu corespunde filtrelor',
   'workbench.gitLog.resetFilters': 'Resetare filtre',
+  'workbench.gitLog.search.more':
+    'Se afișează cele mai recente {count} de potriviri. Se potrivesc și commituri mai vechi — restrânge căutarea.',
+  'workbench.gitLog.search.timeout':
+    'Căutarea a rămas fără timp înainte să parcurgă tot istoricul. Aceste potriviri sunt din cele mai recente {count} de commituri.',
+  'workbench.gitLog.search.timeoutEmpty':
+    'Căutarea a rămas fără timp înainte să parcurgă tot istoricul. Nicio potrivire în cele mai recente {count} de commituri.',
   'workbench.gitLog.selectCommit': 'Selectați un commit pentru a-i vedea modificările',
   'workbench.gitLog.noneSelected': 'Niciun commit selectat',
   'workbench.gitLog.commitsSelected': '{count} commituri selectate',

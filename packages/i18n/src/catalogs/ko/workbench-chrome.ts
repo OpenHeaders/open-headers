@@ -573,6 +573,12 @@ export const workbenchChrome = {
     '아직 커밋이 없습니다. 커밋은 설정한 주기로 생기며, 설정 › Git에서 직접 커밋할 수도 있습니다.',
   'workbench.gitLog.noMatches': '필터와 일치하는 커밋 없음',
   'workbench.gitLog.resetFilters': '필터 초기화',
+  'workbench.gitLog.search.more':
+    '가장 최근 일치 항목 {count}개를 표시합니다. 더 오래된 커밋에도 일치 항목이 있으니 검색 범위를 좁혀 보세요.',
+  'workbench.gitLog.search.timeout':
+    '전체 기록을 확인하기 전에 검색 시간이 초과되었습니다. 이 일치 항목은 가장 최근 커밋 {count}개에서 찾은 것입니다.',
+  'workbench.gitLog.search.timeoutEmpty':
+    '전체 기록을 확인하기 전에 검색 시간이 초과되었습니다. 가장 최근 커밋 {count}개에는 일치 항목이 없습니다.',
   'workbench.gitLog.selectCommit': '커밋을 선택하면 변경 내용을 볼 수 있습니다',
   'workbench.gitLog.noneSelected': '선택한 커밋 없음',
   'workbench.gitLog.commitsSelected': '커밋 {count}개 선택됨',

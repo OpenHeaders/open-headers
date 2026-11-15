@@ -11,6 +11,12 @@
  * per-workspace. Hiding the rail swaps section #1 for the vertical
  * Branches strip (the log-window gesture).
  *
+ * An applied text sifts the window at once and, past a full window, is
+ * asked of the whole history (`use-log-search.ts`): an answer that
+ * reaches past the window takes the list — the host's page, in its
+ * order, with no graph — and everything beside the list reads the
+ * commits that are listed (`commits`).
+ *
  * The three panes are grid tracks with a sash on each boundary (the
  * reference splitters): rail | log, log | details, and files | info inside
  * details. The templates and bounds are `git-log-layout.ts`; the drag
@@ -57,6 +63,7 @@ import { contractLog, firstParentOnly, firstParentReach } from './graph-filtered
 import { topologicalOrder } from './log-topological';
 import { allLinearFragments, collapseLog, fragmentKey, type LogFragment } from './graph-fragment';
 import { currentBranchBandTip, currentBranchShas as bandShas } from './log-reachability';
+import { logSearchFace, logSearchRequest } from './log-search';
 import { type GitLogScope, logScopeWire, scopeWithout } from './log-scope';
 import { buildLogRowMenu, type LogRowMenuTarget } from './log-row-menu';
 import { getGitRailPrefs, subscribeGitRailPrefs, toggleGitRailFavorite } from './rail/git-rail-prefs';
@@ -72,6 +79,7 @@ import { useCommitPatch } from './use-commit-patch';
 import { useCommitSignatures } from './use-commit-signatures';
 import { useFileDiff } from './use-file-diff';
 import { useJumpToSource } from './use-jump-to-source';
+import { useLogSearch } from './use-log-search';
 import { useGitLogLayout } from './use-git-log-layout';
 import { useLogHourCycle } from './use-log-hour-cycle';
 import { useNewestRead } from './use-newest-read';
@@ -113,6 +121,10 @@ const GitLogView: React.FC<GitLogViewProps> = ({
 
   // The window as the host answered it; `entries` below is what the view lists.
   const [loaded, setLoaded] = useState<WorkspaceTreeLogEntryWire[]>([]);
+  // What the window was read for — a search asks about the window the view holds.
+  const [loadedFor, setLoadedFor] = useState<object | null>(null);
+  // Presses of Refresh: each reads the log again and asks a search again.
+  const [refreshes, setRefreshes] = useState(0);
   const [refs, setRefs] = useState<WorkspaceTreeRefWire[]>([]);
   const [currentRef, setCurrentRef] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -157,10 +169,6 @@ const GitLogView: React.FC<GitLogViewProps> = ({
     [railPrefs, defaultFavorites],
   );
 
-  // The signature column's marks: asked of the host only while the column shows.
-  const windowShas = useMemo(() => loaded.map((entry) => entry.sha), [loaded]);
-  const signatures = useCommitSignatures(workspaceId, windowShas, prefs.showSignatureColumn);
-
   const subscribeRecentFilters = useCallback(
     (listener: () => void) => subscribeGitLogRecentFilters(workspaceId, listener),
     [workspaceId],
@@ -196,6 +204,9 @@ const GitLogView: React.FC<GitLogViewProps> = ({
     () => buildLogWireFilters({ author, date, paths, sort }, new Date()),
     [author, date, paths, sort],
   );
+
+  // What the log asks the host: its scope and its filters, one object while neither moves.
+  const logAsk = useMemo(() => ({ selectedRefs, wireFilters }), [selectedRefs, wireFilters]);
 
   // Reads overlap — a filter changes while the one before is still at
   // the host — and they come back in any order (`User: me` takes the
@@ -235,6 +246,7 @@ const GitLogView: React.FC<GitLogViewProps> = ({
       const walked = unborn === null ? selectedRefs : scopeWithout(selectedRefs, [unborn]);
       if (selectedRefs.length > 0 && walked.length === 0) {
         setLoaded([]);
+        setLoadedFor(logAsk);
         return;
       }
       // The scope (the reference model): empty = every ref (`allRefs`),
@@ -249,6 +261,7 @@ const GitLogView: React.FC<GitLogViewProps> = ({
       if (superseded()) return;
       if (result.ok) {
         setLoaded(result.entries);
+        setLoadedFor(logAsk);
       } else if (result.reason === 'unknown-ref') {
         // Scoped refs vanished (branch deleted, tag dropped): the scope
         // keeps the rest — every ref once none is left; the effect below
@@ -264,7 +277,7 @@ const GitLogView: React.FC<GitLogViewProps> = ({
       setLoaded([]);
       setError((err as Error).message);
     }
-  }, [beginRead, workspaceId, selectedRefs, branch, wireFilters, t]);
+  }, [beginRead, workspaceId, selectedRefs, branch, wireFilters, logAsk, t]);
 
   useEffect(() => {
     void reload();
@@ -272,6 +285,10 @@ const GitLogView: React.FC<GitLogViewProps> = ({
 
   // The press of Refresh: the one read of the log the window answers with its sign of work.
   const refresh = useAskedRead(reload);
+  const pressRefresh = useCallback((): void => {
+    refresh.ask();
+    setRefreshes((count) => count + 1);
+  }, [refresh.ask]);
 
   useEffect(() => {
     return hostBridge.subscribe('workspaceTreeGitStatus', (payload) => {
@@ -293,6 +310,66 @@ const GitLogView: React.FC<GitLogViewProps> = ({
   }, [loaded, sort, refs, currentRef, detachedSha]);
 
   const matcher = useMemo(() => makeLogTextMatcher(filter, filterRegex, filterCase), [filter, filterRegex, filterCase]);
+
+  // The branch gitStatus reports but listRefs doesn't: an unborn HEAD
+  // (fresh repo, first commit pending). Shown as the current branch in
+  // the Local group; its name must never scope `log` — the membership
+  // gate would refuse it — so selecting it is HEAD scope.
+  const unbornBranch = useMemo(
+    () => (branch !== null && !refs.some((ref) => ref.kind === 'local' && ref.name === branch) ? branch : null),
+    [branch, refs],
+  );
+
+  // The text asked of the whole history. Only past a FULL window: one
+  // under its limit is the whole history its scope reaches, and the
+  // sift below is already exact. The request is one object while what
+  // it asks stands, so a status frame alone asks nothing.
+  const windowFull = loaded.length >= LOG_LIMIT;
+  const windowCurrent = loadedFor === logAsk;
+  const searches = matcher.kind === 'match';
+  const searchRequest = useMemo(() => {
+    if (!searches || !windowFull || !windowCurrent) return null;
+    return logSearchRequest({
+      workspaceId,
+      key: tabKey,
+      text: filter,
+      regex: filterRegex,
+      matchCase: filterCase,
+      scope: unbornBranch === null ? selectedRefs : scopeWithout(selectedRefs, [unbornBranch]),
+      filters: wireFilters,
+      noMerges,
+      firstParent,
+      limit: LOG_LIMIT,
+    });
+  }, [
+    searches,
+    windowFull,
+    windowCurrent,
+    workspaceId,
+    tabKey,
+    filter,
+    filterRegex,
+    filterCase,
+    unbornBranch,
+    selectedRefs,
+    wireFilters,
+    noMerges,
+    firstParent,
+  ]);
+  // What an answer stands on besides what was asked: where the refs
+  // and HEAD point. A frame that moves none of them leaves it standing.
+  const tips = useMemo(
+    () => [...refs.map((ref) => `${ref.kind} ${ref.name} ${ref.sha}`), currentRef ?? '', detachedSha ?? ''].join('\n'),
+    [refs, currentRef, detachedSha],
+  );
+  const search = useLogSearch(
+    searchRequest,
+    `${tips}\n${refreshes}`,
+    `${filter}\n${filterRegex}\n${filterCase}\n${refreshes}`,
+  );
+  const searchFace = useMemo(() => logSearchFace(loaded, search.answer), [loaded, search.answer]);
+  // The host's page, when its answer reaches past the window.
+  const page = searchFace.kind === 'page' ? searchFace.entries : null;
 
   // The view's own sifts of the window: the text filter, No Merges and
   // First Parent. Each hides rows (or lines) the window still holds, so
@@ -341,19 +418,48 @@ const GitLogView: React.FC<GitLogViewProps> = ({
   // HEAD's commit names the lane that owns the shared history (the
   // trunk keeps one colour); a collapsed fragment hides its interior
   // rows and its skipping edge draws as the stubs.
-  const graphHonest = filtered === entries && !rowFiltersActive;
+  // A page past the window is the host's too: its commits are listed
+  // as the host found them, with no graph between them.
+  const graphHonest = page === null && filtered === entries && !rowFiltersActive;
   // The view's sifts hide rows of a window that still holds them, so
   // their list keeps a graph (the reference's reading): every listed
   // commit joined to the nearest listed commits it descends from, a
   // join through hidden commits drawn as the stubs.
   const searched = useMemo(
-    () => (filtered !== entries && !rowFiltersActive ? contractLog(walked, new Set(filtered.map((e) => e.sha))) : null),
-    [entries, walked, filtered, rowFiltersActive],
+    () =>
+      page === null && filtered !== entries && !rowFiltersActive
+        ? contractLog(walked, new Set(filtered.map((e) => e.sha)))
+        : null,
+    [page, entries, walked, filtered, rowFiltersActive],
   );
   const shown = useMemo(
-    () => (graphHonest ? collapseLog(entries, collapsed) : { entries: filtered, collapsedEdges: new Set<string>() }),
-    [graphHonest, entries, filtered, collapsed],
+    () =>
+      graphHonest
+        ? collapseLog(entries, collapsed)
+        : { entries: page ?? filtered, collapsedEdges: new Set<string>() },
+    [graphHonest, entries, page, filtered, collapsed],
   );
+  // The commits the view holds: the host's page past the window, else
+  // the window. Everything beside the list — the details, the files,
+  // the pick's rule, the toolbar's Go To — reads these.
+  const commits = page ?? entries;
+
+  // The signature column's marks: asked of the host only while the column shows.
+  const commitShas = useMemo(() => commits.map((entry) => entry.sha), [commits]);
+  const signatures = useCommitSignatures(workspaceId, commitShas, prefs.showSignatureColumn);
+
+  // What the list says under its last row: matches past the page, or a
+  // search past the window that did not finish.
+  const searchNote =
+    searchFace.kind === 'page'
+      ? searchFace.more
+        ? t('workbench.gitLog.search.more', { count: searchFace.entries.length })
+        : null
+      : searchFace.kind === 'timeout'
+        ? t(shown.entries.length === 0 ? 'workbench.gitLog.search.timeoutEmpty' : 'workbench.gitLog.search.timeout', {
+            count: loaded.length,
+          })
+        : null;
   // A branch head on a lane's own chain restarts the colour there (the
   // reference: the unpushed run reads apart from origin's).
   const branchHeads = useMemo(
@@ -397,27 +503,27 @@ const GitLogView: React.FC<GitLogViewProps> = ({
   const expandLinear = useCallback(() => setCollapsed(new Map()), []);
 
   const selected = useMemo(
-    () => (selectedSha !== null ? (entries.find((entry) => entry.sha === selectedSha) ?? null) : null),
-    [entries, selectedSha],
+    () => (selectedSha !== null ? (commits.find((entry) => entry.sha === selectedSha) ?? null) : null),
+    [commits, selectedSha],
   );
 
   // What the toolbar's Cherry-Pick acts on: the selected set, else the one selected commit.
   const pickTargets = selectedShas.length > 0 ? selectedShas : selected !== null ? [selected.sha] : [];
   // It holds, as the row menu's does, over a set a pick does not take.
-  const canPick = pickTargets.length > 0 && commitsApply(entries, pickTargets);
+  const canPick = pickTargets.length > 0 && commitsApply(commits, pickTargets);
 
   const selectedEntries = useMemo(() => {
     if (!multiSelected) return [];
-    const bySha = new Map(entries.map((entry) => [entry.sha, entry]));
+    const bySha = new Map(commits.map((entry) => [entry.sha, entry]));
     return selectedShas.flatMap((sha) => {
       const entry = bySha.get(sha);
       return entry === undefined ? [] : [entry];
     });
-  }, [multiSelected, entries, selectedShas]);
+  }, [multiSelected, commits, selectedShas]);
   const unionOfSelected = useMemo(() => unionFiles(selectedEntries), [selectedEntries]);
   const rangeBase = useMemo(
-    () => (multiSelected ? contiguousRangeBase(selectedShas, entries) : null),
-    [multiSelected, selectedShas, entries],
+    () => (multiSelected ? contiguousRangeBase(selectedShas, commits) : null),
+    [multiSelected, selectedShas, commits],
   );
 
   // What the files tree lists — the selected commit, or the set. The
@@ -447,25 +553,18 @@ const GitLogView: React.FC<GitLogViewProps> = ({
   // the reference's soft band under everything else — the host's
   // containment flags (the window walk from HEAD's commit when a host
   // sends none), off with the preference and withheld on the HEAD /
-  // current-branch scope (the pure rule).
+  // current-branch scope (the pure rule). A page past the window never
+  // bands: its rows carry no flag, and a walk over them would band the
+  // few that happen to be listed.
   const currentBranchShas = useMemo(() => {
-    if (!prefs.highlightCurrentBranch) return null;
+    if (!prefs.highlightCurrentBranch || page !== null) return null;
     const tip = currentBranchBandTip(headSha, {
       selectedRefs,
       headScope: GIT_LOG_SCOPE_HEAD,
       currentBranch: currentRef ?? branch,
     });
     return tip === null ? null : bandShas(tip, entries);
-  }, [prefs.highlightCurrentBranch, headSha, selectedRefs, currentRef, branch, entries]);
-
-  // The branch gitStatus reports but listRefs doesn't: an unborn HEAD
-  // (fresh repo, first commit pending). Shown as the current branch in
-  // the Local group; its name must never scope `log` — the membership
-  // gate would refuse it — so selecting it is HEAD scope.
-  const unbornBranch = useMemo(
-    () => (branch !== null && !refs.some((ref) => ref.kind === 'local' && ref.name === branch) ? branch : null),
-    [branch, refs],
-  );
+  }, [prefs.highlightCurrentBranch, page, headSha, selectedRefs, currentRef, branch, entries]);
 
   const navigateToSha = (sha: string): void => {
     patchTab({ selectedSha: sha });
@@ -629,8 +728,8 @@ const GitLogView: React.FC<GitLogViewProps> = ({
             onScopeChange={applyScope}
             onUsersChange={applyUsers}
             onPathsChange={applyPaths}
-            entries={entries}
-            onRefresh={refresh.ask}
+            entries={commits}
+            onRefresh={pressRefresh}
             onCherryPick={canPick && !commitApply.working ? () => commitApply.cherryPick(pickTargets) : undefined}
             onNavigate={navigateToSha}
             prefs={prefs}
@@ -641,7 +740,7 @@ const GitLogView: React.FC<GitLogViewProps> = ({
             onExpandLinear={expandLinear}
             textInvalid={matcher.kind === 'invalid'}
           />
-          <GitWorkingLine active={atHost || refresh.asked} />
+          <GitWorkingLine active={atHost || refresh.asked || search.asked} />
           <CommitList
             entries={shown.entries}
             graph={graph}
@@ -653,6 +752,7 @@ const GitLogView: React.FC<GitLogViewProps> = ({
             onSelectionChange={setSelectedShas}
             filtersActive={filtersActive}
             onResetFilters={resetFilters}
+            note={searchNote}
             matchRanges={matcher.kind === 'match' ? matcher.ranges : undefined}
             fragments={graphHonest}
             scrollTo={scrollTo}

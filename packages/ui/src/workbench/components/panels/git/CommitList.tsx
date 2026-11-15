@@ -12,7 +12,9 @@
  * hides rows (edges over a non-contiguous list would lie — cells
  * degrade to plain dots). Empty states: filters-active answers "no
  * matches" with a reset action; a genuinely empty repo keeps the
- * standing first-commit hint.
+ * standing first-commit hint. A `note` is what the list says of a
+ * search over the whole history — under its last row, or in place of
+ * "no matches" when nothing is listed.
  *
  * Selection (the shared library): a click selects a row alone,
  * Cmd/Ctrl+click toggles it, Shift+click selects the range from the
@@ -79,6 +81,8 @@ export interface CommitListProps {
    *  no-matches empty state and its reset action. */
   filtersActive: boolean;
   onResetFilters: () => void;
+  /** What the list says of a search past its rows — matches past the page, a search that did not finish; null = nothing. */
+  note?: string | null;
   /** Navigate gesture: scroll the row for `sha` into view. The nonce
    *  distinguishes repeated navigations to the same sha. */
   scrollTo?: { sha: string; nonce: number } | null;
@@ -132,6 +136,7 @@ const CommitList: React.FC<CommitListProps> = ({
   onSelectionChange,
   filtersActive,
   onResetFilters,
+  note = null,
   scrollTo,
   compactRefs = true,
   refsOnLeft = false,
@@ -298,7 +303,9 @@ const CommitList: React.FC<CommitListProps> = ({
         }}
         data-testid="git-tool-empty"
       >
-        <span>{filtersActive ? t('workbench.gitLog.noMatches') : t('workbench.gitLog.empty')}</span>
+        <span data-testid={note !== null ? 'git-tool-list-note' : undefined}>
+          {note ?? (filtersActive ? t('workbench.gitLog.noMatches') : t('workbench.gitLog.empty'))}
+        </span>
         {filtersActive && (
           <Button type="link" size="small" onClick={onResetFilters} data-testid="git-tool-reset-filters">
             {t('workbench.gitLog.resetFilters')}
@@ -427,6 +434,14 @@ const CommitList: React.FC<CommitListProps> = ({
           </button>,
         );
       })}
+      {note !== null && (
+        <div
+          style={{ padding: '6px 12px', fontSize: GIT_TEXT_SIZE, color: token.colorTextSecondary }}
+          data-testid="git-tool-list-note"
+        >
+          {note}
+        </div>
+      )}
     </div>
   );
 };
