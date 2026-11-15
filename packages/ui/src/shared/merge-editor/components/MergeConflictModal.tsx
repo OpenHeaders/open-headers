@@ -57,9 +57,9 @@ export interface MergeConflictModalProps {
    *  Merge buttons in the modal footer. Use for adapter-specific
    *  Advanced toggles or back-to-legacy buttons. */
   footerLeading?: ReactNode;
-  /** Optional names and glyphs for the session's sections, groups and
-   *  files, in the caller's own vocabulary — the sidebar's headers and
-   *  row icons, and the chips of the strip the sidebar collapses to. */
+  /** Optional names and glyphs for the session's sections, in the
+   *  caller's own vocabulary — the sidebar's headers and the chips of
+   *  the strip the sidebar collapses to. */
   rail?: MergeRailVocabulary;
   /** Optional files panel of the caller's own, in place of the editor's
    *  list — the session's files as the caller's surfaces show them. The

@@ -78,26 +78,21 @@ const MergeFileStrip = ({
   const flyoutOf = (listed: MergeFileSection): ReactElement => (
     <div style={{ display: 'flex', flexDirection: 'column', minWidth: 200, maxWidth: 360, margin: '0 -6px' }}>
       {listed.groups.map(({ group, files: grouped }) => {
-        const known = group !== '' ? rail?.group?.(listed.section, group) : undefined;
-        const label = known?.label ?? group;
         return (
           <div key={group || '_'}>
-            {label !== '' ? (
+            {group !== '' ? (
               <div
                 style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 6,
                   padding: '4px 6px',
                   fontSize: 11,
                   fontWeight: 600,
                   color: token.colorTextSecondary,
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap',
                 }}
               >
-                {known?.icon !== undefined ? <RailGlyph size={13}>{known.icon}</RailGlyph> : null}
-                <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  {label}
-                </span>
+                {group}
               </div>
             ) : null}
             {grouped.map((file) => (
@@ -113,7 +108,7 @@ const MergeFileStrip = ({
                   textAlign: 'left',
                   border: 'none',
                   borderRadius: 4,
-                  padding: `4px 6px 4px ${label !== '' ? 20 : 6}px`,
+                  padding: `4px 6px 4px ${group !== '' ? 20 : 6}px`,
                   cursor: 'pointer',
                   display: 'flex',
                   alignItems: 'center',
@@ -122,7 +117,7 @@ const MergeFileStrip = ({
                   color: token.colorText,
                 }}
               >
-                <MergeFileGlyph file={file} rail={rail} />
+                <MergeFileGlyph file={file} />
                 <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                   {file.label}
                 </span>

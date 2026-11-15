@@ -2,9 +2,9 @@
 /**
  * The merge editor's file rail: it renders whatever it is handed — one
  * file included, under its group — marks the open file, and hands a
- * click on any row back as that file's id. Collapsed, it is a strip of
- * one chip per file in the same order, wearing the caller's icon where
- * one is given and the kind glyph where none is.
+ * click on any row back as that file's id. Beside it is a strip of one
+ * chip per section in the same order, wearing the caller's glyph for
+ * the section.
  */
 
 import {
@@ -56,7 +56,6 @@ const RAIL: MergeRailVocabulary = {
     { id: 'api-requests', label: 'API Requests', icon: <i data-testid="section-api-requests" /> },
     { id: 'files', label: 'Files', icon: <i data-testid="section-files" /> },
   ],
-  group: (_section, group) => ({ label: `dir:${group}`, icon: <i data-testid={`group-${group}`} /> }),
 };
 
 afterEach(cleanup);
@@ -97,19 +96,7 @@ describe('MergeFileList', () => {
     expect(scrolledIntoView).toEqual(['·request.yamlunresolved', '·orders.mdunresolved']);
   });
 
-  it('wears the caller’s icon before the name, and the kind glyph where the caller gives none', () => {
-    const rail: MergeRailVocabulary = {
-      sections: [],
-      fileIcon: (shown) => (shown.id === PROBE.id ? <i data-testid="own-icon" /> : null),
-    };
-    render(<MergeFileList files={[PROBE, ORDERS]} activeFileId={PROBE.id} rail={rail} onSelect={vi.fn()} />);
-    const [orders, probe] = screen.getAllByRole('button');
-    expect(probe.querySelector('[data-testid="own-icon"]')).not.toBeNull();
-    expect(probe.textContent).toBe('request.yamlunresolved');
-    expect(orders.textContent).toBe('·orders.mdunresolved');
-  });
-
-  it('lists a named section under its glyph and label, its groups under theirs, the files under their group', () => {
+  it('lists a named section under its glyph and label, its groups as written, the files under their group', () => {
     const { container } = render(
       <MergeFileList
         files={[SECTIONED_ORDERS, SECTIONED_PROBE]}
@@ -120,10 +107,9 @@ describe('MergeFileList', () => {
     );
     const sections = [...container.querySelectorAll('[data-section]')];
     expect(sections.map((section) => section.getAttribute('data-section'))).toEqual(['api-requests', 'files']);
-    expect(sections[0].textContent).toBe('API Requestsdir:probe·request.yamlunresolved');
+    expect(sections[0].textContent).toBe('API Requestsprobe·request.yamlunresolved');
     expect(sections[0].querySelector('[data-testid="section-api-requests"]')).not.toBeNull();
-    expect(sections[0].querySelector('[data-testid="group-probe"]')).not.toBeNull();
-    expect(sections[1].textContent).toBe('Filesdir:notes·orders.mdunresolved');
+    expect(sections[1].textContent).toBe('Filesnotes·orders.mdunresolved');
   });
 });
 

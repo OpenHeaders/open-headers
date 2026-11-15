@@ -7,8 +7,8 @@
  * draws — its glyph, its label; a group (`MergeFile.group`) is a header
  * under it, and the files sit under their group. A session that names
  * no sections lists by group alone. Each row carries its glyph (the
- * caller's icon for the file, else the add/modify/remove kind), a
- * status pill, and any adapter-supplied badges.
+ * add/modify/remove kind), a status pill, and any adapter-supplied
+ * badges.
  *
  * The modal decides whether a session lists its files; the list
  * renders whatever it is handed, one file included, and keeps the open
@@ -55,7 +55,7 @@ export interface MergeFileListProps {
    *  badge. Active file should reflect live stats; inactive files get
    *  the initial-state count from session-open. */
   hunkCounts?: ReadonlyMap<string, number>;
-  /** The caller's names and glyphs for sections, groups and files. */
+  /** The caller's names and glyphs for sections. */
   rail?: MergeRailVocabulary;
   onSelect(fileId: string): void;
 }
@@ -124,7 +124,7 @@ const MergeFileList = ({
       >
         <Tooltip title={t(KIND_ICONS[f.kind].tooltipKey)}>
           <span style={{ display: 'inline-flex' }}>
-            <MergeFileGlyph file={f} rail={rail} />
+            <MergeFileGlyph file={f} />
           </span>
         </Tooltip>
         <span
@@ -175,7 +175,7 @@ const MergeFileList = ({
         const named = rail?.sections.find((known) => known.id === section);
         const depth = named ? 1 : 0;
         const showGroupHeaders = named !== undefined || groups.some((g) => g.group !== '');
-        // A group the caller names reads as written; a bare group id keeps the strip's capitals.
+        // A group under a named section reads as written; one under none keeps the strip's capitals.
         const groupCase: CSSProperties = named ? {} : { fontSize: 10, letterSpacing: 0.4, textTransform: 'uppercase' };
         return (
           <div key={section || '_'} data-section={section} style={{ marginBottom: 6 }}>
@@ -196,8 +196,7 @@ const MergeFileList = ({
               </div>
             ) : null}
             {groups.map(({ group, files: listed }) => {
-              const known = group !== '' ? rail?.group?.(section, group) : undefined;
-              const label = known?.label ?? (group || (named ? '' : t('shared.mergeEditor.groupOther')));
+              const label = group || (named ? '' : t('shared.mergeEditor.groupOther'));
               const headed = showGroupHeaders && label !== '';
               return (
                 <div key={group || '_'} data-group={group}>
@@ -205,20 +204,17 @@ const MergeFileList = ({
                     <div
                       title={label}
                       style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 6,
                         padding: `4px ${EDGE}px 4px ${EDGE + depth * INDENT}px`,
                         fontSize: 11,
                         fontWeight: 600,
                         color: token.colorTextSecondary,
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap',
                         ...groupCase,
                       }}
                     >
-                      {known?.icon !== undefined ? <RailGlyph size={13}>{known.icon}</RailGlyph> : null}
-                      <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        {label}
-                      </span>
+                      {label}
                     </div>
                   ) : null}
                   {listed.map((f) => row(f, headed ? depth + 1 : depth))}

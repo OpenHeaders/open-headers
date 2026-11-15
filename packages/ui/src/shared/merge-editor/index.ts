@@ -28,7 +28,6 @@ export type {
   MergeFileStatus,
   MergeFilesPanelProps,
   MergeFilesRenderer,
-  MergeRailGroup,
   MergeRailSection,
   MergeRailVocabulary,
 } from './components/merge-file-glyph';

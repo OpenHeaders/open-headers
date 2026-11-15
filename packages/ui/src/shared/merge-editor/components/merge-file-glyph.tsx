@@ -1,9 +1,8 @@
 /**
  * What the file rail draws that the editor cannot know by itself — the
- * caller's vocabulary for a session's sections, groups and files (the
- * editor stays domain-agnostic) — and the glyph before a file's name:
- * the caller's icon for the file when it supplies one, else the kind
- * glyph (added / modified / removed). The statuses a rail row and the
+ * caller's vocabulary for a session's sections (the editor stays
+ * domain-agnostic) — and the glyph before a file's name: the kind glyph
+ * (added / modified / removed). The statuses a rail row and the
  * collapsed rail share live here too.
  */
 
@@ -27,19 +26,9 @@ export interface MergeRailSection {
   icon: ReactNode;
 }
 
-/** A group's name and glyph within its section. */
-export interface MergeRailGroup {
-  label: string;
-  icon?: ReactNode;
-}
-
 export interface MergeRailVocabulary {
   /** The sections, in listing order. */
   sections: ReadonlyArray<MergeRailSection>;
-  /** A group as the rail names it; absent = the group as written, no glyph. */
-  group?(section: string, group: string): MergeRailGroup;
-  /** A file's glyph; absent (or null) = the kind glyph. */
-  fileIcon?(file: MergeFile): ReactNode;
 }
 
 /** What a files panel is handed — the modal's own state for the session's files. */
@@ -93,9 +82,7 @@ export function RailGlyph({ children, size }: { children: ReactNode; size: numbe
   );
 }
 
-export function MergeFileGlyph({ file, rail }: { file: MergeFile; rail?: MergeRailVocabulary }): ReactElement {
-  const own = rail?.fileIcon?.(file) ?? null;
-  if (own !== null) return <RailGlyph size={14}>{own}</RailGlyph>;
+export function MergeFileGlyph({ file }: { file: MergeFile }): ReactElement {
   const kind = KIND_ICONS[file.kind];
   return (
     <RailGlyph size={12}>
