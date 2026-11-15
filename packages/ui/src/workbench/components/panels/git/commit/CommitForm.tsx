@@ -9,7 +9,9 @@
  * button plays none of its own. A held button is `aria-disabled`, never
  * natively disabled: the press that sends a commit makes its own button
  * unavailable, and a natively disabled button drops the focus it holds
- * to the page — the window then reads as unfocused. While Amend is
+ * to the page — the window then reads as unfocused. Once the commit
+ * lands the message box takes that focus: the next thing typed is the
+ * next message. While Amend is
  * on a read-only "By <author>" row under the box names whose commit
  * is being rewritten (`--amend` keeps the author; the full identity
  * is its tooltip). Author override and the inspection checks are
@@ -65,6 +67,11 @@ export interface CommitFormHandle {
   focusMessage: () => void;
   /** Focus the box with the whole message selected, caret at the start (the Amend prefill's landing). */
   selectMessage: () => void;
+  /**
+   * A commit landed: the message box takes the focus the commit's own
+   * button held. Focus the person moved elsewhere meanwhile stays there.
+   */
+  commitLanded: () => void;
 }
 
 interface PendingSelection {
@@ -108,6 +115,8 @@ const CommitForm = forwardRef<CommitFormHandle, CommitFormProps>(function Commit
   const counterRef = useRef<HTMLSpanElement>(null);
   const [selectTick, setSelectTick] = useState(0);
   const messageRef = useRef<TextAreaRef>(null);
+  const commitRef = useRef<HTMLButtonElement | HTMLAnchorElement>(null);
+  const commitAndPushRef = useRef<HTMLButtonElement | HTMLAnchorElement>(null);
   const preOpenDraft = useRef<string | null>(null);
   const pendingSelection = useRef<PendingSelection | null>(null);
 
@@ -139,6 +148,11 @@ const CommitForm = forwardRef<CommitFormHandle, CommitFormProps>(function Commit
     () => ({
       focusMessage: () => messageRef.current?.focus(),
       selectMessage: () => requestSelection(true),
+      commitLanded: () => {
+        const held = document.activeElement;
+        if (held === null) return;
+        if (held === commitRef.current || held === commitAndPushRef.current) messageRef.current?.focus();
+      },
     }),
     [requestSelection],
   );
@@ -382,6 +396,7 @@ const CommitForm = forwardRef<CommitFormHandle, CommitFormProps>(function Commit
       )}
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
         <Button
+          ref={commitRef}
           type={historyOpen ? 'default' : 'primary'}
           size="small"
           {...pressOrHeld(canCommit, () => onCommit(false))}
@@ -390,6 +405,7 @@ const CommitForm = forwardRef<CommitFormHandle, CommitFormProps>(function Commit
           {t(amend ? 'workbench.commitTool.amendCommit' : 'workbench.commitTool.commit')}
         </Button>
         <Button
+          ref={commitAndPushRef}
           size="small"
           {...pressOrHeld(canCommit, () => onCommit(true))}
           data-testid="commit-tool-commit-push"

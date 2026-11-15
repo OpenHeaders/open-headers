@@ -321,6 +321,7 @@ const CommitToolPanel: React.FC<CommitToolPanelProps> = ({ info, onHide }) => {
         setAmend(false);
         setAmendAuthor(null);
         setChecked(EMPTY_CHECKED_STATE);
+        formRef.current?.commitLanded();
         message.success(t('workbench.commitTool.committed', { sha: shortSha(result.sha ?? '') }));
         await refreshChanges();
         if (andPush) setPushOpen(true);
