@@ -85,8 +85,9 @@ export function createGitStream(options: CreateGitStreamOptions = {}): GitStream
       let busy = false;
 
       const ended = (): boolean => aborted || timedOut || fault !== null;
+      // A git that could not be started has no pid, and a kill sent to it goes to the host's own process group.
       const end = (): void => {
-        child.kill();
+        if (child.pid !== undefined) child.kill();
       };
       const onAbort = (): void => {
         aborted = true;
