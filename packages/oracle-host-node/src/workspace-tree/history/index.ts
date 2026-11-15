@@ -9,7 +9,7 @@
  */
 
 import { logger } from '@openheaders/core/utils';
-import { type GitRunner, type GitStreamRunner, readNamedRows } from '../../git';
+import { type GitRunner, type GitStreamRunner, LOG_SCOPE_HEAD, readNamedRows } from '../../git';
 import { deriveLogList, type LogList } from './derive-list';
 import type { HistoryGeneration } from './generation';
 import { createListCache, type ListCache } from './list-cache';
@@ -18,7 +18,10 @@ import { createRepoHistory, type RepoHistory } from './repo-history';
 
 export type { LogFolding, LogList } from './derive-list';
 export type { HistoryGeneration } from './generation';
+export type { LogRunInfo } from './list-runs';
+export { type LocatedLogRow, locateLogRow } from './locate';
 export { isSifted, type LogAsk, type LogFolds, logAskName, NO_FOLDS } from './log-ask';
+export { type LogRow, type LogRowEdge, type LogRowsPage, readLogRows } from './log-rows';
 
 const SCOPE = 'workspace-tree-history';
 
@@ -39,7 +42,14 @@ export interface LogHistoriesOptions {
 
 export type LogListResult =
   | { ok: true; list: LogList }
-  | { ok: false; reason: 'invalid-scope' | 'timeout' | 'closed' | 'failed' };
+  | { ok: false; reason: 'invalid-scope' | 'timeout' | 'closed' | 'failed' }
+  /** The scope names refs the history does not hold. */
+  | { ok: false; reason: 'unknown-ref'; unknownRefs: string[] };
+
+/** The members of an ask's scope a reading holds no row for — the checked-out commit is always a member. */
+function unheldRefs(generation: HistoryGeneration, ask: LogAsk): string[] {
+  return (ask.scope ?? []).filter((name) => name !== LOG_SCOPE_HEAD && !generation.refRows.has(name));
+}
 
 export interface LogHistories {
   /** The list `ask` names in the repo at `rootDir` — made once, kept while its history stands. */
@@ -140,11 +150,19 @@ export function createLogHistories(options: LogHistoriesOptions): LogHistories {
       const entry = holding(workspaceId, rootDir);
       entry.asking += 1;
       try {
-        const opened = await entry.history.open();
+        let opened = await entry.history.open();
+        if (opened.ok && unheldRefs(opened.generation, ask).length > 0) {
+          // A ref the held reading lacks may be one the reading in flight is being read for.
+          const next = await entry.history.landing();
+          if (next?.ok === true) opened = next;
+        }
         if (!opened.ok) return opened;
+        const { generation } = opened;
+        const unknownRefs = unheldRefs(generation, ask);
+        if (unknownRefs.length > 0) return { ok: false, reason: 'unknown-ref', unknownRefs };
         return await entry.lists.take(
           logAskName(ask),
-          () => make(entry, opened.generation, ask),
+          () => make(entry, generation, ask),
           (answer) => answer.ok,
         );
       } catch (fault) {

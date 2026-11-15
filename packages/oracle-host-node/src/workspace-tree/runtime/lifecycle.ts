@@ -141,6 +141,7 @@ export async function closeBinding(ctx: RuntimeCtx, binding: OpenBinding): Promi
     binding.statusPublishTimer = null;
   }
   binding.materializer.dispose();
+  ctx.logHistories.drop(binding.record.workspaceId);
   await binding.chain;
   ctx.open.delete(binding.record.workspaceId);
   releaseWorkspaceService(binding.record.workspaceId);

@@ -24,14 +24,8 @@
 import { type LogTextFields, makeLogTextMatcher } from '@openheaders/core/workspace-tree';
 import type { GitRunner } from './git-exec';
 import type { GitStreamRunner } from './git-stream';
-import {
-  type CommitLogEntry,
-  type CommitLogFilters,
-  isCommitSha,
-  LOG_FORMAT,
-  parseCommitLog,
-  resolveCommitWalk,
-} from './repo';
+import { listCommitsBySha } from './log-rows';
+import { type CommitLogEntry, type CommitLogFilters, resolveCommitWalk } from './repo';
 import { repoArgs } from './repo-args';
 
 /** The longest text a search takes. */
@@ -95,34 +89,6 @@ function scanRow(record: string): LogTextFields | null {
   const [sha, authorName, subject] = record.split('\x1f');
   if (sha === undefined || authorName === undefined || subject === undefined) return null;
   return { sha, authorName, subject: subject.replace(/\n$/, '') };
-}
-
-/**
- * The page's commits in full, in the order given — full hashes only,
- * named one by one and not walked from.
- */
-export async function listCommitsBySha(
-  run: GitRunner,
-  rootDir: string,
-  shas: readonly string[],
-): Promise<CommitLogEntry[] | null> {
-  if (shas.length === 0) return [];
-  if (!shas.every(isCommitSha)) return null;
-  const result = await run(
-    [
-      ...repoArgs(rootDir),
-      'log',
-      '--no-walk=unsorted',
-      '-z',
-      '--name-status',
-      '-M',
-      `--format=${LOG_FORMAT}`,
-      ...shas,
-      '--',
-    ],
-    { cwd: rootDir },
-  );
-  return result.code !== 0 ? null : parseCommitLog(result.stdout);
 }
 
 export async function searchCommitLog(

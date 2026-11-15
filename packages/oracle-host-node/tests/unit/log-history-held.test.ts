@@ -216,17 +216,38 @@ describe('a history the host holds', () => {
     expect(reads).toBe(3);
   });
 
+  it('waits for the reading in flight when the held one lacks a ref the ask names', async () => {
+    const first = await read();
+    await repo.git(['branch', 'fresh', 'HEAD~2']);
+    histories.stale(WS);
+    let release: () => void = () => undefined;
+    gate = new Promise((resolve) => {
+      release = resolve;
+    });
+    // The look starts the read; an ask the old reading can answer is answered by it.
+    expect(await read()).toBe(first);
+    const scoped = read({ scope: ['fresh'] });
+    release();
+    const list = await scoped;
+    expect(list.generation.id).not.toBe(first.generation.id);
+    expect(list.skeleton.count).toBe((await repo.shas('fresh')).length);
+    expect(await histories.list(WS, repo.rootDir, ask({ scope: ['never'] }))).toEqual({
+      ok: false,
+      reason: 'unknown-ref',
+      unknownRefs: ['never'],
+    });
+  });
+
   it('refuses a folder that is no repo, and a walk over a ref git does not know', async () => {
     expect(await histories.list('ws-3', '/nowhere/at/all', ask())).toEqual({ ok: false, reason: 'failed' });
-    expect(await histories.list(WS, repo.rootDir, ask({ scope: ['nowhere'], walk: { author: 'Jane' } }))).toEqual({
-      ok: false,
-      reason: 'failed',
-    });
+    // The ref is the history's, and gone from the repo by the time the walk asks git for it.
+    await repo.git(['branch', 'gone', 'HEAD~4']);
+    await read();
+    await repo.git(['branch', '-D', 'gone']);
+    const gone = ask({ scope: ['gone'], walk: { author: 'Jane' } });
+    expect(await histories.list(WS, repo.rootDir, gone)).toEqual({ ok: false, reason: 'failed' });
     // What could not be made is not kept: the same ask is tried again.
-    expect(await histories.list(WS, repo.rootDir, ask({ scope: ['nowhere'], walk: { author: 'Jane' } }))).toEqual({
-      ok: false,
-      reason: 'failed',
-    });
+    expect(await histories.list(WS, repo.rootDir, gone)).toEqual({ ok: false, reason: 'failed' });
     expect(walks).toBe(2);
     // What was made is: the same ask walks once.
     await read({ walk: { author: 'Jane' } });

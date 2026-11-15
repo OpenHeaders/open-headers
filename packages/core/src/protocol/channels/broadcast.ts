@@ -421,6 +421,14 @@ export interface BridgeBroadcastContract {
   workspaceTreeGitConsole: { workspaceId: string; seq: number };
 
   /**
+   * A bound workspace's history was read anew — a ref or the
+   * checked-out commit had moved. Fired by the Node host once the new
+   * reading stands (the one before it answered meanwhile); a log reads
+   * its rows again on it.
+   */
+  workspaceTreeLogHistory: { workspaceId: string };
+
+  /**
    * A backend this host consumes a workspace from answered a (re)connect's
    * catch-up on a different checked-out HEAD than it answered the last
    * time (the git-sync plan §3.5 — reconnect across a checkout). Fired

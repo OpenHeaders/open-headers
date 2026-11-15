@@ -104,13 +104,27 @@ describe('the list an ask names', () => {
     expect(cells[6].color).not.toBe(cells[5].color);
   });
 
-  it('lists what a scope’s refs reach, in the same order — a member the history does not hold left out', async () => {
+  it('lists what a scope’s refs reach, in the same order', async () => {
     const scopes = [['side'], ['HEAD', 'other'], ['v1'], [repo.trunk, 'side'], ['HEAD'], [`origin/${repo.trunk}`]];
     for (const scope of scopes) {
       expect(hashes(await read({ scope }))).toEqual(await gitLists(...scope));
     }
-    expect(hashes(await read({ scope: ['side', 'nowhere'] }))).toEqual(await gitLists('side'));
-    expect(hashes(await read({ scope: ['nowhere'] }))).toEqual([]);
+  });
+
+  it('refuses a scope with a ref the history does not hold, naming it', async () => {
+    const ask: LogAsk = {
+      scope: ['side', 'nowhere', 'HEAD', 'gone'],
+      topological: false,
+      firstParent: false,
+      noMerges: false,
+      walk: null,
+      folds: NO_FOLDS,
+    };
+    expect(await histories.list(repo.rootDir, repo.rootDir, ask)).toEqual({
+      ok: false,
+      reason: 'unknown-ref',
+      unknownRefs: ['nowhere', 'gone'],
+    });
   });
 
   it('flags the rows the checked-out commit reaches', async () => {

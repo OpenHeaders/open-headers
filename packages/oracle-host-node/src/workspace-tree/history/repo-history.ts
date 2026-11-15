@@ -35,6 +35,8 @@ export type OpenHistoryResult =
 export interface RepoHistory {
   /** The history as it stands: read on the first call, the held reading from then on. */
   open(): Promise<OpenHistoryResult>;
+  /** The reading in flight, for a caller the held one cannot answer; null when none is. */
+  landing(): Promise<OpenHistoryResult> | null;
   /** Something moved in the repo — the tips are looked at before the next answer. */
   stale(): void;
   /** Nobody reads this history any more: a read in flight ends. */
@@ -107,6 +109,7 @@ export function createRepoHistory(options: RepoHistoryOptions): RepoHistory {
       }
       return { ok: true, generation: current };
     },
+    landing: () => reading,
     stale() {
       marked = true;
     },

@@ -117,13 +117,15 @@ export function readGitStatus(ctx: RuntimeCtx, binding: OpenBinding): Promise<Wo
 /**
  * Live git-slot feed (§9) — called after every pass that can move
  * `git status` and on setting changes; the ONE invalidation point of
- * the status authority. Invalidates the snapshot immediately (so any
- * reader from here on recomputes against the post-movement world),
- * then hands the sink a frame on the trailing debounce, deduplicated
- * by frame hash.
+ * the status authority, and of the history a log holds. Invalidates
+ * the snapshot immediately (so any reader from here on recomputes
+ * against the post-movement world), then hands the sink a frame on the
+ * trailing debounce, deduplicated by frame hash.
  */
 export async function publishGitStatus(ctx: RuntimeCtx, binding: OpenBinding): Promise<void> {
   binding.status.invalidate();
+  // The same movement may have moved a ref: a history held for the log is looked at before it next answers.
+  ctx.logHistories.stale(binding.record.workspaceId);
   const sink = ctx.options.onGitStatus;
   if (!sink || binding.closed) return;
   if (binding.statusPublishTimer) clearTimeout(binding.statusPublishTimer);

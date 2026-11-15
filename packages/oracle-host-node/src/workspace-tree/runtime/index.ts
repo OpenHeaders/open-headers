@@ -44,6 +44,7 @@ import {
 import { bindWorkspaceTree, probeWorkspaceTree, reserveWorkspaceTreeForAdopt, unbindWorkspaceTree } from '../bind';
 import type { ApplyCommitResolution } from '../change-answers';
 import type { ForcePushChoice } from '../force-push';
+import { createLogHistories } from '../history';
 import type { SweepWorkspaceTreeResult } from '../sweep';
 import type { SwitchDirtyAction } from '../switch';
 import { createTurns } from '../turns';
@@ -68,6 +69,11 @@ import {
 import {
   GIT_CONSOLE_CAP,
   GIT_CONSOLE_NOTICE_MS,
+  LOG_HISTORY_IDLE_MS,
+  LOG_HISTORY_MAX_LISTS,
+  LOG_HISTORY_READ_TIMEOUT_MS,
+  LOG_HISTORY_WALK_TIMEOUT_MS,
+  LOG_ROWS_MAX_IN_FLIGHT,
   LOG_SEARCH_MAX_IN_FLIGHT,
   MAX_PENDING_INTENTS,
   type OpenBinding,
@@ -92,6 +98,7 @@ import {
 } from './history';
 import { runIgnorePath, runUnignorePath } from './ignore';
 import { closeBinding, openBinding } from './lifecycle';
+import { runLocateLogRow, runLogRows } from './log-rows';
 import { runAbortOperation } from './operation';
 import { runApplyCommit } from './pick';
 import { runAddRemote, runCheckRemoteUrl, runListRemotes, runRemoveRemote, runUpdateRemote } from './remotes';
@@ -132,7 +139,10 @@ import type {
   WorkspaceTreeGitConsoleRpcResult,
   WorkspaceTreeGitStatusRpcResult,
   WorkspaceTreeIgnoreRpcResult,
+  WorkspaceTreeLocateLogRowRpcResult,
   WorkspaceTreeLogFilters,
+  WorkspaceTreeLogListAsk,
+  WorkspaceTreeLogRowsRpcResult,
   WorkspaceTreeLogRpcResult,
   WorkspaceTreeLogSearch,
   WorkspaceTreeRefsRpcResult,
@@ -181,7 +191,10 @@ export type {
   WorkspaceTreeGitConsoleRpcResult,
   WorkspaceTreeGitStatusRpcResult,
   WorkspaceTreeIgnoreRpcResult,
+  WorkspaceTreeLocateLogRowRpcResult,
   WorkspaceTreeLogFilters,
+  WorkspaceTreeLogListAsk,
+  WorkspaceTreeLogRowsRpcResult,
   WorkspaceTreeLogRpcResult,
   WorkspaceTreeLogSearch,
   WorkspaceTreeRefsRpcResult,
@@ -253,13 +266,28 @@ export function createWorkspaceTreeRuntime(options: WorkspaceTreeRuntimeOptions)
   };
 
   const searchTurns = createTurns(LOG_SEARCH_MAX_IN_FLIGHT);
+  const logTurns = { rows: createTurns(LOG_ROWS_MAX_IN_FLIGHT), locate: createTurns(LOG_ROWS_MAX_IN_FLIGHT) };
+  const gitStream = options.gitStreamRunner ?? createGitStream();
+  const logHistories = createLogHistories({
+    run: gitRun,
+    stream: gitStream,
+    readTimeoutMs: LOG_HISTORY_READ_TIMEOUT_MS,
+    walkTimeoutMs: LOG_HISTORY_WALK_TIMEOUT_MS,
+    idleMs: LOG_HISTORY_IDLE_MS,
+    maxLists: LOG_HISTORY_MAX_LISTS,
+    onMoved: (workspaceId) => {
+      if (!disposed) options.onLogHistory?.(workspaceId);
+    },
+  });
 
   const ctx: RuntimeCtx = {
     options,
     open,
     gitRun,
-    gitStream: options.gitStreamRunner ?? createGitStream(),
+    gitStream,
     searchTurns,
+    logHistories,
+    logTurns,
     consoleRows,
     ensureGitAvailability: (cwd) => {
       gitAvailability ??= probeGitAvailability(gitRun, cwd);
@@ -716,6 +744,23 @@ export function createWorkspaceTreeRuntime(options: WorkspaceTreeRuntimeOptions)
       return runSearchLog(ctx, workspaceId, search, limit, scope, filters);
     },
 
+    logRows(
+      workspaceId: string,
+      ask: WorkspaceTreeLogListAsk,
+      from: number,
+      count: number,
+    ): Promise<WorkspaceTreeLogRowsRpcResult> {
+      return runLogRows(ctx, workspaceId, ask, from, count);
+    },
+
+    locateLogRow(
+      workspaceId: string,
+      ask: WorkspaceTreeLogListAsk,
+      target: string,
+    ): Promise<WorkspaceTreeLocateLogRowRpcResult> {
+      return runLocateLogRow(ctx, workspaceId, ask, target);
+    },
+
     fileLog(workspaceId: string, filePath: string, limit?: number): Promise<WorkspaceTreeLogRpcResult> {
       return runFileLog(ctx, workspaceId, filePath, limit);
     },
@@ -983,6 +1028,9 @@ export function createWorkspaceTreeRuntime(options: WorkspaceTreeRuntimeOptions)
     async dispose(): Promise<void> {
       disposed = true;
       searchTurns.endAll();
+      logTurns.rows.endAll();
+      logTurns.locate.endAll();
+      logHistories.dispose();
       for (const timer of consoleNotices.values()) clearTimeout(timer);
       consoleNotices.clear();
       for (const binding of [...open.values()]) {

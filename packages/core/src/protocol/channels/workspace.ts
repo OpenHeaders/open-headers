@@ -649,6 +649,38 @@ export interface WorkspaceRpc {
     res: WorkspaceTreeSearchLogWire;
   };
   /**
+   * A stretch of the log's rows — the WHOLE history a scope reaches is
+   * listed host-side, and a view asks for the rows it shows: each
+   * commit in full with its graph cell, where its joins and its child
+   * sit, and the linear run it belongs to. What is asked (the scope,
+   * the order, the sifts, the folded runs) NAMES the list: there is
+   * nothing to open or close, and two tabs that ask the same read one
+   * list. `list` in the answer changes when the history was read anew —
+   * rows held under another are dropped (`workspaceTreeLogHistory`
+   * says when to ask again). A newer call under the same `key` ends
+   * the older one (`superseded`). A host that predates the verb answers
+   * it as not implemented (additive).
+   */
+  'oh.workspaceTree.logRows': {
+    req: WorkspaceTreeLogAskWire & {
+      /** The first row asked for. */
+      from: number;
+      /** How many rows — at most 400. */
+      count: number;
+    };
+    res: WorkspaceTreeLogRowsWire;
+  };
+  /**
+   * Where a commit sits in the list an ask names — by its full hash,
+   * the start of one, or a ref's name (`HEAD` for the checked-out
+   * commit). `not-found`: the history holds no such commit;
+   * `not-listed`: it does, and this list leaves it out.
+   */
+  'oh.workspaceTree.locateLogRow': {
+    req: WorkspaceTreeLogAskWire & { target: string };
+    res: WorkspaceTreeLocateLogRowWire;
+  };
+  /**
    * The log view's ref tree (§9, Phase 7 slice 2): local branches,
    * remote-tracking refs (as of the last background fetch — the panel
    * never touches the network), and tags. Pure read; `current` names
@@ -1340,6 +1372,132 @@ export type WorkspaceTreeSearchLogWire =
       detail?: string;
       unknownRefs?: string[];
     };
+
+/**
+ * What a log asks to be listed — the list's name. The scope and the
+ * row filters read as `log`'s; with neither `refs` nor `allRefs` the
+ * checked-out commit's history is listed.
+ */
+export interface WorkspaceTreeLogAskWire {
+  workspaceId: string;
+  /** The surface that asks (a log tab) — its newer call ends its older one. */
+  key?: string;
+  refs?: string[];
+  allRefs?: boolean;
+  author?: string;
+  authors?: string[];
+  authorMe?: boolean;
+  since?: string;
+  until?: string;
+  paths?: string[];
+  /** Sort › Topologically, in place of the date order. */
+  topoOrder?: boolean;
+  noMerges?: boolean;
+  firstParent?: boolean;
+  /** Every linear run is folded — and `folds` names the ones opened again. */
+  foldAll?: boolean;
+  /** The folded runs (the opened ones under `foldAll`), each by the full hash of the first commit it hides. */
+  folds?: string[];
+  /**
+   * The person asked for the log to be read again (Refresh): the host
+   * looks at where the refs and the checked-out commit point before it
+   * answers, as it does by itself after anything it moved.
+   */
+  refresh?: boolean;
+}
+
+/** One graph edge inside a row's cell, in lane coordinates. */
+export interface WorkspaceTreeLogEdgeWire {
+  from: number;
+  to: number;
+  /** A palette number. */
+  color: number;
+  /** Which half of the row the edge spans: `top` converges into the dot, `bottom` forks out of it, `pass` crosses the row. */
+  span: 'top' | 'bottom' | 'pass';
+  /** The row of the newer commit the edge descends from; -1 on a lane no commit opened. */
+  child: number;
+  /** The row of the older commit the edge reaches — at or past the list's `total` when it leaves the list. */
+  parent: number;
+  /** The edge passes over hidden commits — drawn as stubs, not a line. */
+  collapsed: boolean;
+  /** The linear run the edge is part of; absent where it is part of none. */
+  run?: number;
+}
+
+/** One row's graph cell. */
+export interface WorkspaceTreeLogCellWire {
+  /** The commit dot's lane. */
+  lane: number;
+  /** A palette number. */
+  color: number;
+  /** Lanes occupied while the row renders. */
+  laneCount: number;
+  edges: WorkspaceTreeLogEdgeWire[];
+}
+
+/** One row of the log. */
+export interface WorkspaceTreeLogRowWire {
+  /** The commit, as `log` lists one — `onHead` included. */
+  entry: WorkspaceTreeLogEntryWire;
+  cell: WorkspaceTreeLogCellWire;
+  /** The rows its joins lead to, the first parent's first — at or past the list's `total` when one leaves the list. */
+  parents: number[];
+  /** The nearest row above that is joined to it; -1 for none. */
+  child: number;
+  /** The linear run a pointer over the row lights and a press on its dot folds; absent where there is none. */
+  run?: number;
+}
+
+/** A linear run some row or edge of the answer names. */
+export interface WorkspaceTreeLogRunWire {
+  run: number;
+  /** The full hash of the first commit the run hides when folded — what `folds` names it by. */
+  first: string;
+  /** The row above its stretch and the row under it. */
+  top: number;
+  bottom: number;
+  /** How many commits its stretch hides when folded. */
+  hidden: number;
+  folded: boolean;
+}
+
+type WorkspaceTreeLogListRefusalWire = {
+  ok: false;
+  /** `log-timeout`: the history, or the walk that names a filter's commits, ran out of time. `superseded`: a newer call took this one's place. */
+  reason:
+    | 'not-bound'
+    | 'git-unavailable'
+    | 'not-a-repo'
+    | 'unknown-ref'
+    | 'invalid-filter'
+    | 'log-failed'
+    | 'log-timeout'
+    | 'superseded';
+  detail?: string;
+  /** `unknown-ref`: the scope's members the history does not hold. */
+  unknownRefs?: string[];
+};
+
+export type WorkspaceTreeLogRowsWire =
+  | {
+      ok: true;
+      /** Names the list the rows are of — another id means the history was read anew. */
+      list: string;
+      /** How many rows the list holds. */
+      total: number;
+      /** The most lanes any row of the list occupies. */
+      widest: number;
+      /** The rows asked for — fewer where the list ends. */
+      rows: WorkspaceTreeLogRowWire[];
+      /** The runs those rows and their edges name. */
+      runs: WorkspaceTreeLogRunWire[];
+    }
+  | WorkspaceTreeLogListRefusalWire;
+
+export type WorkspaceTreeLocateLogRowWire =
+  | { ok: true; list: string; row: number }
+  | WorkspaceTreeLogListRefusalWire
+  | { ok: false; reason: 'not-found' | 'not-listed' };
 
 export type WorkspaceTreeEntityKindWire =
   | 'rule'

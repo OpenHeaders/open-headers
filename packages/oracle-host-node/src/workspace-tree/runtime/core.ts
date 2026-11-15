@@ -20,6 +20,7 @@ import type {
   UpstreamState,
 } from '../../git';
 import type { GitHeadWatcher } from '../head-watcher';
+import type { LogHistories } from '../history';
 import type { WorkspaceTreeMaterializer } from '../materializer';
 import type { StatusCache } from '../status-cache';
 import type { SweepWorkspaceTreeResult } from '../sweep';
@@ -96,6 +97,20 @@ export const LOG_MAX_LIMIT = 200;
 export const LOG_SEARCH_DEADLINE_MS = 5_000;
 /** Searches of one workspace's history in flight at once; one more ends the oldest. */
 export const LOG_SEARCH_MAX_IN_FLIGHT = 4;
+/** Rows one read of a log's list answers at most — a few screens of them. */
+export const LOG_ROWS_MAX_COUNT = 400;
+/** Linear runs one ask folds (or opens again) by name at most. */
+export const LOG_ROWS_MAX_FOLDS = 1_000;
+/** Reads of one kind (rows, a commit's place) of one workspace's log in flight at once; one more ends the oldest. */
+export const LOG_ROWS_MAX_IN_FLIGHT = 8;
+/** The longest one read of a whole history may take — a million commits with no commit-graph file take seven seconds. */
+export const LOG_HISTORY_READ_TIMEOUT_MS = 60_000;
+/** The longest the walk that names a filter's commits may take. */
+export const LOG_HISTORY_WALK_TIMEOUT_MS = 30_000;
+/** A history nobody has asked of for this long is let go. */
+export const LOG_HISTORY_IDLE_MS = 10 * 60_000;
+/** Lists kept per workspace. */
+export const LOG_HISTORY_MAX_LISTS = 4;
 /** Console-tab ring cap — enough scrollback without unbounded growth. */
 export const GIT_CONSOLE_CAP = 300;
 
@@ -157,6 +172,10 @@ export interface RuntimeCtx {
   readonly gitStream: GitStreamRunner;
   /** Whose turn a history search has — the bound on searches in flight. */
   readonly searchTurns: Turns;
+  /** The histories held for the logs that are open, and the lists made from them. */
+  readonly logHistories: LogHistories;
+  /** Whose turn a read of a log's list has — one set per kind of read. */
+  readonly logTurns: { readonly rows: Turns; readonly locate: Turns };
   /** Host-global audit ring (Console tab feed) — real-runner rows only. */
   readonly consoleRows: GitConsoleRow[];
   ensureGitAvailability(cwd: string): Promise<GitAvailability>;

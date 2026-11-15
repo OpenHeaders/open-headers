@@ -19,6 +19,7 @@ import type {
   CommitLocalWork,
   WorkspaceTreeCommitCadence,
   WorkspaceTreeLogFilters,
+  WorkspaceTreeLogListAsk,
   WorkspaceTreeRuntime,
 } from './runtime';
 
@@ -107,6 +108,29 @@ function readLogFilters(message: Record<string, unknown>): WorkspaceTreeLogFilte
     ...(message.firstParent === true ? { firstParent: true } : {}),
     ...(message.topoOrder === true ? { topoOrder: true } : {}),
     ...(message.allRefs === true ? { allRefs: true } : {}),
+  };
+}
+
+/**
+ * What a `logRows` or `locateLogRow` call asks to be listed — its scope,
+ * its row filters and its folded runs, each as the runtime's validation
+ * takes it: null for a `key`, `refs` or `folds` that is no such shape.
+ */
+function readLogListAsk(message: Record<string, unknown>): WorkspaceTreeLogListAsk | null {
+  const scope = readLogScope(undefined, message.refs);
+  if (scope === null) return null;
+  if (message.key !== undefined && typeof message.key !== 'string') return null;
+  const { folds } = message;
+  if (folds !== undefined && !(Array.isArray(folds) && folds.every((sha): sha is string => typeof sha === 'string'))) {
+    return null;
+  }
+  return {
+    ...(message.key !== undefined ? { key: message.key } : {}),
+    ...(scope !== undefined ? { scope } : {}),
+    filters: readLogFilters(message),
+    ...(message.foldAll === true ? { foldAll: true } : {}),
+    ...(folds !== undefined ? { folds } : {}),
+    ...(message.refresh === true ? { refresh: true } : {}),
   };
 }
 
@@ -351,6 +375,25 @@ export async function dispatchWorkspaceTreeRpc(
       scope,
       readLogFilters(message),
     );
+  }
+  // The log over a whole history: a stretch of the rows an ask names,
+  // and a commit's place among them. What is no ask refuses here; the
+  // runtime refuses what is no list.
+  if (type === 'oh.workspaceTree.logRows') {
+    const workspaceId = typeof message.workspaceId === 'string' ? message.workspaceId : '';
+    if (!workspaceId || runtime === null) return { ok: false, reason: 'not-bound' };
+    const ask = readLogListAsk(message);
+    if (ask === null || typeof message.from !== 'number' || typeof message.count !== 'number') {
+      return { ok: false, reason: 'invalid-filter' };
+    }
+    return await runtime.logRows(workspaceId, ask, message.from, message.count);
+  }
+  if (type === 'oh.workspaceTree.locateLogRow') {
+    const workspaceId = typeof message.workspaceId === 'string' ? message.workspaceId : '';
+    if (!workspaceId || runtime === null) return { ok: false, reason: 'not-bound' };
+    const ask = readLogListAsk(message);
+    if (ask === null || typeof message.target !== 'string') return { ok: false, reason: 'invalid-filter' };
+    return await runtime.locateLogRow(workspaceId, ask, message.target);
   }
   if (type === 'oh.workspaceTree.listRefs') {
     const workspaceId = typeof message.workspaceId === 'string' ? message.workspaceId : '';

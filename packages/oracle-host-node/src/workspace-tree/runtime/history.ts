@@ -153,7 +153,7 @@ function validateLogFilters(filters: WorkspaceTreeLogFilters): { ok: true; filte
  * A log call's scope and row filters as plumbing takes them — null for
  * a shape that is none. `resolve` settles what only the repo knows.
  */
-function readLogRequest(
+export function readLogRequest(
   ctx: RuntimeCtx,
   scope?: readonly string[],
   filters?: WorkspaceTreeLogFilters,
@@ -196,7 +196,8 @@ export function runWorkspaceLog(
   );
 }
 
-const LOG_SEARCH_MAX_KEY = 64;
+/** The longest name a surface gives itself (a log tab's key). */
+export const LOG_SURFACE_MAX_KEY = 64;
 
 /**
  * The log's text field over the whole history a scope reaches. The
@@ -214,7 +215,7 @@ export async function runSearchLog(
 ): Promise<WorkspaceTreeSearchLogRpcResult> {
   const request = readLogRequest(ctx, scope, filters);
   const key = search.key ?? '';
-  if (request === null || key.length > LOG_SEARCH_MAX_KEY) return { ok: false, reason: 'invalid-filter' };
+  if (request === null || key.length > LOG_SURFACE_MAX_KEY) return { ok: false, reason: 'invalid-filter' };
   // A plain text is matched here; a pattern never runs on the host's own thread — the lane is the plumbing's.
   const lane = openLogSearchLane(search.text, search.regex === true, search.matchCase === true);
   if (lane === null) return { ok: false, reason: 'invalid-filter' };

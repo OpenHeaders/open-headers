@@ -28,6 +28,7 @@ import type { BindWorkspaceTreeResult, probeWorkspaceTree, ReserveWorkspaceTreeF
 import type { ApplyCommitResolution, ApplyCommitResolve } from '../change-answers';
 import type { CommitFileEntity } from '../commit-entities';
 import type { ForcePushChoice } from '../force-push';
+import type { LogRow, LogRunInfo } from '../history';
 import type { SweepWorkspaceTreeResult } from '../sweep';
 import type { SwitchDirtyAction } from '../switch';
 
@@ -425,6 +426,64 @@ export type WorkspaceTreeSearchLogRpcResult =
       unknownRefs?: string[];
     };
 
+/**
+ * What a log asks to be listed — the list's name: the scope and the
+ * row filters as {@link WorkspaceTreeRuntime.log} reads them, and the
+ * linear runs it folds. With neither a scope nor `filters.allRefs`,
+ * the checked-out commit's history.
+ */
+export interface WorkspaceTreeLogListAsk {
+  /** The surface that asks (a log tab): its newer read ends its older one. */
+  key?: string;
+  scope?: readonly string[];
+  filters?: WorkspaceTreeLogFilters;
+  /** Every linear run is folded — and `folds` names the ones opened again. */
+  foldAll?: boolean;
+  /** The folded runs (the opened ones under `foldAll`), each by the full hash of the first commit it hides. */
+  folds?: readonly string[];
+  /** The person asked for the log to be read again: the history's tips are looked at before the answer. */
+  refresh?: boolean;
+}
+
+export interface WorkspaceTreeLogListRefusal {
+  ok: false;
+  reason:
+    | 'not-bound'
+    | 'git-unavailable'
+    | 'not-a-repo'
+    | 'unknown-ref'
+    | 'invalid-filter'
+    | 'log-failed'
+    /** The history, or the walk that names a filter's commits, ran out of time. */
+    | 'log-timeout'
+    /** A newer read took this one's place; nobody reads its answer. */
+    | 'superseded';
+  detail?: string;
+  /** `unknown-ref`: the scope's members the history does not hold. */
+  unknownRefs?: string[];
+}
+
+export type WorkspaceTreeLogRowsRpcResult =
+  | {
+      ok: true;
+      /** Names the list the rows are of — another id means the history was read anew. */
+      list: string;
+      /** How many rows the list holds. */
+      total: number;
+      /** The most lanes any row of the list occupies. */
+      widest: number;
+      rows: LogRow[];
+      /** The runs the rows and their edges name. */
+      runs: LogRunInfo[];
+    }
+  | WorkspaceTreeLogListRefusal;
+
+export type WorkspaceTreeLocateLogRowRpcResult =
+  | { ok: true; list: string; row: number }
+  | WorkspaceTreeLogListRefusal
+  /** `not-found`: the history holds no such commit. `not-listed`: it does, and the list leaves it out. */
+  | { ok: false; reason: 'not-found' | 'not-listed' };
+
 export type WorkspaceTreeRefsRpcResult =
   | { ok: true; refs: RepoRef[]; current: string | null }
   | { ok: false; reason: 'not-bound' | 'git-unavailable' | 'not-a-repo' | 'refs-failed'; detail?: string };
@@ -816,6 +875,29 @@ export interface WorkspaceTreeRuntime {
     filters?: WorkspaceTreeLogFilters,
   ): Promise<WorkspaceTreeSearchLogRpcResult>;
   /**
+   * Rows `[from, from + count)` of the list an ask names — the WHOLE
+   * history its scope reaches, listed host-side: each commit in full
+   * with its graph cell, the rows its joins and its child sit on, and
+   * the linear run it belongs to. At most 400 rows a call; a newer call
+   * under the same key ends this one (`superseded`).
+   */
+  logRows(
+    workspaceId: string,
+    ask: WorkspaceTreeLogListAsk,
+    from: number,
+    count: number,
+  ): Promise<WorkspaceTreeLogRowsRpcResult>;
+  /**
+   * Where a commit sits in the list an ask names — `target` its full
+   * hash, the start of one, or a ref's name (`HEAD` the checked-out
+   * commit).
+   */
+  locateLogRow(
+    workspaceId: string,
+    ask: WorkspaceTreeLogListAsk,
+    target: string,
+  ): Promise<WorkspaceTreeLocateLogRowRpcResult>;
+  /**
    * The Commit tool window's changes rows (working tree vs HEAD,
    * porcelain): tracked changes, unversioned files, and — when asked —
    * ignored ones. Pure read off the per-binding chain; the window
@@ -996,6 +1078,13 @@ export interface WorkspaceTreeRuntimeOptions {
    * miss every command that moved no status.
    */
   onGitConsole?: (workspaceId: string, seq: number) => void;
+  /**
+   * A bound workspace's history was read anew — a ref or the
+   * checked-out commit had moved, and the reading held for its log was
+   * replaced. The spine fans it to local surfaces as the
+   * `workspaceTreeLogHistory` broadcast: a log reads its rows again.
+   */
+  onLogHistory?: (workspaceId: string) => void;
   /**
    * §23.6 authorship (multi-user hosts): map a contributing userId to
    * its git-author identity. A sole contributor becomes the commit

@@ -40,6 +40,8 @@ function runtime(): WorkspaceTreeRuntime {
     gitStatus: vi.fn(),
     log: vi.fn(),
     searchLog: vi.fn(),
+    logRows: vi.fn(),
+    locateLogRow: vi.fn(),
     changes: vi.fn(),
     workingFileDiff: vi.fn(),
     userCommit: vi.fn(),
@@ -287,5 +289,129 @@ describe('oh.workspaceTree.searchLog — the search as the runtime is handed it'
       ok: false,
       reason: 'not-bound',
     });
+  });
+});
+
+describe('oh.workspaceTree.logRows / locateLogRow — the ask as the runtime is handed it', () => {
+  const ROWS = 'oh.workspaceTree.logRows';
+  const LOCATE = 'oh.workspaceTree.locateLogRow';
+  const FIRST = 'a'.repeat(40);
+
+  it('a stretch alone asks the checked-out commit’s history, with no scope, no fold and no filter', async () => {
+    const host = runtime();
+    await dispatchWorkspaceTreeRpc(host, ROWS, { workspaceId: WORKSPACE, from: 0, count: 200 });
+    expect(host.logRows).toHaveBeenCalledWith(WORKSPACE, { filters: {} }, 0, 200);
+  });
+
+  it('the key, the scope, the order, the sifts, the folds, the refresh and the stretch each travel in their own place', async () => {
+    const host = runtime();
+    await dispatchWorkspaceTreeRpc(host, ROWS, {
+      workspaceId: WORKSPACE,
+      key: 'log-2',
+      from: 700_000,
+      count: 400,
+      refs: ['main', 'HEAD'],
+      authors: ['John Doe'],
+      until: '2026-08-01',
+      paths: ['requests/orders'],
+      topoOrder: true,
+      noMerges: true,
+      firstParent: true,
+      foldAll: true,
+      folds: [FIRST],
+      refresh: true,
+    });
+    expect(host.logRows).toHaveBeenCalledWith(
+      WORKSPACE,
+      {
+        key: 'log-2',
+        scope: ['main', 'HEAD'],
+        filters: {
+          authors: ['John Doe'],
+          until: '2026-08-01',
+          paths: ['requests/orders'],
+          noMerges: true,
+          firstParent: true,
+          topoOrder: true,
+        },
+        foldAll: true,
+        folds: [FIRST],
+        refresh: true,
+      },
+      700_000,
+      400,
+    );
+  });
+
+  it('every ref is a filter of the ask, and a fold or a refresh that is not the word true is left out', async () => {
+    const host = runtime();
+    await dispatchWorkspaceTreeRpc(host, ROWS, {
+      workspaceId: WORKSPACE,
+      from: 0,
+      count: 1,
+      allRefs: true,
+      foldAll: 1,
+      refresh: 'yes',
+    });
+    expect(host.logRows).toHaveBeenCalledWith(WORKSPACE, { filters: { allRefs: true } }, 0, 1);
+  });
+
+  it('a target is located under the same ask', async () => {
+    const host = runtime();
+    await dispatchWorkspaceTreeRpc(host, LOCATE, {
+      workspaceId: WORKSPACE,
+      key: 'log-2',
+      refs: ['main'],
+      noMerges: true,
+      target: 'HEAD',
+    });
+    expect(host.locateLogRow).toHaveBeenCalledWith(
+      WORKSPACE,
+      { key: 'log-2', scope: ['main'], filters: { noMerges: true } },
+      'HEAD',
+    );
+  });
+
+  it.each([
+    ['no stretch', {}],
+    ['a start that is no number', { from: '0', count: 10 }],
+    ['a count that is no number', { from: 0, count: '10' }],
+    ['a key that is no string', { from: 0, count: 10, key: 7 }],
+    ['a scope that is no list of names', { from: 0, count: 10, refs: 'main' }],
+    ['folds that are no list', { from: 0, count: 10, folds: FIRST }],
+    ['a fold that is no name', { from: 0, count: 10, folds: [FIRST, 3] }],
+  ])('rows: %s is refused before the runtime is asked', async (_name, fields) => {
+    const host = runtime();
+    expect(await dispatchWorkspaceTreeRpc(host, ROWS, { workspaceId: WORKSPACE, ...fields })).toEqual({
+      ok: false,
+      reason: 'invalid-filter',
+    });
+    expect(host.logRows).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ['no target', {}],
+    ['a target that is no string', { target: 7 }],
+    ['a scope with a member that is no name', { target: 'HEAD', refs: ['main', 3] }],
+  ])('locate: %s is refused before the runtime is asked', async (_name, fields) => {
+    const host = runtime();
+    expect(await dispatchWorkspaceTreeRpc(host, LOCATE, { workspaceId: WORKSPACE, ...fields })).toEqual({
+      ok: false,
+      reason: 'invalid-filter',
+    });
+    expect(host.locateLogRow).not.toHaveBeenCalled();
+  });
+
+  it('answers not-bound with no workspace or no host behind it', async () => {
+    for (const [type, fields] of [
+      [ROWS, { from: 0, count: 10 }],
+      [LOCATE, { target: 'HEAD' }],
+    ] as const) {
+      expect(await dispatchWorkspaceTreeRpc(runtime(), type, fields)).toEqual({ ok: false, reason: 'not-bound' });
+      expect(await dispatchWorkspaceTreeRpc(null, type, { workspaceId: WORKSPACE, ...fields })).toEqual({
+        ok: false,
+        reason: 'not-bound',
+      });
+    }
   });
 });

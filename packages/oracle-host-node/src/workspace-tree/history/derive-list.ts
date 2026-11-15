@@ -44,11 +44,15 @@ const LAYOUT_STRETCH_ROWS = 20_000;
 export interface LogFolding {
   /** The list with no run folded — what the runs are numbered over. */
   unfolded: LogSkeleton;
+  /** The history's row behind each row of the unfolded list. */
+  historyRows: Int32Array;
   runs: LogRuns;
   /** Per run: 1 where the list folds it. */
   folded: Uint8Array;
   /** The unfolded list's row behind each listed row; null while no run is folded (the two are one list). */
   rows: Int32Array | null;
+  /** The two ends of every folded run, by the unfolded list's row — either one names the run it closes over. */
+  ends: ReadonlyMap<number, number>;
 }
 
 export interface LogList {
@@ -57,6 +61,8 @@ export interface LogList {
   skeleton: LogSkeleton;
   /** The history's row behind each listed row. */
   historyRows: Int32Array;
+  /** Per row: the nearest row above that is joined to it; -1 for none. */
+  childRows: Int32Array;
   /** What the layout was made over — the cells of any stretch are made from it on demand. */
   graph: LogGraphInput;
   layout: LogLayout;
@@ -65,6 +71,18 @@ export interface LogList {
 }
 
 type Listed = Pick<LogList, 'skeleton' | 'historyRows' | 'graph' | 'folding'>;
+
+/** Per row: the nearest row above joined to it — the last one a pass down the list meets. */
+function nearestChildren(skeleton: LogSkeleton): Int32Array {
+  const { count, starts, parents } = skeleton;
+  const child = new Int32Array(count).fill(-1);
+  for (let row = 0; row < count; row += 1) {
+    for (let pointer = starts[row]; pointer < starts[row + 1]; pointer += 1) {
+      if (parents[pointer] < count) child[parents[pointer]] = row;
+    }
+  }
+  return child;
+}
 
 function identity(count: number): Int32Array {
   const rows = new Int32Array(count);
@@ -129,6 +147,12 @@ async function foldedList(generation: HistoryGeneration, ask: LogAsk, base: Deri
   await breathe();
   const folded = foldedRuns(generation, base, runs, ask.folds);
   const derived = folded.includes(1) ? foldRuns(base.skeleton, runs, folded) : null;
+  const ends = new Map<number, number>();
+  for (let run = 0; derived !== null && run < runs.count; run += 1) {
+    if (folded[run] === 0) continue;
+    if (!ends.has(runs.tops[run])) ends.set(runs.tops[run], run);
+    if (!ends.has(runs.bottoms[run])) ends.set(runs.bottoms[run], run);
+  }
   const skeleton = derived === null ? base.skeleton : derived.skeleton;
   const historyRows = derived === null ? base.rows : through(derived.rows, base.rows);
   return {
@@ -139,7 +163,14 @@ async function foldedList(generation: HistoryGeneration, ask: LogAsk, base: Deri
       headRow: historyRows.indexOf(generation.headRow),
       branchHeads: carried(generation.branchHeads, historyRows),
     },
-    folding: { unfolded: base.skeleton, runs, folded, rows: derived === null ? null : derived.rows },
+    folding: {
+      unfolded: base.skeleton,
+      historyRows: base.rows,
+      runs,
+      folded,
+      rows: derived === null ? null : derived.rows,
+      ends,
+    },
   };
 }
 
@@ -222,5 +253,7 @@ export async function deriveLogList(
     ? await siftedList(generation, ask, base, named)
     : await foldedList(generation, ask, base);
   await breathe();
-  return { generation, ...listed, layout: await laidOut(listed.graph) };
+  const childRows = nearestChildren(listed.skeleton);
+  await breathe();
+  return { generation, ...listed, childRows, layout: await laidOut(listed.graph) };
 }
