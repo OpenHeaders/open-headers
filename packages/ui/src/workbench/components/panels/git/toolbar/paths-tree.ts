@@ -5,7 +5,9 @@
  * through a history, the folder stands. In the tree that lists files by
  * what they belong to, a collection, a folder and an entity kept in a
  * directory of its own filter by that directory; one kept as files of a
- * shared directory (an environment, a page) by those files. Pure.
+ * shared directory (an environment, a page) by those files. And the
+ * names the Select… field completes a typed path from: the tree's
+ * folders and files. Pure.
  */
 
 import { isEntityTreePath, type WorkspaceFileNode } from '@openheaders/ui/shared/workspace-files';
@@ -14,6 +16,27 @@ import { namedDirectoryPath, namedFilesUnder } from '../named-file-tree';
 /** A folder's key as a filter path. */
 export function folderPath(key: string): string {
   return `${key}/`;
+}
+
+/**
+ * The names a typed path may become: every folder of the tree as the
+ * filter reads one (its closing slash), then what it holds — each
+ * folder once, ahead of its files, in the listing's own order.
+ */
+export function pathFieldNames(files: readonly string[]): string[] {
+  const names: string[] = [];
+  const folders = new Set<string>();
+  for (const file of files) {
+    const segments = file.split('/');
+    for (let depth = 1; depth < segments.length; depth += 1) {
+      const folder = segments.slice(0, depth).join('/');
+      if (folders.has(folder)) continue;
+      folders.add(folder);
+      names.push(folderPath(folder));
+    }
+    names.push(file);
+  }
+  return names;
 }
 
 /** The directory every one of the files is in or under — '' when they share none. */

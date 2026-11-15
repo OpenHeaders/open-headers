@@ -38,6 +38,8 @@ export interface ValuesFilterChipProps {
   onClear: () => void;
   /** The names a typed word may become. */
   names: readonly string[];
+  /** Select… was opened — the moment to read names that are read on demand. */
+  onSelectOpen?: () => void;
   /** A bar separates values in the field too (authors); off for paths. */
   bar: boolean;
   /** The chip's own rows, under Select…. */
@@ -57,6 +59,7 @@ const ValuesFilterChip: React.FC<ValuesFilterChipProps> = ({
   onApply,
   onClear,
   names,
+  onSelectOpen,
   bar,
   rows,
   recent,
@@ -135,6 +138,7 @@ const ValuesFilterChip: React.FC<ValuesFilterChipProps> = ({
                   if (key === 'select') {
                     // Opened by Enter, the field would take this key press's line break.
                     domEvent.preventDefault();
+                    onSelectOpen?.();
                     setMode('select');
                     return;
                   }

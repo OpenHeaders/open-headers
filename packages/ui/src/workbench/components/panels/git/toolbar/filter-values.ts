@@ -39,10 +39,14 @@ export function fieldValues(text: string, bar = true): string[] {
   return [...new Set(values)];
 }
 
+/** How many names one word is offered — a tree's files can hold the word thousands of times. */
+export const FIELD_SUGGESTIONS_MAX = 50;
+
 /**
  * The names the word under the caret could become: those that hold what
  * was typed (case aside) and are not named elsewhere in the text — the
- * ones that begin with it first. Nothing was typed, nothing is offered.
+ * ones that begin with it first, `FIELD_SUGGESTIONS_MAX` at most.
+ * Nothing was typed, nothing is offered.
  */
 export function fieldSuggestions(text: string, caret: number, names: readonly string[], bar = true): string[] {
   const word = wordAtCaret(text, caret, bar);
@@ -51,7 +55,7 @@ export function fieldSuggestions(text: string, caret: number, names: readonly st
   const elsewhere = new Set(fieldValues(`${text.slice(0, word.start)}\n${text.slice(word.end)}`, bar));
   const holding = names.filter((name) => !elsewhere.has(name) && name.toLowerCase().includes(needle));
   const leads = (name: string): boolean => name.toLowerCase().startsWith(needle);
-  return [...holding.filter(leads), ...holding.filter((name) => !leads(name))];
+  return [...holding.filter(leads), ...holding.filter((name) => !leads(name))].slice(0, FIELD_SUGGESTIONS_MAX);
 }
 
 /** A pick written over the caret's word, the caret on a new line after it. */

@@ -7,6 +7,7 @@
  */
 
 import {
+  FIELD_SUGGESTIONS_MAX,
   fieldSuggestions,
   fieldValues,
   sameValues,
@@ -64,6 +65,16 @@ describe('fieldSuggestions', () => {
     expect(fieldSuggestions('ma|main', 2, names)).toEqual(['origin/main']);
     // The word itself, typed whole, is still offered.
     expect(fieldSuggestions('main', 4, names)).toEqual(['main', 'origin/main']);
+  });
+
+  it('offers a bounded list — the names that begin with the word are the ones kept', () => {
+    const files = [
+      ...Array.from({ length: 200 }, (_, index) => `docs/src-${index}.md`),
+      ...Array.from({ length: 10 }, (_, index) => `src/file-${index}.ts`),
+    ];
+    const offered = fieldSuggestions('src', 3, files, false);
+    expect(offered).toHaveLength(FIELD_SUGGESTIONS_MAX);
+    expect(offered.slice(0, 10)).toEqual(files.slice(200));
   });
 });
 

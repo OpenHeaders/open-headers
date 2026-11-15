@@ -12,7 +12,6 @@
  * asks the host for the listing and reads the workspace.
  */
 
-import { hostBridge } from '@openheaders/core/bridge';
 import { isWorkspaceFilePage, workspaceFileTree } from '@openheaders/ui/shared/workspace-files';
 import { Checkbox, Modal, Spin, theme } from 'antd';
 import type React from 'react';
@@ -27,6 +26,7 @@ import { namedFoldKeys, namedSectionKey, namedSections, visibleNamedSections } f
 import { useListedWorkspace } from '../use-listed-workspace';
 import { useWorkspaceFileFace, workspaceFileEntityName } from '../workspace-file-face';
 import { folderPath, namedRowPaths, pickedNames, withRowChecked } from './paths-tree';
+import { useHeadTreeFiles } from './use-head-tree-files';
 
 export interface PathsTreeModalProps {
   workspaceId: string;
@@ -243,25 +243,9 @@ const TREE_HEIGHT = 380;
 const PathsTree: React.FC<PathsTreeProps> = ({ workspaceId, named, checked, onCheck }) => {
   const t = useT();
   const { token } = theme.useToken();
-  const [listing, setListing] = useState<{ paths: string[]; truncated: boolean } | null>(null);
-  const [failure, setFailure] = useState<string | null>(null);
+  const { listing, failure, ask } = useHeadTreeFiles(workspaceId);
 
-  useEffect(() => {
-    let live = true;
-    hostBridge
-      .call('oh.workspaceTree.treeFiles', { workspaceId })
-      .then((result) => {
-        if (!live) return;
-        if (result?.ok) setListing({ paths: result.paths, truncated: result.truncated });
-        else setFailure(result?.reason ?? 'list-failed');
-      })
-      .catch((err: Error) => {
-        if (live) setFailure(err.message);
-      });
-    return () => {
-      live = false;
-    };
-  }, [workspaceId]);
+  useEffect(ask, [ask]);
 
   const note: React.CSSProperties = { fontSize: 12, color: token.colorTextSecondary };
   return (

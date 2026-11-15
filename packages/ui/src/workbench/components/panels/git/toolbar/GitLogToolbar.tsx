@@ -30,9 +30,11 @@ import GitLogTextField from './GitLogTextField';
 import { CherryPickIcon, GraphOptionsIcon } from './icons';
 import { menuCheckIcon, menuIconGutter } from '../../../shared/menu-check';
 import { pathsChipText } from './log-filters';
+import { pathFieldNames } from './paths-tree';
 import PaneToolbar, { type PaneToolbarEntry } from './PaneToolbar';
 import PathsTreeModal from './PathsTreeModal';
 import ToolbarIconButton from './ToolbarIconButton';
+import { useHeadTreeFiles } from './use-head-tree-files';
 import ValuesFilterChip from './ValuesFilterChip';
 import { useOptionMenu } from '../use-option-menu';
 
@@ -126,6 +128,9 @@ const GitLogToolbar: React.FC<GitLogToolbarProps> = ({
   }, [tab.date, t]);
 
   const users = tab.author !== null && tab.author.kind === 'users' ? tab.author.values : [];
+  // The Paths field completes from the checked-out commit's tree, read as the field opens.
+  const headTree = useHeadTreeFiles(workspaceId);
+  const pathNames = useMemo(() => pathFieldNames(headTree.listing?.paths ?? []), [headTree.listing]);
 
   const resolveGoTo = (): void => {
     const query = goToValue.trim();
@@ -238,7 +243,8 @@ const GitLogToolbar: React.FC<GitLogToolbarProps> = ({
           values={tab.paths}
           onApply={onPathsChange}
           onClear={() => patchTab({ paths: [] })}
-          names={[]}
+          names={pathNames}
+          onSelectOpen={headTree.ask}
           bar={false}
           rows={[
             { key: 'tree', label: t('workbench.gitLog.menu.selectInTree'), onPick: () => setPathsTreeOpen(true) },

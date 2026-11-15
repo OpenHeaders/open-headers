@@ -3,7 +3,8 @@
  * the log by — a folder as ONE path, an entity kept in a directory of
  * its own by that directory, one kept as files of a shared directory by
  * its files — and the checked set as boxes are flipped, with the names
- * the picks were made under.
+ * the picks were made under. And the names the Select… field completes
+ * a typed path from.
  */
 
 import type { WorkspaceFileNode } from '@openheaders/ui/shared/workspace-files';
@@ -11,12 +12,28 @@ import {
   commonDirectory,
   folderPath,
   namedRowPaths,
+  pathFieldNames,
   pickedNames,
   withRowChecked,
 } from '@openheaders/ui/workbench/components/panels/git/toolbar/paths-tree';
 import { describe, expect, it } from 'vitest';
 
 const part = (file: string): WorkspaceFileNode => ({ type: 'part', id: file, part: null, name: file, file });
+
+describe('pathFieldNames', () => {
+  it('lists every folder once, with its closing slash, ahead of what it holds', () => {
+    expect(pathFieldNames(['README.md', 'assets/img/icon.png', 'assets/logo.png', 'notes/orders.md'])).toEqual([
+      'README.md',
+      'assets/',
+      'assets/img/',
+      'assets/img/icon.png',
+      'assets/logo.png',
+      'notes/',
+      'notes/orders.md',
+    ]);
+    expect(pathFieldNames([])).toEqual([]);
+  });
+});
 
 describe('commonDirectory', () => {
   it('is the directory every file is in or under', () => {
