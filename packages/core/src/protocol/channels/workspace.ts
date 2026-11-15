@@ -706,16 +706,6 @@ export interface WorkspaceRpc {
     res: WorkspaceTreeAddToVcsWire;
   };
   /**
-   * The Commit window's Rollback… verb over added rows: the paths
-   * leave the user's real index (`git rm --cached`) — an intent-to-add
-   * or staged-new file returns to Unversioned Files with its bytes
-   * untouched. A status frame follows.
-   */
-  'oh.workspaceTree.unaddPaths': {
-    req: { workspaceId: string; paths: string[] };
-    res: WorkspaceTreeUnaddPathsWire;
-  };
-  /**
    * The Commit window's Rollback Changes: each path's working change is
    * given up for what HEAD holds — a changed or deleted file is restored,
    * an added one leaves the index (and is deleted from disk with
@@ -1588,15 +1578,6 @@ export type WorkspaceTreeAddToVcsWire =
   | {
       ok: false;
       reason: 'not-bound' | 'git-unavailable' | 'not-a-repo' | 'unknown-path' | 'add-failed';
-      detail?: string;
-    };
-
-/** Rollback on added rows: every path leaves the index, or none does. */
-export type WorkspaceTreeUnaddPathsWire =
-  | { ok: true }
-  | {
-      ok: false;
-      reason: 'not-bound' | 'git-unavailable' | 'not-a-repo' | 'unknown-path' | 'unadd-failed';
       detail?: string;
     };
 

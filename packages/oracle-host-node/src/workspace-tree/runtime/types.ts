@@ -513,15 +513,6 @@ export type WorkspaceTreeAddToVcsRpcResult =
       detail?: string;
     };
 
-/** Rollback on added rows: every path leaves the index, or none does. */
-export type WorkspaceTreeUnaddPathsRpcResult =
-  | { ok: true }
-  | {
-      ok: false;
-      reason: 'not-bound' | 'git-unavailable' | 'not-a-repo' | 'unknown-path' | 'unadd-failed';
-      detail?: string;
-    };
-
 /** Rollback Changes: `rolledBack` counts the change rows put back as HEAD holds them. */
 export type WorkspaceTreeRollbackPathsRpcResult =
   | { ok: true; rolledBack: number }
@@ -808,13 +799,6 @@ export interface WorkspaceTreeRuntime {
    * frame follows.
    */
   addToVcs(workspaceId: string, paths: readonly string[]): Promise<WorkspaceTreeAddToVcsRpcResult>;
-  /**
-   * The Commit window's Rollback… verb over added rows: drop the paths
-   * from the user's real index (`git rm --cached`) — the rows return
-   * to Unversioned Files, the files stay on disk. On the per-binding
-   * chain; a status frame follows.
-   */
-  unaddPaths(workspaceId: string, paths: readonly string[]): Promise<WorkspaceTreeUnaddPathsRpcResult>;
   /**
    * The Commit window's Rollback Changes: each path's working change is
    * given up for what HEAD holds — a changed or deleted file is restored,

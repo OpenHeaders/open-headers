@@ -3,9 +3,7 @@
  * files: Add to VCS tracks unversioned paths as intent-to-add (`git
  * add -N`) so the rows move to Changes as added with nothing staged;
  * Delete… removes files from disk (a tracked file then reads as
- * deleted until committed, an unversioned one is gone); Rollback… on
- * added rows drops them from the index again (`git rm --cached`) so
- * they return to Unversioned Files with their bytes intact; Rollback
+ * deleted until committed, an unversioned one is gone); Rollback
  * Changes puts any changed file back as HEAD holds it (`rollback-ops`)
  * and then sweeps, so the engine follows the files the way it follows
  * an outside checkout. All run on
@@ -26,14 +24,12 @@ import {
   intentToAddPaths,
   isWorkspaceRepo,
   rollbackWorkingPaths,
-  unaddPaths,
 } from '../../git';
 import { type OpenBinding, type RuntimeCtx, SCOPE } from './core';
 import type {
   WorkspaceTreeAddToVcsRpcResult,
   WorkspaceTreeDeletePathsRpcResult,
   WorkspaceTreeRollbackPathsRpcResult,
-  WorkspaceTreeUnaddPathsRpcResult,
 } from './types';
 
 /** One Add to VCS pass — availability/repo guards, then the intent-to-add. */
@@ -49,22 +45,6 @@ export async function runAddToVcs(
   const result = await intentToAddPaths(ctx.gitRun, rootDir, paths);
   if (!result.ok) return { ok: false, reason: 'add-failed', detail: result.detail };
   logger.info(SCOPE, `${paths.length} path(s) added to vcs (intent-to-add) for ${rootDir}`);
-  return { ok: true };
-}
-
-/** One Rollback pass over added rows — availability/repo guards, then the index drop. */
-export async function runUnaddPaths(
-  ctx: RuntimeCtx,
-  binding: OpenBinding,
-  paths: readonly string[],
-): Promise<WorkspaceTreeUnaddPathsRpcResult> {
-  const { rootDir } = binding.record;
-  const availability = await ctx.ensureGitAvailability(rootDir);
-  if (!availability.available) return { ok: false, reason: 'git-unavailable' };
-  if (!(await isWorkspaceRepo(ctx.gitRun, rootDir))) return { ok: false, reason: 'not-a-repo' };
-  const result = await unaddPaths(ctx.gitRun, rootDir, paths);
-  if (!result.ok) return { ok: false, reason: 'unadd-failed', detail: result.detail };
-  logger.info(SCOPE, `${paths.length} added path(s) rolled back to unversioned for ${rootDir}`);
   return { ok: true };
 }
 

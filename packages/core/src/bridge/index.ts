@@ -115,7 +115,6 @@ export type {
   WorkspaceTreeRollbackPathsWire,
   WorkspaceTreeSwitchBranchWire,
   WorkspaceTreeTreeFilesWire,
-  WorkspaceTreeUnaddPathsWire,
   WorkspaceTreeUnignoreWire,
   WorkspaceTreeUpdateBranchWire,
   WorkspaceTreeUserCommitWire,

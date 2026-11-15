@@ -412,11 +412,7 @@ export async function dispatchWorkspaceTreeRpc(
     }
     return await runtime.unignorePath(workspaceId, filePath, target);
   }
-  if (
-    type === 'oh.workspaceTree.addToVcs' ||
-    type === 'oh.workspaceTree.unaddPaths' ||
-    type === 'oh.workspaceTree.deletePaths'
-  ) {
+  if (type === 'oh.workspaceTree.addToVcs' || type === 'oh.workspaceTree.deletePaths') {
     const workspaceId = typeof message.workspaceId === 'string' ? message.workspaceId : '';
     const paths = Array.isArray(message.paths) ? message.paths.filter((entry) => typeof entry === 'string') : [];
     if (!workspaceId || paths.length === 0 || runtime === null) {
@@ -425,7 +421,6 @@ export async function dispatchWorkspaceTreeRpc(
         : { ok: false, reason: 'not-bound' };
     }
     if (type === 'oh.workspaceTree.addToVcs') return await runtime.addToVcs(workspaceId, paths);
-    if (type === 'oh.workspaceTree.unaddPaths') return await runtime.unaddPaths(workspaceId, paths);
     return await runtime.deletePaths(workspaceId, paths);
   }
   if (type === 'oh.workspaceTree.rollbackPaths') {
