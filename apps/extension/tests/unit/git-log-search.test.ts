@@ -109,12 +109,12 @@ describe('the filtered graph keeps the whole log’s colours and draws a skip as
   it('a commit wears the colour handed in, and so does the lane that leaves it', () => {
     const rows = computeLogGraph([commit('c', 'a'), commit('a')], {
       colors: new Map([
-        ['c', 'red'],
-        ['a', 'blue'],
+        ['c', 'var(--oh-git-lane-5)'],
+        ['a', 'var(--oh-git-lane-3)'],
       ]),
     });
-    expect(rows.map((row) => row.color)).toEqual(['red', 'blue']);
-    expect(rows[0].edges.map((edge) => edge.color)).toEqual(['red']);
+    expect(rows.map((row) => row.color)).toEqual(['var(--oh-git-lane-5)', 'var(--oh-git-lane-3)']);
+    expect(rows[0].edges.map((edge) => edge.color)).toEqual(['var(--oh-git-lane-5)']);
   });
 
   it('a named skip is a collapsed edge on both of its rows', () => {

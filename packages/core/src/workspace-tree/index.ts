@@ -71,6 +71,27 @@ export {
   WORKSPACE_VARS_DOC_KEY,
   WORKSPACE_VARS_FILE,
 } from './layout';
+export {
+  type LaneState,
+  LOG_COLOR_UNKNOWN,
+  LOG_LANE_COLOR_COUNT,
+  type LogGraphEdge,
+  type LogGraphInput,
+  type LogGraphRow,
+  type LogLane,
+  openLaneState,
+  sweepLogRow,
+} from './log/lane-sweep';
+export {
+  advanceLogLayout,
+  beginLogLayout,
+  computeLogGraph,
+  LOG_LAYOUT_CHECKPOINT_ROWS,
+  type LogLayout,
+  layoutLog,
+  logGraphRows,
+} from './log/layout';
+export { type LogSkeleton, type NamedLogEntry, type NumberedLog, numberLog } from './log/skeleton';
 export { type LogTextFields, type LogTextMatcher, type LogTextRange, makeLogTextMatcher } from './log-text-match';
 export {
   applyTreeOrder,
