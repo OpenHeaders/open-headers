@@ -15,6 +15,17 @@
 
 import { type RefObject, useCallback, useLayoutEffect, useMemo, useState } from 'react';
 
+// The window over rows of ONE height — a list of any length, no heights held (`fixed-rows.ts`).
+export {
+  computeFixedRowWindow,
+  type FixedRowGeometry,
+  type FixedRowWindow,
+  fixedRowSpacerPx,
+  MAX_SPACER_PX,
+  scrollTopForRow,
+  visibleFixedRows,
+} from './fixed-rows';
+
 /** Extra rows' worth of pixels mounted beyond each viewport edge, so a
  *  fast wheel fling stays painted while the window catches up. */
 const OVERSCAN_PX = 600;
