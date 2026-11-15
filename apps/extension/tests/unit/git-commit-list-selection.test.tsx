@@ -279,9 +279,13 @@ describe('CommitList — the graph cell (S45)', () => {
       />,
     );
     const cells = screen.getAllByTestId('git-tool-graph-cell');
+    // A lit edge wears its border: a wider path under its own.
+    const borders = (): number[] => cells.map((cell) => cell.querySelectorAll('path[stroke-width="4"]').length);
     expect(cells.map((cell) => cell.getAttribute('data-highlight'))).toEqual([null, null, null, null]);
+    expect(borders()).toEqual([0, 0, 0, 0]);
     fireEvent.mouseEnter(cells[1]);
     expect(cells.map((cell) => cell.getAttribute('data-highlight'))).toEqual(['end', 'interior', 'interior', 'end']);
+    expect(borders()).toEqual([1, 2, 2, 1]);
     fireEvent.click(cells[1]);
     expect(onToggle).toHaveBeenCalledWith({ top: 'c4', bottom: 'c1', interior: ['c3', 'c2'] });
     expect(onSelect).not.toHaveBeenCalled();

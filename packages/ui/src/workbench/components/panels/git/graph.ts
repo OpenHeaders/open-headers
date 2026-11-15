@@ -18,6 +18,7 @@
  */
 
 import { LOG_COLOR_UNKNOWN, computeLogGraph as layOutLog, numberLog } from '@openheaders/core/workspace-tree';
+import type { GraphCellRow } from './log-cell';
 
 /** One graph edge inside a row's cell, in lane coordinates. */
 export interface GraphEdge {
@@ -59,6 +60,23 @@ export interface GraphRow {
   edges: GraphEdge[];
   /** Lanes occupied while this row renders — the cell's width driver. */
   laneCount: number;
+}
+
+/** A laid-out row as its cell draws it — the edges `lit` names (by {@link edgeKey}) marked; null lights none. */
+export function graphCellRow(row: GraphRow, lit: ReadonlySet<string> | null): GraphCellRow {
+  return {
+    lane: row.lane,
+    color: row.color,
+    laneCount: row.laneCount,
+    edges: row.edges.map((edge) => ({
+      from: edge.from,
+      to: edge.to,
+      color: edge.color,
+      span: edge.span,
+      collapsed: edge.collapsed,
+      lit: lit?.has(edgeKey(edge.child, edge.parent)) === true,
+    })),
+  };
 }
 
 /** The lane palette — per-theme tokens (`--oh-git-lane-N`); index = the layout's colour number. */

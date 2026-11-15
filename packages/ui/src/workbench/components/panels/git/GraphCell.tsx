@@ -1,9 +1,8 @@
 /**
  * GraphCell — one commit row's slice of the log graph, rendered as an
- * isolated SVG from the pure layout's row data (dot lane + half-row
- * edges), so the list never measures across rows. When the layout is
- * absent (a text-filtered log is no longer contiguous history — edges
- * would lie) the cell degrades to a plain dot. The reference's
+ * isolated SVG from the row's own cell (dot lane + half-row edges —
+ * `log-cell.ts`), so the list never measures across rows. With no cell
+ * (a list whose commits no graph joins) it degrades to a plain dot. The reference's
  * reading: lanes 16 px apart, 2 px edges, 4 px nodes, the checked-out
  * commit a hollow ring with a centre dot whose edges stop at the ring. Colours
  * arrive as the palette tokens and resolve through the style, so the
@@ -16,8 +15,7 @@
  */
 
 import type React from 'react';
-import type { GraphRow } from './graph';
-import { edgeKey } from './graph';
+import type { GraphCellRow, GraphHighlight } from './log-cell';
 
 export const GRAPH_ROW_HEIGHT = 26;
 const LANE_WIDTH = 16;
@@ -41,21 +39,17 @@ function edgePath(fromX: number, fromY: number, toX: number, toY: number): strin
   return `M${fromX} ${fromY} C${fromX} ${midY} ${toX} ${midY} ${toX} ${toY}`;
 }
 
-export type GraphHighlight = 'end' | 'interior';
-
 export interface GraphCellProps {
-  row: GraphRow | null;
-  /** Widest lane count of the whole log — keeps every cell (and so the
-   *  subject column) left-aligned across rows. */
+  row: GraphCellRow | null;
+  /** The widest lane count among the rows drawn together — keeps every
+   *  cell (and so the subject column) left-aligned across them. */
   maxLanes: number;
   /** This row is the checked-out commit — the hollow ring. */
   isHead?: boolean;
   /** Fallback dot color for layout-less (filtered) rendering. */
   fallbackColor: string;
-  /** The row's part in the lit fragment, if any. */
+  /** The row's part in the lit run, if any — its edges say their own. */
   highlight?: GraphHighlight | null;
-  /** The lit fragment's edges by `edgeKey`. */
-  litEdges?: ReadonlySet<string> | null;
   /** The pointer entered (true) or left (false) the cell. */
   onHover?: (hovering: boolean) => void;
   /** A click on the cell — the fragment toggle. */
@@ -68,7 +62,6 @@ const GraphCell: React.FC<GraphCellProps> = ({
   isHead = false,
   fallbackColor,
   highlight = null,
-  litEdges = null,
   onHover,
   onToggle,
 }) => {
@@ -87,7 +80,6 @@ const GraphCell: React.FC<GraphCellProps> = ({
       : row.edges.map((edge, index) => {
           const from = laneX(edge.from);
           const to = laneX(edge.to);
-          const lit = litEdges !== null && litEdges.has(edgeKey(edge.child, edge.parent));
           let d: string;
           let dashed = false;
           if (edge.collapsed) {
@@ -100,7 +92,7 @@ const GraphCell: React.FC<GraphCellProps> = ({
           } else if (edge.span === 'top') d = edgePath(from, 0, to, mid - gap);
           else if (edge.span === 'bottom') d = edgePath(from, mid + gap, to, GRAPH_ROW_HEIGHT);
           else d = edgePath(from, 0, to, GRAPH_ROW_HEIGHT);
-          return { key: `${edge.span}:${edge.from}:${edge.to}:${index}`, d, color: edge.color, lit, dashed };
+          return { key: `${edge.span}:${edge.from}:${edge.to}:${index}`, d, color: edge.color, lit: edge.lit, dashed };
         });
 
   return (

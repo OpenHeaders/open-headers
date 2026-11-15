@@ -41,25 +41,23 @@
 
 import type { WorkspaceTreeLogEntryWire, WorkspaceTreeRefWire } from '@openheaders/core/bridge';
 import type { LogTextRange } from '@openheaders/core/workspace-tree';
-import { Button, Dropdown, type MenuProps, theme } from 'antd';
+import { Dropdown, type MenuProps, theme } from 'antd';
 import type React from 'react';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useLocale } from '@openheaders/ui/context/LocaleContext';
 import { clickModifiers, useMultiSelection } from '@openheaders/ui/shared/selection';
 import { commitsApply } from './commit-apply';
-import type { GraphRow } from './graph';
+import CommitListEmpty from './CommitListEmpty';
+import CommitRowCells, { COMMIT_ROW_LAYOUT, type CommitRowColumns } from './CommitRowCells';
+import { type GraphRow, graphCellRow } from './graph';
 import { fragmentEdges, fragmentShas, hoverFragment, type LogFragment } from './graph-fragment';
 import { contextMenuAlign } from './git-menu-overflow';
 import { GIT_TEXT_SIZE } from './git-type-scale';
-import GraphCell, { GRAPH_ROW_HEIGHT, type GraphHighlight } from './GraphCell';
-import { formatLogDate, formatLogDateTitle, type HourCycle } from './log-date';
+import GraphCell from './GraphCell';
+import type { GraphHighlight } from './log-cell';
+import type { HourCycle } from './log-date';
 import { childInWindow, parentInWindow } from './log-neighbors';
-import MatchedText from './MatchedText';
 import type { LogRowMenuTarget } from './log-row-menu';
 import { commitClickOutcome, stepTarget } from './log-selection';
-import RefRowLabel from './RefRowLabel';
-import { shortSha } from './short-sha';
-import SignatureMark from './SignatureMark';
 import type { CommitSignature } from './use-commit-signatures';
 
 export interface CommitListProps {
@@ -123,6 +121,7 @@ export interface CommitListProps {
 }
 
 const NO_ANCHORS: ReadonlySet<string> = new Set();
+const NO_REFS: readonly WorkspaceTreeRefWire[] = [];
 const NO_COLLAPSED: ReadonlyMap<string, LogFragment> = new Map();
 
 const CommitList: React.FC<CommitListProps> = ({
@@ -157,13 +156,31 @@ const CommitList: React.FC<CommitListProps> = ({
   fragments = true,
 }) => {
   const { token } = theme.useToken();
-  const { locale, t } = useLocale();
-  const dateLabels = useMemo(
+  const columns = useMemo<CommitRowColumns>(
     () => ({
-      today: (time: string) => t('workbench.gitLog.date.today', { time }),
-      yesterday: (time: string) => t('workbench.gitLog.date.yesterday', { time }),
+      compactRefs,
+      refsOnLeft,
+      showTagChips,
+      showTimestamp,
+      showAuthor,
+      showHash,
+      showDate,
+      showSignature,
+      dimMergeCommits,
+      hourCycle,
     }),
-    [t],
+    [
+      compactRefs,
+      refsOnLeft,
+      showTagChips,
+      showTimestamp,
+      showAuthor,
+      showHash,
+      showDate,
+      showSignature,
+      dimMergeCommits,
+      hourCycle,
+    ],
   );
   const listRef = useRef<HTMLDivElement>(null);
   const order = useMemo(() => entries.map((entry) => entry.sha), [entries]);
@@ -289,30 +306,7 @@ const CommitList: React.FC<CommitListProps> = ({
     );
 
   if (entries.length === 0) {
-    return (
-      <div
-        style={{
-          flex: '1 1 auto',
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
-          gap: 2,
-          fontSize: GIT_TEXT_SIZE,
-          color: token.colorTextSecondary,
-        }}
-        data-testid="git-tool-empty"
-      >
-        <span data-testid={note !== null ? 'git-tool-list-note' : undefined}>
-          {note ?? (filtersActive ? t('workbench.gitLog.noMatches') : t('workbench.gitLog.empty'))}
-        </span>
-        {filtersActive && (
-          <Button type="link" size="small" onClick={onResetFilters} data-testid="git-tool-reset-filters">
-            {t('workbench.gitLog.resetFilters')}
-          </Button>
-        )}
-      </div>
-    );
+    return <CommitListEmpty filtersActive={filtersActive} onResetFilters={onResetFilters} note={note} />;
   }
 
   const maxLanes = graph === null ? 1 : Math.max(1, ...graph.map((row) => row.laneCount));
@@ -327,14 +321,8 @@ const CommitList: React.FC<CommitListProps> = ({
     >
       {entries.map((entry, index) => {
         const selected = isSelected(entry.sha);
-        const isMerge = dimMergeCommits && entry.parents.length > 1;
         const row = graph?.[index] ?? null;
-        const rowRefs = refsBySha.get(entry.sha) ?? [];
         const onCurrentBranch = currentBranchShas !== null && currentBranchShas.has(entry.sha);
-        const textColor = isMerge ? token.colorTextTertiary : token.colorText;
-        const refLabel = (
-          <RefRowLabel refs={rowRefs} isHead={entry.sha === headSha} compact={compactRefs} tagNames={showTagChips} />
-        );
         return withRowMenu(
           entry.sha,
           <button
@@ -343,94 +331,31 @@ const CommitList: React.FC<CommitListProps> = ({
             className={selected ? 'git-tool-row selected' : 'git-tool-row'}
             onClick={(event) => handleClick(entry.sha, event)}
             onContextMenu={() => handleContextMenu(entry.sha)}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 8,
-              width: '100%',
-              height: GRAPH_ROW_HEIGHT,
-              padding: '0 12px 0 0',
-              border: 'none',
-              textAlign: 'left',
-              cursor: 'pointer',
-              color: token.colorText,
-            }}
+            style={{ ...COMMIT_ROW_LAYOUT, border: 'none', textAlign: 'left', color: token.colorText }}
             data-testid="git-tool-row"
             data-sha={entry.sha}
             data-selected={selected || undefined}
             data-current-branch={onCurrentBranch || undefined}
           >
             <GraphCell
-              row={row}
+              row={row === null ? null : graphCellRow(row, litEdges)}
               maxLanes={maxLanes}
               isHead={entry.sha === headSha}
               fallbackColor={token.colorTextQuaternary}
               highlight={highlightFor(entry.sha)}
-              litEdges={litEdges}
               onHover={(hovering) => setHoveredSha((prev) => (hovering ? entry.sha : prev === entry.sha ? null : prev))}
               onToggle={() => {
                 if (fragment !== null && onToggleFragment !== undefined) onToggleFragment(fragment);
               }}
             />
-            {refsOnLeft && refLabel}
-            <span
-              style={{
-                // The subject takes what is LEFT (the reference's reading): from a
-                // zero basis it only grows into spare room, so the ref label
-                // beside it keeps its whole width and is clipped only once the
-                // subject is gone — the columns at the far end never move.
-                flex: '1 1 0%',
-                minWidth: 0,
-                fontSize: GIT_TEXT_SIZE,
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                whiteSpace: 'nowrap',
-                color: textColor,
-              }}
-              data-testid="git-tool-row-subject"
-            >
-              <MatchedText text={entry.subject} ranges={matchRanges} />
-            </span>
-            {!refsOnLeft && refLabel}
-            {showAuthor && (
-              <span
-                style={{ flex: '0 0 auto', fontSize: GIT_TEXT_SIZE, color: textColor }}
-                data-testid="git-tool-row-author"
-              >
-                <MatchedText text={entry.authorName} ranges={matchRanges} />
-              </span>
-            )}
-            {showDate && (
-              <span
-                title={formatLogDateTitle(entry.authoredAt, locale, hourCycle)}
-                style={{
-                  flex: '0 0 auto',
-                  minWidth: 64,
-                  textAlign: 'right',
-                  fontSize: GIT_TEXT_SIZE,
-                  color: textColor,
-                }}
-                data-testid="git-tool-row-date"
-              >
-                {formatLogDate(entry.authoredAt, locale, dateLabels, { withTime: showTimestamp, hourCycle })}
-              </span>
-            )}
-            {showHash && (
-              <span
-                style={{ flex: '0 0 auto', fontSize: GIT_TEXT_SIZE, color: textColor }}
-                data-testid="git-tool-row-hash"
-              >
-                {shortSha(entry.sha)}
-              </span>
-            )}
-            {showSignature && (
-              <span
-                style={{ flex: '0 0 auto', display: 'inline-flex', justifyContent: 'center', width: 16 }}
-                data-testid="git-tool-row-signature"
-              >
-                <SignatureMark signature={signatures?.get(entry.sha)} />
-              </span>
-            )}
+            <CommitRowCells
+              entry={entry}
+              refs={refsBySha.get(entry.sha) ?? NO_REFS}
+              isHead={entry.sha === headSha}
+              columns={columns}
+              signature={signatures?.get(entry.sha)}
+              matchRanges={matchRanges}
+            />
           </button>,
         );
       })}
