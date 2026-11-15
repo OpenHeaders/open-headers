@@ -24,6 +24,61 @@ export interface LogSkeleton {
   skips?: Uint8Array;
 }
 
+/** A list made out of another: its own skeleton, and the source's row behind each of its rows. */
+export interface DerivedLog {
+  skeleton: LogSkeleton;
+  rows: Int32Array;
+}
+
+/**
+ * The rows named, in the order named, as a list of their own — a scope's
+ * commits out of a whole history, a history re-listed in another order.
+ * A parent that is not among them is outside the new list.
+ */
+export function pickRows(source: LogSkeleton, rows: Int32Array): DerivedLog {
+  const placed = new Int32Array(source.count).fill(-1);
+  for (let row = 0; row < rows.length; row += 1) placed[rows[row]] = row;
+  const outside = new Map<number, number>();
+  const starts = new Int32Array(rows.length + 1);
+  const parents: number[] = [];
+  const skips: number[] = [];
+  for (let row = 0; row < rows.length; row += 1) {
+    starts[row] = parents.length;
+    for (let pointer = source.starts[rows[row]]; pointer < source.starts[rows[row] + 1]; pointer += 1) {
+      const parent = source.parents[pointer];
+      let number = parent < source.count ? placed[parent] : -1;
+      if (number === -1) {
+        number = outside.get(parent) ?? rows.length + outside.size;
+        outside.set(parent, number);
+      }
+      parents.push(number);
+      skips.push(source.skips === undefined ? 0 : source.skips[pointer]);
+    }
+  }
+  starts[rows.length] = parents.length;
+  const skeleton: LogSkeleton = { count: rows.length, starts, parents: Int32Array.from(parents) };
+  if (source.skips !== undefined) skeleton.skips = Uint8Array.from(skips);
+  return { skeleton, rows };
+}
+
+/** The list as a first-parent walk draws it: every commit joined to its first parent alone. */
+export function firstParentOnly(source: LogSkeleton): LogSkeleton {
+  const starts = new Int32Array(source.count + 1);
+  const parents: number[] = [];
+  const skips: number[] = [];
+  for (let row = 0; row < source.count; row += 1) {
+    starts[row] = parents.length;
+    const first = source.starts[row];
+    if (source.starts[row + 1] === first) continue;
+    parents.push(source.parents[first]);
+    skips.push(source.skips === undefined ? 0 : source.skips[first]);
+  }
+  starts[source.count] = parents.length;
+  const skeleton: LogSkeleton = { count: source.count, starts, parents: Int32Array.from(parents) };
+  if (source.skips !== undefined) skeleton.skips = Uint8Array.from(skips);
+  return skeleton;
+}
+
 export interface NamedLogEntry {
   sha: string;
   parents: readonly string[];

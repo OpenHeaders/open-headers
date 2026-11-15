@@ -71,6 +71,7 @@ export {
   WORKSPACE_VARS_DOC_KEY,
   WORKSPACE_VARS_FILE,
 } from './layout';
+export { contractLog, contractLogSteps, LOG_JOIN_LIMIT } from './log/contract';
 export {
   type LaneState,
   LOG_COLOR_UNKNOWN,
@@ -91,7 +92,18 @@ export {
   layoutLog,
   logGraphRows,
 } from './log/layout';
-export { type LogSkeleton, type NamedLogEntry, type NumberedLog, numberLog } from './log/skeleton';
+export { firstParentReach, flaggedRows, reachFrom } from './log/reach';
+export { foldRuns, type LogRuns, linearRuns, runAt } from './log/runs';
+export {
+  type DerivedLog,
+  firstParentOnly,
+  type LogSkeleton,
+  type NamedLogEntry,
+  type NumberedLog,
+  numberLog,
+  pickRows,
+} from './log/skeleton';
+export { type TopologicalOptions, topologicalRows } from './log/topological';
 export { type LogTextFields, type LogTextMatcher, type LogTextRange, makeLogTextMatcher } from './log-text-match';
 export {
   applyTreeOrder,
