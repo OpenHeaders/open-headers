@@ -13,13 +13,14 @@
 
 import type { WorkspaceTreeLogEntryWire, WorkspaceTreeLogRowWire } from '@openheaders/core/bridge';
 import { contractLog, type LogSkeleton, computeLogGraph as layOutLog } from '@openheaders/core/workspace-tree';
-import { GRAPH_LANE_COLORS, type GraphRow } from './graph';
+import { GRAPH_LANE_COLORS } from './graph';
+import type { GraphCellRow } from './log-cell';
 
 export interface SiftedWindow {
   /** The commits that stay, in list order. */
   entries: WorkspaceTreeLogEntryWire[];
-  /** Their graph, row for row. */
-  graph: GraphRow[];
+  /** Their graph cells, row for row. */
+  graph: GraphCellRow[];
 }
 
 /**
@@ -74,9 +75,8 @@ export function siftLogWindow(
       to: edge.to,
       color: GRAPH_LANE_COLORS[edge.color],
       span: edge.span,
-      child: edge.child === -1 ? '' : entries[edge.child].sha,
-      parent: entries[edge.parent].sha,
       collapsed: edge.collapsed,
+      lit: false,
     })),
   }));
   return { entries, graph };

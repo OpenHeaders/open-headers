@@ -34,7 +34,6 @@ import { useState } from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { GIT_OPERATION_ABORTS } from '../git-operation';
 import { committedLocalNotice, integrationRefusalDetail, keptLocalNotice, leftOutNotice } from '../kept-local';
-import { isFullCommitSha } from '../log-neighbors';
 import PushCommitsModal from '../push/PushCommitsModal';
 import PushRejectedModal from '../push/PushRejectedModal';
 import CreateBranchModal from '../rail/CreateBranchModal';
@@ -42,7 +41,7 @@ import CreateTagModal from '../rail/CreateTagModal';
 import RemotesModal from '../remotes/RemotesModal';
 import { useRemoteOps } from '../remotes/use-remote-ops';
 import SwitchBranchModal, { type SwitchBranchPrompt, type SwitchDirtyChoice } from '../rail/SwitchBranchModal';
-import { shortSha } from '../short-sha';
+import { isFullCommitSha, shortSha } from '../short-sha';
 import { type GitWorkSign, useGitWork } from '../use-git-work';
 import { passAnswersSign, usePassAnswers } from '../use-pass-answers';
 

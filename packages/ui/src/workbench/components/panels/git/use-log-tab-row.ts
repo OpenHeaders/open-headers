@@ -18,7 +18,6 @@
 
 import { hostBridge, type WorkspaceTreeLocateLogRowWire } from '@openheaders/core/bridge';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { isFullCommitSha } from './log-neighbors';
 import type { LogRowPages, LogRowsAsk } from './log-row-pages';
 import {
   type LogTabRow,
@@ -30,6 +29,7 @@ import {
   tabRowToLocate,
   tabRowUnlisted,
 } from './log-tab-row';
+import { isFullCommitSha } from './short-sha';
 import { useNewestRead } from './use-newest-read';
 
 /** What became of a navigation: the commit is on a row, the history holds none such, or this list leaves it out. */

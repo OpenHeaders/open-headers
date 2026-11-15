@@ -17,9 +17,10 @@ export type GitLogDateFilter =
 export type GitLogSort = 'date' | 'topo';
 
 /**
- * The slice of one log tab's state the HOST's walk takes (the text
- * filter, No Merges and First Parent aside — those sift the window the
- * view holds).
+ * The slice of one log tab's state the HOST's walk takes: User, Date
+ * and Paths name the commits listed, the sort their order. (No Merges
+ * and First Parent ride the same ask as flags of their own; the text
+ * filter is the search's.)
  */
 export interface GitLogRowFilterState {
   author: GitLogAuthorFilter | null;
@@ -89,17 +90,11 @@ export function pathsChipText(paths: readonly string[], names: Readonly<Record<s
 }
 
 /**
- * True when the HOST hides rows (author/date/paths): the commits it
- * leaves out never reach the window, so no graph can be drawn over
- * what is left. Sort order alone keeps the walk contiguous, so it
- * never counts; No Merges and First Parent are the view's own sifts
- * and keep their graph.
+ * True when User, Date or Paths is on: a walk names the commits the
+ * list holds, so the list sifts — it is filtered, and none of its
+ * linear runs folds. The sort order alone hides nothing, so it never
+ * counts.
  */
 export function hasRowFilters(state: GitLogRowFilterState): boolean {
   return state.author !== null || state.date !== null || state.paths.length > 0;
-}
-
-/** A merge commit — what Graph Options › No Merges leaves out of the list. */
-export function isMergeCommit(entry: { parents: readonly string[] }): boolean {
-  return entry.parents.length > 1;
 }

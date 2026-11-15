@@ -6,23 +6,20 @@
  * mounted list (an unselected row becomes the selection alone, a
  * selected row keeps the set and the menu covers it), the Left / Right
  * walk to the child / parent commit, and the neighbor model at the
- * window's edges.
+ * list's edges.
  */
 
 import type { WorkspaceTreeLogEntryWire } from '@openheaders/core/bridge';
 import type { Translate } from '@openheaders/ui/context/LocaleContext';
 import CommitList from '@openheaders/ui/workbench/components/panels/git/CommitList';
 import { patchApplyOrder, patchFilename } from '@openheaders/ui/workbench/components/panels/git/commit-patch';
-import {
-  childInWindow,
-  isFullCommitSha,
-  parentInWindow,
-} from '@openheaders/ui/workbench/components/panels/git/log-neighbors';
+import { childInList, parentInList } from '@openheaders/ui/workbench/components/panels/git/log-neighbors';
 import {
   buildLogRowMenu,
   type LogRowMenuHandlers,
   type LogRowMenuTarget,
 } from '@openheaders/ui/workbench/components/panels/git/log-row-menu';
+import { isFullCommitSha } from '@openheaders/ui/workbench/components/panels/git/short-sha';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import type { MenuProps } from 'antd';
 import type React from 'react';
@@ -143,7 +140,7 @@ describe('buildLogRowMenu — the anatomy', () => {
     }
   });
 
-  it('a walk holds at the window’s edge', () => {
+  it('a walk holds at the list’s edge', () => {
     const menu = buildLogRowMenu({ shas: ['c4'], child: null, parent: 'c3', applies: true }, t, handlers());
     expect(disabledKeys(menu)).toContain('go-to-child');
     expect(disabledKeys(menu)).not.toContain('go-to-parent');
@@ -237,15 +234,15 @@ describe('commit-patch', () => {
 });
 
 describe('log-neighbors', () => {
-  it('the parent is the first parent when its row is in the window; the child the nearest newer row naming the commit', () => {
-    expect(parentInWindow(CHAIN, 'c3')).toBe('c2');
-    expect(childInWindow(CHAIN, 'c3')).toBe('c4');
-    expect(parentInWindow(CHAIN, 'c1')).toBeNull();
-    expect(childInWindow(CHAIN, 'c4')).toBeNull();
-    // A parent outside the loaded window is no target.
-    expect(parentInWindow(CHAIN.slice(0, 2), 'c3')).toBeNull();
-    expect(parentInWindow(CHAIN, 'nope')).toBeNull();
-    expect(childInWindow(CHAIN, 'nope')).toBeNull();
+  it('the parent is the first parent when the list holds it; the child the nearest newer row naming the commit', () => {
+    expect(parentInList(CHAIN, 'c3')).toBe('c2');
+    expect(childInList(CHAIN, 'c3')).toBe('c4');
+    expect(parentInList(CHAIN, 'c1')).toBeNull();
+    expect(childInList(CHAIN, 'c4')).toBeNull();
+    // A parent the list does not hold is no target.
+    expect(parentInList(CHAIN.slice(0, 2), 'c3')).toBeNull();
+    expect(parentInList(CHAIN, 'nope')).toBeNull();
+    expect(childInList(CHAIN, 'nope')).toBeNull();
   });
 
   it('a full 40-hex id is a commit sha; a ref name or a short sha is not', () => {

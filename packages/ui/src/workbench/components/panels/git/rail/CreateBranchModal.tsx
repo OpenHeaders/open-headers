@@ -14,8 +14,7 @@ import type React from 'react';
 import { useEffect, useRef, useState } from 'react';
 import type { InputRef } from 'antd';
 import { useT } from '@openheaders/ui/context/LocaleContext';
-import { isFullCommitSha } from '../log-neighbors';
-import { shortSha } from '../short-sha';
+import { isFullCommitSha, shortSha } from '../short-sha';
 import { nameGitWork } from '../use-git-work';
 
 export interface CreateBranchModalProps {

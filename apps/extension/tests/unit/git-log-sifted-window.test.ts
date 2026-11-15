@@ -65,12 +65,14 @@ const keeping =
   (entry: { sha: string }): boolean =>
     rows.includes(Number(entry.sha.slice(1)));
 
-/** Every join of the graph as `child>parent`, a `~` on one that passes over hidden commits. */
-const joins = (graph: ReturnType<typeof siftLogWindow>['graph']): string[] => [
-  ...new Set(
-    graph.flatMap((row) => row.edges.map((edge) => `${edge.child}>${edge.parent}${edge.collapsed ? '~' : ''}`)),
-  ),
-];
+/** Each row's edges as its cell draws them: the half of the row, the lanes where they are not the first, a `~` on one that passes over hidden commits. */
+const cells = (graph: ReturnType<typeof siftLogWindow>['graph']): string[][] =>
+  graph.map((row) =>
+    row.edges.map(
+      (edge) =>
+        `${edge.span}${edge.from === 0 && edge.to === 0 ? '' : `:${edge.from}>${edge.to}`}${edge.collapsed ? '~' : ''}`,
+    ),
+  );
 
 describe('siftLogWindow', () => {
   it('lists the commits that stay, in list order', () => {
@@ -84,22 +86,31 @@ describe('siftLogWindow', () => {
   });
 
   it('joins two commits that stay next to each other with a plain line', () => {
-    expect(joins(siftLogWindow(windowOf(line(6)), keeping(3, 4)).graph)).toEqual(['c3>c4']);
+    expect(cells(siftLogWindow(windowOf(line(6)), keeping(3, 4)).graph)).toEqual([['bottom'], ['top']]);
   });
 
   it('joins a commit to the nearest listed one under it, over the hidden ones, as the stubs', () => {
-    expect(joins(siftLogWindow(windowOf(line(6)), keeping(1, 3, 4)).graph)).toEqual(['c1>c3~', 'c3>c4']);
+    expect(cells(siftLogWindow(windowOf(line(6)), keeping(1, 3, 4)).graph)).toEqual([
+      ['bottom~'],
+      ['top~', 'bottom'],
+      ['top'],
+    ]);
   });
 
   it('keeps a join the host already drew over hidden commits as the stubs', () => {
     const made = line(6);
     made[3] = { parents: [4], passes: [4] };
-    expect(joins(siftLogWindow(windowOf(made), keeping(3, 4)).graph)).toEqual(['c3>c4~']);
+    expect(cells(siftLogWindow(windowOf(made), keeping(3, 4)).graph)).toEqual([['bottom~'], ['top~']]);
   });
 
   it('reads each of a merge’s joins by its own parent — one over hidden commits, the other plain', () => {
     const made: Made[] = [{ parents: [1, 2], passes: [2] }, { parents: [3] }, { parents: [3] }, { parents: [4] }];
-    expect(joins(siftLogWindow(windowOf(made), keeping(0, 1, 2)).graph).sort()).toEqual(['c0>c1', 'c0>c2~']);
+    // The second side's line crosses c1's row on its way to c2, stubbed as it left the merge.
+    expect(cells(siftLogWindow(windowOf(made), keeping(0, 1, 2)).graph)).toEqual([
+      ['bottom', 'bottom:0>1~'],
+      ['top', 'pass:1>0~'],
+      ['top~'],
+    ]);
   });
 
   it('reads a row’s join off its OWN edge — not off another row’s that crosses its cell to the same parent', () => {
@@ -112,19 +123,17 @@ describe('siftLogWindow', () => {
       },
       { parents: [3] },
     ];
-    expect(joins(siftLogWindow(windowOf(made), keeping(1, 2)).graph)).toEqual(['c1>c2']);
+    expect(cells(siftLogWindow(windowOf(made), keeping(1, 2)).graph)).toEqual([['bottom'], ['top']]);
   });
 
   it('ends a line where it leaves the window', () => {
-    const sifted = siftLogWindow(windowOf(line(6)), keeping(4, 5));
-    expect(joins(sifted.graph)).toEqual(['c4>c5']);
-    expect(sifted.graph[1].edges.every((edge) => edge.span === 'top')).toBe(true);
+    expect(cells(siftLogWindow(windowOf(line(6)), keeping(4, 5)).graph)).toEqual([['bottom'], ['top']]);
   });
 
   it('never joins two lines that leave the window for different commits', () => {
     // c0 and c1 are two heads; each leaves for a commit of its own past the window.
     const sifted = siftLogWindow(windowOf([{ parents: [7] }, { parents: [9] }]), keeping(0, 1));
-    expect(joins(sifted.graph)).toEqual([]);
+    expect(cells(sifted.graph)).toEqual([[], []]);
   });
 
   it('joins a merge to what each side leads to among the listed', () => {
@@ -137,9 +146,13 @@ describe('siftLogWindow', () => {
       { parents: [5] },
       { parents: [6] },
     ];
-    expect(joins(siftLogWindow(windowOf(made), keeping(0, 3, 4)).graph).sort()).toEqual(['c0>c3~', 'c0>c4~']);
+    expect(cells(siftLogWindow(windowOf(made), keeping(0, 3, 4)).graph)).toEqual([
+      ['bottom~', 'bottom:0>1~'],
+      ['top~', 'pass:1>0~'],
+      ['top~'],
+    ]);
     // Both sides lead to c5 alone: one join, not two.
-    expect(joins(siftLogWindow(windowOf(made), keeping(0, 5)).graph)).toEqual(['c0>c5~']);
+    expect(cells(siftLogWindow(windowOf(made), keeping(0, 5)).graph)).toEqual([['bottom~'], ['top~']]);
   });
 
   it('draws each commit in the colour it wears in the whole list', () => {
@@ -164,15 +177,15 @@ describe('siftLogWindow', () => {
         lane: 0,
         color: one,
         laneCount: 1,
-        edges: [{ from: 0, to: 0, color: one, span: 'bottom', child: 'c0', parent: 'c3', collapsed: false }],
+        edges: [{ from: 0, to: 0, color: one, span: 'bottom', collapsed: false, lit: false }],
       },
       {
         lane: 1,
         color: four,
         laneCount: 2,
         edges: [
-          { from: 1, to: 1, color: four, span: 'bottom', child: 'c1', parent: 'c3', collapsed: true },
-          { from: 0, to: 0, color: one, span: 'pass', child: 'c0', parent: 'c3', collapsed: false },
+          { from: 1, to: 1, color: four, span: 'bottom', collapsed: true, lit: false },
+          { from: 0, to: 0, color: one, span: 'pass', collapsed: false, lit: false },
         ],
       },
       {
@@ -180,16 +193,16 @@ describe('siftLogWindow', () => {
         color: one,
         laneCount: 2,
         edges: [
-          { from: 0, to: 0, color: one, span: 'top', child: 'c0', parent: 'c3', collapsed: false },
-          { from: 1, to: 0, color: four, span: 'top', child: 'c1', parent: 'c3', collapsed: true },
-          { from: 0, to: 0, color: one, span: 'bottom', child: 'c3', parent: 'c4', collapsed: false },
+          { from: 0, to: 0, color: one, span: 'top', collapsed: false, lit: false },
+          { from: 1, to: 0, color: four, span: 'top', collapsed: true, lit: false },
+          { from: 0, to: 0, color: one, span: 'bottom', collapsed: false, lit: false },
         ],
       },
       {
         lane: 0,
         color: one,
         laneCount: 1,
-        edges: [{ from: 0, to: 0, color: one, span: 'top', child: 'c3', parent: 'c4', collapsed: false }],
+        edges: [{ from: 0, to: 0, color: one, span: 'top', collapsed: false, lit: false }],
       },
     ]);
   });

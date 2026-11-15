@@ -734,7 +734,6 @@ const GitLogView: React.FC<GitLogViewProps> = ({
               onResetFilters={resetFilters}
               note={searchNote}
               matchRanges={matcher.ranges}
-              fragments={false}
               scrollTo={searchScrollTo}
               compactRefs={columns.compactRefs}
               refsOnLeft={columns.refsOnLeft}

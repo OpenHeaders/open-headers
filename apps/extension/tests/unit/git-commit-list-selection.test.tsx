@@ -10,7 +10,6 @@
 
 import type { WorkspaceTreeLogEntryWire } from '@openheaders/core/bridge';
 import CommitList from '@openheaders/ui/workbench/components/panels/git/CommitList';
-import { computeLogGraph } from '@openheaders/ui/workbench/components/panels/git/graph';
 import PushCommitList from '@openheaders/ui/workbench/components/panels/git/push/PushCommitList';
 import type { PushSelection } from '@openheaders/ui/workbench/components/panels/git/push/push-window-model';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
@@ -258,60 +257,57 @@ describe('CommitList — the graph cell (S45)', () => {
     expect(cells[0].querySelectorAll('circle')).toHaveLength(1);
   });
 
-  it('the pointer over a cell lights its linear fragment — ends and interior — and a click reports it; the row click stays a selection', () => {
-    // c4 -> c3 -> c2 -> c1, HEAD on c4: the whole run is one fragment with c4 and c1 its ends.
+  it('draws the cells it is given, lights nothing under the pointer, and a click on a cell is the row’s own', () => {
+    // c4 -> c3 -> c2 -> c1, one lane: a line through every row.
     const chain = ENTRIES.map((e, i) => ({ ...e, parents: i === 0 ? [] : [ENTRIES[i - 1].sha] })).reverse();
-    const onToggle = vi.fn();
+    const lane = 'var(--oh-git-lane-0)';
+    const edge = (span: 'top' | 'bottom') => ({ from: 0, to: 0, color: lane, span, collapsed: false, lit: false });
+    const cells = chain.map((_, at) => ({
+      lane: 0,
+      color: lane,
+      laneCount: 1,
+      edges: [...(at > 0 ? [edge('top')] : []), ...(at < chain.length - 1 ? [edge('bottom')] : [])],
+    }));
     const onSelect = vi.fn();
     render(
       <CommitList
         entries={chain}
-        graph={computeLogGraph(chain, { headSha: 'c4' })}
+        graph={cells}
         refsBySha={new Map()}
-        headSha="c4"
+        headSha={null}
         selectedSha={null}
         onSelect={onSelect}
         onSelectionChange={() => undefined}
         filtersActive={false}
         onResetFilters={() => undefined}
-        anchors={new Set(['c4'])}
-        onToggleFragment={onToggle}
       />,
     );
-    const cells = screen.getAllByTestId('git-tool-graph-cell');
-    // A lit edge wears its border: a wider path under its own.
-    const borders = (): number[] => cells.map((cell) => cell.querySelectorAll('path[stroke-width="4"]').length);
-    expect(cells.map((cell) => cell.getAttribute('data-highlight'))).toEqual([null, null, null, null]);
-    expect(borders()).toEqual([0, 0, 0, 0]);
-    fireEvent.mouseEnter(cells[1]);
-    expect(cells.map((cell) => cell.getAttribute('data-highlight'))).toEqual(['end', 'interior', 'interior', 'end']);
-    expect(borders()).toEqual([1, 2, 2, 1]);
-    fireEvent.click(cells[1]);
-    expect(onToggle).toHaveBeenCalledWith({ top: 'c4', bottom: 'c1', interior: ['c3', 'c2'] });
-    expect(onSelect).not.toHaveBeenCalled();
-    fireEvent.mouseLeave(cells[1]);
-    expect(cells.map((cell) => cell.getAttribute('data-highlight'))).toEqual([null, null, null, null]);
+    const drawn = screen.getAllByTestId('git-tool-graph-cell');
+    expect(drawn.map((cell) => cell.querySelectorAll('path').length)).toEqual([1, 2, 2, 1]);
+    fireEvent.mouseEnter(drawn[1]);
+    expect(drawn.map((cell) => cell.getAttribute('data-highlight'))).toEqual([null, null, null, null]);
+    expect(drawn.map((cell) => cell.querySelectorAll('path[stroke-width="4"]').length)).toEqual([0, 0, 0, 0]);
+    fireEvent.click(drawn[1]);
+    expect(onSelect).toHaveBeenLastCalledWith('c3');
   });
 
-  it('a filtered list (no layout) lights nothing', () => {
-    const chain = ENTRIES.map((e, i) => ({ ...e, parents: i === 0 ? [] : [ENTRIES[i - 1].sha] })).reverse();
+  it('draws a plain dot a row where no graph joins the commits', () => {
     render(
       <CommitList
-        entries={chain}
+        entries={ENTRIES}
         graph={null}
         refsBySha={new Map()}
-        headSha="c4"
+        headSha={null}
         selectedSha={null}
         onSelect={() => undefined}
         onSelectionChange={() => undefined}
         filtersActive={true}
         onResetFilters={() => undefined}
-        anchors={new Set(['c4'])}
       />,
     );
-    const cells = screen.getAllByTestId('git-tool-graph-cell');
-    fireEvent.mouseEnter(cells[1]);
-    expect(cells.map((cell) => cell.getAttribute('data-highlight'))).toEqual([null, null, null, null]);
+    const drawn = screen.getAllByTestId('git-tool-graph-cell');
+    expect(drawn.map((cell) => cell.querySelectorAll('path').length)).toEqual([0, 0, 0, 0]);
+    expect(drawn.map((cell) => cell.querySelectorAll('circle').length)).toEqual([1, 1, 1, 1]);
   });
 });
 
