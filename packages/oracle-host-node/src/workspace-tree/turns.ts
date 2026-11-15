@@ -1,29 +1,32 @@
 /**
- * Whose turn a search has — the bound on how many searches of one
- * workspace's history run at once. A surface names itself by a key (a
- * log tab): its newer search ends its older one, which nobody reads any
- * more; and a workspace runs at most `maxPerOwner` at a time, the
+ * Whose turn a read of a workspace's history has — the bound on how
+ * many reads of one kind run at once. A surface names itself by a key
+ * (a log tab): its newer read ends its older one, which nobody reads
+ * any more; and a workspace runs at most `maxPerOwner` at a time, the
  * oldest giving way — so no caller, by keys of its own making, can pile
- * walks up on the host.
+ * work up on the host.
  *
- * Pure bookkeeping over abort signals; the search that holds a turn
- * ends when its signal does.
+ * One set of turns per kind of read (a search, a page of rows): a tab's
+ * rows never end its search.
+ *
+ * Pure bookkeeping over abort signals; the read that holds a turn ends
+ * when its signal does.
  */
 
-export interface SearchTurn {
-  /** Aborted when the turn is taken away — by the same key's newer search, or by the bound. */
+export interface Turn {
+  /** Aborted when the turn is taken away — by the same key's newer read, or by the bound. */
   signal: AbortSignal;
-  /** The search is over: its turn is free. */
+  /** The read is over: its turn is free. */
   done(): void;
 }
 
-export interface SearchTurns {
-  take(owner: string, key: string): SearchTurn;
-  /** Ends every search in flight — the host is going away. */
+export interface Turns {
+  take(owner: string, key: string): Turn;
+  /** Ends every read in flight — the host is going away. */
   endAll(): void;
 }
 
-export function createSearchTurns(maxPerOwner: number): SearchTurns {
+export function createTurns(maxPerOwner: number): Turns {
   // A map keeps the order turns were taken in: its first entry is the oldest.
   const owners = new Map<string, Map<string, AbortController>>();
 

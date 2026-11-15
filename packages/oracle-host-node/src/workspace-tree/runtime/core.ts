@@ -21,9 +21,9 @@ import type {
 } from '../../git';
 import type { GitHeadWatcher } from '../head-watcher';
 import type { WorkspaceTreeMaterializer } from '../materializer';
-import type { SearchTurns } from '../search-turns';
 import type { StatusCache } from '../status-cache';
 import type { SweepWorkspaceTreeResult } from '../sweep';
+import type { Turns } from '../turns';
 import type { WorkspaceTreeWatcher } from '../watcher';
 import type {
   CommitWorkspaceTreeRpcResult,
@@ -156,7 +156,7 @@ export interface RuntimeCtx {
   /** The reading runner — a git read handed over as it arrives (a whole history's walk). */
   readonly gitStream: GitStreamRunner;
   /** Whose turn a history search has — the bound on searches in flight. */
-  readonly searchTurns: SearchTurns;
+  readonly searchTurns: Turns;
   /** Host-global audit ring (Console tab feed) — real-runner rows only. */
   readonly consoleRows: GitConsoleRow[];
   ensureGitAvailability(cwd: string): Promise<GitAvailability>;

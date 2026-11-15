@@ -18,6 +18,7 @@ export {
   listCommitRangeLog,
   updateBranchFromUpstream,
 } from './branch-ops';
+export { breathe } from './breathe';
 export { type CommitIntent, composeCommitMessage } from './commit-message';
 export { type CommitMeta, type CommitPerson, readCommitAuthorIdentity, readCommitMeta } from './commit-meta';
 export { type GitDirs, parseGitfile, resolveGitDirs } from './git-dir';
@@ -43,6 +44,7 @@ export {
   removeIgnoreEntry,
 } from './ignore-ops';
 export { type HeldIndexLock, type IndexLockRefusal, lockRefusalReason, withIndexLock } from './index-lock';
+export { type NamedRowsResult, readNamedRows } from './log-named-rows';
 export { type CommitLogSearchResult, type LogSearchMatch, searchCommitLog } from './log-search';
 export { type LogSearchLane, openLogSearchLane } from './log-search-lane';
 export {
@@ -115,6 +117,7 @@ export {
   isShallowRepository,
   isWorkspaceRepo,
   type LeftRightCounts,
+  LOG_SCOPE_HEAD,
   listCommitLog,
   listFileLog,
   listForeignAuthors,

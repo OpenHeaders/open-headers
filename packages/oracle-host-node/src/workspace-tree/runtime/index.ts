@@ -44,9 +44,9 @@ import {
 import { bindWorkspaceTree, probeWorkspaceTree, reserveWorkspaceTreeForAdopt, unbindWorkspaceTree } from '../bind';
 import type { ApplyCommitResolution } from '../change-answers';
 import type { ForcePushChoice } from '../force-push';
-import { createSearchTurns } from '../search-turns';
 import type { SweepWorkspaceTreeResult } from '../sweep';
 import type { SwitchDirtyAction } from '../switch';
+import { createTurns } from '../turns';
 import {
   runCreateBranch,
   runCreateTag,
@@ -252,7 +252,7 @@ export function createWorkspaceTreeRuntime(options: WorkspaceTreeRuntimeOptions)
     await hostStorage.set(OH.workspaceTreeBindings, records);
   };
 
-  const searchTurns = createSearchTurns(LOG_SEARCH_MAX_IN_FLIGHT);
+  const searchTurns = createTurns(LOG_SEARCH_MAX_IN_FLIGHT);
 
   const ctx: RuntimeCtx = {
     options,
