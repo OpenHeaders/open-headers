@@ -4,10 +4,11 @@
  * list's two names — what was asked and the id the host answers with —
  * the stretch to read next for the rows mounted, and the bound on the
  * pages kept. And what a tab asks the host to list
- * (`panels/git/log-rows-ask`), with the fold a press on a run makes.
+ * (`panels/git/log-rows-ask`).
  */
 
 import type { WorkspaceTreeLogRowWire, WorkspaceTreeLogRunWire } from '@openheaders/core/bridge';
+import { NO_LOG_FOLDS } from '@openheaders/ui/workbench/components/panels/git/log-folds';
 import {
   LOG_PAGE_ROWS,
   LOG_PAGES_HELD,
@@ -22,7 +23,7 @@ import {
   nextLogRead,
   takeLogRows,
 } from '@openheaders/ui/workbench/components/panels/git/log-row-pages';
-import { logRowsAsk, NO_LOG_FOLDS, toggleLogFold } from '@openheaders/ui/workbench/components/panels/git/log-rows-ask';
+import { logRowsAsk } from '@openheaders/ui/workbench/components/panels/git/log-rows-ask';
 import { describe, expect, it } from 'vitest';
 
 const ASK: LogRowsAsk = { workspaceId: 'ws-1', key: 'log:1', allRefs: true };
@@ -291,26 +292,5 @@ describe('what a tab asks the host to list', () => {
       foldAll: true,
       folds: [sha(9)],
     });
-  });
-});
-
-describe('the fold a press on a run makes', () => {
-  it('folds an open run by naming it and opens a folded one by taking its name out', () => {
-    const folded = toggleLogFold(NO_LOG_FOLDS, sha(4), false);
-    expect(folded).toEqual({ all: false, runs: [sha(4)] });
-    expect(toggleLogFold(folded, sha(8), false)).toEqual({ all: false, runs: [sha(4), sha(8)] });
-    expect(toggleLogFold(folded, sha(4), true)).toEqual(NO_LOG_FOLDS);
-  });
-
-  it('with every run folded, opens one by naming it and folds it again by taking its name out', () => {
-    const all = { all: true, runs: [] };
-    const opened = toggleLogFold(all, sha(4), true);
-    expect(opened).toEqual({ all: true, runs: [sha(4)] });
-    expect(toggleLogFold(opened, sha(4), false)).toEqual(all);
-  });
-
-  it('names a run once however often it is pressed the same way', () => {
-    const once = toggleLogFold(NO_LOG_FOLDS, sha(4), false);
-    expect(toggleLogFold(once, sha(4), false)).toEqual(once);
   });
 });

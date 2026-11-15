@@ -6,26 +6,10 @@
  * list — so every part that is off is left out. Pure.
  */
 
+import type { LogFolds } from './log-folds';
 import type { LogRowsAsk } from './log-row-pages';
 import { type GitLogScope, searchScopeWire } from './log-scope';
 import type { GitLogWireFilters } from './toolbar/log-filters';
-
-/** The linear runs a tab folds, each named by the hash of the first commit it hides. */
-export interface LogFolds {
-  /** Every run is folded (Collapse Linear Branches) — and `runs` names the ones opened again. */
-  all: boolean;
-  runs: readonly string[];
-}
-
-export const NO_LOG_FOLDS: LogFolds = { all: false, runs: [] };
-
-/** The folds after a press on a run's dot: a folded run opens, an open one folds. */
-export function toggleLogFold(folds: LogFolds, first: string, folded: boolean): LogFolds {
-  const runs = folds.runs.filter((sha) => sha !== first);
-  // Under `all` the named runs are the OPEN ones: a press names a run to open it, and takes its name out to fold it.
-  const named = folded === folds.all;
-  return { all: folds.all, runs: named ? [...runs, first] : runs };
-}
 
 export interface LogRowsAskParts {
   workspaceId: string;

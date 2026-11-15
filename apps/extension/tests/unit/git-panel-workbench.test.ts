@@ -174,6 +174,17 @@ describe('git panel workbench (shared pane-tabs machinery)', () => {
     });
   });
 
+  it('log tabs carry the folded runs — none at first, kept when the scope or a filter changes', () => {
+    const { registry } = freshWorkbench();
+    expect(registry.tabs()[0]).toMatchObject({ kind: 'log', folds: { all: false, runs: [] } });
+    const folds = { all: true, runs: ['0'.repeat(40)] };
+    registry.patchLogTab(GIT_PRIMARY_TAB_KEY, { folds });
+    registry.patchLogTab(GIT_PRIMARY_TAB_KEY, { selectedRefs: ['main'], noMerges: true, author: { kind: 'me' } });
+    expect(registry.tabs()[0]).toMatchObject({ selectedRefs: ['main'], noMerges: true, folds });
+    registry.newLogTab();
+    expect(registry.tabs().at(-1)).toMatchObject({ kind: 'log', folds: { all: false, runs: [] } });
+  });
+
   it('openCompare mints one closable tab per ref and re-activates on repeat', () => {
     const { registry, panes } = freshWorkbench();
     registry.openCompare('v5/data-model');

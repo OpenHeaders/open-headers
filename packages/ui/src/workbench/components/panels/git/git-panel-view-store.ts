@@ -20,6 +20,7 @@
  */
 
 import { createPaneTabsStore, type PaneTabsRegistry, type WorkbenchPaneTabs } from '../pane-tabs/pane-tabs-store';
+import { type LogFolds, NO_LOG_FOLDS } from './log-folds';
 import type { GitLogAuthorFilter, GitLogDateFilter, GitLogSort } from './toolbar/log-filters';
 
 /** The branches tree's selection — the activity bar's action target. */
@@ -52,6 +53,8 @@ export interface GitLogTabState {
   sort: GitLogSort;
   firstParent: boolean;
   noMerges: boolean;
+  /** The graph's folded linear runs — kept across a scope or a filter change (`log-folds.ts`). */
+  folds: LogFolds;
   selectedSha: string | null;
   refsCollapsed: boolean;
   /** The rail tree's selection (highlight + bar enablement); null = HEAD. */
@@ -136,6 +139,7 @@ function makeLogTab(id: number): GitLogTabState {
     sort: 'date',
     firstParent: false,
     noMerges: false,
+    folds: NO_LOG_FOLDS,
     selectedSha: null,
     refsCollapsed: false,
     railSelection: null,

@@ -105,6 +105,7 @@ const TAB: GitLogTabState = {
   sort: 'date',
   firstParent: false,
   noMerges: false,
+  folds: { all: false, runs: [] },
   selectedSha: null,
   refsCollapsed: true,
   railSelection: null,
