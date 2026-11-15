@@ -45,6 +45,14 @@ export {
 export { type HeldIndexLock, type IndexLockRefusal, lockRefusalReason, withIndexLock } from './index-lock';
 export { type CommitLogSearchResult, type LogSearchMatch, searchCommitLog } from './log-search';
 export { type LogSearchLane, openLogSearchLane } from './log-search-lane';
+export {
+  type HistorySkeleton,
+  historyRowOf,
+  historyRowOfPrefix,
+  historyShaOf,
+  type ReadLogSkeletonResult,
+  readLogSkeleton,
+} from './log-skeleton';
 export { type AbortGitOperationResult, abortGitOperation, type GitOperation, gitOperationKind } from './operation';
 export { type CommitParentChange, type CommitParentChanges, readCommitParentChanges } from './parent-changes';
 export {
