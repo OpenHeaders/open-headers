@@ -22,7 +22,7 @@ import {
   listFileLog,
   listHeadTreePaths,
   listRepoRefs,
-  plainTextMatch,
+  openLogSearchLane,
   readCommitFileDiff,
   readCommitParentChanges,
   readCommitPatch,
@@ -215,9 +215,9 @@ export async function runSearchLog(
   const request = readLogRequest(ctx, scope, filters);
   const key = search.key ?? '';
   if (request === null || key.length > LOG_SEARCH_MAX_KEY) return { ok: false, reason: 'invalid-filter' };
-  // A pattern is never run on the host's own thread.
-  const match = search.regex === true ? null : plainTextMatch(search.text, search.matchCase === true);
-  if (match === null) return { ok: false, reason: 'invalid-filter' };
+  // A plain text is matched here; a pattern never runs on the host's own thread — the lane is the plumbing's.
+  const lane = openLogSearchLane(search.text, search.regex === true, search.matchCase === true);
+  if (lane === null) return { ok: false, reason: 'invalid-filter' };
   const history = await openHistory(ctx, workspaceId, scope);
   if (!history.ok) return history;
   const turn = ctx.searchTurns.take(workspaceId, key);
@@ -226,7 +226,7 @@ export async function runSearchLog(
       scope,
       filters: await request.resolve(history.rootDir),
       limit: cappedLimit(limit),
-      match,
+      match: lane.match,
       deadlineMs: LOG_SEARCH_DEADLINE_MS,
       signal: turn.signal,
     });
@@ -234,7 +234,11 @@ export async function runSearchLog(
     if (result.reason === 'timeout') return { ok: false, reason: 'search-timeout' };
     if (result.reason === 'aborted') return { ok: false, reason: 'superseded' };
     return { ok: false, reason: result.reason === 'invalid-scope' ? 'unknown-ref' : 'log-failed' };
+  } catch (fault) {
+    // The lane's own failure (its worker went away): the search failed, the host did not.
+    return { ok: false, reason: 'log-failed', detail: fault instanceof Error ? fault.message : String(fault) };
   } finally {
+    lane.close();
     turn.done();
   }
 }
