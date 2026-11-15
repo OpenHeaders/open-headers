@@ -30,6 +30,15 @@ export function logScopeWire(scope: GitLogScope): GitLogScopeWire {
   return scope[0] === GIT_LOG_SCOPE_HEAD ? {} : { ref: scope[0] };
 }
 
+/**
+ * The `searchLog` verb's scope fields: the same scope as the log's, but
+ * the verb has no `ref` — one ref travels in `refs` too.
+ */
+export function searchScopeWire(scope: GitLogScope): Pick<GitLogScopeWire, 'refs' | 'allRefs'> {
+  if (scope.length === 0) return { allRefs: true };
+  return scope.length === 1 && scope[0] === GIT_LOG_SCOPE_HEAD ? {} : { refs: [...scope] };
+}
+
 /** The scope without the refs that went — its order kept. */
 export function scopeWithout(scope: GitLogScope, gone: Iterable<string>): string[] {
   const dropped = new Set(gone);

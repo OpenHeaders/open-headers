@@ -14,8 +14,21 @@ import {
   scopeMenuText,
   scopeTabText,
   scopeWithout,
+  searchScopeWire,
 } from '@openheaders/ui/workbench/components/panels/git/log-scope';
 import { describe, expect, it } from 'vitest';
+
+describe('searchScopeWire', () => {
+  it('asks every ref for an empty scope and the default walk for HEAD alone', () => {
+    expect(searchScopeWire([])).toEqual({ allRefs: true });
+    expect(searchScopeWire(['HEAD'])).toEqual({});
+  });
+
+  it('sends every other scope as `refs` — the verb has no `ref`', () => {
+    expect(searchScopeWire(['feature/orders-v2'])).toEqual({ refs: ['feature/orders-v2'] });
+    expect(searchScopeWire(['HEAD', 'main'])).toEqual({ refs: ['HEAD', 'main'] });
+  });
+});
 
 describe('logScopeWire', () => {
   it('asks every ref for an empty scope and the default walk for HEAD alone', () => {
