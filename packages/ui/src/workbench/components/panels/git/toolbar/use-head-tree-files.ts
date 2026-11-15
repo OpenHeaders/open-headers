@@ -8,7 +8,8 @@
  */
 
 import { hostBridge } from '@openheaders/core/bridge';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useState } from 'react';
+import { useNewestRead } from '../use-newest-read';
 
 export interface HeadTreeFiles {
   paths: string[];
@@ -32,21 +33,12 @@ interface Answer {
 
 export function useHeadTreeFiles(workspaceId: string): HeadTreeFilesRead {
   const [answer, setAnswer] = useState<Answer | null>(null);
-  const newest = useRef(0);
-
-  // An answer that lands after the surface is gone is no one's.
-  useEffect(
-    () => () => {
-      newest.current += 1;
-    },
-    [],
-  );
+  const beginRead = useNewestRead();
 
   const ask = useCallback((): void => {
-    newest.current += 1;
-    const read = newest.current;
+    const superseded = beginRead();
     const land = (listing: HeadTreeFiles | null, failure: string | null): void => {
-      if (read === newest.current) setAnswer({ workspaceId, listing, failure });
+      if (!superseded()) setAnswer({ workspaceId, listing, failure });
     };
     hostBridge
       .call('oh.workspaceTree.treeFiles', { workspaceId })
@@ -55,7 +47,7 @@ export function useHeadTreeFiles(workspaceId: string): HeadTreeFilesRead {
         else land(null, result?.reason ?? 'list-failed');
       })
       .catch((err: Error) => land(null, err.message));
-  }, [workspaceId]);
+  }, [beginRead, workspaceId]);
 
   const own = answer !== null && answer.workspaceId === workspaceId ? answer : null;
   return { listing: own?.listing ?? null, failure: own?.failure ?? null, ask };

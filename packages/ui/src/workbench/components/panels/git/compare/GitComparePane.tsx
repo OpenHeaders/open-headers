@@ -6,7 +6,8 @@
  * anatomy); an empty side answers "<X> contains all commits from <Y>".
  * Self-sufficient per pane: fetches `compareRefs` (+ refs for the
  * inline chips) on mount and refetches on `workspaceTreeGitStatus`
- * frames — the lists always compare against the LIVE current branch.
+ * frames — the lists always compare against the LIVE current branch;
+ * reads overlap, and only the newest one's answer is taken.
  */
 
 import { WarningOutlined } from '@ant-design/icons';
@@ -27,6 +28,7 @@ import { getGitLogViewPrefs, subscribeGitLogViewPrefs } from '../git-log-view-pr
 import type { GitCompareTabState } from '../git-panel-view-store';
 import { useFileDiff } from '../use-file-diff';
 import { useLogHourCycle } from '../use-log-hour-cycle';
+import { useNewestRead } from '../use-newest-read';
 
 export interface GitComparePaneProps {
   workspaceId: string;
@@ -194,12 +196,17 @@ const GitComparePane: React.FC<GitComparePaneProps> = ({ workspaceId, tab, patch
   const [error, setError] = useState<string | null>(null);
   const fileDiff = useFileDiff(workspaceId);
 
+  const beginRead = useNewestRead();
+
   const reload = useCallback(async (): Promise<void> => {
+    const superseded = beginRead();
     setError(null);
     try {
       const refsResult = await hostBridge.call('oh.workspaceTree.listRefs', { workspaceId });
+      if (superseded()) return;
       setRefs(refsResult.ok ? refsResult.refs : []);
       const result = await hostBridge.call('oh.workspaceTree.compareRefs', { workspaceId, ref: tab.ref });
+      if (superseded()) return;
       if (result.ok) {
         setCurrent(result.current);
         setOnlyInCurrent(result.onlyInCurrent);
@@ -210,9 +217,10 @@ const GitComparePane: React.FC<GitComparePaneProps> = ({ workspaceId, tab, patch
         setError(t('workbench.gitLog.compare.failed', { detail: result.detail ?? result.reason }));
       }
     } catch (err) {
+      if (superseded()) return;
       setError((err as Error).message);
     }
-  }, [workspaceId, tab.ref, t]);
+  }, [beginRead, workspaceId, tab.ref, t]);
 
   useEffect(() => {
     void reload();

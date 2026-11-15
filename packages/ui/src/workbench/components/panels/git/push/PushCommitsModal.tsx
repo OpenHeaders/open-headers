@@ -11,7 +11,8 @@
  * are sashes on the Git window's track model, persisted per
  * workspace. Cancel and Push in the footer. The list is `compareRefs`
  * against the upstream (the commits it lacks) or the branch's log when
- * no upstream exists yet; it refetches on status frames while open.
+ * no upstream exists yet; it refetches on status frames while open,
+ * and only the newest read's answer is taken.
  * The window never pushes itself — Push runs the caller's routine so
  * every surface keeps its own refusal face (the hook's balloons, the
  * Commit window's inline error and no-permission recovery) — and
@@ -42,6 +43,7 @@ import { useJumpToSource } from '../use-jump-to-source';
 import PushCommitList from './PushCommitList';
 import { unionFiles } from '../changed-files-union';
 import { useLogHourCycle } from '../use-log-hour-cycle';
+import { useNewestRead } from '../use-newest-read';
 import { canPush, folderNameOf, type PushSelection, pushTarget, rangeDiffBase } from './push-window-model';
 import { usePushWindowLayout } from './use-push-window-layout';
 
@@ -87,9 +89,13 @@ const PushCommitsModal: React.FC<PushCommitsModalProps> = ({ workspaceId, open, 
   );
   const prefs = useSyncExternalStore(subscribePrefs, () => getGitLogViewPrefs(workspaceId));
 
+  const beginRead = useNewestRead();
+
   const reload = useCallback(async (): Promise<void> => {
+    const superseded = beginRead();
     if (target.kind !== 'upstream' && target.kind !== 'new-upstream') {
       setEntries([]);
+      setLoading(false);
       return;
     }
     setLoading(true);
@@ -97,6 +103,7 @@ const PushCommitsModal: React.FC<PushCommitsModalProps> = ({ workspaceId, open, 
     try {
       if (target.kind === 'upstream') {
         const result = await hostBridge.call('oh.workspaceTree.compareRefs', { workspaceId, ref: target.upstream });
+        if (superseded()) return;
         if (result.ok) setEntries(result.onlyInCurrent);
         else {
           setEntries([]);
@@ -104,6 +111,7 @@ const PushCommitsModal: React.FC<PushCommitsModalProps> = ({ workspaceId, open, 
         }
       } else {
         const result = await hostBridge.call('oh.workspaceTree.log', { workspaceId, ref: target.branch });
+        if (superseded()) return;
         if (result.ok) setEntries(result.entries);
         else {
           setEntries([]);
@@ -111,12 +119,14 @@ const PushCommitsModal: React.FC<PushCommitsModalProps> = ({ workspaceId, open, 
         }
       }
     } catch (err) {
+      if (superseded()) return;
       setEntries([]);
       setError(t('workbench.gitPush.failed', { detail: (err as Error).message }));
     } finally {
-      setLoading(false);
+      // The newest read alone says the list is in.
+      if (!superseded()) setLoading(false);
     }
-  }, [workspaceId, target, t]);
+  }, [beginRead, workspaceId, target, t]);
 
   useEffect(() => {
     if (!open) return;

@@ -72,6 +72,7 @@ import { useFileDiff } from './use-file-diff';
 import { useJumpToSource } from './use-jump-to-source';
 import { useGitLogLayout } from './use-git-log-layout';
 import { useLogHourCycle } from './use-log-hour-cycle';
+import { useNewestRead } from './use-newest-read';
 
 export interface GitLogViewProps {
   workspaceId: string;
@@ -194,12 +195,10 @@ const GitLogView: React.FC<GitLogViewProps> = ({
     [author, date, paths, sort],
   );
 
-  // The newest read's number. Reads overlap — a filter changes while
-  // the one before is still at the host — and they come back in any
-  // order (`User: me` takes the host a step longer): only the newest
-  // read's answer is taken, or an older one would list its rows under
-  // the filter that replaced it.
-  const latestRead = useRef(0);
+  // Reads overlap — a filter changes while the one before is still at
+  // the host — and they come back in any order (`User: me` takes the
+  // host a step longer): only the newest read's answer is taken.
+  const beginRead = useNewestRead();
 
   // The read is keyed on what it asks the host — the scope and the
   // filters — and on nothing else. `patchTab` is a function the tab
@@ -211,9 +210,7 @@ const GitLogView: React.FC<GitLogViewProps> = ({
   patchTabRef.current = patchTab;
 
   const reload = useCallback(async (): Promise<void> => {
-    latestRead.current += 1;
-    const read = latestRead.current;
-    const superseded = (): boolean => latestRead.current !== read;
+    const superseded = beginRead();
     setError(null);
     try {
       const refsResult = await hostBridge.call('oh.workspaceTree.listRefs', { workspaceId });
@@ -265,7 +262,7 @@ const GitLogView: React.FC<GitLogViewProps> = ({
       setLoaded([]);
       setError((err as Error).message);
     }
-  }, [workspaceId, selectedRefs, branch, wireFilters, t]);
+  }, [beginRead, workspaceId, selectedRefs, branch, wireFilters, t]);
 
   useEffect(() => {
     void reload();
