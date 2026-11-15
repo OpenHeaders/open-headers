@@ -25,6 +25,7 @@ export {
   scrollTopForRow,
   visibleFixedRows,
 } from './fixed-rows';
+export { type FixedRowWindowApi, useFixedRowWindow } from './use-fixed-row-window';
 
 /** Extra rows' worth of pixels mounted beyond each viewport edge, so a
  *  fast wheel fling stays painted while the window catches up. */
