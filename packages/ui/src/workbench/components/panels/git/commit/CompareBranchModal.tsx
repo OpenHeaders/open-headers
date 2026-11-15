@@ -4,7 +4,7 @@
  * (locals, remotes, tags; the checked-out branch omitted — comparing a
  * ref with itself is the empty answer). Picking a ref opens the Git
  * window's Compare-with-Current tab via the shared registry; the modal
- * is panel-scoped like every Commit-window dialog.
+ * centers on the window.
  */
 
 import { BranchIcon, TagIcon } from '@openheaders/ui/shared/icons';
@@ -17,14 +17,11 @@ import { useT } from '@openheaders/ui/context/LocaleContext';
 export interface CompareBranchModalProps {
   workspaceId: string;
   open: boolean;
-  /** The Commit tool window element — the modal centers over the
-   *  panel, not the app window. Null falls back to the document body. */
-  container: HTMLElement | null;
   onClose: () => void;
   onPick: (ref: string) => void;
 }
 
-const CompareBranchModal: React.FC<CompareBranchModalProps> = ({ workspaceId, open, container, onClose, onPick }) => {
+const CompareBranchModal: React.FC<CompareBranchModalProps> = ({ workspaceId, open, onClose, onPick }) => {
   const t = useT();
   const { token } = theme.useToken();
   const [refs, setRefs] = useState<WorkspaceTreeRefWire[]>([]);
@@ -60,7 +57,6 @@ const CompareBranchModal: React.FC<CompareBranchModalProps> = ({ workspaceId, op
       onCancel={onClose}
       width={420}
       centered
-      getContainer={container ?? undefined}
       destroyOnHidden
     >
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8, paddingTop: 4 }}>

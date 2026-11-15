@@ -1,8 +1,8 @@
 /**
  * DateFilterModal — the Date chip's Select… dialog: an explicit
- * since/until range (either side optional, inclusive), panel-centered
- * like every Git tool window dialog. Values are plain `YYYY-MM-DD`
- * strings — exactly the wire shape the log verb validates.
+ * since/until range (either side optional, inclusive), centered on the
+ * window. Values are plain `YYYY-MM-DD` strings — exactly the wire shape
+ * the log verb validates.
  */
 
 import { Input, Modal } from 'antd';
@@ -14,13 +14,11 @@ export interface DateFilterModalProps {
   open: boolean;
   since: string | null;
   until: string | null;
-  /** The Git tool window element — dialogs center over the panel. */
-  container: HTMLElement | null;
   onClose: () => void;
   onApply: (since: string | null, until: string | null) => void;
 }
 
-const DateFilterModal: React.FC<DateFilterModalProps> = ({ open, since, until, container, onClose, onApply }) => {
+const DateFilterModal: React.FC<DateFilterModalProps> = ({ open, since, until, onClose, onApply }) => {
   const t = useT();
   const [sinceValue, setSinceValue] = useState('');
   const [untilValue, setUntilValue] = useState('');
@@ -47,7 +45,6 @@ const DateFilterModal: React.FC<DateFilterModalProps> = ({ open, since, until, c
       onCancel={onClose}
       width={380}
       centered
-      getContainer={container ?? undefined}
       destroyOnHidden
     >
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12, paddingTop: 4 }}>

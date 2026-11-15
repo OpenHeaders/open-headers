@@ -101,7 +101,6 @@ const GitLogView: React.FC<GitLogViewProps> = ({
   const { token } = theme.useToken();
   const { t } = useLocale();
   const hourCycle = useLogHourCycle();
-  const rootRef = useRef<HTMLDivElement>(null);
   const gridRef = useRef<HTMLDivElement>(null);
   const railCellRef = useRef<HTMLDivElement>(null);
   const detailsCellRef = useRef<HTMLDivElement>(null);
@@ -134,7 +133,6 @@ const GitLogView: React.FC<GitLogViewProps> = ({
   // Collapse Linear Branches), by fragment key — a view state, dropped
   // with the tab; a stale entry is ignored.
   const [collapsed, setCollapsed] = useState<ReadonlyMap<string, LogFragment>>(() => new Map());
-  const container = rootRef.current?.closest<HTMLElement>('.git-tool-panel') ?? null;
   const fileDiff = useFileDiff(workspaceId);
   const commitPatch = useCommitPatch(workspaceId);
   const commitApply = useCommitApply(workspaceId);
@@ -556,7 +554,6 @@ const GitLogView: React.FC<GitLogViewProps> = ({
 
   return (
     <div
-      ref={rootRef}
       style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}
       data-testid="git-tool-view"
     >
@@ -644,7 +641,6 @@ const GitLogView: React.FC<GitLogViewProps> = ({
             canExpandLinear={canExpandLinear}
             onExpandLinear={expandLinear}
             textInvalid={matcher.kind === 'invalid'}
-            container={container}
           />
           <GitWorkingLine active={atHost || refresh.asked} />
           <CommitList
@@ -788,7 +784,6 @@ const GitLogView: React.FC<GitLogViewProps> = ({
       <FileHistoryModal
         workspaceId={workspaceId}
         path={historyPath}
-        container={container}
         onClose={() => setHistoryPath(null)}
       />
     </div>

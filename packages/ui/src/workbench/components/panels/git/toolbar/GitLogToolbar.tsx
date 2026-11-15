@@ -70,8 +70,6 @@ export interface GitLogToolbarProps {
   onExpandLinear: () => void;
   /** The text field's regex failed to compile — error styling. */
   textInvalid: boolean;
-  /** The Git tool window element — chip dialogs center over the panel. */
-  container: HTMLElement | null;
 }
 
 const SHA_PREFIX = /^[0-9a-f]{4,40}$/;
@@ -102,7 +100,6 @@ const GitLogToolbar: React.FC<GitLogToolbarProps> = ({
   canExpandLinear,
   onExpandLinear,
   textInvalid,
-  container,
 }) => {
   const t = useT();
   const { token } = theme.useToken();
@@ -568,7 +565,6 @@ const GitLogToolbar: React.FC<GitLogToolbarProps> = ({
         open={dateModalOpen}
         since={tab.date !== null && tab.date.kind === 'range' ? tab.date.since : null}
         until={tab.date !== null && tab.date.kind === 'range' ? tab.date.until : null}
-        container={container}
         onClose={() => setDateModalOpen(false)}
         onApply={(since, until) => {
           patchTab({ date: since === null && until === null ? null : { kind: 'range', since, until } });

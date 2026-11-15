@@ -2,7 +2,7 @@
  * FileHistoryModal — one path's timeline (`fileLog`, renames followed):
  * the newest entry is "who last touched this". Fetches on open,
  * renders sha · subject · author line · co-authors per entry; typed
- * refusals render inline. Panel-scoped like every Git window dialog.
+ * refusals render inline. Centered on the window.
  * The title names the file as the workbench names it (`NamedFileTitle`).
  */
 
@@ -19,12 +19,10 @@ export interface FileHistoryModalProps {
   workspaceId: string;
   /** The repository-relative path; null keeps the modal unmounted. */
   path: string | null;
-  /** The Git tool window element — the modal centers over the panel. */
-  container: HTMLElement | null;
   onClose: () => void;
 }
 
-const FileHistoryModal: React.FC<FileHistoryModalProps> = ({ workspaceId, path, container, onClose }) => {
+const FileHistoryModal: React.FC<FileHistoryModalProps> = ({ workspaceId, path, onClose }) => {
   const { locale, t } = useLocale();
   const { token } = theme.useToken();
   const [entries, setEntries] = useState<WorkspaceTreeLogEntryWire[]>([]);
@@ -63,7 +61,6 @@ const FileHistoryModal: React.FC<FileHistoryModalProps> = ({ workspaceId, path, 
       onCancel={onClose}
       width={560}
       centered
-      getContainer={container ?? undefined}
       destroyOnHidden
       data-testid="git-tool-file-history"
     >

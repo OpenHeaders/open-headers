@@ -104,7 +104,6 @@ const CommitToolPanel: React.FC<CommitToolPanelProps> = ({ info, onHide }) => {
   const [createBranchFrom, setCreateBranchFrom] = useState<string | null>(null);
   const treeRef = useRef<CommitChangesTreeHandle>(null);
   const formRef = useRef<CommitFormHandle>(null);
-  const panelRef = useRef<HTMLDivElement>(null);
   const preAmendDraft = useRef<string | null>(null);
   const answers = usePassAnswers();
   const { atHost, working } = useGitWork();
@@ -662,7 +661,7 @@ const CommitToolPanel: React.FC<CommitToolPanelProps> = ({ info, onHide }) => {
   }
 
   return (
-    <div ref={panelRef} className="rules-bottom-panel commit-tool-panel" data-testid="commit-tool-panel">
+    <div className="rules-bottom-panel commit-tool-panel" data-testid="commit-tool-panel">
       <PanelHeader
         wiring={headerWiring}
         title={
@@ -775,7 +774,6 @@ const CommitToolPanel: React.FC<CommitToolPanelProps> = ({ info, onHide }) => {
       <CompareBranchModal
         workspaceId={workspaceId}
         open={compareOpen}
-        container={panelRef.current}
         onClose={() => setCompareOpen(false)}
         onPick={handleComparePick}
       />
