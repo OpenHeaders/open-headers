@@ -5,7 +5,8 @@
  * do.
  *
  * An engine clamps how tall a scroller's content can be (Chromium at
- * 33,554,428 px — 1,290,554 rows of 26 px). A list taller than that is
+ * 33,554,428 px — 1,290,554 rows of 26 px — and at half that,
+ * 16,777,214 px, on a display that scales by two). A list taller than that is
  * scrolled through a spacer as tall as the engine allows: the
  * scrollbar's travel stands for the whole list, and the mounted rows
  * are placed where the viewport is. Below the clamp the two are the
