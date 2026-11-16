@@ -61,7 +61,7 @@ export const lockRefusalReason = (refusal: IndexLockRefusal): 'index-locked' | '
   refusal.reason === 'index-locked' ? 'index-locked' : 'commit-failed';
 
 /** The waits between tries at a lock another process holds — under a second in all. */
-const BUSY_WAITS_MS: readonly number[] = [25, 50, 100, 200, 400];
+export const INDEX_BUSY_WAITS_MS: readonly number[] = [25, 50, 100, 200, 400];
 
 /** The waits between tries at a rename the platform refused while a reader had the index open (Windows). */
 const RENAME_WAITS_MS: readonly number[] = [10, 25, 50, 100, 200];
@@ -104,8 +104,8 @@ async function createExclusively(lockPath: string): Promise<FileHandle | { busy:
       return await fs.open(lockPath, 'wx');
     } catch (err) {
       const busy = errorCode(err) === 'EEXIST';
-      if (busy && attempt < BUSY_WAITS_MS.length) {
-        await delay(BUSY_WAITS_MS[attempt]);
+      if (busy && attempt < INDEX_BUSY_WAITS_MS.length) {
+        await delay(INDEX_BUSY_WAITS_MS[attempt]);
         continue;
       }
       return { busy, detail: busy ? `${lockPath} is held by another git process` : String(err) };

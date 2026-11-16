@@ -3,18 +3,23 @@
  * (`_runtime-harness.ts`). Pins the wiring no pass module's own test
  * reaches: the watch of git's writes handed to the sweep and to the
  * flush, and the pass taken again once the hold's wait is over, with
- * nothing else to bring one.
+ * nothing else to bring one; and the passes that record the tree — a
+ * commit, the Commit window's, a pull, a rollback — behind a flush git
+ * holds: taken again on the lock's waits, refused like a busy index when
+ * git never lets go.
  *
  * Another git process is stood in for by its lock: `index.lock`, made
- * by hand. Each leg waits the hold's five seconds once.
+ * by hand. Each of the first two legs waits the hold's five seconds once.
  */
 
 import { promises as fs } from 'node:fs';
+import * as os from 'node:os';
 import * as path from 'node:path';
 import type { Rule } from '@openheaders/core/types';
 import { planWorkspaceTree } from '@openheaders/core/workspace-tree';
 import { snapshotRulePostStates } from '@openheaders/oracle/sync/service';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { TREE_HELD_DETAIL } from '../../src/workspace-tree/materializer';
 import { openRuntimeHarness, type RuntimeHarness, until } from './_runtime-harness';
 
 const RULE_UID = 'aaaaaaaa';
@@ -93,6 +98,28 @@ async function seedRuleByHand(): Promise<string> {
   return fs.readFile(ruleFile(), 'utf-8');
 }
 
+const heldFlushes = (): number => harness.logged.filter((line) => line.includes('flush held for')).length;
+
+/**
+ * The rule renamed by hand under another git's lock, written as the
+ * engine would not write it: the engine takes the name in, and the flush
+ * after owes the file its own bytes — held. Answers both texts.
+ */
+async function renameByHandUnderTheLock(atRest: string): Promise<{ byHand: string; engines: string }> {
+  const engines = atRest.replace('name: Block probes', 'name: Block all probes');
+  const byHand = `${engines}# by hand\n`;
+  await takeTheLockAsAnotherGit();
+  await fs.writeFile(ruleFile(), byHand, 'utf-8');
+  await until('the flush is held', () => heldFlushes() >= 1, 5_000);
+  return { byHand, engines };
+}
+
+/** The lock given up once the pass asked for after `heldBefore` has had its own flush held. */
+async function giveTheLockUpOnceHeld(heldBefore: number): Promise<void> {
+  await until('the pass’s own flush is held', () => heldFlushes() > heldBefore, 5_000);
+  await fs.rm(lockFile());
+}
+
 beforeEach(async () => {
   harness = await openRuntimeHarness();
 });
@@ -134,5 +161,74 @@ describe('the workspace-tree runtime while git writes the tree', () => {
       async () => (await fs.readFile(ruleFile(), 'utf-8')) === atRest,
       WITHIN_THE_HOLD_MS,
     );
+  });
+});
+
+describe('the workspace-tree runtime: a pass that records the tree behind a held flush', () => {
+  it('a commit waits for git and records the engine’s bytes', { timeout: 30_000 }, async () => {
+    const { engines } = await renameByHandUnderTheLock(await seedRuleByHand());
+    const held = heldFlushes();
+    const committing = harness.runtime.commit(harness.workspaceId, 'renamed');
+    await giveTheLockUpOnceHeld(held);
+
+    expect(await committing).toMatchObject({ ok: true, committed: true });
+    expect(await harness.git('show', `HEAD:${RULE_FILE}`)).toBe(engines.trim());
+    expect(await harness.git('status', '--porcelain')).toBe('');
+  });
+
+  it('the Commit window’s commit waits for git and records the engine’s bytes', { timeout: 30_000 }, async () => {
+    const { engines } = await renameByHandUnderTheLock(await seedRuleByHand());
+    const held = heldFlushes();
+    const committing = harness.runtime.userCommit(harness.workspaceId, { message: 'renamed', paths: [RULE_FILE] });
+    await giveTheLockUpOnceHeld(held);
+
+    expect(await committing).toMatchObject({ ok: true, committed: true });
+    expect(await harness.git('show', `HEAD:${RULE_FILE}`)).toBe(engines.trim());
+    expect(await harness.git('status', '--porcelain')).toBe('');
+  });
+
+  it('a pull waits for git, and what the engine had pending stays uncommitted beside it', {
+    timeout: 30_000,
+  }, async () => {
+    const atRest = await seedRuleByHand();
+    const remote = await fs.mkdtemp(path.join(os.tmpdir(), 'oh-tree-runtime-remote-'));
+    const other = await fs.mkdtemp(path.join(os.tmpdir(), 'oh-tree-runtime-other-'));
+    try {
+      const branch = await harness.git('rev-parse', '--abbrev-ref', 'HEAD');
+      await harness.git('init', '-q', '--bare', remote);
+      await harness.git('remote', 'add', 'origin', remote);
+      await harness.git('push', '-q', '-u', 'origin', branch);
+      await harness.git('clone', '-q', '-b', branch, remote, other);
+      await fs.writeFile(path.join(other, 'notes.md'), 'a note from the other clone\n', 'utf-8');
+      await harness.git('-C', other, 'add', 'notes.md');
+      await harness.git('-C', other, 'commit', '-q', '-m', 'foreign');
+      await harness.git('-C', other, 'push', '-q');
+      const foreign = await harness.git('-C', other, 'rev-parse', 'HEAD');
+
+      const { engines } = await renameByHandUnderTheLock(atRest);
+      const held = heldFlushes();
+      const pulling = harness.runtime.pull(harness.workspaceId);
+      await giveTheLockUpOnceHeld(held);
+
+      expect(await pulling).toMatchObject({ ok: true, upToDate: false });
+      // The foreign commit alone: the rename was on disk before the pass read the tree, and is not the pull's to record.
+      expect(await harness.git('rev-parse', 'HEAD')).toBe(foreign);
+      expect(await harness.git('status', '--porcelain')).toBe(`M ${RULE_FILE}`);
+      expect(await fs.readFile(ruleFile(), 'utf-8')).toBe(engines);
+    } finally {
+      await fs.rm(remote, { recursive: true, force: true });
+      await fs.rm(other, { recursive: true, force: true });
+    }
+  });
+
+  it('a rollback behind a flush git never lets go of is refused like a busy index', { timeout: 30_000 }, async () => {
+    const { byHand } = await renameByHandUnderTheLock(await seedRuleByHand());
+
+    expect(await harness.runtime.rollbackPaths(harness.workspaceId, [RULE_FILE], false)).toEqual({
+      ok: false,
+      reason: 'index-locked',
+      detail: TREE_HELD_DETAIL,
+    });
+    expect(await fs.readFile(ruleFile(), 'utf-8')).toBe(byHand);
   });
 });

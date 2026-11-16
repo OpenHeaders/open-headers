@@ -30,8 +30,9 @@
 
 import { promises as fs } from 'node:fs';
 import * as path from 'node:path';
+import { setTimeout as delay } from 'node:timers/promises';
 import { planWorkspaceTree, type TreeUnknownFields, type WorkspaceTreeState } from '@openheaders/core/workspace-tree';
-import type { TreeWritesWatch } from '../git';
+import { INDEX_BUSY_WAITS_MS, type TreeWritesWatch } from '../git';
 import { ensureTreeHygiene, TREE_HYGIENE_FILES } from './hygiene';
 import { hashTreeContent, type MaterializedIndex, readMaterializedIndex, writeMaterializedIndex } from './sidecar';
 
@@ -70,6 +71,9 @@ export interface WorkspaceTreeMaterializerOptions {
 }
 
 const DEFAULT_DEBOUNCE_MS = 500;
+
+/** What a pass that records the tree answers, as `index-locked`, when git's writing held the flush before it. */
+export const TREE_HELD_DETAIL = 'another git process is writing the working tree';
 
 export class WorkspaceTreeMaterializer {
   private readonly rootDir: string;
@@ -115,6 +119,21 @@ export class WorkspaceTreeMaterializer {
     );
     this.chain = run.catch(() => undefined);
     return run;
+  }
+
+  /**
+   * A pass for a caller that records the tree next — a commit, an
+   * integration, a rollback. What git's writing held is not on disk, and
+   * a tree recorded then is recorded without it: the pass is taken again
+   * on the waits a busy index lock is given, and answers `held` only
+   * when git never let go — the caller refuses as for that lock.
+   */
+  async flushCurrent(): Promise<MaterializeResult> {
+    for (let attempt = 0; ; attempt += 1) {
+      const pass = await this.flush();
+      if (pass.held === undefined || attempt >= INDEX_BUSY_WAITS_MS.length) return pass;
+      await delay(INDEX_BUSY_WAITS_MS[attempt]);
+    }
   }
 
   /** Cancel any pending pass; subsequent schedules are ignored. */

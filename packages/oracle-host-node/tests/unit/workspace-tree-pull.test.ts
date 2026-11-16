@@ -37,7 +37,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { createGitExec, type GitRunner } from '../../src/git/git-exec';
 import { commitWorkspaceTree, countDirtyFiles, ensureWorkspaceRepo, resolveUpstream } from '../../src/git/repo';
 import type { ApplyCommitResolution, ApplyCommitResolve } from '../../src/workspace-tree/change-answers';
-import { WorkspaceTreeMaterializer } from '../../src/workspace-tree/materializer';
+import { TREE_HELD_DETAIL, WorkspaceTreeMaterializer } from '../../src/workspace-tree/materializer';
 import type { LocalWorkDeps } from '../../src/workspace-tree/pass-writes';
 import { type PullWorkspaceTreeResult, pullWorkspaceTree } from '../../src/workspace-tree/pull';
 
@@ -486,12 +486,39 @@ describe('pullWorkspaceTree', () => {
       nextCtx,
       liveSetEntries: () => [],
       apply: async () => undefined,
-      flush: async () => undefined,
+      flush: async () => ({}),
       ...localWork(lone),
       identityEnv: IDENTITY_ENV,
       bypassHooks: false,
     });
     expect(result).toEqual({ ok: false, reason: 'no-upstream', issues: [] });
+  });
+
+  it('a first flush git’s writing held refuses the pull like a busy index, with nothing written', async () => {
+    await peerEdit(RULE_FILE, (content) => content.replace('name: Block probes', 'name: Block probes (peer)'));
+    await peerCommitPush('Rename rule');
+    const headBefore = (await raw(local, 'rev-parse', 'HEAD')).stdout.trim();
+
+    const applied: EmissionBatch[] = [];
+    const result = await pullWorkspaceTree({
+      run,
+      rootDir: local,
+      workspaceUid: 'wsaaaaaa',
+      readSnapshot: async () => state,
+      nextCtx,
+      liveSetEntries: () => [],
+      apply: async (batches) => {
+        applied.push(...batches);
+      },
+      flush: async () => ({ held: 1 }),
+      ...localWork(local),
+      identityEnv: IDENTITY_ENV,
+      bypassHooks: false,
+    });
+    expect(result).toMatchObject({ ok: false, reason: 'index-locked', detail: TREE_HELD_DETAIL });
+    expect(applied).toHaveLength(0);
+    expect((await raw(local, 'rev-parse', 'HEAD')).stdout.trim()).toBe(headBefore);
+    expect(await fs.readFile(path.join(local, ...RULE_FILE.split('/')), 'utf-8')).toContain('name: Block probes\n');
   });
 });
 

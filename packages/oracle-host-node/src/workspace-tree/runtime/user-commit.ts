@@ -26,6 +26,7 @@ import {
   resolveCommitIdentity,
   resolveUpstream,
 } from '../../git';
+import { TREE_HELD_DETAIL } from '../materializer';
 import { type OpenBinding, type RuntimeCtx, SCOPE } from './core';
 import type {
   WorkspaceTreeChangesRpcResult,
@@ -103,7 +104,8 @@ export function validateUserCommitInput(
 /**
  * One user commit pass — on the binding's chain (§8 single actor, like
  * every write). Flushes the materializer first so the checked paths'
- * bytes are current, resolves identity the §11.3 way (the user's own
+ * bytes are current (a flush git's writing held refuses the pass like a
+ * busy index), resolves identity the §11.3 way (the user's own
  * git config first), and commits the checked set through the
  * temp-index pass. No contributor attribution — this is the operator's
  * own explicit gesture, and the message is theirs verbatim.
@@ -132,7 +134,9 @@ export async function runUserCommit(
     }
   }
 
-  await binding.materializer.flush();
+  if ((await binding.materializer.flushCurrent()).held !== undefined) {
+    return { ok: false, reason: 'index-locked', detail: TREE_HELD_DETAIL };
+  }
   const identity = await resolveCommitIdentity(ctx.gitRun, rootDir, ctx.syntheticIdentity());
   const result = await commitWorkspaceTree({
     run: ctx.gitRun,

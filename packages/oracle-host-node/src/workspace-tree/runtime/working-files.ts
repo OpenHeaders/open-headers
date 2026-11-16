@@ -25,6 +25,7 @@ import {
   isWorkspaceRepo,
   rollbackWorkingPaths,
 } from '../../git';
+import { TREE_HELD_DETAIL } from '../materializer';
 import { type OpenBinding, type RuntimeCtx, SCOPE } from './core';
 import type {
   WorkspaceTreeAddToVcsRpcResult,
@@ -55,7 +56,8 @@ export async function runAddToVcs(
  * in — a rolled-back document is the engine's again as HEAD has it. The
  * commit draft describes work that may be gone: it is spent when nothing
  * is left uncommitted. Refused while a git operation started outside
- * stands (its files are not ours to put back).
+ * stands (its files are not ours to put back), and like a busy index
+ * while git's writing holds what the engine has unwritten.
  */
 export async function runRollbackPaths(
   ctx: RuntimeCtx,
@@ -70,7 +72,9 @@ export async function runRollbackPaths(
   const operation = await gitOperationInProgress(rootDir);
   if (operation !== null) return { ok: false, reason: 'op-in-progress', detail: operation };
   await binding.service.hydrated;
-  await binding.materializer.flush();
+  if ((await binding.materializer.flushCurrent()).held !== undefined) {
+    return { ok: false, reason: 'index-locked', detail: TREE_HELD_DETAIL };
+  }
   const result = await rollbackWorkingPaths(ctx.gitRun, rootDir, paths, { deleteAdded });
   if (!result.ok) return { ok: false, reason: result.reason, detail: result.detail };
   if ((await countDirtyFiles(ctx.gitRun, rootDir)) === 0) ctx.drainIntents(binding);

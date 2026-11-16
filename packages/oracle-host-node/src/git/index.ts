@@ -43,7 +43,13 @@ export {
   type RemoveIgnoreEntryResult,
   removeIgnoreEntry,
 } from './ignore-ops';
-export { type HeldIndexLock, type IndexLockRefusal, lockRefusalReason, withIndexLock } from './index-lock';
+export {
+  type HeldIndexLock,
+  INDEX_BUSY_WAITS_MS,
+  type IndexLockRefusal,
+  lockRefusalReason,
+  withIndexLock,
+} from './index-lock';
 export { type NamedRowsResult, readNamedRows } from './log-named-rows';
 export { listCommitsBySha, readCommitHeads } from './log-rows';
 export {

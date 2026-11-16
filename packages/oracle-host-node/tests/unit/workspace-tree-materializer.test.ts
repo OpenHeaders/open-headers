@@ -338,6 +338,38 @@ describe('WorkspaceTreeMaterializer — while git writes the tree', () => {
     expect(await readMaterializedIndex(tmpDir)).toEqual({});
   });
 
+  it('a pass for a caller that records the tree is taken again while git holds it, and writes once git lets go', async () => {
+    let seeded = false;
+    state.rules = [makeRule('aaaaaaaa', 'Block probes')];
+    // Git holds the first two passes after the seed, then lets go.
+    const watched: ReturnType<typeof makeWatched> = makeWatched(() => seeded && watched.told.length < 2);
+    await watched.materializer.flush();
+
+    state.rules = [{ ...state.rules[0], enabled: false }];
+    seeded = true;
+    const current = await watched.materializer.flushCurrent();
+    expect(current.written).toEqual([RULE]);
+    expect(current.held).toBeUndefined();
+    expect(watched.told).toEqual([1, 1]);
+    expect(await fs.readFile(ruleFile(), 'utf-8')).toContain('enabled: false');
+  });
+
+  it('a pass for a caller that records the tree answers held when git never lets go', async () => {
+    let writing = false;
+    state.rules = [makeRule('aaaaaaaa', 'Block probes')];
+    const { materializer, told } = makeWatched(() => writing);
+    await materializer.flush();
+    const before = await fs.readFile(ruleFile(), 'utf-8');
+
+    state.rules = [{ ...state.rules[0], enabled: false }];
+    writing = true;
+    const current = await materializer.flushCurrent();
+    expect(current).toMatchObject({ written: [], held: 1 });
+    // The first pass and one after each of the lock's five waits.
+    expect(told).toEqual([1, 1, 1, 1, 1, 1]);
+    expect(await fs.readFile(ruleFile(), 'utf-8')).toBe(before);
+  });
+
   it('a pass with nothing to write holds nothing', async () => {
     let writing = false;
     state.rules = [makeRule('aaaaaaaa', 'Block probes')];

@@ -299,7 +299,7 @@ export async function runMergeBranch(
         .liveOrderedSetItems(entityType, id, setPath)
         .map((entry) => ({ itemId: entry.itemId, orderKey: entry.key, item: entry.item })),
     apply: (batches) => ctx.applyAll(binding.service, batches),
-    flush: () => binding.materializer.flush(),
+    flush: () => binding.materializer.flushCurrent(),
     ...localWorkFirst(ctx, binding, identity.env, commitLocal),
     identityEnv: identity.env,
     bypassHooks: binding.record.bypassHooks === true,

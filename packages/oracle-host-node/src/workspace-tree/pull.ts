@@ -110,6 +110,7 @@ import {
 } from '../git';
 import { type ApplyCommitResolution, type ApplyCommitResolve, decideChange } from './change-answers';
 import { type CommittedSide, NOTHING_CARRIED, readCommittedSide } from './committed-side';
+import { TREE_HELD_DETAIL } from './materializer';
 import { landForeignOwnFiles } from './own-files';
 import { type LocalWorkDeps, readPassWrites, recordablePaths, uncommittedAmong } from './pass-writes';
 import {
@@ -138,8 +139,11 @@ export interface IntegrateForeignDeps extends LocalWorkDeps {
   liveSetEntries: LiveSetEntriesReader;
   /** Apply the synthesized batches through the workspace's resident service. */
   apply: (batches: EmissionBatch[]) => Promise<void>;
-  /** Materialize the converged engine state to disk (the runtime's flush). */
-  flush: () => Promise<unknown>;
+  /**
+   * Materialize the converged engine state to disk (the runtime's
+   * flush). `held` set: git's writing kept files of it off the disk.
+   */
+  flush: () => Promise<{ held?: number }>;
   /** Env from `resolveCommitIdentity` for the merge commit. */
   identityEnv: Record<string, string>;
   /** The explicit `--no-verify` setting (§3.3). */
@@ -508,9 +512,19 @@ export async function integrateForeignHead(
   });
 
   // What the engine still has pending is local work, not the
-  // integration's: it reaches the disk before the tree is read.
+  // integration's: it reaches the disk before the tree is read. Held by
+  // git's writing, it would be written under the pass's own lock and
+  // recorded with the integration's files — the pass refuses like a busy
+  // index, with nothing written.
   const snapshot = await deps.readSnapshot();
-  await deps.flush();
+  if ((await deps.flush()).held !== undefined) {
+    return {
+      ok: false,
+      reason: 'index-locked',
+      detail: TREE_HELD_DETAIL,
+      issues: foreign.issues,
+    };
+  }
 
   const laid = await readForeignChange(deps, {
     base,
