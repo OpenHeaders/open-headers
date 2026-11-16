@@ -96,6 +96,14 @@
  *        the workbench jumps to it and the sweep fills it; a clone
  *        whose uid the host already holds keeps the plain collision
  *        refusal with no offer.
+ *   G30  the log's text field asks the WHOLE history: over a history
+ *        longer than a page of the log, a text applied by Enter lists
+ *        every commit it matches in git's own order — the ones deeper
+ *        than the first page among them — each painted where it
+ *        matched; a row of them opens its details; the text taken off
+ *        returns to that commit, selected and in view on its row past
+ *        the first page; a pattern that does not compile marks the
+ *        field and leaves the list as it was.
  *
  * The residual verbs' desktop homes (the S28 migration off the retired
  * settings card): the force-push trichotomy is the banner both tool
@@ -1478,6 +1486,88 @@ test('G26 — a conflicted git revert holds reconcile: Pull refuses, a held edit
   await expect(request).toContainText('Revert Held', { timeout: 7_000 });
   await openToolWindow('git');
   await commitWithMessage('git e2e: after revert abort');
+});
+
+// ── G30: the log's text field asks the whole history ────────────────
+
+test('G30 — a text applied in the log lists every commit of the history it matches, past the first page; a row opens its details, the text taken off returns to that commit, a pattern that does not compile marks the field', async () => {
+  // A history longer than a page of the log (200 rows): 260 commits on
+  // a side branch, written with no checkout. Seven carry the word, two
+  // of them deeper than the first page.
+  const tree = ws('rev-parse', 'main^{tree}');
+  let tip = ws('rev-parse', 'main');
+  for (let depth = 1; depth <= 260; depth++) {
+    const subject = depth % 40 === 3 ? `git e2e: depth ${depth} seabed` : `git e2e: depth ${depth}`;
+    tip = ws('commit-tree', tree, '-p', tip, '-m', subject);
+  }
+  ws('branch', 'search-depth', tip);
+  const matches = ws('log', '--all', '--date-order', '--format=%H %s')
+    .split('\n')
+    .filter((line) => line.endsWith('seabed'))
+    .map((line) => line.slice(0, 40));
+  expect(matches).toHaveLength(7);
+
+  // A branch made in a terminal moves no HEAD: Refresh is the person's
+  // own way to have the log look again.
+  await openToolWindow('git');
+  const branchRow = workbench.locator('[data-testid="git-tool-ref-row"][data-kind="local"][data-ref="search-depth"]');
+  const list = pane('git-tool-list');
+  await pane('git-tool-refresh').click();
+  await expect(branchRow).toBeVisible();
+  await expect.poll(async () => Number(await list.getAttribute('data-total'))).toBeGreaterThan(260);
+  const whole = (await list.getAttribute('data-total')) as string;
+
+  // Enter applies the text: every match of the history, in git's order,
+  // each painted where it matched.
+  const field = pane('git-tool-filter');
+  await field.fill('seabed');
+  await field.press('Enter');
+  await expect(list).toHaveAttribute('data-total', '7');
+  await expect
+    .poll(() =>
+      workbench
+        .locator('[data-testid="git-tool-row"]')
+        .evaluateAll((rows) => rows.map((row) => row.getAttribute('data-sha'))),
+    )
+    .toEqual(matches);
+  await expect(workbench.locator('[data-testid="git-tool-match"]')).toHaveText(matches.map(() => 'seabed'));
+
+  // The deepest match opens its details.
+  const deepest = matches[matches.length - 1];
+  const row = workbench.locator(`[data-testid="git-tool-row"][data-sha="${deepest}"]`);
+  await row.click();
+  await expect(row).toHaveAttribute('aria-selected', 'true');
+  await expect(pane('git-tool-detail-sha')).toHaveAttribute('title', deepest);
+  await expect(pane('git-tool-detail-info')).toContainText('git e2e: depth 3 seabed');
+
+  // The text taken off: the whole history again, entered on that commit
+  // — selected and in view on a row the first page never held.
+  const clear = pane('git-tool-toolbar').locator('.ant-input-clear-icon');
+  await clear.click();
+  await expect(list).toHaveAttribute('data-total', whole);
+  await expect(row).toHaveAttribute('aria-selected', 'true');
+  await expect(row).toBeInViewport();
+  expect(Number(await row.getAttribute('data-row'))).toBeGreaterThanOrEqual(200);
+  await expect(pane('git-tool-detail-sha')).toHaveAttribute('title', deepest);
+
+  // A pattern that does not compile marks the field; the list, its
+  // selected row and the details stay as they were, under no error line.
+  await pane('git-tool-filter-regex').click();
+  await field.fill('sea(bed');
+  await field.press('Enter');
+  await expect(workbench.locator('.ant-input-affix-wrapper').filter({ has: field })).toHaveClass(
+    /ant-input-status-error/,
+  );
+  await expect(list).toHaveAttribute('data-total', whole);
+  await expect(row).toHaveAttribute('aria-selected', 'true');
+  await expect(pane('git-tool-error')).toHaveCount(0);
+
+  await clear.click();
+  await pane('git-tool-filter-regex').click();
+  await expect(pane('git-tool-filter-regex')).toHaveAttribute('aria-pressed', 'false');
+  ws('branch', '-D', 'search-depth');
+  await pane('git-tool-refresh').click();
+  await expect(branchRow).toHaveCount(0);
 });
 
 // ── G23: close-app → vim-edit → reopen — the edit wins in the UI ────
