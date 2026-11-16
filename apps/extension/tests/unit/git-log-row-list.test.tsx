@@ -3,7 +3,8 @@
  * `LogRowList` — the log's list over row numbers, mounted: the rows
  * held are drawn, the read rows nearest stand in where the position's
  * own are not read, and a row is empty only where none can; the rows
- * mounted at the position are reported; the selection, the keyboard
+ * mounted at the position are reported; a list with no answer and no
+ * row says it is being read; the selection, the keyboard
  * and the right-click rule run on row numbers and report the details
  * row; the pointer over a graph cell lights the run its row names and a
  * press asks for its fold; a row's graph cell is as wide as its own row
@@ -340,10 +341,31 @@ describe('LogRowList — the rows', () => {
 });
 
 describe('LogRowList — a list with no row', () => {
-  it('says nothing of a list that has no answer yet', () => {
-    render(<Harness held={NO_LOG_ROWS} pending />);
-    expect(screen.getByTestId('git-tool-list-pending')).toBeTruthy();
+  it('says a list that has no answer yet is being read — never that it holds no commit', () => {
+    render(<Harness held={NO_LOG_ROWS} pending filtersActive />);
+    const face = screen.getByTestId('git-tool-list-pending');
+    expect(face.textContent).toBe('Loading commits…');
+    // The line the stylesheet holds back until the wait has lasted.
+    expect(face.querySelector('.git-tool-list-pending__line')?.textContent).toBe('Loading commits…');
     expect(screen.queryByTestId('git-tool-empty')).toBeNull();
+    expect(screen.queryByTestId('git-tool-reset-filters')).toBeNull();
+  });
+
+  it('says so over an empty list of the ask before, and gives way to the rows that land', () => {
+    const { rerender } = render(<Harness held={holding(0)} filtersActive />);
+    expect(screen.getByTestId('git-tool-empty')).toBeTruthy();
+    rerender(<Harness held={holding(0)} pending filtersActive />);
+    expect(screen.getByTestId('git-tool-list-pending').textContent).toBe('Loading commits…');
+    expect(screen.queryByTestId('git-tool-empty')).toBeNull();
+    rerender(<Harness held={holding(5)} />);
+    expect(screen.queryByTestId('git-tool-list-pending')).toBeNull();
+    expect(mountedRows()).toEqual([0, 1, 2, 3, 4]);
+  });
+
+  it('keeps the rows of the ask before while another has no answer: no line over rows', () => {
+    render(<Harness held={holding(5)} pending />);
+    expect(screen.queryByTestId('git-tool-list-pending')).toBeNull();
+    expect(mountedRows()).toEqual([0, 1, 2, 3, 4]);
   });
 
   it('says the repo has no commit, or that nothing matches with a way back', () => {

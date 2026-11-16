@@ -574,6 +574,7 @@ export const workbenchChrome = {
     '아직 커밋이 없습니다. 커밋은 설정한 주기로 생기며, 설정 › Git에서 직접 커밋할 수도 있습니다.',
   'workbench.gitLog.noMatches': '필터와 일치하는 커밋 없음',
   'workbench.gitLog.resetFilters': '필터 초기화',
+  'workbench.gitLog.loading': '커밋을 불러오는 중…',
   'workbench.gitLog.selectCommit': '커밋을 선택하면 변경 내용을 볼 수 있습니다',
   'workbench.gitLog.noneSelected': '선택한 커밋 없음',
   'workbench.gitLog.commitsSelected': '커밋 {count}개 선택됨',

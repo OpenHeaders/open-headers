@@ -575,6 +575,7 @@ export const workbenchChrome = {
     'コミットはまだありません。設定した周期でコミットされるか、設定 › Git から手動でコミットしてください。',
   'workbench.gitLog.noMatches': 'フィルターに一致するコミットはありません',
   'workbench.gitLog.resetFilters': 'フィルターをリセット',
+  'workbench.gitLog.loading': 'コミットを読み込んでいます…',
   'workbench.gitLog.selectCommit': 'コミットを選択すると変更が表示されます',
   'workbench.gitLog.noneSelected': 'コミットが選択されていません',
   'workbench.gitLog.commitsSelected': '{count} 件のコミットを選択中',

@@ -54,6 +54,7 @@ import { logRowHighlight } from './log-cell';
 import { type LogRowPages, type LogRowRange, logRowAt, logRunAt } from './log-row-pages';
 import { logRowsDrawn } from './log-rows-drawn';
 import { rowClickOutcome, stepRowTarget } from './log-row-selection';
+import LogListPending from './LogListPending';
 import LogRow from './LogRow';
 import type { CommitSignature } from './use-commit-signatures';
 
@@ -62,7 +63,7 @@ export interface LogRowListProps {
   held: LogRowPages;
   /** The listing the held rows are of — what was asked before its folds; null while none is held. */
   listing: string | null;
-  /** The list asked for has no answer yet: an empty list says nothing of itself. */
+  /** The list asked for has no answer yet: with no row held it says it is being read, never that it is empty. */
   pending: boolean;
   /** The host refused the list asked for: no row is drawn, and none is said to be missing. */
   refused: boolean;
@@ -278,8 +279,8 @@ const LogRowList: React.FC<LogRowListProps> = ({
   };
 
   if (total === 0) {
-    // Before the first answer the list is not known to be empty: the pulse above says it is being read.
-    if (pending) return <div style={{ flex: '1 1 auto' }} data-testid="git-tool-list-pending" />;
+    // Before the first answer the list is not known to be empty: it says it is being read.
+    if (pending) return <LogListPending />;
     return <CommitListEmpty filtersActive={filtersActive} onResetFilters={onResetFilters} refused={refused} />;
   }
 

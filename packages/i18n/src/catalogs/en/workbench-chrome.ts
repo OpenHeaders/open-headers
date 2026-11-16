@@ -566,6 +566,7 @@ export const workbenchChrome = {
     'No commits yet — commits land on your configured cadence, or commit manually under Settings › Git.',
   'workbench.gitLog.noMatches': 'No commits matching filters',
   'workbench.gitLog.resetFilters': 'Reset filters',
+  'workbench.gitLog.loading': 'Loading commits…',
   'workbench.gitLog.selectCommit': 'Select a commit to view its changes',
   'workbench.gitLog.noneSelected': 'No commit selected',
   'workbench.gitLog.commitsSelected': '{count} commits selected',

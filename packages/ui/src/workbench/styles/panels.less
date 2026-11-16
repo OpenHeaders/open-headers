@@ -102,6 +102,18 @@
   border-radius: 2px;
 }
 
+// The log's list with no answer yet says it is being read — once the
+// wait has lasted: a list answered at once never flashes the line.
+.git-tool-list-pending__line {
+  animation: git-tool-list-pending-wait 0.3s step-end;
+}
+
+@keyframes git-tool-list-pending-wait {
+  from {
+    opacity: 0;
+  }
+}
+
 // A log row's ref label: a joined name (`origin & feature/x`) gives way
 // to its short form (`../x`) once the list itself is narrow — the
 // list is the container the label answers to.

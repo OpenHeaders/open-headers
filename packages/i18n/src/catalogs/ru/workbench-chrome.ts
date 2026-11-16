@@ -595,6 +595,7 @@ export const workbenchChrome = {
     'Коммитов пока нет — они создаются по настроенному расписанию, или сделайте коммит вручную в разделе «Настройки › Git».',
   'workbench.gitLog.noMatches': 'Нет коммитов, соответствующих фильтрам',
   'workbench.gitLog.resetFilters': 'Сбросить фильтры',
+  'workbench.gitLog.loading': 'Загрузка коммитов…',
   'workbench.gitLog.selectCommit': 'Выберите коммит, чтобы увидеть его изменения',
   'workbench.gitLog.noneSelected': 'Коммит не выбран',
   'workbench.gitLog.commitsSelected': 'Выбрано коммитов: {count}',

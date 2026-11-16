@@ -750,6 +750,7 @@ export const workbenchChrome = {
   'workbench.gitLog.console.shortenPaths': 'Acortar rutas',
   'workbench.gitLog.noMatches': 'Ningún commit coincide con los filtros',
   'workbench.gitLog.resetFilters': 'Restablecer filtros',
+  'workbench.gitLog.loading': 'Cargando los commits…',
   'workbench.gitLog.selectCommit': 'Selecciona un commit para ver sus cambios',
   'workbench.gitLog.noneSelected': 'Ningún commit seleccionado',
   'workbench.gitLog.commitsSelected': '{count} commits seleccionados',
