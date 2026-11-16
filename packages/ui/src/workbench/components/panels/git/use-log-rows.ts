@@ -19,17 +19,21 @@
  * one drawn — is first read around the row the view will stand on, and
  * not before that row is found: no read goes to where the list before
  * was looked at. Any other first read (a fold, the same listing asked
- * again) is where the view stands.
+ * again) is where the view stands. A list the host refused where it
+ * was to be entered is refused as if a read had been: no row of it is
+ * read until it is asked again — a press of Refresh, a frame — and then
+ * from its top.
  */
 
 import { hostBridge, type WorkspaceTreeLogRowsWire } from '@openheaders/core/bridge';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { LogEntranceState } from './log-entrance';
+import { type LogEntranceState, logEntranceRefusal } from './log-entrance';
 import {
   type LogRowPages,
   type LogRowRange,
   type LogRowStretch,
   type LogRowsAsk,
+  type LogRowsRefusal,
   logReadOver,
   logRowsAround,
   NO_LOG_ROW_RANGE,
@@ -38,8 +42,6 @@ import {
   takeLogRows,
 } from './log-row-pages';
 import { useNewestRead } from './use-newest-read';
-
-export type LogRowsRefusal = Extract<WorkspaceTreeLogRowsWire, { ok: false }>;
 
 export interface LogRows {
   /** The rows held — the ask's own once it is answered, the ask before's until then. */
@@ -73,6 +75,8 @@ interface Live {
 interface EntranceRead {
   stretch: LogRowStretch;
   enters: LogRowRange;
+  /** What the host refused the list with when asked where it is entered; null for a list that is entered. */
+  refusal: LogRowsRefusal | null;
 }
 
 /**
@@ -87,7 +91,7 @@ function entranceRead(state: Live): EntranceRead | null | undefined {
   if (entrance === 'finding') return null;
   if (entrance.ask !== ask) return undefined;
   const enters = logRowsAround(entrance.row ?? 0, mounted);
-  return { stretch: logReadOver(enters), enters };
+  return { stretch: logReadOver(enters), enters, refusal: logEntranceRefusal(entrance) };
 }
 
 async function readLogRows(
@@ -128,6 +132,11 @@ export function useLogRows(ask: LogRowsAsk | null, entrance: LogEntranceState): 
   live.current.ask = ask;
   live.current.entrance = entrance;
 
+  const refuse = useCallback((asking: LogRowsAsk, refusal: LogRowsRefusal): void => {
+    live.current.refused = asking;
+    setRefused({ ask: asking, refusal });
+  }, []);
+
   const send = useCallback(
     (asking: LogRowsAsk, stretch: LogRowStretch, press: 'refresh' | null, enters: LogRowRange | null): void => {
       const superseded = beginRead();
@@ -147,12 +156,11 @@ export function useLogRows(ask: LogRowsAsk | null, entrance: LogEntranceState): 
           setHeld(state.held);
           setRefused(null);
         } else if (answer.reason !== 'superseded') {
-          state.refused = asking;
-          setRefused({ ask: asking, refusal: answer });
+          refuse(asking, answer);
         }
       });
     },
-    [beginRead],
+    [beginRead, refuse],
   );
 
   const pump = useCallback((): void => {
@@ -161,12 +169,14 @@ export function useLogRows(ask: LogRowsAsk | null, entrance: LogEntranceState): 
     const entering = entranceRead(state);
     if (entering === null) return;
     if (entering !== undefined) {
-      send(state.ask, entering.stretch, state.owed, entering.enters);
+      // A list refused where it was to be entered is read only on the person's word: a press made meanwhile is one.
+      if (entering.refusal !== null && state.owed === null) refuse(state.ask, entering.refusal);
+      else send(state.ask, entering.stretch, state.owed, entering.enters);
       return;
     }
     const stretch = nextLogRead(state.held, state.ask, state.mounted);
     if (stretch !== null) send(state.ask, stretch, state.owed, null);
-  }, [send]);
+  }, [send, refuse]);
 
   // The same ask read again where the view stands — it ends the read that is out. A list whose entrance is
   // being found has no read to end: a press waits for the entrance's.

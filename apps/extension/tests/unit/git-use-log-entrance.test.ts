@@ -4,8 +4,9 @@
  * `use-log-entrance`), over a mocked bridge whose answers are held: the
  * row of the tab's commit is asked the moment another listing is asked;
  * a listing is entered once — a fold and another commit after enter
- * nothing; a list with no commit to stand on, one that leaves it out
- * and a host that does not answer are entered at the top.
+ * nothing; a list with no commit to stand on and one that leaves it out
+ * are entered at the top; a list the host refuses is not entered — the
+ * refusal is its entrance.
  */
 
 import type { WorkspaceTreeLocateLogRowWire } from '@openheaders/core/bridge';
@@ -19,7 +20,11 @@ vi.mock('@openheaders/core/bridge', async (importOriginal) => ({
   hostBridge: { call: mockCall, subscribe: vi.fn(), broadcast: vi.fn(), presence: vi.fn() },
 }));
 
-import { logEntranceAtTop, logEntranceFound } from '@openheaders/ui/workbench/components/panels/git/log-entrance';
+import {
+  logEntranceAtTop,
+  logEntranceFound,
+  logEntranceRefusal,
+} from '@openheaders/ui/workbench/components/panels/git/log-entrance';
 import type { LogRowsAsk } from '@openheaders/ui/workbench/components/panels/git/log-row-pages';
 import { useLogEntrance } from '@openheaders/ui/workbench/components/panels/git/use-log-entrance';
 
@@ -72,11 +77,32 @@ describe('a list’s entrance, from the host’s answer', () => {
     expect(logEntranceFound(ASK, sha(7), found(120, 'g3'))).toEqual({ ask: ASK, row: 120, list: 'g3', sha: sha(7) });
   });
 
-  it('is at the top where the list leaves the commit out, the history holds none such, or the host cannot say', () => {
-    for (const reason of ['not-listed', 'not-found', 'superseded', 'log-failed'] as const) {
-      expect(logEntranceFound(ASK, sha(7), { ok: false, reason })).toEqual(logEntranceAtTop(ASK));
+  it('is at the top where the list leaves the commit out, the history holds none such, or a newer ask took its place', () => {
+    for (const reason of ['not-listed', 'not-found', 'superseded'] as const) {
+      const entrance = logEntranceFound(ASK, sha(7), { ok: false, reason });
+      expect(entrance).toEqual(logEntranceAtTop(ASK));
+      expect(logEntranceRefusal(entrance)).toBeNull();
     }
     expect(logEntranceAtTop(ASK)).toEqual({ ask: ASK, row: null });
+    expect(logEntranceRefusal(logEntranceFound(ASK, sha(7), found(120)))).toBeNull();
+  });
+
+  it('is the list’s refusal where the host refused the list itself — whatever it refused it with', () => {
+    const refusals: WorkspaceTreeLocateLogRowWire[] = [
+      { ok: false, reason: 'search-timeout' },
+      { ok: false, reason: 'log-timeout' },
+      { ok: false, reason: 'log-failed', detail: 'bridge closed' },
+      { ok: false, reason: 'unknown-ref', unknownRefs: ['gone'] },
+      { ok: false, reason: 'invalid-filter' },
+      { ok: false, reason: 'not-a-repo' },
+      { ok: false, reason: 'not-bound' },
+      { ok: false, reason: 'git-unavailable' },
+    ];
+    for (const refusal of refusals) {
+      const entrance = logEntranceFound(ASK, sha(7), refusal);
+      expect(entrance).toEqual({ ask: ASK, row: null, refusal });
+      expect(logEntranceRefusal(entrance)).toBe(refusal);
+    }
   });
 });
 
@@ -107,16 +133,30 @@ describe('useLogEntrance', () => {
     expect(mockCall).not.toHaveBeenCalled();
   });
 
-  it('enters at the top where the list leaves the commit out, or the host is gone', async () => {
+  it('enters at the top where the list leaves the commit out', async () => {
     const leftOut = mount(ASK, sha(7));
     await settle();
     await settle(() => asked[0].resolve({ ok: false, reason: 'not-listed' }));
     expect(leftOut.result.current).toEqual({ ask: ASK, row: null });
+  });
+
+  it('enters nothing where the host refuses the list, or is gone: the refusal is the entrance, and stands like one', async () => {
+    const refused = mount(ASK, sha(7));
+    await settle();
+    await settle(() => asked[0].resolve({ ok: false, reason: 'search-timeout' }));
+    expect(refused.result.current).toEqual({ ask: ASK, row: null, refusal: { ok: false, reason: 'search-timeout' } });
+    // The listing was asked about once: another commit after asks nothing.
+    await settle(() => refused.rerender({ ask: ASK, commit: sha(9) }));
+    expect(asked).toHaveLength(1);
 
     const gone = mount(ASK, sha(7));
     await settle();
     await settle(() => asked[1].reject(new Error('bridge closed')));
-    expect(gone.result.current).toEqual({ ask: ASK, row: null });
+    expect(gone.result.current).toEqual({
+      ask: ASK,
+      row: null,
+      refusal: { ok: false, reason: 'log-failed', detail: 'bridge closed' },
+    });
   });
 
   it('enters a listing once: a fold of it, and another commit after, ask nothing and leave the entrance standing', async () => {

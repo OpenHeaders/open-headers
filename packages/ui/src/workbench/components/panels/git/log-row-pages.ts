@@ -30,6 +30,8 @@ const READ_AHEAD_ROWS = 100;
 /** What a log asks to be listed — one object while what it asks stands. */
 export type LogRowsAsk = WorkspaceTreeLogAskWire;
 export type LogRowsAnswer = Extract<WorkspaceTreeLogRowsWire, { ok: true }>;
+/** What the host refuses a list with — the same whichever verb asked for the list. */
+export type LogRowsRefusal = Extract<WorkspaceTreeLogRowsWire, { ok: false }>;
 
 /** The rows a view has mounted: `[first, last]`, both inclusive. */
 export interface LogRowRange {

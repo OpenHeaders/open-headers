@@ -7,7 +7,8 @@
  * the ask before stay until the new ask is answered; a list the host
  * names anew drops the rows held; a refusal is the ask's own and a
  * scroll does not ask it again; a list that is entered is first read
- * around the row it is entered at, and not before that row is found.
+ * around the row it is entered at, and not before that row is found; a
+ * list refused where it was to be entered is refused with no read.
  */
 
 import type { WorkspaceTreeLogRowsWire, WorkspaceTreeLogRowWire } from '@openheaders/core/bridge';
@@ -427,5 +428,66 @@ describe('useLogRows — a list that is entered', () => {
     // The press is spent: the reads that follow are the view's own.
     await settle(() => hook.result.current.want({ first: 210, last: 290 }));
     expect(held[before + 1].request).toEqual({ ...OTHER, from: 200, count: 200 });
+  });
+
+  const TIMEOUT = { ok: false, reason: 'search-timeout' } as const;
+
+  it('takes a list refused where it was to be entered as refused — no row of it is read, by the entrance or by a scroll', async () => {
+    const hook = await standing();
+    const before = held.length;
+    await settle(() => hook.rerender({ asking: OTHER, entering: 'finding' }));
+    await settle(() => hook.rerender({ asking: OTHER, entering: { ask: OTHER, row: null, refusal: TIMEOUT } }));
+    expect(held).toHaveLength(before);
+    expect(hook.result.current.refusal).toBe(TIMEOUT);
+    expect(hook.result.current.pending).toBe(false);
+    expect(hook.result.current.asked).toBe(false);
+
+    await settle(() => hook.result.current.want({ first: 430, last: 510 }));
+    expect(held).toHaveLength(before);
+  });
+
+  it('reads a list refused at its entrance again on a press of Refresh — from its top, and holds what answers', async () => {
+    const hook = await standing();
+    const before = held.length;
+    await settle(() => hook.rerender({ asking: OTHER, entering: { ask: OTHER, row: null, refusal: TIMEOUT } }));
+    expect(held).toHaveLength(before);
+
+    await settle(() => hook.result.current.refresh());
+    expect(held).toHaveLength(before + 1);
+    expect(held[before].request).toEqual({ ...OTHER, from: 0, count: 200, refresh: true });
+    expect(hook.result.current.asked).toBe(true);
+
+    await settle(() => held[before].resolve(rows(held[before].request, 900)));
+    expect(hook.result.current.refusal).toBeNull();
+    expect(hook.result.current.held).toMatchObject({ ask: OTHER, total: 900 });
+    // Held, the list is read like any other: the entrance's refusal says nothing more.
+    await settle(() => hook.result.current.want({ first: 210, last: 290 }));
+    expect(held[before + 1].request).toEqual({ ...OTHER, from: 200, count: 200 });
+    expect(hook.result.current.refusal).toBeNull();
+  });
+
+  it('asks a list refused at its entrance again where a press of Refresh was made while it was being found', async () => {
+    const hook = await standing();
+    const before = held.length;
+    await settle(() => hook.rerender({ asking: OTHER, entering: 'finding' }));
+    await settle(() => hook.result.current.refresh());
+    await settle(() => hook.rerender({ asking: OTHER, entering: { ask: OTHER, row: null, refusal: TIMEOUT } }));
+    expect(held).toHaveLength(before + 1);
+    expect(held[before].request).toEqual({ ...OTHER, from: 0, count: 200, refresh: true });
+    expect(hook.result.current.refusal).toBeNull();
+
+    // Refused again, it is the read's own refusal — and no scroll asks after it.
+    await settle(() => held[before].resolve({ ok: false, reason: 'log-timeout' }));
+    expect(hook.result.current.refusal).toEqual({ ok: false, reason: 'log-timeout' });
+    await settle(() => hook.result.current.want({ first: 430, last: 510 }));
+    expect(held).toHaveLength(before + 1);
+  });
+
+  it('takes no refusal from an entrance of another ask — a fold of the listing is read where the view stands', async () => {
+    const hook = await standing();
+    const before = held.length;
+    await settle(() => hook.rerender({ asking: OTHER, entering: { ask: ASK, row: null, refusal: TIMEOUT } }));
+    expect(held[before].request).toEqual({ ...OTHER, from: 400, count: 200 });
+    expect(hook.result.current.refusal).toBeNull();
   });
 });

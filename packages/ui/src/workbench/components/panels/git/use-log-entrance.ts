@@ -7,8 +7,9 @@
  * A listing is entered ONCE: the answer stands while the listing does,
  * whatever the tab's commit becomes after — a fold, a frame of the repo
  * and a history read anew enter nothing. While the row is being found a
- * newer ask of the same listing, or another commit, asks again; a host
- * that does not answer enters the list from its top.
+ * newer ask of the same listing, or another commit, asks again. A host
+ * that refuses the list — one that is gone too — enters nothing: its
+ * refusal is the entrance.
  */
 
 import { useEffect, useMemo, useState } from 'react';

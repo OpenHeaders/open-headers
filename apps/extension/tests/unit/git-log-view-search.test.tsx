@@ -118,8 +118,8 @@ let refs: WorkspaceTreeRefWire[] = [];
 let calls: Array<{ type: string; request: Ask }> = [];
 /** A read of a list whose ask carries a text is answered by hand when set. */
 let holdText: Array<() => void> | null = null;
-/** What the host answers a read under a text with, in place of its list. */
-let refuseText: WorkspaceTreeLogRowsWire | null = null;
+/** What the host refuses the list under a text with — whichever verb asks for it. */
+let refuseText: Extract<WorkspaceTreeLogRowsWire, { ok: false }> | null = null;
 
 let patch: (patch: Partial<GitLogTabState>) => void = () => undefined;
 let tabNow: GitLogTabState = TAB;
@@ -186,6 +186,8 @@ const listAsks = (): Ask[] =>
     .map(({ request: { from: _from, count: _count, ...ask } }) => ask);
 const probes = (): string[] =>
   history.filter((commit) => commit.subject.startsWith('Probe')).map((commit) => commit.sha);
+/** The verbs the host was asked under a text, in order — each one makes the text's list. */
+const textCalls = (): Array<{ type: string; request: Ask }> => calls.filter((call) => call.request.text !== undefined);
 
 const settle = async (step: () => void = () => undefined): Promise<void> => {
   await act(async () => {
@@ -257,7 +259,9 @@ beforeEach(() => {
       if (request.text === undefined || holdText === null) return Promise.resolve(answer());
       return new Promise((resolve) => holdText?.push(() => resolve(answer())));
     }
-    if (type === 'oh.workspaceTree.locateLogRow') return Promise.resolve(locateRow(request));
+    if (type === 'oh.workspaceTree.locateLogRow') {
+      return Promise.resolve(request.text !== undefined && refuseText !== null ? refuseText : locateRow(request));
+    }
     return Promise.resolve({ ok: true });
   });
 });
@@ -423,6 +427,26 @@ describe('GitLogView — the text field over the whole history', () => {
     expect(screen.queryByTestId('git-tool-error')).toBeNull();
   });
 
+  it('takes a refusal of the list where it is entered as the list’s own: the pattern runs once, and no row is read after', async () => {
+    await mount({ selectedSha: 'w300' });
+    await waitFor(() => expect(selected()).toEqual(['w300']));
+    refuseText = { ok: false, reason: 'search-timeout' };
+    await apply({ filter: 'gateway \\d+$', filterRegex: true });
+    await waitFor(() => expect(screen.getByTestId('git-tool-error').textContent).toContain('search-timeout'));
+    await settle();
+    // The host was asked for the list ONCE — where the tab's commit sits in it — and for none of its rows.
+    expect(textCalls().map((call) => call.type)).toEqual(['oh.workspaceTree.locateLogRow']);
+    expect(rows()).toEqual([]);
+    expect(tabNow.selectedSha).toBe('w300');
+
+    // The text taken off: the refusal was that list's — the whole one is entered on the tab's commit.
+    await apply({ filter: '', filterRegex: false });
+    await waitFor(() => expect(total()).toBe(String(LONG)));
+    await waitFor(() => expect(selected()).toEqual(['w300']));
+    expect(screen.queryByTestId('git-tool-error')).toBeNull();
+    expect(textCalls()).toHaveLength(1);
+  });
+
   it('enters a text’s list on the tab’s commit, and the whole list on it again when the text is taken off', async () => {
     await mount({ selectedSha: 'w300' });
     await waitFor(() => expect(selected()).toEqual(['w300']));
@@ -451,6 +475,8 @@ describe('GitLogView — the text field over the whole history', () => {
     await settle();
     expect(selected()).toEqual([]);
     expect(tabNow.selectedSha).toBe('w301');
+    // A commit the list leaves out is no refusal of the list: its rows are read, from its top.
+    expect(textCalls().map((call) => [call.type, call.request.from])).toContainEqual(['oh.workspaceTree.logRows', 0]);
 
     await apply({ filter: '' });
     await waitFor(() => expect(selected()).toEqual(['w301']));
