@@ -4,7 +4,7 @@
  * reaches: the watch of git's writes handed to the sweep and to the
  * flush, and the pass taken again once the hold's wait is over, with
  * nothing else to bring one; and the passes that record the tree — a
- * commit, the Commit window's, a pull, a rollback — behind a flush git
+ * commit, the Commit window's, a pull, a merge, a rollback — behind a flush git
  * holds: taken again on the lock's waits, refused like a busy index when
  * git never lets go.
  *
@@ -301,6 +301,36 @@ describe('the workspace-tree runtime: a pass that records the tree behind a held
       expect(await fs.readFile(ruleFile(), 'utf-8')).toBe(engines);
     } finally {
       await fs.rm(remote, { recursive: true, force: true });
+      await fs.rm(other, { recursive: true, force: true });
+    }
+  });
+
+  it('a merge waits for git, and what the engine had pending stays uncommitted beside it', {
+    timeout: 30_000,
+  }, async () => {
+    const atRest = await seedRuleByHand();
+    const other = await fs.mkdtemp(path.join(os.tmpdir(), 'oh-tree-runtime-other-'));
+    try {
+      // The branch to merge gets its commit in another clone and comes back by a fetch: no checkout moves this tree.
+      await harness.git('clone', '-q', harness.rootDir, other);
+      await harness.git('-C', other, 'checkout', '-q', '-b', 'side');
+      await fs.writeFile(path.join(other, 'notes.md'), 'a note from the side branch\n', 'utf-8');
+      await harness.git('-C', other, 'add', 'notes.md');
+      await harness.git('-C', other, 'commit', '-q', '-m', 'side');
+      await harness.git('fetch', '-q', other, 'side:side');
+      const side = await harness.git('rev-parse', 'side');
+
+      const engines = await renameInTheEngineUnderTheLock(atRest);
+      const held = heldFlushes();
+      const merging = harness.runtime.mergeBranch(harness.workspaceId, 'side');
+      await giveTheLockUpOnceHeld(held);
+
+      expect(await merging).toMatchObject({ ok: true, upToDate: false });
+      // The side's commit alone, fast-forwarded: the rename is not the merge's to record.
+      expect(await harness.git('rev-parse', 'HEAD')).toBe(side);
+      expect(await harness.git('status', '--porcelain')).toBe(`M ${RULE_FILE}`);
+      expect(await fs.readFile(ruleFile(), 'utf-8')).toBe(engines);
+    } finally {
       await fs.rm(other, { recursive: true, force: true });
     }
   });
