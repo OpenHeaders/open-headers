@@ -230,6 +230,41 @@ describe('sweepWorkspaceTree', () => {
     expect(applied[0].batch.mutations[0].body).toMatchObject({ kind: 'delete', type: 'rule', id: 'aaaaaaaa' });
   });
 
+  it('a hand delete met by a flush before its sweep is still a tombstone', async () => {
+    state.rules = [makeRule('aaaaaaaa', 'Block probes')];
+    const materializer = makeMaterializer();
+    await materializer.flush();
+    const ruleFile = path.join(tmpDir, ...RULE_FILE.split('/'));
+    await fs.rm(ruleFile);
+
+    await materializer.flush();
+    const applied: EmissionBatch[] = [];
+    const result = await runSweep(applied);
+    expect(result.ok && result.removed === 1).toBe(true);
+    expect(applied).toHaveLength(1);
+    expect(applied[0].batch.mutations[0].body).toMatchObject({ kind: 'delete', type: 'rule', id: 'aaaaaaaa' });
+    await expect(fs.access(ruleFile)).rejects.toThrow();
+  });
+
+  it('a hand-deleted manifest refuses the sweep and is authored again by the flush after it', async () => {
+    const materializer = makeMaterializer();
+    await materializer.flush();
+    const manifest = path.join(tmpDir, 'workspace.yaml');
+    const canonical = await fs.readFile(manifest, 'utf-8');
+    await fs.rm(manifest);
+
+    const applied: EmissionBatch[] = [];
+    const result = await runSweep(applied);
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.reason).toBe('unreadable-manifest');
+    expect(applied).toHaveLength(0);
+
+    const pass = await materializer.flush();
+    expect(pass.written).toEqual(['workspace.yaml']);
+    await expect(fs.readFile(manifest, 'utf-8')).resolves.toBe(canonical);
+  });
+
   it('a hand-added entity file seeds through the pipeline', async () => {
     await makeMaterializer().flush();
     const handRule = makeRule('cccccccc', 'Hand made');

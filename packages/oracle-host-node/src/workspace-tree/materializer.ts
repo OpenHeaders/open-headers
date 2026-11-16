@@ -121,13 +121,16 @@ export class WorkspaceTreeMaterializer {
       // engine never wrote) are pending EXTERNAL input — overwriting
       // them would destroy a hand edit the sweep hasn't ingested yet.
       // Leave the file alone and keep its baseline entry (if any) so
-      // the sweep still classifies it as externally changed.
-      if (existing !== null) {
-        const baseline = previous[file.path];
-        if (baseline === undefined || hashTreeContent(existing) !== baseline) {
-          if (baseline !== undefined) planned[file.path] = baseline;
-          continue;
-        }
+      // the sweep still classifies it as externally changed. A file the
+      // baseline lists and the disk no longer holds is the same input —
+      // a hand delete, or git between removing a file and writing it
+      // anew, where a write here would land over git's.
+      const baseline = previous[file.path];
+      const pendingExternal =
+        existing === null ? baseline !== undefined : baseline === undefined || hashTreeContent(existing) !== baseline;
+      if (pendingExternal) {
+        if (baseline !== undefined) planned[file.path] = baseline;
+        continue;
       }
       await fs.mkdir(path.dirname(target), { recursive: true });
       const tmp = `${target}.${process.pid}.tmp`;

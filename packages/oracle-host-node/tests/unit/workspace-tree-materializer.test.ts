@@ -127,6 +127,27 @@ describe('WorkspaceTreeMaterializer', () => {
     await expect(fs.readFile(path.join(tmpDir, 'README.md'), 'utf-8')).resolves.toBe('# mine\n');
   });
 
+  it('a file the baseline lists and the disk no longer holds is left to the sweep, its entry kept', async () => {
+    state.rules = [makeRule('aaaaaaaa', 'Block probes')];
+    const materializer = makeMaterializer();
+    await materializer.flush();
+    const rel = 'rules/block-probes-aaaaaaaa/rule.yaml';
+    const ruleFile = path.join(tmpDir, ...rel.split('/'));
+    const baselined = (await readMaterializedIndex(tmpDir))[rel];
+    await fs.rm(ruleFile);
+
+    const pass = await materializer.flush();
+    expect(pass.written).toEqual([]);
+    await expect(fs.access(ruleFile)).rejects.toThrow();
+    expect((await readMaterializedIndex(tmpDir))[rel]).toBe(baselined);
+
+    // An entity the tree never held is still written beside it.
+    state.rules.push(makeRule('bbbbbbbb', 'Delay probes'));
+    const next = await materializer.flush();
+    expect(next.written).toEqual(['rules/delay-probes-bbbbbbbb/rule.yaml']);
+    await expect(fs.access(ruleFile)).rejects.toThrow();
+  });
+
   it('order: stamped from the live sets lands on disk and reads back', async () => {
     state.collections = [
       {

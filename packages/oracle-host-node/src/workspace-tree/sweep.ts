@@ -45,6 +45,7 @@ import {
   type TreeIssue,
   VAULT_DOC_KEY,
   WORKSPACE_DOC_KEY,
+  WORKSPACE_MANIFEST_FILE,
   WORKSPACE_VARS_DOC_KEY,
   type WorkspaceTreeState,
 } from '@openheaders/core/workspace-tree';
@@ -94,6 +95,14 @@ export async function sweepWorkspaceTree(options: SweepWorkspaceTreeOptions): Pr
   const files = await listWorkspaceTreeFiles(rootDir);
   const read = readWorkspaceTree(files);
   if (read.state.workspace === null) {
+    // A manifest that is gone has no tombstone to become: nothing
+    // ingests its absence, and a baseline entry would have every flush
+    // leave it absent. The entry is dropped, so the flush after this
+    // refusal authors the manifest again.
+    if (!files.some((file) => file.path === WORKSPACE_MANIFEST_FILE)) {
+      const { [WORKSPACE_MANIFEST_FILE]: listed, ...rest } = await readMaterializedIndex(rootDir);
+      if (listed !== undefined) await writeMaterializedIndex(rootDir, rest);
+    }
     return { ok: false, reason: 'unreadable-manifest', issues: read.issues };
   }
   if (read.state.workspace.uid !== options.workspaceUid) {
