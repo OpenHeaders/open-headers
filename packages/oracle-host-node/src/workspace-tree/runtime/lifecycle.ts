@@ -1,6 +1,6 @@
 /**
  * Workspace-tree runtime — binding lifecycle: opening a binding wires
- * the materializer, the two watchers (tree quiescence + `.git/HEAD`),
+ * the materializer, the two watchers (tree quiescence + the git directory),
  * the cadence and fetch timers, and the repo adopt/init pass; closing
  * tears every timer down and drains the chain before releasing the
  * workspace service.
@@ -10,7 +10,7 @@ import type { WorkspaceTreeBindingRecord } from '@openheaders/core/storage';
 import { logger } from '@openheaders/core/utils';
 import { getOrCreateWorkspaceService, releaseWorkspaceService } from '@openheaders/oracle/sync/service';
 import { ensureWorkspaceRepo } from '../../git';
-import { GitHeadWatcher } from '../head-watcher';
+import { GitDirWatcher } from '../git-dir-watcher';
 import { WorkspaceTreeMaterializer } from '../materializer';
 import { readTreeUnknownFields } from '../sidecar';
 import { StatusCache } from '../status-cache';
@@ -43,9 +43,13 @@ export async function openBinding(ctx: RuntimeCtx, record: WorkspaceTreeBindingR
   // and a switch between identical trees moves NOTHING else. The
   // HEAD watch re-probes the branch on the chain and runs the same
   // rung-2 sweep an in-app switch runs; echoes of our own wrapped
-  // checkout no-op via the pointer comparison.
-  const headWatcher = new GitHeadWatcher({
+  // checkout no-op via the pointer comparison. A ref that moved with
+  // HEAD where it was (a branch or a tag from a terminal, a commit
+  // there) moved nothing of the tree: the status alone is said again,
+  // on the chain, so one of our own passes says it once.
+  const gitDirWatcher = new GitDirWatcher({
     rootDir: record.rootDir,
+    onRefMove: () => ctx.enqueue(binding, () => ctx.publishGitStatus(binding)),
     onHeadMove: () =>
       ctx.enqueue(binding, async () => {
         if (await ctx.syncLogBranch(binding)) {
@@ -63,7 +67,7 @@ export async function openBinding(ctx: RuntimeCtx, record: WorkspaceTreeBindingR
     service,
     materializer,
     watcher,
-    headWatcher,
+    gitDirWatcher,
     logHead: null,
     chain: Promise.resolve(),
     materializeTimer: null,
@@ -105,7 +109,7 @@ export async function openBinding(ctx: RuntimeCtx, record: WorkspaceTreeBindingR
       // §6.3: point the per-branch log at HEAD's branch before any
       // batch lands, and arm the external-checkout trigger.
       await ctx.syncLogBranch(binding);
-      await binding.headWatcher.start();
+      await binding.gitDirWatcher.start();
     }
     await ctx.publishGitStatus(binding);
   });
@@ -115,7 +119,7 @@ export async function openBinding(ctx: RuntimeCtx, record: WorkspaceTreeBindingR
 export async function closeBinding(ctx: RuntimeCtx, binding: OpenBinding): Promise<void> {
   binding.closed = true;
   binding.watcher.dispose();
-  binding.headWatcher.dispose();
+  binding.gitDirWatcher.dispose();
   if (binding.materializeTimer) {
     clearTimeout(binding.materializeTimer);
     binding.materializeTimer = null;

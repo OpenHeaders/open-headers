@@ -19,7 +19,7 @@ import type {
   SyntheticCommitIdentity,
   UpstreamState,
 } from '../../git';
-import type { GitHeadWatcher } from '../head-watcher';
+import type { GitDirWatcher } from '../git-dir-watcher';
 import type { LogHistories } from '../history';
 import type { WorkspaceTreeMaterializer } from '../materializer';
 import type { StatusCache } from '../status-cache';
@@ -121,8 +121,8 @@ export interface OpenBinding {
   service: WorkspaceServiceState;
   materializer: WorkspaceTreeMaterializer;
   watcher: WorkspaceTreeWatcher;
-  /** `.git/HEAD` watch — the external-checkout trigger (started once the repo exists). */
-  headWatcher: GitHeadWatcher;
+  /** The git directory's watch — a checkout or a ref moved outside the app (started once the repo exists). */
+  gitDirWatcher: GitDirWatcher;
   /** The HEAD identity the §6.3 log pointer currently reflects (branch name or `@{<sha>}`); null before the first probe. */
   logHead: string | null;
   /** §8 single actor — every sweep + materialize + commit pass chains here. */

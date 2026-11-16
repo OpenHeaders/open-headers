@@ -18,8 +18,8 @@ export type { ApplyCommitResolution, ApplyCommitResolve } from './change-answers
 export { COMMIT_CONFLICT_MAX_CHARS } from './change-answers';
 export type { ForcePushChoice, ResolveForcePushOptions, ResolveForcePushResult } from './force-push';
 export { resolveForcePushWorkspaceTree } from './force-push';
-export type { GitHeadWatcherOptions } from './head-watcher';
-export { GitHeadWatcher } from './head-watcher';
+export type { GitDirWatcherOptions } from './git-dir-watcher';
+export { GitDirWatcher } from './git-dir-watcher';
 export type { MaterializeResult, MaterializeSnapshot, WorkspaceTreeMaterializerOptions } from './materializer';
 export { WorkspaceTreeMaterializer } from './materializer';
 export type { MergeWorkspaceBranchOptions, MergeWorkspaceBranchResult } from './merge';
