@@ -49,6 +49,7 @@ import {
   WORKSPACE_VARS_DOC_KEY,
   type WorkspaceTreeState,
 } from '@openheaders/core/workspace-tree';
+import type { TreeWritesWatch } from '../git';
 import { TREE_HYGIENE_FILES } from './hygiene';
 import { listWorkspaceTreeFiles } from './reader';
 import {
@@ -70,6 +71,13 @@ export interface SweepWorkspaceTreeOptions {
   liveSetEntries: LiveSetEntriesReader;
   /** Apply the synthesized batches through the workspace's resident service. */
   apply: (batches: EmissionBatch[]) => Promise<void>;
+  /**
+   * Opens a watch of git's writes to the tree before it is read. Git
+   * replaces a file by removing it and writing it anew, so a file that
+   * reads as removed while git wrote is no deletion. Absent (no git
+   * plane), nothing ever writes.
+   */
+  watchTreeWrites?: () => Promise<TreeWritesWatch>;
 }
 
 export type SweepWorkspaceTreeResult =
@@ -81,6 +89,12 @@ export type SweepWorkspaceTreeResult =
       changed: number;
       removed: number;
       issues: TreeIssue[];
+      /**
+       * Files that read as removed while git wrote the tree. Set, the
+       * pass concluded NOTHING — no batch, the baseline as it stood —
+       * and the owner reads the tree again.
+       */
+      heldRemovals?: number;
     }
   | { ok: false; reason: 'unreadable-manifest' | 'identity-mismatch'; issues: TreeIssue[] };
 
@@ -92,6 +106,15 @@ const dirOf = (path: string): string => {
 export async function sweepWorkspaceTree(options: SweepWorkspaceTreeOptions): Promise<SweepWorkspaceTreeResult> {
   const { rootDir, snapshot } = options;
 
+  // A tree read while git wrote it, with a file gone, is not a tree at
+  // rest: the file may be between git's removal and its write. Nothing
+  // of such a reading is concluded.
+  const treeWrites = await options.watchTreeWrites?.();
+  const heldFor = async (gone: number): Promise<SweepWorkspaceTreeResult | null> =>
+    gone > 0 && (await treeWrites?.met()) === true
+      ? { ok: true, applied: 0, changed: 0, removed: 0, issues: [], heldRemovals: gone }
+      : null;
+
   const files = await listWorkspaceTreeFiles(rootDir);
   const read = readWorkspaceTree(files);
   if (read.state.workspace === null) {
@@ -100,6 +123,8 @@ export async function sweepWorkspaceTree(options: SweepWorkspaceTreeOptions): Pr
     // leave it absent. The entry is dropped, so the flush after this
     // refusal authors the manifest again.
     if (!files.some((file) => file.path === WORKSPACE_MANIFEST_FILE)) {
+      const held = await heldFor(1);
+      if (held !== null) return held;
       const { [WORKSPACE_MANIFEST_FILE]: listed, ...rest } = await readMaterializedIndex(rootDir);
       if (listed !== undefined) await writeMaterializedIndex(rootDir, rest);
     }
@@ -123,6 +148,8 @@ export async function sweepWorkspaceTree(options: SweepWorkspaceTreeOptions): Pr
   for (const path of Object.keys(baseline)) {
     if (!diskHashes.has(path) && !TREE_HYGIENE_FILES.has(path)) removedPaths.add(path);
   }
+  const held = await heldFor(removedPaths.size);
+  if (held !== null) return held;
 
   const batches = synthesizeWorkspaceTreeDelta({
     prev: snapshot,

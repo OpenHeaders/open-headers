@@ -19,8 +19,10 @@ import type { MutatorContext } from '@openheaders/core/sync';
 import type { EmissionBatch } from '@openheaders/core/sync-builders/mutations/workspace-import-emission';
 import type { Collection, Folder, Rule, Workspace } from '@openheaders/core/types';
 import { applyTreeOrder, type WorkspaceTreeState } from '@openheaders/core/workspace-tree';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { WorkspaceTreeMaterializer } from '../../src/workspace-tree/materializer';
+import { listWorkspaceTreeFiles } from '../../src/workspace-tree/reader';
+import { readMaterializedIndex } from '../../src/workspace-tree/sidecar';
 import { sweepWorkspaceTree } from '../../src/workspace-tree/sweep';
 
 const ORG_ID = '019637a2-7b9a-7b9a-8b9a-1234567890ab';
@@ -107,7 +109,10 @@ function makeMaterializer(): WorkspaceTreeMaterializer {
   return new WorkspaceTreeMaterializer({ rootDir: tmpDir, readSnapshot: async () => ({ state }) });
 }
 
-async function runSweep(applied: EmissionBatch[]): Promise<Awaited<ReturnType<typeof sweepWorkspaceTree>>> {
+async function runSweep(
+  applied: EmissionBatch[],
+  gitWriting?: boolean,
+): Promise<Awaited<ReturnType<typeof sweepWorkspaceTree>>> {
   return sweepWorkspaceTree({
     rootDir: tmpDir,
     workspaceUid: 'wsaaaaaa',
@@ -117,6 +122,7 @@ async function runSweep(applied: EmissionBatch[]): Promise<Awaited<ReturnType<ty
     apply: async (batches) => {
       applied.push(...batches);
     },
+    ...(gitWriting !== undefined ? { watchTreeWrites: async () => ({ met: async () => gitWriting }) } : {}),
   });
 }
 
@@ -263,6 +269,71 @@ describe('sweepWorkspaceTree', () => {
     const pass = await materializer.flush();
     expect(pass.written).toEqual(['workspace.yaml']);
     await expect(fs.readFile(manifest, 'utf-8')).resolves.toBe(canonical);
+  });
+
+  it('a file gone while git wrote the tree concludes nothing; read at rest it is a tombstone', async () => {
+    state.rules = [makeRule('aaaaaaaa', 'Block probes'), makeRule('bbbbbbbb', 'Delay probes')];
+    await makeMaterializer().flush();
+    const baseline = await readMaterializedIndex(tmpDir);
+    await fs.rm(path.join(tmpDir, ...RULE_FILE.split('/')));
+    const other = path.join(tmpDir, 'rules', 'delay-probes-bbbbbbbb', 'rule.yaml');
+    const yaml = await fs.readFile(other, 'utf-8');
+    await fs.writeFile(other, yaml.replace('name: Delay probes', 'name: Delay probes (vim)'), 'utf-8');
+
+    const applied: EmissionBatch[] = [];
+    const held = await runSweep(applied, true);
+    expect(held).toEqual({ ok: true, applied: 0, changed: 0, removed: 0, issues: [], heldRemovals: 1 });
+    expect(applied).toHaveLength(0);
+    expect(await readMaterializedIndex(tmpDir)).toEqual(baseline);
+
+    const atRest = await runSweep(applied, false);
+    expect(atRest).toMatchObject({ ok: true, changed: 1, removed: 1 });
+    expect(atRest.ok && atRest.heldRemovals).toBeUndefined();
+    expect(applied.flatMap((entry) => entry.batch.mutations.map((m) => m.body.kind))).toContain('delete');
+  });
+
+  it('a change with no file gone is ingested while git writes the tree', async () => {
+    state.rules = [makeRule('aaaaaaaa', 'Block probes')];
+    await makeMaterializer().flush();
+    const ruleFile = path.join(tmpDir, ...RULE_FILE.split('/'));
+    const yaml = await fs.readFile(ruleFile, 'utf-8');
+    await fs.writeFile(ruleFile, yaml.replace('name: Block probes', 'name: Block probes (vim)'), 'utf-8');
+
+    const applied: EmissionBatch[] = [];
+    const result = await runSweep(applied, true);
+    expect(result).toMatchObject({ ok: true, changed: 1, removed: 0 });
+    expect(applied).toHaveLength(1);
+  });
+
+  it('a manifest gone while git wrote the tree is held, its baseline entry kept', async () => {
+    await makeMaterializer().flush();
+    const baseline = await readMaterializedIndex(tmpDir);
+    await fs.rm(path.join(tmpDir, 'workspace.yaml'));
+
+    const applied: EmissionBatch[] = [];
+    const result = await runSweep(applied, true);
+    expect(result).toMatchObject({ ok: true, heldRemovals: 1 });
+    expect(await readMaterializedIndex(tmpDir)).toEqual(baseline);
+  });
+
+  it('a listed file gone at its read is not of the tree', async () => {
+    state.rules = [makeRule('aaaaaaaa', 'Block probes')];
+    await makeMaterializer().flush();
+    const readFile = fs.readFile.bind(fs);
+    const spy = vi
+      .spyOn(fs, 'readFile')
+      .mockImplementation((...args: Parameters<typeof fs.readFile>) =>
+        String(args[0]).endsWith('rule.yaml')
+          ? Promise.reject(Object.assign(new Error('gone'), { code: 'ENOENT' }))
+          : readFile(...args),
+      );
+    try {
+      const files = await listWorkspaceTreeFiles(tmpDir);
+      expect(files.map((file) => file.path)).not.toContain(RULE_FILE);
+      expect(files.map((file) => file.path)).toContain('workspace.yaml');
+    } finally {
+      spy.mockRestore();
+    }
   });
 
   it('a hand-added entity file seeds through the pipeline', async () => {

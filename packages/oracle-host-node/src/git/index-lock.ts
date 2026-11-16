@@ -83,7 +83,7 @@ function removeOnExit(files: readonly string[]): void {
 }
 
 /** Git locks the file a symlinked index points at, not the link. */
-async function realIndexPath(gitDir: string): Promise<string> {
+export async function realIndexPath(gitDir: string): Promise<string> {
   const indexPath = path.join(gitDir, 'index');
   try {
     return await fs.realpath(indexPath);

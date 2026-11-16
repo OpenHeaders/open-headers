@@ -8,7 +8,7 @@
 import type { MutatorContext } from '@openheaders/core/sync';
 import { logger } from '@openheaders/core/utils';
 import type { TreeIssue } from '@openheaders/core/workspace-tree';
-import { gitOperationInProgress } from '../../git';
+import { gitOperationInProgress, watchTreeWrites } from '../../git';
 import { readWorkspaceTreeFromDisk } from '../reader';
 import { type SweepWorkspaceTreeResult, sweepWorkspaceTree } from '../sweep';
 import {
@@ -32,17 +32,21 @@ export async function heldByGitOperation(ctx: RuntimeCtx, binding: OpenBinding):
   const marker = await gitOperationInProgress(binding.record.rootDir);
   if (marker === null) return false;
   logger.info(SCOPE, `reconcile held for ${binding.record.rootDir}: ${marker} in progress`);
-  if (!binding.closed && binding.holdRetryTimer === null) {
-    binding.holdRetryTimer = setTimeout(() => {
-      binding.holdRetryTimer = null;
-      ctx.enqueue(binding, async () => {
-        await runSweep(ctx, binding);
-        await binding.materializer.flush();
-        await ctx.publishGitStatus(binding);
-      });
-    }, OP_HOLD_RETRY_MS);
-  }
+  armHoldRetry(ctx, binding);
   return true;
+}
+
+/** One reconcile pass after the hold's wait — a pass still held arms the next. */
+function armHoldRetry(ctx: RuntimeCtx, binding: OpenBinding): void {
+  if (binding.closed || binding.holdRetryTimer !== null) return;
+  binding.holdRetryTimer = setTimeout(() => {
+    binding.holdRetryTimer = null;
+    ctx.enqueue(binding, async () => {
+      await runSweep(ctx, binding);
+      await binding.materializer.flush();
+      await ctx.publishGitStatus(binding);
+    });
+  }, OP_HOLD_RETRY_MS);
 }
 
 export async function runSweep(ctx: RuntimeCtx, binding: OpenBinding): Promise<SweepWorkspaceTreeResult | null> {
@@ -61,7 +65,19 @@ export async function runSweep(ctx: RuntimeCtx, binding: OpenBinding): Promise<S
         .liveOrderedSetItems(entityType, id, setPath)
         .map((entry) => ({ itemId: entry.itemId, orderKey: entry.key, item: entry.item })),
     apply: (batches) => ctx.applyAll(service, batches),
+    watchTreeWrites: () => watchTreeWrites(record.rootDir),
   });
+  // Git was replacing files as the tree was read: the reading is void,
+  // held like an operation in progress and taken again. The command's
+  // own events bring a pass sooner; the retry is for one they do not.
+  if (result.ok && result.heldRemovals !== undefined) {
+    logger.info(
+      SCOPE,
+      `sweep held for ${record.rootDir}: ${result.heldRemovals} file(s) gone while git wrote the tree`,
+    );
+    armHoldRetry(ctx, binding);
+    return null;
+  }
   if (result.ok) {
     binding.issues = result.issues;
     if (result.applied > 0 || result.changed > 0 || result.removed > 0) {

@@ -188,4 +188,5 @@ export {
   snapshotWorkingTree,
   treeWithFiles,
 } from './tree-ops';
+export { type TreeWritesWatch, watchTreeWrites } from './tree-writes';
 export { removeWorkingFile } from './working-file';

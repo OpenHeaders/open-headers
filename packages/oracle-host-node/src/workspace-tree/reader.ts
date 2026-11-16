@@ -46,7 +46,18 @@ async function walk(absDir: string, relDir: string, out: TreeFile[]): Promise<vo
       if (relDir === '' && SKIPPED_DIRS.has(entry.name)) continue;
       await walk(path.join(absDir, entry.name), rel, out);
     } else if (entry.isFile()) {
-      out.push({ path: rel, content: await fs.readFile(path.join(absDir, entry.name), 'utf-8') });
+      const content = await readListed(path.join(absDir, entry.name));
+      if (content !== null) out.push({ path: rel, content });
     }
+  }
+}
+
+/** A listed file's text; null when it went between the listing and the read — it is then not of the tree. */
+async function readListed(filePath: string): Promise<string | null> {
+  try {
+    return await fs.readFile(filePath, 'utf-8');
+  } catch (err) {
+    if (err instanceof Error && 'code' in err && err.code === 'ENOENT') return null;
+    throw err;
   }
 }
