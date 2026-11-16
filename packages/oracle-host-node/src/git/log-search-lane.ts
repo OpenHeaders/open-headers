@@ -23,7 +23,8 @@
 
 import { Worker } from 'node:worker_threads';
 import type { LogTextFields } from '@openheaders/core/workspace-tree';
-import { isValidLogSearchText, type LogSearchMatch, plainTextMatch } from './log-search';
+import { type LogSearchMatch, plainTextMatch } from './log-search';
+import { isValidLogSearchText } from './log-text-shape';
 
 export interface LogSearchLane {
   match: LogSearchMatch;

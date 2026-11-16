@@ -15,13 +15,8 @@ import * as path from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createGitExec, type GitRunner } from '../../src/git/git-exec';
 import { createGitStream, type GitStreamResult, type GitStreamRunner } from '../../src/git/git-stream';
-import {
-  type CommitLogSearch,
-  LOG_SEARCH_MAX_TEXT,
-  type LogSearchMatch,
-  plainTextMatch,
-  searchCommitLog,
-} from '../../src/git/log-search';
+import { type CommitLogSearch, type LogSearchMatch, plainTextMatch, searchCommitLog } from '../../src/git/log-search';
+import { LOG_SEARCH_MAX_TEXT } from '../../src/git/log-text-shape';
 import { ensureWorkspaceRepo, localHeadSha } from '../../src/git/repo';
 import { repoArgs } from '../../src/git/repo-args';
 

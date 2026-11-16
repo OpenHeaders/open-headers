@@ -15,8 +15,9 @@ import { type LogTextFields, makeLogTextMatcher } from '@openheaders/core/worksp
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createGitExec, type GitRunner } from '../../src/git/git-exec';
 import { createGitStream, type GitStreamRunner } from '../../src/git/git-stream';
-import { LOG_SEARCH_MAX_TEXT, searchCommitLog } from '../../src/git/log-search';
+import { searchCommitLog } from '../../src/git/log-search';
 import { type LogSearchLane, openLogSearchLane } from '../../src/git/log-search-lane';
+import { LOG_SEARCH_MAX_TEXT } from '../../src/git/log-text-shape';
 import { ensureWorkspaceRepo } from '../../src/git/repo';
 import { repoArgs } from '../../src/git/repo-args';
 

@@ -57,6 +57,13 @@ export {
   type ReadLogSkeletonResult,
   readLogSkeleton,
 } from './log-skeleton';
+export {
+  type FlagLogTextsOptions,
+  flagLogTexts,
+  type LogTextAsk,
+  type LogTextFlagsResult,
+  type LogTextRows,
+} from './log-text-flags';
 export { type LogTextSink, type ReadLogTextsResult, readLogTexts, readLogTextsOf } from './log-text-read';
 export { createLogTextStore, type LogTextStore, type LogTextView } from './log-text-store';
 export { type AbortGitOperationResult, abortGitOperation, type GitOperation, gitOperationKind } from './operation';

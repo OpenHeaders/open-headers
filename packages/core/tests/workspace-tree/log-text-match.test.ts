@@ -54,6 +54,57 @@ describe('the log text matcher says which commit matches', () => {
   });
 });
 
+describe('the log text matcher says what it is made of', () => {
+  it('tests one text — a subject or a name — by the same rule a commit’s are tested by', () => {
+    expect(matcherOf('response', false, false).testText('Fix Response panel')).toBe(true);
+    expect(matcherOf('response', false, true).testText('Fix Response panel')).toBe(false);
+    expect(matcherOf('john d', false, false).testText('John Doe')).toBe(true);
+    expect(matcherOf('^john', true, false).testText('John Doe')).toBe(true);
+    expect(matcherOf('^john', true, true).testText('John Doe')).toBe(false);
+    // A text is no hash: its start alone does not match it.
+    expect(matcherOf('abc12', false, false).testText('zabc12')).toBe(true);
+  });
+
+  it('tests a hash by its start, whatever case it was typed in', () => {
+    expect(matcherOf('abc12', false, false).testSha?.('abc123def')).toBe(true);
+    expect(matcherOf('ABC12', false, true).testSha?.('abc123def')).toBe(true);
+    expect(matcherOf('c123', false, false).testSha?.('abc123def')).toBe(false);
+  });
+
+  it('has no test of a hash for a plain text that can match none', () => {
+    expect(matcherOf('response', false, false).testSha).toBeNull();
+    expect(matcherOf('abc12g', false, false).testSha).toBeNull();
+    expect(matcherOf('abc 12', false, false).testSha).toBeNull();
+    expect(matcherOf('a'.repeat(64), false, false).testSha).not.toBeNull();
+    expect(matcherOf('a'.repeat(65), false, false).testSha).toBeNull();
+  });
+
+  it('reads a pattern over the whole hash — any pattern may match one', () => {
+    expect(matcherOf('response', true, false).testSha?.('abc123def')).toBe(false);
+    expect(matcherOf('c123', true, false).testSha?.('abc123def')).toBe(true);
+    expect(matcherOf('\\d+', true, false).testSha?.('abc123def')).toBe(true);
+  });
+
+  it('matches a commit by any ONE of its fields, each alone', () => {
+    const blank = { subject: '', authorName: '', sha: '' };
+    for (const matcher of [matcherOf('abc', false, false), matcherOf('^abc', true, false)]) {
+      expect(matcher.test({ ...blank, subject: 'abc' })).toBe(true);
+      expect(matcher.test({ ...blank, authorName: 'abc' })).toBe(true);
+      expect(matcher.test({ ...blank, sha: 'abc' })).toBe(true);
+      expect(matcher.test(blank)).toBe(false);
+    }
+    // A hash is hex digits: a text with any other character matches by a subject or a name alone.
+    expect(matcherOf('xyz', false, false).test({ ...blank, sha: 'xyz' })).toBe(false);
+  });
+
+  it('hands out the pattern its tests run, and none for a plain text', () => {
+    expect(matcherOf('fix', false, false).pattern).toBeNull();
+    const held = matcherOf('  ^Fix\\b ', true, true).pattern;
+    expect([held?.source, held?.flags]).toEqual(['^Fix\\b', '']);
+    expect(matcherOf('^fix', true, false).pattern?.flags).toBe('i');
+  });
+});
+
 describe('the log text matcher says where it matched', () => {
   const rangesOf = (filter: string, regex: boolean, matchCase: boolean, text: string) =>
     matcherOf(filter, regex, matchCase).ranges(text);

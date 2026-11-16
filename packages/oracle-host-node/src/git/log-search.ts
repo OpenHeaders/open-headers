@@ -25,11 +25,9 @@ import { type LogTextFields, makeLogTextMatcher } from '@openheaders/core/worksp
 import type { GitRunner } from './git-exec';
 import type { GitStreamRunner } from './git-stream';
 import { listCommitsBySha } from './log-rows';
+import { isValidLogSearchText } from './log-text-shape';
 import { type CommitLogEntry, type CommitLogFilters, resolveCommitWalk } from './repo';
 import { repoArgs } from './repo-args';
-
-/** The longest text a search takes. */
-export const LOG_SEARCH_MAX_TEXT = 200;
 
 /** A commit as the scan prints it: what the matcher reads, and nothing else. */
 const SCAN_FORMAT = '%x1e%H%x1f%an%x1f%s';
@@ -41,14 +39,6 @@ const SCAN_FORMAT = '%x1e%H%x1f%an%x1f%s';
  * once.
  */
 export type LogSearchMatch = (rows: readonly LogTextFields[], signal: AbortSignal) => boolean[] | Promise<boolean[]>;
-
-/** A search's text as a shape: something to match, bounded, with no control character. */
-export function isValidLogSearchText(text: string): boolean {
-  const needle = text.trim();
-  if (needle.length === 0 || needle.length > LOG_SEARCH_MAX_TEXT) return false;
-  // biome-ignore lint/suspicious/noControlCharactersInRegex: rejecting control chars is the point
-  return !/[\x00-\x1f\x7f]/.test(needle);
-}
 
 /**
  * A plain text's match — the text as itself, read where it stands: no
