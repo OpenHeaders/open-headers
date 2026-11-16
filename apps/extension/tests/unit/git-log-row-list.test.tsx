@@ -256,6 +256,18 @@ describe('LogRowList — the rows', () => {
     expect(pending.style.height).toBe(`${ROW_PX}px`);
   });
 
+  it('draws a row as wide as the list and no wider: its padding is inside its width', () => {
+    // A row read, then one not read yet: the same box.
+    for (const held of [holding(5), holding(300, [1])]) {
+      const { unmount } = render(<Harness held={held} />);
+      const row = rowEl(3);
+      expect(row.style.width).toBe('100%');
+      expect(row.style.paddingRight).toBe('12px');
+      expect(row.style.boxSizing).toBe('border-box');
+      unmount();
+    }
+  });
+
   it('reports the rows mounted, and again when the list’s length changes', () => {
     const onWindow = vi.fn();
     const { rerender } = render(<Harness held={holding(5)} onWindow={onWindow} />);

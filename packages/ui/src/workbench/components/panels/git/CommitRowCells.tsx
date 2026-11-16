@@ -59,11 +59,12 @@ export const DEFAULT_COMMIT_ROW_COLUMNS: CommitRowColumns = {
   hourCycle: 'h23',
 };
 
-/** A commit row's own box — one height, its cells in a line. */
+/** A commit row's own box — one height, its cells in a line, as wide as its list with its padding inside. */
 export const COMMIT_ROW_LAYOUT: React.CSSProperties = {
   display: 'flex',
   alignItems: 'center',
   gap: 8,
+  boxSizing: 'border-box',
   width: '100%',
   height: GRAPH_ROW_HEIGHT,
   padding: '0 12px 0 0',
