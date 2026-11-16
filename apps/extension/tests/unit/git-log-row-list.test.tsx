@@ -4,7 +4,8 @@
  * held are drawn, the read rows nearest stand in where the position's
  * own are not read, and a row is empty only where none can; the rows
  * mounted at the position are reported; a list with no answer and no
- * row says it is being read; the selection, the keyboard
+ * row says it is being read; the columns and the ref labels follow the
+ * eye menu's flags; the selection, the keyboard
  * and the right-click rule run on row numbers and report the details
  * row; the pointer over a graph cell lights the run its row names and a
  * press asks for its fold; a row's graph cell is as wide as its own row
@@ -15,7 +16,10 @@
 
 import type { WorkspaceTreeLogRowWire, WorkspaceTreeLogRunWire, WorkspaceTreeRefWire } from '@openheaders/core/bridge';
 import { selectedRows as selectedRowNumbers, useRowSelection } from '@openheaders/ui/shared/selection';
-import { DEFAULT_COMMIT_ROW_COLUMNS } from '@openheaders/ui/workbench/components/panels/git/CommitRowCells';
+import {
+  type CommitRowColumns,
+  DEFAULT_COMMIT_ROW_COLUMNS,
+} from '@openheaders/ui/workbench/components/panels/git/CommitRowCells';
 import LogRowList from '@openheaders/ui/workbench/components/panels/git/LogRowList';
 import {
   type LogRowPages,
@@ -28,7 +32,7 @@ import {
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import type { MenuProps } from 'antd';
 import type React from 'react';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const ASK: LogRowsAsk = { workspaceId: 'ws-1', key: 'log:1', allRefs: true };
@@ -200,6 +204,8 @@ interface HarnessProps {
   band?: boolean;
   headSha?: string | null;
   refsBySha?: ReadonlyMap<string, readonly WorkspaceTreeRefWire[]>;
+  /** What the eye menu decides of every row — over the standing columns. */
+  columns?: Partial<CommitRowColumns>;
   filtersActive?: boolean;
   onResetFilters?: () => void;
   onSelect?: (row: number | null) => void;
@@ -222,6 +228,7 @@ const Harness: React.FC<HarnessProps> = ({
   band = false,
   headSha = null,
   refsBySha = new Map(),
+  columns,
   filtersActive = false,
   onResetFilters = () => undefined,
   onSelect,
@@ -253,7 +260,7 @@ const Harness: React.FC<HarnessProps> = ({
       filtersActive={filtersActive}
       onResetFilters={onResetFilters}
       scrollTo={scrollTo}
-      columns={DEFAULT_COMMIT_ROW_COLUMNS}
+      columns={useMemo(() => ({ ...DEFAULT_COMMIT_ROW_COLUMNS, ...columns }), [columns])}
       onToggleRun={onToggleRun}
       rowMenu={
         rowMenu === undefined ? undefined : (at) => rowMenu(at, selectedRowNumbers(selection.selection.ranges, 50))
@@ -337,6 +344,59 @@ describe('LogRowList — the rows', () => {
     expect(cellOf(4).getAttribute('width')).toBe('56');
     expect(cellOf(2).getAttribute('width')).toBe('40');
     for (const at of [0, 1, 3, 5]) expect(cellOf(at).getAttribute('width')).toBe('24');
+  });
+});
+
+describe('LogRowList — the columns the eye menu decides', () => {
+  const REFS = new Map<string, WorkspaceTreeRefWire[]>([
+    [
+      sha(0),
+      [
+        { kind: 'tag', name: 'v1', sha: sha(0) },
+        { kind: 'remote', name: 'origin/main', sha: sha(0) },
+        { kind: 'local', name: 'main', sha: sha(0) },
+      ],
+    ],
+  ]);
+  const refLabels = (): string[] =>
+    screen.getAllByTestId('git-tool-row-ref').map((el) => el.getAttribute('data-ref') ?? '');
+
+  it('shows the author and the date by default and no hash; each column follows its flag', () => {
+    const { rerender } = render(<Harness held={holding(4)} />);
+    expect(screen.getAllByTestId('git-tool-row-author')).toHaveLength(4);
+    expect(screen.getAllByTestId('git-tool-row-date')).toHaveLength(4);
+    expect(screen.queryAllByTestId('git-tool-row-hash')).toHaveLength(0);
+    expect(screen.queryAllByTestId('git-tool-row-signature')).toHaveLength(0);
+    rerender(
+      <Harness
+        held={holding(4)}
+        columns={{ showAuthor: false, showHash: true, showDate: false, showSignature: true }}
+      />,
+    );
+    expect(screen.queryAllByTestId('git-tool-row-author')).toHaveLength(0);
+    expect(screen.queryAllByTestId('git-tool-row-date')).toHaveLength(0);
+    const hashes = screen.getAllByTestId('git-tool-row-hash');
+    expect(hashes).toHaveLength(4);
+    expect(hashes[3].textContent).toBe(sha(3).slice(0, 8));
+    expect(screen.getAllByTestId('git-tool-row-signature')).toHaveLength(4);
+  });
+
+  it('draws one ref label a row in the compact form; a label per branch (its remote joined) and per tag in the full one', () => {
+    const { rerender } = render(<Harness held={holding(4)} refsBySha={REFS} headSha={sha(0)} />);
+    expect(refLabels()).toEqual(['main']);
+    expect(screen.queryAllByTestId('git-tool-row-refs')).toHaveLength(0);
+    rerender(<Harness held={holding(4)} refsBySha={REFS} headSha={sha(0)} columns={{ compactRefs: false }} />);
+    expect(screen.getAllByTestId('git-tool-row-refs')).toHaveLength(1);
+    expect(refLabels()).toEqual(['main', 'v1']);
+  });
+
+  it('sets the labels after the subject by default and before it with References on the Left', () => {
+    const order = (): string[] =>
+      [...rowEl(0).children].map((el) => el.getAttribute('data-testid') ?? el.tagName.toLowerCase());
+    const { rerender } = render(<Harness held={holding(4)} refsBySha={REFS} headSha={sha(0)} />);
+    expect(order().slice(0, 3)).toEqual(['git-tool-graph-cell', 'git-tool-row-subject', 'git-tool-row-ref']);
+    rerender(<Harness held={holding(4)} refsBySha={REFS} headSha={sha(0)} columns={{ refsOnLeft: true }} />);
+    expect(order().slice(0, 3)).toEqual(['git-tool-graph-cell', 'git-tool-row-ref', 'git-tool-row-subject']);
   });
 });
 

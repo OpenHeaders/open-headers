@@ -125,7 +125,6 @@ const CompareSide: React.FC<CompareSideProps> = ({
           ) : (
             <CommitList
               entries={entries}
-              graph={null}
               refsBySha={refsBySha}
               headSha={null}
               selectedSha={selectedSha}

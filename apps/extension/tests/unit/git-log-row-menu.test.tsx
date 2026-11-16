@@ -3,8 +3,8 @@
  * The log timeline's commit row menu (S47): the builder's anatomy on
  * this product's vocabulary (the live rows, the visible-disabled row,
  * no history-rewriting row), the right-click selection rule on the
- * mounted list (an unselected row becomes the selection alone, a
- * selected row keeps the set and the menu covers it), the Left / Right
+ * mounted list of named commits (an unselected row becomes the
+ * selection alone, a selected row keeps the set), the Left / Right
  * walk to the child / parent commit, and the neighbor model at the
  * list's edges.
  */
@@ -252,17 +252,15 @@ describe('log-neighbors', () => {
   });
 });
 
-/** The orchestrator's part: the tab remembers the commit the list reports and hands the rows a menu. */
-const Harness: React.FC<{
-  initial: string | null;
-  rowMenu: (target: LogRowMenuTarget) => MenuProps;
-  onSelect: (sha: string | null) => void;
-}> = ({ initial, rowMenu, onSelect }) => {
+/** The orchestrator's part: the tab remembers the commit the list reports. */
+const Harness: React.FC<{ initial: string | null; onSelect: (sha: string | null) => void }> = ({
+  initial,
+  onSelect,
+}) => {
   const [selectedSha, setSelectedSha] = useState(initial);
   return (
     <CommitList
       entries={CHAIN}
-      graph={null}
       refsBySha={new Map()}
       headSha={null}
       selectedSha={selectedSha}
@@ -272,7 +270,6 @@ const Harness: React.FC<{
       }}
       filtersActive={false}
       onResetFilters={() => undefined}
-      rowMenu={rowMenu}
     />
   );
 };
@@ -289,43 +286,28 @@ const selectedShas = (): string[] =>
     .filter((el) => el.getAttribute('data-selected') === 'true')
     .map((el) => el.getAttribute('data-sha') ?? '');
 
-describe('CommitList — the row menu and the walks', () => {
+describe('CommitList — the right-click rule and the walks', () => {
   function renderList(initial: string | null) {
-    const rowMenu = vi.fn<(target: LogRowMenuTarget) => MenuProps>(() => ({ items: [] }));
     const onSelect = vi.fn<(sha: string | null) => void>();
-    render(<Harness initial={initial} rowMenu={rowMenu} onSelect={onSelect} />);
-    return { rowMenu, onSelect };
+    render(<Harness initial={initial} onSelect={onSelect} />);
+    return { onSelect };
   }
 
-  const lastTarget = (rowMenu: ReturnType<typeof renderList>['rowMenu'], sha: string): LogRowMenuTarget | undefined => {
-    const calls = rowMenu.mock.calls.filter(([target]) => target.shas?.includes(sha) === true);
-    return calls[calls.length - 1]?.[0];
-  };
-
-  it('a right-click on an unselected row selects it alone and reports it; its menu covers that commit', () => {
-    const { rowMenu, onSelect } = renderList('c1');
+  it('a right-click on an unselected row selects it alone and reports it', () => {
+    const { onSelect } = renderList('c1');
     fireEvent.contextMenu(row('c3'));
     expect(selectedShas()).toEqual(['c3']);
     expect(onSelect).toHaveBeenLastCalledWith('c3');
-    expect(lastTarget(rowMenu, 'c3')).toEqual({ shas: ['c3'], child: 'c4', parent: 'c2', applies: true });
   });
 
-  it('the first commit’s menu is told a pick does not take it', () => {
-    const { rowMenu } = renderList(null);
-    fireEvent.contextMenu(row('c1'));
-    expect(lastTarget(rowMenu, 'c1')).toEqual({ shas: ['c1'], child: 'c2', parent: null, applies: false });
-  });
-
-  it('a right-click on a selected row keeps the set and the menu covers it in list order', () => {
-    const { rowMenu, onSelect } = renderList('c3');
+  it('a right-click on a selected row keeps the set', () => {
+    const { onSelect } = renderList('c3');
     fireEvent.click(row('c1'), { shiftKey: true });
     expect(selectedShas()).toEqual(['c3', 'c2', 'c1']);
     onSelect.mockClear();
     fireEvent.contextMenu(row('c2'));
     expect(selectedShas()).toEqual(['c3', 'c2', 'c1']);
     expect(onSelect).not.toHaveBeenCalled();
-    // The set holds the first commit, which no pick takes.
-    expect(lastTarget(rowMenu, 'c2')).toEqual({ shas: ['c3', 'c2', 'c1'], child: null, parent: null, applies: false });
   });
 
   it('Right walks to the parent, Left back to the child; the edges hold', () => {

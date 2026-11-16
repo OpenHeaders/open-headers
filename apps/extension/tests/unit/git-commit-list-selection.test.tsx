@@ -1,9 +1,10 @@
 // @vitest-environment jsdom
 /**
- * The two commit lists on the shared selection model: the log's
- * `CommitList` reports the details commit and the selection (list
- * order) on every gesture (plain / Shift / Cmd clicks, Up/Down with Shift) and
- * follows the tab's remembered commit; the Push window's
+ * The two lists of named commits on the shared selection model: the
+ * compare pane's `CommitList` draws its standing columns, reports the
+ * details commit and the selection (list order) on every gesture
+ * (plain / Shift / Cmd clicks, Up/Down with Shift) and follows the
+ * tab's remembered commit; the Push window's
  * `PushCommitList` reports the selection with its details commit and
  * returns to the target row when nothing stays selected.
  */
@@ -68,7 +69,6 @@ const LogHarness: React.FC<{
   return (
     <CommitList
       entries={ENTRIES}
-      graph={null}
       refsBySha={new Map()}
       headSha={null}
       selectedSha={selectedSha}
@@ -83,76 +83,7 @@ const LogHarness: React.FC<{
   );
 };
 
-describe('CommitList — the current-branch band (S41, S43)', () => {
-  it('rows reachable from HEAD carry the band attribute (the stylesheet paints it); a selected row keeps its selection', () => {
-    render(
-      <CommitList
-        entries={ENTRIES}
-        graph={null}
-        refsBySha={new Map()}
-        headSha={null}
-        currentBranchShas={new Set([ENTRIES[0].sha, ENTRIES[1].sha])}
-        selectedSha={ENTRIES[1].sha}
-        onSelect={() => undefined}
-        onSelectionChange={() => undefined}
-        filtersActive={false}
-        onResetFilters={() => undefined}
-      />,
-    );
-    const rows = screen.getAllByTestId('git-tool-row');
-    expect(rows.map((row) => row.getAttribute('data-current-branch'))).toEqual([
-      'true',
-      'true',
-      ...ENTRIES.slice(2).map(() => null),
-    ]);
-    expect(rows[0].style.background).toBe('');
-    expect(rows[1].getAttribute('data-selected')).toBe('true');
-  });
-});
-
-describe('CommitList — the columns (S46)', () => {
-  it('author and date show by default and the hash does not; each column follows its flag', () => {
-    const { rerender } = render(
-      <CommitList
-        entries={ENTRIES}
-        graph={null}
-        refsBySha={new Map()}
-        headSha={null}
-        selectedSha={null}
-        onSelect={() => undefined}
-        onSelectionChange={() => undefined}
-        filtersActive={false}
-        onResetFilters={() => undefined}
-      />,
-    );
-    expect(screen.getAllByTestId('git-tool-row-author')).toHaveLength(ENTRIES.length);
-    expect(screen.getAllByTestId('git-tool-row-date')).toHaveLength(ENTRIES.length);
-    expect(screen.queryAllByTestId('git-tool-row-hash')).toHaveLength(0);
-    rerender(
-      <CommitList
-        entries={ENTRIES}
-        graph={null}
-        refsBySha={new Map()}
-        headSha={null}
-        selectedSha={null}
-        onSelect={() => undefined}
-        onSelectionChange={() => undefined}
-        filtersActive={false}
-        onResetFilters={() => undefined}
-        showAuthor={false}
-        showHash={true}
-        showDate={false}
-      />,
-    );
-    expect(screen.queryAllByTestId('git-tool-row-author')).toHaveLength(0);
-    expect(screen.queryAllByTestId('git-tool-row-date')).toHaveLength(0);
-    const hashes = screen.getAllByTestId('git-tool-row-hash');
-    expect(hashes).toHaveLength(ENTRIES.length);
-    expect(hashes[0].textContent).toBe(ENTRIES[0].sha.slice(0, 8));
-  });
-});
-
-describe('CommitList — the ref labels (S46)', () => {
+describe('CommitList — the standing columns', () => {
   const REFS = new Map([
     [
       'c1',
@@ -163,150 +94,51 @@ describe('CommitList — the ref labels (S46)', () => {
       ],
     ],
   ]);
-  const refLabels = (): string[] =>
-    screen.getAllByTestId('git-tool-row-ref').map((el) => el.getAttribute('data-ref') ?? '');
+  const list = (headSha: string | null, refsBySha = new Map()): React.ReactElement => (
+    <CommitList
+      entries={ENTRIES}
+      refsBySha={refsBySha}
+      headSha={headSha}
+      selectedSha={null}
+      onSelect={() => undefined}
+      onSelectionChange={() => undefined}
+      filtersActive={false}
+      onResetFilters={() => undefined}
+    />
+  );
 
-  it('the compact form is one label per row; the full form is a label per branch (its remote joined) and per tag', () => {
-    const { rerender } = render(
-      <CommitList
-        entries={ENTRIES}
-        graph={null}
-        refsBySha={REFS}
-        headSha="c1"
-        selectedSha={null}
-        onSelect={() => undefined}
-        onSelectionChange={() => undefined}
-        filtersActive={false}
-        onResetFilters={() => undefined}
-      />,
-    );
-    expect(refLabels()).toEqual(['main']);
+  it('shows a subject, an author and a date a row, and no hash', () => {
+    render(list(null));
+    expect(screen.getAllByTestId('git-tool-row-subject')).toHaveLength(ENTRIES.length);
+    expect(screen.getAllByTestId('git-tool-row-author')).toHaveLength(ENTRIES.length);
+    expect(screen.getAllByTestId('git-tool-row-date')).toHaveLength(ENTRIES.length);
+    expect(screen.queryAllByTestId('git-tool-row-hash')).toHaveLength(0);
+    expect(screen.queryAllByTestId('git-tool-row-signature')).toHaveLength(0);
+  });
+
+  it('shows one ref label a row, after the subject', () => {
+    render(list('c1', REFS));
+    expect(screen.getAllByTestId('git-tool-row-ref').map((el) => el.getAttribute('data-ref'))).toEqual(['main']);
     expect(screen.queryAllByTestId('git-tool-row-refs')).toHaveLength(0);
-    rerender(
-      <CommitList
-        entries={ENTRIES}
-        graph={null}
-        refsBySha={REFS}
-        headSha="c1"
-        selectedSha={null}
-        onSelect={() => undefined}
-        onSelectionChange={() => undefined}
-        filtersActive={false}
-        onResetFilters={() => undefined}
-        compactRefs={false}
-      />,
-    );
-    expect(screen.getAllByTestId('git-tool-row-refs')).toHaveLength(1);
-    expect(refLabels()).toEqual(['main', 'v1']);
+    expect([...row('c1').children].slice(0, 3).map((el) => el.getAttribute('data-testid'))).toEqual([
+      'git-tool-graph-cell',
+      'git-tool-row-subject',
+      'git-tool-row-ref',
+    ]);
   });
 
-  it('the labels sit after the subject by default and before it with References on the Left', () => {
-    const order = (): string[] =>
-      [...row('c1').children].map((el) => el.getAttribute('data-testid') ?? el.tagName.toLowerCase());
-    const { rerender } = render(
-      <CommitList
-        entries={ENTRIES}
-        graph={null}
-        refsBySha={REFS}
-        headSha="c1"
-        selectedSha={null}
-        onSelect={() => undefined}
-        onSelectionChange={() => undefined}
-        filtersActive={false}
-        onResetFilters={() => undefined}
-      />,
-    );
-    expect(order().slice(0, 3)).toEqual(['git-tool-graph-cell', 'git-tool-row-subject', 'git-tool-row-ref']);
-    rerender(
-      <CommitList
-        entries={ENTRIES}
-        graph={null}
-        refsBySha={REFS}
-        headSha="c1"
-        selectedSha={null}
-        onSelect={() => undefined}
-        onSelectionChange={() => undefined}
-        filtersActive={false}
-        onResetFilters={() => undefined}
-        refsOnLeft
-      />,
-    );
-    expect(order().slice(0, 3)).toEqual(['git-tool-graph-cell', 'git-tool-row-ref', 'git-tool-row-subject']);
-  });
-});
-
-describe('CommitList — the graph cell (S45)', () => {
-  it('the checked-out commit draws the hollow ring with its centre dot; every other row a filled dot', () => {
-    render(
-      <CommitList
-        entries={ENTRIES}
-        graph={null}
-        refsBySha={new Map()}
-        headSha={ENTRIES[1].sha}
-        selectedSha={null}
-        onSelect={() => undefined}
-        onSelectionChange={() => undefined}
-        filtersActive={false}
-        onResetFilters={() => undefined}
-      />,
-    );
+  it('draws a plain dot a row — no graph joins the commits named — and the checked-out commit as the ring', () => {
+    render(list(ENTRIES[1].sha));
     const cells = screen.getAllByTestId('git-tool-graph-cell');
+    expect(cells.map((cell) => cell.querySelectorAll('path').length)).toEqual([0, 0, 0, 0]);
     expect(cells.map((cell) => cell.getAttribute('data-head'))).toEqual([null, 'true', null, null]);
     expect(cells[1].querySelectorAll('circle')).toHaveLength(2);
     expect(cells[1].querySelector('circle')?.getAttribute('fill')).toBe('none');
     expect(cells[0].querySelectorAll('circle')).toHaveLength(1);
-  });
-
-  it('draws the cells it is given, lights nothing under the pointer, and a click on a cell is the row’s own', () => {
-    // c4 -> c3 -> c2 -> c1, one lane: a line through every row.
-    const chain = ENTRIES.map((e, i) => ({ ...e, parents: i === 0 ? [] : [ENTRIES[i - 1].sha] })).reverse();
-    const lane = 'var(--oh-git-lane-0)';
-    const edge = (span: 'top' | 'bottom') => ({ from: 0, to: 0, color: lane, span, collapsed: false, lit: false });
-    const cells = chain.map((_, at) => ({
-      lane: 0,
-      color: lane,
-      edges: [...(at > 0 ? [edge('top')] : []), ...(at < chain.length - 1 ? [edge('bottom')] : [])],
-    }));
-    const onSelect = vi.fn();
-    render(
-      <CommitList
-        entries={chain}
-        graph={cells}
-        refsBySha={new Map()}
-        headSha={null}
-        selectedSha={null}
-        onSelect={onSelect}
-        onSelectionChange={() => undefined}
-        filtersActive={false}
-        onResetFilters={() => undefined}
-      />,
+    // No band here: the rows carry no mark of the checked-out branch.
+    expect(screen.getAllByTestId('git-tool-row').map((el) => el.getAttribute('data-current-branch'))).toEqual(
+      ENTRIES.map(() => null),
     );
-    const drawn = screen.getAllByTestId('git-tool-graph-cell');
-    expect(drawn.map((cell) => cell.querySelectorAll('path').length)).toEqual([1, 2, 2, 1]);
-    fireEvent.mouseEnter(drawn[1]);
-    expect(drawn.map((cell) => cell.getAttribute('data-highlight'))).toEqual([null, null, null, null]);
-    expect(drawn.map((cell) => cell.querySelectorAll('path[stroke-width="4"]').length)).toEqual([0, 0, 0, 0]);
-    fireEvent.click(drawn[1]);
-    expect(onSelect).toHaveBeenLastCalledWith('c3');
-  });
-
-  it('draws a plain dot a row where no graph joins the commits', () => {
-    render(
-      <CommitList
-        entries={ENTRIES}
-        graph={null}
-        refsBySha={new Map()}
-        headSha={null}
-        selectedSha={null}
-        onSelect={() => undefined}
-        onSelectionChange={() => undefined}
-        filtersActive={true}
-        onResetFilters={() => undefined}
-      />,
-    );
-    const drawn = screen.getAllByTestId('git-tool-graph-cell');
-    expect(drawn.map((cell) => cell.querySelectorAll('path').length)).toEqual([0, 0, 0, 0]);
-    expect(drawn.map((cell) => cell.querySelectorAll('circle').length)).toEqual([1, 1, 1, 1]);
   });
 });
 
