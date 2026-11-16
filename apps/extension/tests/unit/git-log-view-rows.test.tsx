@@ -383,6 +383,8 @@ describe('GitLogView — the list it asks for', () => {
     await waitFor(() => expect(screen.getByTestId('git-tool-empty')).toBeTruthy());
     expect(screen.getByTestId('git-tool-reset-filters')).toBeTruthy();
     expect(rowReads).toHaveLength(0);
+    // An empty list is an answer: the panes say their lines beside it.
+    expect(screen.getByTestId('git-tool-detail-placeholder').textContent).toBe('Select a commit to view its changes');
   });
 
   it('walks the other refs of a scope that names the unborn branch beside them', async () => {
@@ -401,6 +403,19 @@ describe('GitLogView — the list it asks for', () => {
     expect(screen.getByTestId('git-tool-list-pending')).toBeTruthy();
     await settle(() => holdRefs?.[0]({ ok: true, refs, current: 'main' }));
     await waitFor(() => expect(listReads()[0]).toMatchObject({ refs: ['main'] }));
+  });
+
+  it('asks for no commit beside a list still being read — the panes say their lines once there is a list to press', async () => {
+    holdRefs = [];
+    render(<Harness initial={{ ...TAB, selectedRefs: ['main'] }} />);
+    await settle();
+    expect(screen.getByTestId('git-tool-list-pending')).toBeTruthy();
+    expect(screen.getByTestId('git-tool-detail-placeholder').textContent).toBe('');
+    expect(screen.getByTestId('git-tool-detail-none').textContent).toBe('');
+    await settle(() => holdRefs?.[0]({ ok: true, refs, current: 'main' }));
+    await waitFor(() => expect(mountedRows().length).toBeGreaterThan(0));
+    expect(screen.getByTestId('git-tool-detail-placeholder').textContent).toBe('Select a commit to view its changes');
+    expect(screen.getByTestId('git-tool-detail-none').textContent).toBe('No commit selected');
   });
 
   it('asks at once for a scope that cannot name an unborn branch — and once: the refs landing ask nothing again', async () => {
@@ -512,6 +527,9 @@ describe('GitLogView — the list it asks for', () => {
     );
     await apply({ noMerges: true });
     expect(rowEl(1).getAttribute('data-sha')).toBe(sha(TOTAL - 1));
+    // Rows stand to be pressed: the panes still ask for a commit.
+    expect(screen.getByTestId('git-tool-detail-placeholder').textContent).toBe('Select a commit to view its changes');
+    expect(screen.getByTestId('git-tool-detail-none').textContent).toBe('No commit selected');
     await settle(() => answer(listRows({ from: 0, count: 200, noMerges: true })));
     expect(rowEl(1).getAttribute('data-sha')).toBe(sha(TOTAL - 2));
     expect(screen.getByTestId('git-tool-list').getAttribute('data-total')).toBe(String(TOTAL / 2));

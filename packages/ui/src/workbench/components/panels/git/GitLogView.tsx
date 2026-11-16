@@ -275,6 +275,8 @@ const GitLogView: React.FC<GitLogViewProps> = ({
   // The held rows are the ask's own: until then the ask before's stay drawn.
   const landed = ask !== null && held.ask === ask;
   const pending = rows.pending || !scopeKnown;
+  // No answer yet and no row to stand in: the list says it is being read, and the panes beside it ask for no commit.
+  const loading = pending && held.total === 0;
 
   // The press of Refresh: the host looks at the repo again, and the window answers with its sign of work.
   const pressRefresh = useCallback((): void => {
@@ -670,7 +672,7 @@ const GitLogView: React.FC<GitLogViewProps> = ({
                 </div>
               ) : selected === null ? (
                 <div style={placeholderStyle} data-testid="git-tool-detail-placeholder">
-                  {t('workbench.gitLog.selectCommit')}
+                  {loading ? null : t('workbench.gitLog.selectCommit')}
                 </div>
               ) : (
                 <CommitFilesView
@@ -715,7 +717,7 @@ const GitLogView: React.FC<GitLogViewProps> = ({
                   <div style={{ flex: '1 1 auto' }} data-testid="git-tool-detail-over-info" />
                 ) : selected === null ? (
                   <div style={placeholderStyle} data-testid="git-tool-detail-none">
-                    {t('workbench.gitLog.noneSelected')}
+                    {loading ? null : t('workbench.gitLog.noneSelected')}
                   </div>
                 ) : multiSelected ? (
                   <div style={{ flex: '1 1 auto', minHeight: 0, overflowY: 'auto' }} data-testid="git-tool-detail-multi">
