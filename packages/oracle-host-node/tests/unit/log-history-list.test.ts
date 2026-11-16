@@ -80,6 +80,7 @@ describe('the list an ask names', () => {
       stream,
       readTimeoutMs: 20_000,
       walkTimeoutMs: 20_000,
+      textsTimeoutMs: 20_000,
       idleMs: 600_000,
       maxLists: 4,
       onMoved: () => undefined,

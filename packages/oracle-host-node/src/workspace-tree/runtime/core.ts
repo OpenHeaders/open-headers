@@ -107,6 +107,8 @@ export const LOG_ROWS_MAX_IN_FLIGHT = 8;
 export const LOG_HISTORY_READ_TIMEOUT_MS = 60_000;
 /** The longest the walk that names a filter's commits may take. */
 export const LOG_HISTORY_WALK_TIMEOUT_MS = 30_000;
+/** The longest one read of a history's texts may take — a million commits' subjects and authors take nine seconds. */
+export const LOG_HISTORY_TEXTS_TIMEOUT_MS = 120_000;
 /** A history nobody has asked of for this long is let go. */
 export const LOG_HISTORY_IDLE_MS = 10 * 60_000;
 /** Lists kept per workspace. */

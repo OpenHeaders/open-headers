@@ -122,6 +122,15 @@ function findRow(history: Pick<HistorySkeleton, 'hashes' | 'table' | 'width'>, b
   return -1;
 }
 
+/**
+ * The row of a hash held packed — `history.width` bytes of `bytes` from
+ * `offset`, as another reading of the same repo holds its own; -1 when
+ * this history does not hold it.
+ */
+export function historyRowOfPacked(history: HistorySkeleton, bytes: Buffer, offset: number): number {
+  return findRow(history, bytes, offset);
+}
+
 /** The row a full hash sits on; -1 for one the history does not hold, or for anything that is no full hash. */
 export function historyRowOf(history: HistorySkeleton, sha: string): number {
   if (sha.length !== history.width * 2 || !/^[0-9a-f]+$/.test(sha)) return -1;

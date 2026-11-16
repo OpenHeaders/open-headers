@@ -72,6 +72,7 @@ import {
   LOG_HISTORY_IDLE_MS,
   LOG_HISTORY_MAX_LISTS,
   LOG_HISTORY_READ_TIMEOUT_MS,
+  LOG_HISTORY_TEXTS_TIMEOUT_MS,
   LOG_HISTORY_WALK_TIMEOUT_MS,
   LOG_ROWS_MAX_IN_FLIGHT,
   LOG_SEARCH_MAX_IN_FLIGHT,
@@ -273,6 +274,7 @@ export function createWorkspaceTreeRuntime(options: WorkspaceTreeRuntimeOptions)
     stream: gitStream,
     readTimeoutMs: LOG_HISTORY_READ_TIMEOUT_MS,
     walkTimeoutMs: LOG_HISTORY_WALK_TIMEOUT_MS,
+    textsTimeoutMs: LOG_HISTORY_TEXTS_TIMEOUT_MS,
     idleMs: LOG_HISTORY_IDLE_MS,
     maxLists: LOG_HISTORY_MAX_LISTS,
     onMoved: (workspaceId) => {

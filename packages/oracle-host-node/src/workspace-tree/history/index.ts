@@ -15,6 +15,7 @@ import type { HistoryGeneration } from './generation';
 import { createListCache, type ListCache } from './list-cache';
 import { type LogAsk, logAskName } from './log-ask';
 import { createRepoHistory, type RepoHistory } from './repo-history';
+import { createHistoryTexts, type HistoryTexts } from './texts';
 
 export type { LogFolding, LogList } from './derive-list';
 export type { HistoryGeneration } from './generation';
@@ -22,6 +23,7 @@ export type { LogRunInfo } from './list-runs';
 export { type LocatedLogRow, locateLogRow } from './locate';
 export { isSifted, type LogAsk, type LogFolds, logAskName, NO_FOLDS } from './log-ask';
 export { type LogRow, type LogRowEdge, type LogRowsPage, readLogRows } from './log-rows';
+export type { HistoryTexts, LogTexts, LogTextsResult } from './texts';
 
 const SCOPE = 'workspace-tree-history';
 
@@ -32,6 +34,8 @@ export interface LogHistoriesOptions {
   readTimeoutMs: number;
   /** The longest the walk that names a filter's commits may take. */
   walkTimeoutMs: number;
+  /** The longest one read of a history's texts may take. */
+  textsTimeoutMs: number;
   /** A history nobody has asked of for this long is let go. */
   idleMs: number;
   /** Lists kept per workspace. */
@@ -65,6 +69,8 @@ export interface LogHistories {
 interface Held {
   rootDir: string;
   history: RepoHistory;
+  /** Every commit's subject and author — read once the history is, behind whoever opened the log. */
+  texts: HistoryTexts;
   lists: ListCache<LogListResult>;
   /** Aborted when the workspace's history is let go. */
   closing: AbortController;
@@ -84,6 +90,7 @@ export function createLogHistories(options: LogHistoriesOptions): LogHistories {
     if (entry.idle !== null) clearTimeout(entry.idle);
     entry.closing.abort();
     entry.history.close();
+    entry.texts.close();
     entry.lists.clear();
   };
 
@@ -107,6 +114,12 @@ export function createLogHistories(options: LogHistoriesOptions): LogHistories {
         closing: new AbortController(),
         asking: 0,
         idle: null,
+        texts: createHistoryTexts({
+          run: options.run,
+          stream: options.stream,
+          rootDir,
+          readTimeoutMs: options.textsTimeoutMs,
+        }),
         history: createRepoHistory({
           run: options.run,
           stream: options.stream,
@@ -158,6 +171,8 @@ export function createLogHistories(options: LogHistoriesOptions): LogHistories {
         }
         if (!opened.ok) return opened;
         const { generation } = opened;
+        // The texts are read behind the log that opened: a search finds them held, or waits for this read.
+        void entry.texts.of(generation);
         const unknownRefs = unheldRefs(generation, ask);
         if (unknownRefs.length > 0) return { ok: false, reason: 'unknown-ref', unknownRefs };
         return await entry.lists.take(

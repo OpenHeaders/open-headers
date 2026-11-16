@@ -8,7 +8,7 @@
  * git in a scratch repo.
  */
 
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { GitStreamRunner } from '../../src/git/git-stream';
 import {
   createLogHistories,
@@ -40,6 +40,9 @@ describe('a history the host holds', () => {
   let reads: number;
   /** Walks that name a filter's commits started so far. */
   let walks: number;
+  /** Reads of the history's texts started so far, and what ends the last one. */
+  let textReads: number;
+  let textSignal: AbortSignal | undefined;
   /** While set, a whole-history read waits for it before it starts. */
   let gate: Promise<void> | null;
   let onMoved: () => void;
@@ -50,6 +53,10 @@ describe('a history the host holds', () => {
       if (gate !== null) await gate;
     }
     if (args.includes('--format=%H')) walks += 1;
+    if (args.includes('--format=%H%x1f%an%x1f%s')) {
+      textReads += 1;
+      textSignal = options.signal;
+    }
     return stream(args, options, read);
   };
   const open = (idleMs = 600_000, maxLists = 4): LogHistories =>
@@ -58,6 +65,7 @@ describe('a history the host holds', () => {
       stream: counted,
       readTimeoutMs: 20_000,
       walkTimeoutMs: 20_000,
+      textsTimeoutMs: 20_000,
       idleMs,
       maxLists,
       onMoved: (workspaceId) => {
@@ -82,6 +90,8 @@ describe('a history the host holds', () => {
     moved = [];
     reads = 0;
     walks = 0;
+    textReads = 0;
+    textSignal = undefined;
     gate = null;
     onMoved = () => undefined;
     histories = open();
@@ -99,6 +109,19 @@ describe('a history the host holds', () => {
     expect((await read({ noMerges: true })).generation).toBe(first.generation);
     expect(reads).toBe(1);
     expect(moved).toEqual([]);
+  });
+
+  it('reads the texts behind the log that opened — nobody asked for them, and once a reading', async () => {
+    await read();
+    await vi.waitFor(() => expect(textReads).toBe(1));
+    await read({ noMerges: true });
+    await read();
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    expect(textReads).toBe(1);
+    // Let go with the history: whatever still reads them ends.
+    expect(textSignal?.aborted).toBe(false);
+    histories.drop(WS);
+    expect(textSignal?.aborted).toBe(true);
   });
 
   it('keeps its reading while no tip has moved, however often something is said to have', async () => {
