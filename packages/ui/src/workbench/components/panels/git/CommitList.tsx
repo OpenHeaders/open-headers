@@ -2,9 +2,10 @@
  * CommitList — a list of NAMED commits, every one of them drawn: the
  * compare pane's two sides (the log's own list, over the whole history
  * by row number, is `LogRowList`). A plain dot — no graph joins the
- * commits named — then the row's cells as every list of commits draws
- * them (`CommitRowCells`), in the standing columns: subject, one ref
- * label, author, the graduated date.
+ * commits named, and none is marked as the checked-out one — then the
+ * row's cells as every list of commits draws them (`CommitRowCells`),
+ * in the standing columns: subject, one ref label, author, the
+ * graduated date. A side that names no commit is the pane's to say.
  *
  * Selection (the shared library): a click selects a row alone,
  * Cmd/Ctrl+click toggles it, Shift+click selects the range from the
@@ -23,7 +24,6 @@ import { theme } from 'antd';
 import type React from 'react';
 import { useEffect, useMemo, useRef } from 'react';
 import { clickModifiers, useMultiSelection } from '@openheaders/ui/shared/selection';
-import CommitListEmpty from './CommitListEmpty';
 import CommitRowCells, {
   COMMIT_ROW_LAYOUT,
   type CommitRowColumns,
@@ -37,18 +37,12 @@ import { commitClickOutcome, stepTarget } from './log-selection';
 export interface CommitListProps {
   entries: readonly WorkspaceTreeLogEntryWire[];
   refsBySha: ReadonlyMap<string, WorkspaceTreeRefWire[]>;
-  /** The checked-out commit — its dot is the hollow ring and its ref hover leads with HEAD. */
-  headSha: string | null;
   /** The details commit the tab remembers. */
   selectedSha: string | null;
   /** The details commit after a gesture — null when nothing stays selected. */
   onSelect: (sha: string | null) => void;
   /** The row selection in list order (newest first) after every change — the details pane's multi-selection feed. */
   onSelectionChange?: (shas: readonly string[]) => void;
-  /** True when a text filter or ref scope is active — drives the
-   *  no-matches empty state and its reset action. */
-  filtersActive: boolean;
-  onResetFilters: () => void;
   /** The workbench clock format's hour cycle for the date column. */
   hourCycle?: HourCycle;
 }
@@ -58,19 +52,16 @@ const NO_REFS: readonly WorkspaceTreeRefWire[] = [];
 const CommitList: React.FC<CommitListProps> = ({
   entries,
   refsBySha,
-  headSha,
   selectedSha,
   onSelect,
   onSelectionChange,
-  filtersActive,
-  onResetFilters,
   hourCycle = DEFAULT_COMMIT_ROW_COLUMNS.hourCycle,
 }) => {
   const { token } = theme.useToken();
   const columns = useMemo<CommitRowColumns>(() => ({ ...DEFAULT_COMMIT_ROW_COLUMNS, hourCycle }), [hourCycle]);
   const listRef = useRef<HTMLDivElement>(null);
   const order = useMemo(() => entries.map((entry) => entry.sha), [entries]);
-  const { selection, isSelected, click, step, contextMenu, clear } = useMultiSelection(order);
+  const { selection, isSelected, click, step, clear } = useMultiSelection(order);
 
   // The tab's commit leads the rows: a remembered commit whose row is
   // visible and not yet selected becomes the selection alone; a
@@ -94,10 +85,10 @@ const CommitList: React.FC<CommitListProps> = ({
     onSelect(outcome.lead);
   };
 
-  // A right-click on an unselected row makes it the selection alone
-  // (and the details commit); a selected row keeps the set.
+  // A right-click on an unselected row makes it the details commit —
+  // which the rows follow, so it is selected alone; a selected row
+  // keeps the set.
   const handleContextMenu = (sha: string): void => {
-    contextMenu(sha);
     if (!isSelected(sha)) onSelect(sha);
   };
 
@@ -130,10 +121,6 @@ const CommitList: React.FC<CommitListProps> = ({
     land(target, event.shiftKey && (event.key === 'ArrowDown' || event.key === 'ArrowUp'));
   };
 
-  if (entries.length === 0) {
-    return <CommitListEmpty filtersActive={filtersActive} onResetFilters={onResetFilters} />;
-  }
-
   return (
     <div
       ref={listRef}
@@ -156,11 +143,11 @@ const CommitList: React.FC<CommitListProps> = ({
             data-sha={entry.sha}
             data-selected={selected || undefined}
           >
-            <GraphCell row={null} isHead={entry.sha === headSha} fallbackColor={token.colorTextQuaternary} />
+            <GraphCell row={null} fallbackColor={token.colorTextQuaternary} />
             <CommitRowCells
               entry={entry}
               refs={refsBySha.get(entry.sha) ?? NO_REFS}
-              isHead={entry.sha === headSha}
+              isHead={false}
               columns={columns}
             />
           </button>

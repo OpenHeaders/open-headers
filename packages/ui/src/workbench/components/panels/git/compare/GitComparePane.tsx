@@ -126,12 +126,9 @@ const CompareSide: React.FC<CompareSideProps> = ({
             <CommitList
               entries={entries}
               refsBySha={refsBySha}
-              headSha={null}
               selectedSha={selectedSha}
               onSelect={onSelect}
               onSelectionChange={(shas) => setSelectionCount(shas.length)}
-              filtersActive={false}
-              onResetFilters={() => undefined}
               hourCycle={hourCycle}
             />
           )}

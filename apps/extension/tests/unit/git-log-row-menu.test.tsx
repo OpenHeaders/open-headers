@@ -262,14 +262,11 @@ const Harness: React.FC<{ initial: string | null; onSelect: (sha: string | null)
     <CommitList
       entries={CHAIN}
       refsBySha={new Map()}
-      headSha={null}
       selectedSha={selectedSha}
       onSelect={(sha) => {
         setSelectedSha(sha);
         onSelect(sha);
       }}
-      filtersActive={false}
-      onResetFilters={() => undefined}
     />
   );
 };

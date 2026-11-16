@@ -336,6 +336,10 @@ describe('LogRowList — the rows', () => {
     render(<Harness held={holding(4)} headSha={sha(2)} />);
     expect(cellOf(2).getAttribute('data-head')).toBe('true');
     expect(cellOf(1).getAttribute('data-head')).toBeNull();
+    // The ring is hollow around its core; every other commit is one dot.
+    expect(cellOf(2).querySelectorAll('circle')).toHaveLength(2);
+    expect(cellOf(2).querySelector('circle')?.getAttribute('fill')).toBe('none');
+    expect(cellOf(1).querySelectorAll('circle')).toHaveLength(1);
   });
 
   it('makes each row’s graph cell as wide as its own row draws — a wider row in view indents no other', () => {

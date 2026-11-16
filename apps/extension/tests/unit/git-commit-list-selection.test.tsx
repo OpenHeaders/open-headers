@@ -70,15 +70,12 @@ const LogHarness: React.FC<{
     <CommitList
       entries={ENTRIES}
       refsBySha={new Map()}
-      headSha={null}
       selectedSha={selectedSha}
       onSelect={(sha) => {
         setSelectedSha(sha);
         onSelect(sha);
       }}
       onSelectionChange={onSelection}
-      filtersActive={false}
-      onResetFilters={() => undefined}
     />
   );
 };
@@ -94,21 +91,18 @@ describe('CommitList — the standing columns', () => {
       ],
     ],
   ]);
-  const list = (headSha: string | null, refsBySha = new Map()): React.ReactElement => (
+  const list = (refsBySha = new Map()): React.ReactElement => (
     <CommitList
       entries={ENTRIES}
       refsBySha={refsBySha}
-      headSha={headSha}
       selectedSha={null}
       onSelect={() => undefined}
       onSelectionChange={() => undefined}
-      filtersActive={false}
-      onResetFilters={() => undefined}
     />
   );
 
   it('shows a subject, an author and a date a row, and no hash', () => {
-    render(list(null));
+    render(list());
     expect(screen.getAllByTestId('git-tool-row-subject')).toHaveLength(ENTRIES.length);
     expect(screen.getAllByTestId('git-tool-row-author')).toHaveLength(ENTRIES.length);
     expect(screen.getAllByTestId('git-tool-row-date')).toHaveLength(ENTRIES.length);
@@ -117,7 +111,7 @@ describe('CommitList — the standing columns', () => {
   });
 
   it('shows one ref label a row, after the subject', () => {
-    render(list('c1', REFS));
+    render(list(REFS));
     expect(screen.getAllByTestId('git-tool-row-ref').map((el) => el.getAttribute('data-ref'))).toEqual(['main']);
     expect(screen.queryAllByTestId('git-tool-row-refs')).toHaveLength(0);
     expect([...row('c1').children].slice(0, 3).map((el) => el.getAttribute('data-testid'))).toEqual([
@@ -127,14 +121,12 @@ describe('CommitList — the standing columns', () => {
     ]);
   });
 
-  it('draws a plain dot a row — no graph joins the commits named — and the checked-out commit as the ring', () => {
-    render(list(ENTRIES[1].sha));
+  it('draws a plain dot a row — no graph joins the commits named, and none is the ring', () => {
+    render(list());
     const cells = screen.getAllByTestId('git-tool-graph-cell');
     expect(cells.map((cell) => cell.querySelectorAll('path').length)).toEqual([0, 0, 0, 0]);
-    expect(cells.map((cell) => cell.getAttribute('data-head'))).toEqual([null, 'true', null, null]);
-    expect(cells[1].querySelectorAll('circle')).toHaveLength(2);
-    expect(cells[1].querySelector('circle')?.getAttribute('fill')).toBe('none');
-    expect(cells[0].querySelectorAll('circle')).toHaveLength(1);
+    expect(cells.map((cell) => cell.getAttribute('data-head'))).toEqual([null, null, null, null]);
+    expect(cells.map((cell) => cell.querySelectorAll('circle').length)).toEqual([1, 1, 1, 1]);
     // No band here: the rows carry no mark of the checked-out branch.
     expect(screen.getAllByTestId('git-tool-row').map((el) => el.getAttribute('data-current-branch'))).toEqual(
       ENTRIES.map(() => null),
