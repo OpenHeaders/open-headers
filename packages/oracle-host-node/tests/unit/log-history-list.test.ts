@@ -19,7 +19,7 @@ import {
   type LogList,
   NO_FOLDS,
 } from '../../src/workspace-tree/history';
-import { EVERY_REF, openScratchRepo, run, type ScratchRepo, seedHistory, stream } from './_log-history-repo';
+import { EVERY_REF, objects, openScratchRepo, run, type ScratchRepo, seedHistory, stream } from './_log-history-repo';
 
 const WHOLE = [
   'Remote hotfix',
@@ -82,6 +82,7 @@ describe('the list an ask names', () => {
     histories = createLogHistories({
       run,
       stream,
+      objects,
       readTimeoutMs: 20_000,
       walkTimeoutMs: 20_000,
       textsTimeoutMs: 20_000,

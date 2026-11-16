@@ -294,6 +294,14 @@ describe('oh.workspaceTree.logRows / locateLogRow — the ask as the runtime is 
     expect(host.logRows).toHaveBeenCalledWith(WORKSPACE, { filters: { allRefs: true } }, 0, 1);
   });
 
+  it('a read that asks for each commit’s changed paths says so in its ask — only the word true does', async () => {
+    const host = runtime();
+    await dispatchWorkspaceTreeRpc(host, ROWS, { workspaceId: WORKSPACE, from: 7, count: 1, files: true });
+    expect(host.logRows).toHaveBeenLastCalledWith(WORKSPACE, { filters: {}, files: true }, 7, 1);
+    await dispatchWorkspaceTreeRpc(host, ROWS, { workspaceId: WORKSPACE, from: 7, count: 1, files: 'yes' });
+    expect(host.logRows).toHaveBeenLastCalledWith(WORKSPACE, { filters: {} }, 7, 1);
+  });
+
   it('the text field and its toggles travel as sent, beside the filters — a toggle that is not the word true is left out', async () => {
     const host = runtime();
     await dispatchWorkspaceTreeRpc(host, ROWS, {

@@ -106,6 +106,7 @@ export type {
   WorkspaceTreeLogCellWire,
   WorkspaceTreeLogEdgeWire,
   WorkspaceTreeLogEntryWire,
+  WorkspaceTreeLogRowEntryWire,
   WorkspaceTreeLogRowsWire,
   WorkspaceTreeLogRowWire,
   WorkspaceTreeLogRunWire,

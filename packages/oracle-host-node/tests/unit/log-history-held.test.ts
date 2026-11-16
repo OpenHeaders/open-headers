@@ -19,7 +19,7 @@ import {
   NO_FOLDS,
 } from '../../src/workspace-tree/history';
 import { logAskName } from '../../src/workspace-tree/history/log-ask';
-import { openScratchRepo, run, type ScratchRepo, seedHistory, stream } from './_log-history-repo';
+import { objects, openScratchRepo, run, type ScratchRepo, seedHistory, stream } from './_log-history-repo';
 
 const WS = 'ws-1';
 
@@ -79,6 +79,7 @@ describe('a history the host holds', () => {
     createLogHistories({
       run,
       stream: counted,
+      objects,
       readTimeoutMs: 20_000,
       walkTimeoutMs: 20_000,
       textsTimeoutMs: 20_000,

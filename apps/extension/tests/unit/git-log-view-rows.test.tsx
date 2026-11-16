@@ -113,6 +113,7 @@ interface RowsRequest {
   text?: string;
   regex?: boolean;
   refresh?: boolean;
+  files?: boolean;
   key?: string;
 }
 
@@ -151,8 +152,10 @@ function listRows(request: RowsRequest): WorkspaceTreeLogRowsWire {
     widest: 1,
     rows: list.slice(request.from, end).map((entry, offset) => {
       const at = request.from + offset;
+      // A commit comes with its changed paths only where the read asks for them.
+      const { files, ...head } = entry;
       return {
-        entry,
+        entry: request.files === true ? { ...head, files } : head,
         cell: { lane: 0, color: 0, laneCount: 1, edges: [] },
         parents: at + 1 < list.length ? [at + 1] : [],
         child: at - 1,
@@ -501,41 +504,79 @@ describe('GitLogView — the list it asks for', () => {
 });
 
 describe('GitLogView — the selection read through the list', () => {
-  it('shows a pressed row’s commit, remembers it in the tab, and reads nothing for it', async () => {
+  it('shows a pressed row’s commit, remembers it in the tab, and reads its changed paths alone', async () => {
     await mount();
     expect(screen.getByTestId('git-tool-detail-placeholder')).toBeTruthy();
-    const reads = rowReads.length;
+    const reads = listReads().length;
     await settle(() => fireEvent.click(rowEl(7)));
     expect(tabNow.selectedSha).toBe(sha(TOTAL - 7));
+    await waitFor(() => expect(screen.getByTestId('git-tool-detail-info')).toBeTruthy());
     expect(screen.queryByTestId('git-tool-detail-placeholder')).toBeNull();
-    expect(screen.getByTestId('git-tool-detail-info')).toBeTruthy();
-    expect(rowReads).toHaveLength(reads);
+    // The list reads nothing for a press; the selection reads the one row, with its changed paths.
+    expect(listReads()).toHaveLength(reads);
+    expect(listReads().every((read) => read.files === undefined)).toBe(true);
+    expect(selectionReads()).toEqual([expect.objectContaining({ from: 7, count: 1, files: true })]);
     expect(locates).toEqual([]);
+  });
+
+  it('keeps the commit shown before in the panes until the pressed one’s changed paths land', async () => {
+    await mount();
+    await settle(() => fireEvent.click(rowEl(7)));
+    await waitFor(() => expect(screen.getByTestId('git-tool-detail').textContent).toContain(`commit ${TOTAL - 7}`));
+
+    let answer: (rows: WorkspaceTreeLogRowsWire) => void = () => undefined;
+    const asked: RowsRequest[] = [];
+    mockCall.mockImplementationOnce(
+      (_type: string, request: RowsRequest) =>
+        new Promise<WorkspaceTreeLogRowsWire>((resolve) => {
+          rowReads.push(request);
+          asked.push(request);
+          answer = resolve;
+        }),
+    );
+    const faces = watchDetailFaces();
+    await settle(() => fireEvent.click(rowEl(9)));
+    // The row is the tab's with the press; the panes still show the commit before, never an empty face.
+    expect(tabNow.selectedSha).toBe(sha(TOTAL - 9));
+    expect(selectedRows()).toEqual([9]);
+    expect(asked).toEqual([expect.objectContaining({ key: 'log:1:selection', from: 9, count: 1, files: true })]);
+    expect(screen.getByTestId('git-tool-detail').textContent).toContain(`commit ${TOTAL - 7}`);
+
+    await settle(() => answer(listRows(asked[0])));
+    await waitFor(() => expect(screen.getByTestId('git-tool-detail').textContent).toContain(`commit ${TOTAL - 9}`));
+    expect(screen.getByTestId('git-tool-detail').textContent).toContain(`${TOTAL - 9}.md`);
+    expect(faces()).not.toContain('git-tool-detail-placeholder');
   });
 
   it('shows a set’s commits as a card each, newest first', async () => {
     await mount();
     await settle(() => fireEvent.click(rowEl(3)));
     await settle(() => fireEvent.click(rowEl(6), { shiftKey: true }));
-    expect(screen.getAllByTestId('git-tool-detail-card')).toHaveLength(4);
+    await waitFor(() => expect(screen.getAllByTestId('git-tool-detail-card')).toHaveLength(4));
     expect(tabNow.selectedSha).toBe(sha(TOTAL - 6));
-    expect(selectionReads()).toHaveLength(0);
+    // The row pressed first, then the three the range added: each read once, with its changed paths.
+    expect(selectionReads().map((read) => [read.from, read.count, read.files])).toEqual([
+      [3, 1, true],
+      [4, 3, true],
+    ]);
   });
 
   it('says how many are selected past the most read together — no files, no cards, nothing read', async () => {
     viewportPx = 320 * ROW_PX;
     await mount();
     await settle(() => fireEvent.click(rowEl(0)));
+    await waitFor(() => expect(screen.getByTestId('git-tool-detail-info')).toBeTruthy());
+    const read = selectionReads().length;
     await settle(() => fireEvent.click(rowEl(210), { shiftKey: true }));
     expect(screen.getByTestId('git-tool-detail-over').textContent).toBe('211 commits selected');
     expect(screen.queryByTestId('git-tool-detail-card')).toBeNull();
     expect(screen.queryByTestId('git-tool-detail-info')).toBeNull();
-    expect(selectionReads()).toHaveLength(0);
+    expect(selectionReads()).toHaveLength(read);
 
     // Back within what is read together: the set shows again.
     await settle(() => fireEvent.click(rowEl(1)));
+    await waitFor(() => expect(screen.getByTestId('git-tool-detail-info')).toBeTruthy());
     expect(screen.queryByTestId('git-tool-detail-over')).toBeNull();
-    expect(screen.getByTestId('git-tool-detail-info')).toBeTruthy();
   });
 
   it('finds the tab’s commit again when the history was read anew, the details never going empty', async () => {
@@ -589,7 +630,8 @@ describe('GitLogView — the selection read through the list', () => {
     // Asked where it sits before any row: the first rows read are the ones around it.
     expect(locates).toEqual([sha(TOTAL - 640)]);
     expect(listReads()[0]).toMatchObject({ from: 400, count: 400 });
-    expect(selectionReads()).toHaveLength(0);
+    // The selection reads its one row for its changed paths, and no other.
+    expect(selectionReads()).toEqual([expect.objectContaining({ from: 640, count: 1, files: true })]);
   });
 });
 

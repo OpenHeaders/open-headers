@@ -137,6 +137,7 @@ function readLogListAsk(message: Record<string, unknown>): WorkspaceTreeLogListA
     ...(message.foldAll === true ? { foldAll: true } : {}),
     ...(folds !== undefined ? { folds } : {}),
     ...(message.refresh === true ? { refresh: true } : {}),
+    ...(message.files === true ? { files: true } : {}),
   };
 }
 

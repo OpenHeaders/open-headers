@@ -5,17 +5,20 @@
  * They are held apart from the pages the list draws from
  * (`log-row-pages.ts`): a page is let go once the view has scrolled far
  * from it, and a selection outlives the scroll. A selected row's commit
- * is taken from its page while that is held, and read from the host
- * otherwise — the missing rows in as few reads as cover them. Like
- * every row number, the held ones are one list's: another list's are
- * dropped with it.
+ * is taken from its page while that is held — so whatever acts on the
+ * set has it with the press — and read from the host otherwise. A
+ * page's commit comes without its changed paths (a list is drawn
+ * without them): those are read for the selected rows alone, in as few
+ * reads as cover them, and the panes that list them wait for that read
+ * (`selectedSetWithFiles`). Like every row number, the held ones are
+ * one list's: another list's are dropped with it.
  *
  * Only so many are read together. Past that the selection is a number
  * of rows and no more — nothing is read, and whatever acts on the set
  * holds. Pure — the read itself is `use-selected-commits.ts`.
  */
 
-import type { WorkspaceTreeLogEntryWire } from '@openheaders/core/bridge';
+import type { WorkspaceTreeLogEntryWire, WorkspaceTreeLogRowEntryWire } from '@openheaders/core/bridge';
 import { type RowRange, selectedRowCount, selectedRows } from '@openheaders/ui/shared/selection';
 import {
   LOG_PAGE_ROWS,
@@ -35,21 +38,24 @@ export interface SelectedCommits {
   /** The two names of the list the rows are of; null while none is held. */
   ask: LogRowsAsk | null;
   list: string | null;
-  /** The selected rows' commits read so far, by row. */
-  commits: ReadonlyMap<number, WorkspaceTreeLogEntryWire>;
+  /** The selected rows' commits held so far, by row — with their changed paths once those are read. */
+  commits: ReadonlyMap<number, WorkspaceTreeLogRowEntryWire>;
 }
 
 export const NO_SELECTED_COMMITS: SelectedCommits = { ask: null, list: null, commits: new Map() };
 
-/** What the selected rows are to whatever reads them. */
-export type SelectedSet =
+/** What the selected rows are to whatever reads them — `Entry` is a commit as that reader needs it. */
+export type SelectedSet<Entry = WorkspaceTreeLogRowEntryWire> =
   | { kind: 'none' }
   /** More rows than are read together: their number, and nothing of their commits. */
   | { kind: 'over'; count: number }
   /** A selected row's commit is not read yet. */
   | { kind: 'reading'; count: number }
   /** Every selected row's commit, in list order — newest first. */
-  | { kind: 'commits'; entries: WorkspaceTreeLogEntryWire[] };
+  | { kind: 'commits'; entries: Entry[] };
+
+/** The selection as the panes that list changed paths read it. */
+export type SelectedSetWithFiles = SelectedSet<WorkspaceTreeLogEntryWire>;
 
 /** The rows whose commits are read: the selected ones in list order — none past the most read together. */
 export function selectedCommitRows(ranges: readonly RowRange[]): number[] {
@@ -68,7 +74,7 @@ export function keepSelectedCommits(
   rows: readonly number[],
 ): SelectedCommits {
   const same = kept.ask === held.ask && kept.list === held.list;
-  const commits = new Map<number, WorkspaceTreeLogEntryWire>();
+  const commits = new Map<number, WorkspaceTreeLogRowEntryWire>();
   let changed = !same;
   for (const row of rows) {
     const had = same ? kept.commits.get(row) : undefined;
@@ -83,14 +89,14 @@ export function keepSelectedCommits(
 
 /**
  * The stretch to read next for the selected rows whose commit is not
- * kept, or null when every one is: from the first missing row as far as
- * the last missing one that one read still reaches.
+ * kept with its changed paths, or null when every one is: from the
+ * first such row as far as the last one that one read still reaches.
  */
 export function nextSelectedRead(kept: SelectedCommits, rows: readonly number[]): LogRowStretch | null {
   let from = -1;
   let last = -1;
   for (const row of rows) {
-    if (kept.commits.has(row)) continue;
+    if (kept.commits.get(row)?.files !== undefined) continue;
     if (from === -1) from = row;
     if (row >= from + READ_ROWS) break;
     last = row;
@@ -100,8 +106,10 @@ export function nextSelectedRead(kept: SelectedCommits, rows: readonly number[])
 
 /**
  * The kept commits with the host's answer to a read from row `from` of
- * the list named `ask`: the selected rows among the ones it sent. An
- * answer of another list than the kept one changes nothing.
+ * the list named `ask`: the selected rows among the ones it sent, each
+ * with its changed paths — none, where the host sent none, so a row
+ * answered is never asked for again. An answer of another list than the
+ * kept one changes nothing.
  */
 export function takeSelectedRows(
   kept: SelectedCommits,
@@ -114,7 +122,7 @@ export function takeSelectedRows(
   const commits = new Map(kept.commits);
   for (const row of rows) {
     const sent = answer.rows[row - from];
-    if (sent !== undefined) commits.set(row, sent.entry);
+    if (sent !== undefined) commits.set(row, { ...sent.entry, files: sent.entry.files ?? [] });
   }
   return { ...kept, commits };
 }
@@ -124,11 +132,25 @@ export function selectedSet(kept: SelectedCommits, ranges: readonly RowRange[]):
   const count = selectedRowCount(ranges);
   if (count === 0) return { kind: 'none' };
   if (count > SELECTED_COMMITS_MAX) return { kind: 'over', count };
-  const entries: WorkspaceTreeLogEntryWire[] = [];
+  const entries: WorkspaceTreeLogRowEntryWire[] = [];
   for (const row of selectedRows(ranges, SELECTED_COMMITS_MAX)) {
     const entry = kept.commits.get(row);
     if (entry === undefined) return { kind: 'reading', count };
     entries.push(entry);
+  }
+  return { kind: 'commits', entries };
+}
+
+/**
+ * The selection as the panes that list changed paths read it: its
+ * commits once every one has its paths — being read until then.
+ */
+export function selectedSetWithFiles(set: SelectedSet): SelectedSetWithFiles {
+  if (set.kind !== 'commits') return set;
+  const entries: WorkspaceTreeLogEntryWire[] = [];
+  for (const { files, ...head } of set.entries) {
+    if (files === undefined) return { kind: 'reading', count: set.entries.length };
+    entries.push({ ...head, files });
   }
   return { kind: 'commits', entries };
 }
@@ -141,7 +163,11 @@ export function selectedSet(kept: SelectedCommits, ranges: readonly RowRange[]):
  * a draw after that), what they showed before (`shown`) stays. A pane
  * never blinks empty between two answers.
  */
-export function shownSelectedSet(set: SelectedSet, shown: SelectedSet, arriving: boolean): SelectedSet {
+export function shownSelectedSet(
+  set: SelectedSetWithFiles,
+  shown: SelectedSetWithFiles,
+  arriving: boolean,
+): SelectedSetWithFiles {
   if (set.kind === 'reading') return shown;
   return set.kind === 'none' && arriving ? shown : set;
 }

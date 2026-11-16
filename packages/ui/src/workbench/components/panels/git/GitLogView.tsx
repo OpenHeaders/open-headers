@@ -74,7 +74,7 @@ import { logRowMenuTarget } from './log-row-menu-target';
 import { heldLogAuthors, type LogRowRange, logRowAt, NO_LOG_ROWS } from './log-row-pages';
 import { logListingName, logRowsAsk } from './log-rows-ask';
 import { type GitLogScope, scopeShowsCurrentBranch, scopeWithout } from './log-scope';
-import { type SelectedSet, shownSelectedSet } from './log-selected-commits';
+import { type SelectedSetWithFiles, selectedSetWithFiles, shownSelectedSet } from './log-selected-commits';
 import LogRowList from './LogRowList';
 import { getGitRailPrefs, subscribeGitRailPrefs, toggleGitRailFavorite } from './rail/git-rail-prefs';
 import { defaultFavoriteKeys, favoriteKeys } from './rail/ref-favorites';
@@ -112,7 +112,7 @@ export interface GitLogViewProps {
 }
 
 const NO_COMMITS: readonly WorkspaceTreeLogEntryWire[] = [];
-const NO_SELECTION: SelectedSet = { kind: 'none' };
+const NO_SELECTION: SelectedSetWithFiles = { kind: 'none' };
 
 const GitLogView: React.FC<GitLogViewProps> = ({
   workspaceId,
@@ -332,9 +332,11 @@ const GitLogView: React.FC<GitLogViewProps> = ({
   // The tab's commit is on its way to a selected row: its row is asked of the host, or is known and the list
   // selects it on its next draw.
   const arriving = tabRow.finding || tabRow.row !== null;
-  // What the panes show: the set — held as it was while its commits are read, or the tab's commit found again.
-  const before = useRef<SelectedSet>(NO_SELECTION);
-  const shown = shownSelectedSet(set, before.current, arriving);
+  // What the panes show: the set with its changed paths — held as it was while those are read, or the tab's
+  // commit found again.
+  const withFiles = useMemo(() => selectedSetWithFiles(set), [set]);
+  const before = useRef<SelectedSetWithFiles>(NO_SELECTION);
+  const shown = shownSelectedSet(withFiles, before.current, arriving);
   useEffect(() => {
     before.current = shown;
   }, [shown]);

@@ -1,9 +1,10 @@
 // @vitest-environment jsdom
 /**
  * `useSelectedCommits` over a mocked bridge whose answers are held: a
- * selected row's commit comes off its page with no read; the ones the
- * pages do not hold are read under a key of the selection's own, one
- * read out at a time, the missing rows in as few reads as cover them;
+ * selected row's commit comes off its page with the press; its changed
+ * paths, and the commits the pages do not hold, are read under a key of
+ * the selection's own, one read out at a time, the missing rows in as
+ * few reads as cover them;
  * a commit stays once its page is let go; another list's answer is no
  * one's; past the most read together nothing is read; a refused read is
  * not asked again for the same rows.
@@ -52,7 +53,21 @@ function row(at: number, list: string): WorkspaceTreeLogRowWire {
   };
 }
 
-type Request = LogRowsAsk & { from: number; count: number };
+type Request = LogRowsAsk & { from: number; count: number; files?: boolean };
+
+/** The list with the named pages held as a list reads them — no commit with its changed paths. */
+function holdingBare(pages: number[]): LogRowPages {
+  const held = holding(pages);
+  return {
+    ...held,
+    pages: new Map(
+      [...held.pages].map(([page, { rows: read, runs }]) => [
+        page,
+        { runs, rows: read.map(({ entry: { files: _files, ...head }, ...rest }) => ({ ...rest, entry: head })) },
+      ]),
+    ),
+  };
+}
 
 /** The host's answer to `request` over a list of 100,000 rows it names `list`. */
 function rows(request: { from: number; count: number }, list = 'g1'): WorkspaceTreeLogRowsWire {
@@ -136,6 +151,7 @@ describe('useSelectedCommits', () => {
       key: 'log:1:selection',
       from: 5_000,
       count: 3,
+      files: true,
     });
 
     await settle(() => reads[0].resolve(rows(reads[0].request)));
@@ -144,6 +160,26 @@ describe('useSelectedCommits', () => {
       'g1 commit 5000',
       'g1 commit 5001',
       'g1 commit 5002',
+    ]);
+    expect(reads).toHaveLength(1);
+  });
+
+  it('has a selected row’s commit off its page with the press, and reads its changed paths', async () => {
+    const HELD = holdingBare([0]);
+    const hook = mount(HELD, []);
+    hook.rerender({ held: HELD, ranges: [range(3, 4)] });
+    // The commits are the set's within the render: what acts on the set waits for nothing.
+    expect(subjects(hook.result.current)).toEqual(['g1 commit 3', 'g1 commit 4']);
+    expect(
+      hook.result.current.kind === 'commits' && hook.result.current.entries.every((entry) => !('files' in entry)),
+    ).toBe(true);
+    await waitFor(() => expect(reads).toHaveLength(1));
+    expect(reads[0].request).toMatchObject({ key: 'log:1:selection', from: 3, count: 2, files: true });
+
+    await settle(() => reads[0].resolve(rows(reads[0].request)));
+    expect(hook.result.current.kind === 'commits' && hook.result.current.entries.map((entry) => entry.files)).toEqual([
+      [],
+      [],
     ]);
     expect(reads).toHaveLength(1);
   });
@@ -220,7 +256,7 @@ describe('useSelectedCommits', () => {
   it('reads under the held list’s own ask', async () => {
     mount(holding([0], OTHER), [range(5_000, 5_000)]);
     await waitFor(() => expect(reads).toHaveLength(1));
-    expect(reads[0].request).toEqual({ ...OTHER, key: 'log:1:selection', from: 5_000, count: 1 });
+    expect(reads[0].request).toEqual({ ...OTHER, key: 'log:1:selection', from: 5_000, count: 1, files: true });
   });
 
   it('is a number of rows past the most read together, and reads nothing', async () => {

@@ -4,16 +4,28 @@
  * once nobody has asked for a while, and gone with the binding.
  *
  * This is the whole of what a log verb reaches: `list` answers the list
- * an ask names; everything under it — the reading, its staleness, the
- * derivation, the bound on lists — is a file of its own here.
+ * an ask names and `rows` a stretch of its rows; everything under them —
+ * the reading, its staleness, the derivation, the bound on lists, the
+ * git kept open for the rows' commits — is a file of its own here.
  */
 
 import { logger } from '@openheaders/core/utils';
-import { flagLogTexts, type GitRunner, type GitStreamRunner, LOG_SCOPE_HEAD, readNamedRows } from '../../git';
+import {
+  flagLogTexts,
+  type GitObjectBatch,
+  type GitObjectBatchOpener,
+  type GitRunner,
+  type GitStreamRunner,
+  LOG_SCOPE_HEAD,
+  listCommitsBySha,
+  readCommitHeads,
+  readNamedRows,
+} from '../../git';
 import { deriveLogList, type LogList } from './derive-list';
 import type { HistoryGeneration } from './generation';
 import { createListCache, type ListCache } from './list-cache';
 import { type LogAsk, logAskName } from './log-ask';
+import { type LogRowsPage, readLogRows } from './log-rows';
 import { createRepoHistory, type RepoHistory } from './repo-history';
 import { createHistoryTexts, type HistoryTexts } from './texts';
 
@@ -22,7 +34,7 @@ export type { HistoryGeneration } from './generation';
 export type { LogRunInfo } from './list-runs';
 export { type LocatedLogRow, locateLogRow } from './locate';
 export { isSifted, type LogAsk, type LogFolds, logAskName, NO_FOLDS } from './log-ask';
-export { type LogRow, type LogRowEdge, type LogRowsPage, readLogRows } from './log-rows';
+export type { LogRow, LogRowCommit, LogRowEdge, LogRowsPage } from './log-rows';
 export type { HistoryTexts, LogTexts, LogTextsResult } from './texts';
 
 const SCOPE = 'workspace-tree-history';
@@ -30,6 +42,8 @@ const SCOPE = 'workspace-tree-history';
 export interface LogHistoriesOptions {
   run: GitRunner;
   stream: GitStreamRunner;
+  /** Opens the git a repo's commits are read through while its log is open. */
+  objects: GitObjectBatchOpener;
   /** The longest one read of a whole history may take. */
   readTimeoutMs: number;
   /** The longest the walk that names a filter's commits may take. */
@@ -72,6 +86,14 @@ function unheldRefs(generation: HistoryGeneration, ask: LogAsk): string[] {
 export interface LogHistories {
   /** The list `ask` names in the repo at `rootDir` — made once, kept while its history stands. */
   list(workspaceId: string, rootDir: string, ask: LogAsk): Promise<LogListResult>;
+  /**
+   * Rows `[from, from + count)` of a list this workspace's history
+   * answered — fewer where it ends. Each commit comes off its own
+   * object, through the git kept open for the repo; `files` asks for
+   * its changed paths too, which is a git process and a diff a commit.
+   * Null when git cannot read the commits, or the history is let go.
+   */
+  rows(workspaceId: string, list: LogList, from: number, count: number, files: boolean): Promise<LogRowsPage | null>;
   /** Something moved in the workspace's repo — its history is looked at before it next answers. */
   stale(workspaceId: string): void;
   /** The workspace's history and lists are let go; a read in flight ends. */
@@ -85,6 +107,8 @@ interface Held {
   history: RepoHistory;
   /** Every commit's subject and author — read once the history is, behind whoever opened the log. */
   texts: HistoryTexts;
+  /** The git the rows' commits are read through — started by the first read. */
+  commits: GitObjectBatch;
   lists: ListCache<LogListResult>;
   /** Aborted when the workspace's history is let go. */
   closing: AbortController;
@@ -105,6 +129,7 @@ export function createLogHistories(options: LogHistoriesOptions): LogHistories {
     entry.closing.abort();
     entry.history.close();
     entry.texts.close();
+    entry.commits.close();
     entry.lists.clear();
   };
 
@@ -128,6 +153,7 @@ export function createLogHistories(options: LogHistoriesOptions): LogHistories {
         closing: new AbortController(),
         asking: 0,
         idle: null,
+        commits: options.objects({ cwd: rootDir }),
         texts: createHistoryTexts({
           run: options.run,
           stream: options.stream,
@@ -223,6 +249,20 @@ export function createLogHistories(options: LogHistoriesOptions): LogHistories {
         entry.asking -= 1;
         if (entry.asking === 0) putOff(workspaceId, entry);
       }
+    },
+    rows(workspaceId, list, from, count, files) {
+      const entry = held.get(workspaceId);
+      if (entry === undefined) return Promise.resolve(null);
+      const { rootDir, commits } = entry;
+      return readLogRows(
+        (shas) =>
+          files
+            ? listCommitsBySha(options.run, rootDir, shas, true)
+            : readCommitHeads(commits, options.run, rootDir, shas),
+        list,
+        from,
+        count,
+      );
     },
     stale(workspaceId) {
       held.get(workspaceId)?.history.stale();

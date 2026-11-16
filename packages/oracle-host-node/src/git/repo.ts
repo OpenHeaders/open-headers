@@ -1008,6 +1008,19 @@ export function parseNameStatus(tokens: readonly string[]): CommitLogFileChange[
   return files;
 }
 
+/** The co-authors a commit's body (`%b`) names in its `Co-Authored-By:` lines, each once, in the order written. */
+export function coAuthorsOf(body: string): string[] {
+  const coAuthors: string[] = [];
+  for (const match of body.matchAll(CO_AUTHOR_TRAILER)) {
+    const author = match[1].trim();
+    if (author.length > 0 && !coAuthors.includes(author)) coAuthors.push(author);
+  }
+  return coAuthors;
+}
+
+/** A commit without its changed paths — what its own object says of it. */
+export type CommitLogHead = Omit<CommitLogEntry, 'files'>;
+
 export function parseCommitLog(stdout: string): CommitLogEntry[] {
   const entries: CommitLogEntry[] = [];
   for (const record of stdout.split('\x1e')) {
@@ -1015,11 +1028,6 @@ export function parseCommitLog(stdout: string): CommitLogEntry[] {
     const tokens = record.split('\0');
     const header = tokens[0].split('\x1f');
     if (header.length < 7) continue;
-    const coAuthors: string[] = [];
-    for (const match of header.slice(6).join('\x1f').matchAll(CO_AUTHOR_TRAILER)) {
-      const author = match[1].trim();
-      if (author.length > 0 && !coAuthors.includes(author)) coAuthors.push(author);
-    }
     entries.push({
       sha: header[0],
       parents: header[1].split(' ').filter((parent) => parent.length > 0),
@@ -1027,7 +1035,7 @@ export function parseCommitLog(stdout: string): CommitLogEntry[] {
       authorEmail: header[3],
       authoredAt: header[4],
       subject: header[5],
-      coAuthors,
+      coAuthors: coAuthorsOf(header.slice(6).join('\x1f')),
       files: parseNameStatus(tokens.slice(1)),
     });
   }

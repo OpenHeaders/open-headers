@@ -32,6 +32,7 @@ import {
 } from '@openheaders/oracle/workspace/extension-workspace-store';
 import {
   createGitExec,
+  createGitObjectBatches,
   createGitStream,
   type GitAvailability,
   type GitRunner,
@@ -266,6 +267,7 @@ export function createWorkspaceTreeRuntime(options: WorkspaceTreeRuntimeOptions)
   const logHistories = createLogHistories({
     run: gitRun,
     stream: gitStream,
+    objects: options.gitObjectBatches ?? createGitObjectBatches(),
     readTimeoutMs: LOG_HISTORY_READ_TIMEOUT_MS,
     walkTimeoutMs: LOG_HISTORY_WALK_TIMEOUT_MS,
     textsTimeoutMs: LOG_HISTORY_TEXTS_TIMEOUT_MS,

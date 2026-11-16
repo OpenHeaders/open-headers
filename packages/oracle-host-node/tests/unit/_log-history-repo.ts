@@ -28,6 +28,7 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 import { createGitExec, type GitRunner } from '../../src/git/git-exec';
 import { createGitStream, type GitStreamRunner } from '../../src/git/git-stream';
+import { createGitObjectBatches, type GitObjectBatchOpener } from '../../src/git/object-batch';
 import { ensureWorkspaceRepo } from '../../src/git/repo';
 import { repoArgs } from '../../src/git/repo-args';
 
@@ -40,6 +41,9 @@ export const run: GitRunner = (args, options) => base(args, { ...options, env: {
 const real = createGitStream();
 export const stream: GitStreamRunner = (args, options, read) =>
   real(args, { ...options, env: { ...ISOLATED, ...options.env } }, read);
+
+const batches = createGitObjectBatches();
+export const objects: GitObjectBatchOpener = (options) => batches({ ...options, env: { ...ISOLATED, ...options.env } });
 
 /** Every ref and the checked-out commit — the revisions a whole history is walked from. */
 export const EVERY_REF = ['--branches', '--tags', '--remotes', 'HEAD'];

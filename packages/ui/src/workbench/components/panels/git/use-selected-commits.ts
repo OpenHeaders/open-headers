@@ -4,10 +4,11 @@
  * list: the details, the files, the pick's rule, the patch.
  *
  * A selected row's commit comes off its page while the list holds it —
- * a press reads nothing. The ones the pages do not hold are read from
- * the host (`oh.workspaceTree.logRows`) under a key of the selection's
- * OWN: the tab's key is the list's window's, and a read under it would
- * end the read the scroll waits for. One read is out at a time; a
+ * what acts on the set has it with the press. Its changed paths, and
+ * the commits the pages do not hold, are read from the host
+ * (`oh.workspaceTree.logRows`, with `files`) under a key of the
+ * selection's OWN: the tab's key is the list's window's, and a read
+ * under it would end the read the scroll waits for. One read is out at a time; a
  * selection that changes meanwhile is answered when it lands. A list
  * the host will not read from is not asked again for the same rows.
  */
@@ -32,7 +33,12 @@ const selectionKey = (ask: LogRowsAsk): string => `${ask.key ?? ''}:selection`;
 
 async function readRows(ask: LogRowsAsk, stretch: LogRowStretch): Promise<WorkspaceTreeLogRowsWire> {
   try {
-    return await hostBridge.call('oh.workspaceTree.logRows', { ...ask, key: selectionKey(ask), ...stretch });
+    return await hostBridge.call('oh.workspaceTree.logRows', {
+      ...ask,
+      key: selectionKey(ask),
+      ...stretch,
+      files: true,
+    });
   } catch (fault) {
     return { ok: false, reason: 'log-failed', detail: fault instanceof Error ? fault.message : String(fault) };
   }

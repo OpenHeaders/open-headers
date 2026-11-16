@@ -45,7 +45,7 @@ export {
 } from './ignore-ops';
 export { type HeldIndexLock, type IndexLockRefusal, lockRefusalReason, withIndexLock } from './index-lock';
 export { type NamedRowsResult, readNamedRows } from './log-named-rows';
-export { listCommitsBySha } from './log-rows';
+export { listCommitsBySha, readCommitHeads } from './log-rows';
 export {
   type HistorySkeleton,
   historyRowOf,
@@ -65,6 +65,7 @@ export {
 } from './log-text-flags';
 export { type LogTextSink, type ReadLogTextsResult, readLogTexts, readLogTextsOf } from './log-text-read';
 export { createLogTextStore, type LogTextStore, type LogTextView } from './log-text-store';
+export { createGitObjectBatches, type GitObjectBatch, type GitObjectBatchOpener } from './object-batch';
 export { type AbortGitOperationResult, abortGitOperation, type GitOperation, gitOperationKind } from './operation';
 export { type CommitParentChange, type CommitParentChanges, readCommitParentChanges } from './parent-changes';
 export {
@@ -95,6 +96,7 @@ export {
   type CommitLogEntry,
   type CommitLogFileChange,
   type CommitLogFilters,
+  type CommitLogHead,
   type CommitUserAttribution,
   type CommitWorkspaceTreeOptions,
   type CommitWorkspaceTreeResult,

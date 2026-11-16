@@ -9,7 +9,7 @@
 
 import { isCommitSha, isWorkspaceRepo } from '../../git';
 import type { LogList } from '../history';
-import { locateLogRow, readLogRows } from '../history';
+import { locateLogRow } from '../history';
 import type { Turns } from '../turns';
 import { LOG_ROWS_MAX_COUNT, LOG_ROWS_MAX_FOLDS, type RuntimeCtx } from './core';
 import { LOG_SURFACE_MAX_KEY, readLogRequest } from './history';
@@ -47,7 +47,7 @@ async function withLogList<T>(
   turns: Turns,
   workspaceId: string,
   asked: WorkspaceTreeLogListAsk,
-  then: (rootDir: string, list: LogList) => Promise<T | WorkspaceTreeLogListRefusal>,
+  then: (list: LogList) => Promise<T | WorkspaceTreeLogListRefusal>,
 ): Promise<T | WorkspaceTreeLogListRefusal> {
   const key = asked.key ?? '';
   const folds = asked.folds ?? [];
@@ -71,7 +71,7 @@ async function withLogList<T>(
     const listed = await unlessEnded(ctx.logHistories.list(workspaceId, rootDir, ask), turn.signal);
     if (listed === null) return SUPERSEDED;
     if (!listed.ok) return logListRefusal(listed, () => isWorkspaceRepo(ctx.gitRun, rootDir));
-    const answer = await unlessEnded(then(rootDir, listed.list), turn.signal);
+    const answer = await unlessEnded(then(listed.list), turn.signal);
     return answer === null ? SUPERSEDED : answer;
   } finally {
     turn.done();
@@ -86,24 +86,24 @@ export function runLogRows(
   count: number,
 ): Promise<WorkspaceTreeLogRowsRpcResult> {
   if (!Number.isInteger(from) || from < 0 || !Number.isInteger(count) || count < 1) return Promise.resolve(INVALID);
-  return withLogList<WorkspaceTreeLogRowsRpcResult>(
-    ctx,
-    ctx.logTurns.rows,
-    workspaceId,
-    asked,
-    async (rootDir, list) => {
-      const page = await readLogRows(ctx.gitRun, rootDir, list, from, Math.min(count, LOG_ROWS_MAX_COUNT));
-      if (page === null) return { ok: false, reason: 'log-failed' };
-      return {
-        ok: true,
-        list: list.generation.id,
-        total: list.skeleton.count,
-        widest: list.layout.widest,
-        rows: page.rows,
-        runs: page.runs,
-      };
-    },
-  );
+  return withLogList<WorkspaceTreeLogRowsRpcResult>(ctx, ctx.logTurns.rows, workspaceId, asked, async (list) => {
+    const page = await ctx.logHistories.rows(
+      workspaceId,
+      list,
+      from,
+      Math.min(count, LOG_ROWS_MAX_COUNT),
+      asked.files === true,
+    );
+    if (page === null) return { ok: false, reason: 'log-failed' };
+    return {
+      ok: true,
+      list: list.generation.id,
+      total: list.skeleton.count,
+      widest: list.layout.widest,
+      rows: page.rows,
+      runs: page.runs,
+    };
+  });
 }
 
 export function runLocateLogRow(
@@ -116,16 +116,10 @@ export function runLocateLogRow(
   if (target.length === 0 || target.length > LOCATE_MAX_TARGET || /[\x00-\x1f\x7f]/.test(target)) {
     return Promise.resolve(INVALID);
   }
-  return withLogList<WorkspaceTreeLocateLogRowRpcResult>(
-    ctx,
-    ctx.logTurns.locate,
-    workspaceId,
-    asked,
-    async (_rootDir, list) => {
-      const located = locateLogRow(list, target);
-      return located.found
-        ? { ok: true, list: list.generation.id, row: located.row }
-        : { ok: false, reason: located.reason };
-    },
-  );
+  return withLogList<WorkspaceTreeLocateLogRowRpcResult>(ctx, ctx.logTurns.locate, workspaceId, asked, async (list) => {
+    const located = locateLogRow(list, target);
+    return located.found
+      ? { ok: true, list: list.generation.id, row: located.row }
+      : { ok: false, reason: located.reason };
+  });
 }

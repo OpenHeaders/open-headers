@@ -618,8 +618,11 @@ export interface WorkspaceRpc {
   /**
    * A stretch of the log's rows — the WHOLE history a scope reaches is
    * listed host-side, and a view asks for the rows it shows: each
-   * commit in full with its graph cell, where its joins and its child
-   * sit, and the linear run it belongs to. What is asked (the scope,
+   * commit with its graph cell, where its joins and its child sit, and
+   * the linear run it belongs to. A commit comes WITHOUT its changed
+   * paths unless `files` asks for them: a list is drawn from its rows
+   * under a moving scrollbar, and the paths are a diff a commit — they
+   * are what a selection reads. What is asked (the scope,
    * the order, the sifts, the text, the folded runs) NAMES the list: there is
    * nothing to open or close, and two tabs that ask the same read one
    * list. `list` in the answer changes when the history was read anew —
@@ -634,6 +637,8 @@ export interface WorkspaceRpc {
       from: number;
       /** How many rows — at most 400. */
       count: number;
+      /** Each commit with its changed paths. */
+      files?: boolean;
     };
     res: WorkspaceTreeLogRowsWire;
   };
@@ -1388,10 +1393,14 @@ export interface WorkspaceTreeLogCellWire {
   edges: WorkspaceTreeLogEdgeWire[];
 }
 
+/** A log row's commit, as `log` lists one — `onHead` included; `files` only where the read asked for them. */
+export type WorkspaceTreeLogRowEntryWire = Omit<WorkspaceTreeLogEntryWire, 'files'> & {
+  files?: WorkspaceTreeLogFileWire[];
+};
+
 /** One row of the log. */
 export interface WorkspaceTreeLogRowWire {
-  /** The commit, as `log` lists one — `onHead` included. */
-  entry: WorkspaceTreeLogEntryWire;
+  entry: WorkspaceTreeLogRowEntryWire;
   cell: WorkspaceTreeLogCellWire;
   /** The rows its joins lead to, the first parent's first — at or past the list's `total` when one leaves the list. */
   parents: number[];

@@ -10,7 +10,7 @@
  * — is the list's.
  */
 
-import type { WorkspaceTreeLogEntryWire, WorkspaceTreeRefWire } from '@openheaders/core/bridge';
+import type { WorkspaceTreeLogRowEntryWire, WorkspaceTreeRefWire } from '@openheaders/core/bridge';
 import type { LogTextRange } from '@openheaders/core/workspace-tree';
 import { theme } from 'antd';
 import type React from 'react';
@@ -72,7 +72,8 @@ export const COMMIT_ROW_LAYOUT: React.CSSProperties = {
 };
 
 export interface CommitRowCellsProps {
-  entry: WorkspaceTreeLogEntryWire;
+  /** The commit — a row draws none of its changed paths. */
+  entry: WorkspaceTreeLogRowEntryWire;
   /** The refs that point at the commit. */
   refs: readonly WorkspaceTreeRefWire[];
   /** The checked-out commit — its ref hover leads with HEAD. */

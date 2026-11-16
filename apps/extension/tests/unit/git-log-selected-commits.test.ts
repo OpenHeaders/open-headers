@@ -3,7 +3,9 @@
  * (`panels/git/log-selected-commits`): kept apart from the pages the
  * list draws from, taken from a held page or read from the host in as
  * few reads as cover the missing rows, one list's alone — and past the
- * most read together, a number of rows and nothing more.
+ * most read together, a number of rows and nothing more. A page's
+ * commit comes without its changed paths: those are read for the
+ * selected rows, and the panes that list them wait for that read.
  */
 
 import type { WorkspaceTreeLogRowWire } from '@openheaders/core/bridge';
@@ -24,6 +26,7 @@ import {
   type SelectedCommits,
   selectedCommitRows,
   selectedSet,
+  selectedSetWithFiles,
   shownSelectedSet,
   takeSelectedRows,
 } from '@openheaders/ui/workbench/components/panels/git/log-selected-commits';
@@ -52,22 +55,32 @@ function row(at: number, list: string): WorkspaceTreeLogRowWire {
   };
 }
 
+/** A row as a list's read sends it: its commit without its changed paths. */
+function bare(at: number, list: string): WorkspaceTreeLogRowWire {
+  const { entry, ...rest } = row(at, list);
+  const { files: _files, ...head } = entry;
+  return { ...rest, entry: head };
+}
+
 /** The host's answer to a read of `count` rows from `from` of a list of 100,000 it names `list`. */
-function answer(from: number, count: number, list = 'g1'): LogRowsAnswer {
+function answer(from: number, count: number, list = 'g1', make = row): LogRowsAnswer {
   const rows: WorkspaceTreeLogRowWire[] = [];
-  for (let at = from; at < Math.min(100_000, from + count); at += 1) rows.push(row(at, list));
+  for (let at = from; at < Math.min(100_000, from + count); at += 1) rows.push(make(at, list));
   return { ok: true, list, total: 100_000, widest: 1, rows, runs: [] };
 }
 
 /** The list with the named pages held, under the two names given. */
-function holding(pages: number[], ask = ASK, list = 'g1'): LogRowPages {
+function holding(pages: number[], ask = ASK, list = 'g1', make = row): LogRowPages {
   let held = NO_LOG_ROWS;
   for (const page of pages) {
     const from = page * LOG_PAGE_ROWS;
-    held = takeLogRows(held, ask, from, answer(from, LOG_PAGE_ROWS, list), { first: from, last: from + 30 });
+    held = takeLogRows(held, ask, from, answer(from, LOG_PAGE_ROWS, list, make), { first: from, last: from + 30 });
   }
   return held;
 }
+
+/** The list with the named pages held as a list reads them — no commit with its changed paths. */
+const holdingBare = (pages: number[]): LogRowPages => holding(pages, ASK, 'g1', bare);
 
 const range = (first: number, last: number): RowRange => ({ first, last });
 const subjects = (kept: SelectedCommits): [number, string][] =>
@@ -199,6 +212,65 @@ describe('the host’s answer to a read for the selection', () => {
   });
 });
 
+describe('the changed paths of the rows selected', () => {
+  it('takes a commit off its page without them, and reads the row for them', () => {
+    const kept = keepSelectedCommits(NO_SELECTED_COMMITS, holdingBare([0]), [3, 4]);
+    expect(subjects(kept)).toEqual([
+      [3, 'g1 commit 3'],
+      [4, 'g1 commit 4'],
+    ]);
+    expect(kept.commits.get(3)?.files).toBeUndefined();
+    expect(nextSelectedRead(kept, [3, 4])).toEqual({ from: 3, count: 2 });
+  });
+
+  it('reads no row whose commit is kept with them', () => {
+    const kept = keepSelectedCommits(NO_SELECTED_COMMITS, holdingBare([0]), [3, 4, 5]);
+    const taken = takeSelectedRows(kept, ASK, 3, answer(3, 2), [3, 4, 5]);
+    expect(taken.commits.get(3)?.files).toEqual([]);
+    expect(nextSelectedRead(taken, [3, 4, 5])).toEqual({ from: 5, count: 1 });
+    expect(nextSelectedRead(takeSelectedRows(taken, ASK, 5, answer(5, 1), [3, 4, 5]), [3, 4, 5])).toBeNull();
+  });
+
+  it('keeps a commit read with them over its page’s without', () => {
+    const held = holdingBare([0]);
+    const kept = keepSelectedCommits(NO_SELECTED_COMMITS, held, [3]);
+    const taken = takeSelectedRows(kept, ASK, 3, answer(3, 1), [3]);
+    expect(keepSelectedCommits(taken, held, [3])).toBe(taken);
+    expect(keepSelectedCommits(taken, held, [3]).commits.get(3)?.files).toEqual([]);
+  });
+
+  it('takes a row the host answered without them as one with none — it is never asked for again', () => {
+    const kept = keepSelectedCommits(NO_SELECTED_COMMITS, holdingBare([0]), [3]);
+    const taken = takeSelectedRows(kept, ASK, 3, answer(3, 1, 'g1', bare), [3]);
+    expect(taken.commits.get(3)?.files).toEqual([]);
+    expect(nextSelectedRead(taken, [3])).toBeNull();
+  });
+
+  it('gives the panes that list them the selection once every commit has them — being read until then', () => {
+    const kept = keepSelectedCommits(NO_SELECTED_COMMITS, holdingBare([0]), [3, 4]);
+    const ranges = [range(3, 4)];
+    // The set has its commits with the press; the panes wait.
+    expect(selectedSet(kept, ranges).kind).toBe('commits');
+    expect(selectedSetWithFiles(selectedSet(kept, ranges))).toEqual({ kind: 'reading', count: 2 });
+
+    const one = takeSelectedRows(kept, ASK, 3, answer(3, 1), [3, 4]);
+    expect(selectedSetWithFiles(selectedSet(one, ranges))).toEqual({ kind: 'reading', count: 2 });
+
+    const both = takeSelectedRows(one, ASK, 4, answer(4, 1), [3, 4]);
+    const read = selectedSetWithFiles(selectedSet(both, ranges));
+    expect(read.kind === 'commits' && read.entries.map((entry) => [entry.subject, entry.files])).toEqual([
+      ['g1 commit 3', []],
+      ['g1 commit 4', []],
+    ]);
+  });
+
+  it('hands the panes what is no set of commits as it is', () => {
+    expect(selectedSetWithFiles({ kind: 'none' })).toEqual({ kind: 'none' });
+    expect(selectedSetWithFiles({ kind: 'over', count: 300 })).toEqual({ kind: 'over', count: 300 });
+    expect(selectedSetWithFiles({ kind: 'reading', count: 2 })).toEqual({ kind: 'reading', count: 2 });
+  });
+});
+
 describe('the selection as its readers take it', () => {
   const kept = keepSelectedCommits(NO_SELECTED_COMMITS, holding([0]), [3, 4, 9]);
 
@@ -229,8 +301,8 @@ describe('the selection as its readers take it', () => {
 
 describe('what the panes beside the list show', () => {
   const kept = keepSelectedCommits(NO_SELECTED_COMMITS, holding([0]), [3, 4]);
-  const before = selectedSet(kept, [range(3, 4)]);
-  const one = selectedSet(kept, [range(3, 3)]);
+  const before = selectedSetWithFiles(selectedSet(kept, [range(3, 4)]));
+  const one = selectedSetWithFiles(selectedSet(kept, [range(3, 3)]));
 
   it('is the selection once its commits are read', () => {
     expect(shownSelectedSet(one, before, false)).toBe(one);

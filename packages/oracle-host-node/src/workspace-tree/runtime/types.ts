@@ -16,6 +16,7 @@ import type {
   CommitUserAttribution,
   GitAuditRow,
   GitAvailability,
+  GitObjectBatchOpener,
   GitOperation,
   GitRunner,
   GitStreamRunner,
@@ -412,6 +413,8 @@ export interface WorkspaceTreeLogListAsk {
   folds?: readonly string[];
   /** The person asked for the log to be read again: the history's tips are looked at before the answer. */
   refresh?: boolean;
+  /** A read of rows asks for each commit's changed paths too — a selection's read, never a list's. */
+  files?: boolean;
 }
 
 export interface WorkspaceTreeLogListRefusal {
@@ -1019,6 +1022,8 @@ export interface WorkspaceTreeRuntimeOptions {
   gitRunner?: GitRunner;
   /** The reading twin of the seam — a git read handed over as it arrives. */
   gitStreamRunner?: GitStreamRunner;
+  /** The kept-open twin — a repo's objects asked by hash with no process per ask. */
+  gitObjectBatches?: GitObjectBatchOpener;
   /**
    * Live git-slot feed (§9): called after every pass that can move
    * `git status` (materialize flush, sweep, commit) and on setting

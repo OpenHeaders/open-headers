@@ -4,11 +4,15 @@
  * list (`history/locate`): each commit in full, its graph cell, the
  * band's flag, the rows its joins and its child sit on, the linear run
  * a row and an edge belong to — unfolded, folded, and none on a sifted
- * list. Real git in a scratch repo.
+ * list; and the two reads a stretch has: with each commit's changed
+ * paths, by git, and without them off the commits' own objects, with no
+ * process. Real git in a scratch repo.
  */
 
+import { execFile } from 'node:child_process';
 import { computeLogGraph } from '@openheaders/core/workspace-tree';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import type { GitRunner } from '../../src/git/git-exec';
 import {
   createLogHistories,
   type LogAsk,
@@ -17,9 +21,20 @@ import {
   type LogRow,
   locateLogRow,
   NO_FOLDS,
-  readLogRows,
 } from '../../src/workspace-tree/history';
-import { openScratchRepo, run, type ScratchRepo, seedHistory, stream } from './_log-history-repo';
+import { objects, openScratchRepo, run, type ScratchRepo, seedHistory, stream } from './_log-history-repo';
+
+/** How many gits are kept open on the repo at `rootDir`, by the operating system's own list. */
+const keptOpen = (rootDir: string): Promise<number> =>
+  new Promise((resolve) =>
+    execFile('ps', ['-axo', 'command='], (_error, stdout) =>
+      resolve(
+        String(stdout)
+          .split('\n')
+          .filter((line) => line.includes('cat-file --batch') && line.includes(rootDir)).length,
+      ),
+    ),
+  );
 
 /** The rows of the whole list, by the letters the scratch history is drawn with. */
 const ROW = { R: 0, O: 1, H: 2, G: 3, F2: 4, F: 5, E: 6, D: 7, M: 8, C: 9, S2: 10, S1: 11, B: 12, A: 13 };
@@ -43,8 +58,8 @@ describe('a stretch of a list’s rows', () => {
     if (!result.ok) throw new Error(`list refused: ${result.reason}`);
     return result.list;
   };
-  const page = async (of: LogList, from: number, count: number) => {
-    const read = await readLogRows(run, repo.rootDir, of, from, count);
+  const page = async (of: LogList, from: number, count: number, files = true) => {
+    const read = await histories.rows(repo.rootDir, of, from, count, files);
     if (read === null) throw new Error('rows refused');
     return read;
   };
@@ -58,6 +73,7 @@ describe('a stretch of a list’s rows', () => {
     histories = createLogHistories({
       run,
       stream,
+      objects,
       readTimeoutMs: 20_000,
       walkTimeoutMs: 20_000,
       textsTimeoutMs: 20_000,
@@ -119,6 +135,145 @@ describe('a stretch of a list’s rows', () => {
     ]);
     // The first commit's parent is outside every list: it has none.
     expect((await page(whole, ROW.A, 1)).rows[0].parents).toEqual([]);
+  });
+
+  it('reads a stretch without its files off the commits’ own objects — the same commits, and no git process', async () => {
+    const logs: string[] = [];
+    const counted: GitRunner = (args, options) => {
+      if (args.includes('log')) logs.push(args.join(' '));
+      return run(args, options);
+    };
+    const own = createLogHistories({
+      run: counted,
+      stream,
+      objects,
+      readTimeoutMs: 20_000,
+      walkTimeoutMs: 20_000,
+      textsTimeoutMs: 20_000,
+      patternDeadlineMs: 5_000,
+      idleMs: 600_000,
+      maxLists: 4,
+      onMoved: () => undefined,
+    });
+    try {
+      const listed = await own.list(repo.rootDir, repo.rootDir, {
+        scope: null,
+        topological: false,
+        firstParent: false,
+        noMerges: false,
+        walk: null,
+        text: null,
+        folds: NO_FOLDS,
+      });
+      if (!listed.ok) throw new Error(listed.reason);
+      logs.length = 0;
+      const bare = await own.rows(repo.rootDir, listed.list, 0, 400, false);
+      expect(logs).toEqual([]);
+      const full = await own.rows(repo.rootDir, listed.list, 0, 400, true);
+      expect(logs).toHaveLength(1);
+      if (bare === null || full === null) throw new Error('rows refused');
+
+      expect(bare.rows).toHaveLength(14);
+      expect(bare.rows.every((row) => !('files' in row.entry))).toBe(true);
+      expect(full.rows.every((row) => Array.isArray(row.entry.files))).toBe(true);
+      // An older git spells no offset `+00:00`; the instant is the same.
+      const head = ({ files: _files, ...rest }: LogRow['entry']) => ({
+        ...rest,
+        authoredAt: rest.authoredAt.replace(/\+00:00$/, 'Z'),
+      });
+      expect(bare.rows.map((row) => ({ ...row, entry: head(row.entry) }))).toEqual(
+        full.rows.map((row) => ({ ...row, entry: head(row.entry) })),
+      );
+      expect(bare.runs).toEqual(full.runs);
+
+      // One git is kept open for the repo while its history is held, and let go with it.
+      if (process.platform !== 'win32') {
+        expect(await keptOpen(repo.rootDir)).toBe(1);
+        own.dispose();
+        await expect.poll(() => keptOpen(repo.rootDir), { timeout: 5_000 }).toBe(0);
+      }
+    } finally {
+      own.dispose();
+    }
+  });
+
+  it('reads a stretch that holds a commit only git reads exactly by git itself, still without its files', async () => {
+    const odd = await openScratchRepo('oh-log-history-rows-odd-');
+    const logs: string[] = [];
+    const counted: GitRunner = (args, options) => {
+      if (args.includes('log')) logs.push(args.join(' '));
+      return run(args, options);
+    };
+    const own = createLogHistories({
+      run: counted,
+      stream,
+      objects,
+      readTimeoutMs: 20_000,
+      walkTimeoutMs: 20_000,
+      textsTimeoutMs: 20_000,
+      patternDeadlineMs: 5_000,
+      idleMs: 600_000,
+      maxLists: 4,
+      onMoved: () => undefined,
+    });
+    try {
+      await odd.commit('Add orders request', 'orders.yaml');
+      // A commit that names another encoding than UTF-8.
+      await odd.git([
+        '-c',
+        'i18n.commitEncoding=ISO-8859-1',
+        'commit',
+        '-q',
+        '--allow-empty',
+        '-m',
+        'Another encoding',
+      ]);
+      const listed = await own.list(odd.rootDir, odd.rootDir, {
+        scope: null,
+        topological: false,
+        firstParent: false,
+        noMerges: false,
+        walk: null,
+        text: null,
+        folds: NO_FOLDS,
+      });
+      if (!listed.ok) throw new Error(listed.reason);
+      logs.length = 0;
+      const read = await own.rows(odd.rootDir, listed.list, 0, 10, false);
+      expect(read?.rows.map((row) => row.entry.subject)).toEqual(['Another encoding', 'Add orders request']);
+      expect(read?.rows.every((row) => !('files' in row.entry))).toBe(true);
+      expect(logs).toHaveLength(1);
+      expect(logs[0]).not.toContain('--name-status');
+
+      // The stretch without that commit needs no git process.
+      logs.length = 0;
+      expect((await own.rows(odd.rootDir, listed.list, 1, 10, false))?.rows.map((row) => row.entry.subject)).toEqual([
+        'Add orders request',
+      ]);
+      expect(logs).toEqual([]);
+    } finally {
+      own.dispose();
+      await odd.remove();
+    }
+  });
+
+  it('answers null once the history is let go', async () => {
+    const whole = await list();
+    const own = createLogHistories({
+      run,
+      stream,
+      objects,
+      readTimeoutMs: 20_000,
+      walkTimeoutMs: 20_000,
+      textsTimeoutMs: 20_000,
+      patternDeadlineMs: 5_000,
+      idleMs: 600_000,
+      maxLists: 4,
+      onMoved: () => undefined,
+    });
+    expect(await own.rows(repo.rootDir, whole, 0, 4, false)).toBeNull();
+    expect(await own.rows(repo.rootDir, whole, 0, 4, true)).toBeNull();
+    own.dispose();
   });
 
   it('answers fewer rows where the list ends, and none past it', async () => {
@@ -248,7 +403,8 @@ describe('a stretch of a list’s rows', () => {
       await gone.git(['update-ref', 'HEAD', 'HEAD~1']);
       await gone.git(['reflog', 'expire', '--expire=now', '--all']);
       await gone.git(['gc', '-q', '--prune=now']);
-      expect(await readLogRows(run, gone.rootDir, held.list, 0, 10)).toBeNull();
+      expect(await histories.rows(gone.rootDir, held.list, 0, 10, true)).toBeNull();
+      expect(await histories.rows(gone.rootDir, held.list, 0, 10, false)).toBeNull();
     } finally {
       histories.drop(gone.rootDir);
       await gone.remove();
