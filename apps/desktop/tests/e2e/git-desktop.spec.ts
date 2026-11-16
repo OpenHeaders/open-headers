@@ -1507,12 +1507,11 @@ test('G30 — a text applied in the log lists every commit of the history it mat
     .map((line) => line.slice(0, 40));
   expect(matches).toHaveLength(7);
 
-  // A branch made in a terminal moves no HEAD: Refresh is the person's
-  // own way to have the log look again.
+  // A branch made in a terminal moves no HEAD: the host hears the ref
+  // and the log looks again by itself, with no press of Refresh.
   await openToolWindow('git');
   const branchRow = workbench.locator('[data-testid="git-tool-ref-row"][data-kind="local"][data-ref="search-depth"]');
   const list = pane('git-tool-list');
-  await pane('git-tool-refresh').click();
   await expect(branchRow).toBeVisible();
   await expect.poll(async () => Number(await list.getAttribute('data-total'))).toBeGreaterThan(260);
   const whole = (await list.getAttribute('data-total')) as string;
@@ -1566,7 +1565,6 @@ test('G30 — a text applied in the log lists every commit of the history it mat
   await pane('git-tool-filter-regex').click();
   await expect(pane('git-tool-filter-regex')).toHaveAttribute('aria-pressed', 'false');
   ws('branch', '-D', 'search-depth');
-  await pane('git-tool-refresh').click();
   await expect(branchRow).toHaveCount(0);
 });
 
