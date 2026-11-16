@@ -264,8 +264,10 @@ describe('WorkspaceTreeMaterializer — while git writes the tree', () => {
 
   it('a command that began while the temp file was written is met before the rename', async () => {
     let looks = 0;
+    let seeded = false;
     state.rules = [makeRule('aaaaaaaa', 'Block probes')];
     const { materializer } = makeWatched(() => {
+      if (!seeded) return false;
       looks += 1;
       return looks > 1;
     });
@@ -273,7 +275,7 @@ describe('WorkspaceTreeMaterializer — while git writes the tree', () => {
     const before = await fs.readFile(ruleFile(), 'utf-8');
 
     state.rules = [{ ...state.rules[0], enabled: false }];
-    looks = 0;
+    seeded = true;
     const held = await materializer.flush();
     expect(looks).toBe(2);
     expect(held).toMatchObject({ written: [], held: 1 });
@@ -301,14 +303,48 @@ describe('WorkspaceTreeMaterializer — while git writes the tree', () => {
     await expect(fs.access(ruleFile())).rejects.toThrow();
   });
 
-  it('a file the tree never held is written all the same, and a pass with nothing to write holds nothing', async () => {
+  it('a file the tree never held is left unwritten, with no entry and no folder made, and written once git is done', async () => {
+    let writing = true;
     state.rules = [makeRule('aaaaaaaa', 'Block probes')];
-    const { materializer, told } = makeWatched(() => true);
+    const { materializer, told } = makeWatched(() => writing);
 
-    const first = await materializer.flush();
-    expect(first.written).toContain(RULE);
-    expect(first.held).toBeUndefined();
+    const held = await materializer.flush();
+    expect(held.held).toBe(2);
+    expect(held.written.sort()).toEqual(['.gitattributes', '.gitignore']);
+    expect(told).toEqual([2]);
+    await expect(fs.access(path.join(tmpDir, 'rules'))).rejects.toThrow();
+    await expect(fs.access(path.join(tmpDir, 'workspace.yaml'))).rejects.toThrow();
+    expect(await readMaterializedIndex(tmpDir)).toEqual({});
 
+    writing = false;
+    const after = await materializer.flush();
+    expect(after.written.sort()).toEqual([RULE, 'workspace.yaml']);
+    expect(after.held).toBeUndefined();
+    expect(told).toEqual([2]);
+    expect(Object.keys(await readMaterializedIndex(tmpDir)).sort()).toEqual([RULE, 'workspace.yaml']);
+  });
+
+  it('a command that began while a new file’s temp file was written is met before the rename, and no entry is made', async () => {
+    let looks = 0;
+    const { materializer } = makeWatched(() => {
+      looks += 1;
+      return looks > 1;
+    });
+
+    const held = await materializer.flush();
+    expect(looks).toBe(2);
+    expect(held.held).toBe(1);
+    expect((await fs.readdir(tmpDir)).filter((name) => name.startsWith('workspace.yaml'))).toEqual([]);
+    expect(await readMaterializedIndex(tmpDir)).toEqual({});
+  });
+
+  it('a pass with nothing to write holds nothing', async () => {
+    let writing = false;
+    state.rules = [makeRule('aaaaaaaa', 'Block probes')];
+    const { materializer, told } = makeWatched(() => writing);
+    await materializer.flush();
+
+    writing = true;
     const idle = await materializer.flush();
     expect(idle).toMatchObject({ written: [], deleted: [], unchanged: 2 });
     expect(idle.held).toBeUndefined();

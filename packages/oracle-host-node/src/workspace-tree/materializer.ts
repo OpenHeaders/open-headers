@@ -17,11 +17,13 @@
  *     (`hygiene.ts`), not by the plan: authored when absent, a missing
  *     ignore entry appended, the user's own lines never rewritten —
  *     and never part of the baseline;
- *   - a file the baseline lists is neither written over nor removed
- *     while git writes the tree: git replaces a file by removing it and
- *     writing it anew, and a write of ours between its look and its
- *     write lands over git's. Such a file stands as it was, its entry
- *     kept, and the owner takes the pass again;
+ *   - no file is written or removed while git writes the tree: git
+ *     replaces a file by removing it and writing it anew, and creates
+ *     one after looking that it is not there — a write of ours between
+ *     its look and its write lands over git's, and a folder of ours made
+ *     under its look fails its command. Such a file stands as it was (or
+ *     stays unwritten), its entry kept, and the owner takes the pass
+ *     again;
  *   - runs are chained — a materialize never interleaves with another
  *     (§8 single actor per tree).
  */
@@ -43,9 +45,9 @@ export interface MaterializeResult {
   deleted: string[];
   unchanged: number;
   /**
-   * Files the baseline lists that the pass would have written over or
-   * removed while git wrote the tree. Set, they stand as they were with
-   * their entries kept.
+   * Files the pass would have written or removed while git wrote the
+   * tree. Set, they stand as they were with their entries kept — one
+   * the tree never held stays unwritten, with no entry.
    */
   held?: number;
 }
@@ -166,21 +168,22 @@ export class WorkspaceTreeMaterializer {
         if (baseline !== undefined) planned[file.path] = baseline;
         continue;
       }
-      // A file the baseline lists is one git may be replacing. Looked
-      // for before the temp file, so a lock held long leaves no file
-      // behind pass after pass; and again before the rename, for a
-      // command that began while the temp file was written.
-      if (baseline !== undefined && (await gitWrites())) {
-        planned[file.path] = baseline;
+      // Any file is one git may be replacing, or creating where the
+      // tree never held it. Looked for before the folder and the temp
+      // file, so a lock held long leaves nothing behind pass after
+      // pass; and again before the rename, for a command that began
+      // while the temp file was written.
+      if (await gitWrites()) {
+        if (baseline !== undefined) planned[file.path] = baseline;
         held += 1;
         continue;
       }
       await fs.mkdir(path.dirname(target), { recursive: true });
       const tmp = `${target}.${process.pid}.tmp`;
       await fs.writeFile(tmp, file.content, 'utf-8');
-      if (baseline !== undefined && (await gitWrites())) {
+      if (await gitWrites()) {
         await fs.rm(tmp, { force: true });
-        planned[file.path] = baseline;
+        if (baseline !== undefined) planned[file.path] = baseline;
         held += 1;
         continue;
       }
