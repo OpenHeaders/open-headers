@@ -6,7 +6,8 @@
  * that carry it, its two ends, and the rows between them.
  *
  * Nothing is laid out in the view: the host lays the whole list out and
- * a row's cell is complete by itself. Pure.
+ * a row's cell is complete by itself — its width too, which is the
+ * row's own and no other row's. Pure.
  */
 
 import type { WorkspaceTreeLogCellWire, WorkspaceTreeLogRunWire } from '@openheaders/core/bridge';
@@ -32,8 +33,6 @@ export interface GraphCellRow {
   lane: number;
   /** A palette token. */
   color: string;
-  /** Lanes occupied while the row renders. */
-  laneCount: number;
   edges: GraphCellEdge[];
 }
 
@@ -45,7 +44,6 @@ export function logCellRow(cell: WorkspaceTreeLogCellWire, lit: number | null): 
   return {
     lane: cell.lane,
     color: GRAPH_LANE_COLORS[cell.color],
-    laneCount: cell.laneCount,
     edges: cell.edges.map((edge) => ({
       from: edge.from,
       to: edge.to,
@@ -55,6 +53,24 @@ export function logCellRow(cell: WorkspaceTreeLogCellWire, lit: number | null): 
       lit: lit !== null && edge.run === lit,
     })),
   };
+}
+
+/**
+ * How far right a row's own cell draws, in lanes from the first — what
+ * the row's subject is indented by, whatever the rows around it draw
+ * (the reference's reading). The dot counts its lane and a line straight
+ * down a lane counts it; a line that slants reaches its far lane only at
+ * the row's edge and counts half a lane short of it. A folded line out
+ * of the dot is a stub on the dot's own lane.
+ */
+export function graphCellReach(row: GraphCellRow): number {
+  let reach = row.lane;
+  for (const edge of row.edges) {
+    if (edge.collapsed && edge.span !== 'pass') continue;
+    const far = Math.max(edge.from, edge.to);
+    reach = Math.max(reach, edge.from === edge.to ? far : far - 0.5);
+  }
+  return reach;
 }
 
 /**

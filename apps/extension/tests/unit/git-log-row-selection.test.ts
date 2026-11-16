@@ -3,13 +3,14 @@
  * (`log-row-selection.ts`): the details row after a click and where an
  * arrow lands. And a row's graph cell as the list draws it
  * (`log-cell.ts`): the host's palette numbers as the theme's tokens,
- * the linear run under the pointer lit by its number.
+ * the linear run under the pointer lit by its number, and how far
+ * right the row's own cell draws.
  */
 
 import type { WorkspaceTreeLogCellWire, WorkspaceTreeLogRunWire } from '@openheaders/core/bridge';
 import { EMPTY_ROW_SELECTION, selectRowOnClick, selectRowOnly } from '@openheaders/ui/shared/selection';
 import { GRAPH_LANE_COLORS } from '@openheaders/ui/workbench/components/panels/git/graph';
-import { logCellRow, logRowHighlight } from '@openheaders/ui/workbench/components/panels/git/log-cell';
+import { graphCellReach, logCellRow, logRowHighlight } from '@openheaders/ui/workbench/components/panels/git/log-cell';
 import { rowClickOutcome, stepRowTarget } from '@openheaders/ui/workbench/components/panels/git/log-row-selection';
 import { describe, expect, it } from 'vitest';
 
@@ -93,7 +94,7 @@ describe('logCellRow', () => {
 
   it('draws the host’s palette numbers as the theme’s tokens', () => {
     const row = logCellRow(cell, null);
-    expect(row).toMatchObject({ lane: 1, color: GRAPH_LANE_COLORS[3], laneCount: 3 });
+    expect(row).toMatchObject({ lane: 1, color: GRAPH_LANE_COLORS[3] });
     expect(row.edges.map((edge) => edge.color)).toEqual([
       GRAPH_LANE_COLORS[3],
       GRAPH_LANE_COLORS[3],
@@ -116,6 +117,52 @@ describe('logCellRow', () => {
     expect(logCellRow(cell, 8).edges.map((edge) => edge.lit)).toEqual([false, true, false, false]);
     expect(logCellRow(cell, 9).edges.map((edge) => edge.lit)).toEqual([false, false, false, false]);
     expect(logCellRow(cell, null).edges.map((edge) => edge.lit)).toEqual([false, false, false, false]);
+  });
+});
+
+describe('graphCellReach — how far right a row’s own cell draws', () => {
+  type Edge = [from: number, to: number, span: 'top' | 'bottom' | 'pass', collapsed?: boolean];
+  const reach = (lane: number, ...edges: Edge[]): number =>
+    graphCellReach({
+      lane,
+      color: GRAPH_LANE_COLORS[0],
+      edges: edges.map(([from, to, span, collapsed = false]) => ({
+        from,
+        to,
+        span,
+        collapsed,
+        color: GRAPH_LANE_COLORS[0],
+        lit: false,
+      })),
+    });
+
+  it('is the dot’s lane on a row with nothing right of it', () => {
+    expect(reach(0)).toBe(0);
+    expect(reach(0, [0, 0, 'top'], [0, 0, 'bottom'])).toBe(0);
+    // The dot alone holds its lane: no line of the row runs down it.
+    expect(reach(2)).toBe(2);
+    expect(reach(2, [0, 0, 'pass'])).toBe(2);
+  });
+
+  it('is the lane a line runs straight down, right of the dot', () => {
+    expect(reach(0, [0, 0, 'top'], [0, 0, 'bottom'], [1, 1, 'pass'])).toBe(1);
+    expect(reach(0, [1, 1, 'pass'], [3, 3, 'pass'])).toBe(3);
+  });
+
+  it('is half a lane short of the lane a line only slants to — out of the dot, into it, or past the row', () => {
+    expect(reach(0, [0, 0, 'top'], [0, 0, 'bottom'], [0, 1, 'bottom'])).toBe(0.5);
+    expect(reach(0, [0, 0, 'top'], [1, 0, 'top'], [0, 0, 'bottom'])).toBe(0.5);
+    expect(reach(0, [2, 1, 'pass'])).toBe(1.5);
+    // A line that slants over several lanes still ends half a lane short of the farthest.
+    expect(reach(0, [3, 0, 'top'])).toBe(2.5);
+    // A straight line farther right than a slanted one decides.
+    expect(reach(0, [0, 1, 'bottom'], [1, 1, 'pass'])).toBe(1);
+  });
+
+  it('takes a folded line out of the dot for a stub on the dot’s lane — a folded line past the row still slants', () => {
+    expect(reach(0, [0, 2, 'bottom', true])).toBe(0);
+    expect(reach(0, [2, 0, 'top', true])).toBe(0);
+    expect(reach(0, [1, 2, 'pass', true])).toBe(1.5);
   });
 });
 

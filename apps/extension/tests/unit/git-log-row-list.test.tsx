@@ -6,8 +6,8 @@
  * mounted at the position are reported; the selection, the keyboard
  * and the right-click rule run on row numbers and report the details
  * row; the pointer over a graph cell lights the run its row names and a
- * press asks for its fold; the graph column is as wide as the rows in
- * view need; and over a laid-out scroller only the rows around the
+ * press asks for its fold; a row's graph cell is as wide as its own row
+ * draws; and over a laid-out scroller only the rows around the
  * scroll position are mounted, a navigation bringing its row into view,
  * and a listing entered on the tab's row before it is painted.
  */
@@ -81,6 +81,16 @@ function row(at: number, total: number, lanes = 1): WorkspaceTreeLogRowWire {
           collapsed: false,
           ...(inRun(at) ? { run: RUN.run } : {}),
         },
+        // Every further lane passes the row straight down.
+        ...Array.from({ length: lanes - 1 }, (_, index) => ({
+          from: index + 1,
+          to: index + 1,
+          color: index + 1,
+          span: 'pass' as const,
+          child: -1,
+          parent: total,
+          collapsed: false,
+        })),
       ],
     },
     parents: [at + 1],
@@ -312,11 +322,12 @@ describe('LogRowList — the rows', () => {
     expect(cellOf(1).getAttribute('data-head')).toBeNull();
   });
 
-  it('makes the graph column as wide as the rows in view need', () => {
-    render(<Harness held={holding(6, [0], (at) => (at === 4 ? 3 : 1))} />);
-    // 8 px of lead and 16 px a lane: every cell is as wide as the widest row's three lanes.
-    expect(cellOf(0).getAttribute('width')).toBe('56');
+  it('makes each row’s graph cell as wide as its own row draws — a wider row in view indents no other', () => {
+    render(<Harness held={holding(6, [0], (at) => (at === 4 ? 3 : at === 2 ? 2 : 1))} />);
+    // 8 px of lead and 16 px a lane: three lanes on row 4, two on row 2, one on every other.
     expect(cellOf(4).getAttribute('width')).toBe('56');
+    expect(cellOf(2).getAttribute('width')).toBe('40');
+    for (const at of [0, 1, 3, 5]) expect(cellOf(at).getAttribute('width')).toBe('24');
   });
 });
 
@@ -607,28 +618,22 @@ describe('LogRowList — over a laid-out scroller', () => {
     );
   });
 
-  it('takes the graph column’s width from the rows the viewport shows, not the ones mounted beyond it', () => {
+  it('moves no row’s subject when a wider row scrolls into view — each cell keeps its own row’s width', () => {
     // 20 rows show and 44 are mounted: row 30 is three lanes wide, under the viewport.
     render(<Harness held={holding(10_000, [0], (at) => (at === 30 ? 3 : 1))} />);
     expect(mountedRows()).toContain(30);
     expect(cellOf(0).getAttribute('width')).toBe('24');
+    expect(cellOf(30).getAttribute('width')).toBe('56');
 
-    // Row 29 is the last one showing: row 30 sits right under the edge.
+    // Row 30 scrolls into view, to the middle, to the top: the rows around it are a lane wide throughout.
     const list = screen.getByTestId('git-tool-list');
-    list.scrollTop = 10 * ROW_PX;
-    fireEvent.scroll(list);
-    expect(cellOf(29).getAttribute('width')).toBe('24');
-
-    // A pixel of row 30 shows: the column is as wide as it needs.
-    list.scrollTop = 10 * ROW_PX + 1;
-    fireEvent.scroll(list);
-    expect(cellOf(29).getAttribute('width')).toBe('56');
-
-    // Row 31 at the viewport's top: row 30 is mounted above it, and the column is a lane wide again.
-    list.scrollTop = 31 * ROW_PX;
-    fireEvent.scroll(list);
-    expect(mountedRows()).toContain(30);
-    expect(cellOf(31).getAttribute('width')).toBe('24');
+    for (const top of [10 * ROW_PX + 1, 20 * ROW_PX, 30 * ROW_PX]) {
+      list.scrollTop = top;
+      fireEvent.scroll(list);
+      expect(cellOf(29).getAttribute('width')).toBe('24');
+      expect(cellOf(30).getAttribute('width')).toBe('56');
+      expect(cellOf(31).getAttribute('width')).toBe('24');
+    }
   });
 
   it('stands the read rows nearest at the viewport’s top while the position’s own are not read, and gives way when they land', () => {
@@ -658,14 +663,15 @@ describe('LogRowList — over a laid-out scroller', () => {
     expect(holder().style.top).toBe(`${4_976 * ROW_PX}px`);
   });
 
-  it('stops on the last row read where the rows under it are not, and takes the graph column’s width from the rows standing', () => {
+  it('stops on the last row read where the rows under it are not — the rows standing each as wide as their own', () => {
     // Row 190 is three lanes wide; rows 195–214 show, and page 1 is not read.
     render(<Harness held={holding(10_000, [0], (at) => (at === 190 ? 3 : 1))} />);
     const list = screen.getByTestId('git-tool-list');
     list.scrollTop = 195 * ROW_PX;
     fireEvent.scroll(list);
     expect(mountedRows()).toEqual(Array.from({ length: 20 }, (_, at) => 180 + at));
-    expect(cellOf(199).getAttribute('width')).toBe('56');
+    expect(cellOf(190).getAttribute('width')).toBe('56');
+    expect(cellOf(199).getAttribute('width')).toBe('24');
   });
 
   it('brings a navigation’s row into view, and the same row again on a new nonce', () => {

@@ -265,7 +265,6 @@ describe('CommitList — the graph cell (S45)', () => {
     const cells = chain.map((_, at) => ({
       lane: 0,
       color: lane,
-      laneCount: 1,
       edges: [...(at > 0 ? [edge('top')] : []), ...(at < chain.length - 1 ? [edge('bottom')] : [])],
     }));
     const onSelect = vi.fn();

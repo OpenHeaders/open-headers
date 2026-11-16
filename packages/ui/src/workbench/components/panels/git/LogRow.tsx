@@ -28,8 +28,6 @@ export interface LogRowProps {
   isHead: boolean;
   /** The current-branch band is on and the checked-out commit reaches this one. */
   onCurrentBranch: boolean;
-  /** The widest lane count among the rows in view. */
-  maxLanes: number;
   /** The lit run, where this row's cell draws a part of it; null otherwise. */
   litRun: number | null;
   /** The row's own part in the lit run. */
@@ -51,7 +49,6 @@ const LogRow: React.FC<LogRowProps> = ({
   refs,
   isHead,
   onCurrentBranch,
-  maxLanes,
   litRun,
   highlight,
   columns,
@@ -82,7 +79,6 @@ const LogRow: React.FC<LogRowProps> = ({
         <>
           <GraphCell
             row={cell}
-            maxLanes={maxLanes}
             isHead={isHead}
             fallbackColor={token.colorTextQuaternary}
             highlight={highlight}

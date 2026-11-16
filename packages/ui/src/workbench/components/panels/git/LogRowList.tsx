@@ -25,8 +25,9 @@
  *
  * The graph column (the reference): a row's cell arrives whole with the
  * row; the pointer over a cell lights the linear run the row names, and
- * a press on it asks for the run to be folded or opened again. The
- * column is as wide as the rows the viewport draws need.
+ * a press on it asks for the run to be folded or opened again. A cell
+ * is as wide as its own row draws: a row is indented by its own graph,
+ * never by a wider row scrolled into view.
  *
  * The row menu (the reference): a right-click on an unselected row
  * selects it alone and opens the menu over it; on a selected row the
@@ -142,17 +143,6 @@ const LogRowList: React.FC<LogRowListProps> = ({
 
   // The position's own rows, or the read rows standing in for them.
   const drawn = logRowsDrawn(held, inView);
-  const shown = drawn.standing ? drawn : inView;
-
-  // The rows the viewport draws decide the graph column's width — never the ones mounted beyond it; rows not
-  // read yet leave it as it was.
-  const lanes = useRef(1);
-  let widest = 0;
-  for (let row = shown.first; row <= shown.last; row += 1) {
-    widest = Math.max(widest, logRowAt(held, row)?.cell.laneCount ?? 0);
-  }
-  if (widest > 0) lanes.current = widest;
-  const maxLanes = lanes.current;
 
   const bringIntoView = (row: number, align: 'center' | 'nearest'): void => {
     const top = rowWindow.scrollTopFor(row, align);
@@ -277,7 +267,6 @@ const LogRowList: React.FC<LogRowListProps> = ({
         refs={row === null ? NO_REFS : (refsBySha.get(row.entry.sha) ?? NO_REFS)}
         isHead={row !== null && row.entry.sha === headSha}
         onCurrentBranch={band && row?.entry.onHead === true}
-        maxLanes={maxLanes}
         litRun={draws && lit !== null ? lit.run : null}
         highlight={highlight}
         columns={columns}

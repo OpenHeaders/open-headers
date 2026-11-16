@@ -251,8 +251,6 @@ const CommitList: React.FC<CommitListProps> = ({
     return <CommitListEmpty filtersActive={filtersActive} onResetFilters={onResetFilters} />;
   }
 
-  const maxLanes = graph === null ? 1 : Math.max(1, ...graph.map((row) => row.laneCount));
-
   return (
     <div
       ref={listRef}
@@ -280,7 +278,6 @@ const CommitList: React.FC<CommitListProps> = ({
           >
             <GraphCell
               row={graph?.[index] ?? null}
-              maxLanes={maxLanes}
               isHead={entry.sha === headSha}
               fallbackColor={token.colorTextQuaternary}
             />

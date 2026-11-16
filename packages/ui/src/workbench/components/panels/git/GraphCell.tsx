@@ -1,7 +1,9 @@
 /**
  * GraphCell — one commit row's slice of the log graph, rendered as an
  * isolated SVG from the row's own cell (dot lane + half-row edges —
- * `log-cell.ts`), so the list never measures across rows. With no cell
+ * `log-cell.ts`), so the list never measures across rows — the cell is
+ * as wide as its own row draws, and the subject beside it starts there:
+ * a row with a second lane is indented, the rows around it are not. With no cell
  * (a list whose commits no graph joins) it degrades to a plain dot. The reference's
  * reading: lanes 16 px apart, 2 px edges, 4 px nodes, the checked-out
  * commit a hollow ring with a centre dot whose edges stop at the ring. Colours
@@ -15,7 +17,7 @@
  */
 
 import type React from 'react';
-import type { GraphCellRow, GraphHighlight } from './log-cell';
+import { type GraphCellRow, type GraphHighlight, graphCellReach } from './log-cell';
 
 export const GRAPH_ROW_HEIGHT = 26;
 const LANE_WIDTH = 16;
@@ -41,9 +43,6 @@ function edgePath(fromX: number, fromY: number, toX: number, toY: number): strin
 
 export interface GraphCellProps {
   row: GraphCellRow | null;
-  /** The widest lane count among the rows drawn together — keeps every
-   *  cell (and so the subject column) left-aligned across them. */
-  maxLanes: number;
   /** This row is the checked-out commit — the hollow ring. */
   isHead?: boolean;
   /** Fallback dot color for layout-less (filtered) rendering. */
@@ -58,15 +57,13 @@ export interface GraphCellProps {
 
 const GraphCell: React.FC<GraphCellProps> = ({
   row,
-  maxLanes,
   isHead = false,
   fallbackColor,
   highlight = null,
   onHover,
   onToggle,
 }) => {
-  const lanes = Math.max(1, row === null ? 1 : maxLanes);
-  const width = LEFT_PAD + lanes * LANE_WIDTH;
+  const width = LEFT_PAD + ((row === null ? 0 : graphCellReach(row)) + 1) * LANE_WIDTH;
   const mid = GRAPH_ROW_HEIGHT / 2;
   const dotX = laneX(row?.lane ?? 0);
   const dotColor = row?.color ?? fallbackColor;
