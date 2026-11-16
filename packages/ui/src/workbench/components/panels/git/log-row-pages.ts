@@ -33,6 +33,15 @@ export type LogRowsAnswer = Extract<WorkspaceTreeLogRowsWire, { ok: true }>;
 /** What the host refuses a list with — the same whichever verb asked for the list. */
 export type LogRowsRefusal = Extract<WorkspaceTreeLogRowsWire, { ok: false }>;
 
+/**
+ * The host gave the list up as out of time — its pattern, or its
+ * history, texts or walk: the one refusal that cost its whole wait, and
+ * would cost it again asked again.
+ */
+export function logRefusalOutOfTime(refusal: LogRowsRefusal): boolean {
+  return refusal.reason === 'search-timeout' || refusal.reason === 'log-timeout';
+}
+
 /** The rows a view has mounted: `[first, last]`, both inclusive. */
 export interface LogRowRange {
   first: number;

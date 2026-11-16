@@ -452,6 +452,10 @@ describe('GitLogView — the text field over the whole history', () => {
     expect(textCalls().map((call) => call.type)).toEqual(['oh.workspaceTree.locateLogRow']);
     expect(rows()).toEqual([]);
     expect(tabNow.selectedSha).toBe('w300');
+    // A frame of the repo does not run the pattern again: the refusal stands until the person asks.
+    await emitStatus();
+    expect(textCalls()).toHaveLength(1);
+    expect(screen.queryByTestId('git-tool-error')).not.toBeNull();
 
     // The text taken off: the refusal was that list's — the whole one is entered on the tab's commit.
     await apply({ filter: '', filterRegex: false });

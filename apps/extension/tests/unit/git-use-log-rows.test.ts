@@ -6,7 +6,8 @@
  * and the press of Refresh each end the read that is out; the rows of
  * the ask before stay until the new ask is answered; a list the host
  * names anew drops the rows held; a refusal is the ask's own and a
- * scroll does not ask it again; a list that is entered is first read
+ * scroll does not ask it again — nor a frame, where the list ran out of
+ * time: that one waits for the press; a list that is entered is first read
  * around the row it is entered at, and not before that row is found; a
  * list refused where it was to be entered is refused with no read.
  */
@@ -293,6 +294,45 @@ describe('useLogRows', () => {
     expect(hook.result.current.refusal).toBeNull();
   });
 
+  for (const reason of ['search-timeout', 'log-timeout'] as const) {
+    for (const broadcast of ['workspaceTreeGitStatus', 'workspaceTreeLogHistory']) {
+      it(`asks a list refused as out of time (${reason}) again on no ${broadcast} — on the press of Refresh alone`, async () => {
+        const hook = mount(ASK);
+        await waitFor(() => expect(held).toHaveLength(1));
+        await settle(() => held[0].resolve({ ok: false, reason }));
+        expect(hook.result.current.refusal).toEqual({ ok: false, reason });
+
+        await settle(() => listeners.get(broadcast)?.({ workspaceId: 'ws-1' }));
+        expect(held).toHaveLength(1);
+        expect(hook.result.current.refusal).toEqual({ ok: false, reason });
+        expect(hook.result.current.pending).toBe(false);
+
+        await settle(() => hook.result.current.refresh());
+        expect(held).toHaveLength(2);
+        expect(held[1].request).toEqual({ ...ASK, from: 0, count: 200, refresh: true });
+
+        // Answered, it is a list like any other: a frame reads it again.
+        await settle(() => held[1].resolve(rows(held[1].request, 1_000)));
+        expect(hook.result.current.refusal).toBeNull();
+        await settle(() => listeners.get(broadcast)?.({ workspaceId: 'ws-1' }));
+        expect(held).toHaveLength(3);
+      });
+    }
+  }
+
+  it('asks a list again on a frame once it is refused as something else than out of time', async () => {
+    const hook = mount(ASK);
+    await waitFor(() => expect(held).toHaveLength(1));
+    await settle(() => held[0].resolve({ ok: false, reason: 'search-timeout' }));
+    await settle(() => hook.result.current.refresh());
+    await settle(() => held[1].resolve({ ok: false, reason: 'not-a-repo' }));
+    expect(hook.result.current.refusal).toEqual({ ok: false, reason: 'not-a-repo' });
+
+    await settle(() => listeners.get('workspaceTreeGitStatus')?.({ workspaceId: 'ws-1' }));
+    expect(held).toHaveLength(3);
+    expect(held[2].request).toEqual({ ...ASK, from: 0, count: 200 });
+  });
+
   it('keeps a refusal the ask’s own: another ask is read and starts with none', async () => {
     const hook = mount(ASK);
     await waitFor(() => expect(held).toHaveLength(1));
@@ -444,6 +484,23 @@ describe('useLogRows — a list that is entered', () => {
 
     await settle(() => hook.result.current.want({ first: 430, last: 510 }));
     expect(held).toHaveLength(before);
+    // Out of time, it is not asked again by a frame either.
+    await settle(() => listeners.get('workspaceTreeGitStatus')?.({ workspaceId: 'ws-1' }));
+    expect(held).toHaveLength(before);
+    expect(hook.result.current.refusal).toBe(TIMEOUT);
+  });
+
+  it('asks a list refused at its entrance as something else than out of time again on a frame — from its top', async () => {
+    const hook = await standing();
+    const before = held.length;
+    const refusal = { ok: false, reason: 'not-a-repo' } as const;
+    await settle(() => hook.rerender({ asking: OTHER, entering: { ask: OTHER, row: null, refusal } }));
+    expect(held).toHaveLength(before);
+    expect(hook.result.current.refusal).toBe(refusal);
+
+    await settle(() => listeners.get('workspaceTreeGitStatus')?.({ workspaceId: 'ws-1' }));
+    expect(held).toHaveLength(before + 1);
+    expect(held[before].request).toEqual({ ...OTHER, from: 0, count: 200 });
   });
 
   it('reads a list refused at its entrance again on a press of Refresh — from its top, and holds what answers', async () => {

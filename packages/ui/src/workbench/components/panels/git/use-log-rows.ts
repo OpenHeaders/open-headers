@@ -23,6 +23,10 @@
  * was to be entered is refused as if a read had been: no row of it is
  * read until it is asked again — a press of Refresh, a frame — and then
  * from its top.
+ *
+ * A list refused as OUT OF TIME (`logRefusalOutOfTime`) is asked again
+ * on the press alone: a frame would have the host run its whole wait
+ * again, for an answer the frame did not change.
  */
 
 import { hostBridge, type WorkspaceTreeLogRowsWire } from '@openheaders/core/bridge';
@@ -35,6 +39,7 @@ import {
   type LogRowsAsk,
   type LogRowsRefusal,
   logReadOver,
+  logRefusalOutOfTime,
   logRowsAround,
   NO_LOG_ROW_RANGE,
   NO_LOG_ROWS,
@@ -67,6 +72,8 @@ interface Live {
   out: LogRowsAsk | null;
   /** The ask the host refused — not asked again by a scroll. */
   refused: LogRowsAsk | null;
+  /** What `refused` was refused as: out of time — not asked again by a frame either. */
+  spent: boolean;
   /** A press of Refresh made while the list's entrance was being found: the ask's next read carries it. */
   owed: 'refresh' | null;
 }
@@ -127,6 +134,7 @@ export function useLogRows(ask: LogRowsAsk | null, entrance: LogEntranceState): 
     mounted: NO_LOG_ROW_RANGE,
     out: null,
     refused: null,
+    spent: false,
     owed: null,
   });
   live.current.ask = ask;
@@ -134,6 +142,7 @@ export function useLogRows(ask: LogRowsAsk | null, entrance: LogEntranceState): 
 
   const refuse = useCallback((asking: LogRowsAsk, refusal: LogRowsRefusal): void => {
     live.current.refused = asking;
+    live.current.spent = logRefusalOutOfTime(refusal);
     setRefused({ ask: asking, refusal });
   }, []);
 
@@ -179,11 +188,13 @@ export function useLogRows(ask: LogRowsAsk | null, entrance: LogEntranceState): 
   }, [send, refuse]);
 
   // The same ask read again where the view stands — it ends the read that is out. A list whose entrance is
-  // being found has no read to end: a press waits for the entrance's.
+  // being found has no read to end: a press waits for the entrance's. A list that ran out of time is asked
+  // again on the press alone.
   const again = useCallback(
     (press: 'refresh' | null): void => {
       const state = live.current;
       if (state.ask === null) return;
+      if (press === null && state.spent && state.refused === state.ask) return;
       const entering = entranceRead(state);
       if (entering === null) {
         state.owed = press ?? state.owed;
