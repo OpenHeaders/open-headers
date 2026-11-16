@@ -35,6 +35,7 @@ export interface LogRowProps {
   columns: CommitRowColumns;
   signature?: CommitSignature;
   matchRanges?: (text: string) => readonly LogTextRange[];
+  matchShaRanges?: (sha: string) => readonly LogTextRange[];
   onClick: (row: number, event: React.MouseEvent) => void;
   /** The pointer entered (true) or left (false) the row's graph cell. */
   onHover: (row: number, hovering: boolean) => void;
@@ -54,6 +55,7 @@ const LogRow: React.FC<LogRowProps> = ({
   columns,
   signature,
   matchRanges,
+  matchShaRanges,
   onClick,
   onHover,
   onToggleRun,
@@ -92,6 +94,7 @@ const LogRow: React.FC<LogRowProps> = ({
             columns={columns}
             signature={signature}
             matchRanges={matchRanges}
+            matchShaRanges={matchShaRanges}
           />
         </>
       )}

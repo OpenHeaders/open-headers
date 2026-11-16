@@ -625,6 +625,7 @@ const GitLogView: React.FC<GitLogViewProps> = ({
             columns={columns}
             signatures={signatures}
             matchRanges={matcher.kind === 'match' ? matcher.ranges : undefined}
+            matchShaRanges={matcher.kind === 'match' ? matcher.shaRanges : undefined}
             onToggleRun={runsFold ? toggleRun : undefined}
             rowMenu={(row) =>
               buildLogRowMenu(logRowMenuTarget(held, ranges, set, row), t, {

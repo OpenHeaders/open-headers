@@ -43,6 +43,8 @@ export type LogTextMatcher =
       test: (entry: LogTextFields) => boolean;
       /** Every stretch of `text` the filter matches, in order — what a row paints. */
       ranges: (text: string) => LogTextRange[];
+      /** The stretches of a hash the filter matches it by — its start for a plain text, a pattern's own anywhere in it. */
+      shaRanges: (sha: string) => LogTextRange[];
     };
 
 type LogTextMatch = Extract<LogTextMatcher, { kind: 'match' }>;
@@ -97,14 +99,17 @@ export function makeLogTextMatcher(filter: string, regex: boolean, matchCase: bo
       testText: (text) => pattern.test(text),
       testSha: (sha) => pattern.test(sha),
       ranges: (text) => patternRanges(everywhere, text),
+      shaRanges: (sha) => patternRanges(everywhere, sha),
     });
   }
   const lowered = needle.toLowerCase();
   const literal = literalPattern(needle, matchCase);
+  const testSha = HASH_START.test(lowered) ? (sha: string) => sha.startsWith(lowered) : null;
   return matcherOf({
     pattern: null,
     testText: matchCase ? (text) => text.includes(needle) : (text) => text.toLowerCase().includes(lowered),
-    testSha: HASH_START.test(lowered) ? (sha) => sha.startsWith(lowered) : null,
+    testSha,
     ranges: (text) => patternRanges(literal, text),
+    shaRanges: (sha) => (testSha?.(sha) === true ? [[0, lowered.length]] : []),
   });
 }

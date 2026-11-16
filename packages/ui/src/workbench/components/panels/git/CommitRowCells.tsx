@@ -21,7 +21,7 @@ import { GRAPH_ROW_HEIGHT } from './GraphCell';
 import { formatLogDate, formatLogDateTitle, type HourCycle } from './log-date';
 import MatchedText from './MatchedText';
 import RefRowLabel from './RefRowLabel';
-import { shortSha } from './short-sha';
+import { shortSha, shortShaRanges } from './short-sha';
 import SignatureMark from './SignatureMark';
 import type { CommitSignature } from './use-commit-signatures';
 
@@ -82,9 +82,19 @@ export interface CommitRowCellsProps {
   signature?: CommitSignature;
   /** The text filter's matches in a subject or an author — painted where they stand; absent = no filter. */
   matchRanges?: (text: string) => readonly LogTextRange[];
+  /** The text filter's matches in a whole hash — painted as far as the short one shows them; absent = no filter. */
+  matchShaRanges?: (sha: string) => readonly LogTextRange[];
 }
 
-const CommitRowCells: React.FC<CommitRowCellsProps> = ({ entry, refs, isHead, columns, signature, matchRanges }) => {
+const CommitRowCells: React.FC<CommitRowCellsProps> = ({
+  entry,
+  refs,
+  isHead,
+  columns,
+  signature,
+  matchRanges,
+  matchShaRanges,
+}) => {
   const { token } = theme.useToken();
   const { locale, t } = useLocale();
   const dateLabels = useMemo(
@@ -146,7 +156,10 @@ const CommitRowCells: React.FC<CommitRowCellsProps> = ({ entry, refs, isHead, co
       )}
       {columns.showHash && (
         <span style={{ flex: '0 0 auto', fontSize: GIT_TEXT_SIZE, color: textColor }} data-testid="git-tool-row-hash">
-          {shortSha(entry.sha)}
+          <MatchedText
+            text={shortSha(entry.sha)}
+            ranges={matchShaRanges === undefined ? undefined : () => shortShaRanges(matchShaRanges(entry.sha))}
+          />
         </span>
       )}
       {columns.showSignature && (

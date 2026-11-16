@@ -149,4 +149,21 @@ describe('the log text matcher says where it matched', () => {
     ]);
     expect(rangesOf('zzz', false, false, 'order old')).toEqual([]);
   });
+
+  it('ranges a hash by its start alone for a plain text — never where the text sits further in', () => {
+    expect(matcherOf('abc12', false, false).shaRanges('abc123def')).toEqual([[0, 5]]);
+    expect(matcherOf('ABC12', false, true).shaRanges('abc123def')).toEqual([[0, 5]]);
+    expect(matcherOf(' abc12 ', false, false).shaRanges('abc123def')).toEqual([[0, 5]]);
+    expect(matcherOf('c123', false, false).shaRanges('abc123def')).toEqual([]);
+    // A text that can match no hash ranges none, though the hash holds it.
+    expect(matcherOf('abc 12', false, false).shaRanges('abc 123def')).toEqual([]);
+  });
+
+  it('ranges a pattern’s matches anywhere in a hash', () => {
+    expect(matcherOf('\\d+', true, false).shaRanges('abc123def45')).toEqual([
+      [3, 6],
+      [9, 11],
+    ]);
+    expect(matcherOf('response', true, false).shaRanges('abc123def')).toEqual([]);
+  });
 });

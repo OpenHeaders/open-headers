@@ -329,7 +329,7 @@ beforeEach(() => {
   tabNow = TAB;
   listeners.clear();
   resetCommitSignatures();
-  patchGitLogViewPrefs('ws-1', { showSignatureColumn: false, highlightCurrentBranch: true });
+  patchGitLogViewPrefs('ws-1', { showSignatureColumn: false, showHashColumn: false, highlightCurrentBranch: true });
   mockCall.mockReset();
   mockCall.mockImplementation((type: string, request: RowsRequest & { target: string; shas: string[] }) => {
     if (type === 'oh.workspaceTree.listRefs') {
@@ -463,6 +463,16 @@ describe('GitLogView — the list it asks for', () => {
     expect(listReads().length).toBeGreaterThan(before);
     expect(listReads().at(-1)).toMatchObject({ text: 'commit 99' });
     expect(screen.getByTestId('git-tool-list').getAttribute('data-total')).toBe('11');
+  });
+
+  it('paints a row listed for the start of its hash on its hash, where that column shows', async () => {
+    patchGitLogViewPrefs('ws-1', { showHashColumn: true });
+    await mount({ filter: '0000' });
+    const hash = rowEl(0).querySelector('[data-testid="git-tool-row-hash"]');
+    expect(hash?.textContent).toBe('00000000');
+    expect(hash?.querySelector('[data-testid="git-tool-match"]')?.textContent).toBe('0000');
+    // The subject holds no such text: the row is painted where it matched alone.
+    expect(rowEl(0).querySelectorAll('[data-testid="git-tool-match"]')).toHaveLength(1);
   });
 
   it('drops a ref the history no longer holds from the scope, and asks for what is left', async () => {

@@ -15,6 +15,7 @@
  */
 
 import type { WorkspaceTreeLogRowWire, WorkspaceTreeLogRunWire, WorkspaceTreeRefWire } from '@openheaders/core/bridge';
+import { type LogTextRange, makeLogTextMatcher } from '@openheaders/core/workspace-tree';
 import { selectedRows as selectedRowNumbers, useRowSelection } from '@openheaders/ui/shared/selection';
 import {
   type CommitRowColumns,
@@ -29,6 +30,7 @@ import {
   NO_LOG_ROWS,
   takeLogRows,
 } from '@openheaders/ui/workbench/components/panels/git/log-row-pages';
+import { shortShaRanges } from '@openheaders/ui/workbench/components/panels/git/short-sha';
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import type { MenuProps } from 'antd';
 import type React from 'react';
@@ -206,6 +208,8 @@ interface HarnessProps {
   refsBySha?: ReadonlyMap<string, readonly WorkspaceTreeRefWire[]>;
   /** What the eye menu decides of every row — over the standing columns. */
   columns?: Partial<CommitRowColumns>;
+  /** The text filter's matches in a whole hash. */
+  matchShaRanges?: (sha: string) => readonly LogTextRange[];
   filtersActive?: boolean;
   onResetFilters?: () => void;
   onSelect?: (row: number | null) => void;
@@ -229,6 +233,7 @@ const Harness: React.FC<HarnessProps> = ({
   headSha = null,
   refsBySha = new Map(),
   columns,
+  matchShaRanges,
   filtersActive = false,
   onResetFilters = () => undefined,
   onSelect,
@@ -261,6 +266,7 @@ const Harness: React.FC<HarnessProps> = ({
       onResetFilters={onResetFilters}
       scrollTo={scrollTo}
       columns={useMemo(() => ({ ...DEFAULT_COMMIT_ROW_COLUMNS, ...columns }), [columns])}
+      matchShaRanges={matchShaRanges}
       onToggleRun={onToggleRun}
       rowMenu={
         rowMenu === undefined ? undefined : (at) => rowMenu(at, selectedRowNumbers(selection.selection.ranges, 50))
@@ -383,6 +389,47 @@ describe('LogRowList — the columns the eye menu decides', () => {
     expect(hashes).toHaveLength(4);
     expect(hashes[3].textContent).toBe(sha(3).slice(0, 8));
     expect(screen.getAllByTestId('git-tool-row-signature')).toHaveLength(4);
+  });
+
+  it('paints a row’s hash where the filter matched it — as far as the short hash shows, and nothing with no filter', () => {
+    const marks = (at: number): string[] =>
+      Array.from(
+        rowEl(at).querySelectorAll('[data-testid="git-tool-row-hash"] [data-testid="git-tool-match"]'),
+        (mark) => mark.textContent ?? '',
+      );
+    const hashShown = { showHash: true };
+    const list = (ranges?: (hash: string) => readonly LogTextRange[]): React.ReactElement => (
+      <Harness held={holding(4)} columns={hashShown} matchShaRanges={ranges} />
+    );
+    // A plain text matches a hash by its start: the matcher's own ranges, on the row's own hash.
+    const typed = makeLogTextMatcher('00000', false, false);
+    if (typed.kind !== 'match') throw new Error('no matcher');
+    const { rerender } = render(list(typed.shaRanges));
+    expect(marks(2)).toEqual(['00000']);
+    expect(rowEl(2).querySelector('[data-testid="git-tool-row-hash"]')?.textContent).toBe(sha(2).slice(0, 8));
+    // A match that runs past the short hash is cut where that ends; one that starts past it is not shown.
+    rerender(
+      list(() => [
+        [2, 4],
+        [6, 12],
+        [20, 24],
+      ]),
+    );
+    expect(marks(2)).toEqual(['00', '00']);
+    expect(
+      shortShaRanges([
+        [2, 4],
+        [6, 12],
+        [20, 24],
+      ]),
+    ).toEqual([
+      [2, 4],
+      [6, 8],
+    ]);
+    rerender(list((hash) => (hash === sha(1) ? [[0, 8]] : [])));
+    expect([marks(1), marks(2)]).toEqual([['00000000'], []]);
+    rerender(list());
+    expect(screen.queryAllByTestId('git-tool-match')).toHaveLength(0);
   });
 
   it('draws one ref label a row in the compact form; a label per branch (its remote joined) and per tag in the full one', () => {

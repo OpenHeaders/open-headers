@@ -89,6 +89,8 @@ export interface LogRowListProps {
   /** The signed commits by sha — what the signature column marks. */
   signatures?: ReadonlyMap<string, CommitSignature>;
   matchRanges?: (text: string) => readonly LogTextRange[];
+  /** The text filter's matches in a whole hash — what the Hash column paints. */
+  matchShaRanges?: (sha: string) => readonly LogTextRange[];
   /** A press on a row's graph cell — fold the run it lights, or open it again; `row` is the row pressed. */
   onToggleRun?: (run: WorkspaceTreeLogRunWire, row: number) => void;
   /** The menu over a row — the view knows what the row's selection covers; absent = no menu. */
@@ -122,6 +124,7 @@ const LogRowList: React.FC<LogRowListProps> = ({
   columns,
   signatures,
   matchRanges,
+  matchShaRanges,
   onToggleRun,
   rowMenu,
 }) => {
@@ -306,6 +309,7 @@ const LogRowList: React.FC<LogRowListProps> = ({
         columns={columns}
         signature={row === null ? undefined : signatures?.get(row.entry.sha)}
         matchRanges={matchRanges}
+        matchShaRanges={matchShaRanges}
         onClick={click}
         onHover={hover}
         onToggleRun={toggleRun}
