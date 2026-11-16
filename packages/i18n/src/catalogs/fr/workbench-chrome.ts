@@ -757,6 +757,8 @@ export const workbenchChrome = {
   'workbench.gitLog.noneSelected': 'Aucun commit sélectionné',
   'workbench.gitLog.commitsSelected': '{count} commits sélectionnés',
   'workbench.gitLog.loadFailed': "Impossible de charger l'historique : {detail}",
+  'workbench.gitLog.patternTimeout':
+    "L'expression régulière a manqué de temps avant d'atteindre tout l'historique. Essayez-en une plus simple.",
   'workbench.gitLog.authorLine': '{author} <{email}> le {date}',
   'workbench.gitLog.coAuthors': 'Co-écrit par {authors}',
   'workbench.gitLog.filesHeading': 'Fichiers modifiés',

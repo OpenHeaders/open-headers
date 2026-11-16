@@ -571,6 +571,7 @@ export const workbenchChrome = {
   'workbench.gitLog.noneSelected': '未选择提交',
   'workbench.gitLog.commitsSelected': '已选择 {count} 个提交',
   'workbench.gitLog.loadFailed': '无法加载历史：{detail}',
+  'workbench.gitLog.patternTimeout': '正则表达式在覆盖全部历史之前已超时。请尝试更简单的表达式。',
   'workbench.gitLog.authorLine': '{author} <{email}> 于 {date}',
   'workbench.gitLog.coAuthors': '共同作者：{authors}',
   'workbench.gitLog.filesHeading': '已更改的文件',

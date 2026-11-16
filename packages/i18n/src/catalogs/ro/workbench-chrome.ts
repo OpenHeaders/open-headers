@@ -609,6 +609,8 @@ export const workbenchChrome = {
   'workbench.gitLog.noneSelected': 'Niciun commit selectat',
   'workbench.gitLog.commitsSelected': '{count} commituri selectate',
   'workbench.gitLog.loadFailed': 'Istoricul nu a putut fi încărcat: {detail}',
+  'workbench.gitLog.patternTimeout':
+    'Expresia regulată a rămas fără timp înainte să parcurgă tot istoricul. Încearcă una mai simplă.',
   'workbench.gitLog.authorLine': '{author} <{email}>, {date}',
   'workbench.gitLog.coAuthors': 'Coautori: {authors}',
   'workbench.gitLog.filesHeading': 'Fișiere modificate',

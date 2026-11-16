@@ -578,6 +578,8 @@ export const workbenchChrome = {
   'workbench.gitLog.noneSelected': '선택한 커밋 없음',
   'workbench.gitLog.commitsSelected': '커밋 {count}개 선택됨',
   'workbench.gitLog.loadFailed': '기록을 불러올 수 없습니다: {detail}',
+  'workbench.gitLog.patternTimeout':
+    '전체 기록을 확인하기 전에 정규식 검색 시간이 초과되었습니다. 더 단순한 정규식을 사용해 보세요.',
   'workbench.gitLog.authorLine': '{author} <{email}>, {date}',
   'workbench.gitLog.coAuthors': '공동 작성: {authors}',
   'workbench.gitLog.filesHeading': '변경된 파일',

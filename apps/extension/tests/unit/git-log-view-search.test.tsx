@@ -6,8 +6,9 @@
  * blanks around it; the list is the rows the host names, each painted
  * where it matched; the rows before stay under the pulse until the
  * text's own answer; a text the field cannot take is marked and asked
- * of nobody; a pattern out of time is the list's refusal; and no verb
- * but the list's own is ever called.
+ * of nobody; a pattern out of time is the list's refusal — said in
+ * words, marked in the field, with no word of commits under it; and no
+ * verb but the list's own is ever called.
  */
 
 import type {
@@ -186,6 +187,10 @@ const listAsks = (): Ask[] =>
     .map(({ request: { from: _from, count: _count, ...ask } }) => ask);
 const probes = (): string[] =>
   history.filter((commit) => commit.subject.startsWith('Probe')).map((commit) => commit.sha);
+/** The text field carries the error styling. */
+const fieldMarked = (): boolean =>
+  screen.getByTestId('git-tool-filter').closest('.ant-input-affix-wrapper')?.className.includes('status-error') ===
+  true;
 /** The verbs the host was asked under a text, in order — each one makes the text's list. */
 const textCalls = (): Array<{ type: string; request: Ask }> => calls.filter((call) => call.request.text !== undefined);
 
@@ -414,17 +419,26 @@ describe('GitLogView — the text field over the whole history', () => {
     );
   });
 
-  it('shows the list’s refusal for a pattern that ran out of time, and lists nothing as its answer', async () => {
+  it('says a pattern that ran out of time in words, marks the field, and says nothing of commits under the refusal', async () => {
     await mount();
     refuseText = { ok: false, reason: 'search-timeout' };
     await apply({ filter: '(a+)+$', filterRegex: true });
-    await waitFor(() => expect(screen.getByTestId('git-tool-error').textContent).toContain('search-timeout'));
+    await waitFor(() =>
+      expect(screen.getByTestId('git-tool-error').textContent).toBe(
+        'The pattern ran out of time before it reached the whole history. Try a simpler one.',
+      ),
+    );
     expect(rows()).toEqual([]);
+    expect(fieldMarked()).toBe(true);
+    // The list was refused, not read: it is not said to hold no commit. The reset stays.
+    expect(screen.getByTestId('git-tool-empty').textContent).toBe('Reset filters');
 
-    // Taken off, the whole list is back and the refusal gone.
-    await apply({ filter: '' });
+    // The reset takes the text off: the whole list is back, the refusal and the mark gone.
+    await settle(() => fireEvent.click(screen.getByTestId('git-tool-reset-filters')));
     await waitFor(() => expect(total()).toBe(String(LONG)));
+    expect(tabNow.filter).toBe('');
     expect(screen.queryByTestId('git-tool-error')).toBeNull();
+    expect(fieldMarked()).toBe(false);
   });
 
   it('takes a refusal of the list where it is entered as the list’s own: the pattern runs once, and no row is read after', async () => {
@@ -432,7 +446,7 @@ describe('GitLogView — the text field over the whole history', () => {
     await waitFor(() => expect(selected()).toEqual(['w300']));
     refuseText = { ok: false, reason: 'search-timeout' };
     await apply({ filter: 'gateway \\d+$', filterRegex: true });
-    await waitFor(() => expect(screen.getByTestId('git-tool-error').textContent).toContain('search-timeout'));
+    await waitFor(() => expect(screen.queryByTestId('git-tool-error')).not.toBeNull());
     await settle();
     // The host was asked for the list ONCE — where the tab's commit sits in it — and for none of its rows.
     expect(textCalls().map((call) => call.type)).toEqual(['oh.workspaceTree.locateLogRow']);

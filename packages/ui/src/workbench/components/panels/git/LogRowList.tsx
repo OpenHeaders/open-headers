@@ -59,6 +59,8 @@ export interface LogRowListProps {
   listing: string | null;
   /** The list asked for has no answer yet: an empty list says nothing of itself. */
   pending: boolean;
+  /** The host refused the list asked for: no row is drawn, and none is said to be missing. */
+  refused: boolean;
   /** The rows mounted — what the read follows. */
   onWindow: (mounted: LogRowRange) => void;
   /** The row selection, in this list's row numbers. */
@@ -100,6 +102,7 @@ const LogRowList: React.FC<LogRowListProps> = ({
   held,
   listing,
   pending,
+  refused,
   onWindow,
   selection,
   selectedRow,
@@ -254,7 +257,7 @@ const LogRowList: React.FC<LogRowListProps> = ({
   if (total === 0) {
     // Before the first answer the list is not known to be empty: the pulse above says it is being read.
     if (pending) return <div style={{ flex: '1 1 auto' }} data-testid="git-tool-list-pending" />;
-    return <CommitListEmpty filtersActive={filtersActive} onResetFilters={onResetFilters} />;
+    return <CommitListEmpty filtersActive={filtersActive} onResetFilters={onResetFilters} refused={refused} />;
   }
 
   const rows: React.ReactNode[] = [];

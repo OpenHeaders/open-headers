@@ -428,8 +428,11 @@ const GitLogView: React.FC<GitLogViewProps> = ({
   const goTo = tabRow.goTo;
   const navigateToSha = useCallback((sha: string): void => void goTo(sha, true), [goTo]);
 
-  const combinedError =
-    refused !== null
+  // The applied pattern ran past the host's deadline: said in words, and marked in the field it was typed in.
+  const patternTimedOut = refused !== null && refused.reason === 'search-timeout';
+  const combinedError = patternTimedOut
+    ? t('workbench.gitLog.patternTimeout')
+    : refused !== null
       ? t('workbench.gitLog.loadFailed', { detail: refused.detail ?? refused.reason })
       : fileDiff.error !== null
         ? t('workbench.gitLog.loadFailed', { detail: fileDiff.error })
@@ -599,13 +602,14 @@ const GitLogView: React.FC<GitLogViewProps> = ({
             onCollapseLinear={() => patchTab({ folds: ALL_LOG_FOLDS })}
             canExpandLinear={runsFold && canUnfoldAll(folds)}
             onExpandLinear={() => patchTab({ folds: NO_LOG_FOLDS })}
-            textInvalid={matcher.kind === 'invalid'}
+            textInvalid={matcher.kind === 'invalid' || patternTimedOut}
           />
           <GitWorkingLine active={atHost || pending || rows.asked} />
           <LogRowList
             held={held}
             listing={drawnListing}
             pending={pending}
+            refused={refused !== null}
             onWindow={onWindow}
             selection={selection}
             selectedRow={tabRow.row}

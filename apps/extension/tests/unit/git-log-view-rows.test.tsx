@@ -481,8 +481,23 @@ describe('GitLogView — the list it asks for', () => {
     await mount();
     refuseNext = { ok: false, reason: 'log-timeout' };
     await apply({ noMerges: true });
-    expect(screen.getByTestId('git-tool-error').textContent).toContain('log-timeout');
+    expect(screen.getByTestId('git-tool-error').textContent).toBe('Could not load history: log-timeout');
     expect(mountedRows()).toEqual([]);
+    // Refused, the list is not said to hold no commit; the reset stays, and the text field — which asked nothing — is not marked.
+    expect(screen.getByTestId('git-tool-empty').textContent).toBe('Reset filters');
+    expect(screen.getByTestId('git-tool-filter').closest('.ant-input-affix-wrapper')?.className).not.toContain(
+      'status-error',
+    );
+  });
+
+  it('says nothing of commits under a refusal with no filter on — neither the first-commit hint nor a reset', async () => {
+    refuseNext = { ok: false, reason: 'log-failed', detail: 'spawn git ENOENT' };
+    render(<Harness initial={TAB} />);
+    await waitFor(() =>
+      expect(screen.getByTestId('git-tool-error').textContent).toBe('Could not load history: spawn git ENOENT'),
+    );
+    expect(screen.getByTestId('git-tool-empty').textContent).toBe('');
+    expect(screen.queryByTestId('git-tool-reset-filters')).toBeNull();
   });
 
   it('keeps the rows of the ask before drawn until the new ask is answered', async () => {

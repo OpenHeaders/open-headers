@@ -599,6 +599,8 @@ export const workbenchChrome = {
   'workbench.gitLog.noneSelected': 'Коммит не выбран',
   'workbench.gitLog.commitsSelected': 'Выбрано коммитов: {count}',
   'workbench.gitLog.loadFailed': 'Не удалось загрузить историю: {detail}',
+  'workbench.gitLog.patternTimeout':
+    'Время поиска по регулярному выражению истекло до того, как он охватил всю историю. Попробуйте выражение попроще.',
   'workbench.gitLog.authorLine': '{author} <{email}>, {date}',
   'workbench.gitLog.coAuthors': 'Соавторы: {authors}',
   'workbench.gitLog.filesHeading': 'Изменённые файлы',

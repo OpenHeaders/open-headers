@@ -171,6 +171,7 @@ interface HarnessProps {
   /** The listing the held rows are of. */
   listing?: string | null;
   pending?: boolean;
+  refused?: boolean;
   initial?: number | null;
   /** The tab's row as the view hands it down — in the same draw as the rows, where it is given. */
   tabRow?: number | null;
@@ -194,6 +195,7 @@ const Harness: React.FC<HarnessProps> = ({
   held,
   listing = 'all',
   pending = false,
+  refused = false,
   initial = null,
   tabRow,
   navigate,
@@ -218,6 +220,7 @@ const Harness: React.FC<HarnessProps> = ({
       held={held}
       listing={held.ask === null ? null : listing}
       pending={pending}
+      refused={refused}
       onWindow={onWindow}
       selection={selection}
       selectedRow={tabRow === undefined ? selectedRow : tabRow}
@@ -332,6 +335,13 @@ describe('LogRowList — a list with no row', () => {
     rerender(<Harness held={holding(0)} filtersActive onResetFilters={onResetFilters} />);
     fireEvent.click(screen.getByTestId('git-tool-reset-filters'));
     expect(onResetFilters).toHaveBeenCalledTimes(1);
+  });
+
+  it('says nothing of commits where the list was refused — the way back stays while a filter is on', () => {
+    const { rerender } = render(<Harness held={NO_LOG_ROWS} refused />);
+    expect(screen.getByTestId('git-tool-empty').textContent).toBe('');
+    rerender(<Harness held={NO_LOG_ROWS} refused filtersActive />);
+    expect(screen.getByTestId('git-tool-empty').textContent).toBe('Reset filters');
   });
 });
 

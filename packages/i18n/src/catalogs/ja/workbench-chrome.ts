@@ -579,6 +579,8 @@ export const workbenchChrome = {
   'workbench.gitLog.noneSelected': 'コミットが選択されていません',
   'workbench.gitLog.commitsSelected': '{count} 件のコミットを選択中',
   'workbench.gitLog.loadFailed': '履歴を読み込めませんでした：{detail}',
+  'workbench.gitLog.patternTimeout':
+    '履歴全体に到達する前に正規表現が時間切れになりました。より単純な正規表現をお試しください。',
   'workbench.gitLog.authorLine': '{author} <{email}>、{date}',
   'workbench.gitLog.coAuthors': '共同作成者：{authors}',
   'workbench.gitLog.filesHeading': '変更されたファイル',

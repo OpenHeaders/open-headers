@@ -72,7 +72,7 @@ export interface GitLogToolbarProps {
   /** Graph Options › Expand Linear Branches — a run is held folded. */
   canExpandLinear: boolean;
   onExpandLinear: () => void;
-  /** The text field's regex failed to compile — error styling. */
+  /** The applied text is one the log cannot take, or a pattern that ran out of time — error styling. */
   textInvalid: boolean;
 }
 
