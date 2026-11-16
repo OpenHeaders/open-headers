@@ -1,8 +1,9 @@
 // @vitest-environment jsdom
 /**
  * `LogRowList` — the log's list over row numbers, mounted: the rows
- * held are drawn and one not read yet is an empty row of the same
- * height; the rows mounted are reported; the selection, the keyboard
+ * held are drawn, the read rows nearest stand in where the position's
+ * own are not read, and a row is empty only where none can; the rows
+ * mounted at the position are reported; the selection, the keyboard
  * and the right-click rule run on row numbers and report the details
  * row; the pointer over a graph cell lights the run its row names and a
  * press asks for its fold; the graph column is as wide as the rows in
@@ -109,6 +110,9 @@ function holding(
   }
   return held;
 }
+
+/** A list of `total` rows known and none of them held. */
+const holdingNone = (total: number): LogRowPages => ({ ...holding(total), pages: new Map() });
 
 /** The scroller as an engine lays it out; 0 leaves it unlaid (jsdom's own). */
 let viewportPx = 0;
@@ -245,20 +249,31 @@ describe('LogRowList — the rows', () => {
     expect(screen.getByTestId('git-tool-list').getAttribute('data-total')).toBe('5');
   });
 
-  it('draws a row not read yet as an empty row of the same height', () => {
-    // 300 rows, the first page held: a scroller with no height yet mounts the first 200.
-    render(<Harness held={holding(300, [1])} />);
+  it('draws a row not read yet as an empty row of the same height where no read row can stand in', () => {
+    // 300 rows and none held: a scroller with no height yet mounts the first 200.
+    render(<Harness held={holdingNone(300)} />);
     expect(mountedRows()).toHaveLength(200);
     const pending = rowEl(10);
     expect(pending.getAttribute('data-pending')).toBe('true');
     expect(pending.getAttribute('data-sha')).toBeNull();
     expect(pending.children).toHaveLength(0);
     expect(pending.style.height).toBe(`${ROW_PX}px`);
+    expect(screen.getByTestId('git-tool-list').getAttribute('data-standing')).toBeNull();
+  });
+
+  it('draws the read rows nearest in the stead of rows not read yet, and reports the rows of its position', () => {
+    // 300 rows, the second page held: the position's 200 rows are not read.
+    const onWindow = vi.fn();
+    render(<Harness held={holding(300, [1])} onWindow={onWindow} />);
+    expect(mountedRows()).toEqual(Array.from({ length: 100 }, (_, at) => 200 + at));
+    expect(rowEl(200).textContent).toContain('commit 200');
+    expect(screen.getByTestId('git-tool-list').getAttribute('data-standing')).toBe('true');
+    expect(onWindow).toHaveBeenLastCalledWith({ first: 0, last: 199 });
   });
 
   it('draws a row as wide as the list and no wider: its padding is inside its width', () => {
     // A row read, then one not read yet: the same box.
-    for (const held of [holding(5), holding(300, [1])]) {
+    for (const held of [holding(5), holdingNone(300)]) {
       const { unmount } = render(<Harness held={held} />);
       const row = rowEl(3);
       expect(row.style.width).toBe('100%');
@@ -606,8 +621,45 @@ describe('LogRowList — over a laid-out scroller', () => {
     expect(cellOf(31).getAttribute('width')).toBe('24');
   });
 
+  it('stands the read rows nearest at the viewport’s top while the position’s own are not read, and gives way when they land', () => {
+    const onWindow = vi.fn();
+    const { rerender } = render(<Harness held={holding(10_000, [0])} onWindow={onWindow} />);
+    const list = screen.getByTestId('git-tool-list');
+    const holder = (): HTMLElement => rowEl(mountedRows()[0]).parentElement as HTMLElement;
+    expect(list.getAttribute('data-standing')).toBeNull();
+    expect(holder().style.position).toBe('absolute');
+
+    // A scrollbar dragged to row 5,000: its 20 rows are not read — the last 20 of the page held stand in.
+    list.scrollTop = 5_000 * ROW_PX;
+    fireEvent.scroll(list);
+    expect(mountedRows()).toEqual(Array.from({ length: 20 }, (_, at) => 180 + at));
+    expect(list.getAttribute('data-standing')).toBe('true');
+    expect(holder().style.position).toBe('sticky');
+    expect(holder().style.top).toBe('0px');
+    // The read follows the position, never the rows standing in.
+    expect(onWindow).toHaveBeenLastCalledWith({ first: 4_976, last: 5_043 });
+
+    // The position's rows land: they are drawn at their own place.
+    rerender(<Harness held={holding(10_000, [0, 25])} onWindow={onWindow} />);
+    expect(mountedRows()[0]).toBe(4_976);
+    expect(rowEl(5_000).textContent).toContain('commit 5000');
+    expect(list.getAttribute('data-standing')).toBeNull();
+    expect(holder().style.position).toBe('absolute');
+    expect(holder().style.top).toBe(`${4_976 * ROW_PX}px`);
+  });
+
+  it('stops on the last row read where the rows under it are not, and takes the graph column’s width from the rows standing', () => {
+    // Row 190 is three lanes wide; rows 195–214 show, and page 1 is not read.
+    render(<Harness held={holding(10_000, [0], (at) => (at === 190 ? 3 : 1))} />);
+    const list = screen.getByTestId('git-tool-list');
+    list.scrollTop = 195 * ROW_PX;
+    fireEvent.scroll(list);
+    expect(mountedRows()).toEqual(Array.from({ length: 20 }, (_, at) => 180 + at));
+    expect(cellOf(199).getAttribute('width')).toBe('56');
+  });
+
   it('brings a navigation’s row into view, and the same row again on a new nonce', () => {
-    const held = holding(10_000, [0]);
+    const held = holding(10_000, [0, 25]);
     const { rerender } = render(<Harness held={held} />);
     const list = screen.getByTestId('git-tool-list');
     rerender(<Harness held={held} scrollTo={{ row: 5_000, nonce: 1 }} />);

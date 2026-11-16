@@ -2,8 +2,8 @@
 /**
  * The fixed-row window's hook over a scroller whose numbers are set by
  * hand: the rows to mount and the rows in view follow the scroll
- * position and the scroller's resize, the height the engine gave the
- * spacer is read back, a
+ * position and the scroller's resize, a scroll is drawn inside its
+ * event, the height the engine gave the spacer is read back, a
  * scroller with no height yet mounts the list's first rows, and a row
  * is brought into view from where the scroller stands.
  */
@@ -68,6 +68,23 @@ describe('useFixedRowWindow', () => {
     expect(result.current).toMatchObject({ start: 0, end: 44, offsetPx: 0 });
     el.scrollTop = 2_600;
     act(() => result.current.onScroll());
+    expect(result.current).toMatchObject({ start: 76, end: 144, offsetPx: 76 * ROW });
+  });
+
+  it('draws a scroll inside its event: the window stands before the handler returns', () => {
+    const el = scroller(520, 10_000 * ROW);
+    const { result } = mount(el, 10_000);
+    el.scrollTop = 2_600;
+    // No `act`: nothing but the handler itself is given the chance to draw.
+    result.current.onScroll();
+    expect(result.current).toMatchObject({ start: 76, end: 144, offsetPx: 76 * ROW });
+  });
+
+  it('reads a scroller moved by hand again, drawn with whatever moved it', () => {
+    const el = scroller(520, 10_000 * ROW);
+    const { result } = mount(el, 10_000);
+    el.scrollTop = 2_600;
+    act(() => result.current.remeasure());
     expect(result.current).toMatchObject({ start: 76, end: 144, offsetPx: 76 * ROW });
   });
 

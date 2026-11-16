@@ -5,6 +5,11 @@
  * and on the scroller's resize, and the scroll position that brings a
  * row into view from where it stands.
  *
+ * A scroll is drawn INSIDE its event. React leaves a scroll event's
+ * update for a later task, and the frame painted between would show the
+ * rows of the position before under the new one — none of them after a
+ * jump of the scrollbar.
+ *
  * The height the engine gave the spacer is read back from the scroller
  * every time, so an engine that clamps lower than the one asked for is
  * followed, not assumed. A scroller with no height yet (an unlaid-out
@@ -12,6 +17,7 @@
  */
 
 import { type RefObject, useCallback, useLayoutEffect, useState } from 'react';
+import { flushSync } from 'react-dom';
 import {
   computeFixedRowWindow,
   type FixedRowGeometry,
@@ -47,8 +53,10 @@ const sameMeasure = (a: Measured, b: Measured): boolean =>
 export interface FixedRowWindowApi extends FixedRowWindow {
   /** The rows the viewport shows — no overscan. */
   inView: FixedRowsInView;
-  /** Scroll handler for the list container (chain with the caller's). */
+  /** Scroll handler for the list container (chain with the caller's): the window is drawn before it returns. */
   onScroll: () => void;
+  /** Read the scroller again after moving it by hand — from an effect, where nothing is drawn inside the call. */
+  remeasure: () => void;
   /** The spacer's height to give the scroller's content. */
   spacerPx: number;
   /** The scroll position that brings a row into view from where the scroller stands; null before it is laid out. */
@@ -106,5 +114,14 @@ export function useFixedRowWindow(ref: RefObject<HTMLElement | null>, count: num
     [ref, geometryOf],
   );
 
-  return { ...measured.rowWindow, inView: measured.inView, onScroll: recompute, spacerPx, scrollTopFor };
+  const onScroll = useCallback(() => flushSync(recompute), [recompute]);
+
+  return {
+    ...measured.rowWindow,
+    inView: measured.inView,
+    onScroll,
+    remeasure: recompute,
+    spacerPx,
+    scrollTopFor,
+  };
 }

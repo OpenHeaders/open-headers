@@ -2,9 +2,13 @@
  * LogRowList — the log's middle pane over a list the HOST keeps whole:
  * a window of rows of one height over row numbers
  * (`shared/virtual-window`), drawn from the pages the view holds
- * (`log-row-pages.ts`). The scrollbar stands for the whole history; a
- * row not read yet is an empty row of the same height, and the rows
- * mounted are reported so the read follows the view (`onWindow`).
+ * (`log-row-pages.ts`). The scrollbar stands for the whole history, and
+ * the rows mounted at its position are reported so the read follows the
+ * view (`onWindow`). Where the position's rows are not all read, the
+ * read rows nearest them stand in the viewport until they are
+ * (`log-rows-drawn.ts`) — a scrollbar dragged through the history never
+ * draws an empty list; a row is drawn empty only where no read one can
+ * stand in.
  *
  * Selection is by ROW NUMBER (`shared/selection/row-selection`): a
  * click selects a row alone, Cmd/Ctrl+click toggles it, Shift+click
@@ -22,7 +26,7 @@
  * The graph column (the reference): a row's cell arrives whole with the
  * row; the pointer over a cell lights the linear run the row names, and
  * a press on it asks for the run to be folded or opened again. The
- * column is as wide as the rows in view need.
+ * column is as wide as the rows the viewport draws need.
  *
  * The row menu (the reference): a right-click on an unselected row
  * selects it alone and opens the menu over it; on a selected row the
@@ -43,6 +47,7 @@ import { contextMenuAlign } from './git-menu-overflow';
 import { GRAPH_ROW_HEIGHT } from './GraphCell';
 import { logRowHighlight } from './log-cell';
 import { type LogRowPages, type LogRowRange, logRowAt, logRunAt } from './log-row-pages';
+import { logRowsDrawn } from './log-rows-drawn';
 import { rowClickOutcome, stepRowTarget } from './log-row-selection';
 import LogRow from './LogRow';
 import type { CommitSignature } from './use-commit-signatures';
@@ -132,11 +137,15 @@ const LogRowList: React.FC<LogRowListProps> = ({
     [],
   );
 
-  // The rows the viewport shows decide the graph column's width — never the ones mounted beyond it; rows not
+  // The position's own rows, or the read rows standing in for them.
+  const drawn = logRowsDrawn(held, inView);
+  const shown = drawn.standing ? drawn : inView;
+
+  // The rows the viewport draws decide the graph column's width — never the ones mounted beyond it; rows not
   // read yet leave it as it was.
   const lanes = useRef(1);
   let widest = 0;
-  for (let row = inView.first; row <= inView.last; row += 1) {
+  for (let row = shown.first; row <= shown.last; row += 1) {
     widest = Math.max(widest, logRowAt(held, row)?.cell.laneCount ?? 0);
   }
   if (widest > 0) lanes.current = widest;
@@ -146,7 +155,7 @@ const LogRowList: React.FC<LogRowListProps> = ({
     const top = rowWindow.scrollTopFor(row, align);
     if (top === null || listRef.current === null) return;
     listRef.current.scrollTop = top;
-    rowWindow.onScroll();
+    rowWindow.remeasure();
   };
 
   // A listing is entered on the tab's row, else at its top — before it is painted. A fold, a frame of the repo
@@ -249,7 +258,9 @@ const LogRowList: React.FC<LogRowListProps> = ({
   }
 
   const rows: React.ReactNode[] = [];
-  for (let number = start; number < end; number += 1) {
+  const from = drawn.standing ? drawn.first : start;
+  const to = drawn.standing ? drawn.last + 1 : end;
+  for (let number = from; number < to; number += 1) {
     const row = logRowAt(held, number);
     const highlight = row === null ? null : logRowHighlight(number, row.run, lit);
     const draws =
@@ -289,9 +300,19 @@ const LogRowList: React.FC<LogRowListProps> = ({
       style={{ flex: '1 1 auto', minHeight: 0, overflowY: 'auto', outline: 'none' }}
       data-testid="git-tool-list"
       data-total={total}
+      data-standing={drawn.standing || undefined}
     >
       <div style={{ position: 'relative', height: rowWindow.spacerPx }}>
-        <div style={{ position: 'absolute', top: rowWindow.offsetPx, left: 0, right: 0 }}>{rows}</div>
+        {/* Rows standing in keep to the viewport's top while the scroller moves under them. */}
+        <div
+          style={
+            drawn.standing
+              ? { position: 'sticky', top: 0 }
+              : { position: 'absolute', top: rowWindow.offsetPx, left: 0, right: 0 }
+          }
+        >
+          {rows}
+        </div>
       </div>
     </div>
   );
