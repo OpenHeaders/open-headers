@@ -176,6 +176,14 @@ const cellOf = (at: number): Element => {
   return cell;
 };
 
+/** The holder the rows are drawn in — it keeps to the viewport. */
+const holderOf = (): HTMLElement => (rowEl(mountedRows()[0]).parentElement as HTMLElement).parentElement as HTMLElement;
+/** Where the first row drawn stands under the holder's top edge, in pixels; null for rows standing from it. */
+const placedAt = (): number | null => {
+  const { transform } = (rowEl(mountedRows()[0]).parentElement as HTMLElement).style;
+  return transform === '' ? null : Number(/^translateY\((-?[\d.]+)px\)$/.exec(transform)?.[1]);
+};
+
 interface HarnessProps {
   held: LogRowPages;
   /** The listing the held rows are of. */
@@ -612,10 +620,65 @@ describe('LogRowList — over a laid-out scroller', () => {
     expect(mountedRows().at(-1)).toBe(543);
     expect(onWindow).toHaveBeenLastCalledWith({ first: 476, last: 543 });
     expect(rowEl(500).textContent).toContain('commit 500');
-    expect((rowEl(476).parentElement as HTMLElement).style.top).toBe(`${476 * ROW_PX}px`);
-    expect(((rowEl(476).parentElement as HTMLElement).parentElement as HTMLElement).style.height).toBe(
-      `${10_000 * ROW_PX}px`,
-    );
+    // Row 500 at the viewport's top: the 24 rows mounted above it stand that far over the holder's top edge.
+    expect(placedAt()).toBe((476 - 500) * ROW_PX);
+    expect((holderOf().parentElement as HTMLElement).style.height).toBe(`${10_000 * ROW_PX}px`);
+  });
+
+  it('holds the rows drawn in the viewport wherever the scroller stands — a holder that keeps to it, as tall as it', () => {
+    render(<Harness held={holding(10_000, [0, 2])} />);
+    for (const top of [0, 500 * ROW_PX]) {
+      const list = screen.getByTestId('git-tool-list');
+      list.scrollTop = top;
+      fireEvent.scroll(list);
+      expect(holderOf().style.position).toBe('sticky');
+      expect(holderOf().style.top).toBe('0px');
+      expect(holderOf().style.height).toBe('520px');
+      expect(holderOf().style.overflow).toBe('hidden');
+    }
+  });
+
+  it('places the rows for every scroll — one that mounts no other row too', () => {
+    render(<Harness held={holding(10_000, [0, 2])} />);
+    const list = screen.getByTestId('git-tool-list');
+    // Ten pixels into row 500: rows 477–543 are mounted, 500–520 in view.
+    list.scrollTop = 500 * ROW_PX + 10;
+    fireEvent.scroll(list);
+    const mounted = mountedRows();
+    expect(mounted[0]).toBe(477);
+    expect(placedAt()).toBe(-608);
+
+    // A pixel further, then six back: neither changes the rows mounted or the rows in view — nothing is drawn
+    // again — and the rows are placed all the same.
+    list.scrollTop = 500 * ROW_PX + 11;
+    fireEvent.scroll(list);
+    expect(mountedRows()).toEqual(mounted);
+    expect(placedAt()).toBe(-609);
+    list.scrollTop = 500 * ROW_PX + 5;
+    fireEvent.scroll(list);
+    expect(mountedRows()).toEqual(mounted);
+    expect(placedAt()).toBe(-603);
+  });
+
+  it('places the rows on a whole pixel of the screen — rows that meet at a fraction of one show a seam', () => {
+    render(<Harness held={holding(10_000, [0, 2])} />);
+    const list = screen.getByTestId('git-tool-list');
+    const ratio = vi.spyOn(window, 'devicePixelRatio', 'get');
+    const placedUnder = (top: number): number | null => {
+      list.scrollTop = top;
+      fireEvent.scroll(list);
+      return placedAt();
+    };
+    // A screen that draws a pixel a pixel: a place between two is the nearer one.
+    ratio.mockReturnValue(1);
+    expect(placedUnder(500 * ROW_PX + 10.3)).toBe(-608);
+    expect(placedUnder(500 * ROW_PX + 10.7)).toBe(-609);
+    // One that draws two a pixel: a half is a whole one of its own, a third is not.
+    ratio.mockReturnValue(2);
+    expect(placedUnder(500 * ROW_PX + 10.5)).toBe(-608.5);
+    expect(placedUnder(500 * ROW_PX + 10.3)).toBe(-608.5);
+    expect(placedUnder(500 * ROW_PX + 10.2)).toBe(-608);
+    ratio.mockRestore();
   });
 
   it('moves no row’s subject when a wider row scrolls into view — each cell keeps its own row’s width', () => {
@@ -640,17 +703,21 @@ describe('LogRowList — over a laid-out scroller', () => {
     const onWindow = vi.fn();
     const { rerender } = render(<Harness held={holding(10_000, [0])} onWindow={onWindow} />);
     const list = screen.getByTestId('git-tool-list');
-    const holder = (): HTMLElement => rowEl(mountedRows()[0]).parentElement as HTMLElement;
     expect(list.getAttribute('data-standing')).toBeNull();
-    expect(holder().style.position).toBe('absolute');
+    expect(placedAt()).toBe(0);
 
     // A scrollbar dragged to row 5,000: its 20 rows are not read — the last 20 of the page held stand in.
     list.scrollTop = 5_000 * ROW_PX;
     fireEvent.scroll(list);
     expect(mountedRows()).toEqual(Array.from({ length: 20 }, (_, at) => 180 + at));
     expect(list.getAttribute('data-standing')).toBe('true');
-    expect(holder().style.position).toBe('sticky');
-    expect(holder().style.top).toBe('0px');
+    // They stand from the viewport's top, wherever the scroller is.
+    expect(placedAt()).toBeNull();
+    list.scrollTop = 5_003 * ROW_PX;
+    fireEvent.scroll(list);
+    expect(placedAt()).toBeNull();
+    list.scrollTop = 5_000 * ROW_PX;
+    fireEvent.scroll(list);
     // The read follows the position, never the rows standing in.
     expect(onWindow).toHaveBeenLastCalledWith({ first: 4_976, last: 5_043 });
 
@@ -659,8 +726,7 @@ describe('LogRowList — over a laid-out scroller', () => {
     expect(mountedRows()[0]).toBe(4_976);
     expect(rowEl(5_000).textContent).toContain('commit 5000');
     expect(list.getAttribute('data-standing')).toBeNull();
-    expect(holder().style.position).toBe('absolute');
-    expect(holder().style.top).toBe(`${4_976 * ROW_PX}px`);
+    expect(placedAt()).toBe((4_976 - 5_000) * ROW_PX);
   });
 
   it('stops on the last row read where the rows under it are not — the rows standing each as wide as their own', () => {
@@ -675,12 +741,15 @@ describe('LogRowList — over a laid-out scroller', () => {
   });
 
   it('brings a navigation’s row into view, and the same row again on a new nonce', () => {
-    const held = holding(10_000, [0, 25]);
+    const held = holding(10_000, [0, 24, 25]);
     const { rerender } = render(<Harness held={held} />);
     const list = screen.getByTestId('git-tool-list');
     rerender(<Harness held={held} scrollTo={{ row: 5_000, nonce: 1 }} />);
     expect(list.scrollTop).toBe(5_000 * ROW_PX - (520 - ROW_PX) / 2);
     expect(mountedRows()).toContain(5_000);
+    // The rows are placed for where the scroller was moved to: row 5,000 in the viewport's middle.
+    expect(placedAt()).toBe(mountedRows()[0] * ROW_PX - list.scrollTop);
+    expect((5_000 - mountedRows()[0]) * ROW_PX + (placedAt() ?? 0)).toBe((520 - ROW_PX) / 2);
 
     list.scrollTop = 0;
     fireEvent.scroll(list);
@@ -712,6 +781,15 @@ describe('LogRowList — a listing entered', () => {
     render(<Harness held={holding(10_000, [25])} tabRow={5_000} />);
     expect(screen.getByTestId('git-tool-list').scrollTop).toBe(centred(5_000));
     expect(mountedRows()).toContain(5_000);
+  });
+
+  it('places the rows where the listing is entered, in the draw that enters it', () => {
+    // The rows around row 5,000 sit on two pages, both held: they are the position's own.
+    render(<Harness held={holding(10_000, [24, 25])} tabRow={5_000} />);
+    expect(screen.getByTestId('git-tool-list').getAttribute('data-standing')).toBeNull();
+    expect(placedAt()).toBe(mountedRows()[0] * ROW_PX - centred(5_000));
+    // Row 5,000 stands in the viewport's middle.
+    expect((5_000 - mountedRows()[0]) * ROW_PX + (placedAt() ?? 0)).toBe((VIEW - ROW_PX) / 2);
   });
 
   it('enters another listing on the tab’s row in the draw its rows arrive in — and reports the rows it stands on alone', () => {

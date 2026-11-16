@@ -112,9 +112,18 @@ describe('useFixedRowWindow', () => {
     Object.defineProperty(el, 'clientHeight', { configurable: true, get: () => viewport });
     const { result, unmount } = mount(el, 10_000);
     expect(result.current.end).toBe(44);
+    expect(result.current.viewportPx).toBe(520);
     viewport = 1_040;
     act(() => observers[0].fire());
     expect(result.current.end).toBe(64);
+    expect(result.current.viewportPx).toBe(1_040);
+    // A pixel taller that mounts no other row and shows no other: the height is still told.
+    viewport = 1_027;
+    act(() => observers[0].fire());
+    const { start, end, inView } = result.current;
+    viewport = 1_028;
+    act(() => observers[0].fire());
+    expect(result.current).toMatchObject({ start, end, inView, viewportPx: 1_028 });
     unmount();
     expect(observers.every((observer) => observer.disconnected)).toBe(true);
   });
@@ -129,7 +138,13 @@ describe('useFixedRowWindow', () => {
 
   it('mounts the list’s first rows while the scroller has no height', () => {
     const { result } = mount(scroller(0, 0), 1_000_000);
-    expect(result.current).toMatchObject({ start: 0, end: 200, offsetPx: 0, inView: { first: 0, last: 199 } });
+    expect(result.current).toMatchObject({
+      start: 0,
+      end: 200,
+      offsetPx: 0,
+      inView: { first: 0, last: 199 },
+      viewportPx: 0,
+    });
     expect(mount(scroller(0, 0), 12).result.current).toMatchObject({ end: 12, inView: { first: 0, last: 11 } });
   });
 

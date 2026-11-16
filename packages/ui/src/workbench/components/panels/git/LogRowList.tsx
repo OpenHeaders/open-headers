@@ -8,7 +8,11 @@
  * read rows nearest them stand in the viewport until they are
  * (`log-rows-drawn.ts`) — a scrollbar dragged through the history never
  * draws an empty list; a row is drawn empty only where no read one can
- * stand in.
+ * stand in. The rows drawn are HELD IN THE VIEWPORT: their holder keeps
+ * to it wherever the scroller stands, and the list places them inside
+ * it each time it reads the scroller. A scrollbar moves the scroller
+ * before the list can draw for where it went; what is shown meanwhile
+ * is the rows it showed — never a bare viewport.
  *
  * Selection is by ROW NUMBER (`shared/selection/row-selection`): a
  * click selects a row alone, Cmd/Ctrl+click toggles it, Shift+click
@@ -144,6 +148,26 @@ const LogRowList: React.FC<LogRowListProps> = ({
   // The position's own rows, or the read rows standing in for them.
   const drawn = logRowsDrawn(held, inView);
 
+  // The rows are drawn in a holder that keeps to the viewport, and WHERE they stand in it is written here, where
+  // the scroller is read: on its scroll, and after every draw. A scrollbar moves the scroller before the list
+  // can draw for where it went — the frame shown meanwhile is the rows it showed, never an empty list.
+  const rowsRef = useRef<HTMLDivElement>(null);
+  // Where the first row drawn stands in the scroller's content; null for rows standing in, at the viewport's top.
+  const rowsAt = useRef<number | null>(null);
+  rowsAt.current = drawn.standing ? null : rowWindow.offsetPx;
+  const place = useCallback((): void => {
+    const list = listRef.current;
+    const rows = rowsRef.current;
+    if (list === null || rows === null) return;
+    if (rowsAt.current === null) {
+      rows.style.transform = '';
+      return;
+    }
+    // On a whole pixel of the screen: rows that meet at a fraction of one show a hairline of what is under them.
+    const ratio = window.devicePixelRatio || 1;
+    rows.style.transform = `translateY(${Math.round((rowsAt.current - list.scrollTop) * ratio) / ratio}px)`;
+  }, []);
+
   const bringIntoView = (row: number, align: 'center' | 'nearest'): void => {
     const top = rowWindow.scrollTopFor(row, align);
     if (top === null || listRef.current === null) return;
@@ -156,6 +180,15 @@ const LogRowList: React.FC<LogRowListProps> = ({
   useLayoutEffect(() => {
     if (listing !== null) bringIntoView(selectedRow ?? 0, 'center');
   }, [listing]);
+
+  // Every draw is placed before it is painted — after the scroller was moved to where a listing is entered.
+  useLayoutEffect(place);
+
+  // A scroll is drawn inside its event, and the rows are placed for it before the event returns.
+  const handleScroll = (): void => {
+    rowWindow.onScroll();
+    place();
+  };
 
   // A navigation is its nonce: the same row asked for again comes into view again.
   useEffect(() => {
@@ -287,23 +320,19 @@ const LogRowList: React.FC<LogRowListProps> = ({
       tabIndex={0}
       className="git-tool-commit-list"
       onKeyDown={handleKeyDown}
-      onScroll={rowWindow.onScroll}
+      onScroll={handleScroll}
       onContextMenuCapture={handleContextMenu}
       style={{ flex: '1 1 auto', minHeight: 0, overflowY: 'auto', outline: 'none' }}
       data-testid="git-tool-list"
       data-total={total}
       data-standing={drawn.standing || undefined}
     >
-      <div style={{ position: 'relative', height: rowWindow.spacerPx }}>
-        {/* Rows standing in keep to the viewport's top while the scroller moves under them. */}
-        <div
-          style={
-            drawn.standing
-              ? { position: 'sticky', top: 0 }
-              : { position: 'absolute', top: rowWindow.offsetPx, left: 0, right: 0 }
-          }
-        >
-          {rows}
+      <div style={{ height: rowWindow.spacerPx }}>
+        {/* The holder keeps to the viewport wherever the scroller stands, and shows no row past its edges. */}
+        <div style={{ position: 'sticky', top: 0, height: rowWindow.viewportPx, overflow: 'hidden' }}>
+          <div ref={rowsRef} style={{ willChange: 'transform' }}>
+            {rows}
+          </div>
         </div>
       </div>
     </div>

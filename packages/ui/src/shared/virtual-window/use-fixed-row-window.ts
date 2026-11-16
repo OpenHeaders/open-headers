@@ -39,20 +39,28 @@ interface FixedRowsInView {
 interface Measured {
   rowWindow: FixedRowWindow;
   inView: FixedRowsInView;
+  viewportPx: number;
 }
 
-const NOTHING_MEASURED: Measured = { rowWindow: { start: 0, end: 0, offsetPx: 0 }, inView: { first: 0, last: -1 } };
+const NOTHING_MEASURED: Measured = {
+  rowWindow: { start: 0, end: 0, offsetPx: 0 },
+  inView: { first: 0, last: -1 },
+  viewportPx: 0,
+};
 
 const sameMeasure = (a: Measured, b: Measured): boolean =>
   a.rowWindow.start === b.rowWindow.start &&
   a.rowWindow.end === b.rowWindow.end &&
   a.rowWindow.offsetPx === b.rowWindow.offsetPx &&
   a.inView.first === b.inView.first &&
-  a.inView.last === b.inView.last;
+  a.inView.last === b.inView.last &&
+  a.viewportPx === b.viewportPx;
 
 export interface FixedRowWindowApi extends FixedRowWindow {
   /** The rows the viewport shows — no overscan. */
   inView: FixedRowsInView;
+  /** The scroller's own height as it was measured; 0 before it is laid out. */
+  viewportPx: number;
   /** Scroll handler for the list container (chain with the caller's): the window is drawn before it returns. */
   onScroll: () => void;
   /** Read the scroller again after moving it by hand — from an effect, where nothing is drawn inside the call. */
@@ -84,12 +92,13 @@ export function useFixedRowWindow(ref: RefObject<HTMLElement | null>, count: num
     let next: Measured;
     if (el.clientHeight === 0) {
       const end = Math.min(count, UNLAID_ROWS);
-      next = { rowWindow: { start: 0, end, offsetPx: 0 }, inView: { first: 0, last: end - 1 } };
+      next = { rowWindow: { start: 0, end, offsetPx: 0 }, inView: { first: 0, last: end - 1 }, viewportPx: 0 };
     } else {
       const geometry = geometryOf(el);
       next = {
         rowWindow: computeFixedRowWindow(geometry, el.scrollTop),
         inView: visibleFixedRows(geometry, el.scrollTop),
+        viewportPx: geometry.viewportPx,
       };
     }
     setMeasured((prev) => (sameMeasure(prev, next) ? prev : next));
@@ -119,6 +128,7 @@ export function useFixedRowWindow(ref: RefObject<HTMLElement | null>, count: num
   return {
     ...measured.rowWindow,
     inView: measured.inView,
+    viewportPx: measured.viewportPx,
     onScroll,
     remeasure: recompute,
     spacerPx,
