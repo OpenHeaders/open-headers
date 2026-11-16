@@ -668,6 +668,12 @@ export interface WorkspaceTreeGitStatusRpcResult {
   branches: string[];
   /** Tag names — a minted or dropped tag moves the frame (the views refetch on frames). */
   tags: string[];
+  /**
+   * Where every branch, remote branch and tag points, as one stamp — it
+   * moves the frame for a ref that changes no name above: a remote
+   * branch, a branch moved in place. Null with no repo, or unreadable.
+   */
+  refsStamp: string | null;
   /** `git status --porcelain` entry count; null when unreadable. */
   dirtyFiles: number | null;
   /** True while the user's own staging area is non-empty (§3.3 pause). */

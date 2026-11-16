@@ -74,6 +74,7 @@ import {
   readCommitFileDiff,
   readCommitTreeFiles,
   readWorkingFileDiff,
+  refsStamp,
   repoArgs,
   resolveAuthorFilterValue,
   resolveCommitIdentity,
@@ -1975,6 +1976,55 @@ describe('Tag ops (S47): the log’s New Tag…', () => {
     expect((await createLightweightTag(run, tmpDir, 'bad..name', first)).ok).toBe(false);
     expect((await createLightweightTag(run, tmpDir, 'v2', first.slice(0, 7))).ok).toBe(false);
     expect((await createLightweightTag(run, tmpDir, 'v3', '0'.repeat(40))).ok).toBe(false);
+  });
+});
+
+describe('The refs’ stamp: the status frame’s fact that a ref moved', () => {
+  const git = (...args: string[]) => run([...repoArgs(tmpDir), ...args], { cwd: tmpDir });
+
+  it('refsStamp moves with a branch, a remote branch and a tag — made, moved in place or deleted — and with nothing else', async () => {
+    expect(await refsStamp(run, tmpDir)).toBeNull();
+    await initialCommit();
+    const first = await localHeadSha(run, tmpDir);
+    if (first === null) throw new Error('no head');
+
+    let last = await refsStamp(run, tmpDir);
+    expect(last).toMatch(/^[0-9a-f]{64}$/);
+    const moved = async (): Promise<boolean> => {
+      const next = await refsStamp(run, tmpDir);
+      const differs = next !== last;
+      last = next;
+      return differs;
+    };
+    expect(await moved()).toBe(false);
+
+    await git('branch', 'side');
+    expect(await moved()).toBe(true);
+    await write('rules/block-r0000001/rule.yaml', 'schemaVersion: 5\nuid: r0000001\n');
+    const second = await commitWorkspaceTree({ run, rootDir: tmpDir, message: 'Second', identityEnv: IDENTITY_ENV });
+    if (!second.ok || !second.committed) throw new Error('second commit failed');
+    expect(await moved()).toBe(true);
+
+    // A branch moved with its name where it was: the frame's list of branches reads the same.
+    const branches = await listLocalBranches(run, tmpDir);
+    await git('branch', '-f', 'side', second.sha);
+    expect(await listLocalBranches(run, tmpDir)).toEqual(branches);
+    expect(await moved()).toBe(true);
+
+    // A remote branch alone: no name the frame lists.
+    await git('update-ref', 'refs/remotes/origin/topic', first);
+    expect(await moved()).toBe(true);
+    await git('update-ref', '-d', 'refs/remotes/origin/topic');
+    expect(await moved()).toBe(true);
+
+    await git('tag', 'v1', first);
+    expect(await moved()).toBe(true);
+
+    // The same refs packed are the same refs; a ref no view shows is none of them.
+    await git('pack-refs', '--all');
+    expect(await moved()).toBe(false);
+    await git('update-ref', 'refs/stash', first);
+    expect(await moved()).toBe(false);
   });
 });
 

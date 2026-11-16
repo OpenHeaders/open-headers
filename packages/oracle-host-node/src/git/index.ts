@@ -150,6 +150,7 @@ export {
   readCommitFileDiff,
   readCommitTreeFiles,
   readWorkingFileDiff,
+  refsStamp,
   resolveAuthorFilterValue,
   resolveCommitIdentity,
   resolveRefSha,

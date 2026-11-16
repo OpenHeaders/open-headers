@@ -1830,6 +1830,13 @@ export interface WorkspaceTreeGitStatusWire {
    * Null, or absent from an older host, at rest.
    */
   operation?: WorkspaceTreeGitOperationWire | null;
+  /**
+   * Where every branch, remote branch and tag points, as one stamp
+   * (additive) — it moves the frame for a ref that changes no name
+   * above: a remote branch, a branch moved in place. Null with no repo;
+   * absent from an older host.
+   */
+  refsStamp?: string | null;
 }
 
 /** A git operation a person can be mid-way through. */

@@ -28,6 +28,7 @@
  * filesystem probes resolve it through {@link resolveGitDirs}.
  */
 
+import { createHash } from 'node:crypto';
 import { promises as fs } from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
@@ -832,6 +833,29 @@ export async function listTags(run: GitRunner, rootDir: string): Promise<string[
   );
   if (result.code !== 0) return [];
   return result.stdout.split('\n').filter((line) => line.trim().length > 0);
+}
+
+/**
+ * Where every branch, remote branch and tag points, as one stamp — the
+ * status frame's fact that a ref moved, whichever it is: a remote
+ * branch, or a branch moved with its name where it was, changes no name
+ * the frame lists. A hash and not the list, since a clone can hold
+ * thousands of remote refs. Null when the refs cannot be read.
+ */
+export async function refsStamp(run: GitRunner, rootDir: string): Promise<string | null> {
+  const result = await run(
+    [
+      ...repoArgs(rootDir),
+      'for-each-ref',
+      '--format=%(objectname) %(refname)',
+      'refs/heads',
+      'refs/remotes',
+      'refs/tags',
+    ],
+    { cwd: rootDir },
+  );
+  if (result.code !== 0) return null;
+  return createHash('sha256').update(result.stdout, 'utf-8').digest('hex');
 }
 
 /** Resolve any ref (branch, remote-tracking, sha) to its commit sha; null when unknown. */
