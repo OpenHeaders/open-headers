@@ -5,7 +5,7 @@
  * opens, holds or closes anything.
  */
 
-import type { CommitLogFilters } from '../../git';
+import type { CommitLogFilters, LogTextAsk } from '../../git';
 
 /** The linear runs a list folds. A run is named by the hash of the first commit it hides. */
 export interface LogFolds {
@@ -23,6 +23,8 @@ export interface LogAsk {
   noMerges: boolean;
   /** User, Date and Paths as the plumbing takes them — git names the commits they leave; null when none is asked. */
   walk: Pick<CommitLogFilters, 'author' | 'authors' | 'since' | 'until' | 'paths'> | null;
+  /** The text field — the commits it matches by subject, author or hash are the ones listed; null when none is asked. */
+  text: LogTextAsk | null;
   folds: LogFolds;
 }
 
@@ -30,14 +32,14 @@ export const NO_FOLDS: LogFolds = { all: false, runs: [] };
 
 /** The list hides commits by a rule of its own — its graph is the contraction's, and no run folds. */
 export function isSifted(ask: LogAsk): boolean {
-  return ask.firstParent || ask.noMerges || ask.walk !== null;
+  return ask.firstParent || ask.noMerges || ask.walk !== null || ask.text !== null;
 }
 
 const sorted = (names: readonly string[]): string[] => [...new Set(names)].sort();
 
 /** The ask as one string — equal for two asks that list the same. */
 export function logAskName(ask: LogAsk): string {
-  const { walk } = ask;
+  const { walk, text } = ask;
   return JSON.stringify([
     ask.scope === null ? null : sorted(ask.scope),
     ask.topological,
@@ -51,6 +53,8 @@ export function logAskName(ask: LogAsk): string {
           walk.until ?? null,
           sorted(walk.paths ?? []),
         ],
+    // A text matches by what was typed without the blanks around it.
+    text === null ? null : [text.text.trim(), text.regex, text.matchCase],
     // A sifted list folds nothing: what it is asked to fold names no other list.
     isSifted(ask) ? null : [ask.folds.all, sorted(ask.folds.runs)],
   ]);

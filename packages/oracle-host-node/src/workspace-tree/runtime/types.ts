@@ -428,15 +428,24 @@ export type WorkspaceTreeSearchLogRpcResult =
 
 /**
  * What a log asks to be listed — the list's name: the scope and the
- * row filters as {@link WorkspaceTreeRuntime.log} reads them, and the
- * linear runs it folds. With neither a scope nor `filters.allRefs`,
- * the checked-out commit's history.
+ * row filters as {@link WorkspaceTreeRuntime.log} reads them, the text
+ * field, and the linear runs it folds. With neither a scope nor
+ * `filters.allRefs`, the checked-out commit's history.
  */
 export interface WorkspaceTreeLogListAsk {
   /** The surface that asks (a log tab): its newer read ends its older one. */
   key?: string;
   scope?: readonly string[];
   filters?: WorkspaceTreeLogFilters;
+  /**
+   * The text field: the commits it matches — by subject, by author's
+   * name, by hash — are the ones listed. A bounded string; anything
+   * else, or a pattern that does not compile, refuses `invalid-filter`.
+   */
+  text?: string;
+  /** `text` is a pattern. */
+  regex?: boolean;
+  matchCase?: boolean;
   /** Every linear run is folded — and `folds` names the ones opened again. */
   foldAll?: boolean;
   /** The folded runs (the opened ones under `foldAll`), each by the full hash of the first commit it hides. */
@@ -454,8 +463,10 @@ export interface WorkspaceTreeLogListRefusal {
     | 'unknown-ref'
     | 'invalid-filter'
     | 'log-failed'
-    /** The history, or the walk that names a filter's commits, ran out of time. */
+    /** The history, its texts, or the walk that names a filter's commits, ran out of time. */
     | 'log-timeout'
+    /** The ask's pattern ran past its deadline. */
+    | 'search-timeout'
     /** A newer read took this one's place; nobody reads its answer. */
     | 'superseded';
   detail?: string;

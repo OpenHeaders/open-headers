@@ -7,12 +7,13 @@
  * chain, like every history read.
  */
 
-import { isCommitSha, isWorkspaceRepo, LOG_SCOPE_HEAD } from '../../git';
-import type { LogAsk, LogList, LogListResult } from '../history';
+import { isCommitSha, isWorkspaceRepo } from '../../git';
+import type { LogList } from '../history';
 import { locateLogRow, readLogRows } from '../history';
 import type { Turns } from '../turns';
 import { LOG_ROWS_MAX_COUNT, LOG_ROWS_MAX_FOLDS, type RuntimeCtx } from './core';
 import { LOG_SURFACE_MAX_KEY, readLogRequest } from './history';
+import { logAskOf, logListRefusal, readLogText } from './log-list-ask';
 import type {
   WorkspaceTreeLocateLogRowRpcResult,
   WorkspaceTreeLogListAsk,
@@ -51,7 +52,8 @@ async function withLogList<T>(
   const key = asked.key ?? '';
   const folds = asked.folds ?? [];
   const request = readLogRequest(ctx, asked.scope, asked.filters);
-  if (request === null || key.length > LOG_SURFACE_MAX_KEY) return INVALID;
+  const text = readLogText(asked);
+  if (request === null || text === null || key.length > LOG_SURFACE_MAX_KEY) return INVALID;
   if (folds.length > LOG_ROWS_MAX_FOLDS || !folds.every(isCommitSha)) return INVALID;
 
   const binding = ctx.open.get(workspaceId);
@@ -64,52 +66,16 @@ async function withLogList<T>(
   if (asked.refresh === true) ctx.logHistories.stale(workspaceId);
   const turn = turns.take(workspaceId, key);
   try {
-    const filters = await request.resolve(rootDir);
-    const walked =
-      filters.author !== undefined ||
-      filters.authors !== undefined ||
-      filters.since !== undefined ||
-      filters.until !== undefined ||
-      filters.paths !== undefined;
-    const ask: LogAsk = {
-      // With neither a scope nor every ref asked for, the checked-out commit's history — as `log` reads it.
-      scope: filters.allRefs === true ? null : (asked.scope ?? [LOG_SCOPE_HEAD]),
-      topological: filters.topoOrder === true,
-      firstParent: filters.firstParent === true,
-      noMerges: filters.noMerges === true,
-      walk: walked
-        ? {
-            ...(filters.author !== undefined ? { author: filters.author } : {}),
-            ...(filters.authors !== undefined ? { authors: filters.authors } : {}),
-            ...(filters.since !== undefined ? { since: filters.since } : {}),
-            ...(filters.until !== undefined ? { until: filters.until } : {}),
-            ...(filters.paths !== undefined ? { paths: filters.paths } : {}),
-          }
-        : null,
-      folds: { all: asked.foldAll === true, runs: folds },
-    };
+    const ask = logAskOf(asked, await request.resolve(rootDir), text);
     // The list is everyone's who asks the same: a turn taken away ends this wait, never the making.
     const listed = await unlessEnded(ctx.logHistories.list(workspaceId, rootDir, ask), turn.signal);
     if (listed === null) return SUPERSEDED;
-    if (!listed.ok) return refusalOf(ctx, rootDir, listed);
+    if (!listed.ok) return logListRefusal(listed, () => isWorkspaceRepo(ctx.gitRun, rootDir));
     const answer = await unlessEnded(then(rootDir, listed.list), turn.signal);
     return answer === null ? SUPERSEDED : answer;
   } finally {
     turn.done();
   }
-}
-
-async function refusalOf(
-  ctx: RuntimeCtx,
-  rootDir: string,
-  refused: Extract<LogListResult, { ok: false }>,
-): Promise<WorkspaceTreeLogListRefusal> {
-  if (refused.reason === 'unknown-ref') return { ok: false, reason: 'unknown-ref', unknownRefs: refused.unknownRefs };
-  if (refused.reason === 'invalid-scope') return { ok: false, reason: 'unknown-ref' };
-  if (refused.reason === 'timeout') return { ok: false, reason: 'log-timeout' };
-  // A history that could not be read: the folder may be no repo at all.
-  if (!(await isWorkspaceRepo(ctx.gitRun, rootDir))) return { ok: false, reason: 'not-a-repo' };
-  return { ok: false, reason: 'log-failed', detail: refused.reason };
 }
 
 export function runLogRows(

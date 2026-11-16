@@ -60,6 +60,7 @@ export {
 export {
   type FlagLogTextsOptions,
   flagLogTexts,
+  isLogTextAsk,
   type LogTextAsk,
   type LogTextFlagsResult,
   type LogTextRows,

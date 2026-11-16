@@ -11,6 +11,7 @@
 import { computeLogGraph, logGraphRows } from '@openheaders/core/workspace-tree';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { historyShaOf } from '../../src/git/log-skeleton';
+import type { LogTextAsk } from '../../src/git/log-text-flags';
 import {
   createLogHistories,
   type LogAsk,
@@ -50,6 +51,7 @@ describe('the list an ask names', () => {
       firstParent: false,
       noMerges: false,
       walk: null,
+      text: null,
       folds: NO_FOLDS,
       ...over,
     };
@@ -57,6 +59,8 @@ describe('the list an ask names', () => {
     if (!result.ok) throw new Error(`list refused: ${result.reason}`);
     return result.list;
   };
+  const plain = (text: string, matchCase = false): LogTextAsk => ({ text, regex: false, matchCase });
+  const pattern = (text: string): LogTextAsk => ({ text, regex: true, matchCase: false });
   const hashes = (list: LogList): string[] =>
     Array.from(list.historyRows, (row) => historyShaOf(list.generation.history, row));
   const titles = (list: LogList): Promise<string[]> => repo.subjects(hashes(list));
@@ -81,6 +85,7 @@ describe('the list an ask names', () => {
       readTimeoutMs: 20_000,
       walkTimeoutMs: 20_000,
       textsTimeoutMs: 20_000,
+      patternDeadlineMs: 5_000,
       idleMs: 600_000,
       maxLists: 4,
       onMoved: () => undefined,
@@ -119,6 +124,7 @@ describe('the list an ask names', () => {
       firstParent: false,
       noMerges: false,
       walk: null,
+      text: null,
       folds: NO_FOLDS,
     };
     expect(await histories.list(repo.rootDir, repo.rootDir, ask)).toEqual({
@@ -173,6 +179,8 @@ describe('the list an ask names', () => {
       { noMerges: true },
       { walk: { author: 'Jane' } },
       { firstParent: true, scope: [repo.trunk, 'other'] },
+      { text: plain('side') },
+      { text: pattern('^(add|fix) ') },
     ];
     for (const over of sifts) {
       const whole = await read({ scope: over.scope ?? null });
@@ -240,6 +248,64 @@ describe('the list an ask names', () => {
     expect(await titles(list)).toEqual(['Merge the side branch']);
   });
 
+  it('the text field lists EVERY commit it matches — by subject, by hash, by a pattern — in the order asked for', async () => {
+    expect(await titles(await read({ text: plain('side') }))).toEqual([
+      'Merge the side branch',
+      'More side work',
+      'Side work',
+    ]);
+    expect((await read({ text: plain('SIDE', true) })).skeleton.count).toBe(0);
+    expect(await titles(await read({ text: pattern('^(add|fix) ') }))).toEqual([
+      'Add staging environment',
+      'Fix response panel',
+      'Add orders request',
+    ]);
+    const bumped = await repo.shaOf('Bump version');
+    expect(await titles(await read({ text: plain(bumped.slice(0, 12)) }))).toEqual(['Bump version']);
+    expect(await titles(await read({ text: pattern('hotfix|spike|bump') }))).toEqual([
+      'Remote hotfix',
+      'Unmerged spike',
+      'Bump version',
+    ]);
+    expect(await titles(await read({ text: pattern('hotfix|spike|bump'), topological: true }))).toEqual([
+      'Unmerged spike',
+      'Remote hotfix',
+      'Bump version',
+    ]);
+  });
+
+  it('a text that names an author lists what the walk under that User lists — the same rows, joins and colours', async () => {
+    const walked = await read({ walk: { author: 'Jane' } });
+    const matched = await read({ text: plain('jane') });
+    expect(hashes(matched)).toEqual(hashes(walked));
+    expect(Array.from(matched.skeleton.starts)).toEqual(Array.from(walked.skeleton.starts));
+    expect(Array.from(matched.skeleton.parents)).toEqual(Array.from(walked.skeleton.parents));
+    expect(Array.from(matched.skeleton.skips ?? [])).toEqual(Array.from(walked.skeleton.skips ?? []));
+    expect(Array.from(matched.layout.colors)).toEqual(Array.from(walked.layout.colors));
+    expect(await joins(matched, 'Add staging environment')).toEqual([['More side work', 1]]);
+    expect(matched.folding).toBeNull();
+  });
+
+  it('a text sifts the one list the other sifts do — each leaves out its own', async () => {
+    expect(await titles(await read({ text: plain('side'), noMerges: true }))).toEqual(['More side work', 'Side work']);
+    expect(await titles(await read({ text: plain('side'), firstParent: true, scope: [repo.trunk] }))).toEqual([
+      'Merge the side branch',
+    ]);
+    expect(await titles(await read({ text: pattern('orders|side'), scope: ['side'] }))).toEqual([
+      'More side work',
+      'Side work',
+      'Add orders request',
+    ]);
+    // A walk and a text: a commit is listed where git names it AND the text matches it.
+    const documented = (await repo.git(['log', '-1', '--format=%cI', await repo.shaOf('Document the API')])).trim();
+    expect(await titles(await read({ walk: { since: documented } }))).toHaveLength(8);
+    expect(await titles(await read({ text: plain('jane') }))).toHaveLength(4);
+    expect(await titles(await read({ walk: { since: documented }, text: plain('jane') }))).toEqual([
+      'Remote hotfix',
+      'Add staging environment',
+    ]);
+  });
+
   it('folds the linear runs it is asked to — all of them, the ones named, or all but the ones named', async () => {
     const open = await read();
     expect(open.folding?.runs.count).toBe(4);
@@ -274,6 +340,11 @@ describe('the list an ask names', () => {
     }
     const sifted = await read({ noMerges: true });
     expect(await read({ noMerges: true, folds: { all: true, runs: [] } })).toBe(sifted);
+    // A text sifts: its list folds nothing either, and is one list whatever blanks were typed around it.
+    const matched = await read({ text: plain('side') });
+    expect(await read({ text: plain('side'), folds: { all: true, runs: [] } })).toBe(matched);
+    expect(await read({ text: plain('  side ') })).toBe(matched);
+    expect(await read({ text: pattern('side') })).not.toBe(matched);
   });
 
   it('never runs a fold across the checked-out commit, and reads a name as git does — a tag before a branch', async () => {
@@ -305,6 +376,8 @@ describe('the list an ask names', () => {
       expect(list.skeleton.count).toBe(0);
       expect(list.layout.swept).toBe(0);
       expect((await read({ noMerges: true, topological: true }, empty)).skeleton.count).toBe(0);
+      expect((await read({ text: plain('side') }, empty)).skeleton.count).toBe(0);
+      expect((await read({ text: pattern('side') }, empty)).skeleton.count).toBe(0);
     } finally {
       histories.drop(empty.rootDir);
       await empty.remove();

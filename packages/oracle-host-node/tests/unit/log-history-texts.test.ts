@@ -221,6 +221,30 @@ describe('the texts of a history, across its readings', () => {
     expect(asked).toHaveLength(4);
   });
 
+  it('answers everyone who asked while a read was in flight with that read’s refusal — one read, not one each', async () => {
+    const generation = await reading();
+    instead = async () => ({ ...DONE, code: -1, timedOut: true });
+    const refusals = await Promise.all([texts.of(generation), texts.of(generation), texts.of(generation)]);
+    expect(refusals).toEqual(Array(3).fill({ ok: false, reason: 'timeout' }));
+    expect(asked).toHaveLength(1);
+    // The refusal was that read's: the next ask reads again.
+    instead = null;
+    expect(lines(generation, await laid(generation))).toEqual(await own(generation));
+    expect(asked).toHaveLength(2);
+  });
+
+  it('lays two readings asked at once each over its own rows — a lay in flight answers for its reading alone', async () => {
+    const first = await reading();
+    await repo.commit('Third hotfix', 'notes.md');
+    const second = await nextReading();
+    const [one, two] = await Promise.all([laid(first), laid(second)]);
+    expect(one.textOf).toHaveLength(14);
+    expect(two.textOf).toHaveLength(15);
+    expect(lines(second, two)).toEqual(await own(second));
+    // The reading before holds every commit of the one after but the newest, in the same order.
+    expect(lines(first, one)).toEqual(lines(second, two).filter((line) => !line.endsWith('Third hotfix')));
+  });
+
   it('ends a read in flight when nobody reads the texts any more, and answers closed from then on', async () => {
     const generation = await reading();
     let started: () => void = () => undefined;

@@ -9,7 +9,7 @@
  */
 
 import { logger } from '@openheaders/core/utils';
-import { type GitRunner, type GitStreamRunner, LOG_SCOPE_HEAD, readNamedRows } from '../../git';
+import { flagLogTexts, type GitRunner, type GitStreamRunner, LOG_SCOPE_HEAD, readNamedRows } from '../../git';
 import { deriveLogList, type LogList } from './derive-list';
 import type { HistoryGeneration } from './generation';
 import { createListCache, type ListCache } from './list-cache';
@@ -36,6 +36,8 @@ export interface LogHistoriesOptions {
   walkTimeoutMs: number;
   /** The longest one read of a history's texts may take. */
   textsTimeoutMs: number;
+  /** The longest a pattern may run over a history's texts. */
+  patternDeadlineMs: number;
   /** A history nobody has asked of for this long is let go. */
   idleMs: number;
   /** Lists kept per workspace. */
@@ -44,11 +46,23 @@ export interface LogHistoriesOptions {
   onMoved(workspaceId: string): void;
 }
 
-export type LogListResult =
-  | { ok: true; list: LogList }
-  | { ok: false; reason: 'invalid-scope' | 'timeout' | 'closed' | 'failed' }
+type LogListRefusal =
+  /** `invalid-text`: the ask's text is nothing a history is searched for. `pattern-timeout`: its pattern ran past the deadline. */
+  | { ok: false; reason: 'invalid-scope' | 'invalid-text' | 'timeout' | 'pattern-timeout' | 'closed' | 'failed' }
   /** The scope names refs the history does not hold. */
   | { ok: false; reason: 'unknown-ref'; unknownRefs: string[] };
+
+export type LogListResult = { ok: true; list: LogList } | LogListRefusal;
+
+/** The history's rows a part of an ask leaves listed, a flag per row — null for an ask without that part. */
+type RowFlags = { ok: true; flags: Uint8Array | null } | LogListRefusal;
+
+/** Flags that stand where both do. */
+function both(one: Uint8Array | null, other: Uint8Array | null): Uint8Array | null {
+  if (one === null || other === null) return one ?? other;
+  for (let row = 0; row < one.length; row += 1) one[row] &= other[row];
+  return one;
+}
 
 /** The members of an ask's scope a reading holds no row for — the checked-out commit is always a member. */
 function unheldRefs(generation: HistoryGeneration, ask: LogAsk): string[] {
@@ -138,24 +152,46 @@ export function createLogHistories(options: LogHistoriesOptions): LogHistories {
     return entry;
   };
 
+  /** The rows git names under the ask's User, Date and Paths. */
+  const walkedRows = async (entry: Held, generation: HistoryGeneration, ask: LogAsk): Promise<RowFlags> => {
+    if (ask.walk === null) return { ok: true, flags: null };
+    // Under First Parent git names what ITS first-parent walk lists — a path's change a merge brought in is the merge's.
+    const walked = await readNamedRows(options.stream, options.run, entry.rootDir, generation.history, {
+      ...(ask.scope !== null ? { scope: ask.scope } : {}),
+      filters: {
+        ...ask.walk,
+        ...(ask.firstParent ? { firstParent: true } : {}),
+        ...(ask.scope === null ? { allRefs: true } : {}),
+      },
+      timeoutMs: options.walkTimeoutMs,
+      signal: entry.closing.signal,
+    });
+    if (!walked.ok) return { ok: false, reason: walked.reason === 'aborted' ? 'closed' : walked.reason };
+    return { ok: true, flags: walked.named };
+  };
+
+  /** The rows the ask's text matches — once the history's texts are read, however long ago they were asked for. */
+  const matchedRows = async (entry: Held, generation: HistoryGeneration, ask: LogAsk): Promise<RowFlags> => {
+    if (ask.text === null) return { ok: true, flags: null };
+    const laid = await entry.texts.of(generation);
+    if (!laid.ok) return laid;
+    const { hashes, width } = generation.history;
+    const matched = await flagLogTexts({ ...laid.texts, hashes, width }, ask.text, {
+      signal: entry.closing.signal,
+      patternDeadlineMs: options.patternDeadlineMs,
+    });
+    if (matched.ok) return matched;
+    if (matched.reason === 'aborted') return { ok: false, reason: 'closed' };
+    return { ok: false, reason: matched.reason === 'timeout' ? 'pattern-timeout' : 'invalid-text' };
+  };
+
   const make = async (entry: Held, generation: HistoryGeneration, ask: LogAsk): Promise<LogListResult> => {
-    let named: Uint8Array | null = null;
-    if (ask.walk !== null) {
-      // Under First Parent git names what ITS first-parent walk lists — a path's change a merge brought in is the merge's.
-      const walked = await readNamedRows(options.stream, options.run, entry.rootDir, generation.history, {
-        ...(ask.scope !== null ? { scope: ask.scope } : {}),
-        filters: {
-          ...ask.walk,
-          ...(ask.firstParent ? { firstParent: true } : {}),
-          ...(ask.scope === null ? { allRefs: true } : {}),
-        },
-        timeoutMs: options.walkTimeoutMs,
-        signal: entry.closing.signal,
-      });
-      if (!walked.ok) return { ok: false, reason: walked.reason === 'aborted' ? 'closed' : walked.reason };
-      named = walked.named;
-    }
-    return { ok: true, list: await deriveLogList(generation, ask, named) };
+    // The walk first: the texts are being read behind the log that opened while git walks.
+    const walked = await walkedRows(entry, generation, ask);
+    if (!walked.ok) return walked;
+    const matched = await matchedRows(entry, generation, ask);
+    if (!matched.ok) return matched;
+    return { ok: true, list: await deriveLogList(generation, ask, both(walked.flags, matched.flags)) };
   };
 
   return {

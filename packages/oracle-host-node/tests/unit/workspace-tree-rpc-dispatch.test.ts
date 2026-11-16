@@ -356,6 +356,34 @@ describe('oh.workspaceTree.logRows / locateLogRow — the ask as the runtime is 
     expect(host.logRows).toHaveBeenCalledWith(WORKSPACE, { filters: { allRefs: true } }, 0, 1);
   });
 
+  it('the text field and its toggles travel as sent, beside the filters — a toggle that is not the word true is left out', async () => {
+    const host = runtime();
+    await dispatchWorkspaceTreeRpc(host, ROWS, {
+      workspaceId: WORKSPACE,
+      from: 0,
+      count: 200,
+      text: '  ^orders ',
+      regex: true,
+      matchCase: true,
+      noMerges: true,
+    });
+    expect(host.logRows).toHaveBeenLastCalledWith(
+      WORKSPACE,
+      { filters: { noMerges: true }, text: '  ^orders ', regex: true, matchCase: true },
+      0,
+      200,
+    );
+    await dispatchWorkspaceTreeRpc(host, ROWS, {
+      workspaceId: WORKSPACE,
+      from: 0,
+      count: 200,
+      text: '',
+      regex: 'yes',
+      matchCase: 1,
+    });
+    expect(host.logRows).toHaveBeenLastCalledWith(WORKSPACE, { filters: {}, text: '' }, 0, 200);
+  });
+
   it('a target is located under the same ask', async () => {
     const host = runtime();
     await dispatchWorkspaceTreeRpc(host, LOCATE, {
@@ -363,11 +391,13 @@ describe('oh.workspaceTree.logRows / locateLogRow — the ask as the runtime is 
       key: 'log-2',
       refs: ['main'],
       noMerges: true,
+      text: 'orders',
+      matchCase: true,
       target: 'HEAD',
     });
     expect(host.locateLogRow).toHaveBeenCalledWith(
       WORKSPACE,
-      { key: 'log-2', scope: ['main'], filters: { noMerges: true } },
+      { key: 'log-2', scope: ['main'], filters: { noMerges: true }, text: 'orders', matchCase: true },
       'HEAD',
     );
   });
@@ -378,6 +408,7 @@ describe('oh.workspaceTree.logRows / locateLogRow — the ask as the runtime is 
     ['a count that is no number', { from: 0, count: '10' }],
     ['a key that is no string', { from: 0, count: 10, key: 7 }],
     ['a scope that is no list of names', { from: 0, count: 10, refs: 'main' }],
+    ['a text that is no string', { from: 0, count: 10, text: 7 }],
     ['folds that are no list', { from: 0, count: 10, folds: FIRST }],
     ['a fold that is no name', { from: 0, count: 10, folds: [FIRST, 3] }],
   ])('rows: %s is refused before the runtime is asked', async (_name, fields) => {

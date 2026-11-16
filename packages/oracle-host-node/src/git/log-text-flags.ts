@@ -69,6 +69,11 @@ function matcherOf(ask: LogTextAsk): Match | null {
   return matcher.kind === 'match' ? matcher : null;
 }
 
+/** Whether `ask` is something a history can be searched for: a text of a valid shape, a pattern that compiles. */
+export function isLogTextAsk(ask: LogTextAsk): boolean {
+  return matcherOf(ask) !== null;
+}
+
 async function plainFlags(rows: LogTextRows, matcher: Match, signal: AbortSignal): Promise<Uint8Array | null> {
   if (signal.aborted) return null;
   const { store, textOf, hashes, width } = rows;

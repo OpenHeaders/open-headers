@@ -35,6 +35,7 @@ describe('a stretch of a list’s rows', () => {
       firstParent: false,
       noMerges: false,
       walk: null,
+      text: null,
       folds: NO_FOLDS,
       ...over,
     };
@@ -60,6 +61,7 @@ describe('a stretch of a list’s rows', () => {
       readTimeoutMs: 20_000,
       walkTimeoutMs: 20_000,
       textsTimeoutMs: 20_000,
+      patternDeadlineMs: 5_000,
       idleMs: 600_000,
       maxLists: 4,
       onMoved: () => undefined,
@@ -237,6 +239,7 @@ describe('a stretch of a list’s rows', () => {
         firstParent: false,
         noMerges: false,
         walk: null,
+        text: null,
         folds: NO_FOLDS,
       };
       const held = await histories.list(gone.rootDir, gone.rootDir, ask);

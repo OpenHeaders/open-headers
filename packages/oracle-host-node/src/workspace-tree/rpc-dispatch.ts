@@ -113,13 +113,16 @@ function readLogFilters(message: Record<string, unknown>): WorkspaceTreeLogFilte
 
 /**
  * What a `logRows` or `locateLogRow` call asks to be listed — its scope,
- * its row filters and its folded runs, each as the runtime's validation
- * takes it: null for a `key`, `refs` or `folds` that is no such shape.
+ * its row filters, its text and its folded runs, each as the runtime's
+ * validation takes it: null for a `key`, `refs`, `text` or `folds` that
+ * is no such shape.
  */
 function readLogListAsk(message: Record<string, unknown>): WorkspaceTreeLogListAsk | null {
   const scope = readLogScope(undefined, message.refs);
   if (scope === null) return null;
   if (message.key !== undefined && typeof message.key !== 'string') return null;
+  const { text } = message;
+  if (text !== undefined && typeof text !== 'string') return null;
   const { folds } = message;
   if (folds !== undefined && !(Array.isArray(folds) && folds.every((sha): sha is string => typeof sha === 'string'))) {
     return null;
@@ -128,6 +131,9 @@ function readLogListAsk(message: Record<string, unknown>): WorkspaceTreeLogListA
     ...(message.key !== undefined ? { key: message.key } : {}),
     ...(scope !== undefined ? { scope } : {}),
     filters: readLogFilters(message),
+    ...(text !== undefined ? { text } : {}),
+    ...(message.regex === true ? { regex: true } : {}),
+    ...(message.matchCase === true ? { matchCase: true } : {}),
     ...(message.foldAll === true ? { foldAll: true } : {}),
     ...(folds !== undefined ? { folds } : {}),
     ...(message.refresh === true ? { refresh: true } : {}),

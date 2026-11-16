@@ -653,7 +653,7 @@ export interface WorkspaceRpc {
    * listed host-side, and a view asks for the rows it shows: each
    * commit in full with its graph cell, where its joins and its child
    * sit, and the linear run it belongs to. What is asked (the scope,
-   * the order, the sifts, the folded runs) NAMES the list: there is
+   * the order, the sifts, the text, the folded runs) NAMES the list: there is
    * nothing to open or close, and two tabs that ask the same read one
    * list. `list` in the answer changes when the history was read anew —
    * rows held under another are dropped (`workspaceTreeLogHistory`
@@ -1390,6 +1390,16 @@ export interface WorkspaceTreeLogAskWire {
   since?: string;
   until?: string;
   paths?: string[];
+  /**
+   * The text field: EVERY commit of the history that matches it — by
+   * its subject, its author's name or its hash — is listed, and no
+   * other. A bounded plain string; anything else, or a pattern that
+   * does not compile, refuses `invalid-filter`.
+   */
+  text?: string;
+  /** `text` is a pattern — it runs under a deadline (`search-timeout`). */
+  regex?: boolean;
+  matchCase?: boolean;
   /** Sort › Topologically, in place of the date order. */
   topoOrder?: boolean;
   noMerges?: boolean;
@@ -1463,7 +1473,12 @@ export interface WorkspaceTreeLogRunWire {
 
 type WorkspaceTreeLogListRefusalWire = {
   ok: false;
-  /** `log-timeout`: the history, or the walk that names a filter's commits, ran out of time. `superseded`: a newer call took this one's place. */
+  /**
+   * `log-timeout`: the history, its texts, or the walk that names a
+   * filter's commits, ran out of time. `search-timeout`: the ask's
+   * pattern ran past its deadline. `superseded`: a newer call took this
+   * one's place.
+   */
   reason:
     | 'not-bound'
     | 'git-unavailable'
@@ -1472,6 +1487,7 @@ type WorkspaceTreeLogListRefusalWire = {
     | 'invalid-filter'
     | 'log-failed'
     | 'log-timeout'
+    | 'search-timeout'
     | 'superseded';
   detail?: string;
   /** `unknown-ref`: the scope's members the history does not hold. */

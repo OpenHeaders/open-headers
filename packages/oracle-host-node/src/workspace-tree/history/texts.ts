@@ -12,7 +12,8 @@
  * lot — every ref is walked instead.
  *
  * One reading is laid over at a time: whoever asks while a lay is in
- * flight waits for it, and finds a reading already laid as it stands.
+ * flight waits for it — for the same reading its answer is theirs too,
+ * a refusal included — and finds a reading already laid as it stands.
  */
 
 import { logger } from '@openheaders/core/utils';
@@ -86,6 +87,8 @@ export function createHistoryTexts(options: HistoryTextsOptions): HistoryTexts {
   let laid: Laid | null = null;
   // The lay in flight, or the last one done: the next waits for it.
   let turn: Promise<unknown> = Promise.resolve();
+  // The lay asked for last, while it is in flight, and the reading it is of.
+  let flying: { generation: HistoryGeneration; done: Promise<LogTextsResult> } | null = null;
 
   const lay = async (generation: HistoryGeneration): Promise<LogTextsResult> => {
     // Let go: no read is started for texts nobody holds.
@@ -137,8 +140,15 @@ export function createHistoryTexts(options: HistoryTextsOptions): HistoryTexts {
 
   return {
     of(generation) {
+      // Asked of the reading a lay is in flight for: that lay's answer, whatever it turns out to be.
+      if (flying?.generation === generation) return flying.done;
       const done = turn.then(() => layOrFail(generation));
       turn = done;
+      const mine = { generation, done };
+      flying = mine;
+      void done.then(() => {
+        if (flying === mine) flying = null;
+      });
       return done;
     },
     close() {

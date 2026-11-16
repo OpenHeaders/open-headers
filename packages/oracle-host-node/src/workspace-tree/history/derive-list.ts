@@ -4,10 +4,10 @@
  *
  *   1. the scope: the rows its refs reach, in the history's own order;
  *   2. Sort › Topologically: those rows re-listed;
- *   3. the sifts — First Parent, No Merges, and the commits a walk
- *      under User / Date / Paths names — as ONE contraction, each
- *      commit that stays wearing the colour it has in the unsifted
- *      list;
+ *   3. the sifts — First Parent, No Merges, the commits a walk under
+ *      User / Date / Paths names and the ones the text field matches —
+ *      as ONE contraction, each commit that stays wearing the colour
+ *      it has in the unsifted list;
  *   4. or, on a list that sifts nothing, the folded linear runs;
  *   5. the graph's layout over what is listed.
  *
@@ -230,8 +230,8 @@ async function siftedList(
 
 /**
  * The list `ask` names over `generation`. `named` flags the history's
- * rows a walk under the ask's User / Date / Paths names — null when the
- * ask has none.
+ * rows the ask's walk (User / Date / Paths) and its text leave listed —
+ * null when the ask has neither.
  */
 export async function deriveLogList(
   generation: HistoryGeneration,

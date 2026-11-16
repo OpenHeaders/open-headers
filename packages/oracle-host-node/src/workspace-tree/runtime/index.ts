@@ -71,6 +71,7 @@ import {
   GIT_CONSOLE_NOTICE_MS,
   LOG_HISTORY_IDLE_MS,
   LOG_HISTORY_MAX_LISTS,
+  LOG_HISTORY_PATTERN_DEADLINE_MS,
   LOG_HISTORY_READ_TIMEOUT_MS,
   LOG_HISTORY_TEXTS_TIMEOUT_MS,
   LOG_HISTORY_WALK_TIMEOUT_MS,
@@ -275,6 +276,7 @@ export function createWorkspaceTreeRuntime(options: WorkspaceTreeRuntimeOptions)
     readTimeoutMs: LOG_HISTORY_READ_TIMEOUT_MS,
     walkTimeoutMs: LOG_HISTORY_WALK_TIMEOUT_MS,
     textsTimeoutMs: LOG_HISTORY_TEXTS_TIMEOUT_MS,
+    patternDeadlineMs: LOG_HISTORY_PATTERN_DEADLINE_MS,
     idleMs: LOG_HISTORY_IDLE_MS,
     maxLists: LOG_HISTORY_MAX_LISTS,
     onMoved: (workspaceId) => {

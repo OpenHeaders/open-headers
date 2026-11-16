@@ -10,6 +10,7 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { GitStreamRunner } from '../../src/git/git-stream';
+import type { LogTextAsk } from '../../src/git/log-text-flags';
 import {
   createLogHistories,
   type LogAsk,
@@ -28,9 +29,18 @@ const ask = (over: Partial<LogAsk> = {}): LogAsk => ({
   firstParent: false,
   noMerges: false,
   walk: null,
+  text: null,
   folds: NO_FOLDS,
   ...over,
 });
+
+const plain = (text: string): LogTextAsk => ({ text, regex: false, matchCase: false });
+const pattern = (text: string): LogTextAsk => ({ text, regex: true, matchCase: false });
+
+/** A pattern that backtracks without end over this subject. */
+const RUNAWAY = '(a+)+$';
+const CRAFTED = `${'a'.repeat(40)}!`;
+const DONE = { code: 0, stderr: '', spawnFailed: false, timedOut: false, aborted: false };
 
 describe('a history the host holds', () => {
   let repo: ScratchRepo;
@@ -45,6 +55,10 @@ describe('a history the host holds', () => {
   let textSignal: AbortSignal | undefined;
   /** While set, a whole-history read waits for it before it starts. */
   let gate: Promise<void> | null;
+  /** While set, a read of the texts waits for it before it starts. */
+  let textGate: Promise<void> | null;
+  /** While set, a read of the texts ends as this in place of git's own answer. */
+  let textOutcome: Partial<typeof DONE> | null;
   let onMoved: () => void;
 
   const counted: GitStreamRunner = async (args, options, read) => {
@@ -56,16 +70,19 @@ describe('a history the host holds', () => {
     if (args.includes('--format=%H%x1f%an%x1f%s')) {
       textReads += 1;
       textSignal = options.signal;
+      if (textGate !== null) await textGate;
+      if (textOutcome !== null) return { ...DONE, ...textOutcome };
     }
     return stream(args, options, read);
   };
-  const open = (idleMs = 600_000, maxLists = 4): LogHistories =>
+  const open = (idleMs = 600_000, maxLists = 4, patternDeadlineMs = 5_000): LogHistories =>
     createLogHistories({
       run,
       stream: counted,
       readTimeoutMs: 20_000,
       walkTimeoutMs: 20_000,
       textsTimeoutMs: 20_000,
+      patternDeadlineMs,
       idleMs,
       maxLists,
       onMoved: (workspaceId) => {
@@ -93,6 +110,8 @@ describe('a history the host holds', () => {
     textReads = 0;
     textSignal = undefined;
     gate = null;
+    textGate = null;
+    textOutcome = null;
     onMoved = () => undefined;
     histories = open();
   });
@@ -122,6 +141,75 @@ describe('a history the host holds', () => {
     expect(textSignal?.aborted).toBe(false);
     histories.drop(WS);
     expect(textSignal?.aborted).toBe(true);
+  });
+
+  it('makes a text’s list once the texts are read — asked while they are, it waits, and a list with no text does not', async () => {
+    let release: () => void = () => undefined;
+    textGate = new Promise((resolve) => {
+      release = resolve;
+    });
+    const whole = await read();
+    let answered = false;
+    const waiting = read({ text: plain('side') }).then((list) => {
+      answered = true;
+      return list;
+    });
+    await new Promise((resolve) => setTimeout(resolve, 150));
+    expect(answered).toBe(false);
+    // A list that asks for no text is nobody's to hold up.
+    expect(await read({ noMerges: true })).toHaveProperty('generation', whole.generation);
+    release();
+    expect((await waiting).skeleton.count).toBe(3);
+    // Held from then on: another text is matched with no read.
+    expect((await read({ text: plain('jane') })).skeleton.count).toBe(4);
+    expect(textReads).toBe(1);
+  });
+
+  it('refuses a text’s list as the texts’ read refused, with that one read — and reads again for the next ask', async () => {
+    const asked = ask({ text: plain('side') });
+    textOutcome = { code: -1, timedOut: true };
+    expect(await histories.list(WS, repo.rootDir, asked)).toEqual({ ok: false, reason: 'timeout' });
+    expect(textReads).toBe(1);
+    textOutcome = { code: 128 };
+    expect(await histories.list(WS, repo.rootDir, asked)).toEqual({ ok: false, reason: 'failed' });
+    expect(textReads).toBe(2);
+    // What could not be made is not kept.
+    textOutcome = null;
+    expect((await read({ text: plain('side') })).skeleton.count).toBe(3);
+    expect(textReads).toBe(3);
+  });
+
+  it('refuses a text that is nothing a history is searched for', async () => {
+    for (const text of [pattern('('), plain('   '), plain('a'.repeat(201)), plain('side\nwork')]) {
+      expect(await histories.list(WS, repo.rootDir, ask({ text }))).toEqual({ ok: false, reason: 'invalid-text' });
+    }
+  });
+
+  it('refuses the list of a pattern that runs past its deadline, and keeps no such answer', async () => {
+    await repo.commit(CRAFTED, 'notes.md');
+    histories.dispose();
+    histories = open(600_000, 4, 400);
+    const asked = ask({ text: pattern(RUNAWAY) });
+    expect(await histories.list(WS, repo.rootDir, asked)).toEqual({ ok: false, reason: 'pattern-timeout' });
+    // Asked again it runs again, to the same deadline.
+    const started = performance.now();
+    expect(await histories.list(WS, repo.rootDir, asked)).toEqual({ ok: false, reason: 'pattern-timeout' });
+    expect(performance.now() - started).toBeGreaterThanOrEqual(350);
+    expect(performance.now() - started).toBeLessThan(3_000);
+    // A pattern that ends is listed, under the same deadline.
+    expect((await read({ text: pattern('^side') })).skeleton.count).toBe(1);
+  });
+
+  it('ends a pattern mid-run when its history is let go', async () => {
+    await repo.commit(CRAFTED, 'notes.md');
+    await read({ text: plain('side') });
+    const waiting = histories.list(WS, repo.rootDir, ask({ text: pattern(RUNAWAY) }));
+    // The texts are held: by now the pattern runs.
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    const started = performance.now();
+    histories.drop(WS);
+    expect(await waiting).toEqual({ ok: false, reason: 'closed' });
+    expect(performance.now() - started).toBeLessThan(2_000);
   });
 
   it('keeps its reading while no tip has moved, however often something is said to have', async () => {
@@ -293,6 +381,11 @@ describe('an ask’s name', () => {
     expect(logAskName(ask({ noMerges: true, folds: { all: true, runs: [] } }))).toBe(
       logAskName(ask({ noMerges: true })),
     );
+    // A text matches without the blanks typed around it — and sifts, so it folds nothing either.
+    expect(logAskName(ask({ text: plain('  orders ') }))).toBe(logAskName(ask({ text: plain('orders') })));
+    expect(logAskName(ask({ text: plain('orders'), folds: { all: true, runs: [] } }))).toBe(
+      logAskName(ask({ text: plain('orders') })),
+    );
 
     const others: Array<Partial<LogAsk>> = [
       { scope: ['main'] },
@@ -305,6 +398,11 @@ describe('an ask’s name', () => {
       { walk: { since: '2026-01-01' } },
       { walk: { until: '2026-01-01' } },
       { walk: { paths: ['a'] } },
+      { text: plain('orders') },
+      { text: plain('Orders') },
+      { text: pattern('orders') },
+      { text: { text: 'orders', regex: false, matchCase: true } },
+      { text: { text: 'orders', regex: true, matchCase: true } },
       { folds: { all: true, runs: [] } },
       { folds: { all: false, runs: ['a'] } },
       { folds: { all: true, runs: ['a'] } },
