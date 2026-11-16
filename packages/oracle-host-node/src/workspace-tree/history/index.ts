@@ -6,7 +6,10 @@
  * This is the whole of what a log verb reaches: `list` answers the list
  * an ask names and `rows` a stretch of its rows; everything under them —
  * the reading, its staleness, the derivation, the bound on lists, the
- * git kept open for the rows' commits — is a file of its own here.
+ * git kept open for the rows' commits — is a file of its own here. A
+ * workspace's patterns take turns (`../turns`): each is a thread for as
+ * long as it runs, so only so many run at once and one more ends the
+ * one running longest — its list is refused as out of time.
  */
 
 import { logger } from '@openheaders/core/utils';
@@ -21,6 +24,7 @@ import {
   readCommitHeads,
   readNamedRows,
 } from '../../git';
+import { createTurns } from '../turns';
 import { deriveLogList, type LogList } from './derive-list';
 import type { HistoryGeneration } from './generation';
 import { createListCache, type ListCache } from './list-cache';
@@ -52,6 +56,8 @@ export interface LogHistoriesOptions {
   textsTimeoutMs: number;
   /** The longest a pattern may run over a history's texts. */
   patternDeadlineMs: number;
+  /** Patterns a workspace runs at once: one more ends the one running longest. */
+  maxPatterns: number;
   /** A history nobody has asked of for this long is let go. */
   idleMs: number;
   /** Lists kept per workspace. */
@@ -120,6 +126,9 @@ interface Held {
 
 export function createLogHistories(options: LogHistoriesOptions): LogHistories {
   const held = new Map<string, Held>();
+  const patterns = createTurns(options.maxPatterns);
+  // Every pattern run is a turn of its own: the same pattern asked twice is two threads.
+  let patternRuns = 0;
 
   const drop = (workspaceId: string): void => {
     const entry = held.get(workspaceId);
@@ -197,7 +206,12 @@ export function createLogHistories(options: LogHistoriesOptions): LogHistories {
   };
 
   /** The rows the ask's text matches — once the history's texts are read, however long ago they were asked for. */
-  const matchedRows = async (entry: Held, generation: HistoryGeneration, ask: LogAsk): Promise<RowFlags> => {
+  const matchedRows = async (
+    workspaceId: string,
+    entry: Held,
+    generation: HistoryGeneration,
+    ask: LogAsk,
+  ): Promise<RowFlags> => {
     if (ask.text === null) return { ok: true, flags: null };
     const laid = await entry.texts.of(generation);
     if (!laid.ok) return laid;
@@ -205,17 +219,26 @@ export function createLogHistories(options: LogHistoriesOptions): LogHistories {
     const matched = await flagLogTexts({ ...laid.texts, hashes, width }, ask.text, {
       signal: entry.closing.signal,
       patternDeadlineMs: options.patternDeadlineMs,
+      patternTurn: () => {
+        patternRuns += 1;
+        return patterns.take(workspaceId, String(patternRuns));
+      },
     });
     if (matched.ok) return matched;
     if (matched.reason === 'aborted') return { ok: false, reason: 'closed' };
     return { ok: false, reason: matched.reason === 'timeout' ? 'pattern-timeout' : 'invalid-text' };
   };
 
-  const make = async (entry: Held, generation: HistoryGeneration, ask: LogAsk): Promise<LogListResult> => {
+  const make = async (
+    workspaceId: string,
+    entry: Held,
+    generation: HistoryGeneration,
+    ask: LogAsk,
+  ): Promise<LogListResult> => {
     // The walk first: the texts are being read behind the log that opened while git walks.
     const walked = await walkedRows(entry, generation, ask);
     if (!walked.ok) return walked;
-    const matched = await matchedRows(entry, generation, ask);
+    const matched = await matchedRows(workspaceId, entry, generation, ask);
     if (!matched.ok) return matched;
     return { ok: true, list: await deriveLogList(generation, ask, both(walked.flags, matched.flags)) };
   };
@@ -239,7 +262,7 @@ export function createLogHistories(options: LogHistoriesOptions): LogHistories {
         if (unknownRefs.length > 0) return { ok: false, reason: 'unknown-ref', unknownRefs };
         return await entry.lists.take(
           logAskName(ask),
-          () => make(entry, generation, ask),
+          () => make(workspaceId, entry, generation, ask),
           (answer) => answer.ok,
         );
       } catch (fault) {

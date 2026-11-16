@@ -84,6 +84,7 @@ describe('a history the host holds', () => {
       walkTimeoutMs: 20_000,
       textsTimeoutMs: 20_000,
       patternDeadlineMs,
+      maxPatterns: 4,
       idleMs,
       maxLists,
       onMoved: (workspaceId) => {
@@ -211,6 +212,59 @@ describe('a history the host holds', () => {
     histories.drop(WS);
     expect(await waiting).toEqual({ ok: false, reason: 'closed' });
     expect(performance.now() - started).toBeLessThan(2_000);
+  });
+
+  /** A pattern no engine finishes over the crafted subject — a different one for every `n`, so each is a list of its own. */
+  const runaway = (n: number): LogAsk => ask({ text: pattern(`${RUNAWAY}|never-${n}`) });
+  /** An ask's answer and when it came, from `since`. */
+  const timed = async (workspaceId: string, asked: LogAsk, since: number): Promise<{ reason: string; ms: number }> => {
+    const answer = await histories.list(workspaceId, repo.rootDir, asked);
+    return { reason: answer.ok ? 'listed' : answer.reason, ms: performance.now() - since };
+  };
+
+  it('runs four patterns of a workspace at once and no more: a fifth ends the one running longest, as out of time', async () => {
+    const DEADLINE = 2_500;
+    await repo.commit(CRAFTED, 'notes.md');
+    histories.dispose();
+    histories = open(600_000, 4, DEADLINE);
+    // The texts are held in both workspaces: a pattern asked from here on runs at once.
+    await read({ text: plain('side') });
+    expect(await histories.list('ws-2', repo.rootDir, ask({ text: plain('side') }))).toHaveProperty('ok', true);
+
+    const began = performance.now();
+    const other = timed('ws-2', runaway(0), began);
+    const four = [1, 2, 3, 4].map((n) => timed(WS, runaway(n), began));
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    const fifthBegan = performance.now();
+    const fifth = timed(WS, runaway(5), fifthBegan);
+
+    // The first of the four gave way when the fifth began — long before its deadline.
+    const oldest = await four[0];
+    expect(oldest.reason).toBe('pattern-timeout');
+    expect(oldest.ms).toBeLessThan(DEADLINE - 1_000);
+    // Every other ran to its own deadline: the three beside it, the fifth, and another workspace's.
+    for (const ran of [...(await Promise.all(four.slice(1))), await fifth, await other]) {
+      expect(ran.reason).toBe('pattern-timeout');
+      expect(ran.ms).toBeGreaterThanOrEqual(DEADLINE - 100);
+    }
+  });
+
+  it('holds a turn for a pattern only while it runs — one that ended and a plain text end nobody', async () => {
+    const DEADLINE = 2_000;
+    await repo.commit(CRAFTED, 'notes.md');
+    histories.dispose();
+    histories = open(600_000, 4, DEADLINE);
+    await read({ text: plain('side') });
+
+    const began = performance.now();
+    const running = timed(WS, runaway(0), began);
+    await new Promise((resolve) => setTimeout(resolve, 200));
+    // Six patterns that end, one after another, then six plain texts at once.
+    for (let n = 0; n < 6; n += 1) await read({ text: pattern(`^side|ended-${n}`) });
+    await Promise.all([0, 1, 2, 3, 4, 5].map((n) => read({ text: plain(`plain-${n}`) })));
+    const ran = await running;
+    expect(ran.reason).toBe('pattern-timeout');
+    expect(ran.ms).toBeGreaterThanOrEqual(DEADLINE - 100);
   });
 
   it('keeps its reading while no tip has moved, however often something is said to have', async () => {

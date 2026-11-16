@@ -107,6 +107,8 @@ export const LOG_HISTORY_WALK_TIMEOUT_MS = 30_000;
 export const LOG_HISTORY_TEXTS_TIMEOUT_MS = 120_000;
 /** The longest a pattern may run over a history's texts — a pattern alone can run on; a plain text has no deadline. */
 export const LOG_HISTORY_PATTERN_DEADLINE_MS = 5_000;
+/** Patterns one workspace runs at once — a thread each, for as long as its deadline; one more ends the one running longest. */
+export const LOG_HISTORY_MAX_PATTERNS = 4;
 /** A history nobody has asked of for this long is let go. */
 export const LOG_HISTORY_IDLE_MS = 10 * 60_000;
 /** Lists kept per workspace. */

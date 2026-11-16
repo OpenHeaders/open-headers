@@ -87,6 +87,7 @@ describe('the list an ask names', () => {
       walkTimeoutMs: 20_000,
       textsTimeoutMs: 20_000,
       patternDeadlineMs: 5_000,
+      maxPatterns: 4,
       idleMs: 600_000,
       maxLists: 4,
       onMoved: () => undefined,

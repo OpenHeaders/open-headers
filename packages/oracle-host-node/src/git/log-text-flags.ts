@@ -9,8 +9,11 @@
  *     runs and the cost is linear — a stretch of rows at a time, the
  *     thread handed back between two, ended between two by the signal;
  *   - a PATTERN never runs here (`log-text-pattern`): its worker reads
- *     the same texts in shared memory and is ended by the signal or by
- *     the pattern's deadline, whichever comes first.
+ *     the same texts in shared memory and is ended by the signal, by
+ *     the pattern's deadline or by its turn being taken away, whichever
+ *     comes first. A pattern is a thread for as long as it runs: it
+ *     takes a turn as its worker starts, and whoever hands the turns
+ *     out bounds how many run at once.
  *
  * An author's name is tested once, whatever the commits under it, and a
  * hash is spelled out only for a text that can match one. A row with no
@@ -24,6 +27,14 @@ import type { LogTextStore } from './log-text-store';
 
 /** Rows a pass reads before it hands the thread back. */
 const STRETCH_ROWS = 20_000;
+
+/** A pattern's turn among the patterns run at once. */
+export interface LogPatternTurn {
+  /** Aborted when the turn is taken away: the pattern is ended as out of time. */
+  signal: AbortSignal;
+  /** The pattern is over: its turn is free. */
+  done(): void;
+}
 
 /** What the log's text field asks for. */
 export interface LogTextAsk {
@@ -48,6 +59,8 @@ export interface FlagLogTextsOptions {
   signal: AbortSignal;
   /** The longest a pattern may run. A plain text has no deadline: nothing in it can run on. */
   patternDeadlineMs: number;
+  /** Asked as a pattern's worker is to start — never for a plain text, nor for a text that is refused. */
+  patternTurn(): LogPatternTurn;
 }
 
 export type LogTextFlagsResult =
@@ -108,12 +121,18 @@ export async function flagLogTexts(
     const flags = await plainFlags(rows, matcher, signal);
     return flags === null ? { ok: false, reason: 'aborted' } : { ok: true, flags };
   }
-  const deadline = AbortSignal.timeout(options.patternDeadlineMs);
-  const flags = await flagRowsByPattern(
-    matcher.pattern,
-    { view: rows.store.view(), textOf: rows.textOf, hashes: rows.hashes, width: rows.width },
-    AbortSignal.any([signal, deadline]),
-  );
-  if (flags !== null) return { ok: true, flags };
-  return { ok: false, reason: signal.aborted ? 'aborted' : 'timeout' };
+  const turn = options.patternTurn();
+  try {
+    // A turn taken away is the time the pattern was given, run out.
+    const time = AbortSignal.any([AbortSignal.timeout(options.patternDeadlineMs), turn.signal]);
+    const flags = await flagRowsByPattern(
+      matcher.pattern,
+      { view: rows.store.view(), textOf: rows.textOf, hashes: rows.hashes, width: rows.width },
+      AbortSignal.any([signal, time]),
+    );
+    if (flags !== null) return { ok: true, flags };
+    return { ok: false, reason: signal.aborted ? 'aborted' : 'timeout' };
+  } finally {
+    turn.done();
+  }
 }

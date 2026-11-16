@@ -13,7 +13,7 @@
 import { makeLogTextMatcher } from '@openheaders/core/workspace-tree';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { historyShaOf } from '../../src/git/log-skeleton';
-import { flagLogTexts, type LogTextAsk, type LogTextRows } from '../../src/git/log-text-flags';
+import { flagLogTexts, type LogPatternTurn, type LogTextAsk, type LogTextRows } from '../../src/git/log-text-flags';
 import { flagRowsByPattern } from '../../src/git/log-text-pattern';
 import { createLogTextStore } from '../../src/git/log-text-store';
 import { createRepoHistory, type RepoHistory } from '../../src/workspace-tree/history/repo-history';
@@ -65,10 +65,12 @@ function coreSays(commits: readonly Commit[], ask: LogTextAsk): number[] {
 }
 
 const live = (): AbortSignal => new AbortController().signal;
+/** A turn nobody takes away. */
+const alone = (): LogPatternTurn => ({ signal: live(), done: () => undefined });
 const LONG = 5_000;
 
 async function flagsOf(rows: LogTextRows, ask: LogTextAsk, signal = live()): Promise<number[]> {
-  const result = await flagLogTexts(rows, ask, { signal, patternDeadlineMs: LONG });
+  const result = await flagLogTexts(rows, ask, { signal, patternDeadlineMs: LONG, patternTurn: alone });
   if (!result.ok) throw new Error(`refused: ${result.reason}`);
   expect(result.flags).toBeInstanceOf(Uint8Array);
   return Array.from(result.flags);
@@ -163,16 +165,30 @@ describe('the rows a plain text matches', () => {
     // Runs when the first stretch hands the thread back.
     setImmediate(() => search.abort());
     expect(
-      await flagLogTexts(manyRows(50_000), plain('item'), { signal: search.signal, patternDeadlineMs: LONG }),
+      await flagLogTexts(manyRows(50_000), plain('item'), {
+        signal: search.signal,
+        patternDeadlineMs: LONG,
+        patternTurn: alone,
+      }),
     ).toEqual({ ok: false, reason: 'aborted' });
-    expect(await flagLogTexts(rows, plain('retry'), { signal: AbortSignal.abort(), patternDeadlineMs: LONG })).toEqual({
+    expect(
+      await flagLogTexts(rows, plain('retry'), {
+        signal: AbortSignal.abort(),
+        patternDeadlineMs: LONG,
+        patternTurn: alone,
+      }),
+    ).toEqual({
       ok: false,
       reason: 'aborted',
     });
   });
 
   it('has no deadline — the pattern’s is not its own', async () => {
-    const result = await flagLogTexts(manyRows(200_000), plain('item 19999'), { signal: live(), patternDeadlineMs: 1 });
+    const result = await flagLogTexts(manyRows(200_000), plain('item 19999'), {
+      signal: live(),
+      patternDeadlineMs: 1,
+      patternTurn: alone,
+    });
     expect(result.ok && result.flags.reduce((sum, flag) => sum + flag, 0)).toBe(11);
   });
 });
@@ -180,7 +196,8 @@ describe('the rows a plain text matches', () => {
 describe('a text that is no shape', () => {
   const rows = rowsOf(COMMITS);
   const refused = { ok: false, reason: 'invalid-text' };
-  const asked = (ask: LogTextAsk) => flagLogTexts(rows, ask, { signal: live(), patternDeadlineMs: LONG });
+  const asked = (ask: LogTextAsk) =>
+    flagLogTexts(rows, ask, { signal: live(), patternDeadlineMs: LONG, patternTurn: alone });
 
   it('is refused before anything is read: nothing to match, too long, a control character', async () => {
     for (const regex of [false, true]) {
@@ -237,7 +254,11 @@ describe('the rows a pattern matches', () => {
     }, 5);
     const started = performance.now();
     setTimeout(() => search.abort(), 150);
-    const result = await flagLogTexts(stuck, pattern(RUNAWAY), { signal: search.signal, patternDeadlineMs: LONG });
+    const result = await flagLogTexts(stuck, pattern(RUNAWAY), {
+      signal: search.signal,
+      patternDeadlineMs: LONG,
+      patternTurn: alone,
+    });
     const took = performance.now() - started;
     clearInterval(beat);
     expect(result).toEqual({ ok: false, reason: 'aborted' });
@@ -258,7 +279,11 @@ describe('the rows a pattern matches', () => {
     const beat = setInterval(() => {
       turns += 1;
     }, 5);
-    const result = await flagLogTexts(stuck, pattern(RUNAWAY), { signal: live(), patternDeadlineMs: 150 });
+    const result = await flagLogTexts(stuck, pattern(RUNAWAY), {
+      signal: live(),
+      patternDeadlineMs: 150,
+      patternTurn: alone,
+    });
     clearInterval(beat);
     expect(result).toEqual({ ok: false, reason: 'timeout' });
     expect(turns).toBeGreaterThan(10);
@@ -267,15 +292,58 @@ describe('the rows a pattern matches', () => {
   it('is refused at its deadline as out of time, and under a signal aborted before it began as ended', async () => {
     const stuck = rowsOf([commit(COMMITS[0].sha, 'John Doe', CRAFTED)]);
     const started = performance.now();
-    expect(await flagLogTexts(stuck, pattern(RUNAWAY), { signal: live(), patternDeadlineMs: 150 })).toEqual({
+    expect(
+      await flagLogTexts(stuck, pattern(RUNAWAY), { signal: live(), patternDeadlineMs: 150, patternTurn: alone }),
+    ).toEqual({
       ok: false,
       reason: 'timeout',
     });
     expect(performance.now() - started).toBeGreaterThanOrEqual(140);
     expect(performance.now() - started).toBeLessThan(2_000);
     expect(
-      await flagLogTexts(rows, pattern('retry'), { signal: AbortSignal.abort(), patternDeadlineMs: LONG }),
+      await flagLogTexts(rows, pattern('retry'), {
+        signal: AbortSignal.abort(),
+        patternDeadlineMs: LONG,
+        patternTurn: alone,
+      }),
     ).toEqual({ ok: false, reason: 'aborted' });
+  });
+
+  it('takes a turn as its worker starts, is ended with it as out of time, and frees it on every way out', async () => {
+    const stuck = rowsOf([commit(COMMITS[0].sha, 'John Doe', CRAFTED)]);
+    const turn = new AbortController();
+    let taken = 0;
+    let freed = 0;
+    const patternTurn = (): LogPatternTurn => {
+      taken += 1;
+      return {
+        signal: turn.signal,
+        done: () => {
+          freed += 1;
+        },
+      };
+    };
+    const options = { signal: live(), patternDeadlineMs: LONG, patternTurn };
+
+    // An answer frees the turn it took.
+    expect(await flagLogTexts(rows, pattern('retry'), options)).toHaveProperty('ok', true);
+    expect([taken, freed]).toEqual([1, 1]);
+    // A plain text runs no thread, and a text that is refused starts none: neither takes a turn.
+    expect(await flagLogTexts(rows, plain('retry'), options)).toHaveProperty('ok', true);
+    expect(await flagLogTexts(rows, pattern('('), options)).toEqual({ ok: false, reason: 'invalid-text' });
+    expect(taken).toBe(1);
+    // A worker that fails frees it too.
+    const broken = { ...rows.store, view: () => ({ ...rows.store.view(), starts: new SharedArrayBuffer(3) }) };
+    await expect(flagLogTexts({ ...rows, store: broken }, pattern('retry'), options)).rejects.toThrow();
+    expect([taken, freed]).toEqual([2, 2]);
+
+    // The turn taken away mid-run ends the pattern: out of time, long before its deadline.
+    const started = performance.now();
+    setTimeout(() => turn.abort(), 150);
+    expect(await flagLogTexts(stuck, pattern(RUNAWAY), options)).toEqual({ ok: false, reason: 'timeout' });
+    expect(performance.now() - started).toBeGreaterThanOrEqual(140);
+    expect(performance.now() - started).toBeLessThan(2_000);
+    expect([taken, freed]).toEqual([3, 3]);
   });
 
   it('rejects when its worker fails — nobody waits for an answer that cannot come', async () => {
