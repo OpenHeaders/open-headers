@@ -93,10 +93,6 @@ export const CADENCE_INTERVAL_MS: Partial<Record<WorkspaceTreeCommitCadence, num
 /** History reads (§9, Phase 7): default page + hard cap — a recent timeline, not a full log browser. */
 export const LOG_DEFAULT_LIMIT = 20;
 export const LOG_MAX_LIMIT = 200;
-/** A search over a whole history ends here, found or not — a walk nobody bounds is nobody's to wait for. */
-export const LOG_SEARCH_DEADLINE_MS = 5_000;
-/** Searches of one workspace's history in flight at once; one more ends the oldest. */
-export const LOG_SEARCH_MAX_IN_FLIGHT = 4;
 /** Rows one read of a log's list answers at most — a few screens of them. */
 export const LOG_ROWS_MAX_COUNT = 400;
 /** Linear runs one ask folds (or opens again) by name at most. */
@@ -174,8 +170,6 @@ export interface RuntimeCtx {
   readonly gitRun: GitRunner;
   /** The reading runner — a git read handed over as it arrives (a whole history's walk). */
   readonly gitStream: GitStreamRunner;
-  /** Whose turn a history search has — the bound on searches in flight. */
-  readonly searchTurns: Turns;
   /** The histories held for the logs that are open, and the lists made from them. */
   readonly logHistories: LogHistories;
   /** Whose turn a read of a log's list has — one set per kind of read. */

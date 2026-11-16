@@ -78,15 +78,6 @@ export function logRunAt(held: LogRowPages, row: number, run: number): Workspace
   return held.pages.get(pageOf(row))?.runs.get(run) ?? null;
 }
 
-/**
- * The list's first page — its newest rows, what a text sifts at once;
- * null while it is not held. A list with no row has an empty one.
- */
-export function firstLogRows(held: LogRowPages): readonly WorkspaceTreeLogRowWire[] | null {
-  if (held.ask === null) return null;
-  return held.total === 0 ? [] : (held.pages.get(0)?.rows ?? null);
-}
-
 /** The authors of the rows held, each name once, in the locale's order — what the User filter offers. */
 export function heldLogAuthors(held: LogRowPages): string[] {
   const names = new Set<string>();

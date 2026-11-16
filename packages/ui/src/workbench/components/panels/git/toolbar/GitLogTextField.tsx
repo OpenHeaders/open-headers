@@ -24,7 +24,7 @@ export interface GitLogTextFieldProps {
   onToggleRegex: () => void;
   matchCase: boolean;
   onToggleMatchCase: () => void;
-  /** The applied text is a regex that failed to compile — error styling. */
+  /** The applied text is one the log cannot take — a pattern that does not compile, a text that is no shape: error styling. */
   invalid: boolean;
 }
 

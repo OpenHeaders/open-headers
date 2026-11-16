@@ -1,6 +1,6 @@
 /**
  * log-neighbors — a commit's parent and child within a list of NAMED
- * commits (`CommitList`: the compare pane, a search's page) — the
+ * commits (`CommitList`: the compare pane) — the
  * reference's Go to Parent / Go to Child Commit: the parent is the
  * commit's first parent when the list holds it, the child the nearest
  * newer commit that names it as a parent. Null at the list's edge. The

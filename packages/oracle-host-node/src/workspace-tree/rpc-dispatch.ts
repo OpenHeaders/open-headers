@@ -91,7 +91,7 @@ function readLogScope(ref: unknown, refs: unknown): string[] | undefined | null 
   return refs.every((name): name is string => typeof name === 'string' && name.length > 0) ? refs : null;
 }
 
-/** The row filters of a log or a search call — each field as the runtime's validation takes it, the rest left out. */
+/** The row filters of a log call — each field as the runtime's validation takes it, the rest left out. */
 function readLogFilters(message: Record<string, unknown>): WorkspaceTreeLogFilters {
   return {
     ...(typeof message.author === 'string' && message.author.length > 0 ? { author: message.author } : {}),
@@ -356,27 +356,6 @@ export async function dispatchWorkspaceTreeRpc(
     if (scope === null) return { ok: false, reason: 'invalid-filter' };
     return await runtime.log(
       workspaceId,
-      typeof message.limit === 'number' ? message.limit : undefined,
-      scope,
-      readLogFilters(message),
-    );
-  }
-  // The log's text field over the whole history: the text and its
-  // toggles travel as sent — the runtime refuses what is no search.
-  if (type === 'oh.workspaceTree.searchLog') {
-    const workspaceId = typeof message.workspaceId === 'string' ? message.workspaceId : '';
-    if (!workspaceId || runtime === null) return { ok: false, reason: 'not-bound' };
-    const scope = readLogScope(undefined, message.refs);
-    if (scope === null || typeof message.text !== 'string') return { ok: false, reason: 'invalid-filter' };
-    if (message.key !== undefined && typeof message.key !== 'string') return { ok: false, reason: 'invalid-filter' };
-    return await runtime.searchLog(
-      workspaceId,
-      {
-        text: message.text,
-        ...(message.regex === true ? { regex: true } : {}),
-        ...(message.matchCase === true ? { matchCase: true } : {}),
-        ...(message.key !== undefined ? { key: message.key } : {}),
-      },
       typeof message.limit === 'number' ? message.limit : undefined,
       scope,
       readLogFilters(message),

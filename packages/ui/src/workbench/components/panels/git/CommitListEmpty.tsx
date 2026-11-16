@@ -1,8 +1,7 @@
 /**
  * CommitListEmpty — what a list of commits says when it lists none:
- * "no matches" with a reset action while a filter is on, the standing
- * first-commit hint in a repo with no commit yet, or what a search over
- * the whole history has to say (`note`) in place of either.
+ * "no matches" with a reset action while a filter is on, or the standing
+ * first-commit hint in a repo with no commit yet.
  */
 
 import { Button, theme } from 'antd';
@@ -14,11 +13,9 @@ export interface CommitListEmptyProps {
   /** True when a text filter or ref scope is active — "no matches" and its reset action. */
   filtersActive: boolean;
   onResetFilters: () => void;
-  /** What the list says of a search past its rows; null = nothing. */
-  note?: string | null;
 }
 
-const CommitListEmpty: React.FC<CommitListEmptyProps> = ({ filtersActive, onResetFilters, note = null }) => {
+const CommitListEmpty: React.FC<CommitListEmptyProps> = ({ filtersActive, onResetFilters }) => {
   const { token } = theme.useToken();
   const { t } = useLocale();
   return (
@@ -35,9 +32,7 @@ const CommitListEmpty: React.FC<CommitListEmptyProps> = ({ filtersActive, onRese
       }}
       data-testid="git-tool-empty"
     >
-      <span data-testid={note !== null ? 'git-tool-list-note' : undefined}>
-        {note ?? (filtersActive ? t('workbench.gitLog.noMatches') : t('workbench.gitLog.empty'))}
-      </span>
+      <span>{filtersActive ? t('workbench.gitLog.noMatches') : t('workbench.gitLog.empty')}</span>
       {filtersActive && (
         <Button type="link" size="small" onClick={onResetFilters} data-testid="git-tool-reset-filters">
           {t('workbench.gitLog.resetFilters')}

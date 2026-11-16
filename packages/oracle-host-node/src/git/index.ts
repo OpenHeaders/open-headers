@@ -46,8 +46,6 @@ export {
 export { type HeldIndexLock, type IndexLockRefusal, lockRefusalReason, withIndexLock } from './index-lock';
 export { type NamedRowsResult, readNamedRows } from './log-named-rows';
 export { listCommitsBySha } from './log-rows';
-export { type CommitLogSearchResult, type LogSearchMatch, searchCommitLog } from './log-search';
-export { type LogSearchLane, openLogSearchLane } from './log-search-lane';
 export {
   type HistorySkeleton,
   historyRowOf,

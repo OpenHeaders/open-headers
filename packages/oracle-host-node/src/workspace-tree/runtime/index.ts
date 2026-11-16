@@ -76,7 +76,6 @@ import {
   LOG_HISTORY_TEXTS_TIMEOUT_MS,
   LOG_HISTORY_WALK_TIMEOUT_MS,
   LOG_ROWS_MAX_IN_FLIGHT,
-  LOG_SEARCH_MAX_IN_FLIGHT,
   MAX_PENDING_INTENTS,
   type OpenBinding,
   type RuntimeCtx,
@@ -94,7 +93,6 @@ import {
   runFileLog,
   runGitConsole,
   runListRefs,
-  runSearchLog,
   runTreeFiles,
   runWorkspaceLog,
 } from './history';
@@ -146,7 +144,6 @@ import type {
   WorkspaceTreeLogListAsk,
   WorkspaceTreeLogRowsRpcResult,
   WorkspaceTreeLogRpcResult,
-  WorkspaceTreeLogSearch,
   WorkspaceTreeRefsRpcResult,
   WorkspaceTreeRemoteCheckRpcResult,
   WorkspaceTreeRemoteOpRpcResult,
@@ -155,7 +152,6 @@ import type {
   WorkspaceTreeRollbackPathsRpcResult,
   WorkspaceTreeRuntime,
   WorkspaceTreeRuntimeOptions,
-  WorkspaceTreeSearchLogRpcResult,
   WorkspaceTreeTreeFilesRpcResult,
   WorkspaceTreeUnignoreRpcResult,
   WorkspaceTreeUserCommitInput,
@@ -198,7 +194,6 @@ export type {
   WorkspaceTreeLogListAsk,
   WorkspaceTreeLogRowsRpcResult,
   WorkspaceTreeLogRpcResult,
-  WorkspaceTreeLogSearch,
   WorkspaceTreeRefsRpcResult,
   WorkspaceTreeRemoteCheckRpcResult,
   WorkspaceTreeRemoteOpRpcResult,
@@ -207,7 +202,6 @@ export type {
   WorkspaceTreeRollbackPathsRpcResult,
   WorkspaceTreeRuntime,
   WorkspaceTreeRuntimeOptions,
-  WorkspaceTreeSearchLogRpcResult,
   WorkspaceTreeTreeFilesRpcResult,
   WorkspaceTreeUnignoreRpcResult,
   WorkspaceTreeUserCommitInput,
@@ -267,7 +261,6 @@ export function createWorkspaceTreeRuntime(options: WorkspaceTreeRuntimeOptions)
     await hostStorage.set(OH.workspaceTreeBindings, records);
   };
 
-  const searchTurns = createTurns(LOG_SEARCH_MAX_IN_FLIGHT);
   const logTurns = { rows: createTurns(LOG_ROWS_MAX_IN_FLIGHT), locate: createTurns(LOG_ROWS_MAX_IN_FLIGHT) };
   const gitStream = options.gitStreamRunner ?? createGitStream();
   const logHistories = createLogHistories({
@@ -289,7 +282,6 @@ export function createWorkspaceTreeRuntime(options: WorkspaceTreeRuntimeOptions)
     open,
     gitRun,
     gitStream,
-    searchTurns,
     logHistories,
     logTurns,
     consoleRows,
@@ -738,16 +730,6 @@ export function createWorkspaceTreeRuntime(options: WorkspaceTreeRuntimeOptions)
       return runWorkspaceLog(ctx, workspaceId, limit, scope, filters);
     },
 
-    searchLog(
-      workspaceId: string,
-      search: WorkspaceTreeLogSearch,
-      limit?: number,
-      scope?: readonly string[],
-      filters?: WorkspaceTreeLogFilters,
-    ): Promise<WorkspaceTreeSearchLogRpcResult> {
-      return runSearchLog(ctx, workspaceId, search, limit, scope, filters);
-    },
-
     logRows(
       workspaceId: string,
       ask: WorkspaceTreeLogListAsk,
@@ -1031,7 +1013,6 @@ export function createWorkspaceTreeRuntime(options: WorkspaceTreeRuntimeOptions)
 
     async dispose(): Promise<void> {
       disposed = true;
-      searchTurns.endAll();
       logTurns.rows.endAll();
       logTurns.locate.endAll();
       logHistories.dispose();

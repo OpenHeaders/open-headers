@@ -9,6 +9,7 @@
 
 import {
   favoritesScope,
+  logRowsScopeWire,
   logScopeWire,
   scopeChipText,
   scopeHoverText,
@@ -16,19 +17,18 @@ import {
   scopeShowsCurrentBranch,
   scopeTabText,
   scopeWithout,
-  searchScopeWire,
 } from '@openheaders/ui/workbench/components/panels/git/log-scope';
 import { describe, expect, it } from 'vitest';
 
-describe('searchScopeWire', () => {
+describe('logRowsScopeWire', () => {
   it('asks every ref for an empty scope and the default walk for HEAD alone', () => {
-    expect(searchScopeWire([])).toEqual({ allRefs: true });
-    expect(searchScopeWire(['HEAD'])).toEqual({});
+    expect(logRowsScopeWire([])).toEqual({ allRefs: true });
+    expect(logRowsScopeWire(['HEAD'])).toEqual({});
   });
 
   it('sends every other scope as `refs` — the verb has no `ref`', () => {
-    expect(searchScopeWire(['feature/orders-v2'])).toEqual({ refs: ['feature/orders-v2'] });
-    expect(searchScopeWire(['HEAD', 'main'])).toEqual({ refs: ['HEAD', 'main'] });
+    expect(logRowsScopeWire(['feature/orders-v2'])).toEqual({ refs: ['feature/orders-v2'] });
+    expect(logRowsScopeWire(['HEAD', 'main'])).toEqual({ refs: ['HEAD', 'main'] });
   });
 });
 

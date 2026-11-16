@@ -11,8 +11,8 @@
  * held one is no answer; the held list's change asks again.
  *
  * The list itself enters a listing on the tab's row (`LogRowList`). A
- * row found only after the listing was drawn — a text taken off, an
- * entrance the host did not answer — is brought into view here, once.
+ * row found only after the listing was drawn — an entrance the host
+ * did not answer — is brought into view here, once.
  * A fold, a frame of the repo and a history read anew move nothing.
  */
 

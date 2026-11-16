@@ -120,7 +120,6 @@ export type {
   WorkspaceTreeRemotesWire,
   WorkspaceTreeRemoteWire,
   WorkspaceTreeRollbackPathsWire,
-  WorkspaceTreeSearchLogWire,
   WorkspaceTreeSwitchBranchWire,
   WorkspaceTreeTreeFilesWire,
   WorkspaceTreeUnignoreWire,

@@ -1,7 +1,7 @@
 /**
  * CommitList — a list of NAMED commits, every one of them drawn: the
- * compare pane's two sides and a text search's results (the log's own
- * list, over the whole history by row number, is `LogRowList`). Graph
+ * compare pane's two sides (the log's own list, over the whole history
+ * by row number, is `LogRowList`). Graph
  * cell, subject, the right-aligned ref label column (or the labels
  * before the subject with References on the Left), the short hash (off
  * by default), author, and the graduated date column — the eye menu's
@@ -13,9 +13,7 @@
  * cells arrive from the orchestrator and are null where no graph joins
  * the commits listed (cells degrade to plain dots). Empty states:
  * filters-active answers "no matches" with a reset action; a genuinely
- * empty repo keeps the standing first-commit hint. A `note` is what
- * the list says of a search over the whole history — under its last
- * row, or in place of "no matches" when nothing is listed.
+ * empty repo keeps the standing first-commit hint.
  *
  * Selection (the shared library): a click selects a row alone,
  * Cmd/Ctrl+click toggles it, Shift+click selects the range from the
@@ -35,7 +33,6 @@
  */
 
 import type { WorkspaceTreeLogEntryWire, WorkspaceTreeRefWire } from '@openheaders/core/bridge';
-import type { LogTextRange } from '@openheaders/core/workspace-tree';
 import { Dropdown, type MenuProps, theme } from 'antd';
 import type React from 'react';
 import { useEffect, useMemo, useRef } from 'react';
@@ -44,7 +41,6 @@ import { commitsApply } from './commit-apply';
 import CommitListEmpty from './CommitListEmpty';
 import CommitRowCells, { COMMIT_ROW_LAYOUT, type CommitRowColumns } from './CommitRowCells';
 import { contextMenuAlign } from './git-menu-overflow';
-import { GIT_TEXT_SIZE } from './git-type-scale';
 import GraphCell from './GraphCell';
 import type { GraphCellRow } from './log-cell';
 import type { HourCycle } from './log-date';
@@ -72,11 +68,6 @@ export interface CommitListProps {
    *  no-matches empty state and its reset action. */
   filtersActive: boolean;
   onResetFilters: () => void;
-  /** What the list says of a search past its rows — matches past the page, a search that did not finish; null = nothing. */
-  note?: string | null;
-  /** Navigate gesture: scroll the row for `sha` into view. The nonce
-   *  distinguishes repeated navigations to the same sha. */
-  scrollTo?: { sha: string; nonce: number } | null;
   /** Eye menu — Show > Compact References View: one ref label per row (off: every label inline). */
   compactRefs?: boolean;
   /** Eye menu — Show > References on the Left: the ref labels before the subject. */
@@ -101,8 +92,6 @@ export interface CommitListProps {
   hourCycle?: HourCycle;
   /** The row's right-click menu over the commits it covers; absent = no menu. */
   rowMenu?: (target: LogRowMenuTarget) => MenuProps;
-  /** The text filter's matches in a subject or an author — painted where they stand; absent = no filter. */
-  matchRanges?: (text: string) => readonly LogTextRange[];
 }
 
 const NO_REFS: readonly WorkspaceTreeRefWire[] = [];
@@ -118,8 +107,6 @@ const CommitList: React.FC<CommitListProps> = ({
   onSelectionChange,
   filtersActive,
   onResetFilters,
-  note = null,
-  scrollTo,
   compactRefs = true,
   refsOnLeft = false,
   showTagChips = true,
@@ -132,7 +119,6 @@ const CommitList: React.FC<CommitListProps> = ({
   dimMergeCommits = true,
   hourCycle = 'h23',
   rowMenu,
-  matchRanges,
 }) => {
   const { token } = theme.useToken();
   const columns = useMemo<CommitRowColumns>(
@@ -164,12 +150,6 @@ const CommitList: React.FC<CommitListProps> = ({
   const listRef = useRef<HTMLDivElement>(null);
   const order = useMemo(() => entries.map((entry) => entry.sha), [entries]);
   const { selection, isSelected, click, step, contextMenu, clear } = useMultiSelection(order);
-
-  useEffect(() => {
-    if (scrollTo === null || scrollTo === undefined || listRef.current === null) return;
-    const row = listRef.current.querySelector(`[data-sha="${scrollTo.sha}"]`);
-    row?.scrollIntoView({ behavior: 'instant', block: 'center' });
-  }, [scrollTo]);
 
   // The tab's commit leads the rows: a remembered commit whose row is
   // visible and not yet selected becomes the selection alone; a
@@ -268,7 +248,7 @@ const CommitList: React.FC<CommitListProps> = ({
     );
 
   if (entries.length === 0) {
-    return <CommitListEmpty filtersActive={filtersActive} onResetFilters={onResetFilters} note={note} />;
+    return <CommitListEmpty filtersActive={filtersActive} onResetFilters={onResetFilters} />;
   }
 
   const maxLanes = graph === null ? 1 : Math.max(1, ...graph.map((row) => row.laneCount));
@@ -310,19 +290,10 @@ const CommitList: React.FC<CommitListProps> = ({
               isHead={entry.sha === headSha}
               columns={columns}
               signature={signatures?.get(entry.sha)}
-              matchRanges={matchRanges}
             />
           </button>,
         );
       })}
-      {note !== null && (
-        <div
-          style={{ padding: '6px 12px', fontSize: GIT_TEXT_SIZE, color: token.colorTextSecondary }}
-          data-testid="git-tool-list-note"
-        >
-          {note}
-        </div>
-      )}
     </div>
   );
 };

@@ -1,7 +1,7 @@
 /**
  * The log graph's lane palette. The layout is core's and the host's: a
  * row arrives with its cell laid out and its colours as palette NUMBERS
- * (`log-cell.ts`, `log-sifted-window.ts`); what a number looks like is
+ * (`log-cell.ts`); what a number looks like is
  * the theme's, through these tokens.
  */
 

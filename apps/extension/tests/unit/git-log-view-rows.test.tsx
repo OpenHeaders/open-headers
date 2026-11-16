@@ -21,6 +21,7 @@ import type {
   WorkspaceTreeLogRunWire,
   WorkspaceTreeRefWire,
 } from '@openheaders/core/bridge';
+import { makeLogTextMatcher } from '@openheaders/core/workspace-tree';
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import type React from 'react';
 import { useState } from 'react';
@@ -109,6 +110,8 @@ interface RowsRequest {
   folds?: string[];
   foldAll?: boolean;
   noMerges?: boolean;
+  text?: string;
+  regex?: boolean;
   refresh?: boolean;
   key?: string;
 }
@@ -127,10 +130,17 @@ let holdRefs: ((answer: unknown) => void)[] | null = null;
 /** A commit's place is answered by hand when set: each entry lets one answer go. */
 let holdLocates: (() => void)[] | null = null;
 
+/** The list an ask names: No Merges lists every other commit, a text every commit of the history it matches. */
+function listOf(request: RowsRequest): WorkspaceTreeLogEntryWire[] {
+  const list = request.noMerges === true ? listed.filter((_, at) => at % 2 === 0) : listed;
+  if (request.text === undefined) return list;
+  const matcher = makeLogTextMatcher(request.text, request.regex === true, false);
+  return matcher.kind === 'match' ? list.filter(matcher.test) : [];
+}
+
 function listRows(request: RowsRequest): WorkspaceTreeLogRowsWire {
   if (request.refs?.includes('gone') === true) return { ok: false, reason: 'unknown-ref', unknownRefs: ['gone'] };
-  // No Merges lists every other commit: a list the tab's commit may be left out of.
-  const list = request.noMerges === true ? listed.filter((_, at) => at % 2 === 0) : listed;
+  const list = listOf(request);
   const end = Math.min(list.length, request.from + request.count);
   const folded = request.foldAll === true || (request.folds?.length ?? 0) > 0;
   const run = runOf(list[3]?.sha ?? sha(0), folded);
@@ -154,7 +164,7 @@ function listRows(request: RowsRequest): WorkspaceTreeLogRowsWire {
 }
 
 function locateRow(request: RowsRequest & { target: string }): WorkspaceTreeLocateLogRowWire {
-  const list = request.noMerges === true ? listed.filter((_, at) => at % 2 === 0) : listed;
+  const list = listOf(request);
   const named = refs.find((ref) => ref.name === request.target)?.sha ?? request.target;
   const row = list.findIndex((entry) => entry.sha === named);
   if (row !== -1) return { ok: true, list: listId, row };
@@ -338,8 +348,6 @@ beforeEach(() => {
       signatureAsks.push(request.shas);
       return Promise.resolve({ ok: true, signatures: [] });
     }
-    // A text is asked of the whole history too; here the host never finishes, and the first page's sift stands.
-    if (type === 'oh.workspaceTree.searchLog') return Promise.resolve({ ok: false, reason: 'search-timeout' });
     return Promise.resolve({ ok: true });
   });
 });
@@ -413,7 +421,7 @@ describe('GitLogView — the list it asks for', () => {
     expect(mountedRows()).not.toContain(0);
   });
 
-  it('keeps the list’s first page while a text is applied, wherever the view stood — a history read anew reads it again', async () => {
+  it('lists a text’s matches by row like any other list — every one in the history, read again where the view stands', async () => {
     viewportPx = 10 * ROW_PX;
     await mount();
     const list = screen.getByTestId('git-tool-list');
@@ -421,15 +429,22 @@ describe('GitLogView — the list it asks for', () => {
     await settle(() => fireEvent.scroll(list));
     await waitFor(() => expect(rowEl(600).getAttribute('data-sha')).toBe(sha(TOTAL - 600)));
 
-    // Commits 990–999 match, all on the first page.
+    // Commits 990–999 match, and commit 99 nine hundred rows under them.
     await apply({ filter: 'commit 99' });
-    await waitFor(() => expect(screen.getAllByTestId('git-tool-row')).toHaveLength(10));
+    await waitFor(() => expect(screen.getByTestId('git-tool-list').getAttribute('data-total')).toBe('11'));
+    await settle();
+    expect(listReads().at(-1)).toMatchObject({ text: 'commit 99', from: 0 });
+    expect(rowEl(0).getAttribute('data-sha')).toBe(sha(999));
+    expect(rowEl(10).getAttribute('data-sha')).toBe(sha(99));
+
+    // A history read anew: the same ask is read again, its rows still the text's.
+    const before = listReads().length;
     listId = 'g2';
     await emit('workspaceTreeLogHistory');
     await settle();
-    expect(screen.getAllByTestId('git-tool-row')).toHaveLength(10);
-    expect(firstPageRead()).toMatchObject({ from: 0 });
-    expect(listReads().at(-1)?.from).toBe(0);
+    expect(listReads().length).toBeGreaterThan(before);
+    expect(listReads().at(-1)).toMatchObject({ text: 'commit 99' });
+    expect(screen.getByTestId('git-tool-list').getAttribute('data-total')).toBe('11');
   });
 
   it('drops a ref the history no longer holds from the scope, and asks for what is left', async () => {
@@ -671,18 +686,68 @@ describe('GitLogView — where the list is looked at', () => {
     expect(locates).toEqual([]);
   });
 
-  it('enters another listing at its top under a text, the tab’s commit deep in it — the first page is what the text sifts', async () => {
+  it('enters a text’s listing in ONE move too: nothing read and nothing moved until the tab’s commit is found under the text, then the rows around it', async () => {
     viewportPx = VIEW;
     await mount({ selectedSha: sha(TOTAL - 640) });
     await waitFor(() => expect(scrollTop()).toBe(centred(640)));
-    // Commits 990–999 match, all on the first page.
-    await apply({ filter: 'commit 99' });
-    await waitFor(() => expect(screen.getAllByTestId('git-tool-row')).toHaveLength(10));
+    await waitFor(() => expect(rowEl(640).getAttribute('data-sha')).toBe(sha(TOTAL - 640)));
+    await settle();
 
-    // No Merges lists every other commit: five of the ten, once ITS first page is read.
-    await apply({ noMerges: true });
-    await waitFor(() => expect(screen.getAllByTestId('git-tool-row')).toHaveLength(5));
-    expect(listReads().filter((read) => read.noMerges === true)[0]).toMatchObject({ from: 0, count: 200 });
+    // Every position the list is given from now on.
+    const list = screen.getByTestId('git-tool-list');
+    let at = list.scrollTop;
+    const moves: number[] = [];
+    Object.defineProperty(list, 'scrollTop', {
+      configurable: true,
+      get: () => at,
+      set: (next: number) => {
+        at = next;
+        moves.push(next);
+      },
+    });
+
+    holdLocates = [];
+    const reads = listReads().length;
+    // Commits 100–659 match, the newest first: commit 360 sits on the list's row 299.
+    await apply({ filter: 'commit ([1-5]\\d\\d|6[0-5]\\d)$', filterRegex: true });
+    await waitFor(() => expect(holdLocates).toHaveLength(1));
+    await settle();
+    // The host is asked where the commit sits under the text; until it says, the list before stands as it was.
+    expect(locates.at(-1)).toBe(sha(TOTAL - 640));
+    expect(listReads()).toHaveLength(reads);
+    expect(moves).toEqual([]);
+    expect(rowEl(640).getAttribute('data-sha')).toBe(sha(TOTAL - 640));
+
+    await settle(() => holdLocates?.[0]());
+    await waitFor(() => expect(selectedRows()).toEqual([299]));
+    await settle();
+    const asked = listReads().filter((read) => read.text !== undefined);
+    // The first rows read are the ones the list is entered on — none where the list before was looked at.
+    expect(asked[0]).toMatchObject({ text: 'commit ([1-5]\\d\\d|6[0-5]\\d)$', regex: true, from: 200, count: 200 });
+    expect(asked.some((read) => read.from === 600)).toBe(false);
+    expect(new Set(moves)).toEqual(new Set([centred(299)]));
+    expect(rowEl(299).getAttribute('data-sha')).toBe(sha(TOTAL - 640));
+    expect(screen.getByTestId('git-tool-list').getAttribute('data-total')).toBe('560');
+
+    // The text taken off: the whole list again, on the tab's commit.
+    holdLocates = null;
+    await apply({ filter: '', filterRegex: false });
+    await waitFor(() => expect(screen.getByTestId('git-tool-list').getAttribute('data-total')).toBe(String(TOTAL)));
+    await waitFor(() => expect(selectedRows()).toEqual([640]));
+    expect(scrollTop()).toBe(centred(640));
+  });
+
+  it('enters a text’s listing at its top where the text leaves the tab’s commit out', async () => {
+    viewportPx = VIEW;
+    await mount({ selectedSha: sha(TOTAL - 640) });
+    await waitFor(() => expect(scrollTop()).toBe(centred(640)));
+
+    await apply({ filter: 'commit 99' });
+    await waitFor(() => expect(screen.getByTestId('git-tool-list').getAttribute('data-total')).toBe('11'));
+    await settle();
+    expect(scrollTop()).toBe(0);
+    expect(selectedRows()).toEqual([]);
+    expect(tabNow.selectedSha).toBe(sha(TOTAL - 640));
   });
 
   it('stays where it is under a fold, a frame of the repo and a history read anew', async () => {
@@ -778,6 +843,15 @@ describe('GitLogView — the folds', () => {
 
   it('folds no run on a list that sifts — a press on its cell asks nothing', async () => {
     await mount({ noMerges: true });
+    const before = listReads().length;
+    await settle(() => fireEvent.click(cellOf(4)));
+    expect(tabNow.folds).toEqual({ all: false, runs: [] });
+    expect(listReads()).toHaveLength(before);
+  });
+
+  it('folds no run under a text either — a text sifts', async () => {
+    // Every commit matches: the rows are the whole list's, the run among them.
+    await mount({ filter: 'commit' });
     const before = listReads().length;
     await settle(() => fireEvent.click(cellOf(4)));
     expect(tabNow.folds).toEqual({ all: false, runs: [] });

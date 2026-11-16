@@ -31,10 +31,11 @@ export function logScopeWire(scope: GitLogScope): GitLogScopeWire {
 }
 
 /**
- * The `searchLog` verb's scope fields: the same scope as the log's, but
- * the verb has no `ref` — one ref travels in `refs` too.
+ * The scope fields of the verbs that read the log's list (`logRows`,
+ * `locateLogRow`): the same scope as the log's, but they have no `ref`
+ * — one ref travels in `refs` too.
  */
-export function searchScopeWire(scope: GitLogScope): Pick<GitLogScopeWire, 'refs' | 'allRefs'> {
+export function logRowsScopeWire(scope: GitLogScope): Pick<GitLogScopeWire, 'refs' | 'allRefs'> {
   if (scope.length === 0) return { allRefs: true };
   return scope.length === 1 && scope[0] === GIT_LOG_SCOPE_HEAD ? {} : { refs: [...scope] };
 }

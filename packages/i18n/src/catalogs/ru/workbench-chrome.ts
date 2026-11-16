@@ -595,13 +595,6 @@ export const workbenchChrome = {
     'Коммитов пока нет — они создаются по настроенному расписанию, или сделайте коммит вручную в разделе «Настройки › Git».',
   'workbench.gitLog.noMatches': 'Нет коммитов, соответствующих фильтрам',
   'workbench.gitLog.resetFilters': 'Сбросить фильтры',
-  'workbench.gitLog.search.searching': 'Поиск по всей истории…',
-  'workbench.gitLog.search.more':
-    'Показаны последние совпадения: {count}. Более старые коммиты тоже подходят — уточните поиск.',
-  'workbench.gitLog.search.timeout':
-    'Время поиска истекло до того, как он охватил всю историю. Эти совпадения найдены среди последних коммитов ({count}).',
-  'workbench.gitLog.search.timeoutEmpty':
-    'Время поиска истекло до того, как он охватил всю историю. Среди последних коммитов ({count}) совпадений нет.',
   'workbench.gitLog.selectCommit': 'Выберите коммит, чтобы увидеть его изменения',
   'workbench.gitLog.noneSelected': 'Коммит не выбран',
   'workbench.gitLog.commitsSelected': 'Выбрано коммитов: {count}',

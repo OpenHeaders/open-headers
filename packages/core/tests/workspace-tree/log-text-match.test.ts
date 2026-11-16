@@ -52,6 +52,20 @@ describe('the log text matcher says which commit matches', () => {
   it('matches by what was typed without the blanks around it', () => {
     expect(matcherOf('  response ', false, false).test(ENTRY)).toBe(true);
   });
+
+  it('is invalid for a text that is no shape — longer than the field takes, or with a control character', () => {
+    for (const regex of [false, true]) {
+      expect(makeLogTextMatcher('a'.repeat(200), regex, false).kind).toBe('match');
+      expect(makeLogTextMatcher('a'.repeat(201), regex, false).kind).toBe('invalid');
+      // The blanks around a text are not part of it.
+      expect(makeLogTextMatcher(`  ${'a'.repeat(200)}  `, regex, false).kind).toBe('match');
+      expect(makeLogTextMatcher('orders\nmain', regex, false).kind).toBe('invalid');
+      expect(makeLogTextMatcher('orders\tmain', regex, false).kind).toBe('invalid');
+      expect(makeLogTextMatcher('orders\u0000', regex, false).kind).toBe('invalid');
+      expect(makeLogTextMatcher('orders\u007f', regex, false).kind).toBe('invalid');
+      expect(makeLogTextMatcher('orders main', regex, false).kind).toBe('match');
+    }
+  });
 });
 
 describe('the log text matcher says what it is made of', () => {

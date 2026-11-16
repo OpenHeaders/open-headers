@@ -20,7 +20,6 @@
 import { type LogTextMatcher, makeLogTextMatcher } from '@openheaders/core/workspace-tree';
 import { breathe } from './breathe';
 import { flagRowsByPattern } from './log-text-pattern';
-import { isValidLogSearchText } from './log-text-shape';
 import type { LogTextStore } from './log-text-store';
 
 /** Rows a pass reads before it hands the thread back. */
@@ -61,9 +60,8 @@ export type LogTextFlagsResult =
 
 type Match = Extract<LogTextMatcher, { kind: 'match' }>;
 
-/** The matcher of a text that is a valid shape; null for one that is none, or a pattern that does not compile. */
+/** The matcher of a text core takes; null for one that is no shape, or a pattern that does not compile. */
 function matcherOf(ask: LogTextAsk): Match | null {
-  if (!isValidLogSearchText(ask.text)) return null;
   // Compiling a pattern is safe here; running it is the worker's.
   const matcher = makeLogTextMatcher(ask.text, ask.regex, ask.matchCase);
   return matcher.kind === 'match' ? matcher : null;

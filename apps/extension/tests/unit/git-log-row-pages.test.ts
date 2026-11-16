@@ -11,7 +11,6 @@
 import type { WorkspaceTreeLogRowWire, WorkspaceTreeLogRunWire } from '@openheaders/core/bridge';
 import { NO_LOG_FOLDS } from '@openheaders/ui/workbench/components/panels/git/log-folds';
 import {
-  firstLogRows,
   heldLogAuthors,
   LOG_PAGE_ROWS,
   LOG_PAGES_HELD,
@@ -216,25 +215,6 @@ describe('the rows held', () => {
   });
 });
 
-describe('the list’s first page', () => {
-  it('is the newest rows once they are held', () => {
-    const first = firstLogRows(holding(10_000, [0, 3]));
-    expect(first).toHaveLength(LOG_PAGE_ROWS);
-    expect(first?.[0].entry.subject).toBe('commit 0');
-    expect(first?.[199].entry.subject).toBe('commit 199');
-  });
-
-  it('is not known while it is not held, or no list is', () => {
-    expect(firstLogRows(holding(10_000, [3]))).toBeNull();
-    expect(firstLogRows(NO_LOG_ROWS)).toBeNull();
-  });
-
-  it('is empty for a list that holds no row, and short for a short one', () => {
-    expect(firstLogRows(takeLogRows(NO_LOG_ROWS, ASK, 0, answer(0, 200, 0), NO_LOG_ROW_RANGE))).toEqual([]);
-    expect(firstLogRows(takeLogRows(NO_LOG_ROWS, ASK, 0, answer(0, 200, 12), NO_LOG_ROW_RANGE))).toHaveLength(12);
-  });
-});
-
 describe('the authors of the rows held', () => {
   const by = (at: number, authorName: string): WorkspaceTreeLogRowWire => {
     const made = row(at);
@@ -297,6 +277,7 @@ describe('the listing an ask is of', () => {
     filters: { topoOrder: true },
     noMerges: false,
     firstParent: false,
+    text: null,
     folds: NO_LOG_FOLDS,
   };
   const name = logListingName(logRowsAsk(parts));
@@ -307,7 +288,14 @@ describe('the listing an ask is of', () => {
     expect(logListingName(logRowsAsk({ ...parts, folds: { all: true, runs: [sha(4), sha(9)] } }))).toBe(name);
   });
 
-  it('is another for another scope, filter, order or sift', () => {
+  it('is the same whatever blanks were typed around its text', () => {
+    const typed = (text: string) =>
+      logListingName(logRowsAsk({ ...parts, text: { text, regex: false, matchCase: false } }));
+    expect(typed('  orders ')).toBe(typed('orders'));
+    expect(typed('orders')).not.toBe(name);
+  });
+
+  it('is another for another scope, filter, order, sift or text', () => {
     const others = [
       { ...parts, scope: ['main', 'origin/main'] },
       { ...parts, scope: [] },
@@ -316,6 +304,10 @@ describe('the listing an ask is of', () => {
       { ...parts, filters: { topoOrder: true, paths: ['docs'] } },
       { ...parts, noMerges: true },
       { ...parts, firstParent: true },
+      { ...parts, text: { text: 'orders', regex: false, matchCase: false } },
+      { ...parts, text: { text: 'Orders', regex: false, matchCase: false } },
+      { ...parts, text: { text: 'orders', regex: true, matchCase: false } },
+      { ...parts, text: { text: 'orders', regex: false, matchCase: true } },
       { ...parts, workspaceId: 'ws-2' },
     ];
     const names = others.map((other) => logListingName(logRowsAsk(other)));
@@ -332,6 +324,7 @@ describe('what a tab asks the host to list', () => {
     filters: {},
     noMerges: false,
     firstParent: false,
+    text: null,
     folds: NO_LOG_FOLDS,
   };
 
@@ -343,6 +336,30 @@ describe('what a tab asks the host to list', () => {
     expect(logRowsAsk({ ...parts, scope: ['HEAD'] })).toEqual({ workspaceId: 'ws-1', key: 'log:1' });
     expect(logRowsAsk({ ...parts, scope: ['main'] })).toEqual({ workspaceId: 'ws-1', key: 'log:1', refs: ['main'] });
     expect(logRowsAsk({ ...parts, scope: ['HEAD', 'origin/main'] }).refs).toEqual(['HEAD', 'origin/main']);
+  });
+
+  it('carries the applied text without the blanks around it, and each toggle only when it is on', () => {
+    expect(logRowsAsk({ ...parts, text: { text: '  orders ', regex: false, matchCase: false } })).toEqual({
+      workspaceId: 'ws-1',
+      key: 'log:1',
+      allRefs: true,
+      text: 'orders',
+    });
+    expect(logRowsAsk({ ...parts, text: { text: '^orders', regex: true, matchCase: true } })).toEqual({
+      workspaceId: 'ws-1',
+      key: 'log:1',
+      allRefs: true,
+      text: '^orders',
+      regex: true,
+      matchCase: true,
+    });
+    expect(logRowsAsk({ ...parts, text: { text: 'orders', regex: false, matchCase: true } })).toEqual({
+      workspaceId: 'ws-1',
+      key: 'log:1',
+      allRefs: true,
+      text: 'orders',
+      matchCase: true,
+    });
   });
 
   it('carries the row filters, the order and the sifts', () => {

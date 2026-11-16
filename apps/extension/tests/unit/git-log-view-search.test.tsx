@@ -1,13 +1,13 @@
 // @vitest-environment jsdom
 /**
- * The log view's text search over a mocked bridge whose search answers
- * are held: the list's first page is sifted at once; the host is asked
- * only where the list is longer than that page, once per ask — a status
- * frame that moves no ref asks nothing; an answer that reaches past the
- * page takes the list, in the host's order, and everything beside the
- * list reads the commits that are listed; an answer inside the page, a
- * search that timed out and a host that cannot search leave the page's
- * sift standing.
+ * The log view's text field over a mocked bridge whose host lists as
+ * the real one does — every commit of the history a text matches: the
+ * applied text rides the list's ask, with its toggles and without the
+ * blanks around it; the list is the rows the host names, each painted
+ * where it matched; the rows before stay under the pulse until the
+ * text's own answer; a text the field cannot take is marked and asked
+ * of nobody; a pattern out of time is the list's refusal; and no verb
+ * but the list's own is ever called.
  */
 
 import type {
@@ -15,8 +15,8 @@ import type {
   WorkspaceTreeLogEntryWire,
   WorkspaceTreeLogRowsWire,
   WorkspaceTreeRefWire,
-  WorkspaceTreeSearchLogWire,
 } from '@openheaders/core/bridge';
+import { makeLogTextMatcher } from '@openheaders/core/workspace-tree';
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import type React from 'react';
 import { useState } from 'react';
@@ -60,43 +60,27 @@ vi.mock('@openheaders/ui/shared/merge-editor', () => ({ MergeConflictModal: () =
 import GitLogView from '@openheaders/ui/workbench/components/panels/git/GitLogView';
 import type { GitLogTabState } from '@openheaders/ui/workbench/components/panels/git/git-panel-view-store';
 
-/** The list's first page — what a text sifts at once. */
-const WINDOW = 200;
-/** A list longer than its first page: the host is asked about the rest. */
+/** A history longer than the rows the view reads at once. */
 const LONG = 500;
+const ROW_PX = 26;
 
-/** A commit as a searched page lists it — its row carries no `onHead`. */
-function found(sha: string, subject = `probe from the past ${sha}`, parents: string[] = []): WorkspaceTreeLogEntryWire {
+/** Commit `at` of a line, `LONG` the newest; every tenth one's subject says "probe", every fourth is Jane's. */
+function entry(at: number): WorkspaceTreeLogEntryWire {
   return {
-    sha,
-    parents,
-    authorName: 'John Doe',
+    sha: `w${at}`,
+    parents: at > 1 ? [`w${at - 1}`] : [],
+    authorName: at % 4 === 0 ? 'Jane Doe' : 'John Doe',
     authorEmail: 'john@openheaders.io',
     authoredAt: '2026-11-06T10:00:00.000Z',
-    subject,
+    subject: at % 10 === 0 ? `Probe the gateway ${at}` : `commit ${at}`,
     coAuthors: [],
-    files: [{ path: `docs/${sha}.md`, status: 'M' }],
+    files: [{ path: `docs/${at}.md`, status: 'M' }],
+    onHead: true,
   };
 }
 
-/** A commit as the log lists it: HEAD reaches every one. */
-function entry(sha: string, subject = `commit ${sha}`, parents: string[] = []): WorkspaceTreeLogEntryWire {
-  return { ...found(sha, subject, parents), onHead: true };
-}
-
-/** A line of `count` commits, newest first; every tenth one's subject says "probe". */
-function line(count: number): WorkspaceTreeLogEntryWire[] {
-  return Array.from({ length: count }, (_, index) => {
-    const at = count - index;
-    return entry(`w${at}`, at % 10 === 0 ? `probe the gateway ${at}` : `commit ${at}`, at > 1 ? [`w${at - 1}`] : []);
-  });
-}
-
-const page = (entries: WorkspaceTreeLogEntryWire[], more = false): WorkspaceTreeSearchLogWire => ({
-  ok: true,
-  entries,
-  more,
-});
+const line = (count: number): WorkspaceTreeLogEntryWire[] =>
+  Array.from({ length: count }, (_, index) => entry(count - index));
 
 const TAB: GitLogTabState = {
   kind: 'log',
@@ -117,22 +101,32 @@ const TAB: GitLogTabState = {
   railSelection: null,
 };
 
-interface HeldSearch {
-  request: Record<string, unknown>;
-  resolve: (answer: WorkspaceTreeSearchLogWire) => void;
-  reject: (fault: Error) => void;
+interface Ask {
+  from?: number;
+  count?: number;
+  text?: string;
+  regex?: boolean;
+  matchCase?: boolean;
+  target?: string;
+  [field: string]: unknown;
 }
 
-/** The list the host keeps, newest first. */
-let listed: WorkspaceTreeLogEntryWire[] = [];
+/** The history the host holds, newest first. */
+let history: WorkspaceTreeLogEntryWire[] = [];
 let refs: WorkspaceTreeRefWire[] = [];
-let held: HeldSearch[] = [];
-let logReads = 0;
+/** Every call the view made, in order. */
+let calls: Array<{ type: string; request: Ask }> = [];
+/** A read of a list whose ask carries a text is answered by hand when set. */
+let holdText: Array<() => void> | null = null;
+/** What the host answers a read under a text with, in place of its list. */
+let refuseText: WorkspaceTreeLogRowsWire | null = null;
 
 let patch: (patch: Partial<GitLogTabState>) => void = () => undefined;
+let tabNow: GitLogTabState = TAB;
 
 const Harness: React.FC<{ initial: GitLogTabState }> = ({ initial }) => {
   const [tab, setTab] = useState(initial);
+  tabNow = tab;
   patch = (next) => setTab((prev) => ({ ...prev, ...next }));
   return (
     <GitLogView
@@ -147,58 +141,77 @@ const Harness: React.FC<{ initial: GitLogTabState }> = ({ initial }) => {
   );
 };
 
-const rows = (): string[] => screen.queryAllByTestId('git-tool-row').map((el) => el.getAttribute('data-sha') ?? '');
-/** The probes on the first page of a line of `count` commits. */
-const probes = (count: number): string[] =>
-  line(count)
-    .slice(0, WINDOW)
-    .filter((commit) => commit.subject.startsWith('probe'))
-    .map((commit) => commit.sha);
+/** The list an ask names: every commit of the history its text matches, as the host's own matcher says. */
+function listOf(ask: Ask): WorkspaceTreeLogEntryWire[] {
+  if (ask.text === undefined) return history;
+  const matcher = makeLogTextMatcher(ask.text, ask.regex === true, ask.matchCase === true);
+  return matcher.kind === 'match' ? history.filter(matcher.test) : [];
+}
 
-/** The host's answer to a read of the list: each commit on one lane, joined to the row under it. */
-function listRows(request: { from: number; count: number }): WorkspaceTreeLogRowsWire {
-  const end = Math.min(listed.length, request.from + request.count);
+function listRows(ask: Ask): WorkspaceTreeLogRowsWire {
+  const list = listOf(ask);
+  const from = ask.from ?? 0;
+  const end = Math.min(list.length, from + (ask.count ?? 0));
   return {
     ok: true,
     list: 'g1',
-    total: listed.length,
+    total: list.length,
     widest: 1,
-    rows: listed.slice(request.from, end).map((commit, at) => ({
+    rows: list.slice(from, end).map((commit, offset) => ({
       entry: commit,
       cell: { lane: 0, color: 0, laneCount: 1, edges: [] },
-      parents: commit.parents.length > 0 ? [request.from + at + 1] : [],
-      child: request.from + at - 1,
+      parents: from + offset + 1 < list.length ? [from + offset + 1] : [],
+      child: from + offset - 1,
     })),
     runs: [],
   };
 }
 
-function locateRow(target: string): WorkspaceTreeLocateLogRowWire {
-  const row = listed.findIndex((commit) => commit.sha === target);
+function locateRow(ask: Ask): WorkspaceTreeLocateLogRowWire {
+  const row = listOf(ask).findIndex((commit) => commit.sha === ask.target);
   return row === -1 ? { ok: false, reason: 'not-listed' } : { ok: true, list: 'g1', row };
 }
 
-const emitStatus = async (): Promise<void> => {
-  await act(async () => {
-    for (const listener of listeners.get('workspaceTreeGitStatus') ?? []) listener({ workspaceId: 'ws-1' });
-    await Promise.resolve();
-  });
-};
+const rows = (): string[] => screen.queryAllByTestId('git-tool-row').map((el) => el.getAttribute('data-sha') ?? '');
+const total = (): string | null => screen.queryByTestId('git-tool-list')?.getAttribute('data-total') ?? null;
+const selected = (): string[] =>
+  screen
+    .queryAllByTestId('git-tool-row')
+    .filter((el) => el.getAttribute('data-selected') === 'true')
+    .map((el) => el.getAttribute('data-sha') ?? '');
+/** The reads of the tab's list, as asked — the stretch left out. */
+const listAsks = (): Ask[] =>
+  calls
+    .filter((call) => call.type === 'oh.workspaceTree.logRows' && call.request.key === 'log:1')
+    .map(({ request: { from: _from, count: _count, ...ask } }) => ask);
+const probes = (): string[] =>
+  history.filter((commit) => commit.subject.startsWith('Probe')).map((commit) => commit.sha);
 
-const settle = async (step: () => void): Promise<void> => {
+const settle = async (step: () => void = () => undefined): Promise<void> => {
   await act(async () => {
     step();
+    await Promise.resolve();
     await Promise.resolve();
     await Promise.resolve();
   });
 };
 
 const apply = async (next: Partial<GitLogTabState>): Promise<void> => {
-  await act(async () => {
-    patch(next);
-    await Promise.resolve();
+  await settle(() => patch(next));
+};
+
+const emitStatus = async (): Promise<void> => {
+  await settle(() => {
+    for (const listener of listeners.get('workspaceTreeGitStatus') ?? []) listener({ workspaceId: 'ws-1' });
   });
 };
+
+/** The view mounted with the whole history's first rows drawn. */
+async function mount(initial: Partial<GitLogTabState> = {}): Promise<void> {
+  render(<Harness initial={{ ...TAB, ...initial }} />);
+  await waitFor(() => expect(rows().length).toBeGreaterThan(0));
+  await settle();
+}
 
 beforeAll(() => {
   class ResizeObserverStub implements ResizeObserver {
@@ -210,203 +223,256 @@ beforeAll(() => {
   if (typeof Element.prototype.scrollIntoView !== 'function') {
     Element.prototype.scrollIntoView = () => undefined;
   }
+  // The scroller as an engine lays it out: ten rows tall over the whole list.
+  const isList = (el: HTMLElement): boolean => el.getAttribute('data-testid') === 'git-tool-list';
+  Object.defineProperty(HTMLElement.prototype, 'clientHeight', {
+    configurable: true,
+    get(this: HTMLElement) {
+      return isList(this) ? 10 * ROW_PX : 0;
+    },
+  });
+  Object.defineProperty(HTMLElement.prototype, 'scrollHeight', {
+    configurable: true,
+    get(this: HTMLElement) {
+      return isList(this) ? Math.max(10, Number(this.getAttribute('data-total'))) * ROW_PX : 0;
+    },
+  });
 });
 
 beforeEach(() => {
-  listed = line(LONG);
+  history = line(LONG);
   refs = [{ name: 'main', kind: 'local', sha: `w${LONG}` }];
-  held = [];
-  logReads = 0;
+  calls = [];
+  holdText = null;
+  refuseText = null;
+  tabNow = TAB;
   listeners.clear();
   mockCall.mockReset();
-  mockCall.mockImplementation((type: string, request: Record<string, unknown>) => {
+  mockCall.mockImplementation((type: string, request: Ask) => {
+    calls.push({ type, request });
     if (type === 'oh.workspaceTree.listRefs') return Promise.resolve({ ok: true, refs, current: 'main' });
     if (type === 'oh.workspaceTree.logRows') {
-      logReads += 1;
-      return Promise.resolve(listRows(request as { from: number; count: number }));
+      const answer = (): WorkspaceTreeLogRowsWire =>
+        request.text !== undefined && refuseText !== null ? refuseText : listRows(request);
+      if (request.text === undefined || holdText === null) return Promise.resolve(answer());
+      return new Promise((resolve) => holdText?.push(() => resolve(answer())));
     }
-    if (type === 'oh.workspaceTree.locateLogRow') return Promise.resolve(locateRow(String(request.target)));
-    if (type === 'oh.workspaceTree.searchLog') {
-      return new Promise<WorkspaceTreeSearchLogWire>((resolve, reject) => {
-        held.push({ request, resolve, reject });
-      });
-    }
+    if (type === 'oh.workspaceTree.locateLogRow') return Promise.resolve(locateRow(request));
     return Promise.resolve({ ok: true });
   });
 });
 
 afterEach(cleanup);
 
-describe('GitLogView — a text search over the whole history', () => {
-  it('sifts a list no longer than its first page by itself — the host is not asked', async () => {
-    listed = line(30);
-    refs = [{ name: 'main', kind: 'local', sha: 'w30' }];
-    render(<Harness initial={{ ...TAB, filter: 'probe' }} />);
-    await waitFor(() => expect(rows()).toEqual(probes(30)));
-    expect(held).toHaveLength(0);
-
-    // A list of exactly one page is held whole too.
-    cleanup();
-    listed = line(WINDOW);
-    refs = [{ name: 'main', kind: 'local', sha: `w${WINDOW}` }];
-    render(<Harness initial={{ ...TAB, filter: 'probe' }} />);
-    await waitFor(() => expect(rows()).toEqual(probes(WINDOW)));
-    expect(held).toHaveLength(0);
-  });
-
-  it('sifts the first page of a longer list at once and asks the host once, as the tab', async () => {
-    render(<Harness initial={TAB} />);
-    await waitFor(() => expect(rows()).toHaveLength(WINDOW));
-    expect(held).toHaveLength(0);
+describe('GitLogView — the text field over the whole history', () => {
+  it('asks the host for the list under the text — every match of the history, by row', async () => {
+    await mount();
+    expect(total()).toBe(String(LONG));
+    expect(listAsks().at(-1)).toEqual({ workspaceId: 'ws-1', key: 'log:1', allRefs: true });
 
     await apply({ filter: 'probe' });
-    expect(rows()).toEqual(probes(LONG));
-    await waitFor(() => expect(held).toHaveLength(1));
-    expect(held[0].request).toEqual({ workspaceId: 'ws-1', key: 'log:1', text: 'probe', limit: WINDOW, allRefs: true });
+    await waitFor(() => expect(total()).toBe('50'));
+    expect(listAsks().at(-1)).toEqual({ workspaceId: 'ws-1', key: 'log:1', allRefs: true, text: 'probe' });
+    // Fifty commits of five hundred match — the oldest of them far past the rows first read.
+    expect(rows()).toEqual(probes().slice(0, rows().length));
+    expect(probes()).toHaveLength(50);
+    expect(probes().at(-1)).toBe('w10');
   });
 
-  it('asks nothing more on a status frame that moves no ref, and asks again when one moves', async () => {
-    render(<Harness initial={{ ...TAB, filter: 'probe' }} />);
-    await waitFor(() => expect(held).toHaveLength(1));
-    await settle(() => held[0].resolve(page([found('w500'), found('old1')])));
-    await waitFor(() => expect(rows()).toEqual(['w500', 'old1']));
-
-    const before = logReads;
-    await emitStatus();
-    await waitFor(() => expect(logReads).toBe(before + 1));
-    expect(held).toHaveLength(1);
-
-    // A commit landed: the branch's tip moved. The page stands until the new answer.
-    refs = [{ name: 'main', kind: 'local', sha: 'w501' }];
-    await emitStatus();
-    await waitFor(() => expect(held).toHaveLength(2));
-    expect(rows()).toEqual(['w500', 'old1']);
-    await settle(() => held[1].resolve(page([found('w500'), found('old1'), found('old2')])));
-    await waitFor(() => expect(rows()).toEqual(['w500', 'old1', 'old2']));
-  });
-
-  it('lists the host’s page, in its order and with no band, once it reaches past the first page', async () => {
-    refs = [
-      { name: 'main', kind: 'local', sha: `w${LONG}` },
-      { name: 'feature/orders-v2', kind: 'local', sha: 'w450' },
-    ];
-    render(<Harness initial={{ ...TAB, filter: 'probe' }} />);
-    await waitFor(() => expect(held).toHaveLength(1));
-    // The band shows on the page's sift (every ref walked, the host's flag on each row).
-    expect(screen.getAllByTestId('git-tool-row')[0].getAttribute('data-current-branch')).toBe('true');
-
-    // HEAD's own commit is on the page: a walk over the listed rows would band it.
-    await settle(() => held[0].resolve(page([found('w500'), found('old2'), found('w400'), found('old1')])));
-    await waitFor(() => expect(rows()).toEqual(['w500', 'old2', 'w400', 'old1']));
-    expect(screen.getAllByTestId('git-tool-row').every((row) => row.getAttribute('data-current-branch') === null)).toBe(
-      true,
-    );
-    expect(screen.queryByTestId('git-tool-list-note')).toBeNull();
-  });
-
-  it('says so under the page when matches exist past it', async () => {
-    render(<Harness initial={{ ...TAB, filter: 'probe' }} />);
-    await waitFor(() => expect(held).toHaveLength(1));
-    await settle(() => held[0].resolve(page([found('w500'), found('old1')], true)));
-    await waitFor(() => expect(rows()).toEqual(['w500', 'old1']));
-    expect(screen.getByTestId('git-tool-list-note').textContent).toBe(
-      'Showing the newest 2 matches. Older commits match too — refine the search.',
-    );
-  });
-
-  it('keeps the first page’s sift for an answer wholly inside the page', async () => {
-    render(<Harness initial={{ ...TAB, filter: 'probe' }} />);
-    await waitFor(() => expect(held).toHaveLength(1));
-    const inside = listed
-      .slice(0, WINDOW)
-      .filter((commit) => commit.subject.startsWith('probe'))
-      .reverse();
-    await settle(() => held[0].resolve(page(inside)));
-    expect(rows()).toEqual(probes(LONG));
-    expect(screen.queryByTestId('git-tool-list-note')).toBeNull();
-  });
-
-  it('reads a selected commit of the page for the details, and lets it go when the text is cleared', async () => {
-    render(<Harness initial={{ ...TAB, filter: 'probe' }} />);
-    await waitFor(() => expect(held).toHaveLength(1));
-    await settle(() => held[0].resolve(page([found('w500'), found('old1')])));
-    await waitFor(() => expect(rows()).toEqual(['w500', 'old1']));
-
-    fireEvent.click(screen.getAllByTestId('git-tool-row')[1]);
-    await waitFor(() => expect(screen.queryByTestId('git-tool-detail-placeholder')).toBeNull());
-
+  it('calls no verb but the list’s own, whatever is applied', async () => {
+    await mount();
+    await apply({ filter: 'probe' });
+    await waitFor(() => expect(total()).toBe('50'));
+    await apply({ filter: 'zzz' });
+    await waitFor(() => expect(screen.queryByTestId('git-tool-empty')).not.toBeNull());
     await apply({ filter: '' });
-    await waitFor(() => expect(rows()).toHaveLength(WINDOW));
-    expect(screen.getByTestId('git-tool-detail-placeholder')).toBeTruthy();
-  });
-
-  it('keeps the first page’s sift and says the search did not finish when the host’s deadline came', async () => {
-    render(<Harness initial={{ ...TAB, filter: 'probe' }} />);
-    await waitFor(() => expect(held).toHaveLength(1));
-    await settle(() => held[0].resolve({ ok: false, reason: 'search-timeout' }));
-    expect(rows()).toEqual(probes(LONG));
-    expect(screen.getByTestId('git-tool-list-note').textContent).toBe(
-      'The search ran out of time before it reached the whole history. These matches are from the newest 200 commits.',
+    await waitFor(() => expect(total()).toBe(String(LONG)));
+    expect(new Set(calls.map((call) => call.type))).toEqual(
+      new Set(['oh.workspaceTree.listRefs', 'oh.workspaceTree.logRows']),
     );
   });
 
-  it('says the search did not finish in place of “no matches” when the first page holds none', async () => {
-    render(<Harness initial={{ ...TAB, filter: 'zzz' }} />);
-    await waitFor(() => expect(held).toHaveLength(1));
-    // While the host is asked, "no matches" is not known: the list says it is searching.
-    expect(screen.getByTestId('git-tool-list-note').textContent).toBe('Searching the whole history…');
-    expect(screen.getByTestId('git-tool-empty').textContent).not.toContain('No commits matching filters');
-    await settle(() => held[0].resolve({ ok: false, reason: 'search-timeout' }));
-    expect(screen.getByTestId('git-tool-list-note').textContent).toBe(
-      'The search ran out of time before it reached the whole history. Nothing matched in the newest 200 commits.',
+  it('paints each row where the text matched it — a subject, an author’s name', async () => {
+    await mount({ filter: 'probe' });
+    await waitFor(() => expect(total()).toBe('50'));
+    const first = screen.getAllByTestId('git-tool-row')[0];
+    expect(Array.from(first.querySelectorAll('[data-testid="git-tool-match"]'), (mark) => mark.textContent)).toEqual([
+      'Probe',
+    ]);
+
+    await apply({ filter: 'jane' });
+    await waitFor(() => expect(total()).toBe('125'));
+    expect(screen.getAllByTestId('git-tool-row')[0].querySelector('[data-testid="git-tool-match"]')?.textContent).toBe(
+      'Jane',
     );
-    expect(screen.getByTestId('git-tool-reset-filters')).toBeTruthy();
+    // With no text applied nothing is painted.
+    await apply({ filter: '' });
+    await waitFor(() => expect(total()).toBe(String(LONG)));
+    expect(screen.queryAllByTestId('git-tool-match')).toHaveLength(0);
   });
 
-  it('says “no matches” over an empty sift only once the host has answered that nothing matches', async () => {
-    render(<Harness initial={{ ...TAB, filter: 'zzz' }} />);
-    await waitFor(() => expect(held).toHaveLength(1));
-    expect(screen.getByTestId('git-tool-empty').textContent).toContain('Searching the whole history…');
-    await settle(() => held[0].resolve(page([])));
-    expect(screen.getByTestId('git-tool-empty').textContent).toContain('No commits matching filters');
-    expect(screen.queryByTestId('git-tool-list-note')).toBeNull();
-  });
+  it('sends the text without the blanks around it, and each toggle only when it is on', async () => {
+    await mount({ filter: '  probe  ' });
+    await waitFor(() => expect(total()).toBe('50'));
+    expect(listAsks().at(-1)).toEqual({ workspaceId: 'ws-1', key: 'log:1', allRefs: true, text: 'probe' });
 
-  it('says nothing of the search under a sift that lists rows while the host is asked', async () => {
-    render(<Harness initial={{ ...TAB, filter: 'probe' }} />);
-    await waitFor(() => expect(held).toHaveLength(1));
-    expect(rows()).toEqual(probes(LONG));
-    expect(screen.queryByTestId('git-tool-list-note')).toBeNull();
-  });
-
-  it('keeps the first page’s sift, silently, over a host that predates the search', async () => {
-    render(<Harness initial={{ ...TAB, filter: 'probe' }} />);
-    await waitFor(() => expect(held).toHaveLength(1));
-    await settle(() => held[0].reject(new Error("host: RPC 'oh.workspaceTree.searchLog' is not implemented")));
-    expect(rows()).toEqual(probes(LONG));
-    expect(screen.queryByTestId('git-tool-error')).toBeNull();
-    expect(screen.queryByTestId('git-tool-list-note')).toBeNull();
-  });
-
-  it('sends the riders and the scope with the search', async () => {
-    refs = [
-      { name: 'main', kind: 'local', sha: `w${LONG}` },
-      { name: 'feature/orders-v2', kind: 'local', sha: 'w450' },
-    ];
-    render(
-      <Harness
-        initial={{ ...TAB, filter: 'probe', selectedRefs: ['feature/orders-v2'], noMerges: true, firstParent: true }}
-      />,
-    );
-    await waitFor(() => expect(held).toHaveLength(1));
-    expect(held[0].request).toEqual({
+    await apply({ filter: '^Probe .* 4\\d0$', filterRegex: true, filterCase: true });
+    await waitFor(() => expect(total()).toBe('10'));
+    expect(listAsks().at(-1)).toEqual({
       workspaceId: 'ws-1',
       key: 'log:1',
-      text: 'probe',
-      limit: WINDOW,
+      allRefs: true,
+      text: '^Probe .* 4\\d0$',
+      regex: true,
+      matchCase: true,
+    });
+    // The case is held: the same pattern in lower case matches nothing.
+    await apply({ filter: '^probe .* 4\\d0$' });
+    await waitFor(() => expect(screen.queryByTestId('git-tool-empty')).not.toBeNull());
+  });
+
+  it('sends the scope and the other sifts with the text — one ask names the list', async () => {
+    refs = [
+      { name: 'main', kind: 'local', sha: `w${LONG}` },
+      { name: 'feature/orders-v2', kind: 'local', sha: 'w450' },
+    ];
+    await mount({ filter: 'probe', selectedRefs: ['feature/orders-v2'], noMerges: true, firstParent: true });
+    expect(listAsks().at(-1)).toEqual({
+      workspaceId: 'ws-1',
+      key: 'log:1',
       refs: ['feature/orders-v2'],
       noMerges: true,
       firstParent: true,
+      text: 'probe',
     });
+  });
+
+  it('keeps the rows before under the pulse until the text’s own list answers', async () => {
+    await mount();
+    const before = rows();
+    holdText = [];
+    await apply({ filter: 'probe' });
+    await waitFor(() => expect(holdText).toHaveLength(1));
+    expect(rows()).toEqual(before);
+    expect(total()).toBe(String(LONG));
+    expect(screen.queryByTestId('oh-send-pulse')).not.toBeNull();
+    expect(screen.queryByTestId('git-tool-empty')).toBeNull();
+
+    await settle(() => holdText?.[0]());
+    await waitFor(() => expect(total()).toBe('50'));
+  });
+
+  it('says “no matches” once the host has answered that nothing matches — never before', async () => {
+    await mount();
+    holdText = [];
+    await apply({ filter: 'zzz' });
+    await waitFor(() => expect(holdText).toHaveLength(1));
+    expect(screen.queryByTestId('git-tool-empty')).toBeNull();
+
+    await settle(() => holdText?.[0]());
+    await waitFor(() =>
+      expect(screen.getByTestId('git-tool-empty').textContent).toContain('No commits matching filters'),
+    );
+    expect(screen.getByTestId('git-tool-reset-filters')).toBeTruthy();
+
+    // Another text over that empty list: the list is not known to be empty for it.
+    await apply({ filter: 'probe' });
+    await waitFor(() => expect(holdText).toHaveLength(2));
+    expect(screen.queryByTestId('git-tool-empty')).toBeNull();
+    expect(screen.getByTestId('git-tool-list-pending')).toBeTruthy();
+    await settle(() => holdText?.[1]());
+    await waitFor(() => expect(total()).toBe('50'));
+  });
+
+  it('marks a text the field cannot take and asks nobody for it — the list stays the one before', async () => {
+    await mount();
+    const asked = listAsks().length;
+    const invalid: Array<Partial<GitLogTabState>> = [
+      { filter: '(', filterRegex: true },
+      { filter: 'a'.repeat(201), filterRegex: false },
+      { filter: 'probe\tgateway', filterRegex: false },
+    ];
+    for (const next of invalid) {
+      await apply(next);
+      await settle();
+      expect(screen.getByTestId('git-tool-filter').closest('.ant-input-affix-wrapper')?.className).toContain(
+        'status-error',
+      );
+      expect(total()).toBe(String(LONG));
+      expect(listAsks().every((ask) => ask.text === undefined)).toBe(true);
+      expect(listAsks()).toHaveLength(asked);
+    }
+    // The same text as a plain one is a search.
+    await apply({ filter: '(', filterRegex: false });
+    await waitFor(() => expect(listAsks().at(-1)?.text).toBe('('));
+    expect(screen.getByTestId('git-tool-filter').closest('.ant-input-affix-wrapper')?.className).not.toContain(
+      'status-error',
+    );
+  });
+
+  it('shows the list’s refusal for a pattern that ran out of time, and lists nothing as its answer', async () => {
+    await mount();
+    refuseText = { ok: false, reason: 'search-timeout' };
+    await apply({ filter: '(a+)+$', filterRegex: true });
+    await waitFor(() => expect(screen.getByTestId('git-tool-error').textContent).toContain('search-timeout'));
+    expect(rows()).toEqual([]);
+
+    // Taken off, the whole list is back and the refusal gone.
+    await apply({ filter: '' });
+    await waitFor(() => expect(total()).toBe(String(LONG)));
+    expect(screen.queryByTestId('git-tool-error')).toBeNull();
+  });
+
+  it('enters a text’s list on the tab’s commit, and the whole list on it again when the text is taken off', async () => {
+    await mount({ selectedSha: 'w300' });
+    await waitFor(() => expect(selected()).toEqual(['w300']));
+
+    await apply({ filter: 'probe' });
+    await waitFor(() => expect(total()).toBe('50'));
+    // The row was asked under the text's own ask.
+    const located = calls.filter((call) => call.type === 'oh.workspaceTree.locateLogRow').at(-1);
+    expect(located?.request).toMatchObject({ text: 'probe', target: 'w300' });
+    await waitFor(() => expect(selected()).toEqual(['w300']));
+    expect(screen.queryByTestId('git-tool-detail-placeholder')).toBeNull();
+
+    await apply({ filter: '' });
+    await waitFor(() => expect(total()).toBe(String(LONG)));
+    await waitFor(() => expect(selected()).toEqual(['w300']));
+    expect(tabNow.selectedSha).toBe('w300');
+    expect(screen.queryByTestId('git-tool-detail-placeholder')).toBeNull();
+  });
+
+  it('keeps the tab’s commit through a text that leaves it out — no row selected, the commit back with the text off', async () => {
+    await mount({ selectedSha: 'w301' });
+    await waitFor(() => expect(selected()).toEqual(['w301']));
+
+    await apply({ filter: 'probe' });
+    await waitFor(() => expect(total()).toBe('50'));
+    await settle();
+    expect(selected()).toEqual([]);
+    expect(tabNow.selectedSha).toBe('w301');
+
+    await apply({ filter: '' });
+    await waitFor(() => expect(selected()).toEqual(['w301']));
+  });
+
+  it('reads a row of the text’s list for the details', async () => {
+    await mount({ filter: 'probe' });
+    await waitFor(() => expect(total()).toBe('50'));
+    expect(screen.getByTestId('git-tool-detail-placeholder')).toBeTruthy();
+    fireEvent.click(screen.getAllByTestId('git-tool-row')[1]);
+    await waitFor(() => expect(screen.queryByTestId('git-tool-detail-placeholder')).toBeNull());
+    expect(tabNow.selectedSha).toBe('w490');
+  });
+
+  it('reads the same ask again on a frame of the repo — the text still part of it', async () => {
+    await mount({ filter: 'probe' });
+    await waitFor(() => expect(total()).toBe('50'));
+    const asked = listAsks().length;
+    history = line(LONG + 10);
+    await emitStatus();
+    await waitFor(() => expect(total()).toBe('51'));
+    expect(listAsks().length).toBeGreaterThan(asked);
+    expect(listAsks().at(-1)).toEqual({ workspaceId: 'ws-1', key: 'log:1', allRefs: true, text: 'probe' });
   });
 });

@@ -9,6 +9,10 @@
  * pattern is the caller's to bound: it is compiled here and run by
  * whoever calls a test.
  *
+ * A text is a SHAPE before it is anything else: something to match,
+ * bounded, with no control character. What is no such shape is invalid
+ * — the field marks it and no history is asked for it.
+ *
  * A matcher says what it is made of — the test of one text, the test
  * of a hash, the pattern behind them — so whoever matches a whole
  * history tests an author's name once, spells no hash out for a text
@@ -43,6 +47,12 @@ export type LogTextMatcher =
 
 type LogTextMatch = Extract<LogTextMatcher, { kind: 'match' }>;
 
+/** The longest text the field takes. */
+const MAX_TEXT_LENGTH = 200;
+
+// biome-ignore lint/suspicious/noControlCharactersInRegex: rejecting control chars is the point
+const CONTROL_CHARACTER = /[\x00-\x1f\x7f]/;
+
 /** The start of a hash, as a plain text can spell one: hex digits, no more of them than the longest hash has. */
 const HASH_START = /^[0-9a-f]{1,64}$/;
 
@@ -73,6 +83,7 @@ function matcherOf(parts: Omit<LogTextMatch, 'kind' | 'test'>): LogTextMatch {
 export function makeLogTextMatcher(filter: string, regex: boolean, matchCase: boolean): LogTextMatcher {
   const needle = filter.trim();
   if (needle === '') return { kind: 'none' };
+  if (needle.length > MAX_TEXT_LENGTH || CONTROL_CHARACTER.test(needle)) return { kind: 'invalid' };
   if (regex) {
     let pattern: RegExp;
     try {

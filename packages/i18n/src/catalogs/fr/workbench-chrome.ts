@@ -753,13 +753,6 @@ export const workbenchChrome = {
   'workbench.gitLog.console.shortenPaths': 'Raccourcir les chemins',
   'workbench.gitLog.noMatches': 'Aucun commit ne correspond aux filtres',
   'workbench.gitLog.resetFilters': 'Réinitialiser les filtres',
-  'workbench.gitLog.search.searching': "Recherche dans tout l'historique…",
-  'workbench.gitLog.search.more':
-    'Affichage des {count} correspondances les plus récentes. Des commits plus anciens correspondent aussi — affinez la recherche.',
-  'workbench.gitLog.search.timeout':
-    "La recherche a manqué de temps avant d'atteindre tout l'historique. Ces correspondances proviennent des {count} commits les plus récents.",
-  'workbench.gitLog.search.timeoutEmpty':
-    "La recherche a manqué de temps avant d'atteindre tout l'historique. Aucune correspondance dans les {count} commits les plus récents.",
   'workbench.gitLog.selectCommit': 'Sélectionnez un commit pour voir ses modifications',
   'workbench.gitLog.noneSelected': 'Aucun commit sélectionné',
   'workbench.gitLog.commitsSelected': '{count} commits sélectionnés',

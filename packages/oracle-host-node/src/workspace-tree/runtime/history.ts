@@ -22,16 +22,14 @@ import {
   listFileLog,
   listHeadTreePaths,
   listRepoRefs,
-  openLogSearchLane,
   readCommitFileDiff,
   readCommitParentChanges,
   readCommitPatch,
   readCommitSignatures,
   resolveAuthorFilterValue,
-  searchCommitLog,
   unlistedScopeRefs,
 } from '../../git';
-import { LOG_DEFAULT_LIMIT, LOG_MAX_LIMIT, LOG_SEARCH_DEADLINE_MS, type RuntimeCtx } from './core';
+import { LOG_DEFAULT_LIMIT, LOG_MAX_LIMIT, type RuntimeCtx } from './core';
 import type {
   CompareRefsRpcResult,
   WorkspaceTreeCommitParentChangesRpcResult,
@@ -41,9 +39,7 @@ import type {
   WorkspaceTreeGitConsoleRpcResult,
   WorkspaceTreeLogFilters,
   WorkspaceTreeLogRpcResult,
-  WorkspaceTreeLogSearch,
   WorkspaceTreeRefsRpcResult,
-  WorkspaceTreeSearchLogRpcResult,
   WorkspaceTreeTreeFilesRpcResult,
 } from './types';
 
@@ -198,51 +194,6 @@ export function runWorkspaceLog(
 
 /** The longest name a surface gives itself (a log tab's key). */
 export const LOG_SURFACE_MAX_KEY = 64;
-
-/**
- * The log's text field over the whole history a scope reaches. The
- * text's shape and the walk's bounds are the plumbing's; here the
- * search takes its turn — a newer one under the same key ends it — and
- * the plumbing's outcome becomes the verb's typed answer.
- */
-export async function runSearchLog(
-  ctx: RuntimeCtx,
-  workspaceId: string,
-  search: WorkspaceTreeLogSearch,
-  limit?: number,
-  scope?: readonly string[],
-  filters?: WorkspaceTreeLogFilters,
-): Promise<WorkspaceTreeSearchLogRpcResult> {
-  const request = readLogRequest(ctx, scope, filters);
-  const key = search.key ?? '';
-  if (request === null || key.length > LOG_SURFACE_MAX_KEY) return { ok: false, reason: 'invalid-filter' };
-  // A plain text is matched here; a pattern never runs on the host's own thread — the lane is the plumbing's.
-  const lane = openLogSearchLane(search.text, search.regex === true, search.matchCase === true);
-  if (lane === null) return { ok: false, reason: 'invalid-filter' };
-  const history = await openHistory(ctx, workspaceId, scope);
-  if (!history.ok) return history;
-  const turn = ctx.searchTurns.take(workspaceId, key);
-  try {
-    const result = await searchCommitLog(ctx.gitStream, ctx.gitRun, history.rootDir, {
-      scope,
-      filters: await request.resolve(history.rootDir),
-      limit: cappedLimit(limit),
-      match: lane.match,
-      deadlineMs: LOG_SEARCH_DEADLINE_MS,
-      signal: turn.signal,
-    });
-    if (result.ok) return result;
-    if (result.reason === 'timeout') return { ok: false, reason: 'search-timeout' };
-    if (result.reason === 'aborted') return { ok: false, reason: 'superseded' };
-    return { ok: false, reason: result.reason === 'invalid-scope' ? 'unknown-ref' : 'log-failed' };
-  } catch (fault) {
-    // The lane's own failure (its worker went away): the search failed, the host did not.
-    return { ok: false, reason: 'log-failed', detail: fault instanceof Error ? fault.message : String(fault) };
-  } finally {
-    lane.close();
-    turn.done();
-  }
-}
 
 export function runFileLog(
   ctx: RuntimeCtx,

@@ -387,46 +387,6 @@ export type WorkspaceTreeLogRpcResult =
     };
 
 /**
- * A search of the history — the log's text field, asked of every
- * commit the scope reaches and not of a window. `text` is a bounded
- * plain string; anything else refuses `invalid-filter`.
- */
-export interface WorkspaceTreeLogSearch {
-  text: string;
-  /** `text` is a pattern. */
-  regex?: boolean;
-  matchCase?: boolean;
-  /** The surface that asks (a log tab): its newer search ends its older one. */
-  key?: string;
-}
-
-export type WorkspaceTreeSearchLogRpcResult =
-  | {
-      ok: true;
-      /** The newest matching commits — at most the page asked for. */
-      entries: CommitLogEntry[];
-      /** The history holds matches past this page. */
-      more: boolean;
-    }
-  | {
-      ok: false;
-      reason:
-        | 'not-bound'
-        | 'git-unavailable'
-        | 'not-a-repo'
-        | 'unknown-ref'
-        | 'invalid-filter'
-        | 'log-failed'
-        /** The search ran into its deadline before the history ended. */
-        | 'search-timeout'
-        /** A newer search took this one's place; nobody reads its answer. */
-        | 'superseded';
-      detail?: string;
-      /** `unknown-ref`: the scope's members the tree does not list. */
-      unknownRefs?: string[];
-    };
-
-/**
  * What a log asks to be listed — the list's name: the scope and the
  * row filters as {@link WorkspaceTreeRuntime.log} reads them, the text
  * field, and the linear runs it folds. With neither a scope nor
@@ -871,20 +831,6 @@ export interface WorkspaceTreeRuntime {
     scope?: readonly string[],
     filters?: WorkspaceTreeLogFilters,
   ): Promise<WorkspaceTreeLogRpcResult>;
-  /**
-   * The log's text field asked of the WHOLE history a scope reaches —
-   * the newest `limit` commits that match, in full, and whether more
-   * exist. `scope` and `filters` read as {@link WorkspaceTreeRuntime.log}'s
-   * (the sort order aside). Bounded: one deadline (`search-timeout`),
-   * and a newer search under the same key ends this one (`superseded`).
-   */
-  searchLog(
-    workspaceId: string,
-    search: WorkspaceTreeLogSearch,
-    limit?: number,
-    scope?: readonly string[],
-    filters?: WorkspaceTreeLogFilters,
-  ): Promise<WorkspaceTreeSearchLogRpcResult>;
   /**
    * Rows `[from, from + count)` of the list an ask names — the WHOLE
    * history its scope reaches, listed host-side: each commit in full
