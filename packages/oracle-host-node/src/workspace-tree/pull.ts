@@ -110,6 +110,7 @@ import {
 } from '../git';
 import { type ApplyCommitResolution, type ApplyCommitResolve, decideChange } from './change-answers';
 import { type CommittedSide, NOTHING_CARRIED, readCommittedSide } from './committed-side';
+import { type DeletedEntityReader, setAsideDeletedReturns } from './deleted-returns';
 import { TREE_HELD_DETAIL } from './materializer';
 import { landForeignOwnFiles } from './own-files';
 import { type LocalWorkDeps, readPassWrites, recordablePaths, uncommittedAmong } from './pass-writes';
@@ -139,6 +140,13 @@ export interface IntegrateForeignDeps extends LocalWorkDeps {
   liveSetEntries: LiveSetEntriesReader;
   /** Apply the synthesized batches through the workspace's resident service. */
   apply: (batches: EmissionBatch[]) => Promise<void>;
+  /**
+   * Whether the engine holds an entity deleted. One the foreign side
+   * brings back is not taken in: its foreign bytes land off-baseline
+   * like a quarantined document's (`deleted-returns.ts`). Absent,
+   * nothing is.
+   */
+  isDeleted?: DeletedEntityReader;
   /**
    * Materialize the converged engine state to disk (the runtime's
    * flush). `held` set: git's writing kept files of it off the disk.
@@ -554,26 +562,37 @@ export async function integrateForeignHead(
       const before = await snapshotWorkingTree(run, rootDir);
       if (before === null) return unreadable();
 
-      const batches = synthesizeWorkspaceTreeDelta({
-        prev: snapshot,
-        next: laid.next,
+      // An entity the engine deleted and the foreign side holds again
+      // brings nothing back: its create is set aside, and its foreign
+      // bytes land off-baseline with the quarantined documents', so the
+      // tree the pass records still holds the file.
+      const { batches, issues: returned } = setAsideDeletedReturns({
+        batches: synthesizeWorkspaceTreeDelta({
+          prev: snapshot,
+          next: laid.next,
+          changedPaths: laid.changedPaths,
+          removedPaths: laid.removedPaths,
+          deps: { nextCtx: deps.nextCtx, liveSetEntries: deps.liveSetEntries },
+        }),
+        files: foreignFiles,
         changedPaths: laid.changedPaths,
-        removedPaths: laid.removedPaths,
-        deps: { nextCtx: deps.nextCtx, liveSetEntries: deps.liveSetEntries },
+        environments: laid.next.environments,
+        isDeleted: deps.isDeleted,
       });
+      const issues = [...foreign.issues, ...returned];
       if (batches.length > 0) {
         await deps.apply(batches);
       }
 
-      await releaseHealedQuarantine(rootDir, foreign.issues);
-      await writeForeignQuarantine(rootDir, foreignFiles, foreign.issues, diff.changed);
+      await releaseHealedQuarantine(rootDir, issues);
+      await writeForeignQuarantine(rootDir, foreignFiles, issues, diff.changed);
 
       await deps.flush();
 
       // The second reading is taken once the foreign side's changes to the
       // user's own files are on disk too.
       const own = await landForeignOwnFiles(run, rootDir, { baseRef: base, foreignRef: foreignSha }, laid.ownAnswers);
-      if (!own.ok) return { ok: false, reason: 'commit-failed', detail: own.detail, issues: foreign.issues };
+      if (!own.ok) return { ok: false, reason: 'commit-failed', detail: own.detail, issues };
       const withKept = own.kept.length > 0 ? { keptLocal: own.kept } : {};
 
       const pass = await readPassWrites(run, rootDir, before);
@@ -598,7 +617,7 @@ export async function integrateForeignHead(
       const first = shared.filter((filePath) => !laid.committed.carries(filePath));
       if (first.length > 0) {
         const local = await deps.commitLocalWork({ tree: before, paths: first, indexLock });
-        if (!local.ok) return { ok: false, reason: 'commit-failed', detail: local.detail, issues: foreign.issues };
+        if (!local.ok) return { ok: false, reason: 'commit-failed', detail: local.detail, issues };
       }
       const withLocal = first.length > 0 ? { committedLocal: first } : {};
       const recorded = await treeWithFiles(
@@ -618,7 +637,7 @@ export async function integrateForeignHead(
       // A commit of local work just above makes the branch diverged.
       if (args.localAhead === 0 && first.length === 0) {
         const ff = await fastForwardWorkspaceBranch(run, rootDir, foreignSha, indexLock);
-        if (!ff.ok) return { ok: false, reason: 'commit-failed', detail: ff.detail, issues: foreign.issues };
+        if (!ff.ok) return { ok: false, reason: 'commit-failed', detail: ff.detail, issues };
         const residue = await commitWorkspaceTree({
           run,
           rootDir,
@@ -629,13 +648,13 @@ export async function integrateForeignHead(
           indexLock,
           paths,
         });
-        if (!residue.ok) return { ok: false, reason: 'commit-failed', detail: residue.detail, issues: foreign.issues };
+        if (!residue.ok) return { ok: false, reason: 'commit-failed', detail: residue.detail, issues };
         const sha = residue.committed ? residue.sha : foreignSha;
         return {
           ok: true,
           sha,
           applied: batches.length,
-          issues: foreign.issues,
+          issues,
           ...withHistory,
           ...withKept,
           ...withSkipped,
@@ -655,15 +674,14 @@ export async function integrateForeignHead(
         indexLock,
         paths,
       });
-      if (!commit.ok) return { ok: false, reason: 'commit-failed', detail: commit.detail, issues: foreign.issues };
-      if (!commit.committed)
-        return { ok: false, reason: 'commit-failed', detail: 'merge commit did not land', issues: foreign.issues };
+      if (!commit.ok) return { ok: false, reason: 'commit-failed', detail: commit.detail, issues };
+      if (!commit.committed) return { ok: false, reason: 'commit-failed', detail: 'merge commit did not land', issues };
 
       return {
         ok: true,
         sha: commit.sha,
         applied: batches.length,
-        issues: foreign.issues,
+        issues,
         ...withHistory,
         ...withKept,
         ...withLocal,

@@ -68,6 +68,7 @@ export async function runSweep(ctx: RuntimeCtx, binding: OpenBinding): Promise<S
         .liveOrderedSetItems(entityType, id, setPath)
         .map((entry) => ({ itemId: entry.itemId, orderKey: entry.key, item: entry.item })),
     apply: (batches) => ctx.applyAll(service, batches),
+    isDeleted: (type, id) => service.oracle.isTombstoned(type, id),
     watchTreeWrites: () => watchTreeWrites(record.rootDir),
     ...(settled !== undefined ? { settledReading: settled } : {}),
   });
