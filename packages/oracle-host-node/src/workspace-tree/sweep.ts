@@ -73,11 +73,19 @@ export interface SweepWorkspaceTreeOptions {
   apply: (batches: EmissionBatch[]) => Promise<void>;
   /**
    * Opens a watch of git's writes to the tree before it is read. Git
-   * replaces a file by removing it and writing it anew, so a file that
-   * reads as removed while git wrote is no deletion. Absent (no git
-   * plane), nothing ever writes.
+   * replaces a file by removing it and writing it anew, a piece at a
+   * time, so a file that reads as removed, empty or cut short while git
+   * wrote is no deletion and no edit. Absent (no git plane), nothing
+   * ever writes.
    */
   watchTreeWrites?: () => Promise<TreeWritesWatch>;
+  /**
+   * What a reading held a while ago read (`held.reading`). A reading
+   * that agrees with it is concluded whatever git holds: a lock nobody
+   * gives up — a command killed, an editor left open — writes no file,
+   * and a tree read the same twice is the tree.
+   */
+  settledReading?: string;
 }
 
 export type SweepWorkspaceTreeResult =
@@ -90,11 +98,13 @@ export type SweepWorkspaceTreeResult =
       removed: number;
       issues: TreeIssue[];
       /**
-       * Files that read as removed while git wrote the tree. Set, the
-       * pass concluded NOTHING — no batch, the baseline as it stood —
-       * and the owner reads the tree again.
+       * Set, the pass concluded NOTHING — no batch, the baseline as it
+       * stood: the tree was read while git wrote it, `files` of it
+       * changed or gone. The owner reads the tree again; `reading` names
+       * what was read, for a later reading to agree with
+       * (`settledReading`).
        */
-      heldRemovals?: number;
+      held?: { files: number; reading: string };
     }
   | { ok: false; reason: 'unreadable-manifest' | 'identity-mismatch'; issues: TreeIssue[] };
 
@@ -103,28 +113,46 @@ const dirOf = (path: string): string => {
   return idx === -1 ? '' : path.slice(0, idx);
 };
 
+/** The readings one pass takes in a row while each meets a git command that has ended by the time it is read. */
+const MAX_READINGS = 3;
+
 export async function sweepWorkspaceTree(options: SweepWorkspaceTreeOptions): Promise<SweepWorkspaceTreeResult> {
+  for (let reading = 1; ; reading += 1) {
+    const result = await sweepReading(options);
+    if (!result.ok || result.held === undefined) return result;
+    // The command the reading met has ended: the tree is at rest, and is
+    // read again at once. A reading git still writes under — a watch
+    // just opened meets it — or the last in the row goes to the owner.
+    if (reading >= MAX_READINGS || (await (await options.watchTreeWrites?.())?.met()) === true) return result;
+  }
+}
+
+async function sweepReading(options: SweepWorkspaceTreeOptions): Promise<SweepWorkspaceTreeResult> {
   const { rootDir, snapshot } = options;
 
-  // A tree read while git wrote it, with a file gone, is not a tree at
-  // rest: the file may be between git's removal and its write. Nothing
-  // of such a reading is concluded.
+  // A tree read while git wrote it is not a tree at rest: a file may be
+  // between git's removal and its write, or written part-way — and a
+  // part of a file can read as a whole one. Nothing of such a reading is
+  // concluded, unless a reading before it read the same.
   const treeWrites = await options.watchTreeWrites?.();
-  const heldFor = async (gone: number): Promise<SweepWorkspaceTreeResult | null> =>
-    gone > 0 && (await treeWrites?.met()) === true
-      ? { ok: true, applied: 0, changed: 0, removed: 0, issues: [], heldRemovals: gone }
-      : null;
+  const heldFor = async (files: number, read: unknown): Promise<SweepWorkspaceTreeResult | null> => {
+    if (files === 0 || (await treeWrites?.met()) !== true) return null;
+    const reading = hashTreeContent(JSON.stringify(read));
+    if (reading === options.settledReading) return null;
+    return { ok: true, applied: 0, changed: 0, removed: 0, issues: [], held: { files, reading } };
+  };
 
   const files = await listWorkspaceTreeFiles(rootDir);
   const read = readWorkspaceTree(files);
   if (read.state.workspace === null) {
+    const manifest = files.find((file) => file.path === WORKSPACE_MANIFEST_FILE);
+    const held = await heldFor(1, ['manifest', manifest === undefined ? null : hashTreeContent(manifest.content)]);
+    if (held !== null) return held;
     // A manifest that is gone has no tombstone to become: nothing
     // ingests its absence, and a baseline entry would have every flush
     // leave it absent. The entry is dropped, so the flush after this
     // refusal authors the manifest again.
-    if (!files.some((file) => file.path === WORKSPACE_MANIFEST_FILE)) {
-      const held = await heldFor(1);
-      if (held !== null) return held;
+    if (manifest === undefined) {
       const { [WORKSPACE_MANIFEST_FILE]: listed, ...rest } = await readMaterializedIndex(rootDir);
       if (listed !== undefined) await writeMaterializedIndex(rootDir, rest);
     }
@@ -148,9 +176,6 @@ export async function sweepWorkspaceTree(options: SweepWorkspaceTreeOptions): Pr
   for (const path of Object.keys(baseline)) {
     if (!diskHashes.has(path) && !TREE_HYGIENE_FILES.has(path)) removedPaths.add(path);
   }
-  const held = await heldFor(removedPaths.size);
-  if (held !== null) return held;
-
   const batches = synthesizeWorkspaceTreeDelta({
     prev: snapshot,
     next: read.state,
@@ -158,6 +183,17 @@ export async function sweepWorkspaceTree(options: SweepWorkspaceTreeOptions): Pr
     removedPaths,
     deps: { nextCtx: options.nextCtx, liveSetEntries: options.liveSetEntries },
   });
+  // Held only where the reading has something to conclude — a batch for
+  // the engine, a file gone. A file of the user's own differs from the
+  // baseline at every reading and concludes nothing.
+  const held =
+    batches.length > 0 || removedPaths.size > 0
+      ? await heldFor(changedPaths.size + removedPaths.size, [
+          [...changedPaths].sort().map((path) => [path, diskHashes.get(path)]),
+          [...removedPaths].sort(),
+        ])
+      : null;
+  if (held !== null) return held;
   if (batches.length > 0) {
     await options.apply(batches);
   }

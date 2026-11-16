@@ -12,6 +12,7 @@ import { gitOperationInProgress, watchTreeWrites } from '../../git';
 import { readWorkspaceTreeFromDisk } from '../reader';
 import { type SweepWorkspaceTreeResult, sweepWorkspaceTree } from '../sweep';
 import {
+  HELD_READING_SETTLES_MS,
   MATERIALIZE_DEBOUNCE_MS,
   OP_HOLD_RETRY_MS,
   type OpenBinding,
@@ -55,6 +56,8 @@ export async function runSweep(ctx: RuntimeCtx, binding: OpenBinding): Promise<S
   const { service, record } = binding;
   await service.hydrated;
   const snapshot = await ctx.buildSnapshot(record.workspaceId, service);
+  const stood = binding.heldReading;
+  const settled = stood !== null && Date.now() - stood.at >= HELD_READING_SETTLES_MS ? stood.reading : undefined;
   const result = await sweepWorkspaceTree({
     rootDir: record.rootDir,
     workspaceUid: record.workspaceId,
@@ -66,18 +69,25 @@ export async function runSweep(ctx: RuntimeCtx, binding: OpenBinding): Promise<S
         .map((entry) => ({ itemId: entry.itemId, orderKey: entry.key, item: entry.item })),
     apply: (batches) => ctx.applyAll(service, batches),
     watchTreeWrites: () => watchTreeWrites(record.rootDir),
+    ...(settled !== undefined ? { settledReading: settled } : {}),
   });
-  // Git was replacing files as the tree was read: the reading is void,
+  // Git was writing files as the tree was read: the reading is void,
   // held like an operation in progress and taken again. The command's
-  // own events bring a pass sooner; the retry is for one they do not.
-  if (result.ok && result.heldRemovals !== undefined) {
+  // own events bring a pass sooner; the retry is for one they do not —
+  // and for a lock nobody gives up, where the reading that agrees with
+  // this one, the hold's wait later, is concluded.
+  if (result.ok && result.held !== undefined) {
+    if (stood?.reading !== result.held.reading) {
+      binding.heldReading = { reading: result.held.reading, at: Date.now() };
+    }
     logger.info(
       SCOPE,
-      `sweep held for ${record.rootDir}: ${result.heldRemovals} file(s) gone while git wrote the tree`,
+      `sweep held for ${record.rootDir}: ${result.held.files} file(s) changed or gone while git wrote the tree`,
     );
     armHoldRetry(ctx, binding);
     return null;
   }
+  binding.heldReading = null;
   if (result.ok) {
     binding.issues = result.issues;
     if (result.applied > 0 || result.changed > 0 || result.removed > 0) {

@@ -83,6 +83,13 @@ export const STATUS_PUBLISH_DEBOUNCE_MS = 150;
 /** Retry window while an in-progress git operation holds reconcile (§3.3). */
 export const OP_HOLD_RETRY_MS = 5_000;
 
+/**
+ * How long a reading held while git wrote the tree stands before one
+ * that agrees with it is concluded — under the hold's wait, so the
+ * hold's own pass is the one that concludes it.
+ */
+export const HELD_READING_SETTLES_MS = 4_000;
+
 /** Wall-clock interval per `every-Nm` cadence value. */
 export const CADENCE_INTERVAL_MS: Partial<Record<WorkspaceTreeCommitCadence, number>> = {
   'every-5m': 5 * 60_000,
@@ -140,6 +147,8 @@ export interface OpenBinding {
   lastFetchAt: number;
   /** Retry timer while an in-progress git op holds reconcile (§3.3). */
   holdRetryTimer: NodeJS.Timeout | null;
+  /** What the last sweep held read, and when it first read it — a later reading that agrees is concluded. */
+  heldReading: { reading: string; at: number } | null;
   /** Trailing debounce for the §9 status feed — bursts collapse to one frame. */
   statusPublishTimer: NodeJS.Timeout | null;
   /** Hash of the last published status frame — identical recomputes stay silent. */

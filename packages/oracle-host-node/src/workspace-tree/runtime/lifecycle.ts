@@ -84,6 +84,7 @@ export async function openBinding(ctx: RuntimeCtx, record: WorkspaceTreeBindingR
     fetchInterval: null,
     lastFetchAt: 0,
     holdRetryTimer: null,
+    heldReading: null,
     statusPublishTimer: null,
     lastStatusHash: null,
     status: new StatusCache(),

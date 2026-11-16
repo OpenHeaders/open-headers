@@ -109,10 +109,13 @@ function makeMaterializer(): WorkspaceTreeMaterializer {
   return new WorkspaceTreeMaterializer({ rootDir: tmpDir, readSnapshot: async () => ({ state }) });
 }
 
+/** `gitWriting` answers, as each watch is opened, whether the stretch it watches meets git's writing. */
 async function runSweep(
   applied: EmissionBatch[],
-  gitWriting?: boolean,
+  gitWriting?: boolean | (() => boolean),
+  settledReading?: string,
 ): Promise<Awaited<ReturnType<typeof sweepWorkspaceTree>>> {
+  const meets = typeof gitWriting === 'function' ? gitWriting : () => gitWriting === true;
   return sweepWorkspaceTree({
     rootDir: tmpDir,
     workspaceUid: 'wsaaaaaa',
@@ -122,7 +125,15 @@ async function runSweep(
     apply: async (batches) => {
       applied.push(...batches);
     },
-    ...(gitWriting !== undefined ? { watchTreeWrites: async () => ({ met: async () => gitWriting }) } : {}),
+    ...(gitWriting !== undefined
+      ? {
+          watchTreeWrites: async () => {
+            const met = meets();
+            return { met: async () => met };
+          },
+        }
+      : {}),
+    ...(settledReading !== undefined ? { settledReading } : {}),
   });
 }
 
@@ -282,27 +293,106 @@ describe('sweepWorkspaceTree', () => {
 
     const applied: EmissionBatch[] = [];
     const held = await runSweep(applied, true);
-    expect(held).toEqual({ ok: true, applied: 0, changed: 0, removed: 0, issues: [], heldRemovals: 1 });
+    expect(held).toEqual({
+      ok: true,
+      applied: 0,
+      changed: 0,
+      removed: 0,
+      issues: [],
+      held: { files: 2, reading: expect.any(String) },
+    });
     expect(applied).toHaveLength(0);
     expect(await readMaterializedIndex(tmpDir)).toEqual(baseline);
 
     const atRest = await runSweep(applied, false);
     expect(atRest).toMatchObject({ ok: true, changed: 1, removed: 1 });
-    expect(atRest.ok && atRest.heldRemovals).toBeUndefined();
+    expect(atRest.ok && atRest.held).toBeUndefined();
     expect(applied.flatMap((entry) => entry.batch.mutations.map((m) => m.body.kind))).toContain('delete');
   });
 
-  it('a change with no file gone is ingested while git writes the tree', async () => {
+  it('a change read while git wrote the tree concludes nothing, until a reading that agrees with one before it', async () => {
+    state.rules = [makeRule('aaaaaaaa', 'Block probes')];
+    await makeMaterializer().flush();
+    const baseline = await readMaterializedIndex(tmpDir);
+    const ruleFile = path.join(tmpDir, ...RULE_FILE.split('/'));
+    const yaml = await fs.readFile(ruleFile, 'utf-8');
+    await fs.writeFile(ruleFile, yaml.replace('name: Block probes', 'name: Block probes (vim)'), 'utf-8');
+
+    const applied: EmissionBatch[] = [];
+    const first = await runSweep(applied, true);
+    expect(first).toEqual({
+      ok: true,
+      applied: 0,
+      changed: 0,
+      removed: 0,
+      issues: [],
+      held: { files: 1, reading: expect.any(String) },
+    });
+    const firstReading = first.ok ? first.held?.reading : undefined;
+
+    // The file moved on — git wrote more of it: the reading before it does not settle this one.
+    await fs.writeFile(ruleFile, yaml.replace('name: Block probes', 'name: Block probes (vim, whole)'), 'utf-8');
+    const second = await runSweep(applied, true, firstReading);
+    const secondReading = second.ok ? second.held?.reading : undefined;
+    expect(secondReading).toBeTypeOf('string');
+    expect(secondReading).not.toBe(firstReading);
+    expect(applied).toHaveLength(0);
+    expect(await readMaterializedIndex(tmpDir)).toEqual(baseline);
+
+    // Read the same again: a lock nobody gives up writes no file, and the tree is concluded under it.
+    const settled = await runSweep(applied, true, secondReading);
+    expect(settled).toMatchObject({ ok: true, changed: 1, removed: 0 });
+    expect(settled.ok && settled.held).toBeUndefined();
+    expect(applied).toHaveLength(1);
+  });
+
+  it('a file of the user’s own alone concludes nothing and holds nothing while git writes the tree', async () => {
+    await makeMaterializer().flush();
+    await fs.writeFile(path.join(tmpDir, 'README.md'), '# mine\n', 'utf-8');
+
+    const applied: EmissionBatch[] = [];
+    const result = await runSweep(applied, true);
+    expect(result).toMatchObject({ ok: true, applied: 0, changed: 1, removed: 0 });
+    expect(result.ok && result.held).toBeUndefined();
+  });
+
+  it('a reading that met a command since ended is taken again at once', async () => {
     state.rules = [makeRule('aaaaaaaa', 'Block probes')];
     await makeMaterializer().flush();
     const ruleFile = path.join(tmpDir, ...RULE_FILE.split('/'));
     const yaml = await fs.readFile(ruleFile, 'utf-8');
     await fs.writeFile(ruleFile, yaml.replace('name: Block probes', 'name: Block probes (vim)'), 'utf-8');
 
+    // The first reading's watch meets git; the look after it and the reading after that do not.
+    let watches = 0;
     const applied: EmissionBatch[] = [];
-    const result = await runSweep(applied, true);
+    const result = await runSweep(applied, () => {
+      watches += 1;
+      return watches === 1;
+    });
+    expect(watches).toBe(3);
     expect(result).toMatchObject({ ok: true, changed: 1, removed: 0 });
+    expect(result.ok && result.held).toBeUndefined();
     expect(applied).toHaveLength(1);
+  });
+
+  it('the third reading in a row that met a command since ended goes back to the owner', async () => {
+    state.rules = [makeRule('aaaaaaaa', 'Block probes')];
+    await makeMaterializer().flush();
+    const ruleFile = path.join(tmpDir, ...RULE_FILE.split('/'));
+    const yaml = await fs.readFile(ruleFile, 'utf-8');
+    await fs.writeFile(ruleFile, yaml.replace('name: Block probes', 'name: Block probes (vim)'), 'utf-8');
+
+    // Every reading's watch meets git, every look after one does not: three readings, two looks.
+    let watches = 0;
+    const applied: EmissionBatch[] = [];
+    const result = await runSweep(applied, () => {
+      watches += 1;
+      return watches % 2 === 1;
+    });
+    expect(watches).toBe(5);
+    expect(result).toMatchObject({ ok: true, held: { files: 1 } });
+    expect(applied).toHaveLength(0);
   });
 
   it('a manifest gone while git wrote the tree is held, its baseline entry kept', async () => {
@@ -312,8 +402,17 @@ describe('sweepWorkspaceTree', () => {
 
     const applied: EmissionBatch[] = [];
     const result = await runSweep(applied, true);
-    expect(result).toMatchObject({ ok: true, heldRemovals: 1 });
+    expect(result).toMatchObject({ ok: true, held: { files: 1 } });
     expect(await readMaterializedIndex(tmpDir)).toEqual(baseline);
+  });
+
+  it('a manifest that does not read while git wrote the tree is held; read at rest the sweep is refused', async () => {
+    await makeMaterializer().flush();
+    await fs.writeFile(path.join(tmpDir, 'workspace.yaml'), 'schemaVersion: 5\n', 'utf-8');
+
+    const applied: EmissionBatch[] = [];
+    expect(await runSweep(applied, true)).toMatchObject({ ok: true, held: { files: 1 } });
+    expect(await runSweep(applied, false)).toMatchObject({ ok: false, reason: 'unreadable-manifest' });
   });
 
   it('a listed file gone at its read is not of the tree', async () => {
