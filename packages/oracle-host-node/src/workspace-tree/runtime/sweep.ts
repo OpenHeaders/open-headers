@@ -37,7 +37,7 @@ export async function heldByGitOperation(ctx: RuntimeCtx, binding: OpenBinding):
 }
 
 /** One reconcile pass after the hold's wait — a pass still held arms the next. */
-function armHoldRetry(ctx: RuntimeCtx, binding: OpenBinding): void {
+export function armHoldRetry(ctx: RuntimeCtx, binding: OpenBinding): void {
   if (binding.closed || binding.holdRetryTimer !== null) return;
   binding.holdRetryTimer = setTimeout(() => {
     binding.holdRetryTimer = null;

@@ -2,12 +2,13 @@
  * Materializer — the git-sync plan §3.1 rung 1 mechanics on a real (tmp)
  * filesystem: diff-writes (no-op passes touch nothing), index-scoped
  * deletions that never sweep hand-added files, empty-dir pruning, and
- * the disk round-trip through the tree reader. The last describe pins
- * the hygiene files: authored when absent, a missing ignore entry
- * appended, the user's lines never rewritten, never baselined.
+ * the disk round-trip through the tree reader. The second describe pins
+ * what a pass leaves while git writes the tree; the last pins the
+ * hygiene files: authored when absent, a missing ignore entry appended,
+ * the user's lines never rewritten, never baselined.
  */
 
-import { promises as fs } from 'node:fs';
+import { promises as fs, readdirSync } from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import type { Rule, Workspace } from '@openheaders/core/types';
@@ -210,6 +211,108 @@ describe('WorkspaceTreeMaterializer', () => {
     expect(result.written).toEqual([]);
     expect(result.unchanged).toBe(2);
     materializer.dispose();
+  });
+});
+
+describe('WorkspaceTreeMaterializer — while git writes the tree', () => {
+  const RULE = 'rules/block-probes-aaaaaaaa/rule.yaml';
+  const ruleFile = (): string => path.join(tmpDir, ...RULE.split('/'));
+  const filesBeside = async (): Promise<string[]> => (await fs.readdir(path.dirname(ruleFile()))).sort();
+
+  /** A materializer whose watch answers what `gitWriting` holds at each look, and the counts its owner was told. */
+  function makeWatched(gitWriting: () => boolean): { materializer: WorkspaceTreeMaterializer; told: number[] } {
+    const told: number[] = [];
+    const materializer = new WorkspaceTreeMaterializer({
+      rootDir: tmpDir,
+      readSnapshot: async () => ({ state }),
+      watchTreeWrites: async () => ({ met: async () => gitWriting() }),
+      onHeld: (held) => told.push(held),
+    });
+    return { materializer, told };
+  }
+
+  it('an edit to a file the baseline lists is left, its entry kept, and written once git is done', async () => {
+    let writing = false;
+    const besideAtLook: string[][] = [];
+    state.rules = [makeRule('aaaaaaaa', 'Block probes')];
+    const { materializer, told } = makeWatched(() => {
+      if (writing) besideAtLook.push(readdirSync(path.dirname(ruleFile())).sort());
+      return writing;
+    });
+    await materializer.flush();
+    const before = await fs.readFile(ruleFile(), 'utf-8');
+    const baselined = (await readMaterializedIndex(tmpDir))[RULE];
+
+    state.rules = [{ ...state.rules[0], enabled: false }];
+    writing = true;
+    const held = await materializer.flush();
+    expect(held).toMatchObject({ written: [], held: 1 });
+    expect(told).toEqual([1]);
+    // Met before any temp file: a lock held long leaves nothing in the tree, pass after pass.
+    expect(besideAtLook).toEqual([['rule.yaml']]);
+    expect(await fs.readFile(ruleFile(), 'utf-8')).toBe(before);
+    expect(await filesBeside()).toEqual(['rule.yaml']);
+    expect((await readMaterializedIndex(tmpDir))[RULE]).toBe(baselined);
+
+    writing = false;
+    const after = await materializer.flush();
+    expect(after.written).toEqual([RULE]);
+    expect(after.held).toBeUndefined();
+    expect(told).toEqual([1]);
+    expect(await fs.readFile(ruleFile(), 'utf-8')).toContain('enabled: false');
+  });
+
+  it('a command that began while the temp file was written is met before the rename', async () => {
+    let looks = 0;
+    state.rules = [makeRule('aaaaaaaa', 'Block probes')];
+    const { materializer } = makeWatched(() => {
+      looks += 1;
+      return looks > 1;
+    });
+    await materializer.flush();
+    const before = await fs.readFile(ruleFile(), 'utf-8');
+
+    state.rules = [{ ...state.rules[0], enabled: false }];
+    looks = 0;
+    const held = await materializer.flush();
+    expect(looks).toBe(2);
+    expect(held).toMatchObject({ written: [], held: 1 });
+    expect(await fs.readFile(ruleFile(), 'utf-8')).toBe(before);
+    expect(await filesBeside()).toEqual(['rule.yaml']);
+  });
+
+  it('a removal of a file the baseline lists is left, its entry kept, and made once git is done', async () => {
+    let writing = false;
+    state.rules = [makeRule('aaaaaaaa', 'Block probes')];
+    const { materializer, told } = makeWatched(() => writing);
+    await materializer.flush();
+    const baselined = (await readMaterializedIndex(tmpDir))[RULE];
+
+    state.rules = [];
+    writing = true;
+    const held = await materializer.flush();
+    expect(held).toMatchObject({ deleted: [], held: 1 });
+    expect(told).toEqual([1]);
+    await expect(fs.access(ruleFile())).resolves.toBeUndefined();
+    expect((await readMaterializedIndex(tmpDir))[RULE]).toBe(baselined);
+
+    writing = false;
+    expect((await materializer.flush()).deleted).toEqual([RULE]);
+    await expect(fs.access(ruleFile())).rejects.toThrow();
+  });
+
+  it('a file the tree never held is written all the same, and a pass with nothing to write holds nothing', async () => {
+    state.rules = [makeRule('aaaaaaaa', 'Block probes')];
+    const { materializer, told } = makeWatched(() => true);
+
+    const first = await materializer.flush();
+    expect(first.written).toContain(RULE);
+    expect(first.held).toBeUndefined();
+
+    const idle = await materializer.flush();
+    expect(idle).toMatchObject({ written: [], deleted: [], unchanged: 2 });
+    expect(idle.held).toBeUndefined();
+    expect(told).toEqual([]);
   });
 });
 

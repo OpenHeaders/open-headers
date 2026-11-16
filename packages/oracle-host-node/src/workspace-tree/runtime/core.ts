@@ -196,6 +196,8 @@ export interface RuntimeCtx {
   runSweep(binding: OpenBinding): Promise<SweepWorkspaceTreeResult | null>;
   scheduleMaterialize(binding: OpenBinding): void;
   heldByGitOperation(binding: OpenBinding): Promise<boolean>;
+  /** One reconcile pass after the hold's wait, for a pass that stood down while git wrote the tree. */
+  armHoldRetry(binding: OpenBinding): void;
   appendIssues(binding: OpenBinding, issues: readonly TreeIssue[]): void;
   refreshIssuesFromDisk(binding: OpenBinding): Promise<void>;
 

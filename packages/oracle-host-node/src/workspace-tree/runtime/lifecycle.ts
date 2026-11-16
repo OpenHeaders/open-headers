@@ -9,7 +9,7 @@
 import type { WorkspaceTreeBindingRecord } from '@openheaders/core/storage';
 import { logger } from '@openheaders/core/utils';
 import { getOrCreateWorkspaceService, releaseWorkspaceService } from '@openheaders/oracle/sync/service';
-import { ensureWorkspaceRepo } from '../../git';
+import { ensureWorkspaceRepo, watchTreeWrites } from '../../git';
 import { GitDirWatcher } from '../git-dir-watcher';
 import { WorkspaceTreeMaterializer } from '../materializer';
 import { readTreeUnknownFields } from '../sidecar';
@@ -19,15 +19,22 @@ import { FETCH_INTERVAL_MS, type OpenBinding, type RuntimeCtx, SCOPE } from './c
 
 export async function openBinding(ctx: RuntimeCtx, record: WorkspaceTreeBindingRecord): Promise<OpenBinding> {
   const service = getOrCreateWorkspaceService(record.workspaceId);
+  let binding: OpenBinding;
   const materializer = new WorkspaceTreeMaterializer({
     rootDir: record.rootDir,
     readSnapshot: async () => ({
       state: await ctx.buildSnapshot(record.workspaceId, service),
       unknowns: await readTreeUnknownFields(record.rootDir),
     }),
+    watchTreeWrites: () => watchTreeWrites(record.rootDir),
+    // Git was replacing files as the flush wrote: what it left is held
+    // like an operation in progress and written by the pass after.
+    onHeld: (held) => {
+      logger.info(SCOPE, `flush held for ${record.rootDir}: ${held} file(s) left while git wrote the tree`);
+      ctx.armHoldRetry(binding);
+    },
     log: (level, msg, ...rest) => logger[level](SCOPE, msg, ...rest),
   });
-  let binding: OpenBinding;
   const watcher = new WorkspaceTreeWatcher({
     rootDir: record.rootDir,
     onQuiescence: () =>

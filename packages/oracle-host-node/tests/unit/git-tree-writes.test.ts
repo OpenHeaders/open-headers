@@ -10,6 +10,7 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { createGitExec, type GitRunner } from '../../src/git/git-exec';
+import { withIndexLock } from '../../src/git/index-lock';
 import { ensureWorkspaceRepo } from '../../src/git/repo';
 import { repoArgs } from '../../src/git/repo-args';
 import { watchTreeWrites } from '../../src/git/tree-writes';
@@ -73,6 +74,25 @@ describe('watchTreeWrites', () => {
     expect(await watch.met()).toBe(true);
     // A watch begun after it sees a repo at rest again.
     expect(await (await watchTreeWrites(rootDir)).met()).toBe(false);
+  });
+
+  it('a lock this process holds is a pass of our own: nothing is met under it, the index it publishes neither', async () => {
+    const watch = await watchTreeWrites(rootDir);
+    const met = await withIndexLock(
+      run,
+      rootDir,
+      () => null,
+      async (lock) => {
+        const held = await watch.met();
+        const published = await lock.publish();
+        return { held, published, after: await watch.met() };
+      },
+    );
+    expect(met).toEqual({ held: false, published: true, after: false });
+
+    // Given up, the same lock in another's hands is met again.
+    await fs.writeFile(path.join(rootDir, '.git', 'index.lock'), '');
+    expect(await (await watchTreeWrites(rootDir)).met()).toBe(true);
   });
 
   it('a folder with no repo meets nothing', async () => {

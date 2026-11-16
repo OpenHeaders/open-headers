@@ -17,6 +17,11 @@
  *     (`hygiene.ts`), not by the plan: authored when absent, a missing
  *     ignore entry appended, the user's own lines never rewritten —
  *     and never part of the baseline;
+ *   - a file the baseline lists is neither written over nor removed
+ *     while git writes the tree: git replaces a file by removing it and
+ *     writing it anew, and a write of ours between its look and its
+ *     write lands over git's. Such a file stands as it was, its entry
+ *     kept, and the owner takes the pass again;
  *   - runs are chained — a materialize never interleaves with another
  *     (§8 single actor per tree).
  */
@@ -24,6 +29,7 @@
 import { promises as fs } from 'node:fs';
 import * as path from 'node:path';
 import { planWorkspaceTree, type TreeUnknownFields, type WorkspaceTreeState } from '@openheaders/core/workspace-tree';
+import type { TreeWritesWatch } from '../git';
 import { ensureTreeHygiene, TREE_HYGIENE_FILES } from './hygiene';
 import { hashTreeContent, type MaterializedIndex, readMaterializedIndex, writeMaterializedIndex } from './sidecar';
 
@@ -36,6 +42,12 @@ export interface MaterializeResult {
   written: string[];
   deleted: string[];
   unchanged: number;
+  /**
+   * Files the baseline lists that the pass would have written over or
+   * removed while git wrote the tree. Set, they stand as they were with
+   * their entries kept.
+   */
+  held?: number;
 }
 
 export interface WorkspaceTreeMaterializerOptions {
@@ -45,6 +57,13 @@ export interface WorkspaceTreeMaterializerOptions {
   readSnapshot: () => Promise<MaterializeSnapshot>;
   /** Quiescence window for {@link WorkspaceTreeMaterializer.schedule}. */
   debounceMs?: number;
+  /**
+   * Opens a watch of git's writes to the tree before a pass writes.
+   * Absent (no git plane), nothing ever writes.
+   */
+  watchTreeWrites?: () => Promise<TreeWritesWatch>;
+  /** A pass left `held` files to git — the owner takes the pass again. */
+  onHeld?: (held: number) => void;
   log?: (level: 'warn' | 'error', msg: string, ...rest: unknown[]) => void;
 }
 
@@ -54,6 +73,8 @@ export class WorkspaceTreeMaterializer {
   private readonly rootDir: string;
   private readonly readSnapshot: () => Promise<MaterializeSnapshot>;
   private readonly debounceMs: number;
+  private readonly watchTreeWrites: (() => Promise<TreeWritesWatch>) | undefined;
+  private readonly onHeld: ((held: number) => void) | undefined;
   private readonly log: (level: 'warn' | 'error', msg: string, ...rest: unknown[]) => void;
   private timer: NodeJS.Timeout | null = null;
   private chain: Promise<unknown> = Promise.resolve();
@@ -63,6 +84,8 @@ export class WorkspaceTreeMaterializer {
     this.rootDir = options.rootDir;
     this.readSnapshot = options.readSnapshot;
     this.debounceMs = options.debounceMs ?? DEFAULT_DEBOUNCE_MS;
+    this.watchTreeWrites = options.watchTreeWrites;
+    this.onHeld = options.onHeld;
     this.log = options.log ?? (() => undefined);
   }
 
@@ -109,6 +132,17 @@ export class WorkspaceTreeMaterializer {
     const written: string[] = await ensureTreeHygiene(this.rootDir);
     let unchanged = 0;
     const planned: MaterializedIndex = {};
+
+    // Git holds its writing to the end of its command, and the index it
+    // leaves stays new: once met, met for the rest of the pass.
+    const treeWrites = await this.watchTreeWrites?.();
+    let gitWrote = false;
+    const gitWrites = async (): Promise<boolean> => {
+      gitWrote ||= (await treeWrites?.met()) === true;
+      return gitWrote;
+    };
+    let held = 0;
+
     for (const file of files) {
       const target = path.join(this.rootDir, ...file.path.split('/'));
       const existing = await readFileOrNull(target);
@@ -132,9 +166,24 @@ export class WorkspaceTreeMaterializer {
         if (baseline !== undefined) planned[file.path] = baseline;
         continue;
       }
+      // A file the baseline lists is one git may be replacing. Looked
+      // for before the temp file, so a lock held long leaves no file
+      // behind pass after pass; and again before the rename, for a
+      // command that began while the temp file was written.
+      if (baseline !== undefined && (await gitWrites())) {
+        planned[file.path] = baseline;
+        held += 1;
+        continue;
+      }
       await fs.mkdir(path.dirname(target), { recursive: true });
       const tmp = `${target}.${process.pid}.tmp`;
       await fs.writeFile(tmp, file.content, 'utf-8');
+      if (baseline !== undefined && (await gitWrites())) {
+        await fs.rm(tmp, { force: true });
+        planned[file.path] = baseline;
+        held += 1;
+        continue;
+      }
       await fs.rename(tmp, target);
       planned[file.path] = hashTreeContent(file.content);
       written.push(file.path);
@@ -153,13 +202,22 @@ export class WorkspaceTreeMaterializer {
       // let the sweep decide what it means.
       const existing = await readFileOrNull(target);
       if (existing !== null && hashTreeContent(existing) !== previous[stale]) continue;
+      // The same file git may be replacing: a removal here would take
+      // the one git has just written.
+      if (await gitWrites()) {
+        planned[stale] = previous[stale];
+        held += 1;
+        continue;
+      }
       await fs.rm(target, { force: true });
       await this.pruneEmptyDirs(path.dirname(target));
       deleted.push(stale);
     }
 
     await writeMaterializedIndex(this.rootDir, planned);
-    return { written, deleted, unchanged };
+    if (held === 0) return { written, deleted, unchanged };
+    this.onHeld?.(held);
+    return { written, deleted, unchanged, held };
   }
 
   /** Remove now-empty directories left behind by a deletion, up to the tree root. */

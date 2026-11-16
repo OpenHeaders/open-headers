@@ -106,7 +106,14 @@ import { runApplyCommit } from './pick';
 import { runAddRemote, runCheckRemoteUrl, runListRemotes, runRemoveRemote, runUpdateRemote } from './remotes';
 import { applyAll, buildSnapshot, workspaceEntity } from './snapshot';
 import { notBoundStatus, publishGitStatus, readGitStatus } from './status';
-import { appendIssues, heldByGitOperation, refreshIssuesFromDisk, runSweep, scheduleMaterialize } from './sweep';
+import {
+  appendIssues,
+  armHoldRetry,
+  heldByGitOperation,
+  refreshIssuesFromDisk,
+  runSweep,
+  scheduleMaterialize,
+} from './sweep';
 import { enqueueFetch, maybeAutoPush, runFetchAll, runPull, runPush, runResolveForcePush } from './sync';
 import type {
   AbortOperationRpcResult,
@@ -316,6 +323,7 @@ export function createWorkspaceTreeRuntime(options: WorkspaceTreeRuntimeOptions)
     runSweep: (binding) => runSweep(ctx, binding),
     scheduleMaterialize: (binding) => scheduleMaterialize(ctx, binding),
     heldByGitOperation: (binding) => heldByGitOperation(ctx, binding),
+    armHoldRetry: (binding) => armHoldRetry(ctx, binding),
     appendIssues,
     refreshIssuesFromDisk,
     syntheticIdentity,

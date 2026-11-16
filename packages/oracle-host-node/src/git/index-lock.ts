@@ -82,6 +82,12 @@ function removeOnExit(files: readonly string[]): void {
   });
 }
 
+/** The lock files this process holds. */
+const ownLocks = new Set<string>();
+
+/** Whether the lock at `lockPath` is held by this process — the pass under it is then our own. */
+export const holdsIndexLock = (lockPath: string): boolean => ownLocks.has(lockPath);
+
 /** Git locks the file a symlinked index points at, not the link. */
 export async function realIndexPath(gitDir: string): Promise<string> {
   const indexPath = path.join(gitDir, 'index');
@@ -145,6 +151,7 @@ export async function acquireIndexLock(run: GitRunner, rootDir: string): Promise
   }
   const files = [lockPath, pidPath, nextPath];
   removeOnExit(files);
+  ownLocks.add(lockPath);
   const env = { GIT_INDEX_FILE: lockPath };
   let released = false;
   const release = async (): Promise<void> => {
@@ -152,6 +159,7 @@ export async function acquireIndexLock(run: GitRunner, rootDir: string): Promise
     released = true;
     for (const file of files) await fs.rm(file, { force: true }).catch(() => undefined);
     heldFiles.delete(files);
+    ownLocks.delete(lockPath);
   };
 
   try {
