@@ -11,6 +11,12 @@
  * The two files are deliberately NOT part of the materialized
  * baseline: a baselined file is one the materializer may normalize or
  * delete, and these are the user's.
+ *
+ * A branch may hold its own `.gitignore`, and git replaces a file by
+ * removing it and writing it anew: one read absent, or without an
+ * entry, while git writes the tree is git's to finish. A materialize
+ * pass hands its look for git's writes; such a file is left and counted
+ * held, for the pass to be taken again.
  */
 
 import { promises as fs } from 'node:fs';
@@ -34,23 +40,36 @@ async function readOrNull(filePath: string): Promise<string | null> {
   }
 }
 
-/** Run the pass; answers the files it wrote (authored or appended to). */
-export async function ensureTreeHygiene(rootDir: string): Promise<string[]> {
+export interface TreeHygieneResult {
+  /** The files the pass wrote (authored or appended to). */
+  written: string[];
+  /** The files it would have written while git wrote the tree — left as they were. */
+  held: number;
+}
+
+/** Run the pass. `gitWrites` is looked at before each write; absent, nothing ever writes. */
+export async function ensureTreeHygiene(
+  rootDir: string,
+  gitWrites?: () => Promise<boolean>,
+): Promise<TreeHygieneResult> {
   const written: string[] = [];
+  let held = 0;
+  const write = async (file: string, content: string): Promise<void> => {
+    if ((await gitWrites?.()) === true) {
+      held += 1;
+      return;
+    }
+    await fs.writeFile(path.join(rootDir, file), content, 'utf-8');
+    written.push(file);
+  };
 
-  const ignorePath = path.join(rootDir, GITIGNORE_FILE);
-  const ignore = await readOrNull(ignorePath);
+  const ignore = await readOrNull(path.join(rootDir, GITIGNORE_FILE));
   const nextIgnore = ignore === null ? WORKSPACE_GITIGNORE_CONTENT : withRequiredIgnoreEntries(ignore);
-  if (nextIgnore !== ignore) {
-    await fs.writeFile(ignorePath, nextIgnore, 'utf-8');
-    written.push(GITIGNORE_FILE);
+  if (nextIgnore !== ignore) await write(GITIGNORE_FILE, nextIgnore);
+
+  if ((await readOrNull(path.join(rootDir, GITATTRIBUTES_FILE))) === null) {
+    await write(GITATTRIBUTES_FILE, WORKSPACE_GITATTRIBUTES_CONTENT);
   }
 
-  const attributesPath = path.join(rootDir, GITATTRIBUTES_FILE);
-  if ((await readOrNull(attributesPath)) === null) {
-    await fs.writeFile(attributesPath, WORKSPACE_GITATTRIBUTES_CONTENT, 'utf-8');
-    written.push(GITATTRIBUTES_FILE);
-  }
-
-  return written;
+  return { written, held };
 }

@@ -309,23 +309,60 @@ describe('WorkspaceTreeMaterializer — while git writes the tree', () => {
     const { materializer, told } = makeWatched(() => writing);
 
     const held = await materializer.flush();
-    expect(held.held).toBe(2);
-    expect(held.written.sort()).toEqual(['.gitattributes', '.gitignore']);
-    expect(told).toEqual([2]);
-    await expect(fs.access(path.join(tmpDir, 'rules'))).rejects.toThrow();
-    await expect(fs.access(path.join(tmpDir, 'workspace.yaml'))).rejects.toThrow();
+    // The two hygiene files with it: nothing at all is written.
+    expect(held).toMatchObject({ written: [], held: 4 });
+    expect(told).toEqual([4]);
+    expect(await fs.readdir(tmpDir)).toEqual(['.oh']);
     expect(await readMaterializedIndex(tmpDir)).toEqual({});
 
     writing = false;
     const after = await materializer.flush();
-    expect(after.written.sort()).toEqual([RULE, 'workspace.yaml']);
+    expect(after.written.sort()).toEqual(['.gitattributes', '.gitignore', RULE, 'workspace.yaml']);
     expect(after.held).toBeUndefined();
-    expect(told).toEqual([2]);
+    expect(told).toEqual([4]);
     expect(Object.keys(await readMaterializedIndex(tmpDir)).sort()).toEqual([RULE, 'workspace.yaml']);
+  });
+
+  it('a hygiene file gone while git writes is left to git, and authored once git is done', async () => {
+    let writing = false;
+    const ignoreFile = path.join(tmpDir, '.gitignore');
+    const attributesFile = path.join(tmpDir, '.gitattributes');
+    const { materializer, told } = makeWatched(() => writing);
+    await materializer.flush();
+
+    // Git between removing each file and writing the branch's own anew.
+    await fs.rm(ignoreFile);
+    await fs.rm(attributesFile);
+    writing = true;
+    const held = await materializer.flush();
+    expect(held).toMatchObject({ written: [], held: 2 });
+    expect(told).toEqual([2]);
+    await expect(fs.access(ignoreFile)).rejects.toThrow();
+    await expect(fs.access(attributesFile)).rejects.toThrow();
+
+    writing = false;
+    const after = await materializer.flush();
+    expect(after.written.sort()).toEqual(['.gitattributes', '.gitignore']);
+    expect(after.held).toBeUndefined();
+  });
+
+  it('an ignore file read without an entry while git writes is not appended to', async () => {
+    let writing = false;
+    const ignoreFile = path.join(tmpDir, '.gitignore');
+    const { materializer } = makeWatched(() => writing);
+    await materializer.flush();
+
+    await fs.writeFile(ignoreFile, '.env\n', 'utf-8');
+    writing = true;
+    expect(await materializer.flush()).toMatchObject({ written: [], held: 1 });
+    expect(await fs.readFile(ignoreFile, 'utf-8')).toBe('.env\n');
   });
 
   it('a command that began while a new file’s temp file was written is met before the rename, and no entry is made', async () => {
     let looks = 0;
+    // The hygiene files stand, so the pass's first look is the manifest's.
+    await fs.writeFile(path.join(tmpDir, '.gitignore'), '.oh/\n*.secret.yaml\n', 'utf-8');
+    await fs.writeFile(path.join(tmpDir, '.gitattributes'), '*.yaml text eol=lf\n', 'utf-8');
     const { materializer } = makeWatched(() => {
       looks += 1;
       return looks > 1;

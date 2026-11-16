@@ -16,7 +16,8 @@
  *   - `.gitignore` and `.gitattributes` are kept by the hygiene pass
  *     (`hygiene.ts`), not by the plan: authored when absent, a missing
  *     ignore entry appended, the user's own lines never rewritten —
- *     and never part of the baseline;
+ *     and never part of the baseline; the pass looks for git's writes
+ *     like every write below;
  *   - no file is written or removed while git writes the tree: git
  *     replaces a file by removing it and writing it anew, and creates
  *     one after looking that it is not there — a write of ours between
@@ -150,10 +151,6 @@ export class WorkspaceTreeMaterializer {
     const files = planWorkspaceTree(snapshot.state, snapshot.unknowns ?? {});
     const previous = await readMaterializedIndex(this.rootDir);
 
-    const written: string[] = await ensureTreeHygiene(this.rootDir);
-    let unchanged = 0;
-    const planned: MaterializedIndex = {};
-
     // Git holds its writing to the end of its command, and the index it
     // leaves stays new: once met, met for the rest of the pass.
     const treeWrites = await this.watchTreeWrites?.();
@@ -162,7 +159,12 @@ export class WorkspaceTreeMaterializer {
       gitWrote ||= (await treeWrites?.met()) === true;
       return gitWrote;
     };
-    let held = 0;
+
+    const hygiene = await ensureTreeHygiene(this.rootDir, gitWrites);
+    const written: string[] = hygiene.written;
+    let held = hygiene.held;
+    let unchanged = 0;
+    const planned: MaterializedIndex = {};
 
     for (const file of files) {
       const target = path.join(this.rootDir, ...file.path.split('/'));
