@@ -288,6 +288,32 @@ describe('synthesizeWorkspaceTreeDelta — deletions', () => {
     ]);
   });
 
+  it('a folder whose directory was renamed above it, its manifest not read there, is not deleted for the leaf read under it', () => {
+    const auth = {
+      schemaVersion: 5,
+      uid: 'fol0000f',
+      path: 'rules/api-col0000a/auth-fol0000f',
+      name: 'Auth',
+    } as Folder;
+    const deep = { schemaVersion: 5, uid: 'fol0000d', path: `${auth.path}/deep-fol0000d`, name: 'Deep' } as Folder;
+    const inner = { ...baseRule, path: `${deep.path}/probe-rul00001` } as Rule;
+    const renamedAuth = { ...auth, path: 'rules/api-col0000a/authz-fol0000f' };
+    const renamedInner = { ...inner, path: `${renamedAuth.path}/deep-fol0000d/probe-rul00001` };
+    const prev = emptyState({ collections: [col], folders: [auth, deep], rules: [inner] });
+    const next = emptyState({ collections: [col], folders: [renamedAuth], rules: [renamedInner] });
+    const removed = [`${auth.path}/_folder.yaml`, `${deep.path}/_folder.yaml`, `${inner.path}/rule.yaml`];
+    const changed = [
+      `${renamedAuth.path}/_folder.yaml`,
+      `${renamedAuth.path}/deep-fol0000d/_folder.yaml`,
+      `${renamedInner.path}/rule.yaml`,
+    ];
+    const labels = delta({ prev, next, changed, removed }).map((b) => b.label);
+    expect(labels.filter((label) => label.endsWith('(delete)'))).toEqual([]);
+    expect(keptContainerManifests({ prev, next: asNext(next), removedPaths: new Set(removed) })).toEqual([
+      `${deep.path}/_folder.yaml`,
+    ]);
+  });
+
   it('names nothing kept where the reading removed nothing', () => {
     const prev = emptyState({ collections: [col], rules: [ruleInCol] });
     expect(keptContainerManifests({ prev, next: asNext(emptyState()), removedPaths: new Set() })).toEqual([]);

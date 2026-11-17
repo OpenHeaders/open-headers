@@ -1,9 +1,11 @@
 /**
  * The containers a reading removes — a container leaves only when
- * nothing the engine holds is left beneath it.
+ * nothing the engine holds is left beneath it, and beneath is the
+ * directory a placement resolves to the container.
  */
 
 import { describe, expect, it } from 'vitest';
+import { FOLDER_TREE_KINDS } from '../../src/sync';
 import {
   type ContainerTree,
   planContainerRemovals,
@@ -24,6 +26,7 @@ const INNER_MANIFEST = `${INNER.path}/rule.yaml`;
 
 function makeTree(overrides: Partial<ContainerTree> = {}): ContainerTree {
   return {
+    kinds: FOLDER_TREE_KINDS,
     collections: [API],
     folders: [AUTH],
     leaves: [{ manifest: 'rule.yaml', items: [DIRECT, INNER] }],
@@ -116,5 +119,59 @@ describe('planContainerRemovals', () => {
       [API.uid]: 'rules/renamed-col0000a',
     });
     expect(plan(makeTree(), renamed)).toEqual({ gone: [AUTH.uid], kept: [] });
+  });
+
+  describe('a directory renamed with what it holds, a manifest not read at the new place', () => {
+    const RENAMED_AUTH = 'rules/api-col0000a/authz-fol0000f';
+    const LEAF = { uid: 'rul0000c', path: `${DEEP.path}/leaf-rul0000c` };
+    const LEAF_MANIFEST = `${LEAF.path}/rule.yaml`;
+    const tree = makeTree({ folders: [AUTH, DEEP], leaves: [{ manifest: 'rule.yaml', items: [LEAF] }] });
+
+    it('keeps the inner folder for the leaf read under its renamed directory — the uid tail names it', () => {
+      const reading = makeReading([AUTH_MANIFEST, DEEP_MANIFEST, LEAF_MANIFEST], {
+        [AUTH.uid]: RENAMED_AUTH,
+        [LEAF.uid]: `${RENAMED_AUTH}/deep-fol0000d/leaf-rul0000c`,
+      });
+      expect(plan(tree, reading)).toEqual({ gone: [], kept: [DEEP_MANIFEST] });
+    });
+
+    it('keeps the outer folder too where neither manifest read — each directory resolves to its own', () => {
+      const reading = makeReading([AUTH_MANIFEST, DEEP_MANIFEST, LEAF_MANIFEST], {
+        [LEAF.uid]: `${RENAMED_AUTH}/deep-fol0000d/leaf-rul0000c`,
+      });
+      expect(plan(tree, reading)).toEqual({ gone: [], kept: [DEEP_MANIFEST, AUTH_MANIFEST] });
+    });
+
+    it('keeps a collection renamed whole for the leaf read under it', () => {
+      const flat = makeTree({ folders: [], leaves: [{ manifest: 'rule.yaml', items: [DIRECT] }] });
+      const reading = makeReading([API_MANIFEST, DIRECT_MANIFEST], {
+        [DIRECT.uid]: 'rules/renamed-col0000a/direct-rul0000a',
+      });
+      expect(plan(flat, reading)).toEqual({ gone: [], kept: [API_MANIFEST] });
+    });
+
+    it('keeps a collection for a leaf read deeper in it, under a folder the engine does not hold', () => {
+      const flat = makeTree({ folders: [], leaves: [{ manifest: 'rule.yaml', items: [DIRECT] }] });
+      const reading = makeReading([API_MANIFEST, DIRECT_MANIFEST], {
+        [DIRECT.uid]: `${API.path}/fresh-fol0000n/direct-rul0000a`,
+      });
+      expect(plan(flat, reading)).toEqual({ gone: [], kept: [API_MANIFEST] });
+    });
+
+    it('lets the inner folder leave where the leaf was read under a directory that names another', () => {
+      const reading = makeReading([AUTH_MANIFEST, DEEP_MANIFEST, LEAF_MANIFEST], {
+        [AUTH.uid]: RENAMED_AUTH,
+        [LEAF.uid]: `${RENAMED_AUTH}/leaf-rul0000c`,
+      });
+      expect(plan(tree, reading)).toEqual({ gone: [DEEP.uid], kept: [] });
+    });
+
+    it('does not take a directory of another tree for the container its tail names', () => {
+      const reading = makeReading([AUTH_MANIFEST, DEEP_MANIFEST, LEAF_MANIFEST], {
+        [AUTH.uid]: RENAMED_AUTH,
+        [LEAF.uid]: 'requests/api-col0000a/authz-fol0000f/deep-fol0000d/leaf-rul0000c',
+      });
+      expect(plan(tree, reading)).toEqual({ gone: [DEEP.uid], kept: [] });
+    });
   });
 });

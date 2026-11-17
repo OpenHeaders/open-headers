@@ -475,11 +475,17 @@ function planTreeRemovals(
   });
   return {
     rules: planContainerRemovals(
-      { collections: prev.collections, folders: prev.folders, leaves: [leaves(RULE_ENTITY_TYPE, prev.rules)] },
+      {
+        kinds: FOLDER_TREE_KINDS,
+        collections: prev.collections,
+        folders: prev.folders,
+        leaves: [leaves(RULE_ENTITY_TYPE, prev.rules)],
+      },
       reading,
     ),
     requests: planContainerRemovals(
       {
+        kinds: REQUEST_FOLDER_TREE_KINDS,
         collections: prev.requestCollections,
         folders: prev.requestFolders,
         leaves: [
@@ -494,6 +500,7 @@ function planTreeRemovals(
     ),
     templates: planContainerRemovals(
       {
+        kinds: TEMPLATE_FOLDER_TREE_KINDS,
         collections: prev.templateCollections,
         folders: prev.templateFolders,
         leaves: [leaves(TEMPLATE_ENTITY_TYPE, prev.templates)],

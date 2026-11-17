@@ -12,8 +12,15 @@
  * manifest, a folder with its manifest once nothing is left in it. What
  * the reading read at another place has moved there and is left at that
  * place, not at the one the engine holds.
+ *
+ * Beneath is asked as containment asks it (`containment.ts`): a
+ * directory is the container a placement resolves it to — the exact
+ * path the engine holds, then the path's uid tail. A container whose
+ * directory was renamed with what it holds, its manifest not read at
+ * the new place, still has under it what the reading read there.
  */
 
+import { resolveTreeParent, type TreeParentKinds } from '@openheaders/core/sync';
 import { COLLECTION_MANIFEST_FILE, FOLDER_MANIFEST_FILE } from '@openheaders/core/workspace-tree';
 
 export interface TreePathEntity {
@@ -23,6 +30,7 @@ export interface TreePathEntity {
 
 /** One tree as the engine holds it. */
 export interface ContainerTree {
+  kinds: TreeParentKinds<string, string>;
   collections: readonly TreePathEntity[];
   folders: readonly TreePathEntity[];
   /** The tree's leaf families, each with its manifest's file name. */
@@ -57,7 +65,24 @@ export function planContainerRemovals(tree: ContainerTree, reading: TreeReading)
   const stays = (entity: TreePathEntity): void => {
     left.push(reading.pathOf(entity.uid) ?? entity.path);
   };
-  const occupied = (dir: string): boolean => left.some((path) => path.startsWith(`${dir}/`));
+
+  const lookup = { collections: tree.collections, folders: tree.folders };
+  const containerAt = new Map<string, string | null>();
+  const resolved = (dir: string): string | null => {
+    let uid = containerAt.get(dir);
+    if (uid === undefined) {
+      uid = resolveTreeParent(dir, lookup, tree.kinds)?.uid ?? null;
+      containerAt.set(dir, uid);
+    }
+    return uid;
+  };
+  const beneath = (uid: string, path: string): boolean => {
+    for (let end = path.lastIndexOf('/'); end > 0; end = path.lastIndexOf('/', end - 1)) {
+      if (resolved(path.slice(0, end)) === uid) return true;
+    }
+    return false;
+  };
+  const occupied = (container: TreePathEntity): boolean => left.some((path) => beneath(container.uid, path));
 
   for (const family of tree.leaves) {
     for (const leaf of family.items) {
@@ -70,7 +95,7 @@ export function planContainerRemovals(tree: ContainerTree, reading: TreeReading)
   const judge = (container: TreePathEntity, manifest: string): void => {
     if (!leaves(container, manifest)) {
       stays(container);
-    } else if (occupied(container.path)) {
+    } else if (occupied(container)) {
       kept.push(`${container.path}/${manifest}`);
       stays(container);
     } else {
