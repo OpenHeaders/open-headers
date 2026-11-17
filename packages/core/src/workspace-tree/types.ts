@@ -104,7 +104,16 @@ export type TreeLeafKey =
   | 'graphqlRequests'
   | 'templates';
 
-/** A leaf a reading read and did not take — for its uid, or for its directory. */
+/** The tree's container families — the collections and the folders of each tree. */
+export type TreeContainerKey =
+  | 'collections'
+  | 'folders'
+  | 'requestCollections'
+  | 'requestFolders'
+  | 'templateCollections'
+  | 'templateFolders';
+
+/** A document a reading read and did not take — for its uid, or for its directory. */
 export interface TreeShadowed<T> {
   entity: T;
   unknowns: readonly UnknownField[];
@@ -118,6 +127,9 @@ export interface TreeShadowed<T> {
  */
 export type TreeShadowedLeaves = { [K in TreeLeafKey]: TreeShadowed<WorkspaceTreeState[K][number]>[] };
 
+/** The collections and folders a reading skipped as duplicates, by family — settled as the leaves are. */
+export type TreeShadowedContainers = { [K in TreeContainerKey]: TreeShadowed<WorkspaceTreeState[K][number]>[] };
+
 export interface TreeReadResult {
   /**
    * `workspace` is null when `workspace.yaml` is missing or invalid
@@ -128,7 +140,7 @@ export interface TreeReadResult {
   state: Omit<WorkspaceTreeState, 'workspace'> & { workspace: WorkspaceManifest | null };
   unknowns: TreeUnknownFields;
   issues: TreeIssue[];
-  shadowed: TreeShadowedLeaves;
+  shadowed: TreeShadowedLeaves & TreeShadowedContainers;
   /**
    * The leaves a reading skipped for a directory of their own tree that
    * holds no manifest, by family. The files alone cannot say whether

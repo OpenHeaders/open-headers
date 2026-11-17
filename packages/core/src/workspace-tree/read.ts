@@ -63,7 +63,15 @@ import {
   WORKSPACE_VARS_DOC_KEY,
   WORKSPACE_VARS_FILE,
 } from './layout';
-import type { TreeFile, TreeIssue, TreeReadResult, TreeShadowed, TreeShadowedLeaves, TreeUnknownFields } from './types';
+import type {
+  TreeFile,
+  TreeIssue,
+  TreeReadResult,
+  TreeShadowed,
+  TreeShadowedContainers,
+  TreeShadowedLeaves,
+  TreeUnknownFields,
+} from './types';
 
 interface SiblingFile {
   fileName: string;
@@ -116,6 +124,17 @@ function noLeaves(): TreeShadowedLeaves {
   };
 }
 
+function noContainers(): TreeShadowedContainers {
+  return {
+    collections: [],
+    folders: [],
+    requestCollections: [],
+    requestFolders: [],
+    templateCollections: [],
+    templateFolders: [],
+  };
+}
+
 /** Read one workspace tree from its complete file listing. */
 export function readWorkspaceTree(files: readonly TreeFile[]): TreeReadResult {
   const issues: TreeIssue[] = [];
@@ -157,7 +176,7 @@ export function readWorkspaceTree(files: readonly TreeFile[]): TreeReadResult {
     else byDir.set(dir, [entry]);
   }
 
-  const shadowed = noLeaves();
+  const shadowed = { ...noLeaves(), ...noContainers() };
   const uncontained = noLeaves();
 
   const seenUids = new Set<string>();
@@ -170,8 +189,8 @@ export function readWorkspaceTree(files: readonly TreeFile[]): TreeReadResult {
    * Run one document parse; returns null (and records an issue) on
    * failure or on a duplicate uid — the first occurrence of an identity
    * wins, matching the codec discipline that the uid inside the YAML is
-   * authoritative while folder names are only mirrors. A leaf skipped
-   * that way is kept in `shadows`.
+   * authoritative while folder names are only mirrors. A collection,
+   * folder or leaf skipped that way is kept in `shadows`.
    */
   const ingest = <T extends { uid: string }>(
     manifestPath: string,
@@ -302,24 +321,35 @@ export function readWorkspaceTree(files: readonly TreeFile[]): TreeReadResult {
     switch (base) {
       case COLLECTION_MANIFEST_FILE: {
         const bucket = pickByTree(tree, state.collections, state.requestCollections, state.templateCollections);
-        if (bucket === null) {
+        const shadows = pickByTree(
+          tree,
+          shadowed.collections,
+          shadowed.requestCollections,
+          shadowed.templateCollections,
+        );
+        if (bucket === null || shadows === null) {
           issues.push({ path, message: `collection outside a known tree root ("${tree}") — skipped` });
           break;
         }
-        const value = ingest(path, () =>
-          parseCollection(content, { path: dir, siblings: siblingsFor(dir, COLLECTION_MANIFEST_FILE) }),
+        const value = ingest(
+          path,
+          () => parseCollection(content, { path: dir, siblings: siblingsFor(dir, COLLECTION_MANIFEST_FILE) }),
+          shadows,
         );
         if (value) bucket.push(value);
         break;
       }
       case FOLDER_MANIFEST_FILE: {
         const bucket = pickByTree(tree, state.folders, state.requestFolders, state.templateFolders);
-        if (bucket === null) {
+        const shadows = pickByTree(tree, shadowed.folders, shadowed.requestFolders, shadowed.templateFolders);
+        if (bucket === null || shadows === null) {
           issues.push({ path, message: `folder outside a known tree root ("${tree}") — skipped` });
           break;
         }
-        const value = ingest(path, () =>
-          parseFolder(content, { path: dir, siblings: siblingsFor(dir, FOLDER_MANIFEST_FILE) }),
+        const value = ingest(
+          path,
+          () => parseFolder(content, { path: dir, siblings: siblingsFor(dir, FOLDER_MANIFEST_FILE) }),
+          shadows,
         );
         if (value) bucket.push(value);
         break;

@@ -13,12 +13,14 @@
  * with it. Each refusal is an issue at the manifest — the file kept,
  * off the baseline — and everything else of the read stands.
  *
- * A uid more than one leaf file claims is settled here too. The reader
- * gives it to the first file in path order and keeps the others; the
- * file at the place the engine holds the leaf is the leaf, and where
- * the engine holds it at none of them, the first the workspace can
- * hold — a file refused for its place claims nothing. Containers keep
- * the reader's answer.
+ * A uid more than one file of a kind claims is settled here too. The
+ * reader gives it to the first file in path order and keeps the others;
+ * the file at the place the engine holds the entity is the entity, and
+ * where the engine holds it at none of them, the first the workspace
+ * can hold — a file refused for its place claims nothing. A container
+ * is settled top-down with the containment it decides: of two the
+ * workspace can hold, the shallower. A copy of a held container's
+ * directory is then a duplicate with its rows, wherever it sorts.
  *
  * And a leaf the reader skipped in a directory with no manifest at all
  * (`uncontained`) is asked the same question here: where that directory
@@ -41,6 +43,7 @@ import {
   type TreeParentKinds,
 } from '../sync';
 import {
+  COLLECTION_MANIFEST_FILE,
   FOLDER_MANIFEST_FILE,
   GRAPHQL_REQUEST_MANIFEST_FILE,
   GRPC_REQUEST_MANIFEST_FILE,
@@ -51,7 +54,14 @@ import {
   WEBSOCKET_REQUEST_MANIFEST_FILE,
 } from './layout';
 import { duplicateUidMessage } from './read';
-import type { TreeIssue, TreeLeafKey, TreeReadResult, TreeShadowed, WorkspaceTreeState } from './types';
+import type {
+  TreeContainerKey,
+  TreeIssue,
+  TreeLeafKey,
+  TreeReadResult,
+  TreeShadowed,
+  WorkspaceTreeState,
+} from './types';
 
 /** The containers the engine holds, by tree. */
 export type HeldContainers = Pick<
@@ -120,12 +130,28 @@ const placeIssue = (entity: PathEntity, manifest: string, kind: string): TreeIss
   uncontainedIn: dirOf(entity.path),
 });
 
+interface ContainerFamily {
+  key: TreeContainerKey;
+  manifest: string;
+  /** A collection is a root: it stands wherever it is read. */
+  root: boolean;
+}
+
+/** A file that claims a container's uid: the one the reader gave it to, or a duplicate it skipped. */
+interface Claimant {
+  file: PathEntity;
+  family: ContainerFamily;
+  first: boolean;
+}
+
+type SettledKey = TreeLeafKey | TreeContainerKey;
+
 /** What a read settled against the engine changes of it. */
 interface Settlement {
   /** Uids of the folders and leaves the workspace cannot hold. */
   refused: Set<string>;
-  /** By leaf family: the place of the file a uid goes to, where that is not the reader's. */
-  claims: Map<TreeLeafKey, Map<string, string>>;
+  /** By family: the place of the file a uid goes to, where that is not the reader's. */
+  claims: Map<SettledKey, Map<string, string>>;
   /** Manifests the reader skipped as duplicates that are the entity after all. */
   cleared: Set<string>;
   issues: TreeIssue[];
@@ -142,17 +168,12 @@ function settleTree(
   const lookup = { collections: held[tree.collections], folders: held[tree.folders] };
   const heldUids = new Set([...lookup.collections, ...lookup.folders].map((container) => container.uid));
 
-  // A directory a container was read at answers for itself: a
-  // collection is a root and stands, a folder stands where its own
-  // directory does. Only a directory with no container read at it asks
-  // the engine.
+  // A directory a container was settled at answers for itself: the
+  // container's own stands, that of a file refused for its place takes
+  // what it holds with it. Every other directory asks the engine — a
+  // duplicate's too.
   const readDirs = new Set<string>();
   const takenDirs = new Set<string>();
-  for (const collection of state[tree.collections]) {
-    readDirs.add(collection.path);
-    takenDirs.add(collection.path);
-  }
-  for (const folder of state[tree.folders]) readDirs.add(folder.path);
 
   const heldAt = new Map<string, boolean>();
   const takes = (dir: string): boolean => {
@@ -170,10 +191,66 @@ function settleTree(
     out.refused.add(entity.uid);
     out.issues.push(placeIssue(entity, manifest, kind));
   };
+  const claim = (key: SettledKey, manifest: string, entity: PathEntity): void => {
+    let claims = out.claims.get(key);
+    if (claims === undefined) {
+      claims = new Map();
+      out.claims.set(key, claims);
+    }
+    claims.set(entity.uid, entity.path);
+    out.cleared.add(`${entity.path}/${manifest}`);
+  };
 
-  for (const folder of [...state[tree.folders]].sort((a, b) => depthOf(a.path) - depthOf(b.path))) {
-    if (contained(folder)) takenDirs.add(folder.path);
-    else refuse(folder, FOLDER_MANIFEST_FILE, 'folder');
+  // The files that claim a container's uid, and of a uid more than one
+  // claims, the engine's place where one of them is at it.
+  const claimants: Claimant[] = [];
+  const ownPlaces = new Map<string, string>();
+  const families: ContainerFamily[] = [
+    { key: tree.collections, manifest: COLLECTION_MANIFEST_FILE, root: true },
+    { key: tree.folders, manifest: FOLDER_MANIFEST_FILE, root: false },
+  ];
+  for (const family of families) {
+    for (const file of state[family.key]) claimants.push({ file, family, first: true });
+    const shadows = read.shadowed[family.key];
+    if (shadows.length === 0) continue;
+    const firsts = new Map<string, PathEntity>();
+    for (const file of state[family.key]) firsts.set(file.uid, file);
+    const places = new Map<string, string>();
+    for (const container of held[family.key]) places.set(container.uid, container.path);
+    for (const { entity } of shadows) {
+      // One the reader gave to a file of another kind is that entity's.
+      const first = firsts.get(entity.uid);
+      if (first === undefined) continue;
+      claimants.push({ file: entity, family, first: false });
+      const place = places.get(entity.uid);
+      if (place !== undefined && (place === entity.path || place === first.path)) ownPlaces.set(entity.uid, place);
+    }
+  }
+
+  // Top-down: whether a directory can hold a container is settled above it.
+  claimants.sort((a, b) => depthOf(a.file.path) - depthOf(b.file.path));
+  const settled = new Set<string>();
+  for (const { file, family, first } of claimants) {
+    const fits = family.root || contained(file);
+    const own = ownPlaces.get(file.uid);
+    if (fits && !settled.has(file.uid) && (own === undefined || own === file.path)) {
+      settled.add(file.uid);
+      readDirs.add(file.path);
+      takenDirs.add(file.path);
+      if (!first) claim(family.key, family.manifest, file);
+      continue;
+    }
+    if (!fits) readDirs.add(file.path);
+    if (first) {
+      out.issues.push(
+        fits
+          ? { path: `${file.path}/${family.manifest}`, message: duplicateUidMessage(file.uid) }
+          : placeIssue(file, family.manifest, 'folder'),
+      );
+    }
+  }
+  for (const folder of state[tree.folders]) {
+    if (!settled.has(folder.uid)) out.refused.add(folder.uid);
   }
 
   for (const family of tree.leaves) {
@@ -194,15 +271,7 @@ function settleTree(
     if (rivals.size > 0) {
       for (const leaf of held[family.key]) placeOf.set(leaf.uid, leaf.path);
     }
-    const claim = (leaf: PathEntity): void => {
-      let claims = out.claims.get(family.key);
-      if (claims === undefined) {
-        claims = new Map();
-        out.claims.set(family.key, claims);
-      }
-      claims.set(leaf.uid, leaf.path);
-      out.cleared.add(`${leaf.path}/${family.manifest}`);
-    };
+    const claimLeaf = (leaf: PathEntity): void => claim(family.key, family.manifest, leaf);
 
     for (const first of state[family.key]) {
       const others = rivals.get(first.uid);
@@ -214,7 +283,7 @@ function settleTree(
         leaf = files.find((file) => file.path === own) ?? files.find(contained) ?? first;
       }
       if (leaf !== first) {
-        claim(leaf);
+        claimLeaf(leaf);
         out.issues.push(
           contained(first)
             ? { path: `${first.path}/${family.manifest}`, message: duplicateUidMessage(first.uid) }
@@ -234,7 +303,7 @@ function settleTree(
       if (given.has(uid)) continue;
       given.add(uid);
       const own = placeOf.get(uid);
-      claim(files.find((file) => file.path === own) ?? files[0]);
+      claimLeaf(files.find((file) => file.path === own) ?? files[0]);
     }
   }
 }
@@ -287,7 +356,7 @@ export function containTreeRead(read: TreeReadResult, held: HeldTree): TreeReadR
     items: T[],
     shadows: readonly TreeShadowed<T>[],
     loose: readonly TreeShadowed<T>[],
-    key: TreeLeafKey,
+    key: SettledKey,
   ): T[] => {
     const places = claims.get(key);
     if (places === undefined) return kept(items);
@@ -311,7 +380,8 @@ export function containTreeRead(read: TreeReadResult, held: HeldTree): TreeReadR
   const next = {
     ...state,
     rules: settled(state.rules, shadowed.rules, uncontained.rules, 'rules'),
-    folders: kept(state.folders),
+    collections: settled(state.collections, shadowed.collections, [], 'collections'),
+    folders: settled(state.folders, shadowed.folders, [], 'folders'),
     requests: settled(state.requests, shadowed.requests, uncontained.requests, 'requests'),
     grpcRequests: settled(state.grpcRequests, shadowed.grpcRequests, uncontained.grpcRequests, 'grpcRequests'),
     websocketRequests: settled(
@@ -327,9 +397,11 @@ export function containTreeRead(read: TreeReadResult, held: HeldTree): TreeReadR
       uncontained.graphqlRequests,
       'graphqlRequests',
     ),
-    requestFolders: kept(state.requestFolders),
+    requestCollections: settled(state.requestCollections, shadowed.requestCollections, [], 'requestCollections'),
+    requestFolders: settled(state.requestFolders, shadowed.requestFolders, [], 'requestFolders'),
     templates: settled(state.templates, shadowed.templates, uncontained.templates, 'templates'),
-    templateFolders: kept(state.templateFolders),
+    templateCollections: settled(state.templateCollections, shadowed.templateCollections, [], 'templateCollections'),
+    templateFolders: settled(state.templateFolders, shadowed.templateFolders, [], 'templateFolders'),
   };
   for (const uid of refused) unknowns.delete(uid);
   return {

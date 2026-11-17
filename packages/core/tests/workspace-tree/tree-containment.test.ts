@@ -529,3 +529,204 @@ describe('containTreeRead — a uid more than one leaf file claims', () => {
     expect(result.issues).toEqual([refusal(`${refusedOne.path}/request.yaml`, 'request', 'requests/by-hand')]);
   });
 });
+
+describe('containTreeRead — a uid more than one container file claims', () => {
+  const API_DIR = 'rules/api-cccccccc';
+  const COPY_DIR = 'rules/aaa-cccccccc';
+  const API = file(`${API_DIR}/_collection.yaml`, collectionYaml('cccccccc'));
+  const BROKEN_DIR = 'rules/aaa-broken-dddddddd';
+  const BROKEN = file(`${BROKEN_DIR}/_collection.yaml`, BROKEN_YAML);
+  const AUTH = `${API_DIR}/auth-ffffffff`;
+  const AUTH_COPY = `${BROKEN_DIR}/auth-ffffffff`;
+  const namedCollectionYaml = (uid: string, name: string): string => collectionYaml(uid).replace('API', name);
+  const namedFolderYaml = (uid: string, name: string): string => folderYaml(uid).replace('Auth', name);
+  const heldRule = (path: string): Rule => ({ uid: 'aaaaaaaa', path }) as Rule;
+  const heldApi = (overrides: Partial<HeldTree> = {}): HeldTree =>
+    makeHeld({ collections: [makeCollection('cccccccc', API_DIR)], ...overrides });
+  const placed = (items: readonly { path: string; name: string }[]): string[][] =>
+    items.map((item) => [item.path, item.name]);
+
+  it('the file at the place the engine holds the collection is the collection, though a copy sorts before it', () => {
+    const result = containTreeRead(
+      read(
+        file(`${COPY_DIR}/_collection.yaml`, namedCollectionYaml('cccccccc', 'Copy')),
+        file(`${COPY_DIR}/inner-aaaaaaaa/rule.yaml`, namedRuleYaml('aaaaaaaa', 'Copy')),
+        file(`${API_DIR}/_collection.yaml`, namedCollectionYaml('cccccccc', 'Held')),
+        file(`${API_DIR}/inner-aaaaaaaa/rule.yaml`, namedRuleYaml('aaaaaaaa', 'Held')),
+      ),
+      heldApi({ rules: [heldRule(`${API_DIR}/inner-aaaaaaaa`)] }),
+    );
+    expect(placed(result.state.collections)).toEqual([[API_DIR, 'Held']]);
+    expect(placed(result.state.rules)).toEqual([[`${API_DIR}/inner-aaaaaaaa`, 'Held']]);
+    expect(result.issues).toEqual([
+      duplicate(`${COPY_DIR}/_collection.yaml`, 'cccccccc'),
+      duplicate(`${COPY_DIR}/inner-aaaaaaaa/rule.yaml`, 'aaaaaaaa'),
+    ]);
+  });
+
+  it('a copy that sorts after the held collection is the same read, the same rows', () => {
+    const last = 'rules/zzz-cccccccc';
+    const raw = read(
+      API,
+      file(`${API_DIR}/inner-aaaaaaaa/rule.yaml`, ruleYaml('aaaaaaaa')),
+      file(`${last}/_collection.yaml`, collectionYaml('cccccccc')),
+      file(`${last}/inner-aaaaaaaa/rule.yaml`, ruleYaml('aaaaaaaa')),
+    );
+    const result = containTreeRead(raw, heldApi({ rules: [heldRule(`${API_DIR}/inner-aaaaaaaa`)] }));
+    expect(result).toBe(raw);
+    expect(result.issues).toEqual([
+      duplicate(`${last}/_collection.yaml`, 'cccccccc'),
+      duplicate(`${last}/inner-aaaaaaaa/rule.yaml`, 'aaaaaaaa'),
+    ]);
+  });
+
+  it('leaves a collection the engine holds at neither with the first in path order — the same read', () => {
+    const raw = read(
+      file(`${COPY_DIR}/_collection.yaml`, namedCollectionYaml('cccccccc', 'First')),
+      file(`${API_DIR}/_collection.yaml`, namedCollectionYaml('cccccccc', 'Second')),
+    );
+    const result = containTreeRead(raw, makeHeld({ collections: [makeCollection('cccccccc', 'rules/else-cccccccc')] }));
+    expect(result).toBe(raw);
+    expect(placed(result.state.collections)).toEqual([[COPY_DIR, 'First']]);
+  });
+
+  it('a rule new to the engine under the copy is taken in by the uid tail, as under a copy that sorts last', () => {
+    const result = containTreeRead(
+      read(
+        file(`${COPY_DIR}/_collection.yaml`, collectionYaml('cccccccc')),
+        file(`${COPY_DIR}/new-bbbbbbbb/rule.yaml`, ruleYaml('bbbbbbbb')),
+        API,
+      ),
+      heldApi(),
+    );
+    expect(placed(result.state.collections)).toEqual([[API_DIR, 'API']]);
+    expect(result.state.rules.map((rule) => rule.path)).toEqual([`${COPY_DIR}/new-bbbbbbbb`]);
+    expect(result.issues).toEqual([duplicate(`${COPY_DIR}/_collection.yaml`, 'cccccccc')]);
+  });
+
+  it('the unknown-field rows follow the file that is the collection', () => {
+    const result = containTreeRead(
+      read(
+        file(`${COPY_DIR}/_collection.yaml`, `${collectionYaml('cccccccc')}copyAdded: skipped\n`),
+        file(`${API_DIR}/_collection.yaml`, `${collectionYaml('cccccccc')}handAdded: kept\n`),
+      ),
+      heldApi(),
+    );
+    expect(result.unknowns.cccccccc.map((row) => row.path)).toEqual(['/handAdded']);
+  });
+
+  it('the held folder keeps its file against a copy under a collection that does not read — its hand edit is read', () => {
+    const result = containTreeRead(
+      read(
+        BROKEN,
+        file(`${AUTH_COPY}/_folder.yaml`, namedFolderYaml('ffffffff', 'Copy')),
+        file(`${AUTH_COPY}/inner-aaaaaaaa/rule.yaml`, namedRuleYaml('aaaaaaaa', 'Copy')),
+        API,
+        file(`${AUTH}/_folder.yaml`, namedFolderYaml('ffffffff', 'Edited by hand')),
+        file(`${AUTH}/inner-aaaaaaaa/rule.yaml`, namedRuleYaml('aaaaaaaa', 'Held')),
+      ),
+      heldApi({ folders: [makeFolder('ffffffff', AUTH)], rules: [heldRule(`${AUTH}/inner-aaaaaaaa`)] }),
+    );
+    expect(placed(result.state.folders)).toEqual([[AUTH, 'Edited by hand']]);
+    expect(placed(result.state.rules)).toEqual([[`${AUTH}/inner-aaaaaaaa`, 'Held']]);
+    expect(result.issues.slice(1)).toEqual([
+      refusal(`${AUTH_COPY}/_folder.yaml`, 'folder', BROKEN_DIR),
+      refusal(`${AUTH_COPY}/inner-aaaaaaaa/rule.yaml`, 'rule', AUTH_COPY),
+    ]);
+  });
+
+  it('a folder refused for its place claims nothing: the one the workspace can hold is the folder, its rule taken in', () => {
+    const result = containTreeRead(
+      read(
+        BROKEN,
+        file(`${AUTH_COPY}/_folder.yaml`, namedFolderYaml('ffffffff', 'Refused')),
+        file(`${AUTH_COPY}/inside-bbbbbbbb/rule.yaml`, ruleYaml('bbbbbbbb')),
+        API,
+        file(`${AUTH}/_folder.yaml`, namedFolderYaml('ffffffff', 'Kept')),
+        file(`${AUTH}/inner-aaaaaaaa/rule.yaml`, ruleYaml('aaaaaaaa')),
+      ),
+      heldApi(),
+    );
+    expect(placed(result.state.folders)).toEqual([[AUTH, 'Kept']]);
+    expect(result.state.rules.map((rule) => rule.path)).toEqual([`${AUTH}/inner-aaaaaaaa`]);
+    expect(result.issues.slice(1)).toEqual([
+      refusal(`${AUTH_COPY}/_folder.yaml`, 'folder', BROKEN_DIR),
+      refusal(`${AUTH_COPY}/inside-bbbbbbbb/rule.yaml`, 'rule', AUTH_COPY),
+    ]);
+  });
+
+  it('a copy refused for its place holds no rule, though it sorts after the held folder and its uid tail names it', () => {
+    const last = 'rules/zzz-broken-dddddddd';
+    const result = containTreeRead(
+      read(
+        API,
+        file(`${AUTH}/_folder.yaml`, folderYaml('ffffffff')),
+        file(`${last}/_collection.yaml`, BROKEN_YAML),
+        file(`${last}/auth-ffffffff/_folder.yaml`, folderYaml('ffffffff')),
+        file(`${last}/auth-ffffffff/new-bbbbbbbb/rule.yaml`, ruleYaml('bbbbbbbb')),
+      ),
+      heldApi({ folders: [makeFolder('ffffffff', AUTH)] }),
+    );
+    expect(result.state.rules).toEqual([]);
+    expect(result.issues.slice(1)).toEqual([
+      duplicate(`${last}/auth-ffffffff/_folder.yaml`, 'ffffffff'),
+      refusal(`${last}/auth-ffffffff/new-bbbbbbbb/rule.yaml`, 'rule', `${last}/auth-ffffffff`),
+    ]);
+  });
+
+  describe('two folders the workspace can hold, at two depths', () => {
+    const OUTER = `${API_DIR}/a-eeeeeeee`;
+    const DEEPER = `${OUTER}/auth-ffffffff`;
+    const SHALLOWER = `${API_DIR}/z-ffffffff`;
+    const files = (): TreeFile[] => [
+      API,
+      file(`${OUTER}/_folder.yaml`, namedFolderYaml('eeeeeeee', 'Outer')),
+      file(`${DEEPER}/_folder.yaml`, namedFolderYaml('ffffffff', 'Deeper')),
+      file(`${SHALLOWER}/_folder.yaml`, namedFolderYaml('ffffffff', 'Shallower')),
+    ];
+
+    it('the shallower is the folder where the engine holds it at neither — settled top-down', () => {
+      const result = containTreeRead(read(...files()), heldApi());
+      expect(placed(result.state.folders)).toEqual([
+        [OUTER, 'Outer'],
+        [SHALLOWER, 'Shallower'],
+      ]);
+      expect(result.issues).toEqual([duplicate(`${DEEPER}/_folder.yaml`, 'ffffffff')]);
+    });
+
+    it('the one at the place the engine holds it is the folder, though the other is shallower — the same read', () => {
+      const raw = read(...files());
+      const result = containTreeRead(
+        raw,
+        heldApi({ folders: [makeFolder('eeeeeeee', OUTER), makeFolder('ffffffff', DEEPER)] }),
+      );
+      expect(result).toBe(raw);
+      expect(result.issues).toEqual([duplicate(`${SHALLOWER}/_folder.yaml`, 'ffffffff')]);
+    });
+  });
+
+  it('a uid the reader gave to a rule is not a folder too, though the engine holds a folder there — the same read', () => {
+    const raw = read(
+      API,
+      file(`${API_DIR}/a-rule-ffffffff/rule.yaml`, ruleYaml('ffffffff')),
+      file(`${AUTH}/_folder.yaml`, folderYaml('ffffffff')),
+    );
+    const result = containTreeRead(raw, heldApi({ folders: [makeFolder('ffffffff', AUTH)] }));
+    expect(result).toBe(raw);
+    expect(result.state.folders).toEqual([]);
+    expect(result.issues).toEqual([duplicate(`${AUTH}/_folder.yaml`, 'ffffffff')]);
+  });
+
+  it('settles a request collection the same way, by its own tree', () => {
+    const result = containTreeRead(
+      read(
+        file('requests/aaa-cccccccc/_collection.yaml', namedCollectionYaml('cccccccc', 'Copy')),
+        file('requests/api-cccccccc/_collection.yaml', namedCollectionYaml('cccccccc', 'Held')),
+      ),
+      makeHeld({ requestCollections: [makeCollection('cccccccc', 'requests/api-cccccccc')] }),
+    );
+    expect(placed(result.state.requestCollections)).toEqual([['requests/api-cccccccc', 'Held']]);
+    expect(result.state.collections).toEqual([]);
+    expect(result.issues).toEqual([duplicate('requests/aaa-cccccccc/_collection.yaml', 'cccccccc')]);
+  });
+});

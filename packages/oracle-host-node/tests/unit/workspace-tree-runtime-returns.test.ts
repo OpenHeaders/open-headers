@@ -430,4 +430,110 @@ describe("the workspace-tree runtime: the Git card's rows after a pass", () => {
     expect(rows()).toEqual([]);
     expect(await harness.git('status', '--porcelain')).toBe('');
   });
+
+  describe("a copy of a held container's directory, sorted before it", () => {
+    const COPY_DIR = `rules/aaa-${COLLECTION_UID}`;
+    const COPY_ROWS = [
+      { path: `${COPY_DIR}/_collection.yaml`, message: `duplicate uid "${COLLECTION_UID}" — entity skipped` },
+      {
+        path: `${COPY_DIR}/block-probes-${RULE_UID}/rule.yaml`,
+        message: `duplicate uid "${RULE_UID}" — entity skipped`,
+      },
+    ];
+    const collectionDir = (): string | undefined =>
+      snapshotCollectionPostStates(harness.workspaceId).find((state) => state.collection.uid === COLLECTION_UID)
+        ?.collection.path;
+
+    /** The collection where the engine held it, its rule in it, both files on disk. */
+    async function expectTheCollectionWhereItWas(): Promise<void> {
+      expect(collectionDir()).toBe(COLLECTION_DIR);
+      expect(ruleOf(RULE_UID)?.path).toBe(RULE_DIR);
+      expect(rulesInTheCollection()).toEqual([RULE_UID]);
+      expect(await isThere(COLLECTION_FILE)).toBe(true);
+      expect(await isThere(RULE_FILE)).toBe(true);
+    }
+
+    it('a hand copy of a collection is a duplicate with its two rows — the collection stays where it is, and removing the copy deletes nothing', {
+      timeout: 30_000,
+    }, async () => {
+      await commitTheCollectionAndItsRule();
+      await delay(TREE_AT_REST_MS);
+
+      await fs.cp(inTree(COLLECTION_DIR), inTree(COPY_DIR), { recursive: true });
+      await until('the sweep raises the two rows of the copy', () => rows().length === 2, 8_000);
+      await delay(TREE_AT_REST_MS);
+      expect(rows()).toEqual(COPY_ROWS);
+      await expectTheCollectionWhereItWas();
+
+      await fs.rm(inTree(COPY_DIR), { recursive: true });
+      await until('the rows leave with the copy', () => rows().length === 0, 8_000);
+      await delay(TREE_AT_REST_MS);
+      await expectTheCollectionWhereItWas();
+      expect(await harness.git('status', '--porcelain')).toBe('');
+    });
+
+    it('a pull that brings such a copy of a collection applies nothing — the collection stays where it is, the two rows', {
+      timeout: 30_000,
+    }, async () => {
+      await commitTheCollectionAndItsRule();
+      const other = await fs.mkdtemp(path.join(os.tmpdir(), 'oh-tree-runtime-other-'));
+      try {
+        await withTheBranchPushed(async () => {
+          const branch = await harness.git('rev-parse', '--abbrev-ref', 'HEAD');
+          await harness.git('clone', '-q', '-b', branch, await harness.git('remote', 'get-url', 'origin'), other);
+          await fs.cp(path.join(other, ...COLLECTION_DIR.split('/')), path.join(other, ...COPY_DIR.split('/')), {
+            recursive: true,
+          });
+          await harness.git('-C', other, 'add', '-A');
+          await harness.git('-C', other, 'commit', '-q', '-m', 'copy');
+          await harness.git('-C', other, 'push', '-q');
+
+          expect(await harness.runtime.pull(harness.workspaceId)).toMatchObject({
+            ok: true,
+            upToDate: false,
+            applied: 0,
+          });
+          await delay(TREE_AT_REST_MS);
+          expect(rows()).toEqual(COPY_ROWS);
+          await expectTheCollectionWhereItWas();
+          expect(await isThere(`${COPY_DIR}/_collection.yaml`)).toBe(true);
+          expect(await harness.git('status', '--porcelain')).toBe('');
+        });
+      } finally {
+        await fs.rm(other, { recursive: true, force: true });
+      }
+    });
+
+    it('a hand edit of a held folder is read though such a copy of it sits under a collection that does not read', {
+      timeout: 30_000,
+    }, async () => {
+      const FOLDER_FILE = `${COLLECTION_DIR}/auth-fol0000f/_folder.yaml`;
+      const UNREAD_FILE = 'rules/aaa-broken-colbbbbb/_collection.yaml';
+      const FOLDER_COPY = 'rules/aaa-broken-colbbbbb/auth-fol0000f';
+      const folderText = (name: string): string => `schemaVersion: 5\nuid: fol0000f\nname: ${name}\n`;
+      const folderName = (): string | undefined =>
+        snapshotFolderPostStates(harness.workspaceId).find((state) => state.folder.uid === 'fol0000f')?.folder.name;
+      await writeCollectionByHand();
+      await writeByHand(FOLDER_FILE, folderText('Auth'));
+      await until('the engine takes the hand-written folder in', () => folderName() === 'Auth', 5_000);
+      expect(await harness.runtime.commit(harness.workspaceId, 'seed')).toMatchObject({ ok: true, committed: true });
+      await delay(TREE_AT_REST_MS);
+
+      await writeByHand(UNREAD_FILE, 'schemaVersion: 5\nuid: [not a string\n');
+      await writeByHand(`${FOLDER_COPY}/_folder.yaml`, folderText('Auth'));
+      await until('the sweep raises the two rows of the copy', () => rows().length === 2, 8_000);
+
+      await writeByHand(FOLDER_FILE, folderText('Gate'));
+      await until('the engine reads the hand edit of the held folder', () => folderName() === 'Gate', 8_000);
+      await delay(TREE_AT_REST_MS);
+      expect(rows()).toEqual([
+        expect.objectContaining({ path: UNREAD_FILE }),
+        {
+          path: `${FOLDER_COPY}/_folder.yaml`,
+          message: 'folder inside no collection or folder of the workspace — skipped',
+          uncontainedIn: 'rules/aaa-broken-colbbbbb',
+        },
+      ]);
+    });
+  });
 });

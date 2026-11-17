@@ -108,13 +108,46 @@ describe('readWorkspaceTree edge cases', () => {
     expect(Object.keys(result.unknowns)).toEqual([]);
   });
 
-  it('keeps no container it skipped as a duplicate', () => {
+  it('keeps a collection it skipped as a duplicate, with what it holds, by its tree', () => {
     const result = readWorkspaceTree([
       file('workspace.yaml', WORKSPACE_YAML),
       file(COLLECTION_FILE, COLLECTION_YAML),
-      file('rules/copy-cccccccc/_collection.yaml', COLLECTION_YAML),
+      file('rules/copy-cccccccc/_collection.yaml', `${COLLECTION_YAML}handAdded: kept\n`),
+      file('requests/api-dddddddd/_collection.yaml', COLLECTION_YAML.replace('cccccccc', 'dddddddd')),
+      file('requests/copy-dddddddd/_collection.yaml', COLLECTION_YAML.replace('cccccccc', 'dddddddd')),
     ]);
-    expect(result.issues.map((issue) => issue.path)).toEqual(['rules/copy-cccccccc/_collection.yaml']);
+    expect(result.issues.map((issue) => issue.path)).toEqual([
+      'rules/copy-cccccccc/_collection.yaml',
+      'requests/copy-dddddddd/_collection.yaml',
+    ]);
+    expect(result.shadowed.collections.map(({ entity }) => [entity.uid, entity.path])).toEqual([
+      ['cccccccc', 'rules/copy-cccccccc'],
+    ]);
+    expect(result.shadowed.collections[0].unknowns).toHaveLength(1);
+    expect(result.shadowed.requestCollections.map(({ entity }) => entity.path)).toEqual(['requests/copy-dddddddd']);
+    expect(Object.keys(result.unknowns)).toEqual([]);
+  });
+
+  it('keeps a folder it skipped as a duplicate', () => {
+    const folder = 'schemaVersion: 5\nuid: ffffffff\nname: Auth\n';
+    const result = readWorkspaceTree([
+      file('workspace.yaml', WORKSPACE_YAML),
+      file(COLLECTION_FILE, COLLECTION_YAML),
+      file('rules/api-cccccccc/auth-ffffffff/_folder.yaml', folder),
+      file('rules/api-cccccccc/copy-ffffffff/_folder.yaml', folder),
+    ]);
+    expect(result.state.folders.map((entity) => entity.path)).toEqual(['rules/api-cccccccc/auth-ffffffff']);
+    expect(result.shadowed.folders.map(({ entity }) => entity.path)).toEqual(['rules/api-cccccccc/copy-ffffffff']);
+  });
+
+  it('keeps nothing of a duplicate that is neither a container nor a leaf of a tree', () => {
+    const environment = ['schemaVersion: 5', 'uid: eeeeeeee', 'name: dev', 'variables: []', ''].join('\n');
+    const result = readWorkspaceTree([
+      file('workspace.yaml', WORKSPACE_YAML),
+      file('environments/dev-eeeeeeee.yaml', environment),
+      file('environments/copy-eeeeeeee.yaml', environment),
+    ]);
+    expect(result.issues.map((issue) => issue.path)).toEqual(['environments/copy-eeeeeeee.yaml']);
     expect(Object.values(result.shadowed).flat()).toEqual([]);
   });
 
