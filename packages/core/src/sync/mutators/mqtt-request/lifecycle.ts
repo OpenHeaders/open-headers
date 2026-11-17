@@ -48,7 +48,7 @@ export interface DeleteMqttRequestArgs {
   parent: RequestFolderParentRef;
 }
 
-/** Delete an MQTT request. Tombstone is permanent under §7.2 delete-wins. */
+/** Delete an MQTT request. Delete wins over every edit (§7.2). */
 export function deleteMqttRequest(ctx: MutatorContext, args: DeleteMqttRequestArgs): MutatorIntent {
   return mqttRequestChild.delete(ctx, { childUid: args.mqttRequestUid, parent: args.parent });
 }

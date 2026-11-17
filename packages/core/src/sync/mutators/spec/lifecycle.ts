@@ -14,7 +14,7 @@ export interface DeleteSpecArgs {
   specUid: string;
 }
 
-/** Delete a spec. Tombstone is permanent under §7.2 delete-wins. */
+/** Delete a spec. Delete wins over every edit (§7.2). */
 export function deleteSpec(ctx: MutatorContext, args: DeleteSpecArgs): MutatorIntent {
   const batch = mintBatch(ctx, [{ kind: 'delete', type: SPEC_ENTITY_TYPE, id: args.specUid }]);
   return { batch, sideEffects: [] };

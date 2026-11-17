@@ -6,8 +6,8 @@
  * Activity Feed's `Revert` action (F6.d). Capturing only the prior
  * value at the touched path (or the prior `(item, orderKey)` for set
  * ops) keeps the per-row payload bounded; a whole-entity snapshot is
- * only ever needed for `delete`, which is structurally irreversible
- * under §7.2 delete-wins-permanent and therefore never produces a spec.
+ * only ever needed for `delete`, whose inverse — a restore of the whole
+ * entity (§7.2) — is not captured, and therefore never produces a spec.
  *
  * The spec is shape-symmetric with {@link MutationBody}: one variant
  * per inbound kind, carrying only the fields the inverse generator
@@ -31,8 +31,8 @@ export interface InverseCreate {
 }
 
 /**
- * Inverse of `delete` would re-create the entity, which §7.2
- * delete-wins-permanent makes structurally impossible at the same id.
+ * Inverse of `delete` would restore the entity whole (§7.2), and the
+ * feed captures no entity to restore it from.
  * The unavailable spec is what the classifier embeds so the UI can
  * render the Revert button as disabled with a clear tooltip.
  */

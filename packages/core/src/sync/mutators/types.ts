@@ -67,8 +67,14 @@ export interface MutatorOutcome {
 export interface EntityState {
   type: EntityType;
   id: string;
-  /** Tombstone HLC if this entity has been deleted. Permanent under v1 (§7.2). */
+  /** HLC of the latest `delete`, or null. The entity stands deleted unless a restore is later (§7.2). */
   tombstone: HLC | null;
+  /**
+   * HLC of the latest restoring `create`, or null. Later than the
+   * tombstone, the entity lives again; and whatever the tombstone, the
+   * entity starts over at it — a write before it does not show.
+   */
+  restoreHlc: HLC | null;
   /**
    * HLC of the earliest applied `create`, or null while none has
    * applied. Gates observability: the store mints implicit state for

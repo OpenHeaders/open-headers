@@ -18,6 +18,7 @@ export function newEntityState(type: EntityType, id: string): EntityState {
     type,
     id,
     tombstone: null,
+    restoreHlc: null,
     createHlc: null,
     fieldValues: new Map(),
     fieldTombstones: new Map(),
@@ -73,11 +74,38 @@ export function writeSetTombstoneIfNewer(state: EntityState, path: string, itemI
   return true;
 }
 
-/** Mark the entity tombstoned. Tombstones are permanent under v1 (§7.2 delete-wins). */
+/** Write the entity's tombstone if `hlc` exceeds the one held. */
 export function writeEntityTombstone(state: EntityState, hlc: HLC): boolean {
   if (state.tombstone && compareHlc(hlc, state.tombstone) <= 0) return false;
   state.tombstone = hlc;
   return true;
+}
+
+/** Write the entity's restore mark if `hlc` exceeds the one held. */
+export function writeEntityRestoreIfNewer(state: EntityState, hlc: HLC): boolean {
+  if (state.restoreHlc && compareHlc(hlc, state.restoreHlc) <= 0) return false;
+  state.restoreHlc = hlc;
+  return true;
+}
+
+/**
+ * Whether the entity stands deleted (§7.2): it holds a tombstone no
+ * later restore has lifted. Existence is last-writer-wins between a
+ * `delete` and a restoring `create`, and nothing else writes it — an
+ * edit or a plain create never brings a deleted entity back.
+ */
+export function isEntityDeleted(state: EntityState): boolean {
+  if (state.tombstone === null) return false;
+  return state.restoreHlc === null || compareHlc(state.restoreHlc, state.tombstone) <= 0;
+}
+
+/**
+ * Whether a write at `hlc` belongs to the entity as it stands. A
+ * restore starts the entity over: what was written before it — a field,
+ * a set member — is the deleted entity's and does not show.
+ */
+export function isCurrentWrite(state: EntityState, hlc: HLC): boolean {
+  return state.restoreHlc === null || compareHlc(hlc, state.restoreHlc) >= 0;
 }
 
 /**
@@ -122,9 +150,10 @@ export interface LiveOrderedItem {
 }
 
 /**
- * Live (not tombstoned) members at `path`, sorted by their order key
- * with itemId as the deterministic tie-breaker. Shared by move-key
- * computation and the materializer.
+ * Live members at `path` — added since the entity's last restore and
+ * not tombstoned — sorted by their order key with itemId as the
+ * deterministic tie-breaker. Shared by move-key computation and the
+ * materializer.
  */
 export function liveOrderedItemsAt(state: EntityState, path: string): LiveOrderedItem[] {
   const items = state.setItems.get(path);
@@ -133,6 +162,7 @@ export function liveOrderedItemsAt(state: EntityState, path: string): LiveOrdere
   const order = state.setOrder.get(path);
   const live: LiveOrderedItem[] = [];
   for (const [itemId, addEntry] of items) {
+    if (!isCurrentWrite(state, addEntry.addHlc)) continue;
     const removeHlc = tombstones?.get(itemId);
     if (removeHlc && compareHlc(removeHlc, addEntry.addHlc) >= 0) continue;
     const key = order?.get(itemId)?.key ?? seedKey();
@@ -143,4 +173,21 @@ export function liveOrderedItemsAt(state: EntityState, path: string): LiveOrdere
     return a.itemId < b.itemId ? -1 : a.itemId > b.itemId ? 1 : 0;
   });
   return live;
+}
+
+/**
+ * The set paths the entity as it stands has heard of: those a member
+ * was added to since its last restore, live or removed since. A path
+ * only the deleted entity wrote to is not one of them.
+ */
+export function currentSetPaths(state: EntityState): string[] {
+  const paths: string[] = [];
+  for (const [path, items] of state.setItems) {
+    for (const entry of items.values()) {
+      if (!isCurrentWrite(state, entry.addHlc)) continue;
+      paths.push(path);
+      break;
+    }
+  }
+  return paths;
 }

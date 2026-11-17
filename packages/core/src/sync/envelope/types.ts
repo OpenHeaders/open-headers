@@ -12,16 +12,24 @@ import type { HLC } from '../hlc';
 /** Routing key. Concrete catalogue (e.g. `'rule' | 'environment'`) lives outside core/sync. */
 export type EntityType = string;
 
-/** Whole-entity create. Idempotent by `(type, id)`; tombstone wins absolutely. */
+/** Whole-entity create. Idempotent by `(type, id)`; it loses to a delete of that id unless it restores. */
 export interface CreateMutation {
   kind: 'create';
   type: EntityType;
   id: string;
   /** Validated by the entity-specific schema at the oracle boundary. */
   payload: unknown;
+  /**
+   * Brings a deleted entity back under its id (§7.2): later than the
+   * delete, it lifts it, and the entity starts over from this payload —
+   * nothing written before it shows. A field on `create`, not a kind of
+   * its own: a replica that predates it reads a create it drops and
+   * keeps in its log, and replays it as a restore once it knows the rule.
+   */
+  restore?: true;
 }
 
-/** Whole-entity delete. Tombstone retained for the configured TTL window. */
+/** Whole-entity delete. Wins over every write but a later restore; the tombstone is kept for good. */
 export interface DeleteMutation {
   kind: 'delete';
   type: EntityType;

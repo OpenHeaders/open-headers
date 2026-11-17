@@ -7,6 +7,7 @@ export { genCrossEntityRuleEnv } from './cross-entity-rule-env';
 export { genCrossEntityRuleVault } from './cross-entity-rule-vault';
 export { genCrossEntityRuleWorkspaceVars } from './cross-entity-rule-workspace-vars';
 export { genCrossEntityWorkspaceMeta } from './cross-entity-workspace-meta';
+export { genDeleteRestoreOrder } from './delete-restore-order';
 export { genEnvRename } from './env-rename';
 export { genFolderMove } from './folder-move';
 export { genRequestEdit } from './request-edit';

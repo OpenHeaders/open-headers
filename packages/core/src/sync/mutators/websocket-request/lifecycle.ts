@@ -48,7 +48,7 @@ export interface DeleteWebSocketRequestArgs {
   parent: RequestFolderParentRef;
 }
 
-/** Delete a WebSocket request. Tombstone is permanent under §7.2 delete-wins. */
+/** Delete a WebSocket request. Delete wins over every edit (§7.2). */
 export function deleteWebSocketRequest(ctx: MutatorContext, args: DeleteWebSocketRequestArgs): MutatorIntent {
   return webSocketRequestChild.delete(ctx, { childUid: args.webSocketRequestUid, parent: args.parent });
 }

@@ -7,8 +7,10 @@
  *     covering field tombstone HLC at the same path (§7.2 unsetField).
  *   - per-(setPath, itemId): include the item iff its add HLC exceeds
  *     the corresponding remove tombstone HLC.
- *   - whole entity: omit if any tombstone exists (delete-wins,
- *     permanent — §7.2).
+ *   - whole entity: omit while it stands deleted — a tombstone no later
+ *     restore has lifted (§7.2).
+ *   - a restored entity: only what was written since its last restore
+ *     — a field, a set member, a set path — is its own.
  *
  * Set items are emitted under their setPath as an array sorted by
  * the parent-owned fractional-indexing key (with itemId as tie-break)
@@ -29,7 +31,7 @@
 import type { EntityType } from '../envelope';
 import { compareHlc } from '../hlc';
 import { type Leaf, unflattenLeaves } from '../mutators';
-import { liveOrderedItemsAt } from '../mutators/state';
+import { currentSetPaths, isCurrentWrite, isEntityDeleted, liveOrderedItemsAt } from '../mutators/state';
 import type { EntityState, FieldOrigin } from '../mutators/types';
 import type { EntitySchema } from '../schema';
 
@@ -52,7 +54,7 @@ export interface MaterializedEntity {
 }
 
 export function materializeEntity(state: EntityState, schema?: EntitySchema): MaterializedEntity | null {
-  if (state.tombstone) return null;
+  if (isEntityDeleted(state)) return null;
   // Unobservable until created: the store mints implicit state for any
   // mutation kind, so a non-create replayed ahead of its entity's
   // `create` (a peer's log interleaving) would otherwise materialize a
@@ -64,6 +66,7 @@ export function materializeEntity(state: EntityState, schema?: EntitySchema): Ma
   const fieldLeaves: Leaf[] = [];
   const fieldOrigins: Record<string, FieldOrigin> = {};
   for (const [path, entry] of state.fieldValues) {
+    if (!isCurrentWrite(state, entry.hlc)) continue;
     const tombstoneHlc = state.fieldTombstones.get(path);
     if (tombstoneHlc && compareHlc(tombstoneHlc, entry.hlc) >= 0) continue;
     fieldLeaves.push({ path, value: entry.value });
@@ -85,8 +88,8 @@ export function materializeEntity(state: EntityState, schema?: EntitySchema): Ma
   })();
 
   // Union of paths that need to surface as arrays: every path the
-  // state knows about, plus every path the schema declared.
-  const setPaths = new Set<string>(state.setItems.keys());
+  // entity as it stands has heard of, plus every path the schema declared.
+  const setPaths = new Set<string>(currentSetPaths(state));
   for (const path of declaredSetPaths) setPaths.add(path);
 
   const leaves: Leaf[] = fieldLeaves.slice();

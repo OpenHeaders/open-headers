@@ -15,9 +15,9 @@
  *     `activity/inverse.ts`). The classifier embedded only the minimum
  *     state needed per mutator kind; the generator's job is the
  *     symmetric write-back.
- *   - Delete inversion is structurally unavailable under §7.2
- *     (delete-wins-permanent). The classifier emits the unavailable
- *     sentinel; the generator preserves it.
+ *   - Delete inversion is unavailable: it would restore the entity
+ *     whole (§7.2), and the feed captures none. The classifier emits
+ *     the unavailable sentinel; the generator preserves it.
  *
  * Validation surfaces at revert time:
  *   - `already-tombstoned` — current state has the entity deleted; no
@@ -82,9 +82,9 @@ export function generateInverseMutation(input: GenerateInverseInput): GenerateIn
   }
 
   const current = oracle.materializeOne(entityType, entityId);
-  // Tombstones are permanent (§7.2). A non-delete inverse against a
-  // tombstoned entity is structurally a no-op — the apply would be
-  // rejected by the mutator anyway. Refuse early with a clear reason
+  // A deleted entity takes no edit (§7.2). A non-delete inverse against
+  // one is structurally a no-op — the mutator would answer `tombstoned`
+  // anyway. Refuse early with a clear reason
   // so the UI surfaces "already deleted" rather than silently
   // committing a doomed envelope.
   if (current === null && inverse.spec.kind !== 'create') {

@@ -48,7 +48,7 @@ export interface DeleteGraphqlRequestArgs {
   parent: RequestFolderParentRef;
 }
 
-/** Delete a GraphQL request. Tombstone is permanent under §7.2 delete-wins. */
+/** Delete a GraphQL request. Delete wins over every edit (§7.2). */
 export function deleteGraphqlRequest(ctx: MutatorContext, args: DeleteGraphqlRequestArgs): MutatorIntent {
   return graphqlRequestChild.delete(ctx, { childUid: args.graphqlRequestUid, parent: args.parent });
 }

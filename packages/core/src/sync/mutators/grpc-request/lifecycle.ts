@@ -47,7 +47,7 @@ export interface DeleteGrpcRequestArgs {
   parent: RequestFolderParentRef;
 }
 
-/** Delete a gRPC request. Tombstone is permanent under §7.2 delete-wins. */
+/** Delete a gRPC request. Delete wins over every edit (§7.2). */
 export function deleteGrpcRequest(ctx: MutatorContext, args: DeleteGrpcRequestArgs): MutatorIntent {
   return grpcRequestChild.delete(ctx, { childUid: args.grpcRequestUid, parent: args.parent });
 }

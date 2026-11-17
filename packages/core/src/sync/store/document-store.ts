@@ -16,7 +16,13 @@
 import type { EntityType, MutationEnvelope } from '../envelope';
 import type { HLC } from '../hlc';
 import { applyMutation } from '../mutators';
-import { type LiveOrderedItem, latestSetWriteHlcAt, liveOrderedItemsAt, newEntityState } from '../mutators/state';
+import {
+  isEntityDeleted,
+  type LiveOrderedItem,
+  latestSetWriteHlcAt,
+  liveOrderedItemsAt,
+  newEntityState,
+} from '../mutators/state';
 import type { EntityState, FieldOrigin, MutatorOutcome } from '../mutators/types';
 import { EMPTY_ENTITY_SCHEMA_REGISTRY, type EntitySchemaRegistry } from '../schema';
 import { canonicalJson } from './canonical';
@@ -67,15 +73,16 @@ export class InMemoryDocumentStore {
   }
 
   /**
-   * Whether `(type, id)` carries an entity tombstone. `materializeOne`
-   * answers `null` for both a deleted entity and one this store never
-   * saw; the tree reconciler needs the difference — delete-wins
-   * extends to a child only when its container is KNOWN deleted, an
-   * unknown container keeps the child on the by-path net.
+   * Whether `(type, id)` stands deleted — a tombstone no later restore
+   * has lifted. `materializeOne` answers `null` for both a deleted
+   * entity and one this store never saw; the tree reconciler needs the
+   * difference — delete-wins extends to a child only when its container
+   * is KNOWN deleted, an unknown container keeps the child on the
+   * by-path net.
    */
   isTombstoned(type: EntityType, id: string): boolean {
     const state = this.entities.get(entityKey(type, id));
-    return state !== undefined && state.tombstone !== null;
+    return state !== undefined && isEntityDeleted(state);
   }
 
   /**
@@ -224,6 +231,7 @@ function cloneEntityState(state: EntityState): EntityState {
     type: state.type,
     id: state.id,
     tombstone: state.tombstone,
+    restoreHlc: state.restoreHlc,
     createHlc: state.createHlc,
     fieldValues: new Map(state.fieldValues),
     fieldTombstones: new Map(state.fieldTombstones),
