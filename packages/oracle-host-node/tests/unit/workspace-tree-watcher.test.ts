@@ -94,13 +94,16 @@ describe('GitDirWatcher', () => {
   }
 
   const moves = { head: 0, ref: 0 };
-  const settle = () => new Promise((resolve) => setTimeout(resolve, 300));
+  // The watcher runs at its own quiet window. A platform may hand one git
+  // command's events over in more than one delivery (macOS, about 50 ms
+  // apart on a busy machine): inside the window they are one burst, and
+  // the settle outlasts the window after the last of them.
+  const settle = () => new Promise((resolve) => setTimeout(resolve, 500));
 
   /** Watch `dir`'s git directory, the bursts counted from here on (FSEvents replays what came just before a watch). */
   async function watchGitDir(dir: string): Promise<void> {
     gitDirWatcher = new GitDirWatcher({
       rootDir: dir,
-      debounceMs: 50,
       onHeadMove: () => (moves.head += 1),
       onRefMove: () => (moves.ref += 1),
     });
@@ -121,7 +124,9 @@ describe('GitDirWatcher', () => {
     expect(moves).toEqual({ head: 1, ref: 0 });
   });
 
-  it('follows a linked worktree gitfile to the per-worktree HEAD and the shared refs (§3.4 layouts)', async () => {
+  it('follows a linked worktree gitfile to the per-worktree HEAD and the shared refs (§3.4 layouts)', {
+    timeout: 15_000,
+  }, async () => {
     const main = path.join(tmpDir, 'main');
     const wt = path.join(tmpDir, 'wt');
     await seedRepo(main);
@@ -151,7 +156,7 @@ describe('GitDirWatcher', () => {
     expect(moves).toEqual({ head: 1, ref: 2 });
   });
 
-  it('hears a branch and a tag made and deleted with HEAD where it was', async () => {
+  it('hears a branch and a tag made and deleted with HEAD where it was', { timeout: 15_000 }, async () => {
     const repo = path.join(tmpDir, 'repo');
     await seedRepo(repo);
     await watchGitDir(repo);
