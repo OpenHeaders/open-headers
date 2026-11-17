@@ -228,8 +228,11 @@ const TREES = [RULES, REQUESTS, TEMPLATES] as const;
  * captured against owns its slot at the request's `examples` path. A
  * slot-less example seeds from its stored parent-uid field — the
  * permanent net for old-client captures; there is no rehome (an
- * example has no root besides its request), so when that request is
- * KNOWN tombstoned delete-wins extends to the example.
+ * example has no root besides its request). An example whose request
+ * is deleted is KEPT, slot-less: a deletion is lifted by a restore
+ * (§7.2 — a file back in the tree), an example is in no tree to come
+ * back from, and the pass that follows the restore slots it again. The
+ * gesture that deletes a request for good takes its examples itself.
  */
 interface ExampleKind extends ExampleContainerKind {
   child: ChildMutators<ParentRefShape>;
@@ -252,17 +255,26 @@ const EXAMPLES: ReadonlyArray<ExampleKind> = EXAMPLE_CONTAINER_KINDS.map((kind) 
   ...EXAMPLE_BINDINGS[kind.requestType],
 }));
 
+/**
+ * The request kinds that hold each example type — an HTTP example is a
+ * request's or a GraphQL request's. The kinds that hold one type share
+ * its stored parent-uid field and its persisted array.
+ */
+const EXAMPLE_HOLDERS: ReadonlyMap<string, ReadonlyArray<ExampleKind>> = EXAMPLES.reduce(
+  (holders, kind) => holders.set(kind.exampleType, [...(holders.get(kind.exampleType) ?? []), kind]),
+  new Map<string, ExampleKind[]>(),
+);
+
 /** Entity types whose slot-less inbound create schedules a pass. */
 const SEEDED_TYPES: ReadonlySet<string> = new Set([
   ...TREES.flatMap((tree) => [tree.kinds.collectionType, ...tree.leaves.map((leaf) => leaf.entityType)]),
   ...EXAMPLES.map((kind) => kind.exampleType),
 ]);
 
-/** Container types whose inbound delete can orphan children — tree containers and example-holding requests. */
-const CONTAINER_TYPES: ReadonlySet<string> = new Set([
-  ...TREES.flatMap((tree) => [tree.kinds.collectionType, tree.kinds.folderType]),
-  ...EXAMPLES.map((kind) => kind.requestType),
-]);
+/** Container types whose inbound delete can orphan children to rehome — a request's examples wait for it instead. */
+const CONTAINER_TYPES: ReadonlySet<string> = new Set(
+  TREES.flatMap((tree) => [tree.kinds.collectionType, tree.kinds.folderType]),
+);
 
 const COLLECTION_TYPES: ReadonlySet<string> = new Set(TREES.map((tree) => tree.kinds.collectionType));
 
@@ -371,10 +383,13 @@ export function createTreeSlotReconciler(
  * shadow a slot or close a cycle) or a container delete (its children
  * may be orphans now) — all inbound, local gestures are well-formed by
  * construction — plus ANY collection create: a child waiting for a
- * root to be rehomed onto gets one.
+ * root to be rehomed onto gets one; and ANY restore of a request: it
+ * starts over with no slot, and the examples kept for it wait for one
+ * (the tree's restore is applied as a local write).
  */
 function triggersPass(body: MutationBody, applyOrigin: BroadcastEvent['applyOrigin']): boolean {
   if (body.kind === 'create' && COLLECTION_TYPES.has(body.type)) return true;
+  if (body.kind === 'create' && body.restore === true && isExampleContainerType(body.type)) return true;
   if (applyOrigin !== 'inbound') return false;
   if (body.kind === 'create') return SEEDED_TYPES.has(body.type);
   if (body.kind === 'delete') return CONTAINER_TYPES.has(body.type);
@@ -659,9 +674,9 @@ function compareSeedOrder(
  * Examples: heal the store to the example index (shadowed + dead
  * slots), then seed every slot-less example onto its stored parent
  * when that request is live — persisted array order at hydration,
- * tail otherwise. A parent KNOWN tombstoned takes the example with it
- * after the grace (delete-wins, the cascade); an unknown parent leaves
- * the example slot-less on the by-field net.
+ * tail otherwise. A parent that is deleted, or unknown here, leaves
+ * the example slot-less on the by-field net: the first waits for a
+ * restore of its request, the second for the request to arrive.
  */
 async function reconcileExamples(
   workspaceId: string,
@@ -681,24 +696,21 @@ async function reconcileExamples(
   for (const m of materialized) {
     if (isExampleContainerType(m.type)) liveRequests.add(entityKey(m));
   }
-  for (const kind of EXAMPLES) {
-    const order = pass.settled ? await readOrder(kind.storageKey(workspaceId)) : new Map();
-    const slotless = materialized.filter((m) => m.type === kind.exampleType && !hasExampleSlot(oracle, m.id));
+  for (const [exampleType, holders] of EXAMPLE_HOLDERS) {
+    const [{ parentUidField, storageKey }] = holders;
+    const order = pass.settled ? await readOrder(storageKey(workspaceId)) : new Map();
+    const slotless = materialized.filter((m) => m.type === exampleType && !hasExampleSlot(oracle, m.id));
     for (const m of sortByOrder(slotless, order)) {
-      const parentUid = storedString(m.data, kind.parentUidField);
-      const parent: ParentRefShape | null = parentUid === null ? null : { type: kind.requestType, uid: parentUid };
-      if (parent && liveRequests.has(`${parent.type}:${parent.uid}`)) {
-        pass.bodies.push(kind.child.slotAdd(m.id, parent, pass.tail(parent, kind.examplesPath, m.id)));
-        continue;
-      }
-      if (parent && oracle.isTombstoned(parent.type, parent.uid)) {
-        if (!settled(memory, pass, entityKey(m))) continue;
-        logger.info(
-          'TreeSlotReconciler',
-          `${m.type} ${m.id}: its request ${parent.uid} is deleted — delete-wins extends to it (ws=${workspaceId})`,
-        );
-        pass.bodies.push({ kind: 'delete', type: m.type, id: m.id });
-        continue;
+      const parentUid = storedString(m.data, parentUidField);
+      if (parentUid !== null) {
+        const holder = holders.find((kind) => liveRequests.has(`${kind.requestType}:${parentUid}`));
+        if (holder) {
+          const parent: ParentRefShape = { type: holder.requestType, uid: parentUid };
+          pass.bodies.push(holder.child.slotAdd(m.id, parent, pass.tail(parent, holder.examplesPath, m.id)));
+          continue;
+        }
+        // Kept for a restore of its request; every pass meets it, so none says so.
+        if (holders.some((kind) => oracle.isTombstoned(kind.requestType, parentUid))) continue;
       }
       logger.info(
         'TreeSlotReconciler',

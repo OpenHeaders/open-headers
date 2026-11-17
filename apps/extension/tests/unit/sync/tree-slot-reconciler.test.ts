@@ -18,6 +18,8 @@ import {
   FOLDER_CHILDREN_PATH,
   FOLDER_ENTITY_TYPE,
   FOLDER_ITEMS_PATH,
+  GRAPHQL_REQUEST_ENTITY_TYPE,
+  GRAPHQL_REQUEST_EXAMPLES_PATH,
   mintBatch,
   moveFolder,
   REQUEST_COLLECTION_ENTITY_TYPE,
@@ -30,13 +32,15 @@ import {
   WORKSPACE_ROOTS_REF,
   WORKSPACE_ROOTS_RULE_COLLECTIONS_PATH,
 } from '@openheaders/core/sync';
+import { restoreDeletedReturns } from '@openheaders/core/sync-builders/mutations/restore-returns';
 import { seedCollection } from '@openheaders/core/sync-builders/projections/collection-projection';
+import { seedGraphqlRequest } from '@openheaders/core/sync-builders/projections/graphql-request-projection';
 import { seedGrpcRequest } from '@openheaders/core/sync-builders/projections/grpc-request-projection';
 import { seedRequestCollection } from '@openheaders/core/sync-builders/projections/request-collection-projection';
 import { seedRequest } from '@openheaders/core/sync-builders/projections/request-projection';
 import { seedResponseExample } from '@openheaders/core/sync-builders/projections/response-example-projection';
 import { seedRule } from '@openheaders/core/sync-builders/projections/rule-projection';
-import type { Collection, GrpcRequest, Request, ResponseExample, Rule } from '@openheaders/core/types';
+import type { Collection, GraphqlRequest, GrpcRequest, Request, ResponseExample, Rule } from '@openheaders/core/types';
 import { wsKeys } from '@openheaders/oracle/storage';
 import { setHostActivityEntrySink } from '@openheaders/oracle/sync';
 import { InMemoryBroadcast } from '@openheaders/oracle/sync/broadcast';
@@ -720,18 +724,106 @@ describe('tree slot reconciler — response examples', () => {
     reconciler.dispose();
   });
 
-  it('extends delete-wins to an example whose request is known deleted', async () => {
+  it('seeds an HTTP example onto the GraphQL request its stored parent names', async () => {
+    const graphqlRequest = {
+      schemaVersion: 5,
+      uid: 'gql00001',
+      path: `${requestCollection.path}/gql-gql00001`,
+      name: 'gql',
+      url: 'https://api.openheaders.io/graphql',
+      query: '',
+      headers: [],
+      auth: { type: 'inherit' },
+    } as unknown as GraphqlRequest;
     await oracle.apply(seedRequestCollection(requestCollection, ctxFactory()), 'inbound');
-    await oracle.apply(seedRequest(makeRequest('req00001'), ctxFactory()), 'inbound');
-    await oracle.apply(seedResponseExample(makeExample('ex000001', 'req00001'), ctxFactory()), 'inbound');
     await oracle.apply(
-      mintBatch(ctxFactory(), [{ kind: 'delete', type: REQUEST_ENTITY_TYPE, id: 'req00001' }]),
+      seedGraphqlRequest(graphqlRequest, ctxFactory(), {
+        parent: { type: REQUEST_COLLECTION_ENTITY_TYPE, uid: requestCollection.uid },
+        orderKey: 'm',
+      }),
       'inbound',
     );
+    await oracle.apply(seedResponseExample(makeExample('ex000001', 'gql00001'), ctxFactory()), 'inbound');
+
+    const reconciler = createTreeSlotReconciler('ws-1', oracle, broadcast, ctxFactory);
+    await reconciler.reconcile();
+    expect(
+      oracle
+        .liveOrderedSetItems(GRAPHQL_REQUEST_ENTITY_TYPE, 'gql00001', GRAPHQL_REQUEST_EXAMPLES_PATH)
+        .map((s) => s.itemId),
+    ).toEqual(['ex000001']);
+    const before = oracle.revision;
+    await reconciler.reconcile();
+    expect(oracle.revision).toBe(before);
+    reconciler.dispose();
+  });
+
+  /** A request in the collection with one example in its set, then the request deleted alone — as the tree deletes it. */
+  async function requestDeletedWithItsExampleKept(): Promise<void> {
+    await oracle.apply(seedRequestCollection(requestCollection, ctxFactory()), 'inbound');
+    await oracle.apply(
+      seedRequest(makeRequest('req00001'), ctxFactory(), {
+        parent: { type: REQUEST_COLLECTION_ENTITY_TYPE, uid: requestCollection.uid },
+        orderKey: 'm',
+      }),
+      'inbound',
+    );
+    await oracle.apply(
+      seedResponseExample(makeExample('ex000001', 'req00001'), ctxFactory(), {
+        parent: { type: REQUEST_ENTITY_TYPE, uid: 'req00001' },
+        orderKey: 'm',
+      }),
+      'inbound',
+    );
+    await oracle.apply(mintBatch(ctxFactory(), [{ kind: 'delete', type: REQUEST_ENTITY_TYPE, id: 'req00001' }]));
+  }
+
+  /** The request back as the tree restores it: its create marked, in its collection, applied as a local write. */
+  const restoreTheRequest = () =>
+    oracle.apply(
+      restoreDeletedReturns(
+        [
+          {
+            label: 'request:req00001 (create)',
+            batch: seedRequest(makeRequest('req00001'), ctxFactory(), {
+              parent: { type: REQUEST_COLLECTION_ENTITY_TYPE, uid: requestCollection.uid },
+              orderKey: 'm',
+            }),
+            sideEffects: [],
+          },
+        ],
+        () => true,
+      )[0].batch,
+    );
+
+  it('keeps an example whose request is deleted, through the grace and a hydration pass', async () => {
+    await requestDeletedWithItsExampleKept();
+    let now = 10_000;
+    const reconciler = createTreeSlotReconciler('ws-1', oracle, broadcast, ctxFactory, { now: () => now });
+    await reconciler.reconcile();
+    now += REHOME_GRACE_MS;
+    await reconciler.reconcile();
+    await reconciler.reconcile(true);
+    expect(oracle.isTombstoned(REQUEST_ENTITY_TYPE, 'req00001')).toBe(true);
+    expect(oracle.materializeOne('response-example', 'ex000001')).not.toBeNull();
+    expect(projectResponseExampleByUid(oracle, 'ex000001')?.responseExample.requestUid).toBe('req00001');
+    expect(entries).toEqual([]);
+    reconciler.dispose();
+  });
+
+  it('slots a kept example again on its request once the request is restored, by the pass the restore wakes', async () => {
+    await requestDeletedWithItsExampleKept();
     const reconciler = createTreeSlotReconciler('ws-1', oracle, broadcast, ctxFactory);
     await reconciler.hydrateFromStorage();
-    expect(oracle.materializeOne('response-example', 'ex000001')).toBeNull();
-    expect(entries).toEqual([]);
+
+    expect((await restoreTheRequest()).ok).toBe(true);
+    expect(exampleSlots('req00001')).toEqual([]);
+    await new Promise((resolve) => setTimeout(resolve, 80));
+    expect(exampleSlots('req00001').map((s) => s.itemId)).toEqual(['ex000001']);
+    expect(projectResponseExampleByUid(oracle, 'ex000001')?.responseExample).toMatchObject({
+      path: `${requestPath}/examples/ping-ex000001`,
+      requestUid: 'req00001',
+    });
     reconciler.dispose();
   });
 
