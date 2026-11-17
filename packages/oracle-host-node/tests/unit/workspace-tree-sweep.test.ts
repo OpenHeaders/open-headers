@@ -20,7 +20,6 @@ import type { EmissionBatch } from '@openheaders/core/sync-builders/mutations/wo
 import type { Collection, Folder, Rule, Workspace } from '@openheaders/core/types';
 import { applyTreeOrder, type WorkspaceTreeState } from '@openheaders/core/workspace-tree';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { DELETED_RETURN_MESSAGE } from '../../src/workspace-tree/deleted-returns';
 import { WorkspaceTreeMaterializer } from '../../src/workspace-tree/materializer';
 import { listWorkspaceTreeFiles } from '../../src/workspace-tree/reader';
 import { readMaterializedIndex } from '../../src/workspace-tree/sidecar';
@@ -268,7 +267,7 @@ describe('sweepWorkspaceTree', () => {
     await expect(fs.access(ruleFile)).rejects.toThrow();
   });
 
-  it('a file back under a uid the engine deleted is not taken in: no create, a row, off the baseline, left by the flush', async () => {
+  it('a file back under a uid the engine deleted restores it: its create marked, the file on the baseline, left by the flush', async () => {
     state.rules = [makeRule('aaaaaaaa', 'Block probes'), makeRule('bbbbbbbb', 'Delay probes')];
     const materializer = makeMaterializer();
     await materializer.flush();
@@ -281,31 +280,21 @@ describe('sweepWorkspaceTree', () => {
     deleted.add('aaaaaaaa');
     await fs.mkdir(path.dirname(ruleFile), { recursive: true });
     await fs.writeFile(ruleFile, yaml, 'utf-8');
-    // A hand edit beside it, in the same reading, is taken in as ever.
-    const other = path.join(tmpDir, 'rules', 'delay-probes-bbbbbbbb', 'rule.yaml');
-    const edited = (await fs.readFile(other, 'utf-8')).replace('name: Delay probes', 'name: Delay probes (vim)');
-    await fs.writeFile(other, edited, 'utf-8');
 
     const applied: EmissionBatch[] = [];
-    const result = await runSweep(applied);
-    expect(result).toMatchObject({
-      ok: true,
-      applied: 1,
-      changed: 2,
-      issues: [{ path: RULE_FILE, message: DELETED_RETURN_MESSAGE }],
-    });
-    expect(applied.map((entry) => entry.label)).toEqual(['rule:bbbbbbbb (update)']);
-    const baseline = await readMaterializedIndex(tmpDir);
-    expect(baseline[RULE_FILE]).toBeUndefined();
-    expect(baseline['rules/delay-probes-bbbbbbbb/rule.yaml']).toBeDefined();
+    expect(await runSweep(applied)).toMatchObject({ ok: true, applied: 1, changed: 1, issues: [] });
+    expect(applied.map((entry) => entry.label)).toEqual(['rule:aaaaaaaa (create)']);
+    expect(applied[0].batch.mutations[0].body).toMatchObject({ kind: 'create', id: 'aaaaaaaa', restore: true });
+    expect((await readMaterializedIndex(tmpDir))[RULE_FILE]).toBeDefined();
 
-    state.rules = [{ ...state.rules[0], name: 'Delay probes (vim)' } as Rule];
+    // The engine holds it again, and the flush leaves the file as it returned.
+    deleted.delete('aaaaaaaa');
+    state.rules = [makeRule('aaaaaaaa', 'Block probes'), ...state.rules];
     expect((await materializer.flush()).deleted).toEqual([]);
     await expect(fs.readFile(ruleFile, 'utf-8')).resolves.toBe(yaml);
 
-    // Every later reading says the same and mints nothing.
     const again: EmissionBatch[] = [];
-    expect(await runSweep(again)).toMatchObject({ ok: true, applied: 0, issues: [{ path: RULE_FILE }] });
+    expect(await runSweep(again)).toMatchObject({ ok: true, applied: 0, issues: [] });
     expect(again).toEqual([]);
   });
 

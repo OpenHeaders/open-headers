@@ -17,7 +17,8 @@
  *   - `changedPaths` — on disk, bytes differ from the baseline hash
  *     (or the file is new). Entities owning such files are
  *     tree-authored this round: the tree's value wins via fresh-HLC
- *     batches (create when the uid is unknown, diff-update otherwise).
+ *     batches (create when the uid is unknown, a restore when the
+ *     engine holds it deleted, diff-update otherwise).
  *   - `removedPaths` — in the baseline, absent from disk. An entity
  *     whose manifest vanished this way was externally deleted and
  *     tombstones; an entity the materializer never wrote is NOT
@@ -133,6 +134,7 @@ import {
   buildDeleteBatch as buildDeleteRequestBatch,
   buildDeleteEntityBatch as buildDeleteRequestEntityBatch,
 } from './request-mutations';
+import { type DeletedEntityReader, restoreDeletedReturns } from './restore-returns';
 import {
   buildDeleteBatch as buildDeleteRuleBatch,
   buildDeleteEntityBatch as buildDeleteRuleEntityBatch,
@@ -174,6 +176,12 @@ export interface WorkspaceTreeDeltaArgs {
   /** Baseline paths absent from disk — externally deleted files. */
   removedPaths: ReadonlySet<string>;
   deps: ImportEmissionDeps;
+  /**
+   * Whether the engine holds an entity deleted. A file back under such
+   * a uid restores it (`restore-returns.ts`). Absent, the engine holds
+   * nothing deleted.
+   */
+  isDeleted?: DeletedEntityReader;
 }
 
 const MANIFEST_OF: ReadonlyMap<string, string> = new Map([
@@ -414,7 +422,8 @@ export function synthesizeWorkspaceTreeDelta(args: WorkspaceTreeDeltaArgs): Emis
   }
   emitDeletions(out, prev, nextUids, removedPaths, deps);
 
-  return out.filter((entry) => entry.batch.mutations.length > 0);
+  const batches = out.filter((entry) => entry.batch.mutations.length > 0);
+  return args.isDeleted ? restoreDeletedReturns(batches, args.isDeleted) : batches;
 }
 
 // ── Tree-authored `order:` → slot-order plan ─────────────────────────

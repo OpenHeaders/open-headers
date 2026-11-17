@@ -33,6 +33,7 @@
  */
 
 import type { MutatorContext } from '@openheaders/core/sync';
+import type { DeletedEntityReader } from '@openheaders/core/sync-builders/mutations/restore-returns';
 import type {
   EmissionBatch,
   LiveSetEntriesReader,
@@ -50,7 +51,6 @@ import {
   type WorkspaceTreeState,
 } from '@openheaders/core/workspace-tree';
 import type { TreeWritesWatch } from '../git';
-import { type DeletedEntityReader, setAsideDeletedReturns } from './deleted-returns';
 import { TREE_HYGIENE_FILES } from './hygiene';
 import { listWorkspaceTreeFiles } from './reader';
 import {
@@ -89,7 +89,7 @@ export interface SweepWorkspaceTreeOptions {
   settledReading?: string;
   /**
    * Whether the engine holds an entity deleted. A file back under such
-   * a uid is not taken in (`deleted-returns.ts`). Absent, nothing is.
+   * a uid restores it. Absent, the engine holds nothing deleted.
    */
   isDeleted?: DeletedEntityReader;
 }
@@ -182,25 +182,17 @@ async function sweepReading(options: SweepWorkspaceTreeOptions): Promise<SweepWo
   for (const path of Object.keys(baseline)) {
     if (!diskHashes.has(path) && !TREE_HYGIENE_FILES.has(path)) removedPaths.add(path);
   }
-  // A file back under a uid the engine deleted brings nothing back: its
-  // create is set aside, and the file is kept off the baseline below.
-  const { batches, ...returns } = setAsideDeletedReturns({
-    batches: synthesizeWorkspaceTreeDelta({
-      prev: snapshot,
-      next: read.state,
-      changedPaths,
-      removedPaths,
-      deps: { nextCtx: options.nextCtx, liveSetEntries: options.liveSetEntries },
-    }),
-    files,
+  const batches = synthesizeWorkspaceTreeDelta({
+    prev: snapshot,
+    next: read.state,
     changedPaths,
-    environments: read.state.environments,
+    removedPaths,
+    deps: { nextCtx: options.nextCtx, liveSetEntries: options.liveSetEntries },
     isDeleted: options.isDeleted,
   });
   // Held only where the reading has something to conclude — a batch for
   // the engine, a file gone. A file of the user's own differs from the
-  // baseline at every reading and concludes nothing, and so does one set
-  // aside.
+  // baseline at every reading and concludes nothing.
   const held =
     batches.length > 0 || removedPaths.size > 0
       ? await heldFor(changedPaths.size + removedPaths.size, [
@@ -230,7 +222,7 @@ async function sweepReading(options: SweepWorkspaceTreeOptions): Promise<SweepWo
   for (const path of removedPaths) delete nextBaseline[path];
   for (const path of changedPaths) {
     if (!plannedPaths.has(path)) continue;
-    if (issuePaths.has(path) || issueDirs.has(dirOf(path)) || returns.holds(path)) continue;
+    if (issuePaths.has(path) || issueDirs.has(dirOf(path))) continue;
     const hash = diskHashes.get(path);
     if (hash !== undefined) nextBaseline[path] = hash;
   }
@@ -275,6 +267,6 @@ async function sweepReading(options: SweepWorkspaceTreeOptions): Promise<SweepWo
     applied: batches.length,
     changed: changedPaths.size,
     removed: removedPaths.size,
-    issues: [...read.issues, ...returns.issues],
+    issues: read.issues,
   };
 }
