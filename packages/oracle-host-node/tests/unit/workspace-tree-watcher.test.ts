@@ -37,9 +37,14 @@ const waitFor = async (predicate: () => boolean, timeoutMs = 2_000): Promise<voi
 };
 
 describe('WorkspaceTreeWatcher', () => {
+  // The watcher runs at its own quiet window. A platform may hand one
+  // burst's events over in more than one delivery: inside the window they
+  // are one burst, and the settle outlasts the window after the last.
+  const settle = () => new Promise((resolve) => setTimeout(resolve, 1_000));
+
   it('collapses an edit burst into one quiescence callback', async () => {
     let calls = 0;
-    watcher = new WorkspaceTreeWatcher({ rootDir: tmpDir, debounceMs: 50, onQuiescence: () => (calls += 1) });
+    watcher = new WorkspaceTreeWatcher({ rootDir: tmpDir, onQuiescence: () => (calls += 1) });
     expect(watcher.start()).toBe(true);
 
     await fs.writeFile(path.join(tmpDir, 'workspace.yaml'), 'a\n', 'utf-8');
@@ -47,23 +52,24 @@ describe('WorkspaceTreeWatcher', () => {
     await fs.writeFile(path.join(tmpDir, 'README.md'), 'c\n', 'utf-8');
 
     await waitFor(() => calls > 0);
+    await settle();
     expect(calls).toBe(1);
   });
 
   it('ignores sidecar traffic under .oh/', async () => {
     await fs.mkdir(path.join(tmpDir, '.oh'), { recursive: true });
     let calls = 0;
-    watcher = new WorkspaceTreeWatcher({ rootDir: tmpDir, debounceMs: 50, onQuiescence: () => (calls += 1) });
+    watcher = new WorkspaceTreeWatcher({ rootDir: tmpDir, onQuiescence: () => (calls += 1) });
     watcher.start();
     // macOS FSEvents replays just-before-watch history (the tmp dir's
     // own creation), which conservatively bumps once — a harmless
     // no-op sweep in production. Let the replay settle, then assert
     // that NAMED sidecar traffic never wakes the sweep.
-    await new Promise((resolve) => setTimeout(resolve, 300));
+    await settle();
     calls = 0;
 
     await fs.writeFile(path.join(tmpDir, '.oh', 'materialized-index.json'), '{}', 'utf-8');
-    await new Promise((resolve) => setTimeout(resolve, 200));
+    await settle();
     expect(calls).toBe(0);
   });
 });
