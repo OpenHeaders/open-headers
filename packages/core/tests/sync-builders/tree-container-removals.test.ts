@@ -39,7 +39,7 @@ function makeReading(removed: string[], read: Record<string, string> = {}): Tree
   const gone = new Set(removed);
   return {
     read: (uid) => uid in read,
-    pathOf: (uid) => read[uid],
+    placed: new Map(Object.entries(read)),
     removed: (path) => gone.has(path),
   };
 }
@@ -156,6 +156,24 @@ describe('planContainerRemovals', () => {
         [DIRECT.uid]: `${API.path}/fresh-fol0000n/direct-rul0000a`,
       });
       expect(plan(flat, reading)).toEqual({ gone: [], kept: [API_MANIFEST] });
+    });
+
+    it('keeps the inner folder for a leaf new to the engine, read under its renamed directory', () => {
+      const empty = makeTree({ folders: [AUTH, DEEP], leaves: [] });
+      const reading = makeReading([AUTH_MANIFEST, DEEP_MANIFEST], {
+        [AUTH.uid]: RENAMED_AUTH,
+        rul0000n: `${RENAMED_AUTH}/deep-fol0000d/fresh-rul0000n`,
+      });
+      expect(plan(empty, reading)).toEqual({ gone: [], kept: [DEEP_MANIFEST] });
+    });
+
+    it('lets the inner folder leave where the new leaf was read beside it', () => {
+      const empty = makeTree({ folders: [AUTH, DEEP], leaves: [] });
+      const reading = makeReading([AUTH_MANIFEST, DEEP_MANIFEST], {
+        [AUTH.uid]: RENAMED_AUTH,
+        rul0000n: `${RENAMED_AUTH}/fresh-rul0000n`,
+      });
+      expect(plan(empty, reading)).toEqual({ gone: [DEEP.uid], kept: [] });
     });
 
     it('lets the inner folder leave where the leaf was read under a directory that names another', () => {

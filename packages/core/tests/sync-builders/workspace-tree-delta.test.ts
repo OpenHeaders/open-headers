@@ -314,6 +314,34 @@ describe('synthesizeWorkspaceTreeDelta — deletions', () => {
     ]);
   });
 
+  it('an empty folder renamed the same way is not deleted for a rule new to the engine read under it — the rule is slotted on it', () => {
+    const auth = {
+      schemaVersion: 5,
+      uid: 'fol0000f',
+      path: 'rules/api-col0000a/auth-fol0000f',
+      name: 'Auth',
+    } as Folder;
+    const deep = { schemaVersion: 5, uid: 'fol0000d', path: `${auth.path}/deep-fol0000d`, name: 'Deep' } as Folder;
+    const renamedAuth = { ...auth, path: 'rules/api-col0000a/authz-fol0000f' };
+    const fresh = { ...baseRule, path: `${renamedAuth.path}/deep-fol0000d/probe-rul00001` } as Rule;
+    const prev = emptyState({ collections: [col], folders: [auth, deep] });
+    const next = emptyState({ collections: [col], folders: [renamedAuth], rules: [fresh] });
+    const removed = [`${auth.path}/_folder.yaml`, `${deep.path}/_folder.yaml`];
+    const changed = [
+      `${renamedAuth.path}/_folder.yaml`,
+      `${renamedAuth.path}/deep-fol0000d/_folder.yaml`,
+      `${fresh.path}/rule.yaml`,
+    ];
+    const batches = delta({ prev, next, changed, removed });
+    expect(batches.map((b) => b.label).filter((label) => label.endsWith('(delete)'))).toEqual([]);
+    expect(batches.flatMap((b) => b.batch.mutations.map((m) => m.body))).toContainEqual(
+      expect.objectContaining({ kind: 'addToSet', type: 'folder', id: 'fol0000d', path: FOLDER_ITEMS_PATH }),
+    );
+    expect(keptContainerManifests({ prev, next: asNext(next), removedPaths: new Set(removed) })).toEqual([
+      `${deep.path}/_folder.yaml`,
+    ]);
+  });
+
   it('names nothing kept where the reading removed nothing', () => {
     const prev = emptyState({ collections: [col], rules: [ruleInCol] });
     expect(keptContainerManifests({ prev, next: asNext(emptyState()), removedPaths: new Set() })).toEqual([]);

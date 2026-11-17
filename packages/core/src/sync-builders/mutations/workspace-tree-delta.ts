@@ -23,8 +23,9 @@
  *     whose manifest vanished this way was externally deleted and
  *     tombstones; an entity the materializer never wrote is NOT
  *     deletable from the tree side (S3 deletion-authority decision),
- *     and a container leaves only when nothing the engine holds is
- *     left beneath it (`tree-container-removals.ts`).
+ *     and a container leaves only when nothing the engine holds, or
+ *     takes in with this reading, is left beneath it
+ *     (`tree-container-removals.ts`).
  *   - everything else — the engine's value stands; no batch.
  *
  * Family coverage rides `synthesizeImportEmission` (the import path's
@@ -466,7 +467,7 @@ function planTreeRemovals(
   place(next.templates);
   const reading = {
     read: (uid: string): boolean => nextUids.has(uid),
-    pathOf: (uid: string): string | undefined => placed.get(uid),
+    placed,
     removed: (path: string): boolean => removedPaths.has(path),
   };
   const leaves = (entityType: string, items: readonly { uid: string; path: string }[]) => ({

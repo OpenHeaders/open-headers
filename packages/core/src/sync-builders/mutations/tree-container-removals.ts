@@ -1,17 +1,18 @@
 /**
  * The containers of one tree a reading removes.
  *
- * A container leaves only when nothing the engine holds is left beneath
- * it — the rule a change laid over the branch keeps (`commit-change.ts`,
- * `not-empty`), asked here of a reading of the tree itself: a manifest
- * gone while a folder or a leaf of its container stays is not a
- * deletion. The container is kept, and the flush that follows writes
- * the manifest again.
+ * A container leaves only when nothing the engine holds, or takes in
+ * with this reading, is left beneath it — the rule a change laid over
+ * the branch keeps (`commit-change.ts`, `not-empty`), asked here of a
+ * reading of the tree itself: a manifest gone while a folder or a leaf
+ * of its container stays is not a deletion. The container is kept, and
+ * the flush that follows writes the manifest again.
  *
  * Judged deepest first, by what is left: a leaf leaves with its own
  * manifest, a folder with its manifest once nothing is left in it. What
- * the reading read at another place has moved there and is left at that
- * place, not at the one the engine holds.
+ * the reading read is left where it read it — moved there from the
+ * place the engine holds, or new to the engine and slotted on the
+ * container it was read under.
  *
  * Beneath is asked as containment asks it (`containment.ts`): a
  * directory is the container a placement resolves it to — the exact
@@ -41,8 +42,8 @@ export interface ContainerTree {
 export interface TreeReading {
   /** Whether the reading read an entity under this uid. */
   read: (uid: string) => boolean;
-  /** Where the reading read it. */
-  pathOf: (uid: string) => string | undefined;
+  /** Where the reading read each folder and leaf, by uid — those the engine holds and those new to it. */
+  placed: ReadonlyMap<string, string>;
   /** Whether the file is one the reading finds removed. */
   removed: (path: string) => boolean;
 }
@@ -60,10 +61,12 @@ export function planContainerRemovals(tree: ContainerTree, reading: TreeReading)
   const leaves = (entity: TreePathEntity, manifest: string): boolean =>
     !reading.read(entity.uid) && reading.removed(`${entity.path}/${manifest}`);
 
-  // Where each thing left of the tree stands after the reading.
-  const left: string[] = [];
+  // Where each thing left of the tree stands after the reading: what
+  // the reading read, where it read it, and what the engine holds that
+  // the reading did not place.
+  const left: string[] = [...reading.placed.values()];
   const stays = (entity: TreePathEntity): void => {
-    left.push(reading.pathOf(entity.uid) ?? entity.path);
+    if (!reading.placed.has(entity.uid)) left.push(entity.path);
   };
 
   const lookup = { collections: tree.collections, folders: tree.folders };
