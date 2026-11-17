@@ -264,6 +264,115 @@ describe('containTreeRead', () => {
   });
 });
 
+describe('containTreeRead — a leaf in a directory with no manifest', () => {
+  const API = file('rules/api-cccccccc/_collection.yaml', collectionYaml('cccccccc'));
+  const AUTH = 'rules/api-cccccccc/auth-eeeeeeee';
+  const DEEP = `${AUTH}/deep-ffffffff`;
+  const heldTree = (overrides: Partial<HeldTree> = {}): HeldTree =>
+    makeHeld({
+      collections: [makeCollection('cccccccc', 'rules/api-cccccccc')],
+      folders: [makeFolder('eeeeeeee', AUTH), makeFolder('ffffffff', DEEP)],
+      ...overrides,
+    });
+  const heldRule = (path: string): Rule => ({ uid: 'aaaaaaaa', path }) as Rule;
+  const rulesOf = (result: TreeReadResult): string[][] => result.state.rules.map((rule) => [rule.path, rule.name]);
+
+  it('a held folder whose manifest was removed keeps its leaf — no row', () => {
+    const result = containTreeRead(
+      read(
+        API,
+        file(`${AUTH}/_folder.yaml`, folderYaml('eeeeeeee')),
+        file(`${DEEP}/inner-aaaaaaaa/rule.yaml`, namedRuleYaml('aaaaaaaa', 'Inner')),
+      ),
+      heldTree(),
+    );
+    expect(rulesOf(result)).toEqual([[`${DEEP}/inner-aaaaaaaa`, 'Inner']]);
+    expect(result.issues).toEqual([]);
+  });
+
+  it("keeps it where the folder's directory was renamed above it — by the directory's uid tail", () => {
+    const renamed = 'rules/api-cccccccc/authz-eeeeeeee';
+    const result = containTreeRead(
+      read(
+        API,
+        file(`${renamed}/_folder.yaml`, folderYaml('eeeeeeee')),
+        file(`${renamed}/deep-ffffffff/inner-aaaaaaaa/rule.yaml`, namedRuleYaml('aaaaaaaa', 'Inner')),
+      ),
+      heldTree({ rules: [heldRule(`${DEEP}/inner-aaaaaaaa`)] }),
+    );
+    expect(rulesOf(result)).toEqual([[`${renamed}/deep-ffffffff/inner-aaaaaaaa`, 'Inner']]);
+    expect(result.issues).toEqual([]);
+  });
+
+  it('refuses it where the engine holds no container at that directory — the same read, the row of its place', () => {
+    const raw = read(API, file('rules/api-cccccccc/by-hand/inner-aaaaaaaa/rule.yaml', ruleYaml('aaaaaaaa')));
+    const result = containTreeRead(raw, heldTree());
+    expect(result).toBe(raw);
+    expect(result.state.rules).toEqual([]);
+    expect(result.issues).toEqual([
+      {
+        path: 'rules/api-cccccccc/by-hand/inner-aaaaaaaa/rule.yaml',
+        message: 'rule outside a collection or folder of "rules" — skipped',
+        uncontainedIn: 'rules/api-cccccccc/by-hand',
+      },
+    ]);
+  });
+
+  it('the file at the place the engine holds the rule is the rule, though one the reader read sorts before it', () => {
+    const copy = 'rules/api-cccccccc/a-copy-aaaaaaaa';
+    const result = containTreeRead(
+      read(
+        API,
+        file(`${copy}/rule.yaml`, namedRuleYaml('aaaaaaaa', 'Copy')),
+        file(`${AUTH}/_folder.yaml`, folderYaml('eeeeeeee')),
+        file(`${DEEP}/inner-aaaaaaaa/rule.yaml`, namedRuleYaml('aaaaaaaa', 'Held')),
+      ),
+      heldTree({ rules: [heldRule(`${DEEP}/inner-aaaaaaaa`)] }),
+    );
+    expect(rulesOf(result)).toEqual([[`${DEEP}/inner-aaaaaaaa`, 'Held']]);
+    expect(result.issues).toEqual([duplicate(`${copy}/rule.yaml`, 'aaaaaaaa')]);
+  });
+
+  it('a rule the engine holds elsewhere keeps its own file against one in such a directory', () => {
+    const own = 'rules/api-cccccccc/own-aaaaaaaa';
+    const raw = read(
+      API,
+      file(`${AUTH}/_folder.yaml`, folderYaml('eeeeeeee')),
+      file(`${DEEP}/inner-aaaaaaaa/rule.yaml`, namedRuleYaml('aaaaaaaa', 'Loose')),
+      file(`${own}/rule.yaml`, namedRuleYaml('aaaaaaaa', 'Own')),
+    );
+    const result = containTreeRead(raw, heldTree({ rules: [heldRule(own)] }));
+    expect(result).toBe(raw);
+    expect(rulesOf(result)).toEqual([[own, 'Own']]);
+    expect(result.issues.map((issue) => issue.path)).toEqual([`${DEEP}/inner-aaaaaaaa/rule.yaml`]);
+  });
+
+  it('of two such files, the one at the place the engine holds the rule is the rule', () => {
+    const result = containTreeRead(
+      read(
+        API,
+        file(`${AUTH}/a-copy-aaaaaaaa/rule.yaml`, namedRuleYaml('aaaaaaaa', 'Copy')),
+        file(`${DEEP}/inner-aaaaaaaa/rule.yaml`, namedRuleYaml('aaaaaaaa', 'Held')),
+      ),
+      heldTree({ rules: [heldRule(`${DEEP}/inner-aaaaaaaa`)] }),
+    );
+    expect(rulesOf(result)).toEqual([[`${DEEP}/inner-aaaaaaaa`, 'Held']]);
+    expect(result.issues.map((issue) => issue.path)).toEqual([`${AUTH}/a-copy-aaaaaaaa/rule.yaml`]);
+  });
+
+  it('the unknown-field rows of a leaf taken in that way are kept', () => {
+    const result = containTreeRead(
+      read(
+        API,
+        file(`${AUTH}/_folder.yaml`, folderYaml('eeeeeeee')),
+        file(`${DEEP}/inner-aaaaaaaa/rule.yaml`, `${ruleYaml('aaaaaaaa')}handAdded: kept\n`),
+      ),
+      heldTree(),
+    );
+    expect(result.unknowns.aaaaaaaa.map((row) => row.path)).toEqual(['/handAdded']);
+  });
+});
+
 describe('containTreeRead — a uid more than one leaf file claims', () => {
   const API = file('rules/api-cccccccc/_collection.yaml', collectionYaml('cccccccc'));
   const BROKEN = file('rules/aaa-broken-dddddddd/_collection.yaml', BROKEN_YAML);

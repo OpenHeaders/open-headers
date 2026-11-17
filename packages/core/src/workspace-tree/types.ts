@@ -104,7 +104,7 @@ export type TreeLeafKey =
   | 'graphqlRequests'
   | 'templates';
 
-/** A leaf read under a uid an earlier file of the listing claimed. */
+/** A leaf a reading read and did not take — for its uid, or for its directory. */
 export interface TreeShadowed<T> {
   entity: T;
   unknowns: readonly UnknownField[];
@@ -129,4 +129,12 @@ export interface TreeReadResult {
   unknowns: TreeUnknownFields;
   issues: TreeIssue[];
   shadowed: TreeShadowedLeaves;
+  /**
+   * The leaves a reading skipped for a directory of their own tree that
+   * holds no manifest, by family. The files alone cannot say whether
+   * that directory is a container — one the engine holds, its manifest
+   * removed — so that is asked where a read meets the engine
+   * (`containment.ts`). A leaf kept here claims no uid.
+   */
+  uncontained: TreeShadowedLeaves;
 }

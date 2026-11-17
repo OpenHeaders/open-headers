@@ -104,6 +104,18 @@ export function duplicateUidMessage(uid: string): string {
   return `duplicate uid "${uid}" — entity skipped`;
 }
 
+function noLeaves(): TreeShadowedLeaves {
+  return {
+    rules: [],
+    requests: [],
+    grpcRequests: [],
+    websocketRequests: [],
+    mqttRequests: [],
+    graphqlRequests: [],
+    templates: [],
+  };
+}
+
 /** Read one workspace tree from its complete file listing. */
 export function readWorkspaceTree(files: readonly TreeFile[]): TreeReadResult {
   const issues: TreeIssue[] = [];
@@ -145,15 +157,8 @@ export function readWorkspaceTree(files: readonly TreeFile[]): TreeReadResult {
     else byDir.set(dir, [entry]);
   }
 
-  const shadowed: TreeShadowedLeaves = {
-    rules: [],
-    requests: [],
-    grpcRequests: [],
-    websocketRequests: [],
-    mqttRequests: [],
-    graphqlRequests: [],
-    templates: [],
-  };
+  const shadowed = noLeaves();
+  const uncontained = noLeaves();
 
   const seenUids = new Set<string>();
   const captureUnknowns = (key: string, parsed: ParsedDocument<unknown>): void => {
@@ -203,18 +208,38 @@ export function readWorkspaceTree(files: readonly TreeFile[]): TreeReadResult {
    * meets the engine (`containment.ts`). A leaf under another tree's
    * container is refused for its tree, not for a directory that holds
    * no container.
+   *
+   * A leaf of its own tree in a directory with no manifest is skipped
+   * the same and kept in `aside`: the engine may hold that directory as
+   * a container whose manifest was removed, which the files cannot say.
+   * One that does not parse is left to the row of its place.
    */
-  const contained = (manifestPath: string, tree: string, kind: string): boolean => {
+  const contained = <T>(
+    manifestPath: string,
+    tree: string,
+    kind: string,
+    parse: () => ParsedDocument<T>,
+    aside: TreeShadowed<T>[],
+  ): boolean => {
     const parent = dirOf(dirOf(manifestPath));
     const container =
       byPath.has(`${parent}/${COLLECTION_MANIFEST_FILE}`) || byPath.has(`${parent}/${FOLDER_MANIFEST_FILE}`);
-    const held = container && firstSegmentOf(manifestPath) === tree;
+    const ownTree = firstSegmentOf(manifestPath) === tree;
+    const held = container && ownTree;
     if (!held) {
       issues.push({
         path: manifestPath,
         message: `${kind} outside a collection or folder of "${tree}" — skipped`,
         ...(container ? {} : { uncontainedIn: parent }),
       });
+      if (!container && ownTree) {
+        try {
+          const parsed = parse();
+          aside.push({ entity: parsed.value, unknowns: unknownFieldsOf(parsed) });
+        } catch {
+          // Not a document either: the row of its place stands for it.
+        }
+      }
     }
     return held;
   };
@@ -300,65 +325,55 @@ export function readWorkspaceTree(files: readonly TreeFile[]): TreeReadResult {
         break;
       }
       case RULE_MANIFEST_FILE: {
-        if (!contained(path, 'rules', 'rule')) break;
-        const value = ingest(path, () => parseRule(content, { path: dir }), shadowed.rules);
+        const parse = () => parseRule(content, { path: dir });
+        if (!contained(path, 'rules', 'rule', parse, uncontained.rules)) break;
+        const value = ingest(path, parse, shadowed.rules);
         if (value) state.rules.push(value);
         break;
       }
       case REQUEST_MANIFEST_FILE: {
-        if (!contained(path, 'requests', 'request')) break;
-        const value = ingest(
-          path,
-          () => parseRequest(content, { path: dir, siblings: siblingsFor(dir, REQUEST_MANIFEST_FILE) }),
-          shadowed.requests,
-        );
+        const parse = () => parseRequest(content, { path: dir, siblings: siblingsFor(dir, REQUEST_MANIFEST_FILE) });
+        if (!contained(path, 'requests', 'request', parse, uncontained.requests)) break;
+        const value = ingest(path, parse, shadowed.requests);
         if (value) state.requests.push(value);
         break;
       }
       case GRPC_REQUEST_MANIFEST_FILE: {
-        if (!contained(path, 'requests', 'gRPC request')) break;
-        const value = ingest(
-          path,
-          () => parseGrpcRequest(content, { path: dir, siblings: siblingsFor(dir, GRPC_REQUEST_MANIFEST_FILE) }),
-          shadowed.grpcRequests,
-        );
+        const parse = () =>
+          parseGrpcRequest(content, { path: dir, siblings: siblingsFor(dir, GRPC_REQUEST_MANIFEST_FILE) });
+        if (!contained(path, 'requests', 'gRPC request', parse, uncontained.grpcRequests)) break;
+        const value = ingest(path, parse, shadowed.grpcRequests);
         if (value) state.grpcRequests.push(value);
         break;
       }
       case WEBSOCKET_REQUEST_MANIFEST_FILE: {
-        if (!contained(path, 'requests', 'WebSocket request')) break;
-        const value = ingest(
-          path,
-          () =>
-            parseWebSocketRequest(content, { path: dir, siblings: siblingsFor(dir, WEBSOCKET_REQUEST_MANIFEST_FILE) }),
-          shadowed.websocketRequests,
-        );
+        const parse = () =>
+          parseWebSocketRequest(content, { path: dir, siblings: siblingsFor(dir, WEBSOCKET_REQUEST_MANIFEST_FILE) });
+        if (!contained(path, 'requests', 'WebSocket request', parse, uncontained.websocketRequests)) break;
+        const value = ingest(path, parse, shadowed.websocketRequests);
         if (value) state.websocketRequests.push(value);
         break;
       }
       case MQTT_REQUEST_MANIFEST_FILE: {
-        if (!contained(path, 'requests', 'MQTT request')) break;
-        const value = ingest(
-          path,
-          () => parseMqttRequest(content, { path: dir, siblings: siblingsFor(dir, MQTT_REQUEST_MANIFEST_FILE) }),
-          shadowed.mqttRequests,
-        );
+        const parse = () =>
+          parseMqttRequest(content, { path: dir, siblings: siblingsFor(dir, MQTT_REQUEST_MANIFEST_FILE) });
+        if (!contained(path, 'requests', 'MQTT request', parse, uncontained.mqttRequests)) break;
+        const value = ingest(path, parse, shadowed.mqttRequests);
         if (value) state.mqttRequests.push(value);
         break;
       }
       case GRAPHQL_REQUEST_MANIFEST_FILE: {
-        if (!contained(path, 'requests', 'GraphQL request')) break;
-        const value = ingest(
-          path,
-          () => parseGraphqlRequest(content, { path: dir, siblings: siblingsFor(dir, GRAPHQL_REQUEST_MANIFEST_FILE) }),
-          shadowed.graphqlRequests,
-        );
+        const parse = () =>
+          parseGraphqlRequest(content, { path: dir, siblings: siblingsFor(dir, GRAPHQL_REQUEST_MANIFEST_FILE) });
+        if (!contained(path, 'requests', 'GraphQL request', parse, uncontained.graphqlRequests)) break;
+        const value = ingest(path, parse, shadowed.graphqlRequests);
         if (value) state.graphqlRequests.push(value);
         break;
       }
       case TEMPLATE_MANIFEST_FILE: {
-        if (!contained(path, 'templates', 'template')) break;
-        const value = ingest(path, () => parseTemplate(content, { path: dir }), shadowed.templates);
+        const parse = () => parseTemplate(content, { path: dir });
+        if (!contained(path, 'templates', 'template', parse, uncontained.templates)) break;
+        const value = ingest(path, parse, shadowed.templates);
         if (value) state.templates.push(value);
         break;
       }
@@ -398,5 +413,5 @@ export function readWorkspaceTree(files: readonly TreeFile[]): TreeReadResult {
     if (value) state.environments.push(value);
   }
 
-  return { state, unknowns, issues, shadowed };
+  return { state, unknowns, issues, shadowed, uncontained };
 }

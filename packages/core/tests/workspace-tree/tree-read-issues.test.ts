@@ -199,7 +199,33 @@ describe('readWorkspaceTree edge cases', () => {
     ]);
   });
 
-  it('refuses a request, a template and each request kind the same way, before any parse', () => {
+  it('keeps a leaf it skipped in a directory with no manifest, with what it holds, and gives it no uid', () => {
+    const loose = 'rules/api-cccccccc/by-hand/block-probes-aaaaaaaa';
+    const result = readWorkspaceTree([
+      file('workspace.yaml', WORKSPACE_YAML),
+      file(COLLECTION_FILE, COLLECTION_YAML),
+      file(`${loose}/rule.yaml`, `${RULE_YAML}handAdded: kept\n`),
+      file('rules/api-cccccccc/copy-aaaaaaaa/rule.yaml', RULE_YAML),
+    ]);
+    expect(result.uncontained.rules.map(({ entity }) => [entity.uid, entity.path])).toEqual([['aaaaaaaa', loose]]);
+    expect(result.uncontained.rules[0].unknowns).toHaveLength(1);
+    // The uid is still free: the file inside the collection is the rule, and nothing reads as a duplicate.
+    expect(result.state.rules.map((rule) => rule.path)).toEqual(['rules/api-cccccccc/copy-aaaaaaaa']);
+    expect(result.issues.map((issue) => issue.path)).toEqual([`${loose}/rule.yaml`]);
+  });
+
+  it('keeps no leaf it refused for its tree, whatever its directory holds', () => {
+    const result = readWorkspaceTree([
+      file('workspace.yaml', WORKSPACE_YAML),
+      file('requests/api-cccccccc/_collection.yaml', COLLECTION_YAML),
+      file('requests/api-cccccccc/block-probes-aaaaaaaa/rule.yaml', RULE_YAML),
+      file('requests/by-hand/block-probes-bbbbbbbb/rule.yaml', RULE_YAML.replace('aaaaaaaa', 'bbbbbbbb')),
+    ]);
+    expect(result.issues).toHaveLength(2);
+    expect(Object.values(result.uncontained).flat()).toEqual([]);
+  });
+
+  it('refuses a request, a template and each request kind the same way — one that does not parse keeps the row of its place alone', () => {
     const manifests = ['request.yaml', 'grpc.yaml', 'websocket.yaml', 'mqtt.yaml', 'graphql.yaml'];
     const result = readWorkspaceTree([
       file('workspace.yaml', WORKSPACE_YAML),
@@ -214,6 +240,7 @@ describe('readWorkspaceTree edge cases', () => {
       'GraphQL request outside a collection or folder of "requests" — skipped',
       'template outside a collection or folder of "templates" — skipped',
     ]);
+    expect(Object.values(result.uncontained).flat()).toEqual([]);
   });
 
   it('reads a leaf inside a folder', () => {

@@ -396,4 +396,38 @@ describe("the workspace-tree runtime: the Git card's rows after a pass", () => {
       expect(rows()).toEqual([]);
     });
   });
+
+  it("a held folder's directory renamed above it and its manifest removed there keeps the folder and its rule — nothing deleted, no row", {
+    timeout: 30_000,
+  }, async () => {
+    const AUTH = `${COLLECTION_DIR}/auth-fol0000f`;
+    const RENAMED = `${COLLECTION_DIR}/authz-fol0000f`;
+    const DEEP_FILE = `${AUTH}/deep-fol0000d/_folder.yaml`;
+    const INNER_DIR = `${AUTH}/deep-fol0000d/inner-${RULE_UID}`;
+    const engineHoldsTheInnerFolder = (): boolean =>
+      snapshotFolderPostStates(harness.workspaceId).some((state) => state.folder.uid === 'fol0000d');
+    await writeCollectionByHand();
+    await writeByHand(`${AUTH}/_folder.yaml`, 'schemaVersion: 5\nuid: fol0000f\nname: Auth\n');
+    await writeByHand(DEEP_FILE, 'schemaVersion: 5\nuid: fol0000d\nname: Deep\n');
+    await writeByHand(`${INNER_DIR}/rule.yaml`, RULE_TEXT);
+    await until('the engine takes the rule in', engineHoldsTheRule, 8_000);
+    expect(await harness.runtime.commit(harness.workspaceId, 'seed')).toMatchObject({ ok: true, committed: true });
+    await delay(TREE_AT_REST_MS);
+
+    await fs.rename(inTree(AUTH), inTree(RENAMED));
+    await fs.rm(inTree(`${RENAMED}/deep-fol0000d/_folder.yaml`));
+    await until(
+      'the inner manifest is written again where the engine holds the folder',
+      () => isThere(DEEP_FILE),
+      8_000,
+    );
+    await delay(TREE_AT_REST_MS);
+
+    expect(engineHoldsTheInnerFolder()).toBe(true);
+    expect(ruleOf(RULE_UID)?.path).toBe(INNER_DIR);
+    expect(await isThere(`${INNER_DIR}/rule.yaml`)).toBe(true);
+    expect(await isThere(RENAMED)).toBe(false);
+    expect(rows()).toEqual([]);
+    expect(await harness.git('status', '--porcelain')).toBe('');
+  });
 });
