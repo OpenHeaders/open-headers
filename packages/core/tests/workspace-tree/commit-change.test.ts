@@ -445,6 +445,34 @@ describe('applyCommitChange — what is not taken is named', () => {
     expect(change.conflicts).toEqual([{ uid: 'rul0000a', path: manifestOf(a) }]);
   });
 
+  it('deleting an entity the branch holds with its frozen segment, unedited, is no conflict', () => {
+    const held = { ...a, pathSegment: 'a-rul0000a' } as Rule;
+    const change = applyCommitChange({ current: state({ rules: [held] }), from: state({ rules: [a] }), to: state() });
+    expect(change.next.rules).toEqual([]);
+    expect([...change.removedPaths]).toEqual([manifestOf(a)]);
+    expect(change.conflicts).toEqual([]);
+  });
+
+  it('deleting a collection the branch holds with its sets of children, unedited, is no conflict', () => {
+    const before = collection('col0000a', COL_A, ['f-fol0000f']);
+    const inner = folder('fol0000f', `${COL_A}/f-fol0000f`);
+    const held = { ...before, folders: [{ uid: 'fol0000f' }], items: [] } as Collection;
+    const change = applyCommitChange({
+      current: state({ collections: [held], folders: [inner] }),
+      from: state({ collections: [before], folders: [inner] }),
+      to: state(),
+    });
+    expect(change.next.collections).toEqual([]);
+    expect(change.next.folders).toEqual([]);
+    expect(change.conflicts).toEqual([]);
+  });
+
+  it('an entity held with its frozen segment and edited is still named when the change deletes it', () => {
+    const held = { ...a, pathSegment: 'a-rul0000a', name: 'Local name' } as Rule;
+    const change = applyCommitChange({ current: state({ rules: [held] }), from: state({ rules: [a] }), to: state() });
+    expect(change.conflicts).toEqual([{ uid: 'rul0000a', path: manifestOf(a) }]);
+  });
+
   it('with one side ruled, the edited entity leaves for the change or stands for the branch', () => {
     const edited = { ...a, name: 'Local name' } as Rule;
     const range = { current: state({ rules: [edited] }), from: state({ rules: [a] }), to: state() };

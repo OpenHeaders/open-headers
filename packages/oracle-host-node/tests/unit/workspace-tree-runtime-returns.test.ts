@@ -10,6 +10,10 @@
  * rule file outside any collection is held by no container's set, so a
  * pin on one says nothing of the slot a return has to bring back.
  *
+ * And a deletion a pull brings, against the engine's own entities —
+ * they carry what no file does (a leaf's frozen segment, a collection's
+ * set of folders), which a hand-built snapshot never shows.
+ *
  * And the Git card's rows a pass leaves, on the same wiring: derived as
  * a sweep derives them — the read contained against the engine's
  * snapshot, and no row at a file whose bytes are the baseline's. They
@@ -26,6 +30,7 @@ import {
   getOrCreateWorkspaceService,
   releaseWorkspaceService,
   snapshotCollectionPostStates,
+  snapshotFolderPostStates,
   snapshotRulePostStates,
 } from '@openheaders/oracle/sync/service';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
@@ -270,6 +275,60 @@ describe('the workspace-tree runtime: a deleted entity back in the tree', () => 
     } finally {
       await fs.rm(other, { recursive: true, force: true });
     }
+  });
+});
+
+describe('the workspace-tree runtime: a deletion a pull brings', () => {
+  /** The peer removes `directory` on the pushed branch and pushes; `run` then pulls. */
+  async function withThePeerDeleting(directory: string, run: () => Promise<void>): Promise<void> {
+    const remote = await fs.mkdtemp(path.join(os.tmpdir(), 'oh-tree-runtime-remote-'));
+    const other = await fs.mkdtemp(path.join(os.tmpdir(), 'oh-tree-runtime-other-'));
+    try {
+      const branch = await harness.git('rev-parse', '--abbrev-ref', 'HEAD');
+      await harness.git('init', '-q', '--bare', remote);
+      await harness.git('remote', 'add', 'origin', remote);
+      await harness.git('push', '-q', '-u', 'origin', branch);
+      await harness.git('clone', '-q', '-b', branch, remote, other);
+      await harness.git('-C', other, 'rm', '-q', '-r', directory);
+      await harness.git('-C', other, 'commit', '-q', '-m', 'delete');
+      await harness.git('-C', other, 'push', '-q');
+      await run();
+    } finally {
+      await fs.rm(remote, { recursive: true, force: true });
+      await fs.rm(other, { recursive: true, force: true });
+    }
+  }
+
+  it('a rule the peer deleted and the branch did not edit leaves with the pull — nothing is asked', {
+    timeout: 30_000,
+  }, async () => {
+    await commitTheCollectionAndItsRule();
+    await withThePeerDeleting(RULE_DIR, async () => {
+      // The engine's rule carries its frozen segment, which no file does: that alone is not an edit.
+      expect(ruleOf(RULE_UID)).toHaveProperty('pathSegment');
+      expect(await harness.runtime.pull(harness.workspaceId)).toMatchObject({ ok: true, upToDate: false });
+      await until('the engine reads the rule gone', () => !engineHoldsTheRule(), 8_000);
+      expect(rulesInTheCollection()).toEqual([]);
+      expect(await isThere(RULE_FILE)).toBe(false);
+    });
+  });
+
+  it('a collection the peer deleted with the folder in it leaves with the pull — nothing is asked', {
+    timeout: 30_000,
+  }, async () => {
+    const FOLDER_FILE = `${COLLECTION_DIR}/auth-fol0000f/_folder.yaml`;
+    const engineHoldsTheFolder = (): boolean =>
+      snapshotFolderPostStates(harness.workspaceId).some((state) => state.folder.uid === 'fol0000f');
+    await writeCollectionByHand();
+    await writeByHand(FOLDER_FILE, 'schemaVersion: 5\nuid: fol0000f\nname: Auth\n');
+    await until('the engine takes the hand-written folder in', engineHoldsTheFolder, 5_000);
+    expect(await harness.runtime.commit(harness.workspaceId, 'seed')).toMatchObject({ ok: true, committed: true });
+    await withThePeerDeleting(COLLECTION_DIR, async () => {
+      expect(await harness.runtime.pull(harness.workspaceId)).toMatchObject({ ok: true, upToDate: false });
+      await until('the engine reads the collection gone', () => !engineHoldsTheCollection(), 8_000);
+      expect(engineHoldsTheFolder()).toBe(false);
+      expect(await isThere(COLLECTION_FILE)).toBe(false);
+    });
   });
 });
 

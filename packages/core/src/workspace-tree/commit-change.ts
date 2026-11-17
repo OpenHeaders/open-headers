@@ -33,8 +33,11 @@
  * side changed still stands on both, and no conflict is named.
  */
 
+import { RUNTIME_ONLY_FIELDS } from '../codec/yaml';
 import {
   canonicalJson,
+  FOLDER_CHILDREN_PATH,
+  FOLDER_ITEMS_PATH,
   FOLDER_TREE_KINDS,
   REQUEST_FOLDER_TREE_KINDS,
   resolveTreeParent,
@@ -193,6 +196,23 @@ const NO_SKIP: ReadonlySet<string> = new Set();
 /** `path` is the caller's: a moved entity is re-homed against the branch's containers, never copied. */
 const ENTITY_SKIP: ReadonlySet<string> = new Set(['uid', 'path']);
 
+const UNFILED: ReadonlySet<string> = new Set(RUNTIME_ONLY_FIELDS);
+const UNFILED_OF_CONTAINER: ReadonlySet<string> = new Set([...UNFILED, FOLDER_CHILDREN_PATH, FOLDER_ITEMS_PATH]);
+
+/**
+ * Whether the branch's document says anything the change's start does
+ * not — asked as a file carries the two. The path and the frozen
+ * segment behind it are the engine's own, as are a container's sets of
+ * what it holds (a manifest carries `order` in their place): a read
+ * holds none of them, so a document the branch never touched would
+ * always read as edited.
+ */
+function editedSince(mine: Row, before: Row, container: boolean): boolean {
+  const unfiled = container ? UNFILED_OF_CONTAINER : UNFILED;
+  const filed = (entity: Row): Row => Object.fromEntries(Object.entries(entity).filter(([key]) => !unfiled.has(key)));
+  return differs(filed(mine), filed(before));
+}
+
 function byUid<T extends { uid: string }>(items: readonly T[]): Map<string, T> {
   return new Map(items.map((item) => [item.uid, item] as const));
 }
@@ -348,7 +368,7 @@ function withdraw<T extends PathEntity>(group: Family<T>, pass: Pass, occupied: 
     }
     if (
       !pass.answeredGone.has(before.uid) &&
-      differs({ ...mine, path: before.path }, before) &&
+      editedSince(mine, before, group.container) &&
       keepsEdited(document, pass)
     ) {
       continue;
