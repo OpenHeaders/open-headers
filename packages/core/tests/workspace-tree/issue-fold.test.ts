@@ -9,7 +9,7 @@ import type { Collection } from '../../src/types';
 import {
   containTreeRead,
   foldTreeIssues,
-  type HeldContainers,
+  type HeldTree,
   readWorkspaceTree,
   type TreeFile,
   type TreeIssue,
@@ -23,13 +23,20 @@ const ruleYaml = (uid: string): string =>
 const collectionYaml = (uid: string): string => `schemaVersion: 5\nuid: ${uid}\nname: API\nvariables: []\n`;
 const folderYaml = (uid: string): string => `schemaVersion: 5\nuid: ${uid}\nname: Auth\n`;
 
-const NO_CONTAINERS: HeldContainers = {
+const NO_CONTAINERS: HeldTree = {
   collections: [],
   folders: [],
   requestCollections: [],
   requestFolders: [],
   templateCollections: [],
   templateFolders: [],
+  rules: [],
+  requests: [],
+  grpcRequests: [],
+  websocketRequests: [],
+  mqttRequests: [],
+  graphqlRequests: [],
+  templates: [],
 };
 
 function file(path: string, content: string): TreeFile {
@@ -37,7 +44,7 @@ function file(path: string, content: string): TreeFile {
 }
 
 /** The issues of a tree as a sweep derives them: read, then contained against what the engine holds. */
-function issuesOf(files: TreeFile[], held: Partial<HeldContainers> = {}): TreeIssue[] {
+function issuesOf(files: TreeFile[], held: Partial<HeldTree> = {}): TreeIssue[] {
   const read = readWorkspaceTree([file('workspace.yaml', WORKSPACE_YAML), ...files]);
   return containTreeRead(read, { ...NO_CONTAINERS, ...held }).issues;
 }

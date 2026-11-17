@@ -26,7 +26,7 @@ export {
   readCommitResolutions,
 } from './commit-conflicts';
 export { type CommitSecretRowsArgs, withCommitSecretRows } from './commit-secrets';
-export { containTreeRead, type HeldContainers } from './containment';
+export { containTreeRead, type HeldContainers, type HeldTree } from './containment';
 export { treeDocumentPaths } from './document-paths';
 export {
   classifyTreePath,

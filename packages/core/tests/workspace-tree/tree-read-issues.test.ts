@@ -94,6 +94,30 @@ describe('readWorkspaceTree edge cases', () => {
     expect(result.issues[0].message).toContain('duplicate uid');
   });
 
+  it('keeps a leaf it skipped as a duplicate, with what it holds, for the claim to be settled', () => {
+    const result = readWorkspaceTree([
+      file('workspace.yaml', WORKSPACE_YAML),
+      file(COLLECTION_FILE, COLLECTION_YAML),
+      file(RULE_FILE, RULE_YAML),
+      file('rules/api-cccccccc/copy-aaaaaaaa/rule.yaml', `${RULE_YAML}handAdded: kept\n`),
+    ]);
+    expect(result.shadowed.rules.map(({ entity }) => [entity.uid, entity.path])).toEqual([
+      ['aaaaaaaa', 'rules/api-cccccccc/copy-aaaaaaaa'],
+    ]);
+    expect(result.shadowed.rules[0].unknowns).toHaveLength(1);
+    expect(Object.keys(result.unknowns)).toEqual([]);
+  });
+
+  it('keeps no container it skipped as a duplicate', () => {
+    const result = readWorkspaceTree([
+      file('workspace.yaml', WORKSPACE_YAML),
+      file(COLLECTION_FILE, COLLECTION_YAML),
+      file('rules/copy-cccccccc/_collection.yaml', COLLECTION_YAML),
+    ]);
+    expect(result.issues.map((issue) => issue.path)).toEqual(['rules/copy-cccccccc/_collection.yaml']);
+    expect(Object.values(result.shadowed).flat()).toEqual([]);
+  });
+
   it("ignores the user's own files and the sidecar, silently", () => {
     const result = readWorkspaceTree([
       file('workspace.yaml', WORKSPACE_YAML),

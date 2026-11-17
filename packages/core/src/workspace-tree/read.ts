@@ -63,7 +63,7 @@ import {
   WORKSPACE_VARS_DOC_KEY,
   WORKSPACE_VARS_FILE,
 } from './layout';
-import type { TreeFile, TreeIssue, TreeReadResult, TreeUnknownFields } from './types';
+import type { TreeFile, TreeIssue, TreeReadResult, TreeShadowed, TreeShadowedLeaves, TreeUnknownFields } from './types';
 
 interface SiblingFile {
   fileName: string;
@@ -97,6 +97,11 @@ function pickByTree<T>(tree: string, rules: T, requests: T, templates: T): T | n
     default:
       return null;
   }
+}
+
+/** The message of a document skipped for a uid another file holds. */
+export function duplicateUidMessage(uid: string): string {
+  return `duplicate uid "${uid}" — entity skipped`;
 }
 
 /** Read one workspace tree from its complete file listing. */
@@ -140,6 +145,16 @@ export function readWorkspaceTree(files: readonly TreeFile[]): TreeReadResult {
     else byDir.set(dir, [entry]);
   }
 
+  const shadowed: TreeShadowedLeaves = {
+    rules: [],
+    requests: [],
+    grpcRequests: [],
+    websocketRequests: [],
+    mqttRequests: [],
+    graphqlRequests: [],
+    templates: [],
+  };
+
   const seenUids = new Set<string>();
   const captureUnknowns = (key: string, parsed: ParsedDocument<unknown>): void => {
     const rows = unknownFieldsOf(parsed);
@@ -150,13 +165,19 @@ export function readWorkspaceTree(files: readonly TreeFile[]): TreeReadResult {
    * Run one document parse; returns null (and records an issue) on
    * failure or on a duplicate uid — the first occurrence of an identity
    * wins, matching the codec discipline that the uid inside the YAML is
-   * authoritative while folder names are only mirrors.
+   * authoritative while folder names are only mirrors. A leaf skipped
+   * that way is kept in `shadows`.
    */
-  const ingest = <T extends { uid: string }>(manifestPath: string, parse: () => ParsedDocument<T>): T | null => {
+  const ingest = <T extends { uid: string }>(
+    manifestPath: string,
+    parse: () => ParsedDocument<T>,
+    shadows?: TreeShadowed<T>[],
+  ): T | null => {
     try {
       const parsed = parse();
       if (seenUids.has(parsed.value.uid)) {
-        issues.push({ path: manifestPath, message: `duplicate uid "${parsed.value.uid}" — entity skipped` });
+        issues.push({ path: manifestPath, message: duplicateUidMessage(parsed.value.uid) });
+        shadows?.push({ entity: parsed.value, unknowns: unknownFieldsOf(parsed) });
         return null;
       }
       seenUids.add(parsed.value.uid);
@@ -280,53 +301,64 @@ export function readWorkspaceTree(files: readonly TreeFile[]): TreeReadResult {
       }
       case RULE_MANIFEST_FILE: {
         if (!contained(path, 'rules', 'rule')) break;
-        const value = ingest(path, () => parseRule(content, { path: dir }));
+        const value = ingest(path, () => parseRule(content, { path: dir }), shadowed.rules);
         if (value) state.rules.push(value);
         break;
       }
       case REQUEST_MANIFEST_FILE: {
         if (!contained(path, 'requests', 'request')) break;
-        const value = ingest(path, () =>
-          parseRequest(content, { path: dir, siblings: siblingsFor(dir, REQUEST_MANIFEST_FILE) }),
+        const value = ingest(
+          path,
+          () => parseRequest(content, { path: dir, siblings: siblingsFor(dir, REQUEST_MANIFEST_FILE) }),
+          shadowed.requests,
         );
         if (value) state.requests.push(value);
         break;
       }
       case GRPC_REQUEST_MANIFEST_FILE: {
         if (!contained(path, 'requests', 'gRPC request')) break;
-        const value = ingest(path, () =>
-          parseGrpcRequest(content, { path: dir, siblings: siblingsFor(dir, GRPC_REQUEST_MANIFEST_FILE) }),
+        const value = ingest(
+          path,
+          () => parseGrpcRequest(content, { path: dir, siblings: siblingsFor(dir, GRPC_REQUEST_MANIFEST_FILE) }),
+          shadowed.grpcRequests,
         );
         if (value) state.grpcRequests.push(value);
         break;
       }
       case WEBSOCKET_REQUEST_MANIFEST_FILE: {
         if (!contained(path, 'requests', 'WebSocket request')) break;
-        const value = ingest(path, () =>
-          parseWebSocketRequest(content, { path: dir, siblings: siblingsFor(dir, WEBSOCKET_REQUEST_MANIFEST_FILE) }),
+        const value = ingest(
+          path,
+          () =>
+            parseWebSocketRequest(content, { path: dir, siblings: siblingsFor(dir, WEBSOCKET_REQUEST_MANIFEST_FILE) }),
+          shadowed.websocketRequests,
         );
         if (value) state.websocketRequests.push(value);
         break;
       }
       case MQTT_REQUEST_MANIFEST_FILE: {
         if (!contained(path, 'requests', 'MQTT request')) break;
-        const value = ingest(path, () =>
-          parseMqttRequest(content, { path: dir, siblings: siblingsFor(dir, MQTT_REQUEST_MANIFEST_FILE) }),
+        const value = ingest(
+          path,
+          () => parseMqttRequest(content, { path: dir, siblings: siblingsFor(dir, MQTT_REQUEST_MANIFEST_FILE) }),
+          shadowed.mqttRequests,
         );
         if (value) state.mqttRequests.push(value);
         break;
       }
       case GRAPHQL_REQUEST_MANIFEST_FILE: {
         if (!contained(path, 'requests', 'GraphQL request')) break;
-        const value = ingest(path, () =>
-          parseGraphqlRequest(content, { path: dir, siblings: siblingsFor(dir, GRAPHQL_REQUEST_MANIFEST_FILE) }),
+        const value = ingest(
+          path,
+          () => parseGraphqlRequest(content, { path: dir, siblings: siblingsFor(dir, GRAPHQL_REQUEST_MANIFEST_FILE) }),
+          shadowed.graphqlRequests,
         );
         if (value) state.graphqlRequests.push(value);
         break;
       }
       case TEMPLATE_MANIFEST_FILE: {
         if (!contained(path, 'templates', 'template')) break;
-        const value = ingest(path, () => parseTemplate(content, { path: dir }));
+        const value = ingest(path, () => parseTemplate(content, { path: dir }), shadowed.templates);
         if (value) state.templates.push(value);
         break;
       }
@@ -366,5 +398,5 @@ export function readWorkspaceTree(files: readonly TreeFile[]): TreeReadResult {
     if (value) state.environments.push(value);
   }
 
-  return { state, unknowns, issues };
+  return { state, unknowns, issues, shadowed };
 }

@@ -5,10 +5,10 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import type { Collection, Folder, Request, Template } from '../../src/types';
+import type { Collection, Folder, Request, Rule, Template } from '../../src/types';
 import {
   containTreeRead,
-  type HeldContainers,
+  type HeldTree,
   readWorkspaceTree,
   type TreeFile,
   type TreeIssue,
@@ -23,7 +23,13 @@ const ruleYaml = (uid: string): string =>
 const collectionYaml = (uid: string): string => `schemaVersion: 5\nuid: ${uid}\nname: API\nvariables: []\n`;
 const folderYaml = (uid: string): string => `schemaVersion: 5\nuid: ${uid}\nname: Auth\n`;
 
+const namedRuleYaml = (uid: string, name: string): string => ruleYaml(uid).replace('Block probes', name);
+
 const refused = (kind: string): string => `${kind} inside no collection or folder of the workspace — skipped`;
+const duplicate = (path: string, uid: string): TreeIssue => ({
+  path,
+  message: `duplicate uid "${uid}" — entity skipped`,
+});
 
 /** The issue of a folder or a leaf refused for its place — at its manifest, naming the directory it sits in. */
 const refusal = (path: string, kind: string, uncontainedIn: string): TreeIssue => ({
@@ -52,7 +58,7 @@ function makeFolder(uid: string, path: string): Folder {
   return { schemaVersion: 5, uid, path, name: 'Auth' };
 }
 
-function makeHeld(overrides: Partial<HeldContainers> = {}): HeldContainers {
+function makeHeld(overrides: Partial<HeldTree> = {}): HeldTree {
   return {
     collections: [],
     folders: [],
@@ -60,6 +66,13 @@ function makeHeld(overrides: Partial<HeldContainers> = {}): HeldContainers {
     requestFolders: [],
     templateCollections: [],
     templateFolders: [],
+    rules: [],
+    requests: [],
+    grpcRequests: [],
+    websocketRequests: [],
+    mqttRequests: [],
+    graphqlRequests: [],
+    templates: [],
     ...overrides,
   };
 }
@@ -248,5 +261,114 @@ describe('containTreeRead', () => {
     const result = containTreeRead(raw, makeHeld());
     expect(Object.keys(result.unknowns)).toEqual(['bbbbbbbb']);
     expect(result.state.rules.map((rule) => rule.uid)).toEqual(['bbbbbbbb']);
+  });
+});
+
+describe('containTreeRead — a uid more than one leaf file claims', () => {
+  const API = file('rules/api-cccccccc/_collection.yaml', collectionYaml('cccccccc'));
+  const BROKEN = file('rules/aaa-broken-dddddddd/_collection.yaml', BROKEN_YAML);
+  const INSIDE = 'rules/aaa-broken-dddddddd/inside-aaaaaaaa';
+  const FIRST = 'rules/api-cccccccc/a-first-aaaaaaaa';
+  const COPY = 'rules/api-cccccccc/copy-aaaaaaaa';
+  const heldRule = (path: string): Rule => ({ uid: 'aaaaaaaa', path }) as Rule;
+  const rulesOf = (result: TreeReadResult): string[][] => result.state.rules.map((rule) => [rule.path, rule.name]);
+
+  it('a file refused for its place claims nothing: the copy the workspace can hold is the rule', () => {
+    const result = containTreeRead(
+      read(
+        BROKEN,
+        file(`${INSIDE}/rule.yaml`, namedRuleYaml('aaaaaaaa', 'Refused')),
+        API,
+        file(`${COPY}/rule.yaml`, namedRuleYaml('aaaaaaaa', 'Copy')),
+      ),
+      makeHeld(),
+    );
+    expect(rulesOf(result)).toEqual([[COPY, 'Copy']]);
+    expect(result.issues.slice(1)).toEqual([refusal(`${INSIDE}/rule.yaml`, 'rule', 'rules/aaa-broken-dddddddd')]);
+  });
+
+  it('gives it to the first in path order where the workspace can hold both — the same read', () => {
+    const raw = read(
+      API,
+      file(`${FIRST}/rule.yaml`, namedRuleYaml('aaaaaaaa', 'First')),
+      file(`${COPY}/rule.yaml`, namedRuleYaml('aaaaaaaa', 'Copy')),
+    );
+    const result = containTreeRead(raw, makeHeld({ rules: [heldRule('rules/api-cccccccc/elsewhere-aaaaaaaa')] }));
+    expect(result).toBe(raw);
+    expect(rulesOf(result)).toEqual([[FIRST, 'First']]);
+    expect(result.issues).toEqual([duplicate(`${COPY}/rule.yaml`, 'aaaaaaaa')]);
+  });
+
+  it('the file at the place the engine holds the rule is the rule, though a copy sorts before it', () => {
+    const result = containTreeRead(
+      read(
+        API,
+        file(`${FIRST}/rule.yaml`, namedRuleYaml('aaaaaaaa', 'First')),
+        file(`${COPY}/rule.yaml`, namedRuleYaml('aaaaaaaa', 'Held')),
+      ),
+      makeHeld({ rules: [heldRule(COPY)] }),
+    );
+    expect(rulesOf(result)).toEqual([[COPY, 'Held']]);
+    expect(result.issues).toEqual([duplicate(`${FIRST}/rule.yaml`, 'aaaaaaaa')]);
+  });
+
+  it('the held rule keeps its file against a copy under a collection that does not read — its hand edit is read', () => {
+    const result = containTreeRead(
+      read(
+        BROKEN,
+        file(`${INSIDE}/rule.yaml`, namedRuleYaml('aaaaaaaa', 'Refused')),
+        API,
+        file(`${COPY}/rule.yaml`, namedRuleYaml('aaaaaaaa', 'Edited by hand')),
+      ),
+      makeHeld({ collections: [makeCollection('cccccccc', 'rules/api-cccccccc')], rules: [heldRule(COPY)] }),
+    );
+    expect(rulesOf(result)).toEqual([[COPY, 'Edited by hand']]);
+    expect(result.issues.slice(1)).toEqual([refusal(`${INSIDE}/rule.yaml`, 'rule', 'rules/aaa-broken-dddddddd')]);
+  });
+
+  it('leaves it with the first where the workspace can hold none of them, refused for its place', () => {
+    const result = containTreeRead(
+      read(
+        BROKEN,
+        file(`${INSIDE}/rule.yaml`, ruleYaml('aaaaaaaa')),
+        file('rules/aaa-broken-dddddddd/other-aaaaaaaa/rule.yaml', ruleYaml('aaaaaaaa')),
+      ),
+      makeHeld(),
+    );
+    expect(result.state.rules).toEqual([]);
+    expect(result.issues.slice(1)).toEqual([
+      duplicate('rules/aaa-broken-dddddddd/other-aaaaaaaa/rule.yaml', 'aaaaaaaa'),
+      refusal(`${INSIDE}/rule.yaml`, 'rule', 'rules/aaa-broken-dddddddd'),
+    ]);
+  });
+
+  it('the unknown-field rows follow the file that is the rule', () => {
+    const files = (firstExtra: string, copyExtra: string): TreeFile[] => [
+      BROKEN,
+      file(`${INSIDE}/rule.yaml`, `${ruleYaml('aaaaaaaa')}${firstExtra}`),
+      API,
+      file(`${COPY}/rule.yaml`, `${ruleYaml('aaaaaaaa')}${copyExtra}`),
+    ];
+    const swapped = containTreeRead(read(...files('handAdded: refused\n', 'copyAdded: kept\n')), makeHeld());
+    expect(swapped.unknowns.aaaaaaaa.map((row) => row.path)).toEqual(['/copyAdded']);
+    const bare = containTreeRead(read(...files('handAdded: refused\n', '')), makeHeld());
+    expect(Object.keys(bare.unknowns)).toEqual([]);
+  });
+
+  it('settles a request the same way, by its own family', () => {
+    const raw = read(file('requests/api-cccccccc/_collection.yaml', collectionYaml('cccccccc')));
+    const refusedOne = { uid: 'rrrrrrrr', path: 'requests/by-hand/get-users-rrrrrrrr' } as Request;
+    const copy = { uid: 'rrrrrrrr', path: 'requests/api-cccccccc/get-users-rrrrrrrr' } as Request;
+    const result = containTreeRead(
+      {
+        ...raw,
+        state: { ...raw.state, requests: [refusedOne] },
+        issues: [duplicate(`${copy.path}/request.yaml`, 'rrrrrrrr')],
+        shadowed: { ...raw.shadowed, requests: [{ entity: copy, unknowns: [] }] },
+      },
+      makeHeld(),
+    );
+    expect(result.state.requests).toEqual([copy]);
+    expect(result.issues).toEqual([refusal(`${refusedOne.path}/request.yaml`, 'request', 'requests/by-hand')]);
   });
 });

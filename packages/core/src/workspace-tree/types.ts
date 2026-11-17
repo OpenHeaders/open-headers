@@ -94,6 +94,30 @@ export interface TreeIssue {
  */
 export type ForeignHistoryNote = 'unrelated' | 'shallow';
 
+/** The tree's leaf families — each held in a collection or folder of its tree. */
+export type TreeLeafKey =
+  | 'rules'
+  | 'requests'
+  | 'grpcRequests'
+  | 'websocketRequests'
+  | 'mqttRequests'
+  | 'graphqlRequests'
+  | 'templates';
+
+/** A leaf read under a uid an earlier file of the listing claimed. */
+export interface TreeShadowed<T> {
+  entity: T;
+  unknowns: readonly UnknownField[];
+}
+
+/**
+ * The leaves a reading skipped as duplicates, by family. The reader
+ * gives a uid to the first file that claims it, by the files alone;
+ * which of the files the workspace takes is settled where a read meets
+ * the engine (`containment.ts`).
+ */
+export type TreeShadowedLeaves = { [K in TreeLeafKey]: TreeShadowed<WorkspaceTreeState[K][number]>[] };
+
 export interface TreeReadResult {
   /**
    * `workspace` is null when `workspace.yaml` is missing or invalid
@@ -104,4 +128,5 @@ export interface TreeReadResult {
   state: Omit<WorkspaceTreeState, 'workspace'> & { workspace: WorkspaceManifest | null };
   unknowns: TreeUnknownFields;
   issues: TreeIssue[];
+  shadowed: TreeShadowedLeaves;
 }
