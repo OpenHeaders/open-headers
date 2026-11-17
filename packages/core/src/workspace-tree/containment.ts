@@ -141,6 +141,7 @@ export function containTreeRead(read: TreeReadResult, held: HeldContainers): Tre
     issues.push({
       path: `${entity.path}/${manifest}`,
       message: `${kind} inside no collection or folder of the workspace — skipped`,
+      uncontainedIn: dirOf(entity.path),
     });
   };
   for (const tree of TREES) refuseUncontained(tree, read.state, held, refuse);

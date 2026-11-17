@@ -582,6 +582,10 @@ export const workbenchSettingsPanes = {
   'workbench.settings.gitPane.unbound': '文件夹已解绑。',
   'workbench.settings.gitPane.issuesTitle': ({ count }, locale) =>
     plural(locale, Number(count), { other: '{count} 个文件无法读取，保持原样' }),
+  'workbench.settings.gitPane.issuesInside': ({ count }, locale) =>
+    plural(locale, Number(count), { other: '以及其中的 {count} 个文件' }),
+  'workbench.settings.gitPane.issuesUncontained': ({ count }, locale) =>
+    plural(locale, Number(count), { other: '{count} 个文件不在任何集合或文件夹中' }),
   'workbench.settings.gitPane.refusal.locked': '此文件夹已被另一个正在运行的引擎绑定（进程 {pid}）。',
   'workbench.settings.gitPane.refusal.uuidCollision': '此文件夹持有的工作区已通过其他来源存在于此主机上。',
   'workbench.settings.gitPane.refusal.identityMismatch': '此文件夹属于另一个工作区（{uid}）。',

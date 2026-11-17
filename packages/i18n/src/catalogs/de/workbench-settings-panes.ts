@@ -726,6 +726,16 @@ export const workbenchSettingsPanes = {
       one: '{count} Datei ließ sich nicht lesen und bleibt unangetastet',
       other: '{count} Dateien ließen sich nicht lesen und bleiben unangetastet',
     }),
+  'workbench.settings.gitPane.issuesInside': ({ count }, locale) =>
+    plural(locale, Number(count), {
+      one: 'und {count} Datei darin',
+      other: 'und {count} Dateien darin',
+    }),
+  'workbench.settings.gitPane.issuesUncontained': ({ count }, locale) =>
+    plural(locale, Number(count), {
+      one: '{count} Datei in keiner Sammlung und keinem Ordner',
+      other: '{count} Dateien in keiner Sammlung und keinem Ordner',
+    }),
   'workbench.settings.gitPane.refusal.locked':
     'Dieser Ordner ist bereits an eine andere laufende Engine gebunden (Prozess {pid}).',
   'workbench.settings.gitPane.refusal.uuidCollision':

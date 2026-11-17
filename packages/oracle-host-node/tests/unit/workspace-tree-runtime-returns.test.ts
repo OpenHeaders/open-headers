@@ -302,7 +302,11 @@ describe("the workspace-tree runtime: the Git card's rows after a pass", () => {
       const raised = rows();
       expect(raised).toEqual([
         expect.objectContaining({ path: BROKEN_FILE }),
-        { path: REFUSED_FILE, message: 'rule inside no collection or folder of the workspace — skipped' },
+        {
+          path: REFUSED_FILE,
+          message: 'rule inside no collection or folder of the workspace — skipped',
+          uncontainedIn: 'rules/broken-colbbbbb',
+        },
       ]);
 
       expect(await harness.runtime.pull(harness.workspaceId)).toMatchObject({ ok: true, upToDate: true });

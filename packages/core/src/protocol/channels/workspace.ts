@@ -1856,6 +1856,8 @@ export type WorkspaceTreeAbortOperationWire =
 export interface WorkspaceTreeIssueWire {
   path: string;
   message: string;
+  /** The directory the document sits in, where it was skipped for holding no container of the workspace. */
+  uncontainedIn?: string;
 }
 
 export type WorkspaceTreeSweepSummary =

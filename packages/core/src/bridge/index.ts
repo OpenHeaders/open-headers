@@ -101,6 +101,7 @@ export type {
   WorkspaceTreeGitStatusWire,
   WorkspaceTreeIgnoreSourceWire,
   WorkspaceTreeIgnoreWire,
+  WorkspaceTreeIssueWire,
   WorkspaceTreeLocateLogRowWire,
   WorkspaceTreeLogAskWire,
   WorkspaceTreeLogCellWire,

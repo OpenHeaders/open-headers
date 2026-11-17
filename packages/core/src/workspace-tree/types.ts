@@ -78,6 +78,12 @@ export interface TreeIssue {
   /** Path of the offending file (the manifest path for multi-file entities). */
   readonly path: string;
   readonly message: string;
+  /**
+   * Set where the document was skipped for its place alone: the
+   * directory it sits in, which holds no collection or folder the
+   * workspace has. A document skipped for what it says carries none.
+   */
+  readonly uncontainedIn?: string;
 }
 
 /**

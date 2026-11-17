@@ -127,6 +127,7 @@ describe('readWorkspaceTree edge cases', () => {
       {
         path: 'rules/block-probes-aaaaaaaa/rule.yaml',
         message: 'rule outside a collection or folder of "rules" — skipped',
+        uncontainedIn: 'rules',
       },
     ]);
   });
@@ -141,9 +142,10 @@ describe('readWorkspaceTree edge cases', () => {
     expect(result.issues.map((issue) => issue.path)).toEqual([
       'rules/api-cccccccc/by-hand/block-probes-aaaaaaaa/rule.yaml',
     ]);
+    expect(result.issues[0].uncontainedIn).toBe('rules/api-cccccccc/by-hand');
   });
 
-  it("refuses a leaf under another family's container", () => {
+  it("refuses a leaf under another family's container — for its tree, not for a directory with no container", () => {
     const result = readWorkspaceTree([
       file('workspace.yaml', WORKSPACE_YAML),
       file('requests/api-cccccccc/_collection.yaml', COLLECTION_YAML),
@@ -151,8 +153,26 @@ describe('readWorkspaceTree edge cases', () => {
     ]);
     expect(result.state.rules).toEqual([]);
     expect(result.state.requestCollections).toHaveLength(1);
-    expect(result.issues).toHaveLength(1);
-    expect(result.issues[0].message).toBe('rule outside a collection or folder of "rules" — skipped');
+    expect(result.issues).toEqual([
+      {
+        path: 'requests/api-cccccccc/block-probes-aaaaaaaa/rule.yaml',
+        message: 'rule outside a collection or folder of "rules" — skipped',
+      },
+    ]);
+  });
+
+  it('names the directory of a leaf in another tree where that directory holds no container either', () => {
+    const result = readWorkspaceTree([
+      file('workspace.yaml', WORKSPACE_YAML),
+      file('requests/by-hand/block-probes-aaaaaaaa/rule.yaml', RULE_YAML),
+    ]);
+    expect(result.issues).toEqual([
+      {
+        path: 'requests/by-hand/block-probes-aaaaaaaa/rule.yaml',
+        message: 'rule outside a collection or folder of "rules" — skipped',
+        uncontainedIn: 'requests/by-hand',
+      },
+    ]);
   });
 
   it('refuses a request, a template and each request kind the same way, before any parse', () => {

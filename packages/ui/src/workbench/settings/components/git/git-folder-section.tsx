@@ -1,6 +1,6 @@
 /**
- * Git › Folder sections — Binding (the bound folder with its quarantine
- * issues and the Unbind gesture, or the bind form while unbound) and
+ * Git › Folder sections — Binding (the bound folder with the files not
+ * taken in and the Unbind gesture, or the bind form while unbound) and
  * Requirements (the git install the tree needs: found, missing, or
  * below the version floor). Shared by the Folder page and the Server
  * Admin git card; the caller owns the status spine.
@@ -11,6 +11,7 @@ import type React from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import GitBindForm from '../../../components/git/GitBindForm';
 import { PaneSection } from '../pane-chrome';
+import GitIssueList from './git-issue-list';
 import type { WorkspaceGit } from './use-workspace-git';
 
 export interface GitFolderSectionProps {
@@ -59,28 +60,7 @@ const GitFolderSection: React.FC<GitFolderSectionProps> = ({ git, allowFolderPic
             <p style={{ margin: '6px 0 0', fontSize: 11.5, color: token.colorTextSecondary }}>
               {t('workbench.settings.gitPane.boundBody')}
             </p>
-            {binding.issues.length > 0 && (
-              <Alert
-                type="warning"
-                showIcon
-                style={{ marginTop: 10 }}
-                data-testid="git-pane-issues-alert"
-                title={
-                  <span style={{ fontSize: 12 }}>
-                    {t('workbench.settings.gitPane.issuesTitle', { count: binding.issues.length })}
-                  </span>
-                }
-                description={
-                  <ul style={{ margin: 0, paddingLeft: 16, fontSize: 11.5 }}>
-                    {binding.issues.map((issue) => (
-                      <li key={issue.path}>
-                        <span style={{ fontFamily: token.fontFamilyCode }}>{issue.path}</span> — {issue.message}
-                      </li>
-                    ))}
-                  </ul>
-                }
-              />
-            )}
+            {binding.issues.length > 0 && <GitIssueList issues={binding.issues} />}
             <div style={{ marginTop: 10 }}>
               <Popconfirm
                 title={t('workbench.settings.gitPane.unbindConfirm.title')}

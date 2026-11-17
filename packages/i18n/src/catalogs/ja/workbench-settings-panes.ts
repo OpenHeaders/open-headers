@@ -638,6 +638,10 @@ export const workbenchSettingsPanes = {
   'workbench.settings.gitPane.unbound': 'フォルダーのバインドを解除しました。',
   'workbench.settings.gitPane.issuesTitle': ({ count }, locale) =>
     plural(locale, Number(count), { other: '{count} 個のファイルを読み取れず、手つかずのままです' }),
+  'workbench.settings.gitPane.issuesInside': ({ count }, locale) =>
+    plural(locale, Number(count), { other: 'および、その中の {count} 個のファイル' }),
+  'workbench.settings.gitPane.issuesUncontained': ({ count }, locale) =>
+    plural(locale, Number(count), { other: 'どのコレクションにもフォルダーにも入っていない {count} 個のファイル' }),
   'workbench.settings.gitPane.refusal.locked':
     'このフォルダーは既に別の実行中のエンジン（プロセス {pid}）にバインドされています。',
   'workbench.settings.gitPane.refusal.uuidCollision':

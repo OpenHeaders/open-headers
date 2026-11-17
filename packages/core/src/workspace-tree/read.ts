@@ -179,15 +179,21 @@ export function readWorkspaceTree(files: readonly TreeFile[]): TreeReadResult {
    * no container has no set to be held in. A file-presence test — a
    * container whose manifest does not parse keeps its children here;
    * whether the workspace has that container is asked where a read
-   * meets the engine (`containment.ts`).
+   * meets the engine (`containment.ts`). A leaf under another tree's
+   * container is refused for its tree, not for a directory that holds
+   * no container.
    */
   const contained = (manifestPath: string, tree: string, kind: string): boolean => {
     const parent = dirOf(dirOf(manifestPath));
-    const held =
-      firstSegmentOf(manifestPath) === tree &&
-      (byPath.has(`${parent}/${COLLECTION_MANIFEST_FILE}`) || byPath.has(`${parent}/${FOLDER_MANIFEST_FILE}`));
+    const container =
+      byPath.has(`${parent}/${COLLECTION_MANIFEST_FILE}`) || byPath.has(`${parent}/${FOLDER_MANIFEST_FILE}`);
+    const held = container && firstSegmentOf(manifestPath) === tree;
     if (!held) {
-      issues.push({ path: manifestPath, message: `${kind} outside a collection or folder of "${tree}" — skipped` });
+      issues.push({
+        path: manifestPath,
+        message: `${kind} outside a collection or folder of "${tree}" — skipped`,
+        ...(container ? {} : { uncontainedIn: parent }),
+      });
     }
     return held;
   };

@@ -631,6 +631,10 @@ export const workbenchSettingsPanes = {
   'workbench.settings.gitPane.unbound': '폴더 바인딩을 해제했습니다.',
   'workbench.settings.gitPane.issuesTitle': ({ count }, locale) =>
     plural(locale, Number(count), { other: '파일 {count}개를 읽을 수 없어 그대로 두었습니다' }),
+  'workbench.settings.gitPane.issuesInside': ({ count }, locale) =>
+    plural(locale, Number(count), { other: '및 그 안의 파일 {count}개' }),
+  'workbench.settings.gitPane.issuesUncontained': ({ count }, locale) =>
+    plural(locale, Number(count), { other: '어떤 컬렉션이나 폴더에도 속하지 않은 파일 {count}개' }),
   'workbench.settings.gitPane.refusal.locked':
     '이 폴더는 이미 실행 중인 다른 엔진 (프로세스 {pid})에 바인딩되어 있습니다.',
   'workbench.settings.gitPane.refusal.uuidCollision':

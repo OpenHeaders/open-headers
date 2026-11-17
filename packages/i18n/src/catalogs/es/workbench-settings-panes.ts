@@ -727,6 +727,18 @@ export const workbenchSettingsPanes = {
       many: '{count} archivos no se pudieron leer y se dejan intactos',
       other: '{count} archivos no se pudieron leer y se dejan intactos',
     }),
+  'workbench.settings.gitPane.issuesInside': ({ count }, locale) =>
+    plural(locale, Number(count), {
+      one: 'y {count} archivo dentro',
+      many: 'y {count} archivos dentro',
+      other: 'y {count} archivos dentro',
+    }),
+  'workbench.settings.gitPane.issuesUncontained': ({ count }, locale) =>
+    plural(locale, Number(count), {
+      one: '{count} archivo que no está en ninguna colección ni carpeta',
+      many: '{count} archivos que no están en ninguna colección ni carpeta',
+      other: '{count} archivos que no están en ninguna colección ni carpeta',
+    }),
   'workbench.settings.gitPane.refusal.locked':
     'Esta carpeta ya está vinculada a otro motor en ejecución (proceso {pid}).',
   'workbench.settings.gitPane.refusal.uuidCollision':

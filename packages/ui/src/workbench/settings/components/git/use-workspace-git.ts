@@ -9,14 +9,14 @@
  * admin console.
  */
 
-import { hostBridge, type WorkspaceTreeGitStatusWire } from '@openheaders/core/bridge';
+import { hostBridge, type WorkspaceTreeGitStatusWire, type WorkspaceTreeIssueWire } from '@openheaders/core/bridge';
 import { useCallback, useEffect, useState } from 'react';
 import type { WorkspaceTreeTransport } from '../../../components/git/transport';
 
 export interface WorkspaceGitBinding {
   workspaceId: string;
   rootDir: string;
-  issues: Array<{ path: string; message: string }>;
+  issues: WorkspaceTreeIssueWire[];
 }
 
 export interface WorkspaceGit {

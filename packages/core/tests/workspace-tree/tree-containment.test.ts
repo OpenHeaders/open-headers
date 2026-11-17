@@ -11,6 +11,7 @@ import {
   type HeldContainers,
   readWorkspaceTree,
   type TreeFile,
+  type TreeIssue,
   type TreeReadResult,
 } from '../../src/workspace-tree';
 
@@ -23,6 +24,13 @@ const collectionYaml = (uid: string): string => `schemaVersion: 5\nuid: ${uid}\n
 const folderYaml = (uid: string): string => `schemaVersion: 5\nuid: ${uid}\nname: Auth\n`;
 
 const refused = (kind: string): string => `${kind} inside no collection or folder of the workspace — skipped`;
+
+/** The issue of a folder or a leaf refused for its place — at its manifest, naming the directory it sits in. */
+const refusal = (path: string, kind: string, uncontainedIn: string): TreeIssue => ({
+  path,
+  message: refused(kind),
+  uncontainedIn,
+});
 
 function file(path: string, content: string): TreeFile {
   return { path, content };
@@ -97,10 +105,9 @@ describe('containTreeRead', () => {
       makeHeld({ collections: [makeCollection('cccccccc', 'rules/api-cccccccc')] }),
     );
     expect(result.state.rules).toEqual([]);
-    expect(result.issues.at(-1)).toEqual({
-      path: 'rules/by-hand/block-probes-aaaaaaaa/rule.yaml',
-      message: refused('rule'),
-    });
+    expect(result.issues.at(-1)).toEqual(
+      refusal('rules/by-hand/block-probes-aaaaaaaa/rule.yaml', 'rule', 'rules/by-hand'),
+    );
   });
 
   it('keeps the children of a collection that did not read where the engine holds it at that path', () => {
@@ -138,8 +145,8 @@ describe('containTreeRead', () => {
     expect(result.state.folders).toEqual([]);
     expect(result.state.rules).toEqual([]);
     expect(result.issues).toEqual([
-      { path: 'rules/loose-ffffffff/_folder.yaml', message: refused('folder') },
-      { path: 'rules/loose-ffffffff/block-probes-aaaaaaaa/rule.yaml', message: refused('rule') },
+      refusal('rules/loose-ffffffff/_folder.yaml', 'folder', 'rules'),
+      refusal('rules/loose-ffffffff/block-probes-aaaaaaaa/rule.yaml', 'rule', 'rules/loose-ffffffff'),
     ]);
   });
 
@@ -190,7 +197,7 @@ describe('containTreeRead', () => {
     );
     expect(result.state.requests).toEqual([]);
     expect(result.issues).toEqual([
-      { path: 'requests/api-cccccccc/get-users-rrrrrrrr/request.yaml', message: refused('request') },
+      refusal('requests/api-cccccccc/get-users-rrrrrrrr/request.yaml', 'request', 'requests/api-cccccccc'),
     ]);
   });
 
@@ -213,12 +220,12 @@ describe('containTreeRead', () => {
       makeHeld(),
     );
     expect(result.issues).toEqual([
-      { path: 'requests/by-hand/leaf-rrrrrrr1/request.yaml', message: refused('request') },
-      { path: 'requests/by-hand/leaf-rrrrrrr2/grpc.yaml', message: refused('gRPC request') },
-      { path: 'requests/by-hand/leaf-rrrrrrr3/websocket.yaml', message: refused('WebSocket request') },
-      { path: 'requests/by-hand/leaf-rrrrrrr4/mqtt.yaml', message: refused('MQTT request') },
-      { path: 'requests/by-hand/leaf-rrrrrrr5/graphql.yaml', message: refused('GraphQL request') },
-      { path: 'templates/by-hand/leaf-tttttttt/template.yaml', message: refused('template') },
+      refusal('requests/by-hand/leaf-rrrrrrr1/request.yaml', 'request', 'requests/by-hand'),
+      refusal('requests/by-hand/leaf-rrrrrrr2/grpc.yaml', 'gRPC request', 'requests/by-hand'),
+      refusal('requests/by-hand/leaf-rrrrrrr3/websocket.yaml', 'WebSocket request', 'requests/by-hand'),
+      refusal('requests/by-hand/leaf-rrrrrrr4/mqtt.yaml', 'MQTT request', 'requests/by-hand'),
+      refusal('requests/by-hand/leaf-rrrrrrr5/graphql.yaml', 'GraphQL request', 'requests/by-hand'),
+      refusal('templates/by-hand/leaf-tttttttt/template.yaml', 'template', 'templates/by-hand'),
     ]);
     expect([
       result.state.requests,

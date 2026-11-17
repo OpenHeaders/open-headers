@@ -40,6 +40,7 @@ export {
 } from './entity-at-path';
 export { DETACHED_HEAD_STAMP_PREFIX, detachedHeadStamp, type HeadStampReading, readHeadStamp } from './head-stamp';
 export { withRequiredIgnoreEntries } from './hygiene';
+export { type FoldedTreeIssue, foldTreeIssues } from './issue-fold';
 export {
   COLLECTION_MANIFEST_FILE,
   ENTITY_MANIFEST_FILES,

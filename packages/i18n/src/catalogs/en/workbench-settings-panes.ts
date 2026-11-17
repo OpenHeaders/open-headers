@@ -625,6 +625,16 @@ export const workbenchSettingsPanes = {
       one: '{count} file could not be read and is left untouched',
       other: '{count} files could not be read and are left untouched',
     }),
+  'workbench.settings.gitPane.issuesInside': ({ count }, locale) =>
+    plural(locale, Number(count), {
+      one: 'and {count} file inside it',
+      other: 'and {count} files inside it',
+    }),
+  'workbench.settings.gitPane.issuesUncontained': ({ count }, locale) =>
+    plural(locale, Number(count), {
+      one: '{count} file in no collection or folder',
+      other: '{count} files in no collection or folder',
+    }),
   'workbench.settings.gitPane.refusal.locked':
     'This folder is already bound to another running engine (process {pid}).',
   'workbench.settings.gitPane.refusal.uuidCollision':

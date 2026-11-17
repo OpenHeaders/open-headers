@@ -685,6 +685,20 @@ export const workbenchSettingsPanes = {
       many: '{count} файлов не удалось прочитать, они оставлены без изменений',
       other: '{count} файлов не удалось прочитать, они оставлены без изменений',
     }),
+  'workbench.settings.gitPane.issuesInside': ({ count }, locale) =>
+    plural(locale, Number(count), {
+      one: 'и {count} файл внутри',
+      few: 'и {count} файла внутри',
+      many: 'и {count} файлов внутри',
+      other: 'и {count} файлов внутри',
+    }),
+  'workbench.settings.gitPane.issuesUncontained': ({ count }, locale) =>
+    plural(locale, Number(count), {
+      one: '{count} файл вне коллекций и папок',
+      few: '{count} файла вне коллекций и папок',
+      many: '{count} файлов вне коллекций и папок',
+      other: '{count} файлов вне коллекций и папок',
+    }),
   'workbench.settings.gitPane.refusal.locked': 'Эта папка уже привязана к другому запущенному движку (процесс {pid}).',
   'workbench.settings.gitPane.refusal.uuidCollision':
     'В этой папке лежит рабочее пространство, которое уже существует на этом хосте из другого источника.',

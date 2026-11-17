@@ -689,6 +689,18 @@ export const workbenchSettingsPanes = {
       few: '{count} fișiere nu au putut fi citite și sunt lăsate neatinse',
       other: '{count} de fișiere nu au putut fi citite și sunt lăsate neatinse',
     }),
+  'workbench.settings.gitPane.issuesInside': ({ count }, locale) =>
+    plural(locale, Number(count), {
+      one: 'și {count} fișier din interior',
+      few: 'și {count} fișiere din interior',
+      other: 'și {count} de fișiere din interior',
+    }),
+  'workbench.settings.gitPane.issuesUncontained': ({ count }, locale) =>
+    plural(locale, Number(count), {
+      one: '{count} fișier care nu se află în nicio colecție și în niciun folder',
+      few: '{count} fișiere care nu se află în nicio colecție și în niciun folder',
+      other: '{count} de fișiere care nu se află în nicio colecție și în niciun folder',
+    }),
   'workbench.settings.gitPane.refusal.locked':
     'Acest folder este legat deja de alt motor în execuție (procesul {pid}).',
   'workbench.settings.gitPane.refusal.uuidCollision':

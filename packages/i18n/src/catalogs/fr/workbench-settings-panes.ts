@@ -724,6 +724,18 @@ export const workbenchSettingsPanes = {
       many: '{count} fichiers n’ont pas pu être lus et sont laissés intacts',
       other: '{count} fichiers n’ont pas pu être lus et sont laissés intacts',
     }),
+  'workbench.settings.gitPane.issuesInside': ({ count }, locale) =>
+    plural(locale, Number(count), {
+      one: 'et {count} fichier à l’intérieur',
+      many: 'et {count} fichiers à l’intérieur',
+      other: 'et {count} fichiers à l’intérieur',
+    }),
+  'workbench.settings.gitPane.issuesUncontained': ({ count }, locale) =>
+    plural(locale, Number(count), {
+      one: '{count} fichier hors de toute collection et de tout dossier',
+      many: '{count} fichiers hors de toute collection et de tout dossier',
+      other: '{count} fichiers hors de toute collection et de tout dossier',
+    }),
   'workbench.settings.gitPane.refusal.locked':
     'Ce dossier est déjà lié à un autre moteur en cours d’exécution (processus {pid}).',
   'workbench.settings.gitPane.refusal.uuidCollision':
