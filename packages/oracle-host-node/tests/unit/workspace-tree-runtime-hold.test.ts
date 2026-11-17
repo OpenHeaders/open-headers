@@ -19,7 +19,7 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 import { synthesizeWorkspaceTreeDelta } from '@openheaders/core/sync-builders/mutations/workspace-tree-delta';
-import type { Rule } from '@openheaders/core/types';
+import type { Collection, Rule } from '@openheaders/core/types';
 import { planWorkspaceTree } from '@openheaders/core/workspace-tree';
 import {
   getOrCreateWorkspaceService,
@@ -33,7 +33,9 @@ import { applyAll, buildSnapshot } from '../../src/workspace-tree/runtime/snapsh
 import { openRuntimeHarness, type RuntimeHarness, until } from './_runtime-harness';
 
 const RULE_UID = 'aaaaaaaa';
-const RULE_FILE = `rules/block-probes-${RULE_UID}/rule.yaml`;
+const COLLECTION_DIR = 'rules/api-col0000a';
+const COLLECTION_FILE = `${COLLECTION_DIR}/_collection.yaml`;
+const RULE_FILE = `${COLLECTION_DIR}/block-probes-${RULE_UID}/rule.yaml`;
 
 /** Longer than the hold's wait (`OP_HOLD_RETRY_MS`), with the watcher's quiescence and a pass on top. */
 const WITHIN_THE_HOLD_MS = 9_000;
@@ -64,23 +66,32 @@ async function takeTheLockAsAnotherGit(): Promise<void> {
   );
 }
 
-/** A rule's file as the tree holds it, written by hand; answers once the engine has taken it in and the tree is at rest. */
+/** A rule in a collection, their files as the tree holds them, written by hand; answers once the engine has taken them in and the tree is at rest. */
 async function seedRuleByHand(): Promise<string> {
+  const collection: Collection = {
+    schemaVersion: 5,
+    uid: 'col0000a',
+    path: COLLECTION_DIR,
+    name: 'API',
+    variables: [],
+    pinnedEnvironmentIds: [],
+    defaultEnvironmentId: null,
+  };
   const rule = {
     schemaVersion: 5,
     uid: RULE_UID,
-    path: `rules/block-probes-${RULE_UID}`,
+    path: `${COLLECTION_DIR}/block-probes-${RULE_UID}`,
     name: 'Block probes',
     type: 'block',
     enabled: true,
     conditions: [],
     action: {},
   } as Rule;
-  const planned = planWorkspaceTree(
+  const plan = planWorkspaceTree(
     {
       workspace: { schemaVersion: 5, uid: harness.workspaceId, name: 'Probe Workspace' },
       rules: [rule],
-      collections: [],
+      collections: [collection],
       folders: [],
       requests: [],
       grpcRequests: [],
@@ -101,9 +112,12 @@ async function seedRuleByHand(): Promise<string> {
       liveVariables: [],
     },
     {},
-  ).find((file) => file.path === RULE_FILE);
-  if (planned === undefined) throw new Error('the plan holds no file for the rule');
+  );
+  const manifest = plan.find((file) => file.path === COLLECTION_FILE);
+  const planned = plan.find((file) => file.path === RULE_FILE);
+  if (manifest === undefined || planned === undefined) throw new Error('the plan holds no file for the rule');
   await fs.mkdir(path.dirname(ruleFile()), { recursive: true });
+  await fs.writeFile(path.join(harness.rootDir, ...COLLECTION_FILE.split('/')), manifest.content, 'utf-8');
   await fs.writeFile(ruleFile(), planned.content, 'utf-8');
   await until('the engine takes the hand-written rule in', engineHoldsTheRule, 5_000);
   // A commit runs on the chain behind the pass that took it in, and flushes first: the tree is at rest after.

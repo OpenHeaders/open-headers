@@ -9,7 +9,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import type { Environment, Request, Rule, Variable, WorkspaceVariables } from '../../src/types';
+import type { Collection, Environment, Request, Rule, Variable, WorkspaceVariables } from '../../src/types';
 import {
   applyCommitChange,
   type CommitConflictDocument,
@@ -26,18 +26,32 @@ const workspace = {
   orgId: '01890000-0000-7000-8000-000000000000',
 };
 
+const collection = (uid: string, path: string): Collection => ({
+  schemaVersion: 5,
+  uid,
+  path,
+  name: 'API',
+  variables: [],
+  pinnedEnvironmentIds: [],
+  defaultEnvironmentId: null,
+});
+
+const RULE_COLLECTION_DIR = 'rules/api-col0000a';
+const REQUEST_COLLECTION_DIR = 'requests/api-col0000b';
+
+/** Every side holds the two collections: a leaf is a document of the tree only inside one. */
 function state(overrides: Partial<WorkspaceTreeState> = {}): WorkspaceTreeState {
   return {
     workspace,
     rules: [],
-    collections: [],
+    collections: [collection('col0000a', RULE_COLLECTION_DIR)],
     folders: [],
     requests: [],
     grpcRequests: [],
     websocketRequests: [],
     mqttRequests: [],
     graphqlRequests: [],
-    requestCollections: [],
+    requestCollections: [collection('col0000b', REQUEST_COLLECTION_DIR)],
     requestFolders: [],
     templates: [],
     templateCollections: [],
@@ -57,7 +71,7 @@ const rule = (overrides: Partial<Rule> = {}): Rule =>
   ({
     schemaVersion: 5,
     uid: 'rul0000a',
-    path: 'rules/probe-rul0000a',
+    path: `${RULE_COLLECTION_DIR}/probe-rul0000a`,
     name: 'Probe',
     type: 'block',
     enabled: true,
@@ -66,13 +80,13 @@ const rule = (overrides: Partial<Rule> = {}): Rule =>
     ...overrides,
   }) as Rule;
 
-const RULE_FILE = 'rules/probe-rul0000a/rule.yaml';
+const RULE_FILE = `${RULE_COLLECTION_DIR}/probe-rul0000a/rule.yaml`;
 
 const request = (overrides: Record<string, unknown> = {}): Request =>
   ({
     schemaVersion: 5,
     uid: 'req00001',
-    path: 'requests/ping-req00001',
+    path: `${REQUEST_COLLECTION_DIR}/ping-req00001`,
     name: 'Ping',
     method: 'POST',
     url: 'https://api.openheaders.io/ping',
@@ -84,7 +98,7 @@ const request = (overrides: Record<string, unknown> = {}): Request =>
     ...overrides,
   }) as unknown as Request;
 
-const REQUEST_DIR = 'requests/ping-req00001';
+const REQUEST_DIR = `${REQUEST_COLLECTION_DIR}/ping-req00001`;
 
 interface Sides {
   current: WorkspaceTreeState;
@@ -118,10 +132,10 @@ describe('commitConflictDocuments', () => {
   });
 
   it("the files are named at the branch's path, wherever the change holds the document", () => {
-    const moved = rule({ name: 'Local name', path: 'rules/local-name-rul0000a' });
+    const moved = rule({ name: 'Local name', path: `${RULE_COLLECTION_DIR}/local-name-rul0000a` });
     const [document] = documentsOf({ ...renameConflict, current: state({ rules: [moved] }) });
-    expect(document.path).toBe('rules/local-name-rul0000a/rule.yaml');
-    expect(document.files.map((file) => file.path)).toEqual(['rules/local-name-rul0000a/rule.yaml']);
+    expect(document.path).toBe(`${RULE_COLLECTION_DIR}/local-name-rul0000a/rule.yaml`);
+    expect(document.files.map((file) => file.path)).toEqual([`${RULE_COLLECTION_DIR}/local-name-rul0000a/rule.yaml`]);
   });
 
   it('a file the change touched is shown beside the manifest; one it left alone is not', () => {
@@ -227,7 +241,7 @@ describe('readCommitResolutions', () => {
   });
 
   it('only the answered documents are taken — another edit of the change still patches', () => {
-    const other = rule({ uid: 'rul0000b', path: 'rules/other-rul0000b', name: 'Other' });
+    const other = rule({ uid: 'rul0000b', path: `${RULE_COLLECTION_DIR}/other-rul0000b`, name: 'Other' });
     const sides: Sides = {
       current: state({ rules: [rule({ name: 'Local name' }), other] }),
       from: state({ rules: [rule(), other] }),

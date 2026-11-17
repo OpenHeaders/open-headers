@@ -173,6 +173,23 @@ export function readWorkspaceTree(files: readonly TreeFile[]): TreeReadResult {
     return all.filter((entry) => entry.fileName !== manifestFile && !ENTITY_MANIFEST_FILES.has(entry.fileName));
   };
 
+  /**
+   * A tree leaf is read inside a collection or folder of its own tree
+   * and nowhere else: containment is the parent's set, and a leaf with
+   * no container has no set to be held in. A file-presence test — a
+   * container whose manifest does not parse keeps its children.
+   */
+  const contained = (manifestPath: string, tree: string, kind: string): boolean => {
+    const parent = dirOf(dirOf(manifestPath));
+    const held =
+      firstSegmentOf(manifestPath) === tree &&
+      (byPath.has(`${parent}/${COLLECTION_MANIFEST_FILE}`) || byPath.has(`${parent}/${FOLDER_MANIFEST_FILE}`));
+    if (!held) {
+      issues.push({ path: manifestPath, message: `${kind} outside a collection or folder of "${tree}" — skipped` });
+    }
+    return held;
+  };
+
   // ── Root singletons ────────────────────────────────────────────────
 
   const workspaceYaml = byPath.get(WORKSPACE_MANIFEST_FILE);
@@ -254,11 +271,13 @@ export function readWorkspaceTree(files: readonly TreeFile[]): TreeReadResult {
         break;
       }
       case RULE_MANIFEST_FILE: {
+        if (!contained(path, 'rules', 'rule')) break;
         const value = ingest(path, () => parseRule(content, { path: dir }));
         if (value) state.rules.push(value);
         break;
       }
       case REQUEST_MANIFEST_FILE: {
+        if (!contained(path, 'requests', 'request')) break;
         const value = ingest(path, () =>
           parseRequest(content, { path: dir, siblings: siblingsFor(dir, REQUEST_MANIFEST_FILE) }),
         );
@@ -266,6 +285,7 @@ export function readWorkspaceTree(files: readonly TreeFile[]): TreeReadResult {
         break;
       }
       case GRPC_REQUEST_MANIFEST_FILE: {
+        if (!contained(path, 'requests', 'gRPC request')) break;
         const value = ingest(path, () =>
           parseGrpcRequest(content, { path: dir, siblings: siblingsFor(dir, GRPC_REQUEST_MANIFEST_FILE) }),
         );
@@ -273,6 +293,7 @@ export function readWorkspaceTree(files: readonly TreeFile[]): TreeReadResult {
         break;
       }
       case WEBSOCKET_REQUEST_MANIFEST_FILE: {
+        if (!contained(path, 'requests', 'WebSocket request')) break;
         const value = ingest(path, () =>
           parseWebSocketRequest(content, { path: dir, siblings: siblingsFor(dir, WEBSOCKET_REQUEST_MANIFEST_FILE) }),
         );
@@ -280,6 +301,7 @@ export function readWorkspaceTree(files: readonly TreeFile[]): TreeReadResult {
         break;
       }
       case MQTT_REQUEST_MANIFEST_FILE: {
+        if (!contained(path, 'requests', 'MQTT request')) break;
         const value = ingest(path, () =>
           parseMqttRequest(content, { path: dir, siblings: siblingsFor(dir, MQTT_REQUEST_MANIFEST_FILE) }),
         );
@@ -287,6 +309,7 @@ export function readWorkspaceTree(files: readonly TreeFile[]): TreeReadResult {
         break;
       }
       case GRAPHQL_REQUEST_MANIFEST_FILE: {
+        if (!contained(path, 'requests', 'GraphQL request')) break;
         const value = ingest(path, () =>
           parseGraphqlRequest(content, { path: dir, siblings: siblingsFor(dir, GRAPHQL_REQUEST_MANIFEST_FILE) }),
         );
@@ -294,6 +317,7 @@ export function readWorkspaceTree(files: readonly TreeFile[]): TreeReadResult {
         break;
       }
       case TEMPLATE_MANIFEST_FILE: {
+        if (!contained(path, 'templates', 'template')) break;
         const value = ingest(path, () => parseTemplate(content, { path: dir }));
         if (value) state.templates.push(value);
         break;

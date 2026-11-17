@@ -35,7 +35,7 @@ function makeRule(uid: string, name: string): Rule {
   return {
     schemaVersion: 5,
     uid,
-    path: `rules/${name.toLowerCase().replace(/\s+/g, '-')}-${uid}`,
+    path: `${API.path}/${name.toLowerCase().replace(/\s+/g, '-')}-${uid}`,
     name,
     type: 'block',
     enabled: true,
@@ -56,6 +56,9 @@ function makeCollection(uid: string, name: string): Collection {
   };
 }
 
+/** The collection every `makeRule` rule is in — a leaf is of the tree only inside a container. */
+const API = makeCollection('colapi00', 'Api');
+
 function makeFolder(uid: string, name: string, parentPath: string): Folder {
   return { schemaVersion: 5, uid, path: `${parentPath}/${name.toLowerCase()}-${uid}`, name };
 }
@@ -68,7 +71,7 @@ function emptyState(): WorkspaceTreeState {
   return {
     workspace: makeWorkspace(),
     rules: [],
-    collections: [],
+    collections: [API],
     folders: [],
     requests: [],
     grpcRequests: [],
@@ -151,7 +154,7 @@ afterEach(async () => {
   await fs.rm(tmpDir, { recursive: true, force: true });
 });
 
-const RULE_FILE = 'rules/block-probes-aaaaaaaa/rule.yaml';
+const RULE_FILE = `${API.path}/block-probes-aaaaaaaa/rule.yaml`;
 
 describe('sweepWorkspaceTree', () => {
   it('close-app → vim-edit → reopen: the hand edit wins', async () => {
@@ -240,7 +243,7 @@ describe('sweepWorkspaceTree', () => {
   it('an externally deleted materialized file tombstones; an unmaterialized entity does not', async () => {
     state.rules = [makeRule('aaaaaaaa', 'Block probes')];
     await makeMaterializer().flush();
-    await fs.rm(path.join(tmpDir, 'rules'), { recursive: true });
+    await fs.rm(path.join(tmpDir, ...RULE_FILE.split('/')));
     // A second engine entity the tree never held.
     state.rules.push(makeRule('bbbbbbbb', 'Delay probes'));
 
@@ -248,7 +251,10 @@ describe('sweepWorkspaceTree', () => {
     const result = await runSweep(applied);
     expect(result.ok).toBe(true);
     expect(applied).toHaveLength(1);
-    expect(applied[0].batch.mutations[0].body).toMatchObject({ kind: 'delete', type: 'rule', id: 'aaaaaaaa' });
+    expect(applied[0].batch.mutations.map((m) => m.body)).toMatchObject([
+      { kind: 'removeFromSet', type: 'collection', id: API.uid, path: 'items', itemId: 'aaaaaaaa' },
+      { kind: 'delete', type: 'rule', id: 'aaaaaaaa' },
+    ]);
   });
 
   it('a hand delete met by a flush before its sweep is still a tombstone', async () => {
@@ -263,7 +269,10 @@ describe('sweepWorkspaceTree', () => {
     const result = await runSweep(applied);
     expect(result.ok && result.removed === 1).toBe(true);
     expect(applied).toHaveLength(1);
-    expect(applied[0].batch.mutations[0].body).toMatchObject({ kind: 'delete', type: 'rule', id: 'aaaaaaaa' });
+    expect(applied[0].batch.mutations.map((m) => m.body)).toMatchObject([
+      { kind: 'removeFromSet', type: 'collection', id: API.uid, path: 'items', itemId: 'aaaaaaaa' },
+      { kind: 'delete', type: 'rule', id: 'aaaaaaaa' },
+    ]);
     await expect(fs.access(ruleFile)).rejects.toThrow();
   });
 
@@ -322,7 +331,7 @@ describe('sweepWorkspaceTree', () => {
     await makeMaterializer().flush();
     const baseline = await readMaterializedIndex(tmpDir);
     await fs.rm(path.join(tmpDir, ...RULE_FILE.split('/')));
-    const other = path.join(tmpDir, 'rules', 'delay-probes-bbbbbbbb', 'rule.yaml');
+    const other = path.join(tmpDir, ...API.path.split('/'), 'delay-probes-bbbbbbbb', 'rule.yaml');
     const yaml = await fs.readFile(other, 'utf-8');
     await fs.writeFile(other, yaml.replace('name: Delay probes', 'name: Delay probes (vim)'), 'utf-8');
 
@@ -473,7 +482,7 @@ describe('sweepWorkspaceTree', () => {
   it('a hand-added entity file seeds through the pipeline', async () => {
     await makeMaterializer().flush();
     const handRule = makeRule('cccccccc', 'Hand made');
-    const dir = path.join(tmpDir, 'rules', 'hand-made-cccccccc');
+    const dir = path.join(tmpDir, ...API.path.split('/'), 'hand-made-cccccccc');
     await fs.mkdir(dir, { recursive: true });
     await fs.writeFile(
       path.join(dir, 'rule.yaml'),
@@ -496,6 +505,69 @@ describe('sweepWorkspaceTree', () => {
     expect(result.ok).toBe(true);
     expect(applied).toHaveLength(1);
     expect(applied[0].batch.mutations[0].body.kind).toBe('create');
+    expect(applied[0].batch.mutations.map((m) => m.body)).toContainEqual(
+      expect.objectContaining({ kind: 'addToSet', type: 'collection', id: API.uid, path: 'items', itemId: 'cccccccc' }),
+    );
+  });
+
+  it('a leaf file in no collection or folder is not taken in: a row, the file off the baseline, left by the flush', async () => {
+    const materializer = makeMaterializer();
+    await materializer.flush();
+    const stray = 'rules/hand-made-cccccccc/rule.yaml';
+    const strayFile = path.join(tmpDir, ...stray.split('/'));
+    const yaml =
+      'schemaVersion: 5\nuid: cccccccc\nname: Hand made\ntype: block\nenabled: true\nconditions: []\naction: {}\n';
+    await fs.mkdir(path.dirname(strayFile), { recursive: true });
+    await fs.writeFile(strayFile, yaml, 'utf-8');
+
+    const applied: EmissionBatch[] = [];
+    expect(await runSweep(applied)).toMatchObject({
+      ok: true,
+      applied: 0,
+      changed: 1,
+      issues: [{ path: stray, message: 'rule outside a collection or folder of "rules" — skipped' }],
+    });
+    expect(applied).toEqual([]);
+    expect((await readMaterializedIndex(tmpDir))[stray]).toBeUndefined();
+
+    const pass = await materializer.flush();
+    expect([pass.written, pass.deleted]).toEqual([[], []]);
+    await expect(fs.readFile(strayFile, 'utf-8')).resolves.toBe(yaml);
+  });
+
+  it('a held leaf moved by hand out of its container is deleted with the row raised, and restored when put in one', async () => {
+    state.rules = [makeRule('aaaaaaaa', 'Block probes')];
+    const materializer = makeMaterializer();
+    await materializer.flush();
+    const held = path.dirname(path.join(tmpDir, ...RULE_FILE.split('/')));
+    const stray = 'rules/block-probes-aaaaaaaa/rule.yaml';
+    const out = path.dirname(path.join(tmpDir, ...stray.split('/')));
+    await fs.rename(held, out);
+
+    const applied: EmissionBatch[] = [];
+    expect(await runSweep(applied)).toMatchObject({ ok: true, applied: 1, removed: 1, issues: [{ path: stray }] });
+    expect(applied.map((entry) => entry.label)).toEqual(['rule:aaaaaaaa (delete)']);
+    const bodies = applied[0].batch.mutations.map((m) => m.body);
+    expect(bodies).toContainEqual(
+      expect.objectContaining({ kind: 'removeFromSet', type: 'collection', id: API.uid, itemId: 'aaaaaaaa' }),
+    );
+    expect(bodies).toContainEqual({ kind: 'delete', type: 'rule', id: 'aaaaaaaa' });
+
+    // The engine holds it deleted; the flush leaves the file where the hand put it.
+    state.rules = [];
+    deleted.add('aaaaaaaa');
+    expect((await materializer.flush()).deleted).toEqual([]);
+    await expect(fs.access(path.join(out, 'rule.yaml'))).resolves.toBeUndefined();
+
+    await fs.rename(out, held);
+    const back: EmissionBatch[] = [];
+    expect(await runSweep(back)).toMatchObject({ ok: true, applied: 1, issues: [] });
+    expect(back.map((entry) => entry.label)).toEqual(['rule:aaaaaaaa (create)']);
+    const returned = back[0].batch.mutations.map((m) => m.body);
+    expect(returned[0]).toMatchObject({ kind: 'create', id: 'aaaaaaaa', restore: true });
+    expect(returned).toContainEqual(
+      expect.objectContaining({ kind: 'addToSet', type: 'collection', id: API.uid, path: 'items', itemId: 'aaaaaaaa' }),
+    );
   });
 
   it("a user's own stray file is never adopted into the baseline and never deleted", async () => {
@@ -506,7 +578,7 @@ describe('sweepWorkspaceTree', () => {
     // A stray the read ignores (no entity convention) — at the root
     // and inside an entity directory. Both are the user's bytes.
     const rootStray = path.join(tmpDir, 'notes.txt');
-    const nestedStray = path.join(tmpDir, 'rules', 'block-probes-aaaaaaaa', 'notes.txt');
+    const nestedStray = path.join(path.dirname(path.join(tmpDir, ...RULE_FILE.split('/'))), 'notes.txt');
     await fs.writeFile(rootStray, 'user notes\n', 'utf-8');
     await fs.writeFile(nestedStray, 'more notes\n', 'utf-8');
 

@@ -23,7 +23,7 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 import type { MutatorContext } from '@openheaders/core/sync';
 import type { EmissionBatch } from '@openheaders/core/sync-builders/mutations/workspace-import-emission';
-import type { Environment, Rule, Workspace } from '@openheaders/core/types';
+import type { Collection, Environment, Rule, Workspace } from '@openheaders/core/types';
 import type { WorkspaceTreeState } from '@openheaders/core/workspace-tree';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { createGitExec, type GitRunner } from '../../src/git/git-exec';
@@ -42,7 +42,7 @@ import {
 } from '../../src/workspace-tree/pick';
 
 const ORG_ID = '019637a2-7b9a-7b9a-8b9a-1234567890ab';
-const RULE_FILE = 'rules/block-probes-aaaaaaaa/rule.yaml';
+const RULE_FILE = 'rules/api-colapi00/block-probes-aaaaaaaa/rule.yaml';
 
 const OPERATOR_ENV = {
   GIT_AUTHOR_NAME: 'John Doe',
@@ -65,6 +65,17 @@ function isolated(base: GitRunner): GitRunner {
     });
 }
 
+/** The collection the fixture's rules are in — a leaf is of the tree only inside a container. */
+const API: Collection = {
+  schemaVersion: 5,
+  uid: 'colapi00',
+  path: 'rules/api-colapi00',
+  name: 'Api',
+  variables: [],
+  pinnedEnvironmentIds: [],
+  defaultEnvironmentId: null,
+};
+
 function makeWorkspace(): Workspace {
   return { schemaVersion: 5, uid: 'wsaaaaaa', name: 'Probe Workspace', orgId: ORG_ID };
 }
@@ -73,7 +84,7 @@ function makeRule(overrides: Partial<Rule> = {}): Rule {
   return {
     schemaVersion: 5,
     uid: 'aaaaaaaa',
-    path: 'rules/block-probes-aaaaaaaa',
+    path: `${API.path}/block-probes-aaaaaaaa`,
     name: 'Block probes',
     type: 'block',
     enabled: true,
@@ -87,7 +98,7 @@ function emptyState(): WorkspaceTreeState {
   return {
     workspace: makeWorkspace(),
     rules: [],
-    collections: [],
+    collections: [API],
     folders: [],
     requests: [],
     grpcRequests: [],

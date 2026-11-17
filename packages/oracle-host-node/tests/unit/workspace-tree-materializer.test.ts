@@ -11,7 +11,7 @@
 import { promises as fs, readdirSync } from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
-import type { Rule, Workspace } from '@openheaders/core/types';
+import type { Collection, Rule, Workspace } from '@openheaders/core/types';
 import { applyTreeOrder, type WorkspaceTreeState } from '@openheaders/core/workspace-tree';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { WorkspaceTreeMaterializer } from '../../src/workspace-tree/materializer';
@@ -35,6 +35,20 @@ function makeRule(uid: string, name: string): Rule {
     conditions: [],
     action: {},
   } as Rule;
+}
+
+const ALPHA: Collection = {
+  schemaVersion: 5,
+  uid: 'col0000a',
+  path: 'rules/alpha-col0000a',
+  name: 'Alpha',
+  variables: [],
+  pinnedEnvironmentIds: [],
+  defaultEnvironmentId: null,
+};
+
+function ruleInAlpha(uid: string, name: string): Rule {
+  return { ...makeRule(uid, name), path: `${ALPHA.path}/${name.toLowerCase().replace(/\s+/g, '-')}-${uid}` } as Rule;
 }
 
 function emptyState(): WorkspaceTreeState {
@@ -150,21 +164,8 @@ describe('WorkspaceTreeMaterializer', () => {
   });
 
   it('order: stamped from the live sets lands on disk and reads back', async () => {
-    state.collections = [
-      {
-        schemaVersion: 5,
-        uid: 'col0000a',
-        path: 'rules/alpha-col0000a',
-        name: 'Alpha',
-        variables: [],
-        pinnedEnvironmentIds: [],
-        defaultEnvironmentId: null,
-      },
-    ];
-    state.rules = [
-      { ...makeRule('rul0000a', 'First'), path: 'rules/alpha-col0000a/first-rul0000a' } as Rule,
-      { ...makeRule('rul0000b', 'Second'), path: 'rules/alpha-col0000a/second-rul0000b' } as Rule,
-    ];
+    state.collections = [ALPHA];
+    state.rules = [ruleInAlpha('rul0000a', 'First'), ruleInAlpha('rul0000b', 'Second')];
     state = applyTreeOrder(state, (parent, setPath) => {
       if (parent.type === 'workspace-roots' && setPath === 'ruleCollections')
         return [{ uid: 'col0000a', orderKey: 'm' }];
@@ -187,7 +188,8 @@ describe('WorkspaceTreeMaterializer', () => {
   });
 
   it('round-trips through the disk reader', async () => {
-    state.rules = [makeRule('aaaaaaaa', 'Block probes'), makeRule('bbbbbbbb', 'Delay probes')];
+    state.collections = [ALPHA];
+    state.rules = [ruleInAlpha('aaaaaaaa', 'Block probes'), ruleInAlpha('bbbbbbbb', 'Delay probes')];
     await makeMaterializer().flush();
 
     const result = await readWorkspaceTreeFromDisk(tmpDir);

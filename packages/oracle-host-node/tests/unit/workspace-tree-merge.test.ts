@@ -12,7 +12,7 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 import type { MutatorContext } from '@openheaders/core/sync';
 import type { EmissionBatch } from '@openheaders/core/sync-builders/mutations/workspace-import-emission';
-import type { Rule, Workspace } from '@openheaders/core/types';
+import type { Collection, Rule, Workspace } from '@openheaders/core/types';
 import type { WorkspaceTreeState } from '@openheaders/core/workspace-tree';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { createGitExec, type GitRunner } from '../../src/git/git-exec';
@@ -25,7 +25,7 @@ import { listWorkspaceTreeFiles } from '../../src/workspace-tree/reader';
 import { hashTreeContent, type MaterializedIndex, writeMaterializedIndex } from '../../src/workspace-tree/sidecar';
 
 const ORG_ID = '019637a2-7b9a-7b9a-8b9a-1234567890ab';
-const RULE_FILE = 'rules/block-probes-aaaaaaaa/rule.yaml';
+const RULE_FILE = 'rules/api-colapi00/block-probes-aaaaaaaa/rule.yaml';
 
 const IDENTITY_ENV = {
   GIT_AUTHOR_NAME: 'Probe Operator',
@@ -48,6 +48,17 @@ function isolated(base: GitRunner): GitRunner {
     });
 }
 
+/** The collection the fixture's rules are in — a leaf is of the tree only inside a container. */
+const API: Collection = {
+  schemaVersion: 5,
+  uid: 'colapi00',
+  path: 'rules/api-colapi00',
+  name: 'Api',
+  variables: [],
+  pinnedEnvironmentIds: [],
+  defaultEnvironmentId: null,
+};
+
 function makeWorkspace(): Workspace {
   return { schemaVersion: 5, uid: 'wsaaaaaa', name: 'Probe Workspace', orgId: ORG_ID };
 }
@@ -56,7 +67,7 @@ function makeRule(uid: string, name: string): Rule {
   return {
     schemaVersion: 5,
     uid,
-    path: `rules/${name.toLowerCase().replace(/\s+/g, '-')}-${uid}`,
+    path: `${API.path}/${name.toLowerCase().replace(/\s+/g, '-')}-${uid}`,
     name,
     type: 'block',
     enabled: true,
@@ -69,7 +80,7 @@ function emptyState(): WorkspaceTreeState {
   return {
     workspace: makeWorkspace(),
     rules: [],
-    collections: [],
+    collections: [API],
     folders: [],
     requests: [],
     grpcRequests: [],

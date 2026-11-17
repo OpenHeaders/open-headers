@@ -85,7 +85,7 @@ function generateState(rng: Rng): { state: WorkspaceTreeState; unknowns: TreeUnk
   });
 
   const ruleCollection = generateAs<Collection>('collection', rng, placed(rng, 'rules'));
-  const looseRule = generateAs<Rule>('rule', rng, placed(rng, 'rules'));
+  const flaggedRule = generateAs<Rule>('rule', rng, placed(rng, ruleCollection.path));
   const collectedRule = generateAs<Rule>('rule', rng, placed(rng, ruleCollection.path));
 
   const requestCollection = generateAs<Collection>('collection', rng, (draft) => {
@@ -145,13 +145,13 @@ function generateState(rng: Rng): { state: WorkspaceTreeState; unknowns: TreeUnk
   const liveVariable = generateAs<LiveVariable>('live-variable', rng, placed(rng, 'live-variables'));
 
   const unknowns: TreeUnknownFields = {
-    [looseRule.uid]: [{ path: '/futureFlag', value: { rollout: rng.int(100) } }],
+    [flaggedRule.uid]: [{ path: '/futureFlag', value: { rollout: rng.int(100) } }],
   };
 
   return {
     state: {
       workspace,
-      rules: [looseRule, collectedRule],
+      rules: [flaggedRule, collectedRule],
       collections: [ruleCollection],
       folders: [],
       requests: [plainRequest, bodyRequest],
