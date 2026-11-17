@@ -3,8 +3,12 @@
  * (`_runtime-harness.ts`). Pins the wiring no pass module's own test
  * reaches: the engine asked what it holds deleted by the sweep, by a
  * pull, by a merge, by a Revert and by a rewritten history taken whole. In each the entity lives again as its file has
- * it, the file stays on disk as git has it, and nothing reads as
- * changed.
+ * it, in the collection that held it, the file stays on disk as git has
+ * it, and nothing reads as changed.
+ *
+ * The rule sits in a collection, as every rule made in the app does: a
+ * rule file outside any collection is held by no container's set, so a
+ * pin on one says nothing of the slot a return has to bring back.
  */
 
 import { promises as fs } from 'node:fs';
@@ -21,16 +25,15 @@ import {
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { openRuntimeHarness, type RuntimeHarness, until } from './_runtime-harness';
 
-const RULE_UID = 'aaaaaaaa';
-const RULE_FILE = `rules/block-probes-${RULE_UID}/rule.yaml`;
-const RULE_TEXT = `schemaVersion: 5\nuid: ${RULE_UID}\nname: Block probes\ntype: block\nenabled: true\nconditions: []\naction: {}\n`;
-
 const COLLECTION_UID = 'col0000a';
 const COLLECTION_DIR = `rules/api-${COLLECTION_UID}`;
+const COLLECTION_FILE = `${COLLECTION_DIR}/_collection.yaml`;
 const COLLECTION_TEXT = `schemaVersion: 5\nuid: ${COLLECTION_UID}\nname: API\nvariables: []\n`;
-const NESTED_RULE_UID = 'bbbbbbbb';
-const NESTED_RULE_DIR = `${COLLECTION_DIR}/delay-probes-${NESTED_RULE_UID}`;
-const NESTED_RULE_TEXT = `schemaVersion: 5\nuid: ${NESTED_RULE_UID}\nname: Delay probes\ntype: block\nenabled: true\nconditions: []\naction: {}\n`;
+
+const RULE_UID = 'aaaaaaaa';
+const RULE_DIR = `${COLLECTION_DIR}/block-probes-${RULE_UID}`;
+const RULE_FILE = `${RULE_DIR}/rule.yaml`;
+const RULE_TEXT = `schemaVersion: 5\nuid: ${RULE_UID}\nname: Block probes\ntype: block\nenabled: true\nconditions: []\naction: {}\n`;
 
 /** The tree watch's quiescence (400 ms after the last write) and its pass, several times over. */
 const TREE_AT_REST_MS = 2_000;
@@ -65,10 +68,27 @@ async function writeByHand(relative: string, text: string): Promise<void> {
   await fs.writeFile(inTree(relative), text, 'utf-8');
 }
 
-/** The rule written by hand and taken in — uncommitted. */
+/** The collection's manifest written by hand and taken in — uncommitted. */
+async function writeCollectionByHand(): Promise<void> {
+  await writeByHand(COLLECTION_FILE, COLLECTION_TEXT);
+  await until('the engine takes the hand-written collection in', engineHoldsTheCollection, 5_000);
+}
+
+/** The rule written by hand inside the collection and taken into it — uncommitted. */
 async function writeRuleByHand(): Promise<void> {
   await writeByHand(RULE_FILE, RULE_TEXT);
-  await until('the engine takes the hand-written rule in', engineHoldsTheRule, 5_000);
+  await until(
+    'the engine takes the hand-written rule into the collection',
+    () => rulesInTheCollection().includes(RULE_UID),
+    5_000,
+  );
+}
+
+/** The collection and its rule, written by hand, taken in and committed. */
+async function commitTheCollectionAndItsRule(): Promise<void> {
+  await writeCollectionByHand();
+  await writeRuleByHand();
+  expect(await harness.runtime.commit(harness.workspaceId, 'seed')).toMatchObject({ ok: true, committed: true });
 }
 
 /** The rule's file removed by hand, read as a deletion, and the deletion committed. */
@@ -78,13 +98,14 @@ async function deleteAndCommit(): Promise<void> {
   expect(await harness.runtime.commit(harness.workspaceId, 'delete')).toMatchObject({ ok: true, committed: true });
 }
 
-/** The rule in the engine again, its file as git has it, nothing changed and no row raised. */
+/** The rule in the engine again and in its collection, its file as git has it, nothing changed and no row raised. */
 async function expectTheRuleBack(): Promise<void> {
   await until('the engine holds the rule again', engineHoldsTheRule, 8_000);
   await delay(TREE_AT_REST_MS);
   expect(await isThere(RULE_FILE)).toBe(true);
   expect(await harness.git('status', '--porcelain')).toBe('');
-  expect(engineHoldsTheRule()).toBe(true);
+  expect(rulesInTheCollection()).toEqual([RULE_UID]);
+  expect(ruleOf(RULE_UID)?.path).toBe(RULE_DIR);
   expect(harness.runtime.issues(harness.workspaceId)).toEqual([]);
 }
 
@@ -97,9 +118,10 @@ afterEach(async () => {
 });
 
 describe('the workspace-tree runtime: a deleted entity back in the tree', () => {
-  it('a rule one branch holds and the other does not is back after a switch away and back', {
+  it('a rule one branch holds and the other does not is back in its collection after a switch away and back', {
     timeout: 30_000,
   }, async () => {
+    await writeCollectionByHand();
     expect(await harness.runtime.commit(harness.workspaceId, 'base')).toMatchObject({ ok: true });
     const base = await harness.git('rev-parse', '--abbrev-ref', 'HEAD');
     await writeRuleByHand();
@@ -109,6 +131,7 @@ describe('the workspace-tree runtime: a deleted entity back in the tree', () => 
     expect(await harness.runtime.switchBranch(harness.workspaceId, base)).toMatchObject({ ok: true, switched: true });
     expect(await isThere(RULE_FILE)).toBe(false);
     expect(engineHoldsTheRule()).toBe(false);
+    expect(rulesInTheCollection()).toEqual([]);
 
     expect(await harness.runtime.switchBranch(harness.workspaceId, 'feature')).toMatchObject({
       ok: true,
@@ -127,55 +150,43 @@ describe('the workspace-tree runtime: a deleted entity back in the tree', () => 
   }, async () => {
     expect(await harness.runtime.commit(harness.workspaceId, 'base')).toMatchObject({ ok: true });
     const base = await harness.git('rev-parse', '--abbrev-ref', 'HEAD');
-    await writeByHand(`${COLLECTION_DIR}/_collection.yaml`, COLLECTION_TEXT);
-    await writeByHand(`${NESTED_RULE_DIR}/rule.yaml`, NESTED_RULE_TEXT);
-    await until('the engine takes both in', () => rulesInTheCollection().includes(NESTED_RULE_UID), 8_000);
+    await writeByHand(COLLECTION_FILE, COLLECTION_TEXT);
+    await writeByHand(RULE_FILE, RULE_TEXT);
+    await until('the engine takes both in', () => rulesInTheCollection().includes(RULE_UID), 8_000);
     expect(await harness.runtime.createBranch(harness.workspaceId, 'feature')).toMatchObject({ ok: true });
     expect(await harness.runtime.commit(harness.workspaceId, 'add both')).toMatchObject({ ok: true, committed: true });
 
     expect(await harness.runtime.switchBranch(harness.workspaceId, base)).toMatchObject({ ok: true, switched: true });
-    await until(
-      'the engine reads both gone',
-      () => !engineHoldsTheCollection() && ruleOf(NESTED_RULE_UID) === undefined,
-      8_000,
-    );
+    await until('the engine reads both gone', () => !engineHoldsTheCollection() && !engineHoldsTheRule(), 8_000);
 
     expect(await harness.runtime.switchBranch(harness.workspaceId, 'feature')).toMatchObject({
       ok: true,
       switched: true,
     });
-    await until(
-      'the engine holds both again',
-      () => engineHoldsTheCollection() && ruleOf(NESTED_RULE_UID) !== undefined,
-      8_000,
-    );
-    await delay(TREE_AT_REST_MS);
-    expect(rulesInTheCollection()).toEqual([NESTED_RULE_UID]);
-    expect(ruleOf(NESTED_RULE_UID)?.path).toBe(NESTED_RULE_DIR);
-    expect(await isThere(`${NESTED_RULE_DIR}/rule.yaml`)).toBe(true);
-    expect(await harness.git('status', '--porcelain')).toBe('');
-    expect(harness.runtime.issues(harness.workspaceId)).toEqual([]);
+    await until('the engine holds both again', () => engineHoldsTheCollection() && engineHoldsTheRule(), 8_000);
+    await expectTheRuleBack();
   });
 
   it('the app’s Revert of the commit that deleted a rule brings the rule back and records the revert', {
     timeout: 30_000,
   }, async () => {
-    await writeRuleByHand();
-    expect(await harness.runtime.commit(harness.workspaceId, 'seed')).toMatchObject({ ok: true });
+    await commitTheCollectionAndItsRule();
     await deleteAndCommit();
     const deletion = await harness.git('rev-parse', 'HEAD');
 
     expect(await harness.runtime.applyCommit(harness.workspaceId, deletion, 'revert')).toMatchObject({ ok: true });
     expect(await harness.git('rev-parse', 'HEAD~1')).toBe(deletion);
-    expect(await harness.git('show', '--format=', '--name-status', 'HEAD')).toBe(`A\t${RULE_FILE}`);
+    // The deletion took the rule out of the collection's manifest; its revert puts it back there too.
+    expect(await harness.git('show', '--format=', '--name-status', 'HEAD')).toBe(
+      `M\t${COLLECTION_FILE}\nA\t${RULE_FILE}`,
+    );
     await expectTheRuleBack();
   });
 
   it('a pull of a commit that restores a deleted rule fast-forwards to it and the rule is back', {
     timeout: 30_000,
   }, async () => {
-    await writeRuleByHand();
-    expect(await harness.runtime.commit(harness.workspaceId, 'seed')).toMatchObject({ ok: true });
+    await commitTheCollectionAndItsRule();
     const remote = await fs.mkdtemp(path.join(os.tmpdir(), 'oh-tree-runtime-remote-'));
     const other = await fs.mkdtemp(path.join(os.tmpdir(), 'oh-tree-runtime-other-'));
     try {
@@ -203,8 +214,7 @@ describe('the workspace-tree runtime: a deleted entity back in the tree', () => 
   it('a remote history rewritten to hold a deleted rule, taken whole, brings the rule back', {
     timeout: 30_000,
   }, async () => {
-    await writeRuleByHand();
-    expect(await harness.runtime.commit(harness.workspaceId, 'seed')).toMatchObject({ ok: true });
+    await commitTheCollectionAndItsRule();
     const remote = await fs.mkdtemp(path.join(os.tmpdir(), 'oh-tree-runtime-remote-'));
     const other = await fs.mkdtemp(path.join(os.tmpdir(), 'oh-tree-runtime-other-'));
     try {
@@ -234,8 +244,7 @@ describe('the workspace-tree runtime: a deleted entity back in the tree', () => 
   it('a merge of a branch that restores a deleted rule fast-forwards to it and the rule is back', {
     timeout: 30_000,
   }, async () => {
-    await writeRuleByHand();
-    expect(await harness.runtime.commit(harness.workspaceId, 'seed')).toMatchObject({ ok: true });
+    await commitTheCollectionAndItsRule();
     await deleteAndCommit();
     const other = await fs.mkdtemp(path.join(os.tmpdir(), 'oh-tree-runtime-other-'));
     try {
