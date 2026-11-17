@@ -657,8 +657,11 @@ function planImportOrder(
  * `order` is a projection of the parent's sets stamped for the planner
  * (`workspace-tree/order.ts`), never entity state — a tree-authored
  * `order:` converges through the slot-order plan, not a field write.
+ * `folders` and `items` are the parent's sets as the engine's stored
+ * collection projects them: a tree's read carries neither, and their
+ * absence is no field to unset.
  */
-const COLLECTION_SKIP = new Set(['uid', 'path', 'variables', 'order']);
+const COLLECTION_SKIP = new Set(['uid', 'path', 'variables', 'order', 'folders', 'items']);
 
 function emitCollections(
   out: EmissionBatch[],

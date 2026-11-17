@@ -426,6 +426,27 @@ describe('synthesizeWorkspaceTreeDelta — order:', () => {
     expect(batches[0].batch.mutations.map((m) => m.body.kind)).toEqual(['setField']);
   });
 
+  it("a touched manifest never unsets the sets the engine's stored collection projects", () => {
+    const store = seeded();
+    // The engine's collection as its storage holds it: both sets beside the fields.
+    const held = {
+      ...collection(),
+      folders: [],
+      items: [{ uid: 'rul0000a' }, { uid: 'rul0000b' }, { uid: 'rul0000c' }],
+    };
+    const batches = delta({
+      prev: emptyState({ collections: [held], rules: [a, b, c] }),
+      next: emptyState({ collections: [{ ...collection(), name: 'A (vim)' }], rules: [a, b, c] }),
+      changed: [`${COL_PATH}/_collection.yaml`],
+      store,
+    });
+    expect(batches.flatMap((batch) => batch.batch.mutations.map((m) => m.body))).toEqual([
+      { kind: 'setField', type: 'collection', id: 'col0000a', path: 'name', value: 'A (vim)' },
+    ]);
+    applyTo(store, batches);
+    expect(liveOrder(store)).toEqual(['rul0000a', 'rul0000b', 'rul0000c']);
+  });
+
   it('an order: that matches the engine emits nothing, and order never becomes a field write', () => {
     const store = seeded();
     const batches = delta({
