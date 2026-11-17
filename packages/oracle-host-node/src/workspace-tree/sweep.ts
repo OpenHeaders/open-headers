@@ -53,6 +53,7 @@ import {
 } from '@openheaders/core/workspace-tree';
 import type { TreeWritesWatch } from '../git';
 import { TREE_HYGIENE_FILES } from './hygiene';
+import { treeIssueRows } from './issue-rows';
 import { listWorkspaceTreeFiles } from './reader';
 import {
   hashTreeContent,
@@ -103,6 +104,7 @@ export type SweepWorkspaceTreeResult =
       /** Externally changed / removed file counts the classification saw. */
       changed: number;
       removed: number;
+      /** The reading's rows (`issue-rows.ts`): no issue at a file whose bytes are the baseline's. */
       issues: TreeIssue[];
       /**
        * Set, the pass concluded NOTHING — no batch, the baseline as it
@@ -271,6 +273,6 @@ async function sweepReading(options: SweepWorkspaceTreeOptions): Promise<SweepWo
     applied: batches.length,
     changed: changedPaths.size,
     removed: removedPaths.size,
-    issues: read.issues,
+    issues: treeIssueRows(read.issues, diskHashes, baseline),
   };
 }

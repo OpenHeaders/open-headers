@@ -544,6 +544,37 @@ describe('sweepWorkspaceTree', () => {
     await expect(fs.readFile(strayFile, 'utf-8')).resolves.toBe(yaml);
   });
 
+  it("the engine's own leaf at a tree's root raises no row while its bytes are the baseline's, and one once edited by hand", async () => {
+    state.collections = [];
+    state.rules = [ruleUnder('aaaaaaaa', 'Old client', 'rules')];
+    await makeMaterializer().flush();
+    const own = 'rules/old-client-aaaaaaaa/rule.yaml';
+    const ownFile = path.join(tmpDir, ...own.split('/'));
+    const written = await fs.readFile(ownFile, 'utf-8');
+
+    const applied: EmissionBatch[] = [];
+    expect(await runSweep(applied)).toMatchObject({ ok: true, applied: 0, changed: 0, issues: [] });
+
+    await fs.writeFile(ownFile, written.replace('name: Old client', 'name: Old client (vim)'), 'utf-8');
+    expect(await runSweep(applied)).toMatchObject({
+      ok: true,
+      applied: 0,
+      changed: 1,
+      issues: [{ path: own, message: 'rule outside a collection or folder of "rules" — skipped' }],
+    });
+    expect(applied).toEqual([]);
+  });
+
+  it("a held leaf whose collection's manifest is removed by hand raises no row: its file is the engine's own", async () => {
+    state.rules = [makeRule('aaaaaaaa', 'Block probes')];
+    await makeMaterializer().flush();
+    await fs.rm(path.join(tmpDir, ...API.path.split('/'), '_collection.yaml'));
+
+    const applied: EmissionBatch[] = [];
+    expect(await runSweep(applied)).toMatchObject({ ok: true, applied: 1, changed: 0, removed: 1, issues: [] });
+    expect(applied.map((entry) => entry.label)).toEqual([`collection:${API.uid} (delete)`]);
+  });
+
   it('a held leaf moved by hand out of its container is deleted with the row raised, and restored when put in one', async () => {
     state.rules = [makeRule('aaaaaaaa', 'Block probes')];
     const materializer = makeMaterializer();

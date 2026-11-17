@@ -325,7 +325,7 @@ export function createWorkspaceTreeRuntime(options: WorkspaceTreeRuntimeOptions)
     heldByGitOperation: (binding) => heldByGitOperation(ctx, binding),
     armHoldRetry: (binding) => armHoldRetry(ctx, binding),
     appendIssues,
-    refreshIssuesFromDisk,
+    refreshIssuesFromDisk: (binding) => refreshIssuesFromDisk(ctx, binding),
     syntheticIdentity,
     drainIntents,
     resolveContributors: (binding) => resolveContributors(ctx, binding),

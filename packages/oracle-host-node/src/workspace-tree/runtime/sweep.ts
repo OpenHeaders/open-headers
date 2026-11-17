@@ -9,7 +9,7 @@ import type { MutatorContext } from '@openheaders/core/sync';
 import { logger } from '@openheaders/core/utils';
 import type { TreeIssue } from '@openheaders/core/workspace-tree';
 import { gitOperationInProgress, watchTreeWrites } from '../../git';
-import { readWorkspaceTreeFromDisk } from '../reader';
+import { readTreeIssueRows } from '../issue-rows';
 import { type SweepWorkspaceTreeResult, sweepWorkspaceTree } from '../sweep';
 import {
   HELD_READING_SETTLES_MS,
@@ -113,13 +113,15 @@ export function appendIssues(binding: OpenBinding, issues: readonly TreeIssue[])
 
 /**
  * Re-derive the issue feed from the tree on disk after a successful
- * integrate pass. Quarantined foreign bytes live in the worktree, so
- * the honest local read re-reports them — and a foreign file that
- * now parses clean drops its stale row on the very gesture that
- * integrated the fix, instead of lingering until the next sweep.
+ * integrate pass, as a sweep derives it (`issue-rows.ts`). Quarantined
+ * foreign bytes live in the worktree, so the honest local read
+ * re-reports them — and a foreign file that now parses clean drops its
+ * stale row on the very gesture that integrated the fix, instead of
+ * lingering until the next sweep.
  */
-export async function refreshIssuesFromDisk(binding: OpenBinding): Promise<void> {
-  binding.issues = (await readWorkspaceTreeFromDisk(binding.record.rootDir)).issues;
+export async function refreshIssuesFromDisk(ctx: RuntimeCtx, binding: OpenBinding): Promise<void> {
+  const { rootDir, workspaceId } = binding.record;
+  binding.issues = await readTreeIssueRows(rootDir, await ctx.buildSnapshot(workspaceId, binding.service));
 }
 
 export function scheduleMaterialize(ctx: RuntimeCtx, binding: OpenBinding): void {

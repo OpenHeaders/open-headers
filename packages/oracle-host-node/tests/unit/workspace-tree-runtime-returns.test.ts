@@ -9,6 +9,12 @@
  * The rule sits in a collection, as every rule made in the app does: a
  * rule file outside any collection is held by no container's set, so a
  * pin on one says nothing of the slot a return has to bring back.
+ *
+ * And the Git card's rows a pass leaves, on the same wiring: derived as
+ * a sweep derives them — the read contained against the engine's
+ * snapshot, and no row at a file whose bytes are the baseline's. They
+ * are here, not in a file of their own: each file of this harness is
+ * one more real runtime in a parallel run.
  */
 
 import { promises as fs } from 'node:fs';
@@ -264,5 +270,62 @@ describe('the workspace-tree runtime: a deleted entity back in the tree', () => 
     } finally {
       await fs.rm(other, { recursive: true, force: true });
     }
+  });
+});
+
+describe("the workspace-tree runtime: the Git card's rows after a pass", () => {
+  const BROKEN_FILE = 'rules/broken-colbbbbb/_collection.yaml';
+  const REFUSED_FILE = 'rules/broken-colbbbbb/inside-bbbbbbbb/rule.yaml';
+  const rows = () => harness.runtime.issues(harness.workspaceId);
+
+  /** `run` with the branch pushed to a remote it tracks: a Pull is then up to date. */
+  async function withTheBranchPushed(run: () => Promise<void>): Promise<void> {
+    const remote = await fs.mkdtemp(path.join(os.tmpdir(), 'oh-tree-runtime-remote-'));
+    try {
+      const branch = await harness.git('rev-parse', '--abbrev-ref', 'HEAD');
+      await harness.git('init', '-q', '--bare', remote);
+      await harness.git('remote', 'add', 'origin', remote);
+      await harness.git('push', '-q', '-u', 'origin', branch);
+      await run();
+    } finally {
+      await fs.rm(remote, { recursive: true, force: true });
+    }
+  }
+
+  it('the row of a rule the workspace has no container for stands after a Pull', { timeout: 30_000 }, async () => {
+    await writeCollectionByHand();
+    expect(await harness.runtime.commit(harness.workspaceId, 'seed')).toMatchObject({ ok: true, committed: true });
+    await withTheBranchPushed(async () => {
+      await writeByHand(BROKEN_FILE, 'schemaVersion: 5\nuid: [not a string\n');
+      await writeByHand(REFUSED_FILE, RULE_TEXT.replace(RULE_UID, 'bbbbbbbb'));
+      await until('the sweep raises both rows', () => rows().length === 2, 8_000);
+      const raised = rows();
+      expect(raised).toEqual([
+        expect.objectContaining({ path: BROKEN_FILE }),
+        { path: REFUSED_FILE, message: 'rule inside no collection or folder of the workspace — skipped' },
+      ]);
+
+      expect(await harness.runtime.pull(harness.workspaceId)).toMatchObject({ ok: true, upToDate: true });
+      expect(rows()).toEqual(raised);
+    });
+  });
+
+  it("a held rule whose collection's manifest is removed by hand raises no row, by the sweep or after a Pull", {
+    timeout: 30_000,
+  }, async () => {
+    await commitTheCollectionAndItsRule();
+    await withTheBranchPushed(async () => {
+      await delay(TREE_AT_REST_MS);
+      await fs.rm(inTree(COLLECTION_FILE));
+      await until('the engine reads the collection gone', () => !engineHoldsTheCollection(), 8_000);
+      await delay(TREE_AT_REST_MS);
+      // The rule is held with no container, its file the engine's own write.
+      expect(engineHoldsTheRule()).toBe(true);
+      expect(await isThere(RULE_FILE)).toBe(true);
+      expect(rows()).toEqual([]);
+
+      expect(await harness.runtime.pull(harness.workspaceId)).toMatchObject({ ok: true, upToDate: true });
+      expect(rows()).toEqual([]);
+    });
   });
 });
