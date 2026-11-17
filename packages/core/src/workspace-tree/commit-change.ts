@@ -33,7 +33,14 @@
  * side changed still stands on both, and no conflict is named.
  */
 
-import { canonicalJson } from '../sync';
+import {
+  canonicalJson,
+  FOLDER_TREE_KINDS,
+  REQUEST_FOLDER_TREE_KINDS,
+  resolveTreeParent,
+  TEMPLATE_FOLDER_TREE_KINDS,
+  type TreeParentKinds,
+} from '../sync';
 import type { Environment } from '../types/variable';
 import type { WorkspaceManifest } from '../types/workspace';
 import { lastPathSegment, parentPathOf } from '../utils/workspace';
@@ -153,6 +160,8 @@ interface Pass {
   skipped: CommitChangeSkip[];
   /** A container's path in the change's end tree → its path in `next`. */
   containerAt: Map<string, string>;
+  /** The path `next` holds the branch's own container at, for a directory the end tree read none at; null = none. */
+  heldAt: (dir: string) => string | null;
   /** Containers the change moved: the path the branch held → the path in `next`. */
   moved: Map<string, string>;
   /** Uids answered with a document, and uids answered as gone. */
@@ -210,15 +219,35 @@ function keepsEdited(document: CommitChangeDocument, pass: Pass): boolean {
 /**
  * Where a path of the change's end tree lands on the branch: the same
  * directory name under the parent container as `next` holds it. A
- * direct child of a tree root keeps its path; null when the branch has
- * no such parent.
+ * parent the end tree did not read — its manifest broken there — is
+ * the branch's own to answer for, as a read asks the engine
+ * (`containment.ts`). A direct child of a tree root keeps its path;
+ * null when the branch has no such parent.
  */
 function rehome(toPath: string, pass: Pass): string | null {
   const parent = parentPathOf(toPath);
   const segment = lastPathSegment(toPath);
   if (parent === null || segment === null || !parent.includes('/')) return toPath;
-  const landed = pass.containerAt.get(parent);
-  return landed === undefined ? null : `${landed}/${segment}`;
+  const landed = pass.containerAt.get(parent) ?? pass.heldAt(parent);
+  return landed === null ? null : `${landed}/${segment}`;
+}
+
+interface HeldTree {
+  kinds: TreeParentKinds<string, string>;
+  collections: ReadonlyMap<string, PathEntity>;
+  folders: ReadonlyMap<string, PathEntity>;
+}
+
+/** The branch's container a directory names — the exact path, then the path's uid tail (`resolveTreeParent`). */
+function heldContainerAt(dir: string, trees: readonly HeldTree[]): string | null {
+  for (const tree of trees) {
+    const lookup = { collections: [...tree.collections.values()], folders: [...tree.folders.values()] };
+    const parent = resolveTreeParent(dir, lookup, tree.kinds);
+    if (parent === null) continue;
+    const held = parent.type === tree.kinds.collectionType ? tree.collections : tree.folders;
+    return held.get(parent.uid)?.path ?? null;
+  }
+  return null;
 }
 
 function family<T extends PathEntity>(
@@ -421,18 +450,6 @@ function layOverRootOrder(
 export function applyCommitChange(args: CommitChangeArgs): CommitChange {
   const { current, from, to } = args;
   const answers = args.resolved?.state;
-  const pass: Pass = {
-    changedPaths: new Set(),
-    removedPaths: new Set(),
-    conflicts: [],
-    skipped: [],
-    containerAt: new Map(),
-    moved: new Map(),
-    answered: args.resolved?.documents ?? new Set(),
-    answeredGone: args.resolved?.removed ?? new Set(),
-    side: args.side ?? null,
-    removed: (path) => args.removedPaths?.has(path) ?? true,
-  };
 
   const collections = family(
     COLLECTION_MANIFEST_FILE,
@@ -541,6 +558,25 @@ export function applyCommitChange(args: CommitChangeArgs): CommitChange {
     to.liveVariables,
     answers?.liveVariables,
   );
+
+  const heldTrees: readonly HeldTree[] = [
+    { kinds: FOLDER_TREE_KINDS, collections: collections.next, folders: folders.next },
+    { kinds: REQUEST_FOLDER_TREE_KINDS, collections: requestCollections.next, folders: requestFolders.next },
+    { kinds: TEMPLATE_FOLDER_TREE_KINDS, collections: templateCollections.next, folders: templateFolders.next },
+  ];
+  const pass: Pass = {
+    changedPaths: new Set(),
+    removedPaths: new Set(),
+    conflicts: [],
+    skipped: [],
+    containerAt: new Map(),
+    heldAt: (dir) => heldContainerAt(dir, heldTrees),
+    moved: new Map(),
+    answered: args.resolved?.documents ?? new Set(),
+    answeredGone: args.resolved?.removed ?? new Set(),
+    side: args.side ?? null,
+    removed: (path) => args.removedPaths?.has(path) ?? true,
+  };
 
   // Containers settle before what they hold: collections, then folders
   // (parents first inside the family), then the leaves.

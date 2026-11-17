@@ -297,6 +297,48 @@ describe('applyCommitChange — creations and order', () => {
     expect(change.changedPaths.has(`${elsewhere}/d-rul0000d/rule.yaml`)).toBe(true);
   });
 
+  it('a created entity lands under a collection the end tree did not read, as the branch holds it', () => {
+    // The change broke the collection's manifest and added a rule under it: its end tree reads no collection there.
+    const held = [collection('col0000a', COL_A)];
+    const change = applyCommitChange({
+      current: state({ collections: held }),
+      from: state({ collections: held }),
+      to: state({ rules: [d] }),
+      removedPaths: new Set(),
+    });
+    expect(change.next.rules).toEqual([d]);
+    expect(change.next.collections).toEqual(held);
+    expect([...change.changedPaths]).toEqual([manifestOf(d)]);
+    expect(change.skipped).toEqual([]);
+  });
+
+  it('…by the uid its directory names where the branch holds that collection at another path', () => {
+    const elsewhere = 'rules/renamed-on-the-branch-col0000a';
+    const change = applyCommitChange({
+      current: state({ collections: [collection('col0000a', elsewhere)] }),
+      from: state({ collections: [collection('col0000a', COL_A)] }),
+      to: state({ rules: [d] }),
+      removedPaths: new Set(),
+    });
+    expect(change.next.rules.map((entity) => entity.path)).toEqual([`${elsewhere}/d-rul0000d`]);
+    expect(change.skipped).toEqual([]);
+  });
+
+  it('…and under a folder the end tree did not read', () => {
+    const GROUP = `${COL_A}/group-fld0000a`;
+    const held = { collections: [collection('col0000a', COL_A)], folders: [folder('fld0000a', GROUP)] };
+    const inside = rule('rul0000d', 'd', GROUP);
+    const change = applyCommitChange({
+      current: state(held),
+      from: state(held),
+      to: state({ collections: held.collections, rules: [inside] }),
+      removedPaths: new Set(),
+    });
+    expect(change.next.rules).toEqual([inside]);
+    expect(change.next.folders).toEqual(held.folders);
+    expect(change.skipped).toEqual([]);
+  });
+
   it('a new collection joins the roots order the branch holds', () => {
     const ordered = (roots: string[]) => ({ ...workspace, order: { rules: roots } });
     const change = applyCommitChange({

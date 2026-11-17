@@ -486,6 +486,35 @@ describe('pullWorkspaceTree', () => {
     expect(await countDirtyFiles(run, local)).toBe(0);
   });
 
+  it('a foreign rule under a held collection whose manifest the peer broke is taken in on it, and the branch keeps its file', async () => {
+    const manifest = `${API.path}/_collection.yaml`;
+    const leaf = `${API.path}/hand-made-cccccccc/rule.yaml`;
+    const leafYaml =
+      'schemaVersion: 5\nuid: cccccccc\nname: Hand made\ntype: block\nenabled: true\nconditions: []\naction: {}\n';
+    await peerEdit(manifest, () => 'schemaVersion: 5\nuid: [broken\n');
+    await peerEdit(leaf, () => leafYaml);
+    await peerCommitPush('Break the manifest, add a rule');
+
+    const applied: EmissionBatch[] = [];
+    const result = await doPull(applied, () => {
+      state.rules = [...state.rules, makeRule('cccccccc', 'Hand made')];
+    });
+    expect(result).toMatchObject({ ok: true, upToDate: false, issues: [{ path: manifest }] });
+    if (!result.ok || result.upToDate) return;
+    expect(result.skipped).toBeUndefined();
+    const bodies = applied.flatMap((entry) => entry.batch.mutations.map((m) => m.body));
+    expect(bodies).toContainEqual(expect.objectContaining({ kind: 'create', type: 'rule', id: 'cccccccc' }));
+    expect(bodies).toContainEqual(
+      expect.objectContaining({ kind: 'addToSet', type: 'collection', id: API.uid, path: 'items', itemId: 'cccccccc' }),
+    );
+
+    // Nothing the pull recorded deletes the peer's rule.
+    const head = await raw(local, 'ls-tree', '-r', '--name-only', 'HEAD');
+    expect(head.stdout.split('\n')).toContain(leaf);
+    await expect(fs.readFile(path.join(local, ...leaf.split('/')), 'utf-8')).resolves.toContain('uid: cccccccc');
+    expect(await countDirtyFiles(run, local)).toBe(0);
+  });
+
   it('a rewritten remote head refuses the pull with force-push (§16 — the trichotomy resolves it)', async () => {
     // First sync: the peer's edit integrates and its sha becomes the
     // watermark the runtime would persist.
