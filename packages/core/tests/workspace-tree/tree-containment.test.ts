@@ -371,6 +371,42 @@ describe('containTreeRead — a leaf in a directory with no manifest', () => {
     );
     expect(result.unknowns.aaaaaaaa.map((row) => row.path)).toEqual(['/handAdded']);
   });
+
+  it('leaves it skipped where the reader gave its uid to a file of another kind — the same read', () => {
+    const raw = read(
+      API,
+      file(`${AUTH}/_folder.yaml`, folderYaml('eeeeeeee')),
+      file(`${AUTH}/other-aaaaaaaa/_folder.yaml`, folderYaml('aaaaaaaa')),
+      file(`${DEEP}/inner-aaaaaaaa/rule.yaml`, ruleYaml('aaaaaaaa')),
+    );
+    const result = containTreeRead(raw, heldTree());
+    expect(result).toBe(raw);
+    expect(result.state.rules).toEqual([]);
+    expect(result.state.folders.map((folder) => folder.uid)).toEqual(['eeeeeeee', 'aaaaaaaa']);
+  });
+
+  it('a uid two such files of two kinds claim is one entity: the first kind to claim it', () => {
+    const raw = read(file('requests/api-cccccccc/_collection.yaml', collectionYaml('cccccccc')));
+    const dir = 'requests/api-cccccccc/held-ffffffff';
+    const request = { uid: 'rrrrrrrr', path: `${dir}/get-users-rrrrrrrr` } as Request;
+    const grpc = { uid: 'rrrrrrrr', path: `${dir}/list-users-rrrrrrrr` } as (typeof raw.state.grpcRequests)[number];
+    const result = containTreeRead(
+      {
+        ...raw,
+        uncontained: {
+          ...raw.uncontained,
+          requests: [{ entity: request, unknowns: [] }],
+          grpcRequests: [{ entity: grpc, unknowns: [] }],
+        },
+      },
+      makeHeld({
+        requestCollections: [makeCollection('cccccccc', 'requests/api-cccccccc')],
+        requestFolders: [makeFolder('ffffffff', dir)],
+      }),
+    );
+    expect(result.state.requests).toEqual([request]);
+    expect(result.state.grpcRequests).toEqual([]);
+  });
 });
 
 describe('containTreeRead — a uid more than one leaf file claims', () => {
@@ -462,6 +498,18 @@ describe('containTreeRead — a uid more than one leaf file claims', () => {
     expect(swapped.unknowns.aaaaaaaa.map((row) => row.path)).toEqual(['/copyAdded']);
     const bare = containTreeRead(read(...files('handAdded: refused\n', '')), makeHeld());
     expect(Object.keys(bare.unknowns)).toEqual([]);
+  });
+
+  it('a uid the reader gave to a folder is not a rule too — the same read, the copy still a duplicate', () => {
+    const raw = read(
+      API,
+      file('rules/api-cccccccc/auth-aaaaaaaa/_folder.yaml', folderYaml('aaaaaaaa')),
+      file(`${COPY}/rule.yaml`, ruleYaml('aaaaaaaa')),
+    );
+    const result = containTreeRead(raw, makeHeld());
+    expect(result).toBe(raw);
+    expect(result.state.rules).toEqual([]);
+    expect(result.issues).toEqual([duplicate(`${COPY}/rule.yaml`, 'aaaaaaaa')]);
   });
 
   it('settles a request the same way, by its own family', () => {

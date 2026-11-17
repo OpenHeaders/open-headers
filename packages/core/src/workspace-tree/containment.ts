@@ -25,7 +25,8 @@
  * resolves to a container the engine holds — its manifest removed by
  * hand, with or without a rename above it — the leaf is one the
  * workspace can hold, and it is taken in as any other file that claims
- * its uid.
+ * its uid — unless the reader gave that uid to a file of another kind,
+ * whose entity it is.
  *
  * The reader stays a function of the files alone. This asks the
  * questions that need the engine, where a read meets its snapshot.
@@ -130,7 +131,13 @@ interface Settlement {
   issues: TreeIssue[];
 }
 
-function settleTree(tree: Tree, read: TreeReadResult, held: HeldTree, out: Settlement): void {
+function settleTree(
+  tree: Tree,
+  read: TreeReadResult,
+  held: HeldTree,
+  out: Settlement,
+  givenUids: () => Set<string>,
+): void {
   const { state } = read;
   const lookup = { collections: held[tree.collections], folders: held[tree.folders] };
   const heldUids = new Set([...lookup.collections, ...lookup.folders].map((container) => container.uid));
@@ -217,18 +224,59 @@ function settleTree(tree: Tree, read: TreeReadResult, held: HeldTree, out: Settl
       if (!contained(leaf)) refuse(leaf, family.manifest, family.kind);
     }
 
-    // A uid the reader gave to no file: only files in a directory the engine holds are left to claim it.
+    // A uid the reader gave to no file: only files in a directory the
+    // engine holds are left to claim it. One it gave to a file of
+    // another kind is that entity's — a uid is one entity's across the
+    // whole tree — and what is left here stays skipped.
+    if (rivals.size === 0) continue;
+    const given = givenUids();
     for (const [uid, files] of rivals) {
+      if (given.has(uid)) continue;
+      given.add(uid);
       const own = placeOf.get(uid);
       claim(files.find((file) => file.path === own) ?? files[0]);
     }
   }
 }
 
+/** Every uid the reader gave to a file, of any kind. */
+function readUids(state: TreeReadResult['state']): Set<string> {
+  const lists: readonly (readonly { uid: string }[])[] = [
+    state.rules,
+    state.collections,
+    state.folders,
+    state.requests,
+    state.grpcRequests,
+    state.websocketRequests,
+    state.mqttRequests,
+    state.graphqlRequests,
+    state.requestCollections,
+    state.requestFolders,
+    state.templates,
+    state.templateCollections,
+    state.templateFolders,
+    state.environments,
+    state.specs,
+    state.liveWorkflows,
+    state.liveVariables,
+  ];
+  const uids = new Set<string>();
+  for (const list of lists) {
+    for (const { uid } of list) uids.add(uid);
+  }
+  return uids;
+}
+
 /** The read as the workspace takes it: every folder and leaf it cannot hold refused, each uid at the file that is the entity — the same read when nothing changes. */
 export function containTreeRead(read: TreeReadResult, held: HeldTree): TreeReadResult {
   const settlement: Settlement = { refused: new Set(), claims: new Map(), cleared: new Set(), issues: [] };
-  for (const tree of TREES) settleTree(tree, read, held, settlement);
+  // The uids this reading has given to a file — the reader's, and each one claimed here — built where one is asked.
+  let given: Set<string> | undefined;
+  const givenUids = (): Set<string> => {
+    given ??= readUids(read.state);
+    return given;
+  };
+  for (const tree of TREES) settleTree(tree, read, held, settlement, givenUids);
   const { refused, claims, cleared, issues } = settlement;
   if (refused.size === 0 && claims.size === 0) return read;
 
