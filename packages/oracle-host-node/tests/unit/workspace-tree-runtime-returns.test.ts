@@ -12,7 +12,9 @@
  *
  * And a deletion a pull brings, against the engine's own entities —
  * they carry what no file does (a leaf's frozen segment, a collection's
- * set of folders), which a hand-built snapshot never shows.
+ * set of folders), which a hand-built snapshot never shows. And a
+ * collection's order where the peer or the branch holds no rule in it:
+ * the engine's collection with nothing in it is the empty order.
  *
  * And the Git card's rows a pass leaves, on the same wiring: derived as
  * a sweep derives them — the read contained against the engine's
@@ -278,26 +280,31 @@ describe('the workspace-tree runtime: a deleted entity back in the tree', () => 
   });
 });
 
+/** The branch pushed and cloned by a peer, who makes `change` in the clone, commits it and pushes; `run` then pulls. */
+async function withThePeerPushing(change: (other: string) => Promise<void>, run: () => Promise<void>): Promise<void> {
+  const remote = await fs.mkdtemp(path.join(os.tmpdir(), 'oh-tree-runtime-remote-'));
+  const other = await fs.mkdtemp(path.join(os.tmpdir(), 'oh-tree-runtime-other-'));
+  try {
+    const branch = await harness.git('rev-parse', '--abbrev-ref', 'HEAD');
+    await harness.git('init', '-q', '--bare', remote);
+    await harness.git('remote', 'add', 'origin', remote);
+    await harness.git('push', '-q', '-u', 'origin', branch);
+    await harness.git('clone', '-q', '-b', branch, remote, other);
+    await change(other);
+    await harness.git('-C', other, 'add', '-A');
+    await harness.git('-C', other, 'commit', '-q', '-m', 'the peer’s change');
+    await harness.git('-C', other, 'push', '-q');
+    await run();
+  } finally {
+    await fs.rm(remote, { recursive: true, force: true });
+    await fs.rm(other, { recursive: true, force: true });
+  }
+}
+
 describe('the workspace-tree runtime: a deletion a pull brings', () => {
   /** The peer removes `directory` on the pushed branch and pushes; `run` then pulls. */
-  async function withThePeerDeleting(directory: string, run: () => Promise<void>): Promise<void> {
-    const remote = await fs.mkdtemp(path.join(os.tmpdir(), 'oh-tree-runtime-remote-'));
-    const other = await fs.mkdtemp(path.join(os.tmpdir(), 'oh-tree-runtime-other-'));
-    try {
-      const branch = await harness.git('rev-parse', '--abbrev-ref', 'HEAD');
-      await harness.git('init', '-q', '--bare', remote);
-      await harness.git('remote', 'add', 'origin', remote);
-      await harness.git('push', '-q', '-u', 'origin', branch);
-      await harness.git('clone', '-q', '-b', branch, remote, other);
-      await harness.git('-C', other, 'rm', '-q', '-r', directory);
-      await harness.git('-C', other, 'commit', '-q', '-m', 'delete');
-      await harness.git('-C', other, 'push', '-q');
-      await run();
-    } finally {
-      await fs.rm(remote, { recursive: true, force: true });
-      await fs.rm(other, { recursive: true, force: true });
-    }
-  }
+  const withThePeerDeleting = (directory: string, run: () => Promise<void>): Promise<void> =>
+    withThePeerPushing((other) => fs.rm(path.join(other, ...directory.split('/')), { recursive: true }), run);
 
   it('a rule the peer deleted and the branch did not edit leaves with the pull — nothing is asked', {
     timeout: 30_000,
@@ -329,6 +336,77 @@ describe('the workspace-tree runtime: a deletion a pull brings', () => {
       expect(engineHoldsTheFolder()).toBe(false);
       expect(await isThere(COLLECTION_FILE)).toBe(false);
     });
+  });
+});
+
+describe('the workspace-tree runtime: a collection’s order where one side of a pull holds no rule', () => {
+  const OTHER_UID = 'bbbbbbbb';
+  const OTHER_SEGMENT = `other-${OTHER_UID}`;
+  const OTHER_FILE = `${COLLECTION_DIR}/${OTHER_SEGMENT}/rule.yaml`;
+  const OTHER_TEXT = RULE_TEXT.replace(RULE_UID, OTHER_UID);
+  const ORDER_OF_THE_RULE = `order:\n  - block-probes-${RULE_UID}\n`;
+  const ORDER_OF_THE_OTHER = `order:\n  - ${OTHER_SEGMENT}\n`;
+  const manifestOnDisk = (): Promise<string> => fs.readFile(inTree(COLLECTION_FILE), 'utf-8');
+
+  /** The collection's manifest in the peer's clone, its listed order replaced. */
+  async function relistInThePeer(other: string, order: string): Promise<void> {
+    const file = path.join(other, ...COLLECTION_FILE.split('/'));
+    const text = await fs.readFile(file, 'utf-8');
+    expect(text).toContain(ORDER_OF_THE_RULE);
+    await fs.writeFile(file, text.replace(ORDER_OF_THE_RULE, order), 'utf-8');
+  }
+
+  it('the peer deleted the collection’s last rule and the branch added one there: its own stays, alone in the order — nothing is asked', {
+    timeout: 30_000,
+  }, async () => {
+    await commitTheCollectionAndItsRule();
+    await withThePeerPushing(
+      async (other) => {
+        // As the app writes it: a collection that holds nothing carries no `order`.
+        await fs.rm(path.join(other, ...RULE_DIR.split('/')), { recursive: true });
+        await relistInThePeer(other, '');
+      },
+      async () => {
+        await writeByHand(OTHER_FILE, OTHER_TEXT);
+        await until('the engine takes the second rule in', () => rulesInTheCollection().includes(OTHER_UID), 5_000);
+        expect(await harness.runtime.commit(harness.workspaceId, 'second rule')).toMatchObject({
+          ok: true,
+          committed: true,
+        });
+
+        expect(await harness.runtime.pull(harness.workspaceId)).toMatchObject({ ok: true, upToDate: false });
+        await until('the engine reads the rule gone', () => !engineHoldsTheRule(), 8_000);
+        await delay(TREE_AT_REST_MS);
+        expect(rulesInTheCollection()).toEqual([OTHER_UID]);
+        expect(await manifestOnDisk()).toContain(ORDER_OF_THE_OTHER);
+        expect(await harness.git('status', '--porcelain')).toBe('');
+      },
+    );
+  });
+
+  it('the peer added a rule beside one and the branch deleted that one, its last: the added rule lands alone — nothing is asked', {
+    timeout: 30_000,
+  }, async () => {
+    await commitTheCollectionAndItsRule();
+    await withThePeerPushing(
+      async (other) => {
+        await fs.mkdir(path.dirname(path.join(other, ...OTHER_FILE.split('/'))), { recursive: true });
+        await fs.writeFile(path.join(other, ...OTHER_FILE.split('/')), OTHER_TEXT, 'utf-8');
+        await relistInThePeer(other, `${ORDER_OF_THE_RULE}  - ${OTHER_SEGMENT}\n`);
+      },
+      async () => {
+        await deleteAndCommit();
+        expect(await manifestOnDisk()).not.toContain('order:');
+
+        expect(await harness.runtime.pull(harness.workspaceId)).toMatchObject({ ok: true, upToDate: false });
+        await until('the engine takes the peer’s rule in', () => rulesInTheCollection().includes(OTHER_UID), 8_000);
+        await delay(TREE_AT_REST_MS);
+        expect(engineHoldsTheRule()).toBe(false);
+        expect(rulesInTheCollection()).toEqual([OTHER_UID]);
+        expect(await manifestOnDisk()).toContain(ORDER_OF_THE_OTHER);
+        expect(await harness.git('status', '--porcelain')).toBe('');
+      },
+    );
   });
 });
 

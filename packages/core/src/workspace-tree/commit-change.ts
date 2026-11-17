@@ -12,7 +12,9 @@
  *                             (skipped when the branch has no such
  *                             parent);
  *   edited by the change    → the keys it touched, over the branch's
- *                             entity (`three-way-patch.ts`); skipped
+ *                             entity (`three-way-patch.ts`), a
+ *                             container's `order` as the trees state
+ *                             it (`stated-order.ts`); skipped
  *                             when the branch no longer has the entity;
  *   moved by the change     → follows to the same parent on the branch,
  *                             and everything the branch keeps beneath a
@@ -69,7 +71,9 @@ import {
   WORKSPACE_VARS_DOC_KEY,
   WORKSPACE_VARS_FILE,
 } from './layout';
-import { type PatchTally, patchRecord, type Row } from './three-way-patch';
+import { withOrder } from './order';
+import { patchStatedOrder, readStatedOrder, type StatedOrderReader } from './stated-order';
+import { type PatchKeep, type PatchTally, patchRecord, type Row } from './three-way-patch';
 import type { TreeReadResult, WorkspaceTreeState } from './types';
 
 type TreeState = TreeReadResult['state'];
@@ -156,6 +160,10 @@ interface PathEntity extends Row {
   path: string;
 }
 
+interface ContainerEntity extends PathEntity {
+  order?: string[];
+}
+
 interface Pass {
   changedPaths: Set<string>;
   removedPaths: Set<string>;
@@ -174,11 +182,15 @@ interface Pass {
   side: CommitChangeSide | null;
   /** Whether the change removed the document at this path — false for one that only failed to read. */
   removed: (path: string) => boolean;
+  /** The order the branch, and the change's end tree, state of a container they hold. */
+  stated: { current: StatedOrderReader; to: StatedOrderReader };
 }
 
 interface Family<T extends PathEntity> {
   manifest: string;
   container: boolean;
+  /** The change's edit of one document laid over the branch's. */
+  patch: (current: T, from: T | undefined, to: T, document: CommitChangeDocument, pass: Pass) => T;
   from: readonly T[];
   to: readonly T[];
   /** The family as it will stand, by uid — the branch's entities first, in their order. */
@@ -195,6 +207,9 @@ const NO_SKIP: ReadonlySet<string> = new Set();
 
 /** `path` is the caller's: a moved entity is re-homed against the branch's containers, never copied. */
 const ENTITY_SKIP: ReadonlySet<string> = new Set(['uid', 'path']);
+
+/** And a container's `order`: a missing key is read with the tree it stands in, not as a value. */
+const CONTAINER_SKIP: ReadonlySet<string> = new Set([...ENTITY_SKIP, 'order']);
 
 const UNFILED: ReadonlySet<string> = new Set(RUNTIME_ONLY_FIELDS);
 const UNFILED_OF_CONTAINER: ReadonlySet<string> = new Set([...UNFILED, FOLDER_CHILDREN_PATH, FOLDER_ITEMS_PATH]);
@@ -217,12 +232,35 @@ function byUid<T extends { uid: string }>(items: readonly T[]): Map<string, T> {
   return new Map(items.map((item) => [item.uid, item] as const));
 }
 
-/** `current` patched by the change; a document where both sides changed one value is noted unless a side is ruled. */
+const keepOf = (pass: Pass): PatchKeep => (pass.side === 'mine' ? 'current' : 'change');
+
+/** A document where both sides changed one value is noted unless a side is ruled. */
+function noteOverridden(tally: PatchTally, document: CommitChangeDocument, pass: Pass): void {
+  if (tally.overridden > 0 && pass.side === null) pass.conflicts.push(document);
+}
+
+/** `current` patched by the change. */
 function patched<T extends Row>(current: T, from: T | undefined, to: T, document: CommitChangeDocument, pass: Pass): T {
   const tally: PatchTally = { overridden: 0 };
-  const out = patchRecord(current, from, to, ENTITY_SKIP, tally, pass.side === 'mine' ? 'current' : 'change');
-  if (tally.overridden > 0 && pass.side === null) pass.conflicts.push(document);
+  const out = patchRecord(current, from, to, ENTITY_SKIP, tally, keepOf(pass));
+  noteOverridden(tally, document, pass);
   return out;
+}
+
+/** A container's manifest patched by the change, its `order` laid over as the trees state it. */
+function patchedContainer<T extends ContainerEntity>(
+  current: T,
+  from: T | undefined,
+  to: T,
+  document: CommitChangeDocument,
+  pass: Pass,
+): T {
+  const tally: PatchTally = { overridden: 0 };
+  const keep = keepOf(pass);
+  const out = patchRecord(current, from, to, CONTAINER_SKIP, tally, keep);
+  const order = patchStatedOrder(pass.stated.current(current), from?.order, pass.stated.to(to), tally, keep);
+  noteOverridden(tally, document, pass);
+  return withOrder(out, order);
 }
 
 /**
@@ -270,15 +308,40 @@ function heldContainerAt(dir: string, trees: readonly HeldTree[]): string | null
   return null;
 }
 
-function family<T extends PathEntity>(
+function leafFamily<T extends PathEntity>(
   manifest: string,
-  container: boolean,
   current: readonly T[],
   from: readonly T[],
   to: readonly T[],
   resolved: readonly T[] | undefined,
 ): Family<T> {
-  return { manifest, container, from, to, next: byUid(current), resolved: byUid(resolved ?? []) };
+  return {
+    manifest,
+    container: false,
+    patch: patched,
+    from,
+    to,
+    next: byUid(current),
+    resolved: byUid(resolved ?? []),
+  };
+}
+
+function containerFamily<T extends ContainerEntity>(
+  manifest: string,
+  current: readonly T[],
+  from: readonly T[],
+  to: readonly T[],
+  resolved: readonly T[] | undefined,
+): Family<T> {
+  return {
+    manifest,
+    container: true,
+    patch: patchedContainer,
+    from,
+    to,
+    next: byUid(current),
+    resolved: byUid(resolved ?? []),
+  };
 }
 
 /** The document as resolved by hand, when the caller answered this uid with one. */
@@ -310,7 +373,10 @@ function layOver<T extends PathEntity>(group: Family<T>, pass: Pass): void {
       const destination = relocated ? rehome(after.path, pass) : mine.path;
       if (destination === null) pass.skipped.push({ ...document, reason: 'parent-missing' });
       const answer = answerOf(group.resolved, after.uid, pass);
-      const landed = { ...(answer ?? patched(mine, before, after, document, pass)), path: destination ?? mine.path };
+      const landed = {
+        ...(answer ?? group.patch(mine, before, after, document, pass)),
+        path: destination ?? mine.path,
+      };
       if (differs(mine, landed)) {
         group.next.set(after.uid, landed);
         pass.changedPaths.add(`${landed.path}/${group.manifest}`);
@@ -471,108 +537,89 @@ export function applyCommitChange(args: CommitChangeArgs): CommitChange {
   const { current, from, to } = args;
   const answers = args.resolved?.state;
 
-  const collections = family(
+  const collections = containerFamily(
     COLLECTION_MANIFEST_FILE,
-    true,
     current.collections,
     from.collections,
     to.collections,
     answers?.collections,
   );
-  const requestCollections = family(
+  const requestCollections = containerFamily(
     COLLECTION_MANIFEST_FILE,
-    true,
     current.requestCollections,
     from.requestCollections,
     to.requestCollections,
     answers?.requestCollections,
   );
-  const templateCollections = family(
+  const templateCollections = containerFamily(
     COLLECTION_MANIFEST_FILE,
-    true,
     current.templateCollections,
     from.templateCollections,
     to.templateCollections,
     answers?.templateCollections,
   );
-  const folders = family(FOLDER_MANIFEST_FILE, true, current.folders, from.folders, to.folders, answers?.folders);
-  const requestFolders = family(
+  const folders = containerFamily(FOLDER_MANIFEST_FILE, current.folders, from.folders, to.folders, answers?.folders);
+  const requestFolders = containerFamily(
     FOLDER_MANIFEST_FILE,
-    true,
     current.requestFolders,
     from.requestFolders,
     to.requestFolders,
     answers?.requestFolders,
   );
-  const templateFolders = family(
+  const templateFolders = containerFamily(
     FOLDER_MANIFEST_FILE,
-    true,
     current.templateFolders,
     from.templateFolders,
     to.templateFolders,
     answers?.templateFolders,
   );
-  const rules = family(RULE_MANIFEST_FILE, false, current.rules, from.rules, to.rules, answers?.rules);
-  const requests = family(
-    REQUEST_MANIFEST_FILE,
-    false,
-    current.requests,
-    from.requests,
-    to.requests,
-    answers?.requests,
-  );
-  const grpcRequests = family(
+  const rules = leafFamily(RULE_MANIFEST_FILE, current.rules, from.rules, to.rules, answers?.rules);
+  const requests = leafFamily(REQUEST_MANIFEST_FILE, current.requests, from.requests, to.requests, answers?.requests);
+  const grpcRequests = leafFamily(
     GRPC_REQUEST_MANIFEST_FILE,
-    false,
     current.grpcRequests,
     from.grpcRequests,
     to.grpcRequests,
     answers?.grpcRequests,
   );
-  const websocketRequests = family(
+  const websocketRequests = leafFamily(
     WEBSOCKET_REQUEST_MANIFEST_FILE,
-    false,
     current.websocketRequests,
     from.websocketRequests,
     to.websocketRequests,
     answers?.websocketRequests,
   );
-  const mqttRequests = family(
+  const mqttRequests = leafFamily(
     MQTT_REQUEST_MANIFEST_FILE,
-    false,
     current.mqttRequests,
     from.mqttRequests,
     to.mqttRequests,
     answers?.mqttRequests,
   );
-  const graphqlRequests = family(
+  const graphqlRequests = leafFamily(
     GRAPHQL_REQUEST_MANIFEST_FILE,
-    false,
     current.graphqlRequests,
     from.graphqlRequests,
     to.graphqlRequests,
     answers?.graphqlRequests,
   );
-  const templates = family(
+  const templates = leafFamily(
     TEMPLATE_MANIFEST_FILE,
-    false,
     current.templates,
     from.templates,
     to.templates,
     answers?.templates,
   );
-  const specs = family(SPEC_MANIFEST_FILE, false, current.specs, from.specs, to.specs, answers?.specs);
-  const liveWorkflows = family(
+  const specs = leafFamily(SPEC_MANIFEST_FILE, current.specs, from.specs, to.specs, answers?.specs);
+  const liveWorkflows = leafFamily(
     LIVE_WORKFLOW_MANIFEST_FILE,
-    false,
     current.liveWorkflows,
     from.liveWorkflows,
     to.liveWorkflows,
     answers?.liveWorkflows,
   );
-  const liveVariables = family(
+  const liveVariables = leafFamily(
     LIVE_VARIABLE_MANIFEST_FILE,
-    false,
     current.liveVariables,
     from.liveVariables,
     to.liveVariables,
@@ -596,6 +643,7 @@ export function applyCommitChange(args: CommitChangeArgs): CommitChange {
     answeredGone: args.resolved?.removed ?? new Set(),
     side: args.side ?? null,
     removed: (path) => args.removedPaths?.has(path) ?? true,
+    stated: { current: readStatedOrder(current), to: readStatedOrder(to) },
   };
 
   // Containers settle before what they hold: collections, then folders

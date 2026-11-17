@@ -358,6 +358,85 @@ describe('applyCommitChange — creations and order', () => {
   });
 });
 
+describe('applyCommitChange — a container’s order where one place holds no child', () => {
+  const B = 'b-rul0000b';
+  const C = 'c-rul0000c';
+  const M = 'm-rul0000m';
+  const manifest = `${COL_A}/_collection.yaml`;
+
+  it('the change removes the last child, the branch added one: its own stays in order and nothing is named', () => {
+    const current = state({ collections: [collection('col0000a', COL_A, [B, M])], rules: [b, mine] });
+    const change = applyCommitChange({
+      current,
+      from: state({ collections: [collection('col0000a', COL_A, [B])], rules: [b] }),
+      to: state({ collections: [collection('col0000a', COL_A)] }),
+    });
+    expect(change.conflicts).toEqual([]);
+    expect(change.next.collections[0].order).toEqual([M]);
+    expect([...change.removedPaths]).toEqual([manifestOf(b)]);
+
+    const store = storeHolding(current);
+    land(store, current, change);
+    expect(liveOrder(store)).toEqual(['rul0000m']);
+  });
+
+  it('the change adds a child beside one, the branch removed its last: the added one lands alone', () => {
+    const current = state({ collections: [collection('col0000a', COL_A)] });
+    const change = applyCommitChange({
+      current,
+      from: state({ collections: [collection('col0000a', COL_A, [B])], rules: [b] }),
+      to: state({ collections: [collection('col0000a', COL_A, [B, C])], rules: [b, c] }),
+    });
+    expect(change.conflicts).toEqual([]);
+    expect(change.next.collections[0].order).toEqual([C]);
+    expect(change.next.rules).toEqual([c]);
+
+    const store = storeHolding(current);
+    land(store, current, change);
+    expect(liveOrder(store)).toEqual(['rul0000c']);
+  });
+
+  it('the change reorders children the branch removed: nothing changes and nothing is named', () => {
+    const current = state({ collections: [collection('col0000a', COL_A)] });
+    const change = applyCommitChange({
+      current,
+      from: state({ collections: [collection('col0000a', COL_A, [B, C])], rules: [b, c] }),
+      to: state({ collections: [collection('col0000a', COL_A, [C, B])], rules: [b, c] }),
+    });
+    expect(change.conflicts).toEqual([]);
+    expect(change.changedPaths.size + change.removedPaths.size).toBe(0);
+    expect(change.next).toEqual(current);
+  });
+
+  it('a change that drops the order key and keeps the child states no order: the branch’s stands', () => {
+    const current = state({ collections: [collection('col0000a', COL_A, [B, M])], rules: [b, mine] });
+    const change = applyCommitChange({
+      current,
+      from: state({ collections: [collection('col0000a', COL_A, [B])], rules: [b] }),
+      to: state({ collections: [collection('col0000a', COL_A)], rules: [b] }),
+    });
+    expect(change.conflicts).toEqual([]);
+    expect(change.changedPaths.size + change.removedPaths.size).toBe(0);
+    expect(change.next).toEqual(current);
+  });
+
+  it('a change that adds a first child and lists no order leaves the branch’s order, its other edit landing', () => {
+    const current = state({ collections: [collection('col0000a', COL_A, [M])], rules: [mine] });
+    const change = applyCommitChange({
+      current,
+      from: state({ collections: [collection('col0000a', COL_A)] }),
+      to: state({ collections: [{ ...collection('col0000a', COL_A), name: 'Renamed' }], rules: [d] }),
+    });
+    expect(change.conflicts).toEqual([]);
+    expect(change.next.collections).toEqual([{ ...collection('col0000a', COL_A, [M]), name: 'Renamed' }]);
+    expect([...change.changedPaths].sort()).toEqual([manifest, manifestOf(d)].sort());
+
+    const store = storeHolding(current);
+    land(store, current, change);
+    expect(liveOrder(store)).toEqual(['rul0000m', 'rul0000d']);
+  });
+});
+
 describe('applyCommitChange — moves', () => {
   it('a leaf the commit moved follows to the same parent on the branch', () => {
     const both = [collection('col0000a', COL_A), collection('col0000b', COL_B)];
