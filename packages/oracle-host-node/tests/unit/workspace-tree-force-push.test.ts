@@ -335,6 +335,38 @@ describe('resolveForcePushWorkspaceTree', () => {
     expect(await countDirtyFiles(run, local)).toBe(0);
   });
 
+  it('abandon: a leaf under a new collection whose manifest does not read is not taken in — a row, its bytes kept on disk', async () => {
+    const manifest = 'rules/fresh-colnew00/_collection.yaml';
+    const leaf = 'rules/fresh-colnew00/hand-made-cccccccc/rule.yaml';
+    const leafYaml =
+      'schemaVersion: 5\nuid: cccccccc\nname: Hand made\ntype: block\nenabled: true\nconditions: []\naction: {}\n';
+    await fs.mkdir(path.dirname(path.join(peer, ...leaf.split('/'))), { recursive: true });
+    await fs.writeFile(path.join(peer, ...manifest.split('/')), 'schemaVersion: 5\nuid: [broken\n', 'utf-8');
+    await fs.writeFile(path.join(peer, ...leaf.split('/')), leafYaml, 'utf-8');
+    const added = await commitWorkspaceTree({ run, rootDir: peer, message: 'Unread', identityEnv: RITA_ENV });
+    if (!added.ok || !added.committed) throw new Error('peer commit failed');
+    await raw(peer, 'push', '--quiet', 'origin', 'main');
+
+    const applied: EmissionBatch[] = [];
+    const result = await doResolve('abandon', applied, () => {
+      state.rules = [{ ...state.rules[0], name: 'Rewritten probes' } as Rule];
+    });
+    expect(result).toMatchObject({
+      ok: true,
+      remoteSha: added.sha,
+      issues: [
+        { path: manifest },
+        { path: leaf, message: 'rule inside no collection or folder of the workspace — skipped' },
+      ],
+    });
+    const bodies = applied.flatMap((entry) => entry.batch.mutations.map((m) => m.body));
+    expect(bodies.filter((body) => body.kind === 'create')).toEqual([]);
+
+    await materializer.flush();
+    await expect(fs.readFile(path.join(local, ...leaf.split('/')), 'utf-8')).resolves.toBe(leafYaml);
+    expect(await countDirtyFiles(run, local)).toBe(0);
+  });
+
   it('rescue: identical convergence, but the pre-rewrite history survives on a new oh-rescue ref', async () => {
     const applied: EmissionBatch[] = [];
     const result = await doResolve('rescue', applied, () => {

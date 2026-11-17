@@ -81,6 +81,7 @@ import { synthesizeWorkspaceTreeDelta } from '@openheaders/core/sync-builders/mu
 import {
   type CommitChangeDocument,
   type CommitChangeSkip,
+  containTreeRead,
   ENTITY_MANIFEST_FILES,
   type ForeignHistoryNote,
   readWorkspaceTree,
@@ -417,7 +418,10 @@ async function readForeignChange(
   if (baseFiles === null) {
     return { ok: false, reason: 'foreign-invalid', detail: `unreadable tree for ${base}`, issues: [] };
   }
-  const baseTree = readWorkspaceTree(baseFiles);
+  // The base is read as the foreign head is (`containTreeRead`): a child
+  // the workspace could hold at neither end did not change, and one it
+  // can hold only at the foreign end was created by the change.
+  const baseTree = containTreeRead(readWorkspaceTree(baseFiles), snapshot);
   // Neither commit carries a secret file; both ends of the change read
   // their secret rows from the template they committed, so a history
   // that did not touch one leaves the branch's secret rows out of it.
@@ -479,17 +483,17 @@ export async function integrateForeignHead(
   if (foreignFiles === null) {
     return { ok: false, reason: 'foreign-invalid', detail: `unreadable tree for ${foreignSha}`, issues: [] };
   }
-  const foreign = readWorkspaceTree(foreignFiles);
-  if (foreign.state.workspace === null) {
+  const read = readWorkspaceTree(foreignFiles);
+  if (read.state.workspace === null) {
     return {
       ok: false,
       reason: 'foreign-invalid',
       detail: 'foreign workspace.yaml missing or unparseable',
-      issues: foreign.issues,
+      issues: read.issues,
     };
   }
-  if (foreign.state.workspace.uid !== deps.workspaceUid) {
-    return { ok: false, reason: 'identity-mismatch', detail: foreign.state.workspace.uid, issues: foreign.issues };
+  if (read.state.workspace.uid !== deps.workspaceUid) {
+    return { ok: false, reason: 'identity-mismatch', detail: read.state.workspace.uid, issues: read.issues };
   }
 
   const base = await mergeBaseOf(run, rootDir, 'HEAD', foreignSha);
@@ -499,7 +503,7 @@ export async function integrateForeignHead(
       ok: false,
       reason: 'foreign-invalid',
       detail: `undiffable range ${base ?? '(root)'}..${foreignSha}`,
-      issues: foreign.issues,
+      issues: read.issues,
     };
   }
   // No base ⇒ the three-way discipline degrades to "everything foreign
@@ -510,19 +514,21 @@ export async function integrateForeignHead(
     base === null ? ((await isShallowRepository(run, rootDir)) ? 'shallow' : 'unrelated') : undefined;
   const withHistory = history !== undefined ? { history } : {};
 
-  const unreadable = (): IntegrateForeignHeadResult => ({
-    ok: false,
-    reason: 'commit-failed',
-    detail: 'the working tree could not be read',
-    issues: foreign.issues,
-  });
-
   // What the engine still has pending is local work, not the
   // integration's: it reaches the disk before the tree is read. Held by
   // git's writing, it would be written under the pass's own lock and
   // recorded with the integration's files — the pass refuses like a busy
   // index, with nothing written.
   const snapshot = await deps.readSnapshot();
+  // A foreign folder or leaf the workspace has no container for is
+  // quarantined like a document that did not read.
+  const foreign = containTreeRead(read, snapshot);
+  const unreadable = (): IntegrateForeignHeadResult => ({
+    ok: false,
+    reason: 'commit-failed',
+    detail: 'the working tree could not be read',
+    issues: foreign.issues,
+  });
   if ((await deps.flush()).held !== undefined) {
     return {
       ok: false,

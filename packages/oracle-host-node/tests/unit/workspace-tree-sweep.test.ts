@@ -155,6 +155,15 @@ afterEach(async () => {
 });
 
 const RULE_FILE = `${API.path}/block-probes-aaaaaaaa/rule.yaml`;
+const HAND_RULE_YAML =
+  'schemaVersion: 5\nuid: cccccccc\nname: Hand made\ntype: block\nenabled: true\nconditions: []\naction: {}\n';
+const NOT_CONTAINED = 'rule inside no collection or folder of the workspace — skipped';
+
+async function writeByHand(relative: string, text: string): Promise<void> {
+  const target = path.join(tmpDir, ...relative.split('/'));
+  await fs.mkdir(path.dirname(target), { recursive: true });
+  await fs.writeFile(target, text, 'utf-8');
+}
 
 describe('sweepWorkspaceTree', () => {
   it('close-app → vim-edit → reopen: the hand edit wins', async () => {
@@ -568,6 +577,110 @@ describe('sweepWorkspaceTree', () => {
     expect(returned).toContainEqual(
       expect.objectContaining({ kind: 'addToSet', type: 'collection', id: API.uid, path: 'items', itemId: 'aaaaaaaa' }),
     );
+  });
+
+  it('a leaf under a new collection whose manifest does not read is not taken in, and is with its collection once it reads', async () => {
+    const materializer = makeMaterializer();
+    await materializer.flush();
+    const manifest = 'rules/fresh-colnew00/_collection.yaml';
+    const leaf = 'rules/fresh-colnew00/hand-made-cccccccc/rule.yaml';
+    await writeByHand(manifest, 'schemaVersion: 5\nuid: [broken\n');
+    await writeByHand(leaf, HAND_RULE_YAML);
+
+    const applied: EmissionBatch[] = [];
+    expect(await runSweep(applied)).toMatchObject({
+      ok: true,
+      applied: 0,
+      changed: 2,
+      issues: [{ path: manifest }, { path: leaf, message: NOT_CONTAINED }],
+    });
+    expect(applied).toEqual([]);
+    const baseline = await readMaterializedIndex(tmpDir);
+    expect([baseline[manifest], baseline[leaf]]).toEqual([undefined, undefined]);
+    const pass = await materializer.flush();
+    expect([pass.written, pass.deleted]).toEqual([[], []]);
+    await expect(fs.readFile(path.join(tmpDir, ...leaf.split('/')), 'utf-8')).resolves.toBe(HAND_RULE_YAML);
+
+    await writeByHand(manifest, 'schemaVersion: 5\nuid: colnew00\nname: Fresh\nvariables: []\n');
+    const read: EmissionBatch[] = [];
+    expect(await runSweep(read)).toMatchObject({ ok: true, changed: 2, issues: [] });
+    const bodies = read.flatMap((entry) => entry.batch.mutations.map((m) => m.body));
+    expect(bodies).toContainEqual(expect.objectContaining({ kind: 'create', type: 'collection', id: 'colnew00' }));
+    expect(bodies).toContainEqual(expect.objectContaining({ kind: 'create', type: 'rule', id: 'cccccccc' }));
+    expect(bodies).toContainEqual(
+      expect.objectContaining({
+        kind: 'addToSet',
+        type: 'collection',
+        id: 'colnew00',
+        path: 'items',
+        itemId: 'cccccccc',
+      }),
+    );
+  });
+
+  it('a leaf written into a collection the engine holds is taken in on it while its manifest does not read', async () => {
+    await makeMaterializer().flush();
+    const manifest = `${API.path}/_collection.yaml`;
+    await writeByHand(manifest, 'schemaVersion: 5\nuid: [broken\n');
+    await writeByHand(`${API.path}/hand-made-cccccccc/rule.yaml`, HAND_RULE_YAML);
+
+    const applied: EmissionBatch[] = [];
+    expect(await runSweep(applied)).toMatchObject({ ok: true, applied: 1, issues: [{ path: manifest }] });
+    expect(applied.map((entry) => entry.label)).toEqual(['rule:cccccccc (create)']);
+    expect(applied[0].batch.mutations.map((m) => m.body)).toContainEqual(
+      expect.objectContaining({ kind: 'addToSet', type: 'collection', id: API.uid, path: 'items', itemId: 'cccccccc' }),
+    );
+  });
+
+  it('a held leaf moved by hand into a held collection whose manifest does not read is a move, not a deletion', async () => {
+    const zed = makeCollection('colzed00', 'Zed');
+    state.collections = [API, zed];
+    state.rules = [makeRule('aaaaaaaa', 'Block probes')];
+    await makeMaterializer().flush();
+    await writeByHand(`${zed.path}/_collection.yaml`, 'schemaVersion: 5\nuid: [broken\n');
+    await fs.rename(
+      path.dirname(path.join(tmpDir, ...RULE_FILE.split('/'))),
+      path.join(tmpDir, ...zed.path.split('/'), 'block-probes-aaaaaaaa'),
+    );
+
+    const applied: EmissionBatch[] = [];
+    expect(await runSweep(applied)).toMatchObject({
+      ok: true,
+      applied: 1,
+      issues: [{ path: `${zed.path}/_collection.yaml` }],
+    });
+    expect(applied.map((entry) => entry.label)).toEqual(['rule:aaaaaaaa (move)']);
+    expect(applied[0].batch.mutations.map((m) => m.body)).toMatchObject([
+      { kind: 'removeFromSet', type: 'collection', id: API.uid, path: 'items', itemId: 'aaaaaaaa' },
+      { kind: 'addToSet', type: 'collection', id: zed.uid, path: 'items', itemId: 'aaaaaaaa' },
+      { kind: 'setField', type: 'rule', id: 'aaaaaaaa', path: 'path' },
+    ]);
+  });
+
+  it("a folder at the tree's root is not taken in, nor the leaf inside it: a row each, both files left by the flush", async () => {
+    const materializer = makeMaterializer();
+    await materializer.flush();
+    const folder = 'rules/loose-folnew00/_folder.yaml';
+    const leaf = 'rules/loose-folnew00/hand-made-cccccccc/rule.yaml';
+    const folderYaml = 'schemaVersion: 5\nuid: folnew00\nname: Loose\n';
+    await writeByHand(folder, folderYaml);
+    await writeByHand(leaf, HAND_RULE_YAML);
+
+    const applied: EmissionBatch[] = [];
+    expect(await runSweep(applied)).toMatchObject({
+      ok: true,
+      applied: 0,
+      issues: [
+        { path: folder, message: 'folder inside no collection or folder of the workspace — skipped' },
+        { path: leaf, message: NOT_CONTAINED },
+      ],
+    });
+    expect(applied).toEqual([]);
+
+    const pass = await materializer.flush();
+    expect([pass.written, pass.deleted]).toEqual([[], []]);
+    await expect(fs.readFile(path.join(tmpDir, ...folder.split('/')), 'utf-8')).resolves.toBe(folderYaml);
+    await expect(fs.readFile(path.join(tmpDir, ...leaf.split('/')), 'utf-8')).resolves.toBe(HAND_RULE_YAML);
   });
 
   it("a user's own stray file is never adopted into the baseline and never deleted", async () => {

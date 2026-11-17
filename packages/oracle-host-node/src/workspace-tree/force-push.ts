@@ -45,6 +45,7 @@ import type {
 } from '@openheaders/core/sync-builders/mutations/workspace-import-emission';
 import { synthesizeWorkspaceTreeDelta } from '@openheaders/core/sync-builders/mutations/workspace-tree-delta';
 import {
+  containTreeRead,
   readWorkspaceTree,
   type TreeIssue,
   type WorkspaceTreeState,
@@ -162,27 +163,27 @@ export async function resolveForcePushWorkspaceTree(options: ResolveForcePushOpt
   if (foreignFiles === null) {
     return { ok: false, reason: 'foreign-invalid', detail: `unreadable tree for ${upstream.sha}`, issues: [] };
   }
-  const foreign = readWorkspaceTree(foreignFiles);
-  if (foreign.state.workspace === null) {
+  const read = readWorkspaceTree(foreignFiles);
+  if (read.state.workspace === null) {
     return {
       ok: false,
       reason: 'foreign-invalid',
       detail: 'foreign workspace.yaml missing or unparseable',
-      issues: foreign.issues,
+      issues: read.issues,
     };
   }
-  if (foreign.state.workspace.uid !== options.workspaceUid) {
-    return { ok: false, reason: 'identity-mismatch', detail: foreign.state.workspace.uid, issues: foreign.issues };
+  if (read.state.workspace.uid !== options.workspaceUid) {
+    return { ok: false, reason: 'identity-mismatch', detail: read.state.workspace.uid, issues: read.issues };
   }
 
   const oldHead = await localHeadSha(run, rootDir);
   if (oldHead === null) return { ok: false, reason: 'ref-update-failed', detail: 'no local HEAD', issues: [] };
 
-  const unreadable = (): ResolveForcePushResult => ({
+  const unreadable = (issues: TreeIssue[]): ResolveForcePushResult => ({
     ok: false,
     reason: 'commit-failed',
     detail: 'the working tree could not be read',
-    issues: foreign.issues,
+    issues,
   });
 
   // The rescue ref is cut further down, on the head that holds every
@@ -196,7 +197,7 @@ export async function resolveForcePushWorkspaceTree(options: ResolveForcePushOpt
         ok: false,
         reason: 'ref-update-failed',
         detail: `${rescueBranch} already exists`,
-        issues: foreign.issues,
+        issues: read.issues,
       };
     }
   }
@@ -208,7 +209,7 @@ export async function resolveForcePushWorkspaceTree(options: ResolveForcePushOpt
   return withIndexLock<ResolveForcePushResult>(
     run,
     rootDir,
-    (refusal) => ({ ok: false, reason: lockRefusalReason(refusal), detail: refusal.detail, issues: foreign.issues }),
+    (refusal) => ({ ok: false, reason: lockRefusalReason(refusal), detail: refusal.detail, issues: read.issues }),
     async (indexLock) => {
       // Local work first. What the engine still has pending reaches the
       // disk, the working tree is read once, and uncommitted work in a file
@@ -218,13 +219,13 @@ export async function resolveForcePushWorkspaceTree(options: ResolveForcePushOpt
       await options.flush();
       const heads = await diffForeignPaths(run, rootDir, oldHead, upstream.sha);
       const before = await snapshotWorkingTree(run, rootDir);
-      if (heads === null || before === null) return unreadable();
+      if (heads === null || before === null) return unreadable(read.issues);
       const between = [...heads.changed, ...heads.removed];
       const committedFirst = await uncommittedAmong(run, rootDir, between);
-      if (committedFirst === null) return unreadable();
+      if (committedFirst === null) return unreadable(read.issues);
       if (committedFirst.length > 0) {
         const local = await options.commitLocalWork({ tree: before, paths: committedFirst, indexLock });
-        if (!local.ok) return { ok: false, reason: 'commit-failed', detail: local.detail, issues: foreign.issues };
+        if (!local.ok) return { ok: false, reason: 'commit-failed', detail: local.detail, issues: read.issues };
       }
 
       // The path classification that gates the delta: `abandon`/`rescue`
@@ -241,7 +242,7 @@ export async function resolveForcePushWorkspaceTree(options: ResolveForcePushOpt
             ok: false,
             reason: 'foreign-invalid',
             detail: `undiffable range ${options.lastSyncedRemoteSha}..${upstream.sha}`,
-            issues: foreign.issues,
+            issues: read.issues,
           };
         }
         changed = diff.changed;
@@ -254,6 +255,9 @@ export async function resolveForcePushWorkspaceTree(options: ResolveForcePushOpt
       }
 
       const snapshot = await options.readSnapshot();
+      // A foreign folder or leaf the workspace has no container for is
+      // quarantined like a document that did not read.
+      const foreign = containTreeRead(read, snapshot);
       const batches = synthesizeWorkspaceTreeDelta({
         prev: snapshot,
         next: withCommitSecretRows({
@@ -290,7 +294,7 @@ export async function resolveForcePushWorkspaceTree(options: ResolveForcePushOpt
       // wrote. A file it wrote outside the two heads' difference that held
       // uncommitted work is committed first too, as it stood before.
       const pass = await readPassWrites(run, rootDir, before);
-      if (pass === null) return unreadable();
+      if (pass === null) return unreadable(foreign.issues);
       const late = pass.wrote.filter((filePath) => pass.uncommitted.has(filePath));
       if (late.length > 0) {
         const local = await options.commitLocalWork({ tree: before, paths: late, indexLock });
@@ -322,7 +326,7 @@ export async function resolveForcePushWorkspaceTree(options: ResolveForcePushOpt
       // now: on `reapply` that is the local side re-applied, otherwise the
       // engine's residue. Uncommitted work elsewhere stays uncommitted.
       const paths = await recordablePaths(run, rootDir, pass.after, [...new Set([...between, ...pass.wrote])].sort());
-      if (paths === null) return unreadable();
+      if (paths === null) return unreadable(foreign.issues);
       const followUp = await commitWorkspaceTree({
         run,
         rootDir,

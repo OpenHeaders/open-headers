@@ -40,6 +40,7 @@ import type {
 } from '@openheaders/core/sync-builders/mutations/workspace-import-emission';
 import { synthesizeWorkspaceTreeDelta } from '@openheaders/core/sync-builders/mutations/workspace-tree-delta';
 import {
+  containTreeRead,
   planWorkspaceTree,
   readWorkspaceTree,
   TRUSTED_ROOTS_DOC_KEY,
@@ -148,8 +149,11 @@ async function sweepReading(options: SweepWorkspaceTreeOptions): Promise<SweepWo
     return { ok: true, applied: 0, changed: 0, removed: 0, issues: [], held: { files, reading } };
   };
 
+  // A folder or a leaf the workspace has no container for is a read
+  // issue like a document that does not parse: reported, its file kept
+  // and off the baseline.
   const files = await listWorkspaceTreeFiles(rootDir);
-  const read = readWorkspaceTree(files);
+  const read = containTreeRead(readWorkspaceTree(files), snapshot);
   if (read.state.workspace === null) {
     const manifest = files.find((file) => file.path === WORKSPACE_MANIFEST_FILE);
     const held = await heldFor(1, ['manifest', manifest === undefined ? null : hashTreeContent(manifest.content)]);

@@ -430,6 +430,62 @@ describe('pullWorkspaceTree', () => {
     );
   });
 
+  it('a foreign leaf under a new collection whose manifest does not read quarantines with it; the manifest fixed, both are taken in', async () => {
+    const manifest = 'rules/fresh-colnew00/_collection.yaml';
+    const leaf = 'rules/fresh-colnew00/hand-made-cccccccc/rule.yaml';
+    const leafYaml =
+      'schemaVersion: 5\nuid: cccccccc\nname: Hand made\ntype: block\nenabled: true\nconditions: []\naction: {}\n';
+    await peerEdit(manifest, () => 'schemaVersion: 5\nuid: [broken\n');
+    await peerEdit(leaf, () => leafYaml);
+    await peerCommitPush('A collection that does not read');
+
+    const applied: EmissionBatch[] = [];
+    const first = await doPull(applied);
+    expect(first).toMatchObject({
+      ok: true,
+      upToDate: false,
+      issues: [
+        { path: manifest },
+        { path: leaf, message: 'rule inside no collection or folder of the workspace — skipped' },
+      ],
+    });
+    expect(applied).toEqual([]);
+    await expect(fs.readFile(path.join(local, ...leaf.split('/')), 'utf-8')).resolves.toBe(leafYaml);
+    expect(await countDirtyFiles(run, local)).toBe(0);
+
+    // The peer fixes the manifest and nothing else: the leaf did not
+    // change, and is the change's all the same — the workspace can hold
+    // it now.
+    await peerEdit(manifest, () => 'schemaVersion: 5\nuid: colnew00\nname: Fresh\nvariables: []\n');
+    await peerCommitPush('Fix the collection');
+    const fresh: Collection = { ...API, uid: 'colnew00', path: 'rules/fresh-colnew00', name: 'Fresh' };
+    const read: EmissionBatch[] = [];
+    const second = await doPull(read, () => {
+      state.collections = [API, fresh];
+      state.rules = [
+        ...state.rules,
+        { ...makeRule('cccccccc', 'Hand made'), path: `${fresh.path}/hand-made-cccccccc` },
+      ];
+    });
+    expect(second).toMatchObject({ ok: true, upToDate: false, issues: [] });
+    const bodies = read.flatMap((entry) => entry.batch.mutations.map((m) => m.body));
+    expect(bodies).toContainEqual(expect.objectContaining({ kind: 'create', type: 'collection', id: 'colnew00' }));
+    expect(bodies).toContainEqual(expect.objectContaining({ kind: 'create', type: 'rule', id: 'cccccccc' }));
+    expect(bodies).toContainEqual(
+      expect.objectContaining({
+        kind: 'addToSet',
+        type: 'collection',
+        id: 'colnew00',
+        path: 'items',
+        itemId: 'cccccccc',
+      }),
+    );
+
+    await materializer.flush();
+    await expect(fs.readFile(path.join(local, ...leaf.split('/')), 'utf-8')).resolves.toContain('uid: cccccccc');
+    expect(await countDirtyFiles(run, local)).toBe(0);
+  });
+
   it('a rewritten remote head refuses the pull with force-push (§16 — the trichotomy resolves it)', async () => {
     // First sync: the peer's edit integrates and its sha becomes the
     // watermark the runtime would persist.

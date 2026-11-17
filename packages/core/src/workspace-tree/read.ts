@@ -177,7 +177,9 @@ export function readWorkspaceTree(files: readonly TreeFile[]): TreeReadResult {
    * A tree leaf is read inside a collection or folder of its own tree
    * and nowhere else: containment is the parent's set, and a leaf with
    * no container has no set to be held in. A file-presence test — a
-   * container whose manifest does not parse keeps its children.
+   * container whose manifest does not parse keeps its children here;
+   * whether the workspace has that container is asked where a read
+   * meets the engine (`containment.ts`).
    */
   const contained = (manifestPath: string, tree: string, kind: string): boolean => {
     const parent = dirOf(dirOf(manifestPath));
