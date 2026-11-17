@@ -352,6 +352,7 @@ describe('sweepWorkspaceTree', () => {
       changed: 0,
       removed: 0,
       issues: [],
+      kept: [],
       held: { files: 2, reading: expect.any(String) },
     });
     expect(applied).toHaveLength(0);
@@ -379,6 +380,7 @@ describe('sweepWorkspaceTree', () => {
       changed: 0,
       removed: 0,
       issues: [],
+      kept: [],
       held: { files: 1, reading: expect.any(String) },
     });
     const firstReading = first.ok ? first.held?.reading : undefined;
@@ -565,14 +567,56 @@ describe('sweepWorkspaceTree', () => {
     expect(applied).toEqual([]);
   });
 
-  it("a held leaf whose collection's manifest is removed by hand raises no row: its file is the engine's own", async () => {
+  it("a held collection's manifest removed by hand while its leaf's file is left is no deletion: kept, no row, written again", async () => {
     state.rules = [makeRule('aaaaaaaa', 'Block probes')];
-    await makeMaterializer().flush();
-    await fs.rm(path.join(tmpDir, ...API.path.split('/'), '_collection.yaml'));
+    const materializer = makeMaterializer();
+    await materializer.flush();
+    const manifest = `${API.path}/_collection.yaml`;
+    const manifestFile = path.join(tmpDir, ...manifest.split('/'));
+    const written = await fs.readFile(manifestFile, 'utf-8');
+    await fs.rm(manifestFile);
 
     const applied: EmissionBatch[] = [];
-    expect(await runSweep(applied)).toMatchObject({ ok: true, applied: 1, changed: 0, removed: 1, issues: [] });
-    expect(applied.map((entry) => entry.label)).toEqual([`collection:${API.uid} (delete)`]);
+    expect(await runSweep(applied)).toEqual({
+      ok: true,
+      applied: 0,
+      changed: 0,
+      removed: 1,
+      issues: [],
+      kept: [manifest],
+    });
+    expect(applied).toEqual([]);
+
+    const pass = await materializer.flush();
+    expect([pass.written, pass.deleted]).toEqual([[manifest], []]);
+    await expect(fs.readFile(manifestFile, 'utf-8')).resolves.toBe(written);
+    expect(await runSweep(applied)).toEqual({ ok: true, applied: 0, changed: 0, removed: 0, issues: [], kept: [] });
+    expect(applied).toEqual([]);
+  });
+
+  it("a held folder's manifest removed by hand while its leaf's file is left is no deletion either", async () => {
+    const folder = makeFolder('folauth0', 'Auth', API.path);
+    state.folders = [folder];
+    state.rules = [ruleUnder('aaaaaaaa', 'Block probes', folder.path)];
+    const materializer = makeMaterializer();
+    await materializer.flush();
+    const manifest = `${folder.path}/_folder.yaml`;
+    await fs.rm(path.join(tmpDir, ...manifest.split('/')));
+
+    const applied: EmissionBatch[] = [];
+    expect(await runSweep(applied)).toMatchObject({ ok: true, applied: 0, removed: 1, issues: [], kept: [manifest] });
+    expect(applied).toEqual([]);
+    expect((await materializer.flush()).written).toEqual([manifest]);
+  });
+
+  it('a held collection removed by hand with everything in it is deleted, leaves first', async () => {
+    state.rules = [makeRule('aaaaaaaa', 'Block probes')];
+    await makeMaterializer().flush();
+    await fs.rm(path.join(tmpDir, ...API.path.split('/')), { recursive: true });
+
+    const applied: EmissionBatch[] = [];
+    expect(await runSweep(applied)).toMatchObject({ ok: true, applied: 2, removed: 2, issues: [], kept: [] });
+    expect(applied.map((entry) => entry.label)).toEqual(['rule:aaaaaaaa (delete)', `collection:${API.uid} (delete)`]);
   });
 
   it('a held leaf moved by hand out of its container is deleted with the row raised, and restored when put in one', async () => {

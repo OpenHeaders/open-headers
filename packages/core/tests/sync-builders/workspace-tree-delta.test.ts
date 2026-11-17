@@ -27,7 +27,10 @@ import {
   WORKSPACE_ROOTS_RULE_COLLECTIONS_PATH,
 } from '../../src/sync';
 import type { EmissionBatch } from '../../src/sync-builders/mutations/workspace-import-emission';
-import { synthesizeWorkspaceTreeDelta } from '../../src/sync-builders/mutations/workspace-tree-delta';
+import {
+  keptContainerManifests,
+  synthesizeWorkspaceTreeDelta,
+} from '../../src/sync-builders/mutations/workspace-tree-delta';
 import type {
   Collection,
   Environment,
@@ -240,6 +243,54 @@ describe('synthesizeWorkspaceTreeDelta — deletions', () => {
     });
     const ruleBatch = batches.find((b) => b.label === 'rule:rul00001 (delete)');
     expect(ruleBatch?.batch.mutations.map((m) => m.body)).toEqual([{ kind: 'delete', type: 'rule', id: 'rul00001' }]);
+    expect(batches.map((b) => b.label)).toContain('collection:col0000a (delete)');
+  });
+
+  const COL_MANIFEST = 'rules/api-col0000a/_collection.yaml';
+  const otherRule = { ...baseRule, uid: 'rul00002', path: 'rules/api-col0000a/other-rul00002' } as Rule;
+
+  it("a collection whose manifest is gone while a leaf's file is left in it is not deleted", () => {
+    const prev = emptyState({ collections: [col], rules: [ruleInCol] });
+    const next = emptyState();
+    expect(delta({ prev, next, removed: [COL_MANIFEST] })).toEqual([]);
+    expect(keptContainerManifests({ prev, next: asNext(next), removedPaths: new Set([COL_MANIFEST]) })).toEqual([
+      COL_MANIFEST,
+    ]);
+  });
+
+  it('a leaf that vanished from a collection kept for another leaf tombstones its slot there', () => {
+    const batches = delta({
+      prev: emptyState({ collections: [col], rules: [ruleInCol, otherRule] }),
+      next: emptyState(),
+      removed: [COL_MANIFEST, 'rules/api-col0000a/probe-rul00001/rule.yaml'],
+    });
+    expect(batches.map((b) => b.label)).toEqual(['rule:rul00001 (delete)']);
+    expect(batches[0].batch.mutations.map((m) => m.body)).toMatchObject([
+      { kind: 'removeFromSet', type: 'collection', id: 'col0000a', path: FOLDER_ITEMS_PATH, itemId: 'rul00001' },
+      { kind: 'delete', type: 'rule', id: 'rul00001' },
+    ]);
+  });
+
+  it("a folder whose manifest is gone while its leaf's file is left is not deleted, nor is anything above it", () => {
+    const folder = {
+      schemaVersion: 5,
+      uid: 'fol0000f',
+      path: 'rules/api-col0000a/auth-fol0000f',
+      name: 'Auth',
+    } as Folder;
+    const ruleInFolder = { ...baseRule, path: `${folder.path}/probe-rul00001` } as Rule;
+    const prev = emptyState({ collections: [col], folders: [folder], rules: [ruleInFolder] });
+    const removed = [`${folder.path}/_folder.yaml`, COL_MANIFEST];
+    expect(delta({ prev, next: emptyState(), removed })).toEqual([]);
+    expect(keptContainerManifests({ prev, next: asNext(emptyState()), removedPaths: new Set(removed) })).toEqual([
+      `${folder.path}/_folder.yaml`,
+      COL_MANIFEST,
+    ]);
+  });
+
+  it('names nothing kept where the reading removed nothing', () => {
+    const prev = emptyState({ collections: [col], rules: [ruleInCol] });
+    expect(keptContainerManifests({ prev, next: asNext(emptyState()), removedPaths: new Set() })).toEqual([]);
   });
 });
 

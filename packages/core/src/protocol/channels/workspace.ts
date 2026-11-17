@@ -1861,5 +1861,13 @@ export interface WorkspaceTreeIssueWire {
 }
 
 export type WorkspaceTreeSweepSummary =
-  | { ok: true; applied: number; changed: number; removed: number; issues: WorkspaceTreeIssueWire[] }
+  | {
+      ok: true;
+      applied: number;
+      changed: number;
+      removed: number;
+      issues: WorkspaceTreeIssueWire[];
+      /** Container manifests found removed whose container stays, not empty — written again. */
+      kept?: string[];
+    }
   | { ok: false; reason: 'unreadable-manifest' | 'identity-mismatch'; issues: WorkspaceTreeIssueWire[] };

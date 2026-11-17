@@ -12,7 +12,13 @@
  *                               fresh-HLC virtual batches;
  *   baseline, no disk file    → external deletion; tombstones (only
  *                               files the materializer wrote are
- *                               deletable from the tree side).
+ *                               deletable from the tree side) — but a
+ *                               container's manifest gone while
+ *                               something the engine holds is left
+ *                               beneath it is no deletion: the
+ *                               container stays, and the manifest off
+ *                               the baseline is written again by the
+ *                               flush that follows.
  *
  * After synthesizing + applying the delta, the sweep RE-BASELINES the
  * ingested paths (baseline := current disk hash): the external input
@@ -38,7 +44,10 @@ import type {
   EmissionBatch,
   LiveSetEntriesReader,
 } from '@openheaders/core/sync-builders/mutations/workspace-import-emission';
-import { synthesizeWorkspaceTreeDelta } from '@openheaders/core/sync-builders/mutations/workspace-tree-delta';
+import {
+  keptContainerManifests,
+  synthesizeWorkspaceTreeDelta,
+} from '@openheaders/core/sync-builders/mutations/workspace-tree-delta';
 import {
   containTreeRead,
   planWorkspaceTree,
@@ -106,6 +115,8 @@ export type SweepWorkspaceTreeResult =
       removed: number;
       /** The reading's rows (`issue-rows.ts`): no issue at a file whose bytes are the baseline's. */
       issues: TreeIssue[];
+      /** Container manifests found removed whose container stays, not empty — the flush writes each again. */
+      kept: string[];
       /**
        * Set, the pass concluded NOTHING — no batch, the baseline as it
        * stood: the tree was read while git wrote it, `files` of it
@@ -148,7 +159,7 @@ async function sweepReading(options: SweepWorkspaceTreeOptions): Promise<SweepWo
     if (files === 0 || (await treeWrites?.met()) !== true) return null;
     const reading = hashTreeContent(JSON.stringify(read));
     if (reading === options.settledReading) return null;
-    return { ok: true, applied: 0, changed: 0, removed: 0, issues: [], held: { files, reading } };
+    return { ok: true, applied: 0, changed: 0, removed: 0, issues: [], kept: [], held: { files, reading } };
   };
 
   // A folder or a leaf the workspace has no container for is a read
@@ -274,5 +285,6 @@ async function sweepReading(options: SweepWorkspaceTreeOptions): Promise<SweepWo
     changed: changedPaths.size,
     removed: removedPaths.size,
     issues: treeIssueRows(read.issues, diskHashes, baseline),
+    kept: keptContainerManifests({ prev: snapshot, next: read.state, removedPaths }),
   };
 }

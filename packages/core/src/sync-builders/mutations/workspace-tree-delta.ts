@@ -22,7 +22,9 @@
  *   - `removedPaths` — in the baseline, absent from disk. An entity
  *     whose manifest vanished this way was externally deleted and
  *     tombstones; an entity the materializer never wrote is NOT
- *     deletable from the tree side (S3 deletion-authority decision).
+ *     deletable from the tree side (S3 deletion-authority decision),
+ *     and a container leaves only when nothing the engine holds is
+ *     left beneath it (`tree-container-removals.ts`).
  *   - everything else — the engine's value stands; no batch.
  *
  * Family coverage rides `synthesizeImportEmission` (the import path's
@@ -146,6 +148,7 @@ import {
   buildDeleteBatch as buildDeleteTemplateBatch,
   buildDeleteEntityBatch as buildDeleteTemplateEntityBatch,
 } from './template-mutations';
+import { type ContainerRemovals, planContainerRemovals } from './tree-container-removals';
 import { planTreeOrder, type TreeOrderInput } from './tree-order-plan';
 import {
   buildWebSocketAddBatch,
@@ -223,27 +226,7 @@ export function synthesizeWorkspaceTreeDelta(args: WorkspaceTreeDeltaArgs): Emis
   for (const path of changedPaths) changedDirs.add(dirOf(path));
   const touched = (entityPath: string): boolean => changedDirs.has(entityPath);
 
-  const nextUids = new Set<string>();
-  const collect = (items: readonly { uid: string }[]): void => {
-    for (const item of items) nextUids.add(item.uid);
-  };
-  collect(next.rules);
-  collect(next.requests);
-  collect(next.grpcRequests);
-  collect(next.websocketRequests);
-  collect(next.mqttRequests);
-  collect(next.graphqlRequests);
-  collect(next.templates);
-  collect(next.specs);
-  collect(next.liveWorkflows);
-  collect(next.liveVariables);
-  collect(next.environments);
-  collect(next.collections);
-  collect(next.requestCollections);
-  collect(next.templateCollections);
-  collect(next.folders);
-  collect(next.requestFolders);
-  collect(next.templateFolders);
+  const nextUids = readUids(next);
 
   const planEntries = <T extends { uid: string; path: string }>(
     nextItems: readonly T[],
@@ -420,10 +403,115 @@ export function synthesizeWorkspaceTreeDelta(args: WorkspaceTreeDeltaArgs): Emis
   for (const reorder of slotOrder.reorders) {
     out.push(bodiesBatch(`${reorder.parent.type}:${reorder.parent.uid} (reorder)`, reorder.bodies, deps.nextCtx()));
   }
-  emitDeletions(out, prev, nextUids, removedPaths, deps);
+  emitDeletions(out, prev, nextUids, removedPaths, planTreeRemovals(prev, next, nextUids, removedPaths), deps);
 
   const batches = out.filter((entry) => entry.batch.mutations.length > 0);
   return args.isDeleted ? restoreDeletedReturns(batches, args.isDeleted) : batches;
+}
+
+/** The uid of every entity the reading read. */
+function readUids(next: TreeReadResult['state']): Set<string> {
+  const uids = new Set<string>();
+  const collect = (items: readonly { uid: string }[]): void => {
+    for (const item of items) uids.add(item.uid);
+  };
+  collect(next.rules);
+  collect(next.requests);
+  collect(next.grpcRequests);
+  collect(next.websocketRequests);
+  collect(next.mqttRequests);
+  collect(next.graphqlRequests);
+  collect(next.templates);
+  collect(next.specs);
+  collect(next.liveWorkflows);
+  collect(next.liveVariables);
+  collect(next.environments);
+  collect(next.collections);
+  collect(next.requestCollections);
+  collect(next.templateCollections);
+  collect(next.folders);
+  collect(next.requestFolders);
+  collect(next.templateFolders);
+  return uids;
+}
+
+// ── Containers the reading removes ──────────────────────────────────
+
+interface TreeRemovals {
+  rules: ContainerRemovals;
+  requests: ContainerRemovals;
+  templates: ContainerRemovals;
+}
+
+/** Each tree's containers that leave in this reading, and those kept for what is left beneath them. */
+function planTreeRemovals(
+  prev: WorkspaceTreeState,
+  next: TreeReadResult['state'],
+  nextUids: ReadonlySet<string>,
+  removedPaths: ReadonlySet<string>,
+): TreeRemovals {
+  const placed = new Map<string, string>();
+  const place = (items: readonly { uid: string; path: string }[]): void => {
+    for (const item of items) placed.set(item.uid, item.path);
+  };
+  place(next.folders);
+  place(next.requestFolders);
+  place(next.templateFolders);
+  place(next.rules);
+  place(next.requests);
+  place(next.grpcRequests);
+  place(next.websocketRequests);
+  place(next.mqttRequests);
+  place(next.graphqlRequests);
+  place(next.templates);
+  const reading = {
+    read: (uid: string): boolean => nextUids.has(uid),
+    pathOf: (uid: string): string | undefined => placed.get(uid),
+    removed: (path: string): boolean => removedPaths.has(path),
+  };
+  const leaves = (entityType: string, items: readonly { uid: string; path: string }[]) => ({
+    manifest: MANIFEST_OF.get(entityType) ?? '',
+    items,
+  });
+  return {
+    rules: planContainerRemovals(
+      { collections: prev.collections, folders: prev.folders, leaves: [leaves(RULE_ENTITY_TYPE, prev.rules)] },
+      reading,
+    ),
+    requests: planContainerRemovals(
+      {
+        collections: prev.requestCollections,
+        folders: prev.requestFolders,
+        leaves: [
+          leaves(REQUEST_ENTITY_TYPE, prev.requests),
+          leaves(GRPC_REQUEST_ENTITY_TYPE, prev.grpcRequests),
+          leaves(WEBSOCKET_REQUEST_ENTITY_TYPE, prev.websocketRequests),
+          leaves(MQTT_REQUEST_ENTITY_TYPE, prev.mqttRequests),
+          leaves(GRAPHQL_REQUEST_ENTITY_TYPE, prev.graphqlRequests),
+        ],
+      },
+      reading,
+    ),
+    templates: planContainerRemovals(
+      {
+        collections: prev.templateCollections,
+        folders: prev.templateFolders,
+        leaves: [leaves(TEMPLATE_ENTITY_TYPE, prev.templates)],
+      },
+      reading,
+    ),
+  };
+}
+
+/**
+ * The container manifests a reading finds removed that are no deletion:
+ * something the engine holds is left beneath each, so the container
+ * stays and its manifest is written again.
+ */
+export function keptContainerManifests(args: Pick<WorkspaceTreeDeltaArgs, 'prev' | 'next' | 'removedPaths'>): string[] {
+  if (args.removedPaths.size === 0) return [];
+  const removals = planTreeRemovals(args.prev, args.next, readUids(args.next), args.removedPaths);
+  return [...removals.rules.kept, ...removals.requests.kept, ...removals.templates.kept];
 }
 
 // ── Tree-authored `order:` → slot-order plan ─────────────────────────
@@ -967,6 +1055,7 @@ function emitDeletions(
   prev: WorkspaceTreeState,
   nextUids: ReadonlySet<string>,
   removedPaths: ReadonlySet<string>,
+  removals: TreeRemovals,
   deps: ImportEmissionDeps,
 ): void {
   const vanished = <T extends { uid: string; path: string }>(items: readonly T[], entityType: string): T[] =>
@@ -980,23 +1069,12 @@ function emitDeletions(
     out.push({ label, batch: payload.batch, sideEffects: payload.sideEffects });
 
   // A vanished leaf tombstones its parent slot too, unless the parent
-  // container vanished with it — then the parent's own tombstone covers
+  // container leaves with it — then the parent's own tombstone covers
   // the slot and the bare entity tombstone suffices (the same rule the
   // folder deletions below apply).
-  const containerVanished = (containers: readonly Collection[], folders: readonly Folder[]): ReadonlySet<string> => {
-    const gone = new Set<string>();
-    for (const collection of containers) {
-      if (!nextUids.has(collection.uid) && removedPaths.has(`${collection.path}/_collection.yaml`))
-        gone.add(collection.uid);
-    }
-    for (const folder of folders) {
-      if (!nextUids.has(folder.uid) && removedPaths.has(`${folder.path}/_folder.yaml`)) gone.add(folder.uid);
-    }
-    return gone;
-  };
   const ruleLeafParent = leafParentResolver(
     createTreePlacer(FOLDER_TREE_KINDS, prev.collections, [], prev.folders as unknown as LocalFolder[], []),
-    containerVanished(prev.collections, prev.folders),
+    removals.rules.gone,
   );
   const requestLeafParent = leafParentResolver(
     createTreePlacer(
@@ -1006,7 +1084,7 @@ function emitDeletions(
       prev.requestFolders as unknown as LocalFolder[],
       [],
     ),
-    containerVanished(prev.requestCollections, prev.requestFolders),
+    removals.requests.gone,
   );
   const templateLeafParent = leafParentResolver(
     createTreePlacer(
@@ -1016,7 +1094,7 @@ function emitDeletions(
       prev.templateFolders as unknown as LocalFolder[],
       [],
     ),
-    containerVanished(prev.templateCollections, prev.templateFolders),
+    removals.templates.gone,
   );
 
   for (const rule of vanished(prev.rules, RULE_ENTITY_TYPE)) {
@@ -1110,8 +1188,7 @@ function emitDeletions(
     prevContainers: prev.collections,
     containerType: COLLECTION_ENTITY_TYPE,
     folderType: FOLDER_ENTITY_TYPE,
-    nextUids,
-    removedPaths,
+    gone: removals.rules.gone,
     deps,
     parented: (folderUid, parent, ctx) =>
       buildDeleteFolderBatch(
@@ -1126,8 +1203,7 @@ function emitDeletions(
     prevContainers: prev.requestCollections,
     containerType: REQUEST_COLLECTION_ENTITY_TYPE,
     folderType: REQUEST_FOLDER_ENTITY_TYPE,
-    nextUids,
-    removedPaths,
+    gone: removals.requests.gone,
     deps,
     parented: (folderUid, parent, ctx) =>
       buildDeleteRequestFolderBatch(
@@ -1142,8 +1218,7 @@ function emitDeletions(
     prevContainers: prev.templateCollections,
     containerType: TEMPLATE_COLLECTION_ENTITY_TYPE,
     folderType: TEMPLATE_FOLDER_ENTITY_TYPE,
-    nextUids,
-    removedPaths,
+    gone: removals.templates.gone,
     deps,
     parented: (folderUid, parent, ctx) =>
       buildDeleteTemplateFolderBatch(
@@ -1153,20 +1228,18 @@ function emitDeletions(
     bare: (folderUid, ctx) => ({ batch: buildDeleteTemplateFolderEntityBatch(folderUid, ctx), sideEffects: [] }),
   });
 
-  const collectionVanished = (collections: readonly Collection[]): Collection[] =>
-    collections.filter(
-      (collection) => !nextUids.has(collection.uid) && removedPaths.has(`${collection.path}/_collection.yaml`),
-    );
-  for (const collection of collectionVanished(prev.collections)) {
+  const leaving = (collections: readonly Collection[], gone: ReadonlySet<string>): Collection[] =>
+    collections.filter((collection) => gone.has(collection.uid));
+  for (const collection of leaving(prev.collections, removals.rules.gone)) {
     push(`collection:${collection.uid} (delete)`, buildDeleteCollectionBatch(collection.uid, deps.nextCtx()));
   }
-  for (const collection of collectionVanished(prev.requestCollections)) {
+  for (const collection of leaving(prev.requestCollections, removals.requests.gone)) {
     push(
       `request-collection:${collection.uid} (delete)`,
       buildDeleteRequestCollectionBatch(collection.uid, deps.nextCtx()),
     );
   }
-  for (const collection of collectionVanished(prev.templateCollections)) {
+  for (const collection of leaving(prev.templateCollections, removals.templates.gone)) {
     push(
       `template-collection:${collection.uid} (delete)`,
       buildDeleteTemplateCollectionBatch(collection.uid, deps.nextCtx()),
@@ -1174,7 +1247,7 @@ function emitDeletions(
   }
 }
 
-/** The live parent of a vanished leaf, or `null` when the parent vanished with it. */
+/** The live parent of a vanished leaf, or `null` when the parent leaves with it. */
 function leafParentResolver<C extends string, F extends string>(
   tree: TreePlacer<C, F>,
   vanishedContainers: ReadonlySet<string>,
@@ -1191,8 +1264,8 @@ interface FolderDeletionArgs {
   prevContainers: readonly Collection[];
   containerType: string;
   folderType: string;
-  nextUids: ReadonlySet<string>;
-  removedPaths: ReadonlySet<string>;
+  /** The tree's containers that leave in this reading. */
+  gone: ReadonlySet<string>;
   deps: ImportEmissionDeps;
   parented: (
     folderUid: string,
@@ -1206,10 +1279,7 @@ interface FolderDeletionArgs {
 }
 
 function emitFolderDeletions(out: EmissionBatch[], args: FolderDeletionArgs): void {
-  const vanishedFolders = args.prevFolders.filter(
-    (folder) => !args.nextUids.has(folder.uid) && args.removedPaths.has(`${folder.path}/_folder.yaml`),
-  );
-  const vanishedUids = new Set(vanishedFolders.map((folder) => folder.uid));
+  const vanishedFolders = args.prevFolders.filter((folder) => args.gone.has(folder.uid));
   const parentByPath = new Map<string, { type: string; uid: string }>();
   for (const container of args.prevContainers) {
     parentByPath.set(container.path, { type: args.containerType, uid: container.uid });
@@ -1222,7 +1292,7 @@ function emitFolderDeletions(out: EmissionBatch[], args: FolderDeletionArgs): vo
   for (const folder of deepestFirst) {
     const parentPath = parentPathOf(folder.path);
     const parent = parentPath !== null ? parentByPath.get(parentPath) : undefined;
-    const parentAlsoVanishing = parent !== undefined && vanishedUids.has(parent.uid);
+    const parentAlsoVanishing = parent?.type === args.folderType && args.gone.has(parent.uid);
     const payload =
       parent !== undefined && !parentAlsoVanishing
         ? args.parented(folder.uid, parent, args.deps.nextCtx())

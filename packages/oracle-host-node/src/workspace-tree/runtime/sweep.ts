@@ -97,6 +97,12 @@ export async function runSweep(ctx: RuntimeCtx, binding: OpenBinding): Promise<S
         `sweep ${record.rootDir}: ${result.applied} batches (${result.changed} changed, ${result.removed} removed, ${result.issues.length} issues)`,
       );
     }
+    if (result.kept.length > 0) {
+      logger.warn(
+        SCOPE,
+        `sweep of ${record.rootDir} left out: ${result.kept.map((manifest) => `${manifest} (not-empty)`).join(', ')}`,
+      );
+    }
   } else {
     binding.issues = result.issues;
     logger.warn(SCOPE, `sweep refused for ${record.rootDir}: ${result.reason}`);

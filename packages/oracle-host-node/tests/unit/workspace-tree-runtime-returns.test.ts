@@ -314,21 +314,26 @@ describe("the workspace-tree runtime: the Git card's rows after a pass", () => {
     });
   });
 
-  it("a held rule whose collection's manifest is removed by hand raises no row, by the sweep or after a Pull", {
+  it("a held collection's manifest removed by hand while its rule is left is written again — nothing deleted, no row, by the sweep or after a Pull", {
     timeout: 30_000,
   }, async () => {
     await commitTheCollectionAndItsRule();
     await withTheBranchPushed(async () => {
       await delay(TREE_AT_REST_MS);
       await fs.rm(inTree(COLLECTION_FILE));
-      await until('the engine reads the collection gone', () => !engineHoldsTheCollection(), 8_000);
+      await until('the manifest is written again', () => isThere(COLLECTION_FILE), 8_000);
       await delay(TREE_AT_REST_MS);
-      // The rule is held with no container, its file the engine's own write.
-      expect(engineHoldsTheRule()).toBe(true);
+      // Not empty: the collection stays, its rule in it, and the pass says what it left out.
+      expect(engineHoldsTheCollection()).toBe(true);
+      expect(rulesInTheCollection()).toEqual([RULE_UID]);
       expect(await isThere(RULE_FILE)).toBe(true);
       expect(rows()).toEqual([]);
+      expect(harness.logged.filter((line) => line.includes('left out'))).toEqual([
+        expect.stringContaining(`${COLLECTION_FILE} (not-empty)`),
+      ]);
 
       expect(await harness.runtime.pull(harness.workspaceId)).toMatchObject({ ok: true, upToDate: true });
+      expect(engineHoldsTheCollection()).toBe(true);
       expect(rows()).toEqual([]);
     });
   });

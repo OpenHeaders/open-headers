@@ -7,8 +7,9 @@
  * the baseline. A file whose bytes are the baseline's is the engine's
  * own write, which no reading takes in, so an issue at it tells of
  * nothing skipped — a leaf the engine holds where the reader reads
- * none (an old client's slot-less leaf at a tree's root, a leaf whose
- * container's manifest left), there until the engine re-homes it.
+ * none: an old client's slot-less leaf at a tree's root, there until
+ * the engine re-homes it; a leaf whose container's manifest left, there
+ * until the flush writes that manifest again.
  *
  * Every reading of the disk that feeds the card derives its rows here.
  */
