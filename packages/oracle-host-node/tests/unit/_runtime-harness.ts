@@ -3,7 +3,8 @@
  * bound to a temp folder it makes a repo of, its engine on in-memory
  * persistence (the boot of `mcp-runtime-tools.test.ts`), real watchers,
  * real git isolated from the machine's config. What the host logged and
- * every status frame it sent are kept for the test to wait on.
+ * every status frame it sent are kept for the test to wait on. It answers
+ * once the tree's watch is live: a test's first hand write is heard.
  *
  * Leading underscore: not a test file.
  */
@@ -44,6 +45,14 @@ const IDENTITY_ENV = {
   GIT_COMMITTER_NAME: 'John Doe',
   GIT_COMMITTER_EMAIL: 'john@openheaders.io',
 };
+
+/**
+ * The platform's recursive watch hears nothing for a moment after it is
+ * asked for — tens of milliseconds on a busy machine — and a file written
+ * in that moment waits for the next event in the tree. The bind returns
+ * inside it.
+ */
+const TREE_WATCH_LIVE_MS = 500;
 
 export interface RuntimeHarness {
   readonly rootDir: string;
@@ -100,6 +109,7 @@ export async function openRuntimeHarness(): Promise<RuntimeHarness> {
   });
   const bound = await runtime.bind(workspaceId, rootDir);
   if (!bound.ok) throw new Error(`the harness could not bind ${rootDir}: ${bound.reason}`);
+  await delay(TREE_WATCH_LIVE_MS);
 
   return {
     rootDir,
