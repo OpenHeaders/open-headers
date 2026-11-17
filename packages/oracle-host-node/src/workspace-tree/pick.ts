@@ -241,6 +241,7 @@ export async function applyWorkspaceCommit(options: ApplyWorkspaceCommitOptions)
         changedPaths: change.changedPaths,
         removedPaths: change.removedPaths,
         deps: { nextCtx: options.nextCtx, liveSetEntries: options.liveSetEntries },
+        isDeleted: options.isDeleted,
       });
       if (batches.length > 0) await options.apply(batches);
       await options.flush();

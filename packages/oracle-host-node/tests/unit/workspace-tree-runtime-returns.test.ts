@@ -2,7 +2,7 @@
  * A deleted entity back in the tree — on the REAL runtime
  * (`_runtime-harness.ts`). Pins the wiring no pass module's own test
  * reaches: the engine asked what it holds deleted by the sweep, by a
- * pull and by a merge. In each the entity lives again as its file has
+ * pull, by a merge, by a Revert and by a rewritten history taken whole. In each the entity lives again as its file has
  * it, the file stays on disk as git has it, and nothing reads as
  * changed.
  */
@@ -157,6 +157,20 @@ describe('the workspace-tree runtime: a deleted entity back in the tree', () => 
     expect(harness.runtime.issues(harness.workspaceId)).toEqual([]);
   });
 
+  it('the app’s Revert of the commit that deleted a rule brings the rule back and records the revert', {
+    timeout: 30_000,
+  }, async () => {
+    await writeRuleByHand();
+    expect(await harness.runtime.commit(harness.workspaceId, 'seed')).toMatchObject({ ok: true });
+    await deleteAndCommit();
+    const deletion = await harness.git('rev-parse', 'HEAD');
+
+    expect(await harness.runtime.applyCommit(harness.workspaceId, deletion, 'revert')).toMatchObject({ ok: true });
+    expect(await harness.git('rev-parse', 'HEAD~1')).toBe(deletion);
+    expect(await harness.git('show', '--format=', '--name-status', 'HEAD')).toBe(`A\t${RULE_FILE}`);
+    await expectTheRuleBack();
+  });
+
   it('a pull of a commit that restores a deleted rule fast-forwards to it and the rule is back', {
     timeout: 30_000,
   }, async () => {
@@ -179,6 +193,37 @@ describe('the workspace-tree runtime: a deleted entity back in the tree', () => 
 
       expect(await harness.runtime.pull(harness.workspaceId)).toMatchObject({ ok: true, upToDate: false });
       expect(await harness.git('rev-parse', 'HEAD')).toBe(restored);
+      await expectTheRuleBack();
+    } finally {
+      await fs.rm(remote, { recursive: true, force: true });
+      await fs.rm(other, { recursive: true, force: true });
+    }
+  });
+
+  it('a remote history rewritten to hold a deleted rule, taken whole, brings the rule back', {
+    timeout: 30_000,
+  }, async () => {
+    await writeRuleByHand();
+    expect(await harness.runtime.commit(harness.workspaceId, 'seed')).toMatchObject({ ok: true });
+    const remote = await fs.mkdtemp(path.join(os.tmpdir(), 'oh-tree-runtime-remote-'));
+    const other = await fs.mkdtemp(path.join(os.tmpdir(), 'oh-tree-runtime-other-'));
+    try {
+      const branch = await harness.git('rev-parse', '--abbrev-ref', 'HEAD');
+      await harness.git('init', '-q', '--bare', remote);
+      await harness.git('remote', 'add', 'origin', remote);
+      await harness.git('push', '-q', '-u', 'origin', branch);
+      await harness.git('clone', '-q', '-b', branch, remote, other);
+      // The last head both sides knew, then the deletion on this side alone.
+      expect(await harness.runtime.pull(harness.workspaceId)).toMatchObject({ ok: true });
+      await deleteAndCommit();
+      // The other clone rewrites the pushed history; its head still holds the rule.
+      await harness.git('-C', other, 'commit', '-q', '--amend', '-m', 'seed, rewritten');
+      await harness.git('-C', other, 'push', '-q', '--force');
+      const rewritten = await harness.git('-C', other, 'rev-parse', 'HEAD');
+
+      expect(await harness.runtime.resolveForcePush(harness.workspaceId, 'abandon')).toMatchObject({ ok: true });
+      // The branch sits on the rewritten history (`merge-base` rejects otherwise).
+      await harness.git('merge-base', '--is-ancestor', rewritten, 'HEAD');
       await expectTheRuleBack();
     } finally {
       await fs.rm(remote, { recursive: true, force: true });

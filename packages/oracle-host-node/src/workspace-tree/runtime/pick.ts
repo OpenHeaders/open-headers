@@ -45,6 +45,7 @@ export async function runApplyCommit(
         .liveOrderedSetItems(entityType, id, setPath)
         .map((entry) => ({ itemId: entry.itemId, orderKey: entry.key, item: entry.item })),
     apply: (batches) => ctx.applyAll(binding.service, batches),
+    isDeleted: (type, id) => binding.service.oracle.isTombstoned(type, id),
     flush: () => binding.materializer.flush(),
     ...localWorkFirst(ctx, binding, identity.env, commitLocal),
     identityEnv: identity.env,

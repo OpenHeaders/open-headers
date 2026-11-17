@@ -38,6 +38,7 @@
  */
 
 import type { MutatorContext } from '@openheaders/core/sync';
+import type { DeletedEntityReader } from '@openheaders/core/sync-builders/mutations/restore-returns';
 import type {
   EmissionBatch,
   LiveSetEntriesReader,
@@ -87,6 +88,11 @@ export interface ResolveForcePushOptions {
   nextCtx: () => MutatorContext;
   liveSetEntries: LiveSetEntriesReader;
   apply: (batches: EmissionBatch[]) => Promise<void>;
+  /**
+   * Whether the engine holds an entity deleted. One the remote head
+   * holds is restored. Absent, the engine holds nothing deleted.
+   */
+  isDeleted?: DeletedEntityReader;
   flush: () => Promise<unknown>;
   /** Record uncommitted work in the files the resolution writes, as its own commit on the pre-resolution head. */
   commitLocalWork: LocalWorkDeps['commitLocalWork'];
@@ -259,6 +265,7 @@ export async function resolveForcePushWorkspaceTree(options: ResolveForcePushOpt
         changedPaths: changed,
         removedPaths: removed,
         deps: { nextCtx: options.nextCtx, liveSetEntries: options.liveSetEntries },
+        isDeleted: options.isDeleted,
       });
       if (batches.length > 0) {
         await options.apply(batches);

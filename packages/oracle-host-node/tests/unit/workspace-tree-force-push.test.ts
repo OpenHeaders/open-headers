@@ -135,6 +135,8 @@ async function peerEdit(rel: string, edit: (content: string) => string): Promise
 
 /** The path sets the pass asked to have committed first, in order. */
 let localWorkCommits: string[][];
+/** The uids the engine holds deleted. */
+let deleted: Set<string>;
 
 /** The pass's way to commit local work first — one commit of exactly the paths it names. */
 const commitLocalWork: LocalWorkDeps['commitLocalWork'] = async ({ tree, paths, indexLock }) => {
@@ -170,6 +172,7 @@ function doResolve(
       applied.push(...batches);
       onApply?.();
     },
+    isDeleted: (_type, id) => deleted.has(id),
     flush: () => materializer.flush(),
     commitLocalWork,
     identityEnv: IDENTITY_ENV,
@@ -186,6 +189,7 @@ beforeEach(async () => {
   hlcMs = 1_000;
   run = isolated(createGitExec());
   localWorkCommits = [];
+  deleted = new Set();
 
   // Shared base: the local engine tree, committed and pushed.
   await fs.mkdir(local, { recursive: true });
@@ -290,6 +294,34 @@ describe('resolveForcePushWorkspaceTree', () => {
     expect((await resolveUpstream(run, local))?.behind).toBe(0);
     const branches = await raw(local, 'branch', '--list', 'oh-rescue-*');
     expect(branches.stdout.trim()).toBe('');
+  });
+
+  it('abandon: a rule the engine deleted that the rewritten head holds is restored', async () => {
+    // The local side deleted the peer's rule and committed the deletion.
+    state.rules = state.rules.filter((rule) => rule.uid !== 'aaaaaaaa');
+    await materializer.flush();
+    const deletion = await commitWorkspaceTree({
+      run,
+      rootDir: local,
+      message: 'Local deletion',
+      identityEnv: IDENTITY_ENV,
+    });
+    expect(deletion).toMatchObject({ ok: true, committed: true });
+    deleted.add('aaaaaaaa');
+
+    const applied: EmissionBatch[] = [];
+    const result = await doResolve('abandon', applied, () => {
+      state.rules = [{ ...makeRule('aaaaaaaa', 'Block probes', 'block'), name: 'Rewritten probes' } as Rule];
+    });
+    expect(result).toMatchObject({ ok: true, remoteSha: rewrittenSha });
+
+    const creates = applied
+      .flatMap((entry) => entry.batch.mutations.map((m) => m.body))
+      .filter((body) => body.kind === 'create');
+    expect(creates).toMatchObject([{ type: 'rule', id: 'aaaaaaaa', restore: true }]);
+    const onDisk = await fs.readFile(path.join(local, ...PEER_RULE_FILE.split('/')), 'utf-8');
+    expect(onDisk).toContain('name: Rewritten probes');
+    expect(await countDirtyFiles(run, local)).toBe(0);
   });
 
   it('rescue: identical convergence, but the pre-rewrite history survives on a new oh-rescue ref', async () => {

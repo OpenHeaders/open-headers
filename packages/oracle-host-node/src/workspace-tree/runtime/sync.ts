@@ -248,6 +248,7 @@ export async function runResolveForcePush(
         .liveOrderedSetItems(entityType, id, setPath)
         .map((entry) => ({ itemId: entry.itemId, orderKey: entry.key, item: entry.item })),
     apply: (batches) => ctx.applyAll(binding.service, batches),
+    isDeleted: (type, id) => binding.service.oracle.isTombstoned(type, id),
     flush: () => binding.materializer.flush(),
     commitLocalWork: localWorkFirst(ctx, binding, identity.env, undefined).commitLocalWork,
     identityEnv: identity.env,
