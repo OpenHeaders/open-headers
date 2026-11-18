@@ -88,6 +88,7 @@ export {
   readCommitPatch,
 } from './patch-ops';
 export { composePickMessage, composeRevertMessage } from './pick-message';
+export { putRegularFile, type RegularFilePut, readRegularFile, type StandingFile } from './regular-file';
 export {
   addRemote,
   checkRemoteUrl,
@@ -204,6 +205,7 @@ export {
   checkoutPathsFromCommit,
   type FileText,
   HEAD_TREE_PATHS_MAX,
+  isRegularFileEntry,
   listHeadTreePaths,
   listTreeEntries,
   readTreeEntryText,

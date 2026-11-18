@@ -5,6 +5,8 @@
  * is gone — is asked of the boundary before anything is written, and
  * again once git has landed the foreign side's files. A link is never
  * written or removed through; what git's own checkout lands is git's.
+ * And the one own file that never lands: a link at a hygiene file's
+ * name — the local file stands and the path is named as kept.
  */
 
 import { promises as fs } from 'node:fs';
@@ -14,7 +16,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { createGitExec, type GitRunner } from '../../src/git/git-exec';
 import { ensureWorkspaceRepo } from '../../src/git/repo';
 import { repoArgs } from '../../src/git/repo-args';
-import { landForeignOwnFiles } from '../../src/workspace-tree/own-files';
+import { classifyForeignOwnFiles, landForeignOwnFiles } from '../../src/workspace-tree/own-files';
 
 const IDENTITY_ENV = {
   GIT_AUTHOR_NAME: 'John Doe',
@@ -84,6 +86,75 @@ beforeEach(async () => {
 
 afterEach(async () => {
   await fs.rm(scratch, { recursive: true, force: true });
+});
+
+describe('classifyForeignOwnFiles — a link at a hygiene file’s name', () => {
+  const FILE = '100644 aaaa';
+  const EDITED = '100644 bbbb';
+  const LINK = '120000 cccc';
+  const tree = (entries: Record<string, string>): Map<string, string> => new Map(Object.entries(entries));
+
+  it('is kept, never incoming, though only the foreign side changed the file — at .gitignore and at .gitattributes', () => {
+    const base = tree({ '.gitignore': FILE, '.gitattributes': FILE });
+    expect(classifyForeignOwnFiles(base, base, tree({ '.gitignore': LINK, '.gitattributes': LINK }))).toEqual({
+      incoming: [],
+      kept: ['.gitattributes', '.gitignore'],
+    });
+  });
+
+  it('is kept where neither the base nor the branch holds the file', () => {
+    expect(classifyForeignOwnFiles(tree({}), tree({}), tree({ '.gitignore': LINK }))).toEqual({
+      incoming: [],
+      kept: ['.gitignore'],
+    });
+  });
+
+  it('a regular file the foreign side changed there still lands, and so does its deletion', () => {
+    const base = tree({ '.gitignore': FILE, '.gitattributes': FILE });
+    expect(classifyForeignOwnFiles(base, base, tree({ '.gitignore': EDITED }))).toEqual({
+      incoming: ['.gitattributes', '.gitignore'],
+      kept: [],
+    });
+  });
+
+  it('a link at any other own file’s name still lands, and one deeper in the folder named as a hygiene file is', () => {
+    const base = tree({ 'README.md': FILE, 'docs/.gitignore': FILE });
+    expect(classifyForeignOwnFiles(base, base, tree({ 'README.md': LINK, 'docs/.gitignore': LINK }))).toEqual({
+      incoming: ['README.md', 'docs/.gitignore'],
+      kept: [],
+    });
+  });
+
+  it('a link both sides already hold is no change at all', () => {
+    const base = tree({ '.gitignore': FILE });
+    const linked = tree({ '.gitignore': LINK });
+    expect(classifyForeignOwnFiles(base, linked, linked)).toEqual({ incoming: [], kept: [] });
+  });
+});
+
+describe('landForeignOwnFiles — a link the foreign side put at .gitignore', () => {
+  it('does not land: the local file stands with its lines, named as kept, and the rest of the foreign side’s files land', async () => {
+    const mine = '.oh/\n*.secret.yaml\n/notes.txt\n';
+    await write('.gitignore', mine);
+    await commit('an ignore file');
+    baseRef = await git('rev-parse', 'HEAD');
+    const branch = await git('rev-parse', '--abbrev-ref', 'HEAD');
+    await git('checkout', '-q', '-b', 'theirs');
+    await fs.rm(inTree('.gitignore'));
+    await fs.symlink(path.join(outside, 'ignore'), inTree('.gitignore'));
+    await write('other.md', 'theirs alone\n');
+    await commit('theirs');
+    await git('checkout', '-q', branch);
+
+    expect(await landForeignOwnFiles(run, rootDir, { baseRef, foreignRef: 'theirs' })).toEqual({
+      ok: true,
+      landed: ['other.md'],
+      kept: ['.gitignore'],
+    });
+    expect((await fs.lstat(inTree('.gitignore'))).isFile()).toBe(true);
+    expect(await read(inTree('.gitignore'))).toBe(mine);
+    expect(await read(inTree('other.md'))).toBe('theirs alone\n');
+  });
 });
 
 describe('landForeignOwnFiles — the folder’s boundary', () => {

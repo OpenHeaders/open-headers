@@ -2814,6 +2814,65 @@ describe('Ignore-file plumbing (S23)', () => {
     const withIgnored = (await listWorkingChanges(run, tmpDir, { includeIgnored: true })) ?? [];
     expect(withIgnored.find((row) => row.path === 'notes/local.yaml')).toMatchObject({ ignored: true });
   });
+
+  it('a clone with no info/exclude — git made without its templates — answers nothing to remove, and an entry makes the file', async () => {
+    await initialCommit();
+    await fs.rm(path.join(tmpDir, '.git', 'info'), { recursive: true, force: true });
+
+    expect(await removeIgnoreEntry(tmpDir, 'notes/local.yaml', 'exclude')).toEqual({ ok: true, removed: false });
+    expect(await addIgnoreEntry(tmpDir, 'notes/local.yaml', 'exclude')).toMatchObject({ ok: true, added: true });
+    expect(await fs.readFile(path.join(tmpDir, '.git', 'info', 'exclude'), 'utf-8')).toBe('/notes/local.yaml\n');
+  });
+
+  describe('the root .gitignore is a regular file or nothing', () => {
+    let outside: string;
+    const ignoreFile = (): string => path.join(tmpDir, '.gitignore');
+
+    beforeEach(async () => {
+      outside = await fs.mkdtemp(path.join(os.tmpdir(), 'oh-git-plumbing-outside-'));
+    });
+
+    afterEach(async () => {
+      await fs.rm(outside, { recursive: true, force: true });
+    });
+
+    it('an entry added where a link stands goes to a file put in the link’s place: nothing is read or written through it', async () => {
+      await initialCommit();
+      const target = path.join(outside, 'ignore');
+      await fs.writeFile(target, '/notes/scratch.yaml\n', 'utf-8');
+      await fs.symlink(target, ignoreFile());
+
+      // The link's target names the entry already; git reads none of it, and neither does the verb.
+      expect(await addIgnoreEntry(tmpDir, 'notes/scratch.yaml', 'gitignore')).toEqual({
+        ok: true,
+        added: true,
+        entry: '/notes/scratch.yaml',
+      });
+      expect((await fs.lstat(ignoreFile())).isFile()).toBe(true);
+      expect(await fs.readFile(ignoreFile(), 'utf-8')).toBe('/notes/scratch.yaml\n');
+      expect(await fs.readFile(target, 'utf-8')).toBe('/notes/scratch.yaml\n');
+    });
+
+    it('Stop Ignoring where a link stands removes nothing through it: the link and what it points to stand', async () => {
+      await initialCommit();
+      const target = path.join(outside, 'ignore');
+      await fs.writeFile(target, '/notes/scratch.yaml\n', 'utf-8');
+      await fs.symlink(target, ignoreFile());
+
+      expect(await removeIgnoreEntry(tmpDir, 'notes/scratch.yaml', 'gitignore')).toEqual({ ok: true, removed: false });
+      expect((await fs.lstat(ignoreFile())).isSymbolicLink()).toBe(true);
+      expect(await fs.readFile(target, 'utf-8')).toBe('/notes/scratch.yaml\n');
+    });
+
+    it('a directory at the name refuses both verbs with what stands there, and stands', async () => {
+      await initialCommit();
+      await fs.mkdir(ignoreFile());
+      const refused = { ok: false, detail: '".gitignore" is not a file' };
+      expect(await addIgnoreEntry(tmpDir, 'notes/scratch.yaml', 'gitignore')).toEqual(refused);
+      expect(await removeIgnoreEntry(tmpDir, 'notes/scratch.yaml', 'gitignore')).toEqual(refused);
+      expect(await fs.readdir(ignoreFile())).toEqual([]);
+    });
+  });
 });
 
 describe('Ignore provenance + removal (S23)', () => {

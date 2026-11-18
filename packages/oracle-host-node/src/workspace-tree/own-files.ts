@@ -26,6 +26,13 @@
  * path porcelain lists, or an untracked or ignored file sitting where
  * the foreign side adds one, is local work and is kept too.
  *
+ * One file never lands, whoever changed it: a link at the name of a
+ * hygiene file (`hygiene.ts`). Such a file is a regular file or nothing —
+ * git reads no ignore file through a link, so the link would take every
+ * ignore line of the user's own with it. The local file stands and the
+ * path is reported as kept; the commit that follows records it as it
+ * stands.
+ *
  * A pass that can ask a person (Cherry-Pick, Revert) reads the kept
  * files that are text on every side as files to answer
  * (`readOwnFileConflicts`) and hands the answers back to the landing:
@@ -48,6 +55,7 @@ import {
   checkoutPathsFromCommit,
   type FileText,
   type GitRunner,
+  isRegularFileEntry,
   listTreeEntries,
   listWorkingChanges,
   readTreeEntryText,
@@ -56,6 +64,7 @@ import {
   type TreeRefusal,
   treeRefusalReason,
 } from '../git';
+import { TREE_HYGIENE_FILES } from './hygiene';
 
 /** An own file joins the files to answer only while every side of it is at most this many bytes. */
 export const OWN_FILE_CONFLICT_MAX_BYTES = 262_144;
@@ -65,6 +74,11 @@ export interface ForeignOwnFiles {
   incoming: string[];
   /** Own files both sides changed — the local file stands. */
   kept: string[];
+}
+
+/** Whether a commit's entry at `filePath` is a link at a hygiene file's name — the one own file that never lands. */
+function isHygieneLink(filePath: string, entry: string | undefined): boolean {
+  return TREE_HYGIENE_FILES.has(filePath) && entry !== undefined && !isRegularFileEntry(entry);
 }
 
 /**
@@ -86,7 +100,7 @@ export function classifyForeignOwnFiles(
     const ours = head.get(filePath);
     const origin = base.get(filePath);
     if (theirs === ours || theirs === origin) continue;
-    if (ours === origin) incoming.push(filePath);
+    if (ours === origin && !isHygieneLink(filePath, theirs)) incoming.push(filePath);
     else kept.push(filePath);
   }
   return { incoming: incoming.sort(), kept: kept.sort() };

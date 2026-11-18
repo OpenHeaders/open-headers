@@ -33,6 +33,10 @@
  * And a `.gitignore` a pull brings that takes the engine's entries back:
  * the pull's own commit, the commit after it, the Commit window's rows
  * and the count hold no secret and nothing of the sidecar.
+ *
+ * And a link a commit puts at `.gitignore`: a pull does not land it, and
+ * a pass after git's own checkout landed one puts the authored file in
+ * its place — nothing is ever written where the link points.
  */
 
 import { promises as fs } from 'node:fs';
@@ -807,6 +811,97 @@ describe('the workspace-tree runtime: a .gitignore a Pull brings that takes the 
         expect(held).toContain('notes.md');
         expect(held.filter(isNeverCommittedPath)).toEqual([]);
       });
+    } finally {
+      await fs.rm(other, { recursive: true, force: true });
+    }
+  });
+});
+
+describe('the workspace-tree runtime: a link a commit puts at .gitignore', () => {
+  const AUTHORED = '.oh/\n*.secret.yaml\n';
+  let outside: string;
+  const stands = (file: string): Promise<boolean> =>
+    fs.lstat(file).then(
+      () => true,
+      () => false,
+    );
+  const ignoreIsAFile = async (): Promise<boolean> => (await fs.lstat(inTree('.gitignore'))).isFile();
+  /** The clone's `.gitignore` made a link to a path beside the bound folder, where nothing stands. */
+  async function linkTheIgnoreFile(clone: string): Promise<void> {
+    await fs.rm(path.join(clone, '.gitignore'));
+    await fs.symlink(`../${path.basename(outside)}`, path.join(clone, '.gitignore'));
+    await harness.git('-C', clone, 'add', '-A');
+    await harness.git('-C', clone, 'commit', '-q', '-m', 'the ignore file a link');
+  }
+
+  beforeEach(() => {
+    outside = `${harness.rootDir}-outside`;
+  });
+
+  afterEach(async () => {
+    await fs.rm(outside, { force: true });
+  });
+
+  it('a Pull of it keeps the local file with the user’s own line, names it kept, and the Pull’s commit records a file', {
+    timeout: 30_000,
+  }, async () => {
+    expect(await harness.runtime.ignorePath(harness.workspaceId, 'notes.txt', 'gitignore')).toEqual({
+      ok: true,
+      added: true,
+    });
+    await writeByHand('notes.txt', 'mine, never for a commit\n');
+    await delay(TREE_AT_REST_MS);
+    expect(await harness.runtime.commit(harness.workspaceId, 'seed')).toMatchObject({ ok: true, committed: true });
+    const mine = `${AUTHORED}/notes.txt\n`;
+    expect(await fs.readFile(inTree('.gitignore'), 'utf-8')).toBe(mine);
+    const other = await fs.mkdtemp(path.join(os.tmpdir(), 'oh-tree-runtime-other-'));
+    try {
+      await withTheBranchPushed(async () => {
+        const branch = await harness.git('rev-parse', '--abbrev-ref', 'HEAD');
+        await harness.git('clone', '-q', '-b', branch, await harness.git('remote', 'get-url', 'origin'), other);
+        await linkTheIgnoreFile(other);
+        await harness.git('-C', other, 'push', '-q');
+
+        expect(await harness.runtime.pull(harness.workspaceId)).toMatchObject({
+          ok: true,
+          upToDate: false,
+          keptLocal: ['.gitignore'],
+        });
+        expect(await ignoreIsAFile()).toBe(true);
+        expect(await fs.readFile(inTree('.gitignore'), 'utf-8')).toBe(mine);
+        expect(await harness.git('ls-tree', 'HEAD', '.gitignore')).toMatch(/^100644 blob /);
+        expect((await harness.git('ls-tree', '-r', '--name-only', 'HEAD')).split('\n')).not.toContain('notes.txt');
+        await delay(TREE_AT_REST_MS);
+        expect(await stands(outside)).toBe(false);
+        expect(await harness.git('status', '--porcelain', '--untracked-files=all')).toBe('');
+      });
+    } finally {
+      await fs.rm(other, { recursive: true, force: true });
+    }
+  });
+
+  it('a switch to a branch that holds it leaves the authored file in its place — nothing written where it points, the file a change to commit', {
+    timeout: 30_000,
+  }, async () => {
+    expect(await harness.runtime.commit(harness.workspaceId, 'seed')).toMatchObject({ ok: true, committed: true });
+    const other = await fs.mkdtemp(path.join(os.tmpdir(), 'oh-tree-runtime-other-'));
+    try {
+      // The branch is made in another clone and comes back by a fetch: no checkout moves this tree before the switch.
+      await harness.git('clone', '-q', harness.rootDir, other);
+      await harness.git('-C', other, 'checkout', '-q', '-b', 'side');
+      await linkTheIgnoreFile(other);
+      await harness.git('fetch', '-q', other, 'side:side');
+
+      expect(await harness.runtime.switchBranch(harness.workspaceId, 'side')).toMatchObject({
+        ok: true,
+        switched: true,
+      });
+      await until('a pass puts a file in the link’s place', ignoreIsAFile, 8_000);
+      await delay(TREE_AT_REST_MS);
+      expect(await fs.readFile(inTree('.gitignore'), 'utf-8')).toBe(AUTHORED);
+      expect(await stands(outside)).toBe(false);
+      expect(await harness.git('ls-tree', 'HEAD', '.gitignore')).toMatch(/^120000 blob /);
+      expect(await harness.git('status', '--porcelain', '--untracked-files=all')).toBe('T .gitignore');
     } finally {
       await fs.rm(other, { recursive: true, force: true });
     }

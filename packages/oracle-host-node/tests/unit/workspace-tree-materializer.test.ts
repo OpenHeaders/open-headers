@@ -7,7 +7,9 @@
  * by another program, stood in for by the system's code at the open;
  * another what it leaves while git writes the tree; the last pins the
  * hygiene files: authored when absent, a missing ignore entry appended,
- * the user's lines never rewritten, never baselined. And one pins the
+ * the user's lines never rewritten, never baselined — and each a regular
+ * file or nothing: a link at its name replaced and never read or written
+ * through, a directory there left with its row. And one pins the
  * folder's boundary under a pass: what is planned or baselined at a path
  * no tree can hold, or through a link, is not read, written or removed,
  * and the pass says its rows.
@@ -559,6 +561,105 @@ describe('WorkspaceTreeMaterializer — the hygiene files', () => {
     expect(result.deleted).toEqual([]);
     expect(await fs.readFile(ignoreFile(), 'utf-8')).toBe(canonical);
     expect(Object.keys(await readMaterializedIndex(tmpDir))).toEqual(['workspace.yaml']);
+  });
+
+  describe('a hygiene file is a regular file or nothing', () => {
+    const AUTHORED_IGNORE = '.oh/\n*.secret.yaml\n';
+    const AUTHORED_ATTRIBUTES = '*.yaml text eol=lf\n';
+    let outside: string;
+    const standsAsAFile = async (file: string): Promise<boolean> => (await fs.lstat(file)).isFile();
+
+    beforeEach(async () => {
+      outside = `${tmpDir}-outside`;
+      await fs.mkdir(outside);
+    });
+
+    afterEach(async () => {
+      await fs.rm(outside, { recursive: true, force: true });
+    });
+
+    it('a link to a file that holds every entry is not read through: the authored file takes its place, and the file it pointed to stands', async () => {
+      const mine = `${AUTHORED_IGNORE}.env\n`;
+      await fs.writeFile(path.join(outside, 'ignore'), mine, 'utf-8');
+      await fs.symlink(path.join(outside, 'ignore'), ignoreFile());
+
+      const pass = await makeMaterializer().flush();
+      expect(pass.written).toContain('.gitignore');
+      expect(await standsAsAFile(ignoreFile())).toBe(true);
+      expect(await fs.readFile(ignoreFile(), 'utf-8')).toBe(AUTHORED_IGNORE);
+      expect(await fs.readFile(path.join(outside, 'ignore'), 'utf-8')).toBe(mine);
+    });
+
+    it('a link to a file that lacks the entries is not appended through, and links to nothing author nothing where they point', async () => {
+      await fs.writeFile(path.join(outside, 'README.md'), 'A workspace.\n', 'utf-8');
+      await fs.symlink(path.join(outside, 'README.md'), ignoreFile());
+      await fs.symlink(path.join(outside, 'attributes'), attributesFile());
+
+      const pass = await makeMaterializer().flush();
+      expect(pass.written.sort()).toEqual(['.gitattributes', '.gitignore', 'workspace.yaml']);
+      expect(pass.unwritten).toEqual([]);
+      expect(await standsAsAFile(ignoreFile())).toBe(true);
+      expect(await standsAsAFile(attributesFile())).toBe(true);
+      expect(await fs.readFile(ignoreFile(), 'utf-8')).toBe(AUTHORED_IGNORE);
+      expect(await fs.readFile(attributesFile(), 'utf-8')).toBe(AUTHORED_ATTRIBUTES);
+      expect(await fs.readFile(path.join(outside, 'README.md'), 'utf-8')).toBe('A workspace.\n');
+      expect((await fs.readdir(outside)).sort()).toEqual(['README.md']);
+    });
+
+    it('a directory at the name stands with what it holds: the pass says its row and writes the rest', async () => {
+      await fs.mkdir(ignoreFile());
+      await fs.writeFile(path.join(ignoreFile(), 'kept.txt'), 'somebody’s\n', 'utf-8');
+      const told: unknown[] = [];
+      const materializer = new WorkspaceTreeMaterializer({
+        rootDir: tmpDir,
+        readSnapshot: async () => ({ state }),
+        onUnwritten: (rows) => told.push(rows),
+      });
+
+      const pass = await materializer.flush();
+      const row = { path: '.gitignore', message: 'is not a file — not written' };
+      expect(pass.unwritten).toEqual([row]);
+      expect(told).toEqual([[row]]);
+      expect(pass.written.sort()).toEqual(['.gitattributes', 'workspace.yaml']);
+      expect(await fs.readdir(ignoreFile())).toEqual(['kept.txt']);
+
+      await fs.rm(ignoreFile(), { recursive: true });
+      const healed = await materializer.flush();
+      expect(healed.written).toEqual(['.gitignore']);
+      expect(healed.unwritten).toEqual([]);
+    });
+
+    /** `fs.readFile` answering the system's `code` for the ignore file — denied, or held by another program. */
+    function refuseTheIgnoreFile(code: string) {
+      const readFile = fs.readFile.bind(fs);
+      return vi
+        .spyOn(fs, 'readFile')
+        .mockImplementation((...args: Parameters<typeof fs.readFile>) =>
+          String(args[0]) === ignoreFile()
+            ? Promise.reject(Object.assign(new Error(code), { code }))
+            : readFile(...args),
+        );
+    }
+
+    it('a file that stands and will not read is not written over — and is counted held only where another program holds it', async () => {
+      const mine = '.env\n';
+      await fs.writeFile(ignoreFile(), mine, 'utf-8');
+      const materializer = makeMaterializer();
+
+      refuseTheIgnoreFile('EPERM');
+      const denied = await materializer.flush();
+      expect([denied.written.includes('.gitignore'), denied.held]).toEqual([false, undefined]);
+
+      vi.restoreAllMocks();
+      refuseTheIgnoreFile('EBUSY');
+      const busy = await materializer.flush();
+      expect([busy.written.includes('.gitignore'), busy.held]).toEqual([false, 1]);
+
+      vi.restoreAllMocks();
+      expect(await fs.readFile(ignoreFile(), 'utf-8')).toBe(mine);
+      expect((await materializer.flush()).written).toEqual(['.gitignore']);
+      expect(await fs.readFile(ignoreFile(), 'utf-8')).toBe(`${mine}${AUTHORED_IGNORE}`);
+    });
   });
 });
 

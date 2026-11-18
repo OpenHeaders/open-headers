@@ -166,6 +166,13 @@ describe('TreeBoundary — a file written and removed', () => {
 });
 
 describe('treeRefusalIssue', () => {
+  it('a place’s row is at the file whose name something that is no file stands at', () => {
+    expect(treeRefusalIssue('.gitignore', { kind: 'place' })).toEqual({
+      path: '.gitignore',
+      message: 'is not a file — not written',
+    });
+  });
+
   it('a path’s row is at the file, by core’s sentence; a way’s is at the directory, by what stands there', () => {
     expect(treeRefusalIssue('../outside/spec.yaml', { kind: 'path', part: '".."' })).toEqual({
       path: '../outside/spec.yaml',
@@ -193,5 +200,6 @@ describe('treeRefusalReason', () => {
     expect(treeRefusalReason('notes/readme.md', { kind: 'way', dir: 'notes', stands: 'file' })).toBe(
       '"notes/" is not a directory, on the way to "notes/readme.md"',
     );
+    expect(treeRefusalReason('.gitignore', { kind: 'place' })).toBe('".gitignore" is not a file');
   });
 });

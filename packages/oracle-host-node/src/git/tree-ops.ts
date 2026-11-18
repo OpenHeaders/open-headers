@@ -75,6 +75,11 @@ export type FileText = { kind: 'absent' } | { kind: 'text'; text: string } | { k
 
 const REGULAR_FILE_MODES: ReadonlySet<string> = new Set(['100644', '100755']);
 
+/** Whether a {@link listTreeEntries} value is a regular file — not a symbolic link. */
+export function isRegularFileEntry(entry: string): boolean {
+  return REGULAR_FILE_MODES.has(entry.slice(0, entry.indexOf(' ')));
+}
+
 /** Decoded text a person can read: no NUL up front (git's own test) and no byte the decoder had to replace. */
 export function asFileText(content: string): FileText {
   return looksBinary(content) || content.includes('\uFFFD') ? { kind: 'opaque' } : { kind: 'text', text: content };
@@ -88,8 +93,8 @@ export async function readTreeEntryText(
   maxBytes: number,
 ): Promise<FileText> {
   if (entry === undefined) return { kind: 'absent' };
-  const [mode, sha] = entry.split(' ');
-  if (!REGULAR_FILE_MODES.has(mode)) return { kind: 'opaque' };
+  if (!isRegularFileEntry(entry)) return { kind: 'opaque' };
+  const sha = entry.slice(entry.indexOf(' ') + 1);
   const size = await readBlobSize(run, rootDir, sha);
   if (size === null || size > maxBytes) return { kind: 'opaque' };
   const blob = await run([...repoArgs(rootDir), 'cat-file', 'blob', sha], { cwd: rootDir });

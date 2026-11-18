@@ -83,6 +83,28 @@ describe('bindWorkspaceTree', () => {
     expect(await fs.readFile(path.join(tmpDir, '.gitattributes'), 'utf-8')).toBe('*.png binary\n');
   });
 
+  it('a folder whose .gitignore is a link binds with the authored file in its place, and nothing written where it pointed', async () => {
+    const outside = await fs.mkdtemp(path.join(os.tmpdir(), 'oh-tree-bind-outside-'));
+    try {
+      await fs.symlink(path.join(outside, 'ignore'), path.join(tmpDir, '.gitignore'));
+      const result = await bindWorkspaceTree({ rootDir: tmpDir, workspace: makeWorkspace(), hostId: 'desktop-1' });
+      expect(result).toEqual({ ok: true, initialized: true });
+      expect((await fs.lstat(path.join(tmpDir, '.gitignore'))).isFile()).toBe(true);
+      expect(await fs.readFile(path.join(tmpDir, '.gitignore'), 'utf-8')).toBe('.oh/\n*.secret.yaml\n');
+      expect(await fs.readdir(outside)).toEqual([]);
+    } finally {
+      await fs.rm(outside, { recursive: true, force: true });
+    }
+  });
+
+  it('a folder with a directory at .gitignore binds all the same: the directory stands', async () => {
+    await fs.mkdir(path.join(tmpDir, '.gitignore'));
+    const result = await bindWorkspaceTree({ rootDir: tmpDir, workspace: makeWorkspace(), hostId: 'desktop-1' });
+    expect(result).toEqual({ ok: true, initialized: true });
+    expect((await fs.lstat(path.join(tmpDir, '.gitignore'))).isDirectory()).toBe(true);
+    expect(await fs.readFile(path.join(tmpDir, '.gitattributes'), 'utf-8')).toBe('*.yaml text eol=lf\n');
+  });
+
   it('the probe carries the manifest description when the workspace has one', async () => {
     await bindWorkspaceTree({
       rootDir: tmpDir,

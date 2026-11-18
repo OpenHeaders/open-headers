@@ -24,7 +24,8 @@
  *     (`hygiene.ts`), not by the plan: authored when absent, a missing
  *     ignore entry appended, the user's own lines never rewritten —
  *     and never part of the baseline; the pass looks for git's writes
- *     like every write below;
+ *     like every write below, and what it could not write is a row of
+ *     the pass too;
  *   - no file is written or removed while git writes the tree: git
  *     replaces a file by removing it and writing it anew, and creates
  *     one after looking that it is not there — a write of ours between
@@ -78,9 +79,10 @@ export interface MaterializeResult {
   held?: number;
   /**
    * The rows of what the pass did not write: a document the plan left
-   * out for a path no tree can hold, and what the folder's boundary
+   * out for a path no tree can hold, what the folder's boundary
    * refused — one row a cause, a directory once however much lies
-   * beneath it. Empty when everything planned could be written.
+   * beneath it — and a hygiene file whose name something that is no
+   * file stands at. Empty when everything could be written.
    */
   unwritten: TreeIssue[];
 }
@@ -202,6 +204,7 @@ export class WorkspaceTreeMaterializer {
     };
 
     const hygiene = await ensureTreeHygiene(this.rootDir, gitWrites);
+    for (const row of hygiene.unwritten) unwritten.set(row.path, row);
     const written: string[] = hygiene.written;
     let held = hygiene.held;
     let unchanged = 0;

@@ -9,29 +9,78 @@
  * (the surface gates Stop Ignoring on `removable`). Provenance batches
  * `git check-ignore -v` to attribute each ignored row to the source
  * that matched it (root `.gitignore`, `exclude`, a nested
- * `.gitignore`, or the global excludesfile). The file writes are pure
- * filesystem against the plane's explicit repo addressing
- * (`--git-dir <root>/.git`, §7) — the exclude file lives in the
- * repo's COMMON directory, which a linked worktree's gitfile resolves
- * to the main checkout's `.git`; `check-ignore` is a read and stays
- * off the audit stream.
+ * `.gitignore`, or the global excludesfile). The exclude file is
+ * written by plain filesystem calls against the plane's explicit repo
+ * addressing (`--git-dir <root>/.git`, §7): it lives in the repo's
+ * COMMON directory, which a linked worktree's gitfile resolves to the
+ * main checkout's `.git`. The root `.gitignore` is a file of the working
+ * tree, a regular file or nothing (`regular-file.ts`): a link standing
+ * at its name is not read through — it holds no entry, as git reads it —
+ * and an entry is written to a file put in the link's place, never
+ * through it. `check-ignore` is a read and stays off the audit stream.
  */
 
 import { promises as fs } from 'node:fs';
 import * as path from 'node:path';
+import { GITIGNORE_FILE } from '@openheaders/core/workspace-tree';
+import { failureCode, isGone } from './fs-failure';
 import { resolveGitDirs } from './git-dir';
 import type { GitRunner } from './git-exec';
+import { putRegularFile, readRegularFile } from './regular-file';
+import { TreeBoundary, treeRefusalReason } from './tree-boundary';
 
 /** Which ignore file receives the entry — the shared one or the local-only one. */
 export type IgnoreTarget = 'gitignore' | 'exclude';
 
 export type AddIgnoreEntryResult = { ok: true; added: boolean; entry: string } | { ok: false; detail: string };
 
-/** Absolute path of the target ignore file — the root `.gitignore`, or `info/exclude` in the repo's common directory. */
-async function ignoreFilePath(rootDir: string, target: IgnoreTarget): Promise<string> {
-  if (target === 'gitignore') return path.join(rootDir, '.gitignore');
+/** One of the two ignore files: its text, empty where it holds none, and the text put in its place. Each throws what failed. */
+interface IgnoreFile {
+  read(): Promise<string>;
+  write(text: string): Promise<void>;
+}
+
+/** The root `.gitignore`. */
+function sharedIgnoreFile(rootDir: string): IgnoreFile {
+  return {
+    read: async () => {
+      const standing = await readRegularFile(path.join(rootDir, GITIGNORE_FILE));
+      if (standing.kind === 'text') return standing.text;
+      if (standing.kind === 'absent' || standing.kind === 'link') return '';
+      if (standing.kind === 'not-a-file') throw new Error(treeRefusalReason(GITIGNORE_FILE, { kind: 'place' }));
+      throw new Error(
+        `"${GITIGNORE_FILE}" could not be read${standing.code !== undefined ? ` (${standing.code})` : ''}`,
+      );
+    },
+    write: async (text) => {
+      const put = await putRegularFile(new TreeBoundary(rootDir), GITIGNORE_FILE, text);
+      if (!put.ok) throw new Error(treeRefusalReason(GITIGNORE_FILE, put.refusal));
+    },
+  };
+}
+
+/** `info/exclude` in the repo's common directory — git's own, local to this clone. */
+async function localExcludeFile(rootDir: string): Promise<IgnoreFile> {
   const { commonDir } = await resolveGitDirs(rootDir);
-  return path.join(commonDir, 'info', 'exclude');
+  const file = path.join(commonDir, 'info', 'exclude');
+  return {
+    read: async () => {
+      try {
+        return await fs.readFile(file, 'utf-8');
+      } catch (err) {
+        if (isGone(failureCode(err))) return '';
+        throw err;
+      }
+    },
+    write: async (text) => {
+      await fs.mkdir(path.dirname(file), { recursive: true });
+      await fs.writeFile(file, text, 'utf-8');
+    },
+  };
+}
+
+async function ignoreFile(rootDir: string, target: IgnoreTarget): Promise<IgnoreFile> {
+  return target === 'gitignore' ? sharedIgnoreFile(rootDir) : localExcludeFile(rootDir);
 }
 
 /**
@@ -45,19 +94,13 @@ export async function addIgnoreEntry(
   target: IgnoreTarget,
 ): Promise<AddIgnoreEntryResult> {
   const entry = `/${filePath}`;
-  const targetFile = await ignoreFilePath(rootDir, target);
   try {
-    let existing = '';
-    try {
-      existing = await fs.readFile(targetFile, 'utf-8');
-    } catch (err) {
-      if ((err as NodeJS.ErrnoException).code !== 'ENOENT') throw err;
-    }
+    const file = await ignoreFile(rootDir, target);
+    const existing = await file.read();
     const lines = existing.split('\n').map((line) => line.trim());
     if (lines.includes(entry) || lines.includes(filePath)) return { ok: true, added: false, entry };
-    await fs.mkdir(path.dirname(targetFile), { recursive: true });
     const separator = existing.length > 0 && !existing.endsWith('\n') ? '\n' : '';
-    await fs.appendFile(targetFile, `${separator}${entry}\n`, 'utf-8');
+    await file.write(`${existing}${separator}${entry}\n`);
     return { ok: true, added: true, entry };
   } catch (err) {
     return { ok: false, detail: (err as Error).message };
@@ -76,16 +119,9 @@ export async function removeIgnoreEntry(
   filePath: string,
   target: IgnoreTarget,
 ): Promise<RemoveIgnoreEntryResult> {
-  const targetFile = await ignoreFilePath(rootDir, target);
   try {
-    let existing: string;
-    try {
-      existing = await fs.readFile(targetFile, 'utf-8');
-    } catch (err) {
-      if ((err as NodeJS.ErrnoException).code === 'ENOENT') return { ok: true, removed: false };
-      throw err;
-    }
-    const lines = existing.split('\n');
+    const file = await ignoreFile(rootDir, target);
+    const lines = (await file.read()).split('\n');
     const kept = lines.filter((line) => {
       const trimmed = line.trim();
       return trimmed !== `/${filePath}` && trimmed !== filePath;
@@ -93,7 +129,7 @@ export async function removeIgnoreEntry(
     if (kept.length === lines.length) return { ok: true, removed: false };
     let next = kept.join('\n');
     if (next.length > 0 && !next.endsWith('\n')) next = `${next}\n`;
-    await fs.writeFile(targetFile, next, 'utf-8');
+    await file.write(next);
     return { ok: true, removed: true };
   } catch (err) {
     return { ok: false, detail: (err as Error).message };
