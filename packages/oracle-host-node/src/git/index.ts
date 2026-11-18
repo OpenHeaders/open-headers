@@ -211,5 +211,6 @@ export {
   readTreeEntryText,
   snapshotWorkingTree,
   treeWithFiles,
+  treeWithWorkingFiles,
 } from './tree-ops';
 export { type TreeWritesWatch, watchTreeWrites } from './tree-writes';

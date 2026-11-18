@@ -41,8 +41,9 @@
  *      rule (`own-files.ts`: an answered file is written as answered; a
  *      file the branch also changed that could not be shown keeps its
  *      local bytes and is named). The working tree is read as a tree
- *      object before and after — the two differ in exactly the files
- *      the pass wrote (`pass-writes.ts`);
+ *      object before the pass writes, and what the flush and the
+ *      landing say they wrote is laid over that reading
+ *      (`pass-writes.ts`);
  *   5. one temp-index commit records those files and no other, authored
  *      by the operator. Uncommitted work elsewhere — a modified file
  *      the change did not touch, an unversioned file — is not the
@@ -78,7 +79,7 @@ import {
 } from '../git';
 import { type ApplyCommitResolution, type ApplyCommitResolve, decideChange } from './change-answers';
 import { landForeignOwnFiles } from './own-files';
-import { readPassWrites } from './pass-writes';
+import { flushedPaths, readPassWrites } from './pass-writes';
 import { plannedDocumentWrites } from './pick-writes';
 import type { IntegrateForeignDeps } from './pull';
 
@@ -232,8 +233,8 @@ export async function applyWorkspaceCommit(options: ApplyWorkspaceCommitOptions)
     async (indexLock) => {
       // From here the pass writes. What the engine still has pending is
       // local work, not the change's: it reaches the disk first, and the
-      // working tree is read as it stands before and after the pass — the
-      // two readings differ in the change's own writes and nothing else.
+      // working tree is read as it then stands — what the pass writes is
+      // laid over that reading by its writers' account.
       await options.flush();
       const before = await snapshotWorkingTree(run, rootDir);
       if (before === null) {
@@ -249,14 +250,14 @@ export async function applyWorkspaceCommit(options: ApplyWorkspaceCommitOptions)
         isDeleted: options.isDeleted,
       });
       if (batches.length > 0) await options.apply(batches);
-      await options.flush();
+      const flushed = await options.flush();
 
-      // The second reading is taken once the change's own files are on disk too.
+      // The writes are laid once the change's own files are on disk too.
       const own = await landForeignOwnFiles(run, rootDir, ownRefs, ownAnswers);
       if (!own.ok) return { ok: false, reason: 'commit-failed', detail: own.detail, issues: [] };
       const withKept = own.kept.length > 0 ? { keptLocal: own.kept } : {};
 
-      const pass = await readPassWrites(run, rootDir, before);
+      const pass = await readPassWrites(run, rootDir, before, [...flushedPaths(flushed), ...own.landed]);
       if (pass === null) {
         return { ok: false, reason: 'commit-failed', detail: 'the working tree could not be read', issues: [] };
       }

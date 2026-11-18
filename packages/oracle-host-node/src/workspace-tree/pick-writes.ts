@@ -4,9 +4,9 @@
  * nothing has happened yet.
  *
  * This reading decides a QUESTION and nothing else. What the pass
- * records is decided afterwards, from the working tree as it stood
- * before and after the pass (`pass-writes.ts`), so a file this reading
- * misses is still recorded right.
+ * records is decided afterwards, from what its writers say they wrote
+ * (`pass-writes.ts`), so a file this reading misses is still recorded
+ * right.
  */
 
 import { planWorkspaceTree, type TreeReadResult, type WorkspaceTreeState } from '@openheaders/core/workspace-tree';

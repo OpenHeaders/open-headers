@@ -2,8 +2,9 @@
  * Tree plumbing for the passes that carry files between a commit and
  * the working tree without a checkout of the branch: the listing of a
  * commit's blobs, one blob read as text, the working tree written as a
- * tree object, a tree with given files laid over it, and a paths
- * checkout out of a commit that never touches the user's real index.
+ * tree object, a tree with given files laid over it — texts, or named
+ * paths as the working tree holds them — and a paths checkout out of a
+ * commit that never touches the user's real index.
  * Same discipline as
  * `branch-ops.ts`:
  * explicit repo addressing, the injected {@link GitRunner} seam, typed
@@ -13,9 +14,19 @@
 import { promises as fs } from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
+import { failureCode, isGone } from './fs-failure';
 import type { GitRunner } from './git-exec';
-import { WHOLE_TREE_PATHSPECS } from './never-committed';
-import { type BranchOpResult, failureDetail, localHeadSha, looksBinary, readBlobSize, repoArgs } from './repo';
+import { namedPaths, WHOLE_TREE_PATHSPECS } from './never-committed';
+import {
+  type BranchOpResult,
+  failureDetail,
+  localHeadSha,
+  looksBinary,
+  nulSeparatedPaths,
+  readBlobSize,
+  repoArgs,
+} from './repo';
+import { TreeBoundary } from './tree-boundary';
 
 /** Paths per `checkout` invocation — keeps the arg vector under every platform's limit. */
 const CHECKOUT_PATHS_PER_CALL = 100;
@@ -107,8 +118,10 @@ export async function readTreeEntryText(
  * (`.gitignore` applies, and a secret or the sidecar is never in it
  * whatever an ignore file says — `never-committed.ts`).
  * Nothing is committed and the user's real index is never read or
- * written (§3.3). Two snapshots taken around a pass differ in exactly
- * the files the pass wrote. Null when the tree cannot be read.
+ * written (§3.3). What it holds follows the ignore files as they stand
+ * at the reading: two taken around a pass that lands one differ in more
+ * than the pass wrote, so a pass reads once and lays its own writes over
+ * that (`treeWithWorkingFiles`). Null when the tree cannot be read.
  */
 export async function snapshotWorkingTree(run: GitRunner, rootDir: string): Promise<string | null> {
   const indexDir = await fs.mkdtemp(path.join(os.tmpdir(), 'oh-snapshot-index-'));
@@ -125,6 +138,92 @@ export async function snapshotWorkingTree(run: GitRunner, rootDir: string): Prom
     const tree = await run([...repoArgs(rootDir), 'write-tree'], { cwd: rootDir, env });
     const sha = tree.stdout.trim();
     return tree.code === 0 && sha.length > 0 ? sha : null;
+  } finally {
+    await fs.rm(indexDir, { recursive: true, force: true }).catch(() => undefined);
+  }
+}
+
+/**
+ * `tree` with `paths` as they stand in the working tree now laid over it —
+ * a file or a link where one stands, no entry where none does — written
+ * as a tree object. Every other path stays as `tree` holds it, whatever
+ * the working tree or an ignore file has come to say of it.
+ *
+ * A path is laid as git sees it: a file that stands where `tree` holds
+ * none and git ignores is no entry, as in `tree`. A path the folder's
+ * boundary refuses is not looked at, and one that stands and will not be
+ * looked at is not taken for gone: each stays as `tree` has it. A file no
+ * commit holds (`never-committed.ts`) is never laid. The user's real
+ * index is never read or written (§3.3). Null when the tree cannot be
+ * read or written.
+ */
+export async function treeWithWorkingFiles(
+  run: GitRunner,
+  rootDir: string,
+  tree: string,
+  paths: readonly string[],
+): Promise<string | null> {
+  const named = namedPaths([...new Set(paths)]);
+  if (named.length === 0) return tree;
+  const boundary = new TreeBoundary(rootDir);
+  const standing: string[] = [];
+  const gone: string[] = [];
+  for (const filePath of named) {
+    const placed = await boundary.locate(filePath);
+    if (!placed.ok) continue;
+    try {
+      const stat = await fs.lstat(placed.place.file);
+      // A directory there holds no file at this path: its own files are laid at their own names.
+      if (stat.isFile() || stat.isSymbolicLink()) standing.push(filePath);
+      else gone.push(filePath);
+    } catch (err) {
+      if (isGone(failureCode(err))) gone.push(filePath);
+    }
+  }
+  const indexDir = await fs.mkdtemp(path.join(os.tmpdir(), 'oh-pass-index-'));
+  try {
+    const env = { GIT_INDEX_FILE: path.join(indexDir, 'index') };
+    const seed = await run([...repoArgs(rootDir), 'read-tree', tree], { cwd: rootDir, env });
+    if (seed.code !== 0) return null;
+    // A file `tree` does not hold and git ignores is not seen: it is no entry, as in `tree`.
+    const seen: string[] = [];
+    for (let start = 0; start < standing.length; start += CHECKOUT_PATHS_PER_CALL) {
+      const chunk = standing.slice(start, start + CHECKOUT_PATHS_PER_CALL);
+      const asked = await run(
+        [
+          ...repoArgs(rootDir),
+          '--literal-pathspecs',
+          'ls-files',
+          '-z',
+          '--others',
+          '--ignored',
+          '--exclude-standard',
+          '--',
+          ...chunk,
+        ],
+        { cwd: rootDir, env },
+      );
+      if (asked.code !== 0) return null;
+      const ignored = new Set(nulSeparatedPaths(asked.stdout));
+      seen.push(...chunk.filter((filePath) => !ignored.has(filePath)));
+    }
+    // An add replaces what `tree` holds in its way: a link where a directory now stands, a directory where a link does.
+    for (const [options, group] of [
+      [['--force-remove'], gone],
+      [['--add', '--replace'], seen],
+    ] as const) {
+      for (let start = 0; start < group.length; start += CHECKOUT_PATHS_PER_CALL) {
+        const chunk = group.slice(start, start + CHECKOUT_PATHS_PER_CALL);
+        const laid = await run([...repoArgs(rootDir), 'update-index', ...options, '--', ...chunk], {
+          cwd: rootDir,
+          env,
+        });
+        if (laid.code !== 0) return null;
+      }
+    }
+    const written = await run([...repoArgs(rootDir), 'write-tree'], { cwd: rootDir, env });
+    const sha = written.stdout.trim();
+    return written.code === 0 && sha.length > 0 ? sha : null;
   } finally {
     await fs.rm(indexDir, { recursive: true, force: true }).catch(() => undefined);
   }

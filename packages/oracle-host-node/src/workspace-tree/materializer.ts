@@ -164,12 +164,19 @@ export class WorkspaceTreeMaterializer {
    * integration, a rollback. What git's writing held is not on disk, and
    * a tree recorded then is recorded without it: the pass is taken again
    * on the waits a busy index lock is given, and answers `held` only
-   * when git never let go — the caller refuses as for that lock.
+   * when git never let go — the caller refuses as for that lock. What it
+   * answers as written and deleted is every attempt's, not the last's.
    */
   async flushCurrent(): Promise<MaterializeResult> {
+    const written = new Set<string>();
+    const deleted = new Set<string>();
     for (let attempt = 0; ; attempt += 1) {
       const pass = await this.flush();
-      if (pass.held === undefined || attempt >= INDEX_BUSY_WAITS_MS.length) return pass;
+      for (const filePath of pass.written) written.add(filePath);
+      for (const filePath of pass.deleted) deleted.add(filePath);
+      if (pass.held === undefined || attempt >= INDEX_BUSY_WAITS_MS.length) {
+        return { ...pass, written: [...written], deleted: [...deleted] };
+      }
       await delay(INDEX_BUSY_WAITS_MS[attempt]);
     }
   }

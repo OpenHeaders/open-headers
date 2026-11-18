@@ -39,6 +39,10 @@
  * its place — nothing is ever written where the link points. And a link
  * a commit puts at the sidecar's name: the baseline where it points is
  * never the materializer's.
+ *
+ * And a pass that lands an ignore file, at every door that lands one: a
+ * file of the user's it brings into git's sight, or takes out of it, is
+ * in no commit of the pass and is not committed first as local work.
  */
 
 import { createHash } from 'node:crypto';
@@ -502,6 +506,10 @@ describe("the workspace-tree runtime: the Git card's rows after a pass", () => {
         expect(ruleOf('bbbbbbbb')?.path).toBe(PEER_DIR);
         // The pull read the disk for its rows after it wrote: the flush's row is not the reading's to drop.
         expect(rows()).toEqual([{ path: `${PEER_DIR}/`, message: 'is a link — not written' }]);
+        // A file nothing wrote is not recorded as gone: the pull's own commit leaves it as the peer's commit has it.
+        expect((await harness.git('ls-tree', '-r', '--name-only', 'HEAD')).split('\n')).toContain(
+          `${PEER_DIR}/rule.yaml`,
+        );
       });
     } finally {
       await fs.rm(other, { recursive: true, force: true });
@@ -949,5 +957,185 @@ describe('the workspace-tree runtime: a link a commit puts at the sidecar’s na
     } finally {
       await fs.rm(other, { recursive: true, force: true });
     }
+  });
+});
+
+describe('the workspace-tree runtime: a pass that lands an ignore file changes what git sees of the folder', () => {
+  const NOTES = 'notes.txt';
+  const NOTES_TEXT = 'my own notes, never meant for a commit\n';
+  const ENTRIES = '.oh/\n*.secret.yaml\n';
+  /**
+   * `into sight`: the user ignores the notes, and the other side's commit takes that line away.
+   * `out of sight`: the notes stand unversioned, and the other side's commit ignores them.
+   */
+  const SHAPES = ['into sight', 'out of sight'] as const;
+  type Shape = (typeof SHAPES)[number];
+  const theirIgnoreFile = (shape: Shape): string => (shape === 'into sight' ? ENTRIES : `${ENTRIES}/${NOTES}\n`);
+
+  /** The folder committed as the shape has it before the other side's commit. */
+  async function seed(shape: Shape): Promise<void> {
+    if (shape === 'into sight') {
+      expect(await harness.runtime.ignorePath(harness.workspaceId, NOTES, 'gitignore')).toMatchObject({ ok: true });
+      await writeByHand(NOTES, NOTES_TEXT);
+    }
+    expect(await harness.runtime.commit(harness.workspaceId, 'seed')).toMatchObject({ ok: true, committed: true });
+  }
+
+  /** The notes no ignore file names yet, written once every commit of the user's own is made. */
+  async function writeTheNotesUnversioned(shape: Shape): Promise<void> {
+    if (shape === 'out of sight') await writeByHand(NOTES, NOTES_TEXT);
+  }
+
+  /** A commit of the user's own that makes the branch diverge from the other side's. */
+  async function commitAReadme(): Promise<void> {
+    await writeByHand('README.md', 'A workspace of mine.\n');
+    expect(await harness.runtime.commit(harness.workspaceId, 'a readme')).toMatchObject({ ok: true, committed: true });
+  }
+
+  /** The pass went through, asked nothing about the notes, and no commit any ref or the reflog reaches holds them. */
+  async function expectTheNotesInNoCommit(shape: Shape, answered: object): Promise<void> {
+    expect(answered).toMatchObject({ ok: true });
+    expect(answered).not.toHaveProperty('committedLocal');
+    expect(await harness.git('log', '--all', '--reflog', '--format=%H', '--', NOTES)).toBe('');
+    expect(await fs.readFile(inTree(NOTES), 'utf-8')).toBe(NOTES_TEXT);
+    expect((await harness.git('status', '--porcelain', '--ignored', '--untracked-files=all')).split('\n')).toContain(
+      `${shape === 'into sight' ? '??' : '!!'} ${NOTES}`,
+    );
+  }
+
+  /** `run` with a branch `side` that holds the other side's ignore file, made in a clone and fetched; its commit's sha. */
+  async function withASideBranch(shape: Shape, run: (sha: string) => Promise<void>): Promise<void> {
+    const other = await fs.mkdtemp(path.join(os.tmpdir(), 'oh-tree-runtime-other-'));
+    try {
+      await harness.git('clone', '-q', harness.rootDir, other);
+      await harness.git('-C', other, 'checkout', '-q', '-b', 'side');
+      await fs.writeFile(path.join(other, '.gitignore'), theirIgnoreFile(shape), 'utf-8');
+      await harness.git('-C', other, 'add', '-A');
+      await harness.git('-C', other, 'commit', '-q', '-m', 'the ignore file changed');
+      await harness.git('fetch', '-q', other, 'side:side');
+      await run(await harness.git('rev-parse', 'side'));
+    } finally {
+      await fs.rm(other, { recursive: true, force: true });
+    }
+  }
+
+  /** `run` once the remote's history is rewritten to hold the other side's ignore file, the head both knew pulled before. */
+  async function withTheRemoteRewritten(shape: Shape, run: () => Promise<void>): Promise<void> {
+    const other = await fs.mkdtemp(path.join(os.tmpdir(), 'oh-tree-runtime-other-'));
+    try {
+      await withTheBranchPushed(async () => {
+        const branch = await harness.git('rev-parse', '--abbrev-ref', 'HEAD');
+        await harness.git('clone', '-q', '-b', branch, await harness.git('remote', 'get-url', 'origin'), other);
+        expect(await harness.runtime.pull(harness.workspaceId)).toMatchObject({ ok: true, upToDate: true });
+        await commitAReadme();
+        await writeTheNotesUnversioned(shape);
+        await fs.writeFile(path.join(other, '.gitignore'), theirIgnoreFile(shape), 'utf-8');
+        await harness.git('-C', other, 'add', '-A');
+        await harness.git('-C', other, 'commit', '-q', '--amend', '-m', 'seed, rewritten');
+        await harness.git('-C', other, 'push', '-q', '--force');
+        await run();
+      });
+    } finally {
+      await fs.rm(other, { recursive: true, force: true });
+    }
+  }
+
+  describe.each(SHAPES)('a file of the user’s own it brings %s', (shape) => {
+    it.each([
+      ['that moves the ref', false],
+      ['that merges', true],
+    ])('is in no commit of a Pull %s', { timeout: 30_000 }, async (_how, diverged) => {
+      await seed(shape);
+      await withThePeerPushing(
+        (other) => fs.writeFile(path.join(other, '.gitignore'), theirIgnoreFile(shape), 'utf-8'),
+        async () => {
+          if (diverged) await commitAReadme();
+          await writeTheNotesUnversioned(shape);
+          await expectTheNotesInNoCommit(shape, await harness.runtime.pull(harness.workspaceId));
+        },
+      );
+    });
+
+    it('is in no commit of a branch merge', { timeout: 30_000 }, async () => {
+      await seed(shape);
+      await withASideBranch(shape, async () => {
+        await writeTheNotesUnversioned(shape);
+        await expectTheNotesInNoCommit(shape, await harness.runtime.mergeBranch(harness.workspaceId, 'side'));
+      });
+    });
+
+    it('is in no commit of a Cherry-Pick', { timeout: 30_000 }, async () => {
+      await seed(shape);
+      await withASideBranch(shape, async (sha) => {
+        await writeTheNotesUnversioned(shape);
+        await expectTheNotesInNoCommit(shape, await harness.runtime.applyCommit(harness.workspaceId, sha, 'pick'));
+      });
+    });
+
+    it.each(['abandon', 'rescue', 'reapply'] as const)(
+      'is in no commit of a rewritten history resolved by %s',
+      { timeout: 30_000 },
+      async (choice) => {
+        await seed(shape);
+        await withTheRemoteRewritten(shape, async () => {
+          await expectTheNotesInNoCommit(shape, await harness.runtime.resolveForcePush(harness.workspaceId, choice));
+        });
+      },
+    );
+  });
+
+  it('a file of the user’s own a Revert brings into sight is in no commit of it', { timeout: 30_000 }, async () => {
+    expect(await harness.runtime.commit(harness.workspaceId, 'seed')).toMatchObject({ ok: true, committed: true });
+    expect(await harness.runtime.ignorePath(harness.workspaceId, NOTES, 'gitignore')).toMatchObject({ ok: true });
+    await writeByHand(NOTES, NOTES_TEXT);
+    expect(await harness.runtime.commit(harness.workspaceId, 'ignore my notes')).toMatchObject({
+      ok: true,
+      committed: true,
+    });
+    const reverted = await harness.runtime.applyCommit(
+      harness.workspaceId,
+      await harness.git('rev-parse', 'HEAD'),
+      'revert',
+    );
+    await expectTheNotesInNoCommit('into sight', reverted);
+  });
+
+  it('a file of the user’s own a Revert takes out of sight is in no commit of it', { timeout: 30_000 }, async () => {
+    expect(await harness.runtime.ignorePath(harness.workspaceId, NOTES, 'gitignore')).toMatchObject({ ok: true });
+    expect(await harness.runtime.commit(harness.workspaceId, 'seed')).toMatchObject({ ok: true, committed: true });
+    expect(await harness.runtime.unignorePath(harness.workspaceId, NOTES, 'gitignore')).toMatchObject({ ok: true });
+    expect(await harness.runtime.commit(harness.workspaceId, 'stop ignoring my notes')).toMatchObject({
+      ok: true,
+      committed: true,
+    });
+    await writeByHand(NOTES, NOTES_TEXT);
+    const reverted = await harness.runtime.applyCommit(
+      harness.workspaceId,
+      await harness.git('rev-parse', 'HEAD'),
+      'revert',
+    );
+    await expectTheNotesInNoCommit('out of sight', reverted);
+  });
+
+  it('a rule the user keeps to themselves, its file ignored, is in no commit of a Pull that takes the line away', {
+    timeout: 30_000,
+  }, async () => {
+    await writeCollectionByHand();
+    expect(await harness.runtime.commit(harness.workspaceId, 'seed')).toMatchObject({ ok: true, committed: true });
+    expect(await harness.runtime.ignorePath(harness.workspaceId, RULE_FILE, 'gitignore')).toMatchObject({ ok: true });
+    await writeRuleByHand();
+    expect(await harness.runtime.commit(harness.workspaceId, 'ignore my rule')).toMatchObject({
+      ok: true,
+      committed: true,
+    });
+    await withThePeerPushing(
+      (other) => fs.writeFile(path.join(other, '.gitignore'), ENTRIES, 'utf-8'),
+      async () => {
+        expect(await harness.runtime.pull(harness.workspaceId)).toMatchObject({ ok: true, upToDate: false });
+        expect(await harness.git('log', '--all', '--reflog', '--format=%H', '--', RULE_FILE)).toBe('');
+        expect(await harness.git('status', '--porcelain', '--untracked-files=all')).toBe(`?? ${RULE_FILE}`);
+        expect(engineHoldsTheRule()).toBe(true);
+      },
+    );
   });
 });

@@ -503,6 +503,25 @@ describe('WorkspaceTreeMaterializer — while git writes the tree', () => {
     expect(await fs.readFile(ruleFile(), 'utf-8')).toBe(before);
   });
 
+  it('a pass taken again answers what every attempt wrote, not the last one’s alone', async () => {
+    let armed = false;
+    let looks = 0;
+    state.rules = [makeRule('aaaaaaaa', 'Block probes'), makeRule('bbbbbbbb', 'Delay probes')];
+    // Git lets the first file through — a look before its temp file, one before its rename — and holds the second.
+    const { materializer, told } = makeWatched(() => {
+      if (armed) looks += 1;
+      return looks === 3;
+    });
+    await materializer.flush();
+
+    state.rules = state.rules.map((rule) => ({ ...rule, enabled: false }));
+    armed = true;
+    const current = await materializer.flushCurrent();
+    expect(told).toEqual([1]);
+    expect([...current.written].sort()).toEqual([RULE, 'rules/delay-probes-bbbbbbbb/rule.yaml']);
+    expect(current.held).toBeUndefined();
+  });
+
   it('a pass with nothing to write holds nothing', async () => {
     let writing = false;
     state.rules = [makeRule('aaaaaaaa', 'Block probes')];

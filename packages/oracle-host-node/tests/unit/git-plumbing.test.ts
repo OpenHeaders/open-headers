@@ -12,7 +12,7 @@ import { promises as fs } from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { TREE_FILE_MAX_BYTES } from '@openheaders/core/workspace-tree';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { isAudited, splitAtSubcommand } from '../../src/git/audit-classify';
 import {
   createLocalBranch,
@@ -96,6 +96,7 @@ import {
   readTreeEntryText,
   snapshotWorkingTree,
   treeWithFiles,
+  treeWithWorkingFiles,
 } from '../../src/git/tree-ops';
 import { validateUserCommitInput } from '../../src/workspace-tree/runtime/user-commit';
 import { objects } from './_log-history-repo';
@@ -2321,6 +2322,133 @@ describe('Tree ops: a commit’s blobs and a paths checkout off the real index',
     expect(await fs.readFile(path.join(tmpDir, 'docs/guide.md'), 'utf-8')).toBe('# guide, on disk\n');
     expect((await git('ls-files', '--stage')).stdout).toBe(indexBefore);
     expect(await treeWithFiles(run, tmpDir, 'not-a-tree', new Map([['a.md', 'a\n']]))).toBeNull();
+  });
+
+  describe('treeWithWorkingFiles: named paths laid over a tree as the working tree holds them', () => {
+    const names = async (tree: string | null): Promise<string[]> =>
+      (await git('ls-tree', '-r', '--name-only', tree ?? '')).stdout.trim().split('\n');
+    const blob = async (tree: string | null, filePath: string): Promise<string> =>
+      (await git('cat-file', 'blob', `${tree}:${filePath}`)).stdout;
+    const modeOf = async (tree: string | null, filePath: string): Promise<string | undefined> =>
+      (await listTreeEntries(run, tmpDir, tree ?? ''))?.get(filePath)?.split(' ')[0];
+    const headTree = async (): Promise<string> => (await git('rev-parse', 'HEAD^{tree}')).stdout.trim();
+
+    /** A commit of three files under `docs/`, and its tree. */
+    async function docsTree(): Promise<string> {
+      await initialCommit();
+      await write('docs/guide.md', '# guide\n');
+      await write('docs/gone.md', '# gone\n');
+      await write('docs/other.md', '# other\n');
+      await commitWorkspaceTree({ run, rootDir: tmpDir, message: 'Docs', identityEnv: IDENTITY_ENV });
+      return headTree();
+    }
+
+    it('lays a changed, a removed and a new file, and leaves a path nobody named as the tree has it', async () => {
+      const tree = await docsTree();
+      expect(await treeWithWorkingFiles(run, tmpDir, tree, [])).toBe(tree);
+
+      await write('docs/guide.md', '# guide v2\n');
+      await fs.rm(path.join(tmpDir, 'docs/gone.md'));
+      await write('docs/new.md', '# new\n');
+      await write('docs/other.md', '# other, changed and not named\n');
+      await write('unnamed.md', '# written and not named\n');
+      const indexBefore = (await git('ls-files', '--stage')).stdout;
+
+      const laid = await treeWithWorkingFiles(run, tmpDir, tree, [
+        'docs/guide.md',
+        'docs/gone.md',
+        'docs/new.md',
+        'docs/never-there.md',
+      ]);
+      expect(await names(laid)).toEqual(['docs/guide.md', 'docs/new.md', 'docs/other.md', 'workspace.yaml']);
+      expect(await blob(laid, 'docs/guide.md')).toBe('# guide v2\n');
+      expect(await blob(laid, 'docs/other.md')).toBe('# other\n');
+      expect((await git('ls-files', '--stage')).stdout).toBe(indexBefore);
+      expect(await treeWithWorkingFiles(run, tmpDir, 'not-a-tree', ['docs/guide.md'])).toBeNull();
+    });
+
+    it('lays a link as a link, a file beneath a directory that stands where the tree holds a link, and a link that stands where the tree holds a directory', async () => {
+      await initialCommit();
+      await fs.symlink('workspace.yaml', path.join(tmpDir, 'pointer'));
+      await write('docs/guide.md', '# guide\n');
+      await write('nested/inner.md', '# inner\n');
+      await commitWorkspaceTree({ run, rootDir: tmpDir, message: 'A link', identityEnv: IDENTITY_ENV });
+      const tree = await headTree();
+      expect(await modeOf(tree, 'pointer')).toBe('120000');
+
+      await fs.rm(path.join(tmpDir, 'pointer'));
+      await write('pointer/beneath.md', '# beneath\n');
+      await fs.rm(path.join(tmpDir, 'docs/guide.md'));
+      await fs.symlink('../workspace.yaml', path.join(tmpDir, 'docs/guide.md'));
+      await fs.rm(path.join(tmpDir, 'nested'), { recursive: true });
+      await fs.symlink('docs', path.join(tmpDir, 'nested'));
+
+      const laid = await treeWithWorkingFiles(run, tmpDir, tree, ['pointer/beneath.md', 'docs/guide.md', 'nested']);
+      expect(await names(laid)).toEqual(['docs/guide.md', 'nested', 'pointer/beneath.md', 'workspace.yaml']);
+      expect(await modeOf(laid, 'docs/guide.md')).toBe('120000');
+      expect(await blob(laid, 'docs/guide.md')).toBe('../workspace.yaml');
+      expect(await modeOf(laid, 'nested')).toBe('120000');
+      expect(await blob(laid, 'pointer/beneath.md')).toBe('# beneath\n');
+    });
+
+    it('lays a file git ignores where the tree holds it, and none where the tree does not', async () => {
+      await initialCommit();
+      await write('.gitignore', '*.log\n');
+      await commitWorkspaceTree({ run, rootDir: tmpDir, message: 'Ignore logs', identityEnv: IDENTITY_ENV });
+      // A tree that holds a file the folder ignores: a peer force-added it.
+      const tree = await treeWithFiles(run, tmpDir, await headTree(), new Map([['kept.log', 'as the tree has it\n']]));
+      if (tree === null) throw new Error('the tree could not be written');
+      await write('kept.log', 'as it stands\n');
+      await write('mine.log', 'never meant for a commit\n');
+
+      const laid = await treeWithWorkingFiles(run, tmpDir, tree, ['kept.log', 'mine.log']);
+      expect(await names(laid)).toEqual(['.gitignore', 'kept.log', 'workspace.yaml']);
+      expect(await blob(laid, 'kept.log')).toBe('as it stands\n');
+    });
+
+    it('does not look through a link on the way: the path stays as the tree has it, whatever the link points to holds', async () => {
+      const tree = await docsTree();
+      const outside = await fs.mkdtemp(path.join(os.tmpdir(), 'oh-git-outside-'));
+      try {
+        await fs.rm(path.join(tmpDir, 'docs'), { recursive: true });
+        await fs.symlink(outside, path.join(tmpDir, 'docs'));
+        // Nothing where the link points: looked through, the tree's files would read as gone.
+        expect(await treeWithWorkingFiles(run, tmpDir, tree, ['docs/guide.md', 'docs/gone.md'])).toBe(tree);
+        // Another folder's files there: looked through, they would be laid as the tree's own.
+        await fs.writeFile(path.join(outside, 'guide.md'), '# another folder’s\n', 'utf-8');
+        await fs.writeFile(path.join(outside, 'added.md'), '# another folder’s\n', 'utf-8');
+        expect(await treeWithWorkingFiles(run, tmpDir, tree, ['docs/guide.md', 'docs/added.md'])).toBe(tree);
+      } finally {
+        await fs.rm(outside, { recursive: true, force: true });
+      }
+    });
+
+    it('never lays a secret or a file of the sidecar, with no ignore file in the folder', async () => {
+      const tree = await docsTree();
+      await write('env.secret.yaml', 'token: 1\n');
+      await write('.oh/materialized.json', '{}\n');
+      expect(await treeWithWorkingFiles(run, tmpDir, tree, ['env.secret.yaml', '.oh/materialized.json'])).toBe(tree);
+    });
+
+    it.each(['EACCES', 'EPERM'])('does not take a name that will not be looked at (%s) for gone', async (code) => {
+      const tree = await docsTree();
+      const lstat = fs.lstat.bind(fs);
+      const refused = vi
+        .spyOn(fs, 'lstat')
+        .mockImplementation((...args: Parameters<typeof fs.lstat>) =>
+          String(args[0]).endsWith('guide.md')
+            ? Promise.reject(Object.assign(new Error(code), { code }))
+            : lstat(...args),
+        );
+      try {
+        await write('docs/other.md', '# other v2\n');
+        const laid = await treeWithWorkingFiles(run, tmpDir, tree, ['docs/guide.md', 'docs/other.md']);
+        expect(await names(laid)).toEqual(['docs/gone.md', 'docs/guide.md', 'docs/other.md', 'workspace.yaml']);
+        expect(await blob(laid, 'docs/other.md')).toBe('# other v2\n');
+      } finally {
+        refused.mockRestore();
+      }
+    });
   });
 });
 

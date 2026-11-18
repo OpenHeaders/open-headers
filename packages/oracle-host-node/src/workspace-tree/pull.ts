@@ -50,9 +50,10 @@
  *      (§23.6/§23.7).
  *
  * The pass records the files IT wrote and no other (`pass-writes.ts`):
- * the working tree is read as a tree object before and after, and the
- * pull's commit is staged from the second reading at the files the pass
- * wrote and the files the foreign history changed. Uncommitted work
+ * the working tree is read as a tree object before the pass writes,
+ * what its writers say they wrote is laid over that reading, and the
+ * pull's commit is staged from the result at the files the pass wrote
+ * and the files the foreign history changed. Uncommitted work
  * anywhere else — a modified file the foreign side did not touch, an
  * unversioned file — is not the pull's to commit and stays as it was; a
  * fast-forward moves the branch under it.
@@ -124,7 +125,14 @@ import { type ApplyCommitResolution, type ApplyCommitResolve, decideChange } fro
 import { type CommittedSide, NOTHING_CARRIED, readCommittedSide } from './committed-side';
 import { TREE_HELD_DETAIL } from './materializer';
 import { landForeignOwnFiles } from './own-files';
-import { type LocalWorkDeps, readPassWrites, recordablePaths, uncommittedAmong } from './pass-writes';
+import {
+  type FlushAccount,
+  flushedPaths,
+  type LocalWorkDeps,
+  readPassWrites,
+  recordablePaths,
+  uncommittedAmong,
+} from './pass-writes';
 import {
   hashTreeContent,
   type QuarantineIndex,
@@ -164,9 +172,10 @@ export interface IntegrateForeignDeps extends LocalWorkDeps {
   isDeleted?: DeletedEntityReader;
   /**
    * Materialize the converged engine state to disk (the runtime's
-   * flush). `held` set: git's writing kept files of it off the disk.
+   * flush), answering the files it wrote and removed. `held` set: git's
+   * writing kept files of it off the disk.
    */
-  flush: () => Promise<{ held?: number }>;
+  flush: () => Promise<FlushAccount>;
   /** Env from `resolveCommitIdentity` for the merge commit. */
   identityEnv: Record<string, string>;
   /** The explicit `--no-verify` setting (§3.3). */
@@ -256,7 +265,8 @@ const dirOf = (filePath: string): string => {
  * the pass's commit would record those over the foreign file.
  *
  * Each file is recorded as it then stands. What the commit holds a link
- * at is a link in the folder, not read and not recorded.
+ * at is a link in the folder, not read and not recorded. Answers the
+ * files git landed, for the pass's account of its writes.
  */
 export async function writeForeignQuarantine(
   run: GitRunner,
@@ -264,7 +274,7 @@ export async function writeForeignQuarantine(
   foreign: { ref: string; tree: CommitTree },
   issues: readonly TreeIssue[],
   changedPaths: ReadonlySet<string>,
-): Promise<{ ok: true } | { ok: false; detail: string }> {
+): Promise<{ ok: true; landed: string[] } | { ok: false; detail: string }> {
   const issueDirs = new Set(issues.map((issue) => dirOf(issue.path)));
   // The documents' files alone: a file of the user's own in such a directory is the own-files rule's to carry.
   const documents = commitTreePaths(foreign.tree);
@@ -284,7 +294,7 @@ export async function writeForeignQuarantine(
     recordChanged = true;
   }
   if (recordChanged) await writeQuarantineIndex(rootDir, recorded);
-  return { ok: true };
+  return { ok: true, landed: quarantined };
 }
 
 /**
@@ -645,8 +655,8 @@ export async function integrateForeignHead(
     (refusal) => ({ ok: false, reason: lockRefusalReason(refusal), detail: refusal.detail, issues: foreign.issues }),
     async (indexLock) => {
       // From here the pass writes. The working tree is read as it stands
-      // before and after — the two readings differ in the integration's own
-      // writes and nothing else.
+      // before; what each writer below says it wrote is laid over that
+      // reading once all have written.
       const before = await snapshotWorkingTree(run, rootDir);
       if (before === null) return unreadable();
 
@@ -674,15 +684,19 @@ export async function integrateForeignHead(
         return { ok: false, reason: 'commit-failed', detail: quarantined.detail, issues: foreign.issues };
       }
 
-      await deps.flush();
+      const flushed = await deps.flush();
 
-      // The second reading is taken once the foreign side's changes to the
-      // user's own files are on disk too.
+      // The writes are laid once the foreign side's changes to the user's
+      // own files are on disk too.
       const own = await landForeignOwnFiles(run, rootDir, { baseRef: base, foreignRef: foreignSha }, laid.ownAnswers);
       if (!own.ok) return { ok: false, reason: 'commit-failed', detail: own.detail, issues: foreign.issues };
       const withKept = own.kept.length > 0 ? { keptLocal: own.kept } : {};
 
-      const pass = await readPassWrites(run, rootDir, before);
+      const pass = await readPassWrites(run, rootDir, before, [
+        ...quarantined.landed,
+        ...flushedPaths(flushed),
+        ...own.landed,
+      ]);
       if (pass === null) return unreadable();
 
       // The integration's files: what the pass wrote, and what the foreign

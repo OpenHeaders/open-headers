@@ -1,29 +1,51 @@
 /**
- * What a pass wrote, read from the working tree itself — the rule every
+ * What a pass wrote, by the account of its own writers — the rule every
  * pass that lands another commit's work on the branch shares (a pick, a
- * revert, a pull, a branch merge): the pass records the files it wrote
- * and no other, and uncommitted work in one of THOSE files is committed
- * first, as its own commit.
+ * revert, a pull, a branch merge, a force-push resolution): the pass
+ * records the files it wrote and no other, and uncommitted work in one
+ * of THOSE files is committed first, as its own commit.
  *
- * The working tree is read as a tree object before the pass writes and
- * again after it. The two readings differ in exactly the pass's own
- * writes — documents the engine materialized and the user's own files
- * alike — so no guess decides what is recorded. What the branch's HEAD
- * and the first reading differ in is the uncommitted work that was
- * there before the pass: any of it elsewhere, and every unversioned
- * file, is not the pass's to commit and stays as it was.
+ * The working tree is read as a tree object once, before the pass
+ * writes. Each writer of the pass then says what it wrote: the flush its
+ * documents and the hygiene files, the quarantine what git checked out
+ * for it, the own-files landing what it checked out, removed and
+ * answered. Those paths, as they stand once the pass has written, are
+ * laid over that reading (`treeWithWorkingFiles`); a path no writer
+ * names stays as the reading has it. A pass runs alone on its folder's
+ * chain, so no other flush writes a document while it does.
+ *
+ * The tree is not read whole a second time. What git sees of a folder
+ * follows its ignore files, and a pass can land one: a file of the
+ * user's that came into sight between two readings, or left it, would
+ * differ in them though the pass never wrote it — recorded in the pass's
+ * commit, or committed first as work nobody was asked about.
+ *
+ * What the branch's HEAD and the reading differ in is the uncommitted
+ * work that was there before the pass: any of it elsewhere, and every
+ * unversioned file, is not the pass's to commit and stays as it was.
  */
 
 import { promises as fs } from 'node:fs';
-import * as path from 'node:path';
 import {
   diffForeignPaths,
+  failureCode,
   type GitRunner,
   type HeldIndexLock,
+  isGone,
   listTreeEntries,
   listWorkingChanges,
-  snapshotWorkingTree,
+  TreeBoundary,
+  treeWithWorkingFiles,
 } from '../git';
+
+/** What a flush says of itself: the files it wrote and removed, and how many git's writing held off the disk. */
+export interface FlushAccount {
+  held?: number;
+  written: readonly string[];
+  deleted: readonly string[];
+}
+
+export const flushedPaths = (flush: FlushAccount): string[] => [...flush.written, ...flush.deleted];
 
 /** Uncommitted work the pass's commit would otherwise carry: `paths` as `tree` holds them. */
 export interface LocalWorkFirst {
@@ -47,22 +69,28 @@ export interface LocalWorkDeps {
 }
 
 export interface PassWrites {
-  /** The working tree once the pass has written (`snapshotWorkingTree`). */
+  /** The reading with the pass's writes laid over it (`treeWithWorkingFiles`). */
   after: string;
-  /** The files the pass wrote — what the two readings differ in. */
+  /** The files the pass wrote — the paths its writers name that the laying changed. */
   wrote: string[];
   /** The files that held uncommitted work before the pass wrote. */
   uncommitted: ReadonlySet<string>;
 }
 
 /**
- * Take the second reading and compare. `before` is the first reading,
- * taken once the engine's pending local work was on disk and before the
- * pass wrote anything; HEAD must still be where it was then. Null when
- * the tree cannot be read.
+ * Lay the pass's writes over the reading and compare. `before` is the
+ * reading, taken once the engine's pending local work was on disk and
+ * before the pass wrote anything; HEAD must still be where it was then.
+ * `written` is every path a writer of the pass says it wrote or removed.
+ * Null when the tree cannot be read.
  */
-export async function readPassWrites(run: GitRunner, rootDir: string, before: string): Promise<PassWrites | null> {
-  const after = await snapshotWorkingTree(run, rootDir);
+export async function readPassWrites(
+  run: GitRunner,
+  rootDir: string,
+  before: string,
+  written: readonly string[],
+): Promise<PassWrites | null> {
+  const after = await treeWithWorkingFiles(run, rootDir, before, written);
   if (after === null) return null;
   const wrote = await diffForeignPaths(run, rootDir, before, after);
   const uncommitted = await diffForeignPaths(run, rootDir, 'HEAD', before);
@@ -75,11 +103,15 @@ export async function readPassWrites(run: GitRunner, rootDir: string, before: st
 }
 
 /**
- * The `paths` a commit staged from the reading `tree` may carry. A file
- * the reading could not see — an ignored file standing on disk where
- * the tree holds none — is left out: staged, its absence from the tree
- * would be recorded as a deletion of whatever the branch holds there.
- * Null when the tree cannot be read.
+ * The `paths` a commit staged from `tree` may carry. Where the tree
+ * holds no file at a path, the path is carried only when the folder
+ * holds none either, asked at the path's own name. Left out: a file
+ * standing there that the reading could not see — one git ignores; a
+ * path the folder's boundary refuses, where nothing of ours was read or
+ * written and a link on the way would answer for some other folder; a
+ * name that will not be looked at. Staged, the tree's absence there
+ * would be recorded as a deletion of whatever the branch holds. Null
+ * when the tree cannot be read.
  */
 export async function recordablePaths(
   run: GitRunner,
@@ -89,17 +121,20 @@ export async function recordablePaths(
 ): Promise<string[] | null> {
   const held = await listTreeEntries(run, rootDir, tree);
   if (held === null) return null;
+  const boundary = new TreeBoundary(rootDir);
   const recordable: string[] = [];
   for (const filePath of paths) {
     if (held.has(filePath)) {
       recordable.push(filePath);
       continue;
     }
-    const unseen = await fs
-      .lstat(path.join(rootDir, ...filePath.split('/')))
-      .then(() => true)
-      .catch(() => false);
-    if (!unseen) recordable.push(filePath);
+    const placed = await boundary.locate(filePath);
+    if (!placed.ok) continue;
+    const gone = await fs.lstat(placed.place.file).then(
+      () => false,
+      (err: unknown) => isGone(failureCode(err)),
+    );
+    if (gone) recordable.push(filePath);
   }
   return recordable;
 }

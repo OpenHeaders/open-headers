@@ -73,7 +73,14 @@ import {
   withObjectBatch,
 } from '../git';
 import { landForeignOwnFiles } from './own-files';
-import { type LocalWorkDeps, readPassWrites, recordablePaths, uncommittedAmong } from './pass-writes';
+import {
+  type FlushAccount,
+  flushedPaths,
+  type LocalWorkDeps,
+  readPassWrites,
+  recordablePaths,
+  uncommittedAmong,
+} from './pass-writes';
 import { releaseHealedQuarantine, writeForeignQuarantine } from './pull';
 
 export type ForcePushChoice = 'abandon' | 'rescue' | 'reapply';
@@ -99,7 +106,7 @@ export interface ResolveForcePushOptions {
    * holds is restored. Absent, the engine holds nothing deleted.
    */
   isDeleted?: DeletedEntityReader;
-  flush: () => Promise<unknown>;
+  flush: () => Promise<FlushAccount>;
   /** Record uncommitted work in the files the resolution writes, as its own commit on the pre-resolution head. */
   commitLocalWork: LocalWorkDeps['commitLocalWork'];
   identityEnv: Record<string, string>;
@@ -297,7 +304,7 @@ export async function resolveForcePushWorkspaceTree(options: ResolveForcePushOpt
         return { ok: false, reason: 'commit-failed', detail: quarantined.detail, issues: foreign.issues };
       }
 
-      await options.flush();
+      const flushed = await options.flush();
 
       // The user's own files follow the choice too (`own-files.ts`), while
       // HEAD is still the pre-resolution head: `reapply` reads three-way
@@ -309,10 +316,14 @@ export async function resolveForcePushWorkspaceTree(options: ResolveForcePushOpt
       });
       if (!own.ok) return { ok: false, reason: 'commit-failed', detail: own.detail, issues: foreign.issues };
 
-      // The second reading: what the two differ in is what the resolution
-      // wrote. A file it wrote outside the two heads' difference that held
+      // What the resolution wrote, by its writers' account laid over the
+      // reading. A file it wrote outside the two heads' difference that held
       // uncommitted work is committed first too, as it stood before.
-      const pass = await readPassWrites(run, rootDir, before);
+      const pass = await readPassWrites(run, rootDir, before, [
+        ...quarantined.landed,
+        ...flushedPaths(flushed),
+        ...own.landed,
+      ]);
       if (pass === null) return unreadable(foreign.issues);
       const late = pass.wrote.filter((filePath) => pass.uncommitted.has(filePath));
       if (late.length > 0) {
