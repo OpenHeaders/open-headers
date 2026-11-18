@@ -32,7 +32,6 @@ import { createHash } from 'node:crypto';
 import { promises as fs } from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
-import { type TreeFile, treeDocumentPaths } from '@openheaders/core/workspace-tree';
 import { resolveGitDirs } from './git-dir';
 import type { GitExecResult, GitRunner } from './git-exec';
 import type { IgnoreProvenance } from './ignore-ops';
@@ -546,26 +545,6 @@ export async function diffForeignPaths(
     else changed.add(filePath);
   }
   return { changed, removed };
-}
-
-/**
- * A commit's tree as the string-in file listing `readWorkspaceTree`
- * consumes — the foreign checkout snapshot of the §11.4 pull path.
- * Every DOCUMENT file is read: the manifests and the files beside them
- * (a request's body and scripts live in siblings — a read without them
- * would answer an entity that lost both). The user's own files never
- * need parsing and are left out.
- */
-export async function readCommitTreeFiles(run: GitRunner, rootDir: string, ref: string): Promise<TreeFile[] | null> {
-  const listing = await run([...repoArgs(rootDir), 'ls-tree', '-r', '-z', '--name-only', ref], { cwd: rootDir });
-  if (listing.code !== 0) return null;
-  const files: TreeFile[] = [];
-  for (const entry of treeDocumentPaths(nulSeparatedPaths(listing.stdout))) {
-    const blob = await run([...repoArgs(rootDir), 'show', `${ref}:${entry}`], { cwd: rootDir });
-    if (blob.code !== 0) return null;
-    files.push({ path: entry, content: blob.stdout });
-  }
-  return files;
 }
 
 /**

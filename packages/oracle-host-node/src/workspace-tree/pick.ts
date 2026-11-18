@@ -20,8 +20,8 @@
  *      has no single change of its own; the first commit has none to
  *      read against);
  *   2. read both trees; a document the commit touched that does not
- *      parse refuses the pass — an unreadable side would read as a
- *      creation or a deletion;
+ *      parse, or whose file is too large to read, refuses the pass — an
+ *      unreadable side would read as a creation or a deletion;
  *   3. lay the change over the snapshot. A document BOTH sides changed
  *      in the same place stops the pass here, named, with nothing
  *      written — not even the local work's commit. The refusal carries
@@ -70,7 +70,7 @@ import {
   lockRefusalReason,
   readCommitAuthorIdentity,
   readCommitMeta,
-  readCommitTreeFiles,
+  readCommitTree,
   resolveRefSha,
   snapshotWorkingTree,
   withIndexLock,
@@ -156,14 +156,16 @@ export async function applyWorkspaceCommit(options: ApplyWorkspaceCommitOptions)
   }
   const parent = parents[0];
 
-  const commitFiles = await readCommitTreeFiles(run, rootDir, sha);
-  const parentFiles = await readCommitTreeFiles(run, rootDir, parent);
+  const commitRead = await readCommitTree(run, rootDir, sha);
+  const parentRead = await readCommitTree(run, rootDir, parent);
   const diff = await diffForeignPaths(run, rootDir, parent, sha);
-  if (commitFiles === null || parentFiles === null || diff === null) {
+  if (commitRead === null || parentRead === null || diff === null) {
     return { ok: false, reason: 'foreign-invalid', detail: `unreadable tree for ${sha}`, issues: [] };
   }
-  const commitTree = readWorkspaceTree(commitFiles);
-  const parentTree = readWorkspaceTree(parentFiles);
+  const commitFiles = commitRead.files;
+  const parentFiles = parentRead.files;
+  const commitTree = readWorkspaceTree(commitFiles, commitRead.unread);
+  const parentTree = readWorkspaceTree(parentFiles, parentRead.unread);
   if (commitTree.state.workspace === null) {
     return {
       ok: false,

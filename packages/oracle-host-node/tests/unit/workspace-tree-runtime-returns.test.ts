@@ -21,6 +21,9 @@
  * snapshot, and no row at a file whose bytes are the baseline's. They
  * are here, not in a file of their own: each file of this harness is
  * one more real runtime in a parallel run.
+ *
+ * And a spec file a pull brings too large to read: the engine's spec
+ * beside the peer's file on disk, and the peer's taken once it reads.
  */
 
 import { promises as fs } from 'node:fs';
@@ -28,12 +31,14 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 import { COLLECTION_ENTITY_TYPE, FOLDER_ITEMS_PATH } from '@openheaders/core/sync';
+import { TREE_FILE_MAX_BYTES } from '@openheaders/core/workspace-tree';
 import {
   getOrCreateWorkspaceService,
   releaseWorkspaceService,
   snapshotCollectionPostStates,
   snapshotFolderPostStates,
   snapshotRulePostStates,
+  snapshotSpecPostStates,
 } from '@openheaders/oracle/sync/service';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { openRuntimeHarness, type RuntimeHarness, until } from './_runtime-harness';
@@ -618,5 +623,71 @@ describe("the workspace-tree runtime: the Git card's rows after a pass", () => {
         },
       ]);
     });
+  });
+});
+
+describe('the workspace-tree runtime: a spec file a pull brings too large to read', () => {
+  const SPEC_FILE = 'specs/pets-ssssssss/spec.yaml';
+  const SPEC_INDEX = 'specs/pets-ssssssss/index.yaml';
+  const SMALL = 'openapi: 3.1.0\n';
+  const THIRD = 'openapi: 3.1.0\ninfo:\n  title: third\n';
+  const specText = (name: string): string =>
+    `schemaVersion: 5\nuid: ssssssss\nname: ${name}\nformat: openapi-3.1\nrootFileUid: ffffffff\nfiles:\n  - uid: ffffffff\n    fileName: index.yaml\n`;
+  const specOf = () => snapshotSpecPostStates(harness.workspaceId).find(({ spec }) => spec.uid === 'ssssssss')?.spec;
+
+  it('the engine keeps its own spec beside the peer’s file on disk, and takes the peer’s once the file is small again', {
+    timeout: 60_000,
+  }, async () => {
+    await writeByHand(SPEC_FILE, specText('Pets'));
+    await writeByHand(SPEC_INDEX, SMALL);
+    await until('the engine takes the hand-written spec in', () => specOf()?.files[0]?.content === SMALL, 5_000);
+    expect(await harness.runtime.commit(harness.workspaceId, 'seed')).toMatchObject({ ok: true, committed: true });
+    const remote = await fs.mkdtemp(path.join(os.tmpdir(), 'oh-tree-runtime-remote-'));
+    const other = await fs.mkdtemp(path.join(os.tmpdir(), 'oh-tree-runtime-other-'));
+    const inPeer = (relative: string): string => path.join(other, ...relative.split('/'));
+    const peerPushes = async (message: string): Promise<string> => {
+      await harness.git('-C', other, 'add', '-A');
+      await harness.git('-C', other, 'commit', '-q', '-m', message);
+      await harness.git('-C', other, 'push', '-q');
+      return harness.git('-C', other, 'rev-parse', 'HEAD');
+    };
+    try {
+      const branch = await harness.git('rev-parse', '--abbrev-ref', 'HEAD');
+      await harness.git('init', '-q', '--bare', remote);
+      await harness.git('remote', 'add', 'origin', remote);
+      await harness.git('push', '-q', '-u', 'origin', branch);
+      await harness.git('clone', '-q', '-b', branch, remote, other);
+
+      await fs.writeFile(inPeer(SPEC_FILE), specText('Pets (peer)'), 'utf-8');
+      await fs.writeFile(inPeer(SPEC_INDEX), '#'.repeat(TREE_FILE_MAX_BYTES + 1), 'utf-8');
+      const grown = await peerPushes('the spec file grown past the limit, the spec renamed');
+
+      expect(await harness.runtime.pull(harness.workspaceId)).toMatchObject({ ok: true, upToDate: false });
+      await delay(TREE_AT_REST_MS);
+      // The pull recorded nothing over the peer's file, and the engine's spec is as it was.
+      expect(await harness.git('rev-parse', 'HEAD')).toBe(grown);
+      expect(await harness.git('status', '--porcelain')).toBe('');
+      expect((await fs.stat(inTree(SPEC_INDEX))).size).toBe(TREE_FILE_MAX_BYTES + 1);
+      expect(specOf()).toMatchObject({ name: 'Pets', files: [{ content: SMALL }] });
+      expect(harness.runtime.issues(harness.workspaceId)).toEqual([
+        { path: SPEC_INDEX, message: 'larger than 16 MB — skipped' },
+        { path: SPEC_FILE, message: '"index.yaml" was not read — skipped' },
+      ]);
+
+      await fs.writeFile(inPeer(SPEC_INDEX), THIRD, 'utf-8');
+      const shrunk = await peerPushes('the spec file small again');
+
+      expect(await harness.runtime.pull(harness.workspaceId)).toMatchObject({ ok: true, upToDate: false });
+      await until('the engine takes the peer’s spec', () => specOf()?.name === 'Pets (peer)', 8_000);
+      await delay(TREE_AT_REST_MS);
+      expect(specOf()?.files[0]?.content).toBe(THIRD);
+      expect(await fs.readFile(inTree(SPEC_INDEX), 'utf-8')).toBe(THIRD);
+      expect(await harness.git('rev-parse', 'HEAD')).toBe(shrunk);
+      expect(await harness.git('status', '--porcelain')).toBe('');
+      expect(harness.runtime.issues(harness.workspaceId)).toEqual([]);
+    } finally {
+      await fs.rm(remote, { recursive: true, force: true });
+      await fs.rm(other, { recursive: true, force: true });
+    }
   });
 });

@@ -10,6 +10,7 @@
 import { promises as fs } from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
+import { TREE_FILE_MAX_BYTES } from '@openheaders/core/workspace-tree';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { isAudited, splitAtSubcommand } from '../../src/git/audit-classify';
 import {
@@ -19,6 +20,7 @@ import {
   listCommitRangeLog,
   updateBranchFromUpstream,
 } from '../../src/git/branch-ops';
+import { commitTreePaths, readCommitTree } from '../../src/git/commit-tree';
 import { parseGitfile, resolveGitDirs } from '../../src/git/git-dir';
 import { createGitExec, type GitAuditRow, type GitRunner, probeGitAvailability } from '../../src/git/git-exec';
 import { addIgnoreEntry, checkIgnoreProvenance, removeIgnoreEntry } from '../../src/git/ignore-ops';
@@ -72,7 +74,6 @@ import {
   pushHeadToNewBranch,
   pushWorkspaceBranch,
   readCommitFileDiff,
-  readCommitTreeFiles,
   readWorkingFileDiff,
   refsStamp,
   repoArgs,
@@ -726,7 +727,7 @@ describe('remote plumbing (Phase 4)', () => {
     expect(await resolveUpstream(run, lone)).toBeNull();
   });
 
-  it("readCommitTreeFiles reads a ref's documents — a manifest with the files beside it — and leaves the user's own files out", async () => {
+  it("readCommitTree reads a ref's documents — a manifest with the files beside it — and leaves the user's own files out", async () => {
     const requestDir = 'requests/probes-c0000001/health-r0000001';
     await writeIn(repoA, 'rules/block-r0000001/rule.yaml', 'schemaVersion: 5\nuid: r0000001\n');
     await writeIn(repoA, `${requestDir}/request.yaml`, 'schemaVersion: 5\nuid: r0000002\n');
@@ -738,9 +739,9 @@ describe('remote plumbing (Phase 4)', () => {
     await raw(repoA, 'push', '--quiet', 'origin', 'main');
     await fetchWorkspaceRemote(run, repoB);
     const upstream = await resolveUpstream(run, repoB);
-    const files = await readCommitTreeFiles(run, repoB, upstream?.sha ?? '');
-    expect(files).not.toBeNull();
-    const byPath = new Map((files ?? []).map((file) => [file.path, file.content]));
+    const tree = await readCommitTree(run, repoB, upstream?.sha ?? '');
+    expect(tree?.unread).toEqual([]);
+    const byPath = new Map((tree?.files ?? []).map((file) => [file.path, file.content]));
     expect([...byPath.keys()].sort()).toEqual([
       `${requestDir}/body.json`,
       `${requestDir}/pre-request.js`,
@@ -750,6 +751,64 @@ describe('remote plumbing (Phase 4)', () => {
     ]);
     expect(byPath.get('rules/block-r0000001/rule.yaml')).toBe('schemaVersion: 5\nuid: r0000001\n');
     expect(byPath.get(`${requestDir}/body.json`)).toBe('{"probe":true}\n');
+  });
+
+  describe('readCommitTree and a file’s size', () => {
+    /** A git that lists `entries` (path, bytes) and answers any blob asked for; `shown` are the blobs asked for. */
+    function gitListing(entries: ReadonlyArray<readonly [path: string, bytes: number]>, blobCode = 0) {
+      const shown: string[] = [];
+      const answer = (code: number, stdout: string) => ({
+        code,
+        stdout,
+        stderr: '',
+        spawnFailed: false,
+        timedOut: false,
+      });
+      const stub: GitRunner = async (args) => {
+        if (args.includes('ls-tree')) {
+          // As git prints it: the size right-aligned in a padded column.
+          const lines = entries.map(
+            ([file, bytes]) => `100644 blob ${'a'.repeat(40)} ${String(bytes).padStart(7)}\t${file}`,
+          );
+          return answer(0, lines.map((line) => `${line}\0`).join(''));
+        }
+        shown.push(String(args.at(-1)));
+        return answer(blobCode, 'text');
+      };
+      return { stub, shown };
+    }
+    const SPEC = 'specs/pets-ssssssss/spec.yaml';
+    const INDEX = 'specs/pets-ssssssss/index.yaml';
+
+    it('a document file over the limit is never asked for: it comes back too large, and the rest is read', async () => {
+      const { stub, shown } = gitListing([
+        ['README.md', TREE_FILE_MAX_BYTES + 5],
+        [INDEX, TREE_FILE_MAX_BYTES + 1],
+        [SPEC, 134],
+        ['workspace.yaml', 43],
+      ]);
+      const tree = await readCommitTree(stub, tmpDir, 'HEAD');
+      expect(tree?.files.map((file) => file.path)).toEqual([SPEC, 'workspace.yaml']);
+      // A file of the user's own is neither read nor counted, whatever its size.
+      expect(tree?.unread).toEqual([{ path: INDEX, cause: 'too-large' }]);
+      expect(shown).toEqual([`HEAD:${SPEC}`, 'HEAD:workspace.yaml']);
+      expect(tree === null ? [] : [...commitTreePaths(tree)].sort()).toEqual([INDEX, SPEC, 'workspace.yaml']);
+    });
+
+    it('a document file of exactly the limit is read', async () => {
+      const { stub, shown } = gitListing([
+        [INDEX, TREE_FILE_MAX_BYTES],
+        [SPEC, 134],
+      ]);
+      const tree = await readCommitTree(stub, tmpDir, 'HEAD');
+      expect(tree?.unread).toEqual([]);
+      expect(shown).toEqual([`HEAD:${INDEX}`, `HEAD:${SPEC}`]);
+    });
+
+    it('a blob that does not come answers null — nothing is concluded from a tree read in part', async () => {
+      const { stub } = gitListing([[SPEC, 134]], 128);
+      expect(await readCommitTree(stub, tmpDir, 'HEAD')).toBeNull();
+    });
   });
 
   it('diffForeignPaths classifies changed/removed against the merge base; null base lists everything', async () => {

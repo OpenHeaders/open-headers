@@ -18,7 +18,7 @@ import * as path from 'node:path';
 import type { MutatorContext } from '@openheaders/core/sync';
 import type { EmissionBatch } from '@openheaders/core/sync-builders/mutations/workspace-import-emission';
 import type { Collection, Rule, Workspace } from '@openheaders/core/types';
-import type { WorkspaceTreeState } from '@openheaders/core/workspace-tree';
+import { TREE_FILE_MAX_BYTES, type WorkspaceTreeState } from '@openheaders/core/workspace-tree';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { createGitExec, type GitRunner } from '../../src/git/git-exec';
 import {
@@ -365,6 +365,56 @@ describe('resolveForcePushWorkspaceTree', () => {
     await materializer.flush();
     await expect(fs.readFile(path.join(local, ...leaf.split('/')), 'utf-8')).resolves.toBe(leafYaml);
     expect(await countDirtyFiles(run, local)).toBe(0);
+  });
+
+  describe('abandon: a manifest of the rewritten head too large to read', () => {
+    /** The peer grows the rule's manifest one byte past the limit on the rewritten history and pushes. */
+    async function peerGrowsTheRuleFile(): Promise<string> {
+      await peerEdit(PEER_RULE_FILE, (content) => content + '#'.repeat(TREE_FILE_MAX_BYTES + 1 - content.length));
+      const grown = await commitWorkspaceTree({ run, rootDir: peer, message: 'Grown', identityEnv: RITA_ENV });
+      if (!grown.ok || !grown.committed) throw new Error('peer commit failed');
+      await raw(peer, 'push', '--quiet', 'origin', 'main');
+      return grown.sha;
+    }
+    const keepThePeersRule = (): void => {
+      state.rules = state.rules.filter((rule) => rule.uid === 'aaaaaaaa');
+    };
+
+    it('it still stands there: the rule the engine holds is not deleted, and the file lands as the remote holds it', async () => {
+      const grownSha = await peerGrowsTheRuleFile();
+
+      const applied: EmissionBatch[] = [];
+      const result = await doResolve('abandon', applied, keepThePeersRule);
+      expect(result).toMatchObject({
+        ok: true,
+        sha: grownSha,
+        remoteSha: grownSha,
+        issues: [{ path: PEER_RULE_FILE, message: 'larger than 16 MB — skipped' }],
+      });
+
+      const deletes = applied
+        .flatMap((entry) => entry.batch.mutations.map((m) => m.body))
+        .filter((body) => body.kind === 'delete');
+      expect(deletes).toMatchObject([{ type: 'rule', id: 'bbbbbbbb' }]);
+      expect((await fs.stat(path.join(local, ...PEER_RULE_FILE.split('/')))).size).toBe(TREE_FILE_MAX_BYTES + 1);
+      expect(await countDirtyFiles(run, local)).toBe(0);
+    });
+
+    it('a landing git refuses fails the resolution before the branch is moved', async () => {
+      await peerGrowsTheRuleFile();
+      const git = run;
+      run = (args, options) =>
+        args.includes('checkout')
+          ? Promise.resolve({ code: 1, stdout: '', stderr: 'checkout refused', spawnFailed: false, timedOut: false })
+          : git(args, options);
+
+      expect(await doResolve('abandon', [], keepThePeersRule)).toMatchObject({
+        ok: false,
+        reason: 'commit-failed',
+        detail: 'checkout refused',
+      });
+      expect(await localHeadSha(run, local)).toBe(localHead);
+    });
   });
 
   it('rescue: identical convergence, but the pre-rewrite history survives on a new oh-rescue ref', async () => {

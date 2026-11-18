@@ -5,7 +5,8 @@
  * as a TWO-PARENT merge commit with `Co-Authored-By:` trailers, and
  * `git merge` is never invoked. Also pins the §3.3 in-progress-op
  * refusal, the identity guard, the no-upstream refusal, and the §13.3
- * quarantine posture for schema-invalid foreign documents. The last
+ * quarantine posture for schema-invalid foreign documents — and for a
+ * foreign document file too large to read, which lands by checkout. The last
  * describe pins the files no entity stands behind: the peer's change
  * to one lands on disk before the pull is recorded, a file both sides
  * changed keeps its local bytes and is named, and a request's body and
@@ -31,8 +32,8 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 import type { MutatorContext } from '@openheaders/core/sync';
 import type { EmissionBatch } from '@openheaders/core/sync-builders/mutations/workspace-import-emission';
-import type { Collection, Request, Rule, Variable, Workspace } from '@openheaders/core/types';
-import type { WorkspaceTreeState } from '@openheaders/core/workspace-tree';
+import type { Collection, Request, Rule, Spec, Variable, Workspace } from '@openheaders/core/types';
+import { TREE_FILE_MAX_BYTES, type WorkspaceTreeState } from '@openheaders/core/workspace-tree';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { createGitExec, type GitRunner } from '../../src/git/git-exec';
 import { commitWorkspaceTree, countDirtyFiles, ensureWorkspaceRepo, resolveUpstream } from '../../src/git/repo';
@@ -428,6 +429,107 @@ describe('pullWorkspaceTree', () => {
     await expect(fs.readFile(path.join(local, ...RULE_FILE.split('/')), 'utf-8')).resolves.toContain(
       'name: Block probes (fixed)',
     );
+  });
+
+  describe('a foreign document file too large to read', () => {
+    const SPEC_FILE = 'specs/pets-ssssssss/spec.yaml';
+    const SPEC_INDEX = 'specs/pets-ssssssss/index.yaml';
+    const SPEC_YAML =
+      'schemaVersion: 5\nuid: ssssssss\nname: Pets\nformat: openapi-3.1\nrootFileUid: ffffffff\nfiles:\n  - uid: ffffffff\n    fileName: index.yaml\n';
+    const SMALL = 'openapi: 3.1.0\n';
+    const SPEC: Spec = {
+      schemaVersion: 5,
+      uid: 'ssssssss',
+      path: 'specs/pets-ssssssss',
+      name: 'Pets',
+      format: 'openapi-3.1',
+      rootFileUid: 'ffffffff',
+      files: [{ uid: 'ffffffff', fileName: 'index.yaml', content: SMALL }],
+    };
+    const ROWS = [
+      { path: SPEC_INDEX, message: 'larger than 16 MB — skipped' },
+      { path: SPEC_FILE, message: '"index.yaml" was not read — skipped' },
+    ];
+    const inLocal = (rel: string): string => path.join(local, ...rel.split('/'));
+    const renameTheRule = (): void => {
+      state.rules = [{ ...state.rules[0], name: 'Block probes (peer)' } as Rule];
+    };
+
+    /** The peer adds a spec whose file is one byte over the limit and renames the rule, in one push. */
+    async function peerPushesTheLargeSpec(): Promise<string> {
+      await peerEdit(SPEC_FILE, () => SPEC_YAML);
+      await peerEdit(SPEC_INDEX, () => '#'.repeat(TREE_FILE_MAX_BYTES + 1));
+      await peerEdit(RULE_FILE, (content) => content.replace('name: Block probes', 'name: Block probes (peer)'));
+      return peerCommitPush('Add a spec with a large file, rename the rule');
+    }
+
+    it('its document is skipped with a row at the file, the file lands as the peer wrote it, and the rest of the pull is taken', async () => {
+      const foreignSha = await peerPushesTheLargeSpec();
+
+      const applied: EmissionBatch[] = [];
+      const result = await doPull(applied, renameTheRule);
+      expect(result).toMatchObject({ ok: true, upToDate: false, sha: foreignSha, issues: ROWS });
+
+      const bodies = applied.flatMap((entry) => entry.batch.mutations.map((m) => m.body));
+      expect(bodies).toContainEqual(expect.objectContaining({ type: 'rule', id: 'aaaaaaaa', path: 'name' }));
+      expect(bodies.filter((body) => body.type === 'spec')).toEqual([]);
+
+      // The pull recorded nothing over the peer's file: the branch is the peer's head, the tree clean.
+      expect((await fs.stat(inLocal(SPEC_INDEX))).size).toBe(TREE_FILE_MAX_BYTES + 1);
+      expect((await raw(local, 'rev-parse', 'HEAD')).stdout.trim()).toBe(foreignSha);
+      expect(await countDirtyFiles(run, local)).toBe(0);
+    });
+
+    it('a later, smaller file takes its place: the document is taken in and the tree ends clean', async () => {
+      await peerPushesTheLargeSpec();
+      expect(await doPull([], renameTheRule)).toMatchObject({ ok: true, upToDate: false });
+
+      await peerEdit(SPEC_INDEX, () => SMALL);
+      await peerCommitPush('The spec file small again');
+      const applied: EmissionBatch[] = [];
+      const result = await doPull(applied, () => {
+        state.specs = [SPEC];
+      });
+      expect(result).toMatchObject({ ok: true, upToDate: false, issues: [] });
+      expect(applied.flatMap((entry) => entry.batch.mutations.map((m) => m.body))).toContainEqual(
+        expect.objectContaining({ kind: 'create', type: 'spec', id: 'ssssssss' }),
+      );
+
+      // The file that landed by checkout was recorded as the pass's own, so the flush may write over it.
+      await expect(fs.readFile(inLocal(SPEC_INDEX), 'utf-8')).resolves.toBe(SMALL);
+      expect(await countDirtyFiles(run, local)).toBe(0);
+    });
+
+    it('a landing git refuses fails the pull — the branch is not moved over a file left at its local bytes', async () => {
+      await peerPushesTheLargeSpec();
+      const head = (await raw(local, 'rev-parse', 'HEAD')).stdout.trim();
+      const git = run;
+      run = (args, options) =>
+        args.includes('checkout')
+          ? Promise.resolve({ code: 1, stdout: '', stderr: 'checkout refused', spawnFailed: false, timedOut: false })
+          : git(args, options);
+
+      expect(await doPull([], renameTheRule)).toMatchObject({
+        ok: false,
+        reason: 'commit-failed',
+        detail: 'checkout refused',
+      });
+      expect((await raw(local, 'rev-parse', 'HEAD')).stdout.trim()).toBe(head);
+    });
+
+    it('while the branch’s own commit holds such a file, uncommitted work in a document the pull writes is asked about, not carried', async () => {
+      await peerPushesTheLargeSpec();
+      expect(await doPull([], renameTheRule)).toMatchObject({ ok: true, upToDate: false });
+
+      await peerEdit(RULE_FILE, (content) => content.replace('enabled: true', 'enabled: false'));
+      await peerCommitPush('Disable the rule');
+      state.rules = [{ ...state.rules[0], name: 'Block probes (mine)' } as Rule];
+      await materializer.flush();
+      mayCommitLocalWork = false;
+
+      // HEAD's own tree does not read whole, so no document is recorded without its uncommitted work.
+      expect(await doPull([])).toMatchObject({ ok: false, reason: 'local-changes', localChanges: [RULE_FILE] });
+    });
   });
 
   it('a foreign leaf under a new collection whose manifest does not read quarantines with it; the manifest fixed, both are taken in', async () => {

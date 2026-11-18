@@ -52,6 +52,7 @@ import {
   withCommitSecretRows,
 } from '@openheaders/core/workspace-tree';
 import {
+  commitTreePaths,
   commitWorkspaceTree,
   createRescueBranch,
   diffForeignPaths,
@@ -63,7 +64,7 @@ import {
   listTreeYamlPaths,
   localHeadSha,
   lockRefusalReason,
-  readCommitTreeFiles,
+  readCommitTree,
   resolveRefSha,
   resolveUpstream,
   snapshotWorkingTree,
@@ -159,11 +160,12 @@ export async function resolveForcePushWorkspaceTree(options: ResolveForcePushOpt
     return { ok: false, reason: 'not-rewritten', detail: upstream.sha, issues: [] };
   }
 
-  const foreignFiles = await readCommitTreeFiles(run, rootDir, upstream.sha);
-  if (foreignFiles === null) {
+  const foreignCommit = await readCommitTree(run, rootDir, upstream.sha);
+  if (foreignCommit === null) {
     return { ok: false, reason: 'foreign-invalid', detail: `unreadable tree for ${upstream.sha}`, issues: [] };
   }
-  const read = readWorkspaceTree(foreignFiles);
+  const foreignFiles = foreignCommit.files;
+  const read = readWorkspaceTree(foreignFiles, foreignCommit.unread);
   if (read.state.workspace === null) {
     return {
       ok: false,
@@ -248,7 +250,9 @@ export async function resolveForcePushWorkspaceTree(options: ResolveForcePushOpt
         changed = diff.changed;
         removed = diff.removed;
       } else {
-        const foreignPaths = new Set(foreignFiles.map((file) => file.path));
+        // What the remote head holds a file at, read or not: a file too
+        // large to read still stands there, and is no deletion.
+        const foreignPaths = commitTreePaths(foreignCommit);
         const localPaths = (await listTreeYamlPaths(run, rootDir, 'HEAD')) ?? [];
         changed = foreignPaths;
         removed = new Set(localPaths.filter((entry) => !foreignPaths.has(entry)));
@@ -276,7 +280,16 @@ export async function resolveForcePushWorkspaceTree(options: ResolveForcePushOpt
       }
 
       await releaseHealedQuarantine(rootDir, foreign.issues);
-      await writeForeignQuarantine(rootDir, foreignFiles, foreign.issues, changed);
+      const quarantined = await writeForeignQuarantine(
+        run,
+        rootDir,
+        { ref: upstream.sha, tree: foreignCommit },
+        foreign.issues,
+        changed,
+      );
+      if (!quarantined.ok) {
+        return { ok: false, reason: 'commit-failed', detail: quarantined.detail, issues: foreign.issues };
+      }
 
       await options.flush();
 

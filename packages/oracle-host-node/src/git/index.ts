@@ -21,6 +21,7 @@ export {
 export { breathe } from './breathe';
 export { type CommitIntent, composeCommitMessage } from './commit-message';
 export { type CommitMeta, type CommitPerson, readCommitAuthorIdentity, readCommitMeta } from './commit-meta';
+export { type CommitTree, commitTreePaths, readCommitTree } from './commit-tree';
 export { type GitDirs, parseGitfile, resolveGitDirs } from './git-dir';
 export {
   type CreateGitExecOptions,
@@ -154,7 +155,6 @@ export {
   type RepoRef,
   type ResolvedCommitIdentity,
   readCommitFileDiff,
-  readCommitTreeFiles,
   readWorkingFileDiff,
   refsStamp,
   resolveAuthorFilterValue,

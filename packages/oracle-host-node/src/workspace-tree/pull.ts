@@ -33,7 +33,9 @@
  *      foreign bytes land in the working tree off-baseline (so the
  *      materializer's rung-2 guard protects them and the next sweep
  *      keeps reporting them), the engine keeps its own value, and the
- *      issue rows surface through the card's quarantine list;
+ *      issue rows surface through the card's quarantine list. A foreign
+ *      document file too large to read is the same, its document with
+ *      it: the file lands by git's own checkout, never through a read;
  *   6. materialize the converged tree, carry the foreign side's changes
  *      to the user's own files onto disk (`own-files.ts` — the files
  *      no entity stands behind), then record the pull:
@@ -92,6 +94,8 @@ import {
   withCommitSecretRows,
 } from '@openheaders/core/workspace-tree';
 import {
+  type CommitTree,
+  checkoutPathsFromCommit,
   commitWorkspaceTree,
   diffForeignPaths,
   type ForeignTreeDiff,
@@ -104,7 +108,7 @@ import {
   listForeignAuthors,
   lockRefusalReason,
   mergeBaseOf,
-  readCommitTreeFiles,
+  readCommitTree,
   resolveUpstream,
   snapshotWorkingTree,
   treeWithFiles,
@@ -123,6 +127,7 @@ import {
   writeMaterializedIndex,
   writeQuarantineIndex,
 } from './sidecar';
+import { readWrittenFile } from './tree-file';
 
 /**
  * The dependency set shared by every pass that integrates a foreign
@@ -229,28 +234,52 @@ const dirOf = (filePath: string): string => {
  * fixes or reverts. Each write is recorded in the sidecar quarantine
  * index so a later pass can tell this machine write from a genuine
  * hand edit. Shared by the pull pass and the §16 resolutions.
+ *
+ * A file of such a document the commit's read left unread (too large)
+ * has no bytes here to write: git checks it out of the foreign commit,
+ * and it is recorded as it then stands. Left at its local bytes, the
+ * pass's commit would record those over the foreign file.
  */
 export async function writeForeignQuarantine(
+  run: GitRunner,
   rootDir: string,
-  foreignFiles: readonly { path: string; content: string }[],
+  foreign: { ref: string; tree: CommitTree },
   issues: readonly TreeIssue[],
   changedPaths: ReadonlySet<string>,
-): Promise<void> {
+): Promise<{ ok: true } | { ok: false; detail: string }> {
   const issueDirs = new Set(issues.map((issue) => dirOf(issue.path)));
-  const byPath = new Map(foreignFiles.map((file) => [file.path, file.content] as const));
+  const byPath = new Map(foreign.tree.files.map((file) => [file.path, file.content] as const));
+  const unread = new Set(foreign.tree.unread.map((file) => file.path));
+  const quarantined = [...changedPaths].filter((filePath) => issueDirs.has(dirOf(filePath)));
+  const landed = await checkoutPathsFromCommit(
+    run,
+    rootDir,
+    foreign.ref,
+    quarantined.filter((filePath) => unread.has(filePath)),
+  );
+  if (!landed.ok) return landed;
+
   const recorded = await readQuarantineIndex(rootDir);
   let recordChanged = false;
-  for (const filePath of changedPaths) {
-    if (!issueDirs.has(dirOf(filePath))) continue;
-    const content = byPath.get(filePath);
-    if (content === undefined) continue;
-    const target = path.join(rootDir, ...filePath.split('/'));
-    await fs.mkdir(path.dirname(target), { recursive: true });
-    await fs.writeFile(target, content, 'utf-8');
+  const record = (filePath: string, content: string): void => {
     recorded[filePath] = hashTreeContent(content);
     recordChanged = true;
+  };
+  for (const filePath of quarantined) {
+    const target = path.join(rootDir, ...filePath.split('/'));
+    if (unread.has(filePath)) {
+      const file = await readWrittenFile(target);
+      if (file.kind === 'text') record(filePath, file.content);
+      continue;
+    }
+    const content = byPath.get(filePath);
+    if (content === undefined) continue;
+    await fs.mkdir(path.dirname(target), { recursive: true });
+    await fs.writeFile(target, content, 'utf-8');
+    record(filePath, content);
   }
   if (recordChanged) await writeQuarantineIndex(rootDir, recorded);
+  return { ok: true };
 }
 
 /**
@@ -414,14 +443,15 @@ async function readForeignChange(
     };
   }
 
-  const baseFiles = await readCommitTreeFiles(run, rootDir, base);
-  if (baseFiles === null) {
+  const baseCommit = await readCommitTree(run, rootDir, base);
+  if (baseCommit === null) {
     return { ok: false, reason: 'foreign-invalid', detail: `unreadable tree for ${base}`, issues: [] };
   }
+  const baseFiles = baseCommit.files;
   // The base is read as the foreign head is (`containTreeRead`): a child
   // the workspace could hold at neither end did not change, and one it
   // can hold only at the foreign end was created by the change.
-  const baseTree = containTreeRead(readWorkspaceTree(baseFiles), snapshot);
+  const baseTree = containTreeRead(readWorkspaceTree(baseFiles, baseCommit.unread), snapshot);
   // Neither commit carries a secret file; both ends of the change read
   // their secret rows from the template they committed, so a history
   // that did not touch one leaves the branch's secret rows out of it.
@@ -479,11 +509,12 @@ export async function integrateForeignHead(
   const { run, rootDir } = deps;
   const { foreignSha } = args;
 
-  const foreignFiles = await readCommitTreeFiles(run, rootDir, foreignSha);
-  if (foreignFiles === null) {
+  const foreignCommit = await readCommitTree(run, rootDir, foreignSha);
+  if (foreignCommit === null) {
     return { ok: false, reason: 'foreign-invalid', detail: `unreadable tree for ${foreignSha}`, issues: [] };
   }
-  const read = readWorkspaceTree(foreignFiles);
+  const foreignFiles = foreignCommit.files;
+  const read = readWorkspaceTree(foreignFiles, foreignCommit.unread);
   if (read.state.workspace === null) {
     return {
       ok: false,
@@ -579,7 +610,16 @@ export async function integrateForeignHead(
       }
 
       await releaseHealedQuarantine(rootDir, foreign.issues);
-      await writeForeignQuarantine(rootDir, foreignFiles, foreign.issues, diff.changed);
+      const quarantined = await writeForeignQuarantine(
+        run,
+        rootDir,
+        { ref: foreignSha, tree: foreignCommit },
+        foreign.issues,
+        diff.changed,
+      );
+      if (!quarantined.ok) {
+        return { ok: false, reason: 'commit-failed', detail: quarantined.detail, issues: foreign.issues };
+      }
 
       await deps.flush();
 

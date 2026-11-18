@@ -23,8 +23,8 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 import type { MutatorContext } from '@openheaders/core/sync';
 import type { EmissionBatch } from '@openheaders/core/sync-builders/mutations/workspace-import-emission';
-import type { Collection, Environment, Rule, Workspace } from '@openheaders/core/types';
-import type { WorkspaceTreeState } from '@openheaders/core/workspace-tree';
+import type { Collection, Environment, Rule, Spec, Workspace } from '@openheaders/core/types';
+import { TREE_FILE_MAX_BYTES, type WorkspaceTreeState } from '@openheaders/core/workspace-tree';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { createGitExec, type GitRunner } from '../../src/git/git-exec';
 import { commitWorkspaceTree, countDirtyFiles, ensureWorkspaceRepo } from '../../src/git/repo';
@@ -808,6 +808,65 @@ describe('applyWorkspaceCommit — refusals', () => {
     expect(result).toMatchObject({ ok: false, reason: 'foreign-invalid', detail: RULE_FILE });
     expect(t.order).toEqual([]);
     expect(await git(local, 'rev-parse', 'HEAD')).toBe(head);
+  });
+});
+
+describe('applyWorkspaceCommit — a document file too large to read', () => {
+  const SPEC_FILE = 'specs/pets-ssssssss/spec.yaml';
+  const SPEC_INDEX = 'specs/pets-ssssssss/index.yaml';
+  const SPEC_YAML =
+    'schemaVersion: 5\nuid: ssssssss\nname: Pets\nformat: openapi-3.1\nrootFileUid: ffffffff\nfiles:\n  - uid: ffffffff\n    fileName: index.yaml\n';
+  const SPEC: Spec = {
+    schemaVersion: 5,
+    uid: 'ssssssss',
+    path: 'specs/pets-ssssssss',
+    name: 'Pets',
+    format: 'openapi-3.1',
+    rootFileUid: 'ffffffff',
+    files: [{ uid: 'ffffffff', fileName: 'index.yaml', content: 'openapi: 3.1.0\n' }],
+  };
+
+  /** The peer commits a spec whose file is one byte over the limit. */
+  async function peerCommitsTheLargeSpec(): Promise<string> {
+    await write(peer, SPEC_FILE, SPEC_YAML);
+    await write(peer, SPEC_INDEX, '#'.repeat(TREE_FILE_MAX_BYTES + 1));
+    return peerCommit('Add a spec with a large file');
+  }
+
+  it('a commit that touches such a document is refused with the file named — it is not read short of it', async () => {
+    const grown = await peerCommitsTheLargeSpec();
+    const head = await git(local, 'rev-parse', 'HEAD');
+
+    const t = trace();
+    const result = await apply(grown, 'pick', t);
+    expect(result).toMatchObject({
+      ok: false,
+      reason: 'foreign-invalid',
+      detail: SPEC_INDEX,
+      issues: [
+        { path: SPEC_INDEX, message: 'larger than 16 MB — skipped' },
+        { path: SPEC_FILE, message: '"index.yaml" was not read — skipped' },
+      ],
+    });
+    expect(t.order).toEqual([]);
+    expect(await git(local, 'rev-parse', 'HEAD')).toBe(head);
+  });
+
+  it('a commit that leaves such a document alone is picked, and the document the branch holds is not read as deleted', async () => {
+    await localCommit('Add the spec', { specs: [SPEC] });
+    await peerCommitsTheLargeSpec();
+    await peerReplace(RULE_FILE, 'enabled: true', 'enabled: false');
+    const picked = await peerCommit('Disable the probe rule');
+
+    const t = trace();
+    const result = await apply(picked, 'pick', t, () => {
+      state = { ...state, rules: [makeRule({ enabled: false })] };
+    });
+    expect(result).toMatchObject({ ok: true, skipped: [] });
+    expect(bodies(t)).toContainEqual({ kind: 'setField', type: 'rule', id: 'aaaaaaaa', path: 'enabled', value: false });
+    expect(bodies(t).filter((body) => body.type === 'spec')).toEqual([]);
+    expect(await read(local, SPEC_INDEX)).toBe('openapi: 3.1.0\n');
+    expect(await countDirtyFiles(run, local)).toBe(0);
   });
 });
 
