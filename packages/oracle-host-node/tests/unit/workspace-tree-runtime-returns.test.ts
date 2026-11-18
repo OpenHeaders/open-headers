@@ -38,7 +38,8 @@
  * a pass after git's own checkout landed one puts the authored file in
  * its place — nothing is ever written where the link points. And a link
  * a commit puts at the sidecar's name: the baseline where it points is
- * never the materializer's.
+ * never the materializer's. And a file a commit puts there: the binding
+ * keeps its passes, by a switch of ours and by a checkout from a terminal.
  *
  * And a pass that lands an ignore file, at every door that lands one: a
  * file of the user's it brings into git's sight, or takes out of it, is
@@ -957,6 +958,59 @@ describe('the workspace-tree runtime: a link a commit puts at the sidecar’s na
     } finally {
       await fs.rm(other, { recursive: true, force: true });
     }
+  });
+});
+
+describe('the workspace-tree runtime: a file a commit puts at the sidecar’s name', () => {
+  /** `run` with a branch `side` whose tree holds `.oh` as a regular file, made in another clone and fetched. */
+  async function withABranchThatHoldsIt(run: () => Promise<void>): Promise<void> {
+    await writeByHand('README.md', 'A workspace of mine.\n');
+    await delay(TREE_AT_REST_MS);
+    expect(await harness.runtime.commit(harness.workspaceId, 'seed')).toMatchObject({ ok: true, committed: true });
+    const other = await fs.mkdtemp(path.join(os.tmpdir(), 'oh-tree-runtime-other-'));
+    try {
+      await harness.git('clone', '-q', harness.rootDir, other);
+      await harness.git('-C', other, 'checkout', '-q', '-b', 'side');
+      await fs.writeFile(path.join(other, '.oh'), 'not a directory\n', 'utf-8');
+      await harness.git('-C', other, 'add', '-A');
+      await harness.git('-C', other, 'commit', '-q', '-m', 'the sidecar’s name taken');
+      await harness.git('fetch', '-q', other, 'side:side');
+      await run();
+    } finally {
+      await fs.rm(other, { recursive: true, force: true });
+    }
+  }
+
+  it('a switch to a branch that holds it goes through: the sidecar is a directory again, the commit after it records the file gone, and the switch back goes through', {
+    timeout: 30_000,
+  }, async () => {
+    await withABranchThatHoldsIt(async () => {
+      const home = await harness.git('rev-parse', '--abbrev-ref', 'HEAD');
+      expect(await harness.runtime.switchBranch(harness.workspaceId, 'side')).toMatchObject({
+        ok: true,
+        switched: true,
+      });
+      await delay(TREE_AT_REST_MS);
+      expect((await fs.lstat(inTree('.oh'))).isDirectory()).toBe(true);
+      expect(await harness.git('status', '--porcelain', '--untracked-files=all')).toBe('D .oh');
+      expect(await harness.runtime.commit(harness.workspaceId, 'after')).toMatchObject({ ok: true, committed: true });
+      expect(await harness.git('ls-tree', 'HEAD', '.oh')).toBe('');
+      expect(await harness.runtime.switchBranch(harness.workspaceId, home)).toMatchObject({
+        ok: true,
+        switched: true,
+      });
+    });
+  });
+
+  it('a checkout of that branch from a terminal, which passes no door of ours, leaves the binding its passes: the commit after it runs', {
+    timeout: 30_000,
+  }, async () => {
+    await withABranchThatHoldsIt(async () => {
+      await harness.git('checkout', '-q', 'side');
+      expect(await harness.runtime.commit(harness.workspaceId, 'after')).toMatchObject({ ok: true, committed: true });
+      expect((await fs.lstat(inTree('.oh'))).isDirectory()).toBe(true);
+      expect(await harness.git('ls-tree', 'HEAD', '.oh')).toBe('');
+    });
   });
 });
 

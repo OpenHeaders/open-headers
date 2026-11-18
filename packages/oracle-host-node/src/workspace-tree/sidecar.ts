@@ -27,15 +27,19 @@
  * a link at its name, no file at all).
  *
  * The sidecar is a real directory, asked at its own name before every
- * read and write. A commit can put a link there — a branch whose tree
- * holds one, checked out by git, which takes the directory away for it —
- * and the link would hand the engine a baseline of a peer's making: the
- * materializer removes what its baseline lists, so a file of the user's
- * named there by its hash would go. A link at the name is taken away,
- * never followed and never read; the sidecar is made anew beside the
- * documents, empty, which reads as no baseline at all. What stands there
- * and is neither a directory nor a link is not the engine's to take
- * away: a read answers nothing, and a write fails, saying so.
+ * read and write. A commit can put something else there — a branch whose
+ * tree holds a link or a file at the name, checked out by git, which
+ * takes the directory away for it. A link would hand the engine a
+ * baseline of a peer's making: the materializer removes what its
+ * baseline lists, so a file of the user's named there by its hash would
+ * go. A file would leave the engine no sidecar at all, and no pass could
+ * run — after a checkout from a terminal, which no door of ours can
+ * refuse. Either is taken away by the name, a link never followed and
+ * never read, and the sidecar is made anew beside the documents, empty,
+ * which reads as no baseline at all. The commit still holds what was
+ * taken, and git lists it as deleted. What stands there and is none of
+ * the three is not the engine's to take away: a read answers nothing,
+ * and a write fails, saying so.
  */
 
 import { createHash } from 'node:crypto';
@@ -58,8 +62,8 @@ export function sidecarDir(rootDir: string): string {
 
 /**
  * What stands at the sidecar's name: the directory, nothing, or what is
- * there instead. A link at the name is taken away — by the name, never
- * through it — and nothing stands then.
+ * there instead. A link or a file at the name is taken away — by the
+ * name, never through it — and nothing stands then.
  */
 async function lookAtSidecar(rootDir: string): Promise<'directory' | 'absent' | 'not-a-directory'> {
   const dir = sidecarDir(rootDir);
@@ -69,7 +73,7 @@ async function lookAtSidecar(rootDir: string): Promise<'directory' | 'absent' | 
   });
   if (stat === null) return 'absent';
   if (stat.isDirectory()) return 'directory';
-  if (!stat.isSymbolicLink()) return 'not-a-directory';
+  if (!stat.isSymbolicLink() && !stat.isFile()) return 'not-a-directory';
   await fs.unlink(dir);
   return 'absent';
 }

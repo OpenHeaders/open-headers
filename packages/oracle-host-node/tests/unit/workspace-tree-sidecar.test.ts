@@ -3,14 +3,17 @@
  * sidecar is a real directory before every read and write. A link at
  * `.oh` — a commit can leave one — is taken away by its name: nothing is
  * read from where it points, nothing is written there, and the sidecar
- * is made anew. A file there is not taken away: a read answers nothing
- * and a write fails saying so. And the sidecar's own ignore file, a
- * regular file holding `*`, on real git.
+ * is made anew. A file there is taken away the same. What is none of
+ * the three is not: a read answers nothing and a write fails saying so.
+ * And the sidecar's own ignore file, a regular file holding `*`, on real
+ * git.
  */
 
+import { execFile } from 'node:child_process';
 import { promises as fs } from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
+import { promisify } from 'node:util';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { createGitExec, type GitRunner } from '../../src/git';
 import {
@@ -24,6 +27,11 @@ import {
   writeQuarantineIndex,
   writeTreeUnknownFields,
 } from '../../src/workspace-tree/sidecar';
+
+const posixOnly = it.runIf(process.platform !== 'win32');
+const mkfifo = async (file: string): Promise<void> => {
+  await promisify(execFile)('mkfifo', [file]);
+};
 
 const NOT_A_DIRECTORY = '".oh" is not a directory';
 const PEER_BASELINE = { 'README.md': 'a'.repeat(64) };
@@ -106,22 +114,46 @@ describe('the sidecar — a link at its name', () => {
 });
 
 describe('the sidecar — a file at its name', () => {
-  beforeEach(async () => {
-    await fs.writeFile(path.join(rootDir, '.oh'), 'somebody’s\n', 'utf-8');
-  });
+  const fileAtTheName = (): Promise<void> => fs.writeFile(path.join(rootDir, '.oh'), 'a commit’s\n', 'utf-8');
 
-  it('is not taken away: a read answers nothing and releasing a lock passes', async () => {
+  it('is taken away like a link: a read answers nothing, makes no sidecar, and the file is gone', async () => {
+    await fileAtTheName();
     expect(await readMaterializedIndex(rootDir)).toEqual({});
+    expect(await namesIn(rootDir)).toEqual([]);
+
+    await fileAtTheName();
     expect(await readTreeUnknownFields(rootDir)).toEqual({});
+    await fileAtTheName();
     await expect(releaseTreeLock(rootDir, 'desktop-1')).resolves.toBeUndefined();
-    expect(await fs.readFile(path.join(rootDir, '.oh'), 'utf-8')).toBe('somebody’s\n');
+    expect(await namesIn(rootDir)).toEqual([]);
   });
 
-  it('a write fails saying what stands there, and the file stands', async () => {
+  it('each write makes the sidecar anew in its place, a directory, and lands in it', async () => {
+    const writes: [string, () => Promise<unknown>][] = [
+      ['materialized-index.json', () => writeMaterializedIndex(rootDir, { 'workspace.yaml': 'b'.repeat(64) })],
+      ['lock', () => acquireTreeLock(rootDir, 'desktop-1')],
+      ['.gitignore', () => ensureSidecarIgnore(rootDir)],
+    ];
+    for (const [file, write] of writes) {
+      await fileAtTheName();
+      await write();
+      expect(await isADirectory(sidecar())).toBe(true);
+      expect(await namesIn(sidecar())).toEqual([file]);
+      await fs.rm(sidecar(), { recursive: true });
+    }
+  });
+});
+
+describe('the sidecar — what is neither a directory, a link nor a file at its name', () => {
+  // A named pipe: nothing reads or writes it here. Windows keeps no such thing in a folder.
+  posixOnly('is not taken away: a read answers nothing, a write fails saying what stands there', async () => {
+    await mkfifo(path.join(rootDir, '.oh'));
+    expect(await readMaterializedIndex(rootDir)).toEqual({});
+    await expect(releaseTreeLock(rootDir, 'desktop-1')).resolves.toBeUndefined();
     await expect(writeMaterializedIndex(rootDir, {})).rejects.toThrow(NOT_A_DIRECTORY);
     await expect(acquireTreeLock(rootDir, 'desktop-1')).rejects.toThrow(NOT_A_DIRECTORY);
     await expect(ensureSidecarIgnore(rootDir)).rejects.toThrow(NOT_A_DIRECTORY);
-    expect(await fs.readFile(path.join(rootDir, '.oh'), 'utf-8')).toBe('somebody’s\n');
+    expect((await fs.lstat(path.join(rootDir, '.oh'))).isFIFO()).toBe(true);
   });
 });
 
