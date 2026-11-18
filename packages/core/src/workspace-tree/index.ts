@@ -119,6 +119,7 @@ export {
 } from './order';
 export { planWorkspaceTree, serializeWorkspaceManifest } from './plan';
 export { readWorkspaceTree } from './read';
+export { treePathRefusal } from './tree-path';
 export type {
   ForeignHistoryNote,
   TreeFile,

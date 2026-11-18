@@ -477,3 +477,85 @@ describe('readWorkspaceTree — paths listed and not read', () => {
     expect(own.issues).toEqual([{ path: 'environments/dev-eeeeeeee.yaml', message: 'larger than 16 MB — skipped' }]);
   });
 });
+
+describe('readWorkspaceTree — files at a path no tree can hold', () => {
+  const SPEC_YAML = [
+    'schemaVersion: 5',
+    'uid: ssssssss',
+    'name: Pets',
+    'format: openapi-3.1',
+    'rootFileUid: ffffffff',
+    'files:',
+    '  - uid: ffffffff',
+    '    fileName: index.yaml',
+    '',
+  ].join('\n');
+  const tree = [
+    file('workspace.yaml', WORKSPACE_YAML),
+    file(COLLECTION_FILE, COLLECTION_YAML),
+    file(RULE_FILE, RULE_YAML),
+  ];
+
+  it('a document at a path that climbs out is not read: a row at each of its files, naming what cannot be', () => {
+    const result = readWorkspaceTree([
+      ...tree,
+      file('../outside/pets-ssssssss/spec.yaml', SPEC_YAML),
+      file('../outside/pets-ssssssss/index.yaml', 'openapi: 3.1.0\n'),
+    ]);
+    expect(result.state.specs).toEqual([]);
+    expect(result.state.rules).toHaveLength(1);
+    expect(result.issues).toEqual([
+      { path: '../outside/pets-ssssssss/spec.yaml', message: '".." cannot be part of a path — skipped' },
+      { path: '../outside/pets-ssssssss/index.yaml', message: '".." cannot be part of a path — skipped' },
+    ]);
+  });
+
+  it('a document in git’s directory by a name a filesystem folds onto it is not read, and has its row', () => {
+    const result = readWorkspaceTree([
+      ...tree,
+      file('.GIT/hooks/spec.yaml', SPEC_YAML.replace('index.yaml', 'pre-commit')),
+      file('.GIT/hooks/pre-commit', '#!/bin/sh\n'),
+    ]);
+    expect(result.state.specs).toEqual([]);
+    expect(result.issues.map((issue) => [issue.path, issue.message])).toEqual([
+      ['.GIT/hooks/spec.yaml', '".GIT" cannot be part of a path — skipped'],
+      ['.GIT/hooks/pre-commit', '".GIT" cannot be part of a path — skipped'],
+    ]);
+  });
+
+  it('a file of the user’s own at such a path is the user’s: no row, and nothing held back', () => {
+    const result = readWorkspaceTree([
+      ...tree,
+      file('docs\\drafts/README.md', '# notes\n'),
+      file('.git', 'gitdir: x\n'),
+    ]);
+    expect(result.issues).toEqual([]);
+    expect(result.state.rules).toHaveLength(1);
+  });
+
+  it('does not read a document short of a file beside it at such a path: a row at each, the manifest’s naming the file', () => {
+    const other = 'rules/api-cccccccc/allow-bbbbbbbb/rule.yaml';
+    const beside = 'rules/api-cccccccc/block-probes-aaaaaaaa/notes\\draft.txt';
+    const result = readWorkspaceTree([
+      ...tree,
+      file(other, RULE_YAML.replace('aaaaaaaa', 'bbbbbbbb')),
+      file(beside, 'a draft\n'),
+    ]);
+    expect(result.state.rules.map((rule) => rule.uid)).toEqual(['bbbbbbbb']);
+    expect(result.issues).toEqual([
+      { path: beside, message: '"\\" cannot be part of a path — skipped' },
+      { path: RULE_FILE, message: '"notes\\draft.txt" was not read — skipped' },
+    ]);
+  });
+
+  it('says the host’s rows first, then its own', () => {
+    const result = readWorkspaceTree(
+      [...tree, file('../outside/pets-ssssssss/spec.yaml', SPEC_YAML)],
+      [{ path: 'workspace-vars.yaml', cause: 'too-large' }],
+    );
+    expect(result.issues.map((issue) => issue.path)).toEqual([
+      'workspace-vars.yaml',
+      '../outside/pets-ssssssss/spec.yaml',
+    ]);
+  });
+});

@@ -12,10 +12,17 @@
  *
  * A manifest that was not read is still a manifest that stands: the
  * directory it sits in is a container's for what is inside it.
+ *
+ * A document's file at a path no tree can hold (`tree-path.ts`) is not
+ * read either, whatever the host read of it: it stands the same, with a
+ * row that names what of its path cannot be. A file of the user's own
+ * at such a path is the user's, and has none.
  */
 
+import { treeDocumentPaths } from './document-paths';
 import { ENTITY_MANIFEST_FILES, TREE_FILE_MAX_BYTES } from './layout';
-import type { TreeIssue, TreeUnread } from './types';
+import { treePathRefusal } from './tree-path';
+import type { TreeFile, TreeIssue, TreeUnread } from './types';
 
 const LIMIT_MB = TREE_FILE_MAX_BYTES / (1024 * 1024);
 
@@ -48,8 +55,34 @@ export function heldBackIssue(path: string, fileName: string): TreeIssue {
   return { path, message: `"${fileName}" was not read — skipped` };
 }
 
+/** A listing's files, parted by whether a tree can hold each one's path. */
+export interface HeldTreeFiles {
+  /** The files at a path of a tree, in the listing's order. */
+  readonly held: TreeFile[];
+  /** A row for each document file at a path no tree can hold, at that path. */
+  readonly unheld: TreeIssue[];
+}
+
+/** Part `files` — one complete listing of a tree — by their paths. */
+export function holdTreeFiles(files: readonly TreeFile[]): HeldTreeFiles {
+  const held: TreeFile[] = [];
+  const refused = new Map<string, string>();
+  for (const file of files) {
+    const part = treePathRefusal(file.path);
+    if (part === null) held.push(file);
+    else refused.set(file.path, part);
+  }
+  if (refused.size === 0) return { held, unheld: [] };
+  const documents = treeDocumentPaths(files.map((file) => file.path));
+  const unheld: TreeIssue[] = [];
+  for (const [path, part] of refused) {
+    if (documents.has(path)) unheld.push({ path, message: `${part} cannot be part of a path — skipped` });
+  }
+  return { held, unheld };
+}
+
 export interface UnreadPaths {
-  /** A row for each path, at the path, in the host's order. */
+  /** A row for each path, at the path — the host's in its order, then the listing's own. */
   readonly issues: TreeIssue[];
   /** Whether a file stands at `path`, not read. */
   stands(path: string): boolean;
@@ -59,22 +92,28 @@ export interface UnreadPaths {
   unlisted(path: string): boolean;
 }
 
-export function unreadPaths(unread: readonly TreeUnread[]): UnreadPaths {
+/**
+ * What stands and was not read: the paths a host listed and did not
+ * read, and the files of the listing no tree can hold, by their rows
+ * (`holdTreeFiles`).
+ */
+export function unreadPaths(unread: readonly TreeUnread[], unheld: readonly TreeIssue[] = []): UnreadPaths {
   const files = new Set<string>();
   const besideByDir = new Map<string, string>();
   const unlistedDirs: string[] = [];
-  for (const entry of unread) {
-    if (entry.cause === 'unlisted') {
-      unlistedDirs.push(entry.path);
-      continue;
-    }
-    files.add(entry.path);
-    const dir = dirOf(entry.path);
-    const base = baseOf(entry.path);
+  const stand = (path: string): void => {
+    files.add(path);
+    const dir = dirOf(path);
+    const base = baseOf(path);
     if (dir !== '' && !ENTITY_MANIFEST_FILES.has(base) && !besideByDir.has(dir)) besideByDir.set(dir, base);
+  };
+  for (const entry of unread) {
+    if (entry.cause === 'unlisted') unlistedDirs.push(entry.path);
+    else stand(entry.path);
   }
+  for (const issue of unheld) stand(issue.path);
   return {
-    issues: unread.map(issueOf),
+    issues: [...unread.map(issueOf), ...unheld],
     stands: (path) => files.has(path),
     beside: (dir) => besideByDir.get(dir),
     unlisted: (path) => unlistedDirs.some((dir) => treePathIsUnder(dir, path)),

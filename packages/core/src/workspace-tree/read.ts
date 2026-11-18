@@ -16,7 +16,8 @@
  *
  * A listing may come with the paths its host listed and did not read
  * (`unread.ts`): each is a row, and a document is not read short of a
- * file beside it.
+ * file beside it. A document's file at a path no tree can hold
+ * (`tree-path.ts`) is the same, whichever door listed it.
  */
 
 import * as v from 'valibot';
@@ -51,7 +52,6 @@ import {
   LIVE_VARIABLE_MANIFEST_FILE,
   LIVE_WORKFLOW_MANIFEST_FILE,
   MQTT_REQUEST_MANIFEST_FILE,
-  OH_SIDECAR_DIR,
   REQUEST_MANIFEST_FILE,
   RULE_MANIFEST_FILE,
   SECRET_FILE_SUFFIX,
@@ -78,7 +78,7 @@ import type {
   TreeUnknownFields,
   TreeUnread,
 } from './types';
-import { heldBackIssue, unreadPaths } from './unread';
+import { heldBackIssue, holdTreeFiles, unreadPaths } from './unread';
 
 interface SiblingFile {
   fileName: string;
@@ -152,7 +152,11 @@ function noContainers(): TreeShadowedContainers {
 
 /** Read one workspace tree from its complete file listing, and the paths of it that were listed and not read. */
 export function readWorkspaceTree(files: readonly TreeFile[], unread: readonly TreeUnread[] = []): TreeReadResult {
-  const notRead = unreadPaths(unread);
+  // A file at a path no tree can hold is not read — the sidecar's and
+  // git's own among them; a document's stands with a row, like one the
+  // host did not read.
+  const { held, unheld } = holdTreeFiles(files);
+  const notRead = unreadPaths(unread, unheld);
   const issues: TreeIssue[] = [...notRead.issues];
   const unknowns: TreeUnknownFields = {};
   const state: TreeReadResult['state'] = {
@@ -181,9 +185,7 @@ export function readWorkspaceTree(files: readonly TreeFile[], unread: readonly T
 
   const byPath = new Map<string, string>();
   const byDir = new Map<string, SiblingFile[]>();
-  for (const file of files) {
-    const first = firstSegmentOf(file.path);
-    if (first === OH_SIDECAR_DIR || first === '.git') continue;
+  for (const file of held) {
     byPath.set(file.path, file.content);
     const dir = dirOf(file.path);
     const bucket = byDir.get(dir);
