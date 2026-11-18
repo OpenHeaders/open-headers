@@ -332,6 +332,7 @@ const GitLogToolbar: React.FC<GitLogToolbarProps> = ({
               }
               title={t('workbench.gitLog.graphOptions')}
               popoverOpen={graphOptions.open}
+              menu
               testid="git-tool-graph-options"
             />
           </span>

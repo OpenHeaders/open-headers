@@ -47,6 +47,7 @@ import {
   type RefTreeSelection,
 } from '../rail/ref-row-menu';
 import type { RefTreeNode } from '../rail/ref-tree-model';
+import MenuCornerMark from '../toolbar/MenuCornerMark';
 import { useOptionMenu } from '../use-option-menu';
 import { actionMatches, type BranchPopupSectionKind, buildBranchPopupSections } from './branch-widget-model';
 import { getBranchWidgetPrefs, patchBranchWidgetPrefs, subscribeBranchWidgetPrefs } from './branch-widget-prefs';
@@ -465,9 +466,11 @@ const GitBranchPopup: React.FC<GitBranchPopupProps> = ({
           <button
             type="button"
             aria-label={t('workbench.gitBranch.popup.settings')}
+            aria-haspopup="menu"
             className="git-branch-popup-tool"
             data-testid="git-branch-popup-settings"
             style={{
+              position: 'relative',
               display: 'inline-flex',
               alignItems: 'center',
               justifyContent: 'center',
@@ -482,6 +485,7 @@ const GitBranchPopup: React.FC<GitBranchPopupProps> = ({
             }}
           >
             <SettingOutlined />
+            <MenuCornerMark testid="git-branch-popup-settings-menu-mark" />
           </button>
         </Dropdown>
       </div>

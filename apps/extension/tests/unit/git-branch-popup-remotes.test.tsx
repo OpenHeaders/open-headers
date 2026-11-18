@@ -142,3 +142,13 @@ describe('GitBranchPopup — a remote’s folder', () => {
     }
   });
 });
+
+describe('GitBranchPopup — its gear', () => {
+  it('wears the corner mark of a button with a menu behind it; Fetch beside it does not', () => {
+    mount();
+    const gear = screen.getByTestId('git-branch-popup-settings');
+    expect(gear.getAttribute('aria-haspopup')).toBe('menu');
+    expect(gear.contains(screen.getByTestId('git-branch-popup-settings-menu-mark'))).toBe(true);
+    expect(screen.getByTestId('git-branch-popup-fetch').getAttribute('aria-haspopup')).toBeNull();
+  });
+});
