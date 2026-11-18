@@ -486,6 +486,7 @@ const GitLogToolbar: React.FC<GitLogToolbarProps> = ({
               icon={<EyeOutlined />}
               title={t('workbench.gitLog.viewOptions')}
               popoverOpen={viewOptions.open}
+              menu
               testid="git-tool-view-options"
             />
           </span>

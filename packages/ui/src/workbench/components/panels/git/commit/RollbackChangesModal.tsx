@@ -221,6 +221,7 @@ const RollbackChangesModal: React.FC<RollbackChangesModalProps> = ({
                   icon={<EyeOutlined />}
                   title={t('workbench.gitLog.viewOptions')}
                   popoverOpen={viewOptionsMenu.open}
+                  menu
                   testid="commit-rollback-view-options"
                 />
               </span>

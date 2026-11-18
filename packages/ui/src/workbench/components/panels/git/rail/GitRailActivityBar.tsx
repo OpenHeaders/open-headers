@@ -33,6 +33,7 @@ import { CollapseAllIcon, ExpandAllIcon, FetchIcon, PullIcon } from '@openheader
 import { type ToolbarOverflowItem, useToolbarOverflow } from '@openheaders/ui/shared/toolbar-overflow';
 import { menuCheckIcon } from '../../../shared/menu-check';
 import { GIT_BAR_GLYPH_SIZE } from '../git-type-scale';
+import MenuCornerMark from '../toolbar/MenuCornerMark';
 import { useOptionMenu } from '../use-option-menu';
 import type { GitRailSingleClick } from './git-rail-prefs';
 
@@ -73,6 +74,8 @@ interface BarButtonProps {
   tooltip?: boolean;
   /** True while a popover this button opened is showing — the tooltip yields to it (S35 law). */
   popoverOpen?: boolean;
+  /** The button opens a menu of options — it wears the corner mark. */
+  menu?: boolean;
 }
 
 const BUTTON_EXTENT = 24;
@@ -96,6 +99,7 @@ const BarButton: React.FC<BarButtonProps> = ({
   testid,
   tooltip = true,
   popoverOpen = false,
+  menu = false,
 }) => {
   const { token } = theme.useToken();
   const side = useContext(TooltipSide);
@@ -110,6 +114,7 @@ const BarButton: React.FC<BarButtonProps> = ({
         // Unavailable is `aria-disabled`, never the native attribute: a natively
         // disabled button drops the focus it holds to the page (`ToolbarIconButton`).
         aria-disabled={disabled === true ? true : undefined}
+        aria-haspopup={menu ? 'menu' : undefined}
         onClick={() => {
           if (disabled === true) return;
           setSuppressed(true);
@@ -119,6 +124,7 @@ const BarButton: React.FC<BarButtonProps> = ({
         className={active ? 'git-tool-rail-button active' : 'git-tool-rail-button'}
         data-testid={testid}
         style={{
+          position: 'relative',
           flex: '0 0 auto',
           display: 'inline-flex',
           alignItems: 'center',
@@ -136,6 +142,7 @@ const BarButton: React.FC<BarButtonProps> = ({
         }}
       >
         <span style={{ display: 'inline-flex' }}>{icon}</span>
+        {menu && <MenuCornerMark testid={`${testid}-menu-mark`} />}
       </button>
   );
   if (!tooltip) return button;
@@ -242,6 +249,7 @@ const GitRailActivityBar: React.FC<GitRailActivityBarProps> = (props) => {
           icon={<SettingOutlined />}
           title={t('workbench.gitLog.rail.paneSettings')}
           popoverOpen={settingsMenu.open}
+          menu
           testid="git-tool-rail-settings-button"
         />
       </span>

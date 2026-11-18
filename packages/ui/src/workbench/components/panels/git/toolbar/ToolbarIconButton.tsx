@@ -10,13 +10,16 @@
  * its focus and takes no press.
  * The tooltip yields to a popover the button opens (S35 law): hidden
  * the instant the button is clicked and while `popoverOpen` holds,
- * back on the next hover. Presentational only.
+ * back on the next hover. A button that opens a menu of options
+ * (`menu`) wears the corner mark (`MenuCornerMark`). Presentational
+ * only.
  */
 
 import { theme, Tooltip } from 'antd';
 import type React from 'react';
 import { useState } from 'react';
 import { GIT_BAR_GLYPH_SIZE } from '../git-type-scale';
+import MenuCornerMark from './MenuCornerMark';
 
 export interface ToolbarIconButtonProps {
   icon: React.ReactNode;
@@ -31,6 +34,8 @@ export interface ToolbarIconButtonProps {
   tooltip?: boolean;
   /** True while a popover this button opened is showing — the tooltip stays away. */
   popoverOpen?: boolean;
+  /** The button opens a menu of options — a small mark in its lower right corner says there is more behind it. */
+  menu?: boolean;
 }
 
 const ToolbarIconButton: React.FC<ToolbarIconButtonProps> = ({
@@ -43,6 +48,7 @@ const ToolbarIconButton: React.FC<ToolbarIconButtonProps> = ({
   tooltipPlacement = 'top',
   tooltip = true,
   popoverOpen = false,
+  menu = false,
 }) => {
   const { token } = theme.useToken();
   const [suppressed, setSuppressed] = useState(false);
@@ -52,6 +58,7 @@ const ToolbarIconButton: React.FC<ToolbarIconButtonProps> = ({
         aria-label={title}
         aria-pressed={active}
         aria-disabled={disabled === true ? true : undefined}
+        aria-haspopup={menu ? 'menu' : undefined}
         onClick={() => {
           if (disabled === true) return;
           setSuppressed(true);
@@ -61,6 +68,7 @@ const ToolbarIconButton: React.FC<ToolbarIconButtonProps> = ({
         className={active ? 'git-tool-rail-button active' : 'git-tool-rail-button'}
         data-testid={testid}
         style={{
+          position: 'relative',
           flex: '0 0 auto',
           display: 'inline-flex',
           alignItems: 'center',
@@ -78,6 +86,7 @@ const ToolbarIconButton: React.FC<ToolbarIconButtonProps> = ({
         }}
       >
         <span style={{ display: 'inline-flex' }}>{icon}</span>
+        {menu && <MenuCornerMark testid={`${testid}-menu-mark`} />}
       </button>
   );
   if (!tooltip) return button;

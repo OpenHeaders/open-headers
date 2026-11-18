@@ -6,13 +6,16 @@
  * Options eye as one group between two rules, after the verbs, and a
  * narrow dock folds the tree's tail first; the
  * Compare pane's inline header carries whatever tools the pane hands
- * the tree, a rule between them and its own pair.
+ * the tree, a rule between them and its own pair. A button that opens
+ * a menu of options — the eye, the branches rail's gear — wears the
+ * corner mark and says so to assistive tech; no other button does.
  */
 
 import CommitToolbar from '@openheaders/ui/workbench/components/panels/git/commit/CommitToolbar';
 import FileTreeView from '@openheaders/ui/workbench/components/panels/git/FileTreeView';
 import type { FilesViewMode } from '@openheaders/ui/workbench/components/panels/git/files-view-mode';
 import { DEFAULT_GIT_LOG_VIEW_PREFS } from '@openheaders/ui/workbench/components/panels/git/git-log-view-prefs';
+import GitRailActivityBar from '@openheaders/ui/workbench/components/panels/git/rail/GitRailActivityBar';
 import FilesViewModeSwitch from '@openheaders/ui/workbench/components/panels/git/toolbar/FilesViewModeSwitch';
 import GitDetailsToolbar from '@openheaders/ui/workbench/components/panels/git/toolbar/GitDetailsToolbar';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
@@ -107,6 +110,15 @@ describe('the Commit window’s band', () => {
     ]);
   });
 
+  it('marks the eye as a button with a menu behind it, and no other', () => {
+    bandWidth(600, { 'view-mode': 48 });
+    commitToolbar('items');
+    expect(screen.getByTestId('commit-tool-view-options').getAttribute('aria-haspopup')).toBe('menu');
+    expect(screen.getByTestId('commit-tool-view-options-menu-mark')).toBeTruthy();
+    expect(screen.getByTestId('commit-tool-refresh').getAttribute('aria-haspopup')).toBeNull();
+    expect(screen.queryByTestId('commit-tool-refresh-menu-mark')).toBeNull();
+  });
+
   it('folds the tree’s tail before the group at a narrow dock', () => {
     // 16px padding + refresh, rollback, shelve, a 9px rule, the 48px switch, the eye and the chevron, 2px apart.
     bandWidth(16 + 24 + 2 + 24 + 2 + 24 + 2 + 9 + 2 + 48 + 2 + 24 + 2 + 24, { 'view-mode': 48 });
@@ -116,6 +128,43 @@ describe('the Commit window’s band', () => {
     expect(screen.getByTestId('commit-tool-toolbar-more-button')).toBeTruthy();
     expect(screen.queryByTestId('commit-tool-select-opened')).toBeNull();
     expect(screen.queryByTestId('commit-tool-expand-all')).toBeNull();
+  });
+});
+
+describe('the branches rail’s bar', () => {
+  it('marks the Branches Pane Settings gear as a button with a menu behind it, and no other', () => {
+    Object.defineProperty(HTMLElement.prototype, 'clientHeight', { configurable: true, get: () => 600 });
+    render(
+      <GitRailActivityBar
+        onHide={vi.fn()}
+        onNewBranch={vi.fn()}
+        onUpdateSelected={vi.fn()}
+        updateSelectedEnabled={false}
+        updateSelectedBusy={false}
+        onDeleteBranch={vi.fn()}
+        deleteEnabled={false}
+        onCompareWithCurrent={vi.fn()}
+        compareEnabled={false}
+        onFetch={vi.fn()}
+        fetchBusy={false}
+        onToggleFavorite={vi.fn()}
+        favoriteEnabled={false}
+        onNavigateToHead={vi.fn()}
+        navigateEnabled={false}
+        singleClick="filter"
+        onSingleClickChange={vi.fn()}
+        showTags
+        onShowTagsChange={vi.fn()}
+        groupByDirectory
+        onGroupByDirectoryChange={vi.fn()}
+        onExpandAll={vi.fn()}
+        onCollapseAll={vi.fn()}
+      />,
+    );
+    expect(screen.getByTestId('git-tool-rail-settings-button').getAttribute('aria-haspopup')).toBe('menu');
+    expect(screen.getByTestId('git-tool-rail-settings-button-menu-mark')).toBeTruthy();
+    expect(screen.getByTestId('git-tool-rail-fetch').getAttribute('aria-haspopup')).toBeNull();
+    expect(screen.queryByTestId('git-tool-rail-fetch-menu-mark')).toBeNull();
   });
 });
 
