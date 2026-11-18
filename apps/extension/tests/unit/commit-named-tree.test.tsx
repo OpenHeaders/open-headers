@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 /**
  * The Commit tree with its files listed by what they belong to in the
- * workbench (the Workspace Items view mode). Pins the model — each git group lists
+ * workbench (the Workspace view mode). Pins the model — each git group lists
  * its own files, every file once and nothing across groups; a row that
  * stands for one file keeps the tree's `file:<path>` key, a row that
  * holds others and a section's fold are keyed under their group; a
@@ -141,15 +141,15 @@ describe('commit-named-tree', () => {
 
   it('a row that stands for one file keeps the tree’s file key; a row that holds others is keyed under its group', () => {
     expect(keysOf()).toEqual([
-      'changes:requests:col00001',
-      '  changes:requests:req00003',
-      `    file:${MANIFEST}`,
-      `    file:${BODY}`,
-      `  file:${LISTED}`,
-      `file:${STAGING}`,
+      '  changes:requests:col00001',
+      '    changes:requests:req00003',
+      `      file:${MANIFEST}`,
+      `      file:${BODY}`,
+      `    file:${LISTED}`,
+      `  file:${STAGING}`,
       `file:${WORKSPACE_FILE}`,
-      'changes:dir:docs',
-      `  file:${README}`,
+      '  changes:dir:docs',
+      `    file:${README}`,
     ]);
     const [requests] = commitNamedSections('changes', changes(), new Set());
     expect(requests.key).toBe('changes:section:requests');
@@ -163,13 +163,13 @@ describe('commit-named-tree', () => {
   });
 
   it('a fold is the group’s own — the same row under another group stays as it was', () => {
-    expect(keysOf(['changes:requests:req00003'])).not.toContain(`    file:${BODY}`);
-    expect(keysOf(['unversioned:requests:col00001'])).toContain(`    file:${BODY}`);
+    expect(keysOf(['changes:requests:req00003'])).not.toContain(`      file:${BODY}`);
+    expect(keysOf(['unversioned:requests:col00001'])).toContain(`      file:${BODY}`);
     expect(keysOf(['changes:section:requests', 'changes:section:workspace'])).toEqual([
-      `file:${STAGING}`,
+      `  file:${STAGING}`,
       `file:${WORKSPACE_FILE}`,
-      'changes:dir:docs',
-      `  file:${README}`,
+      '  changes:dir:docs',
+      `    file:${README}`,
     ]);
     expect(commitNamedFoldKeys('changes', changes())).toEqual([
       'changes:section:requests',

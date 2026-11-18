@@ -8,7 +8,12 @@
  * holds others by its node's id. Sections fold but are no rows — but
  * for a page (the workspace's variables, the vault, the workspace, its
  * trusted certificates), one file its panel opens from a header-styled
- * row: that section is its row, and does not fold. Pure.
+ * row: that section is its row, and does not fold. A section's rows sit
+ * one step in under its header — here the header folds them, and in
+ * the Commit tree checks them, so it reads as their parent (the
+ * sidebar's own sections are titles over a tree, and keep theirs
+ * flush); a page's row is its own header and sits where headers do.
+ * Pure.
  */
 
 import {
@@ -133,7 +138,7 @@ export function visibleNamedSections(
         if (open) walk(held, depth + 1, node.id, entity);
       }
     };
-    if (expanded) walk(section.nodes, 0, null, undefined);
+    if (expanded) walk(section.nodes, isWorkspaceFilePage(section.id) ? 0 : 1, null, undefined);
     return { id: section.id, key, expanded, rows };
   });
 }

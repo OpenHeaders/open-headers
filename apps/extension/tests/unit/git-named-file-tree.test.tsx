@@ -91,20 +91,33 @@ const keysOf = (collapsed: string[] = [], groupByDirectory = true): string[] =>
 describe('named-file-tree', () => {
   it('a row that stands for one file is keyed by its path, a row that holds others by its id', () => {
     expect(keysOf()).toEqual([
-      'dir:requests:col00001',
-      '  dir:requests:req00003',
-      `    file:${MANIFEST}`,
-      `    file:${BODY}`,
-      `  file:${LISTED}`,
+      '  dir:requests:col00001',
+      '    dir:requests:req00003',
+      `      file:${MANIFEST}`,
+      `      file:${BODY}`,
+      `    file:${LISTED}`,
       `file:${VARS}`,
-      'dir:dir:notes',
-      `  file:${NOTES}`,
-      `file:${README}`,
+      '  dir:dir:notes',
+      `    file:${NOTES}`,
+      `  file:${README}`,
+    ]);
+  });
+
+  it('a section’s rows sit one step in under its header; a page’s row is its own header and sits where headers do', () => {
+    const depths = visibleNamedSections(namedSections(SECTIONS, true), new Set()).map((section) => [
+      section.id,
+      Math.min(...section.rows.map((row) => row.depth)),
+    ]);
+    expect(depths).toEqual([
+      ['requests', 1],
+      ['workspace-variables', 0],
+      ['files', 1],
     ]);
   });
 
   it('a folded row hides what it holds, a folded section its rows — the workspace’s variables never fold', () => {
-    expect(keysOf(['requests:req00003'])).not.toContain(`    file:${BODY}`);
+    expect(keysOf()).toContain(`      file:${BODY}`);
+    expect(keysOf(['requests:req00003'])).not.toContain(`      file:${BODY}`);
     expect(keysOf(['section:requests', 'section:workspace-variables', 'section:files'])).toEqual([`file:${VARS}`]);
     expect(namedFoldKeys(namedSections(SECTIONS, true))).toEqual([
       'section:requests',
@@ -116,7 +129,7 @@ describe('named-file-tree', () => {
   });
 
   it('without Group Files by Directory the user’s own files are one flat run, each by its full path', () => {
-    expect(keysOf([], false).slice(-2)).toEqual([`file:${NOTES}`, `file:${README}`]);
+    expect(keysOf([], false).slice(-2)).toEqual([`  file:${NOTES}`, `  file:${README}`]);
     const [files] = namedSections(SECTIONS, false).slice(-1);
     expect(files.nodes.map((node) => (node.type === 'file' ? node.name : ''))).toEqual([NOTES, README]);
   });
@@ -129,15 +142,15 @@ describe('named-file-tree', () => {
         section.rows.map((row) => `${'>'.repeat(row.depth)}${row.node.type === 'directory' ? row.node.path : row.key}`),
       ),
     ).toEqual([
-      'docs',
-      '>guides',
-      '>>auth',
-      '>>>docs/guides/auth/tokens.md',
-      '>>docs/guides/setup.md',
-      '>docs/README.md',
-      'scripts/ci',
-      '>scripts/ci/run.sh',
-      'top.md',
+      '>docs',
+      '>>guides',
+      '>>>auth',
+      '>>>>docs/guides/auth/tokens.md',
+      '>>>docs/guides/setup.md',
+      '>>docs/README.md',
+      '>scripts/ci',
+      '>>scripts/ci/run.sh',
+      '>top.md',
     ]);
     expect(namedFoldKeys(listed)).toEqual([
       'section:files',
