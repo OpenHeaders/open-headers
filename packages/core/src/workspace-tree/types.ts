@@ -30,6 +30,25 @@ export interface TreeFile {
 }
 
 /**
+ * Why a host listed a path and did not read it: a file over
+ * `TREE_FILE_MAX_BYTES`, a file that would not open or read, a
+ * directory that would not list.
+ */
+export type TreeUnreadCause = 'too-large' | 'unreadable' | 'unlisted';
+
+/**
+ * One path of a tree a host listed and did not read. It stands on disk
+ * — a reading concludes nothing of it, least of all that it is gone.
+ */
+export interface TreeUnread {
+  /** Workspace-relative with `/` separators; a directory for `unlisted`, the root as `''`. */
+  readonly path: string;
+  readonly cause: TreeUnreadCause;
+  /** The system's code where it gave one (`EACCES`, and on Windows `EPERM`, `EBUSY`). */
+  readonly code?: string;
+}
+
+/**
  * The persisted entity catalogue of one workspace — the input to
  * {@link planWorkspaceTree} and the output of {@link readWorkspaceTree}.
  * Mirrors the `wsKeys` persisted slots that have a YAML codec; runtime

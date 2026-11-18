@@ -13,6 +13,10 @@
  * Per-document parse failures never abort the read: the entity is
  * skipped and reported as a {@link TreeIssue} row — the seam the
  * quarantine flow (§13.3, Phase 4) will consume.
+ *
+ * A listing may come with the paths its host listed and did not read
+ * (`unread.ts`): each is a row, and a document is not read short of a
+ * file beside it.
  */
 
 import * as v from 'valibot';
@@ -72,7 +76,9 @@ import type {
   TreeShadowedContainers,
   TreeShadowedLeaves,
   TreeUnknownFields,
+  TreeUnread,
 } from './types';
+import { heldBackIssue, unreadPaths } from './unread';
 
 interface SiblingFile {
   fileName: string;
@@ -144,9 +150,10 @@ function noContainers(): TreeShadowedContainers {
   };
 }
 
-/** Read one workspace tree from its complete file listing. */
-export function readWorkspaceTree(files: readonly TreeFile[]): TreeReadResult {
-  const issues: TreeIssue[] = [];
+/** Read one workspace tree from its complete file listing, and the paths of it that were listed and not read. */
+export function readWorkspaceTree(files: readonly TreeFile[], unread: readonly TreeUnread[] = []): TreeReadResult {
+  const notRead = unreadPaths(unread);
+  const issues: TreeIssue[] = [...notRead.issues];
   const unknowns: TreeUnknownFields = {};
   const state: TreeReadResult['state'] = {
     workspace: null,
@@ -250,8 +257,8 @@ export function readWorkspaceTree(files: readonly TreeFile[]): TreeReadResult {
     aside: TreeShadowed<T>[],
   ): boolean => {
     const parent = dirOf(dirOf(manifestPath));
-    const container =
-      byPath.has(`${parent}/${COLLECTION_MANIFEST_FILE}`) || byPath.has(`${parent}/${FOLDER_MANIFEST_FILE}`);
+    const stands = (manifest: string): boolean => byPath.has(manifest) || notRead.stands(manifest);
+    const container = stands(`${parent}/${COLLECTION_MANIFEST_FILE}`) || stands(`${parent}/${FOLDER_MANIFEST_FILE}`);
     const ownTree = firstSegmentOf(manifestPath) === tree;
     const held = container && ownTree;
     if (!held) {
@@ -278,7 +285,10 @@ export function readWorkspaceTree(files: readonly TreeFile[]): TreeReadResult {
 
   const workspaceYaml = byPath.get(WORKSPACE_MANIFEST_FILE);
   if (workspaceYaml === undefined) {
-    issues.push({ path: WORKSPACE_MANIFEST_FILE, message: 'missing workspace.yaml — not a workspace tree' });
+    // One that stands and was not read has its own row, and is not missing.
+    if (!notRead.stands(WORKSPACE_MANIFEST_FILE) && !notRead.unlisted(WORKSPACE_MANIFEST_FILE)) {
+      issues.push({ path: WORKSPACE_MANIFEST_FILE, message: 'missing workspace.yaml — not a workspace tree' });
+    }
   } else {
     try {
       const parsed = parseWorkspace(workspaceYaml);
@@ -328,6 +338,14 @@ export function readWorkspaceTree(files: readonly TreeFile[]): TreeReadResult {
     const dir = dirOf(path);
     const base = baseOf(path);
     const tree = firstSegmentOf(path);
+
+    if (ENTITY_MANIFEST_FILES.has(base)) {
+      const beside = notRead.beside(dir);
+      if (beside !== undefined) {
+        issues.push(heldBackIssue(path, beside));
+        continue;
+      }
+    }
 
     switch (base) {
       case COLLECTION_MANIFEST_FILE: {
@@ -447,7 +465,12 @@ export function readWorkspaceTree(files: readonly TreeFile[]): TreeReadResult {
     if (!path.endsWith('.yaml') || path.endsWith(SECRET_FILE_SUFFIX) || path.endsWith(SECRET_TEMPLATE_FILE_SUFFIX)) {
       continue;
     }
-    const secret = byPath.get(`${path.slice(0, -'.yaml'.length)}${SECRET_FILE_SUFFIX}`);
+    const secretPath = `${path.slice(0, -'.yaml'.length)}${SECRET_FILE_SUFFIX}`;
+    if (notRead.stands(secretPath)) {
+      issues.push(heldBackIssue(path, baseOf(secretPath)));
+      continue;
+    }
+    const secret = byPath.get(secretPath);
     const value = ingest(path, () =>
       parseEnvironment({ default: content, ...(secret !== undefined ? { secret } : {}) }),
     );

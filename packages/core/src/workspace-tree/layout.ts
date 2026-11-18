@@ -31,6 +31,14 @@ export const ENVIRONMENTS_DIR = 'environments';
 /** Engine sidecar directory — gitignored, rebuildable (§23.9). */
 export const OH_SIDECAR_DIR = '.oh';
 
+/**
+ * The largest file of a tree that is read. A document's files are text
+ * people and the engine write; one over this is not read at any door —
+ * a commit's blob over it does not come through the git runner's buffer
+ * either, so a larger file taken in from disk could not be pulled back.
+ */
+export const TREE_FILE_MAX_BYTES = 16 * 1024 * 1024;
+
 export const GITIGNORE_FILE = '.gitignore';
 
 export const GITATTRIBUTES_FILE = '.gitattributes';

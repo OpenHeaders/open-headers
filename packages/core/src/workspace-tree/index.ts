@@ -61,6 +61,7 @@ export {
   SECRET_TEMPLATE_FILE_SUFFIX,
   SPEC_MANIFEST_FILE,
   TEMPLATE_MANIFEST_FILE,
+  TREE_FILE_MAX_BYTES,
   TRUSTED_ROOTS_DOC_KEY,
   TRUSTED_ROOTS_FILE,
   VAULT_DOC_KEY,
@@ -124,5 +125,8 @@ export type {
   TreeIssue,
   TreeReadResult,
   TreeUnknownFields,
+  TreeUnread,
+  TreeUnreadCause,
   WorkspaceTreeState,
 } from './types';
+export { treePathIsUnder } from './unread';
