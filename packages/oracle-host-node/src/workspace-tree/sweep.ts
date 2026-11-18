@@ -20,6 +20,11 @@
  *                               the baseline is written again by the
  *                               flush that follows.
  *
+ * "No disk file" is asked of the folder's names, not of what was read
+ * (`reader.ts`): a file that stands unread — too large, held by another
+ * program, denied, beneath a directory that would not list — is neither
+ * changed nor removed. It has its row, and nothing is concluded of it.
+ *
  * After synthesizing + applying the delta, the sweep RE-BASELINES the
  * ingested paths (baseline := current disk hash): the external input
  * is now "seen", so the next materialize pass may normalize the
@@ -63,7 +68,7 @@ import {
 import type { TreeWritesWatch } from '../git';
 import { TREE_HYGIENE_FILES } from './hygiene';
 import { treeIssueRows } from './issue-rows';
-import { listWorkspaceTreeFiles } from './reader';
+import { listWorkspaceTree, type TreeListing } from './reader';
 import {
   hashTreeContent,
   type MaterializedIndex,
@@ -72,6 +77,7 @@ import {
   writeMaterializedIndex,
   writeTreeUnknownFields,
 } from './sidecar';
+import { isBusy } from './tree-file';
 
 export interface SweepWorkspaceTreeOptions {
   rootDir: string;
@@ -105,12 +111,13 @@ export interface SweepWorkspaceTreeOptions {
   isDeleted?: DeletedEntityReader;
 }
 
-export type SweepWorkspaceTreeResult =
+/** What a reading concluded, before what it met of other programs is said with it. */
+type SweepReading =
   | {
       ok: true;
       /** Batches applied (0 = tree and engine already agreed). */
       applied: number;
-      /** Externally changed / removed file counts the classification saw. */
+      /** The tree's files found changed / removed against the baseline — a file of the user's own is in neither. */
       changed: number;
       removed: number;
       /** The reading's rows (`issue-rows.ts`): no issue at a file whose bytes are the baseline's. */
@@ -127,6 +134,16 @@ export type SweepWorkspaceTreeResult =
       held?: { files: number; reading: string };
     }
   | { ok: false; reason: 'unreadable-manifest' | 'identity-mismatch'; issues: TreeIssue[] };
+
+export type SweepWorkspaceTreeResult = SweepReading & {
+  /**
+   * Set, the files another program held as the tree was read (Windows'
+   * sharing violation). Each has its row and is left out of the
+   * reading; such a hold passes by itself, so the owner reads the tree
+   * again.
+   */
+  busy?: number;
+};
 
 const dirOf = (path: string): string => {
   const idx = path.lastIndexOf('/');
@@ -148,25 +165,38 @@ export async function sweepWorkspaceTree(options: SweepWorkspaceTreeOptions): Pr
 }
 
 async function sweepReading(options: SweepWorkspaceTreeOptions): Promise<SweepWorkspaceTreeResult> {
-  const { rootDir, snapshot } = options;
-
   // A tree read while git wrote it is not a tree at rest: a file may be
   // between git's removal and its write, or written part-way — and a
-  // part of a file can read as a whole one. Nothing of such a reading is
-  // concluded, unless a reading before it read the same.
+  // part of a file can read as a whole one. The watch opens before the
+  // first name is listed.
   const treeWrites = await options.watchTreeWrites?.();
-  const heldFor = async (files: number, read: unknown): Promise<SweepWorkspaceTreeResult | null> => {
-    if (files === 0 || (await treeWrites?.met()) !== true) return null;
+  const listing = await listWorkspaceTree(options.rootDir);
+  const result = await concludeReading(options, listing, treeWrites);
+  const busy = listing.unread.filter((entry) => isBusy(entry.code)).length;
+  return busy > 0 ? { ...result, busy } : result;
+}
+
+async function concludeReading(
+  options: SweepWorkspaceTreeOptions,
+  listing: TreeListing,
+  treeWrites: TreeWritesWatch | undefined,
+): Promise<SweepReading> {
+  const { rootDir, snapshot } = options;
+  const { files } = listing;
+
+  // Nothing of a reading git wrote under is concluded, unless a reading
+  // before it read the same.
+  const heldFor = async (count: number, read: unknown): Promise<SweepReading | null> => {
+    if (count === 0 || (await treeWrites?.met()) !== true) return null;
     const reading = hashTreeContent(JSON.stringify(read));
     if (reading === options.settledReading) return null;
-    return { ok: true, applied: 0, changed: 0, removed: 0, issues: [], kept: [], held: { files, reading } };
+    return { ok: true, applied: 0, changed: 0, removed: 0, issues: [], kept: [], held: { files: count, reading } };
   };
 
   // A folder or a leaf the workspace has no container for is a read
   // issue like a document that does not parse: reported, its file kept
   // and off the baseline.
-  const files = await listWorkspaceTreeFiles(rootDir);
-  const read = containTreeRead(readWorkspaceTree(files), snapshot);
+  const read = containTreeRead(readWorkspaceTree(files, listing.unread), snapshot);
   if (read.state.workspace === null) {
     const manifest = files.find((file) => file.path === WORKSPACE_MANIFEST_FILE);
     const held = await heldFor(1, ['manifest', manifest === undefined ? null : hashTreeContent(manifest.content)]);
@@ -174,8 +204,9 @@ async function sweepReading(options: SweepWorkspaceTreeOptions): Promise<SweepWo
     // A manifest that is gone has no tombstone to become: nothing
     // ingests its absence, and a baseline entry would have every flush
     // leave it absent. The entry is dropped, so the flush after this
-    // refusal authors the manifest again.
-    if (manifest === undefined) {
+    // refusal authors the manifest again. One that stands unread is not
+    // gone: its entry is kept, and no flush writes over it.
+    if (!listing.stands(WORKSPACE_MANIFEST_FILE)) {
       const { [WORKSPACE_MANIFEST_FILE]: listed, ...rest } = await readMaterializedIndex(rootDir);
       if (listed !== undefined) await writeMaterializedIndex(rootDir, rest);
     }
@@ -189,15 +220,17 @@ async function sweepReading(options: SweepWorkspaceTreeOptions): Promise<SweepWo
   const diskHashes = new Map<string, string>();
   for (const file of files) diskHashes.set(file.path, hashTreeContent(file.content));
 
-  // The hygiene files are kept by their own pass and never baselined
-  // (`hygiene.ts`) — they are not tree input in either direction.
   const changedPaths = new Set<string>();
   for (const [path, hash] of diskHashes) {
-    if (baseline[path] !== hash && !TREE_HYGIENE_FILES.has(path)) changedPaths.add(path);
+    if (baseline[path] !== hash) changedPaths.add(path);
   }
+  // Removed is a baseline path no file stands at. The hygiene files are
+  // kept by their own pass and never baselined (`hygiene.ts`) — an index
+  // written while the plan still held them lists them, and they are not
+  // tree input in either direction.
   const removedPaths = new Set<string>();
   for (const path of Object.keys(baseline)) {
-    if (!diskHashes.has(path) && !TREE_HYGIENE_FILES.has(path)) removedPaths.add(path);
+    if (!listing.stands(path) && !TREE_HYGIENE_FILES.has(path)) removedPaths.add(path);
   }
   const batches = synthesizeWorkspaceTreeDelta({
     prev: snapshot,
@@ -208,8 +241,8 @@ async function sweepReading(options: SweepWorkspaceTreeOptions): Promise<SweepWo
     isDeleted: options.isDeleted,
   });
   // Held only where the reading has something to conclude — a batch for
-  // the engine, a file gone. A file of the user's own differs from the
-  // baseline at every reading and concludes nothing.
+  // the engine, a file gone. A file of the user's own beside a manifest
+  // differs from the baseline at every reading and concludes nothing.
   const held =
     batches.length > 0 || removedPaths.size > 0
       ? await heldFor(changedPaths.size + removedPaths.size, [

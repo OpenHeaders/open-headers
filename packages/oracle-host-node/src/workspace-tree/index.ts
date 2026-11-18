@@ -33,7 +33,8 @@ export type {
   PullWorkspaceTreeResult,
 } from './pull';
 export { integrateForeignHead, pullWorkspaceTree, writeForeignQuarantine } from './pull';
-export { listWorkspaceTreeFiles, readWorkspaceTreeFromDisk } from './reader';
+export type { TreeListing } from './reader';
+export { listWorkspaceTree, readWorkspaceTreeFromDisk } from './reader';
 export { dispatchWorkspaceTreeRpc, ownsWorkspaceTreeRpc, parseCommitCadence } from './rpc-dispatch';
 export type {
   AdoptWorkspaceTreeRpcResult,

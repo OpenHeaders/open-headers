@@ -2,8 +2,10 @@
  * Materializer — the git-sync plan §3.1 rung 1 mechanics on a real (tmp)
  * filesystem: diff-writes (no-op passes touch nothing), index-scoped
  * deletions that never sweep hand-added files, empty-dir pruning, and
- * the disk round-trip through the tree reader. The second describe pins
- * what a pass leaves while git writes the tree; the last pins the
+ * the disk round-trip through the tree reader. One describe pins what a
+ * pass leaves where a file stands and will not open — denied, or held
+ * by another program, stood in for by the system's code at the open;
+ * another what it leaves while git writes the tree; the last pins the
  * hygiene files: authored when absent, a missing ignore entry appended,
  * the user's lines never rewritten, never baselined.
  */
@@ -13,7 +15,7 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 import type { Collection, Rule, Workspace } from '@openheaders/core/types';
 import { applyTreeOrder, type WorkspaceTreeState } from '@openheaders/core/workspace-tree';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { WorkspaceTreeMaterializer } from '../../src/workspace-tree/materializer';
 import { readWorkspaceTreeFromDisk } from '../../src/workspace-tree/reader';
 import { hashTreeContent, readMaterializedIndex, writeMaterializedIndex } from '../../src/workspace-tree/sidecar';
@@ -93,7 +95,93 @@ beforeEach(async () => {
 });
 
 afterEach(async () => {
+  vi.restoreAllMocks();
   await fs.rm(tmpDir, { recursive: true, force: true });
+});
+
+describe('WorkspaceTreeMaterializer — a file that stands unread', () => {
+  const RULE_FILE = 'rules/block-probes-aaaaaaaa/rule.yaml';
+  const ruleFile = (): string => path.join(tmpDir, ...RULE_FILE.split('/'));
+
+  /** `fs.open` answering the system's `code` for the rule's file — denied (`EPERM` on Windows), or held by another program (`EBUSY`). */
+  function refuseTheRuleFile(code: string) {
+    const open = fs.open.bind(fs);
+    return vi
+      .spyOn(fs, 'open')
+      .mockImplementation((...args: Parameters<typeof fs.open>) =>
+        String(args[0]) === ruleFile() ? Promise.reject(Object.assign(new Error(code), { code })) : open(...args),
+      );
+  }
+
+  it('a path the tree never held, where a file that will not open stands, is not written over', async () => {
+    state.rules = [makeRule('aaaaaaaa', 'Block probes')];
+    await fs.mkdir(path.dirname(ruleFile()), { recursive: true });
+    await fs.writeFile(ruleFile(), 'mine, not a rule\n', 'utf-8');
+    refuseTheRuleFile('EPERM');
+
+    const pass = await makeMaterializer().flush();
+    expect(pass.written).not.toContain(RULE_FILE);
+    expect(pass.held).toBeUndefined();
+    vi.restoreAllMocks();
+    expect(await fs.readFile(ruleFile(), 'utf-8')).toBe('mine, not a rule\n');
+    expect(Object.keys(await readMaterializedIndex(tmpDir))).not.toContain(RULE_FILE);
+  });
+
+  it('an edit to a file that will not open is left, its entry kept — and not held: nothing says a denial ends', async () => {
+    state.rules = [makeRule('aaaaaaaa', 'Block probes')];
+    const materializer = makeMaterializer();
+    await materializer.flush();
+    const entry = (await readMaterializedIndex(tmpDir))[RULE_FILE];
+    state.rules = [{ ...state.rules[0], name: 'Block all probes' }];
+    refuseTheRuleFile('EPERM');
+
+    const pass = await materializer.flush();
+    expect([pass.written, pass.held]).toEqual([[], undefined]);
+    expect((await readMaterializedIndex(tmpDir))[RULE_FILE]).toBe(entry);
+  });
+
+  it('an edit to a file another program holds is left and counted held, and written once it lets go', async () => {
+    state.rules = [makeRule('aaaaaaaa', 'Block probes')];
+    const held: number[] = [];
+    const materializer = new WorkspaceTreeMaterializer({
+      rootDir: tmpDir,
+      readSnapshot: async () => ({ state }),
+      onHeld: (count) => held.push(count),
+    });
+    await materializer.flush();
+    const entry = (await readMaterializedIndex(tmpDir))[RULE_FILE];
+    state.rules = [{ ...state.rules[0], name: 'Block all probes' }];
+    refuseTheRuleFile('EBUSY');
+
+    const pass = await materializer.flush();
+    expect([pass.written, pass.held, held]).toEqual([[], 1, [1]]);
+    expect((await readMaterializedIndex(tmpDir))[RULE_FILE]).toBe(entry);
+
+    vi.restoreAllMocks();
+    expect((await materializer.flush()).written).toEqual([RULE_FILE]);
+    expect(await fs.readFile(ruleFile(), 'utf-8')).toContain('name: Block all probes');
+  });
+
+  it('a file the plan no longer holds that will not open is not removed, its entry kept — held where another program holds it', async () => {
+    state.rules = [makeRule('aaaaaaaa', 'Block probes')];
+    const materializer = makeMaterializer();
+    await materializer.flush();
+    state.rules = [];
+
+    refuseTheRuleFile('EPERM');
+    const denied = await materializer.flush();
+    expect([denied.deleted, denied.held]).toEqual([[], undefined]);
+    expect(Object.keys(await readMaterializedIndex(tmpDir))).toContain(RULE_FILE);
+
+    vi.restoreAllMocks();
+    refuseTheRuleFile('EBUSY');
+    const busy = await materializer.flush();
+    expect([busy.deleted, busy.held]).toEqual([[], 1]);
+    expect(Object.keys(await readMaterializedIndex(tmpDir))).toContain(RULE_FILE);
+
+    vi.restoreAllMocks();
+    expect((await materializer.flush()).deleted).toEqual([RULE_FILE]);
+  });
 });
 
 describe('WorkspaceTreeMaterializer', () => {

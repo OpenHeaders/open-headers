@@ -9,7 +9,11 @@
  * nothing skipped — a leaf the engine holds where the reader reads
  * none: an old client's slot-less leaf at a tree's root, there until
  * the engine re-homes it; a leaf whose container's manifest left, there
- * until the flush writes that manifest again.
+ * until the flush writes that manifest again. The same holds a
+ * document skipped for a file beside it that was not read: its row
+ * shows once its manifest holds a hand edit, which is what is skipped.
+ * A file that was not read has no bytes to compare, and its row always
+ * shows.
  *
  * Every reading of the disk that feeds the card derives its rows here.
  */
@@ -20,7 +24,7 @@ import {
   type TreeIssue,
   type WorkspaceTreeState,
 } from '@openheaders/core/workspace-tree';
-import { listWorkspaceTreeFiles } from './reader';
+import { listWorkspaceTree } from './reader';
 import { hashTreeContent, type MaterializedIndex, readMaterializedIndex } from './sidecar';
 
 /** The issues of a contained read, less those at a file whose bytes on disk are the baseline's. */
@@ -37,8 +41,8 @@ export function treeIssueRows(
 
 /** The rows of the tree on disk as it stands, read against the engine's snapshot. */
 export async function readTreeIssueRows(rootDir: string, snapshot: WorkspaceTreeState): Promise<TreeIssue[]> {
-  const files = await listWorkspaceTreeFiles(rootDir);
-  const { issues } = containTreeRead(readWorkspaceTree(files), snapshot);
+  const { files, unread } = await listWorkspaceTree(rootDir);
+  const { issues } = containTreeRead(readWorkspaceTree(files, unread), snapshot);
   if (issues.length === 0) return issues;
   const refused = new Set(issues.map((issue) => issue.path));
   const diskHashes = new Map<string, string>();

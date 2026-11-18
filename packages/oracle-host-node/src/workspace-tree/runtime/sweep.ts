@@ -107,6 +107,13 @@ export async function runSweep(ctx: RuntimeCtx, binding: OpenBinding): Promise<S
     binding.issues = result.issues;
     logger.warn(SCOPE, `sweep refused for ${record.rootDir}: ${result.reason}`);
   }
+  // Files another program held have their rows and were left out of the
+  // reading. Nothing says when such a hold ends, so the tree is read
+  // again after the hold's wait.
+  if (result.busy !== undefined) {
+    logger.info(SCOPE, `sweep of ${record.rootDir} left out ${result.busy} file(s) another program holds`);
+    armHoldRetry(ctx, binding);
+  }
   return result;
 }
 

@@ -26,7 +26,7 @@ import {
   releaseWorkspaceService,
   snapshotRulePostStates,
 } from '@openheaders/oracle/sync/service';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { TREE_HELD_DETAIL } from '../../src/workspace-tree/materializer';
 import { TREE_SURFACE_ID } from '../../src/workspace-tree/runtime/core';
 import { applyAll, buildSnapshot } from '../../src/workspace-tree/runtime/snapshot';
@@ -177,7 +177,52 @@ beforeEach(async () => {
 });
 
 afterEach(async () => {
+  vi.restoreAllMocks();
   await harness.dispose();
+});
+
+describe('the workspace-tree runtime: a file another program holds', () => {
+  it('is left out of the reading with its row, and the tree is read again once the hold’s wait is over', {
+    timeout: 30_000,
+  }, async () => {
+    const atRest = await seedRuleByHand();
+    // A rule the engine does not hold yet: no flush owes its file, so only the sweep's own wait brings the pass back.
+    const added = `${COLLECTION_DIR}/allow-health-bbbbbbbb/rule.yaml`;
+    const addedFile = path.join(harness.rootDir, ...added.split('/'));
+    const engineHoldsTheAdded = (): boolean =>
+      snapshotRulePostStates(harness.workspaceId).some(({ rule }) => rule.uid === 'bbbbbbbb');
+
+    // The hold as the system says it — Windows' sharing violation — at the open of that one file.
+    const open = fs.open.bind(fs);
+    vi.spyOn(fs, 'open').mockImplementation((...args: Parameters<typeof fs.open>) =>
+      String(args[0]) === addedFile
+        ? Promise.reject(Object.assign(new Error('EBUSY'), { code: 'EBUSY' }))
+        : open(...args),
+    );
+    await fs.mkdir(path.dirname(addedFile), { recursive: true });
+    await fs.writeFile(
+      addedFile,
+      atRest.replace(RULE_UID, 'bbbbbbbb').replace('name: Block probes', 'name: Allow health'),
+      'utf-8',
+    );
+
+    await until(
+      'the sweep leaves the held file out',
+      () => harness.logged.some((line) => line.includes('another program holds')),
+      5_000,
+    );
+    expect(harness.runtime.issues(harness.workspaceId)).toEqual([
+      { path: added, message: 'cannot be read (EBUSY) — skipped' },
+    ]);
+    expect(engineHoldsTheAdded()).toBe(false);
+    expect(engineHoldsTheRule()).toBe(true);
+
+    // Nothing of the tree moves from here on: the hold's own wait alone brings the pass.
+    vi.restoreAllMocks();
+    await until('the tree read again takes the rule in', engineHoldsTheAdded, WITHIN_THE_HOLD_MS);
+    // A pass's rows are set when it returns, a moment after the engine has taken its batches.
+    await until('its row is gone', () => harness.runtime.issues(harness.workspaceId).length === 0, TREE_AT_REST_MS);
+  });
 });
 
 describe('the workspace-tree runtime while git writes the tree', () => {

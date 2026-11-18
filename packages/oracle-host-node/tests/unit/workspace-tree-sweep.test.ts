@@ -17,11 +17,11 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 import type { MutatorContext } from '@openheaders/core/sync';
 import type { EmissionBatch } from '@openheaders/core/sync-builders/mutations/workspace-import-emission';
-import type { Collection, Folder, Rule, Workspace } from '@openheaders/core/types';
-import { applyTreeOrder, type WorkspaceTreeState } from '@openheaders/core/workspace-tree';
+import type { Collection, Folder, Rule, Spec, Workspace } from '@openheaders/core/types';
+import { applyTreeOrder, TREE_FILE_MAX_BYTES, type WorkspaceTreeState } from '@openheaders/core/workspace-tree';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { readTreeIssueRows } from '../../src/workspace-tree/issue-rows';
 import { WorkspaceTreeMaterializer } from '../../src/workspace-tree/materializer';
-import { listWorkspaceTreeFiles } from '../../src/workspace-tree/reader';
 import { readMaterializedIndex } from '../../src/workspace-tree/sidecar';
 import { sweepWorkspaceTree } from '../../src/workspace-tree/sweep';
 
@@ -151,8 +151,25 @@ beforeEach(async () => {
 });
 
 afterEach(async () => {
+  vi.restoreAllMocks();
   await fs.rm(tmpDir, { recursive: true, force: true });
 });
+
+const posixOnly = it.runIf(process.platform !== 'win32');
+
+/**
+ * `fs.open` answering the system's `code` for the paths `refused` picks
+ * — a file another program holds (`EBUSY`), one denied (`EPERM` on
+ * Windows), one gone since it was listed. Every open is kept on the spy.
+ */
+function refuseOpen(code: string, refused: (filePath: string) => boolean) {
+  const open = fs.open.bind(fs);
+  return vi
+    .spyOn(fs, 'open')
+    .mockImplementation((...args: Parameters<typeof fs.open>) =>
+      refused(String(args[0])) ? Promise.reject(Object.assign(new Error(code), { code })) : open(...args),
+    );
+}
 
 const RULE_FILE = `${API.path}/block-probes-aaaaaaaa/rule.yaml`;
 const HAND_RULE_YAML =
@@ -401,9 +418,9 @@ describe('sweepWorkspaceTree', () => {
     expect(applied).toHaveLength(1);
   });
 
-  it('a file of the user’s own alone concludes nothing and holds nothing while git writes the tree', async () => {
+  it('a file of the user’s own beside a manifest alone concludes nothing and holds nothing while git writes the tree', async () => {
     await makeMaterializer().flush();
-    await fs.writeFile(path.join(tmpDir, 'README.md'), '# mine\n', 'utf-8');
+    await writeByHand(`${API.path}/notes.md`, '# mine\n');
 
     const applied: EmissionBatch[] = [];
     const result = await runSweep(applied, true);
@@ -470,24 +487,14 @@ describe('sweepWorkspaceTree', () => {
     expect(await runSweep(applied, false)).toMatchObject({ ok: false, reason: 'unreadable-manifest' });
   });
 
-  it('a listed file gone at its read is not of the tree', async () => {
+  it('a listed file gone at its read is gone: at rest, a tombstone', async () => {
     state.rules = [makeRule('aaaaaaaa', 'Block probes')];
     await makeMaterializer().flush();
-    const readFile = fs.readFile.bind(fs);
-    const spy = vi
-      .spyOn(fs, 'readFile')
-      .mockImplementation((...args: Parameters<typeof fs.readFile>) =>
-        String(args[0]).endsWith('rule.yaml')
-          ? Promise.reject(Object.assign(new Error('gone'), { code: 'ENOENT' }))
-          : readFile(...args),
-      );
-    try {
-      const files = await listWorkspaceTreeFiles(tmpDir);
-      expect(files.map((file) => file.path)).not.toContain(RULE_FILE);
-      expect(files.map((file) => file.path)).toContain('workspace.yaml');
-    } finally {
-      spy.mockRestore();
-    }
+    refuseOpen('ENOENT', (filePath) => filePath.endsWith('rule.yaml'));
+
+    const applied: EmissionBatch[] = [];
+    expect(await runSweep(applied)).toMatchObject({ ok: true, removed: 1, issues: [] });
+    expect(applied.map((entry) => entry.label)).toEqual(['rule:aaaaaaaa (delete)']);
   });
 
   it('a hand-added entity file seeds through the pipeline', async () => {
@@ -919,5 +926,203 @@ describe('sweepWorkspaceTree — the hygiene files', () => {
     expect(result.written).toEqual([]);
     expect(await fs.readFile(path.join(tmpDir, '.gitignore'), 'utf-8')).toBe(ignore);
     expect(await fs.readFile(path.join(tmpDir, '.gitattributes'), 'utf-8')).toBe(attributes);
+  });
+});
+
+describe('sweepWorkspaceTree — what a reading reads, and what stands unread', () => {
+  const OTHER_RULE_FILE = `${API.path}/allow-health-bbbbbbbb/rule.yaml`;
+  const at = (relative: string): string => path.join(tmpDir, ...relative.split('/'));
+  const relativeOf = (filePath: string): string => path.relative(tmpDir, filePath).split(path.sep).join('/');
+
+  function makeSpec(): Spec {
+    return {
+      schemaVersion: 5,
+      uid: 'ssssssss',
+      path: 'specs/pets-ssssssss',
+      name: 'Pets',
+      format: 'openapi-3.1',
+      rootFileUid: 'ffffffff',
+      files: [{ uid: 'ffffffff', fileName: 'index.yaml', content: 'openapi: 3.1.0\ninfo:\n  title: Pets\n' }],
+    };
+  }
+
+  async function renameByHand(relative: string, from: string, to: string): Promise<void> {
+    const yaml = await fs.readFile(at(relative), 'utf-8');
+    await fs.writeFile(at(relative), yaml.replace(`name: ${from}`, `name: ${to}`), 'utf-8');
+  }
+
+  /** The names the batches write, as `uid: name`. */
+  const namesWritten = (applied: readonly EmissionBatch[]): string[] =>
+    applied.flatMap((entry) =>
+      entry.batch.mutations.flatMap(({ body }) =>
+        body.kind === 'setField' && body.path === 'name' ? [`${body.id}: ${String(body.value)}`] : [],
+      ),
+    );
+
+  it('a file of the user’s own is never opened and never counted — one beside a manifest is read and counted', async () => {
+    state.rules = [makeRule('aaaaaaaa', 'Block probes')];
+    await makeMaterializer().flush();
+    await writeByHand('README.md', '# mine\n');
+    await writeByHand('assets/clips/demo.bin', 'bytes');
+    const opened = refuseOpen('EIO', () => false);
+
+    expect(await runSweep([])).toMatchObject({ ok: true, applied: 0, changed: 0, removed: 0, issues: [] });
+    const openedPaths = opened.mock.calls.map(([filePath]) => relativeOf(String(filePath)));
+    expect(openedPaths.filter((filePath) => ['README.md', 'assets/clips/demo.bin'].includes(filePath))).toEqual([]);
+
+    await writeByHand(`${API.path}/notes.md`, 'why\n');
+    expect(await runSweep([])).toMatchObject({ ok: true, applied: 0, changed: 1, removed: 0, issues: [] });
+  });
+
+  it('a sibling left after its manifest is removed by hand is not removed with it: on the baseline, and the flush’s to take', async () => {
+    state.specs = [makeSpec()];
+    const materializer = makeMaterializer();
+    await materializer.flush();
+    await fs.rm(at('specs/pets-ssssssss/spec.yaml'));
+
+    const applied: EmissionBatch[] = [];
+    expect(await runSweep(applied)).toMatchObject({ ok: true, changed: 0, removed: 1 });
+    expect(applied.map((entry) => entry.label)).toEqual(['spec:ssssssss (delete)']);
+    expect(Object.keys(await readMaterializedIndex(tmpDir))).toContain('specs/pets-ssssssss/index.yaml');
+
+    state.specs = [];
+    expect((await materializer.flush()).deleted).toEqual(['specs/pets-ssssssss/index.yaml']);
+    await expect(fs.access(at('specs/pets-ssssssss'))).rejects.toThrow();
+  });
+
+  posixOnly('a directory that will not list is no deletion: a row, nothing beneath it concluded', async () => {
+    state.rules = [makeRule('aaaaaaaa', 'Block probes')];
+    await makeMaterializer().flush();
+    await fs.chmod(at(API.path), 0o000);
+    try {
+      const applied: EmissionBatch[] = [];
+      expect(await runSweep(applied)).toMatchObject({
+        ok: true,
+        changed: 0,
+        removed: 0,
+        issues: [{ path: `${API.path}/`, message: 'cannot be listed (EACCES) — skipped' }],
+      });
+      expect(applied).toEqual([]);
+      expect(Object.keys(await readMaterializedIndex(tmpDir))).toContain(RULE_FILE);
+    } finally {
+      await fs.chmod(at(API.path), 0o755);
+    }
+  });
+
+  it('a file that will not open is a row, no deletion, and the rest of the tree is taken in', async () => {
+    state.rules = [makeRule('aaaaaaaa', 'Block probes'), makeRule('bbbbbbbb', 'Allow health')];
+    await makeMaterializer().flush();
+    await renameByHand(RULE_FILE, 'Block probes', 'Block probes (vim)');
+    await renameByHand(OTHER_RULE_FILE, 'Allow health', 'Allow health (vim)');
+    refuseOpen('EPERM', (filePath) => relativeOf(filePath) === RULE_FILE);
+
+    const applied: EmissionBatch[] = [];
+    const result = await runSweep(applied);
+    expect(result).toMatchObject({
+      ok: true,
+      changed: 1,
+      removed: 0,
+      issues: [{ path: RULE_FILE, message: 'cannot be read (EPERM) — skipped' }],
+    });
+    expect(result.busy).toBeUndefined();
+    expect(namesWritten(applied)).toEqual(['bbbbbbbb: Allow health (vim)']);
+
+    // Its entry stands as the engine wrote it: once it opens, the hand edit is taken in.
+    vi.restoreAllMocks();
+    const retaken: EmissionBatch[] = [];
+    expect(await runSweep(retaken)).toMatchObject({ ok: true, changed: 1, issues: [] });
+    expect(namesWritten(retaken)).toEqual(['aaaaaaaa: Block probes (vim)']);
+  });
+
+  it('a file another program holds is left out with its row, and the reading says how many', async () => {
+    state.rules = [makeRule('aaaaaaaa', 'Block probes')];
+    await makeMaterializer().flush();
+    expect((await runSweep([])).busy).toBeUndefined();
+
+    refuseOpen('EBUSY', (filePath) => relativeOf(filePath) === RULE_FILE);
+    const applied: EmissionBatch[] = [];
+    expect(await runSweep(applied)).toMatchObject({
+      ok: true,
+      removed: 0,
+      busy: 1,
+      issues: [{ path: RULE_FILE, message: 'cannot be read (EBUSY) — skipped' }],
+    });
+    expect(applied).toEqual([]);
+  });
+
+  posixOnly('a file whose mode lets nobody read it is a row, and the sweep goes on', async () => {
+    state.rules = [makeRule('aaaaaaaa', 'Block probes')];
+    await makeMaterializer().flush();
+    await fs.chmod(at(RULE_FILE), 0o000);
+
+    const applied: EmissionBatch[] = [];
+    expect(await runSweep(applied)).toMatchObject({
+      ok: true,
+      removed: 0,
+      issues: [{ path: RULE_FILE, message: 'cannot be read (EACCES) — skipped' }],
+    });
+    expect(applied).toEqual([]);
+  });
+
+  it('a file over the limit is a row and no deletion; the document beside it is skipped, its row showing once it holds a hand edit', async () => {
+    state.rules = [makeRule('aaaaaaaa', 'Block probes')];
+    const materializer = makeMaterializer();
+    await materializer.flush();
+    const capture = `${API.path}/block-probes-aaaaaaaa/capture.bin`;
+    await writeByHand(capture, '');
+    await fs.truncate(at(capture), TREE_FILE_MAX_BYTES + 1);
+
+    // The rule's own file is the engine's write still: nothing of it is skipped.
+    const atRest: EmissionBatch[] = [];
+    expect(await runSweep(atRest)).toMatchObject({
+      ok: true,
+      changed: 0,
+      removed: 0,
+      issues: [{ path: capture, message: 'larger than 16 MB — skipped' }],
+    });
+    expect(atRest).toEqual([]);
+
+    await renameByHand(RULE_FILE, 'Block probes', 'Block probes (vim)');
+    const edited: EmissionBatch[] = [];
+    const result = await runSweep(edited);
+    expect(result.ok && result.issues).toEqual([
+      { path: capture, message: 'larger than 16 MB — skipped' },
+      { path: RULE_FILE, message: '"capture.bin" was not read — skipped' },
+    ]);
+    expect(edited).toEqual([]);
+    // The hand edit is not adopted and not written over: it is taken in once the file beside it is gone.
+    expect((await materializer.flush()).written).toEqual([]);
+    await fs.rm(at(capture));
+    const taken: EmissionBatch[] = [];
+    expect(await runSweep(taken)).toMatchObject({ ok: true, issues: [] });
+    expect(namesWritten(taken)).toEqual(['aaaaaaaa: Block probes (vim)']);
+  });
+
+  it('the rows read after an integration tell of a file that stands unread too', async () => {
+    state.rules = [makeRule('aaaaaaaa', 'Block probes')];
+    await makeMaterializer().flush();
+    expect(await readTreeIssueRows(tmpDir, state)).toEqual([]);
+
+    refuseOpen('EPERM', (filePath) => relativeOf(filePath) === RULE_FILE);
+    expect(await readTreeIssueRows(tmpDir, state)).toEqual([
+      { path: RULE_FILE, message: 'cannot be read (EPERM) — skipped' },
+    ]);
+  });
+
+  it('a workspace.yaml that stands unread refuses the sweep and keeps its entry: no flush writes over it', async () => {
+    const materializer = makeMaterializer();
+    await materializer.flush();
+    const manifest = await fs.readFile(at('workspace.yaml'), 'utf-8');
+    refuseOpen('EPERM', (filePath) => relativeOf(filePath) === 'workspace.yaml');
+
+    expect(await runSweep([])).toEqual({
+      ok: false,
+      reason: 'unreadable-manifest',
+      issues: [{ path: 'workspace.yaml', message: 'cannot be read (EPERM) — skipped' }],
+    });
+    expect(Object.keys(await readMaterializedIndex(tmpDir))).toContain('workspace.yaml');
+    expect((await materializer.flush()).written).toEqual([]);
+    vi.restoreAllMocks();
+    expect(await fs.readFile(at('workspace.yaml'), 'utf-8')).toBe(manifest);
   });
 });

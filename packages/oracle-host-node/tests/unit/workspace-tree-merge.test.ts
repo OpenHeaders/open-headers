@@ -21,7 +21,7 @@ import type { ApplyCommitResolution } from '../../src/workspace-tree/change-answ
 import { WorkspaceTreeMaterializer } from '../../src/workspace-tree/materializer';
 import { type MergeWorkspaceBranchResult, mergeWorkspaceBranch } from '../../src/workspace-tree/merge';
 import type { LocalWorkDeps } from '../../src/workspace-tree/pass-writes';
-import { listWorkspaceTreeFiles } from '../../src/workspace-tree/reader';
+import { listWorkspaceTree } from '../../src/workspace-tree/reader';
 import { hashTreeContent, type MaterializedIndex, writeMaterializedIndex } from '../../src/workspace-tree/sidecar';
 
 const ORG_ID = '019637a2-7b9a-7b9a-8b9a-1234567890ab';
@@ -194,7 +194,7 @@ function doMerge(
  */
 async function rebaseline(dir: string): Promise<void> {
   const index: MaterializedIndex = {};
-  for (const file of await listWorkspaceTreeFiles(dir)) {
+  for (const file of (await listWorkspaceTree(dir)).files) {
     index[file.path] = hashTreeContent(file.content);
   }
   await writeMaterializedIndex(dir, index);

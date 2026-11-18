@@ -25,6 +25,11 @@
  *     under its look fails its command. Such a file stands as it was (or
  *     stays unwritten), its entry kept, and the owner takes the pass
  *     again;
+ *   - a file that stands and would not be read (`tree-file.ts`) is not
+ *     known to be the engine's write: it is neither written over nor
+ *     removed, its entry kept. One another program holds for now
+ *     (Windows' sharing violation) is counted held like a file under
+ *     git's writing, and the owner takes the pass again;
  *   - runs are chained — a materialize never interleaves with another
  *     (§8 single actor per tree).
  */
@@ -36,6 +41,7 @@ import { planWorkspaceTree, type TreeUnknownFields, type WorkspaceTreeState } fr
 import { INDEX_BUSY_WAITS_MS, type TreeWritesWatch } from '../git';
 import { ensureTreeHygiene, TREE_HYGIENE_FILES } from './hygiene';
 import { hashTreeContent, type MaterializedIndex, readMaterializedIndex, writeMaterializedIndex } from './sidecar';
+import { isBusy, readWrittenFile } from './tree-file';
 
 export interface MaterializeSnapshot {
   state: WorkspaceTreeState;
@@ -48,8 +54,9 @@ export interface MaterializeResult {
   unchanged: number;
   /**
    * Files the pass would have written or removed while git wrote the
-   * tree. Set, they stand as they were with their entries kept — one
-   * the tree never held stays unwritten, with no entry.
+   * tree, and files another program held as the pass came to them. Set,
+   * they stand as they were with their entries kept — one the tree
+   * never held stays unwritten, with no entry.
    */
   held?: number;
 }
@@ -168,10 +175,16 @@ export class WorkspaceTreeMaterializer {
 
     for (const file of files) {
       const target = path.join(this.rootDir, ...file.path.split('/'));
-      const existing = await readFileOrNull(target);
-      if (existing === file.content) {
+      const existing = await readWrittenFile(target);
+      if (existing.kind === 'text' && existing.content === file.content) {
         planned[file.path] = hashTreeContent(file.content);
         unchanged += 1;
+        continue;
+      }
+      const baseline = previous[file.path];
+      if (existing.kind === 'unread') {
+        if (baseline !== undefined) planned[file.path] = baseline;
+        if (isBusy(existing.code)) held += 1;
         continue;
       }
       // Rung-2 guard: bytes that moved off the baseline (or a file the
@@ -182,9 +195,10 @@ export class WorkspaceTreeMaterializer {
       // baseline lists and the disk no longer holds is the same input —
       // a hand delete, or git between removing a file and writing it
       // anew, where a write here would land over git's.
-      const baseline = previous[file.path];
       const pendingExternal =
-        existing === null ? baseline !== undefined : baseline === undefined || hashTreeContent(existing) !== baseline;
+        existing.kind === 'absent'
+          ? baseline !== undefined
+          : baseline === undefined || hashTreeContent(existing.content) !== baseline;
       if (pendingExternal) {
         if (baseline !== undefined) planned[file.path] = baseline;
         continue;
@@ -224,8 +238,13 @@ export class WorkspaceTreeMaterializer {
       // this materializer wrote. A file that changed since is external
       // input — drop it from the baseline (it is no longer ours) and
       // let the sweep decide what it means.
-      const existing = await readFileOrNull(target);
-      if (existing !== null && hashTreeContent(existing) !== previous[stale]) continue;
+      const existing = await readWrittenFile(target);
+      if (existing.kind === 'text' && hashTreeContent(existing.content) !== previous[stale]) continue;
+      if (existing.kind === 'unread') {
+        planned[stale] = previous[stale];
+        if (isBusy(existing.code)) held += 1;
+        continue;
+      }
       // The same file git may be replacing: a removal here would take
       // the one git has just written.
       if (await gitWrites()) {
@@ -256,13 +275,5 @@ export class WorkspaceTreeMaterializer {
       }
       current = path.dirname(current);
     }
-  }
-}
-
-async function readFileOrNull(filePath: string): Promise<string | null> {
-  try {
-    return await fs.readFile(filePath, 'utf-8');
-  } catch {
-    return null;
   }
 }
