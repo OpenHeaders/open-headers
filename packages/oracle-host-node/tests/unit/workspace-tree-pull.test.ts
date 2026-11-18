@@ -41,6 +41,7 @@ import type { ApplyCommitResolution, ApplyCommitResolve } from '../../src/worksp
 import { TREE_HELD_DETAIL, WorkspaceTreeMaterializer } from '../../src/workspace-tree/materializer';
 import type { LocalWorkDeps } from '../../src/workspace-tree/pass-writes';
 import { type PullWorkspaceTreeResult, pullWorkspaceTree } from '../../src/workspace-tree/pull';
+import { readQuarantineIndex } from '../../src/workspace-tree/sidecar';
 import { countedObjects, objects } from './_log-history-repo';
 
 const ORG_ID = '019637a2-7b9a-7b9a-8b9a-1234567890ab';
@@ -447,6 +448,93 @@ describe('pullWorkspaceTree', () => {
     await expect(fs.readFile(path.join(local, ...RULE_FILE.split('/')), 'utf-8')).resolves.toContain(
       'name: Block probes (fixed)',
     );
+  });
+
+  describe('a link the foreign side left where a quarantined document lands', () => {
+    const BROKEN = 'schemaVersion: 5\nuid: [broken\n';
+    const OWNERS = 'as its owner left it\n';
+    const PEERS = 'the peer’s bytes\n';
+    let outside: string;
+    const victim = (): Promise<string> => fs.readFile(path.join(outside, 'victim.txt'), 'utf-8');
+    const kindOf = async (rel: string): Promise<'link' | 'file' | 'directory' | 'nothing'> => {
+      const entry = await fs.lstat(path.join(local, ...rel.split('/'))).catch(() => null);
+      if (entry === null) return 'nothing';
+      return entry.isSymbolicLink() ? 'link' : entry.isDirectory() ? 'directory' : 'file';
+    };
+
+    beforeEach(async () => {
+      outside = path.join(tmpDir, 'outside');
+      await fs.mkdir(outside);
+      await fs.writeFile(path.join(outside, 'victim.txt'), OWNERS, 'utf-8');
+    });
+
+    it('at the file: nothing is written outside the folder — the foreign file takes the link’s place, recorded', async () => {
+      await fs.mkdir(path.join(peer, 'notes'));
+      await fs.symlink(path.join(outside, 'victim.txt'), path.join(peer, 'notes', 'evil'));
+      await peerCommitPush('Notes');
+      expect(await doPull([])).toMatchObject({ ok: true, upToDate: false });
+      expect(await kindOf('notes/evil')).toBe('link');
+
+      await fs.rm(path.join(peer, 'notes', 'evil'));
+      await peerEdit('notes/evil', () => PEERS);
+      await peerEdit('notes/rule.yaml', () => BROKEN);
+      await peerCommitPush('A rule beside it');
+      expect(await doPull([])).toMatchObject({ ok: true, upToDate: false });
+
+      expect(await victim()).toBe(OWNERS);
+      expect(await kindOf('notes/evil')).toBe('file');
+      expect(await fs.readFile(path.join(local, 'notes', 'evil'), 'utf-8')).toBe(PEERS);
+      expect(Object.keys(await readQuarantineIndex(local)).sort()).toEqual(['notes/evil', 'notes/rule.yaml']);
+      expect(await countDirtyFiles(run, local)).toBe(0);
+    });
+
+    it('at its directory: nothing is written outside the folder — a directory takes the link’s place', async () => {
+      await fs.symlink(outside, path.join(peer, 'notes'));
+      await peerCommitPush('Notes');
+      expect(await doPull([])).toMatchObject({ ok: true, upToDate: false });
+      expect(await kindOf('notes')).toBe('link');
+
+      await fs.rm(path.join(peer, 'notes'));
+      await peerEdit('notes/victim.txt', () => PEERS);
+      await peerEdit('notes/rule.yaml', () => BROKEN);
+      await peerCommitPush('A rule in it');
+      expect(await doPull([])).toMatchObject({ ok: true, upToDate: false });
+
+      expect(await victim()).toBe(OWNERS);
+      expect(await fs.readdir(outside)).toEqual(['victim.txt']);
+      expect(await kindOf('notes')).toBe('directory');
+      expect(await fs.readFile(path.join(local, 'notes', 'victim.txt'), 'utf-8')).toBe(PEERS);
+      expect(await countDirtyFiles(run, local)).toBe(0);
+    });
+
+    it('a link the foreign commit itself holds at such a path lands as a link — not read through, not recorded', async () => {
+      await fs.mkdir(path.join(peer, 'notes'));
+      await fs.symlink(path.join(outside, 'victim.txt'), path.join(peer, 'notes', 'evil'));
+      await peerEdit('notes/rule.yaml', () => BROKEN);
+      await peerCommitPush('A link beside a rule');
+      expect(await doPull([])).toMatchObject({ ok: true, upToDate: false });
+
+      expect(await kindOf('notes/evil')).toBe('link');
+      expect(await victim()).toBe(OWNERS);
+      expect(Object.keys(await readQuarantineIndex(local))).toEqual(['notes/rule.yaml']);
+    });
+  });
+
+  it('a file of the user’s own beside a quarantined root document is not the quarantine’s to land: the local file stands', async () => {
+    // Not text, so both sides' change of it is not a file to answer: the own-files rule keeps the local one.
+    await peerEdit('logo.bin', () => 'base\0');
+    await peerCommitPush('A logo');
+    expect(await doPull([])).toMatchObject({ ok: true, upToDate: false });
+
+    await fs.writeFile(path.join(local, 'logo.bin'), 'mine\0', 'utf-8');
+    await peerEdit('logo.bin', () => 'theirs\0');
+    await peerEdit('workspace-vars.yaml', () => '[broken\n');
+    await peerCommitPush('The logo, and a root document that does not read');
+    const result = await doPull([]);
+
+    expect(result).toMatchObject({ ok: true, upToDate: false, keptLocal: ['logo.bin'] });
+    expect(await fs.readFile(path.join(local, 'logo.bin'), 'utf-8')).toBe('mine\0');
+    expect(await fs.readFile(path.join(local, 'workspace-vars.yaml'), 'utf-8')).toBe('[broken\n');
   });
 
   describe('a foreign document file too large to read', () => {

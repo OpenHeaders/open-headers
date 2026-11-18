@@ -33,9 +33,11 @@
  *      foreign bytes land in the working tree off-baseline (so the
  *      materializer's rung-2 guard protects them and the next sweep
  *      keeps reporting them), the engine keeps its own value, and the
- *      issue rows surface through the card's quarantine list. A foreign
- *      document file too large to read is the same, its document with
- *      it: the file lands by git's own checkout, never through a read;
+ *      issue rows surface through the card's quarantine list. The bytes
+ *      land by git's own checkout, never by a write of ours — a link the
+ *      foreign side left at such a path carries nothing out of the
+ *      folder. A foreign document file too large to read is the same,
+ *      its document with it;
  *   6. materialize the converged tree, carry the foreign side's changes
  *      to the user's own files onto disk (`own-files.ts` — the files
  *      no entity stands behind), then record the pull:
@@ -96,6 +98,7 @@ import {
 import {
   type CommitTree,
   checkoutPathsFromCommit,
+  commitTreePaths,
   commitWorkspaceTree,
   diffForeignPaths,
   type ForeignTreeDiff,
@@ -239,14 +242,21 @@ const dirOf = (filePath: string): string => {
  * gates a delete), but its foreign bytes still land in the working
  * tree OFF-baseline — the materializer's rung-2 guard leaves them
  * alone and every sweep keeps reporting the issue until the user
- * fixes or reverts. Each write is recorded in the sidecar quarantine
- * index so a later pass can tell this machine write from a genuine
- * hand edit. Shared by the pull pass and the §16 resolutions.
+ * fixes or reverts. Each landed file is recorded in the sidecar
+ * quarantine index so a later pass can tell this machine write from a
+ * genuine hand edit. Shared by the pull pass and the §16 resolutions.
  *
- * A file of such a document the commit's read left unread (too large)
- * has no bytes here to write: git checks it out of the foreign commit,
- * and it is recorded as it then stands. Left at its local bytes, the
- * pass's commit would record those over the foreign file.
+ * The files land by git's own checkout out of the foreign commit, never
+ * by a write of ours: what stands at such a path is whatever an earlier
+ * commit of the foreign side put there, and a link there — or at a
+ * directory above it — would carry a write of ours out of the bound
+ * folder, to a file of the foreign side's choosing. Git replaces what
+ * is in the way and writes through nothing. A file the commit's read
+ * left unread (too large) lands the same way; left at its local bytes,
+ * the pass's commit would record those over the foreign file.
+ *
+ * Each file is recorded as it then stands. What the commit holds a link
+ * at is a link in the folder, not read and not recorded.
  */
 export async function writeForeignQuarantine(
   run: GitRunner,
@@ -256,35 +266,22 @@ export async function writeForeignQuarantine(
   changedPaths: ReadonlySet<string>,
 ): Promise<{ ok: true } | { ok: false; detail: string }> {
   const issueDirs = new Set(issues.map((issue) => dirOf(issue.path)));
-  const byPath = new Map(foreign.tree.files.map((file) => [file.path, file.content] as const));
-  const unread = new Set(foreign.tree.unread.map((file) => file.path));
-  const quarantined = [...changedPaths].filter((filePath) => issueDirs.has(dirOf(filePath)));
-  const landed = await checkoutPathsFromCommit(
-    run,
-    rootDir,
-    foreign.ref,
-    quarantined.filter((filePath) => unread.has(filePath)),
-  );
+  // The documents' files alone: a file of the user's own in such a directory is the own-files rule's to carry.
+  const documents = commitTreePaths(foreign.tree);
+  const quarantined = [...changedPaths].filter((filePath) => issueDirs.has(dirOf(filePath)) && documents.has(filePath));
+  const landed = await checkoutPathsFromCommit(run, rootDir, foreign.ref, quarantined);
   if (!landed.ok) return landed;
 
   const recorded = await readQuarantineIndex(rootDir);
   let recordChanged = false;
-  const record = (filePath: string, content: string): void => {
-    recorded[filePath] = hashTreeContent(content);
-    recordChanged = true;
-  };
   for (const filePath of quarantined) {
     const target = path.join(rootDir, ...filePath.split('/'));
-    if (unread.has(filePath)) {
-      const file = await readWrittenFile(target);
-      if (file.kind === 'text') record(filePath, file.content);
-      continue;
-    }
-    const content = byPath.get(filePath);
-    if (content === undefined) continue;
-    await fs.mkdir(path.dirname(target), { recursive: true });
-    await fs.writeFile(target, content, 'utf-8');
-    record(filePath, content);
+    const entry = await fs.lstat(target).catch(() => null);
+    if (entry?.isFile() !== true) continue;
+    const file = await readWrittenFile(target);
+    if (file.kind !== 'text') continue;
+    recorded[filePath] = hashTreeContent(file.content);
+    recordChanged = true;
   }
   if (recordChanged) await writeQuarantineIndex(rootDir, recorded);
   return { ok: true };
