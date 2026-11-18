@@ -8,6 +8,7 @@
 import type { WorkspaceTreeWorkingChangeWire } from '@openheaders/core/bridge';
 import {
   aggregateChecked,
+  changeCounterParts,
   checkedOnly,
   checkedPaths,
   commitAuthorOf,
@@ -120,6 +121,30 @@ describe('aggregateChecked', () => {
       ),
     ).toBe('some');
     expect(aggregateChecked(ROWS, EMPTY_CHECKED_STATE, [])).toBe('none');
+  });
+});
+
+describe('changeCounterParts', () => {
+  const counter = (parts: Partial<ReturnType<typeof countChanges>>) =>
+    changeCounterParts({ modified: 0, added: 0, deleted: 0, unversioned: 0, ...parts });
+
+  it('lists added, modified, deleted — each as words read it and as a mark — and leaves out a kind with nothing', () => {
+    expect(counter({ modified: 2, added: 1, deleted: 2 })).toEqual([
+      { kind: 'added', count: '1', mark: '+1' },
+      { kind: 'modified', count: '2', mark: '*2' },
+      { kind: 'deleted', count: '2', mark: '-2' },
+    ]);
+    expect(counter({ modified: 3 })).toEqual([{ kind: 'modified', count: '3', mark: '*3' }]);
+    expect(counter({})).toEqual([]);
+  });
+
+  it('an unversioned file the commit takes joins the added part after a plus; alone it is that part’s number', () => {
+    expect(counter({ added: 1, unversioned: 2, modified: 2, deleted: 2 })[0]).toEqual({
+      kind: 'added',
+      count: '1+2',
+      mark: '+1+2',
+    });
+    expect(counter({ unversioned: 3 })).toEqual([{ kind: 'added', count: '3', mark: '+3' }]);
   });
 });
 

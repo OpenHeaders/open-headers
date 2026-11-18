@@ -890,7 +890,6 @@ export const workbenchChrome = {
   'workbench.commitTool.counter.modified': '{count} 件の変更',
   'workbench.commitTool.counter.added': '{count} 件の追加',
   'workbench.commitTool.counter.deleted': '{count} 件の削除',
-  'workbench.commitTool.counter.unversioned': '{count} 件のバージョン管理外',
   'workbench.commitTool.nothingToCommit': '選択したファイルに変更はありません',
   'workbench.commitTool.committed': '{sha} をコミットしました',
   'workbench.commitTool.detached.message':

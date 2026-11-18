@@ -910,7 +910,6 @@ export const workbenchChrome = {
   'workbench.commitTool.counter.modified': 'изменено: {count}',
   'workbench.commitTool.counter.added': 'добавлено: {count}',
   'workbench.commitTool.counter.deleted': 'удалено: {count}',
-  'workbench.commitTool.counter.unversioned': 'неотслеживаемых: {count}',
   'workbench.commitTool.nothingToCommit': 'В выбранных файлах нет изменений',
   'workbench.commitTool.committed': 'Создан коммит {sha}',
   'workbench.commitTool.detached.message':

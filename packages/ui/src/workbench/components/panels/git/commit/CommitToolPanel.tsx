@@ -52,6 +52,7 @@ import {
   type CommitMenuTarget,
   countChanges,
   EMPTY_CHECKED_STATE,
+  isRowChecked,
   rollbackPaths,
   setPathsChecked,
   splitChangeGroups,
@@ -169,7 +170,11 @@ const CommitToolPanel: React.FC<CommitToolPanelProps> = ({ info, onHide }) => {
   const refreshAsked = useAskedRead(refreshChanges);
 
   const groups = useMemo(() => splitChangeGroups(rows), [rows]);
-  const counter = useMemo(() => countChanges(rows), [rows]);
+  // The counter reads what the commit would take: the checked rows.
+  const counter = useMemo(
+    () => countChanges(rows.filter((row) => isRowChecked(row, checked))),
+    [rows, checked],
+  );
   const paths = useMemo(() => checkedPaths(rows, checked), [rows, checked]);
   const toolbarRollback = useMemo(() => rollbackPaths(selectedRows), [selectedRows]);
   // With no change selected the toolbar's Rollback names them all (the reference).

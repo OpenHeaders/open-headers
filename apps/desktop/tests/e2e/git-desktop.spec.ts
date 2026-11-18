@@ -408,14 +408,19 @@ async function settleModal(): Promise<void> {
   await expect(workbench.locator('.ant-modal[class*="zoom-"]')).toHaveCount(0);
 }
 
-/** The Commit window's counter carries a tracked change (modified / added / deleted). */
+/**
+ * The Commit window's counter carries a change (modified / added /
+ * deleted). It counts the CHECKED rows — a tracked change arrives
+ * checked, so it shows the moment the change does.
+ */
 async function waitDirty(): Promise<void> {
   await expect(pane('commit-tool-counter')).toContainText(/modified|added|deleted/);
 }
 
 /**
- * No tracked change left in the Commit window — the counter is gone or
- * reads unversioned only. The counter is read in ONE step: it leaves
+ * No tracked change left in the Commit window — the counter is gone
+ * (an unversioned file is unchecked until the person checks it, and
+ * counts for nothing till then). The counter is read in ONE step: it leaves
  * the window the moment the last tracked change does, and a read that
  * first counts it and then asks its text waits on an element that is
  * no longer there until the poll gives up. A red says what the window
@@ -727,7 +732,7 @@ test.afterAll(async () => {
 
 // ── G1: bind + repo auto-init + materialization ─────────────────────
 
-test('G1 — bind on the Folder page auto-inits the repo; the Commit window counts the seeded tree unversioned', async () => {
+test('G1 — bind on the Folder page auto-inits the repo; the Commit window lists the seeded tree unversioned', async () => {
   await bindOnFolderPage(wsDir);
   expect(existsSync(path.join(wsDir, '.git'))).toBe(true);
   expect(existsSync(path.join(wsDir, '.gitattributes'))).toBe(true);
@@ -740,7 +745,8 @@ test('G1 — bind on the Folder page auto-inits the repo; the Commit window coun
 
   await closeSettings();
   await openToolWindow('commit');
-  await expect(pane('commit-tool-counter')).toContainText('unversioned');
+  // Nothing is checked yet, so the counter draws nothing: the group itself says what the tree holds.
+  await expect(pane('commit-tool-group-unversioned')).toBeVisible();
 });
 
 // ── G2: real commit under the real identity ─────────────────────────

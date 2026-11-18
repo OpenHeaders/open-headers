@@ -2,8 +2,8 @@
  * Commit tool window — pure model over the `changes` verb's rows: the
  * three display groups (Changes / Unversioned Files / Ignored Files),
  * the checked-set algebra (tracked rows default checked, unversioned
- * default unchecked — the reference convention), and the "N modified"
- * counter parts. No React, no bridge.
+ * default unchecked — the reference convention), and the counter's
+ * parts for the rows a commit would take. No React, no bridge.
  */
 
 import type {
@@ -166,10 +166,9 @@ export function aggregateChecked(
 }
 
 /**
- * Counter parts for the Amend row's right edge — "2 modified",
- * "1 added, 1 deleted". Tracked letters fold as the reference does: A added,
- * D deleted, everything else (M/T/R/C) modified; unversioned rows
- * count separately. Order: modified, added, deleted, unversioned.
+ * A set of rows by kind. Tracked letters fold as the reference does: A
+ * added, D deleted, everything else (M/T/R/C) modified; unversioned
+ * rows count apart.
  */
 export interface ChangeCounter {
   modified: number;
@@ -188,6 +187,41 @@ export function countChanges(rows: readonly WorkspaceTreeWorkingChangeWire[]): C
     else counter.modified += 1;
   }
   return counter;
+}
+
+export type ChangeCounterKind = 'added' | 'modified' | 'deleted';
+
+/** One part of the Amend row's counter: its number as it reads in words (`2 modified`) and as a mark (`*2`). */
+export interface ChangeCounterPart {
+  kind: ChangeCounterKind;
+  /** The part's number — `1+2` where the commit adds one file git tracks and two it does not yet. */
+  count: string;
+  /** The narrow form: the kind's mark ahead of the number. */
+  mark: string;
+}
+
+const COUNTER_MARKS: Readonly<Record<ChangeCounterKind, string>> = { added: '+', modified: '*', deleted: '-' };
+
+/**
+ * The counter's parts for the rows a commit would take (the
+ * reference's reading), in its order — added, modified, deleted — a
+ * kind with nothing left out. An unversioned file the commit takes is
+ * one it adds: it joins the added part after a plus (`1+2`), and alone
+ * it is that part's number.
+ */
+export function changeCounterParts(counter: ChangeCounter): ChangeCounterPart[] {
+  const added =
+    counter.added > 0 && counter.unversioned > 0
+      ? `${counter.added}+${counter.unversioned}`
+      : String(counter.added + counter.unversioned);
+  const counted: ReadonlyArray<readonly [ChangeCounterKind, number, string]> = [
+    ['added', counter.added + counter.unversioned, added],
+    ['modified', counter.modified, String(counter.modified)],
+    ['deleted', counter.deleted, String(counter.deleted)],
+  ];
+  return counted.flatMap(([kind, total, count]) =>
+    total > 0 ? [{ kind, count, mark: `${COUNTER_MARKS[kind]}${count}` }] : [],
+  );
 }
 
 /**

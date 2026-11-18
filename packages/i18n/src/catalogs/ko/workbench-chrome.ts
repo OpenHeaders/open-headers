@@ -886,7 +886,6 @@ export const workbenchChrome = {
   'workbench.commitTool.counter.modified': '수정 {count}개',
   'workbench.commitTool.counter.added': '추가 {count}개',
   'workbench.commitTool.counter.deleted': '삭제 {count}개',
-  'workbench.commitTool.counter.unversioned': '버전 관리 외 {count}개',
   'workbench.commitTool.nothingToCommit': '선택한 파일에 변경이 없습니다',
   'workbench.commitTool.committed': '{sha} 커밋됨',
   'workbench.commitTool.detached.message':

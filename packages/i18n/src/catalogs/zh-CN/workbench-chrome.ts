@@ -861,7 +861,6 @@ export const workbenchChrome = {
   'workbench.commitTool.counter.modified': '{count} 个已修改',
   'workbench.commitTool.counter.added': '{count} 个已添加',
   'workbench.commitTool.counter.deleted': '{count} 个已删除',
-  'workbench.commitTool.counter.unversioned': '{count} 个未版本控制',
   'workbench.commitTool.nothingToCommit': '所选文件中没有更改',
   'workbench.commitTool.committed': '已提交 {sha}',
   'workbench.commitTool.detached.message':

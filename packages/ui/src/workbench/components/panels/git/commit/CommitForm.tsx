@@ -1,7 +1,7 @@
 /**
  * CommitForm — the Commit window's lower half: the
- * Amend row (checkbox + Commit Message History clock + the "N
- * modified" counter on the right), the Commit Message box, and the
+ * Amend row (checkbox + Commit Message History clock + the counter of
+ * what the commit would take on the right — `ChangeCounterLine`), the Commit Message box, and the
  * button row — Commit, Commit and Push… (Amend Commit, Amend Commit
  * and Push… while Amend is on), and the gear popover with the
  * Git-real commit options (Sign-off; Run Git hooks). Both buttons are
@@ -37,7 +37,8 @@ import {
   isCommitMessageHistoryChord,
   stepHistoryIndex,
 } from './commit-message-history';
-import { type ChangeCounter, type CommitAuthor, formatCommitAuthor } from './commit-model';
+import ChangeCounterLine from './ChangeCounterLine';
+import { type ChangeCounter, type CommitAuthor, changeCounterParts, formatCommitAuthor } from './commit-model';
 
 export interface CommitFormProps {
   draft: string;
@@ -46,6 +47,7 @@ export interface CommitFormProps {
   onAmendChange: (amend: boolean) => void;
   /** The author of the commit Amend rewrites — shown under the box while Amend is on. */
   amendAuthor: CommitAuthor | null;
+  /** The checked rows by kind — what the commit would take. */
   counter: ChangeCounter;
   /** The bound repo's recent commit subjects, newest first. */
   history: string[];
@@ -111,8 +113,6 @@ const CommitForm = forwardRef<CommitFormHandle, CommitFormProps>(function Commit
   const [tooltipOpen, setTooltipOpen] = useState(false);
   const [gearOpen, setGearOpen] = useState(false);
   const [gearTooltipSuppressed, setGearTooltipSuppressed] = useState(false);
-  const [counterTipOpen, setCounterTipOpen] = useState(false);
-  const counterRef = useRef<HTMLSpanElement>(null);
   const [selectTick, setSelectTick] = useState(0);
   const messageRef = useRef<TextAreaRef>(null);
   const commitRef = useRef<HTMLButtonElement | HTMLAnchorElement>(null);
@@ -224,22 +224,6 @@ const CommitForm = forwardRef<CommitFormHandle, CommitFormProps>(function Commit
     return () => window.removeEventListener('keydown', onKeyDown, true);
   }, [historyOpen, historyActive, history.length, activateHistory, pickHistory, cancelHistory]);
 
-  // The counter clips on one line in a narrow dock; its full text is
-  // the tooltip, shown only while it is actually clipped (measured on
-  // hover-in, like the tree rows' overlay).
-  const counterClipped = (): boolean => {
-    const element = counterRef.current;
-    return element !== null && element.scrollWidth > element.clientWidth + 1;
-  };
-
-  const counterParts: string[] = [];
-  if (counter.modified > 0) counterParts.push(t('workbench.commitTool.counter.modified', { count: counter.modified }));
-  if (counter.added > 0) counterParts.push(t('workbench.commitTool.counter.added', { count: counter.added }));
-  if (counter.deleted > 0) counterParts.push(t('workbench.commitTool.counter.deleted', { count: counter.deleted }));
-  if (counter.unversioned > 0) {
-    counterParts.push(t('workbench.commitTool.counter.unversioned', { count: counter.unversioned }));
-  }
-
   const historyContent = (
     <div style={{ display: 'flex', flexDirection: 'column', maxWidth: 420, maxHeight: 280, overflowY: 'auto' }}>
       {history.length === 0 && (
@@ -335,31 +319,7 @@ const CommitForm = forwardRef<CommitFormHandle, CommitFormProps>(function Commit
             />
           </Tooltip>
         </Popover>
-        <span style={{ flex: 1 }} />
-        {counterParts.length > 0 && (
-          <Tooltip
-            placement="top"
-            title={counterParts.join(', ')}
-            open={counterTipOpen}
-            onOpenChange={(next) => setCounterTipOpen(next && counterClipped())}
-          >
-            <span
-              ref={counterRef}
-              style={{
-                flex: '0 1 auto',
-                minWidth: 0,
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                whiteSpace: 'nowrap',
-                fontSize: 12,
-                color: token.colorTextTertiary,
-              }}
-              data-testid="commit-tool-counter"
-            >
-              {counterParts.join(', ')}
-            </span>
-          </Tooltip>
-        )}
+        <ChangeCounterLine parts={changeCounterParts(counter)} />
       </div>
       <Input.TextArea
         ref={messageRef}

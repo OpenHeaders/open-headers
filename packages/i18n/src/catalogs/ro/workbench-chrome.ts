@@ -922,7 +922,6 @@ export const workbenchChrome = {
   'workbench.commitTool.counter.modified': 'modificate: {count}',
   'workbench.commitTool.counter.added': 'adăugate: {count}',
   'workbench.commitTool.counter.deleted': 'șterse: {count}',
-  'workbench.commitTool.counter.unversioned': 'neversionate: {count}',
   'workbench.commitTool.nothingToCommit': 'Nicio modificare în fișierele selectate',
   'workbench.commitTool.committed': 'Commit creat: {sha}',
   'workbench.commitTool.detached.message':
