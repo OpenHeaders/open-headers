@@ -575,7 +575,7 @@ const GitLogToolbar: React.FC<GitLogToolbarProps> = ({
       <PathsTreeModal
         workspaceId={workspaceId}
         open={pathsTreeOpen}
-        named={viewMode === 'items'}
+        named={viewMode === 'workspace'}
         paths={tab.paths}
         names={recent.pathNames}
         onClose={() => setPathsTreeOpen(false)}

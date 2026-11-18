@@ -199,7 +199,7 @@ describe('FileTreeView — groups, by path', () => {
 
 describe('FileTreeView — groups, by what the files belong to', () => {
   it('lists each group on its own, in the panels’ rows, and reports the group’s base', () => {
-    const { onSelectFile } = renderTree({ viewMode: 'items' });
+    const { onSelectFile } = renderTree({ viewMode: 'workspace' });
     expect(filesIn(FIRST)).toEqual([ADDED, BOTH]);
     expect(filesIn(SECOND)).toEqual([BOTH, SIDE]);
     expect(document.querySelectorAll(`[data-group="${FIRST}"] .rules-sidebar-section`)).toHaveLength(1);
@@ -209,7 +209,7 @@ describe('FileTreeView — groups, by what the files belong to', () => {
   });
 
   it('a section folds inside its group alone', () => {
-    renderTree({ viewMode: 'items' });
+    renderTree({ viewMode: 'workspace' });
     const header = document.querySelector<HTMLElement>(`[data-group="${FIRST}"] .rules-sidebar-section`);
     if (!header) throw new Error('no section');
     fireEvent.click(header);

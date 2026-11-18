@@ -21,7 +21,7 @@ export interface FilesView {
 type MenuItems = NonNullable<MenuProps['items']>;
 
 const MODE_BY_KEY: ReadonlyMap<string, FilesViewMode> = new Map([
-  ['view-mode-items', 'items'],
+  ['view-mode-workspace', 'workspace'],
   ['view-mode-files', 'files'],
 ]);
 const GROUP_BY_DIRECTORY_KEY = 'group-files-by-directory';
@@ -33,9 +33,9 @@ export function filesViewMenuItems(t: Translate, view: FilesView): MenuItems {
       label: t('workbench.gitLog.viewMode.heading'),
       children: [
         {
-          key: 'view-mode-items',
+          key: 'view-mode-workspace',
           label: t('workbench.gitLog.viewMode.workspace'),
-          icon: menuCheckIcon(view.mode === 'items'),
+          icon: menuCheckIcon(view.mode === 'workspace'),
         },
         {
           key: 'view-mode-files',

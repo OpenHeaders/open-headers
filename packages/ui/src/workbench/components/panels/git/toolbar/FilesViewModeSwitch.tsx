@@ -7,7 +7,7 @@
  */
 
 import { useT } from '@openheaders/ui/context/LocaleContext';
-import { FilesIcon, WorkspaceItemsIcon } from '@openheaders/ui/shared/icons';
+import { FilesIcon, WorkspaceIcon } from '@openheaders/ui/shared/icons';
 import type React from 'react';
 import type { FilesViewMode } from '../files-view-mode';
 import ToolbarIconButton from './ToolbarIconButton';
@@ -15,7 +15,7 @@ import ToolbarIconButton from './ToolbarIconButton';
 export interface FilesViewModeSwitchProps {
   mode: FilesViewMode;
   onChange: (mode: FilesViewMode) => void;
-  /** The pair's testid; its buttons are `<testid>-items` and `<testid>-files`. */
+  /** The pair's testid; its buttons are `<testid>-workspace` and `<testid>-files`. */
   testid: string;
 }
 
@@ -30,11 +30,11 @@ const FilesViewModeSwitch: React.FC<FilesViewModeSwitchProps> = ({ mode, onChang
       data-mode={mode}
     >
       <ToolbarIconButton
-        icon={<WorkspaceItemsIcon />}
+        icon={<WorkspaceIcon />}
         title={t('workbench.gitLog.viewMode.tooltip', { mode: t('workbench.gitLog.viewMode.workspace') })}
-        active={mode === 'items'}
-        onClick={() => onChange('items')}
-        testid={`${testid}-items`}
+        active={mode === 'workspace'}
+        onClick={() => onChange('workspace')}
+        testid={`${testid}-workspace`}
       />
       <ToolbarIconButton
         icon={<FilesIcon />}

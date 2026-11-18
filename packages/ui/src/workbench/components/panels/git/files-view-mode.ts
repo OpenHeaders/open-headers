@@ -11,9 +11,9 @@
 import { useCallback, useSyncExternalStore } from 'react';
 import { createWorkspacePrefsStore } from './workspace-prefs-store';
 
-export type FilesViewMode = 'items' | 'files';
+export type FilesViewMode = 'workspace' | 'files';
 
-export const DEFAULT_FILES_VIEW_MODE: FilesViewMode = 'items';
+export const DEFAULT_FILES_VIEW_MODE: FilesViewMode = 'workspace';
 
 const store = createWorkspacePrefsStore<{ mode: FilesViewMode }>({
   storagePrefix: 'oh:gitFilesView',

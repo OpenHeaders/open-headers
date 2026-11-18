@@ -124,7 +124,7 @@ describe('Git › Log section', () => {
     expect(select.textContent).toBe('Files');
     const row = select.closest('.settings-field-row') as HTMLElement;
     fireEvent.click(row.querySelector('button.ant-btn') as HTMLButtonElement);
-    expect(getFilesViewMode(WS)).toBe('items');
+    expect(getFilesViewMode(WS)).toBe('workspace');
     expect(select.textContent).toBe('Workspace');
   });
 });

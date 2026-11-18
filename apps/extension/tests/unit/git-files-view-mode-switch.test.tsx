@@ -75,9 +75,9 @@ function commitToolbar(viewMode: FilesViewMode, onViewModeChange = vi.fn()) {
 describe('FilesViewModeSwitch', () => {
   it('holds the mode in force pressed, and a press of the other asks for it', () => {
     const onChange = vi.fn();
-    render(<FilesViewModeSwitch mode="items" onChange={onChange} testid="switch" />);
-    expect(screen.getByTestId('switch').getAttribute('data-mode')).toBe('items');
-    expect([pressed('switch-items'), pressed('switch-files')]).toEqual(['true', 'false']);
+    render(<FilesViewModeSwitch mode="workspace" onChange={onChange} testid="switch" />);
+    expect(screen.getByTestId('switch').getAttribute('data-mode')).toBe('workspace');
+    expect([pressed('switch-workspace'), pressed('switch-files')]).toEqual(['true', 'false']);
     fireEvent.click(screen.getByTestId('switch-files'));
     expect(onChange).toHaveBeenCalledWith('files');
   });
@@ -87,20 +87,20 @@ describe('the Commit window’s band', () => {
   it('carries the switch, and a press reaches the window', () => {
     bandWidth(600, { 'view-mode': 48 });
     const onViewModeChange = commitToolbar('files');
-    expect([pressed('commit-tool-view-mode-items'), pressed('commit-tool-view-mode-files')]).toEqual(['false', 'true']);
-    fireEvent.click(screen.getByTestId('commit-tool-view-mode-items'));
-    expect(onViewModeChange).toHaveBeenCalledWith('items');
+    expect([pressed('commit-tool-view-mode-workspace'), pressed('commit-tool-view-mode-files')]).toEqual(['false', 'true']);
+    fireEvent.click(screen.getByTestId('commit-tool-view-mode-workspace'));
+    expect(onViewModeChange).toHaveBeenCalledWith('workspace');
   });
 
   it('sets the switch and the eye apart as one group: the verbs, a rule, the group, a rule, the tree’s tools', () => {
     bandWidth(600, { 'view-mode': 48 });
-    commitToolbar('items');
+    commitToolbar('workspace');
     expect(bandShape('commit-tool-toolbar')).toEqual([
       'commit-tool-refresh',
       'commit-tool-rollback',
       'commit-tool-shelve',
       '|',
-      'commit-tool-view-mode-items',
+      'commit-tool-view-mode-workspace',
       'commit-tool-view-mode-files',
       'commit-tool-view-options',
       '|',
@@ -112,7 +112,7 @@ describe('the Commit window’s band', () => {
 
   it('marks the eye as a button with a menu behind it, and no other', () => {
     bandWidth(600, { 'view-mode': 48 });
-    commitToolbar('items');
+    commitToolbar('workspace');
     expect(screen.getByTestId('commit-tool-view-options').getAttribute('aria-haspopup')).toBe('menu');
     expect(screen.getByTestId('commit-tool-view-options-menu-mark')).toBeTruthy();
     expect(screen.getByTestId('commit-tool-refresh').getAttribute('aria-haspopup')).toBeNull();
@@ -122,7 +122,7 @@ describe('the Commit window’s band', () => {
   it('folds the tree’s tail before the group at a narrow dock', () => {
     // 16px padding + refresh, rollback, shelve, a 9px rule, the 48px switch, the eye and the chevron, 2px apart.
     bandWidth(16 + 24 + 2 + 24 + 2 + 24 + 2 + 9 + 2 + 48 + 2 + 24 + 2 + 24, { 'view-mode': 48 });
-    commitToolbar('items');
+    commitToolbar('workspace');
     expect(screen.getByTestId('commit-tool-view-mode')).toBeTruthy();
     expect(screen.getByTestId('commit-tool-view-options')).toBeTruthy();
     expect(screen.getByTestId('commit-tool-toolbar-more-button')).toBeTruthy();
@@ -176,7 +176,7 @@ describe('the changes pane’s band', () => {
         canShowDiff={false}
         onShowDiff={vi.fn()}
         onJumpToSource={vi.fn()}
-        viewMode="items"
+        viewMode="workspace"
         onViewModeChange={vi.fn()}
         prefs={DEFAULT_GIT_LOG_VIEW_PREFS}
         onPatchPrefs={vi.fn()}
@@ -190,7 +190,7 @@ describe('the changes pane’s band', () => {
       'git-tool-details-revert',
       'git-tool-details-jump',
       '|',
-      'git-tool-details-view-mode-items',
+      'git-tool-details-view-mode-workspace',
       'git-tool-details-view-mode-files',
       'git-tool-details-view-options',
       '…',

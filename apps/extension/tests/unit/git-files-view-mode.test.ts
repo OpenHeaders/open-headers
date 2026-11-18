@@ -29,7 +29,7 @@ const t: Translate = (key: string) => key;
 
 function viewOf(overrides: Partial<FilesView> = {}): FilesView {
   return {
-    mode: 'items',
+    mode: 'workspace',
     onModeChange: vi.fn(),
     groupByDirectory: false,
     onGroupByDirectoryChange: vi.fn(),
@@ -55,11 +55,11 @@ function marked(view: FilesView): Record<string, boolean> {
 
 describe('files view mode', () => {
   it('is Workspace until Files is picked, per workspace', () => {
-    expect(DEFAULT_FILES_VIEW_MODE).toBe('items');
-    expect(getFilesViewMode('ws-a')).toBe('items');
+    expect(DEFAULT_FILES_VIEW_MODE).toBe('workspace');
+    expect(getFilesViewMode('ws-a')).toBe('workspace');
     setFilesViewMode('ws-a', 'files');
     expect(getFilesViewMode('ws-a')).toBe('files');
-    expect(getFilesViewMode('ws-b')).toBe('items');
+    expect(getFilesViewMode('ws-b')).toBe('workspace');
     expect(JSON.parse(localStorage.getItem('oh:gitFilesView:ws-a') ?? '{}')).toEqual({ mode: 'files' });
   });
 
@@ -67,19 +67,19 @@ describe('files view mode', () => {
     localStorage.setItem('oh:gitFilesView:ws-kept', JSON.stringify({ mode: 'files' }));
     localStorage.setItem('oh:gitFilesView:ws-odd', JSON.stringify({ mode: 'tree' }));
     expect(getFilesViewMode('ws-kept')).toBe('files');
-    expect(getFilesViewMode('ws-odd')).toBe('items');
+    expect(getFilesViewMode('ws-odd')).toBe('workspace');
   });
 });
 
 describe('files view menu', () => {
   it('marks one mode, and Group Files by Directory on its own', () => {
     expect(marked(viewOf())).toEqual({
-      'view-mode-items': true,
+      'view-mode-workspace': true,
       'view-mode-files': false,
       'group-files-by-directory': false,
     });
     expect(marked(viewOf({ mode: 'files', groupByDirectory: true }))).toEqual({
-      'view-mode-items': false,
+      'view-mode-workspace': false,
       'view-mode-files': true,
       'group-files-by-directory': true,
     });
@@ -89,8 +89,8 @@ describe('files view menu', () => {
     const view = viewOf();
     expect(pickFilesViewMenu('view-mode-files', view)).toBe(true);
     expect(view.onModeChange).toHaveBeenLastCalledWith('files');
-    expect(pickFilesViewMenu('view-mode-items', view)).toBe(true);
-    expect(view.onModeChange).toHaveBeenLastCalledWith('items');
+    expect(pickFilesViewMenu('view-mode-workspace', view)).toBe(true);
+    expect(view.onModeChange).toHaveBeenLastCalledWith('workspace');
     expect(view.onGroupByDirectoryChange).not.toHaveBeenCalled();
   });
 

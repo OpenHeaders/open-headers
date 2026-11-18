@@ -241,7 +241,7 @@ const RollbackChangesModal: React.FC<RollbackChangesModalProps> = ({
             />
           </div>
           <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', flexDirection: 'column' }} data-testid="commit-rollback-tree">
-            {view.mode === 'items' ? (
+            {view.mode === 'workspace' ? (
               <CommitWorkspaceTree ref={treeRef} {...treeProps} workspaceId={workspaceId} headSha={headSha} />
             ) : (
               <CommitChangesTree ref={treeRef} {...treeProps} />

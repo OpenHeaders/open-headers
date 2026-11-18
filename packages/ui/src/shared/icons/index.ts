@@ -29,4 +29,4 @@ export { TagIcon } from './TagIcon';
 export type { GlyphIconProps } from './types';
 export { VariablesIcon } from './VariablesIcon';
 export { WorkflowStatusIcon } from './WorkflowStatusIcon';
-export { WorkspaceItemsIcon } from './WorkspaceItemsIcon';
+export { WorkspaceIcon } from './WorkspaceIcon';

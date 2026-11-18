@@ -1,5 +1,5 @@
 /**
- * WorkspaceItemsIcon — a nested list: one bulleted row with two more
+ * WorkspaceIcon — a nested list: one bulleted row with two more
  * stepped in under it, the way a panel lists a collection over its
  * items. It stands for a list drawn by what things are called in the
  * workbench (the changed-files trees' Workspace view mode).
@@ -12,7 +12,7 @@ import Icon from '@ant-design/icons';
 import type React from 'react';
 import type { GlyphIconProps } from './types';
 
-const WorkspaceItemsSvg: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
+const WorkspaceSvg: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
   <svg
     {...props}
     viewBox="0 0 16 16"
@@ -26,6 +26,4 @@ const WorkspaceItemsSvg: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
   </svg>
 );
 
-export const WorkspaceItemsIcon: React.FC<GlyphIconProps> = (props) => (
-  <Icon component={WorkspaceItemsSvg} {...props} />
-);
+export const WorkspaceIcon: React.FC<GlyphIconProps> = (props) => <Icon component={WorkspaceSvg} {...props} />;

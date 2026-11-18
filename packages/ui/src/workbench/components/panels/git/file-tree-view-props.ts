@@ -71,7 +71,7 @@ export interface FileTreeViewProps {
    * `onOpenFile`.
    */
   onSelectFile?: (path: string | null, entity?: WorkspaceTreeEntityRefWire, base?: string) => void;
-  /** The View Mode — `items`: the files by what they belong to in the workbench; absent: by path. */
+  /** The View Mode — `workspace`: the files by what they belong to in the workbench; absent: by path. */
   viewMode?: FilesViewMode;
   /** Group Files by Directory (details eye) — off renders flat full paths. */
   groupByDirectory?: boolean;

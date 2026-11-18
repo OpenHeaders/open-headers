@@ -84,13 +84,13 @@ const PathFileTree = ({
 const FileTreeView = forwardRef<FileTreeViewHandle, FileTreeViewProps>(function FileTreeView(props, handleRef) {
   const { groups, viewMode } = props;
   if (groups !== undefined) {
-    return viewMode === 'items' ? (
+    return viewMode === 'workspace' ? (
       <WorkspaceGroupedFileTree {...props} groups={groups} handleRef={handleRef} />
     ) : (
       <PathGroupedFileTree {...props} groups={groups} handleRef={handleRef} />
     );
   }
-  return viewMode === 'items' ? (
+  return viewMode === 'workspace' ? (
     <WorkspaceFileTree {...props} handleRef={handleRef} />
   ) : (
     <PathFileTree {...props} handleRef={handleRef} />

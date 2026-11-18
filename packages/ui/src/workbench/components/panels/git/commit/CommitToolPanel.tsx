@@ -721,7 +721,7 @@ const CommitToolPanel: React.FC<CommitToolPanelProps> = ({ info, onHide }) => {
         onCollapseAll={() => treeRef.current?.collapseAll()}
       />
       <GitWorkingLine active={working || refreshAsked.asked} />
-      {viewMode === 'items' ? (
+      {viewMode === 'workspace' ? (
         <CommitWorkspaceTree ref={treeRef} {...treeProps} workspaceId={workspaceId} headSha={headSha} />
       ) : (
         <CommitChangesTree ref={treeRef} {...treeProps} />

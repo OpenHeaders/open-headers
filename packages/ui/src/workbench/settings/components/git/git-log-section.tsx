@@ -193,7 +193,7 @@ const GitLogSection: React.FC<{ git: WorkspaceGit }> = ({ git }) => {
             onChange={(mode) => setFilesViewMode(prefsKey, mode)}
             style={{ width: 160 }}
             options={[
-              { value: 'items', label: t('workbench.gitLog.viewMode.workspace') },
+              { value: 'workspace', label: t('workbench.gitLog.viewMode.workspace') },
               { value: 'files', label: t('workbench.gitLog.viewMode.files') },
             ]}
             data-testid="git-log-pane-view-mode-select"
