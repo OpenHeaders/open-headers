@@ -20,6 +20,7 @@ import type React from 'react';
 import { useMemo, useState } from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { RefreshIcon } from '@openheaders/ui/shared/icons';
+import { useFilesViewMode } from '../files-view-mode';
 import type { GitLogRecentFilters } from '../git-log-recent-filters';
 import type { GitLogViewPrefs } from '../git-log-view-prefs';
 import type { GitLogTabState } from '../git-panel-view-store';
@@ -110,6 +111,7 @@ const GitLogToolbar: React.FC<GitLogToolbarProps> = ({
   const [goToOpen, setGoToOpen] = useState(false);
   const graphOptions = useOptionMenu();
   const viewOptions = useOptionMenu();
+  const viewMode = useFilesViewMode(workspaceId);
   const [goToValue, setGoToValue] = useState('');
   // Why the last Go To landed on no row; null while it has not missed.
   const [goToMiss, setGoToMiss] = useState<Exclude<LogGoToOutcome, 'found'> | null>(null);
@@ -571,7 +573,7 @@ const GitLogToolbar: React.FC<GitLogToolbarProps> = ({
       <PathsTreeModal
         workspaceId={workspaceId}
         open={pathsTreeOpen}
-        named={prefs.groupFilesByWorkspace}
+        named={viewMode === 'items'}
         paths={tab.paths}
         names={recent.pathNames}
         onClose={() => setPathsTreeOpen(false)}

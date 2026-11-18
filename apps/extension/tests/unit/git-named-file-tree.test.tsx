@@ -4,7 +4,7 @@
  * workbench. Pins the rows (a row that stands for one file keyed by its
  * path, one that holds others by its id, the sections folding without
  * being rows, the workspace's variables as a row that never folds, the
- * user's own files flat without Group By Directory), the change a row
+ * user's own files flat without Group Files by Directory), the change a row
  * reads as, and — mounted — what is drawn (the panels' names, never a
  * path for an entity's file), that the rows select, fold, open and take
  * the row menu as the path tree's do, and that the pane hears the one
@@ -115,7 +115,7 @@ describe('named-file-tree', () => {
     ]);
   });
 
-  it('without Group By Directory the user’s own files are one flat run, each by its full path', () => {
+  it('without Group Files by Directory the user’s own files are one flat run, each by its full path', () => {
     expect(keysOf([], false).slice(-2)).toEqual([`file:${NOTES}`, `file:${README}`]);
     const [files] = namedSections(SECTIONS, false).slice(-1);
     expect(files.nodes.map((node) => (node.type === 'file' ? node.name : ''))).toEqual([NOTES, README]);

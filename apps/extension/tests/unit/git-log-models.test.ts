@@ -74,7 +74,7 @@ describe('buildFileTree', () => {
     expect(config.children.map((node) => (node.kind === 'dir' ? node.label : ''))).toEqual(['envs']);
   });
 
-  it('answers flat sorted full-path leaves while Group By Directory is off', () => {
+  it('answers flat sorted full-path leaves while Group Files by Directory is off', () => {
     const flat = buildFileTree(
       [
         { path: 'rules/b/rule.yaml', status: 'D' },

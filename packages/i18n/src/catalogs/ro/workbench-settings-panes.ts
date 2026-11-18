@@ -804,9 +804,9 @@ export const workbenchSettingsPanes = {
   'workbench.settings.gitPane.log.signatureColumnLabel': 'Coloana semnătură',
   'workbench.settings.gitPane.log.signatureColumnDescription':
     'Marchează commit-urile semnate pe rândurile commit-urilor și dacă Git a putut verifica fiecare semnătură.',
-  'workbench.settings.gitPane.log.groupByWorkspaceLabel': 'Grupează după spațiul de lucru',
-  'workbench.settings.gitPane.log.groupByWorkspaceDescription':
-    'Listează fișierele modificate ale unui commit după elementul din spațiul de lucru căruia îi aparțin, cu numele lui; dezactivat, le listează după cale.',
+  'workbench.settings.gitPane.log.viewModeLabel': 'Mod de vizualizare',
+  'workbench.settings.gitPane.log.viewModeDescription':
+    'Cum arată fiecare listă de fișiere modificate: ca elemente din spațiul de lucru — elementul căruia îi aparțin fișierele, cu numele lui — sau ca fișiere, după cale.',
   'workbench.settings.gitPane.log.groupByDirectoryLabel': 'Grupează pe directoare',
   'workbench.settings.gitPane.log.groupByDirectoryDescription':
     'Imbrică fișierele modificate ale unui commit sub directoarele lor; dezactivat, le listează plat.',

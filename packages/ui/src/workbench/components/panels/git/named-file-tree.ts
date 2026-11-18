@@ -74,7 +74,7 @@ function ownFileNodes(nodes: readonly FileTreeNode[]): WorkspaceFileNode[] {
  * The sections as this tree lists them: the user's own files shaped as
  * the path tree shapes any — nested by directory with single-child
  * chains folded (every directory its own row with `compress` off), or
- * one flat run by full path without Group By Directory.
+ * one flat run by full path without Group Files by Directory.
  */
 export function namedSections(
   sections: readonly WorkspaceFileSection[],

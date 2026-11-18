@@ -59,6 +59,7 @@ import DiffModal from './DiffModal';
 import { buildFileRowMenu } from './file-row-menu';
 import FileHistoryModal from './FileHistoryModal';
 import type { FileTreeViewHandle } from './FileTreeView';
+import { setFilesViewMode, useFilesViewMode } from './files-view-mode';
 import {
   getGitLogRecentFilters,
   nameGitLogPaths,
@@ -134,9 +135,9 @@ const GitLogView: React.FC<GitLogViewProps> = ({
   const fileTreeRef = useRef<FileTreeViewHandle>(null);
 
   const [selectedFile, setSelectedFile] = useState<string | null>(null);
-  // The entity the files tree names for the selection (Group By
-  // Workspace) — what Jump to Source opens, a row that lists several
-  // files included; set with the file, by the one report.
+  // The entity the files tree names for the selection (the Workspace
+  // Items view mode) — what Jump to Source opens, a row that lists
+  // several files included; set with the file, by the one report.
   const [selectedEntity, setSelectedEntity] = useState<WorkspaceTreeEntityRefWire | null>(null);
   // The commit the selected file's change is read against, where the
   // files are listed by parent (a merge's); set with the file.
@@ -152,6 +153,7 @@ const GitLogView: React.FC<GitLogViewProps> = ({
     [workspaceId],
   );
   const prefs = useSyncExternalStore(subscribeViewPrefs, () => getGitLogViewPrefs(workspaceId));
+  const viewMode = useFilesViewMode(workspaceId);
   const subscribeRailPrefs = useCallback(
     (listener: () => void) => subscribeGitRailPrefs(workspaceId, listener),
     [workspaceId],
@@ -648,6 +650,8 @@ const GitLogView: React.FC<GitLogViewProps> = ({
             }}
             onJumpToSource={() => jumpToSource(selectedFile, selectedEntity ?? undefined)}
             canJumpToSource={selectedFile !== null || selectedEntity !== null}
+            viewMode={viewMode}
+            onViewModeChange={(mode) => setFilesViewMode(workspaceId, mode)}
             prefs={prefs}
             onPatchPrefs={(patch) => patchGitLogViewPrefs(workspaceId, patch)}
             hasFiles={selected !== null}
@@ -695,7 +699,7 @@ const GitLogView: React.FC<GitLogViewProps> = ({
                     setSelectedEntity(entity ?? null);
                     setSelectedBase(base);
                   }}
-                  groupByWorkspace={prefs.groupFilesByWorkspace}
+                  viewMode={viewMode}
                   groupByDirectory={prefs.groupFilesByDirectory}
                   rowMenu={fileRowMenu}
                 />

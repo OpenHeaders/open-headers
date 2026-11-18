@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 /**
  * The Commit tree with its files listed by what they belong to in the
- * workbench (Group By Workspace). Pins the model — each git group lists
+ * workbench (the Workspace Items view mode). Pins the model — each git group lists
  * its own files, every file once and nothing across groups; a row that
  * stands for one file keeps the tree's `file:<path>` key, a row that
  * holds others and a section's fold are keyed under their group; a

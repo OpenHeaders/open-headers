@@ -2,7 +2,7 @@
  * PathsTreeModal — the Paths chip's Select in Tree…: the files of the
  * checked-out commit as a tree of checkboxes; OK filters the log by
  * what is checked (the reference's reading — a folder is ONE path, a
- * box is its row's own). It follows the log's Group By › Workspace:
+ * box is its row's own). It follows the View Mode — Workspace Items:
  * listed by what the files belong to in the workbench, in the panels'
  * own rows and sections — a checked request, folder or collection
  * filters by its directory — or as the folders and files they are. A
@@ -31,7 +31,7 @@ import { useHeadTreeFiles } from './use-head-tree-files';
 export interface PathsTreeModalProps {
   workspaceId: string;
   open: boolean;
-  /** Listed by what the files belong to in the workbench (the log's Group By › Workspace); off = folders and files. */
+  /** Listed by what the files belong to in the workbench (the Workspace Items view mode); off = folders and files. */
   named: boolean;
   /** The filter as it stands. */
   paths: readonly string[];

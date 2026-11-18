@@ -4,8 +4,8 @@
  * sidebar trees' 24px row (never monospace), per-type file glyphs,
  * and the reference default FLAT format — basename + a dim directory
  * suffix (`modules.xml  .idea`) sorted by filename — switching to the
- * compressed directory tree when Group By Directory is on, or — Group
- * By Workspace, `named` — each group's files listed by what they belong
+ * compressed directory tree when Group Files by Directory is on, or — the
+ * Workspace Items view mode, `named` — each group's files listed by what they belong
  * to in the workbench, in the panels' own rows (`CommitNamedRows`). A
  * root-level file's suffix (and the grouped tree's content-root node)
  * reads the binding's folder name — the reference names the content root.
@@ -77,9 +77,9 @@ export interface CommitChangesTreeProps {
   loadingPath?: string | null;
   groupByDirectory: boolean;
   /**
-   * Group By Workspace: each group's files as the workbench lists what
-   * they belong to — Group By Directory then shapes only the user's own
-   * files. Absent: the files are listed by path.
+   * The Workspace Items view mode: each group's files as the workbench
+   * lists what they belong to — Group Files by Directory then shapes
+   * only the user's own files. Absent: the files are listed by path.
    */
   named?: CommitNamedGroups;
   showIgnored: boolean;
@@ -213,7 +213,7 @@ const CommitChangesTree = forwardRef<CommitChangesTreeHandle, CommitChangesTreeP
   }, [groups, showIgnored, t]);
 
   // By what the files belong to: each group's sections, the user's own
-  // files shaped by Group By Directory; null while listed by path.
+  // files shaped by Group Files by Directory; null while listed by path.
   const namedByGroup = useMemo(
     () =>
       named === undefined

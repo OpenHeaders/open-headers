@@ -8,6 +8,7 @@
  */
 
 import type { WorkspaceTreeGitStatusWire } from '@openheaders/core/bridge';
+import { getFilesViewMode, setFilesViewMode } from '@openheaders/ui/workbench/components/panels/git/files-view-mode';
 import {
   getGitConsolePrefs,
   patchGitConsolePrefs,
@@ -114,5 +115,15 @@ describe('Git › Log section', () => {
     expect(reset).not.toBeNull();
     fireEvent.click(reset as HTMLButtonElement);
     expect(getGitLogViewPrefs(WS).showTagNames).toBe(true);
+  });
+
+  it('the view mode row reads every changed-files tree’s one choice, and its reset returns Workspace Items', () => {
+    setFilesViewMode(WS, 'files');
+    render(<GitLogSection git={gitOf(STATUS)} />);
+    const row = screen.getByTestId('git-log-pane-view-mode-select').closest('.settings-field-row') as HTMLElement;
+    expect(row.textContent).toContain('Files');
+    fireEvent.click(row.querySelector('button.ant-btn') as HTMLButtonElement);
+    expect(getFilesViewMode(WS)).toBe('items');
+    expect(row.textContent).toContain('Workspace Items');
   });
 });

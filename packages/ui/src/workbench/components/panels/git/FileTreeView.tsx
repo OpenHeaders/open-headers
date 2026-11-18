@@ -1,11 +1,12 @@
 /**
  * FileTreeView — the detail pane's changed-files tree, drawn one of two
- * ways. By what the files belong to in the workbench (Group By
- * Workspace — `NamedFileTree`): the panels' sections, collections and
- * entities by name. Or by path (`PathFileRows`): single-child dir
- * chains fold into one `a/b/c` node with an `N files` badge, or flat
- * full-path rows while Group By Directory is off, filenames behind the
- * Commit tree's file-type icon and colored by porcelain status.
+ * ways (the View Mode). As workspace items — by what the files belong
+ * to in the workbench (`NamedFileTree`): the panels' sections,
+ * collections and entities by name. Or as files, by path
+ * (`PathFileRows`): single-child dir chains fold into one `a/b/c` node
+ * with an `N files` badge, or flat full-path rows while Group Files by
+ * Directory is off, filenames behind the Commit tree's file-type icon
+ * and colored by porcelain status.
  *
  * Either way the tree behaves the same (`use-file-tree-behaviour`):
  * with a selection handler wired (the log pane, the Push window) the
@@ -79,15 +80,15 @@ const PathFileTree = ({
 };
 
 const FileTreeView = forwardRef<FileTreeViewHandle, FileTreeViewProps>(function FileTreeView(props, handleRef) {
-  const { groups, groupByWorkspace } = props;
+  const { groups, viewMode } = props;
   if (groups !== undefined) {
-    return groupByWorkspace === true ? (
+    return viewMode === 'items' ? (
       <WorkspaceGroupedFileTree {...props} groups={groups} handleRef={handleRef} />
     ) : (
       <PathGroupedFileTree {...props} groups={groups} handleRef={handleRef} />
     );
   }
-  return groupByWorkspace === true ? (
+  return viewMode === 'items' ? (
     <WorkspaceFileTree {...props} handleRef={handleRef} />
   ) : (
     <PathFileTree {...props} handleRef={handleRef} />

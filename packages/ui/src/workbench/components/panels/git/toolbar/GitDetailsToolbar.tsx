@@ -2,7 +2,7 @@
  * GitDetailsToolbar — the changes pane's top band (the Git window's
  * details and the Push window's files): Show Diff for the selected
  * file, Revert Selected Changes (visible placeholder — the write verb
- * is a future slice), the View Options eye (Group By Workspace and
+ * is a future slice), the View Options eye (View Mode, Group Files by
  * Directory, Show Details, Show Diff Preview), Jump to Source for the selected file
  * when the host offers it, then Expand All / Collapse All at the far
  * edge driving the files tree. The band is a PaneToolbar: at a narrow
@@ -14,8 +14,10 @@ import { Dropdown } from 'antd';
 import type React from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { CollapseAllIcon, ExpandAllIcon, RollbackIcon } from '@openheaders/ui/shared/icons';
+import type { FilesViewMode } from '../files-view-mode';
 import type { GitLogViewPrefs } from '../git-log-view-prefs';
 import { menuCheckIcon } from '../../../shared/menu-check';
+import { type FilesView, filesViewMenuItems, pickFilesViewMenu } from './files-view-menu';
 import PaneToolbar, { type PaneToolbarEntry } from './PaneToolbar';
 import { useOptionMenu } from '../use-option-menu';
 import ToolbarIconButton from './ToolbarIconButton';
@@ -27,6 +29,8 @@ export interface GitDetailsToolbarProps {
   /** Jump to Source for the selected file — absent surfaces carry no button. */
   onJumpToSource?: () => void;
   canJumpToSource?: boolean;
+  viewMode: FilesViewMode;
+  onViewModeChange: (mode: FilesViewMode) => void;
   prefs: GitLogViewPrefs;
   onPatchPrefs: (patch: Partial<GitLogViewPrefs>) => void;
   /** A files tree is mounted — Expand All / Collapse All enable; with
@@ -41,6 +45,8 @@ const GitDetailsToolbar: React.FC<GitDetailsToolbarProps> = ({
   onShowDiff,
   onJumpToSource,
   canJumpToSource = false,
+  viewMode,
+  onViewModeChange,
   prefs,
   onPatchPrefs,
   hasFiles,
@@ -49,6 +55,12 @@ const GitDetailsToolbar: React.FC<GitDetailsToolbarProps> = ({
 }) => {
   const t = useT();
   const viewOptionsMenu = useOptionMenu();
+  const filesView: FilesView = {
+    mode: viewMode,
+    onModeChange: onViewModeChange,
+    groupByDirectory: prefs.groupFilesByDirectory,
+    onGroupByDirectoryChange: (groupFilesByDirectory) => onPatchPrefs({ groupFilesByDirectory }),
+  };
 
   const viewOptions = (
     <Dropdown
@@ -59,22 +71,7 @@ const GitDetailsToolbar: React.FC<GitDetailsToolbarProps> = ({
       menu={{
           selectable: false,
           items: [
-            {
-              type: 'group',
-              label: t('workbench.gitLog.details.groupBy'),
-              children: [
-                {
-                  key: 'workspace',
-                  label: t('workbench.gitLog.details.workspace'),
-                  icon: menuCheckIcon(prefs.groupFilesByWorkspace),
-                },
-                {
-                  key: 'directory',
-                  label: t('workbench.gitLog.details.directory'),
-                  icon: menuCheckIcon(prefs.groupFilesByDirectory),
-                },
-              ],
-            },
+            ...filesViewMenuItems(t, filesView),
             { type: 'divider' },
             {
               type: 'group',
@@ -95,9 +92,8 @@ const GitDetailsToolbar: React.FC<GitDetailsToolbarProps> = ({
             },
           ],
         onClick: ({ key }) => {
-          if (key === 'workspace') onPatchPrefs({ groupFilesByWorkspace: !prefs.groupFilesByWorkspace });
-          else if (key === 'directory') onPatchPrefs({ groupFilesByDirectory: !prefs.groupFilesByDirectory });
-          else if (key === 'show-details') onPatchPrefs({ showDetails: !prefs.showDetails });
+          if (pickFilesViewMenu(key, filesView)) return;
+          if (key === 'show-details') onPatchPrefs({ showDetails: !prefs.showDetails });
         },
       }}
     >

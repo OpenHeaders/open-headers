@@ -1,7 +1,8 @@
 /**
  * RollbackChangesModal — the Commit window's Rollback Changes dialog
  * (the reference's): the Changes group in the Commit window's own
- * checkable tree, opening in the shape the window is in with the files
+ * checkable tree, listed as the window lists it (its eye is the
+ * window's own choices) with the files
  * the gesture named checked — more can be checked or unchecked there —
  * a count of what is checked (added, modified, deleted, each in its
  * change's colour), "Delete local copies of added files", a line saying
@@ -25,7 +26,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTheme } from '@openheaders/ui/context';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { CollapseAllIcon, ExpandAllIcon } from '@openheaders/ui/shared/icons';
-import { menuCheckIcon } from '../../../shared/menu-check';
+import { type FilesView, filesViewMenuItems, pickFilesViewMenu } from '../toolbar/files-view-menu';
 import ToolbarIconButton from '../toolbar/ToolbarIconButton';
 import { nameGitWork } from '../use-git-work';
 import { useOptionMenu } from '../use-option-menu';
@@ -40,9 +41,8 @@ export interface RollbackChangesModalProps {
   paths: readonly string[] | null;
   /** The Changes group's rows, as the Commit window lists them. */
   rows: readonly WorkspaceTreeWorkingChangeWire[];
-  /** The Commit window's shape when the dialog opens — its own eye flips it from there. */
-  groupByWorkspace: boolean;
-  groupByDirectory: boolean;
+  /** How the Commit window lists its tree — the dialog lists the same way, and its eye flips the window's own. */
+  view: FilesView;
   rootLabel: string;
   headSha: string | null;
   onClose: () => void;
@@ -58,8 +58,7 @@ const RollbackChangesModal: React.FC<RollbackChangesModalProps> = ({
   workspaceId,
   paths,
   rows,
-  groupByWorkspace,
-  groupByDirectory,
+  view,
   rootLabel,
   headSha,
   onClose,
@@ -72,21 +71,16 @@ const RollbackChangesModal: React.FC<RollbackChangesModalProps> = ({
   const open = paths !== null;
   // What is checked is held by NAME: a change that appears while the dialog is open arrives unchecked.
   const [checkedPaths, setCheckedPaths] = useState<ReadonlySet<string>>(new Set());
-  const [byWorkspace, setByWorkspace] = useState(groupByWorkspace);
-  const [byDirectory, setByDirectory] = useState(groupByDirectory);
   const [deleteAdded, setDeleteAdded] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const treeRef = useRef<CommitChangesTreeHandle>(null);
   const viewOptionsMenu = useOptionMenu();
 
-  // Each opening starts from the gesture: its files checked, the window's shape, nothing else carried over.
-  // biome-ignore lint/correctness/useExhaustiveDependencies: the rows and the window's shape are read at the opening alone
+  // Each opening starts from the gesture: its files checked, nothing else carried over.
   useEffect(() => {
     if (paths === null) return;
     setCheckedPaths(new Set(paths));
-    setByWorkspace(groupByWorkspace);
-    setByDirectory(groupByDirectory);
     setDeleteAdded(false);
     setError(null);
   }, [paths]);
@@ -156,7 +150,7 @@ const RollbackChangesModal: React.FC<RollbackChangesModalProps> = ({
         return next;
       }),
     onOpenFile: noop,
-    groupByDirectory: byDirectory,
+    groupByDirectory: view.groupByDirectory,
     showIgnored: false,
     rootLabel,
     rowMenu: noMenu,
@@ -216,28 +210,8 @@ const RollbackChangesModal: React.FC<RollbackChangesModalProps> = ({
               onOpenChange={viewOptionsMenu.onOpenChange}
               menu={{
                 selectable: false,
-                items: [
-                  {
-                    type: 'group',
-                    label: t('workbench.gitLog.details.groupBy'),
-                    children: [
-                      {
-                        key: 'workspace',
-                        label: t('workbench.gitLog.details.workspace'),
-                        icon: menuCheckIcon(byWorkspace),
-                      },
-                      {
-                        key: 'directory',
-                        label: t('workbench.gitLog.details.directory'),
-                        icon: menuCheckIcon(byDirectory),
-                      },
-                    ],
-                  },
-                ],
-                onClick: ({ key }) => {
-                  if (key === 'workspace') setByWorkspace((on) => !on);
-                  else if (key === 'directory') setByDirectory((on) => !on);
-                },
+                items: filesViewMenuItems(t, view),
+                onClick: ({ key }) => void pickFilesViewMenu(key, view),
               }}
             >
               <span style={{ display: 'inline-flex' }}>
@@ -264,7 +238,7 @@ const RollbackChangesModal: React.FC<RollbackChangesModalProps> = ({
             />
           </div>
           <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', flexDirection: 'column' }} data-testid="commit-rollback-tree">
-            {byWorkspace ? (
+            {view.mode === 'items' ? (
               <CommitWorkspaceTree ref={treeRef} {...treeProps} workspaceId={workspaceId} headSha={headSha} />
             ) : (
               <CommitChangesTree ref={treeRef} {...treeProps} />

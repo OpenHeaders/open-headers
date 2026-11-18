@@ -670,9 +670,9 @@ export const workbenchSettingsPanes = {
   'workbench.settings.gitPane.log.signatureColumnLabel': '签名列',
   'workbench.settings.gitPane.log.signatureColumnDescription':
     '在提交行中标记已签名的提交，以及 Git 是否能验证每个签名。',
-  'workbench.settings.gitPane.log.groupByWorkspaceLabel': '按工作区分组',
-  'workbench.settings.gitPane.log.groupByWorkspaceDescription':
-    '把一次提交的已更改文件按其在工作区中所属的内容、以名称列出；关闭则按路径列出。',
+  'workbench.settings.gitPane.log.viewModeLabel': '视图模式',
+  'workbench.settings.gitPane.log.viewModeDescription':
+    '每个已更改文件列表的呈现方式：工作区条目——按文件在工作区中所属的内容、以名称列出——或文件，按路径列出。',
   'workbench.settings.gitPane.log.groupByDirectoryLabel': '按目录分组',
   'workbench.settings.gitPane.log.groupByDirectoryDescription':
     '把一次提交的已更改文件嵌套在其目录下；关闭则平铺列出。',

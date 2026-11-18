@@ -32,6 +32,7 @@ import GitBindForm from '../../../git/GitBindForm';
 import { localWorkspaceTreeTransport } from '../../../git/transport';
 import { refreshWorkspaceGit, useWorkspaceGitSnapshot } from '../../../../stores/git-status-store';
 import DiffModal from '../DiffModal';
+import { type FilesViewMode, setFilesViewMode, useFilesViewMode } from '../files-view-mode';
 import ForcePushBanner from '../ForcePushBanner';
 import GitWorkingLine from '../GitWorkingLine';
 import { committedLocalNotice, integrationRefusalDetail, keptLocalNotice, leftOutNotice } from '../kept-local';
@@ -132,6 +133,13 @@ const CommitToolPanel: React.FC<CommitToolPanelProps> = ({ info, onHide }) => {
   const patchPrefs = useCallback(
     (patch: Partial<CommitViewPrefs>): void => {
       if (workspaceId !== null) patchCommitViewPrefs(workspaceId, patch);
+    },
+    [workspaceId],
+  );
+  const viewMode = useFilesViewMode(workspaceId ?? '');
+  const changeViewMode = useCallback(
+    (mode: FilesViewMode): void => {
+      if (workspaceId !== null) setFilesViewMode(workspaceId, mode);
     },
     [workspaceId],
   );
@@ -705,13 +713,15 @@ const CommitToolPanel: React.FC<CommitToolPanelProps> = ({ info, onHide }) => {
         canRollback={groups.changes.length > 0}
         rollbackPaths={toolbarRollback.length > 0 ? toolbarRollback : allChangePaths}
         onRollback={handleRollbackPaths}
+        viewMode={viewMode}
+        onViewModeChange={changeViewMode}
         prefs={prefs}
         onPatchPrefs={patchPrefs}
         onExpandAll={() => treeRef.current?.expandAll()}
         onCollapseAll={() => treeRef.current?.collapseAll()}
       />
       <GitWorkingLine active={working || refreshAsked.asked} />
-      {prefs.groupByWorkspace ? (
+      {viewMode === 'items' ? (
         <CommitWorkspaceTree ref={treeRef} {...treeProps} workspaceId={workspaceId} headSha={headSha} />
       ) : (
         <CommitChangesTree ref={treeRef} {...treeProps} />
@@ -750,8 +760,12 @@ const CommitToolPanel: React.FC<CommitToolPanelProps> = ({ info, onHide }) => {
         workspaceId={workspaceId}
         paths={rollback}
         rows={groups.changes}
-        groupByWorkspace={prefs.groupByWorkspace}
-        groupByDirectory={prefs.groupByDirectory}
+        view={{
+          mode: viewMode,
+          onModeChange: changeViewMode,
+          groupByDirectory: prefs.groupByDirectory,
+          onGroupByDirectoryChange: (groupByDirectory) => patchPrefs({ groupByDirectory }),
+        }}
         rootLabel={treeProps.rootLabel ?? ''}
         headSha={headSha}
         onClose={() => setRollback(null)}

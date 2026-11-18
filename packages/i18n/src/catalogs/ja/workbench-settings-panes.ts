@@ -740,9 +740,9 @@ export const workbenchSettingsPanes = {
   'workbench.settings.gitPane.log.signatureColumnLabel': '署名列',
   'workbench.settings.gitPane.log.signatureColumnDescription':
     'コミット行で署名付きコミットを示し、各署名を Git が検証できたかどうかも表示します。',
-  'workbench.settings.gitPane.log.groupByWorkspaceLabel': 'ワークスペースでグループ化',
-  'workbench.settings.gitPane.log.groupByWorkspaceDescription':
-    'コミットの変更ファイルを、ワークスペース内で属するものごとに名前で一覧します。オフではパスで一覧します。',
+  'workbench.settings.gitPane.log.viewModeLabel': '表示モード',
+  'workbench.settings.gitPane.log.viewModeDescription':
+    '変更ファイルの各一覧の表示方法です。ワークスペースのアイテム（ファイルがワークスペース内で属するものを名前で一覧）か、ファイル（パスで一覧）かを選びます。',
   'workbench.settings.gitPane.log.groupByDirectoryLabel': 'ディレクトリでグループ化',
   'workbench.settings.gitPane.log.groupByDirectoryDescription':
     'コミットの変更ファイルをディレクトリの下に入れ子にします。オフではフラットに一覧します。',

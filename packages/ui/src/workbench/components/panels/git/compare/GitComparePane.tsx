@@ -24,6 +24,7 @@ import CommitDetails from '../CommitDetails';
 import CommitList from '../CommitList';
 import DiffModal from '../DiffModal';
 import CommitFilesView from '../CommitFilesView';
+import { useFilesViewMode } from '../files-view-mode';
 import { getGitLogViewPrefs, subscribeGitLogViewPrefs } from '../git-log-view-prefs';
 import type { GitCompareTabState } from '../git-panel-view-store';
 import { useFileDiff } from '../use-file-diff';
@@ -71,6 +72,7 @@ const CompareSide: React.FC<CompareSideProps> = ({
     [workspaceId],
   );
   const prefs = useSyncExternalStore(subscribePrefs, () => getGitLogViewPrefs(workspaceId));
+  const viewMode = useFilesViewMode(workspaceId);
   const selected = selectedSha !== null ? (entries.find((entry) => entry.sha === selectedSha) ?? null) : null;
   // Two or more rows selected: the detail slot answers with the count
   // (the log pane's reading), not one commit's files.
@@ -160,7 +162,7 @@ const CompareSide: React.FC<CompareSideProps> = ({
                 sha={selected.sha}
                 loadingPath={loadingPath}
                 onOpenFile={(path, _entity, base) => onOpenFile(selected.sha, path, base)}
-                groupByWorkspace={prefs.groupFilesByWorkspace}
+                viewMode={viewMode}
                 groupByDirectory={prefs.groupFilesByDirectory}
                 showHeader
               />

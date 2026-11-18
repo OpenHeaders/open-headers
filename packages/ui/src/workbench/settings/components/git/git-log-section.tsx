@@ -2,7 +2,8 @@
  * Git › Log sections — the Git tool window's per-workspace display
  * preferences, the same values the window's eye menus and ⋯ Options
  * flip: Commits (compact references, references on the left, tag names,
- * commit timestamp, the author / hash / date columns, the merge-commit highlight, the current-branch band), Changes (group by directory, show details, what a
+ * commit timestamp, the author / hash / date columns, the merge-commit highlight, the current-branch band), Changes (the view mode — every
+ * changed-files tree's one choice — group by directory, show details, what a
  * double-click opens) and Console (the gutter toggles). The values
  * live in the window's own per-workspace stores, so the rows patch
  * those stores directly and an open window follows at once; a row's
@@ -22,6 +23,12 @@ import {
   patchGitConsolePrefs,
   subscribeGitConsolePrefs,
 } from '../../../components/panels/git/git-console-view-state';
+import {
+  DEFAULT_FILES_VIEW_MODE,
+  type FilesViewMode,
+  setFilesViewMode,
+  useFilesViewMode,
+} from '../../../components/panels/git/files-view-mode';
 import {
   DEFAULT_GIT_LOG_VIEW_PREFS,
   type GitDoubleClickTarget,
@@ -70,6 +77,7 @@ const GitLogSection: React.FC<{ git: WorkspaceGit }> = ({ git }) => {
     useCallback((listener) => subscribeGitConsolePrefs(prefsKey, listener), [prefsKey]),
     () => getGitConsolePrefs(prefsKey),
   );
+  const viewMode = useFilesViewMode(prefsKey);
   const patchView = (patch: Partial<GitLogViewPrefs>): void => patchGitLogViewPrefs(prefsKey, patch);
   const patchConsole = (patch: Partial<GitConsolePrefs>): void => patchGitConsolePrefs(prefsKey, patch);
 
@@ -172,15 +180,25 @@ const GitLogSection: React.FC<{ git: WorkspaceGit }> = ({ git }) => {
         />
       </PaneSection>
       <PaneSection title={t('workbench.settings.category.gitLog.sub.changes')}>
-        <ToggleRow
-          settingKey="git.log.groupFilesByWorkspace"
-          label={t('workbench.settings.gitPane.log.groupByWorkspaceLabel')}
-          description={t('workbench.settings.gitPane.log.groupByWorkspaceDescription')}
-          value={view.groupFilesByWorkspace}
-          defaultValue={DEFAULT_GIT_LOG_VIEW_PREFS.groupFilesByWorkspace}
-          onChange={(groupFilesByWorkspace) => patchView({ groupFilesByWorkspace })}
-          testid="git-log-pane-group-by-workspace"
-        />
+        <FieldRow
+          settingKey="git.log.viewMode"
+          label={t('workbench.settings.gitPane.log.viewModeLabel')}
+          description={t('workbench.settings.gitPane.log.viewModeDescription')}
+          modified={viewMode !== DEFAULT_FILES_VIEW_MODE}
+          onReset={() => setFilesViewMode(prefsKey, DEFAULT_FILES_VIEW_MODE)}
+        >
+          <Select<FilesViewMode>
+            size="small"
+            value={viewMode}
+            onChange={(mode) => setFilesViewMode(prefsKey, mode)}
+            style={{ width: 160 }}
+            options={[
+              { value: 'items', label: t('workbench.gitLog.viewMode.items') },
+              { value: 'files', label: t('workbench.gitLog.viewMode.files') },
+            ]}
+            data-testid="git-log-pane-view-mode-select"
+          />
+        </FieldRow>
         <ToggleRow
           settingKey="git.log.groupFilesByDirectory"
           label={t('workbench.settings.gitPane.log.groupByDirectoryLabel')}

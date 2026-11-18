@@ -3,8 +3,8 @@
  * bar + the branches tree, wired to the workspace-tree verbs. Owns the
  * rail's own semantics: what a tree click does (the gear's
  * single-click setting), which bar verbs the selection enables, and
- * the per-workspace rail prefs (favorites, Show Tags, Group By
- * Directory). The branch verbs themselves (checkout with the §6.2
+ * the per-workspace rail prefs (favorites, Show Tags, Group Branches
+ * by Prefix). The branch verbs themselves (checkout with the §6.2
  * dirty prompt, merge into current, update, delete with Restore,
  * fetch, new branch) are the shared `useGitBranchActions` the view
  * mounts ONCE and hands down (the log rows' menu drives the same

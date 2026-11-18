@@ -92,7 +92,7 @@ function tree(files: ReadonlyArray<{ path: string; status: string; sha?: string 
       onOpenFile={() => undefined}
       selectedPath={null}
       onSelectFile={onSelectFile}
-      groupByWorkspace
+      viewMode="items"
     />
   );
   return { view, onSelectFile };

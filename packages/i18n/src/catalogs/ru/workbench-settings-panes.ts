@@ -800,9 +800,9 @@ export const workbenchSettingsPanes = {
   'workbench.settings.gitPane.log.signatureColumnLabel': 'Колонка «Подпись»',
   'workbench.settings.gitPane.log.signatureColumnDescription':
     'Отмечать подписанные коммиты в строках коммитов и удалось ли Git проверить каждую подпись.',
-  'workbench.settings.gitPane.log.groupByWorkspaceLabel': 'Группировать по рабочему пространству',
-  'workbench.settings.gitPane.log.groupByWorkspaceDescription':
-    'Показывать изменённые файлы коммита по тому, чему они принадлежат в рабочем пространстве, по именам; выключено — по путям.',
+  'workbench.settings.gitPane.log.viewModeLabel': 'Режим просмотра',
+  'workbench.settings.gitPane.log.viewModeDescription':
+    'Как выглядит каждый список изменённых файлов: элементы рабочего пространства — то, чему файлы принадлежат в рабочем пространстве, по именам — или файлы, по путям.',
   'workbench.settings.gitPane.log.groupByDirectoryLabel': 'Группировать по каталогам',
   'workbench.settings.gitPane.log.groupByDirectoryDescription':
     'Вкладывать изменённые файлы коммита в их каталоги; выключено — плоский список.',

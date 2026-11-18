@@ -5,6 +5,7 @@
 
 import type { WorkspaceTreeEntityRefWire } from '@openheaders/core/bridge';
 import type { MenuProps, theme } from 'antd';
+import type { FilesViewMode } from './files-view-mode';
 
 /** Porcelain status letter → theme color, (added green,
  *  modified blue, deleted red, rename/copy amber). */
@@ -45,7 +46,8 @@ export interface FileTreeViewProps {
   /**
    * The workspace and the commit the files are of — what a file is named
    * from when the workspace no longer holds the entity it belonged to
-   * (Group By Workspace). Absent: such a file is listed by its path.
+   * (the Workspace Items view mode). Absent: such a file is listed by
+   * its path.
    */
   workspaceId?: string;
   sha?: string;
@@ -68,9 +70,9 @@ export interface FileTreeViewProps {
    * `onOpenFile`.
    */
   onSelectFile?: (path: string | null, entity?: WorkspaceTreeEntityRefWire, base?: string) => void;
-  /** Group By Workspace (details eye) — the files by what they belong to in the workbench. */
-  groupByWorkspace?: boolean;
-  /** Group By Directory (details eye) — off renders flat full paths. */
+  /** The View Mode — `items`: the files by what they belong to in the workbench; absent: by path. */
+  viewMode?: FilesViewMode;
+  /** Group Files by Directory (details eye) — off renders flat full paths. */
   groupByDirectory?: boolean;
   /** Legacy inline header (compare pane) — heading + expand/collapse. */
   showHeader?: boolean;

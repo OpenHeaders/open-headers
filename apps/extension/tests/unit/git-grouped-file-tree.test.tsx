@@ -13,6 +13,7 @@ import type { WorkspaceTreeEntityRefWire } from '@openheaders/core/bridge';
 import FileTreeView from '@openheaders/ui/workbench/components/panels/git/FileTreeView';
 import type { FileTreeRow } from '@openheaders/ui/workbench/components/panels/git/file-tree';
 import type { FileTreeGroup } from '@openheaders/ui/workbench/components/panels/git/file-tree-view-props';
+import type { FilesViewMode } from '@openheaders/ui/workbench/components/panels/git/files-view-mode';
 import {
   type FileTreeGroupModel,
   groupCollapsed,
@@ -93,7 +94,7 @@ type Select = (path: string | null, entity?: WorkspaceTreeEntityRefWire, base?: 
 type Open = (path: string, entity?: WorkspaceTreeEntityRefWire, base?: string) => void;
 type Menu = (path: string | null, entity?: WorkspaceTreeEntityRefWire, base?: string) => MenuProps;
 
-function renderTree(options: { groupByWorkspace?: boolean; note?: string; groups?: FileTreeGroup[] } = {}) {
+function renderTree(options: { viewMode?: FilesViewMode; note?: string; groups?: FileTreeGroup[] } = {}) {
   const onSelectFile = vi.fn<Select>();
   const onOpenFile = vi.fn<Open>();
   const rowMenu = vi.fn<Menu>(() => ({ items: [] }));
@@ -107,7 +108,7 @@ function renderTree(options: { groupByWorkspace?: boolean; note?: string; groups
       selectedPath={null}
       onSelectFile={onSelectFile}
       rowMenu={rowMenu}
-      {...(options.groupByWorkspace === true ? { groupByWorkspace: true } : {})}
+      {...(options.viewMode !== undefined ? { viewMode: options.viewMode } : {})}
     />,
   );
   return { onSelectFile, onOpenFile, rowMenu };
@@ -198,7 +199,7 @@ describe('FileTreeView — groups, by path', () => {
 
 describe('FileTreeView — groups, by what the files belong to', () => {
   it('lists each group on its own, in the panels’ rows, and reports the group’s base', () => {
-    const { onSelectFile } = renderTree({ groupByWorkspace: true });
+    const { onSelectFile } = renderTree({ viewMode: 'items' });
     expect(filesIn(FIRST)).toEqual([ADDED, BOTH]);
     expect(filesIn(SECOND)).toEqual([BOTH, SIDE]);
     expect(document.querySelectorAll(`[data-group="${FIRST}"] .rules-sidebar-section`)).toHaveLength(1);
@@ -208,7 +209,7 @@ describe('FileTreeView — groups, by what the files belong to', () => {
   });
 
   it('a section folds inside its group alone', () => {
-    renderTree({ groupByWorkspace: true });
+    renderTree({ viewMode: 'items' });
     const header = document.querySelector<HTMLElement>(`[data-group="${FIRST}"] .rules-sidebar-section`);
     if (!header) throw new Error('no section');
     fireEvent.click(header);

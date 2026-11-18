@@ -5,7 +5,7 @@
  * the target row, selected by default, shows every commit's files as
  * one set, and a double-click there diffs the path across the whole
  * range (the upstream's blob against the local head). The files pane
- * carries the Git window's details toolbar — Show Diff, the Group By
+ * carries the Git window's details toolbar — Show Diff, the View Mode
  * / Show Details eye, Jump to Source — over the same per-workspace
  * view prefs, and the two dividers (commits | files, files | info)
  * are sashes on the Git window's track model, persisted per
@@ -36,6 +36,7 @@ import CommitDetails from '../CommitDetails';
 import CommitFilesView from '../CommitFilesView';
 import DiffModal from '../DiffModal';
 import FileTreeView, { type FileTreeViewHandle } from '../FileTreeView';
+import { setFilesViewMode, useFilesViewMode } from '../files-view-mode';
 import { getGitLogViewPrefs, patchGitLogViewPrefs, subscribeGitLogViewPrefs } from '../git-log-view-prefs';
 import GitDetailsToolbar from '../toolbar/GitDetailsToolbar';
 import { useFileDiff } from '../use-file-diff';
@@ -88,6 +89,7 @@ const PushCommitsModal: React.FC<PushCommitsModalProps> = ({ workspaceId, open, 
     [workspaceId],
   );
   const prefs = useSyncExternalStore(subscribePrefs, () => getGitLogViewPrefs(workspaceId));
+  const viewMode = useFilesViewMode(workspaceId);
 
   const beginRead = useNewestRead();
 
@@ -282,6 +284,8 @@ const PushCommitsModal: React.FC<PushCommitsModalProps> = ({ workspaceId, open, 
               }}
               onJumpToSource={() => jumpToSource(selectedPath, selectedEntity ?? undefined)}
               canJumpToSource={selectedPath !== null || selectedEntity !== null}
+              viewMode={viewMode}
+              onViewModeChange={(mode) => setFilesViewMode(workspaceId, mode)}
               prefs={prefs}
               onPatchPrefs={(patch) => patchGitLogViewPrefs(workspaceId, patch)}
               hasFiles={(selection === 'all' && entries.length > 0) || selected !== null}
@@ -309,7 +313,7 @@ const PushCommitsModal: React.FC<PushCommitsModalProps> = ({ workspaceId, open, 
                 selectedPath={selectedPath}
                 onSelectFile={selectFile}
                 onOpenFile={(path) => openDiff(path)}
-                groupByWorkspace={prefs.groupFilesByWorkspace}
+                viewMode={viewMode}
                 groupByDirectory={prefs.groupFilesByDirectory}
               />
             ) : selected === null ? (
@@ -340,7 +344,7 @@ const PushCommitsModal: React.FC<PushCommitsModalProps> = ({ workspaceId, open, 
                     selectedPath={selectedPath}
                     onSelectFile={selectFile}
                     onOpenFile={(path, _entity, base) => openDiff(path, base)}
-                    groupByWorkspace={prefs.groupFilesByWorkspace}
+                    viewMode={viewMode}
                     groupByDirectory={prefs.groupFilesByDirectory}
                   />
                 </div>

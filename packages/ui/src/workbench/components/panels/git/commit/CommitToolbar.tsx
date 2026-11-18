@@ -4,7 +4,7 @@
  * Rollback Changes with the selection's changes checked, or every
  * change when the selection holds none), Shelve
  * Silently (a visible placeholder), the View
- * Options eye (Group By Workspace / Directory, Show Ignored Files), Select Opened
+ * Options eye (View Mode, Group Files by Directory, Show Ignored Files), Select Opened
  * File (placeholder — needs the editor-tab↔file join), then Expand /
  * Collapse All driving the changes tree. The band is a PaneToolbar: at
  * a narrow dock the tail folds behind the › chevron's hover strip.
@@ -16,6 +16,8 @@ import type React from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { CollapseAllIcon, ExpandAllIcon, RefreshIcon, RollbackIcon, ShelveIcon } from '@openheaders/ui/shared/icons';
 import { menuCheckIcon } from '../../../shared/menu-check';
+import type { FilesViewMode } from '../files-view-mode';
+import { type FilesView, filesViewMenuItems, pickFilesViewMenu } from '../toolbar/files-view-menu';
 import PaneToolbar, { type PaneToolbarEntry } from '../toolbar/PaneToolbar';
 import { useOptionMenu } from '../use-option-menu';
 import ToolbarIconButton from '../toolbar/ToolbarIconButton';
@@ -28,6 +30,8 @@ export interface CommitToolbarProps {
   /** The selection's tracked changes — what Rollback Changes opens with checked. */
   rollbackPaths: readonly string[];
   onRollback: (paths: readonly string[]) => void;
+  viewMode: FilesViewMode;
+  onViewModeChange: (mode: FilesViewMode) => void;
   prefs: CommitViewPrefs;
   onPatchPrefs: (patch: Partial<CommitViewPrefs>) => void;
   onExpandAll: () => void;
@@ -39,6 +43,8 @@ const CommitToolbar: React.FC<CommitToolbarProps> = ({
   canRollback,
   rollbackPaths,
   onRollback,
+  viewMode,
+  onViewModeChange,
   prefs,
   onPatchPrefs,
   onExpandAll,
@@ -46,6 +52,12 @@ const CommitToolbar: React.FC<CommitToolbarProps> = ({
 }) => {
   const t = useT();
   const viewOptionsMenu = useOptionMenu();
+  const filesView: FilesView = {
+    mode: viewMode,
+    onModeChange: onViewModeChange,
+    groupByDirectory: prefs.groupByDirectory,
+    onGroupByDirectoryChange: (groupByDirectory) => onPatchPrefs({ groupByDirectory }),
+  };
 
   const viewOptions = (
     <Dropdown
@@ -56,22 +68,7 @@ const CommitToolbar: React.FC<CommitToolbarProps> = ({
       menu={{
           selectable: false,
           items: [
-            {
-              type: 'group',
-              label: t('workbench.gitLog.details.groupBy'),
-              children: [
-                {
-                  key: 'workspace',
-                  label: t('workbench.gitLog.details.workspace'),
-                  icon: menuCheckIcon(prefs.groupByWorkspace),
-                },
-                {
-                  key: 'directory',
-                  label: t('workbench.gitLog.details.directory'),
-                  icon: menuCheckIcon(prefs.groupByDirectory),
-                },
-              ],
-            },
+            ...filesViewMenuItems(t, filesView),
             { type: 'divider' },
             {
               type: 'group',
@@ -86,9 +83,8 @@ const CommitToolbar: React.FC<CommitToolbarProps> = ({
             },
           ],
         onClick: ({ key }) => {
-          if (key === 'workspace') onPatchPrefs({ groupByWorkspace: !prefs.groupByWorkspace });
-          else if (key === 'directory') onPatchPrefs({ groupByDirectory: !prefs.groupByDirectory });
-          else if (key === 'ignored') onPatchPrefs({ showIgnored: !prefs.showIgnored });
+          if (pickFilesViewMenu(key, filesView)) return;
+          if (key === 'ignored') onPatchPrefs({ showIgnored: !prefs.showIgnored });
         },
       }}
     >
