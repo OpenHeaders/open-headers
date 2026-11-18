@@ -12,6 +12,7 @@
  */
 
 import { logger } from '@openheaders/core/utils';
+import { isNeverCommittedPath } from '@openheaders/core/workspace-tree';
 import {
   checkIgnoreProvenance,
   commitParents,
@@ -44,7 +45,10 @@ export const USER_COMMIT_MAX_PATHS = 1_000;
  * a commit/pull pass, and the window refetches on status frames. With
  * ignored rows in the answer, one `check-ignore -v` batch attributes
  * each to its ignore source (the provenance suffix + Stop Ignoring
- * gate); attribution is best-effort and never hides a row.
+ * gate); attribution is best-effort and never hides a row. A file no
+ * commit holds — the sidecar's, a secret — that git lists as a change
+ * because the folder's `.gitignore` no longer ignores it is no row: the
+ * window offers nothing no pass records.
  */
 export async function runListChanges(
   ctx: RuntimeCtx,
@@ -57,10 +61,11 @@ export async function runListChanges(
   const availability = await ctx.ensureGitAvailability(rootDir);
   if (!availability.available) return { ok: false, reason: 'git-unavailable' };
   if (!(await isWorkspaceRepo(ctx.gitRun, rootDir))) return { ok: false, reason: 'not-a-repo' };
-  const changes = await listWorkingChanges(ctx.gitRun, rootDir, {
+  const listed = await listWorkingChanges(ctx.gitRun, rootDir, {
     ...(includeIgnored === true ? { includeIgnored: true } : {}),
   });
-  if (changes === null) return { ok: false, reason: 'status-failed' };
+  if (listed === null) return { ok: false, reason: 'status-failed' };
+  const changes = listed.filter((change) => change.ignored || !isNeverCommittedPath(change.path));
   const ignoredPaths = changes.filter((change) => change.ignored).map((change) => change.path);
   if (ignoredPaths.length > 0) {
     const provenance = await checkIgnoreProvenance(ctx.gitRun, rootDir, ignoredPaths);

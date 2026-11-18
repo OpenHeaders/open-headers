@@ -10,7 +10,8 @@
 
 import { WORKSPACE_GITIGNORE_CONTENT } from './layout';
 
-const REQUIRED_IGNORE_ENTRIES: readonly string[] = WORKSPACE_GITIGNORE_CONTENT.split('\n').filter(
+/** The ignore entries a bound folder's `.gitignore` always holds, one a line. */
+export const REQUIRED_IGNORE_ENTRIES: readonly string[] = WORKSPACE_GITIGNORE_CONTENT.split('\n').filter(
   (line) => line.length > 0,
 );
 

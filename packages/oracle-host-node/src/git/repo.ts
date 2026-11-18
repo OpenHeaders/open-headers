@@ -32,10 +32,12 @@ import { createHash } from 'node:crypto';
 import { promises as fs } from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
+import { isNeverCommittedPath } from '@openheaders/core/workspace-tree';
 import { resolveGitDirs } from './git-dir';
 import type { GitExecResult, GitRunner } from './git-exec';
 import type { IgnoreProvenance } from './ignore-ops';
 import { type HeldIndexLock, lockRefusalReason, withIndexLock } from './index-lock';
+import { NEVER_CLEANED_OPTIONS, namedPaths, WHOLE_TREE_PATHSPECS } from './never-committed';
 import { repoArgs } from './repo-args';
 
 export { repoArgs };
@@ -234,15 +236,17 @@ export type IntentToAddResult = { ok: true } | { ok: false; detail: string };
  * content staged, the temp-index commit reads the bytes from the
  * working tree as for any tracked file, and the post-commit refresh
  * keeps the entry (it lists the index with intent-to-add entries
- * visible) until the file is committed.
+ * visible) until the file is committed. A file no commit holds
+ * (`never-committed.ts`) named among them is not tracked this way.
  */
 export async function intentToAddPaths(
   run: GitRunner,
   rootDir: string,
   paths: readonly string[],
 ): Promise<IntentToAddResult> {
-  if (paths.length === 0) return { ok: true };
-  const result = await run([...repoArgs(rootDir), 'add', '-N', '--', ...paths], { cwd: rootDir });
+  const named = namedPaths(paths);
+  if (named.length === 0) return { ok: true };
+  const result = await run([...repoArgs(rootDir), 'add', '-N', '--', ...named], { cwd: rootDir });
   if (result.code !== 0) return { ok: false, detail: failureDetail(result) };
   return { ok: true };
 }
@@ -261,9 +265,16 @@ export function parsePorcelainCount(stdout: string): number {
   return count;
 }
 
-/** "N uncommitted" for the status feed — straight from porcelain. */
+/**
+ * "N uncommitted" for the status feed — straight from porcelain. A file
+ * no commit holds (`never-committed.ts`) is no uncommitted work where
+ * the folder's `.gitignore` no longer ignores it: git is asked without
+ * those, so a directory that holds nothing else is no row either.
+ */
 export async function countDirtyFiles(run: GitRunner, rootDir: string): Promise<number | null> {
-  const result = await run([...repoArgs(rootDir), 'status', '--porcelain', '-z'], { cwd: rootDir });
+  const result = await run([...repoArgs(rootDir), 'status', '--porcelain', '-z', '--', ...WHOLE_TREE_PATHSPECS], {
+    cwd: rootDir,
+  });
   if (result.code !== 0) return null;
   return parsePorcelainCount(result.stdout);
 }
@@ -918,23 +929,28 @@ export async function checkoutWorkspaceBranch(
 /**
  * Stash the working tree including untracked files — the Stash choice
  * of the §6.2 switch prompt. The entry lands on the user's ordinary
- * stash stack, recoverable with their own `git stash pop`.
+ * stash stack, recoverable with their own `git stash pop`. The sidecar
+ * and the secret files stay on disk whatever an ignore file says
+ * (`never-committed.ts`): the engine works from them across the switch.
  */
 export async function stashWorkspaceTree(run: GitRunner, rootDir: string, message: string): Promise<BranchOpResult> {
-  const result = await run([...repoArgs(rootDir), 'stash', 'push', '--include-untracked', '-m', message], {
-    cwd: rootDir,
-  });
+  const result = await run(
+    [...repoArgs(rootDir), 'stash', 'push', '--include-untracked', '-m', message, '--', ...WHOLE_TREE_PATHSPECS],
+    { cwd: rootDir },
+  );
   if (result.code !== 0) return { ok: false, detail: failureDetail(result) };
   return { ok: true };
 }
 
 /**
- * Remove untracked files/directories (`clean -fd`, gitignored paths —
- * the sidecar and secrets — survive). Only ever run as the second half
- * of the user's explicit Discard choice, after `checkout --force`.
+ * Remove untracked files/directories (`clean -fd`). Gitignored paths
+ * survive, and the sidecar and the secret files do whatever an ignore
+ * file says (`never-committed.ts`) — a secret removed here is in no
+ * commit to come back from. Only ever run as the second half of the
+ * user's explicit Discard choice, after `checkout --force`.
  */
 export async function cleanUntracked(run: GitRunner, rootDir: string): Promise<BranchOpResult> {
-  const result = await run([...repoArgs(rootDir), 'clean', '-fd'], { cwd: rootDir });
+  const result = await run([...repoArgs(rootDir), 'clean', '-fd', ...NEVER_CLEANED_OPTIONS], { cwd: rootDir });
   if (result.code !== 0) return { ok: false, detail: failureDetail(result) };
   return { ok: true };
 }
@@ -1542,7 +1558,9 @@ export interface CommitWorkspaceTreeOptions {
    * Commit only these validated tree paths (the Commit window's
    * checked set) instead of the whole tree. `git add -A` scoped to the
    * pathspec — modifications, deletions, and untracked files within
-   * the set all stage; `.gitignore` still applies. An EMPTY array
+   * the set all stage; `.gitignore` still applies, and a file no commit
+   * holds is not staged — named among them, or in a directory that is.
+   * An EMPTY array
    * skips staging entirely (the seeded HEAD tree commits as-is — the
    * message-only Amend gesture). Absent = the historic `-A .` pass.
    */
@@ -1622,6 +1640,43 @@ async function stagePathsFromTree(
   return null;
 }
 
+/**
+ * Put back, as HEAD has them, the files no commit holds
+ * (`never-committed.ts`) that the index `env` names holds otherwise —
+ * what a directory among a commit's named paths brought with it. A file
+ * HEAD does not hold leaves the index. Null on success, else the failed
+ * invocation.
+ */
+async function restoreNeverCommitted(
+  run: GitRunner,
+  rootDir: string,
+  env: Record<string, string>,
+  hasHead: boolean,
+): Promise<GitExecResult | null> {
+  const staged = await run([...repoArgs(rootDir), 'diff', '--cached', '--name-only', '--no-renames', '-z'], {
+    cwd: rootDir,
+    env,
+  });
+  if (staged.code !== 0) return staged;
+  const never = nulSeparatedPaths(staged.stdout).filter(isNeverCommittedPath);
+  if (never.length === 0) return null;
+  if (hasHead) return stagePathsFromTree(run, rootDir, env, 'HEAD', never);
+  for (let start = 0; start < never.length; start += TREE_PATHS_PER_CALL) {
+    const removed = await run(
+      [
+        ...repoArgs(rootDir),
+        'update-index',
+        '--force-remove',
+        '--',
+        ...never.slice(start, start + TREE_PATHS_PER_CALL),
+      ],
+      { cwd: rootDir, env },
+    );
+    if (removed.code !== 0) return removed;
+  }
+  return null;
+}
+
 export type CommitWorkspaceTreeResult =
   | { ok: true; committed: false }
   | { ok: true; committed: true; sha: string }
@@ -1632,12 +1687,14 @@ export type CommitWorkspaceTreeResult =
  * throwaway index in the system tmpdir — OUTSIDE the work tree, so the
  * index file itself can never be swept into a commit even on a repo
  * whose `.gitignore` went missing. `git add -A` inside that index
- * respects `.gitignore` (secrets and the sidecar can never be staged),
- * hooks and signing run on `git commit` exactly as configured, and the
- * user's real index never participates in the commit. Its lock is held
- * from before the commit until the index has followed it to the new
- * HEAD: a real index another git process is writing refuses the commit
- * (`index-locked`) with nothing recorded.
+ * respects `.gitignore`, and is told beside it what no commit holds
+ * (`never-committed.ts`): a secret and the sidecar are never staged,
+ * whatever an ignore file says. Hooks and signing run on `git commit`
+ * exactly as configured, and the user's real index never participates
+ * in the commit. Its lock is held from before the commit until the
+ * index has followed it to the new HEAD: a real index another git
+ * process is writing refuses the commit (`index-locked`) with nothing
+ * recorded.
  */
 export async function commitWorkspaceTree(options: CommitWorkspaceTreeOptions): Promise<CommitWorkspaceTreeResult> {
   const { run, rootDir } = options;
@@ -1703,12 +1760,20 @@ async function commitHoldingIndex(
     if (options.fromTree !== undefined) {
       const stage = await stagePathsFromTree(run, rootDir, indexEnv, options.fromTree, options.paths ?? []);
       if (stage !== null) return { ok: false, reason: 'stage-failed', detail: failureDetail(stage) };
-    } else if (options.paths === undefined || options.paths.length > 0) {
-      const stage = await run([...repoArgs(rootDir), 'add', '-A', '--', ...(options.paths ?? ['.'])], {
+    } else if (options.paths === undefined) {
+      const stage = await run([...repoArgs(rootDir), 'add', '-A', '--', ...WHOLE_TREE_PATHSPECS], {
         cwd: rootDir,
         env: indexEnv,
       });
       if (stage.code !== 0) return { ok: false, reason: 'stage-failed', detail: failureDetail(stage) };
+    } else {
+      const named = namedPaths(options.paths);
+      if (named.length > 0) {
+        const stage = await run([...repoArgs(rootDir), 'add', '-A', '--', ...named], { cwd: rootDir, env: indexEnv });
+        if (stage.code !== 0) return { ok: false, reason: 'stage-failed', detail: failureDetail(stage) };
+        const restore = await restoreNeverCommitted(run, rootDir, indexEnv, hasHead);
+        if (restore !== null) return { ok: false, reason: 'stage-failed', detail: failureDetail(restore) };
+      }
     }
 
     const diff = await run([...repoArgs(rootDir), 'diff', '--cached', '--quiet'], { cwd: rootDir, env: indexEnv });

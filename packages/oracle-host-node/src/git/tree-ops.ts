@@ -14,6 +14,7 @@ import { promises as fs } from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import type { GitRunner } from './git-exec';
+import { WHOLE_TREE_PATHSPECS } from './never-committed';
 import { type BranchOpResult, failureDetail, localHeadSha, looksBinary, readBlobSize, repoArgs } from './repo';
 
 /** Paths per `checkout` invocation — keeps the arg vector under every platform's limit. */
@@ -98,7 +99,8 @@ export async function readTreeEntryText(
 /**
  * The working tree as it stands, written as a tree object: HEAD's files
  * with every modification, deletion and untracked file over them
- * (`.gitignore` applies — a secret or the sidecar is never in it).
+ * (`.gitignore` applies, and a secret or the sidecar is never in it
+ * whatever an ignore file says — `never-committed.ts`).
  * Nothing is committed and the user's real index is never read or
  * written (§3.3). Two snapshots taken around a pass differ in exactly
  * the files the pass wrote. Null when the tree cannot be read.
@@ -113,7 +115,7 @@ export async function snapshotWorkingTree(run: GitRunner, rootDir: string): Prom
       env,
     });
     if (seed.code !== 0) return null;
-    const stage = await run([...repoArgs(rootDir), 'add', '-A', '--', '.'], { cwd: rootDir, env });
+    const stage = await run([...repoArgs(rootDir), 'add', '-A', '--', ...WHOLE_TREE_PATHSPECS], { cwd: rootDir, env });
     if (stage.code !== 0) return null;
     const tree = await run([...repoArgs(rootDir), 'write-tree'], { cwd: rootDir, env });
     const sha = tree.stdout.trim();

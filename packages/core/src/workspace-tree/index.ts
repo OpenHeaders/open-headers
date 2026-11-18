@@ -39,7 +39,7 @@ export {
   type WorkspaceTreeEntityRef,
 } from './entity-at-path';
 export { DETACHED_HEAD_STAMP_PREFIX, detachedHeadStamp, type HeadStampReading, readHeadStamp } from './head-stamp';
-export { withRequiredIgnoreEntries } from './hygiene';
+export { REQUIRED_IGNORE_ENTRIES, withRequiredIgnoreEntries } from './hygiene';
 export { type FoldedTreeIssue, foldTreeIssues } from './issue-fold';
 export {
   COLLECTION_MANIFEST_FILE,
@@ -108,6 +108,7 @@ export {
 } from './log/skeleton';
 export { type TopologicalOptions, topologicalRows } from './log/topological';
 export { type LogTextFields, type LogTextMatcher, type LogTextRange, makeLogTextMatcher } from './log-text-match';
+export { isNeverCommittedPath } from './never-committed';
 export {
   applyTreeOrder,
   indexSegments,

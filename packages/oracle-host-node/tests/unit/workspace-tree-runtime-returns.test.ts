@@ -29,6 +29,10 @@
  *
  * And Delete… asked for a file that lies through a link: the verb's own
  * wiring to the folder's boundary.
+ *
+ * And a `.gitignore` a pull brings that takes the engine's entries back:
+ * the pull's own commit, the commit after it, the Commit window's rows
+ * and the count hold no secret and nothing of the sidecar.
  */
 
 import { promises as fs } from 'node:fs';
@@ -36,7 +40,7 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 import { COLLECTION_ENTITY_TYPE, FOLDER_ITEMS_PATH } from '@openheaders/core/sync';
-import { TREE_FILE_MAX_BYTES } from '@openheaders/core/workspace-tree';
+import { isNeverCommittedPath, TREE_FILE_MAX_BYTES } from '@openheaders/core/workspace-tree';
 import {
   getOrCreateWorkspaceService,
   releaseWorkspaceService,
@@ -130,6 +134,20 @@ async function expectTheRuleBack(): Promise<void> {
   expect(rulesInTheCollection()).toEqual([RULE_UID]);
   expect(ruleOf(RULE_UID)?.path).toBe(RULE_DIR);
   expect(harness.runtime.issues(harness.workspaceId)).toEqual([]);
+}
+
+/** `run` with the branch pushed to a remote it tracks: a Pull is then up to date. */
+async function withTheBranchPushed(run: () => Promise<void>): Promise<void> {
+  const remote = await fs.mkdtemp(path.join(os.tmpdir(), 'oh-tree-runtime-remote-'));
+  try {
+    const branch = await harness.git('rev-parse', '--abbrev-ref', 'HEAD');
+    await harness.git('init', '-q', '--bare', remote);
+    await harness.git('remote', 'add', 'origin', remote);
+    await harness.git('push', '-q', '-u', 'origin', branch);
+    await run();
+  } finally {
+    await fs.rm(remote, { recursive: true, force: true });
+  }
 }
 
 beforeEach(async () => {
@@ -424,20 +442,6 @@ describe("the workspace-tree runtime: the Git card's rows after a pass", () => {
   const BROKEN_FILE = 'rules/broken-colbbbbb/_collection.yaml';
   const REFUSED_FILE = 'rules/broken-colbbbbb/inside-bbbbbbbb/rule.yaml';
   const rows = () => harness.runtime.issues(harness.workspaceId);
-
-  /** `run` with the branch pushed to a remote it tracks: a Pull is then up to date. */
-  async function withTheBranchPushed(run: () => Promise<void>): Promise<void> {
-    const remote = await fs.mkdtemp(path.join(os.tmpdir(), 'oh-tree-runtime-remote-'));
-    try {
-      const branch = await harness.git('rev-parse', '--abbrev-ref', 'HEAD');
-      await harness.git('init', '-q', '--bare', remote);
-      await harness.git('remote', 'add', 'origin', remote);
-      await harness.git('push', '-q', '-u', 'origin', branch);
-      await run();
-    } finally {
-      await fs.rm(remote, { recursive: true, force: true });
-    }
-  }
 
   it('the row of a rule the workspace has no container for stands after a Pull', { timeout: 30_000 }, async () => {
     await writeCollectionByHand();
@@ -754,6 +758,57 @@ describe('the workspace-tree runtime: Delete… and the folder’s boundary', ()
       expect(await fs.readFile(path.join(outside, 'victim.txt'), 'utf-8')).toBe('as its owner left it\n');
     } finally {
       await fs.rm(outside, { recursive: true, force: true });
+    }
+  });
+});
+
+describe('the workspace-tree runtime: a .gitignore a Pull brings that takes the entries back', () => {
+  const VAULT_FILE = 'workspace-vars.secret.yaml';
+  const VAULT_TEXT =
+    'schemaVersion: 5\nsecrets:\n  - uid: scapitkn\n    kind: string\n    name: API_TOKEN\n    value: super-secret-token\n';
+  const headPaths = async (): Promise<string[]> =>
+    (await harness.git('ls-tree', '-r', '--name-only', 'HEAD')).split('\n');
+
+  it('no commit of the Pull or after it holds the vault or the sidecar, and neither is a change to commit', {
+    timeout: 30_000,
+  }, async () => {
+    await writeByHand(VAULT_FILE, VAULT_TEXT);
+    await delay(TREE_AT_REST_MS);
+    expect(await harness.runtime.commit(harness.workspaceId, 'seed')).toMatchObject({ ok: true, committed: true });
+    // While the entries hold, the vault is a row of the ignored files — that row is git's and stays.
+    expect(await harness.runtime.changes(harness.workspaceId, true)).toMatchObject({
+      ok: true,
+      changes: expect.arrayContaining([expect.objectContaining({ path: VAULT_FILE, ignored: true })]),
+    });
+    const other = await fs.mkdtemp(path.join(os.tmpdir(), 'oh-tree-runtime-other-'));
+    try {
+      await withTheBranchPushed(async () => {
+        const branch = await harness.git('rev-parse', '--abbrev-ref', 'HEAD');
+        await harness.git('clone', '-q', '-b', branch, await harness.git('remote', 'get-url', 'origin'), other);
+        await fs.appendFile(path.join(other, '.gitignore'), '!*.secret.yaml\n!.oh/\n', 'utf-8');
+        await harness.git('-C', other, 'add', '-A');
+        await harness.git('-C', other, 'commit', '-q', '-m', 'ignore less');
+        await harness.git('-C', other, 'push', '-q');
+
+        expect(await harness.runtime.pull(harness.workspaceId)).toMatchObject({ ok: true, upToDate: false });
+        expect(await fs.readFile(inTree('.gitignore'), 'utf-8')).toContain('!*.secret.yaml');
+        // Git itself lists both as work to commit from here on.
+        const listed = await harness.git('status', '--porcelain', '--untracked-files=all');
+        expect(listed).toContain(`?? ${VAULT_FILE}`);
+        expect(listed).toContain('?? .oh/lock');
+        expect((await headPaths()).filter(isNeverCommittedPath)).toEqual([]);
+
+        expect(await harness.runtime.changes(harness.workspaceId)).toEqual({ ok: true, changes: [] });
+        expect((await harness.runtime.gitStatus(harness.workspaceId)).dirtyFiles).toBe(0);
+
+        await writeByHand('notes.md', '# mine\n');
+        expect(await harness.runtime.commit(harness.workspaceId, 'after')).toMatchObject({ ok: true, committed: true });
+        const held = await headPaths();
+        expect(held).toContain('notes.md');
+        expect(held.filter(isNeverCommittedPath)).toEqual([]);
+      });
+    } finally {
+      await fs.rm(other, { recursive: true, force: true });
     }
   });
 });
