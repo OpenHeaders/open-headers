@@ -1,8 +1,10 @@
 /**
  * Bind / unbind — exclusivity + identity (the git-sync plan §3.5): lockfile
  * refusal with holder identity, uuid-collision vs identity-mismatch on
- * a foreign manifest, init authoring of workspace.yaml + .gitignore,
- * and unbind leaving the tree a valid workspace folder. Adopt (gap K):
+ * a foreign manifest, init authoring of workspace.yaml + .gitignore —
+ * each at its own name, never through a link standing there, the
+ * sidecar a directory of its own with its ignore file — and unbind
+ * leaving the tree a valid workspace folder. Adopt (gap K):
  * the pre-flight over a real clone of a bare remote reserves the tree
  * with its manifest identity, refuses the collision / the unreadable
  * manifest / a folder with no manifest / a foreign lock, and the
@@ -95,6 +97,50 @@ describe('bindWorkspaceTree', () => {
     } finally {
       await fs.rm(outside, { recursive: true, force: true });
     }
+  });
+
+  it('the sidecar holds an ignore file of its own from the bind on', async () => {
+    await bindWorkspaceTree({ rootDir: tmpDir, workspace: makeWorkspace(), hostId: 'desktop-1' });
+    expect(await fs.readFile(path.join(tmpDir, '.oh', '.gitignore'), 'utf-8')).toBe('*\n');
+  });
+
+  it('a folder whose .oh is a link binds with a sidecar of its own: the lock is taken in it, nothing where the link pointed', async () => {
+    const outside = await fs.mkdtemp(path.join(os.tmpdir(), 'oh-tree-bind-outside-'));
+    try {
+      await fs.symlink(outside, path.join(tmpDir, '.oh'));
+      const result = await bindWorkspaceTree({ rootDir: tmpDir, workspace: makeWorkspace(), hostId: 'desktop-1' });
+      expect(result).toEqual({ ok: true, initialized: true });
+      expect((await fs.lstat(path.join(tmpDir, '.oh'))).isDirectory()).toBe(true);
+      expect((await fs.readdir(path.join(tmpDir, '.oh'))).sort()).toEqual(['.gitignore', 'lock']);
+      expect(await fs.readdir(outside)).toEqual([]);
+    } finally {
+      await fs.rm(outside, { recursive: true, force: true });
+    }
+  });
+
+  it('a workspace.yaml that is a link to nothing is no manifest: the manifest is written in its place, nothing where it pointed', async () => {
+    const outside = await fs.mkdtemp(path.join(os.tmpdir(), 'oh-tree-bind-outside-'));
+    try {
+      await fs.symlink(path.join(outside, 'manifest.yaml'), path.join(tmpDir, 'workspace.yaml'));
+      const result = await bindWorkspaceTree({ rootDir: tmpDir, workspace: makeWorkspace(), hostId: 'desktop-1' });
+      expect(result).toEqual({ ok: true, initialized: true });
+      expect((await fs.lstat(path.join(tmpDir, 'workspace.yaml'))).isFile()).toBe(true);
+      expect(await fs.readFile(path.join(tmpDir, 'workspace.yaml'), 'utf-8')).toContain('uid: wsaaaaaa');
+      expect(await fs.readdir(outside)).toEqual([]);
+    } finally {
+      await fs.rm(outside, { recursive: true, force: true });
+    }
+  });
+
+  it('a directory at workspace.yaml refuses the bind with what stands there, and the lock is given back', async () => {
+    await fs.mkdir(path.join(tmpDir, 'workspace.yaml'));
+    expect(await bindWorkspaceTree({ rootDir: tmpDir, workspace: makeWorkspace(), hostId: 'desktop-1' })).toEqual({
+      ok: false,
+      reason: 'invalid-manifest',
+      message: '"workspace.yaml" is not a file',
+    });
+    expect(await fs.readdir(path.join(tmpDir, '.oh'))).toEqual([]);
+    expect((await fs.lstat(path.join(tmpDir, 'workspace.yaml'))).isDirectory()).toBe(true);
   });
 
   it('a folder with a directory at .gitignore binds all the same: the directory stands', async () => {

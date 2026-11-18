@@ -20,29 +20,87 @@
  *                            quarantined into the worktree (§13.3), so a
  *                            later pass can tell its own machine write
  *                            from a user hand edit at the same path.
+ *
+ * And one file that is git's to read: `.gitignore`, holding `*` — the
+ * sidecar keeps itself out of the user's own git whatever the folder's
+ * root `.gitignore` has come to say (a line that takes the entry back,
+ * a link at its name, no file at all).
+ *
+ * The sidecar is a real directory, asked at its own name before every
+ * read and write. A commit can put a link there — a branch whose tree
+ * holds one, checked out by git, which takes the directory away for it —
+ * and the link would hand the engine a baseline of a peer's making: the
+ * materializer removes what its baseline lists, so a file of the user's
+ * named there by its hash would go. A link at the name is taken away,
+ * never followed and never read; the sidecar is made anew beside the
+ * documents, empty, which reads as no baseline at all. What stands there
+ * and is neither a directory nor a link is not the engine's to take
+ * away: a read answers nothing, and a write fails, saying so.
  */
 
 import { createHash } from 'node:crypto';
 import { promises as fs } from 'node:fs';
 import * as path from 'node:path';
-import { OH_SIDECAR_DIR, type TreeUnknownFields } from '@openheaders/core/workspace-tree';
+import { GITIGNORE_FILE, OH_SIDECAR_DIR, type TreeUnknownFields } from '@openheaders/core/workspace-tree';
+import { failureCode, isGone, putRegularFile, readRegularFile, TreeBoundary } from '../git';
 
 const LOCK_FILE = 'lock';
 const UNKNOWN_FIELDS_FILE = 'unknown-fields.json';
 const MATERIALIZED_INDEX_FILE = 'materialized-index.json';
 const QUARANTINE_INDEX_FILE = 'quarantined-files.json';
 
+/** The sidecar's own ignore file: everything in it, itself included. */
+const SIDECAR_IGNORE_CONTENT = '*\n';
+
 export function sidecarDir(rootDir: string): string {
   return path.join(rootDir, OH_SIDECAR_DIR);
 }
 
+/**
+ * What stands at the sidecar's name: the directory, nothing, or what is
+ * there instead. A link at the name is taken away — by the name, never
+ * through it — and nothing stands then.
+ */
+async function lookAtSidecar(rootDir: string): Promise<'directory' | 'absent' | 'not-a-directory'> {
+  const dir = sidecarDir(rootDir);
+  const stat = await fs.lstat(dir).catch((err: unknown) => {
+    if (isGone(failureCode(err))) return null;
+    throw err;
+  });
+  if (stat === null) return 'absent';
+  if (stat.isDirectory()) return 'directory';
+  if (!stat.isSymbolicLink()) return 'not-a-directory';
+  await fs.unlink(dir);
+  return 'absent';
+}
+
+/** The sidecar, made where it is not there — before a write. Fails where its name is taken by what is no directory. */
 async function ensureSidecarDir(rootDir: string): Promise<void> {
+  const stands = await lookAtSidecar(rootDir);
+  if (stands === 'directory') return;
+  if (stands === 'not-a-directory') throw new Error(`"${OH_SIDECAR_DIR}" is not a directory`);
   await fs.mkdir(sidecarDir(rootDir), { recursive: true });
 }
 
-async function readJsonFile<T>(filePath: string): Promise<T | null> {
+/**
+ * Keep the sidecar's own ignore file: authored where it is not there or
+ * holds anything else, a regular file like the folder's (`git/regular-file.ts`)
+ * — a link at its name is replaced, never written through.
+ */
+export async function ensureSidecarIgnore(rootDir: string): Promise<void> {
+  await ensureSidecarDir(rootDir);
+  const dir = sidecarDir(rootDir);
+  const standing = await readRegularFile(path.join(dir, GITIGNORE_FILE));
+  if (standing.kind === 'unread') return;
+  if (standing.kind === 'text' && standing.text === SIDECAR_IGNORE_CONTENT) return;
+  await putRegularFile(new TreeBoundary(dir), GITIGNORE_FILE, SIDECAR_IGNORE_CONTENT);
+}
+
+/** One of the sidecar's JSON files, null where it is not there or does not parse — or the sidecar itself is not. */
+async function readSidecarJson<T>(rootDir: string, file: string): Promise<T | null> {
+  if ((await lookAtSidecar(rootDir)) !== 'directory') return null;
   try {
-    return JSON.parse(await fs.readFile(filePath, 'utf-8')) as T;
+    return JSON.parse(await fs.readFile(path.join(sidecarDir(rootDir), file), 'utf-8')) as T;
   } catch {
     return null;
   }
@@ -92,7 +150,7 @@ export async function acquireTreeLock(rootDir: string, hostId: string): Promise<
   } catch (err) {
     if ((err as NodeJS.ErrnoException).code !== 'EEXIST') throw err;
   }
-  const holder = await readJsonFile<TreeLockHolder>(lockPath(rootDir));
+  const holder = await readSidecarJson<TreeLockHolder>(rootDir, LOCK_FILE);
   if (holder && holder.pid === process.pid && holder.hostId === hostId) return { ok: true };
   if (holder && typeof holder.pid === 'number' && isPidAlive(holder.pid)) {
     return { ok: false, holder };
@@ -104,7 +162,7 @@ export async function acquireTreeLock(rootDir: string, hostId: string): Promise<
 
 /** Release the tree lock if this process holds it; no-op otherwise. */
 export async function releaseTreeLock(rootDir: string, hostId: string): Promise<void> {
-  const holder = await readJsonFile<TreeLockHolder>(lockPath(rootDir));
+  const holder = await readSidecarJson<TreeLockHolder>(rootDir, LOCK_FILE);
   if (holder && holder.pid === process.pid && holder.hostId === hostId) {
     await fs.rm(lockPath(rootDir), { force: true });
   }
@@ -113,7 +171,7 @@ export async function releaseTreeLock(rootDir: string, hostId: string): Promise<
 // ── Unknown-field rows ───────────────────────────────────────────────
 
 export async function readTreeUnknownFields(rootDir: string): Promise<TreeUnknownFields> {
-  const value = await readJsonFile<TreeUnknownFields>(path.join(sidecarDir(rootDir), UNKNOWN_FIELDS_FILE));
+  const value = await readSidecarJson<TreeUnknownFields>(rootDir, UNKNOWN_FIELDS_FILE);
   return value ?? {};
 }
 
@@ -140,7 +198,7 @@ export function hashTreeContent(content: string): string {
 }
 
 export async function readMaterializedIndex(rootDir: string): Promise<MaterializedIndex> {
-  const value = await readJsonFile<unknown>(path.join(sidecarDir(rootDir), MATERIALIZED_INDEX_FILE));
+  const value = await readSidecarJson<unknown>(rootDir, MATERIALIZED_INDEX_FILE);
   // Pre-hash format (S3): a bare path array. Empty hashes make every
   // present file read as externally changed, which is the safe
   // tree-wins direction for a one-time upgrade of a disposable cache.
@@ -180,7 +238,7 @@ export async function writeMaterializedIndex(rootDir: string, index: Materialize
 export type QuarantineIndex = Record<string, string>;
 
 export async function readQuarantineIndex(rootDir: string): Promise<QuarantineIndex> {
-  const value = await readJsonFile<unknown>(path.join(sidecarDir(rootDir), QUARANTINE_INDEX_FILE));
+  const value = await readSidecarJson<unknown>(rootDir, QUARANTINE_INDEX_FILE);
   if (value === null || typeof value !== 'object' || Array.isArray(value)) return {};
   const index: QuarantineIndex = {};
   for (const [key, hash] of Object.entries(value as Record<string, unknown>)) {

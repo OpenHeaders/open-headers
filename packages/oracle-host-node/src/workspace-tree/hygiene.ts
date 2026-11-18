@@ -27,6 +27,10 @@
  * pass hands its look for git's writes; such a file is left and counted
  * held, for the pass to be taken again — and so is one another program
  * holds as the pass comes to it.
+ *
+ * The sidecar's own ignore file is kept with them (`sidecar.ts`): the
+ * root `.gitignore` is a file a commit can change, and the sidecar stays
+ * out of the user's own git whatever it says.
  */
 
 import * as path from 'node:path';
@@ -39,6 +43,7 @@ import {
   withRequiredIgnoreEntries,
 } from '@openheaders/core/workspace-tree';
 import { isBusy, putRegularFile, readRegularFile, TreeBoundary, treeRefusalIssue } from '../git';
+import { ensureSidecarIgnore } from './sidecar';
 
 interface HygieneFile {
   file: string;
@@ -91,6 +96,7 @@ export async function ensureTreeHygiene(
     if (put.ok) written.push(file);
     else unwritten.push(treeRefusalIssue(file, put.refusal));
   }
+  await ensureSidecarIgnore(rootDir);
 
   return { written, held, unwritten };
 }

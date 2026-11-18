@@ -4,7 +4,8 @@
  *
  * Bind establishes three facts, refusing loudly when any fails:
  *   - identity: `workspace.yaml` carries the workspace uid (written on
- *     init; verified on rebind — a tree belonging to a different
+ *     init, at its own name and never through a link standing there;
+ *     verified on rebind — a tree belonging to a different
  *     workspace is refused, and a tree whose uuid already exists on
  *     this host via another source is the §3.5 clone-collision);
  *   - exclusivity: the `.oh/lock` file — one tree, one engine
@@ -14,7 +15,8 @@
  *     `.gitattributes` (`*.yaml text eol=lf`, §3.4) are authored when
  *     absent, and a `.gitignore` the folder already holds gets the
  *     entries it lacks appended (`hygiene.ts`), so a later `git init`
- *     can never commit secrets or let autocrlf break byte-determinism.
+ *     can never commit secrets or let autocrlf break byte-determinism;
+ *     the sidecar keeps an ignore file of its own beside them.
  *
  * Adopt (§3.5 / §5, the S25 gap K) is the pre-flight for opening a
  * foreign tree — a teammate's clone — as a NEW local workspace: the
@@ -33,6 +35,7 @@ import * as path from 'node:path';
 import { parseWorkspace } from '@openheaders/core/codec/yaml';
 import type { Workspace } from '@openheaders/core/types';
 import { serializeWorkspaceManifest, WORKSPACE_MANIFEST_FILE } from '@openheaders/core/workspace-tree';
+import { putRegularFile, TreeBoundary, treeRefusalReason } from '../git';
 import { ensureTreeHygiene } from './hygiene';
 import { acquireTreeLock, releaseTreeLock, type TreeLockHolder } from './sidecar';
 
@@ -111,14 +114,27 @@ export async function bindWorkspaceTree(options: BindWorkspaceTreeOptions): Prom
   const lock = await acquireTreeLock(rootDir, hostId);
   if (!lock.ok) return { ok: false, reason: 'locked', holder: lock.holder };
 
-  let initialized = false;
+  // The manifest is written at its own name, never through what stands
+  // there: a link to nothing reads as no manifest, and the write would
+  // land where it points.
   if (!probe.present) {
-    await fs.writeFile(path.join(rootDir, WORKSPACE_MANIFEST_FILE), serializeWorkspaceManifest(workspace), 'utf-8');
-    initialized = true;
+    const put = await putRegularFile(
+      new TreeBoundary(rootDir),
+      WORKSPACE_MANIFEST_FILE,
+      serializeWorkspaceManifest(workspace),
+    );
+    if (!put.ok) {
+      await releaseTreeLock(rootDir, hostId);
+      return {
+        ok: false,
+        reason: 'invalid-manifest',
+        message: treeRefusalReason(WORKSPACE_MANIFEST_FILE, put.refusal),
+      };
+    }
   }
   await ensureTreeHygiene(rootDir);
 
-  return { ok: true, initialized };
+  return { ok: true, initialized: !probe.present };
 }
 
 export interface ReserveWorkspaceTreeForAdoptOptions {

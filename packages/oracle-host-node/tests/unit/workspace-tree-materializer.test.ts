@@ -12,7 +12,8 @@
  * through, a directory there left with its row. And one pins the
  * folder's boundary under a pass: what is planned or baselined at a path
  * no tree can hold, or through a link, is not read, written or removed,
- * and the pass says its rows.
+ * and the pass says its rows. And a link at the sidecar's own name: the
+ * baseline where it points is never the pass's.
  */
 
 import { promises as fs, readdirSync, symlinkSync } from 'node:fs';
@@ -784,5 +785,36 @@ describe('WorkspaceTreeMaterializer — the folder’s boundary', () => {
     const pass = await materializer.flush();
     expect([pass.written, pass.unwritten]).toEqual([['workspace.yaml'], [LINK_ROW]]);
     expect(await namesIn(outside)).toEqual([]);
+  });
+});
+
+describe('WorkspaceTreeMaterializer — a link at the sidecar’s name', () => {
+  let outside: string;
+
+  beforeEach(async () => {
+    outside = `${tmpDir}-outside`;
+    await fs.mkdir(outside);
+  });
+
+  afterEach(async () => {
+    await fs.rm(outside, { recursive: true, force: true });
+  });
+
+  it('a baseline where the link points is not the pass’s: a file of the user’s it names by its hash stands, and the sidecar is a directory again', async () => {
+    const mine = 'A workspace of mine.\n';
+    await fs.writeFile(path.join(tmpDir, 'README.md'), mine, 'utf-8');
+    await fs.writeFile(
+      path.join(outside, 'materialized-index.json'),
+      JSON.stringify({ 'README.md': hashTreeContent(mine) }),
+      'utf-8',
+    );
+    await fs.symlink(outside, path.join(tmpDir, '.oh'));
+
+    const pass = await makeMaterializer().flush();
+    expect(pass.deleted).toEqual([]);
+    expect(await fs.readFile(path.join(tmpDir, 'README.md'), 'utf-8')).toBe(mine);
+    expect((await fs.lstat(path.join(tmpDir, '.oh'))).isDirectory()).toBe(true);
+    expect(Object.keys(await readMaterializedIndex(tmpDir))).toEqual(['workspace.yaml']);
+    expect(await fs.readdir(outside)).toEqual(['materialized-index.json']);
   });
 });

@@ -36,9 +36,12 @@
  *
  * And a link a commit puts at `.gitignore`: a pull does not land it, and
  * a pass after git's own checkout landed one puts the authored file in
- * its place — nothing is ever written where the link points.
+ * its place — nothing is ever written where the link points. And a link
+ * a commit puts at the sidecar's name: the baseline where it points is
+ * never the materializer's.
  */
 
+import { createHash } from 'node:crypto';
 import { promises as fs } from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
@@ -796,10 +799,9 @@ describe('the workspace-tree runtime: a .gitignore a Pull brings that takes the 
 
         expect(await harness.runtime.pull(harness.workspaceId)).toMatchObject({ ok: true, upToDate: false });
         expect(await fs.readFile(inTree('.gitignore'), 'utf-8')).toContain('!*.secret.yaml');
-        // Git itself lists both as work to commit from here on.
+        // Git itself lists the vault as work to commit from here on. The sidecar it does not: its own ignore file holds.
         const listed = await harness.git('status', '--porcelain', '--untracked-files=all');
-        expect(listed).toContain(`?? ${VAULT_FILE}`);
-        expect(listed).toContain('?? .oh/lock');
+        expect(listed).toBe(`?? ${VAULT_FILE}`);
         expect((await headPaths()).filter(isNeverCommittedPath)).toEqual([]);
 
         expect(await harness.runtime.changes(harness.workspaceId)).toEqual({ ok: true, changes: [] });
@@ -902,6 +904,48 @@ describe('the workspace-tree runtime: a link a commit puts at .gitignore', () =>
       expect(await stands(outside)).toBe(false);
       expect(await harness.git('ls-tree', 'HEAD', '.gitignore')).toMatch(/^120000 blob /);
       expect(await harness.git('status', '--porcelain', '--untracked-files=all')).toBe('T .gitignore');
+    } finally {
+      await fs.rm(other, { recursive: true, force: true });
+    }
+  });
+});
+
+describe('the workspace-tree runtime: a link a commit puts at the sidecar’s name', () => {
+  const README_TEXT = 'A workspace of mine.\n';
+
+  it('a switch to a branch that holds it, with a baseline that names the user’s own file, removes nothing: the sidecar is a directory again', {
+    timeout: 30_000,
+  }, async () => {
+    await writeByHand('README.md', README_TEXT);
+    await delay(TREE_AT_REST_MS);
+    expect(await harness.runtime.commit(harness.workspaceId, 'seed')).toMatchObject({ ok: true, committed: true });
+    const other = await fs.mkdtemp(path.join(os.tmpdir(), 'oh-tree-runtime-other-'));
+    try {
+      // The branch is made in another clone and comes back by a fetch: its `.oh` is a link to a directory it
+      // commits, and in it a baseline that names README.md by the hash of its bytes.
+      await harness.git('clone', '-q', harness.rootDir, other);
+      await harness.git('-C', other, 'checkout', '-q', '-b', 'side');
+      await fs.mkdir(path.join(other, 'docs', 'oh'), { recursive: true });
+      await fs.writeFile(
+        path.join(other, 'docs', 'oh', 'materialized-index.json'),
+        JSON.stringify({ 'README.md': createHash('sha256').update(README_TEXT, 'utf-8').digest('hex') }),
+        'utf-8',
+      );
+      await fs.symlink('docs/oh', path.join(other, '.oh'));
+      await harness.git('-C', other, 'add', '-A');
+      await harness.git('-C', other, 'commit', '-q', '-m', 'the sidecar’s name taken');
+      await harness.git('fetch', '-q', other, 'side:side');
+
+      expect(await harness.runtime.switchBranch(harness.workspaceId, 'side')).toMatchObject({
+        ok: true,
+        switched: true,
+      });
+      await delay(TREE_AT_REST_MS);
+      expect((await fs.lstat(inTree('.oh'))).isDirectory()).toBe(true);
+      expect(await fs.readFile(inTree('README.md'), 'utf-8')).toBe(README_TEXT);
+      expect(await fs.readdir(inTree('docs/oh'))).toEqual(['materialized-index.json']);
+      // The link is gone from the folder: that alone reads as changed, and no file of the sidecar does.
+      expect(await harness.git('status', '--porcelain', '--untracked-files=all')).toBe('D .oh');
     } finally {
       await fs.rm(other, { recursive: true, force: true });
     }
