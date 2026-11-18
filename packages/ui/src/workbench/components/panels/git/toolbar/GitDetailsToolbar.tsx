@@ -3,9 +3,10 @@
  * details and the Push window's files): Show Diff for the selected
  * file, Revert Selected Changes (visible placeholder — the write verb
  * is a future slice), Jump to Source for the selected file when the
- * host offers it; between two rules, how the tree is shown — the
- * View Mode switch (Workspace Items | Files) and the View Options eye (View Mode, Group Files by
- * Directory, Show Details, Show Diff Preview); then Expand All / Collapse All at the far
+ * host offers it; behind a rule, how the tree is shown — the
+ * View Mode switch (Workspace | Files) and the View Options eye (View Mode, Group Files by
+ * Directory, Show Details, Show Diff Preview) — the band's open space
+ * closes that group, no second rule; then Expand All / Collapse All at the far
  * edge driving the files tree. The band is a PaneToolbar: at a narrow
  * dock the tail folds behind the › chevron's hover strip.
  */
@@ -154,14 +155,13 @@ const GitDetailsToolbar: React.FC<GitDetailsToolbarProps> = ({
             ),
           },
         ]),
-    { kind: 'separator', key: 'sep-view-start' },
+    { kind: 'separator', key: 'sep-view' },
     {
       kind: 'item',
       key: 'view-mode',
       node: <FilesViewModeSwitch mode={viewMode} onChange={onViewModeChange} testid="git-tool-details-view-mode" />,
     },
     { kind: 'item', key: 'view-options', node: viewOptions },
-    { kind: 'separator', key: 'sep-view-end' },
     { kind: 'spacer', key: 'spacer' },
     {
       kind: 'item',

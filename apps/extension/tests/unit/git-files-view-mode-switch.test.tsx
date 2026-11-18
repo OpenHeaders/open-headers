@@ -169,7 +169,7 @@ describe('the branches rail’s bar', () => {
 });
 
 describe('the changes pane’s band', () => {
-  it('lists the file’s verbs, then the group between its rules, then the tree’s tools at the far edge', () => {
+  it('lists the file’s verbs, a rule, the group — no rule against the open space — then the tree’s tools at the far edge', () => {
     bandWidth(600, { 'view-mode': 48 });
     render(
       <GitDetailsToolbar
@@ -193,7 +193,6 @@ describe('the changes pane’s band', () => {
       'git-tool-details-view-mode-items',
       'git-tool-details-view-mode-files',
       'git-tool-details-view-options',
-      '|',
       '…',
       'git-tool-files-expand-all',
       'git-tool-files-collapse-all',
