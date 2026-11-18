@@ -597,6 +597,27 @@ describe('resolveForcePushWorkspaceTree', () => {
       expect(await status()).toBe('?? scratch.txt\n');
     });
 
+    it('rescue: engine work in a rule whose directory is a link here, which the flush could not write, is committed first as the engine holds it — never as a deletion', async () => {
+      const outside = path.join(tmpDir, 'outside');
+      await fs.mkdir(outside);
+      const ruleDir = path.dirname(path.join(local, ...LOCAL_RULE_FILE.split('/')));
+      await fs.rm(ruleDir, { recursive: true });
+      await fs.symlink(outside, ruleDir);
+      state.rules = state.rules.map((rule) =>
+        rule.uid === 'bbbbbbbb' ? ({ ...rule, name: 'Allow health, edited' } as Rule) : rule,
+      );
+
+      const result = await doResolve('rescue', [], () => {
+        state.rules = [{ ...state.rules[0], name: 'Rewritten probes' } as Rule];
+      });
+      if (!result.ok) throw new Error(`rescue failed: ${result.reason} ${result.detail ?? ''}`);
+      expect(localWorkCommits).toEqual([[LOCAL_RULE_FILE]]);
+      const rescue = `refs/heads/${result.rescueBranch}`;
+      expect(await filesOf(rescue)).toEqual([LOCAL_RULE_FILE]);
+      expect((await raw(local, 'show', `${rescue}:${LOCAL_RULE_FILE}`)).stdout).toContain('name: Allow health, edited');
+      expect(await fs.readdir(outside)).toEqual([]);
+    });
+
     it('re-apply: the fresh commit carries the local side as committed first — never the unversioned file', async () => {
       await leaveLocalWork();
       const result = await doResolve('reapply', [], () => {

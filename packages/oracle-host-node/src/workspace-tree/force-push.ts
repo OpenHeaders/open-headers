@@ -77,9 +77,9 @@ import {
   type FlushAccount,
   flushedPaths,
   type LocalWorkDeps,
+  readLocalWork,
   readPassWrites,
   recordablePaths,
-  uncommittedAmong,
 } from './pass-writes';
 import { releaseHealedQuarantine, writeForeignQuarantine } from './pull';
 
@@ -231,15 +231,18 @@ export async function resolveForcePushWorkspaceTree(options: ResolveForcePushOpt
       // the two heads hold differently is committed on the pre-resolution
       // head — the resolution is about to replace or re-apply those files.
       // Uncommitted work anywhere else is not the resolution's to commit.
+      // That work is read as the engine meant the folder: a document the
+      // flush could not write for a link at its directory is no deletion.
       const pending = await options.flush();
       const heads = await diffForeignPaths(run, rootDir, oldHead, upstream.sha);
       const before = await snapshotWorkingTree(run, rootDir);
       if (heads === null || before === null) return unreadable(read.issues);
+      const work = await readLocalWork(run, rootDir, before, pending.refused);
+      if (work === null) return unreadable(read.issues);
       const between = [...heads.changed, ...heads.removed];
-      const committedFirst = await uncommittedAmong(run, rootDir, between);
-      if (committedFirst === null) return unreadable(read.issues);
+      const committedFirst = between.filter((filePath) => work.uncommitted.has(filePath)).sort();
       if (committedFirst.length > 0) {
-        const local = await options.commitLocalWork({ tree: before, paths: committedFirst, indexLock });
+        const local = await options.commitLocalWork({ tree: work.tree, paths: committedFirst, indexLock });
         if (!local.ok) return { ok: false, reason: 'commit-failed', detail: local.detail, issues: read.issues };
       }
 

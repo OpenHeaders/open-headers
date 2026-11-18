@@ -825,14 +825,13 @@ describe('the workspace-tree runtime: a rule a pass brings whose directory is a 
     });
   });
 
-  it('a Pull of a change elsewhere, where HEAD’s own tree does not read whole and no document is carried, leaves that rule alone — nothing committed first', {
-    timeout: 60_000,
-  }, async () => {
-    const UNREAD_FILE = 'rules/broken-colbbbbb/_collection.yaml';
-    await writeByHand(UNREAD_FILE, 'schemaVersion: 5\nuid: [not a string\n');
+  /**
+   * `run` with the peer's rule pulled while a link stands at its directory: the engine holds the rule, HEAD holds its
+   * file and the disk holds the link, so the flush before the next pass is refused it. `head` is HEAD as the pull left it.
+   */
+  async function withTheRulePulledBeneathALink(run: (other: string, head: string) => Promise<void>): Promise<void> {
     await withACloneAndAFolderOutside(async (other, outside) => {
       await withTheBranchPushed(async () => {
-        expect(await filesOf('HEAD')).toContain(UNREAD_FILE);
         const branch = await harness.git('rev-parse', '--abbrev-ref', 'HEAD');
         await harness.git('clone', '-q', '-b', branch, await harness.git('remote', 'get-url', 'origin'), other);
         await stageThePeerRule(other);
@@ -841,20 +840,33 @@ describe('the workspace-tree runtime: a rule a pass brings whose directory is a 
         await linkTheRuleDirectory(outside);
         expect(await harness.runtime.pull(harness.workspaceId)).toMatchObject({ ok: true, upToDate: false });
         expect(await filesOf('HEAD')).toContain(PEER_FILE);
-        const head = await harness.git('rev-parse', 'HEAD');
-        await fs.writeFile(
-          path.join(other, ...RULE_FILE.split('/')),
-          RULE_TEXT.replace('enabled: true', 'enabled: false'),
-        );
-        await harness.git('-C', other, 'commit', '-q', '-a', '-m', 'the first rule off');
-        await harness.git('-C', other, 'push', '-q');
-
-        // The engine holds the peer's rule, HEAD holds its file, the disk holds a link: the flush before this pull is refused it.
-        const pulled = await harness.runtime.pull(harness.workspaceId);
-        expect(pulled).toMatchObject({ ok: true, upToDate: false });
-        expect(pulled).not.toHaveProperty('committedLocal');
-        expect(await harness.git('rev-parse', 'HEAD^')).toBe(head);
+        await run(other, await harness.git('rev-parse', 'HEAD'));
       });
+    });
+  }
+
+  /** The rescue branch a resolution cut, by the commit it stands on. */
+  const rescuedHead = (): Promise<string> =>
+    harness.git('for-each-ref', '--format=%(objectname)', 'refs/heads/oh-rescue-*');
+
+  it('a Pull of a change elsewhere, where HEAD’s own tree does not read whole and no document is carried, leaves that rule alone — nothing committed first', {
+    timeout: 60_000,
+  }, async () => {
+    const UNREAD_FILE = 'rules/broken-colbbbbb/_collection.yaml';
+    await writeByHand(UNREAD_FILE, 'schemaVersion: 5\nuid: [not a string\n');
+    await withTheRulePulledBeneathALink(async (other, head) => {
+      expect(await filesOf('HEAD')).toContain(UNREAD_FILE);
+      await fs.writeFile(
+        path.join(other, ...RULE_FILE.split('/')),
+        RULE_TEXT.replace('enabled: true', 'enabled: false'),
+      );
+      await harness.git('-C', other, 'commit', '-q', '-a', '-m', 'the first rule off');
+      await harness.git('-C', other, 'push', '-q');
+
+      const pulled = await harness.runtime.pull(harness.workspaceId);
+      expect(pulled).toMatchObject({ ok: true, upToDate: false });
+      expect(pulled).not.toHaveProperty('committedLocal');
+      expect(await harness.git('rev-parse', 'HEAD^')).toBe(head);
     });
   });
 
@@ -888,27 +900,36 @@ describe('the workspace-tree runtime: a rule a pass brings whose directory is a 
   it('a rewritten history resolved by rescue leaves that rule alone: the rescue branch is the head as it was — nothing committed first', {
     timeout: 60_000,
   }, async () => {
-    await withACloneAndAFolderOutside(async (other, outside) => {
-      await withTheBranchPushed(async () => {
-        const branch = await harness.git('rev-parse', '--abbrev-ref', 'HEAD');
-        await harness.git('clone', '-q', '-b', branch, await harness.git('remote', 'get-url', 'origin'), other);
-        await stageThePeerRule(other);
-        await harness.git('-C', other, 'commit', '-q', '-m', 'a rule');
-        await harness.git('-C', other, 'push', '-q');
-        await linkTheRuleDirectory(outside);
-        expect(await harness.runtime.pull(harness.workspaceId)).toMatchObject({ ok: true, upToDate: false });
-        expect(await filesOf('HEAD')).toContain(PEER_FILE);
-        const head = await harness.git('rev-parse', 'HEAD');
-        // The peer rewrites its commit's message alone: both heads hold the rule's file alike.
-        await harness.git('-C', other, 'commit', '-q', '--amend', '-m', 'a rule, rewritten');
-        await harness.git('-C', other, 'push', '-q', '--force');
+    await withTheRulePulledBeneathALink(async (other, head) => {
+      // The peer rewrites its commit's message alone: both heads hold the rule's file alike.
+      await harness.git('-C', other, 'commit', '-q', '--amend', '-m', 'a rule, rewritten');
+      await harness.git('-C', other, 'push', '-q', '--force');
 
-        // The engine holds the rule, HEAD holds its file, the disk holds a link: the flush before the resolution is refused it.
-        const resolved = await harness.runtime.resolveForcePush(harness.workspaceId, 'rescue');
-        expect(resolved).toMatchObject({ ok: true, rescueBranch: expect.stringMatching(/^oh-rescue-/) });
-        expect(resolved).not.toHaveProperty('committedLocal');
-        expect(await harness.git('for-each-ref', '--format=%(objectname)', 'refs/heads/oh-rescue-*')).toBe(head);
-      });
+      const resolved = await harness.runtime.resolveForcePush(harness.workspaceId, 'rescue');
+      expect(resolved).toMatchObject({ ok: true, rescueBranch: expect.stringMatching(/^oh-rescue-/) });
+      expect(resolved).not.toHaveProperty('committedLocal');
+      expect(await rescuedHead()).toBe(head);
+    });
+  });
+
+  it('a rewritten history whose head holds that rule changed, resolved by rescue, commits nothing of the rule first: git’s status reads its file deleted, and the engine holds it as HEAD has it', {
+    timeout: 60_000,
+  }, async () => {
+    await withTheRulePulledBeneathALink(async (other, head) => {
+      expect((await harness.git('ls-files', '--deleted')).split('\n')).toContain(PEER_FILE);
+      // The peer rewrites its commit with the rule off: the two heads hold the rule's file differently.
+      await fs.writeFile(
+        path.join(other, ...PEER_FILE.split('/')),
+        PEER_TEXT.replace('enabled: true', 'enabled: false'),
+      );
+      await harness.git('-C', other, 'commit', '-q', '-a', '--amend', '-m', 'a rule, rewritten off');
+      await harness.git('-C', other, 'push', '-q', '--force');
+
+      const resolved = await harness.runtime.resolveForcePush(harness.workspaceId, 'rescue');
+      expect(resolved).toMatchObject({ ok: true, rescueBranch: expect.stringMatching(/^oh-rescue-/) });
+      expect(resolved).not.toHaveProperty('committedLocal');
+      expect(await rescuedHead()).toBe(head);
+      expect(ruleOf('bbbbbbbb')?.enabled).toBe(false);
     });
   });
 });

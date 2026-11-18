@@ -3,8 +3,9 @@
  * git in a scratch repo: a file that came into git's sight while the
  * pass ran, or left it, is not the pass's write; a document the flush
  * was refused for a link on its way is laid over both ends as the engine
- * planned it, unless the branch's own HEAD holds that link; and the
- * paths a commit staged from a tree may carry are asked at their own
+ * planned it, unless the branch's own HEAD holds that link; the
+ * uncommitted work a pass finds before it writes is read the same way;
+ * and the paths a commit staged from a tree may carry are asked at their own
  * name — never through a link, never taking for gone what will not be
  * looked at — a refused document carried as the tree has it.
  */
@@ -17,7 +18,7 @@ import { createGitExec, type GitRunner } from '../../src/git/git-exec';
 import { ensureWorkspaceRepo } from '../../src/git/repo';
 import { repoArgs } from '../../src/git/repo-args';
 import { snapshotWorkingTree } from '../../src/git/tree-ops';
-import { type PassAccount, readPassWrites, recordablePaths } from '../../src/workspace-tree/pass-writes';
+import { type PassAccount, readLocalWork, readPassWrites, recordablePaths } from '../../src/workspace-tree/pass-writes';
 
 const IDENTITY_ENV = {
   GIT_AUTHOR_NAME: 'John Doe',
@@ -202,6 +203,42 @@ describe('readPassWrites — a document the flush was refused, a link standing o
     expect(pass?.wrote).toEqual([]);
     expect([...(pass?.meant ?? [])]).toEqual([]);
     expect(await git('ls-tree', pass?.after ?? '', 'rules')).toMatch(/^120000 /);
+  });
+});
+
+describe('readLocalWork — the uncommitted work a pass finds before it writes', () => {
+  const RULE = 'rules/rule.yaml';
+
+  it('a document the flush was refused is no deletion: held as HEAD has it it is no work, and pending work in it is work as planned', async () => {
+    await write(RULE, 'committed\n');
+    await write('notes.md', 'mine\n');
+    await commit('base');
+    await fs.rm(inTree('rules'), { recursive: true });
+    await fs.symlink(outside, inTree('rules'));
+    await write('notes.md', 'mine, edited\n');
+    const tree = await reading();
+
+    const held = await readLocalWork(run, rootDir, tree, new Map([[RULE, 'committed\n']]));
+    expect([...(held?.uncommitted ?? [])]).toEqual(['notes.md']);
+    const pending = await readLocalWork(run, rootDir, tree, new Map([[RULE, 'pending\n']]));
+    expect([...(pending?.uncommitted ?? [])].sort()).toEqual(['notes.md', RULE]);
+    expect(await git('show', `${pending?.tree ?? ''}:${RULE}`)).toBe('pending');
+    // Nothing refused: the folder as git sees it — the file gone, the link in its directory's place.
+    expect([...((await readLocalWork(run, rootDir, tree, new Map()))?.uncommitted ?? [])].sort()).toEqual([
+      'notes.md',
+      'rules',
+      RULE,
+    ]);
+  });
+
+  it('a refused document beneath a link the branch’s own HEAD holds is not laid: the link stays, and nothing is work', async () => {
+    await write('workspace.yaml', 'schemaVersion: 5\n');
+    await fs.symlink(outside, inTree('rules'));
+    await commit('base, the link with it');
+
+    const work = await readLocalWork(run, rootDir, await reading(), new Map([[RULE, 'as planned\n']]));
+    expect([...(work?.uncommitted ?? [])]).toEqual([]);
+    expect(await git('ls-tree', work?.tree ?? '', 'rules')).toMatch(/^120000 /);
   });
 });
 

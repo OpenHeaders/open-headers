@@ -39,7 +39,10 @@
  *
  * What the branch's HEAD and the reading differ in is the uncommitted
  * work that was there before the pass: any of it elsewhere, and every
- * unversioned file, is not the pass's to commit and stays as it was.
+ * unversioned file, is not the pass's to commit and stays as it was. A
+ * pass that commits some of that work before it writes anything (a
+ * force-push resolution) reads it the same way (`readLocalWork`): asked
+ * of git's status, a document the flush was refused reads as deleted.
  */
 
 import { promises as fs } from 'node:fs';
@@ -82,7 +85,7 @@ export interface PassAccount {
 
 /** Uncommitted work the pass's commit would otherwise carry: `paths` as `tree` holds them. */
 export interface LocalWorkFirst {
-  /** The folder as it stood before the pass wrote (`PassWrites.before`). */
+  /** The folder as it stood before the pass wrote (`PassWrites.before`, `LocalWork.tree`). */
   tree: string;
   paths: string[];
   /** The real index's lock the pass holds — the commit rides it. */
@@ -122,6 +125,50 @@ function beneathAnEntry(head: ReadonlyMap<string, string>, filePath: string): bo
   return false;
 }
 
+/** What a flush was refused that is laid over a tree: all of it but a document beneath an entry of HEAD's own. */
+const laidOf = (head: ReadonlyMap<string, string>, refused: FlushAccount['refused']): Map<string, string> =>
+  new Map([...refused].filter(([filePath]) => !beneathAnEntry(head, filePath)));
+
+/** The uncommitted work a pass finds before it writes. */
+export interface LocalWork {
+  /** The reading with what the flush before the pass was refused laid over it: the folder as the engine meant it. */
+  tree: string;
+  /** The files in which that tree and HEAD differ. */
+  uncommitted: ReadonlySet<string>;
+}
+
+async function localWorkOver(
+  run: GitRunner,
+  rootDir: string,
+  reading: string,
+  laid: ReadonlyMap<string, string>,
+): Promise<LocalWork | null> {
+  const tree = await treeWithFiles(run, rootDir, reading, laid);
+  if (tree === null) return null;
+  const uncommitted = await diffForeignPaths(run, rootDir, 'HEAD', tree);
+  if (uncommitted === null) return null;
+  return { tree, uncommitted: new Set([...uncommitted.changed, ...uncommitted.removed]) };
+}
+
+/**
+ * The uncommitted work in the folder, for a pass that commits some of it
+ * before it writes anything: `reading` — the working tree as a tree
+ * object, taken once the engine's pending work was flushed — with what
+ * that flush was `refused` laid over it, compared with HEAD. A document
+ * the engine holds as HEAD has it, its directory a link here, is then no
+ * deletion to commit. Null when a tree cannot be read or written.
+ */
+export async function readLocalWork(
+  run: GitRunner,
+  rootDir: string,
+  reading: string,
+  refused: FlushAccount['refused'],
+): Promise<LocalWork | null> {
+  const head = await listTreeEntries(run, rootDir, 'HEAD');
+  if (head === null) return null;
+  return localWorkOver(run, rootDir, reading, laidOf(head, refused));
+}
+
 /**
  * Lay the pass's writes over the reading and compare. `reading` is the
  * working tree as a tree object, taken once the engine's pending local
@@ -136,26 +183,23 @@ export async function readPassWrites(
 ): Promise<PassWrites | null> {
   const head = await listTreeEntries(run, rootDir, 'HEAD');
   if (head === null) return null;
-  const laid = (refused: FlushAccount['refused']): Map<string, string> =>
-    new Map([...refused].filter(([filePath]) => !beneathAnEntry(head, filePath)));
-  const refusedBefore = laid(account.refusedBefore);
-  const refusedAfter = laid(account.refusedAfter);
-  const before = await treeWithFiles(run, rootDir, reading, refusedBefore);
+  const refusedBefore = laidOf(head, account.refusedBefore);
+  const refusedAfter = laidOf(head, account.refusedAfter);
+  const local = await localWorkOver(run, rootDir, reading, refusedBefore);
   const worked = await treeWithWorkingFiles(run, rootDir, reading, account.written);
-  if (before === null || worked === null) return null;
+  if (local === null || worked === null) return null;
   const after = await treeWithFiles(run, rootDir, worked, refusedAfter);
   if (after === null) return null;
-  const wrote = await diffForeignPaths(run, rootDir, before, after);
-  const uncommitted = await diffForeignPaths(run, rootDir, 'HEAD', before);
-  if (wrote === null || uncommitted === null) return null;
+  const wrote = await diffForeignPaths(run, rootDir, local.tree, after);
+  if (wrote === null) return null;
   const meant = new Set([...refusedBefore.keys(), ...refusedAfter.keys()]);
   // A lay takes a link in a document's way out of the tree: the trees differ there, and no writer named it.
   const named = new Set([...account.written, ...meant]);
   return {
-    before,
+    before: local.tree,
     after,
     wrote: [...wrote.changed, ...wrote.removed].filter((filePath) => named.has(filePath)).sort(),
-    uncommitted: new Set([...uncommitted.changed, ...uncommitted.removed]),
+    uncommitted: local.uncommitted,
     meant,
   };
 }
