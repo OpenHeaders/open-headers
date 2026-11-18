@@ -21,7 +21,7 @@
 
 import { treeDocumentPaths } from './document-paths';
 import { ENTITY_MANIFEST_FILES, TREE_FILE_MAX_BYTES } from './layout';
-import { treePathRefusal } from './tree-path';
+import { treePathIssue, treePathRefusal } from './tree-path';
 import type { TreeFile, TreeIssue, TreeUnread } from './types';
 
 const LIMIT_MB = TREE_FILE_MAX_BYTES / (1024 * 1024);
@@ -76,7 +76,7 @@ export function holdTreeFiles(files: readonly TreeFile[]): HeldTreeFiles {
   const documents = treeDocumentPaths(files.map((file) => file.path));
   const unheld: TreeIssue[] = [];
   for (const [path, part] of refused) {
-    if (documents.has(path)) unheld.push({ path, message: `${part} cannot be part of a path — skipped` });
+    if (documents.has(path)) unheld.push(treePathIssue(path, part, 'skipped'));
   }
   return { held, unheld };
 }

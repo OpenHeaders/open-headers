@@ -7,10 +7,13 @@
  * by another program, stood in for by the system's code at the open;
  * another what it leaves while git writes the tree; the last pins the
  * hygiene files: authored when absent, a missing ignore entry appended,
- * the user's lines never rewritten, never baselined.
+ * the user's lines never rewritten, never baselined. And one pins the
+ * folder's boundary under a pass: what is planned or baselined at a path
+ * no tree can hold, or through a link, is not read, written or removed,
+ * and the pass says its rows.
  */
 
-import { promises as fs, readdirSync } from 'node:fs';
+import { promises as fs, readdirSync, symlinkSync } from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import type { Collection, Rule, Workspace } from '@openheaders/core/types';
@@ -556,5 +559,129 @@ describe('WorkspaceTreeMaterializer — the hygiene files', () => {
     expect(result.deleted).toEqual([]);
     expect(await fs.readFile(ignoreFile(), 'utf-8')).toBe(canonical);
     expect(Object.keys(await readMaterializedIndex(tmpDir))).toEqual(['workspace.yaml']);
+  });
+});
+
+describe('WorkspaceTreeMaterializer — the folder’s boundary', () => {
+  const RULE_FILE = 'rules/block-probes-aaaaaaaa/rule.yaml';
+  const LINK_ROW = { path: 'rules/', message: 'is a link — not written' };
+  let outside: string;
+  const inTree = (relative: string): string => path.join(tmpDir, ...relative.split('/'));
+  const namesIn = async (dir: string): Promise<string[]> => (await fs.readdir(dir)).sort();
+
+  beforeEach(async () => {
+    outside = `${tmpDir}-outside`;
+    await fs.mkdir(outside);
+  });
+
+  afterEach(async () => {
+    await fs.rm(outside, { recursive: true, force: true });
+  });
+
+  it('a document planned at a path that climbs out, or into git’s directory, is not written: the rest is, and the pass says its rows', async () => {
+    const climbing = `../${path.basename(outside)}/block-probes-aaaaaaaa`;
+    state.rules = [
+      { ...makeRule('aaaaaaaa', 'Block probes'), path: climbing },
+      { ...makeRule('bbbbbbbb', 'Delay probes'), path: '.git/hooks' },
+      makeRule('cccccccc', 'Allow probes'),
+    ];
+    await fs.mkdir(inTree('.git/hooks'), { recursive: true });
+
+    const pass = await makeMaterializer().flush();
+    expect(pass.written.sort()).toEqual([
+      '.gitattributes',
+      '.gitignore',
+      'rules/allow-probes-cccccccc/rule.yaml',
+      'workspace.yaml',
+    ]);
+    expect(await namesIn(outside)).toEqual([]);
+    expect(await namesIn(inTree('.git/hooks'))).toEqual([]);
+    expect(pass.unwritten).toEqual([
+      { path: `${climbing}/rule.yaml`, message: '".." cannot be part of a path — not written' },
+      { path: '.git/hooks/rule.yaml', message: '".git" cannot be part of a path — not written' },
+    ]);
+  });
+
+  it('a link at a directory of the tree is not written through: one row at the link however much lies beneath it, and the files written once it is gone', async () => {
+    state.collections = [{ ...ALPHA }];
+    state.rules = [ruleInAlpha('aaaaaaaa', 'Block probes')];
+    await fs.symlink(outside, inTree('rules'));
+    const told: unknown[] = [];
+    const materializer = new WorkspaceTreeMaterializer({
+      rootDir: tmpDir,
+      readSnapshot: async () => ({ state }),
+      onUnwritten: (rows) => told.push(rows),
+    });
+
+    const refused = await materializer.flush();
+    expect(refused.written.sort()).toEqual(['.gitattributes', '.gitignore', 'workspace.yaml']);
+    expect(refused.unwritten).toEqual([LINK_ROW]);
+    expect(await namesIn(outside)).toEqual([]);
+    expect(Object.keys(await readMaterializedIndex(tmpDir))).toEqual(['workspace.yaml']);
+
+    await fs.rm(inTree('rules'));
+    const written = await materializer.flush();
+    expect(written.written).toEqual([
+      'rules/alpha-col0000a/_collection.yaml',
+      'rules/alpha-col0000a/block-probes-aaaaaaaa/rule.yaml',
+    ]);
+    expect(written.unwritten).toEqual([]);
+    // Every pass tells its rows: the owner's rows of the pass before are those no longer.
+    expect(told).toEqual([[LINK_ROW], []]);
+  });
+
+  it('a file whose entry stands, with a link since on its way, is neither read nor written through — its entry kept', async () => {
+    state.rules = [makeRule('aaaaaaaa', 'Block probes')];
+    const materializer = makeMaterializer();
+    await materializer.flush();
+    const entry = (await readMaterializedIndex(tmpDir))[RULE_FILE];
+    const before = await fs.readFile(inTree(RULE_FILE), 'utf-8');
+    await fs.rename(inTree('rules'), path.join(outside, 'rules'));
+    await fs.symlink(path.join(outside, 'rules'), inTree('rules'));
+
+    state.rules = [{ ...state.rules[0], enabled: false }];
+    const pass = await materializer.flush();
+    expect([pass.written, pass.unchanged, pass.unwritten]).toEqual([[], 1, [LINK_ROW]]);
+    expect(await fs.readFile(path.join(outside, 'rules', 'block-probes-aaaaaaaa', 'rule.yaml'), 'utf-8')).toBe(before);
+    expect((await readMaterializedIndex(tmpDir))[RULE_FILE]).toBe(entry);
+  });
+
+  it('a baseline path that climbs out, or lies through a link, is not the pass’s to remove: the file stands, its entry goes, no row', async () => {
+    const victim = path.join(outside, 'victim.yaml');
+    await fs.writeFile(victim, 'as its owner left it\n', 'utf-8');
+    await fs.symlink(outside, inTree('linked'));
+    const entry = hashTreeContent('as its owner left it\n');
+    await writeMaterializedIndex(tmpDir, {
+      [`../${path.basename(outside)}/victim.yaml`]: entry,
+      'linked/victim.yaml': entry,
+    });
+
+    const pass = await makeMaterializer().flush();
+    expect([pass.deleted, pass.unwritten]).toEqual([[], []]);
+    expect(await fs.readFile(victim, 'utf-8')).toBe('as its owner left it\n');
+    expect(Object.keys(await readMaterializedIndex(tmpDir))).toEqual(['workspace.yaml']);
+  });
+
+  it('a link that comes to stand on the way while the pass runs is met where the directory would be made', async () => {
+    state.rules = [makeRule('aaaaaaaa', 'Block probes')];
+    // The hygiene files stand, so the pass's first look for git's writes is the rule's — after its place was looked at.
+    await fs.writeFile(inTree('.gitignore'), '.oh/\n*.secret.yaml\n', 'utf-8');
+    await fs.writeFile(inTree('.gitattributes'), '*.yaml text eol=lf\n', 'utf-8');
+    let linked = false;
+    const materializer = new WorkspaceTreeMaterializer({
+      rootDir: tmpDir,
+      readSnapshot: async () => ({ state }),
+      watchTreeWrites: async () => ({
+        met: async () => {
+          if (!linked) symlinkSync(outside, inTree('rules'));
+          linked = true;
+          return false;
+        },
+      }),
+    });
+
+    const pass = await materializer.flush();
+    expect([pass.written, pass.unwritten]).toEqual([['workspace.yaml'], [LINK_ROW]]);
+    expect(await namesIn(outside)).toEqual([]);
   });
 });

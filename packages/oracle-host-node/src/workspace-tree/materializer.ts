@@ -5,10 +5,17 @@
  * always on).
  *
  * Write discipline:
- *   - plan via `planWorkspaceTree` (deterministic bytes), then diff
- *     against disk — only changed files are written (atomic
+ *   - plan via `planWorkspaceDocuments` (deterministic bytes), then
+ *     diff against disk — only changed files are written (atomic
  *     tmp+rename), so mtimes and git's dirty state never churn on
  *     no-op materializations;
+ *   - every path goes through the folder's boundary (`tree-boundary.ts`)
+ *     before anything is done at it: a planned file it refuses is not
+ *     read, not written, and stands as it was with its entry kept; a
+ *     baseline path it refuses is not the materializer's to remove —
+ *     its entry goes and the disk stands. What a pass did not write for
+ *     the boundary, and the documents the plan left out for their
+ *     paths, are the pass's rows;
  *   - deletions come from the `.oh/` materialized index, never from a
  *     directory sweep: the materializer removes only paths it wrote in
  *     a previous pass, so files the user hand-added (and any file
@@ -34,13 +41,17 @@
  *     (§8 single actor per tree).
  */
 
-import { promises as fs } from 'node:fs';
-import * as path from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
-import { planWorkspaceTree, type TreeUnknownFields, type WorkspaceTreeState } from '@openheaders/core/workspace-tree';
+import {
+  planWorkspaceDocuments,
+  type TreeIssue,
+  type TreeUnknownFields,
+  type WorkspaceTreeState,
+} from '@openheaders/core/workspace-tree';
 import { INDEX_BUSY_WAITS_MS, type TreeWritesWatch } from '../git';
 import { ensureTreeHygiene, TREE_HYGIENE_FILES } from './hygiene';
 import { hashTreeContent, type MaterializedIndex, readMaterializedIndex, writeMaterializedIndex } from './sidecar';
+import { TreeBoundary, type TreeRefusal, treeRefusalIssue } from './tree-boundary';
 import { isBusy, readWrittenFile } from './tree-file';
 
 export interface MaterializeSnapshot {
@@ -59,6 +70,13 @@ export interface MaterializeResult {
    * never held stays unwritten, with no entry.
    */
   held?: number;
+  /**
+   * The rows of what the pass did not write: a document the plan left
+   * out for a path no tree can hold, and what the folder's boundary
+   * refused — one row a cause, a directory once however much lies
+   * beneath it. Empty when everything planned could be written.
+   */
+  unwritten: TreeIssue[];
 }
 
 export interface WorkspaceTreeMaterializerOptions {
@@ -75,6 +93,8 @@ export interface WorkspaceTreeMaterializerOptions {
   watchTreeWrites?: () => Promise<TreeWritesWatch>;
   /** A pass left `held` files to git — the owner takes the pass again. */
   onHeld?: (held: number) => void;
+  /** Every pass's `unwritten` rows, as it ends — the owner's rows of the pass before are those no longer. */
+  onUnwritten?: (rows: TreeIssue[]) => void;
   log?: (level: 'warn' | 'error', msg: string, ...rest: unknown[]) => void;
 }
 
@@ -89,6 +109,7 @@ export class WorkspaceTreeMaterializer {
   private readonly debounceMs: number;
   private readonly watchTreeWrites: (() => Promise<TreeWritesWatch>) | undefined;
   private readonly onHeld: ((held: number) => void) | undefined;
+  private readonly onUnwritten: ((rows: TreeIssue[]) => void) | undefined;
   private readonly log: (level: 'warn' | 'error', msg: string, ...rest: unknown[]) => void;
   private timer: NodeJS.Timeout | null = null;
   private chain: Promise<unknown> = Promise.resolve();
@@ -100,6 +121,7 @@ export class WorkspaceTreeMaterializer {
     this.debounceMs = options.debounceMs ?? DEFAULT_DEBOUNCE_MS;
     this.watchTreeWrites = options.watchTreeWrites;
     this.onHeld = options.onHeld;
+    this.onUnwritten = options.onUnwritten;
     this.log = options.log ?? (() => undefined);
   }
 
@@ -155,8 +177,14 @@ export class WorkspaceTreeMaterializer {
 
   private async materializeOnce(): Promise<MaterializeResult> {
     const snapshot = await this.readSnapshot();
-    const files = planWorkspaceTree(snapshot.state, snapshot.unknowns ?? {});
+    const plan = planWorkspaceDocuments(snapshot.state, snapshot.unknowns ?? {});
     const previous = await readMaterializedIndex(this.rootDir);
+    const boundary = new TreeBoundary(this.rootDir);
+    const unwritten = new Map(plan.unheld.map((row) => [row.path, row] as const));
+    const refused = (filePath: string, refusal: TreeRefusal): void => {
+      const row = treeRefusalIssue(filePath, refusal);
+      if (!unwritten.has(row.path)) unwritten.set(row.path, row);
+    };
 
     // Git holds its writing to the end of its command, and the index it
     // leaves stays new: once met, met for the rest of the pass.
@@ -173,15 +201,20 @@ export class WorkspaceTreeMaterializer {
     let unchanged = 0;
     const planned: MaterializedIndex = {};
 
-    for (const file of files) {
-      const target = path.join(this.rootDir, ...file.path.split('/'));
-      const existing = await readWrittenFile(target);
+    for (const file of plan.files) {
+      const baseline = previous[file.path];
+      const placed = await boundary.locate(file.path);
+      if (!placed.ok) {
+        if (baseline !== undefined) planned[file.path] = baseline;
+        refused(file.path, placed.refusal);
+        continue;
+      }
+      const existing = await readWrittenFile(placed.place.file);
       if (existing.kind === 'text' && existing.content === file.content) {
         planned[file.path] = hashTreeContent(file.content);
         unchanged += 1;
         continue;
       }
-      const baseline = previous[file.path];
       if (existing.kind === 'unread') {
         if (baseline !== undefined) planned[file.path] = baseline;
         if (isBusy(existing.code)) held += 1;
@@ -213,16 +246,19 @@ export class WorkspaceTreeMaterializer {
         held += 1;
         continue;
       }
-      await fs.mkdir(path.dirname(target), { recursive: true });
-      const tmp = `${target}.${process.pid}.tmp`;
-      await fs.writeFile(tmp, file.content, 'utf-8');
+      const staging = await boundary.stage(placed.place, file.content);
+      if (!staging.ok) {
+        if (baseline !== undefined) planned[file.path] = baseline;
+        refused(file.path, staging.refusal);
+        continue;
+      }
       if (await gitWrites()) {
-        await fs.rm(tmp, { force: true });
+        await staging.staged.discard();
         if (baseline !== undefined) planned[file.path] = baseline;
         held += 1;
         continue;
       }
-      await fs.rename(tmp, target);
+      await staging.staged.land();
       planned[file.path] = hashTreeContent(file.content);
       written.push(file.path);
     }
@@ -233,12 +269,16 @@ export class WorkspaceTreeMaterializer {
       // An index written while the plan still held the hygiene files
       // lists them: they leave the baseline here, never the disk.
       if (TREE_HYGIENE_FILES.has(stale)) continue;
-      const target = path.join(this.rootDir, ...stale.split('/'));
+      // A baseline is a file on disk like any other, and a link may
+      // stand on the way since the entry was made: a path the boundary
+      // refuses is not ours to remove. Its entry goes; the disk stands.
+      const placed = await boundary.locate(stale);
+      if (!placed.ok) continue;
       // Same rung-2 guard on the delete side: only sweep away bytes
       // this materializer wrote. A file that changed since is external
       // input — drop it from the baseline (it is no longer ours) and
       // let the sweep decide what it means.
-      const existing = await readWrittenFile(target);
+      const existing = await readWrittenFile(placed.place.file);
       if (existing.kind === 'text' && hashTreeContent(existing.content) !== previous[stale]) continue;
       if (existing.kind === 'unread') {
         planned[stale] = previous[stale];
@@ -252,28 +292,15 @@ export class WorkspaceTreeMaterializer {
         held += 1;
         continue;
       }
-      await fs.rm(target, { force: true });
-      await this.pruneEmptyDirs(path.dirname(target));
+      await boundary.remove(placed.place);
       deleted.push(stale);
     }
 
     await writeMaterializedIndex(this.rootDir, planned);
-    if (held === 0) return { written, deleted, unchanged };
+    const rows = [...unwritten.values()];
+    this.onUnwritten?.(rows);
+    if (held === 0) return { written, deleted, unchanged, unwritten: rows };
     this.onHeld?.(held);
-    return { written, deleted, unchanged, held };
-  }
-
-  /** Remove now-empty directories left behind by a deletion, up to the tree root. */
-  private async pruneEmptyDirs(dir: string): Promise<void> {
-    let current = dir;
-    const root = path.resolve(this.rootDir);
-    while (path.resolve(current) !== root && path.resolve(current).startsWith(root)) {
-      try {
-        await fs.rmdir(current);
-      } catch {
-        return;
-      }
-      current = path.dirname(current);
-    }
+    return { written, deleted, unchanged, held, unwritten: rows };
   }
 }

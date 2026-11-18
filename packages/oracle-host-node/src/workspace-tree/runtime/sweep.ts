@@ -2,7 +2,8 @@
  * Workspace-tree runtime — the reconcile plane: the rung-2 tree-wins
  * sweep, the §3.3 in-progress-op hold (with its retry timer), the
  * debounced materialize scheduler, and the issue-feed bookkeeping the
- * quarantine seam surfaces.
+ * quarantine seam surfaces — a reading's rows, and beside them the rows
+ * of what the last flush did not write.
  */
 
 import type { MutatorContext } from '@openheaders/core/sync';
@@ -122,6 +123,15 @@ export function appendIssues(binding: OpenBinding, issues: readonly TreeIssue[])
   if (issues.length === 0) return;
   const known = new Set(binding.issues.map((issue) => issue.path));
   binding.issues = [...binding.issues, ...issues.filter((issue) => !known.has(issue.path))];
+}
+
+/**
+ * The rows the Git card lists: the last reading's, then the last
+ * flush's — a file both tell of has the reading's row.
+ */
+export function bindingRows(binding: Pick<OpenBinding, 'issues' | 'unwritten'>): TreeIssue[] {
+  const read = new Set(binding.issues.map((issue) => issue.path));
+  return [...binding.issues, ...binding.unwritten.filter((row) => !read.has(row.path))];
 }
 
 /**

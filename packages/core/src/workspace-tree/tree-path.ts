@@ -21,6 +21,8 @@
  * cannot hold and macOS can is a path of the tree.
  */
 
+import type { TreeIssue } from './types';
+
 /** The code points HFS+ leaves out of a name when it compares two. */
 const HFS_IGNORED = /[‌-‏‪-‮⁪-⁯﻿]/g;
 
@@ -46,4 +48,13 @@ export function treePathRefusal(path: string): string | null {
     if (name === '.' || name === '..' || RESERVED_NAME.test(name.replace(HFS_IGNORED, ''))) return `"${name}"`;
   }
   return null;
+}
+
+/**
+ * The row of a file at a path no tree can hold, at that path: `part`
+ * is what of it cannot be (`treePathRefusal`), `left` what came of the
+ * file — a reading skipped it, a plan did not write it.
+ */
+export function treePathIssue(path: string, part: string, left: 'skipped' | 'not written'): TreeIssue {
+  return { path, message: `${part} cannot be part of a path — ${left}` };
 }

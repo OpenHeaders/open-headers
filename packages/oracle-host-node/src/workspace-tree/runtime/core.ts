@@ -167,7 +167,10 @@ export interface OpenBinding {
    * intent ring, since both describe the same uncommitted work.
    */
   contributors: Set<string>;
+  /** The rows of the last reading of the tree — a sweep's, or a pass's that read the disk after it wrote. */
   issues: TreeIssue[];
+  /** The rows of the last flush: what it did not write (`MaterializeResult.unwritten`). */
+  unwritten: TreeIssue[];
   closed: boolean;
 }
 

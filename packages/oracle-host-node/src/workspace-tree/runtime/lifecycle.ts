@@ -33,6 +33,9 @@ export async function openBinding(ctx: RuntimeCtx, record: WorkspaceTreeBindingR
       logger.info(SCOPE, `flush held for ${record.rootDir}: ${held} file(s) left while git wrote the tree`);
       ctx.armHoldRetry(binding);
     },
+    onUnwritten: (rows) => {
+      binding.unwritten = rows;
+    },
     log: (level, msg, ...rest) => logger[level](SCOPE, msg, ...rest),
   });
   const watcher = new WorkspaceTreeWatcher({
@@ -91,6 +94,7 @@ export async function openBinding(ctx: RuntimeCtx, record: WorkspaceTreeBindingR
     intents: [],
     contributors: new Set(),
     issues: [],
+    unwritten: [],
     closed: false,
   };
   ctx.open.set(record.workspaceId, binding);

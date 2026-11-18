@@ -109,6 +109,7 @@ import { notBoundStatus, publishGitStatus, readGitStatus } from './status';
 import {
   appendIssues,
   armHoldRetry,
+  bindingRows,
   heldByGitOperation,
   refreshIssuesFromDisk,
   runSweep,
@@ -1018,7 +1019,8 @@ export function createWorkspaceTreeRuntime(options: WorkspaceTreeRuntimeOptions)
     },
 
     issues(workspaceId: string): TreeIssue[] {
-      return open.get(workspaceId)?.issues ?? [];
+      const binding = open.get(workspaceId);
+      return binding === undefined ? [] : bindingRows(binding);
     },
 
     headStamp(workspaceId: string): string | null {

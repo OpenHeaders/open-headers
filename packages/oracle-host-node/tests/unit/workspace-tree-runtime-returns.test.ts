@@ -20,7 +20,9 @@
  * a sweep derives them — the read contained against the engine's
  * snapshot, and no row at a file whose bytes are the baseline's. They
  * are here, not in a file of their own: each file of this harness is
- * one more real runtime in a parallel run.
+ * one more real runtime in a parallel run. And the rows of what a
+ * flush did not write, beside a reading's: kept apart, so the reading a
+ * pass takes after it wrote does not drop them.
  *
  * And a spec file a pull brings too large to read: the engine's spec
  * beside the peer's file on disk, and the peer's taken once it reads.
@@ -454,6 +456,43 @@ describe("the workspace-tree runtime: the Git card's rows after a pass", () => {
       expect(await harness.runtime.pull(harness.workspaceId)).toMatchObject({ ok: true, upToDate: true });
       expect(rows()).toEqual(raised);
     });
+  });
+
+  it('a rule a Pull brings whose directory is a link here is not written through it: the engine holds the rule, and the flush’s row stands after the Pull', {
+    timeout: 30_000,
+  }, async () => {
+    const PEER_DIR = `${COLLECTION_DIR}/delay-probes-bbbbbbbb`;
+    await commitTheCollectionAndItsRule();
+    const other = await fs.mkdtemp(path.join(os.tmpdir(), 'oh-tree-runtime-other-'));
+    const outside = await fs.mkdtemp(path.join(os.tmpdir(), 'oh-tree-runtime-outside-'));
+    try {
+      await withTheBranchPushed(async () => {
+        const branch = await harness.git('rev-parse', '--abbrev-ref', 'HEAD');
+        await harness.git('clone', '-q', '-b', branch, await harness.git('remote', 'get-url', 'origin'), other);
+        await fs.mkdir(path.join(other, ...PEER_DIR.split('/')));
+        await fs.writeFile(
+          path.join(other, ...PEER_DIR.split('/'), 'rule.yaml'),
+          RULE_TEXT.replace(RULE_UID, 'bbbbbbbb').replace('Block probes', 'Delay probes'),
+          'utf-8',
+        );
+        await harness.git('-C', other, 'add', '-A');
+        await harness.git('-C', other, 'commit', '-q', '-m', 'a rule');
+        await harness.git('-C', other, 'push', '-q');
+        await fs.symlink(outside, inTree(PEER_DIR));
+        await delay(TREE_AT_REST_MS);
+        expect(rows()).toEqual([]);
+
+        expect(await harness.runtime.pull(harness.workspaceId)).toMatchObject({ ok: true, upToDate: false });
+        await delay(TREE_AT_REST_MS);
+        expect(await fs.readdir(outside)).toEqual([]);
+        expect(ruleOf('bbbbbbbb')?.path).toBe(PEER_DIR);
+        // The pull read the disk for its rows after it wrote: the flush's row is not the reading's to drop.
+        expect(rows()).toEqual([{ path: `${PEER_DIR}/`, message: 'is a link — not written' }]);
+      });
+    } finally {
+      await fs.rm(other, { recursive: true, force: true });
+      await fs.rm(outside, { recursive: true, force: true });
+    }
   });
 
   it("a held collection's manifest removed by hand while its rule is left is written again — nothing deleted, no row, by the sweep or after a Pull", {

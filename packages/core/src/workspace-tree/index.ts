@@ -117,9 +117,14 @@ export {
   type TreeSlotReader,
   withOrder,
 } from './order';
-export { planWorkspaceTree, serializeWorkspaceManifest } from './plan';
+export {
+  planWorkspaceDocuments,
+  planWorkspaceTree,
+  serializeWorkspaceManifest,
+  type WorkspaceTreePlan,
+} from './plan';
 export { readWorkspaceTree } from './read';
-export { treePathRefusal } from './tree-path';
+export { treePathIssue, treePathRefusal } from './tree-path';
 export type {
   ForeignHistoryNote,
   TreeFile,
