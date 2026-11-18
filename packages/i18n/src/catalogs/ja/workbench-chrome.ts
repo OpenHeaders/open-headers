@@ -620,7 +620,7 @@ export const workbenchChrome = {
   'workbench.gitLog.rail.singleClickFilter': 'ブランチフィルターを更新',
   'workbench.gitLog.rail.singleClickNavigate': 'ブランチの先頭へログを移動',
   'workbench.gitLog.rail.showTags': 'タグを表示',
-  'workbench.gitLog.rail.groupByDirectory': 'ディレクトリでグループ化',
+  'workbench.gitLog.rail.groupByPrefix': 'ブランチをプレフィックスでグループ化',
   'workbench.gitLog.rail.expandAll': 'すべて展開',
   'workbench.gitLog.rail.collapseAll': 'すべて折りたたむ',
   'workbench.gitLog.rail.moreActions': 'その他の操作',

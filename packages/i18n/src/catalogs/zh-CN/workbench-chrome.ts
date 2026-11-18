@@ -604,7 +604,7 @@ export const workbenchChrome = {
   'workbench.gitLog.rail.singleClickFilter': '更新分支筛选',
   'workbench.gitLog.rail.singleClickNavigate': '在日志中定位到分支头',
   'workbench.gitLog.rail.showTags': '显示标签',
-  'workbench.gitLog.rail.groupByDirectory': '按目录分组',
+  'workbench.gitLog.rail.groupByPrefix': '按前缀对分支分组',
   'workbench.gitLog.rail.expandAll': '全部展开',
   'workbench.gitLog.rail.collapseAll': '全部折叠',
   'workbench.gitLog.rail.moreActions': '更多操作',

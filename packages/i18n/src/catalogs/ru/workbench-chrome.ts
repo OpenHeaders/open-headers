@@ -640,7 +640,7 @@ export const workbenchChrome = {
   'workbench.gitLog.rail.singleClickFilter': 'Обновлять фильтр по ветке',
   'workbench.gitLog.rail.singleClickNavigate': 'Переходить в журнале к вершине ветки',
   'workbench.gitLog.rail.showTags': 'Показывать теги',
-  'workbench.gitLog.rail.groupByDirectory': 'Группировать по каталогу',
+  'workbench.gitLog.rail.groupByPrefix': 'Группировать ветки по префиксу',
   'workbench.gitLog.rail.expandAll': 'Развернуть всё',
   'workbench.gitLog.rail.collapseAll': 'Свернуть всё',
   'workbench.gitLog.rail.moreActions': 'Другие действия',

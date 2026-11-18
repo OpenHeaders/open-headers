@@ -4,7 +4,7 @@
  * Local / Remote / Tags groups whose ref names fold on `/` into
  * collapsible folders (`v5/data-model` = folder `v5` → leaf
  * `data-model`; a remote's first segment is its remote-name folder) —
- * or flat full-name rows while Group By Directory is off. The reference
+ * or flat full-name rows while Group Branches by Prefix is off. The reference
  * tree anatomy: every row reserves the caret slot, group rows are
  * plain tree rows, their children sit one indent step in, and a leaf
  * carries a branch / tag glyph in the icon slot. The checked-out branch
@@ -76,7 +76,7 @@ export interface RefTreeProps {
   favorites: ReadonlySet<string>;
   /** The checked-out branch against its upstream — shown beside its name; zeros show nothing. */
   currentSync?: { incoming: number; outgoing: number };
-  /** Group By Directory (gear toggle) — off renders flat full names. */
+  /** Group Branches by Prefix (gear toggle) — off renders flat full names. */
   groupByDirectory: boolean;
   /** Show Tags (gear toggle) — off drops the Tags group. */
   showTags: boolean;

@@ -2,7 +2,7 @@
  * Branch widget model pins: the trigger label (branch / detached /
  * none) and counts off the status frame, the popup's sections (Recent
  * in recency order over existing branches only — folded on slashes
- * with Group By Directory, flat full names without — the unborn branch
+ * with Group Branches by Prefix, flat full names without — the unborn branch
  * leading Local, Tags behind the toggle, the search pruning every
  * section), and the Recent ring's algebra.
  */
@@ -86,7 +86,7 @@ describe('buildBranchPopupSections', () => {
     expect(remote[0].kind === 'folder' && remote[0].label).toBe('origin');
   });
 
-  it('Group By Directory shapes Recent too: folded on slashes in recency order, flat full names with it off', () => {
+  it('Group Branches by Prefix shapes Recent too: folded on slashes in recency order, flat full names with it off', () => {
     const slashed: WorkspaceTreeRefWire[] = [
       ...refs,
       { name: 'feature/orders-v2', kind: 'local', sha: '1'.repeat(40) },

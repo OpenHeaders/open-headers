@@ -611,7 +611,7 @@ export const workbenchChrome = {
   'workbench.gitLog.rail.singleClickFilter': 'Update Branch Filter',
   'workbench.gitLog.rail.singleClickNavigate': 'Navigate Log to Branch Head',
   'workbench.gitLog.rail.showTags': 'Show Tags',
-  'workbench.gitLog.rail.groupByDirectory': 'Group By Directory',
+  'workbench.gitLog.rail.groupByPrefix': 'Group Branches by Prefix',
   'workbench.gitLog.rail.expandAll': 'Expand All',
   'workbench.gitLog.rail.collapseAll': 'Collapse All',
   'workbench.gitLog.rail.moreActions': 'More actions',

@@ -187,7 +187,7 @@ describe('ref tree model', () => {
     expect(folderKeysToRef('main', 'local')).toEqual([]);
   });
 
-  it('renders a flat sorted full-name list while Group By Directory is off', () => {
+  it('renders a flat sorted full-name list while Group Branches by Prefix is off', () => {
     const flat = buildRefTree(refs, 'local', false);
     expect(flat.map((node) => (node.kind === 'leaf' ? node.label : `d:${node.label}`))).toEqual([
       'fix/one',

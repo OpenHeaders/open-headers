@@ -650,7 +650,7 @@ export const workbenchChrome = {
   'workbench.gitLog.rail.singleClickFilter': 'Actualizare filtru de ramură',
   'workbench.gitLog.rail.singleClickNavigate': 'Navigare în jurnal la vârful ramurii',
   'workbench.gitLog.rail.showTags': 'Afișare etichete',
-  'workbench.gitLog.rail.groupByDirectory': 'Grupare după director',
+  'workbench.gitLog.rail.groupByPrefix': 'Grupare ramuri după prefix',
   'workbench.gitLog.rail.expandAll': 'Extindere toate',
   'workbench.gitLog.rail.collapseAll': 'Restrângere toate',
   'workbench.gitLog.rail.moreActions': 'Mai multe acțiuni',

@@ -3,8 +3,8 @@
  * left edge (log-window anatomy), top to bottom: Hide Git Branches, then
  * the branch verbs (New / Update Selected / Delete / Compare with
  * Current / Show My Branches / Fetch / Favorite / Navigate), the gear
- * (Branches Pane Settings: single-click behavior, Group By Directory,
- * Show Tags), then Expand All and Collapse All. When the rail is too
+ * (Branches Pane Settings: single-click behavior, Group Branches by
+ * Prefix, Show Tags), then Expand All and Collapse All. When the rail is too
  * short for the run, the tail folds behind a › chevron whose hover or
  * click lays the folded buttons out in a strip beside it (the
  * reference's overflow) — the shared toolbar-overflow fit decides the
@@ -224,7 +224,7 @@ const GitRailActivityBar: React.FC<GitRailActivityBarProps> = (props) => {
           { type: 'divider' },
           {
             key: 'group-dirs',
-            label: t('workbench.gitLog.rail.groupByDirectory'),
+            label: t('workbench.gitLog.rail.groupByPrefix'),
             icon: menuCheckIcon(props.groupByDirectory),
           },
           { key: 'show-tags', label: t('workbench.gitLog.rail.showTags'), icon: menuCheckIcon(props.showTags) },

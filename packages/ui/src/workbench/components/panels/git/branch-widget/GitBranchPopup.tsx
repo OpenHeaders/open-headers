@@ -4,7 +4,7 @@
  * with Fetch and the view-options gear beside it, the action rows
  * (Update Project…, Commit…, Push…, New Branch…), then the sections —
  * Recent, Local, Remote, Tags — as collapsible tree rows (folders on
- * `/` while Group By Directory is on, Recent's among them and open;
+ * `/` while Group Branches by Prefix is on, Recent's among them and open;
  * the rail's anatomy: a caret slot on every row, ★ in the icon
  * slot on the current branch and favorites, the branch / tag glyph
  * otherwise, the open folder on a remote and the plain one on a
@@ -439,7 +439,7 @@ const GitBranchPopup: React.FC<GitBranchPopupProps> = ({
               { key: 'show-tags', label: t('workbench.gitLog.rail.showTags'), icon: menuCheckIcon(prefs.showTags) },
               {
                 key: 'group-dirs',
-                label: t('workbench.gitLog.rail.groupByDirectory'),
+                label: t('workbench.gitLog.rail.groupByPrefix'),
                 icon: menuCheckIcon(prefs.groupByDirectory),
               },
               { type: 'divider' },

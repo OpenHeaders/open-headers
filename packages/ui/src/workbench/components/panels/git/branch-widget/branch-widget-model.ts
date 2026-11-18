@@ -6,7 +6,7 @@
  * popup folds the refs into the reference sections — Recent (the
  * per-workspace ring, recency order, only names that still exist as
  * local branches), then Local / Remote / Tags as the rail's folder
- * trees — every section folded on `/` while Group By Directory is on,
+ * trees — every section folded on `/` while Group Branches by Prefix is on,
  * flat full names while it is off — and prunes every section to a
  * search needle. No React.
  */
@@ -63,7 +63,7 @@ export interface BranchPopupInput {
 }
 
 /**
- * The popup's sections. Group By Directory shapes ALL of them: Recent
+ * The popup's sections. Group Branches by Prefix shapes ALL of them: Recent
  * folds on `/` in recency order (a folder stands where its newest
  * branch did), the three namespace sections fold like the rail; off,
  * every section lists full names. A section with no rows (or no match

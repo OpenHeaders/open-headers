@@ -791,7 +791,7 @@ export const workbenchChrome = {
   'workbench.gitLog.rail.singleClickFilter': 'Mettre à jour le filtre de branche',
   'workbench.gitLog.rail.singleClickNavigate': 'Aller à la tête de la branche dans le journal',
   'workbench.gitLog.rail.showTags': 'Afficher les tags',
-  'workbench.gitLog.rail.groupByDirectory': 'Grouper par répertoire',
+  'workbench.gitLog.rail.groupByPrefix': 'Grouper les branches par préfixe',
   'workbench.gitLog.rail.expandAll': 'Tout développer',
   'workbench.gitLog.rail.collapseAll': 'Tout réduire',
   'workbench.gitLog.rail.moreActions': 'Autres actions',

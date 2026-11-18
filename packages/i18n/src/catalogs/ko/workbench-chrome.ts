@@ -619,7 +619,7 @@ export const workbenchChrome = {
   'workbench.gitLog.rail.singleClickFilter': '브랜치 필터 업데이트',
   'workbench.gitLog.rail.singleClickNavigate': '로그를 브랜치 HEAD로 이동',
   'workbench.gitLog.rail.showTags': '태그 표시',
-  'workbench.gitLog.rail.groupByDirectory': '디렉터리별 그룹',
+  'workbench.gitLog.rail.groupByPrefix': '접두사별 브랜치 그룹',
   'workbench.gitLog.rail.expandAll': '모두 펼치기',
   'workbench.gitLog.rail.collapseAll': '모두 접기',
   'workbench.gitLog.rail.moreActions': '추가 작업',

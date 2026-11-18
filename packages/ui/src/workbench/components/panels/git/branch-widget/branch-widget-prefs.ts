@@ -1,6 +1,6 @@
 /**
  * branch-widget-prefs — per-workspace state of the top bar's branch
- * widget: the popup's view options (Show Tags, Group By Directory —
+ * widget: the popup's view options (Show Tags, Group Branches by Prefix —
  * the gear) and the Recent ring: branch names in the order they were
  * last checked out, newest first, fed by every observed HEAD change
  * (an in-app switch or a terminal checkout alike — the status frame
