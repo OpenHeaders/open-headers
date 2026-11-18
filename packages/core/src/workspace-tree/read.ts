@@ -15,6 +15,7 @@
  * quarantine flow (§13.3, Phase 4) will consume.
  */
 
+import * as v from 'valibot';
 import {
   parseCollection,
   parseEnvironment,
@@ -110,6 +111,14 @@ function pickByTree<T>(tree: string, rules: T, requests: T, templates: T): T | n
 /** The issue of a document skipped for a uid another file holds, at its manifest. */
 export function duplicateUidIssue(path: string, uid: string): TreeIssue {
   return { path, message: `duplicate uid "${uid}" — entity skipped`, duplicateOf: uid };
+}
+
+/** What a document that does not read says — the field first, where the schema names one. */
+function failureOf(err: unknown): string {
+  if (!(err instanceof Error)) return String(err);
+  if (!v.isValiError(err)) return err.message;
+  const field = v.getDotPath(err.issues[0]);
+  return field === null ? err.message : `${field} — ${err.message}`;
 }
 
 function noLeaves(): TreeShadowedLeaves {
@@ -208,7 +217,7 @@ export function readWorkspaceTree(files: readonly TreeFile[]): TreeReadResult {
       captureUnknowns(parsed.value.uid, parsed);
       return parsed.value;
     } catch (err) {
-      issues.push({ path: manifestPath, message: err instanceof Error ? err.message : String(err) });
+      issues.push({ path: manifestPath, message: failureOf(err) });
       return null;
     }
   };
@@ -248,7 +257,9 @@ export function readWorkspaceTree(files: readonly TreeFile[]): TreeReadResult {
     if (!held) {
       issues.push({
         path: manifestPath,
-        message: `${kind} outside a collection or folder of "${tree}" — skipped`,
+        message: container
+          ? `${kind} under "${firstSegmentOf(manifestPath)}", not "${tree}" — skipped`
+          : `${kind} in no collection or folder — skipped`,
         ...(container ? {} : { uncontainedIn: parent }),
       });
       if (!container && ownTree) {
@@ -274,7 +285,7 @@ export function readWorkspaceTree(files: readonly TreeFile[]): TreeReadResult {
       captureUnknowns(WORKSPACE_DOC_KEY, parsed);
       state.workspace = parsed.value;
     } catch (err) {
-      issues.push({ path: WORKSPACE_MANIFEST_FILE, message: err instanceof Error ? err.message : String(err) });
+      issues.push({ path: WORKSPACE_MANIFEST_FILE, message: failureOf(err) });
     }
   }
 
@@ -285,7 +296,7 @@ export function readWorkspaceTree(files: readonly TreeFile[]): TreeReadResult {
       captureUnknowns(WORKSPACE_VARS_DOC_KEY, parsed);
       state.workspaceVariables = parsed.value;
     } catch (err) {
-      issues.push({ path: WORKSPACE_VARS_FILE, message: err instanceof Error ? err.message : String(err) });
+      issues.push({ path: WORKSPACE_VARS_FILE, message: failureOf(err) });
     }
   }
 
@@ -296,7 +307,7 @@ export function readWorkspaceTree(files: readonly TreeFile[]): TreeReadResult {
       captureUnknowns(VAULT_DOC_KEY, parsed);
       state.vault = parsed.value;
     } catch (err) {
-      issues.push({ path: VAULT_FILE, message: err instanceof Error ? err.message : String(err) });
+      issues.push({ path: VAULT_FILE, message: failureOf(err) });
     }
   }
 
@@ -307,7 +318,7 @@ export function readWorkspaceTree(files: readonly TreeFile[]): TreeReadResult {
       captureUnknowns(TRUSTED_ROOTS_DOC_KEY, parsed);
       state.trustedRoots = parsed.value;
     } catch (err) {
-      issues.push({ path: TRUSTED_ROOTS_FILE, message: err instanceof Error ? err.message : String(err) });
+      issues.push({ path: TRUSTED_ROOTS_FILE, message: failureOf(err) });
     }
   }
 

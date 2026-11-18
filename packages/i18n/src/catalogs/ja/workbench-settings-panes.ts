@@ -637,7 +637,7 @@ export const workbenchSettingsPanes = {
   'workbench.settings.gitPane.unbindConfirm.ok': 'バインド解除',
   'workbench.settings.gitPane.unbound': 'フォルダーのバインドを解除しました。',
   'workbench.settings.gitPane.issuesTitle': ({ count }, locale) =>
-    plural(locale, Number(count), { other: '{count} 個のファイルを読み取れず、手つかずのままです' }),
+    plural(locale, Number(count), { other: '{count} 個のファイルは取り込まれず、手つかずのままです' }),
   'workbench.settings.gitPane.issuesInside': ({ count }, locale) =>
     plural(locale, Number(count), { other: 'および、その中の {count} 個のファイル' }),
   'workbench.settings.gitPane.issuesUncontained': ({ count }, locale) =>

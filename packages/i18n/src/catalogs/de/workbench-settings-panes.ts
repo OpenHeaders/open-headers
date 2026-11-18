@@ -723,8 +723,8 @@ export const workbenchSettingsPanes = {
   'workbench.settings.gitPane.unbound': 'Ordner gelöst.',
   'workbench.settings.gitPane.issuesTitle': ({ count }, locale) =>
     plural(locale, Number(count), {
-      one: '{count} Datei ließ sich nicht lesen und bleibt unangetastet',
-      other: '{count} Dateien ließen sich nicht lesen und bleiben unangetastet',
+      one: '{count} Datei wurde nicht übernommen und bleibt unangetastet',
+      other: '{count} Dateien wurden nicht übernommen und bleiben unangetastet',
     }),
   'workbench.settings.gitPane.issuesInside': ({ count }, locale) =>
     plural(locale, Number(count), {

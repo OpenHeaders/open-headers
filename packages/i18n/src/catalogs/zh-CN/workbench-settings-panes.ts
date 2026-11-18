@@ -581,7 +581,7 @@ export const workbenchSettingsPanes = {
   'workbench.settings.gitPane.unbindConfirm.ok': '解绑',
   'workbench.settings.gitPane.unbound': '文件夹已解绑。',
   'workbench.settings.gitPane.issuesTitle': ({ count }, locale) =>
-    plural(locale, Number(count), { other: '{count} 个文件无法读取，保持原样' }),
+    plural(locale, Number(count), { other: '{count} 个文件未被纳入，保持原样' }),
   'workbench.settings.gitPane.issuesInside': ({ count }, locale) =>
     plural(locale, Number(count), { other: '以及其中的 {count} 个文件' }),
   'workbench.settings.gitPane.issuesUncontained': ({ count }, locale) =>

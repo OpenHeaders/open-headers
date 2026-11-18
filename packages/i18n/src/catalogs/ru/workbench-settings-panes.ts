@@ -680,10 +680,10 @@ export const workbenchSettingsPanes = {
   'workbench.settings.gitPane.unbound': 'Папка отвязана.',
   'workbench.settings.gitPane.issuesTitle': ({ count }, locale) =>
     plural(locale, Number(count), {
-      one: '{count} файл не удалось прочитать, он оставлен без изменений',
-      few: '{count} файла не удалось прочитать, они оставлены без изменений',
-      many: '{count} файлов не удалось прочитать, они оставлены без изменений',
-      other: '{count} файлов не удалось прочитать, они оставлены без изменений',
+      one: '{count} файл не принят, он оставлен без изменений',
+      few: '{count} файла не приняты, они оставлены без изменений',
+      many: '{count} файлов не принято, они оставлены без изменений',
+      other: '{count} файлов не принято, они оставлены без изменений',
     }),
   'workbench.settings.gitPane.issuesInside': ({ count }, locale) =>
     plural(locale, Number(count), {

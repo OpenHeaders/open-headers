@@ -75,6 +75,40 @@ describe('readWorkspaceTree edge cases', () => {
     expect(result.state.workspace?.uid).toBe('wwwwwwww');
   });
 
+  it('names the field a document does not read at — a nested one by its path, each root document the same', () => {
+    const result = readWorkspaceTree([
+      file('workspace.yaml', WORKSPACE_YAML.replace('name: Probe', 'name: [Probe]')),
+      file('workspace-vars.yaml', 'schemaVersion: 5\nvariables: nope\n'),
+      file('workspace-vars.secret.yaml', 'schemaVersion: 5\nsecrets: nope\n'),
+      file('trusted-roots.yaml', 'schemaVersion: 5\nroots: nope\n'),
+      file(COLLECTION_FILE, COLLECTION_YAML),
+      file(
+        RULE_FILE,
+        RULE_YAML.replace(
+          'conditions: []',
+          'conditions:\n  - uid: dddddddd\n    type: request-domains\n    values: api.openheaders.io',
+        ),
+      ),
+    ]);
+    expect(result.issues).toEqual([
+      { path: 'workspace.yaml', message: 'name — Invalid type: Expected string but received Array' },
+      { path: 'workspace-vars.yaml', message: 'variables — Invalid type: Expected Array but received "nope"' },
+      { path: 'workspace-vars.secret.yaml', message: 'secrets — Invalid type: Expected Array but received "nope"' },
+      { path: 'trusted-roots.yaml', message: 'roots — Invalid type: Expected Array but received "nope"' },
+      {
+        path: RULE_FILE,
+        message: 'conditions.0.values — Invalid type: Expected Array but received "api.openheaders.io"',
+      },
+    ]);
+  });
+
+  it('says the failure alone where it is of no field', () => {
+    const result = readWorkspaceTree([file('workspace.yaml', 'just text\n')]);
+    expect(result.issues).toEqual([
+      { path: 'workspace.yaml', message: 'Invalid type: Expected Object but received "just text"' },
+    ]);
+  });
+
   it('reports a missing workspace.yaml and returns a null workspace', () => {
     const result = readWorkspaceTree([file(COLLECTION_FILE, COLLECTION_YAML), file(RULE_FILE, RULE_YAML)]);
     expect(result.state.workspace).toBeNull();
@@ -188,7 +222,7 @@ describe('readWorkspaceTree edge cases', () => {
     expect(result.issues).toEqual([
       {
         path: 'rules/block-probes-aaaaaaaa/rule.yaml',
-        message: 'rule outside a collection or folder of "rules" — skipped',
+        message: 'rule in no collection or folder — skipped',
         uncontainedIn: 'rules',
       },
     ]);
@@ -218,7 +252,7 @@ describe('readWorkspaceTree edge cases', () => {
     expect(result.issues).toEqual([
       {
         path: 'requests/api-cccccccc/block-probes-aaaaaaaa/rule.yaml',
-        message: 'rule outside a collection or folder of "rules" — skipped',
+        message: 'rule under "requests", not "rules" — skipped',
       },
     ]);
   });
@@ -231,7 +265,7 @@ describe('readWorkspaceTree edge cases', () => {
     expect(result.issues).toEqual([
       {
         path: 'requests/by-hand/block-probes-aaaaaaaa/rule.yaml',
-        message: 'rule outside a collection or folder of "rules" — skipped',
+        message: 'rule in no collection or folder — skipped',
         uncontainedIn: 'requests/by-hand',
       },
     ]);
@@ -271,12 +305,12 @@ describe('readWorkspaceTree edge cases', () => {
       file('templates/stray/template.yaml', 'not: [a document'),
     ]);
     expect(result.issues.map((issue) => issue.message)).toEqual([
-      'request outside a collection or folder of "requests" — skipped',
-      'gRPC request outside a collection or folder of "requests" — skipped',
-      'WebSocket request outside a collection or folder of "requests" — skipped',
-      'MQTT request outside a collection or folder of "requests" — skipped',
-      'GraphQL request outside a collection or folder of "requests" — skipped',
-      'template outside a collection or folder of "templates" — skipped',
+      'request in no collection or folder — skipped',
+      'gRPC request in no collection or folder — skipped',
+      'WebSocket request in no collection or folder — skipped',
+      'MQTT request in no collection or folder — skipped',
+      'GraphQL request in no collection or folder — skipped',
+      'template in no collection or folder — skipped',
     ]);
     expect(Object.values(result.uncontained).flat()).toEqual([]);
   });

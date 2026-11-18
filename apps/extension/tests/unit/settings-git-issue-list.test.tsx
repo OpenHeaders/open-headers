@@ -14,7 +14,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 afterEach(cleanup);
 
 const NOT_CONTAINED = 'rule inside no collection or folder of the workspace — skipped';
-const OUTSIDE = 'rule outside a collection or folder of "rules" — skipped';
+const OUTSIDE = 'rule in no collection or folder — skipped';
 
 function rowsOf(issues: WorkspaceTreeIssueWire[]): string[] {
   render(<GitIssueList issues={issues} />);
@@ -37,7 +37,7 @@ describe('Git › Folder — the files not taken in', () => {
       `rules/loose-rule-rrrrrrr0/rule.yaml — ${OUTSIDE}`,
     ]);
     expect(screen.getByTestId('git-pane-issues-alert').textContent).toContain(
-      '5 files could not be read and are left untouched',
+      '5 files were not taken in and are left untouched',
     );
   });
 

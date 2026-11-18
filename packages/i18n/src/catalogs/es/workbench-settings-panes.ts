@@ -723,9 +723,9 @@ export const workbenchSettingsPanes = {
   'workbench.settings.gitPane.unbound': 'Carpeta desvinculada.',
   'workbench.settings.gitPane.issuesTitle': ({ count }, locale) =>
     plural(locale, Number(count), {
-      one: '{count} archivo no se pudo leer y se deja intacto',
-      many: '{count} archivos no se pudieron leer y se dejan intactos',
-      other: '{count} archivos no se pudieron leer y se dejan intactos',
+      one: '{count} archivo no se incorporó y se deja intacto',
+      many: '{count} archivos no se incorporaron y se dejan intactos',
+      other: '{count} archivos no se incorporaron y se dejan intactos',
     }),
   'workbench.settings.gitPane.issuesInside': ({ count }, locale) =>
     plural(locale, Number(count), {

@@ -98,7 +98,7 @@ describe('foldTreeIssues', () => {
       {
         kind: 'file',
         path: 'rules/loose-rule-rrrrrrr0/rule.yaml',
-        message: 'rule outside a collection or folder of "rules" — skipped',
+        message: 'rule in no collection or folder — skipped',
         inside: 0,
       },
     ]);

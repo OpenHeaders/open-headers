@@ -720,9 +720,9 @@ export const workbenchSettingsPanes = {
   'workbench.settings.gitPane.unbound': 'Dossier délié.',
   'workbench.settings.gitPane.issuesTitle': ({ count }, locale) =>
     plural(locale, Number(count), {
-      one: '{count} fichier n’a pas pu être lu et est laissé intact',
-      many: '{count} fichiers n’ont pas pu être lus et sont laissés intacts',
-      other: '{count} fichiers n’ont pas pu être lus et sont laissés intacts',
+      one: '{count} fichier n’a pas été pris en compte et est laissé intact',
+      many: '{count} fichiers n’ont pas été pris en compte et sont laissés intacts',
+      other: '{count} fichiers n’ont pas été pris en compte et sont laissés intacts',
     }),
   'workbench.settings.gitPane.issuesInside': ({ count }, locale) =>
     plural(locale, Number(count), {

@@ -313,7 +313,7 @@ describe('containTreeRead — a leaf in a directory with no manifest', () => {
     expect(result.issues).toEqual([
       {
         path: 'rules/api-cccccccc/by-hand/inner-aaaaaaaa/rule.yaml',
-        message: 'rule outside a collection or folder of "rules" — skipped',
+        message: 'rule in no collection or folder — skipped',
         uncontainedIn: 'rules/api-cccccccc/by-hand',
       },
     ]);

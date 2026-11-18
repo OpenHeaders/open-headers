@@ -685,9 +685,9 @@ export const workbenchSettingsPanes = {
   'workbench.settings.gitPane.unbound': 'Folder dezlegat.',
   'workbench.settings.gitPane.issuesTitle': ({ count }, locale) =>
     plural(locale, Number(count), {
-      one: '{count} fișier nu a putut fi citit și este lăsat neatins',
-      few: '{count} fișiere nu au putut fi citite și sunt lăsate neatinse',
-      other: '{count} de fișiere nu au putut fi citite și sunt lăsate neatinse',
+      one: '{count} fișier nu a fost preluat și este lăsat neatins',
+      few: '{count} fișiere nu au fost preluate și sunt lăsate neatinse',
+      other: '{count} de fișiere nu au fost preluate și sunt lăsate neatinse',
     }),
   'workbench.settings.gitPane.issuesInside': ({ count }, locale) =>
     plural(locale, Number(count), {

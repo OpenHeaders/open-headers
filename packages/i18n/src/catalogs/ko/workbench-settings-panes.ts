@@ -630,7 +630,7 @@ export const workbenchSettingsPanes = {
   'workbench.settings.gitPane.unbindConfirm.ok': '바인딩 해제',
   'workbench.settings.gitPane.unbound': '폴더 바인딩을 해제했습니다.',
   'workbench.settings.gitPane.issuesTitle': ({ count }, locale) =>
-    plural(locale, Number(count), { other: '파일 {count}개를 읽을 수 없어 그대로 두었습니다' }),
+    plural(locale, Number(count), { other: '파일 {count}개를 가져오지 않고 그대로 두었습니다' }),
   'workbench.settings.gitPane.issuesInside': ({ count }, locale) =>
     plural(locale, Number(count), { other: '및 그 안의 파일 {count}개' }),
   'workbench.settings.gitPane.issuesUncontained': ({ count }, locale) =>

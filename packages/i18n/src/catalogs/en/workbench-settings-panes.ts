@@ -622,8 +622,8 @@ export const workbenchSettingsPanes = {
   'workbench.settings.gitPane.unbound': 'Folder unbound.',
   'workbench.settings.gitPane.issuesTitle': ({ count }, locale) =>
     plural(locale, Number(count), {
-      one: '{count} file could not be read and is left untouched',
-      other: '{count} files could not be read and are left untouched',
+      one: '{count} file was not taken in and is left untouched',
+      other: '{count} files were not taken in and are left untouched',
     }),
   'workbench.settings.gitPane.issuesInside': ({ count }, locale) =>
     plural(locale, Number(count), {

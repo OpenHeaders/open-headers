@@ -536,7 +536,7 @@ describe('sweepWorkspaceTree', () => {
       ok: true,
       applied: 0,
       changed: 1,
-      issues: [{ path: stray, message: 'rule outside a collection or folder of "rules" — skipped' }],
+      issues: [{ path: stray, message: 'rule in no collection or folder — skipped' }],
     });
     expect(applied).toEqual([]);
     expect((await readMaterializedIndex(tmpDir))[stray]).toBeUndefined();
@@ -562,7 +562,7 @@ describe('sweepWorkspaceTree', () => {
       ok: true,
       applied: 0,
       changed: 1,
-      issues: [{ path: own, message: 'rule outside a collection or folder of "rules" — skipped' }],
+      issues: [{ path: own, message: 'rule in no collection or folder — skipped' }],
     });
     expect(applied).toEqual([]);
   });
