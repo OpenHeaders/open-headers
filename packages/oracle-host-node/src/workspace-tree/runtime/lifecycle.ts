@@ -95,6 +95,7 @@ export async function openBinding(ctx: RuntimeCtx, record: WorkspaceTreeBindingR
     contributors: new Set(),
     issues: [],
     unwritten: [],
+    lockSaid: null,
     closed: false,
   };
   ctx.open.set(record.workspaceId, binding);

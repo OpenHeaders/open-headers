@@ -40,6 +40,11 @@
  * a commit puts at the sidecar's name: the baseline where it points is
  * never the materializer's. And a file a commit puts there: the binding
  * keeps its passes, by a switch of ours and by a checkout from a terminal.
+ * And the tree's lock under an open binding: asked for again after every
+ * pass, so it is the binding's own when a switch that took the sidecar
+ * away answers, after a checkout from a terminal, after a hand removed
+ * the sidecar and after a pass that threw; another engine given it first
+ * keeps it while the binding goes on.
  *
  * And a pass that lands an ignore file, at every door that lands one: a
  * file of the user's it brings into git's sight, or takes out of it, is
@@ -62,6 +67,7 @@ import {
   snapshotSpecPostStates,
 } from '@openheaders/oracle/sync/service';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { acquireTreeLock, releaseTreeLock } from '../../src/workspace-tree/sidecar';
 import { openRuntimeHarness, type RuntimeHarness, until } from './_runtime-harness';
 
 const COLLECTION_UID = 'col0000a';
@@ -1011,6 +1017,114 @@ describe('the workspace-tree runtime: a file a commit puts at the sidecar’s na
       expect((await fs.lstat(inTree('.oh'))).isDirectory()).toBe(true);
       expect(await harness.git('ls-tree', 'HEAD', '.oh')).toBe('');
     });
+  });
+});
+
+describe('the workspace-tree runtime: the tree’s lock under an open binding', () => {
+  /** The host the harness binds as (`_runtime-harness.ts`). */
+  const HARNESS_HOST = 'host-harness';
+
+  /** The host the lock in the sidecar names — null where the sidecar holds none. */
+  const lockHost = async (): Promise<unknown> => {
+    const text = await fs.readFile(inTree('.oh/lock'), 'utf-8').catch(() => null);
+    if (text === null) return null;
+    const holder: { hostId?: unknown } = JSON.parse(text);
+    return holder.hostId;
+  };
+  const saidOfTheLock = (): string[] => harness.logged.filter((line) => line.includes('the lock of'));
+
+  /** `run` with a branch `side` whose tree holds `.oh` as a link or as a regular file, made in another clone and fetched. */
+  async function withABranchThatHolds(what: 'a link' | 'a file', run: () => Promise<void>): Promise<void> {
+    await writeByHand('README.md', 'A workspace of mine.\n');
+    await delay(TREE_AT_REST_MS);
+    expect(await harness.runtime.commit(harness.workspaceId, 'seed')).toMatchObject({ ok: true, committed: true });
+    const other = await fs.mkdtemp(path.join(os.tmpdir(), 'oh-tree-runtime-other-'));
+    try {
+      await harness.git('clone', '-q', harness.rootDir, other);
+      await harness.git('-C', other, 'checkout', '-q', '-b', 'side');
+      if (what === 'a link') await fs.symlink('elsewhere', path.join(other, '.oh'));
+      else await fs.writeFile(path.join(other, '.oh'), 'not a directory\n', 'utf-8');
+      await harness.git('-C', other, 'add', '-A');
+      await harness.git('-C', other, 'commit', '-q', '-m', 'the sidecar’s name taken');
+      await harness.git('fetch', '-q', other, 'side:side');
+      await run();
+    } finally {
+      await fs.rm(other, { recursive: true, force: true });
+    }
+  }
+
+  it.each(['a link', 'a file'] as const)(
+    'a switch to a branch that holds %s at the sidecar’s name answers with the lock the binding’s own: another engine that asks is refused',
+    {
+      timeout: 30_000,
+    },
+    async (what) => {
+      await withABranchThatHolds(what, async () => {
+        expect(await harness.runtime.switchBranch(harness.workspaceId, 'side')).toMatchObject({
+          ok: true,
+          switched: true,
+        });
+        expect(await lockHost()).toBe(HARNESS_HOST);
+        expect(await acquireTreeLock(harness.rootDir, 'another-host')).toMatchObject({
+          ok: false,
+          holder: { hostId: HARNESS_HOST },
+        });
+      });
+    },
+  );
+
+  it('a checkout of such a branch from a terminal, which passes no door of ours: the binding has its lock again at the pass that follows', {
+    timeout: 30_000,
+  }, async () => {
+    await withABranchThatHolds('a file', async () => {
+      await harness.git('checkout', '-q', 'side');
+      await until('the binding has its lock again', async () => (await lockHost()) === HARNESS_HOST, 8_000);
+    });
+  });
+
+  it('a sidecar removed by hand is made anew with the lock in it by the pass that follows', {
+    timeout: 30_000,
+  }, async () => {
+    await fs.rm(inTree('.oh'), { recursive: true });
+    expect(await harness.runtime.commit(harness.workspaceId, 'after')).toMatchObject({ ok: true });
+    expect(await lockHost()).toBe(HARNESS_HOST);
+  });
+
+  it('a pass that throws is still followed by the ask: the lock is the binding’s after it', {
+    timeout: 30_000,
+  }, async () => {
+    // A directory where the flush writes its baseline: the pass throws at its last write.
+    await fs.rm(inTree('.oh'), { recursive: true });
+    await fs.mkdir(inTree('.oh/materialized-index.json'), { recursive: true });
+    expect(await harness.runtime.commit(harness.workspaceId, 'after')).toMatchObject({
+      ok: false,
+      detail: 'commit pass did not run',
+    });
+    expect(harness.logged.some((line) => line.includes('tree op failed'))).toBe(true);
+    expect(await lockHost()).toBe(HARNESS_HOST);
+  });
+
+  it('another engine given the lock first keeps it: the binding’s commits go on, the holder is said once, and the lock is the binding’s again at the first pass after the other lets go', {
+    timeout: 30_000,
+  }, async () => {
+    await fs.rm(inTree('.oh'), { recursive: true });
+    expect(await acquireTreeLock(harness.rootDir, 'another-host')).toEqual({ ok: true });
+
+    await writeByHand('README.md', 'A workspace of mine.\n');
+    await delay(TREE_AT_REST_MS);
+    expect(await harness.runtime.commit(harness.workspaceId, 'while another holds the lock')).toMatchObject({
+      ok: true,
+      committed: true,
+    });
+    expect(await lockHost()).toBe('another-host');
+    expect(saidOfTheLock()).toHaveLength(1);
+    expect(saidOfTheLock()[0]).toContain('is held by another-host');
+
+    await releaseTreeLock(harness.rootDir, 'another-host');
+    expect(await harness.runtime.commit(harness.workspaceId, 'after')).toMatchObject({ ok: true });
+    expect(await lockHost()).toBe(HARNESS_HOST);
+    expect(saidOfTheLock()).toHaveLength(2);
+    expect(saidOfTheLock()[1]).toContain("is this engine's again");
   });
 });
 

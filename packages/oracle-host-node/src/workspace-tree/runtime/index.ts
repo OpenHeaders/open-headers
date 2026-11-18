@@ -13,6 +13,7 @@
  *   - `branches.ts`  — switch/create/delete/update/merge (§6 + IDE bar)
  *   - `history.ts`   — log/refs/diff/compare/console reads (§9)
  *   - `lifecycle.ts` — binding open/close wiring
+ *   - `lock.ts`      — the tree's lock, asked for again after every pass
  *
  * This file owns what is genuinely global: the binding-record
  * registry, the audit-ring git runner, the availability probe, and the
@@ -100,6 +101,7 @@ import {
 } from './history';
 import { runIgnorePath, runUnignorePath } from './ignore';
 import { closeBinding, openBinding } from './lifecycle';
+import { keepTreeLock } from './lock';
 import { runLocateLogRow, runLogRows } from './log-rows';
 import { runAbortOperation } from './operation';
 import { runApplyCommit } from './pick';
@@ -304,9 +306,12 @@ export function createWorkspaceTreeRuntime(options: WorkspaceTreeRuntimeOptions)
       return gitAvailability;
     },
     enqueue: (binding, op) => {
-      binding.chain = binding.chain.then(op, op).catch((err: unknown) => {
-        logger.warn(SCOPE, `tree op failed for ${binding.record.rootDir}`, err);
-      });
+      binding.chain = binding.chain
+        .then(op, op)
+        .catch((err: unknown) => {
+          logger.warn(SCOPE, `tree op failed for ${binding.record.rootDir}`, err);
+        })
+        .then(() => keepTreeLock(binding, options.hostId));
     },
     buildSnapshot,
     applyAll,

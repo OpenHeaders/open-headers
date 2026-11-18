@@ -171,6 +171,8 @@ export interface OpenBinding {
   issues: TreeIssue[];
   /** The rows of the last flush: what it did not write (`MaterializeResult.unwritten`). */
   unwritten: TreeIssue[];
+  /** What was last said of the tree's lock not being this engine's — its holder, or why the ask failed; null while it is. */
+  lockSaid: string | null;
   closed: boolean;
 }
 
@@ -194,7 +196,7 @@ export interface RuntimeCtx {
   /** Host-global audit ring (Console tab feed) — real-runner rows only. */
   readonly consoleRows: GitConsoleRow[];
   ensureGitAvailability(cwd: string): Promise<GitAvailability>;
-  /** §8 single actor — chain `op` on the binding's serial promise chain. */
+  /** §8 single actor — chain `op` on the binding's serial promise chain, the ask for the tree's lock after it (`lock.ts`). */
   enqueue(binding: OpenBinding, op: () => Promise<void>): void;
   buildSnapshot(workspaceId: string, service: WorkspaceServiceState): Promise<WorkspaceTreeState>;
   applyAll(service: WorkspaceServiceState, batches: EmissionBatch[]): Promise<void>;

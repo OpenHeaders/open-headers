@@ -36,10 +36,11 @@
  * run — after a checkout from a terminal, which no door of ours can
  * refuse. Either is taken away by the name, a link never followed and
  * never read, and the sidecar is made anew beside the documents, empty,
- * which reads as no baseline at all. The commit still holds what was
- * taken, and git lists it as deleted. What stands there and is none of
- * the three is not the engine's to take away: a read answers nothing,
- * and a write fails, saying so.
+ * which reads as no baseline at all — and holds no lock: an open binding
+ * asks for its own again after every pass (`runtime/lock.ts`). The
+ * commit still holds what was taken, and git lists it as deleted. What
+ * stands there and is none of the three is not the engine's to take
+ * away: a read answers nothing, and a write fails, saying so.
  */
 
 import { createHash } from 'node:crypto';
