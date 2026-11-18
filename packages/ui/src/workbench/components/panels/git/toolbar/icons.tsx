@@ -2,8 +2,8 @@
  * Inline glyphs the icon set lacks — small currentColor SVGs sized to
  * sit beside the antd outline icons in the log toolbar: the cherry
  * pair (Cherry-Pick) and the sort-arrow-with-graph (Graph Options —
- * the arrow, two linked commits, and the corner mark of a button that
- * opens a menu, as the reference draws it).
+ * the arrow and two linked commits; the corner mark of a button that
+ * opens a menu is the button's, `MenuCornerMark`).
  */
 
 import type React from 'react';
@@ -26,6 +26,6 @@ export const CherryPickIcon: React.FC = () => (
 
 export const GraphOptionsIcon: React.FC = () => (
   <svg {...svgProps}>
-    <path d="M4 2.5V12.5M4 12.5L1.9 10.2M4 12.5L6.1 10.2M11.8 4a1.5 1.5 0 1 1-3 0 1.5 1.5 0 1 1 3 0M10.3 5.5V7.6M11.8 9.1a1.5 1.5 0 1 1-3 0 1.5 1.5 0 1 1 3 0M15.3 13.2V15.3H13.2Z" fill="none" />
+    <path d="M4 2.5V12.5M4 12.5L1.9 10.2M4 12.5L6.1 10.2M11.8 4a1.5 1.5 0 1 1-3 0 1.5 1.5 0 1 1 3 0M10.3 5.5V7.6M11.8 9.1a1.5 1.5 0 1 1-3 0 1.5 1.5 0 1 1 3 0" fill="none" />
   </svg>
 );
