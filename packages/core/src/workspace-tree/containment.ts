@@ -53,7 +53,7 @@ import {
   TEMPLATE_MANIFEST_FILE,
   WEBSOCKET_REQUEST_MANIFEST_FILE,
 } from './layout';
-import { duplicateUidMessage } from './read';
+import { duplicateUidIssue } from './read';
 import type {
   TreeContainerKey,
   TreeIssue,
@@ -244,7 +244,7 @@ function settleTree(
     if (first) {
       out.issues.push(
         fits
-          ? { path: `${file.path}/${family.manifest}`, message: duplicateUidMessage(file.uid) }
+          ? duplicateUidIssue(`${file.path}/${family.manifest}`, file.uid)
           : placeIssue(file, family.manifest, 'folder'),
       );
     }
@@ -286,7 +286,7 @@ function settleTree(
         claimLeaf(leaf);
         out.issues.push(
           contained(first)
-            ? { path: `${first.path}/${family.manifest}`, message: duplicateUidMessage(first.uid) }
+            ? duplicateUidIssue(`${first.path}/${family.manifest}`, first.uid)
             : placeIssue(first, family.manifest, family.kind),
         );
       }

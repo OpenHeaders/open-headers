@@ -84,6 +84,8 @@ export interface TreeIssue {
    * workspace has. A document skipped for what it says carries none.
    */
   readonly uncontainedIn?: string;
+  /** Set where the document was skipped for its uid alone: the uid, which another file holds. */
+  readonly duplicateOf?: string;
 }
 
 /**

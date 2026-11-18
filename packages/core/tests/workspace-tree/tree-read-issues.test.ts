@@ -90,8 +90,13 @@ describe('readWorkspaceTree edge cases', () => {
       file('rules/api-cccccccc/copy-aaaaaaaa/rule.yaml', RULE_YAML),
     ]);
     expect(result.state.rules).toHaveLength(1);
-    expect(result.issues).toHaveLength(1);
-    expect(result.issues[0].message).toContain('duplicate uid');
+    expect(result.issues).toEqual([
+      {
+        path: 'rules/api-cccccccc/copy-aaaaaaaa/rule.yaml',
+        message: 'duplicate uid "aaaaaaaa" — entity skipped',
+        duplicateOf: 'aaaaaaaa',
+      },
+    ]);
   });
 
   it('keeps a leaf it skipped as a duplicate, with what it holds, for the claim to be settled', () => {

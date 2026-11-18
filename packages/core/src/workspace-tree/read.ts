@@ -107,9 +107,9 @@ function pickByTree<T>(tree: string, rules: T, requests: T, templates: T): T | n
   }
 }
 
-/** The message of a document skipped for a uid another file holds. */
-export function duplicateUidMessage(uid: string): string {
-  return `duplicate uid "${uid}" — entity skipped`;
+/** The issue of a document skipped for a uid another file holds, at its manifest. */
+export function duplicateUidIssue(path: string, uid: string): TreeIssue {
+  return { path, message: `duplicate uid "${uid}" — entity skipped`, duplicateOf: uid };
 }
 
 function noLeaves(): TreeShadowedLeaves {
@@ -200,7 +200,7 @@ export function readWorkspaceTree(files: readonly TreeFile[]): TreeReadResult {
     try {
       const parsed = parse();
       if (seenUids.has(parsed.value.uid)) {
-        issues.push({ path: manifestPath, message: duplicateUidMessage(parsed.value.uid) });
+        issues.push(duplicateUidIssue(manifestPath, parsed.value.uid));
         shadows?.push({ entity: parsed.value, unknowns: unknownFieldsOf(parsed) });
         return null;
       }

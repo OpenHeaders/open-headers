@@ -1,7 +1,8 @@
 /**
  * The fold of a reading's issues — a row a cause: what was skipped for
  * its place is counted at the manifest's row of the directory it sits
- * in, or at the directory where no manifest's row answers for it.
+ * in, or at the directory where no manifest's row answers for it; a
+ * copy of a container's directory is counted at its manifest's row.
  */
 
 import { describe, expect, it } from 'vitest';
@@ -50,6 +51,27 @@ function issuesOf(files: TreeFile[], held: Partial<HeldTree> = {}): TreeIssue[] 
 }
 
 const skipped = (path: string, uncontainedIn: string): TreeIssue => ({ path, message: 'skipped', uncontainedIn });
+
+const duplicateOf = (uid: string): string => `duplicate uid "${uid}" — entity skipped`;
+
+const API = 'rules/api-cccccccc';
+
+/** A collection the engine holds: two rules, and a folder with a third. */
+const API_FILES: TreeFile[] = [
+  file(`${API}/_collection.yaml`, collectionYaml('cccccccc')),
+  file(`${API}/one-aaaaaaa1/rule.yaml`, ruleYaml('aaaaaaa1')),
+  file(`${API}/two-aaaaaaa2/rule.yaml`, ruleYaml('aaaaaaa2')),
+  file(`${API}/auth-ffffffff/_folder.yaml`, folderYaml('ffffffff')),
+  file(`${API}/auth-ffffffff/three-aaaaaaa3/rule.yaml`, ruleYaml('aaaaaaa3')),
+];
+
+const apiHeld = (): HeldTree => readWorkspaceTree([file('workspace.yaml', WORKSPACE_YAML), ...API_FILES]).state;
+
+/** The files beneath `from`, copied to `to`. */
+const copied = (from: string, to: string): TreeFile[] =>
+  API_FILES.filter((entry) => entry.path.startsWith(`${from}/`)).map((entry) =>
+    file(`${to}${entry.path.slice(from.length)}`, entry.content),
+  );
 
 describe('foldTreeIssues', () => {
   it('leaves issues that name no directory a row each, in their order', () => {
@@ -185,5 +207,66 @@ describe('foldTreeIssues', () => {
     expect(foldTreeIssues(issues)).toEqual(
       issues.map((issue) => ({ kind: 'file', path: issue.path, message: issue.message, inside: 0 })),
     );
+  });
+});
+
+describe('foldTreeIssues — a copy of a directory', () => {
+  it("counts a copy of a held collection's directory at its manifest row, wherever it sorts", () => {
+    for (const copy of ['rules/aaa-cccccccc', 'rules/zzz-cccccccc']) {
+      const files = copied(API, copy);
+      const issues = issuesOf(copy < API ? [...files, ...API_FILES] : [...API_FILES, ...files], apiHeld());
+      expect(issues).toHaveLength(5);
+      expect(foldTreeIssues(issues)).toEqual([
+        { kind: 'file', path: `${copy}/_collection.yaml`, message: duplicateOf('cccccccc'), inside: 4 },
+      ]);
+    }
+  });
+
+  it("counts a copy of a held folder's directory at its manifest row", () => {
+    const copy = `${API}/zzz-ffffffff`;
+    const issues = issuesOf([...API_FILES, ...copied(`${API}/auth-ffffffff`, copy)], apiHeld());
+    expect(foldTreeIssues(issues)).toEqual([
+      { kind: 'file', path: `${copy}/_folder.yaml`, message: duplicateOf('ffffffff'), inside: 1 },
+    ]);
+  });
+
+  it('keeps the row of a duplicate in a directory that is no copy', () => {
+    const copy = `${API}/copy-aaaaaaa1/rule.yaml`;
+    const issues = issuesOf([...API_FILES, file(copy, ruleYaml('aaaaaaa1'))], apiHeld());
+    expect(foldTreeIssues(issues)).toEqual([{ kind: 'file', path: copy, message: duplicateOf('aaaaaaa1'), inside: 0 }]);
+  });
+
+  it('keeps the row of a document in the copy that does not read', () => {
+    const copy = 'rules/aaa-cccccccc';
+    const issues = issuesOf(
+      [...copied(API, copy), file(`${copy}/bad-bbbbbbbb/rule.yaml`, BROKEN_YAML), ...API_FILES],
+      apiHeld(),
+    );
+    expect(foldTreeIssues(issues).map((row) => (row.kind === 'file' ? [row.path, row.inside] : row))).toEqual([
+      [`${copy}/bad-bbbbbbbb/rule.yaml`, 0],
+      [`${copy}/_collection.yaml`, 4],
+    ]);
+  });
+
+  it("answers with a duplicate manifest's row alone — a manifest that does not read is no copy", () => {
+    const rows = foldTreeIssues([
+      { path: `${API}/_collection.yaml`, message: 'bad manifest' },
+      { path: `${API}/copy-aaaaaaa1/rule.yaml`, message: duplicateOf('aaaaaaa1'), duplicateOf: 'aaaaaaa1' },
+    ]);
+    expect(rows.map((row) => (row.kind === 'file' ? [row.path, row.inside] : row))).toEqual([
+      [`${API}/_collection.yaml`, 0],
+      [`${API}/copy-aaaaaaa1/rule.yaml`, 0],
+    ]);
+  });
+
+  it('folds by the mark, not by the sentence', () => {
+    const rows = foldTreeIssues([
+      { path: 'rules/aaa-cccccccc/_collection.yaml', message: duplicateOf('cccccccc'), duplicateOf: 'cccccccc' },
+      { path: 'rules/aaa-cccccccc/one-aaaaaaa1/rule.yaml', message: duplicateOf('aaaaaaa1') },
+    ]);
+    expect(rows.map((row) => (row.kind === 'file' ? [row.path, row.inside] : row))).toEqual([
+      ['rules/aaa-cccccccc/_collection.yaml', 0],
+      ['rules/aaa-cccccccc/one-aaaaaaa1/rule.yaml', 0],
+    ]);
   });
 });

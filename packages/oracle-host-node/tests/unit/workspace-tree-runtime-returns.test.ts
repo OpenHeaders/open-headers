@@ -512,10 +512,15 @@ describe("the workspace-tree runtime: the Git card's rows after a pass", () => {
   describe("a copy of a held container's directory, sorted before it", () => {
     const COPY_DIR = `rules/aaa-${COLLECTION_UID}`;
     const COPY_ROWS = [
-      { path: `${COPY_DIR}/_collection.yaml`, message: `duplicate uid "${COLLECTION_UID}" — entity skipped` },
+      {
+        path: `${COPY_DIR}/_collection.yaml`,
+        message: `duplicate uid "${COLLECTION_UID}" — entity skipped`,
+        duplicateOf: COLLECTION_UID,
+      },
       {
         path: `${COPY_DIR}/block-probes-${RULE_UID}/rule.yaml`,
         message: `duplicate uid "${RULE_UID}" — entity skipped`,
+        duplicateOf: RULE_UID,
       },
     ];
     const collectionDir = (): string | undefined =>

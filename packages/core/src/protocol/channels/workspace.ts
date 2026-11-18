@@ -1858,6 +1858,8 @@ export interface WorkspaceTreeIssueWire {
   message: string;
   /** The directory the document sits in, where it was skipped for holding no container of the workspace. */
   uncontainedIn?: string;
+  /** The uid another file holds, where the document was skipped for it. */
+  duplicateOf?: string;
 }
 
 export type WorkspaceTreeSweepSummary =

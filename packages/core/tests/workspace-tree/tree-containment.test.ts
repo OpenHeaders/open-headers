@@ -29,6 +29,7 @@ const refused = (kind: string): string => `${kind} inside no collection or folde
 const duplicate = (path: string, uid: string): TreeIssue => ({
   path,
   message: `duplicate uid "${uid}" — entity skipped`,
+  duplicateOf: uid,
 });
 
 /** The issue of a folder or a leaf refused for its place — at its manifest, naming the directory it sits in. */

@@ -6,8 +6,13 @@
  * the row of the directory's own manifest where it has one — a
  * collection or a folder that did not read, or was itself skipped — and
  * by the directory where it has none. Folded top-down, a collection
- * that does not read is one row however much it holds. A document
- * skipped for what it says keeps its own row.
+ * that does not read is one row however much it holds.
+ *
+ * A document skipped for its uid (`duplicateOf`) is answered for the
+ * same way where the directory it sits in was skipped for its own: a
+ * copy of a collection's or a folder's directory is one row, at its
+ * manifest. A duplicate anywhere else, and a document skipped for
+ * anything else it says, keeps its own row.
  */
 
 import { COLLECTION_MANIFEST_FILE, FOLDER_MANIFEST_FILE } from './layout';
@@ -18,7 +23,7 @@ export type FoldedTreeIssue =
       kind: 'file';
       path: string;
       message: string;
-      /** The files skipped beneath it for their place, at any depth. */
+      /** The files skipped beneath it with it, at any depth. */
       inside: number;
     }
   | {
@@ -60,10 +65,22 @@ export function foldTreeIssues(issues: readonly TreeIssue[]): FoldedTreeIssue[] 
     if (CONTAINER_MANIFESTS.has(baseOf(issue.path)) && !manifestAt.has(dir)) manifestAt.set(dir, issue);
   }
 
+  /** The manifest's row of the directory a duplicate sits in, where that manifest is a duplicate too. */
+  const copiedWith = (issue: TreeIssue): TreeIssue | undefined => {
+    if (issue.duplicateOf === undefined) return undefined;
+    const manifest = manifestAt.get(dirOf(dirOf(issue.path)));
+    return manifest?.duplicateOf === undefined ? undefined : manifest;
+  };
+
   const beneath = new Map<TreeIssue, TreeIssue[]>();
   const unanswered = new Map<string, TreeIssue[]>();
   const rows: Array<{ issue: TreeIssue } | { dir: string }> = [];
   for (const issue of issues) {
+    const copy = copiedWith(issue);
+    if (copy !== undefined) {
+      append(beneath, copy, issue);
+      continue;
+    }
     const dir = uncontainedDirOf(issue);
     if (dir === null) {
       rows.push({ issue });
