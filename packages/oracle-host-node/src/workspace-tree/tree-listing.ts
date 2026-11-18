@@ -15,7 +15,7 @@
 import { type Dirent, promises as fs } from 'node:fs';
 import * as path from 'node:path';
 import { OH_SIDECAR_DIR, type TreeUnread } from '@openheaders/core/workspace-tree';
-import { failureCode, isGone } from './tree-file';
+import { failureCode, isGone } from '../git';
 
 const SKIPPED_DIRS: ReadonlySet<string> = new Set([OH_SIDECAR_DIR, '.git']);
 

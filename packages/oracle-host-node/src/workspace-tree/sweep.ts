@@ -65,7 +65,7 @@ import {
   WORKSPACE_VARS_DOC_KEY,
   type WorkspaceTreeState,
 } from '@openheaders/core/workspace-tree';
-import type { TreeWritesWatch } from '../git';
+import { isBusy, type TreeWritesWatch } from '../git';
 import { TREE_HYGIENE_FILES } from './hygiene';
 import { treeIssueRows } from './issue-rows';
 import { listWorkspaceTree, type TreeListing } from './reader';
@@ -77,7 +77,6 @@ import {
   writeMaterializedIndex,
   writeTreeUnknownFields,
 } from './sidecar';
-import { isBusy } from './tree-file';
 
 export interface SweepWorkspaceTreeOptions {
   rootDir: string;

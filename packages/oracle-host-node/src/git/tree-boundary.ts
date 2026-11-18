@@ -1,7 +1,10 @@
 /**
  * The bound folder's boundary — where a file of the working tree may be
  * written or removed. Every write and removal of ours in the folder
- * goes through here.
+ * goes through here: the materializer's, an answered file of the
+ * user's own, the removals a landing and a rollback make, a deletion a
+ * person asks for. What git itself writes — a checkout — is git's, and
+ * git writes through no link.
  *
  * A path is joined under the folder as it comes: from the engine, which
  * holds what its peers sent; from a baseline; from a caller. Two things
@@ -36,7 +39,7 @@ import { randomBytes } from 'node:crypto';
 import { promises as fs } from 'node:fs';
 import * as path from 'node:path';
 import { type TreeIssue, treePathIssue, treePathRefusal } from '@openheaders/core/workspace-tree';
-import { failureCode, isGone } from './tree-file';
+import { failureCode, isGone } from './fs-failure';
 
 /** Why a path is not the tree's to write or remove. */
 export type TreeRefusal =
@@ -71,6 +74,12 @@ const parentOf = (relative: string): string => {
   return cut === -1 ? '' : relative.slice(0, cut);
 };
 
+/** A refusal in a sentence, for a pass that fails by it. */
+export function treeRefusalReason(relative: string, refusal: TreeRefusal): string {
+  if (refusal.kind === 'path') return `${refusal.part} cannot be part of the path "${relative}"`;
+  return `"${refusal.dir}/" ${refusal.stands === 'link' ? 'is a link' : 'is not a directory'}, on the way to "${relative}"`;
+}
+
 /** The row of a refusal: at the file for its path, at the directory for what stands on the way. */
 export function treeRefusalIssue(relative: string, refusal: TreeRefusal): TreeIssue {
   if (refusal.kind === 'path') return treePathIssue(relative, refusal.part, 'not written');
@@ -104,8 +113,8 @@ export class TreeBoundary {
    * is written then.
    */
   async stage(place: TreePlace, content: string): Promise<TreeStaged> {
-    const made = await this.make(parentOf(place.relative));
-    if (made !== 'directory') return { ok: false, refusal: made };
+    const refusal = await this.makeWay(place);
+    if (refusal !== null) return { ok: false, refusal };
     const temp = `${place.file}.${randomBytes(8).toString('hex')}.tmp`;
     await fs.writeFile(temp, content, 'utf-8');
     return {
@@ -115,6 +124,16 @@ export class TreeBoundary {
         discard: () => fs.rm(temp, { force: true }),
       },
     };
+  }
+
+  /**
+   * Make the directories a file at `place` needs, each looked at where
+   * it already stood. Answers the refusal where one of them turns out
+   * not to be a directory, null when the way is made.
+   */
+  async makeWay(place: TreePlace): Promise<TreeRefusal | null> {
+    const made = await this.make(parentOf(place.relative));
+    return made === 'directory' ? null : made;
   }
 
   /**

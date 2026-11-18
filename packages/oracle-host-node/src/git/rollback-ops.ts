@@ -11,7 +11,10 @@
  *                                            goes, the one under its old
  *                                            name comes back from HEAD.
  *
- * A file that goes takes the directories it leaves empty with it.
+ * A file that goes takes the directories it leaves empty with it, and
+ * goes through the folder's boundary (`tree-boundary.ts`): one that lies
+ * through a link is not the rollback's to remove, and refuses it while
+ * nothing is written.
  *
  * What is done is decided from the rows git itself lists, before
  * anything is written (`planRollback`): a path with no change row, an
@@ -33,7 +36,7 @@ import {
   repoArgs,
   type WorkingChange,
 } from './repo';
-import { removeWorkingFile } from './working-file';
+import { TreeBoundary, treeRefusalReason } from './tree-boundary';
 
 export interface RollbackOptions {
   /** Delete an added file from disk instead of leaving it unversioned. */
@@ -121,6 +124,14 @@ export async function rollbackWorkingPaths(
   if ('detail' in inHead) return { ok: false, reason: 'rollback-failed', detail: inHead.detail };
   const plan = planRollback(changes, inHead, paths, options);
   if (plan.rolledBack === 0) return { ok: true, rolledBack: 0 };
+  // What the rollback removes itself, asked of the boundary while nothing is written.
+  const before = new TreeBoundary(rootDir);
+  for (const filePath of plan.remove) {
+    const placed = await before.locate(filePath);
+    if (!placed.ok) {
+      return { ok: false, reason: 'rollback-failed', detail: treeRefusalReason(filePath, placed.refusal) };
+    }
+  }
 
   return withIndexLock<RollbackResult>(
     run,
@@ -147,9 +158,15 @@ export async function rollbackWorkingPaths(
         });
         if (restored.code !== 0) return { ok: false, reason: 'rollback-failed', detail: failureDetail(restored) };
       }
+      // Git has written since: the folder is looked at anew.
+      const boundary = new TreeBoundary(rootDir);
       for (const filePath of plan.remove) {
+        const placed = await boundary.locate(filePath);
+        if (!placed.ok) {
+          return { ok: false, reason: 'rollback-failed', detail: treeRefusalReason(filePath, placed.refusal) };
+        }
         try {
-          await removeWorkingFile(rootDir, filePath);
+          await boundary.remove(placed.place);
         } catch (err) {
           return { ok: false, reason: 'rollback-failed', detail: err instanceof Error ? err.message : String(err) };
         }

@@ -11,7 +11,7 @@ import { promises as fs } from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { TreeBoundary, type TreePlaced, treeRefusalIssue } from '../../src/workspace-tree/tree-boundary';
+import { TreeBoundary, type TreePlaced, treeRefusalIssue, treeRefusalReason } from '../../src/git/tree-boundary';
 
 let scratch: string;
 let rootDir: string;
@@ -179,5 +179,19 @@ describe('treeRefusalIssue', () => {
       path: 'specs/',
       message: 'is not a directory — not written',
     });
+  });
+});
+
+describe('treeRefusalReason', () => {
+  it('says a refusal in a sentence that names the path, for a pass that fails by it', () => {
+    expect(treeRefusalReason('../outside/spec.yaml', { kind: 'path', part: '".."' })).toBe(
+      '".." cannot be part of the path "../outside/spec.yaml"',
+    );
+    expect(treeRefusalReason('notes/readme.md', { kind: 'way', dir: 'notes', stands: 'link' })).toBe(
+      '"notes/" is a link, on the way to "notes/readme.md"',
+    );
+    expect(treeRefusalReason('notes/readme.md', { kind: 'way', dir: 'notes', stands: 'file' })).toBe(
+      '"notes/" is not a directory, on the way to "notes/readme.md"',
+    );
   });
 });

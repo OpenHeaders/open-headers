@@ -9,7 +9,7 @@
  *     diff against disk — only changed files are written (atomic
  *     tmp+rename), so mtimes and git's dirty state never churn on
  *     no-op materializations;
- *   - every path goes through the folder's boundary (`tree-boundary.ts`)
+ *   - every path goes through the folder's boundary (`git/tree-boundary.ts`)
  *     before anything is done at it: a planned file it refuses is not
  *     read, not written, and stands as it was with its entry kept; a
  *     baseline path it refuses is not the materializer's to remove —
@@ -48,11 +48,17 @@ import {
   type TreeUnknownFields,
   type WorkspaceTreeState,
 } from '@openheaders/core/workspace-tree';
-import { INDEX_BUSY_WAITS_MS, type TreeWritesWatch } from '../git';
+import {
+  INDEX_BUSY_WAITS_MS,
+  isBusy,
+  TreeBoundary,
+  type TreeRefusal,
+  type TreeWritesWatch,
+  treeRefusalIssue,
+} from '../git';
 import { ensureTreeHygiene, TREE_HYGIENE_FILES } from './hygiene';
 import { hashTreeContent, type MaterializedIndex, readMaterializedIndex, writeMaterializedIndex } from './sidecar';
-import { TreeBoundary, type TreeRefusal, treeRefusalIssue } from './tree-boundary';
-import { isBusy, readWrittenFile } from './tree-file';
+import { readWrittenFile } from './tree-file';
 
 export interface MaterializeSnapshot {
   state: WorkspaceTreeState;

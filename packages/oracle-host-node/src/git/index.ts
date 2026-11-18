@@ -22,6 +22,7 @@ export { breathe } from './breathe';
 export { type CommitIntent, composeCommitMessage } from './commit-message';
 export { type CommitMeta, type CommitPerson, readCommitAuthorIdentity, readCommitMeta } from './commit-meta';
 export { type CommitTree, commitTreePaths, readCommitTree } from './commit-tree';
+export { failureCode, isBusy, isGone } from './fs-failure';
 export { type GitDirs, parseGitfile, resolveGitDirs } from './git-dir';
 export {
   type CreateGitExecOptions,
@@ -189,6 +190,16 @@ export {
 } from './signature-ops';
 export { createLightweightTag, type TagCreateResult } from './tag-ops';
 export {
+  type StagedTreeFile,
+  TreeBoundary,
+  type TreePlace,
+  type TreePlaced,
+  type TreeRefusal,
+  type TreeStaged,
+  treeRefusalIssue,
+  treeRefusalReason,
+} from './tree-boundary';
+export {
   asFileText,
   checkoutPathsFromCommit,
   type FileText,
@@ -200,4 +211,3 @@ export {
   treeWithFiles,
 } from './tree-ops';
 export { type TreeWritesWatch, watchTreeWrites } from './tree-writes';
-export { removeWorkingFile } from './working-file';

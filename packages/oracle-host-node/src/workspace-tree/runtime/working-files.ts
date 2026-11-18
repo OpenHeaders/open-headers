@@ -10,13 +10,14 @@
  * the per-binding chain like every write, and the verb wiring
  * publishes a status frame after, so the window refetches and the
  * rows move between groups on their own. Paths are validated tree
- * paths (no `..`, no absolute) resolved under the binding's root;
+ * paths (no `..`, no absolute) resolved under the binding's root, and
+ * Delete… asks the folder's boundary of each (`git/tree-boundary.ts`):
+ * a file that lies through a link is not the folder's, and is refused.
  * Delete… never recurses — a directory path is refused by the
  * platform, which is the guard against a row that is not a file.
  */
 
 import fs from 'node:fs/promises';
-import path from 'node:path';
 import { logger } from '@openheaders/core/utils';
 import {
   countDirtyFiles,
@@ -24,6 +25,8 @@ import {
   intentToAddPaths,
   isWorkspaceRepo,
   rollbackWorkingPaths,
+  TreeBoundary,
+  treeRefusalReason,
 } from '../../git';
 import { TREE_HELD_DETAIL } from '../materializer';
 import { type OpenBinding, type RuntimeCtx, SCOPE } from './core';
@@ -90,15 +93,20 @@ export async function runDeletePaths(
   paths: readonly string[],
 ): Promise<WorkspaceTreeDeletePathsRpcResult> {
   const { rootDir } = binding.record;
+  const boundary = new TreeBoundary(rootDir);
   let deleted = 0;
+  const refused = (filePath: string, detail: string): WorkspaceTreeDeletePathsRpcResult => {
+    logger.warn(SCOPE, `delete refused for ${filePath} under ${rootDir}: ${detail}`);
+    return { ok: false, reason: 'delete-failed', deleted, detail };
+  };
   for (const filePath of paths) {
+    const placed = await boundary.locate(filePath);
+    if (!placed.ok) return refused(filePath, treeRefusalReason(filePath, placed.refusal));
     try {
-      await fs.rm(path.join(rootDir, filePath));
+      await fs.rm(placed.place.file);
       deleted += 1;
     } catch (err) {
-      const detail = err instanceof Error ? err.message : String(err);
-      logger.warn(SCOPE, `delete refused for ${filePath} under ${rootDir}: ${detail}`);
-      return { ok: false, reason: 'delete-failed', deleted, detail };
+      return refused(filePath, err instanceof Error ? err.message : String(err));
     }
   }
   logger.info(SCOPE, `${deleted} file(s) deleted for ${rootDir}`);

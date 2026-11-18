@@ -26,6 +26,9 @@
  *
  * And a spec file a pull brings too large to read: the engine's spec
  * beside the peer's file on disk, and the peer's taken once it reads.
+ *
+ * And Delete… asked for a file that lies through a link: the verb's own
+ * wiring to the folder's boundary.
  */
 
 import { promises as fs } from 'node:fs';
@@ -727,6 +730,30 @@ describe('the workspace-tree runtime: a spec file a pull brings too large to rea
     } finally {
       await fs.rm(remote, { recursive: true, force: true });
       await fs.rm(other, { recursive: true, force: true });
+    }
+  });
+});
+
+describe('the workspace-tree runtime: Delete… and the folder’s boundary', () => {
+  it('a file that lies through a link is not deleted: the pass stops at it, and the file deleted before it is gone', {
+    timeout: 30_000,
+  }, async () => {
+    const outside = await fs.mkdtemp(path.join(os.tmpdir(), 'oh-tree-runtime-outside-'));
+    try {
+      await fs.writeFile(path.join(outside, 'victim.txt'), 'as its owner left it\n', 'utf-8');
+      await writeByHand('loose.md', 'mine\n');
+      await fs.symlink(outside, inTree('linked'));
+
+      expect(await harness.runtime.deletePaths(harness.workspaceId, ['loose.md', 'linked/victim.txt'])).toEqual({
+        ok: false,
+        reason: 'delete-failed',
+        deleted: 1,
+        detail: '"linked/" is a link, on the way to "linked/victim.txt"',
+      });
+      expect(await isThere('loose.md')).toBe(false);
+      expect(await fs.readFile(path.join(outside, 'victim.txt'), 'utf-8')).toBe('as its owner left it\n');
+    } finally {
+      await fs.rm(outside, { recursive: true, force: true });
     }
   });
 });

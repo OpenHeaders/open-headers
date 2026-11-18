@@ -263,3 +263,48 @@ describe('planRollback', () => {
     expect(plan).toEqual({ restore: ['a.md'], unadd: [], remove: [], rolledBack: 1 });
   });
 });
+
+describe('rollbackWorkingPaths — the folder’s boundary', () => {
+  it('an added file whose directory has since become a link is not deleted through it: refused while nothing is put back', async () => {
+    const outside = await fs.mkdtemp(path.join(os.tmpdir(), 'oh-rollback-outside-'));
+    try {
+      await write('drafts/added.md', 'tracked by intent\n');
+      await git('add', '-N', 'drafts/added.md');
+      await write('notes.md', 'notes v2\n');
+      await fs.rename(path.join(rootDir, 'drafts'), path.join(outside, 'drafts'));
+      await fs.symlink(path.join(outside, 'drafts'), path.join(rootDir, 'drafts'));
+      const before = await status();
+
+      expect(await rollbackWorkingPaths(run, rootDir, ['drafts/added.md', 'notes.md'], { deleteAdded: true })).toEqual({
+        ok: false,
+        reason: 'rollback-failed',
+        detail: '"drafts/" is a link, on the way to "drafts/added.md"',
+      });
+      expect(await fs.readFile(path.join(outside, 'drafts', 'added.md'), 'utf8')).toBe('tracked by intent\n');
+      expect(await read('notes.md')).toBe('notes v2\n');
+      expect(await status()).toEqual(before);
+    } finally {
+      await fs.rm(outside, { recursive: true, force: true });
+    }
+  });
+
+  it('a link HEAD holds, put back by this rollback where a directory stood, carries no removal out: the folder is looked at anew', async () => {
+    const outside = await fs.mkdtemp(path.join(os.tmpdir(), 'oh-rollback-outside-'));
+    try {
+      await fs.writeFile(path.join(outside, 'added.md'), 'as its owner left it\n');
+      await fs.symlink(outside, path.join(rootDir, 'drafts'));
+      await git('add', '-A');
+      await git('commit', '-q', '-m', 'a link');
+      // Here the link gave way to a directory with an added file in it.
+      await fs.rm(path.join(rootDir, 'drafts'));
+      await write('drafts/added.md', 'tracked by intent\n');
+      await git('add', '-N', 'drafts/added.md');
+
+      const result = await rollbackWorkingPaths(run, rootDir, ['drafts', 'drafts/added.md'], { deleteAdded: true });
+      expect(result).toMatchObject({ ok: false, reason: 'rollback-failed' });
+      expect(await fs.readFile(path.join(outside, 'added.md'), 'utf8')).toBe('as its owner left it\n');
+    } finally {
+      await fs.rm(outside, { recursive: true, force: true });
+    }
+  });
+});

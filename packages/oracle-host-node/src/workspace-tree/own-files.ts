@@ -32,6 +32,12 @@
  * an answered file is written as answered instead of kept. A link, a
  * binary or a file over the cap is never shown — it stays kept and
  * named.
+ *
+ * What lands by git's checkout is git's to write. What this pass writes
+ * and removes itself — an answered file, a file the foreign side
+ * deleted — goes through the folder's boundary (`git/tree-boundary.ts`),
+ * asked before anything is written: a path it refuses fails the landing
+ * with nothing done.
  */
 
 import { promises as fs } from 'node:fs';
@@ -45,7 +51,10 @@ import {
   listTreeEntries,
   listWorkingChanges,
   readTreeEntryText,
-  removeWorkingFile,
+  TreeBoundary,
+  type TreePlace,
+  type TreeRefusal,
+  treeRefusalReason,
 } from '../git';
 
 /** An own file joins the files to answer only while every side of it is at most this many bytes. */
@@ -196,14 +205,22 @@ export async function readOwnFileConflicts(
   return { ok: true, files };
 }
 
-/** Write an answered file. A link standing at the path is replaced, never written through. */
-async function writeAnswer(rootDir: string, filePath: string, content: string): Promise<void> {
-  const target = path.join(rootDir, ...filePath.split('/'));
-  const stat = await fs.lstat(target).catch(() => null);
-  if (stat !== null && !stat.isFile()) await fs.rm(target, { recursive: true, force: true });
-  await fs.mkdir(path.dirname(target), { recursive: true });
-  await fs.writeFile(target, content, 'utf-8');
+/**
+ * Write an answered file at its place. A file that stands there keeps
+ * its mode; a link standing there is replaced, never written through.
+ * Answers the refusal where a directory on the way turns out not to be
+ * one.
+ */
+async function writeAnswer(boundary: TreeBoundary, place: TreePlace, content: string): Promise<TreeRefusal | null> {
+  const refusal = await boundary.makeWay(place);
+  if (refusal !== null) return refusal;
+  const stat = await fs.lstat(place.file).catch(() => null);
+  if (stat !== null && !stat.isFile()) await fs.rm(place.file, { recursive: true, force: true });
+  await fs.writeFile(place.file, content, 'utf-8');
+  return null;
 }
+
+const isGoneAnswer = (content: string): boolean => content.trim().length === 0;
 
 /**
  * Carry the foreign side's own-file changes into the working tree,
@@ -227,8 +244,21 @@ export async function landForeignOwnFiles(
   // A file answered where the local side has none takes the foreign file first — its mode comes with it.
   const created: string[] = [];
   for (const [filePath, content] of answers) {
-    const gone = content.trim().length === 0;
-    if (!gone && plan.foreign.has(filePath) && !(await existsOnDisk(rootDir, filePath))) created.push(filePath);
+    if (!isGoneAnswer(content) && plan.foreign.has(filePath) && !(await existsOnDisk(rootDir, filePath))) {
+      created.push(filePath);
+    }
+  }
+
+  // What the pass removes and writes itself, asked of the boundary while nothing is written.
+  const removed = [
+    ...landed.filter((filePath) => !plan.foreign.has(filePath)),
+    ...[...answers].flatMap(([filePath, content]) => (isGoneAnswer(content) ? [filePath] : [])),
+  ];
+  const written = [...answers].filter(([, content]) => !isGoneAnswer(content));
+  const asked = new TreeBoundary(rootDir);
+  for (const filePath of [...removed, ...written.map(([filePath]) => filePath)]) {
+    const placed = await asked.locate(filePath);
+    if (!placed.ok) return { ok: false, detail: treeRefusalReason(filePath, placed.refusal) };
   }
 
   const checkedOut = await checkoutPathsFromCommit(run, rootDir, refs.foreignRef, [
@@ -236,12 +266,18 @@ export async function landForeignOwnFiles(
     ...created,
   ]);
   if (!checkedOut.ok) return { ok: false, detail: checkedOut.detail };
-  for (const filePath of landed) {
-    if (!plan.foreign.has(filePath)) await removeWorkingFile(rootDir, filePath);
+
+  // Git has written since: the folder is looked at anew.
+  const boundary = new TreeBoundary(rootDir);
+  for (const filePath of removed) {
+    const placed = await boundary.locate(filePath);
+    if (!placed.ok) return { ok: false, detail: treeRefusalReason(filePath, placed.refusal) };
+    await boundary.remove(placed.place);
   }
-  for (const [filePath, content] of answers) {
-    if (content.trim().length === 0) await removeWorkingFile(rootDir, filePath);
-    else await writeAnswer(rootDir, filePath, content);
+  for (const [filePath, content] of written) {
+    const placed = await boundary.locate(filePath);
+    const refusal = placed.ok ? await writeAnswer(boundary, placed.place, content) : placed.refusal;
+    if (refusal !== null) return { ok: false, detail: treeRefusalReason(filePath, refusal) };
   }
 
   return { ok: true, landed: [...landed, ...answers.keys()].sort(), kept };
