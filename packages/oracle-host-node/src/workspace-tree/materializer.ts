@@ -15,7 +15,9 @@
  *     baseline path it refuses is not the materializer's to remove —
  *     its entry goes and the disk stands. What a pass did not write for
  *     the boundary, and the documents the plan left out for their
- *     paths, are the pass's rows;
+ *     paths, are the pass's rows; the planned text of each file the
+ *     boundary refused is answered beside them, for a commit that
+ *     records what the engine holds;
  *   - deletions come from the `.oh/` materialized index, never from a
  *     directory sweep: the materializer removes only paths it wrote in
  *     a previous pass, so files the user hand-added (and any file
@@ -85,6 +87,12 @@ export interface MaterializeResult {
    * file stands at. Empty when everything could be written.
    */
   unwritten: TreeIssue[];
+  /**
+   * The documents the folder's boundary kept the pass from writing, each
+   * as planned: what the engine holds there and the disk does not. A pass
+   * that records the tree lays them into its commit (`pass-writes.ts`).
+   */
+  refused: Map<string, string>;
 }
 
 export interface WorkspaceTreeMaterializerOptions {
@@ -165,7 +173,8 @@ export class WorkspaceTreeMaterializer {
    * a tree recorded then is recorded without it: the pass is taken again
    * on the waits a busy index lock is given, and answers `held` only
    * when git never let go — the caller refuses as for that lock. What it
-   * answers as written and deleted is every attempt's, not the last's.
+   * answers as written and deleted is every attempt's, not the last's;
+   * what the boundary refused is the last's — the folder as it stands.
    */
   async flushCurrent(): Promise<MaterializeResult> {
     const written = new Set<string>();
@@ -196,7 +205,9 @@ export class WorkspaceTreeMaterializer {
     const previous = await readMaterializedIndex(this.rootDir);
     const boundary = new TreeBoundary(this.rootDir);
     const unwritten = new Map(plan.unheld.map((row) => [row.path, row] as const));
-    const refused = (filePath: string, refusal: TreeRefusal): void => {
+    const kept = new Map<string, string>();
+    const refused = (filePath: string, refusal: TreeRefusal, text: string): void => {
+      kept.set(filePath, text);
       const row = treeRefusalIssue(filePath, refusal);
       if (!unwritten.has(row.path)) unwritten.set(row.path, row);
     };
@@ -222,7 +233,7 @@ export class WorkspaceTreeMaterializer {
       const placed = await boundary.locate(file.path);
       if (!placed.ok) {
         if (baseline !== undefined) planned[file.path] = baseline;
-        refused(file.path, placed.refusal);
+        refused(file.path, placed.refusal, file.content);
         continue;
       }
       const existing = await readWrittenFile(placed.place.file);
@@ -265,7 +276,7 @@ export class WorkspaceTreeMaterializer {
       const staging = await boundary.stage(placed.place, file.content);
       if (!staging.ok) {
         if (baseline !== undefined) planned[file.path] = baseline;
-        refused(file.path, staging.refusal);
+        refused(file.path, staging.refusal, file.content);
         continue;
       }
       if (await gitWrites()) {
@@ -315,8 +326,8 @@ export class WorkspaceTreeMaterializer {
     await writeMaterializedIndex(this.rootDir, planned);
     const rows = [...unwritten.values()];
     this.onUnwritten?.(rows);
-    if (held === 0) return { written, deleted, unchanged, unwritten: rows };
+    if (held === 0) return { written, deleted, unchanged, unwritten: rows, refused: kept };
     this.onHeld?.(held);
-    return { written, deleted, unchanged, held, unwritten: rows };
+    return { written, deleted, unchanged, held, unwritten: rows, refused: kept };
   }
 }

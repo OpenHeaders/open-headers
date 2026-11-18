@@ -186,7 +186,7 @@ describe('fetch/pull fault surfaces', () => {
       apply: async () => {
         throw new Error('no batches on a refused pull');
       },
-      flush: async () => ({ written: [], deleted: [] }),
+      flush: async () => ({ written: [], deleted: [], refused: new Map() }),
       mayCommitLocalWork: true,
       commitLocalWork: async () => ({ ok: true }),
       identityEnv: {},
@@ -215,7 +215,7 @@ describe('fetch/pull fault surfaces', () => {
       },
       liveSetEntries: () => [],
       apply: async () => undefined,
-      flush: async () => ({ written: [], deleted: [] }),
+      flush: async () => ({ written: [], deleted: [], refused: new Map() }),
       mayCommitLocalWork: true,
       commitLocalWork: async () => ({ ok: true }),
       identityEnv: {},

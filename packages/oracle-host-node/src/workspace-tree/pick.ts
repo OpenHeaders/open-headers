@@ -42,8 +42,9 @@
  *      file the branch also changed that could not be shown keeps its
  *      local bytes and is named). The working tree is read as a tree
  *      object before the pass writes, and what the flush and the
- *      landing say they wrote is laid over that reading
- *      (`pass-writes.ts`);
+ *      landing say they wrote is laid over that reading — with the
+ *      documents the flush could not write for a link on their way, as
+ *      the engine planned them (`pass-writes.ts`);
  *   5. one temp-index commit records those files and no other, authored
  *      by the operator. Uncommitted work elsewhere — a modified file
  *      the change did not touch, an unversioned file — is not the
@@ -235,7 +236,7 @@ export async function applyWorkspaceCommit(options: ApplyWorkspaceCommitOptions)
       // local work, not the change's: it reaches the disk first, and the
       // working tree is read as it then stands — what the pass writes is
       // laid over that reading by its writers' account.
-      await options.flush();
+      const pending = await options.flush();
       const before = await snapshotWorkingTree(run, rootDir);
       if (before === null) {
         return { ok: false, reason: 'commit-failed', detail: 'the working tree could not be read', issues: [] };
@@ -257,7 +258,11 @@ export async function applyWorkspaceCommit(options: ApplyWorkspaceCommitOptions)
       if (!own.ok) return { ok: false, reason: 'commit-failed', detail: own.detail, issues: [] };
       const withKept = own.kept.length > 0 ? { keptLocal: own.kept } : {};
 
-      const pass = await readPassWrites(run, rootDir, before, [...flushedPaths(flushed), ...own.landed]);
+      const pass = await readPassWrites(run, rootDir, before, {
+        written: [...flushedPaths(flushed), ...own.landed],
+        refusedBefore: pending.refused,
+        refusedAfter: flushed.refused,
+      });
       if (pass === null) {
         return { ok: false, reason: 'commit-failed', detail: 'the working tree could not be read', issues: [] };
       }
@@ -276,7 +281,7 @@ export async function applyWorkspaceCommit(options: ApplyWorkspaceCommitOptions)
       // the pass. Work in any other file is not the pass's to commit.
       const shared = paths.filter((filePath) => pass.uncommitted.has(filePath));
       if (shared.length > 0) {
-        const local = await options.commitLocalWork({ tree: before, paths: shared, indexLock });
+        const local = await options.commitLocalWork({ tree: pass.before, paths: shared, indexLock });
         if (!local.ok) return { ok: false, reason: 'commit-failed', detail: local.detail, issues: [] };
       }
 

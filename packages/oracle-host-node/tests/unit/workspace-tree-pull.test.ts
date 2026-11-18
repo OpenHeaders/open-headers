@@ -791,7 +791,7 @@ describe('pullWorkspaceTree', () => {
       nextCtx,
       liveSetEntries: () => [],
       apply: async () => undefined,
-      flush: async () => ({ written: [], deleted: [] }),
+      flush: async () => ({ written: [], deleted: [], refused: new Map() }),
       ...localWork(lone),
       identityEnv: IDENTITY_ENV,
       bypassHooks: false,
@@ -816,7 +816,7 @@ describe('pullWorkspaceTree', () => {
       apply: async (batches) => {
         applied.push(...batches);
       },
-      flush: async () => ({ held: 1, written: [], deleted: [] }),
+      flush: async () => ({ held: 1, written: [], deleted: [], refused: new Map() }),
       ...localWork(local),
       identityEnv: IDENTITY_ENV,
       bypassHooks: false,

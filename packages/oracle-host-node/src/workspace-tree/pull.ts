@@ -53,7 +53,9 @@
  * the working tree is read as a tree object before the pass writes,
  * what its writers say they wrote is laid over that reading, and the
  * pull's commit is staged from the result at the files the pass wrote
- * and the files the foreign history changed. Uncommitted work
+ * and the files the foreign history changed. A document the flush could
+ * not write for a link on its way is laid as the engine planned it: the
+ * commit holds what the engine holds. Uncommitted work
  * anywhere else — a modified file the foreign side did not touch, an
  * unversioned file — is not the pull's to commit and stays as it was; a
  * fast-forward moves the branch under it.
@@ -517,6 +519,8 @@ interface ForeignReading {
   /** The engine's snapshot the change was laid over. */
   snapshot: WorkspaceTreeState;
   change: ForeignChange;
+  /** What the boundary kept the flush of the engine's pending work from writing. */
+  refusedBefore: FlushAccount['refused'];
 }
 
 /**
@@ -578,7 +582,8 @@ async function readIntegration(
   // A foreign folder or leaf the workspace has no container for is
   // quarantined like a document that did not read.
   const foreign = containTreeRead(read, snapshot);
-  if ((await deps.flush()).held !== undefined) {
+  const pending = await deps.flush();
+  if (pending.held !== undefined) {
     return {
       ok: false,
       reason: 'index-locked',
@@ -607,6 +612,7 @@ async function readIntegration(
     ...(history !== undefined ? { history } : {}),
     snapshot,
     change,
+    refusedBefore: pending.refused,
   };
 }
 
@@ -692,11 +698,11 @@ export async function integrateForeignHead(
       if (!own.ok) return { ok: false, reason: 'commit-failed', detail: own.detail, issues: foreign.issues };
       const withKept = own.kept.length > 0 ? { keptLocal: own.kept } : {};
 
-      const pass = await readPassWrites(run, rootDir, before, [
-        ...quarantined.landed,
-        ...flushedPaths(flushed),
-        ...own.landed,
-      ]);
+      const pass = await readPassWrites(run, rootDir, before, {
+        written: [...quarantined.landed, ...flushedPaths(flushed), ...own.landed],
+        refusedBefore: reading.refusedBefore,
+        refusedAfter: flushed.refused,
+      });
       if (pass === null) return unreadable();
 
       // The integration's files: what the pass wrote, and what the foreign
@@ -705,7 +711,7 @@ export async function integrateForeignHead(
       // file both sides changed kept its local bytes: recorded as the
       // branch holds it, or not at all where the reading could not see it.
       const touched = [...new Set([...pass.wrote, ...foreignPaths])].sort();
-      const paths = await recordablePaths(run, rootDir, pass.after, touched);
+      const paths = await recordablePaths(run, rootDir, pass.after, touched, pass.meant);
       if (paths === null) return unreadable();
 
       // Uncommitted work in one of those files would ride into the
@@ -717,7 +723,7 @@ export async function integrateForeignHead(
       const carried = shared.filter((filePath) => laid.committed.carries(filePath));
       const first = shared.filter((filePath) => !laid.committed.carries(filePath));
       if (first.length > 0) {
-        const local = await deps.commitLocalWork({ tree: before, paths: first, indexLock });
+        const local = await deps.commitLocalWork({ tree: pass.before, paths: first, indexLock });
         if (!local.ok) return { ok: false, reason: 'commit-failed', detail: local.detail, issues: foreign.issues };
       }
       const withLocal = first.length > 0 ? { committedLocal: first } : {};

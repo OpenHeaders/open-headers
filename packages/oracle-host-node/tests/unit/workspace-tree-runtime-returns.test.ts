@@ -694,6 +694,138 @@ describe("the workspace-tree runtime: the Git card's rows after a pass", () => {
   });
 });
 
+describe('the workspace-tree runtime: a rule a pass brings whose directory is a link here — the pass’s commit holds it', () => {
+  const PEER_DIR = `${COLLECTION_DIR}/delay-probes-bbbbbbbb`;
+  const PEER_FILE = `${PEER_DIR}/rule.yaml`;
+  const PEER_TEXT = RULE_TEXT.replace(RULE_UID, 'bbbbbbbb').replace('Block probes', 'Delay probes');
+  const filesOf = async (rev: string): Promise<string[]> =>
+    (await harness.git('ls-tree', '-r', '--name-only', rev)).split('\n');
+  const changedSince = async (rev: string): Promise<string[]> =>
+    (await harness.git('diff', '--name-only', rev, 'HEAD')).split('\n');
+
+  /** `run` with the collection and its rule committed, an empty folder `other` for a clone, and `outside` for the link. */
+  async function withACloneAndAFolderOutside(run: (other: string, outside: string) => Promise<void>): Promise<void> {
+    await commitTheCollectionAndItsRule();
+    const other = await fs.mkdtemp(path.join(os.tmpdir(), 'oh-tree-runtime-other-'));
+    const outside = await fs.mkdtemp(path.join(os.tmpdir(), 'oh-tree-runtime-outside-'));
+    try {
+      await run(other, outside);
+      // Whatever the pass recorded, it wrote nothing where the link points.
+      expect(await fs.readdir(outside)).toEqual([]);
+    } finally {
+      await fs.rm(other, { recursive: true, force: true });
+      await fs.rm(outside, { recursive: true, force: true });
+    }
+  }
+
+  /** The peer's rule written and staged in the clone. */
+  async function stageThePeerRule(other: string): Promise<void> {
+    await fs.mkdir(path.join(other, ...PEER_DIR.split('/')));
+    await fs.writeFile(path.join(other, ...PEER_FILE.split('/')), PEER_TEXT, 'utf-8');
+    await harness.git('-C', other, 'add', '-A');
+  }
+
+  /** A link put where the rule's directory goes, and the tree at rest again. */
+  async function linkTheRuleDirectory(outside: string): Promise<void> {
+    await fs.symlink(outside, inTree(PEER_DIR));
+    await delay(TREE_AT_REST_MS);
+  }
+
+  it('a Pull the branch is ahead of records the peer’s rule in its merge commit: nothing is deleted against the peer’s head', {
+    timeout: 30_000,
+  }, async () => {
+    await withACloneAndAFolderOutside(async (other, outside) => {
+      await withTheBranchPushed(async () => {
+        const branch = await harness.git('rev-parse', '--abbrev-ref', 'HEAD');
+        await harness.git('clone', '-q', '-b', branch, await harness.git('remote', 'get-url', 'origin'), other);
+        await stageThePeerRule(other);
+        await harness.git('-C', other, 'commit', '-q', '-m', 'a rule');
+        await harness.git('-C', other, 'push', '-q');
+        await writeByHand('README.md', 'A workspace of mine.\n');
+        await delay(TREE_AT_REST_MS);
+        expect(await harness.runtime.commit(harness.workspaceId, 'a readme')).toMatchObject({ ok: true });
+        await linkTheRuleDirectory(outside);
+
+        expect(await harness.runtime.pull(harness.workspaceId)).toMatchObject({ ok: true, upToDate: false });
+        expect(ruleOf('bbbbbbbb')?.path).toBe(PEER_DIR);
+        expect(await filesOf('HEAD')).toContain(PEER_FILE);
+        // Against the peer's head the merge holds the local commit and the order the engine wrote — the rule as the peer has it.
+        expect(await changedSince('HEAD^2')).toEqual(['README.md', COLLECTION_FILE]);
+      });
+    });
+  });
+
+  it('a Cherry-Pick of the commit that adds the rule records the rule beside the order that names it', {
+    timeout: 30_000,
+  }, async () => {
+    await withACloneAndAFolderOutside(async (other, outside) => {
+      await harness.git('clone', '-q', harness.rootDir, other);
+      await harness.git('-C', other, 'checkout', '-q', '-b', 'side');
+      await stageThePeerRule(other);
+      await harness.git('-C', other, 'commit', '-q', '-m', 'a rule');
+      await harness.git('fetch', '-q', other, 'side:side');
+      await linkTheRuleDirectory(outside);
+
+      expect(
+        await harness.runtime.applyCommit(harness.workspaceId, await harness.git('rev-parse', 'side'), 'pick'),
+      ).toMatchObject({ ok: true });
+      expect(await changedSince('HEAD^')).toEqual([COLLECTION_FILE, PEER_FILE]);
+      expect(await harness.git('show', `HEAD:${PEER_FILE}`)).toBe(await harness.git('show', `side:${PEER_FILE}`));
+    });
+  });
+
+  it('a Cherry-Pick of a change elsewhere leaves that rule alone: one commit, the pick’s own file in it — nothing committed first', {
+    timeout: 30_000,
+  }, async () => {
+    await withACloneAndAFolderOutside(async (other, outside) => {
+      await harness.git('clone', '-q', harness.rootDir, other);
+      await harness.git('-C', other, 'checkout', '-q', '-b', 'side');
+      await stageThePeerRule(other);
+      await harness.git('-C', other, 'commit', '-q', '-m', 'a rule');
+      const added = await harness.git('-C', other, 'rev-parse', 'HEAD');
+      await fs.writeFile(
+        path.join(other, ...RULE_FILE.split('/')),
+        RULE_TEXT.replace('enabled: true', 'enabled: false'),
+      );
+      await harness.git('-C', other, 'commit', '-q', '-a', '-m', 'the first rule off');
+      await harness.git('fetch', '-q', other, 'side:side');
+      await linkTheRuleDirectory(outside);
+      expect(await harness.runtime.applyCommit(harness.workspaceId, added, 'pick')).toMatchObject({ ok: true });
+      const commits = Number(await harness.git('rev-list', '--count', 'HEAD'));
+
+      // The engine holds the peer's rule, HEAD holds its file, the disk holds a link: the flush before this pass is refused it.
+      expect(
+        await harness.runtime.applyCommit(harness.workspaceId, await harness.git('rev-parse', 'side'), 'pick'),
+      ).toMatchObject({ ok: true });
+      expect(Number(await harness.git('rev-list', '--count', 'HEAD'))).toBe(commits + 1);
+      expect(await changedSince('HEAD^')).toEqual([RULE_FILE]);
+    });
+  });
+
+  it('a Revert of the commit that deleted the rule records the rule back beside the order that names it', {
+    timeout: 30_000,
+  }, async () => {
+    await withACloneAndAFolderOutside(async (other, outside) => {
+      await withTheBranchPushed(async () => {
+        const branch = await harness.git('rev-parse', '--abbrev-ref', 'HEAD');
+        await harness.git('clone', '-q', '-b', branch, await harness.git('remote', 'get-url', 'origin'), other);
+        await stageThePeerRule(other);
+        await harness.git('-C', other, 'commit', '-q', '-m', 'a rule');
+        await harness.git('-C', other, 'rm', '-q', '-r', PEER_DIR);
+        await harness.git('-C', other, 'commit', '-q', '-m', 'the rule deleted');
+        await harness.git('-C', other, 'push', '-q');
+        expect(await harness.runtime.pull(harness.workspaceId)).toMatchObject({ ok: true, upToDate: false });
+        expect(await filesOf('HEAD')).not.toContain(PEER_FILE);
+        await linkTheRuleDirectory(outside);
+
+        const deletion = await harness.git('-C', other, 'rev-parse', 'HEAD');
+        expect(await harness.runtime.applyCommit(harness.workspaceId, deletion, 'revert')).toMatchObject({ ok: true });
+        expect(await changedSince('HEAD^')).toEqual([COLLECTION_FILE, PEER_FILE]);
+      });
+    });
+  });
+});
+
 describe('the workspace-tree runtime: a spec file a pull brings too large to read', () => {
   const SPEC_FILE = 'specs/pets-ssssssss/spec.yaml';
   const SPEC_INDEX = 'specs/pets-ssssssss/index.yaml';

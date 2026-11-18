@@ -751,6 +751,23 @@ describe('WorkspaceTreeMaterializer — the folder’s boundary', () => {
     expect(told).toEqual([[LINK_ROW], []]);
   });
 
+  it('answers the planned text of each file the boundary refused — the bytes it writes once the link is gone, and none then', async () => {
+    state.collections = [{ ...ALPHA }];
+    state.rules = [ruleInAlpha('aaaaaaaa', 'Block probes')];
+    await fs.symlink(outside, inTree('rules'));
+    const materializer = makeMaterializer();
+
+    const { refused } = await materializer.flushCurrent();
+    expect([...refused.keys()]).toEqual([
+      'rules/alpha-col0000a/_collection.yaml',
+      'rules/alpha-col0000a/block-probes-aaaaaaaa/rule.yaml',
+    ]);
+
+    await fs.rm(inTree('rules'));
+    expect((await materializer.flush()).refused.size).toBe(0);
+    for (const [filePath, text] of refused) expect(await fs.readFile(inTree(filePath), 'utf-8')).toBe(text);
+  });
+
   it('a file whose entry stands, with a link since on its way, is neither read nor written through — its entry kept', async () => {
     state.rules = [makeRule('aaaaaaaa', 'Block probes')];
     const materializer = makeMaterializer();

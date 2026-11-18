@@ -231,7 +231,7 @@ export async function resolveForcePushWorkspaceTree(options: ResolveForcePushOpt
       // the two heads hold differently is committed on the pre-resolution
       // head — the resolution is about to replace or re-apply those files.
       // Uncommitted work anywhere else is not the resolution's to commit.
-      await options.flush();
+      const pending = await options.flush();
       const heads = await diffForeignPaths(run, rootDir, oldHead, upstream.sha);
       const before = await snapshotWorkingTree(run, rootDir);
       if (heads === null || before === null) return unreadable(read.issues);
@@ -319,15 +319,15 @@ export async function resolveForcePushWorkspaceTree(options: ResolveForcePushOpt
       // What the resolution wrote, by its writers' account laid over the
       // reading. A file it wrote outside the two heads' difference that held
       // uncommitted work is committed first too, as it stood before.
-      const pass = await readPassWrites(run, rootDir, before, [
-        ...quarantined.landed,
-        ...flushedPaths(flushed),
-        ...own.landed,
-      ]);
+      const pass = await readPassWrites(run, rootDir, before, {
+        written: [...quarantined.landed, ...flushedPaths(flushed), ...own.landed],
+        refusedBefore: pending.refused,
+        refusedAfter: flushed.refused,
+      });
       if (pass === null) return unreadable(foreign.issues);
       const late = pass.wrote.filter((filePath) => pass.uncommitted.has(filePath));
       if (late.length > 0) {
-        const local = await options.commitLocalWork({ tree: before, paths: late, indexLock });
+        const local = await options.commitLocalWork({ tree: pass.before, paths: late, indexLock });
         if (!local.ok) return { ok: false, reason: 'commit-failed', detail: local.detail, issues: foreign.issues };
       }
       const committedLocal = [...new Set([...committedFirst, ...late])].sort();
@@ -355,7 +355,13 @@ export async function resolveForcePushWorkspaceTree(options: ResolveForcePushOpt
       // heads differed, and what the pass wrote — as the tree holds them
       // now: on `reapply` that is the local side re-applied, otherwise the
       // engine's residue. Uncommitted work elsewhere stays uncommitted.
-      const paths = await recordablePaths(run, rootDir, pass.after, [...new Set([...between, ...pass.wrote])].sort());
+      const paths = await recordablePaths(
+        run,
+        rootDir,
+        pass.after,
+        [...new Set([...between, ...pass.wrote])].sort(),
+        pass.meant,
+      );
       if (paths === null) return unreadable(foreign.issues);
       const followUp = await commitWorkspaceTree({
         run,
