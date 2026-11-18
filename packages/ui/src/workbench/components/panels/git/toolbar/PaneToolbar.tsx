@@ -21,6 +21,7 @@ import { useMemo, useRef } from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { type ToolbarOverflowItem, useEntryExtents, useToolbarOverflow } from '@openheaders/ui/shared/toolbar-overflow';
 import ToolbarIconButton from './ToolbarIconButton';
+import ToolbarSeparator from './ToolbarSeparator';
 
 export type PaneToolbarEntry =
   | { kind: 'item'; key: string; node: React.ReactNode }
@@ -82,15 +83,7 @@ const PaneToolbar: React.FC<PaneToolbarProps> = ({ entries, testid, lead, gap = 
 
   const render = (entry: PaneToolbarEntry, inStrip: boolean): React.ReactNode => {
     if (entry.kind === 'spacer') return inStrip ? null : <span key={entry.key} aria-hidden style={{ flex: 1 }} />;
-    if (entry.kind === 'separator') {
-      return (
-        <span
-          key={entry.key}
-          aria-hidden
-          style={{ flex: '0 0 auto', width: 1, height: 16, margin: '0 4px', background: token.colorBorderSecondary }}
-        />
-      );
-    }
+    if (entry.kind === 'separator') return <ToolbarSeparator key={entry.key} />;
     return (
       <span key={entry.key} data-overflow-key={inStrip ? undefined : entry.key} style={entryWrap}>
         {entry.node}

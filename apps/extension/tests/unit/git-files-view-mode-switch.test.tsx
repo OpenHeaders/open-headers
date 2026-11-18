@@ -2,15 +2,19 @@
 /**
  * The View Mode switch — mounted pins: the pair holds the mode in force
  * pressed and a press of the other one asks for it; in the Commit
- * window's band it stands with the View Options eye ahead of the
- * placeholders, so a narrow dock folds those first; the Compare pane's
- * inline header carries whatever tools the pane hands the tree.
+ * window's band and the changes pane's it stands with the View
+ * Options eye as one group between two rules, after the verbs, and a
+ * narrow dock folds the tree's tail first; the
+ * Compare pane's inline header carries whatever tools the pane hands
+ * the tree, a rule between them and its own pair.
  */
 
 import CommitToolbar from '@openheaders/ui/workbench/components/panels/git/commit/CommitToolbar';
 import FileTreeView from '@openheaders/ui/workbench/components/panels/git/FileTreeView';
 import type { FilesViewMode } from '@openheaders/ui/workbench/components/panels/git/files-view-mode';
+import { DEFAULT_GIT_LOG_VIEW_PREFS } from '@openheaders/ui/workbench/components/panels/git/git-log-view-prefs';
 import FilesViewModeSwitch from '@openheaders/ui/workbench/components/panels/git/toolbar/FilesViewModeSwitch';
+import GitDetailsToolbar from '@openheaders/ui/workbench/components/panels/git/toolbar/GitDetailsToolbar';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
@@ -37,6 +41,15 @@ function bandWidth(width: number, entries: Record<string, number> = {}): void {
 }
 
 const pressed = (testid: string): string | null => screen.getByTestId(testid).getAttribute('aria-pressed');
+
+/** A band left to right: each button by its testid, a rule as `|`, the gap that pushes the rest to the far edge as `…`. */
+function bandShape(testid: string): string[] {
+  return [...screen.getByTestId(testid).children].flatMap((entry) => {
+    const buttons = [...entry.querySelectorAll('button')].map((button) => button.getAttribute('data-testid') ?? '');
+    if (buttons.length > 0) return buttons;
+    return entry instanceof HTMLElement && entry.style.width === '1px' ? ['|'] : ['…'];
+  });
+}
 
 function commitToolbar(viewMode: FilesViewMode, onViewModeChange = vi.fn()) {
   render(
@@ -76,20 +89,71 @@ describe('the Commit window’s band', () => {
     expect(onViewModeChange).toHaveBeenCalledWith('items');
   });
 
-  it('folds the placeholders before the switch and the eye at a narrow dock', () => {
-    // 16px padding + refresh, rollback, the 48px switch, the eye and the chevron, 2px apart.
-    bandWidth(16 + 24 + 2 + 24 + 2 + 48 + 2 + 24 + 2 + 24, { 'view-mode': 48 });
+  it('sets the switch and the eye apart as one group: the verbs, a rule, the group, a rule, the tree’s tools', () => {
+    bandWidth(600, { 'view-mode': 48 });
+    commitToolbar('items');
+    expect(bandShape('commit-tool-toolbar')).toEqual([
+      'commit-tool-refresh',
+      'commit-tool-rollback',
+      'commit-tool-shelve',
+      '|',
+      'commit-tool-view-mode-items',
+      'commit-tool-view-mode-files',
+      'commit-tool-view-options',
+      '|',
+      'commit-tool-select-opened',
+      'commit-tool-expand-all',
+      'commit-tool-collapse-all',
+    ]);
+  });
+
+  it('folds the tree’s tail before the group at a narrow dock', () => {
+    // 16px padding + refresh, rollback, shelve, a 9px rule, the 48px switch, the eye and the chevron, 2px apart.
+    bandWidth(16 + 24 + 2 + 24 + 2 + 24 + 2 + 9 + 2 + 48 + 2 + 24 + 2 + 24, { 'view-mode': 48 });
     commitToolbar('items');
     expect(screen.getByTestId('commit-tool-view-mode')).toBeTruthy();
     expect(screen.getByTestId('commit-tool-view-options')).toBeTruthy();
     expect(screen.getByTestId('commit-tool-toolbar-more-button')).toBeTruthy();
-    expect(screen.queryByTestId('commit-tool-shelve')).toBeNull();
     expect(screen.queryByTestId('commit-tool-select-opened')).toBeNull();
+    expect(screen.queryByTestId('commit-tool-expand-all')).toBeNull();
+  });
+});
+
+describe('the changes pane’s band', () => {
+  it('lists the file’s verbs, then the group between its rules, then the tree’s tools at the far edge', () => {
+    bandWidth(600, { 'view-mode': 48 });
+    render(
+      <GitDetailsToolbar
+        canShowDiff={false}
+        onShowDiff={vi.fn()}
+        onJumpToSource={vi.fn()}
+        viewMode="items"
+        onViewModeChange={vi.fn()}
+        prefs={DEFAULT_GIT_LOG_VIEW_PREFS}
+        onPatchPrefs={vi.fn()}
+        hasFiles
+        onExpandAll={vi.fn()}
+        onCollapseAll={vi.fn()}
+      />,
+    );
+    expect(bandShape('git-tool-details-toolbar')).toEqual([
+      'git-tool-details-diff',
+      'git-tool-details-revert',
+      'git-tool-details-jump',
+      '|',
+      'git-tool-details-view-mode-items',
+      'git-tool-details-view-mode-files',
+      'git-tool-details-view-options',
+      '|',
+      '…',
+      'git-tool-files-expand-all',
+      'git-tool-files-collapse-all',
+    ]);
   });
 });
 
 describe('a changed-files tree’s inline header', () => {
-  it('carries the pane’s tools ahead of Expand All', () => {
+  it('carries the pane’s tools ahead of Expand All, a rule between', () => {
     render(
       <FileTreeView
         files={[{ path: 'docs/guide.md', status: 'M' }]}
@@ -102,5 +166,7 @@ describe('a changed-files tree’s inline header', () => {
     const tools = screen.getByTestId('header-switch');
     const expandAll = screen.getByTestId('git-tool-files-expand-all');
     expect(tools.compareDocumentPosition(expandAll) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(tools.nextElementSibling?.getAttribute('aria-hidden')).toBe('true');
+    expect(tools.nextElementSibling?.nextElementSibling).toBe(expandAll);
   });
 });

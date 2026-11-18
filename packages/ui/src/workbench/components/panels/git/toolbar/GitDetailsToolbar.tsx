@@ -2,10 +2,10 @@
  * GitDetailsToolbar — the changes pane's top band (the Git window's
  * details and the Push window's files): Show Diff for the selected
  * file, Revert Selected Changes (visible placeholder — the write verb
- * is a future slice), the View Mode switch (Workspace Items | Files),
- * the View Options eye (View Mode, Group Files by
- * Directory, Show Details, Show Diff Preview), Jump to Source for the selected file
- * when the host offers it, then Expand All / Collapse All at the far
+ * is a future slice), Jump to Source for the selected file when the
+ * host offers it; between two rules, how the tree is shown — the
+ * View Mode switch (Workspace Items | Files) and the View Options eye (View Mode, Group Files by
+ * Directory, Show Details, Show Diff Preview); then Expand All / Collapse All at the far
  * edge driving the files tree. The band is a PaneToolbar: at a narrow
  * dock the tail folds behind the › chevron's hover strip.
  */
@@ -136,12 +136,6 @@ const GitDetailsToolbar: React.FC<GitDetailsToolbarProps> = ({
         />
       ),
     },
-    {
-      kind: 'item',
-      key: 'view-mode',
-      node: <FilesViewModeSwitch mode={viewMode} onChange={onViewModeChange} testid="git-tool-details-view-mode" />,
-    },
-    { kind: 'item', key: 'view-options', node: viewOptions },
     ...(onJumpToSource === undefined
       ? []
       : [
@@ -159,6 +153,14 @@ const GitDetailsToolbar: React.FC<GitDetailsToolbarProps> = ({
             ),
           },
         ]),
+    { kind: 'separator', key: 'sep-view-start' },
+    {
+      kind: 'item',
+      key: 'view-mode',
+      node: <FilesViewModeSwitch mode={viewMode} onChange={onViewModeChange} testid="git-tool-details-view-mode" />,
+    },
+    { kind: 'item', key: 'view-options', node: viewOptions },
+    { kind: 'separator', key: 'sep-view-end' },
     { kind: 'spacer', key: 'spacer' },
     {
       kind: 'item',

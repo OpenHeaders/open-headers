@@ -2,14 +2,13 @@
  * CommitToolbar — the Commit window's top icon row:
  * Refresh, Rollback… (live while anything is changed — it opens
  * Rollback Changes with the selection's changes checked, or every
- * change when the selection holds none), the View Mode switch
- * (Workspace Items | Files), the View
- * Options eye (View Mode, Group Files by Directory, Show Ignored Files), Shelve
- * Silently (a visible placeholder), Select Opened
+ * change when the selection holds none), Shelve
+ * Silently (a visible placeholder); between two rules, how the tree is
+ * shown — the View Mode switch (Workspace Items | Files) and the View
+ * Options eye (View Mode, Group Files by Directory, Show Ignored Files); Select Opened
  * File (placeholder — needs the editor-tab↔file join), then Expand /
  * Collapse All driving the changes tree. The band is a PaneToolbar: at
- * a narrow dock the tail folds behind the › chevron's hover strip — the
- * switch and the eye stand ahead of the placeholders, so they fold last.
+ * a narrow dock the tail folds behind the › chevron's hover strip.
  */
 
 import { AimOutlined, EyeOutlined } from '@ant-design/icons';
@@ -130,12 +129,6 @@ const CommitToolbar: React.FC<CommitToolbarProps> = ({
     },
     {
       kind: 'item',
-      key: 'view-mode',
-      node: <FilesViewModeSwitch mode={viewMode} onChange={onViewModeChange} testid="commit-tool-view-mode" />,
-    },
-    { kind: 'item', key: 'view-options', node: viewOptions },
-    {
-      kind: 'item',
       key: 'shelve',
       node: (
         <ToolbarIconButton
@@ -146,6 +139,13 @@ const CommitToolbar: React.FC<CommitToolbarProps> = ({
         />
       ),
     },
+    { kind: 'separator', key: 'sep-view' },
+    {
+      kind: 'item',
+      key: 'view-mode',
+      node: <FilesViewModeSwitch mode={viewMode} onChange={onViewModeChange} testid="commit-tool-view-mode" />,
+    },
+    { kind: 'item', key: 'view-options', node: viewOptions },
     { kind: 'separator', key: 'sep-tree' },
     {
       kind: 'item',
