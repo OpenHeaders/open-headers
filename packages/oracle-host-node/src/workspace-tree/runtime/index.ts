@@ -272,10 +272,11 @@ export function createWorkspaceTreeRuntime(options: WorkspaceTreeRuntimeOptions)
 
   const logTurns = { rows: createTurns(LOG_ROWS_MAX_IN_FLIGHT), locate: createTurns(LOG_ROWS_MAX_IN_FLIGHT) };
   const gitStream = options.gitStreamRunner ?? createGitStream();
+  const gitObjects = options.gitObjectBatches ?? createGitObjectBatches();
   const logHistories = createLogHistories({
     run: gitRun,
     stream: gitStream,
-    objects: options.gitObjectBatches ?? createGitObjectBatches(),
+    objects: gitObjects,
     readTimeoutMs: LOG_HISTORY_READ_TIMEOUT_MS,
     walkTimeoutMs: LOG_HISTORY_WALK_TIMEOUT_MS,
     textsTimeoutMs: LOG_HISTORY_TEXTS_TIMEOUT_MS,
@@ -293,6 +294,7 @@ export function createWorkspaceTreeRuntime(options: WorkspaceTreeRuntimeOptions)
     open,
     gitRun,
     gitStream,
+    gitObjects,
     logHistories,
     logTurns,
     consoleRows,

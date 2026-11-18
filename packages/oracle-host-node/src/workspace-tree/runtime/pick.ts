@@ -33,6 +33,7 @@ export async function runApplyCommit(
   const identity = await resolveCommitIdentity(ctx.gitRun, rootDir, syntheticIdentity());
   const result = await applyWorkspaceCommit({
     run: ctx.gitRun,
+    objects: ctx.gitObjects,
     rootDir,
     sha,
     mode,

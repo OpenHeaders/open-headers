@@ -16,6 +16,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { GitExecResult, GitRunner } from '../../src/git/git-exec';
 import { fetchWorkspaceRemote, pushWorkspaceBranch, resolveUpstream } from '../../src/git/repo';
 import { pullWorkspaceTree } from '../../src/workspace-tree/pull';
+import { objects } from './_log-history-repo';
 
 const ok = (stdout = ''): GitExecResult => ({ code: 0, stdout, stderr: '', spawnFailed: false, timedOut: false });
 const fail = (code: number, stderr: string, extra: Partial<GitExecResult> = {}): GitExecResult => ({
@@ -172,6 +173,7 @@ describe('fetch/pull fault surfaces', () => {
     ]);
     const result = await pullWorkspaceTree({
       run,
+      objects,
       rootDir: tmpDir,
       workspaceUid: 'wsaaaaaa',
       readSnapshot: async () => {
@@ -202,6 +204,7 @@ describe('fetch/pull fault surfaces', () => {
     ]);
     const result = await pullWorkspaceTree({
       run,
+      objects,
       rootDir: tmpDir,
       workspaceUid: 'wsaaaaaa',
       readSnapshot: async () => {

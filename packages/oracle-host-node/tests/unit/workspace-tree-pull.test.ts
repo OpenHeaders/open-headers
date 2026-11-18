@@ -41,6 +41,7 @@ import type { ApplyCommitResolution, ApplyCommitResolve } from '../../src/worksp
 import { TREE_HELD_DETAIL, WorkspaceTreeMaterializer } from '../../src/workspace-tree/materializer';
 import type { LocalWorkDeps } from '../../src/workspace-tree/pass-writes';
 import { type PullWorkspaceTreeResult, pullWorkspaceTree } from '../../src/workspace-tree/pull';
+import { countedObjects, objects } from './_log-history-repo';
 
 const ORG_ID = '019637a2-7b9a-7b9a-8b9a-1234567890ab';
 const RULE_FILE = 'rules/api-colapi00/block-probes-aaaaaaaa/rule.yaml';
@@ -128,6 +129,8 @@ let state: WorkspaceTreeState;
 let hlcMs: number;
 let run: GitRunner;
 let materializer: WorkspaceTreeMaterializer;
+/** The gits `doPull` reads its commits through. */
+let batches: ReturnType<typeof countedObjects>;
 
 const nextCtx = (): MutatorContext => {
   hlcMs += 1_000;
@@ -195,13 +198,14 @@ function doPull(
 ): Promise<PullWorkspaceTreeResult> {
   return pullWorkspaceTree({
     run,
+    objects: batches.open,
     rootDir: local,
     workspaceUid: 'wsaaaaaa',
     readSnapshot: async () => state,
     nextCtx,
     liveSetEntries: () => [],
-    apply: async (batches) => {
-      applied.push(...batches);
+    apply: async (emitted) => {
+      applied.push(...emitted);
       onApply?.();
     },
     flush: () => materializer.flush(),
@@ -229,6 +233,7 @@ beforeEach(async () => {
   state = emptyState();
   state.rules = [makeRule('aaaaaaaa', 'Block probes')];
   hlcMs = 1_000;
+  batches = countedObjects();
   run = isolated(createGitExec());
   mayCommitLocalWork = true;
   localWorkCommits = [];
@@ -259,6 +264,19 @@ afterEach(async () => {
 });
 
 describe('pullWorkspaceTree', () => {
+  it('reads the foreign head, the merge base and HEAD through one git, and lets it go before anything is applied', async () => {
+    await peerEdit(RULE_FILE, (content) => content.replace('name: Block probes', 'name: Block probes (peer)'));
+    await peerCommitPush('Rename rule');
+
+    const heldAtApply: number[] = [];
+    const result = await doPull([], () => {
+      heldAtApply.push(batches.held());
+      state.rules = [{ ...state.rules[0], name: 'Block probes (peer)' } as Rule];
+    });
+    expect(result).toMatchObject({ ok: true, upToDate: false });
+    expect([batches.opened(), heldAtApply, batches.held()]).toEqual([1, [0], 0]);
+  });
+
   it('an un-diverged pull converges through the mutators and fast-forwards — no merge bubble', async () => {
     await peerEdit(RULE_FILE, (content) => content.replace('name: Block probes', 'name: Block probes (peer)'));
     const foreignSha = await peerCommitPush('Rename rule');
@@ -678,6 +696,7 @@ describe('pullWorkspaceTree', () => {
     await ensureWorkspaceRepo(run, lone);
     const result = await pullWorkspaceTree({
       run,
+      objects,
       rootDir: lone,
       workspaceUid: 'wsaaaaaa',
       readSnapshot: async () => state,
@@ -700,6 +719,7 @@ describe('pullWorkspaceTree', () => {
     const applied: EmissionBatch[] = [];
     const result = await pullWorkspaceTree({
       run,
+      objects,
       rootDir: local,
       workspaceUid: 'wsaaaaaa',
       readSnapshot: async () => state,
@@ -1431,6 +1451,7 @@ describe("pullWorkspaceTree — an environment's secret rows", () => {
     }));
     const result = await pullWorkspaceTree({
       run,
+      objects,
       rootDir: local,
       workspaceUid: 'wsaaaaaa',
       readSnapshot: async () => state,

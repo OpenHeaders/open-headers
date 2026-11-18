@@ -58,6 +58,7 @@ import {
   diffForeignPaths,
   fastForwardWorkspaceBranch,
   fetchWorkspaceRemote,
+  type GitObjectBatchOpener,
   type GitRunner,
   gitOperationInProgress,
   isAncestorOf,
@@ -69,6 +70,7 @@ import {
   resolveUpstream,
   snapshotWorkingTree,
   withIndexLock,
+  withObjectBatch,
 } from '../git';
 import { landForeignOwnFiles } from './own-files';
 import { type LocalWorkDeps, readPassWrites, recordablePaths, uncommittedAmong } from './pass-writes';
@@ -78,6 +80,8 @@ export type ForcePushChoice = 'abandon' | 'rescue' | 'reapply';
 
 export interface ResolveForcePushOptions {
   run: GitRunner;
+  /** Opens the git the remote head's files are read through — held for that reading alone. */
+  objects: GitObjectBatchOpener;
   rootDir: string;
   choice: ForcePushChoice;
   /** The bound workspace's identity — a foreign tree claiming another uid is refused. */
@@ -160,7 +164,9 @@ export async function resolveForcePushWorkspaceTree(options: ResolveForcePushOpt
     return { ok: false, reason: 'not-rewritten', detail: upstream.sha, issues: [] };
   }
 
-  const foreignCommit = await readCommitTree(run, rootDir, upstream.sha);
+  const foreignCommit = await withObjectBatch(options.objects, rootDir, (objects) =>
+    readCommitTree(run, objects, rootDir, upstream.sha),
+  );
   if (foreignCommit === null) {
     return { ok: false, reason: 'foreign-invalid', detail: `unreadable tree for ${upstream.sha}`, issues: [] };
   }

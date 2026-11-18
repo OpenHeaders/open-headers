@@ -289,6 +289,7 @@ export async function runMergeBranch(
   const draft = holdDraft(binding);
   const result = await mergeWorkspaceBranch({
     run: ctx.gitRun,
+    objects: ctx.gitObjects,
     rootDir,
     ref,
     workspaceUid: binding.record.workspaceId,

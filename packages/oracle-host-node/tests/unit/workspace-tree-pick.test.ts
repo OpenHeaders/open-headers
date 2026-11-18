@@ -40,6 +40,7 @@ import {
   type ApplyWorkspaceCommitResult,
   applyWorkspaceCommit,
 } from '../../src/workspace-tree/pick';
+import { countedObjects } from './_log-history-repo';
 
 const ORG_ID = '019637a2-7b9a-7b9a-8b9a-1234567890ab';
 const RULE_FILE = 'rules/api-colapi00/block-probes-aaaaaaaa/rule.yaml';
@@ -182,6 +183,9 @@ async function localCommit(message: string, next: Partial<WorkspaceTreeState>): 
   return result.sha;
 }
 
+/** The gits `apply` reads its commits through. */
+let batches: ReturnType<typeof countedObjects>;
+
 interface Trace {
   applied: EmissionBatch[];
   order: string[];
@@ -196,6 +200,7 @@ function apply(
 ): Promise<ApplyWorkspaceCommitResult> {
   return applyWorkspaceCommit({
     run,
+    objects: batches.open,
     rootDir: local,
     sha,
     mode,
@@ -239,6 +244,7 @@ beforeEach(async () => {
   state = emptyState();
   state.rules = [makeRule()];
   hlcMs = 1_000;
+  batches = countedObjects();
   mayCommitLocalWork = true;
   run = isolated(createGitExec());
 
@@ -265,6 +271,19 @@ afterEach(async () => {
 });
 
 describe('applyWorkspaceCommit — cherry-pick', () => {
+  it('reads the commit and its parent through one git, and lets it go before anything is applied', async () => {
+    await peerReplace(RULE_FILE, 'enabled: true', 'enabled: false');
+    const picked = await peerCommit('Disable the probe rule');
+
+    const heldAtApply: number[] = [];
+    const result = await apply(picked, 'pick', trace(), () => {
+      heldAtApply.push(batches.held());
+      state = { ...state, rules: [makeRule({ enabled: false })] };
+    });
+    expect(result).toMatchObject({ ok: true });
+    expect([batches.opened(), heldAtApply, batches.held()]).toEqual([1, [0], 0]);
+  });
+
   it("lands only the commit's own change — the branch's rename of the same rule survives", async () => {
     await peerReplace(RULE_FILE, 'enabled: true', 'enabled: false');
     const picked = await peerCommit('Disable the probe rule\n\nIt fires on the health check.');

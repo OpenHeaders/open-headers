@@ -32,6 +32,7 @@ import {
 import { type ForcePushChoice, resolveForcePushWorkspaceTree } from '../../src/workspace-tree/force-push';
 import { WorkspaceTreeMaterializer } from '../../src/workspace-tree/materializer';
 import type { LocalWorkDeps } from '../../src/workspace-tree/pass-writes';
+import { countedObjects, objects } from './_log-history-repo';
 
 const ORG_ID = '019637a2-7b9a-7b9a-8b9a-1234567890ab';
 const PEER_RULE_FILE = 'rules/api-colapi00/block-probes-aaaaaaaa/rule.yaml';
@@ -164,6 +165,9 @@ const commitLocalWork: LocalWorkDeps['commitLocalWork'] = async ({ tree, paths, 
   return result.ok ? { ok: true } : { ok: false, detail: result.detail };
 };
 
+/** The gits `doResolve` reads the remote head through. */
+let batches: ReturnType<typeof countedObjects>;
+
 function doResolve(
   choice: ForcePushChoice,
   applied: EmissionBatch[],
@@ -171,6 +175,7 @@ function doResolve(
 ): ReturnType<typeof resolveForcePushWorkspaceTree> {
   return resolveForcePushWorkspaceTree({
     run,
+    objects: batches.open,
     rootDir: local,
     choice,
     workspaceUid: 'wsaaaaaa',
@@ -198,6 +203,7 @@ beforeEach(async () => {
   bare = path.join(tmpDir, 'remote.git');
   state = baseState();
   hlcMs = 1_000;
+  batches = countedObjects();
   run = isolated(createGitExec());
   localWorkCommits = [];
   deleted = new Set();
@@ -278,6 +284,16 @@ describe('force-push detection ground truth', () => {
 });
 
 describe('resolveForcePushWorkspaceTree', () => {
+  it('reads the rewritten head through one git, and lets it go before anything is applied', async () => {
+    const heldAtApply: number[] = [];
+    const result = await doResolve('abandon', [], () => {
+      heldAtApply.push(batches.held());
+      state.rules = [{ ...state.rules[0], name: 'Rewritten probes' } as Rule];
+    });
+    expect(result).toMatchObject({ ok: true });
+    expect([batches.opened(), heldAtApply, batches.held()]).toEqual([1, [0], 0]);
+  });
+
   it('abandon: the rewritten head becomes the workspace state wholesale', async () => {
     const applied: EmissionBatch[] = [];
     const result = await doResolve('abandon', applied, () => {
@@ -622,6 +638,7 @@ describe('resolveForcePushWorkspaceTree', () => {
     const applied: EmissionBatch[] = [];
     const result = await resolveForcePushWorkspaceTree({
       run,
+      objects,
       rootDir: local,
       choice: 'abandon',
       workspaceUid: 'wsaaaaaa',

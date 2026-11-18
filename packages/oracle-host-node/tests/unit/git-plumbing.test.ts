@@ -7,6 +7,7 @@
  * developer's own git config can never leak into assertions.
  */
 
+import { createHash } from 'node:crypto';
 import { promises as fs } from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
@@ -24,6 +25,7 @@ import { commitTreePaths, readCommitTree } from '../../src/git/commit-tree';
 import { parseGitfile, resolveGitDirs } from '../../src/git/git-dir';
 import { createGitExec, type GitAuditRow, type GitRunner, probeGitAvailability } from '../../src/git/git-exec';
 import { addIgnoreEntry, checkIgnoreProvenance, removeIgnoreEntry } from '../../src/git/ignore-ops';
+import { type GitObjectBatch, withObjectBatch } from '../../src/git/object-batch';
 import { readCommitPatch } from '../../src/git/patch-ops';
 import {
   addRemote,
@@ -96,6 +98,7 @@ import {
   treeWithFiles,
 } from '../../src/git/tree-ops';
 import { validateUserCommitInput } from '../../src/workspace-tree/runtime/user-commit';
+import { objects } from './_log-history-repo';
 
 let tmpDir: string;
 let auditRows: GitAuditRow[];
@@ -739,7 +742,9 @@ describe('remote plumbing (Phase 4)', () => {
     await raw(repoA, 'push', '--quiet', 'origin', 'main');
     await fetchWorkspaceRemote(run, repoB);
     const upstream = await resolveUpstream(run, repoB);
-    const tree = await readCommitTree(run, repoB, upstream?.sha ?? '');
+    const tree = await withObjectBatch(objects, repoB, (batch) =>
+      readCommitTree(run, batch, repoB, upstream?.sha ?? ''),
+    );
     expect(tree?.unread).toEqual([]);
     const byPath = new Map((tree?.files ?? []).map((file) => [file.path, file.content]));
     expect([...byPath.keys()].sort()).toEqual([
@@ -753,61 +758,120 @@ describe('remote plumbing (Phase 4)', () => {
     expect(byPath.get(`${requestDir}/body.json`)).toBe('{"probe":true}\n');
   });
 
-  describe('readCommitTree and a file’s size', () => {
-    /** A git that lists `entries` (path, bytes) and answers any blob asked for; `shown` are the blobs asked for. */
-    function gitListing(entries: ReadonlyArray<readonly [path: string, bytes: number]>, blobCode = 0) {
-      const shown: string[] = [];
-      const answer = (code: number, stdout: string) => ({
-        code,
-        stdout,
-        stderr: '',
-        spawnFailed: false,
-        timedOut: false,
-      });
+  describe('readCommitTree, its listing and its batch', () => {
+    const hashOf = (file: string): string => createHash('sha1').update(file).digest('hex');
+    const textOf = (file: string): string => `text of ${hashOf(file)}`;
+
+    /**
+     * A git that lists `entries` (path, bytes; `submodule` for an entry
+     * that is no blob) and a batch that answers any blob asked for by
+     * its hash. `asks` are the hashes each read of the batch asked,
+     * `ran` the git commands run.
+     */
+    function gitListing(
+      entries: ReadonlyArray<readonly [path: string, bytes: number | 'submodule']>,
+      blobs: 'come' | 'missing' | 'gone' = 'come',
+    ) {
+      const asks: string[][] = [];
+      const ran: string[] = [];
       const stub: GitRunner = async (args) => {
-        if (args.includes('ls-tree')) {
-          // As git prints it: the size right-aligned in a padded column.
-          const lines = entries.map(
-            ([file, bytes]) => `100644 blob ${'a'.repeat(40)} ${String(bytes).padStart(7)}\t${file}`,
-          );
-          return answer(0, lines.map((line) => `${line}\0`).join(''));
-        }
-        shown.push(String(args.at(-1)));
-        return answer(blobCode, 'text');
+        ran.push(splitAtSubcommand(args).command[0]);
+        // As git prints it: the size right-aligned in a padded column, a dash for what is no blob.
+        const lines = entries.map(([file, bytes]) =>
+          bytes === 'submodule'
+            ? `160000 commit ${hashOf(file)}       -\t${file}`
+            : `100644 blob ${hashOf(file)} ${String(bytes).padStart(7)}\t${file}`,
+        );
+        return {
+          code: 0,
+          stdout: lines.map((line) => `${line}\0`).join(''),
+          stderr: '',
+          spawnFailed: false,
+          timedOut: false,
+        };
       };
-      return { stub, shown };
+      const batch: GitObjectBatch = {
+        readCommits: async () => null,
+        readBlobs: async (shas) => {
+          asks.push([...shas]);
+          if (blobs === 'gone') return null;
+          return shas.map((sha) => (blobs === 'come' ? Buffer.from(`text of ${sha}`) : null));
+        },
+        close: () => undefined,
+      };
+      return { stub, batch, asks, ran };
     }
     const SPEC = 'specs/pets-ssssssss/spec.yaml';
     const INDEX = 'specs/pets-ssssssss/index.yaml';
 
+    it('reads every document through the batch by the hash its listing gives — no git a file', async () => {
+      const { stub, batch, asks, ran } = gitListing([
+        ['README.md', 12],
+        [INDEX, 20],
+        [SPEC, 134],
+        ['workspace.yaml', 43],
+      ]);
+      const tree = await readCommitTree(stub, batch, tmpDir, 'HEAD');
+      expect(tree?.files).toEqual([
+        { path: INDEX, content: textOf(INDEX) },
+        { path: SPEC, content: textOf(SPEC) },
+        { path: 'workspace.yaml', content: textOf('workspace.yaml') },
+      ]);
+      expect(asks).toEqual([[hashOf(INDEX), hashOf(SPEC), hashOf('workspace.yaml')]]);
+      expect(ran).toEqual(['ls-tree']);
+    });
+
     it('a document file over the limit is never asked for: it comes back too large, and the rest is read', async () => {
-      const { stub, shown } = gitListing([
+      const { stub, batch, asks } = gitListing([
         ['README.md', TREE_FILE_MAX_BYTES + 5],
         [INDEX, TREE_FILE_MAX_BYTES + 1],
         [SPEC, 134],
         ['workspace.yaml', 43],
       ]);
-      const tree = await readCommitTree(stub, tmpDir, 'HEAD');
+      const tree = await readCommitTree(stub, batch, tmpDir, 'HEAD');
       expect(tree?.files.map((file) => file.path)).toEqual([SPEC, 'workspace.yaml']);
       // A file of the user's own is neither read nor counted, whatever its size.
       expect(tree?.unread).toEqual([{ path: INDEX, cause: 'too-large' }]);
-      expect(shown).toEqual([`HEAD:${SPEC}`, 'HEAD:workspace.yaml']);
+      expect(asks).toEqual([[hashOf(SPEC), hashOf('workspace.yaml')]]);
       expect(tree === null ? [] : [...commitTreePaths(tree)].sort()).toEqual([INDEX, SPEC, 'workspace.yaml']);
     });
 
     it('a document file of exactly the limit is read', async () => {
-      const { stub, shown } = gitListing([
+      const { stub, batch, asks } = gitListing([
         [INDEX, TREE_FILE_MAX_BYTES],
         [SPEC, 134],
       ]);
-      const tree = await readCommitTree(stub, tmpDir, 'HEAD');
+      const tree = await readCommitTree(stub, batch, tmpDir, 'HEAD');
       expect(tree?.unread).toEqual([]);
-      expect(shown).toEqual([`HEAD:${INDEX}`, `HEAD:${SPEC}`]);
+      expect(asks).toEqual([[hashOf(INDEX), hashOf(SPEC)]]);
+    });
+
+    it('asks for a large tree in parts — no one ask brings more than four files of the limit', async () => {
+      const large = ['a', 'b', 'c', 'd', 'e'].map((name) => `specs/pets-ssssssss/${name}.yaml`);
+      const { stub, batch, asks } = gitListing([
+        ...large.map((file) => [file, TREE_FILE_MAX_BYTES] as const),
+        [SPEC, 134],
+      ]);
+      const tree = await readCommitTree(stub, batch, tmpDir, 'HEAD');
+      expect(asks).toEqual([large.slice(0, 4).map(hashOf), [hashOf(large[4]), hashOf(SPEC)]]);
+      expect(tree?.files.map((file) => file.path)).toEqual([...large, SPEC]);
+    });
+
+    it('a submodule’s entry is no file of the tree: not asked for, not a document’s file, not unread', async () => {
+      const { stub, batch, asks } = gitListing([
+        [INDEX, 'submodule'],
+        [SPEC, 134],
+      ]);
+      const tree = await readCommitTree(stub, batch, tmpDir, 'HEAD');
+      expect(tree).toEqual({ files: [{ path: SPEC, content: textOf(SPEC) }], unread: [] });
+      expect(asks).toEqual([[hashOf(SPEC)]]);
     });
 
     it('a blob that does not come answers null — nothing is concluded from a tree read in part', async () => {
-      const { stub } = gitListing([[SPEC, 134]], 128);
-      expect(await readCommitTree(stub, tmpDir, 'HEAD')).toBeNull();
+      const missing = gitListing([[SPEC, 134]], 'missing');
+      expect(await readCommitTree(missing.stub, missing.batch, tmpDir, 'HEAD')).toBeNull();
+      const gone = gitListing([[SPEC, 134]], 'gone');
+      expect(await readCommitTree(gone.stub, gone.batch, tmpDir, 'HEAD')).toBeNull();
     });
   });
 

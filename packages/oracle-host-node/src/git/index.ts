@@ -72,7 +72,12 @@ export {
 } from './log-text-flags';
 export { type LogTextSink, type ReadLogTextsResult, readLogTexts, readLogTextsOf } from './log-text-read';
 export { createLogTextStore, type LogTextStore, type LogTextView } from './log-text-store';
-export { createGitObjectBatches, type GitObjectBatch, type GitObjectBatchOpener } from './object-batch';
+export {
+  createGitObjectBatches,
+  type GitObjectBatch,
+  type GitObjectBatchOpener,
+  withObjectBatch,
+} from './object-batch';
 export { type AbortGitOperationResult, abortGitOperation, type GitOperation, gitOperationKind } from './operation';
 export { type CommitParentChange, type CommitParentChanges, readCommitParentChanges } from './parent-changes';
 export {

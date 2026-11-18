@@ -23,6 +23,7 @@ import { type MergeWorkspaceBranchResult, mergeWorkspaceBranch } from '../../src
 import type { LocalWorkDeps } from '../../src/workspace-tree/pass-writes';
 import { listWorkspaceTree } from '../../src/workspace-tree/reader';
 import { hashTreeContent, type MaterializedIndex, writeMaterializedIndex } from '../../src/workspace-tree/sidecar';
+import { objects } from './_log-history-repo';
 
 const ORG_ID = '019637a2-7b9a-7b9a-8b9a-1234567890ab';
 const RULE_FILE = 'rules/api-colapi00/block-probes-aaaaaaaa/rule.yaml';
@@ -168,6 +169,7 @@ function doMerge(
 ): Promise<MergeWorkspaceBranchResult> {
   return mergeWorkspaceBranch({
     run,
+    objects,
     rootDir: tree.rootDir,
     ref,
     workspaceUid: 'wsaaaaaa',

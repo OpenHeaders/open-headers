@@ -113,6 +113,7 @@ export async function runPull(
   const draft = holdDraft(binding);
   const result = await pullWorkspaceTree({
     run: ctx.gitRun,
+    objects: ctx.gitObjects,
     rootDir,
     workspaceUid: binding.record.workspaceId,
     readSnapshot: () => ctx.buildSnapshot(binding.record.workspaceId, binding.service),
@@ -237,6 +238,7 @@ export async function runResolveForcePush(
   const draft = holdDraft(binding);
   const result = await resolveForcePushWorkspaceTree({
     run: ctx.gitRun,
+    objects: ctx.gitObjects,
     rootDir,
     choice,
     workspaceUid: binding.record.workspaceId,

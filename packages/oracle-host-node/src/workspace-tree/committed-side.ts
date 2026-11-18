@@ -28,7 +28,7 @@ import {
   type WorkspaceTreeState,
   withCommitSecretRows,
 } from '@openheaders/core/workspace-tree';
-import { type GitRunner, readCommitTree } from '../git';
+import { type GitObjectBatch, type GitRunner, readCommitTree } from '../git';
 
 export interface CommittedSide {
   /** Whether uncommitted work in this file stays uncommitted across the pass. */
@@ -54,10 +54,11 @@ export interface ReadCommittedSideArgs {
 
 export async function readCommittedSide(
   run: GitRunner,
+  objects: GitObjectBatch,
   rootDir: string,
   args: ReadCommittedSideArgs,
 ): Promise<CommittedSide> {
-  const headCommit = await readCommitTree(run, rootDir, 'HEAD');
+  const headCommit = await readCommitTree(run, objects, rootDir, 'HEAD');
   if (headCommit === null) return NOTHING_CARRIED;
   const headFiles = headCommit.files;
   const headTree = readWorkspaceTree(headFiles, headCommit.unread);

@@ -45,6 +45,28 @@ export const stream: GitStreamRunner = (args, options, read) =>
 const batches = createGitObjectBatches();
 export const objects: GitObjectBatchOpener = (options) => batches({ ...options, env: { ...ISOLATED, ...options.env } });
 
+/** `objects`, counted: the batches opened through it, and those of them not closed yet. */
+export function countedObjects(): { open: GitObjectBatchOpener; opened(): number; held(): number } {
+  let opened = 0;
+  let held = 0;
+  return {
+    open: (options) => {
+      const batch = objects(options);
+      opened += 1;
+      held += 1;
+      return {
+        ...batch,
+        close: () => {
+          held -= 1;
+          batch.close();
+        },
+      };
+    },
+    opened: () => opened,
+    held: () => held,
+  };
+}
+
 /** Every ref and the checked-out commit — the revisions a whole history is walked from. */
 export const EVERY_REF = ['--branches', '--tags', '--remotes', 'HEAD'];
 

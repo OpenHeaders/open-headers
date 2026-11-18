@@ -101,6 +101,8 @@ import {
   type ForeignTreeDiff,
   fastForwardWorkspaceBranch,
   fetchWorkspaceRemote,
+  type GitObjectBatch,
+  type GitObjectBatchOpener,
   type GitRunner,
   gitOperationInProgress,
   isAncestorOf,
@@ -113,6 +115,7 @@ import {
   snapshotWorkingTree,
   treeWithFiles,
   withIndexLock,
+  withObjectBatch,
 } from '../git';
 import { type ApplyCommitResolution, type ApplyCommitResolve, decideChange } from './change-answers';
 import { type CommittedSide, NOTHING_CARRIED, readCommittedSide } from './committed-side';
@@ -137,6 +140,11 @@ import { readWrittenFile } from './tree-file';
  */
 export interface IntegrateForeignDeps extends LocalWorkDeps {
   run: GitRunner;
+  /**
+   * Opens the git a pass reads its commits' files through. A pass holds
+   * it for its reading and lets it go before it writes.
+   */
+  objects: GitObjectBatchOpener;
   rootDir: string;
   /** The bound workspace's identity — a foreign tree claiming another uid is refused. */
   workspaceUid: string;
@@ -401,6 +409,7 @@ function baselessConflict(baseIssues: readonly TreeIssue[]): (conflict: CommitCh
 async function readForeignChange(
   deps: IntegrateForeignDeps,
   args: {
+    objects: GitObjectBatch;
     base: string | null;
     foreignSha: string;
     foreign: TreeReadResult;
@@ -411,7 +420,7 @@ async function readForeignChange(
   },
 ): Promise<({ ok: true } & ForeignChange) | IntegrateForeignRefusal> {
   const { run, rootDir } = deps;
-  const { base, foreignSha, foreign, foreignFiles, diff, snapshot } = args;
+  const { objects, base, foreignSha, foreign, foreignFiles, diff, snapshot } = args;
   const foreignPaths = [...diff.changed, ...diff.removed];
 
   if (base === null) {
@@ -443,7 +452,7 @@ async function readForeignChange(
     };
   }
 
-  const baseCommit = await readCommitTree(run, rootDir, base);
+  const baseCommit = await readCommitTree(run, objects, rootDir, base);
   if (baseCommit === null) {
     return { ok: false, reason: 'foreign-invalid', detail: `unreadable tree for ${base}`, issues: [] };
   }
@@ -460,7 +469,7 @@ async function readForeignChange(
   const unasked = baselessConflict(baseTree.issues);
   // A foreign document that did not read is quarantined, never read as a deletion.
   const removedPaths = diff.removed;
-  const committed = await readCommittedSide(run, rootDir, { from, to, removedPaths, snapshot, unasked });
+  const committed = await readCommittedSide(run, objects, rootDir, { from, to, removedPaths, snapshot, unasked });
   const decided = await decideChange({
     run,
     rootDir,
@@ -488,28 +497,37 @@ async function readForeignChange(
   };
 }
 
+/** What an integration read of the foreign head and decided against the branch, before it writes. */
+interface ForeignReading {
+  /** The foreign head's tree as its commit holds it. */
+  commit: CommitTree;
+  /** That tree as the workspace can hold it — its rows are the quarantine's. */
+  foreign: TreeReadResult;
+  /** The merge base; null when the histories share none. */
+  base: string | null;
+  diff: ForeignTreeDiff;
+  history?: ForeignHistoryNote;
+  /** The engine's snapshot the change was laid over. */
+  snapshot: WorkspaceTreeState;
+  change: ForeignChange;
+}
+
 /**
- * The shared integration core (§11.4 mechanics, ratified S6): read the
- * foreign head's tree as a checkout snapshot, lay its change since the
- * merge base over the branch (asking where both sides changed one
- * value), converge through the mutators as virtual batches, quarantine
- * schema-invalid documents, materialize, then
- * record the result — a true fast-forward when the local branch has
- * not diverged (`localAhead` 0, and no uncommitted work had to be
- * committed first), a TWO-PARENT temp-index commit otherwise. Either
- * way the commit carries the integration's own files and no other
- * (`pass-writes.ts`), and a document that holds uncommitted work as
- * the change reads over HEAD alone (`committed-side.ts`). Pull points this at the fetched upstream head;
- * the Phase 6 branch merge points it at a local ref (§6).
+ * The reading half of an integration: the foreign head's tree, the merge
+ * base, the engine's pending work flushed, the change laid and decided.
+ * Every file of a commit the pass reads is read here, through `objects`.
+ * Nothing of the integration is written — a refusal leaves the branch
+ * and the tree as they were.
  */
-export async function integrateForeignHead(
+async function readIntegration(
   deps: IntegrateForeignDeps,
-  args: { foreignSha: string; localAhead: number; mergeMessage: string; resolution?: ApplyCommitResolution },
-): Promise<IntegrateForeignHeadResult> {
+  args: { foreignSha: string; resolution?: ApplyCommitResolution },
+  objects: GitObjectBatch,
+): Promise<({ ok: true } & ForeignReading) | IntegrateForeignRefusal> {
   const { run, rootDir } = deps;
   const { foreignSha } = args;
 
-  const foreignCommit = await readCommitTree(run, rootDir, foreignSha);
+  const foreignCommit = await readCommitTree(run, objects, rootDir, foreignSha);
   if (foreignCommit === null) {
     return { ok: false, reason: 'foreign-invalid', detail: `unreadable tree for ${foreignSha}`, issues: [] };
   }
@@ -543,7 +561,6 @@ export async function integrateForeignHead(
   // histories genuinely share nothing.
   const history: ForeignHistoryNote | undefined =
     base === null ? ((await isShallowRepository(run, rootDir)) ? 'shallow' : 'unrelated') : undefined;
-  const withHistory = history !== undefined ? { history } : {};
 
   // What the engine still has pending is local work, not the
   // integration's: it reaches the disk before the tree is read. Held by
@@ -554,12 +571,6 @@ export async function integrateForeignHead(
   // A foreign folder or leaf the workspace has no container for is
   // quarantined like a document that did not read.
   const foreign = containTreeRead(read, snapshot);
-  const unreadable = (): IntegrateForeignHeadResult => ({
-    ok: false,
-    reason: 'commit-failed',
-    detail: 'the working tree could not be read',
-    issues: foreign.issues,
-  });
   if ((await deps.flush()).held !== undefined) {
     return {
       ok: false,
@@ -569,7 +580,8 @@ export async function integrateForeignHead(
     };
   }
 
-  const laid = await readForeignChange(deps, {
+  const change = await readForeignChange(deps, {
+    objects,
     base,
     foreignSha,
     foreign,
@@ -578,7 +590,51 @@ export async function integrateForeignHead(
     snapshot,
     ...(args.resolution !== undefined ? { resolution: args.resolution } : {}),
   });
-  if (!laid.ok) return laid;
+  if (!change.ok) return change;
+  return {
+    ok: true,
+    commit: foreignCommit,
+    foreign,
+    base,
+    diff,
+    ...(history !== undefined ? { history } : {}),
+    snapshot,
+    change,
+  };
+}
+
+/**
+ * The shared integration core (§11.4 mechanics, ratified S6): read the
+ * foreign head's tree as a checkout snapshot, lay its change since the
+ * merge base over the branch (asking where both sides changed one
+ * value), converge through the mutators as virtual batches, quarantine
+ * schema-invalid documents, materialize, then
+ * record the result — a true fast-forward when the local branch has
+ * not diverged (`localAhead` 0, and no uncommitted work had to be
+ * committed first), a TWO-PARENT temp-index commit otherwise. Either
+ * way the commit carries the integration's own files and no other
+ * (`pass-writes.ts`), and a document that holds uncommitted work as
+ * the change reads over HEAD alone (`committed-side.ts`). Pull points this at the fetched upstream head;
+ * the Phase 6 branch merge points it at a local ref (§6).
+ */
+export async function integrateForeignHead(
+  deps: IntegrateForeignDeps,
+  args: { foreignSha: string; localAhead: number; mergeMessage: string; resolution?: ApplyCommitResolution },
+): Promise<IntegrateForeignHeadResult> {
+  const { run, rootDir } = deps;
+  const { foreignSha } = args;
+
+  // The git the commits are read through is let go before the pass writes.
+  const reading = await withObjectBatch(deps.objects, rootDir, (objects) => readIntegration(deps, args, objects));
+  if (!reading.ok) return reading;
+  const { commit: foreignCommit, foreign, base, diff, snapshot, change: laid } = reading;
+  const withHistory = reading.history !== undefined ? { history: reading.history } : {};
+  const unreadable = (): IntegrateForeignHeadResult => ({
+    ok: false,
+    reason: 'commit-failed',
+    detail: 'the working tree could not be read',
+    issues: foreign.issues,
+  });
   const foreignPaths = [...diff.changed, ...diff.removed];
   const withSkipped = laid.skipped.length > 0 ? { skipped: laid.skipped } : {};
 

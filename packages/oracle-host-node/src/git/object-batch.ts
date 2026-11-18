@@ -2,7 +2,8 @@
  * object-batch — one `git cat-file --batch` kept open on a repo: objects
  * are asked for by hash and answered whole, with no process per ask. For
  * a read made over and over while a surface is looked at — a log's rows
- * under a scrollbar — where starting git costs more than the read.
+ * under a scrollbar — and for one made of many objects at once — the
+ * files of a commit's tree — where starting git costs more than the read.
  *
  * The same discipline as the runners: an arg vector, the pinned
  * environment, a deadline, a structured answer instead of a throw. On
@@ -13,6 +14,12 @@
  *   - a read that runs out of time, or whose git went away, answers
  *     null, and the next read starts git again;
  *   - `close` ends git and answers whatever still waits.
+ *
+ * An object is asked for by its full hash and nothing else: git reads
+ * one name a line, so a name that is no hash — a path a commit made up,
+ * a line break in it — would be answered as some other object, or as
+ * two, and every answer after it would be another ask's. Such a name is
+ * never sent; it answers as an object the repo does not hold.
  *
  * Reads only: nothing run through here is audited.
  */
@@ -30,6 +37,8 @@ export interface GitObjectBatch {
    * started or went away, or the read ran out of time.
    */
   readCommits(shas: readonly string[]): Promise<(Buffer | null)[] | null>;
+  /** The same for blobs — a file's bytes as a commit holds them; null for a hash the repo holds no blob under. */
+  readBlobs(shas: readonly string[]): Promise<(Buffer | null)[] | null>;
   /** Nobody reads through this batch any more: its git ends. */
   close(): void;
 }
@@ -44,6 +53,24 @@ export interface GitObjectBatchOptions {
 /** Opens a batch on a repo — nothing is started until it is read. */
 export type GitObjectBatchOpener = (options: GitObjectBatchOptions) => GitObjectBatch;
 
+/**
+ * A batch for one piece of work: opened for it and closed when it ends,
+ * however it ends. A batch left open holds the repo's packs open — on
+ * Windows a git that repacks meanwhile cannot remove them.
+ */
+export async function withObjectBatch<T>(
+  open: GitObjectBatchOpener,
+  cwd: string,
+  work: (objects: GitObjectBatch) => Promise<T>,
+): Promise<T> {
+  const objects = open({ cwd });
+  try {
+    return await work(objects);
+  } finally {
+    objects.close();
+  }
+}
+
 export interface CreateGitObjectBatchesOptions {
   /** Binary to invoke; tests point this at fixtures. Default `git`. */
   gitBinary?: string;
@@ -54,6 +81,11 @@ export interface CreateGitObjectBatchesOptions {
 const DEFAULT_READ_TIMEOUT_MS = 10_000;
 
 const NEWLINE = 10;
+
+/** An object's full name: a SHA-1 or a SHA-256 hash, in hex. */
+const OBJECT_HASH = /^(?:[0-9a-f]{40}|[0-9a-f]{64})$/;
+
+type ObjectType = 'commit' | 'blob';
 
 type BatchChild = ChildProcessByStdio<Writable, Readable, null>;
 
@@ -105,7 +137,7 @@ export function createGitObjectBatches(options: CreateGitObjectBatchesOptions = 
       if (git !== null && git.pid !== undefined) git.kill();
     };
 
-    const read = (shas: readonly string[]): Promise<(Buffer | null)[] | null> =>
+    const read = (shas: readonly string[], wanted: ObjectType): Promise<(Buffer | null)[] | null> =>
       new Promise((resolve) => {
         if (closed) {
           resolve(null);
@@ -113,7 +145,22 @@ export function createGitObjectBatches(options: CreateGitObjectBatchesOptions = 
         }
         const git = child ?? start();
         const objects: (Buffer | null)[] = [];
-        let unread: Buffer = Buffer.alloc(0);
+        // What git printed and no object has taken yet. An object's bytes
+        // are put together once, when the last of them is in: a large one
+        // comes in many pieces, and is not copied for each.
+        let pieces: Buffer[] = [];
+        let held = 0;
+        // The object whose header is read and whose bytes are still coming.
+        let coming: { type: string; bytes: number } | null = null;
+
+        const whole = (): Buffer => {
+          if (pieces.length !== 1) pieces = [Buffer.concat(pieces, held)];
+          return pieces[0];
+        };
+        const drop = (bytes: number): void => {
+          pieces = [whole().subarray(bytes)];
+          held -= bytes;
+        };
 
         const finish = (answer: (Buffer | null)[] | null): void => {
           if (flying !== mine) return;
@@ -128,29 +175,34 @@ export function createGitObjectBatches(options: CreateGitObjectBatchesOptions = 
         };
         const mine: Flying = {
           take(chunk) {
-            unread = unread.length === 0 ? chunk : Buffer.concat([unread, chunk]);
-            let at = 0;
+            pieces.push(chunk);
+            held += chunk.length;
             while (objects.length < shas.length) {
-              // `<hash> <type> <size>\n<bytes>\n`, or `<name> missing\n`.
-              const lineEnd = unread.indexOf(NEWLINE, at);
-              if (lineEnd === -1) break;
-              const [, type, size] = unread.toString('latin1', at, lineEnd).split(' ');
-              if (type === 'missing') {
-                objects.push(null);
-                at = lineEnd + 1;
-                continue;
+              if (coming === null) {
+                // `<hash> <type> <size>\n`, or `<name> missing\n`.
+                const unread = whole();
+                const lineEnd = unread.indexOf(NEWLINE);
+                if (lineEnd === -1) break;
+                const [, type, size] = unread.toString('latin1', 0, lineEnd).split(' ');
+                drop(lineEnd + 1);
+                if (type === 'missing') {
+                  objects.push(null);
+                  continue;
+                }
+                const bytes = Number(size);
+                if (!Number.isInteger(bytes) || bytes < 0) {
+                  giveUp();
+                  return;
+                }
+                coming = { type, bytes };
+              } else {
+                // `<bytes>\n`.
+                if (held < coming.bytes + 1) break;
+                objects.push(coming.type === wanted ? whole().subarray(0, coming.bytes) : null);
+                drop(coming.bytes + 1);
+                coming = null;
               }
-              const bytes = Number(size);
-              if (!Number.isInteger(bytes) || bytes < 0) {
-                giveUp();
-                return;
-              }
-              const end = lineEnd + 1 + bytes;
-              if (unread.length < end + 1) break;
-              objects.push(type === 'commit' ? unread.subarray(lineEnd + 1, end) : null);
-              at = end + 1;
             }
-            unread = unread.subarray(at);
             if (objects.length === shas.length) finish(objects);
           },
           fail: () => finish(null),
@@ -160,13 +212,21 @@ export function createGitObjectBatches(options: CreateGitObjectBatchesOptions = 
         git.stdin.write(`${shas.join('\n')}\n`);
       });
 
+    /** The objects of one type under `shas`, a read at a time; a name that is no hash is not asked. */
+    const ask = async (shas: readonly string[], wanted: ObjectType): Promise<(Buffer | null)[] | null> => {
+      const hashes = shas.filter((sha) => OBJECT_HASH.test(sha));
+      if (hashes.length === 0) return shas.map(() => null);
+      const answer = turn.then(() => read(hashes, wanted));
+      turn = answer;
+      const found = await answer;
+      if (found === null) return null;
+      const objects = found.values();
+      return shas.map((sha) => (OBJECT_HASH.test(sha) ? (objects.next().value ?? null) : null));
+    };
+
     return {
-      readCommits(shas) {
-        if (shas.length === 0) return Promise.resolve([]);
-        const answer = turn.then(() => read(shas));
-        turn = answer;
-        return answer;
-      },
+      readCommits: (shas) => ask(shas, 'commit'),
+      readBlobs: (shas) => ask(shas, 'blob'),
       close() {
         closed = true;
         stop();

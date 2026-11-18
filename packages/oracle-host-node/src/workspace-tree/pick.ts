@@ -74,6 +74,7 @@ import {
   resolveRefSha,
   snapshotWorkingTree,
   withIndexLock,
+  withObjectBatch,
 } from '../git';
 import { type ApplyCommitResolution, type ApplyCommitResolve, decideChange } from './change-answers';
 import { landForeignOwnFiles } from './own-files';
@@ -156,8 +157,10 @@ export async function applyWorkspaceCommit(options: ApplyWorkspaceCommitOptions)
   }
   const parent = parents[0];
 
-  const commitRead = await readCommitTree(run, rootDir, sha);
-  const parentRead = await readCommitTree(run, rootDir, parent);
+  const [commitRead, parentRead] = await withObjectBatch(options.objects, rootDir, async (objects) => [
+    await readCommitTree(run, objects, rootDir, sha),
+    await readCommitTree(run, objects, rootDir, parent),
+  ]);
   const diff = await diffForeignPaths(run, rootDir, parent, sha);
   if (commitRead === null || parentRead === null || diff === null) {
     return { ok: false, reason: 'foreign-invalid', detail: `unreadable tree for ${sha}`, issues: [] };

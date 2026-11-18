@@ -14,6 +14,7 @@ import type {
   CommitIntent,
   CommitUserAttribution,
   GitAvailability,
+  GitObjectBatchOpener,
   GitRunner,
   GitStreamRunner,
   SyntheticCommitIdentity,
@@ -181,6 +182,8 @@ export interface RuntimeCtx {
   readonly gitRun: GitRunner;
   /** The reading runner — a git read handed over as it arrives (a whole history's walk). */
   readonly gitStream: GitStreamRunner;
+  /** The kept-open twin — opens a git a repo's objects are asked of by hash, for a log's rows or a pass's commits. */
+  readonly gitObjects: GitObjectBatchOpener;
   /** The histories held for the logs that are open, and the lists made from them. */
   readonly logHistories: LogHistories;
   /** Whose turn a read of a log's list has — one set per kind of read. */

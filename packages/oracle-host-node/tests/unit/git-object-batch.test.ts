@@ -10,7 +10,7 @@ import { promises as fs } from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { createGitObjectBatches, type GitObjectBatch } from '../../src/git/object-batch';
+import { createGitObjectBatches, type GitObjectBatch, withObjectBatch } from '../../src/git/object-batch';
 import { objects, openScratchRepo, type ScratchRepo, seedHistory } from './_log-history-repo';
 
 /** The git processes reading this repo through a batch, by the operating system's own list. */
@@ -85,6 +85,26 @@ describe.skipIf(process.platform === 'win32')('a git kept open on a repo', () =>
     expect(all.map((pair) => pair?.[1]?.toString('utf8'))).toEqual(whole?.map((bytes) => bytes?.toString('utf8')));
   });
 
+  it('answers a blob’s own bytes by its hash — a large one whole, between small ones — and null for what is no blob', async () => {
+    const texts = ['openapi: 3.1.0\n', 'x-note: John Doe keeps this line\n'.repeat(100_000), 'last\n'];
+    const blobs: string[] = [];
+    for (const [index, text] of texts.entries()) {
+      await fs.writeFile(path.join(repo.rootDir, `blob-${index}.yaml`), text, 'utf-8');
+      blobs.push((await repo.git(['hash-object', '-w', `blob-${index}.yaml`])).trim());
+    }
+    const read = await batch.readBlobs([blobs[0], blobs[1], shas[0], blobs[2], 'f'.repeat(40)]);
+    expect(read?.map((bytes) => bytes?.toString('utf8') ?? null)).toEqual([texts[0], texts[1], null, texts[2], null]);
+    expect(await batch.readCommits([blobs[0]])).toEqual([null]);
+  });
+
+  it('never asks git for a name that is no hash: it answers null, and every read after it is still its own', async () => {
+    const read = await batch.readCommits([`${shas[0]}\n${shas[1]}`, 'HEAD', shas[3]]);
+    expect(read?.map((bytes) => bytes !== null)).toEqual([false, false, true]);
+    expect(read?.[2]?.toString('utf8')).toContain('\n\nRename the request\n');
+    expect((await batch.readCommits([shas[0]]))?.[0]?.toString('utf8')).toContain('\n\nRelease notes\n');
+    expect(await batch.readBlobs(['HEAD:workspace.yaml'])).toEqual([null]);
+  });
+
   it('answers null when its git goes away, and starts git again for the next read', async () => {
     const [pid] = await batchPids(repo.rootDir);
     process.kill(pid);
@@ -131,6 +151,23 @@ describe.skipIf(process.platform === 'win32')('a git kept open on a repo', () =>
     } finally {
       await stalled.remove();
     }
+  });
+
+  it('a batch opened for one piece of work is closed when the work ends, however it ends', async () => {
+    const held: GitObjectBatch[] = [];
+    const answer = await withObjectBatch(objects, repo.rootDir, async (opened) => {
+      held.push(opened);
+      return (await opened.readCommits(shas.slice(0, 1)))?.length;
+    });
+    expect(answer).toBe(1);
+    const failing = withObjectBatch(objects, repo.rootDir, async (opened) => {
+      held.push(opened);
+      await opened.readCommits(shas.slice(0, 1));
+      throw new Error('the work failed');
+    });
+    await expect(failing).rejects.toThrow('the work failed');
+    expect(await Promise.all(held.map((opened) => opened.readCommits(shas.slice(0, 1))))).toEqual([null, null]);
+    expect(await settled(async () => (await batchPids(repo.rootDir)).length === 0)).toBe(true);
   });
 
   it('answers null where git cannot be started', async () => {
