@@ -1,8 +1,8 @@
 /**
  * FileTreeFrame — a changed-files tree's shell, whichever way its rows
  * are drawn: the scroll host that holds focus for the keys, and the
- * legacy inline header (the compare pane) — the heading with Expand All
- * / Collapse All.
+ * legacy inline header (the compare pane) — the heading, the pane's
+ * own tools, then Expand All / Collapse All.
  */
 
 import { useT } from '@openheaders/ui/context/LocaleContext';
@@ -15,6 +15,8 @@ export interface FileTreeFrameProps {
   containerRef: RefObject<HTMLDivElement | null>;
   selectable: boolean;
   showHeader: boolean;
+  /** The inline header's tools, ahead of its expand/collapse pair. */
+  headerTools?: React.ReactNode;
   /** Beside the tree's own: the row family the rows are drawn in. */
   className?: string;
   onKeyDown: (event: React.KeyboardEvent) => void;
@@ -27,6 +29,7 @@ const FileTreeFrame: React.FC<FileTreeFrameProps> = ({
   containerRef,
   selectable,
   showHeader,
+  headerTools,
   className,
   onKeyDown,
   onExpandAll,
@@ -51,6 +54,7 @@ const FileTreeFrame: React.FC<FileTreeFrameProps> = ({
           <span style={{ flex: 1, fontSize: 12, fontWeight: 600, color: token.colorText }}>
             {t('workbench.gitLog.filesHeading')}
           </span>
+          {headerTools}
           <Button
             type="text"
             size="small"

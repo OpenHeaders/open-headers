@@ -56,6 +56,7 @@ export const NamedFileTree = ({
   onSelectFile,
   groupByDirectory = true,
   showHeader = false,
+  headerTools,
   rowMenu,
   handleRef,
 }: NamedFileTreeProps) => {
@@ -103,6 +104,7 @@ export const NamedFileTree = ({
       containerRef={behaviour.containerRef}
       selectable={behaviour.selectable}
       showHeader={showHeader}
+      headerTools={headerTools}
       className="rules-sidebar-content git-named-file-tree"
       onKeyDown={behaviour.onKeyDown}
       onExpandAll={behaviour.expandAll}

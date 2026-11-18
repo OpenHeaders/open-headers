@@ -2,12 +2,14 @@
  * CommitToolbar — the Commit window's top icon row:
  * Refresh, Rollback… (live while anything is changed — it opens
  * Rollback Changes with the selection's changes checked, or every
- * change when the selection holds none), Shelve
- * Silently (a visible placeholder), the View
- * Options eye (View Mode, Group Files by Directory, Show Ignored Files), Select Opened
+ * change when the selection holds none), the View Mode switch
+ * (Workspace Items | Files), the View
+ * Options eye (View Mode, Group Files by Directory, Show Ignored Files), Shelve
+ * Silently (a visible placeholder), Select Opened
  * File (placeholder — needs the editor-tab↔file join), then Expand /
  * Collapse All driving the changes tree. The band is a PaneToolbar: at
- * a narrow dock the tail folds behind the › chevron's hover strip.
+ * a narrow dock the tail folds behind the › chevron's hover strip — the
+ * switch and the eye stand ahead of the placeholders, so they fold last.
  */
 
 import { AimOutlined, EyeOutlined } from '@ant-design/icons';
@@ -18,6 +20,7 @@ import { CollapseAllIcon, ExpandAllIcon, RefreshIcon, RollbackIcon, ShelveIcon }
 import { menuCheckIcon } from '../../../shared/menu-check';
 import type { FilesViewMode } from '../files-view-mode';
 import { type FilesView, filesViewMenuItems, pickFilesViewMenu } from '../toolbar/files-view-menu';
+import FilesViewModeSwitch from '../toolbar/FilesViewModeSwitch';
 import PaneToolbar, { type PaneToolbarEntry } from '../toolbar/PaneToolbar';
 import { useOptionMenu } from '../use-option-menu';
 import ToolbarIconButton from '../toolbar/ToolbarIconButton';
@@ -127,6 +130,12 @@ const CommitToolbar: React.FC<CommitToolbarProps> = ({
     },
     {
       kind: 'item',
+      key: 'view-mode',
+      node: <FilesViewModeSwitch mode={viewMode} onChange={onViewModeChange} testid="commit-tool-view-mode" />,
+    },
+    { kind: 'item', key: 'view-options', node: viewOptions },
+    {
+      kind: 'item',
       key: 'shelve',
       node: (
         <ToolbarIconButton
@@ -137,7 +146,6 @@ const CommitToolbar: React.FC<CommitToolbarProps> = ({
         />
       ),
     },
-    { kind: 'item', key: 'view-options', node: viewOptions },
     { kind: 'separator', key: 'sep-tree' },
     {
       kind: 'item',

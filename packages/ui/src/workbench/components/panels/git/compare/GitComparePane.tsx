@@ -24,9 +24,10 @@ import CommitDetails from '../CommitDetails';
 import CommitList from '../CommitList';
 import DiffModal from '../DiffModal';
 import CommitFilesView from '../CommitFilesView';
-import { useFilesViewMode } from '../files-view-mode';
+import { setFilesViewMode, useFilesViewMode } from '../files-view-mode';
 import { getGitLogViewPrefs, subscribeGitLogViewPrefs } from '../git-log-view-prefs';
 import type { GitCompareTabState } from '../git-panel-view-store';
+import FilesViewModeSwitch from '../toolbar/FilesViewModeSwitch';
 import { useFileDiff } from '../use-file-diff';
 import { useLogHourCycle } from '../use-log-hour-cycle';
 import { useNewestRead } from '../use-newest-read';
@@ -165,6 +166,13 @@ const CompareSide: React.FC<CompareSideProps> = ({
                 viewMode={viewMode}
                 groupByDirectory={prefs.groupFilesByDirectory}
                 showHeader
+                headerTools={
+                  <FilesViewModeSwitch
+                    mode={viewMode}
+                    onChange={(mode) => setFilesViewMode(workspaceId, mode)}
+                    testid={`${testid}-view-mode`}
+                  />
+                }
               />
               <div
                 style={{

@@ -5,6 +5,7 @@
 
 import type { WorkspaceTreeEntityRefWire } from '@openheaders/core/bridge';
 import type { MenuProps, theme } from 'antd';
+import type React from 'react';
 import type { FilesViewMode } from './files-view-mode';
 
 /** Porcelain status letter → theme color, (added green,
@@ -76,6 +77,8 @@ export interface FileTreeViewProps {
   groupByDirectory?: boolean;
   /** Legacy inline header (compare pane) — heading + expand/collapse. */
   showHeader?: boolean;
+  /** What the inline header carries ahead of its expand/collapse pair — the compare pane's View Mode switch. */
+  headerTools?: React.ReactNode;
   /** Right-click menu of a file's row (the log pane) and — by what the
    *  files belong to — of an entity's row that lists several (no path);
    *  right-click also selects the row when selection is wired. Absent =

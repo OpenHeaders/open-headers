@@ -27,6 +27,7 @@ import { useTheme } from '@openheaders/ui/context';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { CollapseAllIcon, ExpandAllIcon } from '@openheaders/ui/shared/icons';
 import { type FilesView, filesViewMenuItems, pickFilesViewMenu } from '../toolbar/files-view-menu';
+import FilesViewModeSwitch from '../toolbar/FilesViewModeSwitch';
 import ToolbarIconButton from '../toolbar/ToolbarIconButton';
 import { nameGitWork } from '../use-git-work';
 import { useOptionMenu } from '../use-option-menu';
@@ -203,6 +204,7 @@ const RollbackChangesModal: React.FC<RollbackChangesModalProps> = ({
               borderBottom: `1px solid ${token.colorBorderSecondary}`,
             }}
           >
+            <FilesViewModeSwitch mode={view.mode} onChange={view.onModeChange} testid="commit-rollback-view-mode" />
             <Dropdown
               trigger={['click']}
               placement="bottomLeft"

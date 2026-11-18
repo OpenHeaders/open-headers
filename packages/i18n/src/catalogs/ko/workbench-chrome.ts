@@ -566,6 +566,7 @@ export const workbenchChrome = {
   'workbench.gitLog.viewMode.heading': '보기 모드',
   'workbench.gitLog.viewMode.items': '워크스페이스 항목',
   'workbench.gitLog.viewMode.files': '파일',
+  'workbench.gitLog.viewMode.tooltip': '보기 모드: {mode}',
   'workbench.gitLog.details.groupFilesByDirectory': '디렉터리별 파일 그룹',
   'workbench.gitLog.details.layout': '레이아웃',
   'workbench.gitLog.details.showDetails': '세부 정보 표시',

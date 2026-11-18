@@ -574,6 +574,7 @@ export const workbenchChrome = {
   'workbench.gitLog.viewMode.heading': "Mode d'affichage",
   'workbench.gitLog.viewMode.items': "Éléments de l'espace de travail",
   'workbench.gitLog.viewMode.files': 'Fichiers',
+  'workbench.gitLog.viewMode.tooltip': "Mode d'affichage : {mode}",
   'workbench.gitLog.details.groupFilesByDirectory': 'Grouper les fichiers par répertoire',
   'workbench.gitLog.details.layout': 'Disposition',
   'workbench.gitLog.details.showDetails': 'Afficher les détails',

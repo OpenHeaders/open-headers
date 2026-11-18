@@ -597,6 +597,7 @@ export const workbenchChrome = {
   'workbench.gitLog.viewMode.heading': 'Mod de vizualizare',
   'workbench.gitLog.viewMode.items': 'Elemente din spațiul de lucru',
   'workbench.gitLog.viewMode.files': 'Fișiere',
+  'workbench.gitLog.viewMode.tooltip': 'Mod de vizualizare: {mode}',
   'workbench.gitLog.details.groupFilesByDirectory': 'Grupare fișiere pe directoare',
   'workbench.gitLog.details.layout': 'Aspect',
   'workbench.gitLog.details.showDetails': 'Afișare detalii',

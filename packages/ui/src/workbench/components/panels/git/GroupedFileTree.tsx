@@ -42,7 +42,7 @@ type GroupedTreeProps = Omit<FileTreeViewProps, 'groups'> & {
 };
 
 interface GroupedFileTreeProps<Row extends FileTreeRow, Shape>
-  extends Pick<FileTreeViewProps, 'onOpenFile' | 'onSelectFile' | 'showHeader' | 'groupsNote'> {
+  extends Pick<FileTreeViewProps, 'onOpenFile' | 'onSelectFile' | 'showHeader' | 'headerTools' | 'groupsNote'> {
   groups: readonly FileTreeGroupModel<Row, Shape>[];
   /** Beside the tree's own: the row family the groups' rows are drawn in. */
   className?: string;
@@ -62,6 +62,7 @@ function GroupedFileTree<Row extends FileTreeRow, Shape>({
   onOpenFile,
   onSelectFile,
   showHeader = false,
+  headerTools,
   handleRef,
 }: GroupedFileTreeProps<Row, Shape>) {
   const { token } = theme.useToken();
@@ -117,6 +118,7 @@ function GroupedFileTree<Row extends FileTreeRow, Shape>({
       containerRef={behaviour.containerRef}
       selectable={selectable}
       showHeader={showHeader}
+      headerTools={headerTools}
       className={className}
       onKeyDown={behaviour.onKeyDown}
       onExpandAll={behaviour.expandAll}
@@ -196,6 +198,7 @@ export const PathGroupedFileTree = ({
   onSelectFile,
   groupByDirectory = true,
   showHeader,
+  headerTools,
   rowMenu,
   handleRef,
 }: GroupedTreeProps) => {
@@ -222,6 +225,7 @@ export const PathGroupedFileTree = ({
       onOpenFile={onOpenFile}
       onSelectFile={onSelectFile}
       showHeader={showHeader}
+      headerTools={headerTools}
       handleRef={handleRef}
       renderRows={(group, scope) => (
         <PathFileRows
@@ -257,6 +261,7 @@ export const WorkspaceGroupedFileTree = ({
   onSelectFile,
   groupByDirectory = true,
   showHeader,
+  headerTools,
   rowMenu,
   handleRef,
 }: GroupedTreeProps) => {
@@ -300,6 +305,7 @@ export const WorkspaceGroupedFileTree = ({
       onOpenFile={onOpenFile}
       onSelectFile={onSelectFile}
       showHeader={showHeader}
+      headerTools={headerTools}
       handleRef={handleRef}
       renderRows={(group, scope) => (
         <div className="git-named-file-tree">

@@ -541,6 +541,7 @@ export const workbenchChrome = {
   'workbench.gitLog.viewMode.heading': '视图模式',
   'workbench.gitLog.viewMode.items': '工作区条目',
   'workbench.gitLog.viewMode.files': '文件',
+  'workbench.gitLog.viewMode.tooltip': '视图模式：{mode}',
   'workbench.gitLog.details.groupFilesByDirectory': '按目录对文件分组',
   'workbench.gitLog.details.layout': '布局',
   'workbench.gitLog.details.showDetails': '显示详情',

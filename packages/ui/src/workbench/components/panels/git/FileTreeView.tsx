@@ -43,6 +43,7 @@ const PathFileTree = ({
   onSelectFile,
   groupByDirectory = true,
   showHeader = false,
+  headerTools,
   rowMenu,
   handleRef,
 }: FileTreeViewProps & { handleRef: ForwardedRef<FileTreeViewHandle> }) => {
@@ -65,6 +66,7 @@ const PathFileTree = ({
       containerRef={behaviour.containerRef}
       selectable={behaviour.selectable}
       showHeader={showHeader}
+      headerTools={headerTools}
       onKeyDown={behaviour.onKeyDown}
       onExpandAll={behaviour.expandAll}
       onCollapseAll={behaviour.collapseAll}
