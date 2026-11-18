@@ -1,8 +1,8 @@
 /**
  * files-view-mode — how a changed-files tree lists its files (the View
- * Mode): as workspace items — what they belong to in the workbench,
- * the panels' sections, collections and entities by name — or as
- * files, by path. ONE choice per workspace for every such tree: the
+ * Mode): Workspace — by what they belong to in the workbench,
+ * the panels' sections, collections and entities by name — or
+ * Files, by path. ONE choice per workspace for every such tree: the
  * Commit window and its Rollback Changes dialog, the Git window's
  * changes pane, the Push window, a Compare tab, the Paths chip's tree.
  * The shared per-workspace prefs posture.

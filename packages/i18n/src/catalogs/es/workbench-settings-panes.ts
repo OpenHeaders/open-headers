@@ -841,7 +841,7 @@ export const workbenchSettingsPanes = {
     'Marcar los commits firmados en las filas de commits y si Git pudo verificar cada firma.',
   'workbench.settings.gitPane.log.viewModeLabel': 'Modo de vista',
   'workbench.settings.gitPane.log.viewModeDescription':
-    'Cómo se muestra cada lista de archivos cambiados: como elementos del espacio de trabajo — aquello a lo que pertenecen los archivos en el espacio de trabajo, por nombre — o como archivos, por ruta.',
+    'Cómo se muestra cada lista de archivos cambiados: Espacio de trabajo — aquello a lo que pertenecen los archivos en el espacio de trabajo, por nombre — o Archivos, por ruta.',
   'workbench.settings.gitPane.log.groupByDirectoryLabel': 'Agrupar por directorio',
   'workbench.settings.gitPane.log.groupByDirectoryDescription':
     'Anidar los archivos cambiados de un commit bajo sus directorios; desactivado los lista en plano.',

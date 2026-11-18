@@ -735,7 +735,7 @@ export const workbenchSettingsPanes = {
     'Mark the signed commits on the commit rows, and whether Git could verify each signature.',
   'workbench.settings.gitPane.log.viewModeLabel': 'View mode',
   'workbench.settings.gitPane.log.viewModeDescription':
-    'How every list of changed files reads: workspace items — what the files belong to in the workspace, by name — or files, by path.',
+    'How every list of changed files reads: Workspace — what the files belong to in the workspace, by name — or Files, by path.',
   'workbench.settings.gitPane.log.groupByDirectoryLabel': 'Group by directory',
   'workbench.settings.gitPane.log.groupByDirectoryDescription':
     'Nest a commit’s changed files under their directories; off lists them flat.',

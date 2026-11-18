@@ -4,7 +4,7 @@
  * Rollback Changes with the selection's changes checked, or every
  * change when the selection holds none), Shelve
  * Silently (a visible placeholder); between two rules, how the tree is
- * shown — the View Mode switch (Workspace Items | Files) and the View
+ * shown — the View Mode switch (Workspace | Files) and the View
  * Options eye (View Mode, Group Files by Directory, Show Ignored Files); Select Opened
  * File (placeholder — needs the editor-tab↔file join), then Expand /
  * Collapse All driving the changes tree. The band is a PaneToolbar: at

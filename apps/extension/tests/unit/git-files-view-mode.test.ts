@@ -2,7 +2,7 @@
 /**
  * The View Mode of the changed-files trees — one choice per workspace
  * (`files-view-mode`) — and the rows every View Options eye opens with
- * (`files-view-menu`). Pins: Workspace Items until the person picks
+ * (`files-view-menu`). Pins: Workspace until the person picks
  * Files, the pick kept per workspace and read back from storage, a slot
  * that holds neither mode read as the default; the menu marks ONE mode,
  * a pick of a mode sets it (the marked one included — it never
@@ -54,7 +54,7 @@ function marked(view: FilesView): Record<string, boolean> {
 }
 
 describe('files view mode', () => {
-  it('is Workspace Items until Files is picked, per workspace', () => {
+  it('is Workspace until Files is picked, per workspace', () => {
     expect(DEFAULT_FILES_VIEW_MODE).toBe('items');
     expect(getFilesViewMode('ws-a')).toBe('items');
     setFilesViewMode('ws-a', 'files');

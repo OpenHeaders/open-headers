@@ -565,7 +565,7 @@ export const workbenchChrome = {
   'workbench.gitLog.details.showDiff': '差分を表示',
   'workbench.gitLog.details.revertSelected': '選択した変更を元に戻す',
   'workbench.gitLog.viewMode.heading': '表示モード',
-  'workbench.gitLog.viewMode.items': 'ワークスペースのアイテム',
+  'workbench.gitLog.viewMode.workspace': 'ワークスペース',
   'workbench.gitLog.viewMode.files': 'ファイル',
   'workbench.gitLog.viewMode.tooltip': '表示モード：{mode}',
   'workbench.gitLog.details.groupFilesByDirectory': 'ファイルをディレクトリでグループ化',

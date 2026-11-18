@@ -539,7 +539,7 @@ export const workbenchChrome = {
   'workbench.gitLog.details.showDiff': '显示差异',
   'workbench.gitLog.details.revertSelected': '还原所选更改',
   'workbench.gitLog.viewMode.heading': '视图模式',
-  'workbench.gitLog.viewMode.items': '工作区条目',
+  'workbench.gitLog.viewMode.workspace': '工作区',
   'workbench.gitLog.viewMode.files': '文件',
   'workbench.gitLog.viewMode.tooltip': '视图模式：{mode}',
   'workbench.gitLog.details.groupFilesByDirectory': '按目录对文件分组',

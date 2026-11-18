@@ -1,8 +1,8 @@
 /**
  * files-view-menu — the rows every changed-files tree's View Options
- * eye opens with: View Mode — Workspace Items or Files, one of the two
+ * eye opens with: View Mode — Workspace or Files, one of the two
  * — then Group Files by Directory, which shapes the rows that are
- * files (every row under Files; under Workspace Items, the user's own).
+ * files (every row under Files; under Workspace, the user's own).
  * Pure over (t, view); the eye appends its own rows after these.
  */
 
@@ -34,7 +34,7 @@ export function filesViewMenuItems(t: Translate, view: FilesView): MenuItems {
       children: [
         {
           key: 'view-mode-items',
-          label: t('workbench.gitLog.viewMode.items'),
+          label: t('workbench.gitLog.viewMode.workspace'),
           icon: menuCheckIcon(view.mode === 'items'),
         },
         {

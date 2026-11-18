@@ -18,7 +18,7 @@ export interface CommitViewPrefs {
   /** Eye: Group Files by Directory — OFF by default (the reference
    *  view: flat filename + dim-directory-suffix, sorted by filename);
    *  on folds the rows into the compressed directory tree. Under the
-   *  Workspace Items view mode it shapes only the user's own files. */
+   *  Workspace view mode it shapes only the user's own files. */
   groupByDirectory: boolean;
   /** Eye: Show > Ignored Files — read-only `!!` rows. */
   showIgnored: boolean;

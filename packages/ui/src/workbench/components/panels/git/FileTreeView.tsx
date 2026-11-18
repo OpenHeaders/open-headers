@@ -1,8 +1,8 @@
 /**
  * FileTreeView — the detail pane's changed-files tree, drawn one of two
- * ways (the View Mode). As workspace items — by what the files belong
+ * ways (the View Mode). Workspace — by what the files belong
  * to in the workbench (`NamedFileTree`): the panels' sections,
- * collections and entities by name. Or as files, by path
+ * collections and entities by name. Or Files, by path
  * (`PathFileRows`): single-child dir chains fold into one `a/b/c` node
  * with an `N files` badge, or flat full-path rows while Group Files by
  * Directory is off, filenames behind the Commit tree's file-type icon

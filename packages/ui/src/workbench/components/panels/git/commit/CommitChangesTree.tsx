@@ -5,7 +5,7 @@
  * and the reference default FLAT format — basename + a dim directory
  * suffix (`modules.xml  .idea`) sorted by filename — switching to the
  * compressed directory tree when Group Files by Directory is on, or — the
- * Workspace Items view mode, `named` — each group's files listed by what they belong
+ * Workspace view mode, `named` — each group's files listed by what they belong
  * to in the workbench, in the panels' own rows (`CommitNamedRows`). A
  * root-level file's suffix (and the grouped tree's content-root node)
  * reads the binding's folder name — the reference names the content root.
@@ -77,7 +77,7 @@ export interface CommitChangesTreeProps {
   loadingPath?: string | null;
   groupByDirectory: boolean;
   /**
-   * The Workspace Items view mode: each group's files as the workbench
+   * The Workspace view mode: each group's files as the workbench
    * lists what they belong to — Group Files by Directory then shapes
    * only the user's own files. Absent: the files are listed by path.
    */

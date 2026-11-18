@@ -117,13 +117,14 @@ describe('Git › Log section', () => {
     expect(getGitLogViewPrefs(WS).showTagNames).toBe(true);
   });
 
-  it('the view mode row reads every changed-files tree’s one choice, and its reset returns Workspace Items', () => {
+  it('the view mode row reads every changed-files tree’s one choice, and its reset returns Workspace', () => {
     setFilesViewMode(WS, 'files');
     render(<GitLogSection git={gitOf(STATUS)} />);
-    const row = screen.getByTestId('git-log-pane-view-mode-select').closest('.settings-field-row') as HTMLElement;
-    expect(row.textContent).toContain('Files');
+    const select = screen.getByTestId('git-log-pane-view-mode-select');
+    expect(select.textContent).toBe('Files');
+    const row = select.closest('.settings-field-row') as HTMLElement;
     fireEvent.click(row.querySelector('button.ant-btn') as HTMLButtonElement);
     expect(getFilesViewMode(WS)).toBe('items');
-    expect(row.textContent).toContain('Workspace Items');
+    expect(select.textContent).toBe('Workspace');
   });
 });

@@ -731,7 +731,7 @@ export const workbenchSettingsPanes = {
     '커밋 행에 서명된 커밋을 표시하고 각 서명의 확인 여부도 함께 표시합니다.',
   'workbench.settings.gitPane.log.viewModeLabel': '보기 모드',
   'workbench.settings.gitPane.log.viewModeDescription':
-    '변경된 파일의 각 목록을 표시하는 방식입니다. 워크스페이스 항목(파일이 워크스페이스에서 속한 항목을 이름으로 나열) 또는 파일(경로로 나열) 중에서 선택합니다.',
+    '변경된 파일의 각 목록을 표시하는 방식입니다. 워크스페이스(파일이 워크스페이스에서 속한 항목을 이름으로 나열) 또는 파일(경로로 나열) 중에서 선택합니다.',
   'workbench.settings.gitPane.log.groupByDirectoryLabel': '디렉터리별 그룹화',
   'workbench.settings.gitPane.log.groupByDirectoryDescription':
     '커밋의 변경된 파일을 디렉터리 아래에 중첩합니다. 끄면 평면으로 나열합니다.',

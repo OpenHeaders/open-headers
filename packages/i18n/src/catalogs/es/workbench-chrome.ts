@@ -721,7 +721,7 @@ export const workbenchChrome = {
   'workbench.gitLog.details.showDiff': 'Mostrar diff',
   'workbench.gitLog.details.revertSelected': 'Revertir cambios seleccionados',
   'workbench.gitLog.viewMode.heading': 'Modo de vista',
-  'workbench.gitLog.viewMode.items': 'Elementos del espacio de trabajo',
+  'workbench.gitLog.viewMode.workspace': 'Espacio de trabajo',
   'workbench.gitLog.viewMode.files': 'Archivos',
   'workbench.gitLog.viewMode.tooltip': 'Modo de vista: {mode}',
   'workbench.gitLog.details.groupFilesByDirectory': 'Agrupar archivos por directorio',

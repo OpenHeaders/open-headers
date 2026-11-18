@@ -839,7 +839,7 @@ export const workbenchSettingsPanes = {
     'Marquer les commits signés sur les lignes de commits et indiquer si Git a pu vérifier chaque signature.',
   'workbench.settings.gitPane.log.viewModeLabel': "Mode d'affichage",
   'workbench.settings.gitPane.log.viewModeDescription':
-    "Comment se présente chaque liste de fichiers modifiés : en éléments de l'espace de travail — ce à quoi les fichiers appartiennent dans l'espace de travail, par nom — ou en fichiers, par chemin.",
+    "Comment se présente chaque liste de fichiers modifiés : Espace de travail — ce à quoi les fichiers appartiennent dans l'espace de travail, par nom — ou Fichiers, par chemin.",
   'workbench.settings.gitPane.log.groupByDirectoryLabel': 'Grouper par répertoire',
   'workbench.settings.gitPane.log.groupByDirectoryDescription':
     "Imbriquer les fichiers modifiés d'un commit sous leurs répertoires ; désactivé, ils sont listés à plat.",

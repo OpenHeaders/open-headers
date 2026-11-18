@@ -843,7 +843,7 @@ export const workbenchSettingsPanes = {
     'Signierte Commits in den Commit-Zeilen kennzeichnen – und ob Git die jeweilige Signatur verifizieren konnte.',
   'workbench.settings.gitPane.log.viewModeLabel': 'Ansichtsmodus',
   'workbench.settings.gitPane.log.viewModeDescription':
-    'Wie jede Liste geänderter Dateien dargestellt wird: als Arbeitsbereichselemente — wozu die Dateien im Arbeitsbereich gehören, mit Namen — oder als Dateien, nach Pfad.',
+    'Wie jede Liste geänderter Dateien dargestellt wird: Arbeitsbereich — wozu die Dateien im Arbeitsbereich gehören, mit Namen — oder Dateien, nach Pfad.',
   'workbench.settings.gitPane.log.groupByDirectoryLabel': 'Nach Verzeichnis gruppieren',
   'workbench.settings.gitPane.log.groupByDirectoryDescription':
     'Die geänderten Dateien eines Commits unter ihren Verzeichnissen verschachteln; aus listet sie flach.',

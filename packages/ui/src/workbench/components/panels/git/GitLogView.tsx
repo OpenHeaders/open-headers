@@ -136,8 +136,8 @@ const GitLogView: React.FC<GitLogViewProps> = ({
 
   const [selectedFile, setSelectedFile] = useState<string | null>(null);
   // The entity the files tree names for the selection (the Workspace
-  // Items view mode) — what Jump to Source opens, a row that lists
-  // several files included; set with the file, by the one report.
+  // view mode) — what Jump to Source opens, a row that lists several
+  // files included; set with the file, by the one report.
   const [selectedEntity, setSelectedEntity] = useState<WorkspaceTreeEntityRefWire | null>(null);
   // The commit the selected file's change is read against, where the
   // files are listed by parent (a merge's); set with the file.

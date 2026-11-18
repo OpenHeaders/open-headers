@@ -47,7 +47,7 @@ export interface FileTreeViewProps {
   /**
    * The workspace and the commit the files are of — what a file is named
    * from when the workspace no longer holds the entity it belonged to
-   * (the Workspace Items view mode). Absent: such a file is listed by
+   * (the Workspace view mode). Absent: such a file is listed by
    * its path.
    */
   workspaceId?: string;

@@ -1,6 +1,6 @@
 /**
  * FilesViewModeSwitch — the View Mode where it is seen without opening
- * anything: two buttons side by side, Workspace Items | Files, the one
+ * anything: two buttons side by side, Workspace | Files, the one
  * in force held pressed. The same choice the View Options eye opens
  * with (`files-view-menu`). In a pane's band it is ONE entry — it
  * folds whole.
@@ -31,7 +31,7 @@ const FilesViewModeSwitch: React.FC<FilesViewModeSwitchProps> = ({ mode, onChang
     >
       <ToolbarIconButton
         icon={<WorkspaceItemsIcon />}
-        title={t('workbench.gitLog.viewMode.tooltip', { mode: t('workbench.gitLog.viewMode.items') })}
+        title={t('workbench.gitLog.viewMode.tooltip', { mode: t('workbench.gitLog.viewMode.workspace') })}
         active={mode === 'items'}
         onClick={() => onChange('items')}
         testid={`${testid}-items`}

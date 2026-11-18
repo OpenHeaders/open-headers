@@ -2,7 +2,7 @@
  * WorkspaceItemsIcon — a nested list: one bulleted row with two more
  * stepped in under it, the way a panel lists a collection over its
  * items. It stands for a list drawn by what things are called in the
- * workbench (the changed-files trees' Workspace Items view mode).
+ * workbench (the changed-files trees' Workspace view mode).
  * Drawn on a 16x16 grid with 1.5px strokes and wrapped in antd's Icon
  * so it inherits `.anticon` sizing and currentColor like every stock
  * icon.

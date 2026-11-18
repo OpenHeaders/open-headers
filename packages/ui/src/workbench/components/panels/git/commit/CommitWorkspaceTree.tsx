@@ -1,7 +1,7 @@
 /**
  * CommitWorkspaceTree — the Commit tree over the live workspace: each
  * git group's files listed by what they belong to in the workbench
- * (the Workspace Items view mode). The workspace is read here, only while this
+ * (the Workspace view mode). The workspace is read here, only while this
  * shape is the one shown. A tracked file the workspace holds no entity
  * for — its entity deleted in the workbench, the change not yet
  * committed — is named from HEAD, which still has its manifest
