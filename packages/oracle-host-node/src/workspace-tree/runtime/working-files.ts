@@ -20,6 +20,7 @@
 import fs from 'node:fs/promises';
 import { logger } from '@openheaders/core/utils';
 import {
+  atOrBeneath,
   countDirtyFiles,
   gitOperationInProgress,
   intentToAddPaths,
@@ -58,7 +59,10 @@ export async function runAddToVcs(
  * work; the named files then return to HEAD's, and the sweep takes them
  * in — a rolled-back document is the engine's again as HEAD has it. The
  * commit draft describes work that may be gone: it is spent when nothing
- * is left uncommitted. Refused while a git operation started outside
+ * is left uncommitted. A path where that flush was refused, or beneath
+ * such a place, is left out as a commit leaves it out: git's checkout of
+ * it would replace the link, and the engine holds what stood there.
+ * Refused while a git operation started outside
  * stands (its files are not ours to put back), and like a busy index
  * while git's writing holds what the engine has unwritten.
  */
@@ -75,10 +79,17 @@ export async function runRollbackPaths(
   const operation = await gitOperationInProgress(rootDir);
   if (operation !== null) return { ok: false, reason: 'op-in-progress', detail: operation };
   await binding.service.hydrated;
-  if ((await binding.materializer.flushCurrent()).held !== undefined) {
+  const flushed = await binding.materializer.flushCurrent();
+  if (flushed.held !== undefined) {
     return { ok: false, reason: 'index-locked', detail: TREE_HELD_DETAIL };
   }
-  const result = await rollbackWorkingPaths(ctx.gitRun, rootDir, paths, { deleteAdded });
+  const refusedAt = new Set(flushed.refusedAt);
+  const result = await rollbackWorkingPaths(
+    ctx.gitRun,
+    rootDir,
+    paths.filter((filePath) => !atOrBeneath(refusedAt, filePath)),
+    { deleteAdded },
+  );
   if (!result.ok) return { ok: false, reason: result.reason, detail: result.detail };
   if ((await countDirtyFiles(ctx.gitRun, rootDir)) === 0) ctx.drainIntents(binding);
   await ctx.runSweep(binding);

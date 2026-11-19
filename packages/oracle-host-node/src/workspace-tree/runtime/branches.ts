@@ -10,6 +10,7 @@
 import { logger } from '@openheaders/core/utils';
 import { detachedHeadStamp } from '@openheaders/core/workspace-tree';
 import {
+  checkoutRefusedReason,
   composeCommitMessage,
   createLightweightTag,
   createLocalBranch,
@@ -19,6 +20,7 @@ import {
   isCommitSha,
   isSafeRefName,
   isWorkspaceRepo,
+  linkStandingAt,
   listLocalBranches,
   listRepoRefs,
   localHeadSha,
@@ -102,6 +104,7 @@ export async function runSwitchBranch(
     rootDir,
     branch,
     ...(dirtyAction !== undefined ? { dirtyAction } : {}),
+    refusedAt: binding.refusedAt,
     commit: async () => {
       const committed = await ctx.runCommit(binding);
       if (committed.ok && committed.committed) await ctx.maybeAutoPush(binding);
@@ -162,6 +165,18 @@ export async function runCreateBranch(
   const exists = (await resolveRefSha(ctx.gitRun, rootDir, `refs/heads/${branch}`)) !== null;
   if (exists && !overwrite) return { ok: false, reason: 'exists' };
   if (exists && overwrite && branch === current) return { ok: false, reason: 'current-branch' };
+
+  if (checkout && from !== undefined) {
+    // A start point that is not HEAD's commit moves the tree, as a switch does: refused while a link stands in a
+    // document's place.
+    const link = await linkStandingAt(rootDir, binding.refusedAt);
+    if (
+      link !== null &&
+      (await resolveRefSha(ctx.gitRun, rootDir, from)) !== (await localHeadSha(ctx.gitRun, rootDir))
+    ) {
+      return { ok: false, reason: 'create-failed', detail: checkoutRefusedReason(link) };
+    }
+  }
 
   const created = await createLocalBranch(ctx.gitRun, rootDir, branch, {
     ...(from !== undefined ? { from } : {}),

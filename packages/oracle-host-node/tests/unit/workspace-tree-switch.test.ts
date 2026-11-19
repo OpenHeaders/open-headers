@@ -5,6 +5,9 @@
  * contract — the commit rides the engine's own commit seam, the stash
  * is the user's ordinary recoverable stash entry, and discard is the
  * only destructive path (checkout --force + clean).
+ *
+ * And a link standing where the flush was refused: every answer is
+ * refused in one sentence, with nothing done.
  */
 
 import { promises as fs } from 'node:fs';
@@ -46,12 +49,13 @@ const raw = (...args: string[]) =>
 
 const write = (rel: string, content: string) => fs.writeFile(path.join(repo, rel), content, 'utf-8');
 
-const doSwitch = (branch: string, dirtyAction?: 'commit' | 'stash' | 'discard') =>
+const doSwitch = (branch: string, dirtyAction?: 'commit' | 'stash' | 'discard', refusedAt: readonly string[] = []) =>
   switchWorkspaceBranch({
     run,
     rootDir: repo,
     branch,
     ...(dirtyAction !== undefined ? { dirtyAction } : {}),
+    refusedAt,
     commit: async () => {
       const result = await commitWorkspaceTree({
         run,
@@ -195,5 +199,71 @@ describe('switchWorkspaceBranch', () => {
   it('holds while a git operation is in progress (§3.3)', async () => {
     await fs.writeFile(path.join(repo, '.git', 'MERGE_HEAD'), 'deadbeef\n', 'utf-8');
     expect(await doSwitch('feature')).toMatchObject({ ok: false, reason: 'op-in-progress', detail: 'MERGE_HEAD' });
+  });
+});
+
+describe('switchWorkspaceBranch: a link standing where the flush was refused', () => {
+  const PLACE = 'rules/foo';
+  const REFUSED = {
+    ok: false,
+    reason: 'checkout-failed',
+    detail: `"${PLACE}" is a link — nothing is checked out while it stands there; move what it points to back to this place first`,
+  };
+  const place = (): string => path.join(repo, 'rules', 'foo');
+  const moved = (): string => path.join(tmpDir, 'moved');
+
+  /** A rule main holds and feature does not, committed. */
+  beforeEach(async () => {
+    await fs.mkdir(place(), { recursive: true });
+    await write('rules/foo/rule.yaml', 'name: foo\n');
+    const held = await commitWorkspaceTree({ run, rootDir: repo, message: 'A rule', identityEnv: IDENTITY_ENV });
+    if (!held.ok || !held.committed) throw new Error('the rule’s commit failed');
+  });
+
+  async function swapForALink(): Promise<void> {
+    await fs.rename(place(), moved());
+    await fs.symlink(moved(), place());
+  }
+
+  it.each([undefined, 'commit', 'stash', 'discard'] as const)(
+    'the answer %s is refused in a sentence naming the link, and nothing is done: no commit, no stash, the link stands',
+    async (dirtyAction) => {
+      await swapForALink();
+      const head = await localHeadSha(run, repo);
+
+      expect(await doSwitch('feature', dirtyAction, [PLACE])).toEqual(REFUSED);
+      expect([await currentBranch(run, repo), await localHeadSha(run, repo)]).toEqual(['main', head]);
+      expect((await raw('stash', 'list')).stdout.trim()).toBe('');
+      expect((await fs.lstat(place())).isSymbolicLink()).toBe(true);
+      expect(await fs.readdir(moved())).toEqual(['rule.yaml']);
+    },
+  );
+
+  it('a full commit sha is refused the same', async () => {
+    const sha = await resolveRefSha(run, repo, 'refs/heads/feature');
+    if (sha === null) throw new Error('feature did not resolve');
+    await swapForALink();
+    expect(await doSwitch(sha, 'discard', [PLACE])).toEqual(REFUSED);
+    expect(await currentBranch(run, repo)).toBe('main');
+  });
+
+  it('of two places, the one a link stands at is the one named', async () => {
+    await swapForALink();
+    expect(await doSwitch('feature', undefined, ['rules/none', PLACE])).toEqual(REFUSED);
+  });
+
+  it('a place no link stands at now — a directory again, or nothing there — refuses nothing', async () => {
+    expect(await doSwitch('feature', undefined, [PLACE, 'rules/none'])).toEqual({
+      ok: true,
+      branch: 'feature',
+      switched: true,
+    });
+  });
+
+  it('the branch HEAD is on stays the no-op it was, and an unknown branch is said as one', async () => {
+    await swapForALink();
+    expect(await doSwitch('main', 'discard', [PLACE])).toEqual({ ok: true, branch: 'main', switched: false });
+    expect(await doSwitch('no-such-branch', 'discard', [PLACE])).toMatchObject({ ok: false, reason: 'unknown-branch' });
+    expect((await fs.lstat(place())).isSymbolicLink()).toBe(true);
   });
 });

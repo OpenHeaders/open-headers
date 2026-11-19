@@ -213,5 +213,5 @@ export {
   treeWithFiles,
   treeWithWorkingFiles,
 } from './tree-ops';
-export { atOrBeneath } from './tree-places';
+export { atOrBeneath, checkoutRefusedReason, linkStandingAt } from './tree-places';
 export { type TreeWritesWatch, watchTreeWrites } from './tree-writes';

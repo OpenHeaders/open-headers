@@ -20,6 +20,13 @@
  * target — a revision expression (`main~1`) would resolve and detach,
  * so the branch is asked of the ref itself, never resolved.
  *
+ * While a link stands where the flush was refused (`refusedAt`), no
+ * answer checks anything out: git's checkout replaces the link where
+ * the two commits differ beneath it, and Discard's clean takes it away
+ * at every target — the documents beneath it then read as deleted. The
+ * pass refuses in a sentence naming the link, before the count and
+ * before any answer is acted on.
+ *
  * The caller (runtime) owns what follows a successful switch: flip the
  * §6.3 per-branch log pointer, then the rung-2 tree-wins sweep that
  * converges the engine to the new branch's tree — the same path an
@@ -27,6 +34,7 @@
  */
 
 import {
+  checkoutRefusedReason,
   checkoutWorkspaceBranch,
   cleanUntracked,
   countDirtyFiles,
@@ -35,6 +43,7 @@ import {
   gitOperationInProgress,
   hasLocalBranch,
   isCommitSha,
+  linkStandingAt,
   localHeadSha,
   resolveRefSha,
   stashWorkspaceTree,
@@ -49,6 +58,8 @@ export interface SwitchWorkspaceBranchOptions {
   branch: string;
   /** The user's §6.2 prompt answer; absent = refuse when dirty. */
   dirtyAction?: SwitchDirtyAction;
+  /** Where the last flush was refused (`MaterializeResult.refusedAt`). */
+  refusedAt: readonly string[];
   /** The ordinary engine commit pass — the `commit` choice rides it. */
   commit: () => Promise<{ ok: boolean; detail?: string }>;
 }
@@ -82,6 +93,9 @@ export async function switchWorkspaceBranch(
       return { ok: true, branch, switched: false };
     }
   }
+
+  const link = await linkStandingAt(rootDir, options.refusedAt);
+  if (link !== null) return { ok: false, reason: 'checkout-failed', detail: checkoutRefusedReason(link) };
 
   const dirty = (await countDirtyFiles(run, rootDir)) ?? 0;
   if (dirty > 0) {

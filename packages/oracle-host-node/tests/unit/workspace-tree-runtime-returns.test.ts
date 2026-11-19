@@ -24,8 +24,10 @@
  * file, at its collection's directory: the engine keeps what it holds,
  * one row says the link, a commit of the whole tree leaves the place as
  * HEAD has it, the Commit window lists nothing there and a commit of
- * checked files that names it leaves it out, and a pull's commit holds
- * the rule as a file.
+ * checked files that names it leaves it out, a pull's commit holds
+ * the rule as a file, and while it stands nothing is checked out — by a
+ * switch, by a new branch at another commit — and Rollback leaves the
+ * place out.
  *
  * And the Git card's rows a pass leaves, on the same wiring: derived as
  * a sweep derives them — the read contained against the engine's
@@ -662,6 +664,90 @@ describe('the workspace-tree runtime: a link where a document stood', () => {
     await until('the engine reads the deletion', () => !engineHoldsTheRule(), 8_000);
     await delay(TREE_AT_REST_MS);
     expect(rows()).toEqual([]);
+  });
+
+  const checkoutRefused = (place: string): string =>
+    `"${place}" is a link — nothing is checked out while it stands there; move what it points to back to this place first`;
+
+  /** The link at `relative` still there, and the collection with its rule still the engine's. */
+  async function expectTheLinkAndTheRuleHeld(relative: string): Promise<void> {
+    await delay(TREE_AT_REST_MS);
+    expect((await fs.lstat(inTree(relative))).isSymbolicLink()).toBe(true);
+    expect([engineHoldsTheCollection(), engineHoldsTheRule(), rulesInTheCollection()]).toEqual([
+      true,
+      true,
+      [RULE_UID],
+    ]);
+    expect(rows()).toEqual([`${relative}/ :: ${NOT_WRITTEN}`]);
+  }
+
+  it('a switch with Discard to a branch at the SAME commit is refused in a sentence naming the link — git’s clean takes the link away at every target — and the link stands, the rule held', {
+    timeout: 30_000,
+  }, async () => {
+    await commitTheCollectionAndItsRule();
+    const branch = await harness.git('rev-parse', '--abbrev-ref', 'HEAD');
+    await harness.git('branch', 'same');
+    await swapForALink(RULE_DIR);
+
+    expect(await harness.runtime.switchBranch(harness.workspaceId, 'same', 'discard')).toEqual({
+      ok: false,
+      reason: 'checkout-failed',
+      detail: checkoutRefused(RULE_DIR),
+    });
+    expect(await harness.git('rev-parse', '--abbrev-ref', 'HEAD')).toBe(branch);
+    await expectTheLinkAndTheRuleHeld(RULE_DIR);
+  });
+
+  it('a new branch checked out at another commit is refused in the same sentence and is not made; one at HEAD’s own commit, and one not checked out, are made', {
+    timeout: 30_000,
+  }, async () => {
+    await commitTheCollectionAndItsRule();
+    const seed = await harness.git('rev-parse', 'HEAD');
+    await writeByHand('README.md', 'A workspace of mine.\n');
+    expect(
+      await harness.runtime.userCommit(harness.workspaceId, { message: 'a readme', paths: ['README.md'] }),
+    ).toMatchObject({ ok: true, committed: true });
+    await harness.git('branch', 'earlier', seed);
+    await harness.git('branch', 'here');
+    await swapForALink(RULE_DIR);
+
+    const refused = { ok: false, reason: 'create-failed', detail: checkoutRefused(RULE_DIR) };
+    expect(await harness.runtime.createBranch(harness.workspaceId, 'fresh', { from: 'earlier' })).toEqual(refused);
+    expect(await harness.runtime.createBranch(harness.workspaceId, 'fresh', { from: seed })).toEqual(refused);
+    expect(await harness.git('branch', '--list', 'fresh')).toBe('');
+
+    expect(
+      await harness.runtime.createBranch(harness.workspaceId, 'aside', { from: 'earlier', checkout: false }),
+    ).toEqual({ ok: true, branch: 'aside', checkedOut: false });
+    expect(await harness.runtime.createBranch(harness.workspaceId, 'fresh', { from: 'here' })).toEqual({
+      ok: true,
+      branch: 'fresh',
+      checkedOut: true,
+    });
+    expect(await harness.git('rev-parse', '--abbrev-ref', 'HEAD')).toBe('fresh');
+    await expectTheLinkAndTheRuleHeld(RULE_DIR);
+  });
+
+  it('Rollback asked for the rows beneath a collection’s link rolls nothing back there, and the file changed beside them goes back: the link stands, the collection and its rule held', {
+    timeout: 30_000,
+  }, async () => {
+    await commitTheCollectionAndItsRule();
+    await writeByHand('README.md', 'A workspace of mine.\n');
+    expect(
+      await harness.runtime.userCommit(harness.workspaceId, { message: 'a readme', paths: ['README.md'] }),
+    ).toMatchObject({ ok: true, committed: true });
+    await swapForALink(COLLECTION_DIR);
+
+    expect(await harness.runtime.rollbackPaths(harness.workspaceId, [RULE_FILE], false)).toEqual({
+      ok: true,
+      rolledBack: 0,
+    });
+    await writeByHand('README.md', 'Edited.\n');
+    expect(
+      await harness.runtime.rollbackPaths(harness.workspaceId, ['README.md', COLLECTION_FILE, RULE_FILE], false),
+    ).toEqual({ ok: true, rolledBack: 1 });
+    expect(await fs.readFile(inTree('README.md'), 'utf-8')).toBe('A workspace of mine.\n');
+    await expectTheLinkAndTheRuleHeld(COLLECTION_DIR);
   });
 
   it('a Pull that brings the peer’s note beside a rule whose directory is a link here is refused before anything is written, naming the link and the note — the rule is held and the link stands', {
