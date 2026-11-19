@@ -17,7 +17,8 @@
  * the engine's collection with nothing in it is the empty order.
  *
  * And a note the peer keeps in a collection's directory, which no
- * document reads: a pull lands it like any file of the user's own.
+ * document reads: a pull, a Cherry-Pick, a Revert and a rewritten
+ * history resolved each way carry it like any file of the user's own.
  *
  * And the Git card's rows a pass leaves, on the same wiring: derived as
  * a sweep derives them — the read contained against the engine's
@@ -410,13 +411,83 @@ describe('the workspace-tree runtime: a note the peer keeps in a collection’s 
             expect(await harness.runtime.commit(harness.workspaceId, 'a readme')).toMatchObject({ ok: true });
           }
           expect(await harness.runtime.pull(harness.workspaceId)).toMatchObject({ ok: true, upToDate: false });
-          expect(await fs.readFile(inTree(NOTE), 'utf-8')).toBe(NOTE_TEXT);
-          expect(await harness.git('show', `HEAD:${NOTE}`)).toBe(NOTE_TEXT.trimEnd());
-          await delay(TREE_AT_REST_MS);
-          expect(await harness.git('status', '--porcelain')).toBe('');
-          expect(harness.runtime.issues(harness.workspaceId)).toEqual([]);
+          await expectTheNoteAsThePeerHasIt();
         },
       );
+    },
+  );
+
+  /** The note in the folder and in HEAD as the peer wrote it, nothing changed and no row raised. */
+  async function expectTheNoteAsThePeerHasIt(): Promise<void> {
+    expect(await fs.readFile(inTree(NOTE), 'utf-8')).toBe(NOTE_TEXT);
+    expect(await harness.git('show', `HEAD:${NOTE}`)).toBe(NOTE_TEXT.trimEnd());
+    await delay(TREE_AT_REST_MS);
+    expect(await harness.git('status', '--porcelain')).toBe('');
+    expect(harness.runtime.issues(harness.workspaceId)).toEqual([]);
+  }
+
+  it('lands with a Cherry-Pick of the commit that adds it, and the pick’s commit holds it', {
+    timeout: 30_000,
+  }, async () => {
+    await commitTheCollectionAndItsRule();
+    const other = await fs.mkdtemp(path.join(os.tmpdir(), 'oh-tree-runtime-other-'));
+    try {
+      await harness.git('clone', '-q', harness.rootDir, other);
+      await harness.git('-C', other, 'checkout', '-q', '-b', 'side');
+      await fs.writeFile(path.join(other, ...NOTE.split('/')), NOTE_TEXT, 'utf-8');
+      await harness.git('-C', other, 'add', '-A');
+      await harness.git('-C', other, 'commit', '-q', '-m', 'a note');
+      await harness.git('fetch', '-q', other, 'side:side');
+      expect(
+        await harness.runtime.applyCommit(harness.workspaceId, await harness.git('rev-parse', 'side'), 'pick'),
+      ).toMatchObject({ ok: true });
+      await expectTheNoteAsThePeerHasIt();
+    } finally {
+      await fs.rm(other, { recursive: true, force: true });
+    }
+  });
+
+  it('leaves with a Revert of the commit that added it, and the revert’s commit holds none', {
+    timeout: 30_000,
+  }, async () => {
+    await commitTheCollectionAndItsRule();
+    await writeByHand(NOTE, NOTE_TEXT);
+    expect(await harness.runtime.commit(harness.workspaceId, 'a note')).toMatchObject({ ok: true, committed: true });
+    expect(
+      await harness.runtime.applyCommit(harness.workspaceId, await harness.git('rev-parse', 'HEAD'), 'revert'),
+    ).toMatchObject({ ok: true });
+    expect(await isThere(NOTE)).toBe(false);
+    expect(await harness.git('ls-tree', '-r', '--name-only', 'HEAD', '--', NOTE)).toBe('');
+    await delay(TREE_AT_REST_MS);
+    expect(await harness.git('status', '--porcelain')).toBe('');
+    expect(harness.runtime.issues(harness.workspaceId)).toEqual([]);
+  });
+
+  it.each(['abandon', 'rescue', 'reapply'] as const)(
+    'lands with a rewritten history resolved by %s, and no commit of the resolution deletes it',
+    { timeout: 30_000 },
+    async (choice) => {
+      await commitTheCollectionAndItsRule();
+      const other = await fs.mkdtemp(path.join(os.tmpdir(), 'oh-tree-runtime-other-'));
+      try {
+        await withTheBranchPushed(async () => {
+          const branch = await harness.git('rev-parse', '--abbrev-ref', 'HEAD');
+          await harness.git('clone', '-q', '-b', branch, await harness.git('remote', 'get-url', 'origin'), other);
+          expect(await harness.runtime.pull(harness.workspaceId)).toMatchObject({ ok: true, upToDate: true });
+          await writeByHand('README.md', 'A workspace of mine.\n');
+          expect(await harness.runtime.commit(harness.workspaceId, 'a readme')).toMatchObject({ ok: true });
+          await fs.writeFile(path.join(other, ...NOTE.split('/')), NOTE_TEXT, 'utf-8');
+          await harness.git('-C', other, 'add', '-A');
+          await harness.git('-C', other, 'commit', '-q', '--amend', '-m', 'seed, rewritten');
+          await harness.git('-C', other, 'push', '-q', '--force');
+
+          expect(await harness.runtime.resolveForcePush(harness.workspaceId, choice)).toMatchObject({ ok: true });
+          await expectTheNoteAsThePeerHasIt();
+          expect(await harness.git('diff', '--name-status', `origin/${branch}`, 'HEAD', '--', NOTE)).toBe('');
+        });
+      } finally {
+        await fs.rm(other, { recursive: true, force: true });
+      }
     },
   );
 });

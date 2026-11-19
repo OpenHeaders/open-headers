@@ -72,6 +72,7 @@ import {
   withIndexLock,
   withObjectBatch,
 } from '../git';
+import { answeredBy, headWhenAsked } from './answered-by';
 import { landForeignOwnFiles } from './own-files';
 import {
   type FlushAccount,
@@ -313,9 +314,12 @@ export async function resolveForcePushWorkspaceTree(options: ResolveForcePushOpt
       // HEAD is still the pre-resolution head: `reapply` reads three-way
       // against the watermark, so a local change survives; `abandon` and
       // `rescue` take the foreign side's file wherever the two heads differ.
+      // A file beside a manifest is one of them where neither head's reading
+      // answers for it — HEAD's is read then, as the landing finds it.
       const own = await landForeignOwnFiles(run, rootDir, {
         baseRef: choice === 'reapply' ? options.lastSyncedRemoteSha : 'HEAD',
         foreignRef: upstream.sha,
+        answered: answeredBy(headWhenAsked(options), { commit: foreignCommit, tree: foreign }),
       });
       if (!own.ok) return { ok: false, reason: 'commit-failed', detail: own.detail, issues: foreign.issues };
 

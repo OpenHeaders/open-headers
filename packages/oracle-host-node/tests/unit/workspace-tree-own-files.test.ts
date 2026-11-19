@@ -16,7 +16,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { createGitExec, type GitRunner } from '../../src/git/git-exec';
 import { ensureWorkspaceRepo } from '../../src/git/repo';
 import { repoArgs } from '../../src/git/repo-args';
-import { classifyForeignOwnFiles, landForeignOwnFiles } from '../../src/workspace-tree/own-files';
+import { type AnsweredPaths, classifyForeignOwnFiles, landForeignOwnFiles } from '../../src/workspace-tree/own-files';
 
 const IDENTITY_ENV = {
   GIT_AUTHOR_NAME: 'John Doe',
@@ -26,6 +26,9 @@ const IDENTITY_ENV = {
 };
 
 const README = 'notes/readme.md';
+
+/** The readings of a pass whose trees hold no file beside a manifest: they answer for nothing. */
+const NO_READINGS: AnsweredPaths = async () => new Set();
 
 let scratch: string;
 let rootDir: string;
@@ -64,7 +67,12 @@ async function bothSidesChangeTheReadme(change: () => Promise<void>): Promise<vo
 }
 
 const land = (answer: string) =>
-  landForeignOwnFiles(run, rootDir, { baseRef, foreignRef: 'theirs' }, new Map([[README, answer]]));
+  landForeignOwnFiles(
+    run,
+    rootDir,
+    { baseRef, foreignRef: 'theirs', answered: NO_READINGS },
+    new Map([[README, answer]]),
+  );
 
 beforeEach(async () => {
   scratch = await fs.realpath(await fs.mkdtemp(path.join(os.tmpdir(), 'oh-own-files-')));
@@ -94,41 +102,39 @@ describe('classifyForeignOwnFiles — a link at a hygiene file’s name', () => 
   const LINK = '120000 cccc';
   const tree = (entries: Record<string, string>): Map<string, string> => new Map(Object.entries(entries));
 
-  it('is kept, never incoming, though only the foreign side changed the file — at .gitignore and at .gitattributes', () => {
+  it('is kept, never incoming, though only the foreign side changed the file — at .gitignore and at .gitattributes', async () => {
     const base = tree({ '.gitignore': FILE, '.gitattributes': FILE });
-    expect(classifyForeignOwnFiles(base, base, tree({ '.gitignore': LINK, '.gitattributes': LINK }))).toEqual({
-      incoming: [],
-      kept: ['.gitattributes', '.gitignore'],
-    });
+    expect(
+      await classifyForeignOwnFiles(base, base, tree({ '.gitignore': LINK, '.gitattributes': LINK }), NO_READINGS),
+    ).toEqual({ incoming: [], kept: ['.gitattributes', '.gitignore'] });
   });
 
-  it('is kept where neither the base nor the branch holds the file', () => {
-    expect(classifyForeignOwnFiles(tree({}), tree({}), tree({ '.gitignore': LINK }))).toEqual({
+  it('is kept where neither the base nor the branch holds the file', async () => {
+    expect(await classifyForeignOwnFiles(tree({}), tree({}), tree({ '.gitignore': LINK }), NO_READINGS)).toEqual({
       incoming: [],
       kept: ['.gitignore'],
     });
   });
 
-  it('a regular file the foreign side changed there still lands, and so does its deletion', () => {
+  it('a regular file the foreign side changed there still lands, and so does its deletion', async () => {
     const base = tree({ '.gitignore': FILE, '.gitattributes': FILE });
-    expect(classifyForeignOwnFiles(base, base, tree({ '.gitignore': EDITED }))).toEqual({
+    expect(await classifyForeignOwnFiles(base, base, tree({ '.gitignore': EDITED }), NO_READINGS)).toEqual({
       incoming: ['.gitattributes', '.gitignore'],
       kept: [],
     });
   });
 
-  it('a link at any other own file’s name still lands, and one deeper in the folder named as a hygiene file is', () => {
+  it('a link at any other own file’s name still lands, and one deeper in the folder named as a hygiene file is', async () => {
     const base = tree({ 'README.md': FILE, 'docs/.gitignore': FILE });
-    expect(classifyForeignOwnFiles(base, base, tree({ 'README.md': LINK, 'docs/.gitignore': LINK }))).toEqual({
-      incoming: ['README.md', 'docs/.gitignore'],
-      kept: [],
-    });
+    expect(
+      await classifyForeignOwnFiles(base, base, tree({ 'README.md': LINK, 'docs/.gitignore': LINK }), NO_READINGS),
+    ).toEqual({ incoming: ['README.md', 'docs/.gitignore'], kept: [] });
   });
 
-  it('a link both sides already hold is no change at all', () => {
+  it('a link both sides already hold is no change at all', async () => {
     const base = tree({ '.gitignore': FILE });
     const linked = tree({ '.gitignore': LINK });
-    expect(classifyForeignOwnFiles(base, linked, linked)).toEqual({ incoming: [], kept: [] });
+    expect(await classifyForeignOwnFiles(base, linked, linked, NO_READINGS)).toEqual({ incoming: [], kept: [] });
   });
 });
 
@@ -142,26 +148,22 @@ describe('classifyForeignOwnFiles — a file beside an entity’s manifest', () 
   const base = tree({ [MANIFEST]: FILE });
   const theirs = tree({ [MANIFEST]: FILE, [NOTE]: FILE, [SCRIPT]: FILE });
 
-  it('is the user’s own where no reading answers for it, and a document’s where one does', () => {
-    expect(classifyForeignOwnFiles(base, base, theirs, () => new Set([MANIFEST, SCRIPT]))).toEqual({
+  it('is the user’s own where no reading answers for it, and a document’s where one does', async () => {
+    expect(await classifyForeignOwnFiles(base, base, theirs, async () => new Set([MANIFEST, SCRIPT]))).toEqual({
       incoming: [NOTE],
       kept: [],
     });
   });
 
-  it('is a document’s where the pass has no readings to ask', () => {
-    expect(classifyForeignOwnFiles(base, base, theirs)).toEqual({ incoming: [], kept: [] });
-  });
-
-  it('the readings are asked once, and not at all where only manifests differ', () => {
+  it('the readings are asked once, and not at all where only manifests and files outside every entity differ', async () => {
     let asked = 0;
-    const answered = (): ReadonlySet<string> => {
+    const answered: AnsweredPaths = async () => {
       asked += 1;
       return new Set([MANIFEST]);
     };
-    classifyForeignOwnFiles(base, base, tree({ [MANIFEST]: EDITED }), answered);
+    await classifyForeignOwnFiles(base, base, tree({ [MANIFEST]: EDITED, 'README.md': FILE }), answered);
     expect(asked).toBe(0);
-    classifyForeignOwnFiles(base, base, theirs, answered);
+    await classifyForeignOwnFiles(base, base, theirs, answered);
     expect(asked).toBe(1);
   });
 });
@@ -180,7 +182,7 @@ describe('landForeignOwnFiles — a link the foreign side put at .gitignore', ()
     await commit('theirs');
     await git('checkout', '-q', branch);
 
-    expect(await landForeignOwnFiles(run, rootDir, { baseRef, foreignRef: 'theirs' })).toEqual({
+    expect(await landForeignOwnFiles(run, rootDir, { baseRef, foreignRef: 'theirs', answered: NO_READINGS })).toEqual({
       ok: true,
       landed: ['other.md'],
       kept: ['.gitignore'],

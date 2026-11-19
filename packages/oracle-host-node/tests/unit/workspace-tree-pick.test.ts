@@ -15,7 +15,9 @@
  * pins a conflict no file shows: the branch's document stands, named.
  * The own-text-file describe pins the user's own file both sides
  * changed: shown as each side holds it, written as answered, and kept
- * and named only when it cannot be shown.
+ * and named only when it cannot be shown. And a file kept beside a
+ * manifest that no document reads: one of the user's own at a pick and
+ * at a revert, where a script beside that manifest stays the engine's.
  */
 
 import { promises as fs } from 'node:fs';
@@ -1058,5 +1060,127 @@ describe('applyWorkspaceCommit — a conflict no file shows', () => {
     });
     expect(state.environments[0].variables[1].name).toBe('authToken');
     expect(await git(local, 'rev-parse', 'HEAD')).toBe(head);
+  });
+});
+
+describe('applyWorkspaceCommit — a file kept beside a manifest, which no document reads', () => {
+  const COLLECTION_NOTE = 'rules/api-colapi00/notes.md';
+  const RULE_NOTE = 'rules/api-colapi00/block-probes-aaaaaaaa/notes.md';
+  const SCRIPT = 'rules/api-colapi00/pre-request.js';
+  const SCRIPT_TEXT = 'console.log(1);\n';
+  const withTheScript = (): Collection => ({ ...API, preRequestScript: SCRIPT_TEXT });
+  const isThere = (rel: string): Promise<boolean> =>
+    read(local, rel).then(
+      () => true,
+      () => false,
+    );
+
+  /** Both notes on the branch and on the peer, committed. */
+  async function shareTheNotes(): Promise<void> {
+    await write(local, COLLECTION_NOTE, 'ours\n');
+    await write(local, RULE_NOTE, 'ours, in a rule\n');
+    await localCommit('Notes', {});
+    await git(peer, 'pull', '--quiet', local, 'main');
+  }
+
+  it('the ones the commit adds land and are in the pick beside the rule it changed — HEAD’s tree is read for them, through a git of its own', async () => {
+    await write(peer, COLLECTION_NOTE, 'the peer’s\n');
+    await write(peer, RULE_NOTE, 'the peer’s, in a rule\n');
+    await peerReplace(RULE_FILE, 'enabled: true', 'enabled: false');
+    const picked = await peerCommit('Notes, and the rule off');
+
+    const result = await apply(picked, 'pick', trace(), () => {
+      state = { ...state, rules: [makeRule({ enabled: false })] };
+    });
+    expect(result).toMatchObject({ ok: true });
+    expect(result).not.toHaveProperty('keptLocal');
+    expect(await read(local, COLLECTION_NOTE)).toBe('the peer’s\n');
+    expect(await read(local, RULE_NOTE)).toBe('the peer’s, in a rule\n');
+    expect(await git(local, 'show', '--name-only', '--format=', 'HEAD')).toBe(
+      [RULE_NOTE, RULE_FILE, COLLECTION_NOTE].join('\n'),
+    );
+    expect(await git(local, 'status', '--porcelain')).toBe('');
+    expect([batches.opened(), batches.held()]).toEqual([2, 0]);
+  });
+
+  it('one both sides hold follows the commit: its edit lands, and its deletion takes the file away', async () => {
+    await shareTheNotes();
+    await write(peer, COLLECTION_NOTE, 'the peer’s edit\n');
+    await fs.rm(path.join(peer, ...RULE_NOTE.split('/')));
+    const picked = await peerCommit('Notes changed');
+
+    const result = await apply(picked, 'pick', trace());
+    expect(result).toMatchObject({ ok: true });
+    expect(result).not.toHaveProperty('keptLocal');
+    expect(await read(local, COLLECTION_NOTE)).toBe('the peer’s edit\n');
+    expect(await isThere(RULE_NOTE)).toBe(false);
+    expect(await git(local, 'show', '--name-status', '--format=', 'HEAD')).toBe(
+      `D\t${RULE_NOTE}\nM\t${COLLECTION_NOTE}`,
+    );
+    expect(await git(local, 'status', '--porcelain')).toBe('');
+  });
+
+  it('a revert takes away the one the commit added, takes back its edit and brings back the one it deleted', async () => {
+    await shareTheNotes();
+    await write(local, COLLECTION_NOTE, 'ours, edited\n');
+    await fs.rm(path.join(local, ...RULE_NOTE.split('/')));
+    await write(local, 'rules/api-colapi00/more.md', 'more\n');
+    const changed = await localCommit('Notes changed', {});
+
+    const result = await apply(changed, 'revert', trace());
+    expect(result).toMatchObject({ ok: true });
+    expect(await read(local, COLLECTION_NOTE)).toBe('ours\n');
+    expect(await read(local, RULE_NOTE)).toBe('ours, in a rule\n');
+    expect(await isThere('rules/api-colapi00/more.md')).toBe(false);
+    expect(await git(local, 'show', '--name-status', '--format=', 'HEAD')).toBe(
+      `A\t${RULE_NOTE}\nD\trules/api-colapi00/more.md\nM\t${COLLECTION_NOTE}`,
+    );
+    expect(await git(local, 'status', '--porcelain')).toBe('');
+  });
+
+  it('one both sides changed is asked about with nothing written', async () => {
+    await shareTheNotes();
+    await write(peer, COLLECTION_NOTE, 'the peer’s edit\n');
+    const picked = await peerCommit('The peer’s note');
+    await write(local, COLLECTION_NOTE, 'mine\n');
+    const before = await localCommit('My note', {});
+
+    const result = await apply(picked, 'pick', trace());
+    expect(result).toMatchObject({ ok: false, reason: 'conflicts', conflicts: [COLLECTION_NOTE] });
+    expect(result.ok === false && result.resolve?.files).toEqual([
+      { path: COLLECTION_NOTE, base: 'ours\n', theirs: 'the peer’s edit\n', mine: 'mine\n' },
+    ]);
+    expect(await git(local, 'rev-parse', 'HEAD')).toBe(before);
+    expect(await read(local, COLLECTION_NOTE)).toBe('mine\n');
+  });
+
+  describe('a script beside the collection’s manifest is the collection’s: the engine’s to take and to write, never landed or removed as a file of the user’s own', () => {
+    // The engine is left as it was in each, so nothing writes or removes the file: what the landing did shows.
+
+    it('one the picked commit adds — the commit’s reading answers for it', async () => {
+      await write(peer, SCRIPT, SCRIPT_TEXT);
+      const picked = await peerCommit('A script');
+
+      expect(await apply(picked, 'pick', trace())).toMatchObject({ ok: false, reason: 'empty' });
+      expect(await isThere(SCRIPT)).toBe(false);
+    });
+
+    it('one the picked commit deletes, which the branch holds — HEAD’s reading answers for it', async () => {
+      await localCommit('The collection’s script', { collections: [withTheScript()] });
+      await git(peer, 'pull', '--quiet', local, 'main');
+      await fs.rm(path.join(peer, ...SCRIPT.split('/')));
+      const picked = await peerCommit('No script');
+
+      expect(await apply(picked, 'pick', trace())).toMatchObject({ ok: false, reason: 'empty' });
+      expect(await read(local, SCRIPT)).toBe(SCRIPT_TEXT);
+    });
+
+    it('one a reverted commit deleted — its parent’s reading answers for it', async () => {
+      await localCommit('The collection’s script', { collections: [withTheScript()] });
+      const deleted = await localCommit('No script', { collections: [API] });
+
+      expect(await apply(deleted, 'revert', trace())).toMatchObject({ ok: false, reason: 'empty' });
+      expect(await isThere(SCRIPT)).toBe(false);
+    });
   });
 });

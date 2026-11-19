@@ -91,7 +91,6 @@ import {
   containTreeRead,
   ENTITY_MANIFEST_FILES,
   type ForeignHistoryNote,
-  readDocumentPaths,
   readWorkspaceTree,
   type TreeFile,
   type TreeIssue,
@@ -124,10 +123,11 @@ import {
   withIndexLock,
   withObjectBatch,
 } from '../git';
+import { answeredBy } from './answered-by';
 import { type ApplyCommitResolution, type ApplyCommitResolve, decideChange } from './change-answers';
 import { type CommittedSide, type HeadReading, NOTHING_CARRIED, readCommittedSide, readHead } from './committed-side';
 import { TREE_HELD_DETAIL } from './materializer';
-import { type AnsweredPaths, landForeignOwnFiles, type OwnFileRefs } from './own-files';
+import { landForeignOwnFiles, type OwnFileRefs } from './own-files';
 import {
   type FlushAccount,
   flushedPaths,
@@ -530,22 +530,6 @@ interface ForeignReading {
 }
 
 /**
- * What the readings of HEAD and of the foreign head answer for, planned
- * once and only when asked. A file beside a manifest that neither holds
- * is the user's own (`own-files.ts`).
- */
-function answeredBy(head: HeadReading | null, foreign: { commit: CommitTree; read: TreeReadResult }): AnsweredPaths {
-  let answered: ReadonlySet<string> | undefined;
-  return () => {
-    answered ??= new Set([
-      ...(head === null ? [] : readDocumentPaths(commitTreePaths(head.commit), head.tree)),
-      ...readDocumentPaths(commitTreePaths(foreign.commit), foreign.read),
-    ]);
-    return answered;
-  };
-}
-
-/**
  * The reading half of an integration: the foreign head's tree, the merge
  * base, the engine's pending work flushed, the change laid and decided.
  * Every file of a commit the pass reads is read here, through `objects`.
@@ -618,7 +602,7 @@ async function readIntegration(
   const ownRefs: OwnFileRefs = {
     baseRef: base,
     foreignRef: foreignSha,
-    answered: answeredBy(head, { commit: foreignCommit, read: foreign }),
+    answered: answeredBy(async () => head, { commit: foreignCommit, tree: foreign }),
   };
   const change = await readForeignChange(deps, {
     objects,

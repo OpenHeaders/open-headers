@@ -30,8 +30,11 @@
  *      with those documents as answered (`commit-conflicts.ts`). A
  *      token the branch has moved away from refuses again, with the
  *      files as they stand now. A file of the user's own (a README, a
- *      script) both sides changed is one more file to answer when it is
- *      text on every side — the working tree is the branch's side.
+ *      script, a note kept beside a manifest that no document reads)
+ *      both sides changed is one more file to answer when it is text on
+ *      every side — the working tree is the branch's side. HEAD's tree
+ *      is read for that only where the change holds a file beside a
+ *      manifest (`answered-by.ts`).
  *      Before either, a change about to write a file that holds
  *      uncommitted work refuses `local-changes`, naming the files
  *      (`pick-writes.ts`), unless that work may be committed first
@@ -78,8 +81,9 @@ import {
   withIndexLock,
   withObjectBatch,
 } from '../git';
+import { answeredBy, headWhenAsked } from './answered-by';
 import { type ApplyCommitResolution, type ApplyCommitResolve, decideChange } from './change-answers';
-import { landForeignOwnFiles } from './own-files';
+import { landForeignOwnFiles, type OwnFileRefs } from './own-files';
 import { flushedPaths, readPassWrites } from './pass-writes';
 import { plannedDocumentWrites } from './pick-writes';
 import type { IntegrateForeignDeps } from './pull';
@@ -207,7 +211,16 @@ export async function applyWorkspaceCommit(options: ApplyWorkspaceCommitOptions)
   const to = picking ? commitState : parentState;
   // The question about uncommitted work, the files to answer and the
   // answers read — all before anything is written (`change-answers.ts`).
-  const ownRefs = picking ? { baseRef: parent, foreignRef: sha } : { baseRef: sha, foreignRef: parent };
+  // The user's own files are read from the change's start to its end: a
+  // file beside a manifest is one of them where neither HEAD's reading
+  // nor the end's answers for it (`answered-by.ts`).
+  const ownRefs: OwnFileRefs = {
+    ...(picking ? { baseRef: parent, foreignRef: sha } : { baseRef: sha, foreignRef: parent }),
+    answered: answeredBy(
+      headWhenAsked(options),
+      picking ? { commit: commitRead, tree: commitTree } : { commit: parentRead, tree: parentTree },
+    ),
+  };
   const decided = await decideChange({
     run,
     rootDir,

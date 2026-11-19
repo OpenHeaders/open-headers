@@ -527,6 +527,91 @@ describe('resolveForcePushWorkspaceTree', () => {
     });
   });
 
+  describe('a file kept beside a manifest, which no document reads, follows the choice like any file of the user’s own', () => {
+    const PEER_NOTE = 'rules/api-colapi00/notes.md';
+    const LOCAL_NOTE = 'rules/api-colapi00/block-probes-aaaaaaaa/notes.md';
+    const onLocal = (rel: string): string => path.join(local, ...rel.split('/'));
+    const isThere = (rel: string): Promise<boolean> =>
+      fs.access(onLocal(rel)).then(
+        () => true,
+        () => false,
+      );
+    /** The engine converged on the rewritten head: its one rule, renamed. */
+    const takeTheRewrittenHead = (): void => {
+      state.rules = [{ ...state.rules[0], name: 'Rewritten probes' } as Rule];
+    };
+
+    /** A note on the rewritten history and another committed here, each beside a manifest both heads hold. */
+    async function divergeTheNotes(): Promise<void> {
+      await fs.writeFile(path.join(peer, ...PEER_NOTE.split('/')), 'the peer’s\n', 'utf-8');
+      const peerCommit = await commitWorkspaceTree({ run, rootDir: peer, message: 'A note', identityEnv: RITA_ENV });
+      if (!peerCommit.ok || !peerCommit.committed) throw new Error('peer note commit failed');
+      await raw(peer, 'push', '--quiet', 'origin', 'main');
+      await fs.writeFile(onLocal(LOCAL_NOTE), 'mine\n', 'utf-8');
+      const localCommit = await commitWorkspaceTree({
+        run,
+        rootDir: local,
+        message: 'My note',
+        identityEnv: IDENTITY_ENV,
+      });
+      if (!localCommit.ok || !localCommit.committed) throw new Error('local note commit failed');
+    }
+
+    it.each(['abandon', 'rescue'] as const)(
+      '%s: the tree holds the rewritten head’s note and not the one committed here — no commit on top, and HEAD’s tree is read for them through a git of its own',
+      async (choice) => {
+        await divergeTheNotes();
+        const result = await doResolve(choice, [], takeTheRewrittenHead);
+        if (!result.ok) throw new Error(`${choice} failed: ${result.reason} ${result.detail ?? ''}`);
+        expect(result.sha).toBe(result.remoteSha);
+        expect(await fs.readFile(onLocal(PEER_NOTE), 'utf-8')).toBe('the peer’s\n');
+        expect(await isThere(LOCAL_NOTE)).toBe(false);
+        expect(await countDirtyFiles(run, local)).toBe(0);
+        if (result.rescueBranch !== null) {
+          expect((await raw(local, 'show', `${result.rescueBranch}:${LOCAL_NOTE}`)).stdout).toBe('mine\n');
+        }
+        expect([batches.opened(), batches.held()]).toEqual([2, 0]);
+      },
+    );
+
+    it('re-apply: the rewritten head’s note lands and the one committed here rides the fresh commit', async () => {
+      await divergeTheNotes();
+      const result = await doResolve('reapply', [], () => {
+        state.rules = state.rules.map((rule) =>
+          rule.uid === 'aaaaaaaa' ? ({ ...rule, name: 'Rewritten probes' } as Rule) : rule,
+        );
+      });
+      if (!result.ok) throw new Error(`reapply failed: ${result.reason} ${result.detail ?? ''}`);
+      expect(await fs.readFile(onLocal(PEER_NOTE), 'utf-8')).toBe('the peer’s\n');
+      expect((await raw(local, 'diff', '--name-status', result.remoteSha, 'HEAD')).stdout).toBe(
+        `A\t${LOCAL_RULE_FILE}\nA\t${LOCAL_NOTE}\n`,
+      );
+      expect(await countDirtyFiles(run, local)).toBe(0);
+    });
+
+    it('abandon: a script beside the collection’s manifest is the collection’s on either head — the engine’s to take and to write, never landed or removed as a file of the user’s own', async () => {
+      // The branch holds one script, the rewritten head another; the engine is left as it was, so nothing
+      // writes or removes either file: what the landing did shows.
+      state.collections = [{ ...API, preRequestScript: 'console.log(1);\n' }];
+      await materializer.flush();
+      const localCommit = await commitWorkspaceTree({
+        run,
+        rootDir: local,
+        message: 'The collection’s script',
+        identityEnv: IDENTITY_ENV,
+      });
+      if (!localCommit.ok || !localCommit.committed) throw new Error('local script commit failed');
+      await fs.writeFile(path.join(peer, 'rules', 'api-colapi00', 'post-response.js'), 'console.log(2);\n', 'utf-8');
+      const peerCommit = await commitWorkspaceTree({ run, rootDir: peer, message: 'A script', identityEnv: RITA_ENV });
+      if (!peerCommit.ok || !peerCommit.committed) throw new Error('peer script commit failed');
+      await raw(peer, 'push', '--quiet', 'origin', 'main');
+
+      expect(await doResolve('abandon', [])).toMatchObject({ ok: true });
+      expect(await fs.readFile(onLocal('rules/api-colapi00/pre-request.js'), 'utf-8')).toBe('console.log(1);\n');
+      expect(await isThere('rules/api-colapi00/post-response.js')).toBe(false);
+    });
+  });
+
   describe('uncommitted work', () => {
     const status = async (): Promise<string> =>
       (await raw(local, 'status', '--porcelain', '--untracked-files=all')).stdout;
