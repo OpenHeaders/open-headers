@@ -16,7 +16,7 @@ import * as path from 'node:path';
 import { TREE_FILE_MAX_BYTES } from '@openheaders/core/workspace-tree';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { listWorkspaceTree } from '../../src/workspace-tree/reader';
-import { readTreeFile, readWrittenFile } from '../../src/workspace-tree/tree-file';
+import { readAtItsOwnName, readTreeFile, readWrittenFile } from '../../src/workspace-tree/tree-file';
 import { listTreeNames } from '../../src/workspace-tree/tree-listing';
 
 const posixOnly = it.runIf(process.platform !== 'win32');
@@ -115,6 +115,39 @@ describe('readWrittenFile', () => {
   });
 });
 
+describe('readWrittenFile — a link at the file’s own name', () => {
+  posixOnly(
+    'is told apart from a file and never read through, with the open that follows none and without it',
+    async () => {
+      await write('target.yaml', WORKSPACE_YAML);
+      await fs.symlink(at('target.yaml'), at('workspace.yaml'));
+      await fs.symlink(at('nowhere.yaml'), at('dangling.yaml'));
+
+      for (const file of ['workspace.yaml', 'dangling.yaml']) {
+        expect(await readWrittenFile(at(file))).toEqual({ kind: 'link' });
+        // Windows has no such open: the name is asked first.
+        expect(await readAtItsOwnName(at(file), undefined)).toEqual({ kind: 'link' });
+      }
+      expect(await readAtItsOwnName(at('target.yaml'), undefined)).toEqual({ kind: 'text', content: WORKSPACE_YAML });
+      expect(await readAtItsOwnName(at('gone.yaml'), undefined)).toEqual({ kind: 'absent' });
+    },
+  );
+
+  it('is read by the system’s code at the open — and where the name is asked first, nothing is opened at a link', async () => {
+    await write('workspace.yaml', WORKSPACE_YAML);
+    const opened = refuseOpen('ELOOP', () => true);
+    expect(await readWrittenFile(at('workspace.yaml'))).toEqual({ kind: 'link' });
+    expect(opened).toHaveBeenCalledTimes(1);
+
+    const lstat = fs.lstat.bind(fs);
+    vi.spyOn(fs, 'lstat').mockImplementation(async (...args: Parameters<typeof fs.lstat>) =>
+      Object.assign(await lstat(...args), { isSymbolicLink: () => true }),
+    );
+    expect(await readAtItsOwnName(at('workspace.yaml'), undefined)).toEqual({ kind: 'link' });
+    expect(opened).toHaveBeenCalledTimes(1);
+  });
+});
+
 describe('listTreeNames', () => {
   it('names every file and opens none; `.oh` and `.git` are skipped at the root alone', async () => {
     await write('workspace.yaml', WORKSPACE_YAML);
@@ -132,21 +165,29 @@ describe('listTreeNames', () => {
   });
 
   it('a folder that is not there has no names, and is not one that would not list', async () => {
-    expect(await listTreeNames(path.join(tmpDir, 'gone'))).toEqual({ files: [], unlisted: [] });
+    expect(await listTreeNames(path.join(tmpDir, 'gone'))).toEqual({ files: [], unlisted: [], links: [] });
   });
 
-  posixOnly('a link is neither followed nor named, to a directory or to a file', async () => {
-    await write(RULE_FILE, RULE_YAML);
-    const outside = await fs.mkdtemp(path.join(os.tmpdir(), 'oh-tree-reader-outside-'));
-    try {
-      await fs.writeFile(path.join(outside, 'rule.yaml'), RULE_YAML, 'utf-8');
-      await fs.symlink(outside, at('rules/api-colapi00/linked'));
-      await fs.symlink(at(RULE_FILE), at('rules/api-colapi00/linked-rule.yaml'));
-      expect((await listTreeNames(tmpDir)).files).toEqual([RULE_FILE]);
-    } finally {
-      await fs.rm(outside, { recursive: true, force: true });
-    }
-  });
+  posixOnly(
+    'a link is not followed and is no file of the folder: it is named apart, to a directory or to a file',
+    async () => {
+      await write(RULE_FILE, RULE_YAML);
+      const outside = await fs.mkdtemp(path.join(os.tmpdir(), 'oh-tree-reader-outside-'));
+      try {
+        await fs.writeFile(path.join(outside, 'rule.yaml'), RULE_YAML, 'utf-8');
+        await fs.symlink(outside, at('rules/api-colapi00/linked'));
+        await fs.symlink(at(RULE_FILE), at('rules/api-colapi00/linked-rule.yaml'));
+        const names = await listTreeNames(tmpDir);
+        expect({ ...names, links: names.links.sort() }).toEqual({
+          files: [RULE_FILE],
+          unlisted: [],
+          links: ['rules/api-colapi00/linked', 'rules/api-colapi00/linked-rule.yaml'],
+        });
+      } finally {
+        await fs.rm(outside, { recursive: true, force: true });
+      }
+    },
+  );
 
   posixOnly('a directory that will not list is named, and the rest of the folder is listed', async () => {
     await write('workspace.yaml', WORKSPACE_YAML);
@@ -156,6 +197,7 @@ describe('listTreeNames', () => {
       expect(await listTreeNames(tmpDir)).toEqual({
         files: ['workspace.yaml'],
         unlisted: [{ path: 'rules/api-colapi00', cause: 'unlisted', code: 'EACCES' }],
+        links: [],
       });
     } finally {
       await fs.chmod(at('rules/api-colapi00'), 0o755);
@@ -194,6 +236,39 @@ describe('listWorkspaceTree', () => {
     expect(openedPaths.filter((filePath) => own.includes(filePath))).toEqual([]);
     expect([...own, RULE_FILE].map((filePath) => listing.stands(filePath))).toEqual([true, true, true, true]);
     expect(listing.stands('rules/api-colapi00/gone-bbbbbbbb/rule.yaml')).toBe(false);
+  });
+
+  posixOnly('what a link stands at, and all that lies beneath one, stands — and nothing is read there', async () => {
+    await writeTree();
+    await write('rules/api-colapi00/allow-health-bbbbbbbb/rule.yaml', RULE_YAML.replace('aaaaaaaa', 'bbbbbbbb'));
+    const outside = await fs.mkdtemp(path.join(os.tmpdir(), 'oh-tree-reader-outside-'));
+    try {
+      // One rule's directory moved out with a link to it at its name; the other rule's own file the same way.
+      await fs.rename(at('rules/api-colapi00/block-probes-aaaaaaaa'), path.join(outside, 'moved'));
+      await fs.symlink(path.join(outside, 'moved'), at('rules/api-colapi00/block-probes-aaaaaaaa'));
+      await fs.rename(at('rules/api-colapi00/allow-health-bbbbbbbb/rule.yaml'), path.join(outside, 'rule.yaml'));
+      await fs.symlink(path.join(outside, 'rule.yaml'), at('rules/api-colapi00/allow-health-bbbbbbbb/rule.yaml'));
+
+      const listing = await listWorkspaceTree(tmpDir);
+      expect(listing.files.map((file) => file.path)).toEqual([COLLECTION_FILE, 'workspace.yaml']);
+      expect(listing.unread).toEqual([]);
+      expect(
+        [
+          RULE_FILE,
+          'rules/api-colapi00/block-probes-aaaaaaaa/never/was.yaml',
+          'rules/api-colapi00/allow-health-bbbbbbbb/rule.yaml',
+        ].map((filePath) => listing.stands(filePath)),
+      ).toEqual([true, true, true]);
+      // A name that only begins as the link's does, and a file beside the linked one, are neither at it nor beneath it.
+      expect(
+        [
+          'rules/api-colapi00/block-probes-aaaaaaaa-copy/rule.yaml',
+          'rules/api-colapi00/allow-health-bbbbbbbb/pre-request.js',
+        ].map((filePath) => listing.stands(filePath)),
+      ).toEqual([false, false]);
+    } finally {
+      await fs.rm(outside, { recursive: true, force: true });
+    }
   });
 
   it('the files and the paths unread are in path order, whatever order the folder lists them in', async () => {

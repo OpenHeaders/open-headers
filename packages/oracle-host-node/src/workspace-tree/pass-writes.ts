@@ -33,9 +33,9 @@
  * order alone, and a merged pull's read as a deletion against the peer's
  * head. The link itself, which the lay takes out of the trees, is no
  * write of the pass. One thing stays as the branch has it: a document
- * beneath a link or a file the branch's own HEAD holds. That entry is
- * the branch's, and a file laid beneath it would take it out of the
- * commit.
+ * beneath a link or a file the branch's own HEAD holds, or at a link it
+ * holds. That entry is the branch's, and a file laid beneath it or over
+ * it would take it out of the commit.
  *
  * What the branch's HEAD and the reading differ in is the uncommitted
  * work that was there before the pass: any of it elsewhere, and every
@@ -52,6 +52,7 @@ import {
   type GitRunner,
   type HeldIndexLock,
   isGone,
+  isRegularFileEntry,
   listTreeEntries,
   listWorkingChanges,
   TreeBoundary,
@@ -117,17 +118,18 @@ export interface PassWrites {
   meant: ReadonlySet<string>;
 }
 
-/** Whether `head` holds a file or a link at a directory above `filePath`. */
-function beneathAnEntry(head: ReadonlyMap<string, string>, filePath: string): boolean {
+/** Whether `head` holds a file or a link at a directory above `filePath`, or a link at `filePath` itself. */
+function atAnEntryOfTheBranch(head: ReadonlyMap<string, string>, filePath: string): boolean {
   for (let cut = filePath.indexOf('/'); cut !== -1; cut = filePath.indexOf('/', cut + 1)) {
     if (head.has(filePath.slice(0, cut))) return true;
   }
-  return false;
+  const own = head.get(filePath);
+  return own !== undefined && !isRegularFileEntry(own);
 }
 
-/** What a flush was refused that is laid over a tree: all of it but a document beneath an entry of HEAD's own. */
+/** What a flush was refused that is laid over a tree: all of it but a document an entry of HEAD's own stands in the way of. */
 const laidOf = (head: ReadonlyMap<string, string>, refused: FlushAccount['refused']): Map<string, string> =>
-  new Map([...refused].filter(([filePath]) => !beneathAnEntry(head, filePath)));
+  new Map([...refused].filter(([filePath]) => !atAnEntryOfTheBranch(head, filePath)));
 
 /** The uncommitted work a pass finds before it writes. */
 export interface LocalWork {

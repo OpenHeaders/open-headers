@@ -2324,6 +2324,18 @@ describe('Tree ops: a commit’s blobs and a paths checkout off the real index',
     expect(await treeWithFiles(run, tmpDir, 'not-a-tree', new Map([['a.md', 'a\n']]))).toBeNull();
   });
 
+  it('treeWithFiles lays a text over a link the tree holds at that name as a FILE — under the link’s mode it would be a link to its own text', async () => {
+    await initialCommit();
+    await fs.symlink('elsewhere.md', path.join(tmpDir, 'guide.md'));
+    await commitWorkspaceTree({ run, rootDir: tmpDir, message: 'A link', identityEnv: IDENTITY_ENV });
+    const head = (await git('rev-parse', 'HEAD^{tree}')).stdout.trim();
+    expect((await git('ls-tree', head, 'guide.md')).stdout).toMatch(/^120000 /);
+
+    const tree = await treeWithFiles(run, tmpDir, head, new Map([['guide.md', '# guide, as given\n']]));
+    expect((await git('ls-tree', tree ?? '', 'guide.md')).stdout).toMatch(/^100644 /);
+    expect((await git('cat-file', 'blob', `${tree}:guide.md`)).stdout).toBe('# guide, as given\n');
+  });
+
   describe('treeWithWorkingFiles: named paths laid over a tree as the working tree holds them', () => {
     const names = async (tree: string | null): Promise<string[]> =>
       (await git('ls-tree', '-r', '--name-only', tree ?? '')).stdout.trim().split('\n');

@@ -206,6 +206,49 @@ describe('readPassWrites — a document the flush was refused, a link standing o
   });
 });
 
+describe('readPassWrites — a document the flush was refused, a link standing at its own name', () => {
+  const RULE = 'rules/rule.yaml';
+  const entryAt = (tree: string | undefined, file: string): Promise<string> => git('ls-tree', tree ?? '', file);
+
+  it('no commit holds the link: the document is laid as a FILE holding the engine’s text — no work where HEAD holds it so, the pass’s write where the pass changed it', async () => {
+    await write(RULE, 'committed\n');
+    await commit('base');
+    await fs.rename(inTree(RULE), path.join(outside, 'rule.yaml'));
+    await fs.symlink(path.join(outside, 'rule.yaml'), inTree(RULE));
+
+    const pass = await readPassWrites(run, rootDir, await reading(), {
+      written: [],
+      refusedBefore: new Map([[RULE, 'committed\n']]),
+      refusedAfter: new Map([[RULE, 'the pass’s\n']]),
+    });
+    expect(pass?.uncommitted.has(RULE)).toBe(false);
+    expect(pass?.wrote).toEqual([RULE]);
+    expect(await entryAt(pass?.after, RULE)).toMatch(/^100644 /);
+    expect(await git('show', `${pass?.after ?? ''}:${RULE}`)).toBe('the pass’s');
+    expect(await fs.readFile(path.join(outside, 'rule.yaml'), 'utf-8')).toBe('committed\n');
+  });
+
+  it('a link the branch’s own HEAD holds there stays as the branch has it: nothing laid, nothing work, nothing written', async () => {
+    await fs.writeFile(path.join(outside, 'rule.yaml'), 'elsewhere\n', 'utf-8');
+    await fs.mkdir(inTree('rules'));
+    await fs.symlink(path.join(outside, 'rule.yaml'), inTree(RULE));
+    await commit('base, the link with it');
+    const head = await git('rev-parse', 'HEAD^{tree}');
+
+    const pass = await readPassWrites(run, rootDir, await reading(), {
+      written: [],
+      refusedBefore: new Map([[RULE, 'as held\n']]),
+      refusedAfter: new Map([[RULE, 'the pass’s\n']]),
+    });
+    expect([pass?.wrote, [...(pass?.uncommitted ?? [])], [...(pass?.meant ?? [])]]).toEqual([[], [], []]);
+    expect([pass?.before, pass?.after]).toEqual([head, head]);
+    expect(await entryAt(pass?.after, RULE)).toMatch(/^120000 /);
+
+    const work = await readLocalWork(run, rootDir, await reading(), new Map([[RULE, 'as held\n']]));
+    expect([[...(work?.uncommitted ?? [])], work?.tree]).toEqual([[], head]);
+  });
+});
+
 describe('readLocalWork — the uncommitted work a pass finds before it writes', () => {
   const RULE = 'rules/rule.yaml';
 

@@ -45,8 +45,12 @@ import { failureCode, isGone } from './fs-failure';
 export type TreeRefusal =
   | { kind: 'path' /** What of the path no tree can hold (`treePathRefusal`). */; part: string }
   | { kind: 'way' /** The directory on the way, workspace-relative. */; dir: string; stands: 'link' | 'file' }
-  /** What stands at the file's own name is no file — asked only where a file's own name is (`regular-file.ts`). */
-  | { kind: 'place' };
+  /**
+   * What stands at the file's own name is no file — asked only where a
+   * file's own name is (`regular-file.ts`, the materializer). A link is
+   * said as one; anything else there is neither a file nor a link.
+   */
+  | { kind: 'place'; stands?: 'link' };
 
 /** A path the boundary passed: the file's place on disk. */
 export interface TreePlace {
@@ -79,14 +83,19 @@ const parentOf = (relative: string): string => {
 /** A refusal in a sentence, for a pass that fails by it. */
 export function treeRefusalReason(relative: string, refusal: TreeRefusal): string {
   if (refusal.kind === 'path') return `${refusal.part} cannot be part of the path "${relative}"`;
-  if (refusal.kind === 'place') return `"${relative}" is not a file`;
+  if (refusal.kind === 'place') return `"${relative}" is ${refusal.stands === 'link' ? 'a link' : 'not a file'}`;
   return `"${refusal.dir}/" ${refusal.stands === 'link' ? 'is a link' : 'is not a directory'}, on the way to "${relative}"`;
 }
 
 /** The row of a refusal: at the file for its path or its place, at the directory for what stands on the way. */
 export function treeRefusalIssue(relative: string, refusal: TreeRefusal): TreeIssue {
   if (refusal.kind === 'path') return treePathIssue(relative, refusal.part, 'not written');
-  if (refusal.kind === 'place') return { path: relative, message: 'is not a file — not written' };
+  if (refusal.kind === 'place') {
+    return {
+      path: relative,
+      message: refusal.stands === 'link' ? 'is a link — not written' : 'is not a file — not written',
+    };
+  }
   return {
     path: `${refusal.dir}/`,
     message: refusal.stands === 'link' ? 'is a link — not written' : 'is not a directory — not written',

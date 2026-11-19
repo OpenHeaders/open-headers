@@ -5,11 +5,12 @@
  * dependencies, media. What of it is the tree's is decided from the
  * names (`treeDocumentPaths`), so the walk opens no file.
  *
- * `.oh/` and `.git/` are never walked. A link is neither followed nor
- * listed, whatever it points at — on Windows a junction is one too. A
- * directory gone between its parent's listing and its own is not of the
- * tree; one that would not list still stands, and is named: nothing
- * beneath it is known, least of all that it is gone.
+ * `.oh/` and `.git/` are never walked. A link is not followed, whatever
+ * it points at — on Windows a junction is one too — and is no file of
+ * the folder: it is named apart, for what stands at it and beneath it is
+ * not known, least of all that it is gone. A directory gone between its
+ * parent's listing and its own is not of the tree; one that would not
+ * list still stands, and is named the same way.
  */
 
 import { type Dirent, promises as fs } from 'node:fs';
@@ -24,10 +25,12 @@ export interface TreeNames {
   files: string[];
   /** The directories that would not list. */
   unlisted: TreeUnread[];
+  /** The links, by their own names — none followed. */
+  links: string[];
 }
 
 export async function listTreeNames(rootDir: string): Promise<TreeNames> {
-  const names: TreeNames = { files: [], unlisted: [] };
+  const names: TreeNames = { files: [], unlisted: [], links: [] };
   await walk(rootDir, '', names);
   return names;
 }
@@ -49,6 +52,8 @@ async function walk(absDir: string, relDir: string, names: TreeNames): Promise<v
       await walk(path.join(absDir, entry.name), rel, names);
     } else if (entry.isFile()) {
       names.files.push(rel);
+    } else if (entry.isSymbolicLink()) {
+      names.links.push(rel);
     }
   }
 }

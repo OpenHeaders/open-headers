@@ -20,6 +20,10 @@
  * document reads: a pull, a Cherry-Pick, a Revert and a rewritten
  * history resolved each way carry it like any file of the user's own.
  *
+ * And a link where a document stood — at a rule's directory, at its own
+ * file, at its collection's directory: the engine keeps what it holds,
+ * one row says the link, and a pull's commit holds the rule as a file.
+ *
  * And the Git card's rows a pass leaves, on the same wiring: derived as
  * a sweep derives them — the read contained against the engine's
  * snapshot, and no row at a file whose bytes are the baseline's. They
@@ -490,6 +494,111 @@ describe('the workspace-tree runtime: a note the peer keeps in a collection’s 
       }
     },
   );
+});
+
+describe('the workspace-tree runtime: a link where a document stood', () => {
+  const NOT_WRITTEN = 'is a link — not written';
+  let outside: string;
+
+  beforeEach(async () => {
+    outside = await fs.realpath(await fs.mkdtemp(path.join(os.tmpdir(), 'oh-tree-runtime-outside-')));
+  });
+
+  afterEach(async () => {
+    await fs.rm(outside, { recursive: true, force: true });
+  });
+
+  /** What stands at `relative` moved out of the folder, and a link to where it went put at its name; where it went. */
+  async function swapForALink(relative: string): Promise<string> {
+    const moved = path.join(outside, 'moved');
+    await fs.rename(inTree(relative), moved);
+    await fs.symlink(moved, inTree(relative));
+    await delay(TREE_AT_REST_MS);
+    return moved;
+  }
+
+  const rows = (): string[] =>
+    harness.runtime.issues(harness.workspaceId).map((row) => `${row.path} :: ${row.message}`);
+
+  it.each([
+    ['a rule’s directory', RULE_DIR, `${RULE_DIR}/`],
+    ['a rule’s own file', RULE_FILE, RULE_FILE],
+    ['the collection’s directory', COLLECTION_DIR, `${COLLECTION_DIR}/`],
+  ])(
+    'at %s: the engine keeps the collection and the rule, and one row says the link',
+    {
+      timeout: 30_000,
+    },
+    async (_what, relative, rowPath) => {
+      await commitTheCollectionAndItsRule();
+      await swapForALink(relative);
+      expect([engineHoldsTheCollection(), engineHoldsTheRule(), rulesInTheCollection()]).toEqual([
+        true,
+        true,
+        [RULE_UID],
+      ]);
+      expect(rows()).toEqual([`${rowPath} :: ${NOT_WRITTEN}`]);
+    },
+  );
+
+  it('the link taken away and the directory moved back, the rule is as it was — no reading in between gave the engine a batch: no row, nothing changed', {
+    timeout: 30_000,
+  }, async () => {
+    await commitTheCollectionAndItsRule();
+    // A reading that concludes anything says its batches; one that let go of the rule and took it in again says two.
+    const readingsThatConcluded = (): number => harness.logged.filter((line) => line.includes(' batches (')).length;
+    const before = readingsThatConcluded();
+    const moved = await swapForALink(RULE_DIR);
+    await fs.rm(inTree(RULE_DIR));
+    await fs.rename(moved, inTree(RULE_DIR));
+    await delay(TREE_AT_REST_MS);
+    expect([engineHoldsTheRule(), rows(), readingsThatConcluded() - before]).toEqual([true, [], 0]);
+    expect(await harness.git('status', '--porcelain')).toBe('');
+  });
+
+  it('the link taken away with nothing put back is the deletion by hand it reads as', {
+    timeout: 30_000,
+  }, async () => {
+    await commitTheCollectionAndItsRule();
+    await swapForALink(RULE_DIR);
+    expect(engineHoldsTheRule()).toBe(true);
+    await fs.rm(inTree(RULE_DIR));
+    await until('the engine reads the deletion', () => !engineHoldsTheRule(), 8_000);
+    await delay(TREE_AT_REST_MS);
+    expect(rows()).toEqual([]);
+  });
+
+  it('a Pull that merges the peer’s edit of a rule whose own file is a link here records the rule as a file, as the engine holds it', {
+    timeout: 30_000,
+  }, async () => {
+    await commitTheCollectionAndItsRule();
+    await withThePeerPushing(
+      (other) =>
+        fs.writeFile(
+          path.join(other, ...RULE_FILE.split('/')),
+          RULE_TEXT.replace('Block probes', 'Block all'),
+          'utf-8',
+        ),
+      async () => {
+        await writeByHand('README.md', 'A workspace of mine.\n');
+        expect(
+          await harness.runtime.userCommit(harness.workspaceId, { message: 'a readme', paths: ['README.md'] }),
+        ).toMatchObject({ ok: true });
+        const moved = await swapForALink(RULE_FILE);
+        const branch = await harness.git('rev-parse', '--abbrev-ref', 'HEAD');
+
+        expect(await harness.runtime.pull(harness.workspaceId)).toMatchObject({ ok: true, upToDate: false });
+        expect(ruleOf(RULE_UID)?.name).toBe('Block all');
+        expect(await harness.git('ls-tree', 'HEAD', '--', RULE_FILE)).toMatch(/^100644 /);
+        expect(await harness.git('show', `HEAD:${RULE_FILE}`)).toContain('name: Block all');
+        expect(await harness.git('diff', '--name-status', `origin/${branch}`, 'HEAD')).toBe('A\tREADME.md');
+        // The link is the user's still, and what it points at is as they left it.
+        expect((await fs.lstat(inTree(RULE_FILE))).isSymbolicLink()).toBe(true);
+        expect(await fs.readFile(moved, 'utf-8')).toBe(RULE_TEXT);
+        expect(rows()).toEqual([`${RULE_FILE} :: ${NOT_WRITTEN}`]);
+      },
+    );
+  });
 });
 
 describe('the workspace-tree runtime: a collection’s order where one side of a pull holds no rule', () => {

@@ -13,8 +13,12 @@
  * A listing answers three things: the documents' files read; the paths
  * that stand and were not read, for the reading to give a row each; and
  * whether a file may stand at a path — by its NAME, read or not, so a
- * file the predicate passes over, one that would not read, and all that
- * lies beneath a directory that would not list are none of them gone.
+ * file the predicate passes over, one that would not read, all that
+ * lies beneath a directory that would not list, and what a link stands
+ * at or above are none of them gone. A link is not followed and nothing
+ * is read at it: a document whose file or directory became one is held
+ * as the engine has it, and the flush that will not write there gives
+ * its row (`materializer.ts`).
  */
 
 import * as path from 'node:path';
@@ -43,6 +47,8 @@ const byPath = (a: { path: string }, b: { path: string }): number => (a.path < b
 export async function listWorkspaceTree(rootDir: string): Promise<TreeListing> {
   const names = await listTreeNames(rootDir);
   const standing = new Set(names.files);
+  // A folder with its dependencies in it holds links by the thousand: a set, never a list walked for each path.
+  const links = new Set(names.links);
   const files: TreeFile[] = [];
   const unread: TreeUnread[] = [...names.unlisted];
   for (const relative of treeDocumentPaths(names.files)) {
@@ -59,8 +65,20 @@ export async function listWorkspaceTree(rootDir: string): Promise<TreeListing> {
   return {
     files: files.sort(byPath),
     unread: unread.sort(byPath),
-    stands: (filePath) => standing.has(filePath) || names.unlisted.some((dir) => treePathIsUnder(dir.path, filePath)),
+    stands: (filePath) =>
+      standing.has(filePath) ||
+      atOrBeneath(links, filePath) ||
+      names.unlisted.some((dir) => treePathIsUnder(dir.path, filePath)),
   };
+}
+
+/** Whether one of `links` stands at `filePath` itself or at a directory above it — asked by the path's own parts. */
+function atOrBeneath(links: ReadonlySet<string>, filePath: string): boolean {
+  if (links.size === 0) return false;
+  for (let cut = filePath.indexOf('/'); cut !== -1; cut = filePath.indexOf('/', cut + 1)) {
+    if (links.has(filePath.slice(0, cut))) return true;
+  }
+  return links.has(filePath);
 }
 
 /** Read a bound workspace tree from disk into a snapshot + unknowns + issues. */

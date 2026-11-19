@@ -13,7 +13,9 @@
  *     before anything is done at it: a planned file it refuses is not
  *     read, not written, and stands as it was with its entry kept; a
  *     baseline path it refuses is not the materializer's to remove —
- *     its entry goes and the disk stands. What a pass did not write for
+ *     its entry goes and the disk stands. A link standing at a file's
+ *     own name is refused the same two ways (`tree-file.ts`): it is the
+ *     user's, never read through, replaced or removed. What a pass did not write for
  *     the boundary, and the documents the plan left out for their
  *     paths, are the pass's rows; the planned text of each file the
  *     boundary refused is answered beside them, for a commit that
@@ -237,6 +239,11 @@ export class WorkspaceTreeMaterializer {
         continue;
       }
       const existing = await readWrittenFile(placed.place.file);
+      if (existing.kind === 'link') {
+        if (baseline !== undefined) planned[file.path] = baseline;
+        refused(file.path, { kind: 'place', stands: 'link' }, file.content);
+        continue;
+      }
       if (existing.kind === 'text' && existing.content === file.content) {
         planned[file.path] = hashTreeContent(file.content);
         unchanged += 1;
@@ -306,6 +313,8 @@ export class WorkspaceTreeMaterializer {
       // input — drop it from the baseline (it is no longer ours) and
       // let the sweep decide what it means.
       const existing = await readWrittenFile(placed.place.file);
+      // A link at the name is no write of ours, like a path the boundary refuses.
+      if (existing.kind === 'link') continue;
       if (existing.kind === 'text' && hashTreeContent(existing.content) !== previous[stale]) continue;
       if (existing.kind === 'unread') {
         planned[stale] = previous[stale];

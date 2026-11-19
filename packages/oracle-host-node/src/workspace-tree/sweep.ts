@@ -22,8 +22,10 @@
  *
  * "No disk file" is asked of the folder's names, not of what was read
  * (`reader.ts`): a file that stands unread — too large, held by another
- * program, denied, beneath a directory that would not list — is neither
- * changed nor removed. It has its row, and nothing is concluded of it.
+ * program, denied, beneath a directory that would not list, at a link
+ * or beneath one — is neither changed nor removed. It has its row — a
+ * link's is the flush's, which will not write there — and nothing is
+ * concluded of it.
  *
  * After synthesizing + applying the delta, the sweep RE-BASELINES the
  * ingested paths (baseline := current disk hash): the external input

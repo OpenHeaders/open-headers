@@ -234,10 +234,11 @@ const NEW_FILE_MODE = '100644';
 
 /**
  * `tree` with `files` laid over it — each path holding the given text,
- * or no file where the text is null — written as a tree object. A path
+ * or no file where the text is null — written as a tree object. A file
  * the tree already holds keeps its mode, and a file replaces what the
- * tree holds in its way: a link where its directory goes — the reading
- * of a folder holds one where a document could not be written.
+ * tree holds in its way: a link where its directory goes, or at its own
+ * name — the reading of a folder holds one where a document could not be
+ * written, and a text laid under a link's mode would be a link to it.
  * Object plumbing on a throwaway
  * index: the working tree and the user's real index are never read or
  * written (§3.3), and nothing is committed. Null when the tree cannot be
@@ -273,7 +274,9 @@ export async function treeWithFiles(
       });
       const sha = blob.stdout.trim();
       if (blob.code !== 0 || sha.length === 0) return null;
-      const mode = held.get(filePath)?.split(' ')[0] ?? NEW_FILE_MODE;
+      const entry = held.get(filePath);
+      const mode =
+        entry !== undefined && isRegularFileEntry(entry) ? entry.slice(0, entry.indexOf(' ')) : NEW_FILE_MODE;
       const staged = await run(
         [...repoArgs(rootDir), 'update-index', '--add', '--replace', '--cacheinfo', `${mode},${sha},${filePath}`],
         { cwd: rootDir, env },

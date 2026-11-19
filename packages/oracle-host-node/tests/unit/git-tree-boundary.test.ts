@@ -166,10 +166,14 @@ describe('TreeBoundary — a file written and removed', () => {
 });
 
 describe('treeRefusalIssue', () => {
-  it('a place’s row is at the file whose name something that is no file stands at', () => {
+  it('a place’s row is at the file whose name something that is no file stands at — a link said as one', () => {
     expect(treeRefusalIssue('.gitignore', { kind: 'place' })).toEqual({
       path: '.gitignore',
       message: 'is not a file — not written',
+    });
+    expect(treeRefusalIssue('rules/a/rule.yaml', { kind: 'place', stands: 'link' })).toEqual({
+      path: 'rules/a/rule.yaml',
+      message: 'is a link — not written',
     });
   });
 
@@ -201,5 +205,8 @@ describe('treeRefusalReason', () => {
       '"notes/" is not a directory, on the way to "notes/readme.md"',
     );
     expect(treeRefusalReason('.gitignore', { kind: 'place' })).toBe('".gitignore" is not a file');
+    expect(treeRefusalReason('rules/a/rule.yaml', { kind: 'place', stands: 'link' })).toBe(
+      '"rules/a/rule.yaml" is a link',
+    );
   });
 });

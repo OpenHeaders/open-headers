@@ -784,6 +784,60 @@ describe('WorkspaceTreeMaterializer — the folder’s boundary', () => {
     expect((await readMaterializedIndex(tmpDir))[RULE_FILE]).toBe(entry);
   });
 
+  describe('a link at a document’s own name', () => {
+    const FILE_LINK_ROW = { path: RULE_FILE, message: 'is a link — not written' };
+    const isLink = async (relative: string): Promise<boolean> => (await fs.lstat(inTree(relative))).isSymbolicLink();
+
+    /** The rule written, then its file moved out of the folder and a link to it put at its name; where it went. */
+    async function swapTheRuleFileForALink(materializer: WorkspaceTreeMaterializer): Promise<string> {
+      state.rules = [makeRule('aaaaaaaa', 'Block probes')];
+      await materializer.flush();
+      const moved = path.join(outside, 'rule.yaml');
+      await fs.rename(inTree(RULE_FILE), moved);
+      await fs.symlink(moved, inTree(RULE_FILE));
+      return moved;
+    }
+
+    it('is the user’s: an engine edit is not written over it nor through it — a row at the file, its entry kept, the planned text answered', async () => {
+      const materializer = makeMaterializer();
+      const moved = await swapTheRuleFileForALink(materializer);
+      const entry = (await readMaterializedIndex(tmpDir))[RULE_FILE];
+      const before = await fs.readFile(moved, 'utf-8');
+
+      // Nothing changed in the engine: what the link points at reads as the engine's own write, and is not taken for it.
+      const atRest = await materializer.flush();
+      expect([atRest.written, atRest.unwritten]).toEqual([[], [FILE_LINK_ROW]]);
+
+      state.rules = [{ ...state.rules[0], enabled: false }];
+      const pass = await materializer.flushCurrent();
+      expect([pass.written, pass.deleted, pass.unwritten]).toEqual([[], [], [FILE_LINK_ROW]]);
+      expect([...pass.refused.keys()]).toEqual([RULE_FILE]);
+      expect(pass.refused.get(RULE_FILE)).toContain('enabled: false');
+      expect(await isLink(RULE_FILE)).toBe(true);
+      expect(await fs.readFile(moved, 'utf-8')).toBe(before);
+      expect((await readMaterializedIndex(tmpDir))[RULE_FILE]).toBe(entry);
+
+      // The link taken away and the file moved back, it is the engine's to write again.
+      await fs.rm(inTree(RULE_FILE));
+      await fs.rename(moved, inTree(RULE_FILE));
+      const written = await materializer.flush();
+      expect([written.written, written.unwritten]).toEqual([[RULE_FILE], []]);
+      expect(await fs.readFile(inTree(RULE_FILE), 'utf-8')).toBe(pass.refused.get(RULE_FILE));
+    });
+
+    it('is not removed when the engine no longer holds the document: the link stands, its entry goes, no row', async () => {
+      const materializer = makeMaterializer();
+      const moved = await swapTheRuleFileForALink(materializer);
+
+      state.rules = [];
+      const pass = await materializer.flush();
+      expect([pass.deleted, pass.unwritten]).toEqual([[], []]);
+      expect(await isLink(RULE_FILE)).toBe(true);
+      expect(await fs.readFile(moved, 'utf-8')).toContain('name: Block probes');
+      expect(Object.keys(await readMaterializedIndex(tmpDir))).not.toContain(RULE_FILE);
+    });
+  });
+
   it('a baseline path that climbs out, or lies through a link, is not the pass’s to remove: the file stands, its entry goes, no row', async () => {
     const victim = path.join(outside, 'victim.yaml');
     await fs.writeFile(victim, 'as its owner left it\n', 'utf-8');

@@ -990,6 +990,55 @@ describe('sweepWorkspaceTree — what a reading reads, and what stands unread', 
     await expect(fs.access(at('specs/pets-ssssssss'))).rejects.toThrow();
   });
 
+  describe('a link where a document stood', () => {
+    const RULE_DIR = RULE_FILE.slice(0, RULE_FILE.lastIndexOf('/'));
+    let outside: string;
+
+    beforeEach(async () => {
+      outside = await fs.mkdtemp(path.join(os.tmpdir(), 'oh-tree-sweep-outside-'));
+      state.rules = [makeRule('aaaaaaaa', 'Block probes'), makeRule('bbbbbbbb', 'Allow health')];
+      await makeMaterializer().flush();
+    });
+
+    afterEach(async () => {
+      await fs.rm(outside, { recursive: true, force: true });
+    });
+
+    /** What stands at `relative` moved out of the folder, and a link to where it went put at its name. */
+    async function swapForALink(relative: string): Promise<void> {
+      await fs.rename(at(relative), path.join(outside, 'moved'));
+      await fs.symlink(path.join(outside, 'moved'), at(relative));
+    }
+
+    posixOnly.each([
+      ['a rule’s directory', RULE_DIR],
+      ['a rule’s own file', RULE_FILE],
+      ['the collection’s directory', API.path],
+    ])(
+      'at %s is no deletion: nothing is concluded of what stands at it or beneath it, and the baseline holds',
+      async (_what, relative) => {
+        const baseline = await readMaterializedIndex(tmpDir);
+        await swapForALink(relative);
+
+        const applied: EmissionBatch[] = [];
+        expect(await runSweep(applied)).toMatchObject({ ok: true, applied: 0, changed: 0, removed: 0, issues: [] });
+        expect(applied).toEqual([]);
+        expect(await readMaterializedIndex(tmpDir)).toEqual(baseline);
+      },
+    );
+
+    posixOnly('taken away with nothing put back is the deletion by hand it reads as', async () => {
+      await swapForALink(RULE_DIR);
+      expect(await runSweep([])).toMatchObject({ ok: true, removed: 0 });
+
+      await fs.rm(at(RULE_DIR));
+      const applied: EmissionBatch[] = [];
+      expect(await runSweep(applied)).toMatchObject({ ok: true, removed: 1 });
+      expect(applied.map((entry) => entry.label)).toContain('rule:aaaaaaaa (delete)');
+      expect(Object.keys(await readMaterializedIndex(tmpDir))).not.toContain(RULE_FILE);
+    });
+  });
+
   posixOnly('a directory that will not list is no deletion: a row, nothing beneath it concluded', async () => {
     state.rules = [makeRule('aaaaaaaa', 'Block probes')];
     await makeMaterializer().flush();
