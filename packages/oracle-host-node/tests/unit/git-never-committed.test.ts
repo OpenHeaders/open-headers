@@ -298,4 +298,12 @@ describe('the forms git is told it in', () => {
     // An ignore entry names a directory too: clean keeps more than the rule asks, never less.
     expect(left.sort()).toEqual([...SAMPLES.filter(isNeverCommittedPath), 'held.secret.yaml/readme.md'].sort());
   });
+
+  it('a clean leaves the same files where git folds no name, as on a case-sensitive filesystem', async () => {
+    await git('config', 'core.ignorecase', 'false');
+    expect(await cleanUntracked(run, rootDir)).toEqual({ ok: true });
+    const left: string[] = [];
+    for (const filePath of SAMPLES) if (await isThere(filePath)) left.push(filePath);
+    expect(left.sort()).toEqual([...SAMPLES.filter(isNeverCommittedPath), 'held.secret.yaml/readme.md'].sort());
+  });
 });

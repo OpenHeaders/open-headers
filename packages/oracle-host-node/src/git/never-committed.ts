@@ -27,9 +27,13 @@
  *     run;
  *   - `clean` removes an untracked directory whole and asks no pathspec
  *     of what lies in it — it gets the ignore entries themselves, as its
- *     own `-e`, which no ignore file's line overrides. An entry names a
- *     directory as well as a file, so clean keeps what a directory named
- *     as a secret file holds: more than the rule asks, never less.
+ *     own `-e`, which no ignore file's line overrides. Git folds an
+ *     entry's case only where the filesystem folds names, and the rule
+ *     folds it everywhere, so each letter is a class of its two cases
+ *     (run on a case-sensitive volume: the plain entries let `.OH/` and
+ *     `X.SECRET.YAML` go). An entry names a directory as well as a file,
+ *     so clean keeps what a directory named as a secret file holds: more
+ *     than the rule asks, never less.
  */
 
 import {
@@ -51,5 +55,12 @@ export function namedPaths(paths: readonly string[]): string[] {
   return paths.filter((filePath) => !isNeverCommittedPath(filePath));
 }
 
+/** An ignore entry that reads the same on a filesystem that folds case and on one that does not. */
+const inEitherCase = (entry: string): string =>
+  entry.replace(/[a-z]/gi, (letter) => `[${letter.toLowerCase()}${letter.toUpperCase()}]`);
+
 /** The same for `git clean`, as its options. */
-export const NEVER_CLEANED_OPTIONS: readonly string[] = REQUIRED_IGNORE_ENTRIES.flatMap((entry) => ['-e', entry]);
+export const NEVER_CLEANED_OPTIONS: readonly string[] = REQUIRED_IGNORE_ENTRIES.flatMap((entry) => [
+  '-e',
+  inEitherCase(entry),
+]);
