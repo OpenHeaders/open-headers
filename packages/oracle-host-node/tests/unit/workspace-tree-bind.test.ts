@@ -7,8 +7,9 @@
  * leaving the tree a valid workspace folder. Adopt (gap K):
  * the pre-flight over a real clone of a bare remote reserves the tree
  * with its manifest identity, refuses the collision / the unreadable
- * manifest / a folder with no manifest / a foreign lock, and the
- * ordinary bind of the minted uid re-enters the reservation.
+ * manifest / a folder with no manifest / a foreign lock, the
+ * ordinary bind of the minted uid re-enters the reservation, and a
+ * sidecar another engine left has its records dropped under the lock.
  */
 
 import { promises as fs } from 'node:fs';
@@ -330,5 +331,29 @@ describe('reserveWorkspaceTreeForAdopt', () => {
       hostId: 'daemon-1',
     });
     expect(other).toEqual({ ok: true, initialized: false });
+  });
+
+  it('drops what a sidecar another engine left records of the folder’s files, under the lock it takes — and nothing while that engine holds the folder', async () => {
+    const cloneDir = await cloneOfSeededRemote();
+    const sidecar = path.join(cloneDir, '.oh');
+    const records = ['materialized-index.json', 'quarantined-files.json', 'unknown-fields.json'];
+    await bindWorkspaceTree({ rootDir: cloneDir, workspace: makeWorkspace({ uid: 'wsremote' }), hostId: 'daemon-1' });
+    for (const file of records) {
+      await fs.writeFile(path.join(sidecar, file), '{"rules/api-col0000a/_collection.yaml":"00"}', 'utf-8');
+    }
+
+    const held = await reserveWorkspaceTreeForAdopt({ rootDir: cloneDir, knownWorkspaceUids: [], hostId: 'desktop-1' });
+    expect(held).toMatchObject({ ok: false, reason: 'locked' });
+    expect((await fs.readdir(sidecar)).sort()).toEqual(['.gitignore', 'lock', ...records].sort());
+
+    await unbindWorkspaceTree(cloneDir, 'daemon-1');
+    expect((await fs.readdir(sidecar)).sort()).toEqual(['.gitignore', ...records].sort());
+    const reserved = await reserveWorkspaceTreeForAdopt({
+      rootDir: cloneDir,
+      knownWorkspaceUids: [],
+      hostId: 'desktop-1',
+    });
+    expect(reserved.ok).toBe(true);
+    expect((await fs.readdir(sidecar)).sort()).toEqual(['.gitignore', 'lock']);
   });
 });

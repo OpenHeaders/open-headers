@@ -24,7 +24,12 @@
  * (the clone-collision), and the tree lock is taken BEFORE the caller
  * mints the workspace record, so a refused lock never orphans a
  * workspace. The caller then binds through the ordinary ritual (the
- * lock is re-entrant for the same engine).
+ * lock is re-entrant for the same engine). A folder bound before still
+ * holds that engine's sidecar — an unbind leaves it — and the minted
+ * workspace holds none of the folder's documents: the sidecar's records
+ * are dropped under the lock, or the first flush would remove every
+ * document the old baseline lists (run: a folder opened by a second
+ * engine lost its collection and its rule, with no row).
  *
  * Unbind releases the lock and keeps everything else — the tree
  * remains a valid workspace folder (`.oh/` is disposable, §23.9).
@@ -37,7 +42,7 @@ import type { Workspace } from '@openheaders/core/types';
 import { serializeWorkspaceManifest, WORKSPACE_MANIFEST_FILE } from '@openheaders/core/workspace-tree';
 import { putRegularFile, TreeBoundary, treeRefusalReason } from '../git';
 import { ensureTreeHygiene } from './hygiene';
-import { acquireTreeLock, releaseTreeLock, type TreeLockHolder } from './sidecar';
+import { acquireTreeLock, forgetSidecarRecords, releaseTreeLock, type TreeLockHolder } from './sidecar';
 
 export interface BindWorkspaceTreeOptions {
   /** Absolute path of the folder to bind. Created when missing. */
@@ -172,6 +177,12 @@ export async function reserveWorkspaceTreeForAdopt(
   }
   const lock = await acquireTreeLock(options.rootDir, options.hostId);
   if (!lock.ok) return { ok: false, reason: 'locked', holder: lock.holder };
+  try {
+    await forgetSidecarRecords(options.rootDir);
+  } catch (err) {
+    await releaseTreeLock(options.rootDir, options.hostId);
+    throw err;
+  }
   return {
     ok: true,
     identity: {

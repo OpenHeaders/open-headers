@@ -62,6 +62,10 @@
  * And a pass that lands an ignore file, at every door that lands one: a
  * file of the user's it brings into git's sight, or takes out of it, is
  * in no commit of the pass and is not committed first as local work.
+ *
+ * And a folder another engine bound and left its sidecar in, opened as a
+ * workspace by an engine that holds nothing of it: the folder fills the
+ * workspace, and no document is removed for the old baseline.
  */
 
 import { createHash } from 'node:crypto';
@@ -1974,5 +1978,48 @@ describe('the workspace-tree runtime: a pass that lands an ignore file changes w
         expect(engineHoldsTheRule()).toBe(true);
       },
     );
+  });
+});
+
+describe('the workspace-tree runtime: a folder another engine bound, opened as a workspace', () => {
+  const NOTE_FILE = 'notes/readme.md';
+
+  it('fills the workspace from the folder — the sidecar the other engine left is not believed: the collection and its rule are held, their files stand, no row', {
+    timeout: 30_000,
+  }, async () => {
+    await writeCollectionByHand();
+    await writeRuleByHand();
+    await writeByHand(NOTE_FILE, '# a file of the user’s own\n');
+    await delay(TREE_AT_REST_MS);
+    expect(await harness.runtime.unbind(harness.workspaceId)).toEqual({ ok: true });
+
+    const left = await fs.mkdtemp(path.join(os.tmpdir(), 'oh-tree-runtime-left-'));
+    const stands = (relative: string): Promise<boolean> =>
+      fs.access(path.join(left, ...relative.split('/'))).then(
+        () => true,
+        () => false,
+      );
+    try {
+      await fs.cp(harness.rootDir, left, { recursive: true });
+      const baseline = JSON.parse(await fs.readFile(path.join(left, '.oh', 'materialized-index.json'), 'utf-8'));
+      expect(Object.keys(baseline)).toEqual(expect.arrayContaining([COLLECTION_FILE, RULE_FILE]));
+
+      // Another engine: it holds nothing of the folder.
+      await harness.dispose();
+      harness = await openRuntimeHarness();
+      const adopted = await harness.runtime.adopt(left);
+      if (!adopted.ok) throw new Error(`the folder was not opened: ${adopted.reason}`);
+      await delay(TREE_AT_REST_MS);
+
+      expect(snapshotCollectionPostStates(adopted.workspaceId).map((state) => state.collection.uid)).toEqual([
+        COLLECTION_UID,
+      ]);
+      expect(snapshotRulePostStates(adopted.workspaceId).map((state) => state.rule.uid)).toEqual([RULE_UID]);
+      expect(await Promise.all([COLLECTION_FILE, RULE_FILE, NOTE_FILE].map(stands))).toEqual([true, true, true]);
+      expect(harness.runtime.issues(adopted.workspaceId)).toEqual([]);
+      expect(await harness.runtime.unbind(adopted.workspaceId)).toEqual({ ok: true });
+    } finally {
+      await fs.rm(left, { recursive: true, force: true });
+    }
   });
 });

@@ -117,6 +117,21 @@ async function writeJsonFileAtomic(filePath: string, value: unknown): Promise<vo
   await fs.rename(tmp, filePath);
 }
 
+/**
+ * Drop what the sidecar records of the folder's files — the baseline,
+ * the quarantine's record, the unknown-field rows — and keep the lock
+ * and the ignore file. For an engine that holds nothing of the folder
+ * yet: the records are another engine's, and a baseline believed has the
+ * first flush remove every document it lists. With none, the first sweep
+ * reads the whole tree as the tree's.
+ */
+export async function forgetSidecarRecords(rootDir: string): Promise<void> {
+  if ((await lookAtSidecar(rootDir)) !== 'directory') return;
+  for (const file of [MATERIALIZED_INDEX_FILE, QUARANTINE_INDEX_FILE, UNKNOWN_FIELDS_FILE]) {
+    await fs.rm(path.join(sidecarDir(rootDir), file), { force: true });
+  }
+}
+
 // ── Exclusive-bind lockfile ──────────────────────────────────────────
 
 export interface TreeLockHolder {
