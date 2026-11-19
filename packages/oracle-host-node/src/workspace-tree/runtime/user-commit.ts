@@ -14,6 +14,7 @@
 import { logger } from '@openheaders/core/utils';
 import { isNeverCommittedPath } from '@openheaders/core/workspace-tree';
 import {
+  atOrBeneath,
   checkIgnoreProvenance,
   commitParents,
   commitWorkspaceTree,
@@ -48,7 +49,11 @@ export const USER_COMMIT_MAX_PATHS = 1_000;
  * gate); attribution is best-effort and never hides a row. A file no
  * commit holds — the sidecar's, a secret — that git lists as a change
  * because the folder's `.gitignore` no longer ignores it is no row: the
- * window offers nothing no pass records.
+ * window offers nothing no pass records. Nor is what git reads where the
+ * last flush was refused (`OpenBinding.refusedAt`) — the link added, the
+ * documents gone beneath it: the engine holds those documents, no commit
+ * of the working tree records the place, and the Git card's row at the
+ * link is the one that tells of it.
  */
 export async function runListChanges(
   ctx: RuntimeCtx,
@@ -65,7 +70,10 @@ export async function runListChanges(
     ...(includeIgnored === true ? { includeIgnored: true } : {}),
   });
   if (listed === null) return { ok: false, reason: 'status-failed' };
-  const changes = listed.filter((change) => change.ignored || !isNeverCommittedPath(change.path));
+  const refusedAt = new Set(binding.refusedAt);
+  const changes = listed.filter(
+    (change) => change.ignored || (!isNeverCommittedPath(change.path) && !atOrBeneath(refusedAt, change.path)),
+  );
   const ignoredPaths = changes.filter((change) => change.ignored).map((change) => change.path);
   if (ignoredPaths.length > 0) {
     const provenance = await checkIgnoreProvenance(ctx.gitRun, rootDir, ignoredPaths);
@@ -112,8 +120,11 @@ export function validateUserCommitInput(
  * bytes are current (a flush git's writing held refuses the pass like a
  * busy index), resolves identity the §11.3 way (the user's own
  * git config first), and commits the checked set through the
- * temp-index pass. No contributor attribution — this is the operator's
- * own explicit gesture, and the message is theirs verbatim.
+ * temp-index pass. Where that flush was refused the commit leaves the
+ * place as HEAD has it, as a commit of the whole tree does: a path named
+ * there is left out, and one named alone commits nothing. No contributor
+ * attribution — this is the operator's own explicit gesture, and the
+ * message is theirs verbatim.
  */
 export async function runUserCommit(
   ctx: RuntimeCtx,
@@ -139,7 +150,8 @@ export async function runUserCommit(
     }
   }
 
-  if ((await binding.materializer.flushCurrent()).held !== undefined) {
+  const flushed = await binding.materializer.flushCurrent();
+  if (flushed.held !== undefined) {
     return { ok: false, reason: 'index-locked', detail: TREE_HELD_DETAIL };
   }
   const identity = await resolveCommitIdentity(ctx.gitRun, rootDir, ctx.syntheticIdentity());
@@ -149,6 +161,7 @@ export async function runUserCommit(
     message: input.message.trim(),
     identityEnv: identity.env,
     paths: input.paths,
+    leftAsHead: flushed.refusedAt,
     ...(input.amend === true ? { amend: true } : {}),
     ...(input.signOff === true ? { signOff: true } : {}),
     bypassHooks: input.bypassHooks === true,

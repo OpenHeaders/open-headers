@@ -30,6 +30,7 @@ import {
   treeDocumentPaths,
   treePathIsUnder,
 } from '@openheaders/core/workspace-tree';
+import { atOrBeneath } from '../git';
 import { readTreeFile } from './tree-file';
 import { listTreeNames } from './tree-listing';
 
@@ -70,15 +71,6 @@ export async function listWorkspaceTree(rootDir: string): Promise<TreeListing> {
       atOrBeneath(links, filePath) ||
       names.unlisted.some((dir) => treePathIsUnder(dir.path, filePath)),
   };
-}
-
-/** Whether one of `links` stands at `filePath` itself or at a directory above it — asked by the path's own parts. */
-function atOrBeneath(links: ReadonlySet<string>, filePath: string): boolean {
-  if (links.size === 0) return false;
-  for (let cut = filePath.indexOf('/'); cut !== -1; cut = filePath.indexOf('/', cut + 1)) {
-    if (links.has(filePath.slice(0, cut))) return true;
-  }
-  return links.has(filePath);
 }
 
 /** Read a bound workspace tree from disk into a snapshot + unknowns + issues. */

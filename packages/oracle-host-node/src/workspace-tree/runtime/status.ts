@@ -92,7 +92,7 @@ async function computeGitStatus(ctx: RuntimeCtx, binding: OpenBinding): Promise<
     branches: repo ? await listLocalBranches(ctx.gitRun, rootDir) : [],
     tags: repo ? await listTags(ctx.gitRun, rootDir) : [],
     refsStamp: repo ? await refsStamp(ctx.gitRun, rootDir) : null,
-    dirtyFiles: repo ? await countDirtyFiles(ctx.gitRun, rootDir) : null,
+    dirtyFiles: repo ? await countDirtyFiles(ctx.gitRun, rootDir, binding.refusedAt) : null,
     userIndexBusy: repo ? await userIndexHasStagedChanges(ctx.gitRun, rootDir) : false,
     suggestedMessage: composeCommitMessage(binding.intents),
     cadence,

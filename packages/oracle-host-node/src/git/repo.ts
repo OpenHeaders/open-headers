@@ -39,6 +39,7 @@ import type { IgnoreProvenance } from './ignore-ops';
 import { type HeldIndexLock, lockRefusalReason, withIndexLock } from './index-lock';
 import { NEVER_CLEANED_OPTIONS, namedPaths, WHOLE_TREE_PATHSPECS } from './never-committed';
 import { repoArgs } from './repo-args';
+import { atOrBeneath } from './tree-places';
 
 export { repoArgs };
 
@@ -269,14 +270,24 @@ export function parsePorcelainCount(stdout: string): number {
  * "N uncommitted" for the status feed — straight from porcelain. A file
  * no commit holds (`never-committed.ts`) is no uncommitted work where
  * the folder's `.gitignore` no longer ignores it: git is asked without
- * those, so a directory that holds nothing else is no row either.
+ * those, so a directory that holds nothing else is no row either. Nor is
+ * what git reads at a place a commit leaves as HEAD has it
+ * (`leftAsHead`, as `commitWorkspaceTree` takes it) and beneath one: the
+ * link added and the documents gone there are work no commit of ours
+ * records.
  */
-export async function countDirtyFiles(run: GitRunner, rootDir: string): Promise<number | null> {
+export async function countDirtyFiles(
+  run: GitRunner,
+  rootDir: string,
+  leftAsHead: readonly string[] = [],
+): Promise<number | null> {
   const result = await run([...repoArgs(rootDir), 'status', '--porcelain', '-z', '--', ...WHOLE_TREE_PATHSPECS], {
     cwd: rootDir,
   });
   if (result.code !== 0) return null;
-  return parsePorcelainCount(result.stdout);
+  if (leftAsHead.length === 0) return parsePorcelainCount(result.stdout);
+  const places = new Set(leftAsHead);
+  return parseWorkingChanges(result.stdout).filter((change) => !atOrBeneath(places, change.path)).length;
 }
 
 // ── Working changes (the Commit tool window's tree feed) ─────────────
@@ -1574,12 +1585,14 @@ export interface CommitWorkspaceTreeOptions {
    */
   fromTree?: string;
   /**
-   * A commit of the whole tree leaves these places, and all that lies
+   * A commit of the working tree leaves these places, and all that lies
    * beneath each, as HEAD has them: where the engine's flush was refused
    * — a link standing at a document's directory or at its own name. Git
    * reads the link added and the documents gone there, while the engine
    * holds them; recorded, that would reach every peer as a deletion
-   * nobody made. Without `paths` only.
+   * nobody made. Of the whole tree, and of `paths` too: a path named at
+   * such a place or beneath one is not staged, and a directory named
+   * above one brings nothing of it. Not with `fromTree`.
    */
   leftAsHead?: readonly string[];
   /**
@@ -1688,8 +1701,8 @@ async function restoreNeverCommitted(
 
 /**
  * Put `places`, and all that lies beneath each, back as HEAD has them in
- * the index `env` names: what the whole-tree add staged there — a link
- * added, the files beneath it gone — leaves the index. After the add,
+ * the index `env` names: what the add staged there — a link added, the
+ * files beneath it gone — leaves the index. After the add,
  * never as an exclude on it: git fails an add whose pathspec names a
  * path an ignore file ignores, an exclude too, and such a place may be
  * one. A place is a name, never a pattern: read as one it would put
@@ -1806,12 +1819,16 @@ async function commitHoldingIndex(
       const left = await leaveAsHead(run, rootDir, indexEnv, options.leftAsHead ?? []);
       if (left !== null) return { ok: false, reason: 'stage-failed', detail: failureDetail(left) };
     } else {
-      const named = namedPaths(options.paths);
+      // A name at a place left as HEAD has it, or beneath one, is not handed to git: it fails an add beyond a link.
+      const places = new Set(options.leftAsHead ?? []);
+      const named = namedPaths(options.paths).filter((filePath) => !atOrBeneath(places, filePath));
       if (named.length > 0) {
         const stage = await run([...repoArgs(rootDir), 'add', '-A', '--', ...named], { cwd: rootDir, env: indexEnv });
         if (stage.code !== 0) return { ok: false, reason: 'stage-failed', detail: failureDetail(stage) };
         const restore = await restoreNeverCommitted(run, rootDir, indexEnv, hasHead);
         if (restore !== null) return { ok: false, reason: 'stage-failed', detail: failureDetail(restore) };
+        const left = await leaveAsHead(run, rootDir, indexEnv, options.leftAsHead ?? []);
+        if (left !== null) return { ok: false, reason: 'stage-failed', detail: failureDetail(left) };
       }
     }
 

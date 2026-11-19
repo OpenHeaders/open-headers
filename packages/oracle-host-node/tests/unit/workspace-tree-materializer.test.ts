@@ -730,10 +730,12 @@ describe('WorkspaceTreeMaterializer — the folder’s boundary', () => {
     state.rules = [ruleInAlpha('aaaaaaaa', 'Block probes')];
     await fs.symlink(outside, inTree('rules'));
     const told: unknown[] = [];
+    const stopped: string[][] = [];
     const materializer = new WorkspaceTreeMaterializer({
       rootDir: tmpDir,
       readSnapshot: async () => ({ state }),
       onUnwritten: (rows) => told.push(rows),
+      onRefusedAt: (places) => stopped.push(places),
     });
 
     const refused = await materializer.flush();
@@ -751,6 +753,8 @@ describe('WorkspaceTreeMaterializer — the folder’s boundary', () => {
     expect(written.unwritten).toEqual([]);
     // Every pass tells its rows: the owner's rows of the pass before are those no longer.
     expect(told).toEqual([[LINK_ROW], []]);
+    // And where it stopped: the owner's lists of uncommitted work leave that place out, and no longer once it is free.
+    expect(stopped).toEqual([['rules'], []]);
   });
 
   it('answers the planned text of each file the boundary refused, and the place it stopped at once — the bytes it writes once the link is gone, and none then', async () => {

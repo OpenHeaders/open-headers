@@ -36,6 +36,9 @@ export async function openBinding(ctx: RuntimeCtx, record: WorkspaceTreeBindingR
     onUnwritten: (rows) => {
       binding.unwritten = rows;
     },
+    onRefusedAt: (places) => {
+      binding.refusedAt = places;
+    },
     log: (level, msg, ...rest) => logger[level](SCOPE, msg, ...rest),
   });
   const watcher = new WorkspaceTreeWatcher({
@@ -95,6 +98,7 @@ export async function openBinding(ctx: RuntimeCtx, record: WorkspaceTreeBindingR
     contributors: new Set(),
     issues: [],
     unwritten: [],
+    refusedAt: [],
     lockSaid: null,
     closed: false,
   };

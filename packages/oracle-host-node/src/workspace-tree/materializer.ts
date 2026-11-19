@@ -121,6 +121,8 @@ export interface WorkspaceTreeMaterializerOptions {
   onHeld?: (held: number) => void;
   /** Every pass's `unwritten` rows, as it ends — the owner's rows of the pass before are those no longer. */
   onUnwritten?: (rows: TreeIssue[]) => void;
+  /** Every pass's `refusedAt`, as it ends — the places the owner's lists of uncommitted work leave out. */
+  onRefusedAt?: (places: string[]) => void;
   log?: (level: 'warn' | 'error', msg: string, ...rest: unknown[]) => void;
 }
 
@@ -136,6 +138,7 @@ export class WorkspaceTreeMaterializer {
   private readonly watchTreeWrites: (() => Promise<TreeWritesWatch>) | undefined;
   private readonly onHeld: ((held: number) => void) | undefined;
   private readonly onUnwritten: ((rows: TreeIssue[]) => void) | undefined;
+  private readonly onRefusedAt: ((places: string[]) => void) | undefined;
   private readonly log: (level: 'warn' | 'error', msg: string, ...rest: unknown[]) => void;
   private timer: NodeJS.Timeout | null = null;
   private chain: Promise<unknown> = Promise.resolve();
@@ -148,6 +151,7 @@ export class WorkspaceTreeMaterializer {
     this.watchTreeWrites = options.watchTreeWrites;
     this.onHeld = options.onHeld;
     this.onUnwritten = options.onUnwritten;
+    this.onRefusedAt = options.onRefusedAt;
     this.log = options.log ?? (() => undefined);
   }
 
@@ -347,6 +351,7 @@ export class WorkspaceTreeMaterializer {
     const rows = [...unwritten.values()];
     this.onUnwritten?.(rows);
     const refusedAt = [...stops];
+    this.onRefusedAt?.(refusedAt);
     if (held === 0) return { written, deleted, unchanged, unwritten: rows, refused: kept, refusedAt };
     this.onHeld?.(held);
     return { written, deleted, unchanged, held, unwritten: rows, refused: kept, refusedAt };

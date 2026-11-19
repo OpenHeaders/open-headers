@@ -171,6 +171,13 @@ export interface OpenBinding {
   issues: TreeIssue[];
   /** The rows of the last flush: what it did not write (`MaterializeResult.unwritten`). */
   unwritten: TreeIssue[];
+  /**
+   * Where the last flush was refused (`MaterializeResult.refusedAt`): a
+   * link standing at a document's directory or at its own name. What git
+   * reads there and beneath it is in no count and no list of uncommitted
+   * work, and in no commit of the working tree.
+   */
+  refusedAt: readonly string[];
   /** What was last said of the tree's lock not being this engine's — its holder, or why the ask failed; null while it is. */
   lockSaid: string | null;
   closed: boolean;

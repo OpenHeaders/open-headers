@@ -23,7 +23,9 @@
  * And a link where a document stood — at a rule's directory, at its own
  * file, at its collection's directory: the engine keeps what it holds,
  * one row says the link, a commit of the whole tree leaves the place as
- * HEAD has it, and a pull's commit holds the rule as a file.
+ * HEAD has it, the Commit window lists nothing there and a commit of
+ * checked files that names it leaves it out, and a pull's commit holds
+ * the rule as a file.
  *
  * And the Git card's rows a pass leaves, on the same wiring: derived as
  * a sweep derives them — the read contained against the engine's
@@ -571,6 +573,69 @@ describe('the workspace-tree runtime: a link where a document stood', () => {
       expect([engineHoldsTheCollection(), engineHoldsTheRule()]).toEqual([true, true]);
     },
   );
+
+  /** The Commit window's rows as `<status> <path>`, and the frame's count of uncommitted files. */
+  async function uncommitted(): Promise<[string[], number | null]> {
+    const listed = await harness.runtime.changes(harness.workspaceId);
+    const window = listed.ok ? listed.changes.map((change) => `${change.status} ${change.path}`) : [listed.reason];
+    return [window, (await harness.runtime.gitStatus(harness.workspaceId)).dirtyFiles];
+  }
+
+  it.each([
+    ['a rule’s directory', RULE_DIR],
+    ['a rule’s own file', RULE_FILE],
+    ['the collection’s directory', COLLECTION_DIR],
+  ])(
+    'at %s: the Commit window lists nothing there and the count holds none of it, where git reads the link and the documents gone — a file changed beside it is the one row',
+    {
+      timeout: 30_000,
+    },
+    async (_what, relative) => {
+      await commitTheCollectionAndItsRule();
+      await swapForALink(relative);
+      expect(await harness.git('status', '--porcelain')).not.toBe('');
+      expect(await uncommitted()).toEqual([[], 0]);
+
+      await writeByHand('README.md', 'A workspace of mine.\n');
+      await delay(TREE_AT_REST_MS);
+      expect(await uncommitted()).toEqual([['? README.md'], 1]);
+    },
+  );
+
+  it('a user commit that names what git lists at a rule’s directory, a link here, leaves it out: named alone it commits nothing, and the file checked beside it is the whole commit', {
+    timeout: 30_000,
+  }, async () => {
+    await commitTheCollectionAndItsRule();
+    await swapForALink(RULE_DIR);
+    await writeByHand('README.md', 'A workspace of mine.\n');
+
+    expect(
+      await harness.runtime.userCommit(harness.workspaceId, { message: 'the link', paths: [RULE_DIR, RULE_FILE] }),
+    ).toEqual({ ok: true, committed: false });
+    expect(
+      await harness.runtime.userCommit(harness.workspaceId, {
+        message: 'a readme',
+        paths: ['README.md', RULE_DIR, RULE_FILE],
+      }),
+    ).toMatchObject({ ok: true, committed: true });
+    expect(await harness.git('show', '--format=', '--name-status', 'HEAD')).toBe('A\tREADME.md');
+    expect(await harness.git('ls-tree', '-r', '--name-only', 'HEAD', '--', COLLECTION_DIR)).toBe(
+      `${COLLECTION_FILE}\n${RULE_FILE}`,
+    );
+    expect([engineHoldsTheRule(), (await fs.lstat(inTree(RULE_DIR))).isSymbolicLink()]).toEqual([true, true]);
+  });
+
+  it('a user commit that names the type change at a rule’s own file, a link here, records no link', {
+    timeout: 30_000,
+  }, async () => {
+    await commitTheCollectionAndItsRule();
+    await swapForALink(RULE_FILE);
+
+    expect(
+      await harness.runtime.userCommit(harness.workspaceId, { message: 'the type change', paths: [RULE_FILE] }),
+    ).toEqual({ ok: true, committed: false });
+    expect(await harness.git('ls-tree', 'HEAD', '--', RULE_FILE)).toMatch(/^100644 /);
+  });
 
   it('the link taken away and the directory moved back, the rule is as it was — no reading in between gave the engine a batch: no row, nothing changed', {
     timeout: 30_000,

@@ -2324,7 +2324,7 @@ describe('Tree ops: a commit’s blobs and a paths checkout off the real index',
     expect(await treeWithFiles(run, tmpDir, 'not-a-tree', new Map([['a.md', 'a\n']]))).toBeNull();
   });
 
-  describe('commitWorkspaceTree: places a commit of the whole tree leaves as HEAD has them', () => {
+  describe('commitWorkspaceTree: places a commit of the working tree leaves as HEAD has them', () => {
     const RULE = 'rules/api/delay/rule.yaml';
     const staged = async (): Promise<string> => (await git('show', '--format=', '--name-status', 'HEAD')).stdout;
     const commitLeaving = (leftAsHead: string[]) =>
@@ -2407,6 +2407,61 @@ describe('Tree ops: a commit’s blobs and a paths checkout off the real index',
 
       expect(await commitLeaving(['rules/delay'])).toMatchObject({ ok: true, committed: true });
       expect((await git('ls-tree', '-r', '--name-only', 'HEAD')).stdout).not.toContain('rules/delay');
+    });
+
+    describe('a commit of named paths', () => {
+      const LINK = 'rules/api/delay';
+      const commitNaming = (paths: string[], leftAsHead: string[]) =>
+        commitWorkspaceTree({ run, rootDir: tmpDir, message: 'Checked', identityEnv: IDENTITY_ENV, paths, leftAsHead });
+
+      it('a path named at the place or beneath it is left out and the other names are recorded, a sibling whose name begins as the place’s among them — handed to git, the name beneath the link fails the commit whole', async () => {
+        const SIBLING = 'rules/api/delay-more/rule.yaml';
+        await aRuleThenALinkAt(LINK);
+        await write('README.md', '# mine\n');
+        await write('NOTES.md', '# notes\n');
+        await write(SIBLING, 'name: More\n');
+
+        expect(await commitNaming(['NOTES.md', RULE], [])).toMatchObject({ ok: false, reason: 'stage-failed' });
+
+        expect(await commitNaming(['README.md', LINK, RULE, SIBLING], [LINK])).toMatchObject({
+          ok: true,
+          committed: true,
+        });
+        expect(await staged()).toBe(`A\tREADME.md\nA\t${SIBLING}\n`);
+        expect((await git('ls-tree', '-r', '--name-only', 'HEAD', '--', LINK)).stdout).toBe(`${RULE}\n`);
+      });
+
+      it('named alone, a path there commits nothing — without the place said, the link’s name records the link and the document gone', async () => {
+        await aRuleThenALinkAt(LINK);
+        expect(await commitNaming([LINK], [LINK])).toEqual({ ok: true, committed: false });
+        expect(await commitNaming([RULE], [LINK])).toEqual({ ok: true, committed: false });
+
+        expect(await commitNaming([LINK], [])).toMatchObject({ ok: true, committed: true });
+        expect(await staged()).toBe(`A\t${LINK}\nD\t${RULE}\n`);
+      });
+
+      it('a directory named above the place brings nothing of it: what else the directory holds is recorded', async () => {
+        await aRuleThenALinkAt(LINK);
+        await write('rules/api/block/rule.yaml', 'name: Block\n');
+
+        expect(await commitNaming(['rules'], [LINK])).toMatchObject({ ok: true, committed: true });
+        expect(await staged()).toBe('A\trules/api/block/rule.yaml\n');
+      });
+    });
+
+    it('countDirtyFiles leaves such a place out — the link and what git reads gone beneath it are no uncommitted work, a sibling whose name begins as the place’s is', async () => {
+      await aRuleThenALinkAt('rules/api/delay');
+      expect(await countDirtyFiles(run, tmpDir)).toBe(2);
+      expect(await countDirtyFiles(run, tmpDir, ['rules/api/delay'])).toBe(0);
+
+      await write('rules/api/delay-more/rule.yaml', 'name: More\n');
+      await write('README.md', '# mine\n');
+      expect(await countDirtyFiles(run, tmpDir, ['rules/api/delay'])).toBe(2);
+    });
+
+    it('countDirtyFiles leaves out the type change at a file’s own name', async () => {
+      await aRuleThenALinkAt(RULE);
+      expect([await countDirtyFiles(run, tmpDir), await countDirtyFiles(run, tmpDir, [RULE])]).toEqual([1, 0]);
     });
   });
 
