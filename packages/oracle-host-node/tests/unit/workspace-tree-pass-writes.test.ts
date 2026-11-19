@@ -204,6 +204,23 @@ describe('readPassWrites — a document the flush was refused, a link standing o
     expect([...(pass?.meant ?? [])]).toEqual([]);
     expect(await git('ls-tree', pass?.after ?? '', 'rules')).toMatch(/^120000 /);
   });
+
+  it('beneath a link HEAD holds that the pass itself took away is laid as planned: the entry is in no document’s way any more', async () => {
+    await write('workspace.yaml', 'schemaVersion: 5\n');
+    await fs.symlink(outside, inTree('rules'));
+    await commit('base, the link with it');
+    const before = await reading();
+
+    await fs.rm(inTree('rules'));
+    const pass = await readPassWrites(run, rootDir, before, {
+      written: ['rules'],
+      refusedBefore: new Map(),
+      refusedAfter: new Map([[RULE, 'as planned\n']]),
+    });
+    expect(pass?.wrote).toEqual(['rules', RULE]);
+    expect([...(pass?.meant ?? [])]).toEqual([RULE]);
+    expect(await blobAt(pass?.after, RULE)).toBe('as planned');
+  });
 });
 
 describe('readPassWrites — a document the flush was refused, a link standing at its own name', () => {

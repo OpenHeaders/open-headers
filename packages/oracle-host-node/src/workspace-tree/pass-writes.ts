@@ -35,7 +35,8 @@
  * write of the pass. One thing stays as the branch has it: a document
  * beneath a link or a file the branch's own HEAD holds, or at a link it
  * holds. That entry is the branch's, and a file laid beneath it or over
- * it would take it out of the commit.
+ * it would take it out of the commit — while it stands: one the pass
+ * itself took away, as the foreign side did, is in no document's way.
  *
  * What the branch's HEAD and the reading differ in is the uncommitted
  * work that was there before the pass: any of it elsewhere, and every
@@ -52,13 +53,13 @@ import {
   type GitRunner,
   type HeldIndexLock,
   isGone,
-  isRegularFileEntry,
   listTreeEntries,
   listWorkingChanges,
   TreeBoundary,
   treeWithFiles,
   treeWithWorkingFiles,
 } from '../git';
+import { entryInTheWay, type TreeEntries } from './branch-entries';
 
 /**
  * What a flush says of itself: the files it wrote and removed, how many
@@ -118,18 +119,29 @@ export interface PassWrites {
   meant: ReadonlySet<string>;
 }
 
-/** Whether `head` holds a file or a link at a directory above `filePath`, or a link at `filePath` itself. */
-function atAnEntryOfTheBranch(head: ReadonlyMap<string, string>, filePath: string): boolean {
-  for (let cut = filePath.indexOf('/'); cut !== -1; cut = filePath.indexOf('/', cut + 1)) {
-    if (head.has(filePath.slice(0, cut))) return true;
-  }
-  const own = head.get(filePath);
-  return own !== undefined && !isRegularFileEntry(own);
-}
-
 /** What a flush was refused that is laid over a tree: all of it but a document an entry of HEAD's own stands in the way of. */
-const laidOf = (head: ReadonlyMap<string, string>, refused: FlushAccount['refused']): Map<string, string> =>
-  new Map([...refused].filter(([filePath]) => !atAnEntryOfTheBranch(head, filePath)));
+const laidOf = (head: TreeEntries, refused: FlushAccount['refused']): Map<string, string> =>
+  new Map([...refused].filter(([filePath]) => entryInTheWay(head, filePath) === null));
+
+/**
+ * HEAD's entries that still stand in `worked` — the reading with the
+ * pass's writes laid over it. An entry the pass itself took away is in
+ * no document's way: both sides held a link there, the foreign side made
+ * it a folder, and the flush was refused at the link before the landing
+ * removed it. Listed only where an entry is in the way of a refused
+ * document at all. Null when the tree cannot be read.
+ */
+async function entriesLeftStanding(
+  run: GitRunner,
+  rootDir: string,
+  head: TreeEntries,
+  worked: string,
+  refused: FlushAccount['refused'],
+): Promise<TreeEntries | null> {
+  if (![...refused.keys()].some((filePath) => entryInTheWay(head, filePath) !== null)) return head;
+  const after = await listTreeEntries(run, rootDir, worked);
+  return after === null ? null : new Map([...head].filter(([place]) => after.has(place)));
+}
 
 /** The uncommitted work a pass finds before it writes. */
 export interface LocalWork {
@@ -186,10 +198,12 @@ export async function readPassWrites(
   const head = await listTreeEntries(run, rootDir, 'HEAD');
   if (head === null) return null;
   const refusedBefore = laidOf(head, account.refusedBefore);
-  const refusedAfter = laidOf(head, account.refusedAfter);
   const local = await localWorkOver(run, rootDir, reading, refusedBefore);
   const worked = await treeWithWorkingFiles(run, rootDir, reading, account.written);
   if (local === null || worked === null) return null;
+  const standing = await entriesLeftStanding(run, rootDir, head, worked, account.refusedAfter);
+  if (standing === null) return null;
+  const refusedAfter = laidOf(standing, account.refusedAfter);
   const after = await treeWithFiles(run, rootDir, worked, refusedAfter);
   if (after === null) return null;
   const wrote = await diffForeignPaths(run, rootDir, local.tree, after);

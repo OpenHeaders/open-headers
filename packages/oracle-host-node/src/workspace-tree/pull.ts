@@ -71,6 +71,12 @@
  * them, unless that work may be committed without asking. The foreign
  * history's own listing decides the QUESTION only.
  *
+ * One foreign change is refused whole, before anything is written: a
+ * document it holds beneath a file or a link — or at a link — the
+ * branch's own commits put there since the merge base
+ * (`branch-entries.ts`). The two trees cannot both stand, and the pass
+ * names the entry and the document.
+ *
  * Tracked files only by construction: the foreign snapshot comes from
  * the commit's tree, so a gitignored local-only entity can never be
  * mistaken for a foreign deletion (§3.3).
@@ -114,16 +120,19 @@ import {
   isAncestorOf,
   isShallowRepository,
   listForeignAuthors,
+  listTreeEntries,
   lockRefusalReason,
   mergeBaseOf,
   readCommitTree,
   resolveUpstream,
   snapshotWorkingTree,
+  treeRefusalReason,
   treeWithFiles,
   withIndexLock,
   withObjectBatch,
 } from '../git';
 import { answeredBy } from './answered-by';
+import { entryInTheWay, heldByBothSides } from './branch-entries';
 import { type ApplyCommitResolution, type ApplyCommitResolve, decideChange } from './change-answers';
 import { type CommittedSide, type HeadReading, NOTHING_CARRIED, readCommittedSide, readHead } from './committed-side';
 import { TREE_HELD_DETAIL } from './materializer';
@@ -513,6 +522,34 @@ async function readForeignChange(
   };
 }
 
+/**
+ * Why the foreign change cannot stand in the branch's tree, null where
+ * it can: one of its `documents` lies beneath a file or a link — or at a
+ * link — that is the branch's own since the merge base
+ * (`branch-entries.ts`). Such a pull would keep the branch's entry and
+ * record the foreign document deleted, while the engine held it. The
+ * base is listed only where HEAD holds an entry in a document's way.
+ */
+async function branchEntryInTheWay(
+  run: GitRunner,
+  rootDir: string,
+  base: string | null,
+  documents: readonly string[],
+): Promise<string | null> {
+  const head = await listTreeEntries(run, rootDir, 'HEAD');
+  if (head === null) return null;
+  const inTheWay = documents.flatMap((filePath) => {
+    const entry = entryInTheWay(head, filePath);
+    return entry === null ? [] : [{ filePath, entry }];
+  });
+  if (inTheWay.length === 0) return null;
+  // Histories that share no commit share no entry: every one of HEAD's is the branch's own.
+  const origin = base === null ? new Map<string, string>() : await listTreeEntries(run, rootDir, base);
+  if (origin === null) return null;
+  const own = inTheWay.find(({ entry }) => !heldByBothSides(origin, head, entry.place));
+  return own === undefined ? null : treeRefusalReason(own.filePath, own.entry.refusal);
+}
+
 /** What an integration read of the foreign head and decided against the branch, before it writes. */
 interface ForeignReading {
   /** The foreign head's tree as its commit holds it. */
@@ -575,6 +612,15 @@ async function readIntegration(
       issues: read.issues,
     };
   }
+  const foreignDocuments = commitTreePaths(foreignCommit);
+  const inTheWay = await branchEntryInTheWay(
+    run,
+    rootDir,
+    base,
+    [...diff.changed].filter((filePath) => foreignDocuments.has(filePath)),
+  );
+  if (inTheWay !== null) return { ok: false, reason: 'foreign-invalid', detail: inTheWay, issues: read.issues };
+
   // No base ⇒ the three-way discipline degrades to "everything foreign
   // is tree-authored". The result names why so the surface can say so
   // (§3.4): a shallow clone hides the common history; otherwise the

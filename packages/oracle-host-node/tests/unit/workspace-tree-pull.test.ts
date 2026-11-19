@@ -1134,6 +1134,142 @@ describe("pullWorkspaceTree — the user's own files and a document's siblings",
   });
 });
 
+describe('pullWorkspaceTree — a file or a link of the branch’s own where the peer’s document would stand', () => {
+  const onLocal = (rel: string): string => path.join(local, ...rel.split('/'));
+  const DELAY_DIR = 'rules/api-colapi00/delay-probes-bbbbbbbb';
+  const DELAY_FILE = `${DELAY_DIR}/rule.yaml`;
+  const DELAY_YAML =
+    'schemaVersion: 5\nuid: bbbbbbbb\nname: Delay probes\ntype: block\nenabled: true\nconditions: []\naction: {}\n';
+  const A_LINK = `"${DELAY_DIR}/" is a link, on the way to "${DELAY_FILE}"`;
+
+  async function commitLocal(message: string): Promise<void> {
+    const result = await commitWorkspaceTree({ run, rootDir: local, message, identityEnv: IDENTITY_ENV });
+    if (!result.ok || !result.committed) throw new Error(`local commit failed: ${message}`);
+  }
+
+  /** What the branch holds reaches the peer's clone: both sides hold it from here. */
+  async function shareWithThePeer(): Promise<void> {
+    await raw(local, 'push', '--quiet', 'origin', 'main');
+    const pulled = await raw(peer, 'pull', '--quiet', 'origin', 'main');
+    if (pulled.code !== 0) throw new Error(`peer pull failed: ${pulled.stderr}`);
+  }
+
+  const linkTheRulesDirectory = (to: string): Promise<void> => fs.symlink(path.join(tmpDir, to), onLocal(DELAY_DIR));
+
+  /** The peer takes away what it holds at the rule's directory and commits the rule there. */
+  async function thePeerCommitsTheRule(): Promise<string> {
+    await fs.rm(path.join(peer, ...DELAY_DIR.split('/')), { force: true });
+    await peerEdit(DELAY_FILE, () => DELAY_YAML);
+    return peerCommitPush('A rule');
+  }
+
+  /** The pull is refused in `detail` with nothing done: no batch, the branch where it was. */
+  async function expectThePullRefused(detail: string): Promise<void> {
+    const head = (await raw(local, 'rev-parse', 'HEAD')).stdout;
+    const applied: EmissionBatch[] = [];
+    expect(await doPull(applied)).toMatchObject({ ok: false, reason: 'foreign-invalid', detail });
+    expect(applied).toEqual([]);
+    expect((await raw(local, 'rev-parse', 'HEAD')).stdout).toBe(head);
+  }
+
+  it('a link committed here where no rule stood, and the peer adds a rule beneath that name: refused before anything is written, naming the link and the rule', async () => {
+    await linkTheRulesDirectory('elsewhere');
+    await commitLocal('A link');
+    await thePeerCommitsTheRule();
+
+    await expectThePullRefused(A_LINK);
+    expect((await fs.lstat(onLocal(DELAY_DIR))).isSymbolicLink()).toBe(true);
+  });
+
+  it('a file committed here at that name refuses the same, said as no directory', async () => {
+    await fs.writeFile(onLocal(DELAY_DIR), 'a file\n', 'utf-8');
+    await commitLocal('A file');
+    await thePeerCommitsTheRule();
+
+    await expectThePullRefused(`"${DELAY_DIR}/" is not a directory, on the way to "${DELAY_FILE}"`);
+    expect(await fs.readFile(onLocal(DELAY_DIR), 'utf-8')).toBe('a file\n');
+  });
+
+  it('a rule’s own file committed here as a link, and the peer edits the rule: refused, naming the file', async () => {
+    const moved = path.join(tmpDir, 'moved-rule.yaml');
+    await fs.rename(onLocal(RULE_FILE), moved);
+    await fs.symlink(moved, onLocal(RULE_FILE));
+    await commitLocal('The rule’s file a link');
+    await peerEdit(RULE_FILE, (content) => content.replace('name: Block probes', 'name: Block probes (peer)'));
+    await peerCommitPush('Rename rule');
+
+    await expectThePullRefused(`"${RULE_FILE}" is a link`);
+    expect((await fs.lstat(onLocal(RULE_FILE))).isSymbolicLink()).toBe(true);
+    expect(await fs.readFile(moved, 'utf-8')).toContain('name: Block probes\n');
+  });
+
+  it('a history that shares no commit with the branch shares no entry: the branch’s link refuses its rule too', async () => {
+    await linkTheRulesDirectory('elsewhere');
+    await commitLocal('A link');
+    await raw(peer, 'checkout', '-q', '--orphan', 'other');
+    await peerEdit(DELAY_FILE, () => DELAY_YAML);
+    const root = await commitWorkspaceTree({ run, rootDir: peer, message: 'Another root', identityEnv: RITA_ENV });
+    if (!root.ok || !root.committed) throw new Error('orphan commit failed');
+    const pushed = await raw(peer, 'push', '--quiet', '--force', 'origin', 'other:main');
+    if (pushed.code !== 0) throw new Error(`peer push failed: ${pushed.stderr}`);
+
+    await expectThePullRefused(A_LINK);
+  });
+
+  describe('a link both sides hold, which the peer makes the rule’s folder', () => {
+    beforeEach(async () => {
+      await linkTheRulesDirectory('elsewhere');
+      await commitLocal('A link');
+      await shareWithThePeer();
+    });
+
+    it('is the peer’s to replace: the pull takes the rule, its commit holds the rule’s file and the link is gone', async () => {
+      const foreignSha = await thePeerCommitsTheRule();
+
+      const applied: EmissionBatch[] = [];
+      const result = await doPull(applied, () => {
+        state.rules = [...state.rules, makeRule('bbbbbbbb', 'Delay probes')];
+      });
+      expect(result).toMatchObject({ ok: true, upToDate: false });
+      expect(applied.flatMap((entry) => entry.batch.mutations.map((m) => m.body))).toContainEqual(
+        expect.objectContaining({ kind: 'create', type: 'rule', id: 'bbbbbbbb' }),
+      );
+
+      // Nothing the pull recorded deletes the peer's rule, though the flush was refused at the link.
+      expect((await raw(local, 'diff', '--name-status', foreignSha, 'HEAD')).stdout).not.toContain(DELAY_DIR);
+      expect((await raw(local, 'ls-tree', '-r', '--name-only', 'HEAD')).stdout.split('\n')).toContain(DELAY_FILE);
+      expect((await fs.lstat(onLocal(DELAY_DIR)).catch(() => null))?.isSymbolicLink() ?? false).toBe(false);
+
+      await materializer.flush();
+      expect(await fs.readFile(onLocal(DELAY_FILE), 'utf-8')).toContain('uid: bbbbbbbb');
+      expect(await countDirtyFiles(run, local)).toBe(0);
+    });
+
+    it('and that the branch pointed elsewhere since is the branch’s own: refused', async () => {
+      await fs.rm(onLocal(DELAY_DIR));
+      await linkTheRulesDirectory('somewhere-else');
+      await commitLocal('The link, pointed elsewhere');
+      await thePeerCommitsTheRule();
+
+      await expectThePullRefused(A_LINK);
+    });
+  });
+
+  it('a file of the user’s own the branch made a link and the peer edited is not refused: the link stands, named as kept', async () => {
+    await fs.writeFile(onLocal('README.md'), '# readme\n', 'utf-8');
+    await commitLocal('A readme');
+    await shareWithThePeer();
+    await fs.rm(onLocal('README.md'));
+    await fs.symlink(path.join(tmpDir, 'elsewhere.md'), onLocal('README.md'));
+    await commitLocal('The readme a link');
+    await peerEdit('README.md', () => '# readme (peer)\n');
+    await peerCommitPush('Peer readme');
+
+    expect(await doPull([])).toMatchObject({ ok: true, upToDate: false, keptLocal: ['README.md'] });
+    expect((await fs.lstat(onLocal('README.md'))).isSymbolicLink()).toBe(true);
+  });
+});
+
 describe('pullWorkspaceTree — uncommitted work', () => {
   const onLocal = (rel: string): string => path.join(local, ...rel.split('/'));
   const out = async (...args: string[]): Promise<string> => (await raw(local, ...args)).stdout;
