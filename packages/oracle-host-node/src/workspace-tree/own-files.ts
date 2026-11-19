@@ -42,11 +42,22 @@
  * binary or a file over the cap is never shown — it stays kept and
  * named.
  *
- * What lands by git's checkout is git's to write. What this pass writes
- * and removes itself — an answered file, a file the foreign side
- * deleted — goes through the folder's boundary (`git/tree-boundary.ts`),
- * asked before anything is written: a path it refuses fails the landing
- * with nothing done.
+ * What lands by git's checkout is git's to write — and git, writing a
+ * path beneath a link, takes the link away, makes a directory and writes
+ * that path alone. Where the link stands at the name of a folder that was
+ * moved, the rest of that folder then reads as deleted. And a file a
+ * person answers is written by this pass, which writes through no link.
+ * So an own file the foreign side changed at a path the folder's
+ * boundary refuses (`git/tree-boundary.ts`) is neither landed nor asked:
+ * the plan answers the refusal, naming the link and the file, and every
+ * pass asks the plan before it writes anything — with its files to
+ * answer (`readOwnFileConflicts`), or by itself where it reads none
+ * (`canLandForeignOwnFiles`).
+ *
+ * What this pass writes and removes itself — an answered file, a file
+ * the foreign side deleted — goes through the same boundary, asked before
+ * the landing writes: a path it refuses fails the landing with nothing
+ * of it done.
  */
 
 import { promises as fs } from 'node:fs';
@@ -160,7 +171,9 @@ interface OwnFilesPlan {
  * Read the three trees and the working tree. `baseRef` is the common
  * ancestor the three-way reads against (null when there is none — every
  * foreign own file then counts as changed by the foreign side); `HEAD`
- * is the local side.
+ * is the local side. Refused where the foreign side changed an own file
+ * at a path the folder's boundary refuses — a link, or a file, on the
+ * way to it.
  */
 async function planForeignOwnFiles(
   run: GitRunner,
@@ -175,6 +188,12 @@ async function planForeignOwnFiles(
   }
 
   const { incoming, kept } = await classifyForeignOwnFiles(base, head, foreign, refs.answered);
+  // A file the foreign side changed is landed by git, or a person answers it and it is written: neither beneath a link.
+  const boundary = new TreeBoundary(rootDir);
+  for (const filePath of [...incoming, ...kept]) {
+    const placed = await boundary.locate(filePath);
+    if (!placed.ok) return { ok: false, detail: treeRefusalReason(filePath, placed.refusal) };
+  }
   if (incoming.length === 0) return { ok: true, foreign, base, landing: [], kept };
 
   const changes = await listWorkingChanges(run, rootDir);
@@ -190,6 +209,20 @@ async function planForeignOwnFiles(
     else landing.push(filePath);
   }
   return { ok: true, foreign, base, landing, kept: kept.sort() };
+}
+
+/**
+ * Whether the foreign side's own files can land, for a pass that reads
+ * no files to answer: the plan's refusal, asked before the pass writes.
+ * Writes nothing.
+ */
+export async function canLandForeignOwnFiles(
+  run: GitRunner,
+  rootDir: string,
+  refs: OwnFileRefs,
+): Promise<{ ok: true } | { ok: false; detail: string }> {
+  const plan = await planForeignOwnFiles(run, rootDir, refs);
+  return plan.ok ? { ok: true } : { ok: false, detail: plan.detail };
 }
 
 /** The file in the working tree, as a person would open it. */

@@ -6,7 +6,9 @@
  * again once git has landed the foreign side's files. A link is never
  * written or removed through; what git's own checkout lands is git's.
  * And the one own file that never lands: a link at a hygiene file's
- * name — the local file stands and the path is named as kept.
+ * name — the local file stands and the path is named as kept. And an own
+ * file the foreign side changed beneath a link here: the plan refuses it,
+ * new or edited, at every way a pass asks the plan.
  */
 
 import { promises as fs } from 'node:fs';
@@ -16,7 +18,14 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { createGitExec, type GitRunner } from '../../src/git/git-exec';
 import { ensureWorkspaceRepo } from '../../src/git/repo';
 import { repoArgs } from '../../src/git/repo-args';
-import { type AnsweredPaths, classifyForeignOwnFiles, landForeignOwnFiles } from '../../src/workspace-tree/own-files';
+import {
+  type AnsweredPaths,
+  canLandForeignOwnFiles,
+  classifyForeignOwnFiles,
+  landForeignOwnFiles,
+  type OwnFileRefs,
+  readOwnFileConflicts,
+} from '../../src/workspace-tree/own-files';
 
 const IDENTITY_ENV = {
   GIT_AUTHOR_NAME: 'John Doe',
@@ -189,6 +198,67 @@ describe('landForeignOwnFiles — a link the foreign side put at .gitignore', ()
     });
     expect((await fs.lstat(inTree('.gitignore'))).isFile()).toBe(true);
     expect(await read(inTree('.gitignore'))).toBe(mine);
+    expect(await read(inTree('other.md'))).toBe('theirs alone\n');
+  });
+});
+
+describe('an own file the foreign side changed beneath a link here — refused before anything is written', () => {
+  const NEW = 'notes/new.md';
+  const refs = (): OwnFileRefs => ({ baseRef, foreignRef: 'theirs', answered: NO_READINGS });
+
+  /** The branch `theirs` off the base, made by `change`; here the readme's directory is then moved out and a link put at its name. */
+  async function theForeignSideChanges(change: () => Promise<void>): Promise<void> {
+    const branch = await git('rev-parse', '--abbrev-ref', 'HEAD');
+    await git('checkout', '-q', '-b', 'theirs');
+    await change();
+    await write('other.md', 'theirs alone\n');
+    await commit('theirs');
+    await git('checkout', '-q', branch);
+    await fs.rename(inTree('notes'), path.join(outside, 'notes'));
+    await fs.symlink(path.join(outside, 'notes'), inTree('notes'));
+  }
+
+  /** The link stands with the folder behind it as it was moved, and git landed nothing of the foreign side's. */
+  async function expectNothingWritten(): Promise<void> {
+    expect((await fs.lstat(inTree('notes'))).isSymbolicLink()).toBe(true);
+    expect(await fs.readdir(path.join(outside, 'notes'))).toEqual(['readme.md']);
+    expect(await read(path.join(outside, 'notes', 'readme.md'))).toBe('base\n');
+    expect(await read(inTree('other.md'))).toBeNull();
+  }
+
+  it('a NEW file, which git would land by replacing the link: the reading of the files to answer, the ask of a pass that reads none and the landing each answer the link and the file', async () => {
+    await theForeignSideChanges(() => write(NEW, 'theirs alone\n'));
+    const refused = { ok: false, detail: '"notes/" is a link, on the way to "notes/new.md"' };
+    expect(await readOwnFileConflicts(run, rootDir, refs())).toEqual(refused);
+    expect(await canLandForeignOwnFiles(run, rootDir, refs())).toEqual(refused);
+    expect(await landForeignOwnFiles(run, rootDir, refs())).toEqual(refused);
+    await expectNothingWritten();
+  });
+
+  it('a file the branch holds there that the foreign side EDITED, which reads as deleted beneath the link: no file to answer is offered for it', async () => {
+    await theForeignSideChanges(() => write(README, 'theirs\n'));
+    const refused = { ok: false, detail: '"notes/" is a link, on the way to "notes/readme.md"' };
+    expect(await readOwnFileConflicts(run, rootDir, refs())).toEqual(refused);
+    expect(await canLandForeignOwnFiles(run, rootDir, refs())).toEqual(refused);
+    await expectNothingWritten();
+  });
+
+  it('a file BOTH sides changed there, which a person would be asked about and the answer written: no file to answer is offered for it', async () => {
+    await bothSidesChangeTheReadme(() => write(README, 'theirs\n'));
+    await fs.rename(inTree('notes'), path.join(outside, 'notes'));
+    await fs.symlink(path.join(outside, 'notes'), inTree('notes'));
+    expect(await readOwnFileConflicts(run, rootDir, refs())).toEqual({
+      ok: false,
+      detail: '"notes/" is a link, on the way to "notes/readme.md"',
+    });
+    expect(await read(path.join(outside, 'notes', 'readme.md'))).toBe('ours\n');
+  });
+
+  it('a pass whose foreign side changed nothing there is not refused for the link: its file elsewhere lands', async () => {
+    await theForeignSideChanges(async () => undefined);
+    expect(await canLandForeignOwnFiles(run, rootDir, refs())).toEqual({ ok: true });
+    expect(await landForeignOwnFiles(run, rootDir, refs())).toEqual({ ok: true, landed: ['other.md'], kept: [] });
+    expect((await fs.lstat(inTree('notes'))).isSymbolicLink()).toBe(true);
     expect(await read(inTree('other.md'))).toBe('theirs alone\n');
   });
 });

@@ -1086,6 +1086,51 @@ describe("pullWorkspaceTree — the user's own files and a document's siblings",
       expect((await raw(local, 'rev-parse', 'HEAD')).stdout.trim()).toBe(localSha);
       expect(await fs.readFile(onLocal(COLLECTION_NOTE), 'utf-8')).toBe('mine\n');
     });
+
+    describe('the peer adds one beside a rule whose directory is a link here', () => {
+      const RULE_DIR = 'rules/api-colapi00/block-probes-aaaaaaaa';
+
+      /** The peer's note beside the rule, and its rename of the rule — a batch the engine would take. */
+      async function thePeerWritesTheNote(): Promise<void> {
+        await peerEdit(RULE_NOTE, () => 'the peer’s, in a rule\n');
+        await peerEdit(RULE_FILE, (content) => content.replace('name: Block probes', 'name: Block probes (peer)'));
+      }
+
+      /** The rule's directory moved out of the folder and a link put at its name: the pull is refused with nothing done. */
+      async function expectThePullRefused(): Promise<void> {
+        const head = (await raw(local, 'rev-parse', 'HEAD')).stdout;
+        const moved = path.join(tmpDir, 'moved');
+        await fs.rename(onLocal(RULE_DIR), moved);
+        await fs.symlink(moved, onLocal(RULE_DIR));
+
+        const applied: EmissionBatch[] = [];
+        expect(await doPull(applied)).toMatchObject({
+          ok: false,
+          reason: 'foreign-invalid',
+          detail: `"${RULE_DIR}/" is a link, on the way to "${RULE_NOTE}"`,
+        });
+        expect(applied).toEqual([]);
+        expect((await raw(local, 'rev-parse', 'HEAD')).stdout).toBe(head);
+        expect((await fs.lstat(onLocal(RULE_DIR))).isSymbolicLink()).toBe(true);
+        expect(await fs.readdir(moved)).toEqual(['rule.yaml']);
+      }
+
+      it('the pull refuses before anything is written, naming the link and the note', async () => {
+        await thePeerWritesTheNote();
+        await peerCommitPush('A note');
+        await expectThePullRefused();
+      });
+
+      it('so does a pull of a history that shares no commit with the branch, which reads no file to answer', async () => {
+        await raw(peer, 'checkout', '-q', '--orphan', 'other');
+        await thePeerWritesTheNote();
+        const root = await commitWorkspaceTree({ run, rootDir: peer, message: 'Another root', identityEnv: RITA_ENV });
+        if (!root.ok || !root.committed) throw new Error('orphan commit failed');
+        const pushed = await raw(peer, 'push', '--quiet', '--force', 'origin', 'other:main');
+        if (pushed.code !== 0) throw new Error(`peer push failed: ${pushed.stderr}`);
+        await expectThePullRefused();
+      });
+    });
   });
 });
 

@@ -127,7 +127,7 @@ import { answeredBy } from './answered-by';
 import { type ApplyCommitResolution, type ApplyCommitResolve, decideChange } from './change-answers';
 import { type CommittedSide, type HeadReading, NOTHING_CARRIED, readCommittedSide, readHead } from './committed-side';
 import { TREE_HELD_DETAIL } from './materializer';
-import { landForeignOwnFiles, type OwnFileRefs } from './own-files';
+import { canLandForeignOwnFiles, landForeignOwnFiles, type OwnFileRefs } from './own-files';
 import {
   type FlushAccount,
   flushedPaths,
@@ -441,7 +441,10 @@ async function readForeignChange(
     // document the foreign side holds is taken whole (§3.4), and
     // uncommitted work in a file the foreign history changed has to be
     // committed first, or it would ride into the integration's commit —
-    // that is asked while nothing is written.
+    // that is asked while nothing is written. So is the landing of the
+    // foreign side's own files, which no file to answer is read for here.
+    const landing = await canLandForeignOwnFiles(run, rootDir, args.ownRefs);
+    if (!landing.ok) return { ok: false, reason: 'foreign-invalid', detail: landing.detail, issues: [] };
     if (!deps.mayCommitLocalWork) {
       const localChanges = await uncommittedAmong(run, rootDir, foreignPaths);
       if (localChanges === null) {

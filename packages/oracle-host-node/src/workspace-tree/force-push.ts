@@ -73,7 +73,7 @@ import {
   withObjectBatch,
 } from '../git';
 import { answeredBy, headWhenAsked } from './answered-by';
-import { landForeignOwnFiles } from './own-files';
+import { canLandForeignOwnFiles, landForeignOwnFiles, type OwnFileRefs } from './own-files';
 import {
   type FlushAccount,
   flushedPaths,
@@ -242,6 +242,28 @@ export async function resolveForcePushWorkspaceTree(options: ResolveForcePushOpt
       if (work === null) return unreadable(read.issues);
       const between = [...heads.changed, ...heads.removed];
       const committedFirst = between.filter((filePath) => work.uncommitted.has(filePath)).sort();
+
+      const snapshot = await options.readSnapshot();
+      // A foreign folder or leaf the workspace has no container for is
+      // quarantined like a document that did not read.
+      const foreign = containTreeRead(read, snapshot);
+
+      // The user's own files follow the choice too (`own-files.ts`):
+      // `reapply` reads three-way against the watermark, so a local change
+      // survives; `abandon` and `rescue` take the foreign side's file
+      // wherever the two heads differ. A file beside a manifest is one of
+      // them where neither head's reading answers for it. Whether they can
+      // land is asked here, while nothing of the resolution is written: a
+      // file that would land beneath a link refuses it.
+      const ownFiles = (): OwnFileRefs => ({
+        baseRef: choice === 'reapply' ? options.lastSyncedRemoteSha : 'HEAD',
+        foreignRef: upstream.sha,
+        answered: answeredBy(headWhenAsked(options), { commit: foreignCommit, tree: foreign }),
+      });
+      const asked = ownFiles();
+      const landing = await canLandForeignOwnFiles(run, rootDir, asked);
+      if (!landing.ok) return { ok: false, reason: 'foreign-invalid', detail: landing.detail, issues: foreign.issues };
+
       if (committedFirst.length > 0) {
         const local = await options.commitLocalWork({ tree: work.tree, paths: committedFirst, indexLock });
         if (!local.ok) return { ok: false, reason: 'commit-failed', detail: local.detail, issues: read.issues };
@@ -275,10 +297,6 @@ export async function resolveForcePushWorkspaceTree(options: ResolveForcePushOpt
         removed = new Set(localPaths.filter((entry) => !foreignPaths.has(entry)));
       }
 
-      const snapshot = await options.readSnapshot();
-      // A foreign folder or leaf the workspace has no container for is
-      // quarantined like a document that did not read.
-      const foreign = containTreeRead(read, snapshot);
       const batches = synthesizeWorkspaceTreeDelta({
         prev: snapshot,
         next: withCommitSecretRows({
@@ -310,17 +328,10 @@ export async function resolveForcePushWorkspaceTree(options: ResolveForcePushOpt
 
       const flushed = await options.flush();
 
-      // The user's own files follow the choice too (`own-files.ts`), while
-      // HEAD is still the pre-resolution head: `reapply` reads three-way
-      // against the watermark, so a local change survives; `abandon` and
-      // `rescue` take the foreign side's file wherever the two heads differ.
-      // A file beside a manifest is one of them where neither head's reading
-      // answers for it — HEAD's is read then, as the landing finds it.
-      const own = await landForeignOwnFiles(run, rootDir, {
-        baseRef: choice === 'reapply' ? options.lastSyncedRemoteSha : 'HEAD',
-        foreignRef: upstream.sha,
-        answered: answeredBy(headWhenAsked(options), { commit: foreignCommit, tree: foreign }),
-      });
+      // The own files land while HEAD is still the pre-resolution head. Its
+      // reading is the one the ask took, unless a commit of local work has
+      // moved HEAD since — it is then read anew, as the landing finds it.
+      const own = await landForeignOwnFiles(run, rootDir, committedFirst.length > 0 ? ownFiles() : asked);
       if (!own.ok) return { ok: false, reason: 'commit-failed', detail: own.detail, issues: foreign.issues };
 
       // What the resolution wrote, by its writers' account laid over the

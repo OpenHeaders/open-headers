@@ -664,6 +664,32 @@ describe('the workspace-tree runtime: a link where a document stood', () => {
     expect(rows()).toEqual([]);
   });
 
+  it('a Pull that brings the peer’s note beside a rule whose directory is a link here is refused before anything is written, naming the link and the note — the rule is held and the link stands', {
+    timeout: 30_000,
+  }, async () => {
+    const NOTE = `${RULE_DIR}/notes.md`;
+    await commitTheCollectionAndItsRule();
+    await withThePeerPushing(
+      (other) => fs.writeFile(path.join(other, ...NOTE.split('/')), 'the peer’s notes\n', 'utf-8'),
+      async () => {
+        const head = await harness.git('rev-parse', 'HEAD');
+        const moved = await swapForALink(RULE_DIR);
+
+        expect(await harness.runtime.pull(harness.workspaceId)).toMatchObject({
+          ok: false,
+          reason: 'foreign-invalid',
+          detail: `"${RULE_DIR}/" is a link, on the way to "${NOTE}"`,
+        });
+        await delay(TREE_AT_REST_MS);
+        expect([engineHoldsTheRule(), rulesInTheCollection()]).toEqual([true, [RULE_UID]]);
+        expect(await harness.git('rev-parse', 'HEAD')).toBe(head);
+        expect((await fs.lstat(inTree(RULE_DIR))).isSymbolicLink()).toBe(true);
+        expect(await fs.readdir(moved)).toEqual(['rule.yaml']);
+        expect(rows()).toEqual([`${RULE_DIR}/ :: ${NOT_WRITTEN}`]);
+      },
+    );
+  });
+
   it('a Pull that merges the peer’s edit of a rule whose own file is a link here records the rule as a file, as the engine holds it', {
     timeout: 30_000,
   }, async () => {

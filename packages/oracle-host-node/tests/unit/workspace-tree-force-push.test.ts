@@ -574,6 +574,45 @@ describe('resolveForcePushWorkspaceTree', () => {
       },
     );
 
+    it('abandon, with uncommitted work in the note here committed first: HEAD’s tree is read anew for the landing, as that commit left it', async () => {
+      await divergeTheNotes();
+      await fs.writeFile(onLocal(LOCAL_NOTE), 'mine, not yet committed\n', 'utf-8');
+      const result = await doResolve('abandon', [], takeTheRewrittenHead);
+      if (!result.ok) throw new Error(`abandon failed: ${result.reason} ${result.detail ?? ''}`);
+      expect(localWorkCommits).toEqual([[LOCAL_NOTE]]);
+      expect(await fs.readFile(onLocal(PEER_NOTE), 'utf-8')).toBe('the peer’s\n');
+      expect(await isThere(LOCAL_NOTE)).toBe(false);
+      // The rewritten head, HEAD for the ask, and HEAD again once the commit of local work moved it.
+      expect([batches.opened(), batches.held()]).toEqual([3, 0]);
+    });
+
+    it.each(['abandon', 'rescue', 'reapply'] as const)(
+      '%s: the rewritten head’s note beside a rule whose directory is a link here — refused before anything is written, naming the link and the note',
+      async (choice) => {
+        const RULE_DIR = 'rules/api-colapi00/block-probes-aaaaaaaa';
+        const NOTE = `${RULE_DIR}/notes.md`;
+        await fs.writeFile(path.join(peer, ...NOTE.split('/')), 'the peer’s\n', 'utf-8');
+        const peerCommit = await commitWorkspaceTree({ run, rootDir: peer, message: 'A note', identityEnv: RITA_ENV });
+        if (!peerCommit.ok || !peerCommit.committed) throw new Error('peer note commit failed');
+        await raw(peer, 'push', '--quiet', 'origin', 'main');
+        const moved = path.join(tmpDir, 'moved');
+        await fs.rename(onLocal(RULE_DIR), moved);
+        await fs.symlink(moved, onLocal(RULE_DIR));
+
+        const applied: EmissionBatch[] = [];
+        expect(await doResolve(choice, applied)).toMatchObject({
+          ok: false,
+          reason: 'foreign-invalid',
+          detail: `"${RULE_DIR}/" is a link, on the way to "${NOTE}"`,
+        });
+        expect([applied, localWorkCommits]).toEqual([[], []]);
+        expect((await raw(local, 'rev-parse', 'HEAD')).stdout.trim()).toBe(localHead);
+        expect((await raw(local, 'branch', '--list', 'oh-rescue-*')).stdout).toBe('');
+        expect((await fs.lstat(onLocal(RULE_DIR))).isSymbolicLink()).toBe(true);
+        expect(await fs.readdir(moved)).toEqual(['rule.yaml']);
+      },
+    );
+
     it('re-apply: the rewritten head’s note lands and the one committed here rides the fresh commit', async () => {
       await divergeTheNotes();
       const result = await doResolve('reapply', [], () => {
