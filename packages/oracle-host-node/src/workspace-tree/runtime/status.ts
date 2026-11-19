@@ -20,6 +20,7 @@ import {
   refsStamp,
   resolveUpstream,
   userIndexHasStagedChanges,
+  workingChangesStamp,
 } from '../../git';
 import { type OpenBinding, type RuntimeCtx, SCOPE, STATUS_PUBLISH_DEBOUNCE_MS } from './core';
 import type { WorkspaceTreeGitStatusRpcResult } from './types';
@@ -36,6 +37,7 @@ export function notBoundStatus(): WorkspaceTreeGitStatusRpcResult {
     tags: [],
     refsStamp: null,
     dirtyFiles: null,
+    changesStamp: null,
     userIndexBusy: false,
     suggestedMessage: '',
     cadence: 'off',
@@ -67,6 +69,7 @@ async function computeGitStatus(ctx: RuntimeCtx, binding: OpenBinding): Promise<
       tags: [],
       refsStamp: null,
       dirtyFiles: null,
+      changesStamp: null,
       userIndexBusy: false,
       suggestedMessage: composeCommitMessage(binding.intents),
       cadence,
@@ -93,6 +96,7 @@ async function computeGitStatus(ctx: RuntimeCtx, binding: OpenBinding): Promise<
     tags: repo ? await listTags(ctx.gitRun, rootDir) : [],
     refsStamp: repo ? await refsStamp(ctx.gitRun, rootDir) : null,
     dirtyFiles: repo ? await countDirtyFiles(ctx.gitRun, rootDir, binding.refusedAt) : null,
+    changesStamp: repo ? await workingChangesStamp(ctx.gitRun, rootDir, binding.refusedAt) : null,
     userIndexBusy: repo ? await userIndexHasStagedChanges(ctx.gitRun, rootDir) : false,
     suggestedMessage: composeCommitMessage(binding.intents),
     cadence,

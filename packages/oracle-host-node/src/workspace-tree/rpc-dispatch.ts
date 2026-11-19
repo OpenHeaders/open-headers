@@ -210,6 +210,7 @@ export async function dispatchWorkspaceTreeRpc(
         tags: [],
         refsStamp: null,
         dirtyFiles: null,
+        changesStamp: null,
         userIndexBusy: false,
         suggestedMessage: '',
         cadence: 'off',

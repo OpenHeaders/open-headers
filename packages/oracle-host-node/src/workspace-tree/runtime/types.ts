@@ -676,6 +676,12 @@ export interface WorkspaceTreeGitStatusRpcResult {
   refsStamp: string | null;
   /** `git status --porcelain` entry count; null when unreadable. */
   dirtyFiles: number | null;
+  /**
+   * The rows the Commit window lists, as one stamp — it moves the frame
+   * for a change of the rows that leaves the count above where it was.
+   * Null with no repo, or unreadable.
+   */
+  changesStamp: string | null;
   /** True while the user's own staging area is non-empty (§3.3 pause). */
   userIndexBusy: boolean;
   /** Semantic draft from the intents recorded since the last commit. */

@@ -12,9 +12,7 @@
  */
 
 import { logger } from '@openheaders/core/utils';
-import { isNeverCommittedPath } from '@openheaders/core/workspace-tree';
 import {
-  atOrBeneath,
   checkIgnoreProvenance,
   commitParents,
   commitWorkspaceTree,
@@ -22,6 +20,7 @@ import {
   isAncestorOf,
   isSafeTreePath,
   isWorkspaceRepo,
+  listedChanges,
   listWorkingChanges,
   localHeadSha,
   readWorkingFileDiff,
@@ -70,10 +69,7 @@ export async function runListChanges(
     ...(includeIgnored === true ? { includeIgnored: true } : {}),
   });
   if (listed === null) return { ok: false, reason: 'status-failed' };
-  const refusedAt = new Set(binding.refusedAt);
-  const changes = listed.filter(
-    (change) => change.ignored || (!isNeverCommittedPath(change.path) && !atOrBeneath(refusedAt, change.path)),
-  );
+  const changes = listedChanges(listed, binding.refusedAt);
   const ignoredPaths = changes.filter((change) => change.ignored).map((change) => change.path);
   if (ignoredPaths.length > 0) {
     const provenance = await checkIgnoreProvenance(ctx.gitRun, rootDir, ignoredPaths);

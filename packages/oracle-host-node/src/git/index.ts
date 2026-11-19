@@ -145,6 +145,7 @@ export {
   type LeftRightCounts,
   LOG_SCOPE_HEAD,
   listCommitLog,
+  listedChanges,
   listFileLog,
   listForeignAuthors,
   listLocalBranches,
@@ -175,6 +176,7 @@ export {
   userIndexHasStagedChanges,
   type WorkingChange,
   withCommitAttribution,
+  workingChangesStamp,
 } from './repo';
 export {
   planRollback,

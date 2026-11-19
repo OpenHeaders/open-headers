@@ -588,15 +588,20 @@ describe('the workspace-tree runtime: a link where a document stood', () => {
     ['a rule’s own file', RULE_FILE],
     ['the collection’s directory', COLLECTION_DIR],
   ])(
-    'at %s: the Commit window lists nothing there and the count holds none of it, where git reads the link and the documents gone — a file changed beside it is the one row',
+    'at %s: the Commit window lists nothing there and the count and the rows’ stamp hold none of it, where git reads the link and the documents gone — a file changed beside it is the one row',
     {
       timeout: 30_000,
     },
     async (_what, relative) => {
+      const rowsStamp = async (): Promise<string | null> =>
+        (await harness.runtime.gitStatus(harness.workspaceId)).changesStamp;
       await commitTheCollectionAndItsRule();
+      const withNoRow = await rowsStamp();
+      expect(withNoRow).not.toBeNull();
       await swapForALink(relative);
       expect(await harness.git('status', '--porcelain')).not.toBe('');
       expect(await uncommitted()).toEqual([[], 0]);
+      expect(await rowsStamp()).toBe(withNoRow);
 
       await writeByHand('README.md', 'A workspace of mine.\n');
       await delay(TREE_AT_REST_MS);

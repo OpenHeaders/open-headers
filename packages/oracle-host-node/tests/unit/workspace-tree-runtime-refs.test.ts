@@ -6,8 +6,15 @@
  * (`refsStamp`). HEAD's file is never rewritten here, and the working
  * tree is brought to rest first: the watch of refs alone brings each
  * frame after.
+ *
+ * And the working tree's rows changed outside the app with their count
+ * where it was: the stamp of the rows (`workingChangesStamp`) on the
+ * frame the status sends, which is all an open Commit window reads its
+ * list again on.
  */
 
+import { promises as fs } from 'node:fs';
+import * as path from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { WorkspaceTreeGitStatusRpcResult } from '../../src/workspace-tree/runtime';
@@ -77,5 +84,47 @@ describe('the workspace-tree runtime hears a ref moved outside the app', () => {
 
     await harness.git('branch', '-D', 'side');
     await frameWhere('a branch deleted', (frame) => !frame.branches.includes('side'));
+  });
+});
+
+describe('the workspace-tree runtime says the Commit window’s rows changed where their count did not', () => {
+  it('one file put back and another edited, and a file added to a folder untracked whole, each send a frame', {
+    timeout: 30_000,
+  }, async () => {
+    const at = (name: string): string => path.join(harness.rootDir, name);
+    await fs.writeFile(at('a.txt'), 'a, as committed\n', 'utf-8');
+    await fs.writeFile(at('b.txt'), 'b, as committed\n', 'utf-8');
+    await delay(TREE_AT_REST_MS);
+    await harness.git('add', '-A');
+    await harness.git('commit', '-q', '-m', 'seed');
+    const seed = await harness.git('rev-parse', 'HEAD');
+    await frameWhere('the seed committed', (frame) => frame.headSha === seed && frame.dirtyFiles === 0);
+    await delay(TREE_AT_REST_MS);
+
+    await fs.writeFile(at('a.txt'), 'a, edited\n', 'utf-8');
+    const edited = await frameWhere('a file edited', (frame) => frame.dirtyFiles === 1);
+
+    // One row before and one after, at another file: the count the frame carries reads the same.
+    await fs.writeFile(at('a.txt'), 'a, as committed\n', 'utf-8');
+    await fs.writeFile(at('b.txt'), 'b, edited\n', 'utf-8');
+    const other = await frameWhere(
+      'one file put back and another edited',
+      (frame) => frame.dirtyFiles === 1 && frame.changesStamp !== edited.changesStamp,
+    );
+    expect({ ...other, changesStamp: edited.changesStamp }).toEqual(edited);
+
+    await fs.mkdir(at('notes'));
+    await fs.writeFile(at('notes/one.md'), 'one\n', 'utf-8');
+    const folder = await frameWhere('a folder made with one file', (frame) => frame.dirtyFiles === 2);
+
+    // The count reads a folder untracked whole as one row; the window lists each file in it.
+    await fs.writeFile(at('notes/two.md'), 'two\n', 'utf-8');
+    const second = await frameWhere(
+      'a second file in that folder',
+      (frame) => frame.dirtyFiles === 2 && frame.changesStamp !== folder.changesStamp,
+    );
+    expect({ ...second, changesStamp: folder.changesStamp }).toEqual(folder);
+    const listed = await harness.runtime.changes(harness.workspaceId);
+    expect(listed.ok && listed.changes.map((change) => change.path)).toEqual(['b.txt', 'notes/one.md', 'notes/two.md']);
   });
 });

@@ -1837,6 +1837,14 @@ export interface WorkspaceTreeGitStatusWire {
    * absent from an older host.
    */
   refsStamp?: string | null;
+  /**
+   * The rows the Commit window lists, as one stamp (additive) — it moves
+   * the frame for a change of the rows that leaves `dirtyFiles` where it
+   * was: one file put back and another edited, a file added to a folder
+   * the count already reads as one row. Null with no repo; absent from
+   * an older host.
+   */
+  changesStamp?: string | null;
 }
 
 /** A git operation a person can be mid-way through. */

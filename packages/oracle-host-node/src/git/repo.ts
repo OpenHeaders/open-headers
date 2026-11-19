@@ -361,14 +361,14 @@ export function parseWorkingChanges(stdout: string): WorkingChange[] {
 }
 
 /**
- * The Commit window's changes rows; null when porcelain fails.
- * `--untracked-files=all` expands untracked directories into their
- * individual files (the tree shows files, not `rules/`).
+ * Git's rows of the working tree, file by file; null when porcelain
+ * fails. `--untracked-files=all` expands untracked directories into
+ * their individual files (the tree shows files, not `rules/`).
  */
-export async function listWorkingChanges(
+async function readWorkingChanges(
   run: GitRunner,
   rootDir: string,
-  options?: { includeIgnored?: boolean },
+  includeIgnored: boolean,
 ): Promise<WorkingChange[] | null> {
   const result = await run(
     [
@@ -377,12 +377,61 @@ export async function listWorkingChanges(
       '--porcelain',
       '-z',
       '--untracked-files=all',
-      ...(options?.includeIgnored === true ? ['--ignored'] : []),
+      ...(includeIgnored ? ['--ignored'] : []),
     ],
     { cwd: rootDir },
   );
   if (result.code !== 0) return null;
-  return markSymlinks(rootDir, parseWorkingChanges(result.stdout));
+  return parseWorkingChanges(result.stdout);
+}
+
+/** The Commit window's changes rows, each link among them flagged; null when porcelain fails. */
+export async function listWorkingChanges(
+  run: GitRunner,
+  rootDir: string,
+  options?: { includeIgnored?: boolean },
+): Promise<WorkingChange[] | null> {
+  const changes = await readWorkingChanges(run, rootDir, options?.includeIgnored === true);
+  return changes === null ? null : markSymlinks(rootDir, changes);
+}
+
+/**
+ * Of git's rows, the ones the Commit window lists: what a commit of the
+ * working tree can record, and an ignored row where those were asked
+ * for. A file no commit holds (`never-committed.ts`) that git lists
+ * because the folder's `.gitignore` no longer ignores it is no row — the
+ * window offers nothing no pass records. Nor is what git reads at a
+ * place a commit leaves as HEAD has it (`leftAsHead`, as
+ * `commitWorkspaceTree` takes it) and beneath one.
+ */
+export function listedChanges(changes: readonly WorkingChange[], leftAsHead: readonly string[]): WorkingChange[] {
+  const places = new Set(leftAsHead);
+  return changes.filter(
+    (change) => change.ignored || (!isNeverCommittedPath(change.path) && !atOrBeneath(places, change.path)),
+  );
+}
+
+/**
+ * The rows the Commit window lists, as one stamp — the status frame's
+ * fact that they changed where their count did not: one file put back
+ * and another edited, a file added to a folder the count reads as one
+ * untracked row. A hash and not the rows, as for the refs. A row is what
+ * it shows — its letter, its path, where it was renamed from — so an
+ * edit of a file already changed moves nothing. The ignored rows are not
+ * in it. Null when the status cannot be read.
+ */
+export async function workingChangesStamp(
+  run: GitRunner,
+  rootDir: string,
+  leftAsHead: readonly string[] = [],
+): Promise<string | null> {
+  const changes = await readWorkingChanges(run, rootDir, false);
+  if (changes === null) return null;
+  const hash = createHash('sha256');
+  for (const change of listedChanges(changes, leftAsHead)) {
+    hash.update(`${change.status}\0${change.path}\0${change.renamedFrom ?? ''}\0`, 'utf-8');
+  }
+  return hash.digest('hex');
 }
 
 /**

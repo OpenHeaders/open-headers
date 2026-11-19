@@ -87,6 +87,7 @@ import {
   unlistedScopeRefs,
   userIndexHasStagedChanges,
   withCommitAttribution,
+  workingChangesStamp,
 } from '../../src/git/repo';
 import { createLightweightTag } from '../../src/git/tag-ops';
 import {
@@ -2148,6 +2149,86 @@ describe('The refs’ stamp: the status frame’s fact that a ref moved', () => 
     await git('pack-refs', '--all');
     expect(await moved()).toBe(false);
     await git('update-ref', 'refs/stash', first);
+    expect(await moved()).toBe(false);
+  });
+});
+
+describe('The working changes’ stamp: the status frame’s fact that the Commit window’s rows changed', () => {
+  const git = (...args: string[]) => run([...repoArgs(tmpDir), ...args], { cwd: tmpDir });
+  const count = (): Promise<number | null> => countDirtyFiles(run, tmpDir);
+
+  it('workingChangesStamp moves with a row made, gone or changed in what it shows — where the count stays too — and with nothing else', async () => {
+    expect(await workingChangesStamp(run, tmpDir)).toBeNull();
+    await initialCommit();
+    await write('a.txt', 'a, as committed\n');
+    await write('b.txt', 'b, as committed, and not a line of a\n');
+    const seeded = await commitWorkspaceTree({ run, rootDir: tmpDir, message: 'Two files', identityEnv: IDENTITY_ENV });
+    if (!seeded.ok || !seeded.committed) throw new Error('the seed commit failed');
+
+    let last = await workingChangesStamp(run, tmpDir);
+    expect(last).toMatch(/^[0-9a-f]{64}$/);
+    const moved = async (): Promise<boolean> => {
+      const next = await workingChangesStamp(run, tmpDir);
+      const differs = next !== last;
+      last = next;
+      return differs;
+    };
+    expect(await moved()).toBe(false);
+
+    await write('a.txt', 'a, edited\n');
+    expect(await moved()).toBe(true);
+    // The row shows what it showed: a file already changed, edited again.
+    await write('a.txt', 'a, edited twice\n');
+    expect(await moved()).toBe(false);
+
+    // One file put back and another edited: one row either way.
+    await write('a.txt', 'a, as committed\n');
+    await write('b.txt', 'b, edited\n');
+    expect(await count()).toBe(1);
+    expect(await moved()).toBe(true);
+    await write('b.txt', 'b, as committed, and not a line of a\n');
+    expect(await moved()).toBe(true);
+
+    // A folder untracked whole is one row of the count, whatever it holds; the window lists its files.
+    await write('notes/one.md', 'one\n');
+    expect(await moved()).toBe(true);
+    expect(await count()).toBe(1);
+    await write('notes/two.md', 'two\n');
+    expect(await count()).toBe(1);
+    expect(await moved()).toBe(true);
+
+    // The letter a row shows: an untracked file added from a terminal.
+    await git('add', 'notes/one.md');
+    expect(await moved()).toBe(true);
+    await git('reset', '-q', '--', 'notes/one.md');
+    await fs.rm(path.join(tmpDir, 'notes'), { recursive: true });
+    expect(await moved()).toBe(true);
+
+    // Where a row was renamed from: the same letter at the same path, from another file.
+    await git('mv', 'a.txt', 'c.txt');
+    expect(await moved()).toBe(true);
+    await git('mv', 'c.txt', 'a.txt');
+    await git('mv', 'b.txt', 'c.txt');
+    expect((await listWorkingChanges(run, tmpDir))?.map((row) => [row.status, row.path, row.renamedFrom])).toEqual([
+      ['R', 'c.txt', 'b.txt'],
+    ]);
+    expect(await moved()).toBe(true);
+    await git('mv', 'c.txt', 'b.txt');
+    expect(await moved()).toBe(true);
+
+    // What the window does not list moves nothing: a file no commit holds, a place left as HEAD has it, an ignored file.
+    await write('environments/prod.secret.yaml', 'token: not-a-row\n');
+    expect((await listWorkingChanges(run, tmpDir))?.map((row) => row.path)).toEqual(['environments/prod.secret.yaml']);
+    expect(await moved()).toBe(false);
+
+    const withThePlaceLeft = await workingChangesStamp(run, tmpDir, ['rules/api/delay']);
+    await write('rules/api/delay/rule.yaml', 'name: Delay\n');
+    expect(await workingChangesStamp(run, tmpDir, ['rules/api/delay'])).toBe(withThePlaceLeft);
+    expect(await moved()).toBe(true);
+
+    await write('.gitignore', 'scratch.log\n');
+    expect(await moved()).toBe(true);
+    await write('scratch.log', 'nothing a commit takes\n');
     expect(await moved()).toBe(false);
   });
 });
