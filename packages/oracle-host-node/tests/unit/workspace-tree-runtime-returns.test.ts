@@ -16,6 +16,9 @@
  * collection's order where the peer or the branch holds no rule in it:
  * the engine's collection with nothing in it is the empty order.
  *
+ * And a note the peer keeps in a collection's directory, which no
+ * document reads: a pull lands it like any file of the user's own.
+ *
  * And the Git card's rows a pass leaves, on the same wiring: derived as
  * a sweep derives them — the read contained against the engine's
  * snapshot, and no row at a file whose bytes are the baseline's. They
@@ -383,6 +386,39 @@ describe('the workspace-tree runtime: a deletion a pull brings', () => {
       expect(await isThere(COLLECTION_FILE)).toBe(false);
     });
   });
+});
+
+describe('the workspace-tree runtime: a note the peer keeps in a collection’s directory, which no document reads', () => {
+  const NOTE = `${COLLECTION_DIR}/notes.md`;
+  const NOTE_TEXT = 'the peer’s notes\n';
+
+  it.each([
+    ['that moves the ref', false],
+    ['that merges', true],
+  ])(
+    'lands with a Pull %s, and the Pull’s commit holds it as the peer has it',
+    {
+      timeout: 30_000,
+    },
+    async (_how, diverged) => {
+      await commitTheCollectionAndItsRule();
+      await withThePeerPushing(
+        (other) => fs.writeFile(path.join(other, ...NOTE.split('/')), NOTE_TEXT, 'utf-8'),
+        async () => {
+          if (diverged) {
+            await writeByHand('README.md', 'A workspace of mine.\n');
+            expect(await harness.runtime.commit(harness.workspaceId, 'a readme')).toMatchObject({ ok: true });
+          }
+          expect(await harness.runtime.pull(harness.workspaceId)).toMatchObject({ ok: true, upToDate: false });
+          expect(await fs.readFile(inTree(NOTE), 'utf-8')).toBe(NOTE_TEXT);
+          expect(await harness.git('show', `HEAD:${NOTE}`)).toBe(NOTE_TEXT.trimEnd());
+          await delay(TREE_AT_REST_MS);
+          expect(await harness.git('status', '--porcelain')).toBe('');
+          expect(harness.runtime.issues(harness.workspaceId)).toEqual([]);
+        },
+      );
+    },
+  );
 });
 
 describe('the workspace-tree runtime: a collection’s order where one side of a pull holds no rule', () => {

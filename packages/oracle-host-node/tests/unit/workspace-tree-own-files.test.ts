@@ -132,6 +132,40 @@ describe('classifyForeignOwnFiles — a link at a hygiene file’s name', () => 
   });
 });
 
+describe('classifyForeignOwnFiles — a file beside an entity’s manifest', () => {
+  const FILE = '100644 aaaa';
+  const EDITED = '100644 bbbb';
+  const MANIFEST = 'rules/api-colapi00/_collection.yaml';
+  const NOTE = 'rules/api-colapi00/notes.md';
+  const SCRIPT = 'rules/api-colapi00/pre-request.js';
+  const tree = (entries: Record<string, string>): Map<string, string> => new Map(Object.entries(entries));
+  const base = tree({ [MANIFEST]: FILE });
+  const theirs = tree({ [MANIFEST]: FILE, [NOTE]: FILE, [SCRIPT]: FILE });
+
+  it('is the user’s own where no reading answers for it, and a document’s where one does', () => {
+    expect(classifyForeignOwnFiles(base, base, theirs, () => new Set([MANIFEST, SCRIPT]))).toEqual({
+      incoming: [NOTE],
+      kept: [],
+    });
+  });
+
+  it('is a document’s where the pass has no readings to ask', () => {
+    expect(classifyForeignOwnFiles(base, base, theirs)).toEqual({ incoming: [], kept: [] });
+  });
+
+  it('the readings are asked once, and not at all where only manifests differ', () => {
+    let asked = 0;
+    const answered = (): ReadonlySet<string> => {
+      asked += 1;
+      return new Set([MANIFEST]);
+    };
+    classifyForeignOwnFiles(base, base, tree({ [MANIFEST]: EDITED }), answered);
+    expect(asked).toBe(0);
+    classifyForeignOwnFiles(base, base, theirs, answered);
+    expect(asked).toBe(1);
+  });
+});
+
 describe('landForeignOwnFiles — a link the foreign side put at .gitignore', () => {
   it('does not land: the local file stands with its lines, named as kept, and the rest of the foreign side’s files land', async () => {
     const mine = '.oh/\n*.secret.yaml\n/notes.txt\n';

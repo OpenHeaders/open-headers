@@ -5,6 +5,7 @@
  * layer filesystem I/O, the `.oh/` sidecar, and bind exclusivity on top.
  */
 
+export { readDocumentPaths } from './answered-paths';
 export {
   applyCommitChange,
   type CommitChange,
@@ -27,7 +28,7 @@ export {
 } from './commit-conflicts';
 export { type CommitSecretRowsArgs, withCommitSecretRows } from './commit-secrets';
 export { containTreeRead, type HeldContainers, type HeldTree } from './containment';
-export { treeDocumentPaths } from './document-paths';
+export { isDocumentByName, treeDocumentPaths } from './document-paths';
 export {
   classifyTreePath,
   containerCandidatesAbove,

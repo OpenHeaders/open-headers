@@ -4,7 +4,8 @@
  *
  * The engine converges the workspace DOCUMENTS and writes them itself;
  * a tracked file that is not a document (a README, scripts, assets,
- * `.gitignore`) has no entity behind it, so the foreign side's change
+ * `.gitignore`, a note kept in an entity's directory that no document
+ * reads) has no entity behind it, so the foreign side's change
  * to it must be carried to the working tree here — the commit that
  * records the integration stages the working tree, and a file left at
  * its local bytes would be recorded as a revert of the foreign change.
@@ -49,7 +50,7 @@
 
 import { promises as fs } from 'node:fs';
 import * as path from 'node:path';
-import { type CommitConflictFile, treeDocumentPaths } from '@openheaders/core/workspace-tree';
+import { type CommitConflictFile, isDocumentByName, treeDocumentPaths } from '@openheaders/core/workspace-tree';
 import {
   asFileText,
   checkoutPathsFromCommit,
@@ -82,24 +83,44 @@ function isHygieneLink(filePath: string, entry: string | undefined): boolean {
 }
 
 /**
+ * The document paths the readings of an integration's two sides answer
+ * for (`readDocumentPaths`). Asked once, and only where a file beside a
+ * manifest differs between the sides.
+ */
+export type AnsweredPaths = () => ReadonlySet<string>;
+
+/**
  * Classify the own files of an integration from the three trees'
  * entries (`path → "<mode> <sha>"`; an empty `base` when the histories
  * share none). Pure: the working tree is the caller's to check.
+ *
+ * A file beside an entity's manifest is a document's where a reading of
+ * either side answers for it (`answered`), and the user's own where
+ * neither does — a note kept in a rule's directory is carried like a
+ * README. With no readings to ask, every such file is a document's.
  */
 export function classifyForeignOwnFiles(
   base: ReadonlyMap<string, string>,
   head: ReadonlyMap<string, string>,
   foreign: ReadonlyMap<string, string>,
+  answered?: AnsweredPaths,
 ): ForeignOwnFiles {
-  const documents = new Set([...treeDocumentPaths(head.keys()), ...treeDocumentPaths(foreign.keys())]);
+  const named = new Set([...treeDocumentPaths(head.keys()), ...treeDocumentPaths(foreign.keys())]);
+  let read: ReadonlySet<string> | undefined;
+  const isDocument = (filePath: string): boolean => {
+    if (!named.has(filePath)) return false;
+    if (answered === undefined || isDocumentByName(filePath)) return true;
+    read ??= answered();
+    return read.has(filePath);
+  };
   const incoming: string[] = [];
   const kept: string[] = [];
   for (const filePath of new Set([...head.keys(), ...foreign.keys()])) {
-    if (documents.has(filePath)) continue;
     const theirs = foreign.get(filePath);
     const ours = head.get(filePath);
     const origin = base.get(filePath);
     if (theirs === ours || theirs === origin) continue;
+    if (isDocument(filePath)) continue;
     if (ours === origin && !isHygieneLink(filePath, theirs)) incoming.push(filePath);
     else kept.push(filePath);
   }
@@ -121,6 +142,8 @@ async function existsOnDisk(rootDir: string, filePath: string): Promise<boolean>
 export interface OwnFileRefs {
   baseRef: string | null;
   foreignRef: string;
+  /** What the readings of HEAD and of `foreignRef` answer for — absent where the pass holds no reading of both. */
+  answered?: AnsweredPaths;
 }
 
 /** What an integration does with the own files, read before anything is written. */
@@ -151,7 +174,7 @@ async function planForeignOwnFiles(
     return { ok: false, detail: `unreadable tree for the own files of ${refs.foreignRef}` };
   }
 
-  const { incoming, kept } = classifyForeignOwnFiles(base, head, foreign);
+  const { incoming, kept } = classifyForeignOwnFiles(base, head, foreign, refs.answered);
   if (incoming.length === 0) return { ok: true, foreign, base, landing: [], kept };
 
   const changes = await listWorkingChanges(run, rootDir);

@@ -8,8 +8,10 @@
  * assets, `.gitignore`).
  *
  * A pass that reads a tree from a listing it did not walk itself — a
- * commit's — selects the blobs to read with this; a pass that carries
- * the user's own files across takes the complement.
+ * commit's — selects the blobs to read with this. These are the files a
+ * reading is handed, not the files it takes: a pass that carries the
+ * user's own files across takes the complement of what the readings
+ * answer for (`answered-paths.ts`).
  */
 
 import {
@@ -29,13 +31,25 @@ const ROOT_DOCUMENT_FILES: ReadonlySet<string> = new Set([
   TRUSTED_ROOTS_FILE,
 ]);
 
+const split = (path: string): { dir: string; base: string } => {
+  const cut = path.lastIndexOf('/');
+  return cut === -1 ? { dir: '', base: path } : { dir: path.slice(0, cut), base: path.slice(cut + 1) };
+};
+
+/**
+ * Whether `path`, a document path of a listing, is one by its NAME
+ * alone: a root document, an environment file, an entity's manifest. Any
+ * other document path is a file beside a manifest — a document's only
+ * where a reading takes it (`answered-paths.ts`).
+ */
+export function isDocumentByName(path: string): boolean {
+  const { dir, base } = split(path);
+  return dir === '' || dir === ENVIRONMENTS_DIR || ENTITY_MANIFEST_FILES.has(base);
+}
+
 /** The document paths among `paths` — one complete listing of a tree. */
 export function treeDocumentPaths(paths: Iterable<string>): Set<string> {
   const listing = [...paths];
-  const split = (path: string): { dir: string; base: string } => {
-    const cut = path.lastIndexOf('/');
-    return cut === -1 ? { dir: '', base: path } : { dir: path.slice(0, cut), base: path.slice(cut + 1) };
-  };
 
   const entityDirs = new Set<string>();
   for (const path of listing) {

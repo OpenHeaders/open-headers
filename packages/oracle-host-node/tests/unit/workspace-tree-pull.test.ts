@@ -1007,6 +1007,85 @@ describe("pullWorkspaceTree — the user's own files and a document's siblings",
     expect(await fs.readFile(onLocal(`${requestDir}/body.json`), 'utf-8')).toBe('{"probe":true}\n');
     expect(await fs.readFile(onLocal(`${requestDir}/pre-request.js`), 'utf-8')).toBe('console.log(1);\n');
     expect(await countDirtyFiles(run, local)).toBe(0);
+
+    // The body the peer changes is the request's file still: the engine's to take and to write, never landed
+    // as a file of the user's own — here the engine is left as it was, so the file is too.
+    await peerEdit(`${requestDir}/body.json`, () => '{"probe":false}\n');
+    await peerCommitPush('The body');
+    expect(await doPull([])).toMatchObject({ ok: true, upToDate: false });
+    expect(await fs.readFile(onLocal(`${requestDir}/body.json`), 'utf-8')).toBe('{"probe":true}\n');
+
+    // And the script the peer deletes: the branch's own reading answers for it, so it is no file of the user's to remove.
+    await fs.rm(path.join(peer, ...`${requestDir}/pre-request.js`.split('/')));
+    await peerCommitPush('No script');
+    expect(await doPull([])).toMatchObject({ ok: true, upToDate: false });
+    expect(await fs.readFile(onLocal(`${requestDir}/pre-request.js`), 'utf-8')).toBe('console.log(1);\n');
+  });
+
+  describe('a file of the user’s own kept in an entity’s directory, which no document reads', () => {
+    const COLLECTION_NOTE = 'rules/api-colapi00/notes.md';
+    const RULE_NOTE = 'rules/api-colapi00/block-probes-aaaaaaaa/notes.md';
+
+    it('the peer’s added one lands and is in the commit as the peer has it — a fast-forward records nothing on top', async () => {
+      await peerEdit(COLLECTION_NOTE, () => 'the peer’s\n');
+      await peerEdit(RULE_NOTE, () => 'the peer’s, in a rule\n');
+      const foreignSha = await peerCommitPush('Notes');
+
+      expect(await doPull([])).toMatchObject({ ok: true, upToDate: false, sha: foreignSha });
+      expect((await raw(local, 'rev-parse', 'HEAD')).stdout.trim()).toBe(foreignSha);
+      expect(await fs.readFile(onLocal(COLLECTION_NOTE), 'utf-8')).toBe('the peer’s\n');
+      expect(await fs.readFile(onLocal(RULE_NOTE), 'utf-8')).toBe('the peer’s, in a rule\n');
+      expect(await countDirtyFiles(run, local)).toBe(0);
+    });
+
+    it('a diverged pull records it in the merge: nothing is deleted against the peer’s head', async () => {
+      await fs.writeFile(onLocal('NOTES.md'), '# local notes\n', 'utf-8');
+      await commitLocal('Local notes');
+      await peerEdit(COLLECTION_NOTE, () => 'the peer’s\n');
+      const foreignSha = await peerCommitPush('A note');
+
+      expect(await doPull([])).toMatchObject({ ok: true, upToDate: false });
+      expect((await raw(local, 'diff', '--name-status', foreignSha, 'HEAD')).stdout).toBe('A\tNOTES.md\n');
+      expect(await fs.readFile(onLocal(COLLECTION_NOTE), 'utf-8')).toBe('the peer’s\n');
+    });
+
+    it('one both sides hold follows the peer: its edit lands, and its deletion takes the file away', async () => {
+      await shareOwnFiles({ [COLLECTION_NOTE]: 'ours\n', [RULE_NOTE]: 'ours, in a rule\n' });
+      await peerEdit(COLLECTION_NOTE, () => 'the peer’s edit\n');
+      await fs.rm(path.join(peer, ...RULE_NOTE.split('/')));
+      const foreignSha = await peerCommitPush('Notes changed');
+
+      const result = await doPull([]);
+      expect(result).toMatchObject({ ok: true, upToDate: false, sha: foreignSha });
+      expect(result).not.toHaveProperty('keptLocal');
+      expect(await fs.readFile(onLocal(COLLECTION_NOTE), 'utf-8')).toBe('the peer’s edit\n');
+      await expect(fs.access(onLocal(RULE_NOTE))).rejects.toThrow();
+      expect(await countDirtyFiles(run, local)).toBe(0);
+    });
+
+    it('a script the peer adds beside the collection’s manifest is the collection’s: the engine’s to take and to write, never landed as a file of the user’s own', async () => {
+      const script = 'rules/api-colapi00/pre-request.js';
+      await peerEdit(script, () => 'console.log(1);\n');
+      await peerCommitPush('A script');
+
+      // The engine is left as it was, so nothing writes the file.
+      expect(await doPull([])).toMatchObject({ ok: true, upToDate: false });
+      await expect(fs.access(onLocal(script))).rejects.toThrow();
+    });
+
+    it('one both sides changed is asked about with nothing written', async () => {
+      await shareOwnFiles({ [COLLECTION_NOTE]: 'ours\n' });
+      await fs.writeFile(onLocal(COLLECTION_NOTE), 'mine\n', 'utf-8');
+      const localSha = await commitLocal('My note');
+      await peerEdit(COLLECTION_NOTE, () => 'the peer’s edit\n');
+      await peerCommitPush('The peer’s note');
+
+      expect(filesToAnswer(await doPull([])).files).toEqual([
+        { path: COLLECTION_NOTE, base: 'ours\n', theirs: 'the peer’s edit\n', mine: 'mine\n' },
+      ]);
+      expect((await raw(local, 'rev-parse', 'HEAD')).stdout.trim()).toBe(localSha);
+      expect(await fs.readFile(onLocal(COLLECTION_NOTE), 'utf-8')).toBe('mine\n');
+    });
   });
 });
 

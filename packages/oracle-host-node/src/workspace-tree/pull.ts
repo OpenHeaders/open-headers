@@ -91,6 +91,7 @@ import {
   containTreeRead,
   ENTITY_MANIFEST_FILES,
   type ForeignHistoryNote,
+  readDocumentPaths,
   readWorkspaceTree,
   type TreeFile,
   type TreeIssue,
@@ -124,9 +125,9 @@ import {
   withObjectBatch,
 } from '../git';
 import { type ApplyCommitResolution, type ApplyCommitResolve, decideChange } from './change-answers';
-import { type CommittedSide, NOTHING_CARRIED, readCommittedSide } from './committed-side';
+import { type CommittedSide, type HeadReading, NOTHING_CARRIED, readCommittedSide, readHead } from './committed-side';
 import { TREE_HELD_DETAIL } from './materializer';
-import { landForeignOwnFiles } from './own-files';
+import { type AnsweredPaths, landForeignOwnFiles, type OwnFileRefs } from './own-files';
 import {
   type FlushAccount,
   flushedPaths,
@@ -425,6 +426,9 @@ async function readForeignChange(
     foreignFiles: readonly TreeFile[];
     diff: ForeignTreeDiff;
     snapshot: WorkspaceTreeState;
+    /** HEAD's own tree, read — null when it cannot be. */
+    head: HeadReading | null;
+    ownRefs: OwnFileRefs;
     resolution?: ApplyCommitResolution;
   },
 ): Promise<({ ok: true } & ForeignChange) | IntegrateForeignRefusal> {
@@ -478,7 +482,7 @@ async function readForeignChange(
   const unasked = baselessConflict(baseTree.issues);
   // A foreign document that did not read is quarantined, never read as a deletion.
   const removedPaths = diff.removed;
-  const committed = await readCommittedSide(run, objects, rootDir, { from, to, removedPaths, snapshot, unasked });
+  const committed = readCommittedSide(args.head, { from, to, removedPaths, snapshot, unasked });
   const decided = await decideChange({
     run,
     rootDir,
@@ -487,7 +491,7 @@ async function readForeignChange(
     from,
     to,
     removedPaths,
-    ownRefs: { baseRef: base, foreignRef: foreignSha },
+    ownRefs: args.ownRefs,
     ...(args.resolution !== undefined ? { resolution: args.resolution } : {}),
     mayCommitLocalWork: deps.mayCommitLocalWork,
     // Uncommitted work a document carries across the pass is not asked about.
@@ -521,6 +525,24 @@ interface ForeignReading {
   change: ForeignChange;
   /** What the boundary kept the flush of the engine's pending work from writing. */
   refusedBefore: FlushAccount['refused'];
+  /** The commits the user's own files are read between, with what the two sides' readings answer for. */
+  ownRefs: OwnFileRefs;
+}
+
+/**
+ * What the readings of HEAD and of the foreign head answer for, planned
+ * once and only when asked. A file beside a manifest that neither holds
+ * is the user's own (`own-files.ts`).
+ */
+function answeredBy(head: HeadReading | null, foreign: { commit: CommitTree; read: TreeReadResult }): AnsweredPaths {
+  let answered: ReadonlySet<string> | undefined;
+  return () => {
+    answered ??= new Set([
+      ...(head === null ? [] : readDocumentPaths(commitTreePaths(head.commit), head.tree)),
+      ...readDocumentPaths(commitTreePaths(foreign.commit), foreign.read),
+    ]);
+    return answered;
+  };
 }
 
 /**
@@ -592,6 +614,12 @@ async function readIntegration(
     };
   }
 
+  const head = await readHead(run, objects, rootDir);
+  const ownRefs: OwnFileRefs = {
+    baseRef: base,
+    foreignRef: foreignSha,
+    answered: answeredBy(head, { commit: foreignCommit, read: foreign }),
+  };
   const change = await readForeignChange(deps, {
     objects,
     base,
@@ -600,6 +628,8 @@ async function readIntegration(
     foreignFiles,
     diff,
     snapshot,
+    head,
+    ownRefs,
     ...(args.resolution !== undefined ? { resolution: args.resolution } : {}),
   });
   if (!change.ok) return change;
@@ -613,6 +643,7 @@ async function readIntegration(
     snapshot,
     change,
     refusedBefore: pending.refused,
+    ownRefs,
   };
 }
 
@@ -640,7 +671,7 @@ export async function integrateForeignHead(
   // The git the commits are read through is let go before the pass writes.
   const reading = await withObjectBatch(deps.objects, rootDir, (objects) => readIntegration(deps, args, objects));
   if (!reading.ok) return reading;
-  const { commit: foreignCommit, foreign, base, diff, snapshot, change: laid } = reading;
+  const { commit: foreignCommit, foreign, diff, snapshot, change: laid } = reading;
   const withHistory = reading.history !== undefined ? { history: reading.history } : {};
   const unreadable = (): IntegrateForeignHeadResult => ({
     ok: false,
@@ -694,7 +725,7 @@ export async function integrateForeignHead(
 
       // The writes are laid once the foreign side's changes to the user's
       // own files are on disk too.
-      const own = await landForeignOwnFiles(run, rootDir, { baseRef: base, foreignRef: foreignSha }, laid.ownAnswers);
+      const own = await landForeignOwnFiles(run, rootDir, reading.ownRefs, laid.ownAnswers);
       if (!own.ok) return { ok: false, reason: 'commit-failed', detail: own.detail, issues: foreign.issues };
       const withKept = own.kept.length > 0 ? { keptLocal: own.kept } : {};
 

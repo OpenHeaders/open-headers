@@ -28,7 +28,7 @@ import {
   type WorkspaceTreeState,
   withCommitSecretRows,
 } from '@openheaders/core/workspace-tree';
-import { type GitObjectBatch, type GitRunner, readCommitTree } from '../git';
+import { type CommitTree, type GitObjectBatch, type GitRunner, readCommitTree } from '../git';
 
 export interface CommittedSide {
   /** Whether uncommitted work in this file stays uncommitted across the pass. */
@@ -52,16 +52,22 @@ export interface ReadCommittedSideArgs {
   unasked: (conflict: CommitChangeDocument) => boolean;
 }
 
-export async function readCommittedSide(
-  run: GitRunner,
-  objects: GitObjectBatch,
-  rootDir: string,
-  args: ReadCommittedSideArgs,
-): Promise<CommittedSide> {
-  const headCommit = await readCommitTree(run, objects, rootDir, 'HEAD');
-  if (headCommit === null) return NOTHING_CARRIED;
-  const headFiles = headCommit.files;
-  const headTree = readWorkspaceTree(headFiles, headCommit.unread);
+/** HEAD's own tree, read: the files of its documents and what they read as. */
+export interface HeadReading {
+  commit: CommitTree;
+  tree: TreeReadResult;
+}
+
+/** Null when HEAD's tree cannot be read. */
+export async function readHead(run: GitRunner, objects: GitObjectBatch, rootDir: string): Promise<HeadReading | null> {
+  const commit = await readCommitTree(run, objects, rootDir, 'HEAD');
+  return commit === null ? null : { commit, tree: readWorkspaceTree(commit.files, commit.unread) };
+}
+
+export function readCommittedSide(reading: HeadReading | null, args: ReadCommittedSideArgs): CommittedSide {
+  if (reading === null) return NOTHING_CARRIED;
+  const headFiles = reading.commit.files;
+  const headTree = reading.tree;
   const workspace = headTree.state.workspace;
   if (workspace === null || headTree.issues.length > 0) return NOTHING_CARRIED;
 
