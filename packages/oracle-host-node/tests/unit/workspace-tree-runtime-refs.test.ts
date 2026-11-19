@@ -11,6 +11,10 @@
  * where it was: the stamp of the rows (`workingChangesStamp`) on the
  * frame the status sends, which is all an open Commit window reads its
  * list again on.
+ *
+ * And the index moved alone — a file staged or unstaged from a terminal:
+ * the wiring between the git directory's watch and the feed
+ * (`onIndexMove` says the status again).
  */
 
 import { promises as fs } from 'node:fs';
@@ -126,5 +130,33 @@ describe('the workspace-tree runtime says the Commit window’s rows changed whe
     expect({ ...second, changesStamp: folder.changesStamp }).toEqual(folder);
     const listed = await harness.runtime.changes(harness.workspaceId);
     expect(listed.ok && listed.changes.map((change) => change.path)).toEqual(['b.txt', 'notes/one.md', 'notes/two.md']);
+  });
+});
+
+describe('the workspace-tree runtime hears the index moved outside the app', () => {
+  it('a file staged from a terminal, and unstaged, each send a frame', { timeout: 30_000 }, async () => {
+    /** The letter the Commit window shows at the file. */
+    const letter = async (): Promise<string[]> => {
+      const listed = await harness.runtime.changes(harness.workspaceId);
+      if (!listed.ok) return [listed.reason];
+      return listed.changes.filter((change) => change.path === 'notes.md').map((change) => change.status);
+    };
+    await delay(TREE_AT_REST_MS);
+    const before = await harness.runtime.gitStatus(harness.workspaceId);
+    await fs.writeFile(path.join(harness.rootDir, 'notes.md'), '# mine\n', 'utf-8');
+    const made = await frameWhere('a file made', (frame) => frame.changesStamp !== before.changesStamp);
+    expect([made.userIndexBusy, await letter()]).toEqual([false, ['?']]);
+    await delay(TREE_AT_REST_MS);
+
+    // No file of the tree moves, no ref and no HEAD: the index's entry alone.
+    await harness.git('add', 'notes.md');
+    const staged = await frameWhere('the file staged', (frame) => frame.userIndexBusy);
+    expect(staged.changesStamp).not.toBe(made.changesStamp);
+    expect(await letter()).toEqual(['A']);
+
+    await harness.git('reset', '-q', '--', 'notes.md');
+    const unstaged = await frameWhere('the file unstaged', (frame) => !frame.userIndexBusy);
+    expect(unstaged).toEqual(made);
+    expect(await letter()).toEqual(['?']);
   });
 });

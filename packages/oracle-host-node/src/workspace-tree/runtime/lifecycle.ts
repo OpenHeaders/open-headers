@@ -59,10 +59,14 @@ export async function openBinding(ctx: RuntimeCtx, record: WorkspaceTreeBindingR
   // checkout no-op via the pointer comparison. A ref that moved with
   // HEAD where it was (a branch or a tag from a terminal, a commit
   // there) moved nothing of the tree: the status alone is said again,
-  // on the chain, so one of our own passes says it once.
+  // on the chain, so one of our own passes says it once. So did the
+  // index moved alone — a file staged or unstaged from a terminal: the
+  // rows the Commit window lists and the staged flag are the status's.
+  const sayTheStatusAgain = (): void => ctx.enqueue(binding, () => ctx.publishGitStatus(binding));
   const gitDirWatcher = new GitDirWatcher({
     rootDir: record.rootDir,
-    onRefMove: () => ctx.enqueue(binding, () => ctx.publishGitStatus(binding)),
+    onRefMove: sayTheStatusAgain,
+    onIndexMove: sayTheStatusAgain,
     onHeadMove: () =>
       ctx.enqueue(binding, async () => {
         if (await ctx.syncLogBranch(binding)) {

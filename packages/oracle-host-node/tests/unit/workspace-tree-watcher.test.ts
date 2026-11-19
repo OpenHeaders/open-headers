@@ -2,7 +2,8 @@
  * Watcher — debounced quiescence signaling over a real (tmp)
  * filesystem, with `.oh/` traffic ignored (sidecar writes must never
  * wake the sweep); and the git directory's watch over a real repo — a
- * checkout, and a ref that moved with HEAD where it was.
+ * checkout, a ref that moved with HEAD where it was, and the index
+ * moved alone.
  */
 
 import { promises as fs } from 'node:fs';
@@ -99,7 +100,7 @@ describe('GitDirWatcher', () => {
     await git(dir, 'commit', '--quiet', '-m', 'Initial tree');
   }
 
-  const moves = { head: 0, ref: 0 };
+  const moves = { head: 0, ref: 0, index: 0 };
   // The watcher runs at its own quiet window. A platform may hand one git
   // command's events over in more than one delivery (macOS, about 50 ms
   // apart on a busy machine): inside the window they are one burst, and
@@ -112,11 +113,13 @@ describe('GitDirWatcher', () => {
       rootDir: dir,
       onHeadMove: () => (moves.head += 1),
       onRefMove: () => (moves.ref += 1),
+      onIndexMove: () => (moves.index += 1),
     });
     expect(await gitDirWatcher.start()).toBe(true);
     await settle();
     moves.head = 0;
     moves.ref = 0;
+    moves.index = 0;
   }
 
   it('fires once per checkout burst on a plain clone — the branch made with it is the same burst', async () => {
@@ -127,7 +130,26 @@ describe('GitDirWatcher', () => {
     await git(repo, 'checkout', '--quiet', '-b', 'feature');
     await waitFor(() => moves.head > 0);
     await settle();
-    expect(moves).toEqual({ head: 1, ref: 0 });
+    expect(moves).toEqual({ head: 1, ref: 0, index: 0 });
+  });
+
+  it('tells a checkout between two trees as HEAD’s move — the index git writes with it is the same burst', {
+    timeout: 15_000,
+  }, async () => {
+    const repo = path.join(tmpDir, 'repo');
+    await seedRepo(repo);
+    await git(repo, 'checkout', '--quiet', '-b', 'feature');
+    await fs.writeFile(path.join(repo, 'workspace.yaml'), 'schemaVersion: 5\nuid: wsaaaaaa\nname: Probed\n', 'utf-8');
+    expect((await git(repo, 'commit', '--quiet', '-am', 'Rename')).code).toBe(0);
+    await watchGitDir(repo);
+
+    const index = path.join(repo, '.git', 'index');
+    const before = await fs.readFile(index);
+    expect((await git(repo, 'checkout', '--quiet', 'main')).code).toBe(0);
+    await waitFor(() => moves.head > 0);
+    await settle();
+    expect((await fs.readFile(index)).equals(before)).toBe(false);
+    expect(moves).toEqual({ head: 1, ref: 0, index: 0 });
   });
 
   it('follows a linked worktree gitfile to the per-worktree HEAD and the shared refs (§3.4 layouts)', {
@@ -150,16 +172,26 @@ describe('GitDirWatcher', () => {
     await git(main, 'checkout', '--quiet', '-b', 'main-side');
     await waitFor(() => moves.ref > 0);
     await settle();
-    expect(moves).toEqual({ head: 0, ref: 1 });
+    expect(moves).toEqual({ head: 0, ref: 1, index: 0 });
     await git(wt, 'checkout', '--quiet', '-b', 'wt-side');
     await waitFor(() => moves.head > 0);
     await settle();
-    expect(moves).toEqual({ head: 1, ref: 1 });
+    expect(moves).toEqual({ head: 1, ref: 1, index: 0 });
     // A packed ref is a line of the shared directory's one file.
     expect((await git(main, 'branch', '-D', 'packed')).code).toBe(0);
     await waitFor(() => moves.ref > 1);
     await settle();
-    expect(moves).toEqual({ head: 1, ref: 2 });
+    expect(moves).toEqual({ head: 1, ref: 2, index: 0 });
+    // The index is each working tree's own: a file staged in the main tree is none of this one's.
+    await fs.writeFile(path.join(main, 'main-notes.md'), '# the main tree’s\n', 'utf-8');
+    expect((await git(main, 'add', 'main-notes.md')).code).toBe(0);
+    await settle();
+    expect(moves).toEqual({ head: 1, ref: 2, index: 0 });
+    await fs.writeFile(path.join(wt, 'wt-notes.md'), '# the worktree’s\n', 'utf-8');
+    expect((await git(wt, 'add', 'wt-notes.md')).code).toBe(0);
+    await waitFor(() => moves.index > 0);
+    await settle();
+    expect(moves).toEqual({ head: 1, ref: 2, index: 1 });
   });
 
   it('hears a branch and a tag made and deleted with HEAD where it was', { timeout: 15_000 }, async () => {
@@ -173,11 +205,11 @@ describe('GitDirWatcher', () => {
       ['tag', 'v1'],
       ['tag', '-d', 'v1'],
     ];
-    for (const [index, step] of steps.entries()) {
+    for (const [done, step] of steps.entries()) {
       expect((await git(repo, ...step)).code).toBe(0);
-      await waitFor(() => moves.ref > index);
+      await waitFor(() => moves.ref > done);
       await settle();
-      expect(moves).toEqual({ head: 0, ref: index + 1 });
+      expect(moves).toEqual({ head: 0, ref: done + 1, index: 0 });
     }
   });
 
@@ -190,7 +222,27 @@ describe('GitDirWatcher', () => {
     expect((await git(repo, 'commit', '--quiet', '-am', 'Rename')).code).toBe(0);
     await waitFor(() => moves.ref > 0);
     await settle();
-    expect(moves).toEqual({ head: 0, ref: 1 });
+    expect(moves).toEqual({ head: 0, ref: 1, index: 0 });
+  });
+
+  it('hears a file staged and unstaged, with HEAD and every ref where they were', { timeout: 15_000 }, async () => {
+    const repo = path.join(tmpDir, 'repo');
+    await seedRepo(repo);
+    await fs.writeFile(path.join(repo, 'notes.md'), '# mine\n', 'utf-8');
+    await watchGitDir(repo);
+
+    const steps = [
+      ['add', 'notes.md'],
+      ['reset', '--quiet', '--', 'notes.md'],
+      ['add', '-N', 'notes.md'],
+      ['rm', '--quiet', '--cached', 'notes.md'],
+    ];
+    for (const [done, step] of steps.entries()) {
+      expect((await git(repo, ...step)).code).toBe(0);
+      await waitFor(() => moves.index > done);
+      await settle();
+      expect(moves).toEqual({ head: 0, ref: 0, index: done + 1 });
+    }
   });
 
   it('hears a packed ref deleted — nothing under refs/ is its own', async () => {
@@ -204,7 +256,7 @@ describe('GitDirWatcher', () => {
     expect((await git(repo, 'branch', '-D', 'packed')).code).toBe(0);
     await waitFor(() => moves.ref > 0);
     await settle();
-    expect(moves).toEqual({ head: 0, ref: 1 });
+    expect(moves).toEqual({ head: 0, ref: 1, index: 0 });
   });
 
   it('stays quiet under a fetch that brings nothing, and hears one that brings a ref', async () => {
@@ -216,16 +268,16 @@ describe('GitDirWatcher', () => {
 
     expect((await git(clone, 'fetch', '--quiet')).code).toBe(0);
     await settle();
-    expect(moves).toEqual({ head: 0, ref: 0 });
+    expect(moves).toEqual({ head: 0, ref: 0, index: 0 });
 
     await git(origin, 'branch', 'topic');
     expect((await git(clone, 'fetch', '--quiet')).code).toBe(0);
     await waitFor(() => moves.ref > 0);
     await settle();
-    expect(moves).toEqual({ head: 0, ref: 1 });
+    expect(moves).toEqual({ head: 0, ref: 1, index: 0 });
   });
 
-  it('does not take a lock for a ref', async () => {
+  it('does not take a lock for a ref, nor the index’s lock for the index', async () => {
     const repo = path.join(tmpDir, 'repo');
     await seedRepo(repo);
     await watchGitDir(repo);
@@ -235,7 +287,10 @@ describe('GitDirWatcher', () => {
     await fs.rm(lock);
     await fs.writeFile(path.join(repo, '.git', 'packed-refs.lock'), '', 'utf-8');
     await fs.rm(path.join(repo, '.git', 'packed-refs.lock'));
+    // What a read that finds nothing to write back does: the lock taken, and dropped.
+    await fs.writeFile(path.join(repo, '.git', 'index.lock'), '', 'utf-8');
+    await fs.rm(path.join(repo, '.git', 'index.lock'));
     await settle();
-    expect(moves).toEqual({ head: 0, ref: 0 });
+    expect(moves).toEqual({ head: 0, ref: 0, index: 0 });
   });
 });
