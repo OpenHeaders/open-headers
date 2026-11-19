@@ -45,3 +45,24 @@ export function heldByBothSides(base: TreeEntries, head: TreeEntries, place: str
   const entry = head.get(place);
   return entry !== undefined && base.get(place) === entry;
 }
+
+/**
+ * Whether what the DISK holds in the way of a file at `filePath`
+ * (`standing`, the boundary's word) is the entry both sides hold there:
+ * a link where they hold a link, a file where they hold a file. A link a
+ * person put where both sides hold a file, or a folder, is not.
+ */
+export function standsAsBothSidesHold(
+  base: TreeEntries,
+  head: TreeEntries,
+  filePath: string,
+  standing: TreeRefusal,
+): boolean {
+  const held = entryInTheWay(head, filePath);
+  if (held === null || !heldByBothSides(base, head, held.place)) return false;
+  const entry = held.refusal;
+  if (entry.kind === 'way' && standing.kind === 'way') {
+    return entry.dir === standing.dir && entry.stands === standing.stands;
+  }
+  return entry.kind === 'place' && standing.kind === 'place' && standing.stands === 'link';
+}

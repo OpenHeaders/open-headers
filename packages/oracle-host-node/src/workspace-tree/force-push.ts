@@ -82,7 +82,7 @@ import {
   readPassWrites,
   recordablePaths,
 } from './pass-writes';
-import { releaseHealedQuarantine, writeForeignQuarantine } from './pull';
+import { canLandForeignQuarantine, releaseHealedQuarantine, writeForeignQuarantine } from './pull';
 
 export type ForcePushChoice = 'abandon' | 'rescue' | 'reapply';
 
@@ -264,38 +264,50 @@ export async function resolveForcePushWorkspaceTree(options: ResolveForcePushOpt
       const landing = await canLandForeignOwnFiles(run, rootDir, asked);
       if (!landing.ok) return { ok: false, reason: 'foreign-invalid', detail: landing.detail, issues: foreign.issues };
 
+      // The path classification that gates the delta: `abandon`/`rescue`
+      // converge the FULL tree to the foreign snapshot (everything foreign
+      // is tree-authored; everything local-only tombstones); `reapply`
+      // ingests only what the remote genuinely changed since the watermark
+      // — everything else stays engine-owned, so local work survives. What
+      // changed is read here, while nothing is written: the quarantine
+      // lands out of it, and whether it can is asked like the own files.
+      const reapplied =
+        choice === 'reapply'
+          ? await diffForeignPaths(run, rootDir, options.lastSyncedRemoteSha, upstream.sha)
+          : undefined;
+      if (reapplied === null) {
+        return {
+          ok: false,
+          reason: 'foreign-invalid',
+          detail: `undiffable range ${options.lastSyncedRemoteSha}..${upstream.sha}`,
+          issues: read.issues,
+        };
+      }
+      // Otherwise what the remote head holds a file at, read or not: a file
+      // too large to read still stands there, and is no deletion.
+      const changed = reapplied?.changed ?? commitTreePaths(foreignCommit);
+      const quarantine = await canLandForeignQuarantine(
+        run,
+        rootDir,
+        { baseRef: asked.baseRef, tree: foreignCommit },
+        foreign.issues,
+        changed,
+      );
+      if (!quarantine.ok) {
+        return { ok: false, reason: 'foreign-invalid', detail: quarantine.detail, issues: foreign.issues };
+      }
+
       if (committedFirst.length > 0) {
         const local = await options.commitLocalWork({ tree: work.tree, paths: committedFirst, indexLock });
         if (!local.ok) return { ok: false, reason: 'commit-failed', detail: local.detail, issues: read.issues };
       }
 
-      // The path classification that gates the delta: `abandon`/`rescue`
-      // converge the FULL tree to the foreign snapshot (everything foreign
-      // is tree-authored; everything local-only tombstones); `reapply`
-      // ingests only what the remote genuinely changed since the watermark
-      // — everything else stays engine-owned, so local work survives.
-      let changed: Set<string>;
-      let removed: Set<string>;
-      if (choice === 'reapply') {
-        const diff = await diffForeignPaths(run, rootDir, options.lastSyncedRemoteSha, upstream.sha);
-        if (diff === null) {
-          return {
-            ok: false,
-            reason: 'foreign-invalid',
-            detail: `undiffable range ${options.lastSyncedRemoteSha}..${upstream.sha}`,
-            issues: read.issues,
-          };
-        }
-        changed = diff.changed;
-        removed = diff.removed;
-      } else {
-        // What the remote head holds a file at, read or not: a file too
-        // large to read still stands there, and is no deletion.
-        const foreignPaths = commitTreePaths(foreignCommit);
-        const localPaths = (await listTreeYamlPaths(run, rootDir, 'HEAD')) ?? [];
-        changed = foreignPaths;
-        removed = new Set(localPaths.filter((entry) => !foreignPaths.has(entry)));
-      }
+      // What left: on `reapply` what the remote removed since the watermark,
+      // otherwise every document HEAD holds — a commit of local work just
+      // above with it — that the remote head does not.
+      const removed =
+        reapplied?.removed ??
+        new Set(((await listTreeYamlPaths(run, rootDir, 'HEAD')) ?? []).filter((entry) => !changed.has(entry)));
 
       const batches = synthesizeWorkspaceTreeDelta({
         prev: snapshot,

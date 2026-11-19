@@ -383,6 +383,29 @@ describe('resolveForcePushWorkspaceTree', () => {
     expect(await countDirtyFiles(run, local)).toBe(0);
   });
 
+  it('abandon: a link put here in the way of a file the quarantine would land refuses the resolution before anything is written', async () => {
+    await peerEdit(PEER_RULE_FILE, () => 'schemaVersion: 5\nuid: [broken\n');
+    const broken = await commitWorkspaceTree({ run, rootDir: peer, message: 'Broken', identityEnv: RITA_ENV });
+    if (!broken.ok || !broken.committed) throw new Error('peer commit failed');
+    await raw(peer, 'push', '--quiet', 'origin', 'main');
+
+    const ruleDir = path.dirname(PEER_RULE_FILE);
+    const moved = path.join(tmpDir, 'moved');
+    await fs.rename(path.join(local, ...ruleDir.split('/')), moved);
+    await fs.symlink(moved, path.join(local, ...ruleDir.split('/')));
+
+    const applied: EmissionBatch[] = [];
+    expect(await doResolve('abandon', applied)).toMatchObject({
+      ok: false,
+      reason: 'foreign-invalid',
+      detail: `"${ruleDir}/" is a link, on the way to "${PEER_RULE_FILE}"`,
+    });
+    expect([applied, localWorkCommits]).toEqual([[], []]);
+    expect(await localHeadSha(run, local)).toBe(localHead);
+    expect((await fs.lstat(path.join(local, ...ruleDir.split('/')))).isSymbolicLink()).toBe(true);
+    expect(await fs.readdir(moved)).toEqual(['rule.yaml']);
+  });
+
   describe('abandon: a manifest of the rewritten head too large to read', () => {
     /** The peer grows the rule's manifest one byte past the limit on the rewritten history and pushes. */
     async function peerGrowsTheRuleFile(): Promise<string> {

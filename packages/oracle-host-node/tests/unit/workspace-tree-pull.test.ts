@@ -1134,6 +1134,81 @@ describe("pullWorkspaceTree — the user's own files and a document's siblings",
   });
 });
 
+/** The pull is refused `foreign-invalid` in `detail` with nothing done: no batch, the branch where it was. */
+async function expectRefusedWithNothingDone(detail: string): Promise<void> {
+  const head = (await raw(local, 'rev-parse', 'HEAD')).stdout;
+  const applied: EmissionBatch[] = [];
+  expect(await doPull(applied)).toMatchObject({ ok: false, reason: 'foreign-invalid', detail });
+  expect(applied).toEqual([]);
+  expect((await raw(local, 'rev-parse', 'HEAD')).stdout).toBe(head);
+}
+
+describe('pullWorkspaceTree — what stands in the way of a quarantined document is asked before anything is written', () => {
+  const onLocal = (rel: string): string => path.join(local, ...rel.split('/'));
+  const RULE_DIR = 'rules/api-colapi00/block-probes-aaaaaaaa';
+  const BROKEN = 'schemaVersion: 5\nuid: [broken\n';
+
+  async function thePeerBreaksTheRule(): Promise<void> {
+    await peerEdit(RULE_FILE, () => BROKEN);
+    await peerCommitPush('Break the rule file');
+  }
+
+  it('a link put here at the rule’s directory, the folder moved out: refused, naming the link and the file — git would take the link away', async () => {
+    const moved = path.join(tmpDir, 'moved');
+    await fs.rename(onLocal(RULE_DIR), moved);
+    await fs.symlink(moved, onLocal(RULE_DIR));
+    await thePeerBreaksTheRule();
+
+    await expectRefusedWithNothingDone(`"${RULE_DIR}/" is a link, on the way to "${RULE_FILE}"`);
+    expect((await fs.lstat(onLocal(RULE_DIR))).isSymbolicLink()).toBe(true);
+    expect(await fs.readFile(path.join(moved, 'rule.yaml'), 'utf-8')).toContain('name: Block probes\n');
+  });
+
+  it('a link put here at the rule’s own file refuses the same, naming the file', async () => {
+    const moved = path.join(tmpDir, 'moved-rule.yaml');
+    await fs.rename(onLocal(RULE_FILE), moved);
+    await fs.symlink(moved, onLocal(RULE_FILE));
+    await thePeerBreaksTheRule();
+
+    await expectRefusedWithNothingDone(`"${RULE_FILE}" is a link`);
+    expect((await fs.lstat(onLocal(RULE_FILE))).isSymbolicLink()).toBe(true);
+    expect(await fs.readFile(moved, 'utf-8')).toContain('name: Block probes\n');
+  });
+
+  it('a link put here where both sides hold a FILE is the person’s, not the entry both hold: the folder the peer made of it is not landed over the link', async () => {
+    await fs.writeFile(onLocal('notes'), 'a file\n', 'utf-8');
+    const shared = await commitWorkspaceTree({ run, rootDir: local, message: 'A file', identityEnv: IDENTITY_ENV });
+    if (!shared.ok || !shared.committed) throw new Error('local commit failed');
+    await raw(local, 'push', '--quiet', 'origin', 'main');
+    const pulled = await raw(peer, 'pull', '--quiet', 'origin', 'main');
+    if (pulled.code !== 0) throw new Error(`peer pull failed: ${pulled.stderr}`);
+    await fs.rm(onLocal('notes'));
+    await fs.symlink(path.join(tmpDir, 'elsewhere'), onLocal('notes'));
+    await fs.rm(path.join(peer, 'notes'));
+    await peerEdit('notes/rule.yaml', () => BROKEN);
+    await peerCommitPush('A rule where the file was');
+
+    await expectRefusedWithNothingDone('"notes/" is a link, on the way to "notes/rule.yaml"');
+    expect((await fs.lstat(onLocal('notes'))).isSymbolicLink()).toBe(true);
+  });
+
+  it('a document the peer’s head holds at a path no tree can hold — in the sidecar — refuses the pull: nothing is checked out there', async () => {
+    const inSidecar = '.oh/rule.yaml';
+    await peerEdit(inSidecar, () => BROKEN);
+    await raw(peer, 'add', '--force', '--', inSidecar);
+    const committed = await run(
+      ['--git-dir', path.join(peer, '.git'), '--work-tree', peer, 'commit', '--quiet', '-m', 'A rule in the sidecar'],
+      { cwd: peer, env: RITA_ENV },
+    );
+    if (committed.code !== 0) throw new Error(`peer commit failed: ${committed.stderr}`);
+    const pushed = await raw(peer, 'push', '--quiet', 'origin', 'main');
+    if (pushed.code !== 0) throw new Error(`peer push failed: ${pushed.stderr}`);
+
+    await expectRefusedWithNothingDone(`".oh" cannot be part of the path "${inSidecar}"`);
+    await expect(fs.access(onLocal(inSidecar))).rejects.toThrow();
+  });
+});
+
 describe('pullWorkspaceTree — a file or a link of the branch’s own where the peer’s document would stand', () => {
   const onLocal = (rel: string): string => path.join(local, ...rel.split('/'));
   const DELAY_DIR = 'rules/api-colapi00/delay-probes-bbbbbbbb';
@@ -1163,21 +1238,12 @@ describe('pullWorkspaceTree — a file or a link of the branch’s own where the
     return peerCommitPush('A rule');
   }
 
-  /** The pull is refused in `detail` with nothing done: no batch, the branch where it was. */
-  async function expectThePullRefused(detail: string): Promise<void> {
-    const head = (await raw(local, 'rev-parse', 'HEAD')).stdout;
-    const applied: EmissionBatch[] = [];
-    expect(await doPull(applied)).toMatchObject({ ok: false, reason: 'foreign-invalid', detail });
-    expect(applied).toEqual([]);
-    expect((await raw(local, 'rev-parse', 'HEAD')).stdout).toBe(head);
-  }
-
   it('a link committed here where no rule stood, and the peer adds a rule beneath that name: refused before anything is written, naming the link and the rule', async () => {
     await linkTheRulesDirectory('elsewhere');
     await commitLocal('A link');
     await thePeerCommitsTheRule();
 
-    await expectThePullRefused(A_LINK);
+    await expectRefusedWithNothingDone(A_LINK);
     expect((await fs.lstat(onLocal(DELAY_DIR))).isSymbolicLink()).toBe(true);
   });
 
@@ -1186,7 +1252,7 @@ describe('pullWorkspaceTree — a file or a link of the branch’s own where the
     await commitLocal('A file');
     await thePeerCommitsTheRule();
 
-    await expectThePullRefused(`"${DELAY_DIR}/" is not a directory, on the way to "${DELAY_FILE}"`);
+    await expectRefusedWithNothingDone(`"${DELAY_DIR}/" is not a directory, on the way to "${DELAY_FILE}"`);
     expect(await fs.readFile(onLocal(DELAY_DIR), 'utf-8')).toBe('a file\n');
   });
 
@@ -1198,7 +1264,7 @@ describe('pullWorkspaceTree — a file or a link of the branch’s own where the
     await peerEdit(RULE_FILE, (content) => content.replace('name: Block probes', 'name: Block probes (peer)'));
     await peerCommitPush('Rename rule');
 
-    await expectThePullRefused(`"${RULE_FILE}" is a link`);
+    await expectRefusedWithNothingDone(`"${RULE_FILE}" is a link`);
     expect((await fs.lstat(onLocal(RULE_FILE))).isSymbolicLink()).toBe(true);
     expect(await fs.readFile(moved, 'utf-8')).toContain('name: Block probes\n');
   });
@@ -1213,7 +1279,7 @@ describe('pullWorkspaceTree — a file or a link of the branch’s own where the
     const pushed = await raw(peer, 'push', '--quiet', '--force', 'origin', 'other:main');
     if (pushed.code !== 0) throw new Error(`peer push failed: ${pushed.stderr}`);
 
-    await expectThePullRefused(A_LINK);
+    await expectRefusedWithNothingDone(A_LINK);
   });
 
   describe('a link both sides hold, which the peer makes the rule’s folder', () => {
@@ -1251,7 +1317,7 @@ describe('pullWorkspaceTree — a file or a link of the branch’s own where the
       await commitLocal('The link, pointed elsewhere');
       await thePeerCommitsTheRule();
 
-      await expectThePullRefused(A_LINK);
+      await expectRefusedWithNothingDone(A_LINK);
     });
   });
 

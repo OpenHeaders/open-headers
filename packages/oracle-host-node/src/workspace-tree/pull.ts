@@ -37,7 +37,10 @@
  *      land by git's own checkout, never by a write of ours — a link the
  *      foreign side left at such a path carries nothing out of the
  *      folder. A foreign document file too large to read is the same,
- *      its document with it;
+ *      its document with it. Whether they can land is asked before
+ *      anything is written (`canLandForeignQuarantine`): a link the
+ *      person put in such a file's way, or a path no tree can hold,
+ *      refuses the pass;
  *   6. materialize the converged tree, carry the foreign side's changes
  *      to the user's own files onto disk (`own-files.ts` — the files
  *      no entity stands behind), then record the pull:
@@ -119,6 +122,7 @@ import {
   gitOperationInProgress,
   isAncestorOf,
   isShallowRepository,
+  linkStandingAt,
   listForeignAuthors,
   listTreeEntries,
   lockRefusalReason,
@@ -126,13 +130,15 @@ import {
   readCommitTree,
   resolveUpstream,
   snapshotWorkingTree,
+  TreeBoundary,
+  type TreeRefusal,
   treeRefusalReason,
   treeWithFiles,
   withIndexLock,
   withObjectBatch,
 } from '../git';
 import { answeredBy } from './answered-by';
-import { entryInTheWay, heldByBothSides } from './branch-entries';
+import { entryInTheWay, heldByBothSides, standsAsBothSidesHold, type TreeEntries } from './branch-entries';
 import { type ApplyCommitResolution, type ApplyCommitResolve, decideChange } from './change-answers';
 import { type CommittedSide, type HeadReading, NOTHING_CARRIED, readCommittedSide, readHead } from './committed-side';
 import { TREE_HELD_DETAIL } from './materializer';
@@ -257,6 +263,66 @@ const dirOf = (filePath: string): string => {
   return idx === -1 ? '' : filePath.slice(0, idx);
 };
 
+/** The files a quarantine lands: the foreign documents' changed files in a directory that has a row. */
+function quarantinedPaths(tree: CommitTree, issues: readonly TreeIssue[], changedPaths: ReadonlySet<string>): string[] {
+  if (issues.length === 0) return [];
+  const issueDirs = new Set(issues.map((issue) => dirOf(issue.path)));
+  // The documents' files alone: a file of the user's own in such a directory is the own-files rule's to carry.
+  const documents = commitTreePaths(tree);
+  return [...changedPaths].filter((filePath) => issueDirs.has(dirOf(filePath)) && documents.has(filePath));
+}
+
+/** What stands in the way of a file git would land at `filePath`: the boundary's refusal, or a link at its own name. */
+async function inTheWayOfALanding(
+  boundary: TreeBoundary,
+  rootDir: string,
+  filePath: string,
+): Promise<TreeRefusal | null> {
+  const placed = await boundary.locate(filePath);
+  if (!placed.ok) return placed.refusal;
+  return (await linkStandingAt(rootDir, [filePath])) === null ? null : { kind: 'place', stands: 'link' };
+}
+
+/**
+ * Whether the quarantine can land, asked while nothing of the pass is
+ * written. Git's checkout puts a file in the place of whatever stands in
+ * its way and writes that file alone: a link a person put where a folder
+ * was moved out is taken away, and the rest of that folder then reads as
+ * deleted. So a quarantined file is not landed at a link, nor beneath a
+ * link or a file — unless what stands there is the entry both sides
+ * hold, which the foreign side alone replaced (`branch-entries.ts`;
+ * `baseRef` null where the histories share none). Nor at a path no tree
+ * can hold: git cannot
+ * check such a file out, or would write it into the sidecar. The
+ * refusal names the file and what stands in its way.
+ */
+export async function canLandForeignQuarantine(
+  run: GitRunner,
+  rootDir: string,
+  foreign: { baseRef: string | null; tree: CommitTree },
+  issues: readonly TreeIssue[],
+  changedPaths: ReadonlySet<string>,
+): Promise<{ ok: true } | { ok: false; detail: string }> {
+  const quarantined = quarantinedPaths(foreign.tree, issues, changedPaths);
+  if (quarantined.length === 0) return { ok: true };
+  const boundary = new TreeBoundary(rootDir);
+  // The two sides' entries are listed only where something stands in a file's way.
+  let sides: { base: TreeEntries; head: TreeEntries } | undefined;
+  for (const filePath of quarantined) {
+    const refusal = await inTheWayOfALanding(boundary, rootDir, filePath);
+    if (refusal === null) continue;
+    if (refusal.kind !== 'path') {
+      sides ??= {
+        base: (foreign.baseRef === null ? null : await listTreeEntries(run, rootDir, foreign.baseRef)) ?? new Map(),
+        head: (await listTreeEntries(run, rootDir, 'HEAD')) ?? new Map(),
+      };
+      if (standsAsBothSidesHold(sides.base, sides.head, filePath, refusal)) continue;
+    }
+    return { ok: false, detail: treeRefusalReason(filePath, refusal) };
+  }
+  return { ok: true };
+}
+
 /**
  * Quarantine (§13.3): a schema-invalid foreign document's entity is
  * skipped by the read (its engine value stands, its absence never
@@ -287,10 +353,7 @@ export async function writeForeignQuarantine(
   issues: readonly TreeIssue[],
   changedPaths: ReadonlySet<string>,
 ): Promise<{ ok: true; landed: string[] } | { ok: false; detail: string }> {
-  const issueDirs = new Set(issues.map((issue) => dirOf(issue.path)));
-  // The documents' files alone: a file of the user's own in such a directory is the own-files rule's to carry.
-  const documents = commitTreePaths(foreign.tree);
-  const quarantined = [...changedPaths].filter((filePath) => issueDirs.has(dirOf(filePath)) && documents.has(filePath));
+  const quarantined = quarantinedPaths(foreign.tree, issues, changedPaths);
   const landed = await checkoutPathsFromCommit(run, rootDir, foreign.ref, quarantined);
   if (!landed.ok) return landed;
 
@@ -645,6 +708,17 @@ async function readIntegration(
       detail: TREE_HELD_DETAIL,
       issues: foreign.issues,
     };
+  }
+
+  const quarantine = await canLandForeignQuarantine(
+    run,
+    rootDir,
+    { baseRef: base, tree: foreignCommit },
+    foreign.issues,
+    diff.changed,
+  );
+  if (!quarantine.ok) {
+    return { ok: false, reason: 'foreign-invalid', detail: quarantine.detail, issues: foreign.issues };
   }
 
   const head = await readHead(run, objects, rootDir);
