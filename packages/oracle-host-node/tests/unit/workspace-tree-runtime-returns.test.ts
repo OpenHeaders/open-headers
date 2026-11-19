@@ -22,7 +22,8 @@
  *
  * And a link where a document stood — at a rule's directory, at its own
  * file, at its collection's directory: the engine keeps what it holds,
- * one row says the link, and a pull's commit holds the rule as a file.
+ * one row says the link, a commit of the whole tree leaves the place as
+ * HEAD has it, and a pull's commit holds the rule as a file.
  *
  * And the Git card's rows a pass leaves, on the same wiring: derived as
  * a sweep derives them — the read contained against the engine's
@@ -538,6 +539,36 @@ describe('the workspace-tree runtime: a link where a document stood', () => {
         [RULE_UID],
       ]);
       expect(rows()).toEqual([`${rowPath} :: ${NOT_WRITTEN}`]);
+    },
+  );
+
+  it.each([
+    ['a rule’s directory', RULE_DIR],
+    ['a rule’s own file', RULE_FILE],
+    ['the collection’s directory', COLLECTION_DIR],
+  ])(
+    'at %s: a commit of the whole tree records neither the link nor a document gone — only what else changed',
+    {
+      timeout: 30_000,
+    },
+    async (_what, relative) => {
+      await commitTheCollectionAndItsRule();
+      await swapForALink(relative);
+      expect(await harness.runtime.commit(harness.workspaceId, 'nothing of the link')).toEqual({
+        ok: true,
+        committed: false,
+      });
+
+      await writeByHand('README.md', 'A workspace of mine.\n');
+      expect(await harness.runtime.commit(harness.workspaceId, 'a readme')).toMatchObject({
+        ok: true,
+        committed: true,
+      });
+      expect(await harness.git('show', '--format=', '--name-status', 'HEAD')).toBe('A\tREADME.md');
+      expect(await harness.git('ls-tree', '-r', '--name-only', 'HEAD', '--', COLLECTION_DIR)).toBe(
+        `${COLLECTION_FILE}\n${RULE_FILE}`,
+      );
+      expect([engineHoldsTheCollection(), engineHoldsTheRule()]).toEqual([true, true]);
     },
   );
 

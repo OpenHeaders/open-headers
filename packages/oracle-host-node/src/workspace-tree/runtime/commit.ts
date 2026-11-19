@@ -66,7 +66,9 @@ export async function resolveContributors(ctx: RuntimeCtx, binding: OpenBinding)
  * One commit pass — always on the binding's chain (§8 single actor).
  * Flushes the materializer first so the commit sees the latest tree —
  * a flush git's writing held refuses the pass like a busy index, with
- * nothing recorded; drains the intent ring only when the commit lands.
+ * nothing recorded; where the folder's boundary refused the flush, the
+ * commit leaves the place as HEAD has it; drains the intent ring only
+ * when the commit lands.
  */
 export async function runCommit(
   ctx: RuntimeCtx,
@@ -80,7 +82,8 @@ export async function runCommit(
     const repo = await ensureWorkspaceRepo(ctx.gitRun, rootDir);
     if (!repo.ok) return { ok: false, reason: 'not-a-repo', detail: repo.detail };
   }
-  if ((await binding.materializer.flushCurrent()).held !== undefined) {
+  const flushed = await binding.materializer.flushCurrent();
+  if (flushed.held !== undefined) {
     return { ok: false, reason: 'index-locked', detail: TREE_HELD_DETAIL };
   }
   const identity = await resolveCommitIdentity(ctx.gitRun, rootDir, syntheticIdentity());
@@ -95,6 +98,8 @@ export async function runCommit(
     message: attributed.message,
     identityEnv: attributed.env,
     bypassHooks: binding.record.bypassHooks === true,
+    // Where the flush was refused, the engine holds what git reads as gone: left as HEAD has it.
+    leftAsHead: flushed.refusedAt,
   });
   if (!result.ok) return { ok: false, reason: result.reason, detail: result.detail };
   drainIntents(binding);

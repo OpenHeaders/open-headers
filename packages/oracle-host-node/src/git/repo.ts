@@ -1574,6 +1574,15 @@ export interface CommitWorkspaceTreeOptions {
    */
   fromTree?: string;
   /**
+   * A commit of the whole tree leaves these places, and all that lies
+   * beneath each, as HEAD has them: where the engine's flush was refused
+   * — a link standing at a document's directory or at its own name. Git
+   * reads the link added and the documents gone there, while the engine
+   * holds them; recorded, that would reach every peer as a deletion
+   * nobody made. Without `paths` only.
+   */
+  leftAsHead?: readonly string[];
+  /**
    * User-explicit Amend (the Commit window carve-out — never FROM the
    * engine): `git commit --amend` on the temp index. The CALLER owns
    * the refusal conditions (unborn/merge/pushed HEAD); an unchanged
@@ -1677,6 +1686,34 @@ async function restoreNeverCommitted(
   return null;
 }
 
+/**
+ * Put `places`, and all that lies beneath each, back as HEAD has them in
+ * the index `env` names: what the whole-tree add staged there — a link
+ * added, the files beneath it gone — leaves the index. After the add,
+ * never as an exclude on it: git fails an add whose pathspec names a
+ * path an ignore file ignores, an exclude too, and such a place may be
+ * one. A place is a name, never a pattern: read as one it would put
+ * back a sibling it happens to match. Where there is no commit yet HEAD
+ * holds nothing, and nothing stays staged there. Null on success, else
+ * the failed invocation.
+ */
+async function leaveAsHead(
+  run: GitRunner,
+  rootDir: string,
+  env: Record<string, string>,
+  places: readonly string[],
+): Promise<GitExecResult | null> {
+  for (let start = 0; start < places.length; start += TREE_PATHS_PER_CALL) {
+    const chunk = places.slice(start, start + TREE_PATHS_PER_CALL);
+    const put = await run([...repoArgs(rootDir), '--literal-pathspecs', 'reset', '-q', 'HEAD', '--', ...chunk], {
+      cwd: rootDir,
+      env,
+    });
+    if (put.code !== 0) return put;
+  }
+  return null;
+}
+
 export type CommitWorkspaceTreeResult =
   | { ok: true; committed: false }
   | { ok: true; committed: true; sha: string }
@@ -1766,6 +1803,8 @@ async function commitHoldingIndex(
         env: indexEnv,
       });
       if (stage.code !== 0) return { ok: false, reason: 'stage-failed', detail: failureDetail(stage) };
+      const left = await leaveAsHead(run, rootDir, indexEnv, options.leftAsHead ?? []);
+      if (left !== null) return { ok: false, reason: 'stage-failed', detail: failureDetail(left) };
     } else {
       const named = namedPaths(options.paths);
       if (named.length > 0) {

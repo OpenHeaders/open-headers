@@ -2324,6 +2324,92 @@ describe('Tree ops: a commit’s blobs and a paths checkout off the real index',
     expect(await treeWithFiles(run, tmpDir, 'not-a-tree', new Map([['a.md', 'a\n']]))).toBeNull();
   });
 
+  describe('commitWorkspaceTree: places a commit of the whole tree leaves as HEAD has them', () => {
+    const RULE = 'rules/api/delay/rule.yaml';
+    const staged = async (): Promise<string> => (await git('show', '--format=', '--name-status', 'HEAD')).stdout;
+    const commitLeaving = (leftAsHead: string[]) =>
+      commitWorkspaceTree({ run, rootDir: tmpDir, message: 'The rest', identityEnv: IDENTITY_ENV, leftAsHead });
+
+    /** HEAD holds a rule; `relative` is then moved out of the folder and a link to where it went put at its name. */
+    async function aRuleThenALinkAt(relative: string): Promise<void> {
+      await initialCommit();
+      await write(RULE, 'name: Delay\n');
+      await commitWorkspaceTree({ run, rootDir: tmpDir, message: 'A rule', identityEnv: IDENTITY_ENV });
+      const moved = `${tmpDir}-moved`;
+      await fs.rename(path.join(tmpDir, ...relative.split('/')), moved);
+      await fs.symlink(moved, path.join(tmpDir, ...relative.split('/')));
+    }
+
+    afterEach(async () => {
+      await fs.rm(`${tmpDir}-moved`, { recursive: true, force: true });
+    });
+
+    it.each([
+      ['a directory', 'rules/api/delay'],
+      ['a file’s own name', RULE],
+      ['a container of directories', 'rules'],
+    ])(
+      'a link at %s: neither the link nor what git reads gone beneath it is recorded — the rest of the tree is',
+      async (_what, place) => {
+        await aRuleThenALinkAt(place);
+        await write('README.md', '# mine\n');
+
+        expect(await commitLeaving([place])).toMatchObject({ ok: true, committed: true });
+        expect(await staged()).toBe('A\tREADME.md\n');
+        expect((await git('ls-tree', '-r', 'HEAD', '--', 'rules')).stdout).toMatch(
+          /^100644 blob [0-9a-f]+\trules\/api\/delay\/rule\.yaml\n$/,
+        );
+        // The folder is as it was: the link stands, and git still reads it there.
+        expect((await fs.lstat(path.join(tmpDir, ...place.split('/')))).isSymbolicLink()).toBe(true);
+        expect((await git('status', '--porcelain')).stdout).not.toBe('');
+      },
+    );
+
+    it('with nothing else to record there is no commit — and without the place named, the link and the deletion are recorded', async () => {
+      await aRuleThenALinkAt('rules/api/delay');
+      expect(await commitLeaving(['rules/api/delay'])).toEqual({ ok: true, committed: false });
+
+      expect(await commitLeaving([])).toMatchObject({ ok: true, committed: true });
+      expect(await staged()).toBe(`A\trules/api/delay\nD\t${RULE}\n`);
+    });
+
+    it('a place the folder’s own ignore file ignores is left too — a pathspec on the add naming it would fail the commit', async () => {
+      await aRuleThenALinkAt('rules/api/delay');
+      await write('.gitignore', '.oh/\n*.secret.yaml\nrules/api/delay\n');
+
+      expect(await commitLeaving(['rules/api/delay'])).toMatchObject({ ok: true, committed: true });
+      expect(await staged()).toBe('A\t.gitignore\n');
+    });
+
+    it('a link where HEAD holds nothing, a name with glob signs and a place nothing stands at are left the same way', async () => {
+      await initialCommit();
+      await write('rules/odd [x]*/rule.yaml', 'name: Odd\n');
+      await commitWorkspaceTree({ run, rootDir: tmpDir, message: 'An odd rule', identityEnv: IDENTITY_ENV });
+      await fs.rename(path.join(tmpDir, 'rules', 'odd [x]*'), `${tmpDir}-moved`);
+      await fs.symlink(`${tmpDir}-moved`, path.join(tmpDir, 'rules', 'odd [x]*'));
+      await fs.symlink(`${tmpDir}-moved`, path.join(tmpDir, 'rules', 'never-committed'));
+      // A sibling the odd name would match were it read as a pattern: it is no place, and is recorded.
+      await write('rules/odd x-other/rule.yaml', 'name: Other\n');
+
+      expect(await commitLeaving(['rules/odd [x]*', 'rules/never-committed', 'rules/never-was'])).toMatchObject({
+        ok: true,
+        committed: true,
+      });
+      expect(await staged()).toBe('A\trules/odd x-other/rule.yaml\n');
+    });
+
+    it('in a repo with no commit yet the first commit holds the rest and no link', async () => {
+      await ensureWorkspaceRepo(run, tmpDir);
+      await fs.mkdir(`${tmpDir}-moved`);
+      await fs.mkdir(path.join(tmpDir, 'rules'), { recursive: true });
+      await fs.symlink(`${tmpDir}-moved`, path.join(tmpDir, 'rules', 'delay'));
+      await write('workspace.yaml', 'schemaVersion: 5\n');
+
+      expect(await commitLeaving(['rules/delay'])).toMatchObject({ ok: true, committed: true });
+      expect((await git('ls-tree', '-r', '--name-only', 'HEAD')).stdout).not.toContain('rules/delay');
+    });
+  });
+
   it('treeWithFiles lays a text over a link the tree holds at that name as a FILE — under the link’s mode it would be a link to its own text', async () => {
     await initialCommit();
     await fs.symlink('elsewhere.md', path.join(tmpDir, 'guide.md'));

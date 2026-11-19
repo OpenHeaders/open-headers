@@ -95,6 +95,14 @@ export interface MaterializeResult {
    * that records the tree lays them into its commit (`pass-writes.ts`).
    */
   refused: Map<string, string>;
+  /**
+   * Where the boundary stopped the pass: a directory on a document's way
+   * that is a link or a file, a document's own name a link stands at —
+   * each once, however much lies beneath it. What git reads there is the
+   * link and the documents gone; a commit of the whole tree leaves each
+   * as HEAD has it (`commitWorkspaceTree`).
+   */
+  refusedAt: string[];
 }
 
 export interface WorkspaceTreeMaterializerOptions {
@@ -208,8 +216,11 @@ export class WorkspaceTreeMaterializer {
     const boundary = new TreeBoundary(this.rootDir);
     const unwritten = new Map(plan.unheld.map((row) => [row.path, row] as const));
     const kept = new Map<string, string>();
+    const stops = new Set<string>();
     const refused = (filePath: string, refusal: TreeRefusal, text: string): void => {
       kept.set(filePath, text);
+      if (refusal.kind === 'way') stops.add(refusal.dir);
+      else if (refusal.kind === 'place') stops.add(filePath);
       const row = treeRefusalIssue(filePath, refusal);
       if (!unwritten.has(row.path)) unwritten.set(row.path, row);
     };
@@ -335,8 +346,9 @@ export class WorkspaceTreeMaterializer {
     await writeMaterializedIndex(this.rootDir, planned);
     const rows = [...unwritten.values()];
     this.onUnwritten?.(rows);
-    if (held === 0) return { written, deleted, unchanged, unwritten: rows, refused: kept };
+    const refusedAt = [...stops];
+    if (held === 0) return { written, deleted, unchanged, unwritten: rows, refused: kept, refusedAt };
     this.onHeld?.(held);
-    return { written, deleted, unchanged, held, unwritten: rows, refused: kept };
+    return { written, deleted, unchanged, held, unwritten: rows, refused: kept, refusedAt };
   }
 }

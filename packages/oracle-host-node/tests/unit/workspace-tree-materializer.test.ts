@@ -721,6 +721,8 @@ describe('WorkspaceTreeMaterializer — the folder’s boundary', () => {
       { path: `${climbing}/rule.yaml`, message: '".." cannot be part of a path — not written' },
       { path: '.git/hooks/rule.yaml', message: '".git" cannot be part of a path — not written' },
     ]);
+    // A path no tree can hold is no place of the folder: the pass stopped nowhere in it.
+    expect(pass.refusedAt).toEqual([]);
   });
 
   it('a link at a directory of the tree is not written through: one row at the link however much lies beneath it, and the files written once it is gone', async () => {
@@ -751,20 +753,22 @@ describe('WorkspaceTreeMaterializer — the folder’s boundary', () => {
     expect(told).toEqual([[LINK_ROW], []]);
   });
 
-  it('answers the planned text of each file the boundary refused — the bytes it writes once the link is gone, and none then', async () => {
+  it('answers the planned text of each file the boundary refused, and the place it stopped at once — the bytes it writes once the link is gone, and none then', async () => {
     state.collections = [{ ...ALPHA }];
     state.rules = [ruleInAlpha('aaaaaaaa', 'Block probes')];
     await fs.symlink(outside, inTree('rules'));
     const materializer = makeMaterializer();
 
-    const { refused } = await materializer.flushCurrent();
+    const { refused, refusedAt } = await materializer.flushCurrent();
     expect([...refused.keys()]).toEqual([
       'rules/alpha-col0000a/_collection.yaml',
       'rules/alpha-col0000a/block-probes-aaaaaaaa/rule.yaml',
     ]);
+    expect(refusedAt).toEqual(['rules']);
 
     await fs.rm(inTree('rules'));
-    expect((await materializer.flush()).refused.size).toBe(0);
+    const free = await materializer.flush();
+    expect([free.refused.size, free.refusedAt]).toEqual([0, []]);
     for (const [filePath, text] of refused) expect(await fs.readFile(inTree(filePath), 'utf-8')).toBe(text);
   });
 
@@ -812,6 +816,7 @@ describe('WorkspaceTreeMaterializer — the folder’s boundary', () => {
       const pass = await materializer.flushCurrent();
       expect([pass.written, pass.deleted, pass.unwritten]).toEqual([[], [], [FILE_LINK_ROW]]);
       expect([...pass.refused.keys()]).toEqual([RULE_FILE]);
+      expect(pass.refusedAt).toEqual([RULE_FILE]);
       expect(pass.refused.get(RULE_FILE)).toContain('enabled: false');
       expect(await isLink(RULE_FILE)).toBe(true);
       expect(await fs.readFile(moved, 'utf-8')).toBe(before);
