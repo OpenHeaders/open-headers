@@ -91,6 +91,10 @@ describe('cookie-jar write seam', () => {
     expect(getEditedCookieKeys().has(cookieEditKey('sid', 'openheaders.io', '/'))).toBe(true);
   });
 
+  it('joins the identity key on NUL — a character no name, domain or path can hold', () => {
+    expect(cookieEditKey('sid', 'openheaders.io', '/')).toBe('sid\0openheaders.io\0/');
+  });
+
   it('does not record an edited key when the write fails', async () => {
     setCookieJarWriter({ set: vi.fn(async () => ({ cookie: null })), remove: vi.fn(async () => true) });
     await writeJarCookie({
