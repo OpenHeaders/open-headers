@@ -11,10 +11,11 @@ import { type ChildProcess, spawn, spawnSync } from 'node:child_process';
 import { createRequire } from 'node:module';
 import * as path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeAll, describe, expect, it } from 'vitest';
 import {
   createDarwinProcessReader,
   type DarwinProcessBinding,
+  type ProcessReader,
   type ProcessRecord,
   readProcessDescendants,
 } from '../../../src/process-reader';
@@ -44,10 +45,15 @@ async function until<T>(read: () => T | undefined, timeoutMs = 5_000): Promise<T
 }
 
 describe.skipIf(binding === null)('the macOS process reader on the real addon', () => {
-  const reader = createDarwinProcessReader(binding as DarwinProcessBinding);
+  // A skipped suite's body still runs, and the reader asks its binding for the timebase as it is made.
+  let reader: ProcessReader;
   const started: ChildProcess[] = [];
   /** Pids started beneath a child, which ending the child does not end. */
   const strays: number[] = [];
+
+  beforeAll(() => {
+    reader = createDarwinProcessReader(binding as DarwinProcessBinding);
+  });
 
   afterEach(() => {
     for (const child of started.splice(0)) child.kill('SIGKILL');
