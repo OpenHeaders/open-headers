@@ -516,6 +516,8 @@ export const workbenchChrome = {
   'workbench.activityMonitor.info.memory': 'Memoria fizică pe care procesul o ocupă chiar acum.',
   'workbench.activityMonitor.info.memoryFootprint':
     'Amprenta de memorie, așa cum o numără monitorul acestui sistem — ce i se atribuie doar procesului, inclusiv memoria comprimată.',
+  'workbench.activityMonitor.info.memoryPrivateWorkingSet':
+    'Setul de lucru privat, așa cum îl numără monitorul acestui sistem — memoria fizică pe care o ocupă doar acest proces.',
   'workbench.activityMonitor.column.started': 'Pornit',
   'workbench.activityMonitor.column.pid': 'PID',
   'workbench.activityMonitor.info.pid': 'ID-ul de proces al sistemului de operare — pentru IT și suport.',

@@ -3,7 +3,7 @@
  * §7, fork 10). With a process reader, the reader supplies EVERY figure
  * and the start time beside them; the runtime's metrics read supplies
  * the pid and what the runtime calls the process, and nothing else.
- * Without one — a platform whose reader has not landed — the metrics
+ * Without one — a host whose reader could not be composed — the metrics
  * read's own figures stand.
  */
 

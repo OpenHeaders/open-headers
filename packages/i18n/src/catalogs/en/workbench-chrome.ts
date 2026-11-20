@@ -479,6 +479,8 @@ export const workbenchChrome = {
   'workbench.activityMonitor.info.memory': 'The physical memory the process holds right now.',
   'workbench.activityMonitor.info.memoryFootprint':
     'The memory footprint, as this system’s own monitor counts it — what the process alone is charged for, compressed memory included.',
+  'workbench.activityMonitor.info.memoryPrivateWorkingSet':
+    'The private working set, as this system’s own monitor counts it — the physical memory only this process holds.',
   'workbench.activityMonitor.column.started': 'Started',
   'workbench.activityMonitor.column.pid': 'PID',
   'workbench.activityMonitor.info.pid': 'The operating system’s process ID — for IT and support.',

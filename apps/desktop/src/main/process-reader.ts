@@ -2,12 +2,13 @@
  * The desktop's process reader (the activity monitor plan §7, fork 3):
  * ONE reader for the host, shared by its two consumers — the activity
  * monitor and the terminal's close-confirm. macOS reads through
- * `@openheaders/process-reader`, an addon of our own; Linux reads a
- * process's own files; Windows has none until its reader lands.
+ * `@openheaders/process-reader` and Windows through
+ * `@openheaders/windows-process-reader`, each an addon of our own;
+ * Linux reads a process's own files.
  *
- * pnpm materializes the addon only on macOS, so a static import would
- * fail module resolution on every other platform. This module owns the
- * single guarded require.
+ * pnpm materializes each addon only on its own platform, so a static
+ * import would fail module resolution on every other one. This module
+ * owns the guarded requires.
  */
 
 import { createRequire } from 'node:module';
@@ -16,9 +17,11 @@ import {
   createDarwinProcessReader,
   createLinuxProcessReader,
   createNodeProcSource,
+  createWin32ProcessReader,
   type DarwinProcessBinding,
   type LinuxProcSource,
   type ProcessReader,
+  type Win32ProcessBinding,
 } from '@openheaders/oracle-host-node/process-reader';
 
 const SCOPE = 'ProcessReader';
@@ -26,6 +29,8 @@ const SCOPE = 'ProcessReader';
 export interface ProcessReaderSources {
   /** The macOS addon's binding; null where it is not built or will not load. */
   loadDarwinBinding(): DarwinProcessBinding | null;
+  /** The Windows addon's binding; null where it is not built or will not load. */
+  loadWin32Binding(): Win32ProcessBinding | null;
   procSource(): LinuxProcSource;
   /** This process — a reader that cannot read it is no reader. */
   selfPid: number;
@@ -35,6 +40,10 @@ function platformReader(platform: NodeJS.Platform, sources: ProcessReaderSources
   if (platform === 'darwin') {
     const binding = sources.loadDarwinBinding();
     return binding === null ? null : createDarwinProcessReader(binding);
+  }
+  if (platform === 'win32') {
+    const binding = sources.loadWin32Binding();
+    return binding === null ? null : createWin32ProcessReader(binding, sources.selfPid);
   }
   if (platform === 'linux') return createLinuxProcessReader(sources.procSource());
   return null;
@@ -46,11 +55,11 @@ export function createProcessReaderFor(platform: NodeJS.Platform, sources: Proce
   return reader !== null && reader.read(sources.selfPid) !== null ? reader : null;
 }
 
-type ProcessReaderModule = { load(): DarwinProcessBinding | null };
+type AddonModule<Binding> = { load(): Binding | null };
 
-function loadDarwinBinding(): DarwinProcessBinding | null {
+function loadAddonBinding<Binding>(addon: string): Binding | null {
   try {
-    return (createRequire(__filename)('@openheaders/process-reader') as ProcessReaderModule).load();
+    return (createRequire(__filename)(addon) as AddonModule<Binding>).load();
   } catch {
     return null;
   }
@@ -62,11 +71,12 @@ let cached: ProcessReader | null | undefined;
 export function desktopProcessReader(): ProcessReader | null {
   if (cached === undefined) {
     cached = createProcessReaderFor(process.platform, {
-      loadDarwinBinding,
+      loadDarwinBinding: () => loadAddonBinding<DarwinProcessBinding>('@openheaders/process-reader'),
+      loadWin32Binding: () => loadAddonBinding<Win32ProcessBinding>('@openheaders/windows-process-reader'),
       procSource: createNodeProcSource,
       selfPid: process.pid,
     });
-    if (cached === null && process.platform !== 'win32') {
+    if (cached === null) {
       logger.warn(SCOPE, 'no process reader on this host — the runtime’s own figures stand in');
     }
   }

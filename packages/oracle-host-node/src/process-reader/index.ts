@@ -33,3 +33,4 @@ export {
   type ProcessRoot,
   readProcessDescendants,
 } from './seam';
+export { createWin32ProcessReader, type Win32ProcessBinding, type Win32ProcessRead } from './win32';

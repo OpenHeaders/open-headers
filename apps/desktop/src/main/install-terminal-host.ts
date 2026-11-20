@@ -77,7 +77,7 @@ function clampDimension(value: unknown, fallback: number): number {
 }
 
 export interface TerminalHostDeps {
-  /** The host's process reader; null where it has none — Windows, until its reader lands. */
+  /** The host's process reader; null where it has none. */
   processReader: ProcessReader | null;
   /** Where each session's shell is registered as it is spawned (the activity monitor plan §6, law 5). */
   processRoots: ProcessRootRegistry;
@@ -88,7 +88,8 @@ export interface TerminalHostDeps {
  *  detached from the shell still ends with the tab. Walked down from
  *  the shell as it was registered at its spawn, through the process
  *  reader's seam (the activity monitor plan §7, fork 3); false where
- *  the host has no reader. */
+ *  the host has no reader, and on Windows, where its reader walks
+ *  nothing. */
 function sessionHasWork(reader: ProcessReader | null, shell: ProcessRoot | null): boolean {
   if (reader === null || shell === null) return false;
   return readProcessDescendants(reader, shell, { terminal: true }).length > 0;

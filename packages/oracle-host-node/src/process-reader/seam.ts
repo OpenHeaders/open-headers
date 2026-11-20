@@ -9,8 +9,12 @@
  * process is named by the base name of its executable and nothing else.
  */
 
-/** Which figure `memoryBytes` is — the one each system's own monitor shows. */
-export type ProcessMemoryKind = 'footprint' | 'resident';
+/**
+ * Which figure `memoryBytes` is — the one each system's own monitor
+ * shows; the working set on a Windows that does not count the private
+ * one.
+ */
+export type ProcessMemoryKind = 'footprint' | 'resident' | 'private-working-set' | 'working-set';
 
 /** What a process has cost so far. */
 export interface ProcessCost {
@@ -23,7 +27,8 @@ export interface ProcessCost {
 
 export interface ProcessRecord {
   pid: number;
-  parentPid: number;
+  /** null where the system has no read of it for one process — Windows. */
+  parentPid: number | null;
   /** ms since epoch the process started — with the pid, its identity: a pid is reused. */
   startedAt: number;
   /** The base name of its executable; null where the system would not say. */

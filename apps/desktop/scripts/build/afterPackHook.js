@@ -139,6 +139,21 @@ function verifyMacProcessReader(context) {
     }
 }
 
+// The Windows half of the same check, with the same consequence.
+function verifyWindowsProcessReader(appOutDir) {
+    const binaryPath = path.join(
+        appOutDir, 'resources', 'app.asar.unpacked',
+        'node_modules', '@openheaders', 'windows-process-reader', 'build', 'Release', 'windows_process_reader.node'
+    );
+    if (fs.existsSync(binaryPath)) {
+        console.log('✓ @openheaders/windows-process-reader binary found in unpacked resources');
+    } else {
+        console.warn('⚠ @openheaders/windows-process-reader binary not found in unpacked resources');
+        console.warn(`  Expected path: ${binaryPath}`);
+        console.warn('  The activity monitor will read the runtime\'s own figures');
+    }
+}
+
 exports.default = async function(context) {
     const { appOutDir, electronPlatformName } = context;
 
@@ -161,6 +176,7 @@ exports.default = async function(context) {
             console.warn(`  Expected path: ${nativeModulePath}`);
             console.warn('  Windows focus enhancement will use fallback methods');
         }
+        verifyWindowsProcessReader(appOutDir);
         return;
     }
 };

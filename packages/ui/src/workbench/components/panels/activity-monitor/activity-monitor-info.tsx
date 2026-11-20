@@ -10,6 +10,7 @@
  */
 
 import {
+  type ActivityMonitorMemoryKind,
   type ActivityMonitorServiceRow,
   type ActivityMonitorSnapshot,
   type ActivityMonitorSortColumn,
@@ -19,6 +20,7 @@ import {
   formatSpan,
   formatStartTime,
 } from '@openheaders/core/activity-monitor';
+import type { MessageKey } from '@openheaders/i18n';
 import type { Translate } from '@openheaders/ui/context/LocaleContext';
 import {
   EXAMPLE_CARD_POPOVER_WIDTH,
@@ -54,6 +56,22 @@ type TokenId =
   | 'running.facts';
 
 const MB = 1024 * 1024;
+
+/** The Memory column's sentence, by which figure the host reads. */
+const MEMORY_INFO_KEYS: Record<ActivityMonitorMemoryKind, MessageKey> = {
+  footprint: 'workbench.activityMonitor.info.memoryFootprint',
+  'private-working-set': 'workbench.activityMonitor.info.memoryPrivateWorkingSet',
+  resident: 'workbench.activityMonitor.info.memory',
+  'working-set': 'workbench.activityMonitor.info.memory',
+};
+
+/** A figure that counts memory processes share once for each of them: a total of it is an upper bound. */
+const COUNTS_SHARED_MEMORY: Record<ActivityMonitorMemoryKind, boolean> = {
+  footprint: false,
+  'private-working-set': false,
+  resident: true,
+  'working-set': true,
+};
 
 const SYNC_SERVER: ActivityMonitorServiceRow = {
   kind: 'sync-server',
@@ -181,7 +199,6 @@ export function activityMonitorInfo(
     maxWidth: EXAMPLE_CARD_POPOVER_WIDTH,
   });
   const perCore = cpuPercentConvention(host.platform) === 'per-core';
-  const footprint = host.memoryKind === 'footprint';
   const ownerTotal = t('workbench.activityMonitor.info.ownerTotal');
   return {
     cpu: {
@@ -195,9 +212,7 @@ export function activityMonitorInfo(
     memory: {
       ...card('memory'),
       title: t('workbench.activityMonitor.column.memory'),
-      summary: t(
-        footprint ? 'workbench.activityMonitor.info.memoryFootprint' : 'workbench.activityMonitor.info.memory',
-      ),
+      summary: t(MEMORY_INFO_KEYS[host.memoryKind]),
       description: ownerTotal,
     },
     started: {
@@ -223,7 +238,7 @@ export function activityMonitorInfo(
                 : 'workbench.activityMonitor.info.scaleMachineShare',
             )}
           </p>
-          {!footprint && <p>{t('workbench.activityMonitor.info.memoryUpperBound')}</p>}
+          {COUNTS_SHARED_MEMORY[host.memoryKind] && <p>{t('workbench.activityMonitor.info.memoryUpperBound')}</p>}
         </>
       ),
     },

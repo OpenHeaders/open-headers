@@ -515,6 +515,8 @@ export const workbenchChrome = {
   'workbench.activityMonitor.info.memory': 'La memoria física que el proceso ocupa ahora mismo.',
   'workbench.activityMonitor.info.memoryFootprint':
     'La huella de memoria, tal como la cuenta el monitor de este sistema — lo que se atribuye solo al proceso, incluida la memoria comprimida.',
+  'workbench.activityMonitor.info.memoryPrivateWorkingSet':
+    'El espacio de trabajo privado, tal como lo cuenta el monitor de este sistema — la memoria física que solo ocupa este proceso.',
   'workbench.activityMonitor.column.started': 'Iniciado',
   'workbench.activityMonitor.column.pid': 'PID',
   'workbench.activityMonitor.info.pid': 'El ID de proceso del sistema operativo — para TI y soporte.',

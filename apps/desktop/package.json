@@ -120,7 +120,8 @@
     "asarUnpack": [
       "dist-webpack/renderer/images/**/*",
       "node_modules/@openheaders/windows-foreground/**/*",
-      "node_modules/@openheaders/process-reader/**/*"
+      "node_modules/@openheaders/process-reader/**/*",
+      "node_modules/@openheaders/windows-process-reader/**/*"
     ],
     "npmRebuild": true,
     "nodeGypRebuild": false,
@@ -330,7 +331,8 @@
   },
   "optionalDependencies": {
     "@openheaders/process-reader": "file:../../native/process-reader",
-    "@openheaders/windows-foreground": "file:../../native/windows-foreground"
+    "@openheaders/windows-foreground": "file:../../native/windows-foreground",
+    "@openheaders/windows-process-reader": "file:../../native/windows-process-reader"
   },
   "devDependencies": {
     "@electron/notarize": "^3.0.1",

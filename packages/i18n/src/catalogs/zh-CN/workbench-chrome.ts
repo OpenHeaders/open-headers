@@ -481,6 +481,8 @@ export const workbenchChrome = {
   'workbench.activityMonitor.info.memory': '该进程此刻占用的物理内存。',
   'workbench.activityMonitor.info.memoryFootprint':
     '内存占用量，与本系统自带监视器的算法一致——仅计入该进程自身的部分，包含已压缩的内存。',
+  'workbench.activityMonitor.info.memoryPrivateWorkingSet':
+    '专用工作集，与本系统自带监视器的算法一致——仅该进程自身占用的物理内存。',
   'workbench.activityMonitor.column.started': '启动时间',
   'workbench.activityMonitor.column.pid': 'PID',
   'workbench.activityMonitor.info.pid': '操作系统的进程 ID——供 IT 和技术支持使用。',

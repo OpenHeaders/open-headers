@@ -1177,6 +1177,8 @@ describe('ActivityMonitorPanel', () => {
   const UPPER_BOUND = 'An upper bound — memory that processes share is counted once for each of them.';
   const FOOTPRINT_COLUMN =
     'The memory footprint, as this system’s own monitor counts it — what the process alone is charged for, compressed memory included.';
+  const PRIVATE_COLUMN =
+    'The private working set, as this system’s own monitor counts it — the physical memory only this process holds.';
   const HELD_COLUMN = 'The physical memory the process holds right now.';
 
   const ONE_SCALE = 'Every CPU graph shares one scale — the top is one full core.';
@@ -1206,16 +1208,25 @@ describe('ActivityMonitorPanel', () => {
     },
   );
 
-  it('says no upper bound in the Overview’s (i) where the total adds footprints', async () => {
-    await renderHost({ memoryKind: 'footprint' });
-    await openInfo('Overview');
-    expect(popover('description')).toBe(ONE_SCALE);
-  });
+  it.each(['footprint', 'private-working-set'] as const)(
+    'says no upper bound in the Overview’s (i) where the total adds a %s — what each process holds alone',
+    async (memoryKind) => {
+      await renderHost({ memoryKind });
+      await openInfo('Overview');
+      expect(popover('description')).toBe(ONE_SCALE);
+    },
+  );
 
   it('says in the Memory column’s (i) that the figure is the footprint, where it is', async () => {
     await renderHost({ memoryKind: 'footprint' });
     await openInfo('Memory');
     expect(popover('summary')).toBe(FOOTPRINT_COLUMN);
+  });
+
+  it('says in the Memory column’s (i) that the figure is the private working set, where it is', async () => {
+    await renderHost({ platform: 'win32', logicalCores: 8, memoryKind: 'private-working-set' });
+    await openInfo('Memory');
+    expect(popover('summary')).toBe(PRIVATE_COLUMN);
   });
 
   it.each(['resident', 'working-set'] as const)(

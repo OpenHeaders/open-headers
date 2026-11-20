@@ -512,6 +512,8 @@ export const workbenchChrome = {
   'workbench.activityMonitor.info.memory': 'Der physische Arbeitsspeicher, den der Prozess gerade belegt.',
   'workbench.activityMonitor.info.memoryFootprint':
     'Der Speicherbedarf, so wie die Systemüberwachung dieses Systems zählt — was allein dem Prozess angerechnet wird, komprimierter Speicher eingeschlossen.',
+  'workbench.activityMonitor.info.memoryPrivateWorkingSet':
+    'Der private Arbeitssatz, so wie die Systemüberwachung dieses Systems zählt — der physische Speicher, den nur dieser Prozess belegt.',
   'workbench.activityMonitor.column.started': 'Gestartet',
   'workbench.activityMonitor.column.pid': 'PID',
   'workbench.activityMonitor.info.pid': 'Die Prozess-ID des Betriebssystems — für IT und Support.',

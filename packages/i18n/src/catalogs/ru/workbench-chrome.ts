@@ -508,6 +508,8 @@ export const workbenchChrome = {
   'workbench.activityMonitor.info.memory': 'Физическая память, которую процесс занимает прямо сейчас.',
   'workbench.activityMonitor.info.memoryFootprint':
     'Объём памяти, как его считает системный монитор этой системы — то, что относится только к процессу, включая сжатую память.',
+  'workbench.activityMonitor.info.memoryPrivateWorkingSet':
+    'Частный рабочий набор, как его считает системный монитор этой системы — физическая память, которую занимает только этот процесс.',
   'workbench.activityMonitor.column.started': 'Запущен',
   'workbench.activityMonitor.column.pid': 'PID',
   'workbench.activityMonitor.info.pid': 'Идентификатор процесса в операционной системе — для ИТ и поддержки.',

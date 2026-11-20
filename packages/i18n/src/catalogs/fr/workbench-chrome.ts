@@ -512,6 +512,8 @@ export const workbenchChrome = {
   'workbench.activityMonitor.info.memory': 'La mémoire physique que le processus occupe en ce moment.',
   'workbench.activityMonitor.info.memoryFootprint':
     'L’empreinte mémoire, comme la compte le moniteur de ce système — ce qui est imputé au seul processus, mémoire compressée comprise.',
+  'workbench.activityMonitor.info.memoryPrivateWorkingSet':
+    'La plage de travail privée, comme la compte le moniteur de ce système — la mémoire physique que seul ce processus occupe.',
   'workbench.activityMonitor.column.started': 'Démarré',
   'workbench.activityMonitor.column.pid': 'PID',
   'workbench.activityMonitor.info.pid':

@@ -488,6 +488,8 @@ export const workbenchChrome = {
   'workbench.activityMonitor.info.memory': 'プロセスが現在使用している物理メモリです。',
   'workbench.activityMonitor.info.memoryFootprint':
     'このシステムのモニタと同じ数え方によるメモリフットプリントです。このプロセスだけに計上される分で、圧縮メモリを含みます。',
+  'workbench.activityMonitor.info.memoryPrivateWorkingSet':
+    'このシステムのモニタと同じ数え方によるプライベートワーキングセットです。このプロセスだけが保持している物理メモリです。',
   'workbench.activityMonitor.column.started': '開始',
   'workbench.activityMonitor.column.pid': 'PID',
   'workbench.activityMonitor.info.pid': 'オペレーティングシステムのプロセス ID です。IT 部門やサポート向けです。',

@@ -1,6 +1,6 @@
 # Process Reader
 
-What a process costs and what runs beneath it, read from the system's own process table with no process started for the read. The macOS half of the app's in-house process reader; Linux needs no addon (it reads `/proc` in plain JS), and the Windows half is not written yet.
+What a process costs and what runs beneath it, read from the system's own process table with no process started for the read. The macOS half of the app's in-house process reader; Linux needs no addon (it reads `/proc` in plain JS), and the Windows half is `native/windows-process-reader`.
 
 ## What it reads — and what it never reads
 

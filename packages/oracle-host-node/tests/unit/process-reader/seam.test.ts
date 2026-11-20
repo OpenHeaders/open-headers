@@ -45,7 +45,7 @@ describe('readProcessDescendants — on the kept terminal scene', () => {
 });
 
 interface Entry {
-  parentPid: number;
+  parentPid: number | null;
   startedAt: number;
   /** What the system lists as its children — which a reused pid makes wrong. */
   listed?: number[];
@@ -100,6 +100,15 @@ describe('readProcessDescendants — the edges', () => {
     const reader = tableReader({
       100: { parentPid: 1, startedAt: T0, listed: [101, 102] },
       101: { parentPid: 7, startedAt: T0 + 1_000 },
+      102: { parentPid: 100, startedAt: T0 + 1_000 },
+    });
+    expect(pidsOf(readProcessDescendants(reader, ROOT))).toEqual([102]);
+  });
+
+  it('does not believe a listed child whose record carries no parent at all', () => {
+    const reader = tableReader({
+      100: { parentPid: 1, startedAt: T0, listed: [101, 102] },
+      101: { parentPid: null, startedAt: T0 + 1_000 },
       102: { parentPid: 100, startedAt: T0 + 1_000 },
     });
     expect(pidsOf(readProcessDescendants(reader, ROOT))).toEqual([102]);

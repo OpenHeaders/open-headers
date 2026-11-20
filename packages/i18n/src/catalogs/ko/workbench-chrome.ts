@@ -488,6 +488,8 @@ export const workbenchChrome = {
   'workbench.activityMonitor.info.memory': '프로세스가 지금 차지하고 있는 물리 메모리입니다.',
   'workbench.activityMonitor.info.memoryFootprint':
     '이 시스템의 모니터가 세는 방식대로의 메모리 사용 공간입니다. 이 프로세스에만 계산되는 양이며 압축된 메모리를 포함합니다.',
+  'workbench.activityMonitor.info.memoryPrivateWorkingSet':
+    '이 시스템의 모니터가 세는 방식대로의 개인 작업 집합입니다. 이 프로세스만 차지하고 있는 물리 메모리입니다.',
   'workbench.activityMonitor.column.started': '시작',
   'workbench.activityMonitor.column.pid': 'PID',
   'workbench.activityMonitor.info.pid': '운영 체제의 프로세스 ID입니다. IT 부서와 지원팀을 위한 값입니다.',

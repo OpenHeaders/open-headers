@@ -35,11 +35,12 @@ export type ActivityMonitorPlatform = 'darwin' | 'win32' | 'linux';
 
 /**
  * Which figure a row's memory is (the plan §7, fork 10) — the one each
- * system's own monitor shows: the footprint, or the resident size. The
- * working set is the runtime's own figure, on a host whose process
- * reader has not landed.
+ * system's own monitor shows: the footprint, the resident size, or the
+ * private working set. The working set stands in on a Windows that does
+ * not count the private one, and is the runtime's own figure on a host
+ * with no process reader.
  */
-export type ActivityMonitorMemoryKind = 'footprint' | 'resident' | 'working-set';
+export type ActivityMonitorMemoryKind = 'footprint' | 'resident' | 'private-working-set' | 'working-set';
 
 /**
  * One process running beneath an owner (the plan §6, laws 12 and 13):
