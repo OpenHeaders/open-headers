@@ -399,6 +399,10 @@ describe('ActivityMonitorPanel', () => {
 
   const serviceLines = (): string[][] => screen.getAllByTestId('activity-monitor-service').map((row) => cells(row));
 
+  const GROUPS = ['overview', 'processes', 'running'] as const;
+  const groupHead = (group: (typeof GROUPS)[number]): HTMLElement =>
+    screen.getByTestId(`activity-monitor-group-${group}`);
+
   async function renderServices(
     services: ActivityMonitorServiceRow[],
     status: StatusSnapshot = {},
@@ -638,8 +642,8 @@ describe('ActivityMonitorPanel', () => {
     const summary = screen.getByTestId('activity-monitor-summary');
     expect(Array.from(summary.querySelectorAll('strong'), (figure) => figure.textContent)).toEqual(['1.7%', '522 MB']);
     expect(summary.querySelector('.oh-am-count')?.textContent).toBe('2 processes · up 6 hr');
-    // The label says the span the graphs hold — half an hour here, not the hour they will grow to.
-    expect(summary.querySelector('.oh-am-range')?.textContent).toBe('last 30 min');
+    // The Overview head says the span the graphs hold — half an hour here, not the hour they will grow to.
+    expect(groupHead('overview').querySelector('.oh-am-range')?.textContent).toBe('last 30 min');
     // CPU on the rows' scale; memory from zero to the history's own highest total (400 MB, now).
     expect(graphPaths(summary)).toEqual(['M0.0 8.0L120.0 8.0', 'M0.0 8.0L120.0 1.0']);
   });
@@ -652,13 +656,69 @@ describe('ActivityMonitorPanel', () => {
     setHostBridge(createBridgeFake(async () => next).bridge);
     render(<ActivityMonitorPanel info={INFO} active onHide={() => {}} onRevealService={() => {}} />);
     await tick(0);
-    expect(screen.getByTestId('activity-monitor-summary').querySelector('.oh-am-range')).toBeNull();
+    expect(groupHead('overview').querySelector('.oh-am-range')).toBeNull();
 
     next = makeSnapshot({ processes: [ENGINE], history: hour, cursor: 240 });
     await tick(2_000);
-    expect(screen.getByTestId('activity-monitor-summary').querySelector('.oh-am-range')?.textContent).toBe(
-      'last 60 min',
+    expect(groupHead('overview').querySelector('.oh-am-range')?.textContent).toBe('last 60 min');
+  });
+
+  it('stands in three groups, each open at first: Overview, Processes, Running', async () => {
+    await renderServices(SERVICES);
+    expect(GROUPS.map((group) => groupHead(group).getAttribute('aria-expanded'))).toEqual(['true', 'true', 'true']);
+    expect(screen.getByText('Overview')).toBeTruthy();
+    expect(screen.getByTestId('activity-monitor-summary')).toBeTruthy();
+    expect(screen.getAllByTestId('activity-monitor-row')).toHaveLength(1);
+    expect(screen.getAllByTestId('activity-monitor-service')).toHaveLength(5);
+  });
+
+  it('folds each group on its own head, and opens it again', async () => {
+    await renderServices(SERVICES);
+
+    fireEvent.click(groupHead('overview'));
+    expect(groupHead('overview').getAttribute('aria-expanded')).toBe('false');
+    expect(screen.queryByTestId('activity-monitor-summary')).toBeNull();
+    expect(screen.getAllByTestId('activity-monitor-row')).toHaveLength(1);
+
+    fireEvent.click(groupHead('processes'));
+    expect(screen.queryAllByTestId('activity-monitor-row')).toHaveLength(0);
+    // A folded group has no columns to head.
+    expect(screen.queryAllByRole('columnheader')).toHaveLength(0);
+    expect(screen.getAllByTestId('activity-monitor-service')).toHaveLength(5);
+
+    fireEvent.click(groupHead('running'));
+    expect(screen.queryAllByTestId('activity-monitor-service')).toHaveLength(0);
+
+    for (const group of GROUPS) fireEvent.click(groupHead(group));
+    expect(screen.getByTestId('activity-monitor-summary')).toBeTruthy();
+    expect(screen.getAllByTestId('activity-monitor-row')).toHaveLength(1);
+    expect(screen.getAllByRole('columnheader')).toHaveLength(4);
+    expect(screen.getAllByTestId('activity-monitor-service')).toHaveLength(5);
+  });
+
+  it('keeps a sort across a fold, and a click on a column head never folds the group', async () => {
+    await renderServices(SERVICES);
+    fireEvent.click(screen.getByRole('button', { name: 'Memory' }));
+    expect(groupHead('processes').getAttribute('aria-expanded')).toBe('true');
+
+    fireEvent.click(groupHead('processes'));
+    fireEvent.click(groupHead('processes'));
+    expect(screen.getByRole('columnheader', { name: 'Memory' }).getAttribute('aria-sort')).toBe('descending');
+  });
+
+  it('has no Overview while there is no answer, and still says what could not be read under Processes', async () => {
+    setHostBridge(
+      createBridgeFake(async () => {
+        throw new Error('no handler');
+      }).bridge,
     );
+    render(<ActivityMonitorPanel info={INFO} active onHide={() => {}} onRevealService={() => {}} />);
+    await tick(0);
+    expect(screen.queryByTestId('activity-monitor-group-overview')).toBeNull();
+    expect(screen.getByText('The processes could not be read.')).toBeTruthy();
+
+    fireEvent.click(groupHead('processes'));
+    expect(screen.queryByText('The processes could not be read.')).toBeNull();
   });
 
   it('reads a dash for a total nothing could be read of, and says one process as one', async () => {

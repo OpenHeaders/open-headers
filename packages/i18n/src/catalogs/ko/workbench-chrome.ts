@@ -477,6 +477,7 @@ export const workbenchChrome = {
   'workbench.terminal.cliGate.installOk': '터미널 열기',
   'workbench.toolWindows.info.activityMonitor.summary':
     '이 앱이 지금 실행 중인 것과 각 부분에 드는 비용을 보여 줍니다. 앱 자체의 프로세스와 그 CPU 및 메모리입니다. 수치는 이 패널이 보이는 동안에만 갱신되며, 이 기기 밖으로 나가지 않습니다.',
+  'workbench.activityMonitor.group.overview': '개요',
   'workbench.activityMonitor.group.processes': '프로세스',
   'workbench.activityMonitor.column.cpu': 'CPU',
   'workbench.activityMonitor.column.cpuHoverPerCore':

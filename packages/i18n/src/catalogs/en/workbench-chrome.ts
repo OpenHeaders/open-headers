@@ -468,6 +468,7 @@ export const workbenchChrome = {
   'workbench.toolWindows.info.activityMonitor.summary':
     'What this app is running right now and what each part costs — its own processes, with their CPU and ' +
     'memory. The figures refresh while this panel is in view, and nothing here leaves this device.',
+  'workbench.activityMonitor.group.overview': 'Overview',
   'workbench.activityMonitor.group.processes': 'Processes',
   'workbench.activityMonitor.column.cpu': 'CPU',
   'workbench.activityMonitor.column.cpuHoverPerCore':

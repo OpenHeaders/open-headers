@@ -497,6 +497,7 @@ export const workbenchChrome = {
   'workbench.terminal.cliGate.installOk': 'Открыть терминал',
   'workbench.toolWindows.info.activityMonitor.summary':
     'Что это приложение выполняет прямо сейчас и во что обходится каждая часть — его собственные процессы с их ЦП и памятью. Значения обновляются, пока эта панель на виду, и ничто отсюда не покидает это устройство.',
+  'workbench.activityMonitor.group.overview': 'Обзор',
   'workbench.activityMonitor.group.processes': 'Процессы',
   'workbench.activityMonitor.column.cpu': 'ЦП',
   'workbench.activityMonitor.column.cpuHoverPerCore':

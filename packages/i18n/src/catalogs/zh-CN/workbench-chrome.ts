@@ -471,6 +471,7 @@ export const workbenchChrome = {
     '点击即可在标签页中回放。',
   'workbench.toolWindows.info.activityMonitor.summary':
     '这个应用此刻正在运行什么，以及每个部分的开销——它自己的进程及其 CPU 和内存。数值只在此面板可见时刷新，且不会离开这台设备。',
+  'workbench.activityMonitor.group.overview': '概览',
   'workbench.activityMonitor.group.processes': '进程',
   'workbench.activityMonitor.column.cpu': 'CPU',
   'workbench.activityMonitor.column.cpuHoverPerCore': '按核心计，与本系统自带监视器的算法一致——100% 表示占满一个核心。',

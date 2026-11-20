@@ -1,20 +1,38 @@
-/* The activity monitor's table: one grid shared by the head and every
- * row, 24px rows, 12px type, tabular figures. A cell is one text node,
+/* The activity monitor's table: one grid shared by every process row,
+ * 24px rows, 12px type, tabular figures. A cell is one text node,
  * so a figure changes in place and nothing reflows on the 2s beat. */
 
-/* The one line of totals under the title: it stays put while the table
- * scrolls under it. */
+/* Three groups that fold — Overview, Processes, Running — each under
+ * the shell's section head, pinned over its own rows while they scroll.
+ * The groups are as wide as the widest row, so a head and its rows
+ * scroll sideways together in a narrow panel. */
+.oh-am-groups {
+  display: flex;
+  flex-direction: column;
+  min-width: min-content;
+}
+
+.oh-am-group + .oh-am-group {
+  margin-top: 4px;
+  border-top: 1px solid var(--ant-color-split);
+}
+
+.oh-am-group-head {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  padding: 2px 0;
+  background: var(--ant-color-bg-container);
+}
+
+/* The Overview group's one row of totals. */
 .oh-am-summary {
-  flex: none;
   display: flex;
   align-items: center;
   gap: 16px;
-  height: 30px;
-  padding: 0 12px;
+  height: 26px;
+  padding: 0 14px 0 32px;
   overflow: hidden;
-  border-bottom: 1px solid var(--ant-color-split);
-  font-size: 12px;
-  font-variant-numeric: tabular-nums;
   white-space: nowrap;
   color: var(--ant-color-text-secondary);
 }
@@ -39,9 +57,8 @@
 }
 
 .oh-am-range {
-  flex: none;
-  margin-left: auto;
   font-size: 11px;
+  font-variant-numeric: tabular-nums;
   color: var(--ant-color-text-tertiary);
   cursor: default;
 }
@@ -81,27 +98,21 @@
   align-items: center;
   column-gap: 8px;
   height: 24px;
-  padding: 0 12px;
+  padding: 0 14px;
 }
 
-.oh-am-row:not(.oh-am-head):hover {
+.oh-am-row:hover {
   background: var(--ant-color-fill-quaternary);
 }
 
-.oh-am-head {
-  position: sticky;
-  top: 0;
-  z-index: 1;
-  background: var(--ant-color-bg-container);
+/* The column heads sit at the right of the Processes head, on the rows'
+ * own figure columns — the section head's inset is the rows' inset. */
+.oh-am-cols {
+  display: grid;
+  grid-template-columns: 64px 100px 76px 72px 60px;
+  column-gap: 8px;
   font-size: 11px;
   color: var(--ant-color-text-tertiary);
-}
-
-.oh-am-group {
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: var(--ant-color-text-secondary);
 }
 
 .oh-am-col {
@@ -206,18 +217,13 @@
 /* The RUNNING group: a dot, a name, a line of facts, a reveal arrow.
  * No figure columns — a service has facts, not a cost. */
 
-.oh-am-head--running {
-  margin-top: 6px;
-  border-top: 1px solid var(--ant-color-split);
-}
-
 .oh-am-service {
   display: grid;
   grid-template-columns: 14px 132px minmax(0, 1fr) 24px;
   align-items: center;
   column-gap: 8px;
   height: 24px;
-  padding: 0 6px 0 12px;
+  padding: 0 8px 0 14px;
 }
 
 .oh-am-service:hover {

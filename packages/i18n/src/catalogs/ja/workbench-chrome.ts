@@ -477,6 +477,7 @@ export const workbenchChrome = {
   'workbench.terminal.cliGate.installOk': 'ターミナルを開く',
   'workbench.toolWindows.info.activityMonitor.summary':
     'このアプリが今実行しているものと、それぞれにかかるコストを示します。アプリ自身のプロセスと、その CPU およびメモリです。数値はこのパネルが表示されている間だけ更新され、このデバイスの外には出ません。',
+  'workbench.activityMonitor.group.overview': '概要',
   'workbench.activityMonitor.group.processes': 'プロセス',
   'workbench.activityMonitor.column.cpu': 'CPU',
   'workbench.activityMonitor.column.cpuHoverPerCore':

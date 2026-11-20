@@ -501,6 +501,7 @@ export const workbenchChrome = {
     'Was diese App gerade ausführt und was jeder Teil kostet — ihre eigenen Prozesse mit CPU und ' +
     'Arbeitsspeicher. Die Werte werden aktualisiert, solange dieses Panel sichtbar ist, und nichts davon ' +
     'verlässt dieses Gerät.',
+  'workbench.activityMonitor.group.overview': 'Übersicht',
   'workbench.activityMonitor.group.processes': 'Prozesse',
   'workbench.activityMonitor.column.cpu': 'CPU',
   'workbench.activityMonitor.column.cpuHoverPerCore':

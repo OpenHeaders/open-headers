@@ -1,9 +1,10 @@
 /**
  * ActivityMonitorPanel — the workbench Activity Monitor tool-window
- * body (the activity monitor plan §8): one line of totals, one table of
- * the app's own processes, named in the interface's words, with what
- * each costs and its last hour, and under it what the engine keeps
- * running, as facts. The host owns every read; this panel asks while it
+ * body (the activity monitor plan §8): three groups that fold, each
+ * under the shell's own section head — Overview, the totals on one
+ * row; Processes, the app's own processes named in the interface's
+ * words, with what each costs and its history; Running, what the engine
+ * keeps going, as facts. The host owns every read; this panel asks while it
  * is looked at and formats the answer. Values change in place on the
  * two-second beat and what could not be read reads as a dash. No row
  * moves under the pointer (the plan §6, law 10): a sort is applied on
@@ -46,6 +47,7 @@ import type { InfoPopoverContent } from '@openheaders/ui/shared/info-popover';
 import { buildHistoryGraphs, type HistoryGraphs, ROW_GRAPH, SUMMARY_GRAPH } from './history-graphs';
 import { SERVICE_REVEAL_TARGETS } from './service-reveal';
 import { FACT_SEPARATOR, SERVICE_NAME_KEYS, SERVICE_STATUS_SUBSYSTEM, serviceFacts } from './service-rows';
+import { SectionHeader } from '../../sidebar/SectionHeader';
 import { useActivityMonitorSnapshot } from './use-activity-monitor-snapshot';
 import './activity-monitor.css';
 
@@ -208,7 +210,7 @@ const SortHead: React.FC<SortHeadProps> = ({ column, label, hover, sort, onSort 
   );
 };
 
-/** The one line under the title: every process added up, how many there are, how long the app has run. */
+/** The Overview group's one row: every process added up, how many there are, how long the app has run. */
 const Summary: React.FC<{ snapshot: ActivityMonitorSnapshot; graphs: HistoryGraphs }> = ({ snapshot, graphs }) => {
   const { t, locale } = useLocale();
   const engine = snapshot.processes.find((row) => row.kind === 'engine');
@@ -245,29 +247,31 @@ const Summary: React.FC<{ snapshot: ActivityMonitorSnapshot; graphs: HistoryGrap
               }),
             ].join(FACT_SEPARATOR)}
       </span>
-      {graphs.spanMs > 0 && (
-        <Tooltip
-          title={t(
-            cpuPercentConvention(snapshot.platform) === 'per-core'
-              ? 'workbench.activityMonitor.summary.scalePerCore'
-              : 'workbench.activityMonitor.summary.scaleMachineShare',
-          )}
-          placement="bottomRight"
-        >
-          <span className="oh-am-range">
-            {t('workbench.activityMonitor.summary.range', { duration: formatSpan(graphs.spanMs, locale) })}
-          </span>
-        </Tooltip>
-      )}
     </div>
   );
 };
+
+/** A group's head, pinned over its own rows while they scroll under it. */
+const GroupHead: React.FC<{
+  title: string;
+  open: boolean;
+  onToggle: () => void;
+  actions?: React.ReactNode;
+  testid: string;
+}> = ({ title, open, onToggle, actions, testid }) => (
+  <div className="oh-am-group-head">
+    <SectionHeader title={title} expanded={open} onToggle={onToggle} actions={actions} testid={testid} />
+  </div>
+);
 
 const ActivityMonitorPanel: React.FC<ActivityMonitorPanelProps> = ({ info, active, onHide, onRevealService }) => {
   const { t, locale } = useLocale();
   const wiring = useMemo(() => createPanelHeaderWiring({ onHide }), [onHide]);
   const { snapshot, unreadable, history } = useActivityMonitorSnapshot(active);
   const { snapshot: status } = useStatus();
+  const [overviewOpen, setOverviewOpen] = useState(true);
+  const [processesOpen, setProcessesOpen] = useState(true);
+  const [runningOpen, setRunningOpen] = useState(true);
   const [otherOpen, setOtherOpen] = useState(false);
   const [sort, setSort] = useState<ActivityMonitorSort | null>(null);
   /** The order the sort gave when it was last applied; rows hold it until the next application. */
@@ -315,10 +319,173 @@ const ActivityMonitorPanel: React.FC<ActivityMonitorPanelProps> = ({ info, activ
     />
   );
 
+  const overviewGroup = snapshot !== null && (
+    <div className="oh-am-group">
+      <GroupHead
+        title={t('workbench.activityMonitor.group.overview')}
+        open={overviewOpen}
+        onToggle={() => setOverviewOpen((open) => !open)}
+        testid="activity-monitor-group-overview"
+        actions={
+          graphs.spanMs > 0 && (
+            <Tooltip
+              title={t(
+                cpuPercentConvention(snapshot.platform) === 'per-core'
+                  ? 'workbench.activityMonitor.summary.scalePerCore'
+                  : 'workbench.activityMonitor.summary.scaleMachineShare',
+              )}
+              placement="bottomRight"
+            >
+              <span className="oh-am-range">
+                {t('workbench.activityMonitor.summary.range', { duration: formatSpan(graphs.spanMs, locale) })}
+              </span>
+            </Tooltip>
+          )
+        }
+      />
+      {overviewOpen && <Summary snapshot={snapshot} graphs={graphs} />}
+    </div>
+  );
+
+  const processesGroup = (
+    <div className="oh-am-group">
+      <GroupHead
+        title={t('workbench.activityMonitor.group.processes')}
+        open={processesOpen}
+        onToggle={() => setProcessesOpen((open) => !open)}
+        testid="activity-monitor-group-processes"
+        actions={
+          processesOpen && (
+            <div className="oh-am-cols" role="row">
+              <SortHead
+                column="cpu"
+                label={t('workbench.activityMonitor.column.cpu')}
+                hover={
+                  snapshot === null
+                    ? undefined
+                    : t(
+                        cpuPercentConvention(snapshot.platform) === 'per-core'
+                          ? 'workbench.activityMonitor.column.cpuHoverPerCore'
+                          : 'workbench.activityMonitor.column.cpuHoverMachineShare',
+                      )
+                }
+                sort={sort}
+                onSort={onSort}
+              />
+              <span aria-hidden />
+              <SortHead
+                column="memory"
+                label={t('workbench.activityMonitor.column.memory')}
+                hover={t('workbench.activityMonitor.column.memoryHover')}
+                sort={sort}
+                onSort={onSort}
+              />
+              <SortHead
+                column="started"
+                label={t('workbench.activityMonitor.column.started')}
+                sort={sort}
+                onSort={onSort}
+              />
+              <SortHead
+                column="pid"
+                label={t('workbench.activityMonitor.column.pid')}
+                hover={t('workbench.activityMonitor.column.pidHover')}
+                sort={sort}
+                onSort={onSort}
+              />
+            </div>
+          )
+        }
+      />
+      {processesOpen && unreadable && <div className="oh-am-note">{t('workbench.activityMonitor.unreadable')}</div>}
+      {processesOpen && snapshot !== null && arranged !== null && (
+        <>
+          {arranged.named.map((row) => renderRow(row, snapshot, false))}
+          {arranged.other.length > 0 && (
+            <div className="oh-am-row" role="row" data-testid="activity-monitor-other">
+              <button
+                type="button"
+                className="oh-am-name oh-am-toggle"
+                aria-expanded={otherOpen}
+                onClick={() => setOtherOpen((open) => !open)}
+              >
+                <CaretRightOutlined aria-hidden className={otherOpen ? 'oh-am-caret oh-am-caret--open' : 'oh-am-caret'} />
+                <span>{t('workbench.activityMonitor.process.other', { count: arranged.other.length })}</span>
+              </button>
+              <span className="oh-am-num" role="cell">
+                {formatCpuPercent(
+                  sumReadable(arranged.other.map((row) => row.cpuRate)),
+                  snapshot.platform,
+                  snapshot.logicalCores,
+                )}
+              </span>
+              <span aria-hidden />
+              <span className="oh-am-num" role="cell">
+                {formatMemory(sumReadable(arranged.other.map((row) => row.memoryBytes)))}
+              </span>
+            </div>
+          )}
+          {otherOpen && arranged.other.map((row) => renderRow(row, snapshot, true))}
+          {ended.map((process) => {
+            const graph = graphs.processes.get(process.id);
+            const endedAt = t('workbench.activityMonitor.ended', {
+              time: formatStartTime(process.endedAt, snapshot.sampledAt, locale),
+            });
+            return (
+              <EndedRow
+                key={process.id}
+                name={processName(process, t)}
+                graph={graph?.path ?? ''}
+                note={
+                  graph === undefined || graph.peak === null
+                    ? endedAt
+                    : [
+                        endedAt,
+                        t('workbench.activityMonitor.peak', {
+                          percent: formatCpuPercent(graph.peak, snapshot.platform, snapshot.logicalCores),
+                        }),
+                      ].join(FACT_SEPARATOR)
+                }
+              />
+            );
+          })}
+        </>
+      )}
+    </div>
+  );
+
+  const runningGroup = snapshot !== null && snapshot.services.length > 0 && (
+    <div className="oh-am-group">
+      <GroupHead
+        title={t('workbench.activityMonitor.group.running')}
+        open={runningOpen}
+        onToggle={() => setRunningOpen((open) => !open)}
+        testid="activity-monitor-group-running"
+      />
+      {runningOpen &&
+        snapshot.services.map((service) => {
+          const subsystem = SERVICE_STATUS_SUBSYSTEM[service.kind];
+          return (
+            <ServiceRow
+              key={service.kind}
+              kind={service.kind}
+              name={t(SERVICE_NAME_KEYS[service.kind])}
+              facts={serviceFacts(service, snapshot.sampledAt, t, locale)}
+              state={service.state}
+              level={subsystem === undefined ? undefined : status[subsystem]?.state}
+              revealLabel={t('workbench.activityMonitor.reveal', {
+                target: t(SERVICE_REVEAL_TARGETS[service.kind].labelKey),
+              })}
+              onReveal={onRevealService}
+            />
+          );
+        })}
+    </div>
+  );
+
   return (
     <div className="rules-bottom-panel" data-testid="activity-monitor-panel">
       <PanelHeader wiring={wiring} title={<strong>{t('workbench.toolWindows.activityMonitor')}</strong>} info={info} />
-      {snapshot !== null && <Summary snapshot={snapshot} graphs={graphs} />}
       {/* biome-ignore lint/a11y/noStaticElementInteractions: the pointer is only watched — a sort is held while it is over the table */}
       <div
         className="oh-am-body"
@@ -331,128 +498,11 @@ const ActivityMonitorPanel: React.FC<ActivityMonitorPanelProps> = ({ info, activ
           pointerOverTable.current = false;
         }}
       >
-        <div className="oh-am-row oh-am-head" role="row">
-          <span className="oh-am-group" role="columnheader">
-            {t('workbench.activityMonitor.group.processes')}
-          </span>
-          <SortHead
-            column="cpu"
-            label={t('workbench.activityMonitor.column.cpu')}
-            hover={
-              snapshot === null
-                ? undefined
-                : t(
-                    cpuPercentConvention(snapshot.platform) === 'per-core'
-                      ? 'workbench.activityMonitor.column.cpuHoverPerCore'
-                      : 'workbench.activityMonitor.column.cpuHoverMachineShare',
-                  )
-            }
-            sort={sort}
-            onSort={onSort}
-          />
-          <span aria-hidden />
-          <SortHead
-            column="memory"
-            label={t('workbench.activityMonitor.column.memory')}
-            hover={t('workbench.activityMonitor.column.memoryHover')}
-            sort={sort}
-            onSort={onSort}
-          />
-          <SortHead
-            column="started"
-            label={t('workbench.activityMonitor.column.started')}
-            sort={sort}
-            onSort={onSort}
-          />
-          <SortHead
-            column="pid"
-            label={t('workbench.activityMonitor.column.pid')}
-            hover={t('workbench.activityMonitor.column.pidHover')}
-            sort={sort}
-            onSort={onSort}
-          />
+        <div className="oh-am-groups">
+          {overviewGroup}
+          {processesGroup}
+          {runningGroup}
         </div>
-        {unreadable && <div className="oh-am-note">{t('workbench.activityMonitor.unreadable')}</div>}
-        {snapshot !== null && arranged !== null && (
-          <>
-            {arranged.named.map((row) => renderRow(row, snapshot, false))}
-            {arranged.other.length > 0 && (
-              <div className="oh-am-row" role="row" data-testid="activity-monitor-other">
-                <button
-                  type="button"
-                  className="oh-am-name oh-am-toggle"
-                  aria-expanded={otherOpen}
-                  onClick={() => setOtherOpen((open) => !open)}
-                >
-                  <CaretRightOutlined
-                    aria-hidden
-                    className={otherOpen ? 'oh-am-caret oh-am-caret--open' : 'oh-am-caret'}
-                  />
-                  <span>{t('workbench.activityMonitor.process.other', { count: arranged.other.length })}</span>
-                </button>
-                <span className="oh-am-num" role="cell">
-                  {formatCpuPercent(
-                    sumReadable(arranged.other.map((row) => row.cpuRate)),
-                    snapshot.platform,
-                    snapshot.logicalCores,
-                  )}
-                </span>
-                <span aria-hidden />
-                <span className="oh-am-num" role="cell">
-                  {formatMemory(sumReadable(arranged.other.map((row) => row.memoryBytes)))}
-                </span>
-              </div>
-            )}
-            {otherOpen && arranged.other.map((row) => renderRow(row, snapshot, true))}
-            {ended.map((process) => {
-              const graph = graphs.processes.get(process.id);
-              const endedAt = t('workbench.activityMonitor.ended', {
-                time: formatStartTime(process.endedAt, snapshot.sampledAt, locale),
-              });
-              return (
-                <EndedRow
-                  key={process.id}
-                  name={processName(process, t)}
-                  graph={graph?.path ?? ''}
-                  note={
-                    graph === undefined || graph.peak === null
-                      ? endedAt
-                      : [
-                          endedAt,
-                          t('workbench.activityMonitor.peak', {
-                            percent: formatCpuPercent(graph.peak, snapshot.platform, snapshot.logicalCores),
-                          }),
-                        ].join(FACT_SEPARATOR)
-                  }
-                />
-              );
-            })}
-            {snapshot.services.length > 0 && (
-              <div className="oh-am-row oh-am-head oh-am-head--running" role="row">
-                <span className="oh-am-group" role="columnheader">
-                  {t('workbench.activityMonitor.group.running')}
-                </span>
-              </div>
-            )}
-            {snapshot.services.map((service) => {
-              const subsystem = SERVICE_STATUS_SUBSYSTEM[service.kind];
-              return (
-                <ServiceRow
-                  key={service.kind}
-                  kind={service.kind}
-                  name={t(SERVICE_NAME_KEYS[service.kind])}
-                  facts={serviceFacts(service, snapshot.sampledAt, t, locale)}
-                  state={service.state}
-                  level={subsystem === undefined ? undefined : status[subsystem]?.state}
-                  revealLabel={t('workbench.activityMonitor.reveal', {
-                    target: t(SERVICE_REVEAL_TARGETS[service.kind].labelKey),
-                  })}
-                  onReveal={onRevealService}
-                />
-              );
-            })}
-          </>
-        )}
       </div>
     </div>
   );

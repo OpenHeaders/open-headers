@@ -505,6 +505,7 @@ export const workbenchChrome = {
   'workbench.terminal.cliGate.installOk': 'Deschidere terminal',
   'workbench.toolWindows.info.activityMonitor.summary':
     'Ce rulează această aplicație chiar acum și cât costă fiecare parte — propriile procese, cu CPU-ul și memoria lor. Valorile se actualizează cât timp acest panou este vizibil, iar nimic de aici nu părăsește acest dispozitiv.',
+  'workbench.activityMonitor.group.overview': 'Prezentare generală',
   'workbench.activityMonitor.group.processes': 'Procese',
   'workbench.activityMonitor.column.cpu': 'CPU',
   'workbench.activityMonitor.column.cpuHoverPerCore':
