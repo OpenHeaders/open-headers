@@ -1,0 +1,25 @@
+{
+  "name": "@openheaders/process-reader",
+  "version": "1.0.0",
+  "private": true,
+  "description": "What a process costs and what runs beneath it, read from the system's process library with no process started",
+  "main": "index.js",
+  "typings": "index.d.ts",
+  "scripts": {
+    "test": "node test/test.js",
+    "install": "node-gyp-build",
+    "build": "node-gyp rebuild"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/OpenHeaders/open-headers.git",
+    "directory": "native/process-reader"
+  },
+  "author": "Open Headers",
+  "license": "Apache-2.0",
+  "os": ["darwin"],
+  "gypfile": true,
+  "dependencies": {
+    "node-gyp-build": "^4.8.0"
+  }
+}

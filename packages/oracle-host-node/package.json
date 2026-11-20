@@ -67,6 +67,10 @@
       "import": "./src/migration/index.ts",
       "default": "./dist/migration/index.js"
     },
+    "./process-reader": {
+      "import": "./src/process-reader/index.ts",
+      "default": "./dist/process-reader/index.js"
+    },
     "./workspace-tree": {
       "import": "./src/workspace-tree/index.ts",
       "default": "./dist/workspace-tree/index.js"

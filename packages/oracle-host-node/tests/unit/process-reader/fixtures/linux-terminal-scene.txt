@@ -1,0 +1,434 @@
+==> note <==
+root=8 stays=9 waited=10
+==> file /proc/stat <==
+cpu  1201 0 751 94236 1127 0 416 0 0 0
+cpu0 112 0 82 9401 47 0 230 0 0 0
+cpu1 180 0 67 9331 139 0 41 0 0 0
+cpu2 129 0 76 9425 130 0 29 0 0 0
+cpu3 100 0 89 9465 97 0 19 0 0 0
+cpu4 93 0 80 9499 66 0 25 0 0 0
+cpu5 95 0 62 9542 36 0 15 0 0 0
+cpu6 179 0 59 9430 78 0 14 0 0 0
+cpu7 111 0 68 9477 74 0 19 0 0 0
+cpu8 95 0 81 9161 405 0 13 0 0 0
+cpu9 103 0 80 9502 50 0 9 0 0 0
+intr 310730 0 1236 151367 0 0 0 21 0 0 0 0 139827 0 0 2300 342 13875 589 1 1 150 1 1 21 985 14 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+ctxt 382397
+btime 1795181941
+processes 1072
+procs_running 2
+procs_blocked 0
+softirq 90625 0 4339 20 4925 14403 0 63 42209 0 24666
+==> dir /proc <==
+1
+10
+12
+7
+8
+9
+==> file /proc/1/stat <==
+1 (docker-init) S 0 1 1 0 -1 4194560 855 0 0 0 0 0 0 0 20 0 1 0 9633 892928 98 18446744073709551615 1 1 0 0 0 0 0 3145728 0 0 0 0 17 3 0 0 0 0 0 0 0 0 0 0 0 0 0
+==> file /proc/1/status <==
+Name:	docker-init
+Umask:	0022
+State:	S (sleeping)
+Tgid:	1
+Ngid:	0
+Pid:	1
+PPid:	0
+TracerPid:	0
+Uid:	0	0	0	0
+Gid:	0	0	0	0
+FDSize:	64
+Groups:	0 
+NStgid:	1
+NSpid:	1
+NSpgid:	1
+NSsid:	1
+Kthread:	0
+VmPeak:	     872 kB
+VmSize:	     872 kB
+VmLck:	       0 kB
+VmPin:	       0 kB
+VmHWM:	     508 kB
+VmRSS:	     508 kB
+RssAnon:	      48 kB
+RssFile:	     460 kB
+RssShmem:	       0 kB
+VmData:	     172 kB
+VmStk:	     132 kB
+VmExe:	     528 kB
+VmLib:	       8 kB
+VmPTE:	      36 kB
+VmSwap:	       0 kB
+HugetlbPages:	       0 kB
+CoreDumping:	0
+THP_enabled:	1
+untag_mask:	0xffffffffffffff
+Threads:	1
+SigQ:	0/31879
+SigPnd:	0000000000000000
+ShdPnd:	0000000000000000
+SigBlk:	0000000000000000
+SigIgn:	0000000000300000
+SigCgt:	0000000000000000
+CapInh:	0000000000000000
+CapPrm:	00000000a80425fb
+CapEff:	00000000a80425fb
+CapBnd:	00000000a80425fb
+CapAmb:	0000000000000000
+NoNewPrivs:	0
+Seccomp:	2
+Seccomp_filters:	1
+Speculation_Store_Bypass:	vulnerable
+SpeculationIndirectBranch:	unknown
+Cpus_allowed:	3ff
+Cpus_allowed_list:	0-9
+Mems_allowed:	1
+Mems_allowed_list:	0
+voluntary_ctxt_switches:	22
+nonvoluntary_ctxt_switches:	1
+==> refused /proc/1/exe <==
+==> dir /proc/1/task <==
+1
+==> file /proc/1/task/1/children <==
+7 12 
+==> file /proc/10/stat <==
+10 (sleep) S 8 8 8 34816 8 4194560 245 176 0 0 0 0 100 0 20 0 1 0 9641 2293760 256 18446744073709551615 187650539257856 187650539288656 281474057074304 0 0 0 0 6 0 1 0 0 17 7 0 0 0 0 0 187650539388048 187650539389560 187650916737024 281474057076590 281474057076600 281474057076600 281474057076713 0
+==> file /proc/10/status <==
+Name:	sleep
+Umask:	0022
+State:	S (sleeping)
+Tgid:	10
+Ngid:	0
+Pid:	10
+PPid:	8
+TracerPid:	0
+Uid:	65534	65534	65534	65534
+Gid:	65534	65534	65534	65534
+FDSize:	256
+Groups:	 
+NStgid:	10
+NSpid:	10
+NSpgid:	8
+NSsid:	8
+Kthread:	0
+VmPeak:	    2240 kB
+VmSize:	    2240 kB
+VmLck:	       0 kB
+VmPin:	       0 kB
+VmHWM:	    1112 kB
+VmRSS:	    1112 kB
+RssAnon:	      88 kB
+RssFile:	    1024 kB
+RssShmem:	       0 kB
+VmData:	     220 kB
+VmStk:	     132 kB
+VmExe:	      32 kB
+VmLib:	    1748 kB
+VmPTE:	      40 kB
+VmSwap:	       0 kB
+HugetlbPages:	       0 kB
+CoreDumping:	0
+THP_enabled:	1
+untag_mask:	0xffffffffffffff
+Threads:	1
+SigQ:	0/31879
+SigPnd:	0000000000000000
+ShdPnd:	0000000000000000
+SigBlk:	0000000000000000
+SigIgn:	0000000000000006
+SigCgt:	0000000000000000
+CapInh:	0000000000000000
+CapPrm:	0000000000000000
+CapEff:	0000000000000000
+CapBnd:	00000000a80425fb
+CapAmb:	0000000000000000
+NoNewPrivs:	0
+Seccomp:	2
+Seccomp_filters:	1
+Speculation_Store_Bypass:	vulnerable
+SpeculationIndirectBranch:	unknown
+Cpus_allowed:	3ff
+Cpus_allowed_list:	0-9
+Mems_allowed:	1
+Mems_allowed_list:	0
+voluntary_ctxt_switches:	2
+nonvoluntary_ctxt_switches:	0
+==> link /proc/10/exe <==
+/usr/bin/sleep
+==> dir /proc/10/task <==
+10
+==> file /proc/10/task/10/children <==
+
+==> file /proc/12/stat <==
+12 (sleep) S 1 8 8 34816 8 4194304 107 0 1 0 0 0 0 0 20 0 1 0 9641 2293760 256 18446744073709551615 187650862678016 187650862708816 281474666830896 0 0 0 0 6 0 1 0 0 17 2 0 0 0 0 0 187650862808208 187650862809720 187651910250496 281474666831709 281474666831719 281474666831719 281474666831849 0
+==> file /proc/12/status <==
+Name:	sleep
+Umask:	0022
+State:	S (sleeping)
+Tgid:	12
+Ngid:	0
+Pid:	12
+PPid:	1
+TracerPid:	0
+Uid:	65534	65534	65534	65534
+Gid:	65534	65534	65534	65534
+FDSize:	64
+Groups:	 
+NStgid:	12
+NSpid:	12
+NSpgid:	8
+NSsid:	8
+Kthread:	0
+VmPeak:	    2240 kB
+VmSize:	    2240 kB
+VmLck:	       0 kB
+VmPin:	       0 kB
+VmHWM:	    1112 kB
+VmRSS:	    1112 kB
+RssAnon:	      88 kB
+RssFile:	    1024 kB
+RssShmem:	       0 kB
+VmData:	     220 kB
+VmStk:	     132 kB
+VmExe:	      32 kB
+VmLib:	    1748 kB
+VmPTE:	      44 kB
+VmSwap:	       0 kB
+HugetlbPages:	       0 kB
+CoreDumping:	0
+THP_enabled:	1
+untag_mask:	0xffffffffffffff
+Threads:	1
+SigQ:	0/31879
+SigPnd:	0000000000000000
+ShdPnd:	0000000000000000
+SigBlk:	0000000000000000
+SigIgn:	0000000000000006
+SigCgt:	0000000000000000
+CapInh:	0000000000000000
+CapPrm:	0000000000000000
+CapEff:	0000000000000000
+CapBnd:	00000000a80425fb
+CapAmb:	0000000000000000
+NoNewPrivs:	0
+Seccomp:	2
+Seccomp_filters:	1
+Speculation_Store_Bypass:	vulnerable
+SpeculationIndirectBranch:	unknown
+Cpus_allowed:	3ff
+Cpus_allowed_list:	0-9
+Mems_allowed:	1
+Mems_allowed_list:	0
+voluntary_ctxt_switches:	2
+nonvoluntary_ctxt_switches:	0
+==> link /proc/12/exe <==
+/usr/bin/sleep
+==> dir /proc/12/task <==
+12
+==> file /proc/12/task/12/children <==
+
+==> file /proc/7/stat <==
+7 (script) S 1 7 1 0 -1 4194560 78 0 0 0 0 0 0 0 20 0 1 0 9640 2330624 327 18446744073709551615 1 1 0 0 0 0 2147221247 0 0 0 0 0 17 3 0 0 0 0 0 0 0 0 0 0 0 0 0
+==> file /proc/7/status <==
+Name:	script
+Umask:	0022
+State:	S (sleeping)
+Tgid:	7
+Ngid:	0
+Pid:	7
+PPid:	1
+TracerPid:	0
+Uid:	0	0	0	0
+Gid:	0	0	0	0
+FDSize:	64
+Groups:	0 
+NStgid:	7
+NSpid:	7
+NSpgid:	7
+NSsid:	1
+Kthread:	0
+VmPeak:	    2276 kB
+VmSize:	    2276 kB
+VmLck:	       0 kB
+VmPin:	       0 kB
+VmHWM:	    1484 kB
+VmRSS:	    1484 kB
+RssAnon:	     112 kB
+RssFile:	    1372 kB
+RssShmem:	       0 kB
+VmData:	     220 kB
+VmStk:	     132 kB
+VmExe:	      68 kB
+VmLib:	    1748 kB
+VmPTE:	      40 kB
+VmSwap:	       0 kB
+HugetlbPages:	       0 kB
+CoreDumping:	0
+THP_enabled:	1
+untag_mask:	0xffffffffffffff
+Threads:	1
+SigQ:	0/31879
+SigPnd:	0000000000000000
+ShdPnd:	0000000000000000
+SigBlk:	fffffffe7ffbfeff
+SigIgn:	0000000000000000
+SigCgt:	0000000000000000
+CapInh:	0000000000000000
+CapPrm:	00000000a80425fb
+CapEff:	00000000a80425fb
+CapBnd:	00000000a80425fb
+CapAmb:	0000000000000000
+NoNewPrivs:	0
+Seccomp:	2
+Seccomp_filters:	1
+Speculation_Store_Bypass:	vulnerable
+SpeculationIndirectBranch:	unknown
+Cpus_allowed:	3ff
+Cpus_allowed_list:	0-9
+Mems_allowed:	1
+Mems_allowed_list:	0
+voluntary_ctxt_switches:	2
+nonvoluntary_ctxt_switches:	0
+==> refused /proc/7/exe <==
+==> dir /proc/7/task <==
+7
+==> file /proc/7/task/7/children <==
+8 
+==> file /proc/8/stat <==
+8 (bash) R 7 8 8 34816 8 4194560 473 1396 0 0 0 0 0 0 20 0 1 0 9640 3977216 648 18446744073709551615 187650255028224 187650256279240 281474407046832 0 0 0 0 4 65536 0 0 0 17 0 0 0 0 0 0 187650256386816 187650256438204 187651033473024 281474407051117 281474407051137 281474407051137 281474407051242 0
+==> file /proc/8/status <==
+Name:	bash
+Umask:	0022
+State:	R (running)
+Tgid:	8
+Ngid:	0
+Pid:	8
+PPid:	7
+TracerPid:	0
+Uid:	65534	65534	65534	65534
+Gid:	65534	65534	65534	65534
+FDSize:	256
+Groups:	 
+NStgid:	8
+NSpid:	8
+NSpgid:	8
+NSsid:	8
+Kthread:	0
+VmPeak:	    3916 kB
+VmSize:	    3884 kB
+VmLck:	       0 kB
+VmPin:	       0 kB
+VmHWM:	    2792 kB
+VmRSS:	    2792 kB
+RssAnon:	     328 kB
+RssFile:	    2464 kB
+RssShmem:	       0 kB
+VmData:	     400 kB
+VmStk:	     132 kB
+VmExe:	    1224 kB
+VmLib:	    1924 kB
+VmPTE:	      48 kB
+VmSwap:	       0 kB
+HugetlbPages:	       0 kB
+CoreDumping:	0
+THP_enabled:	1
+untag_mask:	0xffffffffffffff
+Threads:	1
+SigQ:	0/31879
+SigPnd:	0000000000000000
+ShdPnd:	0000000000000000
+SigBlk:	0000000000000000
+SigIgn:	0000000000000004
+SigCgt:	0000000000010000
+CapInh:	0000000000000000
+CapPrm:	0000000000000000
+CapEff:	0000000000000000
+CapBnd:	00000000a80425fb
+CapAmb:	0000000000000000
+NoNewPrivs:	0
+Seccomp:	2
+Seccomp_filters:	1
+Speculation_Store_Bypass:	vulnerable
+SpeculationIndirectBranch:	unknown
+Cpus_allowed:	3ff
+Cpus_allowed_list:	0-9
+Mems_allowed:	1
+Mems_allowed_list:	0
+voluntary_ctxt_switches:	72
+nonvoluntary_ctxt_switches:	3
+==> link /proc/8/exe <==
+/usr/bin/bash
+==> dir /proc/8/task <==
+8
+==> file /proc/8/task/8/children <==
+9 10 
+==> file /proc/9/stat <==
+9 (sleep) S 8 8 8 34816 8 4194560 113 0 0 0 0 0 0 0 20 0 1 0 9641 2293760 240 18446744073709551615 187650588082176 187650588112976 281474033187856 0 0 0 0 6 0 1 0 0 17 6 0 0 0 0 0 187650588212368 187650588213880 187651116957696 281474033188701 281474033188711 281474033188711 281474033188841 0
+==> file /proc/9/status <==
+Name:	sleep
+Umask:	0022
+State:	S (sleeping)
+Tgid:	9
+Ngid:	0
+Pid:	9
+PPid:	8
+TracerPid:	0
+Uid:	65534	65534	65534	65534
+Gid:	65534	65534	65534	65534
+FDSize:	256
+Groups:	 
+NStgid:	9
+NSpid:	9
+NSpgid:	8
+NSsid:	8
+Kthread:	0
+VmPeak:	    2240 kB
+VmSize:	    2240 kB
+VmLck:	       0 kB
+VmPin:	       0 kB
+VmHWM:	    1112 kB
+VmRSS:	    1112 kB
+RssAnon:	      88 kB
+RssFile:	    1024 kB
+RssShmem:	       0 kB
+VmData:	     220 kB
+VmStk:	     132 kB
+VmExe:	      32 kB
+VmLib:	    1748 kB
+VmPTE:	      40 kB
+VmSwap:	       0 kB
+HugetlbPages:	       0 kB
+CoreDumping:	0
+THP_enabled:	1
+untag_mask:	0xffffffffffffff
+Threads:	1
+SigQ:	0/31879
+SigPnd:	0000000000000000
+ShdPnd:	0000000000000000
+SigBlk:	0000000000000000
+SigIgn:	0000000000000006
+SigCgt:	0000000000000000
+CapInh:	0000000000000000
+CapPrm:	0000000000000000
+CapEff:	0000000000000000
+CapBnd:	00000000a80425fb
+CapAmb:	0000000000000000
+NoNewPrivs:	0
+Seccomp:	2
+Seccomp_filters:	1
+Speculation_Store_Bypass:	vulnerable
+SpeculationIndirectBranch:	unknown
+Cpus_allowed:	3ff
+Cpus_allowed_list:	0-9
+Mems_allowed:	1
+Mems_allowed_list:	0
+voluntary_ctxt_switches:	1
+nonvoluntary_ctxt_switches:	0
+==> link /proc/9/exe <==
+/usr/bin/sleep
+==> dir /proc/9/task <==
+9
+==> file /proc/9/task/9/children <==
+
