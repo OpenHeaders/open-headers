@@ -28,7 +28,7 @@ import { getWorkbenchTerminalTabs, type WorkbenchTerminal } from './terminal-ins
 import { getWorkbenchTerminalPanes } from './terminal-panes';
 import TerminalGroupRenderer from './TerminalGroupRenderer';
 import TerminalHeaderCluster from './TerminalHeaderCluster';
-import { terminalTabLabel } from './TerminalTabStrip';
+import { terminalTabLabel } from './terminal-tab-label';
 
 type AntdToken = ReturnType<typeof theme.useToken>['token'];
 

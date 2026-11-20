@@ -84,6 +84,8 @@ export interface WorkbenchTerminalTabs {
   list(): TerminalTabInfo[];
   activeId(): string | null;
   getTab(id: string): WorkbenchTerminal | null;
+  /** The tab whose live shell is the pty session `sessionId`; null when none holds it. */
+  tabForSession(sessionId: string): TerminalTabInfo | null;
   /** Create a tab (no pty yet — the panel spawns on attach) and make it
    *  active. Returns the new tab's id. */
   createTab(options?: TerminalTabOptions): string;
@@ -688,6 +690,10 @@ export function getWorkbenchTerminalTabs(): WorkbenchTerminalTabs | null {
       list: () => state.tabs.map((tab) => ({ id: tab.id, titleIndex: tab.titleIndex, title: tab.title })),
       activeId: () => state.activeId,
       getTab: (id) => state.tabs.find((tab) => tab.id === id)?.api ?? null,
+      tabForSession: (sessionId) => {
+        const tab = state.tabs.find((candidate) => candidate.session?.id === sessionId);
+        return tab === undefined ? null : { id: tab.id, titleIndex: tab.titleIndex, title: tab.title };
+      },
       createTab: (options) => createTab(state, options),
       activateTab: (id) => {
         if (state.activeId === id || !state.tabs.some((tab) => tab.id === id)) return;

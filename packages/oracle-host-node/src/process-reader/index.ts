@@ -11,6 +11,20 @@ export {
   type LinuxProcSource,
 } from './linux';
 export {
+  createProcessRootRegistry,
+  hostProcessRoots,
+  type ProcessRootKind,
+  type ProcessRootOptions,
+  type ProcessRootOwner,
+  type ProcessRootRegistration,
+  type ProcessRootRegistry,
+  type ProcessSubtreeCost,
+  processRootOwnerKey,
+  type RegisteredProcessRoot,
+  readProcessSubtree,
+  totalProcessCost,
+} from './roots';
+export {
   type ProcessCost,
   type ProcessDescendantsOptions,
   type ProcessMemoryKind,

@@ -488,6 +488,7 @@ export const workbenchChrome = {
   'workbench.activityMonitor.process.network': 'Network',
   'workbench.activityMonitor.process.scriptSandbox': 'Script sandbox · Safe',
   'workbench.activityMonitor.process.scriptRuntime': 'Script runtime · Developer',
+  'workbench.activityMonitor.process.http3Helper': 'HTTP/3 helper',
   'workbench.activityMonitor.process.other': 'Other ({count})',
   'workbench.activityMonitor.unreadable': 'The processes could not be read.',
   'workbench.activityMonitor.group.running': 'Running',

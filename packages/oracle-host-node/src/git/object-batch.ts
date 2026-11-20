@@ -26,6 +26,7 @@
 
 import { type ChildProcessByStdio, spawn } from 'node:child_process';
 import type { Readable, Writable } from 'node:stream';
+import { hostProcessRoots, type ProcessRootRegistry } from '../process-reader';
 import { baseEnv } from './git-exec';
 import { repoArgs } from './repo-args';
 
@@ -76,6 +77,8 @@ export interface CreateGitObjectBatchesOptions {
   gitBinary?: string;
   /** The longest one read may take. */
   readTimeoutMs?: number;
+  /** Where each git started here is registered (the activity monitor plan §6, law 5). Default: the host's registry. */
+  processRoots?: ProcessRootRegistry;
 }
 
 const DEFAULT_READ_TIMEOUT_MS = 10_000;
@@ -98,6 +101,7 @@ interface Flying {
 export function createGitObjectBatches(options: CreateGitObjectBatchesOptions = {}): GitObjectBatchOpener {
   const gitBinary = options.gitBinary ?? 'git';
   const readTimeoutMs = options.readTimeoutMs ?? DEFAULT_READ_TIMEOUT_MS;
+  const processRoots = options.processRoots ?? hostProcessRoots;
 
   return ({ cwd, env }) => {
     let child: BatchChild | null = null;
@@ -114,8 +118,11 @@ export function createGitObjectBatches(options: CreateGitObjectBatchesOptions = 
         stdio: ['pipe', 'pipe', 'ignore'],
       });
       child = git;
+      // Every open batch is one owner: its git comes and goes with the reads.
+      const registration = processRoots.register({ kind: 'git-objects' }, git.pid);
       // A git let go of earlier may still speak: only the one held is listened to.
       const gone = (): void => {
+        registration.release();
         if (child !== git) return;
         child = null;
         flying?.fail();

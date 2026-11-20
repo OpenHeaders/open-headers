@@ -517,6 +517,7 @@ export const workbenchChrome = {
   'workbench.activityMonitor.process.network': 'Сеть',
   'workbench.activityMonitor.process.scriptSandbox': 'Песочница скриптов · Безопасный режим',
   'workbench.activityMonitor.process.scriptRuntime': 'Среда выполнения скриптов · Режим разработчика',
+  'workbench.activityMonitor.process.http3Helper': 'Помощник HTTP/3',
   'workbench.activityMonitor.process.other': 'Прочие ({count})',
   'workbench.activityMonitor.unreadable': 'Не удалось прочитать процессы.',
   'workbench.activityMonitor.group.running': 'Работает',

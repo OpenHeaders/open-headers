@@ -24,6 +24,7 @@ import {
   type ActivityMonitorSortColumn,
   arrangeProcessRows,
   compareProcessOrder,
+  countProcesses,
   cpuPercentConvention,
   cpuScaleTop,
   formatCpuPercent,
@@ -64,6 +65,12 @@ interface ActivityMonitorPanelProps {
   onHide: () => void;
   /** Front the surface that owns a service (the plan §7, fork 6) — nothing is confirmed and nothing ends. */
   onRevealService: (kind: ActivityMonitorServiceKind) => void;
+  /**
+   * The label of the tab that holds a terminal session (the plan §6,
+   * law 12: a terminal's row carries its tab's label); null where no
+   * tab of this document holds it.
+   */
+  terminalLabel: (sessionId: string) => string | null;
 }
 
 const PROCESS_NAME_KEYS: Record<Exclude<ActivityMonitorProcessKind, 'other'>, MessageKey> = {
@@ -73,10 +80,20 @@ const PROCESS_NAME_KEYS: Record<Exclude<ActivityMonitorProcessKind, 'other'>, Me
   network: 'workbench.activityMonitor.process.network',
   'script-sandbox': 'workbench.activityMonitor.process.scriptSandbox',
   'script-runtime': 'workbench.activityMonitor.process.scriptRuntime',
+  terminal: 'workbench.toolWindows.terminal',
+  git: 'workbench.activityMonitor.service.git',
+  'http3-helper': 'workbench.activityMonitor.process.http3Helper',
 };
 
-function processName(row: Pick<ActivityMonitorProcessRow, 'kind' | 'runtimeName'>, t: Translate): string {
-  return row.kind === 'other' ? (row.runtimeName ?? '') : t(PROCESS_NAME_KEYS[row.kind]);
+function processName(
+  row: Pick<ActivityMonitorProcessRow, 'kind' | 'runtimeName' | 'terminalSessionId'>,
+  t: Translate,
+  terminalLabel: (sessionId: string) => string | null,
+): string {
+  if (row.kind === 'other') return row.runtimeName ?? '';
+  const name = t(PROCESS_NAME_KEYS[row.kind]);
+  const label = row.terminalSessionId === undefined ? null : terminalLabel(row.terminalSessionId);
+  return label === null ? name : [name, label].join(FACT_SEPARATOR);
 }
 
 /** One graph is one path (the plan §6, law 11); it redraws only when its path changes — once a beat. */
@@ -214,7 +231,7 @@ const SortHead: React.FC<SortHeadProps> = ({ column, label, hover, sort, onSort 
 const Summary: React.FC<{ snapshot: ActivityMonitorSnapshot; graphs: HistoryGraphs }> = ({ snapshot, graphs }) => {
   const { t, locale } = useLocale();
   const engine = snapshot.processes.find((row) => row.kind === 'engine');
-  const count = t('workbench.activityMonitor.summary.processCount', { count: snapshot.processes.length });
+  const count = t('workbench.activityMonitor.summary.processCount', { count: countProcesses(snapshot.processes) });
   return (
     <div className="oh-am-summary" data-testid="activity-monitor-summary">
       <Tooltip title={t('workbench.activityMonitor.summary.cpuHover')} placement="bottom">
@@ -271,7 +288,13 @@ const GroupHead: React.FC<{
   </div>
 );
 
-const ActivityMonitorPanel: React.FC<ActivityMonitorPanelProps> = ({ info, active, onHide, onRevealService }) => {
+const ActivityMonitorPanel: React.FC<ActivityMonitorPanelProps> = ({
+  info,
+  active,
+  onHide,
+  onRevealService,
+  terminalLabel,
+}) => {
   const { t, locale } = useLocale();
   const wiring = useMemo(() => createPanelHeaderWiring({ onHide }), [onHide]);
   const { snapshot, unreadable, history } = useActivityMonitorSnapshot(active);
@@ -316,7 +339,7 @@ const ActivityMonitorPanel: React.FC<ActivityMonitorPanelProps> = ({ info, activ
   ): React.ReactNode => (
     <ProcessRow
       key={row.id}
-      name={processName(row, t)}
+      name={processName(row, t, terminalLabel)}
       cpu={formatCpuPercent(row.cpuRate, answer.platform, answer.logicalCores)}
       graph={graphs.processes.get(row.id)?.path ?? ''}
       memory={formatMemory(row.memoryBytes)}
@@ -449,7 +472,7 @@ const ActivityMonitorPanel: React.FC<ActivityMonitorPanelProps> = ({ info, activ
             return (
               <EndedRow
                 key={process.id}
-                name={processName(process, t)}
+                name={processName(process, t, terminalLabel)}
                 graph={graph?.path ?? ''}
                 note={
                   graph === undefined || graph.peak === null

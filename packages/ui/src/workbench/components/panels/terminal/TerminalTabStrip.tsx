@@ -21,7 +21,7 @@ import { CloseOutlined, DownOutlined, PlusOutlined } from '@ant-design/icons';
 import { horizontalListSortingStrategy, SortableContext, useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { useUiTheme } from '@openheaders/ui/context';
-import { type Translate, useT } from '@openheaders/ui/context/LocaleContext';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { ShortcutHintTitle } from '@openheaders/ui/components/ShortcutKbd';
 import { Dropdown, theme, Tooltip } from 'antd';
 import type { ItemType } from 'antd/es/menu/interface';
@@ -35,6 +35,7 @@ import { buildTerminalTabContextMenu } from './build-terminal-tab-context-menu';
 import { useTerminalDragIntent } from './terminal-drag-intent';
 import type { TerminalTabInfo } from './terminal-instance';
 import type { SplitDirection } from './terminal-panes';
+import { terminalTabLabel } from './terminal-tab-label';
 
 /** Drag payload every terminal tab publishes into the panel's shared
  *  DndContext — the renderer's monitor routes on `kind`. */
@@ -80,15 +81,6 @@ export interface TerminalTabStripProps {
   onUnsplitAll: () => void;
   canUnsplit: boolean;
   canUnsplitAll: boolean;
-}
-
-export function terminalTabLabel(t: Translate, tab: TerminalTabInfo, defaultName = ''): string {
-  if (tab.title !== undefined) return tab.title;
-  const custom = defaultName.trim();
-  if (custom.length > 0) return tab.titleIndex === 1 ? custom : `${custom} (${tab.titleIndex})`;
-  return tab.titleIndex === 1
-    ? t('workbench.terminal.tabLocal')
-    : t('workbench.terminal.tabLocalN', { n: tab.titleIndex });
 }
 
 interface SortableTerminalTabProps {

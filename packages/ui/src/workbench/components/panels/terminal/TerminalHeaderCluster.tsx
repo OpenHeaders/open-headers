@@ -17,7 +17,7 @@ import { useSettingValue } from '../../../settings/hooks';
 import TerminalTabSearchDropdown from './TerminalTabSearchDropdown';
 import type { TerminalClosedTab, TerminalTabInfo } from './terminal-instance';
 import { registerTerminalTabSearchToggle } from './terminal-tab-search-toggle';
-import { terminalTabLabel } from './TerminalTabStrip';
+import { terminalTabLabel } from './terminal-tab-label';
 
 export interface TerminalHeaderClusterProps {
   /** THIS pane's tabs — the search dropdown is pane-scoped, exactly

@@ -6,11 +6,13 @@
 
 import { describe, expect, it } from 'vitest';
 import {
+  ACTIVITY_MONITOR_PROCESS_KINDS,
   ACTIVITY_MONITOR_SERVICE_KINDS,
   type ActivityMonitorProcessKind,
   type ActivityMonitorProcessRow,
   type ActivityMonitorServiceRow,
   arrangeProcessRows,
+  countProcesses,
   sumReadable,
 } from '../../src/activity-monitor/model';
 
@@ -64,6 +66,45 @@ describe('arrangeProcessRows', () => {
     const rows = [makeRow('other', { pid: 11 }), makeRow('other', { pid: 12 }), makeRow('engine', { pid: 2 })];
     const { named, other } = arrangeProcessRows(rows);
     expect(named.length + other.length).toBe(rows.length);
+  });
+});
+
+describe('the owners of what the host started itself', () => {
+  it('lists them after the runtime’s own processes and before the unnamed ones: a terminal, git, the HTTP/3 helper', () => {
+    expect(ACTIVITY_MONITOR_PROCESS_KINDS).toEqual([
+      'window',
+      'engine',
+      'graphics',
+      'network',
+      'script-sandbox',
+      'script-runtime',
+      'terminal',
+      'git',
+      'http3-helper',
+      'other',
+    ]);
+    const { named, other } = arrangeProcessRows([
+      makeRow('other', { pid: 9 }),
+      makeRow('http3-helper', { id: 'h3-helper', pid: 8 }),
+      makeRow('terminal', { id: 'terminal:pty-2', pid: 7, startedAt: 20 }),
+      makeRow('git', { id: 'git-objects', pid: 6 }),
+      makeRow('terminal', { id: 'terminal:pty-1', pid: 5, startedAt: 10 }),
+      makeRow('script-runtime', { pid: 4 }),
+    ]);
+    expect(named.map((row) => row.id)).toEqual(['4:0', 'terminal:pty-1', 'terminal:pty-2', 'git-objects', 'h3-helper']);
+    expect(other.map((row) => row.pid)).toEqual([9]);
+  });
+
+  it('counts every process an owner’s row stands for, and a row of the runtime’s own as one', () => {
+    expect(
+      countProcesses([
+        makeRow('engine'),
+        makeRow('terminal', { processCount: 3 }),
+        makeRow('git', { processCount: 1 }),
+        makeRow('other'),
+      ]),
+    ).toBe(6);
+    expect(countProcesses([])).toBe(0);
   });
 });
 

@@ -17,6 +17,7 @@ import {
   type H3ResponseHandlers,
 } from '../../../src/live/h3-helper/helper-process';
 import type { H3HeaderPair, H3RequestHead, H3ResponseHead } from '../../../src/live/h3-helper/protocol';
+import { createProcessRootRegistry } from '../../../src/process-reader';
 
 const FAKE_HELPER = fileURLToPath(new URL('./fixtures/fake-helper.mjs', import.meta.url));
 
@@ -260,5 +261,32 @@ describe('createH3HelperClient', () => {
     client.request(makeHead(), undefined, rig.handlers);
     const exchange = await rig.done;
     expect(exchange.error?.code).toBe('helper-spawn-failed');
+  });
+
+  it('registers the helper where it is started, under the one helper owner, and lets go when it exits', async () => {
+    const STARTED_AT = 1_763_647_200_000;
+    const roots = createProcessRootRegistry({
+      memoryKind: 'resident',
+      read: (pid) => ({ pid, parentPid: 1, startedAt: STARTED_AT, name: null, cost: null }),
+      childPids: () => [],
+      terminalPids: () => [],
+    });
+    client = createH3HelperClient({
+      binaryPath: process.execPath,
+      args: [FAKE_HELPER],
+      helloTimeoutMs: 2000,
+      processRoots: roots,
+    });
+    expect(roots.list()).toEqual([]);
+
+    const rig = recordingHandlers();
+    client.request(makeHead(), undefined, rig.handlers);
+    await rig.done;
+    expect(roots.list()).toEqual([
+      { owner: { kind: 'h3-helper' }, root: { pid: expect.any(Number), startedAt: STARTED_AT }, terminal: false },
+    ]);
+
+    client.dispose();
+    await expect.poll(() => roots.list().length, { timeout: 5_000 }).toBe(0);
   });
 });

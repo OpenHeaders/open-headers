@@ -498,6 +498,7 @@ export const workbenchChrome = {
   'workbench.activityMonitor.process.network': 'ネットワーク',
   'workbench.activityMonitor.process.scriptSandbox': 'スクリプトサンドボックス · セーフモード',
   'workbench.activityMonitor.process.scriptRuntime': 'スクリプトランタイム · 開発者モード',
+  'workbench.activityMonitor.process.http3Helper': 'HTTP/3 ヘルパー',
   'workbench.activityMonitor.process.other': 'その他 ({count})',
   'workbench.activityMonitor.unreadable': 'プロセスを読み取れませんでした。',
   'workbench.activityMonitor.group.running': '実行中',

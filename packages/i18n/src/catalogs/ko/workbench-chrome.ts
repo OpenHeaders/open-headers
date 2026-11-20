@@ -497,6 +497,7 @@ export const workbenchChrome = {
   'workbench.activityMonitor.process.network': '네트워크',
   'workbench.activityMonitor.process.scriptSandbox': '스크립트 샌드박스 · 안전 모드',
   'workbench.activityMonitor.process.scriptRuntime': '스크립트 런타임 · 개발자 모드',
+  'workbench.activityMonitor.process.http3Helper': 'HTTP/3 도우미',
   'workbench.activityMonitor.process.other': '기타 ({count})',
   'workbench.activityMonitor.unreadable': '프로세스를 읽을 수 없습니다.',
   'workbench.activityMonitor.group.running': '실행 중',

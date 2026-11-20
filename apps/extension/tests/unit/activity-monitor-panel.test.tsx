@@ -308,7 +308,15 @@ describe('ActivityMonitorPanel', () => {
   it('asks nothing while it is mounted but not the active tab', async () => {
     const fake = createBridgeFake(async () => makeSnapshot());
     setHostBridge(fake.bridge);
-    render(<ActivityMonitorPanel info={INFO} active={false} onHide={() => {}} onRevealService={() => {}} />);
+    render(
+      <ActivityMonitorPanel
+        info={INFO}
+        active={false}
+        onHide={() => {}}
+        onRevealService={() => {}}
+        terminalLabel={() => null}
+      />,
+    );
     await tick(ACTIVITY_MONITOR_PULL_MS * 5);
     expect(fake.asks).toHaveLength(0);
     expect(screen.queryAllByTestId('activity-monitor-row')).toHaveLength(0);
@@ -325,7 +333,15 @@ describe('ActivityMonitorPanel', () => {
       }),
     );
     setHostBridge(fake.bridge);
-    render(<ActivityMonitorPanel info={INFO} active onHide={() => {}} onRevealService={() => {}} />);
+    render(
+      <ActivityMonitorPanel
+        info={INFO}
+        active
+        onHide={() => {}}
+        onRevealService={() => {}}
+        terminalLabel={() => null}
+      />,
+    );
     await tick(0);
 
     const rows = screen.getAllByTestId('activity-monitor-row');
@@ -342,7 +358,15 @@ describe('ActivityMonitorPanel', () => {
       makeSnapshot({ platform: 'win32', logicalCores: 8, processes: [makeRow({ cpuRate: 0.4 })] }),
     );
     setHostBridge(fake.bridge);
-    render(<ActivityMonitorPanel info={INFO} active onHide={() => {}} onRevealService={() => {}} />);
+    render(
+      <ActivityMonitorPanel
+        info={INFO}
+        active
+        onHide={() => {}}
+        onRevealService={() => {}}
+        terminalLabel={() => null}
+      />,
+    );
     await tick(0);
     expect(cells(screen.getByTestId('activity-monitor-row'))[1]).toBe('5.0%');
   });
@@ -358,7 +382,15 @@ describe('ActivityMonitorPanel', () => {
       }),
     );
     setHostBridge(fake.bridge);
-    render(<ActivityMonitorPanel info={INFO} active onHide={() => {}} onRevealService={() => {}} />);
+    render(
+      <ActivityMonitorPanel
+        info={INFO}
+        active
+        onHide={() => {}}
+        onRevealService={() => {}}
+        terminalLabel={() => null}
+      />,
+    );
     await tick(0);
 
     const group = screen.getByTestId('activity-monitor-other');
@@ -371,12 +403,130 @@ describe('ActivityMonitorPanel', () => {
     expect(rows.map((row) => cells(row)[0])).toEqual(['Open Headers', 'Audio Service', 'Tab']);
   });
 
+  describe('the owners of what the host started itself', () => {
+    const TERMINAL = makeRow({
+      id: 'terminal:pty-2',
+      kind: 'terminal',
+      terminalSessionId: 'pty-2',
+      processCount: 3,
+      pid: 61_044,
+      cpuRate: 0.402,
+      memoryBytes: 218 * MB,
+    });
+    /** The tab registry of this window: it holds the session `pty-2`, and no other. */
+    const labelOf = (sessionId: string): string | null => (sessionId === 'pty-2' ? 'Local (2)' : null);
+
+    it('names a terminal by its tab’s label, and each other owner in the interface’s words, after the runtime’s rows', async () => {
+      const fake = createBridgeFake(async () =>
+        makeSnapshot({
+          processes: [
+            makeRow({
+              id: 'h3-helper',
+              kind: 'http3-helper',
+              processCount: 1,
+              pid: 80_001,
+              cpuRate: 0,
+              memoryBytes: 30 * MB,
+            }),
+            makeRow({
+              id: 'git-objects',
+              kind: 'git',
+              processCount: 1,
+              pid: 70_001,
+              cpuRate: 0.001,
+              memoryBytes: 9 * MB,
+            }),
+            TERMINAL,
+            makeRow(),
+          ],
+        }),
+      );
+      setHostBridge(fake.bridge);
+      render(
+        <ActivityMonitorPanel
+          info={INFO}
+          active
+          onHide={() => {}}
+          onRevealService={() => {}}
+          terminalLabel={labelOf}
+        />,
+      );
+      await tick(0);
+
+      const rows = screen.getAllByTestId('activity-monitor-row');
+      expect(rows.map((row) => cells(row).slice(0, 3))).toEqual([
+        ['Open Headers', '0.6%', '212 MB'],
+        ['Terminal · Local (2)', '40.2%', '218 MB'],
+        ['Git', '0.1%', '9 MB'],
+        ['HTTP/3 helper', '0.0%', '30 MB'],
+      ]);
+      expect(cells(rows[1])[4]).toBe('61044');
+    });
+
+    it('names a terminal no tab of this window holds by the tool alone — never by its session’s id', async () => {
+      const fake = createBridgeFake(async () =>
+        makeSnapshot({
+          processes: [{ ...TERMINAL, id: 'terminal:pty-9', terminalSessionId: 'pty-9' }],
+          ended: [
+            {
+              id: 'terminal:pty-4',
+              kind: 'terminal',
+              terminalSessionId: 'pty-4',
+              pid: 60_900,
+              startedAt: SAMPLED_AT - 600_000,
+              endedAt: SAMPLED_AT - 60_000,
+            },
+          ],
+        }),
+      );
+      setHostBridge(fake.bridge);
+      render(
+        <ActivityMonitorPanel
+          info={INFO}
+          active
+          onHide={() => {}}
+          onRevealService={() => {}}
+          terminalLabel={labelOf}
+        />,
+      );
+      await tick(0);
+      expect(cells(screen.getByTestId('activity-monitor-row'))[0]).toBe('Terminal');
+      expect(cells(screen.getByTestId('activity-monitor-ended'))[0]).toBe('Terminal');
+    });
+
+    it('counts every process an owner’s row stands for in the Overview', async () => {
+      const fake = createBridgeFake(async () => makeSnapshot({ processes: [makeRow(), TERMINAL] }));
+      setHostBridge(fake.bridge);
+      render(
+        <ActivityMonitorPanel
+          info={INFO}
+          active
+          onHide={() => {}}
+          onRevealService={() => {}}
+          terminalLabel={labelOf}
+        />,
+      );
+      await tick(0);
+      expect(screen.getByTestId('activity-monitor-summary').querySelector('.oh-am-count')?.textContent).toContain(
+        '4 processes',
+      );
+    });
+  });
+
   it('says so when the processes could not be read', async () => {
     const fake = createBridgeFake(async () => {
       throw new Error('no handler');
     });
     setHostBridge(fake.bridge);
-    render(<ActivityMonitorPanel info={INFO} active onHide={() => {}} onRevealService={() => {}} />);
+    render(
+      <ActivityMonitorPanel
+        info={INFO}
+        active
+        onHide={() => {}}
+        onRevealService={() => {}}
+        terminalLabel={() => null}
+      />,
+    );
     await tick(0);
     expect(screen.getByText('The processes could not be read.')).toBeTruthy();
     expect(screen.queryAllByTestId('activity-monitor-row')).toHaveLength(0);
@@ -411,7 +561,15 @@ describe('ActivityMonitorPanel', () => {
     onRevealService: (kind: ActivityMonitorServiceRow['kind']) => void = () => {},
   ): Promise<void> {
     setHostBridge(createBridgeFake(async () => makeSnapshot({ services }), status).bridge);
-    render(<ActivityMonitorPanel info={INFO} active onHide={() => {}} onRevealService={onRevealService} />);
+    render(
+      <ActivityMonitorPanel
+        info={INFO}
+        active
+        onHide={() => {}}
+        onRevealService={onRevealService}
+        terminalLabel={() => null}
+      />,
+    );
     await tick(0);
   }
 
@@ -537,7 +695,15 @@ describe('ActivityMonitorPanel', () => {
       }),
     );
     setHostBridge(fake.bridge);
-    render(<ActivityMonitorPanel info={INFO} active onHide={() => {}} onRevealService={() => {}} />);
+    render(
+      <ActivityMonitorPanel
+        info={INFO}
+        active
+        onHide={() => {}}
+        onRevealService={() => {}}
+        terminalLabel={() => null}
+      />,
+    );
     await tick(0);
 
     const [windowRow, engineRow] = screen.getAllByTestId('activity-monitor-row');
@@ -561,7 +727,15 @@ describe('ActivityMonitorPanel', () => {
       }),
     );
     setHostBridge(fake.bridge);
-    render(<ActivityMonitorPanel info={INFO} active onHide={() => {}} onRevealService={() => {}} />);
+    render(
+      <ActivityMonitorPanel
+        info={INFO}
+        active
+        onHide={() => {}}
+        onRevealService={() => {}}
+        terminalLabel={() => null}
+      />,
+    );
     await tick(0);
     // Every core busy is the top; one core of eight is an eighth of the way up.
     expect(graphPaths(screen.getByTestId('activity-monitor-row'))).toEqual(['M0.0 1.0L100.0 11.5']);
@@ -586,7 +760,15 @@ describe('ActivityMonitorPanel', () => {
       }),
     );
     setHostBridge(fake.bridge);
-    render(<ActivityMonitorPanel info={INFO} active onHide={() => {}} onRevealService={() => {}} />);
+    render(
+      <ActivityMonitorPanel
+        info={INFO}
+        active
+        onHide={() => {}}
+        onRevealService={() => {}}
+        terminalLabel={() => null}
+      />,
+    );
     await tick(0);
 
     expect(rowNames()).toEqual(['Open Headers']);
@@ -613,7 +795,15 @@ describe('ActivityMonitorPanel', () => {
       }),
     );
     setHostBridge(fake.bridge);
-    render(<ActivityMonitorPanel info={INFO} active onHide={() => {}} onRevealService={() => {}} />);
+    render(
+      <ActivityMonitorPanel
+        info={INFO}
+        active
+        onHide={() => {}}
+        onRevealService={() => {}}
+        terminalLabel={() => null}
+      />,
+    );
     await tick(0);
     expect(cells(screen.getByTestId('activity-monitor-ended'))[2]).toBe(
       `ended ${formatStartTime(endedAt, SAMPLED_AT, 'en')}`,
@@ -638,7 +828,15 @@ describe('ActivityMonitorPanel', () => {
       }),
     );
     setHostBridge(fake.bridge);
-    render(<ActivityMonitorPanel info={INFO} active onHide={() => {}} onRevealService={() => {}} />);
+    render(
+      <ActivityMonitorPanel
+        info={INFO}
+        active
+        onHide={() => {}}
+        onRevealService={() => {}}
+        terminalLabel={() => null}
+      />,
+    );
     await tick(0);
 
     const summary = screen.getByTestId('activity-monitor-summary');
@@ -656,7 +854,15 @@ describe('ActivityMonitorPanel', () => {
     );
     let next = makeSnapshot({ processes: [ENGINE] });
     setHostBridge(createBridgeFake(async () => next).bridge);
-    render(<ActivityMonitorPanel info={INFO} active onHide={() => {}} onRevealService={() => {}} />);
+    render(
+      <ActivityMonitorPanel
+        info={INFO}
+        active
+        onHide={() => {}}
+        onRevealService={() => {}}
+        terminalLabel={() => null}
+      />,
+    );
     await tick(0);
     expect(groupHead('overview').querySelector('.oh-am-range')).toBeNull();
 
@@ -714,7 +920,15 @@ describe('ActivityMonitorPanel', () => {
         throw new Error('no handler');
       }).bridge,
     );
-    render(<ActivityMonitorPanel info={INFO} active onHide={() => {}} onRevealService={() => {}} />);
+    render(
+      <ActivityMonitorPanel
+        info={INFO}
+        active
+        onHide={() => {}}
+        onRevealService={() => {}}
+        terminalLabel={() => null}
+      />,
+    );
     await tick(0);
     expect(screen.queryByTestId('activity-monitor-group-overview')).toBeNull();
     expect(screen.getByText('The processes could not be read.')).toBeTruthy();
@@ -728,7 +942,15 @@ describe('ActivityMonitorPanel', () => {
       makeSnapshot({ processes: [{ ...ENGINE, cpuRate: null, memoryBytes: null }] }),
     );
     setHostBridge(fake.bridge);
-    render(<ActivityMonitorPanel info={INFO} active onHide={() => {}} onRevealService={() => {}} />);
+    render(
+      <ActivityMonitorPanel
+        info={INFO}
+        active
+        onHide={() => {}}
+        onRevealService={() => {}}
+        terminalLabel={() => null}
+      />,
+    );
     await tick(0);
     const summary = screen.getByTestId('activity-monitor-summary');
     expect(Array.from(summary.querySelectorAll('strong'), (figure) => figure.textContent)).toEqual(['—', '—']);
@@ -743,7 +965,15 @@ describe('ActivityMonitorPanel', () => {
 
   async function hoverMemory(memoryKind: ActivityMonitorSnapshot['memoryKind'], where: 'total' | 'column') {
     setHostBridge(createBridgeFake(async () => makeSnapshot({ memoryKind, processes: [ENGINE] })).bridge);
-    render(<ActivityMonitorPanel info={INFO} active onHide={() => {}} onRevealService={() => {}} />);
+    render(
+      <ActivityMonitorPanel
+        info={INFO}
+        active
+        onHide={() => {}}
+        onRevealService={() => {}}
+        terminalLabel={() => null}
+      />,
+    );
     await tick(0);
     const target =
       where === 'total'
@@ -788,7 +1018,15 @@ describe('ActivityMonitorPanel', () => {
         throw new Error('no handler');
       }).bridge,
     );
-    render(<ActivityMonitorPanel info={INFO} active onHide={() => {}} onRevealService={() => {}} />);
+    render(
+      <ActivityMonitorPanel
+        info={INFO}
+        active
+        onHide={() => {}}
+        onRevealService={() => {}}
+        terminalLabel={() => null}
+      />,
+    );
     await tick(0);
     expect(screen.queryByTestId('activity-monitor-summary')).toBeNull();
   });
@@ -801,7 +1039,15 @@ describe('ActivityMonitorPanel', () => {
 
   it('sorts on a heading click — highest first, then lowest first, then the fixed order again', async () => {
     setHostBridge(createBridgeFake(async () => makeSnapshot({ processes: SORTABLE })).bridge);
-    render(<ActivityMonitorPanel info={INFO} active onHide={() => {}} onRevealService={() => {}} />);
+    render(
+      <ActivityMonitorPanel
+        info={INFO}
+        active
+        onHide={() => {}}
+        onRevealService={() => {}}
+        terminalLabel={() => null}
+      />,
+    );
     await tick(0);
     expect(rowNames()).toEqual(['Workbench window', 'Open Headers', 'Graphics']);
     const head = (): HTMLElement => screen.getByRole('columnheader', { name: 'CPU' });
@@ -831,7 +1077,15 @@ describe('ActivityMonitorPanel', () => {
   it('holds a sorted order while figures change, applies it again on a history beat, never under the pointer', async () => {
     let next = makeSnapshot({ processes: SORTABLE, history: [makeBeat(1, SAMPLED_AT, {})], cursor: 1 });
     setHostBridge(createBridgeFake(async () => next).bridge);
-    render(<ActivityMonitorPanel info={INFO} active onHide={() => {}} onRevealService={() => {}} />);
+    render(
+      <ActivityMonitorPanel
+        info={INFO}
+        active
+        onHide={() => {}}
+        onRevealService={() => {}}
+        terminalLabel={() => null}
+      />,
+    );
     await tick(0);
     fireEvent.click(screen.getByRole('button', { name: 'CPU' }));
     expect(rowNames()).toEqual(['Graphics', 'Open Headers', 'Workbench window']);
@@ -865,7 +1119,15 @@ describe('ActivityMonitorPanel', () => {
   it('places a process that started since the sort was applied after the rows it holds', async () => {
     let next = makeSnapshot({ processes: SORTABLE, cursor: 0 });
     setHostBridge(createBridgeFake(async () => next).bridge);
-    render(<ActivityMonitorPanel info={INFO} active onHide={() => {}} onRevealService={() => {}} />);
+    render(
+      <ActivityMonitorPanel
+        info={INFO}
+        active
+        onHide={() => {}}
+        onRevealService={() => {}}
+        terminalLabel={() => null}
+      />,
+    );
     await tick(0);
     fireEvent.click(screen.getByRole('button', { name: 'CPU' }));
 

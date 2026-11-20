@@ -63,6 +63,7 @@ export {
   type ArrangedProcessRows,
   arrangeProcessRows,
   compareProcessOrder,
+  countProcesses,
   sumReadable,
 } from './model';
 export {

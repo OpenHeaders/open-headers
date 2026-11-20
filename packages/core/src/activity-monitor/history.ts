@@ -154,6 +154,7 @@ export function endedProcesses(history: ActivityMonitorHistory): ActivityMonitor
       id: row.id,
       kind: row.kind,
       ...(row.runtimeName === undefined ? {} : { runtimeName: row.runtimeName }),
+      ...(row.terminalSessionId === undefined ? {} : { terminalSessionId: row.terminalSessionId }),
       pid: row.pid,
       startedAt: row.startedAt,
       endedAt,

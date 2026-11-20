@@ -11,6 +11,7 @@
 import { ACTIVITY_MONITOR_HISTORY_BEAT_MS } from '@openheaders/core/activity-monitor';
 import { describe, expect, it } from 'vitest';
 import { createActivityMonitor } from '@/main/activity-monitor/monitor';
+import type { OwnedProcessRead } from '@/main/activity-monitor/owned-figures';
 import type { ProcessRead } from '@/main/activity-monitor/process-naming';
 import { BASELINE_MAX_AGE_MS, createActivityMonitorSampler } from '@/main/activity-monitor/sampler';
 
@@ -42,7 +43,11 @@ interface BeatTimer {
 
 function makeRig(options: { logicalCores?: number } = {}) {
   const clock = { at: T0 };
-  const state: { reads: ProcessRead[]; readCount: number } = { reads: [makeRead()], readCount: 0 };
+  const state: { reads: ProcessRead[]; owned: OwnedProcessRead[]; readCount: number } = {
+    reads: [makeRead()],
+    owned: [],
+    readCount: 0,
+  };
   const timers: BeatTimer[] = [];
   const monitor = createActivityMonitor({
     sampler: createActivityMonitorSampler({
@@ -51,6 +56,7 @@ function makeRig(options: { logicalCores?: number } = {}) {
         return state.reads;
       },
       readOwners: () => ({ windowPids: new Set(), scriptSandboxPid: null }),
+      readOwned: () => state.owned,
       now: () => clock.at,
       platform: 'darwin',
       logicalCores: options.logicalCores ?? 10,
@@ -247,5 +253,58 @@ describe('createActivityMonitor — a viewer’s ask', () => {
     state.reads = [makeRead()];
     advance(2_000);
     expect(monitor.answer(1).ended).toEqual([]);
+  });
+});
+
+describe('createActivityMonitor — history by owner (the activity monitor plan §6, law 13)', () => {
+  const HELPER = 'h3-helper';
+  const helper = (pid: number, startedAt: number, cumulativeCpuSeconds: number): OwnedProcessRead => ({
+    id: HELPER,
+    kind: 'http3-helper',
+    pid,
+    startedAt,
+    processCount: 1,
+    cumulativeCpuSeconds,
+    memoryBytes: 30 * 1024 * 1024,
+  });
+
+  it('keeps one series for an owner across the process behind it ending and another starting', () => {
+    const { monitor, state, advance } = makeRig();
+    state.owned = [helper(80_001, T0 - 60_000, 2)];
+    advance(BEAT);
+    state.owned = [helper(80_001, T0 - 60_000, 5)];
+    advance(BEAT);
+
+    // The helper exits idle: no root, no read — the owner's row ends.
+    state.owned = [];
+    advance(BEAT);
+    const idle = monitor.answer(null);
+    expect(idle.processes.map((row) => row.id)).toEqual([ENGINE_ID]);
+    expect(idle.ended.map((process) => [process.id, process.kind])).toEqual([[HELPER, 'http3-helper']]);
+
+    // Started again under another pid: the same owner, running, on the same series.
+    state.owned = [helper(80_777, T0 + 3 * BEAT - 1_000, 0.3)];
+    advance(BEAT);
+    const back = monitor.answer(null);
+    expect(back.ended).toEqual([]);
+    expect(back.processes.map((row) => [row.id, row.pid])).toContainEqual([HELPER, 80_777]);
+    // No rate at its first beat, none at the first after it was started again; no point while it was down.
+    expect(back.history.map((beat) => (HELPER in beat.points ? beat.points[HELPER].cpuRate : 'absent'))).toEqual([
+      null,
+      0.2,
+      'absent',
+      null,
+    ]);
+  });
+
+  it('draws a beat in which the owner’s total fell as zero, never below', () => {
+    const { monitor, state, advance } = makeRig();
+    state.owned = [helper(80_001, T0 - 60_000, 12)];
+    advance(BEAT);
+    state.owned = [helper(80_001, T0 - 60_000, 3)];
+    advance(BEAT);
+    state.owned = [helper(80_001, T0 - 60_000, 4.5)];
+    advance(BEAT);
+    expect(monitor.answer(null).history.map((beat) => beat.points[HELPER].cpuRate)).toEqual([null, 0, 0.1]);
   });
 });

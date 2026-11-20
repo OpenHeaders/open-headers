@@ -31,6 +31,7 @@
  */
 
 import { join } from 'node:path';
+import { hostProcessRoots } from '@openheaders/oracle-host-node/process-reader';
 import { app } from 'electron';
 import { installAboutPanel } from './main/bootstrap/about-panel';
 import { installAppMenuPopupHandler } from './main/bootstrap/app-menu-popup';
@@ -163,7 +164,12 @@ function bootstrapDesktopApp(): void {
 
     createMainWindow();
     installTray();
-    installTerminalHost({ processReader: desktopProcessReader() });
+    // The registry of roots reads through the host's one reader, and is
+    // handed it before anything is spawned — the terminal host and the
+    // engine both register what they start.
+    const processReader = desktopProcessReader();
+    hostProcessRoots.attachReader(processReader);
+    installTerminalHost({ processReader, processRoots: hostProcessRoots });
     drainPendingProtocolUrls();
 
     // macOS: dock click re-shows the existing (hidden) window.

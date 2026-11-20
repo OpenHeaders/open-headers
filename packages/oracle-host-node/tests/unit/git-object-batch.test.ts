@@ -11,6 +11,7 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createGitObjectBatches, type GitObjectBatch, withObjectBatch } from '../../src/git/object-batch';
+import { createProcessRootRegistry, type ProcessReader } from '../../src/process-reader';
 import { objects, openScratchRepo, type ScratchRepo, seedHistory } from './_log-history-repo';
 
 /** The git processes reading this repo through a batch, by the operating system's own list. */
@@ -195,6 +196,46 @@ interface ScriptedGit {
   /** How many of it are running. */
   running(): Promise<number>;
   remove(): Promise<void>;
+}
+
+describe.skipIf(process.platform === 'win32')('a git kept open is registered where it is started', () => {
+  let repo: ScratchRepo;
+
+  beforeAll(async () => {
+    repo = await openScratchRepo('oh-object-batch-roots-');
+    await seedHistory(repo);
+  });
+
+  afterAll(async () => {
+    await repo.remove();
+  });
+
+  it('holds the git as a root of the one git owner while it is up, and lets go when the batch is closed', async () => {
+    const roots = createProcessRootRegistry(anyProcessReader());
+    const batch = createGitObjectBatches({ processRoots: roots })({ cwd: repo.rootDir });
+    expect(roots.list()).toEqual([]);
+
+    await batch.readCommits(await repo.shas('HEAD'));
+    const [pid] = await batchPids(repo.rootDir);
+    expect(roots.list()).toEqual([
+      { owner: { kind: 'git-objects' }, root: { pid, startedAt: ANY_STARTED_AT }, terminal: false },
+    ]);
+
+    batch.close();
+    expect(await settled(async () => roots.list().length === 0)).toBe(true);
+  });
+});
+
+const ANY_STARTED_AT = 1_763_647_200_000;
+
+/** A reader that knows every pid it is asked: the registry holds whatever is registered. */
+function anyProcessReader(): ProcessReader {
+  return {
+    memoryKind: 'resident',
+    read: (pid) => ({ pid, parentPid: 1, startedAt: ANY_STARTED_AT, name: null, cost: null }),
+    childPids: () => [],
+    terminalPids: () => [],
+  };
 }
 
 /** A stand-in for git: a script of its own name, so the ones running are counted by it. */

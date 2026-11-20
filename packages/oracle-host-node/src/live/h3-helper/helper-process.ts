@@ -18,6 +18,7 @@
 
 import { type ChildProcessByStdio, spawn } from 'node:child_process';
 import type { Readable, Writable } from 'node:stream';
+import { hostProcessRoots, type ProcessRootRegistry } from '../../process-reader';
 import { encodeH3Frame, H3FrameDecoder } from './framing';
 import {
   H3_FRAME,
@@ -65,6 +66,8 @@ export interface H3HelperClientOptions {
   /** Extra argv — the test seam (`process.execPath` + a script). */
   args?: string[];
   helloTimeoutMs?: number;
+  /** Where each helper started here is registered (the activity monitor plan §6, law 5). Default: the host's registry. */
+  processRoots?: ProcessRootRegistry;
 }
 
 const DEFAULT_HELLO_TIMEOUT_MS = 5000;
@@ -88,6 +91,7 @@ interface PendingEntry {
 
 export function createH3HelperClient(options: H3HelperClientOptions): H3HelperClient {
   const helloTimeoutMs = options.helloTimeoutMs ?? DEFAULT_HELLO_TIMEOUT_MS;
+  const processRoots = options.processRoots ?? hostProcessRoots;
   let proc: HelperProcess | null = null;
   let helloSeen = false;
   let helloTimer: NodeJS.Timeout | null = null;
@@ -220,11 +224,15 @@ export function createH3HelperClient(options: H3HelperClientOptions): H3HelperCl
       );
     }
     proc = spawned;
+    // One owner for the host's one helper, however often it exits idle and is started again.
+    const registration = processRoots.register({ kind: 'h3-helper' }, spawned.pid);
     spawned.on('error', (err) => {
+      registration.release();
       if (proc !== spawned) return;
       teardown(new H3HelperFailure('helper-spawn-failed', `The HTTP/3 helper failed to start: ${err.message}`));
     });
     spawned.on('exit', (exitCode) => {
+      registration.release();
       if (proc !== spawned) return;
       if (exitCode === 0) {
         // The helper's idle-exit: a clean exit is the lifecycle

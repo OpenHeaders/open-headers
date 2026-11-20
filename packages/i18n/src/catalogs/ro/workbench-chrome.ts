@@ -525,6 +525,7 @@ export const workbenchChrome = {
   'workbench.activityMonitor.process.network': 'Rețea',
   'workbench.activityMonitor.process.scriptSandbox': 'Sandbox de scripturi · Mod sigur',
   'workbench.activityMonitor.process.scriptRuntime': 'Runtime de scripturi · Mod dezvoltator',
+  'workbench.activityMonitor.process.http3Helper': 'Asistent HTTP/3',
   'workbench.activityMonitor.process.other': 'Altele ({count})',
   'workbench.activityMonitor.unreadable': 'Procesele nu au putut fi citite.',
   'workbench.activityMonitor.group.running': 'În execuție',

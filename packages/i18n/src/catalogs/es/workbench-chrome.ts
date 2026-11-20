@@ -524,6 +524,7 @@ export const workbenchChrome = {
   'workbench.activityMonitor.process.network': 'Red',
   'workbench.activityMonitor.process.scriptSandbox': 'Sandbox de scripts · Modo seguro',
   'workbench.activityMonitor.process.scriptRuntime': 'Entorno de scripts · Modo desarrollador',
+  'workbench.activityMonitor.process.http3Helper': 'Asistente HTTP/3',
   'workbench.activityMonitor.process.other': 'Otros ({count})',
   'workbench.activityMonitor.unreadable': 'No se han podido leer los procesos.',
   'workbench.activityMonitor.group.running': 'En ejecución',

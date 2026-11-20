@@ -490,6 +490,7 @@ export const workbenchChrome = {
   'workbench.activityMonitor.process.network': '网络',
   'workbench.activityMonitor.process.scriptSandbox': '脚本沙盒 · 安全模式',
   'workbench.activityMonitor.process.scriptRuntime': '脚本运行时 · 开发者模式',
+  'workbench.activityMonitor.process.http3Helper': 'HTTP/3 辅助程序',
   'workbench.activityMonitor.process.other': '其他（{count}）',
   'workbench.activityMonitor.unreadable': '无法读取进程。',
   'workbench.activityMonitor.group.running': '运行中',

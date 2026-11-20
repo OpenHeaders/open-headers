@@ -1,5 +1,9 @@
 import os from 'node:os';
-import type { ProcessReader } from '@openheaders/oracle-host-node/process-reader';
+import {
+  createProcessRootRegistry,
+  type ProcessReader,
+  type ProcessRootRegistry,
+} from '@openheaders/oracle-host-node/process-reader';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 type Handler = (event: unknown, raw: unknown) => unknown;
@@ -113,6 +117,8 @@ const fakeReader: ProcessReader = {
 };
 
 describe('installTerminalHost', () => {
+  let processRoots: ProcessRootRegistry;
+
   beforeEach(() => {
     ipcHandlers.clear();
     ipcListeners.clear();
@@ -122,7 +128,8 @@ describe('installTerminalHost', () => {
     ptySpawn.mockClear();
     fakeWebContents = { id: 7 };
     fakeProcesses = [];
-    installTerminalHost({ processReader: fakeReader });
+    processRoots = createProcessRootRegistry(fakeReader);
+    installTerminalHost({ processReader: fakeReader, processRoots });
   });
 
   function spawnSession(sender: ReturnType<typeof makeSender>, raw: unknown = { cols: 100, rows: 30 }) {
@@ -237,22 +244,72 @@ describe('installTerminalHost', () => {
     expect(spawnedPtys[0].kill).toHaveBeenCalledTimes(1);
   });
 
-  describe('whether a tab has work running — the close-confirm', () => {
-    const TERMINAL = 16_777_221;
+  const TERMINAL = 16_777_221;
+  /** The pid the fake pty hands the first session of a test. */
+  const FIRST_SHELL_PID = 61_044;
 
+  /** The first session's shell, on its own terminal, as the system holds it from the instant it is spawned. */
+  function seedShell(others: FakeProcess[] = []): void {
+    fakeProcesses = [
+      { pid: FIRST_SHELL_PID, parentPid: 4312, startedAt: SHELL_STARTED, terminal: TERMINAL },
+      ...others,
+    ];
+  }
+
+  describe('a session’s shell in the registry of roots', () => {
+    it('registers the shell where it is spawned: the session as its owner, a terminal’s shell, its start read then', async () => {
+      seedShell();
+      const { id } = await spawnSession(makeSender(7));
+      expect(processRoots.list()).toEqual([
+        {
+          owner: { kind: 'terminal', id },
+          root: { pid: FIRST_SHELL_PID, startedAt: SHELL_STARTED },
+          terminal: true,
+        },
+      ]);
+    });
+
+    it('lets go of the shell when it exits', async () => {
+      seedShell();
+      await spawnSession(makeSender(7));
+      spawnedPtys[0].emitExit(0);
+      expect(processRoots.list()).toEqual([]);
+    });
+
+    it('keeps a killed session’s shell until its exit lands', async () => {
+      seedShell();
+      const sender = makeSender(7);
+      const { id } = await spawnSession(sender);
+      ipcListeners.get('oh:terminal:kill')?.({ sender }, { id });
+      expect(processRoots.list()).toHaveLength(1);
+      spawnedPtys[0].emitExit(0);
+      expect(processRoots.list()).toEqual([]);
+    });
+  });
+
+  describe('whether a tab has work running — the close-confirm', () => {
     /** A session whose shell sits on its own terminal, and the ask the close affordance makes. */
     async function openTab(others: (shellPid: number) => FakeProcess[] = () => []) {
       const sender = makeSender(7);
+      seedShell(others(FIRST_SHELL_PID));
       const { id } = await spawnSession(sender);
-      const shellPid = spawnedPtys[0].pid;
-      fakeProcesses = [
-        { pid: shellPid, parentPid: 4312, startedAt: SHELL_STARTED, terminal: TERMINAL },
-        ...others(shellPid),
-      ];
       const hasChildren = ipcHandlers.get('oh:terminal:has-children');
       if (!hasChildren) throw new Error('has-children handler not registered');
       return { id, ask: (from = sender) => hasChildren({ sender: from }, { id }) as Promise<boolean> };
     }
+
+    it('walks from the shell as it was registered: a pid that came to name another process has no work', async () => {
+      const { ask } = await openTab((shellPid) => [
+        { pid: 61_102, parentPid: shellPid, startedAt: SHELL_STARTED + 5_000, terminal: TERMINAL },
+      ]);
+      expect(await ask()).toBe(true);
+      // The shell died unheard and its number went to a process started later, with a child of its own.
+      fakeProcesses = [
+        { pid: FIRST_SHELL_PID, parentPid: 1, startedAt: SHELL_STARTED + 60_000, terminal: TERMINAL },
+        { pid: 61_102, parentPid: FIRST_SHELL_PID, startedAt: SHELL_STARTED + 61_000, terminal: TERMINAL },
+      ];
+      expect(await ask()).toBe(false);
+    });
 
     it('answers no for a shell alone on its terminal', async () => {
       const { ask } = await openTab();
@@ -293,7 +350,7 @@ describe('installTerminalHost', () => {
 
     it('never asks where the host has no process reader', async () => {
       ipcHandlers.clear();
-      installTerminalHost({ processReader: null });
+      installTerminalHost({ processReader: null, processRoots: createProcessRootRegistry() });
       const { ask } = await openTab((shellPid) => [
         { pid: 61_102, parentPid: shellPid, startedAt: SHELL_STARTED + 5_000, terminal: TERMINAL },
       ]);

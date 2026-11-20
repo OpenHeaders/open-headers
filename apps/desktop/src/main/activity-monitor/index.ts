@@ -6,15 +6,18 @@
  * plan §6, law 3): its percent is "since the previous call", so a
  * second caller anywhere would corrupt both. Where the host has a
  * process reader, that read names the processes and the reader supplies
- * every figure (the plan §7, fork 10).
+ * every figure (the plan §7, fork 10) — and the owners of what the host
+ * started itself are read from the registry of roots (law 5).
  */
 
 import * as os from 'node:os';
 import type { ActivityMonitorPlatform } from '@openheaders/core/activity-monitor';
+import { hostProcessRoots } from '@openheaders/oracle-host-node/process-reader';
 import { app, BrowserWindow } from 'electron';
 import { desktopProcessReader } from '../process-reader';
 import { scriptSandboxProcessId } from '../script-sandbox/sandbox-window';
 import { type ActivityMonitor, createActivityMonitor } from './monitor';
+import { readOwnedFigures } from './owned-figures';
 import { type RuntimeProcessMetric, readProcessFigures } from './process-figures';
 import type { ProcessOwners } from './process-naming';
 import { createActivityMonitorSampler } from './sampler';
@@ -63,6 +66,7 @@ export function createDesktopActivityMonitor(): ActivityMonitor {
     sampler: createActivityMonitorSampler({
       readProcesses: () => readProcessFigures(readAppMetrics(), reader),
       readOwners: readProcessOwners,
+      readOwned: () => readOwnedFigures(hostProcessRoots.list(), reader),
       now: Date.now,
       platform: activityMonitorPlatform(process.platform),
       logicalCores: os.cpus().length,

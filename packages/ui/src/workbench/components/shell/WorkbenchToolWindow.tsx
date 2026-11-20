@@ -60,6 +60,7 @@ import { isToolWindowTeased, TOOL_WINDOW_MAP } from '../../tool-windows';
 import type { DockSlot, ToolWindowId, WorkbenchTab } from '../../types';
 import { type GitEntityOpeners, registerGitEntityOpeners } from '../panels/git/git-entity-opener';
 import { SERVICE_REVEAL_TARGETS } from '../panels/activity-monitor/service-reveal';
+import { useTerminalSessionLabel } from '../panels/terminal/terminal-tab-label';
 
 interface WorkbenchToolWindowProps {
   id: ToolWindowId;
@@ -209,6 +210,7 @@ const WorkbenchToolWindow: React.FC<WorkbenchToolWindowProps> = ({
   liveWorkflows,
 }) => {
   const t = useT();
+  const terminalSessionLabel = useTerminalSessionLabel();
 
   // Jump to Source (the git surfaces' changed-file trees): this host
   // offers its tab openers while mounted; the ref carries the latest
@@ -359,6 +361,7 @@ const WorkbenchToolWindow: React.FC<WorkbenchToolWindowProps> = ({
             info={getToolWindowInfo('activity-monitor', t)}
             active={tl.state.docks[slot].active === 'activity-monitor'}
             onHide={() => tl.closeDock(slot)}
+            terminalLabel={terminalSessionLabel}
             onRevealService={(kind) => {
               const target = SERVICE_REVEAL_TARGETS[kind];
               if ('settingsCategory' in target) {

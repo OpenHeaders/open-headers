@@ -8,6 +8,7 @@
 
 import type { ActivityMonitorMemoryKind, ActivityMonitorPlatform } from '@openheaders/core/activity-monitor';
 import { describe, expect, it } from 'vitest';
+import type { OwnedProcessRead } from '@/main/activity-monitor/owned-figures';
 import type { ProcessOwners, ProcessRead } from '@/main/activity-monitor/process-naming';
 import { BASELINE_MAX_AGE_MS, createActivityMonitorSampler, SAMPLE_MAX_AGE_MS } from '@/main/activity-monitor/sampler';
 
@@ -27,13 +28,29 @@ function makeRead(overrides: Partial<ProcessRead> = {}): ProcessRead {
   };
 }
 
+/** A terminal session as its owner's read: the shell and what runs beneath it, added up. */
+function makeOwned(overrides: Partial<OwnedProcessRead> = {}): OwnedProcessRead {
+  return {
+    id: 'terminal:pty-1',
+    kind: 'terminal',
+    terminalSessionId: 'pty-1',
+    pid: 61_044,
+    startedAt: STARTED + 30_000,
+    processCount: 3,
+    cumulativeCpuSeconds: 74,
+    memoryBytes: 218 * 1024 * 1024,
+    ...overrides,
+  };
+}
+
 function makeRig(
   options: { platform?: ActivityMonitorPlatform; logicalCores?: number; memoryKind?: ActivityMonitorMemoryKind } = {},
 ) {
   const clock = { at: STARTED + 60_000 };
-  const state: { reads: ProcessRead[]; owners: ProcessOwners; readCount: number } = {
+  const state: { reads: ProcessRead[]; owners: ProcessOwners; owned: OwnedProcessRead[]; readCount: number } = {
     reads: [makeRead()],
     owners: { windowPids: new Set(), scriptSandboxPid: null },
+    owned: [],
     readCount: 0,
   };
   const sampler = createActivityMonitorSampler({
@@ -42,6 +59,7 @@ function makeRig(
       return state.reads;
     },
     readOwners: () => state.owners,
+    readOwned: () => state.owned,
     now: () => clock.at,
     platform: options.platform ?? 'darwin',
     logicalCores: options.logicalCores ?? 10,
@@ -185,6 +203,71 @@ describe('createActivityMonitorSampler', () => {
       [61_044, null, null],
     ]);
     expect([...snapshot.cpuSeconds.keys()]).toEqual([`4312:${STARTED}`]);
+  });
+
+  describe('an owner of what the host started itself', () => {
+    it('is a row after the runtime’s own, under the owner’s key, with how many processes it stands for', () => {
+      const { sampler, state } = makeRig();
+      state.owned = [makeOwned()];
+      const snapshot = sampler.sample();
+      expect(snapshot.processes[1]).toEqual({
+        id: 'terminal:pty-1',
+        kind: 'terminal',
+        terminalSessionId: 'pty-1',
+        processCount: 3,
+        pid: 61_044,
+        startedAt: STARTED + 30_000,
+        cpuRate: null,
+        memoryBytes: 218 * 1024 * 1024,
+      });
+      expect(snapshot.cpuSeconds.get('terminal:pty-1')).toBe(74);
+    });
+
+    it('takes its rate from the delta of its subtree’s total, whichever processes the total is made of', () => {
+      const { sampler, clock, state } = makeRig();
+      state.owned = [makeOwned({ cumulativeCpuSeconds: 74 })];
+      sampler.sample();
+      clock.at += 2_000;
+      // A child came and went in between: its time is in the total all the same.
+      state.owned = [makeOwned({ cumulativeCpuSeconds: 75.6, processCount: 2 })];
+      expect(sampler.sample().processes[1].cpuRate).toBeCloseTo(0.8, 10);
+    });
+
+    it('reads zero, never less, when the total falls — and counts on from the lower total', () => {
+      const { sampler, clock, state } = makeRig();
+      state.owned = [makeOwned({ cumulativeCpuSeconds: 74 })];
+      sampler.sample();
+      clock.at += 2_000;
+      // A process that outlived its parent ended and took its nine seconds with it.
+      state.owned = [makeOwned({ cumulativeCpuSeconds: 65, processCount: 2 })];
+      expect(sampler.sample().processes[1].cpuRate).toBe(0);
+      clock.at += 2_000;
+      state.owned = [makeOwned({ cumulativeCpuSeconds: 65.4, processCount: 2 })];
+      expect(sampler.sample().processes[1].cpuRate).toBeCloseTo(0.2, 10);
+    });
+
+    it('keeps its rate across the process behind it being another one — the same owner, started again', () => {
+      const { sampler, clock, state } = makeRig();
+      const helper = { id: 'h3-helper', kind: 'http3-helper' as const, terminalSessionId: undefined, processCount: 1 };
+      state.owned = [makeOwned({ ...helper, pid: 80_001, cumulativeCpuSeconds: 0.1 })];
+      sampler.sample();
+      clock.at += 2_000;
+      state.owned = [makeOwned({ ...helper, pid: 80_777, startedAt: clock.at - 500, cumulativeCpuSeconds: 0.5 })];
+      const row = sampler.sample().processes[1];
+      expect(row).toMatchObject({ id: 'h3-helper', pid: 80_777 });
+      expect(row).not.toHaveProperty('terminalSessionId');
+      expect(row.cpuRate).toBeCloseTo(0.2, 10);
+    });
+
+    it('reads a dash for an owner none of whose costs could be read, and keeps no counter of it', () => {
+      const { sampler, clock, state } = makeRig();
+      state.owned = [makeOwned({ cumulativeCpuSeconds: undefined, memoryBytes: null })];
+      sampler.sample();
+      clock.at += 2_000;
+      const snapshot = sampler.sample();
+      expect(snapshot.processes[1]).toMatchObject({ cpuRate: null, memoryBytes: null });
+      expect([...snapshot.cpuSeconds.keys()]).toEqual([`4312:${STARTED}`]);
+    });
   });
 
   it('carries a process it has no name for as other, with the runtime name', () => {

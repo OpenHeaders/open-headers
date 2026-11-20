@@ -19,6 +19,7 @@ import {
   foldCpuCounters,
   processIdentity,
 } from '@openheaders/core/activity-monitor';
+import type { OwnedProcessRead } from './owned-figures';
 import { nameProcess, type ProcessOwners, type ProcessRead } from './process-naming';
 
 /** Two asks closer than this share one read. */
@@ -34,6 +35,8 @@ export const BASELINE_MAX_AGE_MS = 30_000;
 export interface ActivityMonitorSamplerDeps {
   readProcesses(): ProcessRead[];
   readOwners(): ProcessOwners;
+  /** The owners of what the host started itself, each with its subtree's total (the plan §6, law 13). */
+  readOwned(): OwnedProcessRead[];
   now(): number;
   platform: ActivityMonitorPlatform;
   logicalCores: number;
@@ -50,10 +53,10 @@ export interface ActivityMonitorProcessSample {
   memoryKind: ActivityMonitorMemoryKind;
   processes: ActivityMonitorProcessRow[];
   /**
-   * CPU seconds each process has used so far, by identity — the read's
-   * own counter, or the one rebuilt from the runtime's percent. A
-   * process whose cost could not be read is absent. Never sent to a
-   * viewer.
+   * CPU seconds each row has used so far, by identity — the read's own
+   * counter, the one rebuilt from the runtime's percent, or an owner's
+   * subtree total. A row whose cost could not be read is absent. Never
+   * sent to a viewer.
    */
   cpuSeconds: ReadonlyMap<string, number>;
 }
@@ -76,16 +79,23 @@ export function createActivityMonitorSampler(deps: ActivityMonitorSamplerDeps): 
 
       const reads = deps.readProcesses();
       const owners = deps.readOwners();
+      const owned = deps.readOwned();
       const baseline = counters !== null && at - counters.at <= BASELINE_MAX_AGE_MS ? counters : null;
       // A process with neither a counter nor a percent has no CPU figure: it stays out of the fold and reads a dash.
       const counted = reads.filter((read) => read.cumulativeCpuSeconds !== undefined || read.percentCpu !== null);
+      // An owner's total rides the same fold under the owner's key: a total that fell reads zero, never less.
       const fold = foldCpuCounters(
         baseline,
-        counted.map((read) => ({
-          id: processIdentity(read.pid, read.creationTime),
-          cumulativeSeconds: read.cumulativeCpuSeconds,
-          percentOfMachine: read.percentCpu ?? 0,
-        })),
+        [
+          ...counted.map((read) => ({
+            id: processIdentity(read.pid, read.creationTime),
+            cumulativeSeconds: read.cumulativeCpuSeconds,
+            percentOfMachine: read.percentCpu ?? 0,
+          })),
+          ...owned
+            .filter((read) => read.cumulativeCpuSeconds !== undefined)
+            .map((read) => ({ id: read.id, cumulativeSeconds: read.cumulativeCpuSeconds, percentOfMachine: 0 })),
+        ],
         at,
         deps.logicalCores,
       );
@@ -96,17 +106,29 @@ export function createActivityMonitorSampler(deps: ActivityMonitorSamplerDeps): 
         platform: deps.platform,
         logicalCores: deps.logicalCores,
         memoryKind: deps.memoryKind,
-        processes: reads.map((read) => {
-          const id = processIdentity(read.pid, read.creationTime);
-          return {
-            id,
-            ...nameProcess(read, owners),
+        processes: [
+          ...reads.map((read) => {
+            const id = processIdentity(read.pid, read.creationTime);
+            return {
+              id,
+              ...nameProcess(read, owners),
+              pid: read.pid,
+              startedAt: read.creationTime,
+              cpuRate: fold.rates.get(id) ?? null,
+              memoryBytes: read.memoryBytes,
+            };
+          }),
+          ...owned.map((read) => ({
+            id: read.id,
+            kind: read.kind,
+            ...(read.terminalSessionId === undefined ? {} : { terminalSessionId: read.terminalSessionId }),
+            processCount: read.processCount,
             pid: read.pid,
-            startedAt: read.creationTime,
-            cpuRate: fold.rates.get(id) ?? null,
+            startedAt: read.startedAt,
+            cpuRate: fold.rates.get(read.id) ?? null,
             memoryBytes: read.memoryBytes,
-          };
-        }),
+          })),
+        ],
         cpuSeconds: fold.state.seconds,
       };
       return latest;

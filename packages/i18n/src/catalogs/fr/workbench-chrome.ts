@@ -522,6 +522,7 @@ export const workbenchChrome = {
   'workbench.activityMonitor.process.network': 'Réseau',
   'workbench.activityMonitor.process.scriptSandbox': 'Sandbox de scripts · Mode sûr',
   'workbench.activityMonitor.process.scriptRuntime': "Environnement d'exécution des scripts · Mode développeur",
+  'workbench.activityMonitor.process.http3Helper': 'Assistant HTTP/3',
   'workbench.activityMonitor.process.other': 'Autres ({count})',
   'workbench.activityMonitor.unreadable': "Les processus n'ont pas pu être lus.",
   'workbench.activityMonitor.group.running': 'En cours',

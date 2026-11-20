@@ -47,7 +47,8 @@ import {
   type WorkbenchTerminalPanes,
 } from './terminal-panes';
 import TerminalLeafView from './TerminalLeafView';
-import TerminalTabStrip, { terminalTabLabel } from './TerminalTabStrip';
+import TerminalTabStrip from './TerminalTabStrip';
+import { terminalTabLabel } from './terminal-tab-label';
 
 const CONTENT_SELECTOR = '.terminal-leaf-content';
 

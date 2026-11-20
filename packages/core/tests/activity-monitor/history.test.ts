@@ -142,6 +142,28 @@ describe('a process that ended', () => {
     ],
   );
 
+  it('keeps an owner’s one series under its own key while the process behind it changes, and which session an ended terminal was', () => {
+    const shell = (pid: number): ActivityMonitorProcessRow =>
+      makeRow({ id: 'terminal:pty-1', kind: 'terminal', terminalSessionId: 'pty-1', processCount: 2, pid });
+    let history = beat(EMPTY_ACTIVITY_MONITOR_HISTORY, T0, [[shell(61_044), 4]]);
+    history = beat(history, T0 + BEAT, [[shell(61_044), 7]]);
+    // Another process behind the same owner: still the one series, counted on from its total.
+    history = beat(history, T0 + 2 * BEAT, [[shell(61_900), 8.5]]);
+    expect(processCpuSeries(history.beats, 'terminal:pty-1').map((sample) => sample.value)).toEqual([null, 0.2, 0.1]);
+
+    const gone = observeHistoryProcesses(history, T0 + 2 * BEAT + 2_000, []);
+    expect(endedProcesses(gone)).toEqual([
+      {
+        id: 'terminal:pty-1',
+        kind: 'terminal',
+        terminalSessionId: 'pty-1',
+        pid: 61_900,
+        startedAt: T0 - 3_600_000,
+        endedAt: T0 + 2 * BEAT + 2_000,
+      },
+    ]);
+  });
+
   it('keeps its row as ended from the read that first found it gone — a viewer’s read, not only a beat', () => {
     expect(endedProcesses(running)).toEqual([]);
 

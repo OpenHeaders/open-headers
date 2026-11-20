@@ -10,6 +10,7 @@
  */
 
 import { setHostLogger } from '@openheaders/core/logger';
+import { createProcessRootRegistry } from '@openheaders/oracle-host-node/process-reader';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 setHostLogger({ debug: () => {}, info: () => {}, warn: () => {}, error: () => {} });
@@ -20,6 +21,7 @@ class FakeChildProcess {
   readonly path: string;
   readonly options: Record<string, unknown>;
   readonly posted: unknown[] = [];
+  readonly pid = 51_200;
   killed = false;
   private readonly listeners = new Map<string, Listener[]>();
 
@@ -210,5 +212,28 @@ describe('createForkTransport', () => {
     expect(onUp).not.toHaveBeenCalled();
     second.emit('message', { type: 'script.result', result: { executionId: 'live' } });
     expect(onUp).toHaveBeenCalledWith({ type: 'script.result', result: { executionId: 'live' } });
+  });
+
+  it('registers the runner where it is forked, under the one script-runtime owner, and lets go at its exit', async () => {
+    const STARTED_AT = 1_763_647_200_000;
+    const roots = createProcessRootRegistry({
+      memoryKind: 'resident',
+      read: (pid) => ({ pid, parentPid: 1, startedAt: STARTED_AT, name: null, cost: null }),
+      childPids: () => [],
+      terminalPids: () => [],
+    });
+    const transport = createForkTransport(RUNNER, roots)(() => {});
+    expect(roots.list()).toEqual([]);
+
+    const ready = transport.ensureReady();
+    const child = children()[0] as FakeChildProcess;
+    expect(roots.list()).toEqual([
+      { owner: { kind: 'script-runtime' }, root: { pid: child.pid, startedAt: STARTED_AT }, terminal: false },
+    ]);
+    child.emit('message', { type: 'sandbox.ready' });
+    await ready;
+
+    transport.close('idle');
+    expect(roots.list()).toEqual([]);
   });
 });

@@ -25,10 +25,14 @@
 import { type ChildProcess, fork, type Serializable } from 'node:child_process';
 import { hostLogger as logger } from '@openheaders/core/logger';
 import type { SandboxTransport } from '@openheaders/oracle-host-node/daemon';
+import { hostProcessRoots, type ProcessRootRegistry } from '@openheaders/oracle-host-node/process-reader';
 
 const SCOPE = 'script-runner';
 
-export function createForkTransport(runnerPath: string): (onUp: (message: unknown) => void) => SandboxTransport {
+export function createForkTransport(
+  runnerPath: string,
+  processRoots: ProcessRootRegistry = hostProcessRoots,
+): (onUp: (message: unknown) => void) => SandboxTransport {
   return (onUp: (message: unknown) => void): SandboxTransport => {
     let child: ChildProcess | null = null;
     let readyPromise: Promise<void> | null = null;
@@ -45,6 +49,8 @@ export function createForkTransport(runnerPath: string): (onUp: (message: unknow
         stdio: ['ignore', 'ignore', 'ignore', 'ipc'],
       });
       child = forked;
+      // Registered where it is forked (the activity monitor plan §6, law 5): one owner, whichever runner is up.
+      const registration = processRoots.register({ kind: 'script-runtime' }, forked.pid);
 
       const ready = new Promise<void>((resolve, reject) => {
         let settled = false;
@@ -61,6 +67,7 @@ export function createForkTransport(runnerPath: string): (onUp: (message: unknow
           onUp(message);
         });
         forked.on('error', (err) => {
+          registration.release();
           if (!settled) {
             settled = true;
             reject(err);
@@ -68,6 +75,7 @@ export function createForkTransport(runnerPath: string): (onUp: (message: unknow
           if (child === forked) dropChild();
         });
         forked.once('exit', (code, signal) => {
+          registration.release();
           if (!settled) {
             settled = true;
             reject(new Error(`script runner exited before ready (code ${code ?? signal})`));

@@ -9,9 +9,11 @@ import type { BrowserKind } from '../utils/host-detect';
 
 /**
  * What a process is, in the words the interface already uses (the plan
- * §6, law 1), in the order the table lists them. `other` is every
- * process the host has no name for — kept under one collapsed group by
- * the runtime's own name, never dropped.
+ * §6, law 1), in the order the table lists them. `terminal`, `git` and
+ * `http3-helper` are OWNERS of processes the host started itself (law
+ * 5): one row for the owner and everything that runs beneath it.
+ * `other` is every process the host has no name for — kept under one
+ * collapsed group by the runtime's own name, never dropped.
  */
 export const ACTIVITY_MONITOR_PROCESS_KINDS = [
   'window',
@@ -20,6 +22,9 @@ export const ACTIVITY_MONITOR_PROCESS_KINDS = [
   'network',
   'script-sandbox',
   'script-runtime',
+  'terminal',
+  'git',
+  'http3-helper',
   'other',
 ] as const;
 
@@ -37,11 +42,28 @@ export type ActivityMonitorPlatform = 'darwin' | 'win32' | 'linux';
 export type ActivityMonitorMemoryKind = 'footprint' | 'resident' | 'working-set';
 
 export interface ActivityMonitorProcessRow {
-  /** The process's identity — its pid AND its creation time, since a pid is reused. */
+  /**
+   * The row's identity. A process of the runtime's own: its pid AND its
+   * creation time, since a pid is reused. An owner of processes the
+   * host started: the owner's own key, which outlives every process it
+   * starts — so its history does too (the plan §6, law 13).
+   */
   id: string;
   kind: ActivityMonitorProcessKind;
   /** The runtime's own name for the process — on `other` rows only, shown as given. */
   runtimeName?: string;
+  /**
+   * The terminal session a `terminal` row stands for. The tab that
+   * holds the session names the row where it is shown; no label
+   * crosses the bridge (the plan §6, law 12).
+   */
+  terminalSessionId?: string;
+  /**
+   * On an owner's row: how many processes are alive beneath it, its
+   * root among them. Its figures are their total.
+   */
+  processCount?: number;
+  /** An owner's row: the pid of the root it started first. */
   pid: number;
   /** ms since epoch. */
   startedAt: number;
@@ -143,6 +165,7 @@ export interface ActivityMonitorEndedProcess {
   id: string;
   kind: ActivityMonitorProcessKind;
   runtimeName?: string;
+  terminalSessionId?: string;
   pid: number;
   /** ms since epoch. */
   startedAt: number;
@@ -201,6 +224,11 @@ export function arrangeProcessRows(rows: readonly ActivityMonitorProcessRow[]): 
     named: ordered.filter((row) => row.kind !== 'other'),
     other: ordered.filter((row) => row.kind === 'other'),
   };
+}
+
+/** How many processes the rows stand for: an owner's row counts everything alive beneath it. */
+export function countProcesses(rows: readonly Pick<ActivityMonitorProcessRow, 'processCount'>[]): number {
+  return rows.reduce((count, row) => count + (row.processCount ?? 1), 0);
 }
 
 /** A group's figure: the sum of what could be read, null when nothing could. */
