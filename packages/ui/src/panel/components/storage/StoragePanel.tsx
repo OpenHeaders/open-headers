@@ -326,9 +326,24 @@ export function StoragePanel({
       if (scopes.some((s) => s.origin === origin)) selectOrigin(origin);
     }
     const row = reveal.row;
-    setPendingRow(row !== undefined && row !== '' ? { ...reveal, row } : null);
+    const hasRow = row !== undefined && row !== '';
+    setPendingRow(hasRow ? { ...reveal, row } : null);
+    // An editor tab's own "Reveal in Storage" names no row — its document
+    // IS the active row, so the section alone isn't the answer: bring
+    // that row into view (the scroll waits for the section's data).
+    if (!hasRow && !(reveal.kind === 'cookies' && reveal.highlight !== undefined)) revealActiveRow();
     onRevealConsumed();
-  }, [reveal, revealSection, section, selectIdbStore, selectCache, onRevealConsumed, scopes, selectOrigin]);
+  }, [
+    reveal,
+    revealSection,
+    section,
+    selectIdbStore,
+    selectCache,
+    onRevealConsumed,
+    scopes,
+    selectOrigin,
+    revealActiveRow,
+  ]);
 
   const selectedFrameId = selectedScope?.frameId ?? null;
   const openIdbRecord = useCallback(
