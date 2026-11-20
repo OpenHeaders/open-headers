@@ -279,7 +279,7 @@ export const workbenchImportExport = {
     "curl -X POST 'https://api.openheaders.com/v1/things' \\\n  -H 'authorization: Bearer xyz' \\\n  -H 'content-type: application/json' \\\n  --data-raw '{\"name\":\"hello\"}'",
   'workbench.importExport.curl.cantParse': '이 명령을 파싱할 수 없습니다',
   'workbench.importExport.curl.parseFallback': '파싱할 수 없습니다. 명령을 확인하고 다시 시도하세요.',
-  'workbench.importExport.curl.nameLabel': '이름',
+  'workbench.importExport.curl.nameLabel': '요청 이름',
   'workbench.importExport.curl.namePlaceholder': '사이드바에 표시될 이 요청의 이름',
   'workbench.importExport.curl.failedCreateRequest': '요청을 만들지 못했습니다',
   'workbench.importExport.curl.importedName': '“{name}” 항목을 가져왔습니다',

@@ -280,7 +280,7 @@ export const workbenchImportExport = {
     "curl -X POST 'https://api.openheaders.com/v1/things' \\\n  -H 'authorization: Bearer xyz' \\\n  -H 'content-type: application/json' \\\n  --data-raw '{\"name\":\"hello\"}'",
   'workbench.importExport.curl.cantParse': '无法解析此命令',
   'workbench.importExport.curl.parseFallback': '无法解析——请检查命令后重试。',
-  'workbench.importExport.curl.nameLabel': '名称',
+  'workbench.importExport.curl.nameLabel': '请求名称',
   'workbench.importExport.curl.namePlaceholder': '此请求在侧边栏中的显示名称',
   'workbench.importExport.curl.failedCreateRequest': '创建请求失败',
   'workbench.importExport.curl.importedName': '已导入“{name}”',

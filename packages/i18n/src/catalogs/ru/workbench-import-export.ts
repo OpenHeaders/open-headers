@@ -360,7 +360,7 @@ export const workbenchImportExport = {
     "curl -X POST 'https://api.openheaders.com/v1/things' \\\n  -H 'authorization: Bearer xyz' \\\n  -H 'content-type: application/json' \\\n  --data-raw '{\"name\":\"hello\"}'",
   'workbench.importExport.curl.cantParse': 'Не удалось разобрать эту команду',
   'workbench.importExport.curl.parseFallback': 'Не удалось разобрать — проверьте команду и попробуйте снова.',
-  'workbench.importExport.curl.nameLabel': 'ИМЯ',
+  'workbench.importExport.curl.nameLabel': 'ИМЯ ЗАПРОСА',
   'workbench.importExport.curl.namePlaceholder': 'Как этот запрос будет показан в боковой панели',
   'workbench.importExport.curl.failedCreateRequest': 'Не удалось создать запрос',
   'workbench.importExport.curl.importedName': 'Импортировано: «{name}»',

@@ -281,7 +281,7 @@ export const workbenchImportExport = {
     "curl -X POST 'https://api.openheaders.com/v1/things' \\\n  -H 'authorization: Bearer xyz' \\\n  -H 'content-type: application/json' \\\n  --data-raw '{\"name\":\"hello\"}'",
   'workbench.importExport.curl.cantParse': 'このコマンドを解析できませんでした',
   'workbench.importExport.curl.parseFallback': '解析できませんでした。コマンドを確認してもう一度お試しください。',
-  'workbench.importExport.curl.nameLabel': '名前',
+  'workbench.importExport.curl.nameLabel': 'リクエスト名',
   'workbench.importExport.curl.namePlaceholder': 'サイドバーでのこのリクエストの表示名',
   'workbench.importExport.curl.failedCreateRequest': 'リクエストの作成に失敗しました',
   'workbench.importExport.curl.importedName': '「{name}」をインポートしました',

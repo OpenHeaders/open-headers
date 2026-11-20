@@ -355,7 +355,7 @@ export const workbenchImportExport = {
     "curl -X POST 'https://api.openheaders.com/v1/things' \\\n  -H 'authorization: Bearer xyz' \\\n  -H 'content-type: application/json' \\\n  --data-raw '{\"name\":\"hello\"}'",
   'workbench.importExport.curl.cantParse': 'Nu s-a putut analiza această comandă',
   'workbench.importExport.curl.parseFallback': 'Nu s-a putut analiza — verificați comanda și încercați din nou.',
-  'workbench.importExport.curl.nameLabel': 'NUME',
+  'workbench.importExport.curl.nameLabel': 'NUME CERERE',
   'workbench.importExport.curl.namePlaceholder': 'Cum apare această cerere în bara laterală',
   'workbench.importExport.curl.failedCreateRequest': 'Crearea cererii a eșuat',
   'workbench.importExport.curl.importedName': 'Importat „{name}”',
