@@ -7,7 +7,12 @@
  * host reads nothing.
  */
 
-import type { ActivityMonitorCursor, ActivityMonitorSnapshot } from '@openheaders/core/activity-monitor';
+import {
+  type ActivityMonitorCursor,
+  type ActivityMonitorHistoryBeat,
+  type ActivityMonitorSnapshot,
+  mergeHistoryBeats,
+} from '@openheaders/core/activity-monitor';
 import { hostBridge } from '@openheaders/core/bridge';
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 
@@ -27,12 +32,23 @@ export interface ActivityMonitorView {
   snapshot: ActivityMonitorSnapshot | null;
   /** The last ask went unanswered. */
   unreadable: boolean;
+  /**
+   * The host's history as this viewer holds it (the plan §7, fork 4):
+   * the first answer's hour, then each answer's new beats appended. Its
+   * identity changes only when a beat arrives. An unanswered ask does
+   * NOT drop it — the host still holds the ring and the next answer
+   * continues from the cursor; it is replaced only by an answer whose
+   * beats do not continue it.
+   */
+  history: readonly ActivityMonitorHistoryBeat[];
 }
+
+const NO_HISTORY: readonly ActivityMonitorHistoryBeat[] = [];
 
 export function useActivityMonitorSnapshot(active: boolean): ActivityMonitorView {
   const visible = useSyncExternalStore(subscribeToVisibility, isDocumentVisible);
   const viewed = active && visible;
-  const [view, setView] = useState<ActivityMonitorView>({ snapshot: null, unreadable: false });
+  const [view, setView] = useState<ActivityMonitorView>({ snapshot: null, unreadable: false, history: NO_HISTORY });
   const cursorRef = useRef<ActivityMonitorCursor | null>(null);
 
   useEffect(() => {
@@ -47,12 +63,16 @@ export function useActivityMonitorSnapshot(active: boolean): ActivityMonitorView
           asking = false;
           if (stopped) return;
           cursorRef.current = snapshot.cursor;
-          setView({ snapshot, unreadable: false });
+          setView((held) => ({
+            snapshot,
+            unreadable: false,
+            history: mergeHistoryBeats(held.history, snapshot.history),
+          }));
         },
         () => {
           asking = false;
           if (stopped) return;
-          setView({ snapshot: null, unreadable: true });
+          setView((held) => ({ snapshot: null, unreadable: true, history: held.history }));
         },
       );
     };

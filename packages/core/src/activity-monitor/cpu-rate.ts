@@ -33,6 +33,14 @@ export interface CpuCounterFold {
   rates: ReadonlyMap<string, number | null>;
 }
 
+/**
+ * A rate from two reads of one cumulative counter: null where no earlier
+ * read exists or no time passed, zero where the counter went backwards.
+ */
+export function cpuRateBetween(before: number | undefined, now: number, elapsedSeconds: number): number | null {
+  return before === undefined || elapsedSeconds <= 0 ? null : Math.max(0, now - before) / elapsedSeconds;
+}
+
 export function foldCpuCounters(
   previous: CpuCounterState | null,
   reads: readonly CpuCounterRead[],
@@ -48,10 +56,7 @@ export function foldCpuCounters(
       read.cumulativeSeconds ??
       (before === undefined ? 0 : before + (read.percentOfMachine / 100) * logicalCores * elapsedSeconds);
     seconds.set(read.id, now);
-    rates.set(
-      read.id,
-      before === undefined || elapsedSeconds === 0 ? null : Math.max(0, now - before) / elapsedSeconds,
-    );
+    rates.set(read.id, cpuRateBetween(before, now, elapsedSeconds));
   }
   return { state: { at, seconds }, rates };
 }

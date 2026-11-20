@@ -521,6 +521,21 @@ export const workbenchChrome = {
   'workbench.activityMonitor.peer.extension': '{browser} 확장 프로그램',
   'workbench.activityMonitor.peer.extensionUnknown': '브라우저 확장 프로그램',
   'workbench.activityMonitor.reveal': '{target} 열기',
+  'workbench.activityMonitor.summary.cpuHover': '앱의 모든 프로세스를 합한 값입니다.',
+  'workbench.activityMonitor.summary.memoryHover':
+    '상한값입니다. 프로세스끼리 공유하는 메모리는 프로세스마다 한 번씩 계산됩니다.',
+  'workbench.activityMonitor.summary.processCount': ({ count }, locale) =>
+    plural(locale, Number(count), {
+      other: '프로세스 {count}개',
+    }),
+  'workbench.activityMonitor.summary.uptime': '가동 {duration}',
+  'workbench.activityMonitor.summary.range': '최근 {duration}',
+  'workbench.activityMonitor.summary.scalePerCore':
+    '모든 CPU 그래프는 같은 눈금을 씁니다. 맨 위는 코어 하나 전체입니다.',
+  'workbench.activityMonitor.summary.scaleMachineShare':
+    '모든 CPU 그래프는 같은 눈금을 씁니다. 맨 위는 기기 전체입니다.',
+  'workbench.activityMonitor.ended': '{time} 종료',
+  'workbench.activityMonitor.peak': '최고 {percent}',
   'workbench.toolWindows.info.terminal.summary':
     '실제 pty 위에서 셸을 실행하는 통합 터미널입니다. 독립 터미널에서 실행할 수 있는 것은 무엇이든 여기서 실행되며, 로컬 앱을 대상으로 한 oh CLI 도구도 포함됩니다.',
   'workbench.toolWindows.info.git.summary':

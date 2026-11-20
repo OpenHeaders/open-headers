@@ -1,6 +1,7 @@
 /**
  * The desktop's activity monitor — the production binding of the
- * sampler over the runtime's own processes (the activity monitor plan
+ * sampler over the runtime's own processes, and of the history's beat
+ * (the activity monitor plan
  * §9). This module is the ONE caller of the runtime's metrics read (the
  * plan §6, law 3): its percent is "since the previous call", so a
  * second caller anywhere would corrupt both.
@@ -10,8 +11,9 @@ import * as os from 'node:os';
 import type { ActivityMonitorPlatform } from '@openheaders/core/activity-monitor';
 import { app, BrowserWindow } from 'electron';
 import { scriptSandboxProcessId } from '../script-sandbox/sandbox-window';
+import { type ActivityMonitor, createActivityMonitor } from './monitor';
 import type { ProcessOwners, ProcessRead } from './process-naming';
-import { type ActivityMonitorSampler, createActivityMonitorSampler } from './sampler';
+import { createActivityMonitorSampler } from './sampler';
 
 const BYTES_PER_KB = 1024;
 
@@ -46,12 +48,24 @@ export function activityMonitorPlatform(platform: NodeJS.Platform): ActivityMoni
   return platform === 'darwin' ? 'darwin' : 'linux';
 }
 
-export function createDesktopActivityMonitor(): ActivityMonitorSampler {
-  return createActivityMonitorSampler({
-    readProcesses: readAppProcesses,
-    readOwners: readProcessOwners,
-    now: Date.now,
-    platform: activityMonitorPlatform(process.platform),
-    logicalCores: os.cpus().length,
+/**
+ * The history's beat starts here, with the engine, and is stopped by
+ * the engine's quit teardown. The timer never keeps a quitting app's
+ * event loop alive.
+ */
+export function createDesktopActivityMonitor(): ActivityMonitor {
+  return createActivityMonitor({
+    sampler: createActivityMonitorSampler({
+      readProcesses: readAppProcesses,
+      readOwners: readProcessOwners,
+      now: Date.now,
+      platform: activityMonitorPlatform(process.platform),
+      logicalCores: os.cpus().length,
+    }),
+    startBeat: (beat, everyMs) => {
+      const timer = setInterval(beat, everyMs);
+      timer.unref();
+      return () => clearInterval(timer);
+    },
   });
 }

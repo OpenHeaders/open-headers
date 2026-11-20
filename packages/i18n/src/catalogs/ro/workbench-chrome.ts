@@ -551,6 +551,23 @@ export const workbenchChrome = {
   'workbench.activityMonitor.peer.extension': 'Extensie {browser}',
   'workbench.activityMonitor.peer.extensionUnknown': 'Extensie de browser',
   'workbench.activityMonitor.reveal': 'Deschidere {target}',
+  'workbench.activityMonitor.summary.cpuHover': 'Toate procesele aplicației, adunate.',
+  'workbench.activityMonitor.summary.memoryHover':
+    'O limită superioară — memoria pe care procesele o împart este numărată o dată pentru fiecare.',
+  'workbench.activityMonitor.summary.processCount': ({ count }, locale) =>
+    plural(locale, Number(count), {
+      one: '{count} proces',
+      few: '{count} procese',
+      other: '{count} de procese',
+    }),
+  'workbench.activityMonitor.summary.uptime': 'pornită de {duration}',
+  'workbench.activityMonitor.summary.range': 'ultimele {duration}',
+  'workbench.activityMonitor.summary.scalePerCore':
+    'Toate graficele CPU folosesc aceeași scară — sus este un nucleu întreg.',
+  'workbench.activityMonitor.summary.scaleMachineShare':
+    'Toate graficele CPU folosesc aceeași scară — sus este întreaga mașină.',
+  'workbench.activityMonitor.ended': 'încheiat la {time}',
+  'workbench.activityMonitor.peak': 'vârf {percent}',
   'workbench.toolWindows.info.terminal.summary':
     'Un terminal integrat care rulează shell-ul dvs. într-un pty real — tot ce puteți rula într-un terminal de sine stătător rulează și aici, inclusiv oh CLI împotriva aplicației locale.',
   'workbench.toolWindows.info.git.summary':

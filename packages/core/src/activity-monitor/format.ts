@@ -18,6 +18,15 @@ export function cpuPercentConvention(platform: ActivityMonitorPlatform): CpuPerc
   return platform === 'win32' ? 'machine-share' : 'per-core';
 }
 
+/**
+ * The top of every CPU graph, as a rate (the plan §7, fork 8): one full
+ * core where "CPU %" counts per core, the whole machine where it is a
+ * share of it. One scale for every graph — never a scale per row.
+ */
+export function cpuScaleTop(platform: ActivityMonitorPlatform, logicalCores: number): number {
+  return cpuPercentConvention(platform) === 'machine-share' ? Math.max(1, logicalCores) : 1;
+}
+
 export function formatCpuPercent(
   cpuRate: number | null,
   platform: ActivityMonitorPlatform,
@@ -78,6 +87,28 @@ const SECOND_MS = 1_000;
 const MINUTE_MS = 60 * SECOND_MS;
 const HOUR_MS = 60 * MINUTE_MS;
 const DAY_MS = 24 * HOUR_MS;
+
+const SPAN_UNIT_MS = { second: SECOND_MS, minute: MINUTE_MS, hour: HOUR_MS, day: DAY_MS };
+
+const spanFormatters = new Map<string, Intl.NumberFormat>();
+
+/**
+ * A length of time in the locale's short words ("6 hr"), rounded DOWN —
+ * an hour and fifty minutes of uptime is not yet two hours: seconds
+ * under a minute, minutes under two hours, hours under two days, days
+ * beyond.
+ */
+export function formatSpan(ms: number, locale?: string): string {
+  const span = Math.max(0, ms);
+  const unit = span < MINUTE_MS ? 'second' : span < 2 * HOUR_MS ? 'minute' : span < 2 * DAY_MS ? 'hour' : 'day';
+  const key = `${locale ?? ''}|${unit}`;
+  let formatter = spanFormatters.get(key);
+  if (formatter === undefined) {
+    formatter = new Intl.NumberFormat(locale, { style: 'unit', unit, unitDisplay: 'short' });
+    spanFormatters.set(key, formatter);
+  }
+  return formatter.format(Math.floor(span / SPAN_UNIT_MS[unit]));
+}
 
 const timeUntilFormatters = new Map<string, Intl.RelativeTimeFormat>();
 

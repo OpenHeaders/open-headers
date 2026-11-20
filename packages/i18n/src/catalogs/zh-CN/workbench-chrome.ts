@@ -514,6 +514,18 @@ export const workbenchChrome = {
   'workbench.activityMonitor.peer.extension': '{browser} 扩展',
   'workbench.activityMonitor.peer.extensionUnknown': '浏览器扩展',
   'workbench.activityMonitor.reveal': '打开{target}',
+  'workbench.activityMonitor.summary.cpuHover': '本应用所有进程的合计。',
+  'workbench.activityMonitor.summary.memoryHover': '这是上限——进程之间共享的内存会在每个进程上各计一次。',
+  'workbench.activityMonitor.summary.processCount': ({ count }, locale) =>
+    plural(locale, Number(count), {
+      other: '{count} 个进程',
+    }),
+  'workbench.activityMonitor.summary.uptime': '已运行 {duration}',
+  'workbench.activityMonitor.summary.range': '最近 {duration}',
+  'workbench.activityMonitor.summary.scalePerCore': '所有 CPU 曲线共用同一刻度——顶端表示占满一个核心。',
+  'workbench.activityMonitor.summary.scaleMachineShare': '所有 CPU 曲线共用同一刻度——顶端表示整台机器。',
+  'workbench.activityMonitor.ended': '{time} 结束',
+  'workbench.activityMonitor.peak': '峰值 {percent}',
   'workbench.toolWindows.info.terminal.summary':
     '一个集成终端，在真实的 pty 中运行你的 shell——凡是能在独立终端中运行的都能在这里运行，' +
     '包括对本地应用使用 oh CLI。',

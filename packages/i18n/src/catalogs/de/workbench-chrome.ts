@@ -546,6 +546,19 @@ export const workbenchChrome = {
   'workbench.activityMonitor.peer.extension': '{browser}-Erweiterung',
   'workbench.activityMonitor.peer.extensionUnknown': 'Browser-Erweiterung',
   'workbench.activityMonitor.reveal': '{target} öffnen',
+  'workbench.activityMonitor.summary.cpuHover': 'Alle Prozesse der App, zusammengezählt.',
+  'workbench.activityMonitor.summary.memoryHover':
+    'Eine Obergrenze — Speicher, den sich Prozesse teilen, wird für jeden von ihnen einmal gezählt.',
+  'workbench.activityMonitor.summary.processCount': ({ count }, locale) =>
+    plural(locale, Number(count), { one: '{count} Prozess', other: '{count} Prozesse' }),
+  'workbench.activityMonitor.summary.uptime': 'läuft seit {duration}',
+  'workbench.activityMonitor.summary.range': 'letzte {duration}',
+  'workbench.activityMonitor.summary.scalePerCore':
+    'Alle CPU-Verläufe teilen sich eine Skala — ganz oben ist ein voller Kern.',
+  'workbench.activityMonitor.summary.scaleMachineShare':
+    'Alle CPU-Verläufe teilen sich eine Skala — ganz oben ist der gesamte Rechner.',
+  'workbench.activityMonitor.ended': 'beendet {time}',
+  'workbench.activityMonitor.peak': 'Spitze {percent}',
   'workbench.toolWindows.info.terminal.summary':
     'Ein integriertes Terminal, das deine Shell in einem echten pty ausführt — alles, was in einem ' +
     'eigenständigen Terminal läuft, läuft auch hier, einschließlich der CLI oh gegen die lokale App.',

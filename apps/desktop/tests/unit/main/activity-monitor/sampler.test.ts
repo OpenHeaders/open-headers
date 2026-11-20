@@ -70,8 +70,20 @@ describe('createActivityMonitorSampler', () => {
           memoryBytes: 212 * 1024 * 1024,
         },
       ],
-      cursor: 0,
+      cpuSeconds: new Map([[`4312:${STARTED}`, 10]]),
     });
+  });
+
+  it('carries the counter it rebuilt where the runtime reports none', () => {
+    const { sampler, clock, state } = makeRig({ platform: 'win32', logicalCores: 8 });
+    const id = `4312:${STARTED}`;
+    state.reads = [makeRead({ cumulativeCpuSeconds: undefined, percentCpu: 0 })];
+    expect(sampler.sample().cpuSeconds.get(id)).toBe(0);
+
+    clock.at += 2_000;
+    state.reads = [makeRead({ cumulativeCpuSeconds: undefined, percentCpu: 5 })];
+    // 5 % of eight cores for two seconds is 0.8 CPU seconds.
+    expect(sampler.sample().cpuSeconds.get(id)).toBeCloseTo(0.8, 10);
   });
 
   it('does not read again for a second ask inside a second', () => {

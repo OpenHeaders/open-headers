@@ -522,6 +522,19 @@ export const workbenchChrome = {
   'workbench.activityMonitor.peer.extension': '{browser} 拡張機能',
   'workbench.activityMonitor.peer.extensionUnknown': 'ブラウザー拡張機能',
   'workbench.activityMonitor.reveal': '{target} を開く',
+  'workbench.activityMonitor.summary.cpuHover': 'アプリのすべてのプロセスの合計です。',
+  'workbench.activityMonitor.summary.memoryHover':
+    '上限の値です。プロセス間で共有されるメモリは、プロセスごとに 1 回ずつ数えられます。',
+  'workbench.activityMonitor.summary.processCount': ({ count }, locale) =>
+    plural(locale, Number(count), {
+      other: 'プロセス {count} 件',
+    }),
+  'workbench.activityMonitor.summary.uptime': '稼働 {duration}',
+  'workbench.activityMonitor.summary.range': '直近 {duration}',
+  'workbench.activityMonitor.summary.scalePerCore': 'CPU のグラフはすべて同じ目盛りです。上端は 1 コア分です。',
+  'workbench.activityMonitor.summary.scaleMachineShare': 'CPU のグラフはすべて同じ目盛りです。上端はマシン全体です。',
+  'workbench.activityMonitor.ended': '{time} に終了',
+  'workbench.activityMonitor.peak': 'ピーク {percent}',
   'workbench.toolWindows.info.terminal.summary':
     '本物の pty でシェルを動かす統合ターミナルです。単独のターミナルで実行できるものは、ローカルアプリに対する oh CLI を含めてすべてここで実行できます。',
   'workbench.toolWindows.info.git.summary':

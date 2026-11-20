@@ -548,6 +548,23 @@ export const workbenchChrome = {
   'workbench.activityMonitor.peer.extension': 'Extension {browser}',
   'workbench.activityMonitor.peer.extensionUnknown': 'Extension de navigateur',
   'workbench.activityMonitor.reveal': 'Ouvrir {target}',
+  'workbench.activityMonitor.summary.cpuHover': "Tous les processus de l'application, additionnés.",
+  'workbench.activityMonitor.summary.memoryHover':
+    'Une borne supérieure — la mémoire que les processus partagent est comptée une fois pour chacun.',
+  'workbench.activityMonitor.summary.processCount': ({ count }, locale) =>
+    plural(locale, Number(count), {
+      one: '{count} processus',
+      many: '{count} processus',
+      other: '{count} processus',
+    }),
+  'workbench.activityMonitor.summary.uptime': 'actif depuis {duration}',
+  'workbench.activityMonitor.summary.range': 'dernières {duration}',
+  'workbench.activityMonitor.summary.scalePerCore':
+    'Tous les graphiques CPU partagent une même échelle — le haut correspond à un cœur entier.',
+  'workbench.activityMonitor.summary.scaleMachineShare':
+    'Tous les graphiques CPU partagent une même échelle — le haut correspond à toute la machine.',
+  'workbench.activityMonitor.ended': 'terminé : {time}',
+  'workbench.activityMonitor.peak': 'pic {percent}',
   'workbench.toolWindows.info.terminal.summary':
     'Un terminal intégré qui exécute votre shell dans un vrai pty — tout ce qui tourne dans un terminal ' +
     "autonome tourne ici, y compris la CLI oh contre l'application locale.",

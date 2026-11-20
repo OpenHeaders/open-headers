@@ -544,6 +544,22 @@ export const workbenchChrome = {
   'workbench.activityMonitor.peer.extension': 'Расширение {browser}',
   'workbench.activityMonitor.peer.extensionUnknown': 'Расширение браузера',
   'workbench.activityMonitor.reveal': 'Открыть {target}',
+  'workbench.activityMonitor.summary.cpuHover': 'Все процессы приложения в сумме.',
+  'workbench.activityMonitor.summary.memoryHover':
+    'Верхняя граница — память, которую процессы делят между собой, учитывается по разу для каждого.',
+  'workbench.activityMonitor.summary.processCount': ({ count }, locale) =>
+    plural(locale, Number(count), {
+      one: '{count} процесс',
+      few: '{count} процесса',
+      many: '{count} процессов',
+      other: '{count} процессов',
+    }),
+  'workbench.activityMonitor.summary.uptime': 'работает {duration}',
+  'workbench.activityMonitor.summary.range': 'последние {duration}',
+  'workbench.activityMonitor.summary.scalePerCore': 'У всех графиков ЦП одна шкала — верх это одно ядро целиком.',
+  'workbench.activityMonitor.summary.scaleMachineShare': 'У всех графиков ЦП одна шкала — верх это вся машина.',
+  'workbench.activityMonitor.ended': 'завершён {time}',
+  'workbench.activityMonitor.peak': 'пик {percent}',
   'workbench.toolWindows.info.terminal.summary':
     'Встроенный терминал, запускающий вашу оболочку в настоящем pty — всё, что можно запустить в отдельном терминале, работает и здесь, включая oh CLI для локального приложения.',
   'workbench.toolWindows.info.git.summary':

@@ -106,10 +106,45 @@ export type ActivityMonitorServiceRow =
       port: number | null;
     };
 
+/** One process at one beat of the history. */
+export interface ActivityMonitorHistoryPoint {
+  /** CPU seconds per second over the whole beat; null where the beat before it is no baseline. */
+  cpuRate: number | null;
+  memoryBytes: number | null;
+}
+
 /**
- * How far into the host's history the caller has read. It rides the
- * contract from the first slice (the plan §7, fork 4) and carries
- * nothing until the history lands.
+ * One beat of the host's history (the plan §7, fork 2): every process
+ * the host read at that instant, by identity. A process absent from a
+ * beat did not exist at it.
+ */
+export interface ActivityMonitorHistoryBeat {
+  /** The beat's place in the host's sequence — what a cursor counts. */
+  seq: number;
+  /** ms since epoch. */
+  at: number;
+  points: Record<string, ActivityMonitorHistoryPoint>;
+}
+
+/**
+ * A process that ended while the history still holds a point of it. It
+ * keeps its row — a dash for CPU, when it ended — until its last point
+ * ages out.
+ */
+export interface ActivityMonitorEndedProcess {
+  id: string;
+  kind: ActivityMonitorProcessKind;
+  runtimeName?: string;
+  pid: number;
+  /** ms since epoch. */
+  startedAt: number;
+  /** ms since epoch of the read that first found it gone. */
+  endedAt: number;
+}
+
+/**
+ * How far into the host's history the caller has read (the plan §7,
+ * fork 4): the sequence number of the last beat it holds, 0 for none.
  */
 export type ActivityMonitorCursor = number;
 
@@ -122,6 +157,9 @@ export interface ActivityMonitorSnapshot {
   processes: ActivityMonitorProcessRow[];
   /** What the engine keeps running, in the vocabulary's order; a kind the host has no owner for is absent. */
   services: ActivityMonitorServiceRow[];
+  /** The history's beats past the caller's cursor, oldest first — everything the host holds on a first ask. */
+  history: ActivityMonitorHistoryBeat[];
+  ended: ActivityMonitorEndedProcess[];
   cursor: ActivityMonitorCursor;
 }
 
@@ -137,13 +175,19 @@ export interface ArrangedProcessRows {
  * older process first, then the pid. A row keeps its place from one
  * answer to the next — only its figures change.
  */
-export function arrangeProcessRows(rows: readonly ActivityMonitorProcessRow[]): ArrangedProcessRows {
-  const ordered = [...rows].sort(
-    (a, b) =>
-      ACTIVITY_MONITOR_PROCESS_KINDS.indexOf(a.kind) - ACTIVITY_MONITOR_PROCESS_KINDS.indexOf(b.kind) ||
-      a.startedAt - b.startedAt ||
-      a.pid - b.pid,
+export function compareProcessOrder(
+  a: Pick<ActivityMonitorProcessRow, 'kind' | 'startedAt' | 'pid'>,
+  b: Pick<ActivityMonitorProcessRow, 'kind' | 'startedAt' | 'pid'>,
+): number {
+  return (
+    ACTIVITY_MONITOR_PROCESS_KINDS.indexOf(a.kind) - ACTIVITY_MONITOR_PROCESS_KINDS.indexOf(b.kind) ||
+    a.startedAt - b.startedAt ||
+    a.pid - b.pid
   );
+}
+
+export function arrangeProcessRows(rows: readonly ActivityMonitorProcessRow[]): ArrangedProcessRows {
+  const ordered = [...rows].sort(compareProcessOrder);
   return {
     named: ordered.filter((row) => row.kind !== 'other'),
     other: ordered.filter((row) => row.kind === 'other'),

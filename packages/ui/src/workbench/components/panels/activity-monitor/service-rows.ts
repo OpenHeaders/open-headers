@@ -35,7 +35,7 @@ export const SERVICE_STATUS_SUBSYSTEM: Partial<Record<ActivityMonitorServiceKind
   workflows: 'live',
 };
 
-const FACT_SEPARATOR = ' · ';
+export const FACT_SEPARATOR = ' · ';
 
 const listFormatters = new Map<string, Intl.ListFormat>();
 

@@ -9,8 +9,10 @@ import { describe, expect, it } from 'vitest';
 import {
   ACTIVITY_MONITOR_UNREADABLE,
   cpuPercentConvention,
+  cpuScaleTop,
   formatCpuPercent,
   formatMemory,
+  formatSpan,
   formatStartTime,
   formatTimeUntil,
 } from '../../src/activity-monitor/format';
@@ -33,6 +35,35 @@ describe('formatCpuPercent', () => {
     expect(formatCpuPercent(null, 'darwin', 10)).toBe(ACTIVITY_MONITOR_UNREADABLE);
     expect(formatCpuPercent(null, 'win32', 10)).toBe(ACTIVITY_MONITOR_UNREADABLE);
     expect(formatCpuPercent(0, 'darwin', 10)).toBe('0.0%');
+  });
+});
+
+describe('cpuScaleTop', () => {
+  it('tops every graph at one full core where "CPU %" counts per core, whatever the machine', () => {
+    expect(cpuScaleTop('darwin', 10)).toBe(1);
+    expect(cpuScaleTop('linux', 64)).toBe(1);
+  });
+
+  it('tops every graph at the whole machine on Windows', () => {
+    expect(cpuScaleTop('win32', 8)).toBe(8);
+  });
+});
+
+describe('formatSpan', () => {
+  it('reads seconds under a minute, minutes under two hours, hours under two days, days beyond', () => {
+    expect(formatSpan(42_000, 'en')).toBe('42 sec');
+    expect(formatSpan(60 * 60_000, 'en')).toBe('60 min');
+    expect(formatSpan(6 * 3_600_000, 'en')).toBe('6 hr');
+    expect(formatSpan(4 * 86_400_000, 'en')).toBe('4 days');
+  });
+
+  it('rounds down — an hour and fifty-nine minutes is not yet two hours', () => {
+    expect(formatSpan(119 * 60_000 + 59_000, 'en')).toBe('119 min');
+    expect(formatSpan(2 * 3_600_000, 'en')).toBe('2 hr');
+  });
+
+  it('speaks the locale it is given', () => {
+    expect(formatSpan(6 * 3_600_000, 'de')).toBe('6 Std.');
   });
 });
 

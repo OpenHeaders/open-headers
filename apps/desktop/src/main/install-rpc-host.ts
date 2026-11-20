@@ -714,13 +714,14 @@ export async function installRpcHost(): Promise<void> {
       return { facts: buildDesktopDiagnosticsFacts(desktopDiagnosticsDeps(telemetryDeps)) };
     }
     // The activity monitor's pull (the activity monitor plan §7, fork 4):
-    // a viewer asks and this process reads — no timer runs here for it,
-    // and no figure leaves the device. The services are read from their
-    // owners on every ask (the plan §6, law 4), outside the sampler's
-    // one-second process read.
+    // a viewer asks and this process reads — no timer runs here for a
+    // viewer, and no figure leaves the device. The answer carries the
+    // history's beats past the cursor the viewer holds. The services
+    // are read from their owners on every ask (the plan §6, law 4),
+    // outside the sampler's one-second process read.
     if (type === 'oh.activityMonitor.sample') {
       const snapshot: ActivityMonitorSnapshot = {
-        ...activityMonitor.sample(),
+        ...activityMonitor.answer(typeof message.cursor === 'number' ? message.cursor : null),
         services: spine.listRunningServices(),
       };
       return snapshot;
@@ -809,6 +810,7 @@ export async function installRpcHost(): Promise<void> {
     updateService.dispose();
     productTelemetry.dispose();
     errorReports.dispose();
+    activityMonitor.dispose();
     scriptSandbox.dispose();
     await spine.dispose();
     engineLogger.info(SCOPE, 'engine disposed');

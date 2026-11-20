@@ -1,38 +1,52 @@
 /**
  * ActivityMonitorPanel — the workbench Activity Monitor tool-window
- * body (the activity monitor plan §8): one table of the app's own
- * processes, named in the interface's words, with what each costs, and
- * under it what the engine keeps running, as facts. The host owns every
- * read; this panel asks while it is looked at and formats the answer.
- * Values change in place on the two-second beat — no row moves — and
- * what could not be read reads as a dash.
+ * body (the activity monitor plan §8): one line of totals, one table of
+ * the app's own processes, named in the interface's words, with what
+ * each costs and its last hour, and under it what the engine keeps
+ * running, as facts. The host owns every read; this panel asks while it
+ * is looked at and formats the answer. Values change in place on the
+ * two-second beat and what could not be read reads as a dash. No row
+ * moves under the pointer (the plan §6, law 10): a sort is applied on
+ * the click and again when a history beat arrives, never while the
+ * pointer is over the table.
  */
 
 import { CaretRightOutlined } from '@ant-design/icons';
 import {
+  ACTIVITY_MONITOR_HISTORY_SPAN_MS,
+  ACTIVITY_MONITOR_UNREADABLE,
   type ActivityMonitorProcessKind,
   type ActivityMonitorProcessRow,
   type ActivityMonitorServiceKind,
   type ActivityMonitorServiceState,
   type ActivityMonitorSnapshot,
+  type ActivityMonitorSort,
+  type ActivityMonitorSortColumn,
   arrangeProcessRows,
+  compareProcessOrder,
   cpuPercentConvention,
+  cpuScaleTop,
   formatCpuPercent,
   formatMemory,
+  formatSpan,
   formatStartTime,
+  holdProcessOrder,
+  nextProcessSort,
+  sortedProcessIds,
   sumReadable,
 } from '@openheaders/core/activity-monitor';
 import type { StatusLevel } from '@openheaders/core/types';
 import type { MessageKey } from '@openheaders/i18n';
 import { Tooltip } from 'antd';
 import type React from 'react';
-import { memo, useMemo, useState } from 'react';
+import { memo, useEffect, useMemo, useRef, useState } from 'react';
 import { type Translate, useLocale } from '@openheaders/ui/context/LocaleContext';
 import { createPanelHeaderWiring, PanelHeader } from '@openheaders/ui/shared/dock-layout';
 import { useStatus } from '@openheaders/ui/shared/hooks/useStatus';
 import type { InfoPopoverContent } from '@openheaders/ui/shared/info-popover';
+import { buildHistoryGraphs, type HistoryGraphs, ROW_GRAPH, SUMMARY_GRAPH } from './history-graphs';
 import { SERVICE_REVEAL_TARGETS } from './service-reveal';
-import { SERVICE_NAME_KEYS, SERVICE_STATUS_SUBSYSTEM, serviceFacts } from './service-rows';
+import { FACT_SEPARATOR, SERVICE_NAME_KEYS, SERVICE_STATUS_SUBSYSTEM, serviceFacts } from './service-rows';
 import { useActivityMonitorSnapshot } from './use-activity-monitor-snapshot';
 import './activity-monitor.css';
 
@@ -60,20 +74,39 @@ const PROCESS_NAME_KEYS: Record<Exclude<ActivityMonitorProcessKind, 'other'>, Me
   'script-runtime': 'workbench.activityMonitor.process.scriptRuntime',
 };
 
-function processName(row: ActivityMonitorProcessRow, t: Translate): string {
+function processName(row: Pick<ActivityMonitorProcessRow, 'kind' | 'runtimeName'>, t: Translate): string {
   return row.kind === 'other' ? (row.runtimeName ?? '') : t(PROCESS_NAME_KEYS[row.kind]);
 }
+
+/** One graph is one path (the plan §6, law 11); it redraws only when its path changes — once a beat. */
+const Sparkline = memo(function Sparkline({ path, width, height }: { path: string; width: number; height: number }) {
+  return (
+    <svg className="oh-am-spark" width={width} height={height} viewBox={`0 0 ${width} ${height}`} aria-hidden="true">
+      <path d={path} />
+    </svg>
+  );
+});
 
 interface ProcessRowProps {
   name: string;
   cpu: string;
+  /** The row's last hour of CPU, as a path; empty before its first beat. */
+  graph: string;
   memory: string;
   started: string;
   pid: number;
   child?: boolean;
 }
 
-const ProcessRow = memo(function ProcessRow({ name, cpu, memory, started, pid, child = false }: ProcessRowProps) {
+const ProcessRow = memo(function ProcessRow({
+  name,
+  cpu,
+  graph,
+  memory,
+  started,
+  pid,
+  child = false,
+}: ProcessRowProps) {
   return (
     <div className={child ? 'oh-am-row oh-am-row--child' : 'oh-am-row'} role="row" data-testid="activity-monitor-row">
       <span className="oh-am-name" role="cell">
@@ -82,6 +115,7 @@ const ProcessRow = memo(function ProcessRow({ name, cpu, memory, started, pid, c
       <span className="oh-am-num" role="cell">
         {cpu}
       </span>
+      <Sparkline path={graph} width={ROW_GRAPH.width} height={ROW_GRAPH.height} />
       <span className="oh-am-num" role="cell">
         {memory}
       </span>
@@ -131,21 +165,139 @@ const ServiceRow = memo(function ServiceRow({ kind, name, facts, state, level, r
   );
 });
 
-const ColumnHead: React.FC<{ label: string; hover?: string }> = ({ label, hover }) => (
-  <Tooltip title={hover} placement="top">
-    <span className="oh-am-col" role="columnheader">
-      {label}
-    </span>
-  </Tooltip>
-);
+/** A process that ended inside the hour: its name, a dash for CPU, the hour it left behind, when it ended. */
+const EndedRow = memo(function EndedRow({ name, graph, note }: { name: string; graph: string; note: string }) {
+  return (
+    <div className="oh-am-row oh-am-row--ended" role="row" data-testid="activity-monitor-ended">
+      <span className="oh-am-name" role="cell">
+        {name}
+      </span>
+      <span className="oh-am-num" role="cell">
+        {ACTIVITY_MONITOR_UNREADABLE}
+      </span>
+      <Sparkline path={graph} width={ROW_GRAPH.width} height={ROW_GRAPH.height} />
+      <span className="oh-am-ended-note" role="cell">
+        {note}
+      </span>
+    </div>
+  );
+});
+
+interface SortHeadProps {
+  column: ActivityMonitorSortColumn;
+  label: string;
+  hover?: string;
+  sort: ActivityMonitorSort | null;
+  onSort: (column: ActivityMonitorSortColumn) => void;
+}
+
+const SortHead: React.FC<SortHeadProps> = ({ column, label, hover, sort, onSort }) => {
+  const direction = sort?.column === column ? sort.direction : null;
+  return (
+    <Tooltip title={hover} placement="top">
+      <span
+        className="oh-am-col"
+        role="columnheader"
+        aria-sort={direction === null ? undefined : direction === 'asc' ? 'ascending' : 'descending'}
+      >
+        <button type="button" className="oh-am-sort" onClick={() => onSort(column)}>
+          {label}
+          {direction !== null && <span aria-hidden>{direction === 'asc' ? ' ▴' : ' ▾'}</span>}
+        </button>
+      </span>
+    </Tooltip>
+  );
+};
+
+/** The one line under the title: every process added up, how many there are, how long the app has run. */
+const Summary: React.FC<{ snapshot: ActivityMonitorSnapshot; graphs: HistoryGraphs }> = ({ snapshot, graphs }) => {
+  const { t, locale } = useLocale();
+  const engine = snapshot.processes.find((row) => row.kind === 'engine');
+  const count = t('workbench.activityMonitor.summary.processCount', { count: snapshot.processes.length });
+  return (
+    <div className="oh-am-summary" data-testid="activity-monitor-summary">
+      <Tooltip title={t('workbench.activityMonitor.summary.cpuHover')} placement="bottom">
+        <span className="oh-am-stat">
+          {t('workbench.activityMonitor.column.cpu')}
+          <strong>
+            {formatCpuPercent(
+              sumReadable(snapshot.processes.map((row) => row.cpuRate)),
+              snapshot.platform,
+              snapshot.logicalCores,
+            )}
+          </strong>
+          <Sparkline path={graphs.cpuTotal} width={SUMMARY_GRAPH.width} height={SUMMARY_GRAPH.height} />
+        </span>
+      </Tooltip>
+      <Tooltip title={t('workbench.activityMonitor.summary.memoryHover')} placement="bottom">
+        <span className="oh-am-stat">
+          {t('workbench.activityMonitor.column.memory')}
+          <strong>{formatMemory(sumReadable(snapshot.processes.map((row) => row.memoryBytes)))}</strong>
+          <Sparkline path={graphs.memoryTotal} width={SUMMARY_GRAPH.width} height={SUMMARY_GRAPH.height} />
+        </span>
+      </Tooltip>
+      <span className="oh-am-count">
+        {engine === undefined
+          ? count
+          : [
+              count,
+              t('workbench.activityMonitor.summary.uptime', {
+                duration: formatSpan(snapshot.sampledAt - engine.startedAt, locale),
+              }),
+            ].join(FACT_SEPARATOR)}
+      </span>
+      <Tooltip
+        title={t(
+          cpuPercentConvention(snapshot.platform) === 'per-core'
+            ? 'workbench.activityMonitor.summary.scalePerCore'
+            : 'workbench.activityMonitor.summary.scaleMachineShare',
+        )}
+        placement="bottomRight"
+      >
+        <span className="oh-am-range">
+          {t('workbench.activityMonitor.summary.range', {
+            duration: formatSpan(ACTIVITY_MONITOR_HISTORY_SPAN_MS, locale),
+          })}
+        </span>
+      </Tooltip>
+    </div>
+  );
+};
 
 const ActivityMonitorPanel: React.FC<ActivityMonitorPanelProps> = ({ info, active, onHide, onRevealService }) => {
   const { t, locale } = useLocale();
   const wiring = useMemo(() => createPanelHeaderWiring({ onHide }), [onHide]);
-  const { snapshot, unreadable } = useActivityMonitorSnapshot(active);
+  const { snapshot, unreadable, history } = useActivityMonitorSnapshot(active);
   const { snapshot: status } = useStatus();
   const [otherOpen, setOtherOpen] = useState(false);
-  const arranged = useMemo(() => (snapshot === null ? null : arrangeProcessRows(snapshot.processes)), [snapshot]);
+  const [sort, setSort] = useState<ActivityMonitorSort | null>(null);
+  /** The order the sort gave when it was last applied; rows hold it until the next application. */
+  const [heldOrder, setHeldOrder] = useState<readonly string[] | null>(null);
+  const pointerOverTable = useRef(false);
+
+  const cpuTop = snapshot === null ? 1 : cpuScaleTop(snapshot.platform, snapshot.logicalCores);
+  const graphs = useMemo(() => buildHistoryGraphs(history, cpuTop), [history, cpuTop]);
+
+  const arranged = useMemo(() => {
+    if (snapshot === null) return null;
+    const fixed = arrangeProcessRows(snapshot.processes);
+    return heldOrder === null
+      ? fixed
+      : { named: holdProcessOrder(fixed.named, heldOrder), other: holdProcessOrder(fixed.other, heldOrder) };
+  }, [snapshot, heldOrder]);
+  const ended = useMemo(() => (snapshot === null ? [] : [...snapshot.ended].sort(compareProcessOrder)), [snapshot]);
+
+  const onSort = (column: ActivityMonitorSortColumn): void => {
+    const next = nextProcessSort(sort, column);
+    setSort(next);
+    setHeldOrder(next === null || snapshot === null ? null : sortedProcessIds(snapshot.processes, next));
+  };
+
+  // biome-ignore lint/correctness/useExhaustiveDependencies: `history` is the slow beat — its identity changes when a beat arrives, and only at that edge is the sort applied again, over the figures of the same answer
+  useEffect(() => {
+    if (sort === null || snapshot === null || pointerOverTable.current) return;
+    setHeldOrder(sortedProcessIds(snapshot.processes, sort));
+  }, [history]);
 
   const renderRow = (
     row: ActivityMonitorProcessRow,
@@ -156,6 +308,7 @@ const ActivityMonitorPanel: React.FC<ActivityMonitorPanelProps> = ({ info, activ
       key={row.id}
       name={processName(row, t)}
       cpu={formatCpuPercent(row.cpuRate, answer.platform, answer.logicalCores)}
+      graph={graphs.processes.get(row.id)?.path ?? ''}
       memory={formatMemory(row.memoryBytes)}
       started={formatStartTime(row.startedAt, answer.sampledAt, locale)}
       pid={row.pid}
@@ -166,12 +319,25 @@ const ActivityMonitorPanel: React.FC<ActivityMonitorPanelProps> = ({ info, activ
   return (
     <div className="rules-bottom-panel" data-testid="activity-monitor-panel">
       <PanelHeader wiring={wiring} title={<strong>{t('workbench.toolWindows.activityMonitor')}</strong>} info={info} />
-      <div className="oh-am-body" role="table" aria-label={t('workbench.toolWindows.activityMonitor')}>
+      {snapshot !== null && <Summary snapshot={snapshot} graphs={graphs} />}
+      {/* biome-ignore lint/a11y/noStaticElementInteractions: the pointer is only watched — a sort is held while it is over the table */}
+      <div
+        className="oh-am-body"
+        role="table"
+        aria-label={t('workbench.toolWindows.activityMonitor')}
+        onMouseEnter={() => {
+          pointerOverTable.current = true;
+        }}
+        onMouseLeave={() => {
+          pointerOverTable.current = false;
+        }}
+      >
         <div className="oh-am-row oh-am-head" role="row">
           <span className="oh-am-group" role="columnheader">
             {t('workbench.activityMonitor.group.processes')}
           </span>
-          <ColumnHead
+          <SortHead
+            column="cpu"
             label={t('workbench.activityMonitor.column.cpu')}
             hover={
               snapshot === null
@@ -182,15 +348,29 @@ const ActivityMonitorPanel: React.FC<ActivityMonitorPanelProps> = ({ info, activ
                       : 'workbench.activityMonitor.column.cpuHoverMachineShare',
                   )
             }
+            sort={sort}
+            onSort={onSort}
           />
-          <ColumnHead
+          <span aria-hidden />
+          <SortHead
+            column="memory"
             label={t('workbench.activityMonitor.column.memory')}
             hover={t('workbench.activityMonitor.column.memoryHover')}
+            sort={sort}
+            onSort={onSort}
           />
-          <ColumnHead label={t('workbench.activityMonitor.column.started')} />
-          <ColumnHead
+          <SortHead
+            column="started"
+            label={t('workbench.activityMonitor.column.started')}
+            sort={sort}
+            onSort={onSort}
+          />
+          <SortHead
+            column="pid"
             label={t('workbench.activityMonitor.column.pid')}
             hover={t('workbench.activityMonitor.column.pidHover')}
+            sort={sort}
+            onSort={onSort}
           />
         </div>
         {unreadable && <div className="oh-am-note">{t('workbench.activityMonitor.unreadable')}</div>}
@@ -218,12 +398,36 @@ const ActivityMonitorPanel: React.FC<ActivityMonitorPanelProps> = ({ info, activ
                     snapshot.logicalCores,
                   )}
                 </span>
+                <span aria-hidden />
                 <span className="oh-am-num" role="cell">
                   {formatMemory(sumReadable(arranged.other.map((row) => row.memoryBytes)))}
                 </span>
               </div>
             )}
             {otherOpen && arranged.other.map((row) => renderRow(row, snapshot, true))}
+            {ended.map((process) => {
+              const graph = graphs.processes.get(process.id);
+              const endedAt = t('workbench.activityMonitor.ended', {
+                time: formatStartTime(process.endedAt, snapshot.sampledAt, locale),
+              });
+              return (
+                <EndedRow
+                  key={process.id}
+                  name={processName(process, t)}
+                  graph={graph?.path ?? ''}
+                  note={
+                    graph === undefined || graph.peak === null
+                      ? endedAt
+                      : [
+                          endedAt,
+                          t('workbench.activityMonitor.peak', {
+                            percent: formatCpuPercent(graph.peak, snapshot.platform, snapshot.logicalCores),
+                          }),
+                        ].join(FACT_SEPARATOR)
+                  }
+                />
+              );
+            })}
             {snapshot.services.length > 0 && (
               <div className="oh-am-row oh-am-head oh-am-head--running" role="row">
                 <span className="oh-am-group" role="columnheader">

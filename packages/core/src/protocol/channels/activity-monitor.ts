@@ -10,10 +10,11 @@ import type { ActivityMonitorCursor, ActivityMonitorSnapshot } from '../../activ
 
 export interface ActivityMonitorRpc {
   /**
-   * What the app is running right now. `cursor` is the one the previous
-   * answer carried (null on a first ask). Hosts with no process plane
-   * under them never answer; the surface gates on the `activityMonitor`
-   * capability.
+   * What the app is running right now, and the history's beats past
+   * `cursor` — the one the previous answer carried (null on a first
+   * ask, which gets every beat the host holds). Hosts with no process
+   * plane under them never answer; the surface gates on the
+   * `activityMonitor` capability.
    */
   'oh.activityMonitor.sample': {
     req: { cursor: ActivityMonitorCursor | null };

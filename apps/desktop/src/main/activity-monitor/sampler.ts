@@ -1,8 +1,10 @@
 /**
  * The activity monitor's sampler (the activity monitor plan §6, laws 2
- * and 3): it answers a viewer's ask from a read no older than a second
- * and holds no timer of its own — with nobody asking, nothing is read.
- * Every rate is its own delta between two of its reads.
+ * and 3): it answers from a read no older than a second and holds no
+ * timer of its own — it reads only when it is asked. Every rate is its
+ * own delta between two of its reads. It has two callers, a viewer's
+ * ask and the history's beat, and they share its ONE read; the history
+ * takes its own rates from the counters each read carries.
  *
  * The clock and the read are dependencies: the read is the seam the
  * in-house process reader later fills (the plan §7, fork 10), and both
@@ -11,7 +13,7 @@
 
 import {
   type ActivityMonitorPlatform,
-  type ActivityMonitorSnapshot,
+  type ActivityMonitorProcessRow,
   type CpuCounterState,
   foldCpuCounters,
   processIdentity,
@@ -36,8 +38,20 @@ export interface ActivityMonitorSamplerDeps {
   logicalCores: number;
 }
 
-/** The sampler's half of the answer: the processes. The services are read by their own owners at ask time. */
-export type ActivityMonitorProcessSample = Omit<ActivityMonitorSnapshot, 'services'>;
+/** One read of the processes. */
+export interface ActivityMonitorProcessSample {
+  /** ms since epoch. */
+  sampledAt: number;
+  platform: ActivityMonitorPlatform;
+  logicalCores: number;
+  processes: ActivityMonitorProcessRow[];
+  /**
+   * CPU seconds each process has used so far, by identity — the
+   * runtime's own counter, or the one rebuilt from its percent. Never
+   * sent to a viewer.
+   */
+  cpuSeconds: ReadonlyMap<string, number>;
+}
 
 export interface ActivityMonitorSampler {
   sample(): ActivityMonitorProcessSample;
@@ -85,7 +99,7 @@ export function createActivityMonitorSampler(deps: ActivityMonitorSamplerDeps): 
             memoryBytes: read.memoryBytes,
           };
         }),
-        cursor: 0,
+        cpuSeconds: fold.state.seconds,
       };
       return latest;
     },

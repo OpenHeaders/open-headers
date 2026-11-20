@@ -12,13 +12,22 @@
  *   - what the engine keeps running sits under RUNNING as facts worded
  *     from structured fields, an off service muted, an unreadable one a
  *     dash; a dot wears the status store's colour where a subsystem
- *     owns the service; the arrow asks the shell to front the owner.
+ *     owns the service; the arrow asks the shell to front the owner;
+ *   - the history is kept across asks — appended, never asked for
+ *     twice, kept through an unanswered ask; a row's last hour is one
+ *     path on the one scale; a process that ended keeps a muted row;
+ *     the header line adds every process up and says its memory is an
+ *     upper bound; a heading click sorts, and the order is held until
+ *     a history beat arrives with the pointer off the table (law 10).
  */
 
-import type {
-  ActivityMonitorProcessRow,
-  ActivityMonitorServiceRow,
-  ActivityMonitorSnapshot,
+import {
+  type ActivityMonitorHistoryBeat,
+  type ActivityMonitorHistoryPoint,
+  type ActivityMonitorProcessRow,
+  type ActivityMonitorServiceRow,
+  type ActivityMonitorSnapshot,
+  formatStartTime,
 } from '@openheaders/core/activity-monitor';
 import { type HostBridge, setHostBridge } from '@openheaders/core/bridge';
 import type { StatusSnapshot } from '@openheaders/core/types';
@@ -53,10 +62,22 @@ function makeSnapshot(overrides: Partial<ActivityMonitorSnapshot> = {}): Activit
     logicalCores: 10,
     processes: [makeRow()],
     services: [],
+    history: [],
+    ended: [],
     cursor: 0,
     ...overrides,
   };
 }
+
+function makeBeat(
+  seq: number,
+  at: number,
+  points: Record<string, ActivityMonitorHistoryPoint>,
+): ActivityMonitorHistoryBeat {
+  return { seq, at, points };
+}
+
+const HALF_HOUR = 30 * 60_000;
 
 interface BridgeFake {
   bridge: HostBridge;
@@ -92,14 +113,23 @@ async function tick(ms: number): Promise<void> {
   });
 }
 
+class ResizeObserverStub implements ResizeObserver {
+  observe(): void {}
+  unobserve(): void {}
+  disconnect(): void {}
+}
+
 beforeEach(() => {
   vi.useFakeTimers();
+  // A hover's tooltip measures its trigger; the test DOM has no observer of its own.
+  vi.stubGlobal('ResizeObserver', ResizeObserverStub);
   visibility = 'visible';
   Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => visibility });
 });
 
 afterEach(() => {
   cleanup();
+  vi.unstubAllGlobals();
   vi.useRealTimers();
 });
 
@@ -197,7 +227,73 @@ describe('useActivityMonitorSnapshot', () => {
     expect(hook.result.current).toMatchObject({ unreadable: false });
 
     await tick(ACTIVITY_MONITOR_PULL_MS);
-    expect(hook.result.current).toEqual({ snapshot: null, unreadable: true });
+    expect(hook.result.current).toEqual({ snapshot: null, unreadable: true, history: [] });
+  });
+
+  it('keeps the history across asks: the first answer’s beats, then each answer’s new ones appended', async () => {
+    const answers = [
+      makeSnapshot({
+        history: [makeBeat(1, SAMPLED_AT - 30_000, {}), makeBeat(2, SAMPLED_AT - 15_000, {})],
+        cursor: 2,
+      }),
+      makeSnapshot({ history: [makeBeat(3, SAMPLED_AT, {})], cursor: 3 }),
+    ];
+    const fake = createBridgeFake(async () => answers.shift() ?? makeSnapshot({ cursor: 3 }));
+    setHostBridge(fake.bridge);
+    const hook = renderHook(() => useActivityMonitorSnapshot(true));
+    await tick(0);
+    expect(hook.result.current.history.map((beat) => beat.seq)).toEqual([1, 2]);
+
+    await tick(ACTIVITY_MONITOR_PULL_MS);
+    expect(hook.result.current.history.map((beat) => beat.seq)).toEqual([1, 2, 3]);
+    expect(fake.asks).toEqual([{ cursor: null }, { cursor: 2 }]);
+  });
+
+  it('holds the very same history when an answer carries no beat', async () => {
+    const answers = [makeSnapshot({ history: [makeBeat(1, SAMPLED_AT, {})], cursor: 1 })];
+    const fake = createBridgeFake(async () => answers.shift() ?? makeSnapshot({ cursor: 1 }));
+    setHostBridge(fake.bridge);
+    const hook = renderHook(() => useActivityMonitorSnapshot(true));
+    await tick(0);
+    const held = hook.result.current.history;
+
+    await tick(ACTIVITY_MONITOR_PULL_MS);
+    expect(fake.asks).toHaveLength(2);
+    expect(hook.result.current.history).toBe(held);
+  });
+
+  it('keeps the history through an unanswered ask, and asks on from the cursor it held', async () => {
+    let asked = 0;
+    const fake = createBridgeFake(async () => {
+      asked += 1;
+      if (asked === 2) throw new Error('no handler');
+      return asked === 1
+        ? makeSnapshot({ history: [makeBeat(1, SAMPLED_AT - 15_000, {})], cursor: 1 })
+        : makeSnapshot({ history: [makeBeat(2, SAMPLED_AT, {})], cursor: 2 });
+    });
+    setHostBridge(fake.bridge);
+    const hook = renderHook(() => useActivityMonitorSnapshot(true));
+    await tick(0);
+    await tick(ACTIVITY_MONITOR_PULL_MS);
+    expect(hook.result.current.unreadable).toBe(true);
+    expect(hook.result.current.history.map((beat) => beat.seq)).toEqual([1]);
+
+    await tick(ACTIVITY_MONITOR_PULL_MS);
+    expect(fake.asks[2]).toEqual({ cursor: 1 });
+    expect(hook.result.current.history.map((beat) => beat.seq)).toEqual([1, 2]);
+  });
+
+  it('replaces the history with beats that do not continue it — the host started over', async () => {
+    const answers = [
+      makeSnapshot({ history: [makeBeat(8, SAMPLED_AT - 15_000, {}), makeBeat(9, SAMPLED_AT, {})], cursor: 9 }),
+      makeSnapshot({ history: [makeBeat(1, SAMPLED_AT + 15_000, {})], cursor: 1 }),
+    ];
+    const fake = createBridgeFake(async () => answers.shift() ?? makeSnapshot({ cursor: 1 }));
+    setHostBridge(fake.bridge);
+    const hook = renderHook(() => useActivityMonitorSnapshot(true));
+    await tick(0);
+    await tick(ACTIVITY_MONITOR_PULL_MS);
+    expect(hook.result.current.history.map((beat) => beat.seq)).toEqual([1]);
   });
 });
 
@@ -412,6 +508,256 @@ describe('ActivityMonitorPanel', () => {
     await renderServices([]);
     expect(screen.queryByText('Running')).toBeNull();
     expect(screen.queryAllByTestId('activity-monitor-service')).toHaveLength(0);
+  });
+
+  const ENGINE = makeRow({ kind: 'engine', pid: 4312, startedAt: SAMPLED_AT - 6 * 3_600_000 - 600_000 });
+  const WINDOW = makeRow({ kind: 'window', pid: 61_007, startedAt: SAMPLED_AT - 300_000, memoryBytes: 310 * MB });
+  const GRAPHICS = makeRow({ kind: 'graphics', pid: 4318, startedAt: ENGINE.startedAt, memoryBytes: 74 * MB });
+
+  const graphPaths = (row: Element): Array<string | null> =>
+    Array.from(row.querySelectorAll('svg path'), (path) => path.getAttribute('d'));
+
+  const rowNames = (): string[] => screen.getAllByTestId('activity-monitor-row').map((row) => cells(row)[0]);
+
+  it('draws a row’s last hour as one path on the one scale, and nothing for a row with no beat yet', async () => {
+    const fake = createBridgeFake(async () =>
+      makeSnapshot({
+        processes: [ENGINE, WINDOW],
+        history: [
+          makeBeat(1, SAMPLED_AT - HALF_HOUR, { [ENGINE.id]: { cpuRate: 0, memoryBytes: 200 * MB } }),
+          makeBeat(2, SAMPLED_AT, { [ENGINE.id]: { cpuRate: 1, memoryBytes: 212 * MB } }),
+        ],
+        cursor: 2,
+      }),
+    );
+    setHostBridge(fake.bridge);
+    render(<ActivityMonitorPanel info={INFO} active onHide={() => {}} onRevealService={() => {}} />);
+    await tick(0);
+
+    const [windowRow, engineRow] = screen.getAllByTestId('activity-monitor-row');
+    expect(engineRow.querySelectorAll('svg')).toHaveLength(1);
+    // Half an hour ago at zero, now at one full core — the top of the scale.
+    expect(graphPaths(engineRow)).toEqual(['M50.0 13.0L100.0 1.0']);
+    expect(graphPaths(windowRow)).toEqual(['']);
+  });
+
+  it('tops the scale at the whole machine where the host is Windows', async () => {
+    const fake = createBridgeFake(async () =>
+      makeSnapshot({
+        platform: 'win32',
+        logicalCores: 8,
+        processes: [ENGINE],
+        history: [
+          makeBeat(1, SAMPLED_AT - HALF_HOUR, { [ENGINE.id]: { cpuRate: 8, memoryBytes: 200 * MB } }),
+          makeBeat(2, SAMPLED_AT, { [ENGINE.id]: { cpuRate: 1, memoryBytes: 212 * MB } }),
+        ],
+        cursor: 2,
+      }),
+    );
+    setHostBridge(fake.bridge);
+    render(<ActivityMonitorPanel info={INFO} active onHide={() => {}} onRevealService={() => {}} />);
+    await tick(0);
+    // Every core busy is the top; one core of eight is an eighth of the way up.
+    expect(graphPaths(screen.getByTestId('activity-monitor-row'))).toEqual(['M50.0 1.0L100.0 11.5']);
+  });
+
+  it('keeps a process that ended as a muted row: a dash for CPU, its hour, when it ended and its peak', async () => {
+    const runtime = makeRow({ kind: 'script-runtime', pid: 61_377, startedAt: SAMPLED_AT - 20 * 60_000 });
+    const endedAt = SAMPLED_AT - 17 * 60_000;
+    const fake = createBridgeFake(async () =>
+      makeSnapshot({
+        processes: [ENGINE],
+        history: [
+          makeBeat(1, SAMPLED_AT - HALF_HOUR, { [ENGINE.id]: { cpuRate: 0.006, memoryBytes: 212 * MB } }),
+          makeBeat(2, SAMPLED_AT - 18 * 60_000, {
+            [ENGINE.id]: { cpuRate: 0.006, memoryBytes: 212 * MB },
+            [runtime.id]: { cpuRate: 1, memoryBytes: 96 * MB },
+          }),
+          makeBeat(3, SAMPLED_AT, { [ENGINE.id]: { cpuRate: 0.006, memoryBytes: 212 * MB } }),
+        ],
+        ended: [{ id: runtime.id, kind: 'script-runtime', pid: 61_377, startedAt: runtime.startedAt, endedAt }],
+        cursor: 3,
+      }),
+    );
+    setHostBridge(fake.bridge);
+    render(<ActivityMonitorPanel info={INFO} active onHide={() => {}} onRevealService={() => {}} />);
+    await tick(0);
+
+    expect(rowNames()).toEqual(['Open Headers']);
+    const ended = screen.getByTestId('activity-monitor-ended');
+    expect(ended.className).toBe('oh-am-row oh-am-row--ended');
+    expect(cells(ended)).toEqual([
+      'Script runtime · Developer',
+      '—',
+      `ended ${formatStartTime(endedAt, SAMPLED_AT, 'en')} · peak 100.0%`,
+    ]);
+    // One beat of it, with nothing on either side: a dot at the top of the scale.
+    expect(graphPaths(ended)).toEqual(['M70.0 1.0h0']);
+  });
+
+  it('says only when a process ended where the hour holds no rate of it', async () => {
+    const runtime = makeRow({ kind: 'script-runtime', pid: 61_377, startedAt: SAMPLED_AT - 60_000 });
+    const endedAt = SAMPLED_AT - 20_000;
+    const fake = createBridgeFake(async () =>
+      makeSnapshot({
+        processes: [ENGINE],
+        history: [makeBeat(1, SAMPLED_AT - 30_000, { [runtime.id]: { cpuRate: null, memoryBytes: 96 * MB } })],
+        ended: [{ id: runtime.id, kind: 'script-runtime', pid: 61_377, startedAt: runtime.startedAt, endedAt }],
+        cursor: 1,
+      }),
+    );
+    setHostBridge(fake.bridge);
+    render(<ActivityMonitorPanel info={INFO} active onHide={() => {}} onRevealService={() => {}} />);
+    await tick(0);
+    expect(cells(screen.getByTestId('activity-monitor-ended'))[2]).toBe(
+      `ended ${formatStartTime(endedAt, SAMPLED_AT, 'en')}`,
+    );
+  });
+
+  it('adds every process up on the one line under the title, with the count and how long the app has run', async () => {
+    const fake = createBridgeFake(async () =>
+      makeSnapshot({
+        processes: [
+          { ...ENGINE, cpuRate: 0.006 },
+          { ...WINDOW, cpuRate: 0.011 },
+        ],
+        history: [
+          makeBeat(1, SAMPLED_AT - HALF_HOUR, { [ENGINE.id]: { cpuRate: 0.5, memoryBytes: 200 * MB } }),
+          makeBeat(2, SAMPLED_AT, {
+            [ENGINE.id]: { cpuRate: 0.25, memoryBytes: 212 * MB },
+            [WINDOW.id]: { cpuRate: 0.25, memoryBytes: 188 * MB },
+          }),
+        ],
+        cursor: 2,
+      }),
+    );
+    setHostBridge(fake.bridge);
+    render(<ActivityMonitorPanel info={INFO} active onHide={() => {}} onRevealService={() => {}} />);
+    await tick(0);
+
+    const summary = screen.getByTestId('activity-monitor-summary');
+    expect(Array.from(summary.querySelectorAll('strong'), (figure) => figure.textContent)).toEqual(['1.7%', '522 MB']);
+    expect(summary.querySelector('.oh-am-count')?.textContent).toBe('2 processes · up 6 hr');
+    expect(summary.querySelector('.oh-am-range')?.textContent).toBe('last 60 min');
+    // CPU on the rows' scale; memory from zero to the hour's own highest total (400 MB, now).
+    expect(graphPaths(summary)).toEqual(['M60.0 8.0L120.0 8.0', 'M60.0 8.0L120.0 1.0']);
+  });
+
+  it('reads a dash for a total nothing could be read of, and says one process as one', async () => {
+    const fake = createBridgeFake(async () =>
+      makeSnapshot({ processes: [{ ...ENGINE, cpuRate: null, memoryBytes: null }] }),
+    );
+    setHostBridge(fake.bridge);
+    render(<ActivityMonitorPanel info={INFO} active onHide={() => {}} onRevealService={() => {}} />);
+    await tick(0);
+    const summary = screen.getByTestId('activity-monitor-summary');
+    expect(Array.from(summary.querySelectorAll('strong'), (figure) => figure.textContent)).toEqual(['—', '—']);
+    expect(summary.querySelector('.oh-am-count')?.textContent).toBe('1 process · up 6 hr');
+  });
+
+  it('says on hover that the memory total is an upper bound', async () => {
+    setHostBridge(createBridgeFake(async () => makeSnapshot({ processes: [ENGINE] })).bridge);
+    render(<ActivityMonitorPanel info={INFO} active onHide={() => {}} onRevealService={() => {}} />);
+    await tick(0);
+    const memory = screen.getByTestId('activity-monitor-summary').querySelectorAll('.oh-am-stat')[1];
+    fireEvent.mouseEnter(memory);
+    await tick(500);
+    expect(
+      screen.getByText('An upper bound — memory that processes share is counted once for each of them.'),
+    ).toBeTruthy();
+  });
+
+  it('draws no line of totals while there is no answer', async () => {
+    setHostBridge(
+      createBridgeFake(async () => {
+        throw new Error('no handler');
+      }).bridge,
+    );
+    render(<ActivityMonitorPanel info={INFO} active onHide={() => {}} onRevealService={() => {}} />);
+    await tick(0);
+    expect(screen.queryByTestId('activity-monitor-summary')).toBeNull();
+  });
+
+  const SORTABLE = [
+    { ...WINDOW, cpuRate: 0.001 },
+    { ...ENGINE, cpuRate: 0.006 },
+    { ...GRAPHICS, cpuRate: 0.4 },
+  ];
+
+  it('sorts on a heading click — highest first, then lowest first, then the fixed order again', async () => {
+    setHostBridge(createBridgeFake(async () => makeSnapshot({ processes: SORTABLE })).bridge);
+    render(<ActivityMonitorPanel info={INFO} active onHide={() => {}} onRevealService={() => {}} />);
+    await tick(0);
+    expect(rowNames()).toEqual(['Workbench window', 'Open Headers', 'Graphics']);
+    const head = (): HTMLElement => screen.getByRole('columnheader', { name: 'CPU' });
+    expect(head().hasAttribute('aria-sort')).toBe(false);
+
+    fireEvent.click(screen.getByRole('button', { name: 'CPU' }));
+    expect(rowNames()).toEqual(['Graphics', 'Open Headers', 'Workbench window']);
+    expect(head().getAttribute('aria-sort')).toBe('descending');
+    expect(head().textContent).toBe('CPU ▾');
+
+    fireEvent.click(screen.getByRole('button', { name: 'CPU' }));
+    expect(rowNames()).toEqual(['Workbench window', 'Open Headers', 'Graphics']);
+    expect(head().getAttribute('aria-sort')).toBe('ascending');
+    expect(head().textContent).toBe('CPU ▴');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Memory' }));
+    expect(rowNames()).toEqual(['Workbench window', 'Open Headers', 'Graphics']);
+    expect(head().hasAttribute('aria-sort')).toBe(false);
+    expect(screen.getByRole('columnheader', { name: 'Memory' }).getAttribute('aria-sort')).toBe('descending');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Memory' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Memory' }));
+    expect(screen.getByRole('columnheader', { name: 'Memory' }).hasAttribute('aria-sort')).toBe(false);
+    expect(rowNames()).toEqual(['Workbench window', 'Open Headers', 'Graphics']);
+  });
+
+  it('holds a sorted order while figures change, applies it again on a history beat, never under the pointer', async () => {
+    let next = makeSnapshot({ processes: SORTABLE, history: [makeBeat(1, SAMPLED_AT, {})], cursor: 1 });
+    setHostBridge(createBridgeFake(async () => next).bridge);
+    render(<ActivityMonitorPanel info={INFO} active onHide={() => {}} onRevealService={() => {}} />);
+    await tick(0);
+    fireEvent.click(screen.getByRole('button', { name: 'CPU' }));
+    expect(rowNames()).toEqual(['Graphics', 'Open Headers', 'Workbench window']);
+
+    // The window is now the busiest. An answer with no new beat changes its figure in place and moves no row.
+    const busy = [{ ...WINDOW, cpuRate: 0.9 }, SORTABLE[1], SORTABLE[2]];
+    next = makeSnapshot({ processes: busy, cursor: 1 });
+    await tick(ACTIVITY_MONITOR_PULL_MS);
+    expect(cells(screen.getAllByTestId('activity-monitor-row')[2])).toEqual(
+      expect.arrayContaining(['Workbench window', '90.0%']),
+    );
+    expect(rowNames()).toEqual(['Graphics', 'Open Headers', 'Workbench window']);
+
+    // A beat arrives while the pointer is over the table: the order is held.
+    fireEvent.mouseEnter(screen.getByRole('table'));
+    next = makeSnapshot({ processes: busy, history: [makeBeat(2, SAMPLED_AT + 15_000, {})], cursor: 2 });
+    await tick(ACTIVITY_MONITOR_PULL_MS);
+    expect(rowNames()).toEqual(['Graphics', 'Open Headers', 'Workbench window']);
+
+    // The pointer leaves: still held until the next beat, and applied on it.
+    fireEvent.mouseLeave(screen.getByRole('table'));
+    next = makeSnapshot({ processes: busy, cursor: 2 });
+    await tick(ACTIVITY_MONITOR_PULL_MS);
+    expect(rowNames()).toEqual(['Graphics', 'Open Headers', 'Workbench window']);
+
+    next = makeSnapshot({ processes: busy, history: [makeBeat(3, SAMPLED_AT + 30_000, {})], cursor: 3 });
+    await tick(ACTIVITY_MONITOR_PULL_MS);
+    expect(rowNames()).toEqual(['Workbench window', 'Graphics', 'Open Headers']);
+  });
+
+  it('places a process that started since the sort was applied after the rows it holds', async () => {
+    let next = makeSnapshot({ processes: SORTABLE, cursor: 0 });
+    setHostBridge(createBridgeFake(async () => next).bridge);
+    render(<ActivityMonitorPanel info={INFO} active onHide={() => {}} onRevealService={() => {}} />);
+    await tick(0);
+    fireEvent.click(screen.getByRole('button', { name: 'CPU' }));
+
+    const sandbox = makeRow({ kind: 'script-sandbox', pid: 61_377, startedAt: SAMPLED_AT, cpuRate: 2 });
+    next = makeSnapshot({ processes: [...SORTABLE, sandbox], cursor: 0 });
+    await tick(ACTIVITY_MONITOR_PULL_MS);
+    expect(rowNames()).toEqual(['Graphics', 'Open Headers', 'Workbench window', 'Script sandbox · Safe']);
   });
 });
 
