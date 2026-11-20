@@ -559,6 +559,7 @@ const GitLogView: React.FC<GitLogViewProps> = ({
             <GitRefRail
             workspaceId={workspaceId}
             refs={refs}
+            refsRead={refsRead}
             currentRef={currentRef}
             unbornBranch={unbornBranch}
             detachedSha={detachedSha}

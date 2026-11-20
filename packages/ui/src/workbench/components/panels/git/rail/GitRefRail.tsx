@@ -31,6 +31,8 @@ import RefTree, { type RefTreeHandle } from './RefTree';
 export interface GitRefRailProps {
   workspaceId: string;
   refs: WorkspaceTreeRefWire[];
+  /** The host has answered the refs once. */
+  refsRead: boolean;
   currentRef: string | null;
   unbornBranch: string | null;
   /** The detached HEAD's commit (§3.4) — the HEAD row names it where the branch name goes; null on a branch. */
@@ -55,6 +57,7 @@ export interface GitRefRailProps {
 const GitRefRail: React.FC<GitRefRailProps> = ({
   workspaceId,
   refs,
+  refsRead,
   currentRef,
   unbornBranch,
   detachedSha,
@@ -188,6 +191,7 @@ const GitRefRail: React.FC<GitRefRailProps> = ({
       <RefTree
         ref={treeRef}
         refs={refs}
+        read={refsRead}
         currentRef={currentRef}
         unbornBranch={unbornBranch}
         detachedSha={detachedSha}

@@ -59,6 +59,8 @@ export type { RefTreeSelection } from './ref-row-menu';
 
 export interface RefTreeProps {
   refs: WorkspaceTreeRefWire[];
+  /** The host has answered the refs once — a list still unread is not a repo without branches. */
+  read: boolean;
   /** Checked-out branch per `listRefs`/`gitStatus` — the ★ row. */
   currentRef: string | null;
   /** Branch reported by `gitStatus` but absent from `listRefs` (unborn
@@ -114,6 +116,7 @@ const CARET_SLOT = 12;
 const RefTree = forwardRef<RefTreeHandle, RefTreeProps>(function RefTree(
   {
     refs,
+    read,
     currentRef,
     unbornBranch,
     detachedSha,
@@ -377,7 +380,7 @@ const RefTree = forwardRef<RefTreeHandle, RefTreeProps>(function RefTree(
       );
     });
 
-  const empty = refs.length === 0 && unbornBranch === null;
+  const empty = read && refs.length === 0 && unbornBranch === null;
 
   return (
     <div

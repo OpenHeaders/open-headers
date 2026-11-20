@@ -197,6 +197,7 @@ describe('RefTree row context menu (mounted)', () => {
       <AntApp>
         <RefTree
           refs={refs}
+          read
           currentRef="main"
           unbornBranch={null}
           detachedSha={null}
@@ -239,6 +240,7 @@ describe('Remote group header menu (S41)', () => {
       <AntApp>
         <RefTree
           refs={[...refs, { name: 'origin/main', kind: 'remote', sha: 'c'.repeat(40) }]}
+          read
           currentRef="main"
           unbornBranch={null}
           detachedSha={null}
@@ -279,6 +281,7 @@ describe('A remote’s own row (the rail’s remotes)', () => {
             { name: 'feature/login', kind: 'local', sha: 'd'.repeat(40) },
             { name: 'origin/main', kind: 'remote', sha: 'c'.repeat(40) },
           ]}
+          read
           currentRef="main"
           unbornBranch={null}
           detachedSha={null}
@@ -354,6 +357,41 @@ describe('A remote’s own row (the rail’s remotes)', () => {
     await screen.findByTestId('git-tool-ref-menu-manage-remotes');
     expect(header.classList.contains('menu-target')).toBe(true);
     expect(branchRow('main').classList.contains('selected')).toBe(false);
+  });
+});
+
+describe('The rail with no ref to show', () => {
+  const mountEmpty = (read: boolean): void => {
+    render(
+      <AntApp>
+        <RefTree
+          refs={[]}
+          read={read}
+          currentRef={null}
+          unbornBranch={null}
+          detachedSha={null}
+          selected={null}
+          favorites={new Set()}
+          groupByDirectory
+          showTags
+          onLeafClick={() => undefined}
+          onHeadClick={() => undefined}
+          onLeafContextMenu={() => undefined}
+          rowMenu={() => ({ items: [] })}
+        />
+      </AntApp>,
+    );
+  };
+
+  it('says nothing of a first commit while the list is unread', () => {
+    mountEmpty(false);
+    expect(screen.queryByTestId('git-tool-ref-head')).not.toBeNull();
+    expect(screen.queryByTestId('git-tool-refs-empty')).toBeNull();
+  });
+
+  it('says it once the host has answered with none', () => {
+    mountEmpty(true);
+    expect(screen.queryByTestId('git-tool-refs-empty')).not.toBeNull();
   });
 });
 
