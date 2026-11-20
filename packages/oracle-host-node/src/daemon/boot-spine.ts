@@ -43,6 +43,7 @@
  */
 
 import * as path from 'node:path';
+import type { ActivityMonitorServiceRow } from '@openheaders/core/activity-monitor';
 import { setHostBridge } from '@openheaders/core/bridge';
 import {
   type AuthorizationUserAgent,
@@ -188,7 +189,7 @@ import { createHealthzHandler } from './healthz';
 import { detectNodeHostOs } from './host-os';
 import { installLicenseRefreshAgent } from './license-refresh-agent';
 import { installLicenseSlot } from './license-slot';
-import { startLiveRunner, stopLiveRunner } from './live/live-refresh-scheduler';
+import { describeLiveSchedule, startLiveRunner, stopLiveRunner } from './live/live-refresh-scheduler';
 import { installMcpServer } from './mcp-install';
 import { createMdnsAdvertiser } from './mdns/mdns-advertiser';
 import { createMetricsProvider } from './metrics';
@@ -217,6 +218,7 @@ import { createProxyCaptureService } from './proxy/proxy-capture-service';
 import { createProxyTrustService } from './proxy/proxy-trust';
 import { createProxyRoutingControl } from './proxy/routing-push';
 import { createPublicWorkspaceHttpHandler } from './public-workspace-http';
+import { listRunningServices } from './running-services';
 import { createSecretManagerPeerRpc, handleSecretManagerRpc, isSecretManagerRpc } from './secret-manager-rpc';
 import { DEFAULT_SESSION_TTL_DAYS, sessionTtlMsFromDays } from './session-ttl';
 import { createDaemonSetupClaimService } from './setup/setup-claim-service';
@@ -474,6 +476,12 @@ export interface DaemonSpineHandle {
    * with no browser to open.
    */
   readonly authorizationUserAgent: AuthorizationUserAgent | null;
+  /**
+   * What the engine keeps running, read from the registries that own
+   * each fact at the moment of the call (the activity monitor plan §6,
+   * law 4) — nothing is cached between two calls.
+   */
+  listRunningServices(): ActivityMonitorServiceRow[];
   /** Tear down everything the spine started. Idempotent. */
   dispose(): Promise<void>;
 }
@@ -1791,5 +1799,15 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
     syncPersistence.close();
   };
 
-  return { dispatchRpc, authorizationUserAgent, dispose };
+  const runningServices = (): ActivityMonitorServiceRow[] =>
+    listRunningServices({
+      getBindState: () => lastBindState,
+      getWsServer: () => wsServer,
+      getLiveSchedule: describeLiveSchedule,
+      getWorkspaceTree: () => workspaceTreeRuntime,
+      isMcpEnabled: () => mcpInstall.isEnabled(),
+      getProxyCapturePort: () => proxyCaptureService.boundPort(),
+    });
+
+  return { dispatchRpc, authorizationUserAgent, listRunningServices: runningServices, dispose };
 }

@@ -12,7 +12,7 @@
 
 import type { LiveWorkflow } from '@openheaders/core/types';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { startLiveRunner, stopLiveRunner } from '../../../src/daemon/live/live-refresh-scheduler';
+import { describeLiveSchedule, startLiveRunner, stopLiveRunner } from '../../../src/daemon/live/live-refresh-scheduler';
 
 const h = vi.hoisted(() => ({
   // core/live
@@ -223,5 +223,50 @@ describe('stopLiveRunner', () => {
 
     await vi.advanceTimersByTimeAsync(10_000);
     expect(h.runWorkflowRefresh).not.toHaveBeenCalled();
+  });
+});
+
+describe('describeLiveSchedule', () => {
+  it('answers nothing while the runner is not started', () => {
+    expect(describeLiveSchedule()).toBeNull();
+  });
+
+  it('counts the workflows with a refresh armed and names the earliest instant', async () => {
+    startLiveRunner({ reportStatus });
+    await vi.advanceTimersByTimeAsync(0);
+    expect(describeLiveSchedule()).toEqual({ scheduled: 1, nextFireAt: 1000 });
+  });
+
+  it('counts a workflow once across its environments, at the earlier of their instants', async () => {
+    // The cadence math sees a cache's summary, not its environment — the two rows are told apart by their stamp.
+    h.listCachesForWorkflow.mockResolvedValue([
+      { environmentId: 'env-a', extractedAt: 100 },
+      { environmentId: 'env-b', extractedAt: 200 },
+    ]);
+    h.computeNextFireAt.mockImplementation((_wf: unknown, cache: { extractedAt?: number } | null, now: number) =>
+      cache?.extractedAt === 200 ? now + 400 : now + 1000,
+    );
+    startLiveRunner({ reportStatus });
+    await vi.advanceTimersByTimeAsync(0);
+    expect(describeLiveSchedule()).toEqual({ scheduled: 1, nextFireAt: 400 });
+  });
+
+  it('reads the timers at each ask — a workflow gone between two asks is gone from the second', async () => {
+    startLiveRunner({ reportStatus });
+    await vi.advanceTimersByTimeAsync(0);
+    expect(describeLiveSchedule()?.scheduled).toBe(1);
+
+    h.getLiveWorkflows.mockReturnValue([]);
+    const onWorkflows = h.onLiveWorkflowStoreChange.mock.calls[0]?.[0] as () => void;
+    onWorkflows();
+    await vi.advanceTimersByTimeAsync(50);
+    expect(describeLiveSchedule()).toEqual({ scheduled: 0, nextFireAt: null });
+  });
+
+  it('answers none scheduled for a workflow the gate refuses', async () => {
+    h.canScheduleWorkflow.mockReturnValue(false);
+    startLiveRunner({ reportStatus });
+    await vi.advanceTimersByTimeAsync(0);
+    expect(describeLiveSchedule()).toEqual({ scheduled: 0, nextFireAt: null });
   });
 });

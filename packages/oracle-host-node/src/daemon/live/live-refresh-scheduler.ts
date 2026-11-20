@@ -337,6 +337,27 @@ export function startLiveRunner(options: StartLiveRunnerOptions): void {
     .catch((e) => logger.warn(LOG, `initial reconcile failed: ${(e as Error).message}`));
 }
 
+export interface LiveScheduleSummary {
+  /** Workflows with a refresh armed. One mid-refresh is not armed until its fire settles. */
+  scheduled: number;
+  /** Absolute wall-clock ms of the earliest armed refresh; null when none is armed. */
+  nextFireAt: number | null;
+}
+
+/** What the runner has armed right now, read off its timers; null while the runner is not started. */
+export function describeLiveSchedule(): LiveScheduleSummary | null {
+  if (!started) return null;
+  const workflows = new Set<string>();
+  let nextFireAt: number | null = null;
+  for (const [key, atMs] of timer.armedTargets()) {
+    const payload = codec.decode(key);
+    if (payload === null) continue;
+    workflows.add(payload.u);
+    if (nextFireAt === null || atMs < nextFireAt) nextFireAt = atMs;
+  }
+  return { scheduled: workflows.size, nextFireAt };
+}
+
 /** Tear down all timers + subscriptions (called at host shutdown). */
 export function stopLiveRunner(): void {
   if (!started) return;

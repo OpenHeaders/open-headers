@@ -46,6 +46,8 @@ import { runRequestSuite } from './live/suite-runner';
 
 export interface McpServerInstall {
   readonly handler: McpHttpHandler;
+  /** The master switch as the handler reads it for the next request. */
+  isEnabled(): boolean;
   dispose(): void;
 }
 
@@ -120,6 +122,7 @@ export async function installMcpServer(options: InstallMcpServerOptions): Promis
 
   return {
     handler,
+    isEnabled: () => current.enabled,
     dispose() {
       unsubscribe();
     },

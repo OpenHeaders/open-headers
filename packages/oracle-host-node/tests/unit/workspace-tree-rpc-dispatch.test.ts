@@ -21,6 +21,7 @@ function runtime(): WorkspaceTreeRuntime {
     unbind: vi.fn(),
     probe: vi.fn(),
     list: vi.fn(),
+    openCount: vi.fn(),
     commit: vi.fn(),
     pull: vi.fn(),
     push: vi.fn(),

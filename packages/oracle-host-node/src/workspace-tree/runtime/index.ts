@@ -1023,6 +1023,10 @@ export function createWorkspaceTreeRuntime(options: WorkspaceTreeRuntimeOptions)
       return [...records];
     },
 
+    openCount(): number {
+      return open.size;
+    },
+
     issues(workspaceId: string): TreeIssue[] {
       const binding = open.get(workspaceId);
       return binding === undefined ? [] : bindingRows(binding);

@@ -724,6 +724,8 @@ export interface WorkspaceTreeRuntime {
   unbind(workspaceId: string): Promise<{ ok: boolean }>;
   probe(rootDir: string): ReturnType<typeof probeWorkspaceTree>;
   list(): WorkspaceTreeBindingRecord[];
+  /** How many of the bindings are open — their folders watched, their passes running. */
+  openCount(): number;
   /** Explicit Commit gesture (§9) — flush, then a temp-index `git commit`. */
   commit(workspaceId: string, message?: string): Promise<CommitWorkspaceTreeRpcResult>;
   /**

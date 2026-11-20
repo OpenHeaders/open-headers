@@ -73,3 +73,30 @@ export function formatStartTime(startedAt: number, now: number, locale?: string,
     ? formatters.time.format(startedAt)
     : formatters.date.format(startedAt);
 }
+
+const SECOND_MS = 1_000;
+const MINUTE_MS = 60 * SECOND_MS;
+const HOUR_MS = 60 * MINUTE_MS;
+const DAY_MS = 24 * HOUR_MS;
+
+const timeUntilFormatters = new Map<string, Intl.RelativeTimeFormat>();
+
+/**
+ * How long until an instant, in the locale's own words ("in 42 sec."):
+ * seconds under a minute, minutes under an hour, hours under two days,
+ * days beyond. An instant already passed reads as zero seconds — a
+ * refresh that is due is about to run, never "ago".
+ */
+export function formatTimeUntil(at: number, now: number, locale?: string): string {
+  const key = locale ?? '';
+  let formatter = timeUntilFormatters.get(key);
+  if (formatter === undefined) {
+    formatter = new Intl.RelativeTimeFormat(locale, { numeric: 'always', style: 'short' });
+    timeUntilFormatters.set(key, formatter);
+  }
+  const ahead = Math.max(0, at - now);
+  if (ahead < MINUTE_MS) return formatter.format(Math.round(ahead / SECOND_MS), 'second');
+  if (ahead < HOUR_MS) return formatter.format(Math.round(ahead / MINUTE_MS), 'minute');
+  if (ahead < 2 * DAY_MS) return formatter.format(Math.round(ahead / HOUR_MS), 'hour');
+  return formatter.format(Math.round(ahead / DAY_MS), 'day');
+}

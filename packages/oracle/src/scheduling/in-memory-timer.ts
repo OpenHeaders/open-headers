@@ -24,6 +24,8 @@ export const MAX_TIMEOUT_MS = 2_147_483_647;
 export interface InMemoryRefreshTimer extends RefreshTimer {
   /** Cancel every armed key. Host teardown path (`before-quit`, tests). */
   clearAll(): void;
+  /** Every armed key with the absolute wall-clock ms it is armed for. */
+  armedTargets(): ReadonlyMap<string, number>;
 }
 
 /**
@@ -32,10 +34,12 @@ export interface InMemoryRefreshTimer extends RefreshTimer {
  */
 export function createInMemoryRefreshTimer(onFire: (key: string) => void): InMemoryRefreshTimer {
   const timers = new Map<string, ReturnType<typeof setTimeout>>();
+  const targets = new Map<string, number>();
 
   const arm = (key: string, atMs: number): void => {
     const existing = timers.get(key);
     if (existing) clearTimeout(existing);
+    targets.set(key, atMs);
 
     const delayMs = atMs - Date.now();
     if (delayMs > MAX_TIMEOUT_MS) {
@@ -52,6 +56,7 @@ export function createInMemoryRefreshTimer(onFire: (key: string) => void): InMem
     const t = setTimeout(
       () => {
         timers.delete(key);
+        targets.delete(key);
         onFire(key);
       },
       Math.max(0, delayMs),
@@ -67,6 +72,7 @@ export function createInMemoryRefreshTimer(onFire: (key: string) => void): InMem
       if (existing) {
         clearTimeout(existing);
         timers.delete(key);
+        targets.delete(key);
       }
     },
     async listArmed(): Promise<readonly string[]> {
@@ -75,6 +81,10 @@ export function createInMemoryRefreshTimer(onFire: (key: string) => void): InMem
     clearAll(): void {
       for (const t of timers.values()) clearTimeout(t);
       timers.clear();
+      targets.clear();
+    },
+    armedTargets(): ReadonlyMap<string, number> {
+      return targets;
     },
   };
 }

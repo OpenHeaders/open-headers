@@ -67,6 +67,8 @@ export interface ProxyCaptureControl {
 export interface ProxyCaptureService extends ProxyCaptureControl {
   /** The hub the lifecycle-port acceptor attaches panel sinks to. */
   readonly hub: RequestLifecycleHub;
+  /** The port the capture proxy listens on right now; null while it is stopped. No storage read. */
+  boundPort(): number | null;
   /**
    * Answer a consumer's on-demand body pull: resolve the retained body
    * (decoding lazily) and apply a `body-attached` update to the store —
@@ -260,6 +262,7 @@ export function createProxyCaptureService(): ProxyCaptureService {
     subscribeRoutingChange,
     serveRequestBody,
     hub,
+    boundPort: () => server?.port ?? null,
     dispose,
   };
 }

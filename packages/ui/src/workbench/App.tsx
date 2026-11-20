@@ -1209,6 +1209,13 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
   // http-rules search, not whichever sidebar happened to mount last).
   const sidebarSearchRefs = useRef<Map<SidebarView, SidebarSearchHandle | null>>(new Map());
 
+  // The Activity Monitor's opener — the palette's command and the System
+  // popover's link share it.
+  const openActivityMonitor = useCallback(() => {
+    if (tl.state.hidden.includes('activity-monitor')) tl.restoreWindow('activity-monitor');
+    tl.activateWindow('activity-monitor');
+  }, [tl]);
+
   // ── Command palette data ──────────────────────────────────────
   const { groups: cmdGroups, sections: cmdSections } = useCommandPaletteData({
     rules,
@@ -1230,10 +1237,7 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
     onOpenCreateMenu: openCreateMenu,
     onTogglePanel: togglePanel,
     onToggleActivityFeed: () => tl.toggleWindow('activity'),
-    onOpenActivityMonitor: () => {
-      if (tl.state.hidden.includes('activity-monitor')) tl.restoreWindow('activity-monitor');
-      tl.activateWindow('activity-monitor');
-    },
+    onOpenActivityMonitor: openActivityMonitor,
     onShowShortcuts: handleShowShortcuts,
     onOpenSettings: openSettings,
     zeroWorkspaces,
@@ -1951,6 +1955,9 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
           />
 
           <StatusBar
+            onOpenActivityMonitor={
+              isToolWindowTeased(TOOL_WINDOW_MAP['activity-monitor']) ? undefined : openActivityMonitor
+            }
             workspace={
               activeWorkspace
                 ? { name: activeWorkspace.name, icon: activeWorkspace.icon, color: activeWorkspace.color }

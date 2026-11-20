@@ -5,6 +5,8 @@
  * read fills it; a document only formats it.
  */
 
+import type { BrowserKind } from '../utils/host-detect';
+
 /**
  * What a process is, in the words the interface already uses (the plan
  * §6, law 1), in the order the table lists them. `other` is every
@@ -42,6 +44,69 @@ export interface ActivityMonitorProcessRow {
 }
 
 /**
+ * What the engine keeps running with no process of its own (the plan
+ * §7, fork 1), in the order the panel lists it. A service row carries
+ * facts — a state, a count, a next time — never a cost: one thread has
+ * no CPU or memory figure to give per service (the plan §6, law 6).
+ */
+export const ACTIVITY_MONITOR_SERVICE_KINDS = [
+  'sync-server',
+  'workflows',
+  'git',
+  'mcp-server',
+  'proxy-capture',
+] as const;
+
+export type ActivityMonitorServiceKind = (typeof ACTIVITY_MONITOR_SERVICE_KINDS)[number];
+
+/** `unreadable` is a service whose owner could not be asked — it reads as a dash, never as off. */
+export type ActivityMonitorServiceState = 'on' | 'off' | 'unreadable';
+
+/** A connected peer as the peer registry names it: the role it announced and, for a browser's, which browser. */
+export interface ActivityMonitorPeer {
+  role: string;
+  browser: BrowserKind | null;
+}
+
+/**
+ * One service's facts, read from the registry that owns them when the
+ * viewer asks (the plan §6, law 4). Structured fields only — the
+ * interface words the line; the host sends no sentence.
+ */
+export type ActivityMonitorServiceRow =
+  | {
+      kind: 'sync-server';
+      state: ActivityMonitorServiceState;
+      /** The address the server is bound to, or was last asked to bind; null before any bind. */
+      host: string | null;
+      port: number | null;
+      peers: ActivityMonitorPeer[];
+    }
+  | {
+      kind: 'workflows';
+      state: ActivityMonitorServiceState;
+      /** Workflows with a refresh armed. */
+      scheduled: number;
+      /** ms since epoch of the earliest armed refresh; null when none is armed. */
+      nextFireAt: number | null;
+    }
+  | {
+      kind: 'git';
+      state: ActivityMonitorServiceState;
+      /** Workspaces bound to a folder. */
+      bound: number;
+      /** Of those, the ones whose folder is open and watched for changes. */
+      watching: number;
+    }
+  | { kind: 'mcp-server'; state: ActivityMonitorServiceState }
+  | {
+      kind: 'proxy-capture';
+      state: ActivityMonitorServiceState;
+      /** The port the capture proxy listens on; null while it is off. */
+      port: number | null;
+    };
+
+/**
  * How far into the host's history the caller has read. It rides the
  * contract from the first slice (the plan §7, fork 4) and carries
  * nothing until the history lands.
@@ -55,6 +120,8 @@ export interface ActivityMonitorSnapshot {
   /** Logical cores of the machine — what a share of the whole machine is a share of. */
   logicalCores: number;
   processes: ActivityMonitorProcessRow[];
+  /** What the engine keeps running, in the vocabulary's order; a kind the host has no owner for is absent. */
+  services: ActivityMonitorServiceRow[];
   cursor: ActivityMonitorCursor;
 }
 

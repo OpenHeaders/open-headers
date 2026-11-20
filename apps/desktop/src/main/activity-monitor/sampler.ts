@@ -36,16 +36,19 @@ export interface ActivityMonitorSamplerDeps {
   logicalCores: number;
 }
 
+/** The sampler's half of the answer: the processes. The services are read by their own owners at ask time. */
+export type ActivityMonitorProcessSample = Omit<ActivityMonitorSnapshot, 'services'>;
+
 export interface ActivityMonitorSampler {
-  sample(): ActivityMonitorSnapshot;
+  sample(): ActivityMonitorProcessSample;
 }
 
 export function createActivityMonitorSampler(deps: ActivityMonitorSamplerDeps): ActivityMonitorSampler {
   let counters: CpuCounterState | null = null;
-  let latest: ActivityMonitorSnapshot | null = null;
+  let latest: ActivityMonitorProcessSample | null = null;
 
   return {
-    sample(): ActivityMonitorSnapshot {
+    sample(): ActivityMonitorProcessSample {
       const at = deps.now();
       if (latest !== null) {
         const age = at - latest.sampledAt;

@@ -113,6 +113,16 @@ describe('proxy capture service — lifecycle', () => {
     expect(stopped.port).toBe(port);
   });
 
+  it('answers the port it listens on without a storage read: none before a start, the port while running, none after a stop', async () => {
+    const port = await freePort();
+    service = createProxyCaptureService();
+    expect(service.boundPort()).toBeNull();
+    await service.start(port);
+    expect(service.boundPort()).toBe(port);
+    await service.stop();
+    expect(service.boundPort()).toBeNull();
+  });
+
   it('refuses a port change while running', async () => {
     const port = await freePort();
     service = createProxyCaptureService();

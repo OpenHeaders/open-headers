@@ -160,6 +160,13 @@ export interface StatusPillProps {
    */
   onOpenDocs?: (sectionId: string) => void;
   /**
+   * One optional action on the popover's last line, before the build
+   * info — a way from "is anything wrong" to a neighbouring surface
+   * (the workbench's link to its Activity Monitor). Keep the node
+   * text-sized. Omit the prop and the line is the build info alone.
+   */
+  footerAction?: React.ReactNode;
+  /**
    * Override the auto-generated summary text in `full` density. Surfaces
    * that want a static caption (e.g. "System status") pass this instead
    * of letting the worst-state summary bleed into the surrounding
@@ -181,6 +188,7 @@ export const StatusPill: React.FC<StatusPillProps> = ({
   renderSubsystemExtras,
   renderSubsystemInlineAction,
   onOpenDocs,
+  footerAction,
   label,
 }) => {
   const t = useT();
@@ -201,6 +209,7 @@ export const StatusPill: React.FC<StatusPillProps> = ({
       token={token}
       renderSubsystemExtras={renderSubsystemExtras}
       renderSubsystemInlineAction={renderSubsystemInlineAction}
+      footerAction={footerAction}
     />
   );
   // Flex + align-items: center keeps the dot vertically centered on
@@ -390,6 +399,7 @@ interface StatusPopoverBodyProps {
     subsystem: StatusSubsystem,
     entry: StatusSnapshot[StatusSubsystem] | undefined,
   ) => React.ReactNode;
+  footerAction?: React.ReactNode;
 }
 
 /**
@@ -431,6 +441,7 @@ const StatusPopoverBody: React.FC<StatusPopoverBodyProps> = ({
   token,
   renderSubsystemExtras,
   renderSubsystemInlineAction,
+  footerAction,
 }) => {
   const t = useT();
   return (
@@ -479,7 +490,7 @@ const StatusPopoverBody: React.FC<StatusPopoverBodyProps> = ({
           })}
         </React.Fragment>
       ))}
-      <BuildInfoFooter token={token} />
+      <BuildInfoFooter token={token} action={footerAction} />
     </div>
   );
 };
@@ -520,15 +531,43 @@ export const StatusGroupHeading: React.FC<{ token: ReturnType<typeof theme.useTo
  * right-aligned under the rows: the version, the build number and the
  * commit — metadata only, the popover's title already names the app.
  * Replaces the standalone version chip that used to live in the popup
- * footer, reclaiming the footer's pixel budget on small surfaces.
+ * footer, reclaiming the footer's pixel budget on small surfaces. A
+ * surface's one footer action, when it passes one, leads the line.
  */
-const BuildInfoFooter: React.FC<{ token: ReturnType<typeof theme.useToken>['token'] }> = ({ token }) => {
+const BuildInfoFooter: React.FC<{
+  token: ReturnType<typeof theme.useToken>['token'];
+  action?: React.ReactNode;
+}> = ({ token, action }) => {
   const t = useT();
   const info = getBuildInfo();
   const label =
     info.channel === 'beta' ? t('shared.chrome.status.versionBeta', { version: info.version }) : info.version;
   const buildDetail = info.build > 0 ? ` · ${t('shared.chrome.status.buildNumber', { build: info.build })}` : '';
   const commitDetail = info.commit && info.commit !== '—' ? ` · ${info.commit}` : '';
+  if (action) {
+    return (
+      <div
+        style={{
+          marginTop: 4,
+          paddingTop: 6,
+          borderTop: `1px solid ${token.colorBorderSecondary}`,
+          display: 'flex',
+          alignItems: 'baseline',
+          justifyContent: 'space-between',
+          gap: 12,
+          fontSize: 10,
+          color: token.colorTextTertiary,
+        }}
+      >
+        <span style={{ flex: 'none' }}>{action}</span>
+        <span style={{ minWidth: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+          {label}
+          {buildDetail}
+          {commitDetail}
+        </span>
+      </div>
+    );
+  }
   return (
     <div
       style={{

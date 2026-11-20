@@ -6,8 +6,10 @@
 
 import { describe, expect, it } from 'vitest';
 import {
+  ACTIVITY_MONITOR_SERVICE_KINDS,
   type ActivityMonitorProcessKind,
   type ActivityMonitorProcessRow,
+  type ActivityMonitorServiceRow,
   arrangeProcessRows,
   sumReadable,
 } from '../../src/activity-monitor/model';
@@ -74,5 +76,31 @@ describe('sumReadable', () => {
   it('is unreadable when nothing could be read — not zero', () => {
     expect(sumReadable([null, null])).toBeNull();
     expect(sumReadable([])).toBeNull();
+  });
+});
+
+describe('the service vocabulary', () => {
+  it('lists the five services in the order the panel shows them', () => {
+    expect(ACTIVITY_MONITOR_SERVICE_KINDS).toEqual(['sync-server', 'workflows', 'git', 'mcp-server', 'proxy-capture']);
+  });
+
+  it('a service row carries facts and no cost — no CPU or memory field on any kind', () => {
+    const rows: ActivityMonitorServiceRow[] = [
+      {
+        kind: 'sync-server',
+        state: 'on',
+        host: '127.0.0.1',
+        port: 8137,
+        peers: [{ role: 'extension', browser: 'chrome' }],
+      },
+      { kind: 'workflows', state: 'on', scheduled: 4, nextFireAt: 1_763_640_000_000 },
+      { kind: 'git', state: 'on', bound: 1, watching: 1 },
+      { kind: 'mcp-server', state: 'off' },
+      { kind: 'proxy-capture', state: 'unreadable', port: null },
+    ];
+    expect(rows.map((row) => row.kind)).toEqual([...ACTIVITY_MONITOR_SERVICE_KINDS]);
+    for (const row of rows) {
+      expect(Object.keys(row).some((key) => /cpu|memory/i.test(key))).toBe(false);
+    }
   });
 });

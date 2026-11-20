@@ -1,16 +1,19 @@
 /**
  * ActivityMonitorPanel — the workbench Activity Monitor tool-window
  * body (the activity monitor plan §8): one table of the app's own
- * processes, named in the interface's words, with what each costs. The
- * host owns every read; this panel asks while it is looked at and
- * formats the answer. Values change in place on the two-second beat —
- * no row moves — and what could not be read reads as a dash.
+ * processes, named in the interface's words, with what each costs, and
+ * under it what the engine keeps running, as facts. The host owns every
+ * read; this panel asks while it is looked at and formats the answer.
+ * Values change in place on the two-second beat — no row moves — and
+ * what could not be read reads as a dash.
  */
 
 import { CaretRightOutlined } from '@ant-design/icons';
 import {
   type ActivityMonitorProcessKind,
   type ActivityMonitorProcessRow,
+  type ActivityMonitorServiceKind,
+  type ActivityMonitorServiceState,
   type ActivityMonitorSnapshot,
   arrangeProcessRows,
   cpuPercentConvention,
@@ -19,13 +22,17 @@ import {
   formatStartTime,
   sumReadable,
 } from '@openheaders/core/activity-monitor';
+import type { StatusLevel } from '@openheaders/core/types';
 import type { MessageKey } from '@openheaders/i18n';
 import { Tooltip } from 'antd';
 import type React from 'react';
 import { memo, useMemo, useState } from 'react';
 import { type Translate, useLocale } from '@openheaders/ui/context/LocaleContext';
 import { createPanelHeaderWiring, PanelHeader } from '@openheaders/ui/shared/dock-layout';
+import { useStatus } from '@openheaders/ui/shared/hooks/useStatus';
 import type { InfoPopoverContent } from '@openheaders/ui/shared/info-popover';
+import { SERVICE_REVEAL_TARGETS } from './service-reveal';
+import { SERVICE_NAME_KEYS, SERVICE_STATUS_SUBSYSTEM, serviceFacts } from './service-rows';
 import { useActivityMonitorSnapshot } from './use-activity-monitor-snapshot';
 import './activity-monitor.css';
 
@@ -40,6 +47,8 @@ interface ActivityMonitorPanelProps {
    */
   active: boolean;
   onHide: () => void;
+  /** Front the surface that owns a service (the plan §7, fork 6) — nothing is confirmed and nothing ends. */
+  onRevealService: (kind: ActivityMonitorServiceKind) => void;
 }
 
 const PROCESS_NAME_KEYS: Record<Exclude<ActivityMonitorProcessKind, 'other'>, MessageKey> = {
@@ -86,6 +95,42 @@ const ProcessRow = memo(function ProcessRow({ name, cpu, memory, started, pid, c
   );
 });
 
+interface ServiceRowProps {
+  kind: ActivityMonitorServiceKind;
+  name: string;
+  facts: string;
+  state: ActivityMonitorServiceState;
+  /** The owning status subsystem's level; undefined where the service has none or it has not reported. */
+  level: StatusLevel | undefined;
+  revealLabel: string;
+  onReveal: (kind: ActivityMonitorServiceKind) => void;
+}
+
+const ServiceRow = memo(function ServiceRow({ kind, name, facts, state, level, revealLabel, onReveal }: ServiceRowProps) {
+  const on = state === 'on';
+  return (
+    <div
+      className={on ? 'oh-am-service' : 'oh-am-service oh-am-service--idle'}
+      role="row"
+      data-testid="activity-monitor-service"
+      data-service={kind}
+    >
+      <span className="oh-am-dot" data-level={on ? (level ?? 'green') : undefined} aria-hidden />
+      <span className="oh-am-service-name" role="cell">
+        {name}
+      </span>
+      <span className="oh-am-facts" role="cell">
+        {facts}
+      </span>
+      <Tooltip title={revealLabel} placement="left">
+        <button type="button" className="oh-am-reveal" aria-label={revealLabel} onClick={() => onReveal(kind)}>
+          <span aria-hidden>↗</span>
+        </button>
+      </Tooltip>
+    </div>
+  );
+});
+
 const ColumnHead: React.FC<{ label: string; hover?: string }> = ({ label, hover }) => (
   <Tooltip title={hover} placement="top">
     <span className="oh-am-col" role="columnheader">
@@ -94,10 +139,11 @@ const ColumnHead: React.FC<{ label: string; hover?: string }> = ({ label, hover 
   </Tooltip>
 );
 
-const ActivityMonitorPanel: React.FC<ActivityMonitorPanelProps> = ({ info, active, onHide }) => {
+const ActivityMonitorPanel: React.FC<ActivityMonitorPanelProps> = ({ info, active, onHide, onRevealService }) => {
   const { t, locale } = useLocale();
   const wiring = useMemo(() => createPanelHeaderWiring({ onHide }), [onHide]);
   const { snapshot, unreadable } = useActivityMonitorSnapshot(active);
+  const { snapshot: status } = useStatus();
   const [otherOpen, setOtherOpen] = useState(false);
   const arranged = useMemo(() => (snapshot === null ? null : arrangeProcessRows(snapshot.processes)), [snapshot]);
 
@@ -178,6 +224,30 @@ const ActivityMonitorPanel: React.FC<ActivityMonitorPanelProps> = ({ info, activ
               </div>
             )}
             {otherOpen && arranged.other.map((row) => renderRow(row, snapshot, true))}
+            {snapshot.services.length > 0 && (
+              <div className="oh-am-row oh-am-head oh-am-head--running" role="row">
+                <span className="oh-am-group" role="columnheader">
+                  {t('workbench.activityMonitor.group.running')}
+                </span>
+              </div>
+            )}
+            {snapshot.services.map((service) => {
+              const subsystem = SERVICE_STATUS_SUBSYSTEM[service.kind];
+              return (
+                <ServiceRow
+                  key={service.kind}
+                  kind={service.kind}
+                  name={t(SERVICE_NAME_KEYS[service.kind])}
+                  facts={serviceFacts(service, snapshot.sampledAt, t, locale)}
+                  state={service.state}
+                  level={subsystem === undefined ? undefined : status[subsystem]?.state}
+                  revealLabel={t('workbench.activityMonitor.reveal', {
+                    target: t(SERVICE_REVEAL_TARGETS[service.kind].labelKey),
+                  })}
+                  onReveal={onRevealService}
+                />
+              );
+            })}
           </>
         )}
       </div>

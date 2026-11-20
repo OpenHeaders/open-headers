@@ -9,7 +9,7 @@
 
 import { BulbFilled, BulbOutlined } from '@ant-design/icons';
 import { getLocaleDef, LOCALES, type MessageKey } from '@openheaders/i18n';
-import { Dropdown, type MenuProps, Space, theme } from 'antd';
+import { Dropdown, type MenuProps, Space, Typography, theme } from 'antd';
 import type React from 'react';
 import { useLocale } from '@openheaders/ui/context/LocaleContext';
 import { useActiveEditorLifecycle } from '@openheaders/ui/shared/awareness';
@@ -39,6 +39,12 @@ interface StatusBarProps {
   provenance?: string;
   onRename?: (newName: string) => void;
   autoRenameKey?: string | null;
+  /**
+   * Open the Activity Monitor — the System popover's one link to it
+   * (the activity monitor plan §7, fork 9). Absent where the monitor is
+   * not this host's to show.
+   */
+  onOpenActivityMonitor?: () => void;
 }
 
 const THEME_DISPLAY: Record<ThemeMode, { icon: React.ReactNode; textKey: MessageKey }> = {
@@ -53,6 +59,7 @@ const StatusBar: React.FC<StatusBarProps> = ({
   provenance,
   onRename,
   autoRenameKey,
+  onOpenActivityMonitor,
 }) => {
   const { token } = theme.useToken();
   const { locale, t } = useLocale();
@@ -147,6 +154,17 @@ const StatusBar: React.FC<StatusBarProps> = ({
           renderSubsystemExtras={productStatusExtras}
           renderSubsystemInlineAction={productStatusInlineActions}
           onOpenDocs={openDocs}
+          footerAction={
+            onOpenActivityMonitor && (
+              <Typography.Link
+                style={{ fontSize: 10 }}
+                onClick={onOpenActivityMonitor}
+                data-testid="status-open-activity-monitor"
+              >
+                {t('workbench.shell.commandPalette.cmd.openActivityMonitor')}
+              </Typography.Link>
+            )
+          }
         />
         <AddonsPill />
         {showThemeSwitcher && (

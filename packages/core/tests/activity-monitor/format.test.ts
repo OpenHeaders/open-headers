@@ -12,6 +12,7 @@ import {
   formatCpuPercent,
   formatMemory,
   formatStartTime,
+  formatTimeUntil,
 } from '../../src/activity-monitor/format';
 
 describe('formatCpuPercent', () => {
@@ -63,5 +64,24 @@ describe('formatStartTime', () => {
     // 23:30 UTC on the 19th is already the 20th in Bucharest.
     expect(formatStartTime(Date.UTC(2026, 10, 19, 23, 30), NOW, 'en', 'Europe/Bucharest')).toBe('01:30');
     expect(formatStartTime(Date.UTC(2026, 10, 19, 23, 30), NOW, 'en', 'UTC')).toBe('Nov 19');
+  });
+});
+
+describe('formatTimeUntil', () => {
+  const NOW = Date.UTC(2026, 10, 20, 15, 0, 0);
+
+  it('reads seconds under a minute, minutes under an hour, hours under two days, days beyond', () => {
+    expect(formatTimeUntil(NOW + 42_000, NOW, 'en')).toBe('in 42 sec.');
+    expect(formatTimeUntil(NOW + 5 * 60_000, NOW, 'en')).toBe('in 5 min.');
+    expect(formatTimeUntil(NOW + 3 * 3_600_000, NOW, 'en')).toBe('in 3 hr.');
+    expect(formatTimeUntil(NOW + 4 * 86_400_000, NOW, 'en')).toBe('in 4 days');
+  });
+
+  it('reads an instant already passed as zero seconds ahead, never as "ago"', () => {
+    expect(formatTimeUntil(NOW - 5_000, NOW, 'en')).toBe('in 0 sec.');
+  });
+
+  it('speaks the locale it is given', () => {
+    expect(formatTimeUntil(NOW + 42_000, NOW, 'de')).toBe('in 42 Sek.');
   });
 });

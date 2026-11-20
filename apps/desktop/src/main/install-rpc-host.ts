@@ -43,6 +43,7 @@ import { randomUUID } from 'node:crypto';
 import { existsSync } from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
+import type { ActivityMonitorSnapshot } from '@openheaders/core/activity-monitor';
 import type { BridgeRpcResponse, ErrorReportWireEntry } from '@openheaders/core/bridge';
 import type { ImportReport } from '@openheaders/core/import';
 import { setHostLogger } from '@openheaders/core/logger';
@@ -714,9 +715,15 @@ export async function installRpcHost(): Promise<void> {
     }
     // The activity monitor's pull (the activity monitor plan §7, fork 4):
     // a viewer asks and this process reads — no timer runs here for it,
-    // and no figure leaves the device.
+    // and no figure leaves the device. The services are read from their
+    // owners on every ask (the plan §6, law 4), outside the sampler's
+    // one-second process read.
     if (type === 'oh.activityMonitor.sample') {
-      return activityMonitor.sample();
+      const snapshot: ActivityMonitorSnapshot = {
+        ...activityMonitor.sample(),
+        services: spine.listRunningServices(),
+      };
+      return snapshot;
     }
     // Import-report ring (ARCHITECTURE §23) — the shared workbench UI
     // (report modal, re-import diff, settings Data page) drives these
