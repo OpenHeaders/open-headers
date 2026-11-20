@@ -1,4 +1,5 @@
 import os from 'node:os';
+import type { ProcessReader } from '@openheaders/oracle-host-node/process-reader';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 type Handler = (event: unknown, raw: unknown) => unknown;
@@ -41,6 +42,7 @@ vi.mock('electron', () => ({
 
 const { spawnedPtys, ptySpawn } = vi.hoisted(() => {
   interface HoistedFakePty {
+    pid: number;
     write: ReturnType<typeof vi.fn>;
     resize: ReturnType<typeof vi.fn>;
     kill: ReturnType<typeof vi.fn>;
@@ -52,6 +54,7 @@ const { spawnedPtys, ptySpawn } = vi.hoisted(() => {
     let dataListener: ((data: string) => void) | null = null;
     let exitListener: ((e: { exitCode: number }) => void) | null = null;
     const fake: HoistedFakePty = {
+      pid: 61_044 + spawned.length,
       write: vi.fn(),
       resize: vi.fn(),
       kill: vi.fn(),
@@ -60,6 +63,7 @@ const { spawnedPtys, ptySpawn } = vi.hoisted(() => {
     };
     spawned.push(fake);
     return {
+      pid: fake.pid,
       write: fake.write,
       resize: fake.resize,
       kill: fake.kill,
@@ -82,6 +86,32 @@ function makeSender(id: number) {
   return { id, isDestroyed: () => false, send: vi.fn() };
 }
 
+/** One process of the fake system: who started it, when, and which terminal it sits on. */
+interface FakeProcess {
+  pid: number;
+  parentPid: number;
+  startedAt: number;
+  terminal: number | null;
+}
+
+const SHELL_STARTED = 1_763_625_600_000;
+let fakeProcesses: FakeProcess[] = [];
+
+const fakeReader: ProcessReader = {
+  memoryKind: 'footprint',
+  read: (pid) => {
+    const found = fakeProcesses.find((entry) => entry.pid === pid);
+    return found ? { pid, parentPid: found.parentPid, startedAt: found.startedAt, name: null, cost: null } : null;
+  },
+  childPids: (pid) => fakeProcesses.filter((entry) => entry.parentPid === pid).map((entry) => entry.pid),
+  terminalPids: (pid) => {
+    const terminal = fakeProcesses.find((entry) => entry.pid === pid)?.terminal ?? null;
+    return terminal === null
+      ? []
+      : fakeProcesses.filter((entry) => entry.terminal === terminal).map((entry) => entry.pid);
+  },
+};
+
 describe('installTerminalHost', () => {
   beforeEach(() => {
     ipcHandlers.clear();
@@ -91,7 +121,8 @@ describe('installTerminalHost', () => {
     spawnedPtys.length = 0;
     ptySpawn.mockClear();
     fakeWebContents = { id: 7 };
-    installTerminalHost();
+    fakeProcesses = [];
+    installTerminalHost({ processReader: fakeReader });
   });
 
   function spawnSession(sender: ReturnType<typeof makeSender>, raw: unknown = { cols: 100, rows: 30 }) {
@@ -204,5 +235,69 @@ describe('installTerminalHost', () => {
     await spawnSession(sender);
     wcOnceListeners.get(7)?.get('destroyed')?.();
     expect(spawnedPtys[0].kill).toHaveBeenCalledTimes(1);
+  });
+
+  describe('whether a tab has work running — the close-confirm', () => {
+    const TERMINAL = 16_777_221;
+
+    /** A session whose shell sits on its own terminal, and the ask the close affordance makes. */
+    async function openTab(others: (shellPid: number) => FakeProcess[] = () => []) {
+      const sender = makeSender(7);
+      const { id } = await spawnSession(sender);
+      const shellPid = spawnedPtys[0].pid;
+      fakeProcesses = [
+        { pid: shellPid, parentPid: 4312, startedAt: SHELL_STARTED, terminal: TERMINAL },
+        ...others(shellPid),
+      ];
+      const hasChildren = ipcHandlers.get('oh:terminal:has-children');
+      if (!hasChildren) throw new Error('has-children handler not registered');
+      return { id, ask: (from = sender) => hasChildren({ sender: from }, { id }) as Promise<boolean> };
+    }
+
+    it('answers no for a shell alone on its terminal', async () => {
+      const { ask } = await openTab();
+      expect(await ask()).toBe(false);
+    });
+
+    it('answers yes while the shell has a child', async () => {
+      const { ask } = await openTab((shellPid) => [
+        { pid: 61_102, parentPid: shellPid, startedAt: SHELL_STARTED + 5_000, terminal: TERMINAL },
+      ]);
+      expect(await ask()).toBe(true);
+    });
+
+    it('answers yes for a process that detached from the shell and still shares the tab’s terminal', async () => {
+      const { ask } = await openTab(() => [
+        { pid: 61_102, parentPid: 1, startedAt: SHELL_STARTED + 5_000, terminal: TERMINAL },
+      ]);
+      expect(await ask()).toBe(true);
+    });
+
+    it('answers no for what runs on another terminal and is no child of this shell', async () => {
+      const { ask } = await openTab(() => [
+        { pid: 61_102, parentPid: 1, startedAt: SHELL_STARTED + 5_000, terminal: TERMINAL + 1 },
+        // An older process holding a pid on this terminal is not this tab's work.
+        { pid: 812, parentPid: 1, startedAt: SHELL_STARTED - 60_000, terminal: TERMINAL },
+      ]);
+      expect(await ask()).toBe(false);
+    });
+
+    it('answers no to another renderer’s ask, and once the shell has exited', async () => {
+      const { ask } = await openTab((shellPid) => [
+        { pid: 61_102, parentPid: shellPid, startedAt: SHELL_STARTED + 5_000, terminal: TERMINAL },
+      ]);
+      expect(await ask(makeSender(8))).toBe(false);
+      spawnedPtys[0].emitExit(0);
+      expect(await ask()).toBe(false);
+    });
+
+    it('never asks where the host has no process reader', async () => {
+      ipcHandlers.clear();
+      installTerminalHost({ processReader: null });
+      const { ask } = await openTab((shellPid) => [
+        { pid: 61_102, parentPid: shellPid, startedAt: SHELL_STARTED + 5_000, terminal: TERMINAL },
+      ]);
+      expect(await ask()).toBe(false);
+    });
   });
 });

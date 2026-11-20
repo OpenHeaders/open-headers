@@ -54,6 +54,7 @@
       "zod": "^4.6.7"
     },
     "onlyBuiltDependencies": [
+      "@openheaders/process-reader",
       "@openheaders/windows-foreground",
       "better-sqlite3",
       "bufferutil",

@@ -506,6 +506,8 @@ export const workbenchChrome = {
     'Доля от всей машины, как считает системный монитор этой системы — 100 % это все ядра.',
   'workbench.activityMonitor.column.memory': 'Память',
   'workbench.activityMonitor.column.memoryHover': 'Физическая память, которую процесс занимает прямо сейчас.',
+  'workbench.activityMonitor.column.memoryHoverFootprint':
+    'Объём памяти, как его считает системный монитор этой системы — то, что относится только к процессу, включая сжатую память.',
   'workbench.activityMonitor.column.started': 'Запущен',
   'workbench.activityMonitor.column.pid': 'PID',
   'workbench.activityMonitor.column.pidHover': 'Идентификатор процесса в операционной системе — для ИТ и поддержки.',
@@ -548,6 +550,7 @@ export const workbenchChrome = {
   'workbench.activityMonitor.summary.cpuHover': 'Все процессы приложения в сумме.',
   'workbench.activityMonitor.summary.memoryHover':
     'Верхняя граница — память, которую процессы делят между собой, учитывается по разу для каждого.',
+  'workbench.activityMonitor.summary.memoryHoverFootprint': 'Объём памяти всех процессов в сумме.',
   'workbench.activityMonitor.summary.processCount': ({ count }, locale) =>
     plural(locale, Number(count), {
       one: '{count} процесс',

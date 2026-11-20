@@ -56,6 +56,7 @@ import { installWindowChromeHandler } from './main/bootstrap/window-chrome';
 import { createMainWindow, showMainWindow } from './main/bootstrap/window-manager';
 import { installRpcHost } from './main/install-rpc-host';
 import { installTerminalHost } from './main/install-terminal-host';
+import { desktopProcessReader } from './main/process-reader';
 import { runMcpStdioBridge } from './mcp-stdio';
 
 const APP_DISPLAY_NAME = 'Open Headers';
@@ -162,7 +163,7 @@ function bootstrapDesktopApp(): void {
 
     createMainWindow();
     installTray();
-    installTerminalHost();
+    installTerminalHost({ processReader: desktopProcessReader() });
     drainPendingProtocolUrls();
 
     // macOS: dock click re-shows the existing (hidden) window.

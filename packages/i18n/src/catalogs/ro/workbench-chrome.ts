@@ -514,6 +514,8 @@ export const workbenchChrome = {
     'O parte din întreaga mașină, așa cum numără monitorul acestui sistem — 100 % înseamnă toate nucleele.',
   'workbench.activityMonitor.column.memory': 'Memorie',
   'workbench.activityMonitor.column.memoryHover': 'Memoria fizică pe care procesul o ocupă chiar acum.',
+  'workbench.activityMonitor.column.memoryHoverFootprint':
+    'Amprenta de memorie, așa cum o numără monitorul acestui sistem — ce i se atribuie doar procesului, inclusiv memoria comprimată.',
   'workbench.activityMonitor.column.started': 'Pornit',
   'workbench.activityMonitor.column.pid': 'PID',
   'workbench.activityMonitor.column.pidHover': 'ID-ul de proces al sistemului de operare — pentru IT și suport.',
@@ -555,6 +557,7 @@ export const workbenchChrome = {
   'workbench.activityMonitor.summary.cpuHover': 'Toate procesele aplicației, adunate.',
   'workbench.activityMonitor.summary.memoryHover':
     'O limită superioară — memoria pe care procesele o împart este numărată o dată pentru fiecare.',
+  'workbench.activityMonitor.summary.memoryHoverFootprint': 'Amprenta tuturor proceselor, adunată.',
   'workbench.activityMonitor.summary.processCount': ({ count }, locale) =>
     plural(locale, Number(count), {
       one: '{count} proces',

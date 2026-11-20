@@ -60,6 +60,7 @@ export function createActivityMonitor(deps: ActivityMonitorDeps): ActivityMonito
         sampledAt: sample.sampledAt,
         platform: sample.platform,
         logicalCores: sample.logicalCores,
+        memoryKind: sample.memoryKind,
         processes: sample.processes,
         history: historyBeatsSince(history, cursor),
         ended: endedProcesses(history),

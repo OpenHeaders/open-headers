@@ -28,6 +28,14 @@ export type ActivityMonitorProcessKind = (typeof ACTIVITY_MONITOR_PROCESS_KINDS)
 /** The operating systems the host runs on — "CPU %" follows each one's own monitor (the plan §7, fork 8). */
 export type ActivityMonitorPlatform = 'darwin' | 'win32' | 'linux';
 
+/**
+ * Which figure a row's memory is (the plan §7, fork 10) — the one each
+ * system's own monitor shows: the footprint, or the resident size. The
+ * working set is the runtime's own figure, on a host whose process
+ * reader has not landed.
+ */
+export type ActivityMonitorMemoryKind = 'footprint' | 'resident' | 'working-set';
+
 export interface ActivityMonitorProcessRow {
   /** The process's identity — its pid AND its creation time, since a pid is reused. */
   id: string;
@@ -154,6 +162,7 @@ export interface ActivityMonitorSnapshot {
   platform: ActivityMonitorPlatform;
   /** Logical cores of the machine — what a share of the whole machine is a share of. */
   logicalCores: number;
+  memoryKind: ActivityMonitorMemoryKind;
   processes: ActivityMonitorProcessRow[];
   /** What the engine keeps running, in the vocabulary's order; a kind the host has no owner for is absent. */
   services: ActivityMonitorServiceRow[];

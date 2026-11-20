@@ -510,6 +510,8 @@ export const workbenchChrome = {
     'Anteil am gesamten Rechner, so wie die Systemüberwachung dieses Systems zählt — 100 % sind alle Kerne.',
   'workbench.activityMonitor.column.memory': 'Speicher',
   'workbench.activityMonitor.column.memoryHover': 'Der physische Arbeitsspeicher, den der Prozess gerade belegt.',
+  'workbench.activityMonitor.column.memoryHoverFootprint':
+    'Der Speicherbedarf, so wie die Systemüberwachung dieses Systems zählt — was allein dem Prozess angerechnet wird, komprimierter Speicher eingeschlossen.',
   'workbench.activityMonitor.column.started': 'Gestartet',
   'workbench.activityMonitor.column.pid': 'PID',
   'workbench.activityMonitor.column.pidHover': 'Die Prozess-ID des Betriebssystems — für IT und Support.',
@@ -550,6 +552,7 @@ export const workbenchChrome = {
   'workbench.activityMonitor.summary.cpuHover': 'Alle Prozesse der App, zusammengezählt.',
   'workbench.activityMonitor.summary.memoryHover':
     'Eine Obergrenze — Speicher, den sich Prozesse teilen, wird für jeden von ihnen einmal gezählt.',
+  'workbench.activityMonitor.summary.memoryHoverFootprint': 'Der Speicherbedarf aller Prozesse, zusammengezählt.',
   'workbench.activityMonitor.summary.processCount': ({ count }, locale) =>
     plural(locale, Number(count), { one: '{count} Prozess', other: '{count} Prozesse' }),
   'workbench.activityMonitor.summary.uptime': 'läuft seit {duration}',

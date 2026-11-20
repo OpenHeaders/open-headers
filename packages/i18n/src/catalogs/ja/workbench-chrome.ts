@@ -486,6 +486,8 @@ export const workbenchChrome = {
     'このシステムのモニタと同じ数え方で、マシン全体に対する割合です。100% は全コア分です。',
   'workbench.activityMonitor.column.memory': 'メモリ',
   'workbench.activityMonitor.column.memoryHover': 'プロセスが現在使用している物理メモリです。',
+  'workbench.activityMonitor.column.memoryHoverFootprint':
+    'このシステムのモニタと同じ数え方によるメモリフットプリントです。このプロセスだけに計上される分で、圧縮メモリを含みます。',
   'workbench.activityMonitor.column.started': '開始',
   'workbench.activityMonitor.column.pid': 'PID',
   'workbench.activityMonitor.column.pidHover':
@@ -526,6 +528,7 @@ export const workbenchChrome = {
   'workbench.activityMonitor.summary.cpuHover': 'アプリのすべてのプロセスの合計です。',
   'workbench.activityMonitor.summary.memoryHover':
     '上限の値です。プロセス間で共有されるメモリは、プロセスごとに 1 回ずつ数えられます。',
+  'workbench.activityMonitor.summary.memoryHoverFootprint': 'すべてのプロセスのフットプリントの合計です。',
   'workbench.activityMonitor.summary.processCount': ({ count }, locale) =>
     plural(locale, Number(count), {
       other: 'プロセス {count} 件',

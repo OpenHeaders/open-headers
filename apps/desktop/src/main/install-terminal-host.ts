@@ -21,7 +21,7 @@
  *   - `oh:terminal:write`  (send)   — `{ id, data }` keystrokes → pty.
  *   - `oh:terminal:resize` (send)   — `{ id, cols, rows }` → SIGWINCH.
  *   - `oh:terminal:has-children` (invoke) — `{ id }` → boolean; true
- *     while the session's shell has a live child process (used by the
+ *     while anything beside the shell runs in the session (used by the
  *     tab close affordance to confirm before terminating work).
  *   - `oh:terminal:kill`   (send)   — dispose the session.
  *   - `oh:terminal:data`   (push)   — `{ id, data }` pty output stream.
@@ -31,11 +31,11 @@
  * ptys; the app lifecycle's quit teardown drains everything left.
  */
 
-import { execFile } from 'node:child_process';
 import { statSync } from 'node:fs';
 import os from 'node:os';
 import { hostLogger as logger } from '@openheaders/core/logger';
 import { refreshedWindowsPath } from '@openheaders/oracle-host-node/host-runtime/windows-user-path';
+import { type ProcessReader, readProcessDescendants } from '@openheaders/oracle-host-node/process-reader';
 import { ipcMain, webContents as webContentsApi } from 'electron';
 import { type IPty, spawn as ptySpawn } from 'node-pty';
 import { registerTeardown } from './bootstrap/lifecycle';
@@ -69,21 +69,21 @@ function clampDimension(value: unknown, fallback: number): number {
   return Math.min(MAX_DIMENSION, Math.max(MIN_DIMENSION, Math.floor(value)));
 }
 
-/** The user's shell + args, resolved like a terminal emulator would.
- *  POSIX shells run in login mode so profile-sourced PATH entries are
- *  present even when the app was launched from the GUI. */
-/** True when the shell process has at least one live child. POSIX
- *  only (`pgrep -P`); on Windows this reports false until the ConPTY
- *  pass gives the host a process-tree probe. */
-function shellHasChildren(pid: number): Promise<boolean> {
-  if (process.platform === 'win32') return Promise.resolve(false);
-  return new Promise((resolve) => {
-    execFile('pgrep', ['-P', String(pid)], (error, stdout) => {
-      // pgrep exits 1 for "no matches" — that's a clean false, not a
-      // failure; any other error also reads as "nothing running".
-      resolve(!error && stdout.trim().length > 0);
-    });
-  });
+export interface TerminalHostDeps {
+  /** The host's process reader; null where it has none — Windows, until its reader lands. */
+  processReader: ProcessReader | null;
+}
+
+/** True while anything beside the shell runs in the session: what the
+ *  shell started, and what shares its terminal — a process that
+ *  detached from the shell still ends with the tab. Read from the
+ *  process reader's seam (the activity monitor plan §7, fork 3); false
+ *  where the host has no reader. */
+function sessionHasWork(reader: ProcessReader | null, shellPid: number): boolean {
+  if (reader === null) return false;
+  const shell = reader.read(shellPid);
+  if (shell === null) return false;
+  return readProcessDescendants(reader, { pid: shellPid, startedAt: shell.startedAt }, { terminal: true }).length > 0;
 }
 
 interface SpawnCommand {
@@ -92,6 +92,9 @@ interface SpawnCommand {
   cwd?: string;
 }
 
+/** The user's shell + args, resolved like a terminal emulator would.
+ *  POSIX shells run in login mode so profile-sourced PATH entries are
+ *  present even when the app was launched from the GUI. */
 function resolveShell(): SpawnCommand {
   if (process.platform === 'win32') {
     return { file: process.env.ComSpec ?? 'cmd.exe', args: [] };
@@ -126,7 +129,7 @@ function resolveCwd(cwd: string | undefined): string {
   }
 }
 
-export function installTerminalHost(): void {
+export function installTerminalHost(deps: TerminalHostDeps): void {
   const sessions = new Map<string, SessionEntry>();
   const trackedWebContents = new Set<number>();
   // Exit promises for every pty whose exit callback hasn't landed yet —
@@ -257,7 +260,7 @@ export function installTerminalHost(): void {
     if (typeof id !== 'string') return false;
     const entry = sessions.get(id);
     if (!entry || entry.wcId !== event.sender.id || entry.exited) return false;
-    return shellHasChildren(entry.pty.pid);
+    return sessionHasWork(deps.processReader, entry.pty.pid);
   });
 
   ipcMain.on(CHANNEL.kill, (event, raw: unknown) => {

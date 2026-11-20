@@ -54,6 +54,7 @@ function makeRig(options: { logicalCores?: number } = {}) {
       now: () => clock.at,
       platform: 'darwin',
       logicalCores: options.logicalCores ?? 10,
+      memoryKind: 'footprint',
     }),
     startBeat: (run, everyMs) => {
       const timer: BeatTimer = { run, everyMs, nextAt: clock.at + everyMs, stopped: false };
@@ -206,6 +207,7 @@ describe('createActivityMonitor — a viewer’s ask', () => {
       sampledAt: clock.at,
       platform: 'darwin',
       logicalCores: 10,
+      memoryKind: 'footprint',
       processes: [
         { id: ENGINE_ID, kind: 'engine', pid: 4312, startedAt: STARTED, cpuRate: 0, memoryBytes: 212 * 1024 * 1024 },
       ],

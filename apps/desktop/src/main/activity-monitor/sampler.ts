@@ -7,11 +7,12 @@
  * takes its own rates from the counters each read carries.
  *
  * The clock and the read are dependencies: the read is the seam the
- * in-house process reader later fills (the plan §7, fork 10), and both
- * make the sampler testable outside the runtime.
+ * in-house process reader fills (the plan §7, fork 10), and both make
+ * the sampler testable outside the runtime.
  */
 
 import {
+  type ActivityMonitorMemoryKind,
   type ActivityMonitorPlatform,
   type ActivityMonitorProcessRow,
   type CpuCounterState,
@@ -36,6 +37,8 @@ export interface ActivityMonitorSamplerDeps {
   now(): number;
   platform: ActivityMonitorPlatform;
   logicalCores: number;
+  /** Which figure the read's memory is. */
+  memoryKind: ActivityMonitorMemoryKind;
 }
 
 /** One read of the processes. */
@@ -44,11 +47,13 @@ export interface ActivityMonitorProcessSample {
   sampledAt: number;
   platform: ActivityMonitorPlatform;
   logicalCores: number;
+  memoryKind: ActivityMonitorMemoryKind;
   processes: ActivityMonitorProcessRow[];
   /**
-   * CPU seconds each process has used so far, by identity — the
-   * runtime's own counter, or the one rebuilt from its percent. Never
-   * sent to a viewer.
+   * CPU seconds each process has used so far, by identity — the read's
+   * own counter, or the one rebuilt from the runtime's percent. A
+   * process whose cost could not be read is absent. Never sent to a
+   * viewer.
    */
   cpuSeconds: ReadonlyMap<string, number>;
 }
@@ -72,12 +77,14 @@ export function createActivityMonitorSampler(deps: ActivityMonitorSamplerDeps): 
       const reads = deps.readProcesses();
       const owners = deps.readOwners();
       const baseline = counters !== null && at - counters.at <= BASELINE_MAX_AGE_MS ? counters : null;
+      // A process with neither a counter nor a percent has no CPU figure: it stays out of the fold and reads a dash.
+      const counted = reads.filter((read) => read.cumulativeCpuSeconds !== undefined || read.percentCpu !== null);
       const fold = foldCpuCounters(
         baseline,
-        reads.map((read) => ({
+        counted.map((read) => ({
           id: processIdentity(read.pid, read.creationTime),
           cumulativeSeconds: read.cumulativeCpuSeconds,
-          percentOfMachine: read.percentCpu,
+          percentOfMachine: read.percentCpu ?? 0,
         })),
         at,
         deps.logicalCores,
@@ -88,6 +95,7 @@ export function createActivityMonitorSampler(deps: ActivityMonitorSamplerDeps): 
         sampledAt: at,
         platform: deps.platform,
         logicalCores: deps.logicalCores,
+        memoryKind: deps.memoryKind,
         processes: reads.map((read) => {
           const id = processIdentity(read.pid, read.creationTime);
           return {

@@ -119,7 +119,8 @@
     ],
     "asarUnpack": [
       "dist-webpack/renderer/images/**/*",
-      "node_modules/@openheaders/windows-foreground/**/*"
+      "node_modules/@openheaders/windows-foreground/**/*",
+      "node_modules/@openheaders/process-reader/**/*"
     ],
     "npmRebuild": true,
     "nodeGypRebuild": false,
@@ -328,6 +329,7 @@
     "yaml": "^2.8.3"
   },
   "optionalDependencies": {
+    "@openheaders/process-reader": "file:../../native/process-reader",
     "@openheaders/windows-foreground": "file:../../native/windows-foreground"
   },
   "devDependencies": {

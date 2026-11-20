@@ -513,6 +513,8 @@ export const workbenchChrome = {
     'Una parte de toda la máquina, tal como lo cuenta el monitor de este sistema — el 100 % son todos los núcleos.',
   'workbench.activityMonitor.column.memory': 'Memoria',
   'workbench.activityMonitor.column.memoryHover': 'La memoria física que el proceso ocupa ahora mismo.',
+  'workbench.activityMonitor.column.memoryHoverFootprint':
+    'La huella de memoria, tal como la cuenta el monitor de este sistema — lo que se atribuye solo al proceso, incluida la memoria comprimida.',
   'workbench.activityMonitor.column.started': 'Iniciado',
   'workbench.activityMonitor.column.pid': 'PID',
   'workbench.activityMonitor.column.pidHover': 'El ID de proceso del sistema operativo — para TI y soporte.',
@@ -554,6 +556,7 @@ export const workbenchChrome = {
   'workbench.activityMonitor.summary.cpuHover': 'Todos los procesos de la aplicación, sumados.',
   'workbench.activityMonitor.summary.memoryHover':
     'Un límite superior — la memoria que los procesos comparten se cuenta una vez por cada uno.',
+  'workbench.activityMonitor.summary.memoryHoverFootprint': 'La huella de todos los procesos, sumada.',
   'workbench.activityMonitor.summary.processCount': ({ count }, locale) =>
     plural(locale, Number(count), {
       one: '{count} proceso',

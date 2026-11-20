@@ -230,7 +230,14 @@ const Summary: React.FC<{ snapshot: ActivityMonitorSnapshot; graphs: HistoryGrap
           <Sparkline path={graphs.cpuTotal} width={SUMMARY_GRAPH.width} height={SUMMARY_GRAPH.height} />
         </span>
       </Tooltip>
-      <Tooltip title={t('workbench.activityMonitor.summary.memoryHover')} placement="bottom">
+      <Tooltip
+        title={t(
+          snapshot.memoryKind === 'footprint'
+            ? 'workbench.activityMonitor.summary.memoryHoverFootprint'
+            : 'workbench.activityMonitor.summary.memoryHover',
+        )}
+        placement="bottom"
+      >
         <span className="oh-am-stat">
           {t('workbench.activityMonitor.column.memory')}
           <strong>{formatMemory(sumReadable(snapshot.processes.map((row) => row.memoryBytes)))}</strong>
@@ -376,7 +383,15 @@ const ActivityMonitorPanel: React.FC<ActivityMonitorPanelProps> = ({ info, activ
               <SortHead
                 column="memory"
                 label={t('workbench.activityMonitor.column.memory')}
-                hover={t('workbench.activityMonitor.column.memoryHover')}
+                hover={
+                  snapshot === null
+                    ? undefined
+                    : t(
+                        snapshot.memoryKind === 'footprint'
+                          ? 'workbench.activityMonitor.column.memoryHoverFootprint'
+                          : 'workbench.activityMonitor.column.memoryHover',
+                      )
+                }
                 sort={sort}
                 onSort={onSort}
               />

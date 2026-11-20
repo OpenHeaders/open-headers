@@ -477,6 +477,8 @@ export const workbenchChrome = {
     'A share of the whole machine, as this system’s own monitor counts it — 100% is every core.',
   'workbench.activityMonitor.column.memory': 'Memory',
   'workbench.activityMonitor.column.memoryHover': 'The physical memory the process holds right now.',
+  'workbench.activityMonitor.column.memoryHoverFootprint':
+    'The memory footprint, as this system’s own monitor counts it — what the process alone is charged for, compressed memory included.',
   'workbench.activityMonitor.column.started': 'Started',
   'workbench.activityMonitor.column.pid': 'PID',
   'workbench.activityMonitor.column.pidHover': 'The operating system’s process ID — for IT and support.',
@@ -514,6 +516,7 @@ export const workbenchChrome = {
   'workbench.activityMonitor.summary.cpuHover': 'Every process of the app, added up.',
   'workbench.activityMonitor.summary.memoryHover':
     'An upper bound — memory that processes share is counted once for each of them.',
+  'workbench.activityMonitor.summary.memoryHoverFootprint': 'The footprint of every process, added up.',
   'workbench.activityMonitor.summary.processCount': ({ count }, locale) =>
     plural(locale, Number(count), { one: '{count} process', other: '{count} processes' }),
   'workbench.activityMonitor.summary.uptime': 'up {duration}',

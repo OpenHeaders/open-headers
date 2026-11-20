@@ -6,7 +6,7 @@
  * argument, so every convention is pinned on every OS.
  */
 
-import type { ActivityMonitorPlatform } from '@openheaders/core/activity-monitor';
+import type { ActivityMonitorMemoryKind, ActivityMonitorPlatform } from '@openheaders/core/activity-monitor';
 import { describe, expect, it } from 'vitest';
 import type { ProcessOwners, ProcessRead } from '@/main/activity-monitor/process-naming';
 import { BASELINE_MAX_AGE_MS, createActivityMonitorSampler, SAMPLE_MAX_AGE_MS } from '@/main/activity-monitor/sampler';
@@ -27,7 +27,9 @@ function makeRead(overrides: Partial<ProcessRead> = {}): ProcessRead {
   };
 }
 
-function makeRig(options: { platform?: ActivityMonitorPlatform; logicalCores?: number } = {}) {
+function makeRig(
+  options: { platform?: ActivityMonitorPlatform; logicalCores?: number; memoryKind?: ActivityMonitorMemoryKind } = {},
+) {
   const clock = { at: STARTED + 60_000 };
   const state: { reads: ProcessRead[]; owners: ProcessOwners; readCount: number } = {
     reads: [makeRead()],
@@ -43,6 +45,7 @@ function makeRig(options: { platform?: ActivityMonitorPlatform; logicalCores?: n
     now: () => clock.at,
     platform: options.platform ?? 'darwin',
     logicalCores: options.logicalCores ?? 10,
+    memoryKind: options.memoryKind ?? 'footprint',
   });
   return { sampler, clock, state };
 }
@@ -60,6 +63,7 @@ describe('createActivityMonitorSampler', () => {
       sampledAt: clock.at,
       platform: 'darwin',
       logicalCores: 10,
+      memoryKind: 'footprint',
       processes: [
         {
           id: `4312:${STARTED}`,
@@ -155,6 +159,32 @@ describe('createActivityMonitorSampler', () => {
     clock.at += 2_000;
     state.reads = [makeRead({ cumulativeCpuSeconds: 190.2 })];
     expect(sampler.sample().processes[0].cpuRate).toBeCloseTo(0.1, 10);
+  });
+
+  it('says which memory its figures are, as the host that composed it said', () => {
+    expect(makeRig({ memoryKind: 'resident' }).sampler.sample().memoryKind).toBe('resident');
+    expect(makeRig({ platform: 'win32', memoryKind: 'working-set' }).sampler.sample().memoryKind).toBe('working-set');
+  });
+
+  it('reads a dash, read after read, for a process whose cost could not be read — never zero', () => {
+    const { sampler, clock, state } = makeRig();
+    const refused = makeRead({
+      pid: 61_044,
+      type: 'Utility',
+      cumulativeCpuSeconds: undefined,
+      percentCpu: null,
+      memoryBytes: null,
+    });
+    state.reads = [makeRead(), refused];
+    sampler.sample();
+    clock.at += 2_000;
+    state.reads = [makeRead({ cumulativeCpuSeconds: 10.2 }), refused];
+    const snapshot = sampler.sample();
+    expect(snapshot.processes.map((row) => [row.pid, row.cpuRate, row.memoryBytes])).toEqual([
+      [4312, expect.closeTo(0.1, 10), 212 * 1024 * 1024],
+      [61_044, null, null],
+    ]);
+    expect([...snapshot.cpuSeconds.keys()]).toEqual([`4312:${STARTED}`]);
   });
 
   it('carries a process it has no name for as other, with the runtime name', () => {

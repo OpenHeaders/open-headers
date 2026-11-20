@@ -486,6 +486,8 @@ export const workbenchChrome = {
     '이 시스템의 모니터가 세는 방식대로 기기 전체에 대한 비율입니다. 100%는 모든 코어입니다.',
   'workbench.activityMonitor.column.memory': '메모리',
   'workbench.activityMonitor.column.memoryHover': '프로세스가 지금 차지하고 있는 물리 메모리입니다.',
+  'workbench.activityMonitor.column.memoryHoverFootprint':
+    '이 시스템의 모니터가 세는 방식대로의 메모리 사용 공간입니다. 이 프로세스에만 계산되는 양이며 압축된 메모리를 포함합니다.',
   'workbench.activityMonitor.column.started': '시작',
   'workbench.activityMonitor.column.pid': 'PID',
   'workbench.activityMonitor.column.pidHover': '운영 체제의 프로세스 ID입니다. IT 부서와 지원팀을 위한 값입니다.',
@@ -525,6 +527,7 @@ export const workbenchChrome = {
   'workbench.activityMonitor.summary.cpuHover': '앱의 모든 프로세스를 합한 값입니다.',
   'workbench.activityMonitor.summary.memoryHover':
     '상한값입니다. 프로세스끼리 공유하는 메모리는 프로세스마다 한 번씩 계산됩니다.',
+  'workbench.activityMonitor.summary.memoryHoverFootprint': '모든 프로세스의 메모리 사용 공간을 합한 값입니다.',
   'workbench.activityMonitor.summary.processCount': ({ count }, locale) =>
     plural(locale, Number(count), {
       other: '프로세스 {count}개',

@@ -51,6 +51,7 @@ export {
   type ActivityMonitorEndedProcess,
   type ActivityMonitorHistoryBeat,
   type ActivityMonitorHistoryPoint,
+  type ActivityMonitorMemoryKind,
   type ActivityMonitorPeer,
   type ActivityMonitorPlatform,
   type ActivityMonitorProcessKind,

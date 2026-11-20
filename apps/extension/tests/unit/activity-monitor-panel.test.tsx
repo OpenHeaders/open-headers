@@ -16,8 +16,9 @@
  *   - the history is kept across asks — appended, never asked for
  *     twice, kept through an unanswered ask; a row's last hour is one
  *     path on the one scale; a process that ended keeps a muted row;
- *     the header line adds every process up and says its memory is an
- *     upper bound; a heading click sorts, and the order is held until
+ *     the header line adds every process up and says which memory it
+ *     adds — an upper bound, or the footprint; the Memory column says
+ *     which figure it is; a heading click sorts, and the order is held until
  *     a history beat arrives with the pointer off the table (law 10).
  */
 
@@ -60,6 +61,7 @@ function makeSnapshot(overrides: Partial<ActivityMonitorSnapshot> = {}): Activit
     sampledAt: SAMPLED_AT,
     platform: 'darwin',
     logicalCores: 10,
+    memoryKind: 'footprint',
     processes: [makeRow()],
     services: [],
     history: [],
@@ -733,17 +735,52 @@ describe('ActivityMonitorPanel', () => {
     expect(summary.querySelector('.oh-am-count')?.textContent).toBe('1 process · up 6 hr');
   });
 
-  it('says on hover that the memory total is an upper bound', async () => {
-    setHostBridge(createBridgeFake(async () => makeSnapshot({ processes: [ENGINE] })).bridge);
+  const UPPER_BOUND = 'An upper bound — memory that processes share is counted once for each of them.';
+  const FOOTPRINT_TOTAL = 'The footprint of every process, added up.';
+  const FOOTPRINT_COLUMN =
+    'The memory footprint, as this system’s own monitor counts it — what the process alone is charged for, compressed memory included.';
+  const HELD_COLUMN = 'The physical memory the process holds right now.';
+
+  async function hoverMemory(memoryKind: ActivityMonitorSnapshot['memoryKind'], where: 'total' | 'column') {
+    setHostBridge(createBridgeFake(async () => makeSnapshot({ memoryKind, processes: [ENGINE] })).bridge);
     render(<ActivityMonitorPanel info={INFO} active onHide={() => {}} onRevealService={() => {}} />);
     await tick(0);
-    const memory = screen.getByTestId('activity-monitor-summary').querySelectorAll('.oh-am-stat')[1];
-    fireEvent.mouseEnter(memory);
+    const target =
+      where === 'total'
+        ? screen.getByTestId('activity-monitor-summary').querySelectorAll('.oh-am-stat')[1]
+        : screen.getByRole('button', { name: 'Memory' }).closest('[role="columnheader"]');
+    if (!target) throw new Error('no memory figure to hover');
+    fireEvent.mouseEnter(target);
     await tick(500);
-    expect(
-      screen.getByText('An upper bound — memory that processes share is counted once for each of them.'),
-    ).toBeTruthy();
+  }
+
+  it.each(['resident', 'working-set'] as const)(
+    'says on hover that a %s total is an upper bound',
+    async (memoryKind) => {
+      await hoverMemory(memoryKind, 'total');
+      expect(screen.getByText(UPPER_BOUND)).toBeTruthy();
+    },
+  );
+
+  it('says on hover that a footprint total is every process added up — no upper bound', async () => {
+    await hoverMemory('footprint', 'total');
+    expect(screen.getByText(FOOTPRINT_TOTAL)).toBeTruthy();
+    expect(screen.queryByText(UPPER_BOUND)).toBeNull();
   });
+
+  it('says on the Memory column’s hover that the figure is the footprint, where it is', async () => {
+    await hoverMemory('footprint', 'column');
+    expect(screen.getByText(FOOTPRINT_COLUMN)).toBeTruthy();
+  });
+
+  it.each(['resident', 'working-set'] as const)(
+    'says on the Memory column’s hover that a %s figure is the physical memory held',
+    async (memoryKind) => {
+      await hoverMemory(memoryKind, 'column');
+      expect(screen.getByText(HELD_COLUMN)).toBeTruthy();
+      expect(screen.queryByText(FOOTPRINT_COLUMN)).toBeNull();
+    },
+  );
 
   it('draws no line of totals while there is no answer', async () => {
     setHostBridge(

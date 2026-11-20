@@ -120,6 +120,25 @@ function stripUnsignedUpdatePublisher(appOutDir) {
     console.log('✓ publisherName stripped from app-update.yml (unsigned Setup.exe lane)');
 }
 
+// The process reader's addon must sit OUTSIDE the archive with its
+// binary beside it — a native module cannot be loaded from inside one.
+// A build without it still runs: the activity monitor falls back to the
+// runtime's own figures and the terminal's close-confirm never asks.
+function verifyMacProcessReader(context) {
+    const appName = context.packager.appInfo.productFilename;
+    const binaryPath = path.join(
+        context.appOutDir, `${appName}.app`, 'Contents', 'Resources', 'app.asar.unpacked',
+        'node_modules', '@openheaders', 'process-reader', 'build', 'Release', 'process_reader.node'
+    );
+    if (fs.existsSync(binaryPath)) {
+        console.log('✓ @openheaders/process-reader binary found in unpacked resources');
+    } else {
+        console.warn('⚠ @openheaders/process-reader binary not found in unpacked resources');
+        console.warn(`  Expected path: ${binaryPath}`);
+        console.warn('  The activity monitor will read the runtime\'s own figures');
+    }
+}
+
 exports.default = async function(context) {
     const { appOutDir, electronPlatformName } = context;
 
@@ -127,6 +146,7 @@ exports.default = async function(context) {
 
     if (electronPlatformName === 'darwin') {
         embedMacTrustHelper(context);
+        verifyMacProcessReader(context);
         return;
     }
 

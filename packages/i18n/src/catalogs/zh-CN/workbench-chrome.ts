@@ -479,6 +479,8 @@ export const workbenchChrome = {
     '占整台机器的比例，与本系统自带监视器的算法一致——100% 表示占满全部核心。',
   'workbench.activityMonitor.column.memory': '内存',
   'workbench.activityMonitor.column.memoryHover': '该进程此刻占用的物理内存。',
+  'workbench.activityMonitor.column.memoryHoverFootprint':
+    '内存占用量，与本系统自带监视器的算法一致——仅计入该进程自身的部分，包含已压缩的内存。',
   'workbench.activityMonitor.column.started': '启动时间',
   'workbench.activityMonitor.column.pid': 'PID',
   'workbench.activityMonitor.column.pidHover': '操作系统的进程 ID——供 IT 和技术支持使用。',
@@ -517,6 +519,7 @@ export const workbenchChrome = {
   'workbench.activityMonitor.reveal': '打开{target}',
   'workbench.activityMonitor.summary.cpuHover': '本应用所有进程的合计。',
   'workbench.activityMonitor.summary.memoryHover': '这是上限——进程之间共享的内存会在每个进程上各计一次。',
+  'workbench.activityMonitor.summary.memoryHoverFootprint': '所有进程的内存占用量之和。',
   'workbench.activityMonitor.summary.processCount': ({ count }, locale) =>
     plural(locale, Number(count), {
       other: '{count} 个进程',

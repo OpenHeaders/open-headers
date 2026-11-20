@@ -12,7 +12,11 @@ import { SCRIPT_WORKER_SERVICE_NAME } from '../script-sandbox/worker-service-nam
 
 const NETWORK_SERVICE_NAME = 'network.mojom.NetworkService';
 
-/** One process as the runtime's metrics read gives it — its figures, and what it calls itself. */
+/**
+ * One process of the runtime: what the runtime calls it, and its
+ * figures from whichever source this host reads them from — the start
+ * time beside them from that same source, never the other's.
+ */
 export interface ProcessRead {
   pid: number;
   /** ms since epoch. */
@@ -21,10 +25,15 @@ export interface ProcessRead {
   name: string | undefined;
   /** The runtime's non-localized name for the process. */
   serviceName: string | undefined;
-  /** CPU seconds since the process started; absent where the runtime does not report it. */
+  /** CPU seconds since the process started; absent where the source does not report it. */
   cumulativeCpuSeconds: number | undefined;
-  /** The runtime's percent since its previous read, as a share of the whole machine. */
-  percentCpu: number;
+  /**
+   * The runtime's percent since its previous read, as a share of the
+   * whole machine — what the counter is rebuilt from where it is
+   * absent. null where the process reader is the source: a process it
+   * could not read the cost of has no CPU figure at all.
+   */
+  percentCpu: number | null;
   memoryBytes: number | null;
 }
 
