@@ -528,7 +528,8 @@ const ImportCurlModal: React.FC<ImportCurlModalProps> = ({
           style={{
             ...toggleStyle,
             boxSizing: 'border-box',
-            border: `1px solid ${token.colorBorder}`,
+            color: token.colorTextSecondary,
+            border: `1px solid ${token.colorBorderSecondary}`,
             borderRadius: token.borderRadius,
             padding: '4px 8px',
             marginBottom: 10,
@@ -681,7 +682,7 @@ const ReportPanel: React.FC<ReportPanelProps> = ({ report, token }) => {
           aria-expanded={expanded}
           onClick={() => setExpanded((e) => !e)}
           data-testid="import-curl-report-toggle"
-          style={{ ...toggleStyle, gap: 12, fontSize: 12 }}
+          style={{ ...toggleStyle, gap: 12, fontSize: 12, color: expanded ? 'inherit' : token.colorTextSecondary }}
         >
           <Caret expanded={expanded} color={token.colorTextSecondary} />
           {report.transforms.length > 0 && (
