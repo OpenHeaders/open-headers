@@ -651,6 +651,7 @@ export const workbenchChrome = {
   'workbench.gitLog.deleteBranch.failed': 'ブランチを削除できませんでした：{detail}',
   'workbench.gitLog.updateBranch.noUpstream': '{branch} には更新元となる上流がありません。',
   'workbench.gitLog.updateBranch.failed': '{branch} を更新できませんでした：{detail}',
+  'workbench.gitLog.pull.noUpstream': '現在のブランチにはプル元となる上流がありません。',
   'workbench.gitLog.fetch.noRemote': 'リモートが設定されていません。',
   'workbench.gitLog.fetch.failed': 'フェッチに失敗しました：{detail}',
   'workbench.gitRemotes.title': 'Git リモート',

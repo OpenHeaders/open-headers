@@ -670,6 +670,7 @@ export const workbenchChrome = {
   'workbench.gitLog.deleteBranch.failed': 'Не удалось удалить ветку: {detail}',
   'workbench.gitLog.updateBranch.noUpstream': 'У ветки {branch} нет вышестоящей ветки для обновления.',
   'workbench.gitLog.updateBranch.failed': 'Не удалось обновить ветку {branch}: {detail}',
+  'workbench.gitLog.pull.noUpstream': 'У текущей ветки нет вышестоящей ветки для pull.',
   'workbench.gitLog.fetch.noRemote': 'Удалённые репозитории не настроены.',
   'workbench.gitLog.fetch.failed': 'Fetch не выполнен: {detail}',
   'workbench.gitRemotes.title': 'Удалённые репозитории Git',

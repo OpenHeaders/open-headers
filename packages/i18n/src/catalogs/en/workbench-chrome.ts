@@ -641,6 +641,7 @@ export const workbenchChrome = {
   'workbench.gitLog.deleteBranch.failed': 'Could not delete branch: {detail}',
   'workbench.gitLog.updateBranch.noUpstream': '{branch} has no upstream to update from.',
   'workbench.gitLog.updateBranch.failed': 'Could not update {branch}: {detail}',
+  'workbench.gitLog.pull.noUpstream': 'The current branch has no upstream to pull from.',
   'workbench.gitLog.fetch.noRemote': 'No remotes configured.',
   'workbench.gitLog.fetch.failed': 'Fetch failed: {detail}',
   'workbench.gitRemotes.title': 'Git Remotes',

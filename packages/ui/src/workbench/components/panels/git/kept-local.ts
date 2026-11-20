@@ -60,7 +60,10 @@ export function refusalDetail(refusal: { reason: string; detail?: string }, t: T
   return refusal.detail ?? refusal.reason;
 }
 
-/** Why a pull or a merge was refused, in words: files too large to resolve here say so, anything else its own detail. */
+/**
+ * Why a pull or a merge was refused, in words: files too large to resolve here say so, a pull of a branch with
+ * no upstream says so, anything else its own detail.
+ */
 export function integrationRefusalDetail(
   refusal: { reason: string; detail?: string; conflicts?: string[]; tooLarge?: true },
   t: Translate,
@@ -68,5 +71,6 @@ export function integrationRefusalDetail(
   if (refusal.reason === 'conflicts' && refusal.tooLarge === true) {
     return t('workbench.gitLog.resolve.tooLarge', { files: namePaths(refusal.conflicts ?? []) });
   }
+  if (refusal.reason === 'no-upstream') return t('workbench.gitLog.pull.noUpstream');
   return refusalDetail(refusal, t);
 }

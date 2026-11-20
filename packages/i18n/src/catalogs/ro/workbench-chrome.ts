@@ -680,6 +680,7 @@ export const workbenchChrome = {
   'workbench.gitLog.deleteBranch.failed': 'Ramura nu a putut fi ștearsă: {detail}',
   'workbench.gitLog.updateBranch.noUpstream': 'Ramura {branch} nu are o ramură din amonte din care să se actualizeze.',
   'workbench.gitLog.updateBranch.failed': 'Ramura {branch} nu a putut fi actualizată: {detail}',
+  'workbench.gitLog.pull.noUpstream': 'Ramura curentă nu are o ramură din amonte din care să facă pull.',
   'workbench.gitLog.fetch.noRemote': 'Niciun depozit la distanță configurat.',
   'workbench.gitLog.fetch.failed': 'Fetch eșuat: {detail}',
   'workbench.gitRemotes.title': 'Depozite Git la distanță',

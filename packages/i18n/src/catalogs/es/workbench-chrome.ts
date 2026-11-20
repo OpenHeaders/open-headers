@@ -819,6 +819,7 @@ export const workbenchChrome = {
   'workbench.gitLog.deleteBranch.failed': 'No se pudo eliminar la rama: {detail}',
   'workbench.gitLog.updateBranch.noUpstream': '{branch} no tiene rama remota configurada para actualizar.',
   'workbench.gitLog.updateBranch.failed': 'No se pudo actualizar {branch}: {detail}',
+  'workbench.gitLog.pull.noUpstream': 'La rama actual no tiene rama remota configurada de la que hacer pull.',
   'workbench.gitLog.fetch.noRemote': 'No hay remotos configurados.',
   'workbench.gitLog.fetch.failed': 'Error al recuperar: {detail}',
   'workbench.gitRemotes.title': 'Remotos de Git',

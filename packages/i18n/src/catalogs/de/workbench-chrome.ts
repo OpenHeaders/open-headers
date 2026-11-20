@@ -819,6 +819,7 @@ export const workbenchChrome = {
   'workbench.gitLog.deleteBranch.failed': 'Branch konnte nicht gelöscht werden: {detail}',
   'workbench.gitLog.updateBranch.noUpstream': '{branch} hat keinen Upstream zum Aktualisieren.',
   'workbench.gitLog.updateBranch.failed': '{branch} konnte nicht aktualisiert werden: {detail}',
+  'workbench.gitLog.pull.noUpstream': 'Der aktuelle Branch hat keinen Upstream zum Pullen.',
   'workbench.gitLog.fetch.noRemote': 'Keine Remotes konfiguriert.',
   'workbench.gitLog.fetch.failed': 'Abrufen fehlgeschlagen: {detail}',
   'workbench.gitRemotes.title': 'Git-Remotes',

@@ -634,6 +634,7 @@ export const workbenchChrome = {
   'workbench.gitLog.deleteBranch.failed': '无法删除分支：{detail}',
   'workbench.gitLog.updateBranch.noUpstream': '{branch} 没有可用于更新的上游分支。',
   'workbench.gitLog.updateBranch.failed': '无法更新 {branch}：{detail}',
+  'workbench.gitLog.pull.noUpstream': '当前分支没有可用于拉取的上游分支。',
   'workbench.gitLog.fetch.noRemote': '未配置远程仓库。',
   'workbench.gitLog.fetch.failed': '抓取失败：{detail}',
   'workbench.gitRemotes.title': 'Git 远程仓库',

@@ -822,6 +822,7 @@ export const workbenchChrome = {
   'workbench.gitLog.deleteBranch.failed': 'Impossible de supprimer la branche : {detail}',
   'workbench.gitLog.updateBranch.noUpstream': '{branch} n’a pas de branche amont pour la mise à jour.',
   'workbench.gitLog.updateBranch.failed': 'Impossible de mettre à jour {branch} : {detail}',
+  'workbench.gitLog.pull.noUpstream': 'La branche actuelle n’a pas de branche amont pour le pull.',
   'workbench.gitLog.fetch.noRemote': 'Aucun dépôt distant configuré.',
   'workbench.gitLog.fetch.failed': 'Échec de la récupération : {detail}',
   'workbench.gitRemotes.title': 'Dépôts distants Git',

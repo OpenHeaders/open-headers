@@ -42,6 +42,10 @@ describe('refusalDetail', () => {
     expect(integrationRefusalDetail(busy, t)).toBe('workbench.gitLog.indexLocked|undefined');
   });
 
+  it('a pull of a branch with no upstream says so in words, never the reason’s code', () => {
+    expect(integrationRefusalDetail({ reason: 'no-upstream' }, t)).toBe('workbench.gitLog.pull.noUpstream|undefined');
+  });
+
   it('any other refusal reads its detail, or its reason when it has none', () => {
     expect(refusalDetail({ reason: 'commit-failed', detail: 'hook says no' }, t)).toBe('hook says no');
     expect(refusalDetail({ reason: 'commit-failed' }, t)).toBe('commit-failed');

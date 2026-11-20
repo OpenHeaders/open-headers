@@ -649,6 +649,7 @@ export const workbenchChrome = {
   'workbench.gitLog.deleteBranch.failed': '브랜치를 삭제할 수 없습니다: {detail}',
   'workbench.gitLog.updateBranch.noUpstream': '{branch} 브랜치에는 업데이트할 업스트림이 없습니다.',
   'workbench.gitLog.updateBranch.failed': '{branch} 브랜치를 업데이트할 수 없습니다: {detail}',
+  'workbench.gitLog.pull.noUpstream': '현재 브랜치에는 풀 할 업스트림이 없습니다.',
   'workbench.gitLog.fetch.noRemote': '구성된 원격이 없습니다.',
   'workbench.gitLog.fetch.failed': '가져오기 실패: {detail}',
   'workbench.gitRemotes.title': 'Git 원격',
