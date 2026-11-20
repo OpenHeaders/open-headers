@@ -519,7 +519,7 @@ describe('ActivityMonitorPanel', () => {
 
   const rowNames = (): string[] => screen.getAllByTestId('activity-monitor-row').map((row) => cells(row)[0]);
 
-  it('draws a row’s last hour as one path on the one scale, and nothing for a row with no beat yet', async () => {
+  it('draws a row’s history as one path on the one scale, edge to edge, and nothing for a row with no beat yet', async () => {
     const fake = createBridgeFake(async () =>
       makeSnapshot({
         processes: [ENGINE, WINDOW],
@@ -536,8 +536,8 @@ describe('ActivityMonitorPanel', () => {
 
     const [windowRow, engineRow] = screen.getAllByTestId('activity-monitor-row');
     expect(engineRow.querySelectorAll('svg')).toHaveLength(1);
-    // Half an hour ago at zero, now at one full core — the top of the scale.
-    expect(graphPaths(engineRow)).toEqual(['M50.0 13.0L100.0 1.0']);
+    // The half hour held fills the box: its oldest beat at zero, now at one full core — the top of the scale.
+    expect(graphPaths(engineRow)).toEqual(['M0.0 13.0L100.0 1.0']);
     expect(graphPaths(windowRow)).toEqual(['']);
   });
 
@@ -558,7 +558,7 @@ describe('ActivityMonitorPanel', () => {
     render(<ActivityMonitorPanel info={INFO} active onHide={() => {}} onRevealService={() => {}} />);
     await tick(0);
     // Every core busy is the top; one core of eight is an eighth of the way up.
-    expect(graphPaths(screen.getByTestId('activity-monitor-row'))).toEqual(['M50.0 1.0L100.0 11.5']);
+    expect(graphPaths(screen.getByTestId('activity-monitor-row'))).toEqual(['M0.0 1.0L100.0 11.5']);
   });
 
   it('keeps a process that ended as a muted row: a dash for CPU, its hour, when it ended and its peak', async () => {
@@ -591,8 +591,8 @@ describe('ActivityMonitorPanel', () => {
       '—',
       `ended ${formatStartTime(endedAt, SAMPLED_AT, 'en')} · peak 100.0%`,
     ]);
-    // One beat of it, with nothing on either side: a dot at the top of the scale.
-    expect(graphPaths(ended)).toEqual(['M70.0 1.0h0']);
+    // One beat of it: a level at the top of the scale, over the beat it was measured across.
+    expect(graphPaths(ended)).toEqual(['M0.0 1.0L40.0 1.0']);
   });
 
   it('says only when a process ended where the hour holds no rate of it', async () => {
@@ -638,9 +638,27 @@ describe('ActivityMonitorPanel', () => {
     const summary = screen.getByTestId('activity-monitor-summary');
     expect(Array.from(summary.querySelectorAll('strong'), (figure) => figure.textContent)).toEqual(['1.7%', '522 MB']);
     expect(summary.querySelector('.oh-am-count')?.textContent).toBe('2 processes · up 6 hr');
-    expect(summary.querySelector('.oh-am-range')?.textContent).toBe('last 60 min');
-    // CPU on the rows' scale; memory from zero to the hour's own highest total (400 MB, now).
-    expect(graphPaths(summary)).toEqual(['M60.0 8.0L120.0 8.0', 'M60.0 8.0L120.0 1.0']);
+    // The label says the span the graphs hold — half an hour here, not the hour they will grow to.
+    expect(summary.querySelector('.oh-am-range')?.textContent).toBe('last 30 min');
+    // CPU on the rows' scale; memory from zero to the history's own highest total (400 MB, now).
+    expect(graphPaths(summary)).toEqual(['M0.0 8.0L120.0 8.0', 'M0.0 8.0L120.0 1.0']);
+  });
+
+  it('says the whole hour once the history holds one, and no span before the first beat', async () => {
+    const hour = Array.from({ length: 240 }, (_, index) =>
+      makeBeat(index + 1, SAMPLED_AT - (239 - index) * 15_000, { [ENGINE.id]: { cpuRate: 0, memoryBytes: 200 * MB } }),
+    );
+    let next = makeSnapshot({ processes: [ENGINE] });
+    setHostBridge(createBridgeFake(async () => next).bridge);
+    render(<ActivityMonitorPanel info={INFO} active onHide={() => {}} onRevealService={() => {}} />);
+    await tick(0);
+    expect(screen.getByTestId('activity-monitor-summary').querySelector('.oh-am-range')).toBeNull();
+
+    next = makeSnapshot({ processes: [ENGINE], history: hour, cursor: 240 });
+    await tick(2_000);
+    expect(screen.getByTestId('activity-monitor-summary').querySelector('.oh-am-range')?.textContent).toBe(
+      'last 60 min',
+    );
   });
 
   it('reads a dash for a total nothing could be read of, and says one process as one', async () => {

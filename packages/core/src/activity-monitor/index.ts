@@ -37,6 +37,7 @@ export {
   endedProcesses,
   historyBeatsSince,
   historyCursor,
+  historySpanMs,
   mergeHistoryBeats,
   observeHistoryProcesses,
   processCpuSeries,

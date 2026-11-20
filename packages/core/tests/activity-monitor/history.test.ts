@@ -18,6 +18,7 @@ import {
   endedProcesses,
   historyBeatsSince,
   historyCursor,
+  historySpanMs,
   mergeHistoryBeats,
   observeHistoryProcesses,
   processCpuSeries,
@@ -263,10 +264,36 @@ describe('a series across the span', () => {
     ],
   );
 
-  it('places each beat in the hour that ends at the newest one', () => {
+  it('places each beat between the oldest held and the newest — the axis is the history there is', () => {
     const series = processCpuSeries(history.beats, ENGINE.id);
-    expect(series.map((sample) => sample.x)).toEqual([0.5, 1 - BEAT / ACTIVITY_MONITOR_HISTORY_SPAN_MS, 1]);
+    const half = ACTIVITY_MONITOR_HISTORY_SPAN_MS / 2;
+    expect(series.map((sample) => sample.x)).toEqual([0, (half - BEAT) / half, 1]);
     expect(series.map((sample) => sample.value)).toEqual([null, null, 0.2]);
+  });
+
+  it('fills the axis from the first beats: two minutes of history run edge to edge', () => {
+    const young = idleBeats(EMPTY_ACTIVITY_MONITOR_HISTORY, T0, 9);
+    const xs = processCpuSeries(young.beats, ENGINE.id).map((sample) => sample.x);
+    expect(xs[0]).toBe(0);
+    expect(xs[4]).toBe(0.5);
+    expect(xs[8]).toBe(1);
+  });
+
+  it('places a ring’s only beat at the newest edge', () => {
+    const one = idleBeats(EMPTY_ACTIVITY_MONITOR_HISTORY, T0, 1);
+    expect(totalSeries(one.beats, 'memoryBytes')).toEqual([{ x: 1, value: 212 * MB }]);
+  });
+
+  it('spans the time its beats cover, each the fifteen seconds before it, and never more than the hour', () => {
+    expect(historySpanMs([])).toBe(0);
+    expect(historySpanMs(idleBeats(EMPTY_ACTIVITY_MONITOR_HISTORY, T0, 1).beats)).toBe(BEAT);
+    expect(historySpanMs(idleBeats(EMPTY_ACTIVITY_MONITOR_HISTORY, T0, 8).beats)).toBe(2 * 60_000);
+    expect(historySpanMs(idleBeats(EMPTY_ACTIVITY_MONITOR_HISTORY, T0, 240).beats)).toBe(
+      ACTIVITY_MONITOR_HISTORY_SPAN_MS,
+    );
+    expect(historySpanMs(idleBeats(EMPTY_ACTIVITY_MONITOR_HISTORY, T0, 300).beats)).toBe(
+      ACTIVITY_MONITOR_HISTORY_SPAN_MS,
+    );
   });
 
   it('holds nothing where the process did not exist', () => {

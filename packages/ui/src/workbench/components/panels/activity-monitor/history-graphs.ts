@@ -1,12 +1,15 @@
 /**
  * The history as the panel draws it (the activity monitor plan §8): one
- * path per process row and two for the header's line. Built once per
+ * path per process row and two for the header's line, each across the
+ * history there is — full from its first beats, an hour once the ring
+ * holds one. Built once per
  * beat — the history's identity changes every fifteen seconds, not on
  * the two-second pull — so a figure changing in place redraws no graph.
  */
 
 import {
   type ActivityMonitorHistoryBeat,
+  historySpanMs,
   processCpuSeries,
   seriesPeak,
   sparklinePath,
@@ -23,6 +26,8 @@ export interface ProcessGraph {
 }
 
 export interface HistoryGraphs {
+  /** The time every graph spans — the history there is, up to the hour; 0 before the first beat. */
+  spanMs: number;
   cpuTotal: string;
   memoryTotal: string;
   /** By process identity — every process with a point in the hour, running or ended. */
@@ -48,6 +53,7 @@ export function buildHistoryGraphs(history: readonly ActivityMonitorHistoryBeat[
   }
   const memory = totalSeries(history, 'memoryBytes');
   return {
+    spanMs: historySpanMs(history),
     cpuTotal: sparklinePath(totalSeries(history, 'cpuRate'), SUMMARY_GRAPH.width, SUMMARY_GRAPH.height, cpuTop),
     memoryTotal: sparklinePath(memory, SUMMARY_GRAPH.width, SUMMARY_GRAPH.height, seriesPeak(memory) ?? 0),
     processes,

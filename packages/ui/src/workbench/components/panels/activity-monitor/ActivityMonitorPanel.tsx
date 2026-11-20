@@ -13,7 +13,6 @@
 
 import { CaretRightOutlined } from '@ant-design/icons';
 import {
-  ACTIVITY_MONITOR_HISTORY_SPAN_MS,
   ACTIVITY_MONITOR_UNREADABLE,
   type ActivityMonitorProcessKind,
   type ActivityMonitorProcessRow,
@@ -246,20 +245,20 @@ const Summary: React.FC<{ snapshot: ActivityMonitorSnapshot; graphs: HistoryGrap
               }),
             ].join(FACT_SEPARATOR)}
       </span>
-      <Tooltip
-        title={t(
-          cpuPercentConvention(snapshot.platform) === 'per-core'
-            ? 'workbench.activityMonitor.summary.scalePerCore'
-            : 'workbench.activityMonitor.summary.scaleMachineShare',
-        )}
-        placement="bottomRight"
-      >
-        <span className="oh-am-range">
-          {t('workbench.activityMonitor.summary.range', {
-            duration: formatSpan(ACTIVITY_MONITOR_HISTORY_SPAN_MS, locale),
-          })}
-        </span>
-      </Tooltip>
+      {graphs.spanMs > 0 && (
+        <Tooltip
+          title={t(
+            cpuPercentConvention(snapshot.platform) === 'per-core'
+              ? 'workbench.activityMonitor.summary.scalePerCore'
+              : 'workbench.activityMonitor.summary.scaleMachineShare',
+          )}
+          placement="bottomRight"
+        >
+          <span className="oh-am-range">
+            {t('workbench.activityMonitor.summary.range', { duration: formatSpan(graphs.spanMs, locale) })}
+          </span>
+        </Tooltip>
+      )}
     </div>
   );
 };

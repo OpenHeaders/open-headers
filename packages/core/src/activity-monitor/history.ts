@@ -177,9 +177,22 @@ export function mergeHistoryBeats(
   return withinSpan(continues ? [...held, ...carried] : carried);
 }
 
-/** One figure across the span: where each beat sits in the hour that ends at the newest one, and its value. */
+/**
+ * How much time the beats cover, each standing for the fifteen seconds
+ * before it — what a graph of them spans, and what its label says. It
+ * grows with the history until it is the whole span; 0 with no beat.
+ */
+export function historySpanMs(beats: readonly ActivityMonitorHistoryBeat[]): number {
+  if (beats.length === 0) return 0;
+  return Math.min(
+    ACTIVITY_MONITOR_HISTORY_SPAN_MS,
+    beats[beats.length - 1].at - beats[0].at + ACTIVITY_MONITOR_HISTORY_BEAT_MS,
+  );
+}
+
+/** One figure across the history: where each beat sits between the oldest held and the newest, and its value. */
 export interface ActivityMonitorSeriesSample {
-  /** 0 at the span's start, 1 at the newest beat. */
+  /** 0 at the oldest beat, 1 at the newest — the axis is the history there is, so a graph is full from its first beats. */
   x: number;
   /** null where there is nothing to draw — the process did not exist, or the figure could not be read. */
   value: number | null;
@@ -190,9 +203,10 @@ function seriesOf(
   pick: (beat: ActivityMonitorHistoryBeat) => number | null,
 ): ActivityMonitorSeriesSample[] {
   if (beats.length === 0) return [];
-  const newest = beats[beats.length - 1].at;
+  const oldest = beats[0].at;
+  const length = beats[beats.length - 1].at - oldest;
   return beats.map((beat) => ({
-    x: Math.max(0, 1 - (newest - beat.at) / ACTIVITY_MONITOR_HISTORY_SPAN_MS),
+    x: length > 0 ? (beat.at - oldest) / length : 1,
     value: pick(beat),
   }));
 }
