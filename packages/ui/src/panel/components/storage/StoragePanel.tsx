@@ -11,7 +11,7 @@
  * IndexedDB, Cache Storage and Usage (quota) ride their own hooks.
  */
 
-import { PlusOutlined, ReloadOutlined } from '@ant-design/icons';
+import { ReloadOutlined } from '@ant-design/icons';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import type { MessageKey } from '@openheaders/i18n';
 import { createPanelHeaderWiring, PanelHeader } from '@openheaders/ui/shared/dock-layout';
@@ -142,12 +142,6 @@ const SECTIONS: ReadonlyArray<{ value: StorageSection; labelKey: MessageKey; ico
 function areaName(section: StorageSection): string {
   return section === 'session' ? 'sessionStorage' : 'localStorage';
 }
-
-const READ_ONLY_ADD_TITLE_KEYS = {
-  indexeddb: 'panel.storage.addReadOnly.indexeddb',
-  cachestorage: 'panel.storage.addReadOnly.cachestorage',
-  quota: 'panel.storage.addReadOnly.quota',
-} as const satisfies Partial<Record<StorageSection, MessageKey>>;
 
 export function StoragePanel({
   onHide,
@@ -771,45 +765,6 @@ export function StoragePanel({
               ariaLabel={t('panel.storage.filterAria')}
             />
             <div className="dt-filter-separator" />
-            {section === 'cookies' ? (
-              <CookieEditPopover
-                mode="add"
-                canonical={addCookieCanonical}
-                batch={addCookieBatch}
-                onSubmit={applyCookieEdit}
-              >
-                <button
-                  type="button"
-                  className="dt-toolbar-icon"
-                  disabled={!cookiesWritable}
-                  title={t('panel.storage.addCookieTitle')}
-                  aria-label={t('panel.storage.addCookieAria')}
-                >
-                  <PlusOutlined />
-                </button>
-              </CookieEditPopover>
-            ) : section === 'indexeddb' || section === 'cachestorage' || section === 'quota' ? (
-              <button
-                type="button"
-                className="dt-toolbar-icon"
-                disabled
-                title={t(READ_ONLY_ADD_TITLE_KEYS[section])}
-                aria-label={t(READ_ONLY_ADD_TITLE_KEYS[section])}
-              >
-                <PlusOutlined />
-              </button>
-            ) : (
-              <button
-                type="button"
-                className="dt-toolbar-icon"
-                onClick={() => setAdding(true)}
-                disabled={!canWrite}
-                title={t('panel.storage.addEntryTitle')}
-                aria-label={t('panel.storage.addEntryAria')}
-              >
-                <PlusOutlined />
-              </button>
-            )}
             <button
               type="button"
               className="dt-toolbar-icon"
@@ -907,22 +862,49 @@ export function StoragePanel({
               {section === 'quota' ? (
                 <ClearSiteDataControl quota={quota} excluded={clearExcluded} onHoverChange={setClearHovered} />
               ) : (
-                (sectionClear !== null || sectionClearOutcome === 'ok' || sectionClearOutcome === 'fail') && (
-                  <span className="dt-storage-clear-group">
-                    {sectionClearOutcome === 'ok' ? (
-                      <span className="dt-storage-quota-clear-done" role="status">
-                        {t('panel.storage.cleared')}
-                      </span>
-                    ) : sectionClearOutcome === 'fail' ? (
-                      <span className="dt-storage-quota-clear-failed">{t('panel.storage.clearFailed')}</span>
-                    ) : null}
-                    {sectionClear !== null &&
-                      sectionClearOutcome !== 'pending' &&
-                      sectionClearOutcome !== 'ok' && (
-                        <ClearAllButton section={section} onClear={() => runSectionClear(sectionClear)} />
-                      )}
-                  </span>
-                )
+                // Clear, then Add at the edge — Add holds its place as
+                // Clear comes and goes with the rows.
+                <span className="dt-storage-scope-actions">
+                  {(sectionClear !== null || sectionClearOutcome === 'ok' || sectionClearOutcome === 'fail') && (
+                    <span className="dt-storage-clear-group">
+                      {sectionClearOutcome === 'ok' ? (
+                        <span className="dt-storage-quota-clear-done" role="status">
+                          {t('panel.storage.cleared')}
+                        </span>
+                      ) : sectionClearOutcome === 'fail' ? (
+                        <span className="dt-storage-quota-clear-failed">{t('panel.storage.clearFailed')}</span>
+                      ) : null}
+                      {sectionClear !== null &&
+                        sectionClearOutcome !== 'pending' &&
+                        sectionClearOutcome !== 'ok' && (
+                          <ClearAllButton section={section} onClear={() => runSectionClear(sectionClear)} />
+                        )}
+                    </span>
+                  )}
+                  {section === 'cookies' ? (
+                    cookiesWritable && (
+                      <CookieEditPopover
+                        mode="add"
+                        canonical={addCookieCanonical}
+                        batch={addCookieBatch}
+                        onSubmit={applyCookieEdit}
+                      >
+                        <button type="button" className="dt-storage-add" title={t('panel.storage.add.cookieTitle')}>
+                          {t('panel.storage.add.cookie')}
+                        </button>
+                      </CookieEditPopover>
+                    )
+                  ) : section === 'local' || section === 'session' ? (
+                    <button
+                      type="button"
+                      className="dt-storage-add"
+                      onClick={() => setAdding(true)}
+                      disabled={!canWrite}
+                    >
+                      {t('panel.storage.add.item')}
+                    </button>
+                  ) : null}
+                </span>
               )}
             </div>
           )}

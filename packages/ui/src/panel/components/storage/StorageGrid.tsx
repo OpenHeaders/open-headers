@@ -66,7 +66,7 @@ interface StorageGridProps {
    *  example write names the matching global. */
   area: DomStorageArea;
   entries: ReadonlyArray<DomStorageEntry>;
-  /** Add-row visibility is owned by the panel (its + button toggles it). */
+  /** Add-row visibility is owned by the panel (its Add item button opens it). */
   adding: boolean;
   onCloseAdd: () => void;
   onCommit: (originalKey: string | null, key: string, value: string) => Promise<boolean>;
