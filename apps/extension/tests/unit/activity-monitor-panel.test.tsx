@@ -9,10 +9,14 @@
  *   - processes without a name sit under one collapsed group and open
  *     to the runtime's own names;
  *   - an owner's row is folded at first and opens to what runs beneath
- *     it — the program's name alone, its own figures, no graph; its
- *     figures say on hover what the total is; a terminal's arrow asks
- *     the shell to front its tab, and is absent where this window
- *     holds no tab for it;
+ *     it — the program's name alone, its own figures, no graph; a
+ *     terminal's arrow asks the shell to front its tab, and is absent
+ *     where this window holds no tab for it;
+ *   - nothing explains itself on hover: each figure column and each
+ *     group carries an `(i)` whose popover leads with the one shared
+ *     example, its own slice lit, and a sentence or two under it —
+ *     worded for the host's CPU convention and its memory figure; an
+ *     `(i)` click neither sorts nor folds;
  *   - an ask that goes unanswered says so;
  *   - what the engine keeps running sits under RUNNING as facts worded
  *     from structured fields, an off service muted, an unreadable one a
@@ -20,11 +24,11 @@
  *     owns the service; the arrow asks the shell to front the owner;
  *   - the history is kept across asks — appended, never asked for
  *     twice, kept through an unanswered ask; a row's last hour is one
- *     path on the one scale; a process that ended keeps a muted row;
- *     the header line adds every process up and says which memory it
- *     adds — an upper bound, or the footprint; the Memory column says
- *     which figure it is; a heading click sorts, and the order is held until
- *     a history beat arrives with the pointer off the table (law 10).
+ *     path on the one scale; a process that ended keeps a muted row
+ *     under one folded "Ended (n)" line at the foot of Processes, off
+ *     the live rows; the header line adds every process up; a heading
+ *     click sorts, and the order is held until a history beat arrives
+ *     with the pointer off the table (law 10).
  */
 
 import {
@@ -128,7 +132,7 @@ class ResizeObserverStub implements ResizeObserver {
 
 beforeEach(() => {
   vi.useFakeTimers();
-  // A hover's tooltip measures its trigger; the test DOM has no observer of its own.
+  // A popover measures its trigger; the test DOM has no observer of its own.
   vi.stubGlobal('ResizeObserver', ResizeObserverStub);
   visibility = 'visible';
   Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => visibility });
@@ -309,6 +313,35 @@ describe('ActivityMonitorPanel', () => {
 
   const cells = (row: Element): string[] =>
     Array.from(row.querySelectorAll('[role="cell"]'), (cell) => cell.textContent);
+
+  /** Opens the folded line the ended processes sit under. */
+  const openEnded = (count: number): void => {
+    fireEvent.click(screen.getByRole('button', { name: `Ended (${count})` }));
+  };
+
+  /** A column's head, found by its sort button — the head also holds the column's `(i)`. */
+  const columnHead = (name: string): HTMLElement => {
+    const head = screen.getByRole('button', { name }).closest<HTMLElement>('[role="columnheader"]');
+    if (head === null) throw new Error(`no column head for ${name}`);
+    return head;
+  };
+
+  /** Opens the `(i)` of a column or a group. */
+  async function openInfo(title: string): Promise<void> {
+    fireEvent.click(screen.getByRole('button', { name: `About ${title}` }));
+    await tick(0);
+  }
+
+  const popover = (part: 'kicker' | 'title' | 'summary' | 'description'): string | null =>
+    document.querySelector(`.oh-info-popover-${part}`)?.textContent ?? null;
+
+  /** The example card's lines, opener first; and the tokens the open popover lights. */
+  const exampleLines = (): string[] =>
+    Array.from(document.querySelectorAll('.oh-info-eg-line'), (line) =>
+      Array.from(line.children, (cell) => cell.textContent).join(' | '),
+    );
+  const litTokens = (): string[] =>
+    Array.from(document.querySelectorAll('.oh-info-eg-hl'), (token) => token.textContent);
 
   it('asks nothing while it is mounted but not the active tab', async () => {
     const fake = createBridgeFake(async () => makeSnapshot());
@@ -502,6 +535,7 @@ describe('ActivityMonitorPanel', () => {
       );
       await tick(0);
       expect(cells(screen.getByTestId('activity-monitor-row'))[0]).toBe('Terminal');
+      openEnded(1);
       expect(cells(screen.getByTestId('activity-monitor-ended'))[0]).toBe('Terminal');
     });
 
@@ -538,11 +572,6 @@ describe('ActivityMonitorPanel', () => {
       { pid: 61_102, startedAt: SAMPLED_AT - 40_000, name: 'node', cpuRate: 0.402, memoryBytes: 164 * MB },
       { pid: 61_250, startedAt: SAMPLED_AT - 30_000, name: null, cpuRate: null, memoryBytes: null },
     ];
-    const OWNER_HOVER =
-      'Everything running under it, added up. CPU counts processes that came and went between two readings too; ' +
-      'one that outlives the process that started it takes its time out of the total when it ends, and one that ' +
-      'has just ended can be counted nowhere for a moment. Memory is what is held at this instant.';
-
     async function renderOwners(
       answer: () => ActivityMonitorSnapshot,
       onRevealTerminal: (sessionId: string) => void = () => {},
@@ -636,22 +665,16 @@ describe('ActivityMonitorPanel', () => {
       expect(screen.queryAllByRole('button', { name: /^Open / })).toEqual([]);
     });
 
-    it.each([
-      ['CPU', 0],
-      ['Memory', 1],
-    ] as const)(
-      'says on an owner’s %s figure what its total is and what it leaves out — and nothing on a process of the runtime’s own',
-      async (_figure, index) => {
-        await renderOwners(() => makeSnapshot({ processes: [makeRow(), TERMINAL] }));
-        const [engine, terminal] = rows();
-
-        fireEvent.mouseEnter(engine.querySelectorAll('.oh-am-num')[index]);
+    it.each(['CPU', 'Memory'] as const)(
+      'says in the %s column’s (i) that a row that opens adds up what runs under it — and nothing on a figure’s hover',
+      async (column) => {
+        await renderOwners(() => makeSnapshot({ processes: [makeRow(), { ...TERMINAL, children: BENEATH }] }));
+        for (const figure of rows()[1].querySelectorAll('.oh-am-num')) fireEvent.mouseEnter(figure);
         await tick(500);
-        expect(screen.queryByText(OWNER_HOVER)).toBeNull();
+        expect(document.querySelector('.ant-tooltip')).toBeNull();
 
-        fireEvent.mouseEnter(terminal.querySelectorAll('.oh-am-num')[index]);
-        await tick(500);
-        expect(screen.getByText(OWNER_HOVER)).toBeTruthy();
+        await openInfo(column);
+        expect(popover('description')).toBe('A row that opens adds up everything running under it.');
       },
     );
   });
@@ -888,6 +911,45 @@ describe('ActivityMonitorPanel', () => {
     expect(graphPaths(screen.getByTestId('activity-monitor-row'))).toEqual(['M0.0 1.0L100.0 11.5']);
   });
 
+  it('keeps what ended off the live rows, under one folded line that counts it and opens on a click', async () => {
+    const ended = [61_377, 61_378].map((pid) => ({
+      id: `${pid}:${SAMPLED_AT - 600_000}`,
+      kind: 'script-runtime' as const,
+      pid,
+      startedAt: SAMPLED_AT - 600_000,
+      endedAt: SAMPLED_AT - 60_000,
+    }));
+    setHostBridge(createBridgeFake(async () => makeSnapshot({ processes: [ENGINE], ended })).bridge);
+    render(
+      <ActivityMonitorPanel
+        info={INFO}
+        active
+        onHide={() => {}}
+        onRevealService={() => {}}
+        terminalLabel={() => null}
+        onRevealTerminal={() => {}}
+      />,
+    );
+    await tick(0);
+
+    const fold = screen.getByRole('button', { name: 'Ended (2)' });
+    expect(fold.getAttribute('aria-expanded')).toBe('false');
+    expect(screen.queryAllByTestId('activity-monitor-ended')).toHaveLength(0);
+    expect(rowNames()).toEqual(['Open Headers']);
+
+    fireEvent.click(fold);
+    expect(fold.getAttribute('aria-expanded')).toBe('true');
+    expect(screen.getAllByTestId('activity-monitor-ended')).toHaveLength(2);
+
+    fireEvent.click(fold);
+    expect(screen.queryAllByTestId('activity-monitor-ended')).toHaveLength(0);
+  });
+
+  it('draws no Ended line where nothing ended inside the hour', async () => {
+    await renderServices([]);
+    expect(screen.queryByTestId('activity-monitor-ended-fold')).toBeNull();
+  });
+
   it('keeps a process that ended as a muted row: a dash for CPU, its hour, when it ended and its peak', async () => {
     const runtime = makeRow({ kind: 'script-runtime', pid: 61_377, startedAt: SAMPLED_AT - 20 * 60_000 });
     const endedAt = SAMPLED_AT - 17 * 60_000;
@@ -920,8 +982,9 @@ describe('ActivityMonitorPanel', () => {
     await tick(0);
 
     expect(rowNames()).toEqual(['Open Headers']);
+    openEnded(1);
     const ended = screen.getByTestId('activity-monitor-ended');
-    expect(ended.className).toBe('oh-am-row oh-am-row--ended');
+    expect(ended.className).toBe('oh-am-row oh-am-row--child oh-am-row--ended');
     expect(cells(ended)).toEqual([
       'Script runtime · Developer',
       '—',
@@ -954,6 +1017,7 @@ describe('ActivityMonitorPanel', () => {
       />,
     );
     await tick(0);
+    openEnded(1);
     expect(cells(screen.getByTestId('activity-monitor-ended'))[2]).toBe(
       `ended ${formatStartTime(endedAt, SAMPLED_AT, 'en')}`,
     );
@@ -1062,7 +1126,7 @@ describe('ActivityMonitorPanel', () => {
 
     fireEvent.click(groupHead('processes'));
     fireEvent.click(groupHead('processes'));
-    expect(screen.getByRole('columnheader', { name: 'Memory' }).getAttribute('aria-sort')).toBe('descending');
+    expect(columnHead('Memory').getAttribute('aria-sort')).toBe('descending');
   });
 
   it('has no Overview while there is no answer, and still says what could not be read under Processes', async () => {
@@ -1111,13 +1175,14 @@ describe('ActivityMonitorPanel', () => {
   });
 
   const UPPER_BOUND = 'An upper bound — memory that processes share is counted once for each of them.';
-  const FOOTPRINT_TOTAL = 'The footprint of every process, added up.';
   const FOOTPRINT_COLUMN =
     'The memory footprint, as this system’s own monitor counts it — what the process alone is charged for, compressed memory included.';
   const HELD_COLUMN = 'The physical memory the process holds right now.';
 
-  async function hoverMemory(memoryKind: ActivityMonitorSnapshot['memoryKind'], where: 'total' | 'column') {
-    setHostBridge(createBridgeFake(async () => makeSnapshot({ memoryKind, processes: [ENGINE] })).bridge);
+  const ONE_SCALE = 'Every CPU graph shares one scale — the top is one full core.';
+
+  async function renderHost(host: Partial<ActivityMonitorSnapshot>): Promise<void> {
+    setHostBridge(createBridgeFake(async () => makeSnapshot({ processes: [ENGINE], ...host })).bridge);
     render(
       <ActivityMonitorPanel
         info={INFO}
@@ -1129,42 +1194,158 @@ describe('ActivityMonitorPanel', () => {
       />,
     );
     await tick(0);
-    const target =
-      where === 'total'
-        ? screen.getByTestId('activity-monitor-summary').querySelectorAll('.oh-am-stat')[1]
-        : screen.getByRole('button', { name: 'Memory' }).closest('[role="columnheader"]');
-    if (!target) throw new Error('no memory figure to hover');
-    fireEvent.mouseEnter(target);
-    await tick(500);
   }
 
   it.each(['resident', 'working-set'] as const)(
-    'says on hover that a %s total is an upper bound',
+    'says in the Overview’s (i) that a %s total is an upper bound',
     async (memoryKind) => {
-      await hoverMemory(memoryKind, 'total');
-      expect(screen.getByText(UPPER_BOUND)).toBeTruthy();
+      await renderHost({ memoryKind });
+      await openInfo('Overview');
+      expect(popover('summary')).toBe('Every process of the app, added up.');
+      expect(popover('description')).toBe(`${ONE_SCALE}${UPPER_BOUND}`);
     },
   );
 
-  it('says on hover that a footprint total is every process added up — no upper bound', async () => {
-    await hoverMemory('footprint', 'total');
-    expect(screen.getByText(FOOTPRINT_TOTAL)).toBeTruthy();
-    expect(screen.queryByText(UPPER_BOUND)).toBeNull();
+  it('says no upper bound in the Overview’s (i) where the total adds footprints', async () => {
+    await renderHost({ memoryKind: 'footprint' });
+    await openInfo('Overview');
+    expect(popover('description')).toBe(ONE_SCALE);
   });
 
-  it('says on the Memory column’s hover that the figure is the footprint, where it is', async () => {
-    await hoverMemory('footprint', 'column');
-    expect(screen.getByText(FOOTPRINT_COLUMN)).toBeTruthy();
+  it('says in the Memory column’s (i) that the figure is the footprint, where it is', async () => {
+    await renderHost({ memoryKind: 'footprint' });
+    await openInfo('Memory');
+    expect(popover('summary')).toBe(FOOTPRINT_COLUMN);
   });
 
   it.each(['resident', 'working-set'] as const)(
-    'says on the Memory column’s hover that a %s figure is the physical memory held',
+    'says in the Memory column’s (i) that a %s figure is the physical memory held',
     async (memoryKind) => {
-      await hoverMemory(memoryKind, 'column');
-      expect(screen.getByText(HELD_COLUMN)).toBeTruthy();
-      expect(screen.queryByText(FOOTPRINT_COLUMN)).toBeNull();
+      await renderHost({ memoryKind });
+      await openInfo('Memory');
+      expect(popover('summary')).toBe(HELD_COLUMN);
     },
   );
+
+  it('explains nothing on hover — the totals, the span and the column heads carry no tooltip', async () => {
+    await renderHost({ history: [makeBeat(1, SAMPLED_AT - HALF_HOUR, {}), makeBeat(2, SAMPLED_AT, {})], cursor: 2 });
+    const summary = screen.getByTestId('activity-monitor-summary');
+    const span = groupHead('overview').querySelector('.oh-am-range');
+    if (span === null) throw new Error('no span to hover');
+    for (const target of [...summary.querySelectorAll('.oh-am-stat'), span, ...screen.getAllByRole('columnheader')]) {
+      fireEvent.mouseEnter(target);
+    }
+    await tick(500);
+    expect(document.querySelector('.ant-tooltip')).toBeNull();
+  });
+
+  it('gives each figure column and each group an (i), and no other', async () => {
+    await renderServices(SERVICES);
+    expect(
+      screen.getAllByRole('button', { name: /^About / }).map((button) => button.getAttribute('aria-label')),
+    ).toEqual([
+      'About Activity Monitor',
+      'About Overview',
+      'About Processes',
+      'About CPU',
+      'About Memory',
+      'About Started',
+      'About PID',
+      'About Running',
+    ]);
+  });
+
+  it('leads every (i) with the one example, worded as the panel is, under the tool’s name', async () => {
+    await renderHost({});
+    await openInfo('Processes');
+    expect(popover('kicker')).toBe('Activity Monitor');
+    expect(popover('title')).toBe('Processes');
+    expect(document.querySelector('.oh-info-eg-cap')?.textContent).toBe('Example');
+    expect(exampleLines()).toEqual([
+      'Overview | CPU 42.3% · Memory 3.28 GB · 8 processes · up 7 min',
+      'Processes | Terminal · Local · 40.2% · 218 MB · 16:52 · 61044',
+      '↳ | node · 40.2% · 164 MB',
+      'Ended (1) | Terminal · ended 16:54 · peak 78.8%',
+      'Running | Sync server · 127.0.0.1:8137 · no one connected',
+    ]);
+    expect(popover('summary')).toBe('The app’s own processes and what each one costs.');
+    expect(popover('description')).toBe(
+      'A row that opens adds up everything running under it.Ended keeps the ones that ended in the last hour.',
+    );
+  });
+
+  it.each([
+    ['CPU', ['40.2%', '40.2%'], 'Per core, as this system’s own monitor counts it — 100% is one full core.'],
+    ['Memory', ['218 MB', '164 MB'], FOOTPRINT_COLUMN],
+    ['Started', ['16:52'], 'When the process started — a date once that day has passed.'],
+    ['PID', ['61044'], 'The operating system’s process ID — for IT and support.'],
+    ['Overview', ['CPU 42.3%', 'Memory 3.28 GB', '8 processes', 'up 7 min'], 'Every process of the app, added up.'],
+    [
+      'Processes',
+      [
+        'Terminal · Local',
+        '40.2%',
+        '218 MB',
+        '16:52',
+        '61044',
+        'node',
+        '40.2%',
+        '164 MB',
+        'Terminal',
+        'ended 16:54',
+        'peak 78.8%',
+      ],
+      'The app’s own processes and what each one costs.',
+    ],
+    ['Running', ['Sync server', '127.0.0.1:8137 · no one connected'], 'What the app keeps running in the background.'],
+  ] as const)('lights the %s slice of the example in its (i), over one sentence', async (title, lit, summary) => {
+    await renderServices(SERVICES);
+    await openInfo(title);
+    expect(popover('title')).toBe(title);
+    expect(litTokens()).toEqual(lit);
+    expect(popover('summary')).toBe(summary);
+  });
+
+  it('words the example and the CPU column’s (i) as a share of the whole machine where the host is Windows', async () => {
+    await renderHost({ platform: 'win32', logicalCores: 8, memoryKind: 'working-set' });
+    await openInfo('CPU');
+    expect(popover('summary')).toBe(
+      'A share of the whole machine, as this system’s own monitor counts it — 100% is every core.',
+    );
+    expect(litTokens()).toEqual(['5.0%', '5.0%']);
+  });
+
+  it('an (i) click neither sorts its column nor folds its group', async () => {
+    await renderServices(SERVICES);
+    await openInfo('CPU');
+    expect(columnHead('CPU').hasAttribute('aria-sort')).toBe(false);
+
+    await openInfo('Running');
+    expect(groupHead('running').getAttribute('aria-expanded')).toBe('true');
+    expect(screen.getAllByTestId('activity-monitor-service')).toHaveLength(5);
+  });
+
+  it('carries no (i) before the first answer says what the host is', async () => {
+    setHostBridge(
+      createBridgeFake(async () => {
+        throw new Error('no handler');
+      }).bridge,
+    );
+    render(
+      <ActivityMonitorPanel
+        info={INFO}
+        active
+        onHide={() => {}}
+        onRevealService={() => {}}
+        terminalLabel={() => null}
+        onRevealTerminal={() => {}}
+      />,
+    );
+    await tick(0);
+    expect(screen.getAllByRole('columnheader')).toHaveLength(4);
+    expect(screen.queryByRole('button', { name: 'About CPU' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'About Processes' })).toBeNull();
+  });
 
   it('draws no line of totals while there is no answer', async () => {
     setHostBridge(
@@ -1206,27 +1387,28 @@ describe('ActivityMonitorPanel', () => {
     );
     await tick(0);
     expect(rowNames()).toEqual(['Workbench window', 'Open Headers', 'Graphics']);
-    const head = (): HTMLElement => screen.getByRole('columnheader', { name: 'CPU' });
+    const head = (): HTMLElement => columnHead('CPU');
+    const headLabel = (): string | null => screen.getByRole('button', { name: 'CPU' }).textContent;
     expect(head().hasAttribute('aria-sort')).toBe(false);
 
     fireEvent.click(screen.getByRole('button', { name: 'CPU' }));
     expect(rowNames()).toEqual(['Graphics', 'Open Headers', 'Workbench window']);
     expect(head().getAttribute('aria-sort')).toBe('descending');
-    expect(head().textContent).toBe('CPU ▾');
+    expect(headLabel()).toBe('CPU ▾');
 
     fireEvent.click(screen.getByRole('button', { name: 'CPU' }));
     expect(rowNames()).toEqual(['Workbench window', 'Open Headers', 'Graphics']);
     expect(head().getAttribute('aria-sort')).toBe('ascending');
-    expect(head().textContent).toBe('CPU ▴');
+    expect(headLabel()).toBe('CPU ▴');
 
     fireEvent.click(screen.getByRole('button', { name: 'Memory' }));
     expect(rowNames()).toEqual(['Workbench window', 'Open Headers', 'Graphics']);
     expect(head().hasAttribute('aria-sort')).toBe(false);
-    expect(screen.getByRole('columnheader', { name: 'Memory' }).getAttribute('aria-sort')).toBe('descending');
+    expect(columnHead('Memory').getAttribute('aria-sort')).toBe('descending');
 
     fireEvent.click(screen.getByRole('button', { name: 'Memory' }));
     fireEvent.click(screen.getByRole('button', { name: 'Memory' }));
-    expect(screen.getByRole('columnheader', { name: 'Memory' }).hasAttribute('aria-sort')).toBe(false);
+    expect(columnHead('Memory').hasAttribute('aria-sort')).toBe(false);
     expect(rowNames()).toEqual(['Workbench window', 'Open Headers', 'Graphics']);
   });
 

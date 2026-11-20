@@ -480,18 +480,17 @@ export const workbenchChrome = {
   'workbench.activityMonitor.group.overview': '概要',
   'workbench.activityMonitor.group.processes': 'プロセス',
   'workbench.activityMonitor.column.cpu': 'CPU',
-  'workbench.activityMonitor.column.cpuHoverPerCore':
+  'workbench.activityMonitor.info.cpuPerCore':
     'このシステムのモニタと同じ数え方で、コアごとの値です。100% は 1 コア分です。',
-  'workbench.activityMonitor.column.cpuHoverMachineShare':
+  'workbench.activityMonitor.info.cpuMachineShare':
     'このシステムのモニタと同じ数え方で、マシン全体に対する割合です。100% は全コア分です。',
   'workbench.activityMonitor.column.memory': 'メモリ',
-  'workbench.activityMonitor.column.memoryHover': 'プロセスが現在使用している物理メモリです。',
-  'workbench.activityMonitor.column.memoryHoverFootprint':
+  'workbench.activityMonitor.info.memory': 'プロセスが現在使用している物理メモリです。',
+  'workbench.activityMonitor.info.memoryFootprint':
     'このシステムのモニタと同じ数え方によるメモリフットプリントです。このプロセスだけに計上される分で、圧縮メモリを含みます。',
   'workbench.activityMonitor.column.started': '開始',
   'workbench.activityMonitor.column.pid': 'PID',
-  'workbench.activityMonitor.column.pidHover':
-    'オペレーティングシステムのプロセス ID です。IT 部門やサポート向けです。',
+  'workbench.activityMonitor.info.pid': 'オペレーティングシステムのプロセス ID です。IT 部門やサポート向けです。',
   'workbench.activityMonitor.process.window': 'ワークベンチウィンドウ',
   'workbench.activityMonitor.process.engine': 'Open Headers',
   'workbench.activityMonitor.process.graphics': 'グラフィックス',
@@ -501,10 +500,14 @@ export const workbenchChrome = {
   'workbench.activityMonitor.process.http3Helper': 'HTTP/3 ヘルパー',
   'workbench.activityMonitor.process.other': 'その他 ({count})',
   'workbench.activityMonitor.process.unknown': '不明なプロセス',
-  'workbench.activityMonitor.ownerHover':
-    'この行の下で動いているものすべての合計です。CPU には、2 回の読み取りの間に開始して終了したプロセスも含まれます。' +
-    '起動元より長く動き続けたプロセスは、終了時に自分の時間を合計から持ち去ります。また、終了した直後のプロセスは、' +
-    '一時的にどこにも数えられないことがあります。メモリは、この瞬間に使用している量です。',
+  'workbench.activityMonitor.process.ended': '終了 ({count})',
+  'workbench.activityMonitor.info.exampleCaption': '例',
+  'workbench.activityMonitor.info.ownerTotal': '開ける行は、その下で動いているものすべての合計です。',
+  'workbench.activityMonitor.info.started': 'プロセスが開始した時刻です。その日を過ぎると日付になります。',
+  'workbench.activityMonitor.info.processes': 'アプリ自身のプロセスと、それぞれにかかるコストです。',
+  'workbench.activityMonitor.info.ended': '「終了」には、直近 1 時間に終了したプロセスが残ります。',
+  'workbench.activityMonitor.info.running': 'アプリがバックグラウンドで動かし続けているものです。',
+  'workbench.activityMonitor.info.runningDetail': '白抜きの点はオフです。矢印で、それを管理する場所が開きます。',
   'workbench.activityMonitor.unreadable': 'プロセスを読み取れませんでした。',
   'workbench.activityMonitor.group.running': '実行中',
   'workbench.activityMonitor.service.syncServer': '同期サーバー',
@@ -531,18 +534,17 @@ export const workbenchChrome = {
   'workbench.activityMonitor.peer.extension': '{browser} 拡張機能',
   'workbench.activityMonitor.peer.extensionUnknown': 'ブラウザー拡張機能',
   'workbench.activityMonitor.reveal': '{target} を開く',
-  'workbench.activityMonitor.summary.cpuHover': 'アプリのすべてのプロセスの合計です。',
-  'workbench.activityMonitor.summary.memoryHover':
+  'workbench.activityMonitor.info.overview': 'アプリのすべてのプロセスの合計です。',
+  'workbench.activityMonitor.info.memoryUpperBound':
     '上限の値です。プロセス間で共有されるメモリは、プロセスごとに 1 回ずつ数えられます。',
-  'workbench.activityMonitor.summary.memoryHoverFootprint': 'すべてのプロセスのフットプリントの合計です。',
   'workbench.activityMonitor.summary.processCount': ({ count }, locale) =>
     plural(locale, Number(count), {
       other: 'プロセス {count} 件',
     }),
   'workbench.activityMonitor.summary.uptime': '稼働 {duration}',
   'workbench.activityMonitor.summary.range': '直近 {duration}',
-  'workbench.activityMonitor.summary.scalePerCore': 'CPU のグラフはすべて同じ目盛りです。上端は 1 コア分です。',
-  'workbench.activityMonitor.summary.scaleMachineShare': 'CPU のグラフはすべて同じ目盛りです。上端はマシン全体です。',
+  'workbench.activityMonitor.info.scalePerCore': 'CPU のグラフはすべて同じ目盛りです。上端は 1 コア分です。',
+  'workbench.activityMonitor.info.scaleMachineShare': 'CPU のグラフはすべて同じ目盛りです。上端はマシン全体です。',
   'workbench.activityMonitor.ended': '{time} に終了',
   'workbench.activityMonitor.peak': 'ピーク {percent}',
   'workbench.toolWindows.info.terminal.summary':

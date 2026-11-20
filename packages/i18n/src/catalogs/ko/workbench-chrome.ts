@@ -480,17 +480,17 @@ export const workbenchChrome = {
   'workbench.activityMonitor.group.overview': '개요',
   'workbench.activityMonitor.group.processes': '프로세스',
   'workbench.activityMonitor.column.cpu': 'CPU',
-  'workbench.activityMonitor.column.cpuHoverPerCore':
+  'workbench.activityMonitor.info.cpuPerCore':
     '이 시스템의 모니터가 세는 방식대로 코어당 값입니다. 100%는 코어 하나 전체입니다.',
-  'workbench.activityMonitor.column.cpuHoverMachineShare':
+  'workbench.activityMonitor.info.cpuMachineShare':
     '이 시스템의 모니터가 세는 방식대로 기기 전체에 대한 비율입니다. 100%는 모든 코어입니다.',
   'workbench.activityMonitor.column.memory': '메모리',
-  'workbench.activityMonitor.column.memoryHover': '프로세스가 지금 차지하고 있는 물리 메모리입니다.',
-  'workbench.activityMonitor.column.memoryHoverFootprint':
+  'workbench.activityMonitor.info.memory': '프로세스가 지금 차지하고 있는 물리 메모리입니다.',
+  'workbench.activityMonitor.info.memoryFootprint':
     '이 시스템의 모니터가 세는 방식대로의 메모리 사용 공간입니다. 이 프로세스에만 계산되는 양이며 압축된 메모리를 포함합니다.',
   'workbench.activityMonitor.column.started': '시작',
   'workbench.activityMonitor.column.pid': 'PID',
-  'workbench.activityMonitor.column.pidHover': '운영 체제의 프로세스 ID입니다. IT 부서와 지원팀을 위한 값입니다.',
+  'workbench.activityMonitor.info.pid': '운영 체제의 프로세스 ID입니다. IT 부서와 지원팀을 위한 값입니다.',
   'workbench.activityMonitor.process.window': '워크벤치 창',
   'workbench.activityMonitor.process.engine': 'Open Headers',
   'workbench.activityMonitor.process.graphics': '그래픽',
@@ -500,10 +500,14 @@ export const workbenchChrome = {
   'workbench.activityMonitor.process.http3Helper': 'HTTP/3 도우미',
   'workbench.activityMonitor.process.other': '기타 ({count})',
   'workbench.activityMonitor.process.unknown': '알 수 없는 프로세스',
-  'workbench.activityMonitor.ownerHover':
-    '이 행 아래에서 실행 중인 모든 것을 합한 값입니다. CPU에는 두 번의 읽기 사이에 시작했다가 끝난 프로세스도 포함됩니다. ' +
-    '자신을 시작한 프로세스보다 오래 실행된 프로세스는 끝날 때 자기 시간을 합계에서 가져가며, 방금 끝난 프로세스는 잠시 ' +
-    '어디에도 집계되지 않을 수 있습니다. 메모리는 지금 이 순간 차지하고 있는 양입니다.',
+  'workbench.activityMonitor.process.ended': '종료됨 ({count})',
+  'workbench.activityMonitor.info.exampleCaption': '예시',
+  'workbench.activityMonitor.info.ownerTotal': '펼칠 수 있는 행은 그 아래에서 실행 중인 모든 것을 합한 값입니다.',
+  'workbench.activityMonitor.info.started': '프로세스가 시작된 시각입니다. 그날이 지나면 날짜로 표시됩니다.',
+  'workbench.activityMonitor.info.processes': '앱 자체의 프로세스와 각각에 드는 비용입니다.',
+  'workbench.activityMonitor.info.ended': '‘종료됨’에는 최근 1시간 안에 끝난 프로세스가 남습니다.',
+  'workbench.activityMonitor.info.running': '앱이 백그라운드에서 계속 실행하는 것들입니다.',
+  'workbench.activityMonitor.info.runningDetail': '속이 빈 점은 꺼짐입니다. 화살표는 그것을 관리하는 곳을 엽니다.',
   'workbench.activityMonitor.unreadable': '프로세스를 읽을 수 없습니다.',
   'workbench.activityMonitor.group.running': '실행 중',
   'workbench.activityMonitor.service.syncServer': '동기화 서버',
@@ -530,20 +534,17 @@ export const workbenchChrome = {
   'workbench.activityMonitor.peer.extension': '{browser} 확장 프로그램',
   'workbench.activityMonitor.peer.extensionUnknown': '브라우저 확장 프로그램',
   'workbench.activityMonitor.reveal': '{target} 열기',
-  'workbench.activityMonitor.summary.cpuHover': '앱의 모든 프로세스를 합한 값입니다.',
-  'workbench.activityMonitor.summary.memoryHover':
+  'workbench.activityMonitor.info.overview': '앱의 모든 프로세스를 합한 값입니다.',
+  'workbench.activityMonitor.info.memoryUpperBound':
     '상한값입니다. 프로세스끼리 공유하는 메모리는 프로세스마다 한 번씩 계산됩니다.',
-  'workbench.activityMonitor.summary.memoryHoverFootprint': '모든 프로세스의 메모리 사용 공간을 합한 값입니다.',
   'workbench.activityMonitor.summary.processCount': ({ count }, locale) =>
     plural(locale, Number(count), {
       other: '프로세스 {count}개',
     }),
   'workbench.activityMonitor.summary.uptime': '가동 {duration}',
   'workbench.activityMonitor.summary.range': '최근 {duration}',
-  'workbench.activityMonitor.summary.scalePerCore':
-    '모든 CPU 그래프는 같은 눈금을 씁니다. 맨 위는 코어 하나 전체입니다.',
-  'workbench.activityMonitor.summary.scaleMachineShare':
-    '모든 CPU 그래프는 같은 눈금을 씁니다. 맨 위는 기기 전체입니다.',
+  'workbench.activityMonitor.info.scalePerCore': '모든 CPU 그래프는 같은 눈금을 씁니다. 맨 위는 코어 하나 전체입니다.',
+  'workbench.activityMonitor.info.scaleMachineShare': '모든 CPU 그래프는 같은 눈금을 씁니다. 맨 위는 기기 전체입니다.',
   'workbench.activityMonitor.ended': '{time} 종료',
   'workbench.activityMonitor.peak': '최고 {percent}',
   'workbench.toolWindows.info.terminal.summary':

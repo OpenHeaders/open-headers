@@ -504,17 +504,17 @@ export const workbenchChrome = {
   'workbench.activityMonitor.group.overview': 'Aperçu',
   'workbench.activityMonitor.group.processes': 'Processus',
   'workbench.activityMonitor.column.cpu': 'CPU',
-  'workbench.activityMonitor.column.cpuHoverPerCore':
+  'workbench.activityMonitor.info.cpuPerCore':
     'Par cœur, comme le compte le moniteur de ce système — 100 % correspond à un cœur entier.',
-  'workbench.activityMonitor.column.cpuHoverMachineShare':
+  'workbench.activityMonitor.info.cpuMachineShare':
     'Une part de toute la machine, comme le compte le moniteur de ce système — 100 % correspond à tous les cœurs.',
   'workbench.activityMonitor.column.memory': 'Mémoire',
-  'workbench.activityMonitor.column.memoryHover': 'La mémoire physique que le processus occupe en ce moment.',
-  'workbench.activityMonitor.column.memoryHoverFootprint':
+  'workbench.activityMonitor.info.memory': 'La mémoire physique que le processus occupe en ce moment.',
+  'workbench.activityMonitor.info.memoryFootprint':
     'L’empreinte mémoire, comme la compte le moniteur de ce système — ce qui est imputé au seul processus, mémoire compressée comprise.',
   'workbench.activityMonitor.column.started': 'Démarré',
   'workbench.activityMonitor.column.pid': 'PID',
-  'workbench.activityMonitor.column.pidHover':
+  'workbench.activityMonitor.info.pid':
     "L'identifiant de processus du système d'exploitation — pour l'informatique et le support.",
   'workbench.activityMonitor.process.window': "Fenêtre de l'éditeur",
   'workbench.activityMonitor.process.engine': 'Open Headers',
@@ -525,11 +525,16 @@ export const workbenchChrome = {
   'workbench.activityMonitor.process.http3Helper': 'Assistant HTTP/3',
   'workbench.activityMonitor.process.other': 'Autres ({count})',
   'workbench.activityMonitor.process.unknown': 'Processus inconnu',
-  'workbench.activityMonitor.ownerHover':
-    'Tout ce qui s’exécute en dessous, additionné. Le CPU compte aussi les processus lancés et terminés entre ' +
-    'deux relevés ; un processus qui survit à celui qui l’a lancé retire son temps du total lorsqu’il se termine, ' +
-    'et un processus qui vient de se terminer peut n’être compté nulle part pendant un instant. La mémoire est ' +
-    'celle occupée à cet instant.',
+  'workbench.activityMonitor.process.ended': 'Terminés ({count})',
+  'workbench.activityMonitor.info.exampleCaption': 'Exemple',
+  'workbench.activityMonitor.info.ownerTotal': 'Une ligne qui se déplie additionne tout ce qui s’exécute en dessous.',
+  'workbench.activityMonitor.info.started': 'Le moment où le processus a démarré — une date une fois ce jour passé.',
+  'workbench.activityMonitor.info.processes': 'Les processus de l’application et ce que coûte chacun.',
+  'workbench.activityMonitor.info.ended':
+    'Sous Terminés restent ceux qui se sont terminés au cours de la dernière heure.',
+  'workbench.activityMonitor.info.running': 'Ce que l’application maintient en cours d’exécution en arrière-plan.',
+  'workbench.activityMonitor.info.runningDetail':
+    'Un point creux signifie désactivé. La flèche ouvre l’endroit où il se gère.',
   'workbench.activityMonitor.unreadable': "Les processus n'ont pas pu être lus.",
   'workbench.activityMonitor.group.running': 'En cours',
   'workbench.activityMonitor.service.syncServer': 'Serveur de synchronisation',
@@ -558,10 +563,9 @@ export const workbenchChrome = {
   'workbench.activityMonitor.peer.extension': 'Extension {browser}',
   'workbench.activityMonitor.peer.extensionUnknown': 'Extension de navigateur',
   'workbench.activityMonitor.reveal': 'Ouvrir {target}',
-  'workbench.activityMonitor.summary.cpuHover': "Tous les processus de l'application, additionnés.",
-  'workbench.activityMonitor.summary.memoryHover':
+  'workbench.activityMonitor.info.overview': "Tous les processus de l'application, additionnés.",
+  'workbench.activityMonitor.info.memoryUpperBound':
     'Une borne supérieure — la mémoire que les processus partagent est comptée une fois pour chacun.',
-  'workbench.activityMonitor.summary.memoryHoverFootprint': 'L’empreinte de tous les processus, additionnée.',
   'workbench.activityMonitor.summary.processCount': ({ count }, locale) =>
     plural(locale, Number(count), {
       one: '{count} processus',
@@ -570,9 +574,9 @@ export const workbenchChrome = {
     }),
   'workbench.activityMonitor.summary.uptime': 'actif depuis {duration}',
   'workbench.activityMonitor.summary.range': 'dernières {duration}',
-  'workbench.activityMonitor.summary.scalePerCore':
+  'workbench.activityMonitor.info.scalePerCore':
     'Tous les graphiques CPU partagent une même échelle — le haut correspond à un cœur entier.',
-  'workbench.activityMonitor.summary.scaleMachineShare':
+  'workbench.activityMonitor.info.scaleMachineShare':
     'Tous les graphiques CPU partagent une même échelle — le haut correspond à toute la machine.',
   'workbench.activityMonitor.ended': 'terminé : {time}',
   'workbench.activityMonitor.peak': 'pic {percent}',

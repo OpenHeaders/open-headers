@@ -508,17 +508,17 @@ export const workbenchChrome = {
   'workbench.activityMonitor.group.overview': 'Prezentare generală',
   'workbench.activityMonitor.group.processes': 'Procese',
   'workbench.activityMonitor.column.cpu': 'CPU',
-  'workbench.activityMonitor.column.cpuHoverPerCore':
+  'workbench.activityMonitor.info.cpuPerCore':
     'Pe nucleu, așa cum numără monitorul acestui sistem — 100 % înseamnă un nucleu întreg.',
-  'workbench.activityMonitor.column.cpuHoverMachineShare':
+  'workbench.activityMonitor.info.cpuMachineShare':
     'O parte din întreaga mașină, așa cum numără monitorul acestui sistem — 100 % înseamnă toate nucleele.',
   'workbench.activityMonitor.column.memory': 'Memorie',
-  'workbench.activityMonitor.column.memoryHover': 'Memoria fizică pe care procesul o ocupă chiar acum.',
-  'workbench.activityMonitor.column.memoryHoverFootprint':
+  'workbench.activityMonitor.info.memory': 'Memoria fizică pe care procesul o ocupă chiar acum.',
+  'workbench.activityMonitor.info.memoryFootprint':
     'Amprenta de memorie, așa cum o numără monitorul acestui sistem — ce i se atribuie doar procesului, inclusiv memoria comprimată.',
   'workbench.activityMonitor.column.started': 'Pornit',
   'workbench.activityMonitor.column.pid': 'PID',
-  'workbench.activityMonitor.column.pidHover': 'ID-ul de proces al sistemului de operare — pentru IT și suport.',
+  'workbench.activityMonitor.info.pid': 'ID-ul de proces al sistemului de operare — pentru IT și suport.',
   'workbench.activityMonitor.process.window': 'Fereastră Workbench',
   'workbench.activityMonitor.process.engine': 'Open Headers',
   'workbench.activityMonitor.process.graphics': 'Grafică',
@@ -528,10 +528,15 @@ export const workbenchChrome = {
   'workbench.activityMonitor.process.http3Helper': 'Asistent HTTP/3',
   'workbench.activityMonitor.process.other': 'Altele ({count})',
   'workbench.activityMonitor.process.unknown': 'Proces necunoscut',
-  'workbench.activityMonitor.ownerHover':
-    'Tot ce rulează dedesubt, adunat. CPU numără și procesele care au pornit și s-au încheiat între două citiri; ' +
-    'un proces care îi supraviețuiește celui care l-a pornit își ia timpul din total când se încheie, iar unul ' +
-    'abia încheiat poate să nu fie numărat nicăieri pentru o clipă. Memoria este cea ocupată în această clipă.',
+  'workbench.activityMonitor.process.ended': 'Încheiate ({count})',
+  'workbench.activityMonitor.info.exampleCaption': 'Exemplu',
+  'workbench.activityMonitor.info.ownerTotal': 'Un rând care se deschide adună tot ce rulează dedesubt.',
+  'workbench.activityMonitor.info.started': 'Când a pornit procesul — o dată, după ce ziua aceea a trecut.',
+  'workbench.activityMonitor.info.processes': 'Procesele proprii ale aplicației și cât costă fiecare.',
+  'workbench.activityMonitor.info.ended': 'În Încheiate rămân cele care s-au încheiat în ultima oră.',
+  'workbench.activityMonitor.info.running': 'Ce menține aplicația în execuție în fundal.',
+  'workbench.activityMonitor.info.runningDetail':
+    'Un punct gol înseamnă oprit. Săgeata deschide locul unde se administrează.',
   'workbench.activityMonitor.unreadable': 'Procesele nu au putut fi citite.',
   'workbench.activityMonitor.group.running': 'În execuție',
   'workbench.activityMonitor.service.syncServer': 'Server de sincronizare',
@@ -560,10 +565,9 @@ export const workbenchChrome = {
   'workbench.activityMonitor.peer.extension': 'Extensie {browser}',
   'workbench.activityMonitor.peer.extensionUnknown': 'Extensie de browser',
   'workbench.activityMonitor.reveal': 'Deschidere {target}',
-  'workbench.activityMonitor.summary.cpuHover': 'Toate procesele aplicației, adunate.',
-  'workbench.activityMonitor.summary.memoryHover':
+  'workbench.activityMonitor.info.overview': 'Toate procesele aplicației, adunate.',
+  'workbench.activityMonitor.info.memoryUpperBound':
     'O limită superioară — memoria pe care procesele o împart este numărată o dată pentru fiecare.',
-  'workbench.activityMonitor.summary.memoryHoverFootprint': 'Amprenta tuturor proceselor, adunată.',
   'workbench.activityMonitor.summary.processCount': ({ count }, locale) =>
     plural(locale, Number(count), {
       one: '{count} proces',
@@ -572,9 +576,9 @@ export const workbenchChrome = {
     }),
   'workbench.activityMonitor.summary.uptime': 'pornită de {duration}',
   'workbench.activityMonitor.summary.range': 'ultimele {duration}',
-  'workbench.activityMonitor.summary.scalePerCore':
+  'workbench.activityMonitor.info.scalePerCore':
     'Toate graficele CPU folosesc aceeași scară — sus este un nucleu întreg.',
-  'workbench.activityMonitor.summary.scaleMachineShare':
+  'workbench.activityMonitor.info.scaleMachineShare':
     'Toate graficele CPU folosesc aceeași scară — sus este întreaga mașină.',
   'workbench.activityMonitor.ended': 'încheiat la {time}',
   'workbench.activityMonitor.peak': 'vârf {percent}',

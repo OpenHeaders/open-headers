@@ -189,8 +189,9 @@
   color: var(--ant-color-text-tertiary);
 }
 
-/* A process that ended inside the hour: muted, and its note takes the
- * place of the three figures it no longer has. */
+/* The Ended line and, beneath it, each process that ended inside the
+ * hour: muted, and a row's note takes the place of the three figures
+ * it no longer has. */
 .oh-am-row--ended .oh-am-name,
 .oh-am-row--ended .oh-am-spark {
   color: var(--ant-color-text-tertiary);

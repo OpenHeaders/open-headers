@@ -474,16 +474,16 @@ export const workbenchChrome = {
   'workbench.activityMonitor.group.overview': '概览',
   'workbench.activityMonitor.group.processes': '进程',
   'workbench.activityMonitor.column.cpu': 'CPU',
-  'workbench.activityMonitor.column.cpuHoverPerCore': '按核心计，与本系统自带监视器的算法一致——100% 表示占满一个核心。',
-  'workbench.activityMonitor.column.cpuHoverMachineShare':
+  'workbench.activityMonitor.info.cpuPerCore': '按核心计，与本系统自带监视器的算法一致——100% 表示占满一个核心。',
+  'workbench.activityMonitor.info.cpuMachineShare':
     '占整台机器的比例，与本系统自带监视器的算法一致——100% 表示占满全部核心。',
   'workbench.activityMonitor.column.memory': '内存',
-  'workbench.activityMonitor.column.memoryHover': '该进程此刻占用的物理内存。',
-  'workbench.activityMonitor.column.memoryHoverFootprint':
+  'workbench.activityMonitor.info.memory': '该进程此刻占用的物理内存。',
+  'workbench.activityMonitor.info.memoryFootprint':
     '内存占用量，与本系统自带监视器的算法一致——仅计入该进程自身的部分，包含已压缩的内存。',
   'workbench.activityMonitor.column.started': '启动时间',
   'workbench.activityMonitor.column.pid': 'PID',
-  'workbench.activityMonitor.column.pidHover': '操作系统的进程 ID——供 IT 和技术支持使用。',
+  'workbench.activityMonitor.info.pid': '操作系统的进程 ID——供 IT 和技术支持使用。',
   'workbench.activityMonitor.process.window': '工作区编辑器窗口',
   'workbench.activityMonitor.process.engine': 'Open Headers',
   'workbench.activityMonitor.process.graphics': '图形',
@@ -493,9 +493,14 @@ export const workbenchChrome = {
   'workbench.activityMonitor.process.http3Helper': 'HTTP/3 辅助程序',
   'workbench.activityMonitor.process.other': '其他（{count}）',
   'workbench.activityMonitor.process.unknown': '未知进程',
-  'workbench.activityMonitor.ownerHover':
-    '其下运行的所有进程的合计。CPU 也计入在两次读取之间启动并结束的进程；如果某个进程比启动它的进程运行得更久，' +
-    '它结束时会把自己的时间从合计中带走；刚结束的进程可能有一瞬间不计入任何一处。内存是此刻占用的量。',
+  'workbench.activityMonitor.process.ended': '已结束（{count}）',
+  'workbench.activityMonitor.info.exampleCaption': '示例',
+  'workbench.activityMonitor.info.ownerTotal': '可展开的行是其下运行的所有进程的合计。',
+  'workbench.activityMonitor.info.started': '进程的启动时间——过了当天则显示日期。',
+  'workbench.activityMonitor.info.processes': '本应用自己的进程及各自的开销。',
+  'workbench.activityMonitor.info.ended': '“已结束”保留最近一小时内结束的进程。',
+  'workbench.activityMonitor.info.running': '本应用在后台保持运行的内容。',
+  'workbench.activityMonitor.info.runningDetail': '空心圆点表示已关闭。箭头会打开管理它的位置。',
   'workbench.activityMonitor.unreadable': '无法读取进程。',
   'workbench.activityMonitor.group.running': '运行中',
   'workbench.activityMonitor.service.syncServer': '同步服务器',
@@ -522,17 +527,16 @@ export const workbenchChrome = {
   'workbench.activityMonitor.peer.extension': '{browser} 扩展',
   'workbench.activityMonitor.peer.extensionUnknown': '浏览器扩展',
   'workbench.activityMonitor.reveal': '打开{target}',
-  'workbench.activityMonitor.summary.cpuHover': '本应用所有进程的合计。',
-  'workbench.activityMonitor.summary.memoryHover': '这是上限——进程之间共享的内存会在每个进程上各计一次。',
-  'workbench.activityMonitor.summary.memoryHoverFootprint': '所有进程的内存占用量之和。',
+  'workbench.activityMonitor.info.overview': '本应用所有进程的合计。',
+  'workbench.activityMonitor.info.memoryUpperBound': '这是上限——进程之间共享的内存会在每个进程上各计一次。',
   'workbench.activityMonitor.summary.processCount': ({ count }, locale) =>
     plural(locale, Number(count), {
       other: '{count} 个进程',
     }),
   'workbench.activityMonitor.summary.uptime': '已运行 {duration}',
   'workbench.activityMonitor.summary.range': '最近 {duration}',
-  'workbench.activityMonitor.summary.scalePerCore': '所有 CPU 曲线共用同一刻度——顶端表示占满一个核心。',
-  'workbench.activityMonitor.summary.scaleMachineShare': '所有 CPU 曲线共用同一刻度——顶端表示整台机器。',
+  'workbench.activityMonitor.info.scalePerCore': '所有 CPU 曲线共用同一刻度——顶端表示占满一个核心。',
+  'workbench.activityMonitor.info.scaleMachineShare': '所有 CPU 曲线共用同一刻度——顶端表示整台机器。',
   'workbench.activityMonitor.ended': '{time} 结束',
   'workbench.activityMonitor.peak': '峰值 {percent}',
   'workbench.toolWindows.info.terminal.summary':

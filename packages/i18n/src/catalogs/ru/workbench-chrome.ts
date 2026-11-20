@@ -500,17 +500,17 @@ export const workbenchChrome = {
   'workbench.activityMonitor.group.overview': 'Обзор',
   'workbench.activityMonitor.group.processes': 'Процессы',
   'workbench.activityMonitor.column.cpu': 'ЦП',
-  'workbench.activityMonitor.column.cpuHoverPerCore':
+  'workbench.activityMonitor.info.cpuPerCore':
     'На ядро, как считает системный монитор этой системы — 100 % это одно ядро целиком.',
-  'workbench.activityMonitor.column.cpuHoverMachineShare':
+  'workbench.activityMonitor.info.cpuMachineShare':
     'Доля от всей машины, как считает системный монитор этой системы — 100 % это все ядра.',
   'workbench.activityMonitor.column.memory': 'Память',
-  'workbench.activityMonitor.column.memoryHover': 'Физическая память, которую процесс занимает прямо сейчас.',
-  'workbench.activityMonitor.column.memoryHoverFootprint':
+  'workbench.activityMonitor.info.memory': 'Физическая память, которую процесс занимает прямо сейчас.',
+  'workbench.activityMonitor.info.memoryFootprint':
     'Объём памяти, как его считает системный монитор этой системы — то, что относится только к процессу, включая сжатую память.',
   'workbench.activityMonitor.column.started': 'Запущен',
   'workbench.activityMonitor.column.pid': 'PID',
-  'workbench.activityMonitor.column.pidHover': 'Идентификатор процесса в операционной системе — для ИТ и поддержки.',
+  'workbench.activityMonitor.info.pid': 'Идентификатор процесса в операционной системе — для ИТ и поддержки.',
   'workbench.activityMonitor.process.window': 'Окно рабочей среды',
   'workbench.activityMonitor.process.engine': 'Open Headers',
   'workbench.activityMonitor.process.graphics': 'Графика',
@@ -520,11 +520,15 @@ export const workbenchChrome = {
   'workbench.activityMonitor.process.http3Helper': 'Помощник HTTP/3',
   'workbench.activityMonitor.process.other': 'Прочие ({count})',
   'workbench.activityMonitor.process.unknown': 'Неизвестный процесс',
-  'workbench.activityMonitor.ownerHover':
-    'Всё, что работает под этой строкой, в сумме. В ЦП учитываются и процессы, которые запустились и завершились ' +
-    'между двумя замерами; процесс, переживший тот, который его запустил, при завершении забирает своё время из ' +
-    'суммы, а только что завершившийся процесс может на мгновение не учитываться нигде. Память — то, что занято ' +
-    'в данный момент.',
+  'workbench.activityMonitor.process.ended': 'Завершённые ({count})',
+  'workbench.activityMonitor.info.exampleCaption': 'Пример',
+  'workbench.activityMonitor.info.ownerTotal': 'Раскрывающаяся строка суммирует всё, что работает под ней.',
+  'workbench.activityMonitor.info.started': 'Когда процесс был запущен — дата, если этот день уже прошёл.',
+  'workbench.activityMonitor.info.processes': 'Собственные процессы приложения и во что обходится каждый.',
+  'workbench.activityMonitor.info.ended': 'В «Завершённых» остаются те, что завершились за последний час.',
+  'workbench.activityMonitor.info.running': 'Что приложение держит запущенным в фоне.',
+  'workbench.activityMonitor.info.runningDetail':
+    'Пустая точка означает «выкл.». Стрелка открывает место, где этим управляют.',
   'workbench.activityMonitor.unreadable': 'Не удалось прочитать процессы.',
   'workbench.activityMonitor.group.running': 'Работает',
   'workbench.activityMonitor.service.syncServer': 'Сервер синхронизации',
@@ -554,10 +558,9 @@ export const workbenchChrome = {
   'workbench.activityMonitor.peer.extension': 'Расширение {browser}',
   'workbench.activityMonitor.peer.extensionUnknown': 'Расширение браузера',
   'workbench.activityMonitor.reveal': 'Открыть {target}',
-  'workbench.activityMonitor.summary.cpuHover': 'Все процессы приложения в сумме.',
-  'workbench.activityMonitor.summary.memoryHover':
+  'workbench.activityMonitor.info.overview': 'Все процессы приложения в сумме.',
+  'workbench.activityMonitor.info.memoryUpperBound':
     'Верхняя граница — память, которую процессы делят между собой, учитывается по разу для каждого.',
-  'workbench.activityMonitor.summary.memoryHoverFootprint': 'Объём памяти всех процессов в сумме.',
   'workbench.activityMonitor.summary.processCount': ({ count }, locale) =>
     plural(locale, Number(count), {
       one: '{count} процесс',
@@ -567,8 +570,8 @@ export const workbenchChrome = {
     }),
   'workbench.activityMonitor.summary.uptime': 'работает {duration}',
   'workbench.activityMonitor.summary.range': 'последние {duration}',
-  'workbench.activityMonitor.summary.scalePerCore': 'У всех графиков ЦП одна шкала — верх это одно ядро целиком.',
-  'workbench.activityMonitor.summary.scaleMachineShare': 'У всех графиков ЦП одна шкала — верх это вся машина.',
+  'workbench.activityMonitor.info.scalePerCore': 'У всех графиков ЦП одна шкала — верх это одно ядро целиком.',
+  'workbench.activityMonitor.info.scaleMachineShare': 'У всех графиков ЦП одна шкала — верх это вся машина.',
   'workbench.activityMonitor.ended': 'завершён {time}',
   'workbench.activityMonitor.peak': 'пик {percent}',
   'workbench.toolWindows.info.terminal.summary':

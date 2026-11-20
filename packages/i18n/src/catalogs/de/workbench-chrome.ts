@@ -504,17 +504,17 @@ export const workbenchChrome = {
   'workbench.activityMonitor.group.overview': 'Übersicht',
   'workbench.activityMonitor.group.processes': 'Prozesse',
   'workbench.activityMonitor.column.cpu': 'CPU',
-  'workbench.activityMonitor.column.cpuHoverPerCore':
+  'workbench.activityMonitor.info.cpuPerCore':
     'Pro Kern, so wie die Systemüberwachung dieses Systems zählt — 100 % sind ein voller Kern.',
-  'workbench.activityMonitor.column.cpuHoverMachineShare':
+  'workbench.activityMonitor.info.cpuMachineShare':
     'Anteil am gesamten Rechner, so wie die Systemüberwachung dieses Systems zählt — 100 % sind alle Kerne.',
   'workbench.activityMonitor.column.memory': 'Speicher',
-  'workbench.activityMonitor.column.memoryHover': 'Der physische Arbeitsspeicher, den der Prozess gerade belegt.',
-  'workbench.activityMonitor.column.memoryHoverFootprint':
+  'workbench.activityMonitor.info.memory': 'Der physische Arbeitsspeicher, den der Prozess gerade belegt.',
+  'workbench.activityMonitor.info.memoryFootprint':
     'Der Speicherbedarf, so wie die Systemüberwachung dieses Systems zählt — was allein dem Prozess angerechnet wird, komprimierter Speicher eingeschlossen.',
   'workbench.activityMonitor.column.started': 'Gestartet',
   'workbench.activityMonitor.column.pid': 'PID',
-  'workbench.activityMonitor.column.pidHover': 'Die Prozess-ID des Betriebssystems — für IT und Support.',
+  'workbench.activityMonitor.info.pid': 'Die Prozess-ID des Betriebssystems — für IT und Support.',
   'workbench.activityMonitor.process.window': 'Editor-Fenster',
   'workbench.activityMonitor.process.engine': 'Open Headers',
   'workbench.activityMonitor.process.graphics': 'Grafik',
@@ -524,11 +524,17 @@ export const workbenchChrome = {
   'workbench.activityMonitor.process.http3Helper': 'HTTP/3-Helfer',
   'workbench.activityMonitor.process.other': 'Andere ({count})',
   'workbench.activityMonitor.process.unknown': 'Unbekannter Prozess',
-  'workbench.activityMonitor.ownerHover':
-    'Alles, was darunter läuft, zusammengezählt. Die CPU zählt auch Prozesse mit, die zwischen zwei Messungen ' +
-    'gestartet und beendet wurden; ein Prozess, der länger läuft als der, der ihn gestartet hat, nimmt seine Zeit ' +
-    'beim Beenden aus der Summe, und ein gerade beendeter Prozess wird womöglich einen Moment lang nirgends ' +
-    'gezählt. Der Speicher ist das, was in diesem Augenblick belegt ist.',
+  'workbench.activityMonitor.process.ended': 'Beendet ({count})',
+  'workbench.activityMonitor.info.exampleCaption': 'Beispiel',
+  'workbench.activityMonitor.info.ownerTotal': 'Eine aufklappbare Zeile zählt alles zusammen, was darunter läuft.',
+  'workbench.activityMonitor.info.started':
+    'Wann der Prozess gestartet wurde — ein Datum, sobald dieser Tag vorbei ist.',
+  'workbench.activityMonitor.info.processes': 'Die eigenen Prozesse der App und was jeder kostet.',
+  'workbench.activityMonitor.info.ended':
+    'Unter „Beendet“ stehen die Prozesse, die in der letzten Stunde beendet wurden.',
+  'workbench.activityMonitor.info.running': 'Was die App im Hintergrund am Laufen hält.',
+  'workbench.activityMonitor.info.runningDetail':
+    'Ein hohler Punkt bedeutet aus. Der Pfeil öffnet die Stelle, an der es verwaltet wird.',
   'workbench.activityMonitor.unreadable': 'Die Prozesse konnten nicht gelesen werden.',
   'workbench.activityMonitor.group.running': 'Aktiv',
   'workbench.activityMonitor.service.syncServer': 'Sync-Server',
@@ -556,17 +562,16 @@ export const workbenchChrome = {
   'workbench.activityMonitor.peer.extension': '{browser}-Erweiterung',
   'workbench.activityMonitor.peer.extensionUnknown': 'Browser-Erweiterung',
   'workbench.activityMonitor.reveal': '{target} öffnen',
-  'workbench.activityMonitor.summary.cpuHover': 'Alle Prozesse der App, zusammengezählt.',
-  'workbench.activityMonitor.summary.memoryHover':
+  'workbench.activityMonitor.info.overview': 'Alle Prozesse der App, zusammengezählt.',
+  'workbench.activityMonitor.info.memoryUpperBound':
     'Eine Obergrenze — Speicher, den sich Prozesse teilen, wird für jeden von ihnen einmal gezählt.',
-  'workbench.activityMonitor.summary.memoryHoverFootprint': 'Der Speicherbedarf aller Prozesse, zusammengezählt.',
   'workbench.activityMonitor.summary.processCount': ({ count }, locale) =>
     plural(locale, Number(count), { one: '{count} Prozess', other: '{count} Prozesse' }),
   'workbench.activityMonitor.summary.uptime': 'läuft seit {duration}',
   'workbench.activityMonitor.summary.range': 'letzte {duration}',
-  'workbench.activityMonitor.summary.scalePerCore':
+  'workbench.activityMonitor.info.scalePerCore':
     'Alle CPU-Verläufe teilen sich eine Skala — ganz oben ist ein voller Kern.',
-  'workbench.activityMonitor.summary.scaleMachineShare':
+  'workbench.activityMonitor.info.scaleMachineShare':
     'Alle CPU-Verläufe teilen sich eine Skala — ganz oben ist der gesamte Rechner.',
   'workbench.activityMonitor.ended': 'beendet {time}',
   'workbench.activityMonitor.peak': 'Spitze {percent}',

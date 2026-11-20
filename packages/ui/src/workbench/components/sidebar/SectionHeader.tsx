@@ -1,5 +1,6 @@
 import { theme } from 'antd';
 import type React from 'react';
+import { type InfoPopoverContent, InfoTrigger } from '@openheaders/ui/shared/info-popover';
 import type { TreeNode } from './types';
 
 /** A header's leading slot: its clicks are its own — they neither fold the section nor open the row. */
@@ -17,6 +18,7 @@ export function SectionHeader({
   expanded,
   onToggle,
   leading,
+  info,
   actions,
   testid,
 }: {
@@ -25,6 +27,8 @@ export function SectionHeader({
   onToggle: () => void;
   /** Between the fold mark and the title — the Commit tree's checkbox. */
   leading?: React.ReactNode;
+  /** The section's `(i)` popover, its glyph trailing the title. */
+  info?: InfoPopoverContent;
   actions?: React.ReactNode;
   testid?: string;
 }) {
@@ -59,6 +63,12 @@ export function SectionHeader({
         </span>
         {leading && <Leading>{leading}</Leading>}
         {title}
+        {info && (
+          // biome-ignore lint/a11y/noStaticElementInteractions: the glyph's keys are its own — Enter opens the popover, never folds the section
+          <span onKeyDown={(e) => e.stopPropagation()}>
+            <InfoTrigger content={info} className="rules-sidebar-section-info" />
+          </span>
+        )}
       </span>
       {actions && (
         // biome-ignore lint/a11y/noStaticElementInteractions: stopPropagation guard for nested click handlers

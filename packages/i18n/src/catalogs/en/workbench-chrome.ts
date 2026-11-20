@@ -471,17 +471,17 @@ export const workbenchChrome = {
   'workbench.activityMonitor.group.overview': 'Overview',
   'workbench.activityMonitor.group.processes': 'Processes',
   'workbench.activityMonitor.column.cpu': 'CPU',
-  'workbench.activityMonitor.column.cpuHoverPerCore':
+  'workbench.activityMonitor.info.cpuPerCore':
     'Per core, as this system’s own monitor counts it — 100% is one full core.',
-  'workbench.activityMonitor.column.cpuHoverMachineShare':
+  'workbench.activityMonitor.info.cpuMachineShare':
     'A share of the whole machine, as this system’s own monitor counts it — 100% is every core.',
   'workbench.activityMonitor.column.memory': 'Memory',
-  'workbench.activityMonitor.column.memoryHover': 'The physical memory the process holds right now.',
-  'workbench.activityMonitor.column.memoryHoverFootprint':
+  'workbench.activityMonitor.info.memory': 'The physical memory the process holds right now.',
+  'workbench.activityMonitor.info.memoryFootprint':
     'The memory footprint, as this system’s own monitor counts it — what the process alone is charged for, compressed memory included.',
   'workbench.activityMonitor.column.started': 'Started',
   'workbench.activityMonitor.column.pid': 'PID',
-  'workbench.activityMonitor.column.pidHover': 'The operating system’s process ID — for IT and support.',
+  'workbench.activityMonitor.info.pid': 'The operating system’s process ID — for IT and support.',
   'workbench.activityMonitor.process.window': 'Workbench window',
   'workbench.activityMonitor.process.engine': 'Open Headers',
   'workbench.activityMonitor.process.graphics': 'Graphics',
@@ -491,10 +491,14 @@ export const workbenchChrome = {
   'workbench.activityMonitor.process.http3Helper': 'HTTP/3 helper',
   'workbench.activityMonitor.process.other': 'Other ({count})',
   'workbench.activityMonitor.process.unknown': 'Unknown process',
-  'workbench.activityMonitor.ownerHover':
-    'Everything running under it, added up. CPU counts processes that came and went between two readings too; ' +
-    'one that outlives the process that started it takes its time out of the total when it ends, and one that ' +
-    'has just ended can be counted nowhere for a moment. Memory is what is held at this instant.',
+  'workbench.activityMonitor.process.ended': 'Ended ({count})',
+  'workbench.activityMonitor.info.exampleCaption': 'Example',
+  'workbench.activityMonitor.info.ownerTotal': 'A row that opens adds up everything running under it.',
+  'workbench.activityMonitor.info.started': 'When the process started — a date once that day has passed.',
+  'workbench.activityMonitor.info.processes': 'The app’s own processes and what each one costs.',
+  'workbench.activityMonitor.info.ended': 'Ended keeps the ones that ended in the last hour.',
+  'workbench.activityMonitor.info.running': 'What the app keeps running in the background.',
+  'workbench.activityMonitor.info.runningDetail': 'A hollow dot is off. The arrow opens where it is managed.',
   'workbench.activityMonitor.unreadable': 'The processes could not be read.',
   'workbench.activityMonitor.group.running': 'Running',
   'workbench.activityMonitor.service.syncServer': 'Sync server',
@@ -519,16 +523,15 @@ export const workbenchChrome = {
   'workbench.activityMonitor.peer.extension': '{browser} extension',
   'workbench.activityMonitor.peer.extensionUnknown': 'Browser extension',
   'workbench.activityMonitor.reveal': 'Open {target}',
-  'workbench.activityMonitor.summary.cpuHover': 'Every process of the app, added up.',
-  'workbench.activityMonitor.summary.memoryHover':
+  'workbench.activityMonitor.info.overview': 'Every process of the app, added up.',
+  'workbench.activityMonitor.info.memoryUpperBound':
     'An upper bound — memory that processes share is counted once for each of them.',
-  'workbench.activityMonitor.summary.memoryHoverFootprint': 'The footprint of every process, added up.',
   'workbench.activityMonitor.summary.processCount': ({ count }, locale) =>
     plural(locale, Number(count), { one: '{count} process', other: '{count} processes' }),
   'workbench.activityMonitor.summary.uptime': 'up {duration}',
   'workbench.activityMonitor.summary.range': 'last {duration}',
-  'workbench.activityMonitor.summary.scalePerCore': 'Every CPU graph shares one scale — the top is one full core.',
-  'workbench.activityMonitor.summary.scaleMachineShare':
+  'workbench.activityMonitor.info.scalePerCore': 'Every CPU graph shares one scale — the top is one full core.',
+  'workbench.activityMonitor.info.scaleMachineShare':
     'Every CPU graph shares one scale — the top is the whole machine.',
   'workbench.activityMonitor.ended': 'ended {time}',
   'workbench.activityMonitor.peak': 'peak {percent}',
