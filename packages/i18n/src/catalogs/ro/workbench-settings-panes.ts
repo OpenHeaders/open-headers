@@ -673,6 +673,7 @@ export const workbenchSettingsPanes = {
   'workbench.settings.gitPane.pathPlaceholder': 'Cale absolută a folderului',
   'workbench.settings.gitPane.chooseFolder': 'Alegere folder…',
   'workbench.settings.gitPane.bindButton': 'Legare folder',
+  'workbench.settings.gitPane.willCreateFolder': 'Folderul va fi creat: {path}',
   'workbench.settings.gitPane.bound': 'Folder legat.',
   'workbench.settings.gitPane.boundInitialized': 'Folderul a fost inițializat ca arbore nou de spațiu de lucru.',
   'workbench.settings.gitPane.boundBody':

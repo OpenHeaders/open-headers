@@ -40,7 +40,7 @@ import * as path from 'node:path';
 import { parseWorkspace } from '@openheaders/core/codec/yaml';
 import type { Workspace } from '@openheaders/core/types';
 import { serializeWorkspaceManifest, WORKSPACE_MANIFEST_FILE } from '@openheaders/core/workspace-tree';
-import { putRegularFile, TreeBoundary, treeRefusalReason } from '../git';
+import { failureCode, isGone, putRegularFile, TreeBoundary, treeRefusalReason } from '../git';
 import { ensureTreeHygiene } from './hygiene';
 import { acquireTreeLock, forgetSidecarRecords, releaseTreeLock, type TreeLockHolder } from './sidecar';
 
@@ -75,18 +75,56 @@ export interface WorkspaceTreeIdentity {
 }
 
 export type ProbeWorkspaceTreeResult =
-  | { present: false }
+  /**
+   * No manifest. `missingFolder`: the folder itself is not there — the
+   * path a bind would create, as this host resolves it.
+   */
+  | { present: false; missingFolder?: string }
   | ({ present: true } & WorkspaceTreeIdentity)
   | { present: true; error: string };
 
-/** Identity probe — what workspace (if any) does this folder claim to be? */
+/** What stands at a path as `read` sees it: a directory, something else, or nothing. */
+async function standingAt(target: string, read: typeof fs.stat): Promise<'directory' | 'other' | 'nothing'> {
+  try {
+    return (await read(target)).isDirectory() ? 'directory' : 'other';
+  } catch (err) {
+    return isGone(failureCode(err)) ? 'nothing' : 'other';
+  }
+}
+
+/**
+ * The folder a bind of `rootDir` would create, as this host resolves the
+ * path — null where something stands at its name (a link to nothing
+ * too), and where nothing could be made there: its nearest standing
+ * ancestor is no directory, or none stands (a drive or a share that is
+ * not there).
+ */
+async function folderBindWouldCreate(rootDir: string): Promise<string | null> {
+  const resolved = path.resolve(rootDir);
+  if ((await standingAt(resolved, fs.lstat)) !== 'nothing') return null;
+  let dir = path.dirname(resolved);
+  for (;;) {
+    const standing = await standingAt(dir, fs.stat);
+    if (standing !== 'nothing') return standing === 'directory' ? resolved : null;
+    const parent = path.dirname(dir);
+    if (parent === dir) return null;
+    dir = parent;
+  }
+}
+
+/**
+ * Identity probe — what workspace (if any) does this folder claim to
+ * be? A folder that is not there claims none, and the answer says where
+ * a bind would create it.
+ */
 export async function probeWorkspaceTree(rootDir: string): Promise<ProbeWorkspaceTreeResult> {
   const manifestPath = path.join(rootDir, WORKSPACE_MANIFEST_FILE);
   let yaml: string;
   try {
     yaml = await fs.readFile(manifestPath, 'utf-8');
   } catch {
-    return { present: false };
+    const missingFolder = await folderBindWouldCreate(rootDir);
+    return missingFolder === null ? { present: false } : { present: false, missingFolder };
   }
   try {
     const { value } = parseWorkspace(yaml);

@@ -710,6 +710,7 @@ export const workbenchSettingsPanes = {
   'workbench.settings.gitPane.pathPlaceholder': 'Absoluter Ordnerpfad',
   'workbench.settings.gitPane.chooseFolder': 'Ordner wählen…',
   'workbench.settings.gitPane.bindButton': 'Ordner binden',
+  'workbench.settings.gitPane.willCreateFolder': 'Ordner wird erstellt: {path}',
   'workbench.settings.gitPane.bound': 'Ordner gebunden.',
   'workbench.settings.gitPane.boundInitialized': 'Ordner als neuer Arbeitsbereich-Baum initialisiert.',
   'workbench.settings.gitPane.boundBody':

@@ -302,11 +302,16 @@ export interface WorkspaceRpc {
     req: { workspaceId: string };
     res: { ok: boolean };
   };
-  /** Identity probe — what workspace (if any) a folder claims to be. */
+  /**
+   * Identity probe — what workspace (if any) a folder claims to be.
+   * `missingFolder`: the folder itself is not there — the path a bind
+   * would create, as the host resolves it; a host that does not say
+   * leaves it out.
+   */
   'oh.workspaceTree.probe': {
     req: { rootDir: string };
     res:
-      | { present: false }
+      | { present: false; missingFolder?: string }
       | { present: true; workspaceUid: string; name: string; description?: string }
       | { present: true; error: string };
   };

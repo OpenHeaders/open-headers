@@ -5,7 +5,9 @@
  * in place, it never bounces the user to settings). Path input, the
  * native folder picker where the host has one, the Bind button, and the
  * typed refusal rendering — the caller supplies the transport and hears
- * `onBound` when the workspace lands.
+ * `onBound` when the workspace lands. A path whose folder is not there
+ * is bound all the same — the bind creates it — and the form says so
+ * under the field first, with the path as the host resolves it.
  *
  * The `identity-mismatch` refusal is an OFFER (the git-sync plan §3.5,
  * gap K): a folder that belongs to a workspace this host has never seen
@@ -24,6 +26,7 @@ import { useT } from '@openheaders/ui/context/LocaleContext';
 import { whenWorkspaceListed } from '@openheaders/ui/shared/sync/when-workspace-listed';
 import { useSwitchWorkspace } from '../../hooks/SwitchWorkspaceContext';
 import type { WorkspaceTreeTransport } from './transport';
+import { useFolderToCreate } from './use-folder-to-create';
 
 export interface GitBindFormProps {
   call: WorkspaceTreeTransport;
@@ -58,6 +61,7 @@ const GitBindForm: React.FC<GitBindFormProps> = ({
   const [busy, setBusy] = useState(false);
   const [bindError, setBindError] = useState<string | null>(null);
   const [adoptOffer, setAdoptOffer] = useState<AdoptOffer | null>(null);
+  const folderToCreate = useFolderToCreate(call, draftPath);
 
   const resetFeedback = (): void => {
     setBindError(null);
@@ -163,6 +167,14 @@ const GitBindForm: React.FC<GitBindFormProps> = ({
           </Button>
         )}
       </div>
+      {folderToCreate !== null && (
+        <div
+          style={{ marginTop: 6, fontSize: 11.5, color: token.colorTextSecondary, overflowWrap: 'anywhere' }}
+          data-testid={`${testidPrefix}-will-create`}
+        >
+          {t('workbench.settings.gitPane.willCreateFolder', { path: folderToCreate })}
+        </div>
+      )}
       {bindError !== null && <div style={{ marginTop: 6, fontSize: 12, color: token.colorError }}>{bindError}</div>}
       {adoptOffer !== null && (
         <div style={{ marginTop: 8 }} data-testid={`${testidPrefix}-adopt-offer`}>

@@ -626,6 +626,7 @@ export const workbenchSettingsPanes = {
   'workbench.settings.gitPane.pathPlaceholder': 'フォルダーの絶対パス',
   'workbench.settings.gitPane.chooseFolder': 'フォルダーを選択…',
   'workbench.settings.gitPane.bindButton': 'フォルダーをバインド',
+  'workbench.settings.gitPane.willCreateFolder': 'フォルダーを作成します：{path}',
   'workbench.settings.gitPane.bound': 'フォルダーをバインドしました。',
   'workbench.settings.gitPane.boundInitialized': 'フォルダーを新しいワークスペースツリーとして初期化しました。',
   'workbench.settings.gitPane.boundBody':

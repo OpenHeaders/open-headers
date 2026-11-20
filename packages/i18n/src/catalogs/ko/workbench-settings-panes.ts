@@ -620,6 +620,7 @@ export const workbenchSettingsPanes = {
   'workbench.settings.gitPane.pathPlaceholder': '절대 폴더 경로',
   'workbench.settings.gitPane.chooseFolder': '폴더 선택…',
   'workbench.settings.gitPane.bindButton': '폴더 바인딩',
+  'workbench.settings.gitPane.willCreateFolder': '폴더가 생성됩니다: {path}',
   'workbench.settings.gitPane.bound': '폴더를 바인딩했습니다.',
   'workbench.settings.gitPane.boundInitialized': '폴더를 새 워크스페이스 트리로 초기화했습니다.',
   'workbench.settings.gitPane.boundBody': '편집 내용이 이 폴더에 계속 기록되고, 파일에 가한 변경은 앱으로 돌아옵니다.',

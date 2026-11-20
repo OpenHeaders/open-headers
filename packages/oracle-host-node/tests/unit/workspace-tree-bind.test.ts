@@ -167,6 +167,25 @@ describe('bindWorkspaceTree', () => {
     });
   });
 
+  it('the probe of a folder that is not there names what a bind would create, as this host resolves it, and creates nothing', async () => {
+    const missing = path.join(tmpDir, 'whatever', 'maybe');
+    expect(await probeWorkspaceTree(missing)).toEqual({ present: false, missingFolder: missing });
+    expect(await probeWorkspaceTree(path.relative(process.cwd(), missing))).toEqual({
+      present: false,
+      missingFolder: missing,
+    });
+    expect(await fs.readdir(tmpDir)).toEqual([]);
+  });
+
+  it('the probe names no folder to create where one stands, where a link to nothing or a file has its name, or a file is on the way', async () => {
+    expect(await probeWorkspaceTree(tmpDir)).toEqual({ present: false });
+    await fs.symlink(path.join(tmpDir, 'nowhere'), path.join(tmpDir, 'dangling'));
+    expect(await probeWorkspaceTree(path.join(tmpDir, 'dangling'))).toEqual({ present: false });
+    await fs.writeFile(path.join(tmpDir, 'notes.txt'), 'x', 'utf-8');
+    expect(await probeWorkspaceTree(path.join(tmpDir, 'notes.txt'))).toEqual({ present: false });
+    expect(await probeWorkspaceTree(path.join(tmpDir, 'notes.txt', 'under', 'it'))).toEqual({ present: false });
+  });
+
   it('is re-entrant for the same host but refuses a second engine instance', async () => {
     expect((await bindWorkspaceTree({ rootDir: tmpDir, workspace: makeWorkspace(), hostId: 'desktop-1' })).ok).toBe(
       true,

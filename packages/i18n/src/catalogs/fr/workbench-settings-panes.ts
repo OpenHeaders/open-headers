@@ -708,6 +708,7 @@ export const workbenchSettingsPanes = {
   'workbench.settings.gitPane.pathPlaceholder': 'Chemin absolu du dossier',
   'workbench.settings.gitPane.chooseFolder': 'Choisir un dossier…',
   'workbench.settings.gitPane.bindButton': 'Lier le dossier',
+  'workbench.settings.gitPane.willCreateFolder': 'Le dossier sera créé : {path}',
   'workbench.settings.gitPane.bound': 'Dossier lié.',
   'workbench.settings.gitPane.boundInitialized': 'Dossier initialisé comme nouvelle arborescence d’espace de travail.',
   'workbench.settings.gitPane.boundBody':

@@ -572,6 +572,7 @@ export const workbenchSettingsPanes = {
   'workbench.settings.gitPane.pathPlaceholder': '文件夹绝对路径',
   'workbench.settings.gitPane.chooseFolder': '选择文件夹…',
   'workbench.settings.gitPane.bindButton': '绑定文件夹',
+  'workbench.settings.gitPane.willCreateFolder': '将创建文件夹：{path}',
   'workbench.settings.gitPane.bound': '文件夹已绑定。',
   'workbench.settings.gitPane.boundInitialized': '文件夹已初始化为新的工作区树。',
   'workbench.settings.gitPane.boundBody': '编辑会持续物化到此文件夹；对文件的更改会回落到应用中。',

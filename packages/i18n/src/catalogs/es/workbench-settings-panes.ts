@@ -709,6 +709,7 @@ export const workbenchSettingsPanes = {
   'workbench.settings.gitPane.pathPlaceholder': 'Ruta absoluta de la carpeta',
   'workbench.settings.gitPane.chooseFolder': 'Elegir carpeta…',
   'workbench.settings.gitPane.bindButton': 'Vincular carpeta',
+  'workbench.settings.gitPane.willCreateFolder': 'Se creará la carpeta: {path}',
   'workbench.settings.gitPane.bound': 'Carpeta vinculada.',
   'workbench.settings.gitPane.boundInitialized': 'Carpeta inicializada como un nuevo árbol de espacio de trabajo.',
   'workbench.settings.gitPane.boundBody':

@@ -668,6 +668,7 @@ export const workbenchSettingsPanes = {
   'workbench.settings.gitPane.pathPlaceholder': 'Абсолютный путь к папке',
   'workbench.settings.gitPane.chooseFolder': 'Выбрать папку…',
   'workbench.settings.gitPane.bindButton': 'Привязать папку',
+  'workbench.settings.gitPane.willCreateFolder': 'Папка будет создана: {path}',
   'workbench.settings.gitPane.bound': 'Папка привязана.',
   'workbench.settings.gitPane.boundInitialized': 'Папка инициализирована как новое дерево рабочего пространства.',
   'workbench.settings.gitPane.boundBody':
