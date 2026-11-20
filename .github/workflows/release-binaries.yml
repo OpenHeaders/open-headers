@@ -26,6 +26,14 @@ env:
   NODE_OPTIONS: --max-old-space-size=4096
   RELEASE_REPO: OpenHeaders/open-headers
   R2_BUCKET: oh-updates
+  # Windows Authenticode signing rides Azure Artifact Signing. These
+  # three are identifiers, not secrets — the credentials are the
+  # AZURE_* secrets. Its certificates live a few days, so every signing
+  # step timestamps: an untimestamped signature dies with its
+  # certificate.
+  WIN_SIGN_ENDPOINT: https://plc.codesigning.azure.net/
+  WIN_SIGN_ACCOUNT: openheaders-signing
+  WIN_SIGN_PROFILE: openheaders-public-trust
   # Our own product telemetry off on every leg: the smoke runs of the
   # built `oh` would otherwise count as product sessions.
   OH_TELEMETRY: '0'
@@ -134,7 +142,7 @@ jobs:
         run: pnpm --filter @openheaders/cli run pack:bun
         shell: bash
 
-      # Same eSigner path as the suite: the downloaded CLI exe trips
+      # Same signing path as the suite: the downloaded CLI exe trips
       # SmartScreen unsigned, and `install-oh.ps1` fails under
       # AllSigned execution policies. Missing secrets degrade to
       # unsigned.
@@ -142,7 +150,7 @@ jobs:
         if: needs.parse.outputs.stream == 'cli' && matrix.os == 'windows-2022'
         id: win_sign
         run: |
-          if [ -n "$ES_USERNAME" ] && [ -n "$ES_PASSWORD" ] && [ -n "$CREDENTIAL_ID" ] && [ -n "$ES_TOTP_SECRET" ]; then
+          if [ -n "$AZURE_TENANT_ID" ] && [ -n "$AZURE_CLIENT_ID" ] && [ -n "$AZURE_CLIENT_SECRET" ]; then
             echo "enabled=true" >> $GITHUB_OUTPUT
           else
             echo "enabled=false" >> $GITHUB_OUTPUT
@@ -150,48 +158,39 @@ jobs:
           fi
         shell: bash
         env:
-          ES_USERNAME: ${{ secrets.ES_USERNAME }}
-          ES_PASSWORD: ${{ secrets.ES_PASSWORD }}
-          CREDENTIAL_ID: ${{ secrets.CREDENTIAL_ID }}
-          ES_TOTP_SECRET: ${{ secrets.ES_TOTP_SECRET }}
-
-      - name: Trust the SSL.com root for eSigner
-        if: needs.parse.outputs.stream == 'cli' && matrix.os == 'windows-2022' && steps.win_sign.outputs.enabled == 'true'
-        uses: ./.github/actions/trust-sslcom-root
+          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
 
       - name: Sign oh CLI executable
         if: needs.parse.outputs.stream == 'cli' && matrix.os == 'windows-2022' && steps.win_sign.outputs.enabled == 'true'
-        uses: sslcom/esigner-codesign@a272724cb13abe0abc579c6c40f7899969b6942b # v1.3.1
+        uses: azure/artifact-signing-action@c7ab2a863ab5f9a846ddb8265964877ef296ee82 # v2.0.0
         with:
-          command: sign
-          username: ${{ secrets.ES_USERNAME }}
-          password: ${{ secrets.ES_PASSWORD }}
-          credential_id: ${{ secrets.CREDENTIAL_ID }}
-          totp_secret: ${{ secrets.ES_TOTP_SECRET }}
-          file_path: apps/cli/dist-bun/oh.exe
-          malware_block: true
-          override: true
-          environment_name: PROD
-          clean_logs: false
-          jvm_max_memory: 1024M
-          signing_method: v1
+          azure-tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          azure-client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          azure-client-secret: ${{ secrets.AZURE_CLIENT_SECRET }}
+          endpoint: ${{ env.WIN_SIGN_ENDPOINT }}
+          signing-account-name: ${{ env.WIN_SIGN_ACCOUNT }}
+          certificate-profile-name: ${{ env.WIN_SIGN_PROFILE }}
+          files: ${{ github.workspace }}\apps\cli\dist-bun\oh.exe
+          file-digest: SHA256
+          timestamp-rfc3161: http://timestamp.acs.microsoft.com
+          timestamp-digest: SHA256
 
       - name: Sign Windows install script
         if: needs.parse.outputs.stream == 'cli' && matrix.os == 'windows-2022' && steps.win_sign.outputs.enabled == 'true'
-        uses: sslcom/esigner-codesign@a272724cb13abe0abc579c6c40f7899969b6942b # v1.3.1
+        uses: azure/artifact-signing-action@c7ab2a863ab5f9a846ddb8265964877ef296ee82 # v2.0.0
         with:
-          command: sign
-          username: ${{ secrets.ES_USERNAME }}
-          password: ${{ secrets.ES_PASSWORD }}
-          credential_id: ${{ secrets.CREDENTIAL_ID }}
-          totp_secret: ${{ secrets.ES_TOTP_SECRET }}
-          file_path: apps/cli/scripts/install.ps1
-          malware_block: true
-          override: true
-          environment_name: PROD
-          clean_logs: false
-          jvm_max_memory: 1024M
-          signing_method: v1
+          azure-tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          azure-client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          azure-client-secret: ${{ secrets.AZURE_CLIENT_SECRET }}
+          endpoint: ${{ env.WIN_SIGN_ENDPOINT }}
+          signing-account-name: ${{ env.WIN_SIGN_ACCOUNT }}
+          certificate-profile-name: ${{ env.WIN_SIGN_PROFILE }}
+          files: ${{ github.workspace }}\apps\cli\scripts\install.ps1
+          file-digest: SHA256
+          timestamp-rfc3161: http://timestamp.acs.microsoft.com
+          timestamp-digest: SHA256
 
       # The signed exe must still answer — a signature that breaks the
       # binary is worse than no signature.
