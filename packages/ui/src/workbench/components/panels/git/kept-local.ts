@@ -61,8 +61,17 @@ export function refusalDetail(refusal: { reason: string; detail?: string }, t: T
 }
 
 /**
+ * A failed fetch in a notice: the first line of git's answer — the reason, in git's words; the Console tab
+ * holds all of it. The reason's code where git said nothing.
+ */
+export function fetchFailureLine(failure: { reason: string; detail?: string }): string {
+  const line = failure.detail?.split('\n').find((text) => text.trim() !== '');
+  return line?.trim() ?? failure.reason;
+}
+
+/**
  * Why a pull or a merge was refused, in words: files too large to resolve here say so, a pull of a branch with
- * no upstream says so, anything else its own detail.
+ * no upstream says so, a pull whose fetch failed reads as a failed fetch does, anything else its own detail.
  */
 export function integrationRefusalDetail(
   refusal: { reason: string; detail?: string; conflicts?: string[]; tooLarge?: true },
@@ -72,5 +81,6 @@ export function integrationRefusalDetail(
     return t('workbench.gitLog.resolve.tooLarge', { files: namePaths(refusal.conflicts ?? []) });
   }
   if (refusal.reason === 'no-upstream') return t('workbench.gitLog.pull.noUpstream');
+  if (refusal.reason === 'fetch-failed') return fetchFailureLine(refusal);
   return refusalDetail(refusal, t);
 }

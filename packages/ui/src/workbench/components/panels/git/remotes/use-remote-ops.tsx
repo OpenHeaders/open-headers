@@ -21,6 +21,7 @@ import { hostBridge, type WorkspaceTreeRemoteOpWire } from '@openheaders/core/br
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { App as AntApp } from 'antd';
 import { type ReactNode, useState } from 'react';
+import { fetchFailureLine } from '../kept-local';
 import { nameGitWork } from '../use-git-work';
 import RemoteFormModal from './RemoteFormModal';
 import { type RemoteDraft, type RemoteFormError, type RemoteRow, remoteUpdatePatch } from './remote-form-model';
@@ -89,7 +90,7 @@ export function useRemoteOps(workspaceId: string, onChanged?: (name: string | nu
         hostBridge.call('oh.workspaceTree.fetch', { workspaceId }),
       );
       if (!fetched.ok) {
-        notification.error({ title: t('workbench.gitLog.fetch.failed', { detail: fetched.detail ?? fetched.reason }) });
+        notification.error({ title: t('workbench.gitLog.fetch.failed', { detail: fetchFailureLine(fetched) }) });
       }
     } catch (err) {
       notification.error({ title: t('workbench.gitLog.fetch.failed', { detail: failure(err) }) });

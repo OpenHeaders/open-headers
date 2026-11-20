@@ -7,6 +7,7 @@
 
 import type { Translate } from '@openheaders/ui/context/LocaleContext';
 import {
+  fetchFailureLine,
   integrationRefusalDetail,
   keptLocalNotice,
   refusalDetail,
@@ -44,6 +45,26 @@ describe('refusalDetail', () => {
 
   it('a pull of a branch with no upstream says so in words, never the reason’s code', () => {
     expect(integrationRefusalDetail({ reason: 'no-upstream' }, t)).toBe('workbench.gitLog.pull.noUpstream|undefined');
+  });
+
+  it('a failed fetch reads the first line of git’s answer, on either line ending', () => {
+    const answer = [
+      "fatal: '/srv/git/big.git' does not appear to be a git repository",
+      'fatal: Could not read from remote repository.',
+      '',
+      'Please make sure you have the correct access rights',
+      'and the repository exists.',
+      'error: could not fetch origin',
+    ];
+    const first = "fatal: '/srv/git/big.git' does not appear to be a git repository";
+    expect(fetchFailureLine({ reason: 'fetch-failed', detail: answer.join('\n') })).toBe(first);
+    expect(fetchFailureLine({ reason: 'fetch-failed', detail: `\r\n${answer.join('\r\n')}` })).toBe(first);
+    expect(integrationRefusalDetail({ reason: 'fetch-failed', detail: answer.join('\n') }, t)).toBe(first);
+  });
+
+  it('a failed fetch git said nothing of reads its reason', () => {
+    expect(fetchFailureLine({ reason: 'fetch-failed' })).toBe('fetch-failed');
+    expect(fetchFailureLine({ reason: 'fetch-failed', detail: ' \n' })).toBe('fetch-failed');
   });
 
   it('any other refusal reads its detail, or its reason when it has none', () => {

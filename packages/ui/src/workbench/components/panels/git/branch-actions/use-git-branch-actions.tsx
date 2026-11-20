@@ -33,7 +33,13 @@ import type React from 'react';
 import { useState } from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { GIT_OPERATION_ABORTS } from '../git-operation';
-import { committedLocalNotice, integrationRefusalDetail, keptLocalNotice, leftOutNotice } from '../kept-local';
+import {
+  committedLocalNotice,
+  fetchFailureLine,
+  integrationRefusalDetail,
+  keptLocalNotice,
+  leftOutNotice,
+} from '../kept-local';
 import PushCommitsModal from '../push/PushCommitsModal';
 import PushRejectedModal from '../push/PushRejectedModal';
 import CreateBranchModal from '../rail/CreateBranchModal';
@@ -378,7 +384,7 @@ export function useGitBranchActions(options: GitBranchActionsOptions): GitBranch
           title:
             result.reason === 'no-remote'
               ? t('workbench.gitLog.fetch.noRemote')
-              : t('workbench.gitLog.fetch.failed', { detail: result.detail ?? result.reason }),
+              : t('workbench.gitLog.fetch.failed', { detail: fetchFailureLine(result) }),
         });
       }
     } catch (err) {
