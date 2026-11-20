@@ -8,8 +8,13 @@
 //
 // Times are handed over in the kernel's own units, with the timebase to
 // convert them: the conversion is the caller's, where it is pinned.
+//
+// The packager rebuilds every native module on every platform it builds
+// for: off macOS this file is an empty module, which nothing loads.
 
 #include <node_api.h>
+
+#if defined(__APPLE__)
 
 #include <libproc.h>
 #include <mach/mach_time.h>
@@ -167,3 +172,11 @@ NAPI_MODULE_INIT() {
   Export(env, exports, "terminalPids", TerminalPids);
   return exports;
 }
+
+#else
+
+NAPI_MODULE_INIT() {
+  return exports;
+}
+
+#endif

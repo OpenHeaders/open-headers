@@ -17,8 +17,13 @@
 //
 // Times are handed over in the system's own units (100 ns): the
 // conversion is the caller's, where it is pinned.
+//
+// The packager rebuilds every native module on every platform it builds
+// for: off Windows this file is an empty module, which nothing loads.
 
 #include <node_api.h>
+
+#if defined(_WIN32)
 
 #define PSAPI_VERSION 2
 #include <windows.h>
@@ -358,3 +363,11 @@ NAPI_MODULE_INIT() {
   Export(env, exports, "closeJob", CloseJob);
   return exports;
 }
+
+#else
+
+NAPI_MODULE_INIT() {
+  return exports;
+}
+
+#endif
