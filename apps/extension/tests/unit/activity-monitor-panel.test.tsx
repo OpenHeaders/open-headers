@@ -8,6 +8,11 @@
  *   - a rate that could not be read is a dash, never zero;
  *   - processes without a name sit under one collapsed group and open
  *     to the runtime's own names;
+ *   - an owner's row is folded at first and opens to what runs beneath
+ *     it — the program's name alone, its own figures, no graph; its
+ *     figures say on hover what the total is; a terminal's arrow asks
+ *     the shell to front its tab, and is absent where this window
+ *     holds no tab for it;
  *   - an ask that goes unanswered says so;
  *   - what the engine keeps running sits under RUNNING as facts worded
  *     from structured fields, an off service muted, an unreadable one a
@@ -315,6 +320,7 @@ describe('ActivityMonitorPanel', () => {
         onHide={() => {}}
         onRevealService={() => {}}
         terminalLabel={() => null}
+        onRevealTerminal={() => {}}
       />,
     );
     await tick(ACTIVITY_MONITOR_PULL_MS * 5);
@@ -340,6 +346,7 @@ describe('ActivityMonitorPanel', () => {
         onHide={() => {}}
         onRevealService={() => {}}
         terminalLabel={() => null}
+        onRevealTerminal={() => {}}
       />,
     );
     await tick(0);
@@ -365,6 +372,7 @@ describe('ActivityMonitorPanel', () => {
         onHide={() => {}}
         onRevealService={() => {}}
         terminalLabel={() => null}
+        onRevealTerminal={() => {}}
       />,
     );
     await tick(0);
@@ -389,6 +397,7 @@ describe('ActivityMonitorPanel', () => {
         onHide={() => {}}
         onRevealService={() => {}}
         terminalLabel={() => null}
+        onRevealTerminal={() => {}}
       />,
     );
     await tick(0);
@@ -449,6 +458,7 @@ describe('ActivityMonitorPanel', () => {
           onHide={() => {}}
           onRevealService={() => {}}
           terminalLabel={labelOf}
+          onRevealTerminal={() => {}}
         />,
       );
       await tick(0);
@@ -487,6 +497,7 @@ describe('ActivityMonitorPanel', () => {
           onHide={() => {}}
           onRevealService={() => {}}
           terminalLabel={labelOf}
+          onRevealTerminal={() => {}}
         />,
       );
       await tick(0);
@@ -504,6 +515,7 @@ describe('ActivityMonitorPanel', () => {
           onHide={() => {}}
           onRevealService={() => {}}
           terminalLabel={labelOf}
+          onRevealTerminal={() => {}}
         />,
       );
       await tick(0);
@@ -511,6 +523,137 @@ describe('ActivityMonitorPanel', () => {
         '4 processes',
       );
     });
+
+    const GIT = makeRow({
+      id: 'git-objects',
+      kind: 'git',
+      processCount: 1,
+      pid: 70_001,
+      cpuRate: 0.001,
+      memoryBytes: 9 * MB,
+    });
+    /** What runs in the terminal: the package runner, the server it started, and one the system will not name. */
+    const BENEATH = [
+      { pid: 61_060, startedAt: SAMPLED_AT - 50_000, name: 'node', cpuRate: 0, memoryBytes: 48 * MB },
+      { pid: 61_102, startedAt: SAMPLED_AT - 40_000, name: 'node', cpuRate: 0.402, memoryBytes: 164 * MB },
+      { pid: 61_250, startedAt: SAMPLED_AT - 30_000, name: null, cpuRate: null, memoryBytes: null },
+    ];
+    const OWNER_HOVER =
+      'Everything running under it, added up. CPU counts processes that came and went between two readings too; ' +
+      'one that outlives the process that started it takes its time out of the total when it ends, and one that ' +
+      'has just ended can be counted nowhere for a moment. Memory is what is held at this instant.';
+
+    async function renderOwners(
+      answer: () => ActivityMonitorSnapshot,
+      onRevealTerminal: (sessionId: string) => void = () => {},
+    ): Promise<void> {
+      setHostBridge(createBridgeFake(async () => answer()).bridge);
+      render(
+        <ActivityMonitorPanel
+          info={INFO}
+          active
+          onHide={() => {}}
+          onRevealService={() => {}}
+          terminalLabel={labelOf}
+          onRevealTerminal={onRevealTerminal}
+        />,
+      );
+      await tick(0);
+    }
+
+    const rows = (): HTMLElement[] => screen.getAllByTestId('activity-monitor-row');
+    const twisty = (): HTMLElement => screen.getByRole('button', { name: 'Terminal · Local (2)' });
+    const startedAt = (at: number): string => formatStartTime(at, SAMPLED_AT, 'en');
+
+    it('keeps an owner’s row folded at first, and opens it to what runs beneath — the program’s name alone, its own figures, no graph', async () => {
+      await renderOwners(() => makeSnapshot({ processes: [makeRow(), { ...TERMINAL, children: BENEATH }] }));
+      expect(rows()).toHaveLength(2);
+      expect(twisty().getAttribute('aria-expanded')).toBe('false');
+
+      fireEvent.click(twisty());
+      expect(twisty().getAttribute('aria-expanded')).toBe('true');
+      const beneath = rows().slice(2);
+      expect(beneath.map((row) => row.className)).toEqual([
+        'oh-am-row oh-am-row--child',
+        'oh-am-row oh-am-row--child',
+        'oh-am-row oh-am-row--child',
+      ]);
+      expect(beneath.map((row) => cells(row))).toEqual([
+        ['node', '0.0%', '48 MB', startedAt(SAMPLED_AT - 50_000), '61060'],
+        ['node', '40.2%', '164 MB', startedAt(SAMPLED_AT - 40_000), '61102'],
+        ['Unknown process', '—', '—', startedAt(SAMPLED_AT - 30_000), '61250'],
+      ]);
+      // The history is the owner's (law 13): its row holds the graph, a line beneath it none.
+      expect(rows()[1].querySelectorAll('.oh-am-spark')).toHaveLength(1);
+      expect(beneath.map((row) => row.querySelectorAll('.oh-am-spark').length)).toEqual([0, 0, 0]);
+
+      fireEvent.click(twisty());
+      expect(rows()).toHaveLength(2);
+    });
+
+    it('gives a row nothing runs beneath no twisty', async () => {
+      await renderOwners(() => makeSnapshot({ processes: [TERMINAL, GIT] }));
+      expect(rows().map((row) => cells(row)[0])).toEqual(['Terminal · Local (2)', 'Git']);
+      expect(screen.queryByRole('button', { name: 'Terminal · Local (2)' })).toBeNull();
+      expect(screen.queryByRole('button', { name: 'Git' })).toBeNull();
+    });
+
+    it('holds a row open from one answer to the next, its lines changing in place, until nothing runs beneath it', async () => {
+      let next = makeSnapshot({ processes: [{ ...TERMINAL, children: BENEATH }] });
+      await renderOwners(() => next);
+      fireEvent.click(twisty());
+      expect(rows()).toHaveLength(4);
+
+      next = makeSnapshot({ processes: [{ ...TERMINAL, children: [{ ...BENEATH[1], cpuRate: 0.9 }] }] });
+      await tick(ACTIVITY_MONITOR_PULL_MS);
+      expect(
+        rows()
+          .slice(1)
+          .map((row) => cells(row).slice(0, 2)),
+      ).toEqual([['node', '90.0%']]);
+
+      next = makeSnapshot({ processes: [TERMINAL] });
+      await tick(ACTIVITY_MONITOR_PULL_MS);
+      expect(rows()).toHaveLength(1);
+      expect(screen.queryByRole('button', { name: 'Terminal · Local (2)' })).toBeNull();
+    });
+
+    it('the arrow on a terminal’s row names the tab it leads to and asks the shell to front it', async () => {
+      const revealed: string[] = [];
+      await renderOwners(
+        () => makeSnapshot({ processes: [TERMINAL, GIT] }),
+        (sessionId) => revealed.push(sessionId),
+      );
+      fireEvent.click(screen.getByRole('button', { name: 'Open Terminal · Local (2)' }));
+      expect(revealed).toEqual(['pty-2']);
+    });
+
+    it('draws no arrow where no tab of this window holds the session, nor on an owner that is not a terminal', async () => {
+      await renderOwners(() =>
+        makeSnapshot({ processes: [{ ...TERMINAL, id: 'terminal:pty-9', terminalSessionId: 'pty-9' }, GIT] }),
+      );
+      expect(rows()).toHaveLength(2);
+      expect(screen.queryAllByRole('button', { name: /^Open / })).toEqual([]);
+    });
+
+    it.each([
+      ['CPU', 0],
+      ['Memory', 1],
+    ] as const)(
+      'says on an owner’s %s figure what its total is and what it leaves out — and nothing on a process of the runtime’s own',
+      async (_figure, index) => {
+        await renderOwners(() => makeSnapshot({ processes: [makeRow(), TERMINAL] }));
+        const [engine, terminal] = rows();
+
+        fireEvent.mouseEnter(engine.querySelectorAll('.oh-am-num')[index]);
+        await tick(500);
+        expect(screen.queryByText(OWNER_HOVER)).toBeNull();
+
+        fireEvent.mouseEnter(terminal.querySelectorAll('.oh-am-num')[index]);
+        await tick(500);
+        expect(screen.getByText(OWNER_HOVER)).toBeTruthy();
+      },
+    );
   });
 
   it('says so when the processes could not be read', async () => {
@@ -525,6 +668,7 @@ describe('ActivityMonitorPanel', () => {
         onHide={() => {}}
         onRevealService={() => {}}
         terminalLabel={() => null}
+        onRevealTerminal={() => {}}
       />,
     );
     await tick(0);
@@ -568,6 +712,7 @@ describe('ActivityMonitorPanel', () => {
         onHide={() => {}}
         onRevealService={onRevealService}
         terminalLabel={() => null}
+        onRevealTerminal={() => {}}
       />,
     );
     await tick(0);
@@ -702,6 +847,7 @@ describe('ActivityMonitorPanel', () => {
         onHide={() => {}}
         onRevealService={() => {}}
         terminalLabel={() => null}
+        onRevealTerminal={() => {}}
       />,
     );
     await tick(0);
@@ -734,6 +880,7 @@ describe('ActivityMonitorPanel', () => {
         onHide={() => {}}
         onRevealService={() => {}}
         terminalLabel={() => null}
+        onRevealTerminal={() => {}}
       />,
     );
     await tick(0);
@@ -767,6 +914,7 @@ describe('ActivityMonitorPanel', () => {
         onHide={() => {}}
         onRevealService={() => {}}
         terminalLabel={() => null}
+        onRevealTerminal={() => {}}
       />,
     );
     await tick(0);
@@ -802,6 +950,7 @@ describe('ActivityMonitorPanel', () => {
         onHide={() => {}}
         onRevealService={() => {}}
         terminalLabel={() => null}
+        onRevealTerminal={() => {}}
       />,
     );
     await tick(0);
@@ -835,6 +984,7 @@ describe('ActivityMonitorPanel', () => {
         onHide={() => {}}
         onRevealService={() => {}}
         terminalLabel={() => null}
+        onRevealTerminal={() => {}}
       />,
     );
     await tick(0);
@@ -861,6 +1011,7 @@ describe('ActivityMonitorPanel', () => {
         onHide={() => {}}
         onRevealService={() => {}}
         terminalLabel={() => null}
+        onRevealTerminal={() => {}}
       />,
     );
     await tick(0);
@@ -927,6 +1078,7 @@ describe('ActivityMonitorPanel', () => {
         onHide={() => {}}
         onRevealService={() => {}}
         terminalLabel={() => null}
+        onRevealTerminal={() => {}}
       />,
     );
     await tick(0);
@@ -949,6 +1101,7 @@ describe('ActivityMonitorPanel', () => {
         onHide={() => {}}
         onRevealService={() => {}}
         terminalLabel={() => null}
+        onRevealTerminal={() => {}}
       />,
     );
     await tick(0);
@@ -972,6 +1125,7 @@ describe('ActivityMonitorPanel', () => {
         onHide={() => {}}
         onRevealService={() => {}}
         terminalLabel={() => null}
+        onRevealTerminal={() => {}}
       />,
     );
     await tick(0);
@@ -1025,6 +1179,7 @@ describe('ActivityMonitorPanel', () => {
         onHide={() => {}}
         onRevealService={() => {}}
         terminalLabel={() => null}
+        onRevealTerminal={() => {}}
       />,
     );
     await tick(0);
@@ -1046,6 +1201,7 @@ describe('ActivityMonitorPanel', () => {
         onHide={() => {}}
         onRevealService={() => {}}
         terminalLabel={() => null}
+        onRevealTerminal={() => {}}
       />,
     );
     await tick(0);
@@ -1084,6 +1240,7 @@ describe('ActivityMonitorPanel', () => {
         onHide={() => {}}
         onRevealService={() => {}}
         terminalLabel={() => null}
+        onRevealTerminal={() => {}}
       />,
     );
     await tick(0);
@@ -1126,6 +1283,7 @@ describe('ActivityMonitorPanel', () => {
         onHide={() => {}}
         onRevealService={() => {}}
         terminalLabel={() => null}
+        onRevealTerminal={() => {}}
       />,
     );
     await tick(0);

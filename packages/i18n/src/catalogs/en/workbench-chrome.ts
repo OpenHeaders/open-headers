@@ -490,6 +490,11 @@ export const workbenchChrome = {
   'workbench.activityMonitor.process.scriptRuntime': 'Script runtime · Developer',
   'workbench.activityMonitor.process.http3Helper': 'HTTP/3 helper',
   'workbench.activityMonitor.process.other': 'Other ({count})',
+  'workbench.activityMonitor.process.unknown': 'Unknown process',
+  'workbench.activityMonitor.ownerHover':
+    'Everything running under it, added up. CPU counts processes that came and went between two readings too; ' +
+    'one that outlives the process that started it takes its time out of the total when it ends, and one that ' +
+    'has just ended can be counted nowhere for a moment. Memory is what is held at this instant.',
   'workbench.activityMonitor.unreadable': 'The processes could not be read.',
   'workbench.activityMonitor.group.running': 'Running',
   'workbench.activityMonitor.service.syncServer': 'Sync server',

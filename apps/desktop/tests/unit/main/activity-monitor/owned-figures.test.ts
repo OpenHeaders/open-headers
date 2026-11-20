@@ -4,6 +4,8 @@
  * figures the total of everything beneath its roots — each process's
  * own CPU time plus its exited children's — a terminal holding what
  * shares its terminal, and no read for an owner whose roots are gone.
+ * What runs beneath its roots rides along — never the roots themselves
+ * — each with what it used itself, the older process first.
  */
 
 import type { ProcessCost, ProcessReader, RegisteredProcessRoot } from '@openheaders/oracle-host-node/process-reader';
@@ -18,6 +20,7 @@ interface Entry {
   parentPid: number;
   startedAt: number;
   terminal?: number;
+  name?: string;
   cost?: ProcessCost | null;
 }
 
@@ -28,7 +31,13 @@ function tableReader(table: Record<number, Entry>): ProcessReader {
     read(pid) {
       const entry = table[pid];
       if (entry === undefined) return null;
-      return { pid, parentPid: entry.parentPid, startedAt: entry.startedAt, name: null, cost: entry.cost ?? null };
+      return {
+        pid,
+        parentPid: entry.parentPid,
+        startedAt: entry.startedAt,
+        name: entry.name ?? null,
+        cost: entry.cost ?? null,
+      };
     },
     childPids: (pid) => pids().filter((candidate) => table[candidate].parentPid === pid),
     terminalPids(pid) {
@@ -59,9 +68,9 @@ const gitRoot = (pid: number, startedAt: number): RegisteredProcessRoot => ({
 describe('readOwnedFigures', () => {
   it('reads a terminal session as one owner: its shell and what runs beneath it, added up', () => {
     const reader = tableReader({
-      61044: { parentPid: 4312, startedAt: T0, terminal: TERMINAL, cost: cost(0.5, 30, 6) },
-      61060: { parentPid: 61_044, startedAt: T0 + 1_000, terminal: TERMINAL, cost: cost(2, 0, 48) },
-      61102: { parentPid: 61_060, startedAt: T0 + 2_000, terminal: TERMINAL, cost: cost(40, 1.5, 164) },
+      61044: { parentPid: 4312, startedAt: T0, terminal: TERMINAL, name: 'zsh', cost: cost(0.5, 30, 6) },
+      61060: { parentPid: 61_044, startedAt: T0 + 1_000, terminal: TERMINAL, name: 'node', cost: cost(2, 0, 48) },
+      61102: { parentPid: 61_060, startedAt: T0 + 2_000, terminal: TERMINAL, name: 'node', cost: cost(40, 1.5, 164) },
     });
     expect(readOwnedFigures([shellRoot(61_044, T0, 'pty-1')], reader)).toEqual([
       {
@@ -74,7 +83,28 @@ describe('readOwnedFigures', () => {
         // Own time 42.5 s, and 31.5 s of children that came and went.
         cumulativeCpuSeconds: 74,
         memoryBytes: 218 * MB,
+        // The shell is the row itself. Beneath it, each process with what it used ITSELF: the 1.5 s of
+        // children that came and went are in the total, and in no line.
+        children: [
+          { pid: 61_060, startedAt: T0 + 1_000, name: 'node', cumulativeCpuSeconds: 2, memoryBytes: 48 * MB },
+          { pid: 61_102, startedAt: T0 + 2_000, name: 'node', cumulativeCpuSeconds: 40, memoryBytes: 164 * MB },
+        ],
       },
+    ]);
+  });
+
+  it('lists what runs beneath an owner the older process first, a refused cost and a withheld name kept as they are', () => {
+    const reader = tableReader({
+      61044: { parentPid: 4312, startedAt: T0, terminal: TERMINAL, name: 'zsh', cost: cost(1, 0, 6) },
+      61240: { parentPid: 61_044, startedAt: T0 + 9_000, terminal: TERMINAL, name: 'perl', cost: cost(3, 0, 8) },
+      61250: { parentPid: 61_044, startedAt: T0 + 4_000, terminal: TERMINAL, name: 'sudo', cost: null },
+      61300: { parentPid: 61_044, startedAt: T0 + 4_000, terminal: TERMINAL, cost: cost(0.25, 0, 2) },
+    });
+    const [read] = readOwnedFigures([shellRoot(61_044, T0, 'pty-1')], reader);
+    expect(read.children).toEqual([
+      { pid: 61_250, startedAt: T0 + 4_000, name: 'sudo', cumulativeCpuSeconds: undefined, memoryBytes: null },
+      { pid: 61_300, startedAt: T0 + 4_000, name: null, cumulativeCpuSeconds: 0.25, memoryBytes: 2 * MB },
+      { pid: 61_240, startedAt: T0 + 9_000, name: 'perl', cumulativeCpuSeconds: 3, memoryBytes: 8 * MB },
     ]);
   });
 
@@ -85,6 +115,7 @@ describe('readOwnedFigures', () => {
     });
     const [read] = readOwnedFigures([shellRoot(61_044, T0, 'pty-1')], reader);
     expect(read).toMatchObject({ processCount: 2, cumulativeCpuSeconds: 10, memoryBytes: 26 * MB });
+    expect(read.children.map((process) => process.pid)).toEqual([61_200]);
   });
 
   it('adds every root of one owner up under the owner’s key, shown by the root it started first', () => {
@@ -101,6 +132,8 @@ describe('readOwnedFigures', () => {
         processCount: 2,
         cumulativeCpuSeconds: 0.75,
         memoryBytes: 9 * MB,
+        // Both are roots of the one owner: neither runs beneath the other.
+        children: [],
       },
     ]);
   });

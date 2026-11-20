@@ -47,6 +47,7 @@ export {
 export {
   ACTIVITY_MONITOR_PROCESS_KINDS,
   ACTIVITY_MONITOR_SERVICE_KINDS,
+  type ActivityMonitorChildProcess,
   type ActivityMonitorCursor,
   type ActivityMonitorEndedProcess,
   type ActivityMonitorHistoryBeat,

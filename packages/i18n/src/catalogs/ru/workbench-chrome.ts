@@ -519,6 +519,12 @@ export const workbenchChrome = {
   'workbench.activityMonitor.process.scriptRuntime': 'Среда выполнения скриптов · Режим разработчика',
   'workbench.activityMonitor.process.http3Helper': 'Помощник HTTP/3',
   'workbench.activityMonitor.process.other': 'Прочие ({count})',
+  'workbench.activityMonitor.process.unknown': 'Неизвестный процесс',
+  'workbench.activityMonitor.ownerHover':
+    'Всё, что работает под этой строкой, в сумме. В ЦП учитываются и процессы, которые запустились и завершились ' +
+    'между двумя замерами; процесс, переживший тот, который его запустил, при завершении забирает своё время из ' +
+    'суммы, а только что завершившийся процесс может на мгновение не учитываться нигде. Память — то, что занято ' +
+    'в данный момент.',
   'workbench.activityMonitor.unreadable': 'Не удалось прочитать процессы.',
   'workbench.activityMonitor.group.running': 'Работает',
   'workbench.activityMonitor.service.syncServer': 'Сервер синхронизации',

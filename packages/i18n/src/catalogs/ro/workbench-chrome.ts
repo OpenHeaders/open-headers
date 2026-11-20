@@ -527,6 +527,11 @@ export const workbenchChrome = {
   'workbench.activityMonitor.process.scriptRuntime': 'Runtime de scripturi · Mod dezvoltator',
   'workbench.activityMonitor.process.http3Helper': 'Asistent HTTP/3',
   'workbench.activityMonitor.process.other': 'Altele ({count})',
+  'workbench.activityMonitor.process.unknown': 'Proces necunoscut',
+  'workbench.activityMonitor.ownerHover':
+    'Tot ce rulează dedesubt, adunat. CPU numără și procesele care au pornit și s-au încheiat între două citiri; ' +
+    'un proces care îi supraviețuiește celui care l-a pornit își ia timpul din total când se încheie, iar unul ' +
+    'abia încheiat poate să nu fie numărat nicăieri pentru o clipă. Memoria este cea ocupată în această clipă.',
   'workbench.activityMonitor.unreadable': 'Procesele nu au putut fi citite.',
   'workbench.activityMonitor.group.running': 'În execuție',
   'workbench.activityMonitor.service.syncServer': 'Server de sincronizare',

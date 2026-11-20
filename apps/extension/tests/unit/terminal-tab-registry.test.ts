@@ -9,6 +9,8 @@
 import type { TerminalSession, TerminalSpawnOptions } from '@openheaders/core/capabilities';
 import type { HostStorage, StorageKey } from '@openheaders/core/storage';
 import type { getWorkbenchTerminalTabs as GetTabs } from '@openheaders/ui/workbench/components/panels/terminal/terminal-instance';
+import type { getWorkbenchTerminalPanes as GetPanes } from '@openheaders/ui/workbench/components/panels/terminal/terminal-panes';
+import { findLeaf } from '@openheaders/ui/workbench/editor-groups';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 /** Map-backed HostStorage — enough surface for the tab registry's
@@ -65,6 +67,7 @@ function makeFakeSession(id: string): FakeSession {
 
 describe('terminal tab registry', () => {
   let getTabs: typeof GetTabs;
+  let getPanes: typeof GetPanes;
   let spawned: FakeSession[];
   let spawnOptions: TerminalSpawnOptions[];
   let unregister: () => void;
@@ -98,6 +101,9 @@ describe('terminal tab registry', () => {
     unregister = () => capabilities.unregisterCapability('terminal');
     const mod = await import('@openheaders/ui/workbench/components/panels/terminal/terminal-instance');
     getTabs = mod.getWorkbenchTerminalTabs;
+    // The pane store binds to the registry it imports — the same fresh instance.
+    const panes = await import('@openheaders/ui/workbench/components/panels/terminal/terminal-panes');
+    getPanes = panes.getWorkbenchTerminalPanes;
   });
 
   it('returns null without the terminal capability', () => {
@@ -118,6 +124,31 @@ describe('terminal tab registry', () => {
     tabs.activateTab(first);
     expect(tabs.activeId()).toBe(first);
     expect(listener).toHaveBeenCalledTimes(3);
+  });
+
+  it('finds the tab that holds a session, and the pane that owns it follows a registry-side activation', async () => {
+    const tabs = getTabs();
+    if (!tabs) throw new Error('registry unavailable');
+    const panes = getPanes();
+    if (!panes) throw new Error('panes unavailable');
+    const first = tabs.createTab();
+    const second = tabs.createTab();
+    const firstTab = tabs.getTab(first);
+    if (!firstTab) throw new Error('tab handle missing');
+    await firstTab.ensureSession();
+    expect(tabs.tabForSession('pty-1')).toEqual({ id: first, titleIndex: 1, title: undefined });
+    expect(tabs.tabForSession('pty-9')).toBeNull();
+
+    // The second tab moves to a pane of its own, which takes the focus.
+    const firstLeafId = panes.focusedLeafId();
+    panes.splitAndMove(firstLeafId, second, 'right');
+    expect(panes.focusedLeafId()).not.toBe(firstLeafId);
+    expect(tabs.activeId()).toBe(second);
+
+    // Fronting the session's tab from outside the terminal: the registry alone is told.
+    tabs.activateTab(first);
+    expect(panes.focusedLeafId()).toBe(firstLeafId);
+    expect(findLeaf(panes.root(), firstLeafId)?.activeTabId).toBe(first);
   });
 
   it('ignores activation of unknown ids', () => {

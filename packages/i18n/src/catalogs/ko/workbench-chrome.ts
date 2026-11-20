@@ -499,6 +499,11 @@ export const workbenchChrome = {
   'workbench.activityMonitor.process.scriptRuntime': '스크립트 런타임 · 개발자 모드',
   'workbench.activityMonitor.process.http3Helper': 'HTTP/3 도우미',
   'workbench.activityMonitor.process.other': '기타 ({count})',
+  'workbench.activityMonitor.process.unknown': '알 수 없는 프로세스',
+  'workbench.activityMonitor.ownerHover':
+    '이 행 아래에서 실행 중인 모든 것을 합한 값입니다. CPU에는 두 번의 읽기 사이에 시작했다가 끝난 프로세스도 포함됩니다. ' +
+    '자신을 시작한 프로세스보다 오래 실행된 프로세스는 끝날 때 자기 시간을 합계에서 가져가며, 방금 끝난 프로세스는 잠시 ' +
+    '어디에도 집계되지 않을 수 있습니다. 메모리는 지금 이 순간 차지하고 있는 양입니다.',
   'workbench.activityMonitor.unreadable': '프로세스를 읽을 수 없습니다.',
   'workbench.activityMonitor.group.running': '실행 중',
   'workbench.activityMonitor.service.syncServer': '동기화 서버',

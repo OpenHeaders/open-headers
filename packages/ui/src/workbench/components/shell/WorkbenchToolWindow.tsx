@@ -60,6 +60,7 @@ import { isToolWindowTeased, TOOL_WINDOW_MAP } from '../../tool-windows';
 import type { DockSlot, ToolWindowId, WorkbenchTab } from '../../types';
 import { type GitEntityOpeners, registerGitEntityOpeners } from '../panels/git/git-entity-opener';
 import { SERVICE_REVEAL_TARGETS } from '../panels/activity-monitor/service-reveal';
+import { getWorkbenchTerminalTabs } from '../panels/terminal/terminal-instance';
 import { useTerminalSessionLabel } from '../panels/terminal/terminal-tab-label';
 
 interface WorkbenchToolWindowProps {
@@ -370,6 +371,15 @@ const WorkbenchToolWindow: React.FC<WorkbenchToolWindowProps> = ({
               }
               if (tl.state.hidden.includes(target.toolWindow)) tl.restoreWindow(target.toolWindow);
               tl.activateWindow(target.toolWindow);
+            }}
+            onRevealTerminal={(sessionId) => {
+              const tabs = getWorkbenchTerminalTabs();
+              const tab = tabs?.tabForSession(sessionId) ?? null;
+              if (tabs === null || tab === null) return;
+              // The pane that holds the tab follows the registry's activation and takes the focus.
+              tabs.activateTab(tab.id);
+              if (tl.state.hidden.includes('terminal')) tl.restoreWindow('terminal');
+              tl.activateWindow('terminal');
             }}
           />
         </Suspense>

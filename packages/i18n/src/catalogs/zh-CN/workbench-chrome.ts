@@ -492,6 +492,10 @@ export const workbenchChrome = {
   'workbench.activityMonitor.process.scriptRuntime': '脚本运行时 · 开发者模式',
   'workbench.activityMonitor.process.http3Helper': 'HTTP/3 辅助程序',
   'workbench.activityMonitor.process.other': '其他（{count}）',
+  'workbench.activityMonitor.process.unknown': '未知进程',
+  'workbench.activityMonitor.ownerHover':
+    '其下运行的所有进程的合计。CPU 也计入在两次读取之间启动并结束的进程；如果某个进程比启动它的进程运行得更久，' +
+    '它结束时会把自己的时间从合计中带走；刚结束的进程可能有一瞬间不计入任何一处。内存是此刻占用的量。',
   'workbench.activityMonitor.unreadable': '无法读取进程。',
   'workbench.activityMonitor.group.running': '运行中',
   'workbench.activityMonitor.service.syncServer': '同步服务器',

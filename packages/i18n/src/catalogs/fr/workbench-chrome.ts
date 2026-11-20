@@ -524,6 +524,12 @@ export const workbenchChrome = {
   'workbench.activityMonitor.process.scriptRuntime': "Environnement d'exécution des scripts · Mode développeur",
   'workbench.activityMonitor.process.http3Helper': 'Assistant HTTP/3',
   'workbench.activityMonitor.process.other': 'Autres ({count})',
+  'workbench.activityMonitor.process.unknown': 'Processus inconnu',
+  'workbench.activityMonitor.ownerHover':
+    'Tout ce qui s’exécute en dessous, additionné. Le CPU compte aussi les processus lancés et terminés entre ' +
+    'deux relevés ; un processus qui survit à celui qui l’a lancé retire son temps du total lorsqu’il se termine, ' +
+    'et un processus qui vient de se terminer peut n’être compté nulle part pendant un instant. La mémoire est ' +
+    'celle occupée à cet instant.',
   'workbench.activityMonitor.unreadable': "Les processus n'ont pas pu être lus.",
   'workbench.activityMonitor.group.running': 'En cours',
   'workbench.activityMonitor.service.syncServer': 'Serveur de synchronisation',

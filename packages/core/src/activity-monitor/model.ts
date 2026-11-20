@@ -41,6 +41,23 @@ export type ActivityMonitorPlatform = 'darwin' | 'win32' | 'linux';
  */
 export type ActivityMonitorMemoryKind = 'footprint' | 'resident' | 'working-set';
 
+/**
+ * One process running beneath an owner (the plan §6, laws 12 and 13):
+ * shown live only — it has no history — and named by the base name of
+ * its executable, never by a command line.
+ */
+export interface ActivityMonitorChildProcess {
+  pid: number;
+  /** ms since epoch. */
+  startedAt: number;
+  /** The executable's base name; null where the system would not say. */
+  name: string | null;
+  /** The process's OWN CPU seconds per second — never a share of its owner's total; null until two reads of it exist. */
+  cpuRate: number | null;
+  /** Bytes; null where the host could not read it. */
+  memoryBytes: number | null;
+}
+
 export interface ActivityMonitorProcessRow {
   /**
    * The row's identity. A process of the runtime's own: its pid AND its
@@ -63,6 +80,12 @@ export interface ActivityMonitorProcessRow {
    * root among them. Its figures are their total.
    */
   processCount?: number;
+  /**
+   * On an owner's row: what runs beneath its roots, the older process
+   * first — the roots themselves are the row. Absent where nothing
+   * does.
+   */
+  children?: ActivityMonitorChildProcess[];
   /** An owner's row: the pid of the root it started first. */
   pid: number;
   /** ms since epoch. */

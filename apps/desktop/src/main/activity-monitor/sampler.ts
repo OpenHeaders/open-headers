@@ -67,6 +67,13 @@ export interface ActivityMonitorSampler {
 
 export function createActivityMonitorSampler(deps: ActivityMonitorSamplerDeps): ActivityMonitorSampler {
   let counters: CpuCounterState | null = null;
+  /**
+   * The own counters of what runs beneath the owners, kept apart from
+   * `counters`: none of them is in a sample's `cpuSeconds`, so none
+   * reaches the history — a single descendant is shown live only (the
+   * plan §6, law 13).
+   */
+  let childCounters: CpuCounterState | null = null;
   let latest: ActivityMonitorProcessSample | null = null;
 
   return {
@@ -80,7 +87,9 @@ export function createActivityMonitorSampler(deps: ActivityMonitorSamplerDeps): 
       const reads = deps.readProcesses();
       const owners = deps.readOwners();
       const owned = deps.readOwned();
-      const baseline = counters !== null && at - counters.at <= BASELINE_MAX_AGE_MS ? counters : null;
+      const baselineOf = (state: CpuCounterState | null): CpuCounterState | null =>
+        state !== null && at - state.at <= BASELINE_MAX_AGE_MS ? state : null;
+      const baseline = baselineOf(counters);
       // A process with neither a counter nor a percent has no CPU figure: it stays out of the fold and reads a dash.
       const counted = reads.filter((read) => read.cumulativeCpuSeconds !== undefined || read.percentCpu !== null);
       // An owner's total rides the same fold under the owner's key: a total that fell reads zero, never less.
@@ -100,6 +109,22 @@ export function createActivityMonitorSampler(deps: ActivityMonitorSamplerDeps): 
         deps.logicalCores,
       );
       counters = fold.state;
+
+      // What runs beneath an owner takes its rate from its OWN counter, never from a share of the owner's total.
+      const childFold = foldCpuCounters(
+        baselineOf(childCounters),
+        owned
+          .flatMap((read) => read.children)
+          .filter((child) => child.cumulativeCpuSeconds !== undefined)
+          .map((child) => ({
+            id: processIdentity(child.pid, child.startedAt),
+            cumulativeSeconds: child.cumulativeCpuSeconds,
+            percentOfMachine: 0,
+          })),
+        at,
+        deps.logicalCores,
+      );
+      childCounters = childFold.state;
 
       latest = {
         sampledAt: at,
@@ -123,6 +148,17 @@ export function createActivityMonitorSampler(deps: ActivityMonitorSamplerDeps): 
             kind: read.kind,
             ...(read.terminalSessionId === undefined ? {} : { terminalSessionId: read.terminalSessionId }),
             processCount: read.processCount,
+            ...(read.children.length === 0
+              ? {}
+              : {
+                  children: read.children.map((child) => ({
+                    pid: child.pid,
+                    startedAt: child.startedAt,
+                    name: child.name,
+                    cpuRate: childFold.rates.get(processIdentity(child.pid, child.startedAt)) ?? null,
+                    memoryBytes: child.memoryBytes,
+                  })),
+                }),
             pid: read.pid,
             startedAt: read.startedAt,
             cpuRate: fold.rates.get(read.id) ?? null,

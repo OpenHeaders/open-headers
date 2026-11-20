@@ -92,9 +92,10 @@
   font-variant-numeric: tabular-nums;
 }
 
+/* The last column is the reveal arrow's, on the rows that have one. */
 .oh-am-row {
   display: grid;
-  grid-template-columns: minmax(150px, 1fr) 64px 100px 76px 72px 60px;
+  grid-template-columns: minmax(150px, 1fr) 64px 100px 76px 72px 60px 24px;
   align-items: center;
   column-gap: 8px;
   height: 24px;
@@ -109,7 +110,7 @@
  * own figure columns — the section head's inset is the rows' inset. */
 .oh-am-cols {
   display: grid;
-  grid-template-columns: 64px 100px 76px 72px 60px;
+  grid-template-columns: 64px 100px 76px 72px 60px 24px;
   column-gap: 8px;
   font-size: 11px;
   color: var(--ant-color-text-tertiary);
@@ -284,6 +285,7 @@
 }
 
 .oh-am-service:hover .oh-am-reveal,
+.oh-am-row:hover .oh-am-reveal,
 .oh-am-reveal:focus-visible {
   opacity: 1;
 }

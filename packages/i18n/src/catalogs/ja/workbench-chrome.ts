@@ -500,6 +500,11 @@ export const workbenchChrome = {
   'workbench.activityMonitor.process.scriptRuntime': 'スクリプトランタイム · 開発者モード',
   'workbench.activityMonitor.process.http3Helper': 'HTTP/3 ヘルパー',
   'workbench.activityMonitor.process.other': 'その他 ({count})',
+  'workbench.activityMonitor.process.unknown': '不明なプロセス',
+  'workbench.activityMonitor.ownerHover':
+    'この行の下で動いているものすべての合計です。CPU には、2 回の読み取りの間に開始して終了したプロセスも含まれます。' +
+    '起動元より長く動き続けたプロセスは、終了時に自分の時間を合計から持ち去ります。また、終了した直後のプロセスは、' +
+    '一時的にどこにも数えられないことがあります。メモリは、この瞬間に使用している量です。',
   'workbench.activityMonitor.unreadable': 'プロセスを読み取れませんでした。',
   'workbench.activityMonitor.group.running': '実行中',
   'workbench.activityMonitor.service.syncServer': '同期サーバー',

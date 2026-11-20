@@ -266,6 +266,29 @@ describe('createActivityMonitor — history by owner (the activity monitor plan 
     processCount: 1,
     cumulativeCpuSeconds,
     memoryBytes: 30 * 1024 * 1024,
+    children: [],
+  });
+
+  it('holds no point of a process beneath an owner, and no ended row once it is gone — it is shown live only', () => {
+    const { monitor, state, advance } = makeRig();
+    const worker = { pid: 80_044, startedAt: T0 - 5_000, name: 'node', memoryBytes: 8 * 1024 * 1024 };
+    state.owned = [{ ...helper(80_001, T0 - 60_000, 2), children: [{ ...worker, cumulativeCpuSeconds: 1 }] }];
+    advance(BEAT);
+    state.owned = [{ ...helper(80_001, T0 - 60_000, 17), children: [{ ...worker, cumulativeCpuSeconds: 16 }] }];
+    advance(BEAT);
+
+    const running = monitor.answer(null);
+    expect(running.processes[1].children).toEqual([{ ...worker, cpuRate: 1 }]);
+    expect(running.history.map((beat) => Object.keys(beat.points))).toEqual([
+      [ENGINE_ID, HELPER],
+      [ENGINE_ID, HELPER],
+    ]);
+
+    state.owned = [helper(80_001, T0 - 60_000, 17)];
+    advance(2_000);
+    const after = monitor.answer(running.cursor);
+    expect(after.processes[1]).not.toHaveProperty('children');
+    expect(after.ended).toEqual([]);
   });
 
   it('keeps one series for an owner across the process behind it ending and another starting', () => {

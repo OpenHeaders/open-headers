@@ -4,8 +4,12 @@
  * under the shell's own section head — Overview, the totals on one
  * row; Processes, the app's own processes named in the interface's
  * words, with what each costs and its history; Running, what the engine
- * keeps going, as facts. The host owns every read; this panel asks while it
- * is looked at and formats the answer. Values change in place on the
+ * keeps going, as facts. An owner's row — a terminal, the git reader,
+ * the helper — carries its total, says on hover what that total is,
+ * opens to what runs beneath it (live figures, the program's name
+ * alone), and a terminal's leads to its tab. The host owns every read;
+ * this panel asks while it is looked at and formats the answer. Values
+ * change in place on the
  * two-second beat and what could not be read reads as a dash. No row
  * moves under the pointer (the plan §6, law 10): a sort is applied on
  * the click and again when a history beat arrives, never while the
@@ -40,7 +44,7 @@ import type { StatusLevel } from '@openheaders/core/types';
 import type { MessageKey } from '@openheaders/i18n';
 import { Tooltip } from 'antd';
 import type React from 'react';
-import { memo, useEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { type Translate, useLocale } from '@openheaders/ui/context/LocaleContext';
 import { createPanelHeaderWiring, PanelHeader } from '@openheaders/ui/shared/dock-layout';
 import { useStatus } from '@openheaders/ui/shared/hooks/useStatus';
@@ -71,6 +75,8 @@ interface ActivityMonitorPanelProps {
    * tab of this document holds it.
    */
   terminalLabel: (sessionId: string) => string | null;
+  /** Front the tab that holds a terminal session (the plan §7, fork 6) — nothing is confirmed and nothing ends. */
+  onRevealTerminal: (sessionId: string) => void;
 }
 
 const PROCESS_NAME_KEYS: Record<Exclude<ActivityMonitorProcessKind, 'other'>, MessageKey> = {
@@ -108,8 +114,8 @@ const Sparkline = memo(function Sparkline({ path, width, height }: { path: strin
 interface ProcessRowProps {
   name: string;
   cpu: string;
-  /** The row's last hour of CPU, as a path; empty before its first beat. */
-  graph: string;
+  /** The row's last hour of CPU, as a path; empty before its first beat. null where the row has no history — a process beneath an owner. */
+  graph: string | null;
   memory: string;
   started: string;
   pid: number;
@@ -133,7 +139,11 @@ const ProcessRow = memo(function ProcessRow({
       <span className="oh-am-num" role="cell">
         {cpu}
       </span>
-      <Sparkline path={graph} width={ROW_GRAPH.width} height={ROW_GRAPH.height} />
+      {graph === null ? (
+        <span aria-hidden />
+      ) : (
+        <Sparkline path={graph} width={ROW_GRAPH.width} height={ROW_GRAPH.height} />
+      )}
       <span className="oh-am-num" role="cell">
         {memory}
       </span>
@@ -143,6 +153,86 @@ const ProcessRow = memo(function ProcessRow({
       <span className="oh-am-pid" role="cell">
         {pid}
       </span>
+    </div>
+  );
+});
+
+interface OwnerRowProps {
+  id: string;
+  name: string;
+  cpu: string;
+  graph: string;
+  memory: string;
+  started: string;
+  pid: number;
+  /** What an owner's total is, and what it leaves out (the plan §6, law 13). */
+  hover: string;
+  /** Whether what runs beneath the owner is shown; null where nothing does. */
+  open: boolean | null;
+  onToggle: (id: string) => void;
+  /** The terminal session whose tab the arrow fronts; null where the row has no tab of this document to lead to. */
+  revealSessionId: string | null;
+  revealLabel: string;
+  onReveal: (sessionId: string) => void;
+}
+
+/** An owner of processes the host started itself: one row for it and everything beneath it. */
+const OwnerRow = memo(function OwnerRow({
+  id,
+  name,
+  cpu,
+  graph,
+  memory,
+  started,
+  pid,
+  hover,
+  open,
+  onToggle,
+  revealSessionId,
+  revealLabel,
+  onReveal,
+}: OwnerRowProps) {
+  return (
+    <div className="oh-am-row" role="row" data-testid="activity-monitor-row">
+      {open === null ? (
+        <span className="oh-am-name" role="cell">
+          {name}
+        </span>
+      ) : (
+        <button type="button" className="oh-am-name oh-am-toggle" aria-expanded={open} onClick={() => onToggle(id)}>
+          <CaretRightOutlined aria-hidden className={open ? 'oh-am-caret oh-am-caret--open' : 'oh-am-caret'} />
+          <span>{name}</span>
+        </button>
+      )}
+      <Tooltip title={hover} placement="top">
+        <span className="oh-am-num" role="cell">
+          {cpu}
+        </span>
+      </Tooltip>
+      <Sparkline path={graph} width={ROW_GRAPH.width} height={ROW_GRAPH.height} />
+      <Tooltip title={hover} placement="top">
+        <span className="oh-am-num" role="cell">
+          {memory}
+        </span>
+      </Tooltip>
+      <span className="oh-am-started" role="cell">
+        {started}
+      </span>
+      <span className="oh-am-pid" role="cell">
+        {pid}
+      </span>
+      {revealSessionId !== null && (
+        <Tooltip title={revealLabel} placement="left">
+          <button
+            type="button"
+            className="oh-am-reveal"
+            aria-label={revealLabel}
+            onClick={() => onReveal(revealSessionId)}
+          >
+            <span aria-hidden>↗</span>
+          </button>
+        </Tooltip>
+      )}
     </div>
   );
 });
@@ -294,6 +384,7 @@ const ActivityMonitorPanel: React.FC<ActivityMonitorPanelProps> = ({
   onHide,
   onRevealService,
   terminalLabel,
+  onRevealTerminal,
 }) => {
   const { t, locale } = useLocale();
   const wiring = useMemo(() => createPanelHeaderWiring({ onHide }), [onHide]);
@@ -303,6 +394,15 @@ const ActivityMonitorPanel: React.FC<ActivityMonitorPanelProps> = ({
   const [processesOpen, setProcessesOpen] = useState(true);
   const [runningOpen, setRunningOpen] = useState(true);
   const [otherOpen, setOtherOpen] = useState(false);
+  /** The owners whose rows are open, by row identity — folded at first, not remembered. */
+  const [openOwners, setOpenOwners] = useState<ReadonlySet<string>>(() => new Set());
+  const toggleOwner = useCallback((id: string) => {
+    setOpenOwners((open) => {
+      const next = new Set(open);
+      if (!next.delete(id)) next.add(id);
+      return next;
+    });
+  }, []);
   const [sort, setSort] = useState<ActivityMonitorSort | null>(null);
   /** The order the sort gave when it was last applied; rows hold it until the next application. */
   const [heldOrder, setHeldOrder] = useState<readonly string[] | null>(null);
@@ -336,18 +436,63 @@ const ActivityMonitorPanel: React.FC<ActivityMonitorPanelProps> = ({
     row: ActivityMonitorProcessRow,
     answer: ActivityMonitorSnapshot,
     child: boolean,
-  ): React.ReactNode => (
-    <ProcessRow
-      key={row.id}
-      name={processName(row, t, terminalLabel)}
-      cpu={formatCpuPercent(row.cpuRate, answer.platform, answer.logicalCores)}
-      graph={graphs.processes.get(row.id)?.path ?? ''}
-      memory={formatMemory(row.memoryBytes)}
-      started={formatStartTime(row.startedAt, answer.sampledAt, locale)}
-      pid={row.pid}
-      child={child}
-    />
-  );
+  ): React.ReactNode => {
+    const name = processName(row, t, terminalLabel);
+    const cpu = formatCpuPercent(row.cpuRate, answer.platform, answer.logicalCores);
+    const graph = graphs.processes.get(row.id)?.path ?? '';
+    const memory = formatMemory(row.memoryBytes);
+    const started = formatStartTime(row.startedAt, answer.sampledAt, locale);
+    if (row.processCount === undefined) {
+      return (
+        <ProcessRow
+          key={row.id}
+          name={name}
+          cpu={cpu}
+          graph={graph}
+          memory={memory}
+          started={started}
+          pid={row.pid}
+          child={child}
+        />
+      );
+    }
+
+    const beneath = row.children ?? [];
+    const open = beneath.length === 0 ? null : openOwners.has(row.id);
+    const sessionId = row.terminalSessionId;
+    return (
+      <Fragment key={row.id}>
+        <OwnerRow
+          id={row.id}
+          name={name}
+          cpu={cpu}
+          graph={graph}
+          memory={memory}
+          started={started}
+          pid={row.pid}
+          hover={t('workbench.activityMonitor.ownerHover')}
+          open={open}
+          onToggle={toggleOwner}
+          revealSessionId={sessionId !== undefined && terminalLabel(sessionId) !== null ? sessionId : null}
+          revealLabel={t('workbench.activityMonitor.reveal', { target: name })}
+          onReveal={onRevealTerminal}
+        />
+        {open === true &&
+          beneath.map((process) => (
+            <ProcessRow
+              key={`${process.pid}:${process.startedAt}`}
+              name={process.name ?? t('workbench.activityMonitor.process.unknown')}
+              cpu={formatCpuPercent(process.cpuRate, answer.platform, answer.logicalCores)}
+              graph={null}
+              memory={formatMemory(process.memoryBytes)}
+              started={formatStartTime(process.startedAt, answer.sampledAt, locale)}
+              pid={process.pid}
+              child
+            />
+          ))}
+      </Fragment>
+    );
+  };
 
   const overviewGroup = snapshot !== null && (
     <div className="oh-am-group">
