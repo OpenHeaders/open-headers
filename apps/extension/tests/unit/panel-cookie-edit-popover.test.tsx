@@ -555,7 +555,10 @@ describe('paste checklist (add mode, several cookies)', () => {
     expect((screen.getByRole('checkbox', { name: 'sid' }) as HTMLInputElement).disabled).toBe(true);
     expect(document.querySelector('.ant-popover')?.className).not.toMatch(/-leave|-hidden/);
 
-    fireEvent.click(screen.getByRole('button', { name: /Save \(1\)$/ }));
+    // Save leaves its busy state a render after the outcome lands, and drops a press until it has.
+    const retry = screen.getByRole('button', { name: /Save \(1\)$/ });
+    await waitFor(() => expect(retry.className).not.toContain('ant-btn-loading'));
+    fireEvent.click(retry);
     await waitFor(() => expect(submit).toHaveBeenCalledTimes(2));
     expect(submit.mock.calls[1][0].map((edit) => edit.name)).toEqual(['user']);
   });
