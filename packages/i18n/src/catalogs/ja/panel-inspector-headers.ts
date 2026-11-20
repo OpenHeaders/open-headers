@@ -185,6 +185,7 @@ export const panelInspectorHeaders = {
   'panel.inspector.headers.row.expandValue': '値を展開',
   'panel.inspector.headers.row.collapseValue': '値を折りたたむ',
   'panel.inspector.headers.row.copyValue': '値をコピー',
+  'panel.inspector.headers.row.showInStorage': 'Storage で表示',
   'panel.inspector.headers.row.copied': 'コピーしました',
   'panel.inspector.headers.row.edit': '編集',
   'panel.inspector.headers.row.editTitle': 'このヘッダーを設定したルールを編集',

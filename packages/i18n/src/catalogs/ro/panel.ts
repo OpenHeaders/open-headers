@@ -104,6 +104,8 @@ export const panel = {
   'panel.moreFilters.blockedRequests': 'Cereri blocate',
   'panel.moreFilters.thirdParty': 'Cereri terțe',
   'panel.moreFilters.swRequests': 'Cereri service worker',
+  'panel.moreFilters.sendsCookies': 'Cereri care trimit cookie-uri',
+  'panel.moreFilters.setsCookies': 'Răspunsuri care setează cookie-uri',
   'panel.moreFilters.ruleApplied': 'Cereri cu regulă aplicată',
   'panel.moreFilters.pageOriginPending': 'Originea paginii nu este încă disponibilă',
 
@@ -234,6 +236,12 @@ export const panel = {
   'panel.info.moreFilters.swRequests': 'Cereri service worker',
   'panel.info.moreFilters.swRequestsDesc':
     'Restrânge la schimburile cu service worker-ul — cererile emise de worker însuși (rândurile ⚙) și cererile paginii la care a răspuns handler-ul său fetch.',
+  'panel.info.moreFilters.sendsCookies': 'Cereri care trimit cookie-uri',
+  'panel.info.moreFilters.sendsCookiesDesc':
+    'Restrânge la cererile care au purtat cel puțin un cookie în antetul lor Cookie.',
+  'panel.info.moreFilters.setsCookies': 'Răspunsuri care setează cookie-uri',
+  'panel.info.moreFilters.setsCookiesDesc':
+    'Restrânge la cererile al căror răspuns a returnat cel puțin un antet Set-Cookie.',
   'panel.info.moreFilters.ruleApplied': 'Cereri cu regulă aplicată',
   'panel.info.moreFilters.ruleAppliedDesc':
     'Restrânge la cererile pe care o regulă Open Headers le-a modificat în mod verificabil.',

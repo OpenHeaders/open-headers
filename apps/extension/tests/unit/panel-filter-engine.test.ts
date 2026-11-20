@@ -122,6 +122,58 @@ describe('passesRowFilters', () => {
     expect(passesRowFilters(swServed, cfg)).toBe(true);
     expect(passesRowFilters(plain, cfg)).toBe(false);
   });
+
+  it('onlySendsCookies keeps rows whose request carried cookies, drops the rest', () => {
+    const cfg = { ...DEFAULT_FILTER_CONFIG, onlySendsCookies: true };
+    const plain = lifecycle('https://api.openheaders.io/page');
+    const base = plain.har[0] as InspectorHarEntry;
+    const sends = lifecycle('https://api.openheaders.io/me', {
+      har: [{ ...base, request: { ...base.request!, cookies: [{ name: 'session', value: 'abc123' }] } }],
+    });
+    const emptyJar = lifecycle('https://api.openheaders.io/public', {
+      har: [{ ...base, request: { ...base.request!, cookies: [] } }],
+    });
+    expect(passesRowFilters(sends, cfg)).toBe(true);
+    expect(passesRowFilters(emptyJar, cfg)).toBe(false);
+    expect(passesRowFilters(plain, cfg)).toBe(false);
+  });
+
+  it('onlySetsCookies keeps rows whose response has a Set-Cookie header, any casing', () => {
+    const cfg = { ...DEFAULT_FILTER_CONFIG, onlySetsCookies: true };
+    const plain = lifecycle('https://api.openheaders.io/page');
+    const base = plain.har[0] as InspectorHarEntry;
+    const sets = lifecycle('https://api.openheaders.io/login', {
+      har: [
+        {
+          ...base,
+          response: { ...base.response!, headers: [{ name: 'set-cookie', value: 'session=abc123; Path=/; HttpOnly' }] },
+        },
+      ],
+    });
+    const otherHeader = lifecycle('https://api.openheaders.io/config', {
+      har: [{ ...base, response: { ...base.response!, headers: [{ name: 'Cache-Control', value: 'no-cache' }] } }],
+    });
+    expect(passesRowFilters(sets, cfg)).toBe(true);
+    expect(passesRowFilters(otherHeader, cfg)).toBe(false);
+    expect(passesRowFilters(plain, cfg)).toBe(false);
+  });
+
+  it('the two cookie toggles compose — a row must both send and set', () => {
+    const cfg = { ...DEFAULT_FILTER_CONFIG, onlySendsCookies: true, onlySetsCookies: true };
+    const plain = lifecycle('https://api.openheaders.io/page');
+    const base = plain.har[0] as InspectorHarEntry;
+    const request = { ...base.request!, cookies: [{ name: 'session', value: 'abc123' }] };
+    const response = { ...base.response!, headers: [{ name: 'Set-Cookie', value: 'session=def456; Path=/' }] };
+    expect(passesRowFilters(lifecycle('https://api.openheaders.io/a', { har: [{ ...base, request }] }), cfg)).toBe(
+      false,
+    );
+    expect(passesRowFilters(lifecycle('https://api.openheaders.io/b', { har: [{ ...base, response }] }), cfg)).toBe(
+      false,
+    );
+    expect(
+      passesRowFilters(lifecycle('https://api.openheaders.io/c', { har: [{ ...base, request, response }] }), cfg),
+    ).toBe(true);
+  });
 });
 
 describe('matchesPanelFilters — onlyRuleApplied', () => {

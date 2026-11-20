@@ -30,7 +30,9 @@ import {
   removeJarCookie,
   type SiteJarCookie,
   writeJarCookie,
+  writeJarCookies,
 } from '../../data/cookies/cookie-jar-cache';
+import type { CookieRevealTarget } from '../../data/cookies/cookie-reveal';
 import { useSiteCookieJarSticky } from '../../data/cookies/use-cookie-jar';
 import { cacheEntryTabId, cookieTabId, domStorageEntryTabId, idbRecordTabId } from '../../data/inspector-tab';
 import { buildStorageFooterStatus, type StorageFooterStatus } from '../../data/footer-status';
@@ -72,11 +74,13 @@ import { useActiveRowScroll } from './use-active-row-scroll';
  *  additionally opens that row's document once the section's data is
  *  in, so the grid highlights the exact matched row: the entry key
  *  (`dom`), the jar cookie row key (`cookies`), the record's wire key
- *  (`idb`), or `method + ' ' + url` (`cache`). */
+ *  (`idb`), or `method + ' ' + url` (`cache`). A cookies `highlight`
+ *  (a header row's "Show in Storage") marks its rows instead — no
+ *  document opens, no row turns active. */
 export type StorageRevealRequest =
   | { kind: 'idb'; database: string; store: string; row?: string }
   | { kind: 'dom'; area: DomStorageArea; row?: string }
-  | { kind: 'cookies'; row?: string }
+  | { kind: 'cookies'; row?: string; highlight?: CookieRevealTarget }
   | { kind: 'cache'; cache: string; row?: string };
 
 /** What an editor-tab open needs from a DOM storage row (plus the
@@ -170,6 +174,13 @@ export function StoragePanel({
   const [pendingRow, setPendingRow] = useState<(StorageRevealRequest & { row: string }) | null>(null);
   const rootRef = useRef<HTMLDivElement>(null);
   const revealActiveRow = useActiveRowScroll(rootRef);
+  // Jar rows a header row's "Show in Storage" pointed at — marked, never
+  // opened. They stay lit until cleared from the scope bar, replaced by
+  // the next reveal, or the user leaves the section; `pendingHighlight`
+  // parks the scroll to the first one until the scope's jar is in.
+  const [highlightedCookies, setHighlightedCookies] = useState<ReadonlySet<string> | null>(null);
+  const [pendingHighlight, setPendingHighlight] = useState(false);
+  const revealHighlightedRow = useActiveRowScroll(rootRef, '.dt-storage-row--highlighted');
   // The user moving to another section abandons the parked row —
   // resolving it later would tear them right back out of where they
   // went. Declared before the consume effect so the same-commit run
@@ -177,6 +188,8 @@ export function StoragePanel({
   // biome-ignore lint/correctness/useExhaustiveDependencies: section identity is the reset trigger
   useEffect(() => {
     setPendingRow(null);
+    setHighlightedCookies(null);
+    setPendingHighlight(false);
   }, [section]);
 
   const filterPredicate = useMemo(() => buildTextPredicate(textFilter, filterConfig), [textFilter, filterConfig]);
@@ -305,14 +318,23 @@ export function StoragePanel({
   }, [revealSection]);
   const selectIdbStore = idb.selectStore;
   const selectCache = cacheStorage.selectCache;
+  const { scopes, selectOrigin } = inspector;
   useEffect(() => {
     if (!reveal || section !== revealSection) return;
     if (reveal.kind === 'idb') selectIdbStore(reveal.database, reveal.store);
     if (reveal.kind === 'cache') selectCache(reveal.cache);
+    if (reveal.kind === 'cookies' && reveal.highlight !== undefined) {
+      const { rows, origin } = reveal.highlight;
+      setHighlightedCookies(new Set(rows));
+      setPendingHighlight(true);
+      // Show them under the request's own origin when the page has a
+      // frame on it; any other request keeps the scope the user chose.
+      if (scopes.some((s) => s.origin === origin)) selectOrigin(origin);
+    }
     const row = reveal.row;
     setPendingRow(row !== undefined && row !== '' ? { ...reveal, row } : null);
     onRevealConsumed();
-  }, [reveal, revealSection, section, selectIdbStore, selectCache, onRevealConsumed]);
+  }, [reveal, revealSection, section, selectIdbStore, selectCache, onRevealConsumed, scopes, selectOrigin]);
 
   const selectedFrameId = selectedScope?.frameId ?? null;
   const openIdbRecord = useCallback(
@@ -424,6 +446,40 @@ export function StoragePanel({
     }
     setPendingRow(null);
   }, [pendingRow, sortedCookies, openCookie, revealActiveRow, filterActive, filterPredicate, noteRowHiddenByFilter]);
+
+  // A highlight reveal scrolls to its first row once the jar is in; the
+  // filter is never auto-cleared — a highlighted row it hides gets the
+  // same note a search jump's does.
+  useEffect(() => {
+    if (!pendingHighlight || highlightedCookies === null || sortedCookies === null) return;
+    revealHighlightedRow();
+    if (
+      filterActive &&
+      sortedCookies.some((c) => highlightedCookies.has(jarCookieRowKey(c)) && !cookieMatches(c, filterPredicate))
+    ) {
+      noteRowHiddenByFilter();
+    }
+    setPendingHighlight(false);
+  }, [
+    pendingHighlight,
+    highlightedCookies,
+    sortedCookies,
+    revealHighlightedRow,
+    filterActive,
+    filterPredicate,
+    noteRowHiddenByFilter,
+  ]);
+  const isCookieHighlighted = useCallback(
+    (cookie: SiteJarCookie) => highlightedCookies?.has(jarCookieRowKey(cookie)) ?? false,
+    [highlightedCookies],
+  );
+  const highlightedInScope = useMemo(
+    () =>
+      highlightedCookies === null || sortedCookies === null
+        ? 0
+        : sortedCookies.filter((c) => highlightedCookies.has(jarCookieRowKey(c))).length,
+    [highlightedCookies, sortedCookies],
+  );
 
   useEffect(() => {
     if (pendingRow?.kind !== 'idb') return;
@@ -606,6 +662,20 @@ export function StoragePanel({
     return cookie !== null;
   }, []);
 
+  // A pasted batch from the Add popover — the scope bar's "write failed"
+  // note answers for the whole run; the popover lists the rows that failed.
+  const addCookieBatch = useMemo(
+    () => ({
+      scopeUrl,
+      onSubmit: async (edits: readonly JarCookieEdit[]) => {
+        const results = await writeJarCookies(edits);
+        setCookieWriteFailed(results.some((result) => result.cookie === null));
+        return results;
+      },
+    }),
+    [scopeUrl],
+  );
+
   const deleteCookie = useCallback((cookie: JarCookie) => {
     void removeJarCookie(jarCookieToKey(cookie)).then((ok) => {
       setCookieWriteFailed(!ok);
@@ -702,7 +772,12 @@ export function StoragePanel({
             />
             <div className="dt-filter-separator" />
             {section === 'cookies' ? (
-              <CookieEditPopover mode="add" canonical={addCookieCanonical} onSubmit={applyCookieEdit}>
+              <CookieEditPopover
+                mode="add"
+                canonical={addCookieCanonical}
+                batch={addCookieBatch}
+                onSubmit={applyCookieEdit}
+              >
                 <button
                   type="button"
                   className="dt-toolbar-icon"
@@ -818,6 +893,17 @@ export function StoragePanel({
                 </span>
               )}
               <span className="dt-storage-scope-note">{scopeNote}</span>
+              {section === 'cookies' && highlightedCookies !== null && (
+                <button
+                  type="button"
+                  className="dt-storage-highlight-chip"
+                  title={t('panel.storage.cookies.clearHighlight')}
+                  onClick={() => setHighlightedCookies(null)}
+                >
+                  {t('panel.storage.cookies.highlighted', { count: highlightedInScope })}
+                  <span aria-hidden="true"> ×</span>
+                </button>
+              )}
               {section === 'quota' ? (
                 <ClearSiteDataControl quota={quota} excluded={clearExcluded} onHoverChange={setClearHovered} />
               ) : (
@@ -853,6 +939,7 @@ export function StoragePanel({
                 onDelete={deleteCookie}
                 onOpen={openCookie}
                 isActive={isCookieActive}
+                isHighlighted={isCookieHighlighted}
               />
             ) : section === 'indexeddb' || section === 'cachestorage' || section === 'quota' ? (
               inspector.available && inspector.scopes.length > 0 ? (
@@ -1052,6 +1139,7 @@ interface CookiesBodyProps {
   onDelete: (cookie: JarCookie) => void;
   onOpen: (cookie: SiteJarCookie) => void;
   isActive: (cookie: SiteJarCookie) => boolean;
+  isHighlighted: (cookie: SiteJarCookie) => boolean;
 }
 
 function CookiesBody({
@@ -1064,6 +1152,7 @@ function CookiesBody({
   onDelete,
   onOpen,
   isActive,
+  isHighlighted,
 }: CookiesBodyProps) {
   const t = useT();
   const hasScopes = inspector.scopes.length > 0;
@@ -1104,6 +1193,7 @@ function CookiesBody({
       onDelete={onDelete}
       onOpen={onOpen}
       isActive={isActive}
+      isHighlighted={isHighlighted}
     />
   );
 }

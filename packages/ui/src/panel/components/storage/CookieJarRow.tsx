@@ -53,6 +53,9 @@ interface CookieJarRowProps {
   /** This cookie is the ACTIVE editor tab's document — the row renders
    *  highlighted. */
   active?: boolean;
+  /** A header row's "Show in Storage" pointed at this cookie — marked,
+   *  never selected. */
+  highlighted?: boolean;
   /** Open the cookie as an editor-tab document (single-click gesture). */
   onOpen?: (cookie: JarCookie) => void;
   onApplyEdit: (edit: JarCookieEdit) => Promise<boolean>;
@@ -68,6 +71,7 @@ export function CookieJarRow({
   now,
   notSentReason,
   active,
+  highlighted,
   onOpen,
   onApplyEdit,
   onDelete,
@@ -94,7 +98,9 @@ export function CookieJarRow({
     <>
       {/* biome-ignore lint/a11y/noNoninteractiveElementInteractions: grid row doubles as the open affordance */}
       <div
-        className={`dt-storage-row${active ? ' dt-storage-row--active' : ''}`}
+        className={`dt-storage-row${active ? ' dt-storage-row--active' : ''}${
+          highlighted ? ' dt-storage-row--highlighted' : ''
+        }`}
         role="row"
         aria-selected={active ?? false}
         data-entry-index={entryIndex}

@@ -1,4 +1,4 @@
-import { CheckOutlined, CopyOutlined, EyeOutlined } from '@ant-design/icons';
+import { ArrowUpOutlined, CheckOutlined, CopyOutlined, EyeOutlined } from '@ant-design/icons';
 import type { MessageKey } from '@openheaders/i18n';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { InfoTrigger } from '@openheaders/ui/shared/info-popover';
@@ -23,6 +23,9 @@ import type { RulesByUid } from '../../../data/rule-create/use-rules-lookup';
 import { useValueViewAction } from '@openheaders/ui/workbench/components/value-editors/useValueViewAction';
 import { useOpenValueViewDocument } from '../../../data/value-view-intent';
 import { introspectWithAuthScheme } from '../../../data/auth-scheme';
+import { fetchSiteJarCookiesOnce } from '../../../data/cookies/cookie-jar-cache';
+import { cookieRevealTarget, isCookieHeader } from '../../../data/cookies/cookie-reveal';
+import { useRevealCookiesInStorage } from '../../../data/storage-reveal-intent';
 import { introspectionDetected, introspectionHasDepth } from '../../../data/value-introspect';
 import { ResolvedHeaderValue } from '../../ResolvedHeaderValue';
 import { isSnapshotResolutionReliable } from '../../rule-hover-format';
@@ -179,6 +182,19 @@ export function AttributedHeaderRow({
   };
 
   const direction: 'request' | 'response' = sectionLabel === 'Response Headers' ? 'response' : 'request';
+
+  // Cookie / Set-Cookie rows jump to the Storage window's Cookies
+  // section with the jar rows this header names highlighted. The jar is
+  // read on the click, through the request's own URL — never per render.
+  const revealCookies = useRevealCookiesInStorage();
+  const showCookieReveal = revealCookies !== null && isCookieHeader(name, direction);
+  const handleCookieReveal = (e: React.MouseEvent<HTMLButtonElement>): void => {
+    e.stopPropagation();
+    if (revealCookies === null) return;
+    void fetchSiteJarCookiesOnce(requestUrl).then((jar) => {
+      revealCookies(cookieRevealTarget(direction, value, requestUrl, jar ?? []));
+    });
+  };
   const isProtected = meta.protectedHeader;
 
   const classes = [
@@ -356,6 +372,17 @@ export function AttributedHeaderRow({
           >
             {copied ? <CheckOutlined /> : <CopyOutlined />}
           </button>
+          {showCookieReveal && (
+            <button
+              type="button"
+              className="dt-btn dt-btn-primary dt-kv-action dt-kv-action--icon"
+              title={t('panel.inspector.headers.row.showInStorage')}
+              aria-label={t('panel.inspector.headers.row.showInStorage')}
+              onClick={handleCookieReveal}
+            >
+              <ArrowUpOutlined rotate={45} />
+            </button>
+          )}
           {ruleCtx && (
             <button
               type="button"

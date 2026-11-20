@@ -564,6 +564,97 @@
   font-size: 11px;
   color: var(--dt-text-muted);
 }
+/* Add mode's paste row — sits above the field grid; the status line
+ * under it says what a paste filled (or why it couldn't) and carries
+ * the Undo. */
+.dt-cookie-paste {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-bottom: 8px;
+}
+.dt-cookie-paste-status {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 11px;
+  color: var(--dt-text-muted);
+}
+.dt-cookie-paste-status > span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.dt-cookie-paste-status--error {
+  color: var(--dt-status-red);
+}
+.dt-cookie-paste-status .ant-btn {
+  flex: none;
+  height: auto;
+  padding: 0;
+  font-size: 11px;
+}
+/* A pasted batch's checklist — one row per cookie, capped and scrolled
+ * on its own so the shared fields under it stay within reach. */
+.dt-cookie-paste-list {
+  margin-bottom: 8px;
+}
+.dt-cookie-paste-list-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 4px;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--dt-text-muted);
+  cursor: pointer;
+}
+.dt-cookie-paste-list-rows {
+  max-height: 156px;
+  margin-bottom: 6px;
+  overflow-y: auto;
+  border: 1px solid var(--dt-border);
+  border-radius: 4px;
+}
+.dt-cookie-paste-row + .dt-cookie-paste-row {
+  border-top: 1px solid var(--dt-border);
+}
+.dt-cookie-paste-row-main {
+  display: grid;
+  grid-template-columns: auto minmax(0, 2fr) minmax(0, 3fr) auto;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 6px;
+  font-size: 11px;
+  cursor: pointer;
+}
+.dt-cookie-paste-row-name,
+.dt-cookie-paste-row-value {
+  overflow: hidden;
+  font-family: monospace;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.dt-cookie-paste-row-value {
+  color: var(--dt-text-muted);
+}
+.dt-cookie-paste-tag {
+  font-size: 10px;
+  color: var(--dt-text-muted);
+  white-space: nowrap;
+}
+.dt-cookie-paste-tag--replaces {
+  color: var(--dt-status-orange);
+}
+.dt-cookie-paste-tag--saved {
+  color: var(--dt-status-green);
+}
+.dt-cookie-paste-row-reason {
+  padding: 0 6px 3px 25px;
+  font-size: 11px;
+  color: var(--dt-status-red);
+  overflow-wrap: anywhere;
+}
 .dt-cookie-edit-form {
   display: grid;
   grid-template-columns: 1fr 1fr;

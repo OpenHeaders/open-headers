@@ -86,14 +86,14 @@ function safePath(url: string): string {
   }
 }
 
-function countSetCookies(lc: RequestLifecycle): number {
+export function countSetCookies(lc: RequestLifecycle): number {
   const headers = currentHarEntry(lc)?.response?.headers ?? [];
   let n = 0;
   for (const h of headers) if (h.name.toLowerCase() === 'set-cookie') n++;
   return n;
 }
 
-function countRequestCookies(lc: RequestLifecycle): number {
+export function countRequestCookies(lc: RequestLifecycle): number {
   return currentHarEntry(lc)?.request?.cookies?.length ?? 0;
 }
 

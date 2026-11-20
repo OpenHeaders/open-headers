@@ -88,6 +88,8 @@ export const panel = {
   'panel.moreFilters.blockedRequests': '被拦截的请求',
   'panel.moreFilters.thirdParty': '第三方请求',
   'panel.moreFilters.swRequests': 'Service Worker 请求',
+  'panel.moreFilters.sendsCookies': '发送 Cookie 的请求',
+  'panel.moreFilters.setsCookies': '设置 Cookie 的响应',
   'panel.moreFilters.ruleApplied': '规则已应用的请求',
   'panel.moreFilters.pageOriginPending': '页面源尚不可用',
 
@@ -207,6 +209,10 @@ export const panel = {
   'panel.info.moreFilters.swRequests': 'Service Worker 请求',
   'panel.info.moreFilters.swRequestsDesc':
     '限定为 Service Worker 相关的交换——worker 自己发出的请求（⚙ 行）以及由其 fetch 处理器应答的页面请求。',
+  'panel.info.moreFilters.sendsCookies': '发送 Cookie 的请求',
+  'panel.info.moreFilters.sendsCookiesDesc': '限定为在 Cookie 标头中携带至少一个 Cookie 的请求。',
+  'panel.info.moreFilters.setsCookies': '设置 Cookie 的响应',
+  'panel.info.moreFilters.setsCookiesDesc': '限定为响应返回了至少一个 Set-Cookie 标头的请求。',
   'panel.info.moreFilters.ruleApplied': '规则已应用的请求',
   'panel.info.moreFilters.ruleAppliedDesc': '限定为可验证被 Open Headers 规则修改过的请求。',
 

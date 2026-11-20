@@ -89,6 +89,8 @@ export const panel = {
   'panel.moreFilters.blockedRequests': 'Blocked requests',
   'panel.moreFilters.thirdParty': '3rd-party requests',
   'panel.moreFilters.swRequests': 'Service worker requests',
+  'panel.moreFilters.sendsCookies': 'Requests sending cookies',
+  'panel.moreFilters.setsCookies': 'Responses setting cookies',
   'panel.moreFilters.ruleApplied': 'Rule-applied requests',
   'panel.moreFilters.pageOriginPending': 'Page origin not yet available',
 
@@ -216,6 +218,12 @@ export const panel = {
   'panel.info.moreFilters.swRequests': 'Service worker requests',
   'panel.info.moreFilters.swRequestsDesc':
     'Restrict to service-worker exchanges — requests the worker issued itself (⚙ rows) and page requests its fetch handler answered.',
+  'panel.info.moreFilters.sendsCookies': 'Requests sending cookies',
+  'panel.info.moreFilters.sendsCookiesDesc':
+    'Restrict to requests that carried at least one cookie in their Cookie header.',
+  'panel.info.moreFilters.setsCookies': 'Responses setting cookies',
+  'panel.info.moreFilters.setsCookiesDesc':
+    'Restrict to requests whose response returned at least one Set-Cookie header.',
   'panel.info.moreFilters.ruleApplied': 'Rule-applied requests',
   'panel.info.moreFilters.ruleAppliedDesc': 'Restrict to requests an Open Headers rule verifiably modified.',
 

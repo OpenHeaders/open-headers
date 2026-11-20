@@ -173,6 +173,7 @@ export const panelInspectorHeaders = {
   'panel.inspector.headers.row.expandValue': 'Expand value',
   'panel.inspector.headers.row.collapseValue': 'Collapse value',
   'panel.inspector.headers.row.copyValue': 'Copy value',
+  'panel.inspector.headers.row.showInStorage': 'Show in Storage',
   'panel.inspector.headers.row.copied': 'Copied',
   'panel.inspector.headers.row.edit': 'Edit',
   'panel.inspector.headers.row.editTitle': 'Edit the rule that set this header',

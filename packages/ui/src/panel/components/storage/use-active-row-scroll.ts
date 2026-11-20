@@ -4,13 +4,18 @@
  * registered AND the section's data has landed, so the reveal retries
  * per frame until the active row exists (or the deadline lapses — the
  * row may have disappeared from live storage since the search ran).
+ * `selector` retargets the same wait at another marked row (the first
+ * highlighted one, for a header row's "Show in Storage").
  */
 
 import { type RefObject, useCallback, useEffect, useRef } from 'react';
 
 const DEADLINE_MS = 2000;
 
-export function useActiveRowScroll(rootRef: RefObject<HTMLElement | null>): () => void {
+export function useActiveRowScroll(
+  rootRef: RefObject<HTMLElement | null>,
+  selector = '.dt-storage-row--active',
+): () => void {
   const rafRef = useRef<number | null>(null);
 
   useEffect(
@@ -24,7 +29,7 @@ export function useActiveRowScroll(rootRef: RefObject<HTMLElement | null>): () =
     if (rafRef.current !== null) cancelAnimationFrame(rafRef.current);
     const startedAt = performance.now();
     const tick = (): void => {
-      const row = rootRef.current?.querySelector('.dt-storage-row--active');
+      const row = rootRef.current?.querySelector(selector);
       if (row !== null && row !== undefined) {
         row.scrollIntoView({ block: 'center' });
         rafRef.current = null;
@@ -37,5 +42,5 @@ export function useActiveRowScroll(rootRef: RefObject<HTMLElement | null>): () =
       rafRef.current = requestAnimationFrame(tick);
     };
     rafRef.current = requestAnimationFrame(tick);
-  }, [rootRef]);
+  }, [rootRef, selector]);
 }

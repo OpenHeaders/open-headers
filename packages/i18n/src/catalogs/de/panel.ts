@@ -91,6 +91,8 @@ export const panel = {
   'panel.moreFilters.blockedRequests': 'Blockierte Anfragen',
   'panel.moreFilters.thirdParty': 'Drittanbieter-Anfragen',
   'panel.moreFilters.swRequests': 'Service-Worker-Anfragen',
+  'panel.moreFilters.sendsCookies': 'Anfragen, die Cookies senden',
+  'panel.moreFilters.setsCookies': 'Antworten, die Cookies setzen',
   'panel.moreFilters.ruleApplied': 'Anfragen mit angewendeter Regel',
   'panel.moreFilters.pageOriginPending': 'Die Origin der Seite ist noch nicht verfügbar',
 
@@ -234,6 +236,12 @@ export const panel = {
   'panel.info.moreFilters.swRequestsDesc':
     'Beschränkt auf Service-Worker-Austausch — Anfragen, die der Worker selbst gestellt hat (⚙-Zeilen), und ' +
     'Seitenanfragen, die sein fetch-Handler beantwortet hat.',
+  'panel.info.moreFilters.sendsCookies': 'Anfragen, die Cookies senden',
+  'panel.info.moreFilters.sendsCookiesDesc':
+    'Beschränkt auf Anfragen, die mindestens ein Cookie in ihrem Cookie-Header mitgeschickt haben.',
+  'panel.info.moreFilters.setsCookies': 'Antworten, die Cookies setzen',
+  'panel.info.moreFilters.setsCookiesDesc':
+    'Beschränkt auf Anfragen, deren Antwort mindestens einen Set-Cookie-Header zurückgab.',
   'panel.info.moreFilters.ruleApplied': 'Anfragen mit angewendeter Regel',
   'panel.info.moreFilters.ruleAppliedDesc':
     'Beschränkt auf Anfragen, die eine Regel von Open Headers nachweislich verändert hat.',

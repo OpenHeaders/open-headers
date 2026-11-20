@@ -118,6 +118,8 @@ export const panelStorage = {
   'panel.storage.cookies.col.value': 'Value',
   'panel.storage.cookies.col.scope': 'Domain · Path',
   'panel.storage.cookies.col.sec': 'Sec',
+  'panel.storage.cookies.highlighted': 'ハイライト: {count}',
+  'panel.storage.cookies.clearHighlight': 'ハイライトを解除',
   // DOM storage grid.
   'panel.storage.grid.col.key': 'Key',
   'panel.storage.grid.col.value': 'Value',

@@ -173,6 +173,7 @@ export const panelInspectorHeaders = {
   'panel.inspector.headers.row.expandValue': 'Extindere valoare',
   'panel.inspector.headers.row.collapseValue': 'Restrângere valoare',
   'panel.inspector.headers.row.copyValue': 'Copiere valoare',
+  'panel.inspector.headers.row.showInStorage': 'Afișare în Storage',
   'panel.inspector.headers.row.copied': 'Copiat',
   'panel.inspector.headers.row.edit': 'Editare',
   'panel.inspector.headers.row.editTitle': 'Editați regula care a setat acest antet',

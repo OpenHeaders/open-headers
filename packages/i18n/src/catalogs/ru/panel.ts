@@ -98,6 +98,8 @@ export const panel = {
   'panel.moreFilters.blockedRequests': 'Заблокированные запросы',
   'panel.moreFilters.thirdParty': 'Сторонние запросы',
   'panel.moreFilters.swRequests': 'Запросы сервис-воркера',
+  'panel.moreFilters.sendsCookies': 'Запросы, отправляющие cookie',
+  'panel.moreFilters.setsCookies': 'Ответы, устанавливающие cookie',
   'panel.moreFilters.ruleApplied': 'Запросы с применённым правилом',
   'panel.moreFilters.pageOriginPending': 'Источник страницы пока недоступен',
 
@@ -230,6 +232,12 @@ export const panel = {
   'panel.info.moreFilters.swRequests': 'Запросы сервис-воркера',
   'panel.info.moreFilters.swRequestsDesc':
     'Оставить только обмены с сервис-воркером — запросы, которые воркер выполнил сам (строки ⚙), и запросы страницы, на которые ответил его обработчик fetch.',
+  'panel.info.moreFilters.sendsCookies': 'Запросы, отправляющие cookie',
+  'panel.info.moreFilters.sendsCookiesDesc':
+    'Оставить только запросы, которые несли хотя бы один cookie в заголовке Cookie.',
+  'panel.info.moreFilters.setsCookies': 'Ответы, устанавливающие cookie',
+  'panel.info.moreFilters.setsCookiesDesc':
+    'Оставить только запросы, ответ на которые вернул хотя бы один заголовок Set-Cookie.',
   'panel.info.moreFilters.ruleApplied': 'Запросы с применённым правилом',
   'panel.info.moreFilters.ruleAppliedDesc':
     'Оставить только запросы, которые правило Open Headers достоверно изменило.',

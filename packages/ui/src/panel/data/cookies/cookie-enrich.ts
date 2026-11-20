@@ -143,14 +143,20 @@ export function explainFilteredOut(c: JarCookie, parsedUrl: URL, now: number): s
  * point Edit / Delete at the wrong cookie, so no match is returned.
  */
 function findResponseJarMatch(jar: readonly JarCookie[], row: CookieRow): JarCookie | undefined {
+  const candidates = responseJarCandidates(jar, row);
+  return candidates.length === 1 ? candidates[0] : undefined;
+}
+
+/** Every jar cookie a Set-Cookie row could have produced — the set the
+ *  single-match join above narrows to one. */
+export function responseJarCandidates<T extends JarCookie>(jar: readonly T[], row: CookieRow): T[] {
   const norm = (d: string) => d.replace(/^\./, '');
-  const candidates = jar.filter(
+  return jar.filter(
     (j) =>
       j.name === row.name &&
       (row.domain == null || norm(j.domain) === norm(row.domain)) &&
       (row.path == null || j.path === row.path),
   );
-  return candidates.length === 1 ? candidates[0] : undefined;
 }
 
 export interface EnrichmentInputs {

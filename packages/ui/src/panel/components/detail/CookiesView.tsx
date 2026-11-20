@@ -46,6 +46,7 @@ import {
   type JarCookieKey,
   removeJarCookie,
   writeJarCookie,
+  writeJarCookies,
 } from '../../data/cookies/cookie-jar-cache';
 import {
   computeCookieInsights,
@@ -200,6 +201,24 @@ export default function CookiesView({ row, pageOrigin, onOverrideHeader, onOpenC
     [message, t],
   );
 
+  // A pasted batch from the Add popover — ONE toast per outcome kind for
+  // the whole run; the popover lists the rows that failed and why.
+  const addBatch = useMemo(
+    () => ({
+      scopeUrl: lc.url,
+      onSubmit: async (edits: readonly JarCookieEdit[]) => {
+        const results = await writeJarCookies(edits);
+        const saved = results.filter((result) => result.cookie !== null).length;
+        if (saved > 0) message.success(t('panel.inspector.cookies.toast.savedMany', { count: saved }));
+        if (saved < results.length) {
+          message.error(t('panel.inspector.cookies.toast.saveManyFailed', { count: results.length - saved }));
+        }
+        return results;
+      },
+    }),
+    [lc.url, message, t],
+  );
+
   const onDeleteCookie = useCallback(
     (cookie: CookieRowModel) => {
       modal.confirm({
@@ -352,7 +371,7 @@ export default function CookiesView({ row, pageOrigin, onOverrideHeader, onOpenC
         <InfoTrigger content={overrideInfo} className="dt-header-info-trigger" />
         {writable && (
           <>
-            <CookieEditPopover mode="add" canonical={addCanonical} onSubmit={onApplyEdit}>
+            <CookieEditPopover mode="add" canonical={addCanonical} batch={addBatch} onSubmit={onApplyEdit}>
               <button type="button" className="dt-btn" title={t('panel.inspector.cookies.cta.addCookieTitle')}>
                 {t('panel.inspector.cookies.cta.addCookie')}
               </button>

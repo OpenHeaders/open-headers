@@ -24,6 +24,11 @@
  * dynamic path). Save is resolve-gated per field with a live preview of
  * what will be written. Expires / SameSite / flags are date, enum and
  * boolean controls — nothing to template.
+ *
+ * Add mode leads with a paste row: a `Set-Cookie` or `Cookie` header
+ * pasted there fills the fields (see {@link CookiePasteField}); text
+ * holding several cookies turns the form into a checklist saved as one
+ * batch, on hosts that pass `batch` (see {@link useCookiePasteBatch}).
  */
 
 import { SaveOutlined } from '@ant-design/icons';
@@ -55,6 +60,8 @@ import {
 } from '../../../data/cookies/cookie-jar-cache';
 import { useDocumentSync } from '../../../data/storage/use-document-sync';
 import { CookieEditFields, useCookieFieldResolution } from './CookieEditFields';
+import { CookiePasteField } from './CookiePasteField';
+import { type CookiePasteBatchHost, useCookiePasteBatch } from './useCookiePasteBatch';
 import { useCookieConflictTier } from './useCookieConflictTier';
 
 /** Live-document binding for edit mode — identifies the jar row the
@@ -81,8 +88,11 @@ interface FormBodyProps {
    *  "This response set: …" while newer traffic re-set the cookie). */
   valueNote?: string;
   document?: CookieEditPopoverDocument;
+  batch?: CookiePasteBatchHost;
   onCancel: () => void;
   onSave: (edit: JarCookieEdit) => void;
+  /** Run a pasted batch's write under the popover's busy / close-on-success. */
+  onSaveBatch: (write: () => Promise<boolean>) => void;
 }
 
 // Mounted fresh each time the popover opens (destroyOnHidden), so its
@@ -94,8 +104,10 @@ function CookieEditFormBody({
   maxHeight,
   valueNote,
   document: binding,
+  batch,
   onCancel,
   onSave,
+  onSaveBatch,
 }: FormBodyProps) {
   const t = useT();
   const { saveAccent } = useUiTheme();
@@ -178,13 +190,33 @@ function CookieEditFormBody({
   const constraintError = editFormConstraintError(t, resolvedForm);
   const valid = isEditFormValid(resolvedForm) && constraintError === null;
   // A gone cookie is savable even when clean — Save re-creates it.
-  const canSave = valid && !anyUnresolved && (mode === 'add' || dirty || gone);
+  const canSaveOne = valid && !anyUnresolved && (mode === 'add' || dirty || gone);
+
+  // A pasted batch replaces the single-cookie Save: Name and Value stand
+  // down (their drafts gate nothing), the remaining fields are what new
+  // cookies take — so only THEIR templates must resolve.
+  const pasteBatch = useCookiePasteBatch({
+    host: mode === 'add' ? batch : undefined,
+    shared: resolvedForm,
+    disabled: busy,
+  });
+  const listing = pasteBatch.total !== null;
+  const canSave = listing
+    ? pasteBatch.savable > 0 && !fields.domain.unresolved && !fields.path.unresolved
+    : canSaveOne;
+  const runSave = (): void => {
+    if (listing) onSaveBatch(pasteBatch.save);
+    else onSave(formToEdit(resolvedForm));
+  };
+  const saveText = listing
+    ? `${t('panel.inspector.cookies.edit.save')} (${pasteBatch.savable})`
+    : t('panel.inspector.cookies.edit.save');
 
   // Cmd/Ctrl+S while the popover is open — the body mounts per open
   // (destroyOnHidden), so the claim-stack registration tracks exactly
   // the popover's lifetime and outranks the surfaces beneath it.
   const { saveLabel, handleSaveRef } = useSaveShortcut();
-  handleSaveRef.current = canSave && !busy ? () => onSave(formToEdit(resolvedForm)) : null;
+  handleSaveRef.current = canSave && !busy ? runSave : null;
 
   const openDocument = binding?.onOpen;
 
@@ -206,8 +238,25 @@ function CookieEditFormBody({
       {gone && (
         <div className="dt-cookie-edit-note">{t('panel.inspector.cookies.edit.goneNote')}</div>
       )}
-      <CookieEditFields values={values} fields={fields} set={set} busy={busy} affixes={conflictTier.affixes} />
-      {constraintError !== null && <div className="dt-cookie-edit-note">{constraintError}</div>}
+      {mode === 'add' && (
+        <CookiePasteField
+          values={values}
+          onFill={setValues}
+          disabled={busy}
+          listed={pasteBatch.total}
+          onList={batch !== undefined ? pasteBatch.list : undefined}
+        />
+      )}
+      {pasteBatch.node}
+      <CookieEditFields
+        values={values}
+        fields={fields}
+        set={set}
+        busy={busy}
+        affixes={conflictTier.affixes}
+        omitIdentity={listing}
+      />
+      {!listing && constraintError !== null && <div className="dt-cookie-edit-note">{constraintError}</div>}
 
       <div className="dt-cookie-edit-actions">
         {openDocument !== undefined && (
@@ -233,7 +282,7 @@ function CookieEditFormBody({
           </span>
         )}
         <Tooltip
-          title={<ShortcutHintTitle label={saveLabel}>{t('panel.inspector.cookies.edit.save')}</ShortcutHintTitle>}
+          title={<ShortcutHintTitle label={saveLabel}>{saveText}</ShortcutHintTitle>}
           placement="bottomRight"
           zIndex={1090}
         >
@@ -241,12 +290,12 @@ function CookieEditFormBody({
             size="small"
             type="primary"
             icon={<SaveOutlined />}
-            onClick={() => onSave(formToEdit(resolvedForm))}
+            onClick={runSave}
             disabled={!canSave}
             loading={busy}
             style={{ fontSize: 11, ...(canSave ? { background: saveAccent, borderColor: saveAccent } : {}) }}
           >
-            {t('panel.inspector.cookies.edit.save')}
+            {saveText}
           </Button>
         </Tooltip>
       </div>
@@ -262,6 +311,9 @@ interface Props {
   /** Edit-mode live binding — jar sync + conflict tier + the footer's
    *  "Open in new tab" escalation. */
   document?: CookieEditPopoverDocument;
+  /** Add-mode batch tier — a paste holding several cookies becomes a
+   *  checklist written through this. Without it such a paste is refused. */
+  batch?: CookiePasteBatchHost;
   /** Persists the edit; resolves `true` on success so the popover closes. */
   onSubmit: (edit: JarCookieEdit) => Promise<boolean>;
   placement?: 'bottomRight' | 'bottomLeft' | 'leftTop';
@@ -273,6 +325,7 @@ export function CookieEditPopover({
   canonical,
   valueNote,
   document,
+  batch,
   onSubmit,
   placement = 'bottomRight',
   children,
@@ -314,13 +367,14 @@ export function CookieEditPopover({
     [resolveContainer],
   );
 
-  const handleSave = (edit: JarCookieEdit): void => {
+  const runSave = (write: () => Promise<boolean>): void => {
     setBusy(true);
-    void onSubmit(edit).then((ok) => {
+    void write().then((ok) => {
       setBusy(false);
       if (ok) setOpen(false);
     });
   };
+  const handleSave = (edit: JarCookieEdit): void => runSave(() => onSubmit(edit));
 
   return (
     <span ref={triggerRef} className="dt-cookie-edit-trigger">
@@ -349,8 +403,10 @@ export function CookieEditPopover({
             maxHeight={maxHeight}
             valueNote={valueNote}
             document={document}
+            batch={batch}
             onCancel={() => setOpen(false)}
             onSave={handleSave}
+            onSaveBatch={runSave}
           />
         }
       >

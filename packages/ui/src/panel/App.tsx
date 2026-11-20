@@ -119,6 +119,8 @@ import {
   useRegisterValueDocumentOpener,
   ValueDocumentIntentProvider,
 } from './data/value-document-intent';
+import type { CookieRevealTarget } from './data/cookies/cookie-reveal';
+import { StorageRevealIntentProvider, useRegisterCookieRevealer } from './data/storage-reveal-intent';
 import { useRegisterValueViewOpener, ValueViewIntentProvider } from './data/value-view-intent';
 import { RuleEditorTab } from './components/rule-editor-document/RuleEditorTab';
 import { ValueDocumentTab } from './components/value-document/ValueDocumentTab';
@@ -271,9 +273,11 @@ export default function App({ resolveIdentity }: AppProps) {
                                           <ValueDocumentIntentProvider>
                                             <ValueViewIntentProvider>
                                               <RuleEditorDocumentIntentProvider>
-                                                <RulePopoverProvider>
-                                                  <PanelContent />
-                                                </RulePopoverProvider>
+                                                <StorageRevealIntentProvider>
+                                                  <RulePopoverProvider>
+                                                    <PanelContent />
+                                                  </RulePopoverProvider>
+                                                </StorageRevealIntentProvider>
                                               </RuleEditorDocumentIntentProvider>
                                             </ValueViewIntentProvider>
                                           </ValueDocumentIntentProvider>
@@ -776,6 +780,16 @@ function PanelContentReady({ perTab }: { perTab: EditingScopeViewStateApi<PanelV
     showStorageWindow();
     setRevealStorage({ kind: 'cookies' });
   }, [showStorageWindow]);
+  // A Cookie / Set-Cookie header row's "Show in Storage": the Cookies
+  // section with that header's jar rows highlighted, none opened.
+  const revealCookieRowsInStorage = useCallback(
+    (highlight: CookieRevealTarget) => {
+      showStorageWindow();
+      setRevealStorage({ kind: 'cookies', highlight });
+    },
+    [showStorageWindow],
+  );
+  useRegisterCookieRevealer(revealCookieRowsInStorage);
   const revealCacheInStorage = useCallback(
     (cache: string) => {
       showStorageWindow();

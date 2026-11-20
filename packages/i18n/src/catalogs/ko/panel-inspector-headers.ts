@@ -179,6 +179,7 @@ export const panelInspectorHeaders = {
   'panel.inspector.headers.row.expandValue': '값 펼치기',
   'panel.inspector.headers.row.collapseValue': '값 접기',
   'panel.inspector.headers.row.copyValue': '값 복사',
+  'panel.inspector.headers.row.showInStorage': 'Storage에서 보기',
   'panel.inspector.headers.row.copied': '복사됨',
   'panel.inspector.headers.row.edit': '편집',
   'panel.inspector.headers.row.editTitle': '이 헤더를 설정한 규칙 편집',

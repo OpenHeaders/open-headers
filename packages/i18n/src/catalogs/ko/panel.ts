@@ -88,6 +88,8 @@ export const panel = {
   'panel.moreFilters.blockedRequests': '차단된 요청',
   'panel.moreFilters.thirdParty': '서드파티 요청',
   'panel.moreFilters.swRequests': '서비스 워커 요청',
+  'panel.moreFilters.sendsCookies': '쿠키를 보내는 요청',
+  'panel.moreFilters.setsCookies': '쿠키를 설정하는 응답',
   'panel.moreFilters.ruleApplied': '규칙 적용 요청',
   'panel.moreFilters.pageOriginPending': '페이지 출처를 아직 알 수 없음',
 
@@ -212,6 +214,10 @@ export const panel = {
   'panel.info.moreFilters.swRequests': '서비스 워커 요청',
   'panel.info.moreFilters.swRequestsDesc':
     '서비스 워커 교환으로 제한합니다. 워커가 직접 보낸 요청(⚙ 행)과 워커의 fetch 핸들러가 응답한 페이지 요청입니다.',
+  'panel.info.moreFilters.sendsCookies': '쿠키를 보내는 요청',
+  'panel.info.moreFilters.sendsCookiesDesc': 'Cookie 헤더에 쿠키를 하나 이상 담아 보낸 요청으로 제한합니다.',
+  'panel.info.moreFilters.setsCookies': '쿠키를 설정하는 응답',
+  'panel.info.moreFilters.setsCookiesDesc': '응답이 Set-Cookie 헤더를 하나 이상 돌려준 요청으로 제한합니다.',
   'panel.info.moreFilters.ruleApplied': '규칙 적용 요청',
   'panel.info.moreFilters.ruleAppliedDesc': 'Open Headers 규칙이 검증 가능하게 수정한 요청으로 제한합니다.',
 

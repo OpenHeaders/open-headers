@@ -170,6 +170,7 @@ export const panelInspectorHeaders = {
   'panel.inspector.headers.row.expandValue': 'Развернуть значение',
   'panel.inspector.headers.row.collapseValue': 'Свернуть значение',
   'panel.inspector.headers.row.copyValue': 'Копировать значение',
+  'panel.inspector.headers.row.showInStorage': 'Показать в Storage',
   'panel.inspector.headers.row.copied': 'Скопировано',
   'panel.inspector.headers.row.edit': 'Изменить',
   'panel.inspector.headers.row.editTitle': 'Изменить правило, задавшее этот заголовок',

@@ -197,6 +197,7 @@ export const panelInspectorHeaders = {
   'panel.inspector.headers.row.expandValue': 'Wert aufklappen',
   'panel.inspector.headers.row.collapseValue': 'Wert zuklappen',
   'panel.inspector.headers.row.copyValue': 'Wert kopieren',
+  'panel.inspector.headers.row.showInStorage': 'In Storage anzeigen',
   'panel.inspector.headers.row.copied': 'Kopiert',
   'panel.inspector.headers.row.edit': 'Bearbeiten',
   'panel.inspector.headers.row.editTitle': 'Die Regel bearbeiten, die diesen Header gesetzt hat',

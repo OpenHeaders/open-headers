@@ -1,5 +1,6 @@
 import type { RequestLifecycle } from '@openheaders/core/request-lifecycle';
 import { currentHarEntry, lifecycleTransferredBytes } from './inspector-row-projection';
+import { countRequestCookies, countSetCookies } from './network-columns';
 import { classifyRequestState } from './request-state';
 import { buildNeedleMatcher, type TextMatchConfig, type TextMatcher } from './text-match';
 
@@ -20,6 +21,10 @@ export interface FilterConfig extends TextMatchConfig {
   onlyBlockedRequests: boolean;
   /** Show ONLY service-worker exchanges — worker-issued (⚙) or SW-served rows. */
   onlySwRequests: boolean;
+  /** Show ONLY requests that carried cookies — the Cookies column's count. */
+  onlySendsCookies: boolean;
+  /** Show ONLY requests whose response set cookies — the Set Cookies column's count. */
+  onlySetsCookies: boolean;
   /** Show ONLY rows an Open Headers rule verifiably applied to. */
   onlyRuleApplied: boolean;
   /** Inspected-window origin, used as the same-origin baseline for `onlyThirdParty`. */
@@ -35,6 +40,8 @@ export const DEFAULT_FILTER_CONFIG: FilterConfig = {
   onlyThirdParty: false,
   onlyBlockedRequests: false,
   onlySwRequests: false,
+  onlySendsCookies: false,
+  onlySetsCookies: false,
   onlyRuleApplied: false,
   pageOrigin: null,
 };
@@ -280,5 +287,7 @@ export function passesRowFilters(lc: RequestLifecycle, config: FilterConfig): bo
     if (s.kind !== 'blocked' && s.kind !== 'failed') return false;
   }
   if (config.onlySwRequests && !isServiceWorkerExchange(lc)) return false;
+  if (config.onlySendsCookies && countRequestCookies(lc) === 0) return false;
+  if (config.onlySetsCookies && countSetCookies(lc) === 0) return false;
   return true;
 }

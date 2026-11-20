@@ -29,6 +29,8 @@ interface CookiesSectionProps {
   /** Whether a cookie is the ACTIVE editor tab's document — exactly
    *  that row renders highlighted, tracking tab switches. */
   isActive?: (cookie: SiteJarCookie) => boolean;
+  /** Whether a header row's "Show in Storage" pointed at a cookie. */
+  isHighlighted?: (cookie: SiteJarCookie) => boolean;
 }
 
 function safeParseUrl(url: string): URL | null {
@@ -47,6 +49,7 @@ export function CookiesSection({
   onDelete,
   onOpen,
   isActive,
+  isHighlighted,
 }: CookiesSectionProps) {
   const t = useT();
   const rowLabels = useMemo(() => buildCookieRowLabels(t), [t]);
@@ -125,6 +128,7 @@ export function CookiesSection({
           now={now}
           notSentReason={!c.sendable && parsedScope ? explainFilteredOut(c, parsedScope, now) : undefined}
           active={isActive?.(c)}
+          highlighted={isHighlighted?.(c)}
           onOpen={onOpen ? () => onOpen(c) : undefined}
           onApplyEdit={onApplyEdit}
           onDelete={onDelete}

@@ -47,6 +47,8 @@ export function MoreFiltersMenu({
     filterConfig.onlyBlockedRequests,
     filterConfig.onlyThirdParty,
     filterConfig.onlySwRequests,
+    filterConfig.onlySendsCookies,
+    filterConfig.onlySetsCookies,
     filterConfig.onlyRuleApplied,
   ];
   const activeCount = flags.reduce((n, v) => n + (v ? 1 : 0), 0);
@@ -104,6 +106,22 @@ export function MoreFiltersMenu({
       <label className="dt-morefilters-item">
         <input
           type="checkbox"
+          checked={filterConfig.onlySendsCookies}
+          onChange={(e) => onFilterConfigChange({ ...filterConfig, onlySendsCookies: e.target.checked })}
+        />
+        {t('panel.moreFilters.sendsCookies')}
+      </label>
+      <label className="dt-morefilters-item">
+        <input
+          type="checkbox"
+          checked={filterConfig.onlySetsCookies}
+          onChange={(e) => onFilterConfigChange({ ...filterConfig, onlySetsCookies: e.target.checked })}
+        />
+        {t('panel.moreFilters.setsCookies')}
+      </label>
+      <label className="dt-morefilters-item">
+        <input
+          type="checkbox"
           checked={filterConfig.onlyRuleApplied}
           onChange={(e) => onFilterConfigChange({ ...filterConfig, onlyRuleApplied: e.target.checked })}
         />
@@ -127,6 +145,8 @@ export function MoreFiltersMenu({
             onlyBlockedRequests: false,
             onlyThirdParty: false,
             onlySwRequests: false,
+            onlySendsCookies: false,
+            onlySetsCookies: false,
             onlyRuleApplied: false,
           });
         }}

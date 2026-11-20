@@ -86,6 +86,8 @@ export const panel = {
   'panel.moreFilters.blockedRequests': 'Solicitudes bloqueadas',
   'panel.moreFilters.thirdParty': 'Solicitudes de terceros',
   'panel.moreFilters.swRequests': 'Solicitudes de service worker',
+  'panel.moreFilters.sendsCookies': 'Solicitudes que envían cookies',
+  'panel.moreFilters.setsCookies': 'Respuestas que establecen cookies',
   'panel.moreFilters.ruleApplied': 'Solicitudes modificadas por una regla',
   'panel.moreFilters.pageOriginPending': 'El origen de la página aún no está disponible',
 
@@ -227,6 +229,12 @@ export const panel = {
   'panel.info.moreFilters.swRequestsDesc':
     'Restringir a los intercambios de service worker — las solicitudes que el worker emitió por sí mismo ' +
     '(filas ⚙) y las solicitudes de página que respondió su manejador fetch.',
+  'panel.info.moreFilters.sendsCookies': 'Solicitudes que envían cookies',
+  'panel.info.moreFilters.sendsCookiesDesc':
+    'Restringir a las solicitudes que llevaban al menos una cookie en su encabezado Cookie.',
+  'panel.info.moreFilters.setsCookies': 'Respuestas que establecen cookies',
+  'panel.info.moreFilters.setsCookiesDesc':
+    'Restringir a las solicitudes cuya respuesta devolvió al menos un encabezado Set-Cookie.',
   'panel.info.moreFilters.ruleApplied': 'Solicitudes modificadas por una regla',
   'panel.info.moreFilters.ruleAppliedDesc':
     'Restringir a las solicitudes que una regla de Open Headers modificó de forma verificable.',

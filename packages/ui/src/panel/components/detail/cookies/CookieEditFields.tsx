@@ -100,9 +100,20 @@ interface CookieEditFieldsProps {
   /** Per-field label affix — the document editor mounts its conflict
    *  chips here so they sit on the row they belong to. */
   affixes?: Partial<Record<CookieConflictField, ReactNode>>;
+  /** Drop Name and Value — a pasted batch's checklist carries those per
+   *  cookie, and the rest of the grid is what its new cookies share. */
+  omitIdentity?: boolean;
 }
 
-export function CookieEditFields({ values, fields, set, busy, readOnly = false, affixes }: CookieEditFieldsProps) {
+export function CookieEditFields({
+  values,
+  fields,
+  set,
+  busy,
+  readOnly = false,
+  affixes,
+  omitIdentity = false,
+}: CookieEditFieldsProps) {
   const t = useT();
   const sameSiteOptions = useMemo<Array<{ value: CookieSameSiteValue; label: string }>>(() => {
     const labels = cookieSameSiteLabels(t);
@@ -130,23 +141,27 @@ export function CookieEditFields({ values, fields, set, busy, readOnly = false, 
 
   return (
     <div className="dt-cookie-edit-form">
-      <div className="dt-cookie-edit-field dt-cookie-edit-field--wide">
-        <span className="dt-cookie-edit-label">
-          {t('panel.inspector.cookies.edit.field.name')}
-          <CookieEditFieldInfo infoKey="name" />
-          {affixes?.name}
-        </span>
-        {textField('name', t('panel.inspector.cookies.edit.namePlaceholder'))}
-      </div>
+      {!omitIdentity && (
+        <>
+          <div className="dt-cookie-edit-field dt-cookie-edit-field--wide">
+            <span className="dt-cookie-edit-label">
+              {t('panel.inspector.cookies.edit.field.name')}
+              <CookieEditFieldInfo infoKey="name" />
+              {affixes?.name}
+            </span>
+            {textField('name', t('panel.inspector.cookies.edit.namePlaceholder'))}
+          </div>
 
-      <div className="dt-cookie-edit-field dt-cookie-edit-field--wide">
-        <span className="dt-cookie-edit-label">
-          {t('panel.inspector.cookies.edit.field.value')}
-          <CookieEditFieldInfo infoKey="value" />
-          {affixes?.value}
-        </span>
-        {textField('value', t('panel.inspector.cookies.edit.valuePlaceholder'), { wrap: true, maxRows: 3 })}
-      </div>
+          <div className="dt-cookie-edit-field dt-cookie-edit-field--wide">
+            <span className="dt-cookie-edit-label">
+              {t('panel.inspector.cookies.edit.field.value')}
+              <CookieEditFieldInfo infoKey="value" />
+              {affixes?.value}
+            </span>
+            {textField('value', t('panel.inspector.cookies.edit.valuePlaceholder'), { wrap: true, maxRows: 3 })}
+          </div>
+        </>
+      )}
 
       <div className="dt-cookie-edit-field">
         <span className="dt-cookie-edit-label">

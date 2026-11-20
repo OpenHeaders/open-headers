@@ -115,6 +115,8 @@ export const panelStorage = {
   'panel.storage.cookies.col.value': 'Value',
   'panel.storage.cookies.col.scope': 'Domain · Path',
   'panel.storage.cookies.col.sec': 'Sec',
+  'panel.storage.cookies.highlighted': '강조 표시: {count}',
+  'panel.storage.cookies.clearHighlight': '강조 표시 지우기',
   // DOM storage grid.
   'panel.storage.grid.col.key': 'Key',
   'panel.storage.grid.col.value': 'Value',

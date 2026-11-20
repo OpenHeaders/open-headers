@@ -379,6 +379,38 @@
   white-space: nowrap;
 }
 
+/* Rows a header row's "Show in Storage" pointed at — the search-match
+ * yellow as a tint plus a leading bar, so the mark still reads on a row
+ * that is also the active document (the active rule below wins the
+ * background, the bar stays). */
+.dt-storage-grid .dt-storage-row--highlighted,
+.dt-storage-grid .dt-storage-row--highlighted:hover {
+  background: rgba(253, 216, 53, 0.3);
+  box-shadow: inset 3px 0 0 #fdd835;
+}
+[data-theme='dark'] .dt-storage-grid .dt-storage-row--highlighted,
+[data-theme='dark'] .dt-storage-grid .dt-storage-row--highlighted:hover {
+  background: rgba(253, 216, 53, 0.16);
+}
+[data-theme='dark'] .dt-storage-grid .dt-storage-row--highlighted.dt-storage-row--active {
+  background: var(--dt-row-selected);
+}
+/* Scope-bar count of the highlighted rows in this scope; a click clears
+ * the highlight. */
+.dt-storage-highlight-chip {
+  flex: none;
+  padding: 0 6px;
+  border: 0;
+  border-radius: 8px;
+  font: inherit;
+  font-size: 10px;
+  line-height: 16px;
+  color: #000;
+  background: #fdd835;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
 /* The ACTIVE editor tab's document keeps its row lit — exactly one row
  * across the IDB record list and the DOM storage grid, tracking tab
  * switches. */

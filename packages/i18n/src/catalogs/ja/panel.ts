@@ -90,6 +90,8 @@ export const panel = {
   'panel.moreFilters.blockedRequests': 'ブロックされたリクエスト',
   'panel.moreFilters.thirdParty': 'サードパーティのリクエスト',
   'panel.moreFilters.swRequests': 'Service Worker のリクエスト',
+  'panel.moreFilters.sendsCookies': 'Cookie を送信するリクエスト',
+  'panel.moreFilters.setsCookies': 'Cookie を設定するレスポンス',
   'panel.moreFilters.ruleApplied': 'ルールが適用されたリクエスト',
   'panel.moreFilters.pageOriginPending': 'ページのオリジンはまだ利用できません',
 
@@ -219,6 +221,10 @@ export const panel = {
   'panel.info.moreFilters.swRequests': 'Service Worker のリクエスト',
   'panel.info.moreFilters.swRequestsDesc':
     'Service Worker のやり取りに限定します。worker 自身が発行したリクエスト（⚙ の行）と、その fetch ハンドラーが応答したページリクエストです。',
+  'panel.info.moreFilters.sendsCookies': 'Cookie を送信するリクエスト',
+  'panel.info.moreFilters.sendsCookiesDesc': 'Cookie ヘッダーに Cookie を 1 つ以上含んでいたリクエストに限定します。',
+  'panel.info.moreFilters.setsCookies': 'Cookie を設定するレスポンス',
+  'panel.info.moreFilters.setsCookiesDesc': 'レスポンスが Set-Cookie ヘッダーを 1 つ以上返したリクエストに限定します。',
   'panel.info.moreFilters.ruleApplied': 'ルールが適用されたリクエスト',
   'panel.info.moreFilters.ruleAppliedDesc': 'Open Headers のルールが変更したと検証できるリクエストに限定します。',
 

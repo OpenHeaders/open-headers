@@ -286,6 +286,28 @@ describe('CookiesSection editor-tab gestures', () => {
     expect(rows[0].className).not.toContain('dt-storage-row--active');
     expect(rows[1].className).toContain('dt-storage-row--active');
   });
+
+  it('marks the rows a header reveal pointed at without selecting or opening any', () => {
+    const onOpen = vi.fn();
+    render(
+      <CookiesSection
+        cookies={[makeCookie(), makeCookie({ name: 'theme' }), makeCookie({ name: 'tz' })]}
+        scopeUrl={URL_MAIN}
+        writable={false}
+        onApplyEdit={vi.fn().mockResolvedValue(true)}
+        onDelete={vi.fn()}
+        onOpen={onOpen}
+        isActive={() => false}
+        isHighlighted={(c) => c.name !== 'theme'}
+      />,
+    );
+
+    const rows = screen.getAllByRole('row').slice(1); // drop the header
+    expect(rows.map((row) => row.className.includes('dt-storage-row--highlighted'))).toEqual([true, false, true]);
+    expect(rows.every((row) => row.getAttribute('aria-selected') === 'false')).toBe(true);
+    expect(rows.some((row) => row.className.includes('dt-storage-row--active'))).toBe(false);
+    expect(onOpen).not.toHaveBeenCalled();
+  });
 });
 
 describe('CookiesSection not-sent badge', () => {

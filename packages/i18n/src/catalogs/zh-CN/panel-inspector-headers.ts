@@ -173,6 +173,7 @@ export const panelInspectorHeaders = {
   'panel.inspector.headers.row.expandValue': '展开值',
   'panel.inspector.headers.row.collapseValue': '收起值',
   'panel.inspector.headers.row.copyValue': '复制值',
+  'panel.inspector.headers.row.showInStorage': '在 Storage 中显示',
   'panel.inspector.headers.row.copied': '已复制',
   'panel.inspector.headers.row.edit': '编辑',
   'panel.inspector.headers.row.editTitle': '编辑设置此标头的规则',

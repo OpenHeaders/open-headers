@@ -72,7 +72,7 @@ export function expirationFromLocalInput(s: string): number | undefined {
   return Number.isNaN(ms) ? undefined : Math.floor(ms / 1000);
 }
 
-function normalizeSameSite(raw: string | undefined): CookieSameSiteValue {
+export function normalizeSameSite(raw: string | undefined): CookieSameSiteValue {
   switch (raw) {
     case 'no_restriction':
     case 'lax':
