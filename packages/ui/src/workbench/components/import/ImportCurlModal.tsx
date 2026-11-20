@@ -429,6 +429,9 @@ const ImportCurlModal: React.FC<ImportCurlModalProps> = ({
       }
       width={620}
       destroyOnHidden
+      // A long report scrolls inside the body — the dialog stays in view
+      // with its footer, and the app behind it never scrolls.
+      styles={{ body: { maxHeight: '65vh', overflowY: 'auto', overscrollBehavior: 'none' } }}
     >
       <Paragraph type="secondary" style={{ fontSize: 12, marginBottom: 8 }}>
         {t('workbench.importExport.curl.introPrefix')} <code>curl</code> {t('workbench.importExport.curl.introSuffix')}
