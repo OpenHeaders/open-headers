@@ -315,7 +315,7 @@ function readParameters(raw: unknown, jsonPath: string, assembly: Assembly): Ope
 function mergeParameters(pathLevel: OpenApiParameter[], opLevel: OpenApiParameter[]): OpenApiParameter[] {
   const byIdentity = new Map<string, OpenApiParameter>();
   for (const param of [...pathLevel, ...opLevel]) {
-    byIdentity.set(`${param.in} ${param.name}`, param);
+    byIdentity.set(`${param.in}\0${param.name}`, param);
   }
   return [...byIdentity.values()];
 }

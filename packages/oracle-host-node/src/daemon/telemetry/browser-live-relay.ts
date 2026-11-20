@@ -194,7 +194,7 @@ function peerKey(peer: PeerSummary): string {
 }
 
 function watchKey(key: string, tabId: number): string {
-  return `${key} ${tabId}`;
+  return `${key}\0${tabId}`;
 }
 
 function isConsumerMessage(msg: unknown): msg is LifecycleConsumerMessage {
