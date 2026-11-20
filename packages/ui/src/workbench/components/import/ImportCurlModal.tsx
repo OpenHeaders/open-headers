@@ -528,7 +528,7 @@ const ImportCurlModal: React.FC<ImportCurlModalProps> = ({
           style={{
             ...toggleStyle,
             boxSizing: 'border-box',
-            color: token.colorTextSecondary,
+            color: token.colorTextDescription,
             border: `1px solid ${token.colorBorderSecondary}`,
             borderRadius: token.borderRadius,
             padding: '4px 8px',
@@ -562,6 +562,9 @@ const ImportCurlModal: React.FC<ImportCurlModalProps> = ({
 
       {parsed?.ok && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <ReportPanel report={parsed.report} token={token} />
+          {diff?.hasChanges && <ReimportDiffPanel diff={diff} />}
+          <ParsedPreview request={parsed.request} token={token} />
           <div>
             <Text style={labelStyle}>{t('workbench.importExport.curl.nameLabel')}</Text>
             <Input
@@ -596,10 +599,6 @@ const ImportCurlModal: React.FC<ImportCurlModalProps> = ({
               onConfirm={confirmImport}
             />
           </div>
-
-          {diff?.hasChanges && <ReimportDiffPanel diff={diff} />}
-          <ParsedPreview request={parsed.request} token={token} />
-          <ReportPanel report={parsed.report} token={token} />
         </div>
       )}
     </Modal>
@@ -638,7 +637,14 @@ const ParsedPreview: React.FC<ParsedPreviewProps> = ({ request, token }) => {
         <Tag color="blue" style={{ fontWeight: 700, flexShrink: 0 }}>
           {request.method}
         </Tag>
-        <span style={{ fontFamily: 'var(--ant-font-family-code)', fontSize: 12, wordBreak: 'break-all' }}>
+        <span
+          style={{
+            fontFamily: 'var(--ant-font-family-code)',
+            fontSize: 12,
+            wordBreak: 'break-all',
+            color: token.colorTextDescription,
+          }}
+        >
           {request.url}
         </span>
       </div>
@@ -674,6 +680,7 @@ const ReportPanel: React.FC<ReportPanelProps> = ({ report, token }) => {
         display: 'flex',
         flexDirection: 'column',
         gap: 4,
+        color: token.colorTextDescription,
       }}
     >
       {foldable && (
@@ -682,7 +689,7 @@ const ReportPanel: React.FC<ReportPanelProps> = ({ report, token }) => {
           aria-expanded={expanded}
           onClick={() => setExpanded((e) => !e)}
           data-testid="import-curl-report-toggle"
-          style={{ ...toggleStyle, gap: 12, fontSize: 12, color: expanded ? 'inherit' : token.colorTextSecondary }}
+          style={{ ...toggleStyle, gap: 12, fontSize: 12 }}
         >
           <Caret expanded={expanded} color={token.colorTextSecondary} />
           {report.transforms.length > 0 && (
@@ -715,14 +722,22 @@ const ReportLines: React.FC<ReportPanelProps> = ({ report, token }) => {
     fontSize: 12,
   };
   return (
-    <>
+    <div
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 4,
+        maxHeight: 160,
+        overflowY: 'auto',
+        overscrollBehavior: 'none',
+      }}
+    >
       {report.transforms.map((t, i) => (
         <div key={`t-${i}`} style={lineStyle}>
           <InfoCircleOutlined style={{ color: token.colorPrimary, fontSize: 12, flexShrink: 0, position: 'relative', top: 1 }} />
           <span style={{ minWidth: 0 }}>
-            <strong>{t.path}:</strong> <span style={{ color: token.colorTextSecondary }}>{t.from}</span> →{' '}
-            <span style={{ color: token.colorPrimary }}>{t.to}</span>
-            <span style={{ color: token.colorTextTertiary, fontSize: 11 }}> — {t.reason}</span>
+            <strong>{t.path}:</strong> {t.from} → {t.to}
+            <span style={{ fontSize: 11 }}> — {t.reason}</span>
           </span>
         </div>
       ))}
@@ -731,7 +746,7 @@ const ReportLines: React.FC<ReportPanelProps> = ({ report, token }) => {
           <WarningOutlined style={{ color: token.colorWarning, fontSize: 12, flexShrink: 0, position: 'relative', top: 1 }} />
           <span style={{ minWidth: 0 }}>
             <strong>{d.path}</strong> {translate('workbench.importExport.curl.droppedWord')}
-            <span style={{ color: token.colorTextTertiary, fontSize: 11 }}>
+            <span style={{ fontSize: 11 }}>
               {' '}
               — {d.reason}
               {d.tracking ? ` (tracking: ${d.tracking})` : ''}
@@ -739,7 +754,7 @@ const ReportLines: React.FC<ReportPanelProps> = ({ report, token }) => {
           </span>
         </div>
       ))}
-    </>
+    </div>
   );
 };
 

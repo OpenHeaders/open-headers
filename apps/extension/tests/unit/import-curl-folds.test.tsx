@@ -147,6 +147,15 @@ describe('ImportCurlModal — the report fold', () => {
     expect(screen.queryByText('flag:-b')).toBeNull();
   });
 
+  it('reads top down: the report, the parsed request, then the fields to fill', async () => {
+    renderModal({ initialSource: LOSSY });
+    const report = await screen.findByTestId('import-curl-report-toggle');
+    const request = screen.getByText('https://api.openheaders.io/v1/things');
+    const name = screen.getByPlaceholderText('How this request appears in the sidebar');
+    expect(report.compareDocumentPosition(request) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(request.compareDocumentPosition(name) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
   it('shows a single entry as it is, with nothing to unfold', async () => {
     renderModal({ initialSource: ONE_DROP });
     expect(await screen.findByText('flag:-b')).toBeTruthy();
