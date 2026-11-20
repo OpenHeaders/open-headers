@@ -35,7 +35,7 @@ import { SaveOutlined, ThunderboltOutlined } from '@ant-design/icons';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { useUiTheme } from '@openheaders/ui/context/ui-theme';
 import { ShortcutHintTitle } from '@openheaders/ui/components/ShortcutKbd';
-import { RollbackIcon } from '@openheaders/ui/shared/icons';
+import ConflictDiffChip from '@openheaders/ui/shared/awareness/ConflictDiffChip';
 import { useSaveShortcut } from '@openheaders/ui/shared/hooks/dom/useSaveShortcut';
 import { useInfoPopoverContainer } from '@openheaders/ui/shared/info-popover';
 import { Button, Popover, Tooltip } from 'antd';
@@ -105,6 +105,8 @@ interface FormBodyProps {
   /** Run a pasted batch's write under the popover's busy / close-on-success. */
   onSaveBatch: (write: () => Promise<boolean>) => void;
 }
+
+const NO_FIELDS: ReadonlySet<CookieConflictField> = new Set();
 
 // Mounted fresh each time the popover opens (destroyOnHidden), so its
 // local state seeds from the current canonical without an effect.
@@ -216,50 +218,59 @@ function CookieEditFormBody({
   // The last single-cookie paste, tracked FIELD BY FIELD against the
   // form as it is now: a paste replaces everything it states, but the
   // user may want only part of it. A field still holding the pasted
-  // value carries a mark — and, where the paste replaced something, says
-  // so at the right of its label with its own way back; editing or
-  // undoing one field leaves the rest standing.
+  // value carries a mark after its (i); where the paste REPLACED
+  // something the mark is the conflict chip instead, whose popover sets
+  // the previous value beside the pasted one — use the previous, or keep
+  // the pasted (which settles that field back to the plain mark).
+  // Editing or settling one field leaves the rest standing.
   const [pasteFill, setPasteFill] = useState<CookiePasteFill | null>(null);
+  const [keptFields, setKeptFields] = useState<ReadonlySet<CookieConflictField>>(NO_FIELDS);
   const fillNow = pasteFill !== null && !listing ? pasteFillState(pasteFill, values) : null;
   const activeFill = fillNow?.live ? pasteFill : null;
   const filledAffixes: Partial<Record<CookieConflictField, ReactNode>> = {};
   if (activeFill !== null && fillNow !== null) {
     const filledLabel = t('panel.inspector.cookies.edit.paste.filledMark');
-    const replacedText = t('panel.inspector.cookies.edit.paste.replaced');
-    const replaced = editFormConflictProjection(t, activeFill.before);
+    const chipLabels = {
+      trigger: t('panel.inspector.cookies.edit.paste.chip.trigger'),
+      title: t('panel.inspector.cookies.edit.paste.chip.title'),
+      theirs: t('panel.inspector.cookies.edit.paste.chip.previous'),
+      local: t('panel.inspector.cookies.edit.paste.chip.pasted'),
+      keepMine: t('panel.inspector.cookies.edit.paste.chip.keep'),
+      takeTheirs: t('panel.inspector.cookies.edit.paste.chip.usePrevious'),
+    };
+    const previous = editFormConflictProjection(t, activeFill.before);
+    const current = editFormConflictProjection(t, values);
     for (const field of fillNow.held) {
-      if (!fillNow.restorable.includes(field)) {
+      if (!fillNow.restorable.includes(field) || keptFields.has(field)) {
         filledAffixes[field] = (
           <ThunderboltOutlined className="dt-cookie-edit-filled-mark" title={filledLabel} aria-label={filledLabel} />
         );
         continue;
       }
-      const was = replaced[field];
-      const undoLabel = t('panel.inspector.cookies.edit.paste.undoField', {
-        value: was.length > 60 ? `${was.slice(0, 60)}…` : was,
-      });
       filledAffixes[field] = (
-        // Inside a toggle's <label>: a press here must not reach the switch.
-        // biome-ignore lint/a11y/noStaticElementInteractions: swallows the label's activation, the button is the control
-        <span className="dt-cookie-edit-replaced" title={undoLabel} onClick={(e) => e.preventDefault()}>
-          <span className="dt-cookie-edit-replaced-text">{replacedText}</span>
-          <button
-            type="button"
-            className="dt-cookie-edit-fill-undo"
-            aria-label={undoLabel}
-            disabled={busy}
-            onClick={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              setValues(undoFillField(values, activeFill, field));
-            }}
-          >
-            <RollbackIcon />
-          </button>
+        // The conflict tier's guard — inside a toggle's <label> a plain
+        // click would forward to the Switch and flip it.
+        // biome-ignore lint/a11y/useKeyWithClickEvents: click guard keeps toggle labels from flipping their Switch
+        // biome-ignore lint/a11y/noStaticElementInteractions: click guard keeps toggle labels from flipping their Switch
+        <span
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+          }}
+        >
+          <ConflictDiffChip
+            theirs={previous[field]}
+            local={current[field]}
+            labels={chipLabels}
+            onTakeTheirs={() => setValues(undoFillField(values, activeFill, field))}
+            onKeepMine={() => setKeptFields((kept) => new Set(kept).add(field))}
+            style={{ marginLeft: 4 }}
+          />
         </span>
       );
     }
   }
+
   const canSave = listing
     ? pasteBatch.savable > 0 && !fields.domain.unresolved && !fields.path.unresolved
     : canSaveOne;
@@ -307,6 +318,7 @@ function CookieEditFormBody({
             if (fillChangedNothing(fill) && activeFill !== null) return;
             setValues(fill.after);
             setPasteFill(activeFill !== null ? stackPasteFill(fill, activeFill) : fill);
+            setKeptFields(NO_FIELDS);
           }}
           onUndo={() => {
             if (activeFill !== null) setValues(undoFill(values, activeFill));

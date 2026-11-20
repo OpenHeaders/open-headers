@@ -15,6 +15,10 @@
  * still apply regardless of dismissal — a later HLC wins on save —
  * but that's a sync-engine detail; the user's mental model is "the
  * other surface saved this value, what do I want my field to be?".
+ *
+ * A host whose two values are something else — a paste that replaced
+ * what a field held — passes `labels` to say what its are, and leaves
+ * `base` out when there is no third value. The anatomy never changes.
  */
 
 import { ThunderboltOutlined } from '@ant-design/icons';
@@ -27,17 +31,31 @@ import SurfaceChip from './SurfaceChip';
 
 const { Text } = Typography;
 
+/** The popover's wording, for a host whose values aren't "another
+ *  surface saved" / "you typed". Unset entries keep the default. */
+export interface ConflictDiffChipLabels {
+  /** The chip's hover title. */
+  trigger: string;
+  title: string;
+  theirs: string;
+  local: string;
+  keepMine: string;
+  takeTheirs: string;
+}
+
 export interface ConflictDiffChipProps {
   /** The committed value from another surface. Replaces local on Use saved. */
   theirs: string;
-  /** Snapshot the form was seeded with (last init / last accepted). */
-  base: string;
+  /** Snapshot the form was seeded with (last init / last accepted).
+   *  Omitted ⇒ the collapsed third value isn't offered. */
+  base?: string;
   /** Local form value the user is typing right now. Surfaced explicitly
    *  so all three values in the conflict are visible side-by-side. */
   local: string;
   /** Optional attribution. Omitted when no peer can be identified;
    *  chip then drops the dot+kind line and shows just the values. */
   remote?: ConflictRemoteInfo;
+  labels?: Partial<ConflictDiffChipLabels>;
   onTakeTheirs: () => void;
   onKeepMine: () => void;
   style?: React.CSSProperties;
@@ -58,6 +76,7 @@ const ConflictDiffChip: React.FC<ConflictDiffChipProps> = ({
   base,
   local,
   remote,
+  labels,
   onTakeTheirs,
   onKeepMine,
   style,
@@ -68,7 +87,7 @@ const ConflictDiffChip: React.FC<ConflictDiffChipProps> = ({
   const content = (
     <div style={{ minWidth: 260, maxWidth: 360, fontSize: 12 }}>
       <Text strong style={{ display: 'block', marginBottom: remote ? 4 : 8 }}>
-        {t('shared.conflicts.chip.externalChange')}
+        {labels?.title ?? t('shared.conflicts.chip.externalChange')}
       </Text>
       {remote && (
         <div style={{ marginBottom: 8 }}>
@@ -82,39 +101,41 @@ const ConflictDiffChip: React.FC<ConflictDiffChipProps> = ({
       )}
       <div style={{ marginBottom: 6 }}>
         <Text strong style={{ fontSize: 11, display: 'block', marginBottom: 2 }}>
-          {t('shared.conflicts.chip.savedValue')}
+          {labels?.theirs ?? t('shared.conflicts.chip.savedValue')}
         </Text>
         <div style={monoBlock}>{theirs || t('shared.conflicts.chip.empty')}</div>
       </div>
       <div style={{ marginBottom: 10 }}>
         <Text strong style={{ fontSize: 11, display: 'block', marginBottom: 2 }}>
-          {t('shared.conflicts.chip.yourEdit')}
+          {labels?.local ?? t('shared.conflicts.chip.yourEdit')}
         </Text>
         <div style={monoBlock}>{local || t('shared.conflicts.chip.empty')}</div>
       </div>
       <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end', marginBottom: 6 }}>
         <Button size="small" onClick={onKeepMine}>
-          {t('shared.conflicts.chip.keepMine')}
+          {labels?.keepMine ?? t('shared.conflicts.chip.keepMine')}
         </Button>
         <Button size="small" type="primary" onClick={onTakeTheirs}>
-          {t('shared.conflicts.chip.useSaved')}
+          {labels?.takeTheirs ?? t('shared.conflicts.chip.useSaved')}
         </Button>
       </div>
-      <button
-        type="button"
-        onClick={() => setShowBase((v) => !v)}
-        style={{
-          background: 'transparent',
-          border: 'none',
-          padding: 0,
-          color: 'var(--ant-color-text-tertiary)',
-          fontSize: 11,
-          cursor: 'pointer',
-        }}
-      >
-        {showBase ? '▾' : '▸'} {t('shared.conflicts.chip.lastSyncedValue')}
-      </button>
-      {showBase && (
+      {base !== undefined && (
+        <button
+          type="button"
+          onClick={() => setShowBase((v) => !v)}
+          style={{
+            background: 'transparent',
+            border: 'none',
+            padding: 0,
+            color: 'var(--ant-color-text-tertiary)',
+            fontSize: 11,
+            cursor: 'pointer',
+          }}
+        >
+          {showBase ? '▾' : '▸'} {t('shared.conflicts.chip.lastSyncedValue')}
+        </button>
+      )}
+      {base !== undefined && showBase && (
         <div style={{ ...monoBlock, marginTop: 4, opacity: 0.85 }}>{base || t('shared.conflicts.chip.empty')}</div>
       )}
     </div>
@@ -128,7 +149,7 @@ const ConflictDiffChip: React.FC<ConflictDiffChipProps> = ({
       <span
         role="button"
         tabIndex={0}
-        title={t('shared.conflicts.chip.trigger')}
+        title={labels?.trigger ?? t('shared.conflicts.chip.trigger')}
         data-testid="conflict-diff-chip"
         style={{
           display: 'inline-flex',

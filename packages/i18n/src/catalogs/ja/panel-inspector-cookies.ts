@@ -230,9 +230,12 @@ export const panelInspectorCookies = {
   'panel.inspector.cookies.edit.paste.expired': '期限切れ',
   'panel.inspector.cookies.edit.paste.undo': '元に戻す',
   'panel.inspector.cookies.edit.paste.undoAll': 'すべて元に戻す',
-  'panel.inspector.cookies.edit.paste.undoField':
-    '自動で置き換えました。元に戻すをクリックすると「{value}」に戻ります。',
-  'panel.inspector.cookies.edit.paste.replaced': '自動で置き換え',
+  'panel.inspector.cookies.edit.paste.chip.trigger': '貼り付けで置き換え — クリックして比較',
+  'panel.inspector.cookies.edit.paste.chip.title': '貼り付けで置き換え',
+  'panel.inspector.cookies.edit.paste.chip.previous': '以前の値',
+  'panel.inspector.cookies.edit.paste.chip.pasted': '貼り付けた値',
+  'panel.inspector.cookies.edit.paste.chip.keep': '貼り付けた値を保持',
+  'panel.inspector.cookies.edit.paste.chip.usePrevious': '以前の値を使用',
   'panel.inspector.cookies.edit.paste.several':
     'このテキストには複数の Cookie があります（{count}）— 1 つずつ貼り付けてください。',
   'panel.inspector.cookies.edit.paste.unreadable': 'このテキストから Cookie を読み取れませんでした。',

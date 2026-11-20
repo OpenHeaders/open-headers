@@ -26,7 +26,7 @@ import { jarToRow } from '@openheaders/ui/panel/data/cookies/cookie-model';
 // The popover's save chord reads `keyboard.save` from the settings
 // registry — import the schema barrel for its side effects.
 import '@openheaders/ui/workbench/settings/schema';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { App as AntApp } from 'antd';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -195,6 +195,19 @@ describe('paste row (add mode)', () => {
     return screen.getByRole('switch', { name }).getAttribute('aria-checked');
   }
 
+  const CHIP_TITLE = 'Replaced by the paste — click to compare';
+
+  /** The form field whose label reads `label` (Name, Path, SameSite…). */
+  function fieldOf(label: string): HTMLElement {
+    return screen
+      .getByText(label, { selector: '.dt-cookie-edit-label' })
+      .closest('.dt-cookie-edit-field') as HTMLElement;
+  }
+
+  function chipIn(scope: HTMLElement): HTMLElement {
+    return within(scope).getByTitle(CHIP_TITLE);
+  }
+
   it('fills every field from a pasted Set-Cookie line and saves what it stated', async () => {
     const onSubmit = renderAddPopover();
     await screen.findByText('Add cookie');
@@ -282,28 +295,50 @@ describe('paste row (add mode)', () => {
     expect(screen.getByText('Optional — fills the fields below')).toBeTruthy();
   });
 
-  it('gives each field the paste overwrote its own way back, naming what it held', async () => {
+  it('chips each field the paste replaced; its popover sets the previous value beside the pasted one', async () => {
     renderAddPopover();
     await screen.findByText('Add cookie');
     fireEvent.change(nameInput(), { target: { value: 'draft' } });
 
     paste('session=abc123; Path=/account; Secure');
-    // Value was blank — nothing to go back to, so it carries the plain mark.
-    expect(screen.getAllByText('Auto-replaced')).toHaveLength(3);
-    expect(screen.getAllByRole('button', { name: /^Auto-replaced\. Click undo to revert to/ })).toHaveLength(3);
+    // Name, Path, SameSite were replaced. Value was blank — nothing to go
+    // back to, so it carries the plain mark.
+    expect(screen.getAllByTitle(CHIP_TITLE)).toHaveLength(3);
 
-    fireEvent.click(screen.getByRole('button', { name: 'Auto-replaced. Click undo to revert to “draft”.' }));
+    fireEvent.click(chipIn(fieldOf('Name')));
+    expect(await screen.findByText('Replaced by the paste')).toBeTruthy();
+    expect(screen.getByText('Previous value')).toBeTruthy();
+    expect(screen.getByText('draft')).toBeTruthy();
+    expect(screen.getByText('Pasted value')).toBeTruthy();
+    // The form already holds the pasted value while the popover is open.
+    expect(nameInput().value).toBe('session');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Use previous' }));
     expect(nameInput().value).toBe('draft');
     expect(valueInput().value).toBe('abc123');
     expect((screen.getByLabelText('/') as HTMLInputElement).value).toBe('/account');
     expect(screen.getByText('Filled from a Set-Cookie header')).toBeTruthy();
-
-    fireEvent.click(screen.getByRole('button', { name: 'Auto-replaced. Click undo to revert to “/”.' }));
-    expect((screen.getByLabelText('/') as HTMLInputElement).value).toBe('/');
-    expect(screen.getByRole('button', { name: 'Auto-replaced. Click undo to revert to “Lax”.' })).toBeTruthy();
+    expect(screen.getAllByTitle(CHIP_TITLE)).toHaveLength(2);
   });
 
-  it('a flag takes its own value back without the press reaching the switch', async () => {
+  it('Keep pasted settles a field — the chip gives way to the plain mark, the value stays', async () => {
+    renderAddPopover();
+    await screen.findByText('Add cookie');
+    fireEvent.change(nameInput(), { target: { value: 'draft' } });
+
+    paste('session=abc123');
+    expect(screen.getAllByLabelText('Filled from the paste')).toHaveLength(1);
+
+    fireEvent.click(chipIn(fieldOf('Name')));
+    fireEvent.click(await screen.findByRole('button', { name: 'Keep pasted' }));
+
+    expect(nameInput().value).toBe('session');
+    expect(screen.queryByTitle(CHIP_TITLE)).toBeNull();
+    expect(screen.getAllByLabelText('Filled from the paste')).toHaveLength(2);
+    expect(screen.getByRole('button', { name: 'Undo all' })).toBeTruthy();
+  });
+
+  it('a flag takes its previous value back without the press reaching the switch', async () => {
     renderAddPopover();
     await screen.findByText('Add cookie');
 
@@ -311,12 +346,13 @@ describe('paste row (add mode)', () => {
     expect(flag(/HttpOnly/)).toBe('true');
     expect(flag(/Secure/)).toBe('false');
 
-    fireEvent.click(screen.getByRole('button', { name: 'Auto-replaced. Click undo to revert to “Off”.' }));
+    const httpOnly = screen.getByRole('switch', { name: /HttpOnly/ }).closest('label') as HTMLElement;
+    fireEvent.click(chipIn(httpOnly));
+    // Opening the chip is not a press on the toggle.
+    expect(flag(/HttpOnly/)).toBe('true');
+    fireEvent.click(await screen.findByRole('button', { name: 'Use previous' }));
     expect(flag(/HttpOnly/)).toBe('false');
     expect(flag(/Secure/)).toBe('false');
-
-    fireEvent.click(screen.getByRole('button', { name: 'Auto-replaced. Click undo to revert to “On”.' }));
-    expect(flag(/Secure/)).toBe('true');
   });
 
   it('a second paste keeps the way back to the form as it was last left by hand', async () => {
@@ -329,7 +365,7 @@ describe('paste row (add mode)', () => {
     expect(nameInput().value).toBe('token');
     expect(screen.getByText('Filled Name and Value')).toBeTruthy();
     // The first paste's Path still stands, and still knows what it replaced.
-    expect(screen.getByRole('button', { name: 'Auto-replaced. Click undo to revert to “/”.' })).toBeTruthy();
+    expect(within(fieldOf('Path')).getByTitle(CHIP_TITLE)).toBeTruthy();
 
     fireEvent.click(screen.getByRole('button', { name: 'Undo all' }));
     expect(nameInput().value).toBe('draft');
@@ -388,8 +424,7 @@ describe('paste row (add mode)', () => {
     renderAddPopover();
     await screen.findByText('Add cookie');
     const marks = () =>
-      screen.queryAllByLabelText('Filled from the paste').length +
-      screen.queryAllByRole('button', { name: /^Auto-replaced\. Click undo to revert to/ }).length;
+      screen.queryAllByLabelText('Filled from the paste').length + screen.queryAllByTitle(CHIP_TITLE).length;
 
     paste('session=abc123; Path=/account; Secure');
     // Name, Value, Path, Expires, SameSite, HttpOnly, Secure, Host-only.
@@ -409,7 +444,8 @@ describe('paste row (add mode)', () => {
     paste('session=abc123');
 
     expect(screen.getByText('Filled Name and Value')).toBeTruthy();
-    fireEvent.click(screen.getByRole('button', { name: 'Auto-replaced. Click undo to revert to “draft”.' }));
+    fireEvent.click(chipIn(fieldOf('Name')));
+    fireEvent.click(await screen.findByRole('button', { name: 'Use previous' }));
     expect(nameInput().value).toBe('draft');
   });
 
