@@ -108,6 +108,7 @@ export const workbenchChrome = {
   'workbench.shell.commandPalette.cmd.toggleRightSidebar': '启停右侧边栏',
   'workbench.shell.commandPalette.cmd.toggleBottomPanel': '启停底部面板',
   'workbench.shell.commandPalette.cmd.toggleActivityFeed': '启停活动流',
+  'workbench.shell.commandPalette.cmd.openActivityMonitor': '打开活动监视器',
   'workbench.shell.commandPalette.cmd.keyboardShortcuts': '键盘快捷键',
   'workbench.shell.commandPalette.cmd.openSettings': '打开设置',
   'workbench.shell.commandPalette.cmd.openWorkspaceVariables': '打开工作区变量',
@@ -364,6 +365,7 @@ export const workbenchChrome = {
   'workbench.toolWindows.workflowStatus': '工作流状态',
   'workbench.toolWindows.activity': '活动',
   'workbench.toolWindows.activityTooltip': '活动流——来自对等方的入站更改',
+  'workbench.toolWindows.activityMonitor': '活动监视器',
   'workbench.toolWindows.trafficMonitor': '流量',
   'workbench.toolWindows.terminal': '终端',
   'workbench.toolWindows.git': 'Git · 版本控制',
@@ -467,6 +469,26 @@ export const workbenchChrome = {
     '（本机任何指向本地代理端口的工具）。两者都使用与 DevTools 面板相同的网络日志呈现；' +
     '在选择来源之前，不会传输任何数据。已保存的会话位于“会话”之下——结束时自动命名并归档；' +
     '点击即可在标签页中回放。',
+  'workbench.toolWindows.info.activityMonitor.summary':
+    '这个应用此刻正在运行什么，以及每个部分的开销——它自己的进程及其 CPU 和内存。数值只在此面板可见时刷新，且不会离开这台设备。',
+  'workbench.activityMonitor.group.processes': '进程',
+  'workbench.activityMonitor.column.cpu': 'CPU',
+  'workbench.activityMonitor.column.cpuHoverPerCore': '按核心计，与本系统自带监视器的算法一致——100% 表示占满一个核心。',
+  'workbench.activityMonitor.column.cpuHoverMachineShare':
+    '占整台机器的比例，与本系统自带监视器的算法一致——100% 表示占满全部核心。',
+  'workbench.activityMonitor.column.memory': '内存',
+  'workbench.activityMonitor.column.memoryHover': '该进程此刻占用的物理内存。',
+  'workbench.activityMonitor.column.started': '启动时间',
+  'workbench.activityMonitor.column.pid': 'PID',
+  'workbench.activityMonitor.column.pidHover': '操作系统的进程 ID——供 IT 和技术支持使用。',
+  'workbench.activityMonitor.process.window': '工作区编辑器窗口',
+  'workbench.activityMonitor.process.engine': 'Open Headers',
+  'workbench.activityMonitor.process.graphics': '图形',
+  'workbench.activityMonitor.process.network': '网络',
+  'workbench.activityMonitor.process.scriptSandbox': '脚本沙盒 · 安全模式',
+  'workbench.activityMonitor.process.scriptRuntime': '脚本运行时 · 开发者模式',
+  'workbench.activityMonitor.process.other': '其他（{count}）',
+  'workbench.activityMonitor.unreadable': '无法读取进程。',
   'workbench.toolWindows.info.terminal.summary':
     '一个集成终端，在真实的 pty 中运行你的 shell——凡是能在独立终端中运行的都能在这里运行，' +
     '包括对本地应用使用 oh CLI。',

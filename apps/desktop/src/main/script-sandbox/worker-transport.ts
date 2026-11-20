@@ -22,6 +22,7 @@ import { join } from 'node:path';
 import type { SandboxTransport } from '@openheaders/oracle-host-node/daemon';
 import { utilityProcess } from 'electron';
 import { createLogger } from '../bootstrap/logger';
+import { SCRIPT_WORKER_SERVICE_NAME } from './worker-service-name';
 
 const logger = createLogger('script-worker');
 
@@ -36,7 +37,7 @@ export function createScriptWorkerTransport(onUp: (message: unknown) => void): S
 
   const spawn = (): Promise<void> => {
     const forked = utilityProcess.fork(join(__dirname, 'script-worker.js'), [], {
-      serviceName: 'openheaders-script-worker',
+      serviceName: SCRIPT_WORKER_SERVICE_NAME,
     });
     child = forked;
 

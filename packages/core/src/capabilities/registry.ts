@@ -927,6 +927,16 @@ export interface Capabilities {
   workspaceGit?: () => boolean;
 
   /**
+   * Availability gate for the workbench Activity Monitor tool window —
+   * what the app is running and what each part costs (the activity
+   * monitor plan §7). Registered only by hosts with an OS process plane
+   * under them whose bridge answers `oh.activityMonitor.sample`; hosts
+   * without one leave it absent and the window's body is the desktop
+   * teaser. Presence is the whole signal.
+   */
+  activityMonitor?: () => boolean;
+
+  /**
    * Availability gate for the server-admin plane — whether this host
    * has a daemon to administer at all. Registered by hosts whose bridge
    * reaches a daemon's `oh.daemon.*` admin channels: the desktop

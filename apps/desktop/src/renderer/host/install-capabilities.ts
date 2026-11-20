@@ -202,6 +202,12 @@ registerCapability('liveNetwork', () => true);
 // register this, which drops the Git window from their dock registry.
 registerCapability('workspaceGit', () => true);
 
+// The workbench Activity Monitor tool window — the main process owns
+// the app's processes and answers `oh.activityMonitor.sample` over the
+// bridge. Browser surfaces never register this and render the window's
+// desktop teaser.
+registerCapability('activityMonitor', () => true);
+
 // The server-admin plane — the desktop's in-process spine answers the
 // `oh.daemon.*` admin channels as the operator, so the admin-status
 // probe has a plane to ask. Hosts with no daemon never register this,

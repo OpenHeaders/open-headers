@@ -88,6 +88,7 @@ import {
 } from '@openheaders/oracle-host-node/traffic';
 import { clearStatus, getStatusSnapshot, report, subscribe } from '@openheaders/ui/shared/status/store';
 import { app, BrowserWindow, dialog, shell } from 'electron';
+import { createDesktopActivityMonitor } from './activity-monitor';
 import { createBackendIdentityRpc } from './backend-identity';
 import { createBackendProbeRpc } from './backend-probe';
 import { dataDir } from './bootstrap/app-paths';
@@ -563,6 +564,7 @@ export async function installRpcHost(): Promise<void> {
   const serverSignInRpc = createServerSignInRpc({ userAgent: spine.authorizationUserAgent });
   const backendProbeRpc = createBackendProbeRpc();
   const backendIdentityRpc = createBackendIdentityRpc();
+  const activityMonitor = createDesktopActivityMonitor();
 
   rpcDispatcher = async (raw) => {
     const message = (raw ?? {}) as Record<string, unknown>;
@@ -709,6 +711,12 @@ export async function installRpcHost(): Promise<void> {
     // answers what a document cannot read about the machine. Nothing is sent.
     if (type === 'diagnosticsFacts') {
       return { facts: buildDesktopDiagnosticsFacts(desktopDiagnosticsDeps(telemetryDeps)) };
+    }
+    // The activity monitor's pull (the activity monitor plan §7, fork 4):
+    // a viewer asks and this process reads — no timer runs here for it,
+    // and no figure leaves the device.
+    if (type === 'oh.activityMonitor.sample') {
+      return activityMonitor.sample();
     }
     // Import-report ring (ARCHITECTURE §23) — the shared workbench UI
     // (report modal, re-import diff, settings Data page) drives these

@@ -1,0 +1,105 @@
+/* The activity monitor's table: one grid shared by the head and every
+ * row, 24px rows, 12px type, tabular figures. A cell is one text node,
+ * so a figure changes in place and nothing reflows on the 2s beat. */
+
+.oh-am-body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  overscroll-behavior: none;
+  padding-bottom: 6px;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.oh-am-row {
+  display: grid;
+  grid-template-columns: minmax(150px, 1fr) 64px 76px 72px 60px;
+  align-items: center;
+  column-gap: 8px;
+  height: 24px;
+  padding: 0 12px;
+}
+
+.oh-am-row:not(.oh-am-head):hover {
+  background: var(--ant-color-fill-quaternary);
+}
+
+.oh-am-head {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--ant-color-bg-container);
+  font-size: 11px;
+  color: var(--ant-color-text-tertiary);
+}
+
+.oh-am-group {
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--ant-color-text-secondary);
+}
+
+.oh-am-col {
+  text-align: right;
+  cursor: default;
+}
+
+.oh-am-name {
+  min-width: 0;
+  padding-left: 18px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.oh-am-row--child .oh-am-name {
+  padding-left: 36px;
+  color: var(--ant-color-text-secondary);
+}
+
+.oh-am-toggle {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.oh-am-caret {
+  flex: none;
+  width: 14px;
+  font-size: 9px;
+  color: var(--ant-color-text-tertiary);
+  transition: transform 0.12s;
+}
+
+.oh-am-caret--open {
+  transform: rotate(90deg);
+}
+
+.oh-am-num {
+  text-align: right;
+}
+
+.oh-am-started {
+  text-align: right;
+  color: var(--ant-color-text-secondary);
+}
+
+.oh-am-pid {
+  text-align: right;
+  color: var(--ant-color-text-tertiary);
+}
+
+.oh-am-note {
+  padding: 20px;
+  text-align: center;
+  color: var(--ant-color-text-secondary);
+}

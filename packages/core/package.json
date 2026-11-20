@@ -239,6 +239,10 @@
     "./cli-config": {
       "import": "./src/cli-config/index.ts",
       "default": "./dist/cli-config/index.js"
+    },
+    "./activity-monitor": {
+      "import": "./src/activity-monitor/index.ts",
+      "default": "./dist/activity-monitor/index.js"
     }
   },
   "scripts": {

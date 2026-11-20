@@ -134,6 +134,7 @@ export const workbenchChrome = {
   'workbench.shell.commandPalette.cmd.toggleRightSidebar': 'Comutare bară laterală dreaptă',
   'workbench.shell.commandPalette.cmd.toggleBottomPanel': 'Comutare panou inferior',
   'workbench.shell.commandPalette.cmd.toggleActivityFeed': 'Comutare flux de activitate',
+  'workbench.shell.commandPalette.cmd.openActivityMonitor': 'Deschidere monitor de activitate',
   'workbench.shell.commandPalette.cmd.keyboardShortcuts': 'Scurtături de tastatură',
   'workbench.shell.commandPalette.cmd.openSettings': 'Deschidere setări',
   'workbench.shell.commandPalette.cmd.openWorkspaceVariables': 'Deschidere variabile de spațiu de lucru',
@@ -394,6 +395,7 @@ export const workbenchChrome = {
   'workbench.toolWindows.workflowStatus': 'Starea fluxurilor de lucru',
   'workbench.toolWindows.activity': 'Activitate',
   'workbench.toolWindows.activityTooltip': 'Flux de activitate — modificări primite de la peeri',
+  'workbench.toolWindows.activityMonitor': 'Monitor de activitate',
   'workbench.toolWindows.trafficMonitor': 'Trafic',
   'workbench.toolWindows.terminal': 'Terminal',
   'workbench.toolWindows.git': 'Git · Controlul versiunilor',
@@ -501,6 +503,27 @@ export const workbenchChrome = {
   'workbench.terminal.cliGate.installBody':
     'Modul TUI este susținut de instrumentul de linie de comandă oh, care nu este încă instalat pe acest computer. Rulați aceasta în orice terminal pentru a-l instala, apoi deschideți din nou modul TUI:',
   'workbench.terminal.cliGate.installOk': 'Deschidere terminal',
+  'workbench.toolWindows.info.activityMonitor.summary':
+    'Ce rulează această aplicație chiar acum și cât costă fiecare parte — propriile procese, cu CPU-ul și memoria lor. Valorile se actualizează cât timp acest panou este vizibil, iar nimic de aici nu părăsește acest dispozitiv.',
+  'workbench.activityMonitor.group.processes': 'Procese',
+  'workbench.activityMonitor.column.cpu': 'CPU',
+  'workbench.activityMonitor.column.cpuHoverPerCore':
+    'Pe nucleu, așa cum numără monitorul acestui sistem — 100 % înseamnă un nucleu întreg.',
+  'workbench.activityMonitor.column.cpuHoverMachineShare':
+    'O parte din întreaga mașină, așa cum numără monitorul acestui sistem — 100 % înseamnă toate nucleele.',
+  'workbench.activityMonitor.column.memory': 'Memorie',
+  'workbench.activityMonitor.column.memoryHover': 'Memoria fizică pe care procesul o ocupă chiar acum.',
+  'workbench.activityMonitor.column.started': 'Pornit',
+  'workbench.activityMonitor.column.pid': 'PID',
+  'workbench.activityMonitor.column.pidHover': 'ID-ul de proces al sistemului de operare — pentru IT și suport.',
+  'workbench.activityMonitor.process.window': 'Fereastră Workbench',
+  'workbench.activityMonitor.process.engine': 'Open Headers',
+  'workbench.activityMonitor.process.graphics': 'Grafică',
+  'workbench.activityMonitor.process.network': 'Rețea',
+  'workbench.activityMonitor.process.scriptSandbox': 'Sandbox de scripturi · Mod sigur',
+  'workbench.activityMonitor.process.scriptRuntime': 'Runtime de scripturi · Mod dezvoltator',
+  'workbench.activityMonitor.process.other': 'Altele ({count})',
+  'workbench.activityMonitor.unreadable': 'Procesele nu au putut fi citite.',
   'workbench.toolWindows.info.terminal.summary':
     'Un terminal integrat care rulează shell-ul dvs. într-un pty real — tot ce puteți rula într-un terminal de sine stătător rulează și aici, inclusiv oh CLI împotriva aplicației locale.',
   'workbench.toolWindows.info.git.summary':

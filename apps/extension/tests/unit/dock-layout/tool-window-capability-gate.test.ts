@@ -71,9 +71,50 @@ describe('capability-gated tool windows', () => {
     expect(out.docks['bottom-left'].active).not.toBe('terminal');
   });
 
-  it('orders the bottom dock terminal→git→traffic-monitor (left) and workflow-status→activity (right)', () => {
+  it('orders the bottom dock terminal→git→traffic-monitor (left) and workflow-status→activity→activity-monitor (right)', () => {
     const out = normalizeDockLayout(null, availableToolWindows(), availableToolWindowMap());
     expect(out.docks['bottom-left'].windows).toEqual(['terminal', 'git', 'traffic-monitor']);
-    expect(out.docks['bottom-right'].windows).toEqual(['workflow-status', 'activity']);
+    expect(out.docks['bottom-right'].windows).toEqual(['workflow-status', 'activity', 'activity-monitor']);
+  });
+});
+
+describe('the activity monitor window', () => {
+  afterEach(() => {
+    unregisterCapability('activityMonitor');
+  });
+
+  const activityMonitor = () => {
+    const def = availableToolWindows().find((candidate) => candidate.id === 'activity-monitor');
+    if (!def) throw new Error('activity-monitor window dropped');
+    return def;
+  };
+
+  it('stays as the desktop teaser on a host without the capability', () => {
+    const def = activityMonitor();
+    expect(isToolWindowTeased(def)).toBe(true);
+    expect(def.teaserWhenUnavailable).toBe('activityMonitor');
+  });
+
+  it('is the real panel once the host registers the capability', () => {
+    registerCapability('activityMonitor', () => true);
+    expect(isToolWindowTeased(activityMonitor())).toBe(false);
+  });
+
+  it('sits bottom-right after the feed, closed until opened, and needs no workspace', () => {
+    const def = activityMonitor();
+    expect(def.defaultSlot).toBe('bottom-right');
+    expect(def.openByDefault).toBe(false);
+    expect(def.requiresWorkspace).toBeUndefined();
+    expect(def.core).toBe(false);
+
+    registerCapability('activityMonitor', () => true);
+    const out = normalizeDockLayout(null, availableToolWindows(), availableToolWindowMap());
+    expect(out.docks['bottom-right'].active).not.toBe('activity-monitor');
+  });
+
+  it('reads by its name alone — a label key and no tooltip key', () => {
+    const def = activityMonitor();
+    expect(def.labelKey).toBe('workbench.toolWindows.activityMonitor');
+    expect(def.tooltipKey).toBeUndefined();
   });
 });

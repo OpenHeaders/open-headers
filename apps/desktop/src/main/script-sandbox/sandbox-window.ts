@@ -31,6 +31,18 @@ const logger = createLogger('script-sandbox');
 const UP_CHANNEL = 'oh:script-sandbox:up';
 const DOWN_CHANNEL = 'oh:script-sandbox:down';
 
+let liveSandboxWindow: BrowserWindow | null = null;
+
+/**
+ * The OS process behind the live sandbox window, or null while none is
+ * up — how the activity monitor tells this renderer from a workbench
+ * window's.
+ */
+export function scriptSandboxProcessId(): number | null {
+  if (liveSandboxWindow === null || liveSandboxWindow.isDestroyed()) return null;
+  return liveSandboxWindow.webContents.getOSProcessId() || null;
+}
+
 export function createSandboxWindowTransport(onUp: (message: unknown) => void): SandboxTransport {
   let win: BrowserWindow | null = null;
   let readyPromise: Promise<void> | null = null;
@@ -44,6 +56,7 @@ export function createSandboxWindowTransport(onUp: (message: unknown) => void): 
 
   const dropWindow = (): void => {
     win = null;
+    liveSandboxWindow = null;
     readyPromise = null;
   };
 
@@ -59,6 +72,7 @@ export function createSandboxWindowTransport(onUp: (message: unknown) => void): 
     });
     attachWindowSecurity(created);
     win = created;
+    liveSandboxWindow = created;
 
     const ready = new Promise<void>((resolve, reject) => {
       let settled = false;

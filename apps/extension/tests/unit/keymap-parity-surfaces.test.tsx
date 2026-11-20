@@ -90,6 +90,7 @@ const PaletteProbe: React.FC = () => {
     onOpenCreateMenu: noop,
     onTogglePanel: noop,
     onToggleActivityFeed: noop,
+    onOpenActivityMonitor: noop,
     onShowShortcuts: noop,
     onOpenSettings: noop,
   });

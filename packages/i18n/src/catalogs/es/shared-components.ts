@@ -556,6 +556,9 @@ export const sharedComponents = {
   'shared.desktopTeaser.secretManagers.title': 'Gestores de secretos',
   'shared.desktopTeaser.secretManagers.body':
     'Guarda tus credenciales en tu gestor de secretos y haz referencia a ellas desde el Vault. La aplicación de escritorio mantiene las conexiones y las resuelve para este navegador en este equipo.',
+  'shared.desktopTeaser.activityMonitor.title': 'Monitor de actividad',
+  'shared.desktopTeaser.activityMonitor.body':
+    'Mira lo que la aplicación de escritorio está ejecutando y lo que cuesta cada parte: sus procesos con su CPU y su memoria, en vivo.',
   'shared.desktopTeaser.serverAdmin.title': 'Administración del servidor',
   'shared.desktopTeaser.serverAdmin.body':
     'Gestiona usuarios, tokens de acceso, el acceso a los espacios de trabajo y los ajustes del servidor en la ' +

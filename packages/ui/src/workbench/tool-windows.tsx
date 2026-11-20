@@ -22,6 +22,7 @@ import { getServerAdminStatus } from './components/server-admin/use-server-admin
 import type { DesktopFeature } from '@openheaders/ui/shared/desktop-teaser';
 import type { ToolWindowDef as GenericToolWindowDef } from '@openheaders/ui/shared/dock-layout';
 import ActivityFeedIcon from './components/panels/ActivityFeedIcon';
+import { ActivityMonitorIcon } from './components/panels/activity-monitor/ActivityMonitorIcon';
 import { CommitToolIcon } from './components/panels/git/commit/CommitToolIcon';
 import {
   ApiRequestsIcon,
@@ -227,6 +228,21 @@ export const TOOL_WINDOWS: readonly ToolWindowDef[] = [
     defaultSlot: 'bottom-right',
     openByDefault: false,
     requiresWorkspace: true,
+  },
+  // What the app is running and what each part costs (the activity
+  // monitor plan §7) — the app's own processes with their CPU and
+  // memory. A system surface, so no workspace is needed; only hosts
+  // with a process plane under them register `activityMonitor`. The
+  // tab reads by its name alone — no tooltip key. Dormant until opened.
+  {
+    id: 'activity-monitor',
+    labelKey: 'workbench.toolWindows.activityMonitor',
+    icon: <ActivityMonitorIcon />,
+    core: false,
+    defaultSlot: 'bottom-right',
+    openByDefault: false,
+    requiresCapability: 'activityMonitor',
+    teaserWhenUnavailable: 'activityMonitor',
   },
 ];
 

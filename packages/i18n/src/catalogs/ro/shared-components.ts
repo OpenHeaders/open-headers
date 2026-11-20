@@ -590,6 +590,9 @@ export const sharedComponents = {
   'shared.desktopTeaser.secretManagers.title': 'Manageri de secrete',
   'shared.desktopTeaser.secretManagers.body':
     'Păstrați credențialele în managerul de secrete și referențiați-le din Vault. Aplicația desktop deține conexiunile și le rezolvă pentru acest browser pe acest computer.',
+  'shared.desktopTeaser.activityMonitor.title': 'Monitor de activitate',
+  'shared.desktopTeaser.activityMonitor.body':
+    'Vedeți ce rulează aplicația desktop și cât costă fiecare parte — procesele ei cu CPU-ul și memoria lor, în timp real.',
   'shared.desktopTeaser.serverAdmin.title': 'Administrarea serverului',
   'shared.desktopTeaser.serverAdmin.body':
     'Gestionați utilizatorii, tokenurile de acces, accesul la spațiile de lucru și setările serverului din consola ' +

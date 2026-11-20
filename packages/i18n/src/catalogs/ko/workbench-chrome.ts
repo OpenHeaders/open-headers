@@ -112,6 +112,7 @@ export const workbenchChrome = {
   'workbench.shell.commandPalette.cmd.toggleRightSidebar': '오른쪽 사이드바 전환',
   'workbench.shell.commandPalette.cmd.toggleBottomPanel': '하단 패널 전환',
   'workbench.shell.commandPalette.cmd.toggleActivityFeed': '활동 피드 전환',
+  'workbench.shell.commandPalette.cmd.openActivityMonitor': '활동 모니터 열기',
   'workbench.shell.commandPalette.cmd.keyboardShortcuts': '키보드 단축키',
   'workbench.shell.commandPalette.cmd.openSettings': '설정 열기',
   'workbench.shell.commandPalette.cmd.openWorkspaceVariables': '워크스페이스 변수 열기',
@@ -370,6 +371,7 @@ export const workbenchChrome = {
   'workbench.toolWindows.workflowStatus': '워크플로 상태',
   'workbench.toolWindows.activity': '활동',
   'workbench.toolWindows.activityTooltip': '활동 피드. 피어에서 들어온 변경',
+  'workbench.toolWindows.activityMonitor': '활동 모니터',
   'workbench.toolWindows.trafficMonitor': '트래픽',
   'workbench.toolWindows.terminal': '터미널',
   'workbench.toolWindows.git': 'Git · 버전 관리',
@@ -473,6 +475,27 @@ export const workbenchChrome = {
   'workbench.terminal.cliGate.installBody':
     'TUI 모드는 oh 명령줄 도구로 동작하며, 아직 이 컴퓨터에 설치되어 있지 않습니다. 아무 터미널에서나 다음을 실행해 설치한 뒤 TUI 모드를 다시 여세요:',
   'workbench.terminal.cliGate.installOk': '터미널 열기',
+  'workbench.toolWindows.info.activityMonitor.summary':
+    '이 앱이 지금 실행 중인 것과 각 부분에 드는 비용을 보여 줍니다. 앱 자체의 프로세스와 그 CPU 및 메모리입니다. 수치는 이 패널이 보이는 동안에만 갱신되며, 이 기기 밖으로 나가지 않습니다.',
+  'workbench.activityMonitor.group.processes': '프로세스',
+  'workbench.activityMonitor.column.cpu': 'CPU',
+  'workbench.activityMonitor.column.cpuHoverPerCore':
+    '이 시스템의 모니터가 세는 방식대로 코어당 값입니다. 100%는 코어 하나 전체입니다.',
+  'workbench.activityMonitor.column.cpuHoverMachineShare':
+    '이 시스템의 모니터가 세는 방식대로 기기 전체에 대한 비율입니다. 100%는 모든 코어입니다.',
+  'workbench.activityMonitor.column.memory': '메모리',
+  'workbench.activityMonitor.column.memoryHover': '프로세스가 지금 차지하고 있는 물리 메모리입니다.',
+  'workbench.activityMonitor.column.started': '시작',
+  'workbench.activityMonitor.column.pid': 'PID',
+  'workbench.activityMonitor.column.pidHover': '운영 체제의 프로세스 ID입니다. IT 부서와 지원팀을 위한 값입니다.',
+  'workbench.activityMonitor.process.window': '워크벤치 창',
+  'workbench.activityMonitor.process.engine': 'Open Headers',
+  'workbench.activityMonitor.process.graphics': '그래픽',
+  'workbench.activityMonitor.process.network': '네트워크',
+  'workbench.activityMonitor.process.scriptSandbox': '스크립트 샌드박스 · 안전 모드',
+  'workbench.activityMonitor.process.scriptRuntime': '스크립트 런타임 · 개발자 모드',
+  'workbench.activityMonitor.process.other': '기타 ({count})',
+  'workbench.activityMonitor.unreadable': '프로세스를 읽을 수 없습니다.',
   'workbench.toolWindows.info.terminal.summary':
     '실제 pty 위에서 셸을 실행하는 통합 터미널입니다. 독립 터미널에서 실행할 수 있는 것은 무엇이든 여기서 실행되며, 로컬 앱을 대상으로 한 oh CLI 도구도 포함됩니다.',
   'workbench.toolWindows.info.git.summary':

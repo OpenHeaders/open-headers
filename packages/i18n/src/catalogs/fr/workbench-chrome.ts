@@ -101,6 +101,7 @@ export const workbenchChrome = {
   'workbench.shell.commandPalette.cmd.toggleRightSidebar': 'Basculer la barre latérale droite',
   'workbench.shell.commandPalette.cmd.toggleBottomPanel': 'Basculer le panneau inférieur',
   'workbench.shell.commandPalette.cmd.toggleActivityFeed': "Basculer le flux d'activité",
+  'workbench.shell.commandPalette.cmd.openActivityMonitor': "Ouvrir le moniteur d'activité",
   'workbench.shell.commandPalette.cmd.keyboardShortcuts': 'Raccourcis clavier',
   'workbench.shell.commandPalette.cmd.openSettings': 'Ouvrir les paramètres',
   'workbench.shell.commandPalette.cmd.openWorkspaceVariables': "Ouvrir les variables d'espace de travail",
@@ -365,6 +366,7 @@ export const workbenchChrome = {
   'workbench.toolWindows.workflowStatus': 'Statut des workflows',
   'workbench.toolWindows.activity': 'Activité',
   'workbench.toolWindows.activityTooltip': "Flux d'activité — modifications entrantes des pairs",
+  'workbench.toolWindows.activityMonitor': "Moniteur d'activité",
   'workbench.toolWindows.trafficMonitor': 'Trafic',
   'workbench.toolWindows.terminal': 'Terminal',
   'workbench.toolWindows.git': 'Git · Gestion de versions',
@@ -495,6 +497,30 @@ export const workbenchChrome = {
     'le port du proxy local). Les deux s’affichent avec le même journal réseau que le panneau DevTools ; rien ' +
     'n’est diffusé tant qu’aucune source n’est sélectionnée. Les sessions enregistrées vivent sous SESSIONS — ' +
     'nommées et classées automatiquement à leur fin ; cliquez-en une pour la rejouer dans un onglet.',
+  'workbench.toolWindows.info.activityMonitor.summary':
+    'Ce que cette application exécute en ce moment et ce que coûte chaque partie — ses propres processus, avec ' +
+    "leur CPU et leur mémoire. Les valeurs s'actualisent tant que ce panneau est affiché, et rien de tout cela " +
+    'ne quitte cet appareil.',
+  'workbench.activityMonitor.group.processes': 'Processus',
+  'workbench.activityMonitor.column.cpu': 'CPU',
+  'workbench.activityMonitor.column.cpuHoverPerCore':
+    'Par cœur, comme le compte le moniteur de ce système — 100 % correspond à un cœur entier.',
+  'workbench.activityMonitor.column.cpuHoverMachineShare':
+    'Une part de toute la machine, comme le compte le moniteur de ce système — 100 % correspond à tous les cœurs.',
+  'workbench.activityMonitor.column.memory': 'Mémoire',
+  'workbench.activityMonitor.column.memoryHover': 'La mémoire physique que le processus occupe en ce moment.',
+  'workbench.activityMonitor.column.started': 'Démarré',
+  'workbench.activityMonitor.column.pid': 'PID',
+  'workbench.activityMonitor.column.pidHover':
+    "L'identifiant de processus du système d'exploitation — pour l'informatique et le support.",
+  'workbench.activityMonitor.process.window': "Fenêtre de l'éditeur",
+  'workbench.activityMonitor.process.engine': 'Open Headers',
+  'workbench.activityMonitor.process.graphics': 'Graphismes',
+  'workbench.activityMonitor.process.network': 'Réseau',
+  'workbench.activityMonitor.process.scriptSandbox': 'Sandbox de scripts · Mode sûr',
+  'workbench.activityMonitor.process.scriptRuntime': "Environnement d'exécution des scripts · Mode développeur",
+  'workbench.activityMonitor.process.other': 'Autres ({count})',
+  'workbench.activityMonitor.unreadable': "Les processus n'ont pas pu être lus.",
   'workbench.toolWindows.info.terminal.summary':
     'Un terminal intégré qui exécute votre shell dans un vrai pty — tout ce qui tourne dans un terminal ' +
     "autonome tourne ici, y compris la CLI oh contre l'application locale.",

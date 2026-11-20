@@ -88,6 +88,7 @@ export const workbenchChrome = {
   'workbench.shell.commandPalette.cmd.toggleRightSidebar': 'Toggle Right Sidebar',
   'workbench.shell.commandPalette.cmd.toggleBottomPanel': 'Toggle Bottom Panel',
   'workbench.shell.commandPalette.cmd.toggleActivityFeed': 'Toggle Activity Feed',
+  'workbench.shell.commandPalette.cmd.openActivityMonitor': 'Open Activity Monitor',
   'workbench.shell.commandPalette.cmd.keyboardShortcuts': 'Keyboard Shortcuts',
   'workbench.shell.commandPalette.cmd.openSettings': 'Open Settings',
   'workbench.shell.commandPalette.cmd.openWorkspaceVariables': 'Open Workspace Variables',
@@ -346,6 +347,7 @@ export const workbenchChrome = {
   'workbench.toolWindows.workflowStatus': 'Workflow Status',
   'workbench.toolWindows.activity': 'Activity',
   'workbench.toolWindows.activityTooltip': 'Activity Feed — inbound changes from peers',
+  'workbench.toolWindows.activityMonitor': 'Activity Monitor',
   'workbench.toolWindows.trafficMonitor': 'Traffic',
   'workbench.toolWindows.terminal': 'Terminal',
   'workbench.toolWindows.git': 'Git · Version Control',
@@ -463,6 +465,28 @@ export const workbenchChrome = {
     'TUI mode is powered by the oh command-line tool, which isn’t installed on this machine yet. ' +
     'Run this in any terminal to install it, then open TUI mode again:',
   'workbench.terminal.cliGate.installOk': 'Open a terminal',
+  'workbench.toolWindows.info.activityMonitor.summary':
+    'What this app is running right now and what each part costs — its own processes, with their CPU and ' +
+    'memory. The figures refresh while this panel is in view, and nothing here leaves this device.',
+  'workbench.activityMonitor.group.processes': 'Processes',
+  'workbench.activityMonitor.column.cpu': 'CPU',
+  'workbench.activityMonitor.column.cpuHoverPerCore':
+    'Per core, as this system’s own monitor counts it — 100% is one full core.',
+  'workbench.activityMonitor.column.cpuHoverMachineShare':
+    'A share of the whole machine, as this system’s own monitor counts it — 100% is every core.',
+  'workbench.activityMonitor.column.memory': 'Memory',
+  'workbench.activityMonitor.column.memoryHover': 'The physical memory the process holds right now.',
+  'workbench.activityMonitor.column.started': 'Started',
+  'workbench.activityMonitor.column.pid': 'PID',
+  'workbench.activityMonitor.column.pidHover': 'The operating system’s process ID — for IT and support.',
+  'workbench.activityMonitor.process.window': 'Workbench window',
+  'workbench.activityMonitor.process.engine': 'Open Headers',
+  'workbench.activityMonitor.process.graphics': 'Graphics',
+  'workbench.activityMonitor.process.network': 'Network',
+  'workbench.activityMonitor.process.scriptSandbox': 'Script sandbox · Safe',
+  'workbench.activityMonitor.process.scriptRuntime': 'Script runtime · Developer',
+  'workbench.activityMonitor.process.other': 'Other ({count})',
+  'workbench.activityMonitor.unreadable': 'The processes could not be read.',
   'workbench.toolWindows.info.terminal.summary':
     'An integrated terminal running your shell in a real pty — anything you can run in a stand-alone ' +
     'terminal runs here, including the oh CLI against the local app.',

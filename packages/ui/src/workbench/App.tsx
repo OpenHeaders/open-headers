@@ -175,6 +175,7 @@ const REVEAL_WINDOW_BY_TARGET: Partial<Record<CompanionRevealTarget, ToolWindowI
   commit: 'commit',
   proxy: 'traffic-monitor',
   liveNetwork: 'traffic-monitor',
+  activityMonitor: 'activity-monitor',
 };
 
 // ── Shell loader ────────────────────────────────────────────────────
@@ -1229,6 +1230,10 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
     onOpenCreateMenu: openCreateMenu,
     onTogglePanel: togglePanel,
     onToggleActivityFeed: () => tl.toggleWindow('activity'),
+    onOpenActivityMonitor: () => {
+      if (tl.state.hidden.includes('activity-monitor')) tl.restoreWindow('activity-monitor');
+      tl.activateWindow('activity-monitor');
+    },
     onShowShortcuts: handleShowShortcuts,
     onOpenSettings: openSettings,
     zeroWorkspaces,

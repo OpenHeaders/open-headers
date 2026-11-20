@@ -109,6 +109,7 @@ export const workbenchChrome = {
   'workbench.shell.commandPalette.cmd.toggleRightSidebar': 'Rechte Seitenleiste umschalten',
   'workbench.shell.commandPalette.cmd.toggleBottomPanel': 'Unteres Panel umschalten',
   'workbench.shell.commandPalette.cmd.toggleActivityFeed': 'Aktivitäts-Feed umschalten',
+  'workbench.shell.commandPalette.cmd.openActivityMonitor': 'Aktivitätsmonitor öffnen',
   'workbench.shell.commandPalette.cmd.keyboardShortcuts': 'Tastenkürzel',
   'workbench.shell.commandPalette.cmd.openSettings': 'Einstellungen öffnen',
   'workbench.shell.commandPalette.cmd.openWorkspaceVariables': 'Arbeitsbereich-Variablen öffnen',
@@ -371,6 +372,7 @@ export const workbenchChrome = {
   'workbench.toolWindows.workflowStatus': 'Workflow-Status',
   'workbench.toolWindows.activity': 'Aktivität',
   'workbench.toolWindows.activityTooltip': 'Aktivitäts-Feed — eingehende Änderungen von Peers',
+  'workbench.toolWindows.activityMonitor': 'Aktivitätsmonitor',
   'workbench.toolWindows.trafficMonitor': 'Traffic',
   'workbench.toolWindows.terminal': 'Terminal',
   'workbench.toolWindows.git': 'Git · Versionsverwaltung',
@@ -495,6 +497,29 @@ export const workbenchChrome = {
     'lokalen Proxy-Port zeigen). Beide nutzen dasselbe Netzwerkprotokoll wie das DevTools-Panel; es wird nichts ' +
     'gestreamt, bis eine Quelle ausgewählt ist. Gespeicherte Sitzungen liegen unter SITZUNGEN — beim Ende ' +
     'automatisch benannt und abgelegt; ein Klick spielt sie in einem Tab wieder ab.',
+  'workbench.toolWindows.info.activityMonitor.summary':
+    'Was diese App gerade ausführt und was jeder Teil kostet — ihre eigenen Prozesse mit CPU und ' +
+    'Arbeitsspeicher. Die Werte werden aktualisiert, solange dieses Panel sichtbar ist, und nichts davon ' +
+    'verlässt dieses Gerät.',
+  'workbench.activityMonitor.group.processes': 'Prozesse',
+  'workbench.activityMonitor.column.cpu': 'CPU',
+  'workbench.activityMonitor.column.cpuHoverPerCore':
+    'Pro Kern, so wie die Systemüberwachung dieses Systems zählt — 100 % sind ein voller Kern.',
+  'workbench.activityMonitor.column.cpuHoverMachineShare':
+    'Anteil am gesamten Rechner, so wie die Systemüberwachung dieses Systems zählt — 100 % sind alle Kerne.',
+  'workbench.activityMonitor.column.memory': 'Speicher',
+  'workbench.activityMonitor.column.memoryHover': 'Der physische Arbeitsspeicher, den der Prozess gerade belegt.',
+  'workbench.activityMonitor.column.started': 'Gestartet',
+  'workbench.activityMonitor.column.pid': 'PID',
+  'workbench.activityMonitor.column.pidHover': 'Die Prozess-ID des Betriebssystems — für IT und Support.',
+  'workbench.activityMonitor.process.window': 'Editor-Fenster',
+  'workbench.activityMonitor.process.engine': 'Open Headers',
+  'workbench.activityMonitor.process.graphics': 'Grafik',
+  'workbench.activityMonitor.process.network': 'Netzwerk',
+  'workbench.activityMonitor.process.scriptSandbox': 'Skript-Sandbox · Sicherer Modus',
+  'workbench.activityMonitor.process.scriptRuntime': 'Skript-Laufzeit · Entwicklermodus',
+  'workbench.activityMonitor.process.other': 'Andere ({count})',
+  'workbench.activityMonitor.unreadable': 'Die Prozesse konnten nicht gelesen werden.',
   'workbench.toolWindows.info.terminal.summary':
     'Ein integriertes Terminal, das deine Shell in einem echten pty ausführt — alles, was in einem ' +
     'eigenständigen Terminal läuft, läuft auch hier, einschließlich der CLI oh gegen die lokale App.',

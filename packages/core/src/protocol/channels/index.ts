@@ -27,6 +27,7 @@
  */
 
 import type { ActivityRpc } from './activity';
+import type { ActivityMonitorRpc } from './activity-monitor';
 import type { AwarenessRpc } from './awareness';
 import type { BackendIdentityRpc } from './backend-identity';
 import type { BackendProbeRpc } from './backend-probe';
@@ -227,7 +228,8 @@ export interface BridgeRpcContract
     ServerSignInRpc,
     BackendProbeRpc,
     BackendIdentityRpc,
-    DiagnosticsRpc {}
+    DiagnosticsRpc,
+    ActivityMonitorRpc {}
 
 /**
  * Tab-directed contract: map of message-type → { req, res } for messages

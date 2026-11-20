@@ -123,6 +123,7 @@ export const workbenchChrome = {
   'workbench.shell.commandPalette.cmd.toggleRightSidebar': 'Переключить правую боковую панель',
   'workbench.shell.commandPalette.cmd.toggleBottomPanel': 'Переключить нижнюю панель',
   'workbench.shell.commandPalette.cmd.toggleActivityFeed': 'Переключить ленту активности',
+  'workbench.shell.commandPalette.cmd.openActivityMonitor': 'Открыть монитор активности',
   'workbench.shell.commandPalette.cmd.keyboardShortcuts': 'Сочетания клавиш',
   'workbench.shell.commandPalette.cmd.openSettings': 'Открыть настройки',
   'workbench.shell.commandPalette.cmd.openWorkspaceVariables': 'Открыть переменные рабочего пространства',
@@ -384,6 +385,7 @@ export const workbenchChrome = {
   'workbench.toolWindows.workflowStatus': 'Состояние рабочих процессов',
   'workbench.toolWindows.activity': 'Активность',
   'workbench.toolWindows.activityTooltip': 'Лента активности — входящие изменения от пиров',
+  'workbench.toolWindows.activityMonitor': 'Монитор активности',
   'workbench.toolWindows.trafficMonitor': 'Трафик',
   'workbench.toolWindows.terminal': 'Терминал',
   'workbench.toolWindows.git': 'Git · Управление версиями',
@@ -493,6 +495,27 @@ export const workbenchChrome = {
   'workbench.terminal.cliGate.installBody':
     'Режим TUI работает на инструменте командной строки oh, который ещё не установлен на этой машине. Выполните это в любом терминале, чтобы установить его, затем снова откройте режим TUI:',
   'workbench.terminal.cliGate.installOk': 'Открыть терминал',
+  'workbench.toolWindows.info.activityMonitor.summary':
+    'Что это приложение выполняет прямо сейчас и во что обходится каждая часть — его собственные процессы с их ЦП и памятью. Значения обновляются, пока эта панель на виду, и ничто отсюда не покидает это устройство.',
+  'workbench.activityMonitor.group.processes': 'Процессы',
+  'workbench.activityMonitor.column.cpu': 'ЦП',
+  'workbench.activityMonitor.column.cpuHoverPerCore':
+    'На ядро, как считает системный монитор этой системы — 100 % это одно ядро целиком.',
+  'workbench.activityMonitor.column.cpuHoverMachineShare':
+    'Доля от всей машины, как считает системный монитор этой системы — 100 % это все ядра.',
+  'workbench.activityMonitor.column.memory': 'Память',
+  'workbench.activityMonitor.column.memoryHover': 'Физическая память, которую процесс занимает прямо сейчас.',
+  'workbench.activityMonitor.column.started': 'Запущен',
+  'workbench.activityMonitor.column.pid': 'PID',
+  'workbench.activityMonitor.column.pidHover': 'Идентификатор процесса в операционной системе — для ИТ и поддержки.',
+  'workbench.activityMonitor.process.window': 'Окно рабочей среды',
+  'workbench.activityMonitor.process.engine': 'Open Headers',
+  'workbench.activityMonitor.process.graphics': 'Графика',
+  'workbench.activityMonitor.process.network': 'Сеть',
+  'workbench.activityMonitor.process.scriptSandbox': 'Песочница скриптов · Безопасный режим',
+  'workbench.activityMonitor.process.scriptRuntime': 'Среда выполнения скриптов · Режим разработчика',
+  'workbench.activityMonitor.process.other': 'Прочие ({count})',
+  'workbench.activityMonitor.unreadable': 'Не удалось прочитать процессы.',
   'workbench.toolWindows.info.terminal.summary':
     'Встроенный терминал, запускающий вашу оболочку в настоящем pty — всё, что можно запустить в отдельном терминале, работает и здесь, включая oh CLI для локального приложения.',
   'workbench.toolWindows.info.git.summary':

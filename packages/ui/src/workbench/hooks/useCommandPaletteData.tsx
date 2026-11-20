@@ -41,6 +41,7 @@ interface UseCommandPaletteDataOptions {
   onOpenCreateMenu: () => void;
   onTogglePanel: (panel: 'sidebar' | 'bottomPanel' | 'inspector') => void;
   onToggleActivityFeed: () => void;
+  onOpenActivityMonitor: () => void;
   onShowShortcuts: () => void;
   onOpenSettings: (target?: { settingKey?: string; categoryId?: string }) => void;
   /** The zero-workspace admin posture — every workspace-scoped command
@@ -74,6 +75,7 @@ export function useCommandPaletteData(opts: UseCommandPaletteDataOptions): Comma
     onOpenCreateMenu,
     onTogglePanel,
     onToggleActivityFeed,
+    onOpenActivityMonitor,
     onShowShortcuts,
     onOpenSettings,
     zeroWorkspaces = false,
@@ -328,6 +330,12 @@ export function useCommandPaletteData(opts: UseCommandPaletteDataOptions): Comma
                 onSelect: onToggleActivityFeed,
               },
             ]),
+        // A system surface — it needs no workspace, so it stays.
+        {
+          id: 'cmd-open-activity-monitor',
+          label: t('workbench.shell.commandPalette.cmd.openActivityMonitor'),
+          onSelect: onOpenActivityMonitor,
+        },
         {
           id: 'cmd-shortcuts',
           label: t('workbench.shell.commandPalette.cmd.keyboardShortcuts'),
@@ -397,6 +405,7 @@ export function useCommandPaletteData(opts: UseCommandPaletteDataOptions): Comma
     onOpenCreateMenu,
     onTogglePanel,
     onToggleActivityFeed,
+    onOpenActivityMonitor,
     onShowShortcuts,
     onOpenSettings,
     newRuleLabel,

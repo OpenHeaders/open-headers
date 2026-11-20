@@ -22,7 +22,8 @@ export type DesktopFeature =
   | 'mcp'
   | 'liveNetwork'
   | 'secretManagers'
-  | 'serverAdmin';
+  | 'serverAdmin'
+  | 'activityMonitor';
 
 export interface DesktopTeaserCopy {
   title: MessageKey;
@@ -61,5 +62,9 @@ export const DESKTOP_TEASER_COPY: Record<DesktopFeature, DesktopTeaserCopy> = {
   serverAdmin: {
     title: 'shared.desktopTeaser.serverAdmin.title',
     body: 'shared.desktopTeaser.serverAdmin.body',
+  },
+  activityMonitor: {
+    title: 'shared.desktopTeaser.activityMonitor.title',
+    body: 'shared.desktopTeaser.activityMonitor.body',
   },
 };

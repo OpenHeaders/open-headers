@@ -109,6 +109,7 @@ export const workbenchChrome = {
   'workbench.shell.commandPalette.cmd.toggleRightSidebar': '右サイドバーを切り替え',
   'workbench.shell.commandPalette.cmd.toggleBottomPanel': '下部パネルを切り替え',
   'workbench.shell.commandPalette.cmd.toggleActivityFeed': 'アクティビティフィードを切り替え',
+  'workbench.shell.commandPalette.cmd.openActivityMonitor': 'アクティビティモニタを開く',
   'workbench.shell.commandPalette.cmd.keyboardShortcuts': 'キーボードショートカット',
   'workbench.shell.commandPalette.cmd.openSettings': '設定を開く',
   'workbench.shell.commandPalette.cmd.openWorkspaceVariables': 'ワークスペース変数を開く',
@@ -368,6 +369,7 @@ export const workbenchChrome = {
   'workbench.toolWindows.workflowStatus': 'ワークフローステータス',
   'workbench.toolWindows.activity': 'アクティビティ',
   'workbench.toolWindows.activityTooltip': 'アクティビティフィード：ピアからの受信変更',
+  'workbench.toolWindows.activityMonitor': 'アクティビティモニタ',
   'workbench.toolWindows.trafficMonitor': 'トラフィック',
   'workbench.toolWindows.terminal': 'ターミナル',
   'workbench.toolWindows.git': 'Git · バージョン管理',
@@ -473,6 +475,28 @@ export const workbenchChrome = {
   'workbench.terminal.cliGate.installBody':
     'TUI モードは oh コマンドラインツールで動作しますが、まだこのマシンにインストールされていません。任意のターミナルで次を実行してインストールし、TUI モードをもう一度開いてください：',
   'workbench.terminal.cliGate.installOk': 'ターミナルを開く',
+  'workbench.toolWindows.info.activityMonitor.summary':
+    'このアプリが今実行しているものと、それぞれにかかるコストを示します。アプリ自身のプロセスと、その CPU およびメモリです。数値はこのパネルが表示されている間だけ更新され、このデバイスの外には出ません。',
+  'workbench.activityMonitor.group.processes': 'プロセス',
+  'workbench.activityMonitor.column.cpu': 'CPU',
+  'workbench.activityMonitor.column.cpuHoverPerCore':
+    'このシステムのモニタと同じ数え方で、コアごとの値です。100% は 1 コア分です。',
+  'workbench.activityMonitor.column.cpuHoverMachineShare':
+    'このシステムのモニタと同じ数え方で、マシン全体に対する割合です。100% は全コア分です。',
+  'workbench.activityMonitor.column.memory': 'メモリ',
+  'workbench.activityMonitor.column.memoryHover': 'プロセスが現在使用している物理メモリです。',
+  'workbench.activityMonitor.column.started': '開始',
+  'workbench.activityMonitor.column.pid': 'PID',
+  'workbench.activityMonitor.column.pidHover':
+    'オペレーティングシステムのプロセス ID です。IT 部門やサポート向けです。',
+  'workbench.activityMonitor.process.window': 'ワークベンチウィンドウ',
+  'workbench.activityMonitor.process.engine': 'Open Headers',
+  'workbench.activityMonitor.process.graphics': 'グラフィックス',
+  'workbench.activityMonitor.process.network': 'ネットワーク',
+  'workbench.activityMonitor.process.scriptSandbox': 'スクリプトサンドボックス · セーフモード',
+  'workbench.activityMonitor.process.scriptRuntime': 'スクリプトランタイム · 開発者モード',
+  'workbench.activityMonitor.process.other': 'その他 ({count})',
+  'workbench.activityMonitor.unreadable': 'プロセスを読み取れませんでした。',
   'workbench.toolWindows.info.terminal.summary':
     '本物の pty でシェルを動かす統合ターミナルです。単独のターミナルで実行できるものは、ローカルアプリに対する oh CLI を含めてすべてここで実行できます。',
   'workbench.toolWindows.info.git.summary':

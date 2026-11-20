@@ -134,6 +134,7 @@ export const ErrorReportSurfaceSchema = v.picklist([
   'var-scope',
   'traffic-monitor',
   'activity',
+  'activity-monitor',
   'notifications',
   'terminal',
   'git',

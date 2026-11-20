@@ -239,6 +239,10 @@ function buildToolWindowInfo(t: Translate): Record<ToolWindowId, InfoPopoverCont
       title: t('workbench.toolWindows.activity'),
       summary: t('workbench.toolWindows.info.activity.summary'),
     },
+    'activity-monitor': {
+      title: t('workbench.toolWindows.activityMonitor'),
+      summary: t('workbench.toolWindows.info.activityMonitor.summary'),
+    },
     terminal: {
       title: t('workbench.toolWindows.terminal'),
       summary: t('workbench.toolWindows.info.terminal.summary'),

@@ -41,6 +41,9 @@ const TrafficMonitorPanel = lazy(() => import('../panels/TrafficMonitorPanel'));
 // `workspaceGit` capability (registry `requiresCapability` gate).
 const GitLogPanel = lazy(() => import('../panels/git/GitLogPanel'));
 const CommitToolPanel = lazy(() => import('../panels/git/commit/CommitToolPanel'));
+// Lazy like the others: only hosts with the `activityMonitor` capability
+// render the real panel — everywhere else the window is the teaser.
+const ActivityMonitorPanel = lazy(() => import('../panels/activity-monitor/ActivityMonitorPanel'));
 import { DesktopTeaser } from '@openheaders/ui/shared/desktop-teaser';
 import type { SidebarView } from '../sidebar/types';
 import type { SidebarSearchHandle } from '../sidebar/useTreeSearch';
@@ -347,6 +350,16 @@ const WorkbenchToolWindow: React.FC<WorkbenchToolWindowProps> = ({
           onClose={() => tl.toggleWindow('activity')}
           onViewEntity={handleViewActivityEntity}
         />
+      );
+    case 'activity-monitor':
+      return (
+        <Suspense fallback={null}>
+          <ActivityMonitorPanel
+            info={getToolWindowInfo('activity-monitor', t)}
+            active={tl.state.docks[slot].active === 'activity-monitor'}
+            onHide={() => tl.closeDock(slot)}
+          />
+        </Suspense>
       );
     case 'notifications':
       return (

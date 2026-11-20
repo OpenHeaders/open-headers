@@ -574,6 +574,9 @@ export const sharedComponents = {
   'shared.desktopTeaser.secretManagers.title': 'Secret Manager',
   'shared.desktopTeaser.secretManagers.body':
     'Bewahre Zugangsdaten in deinem Secret Manager auf und referenziere sie aus dem Vault. Die Desktop-App hält die Verbindungen und löst sie für diesen Browser auf diesem Computer auf.',
+  'shared.desktopTeaser.activityMonitor.title': 'Aktivitätsmonitor',
+  'shared.desktopTeaser.activityMonitor.body':
+    'Sieh, was die Desktop-App ausführt und was jeder Teil kostet — ihre Prozesse mit CPU und Arbeitsspeicher, live.',
   'shared.desktopTeaser.serverAdmin.title': 'Serververwaltung',
   'shared.desktopTeaser.serverAdmin.body':
     'Verwalte Benutzer, Zugriffstoken, den Zugriff auf Arbeitsbereiche und die Servereinstellungen in der ' +

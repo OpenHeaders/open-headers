@@ -355,6 +355,7 @@ export type ToolWindowId =
   | 'var-scope'
   | 'traffic-monitor'
   | 'activity'
+  | 'activity-monitor'
   | 'notifications'
   | 'terminal'
   | 'git';

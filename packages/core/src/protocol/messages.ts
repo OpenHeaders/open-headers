@@ -27,7 +27,8 @@ export type CompanionRevealTarget =
   | 'mcp'
   | 'peerExecuteSetting'
   | 'secretManagers'
-  | 'serverAdmin';
+  | 'serverAdmin'
+  | 'activityMonitor';
 
 /** Every legal reveal target — the wire validator's single source. */
 export const COMPANION_REVEAL_TARGETS: readonly CompanionRevealTarget[] = [
@@ -41,6 +42,7 @@ export const COMPANION_REVEAL_TARGETS: readonly CompanionRevealTarget[] = [
   'peerExecuteSetting',
   'secretManagers',
   'serverAdmin',
+  'activityMonitor',
 ];
 
 /**
