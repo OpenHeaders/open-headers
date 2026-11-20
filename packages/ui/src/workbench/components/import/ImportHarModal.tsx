@@ -417,6 +417,7 @@ const ImportHarModal: React.FC<ImportHarModalProps> = ({
       }
       width={760}
       destroyOnHidden
+      styles={{ body: { maxHeight: '65vh', overflowY: 'auto', overscrollBehavior: 'none' } }}
     >
       <Paragraph type="secondary" style={{ fontSize: 12, marginBottom: 12 }}>
         {t('workbench.importExport.har.introPrefix')} <code>.har</code> {t('workbench.importExport.har.introSuffix')}

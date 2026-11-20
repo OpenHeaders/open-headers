@@ -660,6 +660,7 @@ const ImportSectionedModal: React.FC<ImportSectionedModalProps> = ({
       }
       width={760}
       destroyOnHidden
+      styles={{ body: { maxHeight: '65vh', overflowY: 'auto', overscrollBehavior: 'none' } }}
     >
       <Paragraph type="secondary" style={{ fontSize: 12, marginBottom: 12 }}>
         {t(labels.blurb)}

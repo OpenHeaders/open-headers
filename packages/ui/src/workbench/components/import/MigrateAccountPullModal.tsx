@@ -88,6 +88,7 @@ const MigrateAccountPullModal: React.FC<MigrateAccountPullModalProps> = ({
       mask={{ closable: false }}
       keyboard={stepperPhase === 'key'}
       destroyOnHidden
+      styles={{ body: { maxHeight: '65vh', overflowY: 'auto', overscrollBehavior: 'none' } }}
     >
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, margin: '12px 0 12px' }}>
         <PostmanGlyph style={{ fontSize: 18 }} />

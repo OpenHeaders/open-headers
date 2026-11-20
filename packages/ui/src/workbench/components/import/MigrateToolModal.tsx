@@ -143,6 +143,7 @@ const MigrateToolModal: React.FC<MigrateToolModalProps> = ({ open, onClose, onIm
       width={1120}
       mask={{ closable: false }}
       destroyOnHidden
+      styles={{ body: { maxHeight: '65vh', overflowY: 'auto', overscrollBehavior: 'none' } }}
     >
       {!pullOpen && (
         <div style={{ textAlign: 'center', margin: '16px 0 20px' }}>

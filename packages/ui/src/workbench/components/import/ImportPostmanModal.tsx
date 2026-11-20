@@ -469,6 +469,7 @@ const ImportPostmanModal: React.FC<ImportPostmanModalProps> = ({
       }
       width={760}
       destroyOnHidden
+      styles={{ body: { maxHeight: '65vh', overflowY: 'auto', overscrollBehavior: 'none' } }}
     >
       <Paragraph type="secondary" style={{ fontSize: 12, marginBottom: 12 }}>
         {t('workbench.importExport.postman.intro')}
