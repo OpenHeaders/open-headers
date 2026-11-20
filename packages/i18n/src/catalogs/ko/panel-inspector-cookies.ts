@@ -218,12 +218,18 @@ export const panelInspectorCookies = {
   'panel.inspector.cookies.edit.field.hostOnly': 'Host-only',
   'panel.inspector.cookies.edit.namePlaceholder': '쿠키 이름',
   'panel.inspector.cookies.edit.valuePlaceholder': '값 또는 {{variable}}',
-  'panel.inspector.cookies.edit.paste.placeholder': 'Set-Cookie 또는 Cookie 헤더를 붙여넣어 양식 채우기',
+  'panel.inspector.cookies.edit.paste.placeholder': '쿠키 헤더 붙여넣기',
+  'panel.inspector.cookies.edit.paste.hint': '선택 사항 — 아래 필드를 채웁니다',
+  'panel.inspector.cookies.edit.paste.filledMark': '붙여넣기로 채움',
   'panel.inspector.cookies.edit.paste.filledSetCookie': 'Set-Cookie 헤더에서 채웠습니다',
   'panel.inspector.cookies.edit.paste.filledPair': 'Name과 Value를 채웠습니다',
   'panel.inspector.cookies.edit.paste.ignored': '무시됨: {list}',
   'panel.inspector.cookies.edit.paste.expired': '이미 만료됨',
   'panel.inspector.cookies.edit.paste.undo': '실행 취소',
+  'panel.inspector.cookies.edit.paste.undoAll': '모두 실행 취소',
+  'panel.inspector.cookies.edit.paste.undoField':
+    '자동으로 교체되었습니다. 실행 취소를 클릭하면 “{value}”(으)로 되돌립니다.',
+  'panel.inspector.cookies.edit.paste.replaced': '자동으로 교체됨',
   'panel.inspector.cookies.edit.paste.several': '이 텍스트에 쿠키가 여러 개 있습니다({count}) — 하나씩 붙여넣으세요.',
   'panel.inspector.cookies.edit.paste.unreadable': '이 텍스트에서 쿠키를 읽을 수 없습니다.',
   'panel.inspector.cookies.edit.paste.listed': '읽은 쿠키: {count}',
@@ -268,6 +274,13 @@ export const panelInspectorCookies = {
   'panel.inspector.cookies.fieldInfo.exampleCaption': 'Set-Cookie 예시',
   'panel.inspector.cookies.fieldInfo.fieldKicker': 'Cookie 필드',
   'panel.inspector.cookies.fieldInfo.flagKicker': 'Cookie 플래그',
+  'panel.inspector.cookies.fieldInfo.paste.title': '쿠키 붙여넣기',
+  'panel.inspector.cookies.fieldInfo.paste.summary':
+    '복사한 헤더를 붙여넣으면 양식이 자동으로 채워집니다. 저장하기 전에는 브라우저에 아무것도 기록되지 않습니다.',
+  'panel.inspector.cookies.fieldInfo.paste.heading': '붙여넣을 수 있는 것',
+  'panel.inspector.cookies.fieldInfo.paste.setCookie': '속성이 포함된 쿠키 하나 — 모든 필드를 채웁니다.',
+  'panel.inspector.cookies.fieldInfo.paste.cookie': '여러 이름과 값 — 한 번에 저장하는 체크리스트가 됩니다.',
+  'panel.inspector.cookies.fieldInfo.paste.pair': '이름과 값 한 쌍 — Name과 Value만 채웁니다.',
   'panel.inspector.cookies.fieldInfo.templateNote':
     '{{variable}} 참조를 받으며 저장할 때 한 번만 확인됩니다. 저장소에는 확인된 텍스트가 저장됩니다.',
   'panel.inspector.cookies.fieldInfo.name.summary':

@@ -188,6 +188,34 @@ function cookieEditFieldInfo(t: Translate, key: CookieEditFieldKey): InfoPopover
   }
 }
 
+const EVERY_TOKEN = Object.keys(EX) as CookieExampleToken[];
+
+/** The paste row's `(i)` — the whole example lit, since a pasted line
+ *  carries all of it — and the three shapes the row reads. */
+function cookiePasteInfo(t: Translate): InfoPopoverContent {
+  return {
+    diagram: <CookieExampleCard highlight={EVERY_TOKEN} />,
+    title: t('panel.inspector.cookies.fieldInfo.paste.title'),
+    summary: t('panel.inspector.cookies.fieldInfo.paste.summary'),
+    sections: [
+      {
+        heading: t('panel.inspector.cookies.fieldInfo.paste.heading'),
+        items: [
+          { label: 'Set-Cookie', desc: t('panel.inspector.cookies.fieldInfo.paste.setCookie') },
+          { label: 'Cookie', desc: t('panel.inspector.cookies.fieldInfo.paste.cookie') },
+          { label: 'name=value', desc: t('panel.inspector.cookies.fieldInfo.paste.pair') },
+        ],
+      },
+    ],
+  };
+}
+
+export function CookiePasteInfo() {
+  const t = useT();
+  const content = useMemo(() => cookiePasteInfo(t), [t]);
+  return <InfoTrigger content={content} className="dt-header-info-trigger dt-cookie-edit-info-trigger" />;
+}
+
 export function CookieEditFieldInfo({ infoKey }: { infoKey: CookieEditFieldKey }) {
   const t = useT();
   const content = useMemo(() => cookieEditFieldInfo(t, infoKey), [t, infoKey]);

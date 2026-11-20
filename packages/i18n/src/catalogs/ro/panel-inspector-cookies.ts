@@ -216,13 +216,17 @@ export const panelInspectorCookies = {
   'panel.inspector.cookies.edit.field.hostOnly': 'Host-only',
   'panel.inspector.cookies.edit.namePlaceholder': 'nume cookie',
   'panel.inspector.cookies.edit.valuePlaceholder': 'valoare sau {{variable}}',
-  'panel.inspector.cookies.edit.paste.placeholder':
-    'Lipire antet Set-Cookie sau Cookie pentru completarea formularului',
+  'panel.inspector.cookies.edit.paste.placeholder': 'Lipire antet de cookie',
+  'panel.inspector.cookies.edit.paste.hint': 'Opțional — completează câmpurile de mai jos',
+  'panel.inspector.cookies.edit.paste.filledMark': 'Completat din textul lipit',
   'panel.inspector.cookies.edit.paste.filledSetCookie': 'Completat dintr-un antet Set-Cookie',
   'panel.inspector.cookies.edit.paste.filledPair': 'Name și Value completate',
   'panel.inspector.cookies.edit.paste.ignored': 'ignorat: {list}',
   'panel.inspector.cookies.edit.paste.expired': 'deja expirat',
   'panel.inspector.cookies.edit.paste.undo': 'Anulare',
+  'panel.inspector.cookies.edit.paste.undoAll': 'Anulare totală',
+  'panel.inspector.cookies.edit.paste.undoField': 'Înlocuit automat. Clic pe anulare pentru a reveni la „{value}”.',
+  'panel.inspector.cookies.edit.paste.replaced': 'Înlocuit automat',
   'panel.inspector.cookies.edit.paste.several': 'Mai multe cookie-uri în acest text ({count}) — lipiți-le pe rând.',
   'panel.inspector.cookies.edit.paste.unreadable': 'Nu s-a putut citi niciun cookie din acest text.',
   'panel.inspector.cookies.edit.paste.listed': 'Cookie-uri citite: {count}',
@@ -266,6 +270,13 @@ export const panelInspectorCookies = {
   'panel.inspector.cookies.fieldInfo.exampleCaption': 'Exemplu de Set-Cookie',
   'panel.inspector.cookies.fieldInfo.fieldKicker': 'Câmp Cookie',
   'panel.inspector.cookies.fieldInfo.flagKicker': 'Indicator Cookie',
+  'panel.inspector.cookies.fieldInfo.paste.title': 'Lipire cookie',
+  'panel.inspector.cookies.fieldInfo.paste.summary':
+    'Lipiți un antet copiat și formularul se completează singur. Nimic nu ajunge în browser până la Salvare.',
+  'panel.inspector.cookies.fieldInfo.paste.heading': 'Ce se poate lipi',
+  'panel.inspector.cookies.fieldInfo.paste.setCookie': 'Un cookie cu atributele sale — completează toate câmpurile.',
+  'panel.inspector.cookies.fieldInfo.paste.cookie': 'Mai multe nume și valori — devin o listă salvată împreună.',
+  'panel.inspector.cookies.fieldInfo.paste.pair': 'Un nume și o valoare — completează doar Name și Value.',
   'panel.inspector.cookies.fieldInfo.templateNote':
     'Acceptă referințe {{variable}}, rezolvate o singură dată la salvare — depozitul stochează textul rezolvat.',
   'panel.inspector.cookies.fieldInfo.name.summary':

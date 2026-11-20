@@ -223,13 +223,18 @@ export const panelInspectorCookies = {
   'panel.inspector.cookies.edit.field.hostOnly': 'Host-only',
   'panel.inspector.cookies.edit.namePlaceholder': 'Cookie-Name',
   'panel.inspector.cookies.edit.valuePlaceholder': 'Wert oder {{variable}}',
-  'panel.inspector.cookies.edit.paste.placeholder':
-    'Set-Cookie- oder Cookie-Header einfügen, um das Formular auszufüllen',
+  'panel.inspector.cookies.edit.paste.placeholder': 'Cookie-Header einfügen',
+  'panel.inspector.cookies.edit.paste.hint': 'Optional — füllt die Felder darunter aus',
+  'panel.inspector.cookies.edit.paste.filledMark': 'Aus dem Eingefügten ausgefüllt',
   'panel.inspector.cookies.edit.paste.filledSetCookie': 'Aus einem Set-Cookie-Header ausgefüllt',
   'panel.inspector.cookies.edit.paste.filledPair': 'Name und Value ausgefüllt',
   'panel.inspector.cookies.edit.paste.ignored': 'ignoriert: {list}',
   'panel.inspector.cookies.edit.paste.expired': 'bereits abgelaufen',
   'panel.inspector.cookies.edit.paste.undo': 'Rückgängig',
+  'panel.inspector.cookies.edit.paste.undoAll': 'Alles rückgängig',
+  'panel.inspector.cookies.edit.paste.undoField':
+    'Automatisch ersetzt. Auf Rückgängig klicken, um zu „{value}“ zurückzukehren.',
+  'panel.inspector.cookies.edit.paste.replaced': 'Automatisch ersetzt',
   'panel.inspector.cookies.edit.paste.several': 'Mehrere Cookies in diesem Text ({count}) — bitte einzeln einfügen.',
   'panel.inspector.cookies.edit.paste.unreadable': 'Aus diesem Text ließ sich kein Cookie lesen.',
   'panel.inspector.cookies.edit.paste.listed': 'Gelesene Cookies: {count}',
@@ -273,6 +278,14 @@ export const panelInspectorCookies = {
   'panel.inspector.cookies.fieldInfo.exampleCaption': 'Beispiel für Set-Cookie',
   'panel.inspector.cookies.fieldInfo.fieldKicker': 'Cookie-Feld',
   'panel.inspector.cookies.fieldInfo.flagKicker': 'Cookie-Flag',
+  'panel.inspector.cookies.fieldInfo.paste.title': 'Cookie einfügen',
+  'panel.inspector.cookies.fieldInfo.paste.summary':
+    'Einen kopierten Header einfügen, und das Formular füllt sich selbst aus. Bis zum Speichern erreicht nichts den Browser.',
+  'panel.inspector.cookies.fieldInfo.paste.heading': 'Was sich einfügen lässt',
+  'panel.inspector.cookies.fieldInfo.paste.setCookie': 'Ein Cookie mit seinen Attributen — füllt jedes Feld aus.',
+  'panel.inspector.cookies.fieldInfo.paste.cookie':
+    'Mehrere Namen und Werte — werden zu einer Checkliste, die zusammen gespeichert wird.',
+  'panel.inspector.cookies.fieldInfo.paste.pair': 'Ein Name und ein Wert — füllt nur Name und Value aus.',
   'panel.inspector.cookies.fieldInfo.templateNote':
     'Akzeptiert {{variable}}-Referenzen, einmal beim Speichern aufgelöst — das Glas speichert den aufgelösten Text.',
   'panel.inspector.cookies.fieldInfo.name.summary':

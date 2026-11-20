@@ -165,7 +165,7 @@ describe('Open in new tab link', () => {
 });
 
 describe('paste row (add mode)', () => {
-  const PASTE_LABEL = 'Paste a Set-Cookie or Cookie header to fill the form';
+  const PASTE_LABEL = 'Paste a cookie header';
 
   function renderAddPopover(onSubmit = vi.fn().mockResolvedValue(true)) {
     render(
@@ -237,7 +237,7 @@ describe('paste row (add mode)', () => {
     expect(screen.getByText('Filled Name and Value')).toBeTruthy();
   });
 
-  it('Undo restores the form as it stood before the paste', async () => {
+  it('Undo all restores the form as it stood before the paste', async () => {
     renderAddPopover();
     await screen.findByText('Add cookie');
     fireEvent.change(nameInput(), { target: { value: 'draft' } });
@@ -245,23 +245,96 @@ describe('paste row (add mode)', () => {
     paste('session=abc123; Path=/account; Secure');
     expect(nameInput().value).toBe('session');
 
-    fireEvent.click(screen.getByRole('button', { name: 'Undo' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Undo all' }));
     expect(nameInput().value).toBe('draft');
     expect(valueInput().value).toBe('');
     expect((screen.getByLabelText('/') as HTMLInputElement).value).toBe('/');
     expect(screen.queryByText('Filled from a Set-Cookie header')).toBeNull();
   });
 
-  it('the first edit after a paste accepts the fill — the status line and its Undo go', async () => {
+  it('Undo all keeps a field edited since the paste', async () => {
+    renderAddPopover();
+    await screen.findByText('Add cookie');
+    fireEvent.change(nameInput(), { target: { value: 'draft' } });
+
+    paste('session=abc123; Path=/account; Secure');
+    fireEvent.change(valueInput(), { target: { value: 'kept-by-hand' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Undo all' }));
+
+    expect(nameInput().value).toBe('draft');
+    expect(valueInput().value).toBe('kept-by-hand');
+    expect((screen.getByLabelText('/') as HTMLInputElement).value).toBe('/');
+  });
+
+  it('an edit accepts that one field — the rest of the fill, and its way back, stand', async () => {
     renderAddPopover();
     await screen.findByText('Add cookie');
 
     paste('session=abc123');
-    expect(screen.getByRole('button', { name: 'Undo' })).toBeTruthy();
-
     fireEvent.change(valueInput(), { target: { value: 'rotated' } });
-    expect(screen.queryByRole('button', { name: 'Undo' })).toBeNull();
-    expect(screen.queryByText('Filled Name and Value')).toBeNull();
+    expect(screen.getAllByLabelText('Filled from the paste')).toHaveLength(1);
+    expect(screen.getByText('Filled Name and Value')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Undo all' })).toBeTruthy();
+
+    fireEvent.change(nameInput(), { target: { value: 'renamed' } });
+    expect(screen.queryByLabelText('Filled from the paste')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Undo all' })).toBeNull();
+    expect(screen.getByText('Optional — fills the fields below')).toBeTruthy();
+  });
+
+  it('gives each field the paste overwrote its own way back, naming what it held', async () => {
+    renderAddPopover();
+    await screen.findByText('Add cookie');
+    fireEvent.change(nameInput(), { target: { value: 'draft' } });
+
+    paste('session=abc123; Path=/account; Secure');
+    // Value was blank — nothing to go back to, so it carries the plain mark.
+    expect(screen.getAllByText('Auto-replaced')).toHaveLength(3);
+    expect(screen.getAllByRole('button', { name: /^Auto-replaced\. Click undo to revert to/ })).toHaveLength(3);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Auto-replaced. Click undo to revert to “draft”.' }));
+    expect(nameInput().value).toBe('draft');
+    expect(valueInput().value).toBe('abc123');
+    expect((screen.getByLabelText('/') as HTMLInputElement).value).toBe('/account');
+    expect(screen.getByText('Filled from a Set-Cookie header')).toBeTruthy();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Auto-replaced. Click undo to revert to “/”.' }));
+    expect((screen.getByLabelText('/') as HTMLInputElement).value).toBe('/');
+    expect(screen.getByRole('button', { name: 'Auto-replaced. Click undo to revert to “Lax”.' })).toBeTruthy();
+  });
+
+  it('a flag takes its own value back without the press reaching the switch', async () => {
+    renderAddPopover();
+    await screen.findByText('Add cookie');
+
+    paste('session=abc123; HttpOnly');
+    expect(flag(/HttpOnly/)).toBe('true');
+    expect(flag(/Secure/)).toBe('false');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Auto-replaced. Click undo to revert to “Off”.' }));
+    expect(flag(/HttpOnly/)).toBe('false');
+    expect(flag(/Secure/)).toBe('false');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Auto-replaced. Click undo to revert to “On”.' }));
+    expect(flag(/Secure/)).toBe('true');
+  });
+
+  it('a second paste keeps the way back to the form as it was last left by hand', async () => {
+    renderAddPopover();
+    await screen.findByText('Add cookie');
+    fireEvent.change(nameInput(), { target: { value: 'draft' } });
+
+    paste('session=abc123; Path=/account; Secure');
+    paste('token=def456');
+    expect(nameInput().value).toBe('token');
+    expect(screen.getByText('Filled Name and Value')).toBeTruthy();
+    // The first paste's Path still stands, and still knows what it replaced.
+    expect(screen.getByRole('button', { name: 'Auto-replaced. Click undo to revert to “/”.' })).toBeTruthy();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Undo all' }));
+    expect(nameInput().value).toBe('draft');
+    expect(valueInput().value).toBe('');
+    expect((screen.getByLabelText('/') as HTMLInputElement).value).toBe('/');
   });
 
   it('names what a Set-Cookie line carried that the form ignores, and an expiry already past', async () => {
@@ -303,6 +376,43 @@ describe('paste row (add mode)', () => {
     expect(valueInput().value).toBe('abc123');
   });
 
+  it('says it is optional and what it does before anything is pasted', async () => {
+    renderAddPopover();
+    await screen.findByText('Add cookie');
+
+    expect(screen.getByText('Optional — fills the fields below')).toBeTruthy();
+    expect(screen.queryByLabelText('Filled from the paste')).toBeNull();
+  });
+
+  it('marks every field a Set-Cookie line filled — bar Domain when the line left it out', async () => {
+    renderAddPopover();
+    await screen.findByText('Add cookie');
+    const marks = () =>
+      screen.queryAllByLabelText('Filled from the paste').length +
+      screen.queryAllByRole('button', { name: /^Auto-replaced\. Click undo to revert to/ }).length;
+
+    paste('session=abc123; Path=/account; Secure');
+    // Name, Value, Path, Expires, SameSite, HttpOnly, Secure, Host-only.
+    expect(marks()).toBe(8);
+    expect(screen.queryByText('Optional — fills the fields below')).toBeNull();
+
+    paste('session=abc123; Domain=openheaders.io; Path=/account; Secure');
+    expect(marks()).toBe(9);
+  });
+
+  it('pasting the same text again leaves the standing fill as it is', async () => {
+    renderAddPopover();
+    await screen.findByText('Add cookie');
+    fireEvent.change(nameInput(), { target: { value: 'draft' } });
+
+    paste('session=abc123');
+    paste('session=abc123');
+
+    expect(screen.getByText('Filled Name and Value')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Auto-replaced. Click undo to revert to “draft”.' }));
+    expect(nameInput().value).toBe('draft');
+  });
+
   it('is absent in edit mode — an edit never renames by paste', async () => {
     renderEditPopover(bindingFor());
     await screen.findByText('Edit cookie');
@@ -311,7 +421,7 @@ describe('paste row (add mode)', () => {
 });
 
 describe('paste checklist (add mode, several cookies)', () => {
-  const PASTE_LABEL = 'Paste a Set-Cookie or Cookie header to fill the form';
+  const PASTE_LABEL = 'Paste a cookie header';
   type BatchSubmit = CookiePasteBatchHost['onSubmit'];
 
   const saveAll: BatchSubmit = async (edits) => edits.map((edit) => ({ cookie: makeJarCookie({ name: edit.name }) }));

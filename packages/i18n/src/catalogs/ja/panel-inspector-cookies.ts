@@ -221,12 +221,18 @@ export const panelInspectorCookies = {
   'panel.inspector.cookies.edit.field.hostOnly': 'Host-only',
   'panel.inspector.cookies.edit.namePlaceholder': 'Cookie 名',
   'panel.inspector.cookies.edit.valuePlaceholder': '値または {{variable}}',
-  'panel.inspector.cookies.edit.paste.placeholder': 'Set-Cookie または Cookie ヘッダーを貼り付けてフォームに入力',
+  'panel.inspector.cookies.edit.paste.placeholder': 'Cookie ヘッダーを貼り付け',
+  'panel.inspector.cookies.edit.paste.hint': '任意 — 下のフィールドを自動入力します',
+  'panel.inspector.cookies.edit.paste.filledMark': '貼り付けから入力',
   'panel.inspector.cookies.edit.paste.filledSetCookie': 'Set-Cookie ヘッダーから入力しました',
   'panel.inspector.cookies.edit.paste.filledPair': 'Name と Value を入力しました',
   'panel.inspector.cookies.edit.paste.ignored': '無視: {list}',
   'panel.inspector.cookies.edit.paste.expired': '期限切れ',
   'panel.inspector.cookies.edit.paste.undo': '元に戻す',
+  'panel.inspector.cookies.edit.paste.undoAll': 'すべて元に戻す',
+  'panel.inspector.cookies.edit.paste.undoField':
+    '自動で置き換えました。元に戻すをクリックすると「{value}」に戻ります。',
+  'panel.inspector.cookies.edit.paste.replaced': '自動で置き換え',
   'panel.inspector.cookies.edit.paste.several':
     'このテキストには複数の Cookie があります（{count}）— 1 つずつ貼り付けてください。',
   'panel.inspector.cookies.edit.paste.unreadable': 'このテキストから Cookie を読み取れませんでした。',
@@ -276,6 +282,13 @@ export const panelInspectorCookies = {
   'panel.inspector.cookies.fieldInfo.exampleCaption': 'Set-Cookie の例',
   'panel.inspector.cookies.fieldInfo.fieldKicker': 'Cookie フィールド',
   'panel.inspector.cookies.fieldInfo.flagKicker': 'Cookie フラグ',
+  'panel.inspector.cookies.fieldInfo.paste.title': 'Cookie を貼り付け',
+  'panel.inspector.cookies.fieldInfo.paste.summary':
+    'コピーしたヘッダーを貼り付けると、フォームが自動で入力されます。保存するまでブラウザーには何も書き込まれません。',
+  'panel.inspector.cookies.fieldInfo.paste.heading': '貼り付けられるもの',
+  'panel.inspector.cookies.fieldInfo.paste.setCookie': '属性付きの 1 つの Cookie — すべてのフィールドを入力します。',
+  'panel.inspector.cookies.fieldInfo.paste.cookie': '複数の名前と値 — まとめて保存するチェックリストになります。',
+  'panel.inspector.cookies.fieldInfo.paste.pair': '1 組の名前と値 — Name と Value だけを入力します。',
   'panel.inspector.cookies.fieldInfo.templateNote':
     '{{variable}} 参照を受け付け、保存時に 1 回だけ解決されます。ジャーには解決後のテキストが保存されます。',
   'panel.inspector.cookies.fieldInfo.name.summary':

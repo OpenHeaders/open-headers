@@ -510,8 +510,15 @@
   display: inline-flex;
 }
 .dt-cookie-edit-popover {
-  width: 380px;
+  /* 380px of form plus a 10px gutter pulled out over the popover's own
+   * right padding: when the form scrolls, the bar sits in that gutter at
+   * the popover's edge instead of over the fields' right ends. With
+   * nothing to scroll the form keeps its 380px and its even margins. */
+  box-sizing: border-box;
+  width: 390px;
   max-width: 80vw;
+  margin-right: -10px;
+  padding-right: 10px;
   /* maxHeight + inner scroll are applied inline from `usePopoverViewportFit`
    * so the form shrinks to the room around its trigger and scrolls inside,
    * staying anchored as it nears the footer (same as the toolbar menus). */
@@ -564,22 +571,87 @@
   font-size: 11px;
   color: var(--dt-text-muted);
 }
-/* Add mode's paste row — sits above the field grid; the status line
- * under it says what a paste filled (or why it couldn't) and carries
- * the Undo. */
+/* Add mode's paste row — a shortcut, not the form's first field: a
+ * dashed outline with the fill glyph, ruled off from the field grid.
+ * The caption under it is always there (optional + what it does, then
+ * what a paste filled with its Undo, or why it couldn't), so its line
+ * is reserved and nothing below shifts. */
 .dt-cookie-paste {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 3px;
   margin-bottom: 8px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--dt-border);
+}
+.dt-cookie-paste .dt-cookie-paste-input {
+  border-style: dashed;
+}
+.dt-cookie-paste-input .ant-input-prefix {
+  color: var(--dt-link);
 }
 .dt-cookie-paste-status {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
   gap: 8px;
+  min-height: 17px;
   font-size: 11px;
   color: var(--dt-text-muted);
+}
+.dt-cookie-paste-status--done .anticon-check {
+  margin-right: 4px;
+  color: var(--dt-status-green);
+}
+/* The same glyph on each field a paste filled — the label affix slot.
+ * Where the paste replaced a value the slot instead says so at the
+ * label's right edge, with that field's own rollback beside the words;
+ * the words give way (ellipsis) before the button does. */
+.dt-cookie-edit-filled-mark {
+  margin-left: 4px;
+  font-size: 10px;
+  color: var(--dt-link);
+}
+.dt-cookie-edit-label:has(.dt-cookie-edit-replaced) {
+  display: flex;
+  align-items: center;
+}
+.dt-cookie-edit-replaced {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  min-width: 0;
+  margin-left: auto;
+  padding-left: 8px;
+  font-size: 10px;
+  font-weight: 400;
+  color: var(--dt-status-orange);
+}
+/* A flag's label has no right edge to sit at — the note follows it. */
+.dt-cookie-edit-toggle .dt-cookie-edit-replaced {
+  margin-left: 4px;
+  padding-left: 0;
+  vertical-align: middle;
+}
+.dt-cookie-edit-replaced-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.dt-cookie-edit-fill-undo {
+  flex: none;
+  padding: 1px 2px;
+  border: 0;
+  border-radius: 3px;
+  font-size: 12px;
+  line-height: 1;
+  color: inherit;
+  background: none;
+  cursor: pointer;
+}
+.dt-cookie-edit-fill-undo:hover:not(:disabled),
+.dt-cookie-edit-fill-undo:focus-visible {
+  background: var(--dt-row-selected);
 }
 .dt-cookie-paste-status > span {
   min-width: 0;

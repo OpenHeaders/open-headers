@@ -214,13 +214,18 @@ export const panelInspectorCookies = {
   'panel.inspector.cookies.edit.field.hostOnly': 'Host-only',
   'panel.inspector.cookies.edit.namePlaceholder': 'nombre de la cookie',
   'panel.inspector.cookies.edit.valuePlaceholder': 'valor o {{variable}}',
-  'panel.inspector.cookies.edit.paste.placeholder':
-    'Pegar un encabezado Set-Cookie o Cookie para rellenar el formulario',
+  'panel.inspector.cookies.edit.paste.placeholder': 'Pegar un encabezado de cookie',
+  'panel.inspector.cookies.edit.paste.hint': 'Opcional — rellena los campos de abajo',
+  'panel.inspector.cookies.edit.paste.filledMark': 'Rellenado desde lo pegado',
   'panel.inspector.cookies.edit.paste.filledSetCookie': 'Rellenado desde un encabezado Set-Cookie',
   'panel.inspector.cookies.edit.paste.filledPair': 'Name y Value rellenados',
   'panel.inspector.cookies.edit.paste.ignored': 'ignorado: {list}',
   'panel.inspector.cookies.edit.paste.expired': 'ya caducada',
   'panel.inspector.cookies.edit.paste.undo': 'Deshacer',
+  'panel.inspector.cookies.edit.paste.undoAll': 'Deshacer todo',
+  'panel.inspector.cookies.edit.paste.undoField':
+    'Reemplazado automáticamente. Clic en deshacer para volver a «{value}».',
+  'panel.inspector.cookies.edit.paste.replaced': 'Reemplazado automáticamente',
   'panel.inspector.cookies.edit.paste.several': 'Varias cookies en este texto ({count}) — pegar de una en una.',
   'panel.inspector.cookies.edit.paste.unreadable': 'No se pudo leer ninguna cookie de este texto.',
   'panel.inspector.cookies.edit.paste.listed': 'Cookies leídas: {count}',
@@ -262,6 +267,14 @@ export const panelInspectorCookies = {
   'panel.inspector.cookies.fieldInfo.exampleCaption': 'Ejemplo de Set-Cookie',
   'panel.inspector.cookies.fieldInfo.fieldKicker': 'Campo de Cookie',
   'panel.inspector.cookies.fieldInfo.flagKicker': 'Indicador de Cookie',
+  'panel.inspector.cookies.fieldInfo.paste.title': 'Pegar una cookie',
+  'panel.inspector.cookies.fieldInfo.paste.summary':
+    'Al pegar un encabezado copiado, el formulario se rellena solo. Nada llega al navegador hasta Guardar.',
+  'panel.inspector.cookies.fieldInfo.paste.heading': 'Qué se puede pegar',
+  'panel.inspector.cookies.fieldInfo.paste.setCookie': 'Una cookie con sus atributos — rellena todos los campos.',
+  'panel.inspector.cookies.fieldInfo.paste.cookie':
+    'Varios nombres y valores — se convierten en una lista que se guarda de una vez.',
+  'panel.inspector.cookies.fieldInfo.paste.pair': 'Un nombre y un valor — rellena solo Name y Value.',
   'panel.inspector.cookies.fieldInfo.templateNote':
     'Acepta referencias {{variable}}, resueltas una vez al guardar — el tarro almacena el texto resuelto.',
   'panel.inspector.cookies.fieldInfo.name.summary':

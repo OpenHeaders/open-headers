@@ -211,12 +211,18 @@ export const panelInspectorCookies = {
   'panel.inspector.cookies.edit.field.hostOnly': 'Host-only',
   'panel.inspector.cookies.edit.namePlaceholder': 'nom du cookie',
   'panel.inspector.cookies.edit.valuePlaceholder': 'valeur ou {{variable}}',
-  'panel.inspector.cookies.edit.paste.placeholder': 'Coller un en-tête Set-Cookie ou Cookie pour remplir le formulaire',
+  'panel.inspector.cookies.edit.paste.placeholder': 'Coller un en-tête de cookie',
+  'panel.inspector.cookies.edit.paste.hint': 'Facultatif — remplit les champs ci-dessous',
+  'panel.inspector.cookies.edit.paste.filledMark': 'Rempli depuis le collage',
   'panel.inspector.cookies.edit.paste.filledSetCookie': 'Rempli depuis un en-tête Set-Cookie',
   'panel.inspector.cookies.edit.paste.filledPair': 'Name et Value remplis',
   'panel.inspector.cookies.edit.paste.ignored': 'ignoré : {list}',
   'panel.inspector.cookies.edit.paste.expired': 'déjà expiré',
   'panel.inspector.cookies.edit.paste.undo': 'Annuler',
+  'panel.inspector.cookies.edit.paste.undoAll': 'Tout annuler',
+  'panel.inspector.cookies.edit.paste.undoField':
+    'Remplacé automatiquement. Cliquez sur annuler pour revenir à « {value} ».',
+  'panel.inspector.cookies.edit.paste.replaced': 'Remplacé automatiquement',
   'panel.inspector.cookies.edit.paste.several': 'Plusieurs cookies dans ce texte ({count}) — les coller un par un.',
   'panel.inspector.cookies.edit.paste.unreadable': "Aucun cookie n'a pu être lu dans ce texte.",
   'panel.inspector.cookies.edit.paste.listed': 'Cookies lus : {count}',
@@ -258,6 +264,14 @@ export const panelInspectorCookies = {
   'panel.inspector.cookies.fieldInfo.exampleCaption': 'Exemple de Set-Cookie',
   'panel.inspector.cookies.fieldInfo.fieldKicker': 'Champ de Cookie',
   'panel.inspector.cookies.fieldInfo.flagKicker': 'Drapeau de Cookie',
+  'panel.inspector.cookies.fieldInfo.paste.title': 'Coller un cookie',
+  'panel.inspector.cookies.fieldInfo.paste.summary':
+    "Collez un en-tête copié et le formulaire se remplit tout seul. Rien n'atteint le navigateur avant Enregistrer.",
+  'panel.inspector.cookies.fieldInfo.paste.heading': 'Ce que vous pouvez coller',
+  'panel.inspector.cookies.fieldInfo.paste.setCookie': 'Un cookie avec ses attributs — remplit tous les champs.',
+  'panel.inspector.cookies.fieldInfo.paste.cookie':
+    'Plusieurs noms et valeurs — deviennent une liste enregistrée en une fois.',
+  'panel.inspector.cookies.fieldInfo.paste.pair': 'Un nom et une valeur — remplit seulement Name et Value.',
   'panel.inspector.cookies.fieldInfo.templateNote':
     "Accepte les références {{variable}}, résolues une fois à l'enregistrement — la réserve stocke le texte " +
     'résolu.',

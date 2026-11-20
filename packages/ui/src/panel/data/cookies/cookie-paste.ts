@@ -14,7 +14,16 @@
  * Values pass through verbatim: no percent-decoding, quotes kept.
  */
 
-import { type CookieEditFormValues, jarCookieToEditForm, normalizeSameSite, predictedJarKey } from './cookie-edit';
+import {
+  applyConflictFieldFromCanonical,
+  COOKIE_CONFLICT_FIELDS,
+  type CookieConflictField,
+  type CookieEditFormValues,
+  jarCookieToEditForm,
+  mergeEditFormWithCanonical,
+  normalizeSameSite,
+  predictedJarKey,
+} from './cookie-edit';
 import { parseSetCookieLine } from './cookie-enrich';
 import type { SiteJarCookie } from './cookie-jar-cache';
 import type { CookieRow } from './cookie-model';
@@ -136,6 +145,112 @@ export function applyPastedCookie(form: CookieEditFormValues, pasted: PastedCook
   if (stated.expirationDate === undefined) delete next.expirationDate;
   else next.expirationDate = stated.expirationDate;
   return next;
+}
+
+/** One paste's fill of the form — everything the form shows about it. */
+export interface CookiePasteFill {
+  /** The form as it stood — what Undo restores. */
+  before: CookieEditFormValues;
+  after: CookieEditFormValues;
+  /** The fields the paste decided, which the form marks as filled: Name
+   *  and Value for a bare pair, every field for a `Set-Cookie` line —
+   *  bar Domain where the line left it out (the form's host stands). */
+  fields: readonly CookieConflictField[];
+  fromSetCookie: boolean;
+  ignored: readonly string[];
+  /** The filled expiry is already past — the browser drops it on arrival. */
+  expired: boolean;
+}
+
+export function fillFromPaste(
+  form: CookieEditFormValues,
+  pasted: PastedCookie,
+  now: number = Date.now(),
+): CookiePasteFill {
+  const after = applyPastedCookie(form, pasted);
+  const fromSetCookie = pasted.stated !== undefined;
+  return {
+    before: form,
+    after,
+    fields: fromSetCookie
+      ? COOKIE_CONFLICT_FIELDS.filter((field) => field !== 'domain' || !after.hostOnly)
+      : ['name', 'value'],
+    fromSetCookie,
+    ignored: pasted.ignored,
+    expired: isEditFormExpired(after, now),
+  };
+}
+
+function sameField(a: CookieEditFormValues, b: CookieEditFormValues, field: CookieConflictField): boolean {
+  if (field !== 'expires') return a[field] === b[field];
+  return a.session === b.session && (a.session || a.expirationDate === b.expirationDate);
+}
+
+/** Whether the form held something at this field worth offering back —
+ *  a blank text field has nothing to return to. */
+function hadValue(form: CookieEditFormValues, field: CookieConflictField): boolean {
+  return field === 'name' || field === 'value' || field === 'domain' || field === 'path' ? form[field] !== '' : true;
+}
+
+export interface CookiePasteFillState {
+  /** Fields still holding exactly what the paste put there. */
+  held: readonly CookieConflictField[];
+  /** Held fields where the paste replaced a value — each can be taken
+   *  back on its own. */
+  restorable: readonly CookieConflictField[];
+  /** Something the paste changed is still in the form. Once every such
+   *  field was edited or taken back, the fill is over. */
+  live: boolean;
+}
+
+/**
+ * Where a fill stands against the form as it is NOW. A paste replaces
+ * everything it states, but the user may want only part of it: each
+ * field is tracked on its own, so editing or undoing one leaves the
+ * others — and their way back — standing.
+ */
+export function pasteFillState(fill: CookiePasteFill, form: CookieEditFormValues): CookiePasteFillState {
+  const changed = (field: CookieConflictField) => !sameField(fill.before, fill.after, field);
+  const held = fill.fields.filter((field) => sameField(form, fill.after, field));
+  return {
+    held,
+    restorable: held.filter((field) => changed(field) && hadValue(fill.before, field)),
+    live: held.some(changed),
+  };
+}
+
+/** Whether the paste left the form exactly as it was. */
+export function fillChangedNothing(fill: CookiePasteFill): boolean {
+  return fill.fields.every((field) => sameField(fill.before, fill.after, field));
+}
+
+/** One field back to what it held before the paste. */
+export function undoFillField(
+  form: CookieEditFormValues,
+  fill: CookiePasteFill,
+  field: CookieConflictField,
+): CookieEditFormValues {
+  return applyConflictFieldFromCanonical(form, field, fill.before);
+}
+
+/** Every field still holding the pasted value back to what it held
+ *  before — a field edited since the paste keeps the edit. */
+export function undoFill(form: CookieEditFormValues, fill: CookiePasteFill): CookieEditFormValues {
+  return mergeEditFormWithCanonical(fill.after, form, fill.before);
+}
+
+/**
+ * A paste landing on a fill that still stands. The way back stays the
+ * form as it was last left BY HAND — not the earlier paste's result —
+ * and the fields that earlier paste still holds keep their marks.
+ */
+export function stackPasteFill(next: CookiePasteFill, standing: CookiePasteFill): CookiePasteFill {
+  const { held } = pasteFillState(standing, next.before);
+  return {
+    ...next,
+    before: undoFill(next.before, standing),
+    fields: COOKIE_CONFLICT_FIELDS.filter((field) => next.fields.includes(field) || held.includes(field)),
+  };
 }
 
 export interface PastePlanRow {

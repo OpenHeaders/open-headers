@@ -2,9 +2,15 @@ import { type CookieEditFormValues, emptyEditForm } from '@openheaders/ui/panel/
 import type { SiteJarCookie } from '@openheaders/ui/panel/data/cookies/cookie-jar-cache';
 import {
   applyPastedCookie,
+  fillChangedNothing,
+  fillFromPaste,
   isEditFormExpired,
+  pasteFillState,
   planPastedCookies,
   readCookiePaste,
+  stackPasteFill,
+  undoFill,
+  undoFillField,
 } from '@openheaders/ui/panel/data/cookies/cookie-paste';
 import { describe, expect, it } from 'vitest';
 
@@ -275,5 +281,106 @@ describe('planPastedCookies', () => {
     expect(session.replaces).toBe(true);
     expect(theme.form).toMatchObject({ domain: 'app.openheaders.io', hostOnly: true, path: '/account' });
     expect(theme.replaces).toBe(false);
+  });
+});
+
+describe('fillFromPaste', () => {
+  it('keeps the form as it stood, and names Name and Value as what a pair decided', () => {
+    const form = blankForm({ name: 'draft' });
+    const fill = fillFromPaste(form, readOne('session=abc123'), NOW);
+    expect(fill.before).toBe(form);
+    expect(fill.after).toEqual({ ...form, name: 'session', value: 'abc123' });
+    expect(fill.fields).toEqual(['name', 'value']);
+    expect(fill.fromSetCookie).toBe(false);
+  });
+
+  it('names every field for a Set-Cookie line that states a Domain', () => {
+    const fill = fillFromPaste(blankForm(), readOne('session=abc123; Domain=openheaders.io; Secure'), NOW);
+    expect(fill.fields).toEqual([
+      'name',
+      'value',
+      'domain',
+      'path',
+      'expires',
+      'sameSite',
+      'httpOnly',
+      'secure',
+      'hostOnly',
+    ]);
+    expect(fill.fromSetCookie).toBe(true);
+  });
+
+  it('leaves Domain out when the line did — the host the form named still stands', () => {
+    const fill = fillFromPaste(blankForm(), readOne('session=abc123; Path=/; Secure'), NOW);
+    expect(fill.fields).not.toContain('domain');
+    expect(fill.fields).toContain('hostOnly');
+  });
+
+  it('carries what the line left unapplied and whether its expiry is already past', () => {
+    const fill = fillFromPaste(blankForm(), readOne('session=abc123; Max-Age=0; Priority=High'), NOW);
+    expect(fill.ignored).toEqual(['Priority=High']);
+    expect(fill.expired).toBe(true);
+  });
+});
+
+describe('a fill, field by field', () => {
+  const hand = () => blankForm({ name: 'draft', path: '/api', sameSite: 'strict' });
+  const pasted = () => fillFromPaste(hand(), readOne('session=abc123; Path=/account; Secure'), NOW);
+
+  it('holds every field it decided until that field is edited', () => {
+    const fill = pasted();
+    expect(pasteFillState(fill, fill.after).held).toEqual(fill.fields);
+    const edited = { ...fill.after, value: 'rotated' };
+    expect(pasteFillState(fill, edited).held).not.toContain('value');
+    expect(pasteFillState(fill, edited).live).toBe(true);
+  });
+
+  it('offers back only what it replaced — a blank text field has nothing to return to', () => {
+    const fill = pasted();
+    // name 'draft' → 'session', path '/api' → '/account', sameSite strict → unspecified.
+    expect(pasteFillState(fill, fill.after).restorable).toEqual(['name', 'path', 'sameSite']);
+  });
+
+  it('is over once nothing it changed is left in the form', () => {
+    const fill = pasted();
+    const moved = { ...fill.after, name: 'renamed', value: 'rotated', path: '/', sameSite: 'lax' as const };
+    expect(pasteFillState(fill, moved).live).toBe(false);
+  });
+
+  it('takes one field back and leaves the others', () => {
+    const fill = pasted();
+    expect(undoFillField(fill.after, fill, 'path')).toEqual({ ...fill.after, path: '/api' });
+  });
+
+  it('takes an expiry back as one thing — the date and the session switch together', () => {
+    const dated = blankForm({ session: false, expirationDate: NOW_SEC + 60 });
+    const fill = fillFromPaste(dated, readOne('session=abc123; Path=/'), NOW);
+    expect(fill.after.session).toBe(true);
+    const back = undoFillField(fill.after, fill, 'expires');
+    expect(back.session).toBe(false);
+    expect(back.expirationDate).toBe(NOW_SEC + 60);
+  });
+
+  it('takes everything still held back, keeping a field edited since', () => {
+    const fill = pasted();
+    const edited = { ...fill.after, value: 'kept-by-hand' };
+    expect(undoFill(edited, fill)).toEqual({ ...hand(), value: 'kept-by-hand' });
+  });
+
+  it('knows a paste that changed nothing', () => {
+    const fill = pasted();
+    expect(fillChangedNothing(fill)).toBe(false);
+    expect(fillChangedNothing(fillFromPaste(fill.after, readOne('session=abc123; Path=/account; Secure'), NOW))).toBe(
+      true,
+    );
+  });
+
+  it('a paste on a standing fill keeps the hand-left form as the way back, and the earlier marks', () => {
+    const first = pasted();
+    const second = stackPasteFill(fillFromPaste(first.after, readOne('token=def456'), NOW), first);
+    expect(second.before).toEqual(hand());
+    expect(second.after).toMatchObject({ name: 'token', value: 'def456', path: '/account' });
+    expect(second.fields).toEqual(first.fields);
+    expect(pasteFillState(second, second.after).restorable).toEqual(['name', 'path', 'sameSite']);
   });
 });

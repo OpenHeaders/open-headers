@@ -209,12 +209,18 @@ export const panelInspectorCookies = {
   'panel.inspector.cookies.edit.field.hostOnly': 'Host-only',
   'panel.inspector.cookies.edit.namePlaceholder': 'имя cookie',
   'panel.inspector.cookies.edit.valuePlaceholder': 'значение или {{variable}}',
-  'panel.inspector.cookies.edit.paste.placeholder': 'Вставьте заголовок Set-Cookie или Cookie, чтобы заполнить форму',
+  'panel.inspector.cookies.edit.paste.placeholder': 'Вставьте заголовок cookie',
+  'panel.inspector.cookies.edit.paste.hint': 'Необязательно — заполняет поля ниже',
+  'panel.inspector.cookies.edit.paste.filledMark': 'Заполнено из вставки',
   'panel.inspector.cookies.edit.paste.filledSetCookie': 'Заполнено из заголовка Set-Cookie',
   'panel.inspector.cookies.edit.paste.filledPair': 'Заполнены Name и Value',
   'panel.inspector.cookies.edit.paste.ignored': 'пропущено: {list}',
   'panel.inspector.cookies.edit.paste.expired': 'срок уже истёк',
   'panel.inspector.cookies.edit.paste.undo': 'Отменить',
+  'panel.inspector.cookies.edit.paste.undoAll': 'Отменить всё',
+  'panel.inspector.cookies.edit.paste.undoField':
+    'Заменено автоматически. Нажмите «Отменить», чтобы вернуть «{value}».',
+  'panel.inspector.cookies.edit.paste.replaced': 'Заменено автоматически',
   'panel.inspector.cookies.edit.paste.several': 'В этом тексте несколько cookie ({count}) — вставляйте по одному.',
   'panel.inspector.cookies.edit.paste.unreadable': 'Из этого текста не удалось прочитать cookie.',
   'panel.inspector.cookies.edit.paste.listed': 'Прочитано cookie: {count}',
@@ -255,6 +261,14 @@ export const panelInspectorCookies = {
   'panel.inspector.cookies.fieldInfo.exampleCaption': 'Пример Set-Cookie',
   'panel.inspector.cookies.fieldInfo.fieldKicker': 'Поле Cookie',
   'panel.inspector.cookies.fieldInfo.flagKicker': 'Флаг Cookie',
+  'panel.inspector.cookies.fieldInfo.paste.title': 'Вставка cookie',
+  'panel.inspector.cookies.fieldInfo.paste.summary':
+    'Вставьте скопированный заголовок, и форма заполнится сама. До сохранения в браузер ничего не попадает.',
+  'panel.inspector.cookies.fieldInfo.paste.heading': 'Что можно вставить',
+  'panel.inspector.cookies.fieldInfo.paste.setCookie': 'Один cookie с атрибутами — заполняет все поля.',
+  'panel.inspector.cookies.fieldInfo.paste.cookie':
+    'Несколько имён и значений — становятся списком, который сохраняется разом.',
+  'panel.inspector.cookies.fieldInfo.paste.pair': 'Одно имя и значение — заполняет только Name и Value.',
   'panel.inspector.cookies.fieldInfo.templateNote':
     'Принимает ссылки {{variable}}, разрешаемые один раз при сохранении — хранилище сохраняет разрешённый текст.',
   'panel.inspector.cookies.fieldInfo.name.summary':

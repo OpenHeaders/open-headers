@@ -31,10 +31,11 @@
  * batch, on hosts that pass `batch` (see {@link useCookiePasteBatch}).
  */
 
-import { SaveOutlined } from '@ant-design/icons';
+import { SaveOutlined, ThunderboltOutlined } from '@ant-design/icons';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { useUiTheme } from '@openheaders/ui/context/ui-theme';
 import { ShortcutHintTitle } from '@openheaders/ui/components/ShortcutKbd';
+import { RollbackIcon } from '@openheaders/ui/shared/icons';
 import { useSaveShortcut } from '@openheaders/ui/shared/hooks/dom/useSaveShortcut';
 import { useInfoPopoverContainer } from '@openheaders/ui/shared/info-popover';
 import { Button, Popover, Tooltip } from 'antd';
@@ -42,7 +43,9 @@ import type { TooltipRef } from 'antd/es/tooltip';
 import { type ReactNode, useCallback, useEffect, useRef, useState } from 'react';
 import { usePopoverViewportFit } from '@openheaders/ui/shared/popover';
 import {
+  type CookieConflictField,
   type CookieEditFormValues,
+  editFormConflictProjection,
   editFormConstraintError,
   editFormsEqual,
   formToEdit,
@@ -58,6 +61,14 @@ import {
   type JarCookieKey,
   subscribeCookieJar,
 } from '../../../data/cookies/cookie-jar-cache';
+import {
+  type CookiePasteFill,
+  fillChangedNothing,
+  pasteFillState,
+  stackPasteFill,
+  undoFill,
+  undoFillField,
+} from '../../../data/cookies/cookie-paste';
 import { useDocumentSync } from '../../../data/storage/use-document-sync';
 import { CookieEditFields, useCookieFieldResolution } from './CookieEditFields';
 import { CookiePasteField } from './CookiePasteField';
@@ -201,6 +212,54 @@ function CookieEditFormBody({
     disabled: busy,
   });
   const listing = pasteBatch.total !== null;
+
+  // The last single-cookie paste, tracked FIELD BY FIELD against the
+  // form as it is now: a paste replaces everything it states, but the
+  // user may want only part of it. A field still holding the pasted
+  // value carries a mark — and, where the paste replaced something, says
+  // so at the right of its label with its own way back; editing or
+  // undoing one field leaves the rest standing.
+  const [pasteFill, setPasteFill] = useState<CookiePasteFill | null>(null);
+  const fillNow = pasteFill !== null && !listing ? pasteFillState(pasteFill, values) : null;
+  const activeFill = fillNow?.live ? pasteFill : null;
+  const filledAffixes: Partial<Record<CookieConflictField, ReactNode>> = {};
+  if (activeFill !== null && fillNow !== null) {
+    const filledLabel = t('panel.inspector.cookies.edit.paste.filledMark');
+    const replacedText = t('panel.inspector.cookies.edit.paste.replaced');
+    const replaced = editFormConflictProjection(t, activeFill.before);
+    for (const field of fillNow.held) {
+      if (!fillNow.restorable.includes(field)) {
+        filledAffixes[field] = (
+          <ThunderboltOutlined className="dt-cookie-edit-filled-mark" title={filledLabel} aria-label={filledLabel} />
+        );
+        continue;
+      }
+      const was = replaced[field];
+      const undoLabel = t('panel.inspector.cookies.edit.paste.undoField', {
+        value: was.length > 60 ? `${was.slice(0, 60)}…` : was,
+      });
+      filledAffixes[field] = (
+        // Inside a toggle's <label>: a press here must not reach the switch.
+        // biome-ignore lint/a11y/noStaticElementInteractions: swallows the label's activation, the button is the control
+        <span className="dt-cookie-edit-replaced" title={undoLabel} onClick={(e) => e.preventDefault()}>
+          <span className="dt-cookie-edit-replaced-text">{replacedText}</span>
+          <button
+            type="button"
+            className="dt-cookie-edit-fill-undo"
+            aria-label={undoLabel}
+            disabled={busy}
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              setValues(undoFillField(values, activeFill, field));
+            }}
+          >
+            <RollbackIcon />
+          </button>
+        </span>
+      );
+    }
+  }
   const canSave = listing
     ? pasteBatch.savable > 0 && !fields.domain.unresolved && !fields.path.unresolved
     : canSaveOne;
@@ -241,7 +300,18 @@ function CookieEditFormBody({
       {mode === 'add' && (
         <CookiePasteField
           values={values}
-          onFill={setValues}
+          fill={activeFill}
+          onFill={(fill) => {
+            // The same text pasted again changes nothing — the standing
+            // fill (and its way back) stays as it is.
+            if (fillChangedNothing(fill) && activeFill !== null) return;
+            setValues(fill.after);
+            setPasteFill(activeFill !== null ? stackPasteFill(fill, activeFill) : fill);
+          }}
+          onUndo={() => {
+            if (activeFill !== null) setValues(undoFill(values, activeFill));
+            setPasteFill(null);
+          }}
           disabled={busy}
           listed={pasteBatch.total}
           onList={batch !== undefined ? pasteBatch.list : undefined}
@@ -253,7 +323,7 @@ function CookieEditFormBody({
         fields={fields}
         set={set}
         busy={busy}
-        affixes={conflictTier.affixes}
+        affixes={mode === 'add' ? filledAffixes : conflictTier.affixes}
         omitIdentity={listing}
       />
       {!listing && constraintError !== null && <div className="dt-cookie-edit-note">{constraintError}</div>}
