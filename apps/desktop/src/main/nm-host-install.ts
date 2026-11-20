@@ -43,20 +43,6 @@ import * as path from 'node:path';
 /** The name extensions call `chrome.runtime.sendNativeMessage` with. */
 export const NM_HOST_NAME = 'io.openheaders.nm_bootstrap';
 
-/**
- * Whether a packaged Windows build carries an Authenticode signature on
- * its shipped binaries, the NM host included. Channel-derived from the
- * build's own version: stable release trains sign the Windows
- * artifacts, while beta builds ship unsigned by design — the tag's
- * `-beta.N` suffix is the build-channel marker. A source-built package
- * carries a stable-shaped version with no signature, so host
- * verification refuses and the extension falls back to the device-flow
- * pairing gesture: an unsigned host never anchors identity.
- */
-export function windowsHostBinarySigned(appVersion: string): boolean {
-  return !/-beta\.\d+$/.test(appVersion);
-}
-
 export interface NmHostBinaryFacts {
   /** `app.isPackaged` — extraResource vs monorepo sibling. */
   isPackaged: boolean;

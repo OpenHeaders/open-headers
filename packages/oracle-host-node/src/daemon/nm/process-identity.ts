@@ -94,8 +94,8 @@ export interface VerifyNmCallerOptions {
   readonly expectedHostPath: string;
   /**
    * Require a valid code signature on the NM host binary itself.
-   * Signed distributions pass true; unsigned artifacts (dev builds,
-   * unsigned beta channels) rely on the path check alone.
+   * Signed distributions pass true; unsigned artifacts (dev builds)
+   * rely on the path check alone.
    */
   readonly requireHostSignature: boolean;
   /** This daemon process's own pid — its mirror socket rows are skipped. */

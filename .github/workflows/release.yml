@@ -324,8 +324,10 @@ jobs:
           AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
           AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
 
+      # No signing credentials: one unsigned pass (betas still skip the
+      # MSI).
       - name: Build Windows
-        if: matrix.os == 'windows-2022' && (steps.detect_beta.outputs.is_beta == 'true' || steps.win_sign.outputs.enabled != 'true')
+        if: matrix.os == 'windows-2022' && steps.win_sign.outputs.enabled != 'true'
         working-directory: apps/desktop
         shell: bash
         run: |
@@ -335,19 +337,21 @@ jobs:
             pnpm dist:win:unsigned
           fi
 
-      # Signed stable lane: the installed binaries need Authenticode
-      # too — the NM chain's host verification anchors on the signed
-      # `oh-nm-host.exe`, and enterprise allow-listing wants a signed
-      # `OpenHeaders.exe`. Build unpacked first, sign the two inner
+      # Signed lane, stable and beta alike: the installed binaries need
+      # Authenticode too — the NM chain's host verification anchors on
+      # the signed `oh-nm-host.exe`, and enterprise allow-listing wants
+      # a signed `OpenHeaders.exe`. Build unpacked first, sign the inner
       # executables, then package the installers from the signed tree.
+      # A beta is signed the same way so a stable install, whose
+      # updater checks the signer, accepts it on a channel switch.
       - name: Build Windows unpacked (signed lane)
-        if: matrix.os == 'windows-2022' && steps.detect_beta.outputs.is_beta != 'true' && steps.win_sign.outputs.enabled == 'true'
+        if: matrix.os == 'windows-2022' && steps.win_sign.outputs.enabled == 'true'
         working-directory: apps/desktop
         shell: bash
         run: pnpm dist:win:unsigned:dir
 
       - name: Sign app executable
-        if: matrix.os == 'windows-2022' && steps.detect_beta.outputs.is_beta != 'true' && steps.win_sign.outputs.enabled == 'true'
+        if: matrix.os == 'windows-2022' && steps.win_sign.outputs.enabled == 'true'
         uses: azure/artifact-signing-action@c7ab2a863ab5f9a846ddb8265964877ef296ee82 # v2.0.0
         with:
           azure-tenant-id: ${{ secrets.AZURE_TENANT_ID }}
@@ -362,7 +366,7 @@ jobs:
           timestamp-digest: SHA256
 
       - name: Sign NM host executable
-        if: matrix.os == 'windows-2022' && steps.detect_beta.outputs.is_beta != 'true' && steps.win_sign.outputs.enabled == 'true'
+        if: matrix.os == 'windows-2022' && steps.win_sign.outputs.enabled == 'true'
         uses: azure/artifact-signing-action@c7ab2a863ab5f9a846ddb8265964877ef296ee82 # v2.0.0
         with:
           azure-tenant-id: ${{ secrets.AZURE_TENANT_ID }}
@@ -380,7 +384,7 @@ jobs:
       # enterprise allow-listing want it Authenticode-signed like the
       # other inner binaries.
       - name: Sign HTTP/3 helper executable
-        if: matrix.os == 'windows-2022' && steps.detect_beta.outputs.is_beta != 'true' && steps.win_sign.outputs.enabled == 'true'
+        if: matrix.os == 'windows-2022' && steps.win_sign.outputs.enabled == 'true'
         uses: azure/artifact-signing-action@c7ab2a863ab5f9a846ddb8265964877ef296ee82 # v2.0.0
         with:
           azure-tenant-id: ${{ secrets.AZURE_TENANT_ID }}
@@ -395,7 +399,7 @@ jobs:
           timestamp-digest: SHA256
 
       - name: Verify inner executable signatures
-        if: matrix.os == 'windows-2022' && steps.detect_beta.outputs.is_beta != 'true' && steps.win_sign.outputs.enabled == 'true'
+        if: matrix.os == 'windows-2022' && steps.win_sign.outputs.enabled == 'true'
         run: |
           foreach ($f in @(
             "apps/desktop/dist/win-unpacked/OpenHeaders.exe",
@@ -412,13 +416,18 @@ jobs:
         shell: pwsh
 
       - name: Package installers from signed tree
-        if: matrix.os == 'windows-2022' && steps.detect_beta.outputs.is_beta != 'true' && steps.win_sign.outputs.enabled == 'true'
+        if: matrix.os == 'windows-2022' && steps.win_sign.outputs.enabled == 'true'
         working-directory: apps/desktop
         shell: bash
-        run: pnpm dist:win:frompacked
+        run: |
+          if [ "${{ steps.detect_beta.outputs.is_beta }}" == "true" ]; then
+            pnpm dist:win:frompacked:beta
+          else
+            pnpm dist:win:frompacked
+          fi
 
       - name: Find Windows Executable
-        if: matrix.os == 'windows-2022' && steps.detect_beta.outputs.is_beta != 'true' && steps.win_sign.outputs.enabled == 'true'
+        if: matrix.os == 'windows-2022' && steps.win_sign.outputs.enabled == 'true'
         id: find-exe
         run: |
           $exeFile = Get-ChildItem -Path "apps/desktop/dist" -Filter "*-Setup.exe" -File | Select-Object -First 1
@@ -428,7 +437,7 @@ jobs:
         shell: pwsh
 
       - name: Sign Windows Executables
-        if: matrix.os == 'windows-2022' && steps.detect_beta.outputs.is_beta != 'true' && steps.win_sign.outputs.enabled == 'true'
+        if: matrix.os == 'windows-2022' && steps.win_sign.outputs.enabled == 'true'
         uses: azure/artifact-signing-action@c7ab2a863ab5f9a846ddb8265964877ef296ee82 # v2.0.0
         with:
           azure-tenant-id: ${{ secrets.AZURE_TENANT_ID }}
@@ -442,12 +451,17 @@ jobs:
           timestamp-rfc3161: http://timestamp.acs.microsoft.com
           timestamp-digest: SHA256
 
+      # The pointer is `latest.yml` on a stable version and `beta.yml`
+      # on a beta one (the builder names it after the version's
+      # channel).
       - name: Update latest.yml and blockmap after signing
-        if: matrix.os == 'windows-2022' && steps.detect_beta.outputs.is_beta != 'true' && steps.win_sign.outputs.enabled == 'true'
+        if: matrix.os == 'windows-2022' && steps.win_sign.outputs.enabled == 'true'
         run: |
           $exePath = "apps/desktop/dist/${{ steps.find-exe.outputs.EXE_FILENAME }}"
           $blockmapPath = "$exePath.blockmap"
-          $latestYmlPath = "apps/desktop/dist/latest.yml"
+          $pointer = Get-ChildItem -Path "apps/desktop/dist" -File | Where-Object { $_.Name -match '^(latest|beta)\.yml$' }
+          if (@($pointer).Count -ne 1) { Write-Error "Expected one update pointer, found: $($pointer.Name -join ', ')"; exit 1 }
+          $latestYmlPath = $pointer.FullName
 
           $appBuilder = "apps/desktop/node_modules\app-builder-bin\win\x64\app-builder.exe"
           if (-not (Test-Path $appBuilder)) {
@@ -476,7 +490,7 @@ jobs:
       # broken-signed Setup.exe whose hash the feed pointer carries is
       # worse than publishing unsigned.
       - name: Verify Authenticode signature
-        if: matrix.os == 'windows-2022' && steps.detect_beta.outputs.is_beta != 'true' && steps.win_sign.outputs.enabled == 'true'
+        if: matrix.os == 'windows-2022' && steps.win_sign.outputs.enabled == 'true'
         run: |
           $sig = Get-AuthenticodeSignature "apps/desktop/dist/${{ steps.find-exe.outputs.EXE_FILENAME }}"
           $sig | Format-List Status, StatusMessage

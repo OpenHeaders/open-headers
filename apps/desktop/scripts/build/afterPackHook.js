@@ -105,11 +105,12 @@ function embedH3Helper(context) {
     console.log(`✓ HTTP/3 helper embedded (${osName}-${archName})`);
 }
 
-// Lanes whose Setup.exe ships unsigned (betas, local unsigned builds)
-// set OH_WIN_SETUP_UNSIGNED=1: the packed app-update.yml must not carry
-// publisherName, or electron-updater would refuse that lane's own
-// unsigned downloads. The signed stable lane keeps the field — its
-// Setup.exe gets Authenticode-signed after packaging.
+// Lanes whose Setup.exe ships unsigned (a release leg without signing
+// credentials, local unsigned builds) set OH_WIN_SETUP_UNSIGNED=1: the
+// packed app-update.yml must not carry publisherName, or
+// electron-updater would refuse that lane's own unsigned downloads.
+// The signed lane, stable and beta, keeps the field — its Setup.exe
+// gets Authenticode-signed after packaging.
 function stripUnsignedUpdatePublisher(appOutDir) {
     if (process.env.OH_WIN_SETUP_UNSIGNED !== '1') return;
     const updateYml = path.join(appOutDir, 'resources', 'app-update.yml');

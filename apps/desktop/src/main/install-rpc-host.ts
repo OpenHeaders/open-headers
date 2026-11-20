@@ -116,7 +116,6 @@ import {
   nmHostBinaryCandidate,
   registerNmManifests,
   registerWindowsNmManifests,
-  windowsHostBinarySigned,
   windowsNmManifestTargets,
 } from './nm-host-install';
 import { safeOsHostname } from './os-hostname';
@@ -470,17 +469,17 @@ export async function installRpcHost(): Promise<void> {
     staticWeb: webRootPresent ? { rootDir: webRoot, enabled: () => serveWebApp } : undefined,
     // Composed only when the host binary is shipped — the identity
     // chain has no anchor without it. Signature enforcement follows the
-    // build posture: packaged macOS builds are signed; Windows derives
-    // from the build's own channel (stable trains sign, beta ships
-    // unsigned); Linux has no signing chain at all (the path check is
-    // the whole posture there); dev artifacts aren't signed anywhere.
+    // build posture: packaged macOS and Windows builds are signed on
+    // both channels; Linux has no signing chain at all (the path check
+    // is the whole posture there); dev artifacts aren't signed
+    // anywhere. A package built without signing (from source, or a
+    // release leg without credentials) fails the host check and the
+    // extension falls back to the device-flow pairing gesture: an
+    // unsigned host never anchors identity.
     nmBootstrap: nmHostPresent
       ? {
           hostBinaryPath: nmHostBinaryPath,
-          requireHostSignature:
-            app.isPackaged &&
-            (process.platform === 'darwin' ||
-              (process.platform === 'win32' && windowsHostBinarySigned(app.getVersion()))),
+          requireHostSignature: app.isPackaged && (process.platform === 'darwin' || process.platform === 'win32'),
         }
       : undefined,
   });
