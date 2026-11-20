@@ -9,7 +9,11 @@
  *   • Show the resulting method/URL/headers/body summary so the user
  *     can audit BEFORE writing anything to storage.
  *   • Surface drops + transforms prominently — per ARCHITECTURE §23,
- *     every import is lossy and the report is the contract.
+ *     every import is lossy and the report is the contract. Several
+ *     entries fold under their counts; the counts never hide.
+ *   • A command handed off by the hub folds to one row once it parses —
+ *     the parsed summary speaks for it, and a caret brings the source
+ *     back for editing.
  *   • Target collection selector defaults to the workspace's first
  *     request collection. With no collections (or on demand via the
  *     "New collection" option) one is auto-created at import time,
@@ -122,6 +126,38 @@ const labelStyle: React.CSSProperties = {
   marginBottom: 4,
 };
 
+// A fold's header: the whole line is the control, laid out as plain text.
+const toggleStyle: React.CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  gap: 6,
+  width: '100%',
+  padding: 0,
+  border: 0,
+  background: 'none',
+  font: 'inherit',
+  color: 'inherit',
+  textAlign: 'left',
+  cursor: 'pointer',
+};
+
+// Same solid caret as the sidebar section headers.
+const Caret: React.FC<{ expanded: boolean; color: string }> = ({ expanded, color }) => (
+  <span
+    aria-hidden
+    style={{
+      display: 'inline-block',
+      color,
+      fontSize: 10,
+      flexShrink: 0,
+      transition: 'transform 0.2s ease',
+      transform: expanded ? 'rotate(90deg)' : 'rotate(0deg)',
+    }}
+  >
+    &#9654;
+  </span>
+);
+
 const ImportCurlModal: React.FC<ImportCurlModalProps> = ({
   open,
   collections,
@@ -144,6 +180,8 @@ const ImportCurlModal: React.FC<ImportCurlModalProps> = ({
   const [targetCollectionId, setTargetCollectionId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [diff, setDiff] = useState<ImportReportDiff | null>(null);
+  const [sourceCollapsed, setSourceCollapsed] = useState(false);
+  const focusSourceOnExpandRef = useRef(false);
   const sourceInputRef = useRef<TextAreaRef>(null);
   const nameInputRef = useRef<InputRef>(null);
   const pickerRef = useRef<CollectionPickerHandle>(null);
@@ -165,6 +203,7 @@ const ImportCurlModal: React.FC<ImportCurlModalProps> = ({
     setTargetCollectionId(initialCollectionId ?? collections[0]?.uid ?? NEW_COLLECTION_VALUE);
     setBusy(false);
     setDiff(null);
+    setSourceCollapsed(Boolean(initialSource));
   }, [open, initialCollectionId, initialSource, collections]);
 
   // Focus lands where typing starts: on a hub hand-off the source is
@@ -194,6 +233,22 @@ const ImportCurlModal: React.FC<ImportCurlModalProps> = ({
       return { ok: false, message: msg };
     }
   }, [source, t]);
+
+  // Only a source that parses folds: an empty or broken one is the thing
+  // to work on. Typing in the field unfolds it for good, so a command
+  // fixed by hand never closes under the cursor.
+  const sourceOpen = !sourceCollapsed || parsed?.ok !== true;
+
+  const expandSource = useCallback(() => {
+    focusSourceOnExpandRef.current = true;
+    setSourceCollapsed(false);
+  }, []);
+
+  useEffect(() => {
+    if (sourceCollapsed || !focusSourceOnExpandRef.current) return;
+    focusSourceOnExpandRef.current = false;
+    sourceInputRef.current?.focus();
+  }, [sourceCollapsed]);
 
   // A hub hand-off that fails to parse is committed input, not mid-typing
   // churn — beacon it once per open. Live typing never fires: the source
@@ -369,6 +424,12 @@ const ImportCurlModal: React.FC<ImportCurlModalProps> = ({
         ? t('workbench.importExport.import.importShortcutTooltip', { shortcut: saveLabel })
         : t('workbench.importExport.import.importCta');
 
+  const intro = (
+    <>
+      {t('workbench.importExport.curl.introPrefix')} <code>curl</code> {t('workbench.importExport.curl.introSuffix')}
+    </>
+  );
+
   return (
     <Modal
       open={open}
@@ -433,18 +494,61 @@ const ImportCurlModal: React.FC<ImportCurlModalProps> = ({
       // with its footer, and the app behind it never scrolls.
       styles={{ body: { maxHeight: '65vh', overflowY: 'auto', overscrollBehavior: 'none' } }}
     >
-      <Paragraph type="secondary" style={{ fontSize: 12, marginBottom: 8 }}>
-        {t('workbench.importExport.curl.introPrefix')} <code>curl</code> {t('workbench.importExport.curl.introSuffix')}
-      </Paragraph>
+      {sourceOpen ? (
+        <>
+          <Paragraph type="secondary" style={{ fontSize: 12, marginBottom: 8 }}>
+            {parsed?.ok ? (
+              <button type="button" aria-expanded onClick={() => setSourceCollapsed(true)} style={toggleStyle}>
+                <Caret expanded color={token.colorTextSecondary} />
+                <span>{intro}</span>
+              </button>
+            ) : (
+              intro
+            )}
+          </Paragraph>
 
-      <Input.TextArea
-        ref={sourceInputRef}
-        value={source}
-        onChange={(e) => setSource(e.target.value)}
-        placeholder={t('workbench.importExport.curl.sourcePlaceholder')}
-        style={{ fontFamily: 'var(--ant-font-family-code)', fontSize: 12, marginBottom: 10 }}
-        autoSize={{ minRows: 4, maxRows: 8 }}
-      />
+          <Input.TextArea
+            ref={sourceInputRef}
+            value={source}
+            onChange={(e) => {
+              setSource(e.target.value);
+              setSourceCollapsed(false);
+            }}
+            placeholder={t('workbench.importExport.curl.sourcePlaceholder')}
+            style={{ fontFamily: 'var(--ant-font-family-code)', fontSize: 12, marginBottom: 10 }}
+            autoSize={{ minRows: 4, maxRows: 8 }}
+          />
+        </>
+      ) : (
+        <button
+          type="button"
+          aria-expanded={false}
+          onClick={expandSource}
+          data-testid="import-curl-source-collapsed"
+          style={{
+            ...toggleStyle,
+            boxSizing: 'border-box',
+            border: `1px solid ${token.colorBorder}`,
+            borderRadius: token.borderRadius,
+            padding: '4px 8px',
+            marginBottom: 10,
+          }}
+        >
+          <Caret expanded={false} color={token.colorTextSecondary} />
+          <span
+            style={{
+              minWidth: 0,
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+              fontFamily: 'var(--ant-font-family-code)',
+              fontSize: 12,
+            }}
+          >
+            {source.trim()}
+          </span>
+        </button>
+      )}
 
       {parsed?.ok === false && (
         <Alert
@@ -553,15 +657,13 @@ interface ReportPanelProps {
 
 const ReportPanel: React.FC<ReportPanelProps> = ({ report, token }) => {
   const translate = useT();
-  if (report.drops.length === 0 && report.transforms.length === 0) {
+  const [expanded, setExpanded] = useState(false);
+  const total = report.drops.length + report.transforms.length;
+  if (total === 0) {
     return null;
   }
-  const lineStyle: React.CSSProperties = {
-    display: 'flex',
-    alignItems: 'flex-start',
-    gap: 6,
-    fontSize: 12,
-  };
+  // One entry reads as fast as its own count would — it shows as it is.
+  const foldable = total > 1;
   return (
     <div
       style={{
@@ -573,6 +675,46 @@ const ReportPanel: React.FC<ReportPanelProps> = ({ report, token }) => {
         gap: 4,
       }}
     >
+      {foldable && (
+        <button
+          type="button"
+          aria-expanded={expanded}
+          onClick={() => setExpanded((e) => !e)}
+          data-testid="import-curl-report-toggle"
+          style={{ ...toggleStyle, gap: 12, fontSize: 12 }}
+        >
+          <Caret expanded={expanded} color={token.colorTextSecondary} />
+          {report.transforms.length > 0 && (
+            <span style={countStyle}>
+              <InfoCircleOutlined style={{ color: token.colorPrimary }} />
+              {translate('workbench.importExport.import.transformsCount', { count: report.transforms.length })}
+            </span>
+          )}
+          {report.drops.length > 0 && (
+            <span style={countStyle}>
+              <WarningOutlined style={{ color: token.colorWarning }} />
+              {translate('workbench.importExport.import.dropsCount', { count: report.drops.length })}
+            </span>
+          )}
+        </button>
+      )}
+      {(!foldable || expanded) && <ReportLines report={report} token={token} />}
+    </div>
+  );
+};
+
+const countStyle: React.CSSProperties = { display: 'inline-flex', alignItems: 'center', gap: 6 };
+
+const ReportLines: React.FC<ReportPanelProps> = ({ report, token }) => {
+  const translate = useT();
+  const lineStyle: React.CSSProperties = {
+    display: 'flex',
+    alignItems: 'flex-start',
+    gap: 6,
+    fontSize: 12,
+  };
+  return (
+    <>
       {report.transforms.map((t, i) => (
         <div key={`t-${i}`} style={lineStyle}>
           <InfoCircleOutlined style={{ color: token.colorPrimary, fontSize: 12, flexShrink: 0, position: 'relative', top: 1 }} />
@@ -596,7 +738,7 @@ const ReportPanel: React.FC<ReportPanelProps> = ({ report, token }) => {
           </span>
         </div>
       ))}
-    </div>
+    </>
   );
 };
 
