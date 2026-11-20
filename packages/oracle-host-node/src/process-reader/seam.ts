@@ -37,16 +37,6 @@ export interface ProcessRecord {
   cost: ProcessCost | null;
 }
 
-export interface ProcessReader {
-  readonly memoryKind: ProcessMemoryKind;
-  /** One process; null when there is none under that pid. */
-  read(pid: number): ProcessRecord | null;
-  /** The pids whose parent is `pid`, as the system lists them now. */
-  childPids(pid: number): number[];
-  /** The pids on the controlling terminal of `pid`, itself among them; empty when it has none. */
-  terminalPids(pid: number): number[];
-}
-
 /** A process we started: the pid we were handed and when it started. */
 export interface ProcessRoot {
   pid: number;
@@ -60,6 +50,46 @@ export interface ProcessDescendantsOptions {
    * (the plan §6, law 5).
    */
   terminal?: boolean;
+}
+
+/**
+ * A root the reader holds (the plan §7, fork 3) — on Windows, where no
+ * walk finds what runs beneath a process: the system itself keeps the
+ * list of what the root started and the time all of it has used.
+ * Holding watches and never rules: letting go ends nothing.
+ */
+export interface HeldProcessRoot {
+  /**
+   * The pids that are the root's own row, the root first — on Windows a
+   * terminal's console host beside its shell. Never a line beneath it.
+   */
+  readonly ownPids: readonly number[];
+  /** Every pid alive in what is held, the root's own among them. */
+  memberPids(): number[];
+  /**
+   * CPU seconds of everything that has run in what is held, what has
+   * ended included (the plan §6, law 13); null where the system would
+   * not say.
+   */
+  cpuSeconds(): number | null;
+  /** Lets go of the root. Safe to call more than once. */
+  release(): void;
+}
+
+export interface ProcessReader {
+  readonly memoryKind: ProcessMemoryKind;
+  /** One process; null when there is none under that pid. */
+  read(pid: number): ProcessRecord | null;
+  /** The pids whose parent is `pid`, as the system lists them now. */
+  childPids(pid: number): number[];
+  /** The pids on the controlling terminal of `pid`, itself among them; empty when it has none. */
+  terminalPids(pid: number): number[];
+  /**
+   * Holds a root from the instant it is registered. Absent where what
+   * runs beneath a root is found by the walk; null where the system
+   * would not hold this one — it is then walked like any other.
+   */
+  holdRoot?(root: ProcessRoot, options: ProcessDescendantsOptions): HeldProcessRoot | null;
 }
 
 /**

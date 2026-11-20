@@ -1,12 +1,13 @@
 /**
  * The process reader on Windows against the REAL addon and the real
  * system (the activity monitor plan §4): this process, a child that
- * stays, a child that has exited. Runs only on a Windows where the
- * addon is built; everywhere else the reading is pinned on a made-up
- * binding beside this file.
+ * stays, a child that has exited, a child it holds. Runs only on a
+ * Windows where the addon is built; everywhere else the reading is
+ * pinned on a made-up binding beside this file.
  */
 
 import { type ChildProcess, spawn, spawnSync } from 'node:child_process';
+import { once } from 'node:events';
 import { createRequire } from 'node:module';
 import * as path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -91,5 +92,38 @@ describe.skipIf(binding === null)('the Windows process reader on the real addon'
   it('answers null for a pid no process holds', () => {
     expect(reader.read(0)).toBeNull();
     expect(reader.read(4_294_967_294)).toBeNull();
+  });
+
+  it('holds a child: what it starts runs beneath it, and letting go of it ends nothing', async () => {
+    const STAYS = 'setTimeout(() => {}, 30000)';
+    // The child starts a child of its own, tells its pid, and both stay.
+    const child = spawn(
+      process.execPath,
+      ['-e', `console.log(require('node:child_process').spawn(process.execPath, ['-e', '${STAYS}']).pid); ${STAYS}`],
+      { stdio: ['ignore', 'pipe', 'ignore'] },
+    );
+    started.push(child);
+    const pid = child.pid ?? -1;
+    const root = reader.read(pid);
+    if (root === null) throw new Error('the child could not be read');
+
+    const held = reader.holdRoot?.({ pid, startedAt: root.startedAt }, {}) ?? null;
+    if (held === null) throw new Error('the child could not be held');
+    expect(held.ownPids).toEqual([pid]);
+
+    const [told] = await once(child.stdout, 'data');
+    const grandchild = Number(String(told).trim());
+    try {
+      expect(held.memberPids()).toContain(pid);
+      expect(held.memberPids()).toContain(grandchild);
+      expect(held.cpuSeconds()).toBeGreaterThan(0);
+
+      held.release();
+      expect(held.memberPids()).toEqual([]);
+      expect(reader.read(pid)).not.toBeNull();
+      expect(reader.read(grandchild)).not.toBeNull();
+    } finally {
+      process.kill(grandchild);
+    }
   });
 });

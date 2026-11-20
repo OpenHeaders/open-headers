@@ -38,7 +38,15 @@ const SELF_ON_WINDOWS: Win32ProcessRead = {
 };
 
 function win32Binding(self: Win32ProcessRead = SELF_ON_WINDOWS): Win32ProcessBinding {
-  return { read: (pid) => (pid === SELF_PID ? self : null) };
+  return {
+    read: (pid) => (pid === SELF_PID ? self : null),
+    snapshot: () => [],
+    createJob: () => null,
+    assignToJob: () => false,
+    jobPids: () => null,
+    jobCpuTime: () => null,
+    closeJob: () => undefined,
+  };
 }
 
 /** `pid (comm) state ppid pgrp session tty_nr …` — the twentieth field after the name is the start, in ticks. */

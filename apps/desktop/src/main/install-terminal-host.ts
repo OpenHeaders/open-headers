@@ -37,9 +37,9 @@ import { hostLogger as logger } from '@openheaders/core/logger';
 import { refreshedWindowsPath } from '@openheaders/oracle-host-node/host-runtime/windows-user-path';
 import {
   type ProcessReader,
-  type ProcessRoot,
   type ProcessRootRegistry,
-  readProcessDescendants,
+  type RegisteredProcessRoot,
+  readProcessSubtree,
 } from '@openheaders/oracle-host-node/process-reader';
 import { ipcMain, webContents as webContentsApi } from 'electron';
 import { type IPty, spawn as ptySpawn } from 'node-pty';
@@ -68,7 +68,7 @@ interface SessionEntry {
   wcId: number;
   exited: boolean;
   /** The shell as it was registered at its spawn; null where the host has no process reader. */
-  root: ProcessRoot | null;
+  shell: RegisteredProcessRoot | null;
 }
 
 function clampDimension(value: unknown, fallback: number): number {
@@ -85,14 +85,16 @@ export interface TerminalHostDeps {
 
 /** True while anything beside the shell runs in the session: what the
  *  shell started, and what shares its terminal — a process that
- *  detached from the shell still ends with the tab. Walked down from
- *  the shell as it was registered at its spawn, through the process
- *  reader's seam (the activity monitor plan §7, fork 3); false where
- *  the host has no reader, and on Windows, where its reader walks
- *  nothing. */
-function sessionHasWork(reader: ProcessReader | null, shell: ProcessRoot | null): boolean {
+ *  detached from the shell still ends with the tab. Found from the
+ *  shell as it was registered at its spawn, through the process
+ *  reader's seam (the activity monitor plan §7, fork 3): walked down
+ *  from it, or — on Windows — counted in what the reader holds of it,
+ *  where the shell's own console host is no work. False where the host
+ *  has no reader. */
+function sessionHasWork(reader: ProcessReader | null, shell: RegisteredProcessRoot | null): boolean {
   if (reader === null || shell === null) return false;
-  return readProcessDescendants(reader, shell, { terminal: true }).length > 0;
+  const subtree = readProcessSubtree(reader, shell);
+  return subtree !== null && subtree.processCount > subtree.own.length;
 }
 
 interface SpawnCommand {
@@ -220,7 +222,7 @@ export function installTerminalHost(deps: TerminalHostDeps): void {
     }
     // The session is the owner: its id names the row, and the tab that holds it names it for the person.
     const registration = deps.processRoots.register({ kind: 'terminal', id }, pty.pid, { terminal: true });
-    const entry: SessionEntry = { pty, wcId: event.sender.id, exited: false, root: registration.root };
+    const entry: SessionEntry = { pty, wcId: event.sender.id, exited: false, shell: registration.registered };
     sessions.set(id, entry);
     trackWebContents(event.sender.id);
 
@@ -272,7 +274,7 @@ export function installTerminalHost(deps: TerminalHostDeps): void {
     if (typeof id !== 'string') return false;
     const entry = sessions.get(id);
     if (!entry || entry.wcId !== event.sender.id || entry.exited) return false;
-    return sessionHasWork(deps.processReader, entry.root);
+    return sessionHasWork(deps.processReader, entry.shell);
   });
 
   ipcMain.on(CHANNEL.kill, (event, raw: unknown) => {

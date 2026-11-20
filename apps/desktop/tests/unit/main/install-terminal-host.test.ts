@@ -1,6 +1,7 @@
 import os from 'node:os';
 import {
   createProcessRootRegistry,
+  type HeldProcessRoot,
   type ProcessReader,
   type ProcessRootRegistry,
 } from '@openheaders/oracle-host-node/process-reader';
@@ -346,6 +347,68 @@ describe('installTerminalHost', () => {
       expect(await ask(makeSender(8))).toBe(false);
       spawnedPtys[0].emitExit(0);
       expect(await ask()).toBe(false);
+    });
+
+    describe('on a reader that holds roots — Windows', () => {
+      const CONSOLE_HOST = 11_924;
+      let memberPids: number[] = [];
+      let released = 0;
+      // Nothing is walked there: what runs in the tab is what the system lists in what is held.
+      const holdingReader: ProcessReader = {
+        ...fakeReader,
+        childPids: () => [],
+        terminalPids: () => [],
+        holdRoot: (root): HeldProcessRoot => ({
+          ownPids: [root.pid, CONSOLE_HOST],
+          memberPids: () => memberPids,
+          cpuSeconds: () => null,
+          release: () => {
+            released += 1;
+          },
+        }),
+      };
+
+      beforeEach(() => {
+        released = 0;
+        ipcHandlers.clear();
+        installTerminalHost({ processReader: holdingReader, processRoots: createProcessRootRegistry(holdingReader) });
+      });
+
+      const consoleHost: FakeProcess = {
+        pid: CONSOLE_HOST,
+        parentPid: 4312,
+        startedAt: SHELL_STARTED - 40,
+        terminal: null,
+      };
+
+      it('answers no for a shell and its console host alone', async () => {
+        memberPids = [FIRST_SHELL_PID, CONSOLE_HOST];
+        const { ask } = await openTab(() => [consoleHost]);
+        expect(await ask()).toBe(false);
+      });
+
+      it('answers yes while the system lists anything else in the tab — a process whose starter is gone too', async () => {
+        memberPids = [FIRST_SHELL_PID, CONSOLE_HOST, 7780];
+        const { ask } = await openTab(() => [
+          consoleHost,
+          { pid: 7780, parentPid: 9999, startedAt: SHELL_STARTED + 5_000, terminal: null },
+        ]);
+        expect(await ask()).toBe(true);
+      });
+
+      it('answers yes for a process the system lists and will not let be read', async () => {
+        memberPids = [FIRST_SHELL_PID, CONSOLE_HOST, 9120];
+        const { ask } = await openTab(() => [consoleHost]);
+        expect(await ask()).toBe(true);
+      });
+
+      it('lets go of what is held when the shell exits', async () => {
+        memberPids = [FIRST_SHELL_PID, CONSOLE_HOST];
+        await openTab(() => [consoleHost]);
+        expect(released).toBe(0);
+        spawnedPtys[0].emitExit(0);
+        expect(released).toBe(1);
+      });
     });
 
     it('never asks where the host has no process reader', async () => {

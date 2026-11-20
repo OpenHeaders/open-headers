@@ -5,10 +5,17 @@
  * own CPU time plus its exited children's — a terminal holding what
  * shares its terminal, and no read for an owner whose roots are gone.
  * What runs beneath its roots rides along — never the roots themselves
- * — each with what it used itself, the older process first.
+ * — each with what it used itself, the older process first. And an
+ * owner whose root the reader HOLDS (the plan §7, fork 3): its figures
+ * read from what is held.
  */
 
-import type { ProcessCost, ProcessReader, RegisteredProcessRoot } from '@openheaders/oracle-host-node/process-reader';
+import type {
+  HeldProcessRoot,
+  ProcessCost,
+  ProcessReader,
+  RegisteredProcessRoot,
+} from '@openheaders/oracle-host-node/process-reader';
 import { describe, expect, it } from 'vitest';
 import { readOwnedFigures } from '@/main/activity-monitor/owned-figures';
 
@@ -171,5 +178,58 @@ describe('readOwnedFigures', () => {
 
   it('reads no owner on a host with no process reader', () => {
     expect(readOwnedFigures([shellRoot(61_044, T0, 'pty-1')], null)).toEqual([]);
+  });
+
+  describe('an owner whose root the reader holds — a terminal on Windows', () => {
+    const SHELL = 5036;
+    const CONSOLE_HOST = 11_924;
+    const held = (memberPids: number[], cpuSeconds: number | null): HeldProcessRoot => ({
+      ownPids: [SHELL, CONSOLE_HOST],
+      memberPids: () => memberPids,
+      cpuSeconds: () => cpuSeconds,
+      release: () => undefined,
+    });
+    // Nothing here is found by a walk: no process names a parent, none sits on a terminal.
+    const reader = tableReader({
+      [SHELL]: { parentPid: 0, startedAt: T0, name: 'cmd.exe', cost: cost(0.5, 0, 6) },
+      // Started before its shell, and the row is still the shell's.
+      [CONSOLE_HOST]: { parentPid: 0, startedAt: T0 - 40, name: 'conhost.exe', cost: cost(0.25, 0, 9) },
+      61102: { parentPid: 0, startedAt: T0 + 1_000, name: 'node.exe', cost: cost(40, 0, 164) },
+      7780: { parentPid: 0, startedAt: T0 + 2_000, name: 'watcher.exe', cost: cost(3, 0, 20) },
+    });
+
+    it('counts the console host in the row and never as a line; the CPU is what the system counted for all of it', () => {
+      const root = { ...shellRoot(SHELL, T0, 'pty-1'), held: held([SHELL, CONSOLE_HOST, 61_102, 7780], 97.5) };
+      expect(readOwnedFigures([root], reader)).toEqual([
+        {
+          id: 'terminal:pty-1',
+          kind: 'terminal',
+          terminalSessionId: 'pty-1',
+          pid: SHELL,
+          startedAt: T0,
+          processCount: 4,
+          // Far more than the 43.75 s of what lives: a build's processes came and went.
+          cumulativeCpuSeconds: 97.5,
+          memoryBytes: 199 * MB,
+          children: [
+            { pid: 61_102, startedAt: T0 + 1_000, name: 'node.exe', cumulativeCpuSeconds: 40, memoryBytes: 164 * MB },
+            { pid: 7780, startedAt: T0 + 2_000, name: 'watcher.exe', cumulativeCpuSeconds: 3, memoryBytes: 20 * MB },
+          ],
+        },
+      ]);
+    });
+
+    it('counts a process the system will not let be read, and gives it no line', () => {
+      const root = { ...shellRoot(SHELL, T0, 'pty-1'), held: held([SHELL, CONSOLE_HOST, 61_102, 9120], 97.5) };
+      const [read] = readOwnedFigures([root], reader);
+      expect(read).toMatchObject({ processCount: 4, cumulativeCpuSeconds: 97.5, memoryBytes: 179 * MB });
+      expect(read.children.map((process) => process.pid)).toEqual([61_102]);
+    });
+
+    it('reads no CPU counter where the system would not say what is held has used — a dash, not a sum', () => {
+      const root = { ...shellRoot(SHELL, T0, 'pty-1'), held: held([SHELL, CONSOLE_HOST], null) };
+      const [read] = readOwnedFigures([root], reader);
+      expect(read).toMatchObject({ processCount: 2, cumulativeCpuSeconds: undefined, memoryBytes: 15 * MB });
+    });
   });
 });

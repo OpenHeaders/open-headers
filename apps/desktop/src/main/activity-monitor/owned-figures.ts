@@ -3,10 +3,11 @@
  * plan §6, laws 5 and 13): a terminal session, the git object reader,
  * the HTTP/3 helper. One read per OWNER — its figures are the total of
  * every root it has registered and everything that runs beneath each,
- * found by walking down from the root. An owner keeps its identity
- * while its processes come and go, so its history does too. What runs
- * beneath its roots rides along, each process with its own figures: it
- * is shown live and has no history of its own.
+ * found from the root: walked down from it, or read from what the
+ * host's reader holds of it (the plan §7, fork 3). An owner keeps its
+ * identity while its processes come and go, so its history does too.
+ * What runs beneath its roots rides along, each process with its own
+ * figures: it is shown live and has no history of its own.
  */
 
 import type { ActivityMonitorProcessKind } from '@openheaders/core/activity-monitor';
@@ -18,7 +19,6 @@ import {
   processRootOwnerKey,
   type RegisteredProcessRoot,
   readProcessSubtree,
-  totalProcessCost,
 } from '@openheaders/oracle-host-node/process-reader';
 
 const OWNER_ROW_KIND: Record<ProcessRootKind, ActivityMonitorProcessKind> = {
@@ -54,7 +54,7 @@ export interface OwnedProcessRead {
   pid: number;
   /** ms since epoch, by the reader's record. */
   startedAt: number;
-  /** Every process alive beneath the owner, its roots among them. */
+  /** Every process alive beneath the owner, its roots among them — one the system will not let be read counted too. */
   processCount: number;
   /**
    * The subtree's CPU seconds so far — a total that can fall, which the
@@ -68,9 +68,18 @@ export interface OwnedProcessRead {
 
 interface OwnerSubtrees {
   owner: ProcessRootOwner;
+  /** The root it started first, of those alive. */
   oldest: ProcessRecord;
-  records: ProcessRecord[];
+  processCount: number;
+  cpuSeconds: number | null;
+  memoryBytes: number | null;
   beneath: ProcessRecord[];
+}
+
+/** Two figures added up; a figure that could not be read adds nothing, and two of them are none. */
+function added(a: number | null, b: number | null): number | null {
+  if (a === null) return b;
+  return b === null ? a : a + b;
 }
 
 function childReads(beneath: readonly ProcessRecord[]): OwnedChildRead[] {
@@ -94,30 +103,39 @@ export function readOwnedFigures(
   const owners = new Map<string, OwnerSubtrees>();
   for (const registered of roots) {
     const subtree = readProcessSubtree(reader, registered);
-    if (subtree.length === 0) continue;
+    if (subtree === null) continue;
+    const [root] = subtree.own;
     const key = processRootOwnerKey(registered.owner);
     const known = owners.get(key);
     if (known === undefined) {
-      owners.set(key, { owner: registered.owner, oldest: subtree[0], records: subtree, beneath: subtree.slice(1) });
+      owners.set(key, {
+        owner: registered.owner,
+        oldest: root,
+        processCount: subtree.processCount,
+        cpuSeconds: subtree.cost.cpuSeconds,
+        memoryBytes: subtree.cost.memoryBytes,
+        beneath: subtree.beneath,
+      });
       continue;
     }
-    known.records.push(...subtree);
-    known.beneath.push(...subtree.slice(1));
-    if (subtree[0].startedAt < known.oldest.startedAt) known.oldest = subtree[0];
+    known.processCount += subtree.processCount;
+    known.cpuSeconds = added(known.cpuSeconds, subtree.cost.cpuSeconds);
+    known.memoryBytes = added(known.memoryBytes, subtree.cost.memoryBytes);
+    known.beneath.push(...subtree.beneath);
+    if (root.startedAt < known.oldest.startedAt) known.oldest = root;
   }
 
   const reads: OwnedProcessRead[] = [];
-  for (const [id, { owner, oldest, records, beneath }] of owners) {
-    const total = totalProcessCost(records);
+  for (const [id, { owner, oldest, processCount, cpuSeconds, memoryBytes, beneath }] of owners) {
     reads.push({
       id,
       kind: OWNER_ROW_KIND[owner.kind],
       ...(owner.kind === 'terminal' && owner.id !== undefined ? { terminalSessionId: owner.id } : {}),
       pid: oldest.pid,
       startedAt: oldest.startedAt,
-      processCount: records.length,
-      cumulativeCpuSeconds: total.cpuSeconds ?? undefined,
-      memoryBytes: total.memoryBytes,
+      processCount,
+      cumulativeCpuSeconds: cpuSeconds ?? undefined,
+      memoryBytes,
       children: childReads(beneath),
     });
   }

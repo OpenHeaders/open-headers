@@ -18,6 +18,7 @@ export {
   type ProcessRootOwner,
   type ProcessRootRegistration,
   type ProcessRootRegistry,
+  type ProcessSubtree,
   type ProcessSubtreeCost,
   processRootOwnerKey,
   type RegisteredProcessRoot,
@@ -25,6 +26,7 @@ export {
   totalProcessCost,
 } from './roots';
 export {
+  type HeldProcessRoot,
   type ProcessCost,
   type ProcessDescendantsOptions,
   type ProcessMemoryKind,
@@ -33,4 +35,10 @@ export {
   type ProcessRoot,
   readProcessDescendants,
 } from './seam';
-export { createWin32ProcessReader, type Win32ProcessBinding, type Win32ProcessRead } from './win32';
+export {
+  createWin32ProcessReader,
+  type Win32Job,
+  type Win32ProcessBinding,
+  type Win32ProcessEntry,
+  type Win32ProcessRead,
+} from './win32';
