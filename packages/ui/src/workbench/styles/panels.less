@@ -214,9 +214,16 @@
 // The Commit tree lists each git group's files this way under the
 // group's header, and the details tree a merge's by parent: the tree,
 // not a group's rows, holds the focus.
-.commit-tool-tree:focus-within .git-named-file-tree .rules-sidebar-section.rules-sidebar-section--selected,
+.commit-tool-tree:focus-within .commit-tool-named-row .rules-sidebar-section.rules-sidebar-section--selected,
 .git-tool-file-tree:focus-within .git-named-file-tree .rules-sidebar-section.rules-sidebar-section--selected {
   background: var(--oh-row-selected-focused-bg);
+}
+
+// The Commit tree mounts the rows in view, each in a holder of its own:
+// a section's header and a page's row keep the section hairline unless
+// they lead their group's rows — the holder says which.
+.commit-tool-tree .commit-tool-named-row--ruled > .rules-sidebar-section::before {
+  display: block;
 }
 
 // Listed in the step before the editor, a file's row (one with no

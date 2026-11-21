@@ -1,15 +1,24 @@
 /**
  * Pure-model suite for the Commit tree's keyboard-navigation rows
  * (S23): visible-row order across grouped/flat modes, collapse-state
- * pruning, and the shared flat sort.
+ * pruning, and the shared flat sort — read off the rows the tree draws
+ * (`commit-tree-rows`), of which they are the ones a selection lands on.
  */
 
 import type { WorkspaceTreeWorkingChangeWire } from '@openheaders/core/bridge';
+import type { ChangeGroupKey } from '@openheaders/ui/workbench/components/panels/git/commit/commit-model';
 import {
+  type CommitVisibleRow,
   commitFileRowKey,
   flatSortedRows,
-  visibleCommitRows,
 } from '@openheaders/ui/workbench/components/panels/git/commit/commit-tree-nav';
+import {
+  COMMIT_ROW_HEIGHT,
+  type CommitTreeGroup,
+  commitNavRows,
+  commitPathTreeRows,
+  commitTreeRowHeight,
+} from '@openheaders/ui/workbench/components/panels/git/commit/commit-tree-rows';
 import { buildFileTree, type FileTreeNode } from '@openheaders/ui/workbench/components/panels/git/file-tree';
 import { describe, expect, it } from 'vitest';
 
@@ -21,8 +30,8 @@ const CHANGES = [row({ path: 'rules/a.yaml' }), row({ path: 'workspace.yaml' })]
 const UNVERSIONED = [row({ path: 'notes/new.yaml', status: '?', unversioned: true })];
 
 function groupsAndTrees(): {
-  groups: Array<{ key: string; rows: WorkspaceTreeWorkingChangeWire[] }>;
-  trees: Map<string, FileTreeNode[]>;
+  groups: CommitTreeGroup[];
+  trees: Map<ChangeGroupKey, FileTreeNode[]>;
 } {
   return {
     groups: [
@@ -35,6 +44,13 @@ function groupsAndTrees(): {
     ]),
   };
 }
+
+const visibleCommitRows = (
+  groups: readonly CommitTreeGroup[],
+  trees: ReadonlyMap<ChangeGroupKey, readonly FileTreeNode[]>,
+  collapsed: ReadonlySet<string>,
+  groupByDirectory: boolean,
+): CommitVisibleRow[] => commitNavRows(commitPathTreeRows(groups, trees, collapsed, groupByDirectory));
 
 describe('visibleCommitRows', () => {
   it('grouped mode walks header, root node, dirs-first tree — a single-chain tree compresses the root away', () => {
@@ -125,6 +141,49 @@ describe('visibleCommitRows', () => {
     const file = rows.find((r) => r.key === commitFileRowKey('workspace.yaml'));
     expect(file?.collapseKey).toBeUndefined();
     expect(file?.parentKey).toBe('changes:__root__');
+  });
+});
+
+describe('commitPathTreeRows', () => {
+  it('an empty group is drawn as its plain label — a row of the tree, and none of the keyboard’s', () => {
+    const rows = commitPathTreeRows([{ key: 'changes', rows: [] }], new Map(), new Set(), true);
+    expect(rows).toEqual([{ draw: 'label', key: 'changes', group: 'changes' }]);
+    expect(commitNavRows(rows)).toEqual([]);
+  });
+
+  it('every row carries its group, what it is drawn as and how deep — a file of the flat run says so', () => {
+    const { groups, trees } = groupsAndTrees();
+    const drawn = (groupByDirectory: boolean): string[] =>
+      commitPathTreeRows(groups, trees, new Set(), groupByDirectory).map(
+        (line) => `${line.group} ${line.draw}${'depth' in line ? ` ${line.depth}` : ''} ${line.key}`,
+      );
+    expect(drawn(true)).toEqual([
+      'changes group changes',
+      'changes root changes:__root__',
+      'changes dir 2 changes:rules',
+      'changes file 3 file:rules/a.yaml',
+      'changes file 2 file:workspace.yaml',
+      'unversioned group unversioned',
+      'unversioned dir 1 unversioned:notes',
+      'unversioned file 2 file:notes/new.yaml',
+    ]);
+    expect(drawn(false)).toEqual([
+      'changes group changes',
+      'changes file 1 file:rules/a.yaml',
+      'changes file 1 file:workspace.yaml',
+      'unversioned group unversioned',
+      'unversioned file 1 file:notes/new.yaml',
+    ]);
+    const flat = commitPathTreeRows(groups, trees, new Set(), false).flatMap((line) =>
+      line.draw === 'file' ? [line.flat] : [],
+    );
+    expect(flat).toEqual([true, true, true]);
+  });
+
+  it('a row listed by path, and a group’s header, are all one height', () => {
+    const { groups, trees } = groupsAndTrees();
+    const heights = commitPathTreeRows(groups, trees, new Set(), true).map(commitTreeRowHeight);
+    expect(new Set(heights)).toEqual(new Set([COMMIT_ROW_HEIGHT]));
   });
 });
 

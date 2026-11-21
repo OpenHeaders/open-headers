@@ -12,7 +12,6 @@
  * of files under it. Pure.
  */
 
-import type { WorkspaceTreeWorkingChangeWire } from '@openheaders/core/bridge';
 import {
   type FormerFiles,
   type ListedWorkspace,
@@ -133,22 +132,6 @@ export function commitNamedPaths(
     walk(section.nodes);
   }
   return paths;
-}
-
-/** The tree's selectable rows in paint order: each group's header, then its rows — a section is no row. */
-export function visibleCommitNamedRows(
-  groups: ReadonlyArray<{ key: ChangeGroupKey; rows: readonly WorkspaceTreeWorkingChangeWire[] }>,
-  shown: ReadonlyMap<ChangeGroupKey, readonly CommitNamedSection[]>,
-  collapsed: ReadonlySet<string>,
-): CommitVisibleRow[] {
-  const out: CommitVisibleRow[] = [];
-  for (const group of groups) {
-    if (group.rows.length === 0) continue;
-    const expanded = !collapsed.has(group.key);
-    out.push({ key: group.key, kind: 'group', collapseKey: group.key, expanded, parentKey: null });
-    if (expanded) for (const section of shown.get(group.key) ?? []) out.push(...section.rows);
-  }
-  return out;
 }
 
 /**

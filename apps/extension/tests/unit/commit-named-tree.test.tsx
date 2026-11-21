@@ -31,13 +31,17 @@ import {
   commitNamedPaths,
   commitNamedSections,
   commitNamedTone,
-  visibleCommitNamedRows,
 } from '@openheaders/ui/workbench/components/panels/git/commit/commit-named-tree';
 import {
   buildCommitRowMenu,
   buildIgnoredRowMenu,
   type CommitRowMenuHandlers,
 } from '@openheaders/ui/workbench/components/panels/git/commit/commit-row-menu';
+import {
+  commitNamedTreeRows,
+  commitNavRows,
+  commitTreeRowHeight,
+} from '@openheaders/ui/workbench/components/panels/git/commit/commit-tree-rows';
 import { namedSections } from '@openheaders/ui/workbench/components/panels/git/named-file-tree';
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { App as AntApp } from 'antd';
@@ -201,15 +205,48 @@ describe('commit-named-tree', () => {
           commitNamedSections(key, namedSections(NAMED.get(key) ?? [], true), new Set(collapsed)),
         ]),
       );
-    const all = visibleCommitNamedRows(SPECS, shown([]), new Set()).map((line) => line.key);
+    const navKeys = (rows: Parameters<typeof commitNamedTreeRows>[0], collapsed: string[]): string[] =>
+      commitNavRows(commitNamedTreeRows(rows, shown(collapsed), new Set(collapsed))).map((line) => line.key);
+    const all = navKeys(SPECS, []);
     expect(all.slice(0, 2)).toEqual(['changes', 'changes:requests:col00001']);
     expect(all.filter((key) => key.includes(':section:'))).toEqual([]);
     expect(all).toContain('unversioned');
     expect(all).toContain(`file:${STAGING_SECRETS}`);
-    const folded = visibleCommitNamedRows(SPECS, shown(['changes']), new Set(['changes'])).map((line) => line.key);
+    const folded = navKeys(SPECS, ['changes']);
     expect(folded.slice(0, 2)).toEqual(['changes', 'unversioned']);
     const empty = [{ key: 'changes' as const, rows: [] }];
-    expect(visibleCommitNamedRows(empty, shown([]), new Set())).toEqual([]);
+    expect(navKeys(empty, [])).toEqual([]);
+  });
+
+  it('the tree draws each group’s header, then each section’s header and rows — a page is its own row, only the first thing under a group leads, and each row has its height', () => {
+    const shown = new Map(
+      SPECS.map(({ key }) => [key, commitNamedSections(key, namedSections(NAMED.get(key) ?? [], true), new Set())]),
+    );
+    const drawn = commitNamedTreeRows(SPECS, shown, new Set());
+    const changes = drawn.filter((line) => line.group === 'changes');
+    expect(changes.slice(0, 3).map((line) => `${line.draw} ${line.key}`)).toEqual([
+      'group changes',
+      'section changes:section:requests',
+      'named changes:requests:col00001',
+    ]);
+    expect(changes.filter((line) => line.draw === 'section').map((line) => line.key)).toEqual([
+      'changes:section:requests',
+      'changes:section:environments',
+      'changes:section:files',
+    ]);
+    // The workspace's own file is a page: one header-styled row, no section header over it.
+    const page = changes.find((line) => line.key === `file:${WORKSPACE_FILE}`);
+    expect(page?.draw).toBe('named');
+    const leads = drawn.flatMap((line) => ('lead' in line && line.lead ? [line.key] : []));
+    expect(leads).toEqual(['changes:section:requests', 'unversioned:section:requests', 'ignored:section:environments']);
+    const heightOf = (key: string): number | undefined => {
+      const line = drawn.find((candidate) => candidate.key === key);
+      return line === undefined ? undefined : commitTreeRowHeight(line);
+    };
+    expect(heightOf('changes')).toBe(24);
+    expect(heightOf('changes:section:requests')).toBe(26);
+    expect(heightOf('changes:requests:col00001')).toBe(22);
+    expect(heightOf(`file:${WORKSPACE_FILE}`)).toBe(26);
   });
 
   it('a name wears its change — an entity that lists several by its own files, a group the index does not know in its one colour', () => {
@@ -311,10 +348,12 @@ const boxOf = (host: Element): HTMLInputElement => {
   return box;
 };
 const partial = (host: Element): boolean => host.querySelector('.ant-checkbox-indeterminate') !== null;
+/** What a git group's rows hold — every row the tree draws names its group. */
+const inGroup = (group: string, selector: string): Element[] => [
+  ...document.querySelectorAll(`[data-group="${group}"] ${selector}`),
+];
 const labelsIn = (group: string): string[] =>
-  [...screen.getByTestId(`commit-tool-named-${group}`).querySelectorAll('.rules-sidebar-item-label')].map(
-    (label) => label.textContent ?? '',
-  );
+  inGroup(group, '.rules-sidebar-item-label').map((label) => label.textContent ?? '');
 const selectedKeys = (): string[] =>
   [...document.querySelectorAll('[data-row-key][data-selected="true"]')].map(
     (line) => line.getAttribute('data-row-key') ?? '',
@@ -362,9 +401,7 @@ describe('CommitChangesTree, by what the files belong to', () => {
     renderTree();
     expect(screen.getByTestId('commit-tool-group-changes')).toBeTruthy();
     const sectionsIn = (group: string) =>
-      [...screen.getByTestId(`commit-tool-named-${group}`).querySelectorAll('.rules-sidebar-section')].map((header) =>
-        header.getAttribute('data-testid'),
-      );
+      inGroup(group, '.rules-sidebar-section').map((header) => header.getAttribute('data-testid'));
     expect(sectionsIn('changes')).toEqual([
       'commit-tool-section-changes-requests',
       'commit-tool-section-changes-environments',
@@ -384,7 +421,7 @@ describe('CommitChangesTree, by what the files belong to', () => {
     expect(labelsIn('unversioned')).toEqual(['Orders', 'Refund Order', 'notes', 'new.md']);
     // An entity's one listed file that is not its details says which of its files it is.
     expect(labelsIn('ignored')).toEqual(['Staging · Secret Values']);
-    expect(screen.getByTestId('commit-tool-named-changes').textContent).not.toContain('request.yaml');
+    expect(labelsIn('changes').join(' ')).not.toContain('request.yaml');
     expect(byKey(`file:${STAGING_SECRETS}`).textContent).toContain('.gitignore');
   });
 
@@ -424,7 +461,7 @@ describe('CommitChangesTree, by what the files belong to', () => {
     expect(boxOf(byKey(`file:${REFUND}`)).checked).toBe(false);
     fireEvent.click(boxOf(byKey('unversioned:requests:col00001')));
     expect(onSetChecked).toHaveBeenLastCalledWith([REFUND], true);
-    expect(screen.getByTestId('commit-tool-named-ignored').querySelector('input[type="checkbox"]')).toBeNull();
+    expect(inGroup('ignored', 'input[type="checkbox"]')).toEqual([]);
   });
 
   it('a section’s checkbox flips its files and does not fold it; a click on the section folds it', () => {
@@ -504,7 +541,7 @@ describe('CommitChangesTree, by what the files belong to', () => {
 
   it('listed by path, a file’s row jumps by its path too', async () => {
     const { h } = renderTree(false);
-    expect(document.querySelector('[data-testid^="commit-tool-named-"]')).toBeNull();
+    expect(document.querySelector('.commit-tool-named-row')).toBeNull();
     fireEvent.contextMenu(byKey(`file:${MANIFEST}`));
     fireEvent.click(await menuItem('workbench.commitTool.menu.jumpToSource'));
     expect(h.onJumpToSource).toHaveBeenLastCalledWith(MANIFEST, undefined);

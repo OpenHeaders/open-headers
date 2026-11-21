@@ -4,16 +4,19 @@
  * never measured). The one tested window computation shared by the
  * devtools panel's console/stream grids and the workbench's SSE event
  * list: prefix sums + binary search, a fixed pixel overscan so a fast
- * wheel fling stays painted, and a zero-height-viewport fallback that
- * renders the FULL list — jsdom tests keep exercising every row, and a
- * transiently unlaid-out mount shows content instead of a blank.
+ * wheel fling stays painted, and a fallback for a scroller that was
+ * NEVER laid out that renders the FULL list — jsdom tests keep
+ * exercising every row, and a transiently unlaid-out mount shows
+ * content instead of a blank. A scroller that HAD a height and lost it
+ * is hidden (a kept-alive tab or tool window behind another): it keeps
+ * the window it had, so a list nobody sees never mounts whole.
  *
  * Lifted from the panel's console recipe (`use-console-row-window`,
  * which now wraps this) when the workbench SSE list needed the same
  * machinery — one implementation, every surface.
  */
 
-import { type RefObject, useCallback, useLayoutEffect, useMemo, useState } from 'react';
+import { type RefObject, useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react';
 
 // The window over rows of ONE height — a list of any length, no heights held (`fixed-rows.ts`).
 export {
@@ -82,6 +85,24 @@ export function computeRowWindow(prefix: readonly number[], scrollTop: number, v
   return { start, end: lo };
 }
 
+/**
+ * The scroll position that shows row `row` whole, moved the least: the
+ * position given where the row already shows, else the one that brings
+ * its nearer edge to the viewport's.
+ */
+export function nearestScrollTopForRow(
+  prefix: readonly number[],
+  row: number,
+  scrollTop: number,
+  viewportPx: number,
+): number {
+  const top = prefix[row] ?? 0;
+  const bottom = prefix[row + 1] ?? top;
+  if (top < scrollTop) return top;
+  if (bottom > scrollTop + viewportPx) return Math.max(0, bottom - viewportPx);
+  return scrollTop;
+}
+
 export function useVirtualRowWindow(
   ref: RefObject<HTMLElement | null>,
   heights: readonly number[],
@@ -95,16 +116,23 @@ export function useVirtualRowWindow(
   }, [heights]);
 
   const [rowWindow, setRowWindow] = useState<RowWindow>({ start: 0, end: 0 });
+  // The scroller has had a height: one without it from here on is hidden, not unlaid-out.
+  const laidOut = useRef(false);
 
   const recompute = useCallback(() => {
     const el = ref.current;
     if (!el) return;
     const count = prefix.length - 1;
-    const next =
-      el.clientHeight === 0
-        ? { start: 0, end: count } // unlaid-out (jsdom) → render everything
-        : computeRowWindow(prefix, el.scrollTop, el.clientHeight);
-    setRowWindow((prev) => (prev.start === next.start && prev.end === next.end ? prev : next));
+    if (el.clientHeight > 0) laidOut.current = true;
+    setRowWindow((prev) => {
+      let next: RowWindow;
+      if (el.clientHeight > 0) next = computeRowWindow(prefix, el.scrollTop, el.clientHeight);
+      // Hidden: the window it had, held to the rows there are now.
+      else if (laidOut.current) next = { start: Math.min(prev.start, count), end: Math.min(prev.end, count) };
+      // Never laid out (jsdom) → render everything.
+      else next = { start: 0, end: count };
+      return prev.start === next.start && prev.end === next.end ? prev : next;
+    });
   }, [ref, prefix]);
 
   // Initial + per-change sync, measured before paint so the first populated

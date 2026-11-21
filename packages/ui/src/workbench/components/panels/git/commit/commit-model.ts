@@ -166,6 +166,35 @@ export function aggregateChecked(
 }
 
 /**
+ * The tri-state of each row that holds others, by the row's key — read
+ * from the files under it, once: a tree asks for the rows it draws, on
+ * every draw, and a set of files is counted the first time only. Made
+ * anew when the rows, the checked set or the keys change.
+ */
+export function checkAggregates(
+  rowsByPath: ReadonlyMap<string, WorkspaceTreeWorkingChangeWire>,
+  state: CheckedState,
+  pathsByKey: ReadonlyMap<string, readonly string[]>,
+): (key: string) => CheckAggregate {
+  const known = new Map<string, CheckAggregate>();
+  return (key) => {
+    const held = known.get(key);
+    if (held !== undefined) return held;
+    let checked = 0;
+    let total = 0;
+    for (const path of pathsByKey.get(key) ?? []) {
+      const row = rowsByPath.get(path);
+      if (row === undefined || row.ignored) continue;
+      total += 1;
+      if (isRowChecked(row, state)) checked += 1;
+    }
+    const aggregate: CheckAggregate = total === 0 || checked === 0 ? 'none' : checked === total ? 'all' : 'some';
+    known.set(key, aggregate);
+    return aggregate;
+  };
+}
+
+/**
  * A set of rows by kind. Tracked letters fold as the reference does: A
  * added, D deleted, everything else (M/T/R/C) modified; unversioned
  * rows count apart.

@@ -11,7 +11,7 @@
  */
 
 import type { WorkspaceTreeEntityRefWire, WorkspaceTreeWorkingChangeWire } from '@openheaders/core/bridge';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const { mockCall } = vi.hoisted(() => ({ mockCall: vi.fn() }));
 
@@ -56,6 +56,18 @@ const GROUPS = splitChangeGroups([
   row({ path: STRAY, status: '?', unversioned: true }),
 ]);
 
+// jsdom lacks the observer the tree's row window follows its scroller with.
+beforeAll(() => {
+  vi.stubGlobal(
+    'ResizeObserver',
+    class {
+      observe(): void {}
+      unobserve(): void {}
+      disconnect(): void {}
+    },
+  );
+});
+
 beforeEach(() => {
   resetFormerFiles();
   mockCall.mockReset();
@@ -64,14 +76,14 @@ beforeEach(() => {
 
 afterEach(cleanup);
 
+/** What a git group's rows hold — every row the tree draws names its group. */
+const inGroup = (group: string, selector: string): Element[] => [
+  ...document.querySelectorAll(`[data-group="${group}"] ${selector}`),
+];
 const sectionsIn = (group: string): Array<string | null> =>
-  [...screen.getByTestId(`commit-tool-named-${group}`).querySelectorAll('.rules-sidebar-section')].map((header) =>
-    header.getAttribute('data-testid'),
-  );
+  inGroup(group, '.rules-sidebar-section').map((header) => header.getAttribute('data-testid'));
 const labelsIn = (group: string): string[] =>
-  [...screen.getByTestId(`commit-tool-named-${group}`).querySelectorAll('.rules-sidebar-item-label')].map(
-    (label) => label.textContent ?? '',
-  );
+  inGroup(group, '.rules-sidebar-item-label').map((label) => label.textContent ?? '');
 
 function tree(headSha: string | null) {
   return (

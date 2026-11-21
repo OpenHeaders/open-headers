@@ -117,6 +117,12 @@ export function allDirKeys(nodes: readonly FileTreeNode[]): string[] {
   return keys;
 }
 
+/** Every file path at or beneath a node. */
+export function fileTreePaths(node: FileTreeNode): string[] {
+  if (node.kind === 'file') return [node.path];
+  return node.children.flatMap(fileTreePaths);
+}
+
 /** One visible row of the tree in render order — the selection model's order and the keyboard's walk. */
 export interface FileTreeRow {
   /** The dir's key or the file's path — the selection id. */

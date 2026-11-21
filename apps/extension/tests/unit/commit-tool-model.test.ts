@@ -9,6 +9,7 @@ import type { WorkspaceTreeWorkingChangeWire } from '@openheaders/core/bridge';
 import {
   aggregateChecked,
   changeCounterParts,
+  checkAggregates,
   checkedOnly,
   checkedPaths,
   commitAuthorOf,
@@ -121,6 +122,38 @@ describe('aggregateChecked', () => {
       ),
     ).toBe('some');
     expect(aggregateChecked(ROWS, EMPTY_CHECKED_STATE, [])).toBe('none');
+  });
+});
+
+describe('checkAggregates', () => {
+  const rowsByPath = new Map(ROWS.map((r) => [r.path, r]));
+  const pathsByKey = new Map<string, string[]>([
+    ['rules', ['rules/a.yaml', 'rules/b.yaml']],
+    ['all', ROWS.map((r) => r.path)],
+    ['ignored', ['secret.log']],
+  ]);
+
+  it('answers a row’s tri-state by its key, from the files under it — an ignored file counts for nothing', () => {
+    const atRest = checkAggregates(rowsByPath, EMPTY_CHECKED_STATE, pathsByKey);
+    expect(atRest('rules')).toBe('all');
+    expect(atRest('all')).toBe('some');
+    expect(atRest('ignored')).toBe('none');
+    expect(atRest('no-such-row')).toBe('none');
+    const state = setPathsChecked(ROWS, EMPTY_CHECKED_STATE, ['rules/a.yaml'], false);
+    expect(checkAggregates(rowsByPath, state, pathsByKey)('rules')).toBe('some');
+  });
+
+  it('counts a row’s files once, however often the row is drawn', () => {
+    let reads = 0;
+    const counting = new Map(pathsByKey);
+    const get = counting.get.bind(counting);
+    counting.get = (key) => {
+      reads += 1;
+      return get(key);
+    };
+    const aggregateOf = checkAggregates(rowsByPath, EMPTY_CHECKED_STATE, counting);
+    expect([aggregateOf('rules'), aggregateOf('rules'), aggregateOf('rules')]).toEqual(['all', 'all', 'all']);
+    expect(reads).toBe(1);
   });
 });
 

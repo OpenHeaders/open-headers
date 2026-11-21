@@ -13,6 +13,14 @@ export const ROW_INDENT = CARET_SLOT + ROW_GAP;
 export const ROW_INSET = 8;
 export const ROW_MARGIN = 4;
 
+/**
+ * The heights the rows lay out at — `.rules-sidebar-item { min-height }`
+ * and a section header's padding around its 16px line. A list that
+ * windows these rows places them by these, and gives each its height.
+ */
+export const ROW_HEIGHT = 22;
+export const SECTION_HEIGHT = 26;
+
 /** Left padding of a row at `depth`. */
 export function rowPaddingLeft(depth: number): number {
   return ROW_INSET + depth * ROW_INDENT;
