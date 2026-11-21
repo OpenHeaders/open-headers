@@ -36,10 +36,10 @@ export function buildNumberBase(version: string): string {
   return `${year}${month.padStart(2, '0')}${patch.padStart(2, '0')}`;
 }
 
-function readOrdinal(version: string): UploadOrdinal {
-  if (!fs.existsSync(ORDINAL_FILE)) return { version, ordinal: 1 };
+function lastUploadedOrdinal(version: string): number {
+  if (!fs.existsSync(ORDINAL_FILE)) return 0;
   const state = JSON.parse(fs.readFileSync(ORDINAL_FILE, 'utf8')) as UploadOrdinal;
-  return state.version === version ? state : { version, ordinal: 1 };
+  return state.version === version ? state.ordinal : 0;
 }
 
 function replaceSetting(source: string, key: string, value: string): string {
@@ -60,10 +60,8 @@ export function applyVersion(version: string, ordinal: number): string {
 
 const version: string = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8')).version;
 const bump = process.argv.includes('--bump');
-const current = readOrdinal(version);
-const next: UploadOrdinal = bump
-  ? { version, ordinal: current.version === version && fs.existsSync(ORDINAL_FILE) ? current.ordinal + 1 : 1 }
-  : current;
+const last = lastUploadedOrdinal(version);
+const next: UploadOrdinal = { version, ordinal: bump ? last + 1 : Math.max(last, 1) };
 
 const buildNumber = applyVersion(version, next.ordinal);
 if (bump) fs.writeFileSync(ORDINAL_FILE, `${JSON.stringify(next, null, 2)}\n`);
