@@ -549,7 +549,7 @@ export const workbenchChrome = {
   'workbench.toolWindows.info.terminal.summary':
     '실제 pty 위에서 셸을 실행하는 통합 터미널입니다. 독립 터미널에서 실행할 수 있는 것은 무엇이든 여기서 실행되며, 로컬 앱을 대상으로 한 oh CLI 도구도 포함됩니다.',
   'workbench.toolWindows.info.git.summary':
-    '활성 워크스페이스 Git 바인딩의 커밋 기록입니다. 커밋별 변경 파일, 작성자, 파일별 기록이 있는 워크스페이스 타임라인입니다.',
+    '이 워크스페이스 Git 바인딩의 커밋 기록입니다. 커밋별 변경 파일, 작성자, 파일별 기록이 있는 워크스페이스 타임라인입니다.',
 
   // ── Git tool window (log view) ───────────────────────────────────
   'workbench.gitLog.logTab': '로그: {branch}',
@@ -929,7 +929,7 @@ export const workbenchChrome = {
   // ── Commit tool window ───────────────────────────────────────────
   'workbench.toolWindows.commit': 'Git · 커밋',
   'workbench.toolWindows.info.commit.summary':
-    '활성 워크스페이스 Git 바인딩의 변경을 커밋합니다. 체크할 수 있는 변경 트리, 커밋 메시지, 그리고 본인의 git 신원과 훅으로 실행되는 커밋 / 커밋 후 푸시입니다.',
+    '이 워크스페이스 Git 바인딩의 변경을 커밋합니다. 체크할 수 있는 변경 트리, 커밋 메시지, 그리고 본인의 git 신원과 훅으로 실행되는 커밋 / 커밋 후 푸시입니다.',
   'workbench.commitTool.groups.changes': '변경',
   'workbench.commitTool.oneFile': '파일 1개',
   'workbench.commitTool.oneDirectory': '디렉터리 1개',

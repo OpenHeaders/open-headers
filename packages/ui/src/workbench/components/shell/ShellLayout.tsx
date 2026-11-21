@@ -23,7 +23,7 @@ import {
   ShellLayout as SharedShellLayout,
   type SidebarLayoutVariant,
 } from '@openheaders/ui/shared/dock-layout';
-import { useActiveWorkspaceId } from '@openheaders/ui/shared/hooks/readers/useActiveWorkspaceId';
+import { useWorkbenchEditingScopeWorkspaceId } from '../../hooks/EditingScopeWorkspaceContext';
 import type { ResponsiveLayout } from '../../hooks/useResponsiveLayout';
 import type { ToolLayoutApi } from '../../hooks/useToolLayout';
 import { useSetting, useSettingValue } from '../../settings/hooks';
@@ -62,10 +62,10 @@ const ShellLayout: React.FC<ShellLayoutProps> = ({
   renderEditorTabDragPreview,
 }) => {
   // Version Control naming law (the IDE model): the tool window's BASE
-  // identity is "Version Control"; it reads "Git" only once the active
+  // identity is "Version Control"; it reads "Git" only once the shown
   // workspace's directory binding exists. Everything else about the
   // def (id, icon, slot, gating) stays the registry's.
-  const workspaceId = useActiveWorkspaceId();
+  const workspaceId = useWorkbenchEditingScopeWorkspaceId();
   const gitBound = useWorkspaceGitBound(workspaceId);
   const windowMap = useMemo(() => {
     if (gitBound) return TOOL_WINDOW_MAP;

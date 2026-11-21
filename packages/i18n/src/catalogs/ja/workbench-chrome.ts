@@ -549,7 +549,7 @@ export const workbenchChrome = {
   'workbench.toolWindows.info.terminal.summary':
     '本物の pty でシェルを動かす統合ターミナルです。単独のターミナルで実行できるものは、ローカルアプリに対する oh CLI を含めてすべてここで実行できます。',
   'workbench.toolWindows.info.git.summary':
-    'アクティブなワークスペースの Git バインディングのコミット履歴です。コミットごとの変更ファイル、作成者、ファイルごとの履歴を備えたワークスペースのタイムラインです。',
+    'このワークスペースの Git バインディングのコミット履歴です。コミットごとの変更ファイル、作成者、ファイルごとの履歴を備えたワークスペースのタイムラインです。',
 
   // ── Git tool window (log view) ───────────────────────────────────
   'workbench.gitLog.logTab': 'ログ：{branch}',
@@ -933,7 +933,7 @@ export const workbenchChrome = {
   // ── Commit tool window ───────────────────────────────────────────
   'workbench.toolWindows.commit': 'Git · コミット',
   'workbench.toolWindows.info.commit.summary':
-    'アクティブなワークスペースの Git バインディングから変更をコミットします。チェック可能な変更ツリー、コミットメッセージ、そして自分の git ID とフックによる「コミット」/「コミットしてプッシュ」を備えます。',
+    'このワークスペースの Git バインディングから変更をコミットします。チェック可能な変更ツリー、コミットメッセージ、そして自分の git ID とフックによる「コミット」/「コミットしてプッシュ」を備えます。',
   'workbench.commitTool.groups.changes': '変更',
   'workbench.commitTool.oneFile': '1 個のファイル',
   'workbench.commitTool.oneDirectory': '1 個のディレクトリ',

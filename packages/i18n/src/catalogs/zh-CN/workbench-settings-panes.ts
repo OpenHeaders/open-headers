@@ -592,7 +592,7 @@ export const workbenchSettingsPanes = {
   'workbench.settings.gitPane.refusal.identityMismatch': '此文件夹属于另一个工作区（{uid}）。',
   'workbench.settings.gitPane.refusal.invalidManifest': '文件夹的 workspace.yaml 无法读取：{message}',
   'workbench.settings.gitPane.refusal.alreadyBound': '此工作区已绑定到一个文件夹。',
-  'workbench.settings.gitPane.refusal.unknownWorkspace': '没有可绑定的活动工作区。',
+  'workbench.settings.gitPane.refusal.unknownWorkspace': '没有可绑定的工作区。',
   'workbench.settings.gitPane.adoptHint':
     '改为在此处将其作为独立工作区打开：文件夹保留其标识，因此仍是团队推送到的那个工作区。如需为已从服务器使用的工作区创建私有副本，请改为复制该工作区。',
   'workbench.settings.gitPane.adoptButton': '作为工作区“{name}”打开',

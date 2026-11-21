@@ -536,7 +536,7 @@ export const workbenchChrome = {
     'An integrated terminal running your shell in a real pty — anything you can run in a stand-alone ' +
     'terminal runs here, including the oh CLI against the local app.',
   'workbench.toolWindows.info.git.summary':
-    'Commit history for the active workspace’s Git binding — the workspace timeline with per-commit ' +
+    'Commit history for this workspace’s Git binding — the workspace timeline with per-commit ' +
     'changed files, authorship, and per-file history.',
 
   // ── Git tool window (log view) ───────────────────────────────────
@@ -918,7 +918,7 @@ export const workbenchChrome = {
   // ── Commit tool window ───────────────────────────────────────────
   'workbench.toolWindows.commit': 'Git · Commit',
   'workbench.toolWindows.info.commit.summary':
-    'Commit changes from the active workspace’s Git binding — a checkable changes tree, commit message, ' +
+    'Commit changes from this workspace’s Git binding — a checkable changes tree, commit message, ' +
     'and Commit / Commit and Push over your own git identity and hooks.',
   'workbench.commitTool.groups.changes': 'Changes',
   'workbench.commitTool.oneFile': '1 file',

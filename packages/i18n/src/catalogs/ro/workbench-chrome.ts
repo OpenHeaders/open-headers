@@ -582,7 +582,7 @@ export const workbenchChrome = {
   'workbench.toolWindows.info.terminal.summary':
     'Un terminal integrat care rulează shell-ul dvs. într-un pty real — tot ce puteți rula într-un terminal de sine stătător rulează și aici, inclusiv oh CLI împotriva aplicației locale.',
   'workbench.toolWindows.info.git.summary':
-    'Istoricul commit-urilor pentru legătura Git a spațiului de lucru activ — cronologia spațiului de lucru cu fișierele modificate per commit, autorii și istoricul per fișier.',
+    'Istoricul commit-urilor pentru legătura Git a acestui spațiu de lucru — cronologia spațiului de lucru cu fișierele modificate per commit, autorii și istoricul per fișier.',
 
   // ── Git tool window (log view) ───────────────────────────────────
   'workbench.gitLog.logTab': 'Jurnal: {branch}',
@@ -970,7 +970,7 @@ export const workbenchChrome = {
   // ── Commit tool window ───────────────────────────────────────────
   'workbench.toolWindows.commit': 'Git · Commit',
   'workbench.toolWindows.info.commit.summary':
-    'Faceți commit modificărilor din legătura Git a spațiului de lucru activ — un arbore de modificări cu casete de bifare, mesajul de commit și „Commit” / „Commit și Push” cu propria dvs. identitate git și propriile hook-uri.',
+    'Faceți commit modificărilor din legătura Git a acestui spațiu de lucru — un arbore de modificări cu casete de bifare, mesajul de commit și „Commit” / „Commit și Push” cu propria dvs. identitate git și propriile hook-uri.',
   'workbench.commitTool.groups.changes': 'Modificări',
   'workbench.commitTool.oneFile': '1 fișier',
   'workbench.commitTool.oneDirectory': '1 director',

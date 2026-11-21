@@ -706,7 +706,7 @@ export const workbenchSettingsPanes = {
   'workbench.settings.gitPane.refusal.identityMismatch': 'Эта папка принадлежит другому рабочему пространству ({uid}).',
   'workbench.settings.gitPane.refusal.invalidManifest': 'Не удалось прочитать workspace.yaml в папке: {message}',
   'workbench.settings.gitPane.refusal.alreadyBound': 'Это рабочее пространство уже привязано к папке.',
-  'workbench.settings.gitPane.refusal.unknownWorkspace': 'Нет активного рабочего пространства для привязки.',
+  'workbench.settings.gitPane.refusal.unknownWorkspace': 'Нет рабочего пространства для привязки.',
   'workbench.settings.gitPane.adoptHint':
     'Откройте её здесь как отдельное рабочее пространство: папка сохраняет свой идентификатор и остаётся тем рабочим пространством, в которое пушит ваша команда. Для личной копии рабочего пространства, которым вы уже пользуетесь с сервера, продублируйте это рабочее пространство.',
   'workbench.settings.gitPane.adoptButton': 'Открыть как рабочее пространство «{name}»',

@@ -643,7 +643,7 @@ export const workbenchSettingsPanes = {
   'workbench.settings.gitPane.refusal.identityMismatch': 'This folder belongs to a different workspace ({uid}).',
   'workbench.settings.gitPane.refusal.invalidManifest': 'The folder’s workspace.yaml could not be read: {message}',
   'workbench.settings.gitPane.refusal.alreadyBound': 'This workspace is already bound to a folder.',
-  'workbench.settings.gitPane.refusal.unknownWorkspace': 'No active workspace to bind.',
+  'workbench.settings.gitPane.refusal.unknownWorkspace': 'No workspace to bind.',
   'workbench.settings.gitPane.adoptHint':
     'Open it here as its own workspace instead: the folder keeps its identity, so it stays the workspace your teammates push to. For a private copy of a workspace you already use from a server, duplicate that workspace instead.',
   'workbench.settings.gitPane.adoptButton': 'Open as workspace “{name}”',

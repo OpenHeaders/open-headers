@@ -710,7 +710,7 @@ export const workbenchSettingsPanes = {
   'workbench.settings.gitPane.refusal.invalidManifest':
     'Fișierul workspace.yaml al folderului nu a putut fi citit: {message}',
   'workbench.settings.gitPane.refusal.alreadyBound': 'Acest spațiu de lucru este legat deja de un folder.',
-  'workbench.settings.gitPane.refusal.unknownWorkspace': 'Niciun spațiu de lucru activ de legat.',
+  'workbench.settings.gitPane.refusal.unknownWorkspace': 'Niciun spațiu de lucru de legat.',
   'workbench.settings.gitPane.adoptHint':
     'Deschide-l aici ca spațiu de lucru propriu: folderul își păstrează identitatea, deci rămâne spațiul de lucru în care echipa ta face push. Pentru o copie privată a unui spațiu de lucru pe care îl folosești deja de pe un server, duplică acel spațiu de lucru.',
   'workbench.settings.gitPane.adoptButton': 'Deschide ca spațiul de lucru „{name}”',

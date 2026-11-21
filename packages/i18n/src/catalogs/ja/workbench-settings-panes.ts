@@ -650,7 +650,7 @@ export const workbenchSettingsPanes = {
   'workbench.settings.gitPane.refusal.identityMismatch': 'このフォルダーは別のワークスペース（{uid}）のものです。',
   'workbench.settings.gitPane.refusal.invalidManifest': 'フォルダーの workspace.yaml を読み取れませんでした：{message}',
   'workbench.settings.gitPane.refusal.alreadyBound': 'このワークスペースは既にフォルダーにバインドされています。',
-  'workbench.settings.gitPane.refusal.unknownWorkspace': 'バインドするアクティブなワークスペースがありません。',
+  'workbench.settings.gitPane.refusal.unknownWorkspace': 'バインドするワークスペースがありません。',
   'workbench.settings.gitPane.adoptHint':
     '代わりにここで独自のワークスペースとして開けます。フォルダーは ID を保持するため、チームがプッシュするワークスペースのままです。サーバーからすでに使用しているワークスペースのプライベートなコピーが必要な場合は、そのワークスペースを複製してください。',
   'workbench.settings.gitPane.adoptButton': 'ワークスペース「{name}」として開く',

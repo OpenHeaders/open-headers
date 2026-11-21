@@ -542,7 +542,7 @@ export const workbenchChrome = {
     '一个集成终端，在真实的 pty 中运行你的 shell——凡是能在独立终端中运行的都能在这里运行，' +
     '包括对本地应用使用 oh CLI。',
   'workbench.toolWindows.info.git.summary':
-    '活动工作区 Git 绑定的提交历史——工作区时间线，带有每个提交的已更改文件、作者信息和每个文件的历史。',
+    '此工作区 Git 绑定的提交历史——工作区时间线，带有每个提交的已更改文件、作者信息和每个文件的历史。',
 
   // ── Git tool window (log view) ───────────────────────────────────
   'workbench.gitLog.filterPlaceholder': '文本或哈希',
@@ -902,7 +902,7 @@ export const workbenchChrome = {
   // ── Commit tool window ───────────────────────────────────────────
   'workbench.toolWindows.commit': 'Git · 提交',
   'workbench.toolWindows.info.commit.summary':
-    '提交当前工作区 Git 绑定中的更改——可勾选的更改树、提交信息，以及使用你自己的 git 身份和钩子的提交 / 提交并推送。',
+    '提交此工作区 Git 绑定中的更改——可勾选的更改树、提交信息，以及使用你自己的 git 身份和钩子的提交 / 提交并推送。',
   'workbench.commitTool.groups.changes': '更改',
   'workbench.commitTool.oneFile': '1 个文件',
   'workbench.commitTool.oneDirectory': '1 个目录',

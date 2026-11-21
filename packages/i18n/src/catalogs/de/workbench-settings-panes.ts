@@ -746,7 +746,7 @@ export const workbenchSettingsPanes = {
   'workbench.settings.gitPane.refusal.invalidManifest':
     'Die workspace.yaml des Ordners ließ sich nicht lesen: {message}',
   'workbench.settings.gitPane.refusal.alreadyBound': 'Dieser Arbeitsbereich ist bereits an einen Ordner gebunden.',
-  'workbench.settings.gitPane.refusal.unknownWorkspace': 'Kein aktiver Arbeitsbereich zum Binden.',
+  'workbench.settings.gitPane.refusal.unknownWorkspace': 'Kein Arbeitsbereich zum Binden.',
   'workbench.settings.gitPane.adoptHint':
     'Öffnen Sie ihn stattdessen hier als eigenen Arbeitsbereich: Der Ordner behält seine Identität und bleibt der Arbeitsbereich, in den Ihr Team pusht. Für eine private Kopie eines Arbeitsbereichs, den Sie bereits über einen Server nutzen, duplizieren Sie stattdessen diesen Arbeitsbereich.',
   'workbench.settings.gitPane.adoptButton': 'Als Arbeitsbereich „{name}“ öffnen',

@@ -583,7 +583,7 @@ export const workbenchChrome = {
     'Un terminal integrado que ejecuta tu shell en un pty real — todo lo que puedas ejecutar en un terminal ' +
     'independiente funciona aquí, incluida la CLI oh contra la aplicación local.',
   'workbench.toolWindows.info.git.summary':
-    'El historial de commits de la vinculación Git del espacio de trabajo activo — la cronología del espacio ' +
+    'El historial de commits de la vinculación Git de este espacio de trabajo — la cronología del espacio ' +
     'de trabajo con los archivos modificados por commit, la autoría y el historial por archivo.',
 
   // ── Proxy capture tool window (control strip) ──────────────────
@@ -1109,7 +1109,7 @@ export const workbenchChrome = {
   // ── Commit tool window ───────────────────────────────────────────
   'workbench.toolWindows.commit': 'Git · Commit',
   'workbench.toolWindows.info.commit.summary':
-    'Confirma cambios de la vinculación Git del espacio de trabajo activo: árbol de cambios marcable, ' +
+    'Confirma cambios de la vinculación Git de este espacio de trabajo: árbol de cambios marcable, ' +
     'mensaje de commit y Commit / Commit y push con tu propia identidad git y tus hooks.',
   'workbench.commitTool.groups.changes': 'Cambios',
   'workbench.commitTool.oneFile': '1 archivo',

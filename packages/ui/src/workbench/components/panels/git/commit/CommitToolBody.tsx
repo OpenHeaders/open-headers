@@ -1,0 +1,834 @@
+/**
+ * CommitToolBody — ONE workspace's Commit tool window (companion of the
+ * Git window, S22; `CommitToolPanel` mounts one per workspace shown, so
+ * what is held here never reaches another workspace): the checkable
+ * changes tree over the `changes` verb,
+ * the working-tree diff on double-click, Jump to Source from a row,
+ * and the user-driven pathspec
+ * commit with Amend / Sign-off / per-commit hooks. Unbound, the body
+ * IS the bind gesture (GitBindForm — the same posture as the Git
+ * window); the posture (bound, root, status) reads from the ONE git
+ * status store and, bound, the window refetches its changes on every
+ * status frame the store folds — no polling. The user's real index is never touched; every
+ * write rides the workspace-tree verb table. A verb pressed here says
+ * it is at the host (`use-git-work`): the pulse along the top of the
+ * changes, and its name in the status bar; one confirmed in a dialog is
+ * signed by that dialog's own button and named alone.
+ */
+
+import {
+  hostBridge,
+  type WorkspaceTreeFileDiffPairWire,
+  type WorkspaceTreeWorkingChangeWire,
+} from '@openheaders/core/bridge';
+import { Alert, App as AntApp, Button } from 'antd';
+import type React from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
+import { useLocale } from '@openheaders/ui/context/LocaleContext';
+import { createPanelHeaderWiring, PanelHeader } from '@openheaders/ui/shared/dock-layout';
+import type { InfoPopoverContent } from '@openheaders/ui/shared/info-popover';
+import { InfoTrigger } from '@openheaders/ui/shared/info-popover';
+import { postGitPanelReveal } from '../../../../data/git-panel-reveal';
+import GitBindForm from '../../../git/GitBindForm';
+import { localWorkspaceTreeTransport } from '../../../git/transport';
+import { refreshWorkspaceGit, useWorkspaceGitSnapshot } from '../../../../stores/git-status-store';
+import DiffModal from '../DiffModal';
+import { type FilesViewMode, setFilesViewMode, useFilesViewMode } from '../files-view-mode';
+import ForcePushBanner from '../ForcePushBanner';
+import GitWorkingLine from '../GitWorkingLine';
+import { committedLocalNotice, integrationRefusalDetail, keptLocalNotice, leftOutNotice } from '../kept-local';
+import { useAskedRead } from '../use-asked-read';
+import { type GitWorkSign, nameGitWork, useGitWork } from '../use-git-work';
+import { useJumpToSource } from '../use-jump-to-source';
+import { passAnswersSign, usePassAnswers } from '../use-pass-answers';
+import { GIT_PRIMARY_TAB_KEY, getGitPanelWorkbench } from '../git-panel-view-store';
+import CreateBranchModal from '../rail/CreateBranchModal';
+import RemotesModal from '../remotes/RemotesModal';
+import {
+  type CheckedState,
+  checkedOnly,
+  checkedPaths,
+  type CommitAuthor,
+  commitAuthorOf,
+  type CommitMenuTarget,
+  countChanges,
+  EMPTY_CHECKED_STATE,
+  isRowChecked,
+  rollbackPaths,
+  setPathsChecked,
+  splitChangeGroups,
+} from './commit-model';
+import { buildCommitRowMenu, buildIgnoredRowMenu, type CommitRowMenuHandlers } from './commit-row-menu';
+import CompareBranchModal from './CompareBranchModal';
+import { COMMIT_MESSAGE_HISTORY_LIMIT, commitMessageHistory } from './commit-message-history';
+import {
+  type CommitViewPrefs,
+  getCommitViewPrefs,
+  patchCommitViewPrefs,
+  subscribeCommitViewPrefs,
+} from './commit-view-prefs';
+import CommitChangesTree, { type CommitChangesTreeHandle, type CommitChangesTreeProps } from './CommitChangesTree';
+import CommitForm, { type CommitFormHandle } from './CommitForm';
+import CommitToolbar from './CommitToolbar';
+import CommitWorkspaceTree from './CommitWorkspaceTree';
+import PushCommitsModal from '../push/PushCommitsModal';
+import PushRejectedModal from '../push/PushRejectedModal';
+import { shortSha } from '../short-sha';
+import PushNewBranchAlert from './PushNewBranchAlert';
+import RollbackChangesModal from './RollbackChangesModal';
+
+export interface CommitToolBodyProps {
+  info: InfoPopoverContent;
+  onHide: () => void;
+  /** The workspace this body serves for as long as it is mounted. */
+  workspaceId: string | null;
+}
+
+const CommitToolBody: React.FC<CommitToolBodyProps> = ({ info, onHide, workspaceId }) => {
+  const { t } = useLocale();
+  const { message, modal } = AntApp.useApp();
+  const headerWiring = useMemo(() => createPanelHeaderWiring({ onHide }), [onHide]);
+
+  const [rows, setRows] = useState<WorkspaceTreeWorkingChangeWire[]>([]);
+  const [selectedRows, setSelectedRows] = useState<readonly WorkspaceTreeWorkingChangeWire[]>([]);
+  const [checked, setChecked] = useState<CheckedState>(EMPTY_CHECKED_STATE);
+  const [amend, setAmend] = useState(false);
+  const [amendAuthor, setAmendAuthor] = useState<CommitAuthor | null>(null);
+  const [history, setHistory] = useState<string[]>([]);
+  const [committing, setCommitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [diff, setDiff] = useState<WorkspaceTreeFileDiffPairWire | null>(null);
+  const [diffLoading, setDiffLoading] = useState<string | null>(null);
+  // The paths Rollback Changes opens with checked; null while it is closed.
+  const [rollback, setRollback] = useState<readonly string[] | null>(null);
+  const [pushRecovery, setPushRecovery] = useState(false);
+  const [pushOpen, setPushOpen] = useState(false);
+  const [pushRejected, setPushRejected] = useState(false);
+  const [compareOpen, setCompareOpen] = useState(false);
+  const [remotesOpen, setRemotesOpen] = useState(false);
+  const [createBranchFrom, setCreateBranchFrom] = useState<string | null>(null);
+  const treeRef = useRef<CommitChangesTreeHandle>(null);
+  const formRef = useRef<CommitFormHandle>(null);
+  const preAmendDraft = useRef<string | null>(null);
+  const answers = usePassAnswers();
+  const { atHost, working } = useGitWork();
+  const jumpToSource = useJumpToSource(workspaceId ?? '');
+
+  // The posture from the one git status store: hydrated on first
+  // read, folded from status frames after.
+  const snapshot = useWorkspaceGitSnapshot(workspaceId);
+  const { bound, rootDir, status } = snapshot;
+  const bypassHooksSetting = status?.bypassHooks ?? false;
+  const currentBranch = status?.branch ?? null;
+  const headSha = status?.headSha ?? null;
+  const forcePush = status?.forcePush ?? null;
+  const refresh = useCallback((): void => {
+    if (workspaceId !== null) refreshWorkspaceGit(workspaceId);
+  }, [workspaceId]);
+
+  const prefs: CommitViewPrefs = useSyncExternalStore(
+    useCallback(
+      (listener) => (workspaceId !== null ? subscribeCommitViewPrefs(workspaceId, listener) : () => undefined),
+      [workspaceId],
+    ),
+    () => (workspaceId !== null ? getCommitViewPrefs(workspaceId) : getCommitViewPrefs('')),
+  );
+  const patchPrefs = useCallback(
+    (patch: Partial<CommitViewPrefs>): void => {
+      if (workspaceId !== null) patchCommitViewPrefs(workspaceId, patch);
+    },
+    [workspaceId],
+  );
+  const viewMode = useFilesViewMode(workspaceId ?? '');
+  const changeViewMode = useCallback(
+    (mode: FilesViewMode): void => {
+      if (workspaceId !== null) setFilesViewMode(workspaceId, mode);
+    },
+    [workspaceId],
+  );
+
+  const refreshChanges = useCallback(async (): Promise<void> => {
+    if (workspaceId === null) return;
+    try {
+      const result = await hostBridge.call('oh.workspaceTree.changes', {
+        workspaceId,
+        ...(prefs.showIgnored ? { includeIgnored: true } : {}),
+      });
+      if (result.ok) setRows(result.changes);
+      else if (result.reason === 'not-bound' || result.reason === 'not-a-repo') setRows([]);
+    } catch {
+      // Host without the verb table — the window stays empty.
+    }
+  }, [workspaceId, prefs.showIgnored]);
+
+  // The changes follow every status frame — a new frame is a new
+  // status object in the store; the first read lands the same way.
+  useEffect(() => {
+    if (status !== null) void refreshChanges();
+  }, [status, refreshChanges]);
+
+  // The press of Refresh — the toolbar's and the row menu's: the one
+  // read of the changes the window answers with its sign of work.
+  const refreshAsked = useAskedRead(refreshChanges);
+
+  const groups = useMemo(() => splitChangeGroups(rows), [rows]);
+  // The counter reads what the commit would take: the checked rows.
+  const counter = useMemo(
+    () => countChanges(rows.filter((row) => isRowChecked(row, checked))),
+    [rows, checked],
+  );
+  const paths = useMemo(() => checkedPaths(rows, checked), [rows, checked]);
+  const toolbarRollback = useMemo(() => rollbackPaths(selectedRows), [selectedRows]);
+  // With no change selected the toolbar's Rollback names them all (the reference).
+  const allChangePaths = useMemo(() => groups.changes.map((row) => row.path), [groups]);
+  const runGitHooks = prefs.runGitHooks ?? !bypassHooksSetting;
+  const canCommit = bound && !committing && prefs.draft.trim().length > 0 && (paths.length > 0 || amend);
+
+  const handleSetChecked = useCallback(
+    (target: readonly string[], value: boolean): void => {
+      setChecked((prev) => setPathsChecked(rows, prev, target, value));
+    },
+    [rows],
+  );
+
+  // The Commit Message History popup reads the bound repo's own log on
+  // every open — a reseeded or rebound repo shows its own subjects.
+  const loadHistory = useCallback((): void => {
+    if (workspaceId === null) return;
+    void hostBridge
+      .call('oh.workspaceTree.log', { workspaceId, limit: COMMIT_MESSAGE_HISTORY_LIMIT })
+      .then((result) => {
+        setHistory(result.ok ? commitMessageHistory(result.entries) : []);
+      })
+      .catch(() => setHistory([]));
+  }, [workspaceId]);
+
+  // Amend prefill (the reference gesture): checking Amend swaps the box to
+  // HEAD's subject, selected whole with the caret at its start;
+  // unchecking restores the stashed draft.
+  const handleAmendChange = useCallback(
+    (next: boolean): void => {
+      setAmend(next);
+      if (workspaceId === null) return;
+      if (next) {
+        preAmendDraft.current = getCommitViewPrefs(workspaceId).draft;
+        void hostBridge
+          .call('oh.workspaceTree.log', { workspaceId, limit: 1 })
+          .then((result) => {
+            if (result.ok && result.entries.length > 0) {
+              patchCommitViewPrefs(workspaceId, { draft: result.entries[0].subject });
+              setAmendAuthor(commitAuthorOf(result.entries[0]));
+              formRef.current?.selectMessage();
+            }
+          })
+          .catch(() => undefined);
+      } else {
+        setAmendAuthor(null);
+        if (preAmendDraft.current !== null) {
+          patchCommitViewPrefs(workspaceId, { draft: preAmendDraft.current });
+          preAmendDraft.current = null;
+        }
+      }
+    },
+    [workspaceId],
+  );
+
+  // Amend's swap of the box ends with the body: the draft it set aside
+  // goes back to its workspace.
+  useEffect(
+    () => () => {
+      if (workspaceId !== null && preAmendDraft.current !== null) {
+        patchCommitViewPrefs(workspaceId, { draft: preAmendDraft.current });
+      }
+    },
+    [workspaceId],
+  );
+
+  const commitErrorText = useCallback(
+    (reason: string, detail?: string): string => {
+      if (reason === 'index-locked') return t('workbench.gitLog.indexLocked');
+      let label: string;
+      switch (reason) {
+        case 'not-bound':
+        case 'not-a-repo':
+          label = t('workbench.commitTool.errors.notARepo');
+          break;
+        case 'git-unavailable':
+          label = t('workbench.commitTool.errors.gitUnavailable');
+          break;
+        case 'empty-message':
+          label = t('workbench.commitTool.errors.emptyMessage');
+          break;
+        case 'invalid-paths':
+        case 'no-paths':
+          label = t('workbench.commitTool.errors.noPaths');
+          break;
+        case 'amend-unborn':
+          label = t('workbench.commitTool.errors.amendUnborn');
+          break;
+        case 'amend-merge':
+          label = t('workbench.commitTool.errors.amendMerge');
+          break;
+        case 'amend-pushed':
+          label = t('workbench.commitTool.errors.amendPushed');
+          break;
+        case 'stage-failed':
+          label = t('workbench.commitTool.errors.stageFailed');
+          break;
+        default:
+          label = t('workbench.commitTool.errors.commitFailed');
+          break;
+      }
+      return detail !== undefined && detail.length > 0 ? `${label}\n${detail}` : label;
+    },
+    [t],
+  );
+
+  // Push's typed refusals (§8.2 / §16): a non-fast-forward raises the
+  // Push Rejected prompt (Merge = pull, then push again), a rewrite
+  // points at the banner, a read-only remote raises the
+  // Push-as-New-Branch recovery instead of an error. The Push window's
+  // own button signs the push it confirms; one sent after a merge has no
+  // dialog up.
+  const pushCurrent = useCallback(async (sign: GitWorkSign): Promise<void> => {
+    if (workspaceId === null) return;
+    const push = await atHost(
+      t('workbench.gitLog.working.push'),
+      () => hostBridge.call('oh.workspaceTree.push', { workspaceId }),
+      sign,
+    );
+    if (push.ok) {
+      setPushRecovery(false);
+      message.success(t(push.pushed ? 'workbench.commitTool.pushed' : 'workbench.commitTool.nothingToPush'));
+      return;
+    }
+    if (push.reason === 'no-permission') {
+      setPushRecovery(true);
+      return;
+    }
+    if (push.reason === 'rejected') {
+      setPushRejected(true);
+      return;
+    }
+    const failed = t('workbench.commitTool.errors.pushFailed');
+    if (push.reason === 'force-push') {
+      setError(`${failed}\n${t('workbench.commitTool.errors.historyRewritten')}`);
+    } else {
+      setError(push.detail !== undefined && push.detail.length > 0 ? `${failed}\n${push.detail}` : failed);
+    }
+  }, [workspaceId, message, t, atHost]);
+
+  const handleCommit = useCallback(
+    async (andPush: boolean): Promise<void> => {
+      if (workspaceId === null) return;
+      setCommitting(true);
+      setError(null);
+      try {
+        const result = await atHost(t('workbench.gitLog.working.commit'), () =>
+          hostBridge.call('oh.workspaceTree.userCommit', {
+            workspaceId,
+            message: prefs.draft,
+            paths,
+            ...(amend ? { amend: true } : {}),
+            ...(prefs.signOff ? { signOff: true } : {}),
+            ...(runGitHooks ? {} : { bypassHooks: true }),
+          }),
+        );
+        if (!result.ok) {
+          setError(commitErrorText(result.reason, result.detail));
+          return;
+        }
+        if (!result.committed) {
+          message.info(t('workbench.commitTool.nothingToCommit'));
+          return;
+        }
+        patchCommitViewPrefs(workspaceId, { draft: '' });
+        preAmendDraft.current = null;
+        setAmend(false);
+        setAmendAuthor(null);
+        setChecked(EMPTY_CHECKED_STATE);
+        formRef.current?.commitLanded();
+        message.success(t('workbench.commitTool.committed', { sha: shortSha(result.sha ?? '') }));
+        await refreshChanges();
+        if (andPush) setPushOpen(true);
+      } catch (err) {
+        setError((err as Error).message);
+      } finally {
+        setCommitting(false);
+      }
+    },
+    [
+      workspaceId,
+      prefs.draft,
+      prefs.signOff,
+      paths,
+      amend,
+      runGitHooks,
+      commitErrorText,
+      message,
+      refreshChanges,
+      t,
+      atHost,
+    ],
+  );
+
+  const handleOpenDiff = useCallback(
+    async (filePath: string): Promise<void> => {
+      if (workspaceId === null) return;
+      // A file's read is signed at its row, as in the Git window — never by the window's pulse.
+      setDiffLoading(filePath);
+      try {
+        const result = await hostBridge.call('oh.workspaceTree.workingFileDiff', { workspaceId, path: filePath });
+        if (result.ok) setDiff(result.diff);
+      } catch {
+        // Host without the verb — double-click stays inert.
+      } finally {
+        setDiffLoading(null);
+      }
+    },
+    [workspaceId],
+  );
+
+  // Commit File… (reference gesture, scoped to our own commit UI): check
+  // ONLY that file and land in the message box.
+  const handleCommitPaths = useCallback(
+    (paths: readonly string[]): void => {
+      setChecked(checkedOnly(rows, paths));
+      formRef.current?.focusMessage();
+    },
+    [rows],
+  );
+
+  // Answers whether the pull landed — the Push Rejected prompt's Merge
+  // pushes again only then. A pull asks before it writes — about
+  // uncommitted work in a file it is about to write, and about a value
+  // both sides changed; Cancel there is not a failure.
+  const answerPass = answers.run;
+  const sayOfPass = answers.say;
+  const handlePull = useCallback(async (): Promise<boolean> => {
+    if (workspaceId === null) return false;
+    try {
+      const result = await answerPass({ kind: 'pull' }, (given) =>
+        atHost(
+          t('workbench.gitLog.working.pull'),
+          () => hostBridge.call('oh.workspaceTree.pull', { workspaceId, ...given }),
+          passAnswersSign(given),
+        ),
+      );
+      if (result === null) return false;
+      if (!result.ok) {
+        setError(
+          result.reason === 'force-push'
+            ? t('workbench.commitTool.errors.historyRewritten')
+            : t('workbench.commitTool.menu.pullFailed', { detail: integrationRefusalDetail(result, t) }),
+        );
+        return false;
+      }
+      if (!result.upToDate && result.history !== undefined) {
+        // §3.4: no merge base — every remote file was treated as
+        // changed; the user learns why (shallow clone or unrelated
+        // histories) instead of a plain "finished".
+        message.warning(
+          t(
+            result.history === 'shallow'
+              ? 'workbench.commitTool.menu.pullDoneShallow'
+              : 'workbench.commitTool.menu.pullDoneUnrelated',
+          ),
+        );
+      } else {
+        message.success(
+          t(result.upToDate ? 'workbench.commitTool.menu.pullUpToDate' : 'workbench.commitTool.menu.pullDone'),
+        );
+      }
+      if (!result.upToDate) {
+        sayOfPass((nameOf) => {
+          const kept = keptLocalNotice(result.keptLocal, t, nameOf);
+          if (kept !== null) message.warning(kept, 8);
+          const first = committedLocalNotice(result.committedLocal, t, nameOf);
+          if (first !== null) message.info(first, 8);
+          const leftOut = leftOutNotice(result.skipped, t, nameOf);
+          if (leftOut !== null) message.warning(leftOut, 8);
+        });
+      }
+      await refreshChanges();
+      return true;
+    } catch (err) {
+      setError((err as Error).message);
+      return false;
+    }
+  }, [workspaceId, message, refreshChanges, t, answerPass, sayOfPass, atHost]);
+
+  const handleFetch = useCallback(async (): Promise<void> => {
+    if (workspaceId === null) return;
+    try {
+      const result = await atHost(t('workbench.gitLog.working.fetch'), () =>
+        hostBridge.call('oh.workspaceTree.fetch', { workspaceId }),
+      );
+      if (result.ok) message.success(t('workbench.commitTool.menu.fetchDone'));
+      else setError(t('workbench.gitLog.fetch.failed', { detail: result.detail ?? result.reason }));
+    } catch (err) {
+      setError((err as Error).message);
+    }
+  }, [workspaceId, message, t, atHost]);
+
+  // Add to .gitignore ▸ — one entry per path (a selection's files in
+  // sequence, the first refusal stops the pass); the rows leave
+  // Unversioned Files on the refetch (and join Ignored Files while
+  // Show Ignored Files is on).
+  const handleIgnorePaths = useCallback(
+    async (paths: readonly string[], target: 'gitignore' | 'exclude'): Promise<void> => {
+      if (workspaceId === null) return;
+      try {
+        const refused = await atHost(t('workbench.gitLog.working.ignore'), async () => {
+          for (const filePath of paths) {
+            const result = await hostBridge.call('oh.workspaceTree.ignorePath', { workspaceId, path: filePath, target });
+            if (!result.ok) return result.detail ?? result.reason;
+          }
+          return null;
+        });
+        if (refused !== null) {
+          setError(t('workbench.commitTool.menu.ignoreFailed', { detail: refused }));
+          return;
+        }
+        await refreshChanges();
+      } catch (err) {
+        setError((err as Error).message);
+      }
+    },
+    [workspaceId, refreshChanges, t, atHost],
+  );
+
+  // Add to VCS — the rows leave Unversioned Files for Changes (added)
+  // on the refetch; nothing is staged.
+  const handleAddToVcs = useCallback(
+    async (paths: readonly string[]): Promise<void> => {
+      if (workspaceId === null) return;
+      try {
+        const result = await atHost(t('workbench.gitLog.working.add'), () =>
+          hostBridge.call('oh.workspaceTree.addToVcs', { workspaceId, paths: [...paths] }),
+        );
+        if (!result.ok) {
+          setError(t('workbench.commitTool.menu.addToVcsFailed', { detail: result.detail ?? result.reason }));
+          return;
+        }
+        await refreshChanges();
+      } catch (err) {
+        setError((err as Error).message);
+      }
+    },
+    [workspaceId, refreshChanges, t, atHost],
+  );
+
+  // Rollback… — the Rollback Changes dialog, opened with the gesture's
+  // tracked changes checked. The dialog is the whole gesture: the files
+  // go back to the last commit from there, and nothing asks again.
+  const handleRollbackPaths = useCallback((paths: readonly string[]): void => setRollback(paths), []);
+
+  // Delete… — confirmed first (the count in the title); a tracked row
+  // reads as deleted on the refetch, an unversioned one is gone.
+  const handleDeletePaths = useCallback(
+    (paths: readonly string[]): void => {
+      if (workspaceId === null || paths.length === 0) return;
+      const files =
+        paths.length === 1 ? t('workbench.commitTool.oneFile') : t('workbench.gitLog.filesCount', { count: paths.length });
+      modal.confirm({
+        title: t('workbench.commitTool.delete.confirmTitle', { files }),
+        content: t('workbench.commitTool.delete.confirmBody'),
+        okText: t('workbench.commitTool.delete.ok'),
+        okButtonProps: { danger: true },
+        onOk: async () => {
+          try {
+            const result = await nameGitWork(t('workbench.gitLog.working.delete'), () =>
+              hostBridge.call('oh.workspaceTree.deletePaths', { workspaceId, paths: [...paths] }),
+            );
+            if (!result.ok) {
+              setError(t('workbench.commitTool.menu.deleteFailed', { detail: result.detail ?? result.reason }));
+            }
+            await refreshChanges();
+          } catch (err) {
+            setError((err as Error).message);
+          }
+        },
+      });
+    },
+    [workspaceId, refreshChanges, t, modal],
+  );
+
+  // Stop Ignoring — deletes the exact entry; the row rejoins
+  // Unversioned Files on the refetch.
+  const handleUnignorePath = useCallback(
+    async (filePath: string, target: 'gitignore' | 'exclude'): Promise<void> => {
+      if (workspaceId === null) return;
+      try {
+        const result = await atHost(t('workbench.gitLog.working.ignore'), () =>
+          hostBridge.call('oh.workspaceTree.unignorePath', { workspaceId, path: filePath, target }),
+        );
+        if (!result.ok) {
+          setError(t('workbench.commitTool.menu.ignoreFailed', { detail: result.detail ?? result.reason }));
+          return;
+        }
+        await refreshChanges();
+      } catch (err) {
+        setError((err as Error).message);
+      }
+    },
+    [workspaceId, refreshChanges, t, atHost],
+  );
+
+  // Compare with Branch or Tag… — the picked ref opens the Git
+  // window's Compare-with-Current tab via the shared registry.
+  const handleComparePick = useCallback(
+    (ref: string): void => {
+      setCompareOpen(false);
+      if (workspaceId === null) return;
+      getGitPanelWorkbench(workspaceId).registry.openCompare(ref);
+      postGitPanelReveal();
+    },
+    [workspaceId],
+  );
+
+  // Branches… — reveal the Git window on its primary log tab with the
+  // ref rail expanded.
+  const handleBranches = useCallback((): void => {
+    if (workspaceId === null) return;
+    const { registry } = getGitPanelWorkbench(workspaceId);
+    registry.patchLogTab(GIT_PRIMARY_TAB_KEY, { refsCollapsed: false });
+    registry.activateTab(GIT_PRIMARY_TAB_KEY);
+    postGitPanelReveal();
+  }, [workspaceId]);
+
+  const rowMenuHandlers = useMemo<CommitRowMenuHandlers>(
+    () => ({
+      onCommitPaths: handleCommitPaths,
+      onShowDiff: (filePath) => void handleOpenDiff(filePath),
+      onRefresh: refreshAsked.ask,
+      onPush: () => setPushOpen(true),
+      onPull: () => void handlePull(),
+      onFetch: () => void handleFetch(),
+      onCompareWithBranch: () => setCompareOpen(true),
+      onBranches: handleBranches,
+      onNewBranch: () => setCreateBranchFrom(currentBranch ?? (headSha !== null ? shortSha(headSha) : 'HEAD')),
+      onManageRemotes: () => setRemotesOpen(true),
+      onIgnorePaths: (paths, target) => void handleIgnorePaths(paths, target),
+      onUnignorePath: (filePath, target) => void handleUnignorePath(filePath, target),
+      onAddToVcs: (paths) => void handleAddToVcs(paths),
+      onRollbackPaths: handleRollbackPaths,
+      onDeletePaths: handleDeletePaths,
+      onJumpToSource: jumpToSource,
+    }),
+    [
+      handleCommitPaths,
+      handleOpenDiff,
+      refreshAsked.ask,
+      pushCurrent,
+      handlePull,
+      handleFetch,
+      handleBranches,
+      handleIgnorePaths,
+      handleUnignorePath,
+      handleAddToVcs,
+      handleRollbackPaths,
+      handleDeletePaths,
+      jumpToSource,
+      currentBranch,
+      headSha,
+    ],
+  );
+
+  // §3.4: a detached HEAD follows the tree read-write like any other
+  // state, but a commit made here belongs to no branch — the window
+  // says so once and offers the way out (New Branch anchors at HEAD).
+  const detachedSha = currentBranch === null ? headSha : null;
+
+  const rowMenu = useCallback(
+    (target: CommitMenuTarget) =>
+      target.kind === 'file' && target.row.ignored
+        ? buildIgnoredRowMenu(target.row, t, rowMenuHandlers)
+        : buildCommitRowMenu(target, t, rowMenuHandlers),
+    [t, rowMenuHandlers],
+  );
+
+  const treeProps: CommitChangesTreeProps = {
+    groups,
+    checked,
+    onSetChecked: handleSetChecked,
+    onOpenFile: (filePath) => void handleOpenDiff(filePath),
+    loadingPath: diffLoading,
+    groupByDirectory: prefs.groupByDirectory,
+    showIgnored: prefs.showIgnored,
+    rootLabel: rootDir === null ? '' : (rootDir.replace(/[\\/]+$/, '').split(/[\\/]/).pop() ?? ''),
+    rowMenu,
+    onSelectionChange: setSelectedRows,
+  };
+
+  if (workspaceId === null || !bound) {
+    return (
+      <div className="rules-bottom-panel">
+        <PanelHeader
+          wiring={headerWiring}
+          title={<strong>{t('workbench.toolWindows.commit')}</strong>}
+          info={info}
+        />
+        <div
+          style={{ flex: '1 1 auto', minHeight: 0, overflowY: 'auto', display: 'flex' }}
+          data-testid="commit-tool-not-bound"
+        >
+          <div style={{ width: 'min(560px, 92%)', margin: 'auto', padding: '18px 0' }}>
+            <GitBindForm
+              call={localWorkspaceTreeTransport}
+              workspaceId={workspaceId}
+              allowFolderPicker
+              onBound={refresh}
+              onAdopted={refresh}
+              testidPrefix="commit-tool-bind"
+            />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="rules-bottom-panel commit-tool-panel" data-testid="commit-tool-panel">
+      <PanelHeader
+        wiring={headerWiring}
+        title={
+          <div style={{ display: 'flex', alignItems: 'center', flex: 1, minWidth: 0, gap: 8 }}>
+            <strong style={{ flexShrink: 0 }}>{t('workbench.toolWindows.commit')}</strong>
+            <InfoTrigger content={info} className="rules-panel-header-info" />
+          </div>
+        }
+      />
+      {detachedSha !== null && (
+        <Alert
+          type="warning"
+          showIcon
+          title={
+            <span style={{ fontSize: 12 }}>
+              {t('workbench.commitTool.detached.message', { sha: shortSha(detachedSha) })}
+            </span>
+          }
+          description={
+            <div style={{ display: 'flex', gap: 8 }}>
+              <Button
+                size="small"
+                onClick={() => setCreateBranchFrom(shortSha(detachedSha))}
+                data-testid="commit-tool-detached-new-branch"
+              >
+                {t('workbench.commitTool.detached.newBranch')}
+              </Button>
+            </div>
+          }
+          style={{ borderRadius: 0 }}
+          data-testid="commit-tool-detached"
+        />
+      )}
+      {forcePush !== null && (
+        <ForcePushBanner workspaceId={workspaceId} state={forcePush} testidPrefix="commit-tool" />
+      )}
+      <CommitToolbar
+        onRefresh={refreshAsked.ask}
+        canRollback={groups.changes.length > 0}
+        rollbackPaths={toolbarRollback.length > 0 ? toolbarRollback : allChangePaths}
+        onRollback={handleRollbackPaths}
+        viewMode={viewMode}
+        onViewModeChange={changeViewMode}
+        prefs={prefs}
+        onPatchPrefs={patchPrefs}
+        onExpandAll={() => treeRef.current?.expandAll()}
+        onCollapseAll={() => treeRef.current?.collapseAll()}
+      />
+      <GitWorkingLine active={working || refreshAsked.asked} />
+      {viewMode === 'workspace' ? (
+        <CommitWorkspaceTree ref={treeRef} {...treeProps} workspaceId={workspaceId} headSha={headSha} />
+      ) : (
+        <CommitChangesTree ref={treeRef} {...treeProps} />
+      )}
+      {pushRecovery && (
+        <PushNewBranchAlert
+          workspaceId={workspaceId}
+          onPushed={(branch) => {
+            setPushRecovery(false);
+            message.success(t('workbench.commitTool.pushNoPermission.pushed', { branch }));
+          }}
+          onClose={() => setPushRecovery(false)}
+        />
+      )}
+      <CommitForm
+        ref={formRef}
+        draft={prefs.draft}
+        onDraftChange={(draft) => patchPrefs({ draft })}
+        amend={amend}
+        onAmendChange={handleAmendChange}
+        amendAuthor={amendAuthor}
+        counter={counter}
+        history={history}
+        onHistoryOpen={loadHistory}
+        signOff={prefs.signOff}
+        onSignOffChange={(signOff) => patchPrefs({ signOff })}
+        runGitHooks={runGitHooks}
+        onRunGitHooksChange={(next) => patchPrefs({ runGitHooks: next })}
+        canCommit={canCommit}
+        onCommit={(andPush) => void handleCommit(andPush)}
+        error={error}
+        onDismissError={() => setError(null)}
+      />
+      <DiffModal diff={diff} onClose={() => setDiff(null)} />
+      <RollbackChangesModal
+        workspaceId={workspaceId}
+        paths={rollback}
+        rows={groups.changes}
+        view={{
+          mode: viewMode,
+          onModeChange: changeViewMode,
+          groupByDirectory: prefs.groupByDirectory,
+          onGroupByDirectoryChange: (groupByDirectory) => patchPrefs({ groupByDirectory }),
+        }}
+        rootLabel={treeProps.rootLabel ?? ''}
+        headSha={headSha}
+        onClose={() => setRollback(null)}
+        onRolledBack={() => void refreshChanges()}
+      />
+      {answers.dialogs}
+      <PushCommitsModal
+        workspaceId={workspaceId}
+        open={pushOpen}
+        onClose={() => setPushOpen(false)}
+        onConfirm={() => pushCurrent('dialog')}
+      />
+      <PushRejectedModal
+        open={pushRejected}
+        branch={currentBranch ?? 'HEAD'}
+        onCancel={() => setPushRejected(false)}
+        onMerge={() => {
+          setPushRejected(false);
+          void handlePull().then((landed) => (landed ? pushCurrent('surface') : undefined));
+        }}
+      />
+      <CompareBranchModal
+        workspaceId={workspaceId}
+        open={compareOpen}
+        onClose={() => setCompareOpen(false)}
+        onPick={handleComparePick}
+      />
+      <RemotesModal
+        workspaceId={workspaceId}
+        open={remotesOpen}
+        onClose={() => setRemotesOpen(false)}
+      />
+      <CreateBranchModal
+        workspaceId={workspaceId}
+        from={createBranchFrom}
+        fromRef={undefined}
+        onClose={() => setCreateBranchFrom(null)}
+        onCreated={(branch, from, checkedOut) => {
+          if (checkedOut) {
+            message.success(t('workbench.gitLog.createBranch.checkedOut', { branch, from }));
+          }
+        }}
+      />
+    </div>
+  );
+};
+
+export default CommitToolBody;

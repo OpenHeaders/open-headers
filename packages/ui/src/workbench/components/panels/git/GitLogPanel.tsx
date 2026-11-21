@@ -1,7 +1,8 @@
 /**
  * GitLogPanel — the workbench Git tool window (the git-sync plan §9 history
- * view), log-window layout on the shared pane-tabs machinery (the
- * terminal panel's architecture): a per-workspace tab REGISTRY
+ * view) for the workspace the workbench SHOWS, log-window layout on
+ * the shared pane-tabs machinery (the terminal panel's architecture):
+ * a per-workspace tab REGISTRY
  * (git-panel-view-store — log tabs with scope/filter/selection, plus
  * the read-only Console tab, open from the start) bound to a shared
  * pane store, rendered by GitGroupRenderer with the full terminal
@@ -38,7 +39,7 @@ import {
   PanelOptionsButton,
 } from '@openheaders/ui/shared/dock-layout';
 import { type InfoPopoverContent, InfoTrigger } from '@openheaders/ui/shared/info-popover';
-import { useActiveWorkspaceId } from '@openheaders/ui/shared/hooks/readers/useActiveWorkspaceId';
+import { useWorkbenchEditingScopeWorkspaceId } from '../../../hooks/EditingScopeWorkspaceContext';
 import { useOpenSettings } from '../../../hooks/OpenSettingsContext';
 import { useSettingValue } from '../../../settings/hooks';
 import { useIsDockFocused } from '../../../stores/focus-region-store';
@@ -65,7 +66,7 @@ const GitLogPanel: React.FC<GitLogPanelProps> = ({ info, dockSlot, onHide, onMov
   const { token } = theme.useToken();
   const { t } = useLocale();
   const headerWiring = useMemo(() => createPanelHeaderWiring({ onHide }), [onHide]);
-  const workspaceId = useActiveWorkspaceId();
+  const workspaceId = useWorkbenchEditingScopeWorkspaceId();
   const dockFocused = useIsDockFocused(dockSlot);
   const openSettings = useOpenSettings();
   const bottomSplit = useSettingValue('workspaceLayout.bottomPanelSplit') as BottomPanelSplit;
@@ -277,6 +278,7 @@ const GitLogPanel: React.FC<GitLogPanelProps> = ({ info, dockSlot, onHide, onMov
         >
           <div style={{ width: 'min(560px, 92%)', margin: 'auto', padding: '18px 0' }}>
             <GitBindForm
+              key={workspaceId}
               call={localWorkspaceTreeTransport}
               workspaceId={workspaceId}
               allowFolderPicker

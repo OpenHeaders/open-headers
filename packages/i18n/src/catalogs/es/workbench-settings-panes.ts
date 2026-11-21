@@ -747,7 +747,7 @@ export const workbenchSettingsPanes = {
   'workbench.settings.gitPane.refusal.identityMismatch': 'Esta carpeta pertenece a otro espacio de trabajo ({uid}).',
   'workbench.settings.gitPane.refusal.invalidManifest': 'No se pudo leer el workspace.yaml de la carpeta: {message}',
   'workbench.settings.gitPane.refusal.alreadyBound': 'Este espacio de trabajo ya está vinculado a una carpeta.',
-  'workbench.settings.gitPane.refusal.unknownWorkspace': 'No hay ningún espacio de trabajo activo que vincular.',
+  'workbench.settings.gitPane.refusal.unknownWorkspace': 'No hay ningún espacio de trabajo que vincular.',
   'workbench.settings.gitPane.adoptHint':
     'Ábrelo aquí como su propio espacio de trabajo: la carpeta conserva su identidad, así que sigue siendo el espacio de trabajo al que tu equipo hace push. Para una copia privada de un espacio de trabajo que ya usas desde un servidor, duplica ese espacio de trabajo.',
   'workbench.settings.gitPane.adoptButton': 'Abrir como espacio de trabajo «{name}»',

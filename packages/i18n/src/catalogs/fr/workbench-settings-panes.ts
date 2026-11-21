@@ -744,7 +744,7 @@ export const workbenchSettingsPanes = {
   'workbench.settings.gitPane.refusal.identityMismatch': 'Ce dossier appartient à un autre espace de travail ({uid}).',
   'workbench.settings.gitPane.refusal.invalidManifest': 'Le workspace.yaml du dossier n’a pas pu être lu : {message}',
   'workbench.settings.gitPane.refusal.alreadyBound': 'Cet espace de travail est déjà lié à un dossier.',
-  'workbench.settings.gitPane.refusal.unknownWorkspace': 'Aucun espace de travail actif à lier.',
+  'workbench.settings.gitPane.refusal.unknownWorkspace': 'Aucun espace de travail à lier.',
   'workbench.settings.gitPane.adoptHint':
     'Ouvrez-le ici comme espace de travail à part entière : le dossier conserve son identité et reste l’espace de travail vers lequel votre équipe pousse. Pour une copie privée d’un espace de travail que vous utilisez déjà depuis un serveur, dupliquez plutôt cet espace de travail.',
   'workbench.settings.gitPane.adoptButton': 'Ouvrir comme espace de travail « {name} »',

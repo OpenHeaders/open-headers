@@ -582,7 +582,7 @@ export const workbenchChrome = {
     'Un terminal intégré qui exécute votre shell dans un vrai pty — tout ce qui tourne dans un terminal ' +
     "autonome tourne ici, y compris la CLI oh contre l'application locale.",
   'workbench.toolWindows.info.git.summary':
-    "L'historique des commits de la liaison Git de l'espace de travail actif — la chronologie de l'espace " +
+    "L'historique des commits de la liaison Git de cet espace de travail — la chronologie de l'espace " +
     "de travail avec, par commit, les fichiers modifiés, la paternité et l'historique par fichier.",
 
   // ── Git tool window (log view) ───────────────────────────────────
@@ -1118,7 +1118,7 @@ export const workbenchChrome = {
   // ── Commit tool window ───────────────────────────────────────────
   'workbench.toolWindows.commit': 'Git · Commit',
   'workbench.toolWindows.info.commit.summary':
-    'Committez les modifications de la liaison Git de l’espace de travail actif — arborescence de ' +
+    'Committez les modifications de la liaison Git de cet espace de travail — arborescence de ' +
     'modifications cochable, message de commit, et Commit / Commit et pousser avec votre propre identité ' +
     'git et vos hooks.',
   'workbench.commitTool.groups.changes': 'Modifications',

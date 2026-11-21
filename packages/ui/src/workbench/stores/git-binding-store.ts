@@ -1,7 +1,7 @@
 /**
  * git-binding-store — which workspaces have a workspace-tree (git)
  * binding, for the Version Control naming law: the tool window's BASE
- * identity is "Version Control"; it renames to "Git" once the active
+ * identity is "Version Control"; it renames to "Git" once the shown
  * workspace's directory binding exists (the IDE model — the shell is
  * VCS-neutral, per-VCS content plugs in). A thin reader over the
  * shared git status store (`git-status-store`), which hydrates lazily
