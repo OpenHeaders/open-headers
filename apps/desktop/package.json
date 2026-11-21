@@ -79,7 +79,8 @@
       "output": "dist"
     },
     "files": [
-      "dist-webpack/**/*"
+      "dist-webpack/**/*",
+      "!node_modules/node-pty/prebuilds{,/**/*}"
     ],
     "asar": true,
     "compression": "normal",
