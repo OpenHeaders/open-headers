@@ -15,14 +15,19 @@
  *      before. node-pty has only Electron consumers, so its in-place
  *      binary stays Electron-ABI.
  *   2. Stash the Electron-ABI better_sqlite3.node into the package's
- *      `prebuilds/` dir, keyed by Electron's NODE_MODULE_VERSION.
+ *      `prebuilds/` dir, keyed by this machine's platform and arch and
+ *      Electron's NODE_MODULE_VERSION.
  *   3. Restore the system-Node binary in place (prebuild-install
  *      download, node-gyp fallback) and stash it under Node's ABI too.
  *
- * `openSqliteDatabase` (oracle-host-node) picks the stash matching
- * `process.versions.modules` at construction time and falls back to
- * the default binary — which after this script is always Node-ABI, so
- * direct better-sqlite3 imports keep working everywhere Node runs.
+ * `openSqliteDatabase` (oracle-host-node) picks the stash matching its
+ * own platform, arch and `process.versions.modules` at construction
+ * time and falls back to the default binary — which after this script
+ * is always Node-ABI, so direct better-sqlite3 imports keep working
+ * everywhere Node runs. The key carries the arch because a package
+ * built for another arch ships this machine's stash inside it: the
+ * app there must miss the stash and load the default binary the
+ * packager rebuilt for its own arch.
  */
 
 import { spawnSync } from 'node:child_process';
@@ -57,7 +62,10 @@ function run(label, command, args, options = {}) {
 
 function stash(abi) {
   fs.mkdirSync(prebuildsDir, { recursive: true });
-  fs.copyFileSync(builtBinary, path.join(prebuildsDir, `better_sqlite3-abi${abi}.node`));
+  fs.copyFileSync(
+    builtBinary,
+    path.join(prebuildsDir, `better_sqlite3-${process.platform}-${process.arch}-abi${abi}.node`),
+  );
 }
 
 run(
