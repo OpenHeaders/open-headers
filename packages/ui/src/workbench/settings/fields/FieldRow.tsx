@@ -17,6 +17,7 @@ import type React from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { RollbackIcon } from '@openheaders/ui/shared/icons';
 import { type InfoPopoverAction, type InfoPopoverSection, InfoTrigger } from '@openheaders/ui/shared/info-popover';
+import { SearchMatchText } from '../components/search-match';
 import { useSettingsConnection } from '../ConnectionContext';
 import { useIsManaged, useIsModified, useResetSetting } from '../hooks';
 import type { SettingKey } from '../types';
@@ -262,7 +263,9 @@ const FieldRow: React.FC<FieldRowProps> = ({
       <div className="settings-field-row" data-setting-key={settingKey} style={{ padding: '5px 0' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 5 }}>
           {modifiedDot}
-          <span style={{ fontSize: 13, color: token.colorText }}>{label}</span>
+          <span style={{ fontSize: 13, color: token.colorText }}>
+            <SearchMatchText text={label} />
+          </span>
           {info}
           {badges}
           {resetButton}
@@ -302,7 +305,9 @@ const FieldRow: React.FC<FieldRowProps> = ({
             minWidth: 180,
           }}
         >
-          {`${label}:`}
+          <span>
+            <SearchMatchText text={label} />:
+          </span>
           {info}
         </span>
       )}

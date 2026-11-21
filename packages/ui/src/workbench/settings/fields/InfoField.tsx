@@ -2,6 +2,7 @@ import { theme } from 'antd';
 import type React from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { InfoTrigger } from '@openheaders/ui/shared/info-popover';
+import { SearchMatchText } from '../components/search-match';
 import { useSettingValue } from '../hooks';
 import type { ResolvedSettingDef, SettingKey } from '../types';
 import FieldRow from './FieldRow';
@@ -44,7 +45,9 @@ const InfoField: React.FC<InfoFieldProps> = ({ def }) => {
             color: token.colorTextSecondary,
           }}
         >
-          {def.label}
+          <span>
+            <SearchMatchText text={def.label} />
+          </span>
           {def.description && (
             <InfoTrigger
               content={{ title: def.label, summary: def.description }}

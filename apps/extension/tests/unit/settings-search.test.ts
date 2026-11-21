@@ -65,7 +65,7 @@ function seed(): void {
     default: false,
     schema: v.boolean(),
     label: 'New Engine',
-    description: 'Enable the new rule engine.',
+    description: 'Enable the new (rule) engine; "beta" quality.',
     category: 'advanced',
     scope: 'user',
     experimental: true,
@@ -124,6 +124,24 @@ describe('searchSettings', () => {
     const results = searchSettings('@modified');
     expect(results).toHaveLength(1);
     expect(results[0].def.key).toBe('search.density');
+  });
+
+  it('matches a term at the start of a word, never inside one', () => {
+    expect(searchSettings('pal').map((r) => r.def.key)).toEqual(['search.theme']);
+    // "alette" sits inside "palette", "ensity" inside "density" — in a
+    // tag, a description, a label and a key alike.
+    expect(searchSettings('alette')).toHaveLength(0);
+    expect(searchSettings('ensity')).toHaveLength(0);
+  });
+
+  it('matches a word through the punctuation around it — in the text and in the query', () => {
+    expect(searchSettings('rule').map((r) => r.def.key)).toEqual(['search.experimentalFlag']);
+    expect(searchSettings('beta').map((r) => r.def.key)).toEqual(['search.experimentalFlag']);
+    expect(searchSettings('(rule)').map((r) => r.def.key)).toEqual(['search.experimentalFlag']);
+  });
+
+  it('finds nothing for a query that names no word, rather than everything', () => {
+    expect(searchSettings('+')).toHaveLength(0);
   });
 
   it('requires every term to match — a term from another setting does not widen the set', () => {

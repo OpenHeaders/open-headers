@@ -1,5 +1,6 @@
 import { Checkbox } from 'antd';
 import type React from 'react';
+import { SearchMatchText } from '../components/search-match';
 import { useUntypedSetting } from '../hooks';
 import type { ResolvedSettingDef } from '../types';
 import FieldRow from './FieldRow';
@@ -22,7 +23,7 @@ const BooleanField: React.FC<BooleanFieldProps> = ({ def }) => {
       labelInControl
     >
       <Checkbox checked={Boolean(value)} onChange={(e) => setValue(e.target.checked)} style={{ fontSize: 13 }}>
-        {def.label}
+        <SearchMatchText text={def.label} />
       </Checkbox>
     </FieldRow>
   );

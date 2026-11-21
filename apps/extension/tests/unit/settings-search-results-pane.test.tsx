@@ -3,12 +3,16 @@
  * Settings › search results pane — what one keystroke is allowed to
  * cost: a query matching most of the registry mounts one batch of rows,
  * not the registry; and a row whose editor is still loading holds back
- * only itself, never the list it sits in.
+ * only itself, never the list it sits in. And what a result shows for
+ * WHY it is there: hits painted in its label and breadcrumb, a line of
+ * its description for a match the label doesn't carry — none of it on
+ * a row outside a results list.
  */
 
 import '@openheaders/ui/workbench/settings/categories';
 import '@openheaders/ui/workbench/settings/schema';
 import SearchResultsPane from '@openheaders/ui/workbench/settings/components/SearchResultsPane';
+import SettingRow from '@openheaders/ui/workbench/settings/fields/SettingRow';
 import { registerCategory, registerSetting, requireDef } from '@openheaders/ui/workbench/settings/registry';
 import { searchSettings } from '@openheaders/ui/workbench/settings/search';
 import type { DictStorage, SettingScope } from '@openheaders/ui/workbench/settings/storage/adapter';
@@ -83,8 +87,8 @@ beforeAll(() => {
     type: 'boolean',
     default: false,
     schema: v.boolean(),
-    label: 'Plain Row',
-    description: 'A row with a built-in field.',
+    label: 'Plain Wombat',
+    description: 'A row with a built-in field, kept for the quokka pin.',
     category: 'paneTest',
     scope: 'user',
   });
@@ -128,6 +132,17 @@ const Harness: React.FC<{ query: string }> = ({ query }) => {
 
 const mountedRows = (): number => document.querySelectorAll('[data-setting-key]').length;
 
+const plainRow = (): Element => {
+  const row = document.querySelector('[data-setting-key="paneTest.plain"]');
+  if (row === null) throw new Error('the plain row is not mounted');
+  return row;
+};
+
+const painted = (root: ParentNode): string[] =>
+  Array.from(root.querySelectorAll('mark.settings-search-match'), (mark) => mark.textContent ?? '');
+
+const snippets = (): Element[] => Array.from(document.querySelectorAll('.settings-search-snippet'));
+
 describe('the search results pane', () => {
   it('mounts one batch of rows for a query that matches most of the registry', () => {
     vi.stubGlobal('IntersectionObserver', SilentIntersectionObserver);
@@ -157,5 +172,47 @@ describe('the search results pane', () => {
     });
 
     expect(screen.getByTestId('lazy-editor').textContent).toBe('paneTest.lazy');
+  });
+
+  it('paints a label hit where it stands and adds no line when the label explains the match', () => {
+    vi.stubGlobal('IntersectionObserver', SilentIntersectionObserver);
+
+    render(<Harness query="wom pl" />);
+
+    expect(painted(plainRow())).toEqual(['Pl', 'Wom']);
+    expect(plainRow().textContent).toContain('Plain Wombat');
+    expect(snippets()).toEqual([]);
+  });
+
+  it('explains a description-only match with one line of the description under the row', () => {
+    vi.stubGlobal('IntersectionObserver', SilentIntersectionObserver);
+
+    render(<Harness query="quokka" />);
+
+    expect(painted(plainRow())).toEqual([]);
+    const [snippet] = snippets();
+    expect(snippets()).toHaveLength(1);
+    expect(plainRow().nextElementSibling).toBe(snippet);
+    // The hit sits past the lead, so the line opens near it.
+    expect(snippet.textContent).toBe('…a built-in field, kept for the quokka pin.');
+    expect(painted(snippet)).toEqual(['quokka']);
+  });
+
+  it('paints a category hit in the group’s breadcrumb', () => {
+    vi.stubGlobal('IntersectionObserver', SilentIntersectionObserver);
+
+    render(<Harness query="pane wombat" />);
+
+    const breadcrumb = plainRow().closest('section')?.querySelector('button[title="Jump to category"]');
+    expect(breadcrumb?.textContent).toBe('Pane Test');
+    expect(painted(breadcrumb ?? document)).toEqual(['Pane']);
+  });
+
+  it('renders a row outside a results list plain — no paint, no line', () => {
+    render(<SettingRow def={requireDef('paneTest.plain')} />);
+
+    expect(plainRow().textContent).toContain('Plain Wombat');
+    expect(painted(document)).toEqual([]);
+    expect(snippets()).toEqual([]);
   });
 });

@@ -5,6 +5,12 @@
  * (what the user sees on screen) and English (the product's lingua
  * franca — docs, tags, keys), so queries keep working after a language
  * switch.
+ *
+ * A setting's own text is tokenized once per locale and kept: cutting
+ * text into words is the costly step of a search pass, and a def's
+ * text doesn't change under one translator. The kept tokens hang off
+ * the translator and def objects themselves, so a newly loaded catalog
+ * or a re-registered def starts fresh and nothing needs invalidating.
  */
 
 import type { Translate } from '@openheaders/ui/context/LocaleContext';
@@ -20,6 +26,29 @@ export interface SearchableFields {
   category: readonly string[];
   description: readonly string[];
   key: readonly string[];
+}
+
+type OwnFields = Omit<SearchableFields, 'category'>;
+
+const ownFieldsByLocale = new WeakMap<Translate, WeakMap<SettingDef, OwnFields>>();
+
+function ownFields(def: SettingDef, translate: Translate): OwnFields {
+  let byDef = ownFieldsByLocale.get(translate);
+  if (!byDef) {
+    byDef = new WeakMap();
+    ownFieldsByLocale.set(translate, byDef);
+  }
+  let fields = byDef.get(def);
+  if (!fields) {
+    fields = {
+      label: bilingualTokens(resolveLabel(def, translate), resolveLabel(def, translateEnglish)),
+      tags: (def.tags ?? []).flatMap(tokenize),
+      description: bilingualTokens(resolveDescription(def, translate), resolveDescription(def, translateEnglish)),
+      key: tokenize(def.key),
+    };
+    byDef.set(def, fields);
+  }
+  return fields;
 }
 
 /**
@@ -43,14 +72,11 @@ export function createFieldReader(translate: Translate): (def: SettingDef) => Se
   }
 
   return (def) => ({
-    label: bilingualTokens(resolveLabel(def, translate), resolveLabel(def, translateEnglish)),
-    tags: (def.tags ?? []).flatMap(tokenize),
+    ...ownFields(def, translate),
     category: [
       ...(categoryTokens.get(def.category) ?? []),
       ...tokenize(def.subcategory ?? ''),
       ...(def.subcategory ? (subcategoryTokens.get(`${def.category}/${def.subcategory}`) ?? []) : []),
     ],
-    description: bilingualTokens(resolveDescription(def, translate), resolveDescription(def, translateEnglish)),
-    key: tokenize(def.key),
   });
 }

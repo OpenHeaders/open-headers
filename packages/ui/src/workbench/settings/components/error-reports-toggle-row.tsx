@@ -15,6 +15,7 @@ import FieldRow from '../fields/FieldRow';
 import { useUntypedSetting } from '../hooks';
 import { resolveDescription, resolveLabel } from '../localize';
 import type { SettingDef } from '../types';
+import { SearchMatchText } from './search-match';
 import TelemetryInspectorModal from './telemetry-inspector-modal';
 
 const ErrorReportsToggleRow: React.FC<{ def: SettingDef }> = ({ def }) => {
@@ -35,7 +36,7 @@ const ErrorReportsToggleRow: React.FC<{ def: SettingDef }> = ({ def }) => {
       ]}
     >
       <Checkbox checked={Boolean(value)} onChange={(e) => setValue(e.target.checked)} style={{ fontSize: 13 }}>
-        {label}
+        <SearchMatchText text={label} />
       </Checkbox>
       <TelemetryInspectorModal open={open} section="reports" onClose={() => setOpen(false)} />
     </FieldRow>

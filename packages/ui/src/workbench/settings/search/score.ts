@@ -2,13 +2,13 @@
  * Scoring — ranks one setting's searchable fields against the query
  * terms. Pure: tokens in, number out.
  *
- * A term's score is its token overlap, weighted by field:
+ * A term's score is the number of words it starts, weighted by field:
  *
- *   label         3   (word prefix)
- *   tags          2   (word prefix)
- *   category/sub  2   (word prefix)
- *   description   1   (anywhere in a word)
- *   key           1   (anywhere in a word)
+ *   label         3
+ *   tags          2
+ *   category/sub  2
+ *   description   1
+ *   key           1
  *
  * EVERY term must match somewhere, so each word typed narrows the
  * result set — a term that matches nothing rules the setting out
@@ -16,14 +16,21 @@
  */
 
 import type { SearchableFields } from './fields';
+import { termMatchesToken } from './tokens';
+
+const FIELD_WEIGHTS: ReadonlyArray<readonly [keyof SearchableFields, number]> = [
+  ['label', 3],
+  ['tags', 2],
+  ['category', 2],
+  ['description', 1],
+  ['key', 1],
+];
 
 function termScore(fields: SearchableFields, term: string): number {
   let score = 0;
-  for (const token of fields.label) if (token.startsWith(term)) score += 3;
-  for (const token of fields.tags) if (token.startsWith(term)) score += 2;
-  for (const token of fields.category) if (token.startsWith(term)) score += 2;
-  for (const token of fields.description) if (token.includes(term)) score += 1;
-  for (const token of fields.key) if (token.includes(term)) score += 1;
+  for (const [field, weight] of FIELD_WEIGHTS) {
+    for (const token of fields[field]) if (termMatchesToken(token, term)) score += weight;
+  }
   return score;
 }
 

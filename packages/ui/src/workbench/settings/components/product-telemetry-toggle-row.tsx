@@ -29,6 +29,7 @@ import FieldRow from '../fields/FieldRow';
 import { useUntypedSetting } from '../hooks';
 import { resolveDescription, resolveLabel } from '../localize';
 import type { SettingDef } from '../types';
+import { SearchMatchText } from './search-match';
 import TelemetryInspectorModal from './telemetry-inspector-modal';
 
 const { Text } = Typography;
@@ -57,7 +58,7 @@ const ProductTelemetryToggleRow: React.FC<{ def: SettingDef }> = ({ def }) => {
         onChange={(e) => (e.target.checked ? setValue(true) : setConfirmOpen(true))}
         style={{ fontSize: 13 }}
       >
-        {label}
+        <SearchMatchText text={label} />
       </Checkbox>
       <Modal
         title={t('workbench.settings.telemetryRow.confirmTitle')}

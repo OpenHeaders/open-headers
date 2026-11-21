@@ -10,6 +10,11 @@
  * as the user scrolls toward them. A short query can match most of the
  * registry, and a setting row is a full form control — mounting every
  * match at once would hold the keystroke for the whole list.
+ *
+ * The pane publishes the query's terms to the rows under it, so each
+ * shows why it matched: hits painted in its label and in the category
+ * breadcrumb, and a line of its description for a match the label
+ * doesn't carry.
  */
 
 import { theme } from 'antd';
@@ -21,6 +26,9 @@ import SettingRow from '../fields/SettingRow';
 import { categoryPath } from '../localize';
 import { allCategories } from '../registry';
 import { groupByCategory, type SettingsSearchResult, takeRows } from '../search';
+import { parseSearchQuery } from '../search/query';
+import { SearchTermsContext } from '../search/terms-context';
+import { SearchMatchText } from './search-match';
 
 /** Rows per batch — more than the tallest settings window shows at once. */
 const ROW_BATCH = 40;
@@ -53,6 +61,7 @@ const SearchResultsPane: React.FC<SearchResultsPaneProps> = ({ results, query, o
     rootRef: scrollRootRef,
   });
   const mounted = useMemo(() => takeRows(groups, count), [groups, count]);
+  const terms = useMemo(() => parseSearchQuery(query).terms, [query]);
 
   if (results.length === 0) {
     return (
@@ -72,47 +81,51 @@ const SearchResultsPane: React.FC<SearchResultsPaneProps> = ({ results, query, o
           {t('workbench.settings.shell.matchesFor', { count: results.length })} <em>{query.trim()}</em>
         </p>
       </header>
-      {mounted.map(({ category, defs }) => (
-        <section key={category.id} style={{ marginBottom: 12 }}>
-          <button
-            type="button"
-            onClick={() => onJumpToCategory(category.id)}
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 6,
-              margin: '0 0 5px 4px',
-              padding: 0,
-              border: 'none',
-              background: 'transparent',
-              fontSize: 10,
-              fontWeight: 600,
-              letterSpacing: 0.4,
-              textTransform: 'uppercase',
-              color: token.colorTextTertiary,
-              cursor: 'pointer',
-            }}
-            title={t('workbench.settings.shell.jumpToCategory')}
-          >
-            <span style={{ fontSize: 12, opacity: 0.85 }}>{category.icon}</span>
-            {categoryPath(category, t).map((segment, i) => (
-              <span key={segment} style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                {i > 0 && (
-                  <span aria-hidden style={{ fontWeight: 400 }}>
-                    ›
+      <SearchTermsContext.Provider value={terms}>
+        {mounted.map(({ category, defs }) => (
+          <section key={category.id} style={{ marginBottom: 12 }}>
+            <button
+              type="button"
+              onClick={() => onJumpToCategory(category.id)}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 6,
+                margin: '0 0 5px 4px',
+                padding: 0,
+                border: 'none',
+                background: 'transparent',
+                fontSize: 10,
+                fontWeight: 600,
+                letterSpacing: 0.4,
+                textTransform: 'uppercase',
+                color: token.colorTextTertiary,
+                cursor: 'pointer',
+              }}
+              title={t('workbench.settings.shell.jumpToCategory')}
+            >
+              <span style={{ fontSize: 12, opacity: 0.85 }}>{category.icon}</span>
+              {categoryPath(category, t).map((segment, i) => (
+                <span key={segment} style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                  {i > 0 && (
+                    <span aria-hidden style={{ fontWeight: 400 }}>
+                      ›
+                    </span>
+                  )}
+                  <span>
+                    <SearchMatchText text={segment} />
                   </span>
-                )}
-                {segment}
-              </span>
-            ))}
-          </button>
-          <div>
-            {defs.map((def) => (
-              <SettingRow key={def.key} def={def} />
-            ))}
-          </div>
-        </section>
-      ))}
+                </span>
+              ))}
+            </button>
+            <div>
+              {defs.map((def) => (
+                <SettingRow key={def.key} def={def} />
+              ))}
+            </div>
+          </section>
+        ))}
+      </SearchTermsContext.Provider>
       {count < results.length && <div ref={sentinelRef} aria-hidden style={{ height: 1 }} />}
     </div>
   );

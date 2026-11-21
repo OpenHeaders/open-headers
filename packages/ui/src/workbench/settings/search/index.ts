@@ -3,15 +3,12 @@
  *
  * One pass per call, split by concern:
  *
- *   query.ts   raw input → filter tokens + text terms
- *   fields.ts  one setting → its searchable text, tokenized
- *   score.ts   fields × terms → rank (every term must match)
- *   group.ts   matched settings → display groups
- *
- * The fields are read on every call rather than indexed: the def count
- * is small (hundreds, not thousands) and a pass costs a few
- * milliseconds — the cost of a search is rendering its results, which
- * the results pane bounds.
+ *   tokens.ts     text → words, and the rule a term matches a word by
+ *   query.ts      raw input → filter tokens + text terms
+ *   fields.ts     one setting → its searchable text, tokenized (kept per locale)
+ *   score.ts      fields × terms → rank (every term must match)
+ *   group.ts      matched settings → display groups
+ *   highlight.ts  displayed text × terms → the stretches to paint
  *
  * Filter tokens `@modified` / `@deprecated` narrow the set before
  * scoring. A query with no text terms returns every (filtered) def

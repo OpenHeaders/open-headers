@@ -14,10 +14,11 @@
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import type React from 'react';
 import { Suspense, useMemo } from 'react';
+import { SearchMatchSnippet } from '../components/search-match';
 import { useSettingsReady } from '../hooks';
 import { resolveSettingDef } from '../localize';
 import { get as storeGet } from '../store';
-import type { SettingDef, SettingKey, SettingsMap } from '../types';
+import type { ResolvedSettingDef, SettingDef, SettingKey, SettingsMap } from '../types';
 import ActionField from './ActionField';
 import BooleanField from './BooleanField';
 import CodeField from './CodeField';
@@ -36,19 +37,8 @@ interface SettingRowProps {
   def: SettingDef;
 }
 
-const SettingRow: React.FC<SettingRowProps> = ({ def: rawDef }) => {
-  // Re-evaluate `when` on every render — cheap, and guarantees we
-  // react to any upstream setting change because that triggers a
-  // re-render on the parent when subscribed.
-  useSettingsReady();
-  // Localization boundary for the field layer: resolve every text pair
-  // once, so the field components below only see definite strings.
-  const t = useT();
-  const def = useMemo(() => resolveSettingDef(rawDef, t), [rawDef, t]);
-  if (def.when && !def.when(<K extends SettingKey>(k: K): SettingsMap[K] => storeGet(k))) {
-    return null;
-  }
-
+/** Type → field-component dispatch for one render-ready def. */
+const SettingField: React.FC<{ def: ResolvedSettingDef }> = ({ def }) => {
   // A def-level customEditor takes priority over type-based dispatch.
   // Used by settings whose write needs guardrails the generic field
   // can't enforce (e.g. backend.mode runs a reachability + auth probe
@@ -103,6 +93,26 @@ const SettingRow: React.FC<SettingRowProps> = ({ def: rawDef }) => {
     default:
       return null;
   }
+};
+
+const SettingRow: React.FC<SettingRowProps> = ({ def: rawDef }) => {
+  // Re-evaluate `when` on every render — cheap, and guarantees we
+  // react to any upstream setting change because that triggers a
+  // re-render on the parent when subscribed.
+  useSettingsReady();
+  // Localization boundary for the field layer: resolve every text pair
+  // once, so the field components below only see definite strings.
+  const t = useT();
+  const def = useMemo(() => resolveSettingDef(rawDef, t), [rawDef, t]);
+  if (def.when && !def.when(<K extends SettingKey>(k: K): SettingsMap[K] => storeGet(k))) {
+    return null;
+  }
+  return (
+    <>
+      <SettingField def={def} />
+      <SearchMatchSnippet label={def.label} description={def.description} />
+    </>
+  );
 };
 
 export default SettingRow;

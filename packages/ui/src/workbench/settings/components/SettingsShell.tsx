@@ -233,6 +233,11 @@ const SettingsShell: React.FC<SettingsShellProps> = ({ initialSettingKey, initia
           }
           .settings-card .settings-field-row { border-bottom: none !important; padding-left: 12px !important; padding-right: 12px !important; }
           .settings-card .settings-field-row + .settings-field-row { border-top: 1px solid ${token.colorBorderSecondary}; }
+          .settings-search-match {
+            background: var(--oh-settings-match-bg, #fcd47e);
+            color: var(--oh-settings-match-text, #1f1f1f);
+            border-radius: 2px;
+          }
         `}</style>
         <div style={{ display: 'flex', flex: 1, minHeight: 0 }}>
           <div
