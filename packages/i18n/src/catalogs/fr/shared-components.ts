@@ -450,8 +450,8 @@ export const sharedComponents = {
     'appareils connectés à envoyer des requêtes » dans Sauvegarde et synchronisation › Vos appareils sur cette machine.',
   'shared.peerExecute.enableCta': "Activer dans l'application de bureau",
   'shared.peerExecute.serverDisabled':
-    "L'exécution des requêtes des appareils connectés est désactivée sur {place}. Un admin du serveur peut l'activer dans Admin du serveur › Serveur.",
-  'shared.peerExecute.openServerAdmin': "Ouvrir l'admin du serveur",
+    "L'exécution des requêtes des appareils connectés est désactivée sur {place}. Un administrateur peut l'activer dans Administration › Serveur.",
+  'shared.peerExecute.openServerAdmin': "Ouvrir l'administration",
   'shared.peerExecute.openPlace': 'Ouvrir {place}',
 
   // ── Desktop teaser ─────────────────────────────────────────────────
@@ -555,9 +555,9 @@ export const sharedComponents = {
   'shared.desktopTeaser.activityMonitor.title': "Moniteur d'activité",
   'shared.desktopTeaser.activityMonitor.body':
     "Voyez ce que l'application de bureau exécute et ce que coûte chaque partie — ses processus avec leur CPU et leur mémoire, en direct.",
-  'shared.desktopTeaser.serverAdmin.title': 'Administration du serveur',
+  'shared.desktopTeaser.serverAdmin.title': 'Administration',
   'shared.desktopTeaser.serverAdmin.body':
-    'Gérez les utilisateurs, les jetons d’accès, l’accès aux espaces de travail et les réglages du serveur dans la ' +
+    'Gérez les utilisateurs, les appareils appairés et l’accès aux espaces de travail dans la ' +
     'console d’administration livrée avec l’application de bureau.',
 
   // ── Settings rows ──────────────────────────────────────────────────

@@ -30,19 +30,19 @@ export const workbenchServerAdmin = {
   'workbench.serverAdmin.panel.devices': 'Dispositivos emparejados',
   'workbench.serverAdmin.panel.devicesHint': 'Tokens, emparejamiento y sesiones iniciadas',
   'workbench.serverAdmin.panel.git': 'Git',
-  'workbench.serverAdmin.panel.gitHint': 'Vincular espacios de trabajo del servidor a repositorios',
+  'workbench.serverAdmin.panel.gitHint': 'Vincular espacios de trabajo a repositorios',
   'workbench.serverAdmin.panel.audit': 'Auditoría',
-  'workbench.serverAdmin.panel.auditHint': 'Consultar el registro de auditoría del servidor',
+  'workbench.serverAdmin.panel.auditHint': 'Consultar el registro de auditoría',
   'workbench.serverAdmin.panel.server': 'Servidor',
   'workbench.serverAdmin.panel.serverHint': 'Solicitudes de dispositivos, build, versión y notas de la versión',
 
   // ── Release-notes card ─────────────────────────────────────────────
   'workbench.serverAdmin.build.sectionTitle': 'Build',
-  'workbench.serverAdmin.build.sectionHint': 'El build del servidor que administra esta consola.',
+  'workbench.serverAdmin.build.sectionHint': 'El build que administra esta consola.',
   'workbench.serverAdmin.build.versionLabel': 'Versión',
   'workbench.serverAdmin.build.versionUnknown': 'Desconocida',
   'workbench.serverAdmin.notes.sectionTitle': 'Notas de la versión',
-  'workbench.serverAdmin.notes.sectionHint': 'Lo que incluye el build del servidor que administra esta consola.',
+  'workbench.serverAdmin.notes.sectionHint': 'Lo que incluye el build que administra esta consola.',
   'workbench.serverAdmin.notes.empty': 'Este build no incluye notas de la versión.',
   'workbench.serverAdmin.requests.sectionTitle': 'Solicitudes de dispositivos',
   'workbench.serverAdmin.requests.sectionHint':
@@ -176,17 +176,18 @@ export const workbenchServerAdmin = {
   'workbench.serverAdmin.gitEmail.updateFailed': 'No se pudo actualizar el email de Git: {message}',
 
   // ── Roles funcionales ──────────────────────────────────────────────
-  'workbench.serverAdmin.roles.daemonAdmin': 'Admin del servidor',
+  'workbench.serverAdmin.roles.daemonAdmin': 'Administrador',
   'workbench.serverAdmin.roles.daemonAdminTooltip':
-    'Administra este servidor: usuarios, roles, permisos, dispositivos e informes. Por sí solo no concede acceso a ningún espacio de trabajo: esta persona sigue viendo solo los que se le concedan abajo.',
+    'Administra usuarios, roles, permisos, dispositivos e informes. Por sí solo no concede acceso a ningún espacio de trabajo: esta persona sigue viendo solo los que se le concedan abajo.',
   'workbench.serverAdmin.roles.createWorkspaces': 'Crear espacios de trabajo',
   'workbench.serverAdmin.roles.createWorkspacesTooltip':
     'Permite a esta persona crear espacios de trabajo nuevos en el servidor. Es propietaria de lo que crea; los espacios existentes siguen necesitando un permiso.',
-  'workbench.serverAdmin.roles.daemonAdminGranted': 'Ahora es admin del servidor.',
-  'workbench.serverAdmin.roles.daemonAdminRevoked': 'Rol de admin del servidor revocado.',
+  'workbench.serverAdmin.roles.daemonAdminGranted': 'Ahora es administrador.',
+  'workbench.serverAdmin.roles.daemonAdminRevoked': 'Rol de administrador revocado.',
   'workbench.serverAdmin.roles.createWorkspacesGranted': 'Ya puede crear espacios de trabajo.',
   'workbench.serverAdmin.roles.createWorkspacesRevoked': 'Ya no puede crear espacios de trabajo.',
-  'workbench.serverAdmin.roles.lastAdmin': 'este es el único admin del servidor: nombra admin a otra persona primero',
+  'workbench.serverAdmin.roles.lastAdmin':
+    'este es el único administrador: nombra administrador a otra persona primero',
   'workbench.serverAdmin.roles.updateFailed': 'No se pudo cambiar el rol: {message}',
 
   // ── Git section ────────────────────────────────────────────────────

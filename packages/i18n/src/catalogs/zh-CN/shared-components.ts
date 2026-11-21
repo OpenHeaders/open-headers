@@ -453,9 +453,8 @@ export const sharedComponents = {
   'shared.peerExecute.remoteDisabled':
     '从其他设备发送请求已在所连接的主机上关闭。请在那台机器的 备份与同步 › 你的设备 中启用“允许其他已连接设备发送请求”。',
   'shared.peerExecute.enableCta': '在桌面应用中启用',
-  'shared.peerExecute.serverDisabled':
-    '为已连接设备运行请求已在 {place} 上关闭。服务器管理员可在 服务器管理 › 服务器 中开启。',
-  'shared.peerExecute.openServerAdmin': '打开服务器管理',
+  'shared.peerExecute.serverDisabled': '为已连接设备运行请求已在 {place} 上关闭。管理员可在 管理 › 服务器 中开启。',
+  'shared.peerExecute.openServerAdmin': '打开管理',
   'shared.peerExecute.openPlace': '打开 {place}',
 
   // ── Desktop teaser ─────────────────────────────────────────────────
@@ -541,9 +540,8 @@ export const sharedComponents = {
   'shared.desktopTeaser.activityMonitor.title': '活动监视器',
   'shared.desktopTeaser.activityMonitor.body':
     '查看桌面应用正在运行什么，以及每个部分的开销——它的进程及其 CPU 和内存，实时呈现。',
-  'shared.desktopTeaser.serverAdmin.title': '服务器管理',
-  'shared.desktopTeaser.serverAdmin.body':
-    '在桌面应用自带的管理控制台中管理用户、访问令牌、工作区访问权限和服务器设置。',
+  'shared.desktopTeaser.serverAdmin.title': '管理',
+  'shared.desktopTeaser.serverAdmin.body': '在桌面应用自带的管理控制台中管理用户、配对设备和工作区访问权限。',
 
   // ── Settings rows ──────────────────────────────────────────────────
   'shared.settingsRows.enabled': '已启用',

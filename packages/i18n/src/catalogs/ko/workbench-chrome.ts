@@ -188,7 +188,7 @@ export const workbenchChrome = {
   'workbench.shell.empty.varCollectionTooltip': '컬렉션 변수는 컬렉션 안에서 만듭니다.',
   'workbench.shell.empty.adminNoWorkspace':
     '워크스페이스가 부여되지 않은 서버 관리자로 로그인했습니다. 부여가 있기 전까지는 워크스페이스 데이터에 접근할 수 없습니다. 자신에게 주는 부여도 마찬가지입니다.',
-  'workbench.shell.empty.adminOpenServerAdmin': '서버 관리 열기',
+  'workbench.shell.empty.adminOpenServerAdmin': '관리 열기',
   'workbench.shell.empty.adminOpenServerAdminDesc': '사용자, 부여, 서버 관리',
 
   // ── Shell: environment selector ─────────────────────────────────────
@@ -236,7 +236,7 @@ export const workbenchChrome = {
   'workbench.shell.breadcrumbs.settings': '설정',
   'workbench.shell.breadcrumbs.whatsNew': '새로운 기능',
   'workbench.shell.breadcrumbs.workspaces': '워크스페이스',
-  'workbench.shell.breadcrumbs.serverAdmin': '서버 관리',
+  'workbench.shell.breadcrumbs.serverAdmin': '관리',
   'workbench.shell.breadcrumbs.environments': '환경',
   'workbench.shell.breadcrumbs.specs': '사양',
   'workbench.shell.breadcrumbs.workspaceVariables': '워크스페이스 변수',
@@ -360,7 +360,7 @@ export const workbenchChrome = {
 
   // ── Tool-window registry (activity bars, dock tab strips, restore
   //    rows, drag previews) ───────────────────────────────────────────
-  'workbench.toolWindows.serverAdmin': '서버 관리',
+  'workbench.toolWindows.serverAdmin': '관리',
   'workbench.toolWindows.httpRules': '브라우저 인터셉터',
   'workbench.toolWindows.apiRequests': 'API 요청',
   'workbench.toolWindows.workflows': '워크플로',
@@ -382,7 +382,7 @@ export const workbenchChrome = {
   //    suffix fragments; the Notifications entry stays on the shared
   //    NOTIFICATIONS_PANEL_INFO corpus (panel co-consumer, Phase D). ───
   'workbench.toolWindows.info.serverAdmin.summary':
-    '이 서버를 관리합니다: 사용자와 그 접근 권한, 페어링된 기기, 저장소 바인딩, 감사 추적. 각 행은 자기 탭을 엽니다.',
+    '사용자와 그 접근 권한, 페어링된 기기, 저장소 바인딩, 감사 추적. 각 행은 자기 탭을 엽니다.',
   'workbench.toolWindows.info.serverAdmin.domainsHeading': '관리 영역',
   'workbench.toolWindows.info.httpRules.summary':
     '나가는 요청과 들어오는 응답을 다시 쓰는 규칙을 만듭니다. 규칙은 컬렉션에 있으며 변수, vault, 라이브 워크플로에서 값을 삽입할 수 있습니다.',

@@ -2,7 +2,7 @@
  * Git daemon-console e2e — the T7-automatable core (the git-sync plan §10
  * Phase 7 / §11.5) on the REAL remote-wire stack: a headless daemon
  * serving the Workbench web bundle, browser tabs as its clients, the
- * Server Admin Git domain tab's card driving the daemon's bindings over
+ * Administration Git domain tab's card driving the daemon's bindings over
  * the `daemon.admin`-gated `oh.daemon.workspaceTree.dispatch` channel,
  * and contributor-authored commits resolved through the user directory.
  *
@@ -11,7 +11,7 @@
  *       door's setup card (the front-door plan §4.2): from loopback no
  *       setup code is asked, the claim makes that person owner of the
  *       seeded workspace and `daemon.admin`, revokes the seed's
- *       bootstrap token and says so, and lands on Server Admin › Users.
+ *       bootstrap token and says so, and lands on Administration › Users.
  *       A browser never pastes a token; the operator plane dies with
  *       the claim.
  *   D3  the Git domain tab's card binds a daemon-side folder over the
@@ -346,7 +346,7 @@ async function openTab(label: string): Promise<[BrowserContext, Page]> {
  * Claim the unclaimed server from the first browser (the front-door
  * plan §4.2). Loopback is the proof, so no setup code is asked; the
  * claim reports the devices it unpaired (the seed's bootstrap token)
- * and its Continue lands the tab on Server Admin › Users — the
+ * and its Continue lands the tab on Administration › Users — the
  * directory is the operator's next job, and the Users tab is the
  * claim's receipt.
  */
@@ -360,7 +360,7 @@ async function claimServer(target: Page, name: string, email: string, password: 
   await target.fill(setupInput('confirm'), password);
   await target.click('[data-testid=login-gate-setup-submit]');
   await expect(target.locator('[data-testid=login-gate-setup-done]')).toContainText('Pair it again');
-  await expect(target.locator('[data-testid=login-gate-setup-continue]')).toHaveText('Continue to Server Admin');
+  await expect(target.locator('[data-testid=login-gate-setup-continue]')).toHaveText('Continue to Administration');
   await target.click('[data-testid=login-gate-setup-continue]');
   await target.waitForSelector('[data-testid=login-gate]', { state: 'detached', timeout: 5_000 });
 }
@@ -389,7 +389,7 @@ async function openBackendSettings(target: Page): Promise<void> {
 }
 
 /**
- * Bring one Server Admin domain tab to the front from the dock strip's
+ * Bring one Administration domain tab to the front from the dock strip's
  * nav rows — every domain is its own singleton workbench tab, and the
  * gestures below need theirs visible.
  */
@@ -549,9 +549,9 @@ test('D1 — the daemon serves the web bundle entry document on its bind', async
   expect(await res.text()).toContain('<div id="root">');
 });
 
-// ── D2: the first browser claims the server, lands on Server Admin ──
+// ── D2: the first browser claims the server, lands on Administration ──
 
-test('D2 — the first browser claims the unclaimed server at the front door and lands on Server Admin › Users', async () => {
+test('D2 — the first browser claims the unclaimed server at the front door and lands on Administration › Users', async () => {
   // The gate's own probe, asked from this machine: the claim is open
   // and no code is demanded of a loopback peer.
   const meta = (await (await fetch(`${ORIGIN}/auth/setup/meta`)).json()) as unknown;
@@ -561,7 +561,7 @@ test('D2 — the first browser claims the unclaimed server at the front door and
   await claimServer(adminPage, ADMIN_NAME, ADMIN_EMAIL, ADMIN_PASSWORD);
 
   // The post-claim landing: the Users domain tab with the claimant's
-  // own row, the Server Admin nav window brought forward beside it.
+  // own row, the Administration nav window brought forward beside it.
   await expect(adminPage.getByTestId('server-admin-tab')).toBeVisible();
   await expect(adminPage.getByTestId('server-admin-tab')).toContainText(ADMIN_EMAIL);
   await expect(adminPage.getByTestId('server-admin-panel')).toBeVisible();

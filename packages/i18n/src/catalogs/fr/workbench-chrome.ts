@@ -178,7 +178,7 @@ export const workbenchChrome = {
     "Les variables de collection se créent depuis l'intérieur d'une collection.",
   'workbench.shell.empty.adminNoWorkspace':
     "Vous êtes connecté en tant qu'administrateur du serveur sans aucun workspace accordé. Les données de workspace restent hors de portée tant qu'aucun accès n'existe — y compris un accès que vous vous accordez vous-même.",
-  'workbench.shell.empty.adminOpenServerAdmin': "Ouvrir l'administration du serveur",
+  'workbench.shell.empty.adminOpenServerAdmin': "Ouvrir l'administration",
   'workbench.shell.empty.adminOpenServerAdminDesc': 'Gérer les utilisateurs, les accès et le serveur',
 
   // ── Shell: environment selector ─────────────────────────────────────
@@ -230,7 +230,7 @@ export const workbenchChrome = {
   'workbench.shell.breadcrumbs.settings': 'Paramètres',
   'workbench.shell.breadcrumbs.whatsNew': 'Nouveautés',
   'workbench.shell.breadcrumbs.workspaces': 'Espaces de travail',
-  'workbench.shell.breadcrumbs.serverAdmin': 'Admin du serveur',
+  'workbench.shell.breadcrumbs.serverAdmin': 'Administration',
   'workbench.shell.breadcrumbs.environments': 'Environnements',
   'workbench.shell.breadcrumbs.specs': 'Spécifications',
   'workbench.shell.breadcrumbs.workspaceVariables': "Variables d'espace de travail",
@@ -355,7 +355,7 @@ export const workbenchChrome = {
 
   // ── Tool-window registry (activity bars, dock tab strips, restore
   //    rows, drag previews) ───────────────────────────────────────────
-  'workbench.toolWindows.serverAdmin': 'Admin du serveur',
+  'workbench.toolWindows.serverAdmin': 'Administration',
   'workbench.toolWindows.httpRules': 'Intercepteur navigateur',
   'workbench.toolWindows.apiRequests': 'Requêtes API',
   'workbench.toolWindows.workflows': 'Workflows',
@@ -377,7 +377,7 @@ export const workbenchChrome = {
   //    suffix fragments; the Notifications entry stays on the shared
   //    NOTIFICATIONS_PANEL_INFO corpus (panel co-consumer, Phase D). ───
   'workbench.toolWindows.info.serverAdmin.summary':
-    'Administrer ce serveur : les utilisateurs et leurs accès, les appareils appairés, les liaisons de ' +
+    'Les utilisateurs et leurs accès, les appareils appairés, les liaisons de ' +
     "dépôts et le journal d'audit. Chaque ligne ouvre son propre onglet.",
   'workbench.toolWindows.info.serverAdmin.domainsHeading': "Domaines d'administration",
   'workbench.toolWindows.info.httpRules.summary':

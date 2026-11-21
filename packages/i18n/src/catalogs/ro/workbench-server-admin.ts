@@ -48,20 +48,19 @@ export const workbenchServerAdmin = {
   'workbench.serverAdmin.panel.devices': 'Dispozitive asociate',
   'workbench.serverAdmin.panel.devicesHint': 'Tokenuri, asociere și sesiuni conectate',
   'workbench.serverAdmin.panel.git': 'Git',
-  'workbench.serverAdmin.panel.gitHint': 'Legarea spațiilor de lucru de pe server de depozite',
+  'workbench.serverAdmin.panel.gitHint': 'Legarea spațiilor de lucru de depozite',
   'workbench.serverAdmin.panel.audit': 'Audit',
-  'workbench.serverAdmin.panel.auditHint': 'Interogarea pistei de audit a serverului',
+  'workbench.serverAdmin.panel.auditHint': 'Interogarea pistei de audit',
   'workbench.serverAdmin.panel.server': 'Server',
   'workbench.serverAdmin.panel.serverHint': 'Cereri de la dispozitive, build, versiune și note de lansare',
 
   // ── Release-notes card ─────────────────────────────────────────────
   'workbench.serverAdmin.build.sectionTitle': 'Build',
-  'workbench.serverAdmin.build.sectionHint': 'Build-ul serverului pe care îl administrează această consolă.',
+  'workbench.serverAdmin.build.sectionHint': 'Build-ul pe care îl administrează această consolă.',
   'workbench.serverAdmin.build.versionLabel': 'Versiune',
   'workbench.serverAdmin.build.versionUnknown': 'Necunoscută',
   'workbench.serverAdmin.notes.sectionTitle': 'Note de lansare',
-  'workbench.serverAdmin.notes.sectionHint':
-    'Ce a fost livrat în build-ul de server pe care îl administrează această consolă.',
+  'workbench.serverAdmin.notes.sectionHint': 'Ce a fost livrat în build-ul pe care îl administrează această consolă.',
   'workbench.serverAdmin.notes.empty': 'Acest build nu include note de lansare.',
   'workbench.serverAdmin.requests.sectionTitle': 'Cereri de la dispozitive',
   'workbench.serverAdmin.requests.sectionHint':
@@ -184,18 +183,18 @@ export const workbenchServerAdmin = {
   'workbench.serverAdmin.gitEmail.updateFailed': 'Actualizarea e-mailului Git a eșuat: {message}',
 
   // ── Functional roles ───────────────────────────────────────────────
-  'workbench.serverAdmin.roles.daemonAdmin': 'Administrator de server',
+  'workbench.serverAdmin.roles.daemonAdmin': 'Administrator',
   'workbench.serverAdmin.roles.daemonAdminTooltip':
-    'Administrează acest server: utilizatori, roluri, acordări, dispozitive și rapoarte. Nu oferă de la sine niciun acces la spații de lucru — acest utilizator vede în continuare doar spațiile de lucru acordate mai jos.',
+    'Administrează utilizatori, roluri, acordări, dispozitive și rapoarte. Nu oferă de la sine niciun acces la spații de lucru — acest utilizator vede în continuare doar spațiile de lucru acordate mai jos.',
   'workbench.serverAdmin.roles.createWorkspaces': 'Creare spații de lucru',
   'workbench.serverAdmin.roles.createWorkspacesTooltip':
     'Îi permite acestui utilizator să creeze spații de lucru noi pe server. Deține ce creează; spațiile de lucru existente au nevoie în continuare de o acordare.',
-  'workbench.serverAdmin.roles.daemonAdminGranted': 'Acum este administrator de server.',
-  'workbench.serverAdmin.roles.daemonAdminRevoked': 'Rolul de administrator de server a fost revocat.',
+  'workbench.serverAdmin.roles.daemonAdminGranted': 'Acum este administrator.',
+  'workbench.serverAdmin.roles.daemonAdminRevoked': 'Rolul de administrator a fost revocat.',
   'workbench.serverAdmin.roles.createWorkspacesGranted': 'Acum poate crea spații de lucru.',
   'workbench.serverAdmin.roles.createWorkspacesRevoked': 'Nu mai poate crea spații de lucru.',
   'workbench.serverAdmin.roles.lastAdmin':
-    'acesta este singurul administrator de server — faceți mai întâi pe altcineva administrator',
+    'acesta este singurul administrator — faceți mai întâi pe altcineva administrator',
   'workbench.serverAdmin.roles.updateFailed': 'Schimbarea rolului a eșuat: {message}',
 
   // ── Git section ────────────────────────────────────────────────────

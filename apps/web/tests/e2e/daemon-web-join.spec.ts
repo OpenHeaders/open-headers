@@ -701,10 +701,10 @@ async function openBackendSettings(target: Page): Promise<void> {
 }
 
 /**
- * Open one Server Admin domain tab from the dock strip's nav rows. The
+ * Open one Administration domain tab from the dock strip's nav rows. The
  * settings CTA lands on the Users domain; every other domain (Paired
  * devices, Git, Audit, Server) is its own singleton tab behind the
- * Server Admin tool window — one row, one tab, no everything-page.
+ * Administration tool window — one row, one tab, no everything-page.
  */
 async function openServerAdminSection(target: Page, section: 'devices' | 'git' | 'audit'): Promise<void> {
   const strip = target.locator('[data-tool-window="server-admin"]').first();
@@ -912,7 +912,7 @@ test('zero grants: the awaiting-access screen stands, then a live grant resolves
   await zoeContext.close();
 });
 
-test('zero grants as a server admin: the Workbench names the posture, and Open Server Admin lands on the Users tab', async () => {
+test('zero grants as a server admin: the Workbench names the posture, and Open Administration lands on the Users tab', async () => {
   // Zoe, granted viewer at the end of the last leg, becomes a server
   // admin with NOTHING granted (the seat cap forbids a sixth user). An
   // admin is not gated — admin ≠ data access — so the Workbench mounts
@@ -1543,12 +1543,12 @@ test('the first browser claims an unclaimed server, hears what that unpaired, an
     await claimPage.waitForSelector('[data-testid=login-gate-setup-done]', { timeout: 5_000 });
     await expect(claimPage.locator('[data-testid=login-gate-setup-done]')).toContainText('Pair it again');
     // The button says where the claim lands.
-    await expect(claimPage.locator('[data-testid=login-gate-setup-continue]')).toHaveText('Continue to Server Admin');
+    await expect(claimPage.locator('[data-testid=login-gate-setup-continue]')).toHaveText('Continue to Administration');
     await claimPage.click('[data-testid=login-gate-setup-continue]');
     await claimPage.waitForSelector('[data-testid=login-gate]', { state: 'detached', timeout: 5_000 });
     await claimPage.waitForSelector('[aria-label="Settings menu"]', { timeout: 5_000 });
 
-    // The post-claim landing: the operator arrives on Server Admin ›
+    // The post-claim landing: the operator arrives on Administration ›
     // Users — the directory tab open with their own row, the Server
     // Admin nav window brought forward beside it.
     await expect(claimPage.locator('[data-testid=server-admin-tab]')).toBeVisible({ timeout: 5_000 });

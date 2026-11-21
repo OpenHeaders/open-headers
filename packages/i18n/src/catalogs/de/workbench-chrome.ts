@@ -183,7 +183,7 @@ export const workbenchChrome = {
   'workbench.shell.empty.varCollectionTooltip': 'Sammlungsvariablen werden innerhalb einer Sammlung erstellt.',
   'workbench.shell.empty.adminNoWorkspace':
     'Sie sind als Server-Administrator angemeldet, ohne dass Ihnen ein Workspace gewährt wurde. Workspace-Daten bleiben unerreichbar, bis eine Gewährung existiert — auch eine, die Sie sich selbst erteilen.',
-  'workbench.shell.empty.adminOpenServerAdmin': 'Server-Administration öffnen',
+  'workbench.shell.empty.adminOpenServerAdmin': 'Verwaltung öffnen',
   'workbench.shell.empty.adminOpenServerAdminDesc': 'Benutzer, Gewährungen und den Server verwalten',
 
   // ── Shell: environment selector ─────────────────────────────────────
@@ -236,7 +236,7 @@ export const workbenchChrome = {
   'workbench.shell.breadcrumbs.settings': 'Einstellungen',
   'workbench.shell.breadcrumbs.whatsNew': 'Neuigkeiten',
   'workbench.shell.breadcrumbs.workspaces': 'Arbeitsbereiche',
-  'workbench.shell.breadcrumbs.serverAdmin': 'Server-Verwaltung',
+  'workbench.shell.breadcrumbs.serverAdmin': 'Verwaltung',
   'workbench.shell.breadcrumbs.environments': 'Umgebungen',
   'workbench.shell.breadcrumbs.specs': 'Spezifikationen',
   'workbench.shell.breadcrumbs.workspaceVariables': 'Arbeitsbereich-Variablen',
@@ -361,7 +361,7 @@ export const workbenchChrome = {
 
   // ── Tool-window registry (activity bars, dock tab strips, restore
   //    rows, drag previews) ───────────────────────────────────────────
-  'workbench.toolWindows.serverAdmin': 'Server-Admin',
+  'workbench.toolWindows.serverAdmin': 'Verwaltung',
   'workbench.toolWindows.httpRules': 'Browser Interceptor',
   'workbench.toolWindows.apiRequests': 'API-Anfragen',
   'workbench.toolWindows.workflows': 'Workflows',
@@ -383,7 +383,7 @@ export const workbenchChrome = {
   //    suffix fragments; the Notifications entry stays on the shared
   //    NOTIFICATIONS_PANEL_INFO corpus (panel co-consumer, Phase D). ───
   'workbench.toolWindows.info.serverAdmin.summary':
-    'Diesen Server verwalten: Benutzer und ihre Zugriffe, gekoppelte Geräte, Repository-Bindungen und das ' +
+    'Benutzer und ihre Zugriffe, gekoppelte Geräte, Repository-Bindungen und das ' +
     'Audit-Protokoll. Jede Zeile öffnet einen eigenen Tab.',
   'workbench.toolWindows.info.serverAdmin.domainsHeading': 'Verwaltungsbereiche',
   'workbench.toolWindows.info.httpRules.summary':

@@ -437,8 +437,8 @@ export const sharedComponents = {
     '他のデバイスからの送信は、接続先のホストでオフになっています。そのマシンの バックアップと同期 › お使いのデバイス で「接続中の他のデバイスにリクエストの送信を許可」を有効にしてください。',
   'shared.peerExecute.enableCta': 'デスクトップアプリで有効にする',
   'shared.peerExecute.serverDisabled':
-    '接続中のデバイスのリクエスト実行は、{place} でオフになっています。サーバー管理者は サーバー管理 › サーバー でオンにできます。',
-  'shared.peerExecute.openServerAdmin': 'サーバー管理を開く',
+    '接続中のデバイスのリクエスト実行は、{place} でオフになっています。管理者は 管理 › サーバー でオンにできます。',
+  'shared.peerExecute.openServerAdmin': '管理を開く',
   'shared.peerExecute.openPlace': '{place} を開く',
   // ── Execution place (the place button after Save) ───────────────────
   'shared.executionPlace.info': 'このリクエストの実行場所',
@@ -534,9 +534,9 @@ export const sharedComponents = {
   'shared.desktopTeaser.activityMonitor.title': 'アクティビティモニタ',
   'shared.desktopTeaser.activityMonitor.body':
     'デスクトップアプリが実行しているものと、それぞれにかかるコストを確認できます。プロセスとその CPU およびメモリを、リアルタイムで表示します。',
-  'shared.desktopTeaser.serverAdmin.title': 'サーバー管理',
+  'shared.desktopTeaser.serverAdmin.title': '管理',
   'shared.desktopTeaser.serverAdmin.body':
-    'デスクトップアプリに付属する管理コンソールで、ユーザー、アクセストークン、ワークスペースへのアクセス、サーバー設定を管理できます。',
+    'デスクトップアプリに付属する管理コンソールで、ユーザー、ペアリング済みデバイス、ワークスペースへのアクセスを管理できます。',
 
   // ── Settings rows ──────────────────────────────────────────────────
   'shared.settingsRows.enabled': '有効',

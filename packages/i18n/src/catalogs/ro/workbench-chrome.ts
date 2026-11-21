@@ -210,7 +210,7 @@ export const workbenchChrome = {
   'workbench.shell.empty.varCollectionTooltip': 'Variabilele de colecție se creează din interiorul unei colecții.',
   'workbench.shell.empty.adminNoWorkspace':
     'Sunteți conectat ca administrator de server fără niciun spațiu de lucru acordat. Datele spațiilor de lucru rămân inaccesibile până când există o acordare de acces — inclusiv una pe care v-o dați dvs. înșivă.',
-  'workbench.shell.empty.adminOpenServerAdmin': 'Deschidere Administrare server',
+  'workbench.shell.empty.adminOpenServerAdmin': 'Deschidere Administrare',
   'workbench.shell.empty.adminOpenServerAdminDesc': 'Gestionați utilizatorii, accesul și serverul',
 
   // ── Shell: environment selector ─────────────────────────────────────
@@ -259,7 +259,7 @@ export const workbenchChrome = {
   'workbench.shell.breadcrumbs.settings': 'Setări',
   'workbench.shell.breadcrumbs.whatsNew': 'Noutăți',
   'workbench.shell.breadcrumbs.workspaces': 'Spații de lucru',
-  'workbench.shell.breadcrumbs.serverAdmin': 'Administrare server',
+  'workbench.shell.breadcrumbs.serverAdmin': 'Administrare',
   'workbench.shell.breadcrumbs.environments': 'Medii',
   'workbench.shell.breadcrumbs.specs': 'Specificații',
   'workbench.shell.breadcrumbs.workspaceVariables': 'Variabile de spațiu de lucru',
@@ -384,7 +384,7 @@ export const workbenchChrome = {
 
   // ── Tool-window registry (activity bars, dock tab strips, restore
   //    rows, drag previews) ───────────────────────────────────────────
-  'workbench.toolWindows.serverAdmin': 'Administrare server',
+  'workbench.toolWindows.serverAdmin': 'Administrare',
   'workbench.toolWindows.httpRules': 'Interceptor de browser',
   'workbench.toolWindows.apiRequests': 'Cereri API',
   'workbench.toolWindows.workflows': 'Fluxuri de lucru',
@@ -406,7 +406,7 @@ export const workbenchChrome = {
   //    suffix fragments; the Notifications entry stays on the shared
   //    NOTIFICATIONS_PANEL_INFO corpus (panel co-consumer, Phase D). ───
   'workbench.toolWindows.info.serverAdmin.summary':
-    'Administrați acest server: utilizatorii și accesul lor, dispozitivele asociate, legăturile cu depozitele și pista de audit. Fiecare rând se deschide în propria filă.',
+    'Utilizatorii și accesul lor, dispozitivele asociate, legăturile cu depozitele și pista de audit. Fiecare rând se deschide în propria filă.',
   'workbench.toolWindows.info.serverAdmin.domainsHeading': 'Domenii de administrare',
   'workbench.toolWindows.info.httpRules.summary':
     'Creați reguli care rescriu cererile trimise și răspunsurile primite. Regulile trăiesc în colecții și pot injecta valori din variabile, din vault și din fluxurile de lucru live.',

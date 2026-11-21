@@ -1,8 +1,8 @@
 /**
  * The peer-execute refusal notice names WHOSE switch refused: the local
  * tier is the desktop app on this machine; the remote tier reads the
- * editing scope's Org — a standalone server keeps its switch in Server
- * Admin › Server (the served tab opens it in place for an admin, every
+ * editing scope's Org — a standalone server keeps its switch in
+ * Administration › Server (the served tab opens it in place for an admin, every
  * other host offers the server's page), a desktop app on another
  * machine keeps the Backup and Sync wording only that machine can act on.
  */
@@ -88,12 +88,12 @@ describe('peerExecuteRefusalKind', () => {
 });
 
 describe('PeerExecuteDisabledNotice — the remote tier answered by a server', () => {
-  it('names the server and Server Admin › Server, and offers the server’s page outside on the extension', () => {
+  it('names the server and Administration › Server, and offers the server’s page outside on the extension', () => {
     render(<PeerExecuteDisabledNotice kind="remote" />);
     const notice = screen.getByTestId('peer-execute-disabled-notice');
     expect(notice.getAttribute('data-place')).toBe('server');
     expect(notice.textContent).toContain('Running requests for connected devices is turned off on Access Rig.');
-    expect(notice.textContent).toContain('under Server Admin › Server.');
+    expect(notice.textContent).toContain('An administrator can turn it on under Administration › Server.');
     expect(screen.queryByTestId('peer-execute-open-server-admin')).toBeNull();
     fireEvent.click(screen.getByTestId('peer-execute-open-place'));
     expect(h.openServerPage).toHaveBeenCalledWith('http://127.0.0.1:19337');

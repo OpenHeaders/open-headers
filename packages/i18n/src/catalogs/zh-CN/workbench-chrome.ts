@@ -182,7 +182,7 @@ export const workbenchChrome = {
   'workbench.shell.empty.varCollectionTooltip': '集合变量需在集合内部创建。',
   'workbench.shell.empty.adminNoWorkspace':
     '您以服务器管理员身份登录，但尚未获授任何工作区。在授权存在之前（包括您自己授予自己的授权），工作区数据不可访问。',
-  'workbench.shell.empty.adminOpenServerAdmin': '打开服务器管理',
+  'workbench.shell.empty.adminOpenServerAdmin': '打开管理',
   'workbench.shell.empty.adminOpenServerAdminDesc': '管理用户、授权和服务器',
 
   // ── Shell: environment selector ─────────────────────────────────────
@@ -230,7 +230,7 @@ export const workbenchChrome = {
   'workbench.shell.breadcrumbs.settings': '设置',
   'workbench.shell.breadcrumbs.whatsNew': '新功能',
   'workbench.shell.breadcrumbs.workspaces': '工作区',
-  'workbench.shell.breadcrumbs.serverAdmin': '服务器管理',
+  'workbench.shell.breadcrumbs.serverAdmin': '管理',
   'workbench.shell.breadcrumbs.environments': '环境',
   'workbench.shell.breadcrumbs.specs': '规范',
   'workbench.shell.breadcrumbs.workspaceVariables': '工作区变量',
@@ -354,7 +354,7 @@ export const workbenchChrome = {
 
   // ── Tool-window registry (activity bars, dock tab strips, restore
   //    rows, drag previews) ───────────────────────────────────────────
-  'workbench.toolWindows.serverAdmin': '服务器管理',
+  'workbench.toolWindows.serverAdmin': '管理',
   'workbench.toolWindows.httpRules': '浏览器拦截器',
   'workbench.toolWindows.apiRequests': 'API 请求',
   'workbench.toolWindows.workflows': '工作流',
@@ -376,7 +376,7 @@ export const workbenchChrome = {
   //    suffix fragments; the Notifications entry stays on the shared
   //    NOTIFICATIONS_PANEL_INFO corpus (panel co-consumer, Phase D). ───
   'workbench.toolWindows.info.serverAdmin.summary':
-    '管理此服务器：用户及其访问权限、配对设备、仓库绑定和审计日志。每一行打开各自的标签页。',
+    '用户及其访问权限、配对设备、仓库绑定和审计日志。每一行打开各自的标签页。',
   'workbench.toolWindows.info.serverAdmin.domainsHeading': '管理域',
   'workbench.toolWindows.info.httpRules.summary':
     '创建用于改写传出请求和传入响应的规则。规则存放在集合中，并能注入来自变量、vault 和 live 工作流的值。',

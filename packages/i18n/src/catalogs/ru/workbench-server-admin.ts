@@ -45,19 +45,19 @@ export const workbenchServerAdmin = {
   'workbench.serverAdmin.panel.devices': 'Сопряжённые устройства',
   'workbench.serverAdmin.panel.devicesHint': 'Токены, сопряжение и активные сеансы входа',
   'workbench.serverAdmin.panel.git': 'Git',
-  'workbench.serverAdmin.panel.gitHint': 'Привязка рабочих пространств сервера к репозиториям',
+  'workbench.serverAdmin.panel.gitHint': 'Привязка рабочих пространств к репозиториям',
   'workbench.serverAdmin.panel.audit': 'Аудит',
-  'workbench.serverAdmin.panel.auditHint': 'Запросы к журналу аудита сервера',
+  'workbench.serverAdmin.panel.auditHint': 'Запросы к журналу аудита',
   'workbench.serverAdmin.panel.server': 'Сервер',
   'workbench.serverAdmin.panel.serverHint': 'Запросы с устройств, сборка, версия и примечания к выпуску',
 
   // ── Release-notes card ─────────────────────────────────────────────
   'workbench.serverAdmin.build.sectionTitle': 'Сборка',
-  'workbench.serverAdmin.build.sectionHint': 'Сборка сервера, которой управляет эта консоль.',
+  'workbench.serverAdmin.build.sectionHint': 'Сборка, которой управляет эта консоль.',
   'workbench.serverAdmin.build.versionLabel': 'Версия',
   'workbench.serverAdmin.build.versionUnknown': 'Неизвестно',
   'workbench.serverAdmin.notes.sectionTitle': 'Примечания к выпуску',
-  'workbench.serverAdmin.notes.sectionHint': 'Что вошло в сборку сервера, которым управляет эта консоль.',
+  'workbench.serverAdmin.notes.sectionHint': 'Что вошло в сборку, которой управляет эта консоль.',
   'workbench.serverAdmin.notes.empty': 'В этой сборке нет примечаний к выпуску.',
   'workbench.serverAdmin.requests.sectionTitle': 'Запросы с устройств',
   'workbench.serverAdmin.requests.sectionHint':
@@ -179,18 +179,18 @@ export const workbenchServerAdmin = {
   'workbench.serverAdmin.gitEmail.updateFailed': 'Не удалось обновить email для Git: {message}',
 
   // ── Functional roles ───────────────────────────────────────────────
-  'workbench.serverAdmin.roles.daemonAdmin': 'Администратор сервера',
+  'workbench.serverAdmin.roles.daemonAdmin': 'Администратор',
   'workbench.serverAdmin.roles.daemonAdminTooltip':
-    'Администрирует этот сервер: пользователей, роли, доступ, устройства и отчёты. Сама по себе роль не даёт доступа к рабочим пространствам — этот пользователь по-прежнему видит только те, доступ к которым выдан ниже.',
+    'Администрирует пользователей, роли, доступ, устройства и отчёты. Сама по себе роль не даёт доступа к рабочим пространствам — этот пользователь по-прежнему видит только те, доступ к которым выдан ниже.',
   'workbench.serverAdmin.roles.createWorkspaces': 'Создание рабочих пространств',
   'workbench.serverAdmin.roles.createWorkspacesTooltip':
     'Позволяет этому пользователю создавать новые рабочие пространства на сервере. Созданным он владеет; для существующих по-прежнему нужен выданный доступ.',
-  'workbench.serverAdmin.roles.daemonAdminGranted': 'Теперь администратор сервера.',
-  'workbench.serverAdmin.roles.daemonAdminRevoked': 'Роль администратора сервера отозвана.',
+  'workbench.serverAdmin.roles.daemonAdminGranted': 'Теперь администратор.',
+  'workbench.serverAdmin.roles.daemonAdminRevoked': 'Роль администратора отозвана.',
   'workbench.serverAdmin.roles.createWorkspacesGranted': 'Теперь может создавать рабочие пространства.',
   'workbench.serverAdmin.roles.createWorkspacesRevoked': 'Больше не может создавать рабочие пространства.',
   'workbench.serverAdmin.roles.lastAdmin':
-    'это единственный администратор сервера — сначала назначьте администратором кого-то другого',
+    'это единственный администратор — сначала назначьте администратором кого-то другого',
   'workbench.serverAdmin.roles.updateFailed': 'Не удалось изменить роль: {message}',
 
   // ── Git section ────────────────────────────────────────────────────

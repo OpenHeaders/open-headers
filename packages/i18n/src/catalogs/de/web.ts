@@ -43,7 +43,7 @@ export const web = {
         'Bei der Einrichtung wurden {count} gekoppelte Geräte entkoppelt, damit sie den Server nicht an deinem ' +
         'neuen Konto vorbei weiterverwalten können. Kopple sie in den Einstellungen erneut.',
     }),
-  'web.gate.setupDoneContinue': 'Weiter zur Server-Verwaltung',
+  'web.gate.setupDoneContinue': 'Weiter zur Verwaltung',
   'web.gate.setupDoneReload': 'Neu laden',
   'web.gate.setupErrorDisplayName': 'Gib den Namen für das Konto ein.',
   'web.gate.setupErrorEmail': 'Gib die E-Mail-Adresse für die Anmeldung ein.',

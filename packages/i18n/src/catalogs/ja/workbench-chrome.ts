@@ -184,7 +184,7 @@ export const workbenchChrome = {
   'workbench.shell.empty.varCollectionTooltip': 'コレクション変数はコレクションの中から作成します。',
   'workbench.shell.empty.adminNoWorkspace':
     'ワークスペースを付与されていないサーバー管理者としてサインインしています。付与が存在するまで、ワークスペースのデータには手が届きません。自分自身への付与も同様です。',
-  'workbench.shell.empty.adminOpenServerAdmin': 'サーバー管理を開く',
+  'workbench.shell.empty.adminOpenServerAdmin': '管理を開く',
   'workbench.shell.empty.adminOpenServerAdminDesc': 'ユーザー、付与、サーバーを管理',
 
   // ── Shell: environment selector ─────────────────────────────────────
@@ -233,7 +233,7 @@ export const workbenchChrome = {
   'workbench.shell.breadcrumbs.settings': '設定',
   'workbench.shell.breadcrumbs.whatsNew': '新機能',
   'workbench.shell.breadcrumbs.workspaces': 'ワークスペース',
-  'workbench.shell.breadcrumbs.serverAdmin': 'サーバー管理',
+  'workbench.shell.breadcrumbs.serverAdmin': '管理',
   'workbench.shell.breadcrumbs.environments': '環境',
   'workbench.shell.breadcrumbs.specs': '仕様',
   'workbench.shell.breadcrumbs.workspaceVariables': 'ワークスペース変数',
@@ -358,7 +358,7 @@ export const workbenchChrome = {
 
   // ── Tool-window registry (activity bars, dock tab strips, restore
   //    rows, drag previews) ───────────────────────────────────────────
-  'workbench.toolWindows.serverAdmin': 'サーバー管理',
+  'workbench.toolWindows.serverAdmin': '管理',
   'workbench.toolWindows.httpRules': 'ブラウザーインターセプター',
   'workbench.toolWindows.apiRequests': 'API リクエスト',
   'workbench.toolWindows.workflows': 'ワークフロー',
@@ -380,7 +380,7 @@ export const workbenchChrome = {
   //    suffix fragments; the Notifications entry stays on the shared
   //    NOTIFICATIONS_PANEL_INFO corpus (panel co-consumer, Phase D). ───
   'workbench.toolWindows.info.serverAdmin.summary':
-    'このサーバーを管理します：ユーザーとそのアクセス、ペアリング済みデバイス、リポジトリのバインディング、監査証跡。各行はそれぞれ専用のタブで開きます。',
+    'ユーザーとそのアクセス、ペアリング済みデバイス、リポジトリのバインディング、監査証跡。各行はそれぞれ専用のタブで開きます。',
   'workbench.toolWindows.info.serverAdmin.domainsHeading': '管理領域',
   'workbench.toolWindows.info.httpRules.summary':
     '送信リクエストと受信レスポンスを書き換えるルールを作成します。ルールはコレクションに置かれ、変数、vault、ライブワークフローから値を注入できます。',

@@ -253,6 +253,7 @@ const WorkbenchToolWindow: React.FC<WorkbenchToolWindowProps> = ({
       return (
         <ServerAdminPanel
           info={getToolWindowInfo('server-admin', t)}
+          activeSection={activeTab?.mode === 'server-admin' ? (activeTab.serverAdminSection ?? 'users') : null}
           onClose={() => tl.closeDock(slot)}
           onOpenSection={(section) => openServerAdmin(section)}
         />

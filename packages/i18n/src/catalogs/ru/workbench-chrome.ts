@@ -199,7 +199,7 @@ export const workbenchChrome = {
   'workbench.shell.empty.varCollectionTooltip': 'Переменные коллекции создаются изнутри коллекции.',
   'workbench.shell.empty.adminNoWorkspace':
     'Вы вошли как администратор сервера без выданного доступа к рабочим пространствам. Данные рабочих пространств недоступны, пока доступ не выдан — в том числе вами самому себе.',
-  'workbench.shell.empty.adminOpenServerAdmin': 'Открыть администрирование сервера',
+  'workbench.shell.empty.adminOpenServerAdmin': 'Открыть администрирование',
   'workbench.shell.empty.adminOpenServerAdminDesc': 'Управление пользователями, доступом и сервером',
 
   // ── Shell: environment selector ─────────────────────────────────────
@@ -249,7 +249,7 @@ export const workbenchChrome = {
   'workbench.shell.breadcrumbs.settings': 'Настройки',
   'workbench.shell.breadcrumbs.whatsNew': 'Что нового',
   'workbench.shell.breadcrumbs.workspaces': 'Рабочие пространства',
-  'workbench.shell.breadcrumbs.serverAdmin': 'Администрирование сервера',
+  'workbench.shell.breadcrumbs.serverAdmin': 'Администрирование',
   'workbench.shell.breadcrumbs.environments': 'Окружения',
   'workbench.shell.breadcrumbs.specs': 'Спецификации',
   'workbench.shell.breadcrumbs.workspaceVariables': 'Переменные рабочего пространства',
@@ -374,7 +374,7 @@ export const workbenchChrome = {
 
   // ── Tool-window registry (activity bars, dock tab strips, restore
   //    rows, drag previews) ───────────────────────────────────────────
-  'workbench.toolWindows.serverAdmin': 'Администрирование сервера',
+  'workbench.toolWindows.serverAdmin': 'Администрирование',
   'workbench.toolWindows.httpRules': 'Браузерный перехватчик',
   'workbench.toolWindows.apiRequests': 'API-запросы',
   'workbench.toolWindows.workflows': 'Рабочие процессы',
@@ -396,7 +396,7 @@ export const workbenchChrome = {
   //    suffix fragments; the Notifications entry stays on the shared
   //    NOTIFICATIONS_PANEL_INFO corpus (panel co-consumer, Phase D). ───
   'workbench.toolWindows.info.serverAdmin.summary':
-    'Администрирование этого сервера: пользователи и их доступ, сопряжённые устройства, привязки репозиториев и журнал аудита. Каждая строка открывается в своей вкладке.',
+    'Пользователи и их доступ, сопряжённые устройства, привязки репозиториев и журнал аудита. Каждая строка открывается в своей вкладке.',
   'workbench.toolWindows.info.serverAdmin.domainsHeading': 'Разделы администрирования',
   'workbench.toolWindows.info.httpRules.summary':
     'Создавайте правила, которые переписывают исходящие запросы и входящие ответы. Правила живут в коллекциях и могут подставлять значения из переменных, vault и рабочих процессов Live.',

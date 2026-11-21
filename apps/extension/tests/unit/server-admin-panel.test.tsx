@@ -1,6 +1,7 @@
 /**
- * Server admin dock panel — one nav row per administration domain, a
- * click opens that domain's tab; the tool-window registry exposes the
+ * Administration dock panel — one single-line nav row per
+ * administration domain, a click opens that domain's tab and the row
+ * whose tab is in front reads as selected; the tool-window registry exposes the
  * window ONLY once the admin-status probe answers `admin` (affordance
  * honesty — the server re-gates every call regardless); and the
  * zero-workspace admin posture drops the workspace-bound windows off
@@ -13,7 +14,7 @@ import {
   getActiveExtensionWorkspaceSyncMirror,
 } from '@openheaders/ui/context';
 import ServerAdminPanel from '@openheaders/ui/workbench/components/server-admin/ServerAdminPanel';
-import { SERVER_ADMIN_SECTIONS } from '@openheaders/ui/workbench/components/server-admin/sections';
+import { visibleServerAdminSections } from '@openheaders/ui/workbench/components/server-admin/sections';
 import {
   __resetServerAdminStatusForTests,
   getServerAdminStatus,
@@ -23,18 +24,6 @@ import {
 import { availableToolWindows, isToolWindowTeased } from '@openheaders/ui/workbench/tool-windows';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-
-// Ant's responsive observer (List) probes matchMedia, which jsdom lacks.
-window.matchMedia = ((query: string) => ({
-  matches: false,
-  media: query,
-  onchange: null,
-  addListener: () => undefined,
-  removeListener: () => undefined,
-  addEventListener: () => undefined,
-  removeEventListener: () => undefined,
-  dispatchEvent: () => false,
-})) as typeof window.matchMedia;
 
 const { mockCall } = vi.hoisted(() => ({ mockCall: vi.fn() }));
 
@@ -46,7 +35,7 @@ vi.mock('@openheaders/core/bridge', async (importOriginal) => {
   };
 });
 
-const PANEL_INFO = { title: 'Server admin', summary: 'test' };
+const PANEL_INFO = { title: 'Administration', summary: 'test' };
 
 beforeEach(() => {
   __resetServerAdminStatusForTests();
@@ -71,14 +60,30 @@ describe('ServerAdminPanel', () => {
   it('renders one row per administration domain and opens the clicked section', () => {
     mockCall.mockResolvedValue({ admin: true });
     const onOpenSection = vi.fn();
-    render(<ServerAdminPanel info={PANEL_INFO} onClose={() => {}} onOpenSection={onOpenSection} />);
-    for (const def of SERVER_ADMIN_SECTIONS) {
+    render(
+      <ServerAdminPanel info={PANEL_INFO} activeSection={null} onClose={() => {}} onOpenSection={onOpenSection} />,
+    );
+    for (const def of visibleServerAdminSections()) {
       expect(screen.getByTestId(`server-admin-panel-${def.id}`)).toBeTruthy();
     }
     fireEvent.click(screen.getByTestId('server-admin-panel-devices'));
     expect(onOpenSection).toHaveBeenCalledWith('devices');
     fireEvent.click(screen.getByTestId('server-admin-panel-users'));
     expect(onOpenSection).toHaveBeenCalledWith('users');
+  });
+
+  it('a row is its name alone — what the domain covers stays in the (i)', () => {
+    mockCall.mockResolvedValue({ admin: true });
+    render(<ServerAdminPanel info={PANEL_INFO} activeSection={null} onClose={() => {}} onOpenSection={() => {}} />);
+    expect(screen.getByTestId('server-admin-panel-users').textContent).toBe('Users');
+    expect(screen.getByTestId('server-admin-panel-devices').textContent).toBe('Paired devices');
+  });
+
+  it('marks the row whose tab is in front, and no other', () => {
+    mockCall.mockResolvedValue({ admin: true });
+    render(<ServerAdminPanel info={PANEL_INFO} activeSection="audit" onClose={() => {}} onOpenSection={() => {}} />);
+    expect(screen.getByTestId('server-admin-panel-audit').getAttribute('aria-current')).toBe('true');
+    expect(screen.getByTestId('server-admin-panel-users').getAttribute('aria-current')).toBeNull();
   });
 });
 

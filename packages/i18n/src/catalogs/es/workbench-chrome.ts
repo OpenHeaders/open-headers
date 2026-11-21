@@ -184,7 +184,7 @@ export const workbenchChrome = {
   'workbench.shell.empty.varCollectionTooltip': 'Las variables de colección se crean desde dentro de una colección.',
   'workbench.shell.empty.adminNoWorkspace':
     'Has iniciado sesión como administrador del servidor sin ningún workspace concedido. Los datos de workspace quedan fuera de alcance hasta que exista una concesión — incluida una que te otorgues a ti mismo.',
-  'workbench.shell.empty.adminOpenServerAdmin': 'Abrir administración del servidor',
+  'workbench.shell.empty.adminOpenServerAdmin': 'Abrir Administración',
   'workbench.shell.empty.adminOpenServerAdminDesc': 'Gestiona usuarios, concesiones y el servidor',
 
   // ── Shell: environment selector ─────────────────────────────────────
@@ -236,7 +236,7 @@ export const workbenchChrome = {
   'workbench.shell.breadcrumbs.settings': 'Configuración',
   'workbench.shell.breadcrumbs.whatsNew': 'Novedades',
   'workbench.shell.breadcrumbs.workspaces': 'Espacios de trabajo',
-  'workbench.shell.breadcrumbs.serverAdmin': 'Administración del servidor',
+  'workbench.shell.breadcrumbs.serverAdmin': 'Administración',
   'workbench.shell.breadcrumbs.environments': 'Entornos',
   'workbench.shell.breadcrumbs.specs': 'Especificaciones',
   'workbench.shell.breadcrumbs.workspaceVariables': 'Variables del espacio de trabajo',
@@ -361,7 +361,7 @@ export const workbenchChrome = {
 
   // ── Tool-window registry (activity bars, dock tab strips, restore
   //    rows, drag previews) ───────────────────────────────────────────
-  'workbench.toolWindows.serverAdmin': 'Admin del servidor',
+  'workbench.toolWindows.serverAdmin': 'Administración',
   'workbench.toolWindows.httpRules': 'Browser Interceptor',
   'workbench.toolWindows.apiRequests': 'Solicitudes API',
   'workbench.toolWindows.workflows': 'Workflows',
@@ -383,7 +383,7 @@ export const workbenchChrome = {
   //    suffix fragments; the Notifications entry stays on the shared
   //    NOTIFICATIONS_PANEL_INFO corpus (panel co-consumer, Phase D). ───
   'workbench.toolWindows.info.serverAdmin.summary':
-    'Administra este servidor: los usuarios y sus accesos, los dispositivos emparejados, los enlaces de ' +
+    'Los usuarios y sus accesos, los dispositivos emparejados, los enlaces de ' +
     'repositorios y el registro de auditoría. Cada fila abre su propia pestaña.',
   'workbench.toolWindows.info.serverAdmin.domainsHeading': 'Dominios de administración',
   'workbench.toolWindows.info.httpRules.summary':

@@ -162,7 +162,7 @@ export const workbenchChrome = {
   'workbench.shell.empty.varCollectionTooltip': 'Collection variables are created from within a collection.',
   'workbench.shell.empty.adminNoWorkspace':
     'You are signed in as a server admin with no workspace granted. Workspace data stays out of reach until a grant exists — including one you give yourself.',
-  'workbench.shell.empty.adminOpenServerAdmin': 'Open Server Admin',
+  'workbench.shell.empty.adminOpenServerAdmin': 'Open Administration',
   'workbench.shell.empty.adminOpenServerAdminDesc': 'Manage users, grants, and the server',
 
   // ── Shell: environment selector ─────────────────────────────────────
@@ -212,7 +212,7 @@ export const workbenchChrome = {
   'workbench.shell.breadcrumbs.settings': 'Settings',
   'workbench.shell.breadcrumbs.whatsNew': "What's New",
   'workbench.shell.breadcrumbs.workspaces': 'Workspaces',
-  'workbench.shell.breadcrumbs.serverAdmin': 'Server Admin',
+  'workbench.shell.breadcrumbs.serverAdmin': 'Administration',
   'workbench.shell.breadcrumbs.environments': 'Environments',
   'workbench.shell.breadcrumbs.specs': 'Specs',
   'workbench.shell.breadcrumbs.workspaceVariables': 'Workspace Variables',
@@ -336,7 +336,7 @@ export const workbenchChrome = {
 
   // ── Tool-window registry (activity bars, dock tab strips, restore
   //    rows, drag previews) ───────────────────────────────────────────
-  'workbench.toolWindows.serverAdmin': 'Server Admin',
+  'workbench.toolWindows.serverAdmin': 'Administration',
   'workbench.toolWindows.httpRules': 'Browser Interceptor',
   'workbench.toolWindows.apiRequests': 'API Requests',
   'workbench.toolWindows.workflows': 'Workflows',
@@ -358,8 +358,7 @@ export const workbenchChrome = {
   //    suffix fragments; the Notifications entry stays on the shared
   //    NOTIFICATIONS_PANEL_INFO corpus (panel co-consumer, Phase D). ───
   'workbench.toolWindows.info.serverAdmin.summary':
-    'Administer this server: users and their access, paired devices, repository bindings, and the audit ' +
-    'trail. Each row opens its own tab.',
+    'Users and their access, paired devices, repository bindings, and the audit trail. Each row opens its own tab.',
   'workbench.toolWindows.info.serverAdmin.domainsHeading': 'Administration domains',
   'workbench.toolWindows.info.httpRules.summary':
     'Create rules that rewrite outgoing requests and incoming responses. Rules live in collections and can ' +

@@ -29,19 +29,19 @@ export const workbenchServerAdmin = {
   'workbench.serverAdmin.panel.devices': 'Paired devices',
   'workbench.serverAdmin.panel.devicesHint': 'Tokens, pairing, and signed-in sessions',
   'workbench.serverAdmin.panel.git': 'Git',
-  'workbench.serverAdmin.panel.gitHint': 'Bind server workspaces to repositories',
+  'workbench.serverAdmin.panel.gitHint': 'Bind workspaces to repositories',
   'workbench.serverAdmin.panel.audit': 'Audit',
-  'workbench.serverAdmin.panel.auditHint': "Query the server's audit trail",
+  'workbench.serverAdmin.panel.auditHint': 'Query the audit trail',
   'workbench.serverAdmin.panel.server': 'Server',
   'workbench.serverAdmin.panel.serverHint': 'Requests from devices, build, version, and release notes',
 
   // ── Server build section ───────────────────────────────────────────
   'workbench.serverAdmin.build.sectionTitle': 'Build',
-  'workbench.serverAdmin.build.sectionHint': 'The server build this console administers.',
+  'workbench.serverAdmin.build.sectionHint': 'The build this console administers.',
   'workbench.serverAdmin.build.versionLabel': 'Version',
   'workbench.serverAdmin.build.versionUnknown': 'Unknown',
   'workbench.serverAdmin.notes.sectionTitle': 'Release notes',
-  'workbench.serverAdmin.notes.sectionHint': 'What shipped in the server build this console administers.',
+  'workbench.serverAdmin.notes.sectionHint': 'What shipped in the build this console administers.',
   'workbench.serverAdmin.notes.empty': 'This build ships no release notes.',
   // The Server domain's switch — the egress opt-in's remote tier, on by
   // default on a standalone server; the desktop app keeps its own rows.
@@ -164,17 +164,17 @@ export const workbenchServerAdmin = {
   'workbench.serverAdmin.gitEmail.updateFailed': 'Failed to update Git email: {message}',
 
   // ── Functional roles ───────────────────────────────────────────────
-  'workbench.serverAdmin.roles.daemonAdmin': 'Server admin',
+  'workbench.serverAdmin.roles.daemonAdmin': 'Administrator',
   'workbench.serverAdmin.roles.daemonAdminTooltip':
-    'Administers this server: users, roles, grants, devices, and reports. It grants no workspace access on its own — this user still sees only the workspaces granted below.',
+    'Administers users, roles, grants, devices, and reports. It grants no workspace access on its own — this user still sees only the workspaces granted below.',
   'workbench.serverAdmin.roles.createWorkspaces': 'Create workspaces',
   'workbench.serverAdmin.roles.createWorkspacesTooltip':
     'Lets this user create new workspaces on the server. They own what they create; existing workspaces still need a grant.',
-  'workbench.serverAdmin.roles.daemonAdminGranted': 'Now a server admin.',
-  'workbench.serverAdmin.roles.daemonAdminRevoked': 'Server-admin role revoked.',
+  'workbench.serverAdmin.roles.daemonAdminGranted': 'Now an administrator.',
+  'workbench.serverAdmin.roles.daemonAdminRevoked': 'Administrator role revoked.',
   'workbench.serverAdmin.roles.createWorkspacesGranted': 'Can now create workspaces.',
   'workbench.serverAdmin.roles.createWorkspacesRevoked': 'Can no longer create workspaces.',
-  'workbench.serverAdmin.roles.lastAdmin': 'this is the only server admin — make someone else an admin first',
+  'workbench.serverAdmin.roles.lastAdmin': 'this is the only administrator — make someone else an administrator first',
   'workbench.serverAdmin.roles.updateFailed': 'Failed to change role: {message}',
 
   // ── Git section ────────────────────────────────────────────────────

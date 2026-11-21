@@ -474,8 +474,8 @@ export const sharedComponents = {
     'Maschine.',
   'shared.peerExecute.enableCta': 'In der Desktop-App aktivieren',
   'shared.peerExecute.serverDisabled':
-    'Das Ausführen von Anfragen für verbundene Geräte ist auf {place} ausgeschaltet. Ein Server-Admin kann es unter Server-Admin › Server einschalten.',
-  'shared.peerExecute.openServerAdmin': 'Server-Admin öffnen',
+    'Das Ausführen von Anfragen für verbundene Geräte ist auf {place} ausgeschaltet. Ein Administrator kann es unter Verwaltung › Server einschalten.',
+  'shared.peerExecute.openServerAdmin': 'Verwaltung öffnen',
   'shared.peerExecute.openPlace': '{place} öffnen',
 
   // ── Desktop teaser ─────────────────────────────────────────────────
@@ -577,9 +577,9 @@ export const sharedComponents = {
   'shared.desktopTeaser.activityMonitor.title': 'Aktivitätsmonitor',
   'shared.desktopTeaser.activityMonitor.body':
     'Sieh, was die Desktop-App ausführt und was jeder Teil kostet — ihre Prozesse mit CPU und Arbeitsspeicher, live.',
-  'shared.desktopTeaser.serverAdmin.title': 'Serververwaltung',
+  'shared.desktopTeaser.serverAdmin.title': 'Verwaltung',
   'shared.desktopTeaser.serverAdmin.body':
-    'Verwalte Benutzer, Zugriffstoken, den Zugriff auf Arbeitsbereiche und die Servereinstellungen in der ' +
+    'Verwalte Benutzer, gekoppelte Geräte und den Zugriff auf Arbeitsbereiche in der ' +
     'Admin-Konsole, die mit der Desktop-App ausgeliefert wird.',
 
   // ── Settings rows ──────────────────────────────────────────────────

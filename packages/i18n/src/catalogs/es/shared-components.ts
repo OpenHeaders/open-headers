@@ -453,8 +453,8 @@ export const sharedComponents = {
     'dispositivos conectados envíen solicitudes» en su Copia de seguridad y sincronización › Tus dispositivos en esa máquina.',
   'shared.peerExecute.enableCta': 'Activar en la aplicación de escritorio',
   'shared.peerExecute.serverDisabled':
-    'La ejecución de solicitudes de dispositivos conectados está desactivada en {place}. Un admin del servidor puede activarla en Admin del servidor › Servidor.',
-  'shared.peerExecute.openServerAdmin': 'Abrir Admin del servidor',
+    'La ejecución de solicitudes de dispositivos conectados está desactivada en {place}. Un administrador puede activarla en Administración › Servidor.',
+  'shared.peerExecute.openServerAdmin': 'Abrir Administración',
   'shared.peerExecute.openPlace': 'Abrir {place}',
 
   // ── Desktop teaser ─────────────────────────────────────────────────
@@ -559,9 +559,9 @@ export const sharedComponents = {
   'shared.desktopTeaser.activityMonitor.title': 'Monitor de actividad',
   'shared.desktopTeaser.activityMonitor.body':
     'Mira lo que la aplicación de escritorio está ejecutando y lo que cuesta cada parte: sus procesos con su CPU y su memoria, en vivo.',
-  'shared.desktopTeaser.serverAdmin.title': 'Administración del servidor',
+  'shared.desktopTeaser.serverAdmin.title': 'Administración',
   'shared.desktopTeaser.serverAdmin.body':
-    'Gestiona usuarios, tokens de acceso, el acceso a los espacios de trabajo y los ajustes del servidor en la ' +
+    'Gestiona usuarios, dispositivos emparejados y el acceso a los espacios de trabajo en la ' +
     'consola de administración incluida en la aplicación de escritorio.',
 
   // ── Settings rows ──────────────────────────────────────────────────

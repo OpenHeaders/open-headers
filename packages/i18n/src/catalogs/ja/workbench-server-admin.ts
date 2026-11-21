@@ -31,19 +31,19 @@ export const workbenchServerAdmin = {
   'workbench.serverAdmin.panel.devices': 'ペアリング済みデバイス',
   'workbench.serverAdmin.panel.devicesHint': 'token、ペアリング、サインイン中のセッション',
   'workbench.serverAdmin.panel.git': 'Git',
-  'workbench.serverAdmin.panel.gitHint': 'サーバーのワークスペースをリポジトリにバインド',
+  'workbench.serverAdmin.panel.gitHint': 'ワークスペースをリポジトリにバインド',
   'workbench.serverAdmin.panel.audit': '監査',
-  'workbench.serverAdmin.panel.auditHint': 'サーバーの監査証跡を照会',
+  'workbench.serverAdmin.panel.auditHint': '監査証跡を照会',
   'workbench.serverAdmin.panel.server': 'サーバー',
   'workbench.serverAdmin.panel.serverHint': 'デバイスからのリクエスト、ビルド、バージョン、リリースノート',
 
   // ── Release-notes card ─────────────────────────────────────────────
   'workbench.serverAdmin.build.sectionTitle': 'ビルド',
-  'workbench.serverAdmin.build.sectionHint': 'このコンソールが管理するサーバービルド。',
+  'workbench.serverAdmin.build.sectionHint': 'このコンソールが管理するビルド。',
   'workbench.serverAdmin.build.versionLabel': 'バージョン',
   'workbench.serverAdmin.build.versionUnknown': '不明',
   'workbench.serverAdmin.notes.sectionTitle': 'リリースノート',
-  'workbench.serverAdmin.notes.sectionHint': 'このコンソールが管理するサーバービルドで出荷されたもの。',
+  'workbench.serverAdmin.notes.sectionHint': 'このコンソールが管理するビルドで出荷されたもの。',
   'workbench.serverAdmin.notes.empty': 'このビルドにはリリースノートが含まれていません。',
   'workbench.serverAdmin.requests.sectionTitle': 'デバイスからのリクエスト',
   'workbench.serverAdmin.requests.sectionHint':
@@ -166,17 +166,17 @@ export const workbenchServerAdmin = {
   'workbench.serverAdmin.gitEmail.updateFailed': 'Git メールの更新に失敗しました：{message}',
 
   // ── Functional roles ───────────────────────────────────────────────
-  'workbench.serverAdmin.roles.daemonAdmin': 'サーバー管理者',
+  'workbench.serverAdmin.roles.daemonAdmin': '管理者',
   'workbench.serverAdmin.roles.daemonAdminTooltip':
-    'このサーバーを管理します。ユーザー、ロール、付与、デバイス、レポート。それ自体はワークスペースへのアクセスを与えず、このユーザーは引き続き下で付与されたワークスペースだけを見ます。',
+    'ユーザー、ロール、付与、デバイス、レポートを管理します。それ自体はワークスペースへのアクセスを与えず、このユーザーは引き続き下で付与されたワークスペースだけを見ます。',
   'workbench.serverAdmin.roles.createWorkspaces': 'ワークスペースの作成',
   'workbench.serverAdmin.roles.createWorkspacesTooltip':
     'このユーザーがサーバー上に新しいワークスペースを作成できるようにします。作成したものは本人が所有します。既存のワークスペースには引き続き付与が必要です。',
-  'workbench.serverAdmin.roles.daemonAdminGranted': 'サーバー管理者になりました。',
-  'workbench.serverAdmin.roles.daemonAdminRevoked': 'サーバー管理者のロールを取り消しました。',
+  'workbench.serverAdmin.roles.daemonAdminGranted': '管理者になりました。',
+  'workbench.serverAdmin.roles.daemonAdminRevoked': '管理者のロールを取り消しました。',
   'workbench.serverAdmin.roles.createWorkspacesGranted': 'ワークスペースを作成できるようになりました。',
   'workbench.serverAdmin.roles.createWorkspacesRevoked': 'ワークスペースを作成できなくなりました。',
-  'workbench.serverAdmin.roles.lastAdmin': 'これが唯一のサーバー管理者です。先に別の人を管理者にしてください',
+  'workbench.serverAdmin.roles.lastAdmin': 'これが唯一の管理者です。先に別の人を管理者にしてください',
   'workbench.serverAdmin.roles.updateFailed': 'ロールの変更に失敗しました：{message}',
 
   // ── Git section ────────────────────────────────────────────────────

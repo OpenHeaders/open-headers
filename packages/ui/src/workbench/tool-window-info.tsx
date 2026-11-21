@@ -17,7 +17,7 @@
 import type { InfoPopoverContent } from '@openheaders/ui/shared/info-popover';
 import { getNotificationsPanelInfo } from '@openheaders/ui/shared/notifications';
 import type { Translate } from '@openheaders/ui/context/LocaleContext';
-import { SERVER_ADMIN_SECTIONS } from './components/server-admin/sections';
+import { visibleServerAdminSections } from './components/server-admin/sections';
 import { buildRuleIcon } from './components/shared/rule-icon';
 import { scopeBadge } from './components/shared/scope-colors';
 import { ALL_RULE_TYPES } from './rule-type-menu';
@@ -49,7 +49,7 @@ function buildToolWindowInfo(t: Translate): Record<ToolWindowId, InfoPopoverCont
         {
           heading: t('workbench.toolWindows.info.serverAdmin.domainsHeading'),
           layout: 'stacked',
-          items: SERVER_ADMIN_SECTIONS.map((def) => ({
+          items: visibleServerAdminSections().map((def) => ({
             icon: def.icon,
             label: t(def.labelKey),
             desc: t(def.hintKey),

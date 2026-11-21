@@ -36,19 +36,19 @@ export const workbenchServerAdmin = {
   'workbench.serverAdmin.panel.devices': '페어링된 기기',
   'workbench.serverAdmin.panel.devicesHint': 'token, 페어링, 로그인된 세션',
   'workbench.serverAdmin.panel.git': 'Git',
-  'workbench.serverAdmin.panel.gitHint': '서버 워크스페이스를 저장소에 바인딩',
+  'workbench.serverAdmin.panel.gitHint': '워크스페이스를 저장소에 바인딩',
   'workbench.serverAdmin.panel.audit': '감사',
-  'workbench.serverAdmin.panel.auditHint': '서버의 감사 추적 조회',
+  'workbench.serverAdmin.panel.auditHint': '감사 추적 조회',
   'workbench.serverAdmin.panel.server': '서버',
   'workbench.serverAdmin.panel.serverHint': '기기의 요청, 빌드, 버전, 릴리스 노트',
 
   // ── Release-notes card ─────────────────────────────────────────────
   'workbench.serverAdmin.build.sectionTitle': '빌드',
-  'workbench.serverAdmin.build.sectionHint': '이 콘솔이 관리하는 서버 빌드.',
+  'workbench.serverAdmin.build.sectionHint': '이 콘솔이 관리하는 빌드.',
   'workbench.serverAdmin.build.versionLabel': '버전',
   'workbench.serverAdmin.build.versionUnknown': '알 수 없음',
   'workbench.serverAdmin.notes.sectionTitle': '릴리스 노트',
-  'workbench.serverAdmin.notes.sectionHint': '이 콘솔이 관리하는 서버 빌드에 무엇이 실렸는지.',
+  'workbench.serverAdmin.notes.sectionHint': '이 콘솔이 관리하는 빌드에 무엇이 실렸는지.',
   'workbench.serverAdmin.notes.empty': '이 빌드에는 릴리스 노트가 없습니다.',
   'workbench.serverAdmin.requests.sectionTitle': '기기의 요청',
   'workbench.serverAdmin.requests.sectionHint':
@@ -170,17 +170,17 @@ export const workbenchServerAdmin = {
   'workbench.serverAdmin.gitEmail.updateFailed': 'Git 이메일을 업데이트하지 못했습니다: {message}',
 
   // ── Functional roles ───────────────────────────────────────────────
-  'workbench.serverAdmin.roles.daemonAdmin': '서버 관리자',
+  'workbench.serverAdmin.roles.daemonAdmin': '관리자',
   'workbench.serverAdmin.roles.daemonAdminTooltip':
-    '이 서버를 관리합니다: 사용자, 역할, 부여, 기기, 보고서. 그 자체로는 워크스페이스 접근 권한을 주지 않으며, 이 사용자는 여전히 아래에서 부여된 워크스페이스만 봅니다.',
+    '사용자, 역할, 부여, 기기, 보고서를 관리합니다. 그 자체로는 워크스페이스 접근 권한을 주지 않으며, 이 사용자는 여전히 아래에서 부여된 워크스페이스만 봅니다.',
   'workbench.serverAdmin.roles.createWorkspaces': '워크스페이스 만들기',
   'workbench.serverAdmin.roles.createWorkspacesTooltip':
     '이 사용자가 서버에 새 워크스페이스를 만들 수 있게 합니다. 만든 것은 자기가 소유하며, 기존 워크스페이스에는 여전히 부여가 필요합니다.',
-  'workbench.serverAdmin.roles.daemonAdminGranted': '이제 서버 관리자입니다.',
-  'workbench.serverAdmin.roles.daemonAdminRevoked': '서버 관리자 역할을 취소했습니다.',
+  'workbench.serverAdmin.roles.daemonAdminGranted': '이제 관리자입니다.',
+  'workbench.serverAdmin.roles.daemonAdminRevoked': '관리자 역할을 취소했습니다.',
   'workbench.serverAdmin.roles.createWorkspacesGranted': '이제 워크스페이스를 만들 수 있습니다.',
   'workbench.serverAdmin.roles.createWorkspacesRevoked': '더 이상 워크스페이스를 만들 수 없습니다.',
-  'workbench.serverAdmin.roles.lastAdmin': '유일한 서버 관리자입니다. 먼저 다른 사람을 관리자로 만드세요',
+  'workbench.serverAdmin.roles.lastAdmin': '유일한 관리자입니다. 먼저 다른 사람을 관리자로 만드세요',
   'workbench.serverAdmin.roles.updateFailed': '역할을 바꾸지 못했습니다: {message}',
 
   // ── Git section ────────────────────────────────────────────────────

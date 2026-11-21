@@ -30,19 +30,19 @@ export const workbenchServerAdmin = {
   'workbench.serverAdmin.panel.devices': 'Gekoppelte Geräte',
   'workbench.serverAdmin.panel.devicesHint': 'Tokens, Kopplung und angemeldete Sitzungen',
   'workbench.serverAdmin.panel.git': 'Git',
-  'workbench.serverAdmin.panel.gitHint': 'Server-Workspaces an Repositories binden',
+  'workbench.serverAdmin.panel.gitHint': 'Workspaces an Repositories binden',
   'workbench.serverAdmin.panel.audit': 'Audit',
-  'workbench.serverAdmin.panel.auditHint': 'Das Audit-Protokoll des Servers abfragen',
+  'workbench.serverAdmin.panel.auditHint': 'Das Audit-Protokoll abfragen',
   'workbench.serverAdmin.panel.server': 'Server',
   'workbench.serverAdmin.panel.serverHint': 'Anfragen von Geräten, Build, Version und Release Notes',
 
   // ── Release-notes card ─────────────────────────────────────────────
   'workbench.serverAdmin.build.sectionTitle': 'Build',
-  'workbench.serverAdmin.build.sectionHint': 'Der Server-Build, den diese Konsole verwaltet.',
+  'workbench.serverAdmin.build.sectionHint': 'Der Build, den diese Konsole verwaltet.',
   'workbench.serverAdmin.build.versionLabel': 'Version',
   'workbench.serverAdmin.build.versionUnknown': 'Unbekannt',
   'workbench.serverAdmin.notes.sectionTitle': 'Versionshinweise',
-  'workbench.serverAdmin.notes.sectionHint': 'Was im Server-Build enthalten ist, das diese Konsole verwaltet.',
+  'workbench.serverAdmin.notes.sectionHint': 'Was im Build enthalten ist, den diese Konsole verwaltet.',
   'workbench.serverAdmin.notes.empty': 'Dieser Build enthält keine Versionshinweise.',
   'workbench.serverAdmin.requests.sectionTitle': 'Anfragen von Geräten',
   'workbench.serverAdmin.requests.sectionHint':
@@ -177,18 +177,18 @@ export const workbenchServerAdmin = {
   'workbench.serverAdmin.gitEmail.updateFailed': 'Git-E-Mail konnte nicht aktualisiert werden: {message}',
 
   // ── Funktionsrollen ────────────────────────────────────────────────
-  'workbench.serverAdmin.roles.daemonAdmin': 'Server-Admin',
+  'workbench.serverAdmin.roles.daemonAdmin': 'Administrator',
   'workbench.serverAdmin.roles.daemonAdminTooltip':
-    'Verwaltet diesen Server: Benutzer, Rollen, Berechtigungen, Geräte und Berichte. Gewährt für sich genommen keinen Workspace-Zugriff — diese Person sieht weiterhin nur die unten freigegebenen Workspaces.',
+    'Verwaltet Benutzer, Rollen, Berechtigungen, Geräte und Berichte. Gewährt für sich genommen keinen Workspace-Zugriff — diese Person sieht weiterhin nur die unten freigegebenen Workspaces.',
   'workbench.serverAdmin.roles.createWorkspaces': 'Workspaces erstellen',
   'workbench.serverAdmin.roles.createWorkspacesTooltip':
     'Erlaubt dieser Person, neue Workspaces auf dem Server anzulegen. Sie besitzt, was sie erstellt; bestehende Workspaces brauchen weiterhin eine Freigabe.',
-  'workbench.serverAdmin.roles.daemonAdminGranted': 'Jetzt Server-Admin.',
-  'workbench.serverAdmin.roles.daemonAdminRevoked': 'Server-Admin-Rolle entzogen.',
+  'workbench.serverAdmin.roles.daemonAdminGranted': 'Jetzt Administrator.',
+  'workbench.serverAdmin.roles.daemonAdminRevoked': 'Administrator-Rolle entzogen.',
   'workbench.serverAdmin.roles.createWorkspacesGranted': 'Kann jetzt Workspaces erstellen.',
   'workbench.serverAdmin.roles.createWorkspacesRevoked': 'Kann keine Workspaces mehr erstellen.',
   'workbench.serverAdmin.roles.lastAdmin':
-    'dies ist der einzige Server-Admin — machen Sie zuerst jemand anderen zum Admin',
+    'dies ist der einzige Administrator — machen Sie zuerst jemand anderen zum Administrator',
   'workbench.serverAdmin.roles.updateFailed': 'Rolle konnte nicht geändert werden: {message}',
 
   // ── Git section ────────────────────────────────────────────────────

@@ -1,5 +1,5 @@
 /**
- * Server-admin section vocabulary — one entry per administration
+ * Administration section vocabulary — one entry per administration
  * domain. The dock panel renders these as nav rows; each row opens its
  * own singleton workbench tab scoped to exactly that domain (no
  * everything-page). The registry is the single source of truth for the
@@ -14,8 +14,10 @@ import {
   LaptopOutlined,
   TeamOutlined,
 } from '@ant-design/icons';
+import { getIdentitySnapshot, orgCatalogue } from '@openheaders/core/identity';
 import type { MessageKey } from '@openheaders/i18n';
 import type React from 'react';
+import { getCurrentHost } from '@openheaders/ui/shared/host-vocabulary';
 import type { ServerAdminSection } from '../../types';
 
 export type { ServerAdminSection };
@@ -63,6 +65,20 @@ export const SERVER_ADMIN_SECTIONS: readonly ServerAdminSectionDef[] = [
 export const SERVER_ADMIN_SECTION_MAP: ReadonlyMap<ServerAdminSection, ServerAdminSectionDef> = new Map(
   SERVER_ADMIN_SECTIONS.map((def) => [def.id, def]),
 );
+
+/**
+ * The rows the nav offers on this host. The Server domain belongs to a
+ * standalone server alone: a desktop app — its own window, or a browser
+ * tab on the Workbench it serves — shows its build under Settings ›
+ * About and keeps the requests switch under Backup and Sync › Your
+ * devices, so the row would open a tab with nothing of its own.
+ */
+export function visibleServerAdminSections(): readonly ServerAdminSectionDef[] {
+  const desktopAppAnswers =
+    getCurrentHost() === 'desktop' ||
+    orgCatalogue(getIdentitySnapshot()).some((org) => !org.isHome && org.hostKind === 'desktop');
+  return desktopAppAnswers ? SERVER_ADMIN_SECTIONS.filter((def) => def.id !== 'server') : SERVER_ADMIN_SECTIONS;
+}
 
 /**
  * The singleton tab id for a section. The Users tab keeps the historic

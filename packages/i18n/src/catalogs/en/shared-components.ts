@@ -482,8 +482,8 @@ export const sharedComponents = {
   // in the admin console; the served tab opens it in place, every
   // other host offers the server's page.
   'shared.peerExecute.serverDisabled':
-    'Running requests for connected devices is turned off on {place}. A server admin can turn it on under Server Admin › Server.',
-  'shared.peerExecute.openServerAdmin': 'Open Server Admin',
+    'Running requests for connected devices is turned off on {place}. An administrator can turn it on under Administration › Server.',
+  'shared.peerExecute.openServerAdmin': 'Open Administration',
   'shared.peerExecute.openPlace': 'Open {place}',
   // ── Execution place (the place button after Save) ───────────────────
   'shared.executionPlace.info': 'Where this request runs',
@@ -584,10 +584,9 @@ export const sharedComponents = {
   'shared.desktopTeaser.activityMonitor.title': 'Activity Monitor',
   'shared.desktopTeaser.activityMonitor.body':
     'See what the desktop app is running and what each part costs — its processes with their CPU and memory, live.',
-  'shared.desktopTeaser.serverAdmin.title': 'Server administration',
+  'shared.desktopTeaser.serverAdmin.title': 'Administration',
   'shared.desktopTeaser.serverAdmin.body':
-    'Manage users, access tokens, workspace access and server settings in the admin console that ships with the ' +
-    'desktop app.',
+    'Manage users, paired devices and workspace access in the admin console that ships with the desktop app.',
 
   // ── Settings rows ──────────────────────────────────────────────────
   'shared.settingsRows.enabled': 'Enabled',

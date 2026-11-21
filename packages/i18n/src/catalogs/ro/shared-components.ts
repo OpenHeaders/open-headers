@@ -494,8 +494,8 @@ export const sharedComponents = {
     'Trimiterea de pe alte dispozitive este dezactivată pe gazda conectată. Activați „Permiteți altor dispozitive conectate să trimită cereri” în Copie de rezervă și sincronizare › Dispozitivele dvs. de pe acel computer.',
   'shared.peerExecute.enableCta': 'Activare în aplicația desktop',
   'shared.peerExecute.serverDisabled':
-    'Rularea cererilor pentru dispozitivele conectate este dezactivată pe {place}. Un administrator al serverului o poate activa în Administrare server › Server.',
-  'shared.peerExecute.openServerAdmin': 'Deschidere Administrare server',
+    'Rularea cererilor pentru dispozitivele conectate este dezactivată pe {place}. Un administrator o poate activa în Administrare › Server.',
+  'shared.peerExecute.openServerAdmin': 'Deschidere Administrare',
   'shared.peerExecute.openPlace': 'Deschidere {place}',
   // ── Execution place (the place button after Save) ───────────────────
   'shared.executionPlace.info': 'Unde rulează această solicitare',
@@ -593,9 +593,9 @@ export const sharedComponents = {
   'shared.desktopTeaser.activityMonitor.title': 'Monitor de activitate',
   'shared.desktopTeaser.activityMonitor.body':
     'Vedeți ce rulează aplicația desktop și cât costă fiecare parte — procesele ei cu CPU-ul și memoria lor, în timp real.',
-  'shared.desktopTeaser.serverAdmin.title': 'Administrarea serverului',
+  'shared.desktopTeaser.serverAdmin.title': 'Administrare',
   'shared.desktopTeaser.serverAdmin.body':
-    'Gestionați utilizatorii, tokenurile de acces, accesul la spațiile de lucru și setările serverului din consola ' +
+    'Gestionați utilizatorii, dispozitivele asociate și accesul la spațiile de lucru din consola ' +
     'de administrare livrată cu aplicația desktop.',
 
   // ── Settings rows ──────────────────────────────────────────────────

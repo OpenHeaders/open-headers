@@ -30,19 +30,19 @@ export const workbenchServerAdmin = {
   'workbench.serverAdmin.panel.devices': '配对设备',
   'workbench.serverAdmin.panel.devicesHint': '令牌、配对与已登录会话',
   'workbench.serverAdmin.panel.git': 'Git',
-  'workbench.serverAdmin.panel.gitHint': '将服务器工作区绑定到仓库',
+  'workbench.serverAdmin.panel.gitHint': '将工作区绑定到仓库',
   'workbench.serverAdmin.panel.audit': '审计',
-  'workbench.serverAdmin.panel.auditHint': '查询服务器的审计日志',
+  'workbench.serverAdmin.panel.auditHint': '查询审计日志',
   'workbench.serverAdmin.panel.server': '服务器',
   'workbench.serverAdmin.panel.serverHint': '来自设备的请求、构建、版本与更新日志',
 
   // ── Release-notes card ─────────────────────────────────────────────
   'workbench.serverAdmin.build.sectionTitle': '构建',
-  'workbench.serverAdmin.build.sectionHint': '此控制台所管理的服务器构建版本。',
+  'workbench.serverAdmin.build.sectionHint': '此控制台所管理的构建版本。',
   'workbench.serverAdmin.build.versionLabel': '版本',
   'workbench.serverAdmin.build.versionUnknown': '未知',
   'workbench.serverAdmin.notes.sectionTitle': '版本说明',
-  'workbench.serverAdmin.notes.sectionHint': '此控制台所管理服务器构建版本的更新内容。',
+  'workbench.serverAdmin.notes.sectionHint': '此控制台所管理构建版本的更新内容。',
   'workbench.serverAdmin.notes.empty': '此构建版本未附带版本说明。',
   'workbench.serverAdmin.requests.sectionTitle': '来自设备的请求',
   'workbench.serverAdmin.requests.sectionHint': '已加入此服务器的设备能否在此服务器上运行其请求。',
@@ -159,17 +159,17 @@ export const workbenchServerAdmin = {
   'workbench.serverAdmin.gitEmail.updateFailed': '更新 Git 邮箱失败：{message}',
 
   // ── 功能角色 ───────────────────────────────────────────────────────
-  'workbench.serverAdmin.roles.daemonAdmin': '服务器管理员',
+  'workbench.serverAdmin.roles.daemonAdmin': '管理员',
   'workbench.serverAdmin.roles.daemonAdminTooltip':
-    '管理此服务器：用户、角色、授权、设备与报告。本身不授予任何工作区访问权限——该用户仍然只能看到下方授权的工作区。',
+    '管理用户、角色、授权、设备与报告。本身不授予任何工作区访问权限——该用户仍然只能看到下方授权的工作区。',
   'workbench.serverAdmin.roles.createWorkspaces': '创建工作区',
   'workbench.serverAdmin.roles.createWorkspacesTooltip':
     '允许该用户在服务器上创建新工作区。他们拥有自己创建的工作区；已有工作区仍需单独授权。',
-  'workbench.serverAdmin.roles.daemonAdminGranted': '已成为服务器管理员。',
-  'workbench.serverAdmin.roles.daemonAdminRevoked': '已撤销服务器管理员角色。',
+  'workbench.serverAdmin.roles.daemonAdminGranted': '已成为管理员。',
+  'workbench.serverAdmin.roles.daemonAdminRevoked': '已撤销管理员角色。',
   'workbench.serverAdmin.roles.createWorkspacesGranted': '现在可以创建工作区。',
   'workbench.serverAdmin.roles.createWorkspacesRevoked': '不再可以创建工作区。',
-  'workbench.serverAdmin.roles.lastAdmin': '这是唯一的服务器管理员——请先将其他人设为管理员',
+  'workbench.serverAdmin.roles.lastAdmin': '这是唯一的管理员——请先将其他人设为管理员',
   'workbench.serverAdmin.roles.updateFailed': '更改角色失败：{message}',
 
   // ── Git section ────────────────────────────────────────────────────
