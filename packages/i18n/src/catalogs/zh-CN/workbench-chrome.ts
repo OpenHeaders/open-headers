@@ -474,9 +474,7 @@ export const workbenchChrome = {
   'workbench.activityMonitor.group.overview': '概览',
   'workbench.activityMonitor.group.processes': '进程',
   'workbench.activityMonitor.column.cpu': 'CPU',
-  'workbench.activityMonitor.info.cpuPerCore': '按核心计，与本系统自带监视器的算法一致——100% 表示占满一个核心。',
-  'workbench.activityMonitor.info.cpuMachineShare':
-    '占整台机器的比例，与本系统自带监视器的算法一致——100% 表示占满全部核心。',
+  'workbench.activityMonitor.info.cpu': '占整台机器的比例——100% 表示占满全部核心。按核心计的监视器显示的数值更高。',
   'workbench.activityMonitor.column.memory': '内存',
   'workbench.activityMonitor.info.memory': '该进程此刻占用的物理内存。',
   'workbench.activityMonitor.info.memoryFootprint':
@@ -537,8 +535,7 @@ export const workbenchChrome = {
     }),
   'workbench.activityMonitor.summary.uptime': '已运行 {duration}',
   'workbench.activityMonitor.summary.range': '最近 {duration}',
-  'workbench.activityMonitor.info.scalePerCore': '所有 CPU 曲线共用同一刻度——顶端表示占满一个核心。',
-  'workbench.activityMonitor.info.scaleMachineShare': '所有 CPU 曲线共用同一刻度——顶端表示整台机器。',
+  'workbench.activityMonitor.info.cpuScale': '所有 CPU 曲线共用同一刻度——顶端表示整台机器。',
   'workbench.activityMonitor.ended': '{time} 结束',
   'workbench.activityMonitor.peak': '峰值 {percent}',
   'workbench.toolWindows.info.terminal.summary':

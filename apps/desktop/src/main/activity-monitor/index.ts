@@ -11,7 +11,6 @@
  */
 
 import * as os from 'node:os';
-import type { ActivityMonitorPlatform } from '@openheaders/core/activity-monitor';
 import { hostProcessRoots } from '@openheaders/oracle-host-node/process-reader';
 import { app, BrowserWindow } from 'electron';
 import { desktopProcessReader } from '../process-reader';
@@ -49,12 +48,6 @@ function readProcessOwners(): ProcessOwners {
   return { windowPids, scriptSandboxPid };
 }
 
-/** "CPU %" has two conventions (the plan §7, fork 8); any platform that is not Windows counts per core. */
-export function activityMonitorPlatform(platform: NodeJS.Platform): ActivityMonitorPlatform {
-  if (platform === 'win32') return 'win32';
-  return platform === 'darwin' ? 'darwin' : 'linux';
-}
-
 /**
  * The history's beat starts here, with the engine, and is stopped by
  * the engine's quit teardown. The timer never keeps a quitting app's
@@ -68,7 +61,6 @@ export function createDesktopActivityMonitor(): ActivityMonitor {
       readOwners: readProcessOwners,
       readOwned: () => readOwnedFigures(hostProcessRoots.list(), reader),
       now: Date.now,
-      platform: activityMonitorPlatform(process.platform),
       logicalCores: os.cpus().length,
       memoryKind: reader?.memoryKind ?? 'working-set',
     }),

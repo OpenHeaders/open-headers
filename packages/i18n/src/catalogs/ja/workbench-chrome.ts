@@ -480,10 +480,8 @@ export const workbenchChrome = {
   'workbench.activityMonitor.group.overview': '概要',
   'workbench.activityMonitor.group.processes': 'プロセス',
   'workbench.activityMonitor.column.cpu': 'CPU',
-  'workbench.activityMonitor.info.cpuPerCore':
-    'このシステムのモニタと同じ数え方で、コアごとの値です。100% は 1 コア分です。',
-  'workbench.activityMonitor.info.cpuMachineShare':
-    'このシステムのモニタと同じ数え方で、マシン全体に対する割合です。100% は全コア分です。',
+  'workbench.activityMonitor.info.cpu':
+    'マシン全体に対する割合です。100% は全コア分です。コアごとに数えるモニタでは、より大きい値になります。',
   'workbench.activityMonitor.column.memory': 'メモリ',
   'workbench.activityMonitor.info.memory': 'プロセスが現在使用している物理メモリです。',
   'workbench.activityMonitor.info.memoryFootprint':
@@ -545,8 +543,7 @@ export const workbenchChrome = {
     }),
   'workbench.activityMonitor.summary.uptime': '稼働 {duration}',
   'workbench.activityMonitor.summary.range': '直近 {duration}',
-  'workbench.activityMonitor.info.scalePerCore': 'CPU のグラフはすべて同じ目盛りです。上端は 1 コア分です。',
-  'workbench.activityMonitor.info.scaleMachineShare': 'CPU のグラフはすべて同じ目盛りです。上端はマシン全体です。',
+  'workbench.activityMonitor.info.cpuScale': 'CPU のグラフはすべて同じ目盛りです。上端はマシン全体です。',
   'workbench.activityMonitor.ended': '{time} に終了',
   'workbench.activityMonitor.peak': 'ピーク {percent}',
   'workbench.toolWindows.info.terminal.summary':

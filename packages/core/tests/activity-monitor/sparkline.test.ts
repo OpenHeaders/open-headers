@@ -46,13 +46,8 @@ describe('sparklinePath', () => {
     expect(sparklinePath(series([null, null]), 100, 14, 1)).toBe('');
   });
 
-  it('draws one full core at the top where "CPU %" counts per core', () => {
-    const top = cpuScaleTop('darwin', 10);
-    expect(sparklinePath(series([1, 0.5]), 100, 14, top)).toBe('M0.0 1.0L100.0 7.0');
-  });
-
-  it('draws the whole machine at the top on Windows — one core of eight is an eighth of the way up', () => {
-    const top = cpuScaleTop('win32', 8);
+  it('draws the whole machine at the top — one core of eight is an eighth of the way up', () => {
+    const top = cpuScaleTop(8);
     expect(sparklinePath(series([8, 1]), 100, 14, top)).toBe('M0.0 1.0L100.0 11.5');
   });
 });

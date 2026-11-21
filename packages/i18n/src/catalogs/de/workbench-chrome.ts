@@ -504,10 +504,8 @@ export const workbenchChrome = {
   'workbench.activityMonitor.group.overview': 'Übersicht',
   'workbench.activityMonitor.group.processes': 'Prozesse',
   'workbench.activityMonitor.column.cpu': 'CPU',
-  'workbench.activityMonitor.info.cpuPerCore':
-    'Pro Kern, so wie die Systemüberwachung dieses Systems zählt — 100 % sind ein voller Kern.',
-  'workbench.activityMonitor.info.cpuMachineShare':
-    'Anteil am gesamten Rechner, so wie die Systemüberwachung dieses Systems zählt — 100 % sind alle Kerne.',
+  'workbench.activityMonitor.info.cpu':
+    'Anteil am gesamten Rechner — 100 % sind alle Kerne. Eine Überwachung, die pro Kern zählt, zeigt höhere Werte.',
   'workbench.activityMonitor.column.memory': 'Speicher',
   'workbench.activityMonitor.info.memory': 'Der physische Arbeitsspeicher, den der Prozess gerade belegt.',
   'workbench.activityMonitor.info.memoryFootprint':
@@ -571,9 +569,7 @@ export const workbenchChrome = {
     plural(locale, Number(count), { one: '{count} Prozess', other: '{count} Prozesse' }),
   'workbench.activityMonitor.summary.uptime': 'läuft seit {duration}',
   'workbench.activityMonitor.summary.range': 'letzte {duration}',
-  'workbench.activityMonitor.info.scalePerCore':
-    'Alle CPU-Verläufe teilen sich eine Skala — ganz oben ist ein voller Kern.',
-  'workbench.activityMonitor.info.scaleMachineShare':
+  'workbench.activityMonitor.info.cpuScale':
     'Alle CPU-Verläufe teilen sich eine Skala — ganz oben ist der gesamte Rechner.',
   'workbench.activityMonitor.ended': 'beendet {time}',
   'workbench.activityMonitor.peak': 'Spitze {percent}',

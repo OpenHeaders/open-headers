@@ -327,11 +327,7 @@ const Summary: React.FC<{ snapshot: ActivityMonitorSnapshot; graphs: HistoryGrap
       <span className="oh-am-stat">
         {t('workbench.activityMonitor.column.cpu')}
         <strong>
-          {formatCpuPercent(
-            sumReadable(snapshot.processes.map((row) => row.cpuRate)),
-            snapshot.platform,
-            snapshot.logicalCores,
-          )}
+          {formatCpuPercent(sumReadable(snapshot.processes.map((row) => row.cpuRate)), snapshot.logicalCores)}
         </strong>
         <Sparkline path={graphs.cpuTotal} width={SUMMARY_GRAPH.width} height={SUMMARY_GRAPH.height} />
       </span>
@@ -399,19 +395,18 @@ const ActivityMonitorPanel: React.FC<ActivityMonitorPanelProps> = ({
   const [heldOrder, setHeldOrder] = useState<readonly string[] | null>(null);
   const pointerOverTable = useRef(false);
 
-  const cpuTop = snapshot === null ? 1 : cpuScaleTop(snapshot.platform, snapshot.logicalCores);
+  const cpuTop = snapshot === null ? 1 : cpuScaleTop(snapshot.logicalCores);
   const graphs = useMemo(() => buildHistoryGraphs(history, cpuTop), [history, cpuTop]);
 
-  const platform = snapshot?.platform;
   const logicalCores = snapshot?.logicalCores;
   const memoryKind = snapshot?.memoryKind;
   /** Every `(i)` of the panel, worded for this host; none before the first answer says what the host is. */
   const infos = useMemo(
     () =>
-      platform === undefined || logicalCores === undefined || memoryKind === undefined
+      logicalCores === undefined || memoryKind === undefined
         ? undefined
-        : activityMonitorInfo(t, locale, { platform, logicalCores, memoryKind }),
-    [t, locale, platform, logicalCores, memoryKind],
+        : activityMonitorInfo(t, locale, { logicalCores, memoryKind }),
+    [t, locale, logicalCores, memoryKind],
   );
 
   const arranged = useMemo(() => {
@@ -441,7 +436,7 @@ const ActivityMonitorPanel: React.FC<ActivityMonitorPanelProps> = ({
     child: boolean,
   ): React.ReactNode => {
     const name = processName(row, t, terminalLabel);
-    const cpu = formatCpuPercent(row.cpuRate, answer.platform, answer.logicalCores);
+    const cpu = formatCpuPercent(row.cpuRate, answer.logicalCores);
     const graph = graphs.processes.get(row.id)?.path ?? '';
     const memory = formatMemory(row.memoryBytes);
     const started = formatStartTime(row.startedAt, answer.sampledAt, locale);
@@ -484,7 +479,7 @@ const ActivityMonitorPanel: React.FC<ActivityMonitorPanelProps> = ({
             <ProcessRow
               key={`${process.pid}:${process.startedAt}`}
               name={process.name ?? t('workbench.activityMonitor.process.unknown')}
-              cpu={formatCpuPercent(process.cpuRate, answer.platform, answer.logicalCores)}
+              cpu={formatCpuPercent(process.cpuRate, answer.logicalCores)}
               graph={null}
               memory={formatMemory(process.memoryBytes)}
               started={formatStartTime(process.startedAt, answer.sampledAt, locale)}
@@ -572,11 +567,7 @@ const ActivityMonitorPanel: React.FC<ActivityMonitorPanelProps> = ({
                 onToggle={() => setOtherOpen((open) => !open)}
               />
               <span className="oh-am-num" role="cell">
-                {formatCpuPercent(
-                  sumReadable(arranged.other.map((row) => row.cpuRate)),
-                  snapshot.platform,
-                  snapshot.logicalCores,
-                )}
+                {formatCpuPercent(sumReadable(arranged.other.map((row) => row.cpuRate)), snapshot.logicalCores)}
               </span>
               <span aria-hidden />
               <span className="oh-am-num" role="cell">
@@ -611,7 +602,7 @@ const ActivityMonitorPanel: React.FC<ActivityMonitorPanelProps> = ({
                       : [
                           endedAt,
                           t('workbench.activityMonitor.peak', {
-                            percent: formatCpuPercent(graph.peak, snapshot.platform, snapshot.logicalCores),
+                            percent: formatCpuPercent(graph.peak, snapshot.logicalCores),
                           }),
                         ].join(FACT_SEPARATOR)
                   }

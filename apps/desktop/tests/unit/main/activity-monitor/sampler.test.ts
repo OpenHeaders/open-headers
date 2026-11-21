@@ -1,14 +1,13 @@
 /**
  * The sampler (the activity monitor plan §6, laws 2, 3 and 6): a first
  * read answers no rate — a dash, never zero; two asks inside a second
- * share one read; a rate is the sampler's own delta whether or not the
- * runtime reports a cumulative counter; and the platform is an
- * argument, so every convention is pinned on every OS. What runs
- * beneath an owner takes its rate from its own counter, kept where no
- * viewer and no history reads it.
+ * share one read; and a rate is the sampler's own delta whether or not
+ * the runtime reports a cumulative counter. What runs beneath an owner
+ * takes its rate from its own counter, kept where no viewer and no
+ * history reads it.
  */
 
-import type { ActivityMonitorMemoryKind, ActivityMonitorPlatform } from '@openheaders/core/activity-monitor';
+import type { ActivityMonitorMemoryKind } from '@openheaders/core/activity-monitor';
 import { describe, expect, it } from 'vitest';
 import type { OwnedChildRead, OwnedProcessRead } from '@/main/activity-monitor/owned-figures';
 import type { ProcessOwners, ProcessRead } from '@/main/activity-monitor/process-naming';
@@ -58,9 +57,7 @@ function makeChild(overrides: Partial<OwnedChildRead> = {}): OwnedChildRead {
   };
 }
 
-function makeRig(
-  options: { platform?: ActivityMonitorPlatform; logicalCores?: number; memoryKind?: ActivityMonitorMemoryKind } = {},
-) {
+function makeRig(options: { logicalCores?: number; memoryKind?: ActivityMonitorMemoryKind } = {}) {
   const clock = { at: STARTED + 60_000 };
   const state: { reads: ProcessRead[]; owners: ProcessOwners; owned: OwnedProcessRead[]; readCount: number } = {
     reads: [makeRead()],
@@ -76,7 +73,6 @@ function makeRig(
     readOwners: () => state.owners,
     readOwned: () => state.owned,
     now: () => clock.at,
-    platform: options.platform ?? 'darwin',
     logicalCores: options.logicalCores ?? 10,
     memoryKind: options.memoryKind ?? 'footprint',
   });
@@ -94,7 +90,6 @@ describe('createActivityMonitorSampler', () => {
     const snapshot = sampler.sample();
     expect(snapshot).toEqual({
       sampledAt: clock.at,
-      platform: 'darwin',
       logicalCores: 10,
       memoryKind: 'footprint',
       processes: [
@@ -112,7 +107,7 @@ describe('createActivityMonitorSampler', () => {
   });
 
   it('carries the counter it rebuilt where the runtime reports none', () => {
-    const { sampler, clock, state } = makeRig({ platform: 'win32', logicalCores: 8 });
+    const { sampler, clock, state } = makeRig({ logicalCores: 8 });
     const id = `4312:${STARTED}`;
     state.reads = [makeRead({ cumulativeCpuSeconds: undefined, percentCpu: 0 })];
     expect(sampler.sample().cpuSeconds.get(id)).toBe(0);
@@ -144,7 +139,7 @@ describe('createActivityMonitorSampler', () => {
   });
 
   it('rebuilds the counter from the runtime percent where the cumulative field is absent', () => {
-    const { sampler, clock, state } = makeRig({ platform: 'win32', logicalCores: 8 });
+    const { sampler, clock, state } = makeRig({ logicalCores: 8 });
     state.reads = [makeRead({ cumulativeCpuSeconds: undefined, percentCpu: 0 })];
     expect(sampler.sample().processes[0].cpuRate).toBeNull();
 
@@ -153,7 +148,6 @@ describe('createActivityMonitorSampler', () => {
     const snapshot = sampler.sample();
     // 5 % of an 8-core machine is 0.4 of one core.
     expect(snapshot.processes[0].cpuRate).toBeCloseTo(0.4, 10);
-    expect(snapshot.platform).toBe('win32');
     expect(snapshot.logicalCores).toBe(8);
   });
 
@@ -196,7 +190,7 @@ describe('createActivityMonitorSampler', () => {
 
   it('says which memory its figures are, as the host that composed it said', () => {
     expect(makeRig({ memoryKind: 'resident' }).sampler.sample().memoryKind).toBe('resident');
-    expect(makeRig({ platform: 'win32', memoryKind: 'working-set' }).sampler.sample().memoryKind).toBe('working-set');
+    expect(makeRig({ memoryKind: 'working-set' }).sampler.sample().memoryKind).toBe('working-set');
   });
 
   it('reads a dash, read after read, for a process whose cost could not be read — never zero', () => {

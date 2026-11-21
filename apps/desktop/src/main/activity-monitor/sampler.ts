@@ -13,7 +13,6 @@
 
 import {
   type ActivityMonitorMemoryKind,
-  type ActivityMonitorPlatform,
   type ActivityMonitorProcessRow,
   type CpuCounterState,
   foldCpuCounters,
@@ -38,7 +37,6 @@ export interface ActivityMonitorSamplerDeps {
   /** The owners of what the host started itself, each with its subtree's total (the plan §6, law 13). */
   readOwned(): OwnedProcessRead[];
   now(): number;
-  platform: ActivityMonitorPlatform;
   logicalCores: number;
   /** Which figure the read's memory is. */
   memoryKind: ActivityMonitorMemoryKind;
@@ -48,7 +46,6 @@ export interface ActivityMonitorSamplerDeps {
 export interface ActivityMonitorProcessSample {
   /** ms since epoch. */
   sampledAt: number;
-  platform: ActivityMonitorPlatform;
   logicalCores: number;
   memoryKind: ActivityMonitorMemoryKind;
   processes: ActivityMonitorProcessRow[];
@@ -128,7 +125,6 @@ export function createActivityMonitorSampler(deps: ActivityMonitorSamplerDeps): 
 
       latest = {
         sampledAt: at,
-        platform: deps.platform,
         logicalCores: deps.logicalCores,
         memoryKind: deps.memoryKind,
         processes: [

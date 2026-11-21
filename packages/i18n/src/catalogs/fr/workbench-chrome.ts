@@ -504,10 +504,8 @@ export const workbenchChrome = {
   'workbench.activityMonitor.group.overview': 'Aperçu',
   'workbench.activityMonitor.group.processes': 'Processus',
   'workbench.activityMonitor.column.cpu': 'CPU',
-  'workbench.activityMonitor.info.cpuPerCore':
-    'Par cœur, comme le compte le moniteur de ce système — 100 % correspond à un cœur entier.',
-  'workbench.activityMonitor.info.cpuMachineShare':
-    'Une part de toute la machine, comme le compte le moniteur de ce système — 100 % correspond à tous les cœurs.',
+  'workbench.activityMonitor.info.cpu':
+    'Une part de toute la machine — 100 % correspond à tous les cœurs. Un moniteur qui compte par cœur affiche des valeurs plus élevées.',
   'workbench.activityMonitor.column.memory': 'Mémoire',
   'workbench.activityMonitor.info.memory': 'La mémoire physique que le processus occupe en ce moment.',
   'workbench.activityMonitor.info.memoryFootprint':
@@ -576,9 +574,7 @@ export const workbenchChrome = {
     }),
   'workbench.activityMonitor.summary.uptime': 'actif depuis {duration}',
   'workbench.activityMonitor.summary.range': 'dernières {duration}',
-  'workbench.activityMonitor.info.scalePerCore':
-    'Tous les graphiques CPU partagent une même échelle — le haut correspond à un cœur entier.',
-  'workbench.activityMonitor.info.scaleMachineShare':
+  'workbench.activityMonitor.info.cpuScale':
     'Tous les graphiques CPU partagent une même échelle — le haut correspond à toute la machine.',
   'workbench.activityMonitor.ended': 'terminé : {time}',
   'workbench.activityMonitor.peak': 'pic {percent}',

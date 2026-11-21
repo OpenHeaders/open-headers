@@ -480,10 +480,8 @@ export const workbenchChrome = {
   'workbench.activityMonitor.group.overview': '개요',
   'workbench.activityMonitor.group.processes': '프로세스',
   'workbench.activityMonitor.column.cpu': 'CPU',
-  'workbench.activityMonitor.info.cpuPerCore':
-    '이 시스템의 모니터가 세는 방식대로 코어당 값입니다. 100%는 코어 하나 전체입니다.',
-  'workbench.activityMonitor.info.cpuMachineShare':
-    '이 시스템의 모니터가 세는 방식대로 기기 전체에 대한 비율입니다. 100%는 모든 코어입니다.',
+  'workbench.activityMonitor.info.cpu':
+    '기기 전체에 대한 비율입니다. 100%는 모든 코어입니다. 코어당으로 세는 모니터에서는 더 높게 나옵니다.',
   'workbench.activityMonitor.column.memory': '메모리',
   'workbench.activityMonitor.info.memory': '프로세스가 지금 차지하고 있는 물리 메모리입니다.',
   'workbench.activityMonitor.info.memoryFootprint':
@@ -545,8 +543,7 @@ export const workbenchChrome = {
     }),
   'workbench.activityMonitor.summary.uptime': '가동 {duration}',
   'workbench.activityMonitor.summary.range': '최근 {duration}',
-  'workbench.activityMonitor.info.scalePerCore': '모든 CPU 그래프는 같은 눈금을 씁니다. 맨 위는 코어 하나 전체입니다.',
-  'workbench.activityMonitor.info.scaleMachineShare': '모든 CPU 그래프는 같은 눈금을 씁니다. 맨 위는 기기 전체입니다.',
+  'workbench.activityMonitor.info.cpuScale': '모든 CPU 그래프는 같은 눈금을 씁니다. 맨 위는 기기 전체입니다.',
   'workbench.activityMonitor.ended': '{time} 종료',
   'workbench.activityMonitor.peak': '최고 {percent}',
   'workbench.toolWindows.info.terminal.summary':

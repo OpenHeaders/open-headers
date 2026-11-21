@@ -58,7 +58,6 @@ export function createActivityMonitor(deps: ActivityMonitorDeps): ActivityMonito
       history = observeHistoryProcesses(history, sample.sampledAt, sample.processes);
       return {
         sampledAt: sample.sampledAt,
-        platform: sample.platform,
         logicalCores: sample.logicalCores,
         memoryKind: sample.memoryKind,
         processes: sample.processes,

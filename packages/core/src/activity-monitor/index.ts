@@ -15,8 +15,6 @@ export {
 } from './cpu-rate';
 export {
   ACTIVITY_MONITOR_UNREADABLE,
-  type CpuPercentConvention,
-  cpuPercentConvention,
   cpuScaleTop,
   formatCpuPercent,
   formatMemory,
@@ -54,7 +52,6 @@ export {
   type ActivityMonitorHistoryPoint,
   type ActivityMonitorMemoryKind,
   type ActivityMonitorPeer,
-  type ActivityMonitorPlatform,
   type ActivityMonitorProcessKind,
   type ActivityMonitorProcessRow,
   type ActivityMonitorServiceKind,

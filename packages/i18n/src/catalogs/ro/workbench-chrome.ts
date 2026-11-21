@@ -508,10 +508,8 @@ export const workbenchChrome = {
   'workbench.activityMonitor.group.overview': 'Prezentare generală',
   'workbench.activityMonitor.group.processes': 'Procese',
   'workbench.activityMonitor.column.cpu': 'CPU',
-  'workbench.activityMonitor.info.cpuPerCore':
-    'Pe nucleu, așa cum numără monitorul acestui sistem — 100 % înseamnă un nucleu întreg.',
-  'workbench.activityMonitor.info.cpuMachineShare':
-    'O parte din întreaga mașină, așa cum numără monitorul acestui sistem — 100 % înseamnă toate nucleele.',
+  'workbench.activityMonitor.info.cpu':
+    'O parte din întreaga mașină — 100 % înseamnă toate nucleele. Un monitor care numără pe nucleu arată valori mai mari.',
   'workbench.activityMonitor.column.memory': 'Memorie',
   'workbench.activityMonitor.info.memory': 'Memoria fizică pe care procesul o ocupă chiar acum.',
   'workbench.activityMonitor.info.memoryFootprint':
@@ -578,10 +576,7 @@ export const workbenchChrome = {
     }),
   'workbench.activityMonitor.summary.uptime': 'pornită de {duration}',
   'workbench.activityMonitor.summary.range': 'ultimele {duration}',
-  'workbench.activityMonitor.info.scalePerCore':
-    'Toate graficele CPU folosesc aceeași scară — sus este un nucleu întreg.',
-  'workbench.activityMonitor.info.scaleMachineShare':
-    'Toate graficele CPU folosesc aceeași scară — sus este întreaga mașină.',
+  'workbench.activityMonitor.info.cpuScale': 'Toate graficele CPU folosesc aceeași scară — sus este întreaga mașină.',
   'workbench.activityMonitor.ended': 'încheiat la {time}',
   'workbench.activityMonitor.peak': 'vârf {percent}',
   'workbench.toolWindows.info.terminal.summary':

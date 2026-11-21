@@ -3,39 +3,21 @@
  * law 6): what could not be read reads as a dash, never as zero.
  */
 
-import type { ActivityMonitorPlatform } from './model';
-
 export const ACTIVITY_MONITOR_UNREADABLE = '—';
 
 /**
- * How "CPU %" is counted (the plan §7, fork 8): per core where the
- * system's own monitor counts it so — a process can pass 100 % — and as
- * a share of the whole machine where it does not.
+ * The whole machine as a CPU rate (the plan §7, fork 8): every core
+ * busy. "CPU %" is a share of it on every system — 100 % is the whole
+ * machine, never one core — and it is the top of every CPU graph: one
+ * scale for every graph, never a scale per row.
  */
-export type CpuPercentConvention = 'per-core' | 'machine-share';
-
-export function cpuPercentConvention(platform: ActivityMonitorPlatform): CpuPercentConvention {
-  return platform === 'win32' ? 'machine-share' : 'per-core';
+export function cpuScaleTop(logicalCores: number): number {
+  return Math.max(1, logicalCores);
 }
 
-/**
- * The top of every CPU graph, as a rate (the plan §7, fork 8): one full
- * core where "CPU %" counts per core, the whole machine where it is a
- * share of it. One scale for every graph — never a scale per row.
- */
-export function cpuScaleTop(platform: ActivityMonitorPlatform, logicalCores: number): number {
-  return cpuPercentConvention(platform) === 'machine-share' ? Math.max(1, logicalCores) : 1;
-}
-
-export function formatCpuPercent(
-  cpuRate: number | null,
-  platform: ActivityMonitorPlatform,
-  logicalCores: number,
-): string {
+export function formatCpuPercent(cpuRate: number | null, logicalCores: number): string {
   if (cpuRate === null) return ACTIVITY_MONITOR_UNREADABLE;
-  const percent =
-    cpuPercentConvention(platform) === 'machine-share' ? (cpuRate * 100) / Math.max(1, logicalCores) : cpuRate * 100;
-  return `${percent.toFixed(1)}%`;
+  return `${((cpuRate * 100) / cpuScaleTop(logicalCores)).toFixed(1)}%`;
 }
 
 const KB = 1024;

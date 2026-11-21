@@ -500,10 +500,8 @@ export const workbenchChrome = {
   'workbench.activityMonitor.group.overview': 'Обзор',
   'workbench.activityMonitor.group.processes': 'Процессы',
   'workbench.activityMonitor.column.cpu': 'ЦП',
-  'workbench.activityMonitor.info.cpuPerCore':
-    'На ядро, как считает системный монитор этой системы — 100 % это одно ядро целиком.',
-  'workbench.activityMonitor.info.cpuMachineShare':
-    'Доля от всей машины, как считает системный монитор этой системы — 100 % это все ядра.',
+  'workbench.activityMonitor.info.cpu':
+    'Доля от всей машины — 100 % это все ядра. Монитор, который считает на ядро, показывает больше.',
   'workbench.activityMonitor.column.memory': 'Память',
   'workbench.activityMonitor.info.memory': 'Физическая память, которую процесс занимает прямо сейчас.',
   'workbench.activityMonitor.info.memoryFootprint':
@@ -572,8 +570,7 @@ export const workbenchChrome = {
     }),
   'workbench.activityMonitor.summary.uptime': 'работает {duration}',
   'workbench.activityMonitor.summary.range': 'последние {duration}',
-  'workbench.activityMonitor.info.scalePerCore': 'У всех графиков ЦП одна шкала — верх это одно ядро целиком.',
-  'workbench.activityMonitor.info.scaleMachineShare': 'У всех графиков ЦП одна шкала — верх это вся машина.',
+  'workbench.activityMonitor.info.cpuScale': 'У всех графиков ЦП одна шкала — верх это вся машина.',
   'workbench.activityMonitor.ended': 'завершён {time}',
   'workbench.activityMonitor.peak': 'пик {percent}',
   'workbench.toolWindows.info.terminal.summary':

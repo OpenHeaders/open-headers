@@ -15,8 +15,8 @@
  *   - nothing explains itself on hover: each figure column and each
  *     group carries an `(i)` whose popover leads with the one shared
  *     example, its own slice lit, and a sentence or two under it —
- *     worded for the host's CPU convention and its memory figure; an
- *     `(i)` click neither sorts nor folds;
+ *     "CPU %" a share of the host's whole machine, the memory sentence
+ *     its own figure's; an `(i)` click neither sorts nor folds;
  *   - an ask that goes unanswered says so;
  *   - what the engine keeps running sits under RUNNING as facts worded
  *     from structured fields, an off service muted, an unreadable one a
@@ -68,7 +68,6 @@ function makeRow(overrides: Partial<ActivityMonitorProcessRow> = {}): ActivityMo
 function makeSnapshot(overrides: Partial<ActivityMonitorSnapshot> = {}): ActivityMonitorSnapshot {
   return {
     sampledAt: SAMPLED_AT,
-    platform: 'darwin',
     logicalCores: 10,
     memoryKind: 'footprint',
     processes: [makeRow()],
@@ -387,15 +386,20 @@ describe('ActivityMonitorPanel', () => {
     const rows = screen.getAllByTestId('activity-monitor-row');
     expect(rows.map((row) => cells(row).slice(0, 3))).toEqual([
       ['Workbench window', '—', '310 MB'],
-      ['Open Headers', '0.6%', '212 MB'],
+      ['Open Headers', '0.1%', '212 MB'],
       ['Graphics', '0.0%', '—'],
     ]);
     expect(cells(rows[0])[4]).toBe('61007');
   });
 
-  it('counts "CPU %" as a share of the whole machine where the host is Windows', async () => {
+  it('counts "CPU %" as a share of the whole machine — a core held on ten reads 10 %, never 100 %', async () => {
     const fake = createBridgeFake(async () =>
-      makeSnapshot({ platform: 'win32', logicalCores: 8, processes: [makeRow({ cpuRate: 0.4 })] }),
+      makeSnapshot({
+        processes: [
+          makeRow({ kind: 'engine', pid: 4312, cpuRate: 1 }),
+          makeRow({ kind: 'graphics', pid: 4318, cpuRate: 10 }),
+        ],
+      }),
     );
     setHostBridge(fake.bridge);
     render(
@@ -409,7 +413,7 @@ describe('ActivityMonitorPanel', () => {
       />,
     );
     await tick(0);
-    expect(cells(screen.getByTestId('activity-monitor-row'))[1]).toBe('5.0%');
+    expect(screen.getAllByTestId('activity-monitor-row').map((row) => cells(row)[1])).toEqual(['10.0%', '100.0%']);
   });
 
   it('keeps unnamed processes under one collapsed group that opens to the runtime names', async () => {
@@ -437,7 +441,7 @@ describe('ActivityMonitorPanel', () => {
 
     const group = screen.getByTestId('activity-monitor-other');
     expect(group.textContent).toContain('Other (2)');
-    expect(cells(group)).toEqual(['1.0%', '61 MB']);
+    expect(cells(group)).toEqual(['0.1%', '61 MB']);
     expect(screen.getAllByTestId('activity-monitor-row')).toHaveLength(1);
 
     fireEvent.click(screen.getByRole('button', { name: 'Other (2)' }));
@@ -498,9 +502,9 @@ describe('ActivityMonitorPanel', () => {
 
       const rows = screen.getAllByTestId('activity-monitor-row');
       expect(rows.map((row) => cells(row).slice(0, 3))).toEqual([
-        ['Open Headers', '0.6%', '212 MB'],
-        ['Terminal · Local (2)', '40.2%', '218 MB'],
-        ['Git', '0.1%', '9 MB'],
+        ['Open Headers', '0.1%', '212 MB'],
+        ['Terminal · Local (2)', '4.0%', '218 MB'],
+        ['Git', '0.0%', '9 MB'],
         ['HTTP/3 helper', '0.0%', '30 MB'],
       ]);
       expect(cells(rows[1])[4]).toBe('61044');
@@ -609,7 +613,7 @@ describe('ActivityMonitorPanel', () => {
       ]);
       expect(beneath.map((row) => cells(row))).toEqual([
         ['node', '0.0%', '48 MB', startedAt(SAMPLED_AT - 50_000), '61060'],
-        ['node', '40.2%', '164 MB', startedAt(SAMPLED_AT - 40_000), '61102'],
+        ['node', '4.0%', '164 MB', startedAt(SAMPLED_AT - 40_000), '61102'],
         ['Unknown process', '—', '—', startedAt(SAMPLED_AT - 30_000), '61250'],
       ]);
       // The history is the owner's (law 13): its row holds the graph, a line beneath it none.
@@ -639,7 +643,7 @@ describe('ActivityMonitorPanel', () => {
         rows()
           .slice(1)
           .map((row) => cells(row).slice(0, 2)),
-      ).toEqual([['node', '90.0%']]);
+      ).toEqual([['node', '9.0%']]);
 
       next = makeSnapshot({ processes: [TERMINAL] });
       await tick(ACTIVITY_MONITOR_PULL_MS);
@@ -857,7 +861,7 @@ describe('ActivityMonitorPanel', () => {
         processes: [ENGINE, WINDOW],
         history: [
           makeBeat(1, SAMPLED_AT - HALF_HOUR, { [ENGINE.id]: { cpuRate: 0, memoryBytes: 200 * MB } }),
-          makeBeat(2, SAMPLED_AT, { [ENGINE.id]: { cpuRate: 1, memoryBytes: 212 * MB } }),
+          makeBeat(2, SAMPLED_AT, { [ENGINE.id]: { cpuRate: 10, memoryBytes: 212 * MB } }),
         ],
         cursor: 2,
       }),
@@ -877,15 +881,14 @@ describe('ActivityMonitorPanel', () => {
 
     const [windowRow, engineRow] = screen.getAllByTestId('activity-monitor-row');
     expect(engineRow.querySelectorAll('svg')).toHaveLength(1);
-    // The half hour held fills the box: its oldest beat at zero, now at one full core — the top of the scale.
+    // The half hour held fills the box: its oldest beat at zero, now every core of the ten busy — the top of the scale.
     expect(graphPaths(engineRow)).toEqual(['M0.0 13.0L100.0 1.0']);
     expect(graphPaths(windowRow)).toEqual(['']);
   });
 
-  it('tops the scale at the whole machine where the host is Windows', async () => {
+  it('tops the scale at the whole machine, whatever its cores — one core of eight is an eighth of the way up', async () => {
     const fake = createBridgeFake(async () =>
       makeSnapshot({
-        platform: 'win32',
         logicalCores: 8,
         processes: [ENGINE],
         history: [
@@ -988,10 +991,10 @@ describe('ActivityMonitorPanel', () => {
     expect(cells(ended)).toEqual([
       'Script runtime · Developer',
       '—',
-      `ended ${formatStartTime(endedAt, SAMPLED_AT, 'en')} · peak 100.0%`,
+      `ended ${formatStartTime(endedAt, SAMPLED_AT, 'en')} · peak 10.0%`,
     ]);
-    // One beat of it: a level at the top of the scale, over the beat it was measured across.
-    expect(graphPaths(ended)).toEqual(['M0.0 1.0L40.0 1.0']);
+    // One beat of it: a level a tenth of the way up — one core of ten — over the beat it was measured across.
+    expect(graphPaths(ended)).toEqual(['M0.0 11.8L40.0 11.8']);
   });
 
   it('says only when a process ended where the hour holds no rate of it', async () => {
@@ -1054,12 +1057,12 @@ describe('ActivityMonitorPanel', () => {
     await tick(0);
 
     const summary = screen.getByTestId('activity-monitor-summary');
-    expect(Array.from(summary.querySelectorAll('strong'), (figure) => figure.textContent)).toEqual(['1.7%', '522 MB']);
+    expect(Array.from(summary.querySelectorAll('strong'), (figure) => figure.textContent)).toEqual(['0.2%', '522 MB']);
     expect(summary.querySelector('.oh-am-count')?.textContent).toBe('2 processes · up 6 hr');
     // The Overview head says the span the graphs hold — half an hour here, not the hour they will grow to.
     expect(groupHead('overview').querySelector('.oh-am-range')?.textContent).toBe('last 30 min');
-    // CPU on the rows' scale; memory from zero to the history's own highest total (400 MB, now).
-    expect(graphPaths(summary)).toEqual(['M0.0 8.0L120.0 8.0', 'M0.0 8.0L120.0 1.0']);
+    // CPU on the rows' scale — half a core of ten, both beats; memory from zero to the history's own highest total (400 MB, now).
+    expect(graphPaths(summary)).toEqual(['M0.0 14.3L120.0 14.3', 'M0.0 8.0L120.0 1.0']);
   });
 
   it('says the whole hour once the history holds one, and no span before the first beat', async () => {
@@ -1181,7 +1184,7 @@ describe('ActivityMonitorPanel', () => {
     'The private working set, as this system’s own monitor counts it — the physical memory only this process holds.';
   const HELD_COLUMN = 'The physical memory the process holds right now.';
 
-  const ONE_SCALE = 'Every CPU graph shares one scale — the top is one full core.';
+  const ONE_SCALE = 'Every CPU graph shares one scale — the top is the whole machine.';
 
   async function renderHost(host: Partial<ActivityMonitorSnapshot>): Promise<void> {
     setHostBridge(createBridgeFake(async () => makeSnapshot({ processes: [ENGINE], ...host })).bridge);
@@ -1224,7 +1227,7 @@ describe('ActivityMonitorPanel', () => {
   });
 
   it('says in the Memory column’s (i) that the figure is the private working set, where it is', async () => {
-    await renderHost({ platform: 'win32', logicalCores: 8, memoryKind: 'private-working-set' });
+    await renderHost({ memoryKind: 'private-working-set' });
     await openInfo('Memory');
     expect(popover('summary')).toBe(PRIVATE_COLUMN);
   });
@@ -1273,10 +1276,10 @@ describe('ActivityMonitorPanel', () => {
     expect(popover('title')).toBe('Processes');
     expect(document.querySelector('.oh-info-eg-cap')?.textContent).toBe('Example');
     expect(exampleLines()).toEqual([
-      'Overview | CPU 42.3% · Memory 3.28 GB · 8 processes · up 7 min',
-      'Processes | Terminal · Local · 40.2% · 218 MB · 16:52 · 61044',
-      '↳ | node · 40.2% · 164 MB',
-      'Ended (1) | Terminal · ended 16:54 · peak 78.8%',
+      'Overview | CPU 4.2% · Memory 3.28 GB · 8 processes · up 7 min',
+      'Processes | Terminal · Local · 4.0% · 218 MB · 16:52 · 61044',
+      '↳ | node · 4.0% · 164 MB',
+      'Ended (1) | Terminal · ended 16:54 · peak 7.9%',
       'Running | Sync server · 127.0.0.1:8137 · no one connected',
     ]);
     expect(popover('summary')).toBe('The app’s own processes and what each one costs.');
@@ -1286,25 +1289,29 @@ describe('ActivityMonitorPanel', () => {
   });
 
   it.each([
-    ['CPU', ['40.2%', '40.2%'], 'Per core, as this system’s own monitor counts it — 100% is one full core.'],
+    [
+      'CPU',
+      ['4.0%', '4.0%'],
+      'A share of the whole machine — 100% is every core. A monitor that counts per core reads higher.',
+    ],
     ['Memory', ['218 MB', '164 MB'], FOOTPRINT_COLUMN],
     ['Started', ['16:52'], 'When the process started — a date once that day has passed.'],
     ['PID', ['61044'], 'The operating system’s process ID — for IT and support.'],
-    ['Overview', ['CPU 42.3%', 'Memory 3.28 GB', '8 processes', 'up 7 min'], 'Every process of the app, added up.'],
+    ['Overview', ['CPU 4.2%', 'Memory 3.28 GB', '8 processes', 'up 7 min'], 'Every process of the app, added up.'],
     [
       'Processes',
       [
         'Terminal · Local',
-        '40.2%',
+        '4.0%',
         '218 MB',
         '16:52',
         '61044',
         'node',
-        '40.2%',
+        '4.0%',
         '164 MB',
         'Terminal',
         'ended 16:54',
-        'peak 78.8%',
+        'peak 7.9%',
       ],
       'The app’s own processes and what each one costs.',
     ],
@@ -1317,12 +1324,9 @@ describe('ActivityMonitorPanel', () => {
     expect(popover('summary')).toBe(summary);
   });
 
-  it('words the example and the CPU column’s (i) as a share of the whole machine where the host is Windows', async () => {
-    await renderHost({ platform: 'win32', logicalCores: 8, memoryKind: 'working-set' });
+  it('words the example’s CPU figures over the reading host’s own cores', async () => {
+    await renderHost({ logicalCores: 8 });
     await openInfo('CPU');
-    expect(popover('summary')).toBe(
-      'A share of the whole machine, as this system’s own monitor counts it — 100% is every core.',
-    );
     expect(litTokens()).toEqual(['5.0%', '5.0%']);
   });
 
@@ -1445,7 +1449,7 @@ describe('ActivityMonitorPanel', () => {
     next = makeSnapshot({ processes: busy, cursor: 1 });
     await tick(ACTIVITY_MONITOR_PULL_MS);
     expect(cells(screen.getAllByTestId('activity-monitor-row')[2])).toEqual(
-      expect.arrayContaining(['Workbench window', '90.0%']),
+      expect.arrayContaining(['Workbench window', '9.0%']),
     );
     expect(rowNames()).toEqual(['Graphics', 'Open Headers', 'Workbench window']);
 

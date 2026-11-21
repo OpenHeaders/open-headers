@@ -507,10 +507,8 @@ export const workbenchChrome = {
   'workbench.activityMonitor.group.overview': 'Resumen',
   'workbench.activityMonitor.group.processes': 'Procesos',
   'workbench.activityMonitor.column.cpu': 'CPU',
-  'workbench.activityMonitor.info.cpuPerCore':
-    'Por núcleo, tal como lo cuenta el monitor de este sistema — el 100 % es un núcleo completo.',
-  'workbench.activityMonitor.info.cpuMachineShare':
-    'Una parte de toda la máquina, tal como lo cuenta el monitor de este sistema — el 100 % son todos los núcleos.',
+  'workbench.activityMonitor.info.cpu':
+    'Una parte de toda la máquina — el 100 % son todos los núcleos. Un monitor que cuenta por núcleo muestra cifras más altas.',
   'workbench.activityMonitor.column.memory': 'Memoria',
   'workbench.activityMonitor.info.memory': 'La memoria física que el proceso ocupa ahora mismo.',
   'workbench.activityMonitor.info.memoryFootprint':
@@ -577,9 +575,7 @@ export const workbenchChrome = {
     }),
   'workbench.activityMonitor.summary.uptime': 'en marcha desde hace {duration}',
   'workbench.activityMonitor.summary.range': 'últimos {duration}',
-  'workbench.activityMonitor.info.scalePerCore':
-    'Todos los gráficos de CPU comparten una escala — el tope es un núcleo completo.',
-  'workbench.activityMonitor.info.scaleMachineShare':
+  'workbench.activityMonitor.info.cpuScale':
     'Todos los gráficos de CPU comparten una escala — el tope es toda la máquina.',
   'workbench.activityMonitor.ended': 'finalizado: {time}',
   'workbench.activityMonitor.peak': 'pico {percent}',

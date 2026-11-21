@@ -471,10 +471,8 @@ export const workbenchChrome = {
   'workbench.activityMonitor.group.overview': 'Overview',
   'workbench.activityMonitor.group.processes': 'Processes',
   'workbench.activityMonitor.column.cpu': 'CPU',
-  'workbench.activityMonitor.info.cpuPerCore':
-    'Per core, as this system’s own monitor counts it — 100% is one full core.',
-  'workbench.activityMonitor.info.cpuMachineShare':
-    'A share of the whole machine, as this system’s own monitor counts it — 100% is every core.',
+  'workbench.activityMonitor.info.cpu':
+    'A share of the whole machine — 100% is every core. A monitor that counts per core reads higher.',
   'workbench.activityMonitor.column.memory': 'Memory',
   'workbench.activityMonitor.info.memory': 'The physical memory the process holds right now.',
   'workbench.activityMonitor.info.memoryFootprint':
@@ -532,9 +530,7 @@ export const workbenchChrome = {
     plural(locale, Number(count), { one: '{count} process', other: '{count} processes' }),
   'workbench.activityMonitor.summary.uptime': 'up {duration}',
   'workbench.activityMonitor.summary.range': 'last {duration}',
-  'workbench.activityMonitor.info.scalePerCore': 'Every CPU graph shares one scale — the top is one full core.',
-  'workbench.activityMonitor.info.scaleMachineShare':
-    'Every CPU graph shares one scale — the top is the whole machine.',
+  'workbench.activityMonitor.info.cpuScale': 'Every CPU graph shares one scale — the top is the whole machine.',
   'workbench.activityMonitor.ended': 'ended {time}',
   'workbench.activityMonitor.peak': 'peak {percent}',
   'workbench.toolWindows.info.terminal.summary':

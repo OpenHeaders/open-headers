@@ -4,8 +4,8 @@
  * leads with the same example panel, one line per thing the panel
  * shows, and lights its own slice: a column its figure on the process
  * line, a group its lines. The card is worded by the panel's own
- * catalog keys and formatters, on the reading host's CPU convention,
- * so it reads as the panel beside it does. Under the card: a sentence
+ * catalog keys and formatters, over the reading host's cores, so it
+ * reads as the panel beside it does. Under the card: a sentence
  * or two, never more — the panel explains itself here and on no hover.
  */
 
@@ -14,7 +14,6 @@ import {
   type ActivityMonitorServiceRow,
   type ActivityMonitorSnapshot,
   type ActivityMonitorSortColumn,
-  cpuPercentConvention,
   formatCpuPercent,
   formatMemory,
   formatSpan,
@@ -34,7 +33,7 @@ import { FACT_SEPARATOR, SERVICE_NAME_KEYS, serviceFacts } from './service-rows'
 export type ActivityMonitorInfoKey = ActivityMonitorSortColumn | 'overview' | 'processes' | 'running';
 
 /** What of the reading host words the card and picks the copy. */
-export type ActivityMonitorInfoHost = Pick<ActivityMonitorSnapshot, 'platform' | 'logicalCores' | 'memoryKind'>;
+export type ActivityMonitorInfoHost = Pick<ActivityMonitorSnapshot, 'logicalCores' | 'memoryKind'>;
 
 type TokenId =
   | 'overview.cpu'
@@ -127,7 +126,7 @@ const LIT: Record<ActivityMonitorInfoKey, readonly TokenId[]> = {
 };
 
 function exampleLines(t: Translate, locale: string, host: ActivityMonitorInfoHost): ExampleCardLine<TokenId>[] {
-  const cpu = (rate: number): string => formatCpuPercent(rate, host.platform, host.logicalCores);
+  const cpu = (rate: number): string => formatCpuPercent(rate, host.logicalCores);
   const clock = (at: number): string => formatStartTime(at, EX.now, locale);
   const terminal = t('workbench.toolWindows.terminal');
   return [
@@ -198,15 +197,12 @@ export function activityMonitorInfo(
     diagram: <ExampleCard caption={caption} lines={lines} lit={new Set(LIT[key])} />,
     maxWidth: EXAMPLE_CARD_POPOVER_WIDTH,
   });
-  const perCore = cpuPercentConvention(host.platform) === 'per-core';
   const ownerTotal = t('workbench.activityMonitor.info.ownerTotal');
   return {
     cpu: {
       ...card('cpu'),
       title: t('workbench.activityMonitor.column.cpu'),
-      summary: t(
-        perCore ? 'workbench.activityMonitor.info.cpuPerCore' : 'workbench.activityMonitor.info.cpuMachineShare',
-      ),
+      summary: t('workbench.activityMonitor.info.cpu'),
       description: ownerTotal,
     },
     memory: {
@@ -231,13 +227,7 @@ export function activityMonitorInfo(
       summary: t('workbench.activityMonitor.info.overview'),
       description: (
         <>
-          <p>
-            {t(
-              perCore
-                ? 'workbench.activityMonitor.info.scalePerCore'
-                : 'workbench.activityMonitor.info.scaleMachineShare',
-            )}
-          </p>
+          <p>{t('workbench.activityMonitor.info.cpuScale')}</p>
           {COUNTS_SHARED_MEMORY[host.memoryKind] && <p>{t('workbench.activityMonitor.info.memoryUpperBound')}</p>}
         </>
       ),

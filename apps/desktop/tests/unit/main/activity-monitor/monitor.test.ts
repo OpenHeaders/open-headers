@@ -58,7 +58,6 @@ function makeRig(options: { logicalCores?: number } = {}) {
       readOwners: () => ({ windowPids: new Set(), scriptSandboxPid: null }),
       readOwned: () => state.owned,
       now: () => clock.at,
-      platform: 'darwin',
       logicalCores: options.logicalCores ?? 10,
       memoryKind: 'footprint',
     }),
@@ -211,7 +210,6 @@ describe('createActivityMonitor — a viewer’s ask', () => {
     advance(5_000);
     expect(monitor.answer(null)).toEqual({
       sampledAt: clock.at,
-      platform: 'darwin',
       logicalCores: 10,
       memoryKind: 'footprint',
       processes: [

@@ -1,14 +1,12 @@
 /**
  * The figures as text (the activity monitor plan §6, law 6; §7, fork
- * 8): "CPU %" per core on macOS and Linux and as a share of the machine
- * on Windows; what could not be read is a dash, never zero. The
- * platform is an argument, so both conventions run on every OS.
+ * 8): "CPU %" as a share of the whole machine on every system; what
+ * could not be read is a dash, never zero.
  */
 
 import { describe, expect, it } from 'vitest';
 import {
   ACTIVITY_MONITOR_UNREADABLE,
-  cpuPercentConvention,
   cpuScaleTop,
   formatCpuPercent,
   formatMemory,
@@ -18,34 +16,35 @@ import {
 } from '../../src/activity-monitor/format';
 
 describe('formatCpuPercent', () => {
-  it('counts per core on macOS and Linux — a process can pass 100 %', () => {
-    expect(cpuPercentConvention('darwin')).toBe('per-core');
-    expect(cpuPercentConvention('linux')).toBe('per-core');
-    expect(formatCpuPercent(0.402, 'darwin', 10)).toBe('40.2%');
-    expect(formatCpuPercent(3.917, 'linux', 8)).toBe('391.7%');
+  it('counts a share of the whole machine — one full core of ten is 10 %, never 100 %', () => {
+    expect(formatCpuPercent(1, 10)).toBe('10.0%');
+    expect(formatCpuPercent(0.402, 10)).toBe('4.0%');
+    expect(formatCpuPercent(3.917, 8)).toBe('49.0%');
   });
 
-  it('counts a share of the whole machine on Windows', () => {
-    expect(cpuPercentConvention('win32')).toBe('machine-share');
-    expect(formatCpuPercent(0.402, 'win32', 10)).toBe('4.0%');
-    expect(formatCpuPercent(8, 'win32', 8)).toBe('100.0%');
+  it('reads 100 % only when every core is busy', () => {
+    expect(formatCpuPercent(8, 8)).toBe('100.0%');
+    expect(formatCpuPercent(64, 64)).toBe('100.0%');
   });
 
   it('reads a dash for a rate that could not be read, and 0.0% for a true zero', () => {
-    expect(formatCpuPercent(null, 'darwin', 10)).toBe(ACTIVITY_MONITOR_UNREADABLE);
-    expect(formatCpuPercent(null, 'win32', 10)).toBe(ACTIVITY_MONITOR_UNREADABLE);
-    expect(formatCpuPercent(0, 'darwin', 10)).toBe('0.0%');
+    expect(formatCpuPercent(null, 10)).toBe(ACTIVITY_MONITOR_UNREADABLE);
+    expect(formatCpuPercent(0, 10)).toBe('0.0%');
+  });
+
+  it('counts a machine that reports no core as one', () => {
+    expect(formatCpuPercent(0.5, 0)).toBe('50.0%');
   });
 });
 
 describe('cpuScaleTop', () => {
-  it('tops every graph at one full core where "CPU %" counts per core, whatever the machine', () => {
-    expect(cpuScaleTop('darwin', 10)).toBe(1);
-    expect(cpuScaleTop('linux', 64)).toBe(1);
+  it('tops every graph at the whole machine — what 100 % is', () => {
+    expect(cpuScaleTop(8)).toBe(8);
+    expect(cpuScaleTop(64)).toBe(64);
   });
 
-  it('tops every graph at the whole machine on Windows', () => {
-    expect(cpuScaleTop('win32', 8)).toBe(8);
+  it('is never under one core', () => {
+    expect(cpuScaleTop(0)).toBe(1);
   });
 });
 

@@ -30,9 +30,6 @@ export const ACTIVITY_MONITOR_PROCESS_KINDS = [
 
 export type ActivityMonitorProcessKind = (typeof ACTIVITY_MONITOR_PROCESS_KINDS)[number];
 
-/** The operating systems the host runs on — "CPU %" follows each one's own monitor (the plan §7, fork 8). */
-export type ActivityMonitorPlatform = 'darwin' | 'win32' | 'linux';
-
 /**
  * Which figure a row's memory is (the plan §7, fork 10) — the one each
  * system's own monitor shows: the footprint, the resident size, or the
@@ -206,8 +203,7 @@ export type ActivityMonitorCursor = number;
 export interface ActivityMonitorSnapshot {
   /** ms since epoch of the read the rows come from. */
   sampledAt: number;
-  platform: ActivityMonitorPlatform;
-  /** Logical cores of the machine — what a share of the whole machine is a share of. */
+  /** Logical cores of the machine — what "CPU %", a share of the whole machine, is a share of (the plan §7, fork 8). */
   logicalCores: number;
   memoryKind: ActivityMonitorMemoryKind;
   processes: ActivityMonitorProcessRow[];
