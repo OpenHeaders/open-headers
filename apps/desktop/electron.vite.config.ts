@@ -158,7 +158,11 @@ function whatsNewEntryPlugin(): Plugin {
       if (id !== resolvedVirtualId) return undefined;
       let body = '';
       if (existsSync(entryPath)) {
+        // A Windows checkout holds the entry with CRLF line endings (git's
+        // autocrlf); without this the frontmatter stays in and the tab
+        // shows it as text.
         body = readFileSync(entryPath, 'utf8')
+          .replaceAll('\r\n', '\n')
           .replace(/^---\n[\s\S]*?\n---\n/, '')
           .replaceAll(`./assets/${entryVersion}/`, 'whats-new-assets/')
           .trim();
