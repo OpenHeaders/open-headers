@@ -12,8 +12,8 @@
  * The `identity-mismatch` refusal is an OFFER (the git-sync plan §3.5,
  * gap K): a folder that belongs to a workspace this host has never seen
  * — a teammate's clone — can be opened as a new local workspace under
- * its own identity (`oh.workspaceTree.adopt`), and the workbench jumps
- * to it when the shell lends its switch. The uid is preserved, so this
+ * its own identity (`oh.workspaceTree.adopt`), and the workbench shows
+ * it when the shell lends its switch. The uid is preserved, so this
  * is onboarding by clone; a private copy of a workspace already used
  * from a server stays Duplicate-into, and the `uuid-collision` refusal
  * keeps saying so.
@@ -120,9 +120,11 @@ const GitBindForm: React.FC<GitBindFormProps> = ({
         setDraftPath('');
         setAdoptOffer(null);
         onAdopted(result.workspaceId, result.name);
-        // The record rides the sync plane; the jump waits for it.
+        // The record rides the sync plane; the jump waits for it. It shows
+        // the workspace and leaves ACTIVE where it was: the browser's rules
+        // move by the switcher's check alone.
         if (switchWorkspace !== null && (await whenWorkspaceListed(result.workspaceId))) {
-          await switchWorkspace(result.workspaceId, { makeActive: true });
+          await switchWorkspace(result.workspaceId);
         }
       } else if (result.reason === 'locked') {
         setBindError(t('workbench.settings.gitPane.refusal.locked', { pid: result.holder.pid }));

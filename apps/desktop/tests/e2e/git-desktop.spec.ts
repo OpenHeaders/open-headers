@@ -93,9 +93,9 @@
  *        manifest uid the host has never seen refuses the bind with
  *        the identity-mismatch line AND the offer; the offer mints the
  *        workspace under the manifest's uid + name, binds the folder,
- *        the workbench jumps to it and the sweep fills it; a clone
- *        whose uid the host already holds keeps the plain collision
- *        refusal with no offer.
+ *        the window shows it with ACTIVE unmoved and the sweep fills
+ *        it; a clone whose uid the host already holds keeps the plain
+ *        collision refusal with no offer.
  *   G30  the log's text field asks the WHOLE history: over a history
  *        longer than a page of the log, a text applied by Enter lists
  *        every commit it matches in git's own order — the ones deeper
@@ -1752,7 +1752,7 @@ test('G28 — a depth-1 clone binds with the shallow tag; a pull whose fork poin
 
 // ── G29: open a clone as a workspace (gap K) ─────────────────────────
 
-test('G29 — a clone under an unseen manifest uid offers Open as workspace: the offer mints + binds + jumps, the sweep fills it; a held uid keeps the plain collision refusal', async () => {
+test('G29 — a clone under an unseen manifest uid offers Open as workspace: the offer mints + binds + shows it with ACTIVE unmoved, the sweep fills it; a held uid keeps the plain collision refusal', async () => {
   // A teammate's clone whose workspace this host has never seen: the
   // remote's tree under a fresh manifest identity, one entity renamed
   // so the adopted content is tellable from the default workspace's.
@@ -1776,13 +1776,13 @@ test('G29 — a clone under an unseen manifest uid offers Open as workspace: the
   await expect(pane('git-pane-adopt-button')).toHaveText('Open as workspace “Adopted Team”');
 
   await pane('git-pane-adopt-button').click();
-  await expect
-    .poll(
-      async () =>
-        (await invoke<{ activeWorkspaceId: string | null }>({ type: 'getActiveWorkspaceId' })).activeWorkspaceId,
-      { timeout: 10_000 },
-    )
-    .toBe('wsadopt1');
+  // The window shows the adopted workspace; ACTIVE stays where it was.
+  // The toast lands once the switch has settled, the active pointer too.
+  const switched = workbench.locator('.ant-message-notice').filter({ hasText: 'Switched this window to' });
+  await expect(switched).toContainText('Adopted Team', { timeout: 10_000 });
+  await expect(switched).not.toContainText('made it active');
+  const active = await invoke<{ activeWorkspaceId: string | null }>({ type: 'getActiveWorkspaceId' });
+  expect(active.activeWorkspaceId).toBe(workspaceId);
   // The Folder page now shows the adopted workspace's binding.
   await expect(pane('git-pane-unbind-button')).toBeVisible();
   await expect(workbench.locator('.settings-modal').getByText(adoptDir, { exact: true })).toBeVisible();

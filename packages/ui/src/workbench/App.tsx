@@ -12,6 +12,7 @@ import ErrorBoundary from '@openheaders/ui/components/ErrorBoundary';
 import UnitErrorFallback from '@openheaders/ui/components/UnitErrorFallback';
 import { EnvironmentProvider } from '@openheaders/ui/context';
 import { FilesProvider } from '@openheaders/ui/context';
+import { getActiveExtensionWorkspaceSyncMirror } from '@openheaders/ui/context';
 import { LiveVariablesProvider } from '@openheaders/ui/context';
 import { LiveWorkflowsProvider } from '@openheaders/ui/context';
 import { OAuthBundlesProvider } from '@openheaders/ui/context';
@@ -756,7 +757,11 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
       // discard-drafts modal when zero tabs are actually open. Use the
       // current `allTabs` array's `dirty` flag instead.
       const hasDirty = allTabs.some((t) => t.dirty);
-      const targetWs = workspacesApi.workspaces.find((w) => w.id === targetId);
+      // Named from the live list: a caller that waited for a workspace
+      // the host just minted holds a switch from a render before it.
+      const targetWs = getActiveExtensionWorkspaceSyncMirror()
+        .liveWorkspaces()
+        .find((w) => w.id === targetId);
       const targetName = targetWs?.name;
       // The workspace prefix glyph inline before its name, so the toast
       // reads with the same icon the switcher shows.
