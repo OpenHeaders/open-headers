@@ -33,7 +33,7 @@ export function h3HelperBinaryName(platform: NodeJS.Platform = process.platform)
 /**
  * The build-matrix target name (`mac-arm64`, `win-x64`, …) the staging
  * pipeline keys per-platform helper builds by, or null off the
- * five-target matrix (mac arm64/x64, win x64, linux x64/arm64).
+ * six-target matrix (mac, win and linux, each on x64 and arm64).
  */
 export function h3HelperTargetName(
   platform: NodeJS.Platform = process.platform,
@@ -41,7 +41,6 @@ export function h3HelperTargetName(
 ): string | null {
   const os = platform === 'darwin' ? 'mac' : platform === 'win32' ? 'win' : platform === 'linux' ? 'linux' : null;
   if (os === null || (arch !== 'x64' && arch !== 'arm64')) return null;
-  if (os === 'win' && arch === 'arm64') return null;
   return `${os}-${arch}`;
 }
 

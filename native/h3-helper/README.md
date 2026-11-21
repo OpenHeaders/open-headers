@@ -27,8 +27,9 @@ export OPENHEADERS_H3_HELPER="$PWD/target/release/oh-h3-helper"
 ```
 
 Packaged distribution (never downloaded at runtime): the release
-pipeline builds the five-target matrix (`mac-arm64`, `mac-x64`,
-`win-x64`, `linux-x64`, `linux-arm64`) via `scripts/build-h3-helper.mjs`
+pipeline builds the six-target matrix (`mac-arm64`, `mac-x64`,
+`win-x64`, `win-arm64`, `linux-x64`, `linux-arm64`) via
+`scripts/build-h3-helper.mjs`
 and ships the binary inside the desktop installers
 (`resources/h3-helper/`), the ohd SEA binary (`helper` payload kind),
 and the daemon npm tarball (`dist/h3-helper/<target>/`). The

@@ -1,6 +1,6 @@
 /**
  * Build + stage the HTTP/3 helper (`native/h3-helper`) for one or more
- * of the five distribution-matrix targets, into
+ * of the six distribution-matrix targets, into
  * `native/h3-helper/dist/<target>/oh-h3-helper[.exe]` — the layout the
  * desktop afterPack hook, the daemon pack scripts, and the dev-tree
  * runtime candidates all read.
@@ -12,7 +12,10 @@
  * Cross legs the release matrix relies on: the mac (arm64) runner adds
  * the x86_64-apple-darwin target; the linux (x64) runner adds
  * aarch64-unknown-linux-gnu with the `gcc-aarch64-linux-gnu` cross
- * linker (apt). `rustup target add` is run per build and is a no-op
+ * linker (apt); the windows (x64) runner adds aarch64-pc-windows-msvc,
+ * linked by the ARM64 tools its Visual Studio carries (the crypto
+ * crate's ARM assembly is compiled by clang, on that runner's PATH).
+ * `rustup target add` is run per build and is a no-op
  * when already installed; a cargo without rustup (distro toolchains)
  * just skips it.
  */
@@ -26,11 +29,12 @@ const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..'
 const crateRoot = path.join(repoRoot, 'native', 'h3-helper');
 const manifestPath = path.join(crateRoot, 'Cargo.toml');
 
-/** target name → { triple, platform } — the five-target matrix. */
+/** target name → { triple, platform } — the six-target matrix. */
 const TARGETS = {
   'mac-arm64': { triple: 'aarch64-apple-darwin', platform: 'darwin' },
   'mac-x64': { triple: 'x86_64-apple-darwin', platform: 'darwin' },
   'win-x64': { triple: 'x86_64-pc-windows-msvc', platform: 'win32' },
+  'win-arm64': { triple: 'aarch64-pc-windows-msvc', platform: 'win32' },
   'linux-x64': { triple: 'x86_64-unknown-linux-gnu', platform: 'linux' },
   'linux-arm64': { triple: 'aarch64-unknown-linux-gnu', platform: 'linux' },
 };

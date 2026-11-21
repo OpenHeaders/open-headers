@@ -6,11 +6,11 @@
  * every registered NM manifest at it.
  *
  * Takes an optional distribution-matrix target (`mac-arm64`, `mac-x64`,
- * `win-x64`, `linux-x64`, `linux-arm64` — the build-h3-helper
- * vocabulary); no argument compiles for the host. The per-arch release
- * legs pass their own target so cross-arch legs (mac x64 on arm64
- * runners, linux arm64 on x64 runners) ship a native binary instead of
- * the runner's.
+ * `win-x64`, `win-arm64`, `linux-x64`, `linux-arm64` — the
+ * build-h3-helper vocabulary); no argument compiles for the host. The
+ * per-arch release legs pass their own target so cross-arch legs (mac
+ * x64 on arm64 runners, linux and windows arm64 on x64 runners) ship a
+ * native binary instead of the runner's.
  *
  * Verification drives a host-target artifact through its wire
  * contract: a framed bootstrap request against an unreachable daemon
@@ -29,11 +29,12 @@ import { fileURLToPath } from 'node:url';
 const packageRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const outDir = path.join(packageRoot, 'dist-bun');
 
-/** target name → bun compile triple + expected header identity — the five-target matrix. */
+/** target name → bun compile triple + expected header identity — the six-target matrix. */
 const TARGETS = {
   'mac-arm64': { triple: 'bun-darwin-arm64', platform: 'darwin', arch: 'arm64' },
   'mac-x64': { triple: 'bun-darwin-x64', platform: 'darwin', arch: 'x64' },
   'win-x64': { triple: 'bun-windows-x64', platform: 'win32', arch: 'x64' },
+  'win-arm64': { triple: 'bun-windows-arm64', platform: 'win32', arch: 'arm64' },
   'linux-x64': { triple: 'bun-linux-x64', platform: 'linux', arch: 'x64' },
   'linux-arm64': { triple: 'bun-linux-arm64', platform: 'linux', arch: 'arm64' },
 };
@@ -120,7 +121,8 @@ function verifyBinaryHeader() {
       const peHeader = readAt(fd, 6, dosHeader.readUInt32LE(0x3c));
       if (peHeader.readUInt32LE(0) !== 0x00004550) fail('binary is not a PE executable (no PE signature)');
       const machine = peHeader.readUInt16LE(4);
-      if (machine !== 0x8664) fail(`PE machine 0x${machine.toString(16)} does not match target ${target}`);
+      const expected = arch === 'arm64' ? 0xaa64 : 0x8664;
+      if (machine !== expected) fail(`PE machine 0x${machine.toString(16)} does not match target ${target}`);
     }
   } finally {
     closeSync(fd);

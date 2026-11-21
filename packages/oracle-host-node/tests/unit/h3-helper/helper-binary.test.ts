@@ -86,16 +86,16 @@ describe('h3HelperBinaryName', () => {
 });
 
 describe('h3HelperTargetName', () => {
-  it('names the five matrix targets', () => {
+  it('names the six matrix targets', () => {
     expect(h3HelperTargetName('darwin', 'arm64')).toBe('mac-arm64');
     expect(h3HelperTargetName('darwin', 'x64')).toBe('mac-x64');
     expect(h3HelperTargetName('win32', 'x64')).toBe('win-x64');
+    expect(h3HelperTargetName('win32', 'arm64')).toBe('win-arm64');
     expect(h3HelperTargetName('linux', 'x64')).toBe('linux-x64');
     expect(h3HelperTargetName('linux', 'arm64')).toBe('linux-arm64');
   });
 
   it('returns null off the matrix', () => {
-    expect(h3HelperTargetName('win32', 'arm64')).toBeNull();
     expect(h3HelperTargetName('freebsd', 'x64')).toBeNull();
     expect(h3HelperTargetName('linux', 'ia32')).toBeNull();
   });
