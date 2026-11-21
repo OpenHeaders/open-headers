@@ -5,44 +5,54 @@
  * category's path from its root as a small breadcrumb header above each
  * card. Clicking the breadcrumb jumps the user to that category and
  * clears the search.
+ *
+ * Rows mount progressively: a first batch with the keystroke, the rest
+ * as the user scrolls toward them. A short query can match most of the
+ * registry, and a setting row is a full form control — mounting every
+ * match at once would hold the keystroke for the whole list.
  */
 
 import { theme } from 'antd';
 import type React from 'react';
-import { useMemo } from 'react';
+import { type RefObject, useMemo } from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
+import { useProgressiveCount } from '@openheaders/ui/shared/hooks/dom/useProgressiveCount';
 import SettingRow from '../fields/SettingRow';
 import { categoryPath } from '../localize';
 import { allCategories } from '../registry';
-import type { SettingsSearchResult } from '../search';
-import type { CategoryDef, SettingDef } from '../types';
+import { groupByCategory, type SettingsSearchResult, takeRows } from '../search';
+
+/** Rows per batch — more than the tallest settings window shows at once. */
+const ROW_BATCH = 40;
+/** The next batch mounts once the last mounted row is within this distance of the viewport. */
+const LOOKAHEAD_PX = 800;
 
 interface SearchResultsPaneProps {
   results: readonly SettingsSearchResult[];
   query: string;
   onJumpToCategory: (categoryId: string) => void;
+  /** The element that scrolls the pane. */
+  scrollRootRef: RefObject<HTMLElement | null>;
 }
 
-const SearchResultsPane: React.FC<SearchResultsPaneProps> = ({ results, query, onJumpToCategory }) => {
+const SearchResultsPane: React.FC<SearchResultsPaneProps> = ({ results, query, onJumpToCategory, scrollRootRef }) => {
   const { token } = theme.useToken();
   const t = useT();
 
-  const grouped = useMemo(() => {
-    const catOrder = new Map(allCategories().map((c, i) => [c.id, { def: c, index: i }] as const));
-    const buckets = new Map<string, SettingDef[]>();
-    for (const { def } of results) {
-      const list = buckets.get(def.category);
-      if (list) list.push(def);
-      else buckets.set(def.category, [def]);
-    }
-    const ordered: { cat: CategoryDef; defs: SettingDef[] }[] = [];
-    for (const [catId, defs] of buckets) {
-      const meta = catOrder.get(catId);
-      if (meta) ordered.push({ cat: meta.def, defs });
-    }
-    ordered.sort((a, b) => (catOrder.get(a.cat.id)?.index ?? 0) - (catOrder.get(b.cat.id)?.index ?? 0));
-    return ordered;
-  }, [results]);
+  const groups = useMemo(
+    () =>
+      groupByCategory(
+        results.map((result) => result.def),
+        allCategories(),
+      ),
+    [results],
+  );
+  const { count, sentinelRef } = useProgressiveCount<HTMLDivElement>(results.length, results, {
+    batch: ROW_BATCH,
+    lookaheadPx: LOOKAHEAD_PX,
+    rootRef: scrollRootRef,
+  });
+  const mounted = useMemo(() => takeRows(groups, count), [groups, count]);
 
   if (results.length === 0) {
     return (
@@ -62,11 +72,11 @@ const SearchResultsPane: React.FC<SearchResultsPaneProps> = ({ results, query, o
           {t('workbench.settings.shell.matchesFor', { count: results.length })} <em>{query.trim()}</em>
         </p>
       </header>
-      {grouped.map(({ cat, defs }) => (
-        <section key={cat.id} style={{ marginBottom: 12 }}>
+      {mounted.map(({ category, defs }) => (
+        <section key={category.id} style={{ marginBottom: 12 }}>
           <button
             type="button"
-            onClick={() => onJumpToCategory(cat.id)}
+            onClick={() => onJumpToCategory(category.id)}
             style={{
               display: 'inline-flex',
               alignItems: 'center',
@@ -84,8 +94,8 @@ const SearchResultsPane: React.FC<SearchResultsPaneProps> = ({ results, query, o
             }}
             title={t('workbench.settings.shell.jumpToCategory')}
           >
-            <span style={{ fontSize: 12, opacity: 0.85 }}>{cat.icon}</span>
-            {categoryPath(cat, t).map((segment, i) => (
+            <span style={{ fontSize: 12, opacity: 0.85 }}>{category.icon}</span>
+            {categoryPath(category, t).map((segment, i) => (
               <span key={segment} style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
                 {i > 0 && (
                   <span aria-hidden style={{ fontWeight: 400 }}>
@@ -103,6 +113,7 @@ const SearchResultsPane: React.FC<SearchResultsPaneProps> = ({ results, query, o
           </div>
         </section>
       ))}
+      {count < results.length && <div ref={sentinelRef} aria-hidden style={{ height: 1 }} />}
     </div>
   );
 };

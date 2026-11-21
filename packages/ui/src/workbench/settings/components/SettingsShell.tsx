@@ -133,11 +133,12 @@ const SettingsShell: React.FC<SettingsShellProps> = ({ initialSettingKey, initia
     return () => root.removeEventListener('keydown', onKeyDown);
   }, [focusSearch]);
 
-  // Reset scroll on category swap or mode swap.
+  // Reset scroll on category swap and on every new query — a changed
+  // query is a new result list, read from its top.
   // biome-ignore lint/correctness/useExhaustiveDependencies: deps are triggers, not values
   useEffect(() => {
     if (paneRef.current) paneRef.current.scrollTop = 0;
-  }, [activeId, isSearching]);
+  }, [activeId, query]);
 
   // Deep-link landing: when the shell opened targeted at one setting,
   // scroll its row into view and flash-highlight it once the pane
@@ -283,7 +284,12 @@ const SettingsShell: React.FC<SettingsShellProps> = ({ initialSettingKey, initia
               style={{ flex: 1, overflowY: 'auto', overscrollBehavior: 'none', background: token.colorBgContainer }}
             >
               {isSearching ? (
-                <SearchResultsPane results={results} query={query} onJumpToCategory={handleSelectCategory} />
+                <SearchResultsPane
+                  results={results}
+                  query={query}
+                  onJumpToCategory={handleSelectCategory}
+                  scrollRootRef={paneRef}
+                />
               ) : activeCategory && orderedCategories.teased.has(activeCategory.id) ? (
                 // `teased` only admits categories with `teaserWhenUnavailable`.
                 activeCategory.teaserWhenUnavailable && (

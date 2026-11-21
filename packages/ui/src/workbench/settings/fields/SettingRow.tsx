@@ -13,7 +13,7 @@
 
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import type React from 'react';
-import { useMemo } from 'react';
+import { Suspense, useMemo } from 'react';
 import { useSettingsReady } from '../hooks';
 import { resolveSettingDef } from '../localize';
 import { get as storeGet } from '../store';
@@ -53,9 +53,17 @@ const SettingRow: React.FC<SettingRowProps> = ({ def: rawDef }) => {
   // Used by settings whose write needs guardrails the generic field
   // can't enforce (e.g. backend.mode runs a reachability + auth probe
   // and a switching overlay before committing).
+  // A custom editor may be code-split, so the row owns its loading
+  // boundary: without one a still-loading editor suspends whatever
+  // update mounted the row — the whole list it sits in, and the
+  // keystroke that produced the list, wait on that one chunk.
   if (def.customEditor) {
     const Editor = def.customEditor;
-    return <Editor def={def} />;
+    return (
+      <Suspense fallback={null}>
+        <Editor def={def} />
+      </Suspense>
+    );
   }
 
   // Font-family preset enums get their own field component so each

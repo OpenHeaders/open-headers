@@ -33,6 +33,11 @@
       "import": "./src/workbench/settings/schema/index.ts",
       "default": "./dist/workbench/settings/schema/index.js"
     },
+    "./workbench/settings/search": {
+      "types": "./dist/workbench/settings/search/index.d.ts",
+      "import": "./src/workbench/settings/search/index.ts",
+      "default": "./dist/workbench/settings/search/index.js"
+    },
     "./workbench/components/template-input": {
       "types": "./dist/workbench/components/template-input/index.d.ts",
       "import": "./src/workbench/components/template-input/index.ts",

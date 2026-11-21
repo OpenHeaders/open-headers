@@ -10,6 +10,7 @@ import { useT } from '@openheaders/ui/context/LocaleContext';
 import { Input, type InputRef, Tooltip, theme } from 'antd';
 import type React from 'react';
 import { useCallback } from 'react';
+import { FILTER_MODIFIED } from '../search/query';
 
 interface SettingsSearchProps {
   query: string;
@@ -20,8 +21,6 @@ interface SettingsSearchProps {
   /** ArrowDown in the input — shell uses this to jump focus into the sidebar. */
   onArrowDown?: () => void;
 }
-
-const FILTER_MODIFIED = '@modified';
 
 const SettingsSearch: React.FC<SettingsSearchProps> = ({ query, onQueryChange, inputRef, autoFocus, onArrowDown }) => {
   const { token } = theme.useToken();

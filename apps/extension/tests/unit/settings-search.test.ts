@@ -126,6 +126,29 @@ describe('searchSettings', () => {
     expect(results[0].def.key).toBe('search.density');
   });
 
+  it('requires every term to match — a term from another setting does not widen the set', () => {
+    // "theme" is the theme row's, "spacing" the density row's: no one
+    // setting carries both.
+    expect(searchSettings('theme spacing')).toHaveLength(0);
+    expect(searchSettings('color theme').map((r) => r.def.key)).toEqual(['search.theme']);
+  });
+
+  it('never grows the result set as words are added', () => {
+    const keysFor = (query: string): string[] => searchSettings(query).map((r) => r.def.key);
+    const broad = keysFor('appearance');
+    const narrowed = keysFor('appearance p');
+    const narrowest = keysFor('appearance p palette');
+    expect(broad).toEqual(expect.arrayContaining(narrowed));
+    expect(narrowed).toEqual(expect.arrayContaining(narrowest));
+    expect(narrowest).toEqual(['search.theme']);
+  });
+
+  it('a filter token narrows a text query instead of standing in for a term', () => {
+    storeSet('search.density', 'compact');
+    expect(searchSettings('appearance @modified').map((r) => r.def.key)).toEqual(['search.density']);
+    expect(searchSettings('theme @modified')).toHaveLength(0);
+  });
+
   it('label matches outrank description matches', () => {
     // Label "Color Theme" should beat description match on the word "theme"
     const results = searchSettings('theme');
