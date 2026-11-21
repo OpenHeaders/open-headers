@@ -1,27 +1,31 @@
 /**
- * Merges the per-arch `latest-mac.yml` files the split macOS release
- * legs produce into the single feed file electron-updater reads. Each
- * electron-builder run writes an update-info file listing only the
- * arch it built; clients on both archs resolve from ONE
- * `latest-mac.yml`, so the release job unions the `files:` entries
- * before feed staging.
+ * Merges the per-arch update-info files the split macOS and Windows
+ * release legs produce into the single feed file electron-updater
+ * reads (`latest-mac.yml`, `latest.yml`). Each electron-builder run
+ * writes an update-info file listing only the arch it built; clients
+ * on both archs resolve from ONE file per OS, so the release job
+ * unions the `files:` entries before feed staging. Linux needs none of
+ * this — its update-info files are named per arch.
  *
  * Output mirrors electron-builder's own combined single-run shape:
  * x64 entries first and the top-level `path`/`sha512` naming the x64
  * asset, with arm64 clients selecting their file from the `files:`
- * list by name. A single input passes through byte-identical — the
- * beta lane builds arm64 only. A stable tag passes `--min-inputs=2`:
- * one arch's file alone would ship a pointer the other arch's clients
- * cannot resolve, so fewer inputs than that fail the release.
+ * list by the `arm64` in its name. The order carries weight on
+ * Windows, where the x64 installer's name says no arch: an x64 updater
+ * finds no name with its arch and takes the first entry. A single
+ * input passes through byte-identical. The release passes
+ * `--min-inputs=2`: one arch's file alone would ship a pointer the
+ * other arch's clients cannot resolve, so fewer inputs than that fail
+ * the release.
  *
- * Usage: node scripts/merge-mac-update-yml.mjs [--min-inputs=N] <output-file> <input-file>...
+ * Usage: node scripts/merge-update-yml.mjs [--min-inputs=N] <output-file> <input-file>...
  */
 
 import { copyFileSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import * as path from 'node:path';
 
 function fail(message) {
-  console.error(`merge-mac-update-yml: ${message}`);
+  console.error(`merge-update-yml: ${message}`);
   process.exit(1);
 }
 
@@ -77,7 +81,7 @@ const minInputs = minInputsArg ? Number(minInputsArg.slice('--min-inputs='.lengt
 if (!Number.isInteger(minInputs) || minInputs < 1) fail(`--min-inputs expects a positive integer, got '${minInputsArg}'`);
 const [output, ...inputs] = args.filter((arg) => arg !== minInputsArg);
 if (!output || inputs.length === 0) {
-  fail('usage: merge-mac-update-yml.mjs [--min-inputs=N] <output-file> <input-file>...');
+  fail('usage: merge-update-yml.mjs [--min-inputs=N] <output-file> <input-file>...');
 }
 if (inputs.length < minInputs) {
   fail(`expected at least ${minInputs} update-info inputs, got ${inputs.length} (${inputs.join(', ')})`);
@@ -87,7 +91,7 @@ mkdirSync(path.dirname(output), { recursive: true });
 
 if (inputs.length === 1) {
   copyFileSync(inputs[0], output);
-  console.log(`merge-mac-update-yml: single input — copied ${inputs[0]} to ${output}`);
+  console.log(`merge-update-yml: single input — copied ${inputs[0]} to ${output}`);
   process.exit(0);
 }
 
@@ -132,4 +136,4 @@ const out = [
 if (base.scalars.get('releaseDate')) out.push(`releaseDate: ${base.scalars.get('releaseDate')}`);
 
 writeFileSync(output, `${out.join('\n')}\n`);
-console.log(`merge-mac-update-yml: merged ${inputs.length} inputs (${merged.length} file entries) into ${output}`);
+console.log(`merge-update-yml: merged ${inputs.length} inputs (${merged.length} file entries) into ${output}`);

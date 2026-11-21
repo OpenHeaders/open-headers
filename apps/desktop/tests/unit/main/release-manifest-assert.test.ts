@@ -42,6 +42,8 @@ const STABLE_ASSETS = [
   'OpenHeaders-2026.9.0-mac-x64.zip.blockmap',
   'OpenHeaders-2026.9.0-Setup.exe',
   'OpenHeaders-2026.9.0-Setup.exe.blockmap',
+  'OpenHeaders-2026.9.0-arm64-Setup.exe',
+  'OpenHeaders-2026.9.0-arm64-Setup.exe.blockmap',
   'OpenHeaders-2026.9.0.msi',
   'OpenHeaders-2026.9.0-x86_64.AppImage',
   'OpenHeaders-2026.9.0-arm64.AppImage',
@@ -68,6 +70,8 @@ const BETA_ASSETS = [
   'OpenHeaders-2026.9.1-beta.1-mac-arm64.zip.blockmap',
   'OpenHeaders-2026.9.1-beta.1-Setup.exe',
   'OpenHeaders-2026.9.1-beta.1-Setup.exe.blockmap',
+  'OpenHeaders-2026.9.1-beta.1-arm64-Setup.exe',
+  'OpenHeaders-2026.9.1-beta.1-arm64-Setup.exe.blockmap',
   'OpenHeaders-2026.9.1-beta.1-x86_64.AppImage',
   'open-headers_2026.9.1-beta.1_amd64.deb',
 ];
@@ -114,14 +118,14 @@ describe('assert-release-manifest', () => {
     const { run } = stage(STABLE_VERSION, STABLE_ASSETS, STABLE_YMLS);
 
     const output = run();
-    expect(output).toContain('expects 30 assets, 30 files staged');
+    expect(output).toContain('expects 32 assets, 32 files staged');
     expect(output).toContain('apps/{desktop,cli,daemon,extension,web} in lockstep at 2026.9.0');
   });
 
   it('passes the trimmed beta set', () => {
     const { run } = stage(BETA_VERSION, BETA_ASSETS, BETA_YMLS);
 
-    expect(run()).toContain('expects 10 assets, 10 files staged');
+    expect(run()).toContain('expects 12 assets, 12 files staged');
   });
 
   it('fails a stable set missing one arch (the 2026.9.0 shape) and names the files', () => {

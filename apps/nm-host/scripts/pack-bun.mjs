@@ -7,10 +7,9 @@
  *
  * Takes an optional distribution-matrix target (`mac-arm64`, `mac-x64`,
  * `win-x64`, `win-arm64`, `linux-x64`, `linux-arm64` — the
- * build-h3-helper vocabulary); no argument compiles for the host. The
- * per-arch release legs pass their own target so cross-arch legs (mac
- * x64 on arm64 runners, linux and windows arm64 on x64 runners) ship a
- * native binary instead of the runner's.
+ * build-h3-helper vocabulary); no argument compiles for the host. A
+ * release leg passes its own target, which is its runner's own; the
+ * other arch of the same OS still compiles from one machine.
  *
  * Verification drives a host-target artifact through its wire
  * contract: a framed bootstrap request against an unreachable daemon

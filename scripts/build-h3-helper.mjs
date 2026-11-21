@@ -9,12 +9,13 @@
  *   node scripts/build-h3-helper.mjs --platform-all  # every matrix target this OS can build
  *   node scripts/build-h3-helper.mjs mac-x64 …       # explicit targets
  *
- * Cross legs the release matrix relies on: the mac (arm64) runner adds
- * the x86_64-apple-darwin target; the linux (x64) runner adds
+ * A release leg names its own target, which is its runner's own. The
+ * other arch of the same OS still builds from one machine: an arm64
+ * mac adds the x86_64-apple-darwin target; an x64 linux adds
  * aarch64-unknown-linux-gnu with the `gcc-aarch64-linux-gnu` cross
- * linker (apt); the windows (x64) runner adds aarch64-pc-windows-msvc,
- * linked by the ARM64 tools its Visual Studio carries (the crypto
- * crate's ARM assembly is compiled by clang, on that runner's PATH).
+ * linker (apt); an x64 windows adds aarch64-pc-windows-msvc, linked by
+ * the ARM64 tools its Visual Studio carries (the crypto crate's ARM
+ * assembly is compiled by clang, on its PATH).
  * `rustup target add` is run per build and is a no-op
  * when already installed; a cargo without rustup (distro toolchains)
  * just skips it.

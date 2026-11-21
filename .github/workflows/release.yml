@@ -4,12 +4,21 @@ on:
   push:
     tags:
       - 'v*'
-  # Signing dry-run: manual dispatch builds ONLY the windows desktop
-  # leg with the full stable signing path (inner OpenHeaders.exe +
-  # oh-nm-host.exe → installers → sign → re-hash → blockmap →
-  # signature checks) and uploads the artifact — no binaries/extension
-  # legs, no release job, nothing published.
+  # Dry run: manual dispatch builds desktop legs with the full stable
+  # signing path (inner OpenHeaders.exe + oh-nm-host.exe → installers →
+  # sign → re-hash → blockmap → signature checks) and uploads the
+  # artifacts — no binaries leg, no release job, nothing published.
+  # `windows` builds the two Windows arches only (the signing dry run);
+  # `all` builds every desktop leg.
   workflow_dispatch:
+    inputs:
+      legs:
+        description: Desktop legs to build
+        type: choice
+        options:
+          - windows
+          - all
+        default: windows
 
 # Least privilege per job: the build legs only read the checkout; the
 # binaries leg pushes the ohd image to ghcr; the release job writes the
@@ -54,7 +63,7 @@ env:
 jobs:
   build-desktop:
     if: ${{ !contains(github.ref_name, '-ext') && !contains(github.ref_name, '-cli') && !contains(github.ref_name, '-daemon') }}
-    runs-on: ${{ matrix.os }}
+    runs-on: ${{ matrix.runner || matrix.os }}
     permissions:
       contents: read
     # 2026.9.0: 29 min on the mac legs with every cache cold.
@@ -73,37 +82,50 @@ jobs:
       # itself runs only when all of them succeeded.
       fail-fast: false
       matrix:
-        # macOS and Linux run one leg PER ARCH so the two
-        # electron-builder package+notarize passes go in parallel — the
-        # release job merges the two one-arch latest-mac.yml files into
-        # the single feed pointer (linux update-info files are per-arch
-        # named already, no merge). The matrix is computed from the tag
-        # shape: beta tags spawn only the legs whose targets betas ship
-        # (mac arm64, linux x64); a signing dry-run (workflow_dispatch)
-        # builds the windows leg only.
+        # One leg per OS and arch, each on a runner of ITS OWN arch: a
+        # package holds things only the arch that built them can load
+        # (the license chunk's bytecode is compiled by the leg's own
+        # Electron; the native modules by its own compiler), and a leg
+        # can only check its package loads on the arch it is for. `os`
+        # is the leg's family — the step conditions and the artifact
+        # name read it; `runner` is the image when the family's own
+        # label is the other arch (Intel macOS, ARM Linux). The release
+        # job merges the two one-arch latest-mac.yml files into the
+        # single feed pointer (linux update-info files are per-arch
+        # named already, no merge). Every tag on either channel builds
+        # every leg; a dry run (workflow_dispatch) builds the Windows
+        # one unless it asks for all. Windows ARM64 is the job below
+        # this one, on the same steps.
         # windows-2022 (not -latest): windows-latest ships Visual Studio 2026,
         # which the node-gyp bundled with electron-builder cannot detect, so
         # the native-module rebuild fails. VS 2022 stays detectable here.
-        include: ${{ github.event_name == 'workflow_dispatch' && fromJSON('[{"os":"windows-2022"}]') || fromJSON('[{"os":"macos-latest","arch":"arm64"},{"os":"macos-latest","arch":"x64"},{"os":"windows-2022"},{"os":"ubuntu-latest","arch":"x64"},{"os":"ubuntu-latest","arch":"arm64"}]') }}
+        include: ${{ github.event_name == 'workflow_dispatch' && inputs.legs != 'all' && fromJSON('[{"os":"windows-2022"}]') || fromJSON('[{"os":"macos-latest","arch":"arm64"},{"os":"macos-latest","arch":"x64","runner":"macos-26-intel"},{"os":"windows-2022"},{"os":"ubuntu-latest","arch":"x64"},{"os":"ubuntu-latest","arch":"arm64","runner":"ubuntu-24.04-arm"}]') }}
 
-    steps:
-      - name: Checkout code
+    # The steps are shared, whole or by name: the Windows ARM64 leg runs
+    # all of them, the job that packages its installer picks the ones
+    # it needs.
+    steps: &desktop_leg_steps
+      - &checkout_step
+        name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
           persist-credentials: false
 
-      - name: Install pnpm
+      - &pnpm_step
+        name: Install pnpm
         uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
 
-      - name: Setup Node.js
+      - &node_step
+        name: Setup Node.js
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 22.x
           cache: pnpm
 
-      - name: Install Python setuptools (Windows)
-        if: matrix.os == 'windows-2022'
+      - &setuptools_step
+        name: Install Python setuptools (Windows)
+        if: runner.os == 'Windows'
         run: pip install setuptools
         shell: bash
 
@@ -159,23 +181,24 @@ jobs:
           mkdir -p apps/desktop/dist
         shell: bash
 
-      - name: Install dependencies
+      - &install_step
+        name: Install dependencies
         run: pnpm install --frozen-lockfile
         shell: bash
 
       - name: Build core package
         run: pnpm --filter @openheaders/core build
 
-      # The leg's five-target matrix name — the NM host and HTTP/3
-      # helper builds both compile for it, so the cross-arch legs
-      # (mac x64 on arm64 runners, linux arm64 on x64 runners) ship
-      # native binaries instead of the runner's.
+      # The leg's name in the six-target matrix — the NM host and
+      # HTTP/3 helper builds compile for it and the load check finds
+      # the unpacked app by it.
       - name: Compute leg target
         id: leg_target
         run: |
           case "${{ matrix.os }}" in
             macos-latest) echo "target=mac-${{ matrix.arch }}" >> $GITHUB_OUTPUT ;;
             ubuntu-latest) echo "target=linux-${{ matrix.arch }}" >> $GITHUB_OUTPUT ;;
+            windows-11-arm) echo "target=win-arm64" >> $GITHUB_OUTPUT ;;
             *) echo "target=win-x64" >> $GITHUB_OUTPUT ;;
           esac
         shell: bash
@@ -212,9 +235,8 @@ jobs:
       # The HTTP/3 helper rides the app under resources/h3-helper (the
       # afterPack per-arch copy) and the ohd SEA payload — without this
       # step the packaged app ships helperless and a '3' send fails
-      # honestly. Each per-arch leg builds only its own target (the mac
-      # x64 and linux arm64 targets cross-compile on the arm64/x64
-      # runners; the script adds the rust target itself).
+      # honestly. Each leg builds only its own target, which is its
+      # runner's own.
       - name: Cache cargo (HTTP/3 helper)
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
@@ -225,10 +247,6 @@ jobs:
           key: ${{ runner.os }}-${{ matrix.arch || 'x64' }}-h3-helper-${{ hashFiles('native/h3-helper/Cargo.lock') }}
           restore-keys: |
             ${{ runner.os }}-${{ matrix.arch || 'x64' }}-h3-helper-
-
-      - name: Install linux arm64 cross linker (HTTP/3 helper)
-        if: matrix.os == 'ubuntu-latest' && matrix.arch == 'arm64'
-        run: sudo apt-get update && sudo apt-get install -y gcc-aarch64-linux-gnu
 
       - name: Build HTTP/3 helper
         run: node scripts/build-h3-helper.mjs "${{ steps.leg_target.outputs.target }}"
@@ -247,7 +265,8 @@ jobs:
           p12-password: ${{ secrets.MACOS_CERTIFICATE_PWD }}
           keychain-password: ${{ secrets.KEYCHAIN_PASSWORD }}
 
-      - name: Detect beta build
+      - &detect_beta_step
+        name: Detect beta build
         id: detect_beta
         run: |
           if [[ "${{ github.ref_name }}" =~ -beta[.0-9]*$ ]]; then
@@ -259,7 +278,8 @@ jobs:
 
       # A dispatch dry-run has a branch ref, not a tag — the build uses
       # the version already in package.json.
-      - name: Verify desktop version matches tag
+      - &version_pin_step
+        name: Verify desktop version matches tag
         if: github.event_name != 'workflow_dispatch'
         run: |
           TAG="${GITHUB_REF_NAME/v/}"
@@ -308,8 +328,9 @@ jobs:
       # Setup.exe ships unsigned instead of failing the leg. Checked
       # before the build because the signed lane packages in two
       # phases (unpacked → sign inner executables → installers).
-      - name: Check Windows signing credentials
-        if: matrix.os == 'windows-2022'
+      - &win_sign_check_step
+        name: Check Windows signing credentials
+        if: runner.os == 'Windows'
         id: win_sign
         run: |
           if [ -n "$AZURE_TENANT_ID" ] && [ -n "$AZURE_CLIENT_ID" ] && [ -n "$AZURE_CLIENT_SECRET" ]; then
@@ -350,7 +371,25 @@ jobs:
         shell: bash
         run: pnpm dist:win:unsigned:dir
 
-      - name: Sign app executable
+      # The ARM leg stops at the unpacked tree: the signing action does
+      # not run on ARM runners, so the x64 job below it signs the inner
+      # executables and packages the installer from this tree. Without
+      # signing credentials the tree is built for an unsigned installer
+      # (its packed app-update.yml carries no publisherName).
+      - name: Build Windows ARM64 unpacked
+        if: matrix.os == 'windows-11-arm'
+        working-directory: apps/desktop
+        shell: bash
+        run: pnpm dist:win:unsigned:dir:arm64
+        env:
+          OH_WIN_SETUP_UNSIGNED: ${{ steps.win_sign.outputs.enabled != 'true' && '1' || '' }}
+
+      # The four signing steps and their two checks read the unpacked
+      # folder by the leg's arch (`win-unpacked`, `win-arm64-unpacked`):
+      # the x64 leg runs them on the tree it built, the ARM packaging
+      # job on the tree the ARM leg handed over.
+      - &sign_app_step
+        name: Sign app executable
         if: matrix.os == 'windows-2022' && steps.win_sign.outputs.enabled == 'true'
         uses: azure/artifact-signing-action@c7ab2a863ab5f9a846ddb8265964877ef296ee82 # v2.0.0
         with:
@@ -360,12 +399,13 @@ jobs:
           endpoint: ${{ env.WIN_SIGN_ENDPOINT }}
           signing-account-name: ${{ env.WIN_SIGN_ACCOUNT }}
           certificate-profile-name: ${{ env.WIN_SIGN_PROFILE }}
-          files: ${{ github.workspace }}\apps\desktop\dist\win-unpacked\OpenHeaders.exe
+          files: ${{ github.workspace }}\apps\desktop\dist\win${{ matrix.arch == 'arm64' && '-arm64' || '' }}-unpacked\OpenHeaders.exe
           file-digest: SHA256
           timestamp-rfc3161: http://timestamp.acs.microsoft.com
           timestamp-digest: SHA256
 
-      - name: Sign NM host executable
+      - &sign_nm_host_step
+        name: Sign NM host executable
         if: matrix.os == 'windows-2022' && steps.win_sign.outputs.enabled == 'true'
         uses: azure/artifact-signing-action@c7ab2a863ab5f9a846ddb8265964877ef296ee82 # v2.0.0
         with:
@@ -375,7 +415,7 @@ jobs:
           endpoint: ${{ env.WIN_SIGN_ENDPOINT }}
           signing-account-name: ${{ env.WIN_SIGN_ACCOUNT }}
           certificate-profile-name: ${{ env.WIN_SIGN_PROFILE }}
-          files: ${{ github.workspace }}\apps\desktop\dist\win-unpacked\resources\nm-host\oh-nm-host.exe
+          files: ${{ github.workspace }}\apps\desktop\dist\win${{ matrix.arch == 'arm64' && '-arm64' || '' }}-unpacked\resources\nm-host\oh-nm-host.exe
           file-digest: SHA256
           timestamp-rfc3161: http://timestamp.acs.microsoft.com
           timestamp-digest: SHA256
@@ -383,7 +423,8 @@ jobs:
       # The HTTP/3 helper is a shipped executable too — SmartScreen and
       # enterprise allow-listing want it Authenticode-signed like the
       # other inner binaries.
-      - name: Sign HTTP/3 helper executable
+      - &sign_h3_helper_step
+        name: Sign HTTP/3 helper executable
         if: matrix.os == 'windows-2022' && steps.win_sign.outputs.enabled == 'true'
         uses: azure/artifact-signing-action@c7ab2a863ab5f9a846ddb8265964877ef296ee82 # v2.0.0
         with:
@@ -393,18 +434,20 @@ jobs:
           endpoint: ${{ env.WIN_SIGN_ENDPOINT }}
           signing-account-name: ${{ env.WIN_SIGN_ACCOUNT }}
           certificate-profile-name: ${{ env.WIN_SIGN_PROFILE }}
-          files: ${{ github.workspace }}\apps\desktop\dist\win-unpacked\resources\h3-helper\oh-h3-helper.exe
+          files: ${{ github.workspace }}\apps\desktop\dist\win${{ matrix.arch == 'arm64' && '-arm64' || '' }}-unpacked\resources\h3-helper\oh-h3-helper.exe
           file-digest: SHA256
           timestamp-rfc3161: http://timestamp.acs.microsoft.com
           timestamp-digest: SHA256
 
-      - name: Verify inner executable signatures
+      - &verify_inner_signatures_step
+        name: Verify inner executable signatures
         if: matrix.os == 'windows-2022' && steps.win_sign.outputs.enabled == 'true'
         run: |
+          $unpacked = "apps/desktop/dist/win${{ matrix.arch == 'arm64' && '-arm64' || '' }}-unpacked"
           foreach ($f in @(
-            "apps/desktop/dist/win-unpacked/OpenHeaders.exe",
-            "apps/desktop/dist/win-unpacked/resources/nm-host/oh-nm-host.exe",
-            "apps/desktop/dist/win-unpacked/resources/h3-helper/oh-h3-helper.exe"
+            "$unpacked/OpenHeaders.exe",
+            "$unpacked/resources/nm-host/oh-nm-host.exe",
+            "$unpacked/resources/h3-helper/oh-h3-helper.exe"
           )) {
             $sig = Get-AuthenticodeSignature $f
             Write-Host "$f -> $($sig.Status)"
@@ -426,7 +469,8 @@ jobs:
             pnpm dist:win:frompacked
           fi
 
-      - name: Find Windows Executable
+      - &find_exe_step
+        name: Find Windows Executable
         if: matrix.os == 'windows-2022' && steps.win_sign.outputs.enabled == 'true'
         id: find-exe
         run: |
@@ -436,7 +480,8 @@ jobs:
           echo "EXE_FILENAME=$($exeFile.Name)" >> $env:GITHUB_OUTPUT
         shell: pwsh
 
-      - name: Sign Windows Executables
+      - &sign_setup_step
+        name: Sign Windows Executables
         if: matrix.os == 'windows-2022' && steps.win_sign.outputs.enabled == 'true'
         uses: azure/artifact-signing-action@c7ab2a863ab5f9a846ddb8265964877ef296ee82 # v2.0.0
         with:
@@ -454,7 +499,8 @@ jobs:
       # The pointer is `latest.yml` on a stable version and `beta.yml`
       # on a beta one (the builder names it after the version's
       # channel).
-      - name: Update latest.yml and blockmap after signing
+      - &rehash_pointer_step
+        name: Update latest.yml and blockmap after signing
         if: matrix.os == 'windows-2022' && steps.win_sign.outputs.enabled == 'true'
         run: |
           $exePath = "apps/desktop/dist/${{ steps.find-exe.outputs.EXE_FILENAME }}"
@@ -489,7 +535,8 @@ jobs:
       # An invalid signature must fail the leg — publishing a
       # broken-signed Setup.exe whose hash the feed pointer carries is
       # worse than publishing unsigned.
-      - name: Verify Authenticode signature
+      - &verify_setup_signature_step
+        name: Verify Authenticode signature
         if: matrix.os == 'windows-2022' && steps.win_sign.outputs.enabled == 'true'
         run: |
           $sig = Get-AuthenticodeSignature "apps/desktop/dist/${{ steps.find-exe.outputs.EXE_FILENAME }}"
@@ -560,6 +607,39 @@ jobs:
           fi
         shell: bash
 
+      # The load check: the license chunk's bytecode and the database
+      # binary are loaded inside the unpacked app's own runtime — a
+      # package that cannot load them cannot start, and fails its leg
+      # here instead of shipping. On the signed Windows x64 lane this is
+      # the signed tree, so the signed executable is proven to run too.
+      - name: Check the package loads
+        working-directory: apps/desktop
+        shell: bash
+        run: node scripts/build/probe-package-load.js dist "${{ steps.leg_target.outputs.target }}"
+
+      # The ARM tree travels to the x64 job that signs and packages it;
+      # a day covers that hand-off.
+      - name: Upload Windows ARM64 unpacked tree
+        if: matrix.os == 'windows-11-arm'
+        id: upload_unpacked
+        continue-on-error: true
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: unpacked-windows-arm64
+          if-no-files-found: error
+          retention-days: 1
+          path: apps/desktop/dist/win-arm64-unpacked
+
+      - name: Upload Windows ARM64 unpacked tree (retry)
+        if: steps.upload_unpacked.outcome == 'failure'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: unpacked-windows-arm64
+          if-no-files-found: error
+          retention-days: 1
+          overwrite: true
+          path: apps/desktop/dist/win-arm64-unpacked
+
       # The mac oh/ohd pair used to ride this leg (10×-billed macOS
       # minutes made a second runner the pipeline's most expensive
       # overhead); that economics died with the move to free public
@@ -572,8 +652,11 @@ jobs:
       # the artifact zip stores them; seven days covers a release's
       # verification window (the bytes' homes are the feed and the
       # release page). Only the update-info files travel — never
-      # builder-debug.yml.
-      - name: Upload desktop artifacts
+      # builder-debug.yml. The ARM Windows leg has no installer yet —
+      # its packaging job uploads that.
+      - &upload_desktop_step
+        name: Upload desktop artifacts
+        if: matrix.os != 'windows-11-arm'
         id: upload_desktop
         continue-on-error: true
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -597,7 +680,8 @@ jobs:
             apps/desktop/dist/latest*.yml
             apps/desktop/dist/beta*.yml
 
-      - name: Upload desktop artifacts (retry)
+      - &upload_desktop_retry_step
+        name: Upload desktop artifacts (retry)
         if: steps.upload_desktop.outcome == 'failure'
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
@@ -618,6 +702,79 @@ jobs:
             apps/desktop/dist/*.rpm
             apps/desktop/dist/latest*.yml
             apps/desktop/dist/beta*.yml
+
+  # Windows ARM64 — a leg like the ones above, on an ARM runner and on
+  # the same steps. It is a job of its own, not a row of that matrix,
+  # because the job that packages its installer waits for it: a job
+  # that needs a matrix waits for every leg of it, and the macOS ones
+  # run twice as long.
+  build-desktop-windows-arm64:
+    name: build-desktop
+    if: ${{ !contains(github.ref_name, '-ext') && !contains(github.ref_name, '-cli') && !contains(github.ref_name, '-daemon') }}
+    runs-on: ${{ matrix.os }}
+    permissions:
+      contents: read
+    timeout-minutes: 60
+    env:
+      OH_DESKTOP_CHANNEL: release
+    strategy:
+      matrix:
+        include:
+          - os: windows-11-arm
+            arch: arm64
+    steps: *desktop_leg_steps
+
+  # The ARM installer is signed and packaged on x64 — the signing
+  # action does not run on ARM runners. The unpacked tree the ARM leg
+  # built (and checked on its own arch) arrives as an artifact; from
+  # there the lane is the x64 leg's own, step for step: sign the inner
+  # executables, package the installer from the signed tree, sign it,
+  # re-hash its pointer. Without signing credentials the installer is
+  # packaged unsigned. No MSI on ARM.
+  package-desktop-windows-arm64:
+    name: package-desktop
+    needs: build-desktop-windows-arm64
+    runs-on: ${{ matrix.os }}
+    permissions:
+      contents: read
+    timeout-minutes: 30
+    strategy:
+      matrix:
+        include:
+          - os: windows-2022
+            arch: arm64
+    steps:
+      - *checkout_step
+      - *pnpm_step
+      - *node_step
+      - *setuptools_step
+      - *install_step
+      - *detect_beta_step
+      - *version_pin_step
+      - *win_sign_check_step
+
+      - name: Download the unpacked tree
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: unpacked-windows-arm64
+          path: apps/desktop/dist/win-arm64-unpacked
+
+      - *sign_app_step
+      - *sign_nm_host_step
+      - *sign_h3_helper_step
+      - *verify_inner_signatures_step
+
+      - name: Package the installer from the tree
+        working-directory: apps/desktop
+        shell: bash
+        run: pnpm dist:win:frompacked:arm64
+
+      - *find_exe_step
+      - *sign_setup_step
+      - *rehash_pointer_step
+      - *verify_setup_signature_step
+      - *upload_desktop_step
+      - *upload_desktop_retry_step
 
   # Standalone `oh` and `ohd` (win32 is not a daemon target) ship on
   # STABLE tags only — betas carry no standalone binaries: the daemon
@@ -941,9 +1098,11 @@ jobs:
     # minutes off a failed mac x64 leg). `!cancelled()` only makes the
     # expression evaluate when a needed job failed or was skipped (the
     # default would skip this job silently); the result checks decide.
-    # build-binaries is stable-only, so a beta sees it skipped.
-    if: ${{ !cancelled() && github.event_name != 'workflow_dispatch' && !contains(github.ref_name, '-ext') && !contains(github.ref_name, '-cli') && !contains(github.ref_name, '-daemon') && needs.build-desktop.result == 'success' && (needs.build-binaries.result == 'success' || (contains(github.ref_name, '-beta') && needs.build-binaries.result == 'skipped')) }}
-    needs: [build-desktop, build-binaries]
+    # build-binaries is stable-only, so a beta sees it skipped. The
+    # Windows ARM64 packaging job stands for its leg too — it only runs
+    # when that leg succeeded.
+    if: ${{ !cancelled() && github.event_name != 'workflow_dispatch' && !contains(github.ref_name, '-ext') && !contains(github.ref_name, '-cli') && !contains(github.ref_name, '-daemon') && needs.build-desktop.result == 'success' && needs.package-desktop-windows-arm64.result == 'success' && (needs.build-binaries.result == 'success' || (contains(github.ref_name, '-beta') && needs.build-binaries.result == 'skipped')) }}
+    needs: [build-desktop, package-desktop-windows-arm64, build-binaries]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -974,9 +1133,19 @@ jobs:
       - name: Lint changelog tree
         run: node scripts/lint-changelog.mjs
 
-      - name: Download all artifacts
+      # The legs' packages and the standalone binaries, each artifact
+      # in its own folder — by name, so the Windows ARM64 unpacked tree
+      # (a hand-off between two jobs) stays behind.
+      - name: Download desktop artifacts
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
+          pattern: desktop-*
+          path: dist
+
+      - name: Download binary artifacts
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          pattern: binaries-*
           path: dist
 
       # Store listings serve the extension (stable only — it has no
@@ -1029,17 +1198,17 @@ jobs:
           # files after the version's channel (latest*.yml on stable,
           # beta*.yml on prerelease) — copy both shapes; the feed
           # generator normalizes them. builder-debug.yml stays behind.
-          if [ -d "dist/desktop-windows-2022" ]; then
-            cp dist/desktop-windows-2022/*.exe processed_files/ 2>/dev/null || true
-            cp dist/desktop-windows-2022/*.msi processed_files/ 2>/dev/null || true
-            cp dist/desktop-windows-2022/*.blockmap processed_files/ 2>/dev/null || true
-            cp dist/desktop-windows-2022/latest.yml processed_files/ 2>/dev/null || true
-            cp dist/desktop-windows-2022/beta.yml processed_files/ 2>/dev/null || true
-          fi
+          # Every OS builds one leg per arch — walk every arch directory
+          # (the Windows x64 one carries no arch in its name). The
+          # Windows and mac update-info files are handled by the merges
+          # below, not copied here.
+          for d in dist/desktop-windows-2022*; do
+            [ -d "$d" ] || continue
+            cp "$d"/*.exe processed_files/ 2>/dev/null || true
+            cp "$d"/*.msi processed_files/ 2>/dev/null || true
+            cp "$d"/*.blockmap processed_files/ 2>/dev/null || true
+          done
 
-          # macOS and Linux build as one leg per arch — walk every arch
-          # directory. The mac update-info files are handled by the
-          # merge below, not copied here.
           for d in dist/desktop-macos-latest-*; do
             [ -d "$d" ] || continue
             cp "$d"/*.dmg processed_files/ 2>/dev/null || true
@@ -1048,16 +1217,25 @@ jobs:
             cp "$d"/*.blockmap processed_files/ 2>/dev/null || true
           done
 
-          # Two mac legs write two one-arch update-info files; the feed
-          # serves ONE latest-mac.yml, so union their files lists. Every
-          # tag on either channel builds both arches, so both files are
-          # required (one alone would strand the other arch's updater);
-          # a merge conflict fails the release before any pointer is
-          # published.
+          # The two legs of macOS, and the two of Windows, each write a
+          # one-arch update-info file; the feed serves ONE per OS
+          # (latest-mac.yml, latest.yml), so union their files lists.
+          # Every tag on either channel builds both arches, so both
+          # files are required (one alone would strand the other arch's
+          # updater); a merge conflict fails the release before any
+          # pointer is published. On Windows the x64 installer's name
+          # says no arch, and the merge lists it first: an x64 updater
+          # takes the first entry, an ARM one the entry named arm64.
           for NAME in latest-mac.yml beta-mac.yml; do
             MAC_YMLS=$(find dist -path "dist/desktop-macos-latest-*" -name "$NAME" | sort)
             if [ -n "$MAC_YMLS" ]; then
-              node scripts/merge-mac-update-yml.mjs --min-inputs=2 "processed_files/$NAME" $MAC_YMLS
+              node scripts/merge-update-yml.mjs --min-inputs=2 "processed_files/$NAME" $MAC_YMLS
+            fi
+          done
+          for NAME in latest.yml beta.yml; do
+            WIN_YMLS=$(find dist -path "dist/desktop-windows-2022*" -name "$NAME" | sort)
+            if [ -n "$WIN_YMLS" ]; then
+              node scripts/merge-update-yml.mjs --min-inputs=2 "processed_files/$NAME" $WIN_YMLS
             fi
           done
 
@@ -1289,7 +1467,9 @@ jobs:
             row "${I_MAC} macOS" \
               "$(dl_link 'Apple Silicon (DMG)' "OpenHeaders-${VERSION}-mac-arm64.dmg")" \
               "$(dl_link 'Intel (DMG)' "OpenHeaders-${VERSION}-mac-x64.dmg")"
-            row "${I_WIN} Windows" "$(dl_link 'Installer (EXE)' "OpenHeaders-${VERSION}-Setup.exe")"
+            row "${I_WIN} Windows" \
+              "$(dl_link 'x64 (EXE)' "OpenHeaders-${VERSION}-Setup.exe")" \
+              "$(dl_link 'ARM64 (EXE)' "OpenHeaders-${VERSION}-arm64-Setup.exe")"
             row "${I_LINUX} Linux" \
               "$(dl_link 'AppImage x64' "OpenHeaders-${VERSION}-x86_64.AppImage")" \
               "$(dl_link 'AppImage ARM64' "OpenHeaders-${VERSION}-arm64.AppImage")"
