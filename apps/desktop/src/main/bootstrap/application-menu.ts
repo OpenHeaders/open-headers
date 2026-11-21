@@ -73,7 +73,14 @@ function hardwareAccelerationMenuItem(t: Translator): MenuItemConstructorOptions
 // tray-resident renderer is mounted while hidden, so its subscription
 // is live before the send.
 function sendMenuCommand(
-  command: 'newItem' | 'newTab' | 'import' | 'saveDiagnostics' | 'reportIssue' | 'requestFeature',
+  command:
+    | 'newItem'
+    | 'newTab'
+    | 'import'
+    | 'saveDiagnostics'
+    | 'reportIssue'
+    | 'requestFeature'
+    | 'openActivityMonitor',
 ): void {
   const focused = BrowserWindow.getFocusedWindow();
   if (focused) {
@@ -114,6 +121,24 @@ function tabNavigationMenuItems(isMac: boolean, t: Translator): MenuItemConstruc
       click: () => sendToFocusedRenderer('tabNavigate', { direction: 'previous' }),
     },
   ];
+}
+
+// What the app is doing and what it has recorded: the live view first,
+// then what can be saved or opened from disk.
+function diagnosticsMenu(t: Translator): MenuItemConstructorOptions {
+  return {
+    label: t('desktop.menu.diagnostics'),
+    submenu: [
+      // The tool window lives in the renderer: the command opens it, or
+      // fronts it where it is already open.
+      { label: t('desktop.menu.activityMonitor'), click: () => sendMenuCommand('openActivityMonitor') },
+      { type: 'separator' },
+      // The diagnostic bundle (the error reports plan §4.5) — the renderer
+      // composes and saves it, so the item is a menu command like Import.
+      { label: t('desktop.menu.saveDiagnostics'), click: () => sendMenuCommand('saveDiagnostics') },
+      { label: t('desktop.menu.openLogsFolder'), click: revealLogFile },
+    ],
+  };
 }
 
 function template(): MenuItemConstructorOptions[] {
@@ -241,8 +266,9 @@ function template(): MenuItemConstructorOptions[] {
             ] as MenuItemConstructorOptions[])),
       ],
     },
-    // Four groups, one job each: learn, ask or tell us, diagnose, legal
-    // — Windows / Linux add the update items where macOS keeps them in
+    diagnosticsMenu(t),
+    // Three groups, one job each: learn, ask or tell us, legal —
+    // Windows / Linux add the update items where macOS keeps them in
     // the app menu. The help role gives macOS its menu search field.
     {
       label: t('desktop.menu.help'),
@@ -257,11 +283,6 @@ function template(): MenuItemConstructorOptions[] {
         { label: t('desktop.menu.reportIssue'), click: () => sendMenuCommand('reportIssue') },
         { label: t('desktop.menu.requestFeature'), click: () => sendMenuCommand('requestFeature') },
         { label: t('desktop.menu.communityChat'), click: () => void shell.openExternal(COMMUNITY_CHAT_URL) },
-        { type: 'separator' },
-        // The diagnostic bundle (the error reports plan §4.5) — the renderer
-        // composes and saves it, so the item is a menu command like Import.
-        { label: t('desktop.menu.saveDiagnostics'), click: () => sendMenuCommand('saveDiagnostics') },
-        { label: t('desktop.menu.openLogsFolder'), click: revealLogFile },
         { type: 'separator' },
         { label: t('desktop.menu.licenseAgreement'), click: () => void shell.openExternal(EULA_URL) },
         { label: t('desktop.menu.privacyPolicy'), click: () => void shell.openExternal(PRIVACY_URL) },

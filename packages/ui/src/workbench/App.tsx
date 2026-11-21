@@ -867,7 +867,15 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
     [handleNextTab, handlePrevTab],
   );
 
-  // Host-shell File-menu commands (desktop native menu) — each routes to
+  // The Activity Monitor's opener — the palette's command, the System
+  // popover's link and the desktop Diagnostics menu share it: a hidden
+  // window is restored, and one already open is fronted where it is.
+  const openActivityMonitor = useCallback(() => {
+    if (tl.state.hidden.includes('activity-monitor')) tl.restoreWindow('activity-monitor');
+    tl.activateWindow('activity-monitor');
+  }, [tl]);
+
+  // Host-shell menu commands (desktop native menu) — each routes to
   // the same handler its in-app chord uses, so menu and keyboard stay
   // behaviorally identical.
   useEffect(
@@ -883,8 +891,9 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
         else if (command === 'saveDiagnostics') void saveDiagnosticsBundle();
         else if (command === 'reportIssue') openReportIssueDialog('bug');
         else if (command === 'requestFeature') openReportIssueDialog('feature');
+        else if (command === 'openActivityMonitor') openActivityMonitor();
       }),
-    [openCreateMenu, openCreateRequestTab, handleCloseActiveTab, zeroWorkspaces],
+    [openCreateMenu, openCreateRequestTab, handleCloseActiveTab, openActivityMonitor, zeroWorkspaces],
   );
 
   // Host-shell navigation: a connected browser surface asked this app
@@ -1208,13 +1217,6 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
   // while interacting with the http-rules sidebar must open the
   // http-rules search, not whichever sidebar happened to mount last).
   const sidebarSearchRefs = useRef<Map<SidebarView, SidebarSearchHandle | null>>(new Map());
-
-  // The Activity Monitor's opener — the palette's command and the System
-  // popover's link share it.
-  const openActivityMonitor = useCallback(() => {
-    if (tl.state.hidden.includes('activity-monitor')) tl.restoreWindow('activity-monitor');
-    tl.activateWindow('activity-monitor');
-  }, [tl]);
 
   // ── Command palette data ──────────────────────────────────────
   const { groups: cmdGroups, sections: cmdSections } = useCommandPaletteData({

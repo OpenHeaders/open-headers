@@ -1,9 +1,11 @@
 import type { HostStorage, StorageKey } from '@openheaders/core/storage';
 import { PSEUDO_LOCALE } from '@openheaders/i18n';
-import { Menu, type MenuItem, type MenuItemConstructorOptions } from 'electron';
+import { BrowserWindow, Menu, type MenuItem, type MenuItemConstructorOptions } from 'electron';
 import { describe, expect, it, type MockInstance, vi } from 'vitest';
 import { installApplicationMenu } from '@/main/bootstrap/application-menu';
 import { installLocaleSubscription } from '@/main/bootstrap/locale';
+import { sendToRendererWindow } from '@/main/bootstrap/renderer-broadcast';
+import { showMainWindow } from '@/main/bootstrap/window-manager';
 
 vi.mock('@/main/bootstrap/window-manager', () => ({
   createChildWindow: vi.fn(),
@@ -39,6 +41,20 @@ function submenuLabels(template: TemplateEntry[], label: string): Array<string |
     .map((entry) => entry.label);
 }
 
+/** A menu's labels as its dividers group them. */
+function submenuGroups(template: TemplateEntry[], label: string): Array<Array<string | undefined>> {
+  return submenuOf(template, label)
+    .reduce<Array<Array<string | undefined>>>(
+      (groups, entry) => {
+        if (entry.type === 'separator') groups.push([]);
+        else groups[groups.length - 1].push(entry.label);
+        return groups;
+      },
+      [[]],
+    )
+    .filter((group) => group.length > 0);
+}
+
 describe('application menu labels', () => {
   it('byte-matches the shipped custom labels and leaves role items to Electron', () => {
     const spy = vi.spyOn(Menu, 'buildFromTemplate');
@@ -46,7 +62,7 @@ describe('application menu labels', () => {
     const template = capturedTemplate(spy);
 
     const topLabels = template.map((entry) => entry.label);
-    const expectedTop = ['File', 'Edit', 'View', 'Window', 'Help'];
+    const expectedTop = ['File', 'Edit', 'View', 'Window', 'Diagnostics', 'Help'];
     expect(topLabels).toEqual(isMac ? ['OpenHeaders', ...expectedTop] : expectedTop);
 
     const fileLabels = submenuLabels(template, 'File');
@@ -68,23 +84,17 @@ describe('application menu labels', () => {
     expect(windowLabels).toContain('Next Tab');
     expect(windowLabels).toContain('Previous Tab');
 
-    // Four groups, one divider between each: learn, ask or tell us,
-    // diagnose, legal — in this order, nothing between them.
-    const helpEntries = submenuOf(template, 'Help');
-    const helpGroups = helpEntries
-      .reduce<Array<Array<string | undefined>>>(
-        (groups, entry) => {
-          if (entry.type === 'separator') groups.push([]);
-          else groups[groups.length - 1].push(entry.label);
-          return groups;
-        },
-        [[]],
-      )
-      .filter((group) => group.length > 0);
-    expect(helpGroups.slice(0, 4)).toEqual([
+    // The live view, then what is saved or opened from disk.
+    expect(submenuGroups(template, 'Diagnostics')).toEqual([
+      ['Activity Monitor'],
+      ['Download Anonymized Diagnostic Bundle…', 'Open Logs Folder'],
+    ]);
+
+    // Three groups, one divider between each: learn, ask or tell us,
+    // legal — in this order, nothing between them.
+    expect(submenuGroups(template, 'Help').slice(0, 3)).toEqual([
       ['Documentation', 'Keyboard Shortcuts', 'Release Notes'],
       ['Report Issue', 'Feature Request', 'Chat with Us on Discord'],
-      ['Download Anonymized Diagnostic Bundle…', 'Open Logs Folder'],
       ['License Agreement', 'Privacy Policy'],
     ]);
     if (isMac) expect(template.find((entry) => entry.label === 'Help')?.role).toBe('help');
@@ -95,6 +105,39 @@ describe('application menu labels', () => {
       expect(appMenuLabels).toContain('Settings…');
       expect(appMenuLabels).toContain('Disable Hardware Acceleration');
     }
+  });
+
+  describe('Diagnostics › Activity Monitor', () => {
+    function clickActivityMonitor(): void {
+      const spy = vi.spyOn(Menu, 'buildFromTemplate');
+      installApplicationMenu();
+      const item = submenuOf(capturedTemplate(spy), 'Diagnostics').find((entry) => entry.label === 'Activity Monitor');
+      if (!item || typeof item.click !== 'function') throw new Error('no Activity Monitor item to click');
+      // The item reads nothing of the press — no menu item, window or event exists outside the runtime to hand it.
+      Reflect.apply(item.click, undefined, []);
+    }
+
+    it('asks the focused window to open the tool window — and reveals no other', () => {
+      const focused = new BrowserWindow();
+      const getFocused = vi.spyOn(BrowserWindow, 'getFocusedWindow').mockReturnValue(focused);
+      vi.mocked(sendToRendererWindow).mockClear();
+      vi.mocked(showMainWindow).mockClear();
+      try {
+        clickActivityMonitor();
+        expect(sendToRendererWindow).toHaveBeenCalledExactlyOnceWith(focused, 'menuCommand', {
+          command: 'openActivityMonitor',
+        });
+        expect(showMainWindow).not.toHaveBeenCalled();
+      } finally {
+        getFocused.mockRestore();
+      }
+    });
+
+    it('reveals the primary window first where none is focused', () => {
+      vi.mocked(showMainWindow).mockClear();
+      clickActivityMonitor();
+      expect(showMainWindow).toHaveBeenCalledOnce();
+    });
   });
 
   it('rebuilds with new labels when the locale changes', async () => {

@@ -1,6 +1,6 @@
 /**
  * Reveals `main.log` — the file the error funnel's lines land in — in
- * the OS file manager: the Help menu's "Open Logs Folder" and the
+ * the OS file manager: the Diagnostics menu's "Open Logs Folder" and the
  * crash dialog's "Open Logs" (the crash-and-error-reports plan §3.3).
  * Also the first caller `getLogDirectory()` ever had.
  */

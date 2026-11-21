@@ -266,7 +266,7 @@ export interface BridgeBroadcastContract {
    */
   tabNavigate: { direction: 'next' | 'previous' };
   /**
-   * Host-shell File-menu command, routed to the window the user is
+   * Host-shell menu command, routed to the window the user is
    * acting in. Emitted by the desktop main process; hosts without
    * native chrome never send it.
    *   - `newItem`  → open the +create menu
@@ -275,9 +275,18 @@ export interface BridgeBroadcastContract {
    *   - `closeTab` → close the active editor tab (dirty-confirm applies)
    *   - `saveDiagnostics` → compose and save the diagnostic bundle
    *   - `reportIssue` / `requestFeature` → open the report dialog on that kind
+   *   - `openActivityMonitor` → open the Activity Monitor tool window, or front it where it is open
    */
   menuCommand: {
-    command: 'newItem' | 'newTab' | 'import' | 'closeTab' | 'saveDiagnostics' | 'reportIssue' | 'requestFeature';
+    command:
+      | 'newItem'
+      | 'newTab'
+      | 'import'
+      | 'closeTab'
+      | 'saveDiagnostics'
+      | 'reportIssue'
+      | 'requestFeature'
+      | 'openActivityMonitor';
   };
 
   /**

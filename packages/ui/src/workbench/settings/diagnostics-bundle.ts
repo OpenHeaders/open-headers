@@ -99,7 +99,7 @@ export async function buildDiagnosticsBundle(now: () => number = Date.now): Prom
   return { filename: diagnosticsBundleFilename(parts.host, parts.generatedAt), bytes };
 }
 
-/** The Settings row's and the desktop Help menu's one action: build the bundle and hand it to the browser as a download. */
+/** The Settings row's and the desktop Diagnostics menu's one action: build the bundle and hand it to the browser as a download. */
 export async function saveDiagnosticsBundle(): Promise<void> {
   const { filename, bytes } = await buildDiagnosticsBundle();
   const url = URL.createObjectURL(new Blob([bytes as BlobPart], { type: 'application/zip' }));
