@@ -5,8 +5,8 @@ on:
     tags:
       - 'v*'
   # Dry run: manual dispatch builds desktop legs with the full stable
-  # signing path (inner OpenHeaders.exe + oh-nm-host.exe → installers →
-  # sign → re-hash → blockmap → signature checks) and uploads the
+  # signing path (the unpacked tree signed → installers packaged and
+  # signed by the builder → signature checks) and uploads the
   # artifacts — no binaries leg, no release job, nothing published.
   # `windows` builds the two Windows arches only (the signing dry run);
   # `all` builds every desktop leg.
@@ -327,7 +327,7 @@ jobs:
       # their presence as an output; missing credentials mean the
       # Setup.exe ships unsigned instead of failing the leg. Checked
       # before the build because the signed lane packages in two
-      # phases (unpacked → sign inner executables → installers).
+      # phases (unpacked → sign the tree → installers).
       - &win_sign_check_step
         name: Check Windows signing credentials
         if: runner.os == 'Windows'
@@ -361,8 +361,8 @@ jobs:
       # Signed lane, stable and beta alike: the installed binaries need
       # Authenticode too — the NM chain's host verification anchors on
       # the signed `oh-nm-host.exe`, and enterprise allow-listing wants
-      # a signed `OpenHeaders.exe`. Build unpacked first, sign the inner
-      # executables, then package the installers from the signed tree.
+      # every file signed, not only `OpenHeaders.exe`. Build unpacked
+      # first, sign the tree, then package the installers from it.
       # A beta is signed the same way so a stable install, whose
       # updater checks the signer, accepts it on a channel switch.
       - name: Build Windows unpacked (signed lane)
@@ -371,9 +371,9 @@ jobs:
         shell: bash
         run: pnpm dist:win:unsigned:dir
 
-      # The ARM leg stops at the unpacked tree: the signing action does
-      # not run on ARM runners, so the x64 job below it signs the inner
-      # executables and packages the installer from this tree. Without
+      # The ARM leg stops at the unpacked tree: signing does not run on
+      # ARM runners, so the x64 job below it signs the tree and packages
+      # the installer from it. Without
       # signing credentials the tree is built for an unsigned installer
       # (its packed app-update.yml carries no publisherName).
       - name: Build Windows ARM64 unpacked
@@ -384,80 +384,27 @@ jobs:
         env:
           OH_WIN_SETUP_UNSIGNED: ${{ steps.win_sign.outputs.enabled != 'true' && '1' || '' }}
 
-      # The four signing steps and their two checks read the unpacked
-      # folder by the leg's arch (`win-unpacked`, `win-arm64-unpacked`):
-      # the x64 leg runs them on the tree it built, the ARM packaging
-      # job on the tree the ARM leg handed over.
-      - &sign_app_step
-        name: Sign app executable
+      # Every PE file in the unpacked tree that carries no signature is
+      # signed here — the executables, the native addons, the runtime's
+      # own libraries; a file its vendor signed keeps that signature.
+      # The folder is read by the leg's arch (`win-unpacked`,
+      # `win-arm64-unpacked`): the x64 leg runs this on the tree it
+      # built, the ARM packaging job on the tree the ARM leg handed over.
+      - &sign_tree_step
+        name: Sign the unpacked tree
         if: matrix.os == 'windows-2022' && steps.win_sign.outputs.enabled == 'true'
-        uses: azure/artifact-signing-action@c7ab2a863ab5f9a846ddb8265964877ef296ee82 # v2.0.0
-        with:
-          azure-tenant-id: ${{ secrets.AZURE_TENANT_ID }}
-          azure-client-id: ${{ secrets.AZURE_CLIENT_ID }}
-          azure-client-secret: ${{ secrets.AZURE_CLIENT_SECRET }}
-          endpoint: ${{ env.WIN_SIGN_ENDPOINT }}
-          signing-account-name: ${{ env.WIN_SIGN_ACCOUNT }}
-          certificate-profile-name: ${{ env.WIN_SIGN_PROFILE }}
-          files: ${{ github.workspace }}\apps\desktop\dist\win${{ matrix.arch == 'arm64' && '-arm64' || '' }}-unpacked\OpenHeaders.exe
-          file-digest: SHA256
-          timestamp-rfc3161: http://timestamp.acs.microsoft.com
-          timestamp-digest: SHA256
+        working-directory: apps/desktop
+        shell: bash
+        run: node scripts/build/sign-windows.js "dist/win${{ matrix.arch == 'arm64' && '-arm64' || '' }}-unpacked"
+        env:
+          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
 
-      - &sign_nm_host_step
-        name: Sign NM host executable
-        if: matrix.os == 'windows-2022' && steps.win_sign.outputs.enabled == 'true'
-        uses: azure/artifact-signing-action@c7ab2a863ab5f9a846ddb8265964877ef296ee82 # v2.0.0
-        with:
-          azure-tenant-id: ${{ secrets.AZURE_TENANT_ID }}
-          azure-client-id: ${{ secrets.AZURE_CLIENT_ID }}
-          azure-client-secret: ${{ secrets.AZURE_CLIENT_SECRET }}
-          endpoint: ${{ env.WIN_SIGN_ENDPOINT }}
-          signing-account-name: ${{ env.WIN_SIGN_ACCOUNT }}
-          certificate-profile-name: ${{ env.WIN_SIGN_PROFILE }}
-          files: ${{ github.workspace }}\apps\desktop\dist\win${{ matrix.arch == 'arm64' && '-arm64' || '' }}-unpacked\resources\nm-host\oh-nm-host.exe
-          file-digest: SHA256
-          timestamp-rfc3161: http://timestamp.acs.microsoft.com
-          timestamp-digest: SHA256
-
-      # The HTTP/3 helper is a shipped executable too — SmartScreen and
-      # enterprise allow-listing want it Authenticode-signed like the
-      # other inner binaries.
-      - &sign_h3_helper_step
-        name: Sign HTTP/3 helper executable
-        if: matrix.os == 'windows-2022' && steps.win_sign.outputs.enabled == 'true'
-        uses: azure/artifact-signing-action@c7ab2a863ab5f9a846ddb8265964877ef296ee82 # v2.0.0
-        with:
-          azure-tenant-id: ${{ secrets.AZURE_TENANT_ID }}
-          azure-client-id: ${{ secrets.AZURE_CLIENT_ID }}
-          azure-client-secret: ${{ secrets.AZURE_CLIENT_SECRET }}
-          endpoint: ${{ env.WIN_SIGN_ENDPOINT }}
-          signing-account-name: ${{ env.WIN_SIGN_ACCOUNT }}
-          certificate-profile-name: ${{ env.WIN_SIGN_PROFILE }}
-          files: ${{ github.workspace }}\apps\desktop\dist\win${{ matrix.arch == 'arm64' && '-arm64' || '' }}-unpacked\resources\h3-helper\oh-h3-helper.exe
-          file-digest: SHA256
-          timestamp-rfc3161: http://timestamp.acs.microsoft.com
-          timestamp-digest: SHA256
-
-      - &verify_inner_signatures_step
-        name: Verify inner executable signatures
-        if: matrix.os == 'windows-2022' && steps.win_sign.outputs.enabled == 'true'
-        run: |
-          $unpacked = "apps/desktop/dist/win${{ matrix.arch == 'arm64' && '-arm64' || '' }}-unpacked"
-          foreach ($f in @(
-            "$unpacked/OpenHeaders.exe",
-            "$unpacked/resources/nm-host/oh-nm-host.exe",
-            "$unpacked/resources/h3-helper/oh-h3-helper.exe"
-          )) {
-            $sig = Get-AuthenticodeSignature $f
-            Write-Host "$f -> $($sig.Status)"
-            if ($sig.Status -ne 'Valid') {
-              Write-Error "Authenticode signature status for ${f}: $($sig.Status)"
-              exit 1
-            }
-          }
-        shell: pwsh
-
+      # The builder signs what only exists while it packages — the
+      # elevation helper it copies into the tree, the uninstaller, the
+      # installers — through the same script (`OH_WIN_SIGN`), and hashes
+      # each signed installer into its update pointer and blockmap.
       - name: Package installers from signed tree
         if: matrix.os == 'windows-2022' && steps.win_sign.outputs.enabled == 'true'
         working-directory: apps/desktop
@@ -468,124 +415,46 @@ jobs:
           else
             pnpm dist:win:frompacked
           fi
+        env:
+          OH_WIN_SIGN: '1'
+          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
 
-      - &find_exe_step
-        name: Find Windows Executable
-        if: matrix.os == 'windows-2022' && steps.win_sign.outputs.enabled == 'true'
-        id: find-exe
-        run: |
-          $exeFile = Get-ChildItem -Path "apps/desktop/dist" -Filter "*-Setup.exe" -File | Select-Object -First 1
-          if ($null -eq $exeFile) { Write-Error "No Setup.exe found"; exit 1 }
-          Write-Host "Found: $($exeFile.Name)"
-          echo "EXE_FILENAME=$($exeFile.Name)" >> $env:GITHUB_OUTPUT
-        shell: pwsh
-
-      - &sign_setup_step
-        name: Sign Windows Executables
-        if: matrix.os == 'windows-2022' && steps.win_sign.outputs.enabled == 'true'
-        uses: azure/artifact-signing-action@c7ab2a863ab5f9a846ddb8265964877ef296ee82 # v2.0.0
-        with:
-          azure-tenant-id: ${{ secrets.AZURE_TENANT_ID }}
-          azure-client-id: ${{ secrets.AZURE_CLIENT_ID }}
-          azure-client-secret: ${{ secrets.AZURE_CLIENT_SECRET }}
-          endpoint: ${{ env.WIN_SIGN_ENDPOINT }}
-          signing-account-name: ${{ env.WIN_SIGN_ACCOUNT }}
-          certificate-profile-name: ${{ env.WIN_SIGN_PROFILE }}
-          files: ${{ github.workspace }}\apps\desktop\dist\${{ steps.find-exe.outputs.EXE_FILENAME }}
-          file-digest: SHA256
-          timestamp-rfc3161: http://timestamp.acs.microsoft.com
-          timestamp-digest: SHA256
-
-      # The pointer is `latest.yml` on a stable version and `beta.yml`
-      # on a beta one (the builder names it after the version's
-      # channel).
-      - &rehash_pointer_step
-        name: Update latest.yml and blockmap after signing
+      # A file without a valid signature must fail the leg — publishing
+      # a broken-signed Setup.exe whose hash the feed pointer carries is
+      # worse than publishing unsigned. Read here: every PE file in the
+      # tree, the installers, and the uninstaller inside the Setup.exe.
+      - &verify_signatures_step
+        name: Verify signatures
         if: matrix.os == 'windows-2022' && steps.win_sign.outputs.enabled == 'true'
         run: |
-          $exePath = "apps/desktop/dist/${{ steps.find-exe.outputs.EXE_FILENAME }}"
-          $blockmapPath = "$exePath.blockmap"
-          $pointer = Get-ChildItem -Path "apps/desktop/dist" -File | Where-Object { $_.Name -match '^(latest|beta)\.yml$' }
-          if (@($pointer).Count -ne 1) { Write-Error "Expected one update pointer, found: $($pointer.Name -join ', ')"; exit 1 }
-          $latestYmlPath = $pointer.FullName
+          $dist = "apps/desktop/dist"
+          $unpacked = "$dist/win${{ matrix.arch == 'arm64' && '-arm64' || '' }}-unpacked"
+          $files = @(node apps/desktop/scripts/build/sign-windows.js --list $unpacked)
+          if ($LASTEXITCODE -ne 0 -or $files.Count -eq 0) { Write-Error "No PE file listed under $unpacked"; exit 1 }
 
-          $appBuilder = "apps/desktop/node_modules\app-builder-bin\win\x64\app-builder.exe"
-          if (-not (Test-Path $appBuilder)) {
-            $appBuilder = Get-ChildItem -Path "apps/desktop/node_modules" -Recurse -Filter "app-builder.exe" | Select-Object -First 1 -ExpandProperty FullName
+          $setup = @(Get-ChildItem -Path $dist -Filter "*-Setup.exe" -File)
+          if ($setup.Count -ne 1) { Write-Error "Expected one Setup.exe, found $($setup.Count)"; exit 1 }
+          $setupPath = $setup[0].FullName
+          $files += $setupPath
+          $files += @(Get-ChildItem -Path $dist -Filter "*.msi" -File | ForEach-Object { $_.FullName })
+
+          $inside = Join-Path $env:RUNNER_TEMP "setup-contents"
+          7z x $setupPath "-o$inside" -y | Out-Null
+          if ($LASTEXITCODE -ne 0) { Write-Error "Could not unpack $setupPath (7z exit $LASTEXITCODE)"; exit 1 }
+          $uninstaller = @(Get-ChildItem -LiteralPath $inside -Recurse -Filter "Uninstall*.exe" -File)
+          if ($uninstaller.Count -ne 1) { Write-Error "Expected one uninstaller in the Setup.exe, found $($uninstaller.Count)"; exit 1 }
+          $files += $uninstaller[0].FullName
+
+          $invalid = 0
+          foreach ($f in $files) {
+            $sig = Get-AuthenticodeSignature -LiteralPath $f
+            Write-Host "$($sig.Status)  $($sig.SignerCertificate.Subject)  $f"
+            if ($sig.Status -ne 'Valid') { $invalid++ }
           }
-
-          if ($appBuilder -and (Test-Path $appBuilder)) {
-            & $appBuilder blockmap --input $exePath --output $blockmapPath --compression gzip
-          }
-
-          $hash = Get-FileHash -Path $exePath -Algorithm SHA512
-          $hashBytes = [byte[]]::new($hash.Hash.Length / 2)
-          for ($i = 0; $i -lt $hash.Hash.Length; $i += 2) {
-            $hashBytes[$i / 2] = [Convert]::ToByte($hash.Hash.Substring($i, 2), 16)
-          }
-          $base64Hash = [Convert]::ToBase64String($hashBytes)
-          $fileSize = (Get-Item $exePath).Length
-
-          $content = Get-Content $latestYmlPath -Raw
-          $content = $content -replace 'sha512: [A-Za-z0-9+/=]+', "sha512: $base64Hash"
-          $content = $content -replace 'size: \d+', "size: $fileSize"
-          Set-Content -Path $latestYmlPath -Value $content -NoNewline
-        shell: pwsh
-
-      # An invalid signature must fail the leg — publishing a
-      # broken-signed Setup.exe whose hash the feed pointer carries is
-      # worse than publishing unsigned.
-      - &verify_setup_signature_step
-        name: Verify Authenticode signature
-        if: matrix.os == 'windows-2022' && steps.win_sign.outputs.enabled == 'true'
-        run: |
-          $sig = Get-AuthenticodeSignature "apps/desktop/dist/${{ steps.find-exe.outputs.EXE_FILENAME }}"
-          $sig | Format-List Status, StatusMessage
-          if ($sig.SignerCertificate) { $sig.SignerCertificate | Format-List Subject, Issuer, NotAfter }
-          if ($sig.Status -ne 'Valid') {
-            Write-Error "Authenticode signature status: $($sig.Status)"
-            exit 1
-          }
-        shell: pwsh
-
-      # The enterprise MSI rides the same signing path as Setup.exe.
-      # It carries no feed pointer, so no blockmap/hash rework — sign
-      # and verify only.
-      - name: Find Windows MSI
-        if: matrix.os == 'windows-2022' && steps.detect_beta.outputs.is_beta != 'true' && steps.win_sign.outputs.enabled == 'true'
-        id: find-msi
-        run: |
-          $msiFile = Get-ChildItem -Path "apps/desktop/dist" -Filter "*.msi" -File | Select-Object -First 1
-          if ($null -eq $msiFile) { Write-Error "No MSI found"; exit 1 }
-          Write-Host "Found: $($msiFile.Name)"
-          echo "MSI_FILENAME=$($msiFile.Name)" >> $env:GITHUB_OUTPUT
-        shell: pwsh
-
-      - name: Sign Windows MSI
-        if: matrix.os == 'windows-2022' && steps.detect_beta.outputs.is_beta != 'true' && steps.win_sign.outputs.enabled == 'true'
-        uses: azure/artifact-signing-action@c7ab2a863ab5f9a846ddb8265964877ef296ee82 # v2.0.0
-        with:
-          azure-tenant-id: ${{ secrets.AZURE_TENANT_ID }}
-          azure-client-id: ${{ secrets.AZURE_CLIENT_ID }}
-          azure-client-secret: ${{ secrets.AZURE_CLIENT_SECRET }}
-          endpoint: ${{ env.WIN_SIGN_ENDPOINT }}
-          signing-account-name: ${{ env.WIN_SIGN_ACCOUNT }}
-          certificate-profile-name: ${{ env.WIN_SIGN_PROFILE }}
-          files: ${{ github.workspace }}\apps\desktop\dist\${{ steps.find-msi.outputs.MSI_FILENAME }}
-          file-digest: SHA256
-          timestamp-rfc3161: http://timestamp.acs.microsoft.com
-          timestamp-digest: SHA256
-
-      - name: Verify MSI Authenticode signature
-        if: matrix.os == 'windows-2022' && steps.detect_beta.outputs.is_beta != 'true' && steps.win_sign.outputs.enabled == 'true'
-        run: |
-          $sig = Get-AuthenticodeSignature "apps/desktop/dist/${{ steps.find-msi.outputs.MSI_FILENAME }}"
-          $sig | Format-List Status, StatusMessage
-          if ($sig.SignerCertificate) { $sig.SignerCertificate | Format-List Subject, Issuer, NotAfter }
-          if ($sig.Status -ne 'Valid') {
-            Write-Error "Authenticode signature status: $($sig.Status)"
-            exit 1
-          }
+          if ($invalid -gt 0) { Write-Error "$invalid of $($files.Count) files carry no valid signature"; exit 1 }
+          Write-Host "All $($files.Count) signatures are valid"
         shell: pwsh
 
       # Betas ship AppImage + deb for both arches — rpm is the one
@@ -724,13 +593,13 @@ jobs:
             arch: arm64
     steps: *desktop_leg_steps
 
-  # The ARM installer is signed and packaged on x64 — the signing
-  # action does not run on ARM runners. The unpacked tree the ARM leg
-  # built (and checked on its own arch) arrives as an artifact; from
-  # there the lane is the x64 leg's own, step for step: sign the inner
-  # executables, package the installer from the signed tree, sign it,
-  # re-hash its pointer. Without signing credentials the installer is
-  # packaged unsigned. No MSI on ARM.
+  # The ARM installer is signed and packaged on x64 — signing does not
+  # run on ARM runners. The unpacked tree the ARM leg built (and checked
+  # on its own arch) arrives as an artifact; from there the lane is the
+  # x64 leg's own, step for step: sign the tree, package the installer
+  # from it with the builder signing as it goes, check every signature.
+  # Without signing credentials the installer is packaged unsigned. No
+  # MSI on ARM.
   package-desktop-windows-arm64:
     name: package-desktop
     needs: build-desktop-windows-arm64
@@ -759,20 +628,19 @@ jobs:
           name: unpacked-windows-arm64
           path: apps/desktop/dist/win-arm64-unpacked
 
-      - *sign_app_step
-      - *sign_nm_host_step
-      - *sign_h3_helper_step
-      - *verify_inner_signatures_step
+      - *sign_tree_step
 
       - name: Package the installer from the tree
         working-directory: apps/desktop
         shell: bash
         run: pnpm dist:win:frompacked:arm64
+        env:
+          OH_WIN_SIGN: ${{ steps.win_sign.outputs.enabled == 'true' && '1' || '' }}
+          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
 
-      - *find_exe_step
-      - *sign_setup_step
-      - *rehash_pointer_step
-      - *verify_setup_signature_step
+      - *verify_signatures_step
       - *upload_desktop_step
       - *upload_desktop_retry_step
 

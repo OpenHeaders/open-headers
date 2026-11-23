@@ -158,7 +158,13 @@
       ],
       "artifactName": "${productName}-${version}-Setup.${ext}",
       "icon": "build/icon.ico",
-      "forceCodeSigning": false
+      "forceCodeSigning": false,
+      "signtoolOptions": {
+        "sign": "./scripts/build/sign-windows.js",
+        "signingHashAlgorithms": [
+          "sha256"
+        ]
+      }
     },
     "mac": {
       "category": "public.app-category.developer-tools",
