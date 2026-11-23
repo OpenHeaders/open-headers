@@ -27,6 +27,8 @@
  *   #/export                 → open-export-modal
  *   #/import-modal          → open-import-modal
  *   #/migrate-modal         → open-migrate-modal
+ *   #/whats-new              → open-whats-new
+ *   #/report-issue           → open-report-issue
  *   #/workspace-vars         → open-workspace-vars
  *   #/vault                  → open-vault
  *   #/live-variables         → open-live-variables
@@ -89,6 +91,12 @@ export function hashToIntent(rawHash: string): WorkspaceIntent | null {
 
     case 'notifications':
       return buildIntent({ kind: 'open-notifications' });
+
+    case 'whats-new':
+      return buildIntent({ kind: 'open-whats-new' });
+
+    case 'report-issue':
+      return buildIntent({ kind: 'open-report-issue' });
 
     case 'edit':
       if (!rest[0]) return null;
@@ -214,6 +222,12 @@ export function intentToHash(intent: WorkspaceIntent): string {
 
     case 'open-notifications':
       return '#/notifications';
+
+    case 'open-whats-new':
+      return '#/whats-new';
+
+    case 'open-report-issue':
+      return '#/report-issue';
 
     case 'edit-rule':
       return `#/edit/${encodeSegment(intent.uid)}`;

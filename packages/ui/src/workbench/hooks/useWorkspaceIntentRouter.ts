@@ -53,6 +53,10 @@ interface UseWorkspaceIntentRouterOptions {
   openDocs: (sectionId: string) => void;
   /** `open-notifications` — activate the Notifications tool window. */
   openNotifications: () => void;
+  /** `open-whats-new` — show the What's New window. */
+  openWhatsNew: () => void;
+  /** `open-report-issue` — show the report-a-problem dialog. */
+  openReportIssue: () => void;
   openSettings: (target?: { settingKey?: string; categoryId?: string }) => void;
   openWorkspaceManager: () => void;
   openEnvironmentEdit: (uid: string, name: string, autoRename?: boolean) => void;
@@ -93,6 +97,8 @@ function isDataFreeIntent(intent: WorkspaceIntent): boolean {
     case 'open-workspace':
     case 'open-docs':
     case 'open-notifications':
+    case 'open-whats-new':
+    case 'open-report-issue':
     case 'open-settings':
     case 'open-workspace-manager':
     case 'open-workspace-vars':
@@ -150,6 +156,12 @@ export function useWorkspaceIntentRouter(options: UseWorkspaceIntentRouterOption
           return;
         case 'open-notifications':
           o.openNotifications();
+          return;
+        case 'open-whats-new':
+          o.openWhatsNew();
+          return;
+        case 'open-report-issue':
+          o.openReportIssue();
           return;
         case 'open-settings': {
           const target = intent.target;
@@ -302,6 +314,8 @@ export function useWorkspaceIntentRouter(options: UseWorkspaceIntentRouterOption
       case 'open-workspace':
       case 'open-docs':
       case 'open-notifications':
+      case 'open-whats-new':
+      case 'open-report-issue':
       case 'open-settings':
       case 'open-workspace-manager':
       case 'open-workspace-vars':

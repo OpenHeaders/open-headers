@@ -1057,6 +1057,8 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
     openExportModal: () => importExportRef.current?.openExportModal({ kind: 'workspace' }),
     openImportModal: () => importExportRef.current?.openImportSource(),
     openMigrateModal: () => importExportRef.current?.openMigrateTool(),
+    openWhatsNew,
+    openReportIssue: () => openReportIssueDialog('bug'),
   });
 
   // ── Sync tab labels with rule/template changes; close on delete ─

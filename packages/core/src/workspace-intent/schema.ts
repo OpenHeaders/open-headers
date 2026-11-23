@@ -57,6 +57,16 @@ export const OpenNotificationsIntentSchema = v.object({
   kind: v.literal('open-notifications'),
 });
 
+/** Open (or focus) the workbench and show the What's New window. */
+export const OpenWhatsNewIntentSchema = v.object({
+  kind: v.literal('open-whats-new'),
+});
+
+/** Open (or focus) the workbench and show the report-a-problem dialog. */
+export const OpenReportIssueIntentSchema = v.object({
+  kind: v.literal('open-report-issue'),
+});
+
 export const EditRuleIntentSchema = v.object({
   kind: v.literal('edit-rule'),
   uid: UidSchema,
@@ -225,6 +235,8 @@ export const WorkspaceIntentSchema = v.variant('kind', [
   OpenWorkspaceIntentSchema,
   OpenDocsIntentSchema,
   OpenNotificationsIntentSchema,
+  OpenWhatsNewIntentSchema,
+  OpenReportIssueIntentSchema,
   EditRuleIntentSchema,
   CreateRuleIntentSchema,
   EditEnvironmentIntentSchema,
@@ -258,6 +270,8 @@ export const WORKSPACE_INTENT_KINDS = [
   'open-workspace',
   'open-docs',
   'open-notifications',
+  'open-whats-new',
+  'open-report-issue',
   'edit-rule',
   'create-rule',
   'edit-environment',
