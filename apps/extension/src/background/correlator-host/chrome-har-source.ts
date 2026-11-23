@@ -12,8 +12,8 @@
  * registers a `chrome.runtime.onConnect` listener for the same port
  * name. Chrome dispatches both listeners on every connect with the
  * same `Port` object; each adapter consumes a disjoint subset of
- * {@link HarSourceMessage} (this one reads `har` / `har-body`, the
- * bridge reads `nav` / `nav-timing`). Single-purpose adapters by
+ * {@link HarSourceMessage} (this one reads `har` / `har-body` /
+ * `har-feed-absent`, the bridge reads `nav` / `nav-timing`). Single-purpose adapters by
  * design — no shared state, no ordering coupling.
  *
  * Cross-browser: uses `getBrowserAPI()` for Firefox/Chrome/Safari/Edge.
@@ -32,10 +32,12 @@ import { isExtensionOriginPort } from '../port-origin-gate';
 
 type HarListener = (event: HarEvent) => void;
 type PresenceListener = (event: HarPresenceEvent) => void;
+type FeedAbsentListener = (tabId: number) => void;
 
 export class ChromeHarEventSource implements HarEventSource, HarPresenceSource {
   private readonly harListeners = new Set<HarListener>();
   private readonly presenceListeners = new Set<PresenceListener>();
+  private readonly feedAbsentListeners = new Set<FeedAbsentListener>();
   private readonly removeOnConnect: (() => void) | null;
 
   constructor() {
@@ -56,11 +58,23 @@ export class ChromeHarEventSource implements HarEventSource, HarPresenceSource {
     };
   }
 
+  /**
+   * A tab's devtools page declared its host has no finished-request feed
+   * (`har-feed-absent`) — no `har` frame will ever arrive for that tab.
+   */
+  subscribeFeedAbsent(listener: FeedAbsentListener): () => void {
+    this.feedAbsentListeners.add(listener);
+    return () => {
+      this.feedAbsentListeners.delete(listener);
+    };
+  }
+
   /** Tear down the chrome listener. Tests / SW shutdown only. */
   dispose(): void {
     if (this.removeOnConnect) this.removeOnConnect();
     this.harListeners.clear();
     this.presenceListeners.clear();
+    this.feedAbsentListeners.clear();
   }
 
   private installOnConnect(): (() => void) | null {
@@ -113,6 +127,10 @@ export class ChromeHarEventSource implements HarEventSource, HarPresenceSource {
           encoding: msg.encoding ?? '',
         },
       });
+      return;
+    }
+    if (msg.type === 'har-feed-absent') {
+      for (const listener of this.feedAbsentListeners) listener(tabId);
       return;
     }
     // `nav` and `nav-timing` are not lifecycle-relevant — drop here.

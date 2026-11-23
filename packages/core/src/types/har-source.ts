@@ -374,7 +374,13 @@ export type HarSourceMessage =
        */
       navigation?: ResourceTimingEntry;
     }
-  | { type: 'session'; token: string; openedAtWallMs: number };
+  | { type: 'session'; token: string; openedAtWallMs: number }
+  /**
+   * The host gives its devtools page no finished-request feed, so no `har`
+   * frame will ever follow on this port. Posted after `session` on every
+   * (re)connect by such a host only.
+   */
+  | { type: 'har-feed-absent' };
 
 /** Channel-name prefix for the devtools_page HAR source port. */
 export const HAR_SOURCE_PORT_PREFIX = 'devtools-har-source:';

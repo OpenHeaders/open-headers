@@ -248,6 +248,22 @@ describe('startResourceTimingRelay — chrome wiring', () => {
     expect(panel.posted).toHaveLength(0);
   });
 
+  it('keeps the snapshots of a source that declared no finished-request feed away from the panel', () => {
+    startResourceTimingRelay();
+    const panel = fakePort('oh-rt:5');
+    connect(panel);
+    panel.posted.length = 0;
+
+    const source = fakePort('devtools-har-source:5');
+    connect(source);
+    for (const fn of source.messageListeners) fn({ type: 'har-feed-absent' });
+    for (const fn of source.messageListeners) {
+      fn({ type: 'resource-timing', timeOriginMs: 1000, entries: [entry('https://openheaders.io/a.js')] });
+    }
+
+    expect(panel.posted).toHaveLength(0);
+  });
+
   it('stops forwarding to a panel port after it disconnects', () => {
     startResourceTimingRelay();
     const panel = fakePort('oh-rt:5');

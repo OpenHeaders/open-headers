@@ -93,6 +93,9 @@ export function startLifecycleHost(options: LifecycleHostOptions): LifecycleHost
     },
     diagnostics,
   );
+  // A host whose devtools page has no finished-request feed says so per tab;
+  // that tab's rows then carry the sizes the page and the wire recorded.
+  const unsubscribeFeedAbsent = harSource.subscribeFeedAbsent((tabId) => correlator.noteHarFeedAbsent(tabId));
   const cdpCorrelator = new CdpCorrelator(debuggerSource);
   const store = new RequestLifecycleStore({
     redact: options.redact,
@@ -166,6 +169,7 @@ export function startLifecycleHost(options: LifecycleHostOptions): LifecycleHost
       if (harGcTimer !== undefined) clearTimeout(harGcTimer);
       unsubscribeHarGcPump();
       unsubscribeWebRequestGcPump();
+      unsubscribeFeedAbsent();
       detachBridge();
       correlator.dispose();
       cdpCorrelator.dispose();

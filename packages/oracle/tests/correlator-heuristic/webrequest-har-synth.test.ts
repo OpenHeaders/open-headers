@@ -103,6 +103,22 @@ describe('partialHarEntry — headers-received shape (no terminal)', () => {
     expect(har.time).toBeUndefined();
   });
 
+  it('carries only the sizes it is handed, each on its own field', () => {
+    const full = partialHarEntry(SEED, RESPONSE, undefined, undefined, {
+      transferSize: 30_357,
+      bodySize: 30_057,
+      contentSize: 125_253,
+    });
+    expect(full.response?._transferSize).toBe(30_357);
+    expect(full.response?.bodySize).toBe(30_057);
+    expect(full.response?.content.size).toBe(125_253);
+    const bodyOnly = partialHarEntry(SEED, RESPONSE, undefined, undefined, { bodySize: 2_048 });
+    expect(bodyOnly.response?._transferSize).toBeUndefined();
+    expect(bodyOnly.response?.bodySize).toBe(2_048);
+    expect(bodyOnly.response?.content.size).toBe(0);
+    expect(bodyOnly.request?.headersSize).toBe(-1);
+  });
+
   it('stamps the hop start as startedDateTime and leaves the terminal fields clean', () => {
     expect(har.startedDateTime).toBe(new Date(STARTED_AT_MS).toISOString());
     expect(har.serverIPAddress).toBe('');

@@ -221,6 +221,16 @@ export class HeuristicCorrelator implements RequestCorrelator {
     this.pendingOverrides.delete(tabId);
   }
 
+  /**
+   * The tab's host declared it has no finished-request feed: no devtools
+   * HAR will ever join this tab's rows, so their partial entries are final
+   * and carry the byte counts the page and the wire recorded. Holds until
+   * the tab detaches.
+   */
+  noteHarFeedAbsent(tabId: number): void {
+    this.partialHar.noteHarFeedAbsent(tabId);
+  }
+
   subscribe(listener: RequestLifecycleListener): Unsubscribe {
     this.listeners.add(listener);
     return () => {

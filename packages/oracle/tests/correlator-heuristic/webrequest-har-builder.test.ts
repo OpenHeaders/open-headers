@@ -494,6 +494,132 @@ describe('WebRequestHarBuilder — Resource Timing join', () => {
   });
 });
 
+describe('WebRequestHarBuilder — sizes on a tab with no finished-request feed', () => {
+  const LENGTH = { name: 'Content-Length', value: '2048' };
+  const TYPE = { name: 'Content-Type', value: 'text/html' };
+
+  function lastHar(updates: readonly RequestLifecycleUpdate[]) {
+    const last = harAttached(updates).at(-1);
+    if (last?.kind !== 'har-attached') throw new Error('expected har-attached');
+    return last.har;
+  }
+
+  function feedless(): WebRequestHarBuilder {
+    const builder = new WebRequestHarBuilder();
+    builder.noteHarFeedAbsent(TAB);
+    return builder;
+  }
+
+  it('a tab that never declared it keeps every partial size-less, whatever the page and the wire recorded', () => {
+    const builder = new WebRequestHarBuilder();
+    const har = lastHar(
+      observeAll(builder, [start(), sendHeaders(), headersReceived({ responseHeaders: [TYPE, LENGTH] }), completed()]),
+    );
+    expect(har.response?._transferSize).toBeUndefined();
+    expect(har.response?.bodySize).toBe(-1);
+    expect(har.response?.content.size).toBe(0);
+    // The page's sizes change nothing either: the join re-emits for the
+    // timing ladder alone.
+    const sized = rtEntry({ transferSize: 30_357, encodedBodySize: 30_057, decodedBodySize: 125_253 });
+    const joined = lastHar(builder.observeResourceTiming(snapshot([], sized)));
+    expect(joined.response?._transferSize).toBeUndefined();
+    expect(joined.response?.bodySize).toBe(-1);
+    expect(joined.response?.content.size).toBe(0);
+  });
+
+  it("takes the page's own record when it exposes one", () => {
+    const builder = feedless();
+    observeAll(builder, [start(), sendHeaders(), headersReceived(), completed()]);
+    const sized = rtEntry({ transferSize: 30_357, encodedBodySize: 30_057, decodedBodySize: 125_253 });
+    const har = lastHar(builder.observeResourceTiming(snapshot([], sized)));
+    expect(har.response?._transferSize).toBe(30_357);
+    expect(har.response?.bodySize).toBe(30_057);
+    expect(har.response?.content.size).toBe(125_253);
+    expect(har._ohEntrySource).toBe('webrequest-partial');
+  });
+
+  it('re-emits when only the sizes changed on the paired entry', () => {
+    const builder = feedless();
+    observeAll(builder, [start(), sendHeaders(), headersReceived(), completed()]);
+    expect(harAttached(builder.observeResourceTiming(snapshot([], rtEntry({ transferSize: 0 }))))).toHaveLength(1);
+    const sized = rtEntry({ transferSize: 30_357, encodedBodySize: 30_057, decodedBodySize: 125_253 });
+    const refreshed = harAttached(builder.observeResourceTiming(snapshot([], sized)));
+    expect(refreshed).toHaveLength(1);
+    expect(builder.observeResourceTiming(snapshot([], sized))).toHaveLength(0);
+  });
+
+  it('falls back to the declared body length once the hop completes', () => {
+    const builder = feedless();
+    const atHeaders = lastHar(
+      observeAll(builder, [start(), sendHeaders(), headersReceived({ responseHeaders: [TYPE, LENGTH] })]),
+    );
+    // Nothing has been delivered yet — the declared length is not a count.
+    expect(atHeaders.response?.bodySize).toBe(-1);
+    const done = lastHar(builder.observe(completed()));
+    expect(done.response?.bodySize).toBe(2_048);
+    expect(done.response?.content.size).toBe(2_048);
+    expect(done.response?._transferSize).toBeUndefined();
+  });
+
+  it('leaves the decoded size unknown when the body travelled encoded', () => {
+    const builder = feedless();
+    const gzip = { name: 'content-encoding', value: 'gzip' };
+    observeAll(builder, [start(), sendHeaders(), headersReceived({ responseHeaders: [TYPE, LENGTH, gzip] })]);
+    const done = lastHar(builder.observe(completed()));
+    expect(done.response?.bodySize).toBe(2_048);
+    expect(done.response?.content.size).toBe(0);
+  });
+
+  it('a page entry hidden by the Timing-Allow-Origin check leaves the declared length standing', () => {
+    const builder = feedless();
+    observeAll(builder, [start(), sendHeaders(), headersReceived({ responseHeaders: [TYPE, LENGTH] }), completed()]);
+    const hidden = rtEntry({ transferSize: 0, requestStart: 0 });
+    expect(builder.observeResourceTiming(snapshot([], hidden))).toHaveLength(0);
+  });
+
+  it.each([
+    [
+      'a HEAD request',
+      () => [
+        start({ method: 'HEAD' }),
+        headersReceived({ method: 'HEAD', responseHeaders: [LENGTH] }),
+        completed({ method: 'HEAD' }),
+      ],
+    ],
+    [
+      'a 304',
+      () => [start(), headersReceived({ statusCode: 304, responseHeaders: [LENGTH] }), completed({ statusCode: 304 })],
+    ],
+    [
+      'a 204',
+      () => [start(), headersReceived({ statusCode: 204, responseHeaders: [LENGTH] }), completed({ statusCode: 204 })],
+    ],
+    [
+      'a cache-served hop',
+      () => [start(), headersReceived({ responseHeaders: [LENGTH] }), completed({ fromCache: true })],
+    ],
+    ['a failed hop', () => [start(), headersReceived({ responseHeaders: [LENGTH] }), errorOccurred()]],
+    [
+      'a malformed length',
+      () => [start(), headersReceived({ responseHeaders: [{ name: 'Content-Length', value: '12, 12' }] }), completed()],
+    ],
+  ] as const)('declares no size for %s', (_label, events) => {
+    const har = lastHar(observeAll(feedless(), events()));
+    expect(har.response?.bodySize).toBe(-1);
+    expect(har.response?.content.size).toBe(0);
+    expect(har.response?._transferSize).toBeUndefined();
+  });
+
+  it('forgetTab drops the declaration with the tab', () => {
+    const builder = feedless();
+    builder.forgetTab(TAB);
+    const har = lastHar(
+      observeAll(builder, [start(), sendHeaders(), headersReceived({ responseHeaders: [TYPE, LENGTH] }), completed()]),
+    );
+    expect(har.response?.bodySize).toBe(-1);
+  });
+});
+
 describe('WebRequestHarBuilder — bookkeeping', () => {
   it('forgetTab drops all state', () => {
     const builder = new WebRequestHarBuilder();

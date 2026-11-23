@@ -17,7 +17,10 @@
  * the wire events, the server IP and failure code from the hop's terminal
  * event. No sizes are invented — webRequest reports no byte counts, so
  * `_transferSize` stays absent (the Size column reads honestly empty) and
- * `content.size`/`bodySize` carry the exporter's unknown markers.
+ * `content.size`/`bodySize` carry the exporter's unknown markers. The one
+ * exception is a hop whose devtools entry can never arrive (the host has
+ * no finished-request feed): its builder passes {@link PartialHarSizes},
+ * each count a recorded fact.
  *
  * List-native on purpose: webRequest headers arrive as an ordered array
  * with duplicates intact (each `Set-Cookie` its own entry), which is
@@ -64,6 +67,20 @@ export interface PartialHarTiming {
   readonly timings: InspectorHarTimings;
   /** The body never finished downloading — the not-finished caution. */
   readonly responseBodyIncomplete?: boolean;
+}
+
+/**
+ * Byte counts for a hop on a host with no finished-request feed — the
+ * page's own record of the response, or the length the server declared
+ * for a response that completed. A count nothing recorded stays absent.
+ */
+export interface PartialHarSizes {
+  /** Wire bytes for the response — HAR `_transferSize`. */
+  readonly transferSize?: number;
+  /** Encoded body bytes — HAR `bodySize`. */
+  readonly bodySize?: number;
+  /** Decoded body bytes — HAR `content.size`. */
+  readonly contentSize?: number;
 }
 
 /**
@@ -180,7 +197,8 @@ function webRequestTypeToHarResourceType(type: string): string {
  * at the hop's terminal event with `serverIPAddress`, `_error` and the
  * total `time`, and re-emitted once more when the page's Resource Timing
  * legs join. Sizes follow the exporter's unknown conventions
- * (`headersSize`/`bodySize` `-1`, `content.size` `0`); the `timings`
+ * (`headersSize`/`bodySize` `-1`, `content.size` `0`) unless `sizes`
+ * supplies a recorded count; the `timings`
  * block carries only host-recorded instants — the webRequest floor or
  * the page-recorded connection ladder, never an invented leg.
  */
@@ -189,6 +207,7 @@ export function partialHarEntry(
   response: PartialHarResponse,
   terminal?: PartialHarTerminal,
   timing?: PartialHarTiming,
+  sizes?: PartialHarSizes,
 ): InspectorHarEntry {
   const requestCookies = parseRequestCookieList(seed.requestHeaders);
   const responseCookies = parseResponseCookieList(response.responseHeaders);
@@ -225,12 +244,13 @@ export function partialHarEntry(
       headers: toHarHeaders(response.responseHeaders),
       ...(responseCookies !== undefined ? { cookies: responseCookies } : {}),
       content: {
-        size: 0,
+        size: sizes?.contentSize ?? 0,
         mimeType: mimeFromContentType(findHeader(response.responseHeaders, 'Content-Type')),
       },
       redirectURL: location ?? '',
       headersSize: -1,
-      bodySize: -1,
+      bodySize: sizes?.bodySize ?? -1,
+      ...(sizes?.transferSize !== undefined ? { _transferSize: sizes.transferSize } : {}),
       _error: terminal?.error ?? null,
       ...(timing?.responseBodyIncomplete === true ? { _responseBodyIncomplete: true } : {}),
     },

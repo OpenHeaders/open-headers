@@ -139,6 +139,9 @@ function ensurePort(): chrome.runtime.Port {
   // session before ingesting anything.
   try {
     next.postMessage({ type: 'session', token: sessionToken, openedAtWallMs });
+    // Safari has no finished-request feed: tell the background no `har`
+    // frame will follow, so this tab's rows are final as webRequest built them.
+    if (!chrome.devtools.network.onRequestFinished) next.postMessage({ type: 'har-feed-absent' });
   } catch {
     port = null;
   }

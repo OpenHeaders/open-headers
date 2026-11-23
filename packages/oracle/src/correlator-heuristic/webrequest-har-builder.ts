@@ -49,9 +49,15 @@
 import type { RequestLifecycleUpdate } from '@openheaders/core/request-lifecycle';
 import type { ResourceTimingEntry } from '@openheaders/core/resource-timing';
 
+import { extractHeader } from './cors-classifier';
 import type { WebRequestEvent, WebRequestHeader } from './events';
 import type { ResourceTimingSnapshotEvent } from './resource-timing-events';
-import { type PartialHarTerminal, type PartialHarTiming, partialHarEntry } from './webrequest-har-synth';
+import {
+  type PartialHarSizes,
+  type PartialHarTerminal,
+  type PartialHarTiming,
+  partialHarEntry,
+} from './webrequest-har-synth';
 import { floorHarTimings, isResponseBodyIncomplete, resourceTimingHarTimings } from './webrequest-har-timings';
 
 /** Per-tab cap on concurrently-tracked requests — `HopCursor`-style bound. */
@@ -99,6 +105,8 @@ interface PartialHarState {
   };
   /** Hop terminal facts — kept so an RT join can re-emit refined. */
   terminal?: PartialHarTerminal;
+  /** The hop completed from a cache — nothing crossed the wire for it. */
+  fromCache?: boolean;
   /** The joined Resource Timing entry + its clock, sticky per request. */
   rt?: { readonly entry: ResourceTimingEntry; readonly timeOriginMs: number; readonly key: string };
   /** Serialized timing of the last emission — the re-emit change gate. */
@@ -121,8 +129,46 @@ function rtEntryKey(entry: ResourceTimingEntry, isNavigation: boolean): string {
   return `${isNavigation ? 'n' : 'r'}#${entry.startTime}#${entry.name}`;
 }
 
+/**
+ * The body length the server declared, for a hop that completed off the
+ * network with a body: the framing guarantees a completed response
+ * delivered exactly that many encoded bytes. The decoded size equals it
+ * only when the body travelled unencoded.
+ */
+function declaredBodySizes(state: PartialHarState): PartialHarSizes | undefined {
+  const { response, terminal } = state;
+  if (response === undefined || terminal === undefined || terminal.error !== undefined) return undefined;
+  if (state.fromCache === true || state.method.toUpperCase() === 'HEAD') return undefined;
+  const status = response.statusCode;
+  if (status < 200 || status === 204 || status === 304) return undefined;
+  const declared = extractHeader(response.responseHeaders, 'Content-Length')?.trim();
+  if (declared === undefined || !/^\d+$/.test(declared)) return undefined;
+  const bodySize = Number(declared);
+  const encoding = extractHeader(response.responseHeaders, 'Content-Encoding')?.trim().toLowerCase();
+  const encoded = encoding !== undefined && encoding !== '' && encoding !== 'identity';
+  return encoded ? { bodySize } : { bodySize, contentSize: bodySize };
+}
+
+/** The re-emit change gate's key: the timing block, plus sizes where a hop carries them. */
+function emissionKey(timing: PartialHarTiming | undefined, sizes: PartialHarSizes | undefined): string {
+  const timingJson = JSON.stringify(timing ?? null);
+  return sizes === undefined ? timingJson : timingJson + JSON.stringify(sizes);
+}
+
 export class WebRequestHarBuilder {
   private readonly perTab = new Map<number, Map<string, PartialHarState>>();
+  /** Tabs whose host declared no finished-request feed — see {@link noteHarFeedAbsent}. */
+  private readonly harFeedAbsent = new Set<number>();
+
+  /**
+   * The tab's host has no finished-request feed, so no devtools HAR will
+   * ever supersede its partial entries. From here its hops carry the byte
+   * counts something recorded (the page's own timing entry, else the
+   * declared body length); every other tab's partials stay size-less.
+   */
+  noteHarFeedAbsent(tabId: number): void {
+    this.harFeedAbsent.add(tabId);
+  }
 
   /**
    * Fold one webRequest event into the per-hop state and return the
@@ -200,6 +246,7 @@ export class WebRequestHarBuilder {
         delete state.headersReceivedAtMs;
         delete state.response;
         delete state.terminal;
+        delete state.fromCache;
         delete state.rt;
         delete state.lastTimingJson;
         return updates;
@@ -211,6 +258,7 @@ export class WebRequestHarBuilder {
           completedAtMs: event.timeStamp,
           ...(event.ip !== undefined ? { ip: event.ip } : {}),
         };
+        if (event.fromCache === true) state.fromCache = true;
         // Retained (not forgotten) so the next Resource Timing snapshot
         // can still upgrade the floor block; `gc` ages the state out.
         return this.emitRefined(event.tabId, event.requestId, state);
@@ -297,6 +345,7 @@ export class WebRequestHarBuilder {
   /** Drop all state for a tab — invariant 2 (lifecycles die with the tab). */
   forgetTab(tabId: number): void {
     this.perTab.delete(tabId);
+    this.harFeedAbsent.delete(tabId);
   }
 
   /** Total tracked requests across all tabs — test helper. */
@@ -360,14 +409,29 @@ export class WebRequestHarBuilder {
     return { timings: ladder, ...(incomplete ? { responseBodyIncomplete: true } : {}) };
   }
 
-  /** Re-emit the refined partial only when its timing block changed. */
+  /**
+   * The hop's byte counts — only on a tab with no finished-request feed.
+   * The page's own record wins when it exposes one (a cross-origin entry
+   * that fails the Timing-Allow-Origin check reads all zeros); else the
+   * declared body length of a completed response.
+   */
+  private sizesFor(tabId: number, state: PartialHarState): PartialHarSizes | undefined {
+    if (!this.harFeedAbsent.has(tabId)) return undefined;
+    const page = state.rt?.entry;
+    if (page !== undefined && (page.transferSize > 0 || page.encodedBodySize > 0 || page.decodedBodySize > 0)) {
+      return { transferSize: page.transferSize, bodySize: page.encodedBodySize, contentSize: page.decodedBodySize };
+    }
+    return declaredBodySizes(state);
+  }
+
+  /** Re-emit the refined partial only when its timing block (or its sizes) changed. */
   private emitIfTimingChanged(
     tabId: number,
     requestId: string,
     state: PartialHarState,
   ): readonly RequestLifecycleUpdate[] {
     const timing = this.timingFor(state);
-    const json = JSON.stringify(timing ?? null);
+    const json = emissionKey(timing, this.sizesFor(tabId, state));
     if (json === state.lastTimingJson) return [];
     return this.emitRefined(tabId, requestId, state, timing, json);
   }
@@ -384,7 +448,8 @@ export class WebRequestHarBuilder {
     // failure HAR, when one exists, carries the full entry.
     if (state.superseded || state.response === undefined) return [];
     const resolvedTiming = timing ?? this.timingFor(state);
-    state.lastTimingJson = timingJson ?? JSON.stringify(resolvedTiming ?? null);
+    const sizes = this.sizesFor(tabId, state);
+    state.lastTimingJson = timingJson ?? emissionKey(resolvedTiming, sizes);
     const har = partialHarEntry(
       {
         startedAtMs: state.startedAtMs,
@@ -395,6 +460,7 @@ export class WebRequestHarBuilder {
       state.response,
       state.terminal,
       resolvedTiming,
+      sizes,
     );
     return [{ kind: 'har-attached', tabId, requestId, hopIndex: state.hopIndex, har }];
   }

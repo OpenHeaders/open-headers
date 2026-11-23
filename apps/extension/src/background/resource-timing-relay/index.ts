@@ -9,7 +9,8 @@
  *     from which we read `resource-timing` snapshots. This port name is
  *     shared with the HAR adapter and the nav bridge; chrome dispatches
  *     the same `Port` to every listener, and each consumes a disjoint
- *     subset of `HarSourceMessage` (we take only `resource-timing`).
+ *     subset of `HarSourceMessage` (we take only `resource-timing`, and
+ *     heed `har-feed-absent`).
  */
 
 import { parseResourceTimingPortName } from '@openheaders/core/resource-timing';
@@ -65,7 +66,17 @@ export function startResourceTimingRelay(options: ResourceTimingRelayHostOptions
     const sourceTabId = parseHarSourcePortName(port.name);
     if (sourceTabId === null) return;
     if (!isExtensionOriginPort(port, 'ResourceTimingRelay')) return;
+    // The panel reads a page-timing entry with no row as a memory-cache
+    // hit. That holds only where the wire feed sees every network request;
+    // a host that declares no finished-request feed also reports requests
+    // for granted hosts alone, so its snapshots never reach the panel.
+    let harFeedAbsent = false;
     port.onMessage.addListener((msg: HarSourceMessage) => {
+      if (msg?.type === 'har-feed-absent') {
+        harFeedAbsent = true;
+        return;
+      }
+      if (harFeedAbsent) return;
       if (msg?.type === 'resource-timing' && typeof msg.timeOriginMs === 'number' && Array.isArray(msg.entries)) {
         relay.notifySnapshot(sourceTabId, msg.timeOriginMs, msg.entries);
       }
