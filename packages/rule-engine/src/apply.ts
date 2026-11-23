@@ -50,7 +50,7 @@ export function applyDynamicRules(dnr: DnrClient | null, newRules: DnrRule[]): P
     })
     .catch((e: Error): ApplyResult => {
       const error = e.message || 'Unknown error';
-      logger.error('DnrEngine', 'Error updating dynamic rules:', error);
+      logger.warn('DnrEngine', 'Error updating dynamic rules:', error);
       return { ok: false, error };
     });
 }
@@ -85,7 +85,7 @@ export function applySessionRules(dnr: DnrClient | null, newRules: DnrRule[]): P
     })
     .catch((e: Error): ApplyResult => {
       const error = e.message || 'Unknown error';
-      logger.error('DnrEngine', 'Error updating session rules:', error);
+      logger.warn('DnrEngine', 'Error updating session rules:', error);
       return { ok: false, error };
     });
 }

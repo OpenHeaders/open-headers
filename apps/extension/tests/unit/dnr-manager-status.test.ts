@@ -200,6 +200,24 @@ describe('dnr-manager Status reporting (rules subsystem)', () => {
     expect(entry?.context?.layer).toBe('session');
   });
 
+  it('logs a refused update as a warning — the Status carries the failure, the error stream stays clean', async () => {
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const consoleWarn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      mockUpdateDynamicRules.mockRejectedValueOnce(new Error('The header `x-debug` is not recognized.'));
+      mockUpdateSessionRules.mockRejectedValueOnce(new Error('session layer down'));
+      await applyAllRulesAsync();
+      expect(rulesSnapshot()?.state).toBe('red');
+      expect(consoleError).not.toHaveBeenCalled();
+      const warned = consoleWarn.mock.calls.map((args) => args.slice(1).join(' '));
+      expect(warned).toContain('Error updating dynamic rules: The header `x-debug` is not recognized.');
+      expect(warned).toContain('Error updating session rules: session layer down');
+    } finally {
+      consoleError.mockRestore();
+      consoleWarn.mockRestore();
+    }
+  });
+
   it('reports yellow with dropped count when rule cap is exceeded', async () => {
     mockGetSetting.mockImplementation((key: string) => {
       if (key === 'rulesEngine.maxActiveRules') return 1;
