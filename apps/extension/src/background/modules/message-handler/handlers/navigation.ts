@@ -4,6 +4,7 @@ import type { ViewMode } from '@openheaders/core/types';
 import { runtime as browserRuntime, tabs } from '@utils/browser-api';
 import { logger } from '@utils/logger';
 import { getViewModeController } from '@/background/view-mode/controller';
+import { getBrowserAPI } from '@/types/browser';
 import { wsRequest } from '../../../ws-request';
 import { openWorkspaceIntent } from '../../workspace/workspace-navigator';
 import type { HandlerMap } from '../types';
@@ -54,6 +55,22 @@ export const navigationHandlers: HandlerMap = {
       .catch((error: Error) => {
         logger.info('ViewMode', 'switchViewMode rpc failed:', error.message);
         respond({ opened: false });
+      });
+    return true;
+  },
+
+  reloadTab: ({ message, respond }) => {
+    const tabId = message.tabId;
+    if (typeof tabId !== 'number' || tabId < 0) {
+      respond({ ok: false });
+      return true;
+    }
+    getBrowserAPI()
+      .tabs.reload(tabId)
+      .then(() => respond({ ok: true }))
+      .catch((error: Error) => {
+        logger.info('Navigation', `reload of tab ${tabId} failed:`, error.message);
+        respond({ ok: false });
       });
     return true;
   },

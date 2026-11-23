@@ -89,4 +89,12 @@ export interface NavigationRpc {
     req: { next: ViewMode; source: ViewMode | null; windowId?: number; tabId?: number };
     res: { opened: boolean };
   };
+
+  // ── Tab reload ───────────────────────────────────────────────
+  // Reload one tab from the background, for a surface that cannot reload
+  // the tab it inspects itself (Safari's panel frame is not bound to it).
+  reloadTab: {
+    req: { tabId: number };
+    res: { ok: boolean };
+  };
 }

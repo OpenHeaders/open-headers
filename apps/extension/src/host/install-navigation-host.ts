@@ -27,6 +27,7 @@ import { selectViewModeAdapter } from '@/background/view-mode/select-adapter';
 import { getBrowserAPI } from '@/types/browser';
 import { isFirefox } from '@/utils/browser-runtime';
 import { inspectedTabId } from './inspected-tab-id';
+import { reloadInspectedTab } from './reload-inspected-tab';
 
 /**
  * Renderer-side view-mode transition.
@@ -207,16 +208,6 @@ function observeActiveTabContext(onChange: () => void): () => void {
     browserAPI.tabs.onActivated.removeListener(onChange);
     browserAPI.storage.onChanged.removeListener(onChange);
   };
-}
-
-/**
- * Reload the inspected page via `chrome.devtools.inspectedWindow.reload`.
- * No-ops outside a DevTools context — `chrome.devtools` is absent in the
- * popup, side panel, and tests.
- */
-function reloadInspectedTab(): void {
-  const devtools = (chrome as unknown as { devtools?: { inspectedWindow?: { reload?: () => void } } }).devtools;
-  devtools?.inspectedWindow?.reload?.();
 }
 
 /**
