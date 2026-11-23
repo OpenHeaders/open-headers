@@ -32,6 +32,11 @@ const { execFileSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 
+// A package is read here as files on disk. Under the desktop's own
+// runtime `fs` opens an .asar as an archive instead; plain Node has no
+// such switch and ignores this one.
+process.noAsar = true;
+
 const SIGNING_ENV = [
   'AZURE_TENANT_ID',
   'AZURE_CLIENT_ID',
