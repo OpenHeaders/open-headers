@@ -106,6 +106,7 @@ export const panelInspector = {
   'panel.inspector.bodyState.nothingToPreviewTitle': 'Rien à prévisualiser',
   'panel.inspector.bodyState.noResponseDetail': "Cette requête n'a aucune donnée de réponse disponible",
   'panel.inspector.bodyState.failedTitle': 'Échec du chargement des données de réponse',
+  'panel.inspector.bodyState.notAvailableTitle': 'Corps de réponse indisponible',
   'panel.inspector.bodyState.emptyTitle': '(corps de réponse vide)',
   'panel.inspector.bodyState.emptyDetail': 'Le serveur a renvoyé un corps vide.',
   'panel.inspector.bodyState.binaryPayloadBytes': 'Charge utile binaire ({count} octets).',
@@ -121,6 +122,9 @@ export const panelInspector = {
   'panel.inspector.bodyState.unavailable.cache':
     "Corps indisponible — la réponse a été servie depuis le cache avant l'ouverture des DevTools",
   'panel.inspector.bodyState.unavailable.redirect': 'Aucun contenu disponible car cette requête a été redirigée',
+  'panel.inspector.bodyState.unavailable.host':
+    'Ce navigateur ne partage pas les corps de réponse avec les extensions. Ils sont disponibles dans Chrome, ' +
+    'Edge et Firefox.',
   'panel.inspector.bodyState.unavailable.unknown':
     "Corps non capturé. L'hôte n'a renvoyé aucun contenu — la réponse a été diffusée sans mise en tampon ou " +
     'servie depuis le cache.',

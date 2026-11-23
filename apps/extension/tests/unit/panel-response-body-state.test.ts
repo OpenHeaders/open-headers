@@ -1,6 +1,7 @@
 import type { RequestLifecycle } from '@openheaders/core/request-lifecycle';
 import type { InspectorHarBody, InspectorHarEntry } from '@openheaders/core/types';
-import { classifyBodyState } from '@openheaders/ui/panel/data/response-body-state';
+import type { Translate } from '@openheaders/ui/context/LocaleContext';
+import { classifyBodyState, unavailableTitle } from '@openheaders/ui/panel/data/response-body-state';
 import { describe, expect, it } from 'vitest';
 
 function makeHar(overrides: Partial<InspectorHarEntry> = {}): InspectorHarEntry {
@@ -223,6 +224,52 @@ describe('classifyBodyState — loading / empty / content', () => {
     const state = classifyBodyState(lc);
     expect(state.kind).toBe('text');
     if (state.kind === 'text') expect(state.content).toBe('{"ok":true}');
+  });
+});
+
+describe('classifyBodyState — a host that never delivers bodies', () => {
+  const marked = makeHar({ _ohBodyUnavailable: true });
+
+  it('a marked entry with no attached body returns unavailable:host, not loading (no infinite skeleton)', () => {
+    const lc = makeLifecycle({ har: marked, body: null });
+    expect(classifyBodyState(lc)).toEqual({ kind: 'unavailable', reason: 'host' });
+  });
+
+  it('a followed redirect keeps its own reason', () => {
+    const lc = makeLifecycle({ statusCode: 302, har: marked, body: null });
+    expect(classifyBodyState(lc)).toEqual({ kind: 'unavailable', reason: 'redirect' });
+  });
+
+  it('a protocol no-body case keeps its own reason', () => {
+    const lc = makeLifecycle({ statusCode: 304, har: marked, body: null });
+    expect(classifyBodyState(lc)).toEqual({ kind: 'not-applicable', reason: 'status-304' });
+  });
+
+  it('a failed request stays no-response', () => {
+    const lc = makeLifecycle({
+      har: marked,
+      body: null,
+      phase: 'failed',
+      error: { code: 'net::ERR_ABORTED', reason: 'aborted' },
+    });
+    expect(classifyBodyState(lc)).toEqual({ kind: 'no-response' });
+  });
+
+  it('a body that did attach still renders', () => {
+    const lc = makeLifecycle({ har: marked, body: makeBody('{"ok":true}') });
+    expect(classifyBodyState(lc)).toEqual({ kind: 'text', content: '{"ok":true}' });
+  });
+});
+
+describe('unavailableTitle', () => {
+  const t: Translate = (key) => key;
+
+  it('names the missing body plainly when the host never delivers one', () => {
+    expect(unavailableTitle(t, 'host')).toBe('panel.inspector.bodyState.notAvailableTitle');
+  });
+
+  it.each(['opaque', 'cache', 'redirect', 'unknown'] as const)('%s keeps the failed-to-load title', (reason) => {
+    expect(unavailableTitle(t, reason)).toBe('panel.inspector.bodyState.failedTitle');
   });
 });
 

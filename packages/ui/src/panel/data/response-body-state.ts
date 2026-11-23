@@ -28,9 +28,9 @@ export type BodyState =
    *  or failed on the wire (with or without a status code). The browser shows
    *  one fixed message here; the Status cell carries the specific reason. */
   | { kind: 'no-response' }
-  /** A response arrived but its body can't be shown (opaque cross-origin, or
-   *  evicted from cache before it could be read). The browser's "Failed to
-   *  load response data" state. */
+  /** A response arrived but its body can't be shown (opaque cross-origin,
+   *  evicted from cache before it could be read, or never handed over by the
+   *  host). The browser's "Failed to load response data" state. */
   | { kind: 'unavailable'; reason: UnavailableReason }
   | { kind: 'text'; content: string }
   | { kind: 'binary'; base64: string };
@@ -45,7 +45,7 @@ export type NotApplicableReason =
   | 'informational'
   | 'websocket';
 
-export type UnavailableReason = 'opaque' | 'cache' | 'redirect' | 'unknown';
+export type UnavailableReason = 'opaque' | 'cache' | 'redirect' | 'host' | 'unknown';
 
 const NOT_APPLICABLE_KEY: Record<NotApplicableReason, MessageKey> = {
   preflight: 'panel.inspector.bodyState.notApplicable.preflight',
@@ -62,6 +62,7 @@ const UNAVAILABLE_KEY: Record<UnavailableReason, MessageKey> = {
   opaque: 'panel.inspector.bodyState.unavailable.opaque',
   cache: 'panel.inspector.bodyState.unavailable.cache',
   redirect: 'panel.inspector.bodyState.unavailable.redirect',
+  host: 'panel.inspector.bodyState.unavailable.host',
   unknown: 'panel.inspector.bodyState.unavailable.unknown',
 };
 
@@ -74,6 +75,12 @@ export function notApplicableMessage(t: Translate, reason: NotApplicableReason):
 /** Notice detail for an `unavailable` body. */
 export function unavailableMessage(t: Translate, reason: UnavailableReason): string {
   return t(UNAVAILABLE_KEY[reason]);
+}
+
+/** Notice title for an `unavailable` body — nothing failed when the host
+ *  simply never hands bodies over, so that reason reads as a plain fact. */
+export function unavailableTitle(t: Translate, reason: UnavailableReason): string {
+  return t(reason === 'host' ? 'panel.inspector.bodyState.notAvailableTitle' : 'panel.inspector.bodyState.failedTitle');
 }
 
 function isInformational(status: number | undefined): boolean {
@@ -183,6 +190,10 @@ export function classifyBodyState(lifecycle: RequestLifecycle): BodyState {
     // A redirect hop never delivers a readable body — don't spin forever.
     if (isFollowedRedirectStatus(status)) {
       return { kind: 'unavailable', reason: 'redirect' };
+    }
+    // The host declared it never delivers a body for this entry.
+    if (currentHarEntry(lifecycle)?._ohBodyUnavailable === true) {
+      return { kind: 'unavailable', reason: 'host' };
     }
     return { kind: 'loading' };
   }

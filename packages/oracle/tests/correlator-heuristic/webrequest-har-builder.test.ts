@@ -618,6 +618,20 @@ describe('WebRequestHarBuilder — sizes on a tab with no finished-request feed'
     );
     expect(har.response?.bodySize).toBe(-1);
   });
+
+  it('marks every partial of such a tab as never getting a body, from the first emission', () => {
+    const builder = feedless();
+    const atHeaders = lastHar(observeAll(builder, [start(), sendHeaders(), headersReceived()]));
+    expect(atHeaders._ohBodyUnavailable).toBe(true);
+    expect(lastHar(builder.observe(completed()))._ohBodyUnavailable).toBe(true);
+  });
+
+  it('a tab that never declared it carries no such mark', () => {
+    const har = lastHar(
+      observeAll(new WebRequestHarBuilder(), [start(), sendHeaders(), headersReceived(), completed()]),
+    );
+    expect(har).not.toHaveProperty('_ohBodyUnavailable');
+  });
 });
 
 describe('WebRequestHarBuilder — bookkeeping', () => {

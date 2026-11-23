@@ -117,6 +117,7 @@ export const panelInspector = {
   'panel.inspector.bodyState.nothingToPreviewTitle': 'Nothing to preview',
   'panel.inspector.bodyState.noResponseDetail': 'This request has no response data available',
   'panel.inspector.bodyState.failedTitle': 'Failed to load response data',
+  'panel.inspector.bodyState.notAvailableTitle': 'Response body not available',
   'panel.inspector.bodyState.emptyTitle': '(empty response body)',
   'panel.inspector.bodyState.emptyDetail': 'The server returned an empty body.',
   'panel.inspector.bodyState.binaryPayloadBytes': 'Binary payload ({count} bytes).',
@@ -132,6 +133,8 @@ export const panelInspector = {
   'panel.inspector.bodyState.unavailable.cache':
     'Body not available — response was served from cache before DevTools opened',
   'panel.inspector.bodyState.unavailable.redirect': 'No content available because this request was redirected',
+  'panel.inspector.bodyState.unavailable.host':
+    'This browser does not share response bodies with extensions. They are available in Chrome, Edge and Firefox.',
   'panel.inspector.bodyState.unavailable.unknown':
     'Body not captured. The host returned no content — the response was streamed without buffering or served from cache.',
 

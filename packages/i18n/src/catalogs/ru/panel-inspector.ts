@@ -124,6 +124,7 @@ export const panelInspector = {
   'panel.inspector.bodyState.nothingToPreviewTitle': 'Нечего показывать',
   'panel.inspector.bodyState.noResponseDetail': 'У этого запроса нет доступных данных ответа',
   'panel.inspector.bodyState.failedTitle': 'Не удалось загрузить данные ответа',
+  'panel.inspector.bodyState.notAvailableTitle': 'Тело ответа недоступно',
   'panel.inspector.bodyState.emptyTitle': '(пустое тело ответа)',
   'panel.inspector.bodyState.emptyDetail': 'Сервер вернул пустое тело.',
   'panel.inspector.bodyState.binaryPayloadBytes': 'Двоичная полезная нагрузка ({count} байт).',
@@ -138,6 +139,8 @@ export const panelInspector = {
   'panel.inspector.bodyState.unavailable.opaque': 'Тело ответа недоступно — непрозрачный ответ другого источника',
   'panel.inspector.bodyState.unavailable.cache': 'Тело недоступно — ответ был отдан из кеша до открытия DevTools',
   'panel.inspector.bodyState.unavailable.redirect': 'Содержимого нет, потому что этот запрос был перенаправлен',
+  'panel.inspector.bodyState.unavailable.host':
+    'Этот браузер не передаёт тела ответов расширениям. Они доступны в браузерах Chrome, Edge и Firefox.',
   'panel.inspector.bodyState.unavailable.unknown':
     'Тело не захвачено. Хост не вернул содержимое — ответ передавался потоком без буферизации или был отдан из кеша.',
 

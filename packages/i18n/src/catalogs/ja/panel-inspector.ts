@@ -127,6 +127,7 @@ export const panelInspector = {
   'panel.inspector.bodyState.nothingToPreviewTitle': 'プレビューするものがありません',
   'panel.inspector.bodyState.noResponseDetail': 'このリクエストには利用できるレスポンスデータがありません',
   'panel.inspector.bodyState.failedTitle': 'レスポンスデータの読み込みに失敗しました',
+  'panel.inspector.bodyState.notAvailableTitle': 'レスポンスボディは利用できません',
   'panel.inspector.bodyState.emptyTitle': '（空のレスポンスボディ）',
   'panel.inspector.bodyState.emptyDetail': 'サーバーは空のボディを返しました。',
   'panel.inspector.bodyState.binaryPayloadBytes': 'バイナリペイロード（{count} バイト）。',
@@ -145,6 +146,8 @@ export const panelInspector = {
     'ボディは利用できません。DevTools を開く前にレスポンスがキャッシュから提供されました',
   'panel.inspector.bodyState.unavailable.redirect':
     'このリクエストはリダイレクトされたため、利用できるコンテンツがありません',
+  'panel.inspector.bodyState.unavailable.host':
+    'このブラウザーはレスポンスボディを拡張機能に提供しません。Chrome、Edge、Firefox で利用できます。',
   'panel.inspector.bodyState.unavailable.unknown':
     'ボディはキャプチャされていません。ホストはコンテンツを返しませんでした。レスポンスはバッファリングなしでストリーミングされたか、キャッシュから提供されました。',
 

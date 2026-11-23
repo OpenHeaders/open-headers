@@ -126,6 +126,7 @@ export const panelInspector = {
   'panel.inspector.bodyState.nothingToPreviewTitle': 'Nimic de previzualizat',
   'panel.inspector.bodyState.noResponseDetail': 'Această cerere nu are date de răspuns disponibile',
   'panel.inspector.bodyState.failedTitle': 'Datele răspunsului nu au putut fi încărcate',
+  'panel.inspector.bodyState.notAvailableTitle': 'Corpul răspunsului nu este disponibil',
   'panel.inspector.bodyState.emptyTitle': '(corp de răspuns gol)',
   'panel.inspector.bodyState.emptyDetail': 'Serverul a returnat un corp gol.',
   'panel.inspector.bodyState.binaryPayloadBytes': 'Conținut util binar ({count} octeți).',
@@ -142,6 +143,8 @@ export const panelInspector = {
     'Corp indisponibil — răspunsul a fost servit din cache înainte de deschiderea DevTools',
   'panel.inspector.bodyState.unavailable.redirect':
     'Niciun conținut disponibil, deoarece această cerere a fost redirecționată',
+  'panel.inspector.bodyState.unavailable.host':
+    'Acest browser nu oferă extensiilor corpul răspunsurilor. Este disponibil în browserele Chrome, Edge și Firefox.',
   'panel.inspector.bodyState.unavailable.unknown':
     'Corp necapturat. Gazda nu a returnat niciun conținut — răspunsul a fost transmis în flux fără memorare sau servit din cache.',
 

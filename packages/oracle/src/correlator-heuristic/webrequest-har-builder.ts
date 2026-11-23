@@ -164,7 +164,8 @@ export class WebRequestHarBuilder {
    * The tab's host has no finished-request feed, so no devtools HAR will
    * ever supersede its partial entries. From here its hops carry the byte
    * counts something recorded (the page's own timing entry, else the
-   * declared body length); every other tab's partials stay size-less.
+   * declared body length) and say that no body will attach; every other
+   * tab's partials stay size-less and unmarked.
    */
   noteHarFeedAbsent(tabId: number): void {
     this.harFeedAbsent.add(tabId);
@@ -462,6 +463,8 @@ export class WebRequestHarBuilder {
       resolvedTiming,
       sizes,
     );
+    // No devtools entry will ever join this tab's hops, so no body will either.
+    if (this.harFeedAbsent.has(tabId)) har._ohBodyUnavailable = true;
     return [{ kind: 'har-attached', tabId, requestId, hopIndex: state.hopIndex, har }];
   }
 

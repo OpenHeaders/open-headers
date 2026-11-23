@@ -120,6 +120,7 @@ export const panelInspector = {
   'panel.inspector.bodyState.nothingToPreviewTitle': 'Nichts für eine Vorschau',
   'panel.inspector.bodyState.noResponseDetail': 'Für diese Anfrage liegen keine Antwortdaten vor',
   'panel.inspector.bodyState.failedTitle': 'Antwortdaten konnten nicht geladen werden',
+  'panel.inspector.bodyState.notAvailableTitle': 'Antwort-Body nicht verfügbar',
   'panel.inspector.bodyState.emptyTitle': '(leerer Antwort-Body)',
   'panel.inspector.bodyState.emptyDetail': 'Der Server hat einen leeren Body zurückgegeben.',
   'panel.inspector.bodyState.binaryPayloadBytes': 'Binäre Payload ({count} Bytes).',
@@ -135,6 +136,9 @@ export const panelInspector = {
   'panel.inspector.bodyState.unavailable.cache':
     'Body nicht verfügbar — die Antwort wurde aus dem Cache bedient, bevor die DevTools geöffnet waren',
   'panel.inspector.bodyState.unavailable.redirect': 'Kein Inhalt verfügbar, weil diese Anfrage umgeleitet wurde',
+  'panel.inspector.bodyState.unavailable.host':
+    'Dieser Browser gibt Antwort-Bodys nicht an Erweiterungen weiter. Sie sind in Chrome, Edge und Firefox ' +
+    'verfügbar.',
   'panel.inspector.bodyState.unavailable.unknown':
     'Body nicht erfasst. Der Host lieferte keinen Inhalt — die Antwort wurde ohne Pufferung gestreamt oder aus ' +
     'dem Cache bedient.',

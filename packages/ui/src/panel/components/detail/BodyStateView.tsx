@@ -2,7 +2,12 @@ import { useT } from '@openheaders/ui/context/LocaleContext';
 import { useMemo, useState } from 'react';
 import { base64ToBytes } from '../../data/base64';
 import { isTextMime } from '../../data/mime';
-import { type BodyState, notApplicableMessage, unavailableMessage } from '../../data/response-body-state';
+import {
+  type BodyState,
+  notApplicableMessage,
+  unavailableMessage,
+  unavailableTitle,
+} from '../../data/response-body-state';
 import HexViewer from './HexViewer';
 import ResponseViewerToolbar, { type ViewMode } from './ResponseViewerToolbar';
 import Skeleton from './Skeleton';
@@ -105,10 +110,7 @@ export default function BodyStateView({
   }
   if (state.kind === 'unavailable') {
     return shell(
-      <ResponseNotice
-        title={t('panel.inspector.bodyState.failedTitle')}
-        detail={unavailableMessage(t, state.reason)}
-      />,
+      <ResponseNotice title={unavailableTitle(t, state.reason)} detail={unavailableMessage(t, state.reason)} />,
     );
   }
   if (state.kind === 'empty') {

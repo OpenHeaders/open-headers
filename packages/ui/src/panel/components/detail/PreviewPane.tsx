@@ -1,6 +1,11 @@
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
-import { type BodyState, notApplicableMessage, unavailableMessage } from '../../data/response-body-state';
+import {
+  type BodyState,
+  notApplicableMessage,
+  unavailableMessage,
+  unavailableTitle,
+} from '../../data/response-body-state';
 import { JsonTree } from '../JsonTree';
 import Skeleton from './Skeleton';
 
@@ -187,10 +192,7 @@ export default function PreviewPane({ state, mime, size, action }: PreviewPanePr
   }
   if (state.kind === 'unavailable') {
     return shell(
-      <PreviewNotice
-        title={t('panel.inspector.bodyState.failedTitle')}
-        detail={unavailableMessage(t, state.reason)}
-      />,
+      <PreviewNotice title={unavailableTitle(t, state.reason)} detail={unavailableMessage(t, state.reason)} />,
     );
   }
   if (state.kind === 'empty') {

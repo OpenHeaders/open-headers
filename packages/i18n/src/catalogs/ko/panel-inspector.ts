@@ -125,6 +125,7 @@ export const panelInspector = {
   'panel.inspector.bodyState.nothingToPreviewTitle': '미리 볼 내용이 없습니다',
   'panel.inspector.bodyState.noResponseDetail': '이 요청에는 사용할 수 있는 응답 데이터가 없습니다',
   'panel.inspector.bodyState.failedTitle': '응답 데이터를 불러오지 못했습니다',
+  'panel.inspector.bodyState.notAvailableTitle': '응답 본문을 사용할 수 없습니다',
   'panel.inspector.bodyState.emptyTitle': '(빈 응답 본문)',
   'panel.inspector.bodyState.emptyDetail': '서버가 빈 본문을 반환했습니다.',
   'panel.inspector.bodyState.binaryPayloadBytes': '바이너리 페이로드 ({count}바이트).',
@@ -140,6 +141,8 @@ export const panelInspector = {
   'panel.inspector.bodyState.unavailable.cache':
     '본문을 사용할 수 없습니다. DevTools 창을 열기 전에 응답이 캐시에서 제공되었습니다',
   'panel.inspector.bodyState.unavailable.redirect': '이 요청은 리디렉션되어 사용할 수 있는 콘텐츠가 없습니다',
+  'panel.inspector.bodyState.unavailable.host':
+    '이 브라우저는 응답 본문을 확장 프로그램에 제공하지 않습니다. Chrome, Edge 및 Firefox 브라우저에서 사용할 수 있습니다.',
   'panel.inspector.bodyState.unavailable.unknown':
     '본문이 캡처되지 않았습니다. 호스트가 콘텐츠를 반환하지 않았습니다. 응답이 버퍼링 없이 스트리밍되었거나 캐시에서 제공되었습니다.',
 

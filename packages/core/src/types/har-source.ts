@@ -264,6 +264,9 @@ export interface InspectorHarEntry {
   /** Producer that minted this entry (see {@link InspectorHarEntrySource}).
    *  Internal: HAR exports strip it. */
   _ohEntrySource?: InspectorHarEntrySource;
+  /** No response body will ever attach to this entry — its host has no
+   *  finished-request feed to read one from. Internal: HAR exports strip it. */
+  _ohBodyUnavailable?: true;
 }
 
 /**

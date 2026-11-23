@@ -118,6 +118,7 @@ export const panelInspector = {
   'panel.inspector.bodyState.nothingToPreviewTitle': '没有可预览的内容',
   'panel.inspector.bodyState.noResponseDetail': '此请求没有可用的响应数据',
   'panel.inspector.bodyState.failedTitle': '加载响应数据失败',
+  'panel.inspector.bodyState.notAvailableTitle': '响应体不可用',
   'panel.inspector.bodyState.emptyTitle': '（响应体为空）',
   'panel.inspector.bodyState.emptyDetail': '服务器返回了空的响应体。',
   'panel.inspector.bodyState.binaryPayloadBytes': '二进制负载（{count} 字节）。',
@@ -132,6 +133,7 @@ export const panelInspector = {
   'panel.inspector.bodyState.unavailable.opaque': '响应体不可用——不透明的跨源响应',
   'panel.inspector.bodyState.unavailable.cache': '响应体不可用——DevTools 打开之前响应已由缓存提供',
   'panel.inspector.bodyState.unavailable.redirect': '此请求被重定向，因此没有可用的内容',
+  'panel.inspector.bodyState.unavailable.host': '此浏览器不向扩展提供响应体。可在 Chrome、Edge 和 Firefox 中使用。',
   'panel.inspector.bodyState.unavailable.unknown':
     '响应体未捕获。宿主未返回内容——响应以不缓冲的方式流式传输，或由缓存提供。',
 

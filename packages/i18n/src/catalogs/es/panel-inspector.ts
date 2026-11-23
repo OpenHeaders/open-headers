@@ -109,6 +109,7 @@ export const panelInspector = {
   'panel.inspector.bodyState.nothingToPreviewTitle': 'Nada que previsualizar',
   'panel.inspector.bodyState.noResponseDetail': 'Esta solicitud no tiene datos de respuesta disponibles',
   'panel.inspector.bodyState.failedTitle': 'No se pudieron cargar los datos de respuesta',
+  'panel.inspector.bodyState.notAvailableTitle': 'Cuerpo de respuesta no disponible',
   'panel.inspector.bodyState.emptyTitle': '(cuerpo de respuesta vacío)',
   'panel.inspector.bodyState.emptyDetail': 'El servidor devolvió un cuerpo vacío.',
   'panel.inspector.bodyState.binaryPayloadBytes': 'Carga útil binaria ({count} bytes).',
@@ -124,6 +125,9 @@ export const panelInspector = {
   'panel.inspector.bodyState.unavailable.cache':
     'Cuerpo no disponible — la respuesta se sirvió desde la caché antes de abrir las DevTools',
   'panel.inspector.bodyState.unavailable.redirect': 'No hay contenido disponible porque esta solicitud fue redirigida',
+  'panel.inspector.bodyState.unavailable.host':
+    'Este navegador no comparte los cuerpos de respuesta con las extensiones. Están disponibles en Chrome, ' +
+    'Edge y Firefox.',
   'panel.inspector.bodyState.unavailable.unknown':
     'Cuerpo no capturado. El host no devolvió contenido — la respuesta se transmitió sin almacenarse en búfer ' +
     'o se sirvió desde la caché.',

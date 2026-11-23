@@ -400,6 +400,16 @@ describe('internal-field strip (`_rawTiming`)', () => {
     expect(doc.log.entries[0]).not.toHaveProperty('_ohEntrySource');
     expect(r.lifecycle.har[0]?._ohEntrySource).toBeDefined();
   });
+
+  it('the no-body-feed mark (`_ohBodyUnavailable`) is stripped too, even on its own', () => {
+    const r = row('https://api.openheaders.io/no-body-feed');
+    const har = r.lifecycle.har[0];
+    if (har == null) throw new Error('expected har');
+    har._ohBodyUnavailable = true;
+    const doc = buildHar([r]);
+    expect(doc.log.entries[0]).not.toHaveProperty('_ohBodyUnavailable');
+    expect(r.lifecycle.har[0]?._ohBodyUnavailable).toBe(true);
+  });
 });
 
 describe('sanitizeHarEntry / sanitized export', () => {
