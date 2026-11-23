@@ -37,6 +37,7 @@
     "activeTab",
     "scripting",
     "cookies",
+    "contextMenus",
     "browsingData",
     "identity",
     "proxy",

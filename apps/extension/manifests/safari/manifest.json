@@ -29,7 +29,8 @@
     "webNavigation",
     "activeTab",
     "scripting",
-    "cookies"
+    "cookies",
+    "contextMenus"
   ],
   "host_permissions": [
     "<all_urls>",

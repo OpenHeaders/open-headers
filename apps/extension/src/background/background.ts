@@ -114,6 +114,7 @@ import { hydrateSyncInstallId } from './modules/sync-install-id';
 import { registerCdpTabPinControls } from './modules/tabs/cdp-tab-pin';
 import { initializeActiveTabTracking, setupPeriodicCleanup, setupTabListeners } from './modules/tabs/tab-listeners';
 import { rehydrateTabOverridesFromSession } from './modules/tabs/tab-overrides';
+import { buildToolbarMenu, installToolbarMenuClicks } from './modules/toolbar-menu';
 import { bootstrapTotpScheduler } from './modules/totp-scheduler';
 import { initializeViewMode } from './modules/view-mode';
 import { hydrateActiveWorkspaceStores } from './modules/workspace/workspace-orchestrator';
@@ -152,6 +153,9 @@ startProxyRoutingHost();
 // Chrome could apply a downloaded update mid-session and kill an open
 // DevTools panel.
 startUpdateDeferral();
+// The toolbar button's right-click menu: eval-time so a click can wake
+// the background; the items themselves are built once settings load.
+installToolbarMenuClicks();
 
 // Workspaces are bootstrapped first because every per-workspace store
 // keys its reads off the active workspace id. The extension declares
@@ -183,6 +187,9 @@ const settingsReady = workspacesReady
     const rebuildOnPrefChange = (): void => scheduleUpdate('prefs', { immediate: true });
     subscribeKey('rulesEngine.maxActiveRules', rebuildOnPrefChange);
     subscribeKey('rulesEngine.evaluationStrategy', rebuildOnPrefChange);
+    void buildToolbarMenu().catch((error: Error) => {
+      logger.info('ToolbarMenu', 'build failed:', error.message);
+    });
   });
 
 // ── Initialization ────────────────────────────────────────────────

@@ -35,15 +35,15 @@ const DISCONNECTED_BADGE_THRESHOLD = 3;
 let lastBadgeState: string | null = null;
 let lastBadgeInput: BadgeUpdateInput | null = null;
 
-// Tooltips follow the settings locale, not the browser UI locale: the
-// service worker has no React root, so it reads the persisted language
-// setting and threads the runtime Translator directly. The SW cannot
-// dynamic-import, so translated locales resolve through the statically
-// bundled badge slice (English catalog as per-key fallback) instead of
-// the registry's lazy-chunk path.
+// Tooltips and the toolbar menu follow the settings locale, not the
+// browser UI locale: the service worker has no React root, so it reads the
+// persisted language setting and threads the runtime Translator directly.
+// The SW cannot dynamic-import, so translated locales resolve through the
+// statically bundled extension slice (English catalog as per-key fallback)
+// instead of the registry's lazy-chunk path.
 const staticTranslators = new Map<string, Translator>();
 
-function badgeTranslator(): Translator {
+export function extensionTranslator(): Translator {
   const preferences = typeof navigator !== 'undefined' ? navigator.languages : [];
   const locale = resolveLocale(getSetting('general.language'), preferences);
   const slice = STATIC_EXTENSION_CATALOGS[locale];
@@ -125,7 +125,7 @@ export async function updateExtensionBadge(input: BadgeUpdateInput): Promise<voi
   }
 
   lastBadgeState = currentStateKey;
-  const t = badgeTranslator();
+  const t = extensionTranslator();
 
   if (badgeState === 'paused') {
     // Show a gray dash when rules execution is paused

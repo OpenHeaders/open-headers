@@ -29,6 +29,7 @@
     "scripting",
     "userScripts",
     "cookies",
+    "contextMenus",
     "browsingData",
     "windows",
     "sidePanel",

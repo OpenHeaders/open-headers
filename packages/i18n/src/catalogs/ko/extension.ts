@@ -16,6 +16,15 @@ export const extension = {
     `Open Headers - 활성\n${plural(locale, Number(configured), {
       other: '규칙 {count}개',
     })} 중 ${matched}개가 이 페이지의 요청과 일치했습니다`,
+  'extension.toolbarMenu.openWorkspace': '워크스페이스 열기',
+  'extension.toolbarMenu.settings': '설정',
+  'extension.toolbarMenu.pauseRules': '규칙 일시 중지',
+  'extension.toolbarMenu.resumeRules': '규칙 재개',
+  'extension.toolbarMenu.notifications': '알림',
+  'extension.toolbarMenu.help': '도움말',
+  'extension.toolbarMenu.documentation': '문서',
+  'extension.toolbarMenu.whatsNew': '새로운 기능',
+  'extension.toolbarMenu.reportProblem': '문제 신고',
   'extension.manifest.name': 'Open Headers',
   'extension.manifest.description':
     '브라우저 안의 오픈 소스 Enterprise API 클라이언트. 팀 협업. 브라우저 인터셉터 — 라이브 트래픽 수정.',

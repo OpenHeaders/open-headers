@@ -16,6 +16,15 @@ export const extension = {
     `Open Headers - 有効\n${plural(locale, Number(configured), {
       other: '{count} 件のルール',
     })}のうち ${matched} 件がこのページのリクエストに一致しました`,
+  'extension.toolbarMenu.openWorkspace': 'ワークスペースを開く',
+  'extension.toolbarMenu.settings': '設定',
+  'extension.toolbarMenu.pauseRules': 'ルールを一時停止',
+  'extension.toolbarMenu.resumeRules': 'ルールを再開',
+  'extension.toolbarMenu.notifications': '通知',
+  'extension.toolbarMenu.help': 'ヘルプ',
+  'extension.toolbarMenu.documentation': 'ドキュメント',
+  'extension.toolbarMenu.whatsNew': '新機能',
+  'extension.toolbarMenu.reportProblem': '問題を報告',
   'extension.manifest.name': 'Open Headers',
   'extension.manifest.description':
     'ブラウザーの中のオープンソース Enterprise API クライアント。チームコラボレーション。ブラウザーインターセプター — ライブトラフィックを変更。',
