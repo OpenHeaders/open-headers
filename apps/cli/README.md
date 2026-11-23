@@ -17,8 +17,7 @@ Standalone `oh` binaries (macOS, Linux, Windows) ship with every release
 at
 [open-headers releases](https://github.com/OpenHeaders/open-headers/releases),
 with SHA-256 checksums — no Node.js required. The macOS binary is signed
-and notarized; the Windows binary is unsigned, so SmartScreen warns on
-first run.
+and notarized; the Windows binary is Authenticode-signed.
 
 ```sh
 curl -fsSL https://updates.openheaders.com/install.sh | sh
