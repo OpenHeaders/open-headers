@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Monochrome line version of logo-pixel.svg for Safari's Web Inspector
+  tab bar: the plate as an outline, the same letters and smile as ink.
+  That bar draws every tab icon as black ink at reduced opacity and
+  inverts it in dark mode, so a colour icon turns muddy; plain black
+  shapes read like the built-in tabs in both themes.
+
+  No `shape-rendering="crispEdges"` on the letters, unlike the source
+  logo: at 16px WebKit snaps each bar outward to whole pixels and the
+  letters fuse into one block.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <rect x="16" y="16" width="480" height="480" rx="72" fill="none" stroke="black" stroke-width="32"/>
+  <g transform="translate(32 32) scale(0.875)">
+    <g fill="black">
+      <rect x="80"  y="112" width="128" height="32"/>
+      <rect x="48"  y="144" width="64"  height="160"/>
+      <rect x="176" y="144" width="64"  height="160"/>
+      <rect x="80"  y="304" width="128" height="32"/>
+
+      <rect x="272" y="112" width="64"  height="224"/>
+      <rect x="400" y="112" width="64"  height="224"/>
+      <rect x="272" y="208" width="192" height="32"/>
+    </g>
+    <path d="M 80 388 C 180 448, 332 448, 432 388" stroke="black" stroke-width="28" fill="none" stroke-linecap="round"/>
+  </g>
+</svg>

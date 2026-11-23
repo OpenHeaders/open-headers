@@ -50,12 +50,19 @@ import { createResourceTimingSampler } from './resource-timing-sampler';
 //     extension icon at a larger, crisper size than the explicit 16px
 //     asset — so we pass an empty string and skip the title prefix to
 //     avoid a doubled-icon tab.
+//   - Safari honors `iconPath`, refuses an empty one, and draws it as
+//     monochrome ink (dimmed, inverted in dark mode) — so it takes the
+//     black line version of the logo and no title prefix.
 const isFirefox = /Firefox/.test(navigator.userAgent);
-chrome.devtools.panels.create(
-  isFirefox ? 'Open Headers' : '🟦 Open Headers',
-  isFirefox ? '' : 'images/icon16.png',
-  'panel.html',
-);
+const isChromium = /Chrome/.test(navigator.userAgent);
+
+function panelIconPath(): string {
+  if (isFirefox) return '';
+  if (isChromium) return 'images/icon16.png';
+  return 'images/logo-template.svg';
+}
+
+chrome.devtools.panels.create(isChromium ? '🟦 Open Headers' : 'Open Headers', panelIconPath(), 'panel.html');
 
 // Eagerly load panel.html in a hidden iframe when the parity capture script has set the flag.
 chrome.storage.local.get('__oh_parity_hook__', (res) => {
@@ -283,7 +290,9 @@ scheduleNavTimingSample();
 // on an already-loaded page whose buffer is already populated.
 resourceTimingSampler.restart();
 
-chrome.devtools.network.onRequestFinished.addListener((entry) => {
+// Safari has no finished-request feed: the panel there runs on what the
+// background observes, without HAR entries or bodies.
+chrome.devtools.network.onRequestFinished?.addListener((entry) => {
   try {
     // Serialize the HAR entry verbatim. Chrome's port.postMessage uses
     // JSON under the hood, so the `getContent` function property is

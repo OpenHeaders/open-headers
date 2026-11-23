@@ -279,6 +279,9 @@ function copyAssetsPlugin() {
   // committed by `pnpm run locales`; Vite copies `public/` before any
   // `writeBundle` hook runs, so the overlay below lands on top.
   if (browser === 'safari') {
+    // The Web Inspector tab icon — Safari is the one engine that draws it
+    // as monochrome ink (see the asset's header).
+    copies.push({ from: 'src/assets/images/logo-template.svg', to: 'images/logo-template.svg' });
     const safariLocales = path.resolve(__dirname, 'manifests/safari/_locales');
     for (const dir of fs.readdirSync(safariLocales)) {
       copies.push({ from: `manifests/safari/_locales/${dir}/messages.json`, to: `_locales/${dir}/messages.json` });
