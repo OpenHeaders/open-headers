@@ -17,10 +17,13 @@
  *   - `HostStorage`: file-backed (`<userData>/data/settings.json`) with Electron
  *     `safeStorage` encrypting slots flagged `sensitive: true`. Renderers
  *     reach it via the `oh:storage:*` IPC channels (`installHostStorage`).
- *   - `LifelineServer`: IPC adapter (`installLifelineServer`) — each
- *     renderer surface holds one long-lived port; webContents destroy
- *     and renderer-initiated close both fan out as `onDisconnect` to
- *     oracle's `setupAwarenessLifelinePorts`.
+ *   - `LifelineServer`: IPC adapter (`installLifelineServer`, installed
+ *     by `main.ts` at eval time, ahead of this boot) — each renderer
+ *     surface holds one long-lived port; webContents destroy and
+ *     renderer-initiated close both fan out as `onDisconnect` to
+ *     oracle's `setupAwarenessLifelinePorts`. The spine's acceptors
+ *     register on it here; a port opened earlier is held until this
+ *     boot settles.
  *   - Local broadcast: oracle events fan out to every open renderer via
  *     `webContents.send`; the spine forwards to WS peers itself.
  *   - Status store: the shared `@openheaders/ui` store both hosts and
@@ -108,7 +111,6 @@ import { installErrorReports } from './error-reports';
 import { h3HelperBinaryCandidates } from './h3-helper-install';
 import { installBackendClient } from './install-backend-client';
 import { installHostStorage } from './install-host-storage';
-import { installLifelineServer } from './install-lifeline-server';
 import { createManifestUpdaterPort } from './manifest-updater-port';
 import {
   linuxNmManifestTargets,
@@ -172,7 +174,7 @@ function safeOsUsername(): string {
  * production should call once.
  */
 export async function installRpcHost(): Promise<void> {
-  // Logger first so the storage + lifeline installs below can log; the
+  // Logger first so the storage install below can log; the
   // spine re-installs the same adapter, which is a no-op. Electron-log
   // backed: engine rows reach main.log, not just the (invisible in
   // packaged builds) stdout.
@@ -201,7 +203,6 @@ export async function installRpcHost(): Promise<void> {
       }
     },
   });
-  installLifelineServer();
 
   // Web bundle serving (Phase 4) — the desktop-as-daemon hands out the
   // Workbench web app on its own bind when `backend.serveWebApp` is on.

@@ -20,6 +20,7 @@ export const app = {
 export const ipcMain = { handle: () => {}, on: () => {}, once: () => {} };
 export const ipcRenderer = { invoke: () => Promise.resolve(), on: () => {}, send: () => {} };
 export const contextBridge = { exposeInMainWorld: () => {} };
+export const webContents = { fromId: (_id: number) => undefined };
 export function BrowserWindow() {}
 BrowserWindow.getFocusedWindow = () => null;
 BrowserWindow.getAllWindows = () => [];
@@ -67,6 +68,7 @@ export default {
   ipcMain,
   ipcRenderer,
   contextBridge,
+  webContents,
   BrowserWindow,
   Menu,
   nativeImage,

@@ -7,19 +7,27 @@
  * `packages/oracle/src/sync/awareness-lifeline.ts` — `removeByInstanceId`
  * + workspace-refcount release fire on disconnect).
  *
+ * This module is the Electron edge only: it maps the wire below onto the
+ * port registry (`lifeline/port-registry.ts`), which owns the ports, the
+ * acceptors, and the door law — a port opened before the engine is ready
+ * is held and admitted once it is. Installed at eval time beside the RPC
+ * queue (`main.ts`), on the same engine-readiness gate, so the window
+ * never finds the wire missing.
+ *
  * Wire protocol:
  *
  *   - `oh:lifeline:open`          (invoke) — `{ portId, name }` →
- *     main allocates an {@link IncomingLifelinePort}, fires every
- *     registered `onConnect` handler, and returns `{ ok: true }`.
- *     `portId` is a renderer-side uuid; main scopes all subsequent
- *     traffic by `(webContents.id, portId)`.
+ *     the registry admits an {@link IncomingLifelinePort} to every
+ *     registered `onConnect` handler and answers `{ ok: true }`; before
+ *     the engine is ready the answer waits with the open. `portId` is a
+ *     renderer-side uuid; main scopes all subsequent traffic by
+ *     `(webContents.id, portId)`.
  *   - `oh:lifeline:message`       (send)   — renderer → host frame
  *     `{ portId, message }`. Routed to the matching port's
- *     `onMessage` handlers.
+ *     `onMessage` handlers; kept with the open while it is held.
  *   - `oh:lifeline:close`         (send)   — renderer voluntarily
  *     closes the port (`disconnect()` call). Fires `onDisconnect`
- *     with an empty info object.
+ *     with an empty info object; cancels the open while it is held.
  *   - `oh:lifeline:host-message`  (push) — host → renderer frame
  *     `{ portId, message }`; the data-bearing lifelines (the proxy
  *     capture source's `oh-lifecycle:` pipe) stream down this channel
@@ -35,15 +43,12 @@
  *     normal teardown, indistinguishable from a voluntary close.
  *   - `render-process-gone` (renderer crash) → same sweep, but with
  *     `errorMessage: 'render process gone'` so it surfaces in logs.
- *   - App quit — `before-quit` removes all IPC handlers; ports are
- *     dropped without further notice (the renderer is also tearing down).
  */
 
-import { ipcMain, webContents as webContentsApi } from 'electron';
-import { hostLogger as logger } from '@openheaders/core/logger';
-import { type IncomingLifelinePort, type LifelineServer, setLifelineServer } from '@openheaders/core/awareness';
-
-const SCOPE = 'IpcLifelineServer';
+import { setLifelineServer } from '@openheaders/core/awareness';
+import { ipcMain, type WebContents, webContents as webContentsApi } from 'electron';
+import type { EngineReadiness } from './bootstrap/engine-readiness';
+import { createLifelinePortRegistry } from './lifeline/port-registry';
 
 const CHANNEL = {
   open: 'oh:lifeline:open',
@@ -53,152 +58,56 @@ const CHANNEL = {
   hostDisconnect: 'oh:lifeline:host-disconnect',
 } as const;
 
-type MessageHandler = (message: unknown) => void;
-type DisconnectHandler = (info: { errorMessage?: string }) => void;
-
-class ManagedIncomingPort implements IncomingLifelinePort {
-  readonly name: string;
-  private readonly messageHandlers = new Set<MessageHandler>();
-  private readonly disconnectHandlers = new Set<DisconnectHandler>();
-  private disconnected = false;
-
-  constructor(
-    name: string,
-    private readonly portId: string,
-    private readonly wcId: number,
-  ) {
-    this.name = name;
-  }
-
-  /** Host→renderer frame on the reserved `host-message` channel. */
-  postMessage(message: unknown): void {
-    if (this.disconnected) return;
-    const wc = webContentsApi.fromId(this.wcId);
-    if (!wc || wc.isDestroyed()) return;
-    wc.send(CHANNEL.hostMessage, { portId: this.portId, message });
-  }
-
-  onMessage<T = unknown>(handler: (message: T) => void): void {
-    this.messageHandlers.add(handler as MessageHandler);
-  }
-
-  onDisconnect(handler: DisconnectHandler): void {
-    this.disconnectHandlers.add(handler);
-  }
-
-  /** Internal: deliver a renderer-streamed message. */
-  fireMessage(message: unknown): void {
-    if (this.disconnected) return;
-    for (const handler of this.messageHandlers) {
-      try {
-        handler(message);
-      } catch (err) {
-        logger.warn(SCOPE, `port "${this.name}": onMessage handler threw`, err);
-      }
-    }
-  }
-
-  /** Internal: deliver a disconnect; idempotent. */
-  fireDisconnect(info: { errorMessage?: string }): void {
-    if (this.disconnected) return;
-    this.disconnected = true;
-    for (const handler of this.disconnectHandlers) {
-      try {
-        handler(info);
-      } catch (err) {
-        logger.warn(SCOPE, `port "${this.name}": onDisconnect handler threw`, err);
-      }
-    }
-  }
-}
-
-interface PortEntry {
-  port: ManagedIncomingPort;
-  wcId: number;
-}
-
-export function installLifelineServer(): void {
-  // portId is unique across renderers — generated client-side. We scope
-  // operations by both the portId AND the sender webContents.id so a
-  // compromised/buggy renderer can't address ports belonging to another.
-  const ports = new Map<string, PortEntry>();
-  const connectHandlers = new Set<(port: IncomingLifelinePort) => void>();
+export function installLifelineServer(readiness: EngineReadiness): void {
+  const registry = createLifelinePortRegistry({
+    readiness,
+    postToSurface(wcId, portId, message) {
+      const wc = webContentsApi.fromId(wcId);
+      if (!wc || wc.isDestroyed()) return;
+      wc.send(CHANNEL.hostMessage, { portId, message });
+    },
+  });
   const trackedWebContents = new Set<number>();
 
-  function dropPortsForWebContents(wcId: number, info: { errorMessage?: string }): void {
-    for (const [portId, entry] of ports) {
-      if (entry.wcId !== wcId) continue;
-      ports.delete(portId);
-      entry.port.fireDisconnect(info);
-    }
-  }
-
-  function trackWebContents(wcId: number): void {
+  function trackWebContents(wc: WebContents): void {
+    const wcId = wc.id;
     if (trackedWebContents.has(wcId)) return;
     trackedWebContents.add(wcId);
-    const wc = webContentsApi.fromId(wcId);
-    if (!wc) return;
     // Window close / app quit is normal lifeline teardown — disconnect
     // with no errorMessage so the awareness handler stays quiet.
     wc.once('destroyed', () => {
       trackedWebContents.delete(wcId);
-      dropPortsForWebContents(wcId, {});
+      registry.dropSurface(wcId, {});
     });
     // A renderer crash is the abnormal case worth surfacing in logs.
     wc.once('render-process-gone', () => {
       trackedWebContents.delete(wcId);
-      dropPortsForWebContents(wcId, { errorMessage: 'render process gone' });
+      registry.dropSurface(wcId, { errorMessage: 'render process gone' });
     });
   }
 
-  ipcMain.handle(CHANNEL.open, async (event, raw: unknown) => {
+  ipcMain.handle(CHANNEL.open, (event, raw: unknown) => {
     const { portId, name } = (raw ?? {}) as { portId?: string; name?: string };
     if (typeof portId !== 'string' || typeof name !== 'string') {
       return { ok: false, error: 'invalid open payload' };
     }
-    if (ports.has(portId)) {
-      // portId collision — shouldn't happen with uuid v4 from the
-      // renderer, but be defensive.
-      return { ok: false, error: 'portId already open' };
-    }
-    const port = new ManagedIncomingPort(name, portId, event.sender.id);
-    ports.set(portId, { port, wcId: event.sender.id });
-    trackWebContents(event.sender.id);
-    for (const handler of connectHandlers) {
-      try {
-        handler(port);
-      } catch (err) {
-        logger.warn(SCOPE, `onConnect handler threw for port "${name}"`, err);
-      }
-    }
-    return { ok: true };
+    // Tracked before the open can be held, so a surface that goes away
+    // while it waits takes its held opens with it.
+    trackWebContents(event.sender);
+    return registry.open(event.sender.id, portId, name);
   });
 
   ipcMain.on(CHANNEL.message, (event, raw: unknown) => {
     const { portId, message } = (raw ?? {}) as { portId?: string; message?: unknown };
     if (typeof portId !== 'string') return;
-    const entry = ports.get(portId);
-    if (!entry || entry.wcId !== event.sender.id) return;
-    entry.port.fireMessage(message);
+    registry.message(event.sender.id, portId, message);
   });
 
   ipcMain.on(CHANNEL.close, (event, raw: unknown) => {
     const { portId } = (raw ?? {}) as { portId?: string };
     if (typeof portId !== 'string') return;
-    const entry = ports.get(portId);
-    if (!entry || entry.wcId !== event.sender.id) return;
-    ports.delete(portId);
-    entry.port.fireDisconnect({});
+    registry.close(event.sender.id, portId);
   });
 
-  const server: LifelineServer = {
-    onConnect(handler) {
-      connectHandlers.add(handler);
-      return () => {
-        connectHandlers.delete(handler);
-      };
-    },
-  };
-
-  setLifelineServer(server);
+  setLifelineServer(registry.server);
 }

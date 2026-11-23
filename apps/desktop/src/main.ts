@@ -17,6 +17,10 @@
  *   - `installRpcQueue`               — registers `oh:rpc` queueing handler
  *                                       so eager-mirror RPCs queue while
  *                                       the engine boots in parallel.
+ *   - `installLifelineServer`         — registers the lifeline wire on the
+ *                                       same engine-readiness gate, so a
+ *                                       port opened during boot is held
+ *                                       and admitted once acceptors exist.
  *   - `installProtocolHandler`        — registers `open-url` BEFORE
  *                                       `whenReady` to catch the very
  *                                       first macOS deep link.
@@ -26,8 +30,9 @@
  *   - `createMainWindow + installTray` — UI surfaces; window paints
  *                                       immediately while the engine boots
  *                                       in parallel.
- *   - `installRpcHost`                — engine bootstrap; `signalEngineReady`
- *                                       drains the RPC queue on completion.
+ *   - `installRpcHost`                — engine bootstrap; the readiness gate
+ *                                       releases the held RPCs and lifeline
+ *                                       opens when it settles.
  */
 
 import { join } from 'node:path';
@@ -39,6 +44,7 @@ import { sessionDataDir } from './main/bootstrap/app-paths';
 import { installApplicationMenu } from './main/bootstrap/application-menu';
 import { installChromiumSwitches } from './main/bootstrap/cli-switches';
 import { installDownloadFeedback } from './main/bootstrap/downloads';
+import { createEngineReadiness } from './main/bootstrap/engine-readiness';
 import { installExternalLinkHandler } from './main/bootstrap/external-links';
 import { applyHardwareAccelerationPolicy } from './main/bootstrap/hardware-acceleration';
 import { installAppLifecycle, isQuitting, trackEngineBoot } from './main/bootstrap/lifecycle';
@@ -55,6 +61,7 @@ import { installStartupDataBridge } from './main/bootstrap/startup-data-bridge';
 import { installTray } from './main/bootstrap/tray';
 import { installWindowChromeHandler } from './main/bootstrap/window-chrome';
 import { createMainWindow, showMainWindow } from './main/bootstrap/window-manager';
+import { installLifelineServer } from './main/install-lifeline-server';
 import { installRpcHost } from './main/install-rpc-host';
 import { installTerminalHost } from './main/install-terminal-host';
 import { desktopProcessReader } from './main/process-reader';
@@ -136,7 +143,12 @@ function bootstrapDesktopApp(): void {
   // so a lost race's `app.quit()` still routes through the machine.
   installAppLifecycle();
   installStartupDataBridge();
-  const { signalEngineReady } = installRpcQueue();
+  // The renderer's two doors into main share one gate: the window mounts
+  // while the engine boots, and whatever it says first is held, then
+  // released in arrival order when the boot settles.
+  const engineReadiness = createEngineReadiness();
+  installRpcQueue(engineReadiness);
+  installLifelineServer(engineReadiness);
   installExternalLinkHandler();
   installLogFilesHandler();
   installAppMenuPopupHandler();
@@ -183,7 +195,7 @@ function bootstrapDesktopApp(): void {
       .catch((err) => {
         logger.error('installRpcHost failed', err);
       })
-      .finally(signalEngineReady);
+      .finally(engineReadiness.signalReady);
   });
 
   // Tray-resident: explicit `app.quit()` (tray menu / `Cmd+Q`) is the only exit.

@@ -28,8 +28,8 @@ import {
   setLifelineTransport,
   setPeerNavigator,
 } from '@openheaders/core/awareness';
-import type { NavigationHandle } from '@openheaders/core/protocol';
 import { hostLogger as logger } from '@openheaders/core/logger';
+import type { NavigationHandle } from '@openheaders/core/protocol';
 
 const SCOPE = 'IpcLifelineTransport';
 
@@ -124,10 +124,12 @@ const ipcLifelineTransport: LifelineTransport = {
     void api()
       .open({ portId, name })
       .then((res) => {
-        if (!res.ok) {
-          logger.warn(SCOPE, `open(${name}) rejected: ${res.error ?? 'unknown'}`);
-          closeLocalPort(portId, { errorMessage: res.error });
-        }
+        // A port the surface already closed has nothing to report: main
+        // holds an open until the engine is ready, and a close in that
+        // window settles it as refused.
+        if (res.ok || state.closed) return;
+        logger.warn(SCOPE, `open(${name}) rejected: ${res.error ?? 'unknown'}`);
+        closeLocalPort(portId, { errorMessage: res.error });
       })
       .catch((err) => {
         logger.warn(SCOPE, `open(${name}) failed`, err);
