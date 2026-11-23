@@ -39,6 +39,7 @@
 
 import { harSourcePortName } from '@openheaders/core/types';
 import { INSPECTED_TAB_PARAM } from '@/host/inspected-tab-id';
+import { evalInInspectedWindow } from './inspected-eval';
 import { POLL_MAX_MS, rampedDelayMs } from './poll-cadence';
 import { createResourceTimingSampler } from './resource-timing-sampler';
 
@@ -165,7 +166,7 @@ try {
 }
 
 const resourceTimingSampler = createResourceTimingSampler({
-  evalInPage: (expr, cb) => chrome.devtools.inspectedWindow.eval(expr, cb),
+  evalInPage: (expr, cb) => evalInInspectedWindow(expr, cb),
   forward: (snapshot) =>
     postToBackground({
       type: 'resource-timing',
@@ -203,15 +204,6 @@ interface NavTimingProbeResult {
   loadMs?: number;
 }
 
-/** Chrome's eval exception info — the second arg to the callback. */
-interface EvalExceptionInfo {
-  isError?: boolean;
-  isException?: boolean;
-  value?: string;
-  code?: string;
-  description?: string;
-}
-
 const NAV_TIMING_EXPR = `(() => {
   try {
     const nav = performance.getEntriesByType('navigation')[0];
@@ -237,25 +229,22 @@ const NAV_TIMING_EXPR = `(() => {
 })()`;
 
 function sampleNavTiming(onResult: (loadFired: boolean) => void): void {
-  chrome.devtools.inspectedWindow.eval(
-    NAV_TIMING_EXPR,
-    (result: NavTimingProbeResult | null, err?: EvalExceptionInfo) => {
-      if (err || !result) {
-        onResult(false);
-        return;
-      }
-      postToBackground({
-        type: 'nav-timing',
-        timing: {
-          pageOrigin: result.pageOrigin ?? null,
-          navStartMs: result.navStartMs,
-          dclMs: result.dclMs,
-          loadMs: result.loadMs,
-        },
-      });
-      onResult((result.loadMs ?? 0) > 0);
-    },
-  );
+  evalInInspectedWindow<NavTimingProbeResult>(NAV_TIMING_EXPR, (result, err) => {
+    if (err || !result) {
+      onResult(false);
+      return;
+    }
+    postToBackground({
+      type: 'nav-timing',
+      timing: {
+        pageOrigin: result.pageOrigin ?? null,
+        navStartMs: result.navStartMs,
+        dclMs: result.dclMs,
+        loadMs: result.loadMs,
+      },
+    });
+    onResult((result.loadMs ?? 0) > 0);
+  });
 }
 
 /**
