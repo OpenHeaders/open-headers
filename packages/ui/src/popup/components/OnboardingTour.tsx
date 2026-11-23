@@ -35,6 +35,7 @@ import { Button, Space, Tour, type TourProps, Typography } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useKeyboardNav } from '../shortcuts/KeyboardNavContext';
+import { detectBrowser } from './debug-network-copy';
 
 const logoUrl = hostAssets.resolveUrl('images/logo-pixel.svg');
 
@@ -71,6 +72,8 @@ const StepDescription: React.FC<{ children: React.ReactNode }> = ({ children }) 
 const OnboardingTour: React.FC<OnboardingTourProps> = ({ open, onClose }) => {
   const t = useT();
   const surface = useSurface();
+  // Safari's inspector is Web Inspector — the DevTools step speaks its terms.
+  const webInspector = useMemo(() => detectBrowser().inspector === 'web-inspector', []);
   const { setIsTourOpen } = useKeyboardNav();
   const [isVisible, setIsVisible] = useState(false);
   const [currentStep, setCurrentStep] = useState(0);
@@ -439,13 +442,13 @@ const OnboardingTour: React.FC<OnboardingTourProps> = ({ open, onClose }) => {
         title: (
           <Space size={8}>
             <BugTwoTone />
-            <span>{t('popup.tour.devtoolsTitle')}</span>
+            <span>{t(webInspector ? 'popup.tour.devtoolsTitleSafari' : 'popup.tour.devtoolsTitle')}</span>
           </Space>
         ),
         description: (
           <StepDescription>
             <Text style={{ fontSize: 12 }}>
-              {t('popup.tour.findThePrefix')}{' '}
+              {t(webInspector ? 'popup.tour.findThePrefixSafari' : 'popup.tour.findThePrefix')}{' '}
               <span
                 style={{
                   display: 'inline-flex',
@@ -459,15 +462,17 @@ const OnboardingTour: React.FC<OnboardingTourProps> = ({ open, onClose }) => {
                   fontSize: 12,
                 }}
               >
-                <span style={{ fontSize: 11, lineHeight: 1 }}>🟦</span>
+                {!webInspector && <span style={{ fontSize: 11, lineHeight: 1 }}>🟦</span>}
                 Open Headers
               </span>{' '}
-              {t('popup.tour.findTheSuffix')}
+              {t(webInspector ? 'popup.tour.findTheSuffixSafari' : 'popup.tour.findTheSuffix')}
             </Text>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginTop: 12 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                 <CheckCircleFilled style={{ color: 'var(--ant-color-success)', fontSize: 11 }} />
-                <Text style={{ fontSize: 12, flex: 1 }}>{t('popup.devtools.featureModify')}</Text>
+                <Text style={{ fontSize: 12, flex: 1 }}>
+                  {t(webInspector ? 'popup.devtools.featureModifySafari' : 'popup.devtools.featureModify')}
+                </Text>
                 <span
                   style={{
                     display: 'inline-flex',
@@ -691,7 +696,7 @@ const OnboardingTour: React.FC<OnboardingTourProps> = ({ open, onClose }) => {
         ...lastStepProps,
       },
     ],
-    [sharedStepProps, lastStepProps, t, surface.mode],
+    [sharedStepProps, lastStepProps, t, surface.mode, webInspector],
   );
 
   // Unmounted while hidden: a mounted Tour subscribes to window resize
