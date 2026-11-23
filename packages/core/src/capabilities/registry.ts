@@ -646,6 +646,16 @@ export interface Capabilities {
   originDataClearing?: () => boolean;
 
   /**
+   * Marker capability for a host whose UI can move between the popup and
+   * the side panel. Present on the extension surfaces whose browser has a
+   * side panel (Chrome / Edge / Firefox); absent elsewhere (Safari), where
+   * shared UI hides the switch instead of offering one that leaves the
+   * toolbar button opening nothing. Presence is the whole signal, like
+   * {@link Capabilities.cdpInspection}.
+   */
+  surfaceSwitch?: () => boolean;
+
+  /**
    * Report a newer app build than the one running, or `null` when
    * up to date. Registered only by hosts that own their update story
    * (the desktop app checking its release feed); extension surfaces

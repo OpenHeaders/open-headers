@@ -1,5 +1,6 @@
 import { NodeExpandOutlined, SettingOutlined } from '@ant-design/icons';
 import { hostAssets } from '@openheaders/core/assets';
+import { hasCapability } from '@openheaders/core/capabilities';
 import { hostNavigation } from '@openheaders/core/navigation';
 import { ShortcutHintTitle } from '@openheaders/ui/components/ShortcutKbd';
 import { useT } from '@openheaders/ui/context/LocaleContext';
@@ -48,13 +49,20 @@ const Header: React.FC = () => {
     // toolbar themselves once the binding has switched.
   }, [surface.mode, message, t]);
 
+  // A host with only the popup has nothing to switch to: no button, no shortcut.
+  const canSwitchSurface = hasCapability('surfaceSwitch');
+
   useEffect(() => {
-    setHeaderActions({
-      onToggleSurface: () => {
-        void handleSwitchSurface();
-      },
-    });
-  }, [setHeaderActions, handleSwitchSurface]);
+    setHeaderActions(
+      canSwitchSurface
+        ? {
+            onToggleSurface: () => {
+              void handleSwitchSurface();
+            },
+          }
+        : {},
+    );
+  }, [setHeaderActions, handleSwitchSurface, canSwitchSurface]);
 
   const switchTooltip =
     surface.mode === 'popup' ? t('popup.header.switchToSidePanel') : t('popup.header.switchToPopup');
@@ -139,23 +147,25 @@ const Header: React.FC = () => {
             )}
           </span>
         </div>
-        <Tooltip title={<ShortcutHintTitle label={toggleSurfaceLabel}>{switchTooltip}</ShortcutHintTitle>}>
-          <Button
-            type="text"
-            size="small"
-            icon={<SurfaceTargetIcon target={surface.mode === 'popup' ? 'sidepanel' : 'popup'} />}
-            onClick={() => {
-              void handleSwitchSurface();
-            }}
-            aria-label={switchTooltip}
-            style={{
-              padding: '4px 8px',
-              height: 'auto',
-              display: 'flex',
-              alignItems: 'center',
-            }}
-          />
-        </Tooltip>
+        {canSwitchSurface && (
+          <Tooltip title={<ShortcutHintTitle label={toggleSurfaceLabel}>{switchTooltip}</ShortcutHintTitle>}>
+            <Button
+              type="text"
+              size="small"
+              icon={<SurfaceTargetIcon target={surface.mode === 'popup' ? 'sidepanel' : 'popup'} />}
+              onClick={() => {
+                void handleSwitchSurface();
+              }}
+              aria-label={switchTooltip}
+              style={{
+                padding: '4px 8px',
+                height: 'auto',
+                display: 'flex',
+                alignItems: 'center',
+              }}
+            />
+          </Tooltip>
+        )}
         <Tooltip title={<ShortcutHintTitle label={openSettingsLabel}>{t('popup.header.openSettings')}</ShortcutHintTitle>}>
           <Button
             type="text"

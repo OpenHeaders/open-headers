@@ -145,6 +145,8 @@ function useOverlayColumns(t: Translate): OverlayColumns {
   // protocol, matching the footer pill.
   const debugChord = useSettingValue('keyboard.toggleDebugMode');
   const debugAvailable = hasCapability('cdpInspection');
+  // Listed only where the header offers the switch.
+  const surfaceSwitchAvailable = hasCapability('surfaceSwitch');
 
   return useMemo<OverlayColumns>(() => {
     const grouped: Record<PopupShortcutGroup, ShortcutEntry[]> = {
@@ -155,6 +157,7 @@ function useOverlayColumns(t: Translate): OverlayColumns {
       tourGuide: [],
     };
     for (const def of POPUP_SHORTCUTS) {
+      if (def.id === 'toggle-surface' && !surfaceSwitchAvailable) continue;
       const entry = buildEntryKeys(def, chords[def.id]);
       grouped[def.group].push({
         id: def.id,
@@ -196,7 +199,7 @@ function useOverlayColumns(t: Translate): OverlayColumns {
       left: groups.filter((g) => leftTitles.has(g.title)),
       right: groups.filter((g) => !leftTitles.has(g.title)),
     };
-  }, [chords, debugChord, debugAvailable, t]);
+  }, [chords, debugChord, debugAvailable, surfaceSwitchAvailable, t]);
 }
 
 const Kbd: React.FC<{ children: string }> = ({ children }) => <span className="kbd-key">{children}</span>;

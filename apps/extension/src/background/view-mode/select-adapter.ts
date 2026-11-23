@@ -7,11 +7,24 @@
  * the SW alone calls.
  */
 
+import { getBrowserAPI } from '@/types/browser';
 import { isFirefox } from '@/utils/browser-runtime';
 import type { ViewModeAdapter } from './adapter';
 import { chromiumViewModeAdapter } from './adapter-chromium';
 import { firefoxViewModeAdapter } from './adapter-firefox';
+import { popupOnlyViewModeAdapter } from './adapter-popup-only';
+
+/**
+ * Whether this browser has a side panel to switch to. Firefox always has
+ * its sidebar; elsewhere the manifest is the honest signal — the Chromium
+ * builds hold the `sidePanel` permission, the Safari build does not.
+ */
+export function hasSidePanelSurface(): boolean {
+  if (isFirefox) return true;
+  return getBrowserAPI().runtime.getManifest().permissions?.includes('sidePanel') === true;
+}
 
 export function selectViewModeAdapter(): ViewModeAdapter {
-  return isFirefox ? firefoxViewModeAdapter : chromiumViewModeAdapter;
+  if (isFirefox) return firefoxViewModeAdapter;
+  return hasSidePanelSurface() ? chromiumViewModeAdapter : popupOnlyViewModeAdapter;
 }

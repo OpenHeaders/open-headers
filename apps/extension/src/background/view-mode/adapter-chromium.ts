@@ -1,5 +1,5 @@
 /**
- * Chromium (Chrome / Edge / Safari) implementation of ViewModeAdapter.
+ * Chromium (Chrome / Edge) implementation of ViewModeAdapter.
  *
  * Chrome's `sidePanel.open()` does NOT survive a runtime.sendMessage
  * round-trip in practice — the gesture is effectively only usable
@@ -37,7 +37,7 @@
 import type { ViewMode } from '@openheaders/core/types';
 import type { OpenContext, OpenResult, Surface, ViewModeAdapter } from './adapter';
 
-const POPUP_PATH = 'popup.html';
+export const POPUP_PATH = 'popup.html';
 
 interface SidePanelLike {
   open?: (options: { windowId?: number; tabId?: number }) => Promise<void>;

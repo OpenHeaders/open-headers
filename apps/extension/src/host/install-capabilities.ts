@@ -21,6 +21,7 @@ import { createBridgedServerSignIn } from '@openheaders/core/identity';
 import './install-cdp-capability';
 import './install-csp-exempt-capability';
 import './install-whats-new-capability';
+import { hasSidePanelSurface } from '@/background/view-mode/select-adapter';
 import { getBrowserAPI } from '@/types/browser';
 import { companionReveal } from './companion-reveal';
 import { desktopLaunch } from './desktop-launch';
@@ -60,6 +61,12 @@ registerCapability('openExternalUrl', openExternalUrl);
 // Safari, where the button would only ever fail).
 if (getBrowserAPI().runtime.getManifest().permissions?.includes('browsingData')) {
   registerCapability('originDataClearing', () => true);
+}
+
+// Popup ⇄ side panel switching — absent on Safari, which has no side
+// panel, so shared UI hides the switch there.
+if (hasSidePanelSurface()) {
+  registerCapability('surfaceSwitch', () => true);
 }
 
 // Companion reveal: relay to the connected desktop app through the SW
