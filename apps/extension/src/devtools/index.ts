@@ -38,6 +38,7 @@
  */
 
 import { harSourcePortName } from '@openheaders/core/types';
+import { INSPECTED_TAB_PARAM } from '@/host/inspected-tab-id';
 import { POLL_MAX_MS, rampedDelayMs } from './poll-cadence';
 import { createResourceTimingSampler } from './resource-timing-sampler';
 
@@ -62,7 +63,18 @@ function panelIconPath(): string {
   return 'images/logo-template.svg';
 }
 
-chrome.devtools.panels.create(isChromium ? '🟦 Open Headers' : 'Open Headers', panelIconPath(), 'panel.html');
+const tabId = chrome.devtools.inspectedWindow.tabId;
+
+// Safari's panel frame cannot read the inspected tab id from
+// `inspectedWindow` (it answers −1 there) while this page can, so there the
+// panel URL carries it. Chromium and Firefox panels read their own id and
+// keep the plain path.
+function panelPagePath(): string {
+  if (isChromium || isFirefox) return 'panel.html';
+  return `panel.html?${INSPECTED_TAB_PARAM}=${tabId}`;
+}
+
+chrome.devtools.panels.create(isChromium ? '🟦 Open Headers' : 'Open Headers', panelIconPath(), panelPagePath());
 
 // Eagerly load panel.html in a hidden iframe when the parity capture script has set the flag.
 chrome.storage.local.get('__oh_parity_hook__', (res) => {
@@ -92,8 +104,6 @@ chrome.storage.local.get('__oh_parity_hook__', (res) => {
     }
   });
 });
-
-const tabId = chrome.devtools.inspectedWindow.tabId;
 
 // Wall-clock moment DevTools opened on this tab — the Resource Timing
 // floor. The buffer is cumulative since navigation, so the sampler scopes

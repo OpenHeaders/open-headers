@@ -27,6 +27,7 @@ import {
   observeDocumentTitle,
   type SurfaceIdentityHandle,
 } from '@openheaders/ui/shared/awareness/surface-identity';
+import { inspectedTabId } from './inspected-tab-id';
 
 /** Lookup of `chrome.tabs.getCurrent()` (workbench / sidepanel) wrapped
  *  to tolerate Firefox's promise-returning shape. */
@@ -62,9 +63,8 @@ function getCurrentTab(): Promise<chrome.tabs.Tab | null> {
  *  document.title client-side). Applies the RAW page title/hostname;
  *  viewers compose the "DevTools — …" framing in their own locale. */
 function observeInspectedTab(apply: (context: string) => void): () => void {
-  const dev = (chrome as typeof chrome & { devtools?: { inspectedWindow?: { tabId: number } } }).devtools;
-  const tabId = dev?.inspectedWindow?.tabId;
-  if (typeof tabId !== 'number' || !chrome.tabs?.get) return () => {};
+  const tabId = inspectedTabId();
+  if (tabId === null || !chrome.tabs?.get) return () => {};
 
   const buildContext = (tab: chrome.tabs.Tab | undefined): string => {
     if (!tab) return '';
@@ -178,9 +178,8 @@ export function resolveDevPanelIdentity(initialContext?: string): SurfaceIdentit
     observeContext: observeInspectedTab,
     resolveNavigation: async () => {
       try {
-        const dev = (chrome as typeof chrome & { devtools?: { inspectedWindow?: { tabId: number } } }).devtools;
-        const tabId = dev?.inspectedWindow?.tabId;
-        if (typeof tabId !== 'number') return null;
+        const tabId = inspectedTabId();
+        if (tabId === null) return null;
         return { kind: 'devtools-inspected-tab', inspectedTabId: tabId };
       } catch {
         return null;
