@@ -1,8 +1,15 @@
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import type React from 'react';
+import type { InspectorKind } from './debug-network-copy';
 
-export const DevtoolsTabGlyph: React.FC = () => {
+interface DevtoolsTabGlyphProps {
+  /** Which inspector the mock stands for — Safari's has no Lighthouse tab. */
+  readonly inspector?: InspectorKind;
+}
+
+export const DevtoolsTabGlyph: React.FC<DevtoolsTabGlyphProps> = ({ inspector = 'devtools' }) => {
   const t = useT();
+  const webInspector = inspector === 'web-inspector';
   const BG_CONTAINER = 'var(--ant-color-bg-container)';
   const FILL_SECONDARY = 'var(--ant-color-fill-secondary)';
   const FILL_TERTIARY = 'var(--ant-color-fill-tertiary)';
@@ -34,7 +41,7 @@ export const DevtoolsTabGlyph: React.FC = () => {
     { kind: 'label', label: 'Network', w: 24 },
     { kind: 'skeleton', w: 12 },
     { kind: 'skeleton', w: 12 },
-    { kind: 'label', label: 'Lighthouse', w: 30 },
+    webInspector ? { kind: 'label', label: 'Console', w: 24 } : { kind: 'label', label: 'Lighthouse', w: 30 },
   ];
 
   return (
@@ -43,7 +50,7 @@ export const DevtoolsTabGlyph: React.FC = () => {
       width={320}
       height={192}
       role="img"
-      aria-label={t('popup.debug.tabGlyphAria')}
+      aria-label={t(webInspector ? 'popup.debug.tabGlyphAriaSafari' : 'popup.debug.tabGlyphAria')}
       style={{ flexShrink: 0 }}
     >
       <rect x={FX} y={FY} width={FW} height={FH} rx={5} fill={BG_CONTAINER} stroke={BORDER} />

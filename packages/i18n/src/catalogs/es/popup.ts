@@ -443,6 +443,14 @@ export const popup = {
   // ── Debug Network panel ────────────────────────────────────────────
   'popup.debug.title': 'Depuración de red',
   'popup.debug.step1': 'Abre las DevTools del navegador',
+  'popup.debug.step1Safari': 'Abre el inspector web',
+  'popup.debug.notSafari': 'No la página de inicio ni una pestaña vacía (las extensiones están bloqueadas ahí).',
+  'popup.debug.menuGlyphAriaSafari': 'Abrir el menú Desarrollo → Mostrar el inspector web',
+  'popup.debug.tabGlyphAriaSafari':
+    'Inspector web acoplado con la pestaña Open Headers seleccionada — barras laterales, lista de red y paneles divididos con varias pestañas',
+  'popup.debug.menuGlyphDevelop': 'Desarrollo',
+  'popup.debug.menuGlyphShowWebInspector': 'Mostrar el inspector web',
+  'popup.devtools.featureModifySafari': 'Modifica los encabezados de solicitud',
   'popup.debug.step1a': 'En una página normal, p. ej.',
   'popup.debug.notPrefix': 'No',
   'popup.debug.notSuffix': 'ni una pestaña nueva (las extensiones están bloqueadas ahí).',

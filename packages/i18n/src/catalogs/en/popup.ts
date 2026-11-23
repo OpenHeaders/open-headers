@@ -420,6 +420,15 @@ export const popup = {
   // ── Debug Network panel ────────────────────────────────────────────
   'popup.debug.title': 'Debug Network',
   'popup.debug.step1': 'Open browser DevTools',
+  // Safari's own wording — its inspector, its menu path, no internal-page scheme.
+  'popup.debug.step1Safari': 'Open Web Inspector',
+  'popup.debug.notSafari': 'Not the Start Page or an empty tab (extensions: blocked there).',
+  'popup.debug.menuGlyphAriaSafari': 'Open the Develop menu → Show Web Inspector',
+  'popup.debug.tabGlyphAriaSafari':
+    'Web Inspector docked with Open Headers tab selected — sidebars, network list and multi-tab split panes',
+  'popup.debug.menuGlyphDevelop': 'Develop',
+  'popup.debug.menuGlyphShowWebInspector': 'Show Web Inspector',
+  'popup.devtools.featureModifySafari': 'Modify request headers',
   'popup.debug.step1a': 'On a regular page e.g.',
   'popup.debug.notPrefix': 'Not',
   'popup.debug.notSuffix': 'or new tab (extensions: blocked there).',

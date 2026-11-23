@@ -19,6 +19,7 @@ const DebugNetworkPanel: React.FC<DebugNetworkPanelProps> = ({ open, onClose }) 
   const { token } = theme.useToken();
   const t = useT();
   const browser = useMemo(detectBrowser, []);
+  const webInspector = browser.inspector === 'web-inspector';
 
   const kbdStyle: React.CSSProperties = {
     display: 'inline-flex',
@@ -106,7 +107,7 @@ const DebugNetworkPanel: React.FC<DebugNetworkPanelProps> = ({ open, onClose }) 
           <div className="oh-debug-step-body" style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 12 }}>
             <div style={{ flex: 1, minWidth: 0 }}>
               <Text strong style={{ fontSize: 13 }}>
-                {t('popup.debug.step1')}
+                {t(webInspector ? 'popup.debug.step1Safari' : 'popup.debug.step1')}
               </Text>
               <div style={{ display: 'flex', alignItems: 'flex-start', gap: 6, marginTop: 4 }}>
                 <span style={subStepIndex}>a</span>
@@ -118,13 +119,19 @@ const DebugNetworkPanel: React.FC<DebugNetworkPanelProps> = ({ open, onClose }) 
                     </Text>
                   </Text>
                   <div style={{ marginTop: 2 }}>
-                    <Text type="secondary" style={{ fontSize: 11 }}>
-                      {t('popup.debug.notPrefix')}{' '}
-                      <Text code style={{ fontSize: 11 }}>
-                        chrome://
-                      </Text>{' '}
-                      {t('popup.debug.notSuffix')}
-                    </Text>
+                    {webInspector ? (
+                      <Text type="secondary" style={{ fontSize: 11 }}>
+                        {t('popup.debug.notSafari')}
+                      </Text>
+                    ) : (
+                      <Text type="secondary" style={{ fontSize: 11 }}>
+                        {t('popup.debug.notPrefix')}{' '}
+                        <Text code style={{ fontSize: 11 }}>
+                          chrome://
+                        </Text>{' '}
+                        {t('popup.debug.notSuffix')}
+                      </Text>
+                    )}
                   </div>
                 </div>
               </div>
@@ -160,7 +167,7 @@ const DebugNetworkPanel: React.FC<DebugNetworkPanelProps> = ({ open, onClose }) 
               )}
             </div>
             <div className="oh-debug-glyph">
-              <DevtoolsMenuGlyph />
+              <DevtoolsMenuGlyph inspector={browser.inspector} />
             </div>
           </div>
         </div>
@@ -184,23 +191,25 @@ const DebugNetworkPanel: React.FC<DebugNetworkPanelProps> = ({ open, onClose }) 
                   fontSize: 12,
                 }}
               >
-                <span style={{ fontSize: 11, lineHeight: 1 }}>🟦</span>
+                {!webInspector && <span style={{ fontSize: 11, lineHeight: 1 }}>🟦</span>}
                 Open Headers
               </span>{' '}
               {t('popup.debug.clickTheSuffix')}
             </Text>
-            <div style={{ marginTop: 2 }}>
-              <Text type="secondary" style={{ fontSize: 11 }}>
-                {t('popup.debug.overflowPrefix')}{' '}
-                <Text code style={{ fontSize: 11 }}>
-                  »
-                </Text>{' '}
-                {t('popup.debug.overflowSuffix')}
-              </Text>
-            </div>
+            {!webInspector && (
+              <div style={{ marginTop: 2 }}>
+                <Text type="secondary" style={{ fontSize: 11 }}>
+                  {t('popup.debug.overflowPrefix')}{' '}
+                  <Text code style={{ fontSize: 11 }}>
+                    »
+                  </Text>{' '}
+                  {t('popup.debug.overflowSuffix')}
+                </Text>
+              </div>
+            )}
             </div>
             <div className="oh-debug-glyph">
-              <DevtoolsTabGlyph />
+              <DevtoolsTabGlyph inspector={browser.inspector} />
             </div>
           </div>
         </div>
@@ -224,7 +233,9 @@ const DebugNetworkPanel: React.FC<DebugNetworkPanelProps> = ({ open, onClose }) 
             >
               <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                 <CheckCircleFilled style={{ color: token.colorSuccess, fontSize: 11 }} />
-                <Text style={{ fontSize: 12, flex: 1 }}>{t('popup.devtools.featureModify')}</Text>
+                <Text style={{ fontSize: 12, flex: 1 }}>
+                  {t(webInspector ? 'popup.devtools.featureModifySafari' : 'popup.devtools.featureModify')}
+                </Text>
                 <span
                   style={{
                     display: 'inline-flex',

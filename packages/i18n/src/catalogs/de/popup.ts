@@ -440,6 +440,14 @@ export const popup = {
   // ── Debug Network panel ────────────────────────────────────────────
   'popup.debug.title': 'Netzwerk-Debugging',
   'popup.debug.step1': 'Öffne die DevTools des Browsers',
+  'popup.debug.step1Safari': 'Öffne die Web-Informationen',
+  'popup.debug.notSafari': 'Nicht die Startseite oder ein leerer Tab (Erweiterungen sind dort blockiert).',
+  'popup.debug.menuGlyphAriaSafari': 'Menü Entwickler → Web-Informationen einblenden öffnen',
+  'popup.debug.tabGlyphAriaSafari':
+    'Angedockte Web-Informationen mit ausgewähltem Tab „Open Headers“ — Seitenleisten, Netzwerkliste und geteilte Panels mit mehreren Tabs',
+  'popup.debug.menuGlyphDevelop': 'Entwickler',
+  'popup.debug.menuGlyphShowWebInspector': 'Web-Informationen einblenden',
+  'popup.devtools.featureModifySafari': 'Anfrage-Header verändern',
   'popup.debug.step1a': 'Auf einer normalen Seite, z. B.',
   'popup.debug.notPrefix': 'Nicht',
   'popup.debug.notSuffix': 'oder ein neuer Tab (Erweiterungen sind dort blockiert).',

@@ -530,6 +530,14 @@ export const popup = {
   // ── Debug Network panel ────────────────────────────────────────────
   'popup.debug.title': 'Depanare rețea',
   'popup.debug.step1': 'Deschideți DevTools în browser',
+  'popup.debug.step1Safari': 'Deschideți inspectorul web',
+  'popup.debug.notSafari': 'Nu pe pagina de start sau într-o filă goală (extensiile sunt blocate acolo).',
+  'popup.debug.menuGlyphAriaSafari': 'Deschideți meniul Dezvoltare → Afișează inspectorul web',
+  'popup.debug.tabGlyphAriaSafari':
+    'Inspectorul web andocat cu fila Open Headers selectată — bare laterale, listă de rețea și panouri divizate cu file multiple',
+  'popup.debug.menuGlyphDevelop': 'Dezvoltare',
+  'popup.debug.menuGlyphShowWebInspector': 'Afișează inspectorul web',
+  'popup.devtools.featureModifySafari': 'Modificare antete de cerere',
   'popup.debug.step1a': 'Pe o pagină obișnuită, de ex.',
   'popup.debug.notPrefix': 'Nu pe',
   'popup.debug.notSuffix': 'sau într-o filă nouă (extensiile sunt blocate acolo).',

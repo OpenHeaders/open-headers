@@ -428,6 +428,14 @@ export const popup = {
   // ── Debug Network panel ────────────────────────────────────────────
   'popup.debug.title': 'Débogage réseau',
   'popup.debug.step1': 'Ouvrez les DevTools du navigateur',
+  'popup.debug.step1Safari': "Ouvrez l'inspecteur web",
+  'popup.debug.notSafari': 'Pas la page de démarrage ni un onglet vide (les extensions y sont bloquées).',
+  'popup.debug.menuGlyphAriaSafari': "Ouvrir le menu Développement → Afficher l'inspecteur web",
+  'popup.debug.tabGlyphAriaSafari':
+    "Inspecteur web ancré avec l'onglet Open Headers sélectionné — barres latérales, liste réseau et panneaux partagés multi-onglets",
+  'popup.debug.menuGlyphDevelop': 'Développement',
+  'popup.debug.menuGlyphShowWebInspector': "Afficher l'inspecteur web",
+  'popup.devtools.featureModifySafari': 'Modifiez les en-têtes de requête',
   'popup.debug.step1a': 'Sur une page normale, p. ex.',
   'popup.debug.notPrefix': 'Pas',
   'popup.debug.notSuffix': 'ni un nouvel onglet (les extensions y sont bloquées).',

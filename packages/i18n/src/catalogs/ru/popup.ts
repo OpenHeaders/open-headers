@@ -551,6 +551,14 @@ export const popup = {
   // ── Debug Network panel ────────────────────────────────────────────
   'popup.debug.title': 'Отладка сети',
   'popup.debug.step1': 'Откройте DevTools браузера',
+  'popup.debug.step1Safari': 'Откройте веб-инспектор',
+  'popup.debug.notSafari': 'Не на начальной странице и не в пустой вкладке (расширения там заблокированы).',
+  'popup.debug.menuGlyphAriaSafari': 'Откройте меню Разработка → Показать веб-инспектор',
+  'popup.debug.tabGlyphAriaSafari':
+    'Веб-инспектор закреплён с выбранной вкладкой Open Headers — боковые панели, список сети и разделённые многовкладочные панели',
+  'popup.debug.menuGlyphDevelop': 'Разработка',
+  'popup.debug.menuGlyphShowWebInspector': 'Показать веб-инспектор',
+  'popup.devtools.featureModifySafari': 'Изменение заголовков запроса',
   'popup.debug.step1a': 'На обычной странице, например',
   'popup.debug.notPrefix': 'Не на',
   'popup.debug.notSuffix': 'и не в новой вкладке (расширения там заблокированы).',

@@ -430,6 +430,14 @@ export const popup = {
   // ── Debug Network panel ────────────────────────────────────────────
   'popup.debug.title': '네트워크 디버그',
   'popup.debug.step1': '브라우저 DevTools 창 열기',
+  'popup.debug.step1Safari': '웹 속성 열기',
+  'popup.debug.notSafari': '불가: 시작 페이지 또는 빈 탭 (확장 프로그램이 거기서는 차단됨).',
+  'popup.debug.menuGlyphAriaSafari': '개발자용 메뉴 열기 → 웹 속성 보기',
+  'popup.debug.tabGlyphAriaSafari':
+    'Open Headers 탭이 선택된 채로 도킹된 웹 속성: 사이드바, 네트워크 목록, 다중 탭 분할 창',
+  'popup.debug.menuGlyphDevelop': '개발자용',
+  'popup.debug.menuGlyphShowWebInspector': '웹 속성 보기',
+  'popup.devtools.featureModifySafari': '요청 헤더 수정',
   'popup.debug.step1a': '일반 페이지에서. 예:',
   'popup.debug.notPrefix': '불가:',
   'popup.debug.notSuffix': '또는 새 탭 (확장 프로그램이 거기서는 차단됨).',

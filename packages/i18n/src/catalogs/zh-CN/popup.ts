@@ -428,6 +428,13 @@ export const popup = {
   // ── Debug Network panel ────────────────────────────────────────────
   'popup.debug.title': '调试网络',
   'popup.debug.step1': '打开浏览器 DevTools',
+  'popup.debug.step1Safari': '打开网页检查器',
+  'popup.debug.notSafari': '不要用起始页或空白标签页（扩展在那里被禁止）。',
+  'popup.debug.menuGlyphAriaSafari': '打开“开发”菜单 → 显示网页检查器',
+  'popup.debug.tabGlyphAriaSafari': '网页检查器已停靠并选中 Open Headers 标签页——侧边栏、网络列表和多标签拆分窗格',
+  'popup.debug.menuGlyphDevelop': '开发',
+  'popup.debug.menuGlyphShowWebInspector': '显示网页检查器',
+  'popup.devtools.featureModifySafari': '修改请求标头',
   'popup.debug.step1a': '在常规页面上，例如',
   'popup.debug.notPrefix': '不要用',
   'popup.debug.notSuffix': '或新标签页（扩展在那里被禁止）。',

@@ -441,6 +441,14 @@ export const popup = {
   // ── Debug Network panel ────────────────────────────────────────────
   'popup.debug.title': 'ネットワークをデバッグ',
   'popup.debug.step1': 'ブラウザーの DevTools を開く',
+  'popup.debug.step1Safari': 'Web インスペクタを開く',
+  'popup.debug.notSafari': '不可：スタートページや空のタブ（拡張機能はそこではブロックされます）。',
+  'popup.debug.menuGlyphAriaSafari': '「開発」メニューを開く → Web インスペクタを表示',
+  'popup.debug.tabGlyphAriaSafari':
+    'Open Headers タブが選択された状態でドッキングされた Web インスペクタ。サイドバー、ネットワークリスト、マルチタブの分割ペイン',
+  'popup.debug.menuGlyphDevelop': '開発',
+  'popup.debug.menuGlyphShowWebInspector': 'Web インスペクタを表示',
+  'popup.devtools.featureModifySafari': 'リクエストヘッダーを変更',
   'popup.debug.step1a': '通常のページで。例：',
   'popup.debug.notPrefix': '不可：',
   'popup.debug.notSuffix': 'や新しいタブ（拡張機能はそこではブロックされます）。',
