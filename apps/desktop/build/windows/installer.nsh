@@ -39,6 +39,19 @@
   ${if} $EXEDIR != "$LOCALAPPDATA\openheaders-updater\pending"
     RMDir /r "$LOCALAPPDATA\openheaders-updater"
   ${endif}
+
+  ; The updater keeps the block map of the installer it last downloaded
+  ; beside the copy this installer keeps of itself, and computes the next
+  ; download from the pair. An install the updater did not start from that
+  ; folder leaves the map describing another file: the next update would
+  ; fail its check and download everything. The map goes, and the updater
+  ; takes the right one from the feed.
+  Push $R0
+  ${StdUtils.GetParentPath} $R0 "$LOCALAPPDATA\${APP_INSTALLER_STORE_FILE}"
+  ${if} $EXEDIR != "$R0\pending"
+    Delete "$R0\current.blockmap"
+  ${endif}
+  Pop $R0
 !macroend
 
 !macro customUnInstall
