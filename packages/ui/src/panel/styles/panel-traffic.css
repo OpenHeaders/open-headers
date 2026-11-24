@@ -969,13 +969,22 @@
 /* Reused-connection note — a responded request that rode an already-open
  * socket, so DNS / connect / TLS are genuinely absent (not zero). A muted,
  * indented line under Connection Start, so the missing phases read as "reused"
- * rather than "unknown". */
+ * rather than "unknown".
+ *
+ * One line, cut with an ellipsis: it names a request, and a request's name can
+ * be a query string thousands of characters long. Inline-size containment keeps
+ * that name out of the popover's own width, so the line takes the width the
+ * breakdown already has; the full name is the line's title. */
 .dt-waterfall-pop-note {
   margin-top: 2px;
   padding-left: 14px;
   color: var(--dt-text-muted);
   font-size: 11px;
   line-height: 15px;
+  contain: inline-size;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* Terminal-outcome marker — a request that never received a response (blocked

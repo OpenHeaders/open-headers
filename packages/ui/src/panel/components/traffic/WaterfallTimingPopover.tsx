@@ -133,7 +133,7 @@ export function WaterfallTimingPopover({
             <TimingBandInfo band={band} />
           </div>
           {band === 'connecting' && anyReused && reusedOpener && (
-            <div className="dt-waterfall-pop-note">
+            <div className="dt-waterfall-pop-note" title={reusedOpener}>
               {t('panel.network.timing.connectionOpenedBy', { name: reusedOpener })}
             </div>
           )}
