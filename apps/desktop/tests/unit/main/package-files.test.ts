@@ -91,6 +91,7 @@ const LEFT_OUT = [
   'node_modules/node-pty/build/Release/winpty.lib',
   'node_modules/node-pty/build/Release/obj/pty/pty.tlog/CL.read.1.tlog',
   'node_modules/node-pty/build/deps/winpty/src/winpty-agent.vcxproj',
+  'node_modules/@openheaders/windows-foreground/src/common.h',
   'node_modules/@openheaders/windows-foreground/build/foreground.vcxproj',
   'node_modules/@openheaders/windows-foreground/build/Release/foreground.iobj',
   'node_modules/@openheaders/windows-foreground/build/Release/obj/foreground/foreground.tlog/link.read.1.tlog',
