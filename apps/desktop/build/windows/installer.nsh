@@ -32,6 +32,13 @@
   WriteRegStr HKCU "Software\Classes\openheaders\shell\open\command" "" '"$INSTDIR\OpenHeaders.exe" "%1"'
   
   DetailPrint "Protocol handler registered successfully."
+
+  ; Builds up to 2026.11.1 kept their update downloads in a folder of
+  ; another name, a whole installer among them. An update those builds
+  ; start runs from that folder and leaves it; the next install removes it.
+  ${if} $EXEDIR != "$LOCALAPPDATA\openheaders-updater\pending"
+    RMDir /r "$LOCALAPPDATA\openheaders-updater"
+  ${endif}
 !macroend
 
 !macro customUnInstall

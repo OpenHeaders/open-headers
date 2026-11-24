@@ -346,7 +346,9 @@ jobs:
           AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
 
       # No signing credentials: one unsigned pass (betas still skip the
-      # MSI).
+      # MSI). Every step that compiles an installer keeps its log, with
+      # the values the builder hands the installer's compiler in it
+      # (`DEBUG`), for the update cache check below.
       - name: Build Windows
         if: matrix.os == 'windows-2022' && steps.win_sign.outputs.enabled != 'true'
         working-directory: apps/desktop
@@ -356,7 +358,9 @@ jobs:
             pnpm dist:win:unsigned:beta
           else
             pnpm dist:win:unsigned
-          fi
+          fi 2>&1 | tee "$RUNNER_TEMP/package-installers.log"
+        env:
+          DEBUG: electron-builder:nsis
 
       # Signed lane, stable and beta alike: the installed binaries need
       # Authenticode too — the NM chain's host verification anchors on
@@ -374,15 +378,14 @@ jobs:
       # The ARM leg stops at the unpacked tree: signing does not run on
       # ARM runners, so the x64 job below it signs the tree and packages
       # the installer from it. Without
-      # signing credentials the tree is built for an unsigned installer
-      # (its packed app-update.yml carries no publisherName).
+      # signing credentials the tree is built for an unsigned installer:
+      # the builder's publisher check is off, so the packed
+      # app-update.yml carries no publisherName.
       - name: Build Windows ARM64 unpacked
         if: matrix.os == 'windows-11-arm'
         working-directory: apps/desktop
         shell: bash
-        run: pnpm dist:win:unsigned:dir:arm64
-        env:
-          OH_WIN_SETUP_UNSIGNED: ${{ steps.win_sign.outputs.enabled != 'true' && '1' || '' }}
+        run: pnpm dist:win:unsigned:dir:arm64 ${{ steps.win_sign.outputs.enabled != 'true' && '-c.win.verifyUpdateCodeSignature=false' || '' }}
 
       # Every PE file in the unpacked tree that carries no signature is
       # signed here — the executables, the native addons, the runtime's
@@ -436,8 +439,9 @@ jobs:
             pnpm dist:win:frompacked:beta
           else
             pnpm dist:win:frompacked
-          fi
+          fi 2>&1 | tee "$RUNNER_TEMP/package-installers.log"
         env:
+          DEBUG: electron-builder:nsis
           OH_WIN_SIGN: '1'
           AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
           AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
@@ -488,6 +492,18 @@ jobs:
           if ($invalid -gt 0) { Write-Error "$invalid of $($files.Count) files carry no valid signature"; exit 1 }
           Write-Host "All $($files.Count) signatures are valid"
         shell: pwsh
+
+      # The installer keeps a copy of itself for the next differential
+      # download, in a folder the builder compiles into it; the packed
+      # app reads that copy in the folder its app-update.yml names. Two
+      # names mean every update is a full download, so they are compared
+      # here: the packed file against the packaging log.
+      - &verify_update_cache_step
+        name: Verify the update cache folder
+        if: matrix.os == 'windows-2022'
+        working-directory: apps/desktop
+        shell: bash
+        run: node scripts/build/update-config.js "dist/win${{ matrix.arch == 'arm64' && '-arm64' || '' }}-unpacked" "$RUNNER_TEMP/package-installers.log"
 
       # Betas ship AppImage + deb for both arches — rpm is the one
       # Linux target betas skip (dnf users ride stable).
@@ -666,14 +682,16 @@ jobs:
       - name: Package the installer from the tree
         working-directory: apps/desktop
         shell: bash
-        run: pnpm dist:win:frompacked:arm64
+        run: pnpm dist:win:frompacked:arm64 2>&1 | tee "$RUNNER_TEMP/package-installers.log"
         env:
+          DEBUG: electron-builder:nsis
           OH_WIN_SIGN: ${{ steps.win_sign.outputs.enabled == 'true' && '1' || '' }}
           AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
           AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
           AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
 
       - *verify_signatures_step
+      - *verify_update_cache_step
       - *upload_desktop_step
       - *upload_desktop_retry_step
 

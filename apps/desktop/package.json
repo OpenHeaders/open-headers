@@ -35,12 +35,12 @@
     "dist:mac:unsigned": "pnpm run predist && cross-env CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --mac --x64 --arm64 --publish never",
     "dist:mac:unsigned:arm64": "pnpm run predist && cross-env CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --mac --arm64 --config.mac.target=dmg --publish never",
     "dist:win": "pnpm run predist && electron-builder --win --publish never",
-    "dist:win:unsigned": "pnpm run predist && cross-env WIN_CSC_LINK='' OH_WIN_SETUP_UNSIGNED=1 electron-builder --win --publish never",
-    "dist:win:unsigned:beta": "pnpm run predist && cross-env WIN_CSC_LINK='' OH_WIN_SETUP_UNSIGNED=1 electron-builder --win nsis --publish never",
+    "dist:win:unsigned": "pnpm run predist && cross-env WIN_CSC_LINK='' electron-builder --win -c.win.verifyUpdateCodeSignature=false --publish never",
+    "dist:win:unsigned:beta": "pnpm run predist && cross-env WIN_CSC_LINK='' electron-builder --win nsis -c.win.verifyUpdateCodeSignature=false --publish never",
     "dist:win:unsigned:dir": "pnpm run predist && cross-env WIN_CSC_LINK='' electron-builder --win dir --publish never",
     "dist:win:frompacked": "cross-env WIN_CSC_LINK='' electron-builder --win --prepackaged dist/win-unpacked --publish never",
     "dist:win:frompacked:beta": "cross-env WIN_CSC_LINK='' electron-builder --win nsis --prepackaged dist/win-unpacked --publish never",
-    "dist:win:unsigned:arm64": "pnpm run predist && cross-env WIN_CSC_LINK='' OH_WIN_SETUP_UNSIGNED=1 electron-builder --win nsis --arm64 --config scripts/build/win-arm64-config.js --publish never",
+    "dist:win:unsigned:arm64": "pnpm run predist && cross-env WIN_CSC_LINK='' electron-builder --win nsis --arm64 --config scripts/build/win-arm64-config.js -c.win.verifyUpdateCodeSignature=false --publish never",
     "dist:win:unsigned:dir:arm64": "pnpm run predist && cross-env WIN_CSC_LINK='' electron-builder --win dir --arm64 --publish never",
     "dist:win:frompacked:arm64": "cross-env WIN_CSC_LINK='' electron-builder --win nsis --arm64 --prepackaged dist/win-arm64-unpacked --config scripts/build/win-arm64-config.js --publish never",
     "dist:linux": "pnpm run predist && electron-builder --linux --x64 --arm64 --publish never",
@@ -89,10 +89,6 @@
     "afterAllArtifactBuild": "./scripts/build/notarize-artifacts.js",
     "msiProjectCreated": "./scripts/build/msi-project-created.js",
     "extraResources": [
-      {
-        "from": "dev-app-update.yml",
-        "to": "app-update.yml"
-      },
       {
         "from": "dist-webpack/THIRD-PARTY-NOTICES.txt",
         "to": "THIRD-PARTY-NOTICES.txt"
@@ -163,6 +159,9 @@
         "sign": "./scripts/build/sign-windows.js",
         "signingHashAlgorithms": [
           "sha256"
+        ],
+        "publisherName": [
+          "BITHUB TEAM SRL"
         ]
       }
     },

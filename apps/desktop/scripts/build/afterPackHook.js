@@ -1,6 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const { execFileSync } = require('child_process');
+const { writeUpdateConfig } = require('./update-config');
 
 // Compiles the SMAppService trust helper (dual-mode Swift binary) and
 // embeds it with its launchd plist. Runs before signing, so the helper
@@ -105,20 +106,14 @@ function embedH3Helper(context) {
     console.log(`✓ HTTP/3 helper embedded (${osName}-${archName})`);
 }
 
-// Lanes whose Setup.exe ships unsigned (a release leg without signing
-// credentials, local unsigned builds) set OH_WIN_SETUP_UNSIGNED=1: the
-// packed app-update.yml must not carry publisherName, or
-// electron-updater would refuse that lane's own unsigned downloads.
-// The signed lane, stable and beta, keeps the field — its Setup.exe
-// gets Authenticode-signed after packaging.
-function stripUnsignedUpdatePublisher(appOutDir) {
-    if (process.env.OH_WIN_SETUP_UNSIGNED !== '1') return;
-    const updateYml = path.join(appOutDir, 'resources', 'app-update.yml');
-    if (!fs.existsSync(updateYml)) return;
-    const lines = fs.readFileSync(updateYml, 'utf8').split('\n');
-    const kept = lines.filter((line) => !line.startsWith('#') && !line.startsWith('publisherName:'));
-    fs.writeFileSync(updateYml, kept.join('\n'));
-    console.log('✓ publisherName stripped from app-update.yml (unsigned Setup.exe lane)');
+// A pack with no installer target — the signed lane's unpacked tree —
+// gets no update config from the builder; it is written here from the
+// builder's own values (update-config.js).
+async function ensureWindowsUpdateConfig(context) {
+    const written = await writeUpdateConfig(context);
+    if (written === null) return;
+    const publisher = written.publisherName ? `publisher ${[].concat(written.publisherName).join(', ')}` : 'no publisher check';
+    console.log(`✓ app-update.yml written (cache folder ${written.updaterCacheDirName}, ${publisher})`);
 }
 
 // The process reader's addon must sit OUTSIDE the archive with its
@@ -168,7 +163,7 @@ exports.default = async function(context) {
 
     // Windows builds — verify the native foreground module was unpacked
     if (electronPlatformName === 'win32') {
-        stripUnsignedUpdatePublisher(appOutDir);
+        await ensureWindowsUpdateConfig(context);
         const nativeModulePath = path.join(appOutDir, 'resources', 'app.asar.unpacked', 'node_modules', '@openheaders', 'windows-foreground');
         if (fs.existsSync(nativeModulePath)) {
             console.log('✓ @openheaders/windows-foreground module found in unpacked resources');
