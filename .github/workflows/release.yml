@@ -401,6 +401,28 @@ jobs:
           AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
           AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
 
+      # The installer and the uninstaller unpack plugin libraries from
+      # the builder's toolset to a temp folder each time they run, and
+      # the builder ships those unsigned. The lane compiles its installer
+      # from a copy of the toolset whose plugin folders it has signed;
+      # the builder reads the two folders from the environment.
+      - &sign_toolset_step
+        name: Sign the installer toolset
+        if: matrix.os == 'windows-2022' && steps.win_sign.outputs.enabled == 'true'
+        working-directory: apps/desktop
+        shell: bash
+        run: |
+          toolset="$(cygpath -m "$RUNNER_TEMP")/installer-toolset"
+          node scripts/build/stage-nsis-toolset.js "$toolset"
+          node scripts/build/sign-windows.js "$toolset/nsis/Plugins/x86-unicode"
+          node scripts/build/sign-windows.js "$toolset/resources/plugins/x86-unicode"
+          echo "ELECTRON_BUILDER_NSIS_DIR=$(cygpath -w "$toolset/nsis")" >> "$GITHUB_ENV"
+          echo "ELECTRON_BUILDER_NSIS_RESOURCES_DIR=$(cygpath -w "$toolset/resources")" >> "$GITHUB_ENV"
+        env:
+          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+
       # The builder signs what only exists while it packages — the
       # elevation helper it copies into the tree, the uninstaller, the
       # installers — through the same script (`OH_WIN_SIGN`), and hashes
@@ -424,7 +446,8 @@ jobs:
       # A file without a valid signature must fail the leg — publishing
       # a broken-signed Setup.exe whose hash the feed pointer carries is
       # worse than publishing unsigned. Read here: every PE file in the
-      # tree, the installers, and the uninstaller inside the Setup.exe.
+      # tree, the installers, the uninstaller inside the Setup.exe, and
+      # the plugin libraries the installer and the uninstaller carry.
       - &verify_signatures_step
         name: Verify signatures
         if: matrix.os == 'windows-2022' && steps.win_sign.outputs.enabled == 'true'
@@ -446,6 +469,15 @@ jobs:
           $uninstaller = @(Get-ChildItem -LiteralPath $inside -Recurse -Filter "Uninstall*.exe" -File)
           if ($uninstaller.Count -ne 1) { Write-Error "Expected one uninstaller in the Setup.exe, found $($uninstaller.Count)"; exit 1 }
           $files += $uninstaller[0].FullName
+
+          $insideUninstaller = Join-Path $env:RUNNER_TEMP "uninstaller-contents"
+          7z x $uninstaller[0].FullName "-o$insideUninstaller" -y | Out-Null
+          if ($LASTEXITCODE -ne 0) { Write-Error "Could not unpack $($uninstaller[0].FullName) (7z exit $LASTEXITCODE)"; exit 1 }
+          foreach ($contents in $inside, $insideUninstaller) {
+            $plugins = @(Get-ChildItem -LiteralPath $contents -Recurse -Filter "*.dll" -File)
+            if ($plugins.Count -eq 0) { Write-Error "No plugin library found under $contents"; exit 1 }
+            $files += $plugins | ForEach-Object { $_.FullName }
+          }
 
           $invalid = 0
           foreach ($f in $files) {
@@ -629,6 +661,7 @@ jobs:
           path: apps/desktop/dist/win-arm64-unpacked
 
       - *sign_tree_step
+      - *sign_toolset_step
 
       - name: Package the installer from the tree
         working-directory: apps/desktop
