@@ -45,6 +45,7 @@ import {
   TELEMETRY_TABS_LIST_TYPE,
 } from '@openheaders/core/protocol';
 import type { LifecycleWireMessage, RequestLifecycleUpdate } from '@openheaders/core/request-lifecycle';
+import { type CdpScopeMode, cdpScopeModeSchema } from '@openheaders/core/types';
 import type { AttachmentHandle, RequestLifecycleHub, Sink } from '@openheaders/oracle/request-lifecycle-hub';
 import {
   type BackendWireHandle,
@@ -54,6 +55,7 @@ import {
   subscribeOnWebSocketClose,
 } from '@openheaders/oracle/sync/client/backend-connection-manager';
 import { logger } from '@utils/logger';
+import * as v from 'valibot';
 import type { LifecycleBodyFetcher, LifecycleProvenance } from '../lifecycle-port-host';
 import { startTracking, stopTracking } from '../modules/tab-telemetry';
 import { desktopWatchAllowed, subscribeDesktopWatchConsent, watchRefusedFrame } from './consent';
@@ -76,14 +78,19 @@ export const TELEMETRY_MAX_QUEUED_MESSAGES = 4000;
 /**
  * Debug-mode (CDP) seam for the desktop's per-tab fidelity affordance:
  * `getState` snapshots the attach reconciler's posture for the
- * inventory reply; `setPin` / `setEnabled` feed its inputs on a relayed
- * control command. Absent on hosts without CDP — the reply then reports
+ * inventory reply; `setPin` / `setEnabled` / `setScope` feed its inputs
+ * on a relayed control command. Absent on hosts without CDP — the reply then reports
  * `available: false` and control frames are dropped.
  */
 export interface TelemetryDebugSeam {
   getState(): TelemetryDebugState;
   setPin(tabId: number, pinned: boolean): void;
   setEnabled(enabled: boolean): void;
+  /**
+   * Choose the attach scope's breadth. Optional — a seam without it
+   * ignores the command and still answers with its state.
+   */
+  setScope?(scope: CdpScopeMode): void;
   /**
    * Subscribe to effective-state changes (attach commits after the
    * banner handshake, pin/master-switch flips). The inventory watch
@@ -344,6 +351,8 @@ export function startTelemetryStreamHost(options: TelemetryStreamHostOptions): T
             debug.setPin(command.tabId, command.pinned === true);
           } else if (command.kind === 'enable') {
             debug.setEnabled(command.enabled === true);
+          } else if (command.kind === 'scope' && v.is(cdpScopeModeSchema, command.scope)) {
+            debug.setScope?.(command.scope);
           }
         }
         // Reply even without a seam so the daemon's collection slot

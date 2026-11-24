@@ -139,6 +139,8 @@ export const panelInspector = {
   'panel.inspector.bodyState.unavailable.host':
     'Dieser Browser gibt Antwort-Bodys nicht an Erweiterungen weiter. Sie sind in Chrome, Edge und Firefox ' +
     'verfügbar.',
+  'panel.inspector.bodyState.unavailable.feedClosed':
+    'Der Inhalt ist nur bei geöffneten DevTools oder mit eingeschaltetem Debug-Modus verfügbar.',
   'panel.inspector.bodyState.unavailable.unknown':
     'Body nicht erfasst. Der Host lieferte keinen Inhalt — die Antwort wurde ohne Pufferung gestreamt oder aus ' +
     'dem Cache bedient.',

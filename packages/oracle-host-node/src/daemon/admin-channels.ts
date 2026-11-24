@@ -39,7 +39,9 @@ import { hostLogger } from '@openheaders/core/logger';
 import type { TelemetryDebugCommand, TelemetryDebugState, TelemetryStorageMethod } from '@openheaders/core/protocol';
 import { isTelemetryStorageMethod } from '@openheaders/core/protocol';
 import type { AuditLogEntry } from '@openheaders/core/types';
+import { cdpScopeModeSchema } from '@openheaders/core/types';
 import { getWorkspace, listWorkspaces } from '@openheaders/oracle/workspace/extension-workspace-store';
+import * as v from 'valibot';
 import type { OracleWsServer } from '../host-runtime/ws-server';
 import type { AuditQueryCursor, AuditQueryFilter } from '../sync/sqlite-audit-log';
 import { projectArchivedSession, type TrafficSessionArchive, type TrafficTap } from '../traffic';
@@ -200,9 +202,16 @@ function functionalRoleRefusalError(reason: 'unknown-user' | 'user-deactivated' 
 
 function isTelemetryDebugCommand(value: unknown): value is TelemetryDebugCommand {
   if (typeof value !== 'object' || value === null) return false;
-  const candidate = value as { kind?: unknown; tabId?: unknown; pinned?: unknown; enabled?: unknown };
+  const candidate = value as {
+    kind?: unknown;
+    tabId?: unknown;
+    pinned?: unknown;
+    enabled?: unknown;
+    scope?: unknown;
+  };
   if (candidate.kind === 'pin') return typeof candidate.tabId === 'number' && typeof candidate.pinned === 'boolean';
   if (candidate.kind === 'enable') return typeof candidate.enabled === 'boolean';
+  if (candidate.kind === 'scope') return v.is(cdpScopeModeSchema, candidate.scope);
   return false;
 }
 
@@ -472,8 +481,8 @@ export function createAdminChannelHandlers(deps: AdminChannelDeps): ReadonlyMap<
   // lifecycle streams themselves never ride this table.
   handlers.set('oh.daemon.telemetry.tabs.list', async () => (await deps.telemetryTabs?.()) ?? { peers: [] });
 
-  // One Debug-mode control command (pin a tab / flip the master switch)
-  // relayed to the named extension peer — the Traffic Monitor's per-tab
+  // One Debug-mode control command (pin a tab / flip the master switch /
+  // choose the scope) relayed to the named extension peer — the Traffic Monitor's per-tab
   // fidelity affordance. `debug: null` = peer absent or never answered.
   handlers.set('oh.daemon.telemetry.debug.control', async (message) => {
     if (typeof message.nodeId !== 'string' || message.nodeId.length === 0) return { ok: false, debug: null };

@@ -1,6 +1,7 @@
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { useMemo, useState } from 'react';
 import { base64ToBytes } from '../../data/base64';
+import { useBodyCaptureControl } from '../../data/body-capture-control';
 import { isTextMime } from '../../data/mime';
 import {
   type BodyState,
@@ -29,12 +30,14 @@ interface BodyStateViewProps {
   readonly fallbackByteCount?: number;
 }
 
-/** Center a short explanatory message for a deliberately-absent body. */
-function ResponseNotice({ title, detail }: { title: string; detail: string }) {
+/** Center a short explanatory message for a deliberately-absent body, with
+ *  the host's way forward under it where there is one. */
+function ResponseNotice({ title, detail, action }: { title: string; detail: string; action?: React.ReactNode }) {
   return (
     <div className="dt-response-notice">
       <strong>{title}</strong>
       <span className="dt-col-muted">{detail}</span>
+      {action != null && <div className="dt-response-notice-action">{action}</div>}
     </div>
   );
 }
@@ -55,6 +58,7 @@ export default function BodyStateView({
   fallbackByteCount,
 }: BodyStateViewProps) {
   const t = useT();
+  const captureControl = useBodyCaptureControl();
   const highlight = searchHighlight ?? '';
   const [viewMode, setViewMode] = useState<ViewMode>('hex');
 
@@ -110,7 +114,11 @@ export default function BodyStateView({
   }
   if (state.kind === 'unavailable') {
     return shell(
-      <ResponseNotice title={unavailableTitle(t, state.reason)} detail={unavailableMessage(t, state.reason)} />,
+      <ResponseNotice
+        title={unavailableTitle(t, state.reason)}
+        detail={unavailableMessage(t, state.reason)}
+        action={state.reason === 'feed-closed' ? captureControl : undefined}
+      />,
     );
   }
   if (state.kind === 'empty') {

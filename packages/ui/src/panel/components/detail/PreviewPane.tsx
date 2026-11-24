@@ -1,5 +1,6 @@
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
+import { useBodyCaptureControl } from '../../data/body-capture-control';
 import {
   type BodyState,
   notApplicableMessage,
@@ -110,11 +111,12 @@ function ImagePreview({
   );
 }
 
-function PreviewNotice({ title, detail }: { title: string; detail: string }) {
+function PreviewNotice({ title, detail, action }: { title: string; detail: string; action?: React.ReactNode }) {
   return (
     <div className="dt-response-notice">
       <strong>{title}</strong>
       <span className="dt-col-muted">{detail}</span>
+      {action != null && <div className="dt-response-notice-action">{action}</div>}
     </div>
   );
 }
@@ -136,6 +138,7 @@ interface PreviewPaneProps {
  */
 export default function PreviewPane({ state, mime, size, action }: PreviewPaneProps) {
   const t = useT();
+  const captureControl = useBodyCaptureControl();
   const textContent = useMemo(() => {
     if (state.kind === 'text') return state.content;
     if (state.kind === 'binary') {
@@ -192,7 +195,11 @@ export default function PreviewPane({ state, mime, size, action }: PreviewPanePr
   }
   if (state.kind === 'unavailable') {
     return shell(
-      <PreviewNotice title={unavailableTitle(t, state.reason)} detail={unavailableMessage(t, state.reason)} />,
+      <PreviewNotice
+        title={unavailableTitle(t, state.reason)}
+        detail={unavailableMessage(t, state.reason)}
+        action={state.reason === 'feed-closed' ? captureControl : undefined}
+      />,
     );
   }
   if (state.kind === 'empty') {

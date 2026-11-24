@@ -176,6 +176,17 @@ export function displayTransferredBytes(lifecycle: RequestLifecycle): number | n
   return lifecycleTransferredBytes(lifecycle) ?? served;
 }
 
+/**
+ * An entry built with its tab's DevTools closed is final and measured
+ * nothing itself: its `content.size` is a count only where something
+ * recorded one. Its `0` beside a body of unknown or non-zero length is the
+ * exporter's unknown marker, not an empty body — only a zero-length body
+ * makes a zero decoded size a fact.
+ */
+function isUnrecordedResourceSize(har: InspectorHarEntry | null, size: number): boolean {
+  return size === 0 && har?._ohFeedClosed === true && har.response?.bodySize !== 0;
+}
+
 /** Decoded resource bytes to DISPLAY — the running `bytesReceivedSoFar` while
  *  in flight (the browser's live `resourceSize`), the authoritative HAR
  *  `content.size` once finished. `null` when unknown. Sibling of
@@ -184,8 +195,9 @@ export function displayResourceBytes(lifecycle: RequestLifecycle): number | null
   if (lifecycle.completedAtMs == null && lifecycle.bytesReceivedSoFar != null) {
     return lifecycle.bytesReceivedSoFar;
   }
-  const size = currentHarEntry(lifecycle)?.response?.content?.size;
-  if (typeof size === 'number' && size >= 0) return size;
+  const har = currentHarEntry(lifecycle);
+  const size = har?.response?.content?.size;
+  if (typeof size === 'number' && size >= 0 && !isUnrecordedResourceSize(har, size)) return size;
   // No wire content size (a page-modified response's wire HAR is partial) —
   // the served body's decoded size is what the page received.
   return servedResponseBodyBytes(lifecycle);

@@ -12,6 +12,8 @@ import { qualifiedLifecyclePortName } from '@openheaders/core/request-lifecycle'
 import type React from 'react';
 import { useMemo } from 'react';
 import { NetworkCaptureRequestDetail, type WireJoinSeam } from '../../../panel/components/NetworkCaptureView';
+import { BodyCaptureControlContext } from '../../../panel/data/body-capture-control';
+import PeerTabDebugControls from './PeerTabDebugControls';
 
 export interface LiveNetworkRequestInspectTabProps {
   nodeId: string;
@@ -29,7 +31,14 @@ const LiveNetworkRequestInspectTab: React.FC<LiveNetworkRequestInspectTabProps> 
     () => (hasCapability('proxyCapture') ? { mode: 'browser', nodeId, sourceLabel: null } : undefined),
     [nodeId],
   );
-  return <NetworkCaptureRequestDetail tabId={tabId} portName={portName} requestId={requestId} wireJoin={wireJoin} />;
+  // A request recorded with the tab's DevTools closed has no content to
+  // show; its notice offers the owning browser's Debug mode for this tab.
+  const captureControl = useMemo(() => <PeerTabDebugControls nodeId={nodeId} tabId={tabId} />, [nodeId, tabId]);
+  return (
+    <BodyCaptureControlContext.Provider value={captureControl}>
+      <NetworkCaptureRequestDetail tabId={tabId} portName={portName} requestId={requestId} wireJoin={wireJoin} />
+    </BodyCaptureControlContext.Provider>
+  );
 };
 
 export default LiveNetworkRequestInspectTab;

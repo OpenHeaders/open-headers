@@ -124,6 +124,55 @@ describe('getSizeInfo', () => {
   });
 });
 
+describe('getSizeInfo — a row recorded with its tab’s DevTools closed', () => {
+  function feedClosed(response: Partial<NonNullable<InspectorHarEntry['response']>>): RequestLifecycle {
+    return makeLifecycle({
+      _ohEntrySource: 'webrequest-partial',
+      _ohBodyUnavailable: true,
+      _ohFeedClosed: true,
+      response: {
+        status: 200,
+        statusText: 'OK',
+        headers: [],
+        bodySize: -1,
+        content: { size: 0, mimeType: 'application/json' },
+        ...response,
+      },
+    });
+  }
+
+  it('reads as unknown when nothing was recorded — an empty cell, not 0.0 kB', () => {
+    const info = getSizeInfo(feedClosed({}), S200);
+    expect(info).toEqual({ kind: 'bytes', transferred: null, resource: null });
+    expect(formatSizeInfo(info)).toBe('');
+  });
+
+  it('shows the declared length and leaves the decoded size unknown when the body travelled encoded', () => {
+    expect(getSizeInfo(feedClosed({ bodySize: 2_048 }), S200)).toEqual({
+      kind: 'bytes',
+      transferred: 2_048,
+      resource: null,
+    });
+  });
+
+  it('shows both when both were recorded', () => {
+    const lc = feedClosed({ bodySize: 2_048, content: { size: 2_048, mimeType: 'application/json' } });
+    expect(getSizeInfo(lc, S200)).toEqual({ kind: 'bytes', transferred: 2_048, resource: 2_048 });
+  });
+
+  it('a body declared empty is a real zero', () => {
+    expect(getSizeInfo(feedClosed({ bodySize: 0 }), S200)).toEqual({ kind: 'bytes', transferred: 0, resource: 0 });
+  });
+
+  it('a partial still waiting for its devtools entry keeps the 0 placeholder', () => {
+    const waiting = makeLifecycle({
+      _ohEntrySource: 'webrequest-partial',
+      response: { status: 200, statusText: 'OK', headers: [], bodySize: -1, content: { size: 0, mimeType: '' } },
+    });
+    expect(getSizeInfo(waiting, S200)).toEqual({ kind: 'bytes', transferred: null, resource: 0 });
+  });
+});
+
 describe('formatBytesToKb', () => {
   it('always renders kB, one decimal below 100 kB', () => {
     expect(formatBytesToKb(380)).toBe('0.4 kB');

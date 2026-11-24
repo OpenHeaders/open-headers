@@ -143,6 +143,8 @@ export const panelInspector = {
   'panel.inspector.bodyState.unavailable.redirect': '이 요청은 리디렉션되어 사용할 수 있는 콘텐츠가 없습니다',
   'panel.inspector.bodyState.unavailable.host':
     '이 브라우저는 응답 본문을 확장 프로그램에 제공하지 않습니다. Chrome, Edge 및 Firefox 브라우저에서 사용할 수 있습니다.',
+  'panel.inspector.bodyState.unavailable.feedClosed':
+    '콘텐츠는 DevTools 창이 열려 있거나 디버그 모드가 켜져 있을 때만 사용할 수 있습니다.',
   'panel.inspector.bodyState.unavailable.unknown':
     '본문이 캡처되지 않았습니다. 호스트가 콘텐츠를 반환하지 않았습니다. 응답이 버퍼링 없이 스트리밍되었거나 캐시에서 제공되었습니다.',
 

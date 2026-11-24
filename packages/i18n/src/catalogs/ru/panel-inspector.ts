@@ -141,6 +141,8 @@ export const panelInspector = {
   'panel.inspector.bodyState.unavailable.redirect': 'Содержимого нет, потому что этот запрос был перенаправлен',
   'panel.inspector.bodyState.unavailable.host':
     'Этот браузер не передаёт тела ответов расширениям. Они доступны в браузерах Chrome, Edge и Firefox.',
+  'panel.inspector.bodyState.unavailable.feedClosed':
+    'Содержимое доступно только при открытых DevTools или при включённом режиме отладки.',
   'panel.inspector.bodyState.unavailable.unknown':
     'Тело не захвачено. Хост не вернул содержимое — ответ передавался потоком без буферизации или был отдан из кеша.',
 

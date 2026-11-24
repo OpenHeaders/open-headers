@@ -13,7 +13,7 @@
  */
 
 import type { CdpScopeMode } from '@openheaders/core/types';
-import { get as getSetting, subscribeKey } from '@openheaders/ui/workbench/settings/store';
+import { get as getSetting, set as setSetting, subscribeKey } from '@openheaders/ui/workbench/settings/store';
 
 /**
  * Seed `setScopeMode` with the current value, then keep it in sync with
@@ -22,4 +22,23 @@ import { get as getSetting, subscribeKey } from '@openheaders/ui/workbench/setti
 export function installCdpScopeMode(setScopeMode: (mode: CdpScopeMode) => void): () => void {
   setScopeMode(getSetting('inspection.cdpScope'));
   return subscribeKey('inspection.cdpScope', () => setScopeMode(getSetting('inspection.cdpScope')));
+}
+
+/** The persisted scope — what the remote control plane reports to the desktop. */
+export function readCdpScopeMode(): CdpScopeMode {
+  return getSetting('inspection.cdpScope');
+}
+
+/**
+ * Write the scope — the remote control path (a desktop-relayed telemetry
+ * Debug-mode command). Writes the SETTING, never the reconciler, exactly
+ * like {@link setCdpMasterSwitch}: the footer's selector reflects it.
+ */
+export function writeCdpScopeMode(mode: CdpScopeMode): void {
+  setSetting('inspection.cdpScope', mode);
+}
+
+/** Observe scope changes from any surface. Returns the unsubscribe handle. */
+export function subscribeCdpScopeMode(listener: () => void): () => void {
+  return subscribeKey('inspection.cdpScope', listener);
 }

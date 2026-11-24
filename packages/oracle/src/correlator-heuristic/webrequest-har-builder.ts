@@ -40,6 +40,17 @@
  * poll tick's snapshot can still join — the entry usually appears only
  * once the resource finishes.
  *
+ * A hop no devtools entry will ever join is FINAL as built here, and its
+ * entry says so: it carries the byte counts something recorded and the
+ * no-body mark, so the row stops waiting. Two ways a hop gets there:
+ *
+ *   - its tab's host has no finished-request feed at all
+ *     ({@link noteHarFeedAbsent}) — final from its first emission;
+ *   - the host has feeds but the tab's was not open throughout the hop
+ *     (its DevTools was closed) — final once the hop has ENDED. A hop
+ *     still in flight is never final on such a host: its response is
+ *     still arriving, and the row keeps reading as loading.
+ *
  * State posture matches the correlator's sibling helpers (`HopCursor`,
  * `CorsContextStore`): per-tab maps, bounded with oldest-first eviction,
  * `forgetTab` on tab teardown; the retained terminal states age out on
@@ -114,6 +125,10 @@ interface PartialHarState {
   /** A joined devtools HAR claimed the CURRENT hop's slot — stop refining
    *  it. Reset on hop advance: a later hop's slot is still partial-owned. */
   superseded: boolean;
+  /** The tab had no live finished-request feed at some point of the CURRENT
+   *  hop's life — at its start, at its end, or when the feed closed in
+   *  between — so no devtools entry will join it. Read afresh on hop advance. */
+  feedMissed: boolean;
   /**
    * `true` between an `onBeforeRedirect` and the redirect target's own
    * `onBeforeRequest` (Chrome re-fires it per hop under the same requestId).
@@ -155,20 +170,52 @@ function emissionKey(timing: PartialHarTiming | undefined, sizes: PartialHarSize
   return sizes === undefined ? timingJson : timingJson + JSON.stringify(sizes);
 }
 
+/** Every tab has a feed, for a host that does not track its feeds. */
+const ALWAYS_LIVE = (): boolean => true;
+
+/** Why a hop's partial is final — see the module doc. */
+type FeedlessCause = 'host' | 'closed';
+
 export class WebRequestHarBuilder {
   private readonly perTab = new Map<number, Map<string, PartialHarState>>();
   /** Tabs whose host declared no finished-request feed — see {@link noteHarFeedAbsent}. */
   private readonly harFeedAbsent = new Set<number>();
 
   /**
+   * @param hasLiveFeed Whether a tab's finished-request feed is open right
+   *   now. A host that tracks its feeds passes its answer; without one
+   *   every tab is taken to have a feed and no hop is final for a closed one.
+   */
+  constructor(private readonly hasLiveFeed: (tabId: number) => boolean = ALWAYS_LIVE) {}
+
+  /**
    * The tab's host has no finished-request feed, so no devtools HAR will
    * ever supersede its partial entries. From here its hops carry the byte
    * counts something recorded (the page's own timing entry, else the
-   * declared body length) and say that no body will attach; every other
-   * tab's partials stay size-less and unmarked.
+   * declared body length) and say that no body will attach; a tab that
+   * has a feed keeps its partials size-less and unmarked for as long as
+   * a devtools entry may still join them.
    */
   noteHarFeedAbsent(tabId: number): void {
     this.harFeedAbsent.add(tabId);
+  }
+
+  /**
+   * The tab's finished-request feed just closed. Every hop tracked for it
+   * has now run without one; those that had already ended, still waiting
+   * for their devtools entry, are re-emitted as final — the entry will
+   * not come. Hops still in flight become final at their own end.
+   */
+  noteHarFeedClosed(tabId: number): readonly RequestLifecycleUpdate[] {
+    const tabMap = this.perTab.get(tabId);
+    if (tabMap === undefined) return [];
+    const updates: RequestLifecycleUpdate[] = [];
+    for (const [requestId, state] of tabMap) {
+      const wasFinal = this.feedlessCause(tabId, state) !== undefined;
+      state.feedMissed = true;
+      if (!wasFinal && state.terminal !== undefined) updates.push(...this.emitRefined(tabId, requestId, state));
+    }
+    return updates;
   }
 
   /**
@@ -199,6 +246,7 @@ export class WebRequestHarBuilder {
           method: event.method,
           url: event.url,
           superseded: false,
+          feedMissed: !this.hasLiveFeed(event.tabId),
           redirectPending: false,
         });
         this.evictIfOver(tabMap);
@@ -231,15 +279,16 @@ export class WebRequestHarBuilder {
         if (state === undefined) return [];
         // Refine the finishing hop, then advance to the next: a fresh
         // hop seed at the redirect timestamp, headers/response pending.
-        state.terminal = {
+        this.endHop(event.tabId, state, {
           completedAtMs: event.timeStamp,
           ...(event.ip !== undefined ? { ip: event.ip } : {}),
-        };
+        });
         const updates = this.emitRefined(event.tabId, event.requestId, state);
         state.hopIndex += 1;
         state.startedAtMs = event.timeStamp;
         state.url = event.redirectUrl;
         state.superseded = false;
+        state.feedMissed = !this.hasLiveFeed(event.tabId);
         // The redirect target's own onBeforeRequest carries this hop's real
         // start/method/url; it refines the seed instead of resetting it.
         state.redirectPending = true;
@@ -255,10 +304,10 @@ export class WebRequestHarBuilder {
       case 'onCompleted': {
         const state = this.getState(event.tabId, event.requestId);
         if (state === undefined) return [];
-        state.terminal = {
+        this.endHop(event.tabId, state, {
           completedAtMs: event.timeStamp,
           ...(event.ip !== undefined ? { ip: event.ip } : {}),
-        };
+        });
         if (event.fromCache === true) state.fromCache = true;
         // Retained (not forgotten) so the next Resource Timing snapshot
         // can still upgrade the floor block; `gc` ages the state out.
@@ -267,11 +316,11 @@ export class WebRequestHarBuilder {
       case 'onErrorOccurred': {
         const state = this.getState(event.tabId, event.requestId);
         if (state === undefined) return [];
-        state.terminal = {
+        this.endHop(event.tabId, state, {
           completedAtMs: event.timeStamp,
           ...(event.ip !== undefined ? { ip: event.ip } : {}),
           error: event.error,
-        };
+        });
         return this.emitRefined(event.tabId, event.requestId, state);
       }
     }
@@ -410,14 +459,29 @@ export class WebRequestHarBuilder {
     return { timings: ladder, ...(incomplete ? { responseBodyIncomplete: true } : {}) };
   }
 
+  /** Record the hop's end, and whether it ended with the tab's feed closed. */
+  private endHop(tabId: number, state: PartialHarState, terminal: PartialHarTerminal): void {
+    state.terminal = terminal;
+    if (!this.hasLiveFeed(tabId)) state.feedMissed = true;
+  }
+
   /**
-   * The hop's byte counts — only on a tab with no finished-request feed.
+   * Why no devtools entry will ever join the hop — its partial is final —
+   * or `undefined` while one still may. See the module doc.
+   */
+  private feedlessCause(tabId: number, state: PartialHarState): FeedlessCause | undefined {
+    if (this.harFeedAbsent.has(tabId)) return 'host';
+    return state.feedMissed && state.terminal !== undefined ? 'closed' : undefined;
+  }
+
+  /**
+   * The hop's byte counts — only for a hop no devtools entry will join.
    * The page's own record wins when it exposes one (a cross-origin entry
    * that fails the Timing-Allow-Origin check reads all zeros); else the
    * declared body length of a completed response.
    */
   private sizesFor(tabId: number, state: PartialHarState): PartialHarSizes | undefined {
-    if (!this.harFeedAbsent.has(tabId)) return undefined;
+    if (this.feedlessCause(tabId, state) === undefined) return undefined;
     const page = state.rt?.entry;
     if (page !== undefined && (page.transferSize > 0 || page.encodedBodySize > 0 || page.decodedBodySize > 0)) {
       return { transferSize: page.transferSize, bodySize: page.encodedBodySize, contentSize: page.decodedBodySize };
@@ -463,8 +527,10 @@ export class WebRequestHarBuilder {
       resolvedTiming,
       sizes,
     );
-    // No devtools entry will ever join this tab's hops, so no body will either.
-    if (this.harFeedAbsent.has(tabId)) har._ohBodyUnavailable = true;
+    // No devtools entry will ever join this hop, so no body will either.
+    const feedless = this.feedlessCause(tabId, state);
+    if (feedless !== undefined) har._ohBodyUnavailable = true;
+    if (feedless === 'closed') har._ohFeedClosed = true;
     return [{ kind: 'har-attached', tabId, requestId, hopIndex: state.hopIndex, har }];
   }
 

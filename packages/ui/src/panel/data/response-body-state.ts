@@ -29,8 +29,9 @@ export type BodyState =
    *  one fixed message here; the Status cell carries the specific reason. */
   | { kind: 'no-response' }
   /** A response arrived but its body can't be shown (opaque cross-origin,
-   *  evicted from cache before it could be read, or never handed over by the
-   *  host). The browser's "Failed to load response data" state. */
+   *  evicted from cache before it could be read, never handed over by the
+   *  host, or finished with nothing open to read it). The browser's "Failed
+   *  to load response data" state. */
   | { kind: 'unavailable'; reason: UnavailableReason }
   | { kind: 'text'; content: string }
   | { kind: 'binary'; base64: string };
@@ -45,7 +46,7 @@ export type NotApplicableReason =
   | 'informational'
   | 'websocket';
 
-export type UnavailableReason = 'opaque' | 'cache' | 'redirect' | 'host' | 'unknown';
+export type UnavailableReason = 'opaque' | 'cache' | 'redirect' | 'host' | 'feed-closed' | 'unknown';
 
 const NOT_APPLICABLE_KEY: Record<NotApplicableReason, MessageKey> = {
   preflight: 'panel.inspector.bodyState.notApplicable.preflight',
@@ -63,6 +64,7 @@ const UNAVAILABLE_KEY: Record<UnavailableReason, MessageKey> = {
   cache: 'panel.inspector.bodyState.unavailable.cache',
   redirect: 'panel.inspector.bodyState.unavailable.redirect',
   host: 'panel.inspector.bodyState.unavailable.host',
+  'feed-closed': 'panel.inspector.bodyState.unavailable.feedClosed',
   unknown: 'panel.inspector.bodyState.unavailable.unknown',
 };
 
@@ -78,9 +80,11 @@ export function unavailableMessage(t: Translate, reason: UnavailableReason): str
 }
 
 /** Notice title for an `unavailable` body — nothing failed when the host
- *  simply never hands bodies over, so that reason reads as a plain fact. */
+ *  never hands bodies over, or when nothing was open to read this one, so
+ *  those reasons read as a plain fact. */
 export function unavailableTitle(t: Translate, reason: UnavailableReason): string {
-  return t(reason === 'host' ? 'panel.inspector.bodyState.notAvailableTitle' : 'panel.inspector.bodyState.failedTitle');
+  const neverCaptured = reason === 'host' || reason === 'feed-closed';
+  return t(neverCaptured ? 'panel.inspector.bodyState.notAvailableTitle' : 'panel.inspector.bodyState.failedTitle');
 }
 
 function isInformational(status: number | undefined): boolean {
@@ -191,9 +195,15 @@ export function classifyBodyState(lifecycle: RequestLifecycle): BodyState {
     if (isFollowedRedirectStatus(status)) {
       return { kind: 'unavailable', reason: 'redirect' };
     }
-    // The host declared it never delivers a body for this entry.
-    if (currentHarEntry(lifecycle)?._ohBodyUnavailable === true) {
-      return { kind: 'unavailable', reason: 'host' };
+    // The producer declared that no body will ever attach to this entry:
+    // the host never delivers one, or the request ran with the tab's
+    // DevTools closed. A response still arriving carries no such mark on a
+    // host that does deliver bodies, and keeps loading below.
+    const har = currentHarEntry(lifecycle);
+    if (har?._ohBodyUnavailable === true) {
+      // A body declared empty needs no one to read it.
+      if (contentLengthZero(lifecycle)) return { kind: 'empty' };
+      return { kind: 'unavailable', reason: har._ohFeedClosed === true ? 'feed-closed' : 'host' };
     }
     return { kind: 'loading' };
   }

@@ -44,6 +44,10 @@
  *   - Resource Timing join (optional third source): the page-recorded
  *     connection legs upgrade a partial entry's floor `timings` block
  *     to the full ladder, the doc row via the navigation entry        ✓
+ *   - Feed presence (optional fourth source): a hop that ran while its
+ *     tab's devtools feed was closed will never be joined, so its
+ *     partial entry is final and says no body will attach — see
+ *     {@link WebRequestHarBuilder}                                    ✓
  *
  * Deliberately deferred (own future sessions):
  *   - H4 per-URL FIFO matching refinements on top of the current FIFO
@@ -64,7 +68,8 @@ import { refineUpdateWithCors } from './cors-error-refinement';
 import type { CorsVerdict } from './cors-types';
 import type { WebRequestEvent, WebRequestEventSource } from './events';
 import { FinalizedRetention } from './finalized-retention';
-import type { HarEvent, HarEventSource } from './har-events';
+import type { HarEvent, HarEventSource, HarPresenceEvent, HarPresenceSource } from './har-events';
+import { HarFeedPresence } from './har-feed-presence';
 import {
   bodyAttachedUpdate,
   harAttachedUpdate,
@@ -117,6 +122,14 @@ export interface HeuristicCorrelatorSources {
    * entries (memory-cache now, failure-shaped at expiry) drop instead.
    */
   readonly harPosture?: 'full' | 'join-only';
+  /**
+   * The HAR feed opening and closing per tab. Optional — a host that
+   * reports it gets final partial entries for the hops that ran with the
+   * tab's feed closed (a tab it never announced has none); a host that
+   * does not is taken to feed every tab, and its partials wait for their
+   * devtools entry as before.
+   */
+  readonly harPresence?: HarPresenceSource;
   readonly resourceTiming?: ResourceTimingEventSource;
   /**
    * Page-relayed rule-modification captures (response/request-body overrides).
@@ -173,10 +186,11 @@ export class HeuristicCorrelator implements RequestCorrelator {
   private readonly finalizedRetention = new FinalizedRetention();
   private readonly corsContext = new CorsContextStore();
   private readonly hopCursor = new HopCursor();
-  private readonly partialHar = new WebRequestHarBuilder();
+  private readonly partialHar: WebRequestHarBuilder;
   private readonly diagnostics: CorrelatorDiagnostics | undefined;
   private readonly webRequestUnsubscribe: () => void;
   private readonly harUnsubscribe: () => void;
+  private readonly harPresenceUnsubscribe: () => void;
   private readonly resourceTimingUnsubscribe: () => void;
   private readonly overrideUnsubscribe: () => void;
   /** Monotonic suffix for `oh-har:` synthesized request ids. */
@@ -197,6 +211,15 @@ export class HeuristicCorrelator implements RequestCorrelator {
     this.harJoinOnly = sources.harPosture === 'join-only';
     this.inFlight = new InFlightFifo({ onEviction: diagnostics?.onFifoEviction });
     this.harWaiting = new HarWaitingBuffer({ onDrop: diagnostics?.onHarWaitingDrop });
+    const harPresence = sources.harPresence;
+    if (harPresence === undefined) {
+      this.partialHar = new WebRequestHarBuilder();
+      this.harPresenceUnsubscribe = () => {};
+    } else {
+      const feeds = new HarFeedPresence();
+      this.partialHar = new WebRequestHarBuilder((tabId) => feeds.isLive(tabId));
+      this.harPresenceUnsubscribe = harPresence.subscribePresence((event) => this.onHarPresenceEvent(feeds, event));
+    }
     this.webRequestUnsubscribe = sources.webRequest.subscribe((event) => this.onWebRequestEvent(event));
     this.harUnsubscribe = sources.har.subscribe((event) => this.onHarEvent(event));
     this.resourceTimingUnsubscribe =
@@ -242,6 +265,7 @@ export class HeuristicCorrelator implements RequestCorrelator {
   dispose(): void {
     this.webRequestUnsubscribe();
     this.harUnsubscribe();
+    this.harPresenceUnsubscribe();
     this.resourceTimingUnsubscribe();
     this.overrideUnsubscribe();
     this.listeners.clear();
@@ -512,6 +536,17 @@ export class HeuristicCorrelator implements RequestCorrelator {
     if (event.kind === 'har-body') {
       this.onHarBody(event.tabId, event.body);
     }
+  }
+
+  /**
+   * Fold a feed opening or closing. Folded for every tab, attached or not
+   * — a feed outlives a tab's detach. When a tab's last feed closes, the
+   * hops that had ended still waiting for their devtools entry go final:
+   * that entry will not come.
+   */
+  private onHarPresenceEvent(feeds: HarFeedPresence, event: HarPresenceEvent): void {
+    if (!feeds.observe(event)) return;
+    for (const update of this.partialHar.noteHarFeedClosed(event.tabId)) this.emit(update);
   }
 
   private onHarEntry(tabId: number, entry: InspectorHarEntry): void {

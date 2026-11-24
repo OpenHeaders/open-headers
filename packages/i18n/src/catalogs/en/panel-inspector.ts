@@ -135,6 +135,8 @@ export const panelInspector = {
   'panel.inspector.bodyState.unavailable.redirect': 'No content available because this request was redirected',
   'panel.inspector.bodyState.unavailable.host':
     'This browser does not share response bodies with extensions. They are available in Chrome, Edge and Firefox.',
+  'panel.inspector.bodyState.unavailable.feedClosed':
+    'Content is available only with DevTools opened, or with Debug mode on.',
   'panel.inspector.bodyState.unavailable.unknown':
     'Body not captured. The host returned no content — the response was streamed without buffering or served from cache.',
 

@@ -634,6 +634,169 @@ describe('WebRequestHarBuilder — sizes on a tab with no finished-request feed'
   });
 });
 
+describe('WebRequestHarBuilder — a hop that ran with its tab’s feed closed', () => {
+  const LENGTH = { name: 'Content-Length', value: '2048' };
+  const TYPE = { name: 'Content-Type', value: 'text/html' };
+
+  function lastHar(updates: readonly RequestLifecycleUpdate[]) {
+    const last = harAttached(updates).at(-1);
+    if (last?.kind !== 'har-attached') throw new Error('expected har-attached');
+    return last.har;
+  }
+
+  /** A builder on a host that tracks its feeds; `feed.live` is the tab's answer. */
+  function tracked(live: boolean) {
+    const feed = { live };
+    return { feed, builder: new WebRequestHarBuilder(() => feed.live) };
+  }
+
+  const sized = () => headersReceived({ responseHeaders: [TYPE, LENGTH] });
+
+  it('stays loading while it is in flight — no mark, no size', () => {
+    const { builder } = tracked(false);
+    const atHeaders = lastHar(observeAll(builder, [start(), sendHeaders(), sized()]));
+    expect(atHeaders).not.toHaveProperty('_ohBodyUnavailable');
+    expect(atHeaders).not.toHaveProperty('_ohFeedClosed');
+    expect(atHeaders.response?.bodySize).toBe(-1);
+  });
+
+  it('is final once it ends: marked, and carrying the declared length', () => {
+    const { builder } = tracked(false);
+    observeAll(builder, [start(), sendHeaders(), sized()]);
+    const done = lastHar(builder.observe(completed()));
+    expect(done._ohBodyUnavailable).toBe(true);
+    expect(done._ohFeedClosed).toBe(true);
+    expect(done.response?.bodySize).toBe(2_048);
+    expect(done.response?.content.size).toBe(2_048);
+  });
+
+  it('a hop that ran with the feed open is left waiting for its entry', () => {
+    const { builder } = tracked(true);
+    const done = lastHar(observeAll(builder, [start(), sendHeaders(), sized(), completed()]));
+    expect(done).not.toHaveProperty('_ohBodyUnavailable');
+    expect(done).not.toHaveProperty('_ohFeedClosed');
+    expect(done.response?.bodySize).toBe(-1);
+  });
+
+  it('a hop that started before the feed opened is final at its end — the feed never saw it start', () => {
+    const { builder, feed } = tracked(false);
+    observeAll(builder, [start(), sendHeaders(), sized()]);
+    feed.live = true;
+    const done = lastHar(builder.observe(completed()));
+    expect(done._ohFeedClosed).toBe(true);
+    expect(done.response?.bodySize).toBe(2_048);
+  });
+
+  it('a hop whose feed closed before it ended is final at its end', () => {
+    const { builder, feed } = tracked(true);
+    observeAll(builder, [start(), sendHeaders(), sized()]);
+    feed.live = false;
+    expect(lastHar(builder.observe(completed()))._ohFeedClosed).toBe(true);
+  });
+
+  it('a failed hop is final too, with no size to declare', () => {
+    const { builder } = tracked(false);
+    observeAll(builder, [start(), sendHeaders(), sized()]);
+    const failed = lastHar(builder.observe(errorOccurred()));
+    expect(failed._ohFeedClosed).toBe(true);
+    expect(failed.response?.bodySize).toBe(-1);
+  });
+
+  it('the feed closing re-emits the hops that had ended still waiting for their entry', () => {
+    const { builder, feed } = tracked(true);
+    observeAll(builder, [start(), sendHeaders(), sized(), completed()]);
+    feed.live = false;
+    const updates = harAttached(builder.noteHarFeedClosed(TAB));
+    expect(updates).toHaveLength(1);
+    const har = lastHar(updates);
+    expect(har._ohBodyUnavailable).toBe(true);
+    expect(har._ohFeedClosed).toBe(true);
+    expect(har.response?.bodySize).toBe(2_048);
+  });
+
+  it('the feed closing leaves a hop in flight alone, and it goes final at its own end', () => {
+    const { builder, feed } = tracked(true);
+    observeAll(builder, [start(), sendHeaders(), sized()]);
+    feed.live = false;
+    expect(builder.noteHarFeedClosed(TAB)).toHaveLength(0);
+    // Reopened before the hop ends: the new feed never saw it start.
+    feed.live = true;
+    expect(lastHar(builder.observe(completed()))._ohFeedClosed).toBe(true);
+  });
+
+  it('the feed closing never re-emits a hop its devtools entry already claimed', () => {
+    const { builder, feed } = tracked(true);
+    observeAll(builder, [start(), sendHeaders(), sized(), completed()]);
+    builder.noteRealHar(TAB, REQUEST_ID, 0);
+    feed.live = false;
+    expect(builder.noteHarFeedClosed(TAB)).toHaveLength(0);
+  });
+
+  it('the feed closing says nothing twice', () => {
+    const { builder } = tracked(false);
+    observeAll(builder, [start(), sendHeaders(), sized(), completed()]);
+    expect(builder.noteHarFeedClosed(TAB)).toHaveLength(0);
+  });
+
+  it('the feed closing on a tab with nothing tracked is a no-op', () => {
+    expect(tracked(false).builder.noteHarFeedClosed(TAB)).toHaveLength(0);
+  });
+
+  it('each hop of a redirect chain reads the feed afresh', () => {
+    const { builder, feed } = tracked(false);
+    observeAll(builder, [start(), sendHeaders(), headersReceived({ statusCode: 302 })]);
+    const redirect: WebRequestEvent = {
+      method_kind: 'onBeforeRedirect',
+      tabId: TAB,
+      requestId: REQUEST_ID,
+      url: URL_A,
+      method: 'GET',
+      type: 'main_frame',
+      timeStamp: T0 + 500,
+      statusCode: 302,
+      redirectUrl: URL_B,
+    };
+    // The feed opens just before the redirect: hop 0 started without it.
+    feed.live = true;
+    const hop0 = harAttached(builder.observe(redirect)).at(-1);
+    if (hop0?.kind !== 'har-attached') throw new Error('expected har-attached');
+    expect(hop0.hopIndex).toBe(0);
+    expect(hop0.har._ohFeedClosed).toBe(true);
+    // Hop 1 runs wholly under the open feed.
+    const hop1 = harAttached(
+      observeAll(builder, [
+        start({ url: URL_B, timeStamp: T0 + 500 }),
+        sendHeaders({ url: URL_B, timeStamp: T0 + 510 }),
+        headersReceived({ url: URL_B, timeStamp: T0 + 900 }),
+        completed({ url: URL_B }),
+      ]),
+    ).at(-1);
+    if (hop1?.kind !== 'har-attached') throw new Error('expected har-attached');
+    expect(hop1.hopIndex).toBe(1);
+    expect(hop1.har).not.toHaveProperty('_ohBodyUnavailable');
+    expect(hop1.har).not.toHaveProperty('_ohFeedClosed');
+  });
+
+  it('a host with no feed at all keeps its own reason, and is not re-emitted when its port closes', () => {
+    const { builder } = tracked(false);
+    builder.noteHarFeedAbsent(TAB);
+    const atHeaders = lastHar(observeAll(builder, [start(), sendHeaders(), sized()]));
+    expect(atHeaders._ohBodyUnavailable).toBe(true);
+    expect(atHeaders).not.toHaveProperty('_ohFeedClosed');
+    const done = lastHar(builder.observe(completed()));
+    expect(done._ohBodyUnavailable).toBe(true);
+    expect(done).not.toHaveProperty('_ohFeedClosed');
+    expect(builder.noteHarFeedClosed(TAB)).toHaveLength(0);
+  });
+
+  it('a host that does not track its feeds leaves every hop waiting', () => {
+    const builder = new WebRequestHarBuilder();
+    const done = lastHar(observeAll(builder, [start(), sendHeaders(), sized(), completed()]));
+    expect(done).not.toHaveProperty('_ohBodyUnavailable');
+    expect(done.response?.bodySize).toBe(-1);
+  });
+});
+
 describe('WebRequestHarBuilder — bookkeeping', () => {
   it('forgetTab drops all state', () => {
     const builder = new WebRequestHarBuilder();

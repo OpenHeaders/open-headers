@@ -86,6 +86,10 @@ export function startLifecycleHost(options: LifecycleHostOptions): LifecycleHost
     {
       webRequest: webRequestSource,
       har: harSource,
+      // A tab whose DevTools is closed has no finished-request feed: the
+      // rows a desktop watch records there are final as webRequest built
+      // them, and say so instead of waiting for an entry and a body.
+      harPresence: harSource,
       resourceTiming: resourceTimingSource,
       // Page-relayed rule-modification captures (response/request overrides) —
       // the fire bridge feeds this via the `tabResponseOverride` handler.

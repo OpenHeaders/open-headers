@@ -59,6 +59,11 @@
   font-weight: 600;
 }
 
+/* The host's way forward under a notice (its Debug mode switch). */
+.dt-response-notice-action {
+  margin-top: 8px;
+}
+
 /* Response body search highlight. */
 .dt-body-pre mark {
   background: #fdd835;

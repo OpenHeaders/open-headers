@@ -125,6 +125,8 @@ export const panelInspector = {
   'panel.inspector.bodyState.unavailable.host':
     'Ce navigateur ne partage pas les corps de réponse avec les extensions. Ils sont disponibles dans Chrome, ' +
     'Edge et Firefox.',
+  'panel.inspector.bodyState.unavailable.feedClosed':
+    "Le contenu n'est disponible qu'avec les DevTools ouverts ou avec le mode débogage activé.",
   'panel.inspector.bodyState.unavailable.unknown':
     "Corps non capturé. L'hôte n'a renvoyé aucun contenu — la réponse a été diffusée sans mise en tampon ou " +
     'servie depuis le cache.',

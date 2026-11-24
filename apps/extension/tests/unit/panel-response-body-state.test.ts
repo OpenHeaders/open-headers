@@ -261,11 +261,82 @@ describe('classifyBodyState — a host that never delivers bodies', () => {
   });
 });
 
+describe('classifyBodyState — a request that ran with its tab’s DevTools closed', () => {
+  const feedClosed = makeHar({ _ohBodyUnavailable: true, _ohFeedClosed: true });
+
+  it('a finished request returns unavailable:feed-closed, not loading (no infinite skeleton)', () => {
+    const lc = makeLifecycle({ har: feedClosed, body: null });
+    expect(classifyBodyState(lc)).toEqual({ kind: 'unavailable', reason: 'feed-closed' });
+  });
+
+  it('a response still arriving carries no mark and keeps loading', () => {
+    const lc = makeLifecycle({ har: makeHar(), body: null, phase: 'headers-received' });
+    expect(classifyBodyState(lc)).toEqual({ kind: 'loading' });
+  });
+
+  it('a request with no response yet keeps loading', () => {
+    const lc: RequestLifecycle = { ...makeLifecycle({ body: null, phase: 'pending', statusCode: undefined }), har: [] };
+    expect(classifyBodyState(lc)).toEqual({ kind: 'loading' });
+  });
+
+  it('a body declared empty reads as empty — it needs no one to read it', () => {
+    const empty = makeHar({
+      _ohBodyUnavailable: true,
+      _ohFeedClosed: true,
+      response: {
+        status: 200,
+        statusText: 'OK',
+        headers: [{ name: 'Content-Length', value: '0' }],
+        content: { size: 0, mimeType: 'text/plain' },
+        bodySize: 0,
+      },
+    });
+    expect(classifyBodyState(makeLifecycle({ har: empty, body: null }))).toEqual({ kind: 'empty' });
+  });
+
+  it('a followed redirect keeps its own reason', () => {
+    const lc = makeLifecycle({ statusCode: 302, har: feedClosed, body: null });
+    expect(classifyBodyState(lc)).toEqual({ kind: 'unavailable', reason: 'redirect' });
+  });
+
+  it.each([
+    [204, 'status-204'],
+    [304, 'status-304'],
+  ] as const)('a %d keeps its protocol reason', (statusCode, reason) => {
+    const lc = makeLifecycle({ statusCode, har: feedClosed, body: null });
+    expect(classifyBodyState(lc)).toEqual({ kind: 'not-applicable', reason });
+  });
+
+  it('a HEAD request keeps its protocol reason', () => {
+    const lc = makeLifecycle({ method: 'HEAD', har: feedClosed, body: null });
+    expect(classifyBodyState(lc)).toEqual({ kind: 'not-applicable', reason: 'head' });
+  });
+
+  it('a failed request stays no-response', () => {
+    const lc = makeLifecycle({
+      har: feedClosed,
+      body: null,
+      phase: 'failed',
+      error: { code: 'net::ERR_ABORTED', reason: 'aborted' },
+    });
+    expect(classifyBodyState(lc)).toEqual({ kind: 'no-response' });
+  });
+
+  it('a body that did attach still renders', () => {
+    const lc = makeLifecycle({ har: feedClosed, body: makeBody('{"ok":true}') });
+    expect(classifyBodyState(lc)).toEqual({ kind: 'text', content: '{"ok":true}' });
+  });
+});
+
 describe('unavailableTitle', () => {
   const t: Translate = (key) => key;
 
   it('names the missing body plainly when the host never delivers one', () => {
     expect(unavailableTitle(t, 'host')).toBe('panel.inspector.bodyState.notAvailableTitle');
+  });
+
+  it('names it plainly too when nothing was open to read it', () => {
+    expect(unavailableTitle(t, 'feed-closed')).toBe('panel.inspector.bodyState.notAvailableTitle');
   });
 
   it.each(['opaque', 'cache', 'redirect', 'unknown'] as const)('%s keeps the failed-to-load title', (reason) => {

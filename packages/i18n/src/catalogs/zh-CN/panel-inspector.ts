@@ -134,6 +134,7 @@ export const panelInspector = {
   'panel.inspector.bodyState.unavailable.cache': '响应体不可用——DevTools 打开之前响应已由缓存提供',
   'panel.inspector.bodyState.unavailable.redirect': '此请求被重定向，因此没有可用的内容',
   'panel.inspector.bodyState.unavailable.host': '此浏览器不向扩展提供响应体。可在 Chrome、Edge 和 Firefox 中使用。',
+  'panel.inspector.bodyState.unavailable.feedClosed': '仅在 DevTools 打开或调试模式开启时才能查看内容。',
   'panel.inspector.bodyState.unavailable.unknown':
     '响应体未捕获。宿主未返回内容——响应以不缓冲的方式流式传输，或由缓存提供。',
 

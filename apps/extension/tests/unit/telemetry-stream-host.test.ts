@@ -352,6 +352,48 @@ describe('startTelemetryStreamHost', () => {
     h.host.dispose();
   });
 
+  it('debug control scope drives the seam and answers with the fresh state', async () => {
+    let scope: TelemetryDebugState['scope'] = 'devtools';
+    const h = makeHarness({
+      getState: () => ({ available: true, enabled: true, attachedTabs: [], pinnedTabs: [], scope }),
+      setPin: vi.fn(),
+      setEnabled: vi.fn(),
+      setScope: (next) => {
+        scope = next;
+      },
+    });
+    await h.deliver({ type: TELEMETRY_DEBUG_CONTROL_TYPE, command: { kind: 'scope', scope: 'both' } }, h.wire);
+    const reply = h.wireSent.find((f) => f.type === `${TELEMETRY_DEBUG_CONTROL_TYPE}:response`);
+    if (reply === undefined) throw new Error('expected a control reply');
+    expect((reply.payload as { debug: TelemetryDebugState }).debug.scope).toBe('both');
+    h.host.dispose();
+  });
+
+  it('debug control ignores a scope it does not know, and still answers', async () => {
+    const setScope = vi.fn();
+    const h = makeHarness({
+      getState: () => ({ available: true, enabled: true, attachedTabs: [], pinnedTabs: [], scope: 'devtools' }),
+      setPin: vi.fn(),
+      setEnabled: vi.fn(),
+      setScope,
+    });
+    await h.deliver({ type: TELEMETRY_DEBUG_CONTROL_TYPE, command: { kind: 'scope', scope: 'everything' } }, h.wire);
+    expect(setScope).not.toHaveBeenCalled();
+    expect(h.wireSent.some((f) => f.type === `${TELEMETRY_DEBUG_CONTROL_TYPE}:response`)).toBe(true);
+    h.host.dispose();
+  });
+
+  it('a seam that cannot set the scope ignores the command and still answers', async () => {
+    const h = makeHarness({
+      getState: () => ({ available: true, enabled: true, attachedTabs: [], pinnedTabs: [] }),
+      setPin: vi.fn(),
+      setEnabled: vi.fn(),
+    });
+    await h.deliver({ type: TELEMETRY_DEBUG_CONTROL_TYPE, command: { kind: 'scope', scope: 'both' } }, h.wire);
+    expect(h.wireSent.some((f) => f.type === `${TELEMETRY_DEBUG_CONTROL_TYPE}:response`)).toBe(true);
+    h.host.dispose();
+  });
+
   it('claims and drops debug control frames from non-loopback wires', async () => {
     const setPin = vi.fn();
     const h = makeHarness({

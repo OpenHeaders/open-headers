@@ -71,6 +71,7 @@ import { InspectedTabContext } from '../../../panel/data/inspected-tab-context';
 import type { InspectorRowWithFires } from '../../../panel/data/inspector-row-projection';
 import type { XhrLogConsoleEntry } from '../../../panel/data/console-xhr-log';
 import { useConsoleClient } from '../../../panel/data/stores/use-console-client';
+import { publishPeerDebugState } from '../../data/peer-debug-state';
 import { storageDocInnerId } from '../../data/storage-doc-ref';
 import {
   installTrafficStorageHost,
@@ -333,6 +334,12 @@ const TrafficMonitorPanel: React.FC<TrafficMonitorPanelProps> = ({
   useEffect(() => {
     void reload();
   }, [reload]);
+
+  // Other surfaces show these browsers' Debug mode too (an inspected
+  // request's editor tab), so the shared answer stays as live as the rail's.
+  useEffect(() => {
+    for (const peer of peers) publishPeerDebugState(peer.nodeId, peer.debug);
+  }, [peers]);
 
   // Live inventory watch: while the panel is mounted the daemon relay
   // holds a tabs subscription on every extension peer, and each tab /

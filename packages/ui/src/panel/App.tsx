@@ -57,6 +57,7 @@ import { DocsNavProvider, useDocsNav } from '@openheaders/ui/shared/docs/use-doc
 import { useActiveWorkspaceId } from '@openheaders/ui/shared/hooks/readers/useActiveWorkspaceId';
 import { useEnvironments } from '@openheaders/ui/shared/hooks/readers/useEnvironments';
 import { VariablePopoverProvider } from '@openheaders/ui/workbench/components/template-input/VariablePopoverHost';
+import { OwnDebugModeSwitch } from '@openheaders/ui/shared/debug-mode';
 import WhatsNewModal from '@openheaders/ui/workbench/components/whats-new/WhatsNewModal';
 import { ReportIssueDialog } from '@openheaders/ui/workbench/support';
 import { EnvSwitcherProvider, useEnvSwitcher } from '@openheaders/ui/workbench/services/env-switcher';
@@ -90,6 +91,7 @@ import { TrafficList } from './components/TrafficList';
 import type { ColumnKey } from './components/traffic/columns';
 import { DEFAULT_VISIBLE_COLUMNS } from './components/traffic/columns';
 import { matchesPanelFilters } from './components/traffic/row-filter';
+import { BodyCaptureControlContext } from './data/body-capture-control';
 import { type ConsoleRequestJoin, consoleRequestJoin } from './data/console-request-join';
 import type { SearchFooterStatus } from './data/footer-status';
 import { deriveXhrLogEntries } from './data/console-xhr-log';
@@ -223,6 +225,10 @@ interface AppProps {
   resolveIdentity: () => SurfaceIdentityHandle;
 }
 
+// The panel runs inside the browser, so the control it offers under a
+// request whose content was never captured is this browser's own Debug mode.
+const OWN_DEBUG_MODE_SWITCH = <OwnDebugModeSwitch />;
+
 export default function App({ resolveIdentity }: AppProps) {
   const devPanelIdentity = useMemo(() => resolveIdentity(), [resolveIdentity]);
   const workspaceId = useActiveWorkspaceId();
@@ -275,7 +281,9 @@ export default function App({ resolveIdentity }: AppProps) {
                                               <RuleEditorDocumentIntentProvider>
                                                 <StorageRevealIntentProvider>
                                                   <RulePopoverProvider>
-                                                    <PanelContent />
+                                                    <BodyCaptureControlContext.Provider value={OWN_DEBUG_MODE_SWITCH}>
+                                                      <PanelContent />
+                                                    </BodyCaptureControlContext.Provider>
                                                   </RulePopoverProvider>
                                                 </StorageRevealIntentProvider>
                                               </RuleEditorDocumentIntentProvider>

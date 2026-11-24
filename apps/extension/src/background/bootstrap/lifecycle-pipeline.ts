@@ -67,6 +67,7 @@ import { startTelemetryStorageHost } from '../telemetry-stream-host/storage-host
 import { startTabInventoryHost } from '../telemetry-stream-host/tab-inventory';
 import { debouncedUpdateBadge } from './badge-update';
 import { setCdpMasterSwitch } from './cdp-master-switch';
+import { readCdpScopeMode, subscribeCdpScopeMode, writeCdpScopeMode } from './cdp-scope-mode';
 
 /** Pairing window between a capture's page clock and the lifecycle's host
  *  clock — the same posture as the fire hub's translation window. */
@@ -438,12 +439,23 @@ export function startLifecyclePipeline(): LifecyclePipelineHandles {
             enabled: state.enabled,
             attachedTabs: [...state.attachedTabs],
             pinnedTabs: [...state.pinnedTabs],
+            scope: readCdpScopeMode(),
           };
         },
         setPin: (tabId: number, pinned: boolean) =>
           pinned ? cdpAttachController.notePinned(tabId) : cdpAttachController.noteUnpinned(tabId),
         setEnabled: (enabled: boolean) => setCdpMasterSwitch(enabled),
-        onChange: (listener: () => void) => cdpAttachController.onChange(() => listener()),
+        setScope: (scope: CdpScopeMode) => writeCdpScopeMode(scope),
+        // A scope change that attaches nothing new is still a change the
+        // desktop shows, so it pushes like an attach does.
+        onChange: (listener: () => void) => {
+          const offAttach = cdpAttachController.onChange(() => listener());
+          const offScope = subscribeCdpScopeMode(listener);
+          return () => {
+            offAttach();
+            offScope();
+          };
+        },
       }
     : undefined;
   startTelemetryStreamHost({

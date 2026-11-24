@@ -264,9 +264,16 @@ export interface InspectorHarEntry {
   /** Producer that minted this entry (see {@link InspectorHarEntrySource}).
    *  Internal: HAR exports strip it. */
   _ohEntrySource?: InspectorHarEntrySource;
-  /** No response body will ever attach to this entry — its host has no
-   *  finished-request feed to read one from. Internal: HAR exports strip it. */
+  /** No response body will ever attach to this entry — nothing was there
+   *  to read one: its host has no finished-request feed, or the tab's was
+   *  closed (see {@link InspectorHarEntry._ohFeedClosed}). Internal: HAR
+   *  exports strip it. */
   _ohBodyUnavailable?: true;
+  /** The host has a finished-request feed, but the tab's was not open while
+   *  this hop ran (its DevTools was closed), so no devtools entry joins it
+   *  and the sizes it carries are all that was recorded. Set only beside
+   *  `_ohBodyUnavailable`. Internal: HAR exports strip it. */
+  _ohFeedClosed?: true;
 }
 
 /**

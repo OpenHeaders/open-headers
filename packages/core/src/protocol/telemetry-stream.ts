@@ -32,6 +32,7 @@
  */
 
 import type { LifecycleConsumerMessage, LifecycleWireMessage } from '../request-lifecycle';
+import type { CdpScopeMode } from '../types/cdp';
 
 export const TELEMETRY_LIFECYCLE_CONSUMER_TYPE = 'oh.telemetry.lifecycle.consumer' as const;
 export const TELEMETRY_LIFECYCLE_DETACH_TYPE = 'oh.telemetry.lifecycle.detach' as const;
@@ -197,18 +198,27 @@ export interface TelemetryDebugState {
   enabled: boolean;
   attachedTabs: number[];
   pinnedTabs: number[];
+  /**
+   * The `inspection.cdpScope` breadth — which tabs the master switch
+   * attaches on its own, before any pin. Absent from a peer that predates
+   * the field; a viewer then shows no scope and offers no change to it.
+   */
+  scope?: CdpScopeMode;
 }
 
 /**
  * Host → extension: one Debug-mode control command from the paired
- * desktop — pin/unpin a tab into the attach scope, or flip the master
- * switch. Same consent posture as the extension's own footer control:
- * the command only feeds the attach reconciler's inputs, and the
- * browser's debugger banner remains the per-tab consent surface.
+ * desktop — pin/unpin a tab into the attach scope, flip the master
+ * switch, or choose the scope's breadth. Same consent posture as the
+ * extension's own footer control: the command only feeds the attach
+ * reconciler's inputs, and the browser's debugger banner remains the
+ * per-tab consent surface. A peer that predates a command kind ignores
+ * it and still answers with its state.
  */
 export type TelemetryDebugCommand =
   | { kind: 'pin'; tabId: number; pinned: boolean }
-  | { kind: 'enable'; enabled: boolean };
+  | { kind: 'enable'; enabled: boolean }
+  | { kind: 'scope'; scope: CdpScopeMode };
 
 export interface TelemetryDebugControlMessage {
   type: typeof TELEMETRY_DEBUG_CONTROL_TYPE;

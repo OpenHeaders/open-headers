@@ -148,6 +148,8 @@ export const panelInspector = {
     'このリクエストはリダイレクトされたため、利用できるコンテンツがありません',
   'panel.inspector.bodyState.unavailable.host':
     'このブラウザーはレスポンスボディを拡張機能に提供しません。Chrome、Edge、Firefox で利用できます。',
+  'panel.inspector.bodyState.unavailable.feedClosed':
+    'コンテンツは、DevTools を開いているとき、またはデバッグモードがオンのときにのみ利用できます。',
   'panel.inspector.bodyState.unavailable.unknown':
     'ボディはキャプチャされていません。ホストはコンテンツを返しませんでした。レスポンスはバッファリングなしでストリーミングされたか、キャッシュから提供されました。',
 

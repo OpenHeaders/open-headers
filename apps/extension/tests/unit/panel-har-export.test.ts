@@ -410,6 +410,19 @@ describe('internal-field strip (`_rawTiming`)', () => {
     expect(doc.log.entries[0]).not.toHaveProperty('_ohBodyUnavailable');
     expect(r.lifecycle.har[0]?._ohBodyUnavailable).toBe(true);
   });
+
+  it('the closed-feed mark (`_ohFeedClosed`) is stripped with it, and on its own', () => {
+    const r = row('https://api.openheaders.io/feed-closed');
+    const har = r.lifecycle.har[0];
+    if (har == null) throw new Error('expected har');
+    har._ohFeedClosed = true;
+    expect(buildHar([r]).log.entries[0]).not.toHaveProperty('_ohFeedClosed');
+    har._ohBodyUnavailable = true;
+    const doc = buildHar([r]);
+    expect(doc.log.entries[0]).not.toHaveProperty('_ohFeedClosed');
+    expect(doc.log.entries[0]).not.toHaveProperty('_ohBodyUnavailable');
+    expect(r.lifecycle.har[0]?._ohFeedClosed).toBe(true);
+  });
 });
 
 describe('sanitizeHarEntry / sanitized export', () => {
