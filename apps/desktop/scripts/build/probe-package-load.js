@@ -10,6 +10,10 @@
  * runtime's arch is checked against the leg's target first: the load
  * only proves something on the arch the package is for.
  *
+ * The terminal's native binaries are loaded too. The app starts without
+ * them, so a package that lost them to a file filter would otherwise
+ * ship and fail at the first terminal.
+ *
  * A macOS bundle is also walked for Mach-O files with no slice for the
  * target's arch. None is ever one the package loads, and macOS warns
  * the user of an Apple Silicon app that carries Intel-only code (a
@@ -75,6 +79,17 @@ if (process.argv[2] === '--inside') {
     report(true, `database opens (${bindingName})`);
   } catch (error) {
     report(false, `database (${bindingName}): ${firstLine(error)}`);
+  }
+
+  // Through the module's own loader, so its search order decides.
+  const ptyDir = path.join(resources, 'app.asar', 'node_modules', 'node-pty');
+  const ptyBinaries = process.platform === 'win32' ? ['conpty', 'conpty_console_list'] : ['pty'];
+  try {
+    const { loadNativeModule } = require(path.join(ptyDir, 'lib', 'utils.js'));
+    for (const name of ptyBinaries) loadNativeModule(name);
+    report(true, `terminal binaries load (${ptyBinaries.join(', ')})`);
+  } catch (error) {
+    report(false, `terminal binaries: ${firstLine(error)}`);
   }
 
   process.exit(failed === 0 ? 0 : 1);

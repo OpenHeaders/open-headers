@@ -80,7 +80,10 @@
     },
     "files": [
       "dist-webpack/**/*",
-      "!node_modules/node-pty/prebuilds{,/**/*}"
+      "!node_modules/node-pty/prebuilds{,/**/*}",
+      "!node_modules/{better-sqlite3,node-pty}/{deps,src}{,/**/*}",
+      "!node_modules/{better-sqlite3,node-pty,@openheaders/*}/build/{deps,Release/obj}{,/**/*}",
+      "!node_modules/{better-sqlite3,node-pty,@openheaders/*}/build/**/*.{iobj,ipdb,lib,exp,vcxproj,filters}"
     ],
     "asar": true,
     "compression": "normal",
