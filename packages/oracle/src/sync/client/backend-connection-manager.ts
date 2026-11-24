@@ -29,6 +29,7 @@
  */
 
 import { getBackends, isLoopbackBackendUrl, subscribeBackends, updateBackend } from '@openheaders/core/backends';
+import { DEFAULT_MAX_FRAME_BYTES } from '@openheaders/core/protocol';
 import type { BackendConnection } from '@openheaders/core/types';
 import { logger } from '@openheaders/core/utils';
 import { dropBackendSyncStatus, refreshSyncStatusAggregate, reportBackendSyncStatus } from './sync-status-aggregate';
@@ -483,7 +484,24 @@ export function sendToBackend(backendId: string, data: Record<string, unknown>):
   return wires.get(backendId)?.transport.send(data) ?? false;
 }
 
-/** True when the given backend's wire is currently connected. */
+/**
+ * Send one frame its caller already serialised to a specific backend.
+ * False when its wire is down or the frame is over the backend's limit.
+ */
+export function sendSerializedToBackend(backendId: string, text: string): boolean {
+  return wires.get(backendId)?.transport.sendSerialized(text) ?? false;
+}
+
+/** The largest frame the given backend accepts, in bytes. */
+export function backendMaxFrameBytes(backendId: string): number {
+  return wires.get(backendId)?.transport.maxFrameBytes() ?? DEFAULT_MAX_FRAME_BYTES;
+}
+
+/** Adopt the frame limit a backend stated on its WELCOME. */
+export function setBackendMaxFrameBytes(backendId: string, bytes: number): void {
+  wires.get(backendId)?.transport.setMaxFrameBytes(bytes);
+}
+
 /** Handles of every wire whose transport is currently open. Late-started
  *  consumers (the telemetry stream host on a revived service worker) use
  *  this to announce themselves on wires that connected before they did. */
@@ -491,6 +509,7 @@ export function listConnectedWires(): BackendWireHandle[] {
   return [...wires.values()].filter((w) => w.transport.isConnected()).map((w) => w.handle);
 }
 
+/** True when the given backend's wire is currently connected. */
 export function isBackendConnected(backendId: string): boolean {
   return wires.get(backendId)?.transport.isConnected() ?? false;
 }

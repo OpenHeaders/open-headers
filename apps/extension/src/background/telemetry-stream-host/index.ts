@@ -23,10 +23,11 @@
  * tears every live session down with the same refusal; a flip back on
  * re-announces host-ready so the relay re-joins its live watches.
  *
- * Overflow degrades fidelity, never correctness: a session whose queue
- * outgrows the cap is cleared and re-attached, so the next flush is a
- * fresh `ready` + canonical replay instead of a stream with silent
- * holes the client reducer would misfold.
+ * Frames are cut by size, never by what the tab did (see
+ * `./frame-batcher`): the host closes the whole wire on a frame over
+ * its limit, so a replay crosses as several frames and a row that
+ * cannot fit one crosses without the part that is too large
+ * (`fitLifecycleWireMessage`).
  */
 
 import type {
@@ -44,13 +45,19 @@ import {
   TELEMETRY_LIFECYCLE_DETACH_TYPE,
   TELEMETRY_TABS_LIST_TYPE,
 } from '@openheaders/core/protocol';
-import type { LifecycleWireMessage, RequestLifecycleUpdate } from '@openheaders/core/request-lifecycle';
+import {
+  fitLifecycleWireMessage,
+  type LifecycleWireMessage,
+  type RequestLifecycleUpdate,
+} from '@openheaders/core/request-lifecycle';
 import { type CdpScopeMode, cdpScopeModeSchema } from '@openheaders/core/types';
 import type { AttachmentHandle, RequestLifecycleHub, Sink } from '@openheaders/oracle/request-lifecycle-hub';
 import {
   type BackendWireHandle,
+  backendMaxFrameBytes,
   listConnectedWires,
   registerInboundFrameHandler,
+  sendSerializedToBackend,
   sendToBackend,
   subscribeOnWebSocketClose,
 } from '@openheaders/oracle/sync/client/backend-connection-manager';
@@ -59,6 +66,7 @@ import * as v from 'valibot';
 import type { LifecycleBodyFetcher, LifecycleProvenance } from '../lifecycle-port-host';
 import { startTracking, stopTracking } from '../modules/tab-telemetry';
 import { desktopWatchAllowed, subscribeDesktopWatchConsent, watchRefusedFrame } from './consent';
+import { createFrameBatcher, type FrameBatcher } from './frame-batcher';
 import { browserIdentity, DEBUG_UNAVAILABLE, queryBrowserTabs } from './tab-snapshot';
 import { watchActivityDrop, watchActivityRaise, watchActivitySync } from './watch-activity';
 
@@ -66,14 +74,6 @@ const SCOPE = 'TelemetryStreamHost';
 
 /** Tick cadence for batch flushes — the rAF-batch posture on the wire. */
 export const TELEMETRY_FLUSH_INTERVAL_MS = 25;
-
-/**
- * Queue cap per session. A replay never exceeds the engine store's
- * per-tab cap, so a healthy session stays far below this; sustained
- * overflow means the wire can't drain and the session self-heals with
- * a fresh replay instead of shipping a stream with holes.
- */
-export const TELEMETRY_MAX_QUEUED_MESSAGES = 4000;
 
 /**
  * Debug-mode (CDP) seam for the desktop's per-tab fidelity affordance:
@@ -114,6 +114,13 @@ export interface TelemetryStreamHostOptions {
   readonly debug?: TelemetryDebugSeam;
   /** Test seams — default to the real connection manager + chrome.tabs. */
   readonly send?: (backendId: string, frame: Record<string, unknown>) => boolean;
+  /**
+   * Where a batch frame goes, as the text it crosses the wire as. A host
+   * given only `send` is handed each batch parsed back from that text.
+   */
+  readonly sendSerialized?: (backendId: string, frame: string) => boolean;
+  /** The largest frame a backend accepts, in bytes. */
+  readonly maxFrameBytes?: (backendId: string) => number;
   readonly registerInbound?: typeof registerInboundFrameHandler;
   readonly subscribeClose?: typeof subscribeOnWebSocketClose;
   readonly listWires?: typeof listConnectedWires;
@@ -132,8 +139,7 @@ interface StreamSession {
   readonly consumerId: string;
   readonly trackingReason: string;
   handle: AttachmentHandle | null;
-  queue: LifecycleWireMessage[];
-  flushTimer: ReturnType<typeof setTimeout> | null;
+  readonly batcher: FrameBatcher<LifecycleWireMessage>;
   unsubscribeProvenance: (() => void) | null;
   closed: boolean;
 }
@@ -152,6 +158,13 @@ function sessionKey(backendId: string, tabId: number, consumerId: string): strin
 export function startTelemetryStreamHost(options: TelemetryStreamHostOptions): TelemetryStreamHost {
   const { hub, ready, provenance, bodyFetcher, debug } = options;
   const send = options.send ?? sendToBackend;
+  const objectSeam = options.send;
+  const sendSerialized =
+    options.sendSerialized ??
+    (objectSeam
+      ? (backendId: string, frame: string) => objectSeam(backendId, JSON.parse(frame) as Record<string, unknown>)
+      : sendSerializedToBackend);
+  const maxFrameBytes = options.maxFrameBytes ?? backendMaxFrameBytes;
   const registerInbound = options.registerInbound ?? registerInboundFrameHandler;
   const subscribeClose = options.subscribeClose ?? subscribeOnWebSocketClose;
   const queryTabs = options.queryTabs ?? queryBrowserTabs;
@@ -160,36 +173,8 @@ export function startTelemetryStreamHost(options: TelemetryStreamHostOptions): T
   const sessions = new Map<string, StreamSession>();
   let disposed = false;
 
-  function flush(session: StreamSession): void {
-    session.flushTimer = null;
-    if (session.closed || session.queue.length === 0) return;
-    const messages = session.queue;
-    session.queue = [];
-    // A failed send means the wire is down mid-flight — drop the run;
-    // the wire-close teardown (or the daemon's re-subscribe on
-    // reconnect) rebuilds the view from a fresh replay.
-    send(session.backendId, {
-      type: TELEMETRY_LIFECYCLE_BATCH_TYPE,
-      tabId: session.tabId,
-      consumerId: session.consumerId,
-      messages,
-    });
-  }
-
   function enqueue(session: StreamSession, message: LifecycleWireMessage): void {
-    if (session.closed) return;
-    session.queue.push(message);
-    if (session.queue.length > TELEMETRY_MAX_QUEUED_MESSAGES) {
-      // Fidelity-degrading self-heal: restart the stream from a fresh
-      // canonical replay rather than dropping arbitrary envelopes.
-      logger.warn(SCOPE, `queue overflow for tab ${session.tabId} — re-attaching with a fresh replay`);
-      session.queue = [];
-      attach(session);
-      return;
-    }
-    if (session.flushTimer === null) {
-      session.flushTimer = setTimeout(() => flush(session), flushIntervalMs);
-    }
+    if (!session.closed) session.batcher.enqueue(message);
   }
 
   function makeSink(session: StreamSession): Sink {
@@ -232,8 +217,17 @@ export function startTelemetryStreamHost(options: TelemetryStreamHostOptions): T
       consumerId,
       trackingReason: `desktop-watching:${tabId}:${backendId}:${consumerId}`,
       handle: null,
-      queue: [],
-      flushTimer: null,
+      batcher: createFrameBatcher<LifecycleWireMessage>({
+        envelope: { type: TELEMETRY_LIFECYCLE_BATCH_TYPE, tabId, consumerId },
+        flushIntervalMs,
+        maxFrameBytes: () => maxFrameBytes(backendId),
+        send: (frame) => sendSerialized(backendId, frame),
+        fit: fitLifecycleWireMessage,
+        onLeftOut: (message) => {
+          const what = message.kind === 'lifecycle-update' ? message.update.kind : message.kind;
+          logger.warn(SCOPE, `a ${what} message for tab ${tabId} cannot fit one frame — left out`);
+        },
+      }),
       unsubscribeProvenance: null,
       closed: false,
     };
@@ -258,11 +252,7 @@ export function startTelemetryStreamHost(options: TelemetryStreamHostOptions): T
     watchActivityDrop(`lc:${key}`);
     session.handle?.detach();
     session.handle = null;
-    if (session.flushTimer !== null) {
-      clearTimeout(session.flushTimer);
-      session.flushTimer = null;
-    }
-    session.queue = [];
+    session.batcher.clear();
     session.unsubscribeProvenance?.();
     session.unsubscribeProvenance = null;
     stopTracking(session.tabId, session.trackingReason);

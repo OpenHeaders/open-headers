@@ -150,6 +150,7 @@ export const panelInspector = {
     'このブラウザーはレスポンスボディを拡張機能に提供しません。Chrome、Edge、Firefox で利用できます。',
   'panel.inspector.bodyState.unavailable.feedClosed':
     'コンテンツは、DevTools を開いているとき、またはデバッグモードがオンのときにのみ利用できます。',
+  'panel.inspector.bodyState.unavailable.tooLarge': 'コンテンツが大きすぎるため、ここには表示できません。',
   'panel.inspector.bodyState.unavailable.unknown':
     'ボディはキャプチャされていません。ホストはコンテンツを返しませんでした。レスポンスはバッファリングなしでストリーミングされたか、キャッシュから提供されました。',
 

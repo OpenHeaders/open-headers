@@ -29,6 +29,9 @@ export const panelNetwork = {
 
   // ── Remote capture — consent refusal (Traffic Monitor over the
   // browser relay; never shown on the in-browser panel) ────────────────
+  'panel.capture.historyTooLarge.title': 'This tab’s log is too large for this version of the browser extension',
+  'panel.capture.historyTooLarge.body': 'Clear the log to watch the tab again.',
+  'panel.capture.historyTooLarge.clear': 'Clear log',
   'panel.capture.watchRefused.title': 'Live view is turned off in this browser',
   'panel.capture.watchRefused.body':
     'The Open Headers extension in this browser doesn’t allow the desktop app to view its traffic, storage, or console. Turn on “Let the desktop app view this browser” in the extension’s settings to watch it here.',

@@ -137,6 +137,7 @@ export const panelInspector = {
     'This browser does not share response bodies with extensions. They are available in Chrome, Edge and Firefox.',
   'panel.inspector.bodyState.unavailable.feedClosed':
     'Content is available only with DevTools opened, or with Debug mode on.',
+  'panel.inspector.bodyState.unavailable.tooLarge': 'Content is too large to show here.',
   'panel.inspector.bodyState.unavailable.unknown':
     'Body not captured. The host returned no content — the response was streamed without buffering or served from cache.',
 

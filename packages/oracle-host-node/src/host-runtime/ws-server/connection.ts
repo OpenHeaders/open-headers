@@ -50,6 +50,9 @@ import { SCOPE } from './shared';
 
 const HANDSHAKE_TIMEOUT_MS = 5_000;
 
+/** The socket library's error code for an inbound frame over `maxPayload`. */
+const FRAME_TOO_LARGE_ERROR_CODE = 'WS_ERR_UNSUPPORTED_MESSAGE_LENGTH';
+
 interface PingMessage {
   type: 'ping';
   t?: number;
@@ -83,6 +86,8 @@ export interface ConnectionDeps {
   handshakeIdentity: LocalHandshakeIdentity;
   /** This server's bind-reach tier — advertised through the HELLO gate. */
   reach: BackendReach;
+  /** The server's inbound frame limit — stated to each peer on its WELCOME. */
+  maxFrameBytes: number;
   classifyLoopback: (remoteAddress: string | undefined) => boolean;
   /** Optional Phase-3 admission seam — see {@link WsAdmissionHooks}. */
   admission?: WsAdmissionHooks;
@@ -100,7 +105,17 @@ export interface ConnectionDeps {
  * cleanup. All shared state lives in `deps.registry`.
  */
 export function handleConnection(socket: WebSocket, request: IncomingMessage, deps: ConnectionDeps): void {
-  const { registry, handshakeIdentity, reach, classifyLoopback, admission, peerRpc, peerPush, scopeGitHead } = deps;
+  const {
+    registry,
+    handshakeIdentity,
+    reach,
+    maxFrameBytes,
+    classifyLoopback,
+    admission,
+    peerRpc,
+    peerPush,
+    scopeGitHead,
+  } = deps;
   const { ready, peerBySocket, summaryBySocket, alive } = registry;
   // Auth is mandatory on every connection. Loopback is reachable
   // cross-user on a shared box and TCP blocks OS peer-cred, so
@@ -135,6 +150,9 @@ export function handleConnection(socket: WebSocket, request: IncomingMessage, de
   alive.set(socket, true);
   socket.on('pong', () => alive.set(socket, true));
   let handshakeDone = false;
+  // Set when the socket library refused a frame over the limit — the
+  // close that follows is this peer's own doing, and says so.
+  let closedForFrameSize = false;
   // The apply-family tail (the header). Never rejects: each link
   // answers its own frame, error reply included, so the chain cannot
   // latch into a failed state.
@@ -210,6 +228,7 @@ export function handleConnection(socket: WebSocket, request: IncomingMessage, de
           outcome = await evaluateHello(parsed as Record<string, unknown>, handshakeIdentity, {
             requireAuth,
             reach,
+            maxFrameBytes,
           });
         } catch (err) {
           // The HELLO gate awaits a token-store read; a storage fault
@@ -437,11 +456,16 @@ export function handleConnection(socket: WebSocket, request: IncomingMessage, de
     const summary = summaryBySocket.get(socket);
     if (summary) {
       summaryBySocket.delete(socket);
-      registry.emitPeerChange({ kind: 'disconnect', peer: summary });
+      registry.emitPeerChange({
+        kind: 'disconnect',
+        peer: summary,
+        ...(closedForFrameSize ? { cause: 'frame-too-large' as const } : {}),
+      });
     }
   });
 
   socket.on('error', (err) => {
+    if ((err as { code?: unknown }).code === FRAME_TOO_LARGE_ERROR_CODE) closedForFrameSize = true;
     logger.warn(SCOPE, 'socket error', err);
   });
 }

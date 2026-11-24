@@ -3,7 +3,7 @@
 import { createServer as createHttpServer, type Server as HttpServer } from 'node:http';
 import { setBackendReach } from '@openheaders/core/backends';
 import { hostLogger as logger } from '@openheaders/core/logger';
-import { WS_PORT } from '@openheaders/core/protocol';
+import { DEFAULT_MAX_FRAME_BYTES, WS_PORT } from '@openheaders/core/protocol';
 import { SELF_BACKEND_REACH_KEY } from '@openheaders/core/storage';
 import { WebSocket, WebSocketServer } from 'ws';
 import { bindReach, isLoopbackRemote } from './classify';
@@ -49,8 +49,14 @@ const HEARTBEAT_INTERVAL_MS = 30_000;
  * `(fileId, hash, filename, mimeType, size)` metadata. An over-cap frame
  * is closed by `ws` with 1009; the large frames in this protocol flow
  * server→client (snapshot/delta), which `maxPayload` does not constrain.
+ *
+ * The telemetry plane is the one sender whose frames grow with what a
+ * browser tab did, so the limit is stated to every peer on its WELCOME
+ * and a peer cuts its frames to it. A peer that predates that sends a
+ * tab's history as one frame; the close it earns is reported with its
+ * cause so the relay can stop asking for that history.
  */
-const MAX_INBOUND_FRAME_BYTES = 8 * 1024 * 1024;
+const MAX_INBOUND_FRAME_BYTES = DEFAULT_MAX_FRAME_BYTES;
 
 /**
  * Max concurrently open WebSocket connections (pre- and post-HELLO).
@@ -176,6 +182,7 @@ export async function startOracleWsServer(options: OracleWsServerOptions): Promi
       registry,
       handshakeIdentity,
       reach,
+      maxFrameBytes: MAX_INBOUND_FRAME_BYTES,
       classifyLoopback,
       admission: options.admission,
       peerRpc: options.peerRpc,

@@ -34,6 +34,10 @@ export const panelNetwork = {
   'panel.network.aboutSorting': 'Despre sortare',
 
   // ── Remote capture — consent refusal ─────────────────────────────────
+  'panel.capture.historyTooLarge.title':
+    'Jurnalul acestei file este prea mare pentru această versiune a extensiei de browser',
+  'panel.capture.historyTooLarge.body': 'Goliți jurnalul pentru a urmări din nou fila.',
+  'panel.capture.historyTooLarge.clear': 'Goliți jurnalul',
   'panel.capture.watchRefused.title': 'Vizualizarea Live este dezactivată în acest browser',
   'panel.capture.watchRefused.body':
     'Extensia Open Headers din acest browser nu permite aplicației desktop să îi vadă traficul, stocarea sau consola. Activați „Permiteți aplicației desktop să vadă acest browser” în setările extensiei pentru a-l urmări aici.',

@@ -17,6 +17,10 @@ export const panelNetwork = {
   'panel.network.aboutSorting': 'À propos du tri',
 
   // ── Remote capture — consent refusal ────────────────────────────────
+  'panel.capture.historyTooLarge.title':
+    'Le journal de cet onglet est trop volumineux pour cette version de l’extension de navigateur',
+  'panel.capture.historyTooLarge.body': 'Effacez le journal pour observer à nouveau l’onglet.',
+  'panel.capture.historyTooLarge.clear': 'Effacer le journal',
   'panel.capture.watchRefused.title': 'La vue en direct est désactivée dans ce navigateur',
   'panel.capture.watchRefused.body':
     "L'extension Open Headers de ce navigateur n'autorise pas l'application de bureau à voir son trafic, son " +

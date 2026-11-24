@@ -127,6 +127,7 @@ export const panelInspector = {
     'Edge et Firefox.',
   'panel.inspector.bodyState.unavailable.feedClosed':
     "Le contenu n'est disponible qu'avec les DevTools ouverts ou avec le mode débogage activé.",
+  'panel.inspector.bodyState.unavailable.tooLarge': 'Le contenu est trop volumineux pour être affiché ici.',
   'panel.inspector.bodyState.unavailable.unknown':
     "Corps non capturé. L'hôte n'a renvoyé aucun contenu — la réponse a été diffusée sans mise en tampon ou " +
     'servie depuis le cache.',

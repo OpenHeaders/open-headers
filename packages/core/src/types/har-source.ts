@@ -316,6 +316,13 @@ export interface InspectorHarBody {
   startedDateTime: string;
   content: string;
   encoding: string;
+  /**
+   * Set when the content was left out on the way to this consumer and
+   * `content` is empty for that reason: `too-large` — the body alone is
+   * over the frame limit of the wire that carried the row. Absent on a
+   * body delivered whole.
+   */
+  omitted?: 'too-large';
 }
 
 /**

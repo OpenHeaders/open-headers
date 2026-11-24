@@ -149,6 +149,13 @@ export interface EvaluateHelloOptions {
    * as unknown.
    */
   readonly reach?: BackendReach;
+  /**
+   * The largest frame this host accepts from a peer, in bytes — the
+   * limit its socket server enforces. Stamped onto the WELCOME so the
+   * joiner measures what it sends. Omitted → the WELCOME carries none
+   * and the joiner assumes the default.
+   */
+  readonly maxFrameBytes?: number;
 }
 
 /**
@@ -275,6 +282,7 @@ export async function evaluateHello(
     ...(backendActiveWorkspaceId ? { activeWorkspaceId: backendActiveWorkspaceId } : {}),
     ...(options.reach ? { reach: options.reach } : {}),
     ...(user ? { user } : {}),
+    ...(options.maxFrameBytes !== undefined ? { maxFrameBytes: options.maxFrameBytes } : {}),
   };
   return { kind: 'accept', hello, welcome, tokenId, claims };
 }

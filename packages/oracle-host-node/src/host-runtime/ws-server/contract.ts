@@ -180,6 +180,12 @@ export type PeerChangeKind = 'connect' | 'disconnect';
 export interface PeerChangeEvent {
   readonly kind: PeerChangeKind;
   readonly peer: PeerSummary;
+  /**
+   * On a `disconnect`: why the server itself closed the socket.
+   * `frame-too-large` — the peer sent a frame over the inbound limit.
+   * Absent for every other close.
+   */
+  readonly cause?: 'frame-too-large';
 }
 
 export type PeerChangeListener = (event: PeerChangeEvent) => void;

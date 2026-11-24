@@ -143,6 +143,7 @@ export const panelInspector = {
     'Этот браузер не передаёт тела ответов расширениям. Они доступны в браузерах Chrome, Edge и Firefox.',
   'panel.inspector.bodyState.unavailable.feedClosed':
     'Содержимое доступно только при открытых DevTools или при включённом режиме отладки.',
+  'panel.inspector.bodyState.unavailable.tooLarge': 'Содержимое слишком велико для отображения здесь.',
   'panel.inspector.bodyState.unavailable.unknown':
     'Тело не захвачено. Хост не вернул содержимое — ответ передавался потоком без буферизации или был отдан из кеша.',
 

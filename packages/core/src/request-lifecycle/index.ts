@@ -70,3 +70,4 @@ export {
   REPLAY_LIFECYCLE_PORT_PREFIX,
   replayLifecyclePortName,
 } from './wire';
+export { fitLifecycleWireMessage } from './wire-fit';

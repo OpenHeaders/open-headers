@@ -20,7 +20,7 @@
  * `usePanelData` — pages markers and fire dots simply never appear.
  */
 
-import { Alert } from 'antd';
+import { Alert, Button } from 'antd';
 import { type ReactNode, useCallback, useEffect, useMemo, useState } from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { useSetting } from '@openheaders/ui/workbench/settings/hooks';
@@ -186,6 +186,10 @@ export function NetworkCaptureView({
     [data.lookupByRequestId, onInspectRequest],
   );
 
+  // A watch held for its history's size is the one refusal the viewer
+  // ends itself: a cleared log leaves the remote engine nothing to replay.
+  const heldForSize = lifecycleClient.watchRefusedReason === 'history-too-large';
+
   return (
     <div className="dt-capture-surface">
       {lifecycleClient.watchRefused && (
@@ -193,8 +197,23 @@ export function NetworkCaptureView({
           type="info"
           showIcon
           banner
-          title={watchRefusedCopy?.title ?? t('panel.capture.watchRefused.title')}
-          description={watchRefusedCopy?.body ?? t('panel.capture.watchRefused.body')}
+          title={
+            heldForSize
+              ? t('panel.capture.historyTooLarge.title')
+              : (watchRefusedCopy?.title ?? t('panel.capture.watchRefused.title'))
+          }
+          description={
+            heldForSize
+              ? t('panel.capture.historyTooLarge.body')
+              : (watchRefusedCopy?.body ?? t('panel.capture.watchRefused.body'))
+          }
+          action={
+            heldForSize ? (
+              <Button size="small" onClick={lifecycleClient.clearSession} data-testid="capture-history-clear">
+                {t('panel.capture.historyTooLarge.clear')}
+              </Button>
+            ) : undefined
+          }
           data-testid="capture-watch-refused"
         />
       )}

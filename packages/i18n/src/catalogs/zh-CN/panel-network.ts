@@ -33,6 +33,9 @@ export const panelNetwork = {
   'panel.network.aboutSorting': '关于排序',
 
   // ── Remote capture — consent refusal ────────────────────────────────
+  'panel.capture.historyTooLarge.title': '此标签页的日志对于此版本的浏览器扩展来说过大',
+  'panel.capture.historyTooLarge.body': '清除日志后即可再次观察此标签页。',
+  'panel.capture.historyTooLarge.clear': '清除日志',
   'panel.capture.watchRefused.title': '此浏览器已关闭实时查看',
   'panel.capture.watchRefused.body':
     '此浏览器中的 Open Headers 扩展不允许桌面应用查看其流量、存储或控制台。在扩展设置中开启“允许桌面应用查看此浏览器”后即可在此观察。',

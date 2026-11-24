@@ -30,8 +30,9 @@ export type BodyState =
   | { kind: 'no-response' }
   /** A response arrived but its body can't be shown (opaque cross-origin,
    *  evicted from cache before it could be read, never handed over by the
-   *  host, or finished with nothing open to read it). The browser's "Failed
-   *  to load response data" state. */
+   *  host, finished with nothing open to read it, or too large for the wire
+   *  that carried the row here). The browser's "Failed to load response
+   *  data" state. */
   | { kind: 'unavailable'; reason: UnavailableReason }
   | { kind: 'text'; content: string }
   | { kind: 'binary'; base64: string };
@@ -46,7 +47,7 @@ export type NotApplicableReason =
   | 'informational'
   | 'websocket';
 
-export type UnavailableReason = 'opaque' | 'cache' | 'redirect' | 'host' | 'feed-closed' | 'unknown';
+export type UnavailableReason = 'opaque' | 'cache' | 'redirect' | 'host' | 'feed-closed' | 'too-large' | 'unknown';
 
 const NOT_APPLICABLE_KEY: Record<NotApplicableReason, MessageKey> = {
   preflight: 'panel.inspector.bodyState.notApplicable.preflight',
@@ -65,6 +66,7 @@ const UNAVAILABLE_KEY: Record<UnavailableReason, MessageKey> = {
   redirect: 'panel.inspector.bodyState.unavailable.redirect',
   host: 'panel.inspector.bodyState.unavailable.host',
   'feed-closed': 'panel.inspector.bodyState.unavailable.feedClosed',
+  'too-large': 'panel.inspector.bodyState.unavailable.tooLarge',
   unknown: 'panel.inspector.bodyState.unavailable.unknown',
 };
 
@@ -80,11 +82,12 @@ export function unavailableMessage(t: Translate, reason: UnavailableReason): str
 }
 
 /** Notice title for an `unavailable` body — nothing failed when the host
- *  never hands bodies over, or when nothing was open to read this one, so
- *  those reasons read as a plain fact. */
+ *  never hands bodies over, when nothing was open to read this one, or
+ *  when it was left out for its size, so those reasons read as a plain
+ *  fact. */
 export function unavailableTitle(t: Translate, reason: UnavailableReason): string {
-  const neverCaptured = reason === 'host' || reason === 'feed-closed';
-  return t(neverCaptured ? 'panel.inspector.bodyState.notAvailableTitle' : 'panel.inspector.bodyState.failedTitle');
+  const nothingFailed = reason === 'host' || reason === 'feed-closed' || reason === 'too-large';
+  return t(nothingFailed ? 'panel.inspector.bodyState.notAvailableTitle' : 'panel.inspector.bodyState.failedTitle');
 }
 
 function isInformational(status: number | undefined): boolean {
@@ -210,6 +213,8 @@ export function classifyBodyState(lifecycle: RequestLifecycle): BodyState {
 
   // ── Empty body ───────────────────────────────────────────
   if (body.content === '') {
+    // Left out on the way here — the body exists, it did not cross.
+    if (body.omitted === 'too-large') return { kind: 'unavailable', reason: 'too-large' };
     if (contentLengthZero(lifecycle)) return { kind: 'empty' };
     if (isOpaqueResponse(lifecycle)) {
       return { kind: 'unavailable', reason: 'opaque' };

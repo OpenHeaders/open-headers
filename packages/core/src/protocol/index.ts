@@ -55,6 +55,7 @@ export {
   DELEGATED_SOCKET_EVENT_FRAME,
   DELEGATED_SOCKET_RIDER_CHANNELS,
 } from './delegated-sockets';
+export { DEFAULT_MAX_FRAME_BYTES, fitsFrame, utf8ByteLength } from './frame-limit';
 export type {
   BackendReach,
   HandshakeRejectReason,

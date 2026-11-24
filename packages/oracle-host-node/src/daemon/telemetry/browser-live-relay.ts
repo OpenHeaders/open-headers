@@ -24,6 +24,11 @@
  * rebuilds each consumer's mirror. Routing is by the REGISTRY summary's
  * `nodeId` (authenticated identity), never by anything a frame claims.
  *
+ * One exception to the re-subscribe: a watch whose replay got the peer's
+ * connection closed for frame size is HELD (see
+ * `oversized-replay-holds`) — its viewers are told why, and it is asked
+ * again only once its history is gone.
+ *
  * The tab-inventory read (`listTabs`) is request/response over the same
  * wire: one `oh.telemetry.tabs.list` frame per connected peer, replies
  * correlated FIFO per peer on the standard `<type>:response` channel;
@@ -64,8 +69,13 @@ import {
   type TelemetryTabsWatchMessage,
   type TelemetryWatchPlane,
 } from '@openheaders/core/protocol';
-import { type LifecycleConsumerMessage, parseQualifiedLifecyclePortName } from '@openheaders/core/request-lifecycle';
+import {
+  type LifecycleConsumerMessage,
+  type LifecycleWireMessage,
+  parseQualifiedLifecyclePortName,
+} from '@openheaders/core/request-lifecycle';
 import type { OracleWsServer, PeerSummary, WsPeerPushHooks } from '../../host-runtime/ws-server';
+import { createOversizedReplayHolds } from './oversized-replay-holds';
 
 const SCOPE = 'BrowserLiveRelay';
 
@@ -215,6 +225,7 @@ export function createBrowserLiveRelay(): BrowserLiveRelay {
   const pendingTabs = new Map<string, PendingTabsSlot[]>();
   const pendingDebug = new Map<string, PendingDebugSlot[]>();
   const pendingStorage = new Map<string, PendingStorageSlot>();
+  const holds = createOversizedReplayHolds();
   let consumerSeq = 0;
   let storageCallSeq = 0;
 
@@ -260,6 +271,36 @@ export function createBrowserLiveRelay(): BrowserLiveRelay {
 
   function forwardConsumer(key: string, tabId: number, consumerId: string, message: LifecycleConsumerMessage): void {
     sendToPeer(key, { type: TELEMETRY_LIFECYCLE_CONSUMER_TYPE, tabId, consumerId, message });
+  }
+
+  /** Ask the peer to replay the watch to one consumer — unless its history is held. */
+  function subscribeConsumer(entry: WatchEntry, consumerId: string): void {
+    const admission = holds.admit(entry.peerKey, entry.tabId);
+    if (admission === 'send') {
+      forwardConsumer(entry.peerKey, entry.tabId, consumerId, { kind: 'subscribe' });
+    } else if (admission === 'held') {
+      entry.ports.get(consumerId)?.postMessage({
+        kind: 'watch-refused',
+        tabId: entry.tabId,
+        reason: 'history-too-large',
+      } satisfies LifecycleWireMessage);
+    }
+  }
+
+  /** A queued watch's turn came: subscribe every consumer it has now. */
+  function subscribeQueuedWatch(key: string, tabId: number | null): void {
+    let next = tabId;
+    while (next !== null) {
+      const entry = watches.get(watchKey(key, next));
+      if (entry) {
+        for (const consumerId of entry.ports.keys()) {
+          forwardConsumer(key, next, consumerId, { kind: 'subscribe' });
+        }
+        return;
+      }
+      // Its last viewer left while it waited — pass the turn on.
+      next = holds.ended(key, next);
+    }
   }
 
   /**
@@ -339,7 +380,18 @@ export function createBrowserLiveRelay(): BrowserLiveRelay {
     entry.ports.set(consumerId, port);
     port.onMessage<LifecycleConsumerMessage>((msg) => {
       if (!isConsumerMessage(msg)) return;
+      const live = watches.get(key);
+      if (msg.kind === 'subscribe' && live) {
+        subscribeConsumer(live, consumerId);
+        return;
+      }
       forwardConsumer(target.nodeId, target.tabId, consumerId, msg);
+      // A cleared session leaves no history to replay — a held watch
+      // can be asked again.
+      if (msg.kind === 'clear-session' && live && holds.release(target.nodeId, target.tabId)) {
+        logger.info(SCOPE, `tab ${target.tabId} on peer ${target.nodeId} was cleared — its watch is asked again`);
+        for (const id of live.ports.keys()) subscribeConsumer(live, id);
+      }
     });
     port.onDisconnect(() => {
       const live = watches.get(key);
@@ -349,7 +401,10 @@ export function createBrowserLiveRelay(): BrowserLiveRelay {
       // ingestion refs refcount across consumers, so the last detach is
       // what actually stops ingestion (the no-viewer → silence law).
       sendToPeer(target.nodeId, { type: TELEMETRY_LIFECYCLE_DETACH_TYPE, tabId: target.tabId, consumerId });
-      if (live.ports.size === 0) watches.delete(key);
+      if (live.ports.size === 0) {
+        watches.delete(key);
+        subscribeQueuedWatch(target.nodeId, holds.ended(target.nodeId, target.tabId));
+      }
     });
     return true;
   }
@@ -359,7 +414,10 @@ export function createBrowserLiveRelay(): BrowserLiveRelay {
     const consumerId = message.consumerId;
     const messages = message.messages;
     if (typeof tabId !== 'number' || typeof consumerId !== 'string' || !Array.isArray(messages)) return;
-    const entry = watches.get(watchKey(peerKey(peer), tabId));
+    const key = peerKey(peer);
+    // A frame of the watch's stream crossed — it is no longer awaited.
+    subscribeQueuedWatch(key, holds.answered(key, tabId));
+    const entry = watches.get(watchKey(key, tabId));
     // Point-to-point: the batch belongs to exactly one consumer's
     // session — a viewer that just left simply drops its tail frames.
     const port = entry?.ports.get(consumerId);
@@ -456,6 +514,7 @@ export function createBrowserLiveRelay(): BrowserLiveRelay {
     if (typeof tabId !== 'number' || typeof consumerId !== 'string') return;
     logger.info(SCOPE, `peer ${peerKey(peer)} refused ${plane ?? 'unknown'} watch for tab ${tabId} (consent off)`);
     if (plane === 'lifecycle') {
+      subscribeQueuedWatch(peerKey(peer), holds.answered(peerKey(peer), tabId));
       const entry = watches.get(watchKey(peerKey(peer), tabId));
       const port = entry?.ports.get(consumerId);
       port?.postMessage({ kind: 'watch-refused', tabId, reason: 'consent-off' });
@@ -491,8 +550,11 @@ export function createBrowserLiveRelay(): BrowserLiveRelay {
     handle(message, peer) {
       if (message.type === TELEMETRY_LIFECYCLE_BATCH_TYPE) handleBatch(message, peer);
       else if (message.type === TELEMETRY_CONSOLE_BATCH_TYPE) handleConsoleBatch(message, peer);
-      else if (message.type === TELEMETRY_HOST_READY_TYPE) rejoinPeerWatches(peer, 'telemetry host ready');
-      else if (message.type === TELEMETRY_TABS_PUSH_TYPE) handleTabsPush(message, peer);
+      else if (message.type === TELEMETRY_HOST_READY_TYPE) {
+        // A telemetry host that just came up holds no history from before.
+        holds.releasePeer(peerKey(peer));
+        rejoinPeerWatches(peer, 'telemetry host ready');
+      } else if (message.type === TELEMETRY_TABS_PUSH_TYPE) handleTabsPush(message, peer);
       else if (message.type === DEBUG_CONTROL_RESPONSE_TYPE) handleDebugResponse(message, peer);
       else if (message.type === STORAGE_CALL_RESPONSE_TYPE) handleStorageResponse(message);
       else if (message.type === TELEMETRY_STORAGE_INVALIDATION_TYPE) handleStorageInvalidation(message, peer);
@@ -500,6 +562,24 @@ export function createBrowserLiveRelay(): BrowserLiveRelay {
       else handleTabsResponse(message, peer);
     },
   };
+
+  /**
+   * The peer's wire closed. When the server closed it for a frame over
+   * its limit and one watch's replay was awaited, that watch is held and
+   * its viewers are told why.
+   */
+  function holdOversizedWatch(key: string, forFrameSize: boolean): void {
+    const heldTabId = holds.peerClosed(key, forFrameSize);
+    if (heldTabId === null) return;
+    logger.warn(
+      SCOPE,
+      `peer ${key} sent tab ${heldTabId}'s history as one frame over the limit — holding that watch until it is cleared`,
+    );
+    const entry = watches.get(watchKey(key, heldTabId));
+    if (!entry) return;
+    const refusal: LifecycleWireMessage = { kind: 'watch-refused', tabId: heldTabId, reason: 'history-too-large' };
+    for (const port of entry.ports.values()) port.postMessage(refusal);
+  }
 
   /**
    * Re-send `subscribe` for every live watch the peer owns. Fired at
@@ -511,10 +591,9 @@ export function createBrowserLiveRelay(): BrowserLiveRelay {
   function rejoinPeerWatches(peer: PeerSummary, cause: string): void {
     for (const entry of watches.values()) {
       if (entry.peerKey !== peerKey(peer) || entry.ports.size === 0) continue;
+      if (holds.isHeld(entry.peerKey, entry.tabId)) continue;
       logger.info(SCOPE, `peer ${entry.peerKey} ${cause} — re-subscribing tab ${entry.tabId}`);
-      for (const consumerId of entry.ports.keys()) {
-        forwardConsumer(entry.peerKey, entry.tabId, consumerId, { kind: 'subscribe' });
-      }
+      for (const consumerId of entry.ports.keys()) subscribeConsumer(entry, consumerId);
     }
     // Storage watches ride the same lifecycle: the extension's watch set
     // died with its wire (or the cold SW), so re-open every live one.
@@ -552,6 +631,7 @@ export function createBrowserLiveRelay(): BrowserLiveRelay {
             rejoinPeerWatches(event.peer, 'reconnected');
             return;
           }
+          holdOversizedWatch(peerKey(event.peer), event.cause === 'frame-too-large');
           // A closed wire drops the peer from every viewer's rail — an
           // SW-eviction flap re-adds it via the reconnect's subscribe
           // push, so consumers debounce the removal, not the relay.

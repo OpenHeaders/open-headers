@@ -33,6 +33,9 @@ export const panelNetwork = {
   'panel.network.aboutSorting': 'О сортировке',
 
   // ── Remote capture — consent refusal ─────────────────────────────────
+  'panel.capture.historyTooLarge.title': 'Журнал этой вкладки слишком велик для этой версии расширения браузера',
+  'panel.capture.historyTooLarge.body': 'Очистите журнал, чтобы снова наблюдать за вкладкой.',
+  'panel.capture.historyTooLarge.clear': 'Очистить журнал',
   'panel.capture.watchRefused.title': 'Просмотр Live в этом браузере выключен',
   'panel.capture.watchRefused.body':
     'Расширение Open Headers в этом браузере не разрешает настольному приложению видеть его трафик, хранилище и консоль. Включите «Разрешить настольному приложению видеть этот браузер» в настройках расширения, чтобы наблюдать за ним здесь.',

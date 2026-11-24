@@ -35,6 +35,9 @@ export const panelNetwork = {
   'panel.network.aboutSorting': '정렬 정보',
 
   // ── Remote capture — consent refusal ────────────────────────────────
+  'panel.capture.historyTooLarge.title': '이 탭의 로그가 이 버전의 브라우저 확장 프로그램에는 너무 큽니다',
+  'panel.capture.historyTooLarge.body': '로그를 지우면 이 탭을 다시 볼 수 있습니다.',
+  'panel.capture.historyTooLarge.clear': '로그 지우기',
   'panel.capture.watchRefused.title': '이 브라우저에서는 라이브 보기가 꺼져 있습니다',
   'panel.capture.watchRefused.body':
     '이 브라우저의 Open Headers 확장 프로그램은 데스크톱 앱이 트래픽, 저장소, 콘솔을 보는 것을 허용하지 않습니다. 여기서 보려면 확장 프로그램 설정에서 “데스크톱 앱이 이 브라우저를 보도록 허용”을 켜세요.',

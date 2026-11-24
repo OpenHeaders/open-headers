@@ -31,6 +31,10 @@ export const panelNetwork = {
   'panel.network.aboutSorting': 'Über die Sortierung',
 
   // ── Remote capture — consent refusal ────────────────────────────────
+  'panel.capture.historyTooLarge.title':
+    'Das Protokoll dieses Tabs ist für diese Version der Browsererweiterung zu groß',
+  'panel.capture.historyTooLarge.body': 'Leere das Protokoll, um den Tab wieder zu beobachten.',
+  'panel.capture.historyTooLarge.clear': 'Protokoll leeren',
   'panel.capture.watchRefused.title': 'Live-Ansicht ist in diesem Browser deaktiviert',
   'panel.capture.watchRefused.body':
     'Die Erweiterung von Open Headers in diesem Browser erlaubt der Desktop-App nicht, ihren Verkehr, Speicher oder ihre ' +

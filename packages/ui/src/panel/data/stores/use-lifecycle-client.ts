@@ -42,6 +42,9 @@ import { useCallback, useMemo, useRef, useState, useSyncExternalStore } from 're
 import { useLifelineClient } from '../use-lifeline-client';
 import { type LifecycleClientSnapshot, LifecycleClientStore } from './lifecycle-client-store';
 
+/** Why a host refused a watch — the reasons the wire envelope carries. */
+export type WatchRefusedReason = Extract<LifecycleWireMessage, { kind: 'watch-refused' }>['reason'];
+
 export interface UseLifecycleClientResult {
   readonly snapshot: LifecycleClientSnapshot;
   readonly tabId: number | null;
@@ -69,6 +72,12 @@ export interface UseLifecycleClientResult {
    * Always `false` on local in-browser lifelines.
    */
   readonly watchRefused: boolean;
+  /**
+   * Why the watch is refused, `null` while it is not. `history-too-large`
+   * is the one refusal this client can end itself: {@link clearSession}
+   * leaves the remote engine no history to replay.
+   */
+  readonly watchRefusedReason: WatchRefusedReason | null;
   /**
    * Clear the panel's view: drop the local mirror AND advance the
    * engine-owned session floor so the reset survives a reconnect. Register
@@ -113,7 +122,8 @@ export function useLifecycleClient(options: UseLifecycleClientOptions = {}): Use
   const store = storeRef.current;
   const [sessionToken, setSessionToken] = useState<string | null>(null);
   const [source, setSource] = useState<LifecycleSource>('heuristic');
-  const [watchRefused, setWatchRefused] = useState(false);
+  const [watchRefusedReason, setWatchRefusedReason] = useState<WatchRefusedReason | null>(null);
+  const watchRefused = watchRefusedReason !== null;
   // Body fetches already issued this connection, keyed `${requestId}:${hop}`,
   // so a render-driven request fires at most once per hop. Cleared on
   // (re)connect: a fresh `ready` replays the rows with empty body slots, so
@@ -137,8 +147,8 @@ export function useLifecycleClient(options: UseLifecycleClientOptions = {}): Use
           // Every `ready` precedes a fresh replay; drop accumulated state
           // so the replay is the canonical view.
           store.clear();
-          // A live stream supersedes any earlier consent refusal.
-          setWatchRefused(false);
+          // A live stream supersedes any earlier refusal.
+          setWatchRefusedReason(null);
           // Adopt the session token (absent until the engine has seen the
           // session message); a reconnect within the same session re-reports
           // the same value, so this is a no-op then.
@@ -158,9 +168,9 @@ export function useLifecycleClient(options: UseLifecycleClientOptions = {}): Use
           setSource(msg.source);
           break;
         case 'watch-refused':
-          // Remote consent gate — the rows already shown stay (history
+          // The watch is refused — the rows already shown stay (history
           // the user saw), the surface renders the refusal over them.
-          setWatchRefused(true);
+          setWatchRefusedReason(msg.reason);
           break;
         default: {
           const _exhaustive: never = msg;
@@ -192,7 +202,17 @@ export function useLifecycleClient(options: UseLifecycleClientOptions = {}): Use
   // Identity-stable API object — consumers key render callbacks and effects
   // on it, so a fresh literal per render would cascade re-renders.
   return useMemo(
-    () => ({ snapshot, tabId, store, sessionToken, source, watchRefused, clearSession, requestResponseBody }),
-    [snapshot, tabId, store, sessionToken, source, watchRefused, clearSession, requestResponseBody],
+    () => ({
+      snapshot,
+      tabId,
+      store,
+      sessionToken,
+      source,
+      watchRefused,
+      watchRefusedReason,
+      clearSession,
+      requestResponseBody,
+    }),
+    [snapshot, tabId, store, sessionToken, source, watchRefused, watchRefusedReason, clearSession, requestResponseBody],
   );
 }

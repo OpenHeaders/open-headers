@@ -19,7 +19,7 @@ import { getOrCreateWorkspaceService, releaseWorkspaceService } from '../service
 import { applyWorkspaceSnapshot } from '../snapshot-applier';
 import { recordWorkspaceSnapshotWatermark } from '../snapshot-watermark';
 import { readWorkspaceStateVector } from '../state-vector-reader';
-import type { BackendWireHandle } from './backend-connection-manager';
+import { type BackendWireHandle, setBackendMaxFrameBytes } from './backend-connection-manager';
 import { applyPeerStateVectorToPendingOut, flushPendingOutToBackend } from './mutation-forwarder';
 import { foldScopeGitHead, type ScopeGitHeadChange } from './scope-git-head-tracker';
 import { createSyncHandshakeInitiator } from './sync-handshake-initiator';
@@ -205,6 +205,10 @@ export function createSyncHandshakeForWire(
       void setBackendReach(wire.backendId, reach).catch((err: unknown) =>
         logger.warn(SCOPE, 'backendReach write failed', err),
       );
+    },
+    // A backend that states no limit keeps the one the wire opened with.
+    onMaxFrameBytes: (bytes) => {
+      if (bytes !== null) setBackendMaxFrameBytes(wire.backendId, bytes);
     },
     // First-join only — a reconnect must NOT re-adopt, otherwise the
     // re-sent WELCOME would overwrite a local active-workspace switch

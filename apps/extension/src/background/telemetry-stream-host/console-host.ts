@@ -27,44 +27,46 @@
  * same way. The flip-on re-announce is the lifecycle host's job — one
  * host-ready per wire re-joins every plane's watches.
  *
- * Overflow degrades fidelity, never correctness: a session whose queue
- * outgrows the cap is cleared and re-attached, so the next flush is a
- * fresh `ready` + canonical replay instead of a stream with silent
- * holes (the client clears on `ready`, so replay never duplicates).
+ * Frames are cut by size (see `./frame-batcher`), like the lifecycle
+ * host's: a replay crosses as several frames, and an entry that cannot
+ * fit one is left out and logged.
  */
 
 import type { ConsoleStreamUpdate, ConsoleStreamWireMessage } from '@openheaders/core/console-stream';
 import type { TelemetryConsoleConsumerMessage, TelemetryConsoleDetachMessage } from '@openheaders/core/protocol';
 import {
+  fitsFrame,
   TELEMETRY_CONSOLE_BATCH_TYPE,
   TELEMETRY_CONSOLE_CONSUMER_TYPE,
   TELEMETRY_CONSOLE_DETACH_TYPE,
 } from '@openheaders/core/protocol';
 import type { AttachmentHandle, ConsoleStreamHub, Sink } from '@openheaders/oracle/console-stream-hub';
 import {
+  backendMaxFrameBytes,
   registerInboundFrameHandler,
+  sendSerializedToBackend,
   sendToBackend,
   subscribeOnWebSocketClose,
 } from '@openheaders/oracle/sync/client/backend-connection-manager';
 import { logger } from '@utils/logger';
 import { desktopWatchAllowed, subscribeDesktopWatchConsent, watchRefusedFrame } from './consent';
+import { createFrameBatcher, type FrameBatcher } from './frame-batcher';
 import { TELEMETRY_FLUSH_INTERVAL_MS } from './index';
 import { watchActivityDrop, watchActivityRaise } from './watch-activity';
 
 const SCOPE = 'TelemetryConsoleHost';
 
-/**
- * Queue cap per session. A replay never exceeds the hub store's per-tab
- * retention (1000 entries), so a healthy session stays below this;
- * sustained overflow means the wire can't drain and the session
- * self-heals with a fresh replay instead of shipping holes.
- */
-export const CONSOLE_MAX_QUEUED_MESSAGES = 2000;
-
 export interface TelemetryConsoleHostOptions {
   readonly hub: ConsoleStreamHub;
   /** Test seams — default to the real connection manager. */
   readonly send?: (backendId: string, frame: Record<string, unknown>) => boolean;
+  /**
+   * Where a batch frame goes, as the text it crosses the wire as. A host
+   * given only `send` is handed each batch parsed back from that text.
+   */
+  readonly sendSerialized?: (backendId: string, frame: string) => boolean;
+  /** The largest frame a backend accepts, in bytes. */
+  readonly maxFrameBytes?: (backendId: string) => number;
   readonly registerInbound?: typeof registerInboundFrameHandler;
   readonly subscribeClose?: typeof subscribeOnWebSocketClose;
   readonly flushIntervalMs?: number;
@@ -79,8 +81,7 @@ interface ConsoleSession {
   readonly tabId: number;
   readonly consumerId: string;
   handle: AttachmentHandle | null;
-  queue: ConsoleStreamWireMessage[];
-  flushTimer: ReturnType<typeof setTimeout> | null;
+  readonly batcher: FrameBatcher<ConsoleStreamWireMessage>;
   closed: boolean;
 }
 
@@ -91,42 +92,21 @@ function sessionKey(backendId: string, tabId: number, consumerId: string): strin
 export function startTelemetryConsoleHost(options: TelemetryConsoleHostOptions): TelemetryConsoleHost {
   const { hub } = options;
   const send = options.send ?? sendToBackend;
+  const objectSeam = options.send;
+  const sendSerialized =
+    options.sendSerialized ??
+    (objectSeam
+      ? (backendId: string, frame: string) => objectSeam(backendId, JSON.parse(frame) as Record<string, unknown>)
+      : sendSerializedToBackend);
+  const maxFrameBytes = options.maxFrameBytes ?? backendMaxFrameBytes;
   const registerInbound = options.registerInbound ?? registerInboundFrameHandler;
   const subscribeClose = options.subscribeClose ?? subscribeOnWebSocketClose;
   const flushIntervalMs = options.flushIntervalMs ?? TELEMETRY_FLUSH_INTERVAL_MS;
 
   const sessions = new Map<string, ConsoleSession>();
 
-  function flush(session: ConsoleSession): void {
-    session.flushTimer = null;
-    if (session.closed || session.queue.length === 0) return;
-    const messages = session.queue;
-    session.queue = [];
-    // A failed send means the wire is down mid-flight — drop the run;
-    // the wire-close teardown (or the daemon's re-subscribe on
-    // reconnect) rebuilds the view from a fresh replay.
-    send(session.backendId, {
-      type: TELEMETRY_CONSOLE_BATCH_TYPE,
-      tabId: session.tabId,
-      consumerId: session.consumerId,
-      messages,
-    });
-  }
-
   function enqueue(session: ConsoleSession, message: ConsoleStreamWireMessage): void {
-    if (session.closed) return;
-    session.queue.push(message);
-    if (session.queue.length > CONSOLE_MAX_QUEUED_MESSAGES) {
-      // Fidelity-degrading self-heal: restart the stream from a fresh
-      // canonical replay rather than dropping arbitrary envelopes.
-      logger.warn(SCOPE, `queue overflow for tab ${session.tabId} — re-attaching with a fresh replay`);
-      session.queue = [];
-      attach(session);
-      return;
-    }
-    if (session.flushTimer === null) {
-      session.flushTimer = setTimeout(() => flush(session), flushIntervalMs);
-    }
+    if (!session.closed) session.batcher.enqueue(message);
   }
 
   function makeSink(session: ConsoleSession): Sink {
@@ -156,11 +136,7 @@ export function startTelemetryConsoleHost(options: TelemetryConsoleHostOptions):
     watchActivityDrop(`co:${key}`);
     session.handle?.detach();
     session.handle = null;
-    if (session.flushTimer !== null) {
-      clearTimeout(session.flushTimer);
-      session.flushTimer = null;
-    }
-    session.queue = [];
+    session.batcher.clear();
   }
 
   const unregisterInbound = registerInbound((frame, wire) => {
@@ -178,13 +154,22 @@ export function startTelemetryConsoleHost(options: TelemetryConsoleHostOptions):
           const key = sessionKey(wire.backendId, tabId, consumerId);
           let session = sessions.get(key);
           if (!session) {
+            const backendId = wire.backendId;
             session = {
-              backendId: wire.backendId,
+              backendId,
               tabId,
               consumerId,
               handle: null,
-              queue: [],
-              flushTimer: null,
+              batcher: createFrameBatcher<ConsoleStreamWireMessage>({
+                envelope: { type: TELEMETRY_CONSOLE_BATCH_TYPE, tabId, consumerId },
+                flushIntervalMs,
+                maxFrameBytes: () => maxFrameBytes(backendId),
+                send: (frame) => sendSerialized(backendId, frame),
+                fit: (_message, serialized, maxBytes) => (fitsFrame(serialized, maxBytes) ? serialized : null),
+                onLeftOut: () => {
+                  logger.warn(SCOPE, `a console entry for tab ${tabId} cannot fit one frame — left out`);
+                },
+              }),
               closed: false,
             };
             sessions.set(key, session);

@@ -141,6 +141,7 @@ export const panelInspector = {
     'verfügbar.',
   'panel.inspector.bodyState.unavailable.feedClosed':
     'Der Inhalt ist nur bei geöffneten DevTools oder mit eingeschaltetem Debug-Modus verfügbar.',
+  'panel.inspector.bodyState.unavailable.tooLarge': 'Der Inhalt ist zu groß, um hier angezeigt zu werden.',
   'panel.inspector.bodyState.unavailable.unknown':
     'Body nicht erfasst. Der Host lieferte keinen Inhalt — die Antwort wurde ohne Pufferung gestreamt oder aus ' +
     'dem Cache bedient.',

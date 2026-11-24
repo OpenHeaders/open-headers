@@ -74,11 +74,14 @@ export type LifecycleWireMessage =
    * on a mid-watch flip. `replay-unavailable` is the sessions-archive
    * replay acceptor failing to open a sealed session (missing/corrupt
    * artifact, or encrypted under a key this host no longer holds) — the
-   * refusal is honest instead of an empty list. Never produced by the
-   * local chrome-side port host — the in-browser panel is the user's own
-   * surface and is never gated. A later `ready` clears it.
+   * refusal is honest instead of an empty list. `history-too-large` is
+   * the relay holding a watch whose replay the remote engine sent as one
+   * frame over the host's limit: re-subscribing would close the wire
+   * again, so the watch waits for a `clear-session`. Never produced by
+   * the local chrome-side port host — the in-browser panel is the user's
+   * own surface and is never gated. A later `ready` clears it.
    */
-  | { kind: 'watch-refused'; tabId: number; reason: 'consent-off' | 'replay-unavailable' };
+  | { kind: 'watch-refused'; tabId: number; reason: 'consent-off' | 'replay-unavailable' | 'history-too-large' };
 
 /**
  * Consumer→engine. Sent once on connect to declare the consumer's watch

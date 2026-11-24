@@ -97,6 +97,11 @@ export interface ConnectionHandshakeDeps {
    * {@link onJoinedOrg}) so reach is surfaced even pre-bootstrap.
    */
   readonly onReach?: (reach: BackendReach | null) => void;
+  /**
+   * Fired on an accepted WELCOME with the largest frame the backend
+   * accepts, in bytes — `null` when the WELCOME states none.
+   */
+  readonly onMaxFrameBytes?: (bytes: number | null) => void;
   /** Fired on a rejected WELCOME so the UI can surface the reason. */
   readonly onRejected?: (reason: HandshakeRejectReason, detail?: string) => void;
   /** Budget between HELLO and WELCOME. Defaults to {@link DEFAULT_CONNECTION_TIMEOUT_MS}. */
@@ -243,8 +248,9 @@ export function createConnectionHandshake(deps: ConnectionHandshakeDeps): Connec
     // set before any catch-up frame arrives. A throw here is logged but
     // never fails the handshake — the org filter degrades to "drop
     // until the next reconnect re-sends WELCOME," not a desync.
-    const { org, activeWorkspaceId, reach } = parsed.output;
+    const { org, activeWorkspaceId, reach, maxFrameBytes } = parsed.output;
     deps.onReach?.(reach ?? null);
+    deps.onMaxFrameBytes?.(maxFrameBytes ?? null);
     if (org && deps.onJoinedOrg) {
       try {
         await deps.onJoinedOrg(org, activeWorkspaceId);

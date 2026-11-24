@@ -287,6 +287,14 @@ export interface SyncWelcomeAccept {
    * protocol integer stays.
    */
   user?: SyncWelcomeUser;
+  /**
+   * The largest frame, in bytes, this backend accepts from the joiner —
+   * a frame over it closes the connection. The joiner measures what it
+   * sends against it. Absent from a responder that predates the field;
+   * the joiner then assumes `DEFAULT_MAX_FRAME_BYTES`. Additive — the
+   * protocol integer stays.
+   */
+  maxFrameBytes?: number;
 }
 
 /** The person a WELCOME names — display fields only, never an id or a credential. */
@@ -322,6 +330,7 @@ const SyncWelcomeAcceptSchema = v.object({
   activeWorkspaceId: v.optional(v.pipe(v.string(), v.minLength(1))),
   reach: v.optional(BackendReachSchema),
   user: v.optional(SyncWelcomeUserSchema),
+  maxFrameBytes: v.optional(v.pipe(v.number(), v.integer(), v.minValue(1))),
 }) satisfies v.GenericSchema<SyncWelcomeAccept>;
 
 const SyncWelcomeRejectSchema = v.object({

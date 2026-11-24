@@ -35,6 +35,8 @@
  */
 
 import {
+  DEFAULT_MAX_FRAME_BYTES,
+  fitsFrame,
   HANDSHAKE_REJECT_CLOSE_CODE,
   type HandshakeRejectReason,
   isBackendEvictingReason,
@@ -126,8 +128,18 @@ export interface TransportConnection {
    * `autoConnect` changes at runtime.
    */
   reconnect(): void;
-  /** Send a frame. Returns false when there is no open socket. */
+  /** Send a frame. Returns false when there is no open socket, or the frame is over the peer's limit. */
   send(data: Record<string, unknown>): boolean;
+  /**
+   * Send a frame its caller already serialised. A frame over the peer's
+   * limit is refused here and logged: sent, it would make the peer
+   * close the connection and every plane on it.
+   */
+  sendSerialized(text: string): boolean;
+  /** The largest frame the peer accepts, in bytes. */
+  maxFrameBytes(): number;
+  /** Adopt the limit the peer stated; a new socket starts from the default again. */
+  setMaxFrameBytes(bytes: number): void;
   /** Restart the ping timer with the current cadence (after a settings change). */
   restartPing(): void;
 }
@@ -161,6 +173,8 @@ export function createTransportConnection(deps: TransportConnectionDeps): Transp
   // (revoked/rotated token). Suppresses every retry until `reconnect()`
   // clears it (a url / token change, or an extension restart).
   let peerRefused = false;
+  // The open socket's peer limit — the default until its WELCOME states one.
+  let maxFrameBytes = DEFAULT_MAX_FRAME_BYTES;
 
   function setState(next: TransportState): void {
     if (state === next) return;
@@ -331,6 +345,7 @@ export function createTransportConnection(deps: TransportConnectionDeps): Transp
       // (a refusing peer accepts then drops). The close handler resets
       // it once the connection proved stable.
       openedAtMs = now();
+      maxFrameBytes = DEFAULT_MAX_FRAME_BYTES;
       startPing();
       setState('open');
       deps.onOpen();
@@ -379,6 +394,24 @@ export function createTransportConnection(deps: TransportConnectionDeps): Transp
     };
   }
 
+  function sendSerialized(text: string): boolean {
+    if (!socket || socket.readyState !== WebSocket.OPEN) return false;
+    if (!fitsFrame(text, maxFrameBytes)) {
+      logger.warn(
+        SCOPE,
+        `frame of ${text.length} characters is over the peer's ${maxFrameBytes}-byte limit — not sent`,
+      );
+      return false;
+    }
+    try {
+      socket.send(text);
+      return true;
+    } catch (err) {
+      logger.error(SCOPE, 'send failed:', err);
+      return false;
+    }
+  }
+
   return {
     state: () => state,
     isConnected: () => state === 'open',
@@ -396,16 +429,20 @@ export function createTransportConnection(deps: TransportConnectionDeps): Transp
       beginAttempt();
     },
     send: (data) => {
-      if (socket && socket.readyState === WebSocket.OPEN) {
-        try {
-          socket.send(JSON.stringify(data));
-          return true;
-        } catch (err) {
-          logger.error(SCOPE, 'send failed:', err);
-          return false;
-        }
+      if (!socket || socket.readyState !== WebSocket.OPEN) return false;
+      let text: string;
+      try {
+        text = JSON.stringify(data);
+      } catch (err) {
+        logger.error(SCOPE, 'send failed:', err);
+        return false;
       }
-      return false;
+      return sendSerialized(text);
+    },
+    sendSerialized,
+    maxFrameBytes: () => maxFrameBytes,
+    setMaxFrameBytes: (bytes) => {
+      maxFrameBytes = bytes;
     },
     restartPing: () => {
       if (state === 'open') startPing();

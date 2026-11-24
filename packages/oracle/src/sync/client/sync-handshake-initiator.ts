@@ -109,6 +109,8 @@ export interface SyncHandshakeInitiatorDeps {
    * live connection state for the reach-aware UI.
    */
   readonly onReach?: (reach: BackendReach | null) => void;
+  /** The backend's stated frame limit — see the connection handshake. */
+  readonly onMaxFrameBytes?: (bytes: number | null) => void;
   /**
    * U6.4 — enumerates the workspace ids whose `orgId` is a *consumed*
    * Org. Read once after the `__global__` scope's SYNCED (the backend's
@@ -237,6 +239,7 @@ export function createSyncHandshakeInitiator(deps: SyncHandshakeInitiatorDeps): 
     getAuthToken: deps.getAuthToken,
     onJoinedOrg: deps.onJoinedOrg,
     onReach: deps.onReach,
+    onMaxFrameBytes: deps.onMaxFrameBytes,
     onRejected: deps.onRejected,
     // U6.3 — the socket is open + authenticated: catch up the
     // `__global__` workspace-list scope so the backend's workspaces

@@ -4,13 +4,14 @@
  * seeding that every spec in the family needs (previously copied
  * per-spec; lifted once the family reached four specs).
  *
- * The cipher-seed guard (the S0 rider): the extension encrypts
- * `oh.backends` with an at-rest AES key it mints in IndexedDB on
- * startup. Seeding races that mint, so the read (a) probes EXISTENCE
- * via `indexedDB.databases()` first — an eager `indexedDB.open()`
- * would CREATE the schema-less husk it then trips on — (b) heals a
- * husk by deleting it, and (c) rejects on a timeout instead of hanging,
- * so the caller's retry loop can spin.
+ * The cipher seed: the extension encrypts `oh.backends` with an
+ * at-rest AES key it mints in IndexedDB at its first sealed write — a
+ * fresh profile seals nothing at boot, so the key may not exist yet.
+ * The seed takes the key the way the extension's own key store does
+ * (same database, store and key id, the upgrade path, a non-extractable
+ * AES-GCM-256 key, one get-or-put transaction, the provisioning
+ * marker), so whichever side asks first mints and the other adopts. It
+ * rejects on a timeout instead of hanging, so the retry loop can spin.
  */
 
 import type { BrowserContext, Page } from '@playwright/test';
@@ -59,32 +60,40 @@ export function createExtensionSeedHarness(deps: ExtensionSeedHarnessDeps): Exte
     const page = await extensionPage();
     await page.evaluate(
       async ({ backendUrl, authToken, enabled, recordId, recordLabel }) => {
-        // Existence probe first — an eager indexedDB.open would CREATE
-        // an empty schema-less DB and race the extension's cipher init.
-        const databases = await indexedDB.databases();
-        if (!databases.some((d) => d.name === 'oh-secret-cipher')) {
-          throw new Error('cipher db not yet created');
-        }
+        // Generated before the transaction: IndexedDB commits at the
+        // first await, so the get-or-put below stays synchronous.
+        const fresh = await crypto.subtle.generateKey({ name: 'AES-GCM', length: 256 }, false, ['encrypt', 'decrypt']);
         const key = await Promise.race([
           new Promise<CryptoKey>((resolve, reject) => {
-            const open = indexedDB.open('oh-secret-cipher');
+            const open = indexedDB.open('oh-secret-cipher', 1);
+            open.onupgradeneeded = () => {
+              open.result.createObjectStore('keys');
+            };
             open.onerror = () => reject(open.error);
             open.onsuccess = () => {
               const db = open.result;
-              if (!db.objectStoreNames.contains('keys')) {
-                // A schema-less husk (e.g. from an earlier eager open)
-                // blocks the extension's init — heal by deleting it.
+              try {
+                const store = db.transaction('keys', 'readwrite').objectStore('keys');
+                const getRequest = store.get('at-rest-aes-gcm-v1');
+                getRequest.onerror = () => reject(getRequest.error);
+                getRequest.onsuccess = () => {
+                  const existing = getRequest.result as CryptoKey | undefined;
+                  if (existing) {
+                    db.close();
+                    resolve(existing);
+                    return;
+                  }
+                  const putRequest = store.put(fresh, 'at-rest-aes-gcm-v1');
+                  putRequest.onerror = () => reject(putRequest.error);
+                  putRequest.onsuccess = () => {
+                    db.close();
+                    resolve(fresh);
+                  };
+                };
+              } catch (err) {
                 db.close();
-                const drop = indexedDB.deleteDatabase('oh-secret-cipher');
-                drop.onsuccess = drop.onerror = () => reject(new Error('cipher db was empty — healed, retrying'));
-                return;
+                reject(err);
               }
-              const request = db.transaction('keys', 'readonly').objectStore('keys').get('at-rest-aes-gcm-v1');
-              request.onerror = () => reject(request.error);
-              request.onsuccess = () =>
-                request.result
-                  ? resolve(request.result as CryptoKey)
-                  : reject(new Error('cipher key not yet minted'));
             };
           }),
           new Promise<never>((_, reject) => setTimeout(() => reject(new Error('cipher read timed out')), 4000)),
@@ -111,7 +120,10 @@ export function createExtensionSeedHarness(deps: ExtensionSeedHarnessDeps): Exte
         let binary = '';
         for (const byte of packed) binary += String.fromCharCode(byte);
         await new Promise<void>((resolve) => {
-          chrome.storage.local.set({ onboardingCompleted: true, 'oh.backends': `v1:${btoa(binary)}` }, () => resolve());
+          chrome.storage.local.set(
+            { onboardingCompleted: true, 'oh.host.atRestKeyProvisioned': true, 'oh.backends': `v1:${btoa(binary)}` },
+            () => resolve(),
+          );
         });
       },
       {

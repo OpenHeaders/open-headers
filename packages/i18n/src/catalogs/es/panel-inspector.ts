@@ -130,6 +130,7 @@ export const panelInspector = {
     'Edge y Firefox.',
   'panel.inspector.bodyState.unavailable.feedClosed':
     'El contenido solo está disponible con las DevTools abiertas o con el modo de depuración activado.',
+  'panel.inspector.bodyState.unavailable.tooLarge': 'El contenido es demasiado grande para mostrarlo aquí.',
   'panel.inspector.bodyState.unavailable.unknown':
     'Cuerpo no capturado. El host no devolvió contenido — la respuesta se transmitió sin almacenarse en búfer ' +
     'o se sirvió desde la caché.',

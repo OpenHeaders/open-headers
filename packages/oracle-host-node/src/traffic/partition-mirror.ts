@@ -128,6 +128,8 @@ interface ViewerSeat {
   readonly port: IncomingLifelinePort;
   handle: AttachmentHandle | null;
   subscribed: boolean;
+  /** The refusal this seat was last told — never told the same one twice. */
+  toldRefusal: LifecycleWireMessage | null;
 }
 
 interface TapSeatState {
@@ -150,6 +152,9 @@ interface PartitionEntry {
    *  once a real `source` frame has been seen. */
   provenance: LifecycleSource;
   sourceSeen: boolean;
+  /** The wire's standing refusal, until its next `ready` — a viewer that
+   *  joins meanwhile is told what the earlier ones were. */
+  refusal: LifecycleWireMessage | null;
 }
 
 function partitionKey(nodeId: string, tabId: number): string {
@@ -198,6 +203,7 @@ export function createTrafficPartitionMirror(deps: TrafficPartitionMirrorDeps): 
       wireReady: false,
       provenance: 'heuristic',
       sourceSeen: false,
+      refusal: null,
     };
     entries.set(key, entry);
     return entry;
@@ -255,6 +261,7 @@ export function createTrafficPartitionMirror(deps: TrafficPartitionMirrorDeps): 
   function handleWireMessage(entry: PartitionEntry, message: LifecycleWireMessage): void {
     switch (message.kind) {
       case 'ready': {
+        entry.refusal = null;
         entry.floors.token = message.sessionToken;
         if (entry.wireReady) {
           // Reconnect epoch (SW eviction, wire flap, overflow
@@ -300,7 +307,11 @@ export function createTrafficPartitionMirror(deps: TrafficPartitionMirrorDeps): 
       case 'watch-refused': {
         // Pending viewers included — the refusal is what a gated
         // subscribe answers with, and the panel renders the gate from it.
-        for (const seat of entry.viewers) seat.port.postMessage(message);
+        entry.refusal = message;
+        for (const seat of entry.viewers) {
+          seat.toldRefusal = message;
+          seat.port.postMessage(message);
+        }
         forwardToTaps(entry, message);
         return;
       }
@@ -328,7 +339,7 @@ export function createTrafficPartitionMirror(deps: TrafficPartitionMirrorDeps): 
   }
 
   function acceptViewerPort(entry: PartitionEntry, port: IncomingLifelinePort): void {
-    const seat: ViewerSeat = { port, handle: null, subscribed: false };
+    const seat: ViewerSeat = { port, handle: null, subscribed: false, toldRefusal: null };
     entry.viewers.add(seat);
     port.onMessage<LifecycleConsumerMessage>((msg) => {
       if (!isConsumerMessage(msg)) return;
@@ -339,6 +350,10 @@ export function createTrafficPartitionMirror(deps: TrafficPartitionMirrorDeps): 
           return;
         }
         if (entry.wireReady && seat.handle === null) attachViewer(entry, seat);
+        if (entry.refusal !== null && seat.toldRefusal !== entry.refusal) {
+          seat.toldRefusal = entry.refusal;
+          seat.port.postMessage(entry.refusal);
+        }
         return;
       }
       if (msg.kind === 'clear-session') {

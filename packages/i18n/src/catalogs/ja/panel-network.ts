@@ -35,6 +35,9 @@ export const panelNetwork = {
   'panel.network.aboutSorting': '並べ替えについて',
 
   // ── Remote capture — consent refusal ────────────────────────────────
+  'panel.capture.historyTooLarge.title': 'このタブのログは、このバージョンのブラウザー拡張機能には大きすぎます',
+  'panel.capture.historyTooLarge.body': 'ログを消去すると、このタブを再び観察できます。',
+  'panel.capture.historyTooLarge.clear': 'ログを消去',
   'panel.capture.watchRefused.title': 'このブラウザーではライブ表示がオフになっています',
   'panel.capture.watchRefused.body':
     'このブラウザーの Open Headers 拡張機能は、デスクトップアプリによるトラフィック、ストレージ、コンソールの閲覧を許可していません。ここで観察するには、拡張機能の設定で「デスクトップアプリにこのブラウザーの閲覧を許可」をオンにしてください。',

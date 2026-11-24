@@ -147,6 +147,7 @@ export const panelInspector = {
     'Acest browser nu oferă extensiilor corpul răspunsurilor. Este disponibil în browserele Chrome, Edge și Firefox.',
   'panel.inspector.bodyState.unavailable.feedClosed':
     'Conținutul este disponibil doar cu DevTools deschis sau cu modul Depanare activat.',
+  'panel.inspector.bodyState.unavailable.tooLarge': 'Conținutul este prea mare pentru a fi afișat aici.',
   'panel.inspector.bodyState.unavailable.unknown':
     'Corp necapturat. Gazda nu a returnat niciun conținut — răspunsul a fost transmis în flux fără memorare sau servit din cache.',
 

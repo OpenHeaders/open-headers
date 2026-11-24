@@ -82,8 +82,7 @@ export interface TelemetryWatchRefusedMessage {
  * per workbench viewer port and scopes the whole stream: the extension
  * keeps an independent session per `(wire, tab, consumer)`, so a new
  * viewer's subscribe/replay never resets a sibling viewer's stream (the
- * redundant-`ready` flash), and an overflow self-heal replays only the
- * consumer whose queue overflowed.
+ * redundant-`ready` flash).
  */
 export interface TelemetryLifecycleConsumerMessage {
   type: typeof TELEMETRY_LIFECYCLE_CONSUMER_TYPE;
@@ -103,7 +102,8 @@ export interface TelemetryLifecycleDetachMessage {
  * Extension → host: an ordered, tick-coalesced run of lifecycle wire
  * envelopes for one tab, addressed to the one consumer whose session
  * produced it. Order within and across batches is delivery order — a
- * `ready` always precedes its replay, replay precedes live.
+ * `ready` always precedes its replay, replay precedes live. One run may
+ * span several batches: a sender cuts them to the host's frame limit.
  */
 export interface TelemetryLifecycleBatchMessage {
   type: typeof TELEMETRY_LIFECYCLE_BATCH_TYPE;

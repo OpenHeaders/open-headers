@@ -22,6 +22,10 @@ export const panelNetwork = {
   'panel.network.aboutSorting': 'Acerca de la ordenación',
 
   // ── Remote capture — consent refusal ────────────────────────────────
+  'panel.capture.historyTooLarge.title':
+    'El registro de esta pestaña es demasiado grande para esta versión de la extensión del navegador',
+  'panel.capture.historyTooLarge.body': 'Borra el registro para volver a observar la pestaña.',
+  'panel.capture.historyTooLarge.clear': 'Borrar registro',
   'panel.capture.watchRefused.title': 'La vista en vivo está desactivada en este navegador',
   'panel.capture.watchRefused.body':
     'La extensión de Open Headers de este navegador no permite que la aplicación de escritorio vea su tráfico, ' +
