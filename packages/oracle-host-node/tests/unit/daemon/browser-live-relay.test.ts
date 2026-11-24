@@ -680,8 +680,9 @@ describe('createBrowserLiveRelay', () => {
       peerSummary('node-home', 'peer-1', 'install-a'),
     );
     for (const port of [first, second]) {
-      expect(port.posted).toHaveLength(1);
-      const message = port.posted[0] as { kind: string; peer: { nodeId: string; watchConsent: boolean } };
+      // The opening roster, then the push.
+      expect(port.posted).toHaveLength(2);
+      const message = port.posted[1] as { kind: string; peer: { nodeId: string; watchConsent: boolean } };
       expect(message.kind).toBe('peer-tabs');
       expect(message.peer.nodeId).toBe('install-a');
       expect(message.peer.watchConsent).toBe(true);
@@ -689,7 +690,41 @@ describe('createBrowserLiveRelay', () => {
 
     // A malformed push (no tabs array) is dropped, never fanned.
     relay.peerPush.handle({ type: TELEMETRY_TABS_PUSH_TYPE, payload: {} }, peerSummary('node-home'));
-    expect(first.posted).toHaveLength(1);
+    expect(first.posted).toHaveLength(2);
+    relay.dispose();
+  });
+
+  it('opens every oh-tabs watch with the peers connected at that moment, by stable qualifier', () => {
+    const connect = installFakeLifeline();
+    const relay = createBrowserLiveRelay();
+    const peers = [peerSummary('node-home', 'peer-1', 'install-a'), peerSummary('node-b')];
+    const { server } = fakeServer(peers);
+    relay.setWsServer(server);
+    relay.installLifeline();
+
+    const first = fakePort(TELEMETRY_TABS_PORT_NAME);
+    connect(first);
+    expect(first.posted).toEqual([{ kind: 'peers', nodeIds: ['install-a', 'node-b'] }]);
+
+    // A viewer whose watch reopens after a peer left is told so by the
+    // roster — that peer's `peer-gone` went to nobody.
+    first.disconnect();
+    peers.pop();
+    const reopened = fakePort(TELEMETRY_TABS_PORT_NAME);
+    connect(reopened);
+    expect(reopened.posted).toEqual([{ kind: 'peers', nodeIds: ['install-a'] }]);
+    relay.dispose();
+  });
+
+  it('opens an oh-tabs watch with an empty roster when no server is bound', () => {
+    const connect = installFakeLifeline();
+    const relay = createBrowserLiveRelay();
+    relay.installLifeline();
+
+    const port = fakePort(TELEMETRY_TABS_PORT_NAME);
+    connect(port);
+
+    expect(port.posted).toEqual([{ kind: 'peers', nodeIds: [] }]);
     relay.dispose();
   });
 
@@ -705,7 +740,10 @@ describe('createBrowserLiveRelay', () => {
     const before = frames.filter((f) => f.frame.type === TELEMETRY_TABS_SUBSCRIBE_TYPE).length;
 
     emitPeerDisconnect(peerSummary('node-a'));
-    expect(port.posted).toEqual([{ kind: 'peer-gone', nodeId: 'node-a' }]);
+    expect(port.posted).toEqual([
+      { kind: 'peers', nodeIds: ['node-a'] },
+      { kind: 'peer-gone', nodeId: 'node-a' },
+    ]);
 
     // Reconnect and the cold-SW ready announce both re-subscribe the
     // watched inventory — the peer's snapshot push re-adds it.

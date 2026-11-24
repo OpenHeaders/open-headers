@@ -262,8 +262,14 @@ export interface TelemetryPeerTabsWire {
  * lifeline: per-peer inventory upserts as pushes arrive, and a
  * `peer-gone` when a peer's wire closes. Consumers key on `nodeId` —
  * a `peer-tabs` replaces that peer's whole entry.
+ *
+ * `peers` opens every watch: the peers connected at that moment. A
+ * viewer that kept an inventory across a gap in its watch drops what is
+ * not listed — a peer that left while nobody watched sent no
+ * `peer-gone`.
  */
 export type TelemetryTabsWatchMessage =
+  | { kind: 'peers'; nodeIds: ReadonlyArray<string> }
   | { kind: 'peer-tabs'; peer: TelemetryPeerTabsWire }
   | { kind: 'peer-gone'; nodeId: string };
 

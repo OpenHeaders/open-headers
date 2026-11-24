@@ -9,9 +9,10 @@
  *
  * This module is the Electron edge only: it maps the wire below onto the
  * port registry (`lifeline/port-registry.ts`), which owns the ports, the
- * acceptors, and the door law — a port opened before the engine is ready
- * is held and admitted once it is. Installed at eval time beside the RPC
- * queue (`main.ts`), on the same engine-readiness gate, so the window
+ * acceptors, and the door law — a port opened before the engine is ready,
+ * or a view channel opened by a window closed to the tray, is held and
+ * admitted once the door opens for it. Installed at eval time beside the
+ * RPC queue (`main.ts`), on the same engine-readiness gate, so the window
  * never finds the wire missing.
  *
  * Wire protocol:
@@ -33,7 +34,9 @@
  *     capture source's `oh-lifecycle:` pipe) stream down this channel
  *     via `IncomingLifelinePort.postMessage`. The awareness lifeline
  *     never sends host→renderer.
- *   - `oh:lifeline:host-disconnect` (push) — host-initiated disconnect.
+ *   - `oh:lifeline:host-disconnect` (push) — host-initiated disconnect
+ *     `{ portId }`: the registry ended a view port because its window
+ *     closed. The renderer's reconnect arrives as a fresh open.
  *
  * Disconnect cascades:
  *
@@ -49,6 +52,7 @@ import { setLifelineServer } from '@openheaders/core/awareness';
 import { ipcMain, type WebContents, webContents as webContentsApi } from 'electron';
 import type { EngineReadiness } from './bootstrap/engine-readiness';
 import { createLifelinePortRegistry } from './lifeline/port-registry';
+import type { SurfaceViewers } from './lifeline/surface-viewers';
 
 const CHANNEL = {
   open: 'oh:lifeline:open',
@@ -58,14 +62,17 @@ const CHANNEL = {
   hostDisconnect: 'oh:lifeline:host-disconnect',
 } as const;
 
-export function installLifelineServer(readiness: EngineReadiness): void {
+export function installLifelineServer(readiness: EngineReadiness, viewers: SurfaceViewers): void {
+  function pushToSurface(wcId: number, channel: string, envelope: { portId: string; message?: unknown }): void {
+    const wc = webContentsApi.fromId(wcId);
+    if (!wc || wc.isDestroyed()) return;
+    wc.send(channel, envelope);
+  }
   const registry = createLifelinePortRegistry({
     readiness,
-    postToSurface(wcId, portId, message) {
-      const wc = webContentsApi.fromId(wcId);
-      if (!wc || wc.isDestroyed()) return;
-      wc.send(CHANNEL.hostMessage, { portId, message });
-    },
+    viewers,
+    postToSurface: (wcId, portId, message) => pushToSurface(wcId, CHANNEL.hostMessage, { portId, message }),
+    disconnectToSurface: (wcId, portId) => pushToSurface(wcId, CHANNEL.hostDisconnect, { portId }),
   });
   const trackedWebContents = new Set<number>();
 

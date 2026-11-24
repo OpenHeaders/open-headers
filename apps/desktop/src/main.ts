@@ -20,7 +20,9 @@
  *   - `installLifelineServer`         — registers the lifeline wire on the
  *                                       same engine-readiness gate, so a
  *                                       port opened during boot is held
- *                                       and admitted once acceptors exist.
+ *                                       and admitted once acceptors exist;
+ *                                       a closed window's view channels
+ *                                       are held there too.
  *   - `installProtocolHandler`        — registers `open-url` BEFORE
  *                                       `whenReady` to catch the very
  *                                       first macOS deep link.
@@ -64,6 +66,7 @@ import { createMainWindow, showMainWindow } from './main/bootstrap/window-manage
 import { installLifelineServer } from './main/install-lifeline-server';
 import { installRpcHost } from './main/install-rpc-host';
 import { installTerminalHost } from './main/install-terminal-host';
+import { surfaceViewers } from './main/lifeline/surface-viewers';
 import { desktopProcessReader } from './main/process-reader';
 import { runMcpStdioBridge } from './mcp-stdio';
 
@@ -148,7 +151,7 @@ function bootstrapDesktopApp(): void {
   // released in arrival order when the boot settles.
   const engineReadiness = createEngineReadiness();
   installRpcQueue(engineReadiness);
-  installLifelineServer(engineReadiness);
+  installLifelineServer(engineReadiness, surfaceViewers);
   installExternalLinkHandler();
   installLogFilesHandler();
   installAppMenuPopupHandler();

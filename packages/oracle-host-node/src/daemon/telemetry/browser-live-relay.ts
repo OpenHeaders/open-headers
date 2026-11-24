@@ -235,12 +235,17 @@ export function createBrowserLiveRelay(): BrowserLiveRelay {
    * viewer (snapshots are idempotent upserts, so existing viewers just
    * fold a no-op). The LAST port's disconnect detaches every peer — the
    * no-viewer → silence law on the inventory plane.
+   *
+   * The port is first told who is connected: upserts alone cannot
+   * retire a peer that left while this viewer was not watching.
    */
   function acceptTabsPort(port: IncomingLifelinePort): boolean {
     if (port.name !== TELEMETRY_TABS_PORT_NAME) return false;
     const consumerId = `c${++consumerSeq}`;
     tabsWatchPorts.set(consumerId, port);
     if (tabsWatchPorts.size === 1) logger.info(SCOPE, 'tab-inventory watch opened');
+    const connected = server?.listConnectedPeers() ?? [];
+    port.postMessage({ kind: 'peers', nodeIds: connected.map(peerKey) } satisfies TelemetryTabsWatchMessage);
     // Same-device wires only, like every telemetry frame.
     server?.broadcastFrame({ type: TELEMETRY_TABS_SUBSCRIBE_TYPE }, { loopbackOnly: true });
     port.onDisconnect(() => {

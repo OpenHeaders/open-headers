@@ -2,10 +2,16 @@
  * Tray-resident primary window. Created once, hidden on close, never
  * destroyed — so subsequent opens are `win.show()` on an already-mounted,
  * already-hydrated window.
+ *
+ * This module is the only place the window is shown or hidden, so it is
+ * also where the window is declared open or closed to the lifeline door
+ * (`lifeline/surface-viewers.ts`): closed to the tray, the mounted
+ * renderer holds no view channel.
  */
 
 import { join } from 'node:path';
 import { app, BrowserWindow, screen } from 'electron';
+import { surfaceViewers } from '../lifeline/surface-viewers';
 import { shouldLaunchHidden } from './launch-flags';
 import { LAUNCH_MARKER } from './launch-marker';
 import { isQuitting } from './lifecycle';
@@ -92,6 +98,13 @@ export function createMainWindow(): BrowserWindow {
   win.webContents.on('did-finish-load', markRendererReadyAndDrain);
   win.webContents.on('destroyed', resetRendererReady);
 
+  // Stated before the page loads, so the renderer's first open already
+  // finds the answer: a hidden launch mounts a window nobody has opened.
+  const launchHidden = shouldLaunchHidden();
+  const surfaceId = win.webContents.id;
+  surfaceViewers.set(surfaceId, !launchHidden);
+  win.webContents.once('destroyed', () => surfaceViewers.forget(surfaceId));
+
   // Startup milestones — the two renderer-side marks the log was blind
   // to: first paintable frame and load completion. One-shot listeners;
   // steady-state reloads don't spam the log.
@@ -124,7 +137,7 @@ export function createMainWindow(): BrowserWindow {
   // helper re-arms that grant (mocked keystroke +
   // AllowSetForegroundWindow) so the window actually fronts; it no-ops
   // off Windows.
-  if (!shouldLaunchHidden()) {
+  if (!launchHidden) {
     win.show();
     if (process.platform === 'win32') forceForegroundWindow(process.pid);
   }
@@ -136,6 +149,7 @@ export function createMainWindow(): BrowserWindow {
     if (isQuitting()) return;
     event.preventDefault();
     win.hide();
+    surfaceViewers.set(surfaceId, false);
     // The renderer outlives this hide — tell it the app "closed" so
     // session-scoped state (recently-closed terminal tabs) resets.
     sendToRendererWindow(win, 'windowHiddenToTray', {});
@@ -154,6 +168,9 @@ export function showMainWindow(): void {
     return;
   }
   if (mainWindow.isMinimized()) mainWindow.restore();
+  // Before the show, so the view channels are already refilling when
+  // the window paints.
+  surfaceViewers.set(mainWindow.webContents.id, true);
   mainWindow.show();
   mainWindow.focus();
 }

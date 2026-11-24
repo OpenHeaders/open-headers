@@ -7,6 +7,9 @@
  * (its `bind` / `subscribe` handshake), and is admitted with those
  * frames, in order, once the boot settles.
  *
+ * A view channel opened by a window that is closed to the tray waits
+ * here the same way, for as long as the window stays closed.
+ *
  * A port the surface closes while it waits — or whose surface goes away
  * — is marked canceled and never reaches an acceptor.
  */

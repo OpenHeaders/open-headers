@@ -5,6 +5,7 @@ import { ipcMain, webContents } from 'electron';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { createEngineReadiness } from '@/main/bootstrap/engine-readiness';
 import { installLifelineServer } from '@/main/install-lifeline-server';
+import { createSurfaceViewers } from '@/main/lifeline/surface-viewers';
 
 beforeAll(() => {
   setHostLogger({ error() {}, warn() {}, info() {}, debug() {} });
@@ -37,7 +38,8 @@ function installAdapter() {
   }) as typeof ipcMain.on);
 
   const readiness = createEngineReadiness();
-  installLifelineServer(readiness);
+  const viewers = createSurfaceViewers();
+  installLifelineServer(readiness, viewers);
   if (!open) throw new Error('oh:lifeline:open handler was not registered');
   const openHandler = open;
 
@@ -52,6 +54,7 @@ function installAdapter() {
 
   return {
     readiness,
+    viewers,
     accepted,
     disconnects,
     frames,
@@ -103,7 +106,7 @@ describe('lifeline IPC adapter', () => {
     emitter.emit('destroyed');
     adapter.readiness.signalReady();
 
-    await expect(opening).resolves.toEqual({ ok: false, error: 'closed before the engine was ready' });
+    await expect(opening).resolves.toEqual({ ok: false, error: 'closed while it was held at the door' });
     expect(adapter.accepted).toEqual([]);
   });
 
@@ -134,5 +137,28 @@ describe('lifeline IPC adapter', () => {
     crashing.emitter.emit('render-process-gone');
 
     expect(adapter.disconnects).toEqual([{}, { errorMessage: 'render process gone' }]);
+  });
+
+  it('tells the window its view port ended when the window closes, and carries the reopened one to the acceptor', async () => {
+    const adapter = installAdapter();
+    const { sender, sent } = makeSurface(7);
+    vi.spyOn(webContents, 'fromId').mockImplementation(((id: number) =>
+      id === 7 ? sender : undefined) as typeof webContents.fromId);
+    adapter.readiness.signalReady();
+    await adapter.open(sender, { portId: 'port-1', name: 'oh-tabs' });
+
+    adapter.viewers.set(7, false);
+
+    expect(adapter.disconnects).toEqual([{}]);
+    expect(sent).toEqual([{ channel: 'oh:lifeline:host-disconnect', payload: { portId: 'port-1' } }]);
+
+    // The renderer's reconnect: held while the window is closed.
+    const reopening = adapter.open(sender, { portId: 'port-2', name: 'oh-tabs' });
+    await new Promise<void>((resolve) => setTimeout(resolve, 0));
+    expect(adapter.accepted).toHaveLength(1);
+
+    adapter.viewers.set(7, true);
+    await expect(reopening).resolves.toEqual({ ok: true });
+    expect(adapter.accepted.map((port) => port.name)).toEqual(['oh-tabs', 'oh-tabs']);
   });
 });

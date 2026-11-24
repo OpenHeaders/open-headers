@@ -354,6 +354,15 @@ const TrafficMonitorPanel: React.FC<TrafficMonitorPanelProps> = ({
     };
   }, []);
   const onTabsWatchMessage = useCallback((message: TelemetryTabsWatchMessage) => {
+    if (message.kind === 'peers') {
+      // The watch (re)opened: a peer that left while it was shut sent
+      // no `peer-gone`, so whatever the host does not list is retired.
+      const connected = new Set(message.nodeIds);
+      setPeers((prev) =>
+        prev.every((peer) => connected.has(peer.nodeId)) ? prev : prev.filter((peer) => connected.has(peer.nodeId)),
+      );
+      return;
+    }
     if (message.kind === 'peer-tabs') {
       const pendingGone = peerGoneTimers.current.get(message.peer.nodeId);
       if (pendingGone !== undefined) {
