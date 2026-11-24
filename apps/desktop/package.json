@@ -1,6 +1,6 @@
 {
   "name": "@openheaders/desktop",
-  "version": "2026.11.1",
+  "version": "2026.11.2",
   "private": true,
   "description": "OpenHeaders desktop app",
   "desktopName": "open-headers.desktop",
