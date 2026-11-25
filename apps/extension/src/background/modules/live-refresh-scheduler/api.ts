@@ -7,7 +7,6 @@
  */
 
 import {
-  canAttempt as canCircuitAttempt,
   computeNextFireAt as computeNextFireAtCore,
   isLiveVariableEffective,
   MIN_ALARM_DELAY_MS,
@@ -17,12 +16,12 @@ import { getActiveEnvironmentId, onActiveEnvironmentChange } from '@openheaders/
 import { startDefinitionalFreshness, stopDefinitionalFreshness } from '@openheaders/oracle/live/definitional-freshness';
 import {
   listCachesForWorkflow,
-  markProbeStartForRun,
   resetCircuitForRun,
   type WorkflowRunCache,
 } from '@openheaders/oracle/live/live-cache-store';
 import { getLiveVariables, getLiveVariablesForWorkflow } from '@openheaders/oracle/live/live-variable-store';
 import { getLiveWorkflows } from '@openheaders/oracle/live/live-workflow-store';
+import { refreshWorkflowByUser } from '@openheaders/oracle/live/manual-refresh';
 import { canScheduleWorkflow } from '@openheaders/oracle/live/scheduling-gate';
 import { getOrCreateWorkspaceService, releaseWorkspaceService } from '@openheaders/oracle/sync/service';
 import { alarms } from '@utils/browser-api';
@@ -38,7 +37,8 @@ import { recomputeLiveStatus } from './status';
 
 /**
  * Defensive workspace-service bracket for refresh entry points
- * (manual + alarm + sync-warm). Materializes the workspace's service
+ * (alarm + sync-warm; a manual press carries the same bracket inside
+ * the shared rule). Materializes the workspace's service
  * if it isn't already resident, awaits its `hydrated` promise so the
  * caches are populated from chrome.storage, runs the operation, and
  * releases the refcount in `finally`. This guarantees the F-12/F-13
@@ -206,35 +206,9 @@ export async function kickActiveContextRefresh(
 /**
  * Run a workflow once on an explicit user request (the "Refresh now"
  * button in the Live Workflow editor + Live Variable list + the
- * Workflow Status sidebar). Bypasses BOTH the `canScheduleWorkflow`
- * binding gate AND the circuit-breaker `canAttempt` gate when the
- * circuit is OPEN.
- *
- * Gates we bypass:
- *   • `canScheduleWorkflow` — alarm path declines orphan workflows
- *     (enabled=false OR no bound LVs) to avoid wasting MV3 alarm
- *     quota on a dispatch that wouldn't affect any rule. Manual
- *     refresh is the opposite shape: the user often diagnoses a
- *     workflow BEFORE binding an LV (run it, inspect captures,
- *     decide which to expose). So we skip this gate.
- *   • `canAttempt` — when the user clicks Retry while the circuit is
- *     OPEN, they're explicitly overriding the backoff window ("I know
- *     something; try anyway"). Mirrors v4
- *     `AdaptiveCircuitBreaker.executeWithBypass(bypassIfOpen=true)`.
- *
- * Failure handling (the key asymmetry with the alarm path):
- *   • When the circuit was OPEN at the time of the bypass, a failure
- *     writes via `recordManualBypassFailureForRun`, which updates the
- *     error-detail fields but leaves `nextAttemptAt`, `consecutive
- *     Openings`, and `consecutiveFailures` at their pre-bypass values.
- *     The user's click doesn't push the next scheduled retry further
- *     out — the backoff curve stays exactly where it was.
- *   • When the circuit was CLOSED or HALF-OPEN, the regular failure
- *     path applies (pre-breaker counter / probe-failure handling).
- *
- * Success handling is uniform: `putWorkflowRunCache` → `onCircuitSuccess`
- * closes the circuit + applies the openings-decay rule regardless of
- * entry state. So a successful bypass fully recovers the workflow.
+ * Workflow Status sidebar) — the host-neutral manual-refresh rule over
+ * this worker's adapter: the binding gate and an OPEN circuit are
+ * bypassed, and a bypass failure leaves the circuit where it was.
  *
  * Errors bubble so the caller (message-handler) can report a real
  * message to the user instead of the `scheduler-not-ready` fallback.
@@ -247,91 +221,24 @@ export async function refreshLiveWorkflowByUser(
   environmentId: string | null,
   runId?: string,
 ): Promise<void> {
-  return withWorkspaceResident(workspaceId, () =>
-    refreshLiveWorkflowByUserInner(workspaceId, workflowUid, environmentId, runId),
-  );
-}
-
-async function refreshLiveWorkflowByUserInner(
-  workspaceId: string,
-  workflowUid: string,
-  environmentId: string | null,
-  runId: string | undefined,
-): Promise<void> {
   const payload: LiveAlarmPayload = { w: workspaceId, u: workflowUid, e: environmentId };
-  const job = await provider.getByKey(payload);
-  if (!job) throw new Error(`Workflow ${workflowUid} not found in workspace ${workspaceId}`);
-
-  // Offline guard — a manual click with no connectivity can't succeed
-  // and shouldn't advance the circuit. Throw a clean message so the
-  // message-handler can surface "You're offline" in the UI instead of
-  // counting it as a fetch failure.
-  if (!isNetworkOnline()) {
-    throw new Error("You're offline — refresh will resume automatically when connectivity returns.");
-  }
-
-  const now = Date.now();
-  const circuit = job.cache?.circuit ?? null;
-  // "Bypass" semantics kick in ONLY when the circuit would otherwise
-  // refuse the attempt right now (OPEN and `nowMs < nextAttemptAt`).
-  // That's the scenario v4 `executeWithBypass` was designed for:
-  // failure preserves the existing `nextAttemptAt` so the user's
-  // clarifying click doesn't push the next auto-retry further out.
-  //
-  // When `canCircuitAttempt` is true (CLOSED / HALF-OPEN with probes
-  // remaining / OPEN past nextAttemptAt), the retry is semantically
-  // equivalent to a scheduled probe; run the regular adapter path so
-  // state transitions are natural (openings bump on probe failure,
-  // consecutiveFailures accumulates in the pre-breaker tier, etc.).
-  const isBypassingGate = circuit !== null && !canCircuitAttempt(circuit, now);
-
-  provider.onFired?.(payload);
-  if (!refreshAdapter) {
-    const err = new LiveSchedulerNotReadyError(`scheduler-not-ready: no refresh adapter for workflow ${workflowUid}`);
-    provider.onFailed?.(payload, err, job.cache ?? null);
-    throw err;
-  }
-
-  // Probe-start transition lives on the non-bypass path: when state
-  // is OPEN + canAttempt=true (alarm-equivalent), transition to
-  // half-open so `onCircuitFailure` lands on the half-open branch
-  // (bumping `consecutiveOpenings`). Bypass path explicitly preserves
-  // the OPEN state — no transition.
-  if (!isBypassingGate && circuit?.state === 'open') {
-    await markProbeStartForRun(workflowUid, environmentId, now, workspaceId);
-  }
-
-  try {
-    await refreshAdapter.refreshWorkflow({
-      workspaceId,
-      workflow: job.workflow,
-      environmentId,
-      bypass: isBypassingGate,
-      ...(runId !== undefined ? { runId } : {}),
-    });
-    provider.onSucceeded?.(payload);
-  } catch (err) {
-    const error = err instanceof Error ? err : new Error(String(err));
-    // Cache-write side effects already happened inside the adapter —
-    // `bypass: true` routed the adapter's failure through
-    // `recordManualBypassFailureForRun` (circuit preserved); the
-    // normal path wrote via `recordRefreshError`. Either way, we
-    // re-read the post-write cache so `onFailed`'s observability
-    // entry reflects the latest counters.
-    const fresh = await getCurrentCacheForPayload(payload);
-    provider.onFailed?.(payload, error, fresh);
-    throw error;
-  }
-}
-
-/**
- * Read the current cache row for an alarm payload — used by the
- * manual-refresh entry point to pass post-write state into `onFailed`
- * without duplicating the store read logic from the provider itself.
- */
-async function getCurrentCacheForPayload(payload: LiveAlarmPayload): Promise<WorkflowRunCache | null> {
-  const runs = await listCachesForWorkflow(payload.u, payload.w);
-  return runs.find((r) => r.environmentId === payload.e) ?? null;
+  return refreshWorkflowByUser(
+    { workspaceId, workflowUid, environmentId, ...(runId !== undefined ? { runId } : {}) },
+    {
+      // A press with no connectivity cannot succeed and must not count
+      // against the circuit.
+      isOnline: isNetworkOnline,
+      run: async (args) => {
+        if (!refreshAdapter) {
+          throw new LiveSchedulerNotReadyError(`scheduler-not-ready: no refresh adapter for workflow ${workflowUid}`);
+        }
+        await refreshAdapter.refreshWorkflow(args);
+      },
+      onFired: () => provider.onFired?.(payload),
+      onSucceeded: () => provider.onSucceeded?.(payload),
+      onFailed: (error, cache) => provider.onFailed?.(payload, error, cache),
+    },
+  );
 }
 
 /**
