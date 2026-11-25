@@ -92,6 +92,26 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
+describe('buildOracleSessionResolution — a workflow run’s captures', () => {
+  it('reads a capture made after the session opened, and none without a run', async () => {
+    const stepCaptures = new Map<string, Map<string, string>>();
+    const inRun = await buildOracleSessionResolution(REQUEST, {
+      workspaceId: null,
+      environmentId: undefined,
+      stepCaptures,
+    });
+    stepCaptures.set('reboot', new Map([['command', 'reboot']]));
+    const unresolved: UnresolvedReferences = new Map();
+
+    expect(inRun.resolve('{"command":"{{step.reboot.command}}"}', unresolved)).toBe('{"command":"reboot"}');
+    expect(unresolved.size).toBe(0);
+
+    const outside = await buildOracleSessionResolution(REQUEST, { workspaceId: null, environmentId: undefined });
+    expect(outside.resolve('{{step.reboot.command}}', unresolved)).toBe('{{step.reboot.command}}');
+    expect(unresolved.get('step.reboot.command')?.reason).toBe('step-out-of-context');
+  });
+});
+
 describe('buildOracleSessionResolution — the TOTP plane', () => {
   it('reports a resolved code to the tracker the caller hands, and nothing without one', async () => {
     vault.mockReturnValue(totpVault);

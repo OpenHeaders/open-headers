@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { topicFilterError, topicNameError } from '../../src/mqtt';
+import { topicFilterError, topicMatchesFilter, topicNameError } from '../../src/mqtt';
 
 const NUL = String.fromCharCode(0);
 
@@ -63,5 +63,35 @@ describe('topicFilterError', () => {
   it('rejects U+0000 and oversize filters', () => {
     expect(topicFilterError(`a${NUL}b`)).toBe('Topic filter contains U+0000.');
     expect(topicFilterError('x'.repeat(65_536))).toBe('Topic filter exceeds 65535 bytes.');
+  });
+});
+
+describe('topicMatchesFilter', () => {
+  it('takes a topic level by level, exactly', () => {
+    expect(topicMatchesFilter('devices/dev-1/status', 'devices/dev-1/status')).toBe(true);
+    expect(topicMatchesFilter('devices/dev-2/status', 'devices/dev-1/status')).toBe(false);
+    expect(topicMatchesFilter('devices/dev-1', 'devices/dev-1/status')).toBe(false);
+    expect(topicMatchesFilter('devices/dev-1/status/last', 'devices/dev-1/status')).toBe(false);
+    expect(topicMatchesFilter('Devices/dev-1/status', 'devices/dev-1/status')).toBe(false);
+  });
+
+  it('lets "+" stand for one whole level, an empty one included', () => {
+    expect(topicMatchesFilter('devices/dev-1/status', 'devices/+/status')).toBe(true);
+    expect(topicMatchesFilter('devices//status', 'devices/+/status')).toBe(true);
+    expect(topicMatchesFilter('devices/dev-1/eu/status', 'devices/+/status')).toBe(false);
+    expect(topicMatchesFilter('devices', 'devices/+')).toBe(false);
+  });
+
+  it('lets "#" stand for the rest, the level above it included', () => {
+    expect(topicMatchesFilter('devices/dev-1/status', 'devices/dev-1/#')).toBe(true);
+    expect(topicMatchesFilter('devices/dev-1', 'devices/dev-1/#')).toBe(true);
+    expect(topicMatchesFilter('devices/dev-2/status', 'devices/dev-1/#')).toBe(false);
+    expect(topicMatchesFilter('devices/dev-1/status', '#')).toBe(true);
+  });
+
+  it('keeps a topic that opens with "$" from a filter that opens with a wildcard', () => {
+    expect(topicMatchesFilter('$SYS/broker/uptime', '#')).toBe(false);
+    expect(topicMatchesFilter('$SYS/broker/uptime', '+/broker/uptime')).toBe(false);
+    expect(topicMatchesFilter('$SYS/broker/uptime', '$SYS/#')).toBe(true);
   });
 });

@@ -8,9 +8,11 @@
 
 import type { MqttStreamEventWire, MqttStreamItemWire } from '@openheaders/core/bridge';
 import {
+  activeMqttSessionPosition,
   closeActiveMqttSession,
   createMqttStreamEmitter,
   publishActiveMqttMessage,
+  publishActiveMqttMessageAcked,
   reconnectActiveMqttSessionNow,
   registerActiveMqttSession,
   setActiveMqttSubscription,
@@ -104,6 +106,11 @@ describe('active MQTT session registry', () => {
         published.push(message.topic);
         return Promise.resolve({ success: true });
       },
+      publishAcked: (message) => {
+        published.push(`acked ${message.topic}`);
+        return Promise.resolve({ success: true, ackMs: 4 });
+      },
+      position: () => 7,
       setSubscription: (subscription) => Promise.resolve({ success: true, grantCode: subscription.subscribe ? 1 : 0 }),
       close: () => {
         closedCount++;
@@ -117,6 +124,12 @@ describe('active MQTT session registry', () => {
       success: true,
     });
     expect(published).toEqual(['probe/echo']);
+    await expect(publishActiveMqttMessageAcked('send-2', { topic: 'probe/echo', payload: 'x' })).resolves.toEqual({
+      success: true,
+      ackMs: 4,
+    });
+    expect(published).toEqual(['probe/echo', 'acked probe/echo']);
+    expect(activeMqttSessionPosition('send-2')).toBe(7);
     await expect(
       setActiveMqttSubscription('send-2', { rowUid: 'row-2', topicFilter: 'probe/#', subscribe: true }),
     ).resolves.toEqual({
@@ -131,6 +144,8 @@ describe('active MQTT session registry', () => {
     expect(reconnectActiveMqttSessionNow('send-2')).toBe(false);
     expect((await publishActiveMqttMessage('send-2', { topic: 'late', payload: '' })).success).toBe(false);
     expect(closeActiveMqttSession('send-2')).toBe(false);
+    expect((await publishActiveMqttMessageAcked('send-2', { topic: 'late', payload: '' })).success).toBe(false);
+    expect(activeMqttSessionPosition('send-2')).toBeNull();
   });
 
   it('answers an unknown id without touching any handle', async () => {

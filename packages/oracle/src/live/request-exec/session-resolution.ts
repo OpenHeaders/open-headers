@@ -80,6 +80,8 @@ export interface SessionResolutionOptions {
   workspaceId: string | null;
   /** Tri-state: string pins an env, explicit `null` resolves with no environment, absent defers to the active pointer. */
   environmentId: string | null | undefined;
+  /** A workflow run's captures, kept by reference — `{{step.<id>.<name>}}` reads one made after the session opened. */
+  stepCaptures?: ReadonlyMap<string, ReadonlyMap<string, string>>;
 }
 
 /** Two pre-pass halves into one answer — `null` when neither asks. */
@@ -102,7 +104,7 @@ export async function buildOracleSessionResolution(
   request: { uid: string; path: string },
   options: SessionResolutionOptions,
 ): Promise<SessionResolution> {
-  const { resolver, context: scope } = await buildResolver(options.workspaceId ?? undefined);
+  const { resolver, context: scope } = await buildResolver(options.workspaceId ?? undefined, options.stepCaptures);
   const context = {
     collectionId: collectionUidForRequest(request, scope.workspaceId),
     environmentId: options.environmentId,

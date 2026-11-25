@@ -41,3 +41,21 @@ export function topicFilterError(filter: string): string | null {
   }
   return null;
 }
+
+/**
+ * Whether a topic NAME lands on a topic FILTER (spec 4.7): `+` takes one
+ * whole level, `#` the rest — the level above it included — and a filter
+ * that opens with a wildcard takes no topic that opens with `$`.
+ */
+export function topicMatchesFilter(topic: string, filter: string): boolean {
+  const filterLevels = filter.split('/');
+  const topicLevels = topic.split('/');
+  if (topic.startsWith('$') && (filterLevels[0] === '+' || filterLevels[0] === '#')) return false;
+  for (let i = 0; i < filterLevels.length; i++) {
+    const level = filterLevels[i];
+    if (level === '#') return true;
+    if (i >= topicLevels.length) return false;
+    if (level !== '+' && level !== topicLevels[i]) return false;
+  }
+  return filterLevels.length === topicLevels.length;
+}

@@ -23,8 +23,14 @@ import type {
   MqttStreamItemWire,
   MqttSubscriptionWire,
 } from '@openheaders/core/bridge';
+import type { MqttProperties } from '@openheaders/core/mqtt';
 import type { SessionPublishMessage } from '@openheaders/core/scripts';
-import type { ExecutedProxyRoute, SentAsWrittenReference } from '@openheaders/core/types';
+import type {
+  ExecutedMqttEnd,
+  ExecutedMqttGrant,
+  ExecutedProxyRoute,
+  SentAsWrittenReference,
+} from '@openheaders/core/types';
 import { generateUid } from '@openheaders/core/utils';
 
 /** Flush the pending item batch on this cadence — the WS emitter's
@@ -129,6 +135,61 @@ export interface MqttPublishResult {
   sentAsWritten?: SentAsWrittenReference[];
 }
 
+/** A PUBLISH as it went on the wire — after resolution and the Before publish hook. */
+export interface MqttSentMessage {
+  /** Its index in the session's event order. */
+  position: number;
+  atMs: number;
+  topic: string;
+  payload: Uint8Array;
+  qos: 0 | 1 | 2;
+  retain: boolean;
+  properties?: MqttProperties;
+}
+
+/** A publish that waited for the broker — see `publishAcked`. */
+export interface MqttAckedPublishResult extends MqttPublishResult {
+  /** Present on success. */
+  sent?: MqttSentMessage;
+  /** How long the broker took to acknowledge it; absent at QoS 0, which nothing acknowledges. */
+  ackMs?: number;
+}
+
+/** One inbound PUBLISH as the capture recorded it. */
+export interface MqttObservedMessage {
+  /** Its index in the session's event order — the one the On message hook is handed. */
+  position: number;
+  atMs: number;
+  topic: string;
+  payload: Uint8Array;
+  qos: 0 | 1 | 2;
+  retain: boolean;
+  dup: boolean;
+  properties?: MqttProperties;
+}
+
+/**
+ * A session's facts at the capture point, as they happen — in order and
+ * unpooled, where the stream emitter is a display feed. What a workflow
+ * run reads its session through.
+ */
+export interface MqttSessionObserver {
+  /**
+   * Every SUBSCRIBE the session sent as it opened is answered — at the
+   * CONNACK when it sent none. Once, on the first connection. `unsent`
+   * names the filters whose SUBSCRIBE did not compose.
+   */
+  ready(facts: {
+    sessionPresent: boolean;
+    clientId: string;
+    grants: ExecutedMqttGrant[];
+    unsent: Array<{ topicFilters: string[]; error: string }>;
+  }): void;
+  message(message: MqttObservedMessage): void;
+  /** The session is over, before its After close hook runs. `error` is the transport's own word for it. */
+  ended(facts: { end: ExecutedMqttEnd; stopped: boolean; error?: string }): void;
+}
+
 /** A SUBSCRIBE / UNSUBSCRIBE rider's answer — see `setSubscription`. */
 export interface MqttSubscriptionResult {
   success: boolean;
@@ -150,6 +211,15 @@ export interface ActiveMqttSessionHandle {
    *  publish hook first (the answer waits for it; a drop answers with
    *  the dropping level's name); a script's publish never does. */
   publish(message: MqttPublishWire, origin?: MqttPublishOrigin): Promise<MqttPublishResult>;
+  /**
+   * A rider publish that answers at the broker's acknowledgement: at
+   * QoS 0 when written, at QoS 1 on the PUBACK, at QoS 2 on the PUBCOMP.
+   * A reason code that refuses fails it by name and code; so does the
+   * session ending first.
+   */
+  publishAcked(message: MqttPublishWire): Promise<MqttAckedPublishResult>;
+  /** Where the next message will land in the session's event order. */
+  position(): number;
   /** SUBSCRIBE a Topics row's filter as it resolves now, or
    *  UNSUBSCRIBE the filter the row went up with (the session keeps it
    *  per row — an unsubscribe resolves nothing), resolving when the
@@ -187,6 +257,21 @@ export function publishActiveMqttMessage(
   const handle = activeSessions.get(sendId);
   if (!handle) return Promise.resolve({ success: false, error: 'No open MQTT session with this id.' });
   return handle.publish(message, origin);
+}
+
+/** Publish one message into an open session and wait for the broker's acknowledgement. */
+export function publishActiveMqttMessageAcked(
+  sendId: string,
+  message: MqttPublishWire,
+): Promise<MqttAckedPublishResult> {
+  const handle = activeSessions.get(sendId);
+  if (!handle) return Promise.resolve({ success: false, error: 'No open MQTT session with this id.' });
+  return handle.publishAcked(message);
+}
+
+/** Where the next message will land in an open session's event order; `null` = no such session. */
+export function activeMqttSessionPosition(sendId: string): number | null {
+  return activeSessions.get(sendId)?.position() ?? null;
 }
 
 /**

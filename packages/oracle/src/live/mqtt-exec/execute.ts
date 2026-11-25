@@ -87,6 +87,7 @@ import { NO_TOTP_COOLDOWN, type TotpCooldownPlane } from '@openheaders/core/totp
 import type {
   ExecutedMqttEnd,
   ExecutedMqttEvent,
+  ExecutedMqttGrant,
   ExecutedMqttSnapshot,
   ExecutedProxyRoute,
   MqttMessageProperties,
@@ -126,8 +127,10 @@ import { getTrustAnchorsForSend } from '../trust-anchors';
 import { createMqttScriptPlane, type MqttScriptChains } from './script-plane';
 import {
   createMqttStreamEmitter,
+  type MqttAckedPublishResult,
   type MqttPublishOrigin,
-  type MqttPublishResult,
+  type MqttSentMessage,
+  type MqttSessionObserver,
   type MqttSubscriptionResult,
   registerActiveMqttSession,
 } from './session-plane';
@@ -206,6 +209,13 @@ export interface ExecuteMqttSessionOptions {
    *  realms whose oracle mirrors are empty (the `authChain` twin);
    *  absent = the executor walks the tree index per slot kind. */
   scriptChain?: readonly SlotChainCarrier[];
+  /** The session's facts at the capture point, as they happen — what a
+   *  workflow run reads its session through. */
+  observer?: MqttSessionObserver;
+  /** A workflow run's captures, read by reference through the session's
+   *  own resolution — `{{step.<id>.<name>}}` in a rider resolves a
+   *  capture made after the session opened. */
+  stepCaptures?: ReadonlyMap<string, ReadonlyMap<string, string>>;
 }
 
 /** The four hooks' chains for the request — the ancestor levels'
@@ -398,6 +408,18 @@ interface PendingPublish {
   /** The PUBLISH's template named a secret-manager entry — every
    *  record of it (the send, a DUP retransmit) carries the stamp. */
   secret?: true;
+  /** A publish that waits for the broker — told the acknowledgement's
+   *  reason code, or why none will come. */
+  acked?: (outcome: { reasonCode: number | null } | { failure: string }) => void;
+}
+
+/** What a reason code of 0x80 or above on a publish's acknowledgement
+ *  says, by name and code. */
+function publishRefusalMessage(reasonCode: number): string {
+  const name = mqttReasonCodeName(reasonCode, 'puback');
+  return name !== undefined
+    ? `The broker refused the publish: ${name} (code ${reasonCode}).`
+    : `The broker refused the publish (code ${reasonCode}).`;
 }
 
 /** One SUBSCRIBE unit: the per-row options plus the packet-level 5.0
@@ -694,6 +716,31 @@ export async function executeMqttSession(
     // redial so a kept session sees its unacked PUBLISHes again, and
     // the allocator never hands their ids to a new publish meanwhile.
     const outboundQos = new Map<number, PendingPublish>();
+    /** A publish still waiting for the broker learns none will answer. */
+    const failAckedPublishes = (failure: string): void => {
+      for (const pending of outboundQos.values()) {
+        const { acked } = pending;
+        pending.acked = undefined;
+        acked?.({ failure });
+      }
+    };
+
+    // The observer's ready fact: the SUBSCRIBE packets the first
+    // connection sent as it opened and the broker has not answered yet.
+    // Counted here — only the driver knows how many packets the rows
+    // rode, and a Before connect hook may have replaced the rows.
+    const { observer } = options;
+    let openSubscribes: {
+      waiting: Set<string>;
+      grants: ExecutedMqttGrant[];
+      unsent: Array<{ topicFilters: string[]; error: string }>;
+    } | null = null;
+    const reportReadyOnceAnswered = (): void => {
+      if (openSubscribes === null || openSubscribes.waiting.size > 0 || connack === null) return;
+      const { grants, unsent } = openSubscribes;
+      openSubscribes = null;
+      observer?.ready({ sessionPresent: connack.sessionPresent, clientId, grants, unsent });
+    };
 
     // ── Per-connection state — reset on every (re)dial ──
     /** THIS connection's CONNACK accepted. */
@@ -845,6 +892,8 @@ export async function executeMqttSession(
       unregisterSend();
       unregisterSession?.();
       failPendingAcks();
+      failAckedPublishes('The session ended before the broker acknowledged the publish.');
+      observer?.ended({ end, stopped, ...(errorMessage !== undefined ? { error: errorMessage } : {}) });
       const durationMs = Math.round(performance.now() - startedAt);
       // The record settles once the After close hook has run (a session
       // that opened) and every queued hook landed its mark — the end
@@ -960,11 +1009,17 @@ export async function executeMqttSession(
      *  (grants positional per row); a row carrying a Subscription
      *  Identifier or User Properties needs its own packet (those are
      *  per-SUBSCRIBE, not per-row). */
-    const subscribeEntries = (entries: SubscribeEntry[]): void => {
+    const subscribeEntries = (entries: SubscribeEntry[]): Array<{ topicFilters: string[]; error: string }> => {
       const ridesAlone = (entry: SubscribeEntry): boolean =>
         entry.subscriptionId !== undefined || entry.userProperties !== undefined;
-      subscribeBatch(entries.filter((entry) => !ridesAlone(entry)));
-      for (const entry of entries.filter(ridesAlone)) subscribeBatch([entry]);
+      const unsent: Array<{ topicFilters: string[]; error: string }> = [];
+      const send = (batch: SubscribeEntry[]): void => {
+        const error = subscribeBatch(batch);
+        if (error !== null) unsent.push({ topicFilters: batch.map((entry) => entry.subscription.topicFilter), error });
+      };
+      send(entries.filter((entry) => !ridesAlone(entry)));
+      for (const entry of entries.filter(ridesAlone)) send([entry]);
+      return unsent;
     };
 
     const startKeepAlive = (): void => {
@@ -1004,7 +1059,12 @@ export async function executeMqttSession(
             // flight — the pending PUBLISHes drop, and the row says
             // how many.
             const dropped = packet.sessionPresent ? 0 : outboundQos.size;
-            if (!packet.sessionPresent) outboundQos.clear();
+            if (!packet.sessionPresent) {
+              failAckedPublishes(
+                'The broker kept no session across the reconnect, so the publish was never acknowledged.',
+              );
+              outboundQos.clear();
+            }
             recordFact({
               kind: 'reconnected',
               attempt: reconnectAttempt,
@@ -1037,7 +1097,11 @@ export async function executeMqttSession(
             clientId,
             ...(proxyRoute !== undefined ? { proxyRoute } : {}),
           });
-          subscribeEntries(dialSubscriptions);
+          const unsent = subscribeEntries(dialSubscriptions);
+          if (observer !== undefined) {
+            openSubscribes = { waiting: new Set(pendingSubAcks.keys()), grants: [], unsent };
+            reportReadyOnceAnswered();
+          }
           startKeepAlive();
           return;
         }
@@ -1073,6 +1137,16 @@ export async function executeMqttSession(
             },
             packet.payload.byteLength,
           );
+          observer?.message({
+            position: events.length + droppedMessages - 1,
+            atMs: Date.now(),
+            topic,
+            payload: packet.payload,
+            qos: packet.qos,
+            retain: packet.retain,
+            dup: packet.dup,
+            ...(packet.properties !== undefined ? { properties: packet.properties } : {}),
+          });
           emitter?.item({
             kind: 'message',
             direction: 'down',
@@ -1108,31 +1182,48 @@ export async function executeMqttSession(
           return;
         }
         case 'puback': {
-          if (outboundQos.get(packet.packetId)?.packet.qos === 1) outboundQos.delete(packet.packetId);
+          const pending = outboundQos.get(packet.packetId);
+          if (pending?.packet.qos !== 1) return;
+          outboundQos.delete(packet.packetId);
+          pending.acked?.({ reasonCode: packet.reasonCode });
           return;
         }
         case 'pubrec': {
           const pending = outboundQos.get(packet.packetId);
-          if (pending?.packet.qos === 2) {
-            pending.pubrecd = true;
-            sendPacket({ type: 'pubrel', packetId: packet.packetId, reasonCode: null });
+          if (pending?.packet.qos !== 2) return;
+          // A PUBREC that refuses ends the flow: the broker holds no
+          // state for the id, so no PUBREL follows (spec 4.3.3).
+          if (packet.reasonCode !== null && packet.reasonCode >= 0x80) {
+            outboundQos.delete(packet.packetId);
+            pending.acked?.({ reasonCode: packet.reasonCode });
+            return;
           }
+          pending.pubrecd = true;
+          sendPacket({ type: 'pubrel', packetId: packet.packetId, reasonCode: null });
           return;
         }
         case 'pubcomp': {
-          if (outboundQos.get(packet.packetId)?.packet.qos === 2) outboundQos.delete(packet.packetId);
+          const pending = outboundQos.get(packet.packetId);
+          if (pending?.packet.qos !== 2) return;
+          outboundQos.delete(packet.packetId);
+          pending.acked?.({ reasonCode: packet.reasonCode });
           return;
         }
         case 'suback': {
-          const pending = pendingSubAcks.get(`s${packet.packetId}`);
+          const key = `s${packet.packetId}`;
+          const pending = pendingSubAcks.get(key);
           if (pending === undefined) return;
-          pendingSubAcks.delete(`s${packet.packetId}`);
+          pendingSubAcks.delete(key);
           const grants = pending.filters.map((topicFilter, index) => ({
             topicFilter,
             reasonCode: packet.reasonCodes[index] ?? 0x80,
           }));
           recordFact({ kind: 'subscribed', grants });
           pending.resolveAck?.(grants[0]?.reasonCode ?? null);
+          if (openSubscribes?.waiting.delete(key) === true) {
+            openSubscribes.grants.push(...grants);
+            reportReadyOnceAnswered();
+          }
           return;
         }
         case 'unsuback': {
@@ -1368,96 +1459,130 @@ export async function executeMqttSession(
 
     dial();
 
-    unregisterSession = registerActiveMqttSession(options.sendId, {
-      publish: async (message: MqttPublishWire, origin: MqttPublishOrigin = 'rider'): Promise<MqttPublishResult> => {
+    /** One rider publish. `awaitAck` answers at the broker's
+     *  acknowledgement instead of at the write. */
+    const publishMessage = async (
+      message: MqttPublishWire,
+      origin: MqttPublishOrigin,
+      awaitAck: boolean,
+    ): Promise<MqttAckedPublishResult> => {
+      if (settled || !attemptOpened) return { success: false, error: 'The session is not open.' };
+      // The rider's pre-pass: a secret-manager entry it names that
+      // the session never resolved is asked now (a provider may
+      // prompt); a failed one is a new attempt. Only an ask makes the
+      // rider wait, and the session may end while the prompt stands.
+      const prepared = prepare(collectTemplateStringsDeep(message));
+      if (prepared !== null) {
+        await prepared;
         if (settled || !attemptOpened) return { success: false, error: 'The session is not open.' };
-        // The rider's pre-pass: a secret-manager entry it names that
-        // the session never resolved is asked now (a provider may
-        // prompt); a failed one is a new attempt. Only an ask makes the
-        // rider wait, and the session may end while the prompt stands.
-        const prepared = prepare(collectTemplateStringsDeep(message));
-        if (prepared !== null) {
-          await prepared;
-          if (settled || !attemptOpened) return { success: false, error: 'The session is not open.' };
+      }
+      // The names side of the redaction law — a rider naming a
+      // secret-manager entry publishes its value; the capture is stamped.
+      const riderSecret = referencesSecret(collectTemplateStringsDeep(message));
+      const sendUnresolved: UnresolvedReferences = new Map();
+      // The rider's own TOTP batch — its templates' codes and a Before
+      // publish level's reads; gated before the write, recorded after.
+      const riderTotp = totp.tracker();
+      const riderResolve = (s: string): string => resolveWith(s, sendUnresolved, riderTotp);
+      const topic = riderResolve(message.topic).trim();
+      const payloadText = riderResolve(message.payload);
+      const properties = scriptMessageProperties(message.properties, riderResolve);
+      // The rider's gate — the Connect gate's rule: a secret manager's
+      // failure refuses the publish; a plain miss rides as written and
+      // the answer names it.
+      if (batchRefusesSend(sendUnresolved.values())) {
+        return { success: false, error: unresolvedReferencesMessage(UNRESOLVED_MESSAGE_LEAD, sendUnresolved) };
+      }
+      const sentAsWritten = sentAsWrittenAttribution(sendUnresolved);
+      // The rider's spelling gates the publish (a malformed base64 /
+      // hex compose fails here); the hook then sees ONE byte
+      // spelling — text stays text, bytes ride as base64.
+      const authored = decodeComposePayload(payloadText, message.format);
+      if (!authored.ok) return { success: false, error: authored.error };
+      const bytes = message.format === 'base64' || message.format === 'hex';
+      let outbound: MqttOutboundMessageSnapshot = {
+        direction: 'up',
+        topic,
+        payload: bytes ? encodeBase64Bytes(authored.bytes) : payloadText,
+        format: bytes ? 'base64' : message.format === 'json' ? 'json' : 'text',
+        qos: message.qos ?? 0,
+        retain: message.retain ?? false,
+        ...(properties !== undefined ? { properties } : {}),
+        index: events.length + droppedMessages,
+      };
+      // Before publish — the rider's message only: a script's own
+      // publish is already a hook's product and never re-enters.
+      if (scripts !== null && origin === 'rider') {
+        const outcome = await scripts.beforePublish(
+          outbound,
+          riderTotp !== null ? createScriptVariableScope(resolution, riderTotp) : undefined,
+        );
+        if (outcome.kind === 'dropped') {
+          return { success: false, error: `Dropped by the Before publish script at ${outcome.by}.` };
         }
-        // The names side of the redaction law — a rider naming a
-        // secret-manager entry publishes its value; the capture is stamped.
-        const riderSecret = referencesSecret(collectTemplateStringsDeep(message));
-        const sendUnresolved: UnresolvedReferences = new Map();
-        // The rider's own TOTP batch — its templates' codes and a Before
-        // publish level's reads; gated before the write, recorded after.
-        const riderTotp = totp.tracker();
-        const riderResolve = (s: string): string => resolveWith(s, sendUnresolved, riderTotp);
-        const topic = riderResolve(message.topic).trim();
-        const payloadText = riderResolve(message.payload);
-        const properties = scriptMessageProperties(message.properties, riderResolve);
-        // The rider's gate — the Connect gate's rule: a secret manager's
-        // failure refuses the publish; a plain miss rides as written and
-        // the answer names it.
-        if (batchRefusesSend(sendUnresolved.values())) {
-          return { success: false, error: unresolvedReferencesMessage(UNRESOLVED_MESSAGE_LEAD, sendUnresolved) };
-        }
-        const sentAsWritten = sentAsWrittenAttribution(sendUnresolved);
-        // The rider's spelling gates the publish (a malformed base64 /
-        // hex compose fails here); the hook then sees ONE byte
-        // spelling — text stays text, bytes ride as base64.
-        const authored = decodeComposePayload(payloadText, message.format);
-        if (!authored.ok) return { success: false, error: authored.error };
-        const bytes = message.format === 'base64' || message.format === 'hex';
-        let outbound: MqttOutboundMessageSnapshot = {
-          direction: 'up',
-          topic,
-          payload: bytes ? encodeBase64Bytes(authored.bytes) : payloadText,
-          format: bytes ? 'base64' : message.format === 'json' ? 'json' : 'text',
-          qos: message.qos ?? 0,
-          retain: message.retain ?? false,
-          ...(properties !== undefined ? { properties } : {}),
-          index: events.length + droppedMessages,
-        };
-        // Before publish — the rider's message only: a script's own
-        // publish is already a hook's product and never re-enters.
-        if (scripts !== null && origin === 'rider') {
-          const outcome = await scripts.beforePublish(
-            outbound,
-            riderTotp !== null ? createScriptVariableScope(resolution, riderTotp) : undefined,
-          );
-          if (outcome.kind === 'dropped') {
-            return { success: false, error: `Dropped by the Before publish script at ${outcome.by}.` };
+        outbound = outcome.message;
+        if (settled || !attemptOpened) return { success: false, error: 'The session is not open.' };
+      }
+      if (riderTotp !== null) {
+        // The rider's gate — a code in cooldown refuses THIS publish,
+        // the rider's answer like a dropped Before publish.
+        const refusal = await totp.refusal(riderTotp.used);
+        if (settled || !attemptOpened) return { success: false, error: 'The session is not open.' };
+        if (refusal !== null) return { success: false, error: refusal };
+      }
+      const decoded = decodeComposePayload(outbound.payload, outbound.format);
+      if (!decoded.ok) return { success: false, error: decoded.error };
+      const wireProperties = v5 ? wireScriptProperties(outbound.properties) : undefined;
+      const qos = outbound.qos;
+      const packetId = qos > 0 ? allocPacketId() : null;
+      const packet: PendingPublish['packet'] = {
+        type: 'publish',
+        topic: outbound.topic,
+        payload: decoded.bytes,
+        qos,
+        retain: outbound.retain,
+        dup: false,
+        packetId,
+        ...(wireProperties !== undefined ? { properties: wireProperties } : {}),
+      };
+      const error = sendPacket(packet);
+      if (error !== null) return { success: false, error };
+      if (riderTotp !== null) totp.record(riderTotp.used);
+      if (packetId !== null && qos > 0) {
+        outboundQos.set(packetId, { packet, pubrecd: false, ...(riderSecret ? { secret: true as const } : {}) });
+      }
+      recordPublished(packet, riderSecret, sentAsWritten);
+      const answer = { success: true, ...(sentAsWritten !== undefined ? { sentAsWritten } : {}) };
+      if (!awaitAck) return answer;
+      const sent: MqttSentMessage = {
+        position: events.length + droppedMessages - 1,
+        atMs: Date.now(),
+        topic: packet.topic,
+        payload: packet.payload,
+        qos,
+        retain: packet.retain,
+        ...(wireProperties !== undefined ? { properties: wireProperties } : {}),
+      };
+      const pending = packetId !== null ? outboundQos.get(packetId) : undefined;
+      if (pending === undefined) return { ...answer, sent };
+      const writtenAt = performance.now();
+      return new Promise((resolveAck) => {
+        pending.acked = (outcome) => {
+          if ('failure' in outcome) {
+            resolveAck({ success: false, error: outcome.failure });
+          } else if (outcome.reasonCode !== null && outcome.reasonCode >= 0x80) {
+            resolveAck({ success: false, error: publishRefusalMessage(outcome.reasonCode) });
+          } else {
+            resolveAck({ ...answer, sent, ackMs: Math.round(performance.now() - writtenAt) });
           }
-          outbound = outcome.message;
-          if (settled || !attemptOpened) return { success: false, error: 'The session is not open.' };
-        }
-        if (riderTotp !== null) {
-          // The rider's gate — a code in cooldown refuses THIS publish,
-          // the rider's answer like a dropped Before publish.
-          const refusal = await totp.refusal(riderTotp.used);
-          if (settled || !attemptOpened) return { success: false, error: 'The session is not open.' };
-          if (refusal !== null) return { success: false, error: refusal };
-        }
-        const decoded = decodeComposePayload(outbound.payload, outbound.format);
-        if (!decoded.ok) return { success: false, error: decoded.error };
-        const wireProperties = v5 ? wireScriptProperties(outbound.properties) : undefined;
-        const qos = outbound.qos;
-        const packetId = qos > 0 ? allocPacketId() : null;
-        const packet: PendingPublish['packet'] = {
-          type: 'publish',
-          topic: outbound.topic,
-          payload: decoded.bytes,
-          qos,
-          retain: outbound.retain,
-          dup: false,
-          packetId,
-          ...(wireProperties !== undefined ? { properties: wireProperties } : {}),
         };
-        const error = sendPacket(packet);
-        if (error !== null) return { success: false, error };
-        if (riderTotp !== null) totp.record(riderTotp.used);
-        if (packetId !== null && qos > 0) {
-          outboundQos.set(packetId, { packet, pubrecd: false, ...(riderSecret ? { secret: true as const } : {}) });
-        }
-        recordPublished(packet, riderSecret, sentAsWritten);
-        return { success: true, ...(sentAsWritten !== undefined ? { sentAsWritten } : {}) };
-      },
+      });
+    };
+
+    unregisterSession = registerActiveMqttSession(options.sendId, {
+      publish: (message, origin = 'rider') => publishMessage(message, origin, false),
+      publishAcked: (message) => publishMessage(message, 'rider', true),
+      position: () => events.length + droppedMessages,
       setSubscription: async (subscription: MqttSubscriptionWire): Promise<MqttSubscriptionResult> => {
         if (settled || !attemptOpened) return { success: false, error: 'The session is not open.' };
         const ackFor =
