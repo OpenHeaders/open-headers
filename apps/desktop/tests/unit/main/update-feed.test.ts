@@ -4,6 +4,7 @@ import {
   releaseNotesUrl,
   UPDATE_FEED_ORIGIN,
   versionsManifestUrl,
+  windowsPackagePointerUrl,
 } from '../../../src/main/update-feed';
 import { VERSIONS_MANIFEST_URL } from '../../../src/main/versions-manifest';
 
@@ -17,6 +18,10 @@ describe('update feed URLs', () => {
     expect(desktopFeedUrl('beta')).toBe('https://updates.openheaders.com/desktop/beta');
     expect(versionsManifestUrl('stable')).toBe('https://updates.openheaders.com/versions/stable.json');
     expect(versionsManifestUrl('beta')).toBe('https://updates.openheaders.com/versions/beta.json');
+    expect(windowsPackagePointerUrl('stable')).toBe(
+      'https://updates.openheaders.com/desktop/stable/windows-package.json',
+    );
+    expect(windowsPackagePointerUrl('beta')).toBe('https://updates.openheaders.com/desktop/beta/windows-package.json');
   });
 
   it('severity always reads the STABLE manifest', () => {

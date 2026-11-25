@@ -61,6 +61,12 @@ export interface QuitRequest {
   reason: string;
   /** Exit finisher once teardown completes; defaults to `app.quit()`. */
   finish?: () => void;
+  /**
+   * How long the finisher's exit may take before the force-exit, for a
+   * finisher whose exit is not the app's own: one that waits for
+   * Windows to close the process. Defaults to {@link EXIT_GRACE_MS}.
+   */
+  exitGraceMs?: number;
 }
 
 interface TeardownParticipant {
@@ -155,7 +161,7 @@ function beginTeardown(request: QuitRequest): void {
     setTimeout(() => {
       logger.warn('exit did not complete after teardown; force exit');
       app.exit(0);
-    }, EXIT_GRACE_MS).unref();
+    }, request.exitGraceMs ?? EXIT_GRACE_MS).unref();
   })();
 }
 

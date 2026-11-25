@@ -62,7 +62,7 @@ export function compareCalVer(a: string, b: string): number {
   return pa.beta - pb.beta;
 }
 
-function isVersionString(value: unknown): value is string {
+export function isVersionString(value: unknown): value is string {
   return typeof value === 'string' && /^\d+(\.\d+)*(-beta\.\d+)?$/.test(value);
 }
 

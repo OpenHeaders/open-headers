@@ -165,6 +165,32 @@ describe('app lifecycle', () => {
     expect(quitSpy).not.toHaveBeenCalled();
   });
 
+  it('force-exits when the finisher has not ended the process within the exit grace', async () => {
+    vi.useFakeTimers();
+    try {
+      requestQuit({ reason: 'update-install', finish: vi.fn() });
+      await vi.advanceTimersByTimeAsync(1_999);
+      expect(exitSpy).not.toHaveBeenCalled();
+      await vi.advanceTimersByTimeAsync(1);
+      expect(exitSpy).toHaveBeenCalledWith(0);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("waits the exit grace a request asks for, for a finisher whose exit is not the app's own", async () => {
+    vi.useFakeTimers();
+    try {
+      requestQuit({ reason: 'update-install', finish: vi.fn(), exitGraceMs: 30_000 });
+      await vi.advanceTimersByTimeAsync(29_999);
+      expect(exitSpy).not.toHaveBeenCalled();
+      await vi.advanceTimersByTimeAsync(1);
+      expect(exitSpy).toHaveBeenCalledWith(0);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('a quit with no engine boot started skips the boot-settle wait', async () => {
     requestQuit({ reason: 'single-instance' });
     await flush();

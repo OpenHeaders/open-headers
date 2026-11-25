@@ -91,20 +91,22 @@ import {
   trafficSealKeyConfigSegments,
 } from '@openheaders/oracle-host-node/traffic';
 import { clearStatus, getStatusSnapshot, report, subscribe } from '@openheaders/ui/shared/status/store';
-import { app, BrowserWindow, dialog, shell } from 'electron';
+import { app, autoUpdater, BrowserWindow, dialog, shell } from 'electron';
 import { createDesktopActivityMonitor } from './activity-monitor';
 import { createBackendIdentityRpc } from './backend-identity';
 import { createBackendProbeRpc } from './backend-probe';
 import { dataDir } from './bootstrap/app-paths';
 import { revealAppSurface } from './bootstrap/app-reveal';
-import { installKind } from './bootstrap/install-kind';
-import { registerTeardown } from './bootstrap/lifecycle';
+import { installKind, installKindReading } from './bootstrap/install-kind';
+import { writeRestartHiddenFlag } from './bootstrap/launch-flags';
+import { registerTeardown, requestQuit } from './bootstrap/lifecycle';
 import { installLocaleSubscription, mainTranslator } from './bootstrap/locale';
 import { createEngineHostLogger } from './bootstrap/logger';
 import { relaunchApp } from './bootstrap/relaunch';
 import { broadcastToAllRenderers } from './bootstrap/renderer-broadcast';
 import { installUpdateMenuActions, updateMenusOnState } from './bootstrap/update-menus';
 import { installWindowChromeSubscription } from './bootstrap/window-chrome';
+import { getMainWindow } from './bootstrap/window-manager';
 import { createCompanionRevealPeerRpc } from './companion-reveal-plane';
 import { buildDesktopDiagnosticsFacts, desktopDiagnosticsDeps } from './diagnostics-facts';
 import { createElectronUpdaterPort, updateCapability } from './electron-updater-port';
@@ -113,6 +115,7 @@ import { h3HelperBinaryCandidates } from './h3-helper-install';
 import { installBackendClient } from './install-backend-client';
 import { installHostStorage } from './install-host-storage';
 import { createManifestUpdaterPort } from './manifest-updater-port';
+import { createMsixUpdaterPort } from './msix-updater-port';
 import {
   linuxNmManifestTargets,
   macosNmManifestTargets,
@@ -141,6 +144,13 @@ import { fetchWhatsNewEntryBody, fetchWhatsNewHistory } from './whats-new-histor
 const SCOPE = 'install-rpc-host';
 /** The update service's own log scope — its rows are not engine-shell rows. */
 const UPDATE_SCOPE = 'UpdateService';
+
+/**
+ * How long a package install may take to end the process: Electron's
+ * call hands the staged package to Windows and returns, and Windows
+ * closes the app — the exit is Windows', not the app's own.
+ */
+const PACKAGE_INSTALL_EXIT_GRACE_MS = 30_000;
 
 /** Deadline for the engine's quit-time dispose (lifecycle participant). */
 const ENGINE_DISPOSE_DEADLINE_MS = 10_000;
@@ -355,15 +365,38 @@ export async function installRpcHost(): Promise<void> {
   // ever checks and stages; installing takes the user's explicit
   // restart action (or the next natural quit applying a staged
   // download). deb/rpm installs run notify-only over the manifest port
-  // (the package manager owns updates); dev builds get no service at
-  // all, so a test harness never dials a feed. The port wrap keeps the
-  // state machine host-free while a failed feed check beacons its
-  // typed error code.
+  // (the package manager owns updates); a Windows package updates
+  // through Windows, over its own port and only on the user's Update &
+  // Restart; dev builds get no service at all, so a test harness never
+  // dials a feed. The port wrap keeps the state machine host-free while
+  // a failed feed check beacons its typed error code.
   const updateServiceCapability = updateCapability();
+  const updateLog = {
+    info: (msg: string) => engineLogger.info(UPDATE_SCOPE, msg),
+    warn: (msg: string, err?: unknown) => engineLogger.warn(UPDATE_SCOPE, msg, err),
+  };
   const updaterPort =
     updateServiceCapability === 'notify'
       ? createManifestUpdaterPort(app.getVersion(), () => updatePreferences.channel)
-      : createElectronUpdaterPort(() => updatePreferences.channel);
+      : updateServiceCapability === 'onRequest'
+        ? createMsixUpdaterPort({
+            updater: autoUpdater,
+            fetch,
+            hasPackageIdentity: () => installKindReading().lonePackageSign !== 'manifest',
+            arch: process.arch,
+            currentVersion: app.getVersion(),
+            getChannel: () => updatePreferences.channel,
+            quitThen: (finish) => {
+              // A tray-resident hidden window stays hidden across the
+              // restart — read now, the teardown destroys windows first.
+              const win = getMainWindow();
+              if (!win || win.isDestroyed() || !win.isVisible()) writeRestartHiddenFlag();
+              requestQuit({ reason: 'update-install', finish, exitGraceMs: PACKAGE_INSTALL_EXIT_GRACE_MS });
+            },
+            exit: () => app.quit(),
+            log: updateLog,
+          })
+        : createElectronUpdaterPort(() => updatePreferences.channel);
   const updateService = createUpdateService({
     updater: {
       ...updaterPort,
@@ -388,10 +421,7 @@ export async function installRpcHost(): Promise<void> {
     now: Date.now,
     setTimer: (fn, ms) => setTimeout(fn, ms),
     clearTimer: (handle) => clearTimeout(handle),
-    log: {
-      info: (msg) => engineLogger.info(UPDATE_SCOPE, msg),
-      warn: (msg, err) => engineLogger.warn(UPDATE_SCOPE, msg, err),
-    },
+    log: updateLog,
   });
   updateService.start();
 

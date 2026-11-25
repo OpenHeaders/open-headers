@@ -10,6 +10,8 @@
  *
  * Layout, mirrored by the generator:
  *   desktop/{stable,beta}/latest*.yml   — electron-updater generic feed
+ *   desktop/{stable,beta}/windows-package.json
+ *                                       — the Windows package pointer
  *   versions/{stable,beta}.json         — severity manifest, all apps
  */
 
@@ -21,6 +23,11 @@ export type UpdateChannel = 'stable' | 'beta';
 /** Base URL electron-updater's generic provider resolves `latest*.yml` against. */
 export function desktopFeedUrl(channel: UpdateChannel): string {
   return `${UPDATE_FEED_ORIGIN}/desktop/${channel}`;
+}
+
+/** What an installed Windows package reads to learn of an update (`msix-updater-port.ts`). */
+export function windowsPackagePointerUrl(channel: UpdateChannel): string {
+  return `${UPDATE_FEED_ORIGIN}/desktop/${channel}/windows-package.json`;
 }
 
 /** The severity manifest for a channel (`versions-manifest.ts` reads stable). */
