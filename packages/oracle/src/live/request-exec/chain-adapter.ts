@@ -15,7 +15,7 @@
  * avoiding a resolution round-trip just to pick a slot.
  */
 
-import type { FetchAdapter } from '@openheaders/core/live';
+import { type FetchAdapter, StepExecutionError } from '@openheaders/core/live';
 import type { Request } from '@openheaders/core/types';
 import { getGraphqlRequestInWorkspace, getRequestInWorkspace } from '../../entity/request-store';
 import { compileGraphqlRequest } from '../graphql-exec/execute';
@@ -83,7 +83,8 @@ export function buildChainFetchAdapter(options: ChainFetchAdapterOptions): Fetch
         // Network / DNS / abort — throw so the runner classifies this as
         // `failedPhase: 'fetch'`. 4xx/5xx do NOT throw: extractors may
         // legitimately read error bodies and status-code gates branch.
-        throw new Error(snapshot.error);
+        // The snapshot rides the error for whoever opens the step.
+        throw new StepExecutionError(snapshot.error, snapshot);
       }
 
       return {
@@ -94,6 +95,7 @@ export function buildChainFetchAdapter(options: ChainFetchAdapterOptions): Fetch
         body: snapshot.body,
         ...(snapshot.bodyEncoding ? { bodyEncoding: snapshot.bodyEncoding } : {}),
         bodyBytes: snapshot.bodyBytes,
+        snapshot,
       };
     },
   };

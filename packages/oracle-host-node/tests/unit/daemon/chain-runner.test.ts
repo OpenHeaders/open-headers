@@ -40,6 +40,9 @@ vi.mock('@openheaders/oracle/live/live-cache-store', () => ({
   putWorkflowRunCache: h.putWorkflowRunCache,
   recordRefreshError: h.recordRefreshError,
 }));
+vi.mock('@openheaders/oracle/live/workflow-run-feed', () => ({
+  openWorkflowRunFeed: () => () => {},
+}));
 vi.mock('@openheaders/oracle/live/execution-policy-resolver', () => ({
   deriveExecutionPolicyForWorkflow: h.deriveExecutionPolicyForWorkflow,
 }));

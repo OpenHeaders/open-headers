@@ -18,10 +18,14 @@
  * DNR engine and no `chrome.identity`:
  *   - `prepareRequest` is omitted — there is no `X-OH-Live-Bypass`
  *     header to stamp (no DNR rules to dodge).
- *   - No manual-bypass path — the scheduler fires on cadence only; the
- *     user-triggered "Refresh now" bypass is an extension surface today.
  *   - Failure is returned, not thrown — the scheduler logs + re-arms
  *     off the return value rather than catching a control-flow error.
+ *
+ * Every run feeds its step events to the host's surfaces — a cadence
+ * fire, an agent's call, a person's press alike (the workflow runs plan,
+ * The Run view). A press that overrides an open circuit arrives with
+ * `bypass` set: its failure records the error and leaves the circuit
+ * where it was.
  *
  * Atomic refresh discipline (mirrors the extension): either every step
  * succeeds and ALL captures commit as one write, or some step fails and
@@ -36,6 +40,7 @@ import {
   classifyRefreshHealth,
   deriveExpiresAt,
   isRunnableWorkflow,
+  refusedRunEvents,
   runChain,
   UNKNOWN_STEP_PHASE,
   unknownStepMessage,
@@ -44,10 +49,16 @@ import {
 import type { LiveWorkflow, RunnableWorkflow } from '@openheaders/core/types';
 import { logger } from '@openheaders/core/utils';
 import { deriveExecutionPolicyForWorkflow } from '@openheaders/oracle/live/execution-policy-resolver';
-import { putWorkflowRunCache, recordRefreshError } from '@openheaders/oracle/live/live-cache-store';
+import {
+  putWorkflowRunCache,
+  type RefreshErrorInput,
+  recordManualBypassFailureForRun,
+  recordRefreshError,
+} from '@openheaders/oracle/live/live-cache-store';
 import { publishLiveVariablesProducedByRun } from '@openheaders/oracle/live/live-variable-store';
 import { buildChainFetchAdapter } from '@openheaders/oracle/live/request-exec/chain-adapter';
 import { buildRefreshOAuthHook } from '@openheaders/oracle/live/request-exec/oauth-refresh';
+import { openWorkflowRunFeed } from '@openheaders/oracle/live/workflow-run-feed';
 import { createNodeRequestTransport } from '../../live/node-request-transport';
 import { resolveScriptRunner } from '../script-capability';
 
@@ -60,6 +71,10 @@ export interface WorkflowRefreshArgs {
   workflow: LiveWorkflow;
   /** `null` = "No environment". */
   environmentId: string | null;
+  /** A manual press against an open circuit — a failure leaves the circuit as it was. */
+  bypass?: boolean;
+  /** The caller's id for a run it started — the run's step events carry it. */
+  runId?: string;
 }
 
 export type WorkflowRefreshResult =
@@ -80,8 +95,12 @@ export type WorkflowRefreshResult =
  * folds into a warn + re-arm.
  */
 export async function runWorkflowRefresh(args: WorkflowRefreshArgs): Promise<WorkflowRefreshResult> {
-  const { workspaceId, workflow, environmentId } = args;
-  if (!isRunnableWorkflow(workflow)) return refuseUnknownSteps(workspaceId, workflow, environmentId);
+  const { workspaceId, workflow, environmentId, bypass = false, runId } = args;
+  const onEvent = openWorkflowRunFeed({ workspaceId, workflowUid: workflow.uid, environmentId, runId });
+  if (!isRunnableWorkflow(workflow)) {
+    for (const event of refusedRunEvents(workflow, Date.now())) onEvent(event);
+    return refuseUnknownSteps(workspaceId, workflow, environmentId, bypass);
+  }
   // Host script capability, consulted per refresh: only steps with
   // `runScripts: true` reach the runner (the adapter gates per step),
   // and it runs under the strict chain contract — read-only `oh.*`
@@ -103,13 +122,14 @@ export async function runWorkflowRefresh(args: WorkflowRefreshArgs): Promise<Wor
     workflow,
     adapter,
     context: { workflowUid: workflow.uid, workspaceId, environmentId },
+    onEvent,
   });
 
   if (outcome.ok) {
     await commitSuccess(workspaceId, workflow, environmentId, outcome);
     return { ok: true, skippedStepIds: outcome.skippedStepIds };
   }
-  await commitFailure(workspaceId, workflow, environmentId, outcome);
+  await commitFailure(workspaceId, workflow, environmentId, outcome, bypass);
   return {
     ok: false,
     failedStepId: outcome.failedStepId,
@@ -129,13 +149,13 @@ async function refuseUnknownSteps(
   workspaceId: string,
   workflow: LiveWorkflow,
   environmentId: string | null,
+  bypass: boolean,
 ): Promise<WorkflowRefreshResult> {
   const [step] = unknownStepsOf(workflow);
   const message = unknownStepMessage(step);
-  await recordRefreshError(
-    { workflowUid: workflow.uid, environmentId, message, failedStepId: step.id, extractorOk: true },
-    workspaceId,
-  );
+  const errorInput = { workflowUid: workflow.uid, environmentId, message, failedStepId: step.id, extractorOk: true };
+  if (bypass) await recordManualBypassFailureForRun(errorInput, workspaceId);
+  else await recordRefreshError(errorInput, workspaceId);
   logger.warn('HostLiveRunner', `Workflow ${workflow.uid} was not run: ${message}`);
   return { ok: false, failedStepId: step.id, failedPhase: UNKNOWN_STEP_PHASE, message };
 }
@@ -193,28 +213,34 @@ async function commitFailure(
   workflow: RunnableWorkflow,
   environmentId: string | null,
   outcome: ChainRunFailure,
+  bypass: boolean,
 ): Promise<void> {
   // `'extract'` failures point at a user misconfiguration (json-path /
   // regex wrong against the real response) → extractor-not-ok for the
   // Status yellow path. `'fetch'` / `'graph'` are upstream / structural
   // → extractor-ok so Status uses its red path when failures compound.
-  const extractorOk = outcome.failedPhase !== 'extract';
-  // Classify the failure (WS-C C7) so a deferring peer learns whether the
-  // backend's data source or its credential is the problem. The credential
-  // step set is a free byproduct of the same scan that derives the
-  // execution policy.
-  const { credentialStepIds } = deriveExecutionPolicyForWorkflow(workspaceId, workflow, environmentId);
-  await recordRefreshError(
-    {
-      workflowUid: workflow.uid,
-      environmentId,
-      message: outcome.failedReason,
-      failedStepId: outcome.failedStepId,
-      extractorOk,
-      refreshHealth: classifyRefreshHealth(outcome, credentialStepIds),
-    },
-    workspaceId,
-  );
+  const errorInput: RefreshErrorInput = {
+    workflowUid: workflow.uid,
+    environmentId,
+    message: outcome.failedReason,
+    failedStepId: outcome.failedStepId,
+    extractorOk: outcome.failedPhase !== 'extract',
+  };
+  if (bypass) {
+    // Not a natural producer tick — the circuit and the synced health
+    // both stay as they were.
+    await recordManualBypassFailureForRun(errorInput, workspaceId);
+  } else {
+    // Classify the failure (WS-C C7) so a deferring peer learns whether the
+    // backend's data source or its credential is the problem. The credential
+    // step set is a free byproduct of the same scan that derives the
+    // execution policy.
+    const { credentialStepIds } = deriveExecutionPolicyForWorkflow(workspaceId, workflow, environmentId);
+    await recordRefreshError(
+      { ...errorInput, refreshHealth: classifyRefreshHealth(outcome, credentialStepIds) },
+      workspaceId,
+    );
+  }
   logger.warn(
     'HostLiveRunner',
     `Workflow ${workflow.uid} refresh failed at step ${outcome.failedStepId} (${outcome.failedPhase}): ${outcome.failedReason}`,

@@ -6,6 +6,7 @@
  * StepResponse mapping, error→throw).
  */
 
+import { StepExecutionError } from '@openheaders/core/live';
 import type { CallWorkflowStep, ExecutedRequestSnapshot, GraphqlRequest, Request } from '@openheaders/core/types';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { buildChainFetchAdapter } from '../../../src/live/request-exec/chain-adapter';
@@ -113,6 +114,7 @@ describe('buildChainFetchAdapter', () => {
       headers: [{ key: 'content-type', value: 'application/json' }],
       body: '{"access_token":"tok"}',
       bodyBytes: 22,
+      snapshot: makeSnapshot(),
     });
     const [req, opts] = runStepRequestMock.mock.calls[0];
     expect(req).toEqual(makeRequest());
@@ -150,6 +152,16 @@ describe('buildChainFetchAdapter', () => {
     runStepRequestMock.mockResolvedValue(makeSnapshot({ status: 0, error: 'Connection refused' }));
     const adapter = buildChainFetchAdapter({ workspaceId: 'ws-1', environmentId: null, transport });
     await expect(adapter.executeStep(makeStep(), new Map(), ctx)).rejects.toThrow('Connection refused');
+  });
+
+  it('the failure keeps the executor’s record of the exchange', async () => {
+    const failed = makeSnapshot({ status: 0, error: 'Connection refused', durationMs: 41 });
+    getRequestInWorkspaceMock.mockReturnValue(makeRequest());
+    runStepRequestMock.mockResolvedValue(failed);
+    const adapter = buildChainFetchAdapter({ workspaceId: 'ws-1', environmentId: null, transport });
+    const error = await adapter.executeStep(makeStep(), new Map(), ctx).catch((err: unknown) => err);
+    expect(error).toBeInstanceOf(StepExecutionError);
+    expect(error).toHaveProperty('snapshot', failed);
   });
 
   it('passes the refreshOAuth hook through to the step runner', async () => {

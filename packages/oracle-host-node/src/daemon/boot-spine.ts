@@ -96,11 +96,13 @@ import {
   endActiveGrpcClientStream,
   sendActiveGrpcStreamMessage,
 } from '@openheaders/oracle/live/grpc-exec/stream-plane';
+import { onLiveCacheStoreChange } from '@openheaders/oracle/live/live-cache-store';
 import { onDeviceFlowChange } from '@openheaders/oracle/live/request-exec/oauth-device';
 import { buildRefreshOAuthHook } from '@openheaders/oracle/live/request-exec/oauth-refresh';
 import { handleResolveRequestWireRpc } from '@openheaders/oracle/live/request-exec/resolve-wire-rpc';
 import { stopActiveSend } from '@openheaders/oracle/live/request-exec/send-stream';
 import { dispatchSessionRider, isSessionRiderChannel } from '@openheaders/oracle/live/session-route/riders';
+import { setWorkflowRunEventSink } from '@openheaders/oracle/live/workflow-run-feed';
 import { dispatchSyncRpc } from '@openheaders/oracle/rpc';
 import { hostStorage, OH, wsKeys } from '@openheaders/oracle/storage';
 import {
@@ -190,6 +192,7 @@ import { detectNodeHostOs } from './host-os';
 import { installLicenseRefreshAgent } from './license-refresh-agent';
 import { installLicenseSlot } from './license-slot';
 import { describeLiveSchedule, startLiveRunner, stopLiveRunner } from './live/live-refresh-scheduler';
+import { handleLiveWorkflowRpc, isLiveWorkflowRpc } from './live-workflow-rpc';
 import { installMcpServer } from './mcp-install';
 import { createMdnsAdvertiser } from './mdns/mdns-advertiser';
 import { createMetricsProvider } from './metrics';
@@ -860,6 +863,14 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
   //     reconciles off the oracle store-change events. Lights real data
   //     into the host's `live` status pill (C5). Torn down in dispose.
   startLiveRunner({ reportStatus: status.report });
+  // What a run leaves reaches the host's local surfaces as it happens:
+  // a changed cache row (the status strip, Workflow Status) and each
+  // step event of a run (the workflow runs plan, The Run view) — a
+  // cadence fire, an agent's call and a person's press alike.
+  const unsubscribeLiveCache = onLiveCacheStoreChange((_workspaceId, workflowUid) => {
+    broadcastLocal('liveCacheChanged', { workflowUid });
+  });
+  setWorkflowRunEventSink((event) => broadcastLocal('liveWorkflowRunEvent', event));
 
   // The session TTL policy, resolved once and threaded into every
   // session-kind mint below (the client sign-in plan §6.5).
@@ -1465,6 +1476,12 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
     if (type === 'executeMqttRequest') {
       return await handleExecuteMqttRequestRpc(message);
     }
+    // Live workflows — a run on a person's press, the cache read, the
+    // circuit reset and a run step's product, answered where the chain
+    // runner and the live cache live.
+    if (isLiveWorkflowRpc(type)) {
+      return await handleLiveWorkflowRpc(type, message);
+    }
     // Riders for an open WebSocket or MQTT session — the host-neutral
     // active-session registries resolve and write, start the clean
     // close, or dial the armed reconnect now; a settled or unknown id
@@ -1759,6 +1776,8 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
     await workspaceTreeRuntime?.dispose();
     workspaceTreeRuntime = null;
     stopLiveRunner();
+    unsubscribeLiveCache();
+    setWorkflowRunEventSink(null);
     unsubscribeTrafficStatus();
     captureFeedbackPush.dispose();
     trafficTap.dispose();
