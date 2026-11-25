@@ -650,9 +650,10 @@ jobs:
           version=$(node -p "require('./package.json').version")
           node scripts/build/pack-msix.mjs "$tree" "$version" "$tree/OpenHeaders.exe" dist/windows-package
 
-      # One more signature per arch, timestamped like every other: the
-      # service signs a package whose manifest names the certificate's
-      # subject as its publisher.
+      # Three more signing calls per arch — a package is signed in three
+      # digests — timestamped like every other: the service signs a
+      # package whose manifest names the certificate's subject as its
+      # publisher.
       - &sign_package_step
         name: Sign the Windows package
         id: sign_package
