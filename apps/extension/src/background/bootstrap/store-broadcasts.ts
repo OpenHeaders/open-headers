@@ -18,6 +18,7 @@ import { getTemplates, onTemplateStoreChange } from '@openheaders/oracle/entity/
 import { onLiveCacheStoreChange } from '@openheaders/oracle/live/live-cache-store';
 import { getLiveVariables, onLiveVariableStoreChange } from '@openheaders/oracle/live/live-variable-store';
 import { getLiveWorkflows, onLiveWorkflowStoreChange } from '@openheaders/oracle/live/live-workflow-store';
+import { setWorkflowRunEventSink } from '@openheaders/oracle/live/workflow-run-feed';
 import { broadcast } from '@utils/bridge';
 import { logger } from '@utils/logger';
 import { scheduleUpdate } from '../modules/rules/rule-engine';
@@ -90,4 +91,6 @@ export function installStoreBroadcasts({ refreshFanOut, tryAdoptPendingWorkspace
     scheduleUpdate('live-cache', { immediate: true });
     broadcast('liveCacheChanged', { workflowUid });
   });
+
+  setWorkflowRunEventSink((event) => broadcast('liveWorkflowRunEvent', event));
 }

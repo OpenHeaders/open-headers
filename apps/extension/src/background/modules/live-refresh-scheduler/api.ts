@@ -238,14 +238,17 @@ export async function kickActiveContextRefresh(
  *
  * Errors bubble so the caller (message-handler) can report a real
  * message to the user instead of the `scheduler-not-ready` fallback.
+ *
+ * `runId` is the caller's id for this run — its step events carry it.
  */
 export async function refreshLiveWorkflowByUser(
   workspaceId: string,
   workflowUid: string,
   environmentId: string | null,
+  runId?: string,
 ): Promise<void> {
   return withWorkspaceResident(workspaceId, () =>
-    refreshLiveWorkflowByUserInner(workspaceId, workflowUid, environmentId),
+    refreshLiveWorkflowByUserInner(workspaceId, workflowUid, environmentId, runId),
   );
 }
 
@@ -253,6 +256,7 @@ async function refreshLiveWorkflowByUserInner(
   workspaceId: string,
   workflowUid: string,
   environmentId: string | null,
+  runId: string | undefined,
 ): Promise<void> {
   const payload: LiveAlarmPayload = { w: workspaceId, u: workflowUid, e: environmentId };
   const job = await provider.getByKey(payload);
@@ -303,6 +307,7 @@ async function refreshLiveWorkflowByUserInner(
       workflow: job.workflow,
       environmentId,
       bypass: isBypassingGate,
+      ...(runId !== undefined ? { runId } : {}),
     });
     provider.onSucceeded?.(payload);
   } catch (err) {

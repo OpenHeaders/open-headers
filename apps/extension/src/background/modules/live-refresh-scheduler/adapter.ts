@@ -21,12 +21,16 @@ export interface LiveRefreshAdapter {
    * `nextAttemptAt` + `consecutiveOpenings`) instead of the normal
    * `recordRefreshError` path. Success writes go through the usual
    * `putWorkflowRunCache` either way; success closes the circuit.
+   *
+   * `runId` is the caller's id for a run it started — the run's step
+   * events are tagged with it. Absent on a scheduled run.
    */
   refreshWorkflow(args: {
     workspaceId: string;
     workflow: LiveWorkflow;
     environmentId: string | null;
     bypass?: boolean;
+    runId?: string;
   }): Promise<void>;
 }
 

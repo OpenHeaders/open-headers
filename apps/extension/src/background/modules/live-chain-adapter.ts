@@ -49,7 +49,9 @@ import {
   deriveExpiresAt,
   type FetchAdapter,
   isRunnableWorkflow,
+  refusedRunEvents,
   runChain,
+  StepExecutionError,
   UNKNOWN_STEP_PHASE,
   unknownStepMessage,
   unknownStepsOf,
@@ -63,6 +65,7 @@ import {
   recordRefreshError,
 } from '@openheaders/oracle/live/live-cache-store';
 import { publishLiveVariablesProducedByRun } from '@openheaders/oracle/live/live-variable-store';
+import { openWorkflowRunFeed } from '@openheaders/oracle/live/workflow-run-feed';
 import { logger } from '@utils/logger';
 import { __setLiveRefreshAdapter, type LiveRefreshAdapter } from './live-refresh-scheduler';
 import { recordLog } from './observability-log';
@@ -119,8 +122,9 @@ function buildFetchAdapter(workspaceId: string, workflowUid: string, environment
         // 5xx responses DON'T throw — extractors may legitimately
         // capture error-body fields (the user configured it that
         // way), and `status-code` extractors are an explicit
-        // first-class tool for retries that inspect status.
-        throw new Error(snapshot.error);
+        // first-class tool for retries that inspect status. The
+        // snapshot rides the error for whoever opens the step.
+        throw new StepExecutionError(snapshot.error, snapshot);
       }
 
       return {
@@ -131,6 +135,7 @@ function buildFetchAdapter(workspaceId: string, workflowUid: string, environment
         body: snapshot.body,
         ...(snapshot.bodyEncoding ? { bodyEncoding: snapshot.bodyEncoding } : {}),
         bodyBytes: snapshot.bodyBytes,
+        snapshot,
       };
     },
   };
@@ -151,8 +156,15 @@ function buildFetchAdapter(workspaceId: string, workflowUid: string, environment
  *      so Phase G's aggregation + Status pill have structured input.
  */
 export const liveChainAdapter: LiveRefreshAdapter = {
-  async refreshWorkflow({ workspaceId, workflow, environmentId, bypass = false }) {
-    if (!isRunnableWorkflow(workflow)) return refuseUnknownSteps(workspaceId, workflow, environmentId, bypass);
+  async refreshWorkflow({ workspaceId, workflow, environmentId, bypass = false, runId }) {
+    // The run's step events — a fact per event on the broadcast, each
+    // step's product held for the page that asks (the workflow runs
+    // plan, The Run view). Scheduled and manual runs alike.
+    const onEvent = openWorkflowRunFeed({ workspaceId, workflowUid: workflow.uid, environmentId, runId });
+    if (!isRunnableWorkflow(workflow)) {
+      for (const event of refusedRunEvents(workflow, Date.now())) onEvent(event);
+      return refuseUnknownSteps(workspaceId, workflow, environmentId, bypass);
+    }
     // No Active-workspace guard (MWPT-FULL session #19). The chain
     // executor now threads `workspaceId` end-to-end: every store read
     // (request, env, vault, workspace-vars, vault TOTP, collection-vars,
@@ -164,6 +176,7 @@ export const liveChainAdapter: LiveRefreshAdapter = {
       workflow,
       adapter: buildFetchAdapter(workspaceId, workflow.uid, environmentId),
       context: { workflowUid: workflow.uid, workspaceId, environmentId },
+      onEvent,
     });
 
     if (outcome.ok) {

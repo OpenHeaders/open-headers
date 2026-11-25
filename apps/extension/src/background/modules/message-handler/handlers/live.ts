@@ -27,6 +27,7 @@ import {
   getLiveWorkflows,
   updateLiveWorkflow,
 } from '@openheaders/oracle/live/live-workflow-store';
+import { getWorkflowRunProduct } from '@openheaders/oracle/live/workflow-run-feed';
 import { refreshLiveWorkflowByUser, resetCircuitForWorkflow } from '../../live-refresh-scheduler';
 import { getActiveWorkspaceId } from '../../workspace/workspace-store';
 import type { HandlerMap } from '../types';
@@ -210,7 +211,12 @@ export const liveHandlers: HandlerMap = {
     // Thrown errors are the source of truth for success/failure;
     // the cache row carries extra context (step uid on chain
     // failures) when available.
-    const req = message as { workflowUid: string; environmentId?: string | null; workspaceId?: string };
+    const req = message as {
+      workflowUid: string;
+      environmentId?: string | null;
+      workspaceId?: string;
+      runId?: string;
+    };
     void (async () => {
       // Same threading contract as `resetLiveWorkflowCircuit` —
       // workbench gestures from a diverged tab pass the editing-scope
@@ -218,7 +224,7 @@ export const liveHandlers: HandlerMap = {
       const wsId = req.workspaceId ?? getActiveWorkspaceId();
       const envId = req.environmentId ?? null;
       try {
-        await refreshLiveWorkflowByUser(wsId, req.workflowUid, envId);
+        await refreshLiveWorkflowByUser(wsId, req.workflowUid, envId, req.runId);
         const run = await getWorkflowRunCache(req.workflowUid, envId, wsId);
         respond({ success: true, run });
       } catch (err) {
@@ -227,6 +233,14 @@ export const liveHandlers: HandlerMap = {
         respond({ success: false, error: run?.lastErrorMessage ?? thrownMessage });
       }
     })();
+    return true;
+  },
+
+  getLiveWorkflowRunProduct: ({ message, respond }) => {
+    // What one step of a run produced — the page asks as the step's
+    // settle arrives, while this worker still holds it.
+    const req = message as { runId: string; stepId: string };
+    respond({ product: getWorkflowRunProduct(req.runId, req.stepId) });
     return true;
   },
 };
