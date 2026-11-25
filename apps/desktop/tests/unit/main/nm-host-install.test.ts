@@ -18,6 +18,8 @@ import {
   GECKO_EXTENSION_IDS,
 } from '@openheaders/core/protocol';
 import { describe, expect, it } from 'vitest';
+import type { InstallKind } from '../../../src/main/bootstrap/install-kind';
+import { PACKAGE_APP_ALIAS, PACKAGE_HOST_ALIAS } from '../../../src/main/bootstrap/package-aliases';
 import {
   buildGeckoNmManifest,
   buildNmManifest,
@@ -26,6 +28,7 @@ import {
   NM_HOST_NAME,
   type NmManifestFs,
   nmHostBinaryCandidate,
+  nmHostManifestPath,
   parseRegQueryDefaultValue,
   type RegistryRunner,
   registerNmManifests,
@@ -64,6 +67,25 @@ describe('nmHostBinaryCandidate', () => {
       platform: 'win32',
     });
     expect(candidate).toBe(path.join('C:\\Program Files\\OpenHeaders\\resources', 'nm-host', 'oh-nm-host.exe'));
+  });
+});
+
+describe('nmHostManifestPath', () => {
+  const binaryPath = path.join('C:', 'Programs', 'open-headers', 'resources', 'nm-host', 'oh-nm-host.exe');
+  const localAppDataDir = path.join('C:', 'Users', 'John Doe', 'AppData', 'Local');
+
+  it.each<InstallKind | null>(['nsis', 'msi', 'dev', null])(
+    'gives browsers the binary itself for an install of kind %s',
+    (installKind) => {
+      expect(nmHostManifestPath({ installKind, binaryPath, localAppDataDir })).toBe(binaryPath);
+    },
+  );
+
+  it("gives browsers the helper's launch alias in a Windows package, never a path into the package", () => {
+    const manifestPath = nmHostManifestPath({ installKind: 'msix', binaryPath, localAppDataDir });
+    expect(manifestPath).toBe(path.join(localAppDataDir, 'Microsoft', 'WindowsApps', PACKAGE_HOST_ALIAS));
+    expect(PACKAGE_HOST_ALIAS).toBe('openheaders-nm-host.exe');
+    expect(PACKAGE_APP_ALIAS).toBe('openheaders.exe');
   });
 });
 

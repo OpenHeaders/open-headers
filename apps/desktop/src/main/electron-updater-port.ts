@@ -15,29 +15,28 @@
 
 import { app } from 'electron';
 import { autoUpdater, type UpdateInfo } from 'electron-updater';
+import { installKind } from './bootstrap/install-kind';
 import { writeRestartHiddenFlag } from './bootstrap/launch-flags';
 import { requestQuit } from './bootstrap/lifecycle';
 import { createLogger } from './bootstrap/logger';
 import { getMainWindow } from './bootstrap/window-manager';
 import { desktopFeedUrl, releaseNotesUrl, type UpdateChannel } from './update-feed';
-import type { AvailableUpdate, UpdateCapability, UpdaterPort } from './update-service';
+import {
+  type AvailableUpdate,
+  deriveUpdateCapability,
+  type UpdateCapability,
+  type UpdaterPort,
+} from './update-service';
 
-/**
- * What this install lets the update service do. `self` where an
- * updater can actually run: packaged builds on macOS/Windows, or a
- * Linux AppImage. Packaged Linux without an AppImage is a deb/rpm
- * install — the package manager owns updates, so the service only
- * checks and notifies (`notify`, via `manifest-updater-port.ts`).
- * Dev/unpackaged runs get `none`; so does the env escape hatch, which
- * keeps test harnesses and CI from ever dialing a release feed —
- * notify still dials it, so the hatch must cover it too.
- */
+/** What this install lets the update service do ({@link deriveUpdateCapability}). */
 export function updateCapability(): UpdateCapability {
-  if (process.env.OH_DISABLE_UPDATE_CHECKS === '1') return 'none';
-  if (!app.isPackaged) return 'none';
-  if (process.platform === 'darwin' || process.platform === 'win32') return 'self';
-  if (typeof process.env.APPIMAGE === 'string' && process.env.APPIMAGE.length > 0) return 'self';
-  return 'notify';
+  return deriveUpdateCapability({
+    checksDisabled: process.env.OH_DISABLE_UPDATE_CHECKS === '1',
+    isPackaged: app.isPackaged,
+    platform: process.platform,
+    inWindowsPackage: installKind() === 'msix',
+    isAppImage: typeof process.env.APPIMAGE === 'string' && process.env.APPIMAGE.length > 0,
+  });
 }
 
 function toAvailableUpdate(info: UpdateInfo): AvailableUpdate {

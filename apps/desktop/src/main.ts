@@ -37,7 +37,7 @@
  *                                       opens when it settles.
  */
 
-import { join } from 'node:path';
+import { homedir } from 'node:os';
 import { hostProcessRoots } from '@openheaders/oracle-host-node/process-reader';
 import { app } from 'electron';
 import { installAboutPanel } from './main/bootstrap/about-panel';
@@ -45,11 +45,13 @@ import { installAppMenuPopupHandler } from './main/bootstrap/app-menu-popup';
 import { sessionDataDir } from './main/bootstrap/app-paths';
 import { installApplicationMenu } from './main/bootstrap/application-menu';
 import { installChromiumSwitches } from './main/bootstrap/cli-switches';
+import { chooseDataDir } from './main/bootstrap/data-dir';
 import { returnDataFolderFromPackage } from './main/bootstrap/data-folder-return';
 import { installDownloadFeedback } from './main/bootstrap/downloads';
 import { createEngineReadiness } from './main/bootstrap/engine-readiness';
 import { installExternalLinkHandler } from './main/bootstrap/external-links';
 import { applyHardwareAccelerationPolicy } from './main/bootstrap/hardware-acceleration';
+import { installKindReading } from './main/bootstrap/install-kind';
 import { installAppLifecycle, isQuitting, trackEngineBoot } from './main/bootstrap/lifecycle';
 import { initMainLocale } from './main/bootstrap/locale';
 import { installLogFilesHandler } from './main/bootstrap/log-files';
@@ -73,18 +75,6 @@ import { runMcpStdioBridge } from './mcp-stdio';
 
 const APP_DISPLAY_NAME = 'Open Headers';
 
-/**
- * Canonical data-directory name — TitleCase, space-free, identical on
- * every platform (macOS `~/Library/Application Support/OpenHeaders`,
- * Windows `%APPDATA%\OpenHeaders`, Linux `~/.config/OpenHeaders`), the
- * Electron-ecosystem convention (Postman, Slack, Code). Set explicitly
- * because the derived default is whatever the packaged `package.json`
- * `name` happens to be — and `app.setName` never re-points userData.
- * Must stay in step with the log dir's pinned name (bootstrap/logger).
- * The layout under this root lives in `bootstrap/app-paths`.
- */
-const APP_DATA_DIR_NAME = 'OpenHeaders';
-
 // ── Eval-time wiring ──────────────────────────────────────────────
 
 // `--mcp-stdio` runs the protocol bridge INSTEAD of the app — decided
@@ -107,10 +97,17 @@ function bootstrapDesktopApp(): void {
   // name replaces the package.json-derived default (`open-headers`
   // packaged, `@openheaders/desktop` in dev). Dev runs get their own
   // suffixed dir so `pnpm dev` never shares data — or the userData-scoped
-  // single-instance lock — with an installed copy.
+  // single-instance lock — with an installed copy, and a Windows package
+  // gets a folder of its own (bootstrap/data-dir).
+  const install = installKindReading();
   const userDataOverride = process.env.OPENHEADERS_USER_DATA_DIR;
-  const dataDirName = app.isPackaged ? APP_DATA_DIR_NAME : `${APP_DATA_DIR_NAME}-Dev`;
-  const ownDataDir = join(app.getPath('appData'), dataDirName);
+  const ownDataDir = chooseDataDir({
+    installKind: install.kind,
+    isPackaged: app.isPackaged,
+    appDataDir: app.getPath('appData'),
+    localAppDataDir: process.env.LOCALAPPDATA,
+    homeDir: homedir(),
+  });
   // An installed classic app on Windows takes its data back from the
   // Windows package's folder when a move left it there and the package
   // is gone — before the folder is chosen, so the first start after a
@@ -118,9 +115,7 @@ function bootstrapDesktopApp(): void {
   const dataFolderReturn = userDataOverride
     ? null
     : returnDataFolderFromPackage({
-        platform: process.platform,
-        isPackaged: app.isPackaged,
-        inWindowsPackage: process.windowsStore === true,
+        installKind: install.kind,
         ownDir: ownDataDir,
         localAppDataDir: process.env.LOCALAPPDATA,
       });
@@ -147,6 +142,10 @@ function bootstrapDesktopApp(): void {
   // `<userData>/logs/main.log`.
   installMainLogger();
   const logger = createLogger('main');
+  if (install.kind !== null) logger.info(`install kind: ${install.kind}`);
+  if (install.lonePackageSign !== null) {
+    logger.warn(`a Windows package by one sign only: ${install.lonePackageSign}`);
+  }
   if (dataFolderReturn?.outcome === 'returned') {
     logger.info(`data folder taken back from ${dataFolderReturn.from}`);
   } else if (dataFolderReturn?.outcome === 'left') {
@@ -189,7 +188,7 @@ function bootstrapDesktopApp(): void {
     installDownloadFeedback();
     // Default-session permission policy before any window exists.
     installPermissionPolicy();
-    registerAsProtocolHandler();
+    registerAsProtocolHandler(install.kind);
     installAboutPanel();
     // OS-resolved locale default before the first menu build; the
     // persisted setting lands via `installLocaleSubscription` once the

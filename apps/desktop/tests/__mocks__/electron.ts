@@ -12,6 +12,7 @@ export const app = {
   relaunch: () => {},
   disableHardwareAcceleration: () => {},
   requestSingleInstanceLock: () => true,
+  setAsDefaultProtocolClient: (_protocol: string, _path?: string, _args?: string[]) => true,
   whenReady: () => Promise.resolve(),
   on: () => {},
   commandLine: { appendSwitch: () => {} },

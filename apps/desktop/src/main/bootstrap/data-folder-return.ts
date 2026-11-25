@@ -23,6 +23,7 @@
 import { execFileSync } from 'node:child_process';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+import type { InstallKind } from './install-kind';
 
 /** The package's data folder, under `%LOCALAPPDATA%`. */
 export const PACKAGE_DATA_DIR_NAME = 'OpenHeaders-Data';
@@ -31,12 +32,12 @@ export const PACKAGE_DATA_DIR_NAME = 'OpenHeaders-Data';
 export const PACKAGE_IDENTITY_NAME = 'OpenHeaders';
 
 export interface DataFolderReturnFacts {
-  /** `process.platform`. */
-  readonly platform: NodeJS.Platform;
-  /** `app.isPackaged` — a development run has a folder of its own name. */
-  readonly isPackaged: boolean;
-  /** `process.windowsStore` — true inside a Windows package, which never takes its own folder away. */
-  readonly inWindowsPackage: boolean;
+  /**
+   * Only an installed classic app takes the folder back: a Windows package
+   * never takes its own folder away, and a development run has a folder of
+   * its own name.
+   */
+  readonly installKind: InstallKind | null;
   /** The classic app's data folder, about to be chosen. */
   readonly ownDir: string;
   /** `%LOCALAPPDATA%`; without it nothing is looked for. */
@@ -122,9 +123,8 @@ export function returnDataFolderFromPackage(
   facts: DataFolderReturnFacts,
   seams: DataFolderReturnSeams = {},
 ): DataFolderReturn {
-  if (facts.platform !== 'win32' || !facts.isPackaged || facts.inWindowsPackage || !facts.localAppDataDir) {
-    return NOTHING_TO_RETURN;
-  }
+  const isClassicInstall = facts.installKind === 'nsis' || facts.installKind === 'msi';
+  if (!isClassicInstall || !facts.localAppDataDir) return NOTHING_TO_RETURN;
   if (!isAbsent(facts.ownDir)) return NOTHING_TO_RETURN;
   const from = path.join(facts.localAppDataDir, PACKAGE_DATA_DIR_NAME);
   if (isAbsent(from)) return NOTHING_TO_RETURN;

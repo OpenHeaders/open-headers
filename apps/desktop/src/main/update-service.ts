@@ -50,6 +50,39 @@ export interface AvailableUpdate {
  */
 export type UpdateCapability = 'self' | 'notify' | 'none';
 
+export interface UpdateCapabilityFacts {
+  /** `OH_DISABLE_UPDATE_CHECKS=1` — the test and CI escape hatch. */
+  readonly checksDisabled: boolean;
+  /** `app.isPackaged`. */
+  readonly isPackaged: boolean;
+  /** `process.platform`. */
+  readonly platform: NodeJS.Platform;
+  /** Whether the app runs inside a Windows package. */
+  readonly inWindowsPackage: boolean;
+  /** Whether the app runs from an AppImage (`APPIMAGE` is set). */
+  readonly isAppImage: boolean;
+}
+
+/**
+ * `self` where an updater can actually run: packaged builds on
+ * macOS/Windows, or a Linux AppImage. Packaged Linux without an AppImage
+ * is a deb/rpm install — the package manager owns updates, so the service
+ * only checks and notifies. Dev/unpackaged runs get `none`; so does the
+ * escape hatch, which keeps test harnesses and CI from ever dialing a
+ * release feed — notify still dials it, so the hatch must cover it too.
+ * A Windows package gets `none` as well: the installer-based updater
+ * would install a second, classic copy beside it, and Windows updates a
+ * package through a port of its own.
+ */
+export function deriveUpdateCapability(facts: UpdateCapabilityFacts): UpdateCapability {
+  if (facts.checksDisabled) return 'none';
+  if (!facts.isPackaged) return 'none';
+  if (facts.inWindowsPackage) return 'none';
+  if (facts.platform === 'darwin' || facts.platform === 'win32') return 'self';
+  if (facts.isAppImage) return 'self';
+  return 'notify';
+}
+
 /**
  * The slice of an updater implementation the machine drives. Matches
  * electron-updater's surface shape-wise; a fake in tests.

@@ -3,8 +3,10 @@ import { describe, expect, it } from 'vitest';
 import {
   type AvailableUpdate,
   createUpdateService,
+  deriveUpdateCapability,
   readUpdatePreferences,
   type UpdateCapability,
+  type UpdateCapabilityFacts,
   type UpdatePreferences,
   type UpdaterPort,
   type UpdateServiceDeps,
@@ -440,5 +442,34 @@ describe('update service state machine', () => {
     const h = makeHarness();
     expect(await h.service.dispatchRpc('oh.sync.snapshot')).toBeUndefined();
     expect(await h.service.dispatchRpc(undefined)).toBeUndefined();
+  });
+});
+
+describe('deriveUpdateCapability', () => {
+  function makeFacts(overrides: Partial<UpdateCapabilityFacts> = {}): UpdateCapabilityFacts {
+    return {
+      checksDisabled: false,
+      isPackaged: true,
+      platform: 'win32',
+      inWindowsPackage: false,
+      isAppImage: false,
+      ...overrides,
+    };
+  }
+
+  it.each<[string, Partial<UpdateCapabilityFacts>, UpdateCapability]>([
+    ['a packaged Windows app', {}, 'self'],
+    ['a packaged macOS app', { platform: 'darwin' }, 'self'],
+    ['a Linux AppImage', { platform: 'linux', isAppImage: true }, 'self'],
+    ['a Linux deb or rpm install', { platform: 'linux' }, 'notify'],
+    ['a development run', { isPackaged: false }, 'none'],
+    ['a run with checks switched off', { checksDisabled: true }, 'none'],
+    ['a run with checks switched off on Linux', { platform: 'linux', checksDisabled: true }, 'none'],
+  ])('answers for %s as it always has', (_case, overrides, expected) => {
+    expect(deriveUpdateCapability(makeFacts(overrides))).toBe(expected);
+  });
+
+  it('runs no updater inside a Windows package', () => {
+    expect(deriveUpdateCapability(makeFacts({ inWindowsPackage: true }))).toBe('none');
   });
 });

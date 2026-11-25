@@ -39,6 +39,8 @@
 import { execFile } from 'node:child_process';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+import type { InstallKind } from './bootstrap/install-kind';
+import { PACKAGE_HOST_ALIAS, packageAliasPath } from './bootstrap/package-aliases';
 
 /** The name extensions call `chrome.runtime.sendNativeMessage` with. */
 export const NM_HOST_NAME = 'io.openheaders.nm_bootstrap';
@@ -59,6 +61,25 @@ export function nmHostBinaryCandidate(facts: NmHostBinaryFacts): string {
   const binaryName = facts.platform === 'win32' ? 'oh-nm-host.exe' : 'oh-nm-host';
   if (facts.isPackaged) return path.join(facts.resourcesPath, 'nm-host', binaryName);
   return path.resolve(facts.appPath, '..', 'nm-host', 'dist-bun', binaryName);
+}
+
+export interface NmHostManifestPathFacts {
+  readonly installKind: InstallKind | null;
+  /** Where the shipped binary lies ({@link nmHostBinaryCandidate}). */
+  readonly binaryPath: string;
+  /** `%LOCALAPPDATA%` — where Windows keeps a user's launch aliases. */
+  readonly localAppDataDir: string;
+}
+
+/**
+ * The path a browser is given to start the host. It is the binary itself
+ * everywhere but in a Windows package, where a browser can only start
+ * the host through its launch alias. The daemon's caller check keeps
+ * expecting the binary: a host started through the alias runs from it.
+ */
+export function nmHostManifestPath(facts: NmHostManifestPathFacts): string {
+  if (facts.installKind !== 'msix') return facts.binaryPath;
+  return packageAliasPath(facts.localAppDataDir, PACKAGE_HOST_ALIAS);
 }
 
 /** Which manifest document a target reads — the allowlist vocabularies differ. */

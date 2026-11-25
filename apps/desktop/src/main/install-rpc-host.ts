@@ -97,6 +97,7 @@ import { createBackendIdentityRpc } from './backend-identity';
 import { createBackendProbeRpc } from './backend-probe';
 import { dataDir } from './bootstrap/app-paths';
 import { revealAppSurface } from './bootstrap/app-reveal';
+import { installKind } from './bootstrap/install-kind';
 import { registerTeardown } from './bootstrap/lifecycle';
 import { installLocaleSubscription, mainTranslator } from './bootstrap/locale';
 import { createEngineHostLogger } from './bootstrap/logger';
@@ -116,6 +117,7 @@ import {
   linuxNmManifestTargets,
   macosNmManifestTargets,
   nmHostBinaryCandidate,
+  nmHostManifestPath,
   registerNmManifests,
   registerWindowsNmManifests,
   windowsNmManifestTargets,
@@ -234,11 +236,16 @@ export async function installRpcHost(): Promise<void> {
     process.platform === 'darwin' || process.platform === 'win32' || process.platform === 'linux';
   const nmHostPresent = nmPlatformSupported && existsSync(nmHostBinaryPath);
   if (nmHostPresent && process.platform === 'win32') {
+    const localAppDataDir = process.env.LOCALAPPDATA ?? path.join(os.homedir(), 'AppData', 'Local');
     const registrations = await registerWindowsNmManifests({
-      hostBinaryPath: nmHostBinaryPath,
+      hostBinaryPath: nmHostManifestPath({
+        installKind: installKind(),
+        binaryPath: nmHostBinaryPath,
+        localAppDataDir,
+      }),
       manifestDir: path.join(app.getPath('userData'), 'nm-host'),
       targets: windowsNmManifestTargets(
-        process.env.LOCALAPPDATA ?? path.join(os.homedir(), 'AppData', 'Local'),
+        localAppDataDir,
         process.env.APPDATA ?? path.join(os.homedir(), 'AppData', 'Roaming'),
       ),
       allowedExtensionIds: CHROMIUM_EXTENSION_IDS,

@@ -16,6 +16,7 @@
  */
 
 import { app, type BrowserWindow } from 'electron';
+import type { InstallKind } from './install-kind';
 import { createLogger } from './logger';
 import { getMainWindow, showMainWindow } from './window-manager';
 
@@ -97,8 +98,13 @@ export function installProtocolHandler(): void {
  * Register the app as the OS handler for `openheaders://`. In dev
  * `process.defaultApp` is true and Windows needs the electron.exe path
  * plus the project path; packaged builds use the exe path implicitly.
+ *
+ * A Windows package registers nothing: its manifest declares the scheme,
+ * and the call would write the package folder's path, which changes with
+ * every update and which no outside program can start.
  */
-export function registerAsProtocolHandler(): void {
+export function registerAsProtocolHandler(installKind: InstallKind | null): void {
+  if (installKind === 'msix') return;
   if (process.defaultApp) {
     if (process.argv.length >= 2) {
       app.setAsDefaultProtocolClient(PROTOCOL_SCHEME, process.execPath, [process.argv[1]]);

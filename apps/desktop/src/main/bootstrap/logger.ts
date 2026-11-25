@@ -43,7 +43,7 @@ const LOG_DIR_APP_NAME = 'OpenHeaders';
  * `~/Library/Logs/OpenHeaders`, the conventional location users pull
  * from for bug reports. Must run after main.ts's userData override.
  */
-function logsRootDir(): string {
+export function logsRootDir(): string {
   return app.isPackaged && process.platform === 'darwin'
     ? path.join(app.getPath('home'), 'Library', 'Logs', LOG_DIR_APP_NAME)
     : path.join(app.getPath('userData'), 'logs');

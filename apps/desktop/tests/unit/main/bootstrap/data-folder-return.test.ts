@@ -27,9 +27,7 @@ describe('the data folder taken back from the Windows package', () => {
 
   function makeFacts(overrides: Partial<DataFolderReturnFacts> = {}): DataFolderReturnFacts {
     return {
-      platform: 'win32',
-      isPackaged: true,
-      inWindowsPackage: false,
+      installKind: 'nsis',
       ownDir,
       localAppDataDir,
       ...overrides,
@@ -67,10 +65,16 @@ describe('the data folder taken back from the Windows package', () => {
     expect(existsSync(packageDir)).toBe(false);
   });
 
+  it('takes the folder back for an MSI install as for the classic installer', () => {
+    seedPackageData();
+    const result = returnDataFolderFromPackage(makeFacts({ installKind: 'msi' }), { isPackageInstalled: noPackage });
+    expect(result).toEqual({ outcome: 'returned', from: packageDir });
+  });
+
   it.each<[string, Partial<DataFolderReturnFacts>]>([
-    ['off Windows', { platform: 'darwin' }],
-    ['in a development run', { isPackaged: false }],
-    ['inside a Windows package', { inWindowsPackage: true }],
+    ['off Windows', { installKind: null }],
+    ['in a development run', { installKind: 'dev' }],
+    ['inside a Windows package', { installKind: 'msix' }],
     ['without a local AppData folder', { localAppDataDir: undefined }],
   ])('does nothing %s', (_case, overrides) => {
     seedPackageData();
