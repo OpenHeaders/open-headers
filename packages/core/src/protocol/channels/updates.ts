@@ -29,7 +29,11 @@ export interface AppUpdateState {
   availableVersion: string | null;
   /** Release notes URL for {@link availableVersion} when the feed carries one. */
   releaseNotesUrl: string | null;
-  /** Download progress 0–100 while `downloading`; null otherwise. */
+  /**
+   * Download progress 0–100 while `downloading`; null otherwise — and
+   * null through a download that reports none (a Windows package's,
+   * which Windows fetches itself): surfaces then show a busy state.
+   */
   progressPercent: number | null;
   /** Human-readable failure while `error`; null otherwise. */
   errorMessage: string | null;

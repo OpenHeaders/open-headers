@@ -27,6 +27,12 @@
  * {@link UpdateCapability}: checks, severity, and escalation all work,
  * but DOWNLOAD/INSTALL structurally refuse — the package manager owns
  * updates there, so the machine can never leave `available`.
+ *
+ * A Windows package runs it under `onRequest`: Windows cannot withdraw
+ * an update once it is staged — a staged package is the app at its next
+ * start — so nothing is ever staged ahead of the user. `autoDownload`
+ * is inert and a lone DOWNLOAD refuses; UPDATE & RESTART is the one way
+ * in, and it downloads and installs in one motion.
  */
 
 import type { AppUpdateState } from '@openheaders/core/bridge';
@@ -44,11 +50,14 @@ export interface AvailableUpdate {
  * §5). `self` — full check/download/install (mac/win packaged builds,
  * AppImage). `notify` — check-and-notify only: Linux deb/rpm installs,
  * where the package manager owns updates and the machine structurally
- * refuses download/install. `none` — no service at all (dev/unpackaged
- * runs, `OH_DISABLE_UPDATE_CHECKS`); notify still dials the feed, so
- * the escape hatch maps to `none`, never `notify`.
+ * refuses download/install. `onRequest` — a Windows package: checks run
+ * as under `self`, but an update is downloaded and installed only
+ * together, on the user's Update & Restart; the machine never stages by
+ * itself and refuses a download on its own. `none` — no service at all
+ * (dev/unpackaged runs, `OH_DISABLE_UPDATE_CHECKS`); every other
+ * capability dials the feed, so the escape hatch maps to `none`.
  */
-export type UpdateCapability = 'self' | 'notify' | 'none';
+export type UpdateCapability = 'self' | 'notify' | 'onRequest' | 'none';
 
 export interface UpdateCapabilityFacts {
   /** `OH_DISABLE_UPDATE_CHECKS=1` — the test and CI escape hatch. */
@@ -70,14 +79,15 @@ export interface UpdateCapabilityFacts {
  * only checks and notifies. Dev/unpackaged runs get `none`; so does the
  * escape hatch, which keeps test harnesses and CI from ever dialing a
  * release feed — notify still dials it, so the hatch must cover it too.
- * A Windows package gets `none` as well: the installer-based updater
- * would install a second, classic copy beside it, and Windows updates a
- * package through a port of its own.
+ * A Windows package gets `onRequest`: Windows updates a package through
+ * a port of its own (the installer-based updater would install a
+ * second, classic copy beside it), and what that port stages cannot be
+ * withdrawn.
  */
 export function deriveUpdateCapability(facts: UpdateCapabilityFacts): UpdateCapability {
   if (facts.checksDisabled) return 'none';
   if (!facts.isPackaged) return 'none';
-  if (facts.inWindowsPackage) return 'none';
+  if (facts.inWindowsPackage) return 'onRequest';
   if (facts.platform === 'darwin' || facts.platform === 'win32') return 'self';
   if (facts.isAppImage) return 'self';
   return 'notify';
@@ -102,6 +112,13 @@ export interface UpdaterPort {
    * {@link quitAndInstall} is unaffected.
    */
   setInstallOnQuit(enabled: boolean): void;
+  /**
+   * False on a port whose download tells nobody how far it is (Windows
+   * fetches a package itself). The state then carries no percentage
+   * while it runs and the surfaces show a busy state in place of a bar.
+   * Absent means progress is reported.
+   */
+  readonly reportsDownloadProgress?: boolean;
 }
 
 export interface UpdatePreferences {
@@ -195,6 +212,9 @@ export function createUpdateService(deps: UpdateServiceDeps): UpdateService {
   // `downloaded` without re-downloading; different or gone → the stale
   // stage is blocked from installing on quit.
   let stagedVersion: string | null = null;
+  // Whether an update is ever downloaded and installed here; `onRequest`
+  // adds that the two only happen together.
+  const installs = deps.capability === 'self' || deps.capability === 'onRequest';
 
   function transition(next: Partial<AppUpdateState>): AppUpdateState {
     state = { ...state, ...next };
@@ -279,8 +299,9 @@ export function createUpdateService(deps: UpdateServiceDeps): UpdateService {
       if (found && !stillStaged) {
         deps.log.info(`update available: ${found.version} (current ${state.currentVersion})`);
         // Notify capability stops at `available` — the package manager
-        // owns the download, so autoDownload is inert there.
-        if (deps.getPreferences().autoDownload && deps.capability === 'self') await download();
+        // owns the download, so autoDownload is inert there. It is inert
+        // under `onRequest` too: nothing is staged ahead of the user.
+        if (deps.getPreferences().autoDownload && deps.capability === 'self') await stage();
       }
     } catch (err) {
       deps.log.warn('update check failed', err);
@@ -296,9 +317,16 @@ export function createUpdateService(deps: UpdateServiceDeps): UpdateService {
 
   async function download(): Promise<AppUpdateState> {
     // Never-self-apply on deb/rpm holds structurally: without the
-    // `self` capability the machine can never leave `available`.
-    if (deps.capability !== 'self' || state.phase !== 'available') return state;
-    transition({ phase: 'downloading', progressPercent: 0 });
+    // `self` capability the machine can never leave `available` by a
+    // download alone — and under `onRequest` only Update & Restart
+    // reaches the stage below.
+    if (deps.capability !== 'self') return state;
+    return stage();
+  }
+
+  async function stage(): Promise<AppUpdateState> {
+    if (state.phase !== 'available') return state;
+    transition({ phase: 'downloading', progressPercent: deps.updater.reportsDownloadProgress === false ? null : 0 });
     try {
       await deps.updater.download((percent) => {
         const rounded = Math.max(0, Math.min(100, Math.round(percent)));
@@ -321,7 +349,7 @@ export function createUpdateService(deps: UpdateServiceDeps): UpdateService {
   }
 
   async function updateAndRestart(): Promise<AppUpdateState> {
-    if (deps.capability !== 'self') return state;
+    if (!installs) return state;
     if (state.phase === 'downloaded') return install();
     if (state.phase === 'downloading') {
       // A download (auto or manual) is already running — arm it.
@@ -330,11 +358,11 @@ export function createUpdateService(deps: UpdateServiceDeps): UpdateService {
     }
     if (state.phase !== 'available') return state;
     installAfterDownload = true;
-    return download();
+    return stage();
   }
 
   function install(): AppUpdateState {
-    if (deps.capability !== 'self' || state.phase !== 'downloaded') return state;
+    if (!installs || state.phase !== 'downloaded') return state;
     deps.log.info('restarting to install update');
     deps.updater.quitAndInstall();
     return state;

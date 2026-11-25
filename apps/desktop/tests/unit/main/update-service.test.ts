@@ -35,6 +35,8 @@ function makeHarness(
     severityResult?: SeverityInfo | null;
     capability?: UpdateCapability;
     preferences?: Partial<UpdatePreferences>;
+    /** False for a port whose download reports no progress. */
+    reportsDownloadProgress?: boolean;
   } = {},
 ): Harness {
   const broadcasts: AppUpdateState[] = [];
@@ -58,6 +60,7 @@ function makeHarness(
     async download(onProgress) {
       counters.downloadCalls += 1;
       if (overrides.downloadResult) throw overrides.downloadResult;
+      if (overrides.reportsDownloadProgress === false) return;
       onProgress(30);
       onProgress(30.4); // same integer percent — must not re-broadcast
       onProgress(100);
@@ -68,6 +71,9 @@ function makeHarness(
     setInstallOnQuit(enabled) {
       counters.installOnQuitFlips.push(enabled);
     },
+    ...(overrides.reportsDownloadProgress === undefined
+      ? {}
+      : { reportsDownloadProgress: overrides.reportsDownloadProgress }),
   };
 
   const deps: UpdateServiceDeps = {
@@ -340,6 +346,88 @@ describe('update service state machine', () => {
     expect(h.timers).toHaveLength(2);
   });
 
+  it('onRequest capability reports supported with the builtin install method', async () => {
+    const h = makeHarness({ capability: 'onRequest' });
+    expect(await h.service.dispatchRpc('oh.updates.getState')).toMatchObject({
+      supported: true,
+      installMethod: 'builtin',
+    });
+  });
+
+  it('onRequest capability checks and lands in available but never stages by itself', async () => {
+    const h = makeHarness({
+      capability: 'onRequest',
+      checkResult: { version: '2026.8.0', releaseNotesUrl: null },
+      preferences: { autoDownload: true },
+    });
+    const state = await h.service.dispatchRpc('oh.updates.checkNow');
+    expect(state).toMatchObject({ phase: 'available', availableVersion: '2026.8.0' });
+    expect(h.updater.downloadCalls).toBe(0);
+  });
+
+  it('onRequest capability refuses a download on its own, and an install with nothing staged', async () => {
+    const h = makeHarness({
+      capability: 'onRequest',
+      checkResult: { version: '2026.8.0', releaseNotesUrl: null },
+    });
+    await h.service.dispatchRpc('oh.updates.checkNow');
+    expect((await h.service.dispatchRpc('oh.updates.download'))?.phase).toBe('available');
+    expect((await h.service.dispatchRpc('oh.updates.install'))?.phase).toBe('available');
+    expect(h.updater.downloadCalls).toBe(0);
+    expect(h.updater.installCalls).toBe(0);
+  });
+
+  it('onRequest capability downloads and installs in one motion on updateAndRestart', async () => {
+    const h = makeHarness({
+      capability: 'onRequest',
+      checkResult: { version: '2026.8.0', releaseNotesUrl: null },
+      preferences: { autoDownload: true },
+    });
+    await h.service.dispatchRpc('oh.updates.checkNow');
+    await h.service.dispatchRpc('oh.updates.updateAndRestart');
+    expect(h.updater.downloadCalls).toBe(1);
+    expect(h.updater.installCalls).toBe(1);
+  });
+
+  it('onRequest capability never installs when the download fails', async () => {
+    const h = makeHarness({
+      capability: 'onRequest',
+      checkResult: { version: '2026.8.0', releaseNotesUrl: null },
+      downloadResult: new Error('the package could not be fetched'),
+    });
+    await h.service.dispatchRpc('oh.updates.checkNow');
+    const state = await h.service.dispatchRpc('oh.updates.updateAndRestart');
+    expect(state).toMatchObject({ phase: 'error', errorMessage: 'the package could not be fetched' });
+    expect(h.updater.installCalls).toBe(0);
+  });
+
+  it('onRequest capability keeps the scheduled cadence and severity escalation', async () => {
+    const h = makeHarness({
+      capability: 'onRequest',
+      checkResult: { version: '2026.8.0', releaseNotesUrl: null },
+      severityResult: { latest: '2026.8.0', severity: 'security', minimumSafeVersion: '2026.8.0' },
+    });
+    h.service.start();
+    expect(h.timers).toHaveLength(1);
+    h.timers[0]?.fn();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(h.service.state()).toMatchObject({ phase: 'available', belowSafeFloor: true, severity: 'security' });
+    expect(h.timers).toHaveLength(2);
+  });
+
+  it('carries no percentage through a download that reports no progress', async () => {
+    const h = makeHarness({
+      capability: 'onRequest',
+      checkResult: { version: '2026.8.0', releaseNotesUrl: null },
+      reportsDownloadProgress: false,
+    });
+    await h.service.dispatchRpc('oh.updates.checkNow');
+    await h.service.dispatchRpc('oh.updates.updateAndRestart');
+    const downloading = h.broadcasts.filter((b) => b.phase === 'downloading');
+    expect(downloading.map((b) => b.progressPercent)).toEqual([null]);
+    expect(h.service.state()).toMatchObject({ phase: 'downloaded', progressPercent: 100 });
+  });
+
   it('start() schedules nothing when checks are off; preferencesChanged arms it later', () => {
     const h = makeHarness({ preferences: { check: 'off' } });
     h.service.start();
@@ -469,7 +557,11 @@ describe('deriveUpdateCapability', () => {
     expect(deriveUpdateCapability(makeFacts(overrides))).toBe(expected);
   });
 
-  it('runs no updater inside a Windows package', () => {
-    expect(deriveUpdateCapability(makeFacts({ inWindowsPackage: true }))).toBe('none');
+  it.each<[string, Partial<UpdateCapabilityFacts>, UpdateCapability]>([
+    ['a Windows package', { inWindowsPackage: true }, 'onRequest'],
+    ['a Windows package with checks switched off', { inWindowsPackage: true, checksDisabled: true }, 'none'],
+    ['an unpackaged run that carries a package sign', { inWindowsPackage: true, isPackaged: false }, 'none'],
+  ])('answers for %s', (_case, overrides, expected) => {
+    expect(deriveUpdateCapability(makeFacts(overrides))).toBe(expected);
   });
 });
