@@ -33,6 +33,9 @@ vi.mock('@openheaders/core/live', async (importOriginal) => ({
 vi.mock('@openheaders/oracle/live/request-exec/chain-adapter', () => ({
   buildChainFetchAdapter: vi.fn(() => ({ executeStep: vi.fn() })),
 }));
+vi.mock('@openheaders/oracle/live/request-exec/chain-template-resolver', () => ({
+  createChainTemplateResolver: vi.fn(() => async (template: string) => template),
+}));
 vi.mock('../../../src/live/node-request-transport', () => ({
   createNodeRequestTransport: vi.fn(() => ({ send: vi.fn() })),
 }));
@@ -127,6 +130,14 @@ describe('runWorkflowRefresh — success commit', () => {
     await runWorkflowRefresh({ workspaceId: 'ws-1', workflow, environmentId: null });
 
     expect(h.putWorkflowRunCache.mock.calls[0][0].expiresAt).toBeNull();
+  });
+});
+
+describe('runWorkflowRefresh — what the runner is handed', () => {
+  it('hands the runner a resolver for a template outside a request', async () => {
+    h.runChain.mockResolvedValue(successOutcome());
+    await runWorkflowRefresh({ workspaceId: 'ws-1', workflow: makeWorkflow(), environmentId: null });
+    expect(typeof h.runChain.mock.calls[0][0].resolveTemplate).toBe('function');
   });
 });
 

@@ -57,6 +57,7 @@ import {
 } from '@openheaders/oracle/live/live-cache-store';
 import { publishLiveVariablesProducedByRun } from '@openheaders/oracle/live/live-variable-store';
 import { buildChainFetchAdapter } from '@openheaders/oracle/live/request-exec/chain-adapter';
+import { createChainTemplateResolver } from '@openheaders/oracle/live/request-exec/chain-template-resolver';
 import { buildRefreshOAuthHook } from '@openheaders/oracle/live/request-exec/oauth-refresh';
 import { openWorkflowRunFeed } from '@openheaders/oracle/live/workflow-run-feed';
 import { createNodeRequestTransport } from '../../live/node-request-transport';
@@ -123,6 +124,7 @@ export async function runWorkflowRefresh(args: WorkflowRefreshArgs): Promise<Wor
     adapter,
     context: { workflowUid: workflow.uid, workspaceId, environmentId },
     onEvent,
+    resolveTemplate: createChainTemplateResolver(),
   });
 
   if (outcome.ok) {
