@@ -45,6 +45,7 @@ import { installAppMenuPopupHandler } from './main/bootstrap/app-menu-popup';
 import { sessionDataDir } from './main/bootstrap/app-paths';
 import { installApplicationMenu } from './main/bootstrap/application-menu';
 import { installChromiumSwitches } from './main/bootstrap/cli-switches';
+import { returnDataFolderFromPackage } from './main/bootstrap/data-folder-return';
 import { installDownloadFeedback } from './main/bootstrap/downloads';
 import { createEngineReadiness } from './main/bootstrap/engine-readiness';
 import { installExternalLinkHandler } from './main/bootstrap/external-links';
@@ -109,7 +110,21 @@ function bootstrapDesktopApp(): void {
   // single-instance lock — with an installed copy.
   const userDataOverride = process.env.OPENHEADERS_USER_DATA_DIR;
   const dataDirName = app.isPackaged ? APP_DATA_DIR_NAME : `${APP_DATA_DIR_NAME}-Dev`;
-  app.setPath('userData', userDataOverride || join(app.getPath('appData'), dataDirName));
+  const ownDataDir = join(app.getPath('appData'), dataDirName);
+  // An installed classic app on Windows takes its data back from the
+  // Windows package's folder when a move left it there and the package
+  // is gone — before the folder is chosen, so the first start after a
+  // reinstall opens the user's data and not an empty folder.
+  const dataFolderReturn = userDataOverride
+    ? null
+    : returnDataFolderFromPackage({
+        platform: process.platform,
+        isPackaged: app.isPackaged,
+        inWindowsPackage: process.windowsStore === true,
+        ownDir: ownDataDir,
+        localAppDataDir: process.env.LOCALAPPDATA,
+      });
+  app.setPath('userData', userDataOverride || ownDataDir);
 
   // Chromium's profile noise (caches, GPU blobs, Local Storage, service
   // workers) lands under `chromium/` instead of littering the userData
@@ -132,6 +147,11 @@ function bootstrapDesktopApp(): void {
   // `<userData>/logs/main.log`.
   installMainLogger();
   const logger = createLogger('main');
+  if (dataFolderReturn?.outcome === 'returned') {
+    logger.info(`data folder taken back from ${dataFolderReturn.from}`);
+  } else if (dataFolderReturn?.outcome === 'left') {
+    logger.warn(`data folder left at ${dataFolderReturn.from}: ${dataFolderReturn.why}`);
+  }
 
   // Then process diagnostics — any throw in later bootstrap calls
   // surfaces in the same log file.
