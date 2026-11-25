@@ -8,6 +8,8 @@ on:
   # signing path (the unpacked tree signed → installers packaged and
   # signed by the builder → signature checks) and uploads the
   # artifacts — no binaries leg, no release job, nothing published.
+  # The Windows legs also pack, sign and test the Windows package, as
+  # on a tag.
   # `windows` builds the two Windows arches only (the signing dry run);
   # `all` builds every desktop leg.
   workflow_dispatch:
@@ -620,6 +622,100 @@ jobs:
             apps/desktop/dist/latest*.yml
             apps/desktop/dist/beta*.yml
 
+      # The Windows package: a second wrapper around the signed tree the
+      # installer was compiled from — packed, signed and checked here,
+      # installed in the job that tests it. It is a WORKFLOW ARTIFACT
+      # under a name the release job does not download; no release, feed
+      # pointer or download path carries one, and the release manifest
+      # fails on one that is staged.
+      #
+      # These steps come after the installer's upload and none of them
+      # can fail the leg (`continue-on-error`): until a release ships a
+      # package, a package that cannot be made costs no release its
+      # installer. One that failed shows in the test job, which then
+      # finds no package to install.
+      #
+      # The pack reads the arch from the program and the publisher from
+      # the program's signature; both arches are packed by this x64
+      # runner's SDK tools.
+      - &pack_package_step
+        name: Pack the Windows package
+        id: pack_package
+        if: matrix.os == 'windows-2022' && steps.win_sign.outputs.enabled == 'true'
+        continue-on-error: true
+        working-directory: apps/desktop
+        shell: bash
+        run: |
+          tree="dist/win${{ matrix.arch == 'arm64' && '-arm64' || '' }}-unpacked"
+          version=$(node -p "require('./package.json').version")
+          node scripts/build/pack-msix.mjs "$tree" "$version" "$tree/OpenHeaders.exe" dist/windows-package
+
+      # One more signature per arch, timestamped like every other: the
+      # service signs a package whose manifest names the certificate's
+      # subject as its publisher.
+      - &sign_package_step
+        name: Sign the Windows package
+        id: sign_package
+        if: steps.pack_package.outcome == 'success'
+        continue-on-error: true
+        working-directory: apps/desktop
+        shell: bash
+        run: node scripts/build/sign-windows.js --package dist/windows-package/*.msix
+        env:
+          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+
+      # The signature must be valid and timestamped — the certificates
+      # last three days. The publisher is part of a package's identity:
+      # Windows takes an update only from the publisher the installed
+      # package names, so the manifest inside the signed package is held
+      # to the signer's subject, and its version and arch to the app in
+      # the tree.
+      - &verify_package_step
+        name: Verify the Windows package
+        id: verify_package
+        if: steps.sign_package.outcome == 'success'
+        continue-on-error: true
+        run: |
+          $package = @(Get-ChildItem -Path "apps/desktop/dist/windows-package" -Filter "*.msix" -File)
+          if ($package.Count -ne 1) { Write-Error "Expected one package, found $($package.Count)"; exit 1 }
+          $packagePath = $package[0].FullName
+
+          $sig = Get-AuthenticodeSignature -LiteralPath $packagePath
+          Write-Host "$($sig.Status)  $($sig.SignerCertificate.Subject)  timestamped by: $($sig.TimeStamperCertificate.Subject)  $packagePath ($($package[0].Length) bytes)"
+          if ($sig.Status -ne 'Valid') { Write-Error "The package carries no valid signature ($($sig.Status))"; exit 1 }
+          if (-not $sig.TimeStamperCertificate) { Write-Error "The package's signature carries no timestamp"; exit 1 }
+
+          Add-Type -AssemblyName System.IO.Compression.FileSystem
+          $manifest = Join-Path $env:RUNNER_TEMP "package-manifest.xml"
+          $zip = [System.IO.Compression.ZipFile]::OpenRead($packagePath)
+          try {
+            $entry = $zip.GetEntry("AppxManifest.xml")
+            if (-not $entry) { Write-Error "The package holds no AppxManifest.xml"; exit 1 }
+            [System.IO.Compression.ZipFileExtensions]::ExtractToFile($entry, $manifest, $true)
+          } finally {
+            $zip.Dispose()
+          }
+
+          $env:OH_PACKAGE_SIGNER = $sig.SignerCertificate.Subject
+          node apps/desktop/scripts/build/check-msix.mjs $manifest "apps/desktop/dist/win${{ matrix.arch == 'arm64' && '-arm64' || '' }}-unpacked"
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+        shell: pwsh
+
+      # Only a package that passed its check leaves the leg.
+      - &upload_package_step
+        name: Upload the Windows package
+        if: steps.verify_package.outcome == 'success'
+        continue-on-error: true
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: package-windows-${{ matrix.arch || 'x64' }}
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 7
+          path: apps/desktop/dist/windows-package/*.msix
+
   # Windows ARM64 — a leg like the ones above, on an ARM runner and on
   # the same steps. It is a job of its own, not a row of that matrix,
   # because the job that packages its installer waits for it: a job
@@ -694,6 +790,80 @@ jobs:
       - *verify_update_cache_step
       - *upload_desktop_step
       - *upload_desktop_retry_step
+      - *pack_package_step
+      - *sign_package_step
+      - *verify_package_step
+      - *upload_package_step
+
+  # The Windows package, installed on a machine of its own arch that
+  # never held the tree: Windows installs it from the file as it would
+  # on a person's PC, the manifest's logos are looked up in the installed
+  # package (an index that names its files wrongly packs, signs and
+  # installs without a word), and the app is asked through its launch
+  # alias whether it starts — its start check, which opens no data.
+  #
+  # The x64 package is tested on a server build of Windows, the only
+  # x64 image there is; the ARM64 one on Windows 11.
+  #
+  # Nothing waits for this job and it cannot fail the run: the release
+  # job does not need it, and a failure shows here alone. Waiting for
+  # the whole desktop matrix costs it nothing for the same reason.
+  test-windows-package:
+    name: test-package
+    needs: [build-desktop, package-desktop-windows-arm64]
+    if: ${{ !cancelled() && !contains(github.ref_name, '-ext') && !contains(github.ref_name, '-cli') && !contains(github.ref_name, '-daemon') }}
+    continue-on-error: true
+    runs-on: ${{ matrix.os }}
+    permissions:
+      contents: read
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-2022
+            arch: x64
+          - os: windows-11-arm
+            arch: arm64
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # Without signing credentials the legs build no package.
+      - name: Check Windows signing credentials
+        id: win_sign
+        run: |
+          if [ -n "$AZURE_TENANT_ID" ] && [ -n "$AZURE_CLIENT_ID" ] && [ -n "$AZURE_CLIENT_SECRET" ]; then
+            echo "enabled=true" >> $GITHUB_OUTPUT
+          else
+            echo "enabled=false" >> $GITHUB_OUTPUT
+            echo "::notice::Windows signing secrets not configured - no Windows package was built, nothing to test"
+          fi
+        shell: bash
+        env:
+          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+
+      - name: Download the Windows package
+        if: steps.win_sign.outputs.enabled == 'true'
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: package-windows-${{ matrix.arch }}
+          path: windows-package
+
+      # Windows PowerShell, not PowerShell 7: the package cmdlets are
+      # its own.
+      - name: Install the package and ask it whether it starts
+        if: steps.win_sign.outputs.enabled == 'true'
+        shell: powershell
+        run: |
+          $package = @(Get-ChildItem -Path "windows-package" -Filter "*.msix" -File)
+          if ($package.Count -ne 1) { Write-Host "Expected one package, found $($package.Count)"; exit 1 }
+          & "apps/desktop/scripts/build/test-msix-install.ps1" -Package $package[0].FullName
+          exit $LASTEXITCODE
 
   # Standalone `oh` and `ohd` (win32 is not a daemon target) ship on
   # STABLE tags only — betas carry no standalone binaries: the daemon
