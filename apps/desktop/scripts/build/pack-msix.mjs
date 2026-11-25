@@ -93,11 +93,36 @@ export function fillManifest(template, values) {
   return manifest;
 }
 
-/** The package's identity name: the name its resource index goes by. */
-function manifestIdentityName(manifest) {
-  const name = /<Identity\b[^>]*?\bName="([^"]+)"/.exec(manifest)?.[1];
-  if (!name) throw new Error('the manifest names no identity');
-  return name;
+/** The product's manifest, its three values still to fill. */
+export function manifestTemplate() {
+  return readFileSync(MANIFEST_TEMPLATE, 'utf8');
+}
+
+function unescapeXmlAttribute(value) {
+  return value
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&apos;/g, "'")
+    .replace(/&amp;/g, '&');
+}
+
+/** A manifest's identity, each value as the text it stands for. */
+export function manifestIdentity(manifest) {
+  const element = /<Identity\b([^>]*)\/>/.exec(manifest)?.[1];
+  if (element === undefined) throw new Error('the manifest names no identity');
+  const values = Object.fromEntries(
+    [...element.matchAll(/(\w+)="([^"]*)"/g)].map((match) => [match[1], unescapeXmlAttribute(match[2])]),
+  );
+  for (const name of ['Name', 'ProcessorArchitecture', 'Publisher', 'Version']) {
+    if (!values[name]) throw new Error(`the manifest's identity has no ${name}`);
+  }
+  return {
+    name: values.Name,
+    arch: values.ProcessorArchitecture,
+    publisher: values.Publisher,
+    version: values.Version,
+  };
 }
 
 /** The programs the manifest starts, as paths inside the package. */
@@ -105,8 +130,16 @@ function manifestPrograms(manifest) {
   return [...new Set([...manifest.matchAll(/\bExecutable="([^"]+)"/g)].map((match) => match[1]))];
 }
 
+/** Where the app's program — the first the manifest starts — lies in a tree. */
+export function appProgramInTree(manifest, treeDir) {
+  const [program] = manifestPrograms(manifest);
+  const treePrefix = `${TREE_DIR_NAME}\\`;
+  if (!program?.startsWith(treePrefix)) throw new Error(`the manifest starts no program under ${treePrefix}`);
+  return path.join(treeDir, ...program.slice(treePrefix.length).split('\\'));
+}
+
 /** The package arch of a program, from its PE header. */
-function programArch(file) {
+export function programArch(file) {
   const fd = openSync(file, 'r');
   try {
     const dos = Buffer.alloc(64);
@@ -140,7 +173,7 @@ export function layOutPackage({ treeDir, version, publisher, stagingDir, indexLo
     throw new Error(`${treeDir} holds ${CLASSIC_UNINSTALLER_FILE_NAME}: it is an installed copy, not the signed tree`);
   }
 
-  const template = readFileSync(MANIFEST_TEMPLATE, 'utf8');
+  const template = manifestTemplate();
   const programs = manifestPrograms(template);
   const treePrefix = `${TREE_DIR_NAME}\\`;
   for (const program of programs) {
@@ -148,13 +181,13 @@ export function layOutPackage({ treeDir, version, publisher, stagingDir, indexLo
     const inTree = path.join(treeDir, ...program.slice(treePrefix.length).split('\\'));
     if (!existsSync(inTree)) throw new Error(`the manifest starts ${program}, and the tree has no ${inTree}`);
   }
-  const arch = programArch(path.join(treeDir, ...programs[0].slice(treePrefix.length).split('\\')));
+  const arch = programArch(appProgramInTree(template, treeDir));
   const manifest = fillManifest(template, { arch, publisher, version: filledVersion });
 
   if (existsSync(stagingDir) && readdirSync(stagingDir).length > 0) throw new Error(`${stagingDir} is not empty`);
   mkdirSync(stagingDir, { recursive: true });
   cpSync(LOGO_SET_DIR, path.join(stagingDir, LOGO_SET_DIR_NAME), { recursive: true });
-  indexLogoSet({ stagingDir, indexName: manifestIdentityName(manifest) });
+  indexLogoSet({ stagingDir, indexName: manifestIdentity(manifest).name });
   writeFileSync(path.join(stagingDir, MANIFEST_FILE_NAME), manifest);
   cpSync(treeDir, path.join(stagingDir, TREE_DIR_NAME), { recursive: true });
 
