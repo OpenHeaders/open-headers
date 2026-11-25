@@ -10,6 +10,7 @@
 import { readFileSync } from 'node:fs';
 import * as path from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { APP_DATA_DIR_NAME } from '../../../src/main/bootstrap/data-dir';
 import { windowsNmManifestTargets } from '../../../src/main/nm-host-install';
 
 const SCRIPT = readFileSync(path.resolve(__dirname, '../../../build/windows/installer.nsh'), 'utf8');
@@ -17,8 +18,6 @@ const SCRIPT = readFileSync(path.resolve(__dirname, '../../../build/windows/inst
 const BUILD_CONFIG = JSON.parse(readFileSync(path.resolve(__dirname, '../../../package.json'), 'utf8')).build;
 const INSTALLER_OPTIONS: Record<string, unknown> = BUILD_CONFIG.nsis;
 const PRODUCT_NAME: string = BUILD_CONFIG.productName;
-
-const MAIN_SOURCE = readFileSync(path.resolve(__dirname, '../../../src/main.ts'), 'utf8');
 
 /** The script's instructions: comment lines dropped. */
 const CODE = SCRIPT.split(/\r?\n/)
@@ -150,6 +149,6 @@ describe('a move to the Windows package', () => {
   });
 
   it("keeps that folder's name the one the app gives its data", () => {
-    expect(PRODUCT_NAME).toBe(/const APP_DATA_DIR_NAME = '([^']+)'/.exec(MAIN_SOURCE)?.[1]);
+    expect(PRODUCT_NAME).toBe(APP_DATA_DIR_NAME);
   });
 });
