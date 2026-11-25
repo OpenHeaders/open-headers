@@ -208,6 +208,7 @@ function readPublisher(signerFile) {
   if (!existsSync(signerFile)) throw new Error(`no signer file at ${signerFile}`);
   const command = [
     "$ErrorActionPreference = 'Stop'",
+    "$ProgressPreference = 'SilentlyContinue'",
     '$signer = (Get-AuthenticodeSignature -LiteralPath $env:OH_SIGNER_FILE).SignerCertificate',
     'if (-not $signer) { $signer = New-Object System.Security.Cryptography.X509Certificates.X509Certificate2 $env:OH_SIGNER_FILE }',
     '[Console]::Out.Write($signer.Subject)',
@@ -218,7 +219,14 @@ function readPublisher(signerFile) {
     // Encoded, so no shell or argument quoting stands between this script and PowerShell.
     subject = execFileSync(
       powershell,
-      ['-NoProfile', '-NonInteractive', '-EncodedCommand', Buffer.from(command, 'utf16le').toString('base64')],
+      [
+        '-NoProfile',
+        '-NonInteractive',
+        '-OutputFormat',
+        'Text',
+        '-EncodedCommand',
+        Buffer.from(command, 'utf16le').toString('base64'),
+      ],
       { encoding: 'utf8', stdio: ['ignore', 'pipe', 'inherit'], env: { ...process.env, OH_SIGNER_FILE: signerFile } },
     ).trim();
   } catch {
@@ -252,6 +260,7 @@ function main([tree, version, signer, outDir]) {
   const stagingDir = path.join(out, 'msix-staging');
   try {
     const toolsDir = sdkToolsDir();
+    console.log(`pack-msix: SDK tools in ${toolsDir}`);
     const publisher = readPublisher(path.resolve(signer));
     rmSync(stagingDir, { recursive: true, force: true });
     const laidOut = layOutPackage({
