@@ -30,6 +30,14 @@ export interface ExtensionSeedHarnessDeps {
   readonly logTag: string;
 }
 
+/** One seed of the backend registry record. */
+export interface BackendSeed {
+  readonly enabled: boolean;
+  /** Where the record points — the daemon on loopback unless a leg
+   *  dials it another way (the off-device wire of the privacy gate). */
+  readonly backendUrl?: string;
+}
+
 export interface ExtensionSeedHarness {
   /** The extension page — MV3 keep-alive client + storage evaluate
    *  surface (never the worker context; lazily recreated, per the
@@ -37,9 +45,9 @@ export interface ExtensionSeedHarness {
   extensionPage(): Promise<Page>;
   /** (Re-)seed the extension's backend registry record — same
    *  encrypted blob as the live-network harness, cipher-guarded. */
-  seedBackend(seed: { enabled: boolean }): Promise<void>;
+  seedBackend(seed: BackendSeed): Promise<void>;
   /** Seed with the retry loop the cipher-mint race requires. */
-  seedBackendRetrying(seed: { enabled: boolean }): Promise<void>;
+  seedBackendRetrying(seed: BackendSeed): Promise<void>;
 }
 
 export function createExtensionSeedHarness(deps: ExtensionSeedHarnessDeps): ExtensionSeedHarness {
@@ -56,7 +64,7 @@ export function createExtensionSeedHarness(deps: ExtensionSeedHarnessDeps): Exte
     return page;
   }
 
-  async function seedBackend(seed: { enabled: boolean }): Promise<void> {
+  async function seedBackend(seed: BackendSeed): Promise<void> {
     const page = await extensionPage();
     await page.evaluate(
       async ({ backendUrl, authToken, enabled, recordId, recordLabel }) => {
@@ -127,7 +135,7 @@ export function createExtensionSeedHarness(deps: ExtensionSeedHarnessDeps): Exte
         });
       },
       {
-        backendUrl: `ws://127.0.0.1:${deps.daemonPort}`,
+        backendUrl: seed.backendUrl ?? `ws://127.0.0.1:${deps.daemonPort}`,
         authToken: deps.token(),
         enabled: seed.enabled,
         recordId: deps.recordId,
@@ -136,7 +144,7 @@ export function createExtensionSeedHarness(deps: ExtensionSeedHarnessDeps): Exte
     );
   }
 
-  async function seedBackendRetrying(seed: { enabled: boolean }): Promise<void> {
+  async function seedBackendRetrying(seed: BackendSeed): Promise<void> {
     let seedError: unknown;
     for (let attempt = 0; attempt < 8; attempt++) {
       try {

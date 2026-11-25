@@ -68,6 +68,7 @@ import {
   type Page,
   test,
 } from '@playwright/test';
+import { createExtensionSeedHarness, type ExtensionSeedHarness } from './agent-traffic-harness';
 
 const APP_ROOT = path.resolve(__dirname, '../..');
 const EXTENSION_PATH = path.resolve(APP_ROOT, '../extension/dist/chrome');
@@ -98,9 +99,9 @@ interface ProxyRoutingStatusWire {
 
 interface ExtensionPeer {
   context: BrowserContext;
-  /** Lazily-(re)created extension page — always reach it via {@link peerPage}. */
-  popup: Page | null;
   extensionId: string;
+  /** The peer's extension page and backend-registry seed. */
+  harness: ExtensionSeedHarness;
 }
 
 let electronApp: ElectronApplication;
@@ -248,7 +249,16 @@ async function launchExtensionPeer(): Promise<ExtensionPeer> {
   const bootWorker = context.serviceWorkers()[0] ?? (await context.waitForEvent('serviceworker'));
   const extensionId = bootWorker.url().split('/')[2];
 
-  const peer: ExtensionPeer = { context, popup: null, extensionId };
+  const harness = createExtensionSeedHarness({
+    context: () => context,
+    extensionId: () => extensionId,
+    token: () => token,
+    daemonPort: DAEMON_PORT,
+    recordId: 'debug-live-e2e-backend',
+    recordLabel: 'debug-live e2e desktop',
+    logTag: 'debug-live setup',
+  });
+  const peer: ExtensionPeer = { context, extensionId, harness };
   await peerPage(peer);
   return peer;
 }
@@ -258,13 +268,8 @@ async function launchExtensionPeer(): Promise<ExtensionPeer> {
  * app kills it (no extension page is immortal; nothing ever evaluates in
  * the WORKER context — the live-network harness law).
  */
-async function peerPage(peer: ExtensionPeer): Promise<Page> {
-  if (peer.popup && !peer.popup.isClosed()) return peer.popup;
-  const page = await peer.context.newPage();
-  await page.goto(`chrome-extension://${peer.extensionId}/merge-showcase.html`);
-  await page.waitForLoadState('load');
-  peer.popup = page;
-  return page;
+function peerPage(peer: ExtensionPeer): Promise<Page> {
+  return peer.harness.extensionPage();
 }
 
 /** The extension's persisted user-settings dict (`oh.settings.user`). */
@@ -278,106 +283,6 @@ async function extensionUserSettings(peer: ExtensionPeer): Promise<Record<string
         });
       }),
   );
-}
-
-/**
- * (Re-)seed the peer's backend registry record — same encrypted blob
- * format and page-context posture as the live-network suite.
- */
-async function seedBackend(
-  peer: ExtensionPeer,
-  seed: { backendUrl: string; authToken: string; enabled: boolean },
-): Promise<void> {
-  const page = await peerPage(peer);
-  await page.evaluate(async ({ backendUrl, authToken, enabled }) => {
-    // Existence probe first — an eager indexedDB.open would CREATE an
-    // empty schema-less DB and race the extension's cipher init.
-    const databases = await indexedDB.databases();
-    if (!databases.some((d) => d.name === 'oh-secret-cipher')) {
-      throw new Error('cipher db not yet created');
-    }
-    const key = await Promise.race([
-      new Promise<CryptoKey>((resolve, reject) => {
-        const open = indexedDB.open('oh-secret-cipher');
-        open.onerror = () => reject(open.error);
-        open.onsuccess = () => {
-          const db = open.result;
-          if (!db.objectStoreNames.contains('keys')) {
-            // A schema-less husk (e.g. from an earlier eager open)
-            // blocks the extension's init — heal by deleting it.
-            db.close();
-            const drop = indexedDB.deleteDatabase('oh-secret-cipher');
-            drop.onsuccess = drop.onerror = () => reject(new Error('cipher db was empty — healed, retrying'));
-            return;
-          }
-          const request = db.transaction('keys', 'readonly').objectStore('keys').get('at-rest-aes-gcm-v1');
-          request.onerror = () => reject(request.error);
-          request.onsuccess = () =>
-            request.result ? resolve(request.result as CryptoKey) : reject(new Error('cipher key not yet minted'));
-        };
-      }),
-      new Promise<never>((_, reject) => setTimeout(() => reject(new Error('cipher read timed out')), 4000)),
-    ]);
-    const record = {
-      id: 'debug-live-e2e-backend',
-      label: 'debug-live e2e desktop',
-      url: backendUrl,
-      authToken,
-      autoConnect: true,
-      enabled,
-      addedAt: new Date().toISOString(),
-      lastConnectedAt: null,
-    };
-    const iv = crypto.getRandomValues(new Uint8Array(12));
-    const ciphertext = await crypto.subtle.encrypt(
-      { name: 'AES-GCM', iv },
-      key,
-      new TextEncoder().encode(JSON.stringify([record])),
-    );
-    const packed = new Uint8Array(iv.length + ciphertext.byteLength);
-    packed.set(iv, 0);
-    packed.set(new Uint8Array(ciphertext), iv.length);
-    let binary = '';
-    for (const byte of packed) binary += String.fromCharCode(byte);
-    await new Promise<void>((resolve) => {
-      chrome.storage.local.set({ onboardingCompleted: true, 'oh.backends': `v1:${btoa(binary)}` }, () => resolve());
-    });
-  }, seed);
-}
-
-/** Whether the peer's storage already holds a backends blob. */
-async function backendsSeeded(peer: ExtensionPeer): Promise<boolean> {
-  const page = await peerPage(peer);
-  return page.evaluate(
-    async () =>
-      new Promise<boolean>((resolve) => {
-        chrome.storage.local.get('oh.backends', (items) => {
-          resolve(typeof items?.['oh.backends'] === 'string' && (items['oh.backends'] as string).length > 0);
-        });
-      }),
-  );
-}
-
-/** Seed with retry + read-back verification (the write can land even
- *  when the evaluate context dies to the app's own reaction). */
-async function seedBackendRetrying(
-  peer: ExtensionPeer,
-  seed: { backendUrl: string; authToken: string; enabled: boolean },
-): Promise<void> {
-  let seedError: unknown;
-  for (let attempt = 0; attempt < 5; attempt++) {
-    try {
-      await seedBackend(peer, seed);
-      return;
-    } catch (err) {
-      seedError = err;
-      console.log(`[debug-live setup] seed attempt ${attempt} failed: ${String(err).split('\n')[0]}`);
-      await new Promise((resolve) => setTimeout(resolve, 1500));
-      const landed = await backendsSeeded(peer).catch(() => false);
-      if (landed) return;
-    }
-  }
-  throw new Error(`seedBackend failed: ${String(seedError)}`);
 }
 
 test.describe.configure({ mode: 'serial' });
@@ -446,11 +351,7 @@ test.beforeAll(async () => {
 
   peerA = await launchExtensionPeer();
   setupStep('peer A launched');
-  await seedBackendRetrying(peerA, {
-    backendUrl: `ws://127.0.0.1:${DAEMON_PORT}`,
-    authToken: token,
-    enabled: true,
-  });
+  await peerA.harness.seedBackendRetrying({ enabled: true });
   setupStep('peer A seeded');
 
   playground = await peerA.context.newPage();

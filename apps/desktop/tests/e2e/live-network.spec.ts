@@ -57,6 +57,7 @@ import {
   type Page,
   test,
 } from '@playwright/test';
+import { createExtensionSeedHarness, type ExtensionSeedHarness } from './agent-traffic-harness';
 
 const APP_ROOT = path.resolve(__dirname, '../..');
 const EXTENSION_PATH = path.resolve(APP_ROOT, '../extension/dist/chrome');
@@ -75,9 +76,9 @@ interface TabsListResponse {
 
 interface ExtensionPeer {
   context: BrowserContext;
-  /** Lazily-(re)created extension page — always reach it via {@link peerPage}. */
-  popup: Page | null;
   extensionId: string;
+  /** The peer's extension page and backend-registry seed. */
+  harness: ExtensionSeedHarness;
 }
 
 let electronApp: ElectronApplication;
@@ -147,152 +148,27 @@ async function launchExtensionPeer(): Promise<ExtensionPeer> {
   const bootWorker = context.serviceWorkers()[0] ?? (await context.waitForEvent('serviceworker'));
   const extensionId = bootWorker.url().split('/')[2];
 
-  const peer: ExtensionPeer = { context, popup: null, extensionId };
+  const harness = createExtensionSeedHarness({
+    context: () => context,
+    extensionId: () => extensionId,
+    token: () => token,
+    daemonPort: DAEMON_PORT,
+    recordId: 'live-network-e2e-backend',
+    recordLabel: 'live-network e2e desktop',
+    logTag: 'live-network setup',
+  });
+  const peer: ExtensionPeer = { context, extensionId, harness };
   await peerPage(peer);
   return peer;
 }
 
 /**
- * The peer's live extension page — created on demand, recreated when
- * the app kills it. It doubles as the MV3 keep-alive client and the
- * evaluation surface for every storage read/write. Nothing ever
- * evaluates in the WORKER context (MV3 restarts it at will; a dead
- * worker context can hang an evaluate forever), and no page is assumed
- * immortal: the extension NAVIGATES or CLOSES its own surfaces in
- * reaction to the very writes the seeding makes (view-mode redirect,
- * join → adopt tab re-key). merge-showcase.html is the least-wired
- * surface (extension origin, only sandbox.html is sandboxed), but on
- * fast reactions even it can be gone before an evaluate returns —
- * hence lazy recreation instead of a stored immortal Page.
+ * The peer's live extension page — the MV3 keep-alive client and the
+ * evaluation surface for every storage read (never the worker context;
+ * lazily recreated — the seed harness owns it).
  */
-async function peerPage(peer: ExtensionPeer): Promise<Page> {
-  if (peer.popup && !peer.popup.isClosed()) return peer.popup;
-  console.log(`[live-network setup] (re)creating peer page; open pages: ${peer.context.pages().map((p) => p.url())}`);
-  const page = await peer.context.newPage();
-  page.on('framenavigated', (f) => {
-    if (f === page.mainFrame()) console.log(`[live-network setup] peer page nav: ${f.url()}`);
-  });
-  page.on('close', () => console.log('[live-network setup] peer page closed'));
-  await page.goto(`chrome-extension://${peer.extensionId}/merge-showcase.html`);
-  await page.waitForLoadState('load');
-  peer.popup = page;
-  return page;
-}
-
-/**
- * (Re-)seed a peer's backend registry record. The record is a sensitive
- * slot, so the seed encrypts with the extension's at-rest key — same
- * blob format as `browser-secret-cipher`; the registry mirror's storage
- * subscription dials (or drops) the wire live. Runs in the POPUP page
- * context — MV3 restarts the service worker at will and destroy worker
- * evaluation contexts; page contexts share the same storage partition.
- */
-async function seedBackend(
-  peer: ExtensionPeer,
-  seed: { backendUrl: string; authToken: string; enabled: boolean },
-): Promise<void> {
-  const page = await peerPage(peer);
-  await page.evaluate(async ({ backendUrl, authToken, enabled }) => {
-    // Existence probe first — an eager indexedDB.open would CREATE an
-    // empty schema-less DB and race the extension's cipher init; the
-    // guarded read (probe → husk heal → bounded wait) is the
-    // agent-traffic harness idiom, lifted here per its standing rider.
-    const databases = await indexedDB.databases();
-    if (!databases.some((d) => d.name === 'oh-secret-cipher')) {
-      throw new Error('cipher db not yet created');
-    }
-    const key = await Promise.race([
-      new Promise<CryptoKey>((resolve, reject) => {
-        const open = indexedDB.open('oh-secret-cipher');
-        open.onerror = () => reject(open.error);
-        open.onsuccess = () => {
-          const db = open.result;
-          if (!db.objectStoreNames.contains('keys')) {
-            // A schema-less husk (e.g. from an earlier eager open)
-            // blocks the extension's init — heal by deleting it.
-            db.close();
-            const drop = indexedDB.deleteDatabase('oh-secret-cipher');
-            drop.onsuccess = drop.onerror = () => reject(new Error('cipher db was empty — healed, retrying'));
-            return;
-          }
-          const request = db.transaction('keys', 'readonly').objectStore('keys').get('at-rest-aes-gcm-v1');
-          request.onerror = () => reject(request.error);
-          request.onsuccess = () =>
-            request.result ? resolve(request.result as CryptoKey) : reject(new Error('cipher key not yet minted'));
-        };
-      }),
-      new Promise<never>((_, reject) => setTimeout(() => reject(new Error('cipher read timed out')), 4000)),
-    ]);
-    const record = {
-      id: 'live-network-e2e-backend',
-      label: 'live-network e2e desktop',
-      url: backendUrl,
-      authToken,
-      autoConnect: true,
-      enabled,
-      addedAt: new Date().toISOString(),
-      lastConnectedAt: null,
-    };
-    const iv = crypto.getRandomValues(new Uint8Array(12));
-    const ciphertext = await crypto.subtle.encrypt(
-      { name: 'AES-GCM', iv },
-      key,
-      new TextEncoder().encode(JSON.stringify([record])),
-    );
-    const packed = new Uint8Array(iv.length + ciphertext.byteLength);
-    packed.set(iv, 0);
-    packed.set(new Uint8Array(ciphertext), iv.length);
-    let binary = '';
-    for (const byte of packed) binary += String.fromCharCode(byte);
-    await new Promise<void>((resolve) => {
-      // `onboardingCompleted` rides along so the tour's modal mask never
-      // covers the popup — same write, no worker-context evaluate.
-      chrome.storage.local.set({ onboardingCompleted: true, 'oh.backends': `v1:${btoa(binary)}` }, () => resolve());
-    });
-  }, seed);
-}
-
-/** Whether the peer's storage already holds a backends blob. */
-async function backendsSeeded(peer: ExtensionPeer): Promise<boolean> {
-  const page = await peerPage(peer);
-  return page.evaluate(
-    async () =>
-      new Promise<boolean>((resolve) => {
-        chrome.storage.local.get('oh.backends', (items) => {
-          resolve(typeof items?.['oh.backends'] === 'string' && (items['oh.backends'] as string).length > 0);
-        });
-      }),
-  );
-}
-
-/**
- * Seed with retry. Two churn sources: the SW can restart mid-handshake
- * on fresh profiles, and the popup may NAVIGATE in reaction to the very
- * write we make — which destroys the evaluate context AFTER the write
- * landed. So a failed evaluate is verified by read-back before it
- * counts as a failure.
- */
-async function seedBackendRetrying(
-  peer: ExtensionPeer,
-  seed: { backendUrl: string; authToken: string; enabled: boolean },
-): Promise<void> {
-  let seedError: unknown;
-  for (let attempt = 0; attempt < 8; attempt++) {
-    try {
-      await seedBackend(peer, seed);
-      return;
-    } catch (err) {
-      seedError = err;
-      console.log(`[live-network setup] seed attempt ${attempt} failed: ${String(err).split('\n')[0]}`);
-      // A destroyed context/page usually means the WRITE LANDED and the
-      // app reacted (join → adopt re-keys extension surfaces). Give the
-      // reaction a beat, then trust the read-back on a fresh page.
-      await new Promise((resolve) => setTimeout(resolve, 1500));
-      const landed = await backendsSeeded(peer).catch(() => false);
-      if (landed) return;
-    }
-  }
-  throw new Error(`seedBackend failed: ${String(seedError)}`);
+function peerPage(peer: ExtensionPeer): Promise<Page> {
+  return peer.harness.extensionPage();
 }
 
 /** Whether any replicated `oh.ws.<id>.rules` record in the peer's
@@ -391,11 +267,7 @@ test.beforeAll(async () => {
 
   peerA = await launchExtensionPeer();
   setupStep('peer A launched');
-  await seedBackendRetrying(peerA, {
-    backendUrl: `ws://127.0.0.1:${DAEMON_PORT}`,
-    authToken: token,
-    enabled: true,
-  });
+  await peerA.harness.seedBackendRetrying({ enabled: true });
   setupStep('peer A seeded');
 
   playground = await peerA.context.newPage();
@@ -484,11 +356,7 @@ test('a wire flap re-subscribes the watch and replays what the wire missed', asy
 
   // Drop the wire: the registry mirror tears the connection down live,
   // which tears every telemetry session down at the source.
-  await seedBackend(peerA, {
-    backendUrl: `ws://127.0.0.1:${DAEMON_PORT}`,
-    authToken: token,
-    enabled: false,
-  });
+  await peerA.harness.seedBackend({ enabled: false });
   await expect.poll(peerCount, { timeout: 5_000 }).toBe(0);
 
   // Fired while the wire is down: the engine keeps its session floor,
@@ -500,11 +368,7 @@ test('a wire flap re-subscribes the watch and replays what the wire missed', asy
   // Re-enable: the peer reconnects, the relay re-sends `subscribe` for
   // the live watch, and the fresh ready + replay rebuilds the view —
   // including the traffic the wire was down for.
-  await seedBackend(peerA, {
-    backendUrl: `ws://127.0.0.1:${DAEMON_PORT}`,
-    authToken: token,
-    enabled: true,
-  });
+  await peerA.harness.seedBackend({ enabled: true });
   await expect.poll(peerCount, { timeout: 5_000 }).toBe(1);
   await expect(echoRows()).toHaveCount(3, { timeout: 5_000 });
 
@@ -542,11 +406,7 @@ test('terminating the extension service worker self-heals the stream', async () 
 
 test('a second browser peer is listed and never bleeds into the watched partition', async () => {
   peerB = await launchExtensionPeer();
-  await seedBackendRetrying(peerB, {
-    backendUrl: `ws://127.0.0.1:${DAEMON_PORT}`,
-    authToken: token,
-    enabled: true,
-  });
+  await peerB.harness.seedBackendRetrying({ enabled: true });
   playgroundB = await peerB.context.newPage();
   await playgroundB.goto(PLAYGROUND_URL);
 
@@ -570,7 +430,7 @@ test('a non-loopback wire keeps syncing but its telemetry is refused', async () 
   // Same daemon, dialed via the LAN address: `isLoopback()` classifies
   // the URL the wire actually dialed, so this is an honest off-device
   // posture on one machine.
-  await seedBackend(peerB, { backendUrl: `ws://${lan}:${DAEMON_PORT}`, authToken: token, enabled: true });
+  await peerB.harness.seedBackend({ backendUrl: `ws://${lan}:${DAEMON_PORT}`, enabled: true });
 
   // The peer drops telemetry frames: it vanishes from the inventory.
   await expect.poll(peerCount, { timeout: 5_000 }).toBe(1);
