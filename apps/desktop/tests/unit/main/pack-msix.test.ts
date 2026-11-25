@@ -12,6 +12,7 @@ import { tmpdir } from 'node:os';
 import * as path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
+import { PACKAGE_IDENTITY_NAME } from '../../../src/main/bootstrap/data-folder-return';
 import { deriveInstallKind, PACKAGE_MANIFEST_FILE_NAME } from '../../../src/main/bootstrap/install-kind';
 
 const APP_DIR = path.resolve(__dirname, '../../..');
@@ -24,7 +25,8 @@ const MACHINE = { x64: 0x8664, arm64: 0xaa64, x86: 0x014c } as const;
 
 /**
  * Lays a package out with the index step replaced: the stand-in writes
- * what the staging folder held when it ran, where the index would go.
+ * what the staging folder held when it ran and the name it was handed,
+ * where the index would go.
  */
 const LAY_OUT = `
 const fs = require('node:fs');
@@ -34,7 +36,8 @@ import(script).then(({ layOutPackage }) => {
   try {
     const laidOut = layOutPackage({
       ...JSON.parse(options),
-      indexLogoSet: (dir) => fs.writeFileSync(path.join(dir, 'resources.pri'), fs.readdirSync(dir).sort().join(',')),
+      indexLogoSet: ({ stagingDir, indexName }) =>
+        fs.writeFileSync(path.join(stagingDir, 'resources.pri'), fs.readdirSync(stagingDir).sort().join(',') + ' as ' + indexName),
     });
     console.log(JSON.stringify({ laidOut }));
   } catch (error) {
@@ -174,10 +177,10 @@ describe('pack-msix — the layout', () => {
     expect(filesUnder(path.join(stagingDir, 'assets'))).toEqual(filesUnder(LOGO_SET_DIR));
   });
 
-  it('indexes the logo set before the tree is there', () => {
+  it("indexes the logo set while it is all the package holds, under the package's identity name", () => {
     const { stagingDir } = layOut(makeTree(signedTree()));
 
-    expect(readFileSync(path.join(stagingDir, 'resources.pri'), 'utf8')).toBe(`${PACKAGE_MANIFEST_FILE_NAME},assets`);
+    expect(readFileSync(path.join(stagingDir, 'resources.pri'), 'utf8')).toBe(`assets as ${PACKAGE_IDENTITY_NAME}`);
   });
 
   it('lays the tree out where the app knows itself for a package', () => {

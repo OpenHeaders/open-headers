@@ -2,14 +2,19 @@
 <!--
   How the Windows package's resource index is built. The index is what
   lets Windows find, for a logo the manifest names once, the file made
-  for the size it needs: only the package's assets folder is indexed,
-  the file names carry the sizes, and everything lands in one index
-  file - a package of one arch has no resource packs to split into.
+  for the size it needs: the file names carry the sizes, and everything
+  lands in one index file - a package of one arch has no resource packs
+  to split into.
+
+  A file is indexed under its path from the package's root, the path
+  the manifest names it by. So the index is made over the root while
+  the assets folder is all it holds: an index started inside that
+  folder drops the folder from every name.
 
   The defaults are the ones the SDK's own tool writes for en-US.
 -->
 <resources targetOsVersion="10.0.0" majorVersion="1">
-  <index root="\" startIndexAt="assets">
+  <index root="\" startIndexAt="\">
     <default>
       <qualifier name="Language" value="en-US"/>
       <qualifier name="Contrast" value="standard"/>

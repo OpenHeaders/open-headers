@@ -12,9 +12,9 @@
  *
  * The package is laid out in a folder first:
  *
- *   AppxManifest.xml   build/windows/AppxManifest.xml, its three values filled
  *   assets\            the logo set, as committed
- *   resources.pri      the index of the logo set
+ *   resources.pri      the index of the logo set, made while nothing else is there
+ *   AppxManifest.xml   build/windows/AppxManifest.xml, its three values filled
  *   app\               the tree, byte for byte
  *
  * Nothing in the package is typed that can be read: the arch comes from
@@ -93,6 +93,13 @@ export function fillManifest(template, values) {
   return manifest;
 }
 
+/** The package's identity name: the name its resource index goes by. */
+function manifestIdentityName(manifest) {
+  const name = /<Identity\b[^>]*?\bName="([^"]+)"/.exec(manifest)?.[1];
+  if (!name) throw new Error('the manifest names no identity');
+  return name;
+}
+
 /** The programs the manifest starts, as paths inside the package. */
 function manifestPrograms(manifest) {
   return [...new Set([...manifest.matchAll(/\bExecutable="([^"]+)"/g)].map((match) => match[1]))];
@@ -122,8 +129,9 @@ function programArch(file) {
 
 /**
  * Lays the package out in `stagingDir` and returns what was read on the
- * way. `indexLogoSet` runs once the manifest and the logo set are in
- * place and before the tree is: the index is made of the logo set alone.
+ * way. `indexLogoSet` runs while the logo set is all the folder holds:
+ * the index names each file it finds by its path from the package's
+ * root, and it is to find nothing else.
  */
 export function layOutPackage({ treeDir, version, publisher, stagingDir, indexLogoSet }) {
   const filledVersion = packageVersion(version);
@@ -145,9 +153,9 @@ export function layOutPackage({ treeDir, version, publisher, stagingDir, indexLo
 
   if (existsSync(stagingDir) && readdirSync(stagingDir).length > 0) throw new Error(`${stagingDir} is not empty`);
   mkdirSync(stagingDir, { recursive: true });
-  writeFileSync(path.join(stagingDir, MANIFEST_FILE_NAME), manifest);
   cpSync(LOGO_SET_DIR, path.join(stagingDir, LOGO_SET_DIR_NAME), { recursive: true });
-  indexLogoSet(stagingDir);
+  indexLogoSet({ stagingDir, indexName: manifestIdentityName(manifest) });
+  writeFileSync(path.join(stagingDir, MANIFEST_FILE_NAME), manifest);
   cpSync(treeDir, path.join(stagingDir, TREE_DIR_NAME), { recursive: true });
 
   return { arch, packageVersion: filledVersion, artifactName: `${PRODUCT_NAME}-${version}-${arch}.msix` };
@@ -218,20 +226,20 @@ function main([tree, version, signer, outDir]) {
       version,
       publisher,
       stagingDir,
-      indexLogoSet: (dir) => {
+      indexLogoSet: ({ stagingDir: packageRoot, indexName }) => {
         execFileSync(
           path.join(toolsDir, 'makepri.exe'),
           [
             'new',
             '/o',
             '/pr',
-            dir,
+            packageRoot,
             '/cf',
             RESOURCE_INDEX_CONFIG,
-            '/mn',
-            path.join(dir, MANIFEST_FILE_NAME),
+            '/in',
+            indexName,
             '/of',
-            path.join(dir, RESOURCE_INDEX_FILE_NAME),
+            path.join(packageRoot, RESOURCE_INDEX_FILE_NAME),
           ],
           { stdio: 'inherit' },
         );
