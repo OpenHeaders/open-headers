@@ -395,8 +395,8 @@ function readVariableInputs(raw: unknown, argName: string): VariableInput[] {
 
 /**
  * Mint row uids across a workflow payload's nested set-modeled arrays:
- * steps, each step's captures, and each step's `runIf.all` gate
- * clauses. Same identity discipline as {@link withRowUids} — agents
+ * steps, each step's captures, its success criteria, and its `runIf.all`
+ * gate clauses. Same identity discipline as {@link withRowUids} — agents
  * supply content, the host supplies identity; rows that already carry
  * a uid keep it.
  */
@@ -412,6 +412,7 @@ function withWorkflowRowUids(record: Record<string, unknown>): Record<string, un
     if (typeof step !== 'object' || step === null) return step;
     const next = step as Record<string, unknown>;
     if (Array.isArray(next.captures)) next.captures = next.captures.map(mintRow);
+    if (Array.isArray(next.successCriteria)) next.successCriteria = next.successCriteria.map(mintRow);
     const runIf = next.runIf;
     if (typeof runIf === 'object' && runIf !== null && !Array.isArray(runIf)) {
       const gate = runIf as Record<string, unknown>;

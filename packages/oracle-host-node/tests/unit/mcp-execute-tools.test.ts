@@ -546,6 +546,23 @@ describe('workflows_save', () => {
     expect(list.workflows[0].liveVariables).toEqual(['chainToken']);
   });
 
+  it('mints the uid of a success criterion, and refuses a poll with nothing to wait for', async () => {
+    const requestUid = await saveRequest({ name: 'Device', url: `http://127.0.0.1:${port}/echo` });
+    const step = { id: 'device', requestUid, captures: [], poll: { maxAttempts: 10, delayMs: 200 } };
+    const held = {
+      ...step,
+      successCriteria: [{ kind: 'equals', extractor: { kind: 'json-path', path: '$.name' }, value: 'n-1' }],
+    };
+
+    const saved = (await call('workflows_save', { workflow: { name: 'Device name', steps: [held] } })) as {
+      workflow: { uid: string };
+    };
+    expect(saved.workflow.uid).toBeTruthy();
+    await expect(call('workflows_save', { workflow: { name: 'Bare poll', steps: [step] } })).rejects.toThrow(
+      'invalid workflow: Step "device" polls with no success criteria to wait for.',
+    );
+  });
+
   it('rejects a workflow referencing a missing request', async () => {
     await expect(
       call('workflows_save', {
