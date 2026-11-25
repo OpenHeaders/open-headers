@@ -149,6 +149,8 @@ export const workbenchLive = {
   'workbench.editors.live.workflow.refresh': '새로 고침',
   'workbench.editors.live.workflow.disabledTag': '비활성',
   'workbench.editors.live.workflow.notFound': '워크플로를 찾을 수 없습니다.',
+  'workbench.editors.live.workflow.needsUpdate':
+    '이 워크플로에는 더 새로운 버전의 OpenHeaders가 필요한 단계가 있습니다. 편집하거나 실행하려면 업데이트하세요.',
   'workbench.editors.live.workflow.deletedElsewhere': '워크플로가 다른 탭에서 삭제되었습니다',
   'workbench.editors.live.workflow.saveFailed': '워크플로를 저장하지 못했습니다',
   'workbench.editors.live.workflow.createFailed': '워크플로를 만들지 못했습니다',
@@ -172,6 +174,7 @@ export const workbenchLive = {
 
   // ── Workflow step editor ────────────────────────────────────────────
   'workbench.editors.live.step.title': '{number}단계',
+  'workbench.editors.live.step.needsUpdate': '이 단계에는 더 새로운 버전의 OpenHeaders가 필요합니다.',
   'workbench.editors.live.step.idPrefix': 'id',
   'workbench.editors.live.step.namePrefix': '이름',
   'workbench.editors.live.step.typeTooltip':

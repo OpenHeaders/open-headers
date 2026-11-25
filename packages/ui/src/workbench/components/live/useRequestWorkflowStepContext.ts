@@ -18,6 +18,7 @@
  * no suggestions than wrong suggestions.
  */
 
+import { isUnknownStep } from '@openheaders/core/live';
 import type { SuggestionContext } from '@openheaders/core/variables';
 import { useLiveWorkflows } from '@openheaders/ui/shared/hooks/readers/useLiveWorkflows';
 import { useMemo } from 'react';
@@ -33,7 +34,8 @@ export function useRequestWorkflowStepContext(
     const hits: Array<{ workflowUid: string; stepIndex: number; steps: (typeof workflows)[number]['steps'] }> = [];
     for (const wf of workflows) {
       for (let i = 0; i < wf.steps.length; i++) {
-        if (wf.steps[i].requestUid === requestUid) {
+        const step = wf.steps[i];
+        if (!isUnknownStep(step) && step.requestUid === requestUid) {
           hits.push({ workflowUid: wf.uid, stepIndex: i, steps: wf.steps });
         }
       }
@@ -51,7 +53,7 @@ export function useRequestWorkflowStepContext(
       currentStepIndex: hit.stepIndex,
       steps: hit.steps.map((s) => ({
         id: s.id,
-        captures: s.captures.map((c) => ({ name: c.name })),
+        captures: isUnknownStep(s) ? [] : s.captures.map((c) => ({ name: c.name })),
       })),
     };
   }, [workflows, requestUid]);

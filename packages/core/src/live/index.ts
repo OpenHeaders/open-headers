@@ -39,7 +39,15 @@ export {
 } from './circuit-breaker';
 export type { CycleEdge, CycleReport, RequestTemplateProvider as CycleRequestTemplateProvider } from './cycle-detect';
 export { detectCycles } from './cycle-detect';
-export type { DraftCapture, DraftStep, DraftWorkflow, LvCreateOp, LvReconcilePlan, LvUpdateOp } from './editor-draft';
+export type {
+  DraftCallStep,
+  DraftCapture,
+  DraftStep,
+  DraftWorkflow,
+  LvCreateOp,
+  LvReconcilePlan,
+  LvUpdateOp,
+} from './editor-draft';
 export {
   draftFromWorkflow,
   newDraftCapture,
@@ -108,6 +116,15 @@ export {
 } from './step-validation';
 export type { StepRef, TemplateScanResult } from './template-scan';
 export { scanTemplateReferences, scanTemplateReferencesMany } from './template-scan';
+export {
+  callStepsOf,
+  isRunnableWorkflow,
+  isUnknownStep,
+  UNKNOWN_STEP_PHASE,
+  unknownStepMessage,
+  unknownStepsOf,
+  WORKFLOW_NEEDS_UPDATE_MESSAGE,
+} from './unknown-step';
 export type { VariableFingerprint, VariableScopeSnapshot } from './variable-scan';
 export { workflowVariableFingerprint } from './variable-scan';
 export { isLiveVariableDraft, isLiveVariableEffective, liveVariablesToPublishOnRun } from './variable-state';
@@ -118,5 +135,6 @@ export {
   isWorkflowComplete,
   isWorkflowDraft,
   isWorkflowEffective,
+  workflowNeedsUpdate,
   workflowStepsResolvable,
 } from './workflow-state';

@@ -6,12 +6,19 @@
  */
 
 import { InfoCircleOutlined, PlusOutlined } from '@ant-design/icons';
-import { type DraftStep, type DraftWorkflow, validateStepRequestsExist, validateWorkflowShape } from '@openheaders/core/live';
+import {
+  callStepsOf,
+  type DraftCallStep,
+  type DraftWorkflow,
+  isUnknownStep,
+  validateStepRequestsExist,
+  validateWorkflowShape,
+} from '@openheaders/core/live';
 import type { LiveWorkflow } from '@openheaders/core/types';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { LIVE_WORKFLOW_FIELD } from '@openheaders/ui/shared/awareness/live-paths';
 import { useRequests } from '@openheaders/ui/shared/hooks/readers/useRequests';
-import { Alert, Button, Switch, Tooltip, Typography, theme } from 'antd';
+import { Alert, Button, ConfigProvider, Switch, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
 import { useMemo } from 'react';
 import { computeRequestTrail } from '../../breadcrumbs';
@@ -21,6 +28,7 @@ import { InlineDescription, LIVE_FORM_PAD_X, Section } from './layout';
 import { rebindCaptureReferences } from './rebind-capture-references';
 import { rebindStepReferences } from './rebind-step-references';
 import RefreshPolicyEditor from './RefreshPolicyEditor';
+import UnknownStepCard from './UnknownStepCard';
 import type { StepRequestChoice } from './workflow-step-request-options';
 import WorkflowStepEditor from './WorkflowStepEditor';
 
@@ -34,6 +42,12 @@ interface WorkflowFormBodyProps {
   /** Consume-once request: scroll this step's card into view, then report done. */
   scrollToStepId?: string | null;
   onScrollToStepDone?: () => void;
+  /**
+   * The workflow holds a step this build does not know and is read-only
+   * here (the workflow runs plan, Laws): every control is off but the
+   * Enabled switch — it can still be switched off.
+   */
+  readOnly?: boolean;
 }
 
 const WorkflowFormBody: React.FC<WorkflowFormBodyProps> = ({
@@ -42,6 +56,7 @@ const WorkflowFormBody: React.FC<WorkflowFormBodyProps> = ({
   selectedStepId,
   scrollToStepId,
   onScrollToStepDone,
+  readOnly = false,
 }) => {
   const { token } = theme.useToken();
   const t = useT();
@@ -99,7 +114,7 @@ const WorkflowFormBody: React.FC<WorkflowFormBodyProps> = ({
 
   const capturesByStepId = useMemo(() => {
     const map = new Map<string, string[]>();
-    for (const step of draft.steps) {
+    for (const step of callStepsOf(draft)) {
       map.set(
         step.id,
         step.captures.map((c) => c.name),
@@ -110,7 +125,7 @@ const WorkflowFormBody: React.FC<WorkflowFormBodyProps> = ({
 
   const availableCaptures = useMemo(
     () =>
-      draft.steps.flatMap((s) =>
+      callStepsOf(draft).flatMap((s) =>
         s.captures.map((c) => ({ stepId: s.id, captureName: c.name, label: `${s.id}.${c.name}` })),
       ),
     [draft.steps],
@@ -150,7 +165,7 @@ const WorkflowFormBody: React.FC<WorkflowFormBodyProps> = ({
     [requests, graphqlRequests, requestCollectionTrees],
   );
 
-  const updateStep = (idx: number, next: DraftStep) => {
+  const updateStep = (idx: number, next: DraftCallStep) => {
     const prev = draft.steps[idx];
     const nextSteps = draft.steps.slice();
     nextSteps[idx] = next;
@@ -173,7 +188,7 @@ const WorkflowFormBody: React.FC<WorkflowFormBodyProps> = ({
     // and captureName === old. Use the renamed step's CURRENT id
     // (next.id) since the step-id rebind above already shifted the
     // owner's identifier when both rename together.
-    if (prev) {
+    if (prev && !isUnknownStep(prev)) {
       const prevCapByUid = new Map(prev.captures.map((c) => [c.uid, c]));
       for (const nextCap of next.captures) {
         const prevCap = prevCapByUid.get(nextCap.uid);
@@ -209,6 +224,7 @@ const WorkflowFormBody: React.FC<WorkflowFormBodyProps> = ({
   };
 
   return (
+    <ConfigProvider componentDisabled={readOnly}>
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
       {workflowLevelErrors.length > 0 && (
         <Alert
@@ -269,6 +285,18 @@ const WorkflowFormBody: React.FC<WorkflowFormBodyProps> = ({
           // runIf / priorityFrom. The transitive set is computed by
           // `buildDependencyRows` via the core validator's helper.
           const reachableSteps = Array.from(row?.reachable ?? []).map((id) => ({ id, label: id }));
+          if (isUnknownStep(step)) {
+            return (
+              <UnknownStepCard
+                key={step.id || `step-${idx}`}
+                step={step}
+                index={idx}
+                selected={selectedStepId === step.id}
+                scrollRequested={scrollToStepId === step.id}
+                onScrollDone={onScrollToStepDone}
+              />
+            );
+          }
           const stepErrors = errorsByStepId.get(step.id) ?? [];
           return (
             <WorkflowStepEditor
@@ -337,12 +365,15 @@ const WorkflowFormBody: React.FC<WorkflowFormBodyProps> = ({
         }}
       >
         <div data-field-path={LIVE_WORKFLOW_FIELD.enabled} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          <Switch
-            size="small"
-            aria-label={t('workbench.editors.live.form.enabledAria')}
-            checked={draft.enabled}
-            onChange={(enabled) => setDraft({ ...draft, enabled })}
-          />
+          {/* A read-only workflow can still be switched off. */}
+          <ConfigProvider componentDisabled={false}>
+            <Switch
+              size="small"
+              aria-label={t('workbench.editors.live.form.enabledAria')}
+              checked={draft.enabled}
+              onChange={(enabled) => setDraft({ ...draft, enabled })}
+            />
+          </ConfigProvider>
           <Text style={{ fontSize: 12 }}>
             {draft.enabled ? t('workbench.editors.live.form.enabled') : t('workbench.editors.live.form.disabled')}
           </Text>
@@ -359,6 +390,7 @@ const WorkflowFormBody: React.FC<WorkflowFormBodyProps> = ({
       </div>
       </div>
     </div>
+    </ConfigProvider>
   );
 };
 

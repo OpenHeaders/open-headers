@@ -51,6 +51,8 @@ export interface WorkflowStepSectionsOptions {
   retry: StepRetryPolicy | undefined;
   timeoutMs: number | undefined;
   runScripts: boolean | undefined;
+  /** The form is read-only — a control that sets its own `disabled` stays off whatever its own condition says. */
+  readOnly: boolean;
   handleDependsOnChange: (next: string[]) => void;
   clearExplicitDependsOn: () => void;
   handleRunIfChange: (next: StepGate | undefined) => void;
@@ -105,6 +107,7 @@ export function buildWorkflowStepSections({
   retry,
   timeoutMs,
   runScripts,
+  readOnly,
   handleDependsOnChange,
   clearExplicitDependsOn,
   handleRunIfChange,
@@ -254,7 +257,7 @@ export function buildWorkflowStepSections({
                 size="small"
                 placeholder={t('workbench.editors.live.sections.priorityCapturePlaceholder')}
                 style={{ width: 160 }}
-                disabled={!priority?.stepId}
+                disabled={readOnly || !priority?.stepId}
                 status={priorityError?.issue === 'priority-unknown-capture' ? 'error' : undefined}
                 data-testid={`wf-step-${index}-priority-capture`}
                 value={priority?.captureName}
@@ -268,7 +271,7 @@ export function buildWorkflowStepSections({
             <Select
               size="small"
               style={{ width: 140 }}
-              disabled={!priority?.stepId}
+              disabled={readOnly || !priority?.stepId}
               data-testid={`wf-step-${index}-priority-sort`}
               value={priority?.sort ?? 'numeric'}
               options={[
@@ -339,7 +342,7 @@ export function buildWorkflowStepSections({
               min={0}
               max={MAX_RETRY_DELAY_MS}
               step={100}
-              disabled={!retry}
+              disabled={readOnly || !retry}
               placeholder={String(DEFAULT_RETRY_DELAY_MS)}
               prefix={
                 <Text type="secondary" style={{ fontSize: 11 }}>
@@ -362,7 +365,7 @@ export function buildWorkflowStepSections({
             <Select
               size="small"
               style={{ width: 120 }}
-              disabled={!retry}
+              disabled={readOnly || !retry}
               data-testid={`wf-step-${index}-retry-backoff`}
               value={retry?.backoff ?? 'fixed'}
               options={[
@@ -383,7 +386,7 @@ export function buildWorkflowStepSections({
             <Select
               size="small"
               style={{ width: 190 }}
-              disabled={!retry}
+              disabled={readOnly || !retry}
               data-testid={`wf-step-${index}-retry-on`}
               value={retryOnChoice}
               options={[

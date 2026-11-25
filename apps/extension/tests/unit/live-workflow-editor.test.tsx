@@ -15,9 +15,11 @@
  * state is exposed via `aria-disabled` + the native `disabled` property.
  */
 
+import { LiveWorkflowSchema } from '@openheaders/core/schemas';
 import type { GraphqlRequest, LiveWorkflow, Request } from '@openheaders/core/types';
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { App } from 'antd';
+import * as v from 'valibot';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
 // Monaco (transitively pulled in via EntityConflictDialog) calls
@@ -74,14 +76,33 @@ const workflowFixture: LiveWorkflow = {
   ],
 };
 
+// A workflow as a newer build wrote it — a `listen` with no captures, a
+// call, an `expect` — reaching this build by sync.
+const needsUpdateFixture: LiveWorkflow = v.parse(LiveWorkflowSchema, {
+  ...workflowFixture,
+  uid: 'wfdevice',
+  name: 'Reboot',
+  steps: [
+    { uid: 'stplistn', id: 'probe', action: 'listen', session: 'mqttreq1' },
+    { uid: 'stpcall0', id: 'reboot', requestUid: 'reqfixt1', captures: [] },
+    { uid: 'stpexpct', id: 'status', action: 'expect', on: 'probe', after: 'reboot', captures: [] },
+  ],
+});
+
+// Mutable so a suite can open a different workflow and watch the two
+// write doors.
+let workflowState: LiveWorkflow = workflowFixture;
+const updateWorkflowMock = vi.fn(async (..._args: unknown[]) => ({ success: true }));
+const refreshNowMock = vi.fn(async (..._args: unknown[]) => ({ success: true }));
+
 vi.mock('@openheaders/ui/shared/hooks/readers/useLiveWorkflows', () => ({
   useLiveWorkflows: () => ({
-    workflows: [workflowFixture],
+    workflows: [workflowState],
     isReady: true,
     createWorkflow: vi.fn(),
-    updateWorkflow: vi.fn(),
+    updateWorkflow: updateWorkflowMock,
     deleteWorkflow: vi.fn(),
-    refreshNow: vi.fn(),
+    refreshNow: refreshNowMock,
   }),
 }));
 vi.mock('@openheaders/ui/shared/hooks/readers/useLiveVariables', () => ({
@@ -137,13 +158,16 @@ const testIdentity = resolveWorkbenchIdentity();
 afterEach(() => {
   cleanup();
   requestsState = { requests: [makeRequest()], graphqlRequests: [], collectionTrees: [], isReady: true };
+  workflowState = workflowFixture;
+  updateWorkflowMock.mockClear();
+  refreshNowMock.mockClear();
 });
 
 function renderEditor() {
   return render(
     <App>
       <AwarenessIdentityProvider value={testIdentity}>
-        <LiveWorkflowEditor mode="edit" workflowUid={workflowFixture.uid} />
+        <LiveWorkflowEditor mode="edit" workflowUid={workflowState.uid} />
       </AwarenessIdentityProvider>
     </App>,
   );
@@ -178,5 +202,78 @@ describe('LiveWorkflowEditor — deleted-request validity', () => {
     requestsState = { requests: [], graphqlRequests: [], collectionTrees: [], isReady: false };
     const { container } = renderEditor();
     expect(container.querySelector('.ant-select-status-error')).toBeNull();
+  });
+});
+
+// ── A workflow with steps this build does not know ────────────────
+//
+// The workflow runs plan, Laws — "A workflow with a step this build
+// does not know is read-only here": it is neither edited nor run, and
+// it can still be switched off.
+
+describe('LiveWorkflowEditor — a workflow that needs a newer version', () => {
+  const BANNER = 'This workflow has steps that need a newer version of OpenHeaders. Update to edit or run it.';
+  const STEP = 'This step needs a newer version of OpenHeaders.';
+
+  function renderNeedsUpdate() {
+    workflowState = needsUpdateFixture;
+    requestsState = { ...requestsState, requests: [makeRequest({ uid: 'reqfixt1' })] };
+    return renderEditor();
+  }
+
+  it('says so once, above the form', () => {
+    renderNeedsUpdate();
+    expect(screen.getAllByText(BANNER)).toHaveLength(1);
+  });
+
+  it('shows no banner on a workflow whose every step it knows', () => {
+    renderEditor();
+    expect(screen.queryByText(BANNER)).toBeNull();
+  });
+
+  it('shows each unknown step with the sentence and its raw action, and no request to pick', () => {
+    const { container } = renderNeedsUpdate();
+
+    const cards = Array.from(container.querySelectorAll('[data-step-needs-update]'));
+    expect(cards.map((card) => card.getAttribute('data-step-card'))).toEqual(['probe', 'status']);
+    for (const card of cards) {
+      expect(card.textContent).toContain(STEP);
+      expect(card.querySelector('.ant-select')).toBeNull();
+      expect(card.querySelector('input')).toBeNull();
+    }
+    expect(cards[0].textContent).toContain('listen');
+    expect(cards[1].textContent).toContain('expect');
+  });
+
+  it('takes no edit: the call step, the add-step button and Refresh are off', () => {
+    const { container } = renderNeedsUpdate();
+
+    const callCard = container.querySelector('[data-step-card="reboot"]');
+    const controls = Array.from(callCard?.querySelectorAll('input, button') ?? []);
+    expect(controls.length).toBeGreaterThan(0);
+    for (const control of controls) expect(control).toHaveProperty('disabled', true);
+    expect(screen.getByRole('button', { name: /Step$/ })).toHaveProperty('disabled', true);
+    expect(screen.getByRole('button', { name: /Refresh/ })).toHaveProperty('disabled', true);
+  });
+
+  it('can still be switched off, and the save writes that alone', async () => {
+    renderNeedsUpdate();
+
+    const enabled = screen.getByRole('switch', { name: 'Workflow enabled' });
+    expect(enabled).toHaveProperty('disabled', false);
+    fireEvent.click(enabled);
+    fireEvent.click(screen.getByRole('button', { name: /Save/ }));
+
+    await waitFor(() => expect(updateWorkflowMock).toHaveBeenCalledTimes(1));
+    expect(updateWorkflowMock).toHaveBeenCalledWith('wfdevice', { enabled: false });
+  });
+
+  it('draws the unknown steps in the preview with no edit gesture', () => {
+    const { container } = renderNeedsUpdate();
+    fireEvent.click(screen.getByText('Preview'));
+
+    const nodes = Array.from(container.querySelectorAll('[data-needs-update]'));
+    expect(nodes.map((node) => node.textContent)).toEqual([`probe${STEP}listen`, `status${STEP}expect`]);
+    expect(screen.queryByRole('button', { name: /Step$/ })).toBeNull();
   });
 });

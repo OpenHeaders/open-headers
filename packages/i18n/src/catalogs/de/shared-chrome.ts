@@ -176,4 +176,7 @@ export const sharedChrome = {
     'Gespeichert, aber noch nicht Live — Pflichtfelder fehlen, oder noch nicht veröffentlicht.',
   'shared.chrome.lifecycle.live': 'Live',
   'shared.chrome.lifecycle.liveBody': 'Veröffentlicht und aktiv.',
+  'shared.chrome.lifecycle.needsUpdate': 'Update nötig',
+  'shared.chrome.lifecycle.needsUpdateBody':
+    'Enthält Teile, die eine neuere Version von OpenHeaders benötigen. Aktualisiere, um es zu bearbeiten oder auszuführen.',
 } as const satisfies Catalog;

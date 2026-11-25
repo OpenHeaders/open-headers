@@ -14,6 +14,9 @@
  *     order (valibot preserves it — the schema is the single nested-
  *     order authority; no hand-maintained nested order tables).
  *   - `v.record` maps: keys sorted by UTF-16 code unit.
+ *   - Maps that keep undeclared keys (`v.looseObject`): the value as it
+ *     is, in its own key order — what it holds is not the schema's to
+ *     order or to drop.
  *   - Arrays / tuples: element order as given (arrays are ordered
  *     lists in the entity model; cross-file sibling order lives on the
  *     parent's `order:` array per §23.5).
@@ -32,6 +35,7 @@ import {
   asSchemaShape,
   isArrayShape,
   isObjectShape,
+  isOpenObjectShape,
   isRecordShape,
   isTupleShape,
   resolveForValue,
@@ -85,7 +89,7 @@ function buildNode(
     return doc.createNode(value);
   }
   const shape = resolveForValue(schema, value);
-  if (shape === undefined) return doc.createNode(value);
+  if (shape === undefined || isOpenObjectShape(shape)) return doc.createNode(value);
 
   if (isObjectShape(shape) && isPlainObject(value)) {
     const entries = shape.entries ?? {};

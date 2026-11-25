@@ -27,6 +27,7 @@
 
 import * as v from 'valibot';
 import { scanTemplateReferencesMany } from '../live/template-scan';
+import { callStepsOf } from '../live/unknown-step';
 import type {
   Collection,
   Environment,
@@ -239,7 +240,7 @@ function walkWorkflowSteps(
   acc: Map<string, MissingDep>,
 ): void {
   for (const wf of workflows) {
-    for (const step of wf.steps) {
+    for (const step of callStepsOf(wf)) {
       if (!requestUids.has(step.requestUid)) {
         const name = requestsByUid.get(step.requestUid)?.name ?? step.requestUid;
         addDep(acc, 'request', name, entityRef('liveWorkflows', wf.uid));

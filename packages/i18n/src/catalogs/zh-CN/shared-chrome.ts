@@ -173,4 +173,6 @@ export const sharedChrome = {
   'shared.chrome.lifecycle.draftBody': '已保存但尚未 Live——缺少必填字段，或尚未发布。',
   'shared.chrome.lifecycle.live': 'Live',
   'shared.chrome.lifecycle.liveBody': '已发布且处于活动状态。',
+  'shared.chrome.lifecycle.needsUpdate': '需要更新',
+  'shared.chrome.lifecycle.needsUpdateBody': '包含需要更新版本 OpenHeaders 的部分。请更新后再编辑或运行。',
 } as const satisfies Catalog;

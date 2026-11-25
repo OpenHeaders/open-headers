@@ -249,7 +249,8 @@ export const StepTimeoutMsSchema = v.pipe(
 
 // ── Workflow step ─────────────────────────────────────────────────
 
-export const WorkflowStepSchema = v.object({
+/** A step that sends one saved request — a step with no `action`. */
+export const CallWorkflowStepSchema = v.object({
   uid: UidSchema,
   id: StepIdSchema,
   description: v.optional(v.string()),
@@ -298,6 +299,33 @@ export const WorkflowStepSchema = v.object({
    */
   runScripts: v.optional(v.boolean()),
 });
+
+/**
+ * A step this build does not know (the workflow runs plan, Laws): its
+ * `action` names something other than a call. Only `uid`, `id` and
+ * `action` are read; every other key is kept as it is, so a workflow a
+ * newer build wrote is stored, synced and written back whole.
+ */
+export const UnknownWorkflowStepSchema = v.looseObject({
+  uid: UidSchema,
+  id: StepIdSchema,
+  action: v.pipe(v.string(), v.minLength(1), v.notValue('call')),
+});
+
+/** Whether a step's `action` names something other than a call — the rule the step schema picks its shape by. */
+export function hasUnknownStepAction(step: unknown): boolean {
+  if (typeof step !== 'object' || step === null || !('action' in step)) return false;
+  return typeof step.action === 'string' && step.action !== 'call';
+}
+
+/**
+ * One workflow step. Picked by `action`, never tried in turn: a step
+ * with an unknown action is never read as a call, and a call step's
+ * issues keep the path of the field they are about.
+ */
+export const WorkflowStepSchema = v.lazy((step) =>
+  hasUnknownStepAction(step) ? UnknownWorkflowStepSchema : CallWorkflowStepSchema,
+);
 
 // ── Refresh policy ────────────────────────────────────────────────
 

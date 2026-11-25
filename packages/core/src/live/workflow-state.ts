@@ -14,6 +14,7 @@
 
 import type { LiveWorkflow } from '../types/live';
 import { validateStepRequestsExist, validateWorkflowShape } from './step-validation';
+import { isUnknownStep } from './unknown-step';
 
 /**
  * Is this workflow complete enough to actually run? An incomplete
@@ -23,6 +24,8 @@ import { validateStepRequestsExist, validateWorkflowShape } from './step-validat
  *
  * Completeness rules:
  *   - At least one step (empty workflows have nothing to fetch).
+ *   - Every step is one this build knows — {@link workflowNeedsUpdate}
+ *     says when that is why.
  *   - Every step has a `requestUid` (empty-string is the in-progress
  *     placeholder the editor emits before the user picks a request).
  *   - `validateWorkflowShape` returns no structural errors. This covers
@@ -37,9 +40,27 @@ export function isWorkflowComplete(wf: LiveWorkflow): boolean {
   // skips) instead of throwing into the render path.
   try {
     if (!Array.isArray(wf.steps) || wf.steps.length === 0) return false;
-    if (wf.steps.some((s) => !s.requestUid || s.requestUid.length === 0)) return false;
+    if (wf.steps.some((s) => isUnknownStep(s) || !s.requestUid || s.requestUid.length === 0)) return false;
     if (validateWorkflowShape(wf).length > 0) return false;
     return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Does this workflow hold a step this build does not know (the workflow
+ * runs plan, Laws)? Such a workflow is read-only here: it can be renamed,
+ * moved, switched off and deleted, and is neither edited nor run. It is
+ * never complete, and this is the answer that says why — "needs update"
+ * where an unfinished workflow reads "incomplete".
+ *
+ * Same trust boundary as {@link isWorkflowComplete}: a malformed row
+ * answers false instead of throwing into the render path.
+ */
+export function workflowNeedsUpdate(wf: LiveWorkflow): boolean {
+  try {
+    return Array.isArray(wf.steps) && wf.steps.some(isUnknownStep);
   } catch {
     return false;
   }

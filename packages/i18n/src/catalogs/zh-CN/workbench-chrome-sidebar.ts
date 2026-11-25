@@ -105,6 +105,7 @@ export const workbenchChromeSidebar = {
   'workbench.sidebar.badge.unresolved': '未解析',
   'workbench.sidebar.badge.off': '关',
   'workbench.sidebar.badge.incomplete': '不完整',
+  'workbench.sidebar.badge.needsUpdate': '需要更新',
   'workbench.sidebar.badge.scratch': '暂存',
   'workbench.sidebar.badge.scripts': '脚本',
   'workbench.sidebar.badge.specDrift': '已更改',

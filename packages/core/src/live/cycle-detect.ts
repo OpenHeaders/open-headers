@@ -23,6 +23,7 @@
 
 import type { LiveVariable, LiveWorkflow } from '../types/live';
 import { scanTemplateReferencesMany } from './template-scan';
+import { callStepsOf } from './unknown-step';
 
 // ── Result shape ──────────────────────────────────────────────────
 
@@ -76,7 +77,7 @@ export function detectCycles(
     const outs: CycleEdge[] = [];
     const wf = wfByUid.get(lv.workflowUid);
     if (wf) {
-      for (const step of wf.steps) {
+      for (const step of callStepsOf(wf)) {
         const templates = requestTemplates(step.requestUid);
         if (templates == null || templates.length === 0) continue;
         const { live: liveRefs } = scanTemplateReferencesMany(templates);

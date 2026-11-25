@@ -14,8 +14,11 @@
  */
 
 import {
+  callStepsOf,
+  type DraftCapture,
   type DraftStep,
   type DraftWorkflow,
+  isUnknownStep,
   pickPrimaryLv,
   stripDraftSteps,
   toDraftCapture,
@@ -106,17 +109,21 @@ export function useLiveWorkflowConflictResolution({
         // Rewrap captures as DraftCaptures, preserving each existing
         // draft capture's exposure metadata (matched by uid). New /
         // unmatched captures fall back to the toDraftCapture default.
-        const draftCapByUid = new Map<string, DraftStep['captures'][number]>();
-        for (const s of d.steps) for (const c of s.captures) draftCapByUid.set(c.uid, c);
-        const nextSteps: DraftStep[] = transient.steps.map((s) => ({
-          ...s,
-          captures: s.captures.map((c) => {
-            const existing = draftCapByUid.get(c.uid);
-            return existing
-              ? { ...c, exposed: existing.exposed, liveName: existing.liveName, liveUid: existing.liveUid }
-              : toDraftCapture(c, pickPrimaryLv(s.id, c.name, boundVars));
-          }),
-        }));
+        const draftCapByUid = new Map<string, DraftCapture>();
+        for (const s of callStepsOf(d)) for (const c of s.captures) draftCapByUid.set(c.uid, c);
+        const nextSteps: DraftStep[] = transient.steps.map((s) =>
+          isUnknownStep(s)
+            ? s
+            : {
+                ...s,
+                captures: s.captures.map((c) => {
+                  const existing = draftCapByUid.get(c.uid);
+                  return existing
+                    ? { ...c, exposed: existing.exposed, liveName: existing.liveName, liveUid: existing.liveUid }
+                    : toDraftCapture(c, pickPrimaryLv(s.id, c.name, boundVars));
+                }),
+              },
+        );
         return {
           ...d,
           name: transient.name,
@@ -205,10 +212,14 @@ export function useLiveWorkflowConflictResolution({
         steps: WorkflowStep[];
       }>;
       const nextSteps: DraftStep[] | undefined = Array.isArray(raw.steps)
-        ? raw.steps.map((step) => ({
-            ...step,
-            captures: step.captures.map((c) => toDraftCapture(c, pickPrimaryLv(step.id, c.name, boundVars))),
-          }))
+        ? raw.steps.map((step) =>
+            isUnknownStep(step)
+              ? step
+              : {
+                  ...step,
+                  captures: step.captures.map((c) => toDraftCapture(c, pickPrimaryLv(step.id, c.name, boundVars))),
+                },
+          )
         : undefined;
       setDraft((d) =>
         d

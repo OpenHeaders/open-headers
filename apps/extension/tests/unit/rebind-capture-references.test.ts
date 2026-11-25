@@ -1,6 +1,9 @@
-import type { DraftWorkflow } from '@openheaders/core/live';
+import { callStepsOf, type DraftWorkflow } from '@openheaders/core/live';
 import { rebindCaptureReferences } from '@openheaders/ui/workbench/components/live/rebind-capture-references';
 import { describe, expect, it } from 'vitest';
+
+/** The draft's call step at an index — every step of these fixtures is one. */
+const stepAt = (draft: DraftWorkflow | null, index: number) => callStepsOf(draft ?? { steps: [] })[index];
 
 function makeDraft(overrides: Partial<DraftWorkflow> = {}): DraftWorkflow {
   return {
@@ -39,7 +42,7 @@ describe('rebindCaptureReferences', () => {
       ],
     });
     const out = rebindCaptureReferences({ draft, ownerStepId: 'login', oldName: 'token', newName: 'access_token' });
-    const clauses = out.steps[1].runIf?.all ?? [];
+    const clauses = stepAt(out, 1).runIf?.all ?? [];
     expect(clauses[0].kind === 'capture-exists' && clauses[0].captureName).toBe('access_token');
     expect(clauses[1].kind === 'capture-exists' && clauses[1].captureName).toBe('other');
   });
@@ -60,7 +63,7 @@ describe('rebindCaptureReferences', () => {
       ],
     });
     const out = rebindCaptureReferences({ draft, ownerStepId: 'login', oldName: 'token', newName: 'access_token' });
-    const clause = out.steps[1].runIf?.all[0];
+    const clause = stepAt(out, 1).runIf?.all[0];
     expect(clause?.kind === 'capture-equals' && clause.captureName).toBe('token');
   });
 
@@ -78,7 +81,7 @@ describe('rebindCaptureReferences', () => {
       ],
     });
     const out = rebindCaptureReferences({ draft, ownerStepId: 'login', oldName: 'priority', newName: 'rank' });
-    expect(out.steps[1].priorityFrom?.captureName).toBe('rank');
+    expect(stepAt(out, 1).priorityFrom?.captureName).toBe('rank');
   });
 
   it('rewrites refresh.captureName for expires-in / expires-at when stepId matches', () => {

@@ -149,6 +149,8 @@ export const workbenchLive = {
   'workbench.editors.live.workflow.refresh': 'Actualiser',
   'workbench.editors.live.workflow.disabledTag': 'Désactivé',
   'workbench.editors.live.workflow.notFound': 'Workflow introuvable.',
+  'workbench.editors.live.workflow.needsUpdate':
+    "Ce workflow contient des étapes qui nécessitent une version plus récente d'OpenHeaders. Mettez à jour pour le modifier ou l'exécuter.",
   'workbench.editors.live.workflow.deletedElsewhere': 'Le workflow a été supprimé depuis un autre onglet',
   'workbench.editors.live.workflow.saveFailed': "Impossible d'enregistrer le workflow",
   'workbench.editors.live.workflow.createFailed': 'Impossible de créer le workflow',
@@ -173,6 +175,7 @@ export const workbenchLive = {
 
   // ── Workflow step editor ────────────────────────────────────────────
   'workbench.editors.live.step.title': 'Étape {number}',
+  'workbench.editors.live.step.needsUpdate': "Cette étape nécessite une version plus récente d'OpenHeaders.",
   'workbench.editors.live.step.idPrefix': 'id',
   'workbench.editors.live.step.namePrefix': 'nom',
   'workbench.editors.live.step.typeTooltip':

@@ -18,6 +18,7 @@
  */
 
 import {
+  callStepsOf,
   collectRequestTemplateStrings,
   isLiveVariableEffective,
   scanTemplateReferencesMany,
@@ -51,7 +52,7 @@ export function collectWorkflowLiveParentUids(
   lvNameToWorkflow: ReadonlyMap<string, string>,
 ): Set<string> {
   const parents = new Set<string>();
-  for (const step of workflow.steps) {
+  for (const step of callStepsOf(workflow)) {
     const request = getRequest(step.requestUid);
     if (!request) continue;
     const templates = collectRequestTemplateStrings(request);

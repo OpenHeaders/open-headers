@@ -97,6 +97,7 @@ export const workbenchChromeSidebar = {
   'workbench.sidebar.badge.unresolved': 'unresolved',
   'workbench.sidebar.badge.off': 'off',
   'workbench.sidebar.badge.incomplete': 'incomplete',
+  'workbench.sidebar.badge.needsUpdate': 'needs update',
   'workbench.sidebar.badge.scratch': 'scratch',
   'workbench.sidebar.badge.scripts': 'scripts',
   'workbench.sidebar.badge.specDrift': 'changed',

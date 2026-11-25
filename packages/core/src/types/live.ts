@@ -9,6 +9,7 @@
 
 import type * as v from 'valibot';
 import type {
+  CallWorkflowStepSchema,
   CaptureSchema,
   ExtractorSchema,
   LiveVariableOverrideSchema,
@@ -23,7 +24,7 @@ import type {
   StepGateClauseSchema,
   StepGateSchema,
   StepRetryPolicySchema,
-  WorkflowStepSchema,
+  UnknownWorkflowStepSchema,
 } from '../schemas/live';
 
 /** One extraction pipeline applied to a step's response. */
@@ -35,8 +36,17 @@ export type ExtractorKind = Extractor['kind'];
 /** A named extraction from a single workflow step's response. */
 export type Capture = v.InferOutput<typeof CaptureSchema>;
 
+/** A step that sends one saved request. */
+export type CallWorkflowStep = v.InferOutput<typeof CallWorkflowStepSchema>;
+
+/**
+ * A step this build does not know. The type names the three keys a
+ * reader may assume; the value holds every key it was written with.
+ */
+export type UnknownWorkflowStep = Pick<v.InferOutput<typeof UnknownWorkflowStepSchema>, 'uid' | 'id' | 'action'>;
+
 /** One ordered step in a Live Workflow. */
-export type WorkflowStep = v.InferOutput<typeof WorkflowStepSchema>;
+export type WorkflowStep = CallWorkflowStep | UnknownWorkflowStep;
 
 /** HTTP status-class literal accepted by `status` gate clauses. */
 export type StatusClass = v.InferOutput<typeof StatusClassSchema>;
@@ -75,7 +85,10 @@ export type RefreshPolicyKind = RefreshPolicy['kind'];
 export type LiveVariableOverride = v.InferOutput<typeof LiveVariableOverrideSchema>;
 
 /** A refreshable data source — one or more ordered steps + a schedule. */
-export type LiveWorkflow = v.InferOutput<typeof LiveWorkflowSchema>;
+export type LiveWorkflow = Omit<v.InferOutput<typeof LiveWorkflowSchema>, 'steps'> & { steps: WorkflowStep[] };
+
+/** A workflow whose every step this build can run. */
+export type RunnableWorkflow = Omit<LiveWorkflow, 'steps'> & { steps: CallWorkflowStep[] };
 
 /** A namespace binding: exposes one workflow step capture as `{{live.<name>}}`. */
 export type LiveVariable = v.InferOutput<typeof LiveVariableSchema>;

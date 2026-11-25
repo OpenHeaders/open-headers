@@ -153,6 +153,8 @@ export const workbenchLive = {
   'workbench.editors.live.workflow.refresh': 'Aktualisieren',
   'workbench.editors.live.workflow.disabledTag': 'Deaktiviert',
   'workbench.editors.live.workflow.notFound': 'Workflow nicht gefunden.',
+  'workbench.editors.live.workflow.needsUpdate':
+    'Dieser Workflow enthält Schritte, die eine neuere Version von OpenHeaders benötigen. Aktualisiere, um ihn zu bearbeiten oder auszuführen.',
   'workbench.editors.live.workflow.deletedElsewhere': 'Der Workflow wurde in einem anderen Tab gelöscht',
   'workbench.editors.live.workflow.saveFailed': 'Workflow konnte nicht gespeichert werden',
   'workbench.editors.live.workflow.createFailed': 'Workflow konnte nicht erstellt werden',
@@ -177,6 +179,7 @@ export const workbenchLive = {
 
   // ── Workflow step editor ────────────────────────────────────────────
   'workbench.editors.live.step.title': 'Schritt {number}',
+  'workbench.editors.live.step.needsUpdate': 'Dieser Schritt benötigt eine neuere Version von OpenHeaders.',
   'workbench.editors.live.step.idPrefix': 'id',
   'workbench.editors.live.step.namePrefix': 'Name',
   'workbench.editors.live.step.typeTooltip': 'Schritt-Typ — Foreach und Composite kommen in einer künftigen Version.',

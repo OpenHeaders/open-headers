@@ -20,7 +20,7 @@
  * (aria-disabled is an ARIA state) without touching AntD's class names.
  */
 
-import type { DraftStep } from '@openheaders/core/live';
+import type { DraftCallStep } from '@openheaders/core/live';
 import WorkflowStepEditor from '@openheaders/ui/workbench/components/live/WorkflowStepEditor';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import type React from 'react';
@@ -45,7 +45,7 @@ afterEach(() => {
   cleanup();
 });
 
-function mkStep(overrides: Partial<DraftStep> = {}): DraftStep {
+function mkStep(overrides: Partial<DraftCallStep> = {}): DraftCallStep {
   return { uid: 'stprefrs', id: 'refresh', requestUid: 'reqrefrsh', captures: [], ...overrides };
 }
 
@@ -57,7 +57,7 @@ function numberInput(testId: string): HTMLInputElement | null {
   return el.querySelector('input');
 }
 
-function renderStep(step: DraftStep, propOverrides: Partial<React.ComponentProps<typeof WorkflowStepEditor>> = {}) {
+function renderStep(step: DraftCallStep, propOverrides: Partial<React.ComponentProps<typeof WorkflowStepEditor>> = {}) {
   const onChange = vi.fn();
   render(
     <WorkflowStepEditor
@@ -168,7 +168,7 @@ describe('WorkflowStepEditor — Phase I', () => {
     fireEvent.change(attempts as HTMLInputElement, { target: { value: '5' } });
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ retry: { maxAttempts: 5 } }));
     fireEvent.change(attempts as HTMLInputElement, { target: { value: '' } });
-    const last = onChange.mock.calls.at(-1)?.[0] as DraftStep;
+    const last = onChange.mock.calls.at(-1)?.[0] as DraftCallStep;
     expect(last.retry).toBeUndefined();
   });
 
@@ -187,7 +187,7 @@ describe('WorkflowStepEditor — Phase I', () => {
     const { onChange } = renderStep(mkStep({ timeoutMs: 5_000 }));
     fireEvent.click(screen.getByRole('button', { name: /Timeout/i }));
     fireEvent.click(screen.getByRole('button', { name: /^Clear$/ }));
-    const last = onChange.mock.calls.at(-1)?.[0] as DraftStep;
+    const last = onChange.mock.calls.at(-1)?.[0] as DraftCallStep;
     expect(last.timeoutMs).toBeUndefined();
   });
 
@@ -210,7 +210,7 @@ describe('WorkflowStepEditor — Phase I', () => {
     const optedIn = renderStep(mkStep({ runScripts: true }));
     fireEvent.click(screen.getByRole('button', { name: /Scripts/i }));
     fireEvent.click(screen.getByRole('switch', { name: /Run the request's scripts/i }));
-    const last = optedIn.onChange.mock.calls.at(-1)?.[0] as DraftStep;
+    const last = optedIn.onChange.mock.calls.at(-1)?.[0] as DraftCallStep;
     expect(last.runScripts).toBeUndefined();
   });
 

@@ -1,3 +1,4 @@
+import { callStepsOf } from '@openheaders/core/live';
 import type { LiveWorkflow } from '@openheaders/core/types';
 import { DEFAULT_LOCALE, getTranslator } from '@openheaders/i18n';
 import {
@@ -209,7 +210,7 @@ describe('liveWorkflowResolveAdapter', () => {
         theirs: '["other"]',
       }),
     ).toBe(true);
-    expect(wf.steps[0].dependsOn).toEqual(['other']);
+    expect(callStepsOf(wf)[0].dependsOn).toEqual(['other']);
   });
 
   it('writes retry via JSON parse and timeoutMs numerically; empty clears both', () => {
@@ -220,22 +221,22 @@ describe('liveWorkflowResolveAdapter', () => {
         theirs: '{"maxAttempts":3,"backoff":"exponential"}',
       }),
     ).toBe(true);
-    expect(wf.steps[0].retry).toEqual({ maxAttempts: 3, backoff: 'exponential' });
+    expect(callStepsOf(wf)[0].retry).toEqual({ maxAttempts: 3, backoff: 'exponential' });
     expect(
       liveWorkflowResolveAdapter.applyResolutionToEntity(wf, `steps.${STEP_UID}.timeoutMs`, {
         base: '',
         theirs: '2500',
       }),
     ).toBe(true);
-    expect(wf.steps[0].timeoutMs).toBe(2500);
+    expect(callStepsOf(wf)[0].timeoutMs).toBe(2500);
     expect(
       liveWorkflowResolveAdapter.applyResolutionToEntity(wf, `steps.${STEP_UID}.retry`, { base: '', theirs: '' }),
     ).toBe(true);
-    expect(wf.steps[0].retry).toBeUndefined();
+    expect(callStepsOf(wf)[0].retry).toBeUndefined();
     expect(
       liveWorkflowResolveAdapter.applyResolutionToEntity(wf, `steps.${STEP_UID}.timeoutMs`, { base: '', theirs: '' }),
     ).toBe(true);
-    expect(wf.steps[0].timeoutMs).toBeUndefined();
+    expect(callStepsOf(wf)[0].timeoutMs).toBeUndefined();
     expect(
       liveWorkflowResolveAdapter.applyResolutionToEntity(wf, `steps.${STEP_UID}.timeoutMs`, {
         base: '',
@@ -252,18 +253,18 @@ describe('liveWorkflowResolveAdapter', () => {
         theirs: 'true',
       }),
     ).toBe(true);
-    expect(wf.steps[0].runScripts).toBe(true);
+    expect(callStepsOf(wf)[0].runScripts).toBe(true);
     expect(
       liveWorkflowResolveAdapter.applyResolutionToEntity(wf, `steps.${STEP_UID}.runScripts`, {
         base: '',
         theirs: 'false',
       }),
     ).toBe(true);
-    expect(wf.steps[0].runScripts).toBe(false);
+    expect(callStepsOf(wf)[0].runScripts).toBe(false);
     expect(
       liveWorkflowResolveAdapter.applyResolutionToEntity(wf, `steps.${STEP_UID}.runScripts`, { base: '', theirs: '' }),
     ).toBe(true);
-    expect(wf.steps[0].runScripts).toBeUndefined();
+    expect(callStepsOf(wf)[0].runScripts).toBeUndefined();
   });
 
   it('rejects malformed JSON on opaque leaves', () => {
@@ -293,7 +294,7 @@ describe('liveWorkflowResolveAdapter', () => {
         theirs: 'access_token',
       }),
     ).toBe(true);
-    expect(wf.steps[0].captures[0].name).toBe('access_token');
+    expect(callStepsOf(wf)[0].captures[0].name).toBe('access_token');
   });
 
   it('returns false when the step uid does not exist in the entity', () => {

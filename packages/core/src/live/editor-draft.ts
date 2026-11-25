@@ -23,8 +23,17 @@
  * user as a preview.
  */
 
-import type { Capture, Extractor, LiveVariable, LiveWorkflow, WorkflowStep } from '../types/live';
+import type {
+  CallWorkflowStep,
+  Capture,
+  Extractor,
+  LiveVariable,
+  LiveWorkflow,
+  UnknownWorkflowStep,
+  WorkflowStep,
+} from '../types/live';
 import { generateUid } from '../utils/workspace';
+import { isUnknownStep } from './unknown-step';
 
 // ── Draft types ───────────────────────────────────────────────────
 
@@ -47,10 +56,13 @@ export interface DraftCapture extends Capture {
   liveUid?: string;
 }
 
-/** A workflow step whose captures are DraftCaptures. */
-export interface DraftStep extends Omit<WorkflowStep, 'captures'> {
+/** A call step whose captures are DraftCaptures. */
+export interface DraftCallStep extends Omit<CallWorkflowStep, 'captures'> {
   captures: DraftCapture[];
 }
+
+/** A step of the draft — a call step under edit, or a step this build does not know, carried as it is. */
+export type DraftStep = DraftCallStep | UnknownWorkflowStep;
 
 /**
  * Full draft shape — every field the editor owns while the user is
@@ -123,10 +135,14 @@ export function draftFromWorkflow(wf: LiveWorkflow, liveVariables: readonly Live
   return {
     name: wf.name,
     description: wf.description ?? '',
-    steps: wf.steps.map((step) => ({
-      ...step,
-      captures: step.captures.map((c) => toDraftCapture(c, pickPrimaryLv(step.id, c.name, wfLvs))),
-    })),
+    steps: wf.steps.map((step) =>
+      isUnknownStep(step)
+        ? step
+        : {
+            ...step,
+            captures: step.captures.map((c) => toDraftCapture(c, pickPrimaryLv(step.id, c.name, wfLvs))),
+          },
+    ),
     refresh: wf.refresh,
     enabled: wf.enabled,
   };
@@ -139,13 +155,17 @@ export function draftFromWorkflow(wf: LiveWorkflow, liveVariables: readonly Live
  * `createWorkflow` / `updateWorkflow`.
  */
 export function stripDraftSteps(steps: readonly DraftStep[]): WorkflowStep[] {
-  return steps.map((s) => ({
-    ...s,
-    captures: s.captures.map((c) => {
-      const { exposed: _exposed, liveName: _liveName, liveUid: _liveUid, ...persisted } = c;
-      return persisted;
-    }),
-  }));
+  return steps.map((s) =>
+    isUnknownStep(s)
+      ? s
+      : {
+          ...s,
+          captures: s.captures.map((c) => {
+            const { exposed: _exposed, liveName: _liveName, liveUid: _liveUid, ...persisted } = c;
+            return persisted;
+          }),
+        },
+  );
 }
 
 // ── Reconciliation plan ───────────────────────────────────────────
@@ -211,6 +231,7 @@ export function planLiveVariableReconcile(
   // "user flipped this LV off in this session" case from the "LV was
   // never tracked by this editor" case (aliases).
   for (const step of draft.steps) {
+    if (isUnknownStep(step)) continue;
     for (const c of step.captures) {
       if (c.exposed) {
         const existing = c.liveUid ? existingByUid.get(c.liveUid) : undefined;

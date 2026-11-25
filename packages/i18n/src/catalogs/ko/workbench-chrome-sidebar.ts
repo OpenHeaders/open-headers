@@ -107,6 +107,7 @@ export const workbenchChromeSidebar = {
   'workbench.sidebar.badge.unresolved': '미해결',
   'workbench.sidebar.badge.off': '꺼짐',
   'workbench.sidebar.badge.incomplete': '미완성',
+  'workbench.sidebar.badge.needsUpdate': '업데이트 필요',
   'workbench.sidebar.badge.scratch': '스크래치',
   'workbench.sidebar.badge.scripts': '스크립트',
   'workbench.sidebar.badge.specDrift': '변경됨',

@@ -21,6 +21,7 @@
  */
 
 import {
+  callStepsOf,
   deriveExecutionPolicy,
   type ExclusivityReason,
   type ExecutionPolicyResult,
@@ -105,8 +106,9 @@ export function deriveExecutionPolicyForWorkflow(
 ): ExecutionPolicyResult {
   const vault = getVaultForWorkspace(workspaceId);
 
+  const steps = callStepsOf(workflow);
   const requestsByUid = new Map<string, Request>();
-  for (const step of workflow.steps) {
+  for (const step of steps) {
     if (requestsByUid.has(step.requestUid)) continue;
     const request = getRequestInWorkspace(step.requestUid, workspaceId);
     if (request) requestsByUid.set(step.requestUid, request);
@@ -118,7 +120,7 @@ export function deriveExecutionPolicyForWorkflow(
       : toVarMap(getEnvironmentsForWorkspace(workspaceId).find((e) => e.uid === environmentId)?.variables ?? []);
 
   return deriveExecutionPolicy({
-    workflow,
+    workflow: { steps },
     requestsByUid,
     vault,
     scope: {

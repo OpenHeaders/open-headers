@@ -20,8 +20,9 @@
  * rare case that gets manual treatment.
  */
 
-import type { DraftWorkflow } from '@openheaders/core/live';
-import type { LiveWorkflow, WorkflowStep } from '@openheaders/core/types';
+import { type DraftWorkflow, isUnknownStep } from '@openheaders/core/live';
+import type { CallWorkflowStep, LiveWorkflow } from '@openheaders/core/types';
+
 function rewriteRefresh(refresh: LiveWorkflow['refresh'], oldId: string, newId: string): LiveWorkflow['refresh'] {
   if (refresh.kind === 'expires-in' || refresh.kind === 'expires-at') {
     if (refresh.stepId === oldId) return { ...refresh, stepId: newId };
@@ -30,10 +31,10 @@ function rewriteRefresh(refresh: LiveWorkflow['refresh'], oldId: string, newId: 
 }
 
 function rewriteStepGate(
-  gate: NonNullable<WorkflowStep['runIf']> | undefined,
+  gate: NonNullable<CallWorkflowStep['runIf']> | undefined,
   oldId: string,
   newId: string,
-): NonNullable<WorkflowStep['runIf']> | undefined {
+): NonNullable<CallWorkflowStep['runIf']> | undefined {
   if (!gate) return gate;
   let changed = false;
   const all = gate.all.map((clause) => {
@@ -47,20 +48,20 @@ function rewriteStepGate(
 }
 
 function rewritePriority(
-  priority: WorkflowStep['priorityFrom'],
+  priority: CallWorkflowStep['priorityFrom'],
   oldId: string,
   newId: string,
-): WorkflowStep['priorityFrom'] {
+): CallWorkflowStep['priorityFrom'] {
   if (!priority) return priority;
   if (priority.stepId === oldId) return { ...priority, stepId: newId };
   return priority;
 }
 
 function rewriteDependsOn(
-  dependsOn: WorkflowStep['dependsOn'],
+  dependsOn: CallWorkflowStep['dependsOn'],
   oldId: string,
   newId: string,
-): WorkflowStep['dependsOn'] {
+): CallWorkflowStep['dependsOn'] {
   if (!dependsOn || dependsOn.length === 0) return dependsOn;
   let changed = false;
   const next = dependsOn.map((d) => {
@@ -95,7 +96,7 @@ export function rebindStepReferences(args: {
     // `id` is `newId`; we don't rewrite anything inside the renamed
     // step (a self-reference in dependsOn would be a cycle the
     // validator already rejects).
-    if (step.uid === targetUid) return step;
+    if (step.uid === targetUid || isUnknownStep(step)) return step;
     const dependsOn = rewriteDependsOn(step.dependsOn, oldId, newId);
     const runIf = rewriteStepGate(step.runIf, oldId, newId);
     const priorityFrom = rewritePriority(step.priorityFrom, oldId, newId);

@@ -1,4 +1,4 @@
-import { requestExecutableFingerprint } from '@openheaders/core/live';
+import { callStepsOf, requestExecutableFingerprint } from '@openheaders/core/live';
 import { canonicalJson } from '@openheaders/core/sync';
 import { logger } from '@openheaders/core/utils';
 import { getActiveEnvironmentId } from '../../entity/environment-store';
@@ -55,7 +55,7 @@ let requestEditDebounceTimer: ReturnType<typeof setTimeout> | null = null;
 function snapshotActiveRequestFingerprints(): Map<string, string> {
   const out = new Map<string, string>();
   for (const workflow of getLiveWorkflows()) {
-    for (const step of workflow.steps) {
+    for (const step of callStepsOf(workflow)) {
       if (out.has(step.requestUid)) continue;
       const request = getRequest(step.requestUid);
       if (!request) continue;
@@ -118,7 +118,7 @@ async function refreshWorkflowsForChangedRequests(changedRequestUids: ReadonlySe
   }
   const activeEnvironmentId = getActiveEnvironmentId();
   for (const workflow of getLiveWorkflows()) {
-    if (!workflow.steps.some((step) => changedRequestUids.has(step.requestUid))) continue;
+    if (!callStepsOf(workflow).some((step) => changedRequestUids.has(step.requestUid))) continue;
     // Flag every env cache row definitionally stale. This surfaces the
     // "needs re-run" badge AND — via `computeNextFireAt` — makes each
     // row due now, so the reconcile + cadence path refreshes it even

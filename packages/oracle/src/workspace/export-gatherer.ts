@@ -23,7 +23,7 @@
  * `packages/core/src/workspace-export/yaml.ts` header).
  */
 
-import { scanTemplateReferencesMany } from '@openheaders/core/live';
+import { callStepsOf, scanTemplateReferencesMany } from '@openheaders/core/live';
 import {
   FOLDER_TREE_KINDS,
   REQUEST_FOLDER_TREE_KINDS,
@@ -327,7 +327,7 @@ function expandTransitiveDeps(expanded: ExpandedSelection, src: SelectionSources
       // Workflow-step `requestUid`s are also transitive deps — pull
       // the referenced request in (and its own template strings will
       // get scanned next iteration).
-      for (const step of wf.steps) {
+      for (const step of callStepsOf(wf)) {
         const req = requestByUid.get(step.requestUid);
         if (req && !expanded.requests.has(req.uid)) {
           expanded.requests.add(req.uid);

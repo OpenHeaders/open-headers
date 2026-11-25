@@ -13,6 +13,7 @@
  * run (atomic cache commit, publish-on-run), reshaped as report items.
  */
 
+import { isUnknownStep, UNKNOWN_STEP_PHASE, unknownStepMessage } from '@openheaders/core/live';
 import type { LiveWorkflow, Request } from '@openheaders/core/types';
 import { getWorkflowRunCache } from '@openheaders/oracle/live/live-cache-store';
 import { snapshotLiveWorkflowPostStates } from '@openheaders/oracle/sync/service';
@@ -29,7 +30,10 @@ import { resolveSuitePlan } from './run-plan';
 
 export type RunTargetKind = 'collection' | 'folder' | 'workflow';
 
-/** One report row — a suite request or a workflow step. */
+/**
+ * One report row — a suite request or a workflow step. `error` is a row
+ * this host could not run at all: never a skip, never a failed test.
+ */
 export interface McpRunItem {
   kind: 'request' | 'step';
   uid: string;
@@ -37,7 +41,7 @@ export interface McpRunItem {
   path?: string;
   method?: string;
   url?: string;
-  status: 'passed' | 'failed' | 'skipped';
+  status: 'passed' | 'failed' | 'skipped' | 'error';
   httpStatus?: number;
   durationMs?: number;
   assertions?: Array<{ name: string; passed: boolean; message?: string }>;
@@ -98,12 +102,21 @@ function requireKindArg(args: Record<string, unknown>): RunTargetKind {
   throw new McpToolInputError(`'kind' must be 'collection', 'folder', or 'workflow'`);
 }
 
-function totalsFor(items: readonly McpRunItem[]): { items: number; passed: number; failed: number; skipped: number } {
+/** `errors` is present only when a row is one — a report with none reads as it always did. */
+function totalsFor(items: readonly McpRunItem[]): {
+  items: number;
+  passed: number;
+  failed: number;
+  skipped: number;
+  errors?: number;
+} {
+  const errors = items.filter((item) => item.status === 'error').length;
   return {
     items: items.length,
     passed: items.filter((item) => item.status === 'passed').length,
     failed: items.filter((item) => item.status === 'failed').length,
     skipped: items.filter((item) => item.status === 'skipped').length,
+    ...(errors > 0 ? { errors } : {}),
   };
 }
 
@@ -137,12 +150,25 @@ function progressBridge(
 /** Reshape one workflow run as report items — atomic semantics made
  *  visible: on failure only the failing step ran to a verdict; every
  *  other step's work was discarded with the cache commit, so it
- *  reports `skipped`, never a phantom pass. */
+ *  reports `skipped`, never a phantom pass. A run refused for a step this
+ *  build does not know ran nothing: each such step is an `error` row with
+ *  its reason, every other step `skipped`. */
 function workflowItems(workflow: LiveWorkflow, outcome: McpWorkflowRunOutcome): McpRunItem[] {
   return workflow.steps.map((step) => {
     if (outcome.ok) {
       const status = outcome.skippedStepIds.includes(step.id) ? ('skipped' as const) : ('passed' as const);
       return { kind: 'step' as const, uid: step.uid, name: step.id, status };
+    }
+    if (outcome.failedPhase === UNKNOWN_STEP_PHASE) {
+      return isUnknownStep(step)
+        ? {
+            kind: 'step' as const,
+            uid: step.uid,
+            name: step.id,
+            status: 'error' as const,
+            error: unknownStepMessage(step),
+          }
+        : { kind: 'step' as const, uid: step.uid, name: step.id, status: 'skipped' as const };
     }
     if (step.id === outcome.failedStepId) {
       return {
@@ -171,7 +197,9 @@ export function createRunToolDefinitions(deps: McpRunToolDeps): McpToolDefinitio
         'explicit assertions outrank the status code. ref accepts a name or uid (folders also a ' +
         "'Collection/Folder' path); bail stops at the first failure and reports the rest skipped. A " +
         'workflow target runs exactly like workflows_run (atomic captures, publish-on-run), reported as ' +
-        'per-step items. A collection/folder call carrying a _meta.progressToken streams live per-item ' +
+        "per-step items. A workflow holding a step this host's version does not know runs nothing: each such " +
+        'step reports status error with its reason, and totals.errors counts them. A collection/folder call ' +
+        'carrying a _meta.progressToken streams live per-item ' +
         'progress notifications during the run; the final report is unchanged either way.',
       inputSchema: {
         type: 'object',

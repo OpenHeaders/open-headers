@@ -181,4 +181,7 @@ export const sharedChrome = {
     '저장되었지만 아직 라이브가 아닙니다. 필수 필드가 빠졌거나 아직 게시되지 않았습니다.',
   'shared.chrome.lifecycle.live': '라이브',
   'shared.chrome.lifecycle.liveBody': '게시되어 활성 상태입니다.',
+  'shared.chrome.lifecycle.needsUpdate': '업데이트 필요',
+  'shared.chrome.lifecycle.needsUpdateBody':
+    '더 새로운 버전의 OpenHeaders가 필요한 부분이 있습니다. 편집하거나 실행하려면 업데이트하세요.',
 } as const satisfies Catalog;

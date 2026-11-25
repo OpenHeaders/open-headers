@@ -144,6 +144,7 @@ export type {
 } from './identity-acl';
 // ── Live Variables + Workflows ────────────────────────────────────
 export type {
+  CallWorkflowStep,
   Capture,
   Extractor,
   ExtractorKind,
@@ -155,12 +156,14 @@ export type {
   RefreshPolicy,
   RefreshPolicyKind,
   RetryBackoff,
+  RunnableWorkflow,
   StatusClass,
   StatusMatch,
   StepGate,
   StepGateClause,
   StepGateClauseKind,
   StepRetryPolicy,
+  UnknownWorkflowStep,
   WorkflowStep,
 } from './live';
 // ── Live cache row ─────────────────────────────────────────────────

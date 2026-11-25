@@ -120,6 +120,7 @@ export const workbenchChromeSidebar = {
   'workbench.sidebar.badge.unresolved': 'nerezolvat',
   'workbench.sidebar.badge.off': 'dezactivat',
   'workbench.sidebar.badge.incomplete': 'incomplet',
+  'workbench.sidebar.badge.needsUpdate': 'necesită actualizare',
   'workbench.sidebar.badge.scratch': 'schiță',
   'workbench.sidebar.badge.scripts': 'scripturi',
   'workbench.sidebar.badge.specDrift': 'modificat',

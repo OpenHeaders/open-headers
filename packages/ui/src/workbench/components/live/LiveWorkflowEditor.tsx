@@ -20,6 +20,11 @@
  *   tree's "Create Workflow…" picker). No status bar, no Refresh-now
  *   button (nothing to refresh before first save).
  *
+ * A workflow that holds a step this build does not know (the workflow
+ * runs plan, Laws) opens read-only in edit mode: one banner says why,
+ * the form and the graph take no edit, Refresh is off, and Save writes
+ * the Enabled switch alone — it can still be switched off.
+ *
  * Phase I responsibilities (both modes):
  *   - Runs `validateWorkflowShape` against the draft on every change
  *     so per-step inline errors (cycle, unknown dep, unreachable
@@ -45,6 +50,7 @@ import {
   newDraftCapture,
   planLiveVariableReconcile,
   stripDraftSteps,
+  workflowNeedsUpdate,
 } from '@openheaders/core/live';
 import { canonicalJson, LIVE_WORKFLOW_ENTITY_TYPE } from '@openheaders/core/sync';
 import { generateUid } from '@openheaders/core/utils';
@@ -57,7 +63,7 @@ import { applyLiveWorkflowPublish } from '@openheaders/ui/shared/sync/live-workf
 import { useWorkbenchEditingScopeWorkspaceId } from '../../hooks/EditingScopeWorkspaceContext';
 import type { WorkflowSeedStep } from '../../types';
 import type { LiveWorkflow } from '@openheaders/core/types';
-import { App, Button, Segmented, Tag, Typography, theme } from 'antd';
+import { Alert, App, Button, Segmented, Tag, Typography, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useMemo, useRef, useState } from 'react';
 import EditorHeader from '../shell/EditorHeader';
@@ -194,6 +200,7 @@ const EditMode: React.FC<EditProps> = ({ workflowUid, seedSteps, onDirtyChange, 
   const { runs } = useLiveWorkflowCache(workflowUid);
 
   const workflow = useMemo(() => workflows.find((w) => w.uid === workflowUid) ?? null, [workflows, workflowUid]);
+  const needsUpdate = workflow !== null && workflowNeedsUpdate(workflow);
   const boundVars = useMemo(() => variables.filter((v) => v.workflowUid === workflowUid), [variables, workflowUid]);
 
   const [draft, setDraft] = useState<Draft | null>(() => (workflow ? draftFromWorkflow(workflow, variables) : null));
@@ -234,7 +241,7 @@ const EditMode: React.FC<EditProps> = ({ workflowUid, seedSteps, onDirtyChange, 
     onPrimed: (e) => {
       setBaselineRef.current(e);
       baselineLiveWorkflowRef.current = e;
-      if (!seedSteps || seedSteps.length === 0 || seedAppliedRef.current) return;
+      if (!seedSteps || seedSteps.length === 0 || seedAppliedRef.current || workflowNeedsUpdate(e)) return;
       seedAppliedRef.current = true;
       setDraft((d) => {
         if (!d) return d;
@@ -329,13 +336,18 @@ const EditMode: React.FC<EditProps> = ({ workflowUid, seedSteps, onDirtyChange, 
     // 1. Persist the workflow itself. Captures are stripped of their
     //    draft-only exposure overlay — the workflow schema doesn't
     //    include `exposed` / `liveName` / `liveUid`.
-    const result = await updateWorkflow(workflow.uid, {
-      name: draft.name,
-      description: draft.description.trim() ? draft.description : undefined,
-      steps: stripDraftSteps(draft.steps),
-      refresh: draft.refresh,
-      enabled: draft.enabled,
-    });
+    const result = await updateWorkflow(
+      workflow.uid,
+      needsUpdate
+        ? { enabled: draft.enabled }
+        : {
+            name: draft.name,
+            description: draft.description.trim() ? draft.description : undefined,
+            steps: stripDraftSteps(draft.steps),
+            refresh: draft.refresh,
+            enabled: draft.enabled,
+          },
+    );
     if (result.success) {
       // 2. Apply the LV reconcile plan the pure core helper computed
       //    from the draft's exposure state. Aliases (LVs pointing at
@@ -346,7 +358,9 @@ const EditMode: React.FC<EditProps> = ({ workflowUid, seedSteps, onDirtyChange, 
       // refresh (manual or auto) is what publishes a binding once it has
       // actually produced a value — see `commitSuccess` in the live chain
       // adapter. Save only activates the workflow (below).
-      const plan = planLiveVariableReconcile(workflow.uid, draft, variables);
+      const plan = needsUpdate
+        ? { creates: [], updates: [], deletes: [] }
+        : planLiveVariableReconcile(workflow.uid, draft, variables);
       for (const op of plan.creates) {
         await createVariable({
           name: op.liveName,
@@ -388,6 +402,7 @@ const EditMode: React.FC<EditProps> = ({ workflowUid, seedSteps, onDirtyChange, 
     message.error(t('workbench.editors.live.workflow.saveFailed'));
   }, [
     workflow,
+    needsUpdate,
     draft,
     updateWorkflow,
     editingWorkspaceId,
@@ -408,6 +423,7 @@ const EditMode: React.FC<EditProps> = ({ workflowUid, seedSteps, onDirtyChange, 
     isDirty,
     isPublished: workflow?.published === true,
     isComplete: workflow ? isWorkflowComplete(workflow) : undefined,
+    needsUpdate,
     onSave: handleSaveSync,
     onDirtyChange,
     registerSaveRef,
@@ -459,7 +475,12 @@ const EditMode: React.FC<EditProps> = ({ workflowUid, seedSteps, onDirtyChange, 
   const editHeaderActions = (
     <>
       <ViewToggle view={view} setView={setView} />
-      <Button size="small" icon={<ReloadOutlined spin={refreshing} />} onClick={() => void handleRefreshNow()}>
+      <Button
+        size="small"
+        icon={<ReloadOutlined spin={refreshing} />}
+        disabled={needsUpdate}
+        onClick={() => void handleRefreshNow()}
+      >
         {t('workbench.editors.live.workflow.refresh')}
       </Button>
     </>
@@ -480,6 +501,15 @@ const EditMode: React.FC<EditProps> = ({ workflowUid, seedSteps, onDirtyChange, 
         onKeepAllMine={handleKeepAllMine}
         onUseAllSaved={handleUseAllSaved}
       />
+      {needsUpdate && (
+        <Alert
+          type="warning"
+          showIcon
+          banner
+          data-workflow-needs-update="true"
+          title={t('workbench.editors.live.workflow.needsUpdate')}
+        />
+      )}
       {view === 'form' ? (
         // Padding lives on the inner wrapper, NOT the scroll container —
         // container padding sits outside the sticky header/floor and
@@ -494,6 +524,7 @@ const EditMode: React.FC<EditProps> = ({ workflowUid, seedSteps, onDirtyChange, 
               selectedStepId={selectedStepId}
               scrollToStepId={scrollToStepId}
               onScrollToStepDone={handleScrollToStepDone}
+              readOnly={needsUpdate}
             />
           </div>
         </div>
@@ -501,7 +532,7 @@ const EditMode: React.FC<EditProps> = ({ workflowUid, seedSteps, onDirtyChange, 
         <div style={{ flex: 1, minHeight: 0 }}>
           <WorkflowGraphBody
             draft={draft}
-            setDraft={setDraft}
+            setDraft={needsUpdate ? undefined : setDraft}
             selectedStepId={selectedStepId}
             onSelectStep={handleGraphSelect}
             onOpenStep={handleGraphOpen}

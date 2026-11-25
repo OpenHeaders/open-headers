@@ -26,10 +26,11 @@
  * Both return `StructuralError[]` — empty means valid. Never throw.
  */
 
-import type { LiveWorkflow, WorkflowStep } from '../types/live';
+import type { CallWorkflowStep, LiveWorkflow, WorkflowStep } from '../types/live';
 import type { RequestIncompleteReason } from '../utils/request-validation';
 import { effectiveDependsOn } from './chain-runner';
 import { scanTemplateReferences } from './template-scan';
+import { isUnknownStep, unknownStepMessage } from './unknown-step';
 
 // ── Error shape ────────────────────────────────────────────────────
 
@@ -43,6 +44,7 @@ export type StructuralIssue =
   | 'step-unknown-capture'
   | 'step-request-missing'
   | 'step-request-incomplete'
+  | 'step-needs-update'
   // ── Phase I — DAG + runIf + priorityFrom ─────────────────────
   | 'step-unknown-dep'
   | 'depends-on-cycle'
@@ -81,9 +83,9 @@ export function validateWorkflowShape(workflow: LiveWorkflow): StructuralError[]
   const seenStepIds = new Set<string>();
   const knownStepIds = new Set(workflow.steps.map((s) => s.id));
   const captureIndex = new Map<string, Set<string>>();
-  workflow.steps.forEach((s) => {
-    captureIndex.set(s.id, new Set(s.captures.map((c) => c.name)));
-  });
+  for (const s of workflow.steps) {
+    if (!isUnknownStep(s)) captureIndex.set(s.id, new Set(s.captures.map((c) => c.name)));
+  }
 
   for (const step of workflow.steps) {
     if (seenStepIds.has(step.id)) {
@@ -94,6 +96,11 @@ export function validateWorkflowShape(workflow: LiveWorkflow): StructuralError[]
       });
     }
     seenStepIds.add(step.id);
+
+    if (isUnknownStep(step)) {
+      errors.push({ issue: 'step-needs-update', stepId: step.id, message: unknownStepMessage(step) });
+      continue;
+    }
 
     const seenCaptures = new Set<string>();
     for (const capture of step.captures) {
@@ -120,7 +127,7 @@ export function validateWorkflowShape(workflow: LiveWorkflow): StructuralError[]
         referencedStepId: policy.stepId,
         message: `Refresh policy references unknown step "${policy.stepId}".`,
       });
-    } else if (!step.captures.some((c) => c.name === policy.captureName)) {
+    } else if (!isUnknownStep(step) && !step.captures.some((c) => c.name === policy.captureName)) {
       errors.push({
         issue: 'refresh-unknown-capture',
         stepId: policy.stepId,
@@ -143,7 +150,7 @@ export function validateWorkflowShape(workflow: LiveWorkflow): StructuralError[]
 
   // ── Phase I — dependsOn validation (explicit references) ──────
   for (const step of workflow.steps) {
-    if (step.dependsOn === undefined) continue; // implicit = prior step, handled elsewhere
+    if (isUnknownStep(step) || step.dependsOn === undefined) continue; // implicit = prior step, handled elsewhere
     for (const depId of step.dependsOn) {
       if (!knownStepIds.has(depId)) {
         errors.push({
@@ -187,6 +194,7 @@ export function validateWorkflowShape(workflow: LiveWorkflow): StructuralError[]
 
   // ── Phase I — runIf clause validation ─────────────────────────
   for (const step of workflow.steps) {
+    if (isUnknownStep(step)) continue;
     const gate = step.runIf;
     if (!gate) continue;
     for (const clause of gate.all) {
@@ -243,6 +251,7 @@ export function validateWorkflowShape(workflow: LiveWorkflow): StructuralError[]
 
   // ── Phase I — priorityFrom validation ─────────────────────────
   for (const step of workflow.steps) {
+    if (isUnknownStep(step)) continue;
     const ref = step.priorityFrom;
     if (!ref) continue;
     if (!knownStepIds.has(ref.stepId)) {
@@ -437,7 +446,7 @@ export type RequestInfoProvider = (requestUid: string) => StepRequestInfo | null
  * (save-time, provider-backed) route their missing-request reporting
  * through here so the two validators never drift.
  */
-function stepRequestMissingError(step: WorkflowStep): StructuralError {
+function stepRequestMissingError(step: CallWorkflowStep): StructuralError {
   return {
     issue: 'step-request-missing',
     stepId: step.id,
@@ -469,7 +478,7 @@ export function validateStepRequestsExist(
 ): StructuralError[] {
   const errors: StructuralError[] = [];
   for (const step of workflow.steps) {
-    if (step.requestUid.length === 0) continue;
+    if (isUnknownStep(step) || step.requestUid.length === 0) continue;
     if (!knownRequestUids.has(step.requestUid)) errors.push(stepRequestMissingError(step));
   }
   return errors;
@@ -492,6 +501,7 @@ export function validateStepReferences(workflow: LiveWorkflow, requestInfo: Requ
 
   for (let i = 0; i < workflow.steps.length; i++) {
     const step = workflow.steps[i];
+    if (isUnknownStep(step)) continue;
     const info = requestInfo(step.requestUid);
     if (info == null) {
       errors.push(stepRequestMissingError(step));
@@ -542,7 +552,7 @@ export function validateStepReferences(workflow: LiveWorkflow, requestInfo: Requ
           });
           continue;
         }
-        if (!target.captures.some((c) => c.name === ref.captureName)) {
+        if (!isUnknownStep(target) && !target.captures.some((c) => c.name === ref.captureName)) {
           errors.push({
             issue: 'step-unknown-capture',
             stepId: step.id,

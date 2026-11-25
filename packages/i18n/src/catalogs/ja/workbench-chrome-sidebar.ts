@@ -108,6 +108,7 @@ export const workbenchChromeSidebar = {
   'workbench.sidebar.badge.unresolved': '未解決',
   'workbench.sidebar.badge.off': 'オフ',
   'workbench.sidebar.badge.incomplete': '未完了',
+  'workbench.sidebar.badge.needsUpdate': '要更新',
   'workbench.sidebar.badge.scratch': 'スクラッチ',
   'workbench.sidebar.badge.scripts': 'スクリプト',
   'workbench.sidebar.badge.specDrift': '変更あり',

@@ -16,7 +16,7 @@
  *     stays, dangling references are left for the validator.
  */
 
-import type { DraftStep, DraftWorkflow } from '@openheaders/core/live';
+import { callStepsOf, type DraftCallStep, type DraftWorkflow } from '@openheaders/core/live';
 import {
   addGraphDependency,
   appendDraftStep,
@@ -26,11 +26,14 @@ import {
 } from '@openheaders/ui/workbench/components/live/graph-edit';
 import { describe, expect, it } from 'vitest';
 
-function mkStep(id: string, overrides: Partial<DraftStep> = {}): DraftStep {
+/** The draft's call step at an index — every step of these fixtures is one. */
+const stepAt = (draft: DraftWorkflow | null, index: number) => callStepsOf(draft ?? { steps: [] })[index];
+
+function mkStep(id: string, overrides: Partial<DraftCallStep> = {}): DraftCallStep {
   return { uid: `stp${id.padEnd(5, 'x').slice(0, 5)}`, id, requestUid: 'req00000', captures: [], ...overrides };
 }
 
-function mkDraft(steps: DraftStep[]): DraftWorkflow {
+function mkDraft(steps: DraftCallStep[]): DraftWorkflow {
   return { name: 'test', description: '', steps, refresh: { kind: 'manual' }, enabled: true };
 }
 
@@ -38,25 +41,25 @@ describe('addGraphDependency', () => {
   it('materializes an implicit prior-step dep into an explicit array before appending', () => {
     const draft = mkDraft([mkStep('a'), mkStep('b'), mkStep('c')]);
     const next = addGraphDependency(draft, 'a', 'c');
-    expect(next?.steps[2].dependsOn).toEqual(['a', 'b']);
+    expect(stepAt(next, 2).dependsOn).toEqual(['a', 'b']);
   });
 
   it('orders known parents by declared-step order', () => {
     const draft = mkDraft([mkStep('a'), mkStep('b', { dependsOn: [] }), mkStep('c', { dependsOn: ['b'] })]);
     const next = addGraphDependency(draft, 'a', 'c');
-    expect(next?.steps[2].dependsOn).toEqual(['a', 'b']);
+    expect(stepAt(next, 2).dependsOn).toEqual(['a', 'b']);
   });
 
   it('adds onto an explicit root', () => {
     const draft = mkDraft([mkStep('a'), mkStep('b', { dependsOn: [] })]);
     const next = addGraphDependency(draft, 'a', 'b');
-    expect(next?.steps[1].dependsOn).toEqual(['a']);
+    expect(stepAt(next, 1).dependsOn).toEqual(['a']);
   });
 
   it('preserves unknown existing parents at the end', () => {
     const draft = mkDraft([mkStep('a'), mkStep('b', { dependsOn: ['ghost'] })]);
     const next = addGraphDependency(draft, 'a', 'b');
-    expect(next?.steps[1].dependsOn).toEqual(['a', 'ghost']);
+    expect(stepAt(next, 1).dependsOn).toEqual(['a', 'ghost']);
   });
 
   it('no-ops on a self-edge', () => {
@@ -79,7 +82,7 @@ describe('addGraphDependency', () => {
   it('does not block cycle-creating edges — allow-and-badge', () => {
     const draft = mkDraft([mkStep('a'), mkStep('b', { dependsOn: ['a'] })]);
     const next = addGraphDependency(draft, 'b', 'a');
-    expect(next?.steps[0].dependsOn).toEqual(['b']);
+    expect(stepAt(next, 0).dependsOn).toEqual(['b']);
   });
 
   it('does not mutate the input draft', () => {
@@ -94,19 +97,19 @@ describe('removeGraphDependency', () => {
   it('materializes the remainder explicitly when removing from an implicit dep', () => {
     const draft = mkDraft([mkStep('a'), mkStep('b')]);
     const next = removeGraphDependency(draft, 'a', 'b');
-    expect(next?.steps[1].dependsOn).toEqual([]);
+    expect(stepAt(next, 1).dependsOn).toEqual([]);
   });
 
   it('removes one parent from an explicit list', () => {
     const draft = mkDraft([mkStep('a'), mkStep('b', { dependsOn: [] }), mkStep('c', { dependsOn: ['a', 'b'] })]);
     const next = removeGraphDependency(draft, 'a', 'c');
-    expect(next?.steps[2].dependsOn).toEqual(['b']);
+    expect(stepAt(next, 2).dependsOn).toEqual(['b']);
   });
 
   it('writes explicit [] (root) when the last parent goes', () => {
     const draft = mkDraft([mkStep('a'), mkStep('b', { dependsOn: ['a'] })]);
     const next = removeGraphDependency(draft, 'a', 'b');
-    expect(next?.steps[1].dependsOn).toEqual([]);
+    expect(stepAt(next, 1).dependsOn).toEqual([]);
   });
 
   it('no-ops when the edge is not an effective parent', () => {
@@ -128,7 +131,7 @@ describe('removeDraftStep', () => {
     const draft = mkDraft([mkStep('a'), mkStep('b', { dependsOn: ['a'] })]);
     const next = removeDraftStep(draft, 'a');
     expect(next?.steps.map((s) => s.id)).toEqual(['b']);
-    expect(next?.steps[0].dependsOn).toEqual(['a']);
+    expect(stepAt(next, 0).dependsOn).toEqual(['a']);
   });
 
   it('refuses to remove the last remaining step', () => {
@@ -155,12 +158,12 @@ describe('appendDraftStep / nextStepId', () => {
     expect(next.steps).toHaveLength(2);
     expect(next.steps[1]).toMatchObject({ id: 'step2', requestUid: '', captures: [] });
     expect(next.steps[1].uid).toHaveLength(8);
-    expect(next.steps[1].dependsOn).toBeUndefined();
+    expect(stepAt(next, 1).dependsOn).toBeUndefined();
   });
 
   it('seeds a requestUid when provided', () => {
     const { draft: next } = appendDraftStep(mkDraft([mkStep('a')]), 'req12345');
-    expect(next.steps[1].requestUid).toBe('req12345');
+    expect(stepAt(next, 1).requestUid).toBe('req12345');
   });
 
   it('skips over taken ids', () => {

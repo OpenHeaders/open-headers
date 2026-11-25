@@ -7,7 +7,7 @@
  * read over the active-workspace stores + the core effectiveness rules.
  */
 
-import { isLiveVariableEffective, isWorkflowEffective } from '@openheaders/core/live';
+import { callStepsOf, isLiveVariableEffective, isWorkflowEffective } from '@openheaders/core/live';
 import type { LiveVariable, LiveWorkflow } from '@openheaders/core/types';
 import { getRequest, isRequestStoreHydrated } from '../entity/request-store';
 
@@ -27,7 +27,7 @@ export function canScheduleWorkflow(workflow: LiveWorkflow, boundVariables: Live
   if (!isWorkflowEffective(workflow)) return false;
   if (!boundVariables.some((v) => isLiveVariableEffective(v))) return false;
   if (isRequestStoreHydrated()) {
-    for (const step of workflow.steps) {
+    for (const step of callStepsOf(workflow)) {
       if (step.requestUid.length > 0 && !getRequest(step.requestUid)) return false;
     }
   }

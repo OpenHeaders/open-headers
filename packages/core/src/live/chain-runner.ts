@@ -46,10 +46,11 @@
  */
 
 import { DEFAULT_RETRY_DELAY_MS } from '../schemas/live';
-import type { LiveWorkflow, StepRetryPolicy, WorkflowStep } from '../types/live';
+import type { CallWorkflowStep, LiveWorkflow, RunnableWorkflow, StepRetryPolicy, WorkflowStep } from '../types/live';
 import { applyExtractor, type StepResponse } from './extractor';
 import { evaluateGate, matchStatus } from './gate-evaluator';
 import { comparePriority, priorityValue } from './priority-evaluator';
+import { isUnknownStep } from './unknown-step';
 
 // ── Fetch adapter contract ────────────────────────────────────────
 
@@ -76,7 +77,7 @@ export interface FetchAdapter {
    * Thrown errors bubble as a step failure with the error's message.
    */
   executeStep(
-    step: WorkflowStep,
+    step: CallWorkflowStep,
     stepCaptures: ReadonlyMap<string, ReadonlyMap<string, string>>,
     context: ChainExecutionContext,
   ): Promise<StepResponse>;
@@ -146,10 +147,12 @@ type StepState = 'pending' | 'complete' | 'skipped' | 'failed';
 /**
  * Resolve a step's effective `dependsOn` list. Absent = implicit
  * prior-step dep (backwards compat with linear chains); empty array =
- * explicit root; populated = explicit DAG edges.
+ * explicit root; populated = explicit DAG edges. A step this build does
+ * not know is read as the implicit case — its own keys are not ours to
+ * read.
  */
 export function effectiveDependsOn(step: WorkflowStep, declaredIndex: number, workflow: LiveWorkflow): string[] {
-  if (step.dependsOn !== undefined) return step.dependsOn;
+  if (!isUnknownStep(step) && step.dependsOn !== undefined) return step.dependsOn;
   // Implicit: depend on the previous step in declared order.
   if (declaredIndex === 0) return [];
   return [workflow.steps[declaredIndex - 1].id];
@@ -158,7 +161,7 @@ export function effectiveDependsOn(step: WorkflowStep, declaredIndex: number, wo
 // ── runChain ──────────────────────────────────────────────────────
 
 export async function runChain(args: {
-  workflow: LiveWorkflow;
+  workflow: RunnableWorkflow;
   adapter: FetchAdapter;
   context: ChainExecutionContext;
   /** Injectable clock — defaults to `Date.now`. Tests override. */
@@ -200,7 +203,7 @@ export async function runChain(args: {
     // Ready set = pending steps whose deps are all {complete, skipped}.
     // Failed deps would have aborted the run already, so we only check
     // for terminal-non-failed states here.
-    const ready: WorkflowStep[] = [];
+    const ready: CallWorkflowStep[] = [];
     for (const step of workflow.steps) {
       if (state.get(step.id) !== 'pending') continue;
       const stepDeps = deps.get(step.id) ?? [];
@@ -230,7 +233,7 @@ export async function runChain(args: {
     }
 
     // Evaluate gates; split ready into skipped + eligible.
-    const eligible: WorkflowStep[] = [];
+    const eligible: CallWorkflowStep[] = [];
     for (const step of ready) {
       const gate = step.runIf;
       const passes = gate === undefined || evaluateGate(gate, stepCaptures, stepStatuses);
@@ -350,7 +353,7 @@ export function retryDelayMs(policy: StepRetryPolicy, attempt: number): number {
  * Extract failures never reach here — they abort in the caller.
  */
 async function executeStepWithRetry(
-  step: WorkflowStep,
+  step: CallWorkflowStep,
   adapter: FetchAdapter,
   stepCaptures: ReadonlyMap<string, ReadonlyMap<string, string>>,
   context: ChainExecutionContext,

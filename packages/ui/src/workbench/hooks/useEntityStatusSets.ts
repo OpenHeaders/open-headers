@@ -1,3 +1,4 @@
+import { callStepsOf } from '@openheaders/core/live';
 import type { Collection, LiveWorkflow, Request, Rule } from '@openheaders/core/types';
 import { isRequestResolvable, isRuleResolvable, missingPathParamKeys } from '@openheaders/core/utils';
 import { useVariableResolver } from '@openheaders/ui/shared/hooks/variables/useVariableResolver';
@@ -128,7 +129,7 @@ export function useEntityStatusSets({
   const unresolvableWorkflowUids = useMemo(() => {
     const out = new Set<string>();
     for (const wf of workflows) {
-      const steps = Array.isArray(wf.steps) ? wf.steps : [];
+      const steps = Array.isArray(wf.steps) ? callStepsOf(wf) : [];
       for (const step of steps) {
         if (step.requestUid && unresolvableRequestUids.has(step.requestUid)) {
           out.add(wf.uid);

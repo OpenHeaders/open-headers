@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { parseLiveWorkflow } from '../../src/codec/yaml/live-workflow';
+import { callStepsOf } from '../../src/live/unknown-step';
 
 const PATH = 'live-workflows/legacy-wflow001';
 
@@ -50,7 +51,7 @@ steps:
           kind: status-code
 `;
     const parsed = parseLiveWorkflow(yaml, { path: PATH });
-    const captures = parsed.value.steps[0].captures;
+    const captures = callStepsOf(parsed.value)[0].captures;
     expect(captures).toHaveLength(2);
     for (const c of captures) expect(c.uid).toMatch(UID_RE);
     expect(captures[0].uid).not.toBe(captures[1].uid);
@@ -95,7 +96,7 @@ steps:
           pattern: ^[a-z]+$
 `;
     const parsed = parseLiveWorkflow(yaml, { path: PATH });
-    const clauses = parsed.value.steps[1].runIf?.all ?? [];
+    const clauses = callStepsOf(parsed.value)[1].runIf?.all ?? [];
     expect(clauses).toHaveLength(4);
     for (const cl of clauses) expect(cl.uid).toMatch(UID_RE);
   });
@@ -122,9 +123,9 @@ steps:
 `;
     const parsed = parseLiveWorkflow(yaml, { path: PATH });
     expect(parsed.value.steps[0].uid).toBe('stepkeep');
-    expect(parsed.value.steps[0].captures[0].uid).toBe('capkeep1');
+    expect(callStepsOf(parsed.value)[0].captures[0].uid).toBe('capkeep1');
     // Capture with no uid gets one minted.
-    expect(parsed.value.steps[0].captures[1].uid).toMatch(UID_RE);
-    expect(parsed.value.steps[0].captures[1].uid).not.toBe('capkeep1');
+    expect(callStepsOf(parsed.value)[0].captures[1].uid).toMatch(UID_RE);
+    expect(callStepsOf(parsed.value)[0].captures[1].uid).not.toBe('capkeep1');
   });
 });

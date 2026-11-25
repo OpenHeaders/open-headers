@@ -6,6 +6,7 @@
  */
 
 import { PlusOutlined, ThunderboltOutlined } from '@ant-design/icons';
+import { callStepsOf } from '@openheaders/core/live';
 import { LIVE_VARIABLE_ENTITY_TYPE } from '@openheaders/core/sync';
 import type { LiveVariable } from '@openheaders/core/types';
 import { useT } from '@openheaders/ui/context/LocaleContext';
@@ -95,7 +96,7 @@ const LiveVariableCreateMode: React.FC<CreateProps> = ({
   });
 
   const selectedWorkflow = workflows.find((w) => w.uid === draft.workflowUid) ?? null;
-  const selectedSteps = selectedWorkflow?.steps ?? [];
+  const selectedSteps = selectedWorkflow ? callStepsOf(selectedWorkflow) : [];
   const selectedStep = selectedSteps.find((s) => s.id === draft.stepId) ?? null;
   const selectedCaptures = selectedStep?.captures ?? [];
 

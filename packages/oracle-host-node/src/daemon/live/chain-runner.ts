@@ -35,9 +35,13 @@ import {
   type ChainRunSuccess,
   classifyRefreshHealth,
   deriveExpiresAt,
+  isRunnableWorkflow,
   runChain,
+  UNKNOWN_STEP_PHASE,
+  unknownStepMessage,
+  unknownStepsOf,
 } from '@openheaders/core/live';
-import type { LiveWorkflow } from '@openheaders/core/types';
+import type { LiveWorkflow, RunnableWorkflow } from '@openheaders/core/types';
 import { logger } from '@openheaders/core/utils';
 import { deriveExecutionPolicyForWorkflow } from '@openheaders/oracle/live/execution-policy-resolver';
 import { putWorkflowRunCache, recordRefreshError } from '@openheaders/oracle/live/live-cache-store';
@@ -60,7 +64,12 @@ export interface WorkflowRefreshArgs {
 
 export type WorkflowRefreshResult =
   | { ok: true; skippedStepIds: readonly string[] }
-  | { ok: false; failedStepId: string; failedPhase: ChainRunFailure['failedPhase']; message: string };
+  | {
+      ok: false;
+      failedStepId: string;
+      failedPhase: ChainRunFailure['failedPhase'] | typeof UNKNOWN_STEP_PHASE;
+      message: string;
+    };
 
 /**
  * Run a workflow once against the Node transport and commit the outcome
@@ -72,6 +81,7 @@ export type WorkflowRefreshResult =
  */
 export async function runWorkflowRefresh(args: WorkflowRefreshArgs): Promise<WorkflowRefreshResult> {
   const { workspaceId, workflow, environmentId } = args;
+  if (!isRunnableWorkflow(workflow)) return refuseUnknownSteps(workspaceId, workflow, environmentId);
   // Host script capability, consulted per refresh: only steps with
   // `runScripts: true` reach the runner (the adapter gates per step),
   // and it runs under the strict chain contract — read-only `oh.*`
@@ -108,9 +118,31 @@ export async function runWorkflowRefresh(args: WorkflowRefreshArgs): Promise<Wor
   };
 }
 
-async function commitSuccess(
+/**
+ * A run that cannot run every step runs none (the workflow runs plan,
+ * Laws). The workflow holds a step this build does not know: nothing is
+ * sent, nothing is published, and the cache row records the first such
+ * step and the sentence. No health is passed — a refusal is neither the
+ * source nor the credential failing, and nothing rides to a peer.
+ */
+async function refuseUnknownSteps(
   workspaceId: string,
   workflow: LiveWorkflow,
+  environmentId: string | null,
+): Promise<WorkflowRefreshResult> {
+  const [step] = unknownStepsOf(workflow);
+  const message = unknownStepMessage(step);
+  await recordRefreshError(
+    { workflowUid: workflow.uid, environmentId, message, failedStepId: step.id, extractorOk: true },
+    workspaceId,
+  );
+  logger.warn('HostLiveRunner', `Workflow ${workflow.uid} was not run: ${message}`);
+  return { ok: false, failedStepId: step.id, failedPhase: UNKNOWN_STEP_PHASE, message };
+}
+
+async function commitSuccess(
+  workspaceId: string,
+  workflow: RunnableWorkflow,
   environmentId: string | null,
   outcome: ChainRunSuccess,
 ): Promise<void> {
@@ -158,7 +190,7 @@ async function commitSuccess(
 
 async function commitFailure(
   workspaceId: string,
-  workflow: LiveWorkflow,
+  workflow: RunnableWorkflow,
   environmentId: string | null,
   outcome: ChainRunFailure,
 ): Promise<void> {

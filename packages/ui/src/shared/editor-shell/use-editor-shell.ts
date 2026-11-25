@@ -58,6 +58,10 @@ export interface UseEditorShellInput {
    *  Mirrors `unresolvableXUids.has(uid)` — same source as the sidebar's
    *  `unresolved` badge and the tab's yellow icon. */
   isUnresolved?: boolean;
+  /** Whether the entity holds something this build does not know and
+   *  is read-only here until the app is updated. Outranks every state
+   *  but scratch — nothing the user does here makes it Live. */
+  needsUpdate?: boolean;
   onSave: () => void;
   onDirtyChange?: (dirty: boolean) => void;
   registerSaveRef?: (saveFn: () => void) => void;
@@ -85,6 +89,7 @@ export function useEditorShell(input: UseEditorShellInput): UseEditorShellOutput
     isPublished,
     isComplete,
     isUnresolved,
+    needsUpdate,
     onSave,
     onDirtyChange,
     registerSaveRef,
@@ -111,17 +116,20 @@ export function useEditorShell(input: UseEditorShellInput): UseEditorShellOutput
   // but-unpublished. Live = complete + published + resolved refs.
   //
   //   create-mode (no entity yet)              → 'scratch'
+  //   needs a newer version                    → 'needs-update'
   //   !complete                                → 'draft'
   //   complete + unresolved                    → 'unresolved'
   //   complete + resolved + !published         → 'draft'
   //   complete + resolved + published (or no gate) → null (Live)
   //
-  // Precedence: scratch → !complete-as-draft → unresolved → draft → null.
+  // Precedence: scratch → needs-update → !complete-as-draft → unresolved → draft → null.
   // Same predicates the tab prefix icon + sidebar consume; the chip
   // never disagrees with the row icon.
   let status: EditorLifecycleStatus;
   if (entityId === null) {
     status = 'scratch';
+  } else if (needsUpdate === true) {
+    status = 'needs-update';
   } else if (isComplete === false) {
     status = 'draft';
   } else if (isUnresolved === true) {

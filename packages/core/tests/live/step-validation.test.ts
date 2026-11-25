@@ -6,9 +6,9 @@ import {
   validateStepRequestsExist,
   validateWorkflowShape,
 } from '../../src/live/step-validation';
-import type { LiveWorkflow, RefreshPolicy, WorkflowStep } from '../../src/types/live';
+import type { CallWorkflowStep, LiveWorkflow, RefreshPolicy } from '../../src/types/live';
 
-function wf(steps: WorkflowStep[], refresh: RefreshPolicy = { kind: 'manual' }): LiveWorkflow {
+function wf(steps: CallWorkflowStep[], refresh: RefreshPolicy = { kind: 'manual' }): LiveWorkflow {
   return {
     schemaVersion: 5,
     uid: 'wflow001',
@@ -20,7 +20,7 @@ function wf(steps: WorkflowStep[], refresh: RefreshPolicy = { kind: 'manual' }):
   };
 }
 
-function step(id: string, requestUid: string, captureNames: string[] = []): WorkflowStep {
+function step(id: string, requestUid: string, captureNames: string[] = []): CallWorkflowStep {
   return {
     uid: `stp${id.slice(0, 5).padEnd(5, 'x')}`,
     id,
@@ -251,10 +251,10 @@ function dagStep(
     requestUid?: string;
     captureNames?: string[];
     dependsOn?: string[];
-    runIf?: WorkflowStep['runIf'];
-    priorityFrom?: WorkflowStep['priorityFrom'];
+    runIf?: CallWorkflowStep['runIf'];
+    priorityFrom?: CallWorkflowStep['priorityFrom'];
   } = {},
-): WorkflowStep {
+): CallWorkflowStep {
   return {
     uid: `stp${id.padEnd(5, 'x').slice(0, 5)}`,
     id,

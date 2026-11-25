@@ -14,6 +14,7 @@
 
 import { canonicalJson } from '../sync/store/canonical';
 import type { LiveWorkflow } from '../types/live';
+import { isUnknownStep } from './unknown-step';
 
 /**
  * Stable fingerprint of a workflow's EXECUTABLE definition — every
@@ -36,6 +37,9 @@ import type { LiveWorkflow } from '../types/live';
  *   - `priorityFrom`— ready-set ordering tiebreak.
  * Plus `parallelExecution` — switches the runner topology.
  *
+ * A step this build does not know enters whole: which of its keys
+ * shape a run is not this build's to say, so any change to it is one.
+ *
  * Excluded as non-executable: `schemaVersion` / `uid` / `path` /
  * `name` / `description` (cosmetic + identity), `enabled` /
  * `published` (scheduling axes — gate WHETHER it runs, not what it
@@ -49,16 +53,20 @@ import type { LiveWorkflow } from '../types/live';
 export function workflowDefinitionFingerprint(workflow: LiveWorkflow): string {
   return canonicalJson({
     parallelExecution: workflow.parallelExecution ?? null,
-    steps: workflow.steps.map((step) => ({
-      id: step.id,
-      requestUid: step.requestUid,
-      captures: step.captures.map((capture) => ({
-        name: capture.name,
-        extractor: capture.extractor,
-      })),
-      dependsOn: step.dependsOn ? [...step.dependsOn].sort() : null,
-      runIf: step.runIf ?? null,
-      priorityFrom: step.priorityFrom ?? null,
-    })),
+    steps: workflow.steps.map((step) =>
+      isUnknownStep(step)
+        ? step
+        : {
+            id: step.id,
+            requestUid: step.requestUid,
+            captures: step.captures.map((capture) => ({
+              name: capture.name,
+              extractor: capture.extractor,
+            })),
+            dependsOn: step.dependsOn ? [...step.dependsOn].sort() : null,
+            runIf: step.runIf ?? null,
+            priorityFrom: step.priorityFrom ?? null,
+          },
+    ),
   });
 }

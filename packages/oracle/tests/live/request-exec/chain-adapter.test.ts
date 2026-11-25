@@ -6,7 +6,7 @@
  * StepResponse mapping, error→throw).
  */
 
-import type { ExecutedRequestSnapshot, GraphqlRequest, Request, WorkflowStep } from '@openheaders/core/types';
+import type { CallWorkflowStep, ExecutedRequestSnapshot, GraphqlRequest, Request } from '@openheaders/core/types';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { buildChainFetchAdapter } from '../../../src/live/request-exec/chain-adapter';
 import type { RequestTransport } from '../../../src/live/request-exec/transport';
@@ -29,7 +29,7 @@ vi.mock('../../../src/live/request-exec/rate-limiter', () => ({
 
 const transport: RequestTransport = { send: vi.fn() };
 
-function makeStep(overrides: Partial<WorkflowStep> = {}): WorkflowStep {
+function makeStep(overrides: Partial<CallWorkflowStep> = {}): CallWorkflowStep {
   return {
     uid: 'stplogin',
     id: 'login',

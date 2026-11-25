@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import type { FetchAdapter } from '../../src/live/chain-runner';
 import { runChain } from '../../src/live/chain-runner';
 import type { StepResponse } from '../../src/live/extractor';
-import type { LiveWorkflow, WorkflowStep } from '../../src/types/live';
+import type { CallWorkflowStep, RunnableWorkflow } from '../../src/types/live';
 
 function jsonResponse(payload: unknown, headers: Array<{ key: string; value: string }> = []): StepResponse {
   return {
@@ -14,7 +14,11 @@ function jsonResponse(payload: unknown, headers: Array<{ key: string; value: str
   };
 }
 
-function singleStep(id: string, requestUid: string, captureExtractors: Array<[string, unknown]> = []): WorkflowStep {
+function singleStep(
+  id: string,
+  requestUid: string,
+  captureExtractors: Array<[string, unknown]> = [],
+): CallWorkflowStep {
   return {
     uid: `stp${id.padEnd(5, 'x').slice(0, 5)}`,
     id,
@@ -22,12 +26,12 @@ function singleStep(id: string, requestUid: string, captureExtractors: Array<[st
     captures: captureExtractors.map(([name, extractor], i) => ({
       uid: `cap${String(i).padEnd(2, '0')}${name.slice(0, 3).padEnd(3, 'x')}`,
       name,
-      extractor: extractor as WorkflowStep['captures'][number]['extractor'],
+      extractor: extractor as CallWorkflowStep['captures'][number]['extractor'],
     })),
   };
 }
 
-function workflow(steps: WorkflowStep[]): LiveWorkflow {
+function workflow(steps: CallWorkflowStep[]): RunnableWorkflow {
   return {
     schemaVersion: 5,
     uid: 'wflow001',
@@ -248,10 +252,10 @@ function dagStep(
     requestUid?: string;
     captures?: Array<[string, unknown]>;
     dependsOn?: string[];
-    runIf?: WorkflowStep['runIf'];
-    priorityFrom?: WorkflowStep['priorityFrom'];
+    runIf?: CallWorkflowStep['runIf'];
+    priorityFrom?: CallWorkflowStep['priorityFrom'];
   } = {},
-): WorkflowStep {
+): CallWorkflowStep {
   return {
     uid: `stp${id.padEnd(5, 'x').slice(0, 5)}`,
     id,
@@ -259,7 +263,7 @@ function dagStep(
     captures: (opts.captures ?? []).map(([name, extractor], i) => ({
       uid: `cap${String(i).padEnd(2, '0')}${name.slice(0, 3).padEnd(3, 'x')}`,
       name,
-      extractor: extractor as WorkflowStep['captures'][number]['extractor'],
+      extractor: extractor as CallWorkflowStep['captures'][number]['extractor'],
     })),
     dependsOn: opts.dependsOn,
     runIf: opts.runIf,
@@ -502,7 +506,7 @@ describe('runChain — DAG (Phase I)', () => {
 describe('runChain — retry policy', () => {
   const context = { workflowUid: 'wflow001', workspaceId: 'ws', environmentId: null };
 
-  function retryStep(id: string, retry: WorkflowStep['retry'], timeoutMs?: number): WorkflowStep {
+  function retryStep(id: string, retry: CallWorkflowStep['retry'], timeoutMs?: number): CallWorkflowStep {
     return { ...singleStep(id, `req${id.slice(0, 5).padEnd(6, 'x')}`), retry, timeoutMs };
   }
 
@@ -624,7 +628,7 @@ describe('runChain — retry policy', () => {
       dagStep('first', { captures: [['v', { kind: 'whole-body' }]] }),
       { ...dagStep('second', { dependsOn: ['first'] }), retry: { maxAttempts: 2 } },
     ]);
-    const executeStep = vi.fn(async (step: WorkflowStep) => {
+    const executeStep = vi.fn(async (step: CallWorkflowStep) => {
       if (step.id === 'first') return { status: 200, statusText: 'OK', url: '', headers: [], body: 'ok' };
       throw new Error('down');
     });

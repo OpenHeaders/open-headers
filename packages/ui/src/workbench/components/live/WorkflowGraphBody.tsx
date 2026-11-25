@@ -67,9 +67,9 @@ import {
   ZoomOutOutlined,
 } from '@ant-design/icons';
 import type { DraftStep, DraftWorkflow } from '@openheaders/core/live';
-import { validateStepRequestsExist, validateWorkflowShape } from '@openheaders/core/live';
+import { isUnknownStep, validateStepRequestsExist, validateWorkflowShape } from '@openheaders/core/live';
 import type { LiveWorkflowRunSnapshot } from '@openheaders/core/bridge';
-import type { LiveVariable, LiveWorkflow, WorkflowStep } from '@openheaders/core/types';
+import type { LiveVariable, LiveWorkflow, StepGate, StepGateClause } from '@openheaders/core/types';
 import { type Translate, useT } from '@openheaders/ui/context/LocaleContext';
 import { useRequests } from '@openheaders/ui/shared/hooks/readers/useRequests';
 import { Button, Tooltip, Typography, theme } from 'antd';
@@ -112,7 +112,7 @@ interface WorkflowGraphBodyProps {
   boundVars?: LiveVariable[];
 }
 
-function clauseSummary(clause: NonNullable<WorkflowStep['runIf']>['all'][number], t: Translate): string {
+function clauseSummary(clause: StepGateClause, t: Translate): string {
   switch (clause.kind) {
     case 'status':
       return typeof clause.match === 'string'
@@ -247,7 +247,8 @@ const WorkflowGraphBody: React.FC<WorkflowGraphBodyProps> = ({
       : validateWorkflowShape(draftWorkflow);
     const map = new Map<string, string[]>();
     for (const err of all) {
-      if (err.stepId === null) continue;
+      // A step this build does not know says so on its own card.
+      if (err.stepId === null || err.issue === 'step-needs-update') continue;
       map.set(err.stepId, [...(map.get(err.stepId) ?? []), err.message]);
     }
     return map;
@@ -693,7 +694,8 @@ const WorkflowGraphBody: React.FC<WorkflowGraphBodyProps> = ({
           const pos = positions.get(node.step.id);
           if (!pos) return null;
           const draftStep = draftStepsById.get(node.step.id);
-          const request = node.step.requestUid ? requestsByUid.get(node.step.requestUid) : undefined;
+          const call = isUnknownStep(node.step) ? undefined : node.step;
+          const request = call?.requestUid ? requestsByUid.get(call.requestUid) : undefined;
           const errors = errorsByStepId.get(node.step.id) ?? [];
           return (
             <GraphNodeCard
@@ -707,18 +709,19 @@ const WorkflowGraphBody: React.FC<WorkflowGraphBodyProps> = ({
               onDragMove={moveNodeDrag}
               onDragUp={endNodeDrag}
               draftStep={draftStep}
-              runIf={node.step.runIf}
-              hasPriority={node.step.priorityFrom !== undefined}
+              unknownAction={isUnknownStep(node.step) ? node.step.action : undefined}
+              runIf={call?.runIf}
+              hasPriority={call?.priorityFrom !== undefined}
               priorityLabel={
-                node.step.priorityFrom
+                call?.priorityFrom
                   ? t('workbench.editors.live.graph.orderedBy', {
-                      ref: `${node.step.priorityFrom.stepId}.${node.step.priorityFrom.captureName}`,
+                      ref: `${call.priorityFrom.stepId}.${call.priorityFrom.captureName}`,
                     })
                   : ''
               }
               method={request?.method ?? ''}
               requestName={request?.name ?? ''}
-              requestMissing={requestsReady && node.step.requestUid !== '' && request === undefined}
+              requestMissing={call !== undefined && requestsReady && call.requestUid !== '' && request === undefined}
               errors={errors}
               x={pos.x}
               y={pos.y}
@@ -1029,7 +1032,9 @@ interface GraphNodeCardProps {
   onDragUp?: (e: React.PointerEvent<HTMLDivElement>) => void;
   /** Draft overlay for the step — supplies capture exposure state. */
   draftStep: DraftStep | undefined;
-  runIf: WorkflowStep['runIf'];
+  /** Set for a step this build does not know — its raw `action`. The card says so and shows nothing else of it. */
+  unknownAction?: string;
+  runIf: StepGate | undefined;
   hasPriority: boolean;
   priorityLabel: string;
   method: string;
@@ -1062,6 +1067,7 @@ const GraphNodeCard: React.FC<GraphNodeCardProps> = ({
   onDragMove,
   onDragUp,
   draftStep,
+  unknownAction,
   runIf,
   hasPriority,
   priorityLabel,
@@ -1081,23 +1087,29 @@ const GraphNodeCard: React.FC<GraphNodeCardProps> = ({
   const { token } = theme.useToken();
   const t = useT();
   const gateClauses = runIf?.all ?? [];
-  const captures = draftStep?.captures ?? [];
-  const requestLine = requestMissing
-    ? t('workbench.editors.live.graph.requestNotFound')
-    : requestName || t('workbench.editors.live.graph.noRequestSelected');
-  const requestMuted = requestMissing || requestName === '';
+  const captures = draftStep && !isUnknownStep(draftStep) ? draftStep.captures : [];
+  const needsUpdate = unknownAction !== undefined;
+  const requestLine = needsUpdate
+    ? t('workbench.editors.live.step.needsUpdate')
+    : requestMissing
+      ? t('workbench.editors.live.graph.requestNotFound')
+      : requestName || t('workbench.editors.live.graph.noRequestSelected');
+  const requestMuted = needsUpdate || requestMissing || requestName === '';
   const borderColor = cycleWarn
     ? token.colorWarning
     : errors.length > 0
       ? token.colorErrorBorder
       : selected
         ? token.colorPrimary
-        : token.colorBorder;
+        : needsUpdate
+          ? token.colorWarningBorder
+          : token.colorBorder;
 
   return (
     <div
       data-testid={`wf-graph-node-${stepId}`}
       data-graph-interactive=""
+      data-needs-update={needsUpdate ? 'true' : undefined}
       data-selected={selected ? 'true' : undefined}
       data-cycle-target={cycleWarn ? 'true' : undefined}
       onClick={onSelect}
@@ -1218,7 +1230,23 @@ const GraphNodeCard: React.FC<GraphNodeCardProps> = ({
         </Text>
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 4, minWidth: 0, overflow: 'hidden' }}>
-        {captures.length === 0 && (
+        {needsUpdate && (
+          <span
+            style={{
+              fontSize: 10,
+              lineHeight: '16px',
+              padding: '0 6px',
+              borderRadius: 8,
+              border: `1px solid ${token.colorBorderSecondary}`,
+              color: token.colorTextSecondary,
+              fontFamily: "'SF Mono', monospace",
+              whiteSpace: 'nowrap',
+            }}
+          >
+            {unknownAction}
+          </span>
+        )}
+        {!needsUpdate && captures.length === 0 && (
           <Text type="secondary" style={{ fontSize: 10, fontStyle: 'italic' }}>
             {t('workbench.editors.live.graph.noCaptures')}
           </Text>

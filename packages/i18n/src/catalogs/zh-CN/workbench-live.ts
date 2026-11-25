@@ -139,6 +139,7 @@ export const workbenchLive = {
   'workbench.editors.live.workflow.refresh': '刷新',
   'workbench.editors.live.workflow.disabledTag': '已禁用',
   'workbench.editors.live.workflow.notFound': '未找到工作流。',
+  'workbench.editors.live.workflow.needsUpdate': '此工作流包含需要更新版本 OpenHeaders 的步骤。请更新后再编辑或运行。',
   'workbench.editors.live.workflow.deletedElsewhere': '工作流已在另一个标签页中被删除',
   'workbench.editors.live.workflow.saveFailed': '保存工作流失败',
   'workbench.editors.live.workflow.createFailed': '创建工作流失败',
@@ -161,6 +162,7 @@ export const workbenchLive = {
 
   // ── Workflow step editor ────────────────────────────────────────────
   'workbench.editors.live.step.title': '步骤 {number}',
+  'workbench.editors.live.step.needsUpdate': '此步骤需要更新版本的 OpenHeaders。',
   'workbench.editors.live.step.idPrefix': 'id',
   'workbench.editors.live.step.namePrefix': '名称',
   'workbench.editors.live.step.typeTooltip': '步骤类型——Foreach 和 Composite 将在未来版本推出。',

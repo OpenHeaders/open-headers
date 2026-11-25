@@ -48,9 +48,13 @@ import {
   classifyRefreshHealth,
   deriveExpiresAt,
   type FetchAdapter,
+  isRunnableWorkflow,
   runChain,
+  UNKNOWN_STEP_PHASE,
+  unknownStepMessage,
+  unknownStepsOf,
 } from '@openheaders/core/live';
-import type { LiveWorkflow } from '@openheaders/core/types';
+import type { LiveWorkflow, RunnableWorkflow } from '@openheaders/core/types';
 import { getRequestInWorkspace } from '@openheaders/oracle/entity/request-store';
 import { deriveExecutionPolicyForWorkflow } from '@openheaders/oracle/live/execution-policy-resolver';
 import {
@@ -148,6 +152,7 @@ function buildFetchAdapter(workspaceId: string, workflowUid: string, environment
  */
 export const liveChainAdapter: LiveRefreshAdapter = {
   async refreshWorkflow({ workspaceId, workflow, environmentId, bypass = false }) {
+    if (!isRunnableWorkflow(workflow)) return refuseUnknownSteps(workspaceId, workflow, environmentId, bypass);
     // No Active-workspace guard (MWPT-FULL session #19). The chain
     // executor now threads `workspaceId` end-to-end: every store read
     // (request, env, vault, workspace-vars, vault TOTP, collection-vars,
@@ -176,9 +181,31 @@ export const liveChainAdapter: LiveRefreshAdapter = {
   },
 };
 
-async function commitSuccess(
+/**
+ * A run that cannot run every step runs none (the workflow runs plan,
+ * Laws). The workflow holds a step this build does not know: nothing is
+ * sent, nothing is published, and the cache row records the first such
+ * step and the sentence. No health is passed — a refusal is neither the
+ * source nor the credential failing, and nothing rides to a peer.
+ */
+async function refuseUnknownSteps(
   workspaceId: string,
   workflow: LiveWorkflow,
+  environmentId: string | null,
+  bypass: boolean,
+): Promise<never> {
+  const [step] = unknownStepsOf(workflow);
+  const message = unknownStepMessage(step);
+  logger.warn('LiveChainAdapter', `Workflow ${workflow.uid} was not run: ${message}`);
+  const errorInput = { workflowUid: workflow.uid, environmentId, message, failedStepId: step.id, extractorOk: true };
+  if (bypass) await recordManualBypassFailureForRun(errorInput, workspaceId);
+  else await recordRefreshError(errorInput, workspaceId);
+  throw new ChainRefreshError(message, { failedStepId: step.id, failedPhase: UNKNOWN_STEP_PHASE });
+}
+
+async function commitSuccess(
+  workspaceId: string,
+  workflow: RunnableWorkflow,
   environmentId: string | null,
   outcome: ChainRunSuccess,
 ): Promise<void> {
@@ -259,7 +286,7 @@ async function commitSuccess(
  */
 function emitSkipEntries(
   workspaceId: string,
-  workflow: LiveWorkflow,
+  workflow: RunnableWorkflow,
   environmentId: string | null,
   skippedStepIds: readonly string[],
 ): void {
@@ -298,7 +325,7 @@ function emitSkipEntries(
 
 async function commitFailure(
   workspaceId: string,
-  workflow: LiveWorkflow,
+  workflow: RunnableWorkflow,
   environmentId: string | null,
   outcome: ChainRunFailure,
   bypass: boolean,
@@ -364,8 +391,10 @@ async function commitFailure(
  *                   (cycle / unknown dep slipped past save-time
  *                   validation). Defensive — save-time validators
  *                   should catch this.
+ *   - `'unsupported'` — the workflow holds a step this build does not
+ *                   know; refused before its first step.
  */
-export type ChainRefreshPhase = 'fetch' | 'extract' | 'graph';
+export type ChainRefreshPhase = 'fetch' | 'extract' | 'graph' | typeof UNKNOWN_STEP_PHASE;
 
 export class ChainRefreshError extends Error {
   readonly failedStepId: string;

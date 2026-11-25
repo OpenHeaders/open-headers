@@ -1,6 +1,9 @@
-import type { DraftWorkflow } from '@openheaders/core/live';
+import { callStepsOf, type DraftWorkflow } from '@openheaders/core/live';
 import { rebindStepReferences } from '@openheaders/ui/workbench/components/live/rebind-step-references';
 import { describe, expect, it } from 'vitest';
+
+/** The draft's call step at an index — every step of these fixtures is one. */
+const stepAt = (draft: DraftWorkflow | null, index: number) => callStepsOf(draft ?? { steps: [] })[index];
 
 function makeDraft(overrides: Partial<DraftWorkflow> = {}): DraftWorkflow {
   return {
@@ -39,7 +42,7 @@ describe('rebindStepReferences', () => {
       ],
     });
     const out = rebindStepReferences({ draft, targetUid: 'aaaaaaaa', oldId: 'login', newId: 'auth' });
-    expect(out.steps[1].dependsOn).toEqual(['auth', 'other']);
+    expect(stepAt(out, 1).dependsOn).toEqual(['auth', 'other']);
     // Renamed step itself is left alone.
     expect(out.steps[0]).toBe(draft.steps[0]);
   });
@@ -63,8 +66,8 @@ describe('rebindStepReferences', () => {
       ],
     });
     const out = rebindStepReferences({ draft, targetUid: 'aaaaaaaa', oldId: 'login', newId: 'auth' });
-    expect(out.steps[1].runIf?.all[0].stepId).toBe('auth');
-    expect(out.steps[1].runIf?.all[1].stepId).toBe('health');
+    expect(stepAt(out, 1).runIf?.all[0].stepId).toBe('auth');
+    expect(stepAt(out, 1).runIf?.all[1].stepId).toBe('health');
   });
 
   it('rewrites priorityFrom.stepId when it matches', () => {
@@ -81,7 +84,7 @@ describe('rebindStepReferences', () => {
       ],
     });
     const out = rebindStepReferences({ draft, targetUid: 'aaaaaaaa', oldId: 'login', newId: 'auth' });
-    expect(out.steps[1].priorityFrom?.stepId).toBe('auth');
+    expect(stepAt(out, 1).priorityFrom?.stepId).toBe('auth');
   });
 
   it('rewrites refresh.stepId when refresh.kind is expires-in or expires-at', () => {
@@ -110,6 +113,6 @@ describe('rebindStepReferences', () => {
       steps: [{ uid: 'aaaaaaaa', id: 'auth', requestUid: 'req-a', captures: [], dependsOn: ['login'] }],
     });
     const out = rebindStepReferences({ draft, targetUid: 'aaaaaaaa', oldId: 'login', newId: 'auth' });
-    expect(out.steps[0].dependsOn).toEqual(['login']);
+    expect(stepAt(out, 0).dependsOn).toEqual(['login']);
   });
 });

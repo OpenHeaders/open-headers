@@ -1,6 +1,7 @@
 /**
  * LifecyclePill — single visual vocabulary for the entity lifecycle
- * (Scratch / Draft / Unresolved / Live). Rendered in the workbench
+ * (Scratch / Draft / Unresolved / Live, and Needs update where an
+ * entity holds something this build does not know). Rendered in the workbench
  * footer for whichever editor is the active tab. Same predicates feed
  * the sidebar `draft` text and the tab prefix icon, so all three
  * surfaces stay in lockstep (see `useEditorShell`).
@@ -48,6 +49,12 @@ const STATUS_STYLE: Record<StatusKey, StatusStyle> = {
     light: { fg: '#cf1322', border: '#ffa39e', bg: 'rgba(255,77,79,0.10)' },
     dark: { fg: '#e08c8c', border: 'rgba(224,140,140,0.35)', bg: 'rgba(224,140,140,0.10)' },
   },
+  'needs-update': {
+    labelKey: 'shared.chrome.lifecycle.needsUpdate',
+    bodyKey: 'shared.chrome.lifecycle.needsUpdateBody',
+    light: { fg: '#ad6800', border: '#ffd591', bg: 'rgba(250,173,20,0.12)' },
+    dark: { fg: '#d9b26a', border: 'rgba(217,178,106,0.35)', bg: 'rgba(217,178,106,0.10)' },
+  },
   draft: {
     labelKey: 'shared.chrome.lifecycle.draft',
     bodyKey: 'shared.chrome.lifecycle.draftBody',
@@ -67,6 +74,11 @@ function statusTone(s: StatusStyle, isDarkMode: boolean): StatusTone {
 }
 
 const STATUS_ORDER: StatusKey[] = ['scratch', 'draft', 'unresolved', 'live'];
+
+/** The states the popover lists: the four every entity moves through, and Needs update only where it is the one shown. */
+function listedStates(current: StatusKey): StatusKey[] {
+  return current === 'needs-update' ? [current, ...STATUS_ORDER] : STATUS_ORDER;
+}
 
 function StatusPill({ s, active }: { s: StatusStyle; active: boolean }) {
   const t = useT();
@@ -104,7 +116,7 @@ function LifecyclePopoverContent({ current }: { current: StatusKey }) {
         {t('shared.chrome.lifecycle.title')}
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-        {STATUS_ORDER.map((key) => {
+        {listedStates(current).map((key) => {
           const style = STATUS_STYLE[key];
           const tone = statusTone(style, isDarkMode);
           const active = key === current;

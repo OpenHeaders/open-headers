@@ -145,6 +145,8 @@ export const workbenchLive = {
   'workbench.editors.live.workflow.refresh': '更新',
   'workbench.editors.live.workflow.disabledTag': '無効',
   'workbench.editors.live.workflow.notFound': 'ワークフローが見つかりません。',
+  'workbench.editors.live.workflow.needsUpdate':
+    'このワークフローには、より新しいバージョンの OpenHeaders が必要なステップがあります。編集または実行するには更新してください。',
   'workbench.editors.live.workflow.deletedElsewhere': 'ワークフローが別のタブから削除されました',
   'workbench.editors.live.workflow.saveFailed': 'ワークフローの保存に失敗しました',
   'workbench.editors.live.workflow.createFailed': 'ワークフローの作成に失敗しました',
@@ -168,6 +170,7 @@ export const workbenchLive = {
 
   // ── Workflow step editor ────────────────────────────────────────────
   'workbench.editors.live.step.title': 'ステップ {number}',
+  'workbench.editors.live.step.needsUpdate': 'このステップには、より新しいバージョンの OpenHeaders が必要です。',
   'workbench.editors.live.step.idPrefix': 'id',
   'workbench.editors.live.step.namePrefix': '名前',
   'workbench.editors.live.step.typeTooltip': 'ステップの種類。Foreach と Composite は今後のリリースで提供予定です。',

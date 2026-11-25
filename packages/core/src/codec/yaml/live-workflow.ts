@@ -13,7 +13,7 @@
 import * as v from 'valibot';
 import * as YAML from 'yaml';
 import { makeParsed, type ParsedDocument, type WriteableDocument } from '../../schemas/document';
-import { LiveWorkflowSchema } from '../../schemas/live';
+import { hasUnknownStepAction, LiveWorkflowSchema } from '../../schemas/live';
 import type { LiveWorkflow } from '../../types/live';
 import { generateUid } from '../../utils/workspace';
 import { emitCanonicalYaml } from './canonical-emit';
@@ -43,7 +43,8 @@ export function parseLiveWorkflow(yaml: string, context: LiveWorkflowCodecContex
  * the YAML.Document round-trip happens against the original `doc`,
  * not the merged JS object — minted uids only persist if a downstream
  * write goes through `serializeLiveWorkflow` with the validated
- * value, which is the existing contract.
+ * value, which is the existing contract. A step this build does not
+ * know gets its own `uid` and nothing beneath it is touched.
  */
 function mintMissingUids(merged: Record<string, unknown>): void {
   const steps = merged.steps;
@@ -52,6 +53,7 @@ function mintMissingUids(merged: Record<string, unknown>): void {
     if (typeof step !== 'object' || step === null) continue;
     const s = step as Record<string, unknown>;
     if (typeof s.uid !== 'string') s.uid = generateUid();
+    if (hasUnknownStepAction(s)) continue;
     const captures = s.captures;
     if (Array.isArray(captures)) {
       for (const capture of captures) {

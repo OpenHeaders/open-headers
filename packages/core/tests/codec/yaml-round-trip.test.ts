@@ -37,6 +37,7 @@ import {
   serializeWorkspace,
   serializeWorkspaceVariables,
 } from '../../src/codec/yaml';
+import { callStepsOf } from '../../src/live/unknown-step';
 import { mergePatch } from '../../src/schemas/document';
 
 const FIXTURE_DIR = resolve(dirname(fileURLToPath(import.meta.url)), '../fixtures/format/v1');
@@ -395,8 +396,8 @@ describe('yaml codec — round-trip parity', () => {
     const parsed = parseLiveWorkflow(raw, { path: 'live-workflows/explicit-linear-wfdaglin' });
     expect(parsed.value.uid).toBe('wfdaglin');
     expect(parsed.value.steps).toHaveLength(3);
-    expect(parsed.value.steps[1].dependsOn).toEqual(['probe']);
-    expect(parsed.value.steps[2].dependsOn).toEqual(['introspect']);
+    expect(callStepsOf(parsed.value)[1].dependsOn).toEqual(['probe']);
+    expect(callStepsOf(parsed.value)[2].dependsOn).toEqual(['introspect']);
     const write = mergePatch(parsed, () => {});
     expect(serializeLiveWorkflow(write)).toBe(raw);
   });
@@ -406,9 +407,9 @@ describe('yaml codec — round-trip parity', () => {
     const parsed = parseLiveWorkflow(raw, { path: 'live-workflows/probe-branching-wfdagbrn' });
     expect(parsed.value.uid).toBe('wfdagbrn');
     expect(parsed.value.steps).toHaveLength(3);
-    expect(parsed.value.steps[1].runIf?.all).toHaveLength(2);
-    expect(parsed.value.steps[1].runIf?.all[0].kind).toBe('status');
-    expect(parsed.value.steps[2].runIf?.all[1].kind).toBe('capture-equals');
+    expect(callStepsOf(parsed.value)[1].runIf?.all).toHaveLength(2);
+    expect(callStepsOf(parsed.value)[1].runIf?.all[0].kind).toBe('status');
+    expect(callStepsOf(parsed.value)[2].runIf?.all[1].kind).toBe('capture-equals');
     const write = mergePatch(parsed, () => {});
     expect(serializeLiveWorkflow(write)).toBe(raw);
   });
@@ -418,8 +419,8 @@ describe('yaml codec — round-trip parity', () => {
     const parsed = parseLiveWorkflow(raw, { path: 'live-workflows/priority-refresh-wfdagprt' });
     expect(parsed.value.uid).toBe('wfdagprt');
     expect(parsed.value.steps).toHaveLength(3);
-    expect(parsed.value.steps[1].priorityFrom?.captureName).toBe('tokenStaleness');
-    expect(parsed.value.steps[2].priorityFrom?.captureName).toBe('sessionStaleness');
+    expect(callStepsOf(parsed.value)[1].priorityFrom?.captureName).toBe('tokenStaleness');
+    expect(callStepsOf(parsed.value)[2].priorityFrom?.captureName).toBe('sessionStaleness');
     const write = mergePatch(parsed, () => {});
     expect(serializeLiveWorkflow(write)).toBe(raw);
   });
@@ -429,9 +430,9 @@ describe('yaml codec — round-trip parity', () => {
     const parsed = parseLiveWorkflow(raw, { path: 'live-workflows/fan-in-wfdagfan' });
     expect(parsed.value.uid).toBe('wfdagfan');
     expect(parsed.value.steps).toHaveLength(3);
-    expect(parsed.value.steps[0].dependsOn).toEqual([]);
-    expect(parsed.value.steps[1].dependsOn).toEqual([]);
-    expect(parsed.value.steps[2].dependsOn).toEqual(['fetchUser', 'fetchTeam']);
+    expect(callStepsOf(parsed.value)[0].dependsOn).toEqual([]);
+    expect(callStepsOf(parsed.value)[1].dependsOn).toEqual([]);
+    expect(callStepsOf(parsed.value)[2].dependsOn).toEqual(['fetchUser', 'fetchTeam']);
     const write = mergePatch(parsed, () => {});
     expect(serializeLiveWorkflow(write)).toBe(raw);
   });

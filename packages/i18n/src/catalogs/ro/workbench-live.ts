@@ -170,6 +170,8 @@ export const workbenchLive = {
   'workbench.editors.live.workflow.refresh': 'Reîmprospătare',
   'workbench.editors.live.workflow.disabledTag': 'Dezactivat',
   'workbench.editors.live.workflow.notFound': 'Fluxul de lucru nu a fost găsit.',
+  'workbench.editors.live.workflow.needsUpdate':
+    'Acest flux de lucru are pași care necesită o versiune mai nouă de OpenHeaders. Actualizați pentru a-l edita sau rula.',
   'workbench.editors.live.workflow.deletedElsewhere': 'Fluxul de lucru a fost șters din altă filă',
   'workbench.editors.live.workflow.saveFailed': 'Salvarea fluxului de lucru a eșuat',
   'workbench.editors.live.workflow.createFailed': 'Crearea fluxului de lucru a eșuat',
@@ -194,6 +196,7 @@ export const workbenchLive = {
 
   // ── Workflow step editor ────────────────────────────────────────────
   'workbench.editors.live.step.title': 'Pasul {number}',
+  'workbench.editors.live.step.needsUpdate': 'Acest pas necesită o versiune mai nouă de OpenHeaders.',
   'workbench.editors.live.step.idPrefix': 'id',
   'workbench.editors.live.step.namePrefix': 'nume',
   'workbench.editors.live.step.typeTooltip': 'Tipul pasului — Foreach și Composite vor veni într-o versiune viitoare.',

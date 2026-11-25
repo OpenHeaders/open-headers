@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  type DraftCapture,
   type DraftWorkflow,
   draftFromWorkflow,
   newDraftCapture,
@@ -8,6 +9,7 @@ import {
   stripDraftSteps,
   toDraftCapture,
 } from '../../src/live/editor-draft';
+import { callStepsOf } from '../../src/live/unknown-step';
 import type { Capture, LiveVariable, LiveWorkflow } from '../../src/types/live';
 
 // ── Fixtures ──────────────────────────────────────────────────────
@@ -99,7 +101,7 @@ describe('draftFromWorkflow + stripDraftSteps', () => {
       lv({ uid: 'lv1abc2d', name: 'token', workflowUid: 'wfxxxxxx', stepId: 'step1', captureName: 'token' }),
     ];
     const draft = draftFromWorkflow(workflow, vars);
-    expect(draft.steps[0].captures[0]).toMatchObject({
+    expect(callStepsOf(draft)[0].captures[0]).toMatchObject({
       name: 'token',
       exposed: true,
       liveName: 'token',
@@ -109,7 +111,7 @@ describe('draftFromWorkflow + stripDraftSteps', () => {
 
   it('marks unexposed captures when no LV exists', () => {
     const draft = draftFromWorkflow(wf(), []);
-    expect(draft.steps[0].captures[0].exposed).toBe(false);
+    expect(callStepsOf(draft)[0].captures[0].exposed).toBe(false);
   });
 
   it('strips draft-only fields so the result round-trips to WorkflowStep[]', () => {
@@ -117,7 +119,7 @@ describe('draftFromWorkflow + stripDraftSteps', () => {
       lv({ name: 'token', workflowUid: 'wfxxxxxx', stepId: 'step1', captureName: 'token' }),
     ]);
     const stripped = stripDraftSteps(draft.steps);
-    for (const step of stripped) {
+    for (const step of callStepsOf({ steps: stripped })) {
       for (const c of step.captures) {
         expect(c).not.toHaveProperty('exposed');
         expect(c).not.toHaveProperty('liveName');
@@ -129,7 +131,7 @@ describe('draftFromWorkflow + stripDraftSteps', () => {
 
 // ── planLiveVariableReconcile ──────────────────────────────────────
 
-function buildDraft(overrides: Partial<DraftWorkflow['steps'][number]['captures'][number]>): DraftWorkflow {
+function buildDraft(overrides: Partial<DraftCapture>): DraftWorkflow {
   return {
     name: 'wf',
     description: '',

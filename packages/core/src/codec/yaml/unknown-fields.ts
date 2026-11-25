@@ -20,13 +20,15 @@
  *
  * Capture stops at the topmost unknown key: its whole subtree is one
  * row. Keys inside `v.record` maps are always known (the schema admits
- * them), as is everything below a `v.unknown()` leaf.
+ * them), as is everything below a `v.unknown()` leaf and inside a map
+ * that keeps undeclared keys (`v.looseObject`) — its value carries them.
  */
 
 import {
   asSchemaShape,
   isArrayShape,
   isObjectShape,
+  isOpenObjectShape,
   isRecordShape,
   isTupleShape,
   resolveForValue,
@@ -81,7 +83,7 @@ export function extractUnknownFields(raw: unknown, schema: unknown, rootKnownKey
 function walkKnown(value: unknown, schema: SchemaShape, pointer: string, out: UnknownField[]): void {
   if (value === null || typeof value !== 'object') return;
   const shape = resolveForValue(schema, value);
-  if (shape === undefined) return;
+  if (shape === undefined || isOpenObjectShape(shape)) return;
 
   if (isObjectShape(shape) && isPlainObject(value)) {
     const entries = shape.entries ?? {};

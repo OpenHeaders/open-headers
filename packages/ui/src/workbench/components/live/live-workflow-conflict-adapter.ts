@@ -21,8 +21,9 @@
  * extractor is opaque (variant union); same trade-off as the gates.
  */
 
+import { isUnknownStep } from '@openheaders/core/live';
 import { canonicalJson } from '@openheaders/core/sync';
-import type { LiveWorkflow, WorkflowStep } from '@openheaders/core/types';
+import type { CallWorkflowStep, Capture, LiveWorkflow, WorkflowStep } from '@openheaders/core/types';
 import type { MessageKey } from '@openheaders/i18n';
 import { LIVE_WORKFLOW_FIELD } from '@openheaders/ui/shared/awareness/live-paths';
 import type {
@@ -66,11 +67,18 @@ function findStep(wf: LiveWorkflow, stepUid: string): WorkflowStep | undefined {
   return wf.steps.find((s) => s.uid === stepUid);
 }
 
-function findCapture(step: WorkflowStep, captureUid: string): WorkflowStep['captures'][number] | undefined {
+/** The call step with this uid — a step this build does not know has no leaf beneath its `id` to read or write. */
+function findCallStep(wf: LiveWorkflow, stepUid: string): CallWorkflowStep | undefined {
+  const step = findStep(wf, stepUid);
+  return step === undefined || isUnknownStep(step) ? undefined : step;
+}
+
+function findCapture(step: CallWorkflowStep, captureUid: string): Capture | undefined {
   return step.captures.find((c) => c.uid === captureUid);
 }
 
 function readStepLeaf(step: WorkflowStep, leaf: string): string | null {
+  if (isUnknownStep(step)) return leaf === 'id' ? step.id : null;
   switch (leaf) {
     case 'id':
       return step.id;
@@ -95,7 +103,7 @@ function readStepLeaf(step: WorkflowStep, leaf: string): string | null {
   }
 }
 
-function readCaptureLeaf(capture: WorkflowStep['captures'][number], leaf: string): string | null {
+function readCaptureLeaf(capture: Capture, leaf: string): string | null {
   switch (leaf) {
     case 'name':
       return capture.name;
@@ -142,7 +150,7 @@ function readPath(wf: LiveWorkflow, path: string): string | null {
   }
   const capMatch = CAPTURE_LEAF_RE.exec(path);
   if (capMatch) {
-    const step = findStep(wf, capMatch[1]);
+    const step = findCallStep(wf, capMatch[1]);
     if (!step) return null;
     const capture = findCapture(step, capMatch[2]);
     if (!capture) return null;
@@ -173,6 +181,7 @@ function extractBaseline(wf: LiveWorkflow): PathMap {
   }
   for (const step of wf.steps) {
     out[`steps.${step.uid}.id`] = step.id;
+    if (isUnknownStep(step)) continue;
     out[`steps.${step.uid}.description`] = step.description ?? '';
     out[`steps.${step.uid}.requestUid`] = step.requestUid;
     out[`steps.${step.uid}.dependsOn`] = opaqueStringify(step.dependsOn ?? []);
@@ -202,7 +211,7 @@ function snapshotSets(wf: LiveWorkflow): readonly SetMemberSnapshot[] {
   out.push({ setPath: STEP_SET_PATH, byUid: stepsMap });
   for (const step of wf.steps) {
     const captures = new Map<string, SetMember>();
-    for (const capture of step.captures) {
+    for (const capture of isUnknownStep(step) ? [] : step.captures) {
       captures.set(capture.uid, {
         uid: capture.uid,
         summary: capture.name || '(unnamed capture)',
@@ -302,7 +311,7 @@ const CAPTURE_LEAF_LABEL: Record<string, MessageKey> = {
   extractor: 'shared.conflicts.label.workflow.captureField.extractor',
 };
 
-function writeStepLeaf(step: WorkflowStep, leaf: string, value: string): boolean {
+function writeStepLeaf(step: CallWorkflowStep, leaf: string, value: string): boolean {
   switch (leaf) {
     case 'id':
       step.id = value;
@@ -319,10 +328,10 @@ function writeStepLeaf(step: WorkflowStep, leaf: string, value: string): boolean
     case 'retry': {
       try {
         const parsed = value === '' ? undefined : (JSON.parse(value) as unknown);
-        if (leaf === 'dependsOn') step.dependsOn = parsed as WorkflowStep['dependsOn'];
-        else if (leaf === 'runIf') step.runIf = parsed as WorkflowStep['runIf'];
-        else if (leaf === 'retry') step.retry = parsed as WorkflowStep['retry'];
-        else step.priorityFrom = parsed as WorkflowStep['priorityFrom'];
+        if (leaf === 'dependsOn') step.dependsOn = parsed as CallWorkflowStep['dependsOn'];
+        else if (leaf === 'runIf') step.runIf = parsed as CallWorkflowStep['runIf'];
+        else if (leaf === 'retry') step.retry = parsed as CallWorkflowStep['retry'];
+        else step.priorityFrom = parsed as CallWorkflowStep['priorityFrom'];
         return true;
       } catch {
         return false;
@@ -346,14 +355,14 @@ function writeStepLeaf(step: WorkflowStep, leaf: string, value: string): boolean
   }
 }
 
-function writeCaptureLeaf(capture: WorkflowStep['captures'][number], leaf: string, value: string): boolean {
+function writeCaptureLeaf(capture: Capture, leaf: string, value: string): boolean {
   switch (leaf) {
     case 'name':
       capture.name = value;
       return true;
     case 'extractor': {
       try {
-        capture.extractor = JSON.parse(value) as WorkflowStep['captures'][number]['extractor'];
+        capture.extractor = JSON.parse(value) as Capture['extractor'];
         return true;
       } catch {
         return false;
@@ -405,13 +414,13 @@ export const liveWorkflowResolveAdapter: ConflictResolveAdapter<LiveWorkflow> = 
     }
     const stepMatch = STEP_LEAF_RE.exec(path);
     if (stepMatch) {
-      const step = findStep(entity, stepMatch[1]);
+      const step = findCallStep(entity, stepMatch[1]);
       if (!step) return false;
       return writeStepLeaf(step, stepMatch[2], value);
     }
     const capMatch = CAPTURE_LEAF_RE.exec(path);
     if (capMatch) {
-      const step = findStep(entity, capMatch[1]);
+      const step = findCallStep(entity, capMatch[1]);
       if (!step) return false;
       const capture = findCapture(step, capMatch[2]);
       if (!capture) return false;
@@ -437,7 +446,7 @@ export const liveWorkflowResolveAdapter: ConflictResolveAdapter<LiveWorkflow> = 
     }
     const capMatch = CAPTURE_LEAF_RE.exec(path);
     if (capMatch) {
-      const step = findStep(entity, capMatch[1]);
+      const step = findCallStep(entity, capMatch[1]);
       const stepLabel = step?.id || t('shared.conflicts.label.workflow.stepFallback', { uid: capMatch[1].slice(0, 4) });
       const capture = step ? findCapture(step, capMatch[2]) : undefined;
       const capLabel =

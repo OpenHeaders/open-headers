@@ -19,8 +19,9 @@
  * entity gets its own UX).
  */
 
-import type { DraftWorkflow } from '@openheaders/core/live';
-import type { LiveWorkflow, WorkflowStep } from '@openheaders/core/types';
+import { type DraftWorkflow, isUnknownStep } from '@openheaders/core/live';
+import type { CallWorkflowStep, LiveWorkflow } from '@openheaders/core/types';
+
 function rewriteRefresh(
   refresh: LiveWorkflow['refresh'],
   ownerStepId: string,
@@ -36,11 +37,11 @@ function rewriteRefresh(
 }
 
 function rewriteStepGate(
-  gate: WorkflowStep['runIf'],
+  gate: CallWorkflowStep['runIf'],
   ownerStepId: string,
   oldName: string,
   newName: string,
-): WorkflowStep['runIf'] {
+): CallWorkflowStep['runIf'] {
   if (!gate) return gate;
   let changed = false;
   const all = gate.all.map((clause) => {
@@ -55,11 +56,11 @@ function rewriteStepGate(
 }
 
 function rewritePriority(
-  priority: WorkflowStep['priorityFrom'],
+  priority: CallWorkflowStep['priorityFrom'],
   ownerStepId: string,
   oldName: string,
   newName: string,
-): WorkflowStep['priorityFrom'] {
+): CallWorkflowStep['priorityFrom'] {
   if (!priority) return priority;
   if (priority.stepId === ownerStepId && priority.captureName === oldName) {
     return { ...priority, captureName: newName };
@@ -85,6 +86,7 @@ export function rebindCaptureReferences(args: {
   if (oldName === newName) return draft;
   let stepsChanged = false;
   const nextSteps = draft.steps.map((step) => {
+    if (isUnknownStep(step)) return step;
     const runIf = rewriteStepGate(step.runIf, ownerStepId, oldName, newName);
     const priorityFrom = rewritePriority(step.priorityFrom, ownerStepId, oldName, newName);
     if (runIf === step.runIf && priorityFrom === step.priorityFrom) return step;

@@ -195,4 +195,7 @@ export const sharedChrome = {
     'Salvat, dar încă nu în starea Live — lipsesc câmpuri obligatorii sau nu a fost publicat încă.',
   'shared.chrome.lifecycle.live': 'Live',
   'shared.chrome.lifecycle.liveBody': 'Publicat și activ.',
+  'shared.chrome.lifecycle.needsUpdate': 'Necesită actualizare',
+  'shared.chrome.lifecycle.needsUpdateBody':
+    'Are părți care necesită o versiune mai nouă de OpenHeaders. Actualizați pentru a-l edita sau rula.',
 } as const satisfies Catalog;

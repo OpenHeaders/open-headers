@@ -154,6 +154,8 @@ export const workbenchLive = {
   'workbench.editors.live.workflow.refresh': 'Actualizar',
   'workbench.editors.live.workflow.disabledTag': 'Desactivado',
   'workbench.editors.live.workflow.notFound': 'Workflow no encontrado.',
+  'workbench.editors.live.workflow.needsUpdate':
+    'Este workflow tiene pasos que necesitan una versión más reciente de OpenHeaders. Actualiza para editarlo o ejecutarlo.',
   'workbench.editors.live.workflow.deletedElsewhere': 'El workflow se eliminó desde otra pestaña',
   'workbench.editors.live.workflow.saveFailed': 'No se pudo guardar el workflow',
   'workbench.editors.live.workflow.createFailed': 'No se pudo crear el workflow',
@@ -178,6 +180,7 @@ export const workbenchLive = {
 
   // ── Workflow step editor ────────────────────────────────────────────
   'workbench.editors.live.step.title': 'Paso {number}',
+  'workbench.editors.live.step.needsUpdate': 'Este paso necesita una versión más reciente de OpenHeaders.',
   'workbench.editors.live.step.idPrefix': 'id',
   'workbench.editors.live.step.namePrefix': 'nombre',
   'workbench.editors.live.step.typeTooltip': 'Tipo de paso — Foreach y Composite llegarán en una versión futura.',

@@ -20,7 +20,7 @@
  */
 
 import type { ExecutionPolicyResult } from '@openheaders/core/live';
-import type { Capture, LiveWorkflow, Request, WorkflowStep } from '@openheaders/core/types';
+import type { CallWorkflowStep, Capture, LiveWorkflow, Request, UnknownWorkflowStep } from '@openheaders/core/types';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 // ── Mocks ──────────────────────────────────────────────────────────
@@ -29,6 +29,7 @@ const executeForLiveChainMock = vi.fn();
 const getRequestMock = vi.fn();
 const putWorkflowRunCacheMock = vi.fn();
 const recordRefreshErrorMock = vi.fn();
+const recordManualBypassFailureForRunMock = vi.fn();
 const setLiveRefreshAdapterMock = vi.fn();
 const getActiveWorkspaceIdMock = vi.fn<() => string>(() => 'ws-1');
 const recordLogMock = vi.fn();
@@ -51,6 +52,7 @@ vi.mock('@openheaders/oracle/entity/request-store', () => ({
 vi.mock('@openheaders/oracle/live/live-cache-store', () => ({
   putWorkflowRunCache: (...args: unknown[]) => putWorkflowRunCacheMock(...args),
   recordRefreshError: (...args: unknown[]) => recordRefreshErrorMock(...args),
+  recordManualBypassFailureForRun: (...args: unknown[]) => recordManualBypassFailureForRunMock(...args),
 }));
 
 vi.mock('@openheaders/oracle/live/live-variable-store', () => ({
@@ -86,9 +88,9 @@ vi.mock('@/background/modules/observability-log', () => ({
 // ── Fixtures ──────────────────────────────────────────────────────
 
 type CaptureLike = Omit<Capture, 'uid'> & { uid?: string };
-type StepLike = Omit<Partial<WorkflowStep>, 'captures'> & { captures?: CaptureLike[] };
+type StepLike = Omit<Partial<CallWorkflowStep>, 'captures'> & { captures?: CaptureLike[] };
 
-function makeStep(overrides: StepLike = {}): WorkflowStep {
+function makeStep(overrides: StepLike = {}): CallWorkflowStep {
   const id = overrides.id ?? 'login';
   const captures: CaptureLike[] = overrides.captures ?? [
     { uid: 'captoken', name: 'token', extractor: { kind: 'json-path', path: '$.access_token' } as const },
@@ -161,6 +163,7 @@ beforeEach(async () => {
   getRequestMock.mockReset();
   putWorkflowRunCacheMock.mockReset();
   recordRefreshErrorMock.mockReset();
+  recordManualBypassFailureForRunMock.mockReset();
   setLiveRefreshAdapterMock.mockReset();
   getActiveWorkspaceIdMock.mockReset();
   getActiveWorkspaceIdMock.mockReturnValue('ws-1');
@@ -765,5 +768,69 @@ describe('skipped-step observability (Phase I)', () => {
     expect(skipEntries[0].message).not.toContain('sk-live-abc123');
     expect(skipEntries[0].message).not.toContain('true');
     expect(skipEntries[0].message).not.toMatch(/secret/i);
+  });
+});
+
+// ── 9. A step this build does not know ───────────────────────────
+//
+// The workflow runs plan, Laws — "A run that cannot run every step runs
+// none". The workflow reached this browser by sync, written by a newer
+// build; the adapter refuses it before the first step.
+
+describe('a workflow with a step this build does not know', () => {
+  const listen: UnknownWorkflowStep = { uid: 'stplistn', id: 'probe', action: 'listen' };
+  const sentence = 'Step "probe" needs a newer version of OpenHeaders (action "listen").';
+
+  function refresh(bypass = false): Promise<void> {
+    return adapterModule.liveChainAdapter.refreshWorkflow({
+      workspaceId: 'ws-1',
+      workflow: makeWorkflow({ steps: [makeStep(), listen] }),
+      environmentId: 'env-prod',
+      bypass,
+    });
+  }
+
+  it('runs none of it — the call step before it is never sent, nothing is committed or published', async () => {
+    getRequestMock.mockReturnValue(makeRequest());
+
+    await expect(refresh()).rejects.toBeInstanceOf(adapterModule.ChainRefreshError);
+
+    expect(executeForLiveChainMock).not.toHaveBeenCalled();
+    expect(putWorkflowRunCacheMock).not.toHaveBeenCalled();
+    expect(publishLiveVariablesProducedByRunMock).not.toHaveBeenCalled();
+  });
+
+  it('records the step and the sentence with no health, and names the phase', async () => {
+    deriveExecutionPolicyForWorkflowMock.mockClear();
+    await expect(refresh()).rejects.toMatchObject({
+      message: sentence,
+      failedStepId: 'probe',
+      failedPhase: 'unsupported',
+    });
+
+    expect(recordRefreshErrorMock.mock.calls).toEqual([
+      [
+        {
+          workflowUid: 'wflowxxx',
+          environmentId: 'env-prod',
+          message: sentence,
+          failedStepId: 'probe',
+          extractorOk: true,
+        },
+        'ws-1',
+      ],
+    ]);
+    expect(deriveExecutionPolicyForWorkflowMock).not.toHaveBeenCalled();
+  });
+
+  it('records a manual retry through the bypass path, the circuit left alone', async () => {
+    await expect(refresh(true)).rejects.toBeInstanceOf(adapterModule.ChainRefreshError);
+
+    expect(recordRefreshErrorMock).not.toHaveBeenCalled();
+    expect(recordManualBypassFailureForRunMock).toHaveBeenCalledTimes(1);
+    expect(recordManualBypassFailureForRunMock.mock.calls[0][0]).toMatchObject({
+      failedStepId: 'probe',
+      message: sentence,
+    });
   });
 });

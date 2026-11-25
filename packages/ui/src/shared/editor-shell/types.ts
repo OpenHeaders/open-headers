@@ -27,7 +27,7 @@ declare const SHELL_SCOPE_BRAND: unique symbol;
  *
  * Precedence: scratch → unresolved → draft → null.
  */
-export type EditorLifecycleStatus = 'scratch' | 'unresolved' | 'draft' | null;
+export type EditorLifecycleStatus = 'scratch' | 'needs-update' | 'unresolved' | 'draft' | null;
 
 export interface EditorShellHeaderWiring {
   readonly [SHELL_HEADER_BRAND]: never;

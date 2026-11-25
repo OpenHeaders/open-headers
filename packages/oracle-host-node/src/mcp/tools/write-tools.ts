@@ -18,7 +18,14 @@
  * host-side on create and rejected in update patches.
  */
 
-import { validateStepRequestsExist, validateWorkflowShape } from '@openheaders/core/live';
+import {
+  isUnknownStep,
+  unknownStepMessage,
+  validateStepRequestsExist,
+  validateWorkflowShape,
+  WORKFLOW_NEEDS_UPDATE_MESSAGE,
+  workflowNeedsUpdate,
+} from '@openheaders/core/live';
 import {
   EnvironmentSchema,
   LiveVariableSchema,
@@ -423,10 +430,19 @@ function findWorkflow(workspaceId: string, uid: string): LiveWorkflow {
   return match.workflow;
 }
 
-/** Canonical structural validation, shared by create and update. */
-function assertWorkflowStructure(workspaceId: string, workflow: LiveWorkflow): void {
+/**
+ * Canonical structural validation, shared by create and update. A call
+ * that writes `steps` authors them, and a step this build does not know
+ * is refused by name; a patch that leaves `steps` alone renames or
+ * switches off a workflow a newer build wrote, and rides past that one
+ * issue.
+ */
+function assertWorkflowStructure(workspaceId: string, workflow: LiveWorkflow, stepsAuthored: boolean): void {
   const knownRequestUids = new Set(snapshotRequestPostStates(workspaceId).map((ps) => ps.request.uid));
-  const structural = [...validateWorkflowShape(workflow), ...validateStepRequestsExist(workflow, knownRequestUids)];
+  const structural = [
+    ...validateWorkflowShape(workflow),
+    ...validateStepRequestsExist(workflow, knownRequestUids),
+  ].filter((error) => stepsAuthored || error.issue !== 'step-needs-update');
   if (structural.length > 0) {
     throw new McpToolInputError(
       `invalid workflow: ${structural
@@ -435,6 +451,22 @@ function assertWorkflowStructure(workspaceId: string, workflow: LiveWorkflow): v
         .join('; ')}`,
     );
   }
+}
+
+/**
+ * Update guard: a workflow with a step this build does not know is
+ * read-only here — a patch may rename it or switch it on or off, and
+ * change nothing else.
+ */
+const READ_ONLY_PATCH_KEYS: ReadonlySet<string> = new Set(['name', 'enabled']);
+
+function assertPatchAllowed(existing: LiveWorkflow, patch: Record<string, unknown>): void {
+  if (!workflowNeedsUpdate(existing)) return;
+  const refused = Object.keys(patch).filter((key) => !READ_ONLY_PATCH_KEYS.has(key));
+  if (refused.length === 0) return;
+  throw new McpToolInputError(
+    `${WORKFLOW_NEEDS_UPDATE_MESSAGE} This host can rename it or switch it on or off; it cannot change ${refused.join(', ')}.`,
+  );
 }
 
 /**
@@ -448,7 +480,8 @@ function assertBoundLiveVariablesIntact(workspaceId: string, merged: LiveWorkflo
     .filter((lv) => lv.workflowUid === merged.uid)
     .filter((lv) => {
       const step = merged.steps.find((s) => s.id === lv.stepId);
-      return !step || !step.captures.some((c) => c.name === lv.captureName);
+      if (!step) return true;
+      return !isUnknownStep(step) && !step.captures.some((c) => c.name === lv.captureName);
     });
   if (orphaned.length > 0) {
     throw new McpToolInputError(
@@ -499,6 +532,9 @@ function readExposeInputs(raw: unknown, workflow: LiveWorkflow, workspaceId: str
     const step = workflow.steps.find((s) => s.id === stepId);
     if (!step) {
       throw new McpToolInputError(`'exposes[${index}]' references unknown step '${stepId}'`);
+    }
+    if (isUnknownStep(step)) {
+      throw new McpToolInputError(`'exposes[${index}]' cannot bind — ${unknownStepMessage(step)}`);
     }
     if (!step.captures.some((c) => c.name === captureName)) {
       throw new McpToolInputError(
@@ -1042,7 +1078,8 @@ export function createWriteToolDefinitions(): McpToolDefinition[] {
         'as drafts unless published: true is passed — only published workflows are scheduled and resolvable. ' +
         'Pass uid to patch an existing workflow: the call is one atomic gesture (a published workflow stays ' +
         'published), and a patch may not remove a step or capture an existing {{live.*}} variable is bound ' +
-        'to — re-point those bindings in Open Headers. Saving never sends traffic.',
+        "to — re-point those bindings in Open Headers. A workflow holding steps this host's version does not " +
+        'know can only be renamed or switched on or off. Saving never sends traffic.',
       inputSchema: {
         type: 'object',
         properties: {
@@ -1086,10 +1123,11 @@ export function createWriteToolDefinitions(): McpToolDefinition[] {
 
         if (typeof args.uid === 'string' && args.uid.length > 0) {
           const existing = findWorkflow(workspaceId, args.uid);
+          assertPatchAllowed(existing, input);
           const augmented: Record<string, unknown> =
             existing.published === true && !('published' in input) ? { ...input, published: true } : input;
           const merged = parseOrThrow(LiveWorkflowSchema, { ...existing, ...augmented }, 'workflow');
-          assertWorkflowStructure(workspaceId, merged);
+          assertWorkflowStructure(workspaceId, merged, 'steps' in input);
           assertBoundLiveVariablesIntact(workspaceId, merged);
           const exposes = readExposeInputs(args.exposes, merged, workspaceId);
 
@@ -1120,7 +1158,7 @@ export function createWriteToolDefinitions(): McpToolDefinition[] {
           },
           'workflow',
         );
-        assertWorkflowStructure(workspaceId, created);
+        assertWorkflowStructure(workspaceId, created, true);
         const exposes = readExposeInputs(args.exposes, created, workspaceId);
 
         await applyMcpMutation(buildAddLiveWorkflowBatch(created, mintMcpContext(workspaceId)));

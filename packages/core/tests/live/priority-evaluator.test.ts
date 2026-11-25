@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { comparePriority, PRIORITY_LAST, priorityValue } from '../../src/live/priority-evaluator';
-import type { WorkflowStep } from '../../src/types/live';
+import type { CallWorkflowStep } from '../../src/types/live';
 
-function step(id: string, priorityFrom?: WorkflowStep['priorityFrom']): WorkflowStep {
+function step(id: string, priorityFrom?: CallWorkflowStep['priorityFrom']): CallWorkflowStep {
   return { uid: `stp${id.slice(0, 5).padEnd(5, 'x')}`, id, requestUid: 'reqonly1', captures: [], priorityFrom };
 }
 

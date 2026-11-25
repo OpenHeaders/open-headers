@@ -1,4 +1,4 @@
-import { isWorkflowComplete, isWorkflowDraft } from '@openheaders/core/live';
+import { isWorkflowComplete, isWorkflowDraft, workflowNeedsUpdate } from '@openheaders/core/live';
 import { LIVE_WORKFLOW_ENTITY_TYPE } from '@openheaders/core/sync';
 import type { LiveWorkflow } from '@openheaders/core/types';
 import { createElement, useMemo } from 'react';
@@ -49,7 +49,8 @@ interface UseWorkflowNodesParams {
  *   - Runtime dot icon — green / yellow / red / idle from the last run
  *     record. Dynamic state that rules don't have (rules are DNR-
  *     compiled, stateless from the sidebar's POV).
- *   - Text badge (precedence): `draft` → `unresolved` → `off`.
+ *   - Text badge (precedence): `needs update` → `incomplete` →
+ *     `unresolved` → `draft` → `off`.
  *     Matches rules' configuration-state badge vocabulary.
  *   - Dirty dot — overlayed via `composeBadge` when the workflow has an
  *     open edit tab with unsaved changes.
@@ -102,13 +103,18 @@ export function useWorkflowNodes(p: UseWorkflowNodesParams): TreeNode[] {
       // Configuration-state badge, precedence matches rules.
       // Draft (publication gate) and incomplete (data-shape) are
       // orthogonal — same model as session 55's Rule sidebar tags.
-      // Precedence: incomplete > unresolved > draft > off, so the most
-      // actionable issue wins the single badge slot.
+      // Precedence: needs update > incomplete > unresolved > draft > off,
+      // so the most actionable issue wins the single badge slot. A
+      // workflow with a step this build does not know is never
+      // complete; "needs update" says why, where "incomplete" would
+      // send the user looking for a field to fill.
       const complete = isWorkflowComplete(wf);
       const draft = isWorkflowDraft(wf);
       const isUnresolved = complete && (p.unresolvableWorkflowUids?.has(wf.uid) ?? false);
       let textBadge: { label: string; color: string } | null = null;
-      if (!complete) {
+      if (workflowNeedsUpdate(wf)) {
+        textBadge = { label: t('workbench.sidebar.badge.needsUpdate'), color: 'var(--ant-color-warning, #faad14)' };
+      } else if (!complete) {
         textBadge = { label: t('workbench.sidebar.badge.incomplete'), color: 'var(--ant-color-text-tertiary, #999)' };
       } else if (isUnresolved) {
         textBadge = { label: t('workbench.sidebar.badge.unresolved'), color: 'var(--ant-color-error, #ff4d4f)' };

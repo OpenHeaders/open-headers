@@ -99,6 +99,15 @@ function matchUnionOption(schema: SchemaShape, value: unknown): SchemaShape | un
   return undefined;
 }
 
+/**
+ * Whether a resolved schema node describes a map that keeps keys it does
+ * not declare. Its value is the authority for what it holds, so both
+ * walkers take it whole: emitted as it is, nothing beneath it captured.
+ */
+export function isOpenObjectShape(shape: SchemaShape): boolean {
+  return shape.type === 'loose_object';
+}
+
 /** Whether a resolved schema node describes a fixed-entry map. */
 export function isObjectShape(shape: SchemaShape): boolean {
   return shape.entries !== undefined && typeof shape.type === 'string' && shape.type.includes('object');

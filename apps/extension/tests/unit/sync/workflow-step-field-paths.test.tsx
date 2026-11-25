@@ -10,7 +10,7 @@
  * resolves a focusable descendant to the matching path.
  */
 
-import type { DraftStep } from '@openheaders/core/live';
+import type { DraftCallStep } from '@openheaders/core/live';
 import { readFieldPath } from '@openheaders/ui/shared/awareness/field-path';
 import { LIVE_WORKFLOW_FIELD } from '@openheaders/ui/shared/awareness/live-paths';
 import WorkflowStepEditor from '@openheaders/ui/workbench/components/live/WorkflowStepEditor';
@@ -33,11 +33,11 @@ afterEach(() => {
   cleanup();
 });
 
-function mkStep(overrides: Partial<DraftStep> = {}): DraftStep {
+function mkStep(overrides: Partial<DraftCallStep> = {}): DraftCallStep {
   return { uid: 'stpauth0', id: 'authenticate', requestUid: 'req-auth', captures: [], ...overrides };
 }
 
-function renderStep(index: number, step: DraftStep) {
+function renderStep(index: number, step: DraftCallStep) {
   const { container } = render(
     <WorkflowStepEditor
       step={step}

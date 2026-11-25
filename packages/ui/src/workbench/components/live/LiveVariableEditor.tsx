@@ -26,6 +26,7 @@ import { useEnvironments } from '@openheaders/ui/shared/hooks/readers/useEnviron
 import { useLiveWorkflowCache } from '@openheaders/ui/shared/hooks/readers/useLiveCache';
 import { useLiveVariables } from '@openheaders/ui/shared/hooks/readers/useLiveVariables';
 import { useLiveWorkflows } from '@openheaders/ui/shared/hooks/readers/useLiveWorkflows';
+import { callStepsOf } from '@openheaders/core/live';
 import { LIVE_VARIABLE_ENTITY_TYPE } from '@openheaders/core/sync';
 import { EntityScopeProvider, LIVE_VARIABLE_FIELD, useSetActiveFieldFocus } from '@openheaders/ui/shared/awareness';
 import { readFieldPath } from '@openheaders/ui/shared/awareness/field-path';
@@ -240,7 +241,8 @@ const EditMode: React.FC<EditProps> = ({ variableUid, onDirtyChange, registerSav
   if (!draft) return null;
 
   const selectedWorkflow = workflows.find((w) => w.uid === draft.workflowUid) ?? null;
-  const selectedStep = selectedWorkflow?.steps.find((s) => s.id === draft.stepId) ?? null;
+  const selectedSteps = selectedWorkflow ? callStepsOf(selectedWorkflow) : [];
+  const selectedStep = selectedSteps.find((s) => s.id === draft.stepId) ?? null;
   const selectedCaptures = selectedStep?.captures ?? [];
 
   const run = pickActiveRun(runs, activeEnvironmentId ?? null);
@@ -419,7 +421,7 @@ const EditMode: React.FC<EditProps> = ({ variableUid, onDirtyChange, registerSav
                   style={{ width: '100%' }}
                   value={draft.stepId || undefined}
                   onChange={(stepId) => setDraft({ ...draft, stepId, captureName: '' })}
-                  options={(selectedWorkflow?.steps ?? []).map((s) => ({
+                  options={selectedSteps.map((s) => ({
                     value: s.id,
                     label: t('workbench.editors.live.variable.stepOption', { id: s.id, count: s.captures.length }),
                   }))}

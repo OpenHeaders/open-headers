@@ -165,6 +165,8 @@ export const workbenchLive = {
   'workbench.editors.live.workflow.refresh': 'Обновить',
   'workbench.editors.live.workflow.disabledTag': 'Выключено',
   'workbench.editors.live.workflow.notFound': 'Рабочий процесс не найден.',
+  'workbench.editors.live.workflow.needsUpdate':
+    'В этом рабочем процессе есть шаги, для которых нужна более новая версия OpenHeaders. Обновите приложение, чтобы изменить или запустить его.',
   'workbench.editors.live.workflow.deletedElsewhere': 'Рабочий процесс удалён из другой вкладки',
   'workbench.editors.live.workflow.saveFailed': 'Не удалось сохранить рабочий процесс',
   'workbench.editors.live.workflow.createFailed': 'Не удалось создать рабочий процесс',
@@ -189,6 +191,7 @@ export const workbenchLive = {
 
   // ── Workflow step editor ────────────────────────────────────────────
   'workbench.editors.live.step.title': 'Шаг {number}',
+  'workbench.editors.live.step.needsUpdate': 'Для этого шага нужна более новая версия OpenHeaders.',
   'workbench.editors.live.step.idPrefix': 'id',
   'workbench.editors.live.step.namePrefix': 'имя',
   'workbench.editors.live.step.typeTooltip':

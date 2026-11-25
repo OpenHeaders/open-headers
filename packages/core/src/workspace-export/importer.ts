@@ -30,6 +30,7 @@
  *     entities)
  */
 
+import { isUnknownStep } from '../live/unknown-step';
 import type { ScriptSlotCarrier } from '../scripts/slots';
 import type {
   AuthPoolEntry,
@@ -530,12 +531,16 @@ export function buildImportPlan(
     return { ...lv, workflowUid: remappedWorkflowUid };
   });
 
-  // Live workflows rebind their step requestUids through uidRemap too.
+  // Live workflows rebind their step requestUids through uidRemap too. A
+  // step this build does not know is kept as it is — which of its keys
+  // name a request is not this build's to say.
   for (const entry of liveWorkflows.entries) {
     if (entry.action !== 'create') continue;
     entry.entity = {
       ...entry.entity,
-      steps: entry.entity.steps.map((s) => ({ ...s, requestUid: uidRemap[s.requestUid] ?? s.requestUid })),
+      steps: entry.entity.steps.map((s) =>
+        isUnknownStep(s) ? s : { ...s, requestUid: uidRemap[s.requestUid] ?? s.requestUid },
+      ),
     };
   }
 

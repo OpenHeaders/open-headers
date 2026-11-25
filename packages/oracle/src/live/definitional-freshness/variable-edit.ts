@@ -1,4 +1,5 @@
 import {
+  callStepsOf,
   collectRequestTemplateStrings,
   type VariableFingerprint,
   workflowVariableFingerprint,
@@ -116,7 +117,7 @@ function snapshotWorkflowVariableFingerprints(): Map<string, Map<string | null, 
 
   for (const workflow of workflows) {
     const templates: string[] = [];
-    for (const step of workflow.steps) {
+    for (const step of callStepsOf(workflow)) {
       const request = getRequest(step.requestUid);
       if (request) templates.push(...collectRequestTemplateStrings(request));
     }

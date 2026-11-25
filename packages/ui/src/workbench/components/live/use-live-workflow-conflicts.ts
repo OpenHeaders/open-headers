@@ -3,6 +3,7 @@
  * adapter for the entity-agnostic `useEntityConflicts`.
  */
 
+import { isUnknownStep } from '@openheaders/core/live';
 import { canonicalJson } from '@openheaders/core/sync';
 import type { LiveWorkflow, WorkflowStep } from '@openheaders/core/types';
 import { type EntityConflictsApi, useEntityConflicts } from '@openheaders/ui/shared/conflicts/use-entity-conflicts';
@@ -76,6 +77,7 @@ export function projectLiveWorkflowToForm(d: LiveWorkflowFormProjectionInput): R
   for (const step of d.steps ?? []) {
     const sp = `steps.${step.uid}`;
     out[`${sp}.id`] = step.id;
+    if (isUnknownStep(step)) continue;
     out[`${sp}.description`] = step.description ?? '';
     out[`${sp}.requestUid`] = step.requestUid;
     out[`${sp}.dependsOn`] = opaqueStringify(step.dependsOn ?? []);

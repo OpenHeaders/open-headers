@@ -1,5 +1,6 @@
 /**
- * WorkflowStepEditor — draft-level editor for a single `WorkflowStep`.
+ * WorkflowStepEditor — draft-level editor for a single call step (a
+ * step this build does not know has its own card, `UnknownStepCard`).
  *
  * Used inside `LiveWorkflowEditor` (once per step). The step-id chip is
  * editable because `{{step.<id>.<capture>}}` references are stable
@@ -20,30 +21,31 @@
  */
 
 import { DeleteOutlined, DownOutlined, InfoCircleOutlined, UpOutlined } from '@ant-design/icons';
-import type { DraftCapture, DraftStep, StructuralError } from '@openheaders/core/live';
+import type { DraftCallStep, DraftCapture, StructuralError } from '@openheaders/core/live';
 import { newDraftCapture } from '@openheaders/core/live';
 import type { PriorityRef, StepGate, StepRetryPolicy } from '@openheaders/core/types';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { noteFeatureUsed } from '@openheaders/ui/shared/product-telemetry';
-import { Button, Collapse, Input, Select, Space, Switch, Tag, Tooltip, Typography, theme } from 'antd';
+import { Button, Collapse, ConfigProvider, Input, Select, Space, Switch, Tag, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
-import { useEffect, useMemo, useRef } from 'react';
+import { useMemo } from 'react';
 import { scopeBadge } from '../shared/scope-colors';
 import type { DependencyRow } from './dependencies-view';
 import ExtractorEditor from './ExtractorEditor';
 import { LIVE_WORKFLOW_FIELD } from '@openheaders/ui/shared/awareness/live-paths';
+import { useScrollCardIntoView } from './use-scroll-card-into-view';
 import { buildRequestPickerOptions, type StepRequestChoice } from './workflow-step-request-options';
 import { buildWorkflowStepSections } from './workflow-step-sections';
 
 const { Text } = Typography;
 
 interface Props {
-  step: DraftStep;
+  step: DraftCallStep;
   index: number;
   totalSteps: number;
   /** Requests the step's Request picker can choose from. */
   availableRequests: StepRequestChoice[];
-  onChange: (next: DraftStep) => void;
+  onChange: (next: DraftCallStep) => void;
   onRemove?: () => void;
   onMoveUp?: () => void;
   onMoveDown?: () => void;
@@ -92,29 +94,11 @@ const WorkflowStepEditor: React.FC<Props> = ({
 }) => {
   const { token } = theme.useToken();
   const t = useT();
+  // A read-only form switches every control off through the provider;
+  // the controls below that set their own `disabled` must agree with it.
+  const readOnly = ConfigProvider.useConfig().componentDisabled === true;
 
-  const cardRef = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    if (!scrollRequested) return;
-    // Scroll ONLY the form's own scroll container — scrollIntoView
-    // walks every scrollable ancestor and drags the workbench shell
-    // (tab strip included) along with it.
-    const card = cardRef.current;
-    if (card) {
-      let scroller = card.parentElement;
-      while (scroller && !/(auto|scroll)/.test(getComputedStyle(scroller).overflowY)) {
-        scroller = scroller.parentElement;
-      }
-      if (scroller) {
-        const top = card.getBoundingClientRect().top - scroller.getBoundingClientRect().top + scroller.scrollTop;
-        scroller.scrollTo({
-          top: Math.max(0, top - (scroller.clientHeight - card.clientHeight) / 2),
-          behavior: 'smooth',
-        });
-      }
-    }
-    onScrollDone?.();
-  }, [scrollRequested, onScrollDone]);
+  const cardRef = useScrollCardIntoView(scrollRequested, onScrollDone);
 
   const addCapture = () => {
     const name = `capture${step.captures.length + 1}`;
@@ -376,14 +360,14 @@ const WorkflowStepEditor: React.FC<Props> = ({
           </Tag>
         )}
         {onMoveUp && (
-          <Button size="small" type="text" icon={<UpOutlined />} disabled={index === 0} onClick={onMoveUp} />
+          <Button size="small" type="text" icon={<UpOutlined />} disabled={readOnly || index === 0} onClick={onMoveUp} />
         )}
         {onMoveDown && (
           <Button
             size="small"
             type="text"
             icon={<DownOutlined />}
-            disabled={index === totalSteps - 1}
+            disabled={readOnly || index === totalSteps - 1}
             onClick={onMoveDown}
           />
         )}
@@ -393,7 +377,7 @@ const WorkflowStepEditor: React.FC<Props> = ({
             type="text"
             danger
             icon={<DeleteOutlined />}
-            disabled={totalSteps <= 1}
+            disabled={readOnly || totalSteps <= 1}
             onClick={onRemove}
           />
         )}
@@ -521,7 +505,7 @@ const WorkflowStepEditor: React.FC<Props> = ({
                 </span>
                 <Input
                   size="small"
-                  disabled={!c.exposed}
+                  disabled={readOnly || !c.exposed}
                   style={{ width: 180 }}
                   placeholder={c.name || t('workbench.editors.live.step.namePrefix')}
                   value={c.liveName}
@@ -563,6 +547,7 @@ const WorkflowStepEditor: React.FC<Props> = ({
             retry: step.retry,
             timeoutMs: step.timeoutMs,
             runScripts: step.runScripts,
+            readOnly,
             handleDependsOnChange,
             clearExplicitDependsOn,
             handleRunIfChange,

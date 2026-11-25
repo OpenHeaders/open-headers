@@ -19,7 +19,7 @@
  * not here.
  */
 
-import type { WorkflowStep } from '../types/live';
+import type { CallWorkflowStep } from '../types/live';
 
 /** Sentinel for "run last" in comparator chains. */
 export const PRIORITY_LAST = Number.POSITIVE_INFINITY;
@@ -37,7 +37,7 @@ export type PriorityValue = number | string;
  *     fall back to the raw string for lexicographic comparison.
  */
 export function priorityValue(
-  step: WorkflowStep,
+  step: CallWorkflowStep,
   captures: ReadonlyMap<string, ReadonlyMap<string, string>>,
 ): PriorityValue {
   const ref = step.priorityFrom;

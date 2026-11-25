@@ -1,5 +1,6 @@
 import * as v from 'valibot';
 import { describe, expect, it } from 'vitest';
+import { callStepsOf } from '../../src/live/unknown-step';
 import { LiveVariableSchema, LiveWorkflowSchema } from '../../src/schemas/live';
 import { buildEmptyLiveVariable, buildEmptyLiveWorkflow } from '../../src/utils/live-defaults';
 
@@ -11,7 +12,7 @@ describe('buildEmptyLiveWorkflow', () => {
     expect(seed.refresh).toEqual({ kind: 'manual' });
     expect(seed.steps).toHaveLength(1);
     expect(seed.steps[0]?.id).toBe('step1');
-    expect(seed.steps[0]?.requestUid).toBe('');
+    expect(callStepsOf(seed)[0]?.requestUid).toBe('');
   });
 
   it('does NOT set published — write-client owns that invariant', () => {
