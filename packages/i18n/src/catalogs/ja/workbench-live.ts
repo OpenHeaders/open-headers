@@ -159,6 +159,10 @@ export const workbenchLive = {
   'workbench.editors.live.run.row.sending': '送信中…',
   'workbench.editors.live.run.row.attempt': '試行 {attempt}/{max}',
   'workbench.editors.live.run.row.passedOnAttempt': '試行 {attempt}/{max} で成功',
+  'workbench.editors.live.run.row.readyIn': '{duration} で準備完了',
+  'workbench.editors.live.run.row.sent': '送信済み',
+  'workbench.editors.live.run.row.acknowledgedIn': '{duration} で確認',
+  'workbench.editors.live.run.row.matchedAfter': '{duration} 後に一致',
   'workbench.editors.live.run.row.captures': ({ count }, locale) =>
     plural(locale, Number(count), { other: '{count} 件のキャプチャ' }),
   'workbench.editors.live.run.row.failed': '失敗',

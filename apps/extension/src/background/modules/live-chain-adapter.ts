@@ -404,10 +404,14 @@ async function commitFailure(
  *                   (cycle / unknown dep slipped past save-time
  *                   validation). Defensive — save-time validators
  *                   should catch this.
- *   - `'unsupported'` — the workflow holds a step this build does not
- *                   know; refused before its first step.
+ *   - `'criteria'` — the response came and a success criterion did not
+ *                   hold, after the last send of a poll.
+ *   - `'unsupported'` — the workflow holds a step this host cannot run;
+ *                   refused before its first step.
+ *
+ * The phases are the runner's: a session step's are its own action's.
  */
-export type ChainRefreshPhase = 'fetch' | 'extract' | 'graph' | typeof UNKNOWN_STEP_PHASE;
+export type ChainRefreshPhase = ChainRunFailure['failedPhase'];
 
 export class ChainRefreshError extends Error {
   readonly failedStepId: string;

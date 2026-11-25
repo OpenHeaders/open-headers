@@ -5,7 +5,8 @@
  * `step-start`, an `attempt-end` for each attempt another one follows,
  * and one `step-settle`; `end` closes the run on every path. Every step
  * settles exactly once — a skipped step and a step that never ran settle
- * without starting.
+ * without starting. A `listen` settles when its session is ready; how
+ * that session closed rides `end`.
  *
  * Events are additive: the run's outcome, its report and what the cache
  * is handed are the same with or without a listener.
@@ -13,13 +14,45 @@
 
 import type { ExecutedRequestSnapshot } from '../types';
 import type { LiveWorkflow } from '../types/live';
+import type { SessionMessage } from './session-port';
 import { isUnknownStep, unknownStepMessage } from './unknown-step';
 
-/** What a step produced, for whoever opens it — a call's is its exchange. */
-export type StepProduct = { kind: 'response'; snapshot: ExecutedRequestSnapshot };
+/** A message an `expect` held in its window, and what became of it. */
+export interface WindowEntry {
+  message: SessionMessage;
+  /** `stored`: passed over as stored, not live. */
+  outcome: 'matched' | 'not-matched' | 'stored';
+}
+
+/**
+ * What a step produced, for whoever opens it. A call's is its exchange.
+ * A `send`'s is the message as sent, with the reply where the kind
+ * answers a send; an `expect`'s is the message it matched — `null` when
+ * none did — and what its window held.
+ */
+export type StepProduct =
+  | { kind: 'response'; snapshot: ExecutedRequestSnapshot }
+  | { kind: 'message'; message: SessionMessage | null; reply?: SessionMessage; window?: WindowEntry[] };
 
 /** Why an attempt is followed by another. */
-export type AttemptRetryCause = { kind: 'error'; message: string } | { kind: 'status'; status: number };
+export type AttemptRetryCause =
+  | { kind: 'error'; message: string }
+  | { kind: 'status'; status: number }
+  /** A poll: the response came and a success criterion did not hold. */
+  | { kind: 'criteria'; message: string };
+
+/** Which part of a step broke: of a call, or the session action itself. */
+export type StepFailurePhase = 'fetch' | 'extract' | 'graph' | 'criteria' | 'listen' | 'send' | 'expect';
+
+/** How a session closed when its run ended. */
+export interface SessionClose {
+  /** The `listen` step that opened it. */
+  stepId: string;
+  /** How long it was open, from ready to closed. */
+  openForMs: number;
+  /** What did not go cleanly. A warning never changes a verdict. */
+  warning?: string;
+}
 
 /** How a step ended. Capture names only — a value never rides an event. */
 export type StepSettlement =
@@ -33,9 +66,15 @@ export type StepSettlement =
       maxAttempts: number;
       captureNames: string[];
     }
+  /** A `listen`: its session is ready to receive. */
+  | { state: 'ready'; readyMs: number; captureNames: string[] }
+  /** A `send`: the message has left, acknowledged where the kind acknowledges. */
+  | { state: 'sent'; ackMs?: number; captureNames: string[] }
+  /** An `expect`: a message matched, `afterMs` from its trigger's start. */
+  | { state: 'matched'; afterMs: number; captureNames: string[] }
   | {
       state: 'failed';
-      phase: 'fetch' | 'extract' | 'graph';
+      phase: StepFailurePhase;
       /** One sentence that states the condition. */
       reason: string;
       attempts: number;
@@ -73,7 +112,14 @@ export type WorkflowRunEvent =
       retryInMs: number;
     }
   | StepSettleEvent
-  | { type: 'end'; at: number; ok: boolean; durationMs: number };
+  | {
+      type: 'end';
+      at: number;
+      ok: boolean;
+      durationMs: number;
+      /** Present only for a run that opened a session: each one's close, last opened first. */
+      sessions?: SessionClose[];
+    };
 
 /**
  * An event as it crosses to a page: the same facts, the product left

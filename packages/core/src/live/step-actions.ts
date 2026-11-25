@@ -9,6 +9,7 @@
 
 import { SESSION_STEP_ACTIONS } from '../schemas/live';
 import type {
+  CallWorkflowStep,
   ExpectWorkflowStep,
   KnownWorkflowStep,
   ListenWorkflowStep,
@@ -17,6 +18,10 @@ import type {
   WorkflowStep,
 } from '../types/live';
 import { isUnknownStep } from './unknown-step';
+
+export function isCallStep(step: WorkflowStep): step is CallWorkflowStep {
+  return !isUnknownStep(step);
+}
 
 export function isListenStep(step: WorkflowStep): step is ListenWorkflowStep {
   return isUnknownStep(step) && step.action === 'listen';

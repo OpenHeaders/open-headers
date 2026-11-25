@@ -228,7 +228,7 @@ describe('the page keeps a run from its frames', () => {
 
     expect(h.call).toHaveBeenCalledWith('getLiveWorkflowRunProduct', { runId: 'run-1', stepId: 'login' });
     expect(getKeptWorkflowRun('ws-run-pins', 'wfpins01')?.products).toEqual({ login: 'kept' });
-    expect(readKeptRunProduct('run-1', 'login')?.snapshot.body).toBe('{"name":"John Doe"}');
+    expect(readKeptRunProduct('run-1', 'login')).toMatchObject({ snapshot: { body: '{"name":"John Doe"}' } });
   });
 
   it('marks a product gone when the realm that ran the step no longer holds it', async () => {

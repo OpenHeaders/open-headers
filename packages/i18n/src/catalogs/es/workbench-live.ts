@@ -168,6 +168,10 @@ export const workbenchLive = {
   'workbench.editors.live.run.row.sending': 'Enviando…',
   'workbench.editors.live.run.row.attempt': 'Intento {attempt} de {max}',
   'workbench.editors.live.run.row.passedOnAttempt': 'Correcto en el intento {attempt} de {max}',
+  'workbench.editors.live.run.row.readyIn': 'Listo en {duration}',
+  'workbench.editors.live.run.row.sent': 'Enviado',
+  'workbench.editors.live.run.row.acknowledgedIn': 'Confirmado en {duration}',
+  'workbench.editors.live.run.row.matchedAfter': 'Coincidencia tras {duration}',
   'workbench.editors.live.run.row.captures': ({ count }, locale) =>
     plural(locale, Number(count), {
       one: '{count} captura',

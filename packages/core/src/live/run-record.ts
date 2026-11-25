@@ -100,10 +100,10 @@ export interface WorkflowRunTotals {
 }
 
 export function runTotals(record: WorkflowRunRecord): WorkflowRunTotals {
-  const count = (state: StepSettlement['state']): number =>
-    record.steps.filter((row) => row.state === 'settled' && row.settlement.state === state).length;
+  const count = (...states: StepSettlement['state'][]): number =>
+    record.steps.filter((row) => row.state === 'settled' && states.includes(row.settlement.state)).length;
   return {
-    passed: count('passed'),
+    passed: count('passed', 'ready', 'sent', 'matched'),
     failed: count('failed'),
     skipped: count('skipped'),
     notRun: count('not-run'),

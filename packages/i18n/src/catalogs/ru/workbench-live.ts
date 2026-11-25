@@ -179,6 +179,10 @@ export const workbenchLive = {
   'workbench.editors.live.run.row.sending': 'Отправка…',
   'workbench.editors.live.run.row.attempt': 'Попытка {attempt} из {max}',
   'workbench.editors.live.run.row.passedOnAttempt': 'Пройден с попытки {attempt} из {max}',
+  'workbench.editors.live.run.row.readyIn': 'Готов через {duration}',
+  'workbench.editors.live.run.row.sent': 'Отправлено',
+  'workbench.editors.live.run.row.acknowledgedIn': 'Подтверждено через {duration}',
+  'workbench.editors.live.run.row.matchedAfter': 'Совпадение через {duration}',
   'workbench.editors.live.run.row.captures': ({ count }, locale) =>
     plural(locale, Number(count), {
       one: '{count} захват',

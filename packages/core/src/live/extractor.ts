@@ -21,14 +21,12 @@ export interface StepResponseHeader {
 }
 
 /**
- * The subset of a fetch response the extractors need. Chain runners
- * build this from their platform fetch adapter (the extension's
- * request-executor, tests with a mock adapter, etc.).
+ * What an extractor reads: a response, or a session message read as one
+ * — its payload the body, its named fields the headers.
  */
-export interface StepResponse {
-  status: number;
-  statusText: string;
-  url: string;
+export interface ExtractorSubject {
+  /** Absent for a session message: it has no status. */
+  status?: number;
   headers: readonly StepResponseHeader[];
   /** Response body. UTF-8 text verbatim; a binary payload arrives
    *  base64-encoded with `bodyEncoding` set — the executor's lossless
@@ -40,6 +38,17 @@ export interface StepResponse {
    *  text (`json-path`, `body-regex`) refuse binary bodies outright
    *  instead of chewing base64. */
   bodyEncoding?: 'base64';
+}
+
+/**
+ * The subset of a fetch response the extractors need. Chain runners
+ * build this from their platform fetch adapter (the extension's
+ * request-executor, tests with a mock adapter, etc.).
+ */
+export interface StepResponse extends ExtractorSubject {
+  status: number;
+  statusText: string;
+  url: string;
   /** Wire byte count from the executor, when the adapter knows it.
    *  Preferred over re-encoding `body` — a base64 body re-measures
    *  ~4/3 of the true size. */
@@ -64,7 +73,7 @@ export type ExtractorResult = { ok: true; value: string } | { ok: false; kind: E
 
 // ── applyExtractor ────────────────────────────────────────────────
 
-export function applyExtractor(extractor: Extractor, response: StepResponse): ExtractorResult {
+export function applyExtractor(extractor: Extractor, response: ExtractorSubject): ExtractorResult {
   switch (extractor.kind) {
     case 'json-path':
       // A binary body can't be JSON — fail with the real cause instead
@@ -84,6 +93,9 @@ export function applyExtractor(extractor: Extractor, response: StepResponse): Ex
       // JSON payloads downstream).
       return { ok: true, value: response.body };
     case 'status-code':
+      if (response.status === undefined) {
+        return { ok: false, kind: 'unsupported-shape', message: 'A session message has no status.' };
+      }
       return { ok: true, value: String(response.status) };
   }
 }

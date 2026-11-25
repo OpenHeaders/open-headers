@@ -91,7 +91,7 @@ describe('a run feed', () => {
     feed(BEGIN);
     feed(settle('login', 'held'));
 
-    expect(getWorkflowRunProduct('r1', 'login')?.snapshot.body).toBe('held');
+    expect(getWorkflowRunProduct('r1', 'login')).toMatchObject({ snapshot: { body: 'held' } });
     expect(getWorkflowRunProduct('r1', 'profile')).toBeNull();
     expect(getWorkflowRunProduct('other', 'login')).toBeNull();
   });
@@ -117,7 +117,7 @@ describe('a run feed', () => {
     openWorkflowRunFeed({ workspaceId: 'ws-1', workflowUid: 'wfone001', environmentId: null, runId: 'r3' })(BEGIN);
 
     expect(getWorkflowRunProduct('r1', 'login')).toBeNull();
-    expect(getWorkflowRunProduct('r2', 'login')?.snapshot.body).toBe('other');
+    expect(getWorkflowRunProduct('r2', 'login')).toMatchObject({ snapshot: { body: 'other' } });
   });
 
   it('past the budget the oldest run gives its products up, never the one holding', () => {

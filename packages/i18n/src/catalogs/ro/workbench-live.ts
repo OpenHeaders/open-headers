@@ -184,6 +184,10 @@ export const workbenchLive = {
   'workbench.editors.live.run.row.sending': 'Se trimite…',
   'workbench.editors.live.run.row.attempt': 'Încercarea {attempt} din {max}',
   'workbench.editors.live.run.row.passedOnAttempt': 'Reușit la încercarea {attempt} din {max}',
+  'workbench.editors.live.run.row.readyIn': 'Gata în {duration}',
+  'workbench.editors.live.run.row.sent': 'Trimis',
+  'workbench.editors.live.run.row.acknowledgedIn': 'Confirmat în {duration}',
+  'workbench.editors.live.run.row.matchedAfter': 'Potrivire după {duration}',
   'workbench.editors.live.run.row.captures': ({ count }, locale) =>
     plural(locale, Number(count), {
       one: '{count} captură',

@@ -32,16 +32,40 @@ export function describeRunRow(row: WorkflowRunStepRow, t: Translate): RunRowDis
     };
   }
   const { settlement } = row;
+  const captures = (names: readonly string[]): string[] =>
+    names.length > 0 ? [t('workbench.editors.live.run.row.captures', { count: names.length })] : [];
   switch (settlement.state) {
+    case 'ready':
+      return {
+        tone: 'passed',
+        facts: [t('workbench.editors.live.run.row.readyIn', { duration: formatDurationRolled(settlement.readyMs) })],
+      };
+    case 'sent':
+      return {
+        tone: 'passed',
+        facts: [
+          t('workbench.editors.live.run.row.sent'),
+          ...(settlement.ackMs !== undefined
+            ? [t('workbench.editors.live.run.row.acknowledgedIn', { duration: formatDurationRolled(settlement.ackMs) })]
+            : []),
+          ...captures(settlement.captureNames),
+        ],
+      };
+    case 'matched':
+      return {
+        tone: 'passed',
+        facts: [
+          t('workbench.editors.live.run.row.matchedAfter', { duration: formatDurationRolled(settlement.afterMs) }),
+          ...captures(settlement.captureNames),
+        ],
+      };
     case 'passed':
       return {
         tone: 'passed',
         facts: [
           String(settlement.status),
           ...(settlement.durationMs !== undefined ? [formatDurationRolled(settlement.durationMs)] : []),
-          ...(settlement.captureNames.length > 0
-            ? [t('workbench.editors.live.run.row.captures', { count: settlement.captureNames.length })]
-            : []),
+          ...captures(settlement.captureNames),
           ...(settlement.attempts > 1
             ? [
                 t('workbench.editors.live.run.row.passedOnAttempt', {

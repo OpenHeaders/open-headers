@@ -73,6 +73,39 @@ describe('a Call row, in the plan’s words', () => {
   });
 });
 
+describe('a session step’s row, in the plan’s words', () => {
+  const settled = (
+    settlement: Extract<WorkflowRunStepRow, { state: 'settled' }>['settlement'],
+  ): WorkflowRunStepRow => ({
+    ...STEP,
+    state: 'settled',
+    hasProduct: false,
+    settlement,
+  });
+
+  it('a listen is done when its session is ready', () => {
+    expect(describeRunRow(settled({ state: 'ready', readyMs: 41, captureNames: [] }), t)).toEqual({
+      tone: 'passed',
+      facts: ['Ready in 41 ms'],
+    });
+  });
+
+  it('a send says Sent, the acknowledgement where there was one, and its captures', () => {
+    expect(describeRunRow(settled({ state: 'sent', captureNames: [] }), t).facts).toEqual(['Sent']);
+    expect(describeRunRow(settled({ state: 'sent', ackMs: 6, captureNames: ['name'] }), t)).toEqual({
+      tone: 'passed',
+      facts: ['Sent', 'Acknowledged in 6 ms', '1 capture'],
+    });
+  });
+
+  it('an expect says how long after its trigger it matched', () => {
+    expect(describeRunRow(settled({ state: 'matched', afterMs: 312, captureNames: ['state'] }), t)).toEqual({
+      tone: 'passed',
+      facts: ['Matched after 312 ms', '1 capture'],
+    });
+  });
+});
+
 describe('any action', () => {
   it('skipped says why; not run and cannot run are their own words', () => {
     expect(

@@ -25,6 +25,13 @@ interface HeldRun {
   bodySize: number;
 }
 
+function bodySizeOf(product: StepProduct): number {
+  if (product.kind === 'response') return product.snapshot.body.length;
+  let size = (product.message?.body.length ?? 0) + (product.reply?.body.length ?? 0);
+  for (const entry of product.window ?? []) size += entry.message.body.length;
+  return size;
+}
+
 /** `bodyBudget` is in body characters, across every workflow held. */
 export function createRunProductHold(bodyBudget: number): RunProductHold {
   // Insertion order is age: a workflow's entry is re-inserted when it runs again.
@@ -38,7 +45,7 @@ export function createRunProductHold(bodyBudget: number): RunProductHold {
       const run = held.get(workflowKey);
       if (run === undefined || run.runId !== runId) return;
       run.products.set(stepId, product);
-      run.bodySize += product.snapshot.body.length;
+      run.bodySize += bodySizeOf(product);
       let total = 0;
       for (const each of held.values()) total += each.bodySize;
       for (const [oldestKey, oldest] of held) {

@@ -45,14 +45,27 @@
  * fetch → apply extractors → advance.
  */
 
-import { DEFAULT_RETRY_DELAY_MS } from '../schemas/live';
+import { DEFAULT_RETRY_DELAY_MS, MAX_POLL_TOTAL_MS } from '../schemas/live';
 import type { ExecutedRequestSnapshot } from '../types';
-import type { CallWorkflowStep, LiveWorkflow, RunnableWorkflow, StepRetryPolicy, WorkflowStep } from '../types/live';
+import type {
+  CallWorkflowStep,
+  ChainWorkflow,
+  Criterion,
+  KnownWorkflowStep,
+  LiveWorkflow,
+  StepRetryPolicy,
+  WorkflowStep,
+} from '../types/live';
+import { type CriteriaVerdict, judgeCriteria, resolveCriteria } from './criteria';
 import { applyExtractor, type StepResponse } from './extractor';
 import { evaluateGate, matchStatus } from './gate-evaluator';
 import { comparePriority, priorityValue } from './priority-evaluator';
-import type { AttemptRetryCause, StepProduct, WorkflowRunEvent } from './run-events';
-import { isKnownStep } from './step-actions';
+import type { AttemptRetryCause, SessionClose, StepFailurePhase, StepProduct, WorkflowRunEvent } from './run-events';
+import { stepsThisRunCannotRun } from './run-requirements';
+import type { SessionHost } from './session-port';
+import { createSessionStepRunner, type SessionStepRunner } from './session-step-runner';
+import { isCallStep, isKnownStep } from './step-actions';
+import { UNKNOWN_STEP_PHASE } from './unknown-step';
 
 // ── Fetch adapter contract ────────────────────────────────────────
 
@@ -131,8 +144,12 @@ export interface ChainRunFailure {
   ok: false;
   /** `stepId` where execution halted. */
   failedStepId: string;
-  /** Which phase broke — helpful for the observability log's `errorClass`. */
-  failedPhase: 'fetch' | 'extract' | 'graph';
+  /**
+   * Which phase broke — helpful for the observability log's `errorClass`.
+   * `unsupported`: the run was refused before its first step, for a step
+   * this host cannot run.
+   */
+  failedPhase: StepFailurePhase | typeof UNKNOWN_STEP_PHASE;
   /** Human-readable failure message. */
   failedReason: string;
   /** Attempts the failing step made (present on `fetch` failures when a
@@ -179,8 +196,18 @@ export function effectiveDependsOn(step: WorkflowStep, declaredIndex: number, wo
 
 // ── runChain ──────────────────────────────────────────────────────
 
-export async function runChain(args: {
-  workflow: RunnableWorkflow;
+/**
+ * Resolve a template that sits outside a request — an `expect`'s
+ * address, a criterion's value — with the run's captures in reach.
+ */
+export type TemplateResolver = (
+  template: string,
+  stepCaptures: ReadonlyMap<string, ReadonlyMap<string, string>>,
+  context: ChainExecutionContext,
+) => Promise<string>;
+
+export interface RunChainArgs {
+  workflow: ChainWorkflow;
   adapter: FetchAdapter;
   context: ChainExecutionContext;
   /** Injectable clock — defaults to `Date.now`. Tests override. */
@@ -194,17 +221,66 @@ export async function runChain(args: {
    * there is one.
    */
   onEvent?: (event: WorkflowRunEvent) => void;
-}): Promise<ChainRunOutcome> {
+  /** Opens a `listen` step's session. Absent on a host that opens none. */
+  sessions?: SessionHost;
+  /** Absent on a host that resolves no template outside a request. */
+  resolveTemplate?: TemplateResolver;
+  /**
+   * Injectable deadline — settles after `ms`, and is dropped when
+   * `signal` aborts first. Defaults to `setTimeout`. Tests override.
+   */
+  timer?: (ms: number, signal: AbortSignal) => Promise<void>;
+}
+
+/**
+ * Run a workflow's steps. A run that opened a session ends it on every
+ * path, a throw out of the walk included.
+ */
+export async function runChain(args: RunChainArgs): Promise<ChainRunOutcome> {
+  const { workflow, context, resolveTemplate, now = () => Date.now(), timer = deadlineTimer } = args;
+  const stepCaptures = new Map<string, Map<string, string>>();
+  const resolveText = async (template: string): Promise<string> =>
+    resolveTemplate === undefined || !template.includes('{{')
+      ? template
+      : resolveTemplate(template, stepCaptures, context);
+  const sessionSteps = createSessionStepRunner({
+    workflow,
+    sessions: args.sessions,
+    stepCaptures,
+    context,
+    resolveText,
+    now,
+    timer,
+  });
+  try {
+    return await walkChain({ ...args, now }, stepCaptures, resolveText, sessionSteps);
+  } finally {
+    await sessionSteps.close();
+  }
+}
+
+function deadlineTimer(ms: number, signal: AbortSignal): Promise<void> {
+  return new Promise<void>((resolve) => {
+    const handle = setTimeout(resolve, ms);
+    signal.addEventListener('abort', () => clearTimeout(handle), { once: true });
+  });
+}
+
+async function walkChain(
+  args: RunChainArgs & { now: () => number },
+  stepCaptures: Map<string, Map<string, string>>,
+  resolveText: (template: string) => Promise<string>,
+  sessionSteps: SessionStepRunner,
+): Promise<ChainRunOutcome> {
   const {
     workflow,
     adapter,
     context,
-    now = () => Date.now(),
+    now,
     sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms)),
     onEvent,
   } = args;
 
-  const stepCaptures = new Map<string, Map<string, string>>();
   const stepResponseBytes = new Map<string, number>();
   const stepStatuses = new Map<string, number>();
   const stepAttempts = new Map<string, number>();
@@ -214,16 +290,65 @@ export async function runChain(args: {
   const beganAt = onEvent ? now() : 0;
   onEvent?.({ type: 'begin', at: beganAt, steps: workflow.steps.map(({ id, uid }) => ({ id, uid })) });
 
+  const refusals = stepsThisRunCannotRun(workflow, {
+    opensSessions: args.sessions !== undefined,
+    resolvesTemplates: args.resolveTemplate !== undefined,
+  });
+  if (refusals.length > 0) {
+    if (onEvent) {
+      for (const step of workflow.steps) {
+        const refusal = refusals.find((each) => each.stepId === step.id);
+        onEvent({
+          type: 'step-settle',
+          at: beganAt,
+          stepId: step.id,
+          settlement: refusal === undefined ? { state: 'not-run' } : { state: 'cannot-run', reason: refusal.reason },
+        });
+      }
+      onEvent({ type: 'end', at: beganAt, ok: false, durationMs: 0 });
+    }
+    return {
+      ok: false,
+      failedStepId: refusals[0].stepId,
+      failedPhase: UNKNOWN_STEP_PHASE,
+      failedReason: refusals[0].reason,
+      partialStepCaptures: stepCaptures,
+      partialStepResponseBytes: stepResponseBytes,
+      partialStepStatuses: stepStatuses,
+      skippedStepIds,
+    };
+  }
+
   /** Close the run's events: every step still pending never ran. */
-  const endEvents = (ok: boolean): void => {
+  const endEvents = (ok: boolean, sessions: SessionClose[]): void => {
     if (!onEvent) return;
     for (const pending of workflow.steps) {
       if (state.get(pending.id) !== 'pending') continue;
       onEvent({ type: 'step-settle', at: now(), stepId: pending.id, settlement: { state: 'not-run' } });
     }
     const at = now();
-    onEvent({ type: 'end', at, ok, durationMs: at - beganAt });
+    onEvent({ type: 'end', at, ok, durationMs: at - beganAt, ...(sessions.length > 0 ? { sessions } : {}) });
   };
+
+  /** End the run: its sessions first, last opened first, then its events. */
+  const finish = async (ok: boolean): Promise<void> => {
+    endEvents(ok, await sessionSteps.close());
+  };
+
+  const failure = (
+    stepId: string,
+    failedPhase: ChainRunFailure['failedPhase'],
+    failedReason: string,
+  ): ChainRunFailure => ({
+    ok: false,
+    failedStepId: stepId,
+    failedPhase,
+    failedReason,
+    partialStepCaptures: stepCaptures,
+    partialStepResponseBytes: stepResponseBytes,
+    partialStepStatuses: stepStatuses,
+    skippedStepIds,
+  });
 
   // Index steps by id for O(1) lookup; cache declared position for
   // priority-tiebreak + effectiveDependsOn computation.
@@ -244,7 +369,7 @@ export async function runChain(args: {
     // Ready set = pending steps whose deps are all {complete, skipped}.
     // Failed deps would have aborted the run already, so we only check
     // for terminal-non-failed states here.
-    const ready: CallWorkflowStep[] = [];
+    const ready: KnownWorkflowStep[] = [];
     for (const step of workflow.steps) {
       if (state.get(step.id) !== 'pending') continue;
       const stepDeps = deps.get(step.id) ?? [];
@@ -272,21 +397,12 @@ export async function runChain(args: {
           settlement: { state: 'failed', phase: 'graph', reason: failedReason, attempts: 0, maxAttempts: 0 },
         });
       }
-      endEvents(false);
-      return {
-        ok: false,
-        failedStepId: first ?? '',
-        failedPhase: 'graph',
-        failedReason,
-        partialStepCaptures: stepCaptures,
-        partialStepResponseBytes: stepResponseBytes,
-        partialStepStatuses: stepStatuses,
-        skippedStepIds,
-      };
+      await finish(false);
+      return failure(first ?? '', 'graph', failedReason);
     }
 
     // Evaluate gates; split ready into skipped + eligible.
-    const eligible: CallWorkflowStep[] = [];
+    const eligible: KnownWorkflowStep[] = [];
     for (const step of ready) {
       const gate = step.runIf;
       const passes = gate === undefined || evaluateGate(gate, stepCaptures, stepStatuses);
@@ -314,22 +430,98 @@ export async function runChain(args: {
     }));
     sortKeys.sort(comparePriority);
 
-    // Execute the first eligible step — retrying per its policy.
+    // Execute the first eligible step. Its start opens the window of
+    // every `expect` it triggers.
     const step = sortKeys[0].step;
     const stepId = step.id;
-    const maxAttempts = step.retry?.maxAttempts ?? 1;
+    await sessionSteps.armTriggeredBy(step);
+
+    if (!isCallStep(step)) {
+      onEvent?.({ type: 'step-start', at: now(), stepId, maxAttempts: 1 });
+      const outcome = await sessionSteps.run(step);
+      if (!outcome.ok) {
+        state.set(stepId, 'failed');
+        onEvent?.({
+          type: 'step-settle',
+          at: now(),
+          stepId,
+          settlement: { state: 'failed', phase: outcome.phase, reason: outcome.reason, attempts: 1, maxAttempts: 1 },
+          ...(outcome.product !== undefined ? { product: outcome.product } : {}),
+        });
+        await finish(false);
+        return {
+          ...failure(stepId, outcome.phase, outcome.reason),
+          attemptsMade: 1,
+          ...(outcome.extractorFailure !== undefined ? { extractorFailure: outcome.extractorFailure } : {}),
+        };
+      }
+      stepCaptures.set(stepId, outcome.captures);
+      stepAttempts.set(stepId, 1);
+      state.set(stepId, 'complete');
+      onEvent?.({
+        type: 'step-settle',
+        at: now(),
+        stepId,
+        settlement: outcome.settlement,
+        ...(outcome.product !== undefined ? { product: outcome.product } : {}),
+      });
+      continue;
+    }
+
+    // A call — retried per its policy, and under a poll sent again until
+    // its success criteria hold. A poll counts its own sends; the retries
+    // inside one are not attempts of the step.
+    const poll = step.poll;
+    const maxAttempts = poll?.maxAttempts ?? step.retry?.maxAttempts ?? 1;
     onEvent?.({ type: 'step-start', at: now(), stepId, maxAttempts });
-    const attempt = await executeStepWithRetry(
-      step,
-      adapter,
-      stepCaptures,
-      context,
-      sleep,
-      onEvent
-        ? (ended, cause, retryInMs) =>
-            onEvent({ type: 'attempt-end', at: now(), stepId, attempt: ended, maxAttempts, cause, retryInMs })
-        : undefined,
-    );
+    let criteria: Criterion[];
+    try {
+      criteria = await resolveCriteria(step.successCriteria ?? [], resolveText);
+    } catch (err) {
+      const failedReason = err instanceof Error ? err.message : String(err);
+      state.set(stepId, 'failed');
+      onEvent?.({
+        type: 'step-settle',
+        at: now(),
+        stepId,
+        settlement: { state: 'failed', phase: 'criteria', reason: failedReason, attempts: 0, maxAttempts },
+      });
+      await finish(false);
+      return failure(stepId, 'criteria', failedReason);
+    }
+    const pollStartedAt = poll === undefined ? 0 : now();
+    let sends = 0;
+    let attempt: StepAttemptOutcome;
+    let verdict: CriteriaVerdict = { ok: true };
+    for (;;) {
+      sends += 1;
+      attempt = await executeStepWithRetry(
+        step,
+        adapter,
+        stepCaptures,
+        context,
+        sleep,
+        onEvent && poll === undefined
+          ? (ended, cause, retryInMs) =>
+              onEvent({ type: 'attempt-end', at: now(), stepId, attempt: ended, maxAttempts, cause, retryInMs })
+          : undefined,
+      );
+      if (!attempt.ok) break;
+      verdict = judgeCriteria(criteria, attempt.response);
+      if (verdict.ok || poll === undefined || sends >= poll.maxAttempts) break;
+      if (now() - pollStartedAt + poll.delayMs > MAX_POLL_TOTAL_MS) break;
+      onEvent?.({
+        type: 'attempt-end',
+        at: now(),
+        stepId,
+        attempt: sends,
+        maxAttempts,
+        cause: { kind: 'criteria', message: verdict.reason },
+        retryInMs: poll.delayMs,
+      });
+      await sleep(poll.delayMs);
+    }
+    const attempts = poll === undefined ? attempt.attempts : sends;
     if (!attempt.ok) {
       state.set(step.id, 'failed');
       const failed = attempt.snapshot;
@@ -341,7 +533,7 @@ export async function runChain(args: {
           state: 'failed',
           phase: 'fetch',
           reason: attempt.reason,
-          attempts: attempt.attempts,
+          attempts,
           maxAttempts,
           ...(failed !== undefined && failed.status > 0
             ? { status: failed.status, durationMs: failed.durationMs }
@@ -349,21 +541,32 @@ export async function runChain(args: {
         },
         ...productOf(failed),
       });
-      endEvents(false);
-      return {
-        ok: false,
-        failedStepId: step.id,
-        failedPhase: 'fetch',
-        failedReason: attempt.reason,
-        attemptsMade: attempt.attempts,
-        partialStepCaptures: stepCaptures,
-        partialStepResponseBytes: stepResponseBytes,
-        partialStepStatuses: stepStatuses,
-        skippedStepIds,
-      };
+      await finish(false);
+      return { ...failure(step.id, 'fetch', attempt.reason), attemptsMade: attempts };
     }
     const response = attempt.response;
-    stepAttempts.set(step.id, attempt.attempts);
+    if (!verdict.ok) {
+      state.set(step.id, 'failed');
+      const failedReason = poll === undefined ? verdict.reason : `${verdict.reason} (after ${sends} attempts)`;
+      onEvent?.({
+        type: 'step-settle',
+        at: now(),
+        stepId,
+        settlement: {
+          state: 'failed',
+          phase: 'criteria',
+          reason: failedReason,
+          attempts,
+          maxAttempts,
+          status: response.status,
+          ...durationOf(response.snapshot),
+        },
+        ...productOf(response.snapshot),
+      });
+      await finish(false);
+      return { ...failure(step.id, 'criteria', failedReason), attemptsMade: attempts };
+    }
+    stepAttempts.set(step.id, attempts);
 
     // Record byte count — the adapter's wire-exact `bodyBytes` when it
     // knows it (a base64 body re-measured through TextEncoder would
@@ -390,24 +593,17 @@ export async function runChain(args: {
             state: 'failed',
             phase: 'extract',
             reason: failedReason,
-            attempts: attempt.attempts,
+            attempts,
             maxAttempts,
             status: response.status,
             ...durationOf(response.snapshot),
           },
           ...productOf(response.snapshot),
         });
-        endEvents(false);
+        await finish(false);
         return {
-          ok: false,
-          failedStepId: step.id,
-          failedPhase: 'extract',
-          failedReason,
+          ...failure(step.id, 'extract', failedReason),
           extractorFailure: { captureName: capture.name, kind: result.kind, message: result.message },
-          partialStepCaptures: stepCaptures,
-          partialStepResponseBytes: stepResponseBytes,
-          partialStepStatuses: stepStatuses,
-          skippedStepIds,
         };
       }
       captures.set(capture.name, result.value);
@@ -423,7 +619,7 @@ export async function runChain(args: {
         status: response.status,
         ...durationOf(response.snapshot),
         responseBytes: stepResponseBytes.get(step.id) ?? 0,
-        attempts: attempt.attempts,
+        attempts,
         maxAttempts,
         captureNames: step.captures.map((capture) => capture.name),
       },
@@ -431,7 +627,7 @@ export async function runChain(args: {
     });
   }
 
-  endEvents(true);
+  await finish(true);
   return {
     ok: true,
     stepCaptures,

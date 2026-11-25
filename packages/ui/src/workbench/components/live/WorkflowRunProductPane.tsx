@@ -27,14 +27,15 @@ const WorkflowRunProductPane: React.FC<Props> = ({ stepId, state, product }) => 
   const { token } = theme.useToken();
   const t = useT();
 
+  const response = product?.kind === 'response' ? product : null;
   const note =
     stepId === null
       ? t('workbench.editors.live.run.pane.select')
-      : product !== null
+      : response !== null
         ? null
         : state === 'asked'
           ? t('workbench.editors.live.status.loading')
-          : state === undefined
+          : state === undefined || product !== null
             ? t('workbench.editors.live.run.pane.none')
             : t('workbench.editors.live.run.pane.gone');
 
@@ -51,9 +52,9 @@ const WorkflowRunProductPane: React.FC<Props> = ({ stepId, state, product }) => 
         background: token.colorBgContainer,
       }}
     >
-      {product !== null && note === null ? (
+      {response !== null && note === null ? (
         <Suspense fallback={null}>
-          <WorkflowRunResponse snapshot={product.snapshot} />
+          <WorkflowRunResponse snapshot={response.snapshot} />
         </Suspense>
       ) : (
         <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>

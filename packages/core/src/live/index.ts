@@ -14,6 +14,8 @@ export type {
   ChainRunOutcome,
   ChainRunSuccess,
   FetchAdapter,
+  RunChainArgs,
+  TemplateResolver,
 } from './chain-runner';
 export { effectiveDependsOn, retryDelayMs, runChain, StepExecutionError } from './chain-runner';
 export type { CircuitSnapshot, CircuitState } from './circuit-breaker';
@@ -37,6 +39,8 @@ export {
   TIMEOUT_JITTER,
   transitionOpenToHalfOpen,
 } from './circuit-breaker';
+export type { CriteriaVerdict } from './criteria';
+export { judgeCriteria, resolveCriteria } from './criteria';
 export type { CycleEdge, CycleReport, RequestTemplateProvider as CycleRequestTemplateProvider } from './cycle-detect';
 export { detectCycles } from './cycle-detect';
 export type {
@@ -64,7 +68,13 @@ export type {
   RefreshableOAuthFlow,
 } from './execution-policy';
 export { deriveExecutionPolicy } from './execution-policy';
-export type { ExtractorFailureKind, ExtractorResult, StepResponse, StepResponseHeader } from './extractor';
+export type {
+  ExtractorFailureKind,
+  ExtractorResult,
+  ExtractorSubject,
+  StepResponse,
+  StepResponseHeader,
+} from './extractor';
 export { applyExtractor } from './extractor';
 export { evaluateClause, evaluateGate, matchStatus } from './gate-evaluator';
 export type { GraphqlTemplateGroups, GraphqlTemplateSource } from './graphql-request-scan';
@@ -109,8 +119,11 @@ export {
 } from './request-scan';
 export type {
   AttemptRetryCause,
+  SessionClose,
+  StepFailurePhase,
   StepProduct,
   StepSettlement,
+  WindowEntry,
   WorkflowRunEvent,
   WorkflowRunFact,
 } from './run-events';
@@ -119,8 +132,21 @@ export type { RunProductHold } from './run-products';
 export { createRunProductHold } from './run-products';
 export type { WorkflowRunRecord, WorkflowRunStepRow, WorkflowRunTotals, WorkflowRunVerdict } from './run-record';
 export { applyRunFact, runTotals, runVerdict } from './run-record';
+export type { RunRefusal } from './run-requirements';
+export { stepsThisRunCannotRun } from './run-requirements';
+export type {
+  RunSession,
+  SessionHost,
+  SessionMessage,
+  SessionOpening,
+  SessionOpenResult,
+  SessionSendResult,
+} from './session-port';
+export { subjectOfMessage } from './session-port';
+export { SESSION_CLOSE_DEADLINE_MS } from './session-step-runner';
 export { validateSessionSteps } from './session-step-validation';
-export { isExpectStep, isKnownStep, isListenStep, isSendStep, isSessionStep } from './step-actions';
+export { RUN_WINDOW_MAX_BYTES, RUN_WINDOW_MAX_MESSAGES } from './session-window';
+export { isCallStep, isExpectStep, isKnownStep, isListenStep, isSendStep, isSessionStep } from './step-actions';
 export type { RequestInfoProvider, StepRequestInfo, StructuralError, StructuralIssue } from './step-validation';
 export {
   computeTransitiveAncestors,
