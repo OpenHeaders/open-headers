@@ -51,9 +51,11 @@ export interface LiveWorkflowsContextValue {
     updates: Partial<Omit<LiveWorkflow, 'uid' | 'path' | 'schemaVersion'>>,
   ) => Promise<LiveWorkflowWriteResult>;
   deleteWorkflow: (uid: string) => Promise<boolean>;
+  /** `runId` — the caller's id for this run; its step events carry it. */
   refreshNow: (
     workflowUid: string,
     environmentId?: string | null,
+    runId?: string,
   ) => Promise<BridgeRpcResponse<'refreshLiveWorkflowNow'>>;
 }
 
@@ -223,9 +225,9 @@ export const LiveWorkflowsProvider: React.FC<LiveWorkflowsProviderProps> = ({
   // (MWPT-FULL session #11). System surfaces leave it undefined and the
   // SW falls back to runtime-Active.
   const refreshNow = useCallback<LiveWorkflowsContextValue['refreshNow']>(
-    async (workflowUid, environmentId) => {
+    async (workflowUid, environmentId, runId) => {
       const wsId = isOverridden ? (activeWorkspaceIdOverride ?? undefined) : undefined;
-      return hostBridge.call('refreshLiveWorkflowNow', { workflowUid, environmentId, workspaceId: wsId }).catch(
+      return hostBridge.call('refreshLiveWorkflowNow', { workflowUid, environmentId, workspaceId: wsId, runId }).catch(
         (err: Error) => ({ success: false, error: err.message }) as BridgeRpcResponse<'refreshLiveWorkflowNow'>,
       );
     },

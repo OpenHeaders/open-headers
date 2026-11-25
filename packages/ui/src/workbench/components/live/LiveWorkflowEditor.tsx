@@ -37,7 +37,7 @@
  *     per the show-but-disable catalog.
  */
 
-import { ApartmentOutlined, FormOutlined, ReloadOutlined } from '@ant-design/icons';
+import { ApartmentOutlined, FormOutlined, PlayCircleOutlined, ReloadOutlined } from '@ant-design/icons';
 import { useEnvironments } from '@openheaders/ui/shared/hooks/readers/useEnvironments';
 import { useLiveWorkflowCache } from '@openheaders/ui/shared/hooks/readers/useLiveCache';
 import { useLiveVariables } from '@openheaders/ui/shared/hooks/readers/useLiveVariables';
@@ -74,6 +74,7 @@ import { LIVE_FORM_PAD_X } from './layout';
 import { classifyRun, pickActiveRun, statusColor } from './live-display';
 import WorkflowFormBody from './WorkflowFormBody';
 import WorkflowGraphBody from './WorkflowGraphBody';
+import WorkflowRunBody from './WorkflowRunBody';
 import WorkflowRunStatusStrip from './WorkflowRunStatusStrip';
 
 const { Text, Title } = Typography;
@@ -160,10 +161,18 @@ type Props = EditProps | CreateProps;
  * render from the same draft, so switching is loss-free by construction.
  * The selected segment fills primary so the control reads as a mode
  * switch, not a button.
+ *
+ * A saved workflow has a third view, Run (the workflow runs plan, The
+ * Run view) — its last run on this page, read from the run's step
+ * events, never from the draft. A draft that was never saved has no run.
  */
-type WorkflowView = 'form' | 'graph';
+type WorkflowView = 'form' | 'graph' | 'run';
 
-const ViewToggle: React.FC<{ view: WorkflowView; setView: (v: WorkflowView) => void }> = ({ view, setView }) => {
+const ViewToggle: React.FC<{ view: WorkflowView; setView: (v: WorkflowView) => void; withRun?: boolean }> = ({
+  view,
+  setView,
+  withRun = false,
+}) => {
   const t = useT();
   return (
     <Segmented
@@ -173,6 +182,9 @@ const ViewToggle: React.FC<{ view: WorkflowView; setView: (v: WorkflowView) => v
       options={[
         { label: t('workbench.editors.live.workflow.viewEditor'), value: 'form', icon: <FormOutlined /> },
         { label: t('workbench.editors.live.workflow.viewPreview'), value: 'graph', icon: <ApartmentOutlined /> },
+        ...(withRun
+          ? [{ label: t('workbench.editors.live.workflow.viewRun'), value: 'run', icon: <PlayCircleOutlined /> }]
+          : []),
       ]}
     />
   );
@@ -432,7 +444,7 @@ const EditMode: React.FC<EditProps> = ({ workflowUid, seedSteps, onDirtyChange, 
   const handleRefreshNow = useCallback(async () => {
     if (!workflow) return;
     setRefreshing(true);
-    const resp = await refreshNow(workflow.uid, activeEnvironmentId);
+    const resp = await refreshNow(workflow.uid, activeEnvironmentId, generateUid());
     setRefreshing(false);
     if (!resp.success) {
       message.error(t('workbench.editors.live.workflow.refreshFailed', { error: resp.error ?? 'unknown error' }));
@@ -474,7 +486,7 @@ const EditMode: React.FC<EditProps> = ({ workflowUid, seedSteps, onDirtyChange, 
 
   const editHeaderActions = (
     <>
-      <ViewToggle view={view} setView={setView} />
+      <ViewToggle view={view} setView={setView} withRun />
       <Button
         size="small"
         icon={<ReloadOutlined spin={refreshing} />}
@@ -527,6 +539,10 @@ const EditMode: React.FC<EditProps> = ({ workflowUid, seedSteps, onDirtyChange, 
               readOnly={needsUpdate}
             />
           </div>
+        </div>
+      ) : view === 'run' ? (
+        <div style={{ flex: 1, minHeight: 0 }}>
+          <WorkflowRunBody workflow={workflow} needsUpdate={needsUpdate} />
         </div>
       ) : (
         <div style={{ flex: 1, minHeight: 0 }}>

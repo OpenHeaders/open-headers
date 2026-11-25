@@ -25,15 +25,11 @@ import type { ExecutedRequestSnapshot, LiveWorkflow } from '@openheaders/core/ty
 import { Button, Dropdown, Tabs, Tooltip, Typography, theme } from 'antd';
 import { ExampleChip } from '../../shared/ExampleChip';
 import type React from 'react';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { noteFeatureUsed } from '@openheaders/ui/shared/product-telemetry';
 import type { RequestEditorLayout } from '../useRequestEditorLayout';
 import type { LiveSendStream, SseStreamSession } from '../useLiveSendStream';
-import ResponseAssertionsView from './ResponseAssertionsView';
-import ResponseBodyView from './ResponseBodyView';
-import ResponseConsoleView from './ResponseConsoleView';
-import ResponseCookiesView from './ResponseCookiesView';
 import ResponseEmptyState from './ResponseEmptyState';
 import ResponseErrorState from './ResponseErrorState';
 import ResponseHeadersView from './ResponseHeadersView';
@@ -42,15 +38,12 @@ import ResponseLiveTail from './ResponseLiveTail';
 import ResponseMetaStrip from './ResponseMetaStrip';
 import SendPulse from './SendPulse';
 import type { GraphqlResponseFacts } from './graphql-response';
-import { setCookieLinesOf } from './response-cookies';
 import { detectBodyLanguage } from './response-format';
-import { withWireCookieHeaders } from './response-headers';
 import { downloadBodyAsFile } from './response-save';
 import { useSplitLayoutMenuItems } from '@openheaders/ui/shared/split-layout';
+import { type ResponseTabKey, useResponseTabs } from './useResponseTabs';
 
 const { Text } = Typography;
-
-type ResponseTabKey = 'body' | 'headers' | 'cookies' | 'assertions' | 'script-log';
 
 /**
  * "Create workflow" — seeds a live-workflow step from this request so
@@ -185,22 +178,7 @@ const ResponsePanel: React.FC<ResponsePanelProps> = ({
   // offer "Attach to …" with a submenu of current workflows. Lightweight
   // — the hook already reads the same listener the sidebar uses.
   const { workflows: liveWorkflows } = useLiveWorkflows();
-  const scripts = response?.scripts ?? null;
-  const assertions = scripts?.postResponse?.assertions ?? [];
-  const assertionsPassed = assertions.filter((a) => a.passed).length;
-  const assertionsFailed = assertions.length - assertionsPassed;
-  const preLog = scripts?.preRequest?.consoleLog ?? [];
-  const postLog = scripts?.postResponse?.consoleLog ?? [];
-  const hasScriptLog = preLog.length > 0 || postLog.length > 0;
-  const setCookieCount = response ? setCookieLinesOf(response).length : 0;
-  // The Headers grid shows the wire-captured Set-Cookie lines too —
-  // fetch strips them from the snapshot (forbidden response header),
-  // but they were genuinely on the wire. Memoized: the view's
-  // filter-reset effect keys on row identity.
-  const headerRows = useMemo(
-    () => (response ? withWireCookieHeaders(response.headers, response.wire?.setCookieHeaders) : []),
-    [response],
-  );
+  const tabItems = useResponseTabs(response, sseSession);
   const [activeTab, setActiveTab] = useState<ResponseTabKey>('body');
   const [bodyCopied, setBodyCopied] = useState(false);
   const layoutMenuItems = useSplitLayoutMenuItems(layout, onLayoutChange);
@@ -404,52 +382,7 @@ const ResponsePanel: React.FC<ResponsePanelProps> = ({
               </div>
             ),
           }}
-          items={[
-            {
-              key: 'body',
-              label: t('workbench.editors.request.response.tab.body'),
-              children: <ResponseBodyView response={response} sseSession={sseSession} />,
-            },
-            {
-              key: 'headers',
-              label: t('workbench.editors.request.response.tab.headers', {
-                count: headerRows.length + (response.trailers?.length ?? 0),
-              }),
-              children: <ResponseHeadersView headers={headerRows} trailers={response.trailers} />,
-            },
-            ...(setCookieCount > 0
-              ? [
-                  {
-                    key: 'cookies' as ResponseTabKey,
-                    label: t('workbench.editors.request.response.tab.cookies', { count: setCookieCount }),
-                    children: <ResponseCookiesView response={response} />,
-                  },
-                ]
-              : []),
-            ...(assertions.length > 0
-              ? [
-                  {
-                    key: 'assertions' as ResponseTabKey,
-                    label:
-                      assertionsFailed > 0
-                        ? t('workbench.editors.request.response.tab.assertionsFailed', { count: assertionsFailed })
-                        : assertionsPassed > 0
-                          ? t('workbench.editors.request.response.tab.assertionsPassed', { count: assertionsPassed })
-                          : t('workbench.editors.request.response.tab.assertions'),
-                    children: <ResponseAssertionsView assertions={assertions} />,
-                  },
-                ]
-              : []),
-            ...(hasScriptLog
-              ? [
-                  {
-                    key: 'script-log' as ResponseTabKey,
-                    label: t('workbench.editors.request.response.tab.console', { count: preLog.length + postLog.length }),
-                    children: <ResponseConsoleView preLog={preLog} postLog={postLog} />,
-                  },
-                ]
-              : []),
-          ]}
+          items={tabItems}
         />
       )}
     </div>

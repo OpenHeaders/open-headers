@@ -138,6 +138,7 @@ import { subscribeServerAdminReveal } from './data/server-admin-reveal';
 import { subscribeSettingsReveal } from './data/settings-reveal';
 import { subscribeSpecsSectionReveal } from './data/specs-section-reveal';
 import { subscribeTrafficStorageReveal } from './data/traffic-storage-reveal';
+import { installWorkflowRunStore } from './data/workflow-run-store';
 import { useWorkspaceIntentRouter } from './hooks/useWorkspaceIntentRouter';
 import { useWorkspaceShortcuts } from './hooks/useWorkspaceShortcuts';
 import { useWorkspaceTabTitle } from './hooks/useWorkspaceTabTitle';
@@ -475,6 +476,11 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
   // Branch or Tag, Branches…) — tab state is already applied on the
   // git-panel registry; the shell only activates the window.
   useEffect(() => subscribeGitPanelReveal(() => tl.activateWindow('git')), [tl]);
+
+  // Each workflow's last run, kept from its step events for as long as
+  // this page lives — started here so a run is seen whether or not its
+  // workflow's tab is open.
+  useEffect(() => installWorkflowRunStore(), []);
 
   // A Spec tab with no spec of its format to pick sends the user to
   // where one gets created: the API Requests window's SPECS section.

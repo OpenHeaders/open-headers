@@ -277,3 +277,32 @@ describe('LiveWorkflowEditor — a workflow that needs a newer version', () => {
     expect(screen.queryByRole('button', { name: /Step$/ })).toBeNull();
   });
 });
+
+describe('LiveWorkflowEditor — the Run view', () => {
+  it('is the third view of a saved workflow and opens on the empty state', () => {
+    renderEditor();
+    fireEvent.click(screen.getByText('Run'));
+
+    expect(screen.getByTestId('wf-run-empty').textContent).toBe(
+      'No run in this session yet. Press Refresh to run this workflow.',
+    );
+  });
+
+  it('the Refresh press carries an id of its own for the run', async () => {
+    renderEditor();
+    fireEvent.click(screen.getByRole('button', { name: /Refresh/ }));
+
+    await waitFor(() => expect(refreshNowMock).toHaveBeenCalledTimes(1));
+    expect(refreshNowMock).toHaveBeenCalledWith('wftestfxt', null, expect.stringMatching(/.+/));
+  });
+
+  it('a workflow that needs a newer version shows which steps cannot run', () => {
+    workflowState = needsUpdateFixture;
+    renderEditor();
+    fireEvent.click(screen.getByText('Run'));
+
+    expect(screen.getByTestId('wf-run-row-probe').getAttribute('data-run-state')).toBe('cannot-run');
+    expect(screen.getByTestId('wf-run-row-reboot').getAttribute('data-run-state')).toBe('not-run');
+    expect(screen.getByTestId('wf-run-row-status').getAttribute('data-run-state')).toBe('cannot-run');
+  });
+});
