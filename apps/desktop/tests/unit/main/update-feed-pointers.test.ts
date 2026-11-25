@@ -46,7 +46,7 @@ let workDir: string;
 type LiveManifests = { stable?: unknown; beta?: unknown };
 
 /** What the legs that signed a package hand over: each one's reading of the signer's subject. */
-type PackageInputs = { publishers?: string[] };
+type PackageInputs = { publishers?: string[]; livePointers?: unknown[] };
 
 function stage(
   tag: string,
@@ -72,6 +72,11 @@ function stage(
     const file = path.join(workDir, `package_publisher_${index}.txt`);
     writeFileSync(file, subject);
     flags.push(`--package-publisher=${file}`);
+  }
+  for (const [index, pointer] of (packageInputs.livePointers ?? []).entries()) {
+    const file = path.join(workDir, `live_package_${index}.json`);
+    writeFileSync(file, JSON.stringify(pointer));
+    flags.push(`--live-package=${file}`);
   }
   const run = () =>
     execFileSync(process.execPath, [SCRIPT, tag, DOWNLOAD_BASE, input, out, ...flags], { encoding: 'utf8' });
@@ -433,6 +438,77 @@ describe('generate-update-feed', () => {
       run();
 
       expect(existsSync(path.join(out, 'desktop/beta'))).toBe(false);
+    });
+  });
+
+  describe('the publisher between releases', () => {
+    const PUBLISHER = 'CN=John Doe SRL, O=John Doe SRL, L=Iasi, S=Iasi, C=RO';
+    const OTHER_PUBLISHER = 'CN=Jane Doe SRL, O=Jane Doe SRL, L=Iasi, S=Iasi, C=RO';
+    const INPUT = {
+      'latest-mac.yml': LATEST_MAC_YML,
+      'versions.json': VERSIONS_JSON,
+      'install-oh.ps1': '# signed',
+    };
+    const PACKAGES = {
+      'OpenHeaders-2026.7.2-x64.msix': 'the x64 package',
+      'OpenHeaders-2026.7.2-arm64.msix': 'the arm64 package',
+    };
+    const livePointer = (publisher: string) => ({ version: '2026.7.1', tag: 'v2026.7.1', publisher });
+
+    it('stages a release signed by the publisher every live pointer names', () => {
+      const { out, run } = stage(
+        'v2026.7.2',
+        { ...INPUT, ...PACKAGES },
+        {},
+        { publishers: [PUBLISHER], livePointers: [livePointer(PUBLISHER), livePointer(PUBLISHER)] },
+      );
+      run();
+
+      expect(existsSync(path.join(out, 'desktop/stable/windows-package.json'))).toBe(true);
+    });
+
+    it('stages the first pointer of a channel that has none yet', () => {
+      const { out, run } = stage(
+        'v2026.7.2',
+        { ...INPUT, ...PACKAGES },
+        {},
+        { publishers: [PUBLISHER], livePointers: [{}] },
+      );
+      run();
+
+      expect(existsSync(path.join(out, 'desktop/stable/windows-package.json'))).toBe(true);
+    });
+
+    it('fails with nothing staged when a live pointer names another publisher, naming both', () => {
+      const { out, run } = stage(
+        'v2026.7.2',
+        { ...INPUT, ...PACKAGES },
+        {},
+        { publishers: [PUBLISHER], livePointers: [livePointer(PUBLISHER), livePointer(OTHER_PUBLISHER)] },
+      );
+
+      expect(run).toThrow(
+        /signed by 'CN=John Doe SRL.*', the live pointer live_package_1\.json names 'CN=Jane Doe SRL/,
+      );
+      expect(existsSync(out)).toBe(false);
+    });
+
+    it('fails on a live pointer that names no publisher', () => {
+      const { run } = stage(
+        'v2026.7.2',
+        { ...INPUT, ...PACKAGES },
+        {},
+        { publishers: [PUBLISHER], livePointers: [{ version: '2026.7.1', tag: 'v2026.7.1' }] },
+      );
+
+      expect(run).toThrow(/the live package pointer names no publisher/);
+    });
+
+    it('holds a release without packages to no publisher', () => {
+      const { out, run } = stage('v2026.7.2', INPUT, {}, { livePointers: [livePointer(OTHER_PUBLISHER)] });
+      run();
+
+      expect(readdirSync(path.join(out, 'desktop/stable'))).toEqual(['latest-mac.yml']);
     });
   });
 

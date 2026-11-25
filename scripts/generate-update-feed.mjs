@@ -40,13 +40,18 @@
  * beta channel carries it across. The publisher is the subject of the
  * certificate the packages were signed with, handed over by the leg
  * that signed them: Windows takes an update only from the publisher the
- * installed package names.
+ * installed package names. So a release whose packages name another
+ * publisher than a live pointer does is refused before anything is
+ * staged: it would strand every install that pointer serves. A real
+ * change of signer is bridged by hand, never by a release.
  *
  * Usage: node scripts/generate-update-feed.mjs <tag> <download-base-url> <input-dir> <output-dir>
  *          [--live-stable=<versions/stable.json copy>] [--live-beta=<versions/beta.json copy>]
  *          [--package-publisher=<file holding the packages' signer subject>]...
- *        A live manifest file holds `{}` when its channel has none yet.
+ *          [--live-package=<desktop/<channel>/windows-package.json copy>]...
+ *        A live manifest or pointer file holds `{}` when its channel has none yet.
  *        One publisher file per leg that signed a package; they must agree.
+ *        One live pointer per channel this release may write.
  */
 
 import { createHash } from 'node:crypto';
@@ -95,9 +100,9 @@ function readManifest(file, what) {
   try {
     parsed = JSON.parse(readFileSync(file, 'utf8'));
   } catch (error) {
-    fail(`cannot read the ${what} manifest ${file}: ${error.message}`);
+    fail(`cannot read the ${what} ${file}: ${error.message}`);
   }
-  if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) fail(`${file}: the ${what} manifest is not an object`);
+  if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) fail(`${file}: the ${what} is not an object`);
   return parsed;
 }
 
@@ -164,14 +169,24 @@ function windowsPackagePointer(inputDir, tag, base, publisherFiles) {
   return { version, packageVersion: filledVersion, tag, publisher, packages, stop: false, ramp: 100 };
 }
 
+/** The publisher a live package pointer names; undefined when its channel has no pointer yet (`{}`). */
+function livePackagePublisher(file) {
+  const live = readManifest(file, 'live package pointer');
+  if (Object.keys(live).length === 0) return undefined;
+  if (typeof live.publisher !== 'string' || live.publisher === '') fail(`${file}: the live package pointer names no publisher`);
+  return live.publisher;
+}
+
 const options = {};
 const packagePublisherFiles = [];
+const livePackageFiles = [];
 const positional = [];
 for (const arg of process.argv.slice(2)) {
-  const match = arg.match(/^--(live-stable|live-beta|package-publisher)=(.*)$/);
+  const match = arg.match(/^--(live-stable|live-beta|package-publisher|live-package)=(.*)$/);
   if (match) {
     if (!match[2]) fail(`--${match[1]} expects a file path`);
     if (match[1] === 'package-publisher') packagePublisherFiles.push(match[2]);
+    else if (match[1] === 'live-package') livePackageFiles.push(match[2]);
     else options[match[1]] = match[2];
   } else if (arg.startsWith('--')) {
     fail(`unknown option '${arg}'`);
@@ -184,7 +199,7 @@ if (!tag?.startsWith('v')) fail(`expected the release tag as first argument, got
 if (!downloadBase?.startsWith('https://')) fail(`expected an absolute download base URL, got '${downloadBase}'`);
 if (!inputDir || !outputDir) {
   fail(
-    'usage: generate-update-feed.mjs <tag> <download-base-url> <input-dir> <output-dir> [--live-stable=<file>] [--live-beta=<file>] [--package-publisher=<file>]...',
+    'usage: generate-update-feed.mjs <tag> <download-base-url> <input-dir> <output-dir> [--live-stable=<file>] [--live-beta=<file>] [--package-publisher=<file>]... [--live-package=<file>]...',
   );
 }
 
@@ -194,6 +209,16 @@ const base = downloadBase.replace(/\/+$/, '');
 // Read before anything is staged: a package that cannot be pointed at
 // fails the release with an empty output tree.
 const packagePointer = windowsPackagePointer(inputDir, tag, base, packagePublisherFiles);
+if (packagePointer) {
+  for (const file of livePackageFiles) {
+    const livePublisher = livePackagePublisher(file);
+    if (livePublisher !== undefined && livePublisher !== packagePointer.publisher) {
+      fail(
+        `${tag}'s Windows packages are signed by '${packagePointer.publisher}', the live pointer ${path.basename(file)} names '${livePublisher}' — an installed package takes no update from another publisher`,
+      );
+    }
+  }
+}
 
 // Desktop feed pointers — whatever OS legs produced artifacts. A leg
 // that failed simply leaves its previous pointer in place on the feed.
@@ -228,7 +253,7 @@ if (packagePointer) {
 // Severity manifest — always present (the generator ran before this).
 const versionsPath = path.join(inputDir, 'versions.json');
 if (!existsSync(versionsPath)) fail('versions.json is missing from the input directory');
-const versions = readManifest(versionsPath, 'release');
+const versions = readManifest(versionsPath, 'release manifest');
 if (!versions.desktop?.latest) fail('versions.json is missing or has no desktop entry');
 mkdirSync(path.join(outputDir, 'versions'), { recursive: true });
 copyFileSync(versionsPath, path.join(outputDir, 'versions', `${channel}.json`));
@@ -237,7 +262,7 @@ copyFileSync(versionsPath, path.join(outputDir, 'versions', `${channel}.json`));
 // version is older than the live stable is a mis-cut tag, not a
 // release — refused before any byte is uploaded.
 if (channel === 'beta' && options['live-stable']) {
-  const liveStable = readManifest(options['live-stable'], 'live stable');
+  const liveStable = readManifest(options['live-stable'], 'live stable manifest');
   const stableLatest = liveStable.desktop?.latest;
   if (stableLatest && compareVersions(versions.desktop.latest, stableLatest) < 0) {
     fail(`beta ${tag} is older than the live stable ${stableLatest} — the beta channel never goes behind stable`);
@@ -250,7 +275,7 @@ if (channel === 'beta' && options['live-stable']) {
 // the ymls do not serve would send beta clients to a version their
 // updater cannot find.
 if (channel === 'stable' && options['live-beta']) {
-  const liveBeta = readManifest(options['live-beta'], 'live beta');
+  const liveBeta = readManifest(options['live-beta'], 'live beta manifest');
   const betaManifest = { ...liveBeta };
   const overtaken = [];
   for (const [app, entry] of Object.entries(versions)) {
