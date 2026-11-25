@@ -8,6 +8,32 @@
 !macroend
 !define isMoveToPackage `"" isMoveToPackage ""`
 
+; A browser finds the app's helper through a key whose value is the path
+; of a manifest in the app's data folder, named after the product. The
+; key is ours to remove when the manifest lies in the folder this
+; uninstall deletes; one the Windows package or a development build has
+; rewritten names another folder, and stays.
+!macro openHeadersRemoveHostKey KEY
+  ReadRegStr $R0 HKCU "${KEY}" ""
+  StrLen $R1 "$APPDATA\${PRODUCT_FILENAME}\"
+  StrCpy $R2 $R0 $R1
+  ${if} $R2 == "$APPDATA\${PRODUCT_FILENAME}\"
+    DeleteRegKey HKCU "${KEY}"
+  ${endif}
+!macroend
+
+; A move takes the install away file by file and puts every file back if
+; one is busy, which the builder does in update mode alone. Asked for
+; without it, a move stops before anything is removed. The uninstaller
+; then ends with 0 only when the whole install is gone.
+!macro customUnInit
+  ${if} ${isMoveToPackage}
+  ${andIfNot} ${isUpdated}
+    SetErrorLevel 2
+    Quit
+  ${endif}
+!macroend
+
 ; Counts the processes whose program file lies in the install folder and
 ; leaves two counts on the stack: all of them on top, the app's own
 ; beneath. With TERMINATE 1 each one is closed first and waited for. The
@@ -241,11 +267,19 @@
     SetShellVarContext current
   ${endif}
 
-  ; The user's data goes with a plain uninstall alone. An update keeps it
-  ; for the next version, a move for the package. The builder's own delete
-  ; is switched off: it knows the first case and not the second.
+  ; The user's data goes with a plain uninstall alone, and the browser
+  ; keys that name it. An update keeps both for the next version, a move
+  ; for the package, which rewrites the keys at its start. The builder's
+  ; own delete is switched off: it knows the first case and not the second.
+  Push $R0
+  Push $R1
+  Push $R2
   ${ifNot} ${isUpdated}
   ${andIfNot} ${isMoveToPackage}
+    !insertmacro openHeadersRemoveHostKey "Software\Google\Chrome\NativeMessagingHosts\io.openheaders.nm_bootstrap"
+    !insertmacro openHeadersRemoveHostKey "Software\Microsoft\Edge\NativeMessagingHosts\io.openheaders.nm_bootstrap"
+    !insertmacro openHeadersRemoveHostKey "Software\BraveSoftware\Brave-Browser\NativeMessagingHosts\io.openheaders.nm_bootstrap"
+    !insertmacro openHeadersRemoveHostKey "Software\Mozilla\NativeMessagingHosts\io.openheaders.nm_bootstrap"
     RMDir /r "$APPDATA\${APP_FILENAME}"
     !ifdef APP_PRODUCT_FILENAME
       RMDir /r "$APPDATA\${APP_PRODUCT_FILENAME}"
@@ -254,6 +288,19 @@
       RMDir /r "$APPDATA\${APP_PACKAGE_NAME}"
     !endif
   ${endif}
+
+  ; The updater's folder holds the installer the next update is computed
+  ; against, and an update runs from it. It stays for an update, and goes
+  ; with a plain uninstall and with a move.
+  ${if} ${isMoveToPackage}
+  ${orIfNot} ${isUpdated}
+    ${StdUtils.GetParentPath} $R0 "$LOCALAPPDATA\${APP_INSTALLER_STORE_FILE}"
+    RMDir /r "$R0"
+  ${endif}
+  ClearErrors
+  Pop $R2
+  Pop $R1
+  Pop $R0
 
   ${if} $installMode == "all"
     SetShellVarContext all

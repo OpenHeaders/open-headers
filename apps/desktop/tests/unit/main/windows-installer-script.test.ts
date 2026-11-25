@@ -10,12 +10,15 @@
 import { readFileSync } from 'node:fs';
 import * as path from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { windowsNmManifestTargets } from '../../../src/main/nm-host-install';
 
 const SCRIPT = readFileSync(path.resolve(__dirname, '../../../build/windows/installer.nsh'), 'utf8');
 
-const INSTALLER_OPTIONS: Record<string, unknown> = JSON.parse(
-  readFileSync(path.resolve(__dirname, '../../../package.json'), 'utf8'),
-).build.nsis;
+const BUILD_CONFIG = JSON.parse(readFileSync(path.resolve(__dirname, '../../../package.json'), 'utf8')).build;
+const INSTALLER_OPTIONS: Record<string, unknown> = BUILD_CONFIG.nsis;
+const PRODUCT_NAME: string = BUILD_CONFIG.productName;
+
+const MAIN_SOURCE = readFileSync(path.resolve(__dirname, '../../../src/main.ts'), 'utf8');
 
 /** The script's instructions: comment lines dropped. */
 const CODE = SCRIPT.split(/\r?\n/)
@@ -25,6 +28,15 @@ const CODE = SCRIPT.split(/\r?\n/)
 function macro(name: string): string {
   const match = new RegExp(`!macro ${name}\\b[^\\n]*\\n([\\s\\S]*?)\\n!macroend`).exec(CODE);
   return match ? match[1] : '';
+}
+
+/** What a plain uninstall alone does: the block no update and no move enters. */
+function plainUninstallBlock(uninstall: string): string {
+  return (
+    /\$\{ifNot\} \$\{isUpdated\}\s+\$\{andIfNot\} \$\{isMoveToPackage\}\s+((?:\s*(?:RMDir|!ifdef|!endif|!insertmacro)[^\n]*\n)+)\s*\$\{endif\}/.exec(
+      uninstall,
+    )?.[1] ?? ''
+  );
 }
 
 describe('the Windows installer script', () => {
@@ -65,10 +77,7 @@ describe('the Windows installer script', () => {
 
 describe("the uninstaller and the user's data", () => {
   const uninstall = macro('customUnInstall');
-  const dataDelete =
-    /\$\{ifNot\} \$\{isUpdated\}\s+\$\{andIfNot\} \$\{isMoveToPackage\}\s+((?:\s*(?:RMDir|!ifdef|!endif)[^\n]*\n)+)\s*\$\{endif\}/.exec(
-      uninstall,
-    )?.[1] ?? '';
+  const dataDelete = plainUninstallBlock(uninstall);
 
   it("leaves the builder's own delete off: it would run in a move", () => {
     expect(INSTALLER_OPTIONS.deleteAppDataOnUninstall ?? false).toBe(false);
@@ -96,5 +105,51 @@ describe("the uninstaller and the user's data", () => {
     expect(uninstall).toMatch(
       /\$\{if\} \$installMode == "all"\s+SetShellVarContext current\s+\$\{endif\}[\s\S]*RMDir \/r "\$APPDATA[\s\S]*\$\{if\} \$installMode == "all"\s+SetShellVarContext all\s+\$\{endif\}/,
     );
+  });
+});
+
+describe('a move to the Windows package', () => {
+  const uninstall = macro('customUnInstall');
+
+  it('is update mode with one more switch: asked for without it, the uninstaller stops before it removes anything', () => {
+    expect(macro('customUnInit')).toMatch(
+      /\$\{if\} \$\{isMoveToPackage\}\s+\$\{andIfNot\} \$\{isUpdated\}\s+SetErrorLevel 2\s+Quit\s+\$\{endif\}/,
+    );
+  });
+
+  it("takes the updater's folder, as a plain uninstall does and an update never", () => {
+    expect(uninstall).toMatch(
+      /\$\{if\} \$\{isMoveToPackage\}\s+\$\{orIfNot\} \$\{isUpdated\}\s+\$\{StdUtils\.GetParentPath\} \$R0 "\$LOCALAPPDATA\\\$\{APP_INSTALLER_STORE_FILE\}"\s+RMDir \/r "\$R0"\s+\$\{endif\}/,
+    );
+    expect(uninstall.match(/RMDir \/r "\$R0"/g)).toHaveLength(1);
+  });
+
+  it("names the updater's folder through the builder's own value", () => {
+    expect(CODE).not.toMatch(/open-headers-updater/);
+  });
+
+  it('leaves the browser keys for the package: only a plain uninstall removes them', () => {
+    const removals = uninstall.match(/!insertmacro openHeadersRemoveHostKey [^\n]*/g) ?? [];
+    const plainOnly = plainUninstallBlock(uninstall).match(/!insertmacro openHeadersRemoveHostKey [^\n]*/g) ?? [];
+    expect(plainOnly).toEqual(removals);
+  });
+
+  it('knows every browser key the app writes', () => {
+    const written = windowsNmManifestTargets('L', 'R').map((target) => target.registryKey.replace(/^HKCU\\/, ''));
+    const removed = (uninstall.match(/!insertmacro openHeadersRemoveHostKey "([^"]*)"/g) ?? []).map((line) =>
+      line.replace(/^[^"]*"|"$/g, ''),
+    );
+    expect(removed.sort()).toEqual(written.sort());
+  });
+
+  it('removes a browser key only when it names a manifest in the data folder being deleted', () => {
+    expect(macro('openHeadersRemoveHostKey')).toMatch(
+      /ReadRegStr \$R0 HKCU "\$\{KEY\}" ""\s+StrLen \$R1 "\$APPDATA\\\$\{PRODUCT_FILENAME\}\\"\s+StrCpy \$R2 \$R0 \$R1\s+\$\{if\} \$R2 == "\$APPDATA\\\$\{PRODUCT_FILENAME\}\\"\s+DeleteRegKey HKCU "\$\{KEY\}"\s+\$\{endif\}/,
+    );
+    expect(CODE.match(/DeleteRegKey HKCU "\$\{KEY\}"/g)).toHaveLength(1);
+  });
+
+  it("keeps that folder's name the one the app gives its data", () => {
+    expect(PRODUCT_NAME).toBe(/const APP_DATA_DIR_NAME = '([^']+)'/.exec(MAIN_SOURCE)?.[1]);
   });
 });
