@@ -54,6 +54,8 @@ export const desktop = {
   'desktop.dialog.hardwareAcceleration.detail': 'Reporniți acum pentru a aplica modificarea imediat.',
   'desktop.dialog.hardwareAcceleration.restartNow': 'Repornire acum',
   'desktop.dialog.hardwareAcceleration.later': 'Mai târziu',
+  'desktop.dialog.dataMoveHeld.title': 'Datele dvs. sunt în uz',
+  'desktop.dialog.dataMoveHeld.message': 'Închideți programul care folosește {path}, apoi porniți din nou aplicația.',
   'desktop.dialog.windowCrashed.title': 'Fereastra s-a închis neașteptat',
   'desktop.dialog.windowCrashed.message':
     '{name} a redeschis fereastra o dată, iar aceasta s-a închis din nou neașteptat.',

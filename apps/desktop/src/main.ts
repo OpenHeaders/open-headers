@@ -6,6 +6,9 @@
  *   - `--mcp-stdio` branch            — decided before everything else;
  *                                       a bridge run is a pipe, not an
  *                                       app instance (no lock, no UI).
+ *   - `--check-package-start` branch  — the same: the check a move to the
+ *                                       Windows package makes opens no
+ *                                       data folder at all.
  *   - `installChromiumSwitches`       — must precede `app` init; Chromium
  *                                       reads switches once at network-stack
  *                                       construction.
@@ -40,13 +43,19 @@
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { hostProcessRoots } from '@openheaders/oracle-host-node/process-reader';
-import { app } from 'electron';
+import { app, dialog } from 'electron';
 import { installAboutPanel } from './main/bootstrap/about-panel';
 import { installAppMenuPopupHandler } from './main/bootstrap/app-menu-popup';
 import { sessionDataDir } from './main/bootstrap/app-paths';
 import { installApplicationMenu } from './main/bootstrap/application-menu';
 import { installChromiumSwitches } from './main/bootstrap/cli-switches';
-import { chooseDataDir } from './main/bootstrap/data-dir';
+import { chooseDataDir, classicDataDir } from './main/bootstrap/data-dir';
+import {
+  type DataFolderMove,
+  FINISH_MOVE_EXIT,
+  FINISH_MOVE_SWITCH,
+  moveDataFolderToPackage,
+} from './main/bootstrap/data-folder-move';
 import { returnDataFolderFromPackage } from './main/bootstrap/data-folder-return';
 import { installDownloadFeedback } from './main/bootstrap/downloads';
 import { createEngineReadiness } from './main/bootstrap/engine-readiness';
@@ -54,13 +63,15 @@ import { installExternalLinkHandler } from './main/bootstrap/external-links';
 import { applyHardwareAccelerationPolicy } from './main/bootstrap/hardware-acceleration';
 import { installKindReading } from './main/bootstrap/install-kind';
 import { installAppLifecycle, isQuitting, trackEngineBoot } from './main/bootstrap/lifecycle';
-import { initMainLocale } from './main/bootstrap/locale';
+import { initMainLocale, mainTranslator } from './main/bootstrap/locale';
 import { installLogFilesHandler } from './main/bootstrap/log-files';
 import { createLogger, installMainLogger } from './main/bootstrap/logger';
 import { missingPackageAliases } from './main/bootstrap/package-aliases';
+import { CHECK_PACKAGE_START_SWITCH, runPackageStartCheck } from './main/bootstrap/package-start-check';
 import { installProcessDiagnostics } from './main/bootstrap/process-diagnostics';
 import { drainPendingProtocolUrls, installProtocolHandler, registerAsProtocolHandler } from './main/bootstrap/protocol';
 import { installRpcQueue } from './main/bootstrap/rpc-queue';
+import { startOnScratchProfile } from './main/bootstrap/scratch-profile';
 import { installPermissionPolicy } from './main/bootstrap/security';
 import { installSessionSentinel } from './main/bootstrap/session-sentinel';
 import { enforceSingleInstanceLock } from './main/bootstrap/single-instance';
@@ -86,8 +97,41 @@ const APP_DISPLAY_NAME = 'Open Headers';
 // process itself when the client closes the pipe.
 if (process.argv.includes('--mcp-stdio')) {
   runMcpStdioBridge();
+} else if (process.argv.includes(CHECK_PACKAGE_START_SWITCH)) {
+  // The check a move to the Windows package makes is not an app instance
+  // either: it opens no data folder and asks for no lock.
+  runPackageStartCheck();
 } else {
   bootstrapDesktopApp();
+}
+
+/**
+ * A Windows package that cannot take in the data a move handed over ends
+ * the start before a data folder is chosen: started on an empty folder of
+ * its own, it would leave the user's data behind. Returns whether the
+ * start ends here.
+ */
+function endStartBeforeDataFolder(move: DataFolderMove | null, finishingMove: boolean): boolean {
+  if (move?.outcome === 'classic-still-installed' && finishingMove) {
+    startOnScratchProfile();
+    app.exit(FINISH_MOVE_EXIT.classicStillInstalled);
+    return true;
+  }
+  if (move?.outcome === 'held') {
+    startOnScratchProfile();
+    const dataDir = move.from;
+    void app.whenReady().then(() => {
+      initMainLocale();
+      const t = mainTranslator();
+      dialog.showErrorBox(
+        t('desktop.dialog.dataMoveHeld.title'),
+        t('desktop.dialog.dataMoveHeld.message', { path: dataDir }),
+      );
+      app.exit(FINISH_MOVE_EXIT.dataHeld);
+    });
+    return true;
+  }
+  return false;
 }
 
 function bootstrapDesktopApp(): void {
@@ -121,6 +165,19 @@ function bootstrapDesktopApp(): void {
         ownDir: ownDataDir,
         localAppDataDir: process.env.LOCALAPPDATA,
       });
+  // A Windows package takes in the data a move from the classic app
+  // handed over — before the folder is chosen as well, so the first
+  // start after a move opens the user's data.
+  const finishingMove = process.argv.includes(FINISH_MOVE_SWITCH);
+  const dataFolderMove = userDataOverride
+    ? null
+    : moveDataFolderToPackage({
+        installKind: install.kind,
+        ownDir: ownDataDir,
+        classicDir: classicDataDir({ isPackaged: app.isPackaged, appDataDir: app.getPath('appData') }),
+        awaitClassicUninstall: finishingMove,
+      });
+  if (endStartBeforeDataFolder(dataFolderMove, finishingMove)) return;
   app.setPath('userData', userDataOverride || ownDataDir);
 
   // Chromium's profile noise (caches, GPU blobs, Local Storage, service
@@ -153,6 +210,13 @@ function bootstrapDesktopApp(): void {
     localAppDataDir: process.env.LOCALAPPDATA ?? join(homedir(), 'AppData', 'Local'),
   })) {
     logger.warn(`the launch alias ${alias} is switched off in Windows Settings`);
+  }
+  if (dataFolderMove?.outcome === 'moved') {
+    logger.info(`data folder taken in from ${dataFolderMove.from}`);
+  } else if (dataFolderMove?.outcome === 'ineligible') {
+    logger.warn(`data folder left at ${dataFolderMove.from}: it cannot be moved (${dataFolderMove.code})`);
+  } else if (dataFolderMove?.outcome === 'classic-still-installed') {
+    logger.warn(`data folder left at ${dataFolderMove.from}: the classic app is still installed`);
   }
   if (dataFolderReturn?.outcome === 'returned') {
     logger.info(`data folder taken back from ${dataFolderReturn.from}`);

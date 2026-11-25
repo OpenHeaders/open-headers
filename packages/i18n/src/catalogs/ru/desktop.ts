@@ -58,6 +58,8 @@ export const desktop = {
   'desktop.dialog.hardwareAcceleration.detail': 'Перезапустите сейчас, чтобы применить изменение немедленно.',
   'desktop.dialog.hardwareAcceleration.restartNow': 'Перезапустить сейчас',
   'desktop.dialog.hardwareAcceleration.later': 'Позже',
+  'desktop.dialog.dataMoveHeld.title': 'Ваши данные сейчас используются',
+  'desktop.dialog.dataMoveHeld.message': 'Закройте программу, которая использует {path}, и запустите приложение снова.',
   'desktop.dialog.windowCrashed.title': 'Окно аварийно завершилось',
   'desktop.dialog.windowCrashed.message': '{name} один раз открыл окно заново, и оно снова аварийно завершилось.',
   'desktop.dialog.windowCrashed.detail':

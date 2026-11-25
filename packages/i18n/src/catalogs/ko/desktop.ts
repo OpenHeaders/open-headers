@@ -54,6 +54,8 @@ export const desktop = {
   'desktop.dialog.hardwareAcceleration.detail': '변경 사항을 즉시 적용하려면 지금 다시 시작하세요.',
   'desktop.dialog.hardwareAcceleration.restartNow': '지금 다시 시작',
   'desktop.dialog.hardwareAcceleration.later': '나중에',
+  'desktop.dialog.dataMoveHeld.title': '데이터가 사용 중입니다',
+  'desktop.dialog.dataMoveHeld.message': '{path} 폴더를 사용 중인 프로그램을 닫은 다음 앱을 다시 시작하세요.',
   'desktop.dialog.windowCrashed.title': '창이 비정상 종료되었습니다',
   'desktop.dialog.windowCrashed.message': '{name} 앱이 창을 한 번 다시 열었지만 다시 비정상 종료되었습니다.',
   'desktop.dialog.windowCrashed.detail':

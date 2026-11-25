@@ -55,6 +55,8 @@ export const desktop = {
   'desktop.dialog.hardwareAcceleration.detail': 'Reinicia ahora para aplicar el cambio de inmediato.',
   'desktop.dialog.hardwareAcceleration.restartNow': 'Reiniciar ahora',
   'desktop.dialog.hardwareAcceleration.later': 'Más tarde',
+  'desktop.dialog.dataMoveHeld.title': 'Tus datos están en uso',
+  'desktop.dialog.dataMoveHeld.message': 'Cierra el programa que está usando {path} y vuelve a iniciar la aplicación.',
   'desktop.dialog.windowCrashed.title': 'La ventana se ha cerrado inesperadamente',
   'desktop.dialog.windowCrashed.message': '{name} volvió a abrir la ventana una vez y se cerró de nuevo.',
   'desktop.dialog.windowCrashed.detail':

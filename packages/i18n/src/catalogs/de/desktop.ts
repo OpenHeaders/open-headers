@@ -56,6 +56,8 @@ export const desktop = {
   'desktop.dialog.hardwareAcceleration.detail': 'Starte jetzt neu, um die Änderung sofort anzuwenden.',
   'desktop.dialog.hardwareAcceleration.restartNow': 'Jetzt neu starten',
   'desktop.dialog.hardwareAcceleration.later': 'Später',
+  'desktop.dialog.dataMoveHeld.title': 'Deine Daten werden gerade verwendet',
+  'desktop.dialog.dataMoveHeld.message': 'Schließe das Programm, das {path} verwendet, und starte die App dann erneut.',
   'desktop.dialog.windowCrashed.title': 'Das Fenster ist abgestürzt',
   'desktop.dialog.windowCrashed.message': '{name} hat das Fenster einmal neu geöffnet, und es ist erneut abgestürzt.',
   'desktop.dialog.windowCrashed.detail':

@@ -55,6 +55,8 @@ export const desktop = {
   'desktop.dialog.hardwareAcceleration.detail': '现在重新启动可立即应用更改。',
   'desktop.dialog.hardwareAcceleration.restartNow': '立即重新启动',
   'desktop.dialog.hardwareAcceleration.later': '稍后',
+  'desktop.dialog.dataMoveHeld.title': '您的数据正在使用中',
+  'desktop.dialog.dataMoveHeld.message': '请关闭正在使用 {path} 的程序，然后重新启动应用。',
   'desktop.dialog.windowCrashed.title': '窗口已崩溃',
   'desktop.dialog.windowCrashed.message': '{name} 已重新打开窗口一次，但它再次崩溃了。',
   'desktop.dialog.windowCrashed.detail': '详细信息在日志文件中。在某些显卡驱动上，停用硬件加速后重新启动会有帮助。',

@@ -57,6 +57,10 @@ export const desktop = {
   'desktop.dialog.hardwareAcceleration.detail': 'Restart now to apply the change immediately.',
   'desktop.dialog.hardwareAcceleration.restartNow': 'Restart Now',
   'desktop.dialog.hardwareAcceleration.later': 'Later',
+  // A Windows package that cannot take in the data a move handed over:
+  // it ends instead of starting on an empty folder.
+  'desktop.dialog.dataMoveHeld.title': 'Your data is in use',
+  'desktop.dialog.dataMoveHeld.message': 'Close the program that is using {path}, then start the app again.',
   // The window supervisor's dialogs (a renderer that died twice, a
   // renderer that stopped responding) and the graphics-process escape.
   'desktop.dialog.windowCrashed.title': 'The window crashed',

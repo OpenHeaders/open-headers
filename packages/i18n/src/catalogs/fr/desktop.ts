@@ -53,6 +53,8 @@ export const desktop = {
   'desktop.dialog.hardwareAcceleration.detail': 'Redémarrez maintenant pour appliquer le changement immédiatement.',
   'desktop.dialog.hardwareAcceleration.restartNow': 'Redémarrer maintenant',
   'desktop.dialog.hardwareAcceleration.later': 'Plus tard',
+  'desktop.dialog.dataMoveHeld.title': "Vos données sont en cours d'utilisation",
+  'desktop.dialog.dataMoveHeld.message': "Fermez le programme qui utilise {path}, puis relancez l'application.",
   'desktop.dialog.windowCrashed.title': 'La fenêtre a planté',
   'desktop.dialog.windowCrashed.message': '{name} a rouvert la fenêtre une fois, et elle a planté de nouveau.',
   'desktop.dialog.windowCrashed.detail':

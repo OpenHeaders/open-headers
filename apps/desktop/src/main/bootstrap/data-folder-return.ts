@@ -60,12 +60,12 @@ const NOTHING_TO_RETURN: DataFolderReturn = { outcome: 'nothing-to-return' };
 
 const WINDOWS_ANSWER_TIMEOUT_MS = 30_000;
 
-function errorCode(error: unknown): string {
+export function errorCode(error: unknown): string {
   return error instanceof Error && 'code' in error && typeof error.code === 'string' ? error.code : 'unknown';
 }
 
 /** A real folder — a link or a junction is not one this app made. */
-function isPlainDirectory(target: string): boolean {
+export function isPlainDirectory(target: string): boolean {
   try {
     return fs.lstatSync(target, { throwIfNoEntry: false })?.isDirectory() === true;
   } catch {
@@ -73,7 +73,7 @@ function isPlainDirectory(target: string): boolean {
   }
 }
 
-function isAbsent(target: string): boolean {
+export function isAbsent(target: string): boolean {
   try {
     return fs.lstatSync(target, { throwIfNoEntry: false }) === undefined;
   } catch {

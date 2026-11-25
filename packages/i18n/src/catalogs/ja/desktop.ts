@@ -53,6 +53,9 @@ export const desktop = {
   'desktop.dialog.hardwareAcceleration.detail': '変更をすぐに適用するには今すぐ再起動してください。',
   'desktop.dialog.hardwareAcceleration.restartNow': '今すぐ再起動',
   'desktop.dialog.hardwareAcceleration.later': '後で',
+  'desktop.dialog.dataMoveHeld.title': 'データは使用中です',
+  'desktop.dialog.dataMoveHeld.message':
+    '{path} を使用しているプログラムを閉じてから、アプリをもう一度起動してください。',
   'desktop.dialog.windowCrashed.title': 'ウィンドウがクラッシュしました',
   'desktop.dialog.windowCrashed.message': '{name} はウィンドウを一度開き直しましたが、再びクラッシュしました。',
   'desktop.dialog.windowCrashed.detail':
