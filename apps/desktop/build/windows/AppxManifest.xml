@@ -1,0 +1,97 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  The Windows package's manifest. scripts/build/pack-msix.mjs fills the
+  identity's arch, publisher and version and lays this file at the
+  package's root, above the app's tree in app\ - where the app looks for
+  it to know it is a package.
+
+  One form for every Windows build: a full-trust desktop app with both
+  write redirections off, so everything the app and the programs it
+  starts write lands where it would outside a package.
+
+  The identity name, the two launch aliases and the link scheme are the
+  app's own constants; a test holds this file to them.
+-->
+<Package
+  xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10"
+  xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10"
+  xmlns:uap5="http://schemas.microsoft.com/appx/manifest/uap/windows10/5"
+  xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities"
+  xmlns:desktop6="http://schemas.microsoft.com/appx/manifest/desktop/windows10/6"
+  IgnorableNamespaces="uap uap5 rescap desktop6">
+  <Identity
+    Name="OpenHeaders"
+    ProcessorArchitecture="${arch}"
+    Publisher="${publisher}"
+    Version="${version}" />
+
+  <Properties>
+    <DisplayName>OpenHeaders</DisplayName>
+    <PublisherDisplayName>BITHUB TEAM SRL</PublisherDisplayName>
+    <Logo>assets\StoreLogo.png</Logo>
+    <desktop6:FileSystemWriteVirtualization>disabled</desktop6:FileSystemWriteVirtualization>
+    <desktop6:RegistryWriteVirtualization>disabled</desktop6:RegistryWriteVirtualization>
+  </Properties>
+
+  <Resources>
+    <Resource Language="en-US" />
+  </Resources>
+
+  <Dependencies>
+    <TargetDeviceFamily Name="Windows.Desktop" MinVersion="10.0.19041.0" MaxVersionTested="10.0.26100.0" />
+  </Dependencies>
+
+  <Capabilities>
+    <rescap:Capability Name="runFullTrust" />
+    <rescap:Capability Name="unvirtualizedResources" />
+    <Capability Name="internetClient" />
+  </Capabilities>
+
+  <Applications>
+    <Application Id="OpenHeaders" Executable="app\OpenHeaders.exe" EntryPoint="Windows.FullTrustApplication">
+      <uap:VisualElements
+        DisplayName="OpenHeaders"
+        Description="OpenHeaders"
+        Square44x44Logo="assets\Square44x44Logo.png"
+        Square150x150Logo="assets\Square150x150Logo.png"
+        BackgroundColor="transparent" />
+      <Extensions>
+        <uap:Extension Category="windows.protocol">
+          <uap:Protocol Name="openheaders" />
+        </uap:Extension>
+        <uap5:Extension
+          Category="windows.appExecutionAlias"
+          Executable="app\OpenHeaders.exe"
+          EntryPoint="Windows.FullTrustApplication">
+          <uap5:AppExecutionAlias>
+            <uap5:ExecutionAlias Alias="openheaders.exe" />
+          </uap5:AppExecutionAlias>
+        </uap5:Extension>
+      </Extensions>
+    </Application>
+    <!-- A program outside the package cannot start a file in the package's folder by its path:
+         a browser starts the helper through its alias. It has no entry in the app list. -->
+    <Application
+      Id="BrowserHelper"
+      Executable="app\resources\nm-host\oh-nm-host.exe"
+      EntryPoint="Windows.FullTrustApplication">
+      <uap:VisualElements
+        DisplayName="OpenHeaders browser helper"
+        Description="OpenHeaders browser helper"
+        Square44x44Logo="assets\Square44x44Logo.png"
+        Square150x150Logo="assets\Square150x150Logo.png"
+        BackgroundColor="transparent"
+        AppListEntry="none" />
+      <Extensions>
+        <uap5:Extension
+          Category="windows.appExecutionAlias"
+          Executable="app\resources\nm-host\oh-nm-host.exe"
+          EntryPoint="Windows.FullTrustApplication">
+          <uap5:AppExecutionAlias>
+            <uap5:ExecutionAlias Alias="openheaders-nm-host.exe" />
+          </uap5:AppExecutionAlias>
+        </uap5:Extension>
+      </Extensions>
+    </Application>
+  </Applications>
+</Package>

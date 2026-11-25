@@ -22,7 +22,7 @@ import { getMainWindow, showMainWindow } from './window-manager';
 
 const logger = createLogger('protocol');
 
-const PROTOCOL_SCHEME = 'openheaders';
+export const PROTOCOL_SCHEME = 'openheaders';
 const PROTOCOL_URL_CHANNEL = 'oh:protocol:url';
 
 const pendingProtocolUrls: string[] = [];
