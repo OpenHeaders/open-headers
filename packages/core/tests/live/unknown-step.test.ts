@@ -2,10 +2,11 @@
  * The tolerant reader, reader by reader (the workflow runs plan, Laws —
  * "A tolerant reader ships first").
  *
- * One workflow throughout, as a newer build would write it: a `listen`
- * with no `captures`, a call, an `expect`. Every core reader keeps the
- * two steps it does not know as they are, passes them by, and says the
- * workflow needs a newer version — none throws, none reads one as a call.
+ * One workflow throughout, as a newer build would write it: a step of
+ * an action this build does not know with no `captures`, a call, a
+ * second such step. Every core reader keeps the two steps it does not
+ * know as they are, passes them by, and says the workflow needs a newer
+ * version — none throws, none reads one as a call.
  */
 
 import * as v from 'valibot';
@@ -31,7 +32,7 @@ import { isWorkflowComplete, isWorkflowEffective, workflowNeedsUpdate } from '..
 import { LiveWorkflowSchema, WorkflowStepSchema } from '../../src/schemas/live';
 import type { LiveVariable, LiveWorkflow } from '../../src/types/live';
 
-const LISTEN = { uid: 'stplistn', id: 'probe', action: 'listen', session: 'mqttreq1' };
+const LISTEN = { uid: 'stplistn', id: 'probe', action: 'watch', session: 'mqttreq1' };
 const CALL = {
   uid: 'stpcall0',
   id: 'reboot',
@@ -41,7 +42,7 @@ const CALL = {
 const EXPECT = {
   uid: 'stpexpct',
   id: 'status',
-  action: 'expect',
+  action: 'verify',
   on: 'probe',
   after: 'reboot',
   address: 'devices/dev-1/status',
@@ -72,7 +73,7 @@ describe('the step schema', () => {
   });
 
   it('never reads a step with an unknown action as a call, whatever else it carries', () => {
-    const both = { ...CALL, action: 'listen' };
+    const both = { ...CALL, action: 'watch' };
     const [step] = scenario([both]).steps;
     expect(step).toEqual(both);
     expect(isUnknownStep(step)).toBe(true);
@@ -85,10 +86,10 @@ describe('the step schema', () => {
   });
 
   it('asks a step it does not know for its uid, id and action alone', () => {
-    expect(v.safeParse(WorkflowStepSchema, { id: 'probe', action: 'listen' }).success).toBe(false);
-    expect(v.safeParse(WorkflowStepSchema, { uid: 'stplistn', action: 'listen' }).success).toBe(false);
+    expect(v.safeParse(WorkflowStepSchema, { id: 'probe', action: 'watch' }).success).toBe(false);
+    expect(v.safeParse(WorkflowStepSchema, { uid: 'stplistn', action: 'watch' }).success).toBe(false);
     expect(v.safeParse(WorkflowStepSchema, { uid: 'stplistn', id: 'probe', action: '' }).success).toBe(false);
-    expect(v.safeParse(WorkflowStepSchema, { uid: 'stplistn', id: 'probe', action: 'listen' }).success).toBe(true);
+    expect(v.safeParse(WorkflowStepSchema, { uid: 'stplistn', id: 'probe', action: 'watch' }).success).toBe(true);
   });
 
   it('names the field of a malformed call step, as it did before', () => {
@@ -109,8 +110,8 @@ describe('the predicate', () => {
     const workflow = scenario();
     expect(workflow.steps.map(isUnknownStep)).toEqual([true, false, true]);
     expect(unknownStepsOf(workflow).map((step) => [step.id, step.action])).toEqual([
-      ['probe', 'listen'],
-      ['status', 'expect'],
+      ['probe', 'watch'],
+      ['status', 'verify'],
     ]);
     expect(callStepsOf(workflow).map((step) => step.requestUid)).toEqual(['httpreq1']);
   });
@@ -132,7 +133,7 @@ describe('the predicate', () => {
 
   it('names the step and its action in the one sentence', () => {
     const [listen] = unknownStepsOf(scenario());
-    expect(unknownStepMessage(listen)).toBe('Step "probe" needs a newer version of OpenHeaders (action "listen").');
+    expect(unknownStepMessage(listen)).toBe('Step "probe" needs a newer version of OpenHeaders (action "watch").');
   });
 });
 
@@ -142,12 +143,12 @@ describe('the validators', () => {
       {
         issue: 'step-needs-update',
         stepId: 'probe',
-        message: 'Step "probe" needs a newer version of OpenHeaders (action "listen").',
+        message: 'Step "probe" needs a newer version of OpenHeaders (action "watch").',
       },
       {
         issue: 'step-needs-update',
         stepId: 'status',
-        message: 'Step "status" needs a newer version of OpenHeaders (action "expect").',
+        message: 'Step "status" needs a newer version of OpenHeaders (action "verify").',
       },
     ]);
   });

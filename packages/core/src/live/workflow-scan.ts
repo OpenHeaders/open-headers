@@ -35,10 +35,15 @@ import { isUnknownStep } from './unknown-step';
  *                     semantic, declared order within it is not.
  *   - `runIf`       — conditional gate predicate.
  *   - `priorityFrom`— ready-set ordering tiebreak.
+ *   - `successCriteria`, `poll` — what the response is held to and how
+ *                     often it is asked for. Entered only where a step
+ *                     has them, so a workflow without either keeps the
+ *                     fingerprint it had.
  * Plus `parallelExecution` — switches the runner topology.
  *
- * A step this build does not know enters whole: which of its keys
- * shape a run is not this build's to say, so any change to it is one.
+ * A step that is not a call enters whole: every key of a session step
+ * shapes its run, and which keys of a step this build does not know do
+ * is not this build's to say.
  *
  * Excluded as non-executable: `schemaVersion` / `uid` / `path` /
  * `name` / `description` (cosmetic + identity), `enabled` /
@@ -66,6 +71,8 @@ export function workflowDefinitionFingerprint(workflow: LiveWorkflow): string {
             dependsOn: step.dependsOn ? [...step.dependsOn].sort() : null,
             runIf: step.runIf ?? null,
             priorityFrom: step.priorityFrom ?? null,
+            ...(step.successCriteria !== undefined ? { successCriteria: step.successCriteria } : {}),
+            ...(step.poll !== undefined ? { poll: step.poll } : {}),
           },
     ),
   });

@@ -23,7 +23,7 @@ import * as v from 'valibot';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 const CALL = { uid: 'stpcall0', id: 'reboot', requestUid: 'httpreq1', captures: [] };
-const LISTEN = { uid: 'stplistn', id: 'probe', action: 'listen', session: 'mqttreq1' };
+const LISTEN = { uid: 'stplistn', id: 'probe', action: 'watch', session: 'mqttreq1' };
 
 function workflow(steps: unknown[], overrides: Record<string, unknown> = {}): LiveWorkflow {
   return v.parse(LiveWorkflowSchema, {

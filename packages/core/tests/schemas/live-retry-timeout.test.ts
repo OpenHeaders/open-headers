@@ -1,6 +1,7 @@
 import * as v from 'valibot';
 import { describe, expect, it } from 'vitest';
 import {
+  CallWorkflowStepSchema,
   MAX_RETRY_ATTEMPTS,
   MAX_RETRY_DELAY_MS,
   MAX_STEP_TIMEOUT_MS,
@@ -66,8 +67,8 @@ describe('WorkflowStepSchema — runScripts', () => {
   });
 
   it('round-trips both boolean values', () => {
-    expect(v.parse(WorkflowStepSchema, baseStep({ runScripts: true })).runScripts).toBe(true);
-    expect(v.parse(WorkflowStepSchema, baseStep({ runScripts: false })).runScripts).toBe(false);
+    expect(v.parse(CallWorkflowStepSchema, baseStep({ runScripts: true })).runScripts).toBe(true);
+    expect(v.parse(CallWorkflowStepSchema, baseStep({ runScripts: false })).runScripts).toBe(false);
   });
 
   it('rejects non-boolean values', () => {
@@ -77,14 +78,14 @@ describe('WorkflowStepSchema — runScripts', () => {
 
 describe('WorkflowStepSchema — retry + timeoutMs', () => {
   it('round-trips a step without either field (both stay absent)', () => {
-    const parsed = v.parse(WorkflowStepSchema, baseStep());
+    const parsed = v.parse(CallWorkflowStepSchema, baseStep());
     expect(parsed.retry).toBeUndefined();
     expect(parsed.timeoutMs).toBeUndefined();
   });
 
   it('round-trips a step carrying both fields', () => {
     const parsed = v.parse(
-      WorkflowStepSchema,
+      CallWorkflowStepSchema,
       baseStep({ retry: { maxAttempts: 3, delayMs: 500, backoff: 'fixed', retryOn: '5xx' }, timeoutMs: 10_000 }),
     );
     expect(parsed.retry).toEqual({ maxAttempts: 3, delayMs: 500, backoff: 'fixed', retryOn: '5xx' });

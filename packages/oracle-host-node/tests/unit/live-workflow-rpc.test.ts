@@ -260,7 +260,7 @@ describe('the node host’s live-workflow doors', () => {
   });
 
   it('a workflow with a step this build does not know is refused: no step starts, its rows say which cannot run', async () => {
-    const listen = { uid: 'stplistn', id: 'listen', action: 'listen', session: 'reqmqtt01', captures: [] };
+    const listen = { uid: 'stplistn', id: 'listen', action: 'watch', session: 'reqmqtt01', captures: [] };
     await seedWorkflow(port, [listen]);
 
     const answer = (await press('run-refused')) as { success: boolean; error: string };

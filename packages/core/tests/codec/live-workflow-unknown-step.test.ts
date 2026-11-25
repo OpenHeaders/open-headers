@@ -24,7 +24,7 @@ refresh:
 steps:
   - uid: stplistn
     id: probe
-    action: listen
+    action: watch
     session: mqttreq1
   - uid: stpcall0
     id: reboot
@@ -37,7 +37,7 @@ steps:
           path: $.id
   - uid: stpexpct
     id: status
-    action: expect
+    action: verify
     on: probe
     after: reboot
     address: devices/dev-1/status
@@ -53,11 +53,11 @@ describe('workflow.yaml with steps this build does not know', () => {
   it('is read, the unknown steps kept as written', () => {
     const { value } = parseLiveWorkflow(FILE, { path: PATH });
     expect(value.steps.map(isUnknownStep)).toEqual([true, false, true]);
-    expect(value.steps[0]).toEqual({ uid: 'stplistn', id: 'probe', action: 'listen', session: 'mqttreq1' });
+    expect(value.steps[0]).toEqual({ uid: 'stplistn', id: 'probe', action: 'watch', session: 'mqttreq1' });
     expect(value.steps[2]).toEqual({
       uid: 'stpexpct',
       id: 'status',
-      action: 'expect',
+      action: 'verify',
       on: 'probe',
       after: 'reboot',
       address: 'devices/dev-1/status',
@@ -89,7 +89,7 @@ describe('workflow.yaml with steps this build does not know', () => {
     const { value } = parseLiveWorkflow(handWritten, { path: PATH });
     const [, , expectStep] = value.steps;
     expect(expectStep.uid).toMatch(/^[a-z0-9]{8}$/);
-    expect(expectStep).toMatchObject({ action: 'expect', captures: [{ name: 'state' }] });
+    expect(expectStep).toMatchObject({ action: 'verify', captures: [{ name: 'state' }] });
   });
 
   it('still mints the uids of a call step beside one', () => {

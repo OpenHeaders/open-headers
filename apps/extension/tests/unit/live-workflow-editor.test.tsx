@@ -84,9 +84,9 @@ const needsUpdateFixture: LiveWorkflow = v.parse(LiveWorkflowSchema, {
   uid: 'wfdevice',
   name: 'Reboot',
   steps: [
-    { uid: 'stplistn', id: 'probe', action: 'listen', session: 'mqttreq1' },
+    { uid: 'stplistn', id: 'probe', action: 'watch', session: 'mqttreq1' },
     { uid: 'stpcall0', id: 'reboot', requestUid: 'reqfixt1', captures: [] },
-    { uid: 'stpexpct', id: 'status', action: 'expect', on: 'probe', after: 'reboot', captures: [] },
+    { uid: 'stpexpct', id: 'status', action: 'verify', on: 'probe', after: 'reboot', captures: [] },
   ],
 });
 
@@ -242,8 +242,8 @@ describe('LiveWorkflowEditor — a workflow that needs a newer version', () => {
       expect(card.querySelector('.ant-select')).toBeNull();
       expect(card.querySelector('input')).toBeNull();
     }
-    expect(cards[0].textContent).toContain('listen');
-    expect(cards[1].textContent).toContain('expect');
+    expect(cards[0].textContent).toContain('watch');
+    expect(cards[1].textContent).toContain('verify');
   });
 
   it('takes no edit: the call step, the add-step button and Refresh are off', () => {
@@ -274,7 +274,7 @@ describe('LiveWorkflowEditor — a workflow that needs a newer version', () => {
     fireEvent.click(screen.getByText('Preview'));
 
     const nodes = Array.from(container.querySelectorAll('[data-needs-update]'));
-    expect(nodes.map((node) => node.textContent)).toEqual([`probe${STEP}listen`, `status${STEP}expect`]);
+    expect(nodes.map((node) => node.textContent)).toEqual([`probe${STEP}watch`, `status${STEP}verify`]);
     expect(screen.queryByRole('button', { name: /Step$/ })).toBeNull();
   });
 });

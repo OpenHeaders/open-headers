@@ -13,7 +13,7 @@
 import * as v from 'valibot';
 import * as YAML from 'yaml';
 import { makeParsed, type ParsedDocument, type WriteableDocument } from '../../schemas/document';
-import { hasUnknownStepAction, LiveWorkflowSchema } from '../../schemas/live';
+import { hasUnknownStepAction, LiveWorkflowSchema, SESSION_STEP_ACTIONS } from '../../schemas/live';
 import type { LiveWorkflow } from '../../types/live';
 import { generateUid } from '../../utils/workspace';
 import { emitCanonicalYaml } from './canonical-emit';
@@ -43,8 +43,8 @@ export function parseLiveWorkflow(yaml: string, context: LiveWorkflowCodecContex
  * the YAML.Document round-trip happens against the original `doc`,
  * not the merged JS object — minted uids only persist if a downstream
  * write goes through `serializeLiveWorkflow` with the validated
- * value, which is the existing contract. A step this build does not
- * know gets its own `uid` and nothing beneath it is touched.
+ * value, which is the existing contract. A step of an action this build
+ * does not know gets its own `uid` and nothing beneath it is touched.
  */
 function mintMissingUids(merged: Record<string, unknown>): void {
   const steps = merged.steps;
@@ -53,26 +53,21 @@ function mintMissingUids(merged: Record<string, unknown>): void {
     if (typeof step !== 'object' || step === null) continue;
     const s = step as Record<string, unknown>;
     if (typeof s.uid !== 'string') s.uid = generateUid();
-    if (hasUnknownStepAction(s)) continue;
-    const captures = s.captures;
-    if (Array.isArray(captures)) {
-      for (const capture of captures) {
-        if (typeof capture !== 'object' || capture === null) continue;
-        const c = capture as Record<string, unknown>;
-        if (typeof c.uid !== 'string') c.uid = generateUid();
-      }
-    }
+    if (hasUnknownStepAction(s) && !SESSION_STEP_ACTIONS.some((action) => action === s.action)) continue;
+    mintRowUids(s.captures);
+    mintRowUids(s.successCriteria);
+    mintRowUids(s.match);
     const runIf = s.runIf;
-    if (runIf && typeof runIf === 'object') {
-      const all = (runIf as Record<string, unknown>).all;
-      if (Array.isArray(all)) {
-        for (const clause of all) {
-          if (typeof clause !== 'object' || clause === null) continue;
-          const cl = clause as Record<string, unknown>;
-          if (typeof cl.uid !== 'string') cl.uid = generateUid();
-        }
-      }
-    }
+    if (runIf && typeof runIf === 'object') mintRowUids((runIf as Record<string, unknown>).all);
+  }
+}
+
+function mintRowUids(rows: unknown): void {
+  if (!Array.isArray(rows)) return;
+  for (const row of rows) {
+    if (typeof row !== 'object' || row === null) continue;
+    const r = row as Record<string, unknown>;
+    if (typeof r.uid !== 'string') r.uid = generateUid();
   }
 }
 

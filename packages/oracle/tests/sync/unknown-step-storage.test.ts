@@ -27,9 +27,9 @@ import { InMemoryMutationLog } from '../../src/sync/mutation-log';
 import { EntityOracle } from '../../src/sync/oracle';
 import { InMemoryPendingIntents } from '../../src/sync/pending-intents';
 
-const LISTEN = { uid: 'stplistn', id: 'probe', action: 'listen', session: 'mqttreq1' };
+const LISTEN = { uid: 'stplistn', id: 'probe', action: 'watch', session: 'mqttreq1' };
 const CALL = { uid: 'stpcall0', id: 'reboot', requestUid: 'httpreq1', captures: [] };
-const EXPECT = { uid: 'stpexpct', id: 'status', action: 'expect', on: 'probe', after: 'reboot', captures: [] };
+const EXPECT = { uid: 'stpexpct', id: 'status', action: 'verify', on: 'probe', after: 'reboot', captures: [] };
 
 const workflow: LiveWorkflow = v.parse(LiveWorkflowSchema, {
   schemaVersion: 5,

@@ -52,7 +52,7 @@ import { applyExtractor, type StepResponse } from './extractor';
 import { evaluateGate, matchStatus } from './gate-evaluator';
 import { comparePriority, priorityValue } from './priority-evaluator';
 import type { AttemptRetryCause, StepProduct, WorkflowRunEvent } from './run-events';
-import { isUnknownStep } from './unknown-step';
+import { isKnownStep } from './step-actions';
 
 // ── Fetch adapter contract ────────────────────────────────────────
 
@@ -166,12 +166,12 @@ type StepState = 'pending' | 'complete' | 'skipped' | 'failed';
 /**
  * Resolve a step's effective `dependsOn` list. Absent = implicit
  * prior-step dep (backwards compat with linear chains); empty array =
- * explicit root; populated = explicit DAG edges. A step this build does
- * not know is read as the implicit case — its own keys are not ours to
- * read.
+ * explicit root; populated = explicit DAG edges. A step of an action
+ * the model does not know is read as the implicit case — its own keys
+ * are not ours to read.
  */
 export function effectiveDependsOn(step: WorkflowStep, declaredIndex: number, workflow: LiveWorkflow): string[] {
-  if (!isUnknownStep(step) && step.dependsOn !== undefined) return step.dependsOn;
+  if (isKnownStep(step) && step.dependsOn !== undefined) return step.dependsOn;
   // Implicit: depend on the previous step in declared order.
   if (declaredIndex === 0) return [];
   return [workflow.steps[declaredIndex - 1].id];

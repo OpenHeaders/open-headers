@@ -7,6 +7,10 @@
  * assumes only that step's `uid`, `id` and `action`, and passes it by:
  * it is shown as needing a newer version, never run, never read as a
  * call, never thrown on.
+ *
+ * A session step answers as one here too. The model knows its keys
+ * (`step-actions.ts`); a reader that asks here knows only calls, until
+ * its own slice teaches it the session actions.
  */
 
 import { hasUnknownStepAction } from '../schemas/live';

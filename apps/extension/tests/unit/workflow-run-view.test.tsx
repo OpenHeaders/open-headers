@@ -129,7 +129,7 @@ const workflow: LiveWorkflow = {
 const needsUpdateWorkflow: LiveWorkflow = v.parse(LiveWorkflowSchema, {
   ...workflow,
   uid: 'wfdevice',
-  steps: [{ uid: 'stplistn', id: 'probe', action: 'listen', session: 'mqttreq1' }, workflow.steps[0]],
+  steps: [{ uid: 'stplistn', id: 'probe', action: 'watch', session: 'mqttreq1' }, workflow.steps[0]],
 });
 
 function snapshot(body: string, error: string | null = null): ExecutedRequestSnapshot {
@@ -322,9 +322,9 @@ describe('the Run view', () => {
     expect(screen.getByTestId('wf-run-verdict').textContent).toBe('Cannot run here');
     const probe = screen.getByTestId('wf-run-row-probe');
     expect(probe.getAttribute('data-run-state')).toBe('cannot-run');
-    expect(probe.textContent).toContain('listen');
+    expect(probe.textContent).toContain('watch');
     expect(probe.textContent).toContain('Cannot run here');
-    expect(probe.textContent).toContain('Step "probe" needs a newer version of OpenHeaders (action "listen").');
+    expect(probe.textContent).toContain('Step "probe" needs a newer version of OpenHeaders (action "watch").');
     expect(screen.getByTestId('wf-run-row-login').getAttribute('data-run-state')).toBe('not-run');
     expect(screen.getByTestId('wf-run-view').textContent).toContain('No step ran.');
   });

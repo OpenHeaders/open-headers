@@ -119,6 +119,8 @@ export type { RunProductHold } from './run-products';
 export { createRunProductHold } from './run-products';
 export type { WorkflowRunRecord, WorkflowRunStepRow, WorkflowRunTotals, WorkflowRunVerdict } from './run-record';
 export { applyRunFact, runTotals, runVerdict } from './run-record';
+export { validateSessionSteps } from './session-step-validation';
+export { isExpectStep, isKnownStep, isListenStep, isSendStep, isSessionStep } from './step-actions';
 export type { RequestInfoProvider, StepRequestInfo, StructuralError, StructuralIssue } from './step-validation';
 export {
   computeTransitiveAncestors,

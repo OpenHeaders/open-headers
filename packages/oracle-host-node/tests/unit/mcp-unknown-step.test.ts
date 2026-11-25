@@ -73,11 +73,11 @@ import { createHostStorageFake } from './_host-storage-fake';
 const wsId = 'ws-unknown-step';
 const CTX = { tokenId: 'token-1', userId: 'user-1' };
 
-const LISTEN = { uid: 'stplistn', id: 'probe', action: 'listen', session: 'mqttreq1' };
-const EXPECT = { uid: 'stpexpct', id: 'status', action: 'expect', on: 'probe', after: 'reboot', captures: [] };
+const LISTEN = { uid: 'stplistn', id: 'probe', action: 'watch', session: 'mqttreq1' };
+const EXPECT = { uid: 'stpexpct', id: 'status', action: 'verify', on: 'probe', after: 'reboot', captures: [] };
 
-const LISTEN_SENTENCE = 'Step "probe" needs a newer version of OpenHeaders (action "listen").';
-const EXPECT_SENTENCE = 'Step "status" needs a newer version of OpenHeaders (action "expect").';
+const LISTEN_SENTENCE = 'Step "probe" needs a newer version of OpenHeaders (action "watch").';
+const EXPECT_SENTENCE = 'Step "status" needs a newer version of OpenHeaders (action "verify").';
 const WORKFLOW_SENTENCE = 'This workflow has steps that need a newer version of OpenHeaders. Update to edit or run it.';
 
 let server: Server;

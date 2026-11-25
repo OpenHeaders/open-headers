@@ -1,7 +1,9 @@
 /**
  * Pure validators for a Live Workflow's structural invariants.
  *
- * Covers two distinct checks the editor + save path must run:
+ * Covers two distinct checks the editor + save path must run (a session
+ * step's own invariants are `validateSessionSteps`'; to these two it is
+ * a step that needs an update, as to every reader that knows only calls):
  *
  *   1. {@link validateWorkflowShape} — local invariants that don't
  *      touch any other entity. Unique step ids, unique capture names
@@ -26,7 +28,8 @@
  * Both return `StructuralError[]` — empty means valid. Never throw.
  */
 
-import type { CallWorkflowStep, LiveWorkflow, WorkflowStep } from '../types/live';
+import { MAX_POLL_TOTAL_MS } from '../schemas/live';
+import type { CallWorkflowStep, Criterion, LiveWorkflow, WorkflowStep } from '../types/live';
 import type { RequestIncompleteReason } from '../utils/request-validation';
 import { effectiveDependsOn } from './chain-runner';
 import { scanTemplateReferences } from './template-scan';
@@ -57,7 +60,22 @@ export type StructuralIssue =
   | 'priority-unreachable-stepid'
   | 'priority-unknown-capture'
   | 'step-template-unreachable-stepid'
-  | 'parallel-not-yet-implemented';
+  | 'parallel-not-yet-implemented'
+  // ── Criteria + poll ──────────────────────────────────────────
+  | 'criterion-invalid-regex'
+  | 'poll-without-criteria'
+  | 'poll-exceeds-limit'
+  // ── Session steps (`validateSessionSteps`) ───────────────────
+  | 'session-refresh-not-manual'
+  | 'session-step-status-read'
+  | 'session-step-unknown-listen'
+  | 'session-step-unreachable-listen'
+  | 'listen-has-captures'
+  | 'send-without-message'
+  | 'expect-unknown-trigger'
+  | 'expect-unreachable-trigger'
+  | 'expect-unarmed-trigger'
+  | 'expect-address-reads-trigger';
 
 export interface StructuralError {
   issue: StructuralIssue;
@@ -113,6 +131,25 @@ export function validateWorkflowShape(workflow: LiveWorkflow): StructuralError[]
         });
       }
       seenCaptures.add(capture.name);
+    }
+
+    errors.push(...criterionPatternErrors(step.id, step.successCriteria ?? []));
+    const poll = step.poll;
+    if (poll !== undefined) {
+      if (step.successCriteria === undefined || step.successCriteria.length === 0) {
+        errors.push({
+          issue: 'poll-without-criteria',
+          stepId: step.id,
+          message: `Step "${step.id}" polls with no success criteria to wait for.`,
+        });
+      }
+      if ((poll.maxAttempts - 1) * poll.delayMs > MAX_POLL_TOTAL_MS) {
+        errors.push({
+          issue: 'poll-exceeds-limit',
+          stepId: step.id,
+          message: `Step "${step.id}" would poll for longer than ${MAX_POLL_TOTAL_MS / 1000} s.`,
+        });
+      }
     }
   }
 
@@ -285,6 +322,24 @@ export function validateWorkflowShape(workflow: LiveWorkflow): StructuralError[]
     }
   }
 
+  return errors;
+}
+
+/** One error per criterion whose pattern does not compile. */
+export function criterionPatternErrors(stepId: string, criteria: readonly Criterion[]): StructuralError[] {
+  const errors: StructuralError[] = [];
+  for (const criterion of criteria) {
+    if (criterion.kind !== 'matches') continue;
+    try {
+      new RegExp(criterion.pattern);
+    } catch {
+      errors.push({
+        issue: 'criterion-invalid-regex',
+        stepId,
+        message: `Step "${stepId}" has a criterion with an invalid regex pattern: ${criterion.pattern}`,
+      });
+    }
+  }
   return errors;
 }
 

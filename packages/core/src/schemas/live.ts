@@ -247,6 +247,59 @@ export const StepTimeoutMsSchema = v.pipe(
   v.maxValue(MAX_STEP_TIMEOUT_MS),
 );
 
+// ── Criteria ──────────────────────────────────────────────────────
+
+/**
+ * One criterion a response or a message is held to (the workflow runs
+ * plan, The model): an extractor plus a comparison, or a status match.
+ * `value` is a template, resolved once when its step judges; `pattern`
+ * is a JavaScript `RegExp` source taken as written.
+ */
+export const CriterionSchema = v.variant('kind', [
+  v.object({
+    kind: v.literal('status'),
+    uid: UidSchema,
+    match: StatusMatchSchema,
+  }),
+  v.object({
+    kind: v.literal('exists'),
+    uid: UidSchema,
+    extractor: ExtractorSchema,
+  }),
+  v.object({
+    kind: v.literal('equals'),
+    uid: UidSchema,
+    extractor: ExtractorSchema,
+    value: v.string(),
+  }),
+  v.object({
+    kind: v.literal('matches'),
+    uid: UidSchema,
+    extractor: ExtractorSchema,
+    pattern: v.pipe(v.string(), v.minLength(1)),
+  }),
+]);
+
+// ── Step poll ─────────────────────────────────────────────────────
+
+/** Bounds on a step's poll. `maxAttempts` counts the first send. */
+export const MIN_POLL_ATTEMPTS = 2;
+export const MAX_POLL_ATTEMPTS = 100;
+export const MIN_POLL_DELAY_MS = 100;
+export const MAX_POLL_DELAY_MS = 60_000;
+/** The longest a poll's waits may add up to. */
+export const MAX_POLL_TOTAL_MS = 300_000;
+
+/**
+ * Re-send a call until its `successCriteria` hold: at most `maxAttempts`
+ * sends, `delayMs` apart. Retry stays inside each send, for network
+ * failures; a poll re-sends the request, so it is for reads.
+ */
+export const StepPollSchema = v.object({
+  maxAttempts: v.pipe(v.number(), v.integer(), v.minValue(MIN_POLL_ATTEMPTS), v.maxValue(MAX_POLL_ATTEMPTS)),
+  delayMs: v.pipe(v.number(), v.integer(), v.minValue(MIN_POLL_DELAY_MS), v.maxValue(MAX_POLL_DELAY_MS)),
+});
+
 // ── Workflow step ─────────────────────────────────────────────────
 
 /** A step that sends one saved request — a step with no `action`. */
@@ -298,6 +351,83 @@ export const CallWorkflowStepSchema = v.object({
    * act as publication gates for the run's captures.
    */
   runScripts: v.optional(v.boolean()),
+  /**
+   * What the response is held to. Absent = today's rule: any response
+   * that arrived completes the step. A criterion that does not hold
+   * fails the step, or sends it again under `poll`.
+   */
+  successCriteria: v.optional(v.array(CriterionSchema)),
+  poll: v.optional(StepPollSchema),
+});
+
+/**
+ * A step that opens a session request and completes when the session is
+ * ready to receive (the workflow runs plan, The model). `timeoutMs` is
+ * its deadline to become ready. The session is the run's: it is closed
+ * when the run ends.
+ */
+export const ListenWorkflowStepSchema = v.object({
+  uid: UidSchema,
+  id: StepIdSchema,
+  action: v.literal('listen'),
+  description: v.optional(v.string()),
+  /** Uid of the persisted session request this step opens. */
+  sessionRequestUid: UidSchema,
+  timeoutMs: StepTimeoutMsSchema,
+  /** Run the session request's scripts, under the run's read-only tier. */
+  runScripts: v.optional(v.boolean()),
+  captures: v.array(CaptureSchema),
+  dependsOn: v.optional(v.array(StepIdSchema)),
+  runIf: v.optional(StepGateSchema),
+  priorityFrom: v.optional(PriorityRefSchema),
+});
+
+/**
+ * A step that sends one saved message of a `listen` step's request on
+ * that step's session. Its captures read the message as sent, or the
+ * reply where the kind answers the send itself.
+ */
+export const SendWorkflowStepSchema = v.object({
+  uid: UidSchema,
+  id: StepIdSchema,
+  action: v.literal('send'),
+  description: v.optional(v.string()),
+  /** The `listen` step whose session carries the message. */
+  on: StepIdSchema,
+  /** Uid of the saved message. Absent only where the step ends the input alone. */
+  messageUid: v.optional(UidSchema),
+  /** After the message, say no more comes from this side — for a kind that has it. */
+  endInput: v.optional(v.boolean()),
+  captures: v.array(CaptureSchema),
+  dependsOn: v.optional(v.array(StepIdSchema)),
+  runIf: v.optional(StepGateSchema),
+  priorityFrom: v.optional(PriorityRefSchema),
+});
+
+/**
+ * A step that waits for a message on a `listen` step's session. Its
+ * window opens when the step named by `after` starts, and `timeoutMs`
+ * counts from there. `address` is a template naming where the message
+ * lands — absent for a kind with one stream; `match` picks the message.
+ */
+export const ExpectWorkflowStepSchema = v.object({
+  uid: UidSchema,
+  id: StepIdSchema,
+  action: v.literal('expect'),
+  description: v.optional(v.string()),
+  /** The `listen` step whose session is read. */
+  on: StepIdSchema,
+  /** The trigger: the step whose start opens the window. */
+  after: StepIdSchema,
+  address: v.optional(v.string()),
+  match: v.array(CriterionSchema),
+  timeoutMs: StepTimeoutMsSchema,
+  /** Take a message the session marks stored, not live. Absent = passed over. */
+  includeStored: v.optional(v.boolean()),
+  captures: v.array(CaptureSchema),
+  dependsOn: v.optional(v.array(StepIdSchema)),
+  runIf: v.optional(StepGateSchema),
+  priorityFrom: v.optional(PriorityRefSchema),
 });
 
 /**
@@ -312,20 +442,42 @@ export const UnknownWorkflowStepSchema = v.looseObject({
   action: v.pipe(v.string(), v.minLength(1), v.notValue('call')),
 });
 
-/** Whether a step's `action` names something other than a call — the rule the step schema picks its shape by. */
-export function hasUnknownStepAction(step: unknown): boolean {
-  if (typeof step !== 'object' || step === null || !('action' in step)) return false;
-  return typeof step.action === 'string' && step.action !== 'call';
+/** A step's `action` where it names something other than a call. */
+function nonCallActionOf(step: unknown): string | null {
+  if (typeof step !== 'object' || step === null || !('action' in step)) return null;
+  return typeof step.action === 'string' && step.action !== 'call' ? step.action : null;
 }
 
 /**
- * One workflow step. Picked by `action`, never tried in turn: a step
- * with an unknown action is never read as a call, and a call step's
- * issues keep the path of the field they are about.
+ * Whether a step's `action` names something other than a call — what a
+ * reader that knows only calls asks before it reads a step.
  */
-export const WorkflowStepSchema = v.lazy((step) =>
-  hasUnknownStepAction(step) ? UnknownWorkflowStepSchema : CallWorkflowStepSchema,
-);
+export function hasUnknownStepAction(step: unknown): boolean {
+  return nonCallActionOf(step) !== null;
+}
+
+/** The session actions a step may name. */
+export const SESSION_STEP_ACTIONS = ['listen', 'send', 'expect'] as const;
+
+/**
+ * One workflow step. Picked by `action`, never tried in turn: a step
+ * with an action this build does not know is never read as a call, and
+ * a step's issues keep the path of the field they are about.
+ */
+export const WorkflowStepSchema = v.lazy((step) => {
+  switch (nonCallActionOf(step)) {
+    case null:
+      return CallWorkflowStepSchema;
+    case 'listen':
+      return ListenWorkflowStepSchema;
+    case 'send':
+      return SendWorkflowStepSchema;
+    case 'expect':
+      return ExpectWorkflowStepSchema;
+    default:
+      return UnknownWorkflowStepSchema;
+  }
+});
 
 // ── Refresh policy ────────────────────────────────────────────────
 
