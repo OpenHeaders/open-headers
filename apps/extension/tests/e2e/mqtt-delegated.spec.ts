@@ -163,6 +163,8 @@ function connectButton() {
   return page.getByTestId('mqtt-connect-button').filter({ visible: true }).first();
 }
 
+/** The URL bar — a TemplateInput (contentEditable): assert its text,
+ *  not an input value. */
 function urlInput() {
   return page.getByTestId('mqtt-url-input').filter({ visible: true }).first();
 }
@@ -385,7 +387,7 @@ test('the workbench opens on the joined workspace', async () => {
 
 test('D1 — the chip names the server place and Connect is enabled on the tcp scheme', async () => {
   await openMqttRequest('e2emqtt1');
-  await expect(urlInput()).toHaveValue(`mqtt://127.0.0.1:${MQTT_PORT}`);
+  await expect(urlInput()).toHaveText(`mqtt://127.0.0.1:${MQTT_PORT}`);
   await waitChipRunsOnServer();
   await expect(placeChip()).toHaveAttribute('data-place', 'workspace-server');
   await expect(placeChip()).toHaveAttribute('data-state', 'ready');
@@ -472,8 +474,10 @@ test('D3 — opt-in ON: the session runs over the delegated socket, scripted in 
   await connectButton().filter({ hasText: 'Disconnect' }).click();
   await endTag().filter({ hasText: 'Disconnected' }).waitFor({ state: 'visible', timeout: 5_000 });
 
-  // Attribution: the answering host stamped the snapshot.
-  const expectedLabel = os.hostname().split('.')[0]?.trim().toLowerCase() ?? '';
+  // Attribution: the answering host stamped the snapshot with the
+  // server's own name — unconfigured here, so the machine's name as
+  // the first boot read it.
+  const expectedLabel = os.hostname().replace(/\.local$/, '');
   const tag = page.getByTestId('oh-response-executed-on').filter({ visible: true }).first();
   await tag.waitFor({ state: 'visible', timeout: 5_000 });
   await expect(tag).toContainText(`Sent from ${expectedLabel}`);
@@ -488,13 +492,13 @@ test('D4 — daemon gone: the chip falls back to the companion state and Connect
     .toBe('Cannot run here: needs the desktop app or a server');
   await expect(placeChip()).toHaveAttribute('data-state', 'needs-companion');
   await expect(connectButton()).toBeDisabled();
+  // The hover card — the place-required hint, in the tooltip's stead —
+  // carries the copy over the button that opens the place picker.
   await page.mouse.move(0, 0);
   await connectButton().hover();
-  await page
-    .locator('.ant-tooltip')
-    .filter({ visible: true })
-    .getByText(CONNECT_TCP_SCHEME_COPY)
-    .first()
-    .waitFor({ state: 'visible', timeout: 5_000 });
+  const hint = page.getByTestId('execution-place-hint').filter({ visible: true });
+  await expect(hint).toContainText(CONNECT_TCP_SCHEME_COPY);
+  await expect(hint.getByTestId('execution-place-hint-choose')).toBeVisible();
   await page.mouse.move(0, 0);
+  await expect(hint).toHaveCount(0);
 });

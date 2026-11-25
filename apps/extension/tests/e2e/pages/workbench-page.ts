@@ -383,7 +383,9 @@ export class WorkbenchPage {
    *  row's accessible name starts with the label but also folds in its
    *  inline InfoTrigger ("Before request About Before request script"), so
    *  match on the prefix — the ⓘ button itself starts with "About" and
-   *  can't collide. */
+   *  can't collide. The click lands on the row's LABEL, never its centre:
+   *  a short label ("On message") leaves the ⓘ there, and that click
+   *  opens the info card without selecting the slot. */
   async selectScriptRail(
     label:
       | 'Before request'
@@ -398,6 +400,7 @@ export class WorkbenchPage {
       .getByRole('button', { name: new RegExp(`^${label}`) })
       .filter({ visible: true })
       .first()
+      .getByText(label, { exact: true })
       .click();
   }
 
@@ -429,10 +432,10 @@ export class WorkbenchPage {
     await this.scriptSnippetsPopover().getByRole('button', { name: label, exact: true }).click();
   }
 
-  /** Run the Scripts tab toolbar's Beautify (format) button — the
-   *  labelled `CodeEditorActions` cluster above the editor. */
+  /** Run the Scripts tab toolbar's Format button — the labelled
+   *  `CodeEditorActions` cluster above the editor. */
   async formatScript(): Promise<void> {
-    await this.page.getByRole('button', { name: 'Beautify' }).filter({ visible: true }).first().click();
+    await this.page.getByRole('button', { name: 'Format', exact: true }).filter({ visible: true }).first().click();
   }
 
   // ── Scripts tab — packages popover ──────────────────────────────

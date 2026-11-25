@@ -23,8 +23,8 @@
  *       through a full page reload — and the filled mqtt:// URL leaves
  *       Connect on the tcp-scheme honesty gate (named, not enabled).
  *   E3  version honesty: the 3.1.1 knob renders the Properties tab
- *       disabled-honest — the 5.0-only grid is inert with the copy
- *       naming why.
+ *       disabled-honest — the 5.0-only grid is inert under the gate
+ *       line naming why and offering the switch to 5.0.
  *   E4  AsyncAPI binding: a spec created from the SPECS `+` menu's
  *       AsyncAPI 3.0 scaffold binds through the editor's spec picker,
  *       the footer names the link, and the specLink persists.
@@ -106,8 +106,21 @@ function connectButton() {
   return page.getByTestId('mqtt-connect-button').filter({ visible: true }).first();
 }
 
+/** The URL bar — a TemplateInput (contentEditable): assert its text,
+ *  not an input value. */
 function urlInput() {
   return page.getByTestId('mqtt-url-input').filter({ visible: true }).first();
+}
+
+/** An editor tab by its label. The accessible name folds in the grid
+ *  tabs' count badge and every tab's hover-revealed (i) ("Topics 1 About
+ *  Topics") — anchored both ends, so the session pane's same-named tab
+ *  and the document tabs never match. */
+function editorTab(label: string) {
+  return page
+    .getByRole('tab', { name: new RegExp(`^${label}\\s*\\d*\\s*About ${label}$`) })
+    .filter({ visible: true })
+    .first();
 }
 
 /** The collection row's hover-revealed `+` (create-only) menu icon. */
@@ -184,11 +197,11 @@ async function openMqttRequest(name: string): Promise<void> {
   await urlInput().waitFor({ state: 'visible', timeout: 5_000 });
 }
 
-/** Assert a Connect gate: the button visible, disabled, its tooltip
- *  carrying the honest copy. The `mqttPageSession` capability retired
- *  the runtime gate on this surface — what remains is the needs-url
- *  gate and the named tcp-scheme affordance. */
-async function expectConnectGate(copy: string): Promise<void> {
+/** Assert the needs-url gate: Connect visible, disabled, its tooltip
+ *  carrying the url copy. The `mqttPageSession` capability retired the
+ *  runtime gate on this surface — what remains is this gate and the
+ *  named tcp-scheme affordance ({@link expectConnectTcpSchemeGate}). */
+async function expectConnectNeedsUrl(): Promise<void> {
   const button = connectButton();
   await button.waitFor({ state: 'visible', timeout: 5_000 });
   await expect(button).toBeDisabled();
@@ -198,10 +211,28 @@ async function expectConnectGate(copy: string): Promise<void> {
   await page
     .locator('.ant-tooltip')
     .filter({ visible: true })
-    .getByText(copy)
+    .getByText(CONNECT_NEEDS_URL_COPY)
     .first()
     .waitFor({ state: 'visible', timeout: 5_000 });
   await page.mouse.move(0, 0);
+}
+
+/** Assert the tcp-scheme gate: Connect visible, disabled, and its hover
+ *  card — the place-required hint, in the tooltip's stead — carrying the
+ *  copy that NAMES the scheme over the button that opens the place
+ *  picker. The card is gone before the next gesture. */
+async function expectConnectTcpSchemeGate(): Promise<void> {
+  const button = connectButton();
+  await button.waitFor({ state: 'visible', timeout: 5_000 });
+  await expect(button).toBeDisabled();
+  // Park first so the hover always lands as a fresh mouseenter.
+  await page.mouse.move(0, 0);
+  await button.hover();
+  const hint = page.getByTestId('execution-place-hint').filter({ visible: true });
+  await expect(hint).toContainText(CONNECT_TCP_SCHEME_COPY);
+  await expect(hint.getByTestId('execution-place-hint-choose')).toBeVisible();
+  await page.mouse.move(0, 0);
+  await expect(hint).toHaveCount(0);
 }
 
 function sendButton() {
@@ -286,7 +317,7 @@ test('E1 — the collection + menu creates an MQTT request gated only on its emp
   // capability retired the runtime gate on this surface).
   await urlInput().waitFor({ state: 'visible', timeout: 5_000 });
   await page.getByTestId('mqtt-session-empty').filter({ visible: true }).first().waitFor({ state: 'visible' });
-  await expectConnectGate(CONNECT_NEEDS_URL_COPY);
+  await expectConnectNeedsUrl();
 });
 
 // ── E2: edit → Save → reload → persisted ────────────────────────────
@@ -323,14 +354,14 @@ test('E2 — url, version knob, payload, a Topics row and a saved message surviv
 
   // A subscription row on the Topics grid — typing into the
   // placeholder row mints it.
-  await page.getByRole('tab', { name: 'Topics', exact: true }).filter({ visible: true }).first().click();
+  await editorTab('Topics').click();
   await page.getByTestId('mqtt-topic-filter-input').filter({ visible: true }).first().fill(MQTT_TOPIC_FILTER);
 
   // The filled mqtt:// URL does NOT enable Connect on this surface —
   // a browser page cannot open a raw TCP socket, and the honesty gate
   // NAMES the scheme instead of silently downgrading to ws; the place
   // control beside Connect says what the session needs.
-  await expectConnectGate(CONNECT_TCP_SCHEME_COPY);
+  await expectConnectTcpSchemeGate();
   const placeChip = page.getByTestId('execution-place-chip').filter({ visible: true }).first();
   await expect(placeChip).toHaveAttribute('aria-label', 'Cannot run here: needs the desktop app or a server');
   await expect(placeChip).toHaveAttribute('data-state', 'needs-companion');
@@ -347,7 +378,7 @@ test('E2 — url, version knob, payload, a Topics row and a saved message surviv
   await workbench.collapseRightSidebar();
   await openMqttRequest(MQTT_NAME);
 
-  await expect(urlInput()).toHaveValue(MQTT_URL);
+  await expect(urlInput()).toHaveText(MQTT_URL);
   await expect(page.getByTestId('mqtt-version-select').filter({ visible: true }).first()).toContainText('V3.1.1');
   // Doubles as the sliver-regression gate: a fill CodeEditor dropped
   // straight into a row-flex host renders a few px wide, wraps every
@@ -368,7 +399,7 @@ test('E2 — url, version knob, payload, a Topics row and a saved message surviv
     .filter({ hasText: 'Message' })
     .first()
     .waitFor({ state: 'visible' });
-  await page.getByRole('tab', { name: 'Topics', exact: true }).filter({ visible: true }).first().click();
+  await editorTab('Topics').click();
   // The filter cell is a TemplateInput (contentEditable) — assert its
   // text, not an input value.
   await expect(page.getByTestId('mqtt-topic-filter-input').filter({ visible: true }).first()).toHaveText(
@@ -379,10 +410,14 @@ test('E2 — url, version knob, payload, a Topics row and a saved message surviv
 // ── E3: the 3.1.1 knob renders the Properties tab disabled-honest ───
 
 test('E3 — on 3.1.1 the CONNECT user-properties grid is inert with the honest copy', async () => {
-  await page.getByRole('tab', { name: 'Properties', exact: true }).filter({ visible: true }).first().click();
+  await editorTab('Properties').click();
   const propsTab = page.getByTestId('mqtt-user-props').filter({ visible: true }).first();
   await propsTab.waitFor({ state: 'visible', timeout: 5_000 });
-  await expect(propsTab).toContainText('CONNECT user properties are an MQTT 5.0 feature — this request targets 3.1.1.');
+  // The gate line leads the tab — the short 5.0 rule and the one-click
+  // way out (not taken: the later legs ride the 3.1.1 knob).
+  const gate = propsTab.getByTestId('mqtt-user-props-v5-gate');
+  await expect(gate).toContainText('V3.1.1: values saved, not sent. V5 only');
+  await expect(gate.getByTestId('mqtt-user-props-v5-gate-switch')).toHaveText('Switch request to V5');
   await expect(propsTab.locator('[aria-disabled="true"]').first()).toBeVisible();
 });
 
@@ -402,8 +437,7 @@ test('E4 — an AsyncAPI spec binds through the picker and the specLink persists
   await commitAutoRename(/^New Specification/, SPEC_NAME);
 
   await openMqttRequest(MQTT_NAME);
-  // Exact: the editor's Spec tab, never a document tab.
-  await page.getByRole('tab', { name: 'Spec', exact: true }).filter({ visible: true }).first().click();
+  await editorTab('Spec').click();
   await page.getByTestId('mqtt-spec-select').filter({ visible: true }).first().click();
   await page
     .locator('.ant-select-dropdown')
@@ -427,8 +461,7 @@ test('E4 — an AsyncAPI spec binds through the picker and the specLink persists
   await workbench.showRequestsView();
   await workbench.collapseRightSidebar();
   await openMqttRequest(MQTT_NAME);
-  // Exact: the editor's Spec tab, never a document tab.
-  await page.getByRole('tab', { name: 'Spec', exact: true }).filter({ visible: true }).first().click();
+  await editorTab('Spec').click();
   // Read the select's own text — a single-mode Select renders its
   // value in `.ant-select-content` (no selection-item element).
   await expect(page.getByTestId('mqtt-spec-select').filter({ visible: true }).first()).toContainText(SPEC_NAME);
@@ -437,7 +470,7 @@ test('E4 — an AsyncAPI spec binds through the picker and the specLink persists
 // ── E5: encoding honesty — invalid Base64 gates Send ────────────────
 
 test('E5 — invalid Base64 shows the inline error and the Send gate names the fix', async () => {
-  await page.getByRole('tab', { name: 'Message', exact: true }).filter({ visible: true }).first().click();
+  await editorTab('Message').click();
   await page.getByTestId('mqtt-payload-format').filter({ visible: true }).first().click();
   await page
     .locator('.ant-dropdown')
@@ -477,7 +510,7 @@ test('E6 — Connect runs the session in-page: CONNACK row, SUBACK grants, retai
   // E5 left the compose on invalid Base64 — flip back to Text and
   // compose the echo publish (topic probe/echo → the probe republishes
   // on probe/echo/reply, same QoS).
-  await page.getByRole('tab', { name: 'Message', exact: true }).filter({ visible: true }).first().click();
+  await editorTab('Message').click();
   await page.getByTestId('mqtt-payload-format').filter({ visible: true }).first().click();
   await page
     .locator('.ant-dropdown')
@@ -492,7 +525,7 @@ test('E6 — Connect runs the session in-page: CONNACK row, SUBACK grants, retai
   // Both subscription rows for the walk: the echo reply topic (refill
   // E2's row) and the pre-seeded retained topic (mint via the
   // placeholder row).
-  await page.getByRole('tab', { name: 'Topics', exact: true }).filter({ visible: true }).first().click();
+  await editorTab('Topics').click();
   await page.getByTestId('mqtt-topic-filter-input').filter({ visible: true }).nth(0).fill('probe/echo/reply');
   await page.getByTestId('mqtt-topic-filter-input').filter({ visible: true }).nth(1).fill('probe/retained');
   // Minted rows start UNSUBSCRIBED — enable both switches so the
@@ -555,7 +588,7 @@ test('E6 — Connect runs the session in-page: CONNACK row, SUBACK grants, retai
 
   // Send publishes the compose: the ↑ frame and the probe's republish
   // ↓ land, each with its topic chip.
-  await page.getByRole('tab', { name: 'Message', exact: true }).filter({ visible: true }).first().click();
+  await editorTab('Message').click();
   await expect(sendButton()).toBeEnabled();
   await sendButton().click();
   await timelineMessageRows()
@@ -584,8 +617,8 @@ test('E6 — Connect runs the session in-page: CONNACK row, SUBACK grants, retai
 
 test('E7 — typing an mqtt:// url gates Connect with the copy naming the scheme', async () => {
   await urlInput().fill('mqtt://127.0.0.1:3000/net/mqtt');
-  await expect(urlInput()).toHaveValue('mqtt://127.0.0.1:3000/net/mqtt');
-  await expectConnectGate(CONNECT_TCP_SCHEME_COPY);
+  await expect(urlInput()).toHaveText('mqtt://127.0.0.1:3000/net/mqtt');
+  await expectConnectTcpSchemeGate();
 });
 
 // ── E8: node-knob honesty — TLS verify-off is named, never dropped ──
@@ -593,7 +626,7 @@ test('E7 — typing an mqtt:// url gates Connect with the copy naming the scheme
 test('E8 — SSL verification off rides the honesty notice for the session’s whole life', async () => {
   // Back onto the ws scheme, then configure the node-only knob.
   await urlInput().fill('ws://127.0.0.1:3000/net/mqtt');
-  await page.getByRole('tab', { name: 'Settings', exact: true }).filter({ visible: true }).first().click();
+  await editorTab('Settings').click();
   await page.getByTestId('mqtt-ssl-verify').filter({ visible: true }).first().click();
 
   await connectAndAwaitOpen();
@@ -610,7 +643,7 @@ test('E8 — SSL verification off rides the honesty notice for the session’s w
 // ── E9: compose aids off the linked spec's census ───────────────────
 
 test('E9 — "Use example message" synthesizes the scaffold payload and prefills the topic; the channel browser composes on pick', async () => {
-  await page.getByRole('tab', { name: 'Message', exact: true }).filter({ visible: true }).first().click();
+  await editorTab('Message').click();
 
   // The Message-tab picker lists the census's messages; `subscribe`
   // synthesizes from the scaffold's authored examples + default, and
@@ -634,15 +667,11 @@ test('E9 — "Use example message" synthesizes the scaffold payload and prefills
   // The Spec tab's channel browser: picking the `ping` message row
   // composes its example (const op), prefills the topic with its own
   // channel address, and switches back to Message.
-  await page.getByRole('tab', { name: 'Spec', exact: true }).filter({ visible: true }).first().click();
+  await editorTab('Spec').click();
   const browser = page.getByTestId('mqtt-asyncapi-browser').filter({ visible: true }).first();
   await browser.waitFor({ state: 'visible', timeout: 5_000 });
   await browser.getByText('ping', { exact: true }).first().click();
-  await page
-    .getByRole('tab', { name: 'Message', exact: true })
-    .filter({ visible: true })
-    .first()
-    .waitFor({ state: 'visible' });
+  await editorTab('Message').waitFor({ state: 'visible' });
   // Poll: Monaco repaints a beat after the tab switch lands the text.
   await expect.poll(async () => workbench.monacoText(0), { timeout: 5_000 }).toContain('"op": "ping"');
   await expect(page.getByTestId('mqtt-topic-input').filter({ visible: true }).first()).toHaveText('/ws/control');
@@ -653,7 +682,7 @@ test('E9 — "Use example message" synthesizes the scaffold payload and prefills
 test('E10 — Save Response mints the example: viewer end pill, sidebar leaf, Open in Request returns', async () => {
   // The draft still points at the probe (E8's ws scheme) — run a
   // fresh session and settle it clean.
-  await expect(urlInput()).toHaveValue(MQTT_WS_PROBE_URL);
+  await expect(urlInput()).toHaveText(MQTT_WS_PROBE_URL);
   await connectAndAwaitOpen();
   await disconnectAndAwaitClose();
 
@@ -685,7 +714,7 @@ test('E10 — Save Response mints the example: viewer end pill, sidebar leaf, Op
   // shape riding the prefill bus as unsaved draft edits.
   await page.getByTestId('mqtt-example-open-in-request').filter({ visible: true }).first().click();
   await urlInput().waitFor({ state: 'visible', timeout: 5_000 });
-  await expect(urlInput()).toHaveValue(MQTT_WS_PROBE_URL);
+  await expect(urlInput()).toHaveText(MQTT_WS_PROBE_URL);
 });
 
 // ── E11: Basic auth on CONNECT (Phase F) ────────────────────────────
@@ -694,8 +723,8 @@ test('E11 — the probe identity opens the session; a wrong password refuses wit
   // The draft still points at the probe (E10's prefill) — configure
   // the Auth tab's Basic pair; the credential rides the CONNECT
   // packet, resolved at Connect.
-  await expect(urlInput()).toHaveValue(MQTT_WS_PROBE_URL);
-  await page.getByRole('tab', { name: 'Authorization', exact: true }).filter({ visible: true }).first().click();
+  await expect(urlInput()).toHaveText(MQTT_WS_PROBE_URL);
+  await editorTab('Authorization').click();
   await page.getByTestId('mqtt-auth-type').filter({ visible: true }).first().click();
   await page
     .locator('.ant-select-dropdown')
@@ -730,11 +759,11 @@ test('E12 — a Before connect script runs in-page at the dial: the CONNECT carr
   await page.getByTestId('oh-auth-basic-password').filter({ visible: true }).first().fill('probe-secret');
   // The Scripts tab draws the MQTT slots flat; the script types into
   // the shared editor (one line — Monaco's auto-indent law).
-  await page.getByRole('tab', { name: 'Scripts', exact: true }).filter({ visible: true }).first().click();
+  await editorTab('Scripts').click();
   await expect(page.getByTestId('oh-script-rail').filter({ visible: true }).first()).toContainText('Before publish');
   await workbench.selectScriptRail('Before connect');
   await workbench.fillMonaco(0, `oh.setClientId('page-scripted'); console.log('dial', oh.connect.attempt);`);
-  await page.getByRole('tab', { name: 'Message', exact: true }).filter({ visible: true }).first().click();
+  await editorTab('Message').click();
 
   await connectAndAwaitOpen();
 
