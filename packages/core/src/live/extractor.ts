@@ -10,6 +10,7 @@
  * standard `TextEncoder`.
  */
 
+import type { ExecutedRequestSnapshot } from '../types';
 import type { Extractor } from '../types/live';
 
 // ── Response shape passed to extractors ───────────────────────────
@@ -43,6 +44,10 @@ export interface StepResponse {
    *  Preferred over re-encoding `body` — a base64 body re-measures
    *  ~4/3 of the true size. */
   bodyBytes?: number;
+  /** The executor's whole record of the exchange, when the adapter
+   *  holds one — what a run's step opens to, and where its duration is
+   *  read. Extractors and gates never read it. */
+  snapshot?: ExecutedRequestSnapshot;
 }
 
 // ── Result shape ──────────────────────────────────────────────────

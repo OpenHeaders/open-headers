@@ -60,6 +60,7 @@ import type {
 } from '../sync-bridge';
 import type { WorkspaceSnapshot } from './common';
 import type { EnvironmentsSnapshot } from './environments';
+import type { LiveWorkflowRunEventWire } from './live';
 import type { GrpcStreamEventWire, MqttStreamEventWire, RequestStreamEventWire, WsStreamEventWire } from './requests';
 import type { SecretsStorageState } from './secrets';
 import type { AppUpdateState } from './updates';
@@ -408,6 +409,13 @@ export interface BridgeBroadcastContract {
    * pill, observability) refetch on every event.
    */
   liveCacheChanged: { workflowUid: string | null };
+
+  /**
+   * One step event of a workflow run, as the run goes — whoever started
+   * it (a press, a schedule, an agent). Display facts only; consumers
+   * filter on `workspaceId` and `workflowUid`.
+   */
+  liveWorkflowRunEvent: LiveWorkflowRunEventWire;
 
   /**
    * Workspace-tree git plane (the git-sync plan §9): the bound workspace's

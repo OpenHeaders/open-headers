@@ -15,7 +15,7 @@ export type {
   ChainRunSuccess,
   FetchAdapter,
 } from './chain-runner';
-export { effectiveDependsOn, retryDelayMs, runChain } from './chain-runner';
+export { effectiveDependsOn, retryDelayMs, runChain, StepExecutionError } from './chain-runner';
 export type { CircuitSnapshot, CircuitState } from './circuit-breaker';
 export {
   BACKOFF_MULTIPLIER,
@@ -107,6 +107,16 @@ export {
   collectRequestTemplateStrings,
   requestExecutableFingerprint,
 } from './request-scan';
+export type {
+  AttemptRetryCause,
+  StepProduct,
+  StepSettlement,
+  WorkflowRunEvent,
+  WorkflowRunFact,
+} from './run-events';
+export { refusedRunEvents, runFactOf } from './run-events';
+export type { WorkflowRunRecord, WorkflowRunStepRow, WorkflowRunTotals, WorkflowRunVerdict } from './run-record';
+export { applyRunFact, runTotals, runVerdict } from './run-record';
 export type { RequestInfoProvider, StepRequestInfo, StructuralError, StructuralIssue } from './step-validation';
 export {
   computeTransitiveAncestors,

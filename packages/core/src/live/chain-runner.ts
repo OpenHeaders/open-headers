@@ -46,10 +46,12 @@
  */
 
 import { DEFAULT_RETRY_DELAY_MS } from '../schemas/live';
+import type { ExecutedRequestSnapshot } from '../types';
 import type { CallWorkflowStep, LiveWorkflow, RunnableWorkflow, StepRetryPolicy, WorkflowStep } from '../types/live';
 import { applyExtractor, type StepResponse } from './extractor';
 import { evaluateGate, matchStatus } from './gate-evaluator';
 import { comparePriority, priorityValue } from './priority-evaluator';
+import type { AttemptRetryCause, StepProduct, WorkflowRunEvent } from './run-events';
 import { isUnknownStep } from './unknown-step';
 
 // ── Fetch adapter contract ────────────────────────────────────────
@@ -74,13 +76,30 @@ export interface FetchAdapter {
    *     completion is not this adapter's concern, but step boundaries
    *     are).
    *
-   * Thrown errors bubble as a step failure with the error's message.
+   * Thrown errors bubble as a step failure with the error's message. An
+   * adapter that holds the executor's record of the failed exchange
+   * throws a {@link StepExecutionError} carrying it.
    */
   executeStep(
     step: CallWorkflowStep,
     stepCaptures: ReadonlyMap<string, ReadonlyMap<string, string>>,
     context: ChainExecutionContext,
   ): Promise<StepResponse>;
+}
+
+/**
+ * A step failure that keeps the executor's record of the exchange — the
+ * response that did arrive, a failed assertion's rows, the script
+ * console — for whoever opens the step. The run reads its message as it
+ * reads any thrown error's.
+ */
+export class StepExecutionError extends Error {
+  readonly snapshot: ExecutedRequestSnapshot;
+  constructor(message: string, snapshot: ExecutedRequestSnapshot) {
+    super(message);
+    this.name = 'StepExecutionError';
+    this.snapshot = snapshot;
+  }
 }
 
 // ── Outcome shape ─────────────────────────────────────────────────
@@ -168,6 +187,13 @@ export async function runChain(args: {
   now?: () => number;
   /** Injectable retry-delay wait — defaults to `setTimeout`. Tests override. */
   sleep?: (ms: number) => Promise<void>;
+  /**
+   * Step events, fired synchronously as the run goes (the workflow runs
+   * plan, The Run view). Additive: the outcome is the same with or
+   * without a listener, and the clock is read for an event only when
+   * there is one.
+   */
+  onEvent?: (event: WorkflowRunEvent) => void;
 }): Promise<ChainRunOutcome> {
   const {
     workflow,
@@ -175,6 +201,7 @@ export async function runChain(args: {
     context,
     now = () => Date.now(),
     sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms)),
+    onEvent,
   } = args;
 
   const stepCaptures = new Map<string, Map<string, string>>();
@@ -183,6 +210,20 @@ export async function runChain(args: {
   const stepAttempts = new Map<string, number>();
   const state = new Map<string, StepState>();
   const skippedStepIds: string[] = [];
+
+  const beganAt = onEvent ? now() : 0;
+  onEvent?.({ type: 'begin', at: beganAt, steps: workflow.steps.map(({ id, uid }) => ({ id, uid })) });
+
+  /** Close the run's events: every step still pending never ran. */
+  const endEvents = (ok: boolean): void => {
+    if (!onEvent) return;
+    for (const pending of workflow.steps) {
+      if (state.get(pending.id) !== 'pending') continue;
+      onEvent({ type: 'step-settle', at: now(), stepId: pending.id, settlement: { state: 'not-run' } });
+    }
+    const at = now();
+    onEvent({ type: 'end', at, ok, durationMs: at - beganAt });
+  };
 
   // Index steps by id for O(1) lookup; cache declared position for
   // priority-tiebreak + effectiveDependsOn computation.
@@ -220,11 +261,23 @@ export async function runChain(args: {
       // graph has an unresolvable dep (cycle or reference to a
       // non-existent step). Fail fast with a structured error.
       const stranded = workflow.steps.filter((s) => state.get(s.id) === 'pending').map((s) => s.id);
+      const failedReason = `Orphaned pending steps with unresolvable dependsOn: ${stranded.join(', ')}. Likely a cycle or unknown stepId.`;
+      const [first] = stranded;
+      if (first !== undefined) {
+        state.set(first, 'failed');
+        onEvent?.({
+          type: 'step-settle',
+          at: now(),
+          stepId: first,
+          settlement: { state: 'failed', phase: 'graph', reason: failedReason, attempts: 0, maxAttempts: 0 },
+        });
+      }
+      endEvents(false);
       return {
         ok: false,
-        failedStepId: stranded[0] ?? '',
+        failedStepId: first ?? '',
         failedPhase: 'graph',
-        failedReason: `Orphaned pending steps with unresolvable dependsOn: ${stranded.join(', ')}. Likely a cycle or unknown stepId.`,
+        failedReason,
         partialStepCaptures: stepCaptures,
         partialStepResponseBytes: stepResponseBytes,
         partialStepStatuses: stepStatuses,
@@ -240,6 +293,7 @@ export async function runChain(args: {
       if (!passes) {
         state.set(step.id, 'skipped');
         skippedStepIds.push(step.id);
+        onEvent?.({ type: 'step-settle', at: now(), stepId: step.id, settlement: { state: 'skipped' } });
         continue;
       }
       eligible.push(step);
@@ -262,9 +316,40 @@ export async function runChain(args: {
 
     // Execute the first eligible step — retrying per its policy.
     const step = sortKeys[0].step;
-    const attempt = await executeStepWithRetry(step, adapter, stepCaptures, context, sleep);
+    const stepId = step.id;
+    const maxAttempts = step.retry?.maxAttempts ?? 1;
+    onEvent?.({ type: 'step-start', at: now(), stepId, maxAttempts });
+    const attempt = await executeStepWithRetry(
+      step,
+      adapter,
+      stepCaptures,
+      context,
+      sleep,
+      onEvent
+        ? (ended, cause, retryInMs) =>
+            onEvent({ type: 'attempt-end', at: now(), stepId, attempt: ended, maxAttempts, cause, retryInMs })
+        : undefined,
+    );
     if (!attempt.ok) {
       state.set(step.id, 'failed');
+      const failed = attempt.snapshot;
+      onEvent?.({
+        type: 'step-settle',
+        at: now(),
+        stepId,
+        settlement: {
+          state: 'failed',
+          phase: 'fetch',
+          reason: attempt.reason,
+          attempts: attempt.attempts,
+          maxAttempts,
+          ...(failed !== undefined && failed.status > 0
+            ? { status: failed.status, durationMs: failed.durationMs }
+            : {}),
+        },
+        ...productOf(failed),
+      });
+      endEvents(false);
       return {
         ok: false,
         failedStepId: step.id,
@@ -296,11 +381,28 @@ export async function runChain(args: {
       const result = applyExtractor(capture.extractor, response);
       if (!result.ok) {
         state.set(step.id, 'failed');
+        const failedReason = `Capture "${capture.name}" (${capture.extractor.kind}): ${result.message}`;
+        onEvent?.({
+          type: 'step-settle',
+          at: now(),
+          stepId,
+          settlement: {
+            state: 'failed',
+            phase: 'extract',
+            reason: failedReason,
+            attempts: attempt.attempts,
+            maxAttempts,
+            status: response.status,
+            ...durationOf(response.snapshot),
+          },
+          ...productOf(response.snapshot),
+        });
+        endEvents(false);
         return {
           ok: false,
           failedStepId: step.id,
           failedPhase: 'extract',
-          failedReason: `Capture "${capture.name}" (${capture.extractor.kind}): ${result.message}`,
+          failedReason,
           extractorFailure: { captureName: capture.name, kind: result.kind, message: result.message },
           partialStepCaptures: stepCaptures,
           partialStepResponseBytes: stepResponseBytes,
@@ -312,8 +414,24 @@ export async function runChain(args: {
     }
     stepCaptures.set(step.id, captures);
     state.set(step.id, 'complete');
+    onEvent?.({
+      type: 'step-settle',
+      at: now(),
+      stepId,
+      settlement: {
+        state: 'passed',
+        status: response.status,
+        ...durationOf(response.snapshot),
+        responseBytes: stepResponseBytes.get(step.id) ?? 0,
+        attempts: attempt.attempts,
+        maxAttempts,
+        captureNames: step.captures.map((capture) => capture.name),
+      },
+      ...productOf(response.snapshot),
+    });
   }
 
+  endEvents(true);
   return {
     ok: true,
     stepCaptures,
@@ -329,7 +447,15 @@ export async function runChain(args: {
 
 type StepAttemptOutcome =
   | { ok: true; response: StepResponse; attempts: number }
-  | { ok: false; reason: string; attempts: number };
+  | { ok: false; reason: string; attempts: number; snapshot?: ExecutedRequestSnapshot };
+
+function productOf(snapshot: ExecutedRequestSnapshot | undefined): { product?: StepProduct } {
+  return snapshot === undefined ? {} : { product: { kind: 'response', snapshot } };
+}
+
+function durationOf(snapshot: ExecutedRequestSnapshot | undefined): { durationMs?: number } {
+  return snapshot === undefined ? {} : { durationMs: snapshot.durationMs };
+}
 
 /**
  * Delay before the given attempt (2-based — no delay precedes the first
@@ -358,10 +484,12 @@ async function executeStepWithRetry(
   stepCaptures: ReadonlyMap<string, ReadonlyMap<string, string>>,
   context: ChainExecutionContext,
   sleep: (ms: number) => Promise<void>,
+  onRetry: ((attempt: number, cause: AttemptRetryCause, retryInMs: number) => void) | undefined,
 ): Promise<StepAttemptOutcome> {
   const policy = step.retry;
   const maxAttempts = policy?.maxAttempts ?? 1;
   let lastError = '';
+  let lastSnapshot: ExecutedRequestSnapshot | undefined;
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     if (attempt > 1 && policy) {
       const delay = retryDelayMs(policy, attempt);
@@ -372,14 +500,22 @@ async function executeStepWithRetry(
       response = await adapter.executeStep(step, stepCaptures, context);
     } catch (err) {
       lastError = err instanceof Error ? err.message : String(err);
+      lastSnapshot = err instanceof StepExecutionError ? err.snapshot : undefined;
+      if (policy && attempt < maxAttempts) {
+        onRetry?.(attempt, { kind: 'error', message: lastError }, retryDelayMs(policy, attempt + 1));
+      }
       continue;
     }
-    if (policy?.retryOn && attempt < maxAttempts && matchStatus(response.status, policy.retryOn)) continue;
+    if (policy?.retryOn && attempt < maxAttempts && matchStatus(response.status, policy.retryOn)) {
+      onRetry?.(attempt, { kind: 'status', status: response.status }, retryDelayMs(policy, attempt + 1));
+      continue;
+    }
     return { ok: true, response, attempts: attempt };
   }
   return {
     ok: false,
     reason: maxAttempts > 1 ? `${lastError} (after ${maxAttempts} attempts)` : lastError,
     attempts: maxAttempts,
+    ...(lastSnapshot !== undefined ? { snapshot: lastSnapshot } : {}),
   };
 }

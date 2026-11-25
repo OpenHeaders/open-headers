@@ -91,7 +91,7 @@ export type {
   ErrorReportSnapshotWire,
   ErrorReportWireEntry,
 } from './error-reports';
-export type { LiveWorkflowRunSnapshot } from './live';
+export type { LiveWorkflowRunEventWire, LiveWorkflowRunSnapshot } from './live';
 export type {
   MigrationPullStartResult,
   MigrationReadBackupResult,

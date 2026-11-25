@@ -41,6 +41,7 @@ export type {
   JarCookieEditWire,
   JarCookieKeyWire,
   JarCookieWire,
+  LiveWorkflowRunEventWire,
   LiveWorkflowRunSnapshot,
   MigrationPullStartResult,
   MigrationReadBackupResult,

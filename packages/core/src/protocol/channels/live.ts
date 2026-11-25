@@ -4,6 +4,7 @@
  * schedule; `{{live.X}}` namespace bindings live on Live Variables.
  */
 
+import type { StepProduct, WorkflowRunFact } from '../../live/run-events';
 import type {
   LiveVariable,
   LiveVariableOverride,
@@ -19,6 +20,24 @@ import type {
  * name rather than reaching for the host's cache-store module path.
  */
 export type LiveWorkflowRunSnapshot = WorkflowRunCache;
+
+/**
+ * One step event of a workflow run as it reaches a page (the workflow
+ * runs plan, The Run view): the fact, tagged with the run it belongs to
+ * and its place in that run's order. Bounded — a step's product is
+ * fetched with `getLiveWorkflowRunProduct`, never carried here.
+ */
+export interface LiveWorkflowRunEventWire {
+  workspaceId: string;
+  workflowUid: string;
+  /** `null` = "No environment". */
+  environmentId: string | null;
+  /** The caller's id for a run it started, else one the host minted. */
+  runId: string;
+  /** Position in this run's events, from 0. */
+  seq: number;
+  fact: WorkflowRunFact;
+}
 
 export interface LiveRpc {
   /**
@@ -123,10 +142,25 @@ export interface LiveRpc {
    * editing-scope id so the SW resolves the workflow + cache against
    * that workspace's projection (MWPT-FULL session #11). Omit ⇒
    * runtime-Active fallback (system surfaces, legacy callers).
+   *
+   * `runId?` — a caller-minted id the run's `liveWorkflowRunEvent`
+   * frames are tagged with, so the caller knows its own run from the
+   * first frame. Omit ⇒ the host mints one.
    */
   refreshLiveWorkflowNow: {
-    req: { workflowUid: string; environmentId?: string | null; workspaceId?: string };
+    req: { workflowUid: string; environmentId?: string | null; workspaceId?: string; runId?: string };
     res: { success: true; run: LiveWorkflowRunSnapshot } | { success: false; error: string };
+  };
+
+  /**
+   * What one step of a run produced, by the run's id — asked for as the
+   * step's settle arrives. Answered by the realm that ran the step, which
+   * holds a workflow's products until that workflow runs again there;
+   * `null` when it holds none for that step.
+   */
+  getLiveWorkflowRunProduct: {
+    req: { runId: string; stepId: string };
+    res: { product: StepProduct | null };
   };
 
   /**
