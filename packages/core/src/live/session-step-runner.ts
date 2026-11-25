@@ -332,6 +332,6 @@ function messageOf(error: unknown): string {
 }
 
 /** A wait in the unit a person set it in: `500 ms`, `10 s`. */
-function formatWait(ms: number): string {
+export function formatWait(ms: number): string {
   return ms < 1000 ? `${ms} ms` : `${ms / 1000} s`;
 }

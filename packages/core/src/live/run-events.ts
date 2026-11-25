@@ -14,6 +14,7 @@
 
 import type { ExecutedRequestSnapshot } from '../types';
 import type { LiveWorkflow } from '../types/live';
+import type { RunRefusal } from './run-requirements';
 import type { SessionMessage } from './session-port';
 import { isUnknownStep, unknownStepMessage } from './unknown-step';
 
@@ -137,23 +138,38 @@ export function runFactOf(event: WorkflowRunEvent): WorkflowRunFact {
 }
 
 /**
+ * The events of a run refused before its first step: each refused step
+ * cannot run, by its first sentence; no other step ran.
+ */
+export function runRefusalEvents(
+  workflow: LiveWorkflow,
+  at: number,
+  refusals: readonly RunRefusal[],
+): WorkflowRunEvent[] {
+  return [
+    { type: 'begin', at, steps: workflow.steps.map(({ id, uid }) => ({ id, uid })) },
+    ...workflow.steps.map((step): WorkflowRunEvent => {
+      const refusal = refusals.find((each) => each.stepId === step.id);
+      return {
+        type: 'step-settle',
+        at,
+        stepId: step.id,
+        settlement: refusal === undefined ? { state: 'not-run' } : { state: 'cannot-run', reason: refusal.reason },
+      };
+    }),
+    { type: 'end', at, ok: false, durationMs: 0 },
+  ];
+}
+
+/**
  * The events of a run refused before its first step for a step this
  * build does not know: each such step cannot run, by its sentence; no
  * other step ran.
  */
 export function refusedRunEvents(workflow: LiveWorkflow, at: number): WorkflowRunEvent[] {
-  return [
-    { type: 'begin', at, steps: workflow.steps.map(({ id, uid }) => ({ id, uid })) },
-    ...workflow.steps.map(
-      (step): WorkflowRunEvent => ({
-        type: 'step-settle',
-        at,
-        stepId: step.id,
-        settlement: isUnknownStep(step)
-          ? { state: 'cannot-run', reason: unknownStepMessage(step) }
-          : { state: 'not-run' },
-      }),
-    ),
-    { type: 'end', at, ok: false, durationMs: 0 },
-  ];
+  return runRefusalEvents(
+    workflow,
+    at,
+    workflow.steps.filter(isUnknownStep).map((step) => ({ stepId: step.id, reason: unknownStepMessage(step) })),
+  );
 }

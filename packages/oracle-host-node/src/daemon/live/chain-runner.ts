@@ -27,6 +27,10 @@
  * `bypass` set: its failure records the error and leaves the circuit
  * where it was.
  *
+ * A session step runs here on an MQTT request, over the Node byte
+ * transport (the workflow runs plan, The model); what this host cannot
+ * run is refused before the first step (`./run-check`).
+ *
  * Atomic refresh discipline (mirrors the extension): either every step
  * succeeds and ALL captures commit as one write, or some step fails and
  * the prior cache row is preserved with the failure context stamped.
@@ -39,14 +43,12 @@ import {
   type ChainRunSuccess,
   classifyRefreshHealth,
   deriveExpiresAt,
-  isRunnableWorkflow,
-  refusedRunEvents,
+  type RunRefusal,
   runChain,
+  runRefusalEvents,
   UNKNOWN_STEP_PHASE,
-  unknownStepMessage,
-  unknownStepsOf,
 } from '@openheaders/core/live';
-import type { LiveWorkflow, RunnableWorkflow } from '@openheaders/core/types';
+import type { LiveWorkflow, MqttRequest } from '@openheaders/core/types';
 import { logger } from '@openheaders/core/utils';
 import { deriveExecutionPolicyForWorkflow } from '@openheaders/oracle/live/execution-policy-resolver';
 import {
@@ -56,16 +58,22 @@ import {
   recordRefreshError,
 } from '@openheaders/oracle/live/live-cache-store';
 import { publishLiveVariablesProducedByRun } from '@openheaders/oracle/live/live-variable-store';
+import { createMqttRunSessionHost } from '@openheaders/oracle/live/mqtt-exec/run-session';
 import { buildChainFetchAdapter } from '@openheaders/oracle/live/request-exec/chain-adapter';
 import { createChainTemplateResolver } from '@openheaders/oracle/live/request-exec/chain-template-resolver';
 import { buildRefreshOAuthHook } from '@openheaders/oracle/live/request-exec/oauth-refresh';
 import { openWorkflowRunFeed } from '@openheaders/oracle/live/workflow-run-feed';
+import { snapshotMqttRequestPostStates } from '@openheaders/oracle/sync/service';
+import { createNodeMqttTransport } from '../../live/node-mqtt-transport';
 import { createNodeRequestTransport } from '../../live/node-request-transport';
 import { resolveScriptRunner } from '../script-capability';
+import { checkWorkflowRun } from './run-check';
 
 /** One Node transport for the whole process — stateless, so a singleton
  *  avoids rebuilding the `fetch` wrapper on every step fetch. */
 const nodeTransport = createNodeRequestTransport();
+/** Stateless too — it opens one socket per session. */
+const nodeMqttTransport = createNodeMqttTransport();
 
 export interface WorkflowRefreshArgs {
   workspaceId: string;
@@ -98,9 +106,12 @@ export type WorkflowRefreshResult =
 export async function runWorkflowRefresh(args: WorkflowRefreshArgs): Promise<WorkflowRefreshResult> {
   const { workspaceId, workflow, environmentId, bypass = false, runId } = args;
   const onEvent = openWorkflowRunFeed({ workspaceId, workflowUid: workflow.uid, environmentId, runId });
-  if (!isRunnableWorkflow(workflow)) {
-    for (const event of refusedRunEvents(workflow, Date.now())) onEvent(event);
-    return refuseUnknownSteps(workspaceId, workflow, environmentId, bypass);
+  const findMqttRequest = (uid: string): MqttRequest | null =>
+    snapshotMqttRequestPostStates(workspaceId).find((state) => state.mqttRequest.uid === uid)?.mqttRequest ?? null;
+  const checked = checkWorkflowRun(workflow, findMqttRequest);
+  if (!checked.ok) {
+    for (const event of runRefusalEvents(workflow, Date.now(), checked.refusals)) onEvent(event);
+    return refuseRun(workspaceId, workflow, environmentId, bypass, checked.refusals[0]);
   }
   // Host script capability, consulted per refresh: only steps with
   // `runScripts: true` reach the runner (the adapter gates per step),
@@ -120,11 +131,17 @@ export async function runWorkflowRefresh(args: WorkflowRefreshArgs): Promise<Wor
     refreshOAuth: buildRefreshOAuthHook(workspaceId, nodeTransport),
   });
   const outcome: ChainRunOutcome = await runChain({
-    workflow,
+    workflow: checked.workflow,
     adapter,
     context: { workflowUid: workflow.uid, workspaceId, environmentId },
     onEvent,
     resolveTemplate: createChainTemplateResolver(),
+    sessions: createMqttRunSessionHost({
+      workspaceId,
+      environmentId,
+      transport: nodeMqttTransport,
+      findRequest: findMqttRequest,
+    }),
   });
 
   if (outcome.ok) {
@@ -142,29 +159,35 @@ export async function runWorkflowRefresh(args: WorkflowRefreshArgs): Promise<Wor
 
 /**
  * A run that cannot run every step runs none (the workflow runs plan,
- * Laws). The workflow holds a step this build does not know: nothing is
- * sent, nothing is published, and the cache row records the first such
- * step and the sentence. No health is passed — a refusal is neither the
+ * Laws). The workflow holds a step this host refuses: nothing is sent,
+ * nothing is published, and the cache row records the first such step
+ * and its sentence. No health is passed — a refusal is neither the
  * source nor the credential failing, and nothing rides to a peer.
  */
-async function refuseUnknownSteps(
+async function refuseRun(
   workspaceId: string,
   workflow: LiveWorkflow,
   environmentId: string | null,
   bypass: boolean,
+  refusal: RunRefusal,
 ): Promise<WorkflowRefreshResult> {
-  const [step] = unknownStepsOf(workflow);
-  const message = unknownStepMessage(step);
-  const errorInput = { workflowUid: workflow.uid, environmentId, message, failedStepId: step.id, extractorOk: true };
+  const { stepId, reason } = refusal;
+  const errorInput = {
+    workflowUid: workflow.uid,
+    environmentId,
+    message: reason,
+    failedStepId: stepId,
+    extractorOk: true,
+  };
   if (bypass) await recordManualBypassFailureForRun(errorInput, workspaceId);
   else await recordRefreshError(errorInput, workspaceId);
-  logger.warn('HostLiveRunner', `Workflow ${workflow.uid} was not run: ${message}`);
-  return { ok: false, failedStepId: step.id, failedPhase: UNKNOWN_STEP_PHASE, message };
+  logger.warn('HostLiveRunner', `Workflow ${workflow.uid} was not run: ${reason}`);
+  return { ok: false, failedStepId: stepId, failedPhase: UNKNOWN_STEP_PHASE, message: reason };
 }
 
 async function commitSuccess(
   workspaceId: string,
-  workflow: RunnableWorkflow,
+  workflow: LiveWorkflow,
   environmentId: string | null,
   outcome: ChainRunSuccess,
 ): Promise<void> {
@@ -212,7 +235,7 @@ async function commitSuccess(
 
 async function commitFailure(
   workspaceId: string,
-  workflow: RunnableWorkflow,
+  workflow: LiveWorkflow,
   environmentId: string | null,
   outcome: ChainRunFailure,
   bypass: boolean,

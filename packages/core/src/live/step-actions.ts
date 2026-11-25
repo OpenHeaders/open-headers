@@ -10,9 +10,11 @@
 import { SESSION_STEP_ACTIONS } from '../schemas/live';
 import type {
   CallWorkflowStep,
+  ChainWorkflow,
   ExpectWorkflowStep,
   KnownWorkflowStep,
   ListenWorkflowStep,
+  LiveWorkflow,
   SendWorkflowStep,
   SessionWorkflowStep,
   WorkflowStep,
@@ -42,4 +44,9 @@ export function isSessionStep(step: WorkflowStep): step is SessionWorkflowStep {
 /** A step of an action the model knows: a call or a session step. */
 export function isKnownStep(step: WorkflowStep): step is KnownWorkflowStep {
   return !isUnknownStep(step) || isSessionStep(step);
+}
+
+/** A workflow whose every step is of an action the model knows — what the runner takes. */
+export function isChainWorkflow(workflow: LiveWorkflow): workflow is ChainWorkflow {
+  return workflow.steps.every(isKnownStep);
 }

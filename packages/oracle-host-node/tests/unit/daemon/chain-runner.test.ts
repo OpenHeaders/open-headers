@@ -36,6 +36,15 @@ vi.mock('@openheaders/oracle/live/request-exec/chain-adapter', () => ({
 vi.mock('@openheaders/oracle/live/request-exec/chain-template-resolver', () => ({
   createChainTemplateResolver: vi.fn(() => async (template: string) => template),
 }));
+vi.mock('@openheaders/oracle/live/mqtt-exec/run-session', () => ({
+  createMqttRunSessionHost: vi.fn(() => ({ open: vi.fn() })),
+}));
+vi.mock('@openheaders/oracle/sync/service', () => ({
+  snapshotMqttRequestPostStates: vi.fn(() => []),
+}));
+vi.mock('../../../src/live/node-mqtt-transport', () => ({
+  createNodeMqttTransport: vi.fn(() => ({ connect: vi.fn() })),
+}));
 vi.mock('../../../src/live/node-request-transport', () => ({
   createNodeRequestTransport: vi.fn(() => ({ send: vi.fn() })),
 }));
@@ -138,6 +147,12 @@ describe('runWorkflowRefresh — what the runner is handed', () => {
     h.runChain.mockResolvedValue(successOutcome());
     await runWorkflowRefresh({ workspaceId: 'ws-1', workflow: makeWorkflow(), environmentId: null });
     expect(typeof h.runChain.mock.calls[0][0].resolveTemplate).toBe('function');
+  });
+
+  it('hands the runner a host that opens sessions', async () => {
+    h.runChain.mockResolvedValue(successOutcome());
+    await runWorkflowRefresh({ workspaceId: 'ws-1', workflow: makeWorkflow(), environmentId: null });
+    expect(typeof h.runChain.mock.calls[0][0].sessions.open).toBe('function');
   });
 });
 

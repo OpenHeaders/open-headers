@@ -127,7 +127,7 @@ export type {
   WorkflowRunEvent,
   WorkflowRunFact,
 } from './run-events';
-export { refusedRunEvents, runFactOf } from './run-events';
+export { refusedRunEvents, runFactOf, runRefusalEvents } from './run-events';
 export type { RunProductHold } from './run-products';
 export { createRunProductHold } from './run-products';
 export type { WorkflowRunRecord, WorkflowRunStepRow, WorkflowRunTotals, WorkflowRunVerdict } from './run-record';
@@ -143,10 +143,18 @@ export type {
   SessionSendResult,
 } from './session-port';
 export { subjectOfMessage } from './session-port';
-export { SESSION_CLOSE_DEADLINE_MS } from './session-step-runner';
+export { formatWait, SESSION_CLOSE_DEADLINE_MS } from './session-step-runner';
 export { validateSessionSteps } from './session-step-validation';
 export { RUN_WINDOW_MAX_BYTES, RUN_WINDOW_MAX_MESSAGES } from './session-window';
-export { isCallStep, isExpectStep, isKnownStep, isListenStep, isSendStep, isSessionStep } from './step-actions';
+export {
+  isCallStep,
+  isChainWorkflow,
+  isExpectStep,
+  isKnownStep,
+  isListenStep,
+  isSendStep,
+  isSessionStep,
+} from './step-actions';
 export type { RequestInfoProvider, StepRequestInfo, StructuralError, StructuralIssue } from './step-validation';
 export {
   computeTransitiveAncestors,

@@ -235,7 +235,7 @@ function mqttScriptChains(request: MqttRequest, options: ExecuteMqttSessionOptio
 
 /** A strict UTF-8 decode — `null` when the bytes are not text (the
  *  script's `text` view of an inbound payload). */
-function decodeUtf8Text(bytes: Uint8Array): string | null {
+export function decodeUtf8Text(bytes: Uint8Array): string | null {
   try {
     return new TextDecoder('utf-8', { fatal: true }).decode(bytes);
   } catch {
