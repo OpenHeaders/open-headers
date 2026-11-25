@@ -43,4 +43,18 @@ describe('the Windows installer script', () => {
   it('adds no wait to an uninstall', () => {
     expect(macro('customUnInstall')).not.toMatch(/\bSleep\b/);
   });
+
+  it('asks before closing a running app only when installing', () => {
+    const asks = CODE.match(/MessageBox[^\n]*\$\(appRunning\)/g) ?? [];
+    expect(asks).toHaveLength(1);
+    expect(macro('customCheckAppRunning')).toMatch(
+      /!ifndef BUILD_UNINSTALLER\s+MessageBox[^\n]*\$\(appRunning\)[^\n]*\n\s*Quit\s+!endif/,
+    );
+  });
+
+  it('registers the quiet uninstall command the builder wrote as the one Windows Settings runs', () => {
+    const install = macro('customInstall');
+    expect(install).toMatch(/ReadRegStr \$R0 SHELL_CONTEXT "\$\{UNINSTALL_REGISTRY_KEY\}" QuietUninstallString/);
+    expect(install).toMatch(/WriteRegStr SHELL_CONTEXT "\$\{UNINSTALL_REGISTRY_KEY\}" UninstallString "\$R0"/);
+  });
 });

@@ -120,8 +120,12 @@
         Pop $R2
       ${next}
     ${else}
-      MessageBox MB_OKCANCEL|MB_ICONEXCLAMATION "$(appRunning)" /SD IDOK IDOK +2
-      Quit
+      ; An uninstall closes the app without asking: whoever started it has
+      ; already said so. An install over a running app still asks.
+      !ifndef BUILD_UNINSTALLER
+        MessageBox MB_OKCANCEL|MB_ICONEXCLAMATION "$(appRunning)" /SD IDOK IDOK +2
+        Quit
+      !endif
     ${endif}
   ${endif}
   ${if} $R0 > 0
@@ -196,6 +200,15 @@
   ${StdUtils.GetParentPath} $R0 "$LOCALAPPDATA\${APP_INSTALLER_STORE_FILE}"
   ${if} $EXEDIR != "$R0\pending"
     Delete "$R0\current.blockmap"
+  ${endif}
+
+  ; Windows Settings runs the registered uninstall command, and asks
+  ; before it does. The builder registers a quiet form of the command
+  ; beside it; that one goes straight to the uninstall, with no second
+  ; question. Run by hand, the uninstaller still asks once.
+  ReadRegStr $R0 SHELL_CONTEXT "${UNINSTALL_REGISTRY_KEY}" QuietUninstallString
+  ${if} $R0 != ""
+    WriteRegStr SHELL_CONTEXT "${UNINSTALL_REGISTRY_KEY}" UninstallString "$R0"
   ${endif}
   Pop $R0
 !macroend
