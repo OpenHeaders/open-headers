@@ -16,6 +16,12 @@
  * own package.json files — the same source the versions manifest
  * reads, so the manifest can only ever name bytes that were staged.
  *
+ * A Windows package (`.msix`) must NOT be staged. The legs build one
+ * as a workflow artifact, and everything staged here is uploaded to the
+ * download host and the release page: the first package a user can get
+ * commits every later stable to ship one, so it ships by decision, not
+ * by a file landing in this folder.
+ *
  * Lockstep: the five shipping apps (desktop, cli, daemon, extension,
  * web) share the tag's base version — the runbook's suite-tag law,
  * which the build legs check for the desktop alone. packages/* and
@@ -125,6 +131,7 @@ try {
 const missing = expected.filter((name) => !present.has(name));
 const empty = expected.filter((name) => present.has(name) && statSync(path.join(processedDir, name)).size === 0);
 const extra = [...present].filter((name) => !expected.includes(name)).sort();
+const windowsPackages = extra.filter((name) => name.toLowerCase().endsWith('.msix'));
 
 // Every update-info file present (expected or not) must carry the
 // tag's version — electron-builder writes it from package.json, which
@@ -147,6 +154,7 @@ const problems = [
   ...missing.map((name) => `missing: ${name}`),
   ...empty.map((name) => `empty: ${name}`),
   ...versionMismatch.map((entry) => `version mismatch: ${entry}`),
+  ...windowsPackages.map((name) => `a Windows package is staged: ${name} (a workflow artifact, no release ships one)`),
 ];
 if (problems.length > 0) {
   for (const problem of problems) console.error(`::error::assert-release-manifest: ${problem}`);

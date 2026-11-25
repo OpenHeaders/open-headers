@@ -173,6 +173,15 @@ describe('assert-release-manifest', () => {
     expect(run()).toContain('in lockstep at 2026.9.1');
   });
 
+  it('fails a staged Windows package on either channel: no release ships one', () => {
+    const stable = stage(STABLE_VERSION, [...STABLE_ASSETS, 'OpenHeaders-2026.9.0-arm64.msix'], STABLE_YMLS);
+    expect(stable.run).toThrow(/a Windows package is staged: OpenHeaders-2026\.9\.0-arm64\.msix[\s\S]*1 problem\(s\)/);
+    rmSync(workDir, { recursive: true, force: true });
+
+    const beta = stage(BETA_VERSION, [...BETA_ASSETS, 'OpenHeaders-2026.9.1-beta.1-x64.msix'], BETA_YMLS);
+    expect(beta.run).toThrow(/a Windows package is staged: OpenHeaders-2026\.9\.1-beta\.1-x64\.msix/);
+  });
+
   it('reports unexpected files without failing', () => {
     const { run } = stage(STABLE_VERSION, [...STABLE_ASSETS, 'builder-debug.yml'], STABLE_YMLS);
 
