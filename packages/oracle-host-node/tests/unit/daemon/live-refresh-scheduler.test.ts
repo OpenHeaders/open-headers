@@ -57,6 +57,8 @@ vi.mock('@openheaders/core/live', () => ({
   initialCircuitSnapshot: h.initialCircuitSnapshot,
   isWorkflowEffective: h.isWorkflowEffective,
   isLiveVariableEffective: h.isLiveVariableEffective,
+  // The dependency graph (unmocked) walks each workflow's call steps.
+  callStepsOf: (workflow: LiveWorkflow) => workflow.steps,
 }));
 vi.mock('@openheaders/core/utils', () => ({
   logger: { warn: vi.fn(), info: vi.fn(), debug: vi.fn(), error: vi.fn() },
