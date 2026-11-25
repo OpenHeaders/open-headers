@@ -168,6 +168,47 @@ describe('sign-windows — signing a tree', () => {
   });
 });
 
+describe('sign-windows — signing a Windows package', () => {
+  /** How a zip archive opens: the first local file header. */
+  const zipHead = Buffer.from([0x50, 0x4b, 0x03, 0x04, 0x2d, 0x00, 0x00, 0x00]);
+
+  it('refuses to sign without the credentials and names what is missing', () => {
+    const root = makeTree({ 'OpenHeaders-2026.11.3-arm64.msix': zipHead });
+
+    const result = run(['--package', path.join(root, 'OpenHeaders-2026.11.3-arm64.msix')]);
+
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain('cannot sign without AZURE_TENANT_ID');
+  });
+
+  it('refuses a file that is not a package', () => {
+    const root = makeTree({ 'OpenHeaders-2026.11.3-Setup.exe': peImage(32, false) });
+
+    const result = run(['--package', path.join(root, 'OpenHeaders-2026.11.3-Setup.exe')]);
+
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain('is not a Windows package');
+  });
+
+  it('fails on a package that is not there, and on a folder', () => {
+    const root = makeTree({ 'windows-package/notes.txt': 'no package was packed' });
+
+    for (const target of [path.join(root, 'windows-package', 'OpenHeaders.msix'), path.join(root, 'windows-package')]) {
+      const result = run(['--package', target]);
+
+      expect(result.status).toBe(1);
+      expect(result.stderr).toContain('no package at');
+    }
+  });
+
+  it('says how it is called when the file is missing', () => {
+    const result = run(['--package']);
+
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain('usage: sign-windows.js --package <file>');
+  });
+});
+
 describe('sign-windows — the builder hook', () => {
   const callHook = (file: string, env: NodeJS.ProcessEnv) =>
     spawnSync(

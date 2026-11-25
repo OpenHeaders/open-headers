@@ -2,7 +2,7 @@
  * Authenticode signing for the Windows desktop packages, through Azure
  * Artifact Signing — one implementation for every file a release signs.
  *
- * Two callers:
+ * Three callers:
  *
  * - The release leg, on the unpacked app before its installers are
  *   packaged: every PE file in the tree that carries no signature is
@@ -17,6 +17,13 @@
  *   installers themselves. The hook signs only under `OH_WIN_SIGN=1`;
  *   every other build (local, the unsigned lanes, the ARM runner, where
  *   signing does not run) leaves the files as they are.
+ *
+ * - The release leg again, on the Windows package it packed from the
+ *   signed tree. The service signs a package only when its manifest
+ *   names the certificate's subject as the publisher, which is why the
+ *   pack reads the publisher from the tree's own signature.
+ *
+ *     node scripts/build/sign-windows.js --package <file>
  *
  * `--list <dir>` prints every PE file under a folder and
  * `--list-unsigned <dir>` the ones with no signature; the leg's
@@ -136,15 +143,41 @@ async function sign(configuration) {
   }
 }
 
+/** Whether a file opens as a zip archive does — a Windows package is one. */
+function isZipArchive(file) {
+  const fd = fs.openSync(file, 'r');
+  try {
+    const head = Buffer.alloc(4);
+    return fs.readSync(fd, head, 0, head.length, 0) === head.length && head.readUInt32LE(0) === 0x04034b50;
+  } finally {
+    fs.closeSync(fd);
+  }
+}
+
 function fail(message) {
   console.error(`sign-windows: ${message}`);
   process.exit(1);
 }
 
+function signPackage(file) {
+  if (!file) fail('usage: sign-windows.js --package <file>');
+  const packageFile = path.resolve(file);
+  if (!fs.existsSync(packageFile) || !fs.statSync(packageFile).isFile()) fail(`no package at ${packageFile}`);
+  // A wrong file must not be sent to the service as a package.
+  if (!isZipArchive(packageFile)) fail(`${packageFile} is not a Windows package`);
+  try {
+    signFiles([packageFile]);
+  } catch (error) {
+    fail(error.message.replace(/^sign-windows: /, ''));
+  }
+  console.log(`sign-windows: ${packageFile} is signed`);
+}
+
 function main([first, second]) {
+  if (first === '--package') return signPackage(second);
   const listing = first === '--list' || first === '--list-unsigned';
   const dir = listing ? second : first;
-  if (!dir) fail('usage: sign-windows.js [--list | --list-unsigned] <dir>');
+  if (!dir) fail('usage: sign-windows.js [--list | --list-unsigned] <dir> | --package <file>');
   const root = path.resolve(dir);
   if (!fs.existsSync(root)) fail(`no folder at ${root}`);
   const all = peFiles(root);
