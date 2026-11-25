@@ -219,7 +219,7 @@ function readPublisher(signerFile) {
     subject = execFileSync(
       powershell,
       ['-NoProfile', '-NonInteractive', '-EncodedCommand', Buffer.from(command, 'utf16le').toString('base64')],
-      { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], env: { ...process.env, OH_SIGNER_FILE: signerFile } },
+      { encoding: 'utf8', stdio: ['ignore', 'pipe', 'inherit'], env: { ...process.env, OH_SIGNER_FILE: signerFile } },
     ).trim();
   } catch {
     throw new Error(`${signerFile} carries no certificate Windows can read`);
