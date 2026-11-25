@@ -13,6 +13,10 @@ import { describe, expect, it } from 'vitest';
 
 const SCRIPT = readFileSync(path.resolve(__dirname, '../../../build/windows/installer.nsh'), 'utf8');
 
+const INSTALLER_OPTIONS: Record<string, unknown> = JSON.parse(
+  readFileSync(path.resolve(__dirname, '../../../package.json'), 'utf8'),
+).build.nsis;
+
 /** The script's instructions: comment lines dropped. */
 const CODE = SCRIPT.split(/\r?\n/)
   .filter((line) => !line.trim().startsWith(';'))
@@ -56,5 +60,41 @@ describe('the Windows installer script', () => {
     const install = macro('customInstall');
     expect(install).toMatch(/ReadRegStr \$R0 SHELL_CONTEXT "\$\{UNINSTALL_REGISTRY_KEY\}" QuietUninstallString/);
     expect(install).toMatch(/WriteRegStr SHELL_CONTEXT "\$\{UNINSTALL_REGISTRY_KEY\}" UninstallString "\$R0"/);
+  });
+});
+
+describe("the uninstaller and the user's data", () => {
+  const uninstall = macro('customUnInstall');
+  const dataDelete =
+    /\$\{ifNot\} \$\{isUpdated\}\s+\$\{andIfNot\} \$\{isMoveToPackage\}\s+((?:\s*(?:RMDir|!ifdef|!endif)[^\n]*\n)+)\s*\$\{endif\}/.exec(
+      uninstall,
+    )?.[1] ?? '';
+
+  it("leaves the builder's own delete off: it would run in a move", () => {
+    expect(INSTALLER_OPTIONS.deleteAppDataOnUninstall ?? false).toBe(false);
+  });
+
+  it('reads the move switch as the builder reads its own', () => {
+    expect(macro('_isMoveToPackage')).toMatch(/\$\{StdUtils\.TestParameter\} \$R9 "move-to-package"/);
+    expect(CODE).toContain('!define isMoveToPackage `"" isMoveToPackage ""`');
+  });
+
+  it('deletes the data on a plain uninstall: never in update mode, never in a move', () => {
+    expect(dataDelete.match(/RMDir \/r "\$APPDATA/g)).toHaveLength(3);
+    expect(uninstall.match(/RMDir \/r "\$APPDATA/g)).toHaveLength(3);
+  });
+
+  it("deletes the three folders the builder's delete named", () => {
+    expect(dataDelete).toMatch(/RMDir \/r "\$APPDATA\\\$\{APP_FILENAME\}"/);
+    expect(dataDelete).toMatch(
+      /!ifdef APP_PRODUCT_FILENAME\s+RMDir \/r "\$APPDATA\\\$\{APP_PRODUCT_FILENAME\}"\s+!endif/,
+    );
+    expect(dataDelete).toMatch(/!ifdef APP_PACKAGE_NAME\s+RMDir \/r "\$APPDATA\\\$\{APP_PACKAGE_NAME\}"\s+!endif/);
+  });
+
+  it('deletes them from the profile of the user, whoever the install was for', () => {
+    expect(uninstall).toMatch(
+      /\$\{if\} \$installMode == "all"\s+SetShellVarContext current\s+\$\{endif\}[\s\S]*RMDir \/r "\$APPDATA[\s\S]*\$\{if\} \$installMode == "all"\s+SetShellVarContext all\s+\$\{endif\}/,
+    );
   });
 });

@@ -1,5 +1,13 @@
 ; Custom NSIS installer script for Open Headers
 
+; A move to the Windows package runs the uninstaller in update mode with
+; one more switch, --move-to-package. Read as the builder reads its own.
+!macro _isMoveToPackage _a _b _t _f
+  ${StdUtils.TestParameter} $R9 "move-to-package"
+  StrCmp "$R9" "true" `${_t}` `${_f}`
+!macroend
+!define isMoveToPackage `"" isMoveToPackage ""`
+
 ; Counts the processes whose program file lies in the install folder and
 ; leaves two counts on the stack: all of them on top, the app's own
 ; beneath. With TERMINATE 1 each one is closed first and waited for. The
@@ -227,7 +235,30 @@
   DetailPrint "Cleaning up registry entries..."
   DeleteRegValue HKLM "Software\RegisteredApplications" "OpenHeaders"
   DeleteRegValue HKCU "Software\RegisteredApplications" "OpenHeaders"
-  
+
+  ; The app keeps its data per user, whoever the install was for.
+  ${if} $installMode == "all"
+    SetShellVarContext current
+  ${endif}
+
+  ; The user's data goes with a plain uninstall alone. An update keeps it
+  ; for the next version, a move for the package. The builder's own delete
+  ; is switched off: it knows the first case and not the second.
+  ${ifNot} ${isUpdated}
+  ${andIfNot} ${isMoveToPackage}
+    RMDir /r "$APPDATA\${APP_FILENAME}"
+    !ifdef APP_PRODUCT_FILENAME
+      RMDir /r "$APPDATA\${APP_PRODUCT_FILENAME}"
+    !endif
+    !ifdef APP_PACKAGE_NAME
+      RMDir /r "$APPDATA\${APP_PACKAGE_NAME}"
+    !endif
+  ${endif}
+
+  ${if} $installMode == "all"
+    SetShellVarContext all
+  ${endif}
+
   ; Remove application files
   DetailPrint "Removing application files..."
 

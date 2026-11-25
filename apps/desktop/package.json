@@ -139,7 +139,6 @@
       "artifactName": "${productName}-${version}-Setup.${ext}",
       "include": "build/windows/installer.nsh",
       "runAfterFinish": true,
-      "deleteAppDataOnUninstall": true,
       "uninstallDisplayName": "OpenHeaders ${version}",
       "allowToChangeInstallationDirectory": false,
       "createDesktopShortcut": "always",
