@@ -1,0 +1,127 @@
+{
+  "workspaceId": "ws-run-pins",
+  "workflowUid": "wfpins01",
+  "responses": {
+    "token": "{\"access_token\":\"tok-abc\",\"expires_in\":3600}",
+    "profile": "{\"name\":\"John Doe\"}",
+    "introspect": "{\"active\":true}"
+  },
+  "scenarios": {
+    "passing": {
+      "report": {
+        "workspaceId": "ws-run-pins",
+        "target": { "kind": "workflow", "uid": "wfpins01", "name": "Token chain" },
+        "environmentId": null,
+        "bail": false,
+        "ok": true,
+        "startedAt": 1753000000000,
+        "durationMs": 1200,
+        "items": [
+          { "kind": "step", "uid": "stplogin", "name": "login", "status": "passed" },
+          { "kind": "step", "uid": "stpprofl", "name": "profile", "status": "passed" }
+        ],
+        "totals": { "items": 2, "passed": 2, "failed": 0, "skipped": 0 },
+        "extractedAt": 1753000001200
+      },
+      "commit": {
+        "put": {
+          "workflowUid": "wfpins01",
+          "environmentId": null,
+          "stepCaptures": {
+            "login": { "token": "tok-abc", "ttl": "3600" },
+            "profile": { "name": "John Doe" }
+          },
+          "stepResponseBytes": { "login": 44, "profile": 19 },
+          "extractedAt": 1753000001200,
+          "expiresAt": 1753003601200,
+          "skippedStepIds": []
+        },
+        "published": {
+          "login": { "token": "tok-abc", "ttl": "3600" },
+          "profile": { "name": "John Doe" }
+        }
+      }
+    },
+    "failedAtFetch": {
+      "report": {
+        "workspaceId": "ws-run-pins",
+        "target": { "kind": "workflow", "uid": "wfpins01", "name": "Token chain" },
+        "environmentId": null,
+        "bail": false,
+        "ok": false,
+        "startedAt": 1753000000000,
+        "durationMs": 1200,
+        "items": [
+          { "kind": "step", "uid": "stplogin", "name": "login", "status": "skipped" },
+          { "kind": "step", "uid": "stpprofl", "name": "profile", "status": "failed", "error": "fetch: Connection refused by 127.0.0.1." }
+        ],
+        "totals": { "items": 2, "passed": 0, "failed": 1, "skipped": 1 }
+      },
+      "commit": {
+        "error": {
+          "workflowUid": "wfpins01",
+          "environmentId": null,
+          "message": "Connection refused by 127.0.0.1.",
+          "failedStepId": "profile",
+          "extractorOk": true,
+          "refreshHealth": "source-failing"
+        }
+      }
+    },
+    "failedAtCapture": {
+      "report": {
+        "workspaceId": "ws-run-pins",
+        "target": { "kind": "workflow", "uid": "wfpins01", "name": "Token chain" },
+        "environmentId": null,
+        "bail": false,
+        "ok": false,
+        "startedAt": 1753000000000,
+        "durationMs": 1200,
+        "items": [
+          { "kind": "step", "uid": "stplogin", "name": "login", "status": "failed", "error": "extract: Capture \"token\" (json-path): Path \"$.session_token\" resolved to undefined." },
+          { "kind": "step", "uid": "stpprofl", "name": "profile", "status": "skipped" }
+        ],
+        "totals": { "items": 2, "passed": 0, "failed": 1, "skipped": 1 }
+      },
+      "commit": {
+        "error": {
+          "workflowUid": "wfpins01",
+          "environmentId": null,
+          "message": "Capture \"token\" (json-path): Path \"$.session_token\" resolved to undefined.",
+          "failedStepId": "login",
+          "extractorOk": false,
+          "refreshHealth": "source-failing"
+        }
+      }
+    },
+    "gateSkipped": {
+      "report": {
+        "workspaceId": "ws-run-pins",
+        "target": { "kind": "workflow", "uid": "wfpins01", "name": "Token chain" },
+        "environmentId": null,
+        "bail": false,
+        "ok": true,
+        "startedAt": 1753000000000,
+        "durationMs": 1200,
+        "items": [
+          { "kind": "step", "uid": "stpintro", "name": "introspect", "status": "passed" },
+          { "kind": "step", "uid": "stprefsh", "name": "refresh", "status": "skipped" }
+        ],
+        "totals": { "items": 2, "passed": 1, "failed": 0, "skipped": 1 },
+        "extractedAt": 1753000001200
+      },
+      "commit": {
+        "put": {
+          "workflowUid": "wfpins01",
+          "environmentId": null,
+          "stepCaptures": { "introspect": { "active": "true" } },
+          "stepResponseBytes": { "introspect": 15 },
+          "extractedAt": 1753000001200,
+          "expiresAt": null,
+          "skippedStepIds": ["refresh"]
+        },
+        "published": { "introspect": { "active": "true" } }
+      }
+    }
+  }
+}
