@@ -1,10 +1,9 @@
 /**
  * ProxyRequestInspectTab — a captured proxy request opened as a main
  * editor tab (mode `proxy-request-inspect`). Thin binding of the
- * panel-package request detail to the proxy lifecycle partition; the
- * detail owns its own lifeline client, so the tab stays live (and
- * survives the Proxy tool window closing) on the engine's replay
- * contract alone.
+ * panel-package request detail to the proxy lifecycle partition. The
+ * detail is a reader of that partition's shared view, so the tab stays
+ * live with the tool window closed — alone, it keeps the partition open.
  */
 
 import { PROXY_LIFECYCLE_TAB_ID } from '@openheaders/core/proxy';

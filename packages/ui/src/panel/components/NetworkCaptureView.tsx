@@ -15,16 +15,20 @@
  * tab ({@link NetworkCaptureRequestDetail}) instead of an inner split,
  * which the tool-window height can't afford.
  *
- * The page-stream / fire / resource-timing feeds have no daemon source
- * for this partition, so their shared empty snapshots are fed to
- * `usePanelData` — pages markers and fire dots simply never appear.
+ * Both the list and the editor-tab detail are READERS of their
+ * partition's shared view ({@link useCapturePartition}): one lifeline,
+ * one store and one projection per partition in the window, however
+ * many surfaces show it. The page-stream / fire / resource-timing feeds
+ * have no daemon source for these partitions — pages markers and fire
+ * dots simply never appear.
  */
 
 import { Alert, Button } from 'antd';
 import { type ReactNode, useCallback, useEffect, useMemo, useState } from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { useSetting } from '@openheaders/ui/workbench/settings/hooks';
-import { useWireJoin, type WireJoinMode, type WireJoinSourceRef } from '../data/use-wire-join';
+import type { WireJoinSeam } from '../data/capture-partition-registry';
+import { useCapturePartition } from '../data/use-capture-partition';
 import { InspectorDetailContent } from './InspectorDetailContent';
 import { RulePopoverProvider } from './RulePopoverHost';
 import { TrafficList } from './TrafficList';
@@ -36,11 +40,9 @@ import type { FilterConfig } from '../data/filter-engine';
 import { DEFAULT_FILTER_CONFIG, hasFilterError, parseFilter } from '../data/filter-engine';
 import type { InspectorRowWithFires } from '../data/inspector-row-projection';
 import { useRulesLookup } from '../data/rule-create/use-rules-lookup';
-import { useLifecycleClient } from '../data/stores/use-lifecycle-client';
-import { EMPTY_FIRE_SNAPSHOT } from '../data/stores/fire-client-store';
-import { EMPTY_PAGE_SNAPSHOT } from '../data/stores/page-client-store';
-import { EMPTY_RESOURCE_TIMING_SNAPSHOT } from '../data/stores/resource-timing-client-store';
-import { usePanelData } from '../data/use-panel-data';
+import type { UsePanelDataResult } from '../data/use-panel-data';
+
+export type { WireJoinSeam } from '../data/capture-partition-registry';
 
 export interface NetworkCaptureViewProps {
   /** Lifecycle partition to watch — a reserved synthetic tab id, or a
@@ -81,64 +83,9 @@ export interface NetworkCaptureViewProps {
   readonly watchRefusedCopy?: { readonly title: string; readonly body: string };
 }
 
-/**
- * The host's wire-join binding for one capture surface. `'browser'`
- * joins the watched tab's rows with the local wire partition (`nodeId`
- * + `sourceLabel` feed the historical seen record); `'wire'` annotates
- * the wire partition's rows from that record. Fixed per mount — the
- * Traffic Monitor keys its views per source.
- */
-export interface WireJoinSeam {
-  readonly mode: Exclude<WireJoinMode, 'off'>;
-  readonly nodeId?: string;
-  readonly sourceLabel?: string | null;
-}
-
 const NOOP = (): void => {};
-
-/**
- * The shared per-partition data pipeline: one lifecycle lifeline client
- * plus the panel projection over it. Both the capture list and the
- * editor-tab detail mount their own instance — the engine replays the
- * partition snapshot on every subscribe, so each consumer is complete
- * and self-sufficient (the detail tab keeps working with the Proxy tool
- * window closed). The wire-join seam derives its merged rows between
- * the client and the projection, so every consumer of `data` sees the
- * upgraded rows through the one pipeline.
- */
-function useNetworkCaptureData(tabId: number, portName?: (tabId: number) => string, wireJoin?: WireJoinSeam) {
-  const lifecycleClient = useLifecycleClient({ tabId, ...(portName !== undefined ? { portName } : {}) });
-  const joinSource = useMemo<WireJoinSourceRef | undefined>(
-    () =>
-      wireJoin?.mode === 'browser' && wireJoin.nodeId !== undefined
-        ? { nodeId: wireJoin.nodeId, tabId, label: wireJoin.sourceLabel ?? null }
-        : undefined,
-    [wireJoin, tabId],
-  );
-  const wire = useWireJoin({
-    mode: wireJoin?.mode ?? 'off',
-    snapshot: lifecycleClient.snapshot,
-    ...(joinSource !== undefined ? { source: joinSource } : {}),
-  });
-  const data = usePanelData({
-    lifecycle: wire.snapshot,
-    page: EMPTY_PAGE_SNAPSHOT,
-    fire: EMPTY_FIRE_SNAPSHOT,
-    opts: useMemo(() => ({ consolidateRetries: false }), []),
-    resourceTiming: EMPTY_RESOURCE_TIMING_SNAPSHOT,
-  });
-  // Composed body pull: a CDP-fed partition serves its own bodies; a
-  // joined hop on any other partition pulls from the wire twin (the
-  // body lands in the wire store and re-derives the merged row).
-  const requestResponseBody = useCallback(
-    (requestId: string, hopIndex: number) => {
-      if (lifecycleClient.source !== 'cdp' && wire.pullWireBody(requestId, hopIndex)) return;
-      lifecycleClient.requestResponseBody(requestId, hopIndex);
-    },
-    [lifecycleClient, wire],
-  );
-  return { lifecycleClient, data, wire, requestResponseBody };
-}
+const NO_ROWS: UsePanelDataResult['rows'] = [];
+const NO_PAGES: UsePanelDataResult['pages'] = [];
 
 /** The capture list — filter toolbar + columns, selection routes outward. */
 export function NetworkCaptureView({
@@ -154,7 +101,10 @@ export function NetworkCaptureView({
   watchRefusedCopy,
 }: NetworkCaptureViewProps) {
   const t = useT();
-  const { lifecycleClient, data, wire } = useNetworkCaptureData(tabId, portName, wireJoin);
+  // `null` until the partition's owner has a view: an empty list.
+  const capture = useCapturePartition({ tabId, portName, wireJoin });
+  const rows = capture?.data.rows ?? NO_ROWS;
+  const lookupByRequestId = capture?.data.lookupByRequestId;
 
   // Local filter + view state — the proxy view owns its own, no shared
   // dock toolbar to sync with.
@@ -173,26 +123,26 @@ export function NetworkCaptureView({
   const filterTokens = useMemo(() => parseFilter(urlFilter, filterConfig), [urlFilter, filterConfig]);
   const filterError = useMemo(() => hasFilterError(filterTokens), [filterTokens]);
   const filteredRows = useMemo(
-    () => data.rows.filter((r) => matchesPanelFilters(r.lifecycle, { filter, filterTokens, filterConfig }, r.fires)),
-    [data.rows, filter, filterTokens, filterConfig],
+    () => rows.filter((r) => matchesPanelFilters(r.lifecycle, { filter, filterTokens, filterConfig }, r.fires)),
+    [rows, filter, filterTokens, filterConfig],
   );
 
   const handleSelect = useCallback(
     (requestId: string) => {
       setSelectedId(requestId);
-      const row = data.lookupByRequestId.get(requestId);
+      const row = lookupByRequestId?.get(requestId);
       if (row) onInspectRequest(row);
     },
-    [data.lookupByRequestId, onInspectRequest],
+    [lookupByRequestId, onInspectRequest],
   );
 
   // A watch held for its history's size is the one refusal the viewer
   // ends itself: a cleared log leaves the remote engine nothing to replay.
-  const heldForSize = lifecycleClient.watchRefusedReason === 'history-too-large';
+  const heldForSize = capture?.watchRefusedReason === 'history-too-large';
 
   return (
     <div className="dt-capture-surface">
-      {lifecycleClient.watchRefused && (
+      {capture !== null && capture.watchRefusedReason !== null && (
         <Alert
           type="info"
           showIcon
@@ -209,7 +159,7 @@ export function NetworkCaptureView({
           }
           action={
             heldForSize ? (
-              <Button size="small" onClick={lifecycleClient.clearSession} data-testid="capture-history-clear">
+              <Button size="small" onClick={capture.clearSession} data-testid="capture-history-clear">
                 {t('panel.capture.historyTooLarge.clear')}
               </Button>
             ) : undefined
@@ -218,9 +168,9 @@ export function NetworkCaptureView({
         />
       )}
       <TrafficList
-        rows={data.rows}
+        rows={rows}
       filteredRows={filteredRows}
-      pages={data.pages}
+      pages={capture?.data.pages ?? NO_PAGES}
       cdpEnhanced={false}
       selectedId={selectedId}
       onSelect={handleSelect}
@@ -250,8 +200,8 @@ export function NetworkCaptureView({
       onFilterHintClear={NOOP}
       onFilterHintDismiss={NOOP}
       emptyHero={emptyHero}
-      {...(wire.joinedIds !== undefined ? { wireJoinedIds: wire.joinedIds } : {})}
-      {...(wire.seenLabels !== undefined ? { wireSeenLabels: wire.seenLabels } : {})}
+      {...(capture?.joinedIds !== undefined ? { wireJoinedIds: capture.joinedIds } : {})}
+      {...(capture?.seenLabels !== undefined ? { wireSeenLabels: capture.seenLabels } : {})}
       {...(onWireSeenJump !== undefined ? { onWireSeenJump } : {})}
       />
     </div>
@@ -272,16 +222,20 @@ export interface NetworkCaptureRequestDetailProps {
 /** Inner detail — assumes the popover host wraps it. */
 function NetworkCaptureRequestDetailBody({ tabId, portName, requestId, wireJoin }: NetworkCaptureRequestDetailProps) {
   const t = useT();
-  const { lifecycleClient, data, wire, requestResponseBody } = useNetworkCaptureData(tabId, portName, wireJoin);
+  const capture = useCapturePartition({ tabId, portName, wireJoin });
   const rulesByUid = useRulesLookup();
   const [liveRulesMode] = useSetting('rulesEngine.liveRulesMode');
   const [activeSection, setActiveSection] = useState<DetailSection>('headers');
 
+  const lookupByUrl = capture?.data.lookupByUrl;
   const getRowByUrl = useCallback(
-    (url: string): InspectorRowWithFires | null => data.lookupByUrl.get(url) ?? null,
-    [data.lookupByUrl],
+    (url: string): InspectorRowWithFires | null => lookupByUrl?.get(url) ?? null,
+    [lookupByUrl],
   );
 
+  // Nothing to say before the partition's owner has a view.
+  if (capture === null) return null;
+  const { data } = capture;
   const row = data.lookupByRequestId.get(requestId) ?? null;
   if (!row) {
     return <div className="dt-editor-empty">{t('panel.inspector.detailEmpty.requestGone')}</div>;
@@ -302,10 +256,10 @@ function NetworkCaptureRequestDetailBody({ tabId, portName, requestId, wireJoin 
       liveRulesMode={liveRulesMode}
       activeSection={activeSection}
       onSectionChange={setActiveSection}
-      source={lifecycleClient.source}
-      requestResponseBody={requestResponseBody}
-      {...(wire.joinedIds !== undefined ? { wireJoinedIds: wire.joinedIds } : {})}
-      {...(wire.seenLabels !== undefined ? { wireSeenLabels: wire.seenLabels } : {})}
+      source={capture.source}
+      requestResponseBody={capture.requestResponseBody}
+      {...(capture.joinedIds !== undefined ? { wireJoinedIds: capture.joinedIds } : {})}
+      {...(capture.seenLabels !== undefined ? { wireSeenLabels: capture.seenLabels } : {})}
       onShowMatchedRules={NOOP}
     />
   );
@@ -314,8 +268,9 @@ function NetworkCaptureRequestDetailBody({ tabId, portName, requestId, wireJoin 
 /**
  * NetworkCaptureRequestDetail — one captured request's full detail
  * (Headers/Payload/Response/Timing tabs), self-sufficient for a
- * workbench editor tab: it owns its own lifeline client and popover
- * host, so it renders with or without the Proxy tool window open.
+ * workbench editor tab: it holds its own seat on the partition and its
+ * own popover host, so it renders with or without the tool window that
+ * opened it — alone, it is what keeps the partition open.
  */
 export function NetworkCaptureRequestDetail({ tabId, portName, requestId, wireJoin }: NetworkCaptureRequestDetailProps) {
   return (

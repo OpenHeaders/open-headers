@@ -2,9 +2,10 @@
  * LiveNetworkRequestInspectTab — a live browser request opened as a
  * main editor tab (mode `live-network-request-inspect`). Thin binding
  * of the panel-package request detail to the QUALIFIED lifecycle
- * lifeline for the watched `(nodeId, tabId)` partition; the detail owns
- * its own lifeline client, so the tab stays live (and survives the Live
- * Network tool window closing) on the engine's replay contract alone.
+ * lifeline for the watched `(nodeId, tabId)` partition. The detail is a
+ * reader of that partition's shared view — the same one the Traffic
+ * list reads — so opening it replays nothing, and alone it keeps the
+ * partition open (the tab stays live with the tool window closed).
  */
 
 import { hasCapability } from '@openheaders/core/capabilities';

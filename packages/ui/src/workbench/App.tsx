@@ -89,6 +89,7 @@ import WorkbenchTabBody from './components/shell/WorkbenchTabBody';
 import WorkbenchToolWindow from './components/shell/WorkbenchToolWindow';
 import { VariablePopoverProvider } from './components/template-input/VariablePopoverHost';
 import OrgWorkspaceAccessNotice from './components/workspace/OrgWorkspaceAccessNotice';
+import { CapturePartitionHosts } from '../panel/components/CapturePartitionHosts';
 import { renderWorkspacePrefix } from './components/workspace/workspace-prefix';
 import ImportExportModals, { type ImportExportModalsHandle } from './components/workspace-export/ImportExportModals';
 import { useDeveloperCommandSection } from './developer-diagnostics';
@@ -1794,6 +1795,9 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
             root boundary above the providers shows its fallback. */}
         <FaultProbe unit={ROOT_FAULT_UNIT} />
         <ActiveTabEntityWriter value={activeTabEntity} />
+        {/* The owners of the traffic partitions this window reads — above
+            the dock and the editor so a partition outlives any one reader. */}
+        <CapturePartitionHosts />
         {/* BC-MWPT-11 — awareness publishes editing-scope so peers see
             "B is editing X" when B's tab is bound to X. SW continues
             to forward the renderer-stamped payload as opaque bytes;
