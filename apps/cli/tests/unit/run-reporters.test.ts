@@ -137,3 +137,53 @@ describe('formatRunJUnit', () => {
     expect(formatRunJUnit(report)).toContain('<failure message="HTTP 500 Internal Server Error">');
   });
 });
+
+// ── An item the host could not run ──────────────────────────────────
+
+describe('an error row — a step the host could not run', () => {
+  const report = makeReport({
+    target: { kind: 'workflow', uid: 'wfdevice', name: 'Reboot' },
+    scripts: undefined,
+    items: [
+      {
+        kind: 'step',
+        uid: 'stplistn',
+        name: 'probe',
+        status: 'error',
+        error: 'Step "probe" needs a newer version of OpenHeaders (action "listen").',
+      },
+      { kind: 'step', uid: 'stpcall0', name: 'reboot', status: 'skipped' },
+    ],
+    totals: { items: 2, passed: 0, failed: 0, skipped: 1, errors: 1 },
+  });
+
+  it('prints its own mark with the reason beneath, and counts it in the summary', () => {
+    expect(formatRunHuman(report)).toEqual([
+      'ERR   probe',
+      '      Step "probe" needs a newer version of OpenHeaders (action "listen").',
+      'skip  reboot',
+      'workflow "Reboot" — 0 passed · 0 failed · 1 error · 1 skipped · 4.2 s · workspace ws-1',
+    ]);
+  });
+
+  it('pluralizes the count', () => {
+    const two = { ...report, totals: { ...report.totals, errors: 2 } };
+    expect(formatRunSummary(two)).toContain('0 failed · 2 errors · 1 skipped');
+  });
+
+  it('is a JUnit <error>, never a failure or a skip, and the suite counts it', () => {
+    const xml = formatRunJUnit(report);
+    expect(xml).toContain('<testsuite name="Reboot" tests="2" failures="0" errors="1" skipped="1"');
+    expect(xml).toContain(
+      '<testcase name="probe" classname="Reboot" time="0.000"><error message="Step &quot;probe&quot; needs a newer ' +
+        'version of OpenHeaders (action &quot;listen&quot;)."></error></testcase>',
+    );
+    expect(xml).not.toContain('<failure');
+  });
+
+  it('leaves a report with no error row without the count, in the summary and in the suite', () => {
+    const clean = makeReport();
+    expect(formatRunSummary(clean)).not.toContain('error');
+    expect(formatRunJUnit(clean)).not.toContain('errors=');
+  });
+});

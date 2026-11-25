@@ -145,6 +145,11 @@ export async function runRunCommand(argv: readonly string[]): Promise<void> {
   if (report.ok === false) {
     // The report is already on stdout/file — the error carries only the
     // verdict line for stderr + the exit-1 classification.
-    throw new OperationFailedError(`run failed — ${report.totals.failed} of ${report.totals.items} item(s) failed`);
+    const errors = report.totals.errors ?? 0;
+    throw new OperationFailedError(
+      errors > 0
+        ? `run failed — ${errors} of ${report.totals.items} item(s) could not run`
+        : `run failed — ${report.totals.failed} of ${report.totals.items} item(s) failed`,
+    );
   }
 }

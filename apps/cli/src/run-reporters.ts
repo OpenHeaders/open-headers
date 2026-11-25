@@ -12,7 +12,8 @@ export interface RunReportItem {
   name: string;
   path?: string;
   method?: string;
-  status: 'passed' | 'failed' | 'skipped';
+  /** `error` — the host could not run the item at all: never a skip, never a failed test. */
+  status: 'passed' | 'failed' | 'skipped' | 'error';
   httpStatus?: number;
   httpVersion?: string;
   durationMs?: number;
@@ -29,13 +30,15 @@ export interface RunReport {
   durationMs: number;
   scripts?: { available: boolean; mode?: string };
   items: RunReportItem[];
-  totals: { items: number; passed: number; failed: number; skipped: number };
+  /** `errors` rides only a report that has one. */
+  totals: { items: number; passed: number; failed: number; skipped: number; errors?: number };
 }
 
 const STATUS_MARK: Record<RunReportItem['status'], string> = {
   passed: 'pass',
   failed: 'FAIL',
   skipped: 'skip',
+  error: 'ERR ',
 };
 
 function itemTiming(item: RunReportItem): string {
@@ -73,11 +76,13 @@ export function formatRunHuman(report: RunReport): string[] {
  *  `--output` sends the reporter's text to a file. */
 export function formatRunSummary(report: RunReport): string {
   const { totals } = report;
+  const errorCount = totals.errors ?? 0;
+  const errors = errorCount > 0 ? ` · ${errorCount} error${errorCount === 1 ? '' : 's'}` : '';
   const skipped = totals.skipped > 0 ? ` · ${totals.skipped} skipped` : '';
   const seconds = (report.durationMs / 1000).toFixed(1);
   return (
     `${report.target.kind} "${report.target.name}" — ${totals.passed} passed · ` +
-    `${totals.failed} failed${skipped} · ${seconds} s · workspace ${report.workspaceId}`
+    `${totals.failed} failed${errors}${skipped} · ${seconds} s · workspace ${report.workspaceId}`
   );
 }
 
@@ -94,7 +99,9 @@ function xmlEscape(raw: string): string {
  * JUnit XML — one `<testsuite>` for the target, one `<testcase>` per
  * item (classname = the item's tree path, so CI groups by folder).
  * Failed assertions ride the failure body; a failed item without
- * assertions carries its error as the failure message.
+ * assertions carries its error as the failure message. An item the
+ * host could not run is an `<error>`, counted in the suite's `errors`
+ * — an attribute a report with no such item does not carry.
  */
 export function formatRunJUnit(report: RunReport): string {
   const seconds = (ms: number | undefined): string => ((ms ?? 0) / 1000).toFixed(3);
@@ -103,6 +110,9 @@ export function formatRunJUnit(report: RunReport): string {
       `name="${xmlEscape(item.name)}" classname="${xmlEscape(item.path ?? report.target.name)}" ` +
       `time="${seconds(item.durationMs)}"`;
     if (item.status === 'skipped') return `    <testcase ${attrs}><skipped/></testcase>`;
+    if (item.status === 'error') {
+      return `    <testcase ${attrs}><error message="${xmlEscape(item.error ?? 'error')}"></error></testcase>`;
+    }
     if (item.status === 'failed') {
       const failedAssertions = (item.assertions ?? []).filter((assertion) => !assertion.passed);
       const detail = failedAssertions
@@ -114,9 +124,10 @@ export function formatRunJUnit(report: RunReport): string {
     }
     return `    <testcase ${attrs}/>`;
   });
+  const errors = (report.totals.errors ?? 0) > 0 ? `errors="${report.totals.errors}" ` : '';
   const suiteAttrs =
     `name="${xmlEscape(report.target.name)}" tests="${report.totals.items}" ` +
-    `failures="${report.totals.failed}" skipped="${report.totals.skipped}" ` +
+    `failures="${report.totals.failed}" ${errors}skipped="${report.totals.skipped}" ` +
     `time="${seconds(report.durationMs)}" timestamp="${new Date(report.startedAt).toISOString()}"`;
   return ['<?xml version="1.0" encoding="UTF-8"?>', `<testsuite ${suiteAttrs}>`, ...cases, '</testsuite>'].join('\n');
 }

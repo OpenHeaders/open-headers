@@ -167,4 +167,17 @@ describe('runRunCommand', () => {
     expect(logged).toHaveLength(1);
     expect(logged[0]).toContain('FAIL  GET Health');
   });
+
+  it('exits 1 on an item the host could not run, saying so', async () => {
+    stubDaemon({
+      ...REPORT,
+      ok: false,
+      items: [{ ...REPORT.items[0], status: 'error', error: 'Step "probe" needs a newer version of OpenHeaders.' }],
+      totals: { items: 1, passed: 0, failed: 0, skipped: 0, errors: 1 },
+    });
+    await expect(runRunCommand(['run', 'collection', 'Smoke', ...CONN])).rejects.toThrow(
+      new OperationFailedError('run failed — 1 of 1 item(s) could not run'),
+    );
+    expect(logged[0]).toContain('ERR   GET Health');
+  });
 });
