@@ -36,6 +36,9 @@ import type {
   TelemetryDebugState,
   TelemetryLifecycleConsumerMessage,
   TelemetryLifecycleDetachMessage,
+  TelemetryTabsFavicons,
+  TelemetryTabsFaviconsMessage,
+  TelemetryTabsFaviconsResponsePayload,
 } from '@openheaders/core/protocol';
 import {
   TELEMETRY_DEBUG_CONTROL_TYPE,
@@ -43,6 +46,7 @@ import {
   TELEMETRY_LIFECYCLE_BATCH_TYPE,
   TELEMETRY_LIFECYCLE_CONSUMER_TYPE,
   TELEMETRY_LIFECYCLE_DETACH_TYPE,
+  TELEMETRY_TABS_FAVICONS_TYPE,
   TELEMETRY_TABS_LIST_TYPE,
 } from '@openheaders/core/protocol';
 import {
@@ -67,7 +71,8 @@ import type { LifecycleBodyFetcher, LifecycleProvenance } from '../lifecycle-por
 import { startTracking, stopTracking } from '../modules/tab-telemetry';
 import { desktopWatchAllowed, subscribeDesktopWatchConsent, watchRefusedFrame } from './consent';
 import { createFrameBatcher, type FrameBatcher } from './frame-batcher';
-import { browserIdentity, DEBUG_UNAVAILABLE, queryBrowserTabs } from './tab-snapshot';
+import { faviconsFor } from './tab-favicons';
+import { browserIdentity, DEBUG_UNAVAILABLE, faviconsAskedBy, queryBrowserTabs } from './tab-snapshot';
 import { watchActivityDrop, watchActivityRaise, watchActivitySync } from './watch-activity';
 
 const SCOPE = 'TelemetryStreamHost';
@@ -124,7 +129,7 @@ export interface TelemetryStreamHostOptions {
   readonly registerInbound?: typeof registerInboundFrameHandler;
   readonly subscribeClose?: typeof subscribeOnWebSocketClose;
   readonly listWires?: typeof listConnectedWires;
-  readonly queryTabs?: () => Promise<BrowserTabWire[]>;
+  readonly queryTabs?: (favicons?: TelemetryTabsFavicons) => Promise<BrowserTabWire[]>;
   readonly flushIntervalMs?: number;
 }
 
@@ -316,7 +321,7 @@ export function startTelemetryStreamHost(options: TelemetryStreamHostOptions): T
     }
     if (type === TELEMETRY_TABS_LIST_TYPE) {
       if (wire.isLoopback()) {
-        void queryTabs().then((tabs) => {
+        void queryTabs(faviconsAskedBy(frame)).then((tabs) => {
           wire.send({
             type: `${TELEMETRY_TABS_LIST_TYPE}:response`,
             payload: {
@@ -327,6 +332,19 @@ export function startTelemetryStreamHost(options: TelemetryStreamHostOptions): T
             },
           });
         });
+      }
+      return true;
+    }
+    if (type === TELEMETRY_TABS_FAVICONS_TYPE) {
+      if (wire.isLoopback()) {
+        const { callId, keys } = frame as Partial<TelemetryTabsFaviconsMessage>;
+        if (typeof callId === 'string' && Array.isArray(keys)) {
+          wire.send({
+            type: `${TELEMETRY_TABS_FAVICONS_TYPE}:response`,
+            callId,
+            payload: { icons: faviconsFor(keys) } satisfies TelemetryTabsFaviconsResponsePayload,
+          });
+        }
       }
       return true;
     }

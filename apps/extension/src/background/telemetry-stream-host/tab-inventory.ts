@@ -17,6 +17,10 @@
  * change instead of desyncing a delta stream — and the daemon relay can
  * seed a late-joining workbench viewer by simply re-subscribing.
  *
+ * What keeps a full snapshot small is that the favicons need not ride
+ * it: a wire whose subscribe says it reads them by key gets a key per
+ * tab, and the bytes once, on its own pull (`tab-favicons.ts`).
+ *
  * Same-device gate: like every telemetry frame, subscribe/detach are
  * honored from loopback wires only. Service-worker eviction drops the
  * subscription state with the wire; the daemon re-subscribes on the
@@ -24,7 +28,11 @@
  * lifecycle watches.
  */
 
-import type { BrowserTabWire, TelemetryTabsListResponsePayload } from '@openheaders/core/protocol';
+import type {
+  BrowserTabWire,
+  TelemetryTabsFavicons,
+  TelemetryTabsListResponsePayload,
+} from '@openheaders/core/protocol';
 import {
   TELEMETRY_TABS_DETACH_TYPE,
   TELEMETRY_TABS_PUSH_TYPE,
@@ -38,7 +46,7 @@ import {
 import { logger } from '@utils/logger';
 import { desktopWatchAllowed, subscribeDesktopWatchConsent } from './consent';
 import type { TelemetryDebugSeam } from './index';
-import { browserIdentity, DEBUG_UNAVAILABLE, queryBrowserTabs } from './tab-snapshot';
+import { browserIdentity, DEBUG_UNAVAILABLE, faviconsAskedBy, queryBrowserTabs } from './tab-snapshot';
 
 const SCOPE = 'TabInventoryHost';
 
@@ -57,7 +65,7 @@ export interface TabInventoryHostOptions {
   readonly send?: (backendId: string, frame: Record<string, unknown>) => boolean;
   readonly registerInbound?: typeof registerInboundFrameHandler;
   readonly subscribeClose?: typeof subscribeOnWebSocketClose;
-  readonly queryTabs?: () => Promise<BrowserTabWire[]>;
+  readonly queryTabs?: (favicons?: TelemetryTabsFavicons) => Promise<BrowserTabWire[]>;
   readonly debounceMs?: number;
 }
 
@@ -103,14 +111,15 @@ export function startTabInventoryHost(options: TabInventoryHostOptions = {}): Ta
   const debounceMs = options.debounceMs ?? TAB_INVENTORY_DEBOUNCE_MS;
   const debug = options.debug;
 
-  const watchedWires = new Set<string>();
+  /** Each watching wire, and how it reads favicons (`undefined` = inline). */
+  const watchedWires = new Map<string, TelemetryTabsFavicons | undefined>();
   let pushTimer: ReturnType<typeof setTimeout> | null = null;
   let listenersAttached = false;
   let unsubscribeDebug: (() => void) | null = null;
   let disposed = false;
 
-  function snapshotPayload(): Promise<TelemetryTabsListResponsePayload> {
-    return queryTabs().then((tabs) => ({
+  function snapshotPayload(favicons: TelemetryTabsFavicons | undefined): Promise<TelemetryTabsListResponsePayload> {
+    return queryTabs(favicons).then((tabs) => ({
       tabs,
       browser: browserIdentity(),
       debug: debug?.getState() ?? DEBUG_UNAVAILABLE,
@@ -118,17 +127,28 @@ export function startTabInventoryHost(options: TabInventoryHostOptions = {}): Ta
     }));
   }
 
+  /** One snapshot per way of reading favicons, to the wires that read them so. */
   function pushTo(backendIds: Iterable<string>): void {
-    const targets = [...backendIds];
-    if (targets.length === 0) return;
-    void snapshotPayload().then((payload) => {
-      if (disposed) return;
-      for (const backendId of targets) {
-        // A failed send means the wire died mid-flight — its close
-        // callback tears the watch down; nothing to retry here.
-        if (watchedWires.has(backendId)) send(backendId, { type: TELEMETRY_TABS_PUSH_TYPE, payload });
-      }
-    });
+    const targets = new Map<TelemetryTabsFavicons | undefined, string[]>();
+    for (const backendId of backendIds) {
+      const favicons = watchedWires.get(backendId);
+      const wires = targets.get(favicons);
+      if (wires) wires.push(backendId);
+      else targets.set(favicons, [backendId]);
+    }
+    for (const [favicons, wires] of targets) {
+      void snapshotPayload(favicons).then((payload) => {
+        if (disposed) return;
+        for (const backendId of wires) {
+          // A failed send means the wire died mid-flight — its close
+          // callback tears the watch down; nothing to retry here. A wire
+          // that changed how it reads favicons meanwhile was pushed anew.
+          if (watchedWires.has(backendId) && watchedWires.get(backendId) === favicons) {
+            send(backendId, { type: TELEMETRY_TABS_PUSH_TYPE, payload });
+          }
+        }
+      });
+    }
   }
 
   /** Debounced fan-out to every subscribed wire. */
@@ -136,7 +156,7 @@ export function startTabInventoryHost(options: TabInventoryHostOptions = {}): Ta
     if (disposed || watchedWires.size === 0 || pushTimer !== null) return;
     pushTimer = setTimeout(() => {
       pushTimer = null;
-      pushTo(watchedWires);
+      pushTo(watchedWires.keys());
     }, debounceMs);
   }
 
@@ -175,8 +195,9 @@ export function startTabInventoryHost(options: TabInventoryHostOptions = {}): Ta
     if (type === TELEMETRY_TABS_SUBSCRIBE_TYPE) {
       // Same-device wires only — claimed and dropped otherwise.
       if (wire.isLoopback()) {
-        if (!watchedWires.has(wire.backendId)) {
-          watchedWires.add(wire.backendId);
+        const opened = !watchedWires.has(wire.backendId);
+        watchedWires.set(wire.backendId, faviconsAskedBy(frame));
+        if (opened) {
           attachListeners();
           logger.info(SCOPE, `inventory watch opened for wire ${wire.backendId}`);
         }

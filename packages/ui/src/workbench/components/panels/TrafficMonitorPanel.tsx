@@ -48,7 +48,7 @@ import { PROXY_LIFECYCLE_TAB_ID } from '@openheaders/core/proxy';
 import { qualifiedLifecyclePortName, replayLifecyclePortName } from '@openheaders/core/request-lifecycle';
 import type { TrafficArchivedSessionProjection } from '@openheaders/core/traffic';
 import type React from 'react';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { createPanelHeaderWiring, type DockSlot, LayoutMenuIcon, PanelHeader } from '@openheaders/ui/shared/dock-layout';
 import { InfoTrigger, type InfoPopoverContent } from '@openheaders/ui/shared/info-popover';
@@ -72,6 +72,13 @@ import type { InspectorRowWithFires } from '../../../panel/data/inspector-row-pr
 import type { XhrLogConsoleEntry } from '../../../panel/data/console-xhr-log';
 import { useConsoleClient } from '../../../panel/data/stores/use-console-client';
 import { publishPeerDebugState } from '../../data/peer-debug-state';
+import {
+  namedFaviconKeys,
+  readPeerFavicons,
+  subscribePeerFavicons,
+  syncPeerFavicons,
+  withPeerFavicons,
+} from '../../data/peer-favicons';
 import { storageDocInnerId } from '../../data/storage-doc-ref';
 import {
   installTrafficStorageHost,
@@ -299,7 +306,22 @@ const TrafficMonitorPanel: React.FC<TrafficMonitorPanelProps> = ({
   // header's layout button flips (its icon shows the TARGET layout).
   const [railSide, setRailSide] = useSetting('trafficMonitor.railSide');
 
-  const [peers, setPeers] = useState<RailPeer[]>([]);
+  // The inventory as the browsers send it, and as the rows show it: a tab
+  // that names its icon by key reads the bytes from the window's store,
+  // which asks for an icon once and follows what the inventory names.
+  const [listedPeers, setPeers] = useState<RailPeer[]>([]);
+  const favicons = useSyncExternalStore(subscribePeerFavicons, readPeerFavicons);
+  useEffect(() => {
+    syncPeerFavicons(new Map(listedPeers.map((peer) => [peer.nodeId, namedFaviconKeys(peer.tabs)])));
+  }, [listedPeers]);
+  const peers = useMemo(
+    () =>
+      listedPeers.map((peer) => {
+        const tabs = withPeerFavicons(peer.tabs, favicons.get(peer.nodeId));
+        return tabs === peer.tabs ? peer : { ...peer, tabs: [...tabs] };
+      }),
+    [listedPeers, favicons],
+  );
   const [loading, setLoading] = useState(false);
   const [selectedKey, setSelectedKey] = useState<string | null>(() => lastPanelState.selectedKey);
   const [tabSelection, setTabSelection] = useState<TabSelection | null>(() => lastPanelState.tabSelection);

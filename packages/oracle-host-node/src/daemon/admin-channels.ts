@@ -115,6 +115,10 @@ export interface AdminChannelDeps {
    *  tables composed without the relay (test rigs) answer an empty
    *  inventory instead of failing construction. */
   telemetryTabs?(): Promise<{ peers: BrowserTelemetryPeerTabs[] }>;
+  /** The `oh.daemon.telemetry.tabs.favicons` backing — the icons behind
+   *  keys the inventory named, pulled from the named extension peer.
+   *  Optional as above. */
+  telemetryFavicons?(nodeId: string, keys: readonly string[]): Promise<Record<string, string>>;
   /** The `oh.daemon.telemetry.debug.control` backing — one Debug-mode
    *  command relayed to the named extension peer. Optional as above. */
   telemetryDebugControl?(nodeId: string, command: TelemetryDebugCommand): Promise<TelemetryDebugState | null>;
@@ -480,6 +484,16 @@ export function createAdminChannelHandlers(deps: AdminChannelDeps): ReadonlyMap<
   // gathered live per call from every answering extension peer. The
   // lifecycle streams themselves never ride this table.
   handlers.set('oh.daemon.telemetry.tabs.list', async () => (await deps.telemetryTabs?.()) ?? { peers: [] });
+
+  // The favicons behind keys the inventory named — the Traffic rail pulls
+  // each icon once instead of receiving it in every snapshot.
+  handlers.set('oh.daemon.telemetry.tabs.favicons', async (message) => {
+    if (typeof message.nodeId !== 'string' || message.nodeId.length === 0 || !Array.isArray(message.keys)) {
+      return { icons: {} };
+    }
+    const keys = message.keys.filter((key): key is string => typeof key === 'string');
+    return { icons: (await deps.telemetryFavicons?.(message.nodeId, keys)) ?? {} };
+  });
 
   // One Debug-mode control command (pin a tab / flip the master switch /
   // choose the scope) relayed to the named extension peer — the Traffic Monitor's per-tab

@@ -14,9 +14,10 @@
  * Selecting a row binds the panel's plane views on the right to that
  * source.
  *
- * Favicons arrive as `data:` URIs the EXTENSION resolved from the
- * browser's own favicon cache — the workbench renderer's CSP forbids
- * remote images and the desktop never fetches from sites itself.
+ * Favicons are `data:` URIs the EXTENSION resolved from the browser's
+ * own favicon cache — the workbench renderer's CSP forbids remote
+ * images and the desktop never fetches from sites itself. The panel
+ * hands the rows over with their icons already read.
  *
  * Presentational: the panel owns the inventory, the proxy status, and
  * the selection; the rail renders and reports clicks.
@@ -62,6 +63,9 @@ export interface RailPeerTab {
   title: string;
   /** Small `data:` URI resolved by the extension; absent while cold. */
   favIconUrl?: string;
+  /** The icon's key, from a browser that sends its icons apart — the
+   *  panel reads the bytes from the window's own store. */
+  favIconKey?: string;
 }
 
 /**

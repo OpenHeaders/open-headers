@@ -250,6 +250,9 @@ export type {
   TelemetryPeerTabsWire,
   TelemetryStreamMessage,
   TelemetryTabsDetachMessage,
+  TelemetryTabsFavicons,
+  TelemetryTabsFaviconsMessage,
+  TelemetryTabsFaviconsResponsePayload,
   TelemetryTabsListMessage,
   TelemetryTabsListResponsePayload,
   TelemetryTabsPushMessage,
@@ -260,11 +263,13 @@ export type {
 } from './telemetry-stream';
 export {
   TELEMETRY_DEBUG_CONTROL_TYPE,
+  TELEMETRY_FAVICONS_PER_PULL,
   TELEMETRY_HOST_READY_TYPE,
   TELEMETRY_LIFECYCLE_BATCH_TYPE,
   TELEMETRY_LIFECYCLE_CONSUMER_TYPE,
   TELEMETRY_LIFECYCLE_DETACH_TYPE,
   TELEMETRY_TABS_DETACH_TYPE,
+  TELEMETRY_TABS_FAVICONS_TYPE,
   TELEMETRY_TABS_LIST_TYPE,
   TELEMETRY_TABS_PORT_NAME,
   TELEMETRY_TABS_PUSH_TYPE,

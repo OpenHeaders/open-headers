@@ -1103,6 +1103,7 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
     // Browser telemetry plane (Phase 1) — the tab-inventory read the
     // Live Network picker renders; streams ride the lifeline, not RPC.
     telemetryTabs: () => browserLiveRelay.listTabs(),
+    telemetryFavicons: (nodeId, keys) => browserLiveRelay.favicons(nodeId, keys),
     // Debug-mode control (the Traffic Monitor's per-tab fidelity
     // affordance) — relayed to the owning extension peer.
     telemetryDebugControl: (nodeId, command) => browserLiveRelay.debugControl(nodeId, command),

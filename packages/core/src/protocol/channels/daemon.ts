@@ -818,6 +818,19 @@ export interface DaemonRpc {
   };
 
   /**
+   * The favicons behind keys the tab inventory named, pulled from the
+   * extension peer named by `nodeId` — key → `data:` URI. The inventory
+   * carries a key per icon; a viewer asks for the ones it has not seen,
+   * at most `TELEMETRY_FAVICONS_PER_PULL` a call. A key the browser no
+   * longer holds, a peer that is gone or one that never answers: left
+   * out, never an error.
+   */
+  'oh.daemon.telemetry.tabs.favicons': {
+    req: { nodeId: string; keys: ReadonlyArray<string> };
+    res: { icons: Record<string, string> };
+  };
+
+  /**
    * One Debug-mode control command relayed to the extension peer named
    * by `nodeId` — pin/unpin a tab into the CDP attach scope or flip the
    * master switch (the Traffic Monitor's per-tab fidelity affordance).

@@ -41,6 +41,7 @@ export const TELEMETRY_TABS_LIST_TYPE = 'oh.telemetry.tabs.list' as const;
 export const TELEMETRY_TABS_SUBSCRIBE_TYPE = 'oh.telemetry.tabs.subscribe' as const;
 export const TELEMETRY_TABS_DETACH_TYPE = 'oh.telemetry.tabs.detach' as const;
 export const TELEMETRY_TABS_PUSH_TYPE = 'oh.telemetry.tabs.push' as const;
+export const TELEMETRY_TABS_FAVICONS_TYPE = 'oh.telemetry.tabs.favicons' as const;
 export const TELEMETRY_HOST_READY_TYPE = 'oh.telemetry.host.ready' as const;
 export const TELEMETRY_DEBUG_CONTROL_TYPE = 'oh.telemetry.debug.control' as const;
 export const TELEMETRY_WATCH_REFUSED_TYPE = 'oh.telemetry.watch.refused' as const;
@@ -54,6 +55,23 @@ export const TELEMETRY_WATCH_REFUSED_TYPE = 'oh.telemetry.watch.refused' as cons
  * applied to the inventory plane).
  */
 export const TELEMETRY_TABS_PORT_NAME = 'oh-tabs' as const;
+
+/**
+ * How an asker reads the inventory's favicons. `'by-key'`: each row
+ * carries {@link BrowserTabWire.favIconKey} in place of the inline
+ * `favIconUrl`, and the asker pulls an icon it has not seen with
+ * {@link TelemetryTabsFaviconsMessage} — once, however many snapshots
+ * name it. Absent, the icons ride inline in every snapshot; a sender
+ * that predates the field answers that way whatever it is asked.
+ */
+export type TelemetryTabsFavicons = 'by-key';
+
+/**
+ * The most favicon keys one pull names, and the most one reply carries.
+ * An icon is at most a few tens of kilobytes of text, so a full reply
+ * stays well inside one frame.
+ */
+export const TELEMETRY_FAVICONS_PER_PULL = 16;
 
 /** Which telemetry plane a refusal addresses. */
 export type TelemetryWatchPlane = 'lifecycle' | 'storage' | 'console';
@@ -115,6 +133,7 @@ export interface TelemetryLifecycleBatchMessage {
 /** Host → extension: browser-tab inventory request (reply on `<type>:response`). */
 export interface TelemetryTabsListMessage {
   type: typeof TELEMETRY_TABS_LIST_TYPE;
+  favicons?: TelemetryTabsFavicons;
 }
 
 /**
@@ -128,6 +147,8 @@ export interface TelemetryTabsListMessage {
  */
 export interface TelemetryTabsSubscribeMessage {
   type: typeof TELEMETRY_TABS_SUBSCRIBE_TYPE;
+  /** How this wire's snapshots carry favicons, until it says otherwise. */
+  favicons?: TelemetryTabsFavicons;
 }
 
 /** Host → extension: close this wire's tab-inventory watch. */
@@ -145,6 +166,28 @@ export interface TelemetryTabsDetachMessage {
 export interface TelemetryTabsPushMessage {
   type: typeof TELEMETRY_TABS_PUSH_TYPE;
   payload: TelemetryTabsListResponsePayload;
+}
+
+/**
+ * Host → extension: the favicons behind up to
+ * {@link TELEMETRY_FAVICONS_PER_PULL} keys an inventory snapshot named.
+ * The reply rides `<type>:response` with the same `callId` and a
+ * {@link TelemetryTabsFaviconsResponsePayload}.
+ */
+export interface TelemetryTabsFaviconsMessage {
+  type: typeof TELEMETRY_TABS_FAVICONS_TYPE;
+  callId: string;
+  keys: string[];
+}
+
+/**
+ * `payload` of the `oh.telemetry.tabs.favicons:response` reply frame:
+ * key → `data:` URI. A key the browser no longer holds (its worker
+ * restarted since the snapshot) is left out; the next snapshot names
+ * the icon again.
+ */
+export interface TelemetryTabsFaviconsResponsePayload {
+  icons: Record<string, string>;
 }
 
 /**
@@ -174,6 +217,12 @@ export interface BrowserTabWire {
    * extension's favicon cache is cold or the icon is unfetchable.
    */
   favIconUrl?: string;
+  /**
+   * The favicon's identity, sent in place of `favIconUrl` to an asker
+   * that reads favicons by key ({@link TelemetryTabsFavicons}). It names
+   * the icon's bytes: two tabs showing the same icon carry the same key.
+   */
+  favIconKey?: string;
 }
 
 /** The answering browser's display identity (build target + platform). */
@@ -291,6 +340,7 @@ export type TelemetryStreamMessage =
   | TelemetryTabsSubscribeMessage
   | TelemetryTabsDetachMessage
   | TelemetryTabsPushMessage
+  | TelemetryTabsFaviconsMessage
   | TelemetryHostReadyMessage
   | TelemetryDebugControlMessage
   | TelemetryWatchRefusedMessage;

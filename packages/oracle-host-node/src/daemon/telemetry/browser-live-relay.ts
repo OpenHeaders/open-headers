@@ -34,6 +34,12 @@
  * correlated FIFO per peer on the standard `<type>:response` channel;
  * peers that never answer (CLI, another desktop) drop out at the
  * collection timeout.
+ *
+ * The inventory is asked for with its favicons BY KEY: a snapshot names
+ * each icon and a viewer pulls the bytes it has not seen (`favicons`),
+ * so the icons cross once instead of in every snapshot. A peer that
+ * predates the ask answers with the icons inline; those rows pass
+ * through as they are.
  */
 
 import { getLifelineServer, type IncomingLifelinePort } from '@openheaders/core/awareness';
@@ -46,6 +52,7 @@ import {
   TELEMETRY_CONSOLE_CONSUMER_TYPE,
   TELEMETRY_CONSOLE_DETACH_TYPE,
   TELEMETRY_DEBUG_CONTROL_TYPE,
+  TELEMETRY_FAVICONS_PER_PULL,
   TELEMETRY_HOST_READY_TYPE,
   TELEMETRY_LIFECYCLE_BATCH_TYPE,
   TELEMETRY_LIFECYCLE_CONSUMER_TYPE,
@@ -55,6 +62,7 @@ import {
   TELEMETRY_STORAGE_DETACH_TYPE,
   TELEMETRY_STORAGE_INVALIDATION_TYPE,
   TELEMETRY_TABS_DETACH_TYPE,
+  TELEMETRY_TABS_FAVICONS_TYPE,
   TELEMETRY_TABS_LIST_TYPE,
   TELEMETRY_TABS_PORT_NAME,
   TELEMETRY_TABS_PUSH_TYPE,
@@ -65,6 +73,7 @@ import {
   type TelemetryDebugState,
   type TelemetryPeerTabsWire,
   type TelemetryStorageMethod,
+  type TelemetryTabsFavicons,
   type TelemetryTabsListResponsePayload,
   type TelemetryTabsWatchMessage,
   type TelemetryWatchPlane,
@@ -80,11 +89,21 @@ import { createOversizedReplayHolds } from './oversized-replay-holds';
 const SCOPE = 'BrowserLiveRelay';
 
 const TABS_LIST_RESPONSE_TYPE = `${TELEMETRY_TABS_LIST_TYPE}:response`;
+const TABS_FAVICONS_RESPONSE_TYPE = `${TELEMETRY_TABS_FAVICONS_TYPE}:response`;
 const DEBUG_CONTROL_RESPONSE_TYPE = `${TELEMETRY_DEBUG_CONTROL_TYPE}:response`;
 const STORAGE_CALL_RESPONSE_TYPE = `${TELEMETRY_STORAGE_CALL_TYPE}:response`;
 
 /** How long `listTabs` waits for each peer's inventory reply. */
 export const TABS_LIST_TIMEOUT_MS = 800;
+
+/** How long `favicons` waits for the peer's icons. */
+export const TABS_FAVICONS_TIMEOUT_MS = 800;
+
+/** Every inventory ask: the favicons by key, their bytes pulled apart. */
+const INVENTORY_FAVICONS: TelemetryTabsFavicons = 'by-key';
+
+/** The only thing a favicon may be: image bytes, inline. */
+const FAVICON_DATA_URI_PREFIX = 'data:image/';
 
 /** How long `debugControl` waits for the peer's post-command snapshot. */
 export const DEBUG_CONTROL_TIMEOUT_MS = 800;
@@ -118,6 +137,13 @@ export interface BrowserLiveRelay {
   installLifeline(): () => void;
   /** Browser-tab inventory across every answering extension peer. */
   listTabs(): Promise<{ peers: BrowserTelemetryPeerTabs[] }>;
+  /**
+   * Pull the favicons behind keys the inventory named from the peer named
+   * by the stable qualifier — key → `data:` URI, at most
+   * `TELEMETRY_FAVICONS_PER_PULL` a call. A key the peer no longer holds,
+   * a peer that is absent or one that never answers: left out.
+   */
+  favicons(nodeId: string, keys: readonly string[]): Promise<Record<string, string>>;
   /**
    * Relay one Debug-mode control command to the peer named by the
    * stable qualifier; resolves the peer's post-command state snapshot,
@@ -164,6 +190,13 @@ interface PendingDebugSlot {
 
 interface PendingStorageSlot {
   settle(ok: boolean, payload: unknown): void;
+}
+
+interface PendingFaviconsSlot {
+  /** The peer that was asked — nobody else's reply settles the pull. */
+  readonly peerKey: string;
+  readonly keys: ReadonlySet<string>;
+  settle(icons: Record<string, string>): void;
 }
 
 /**
@@ -225,9 +258,11 @@ export function createBrowserLiveRelay(): BrowserLiveRelay {
   const pendingTabs = new Map<string, PendingTabsSlot[]>();
   const pendingDebug = new Map<string, PendingDebugSlot[]>();
   const pendingStorage = new Map<string, PendingStorageSlot>();
+  const pendingFavicons = new Map<string, PendingFaviconsSlot>();
   const holds = createOversizedReplayHolds();
   let consumerSeq = 0;
   let storageCallSeq = 0;
+  let faviconsCallSeq = 0;
 
   function sendToPeer(key: string, frame: Record<string, unknown>): void {
     server?.broadcastFrame(frame, { filterPeer: (p) => peerKey(p) === key });
@@ -258,7 +293,10 @@ export function createBrowserLiveRelay(): BrowserLiveRelay {
     const connected = server?.listConnectedPeers() ?? [];
     port.postMessage({ kind: 'peers', nodeIds: connected.map(peerKey) } satisfies TelemetryTabsWatchMessage);
     // Same-device wires only, like every telemetry frame.
-    server?.broadcastFrame({ type: TELEMETRY_TABS_SUBSCRIBE_TYPE }, { loopbackOnly: true });
+    server?.broadcastFrame(
+      { type: TELEMETRY_TABS_SUBSCRIBE_TYPE, favicons: INVENTORY_FAVICONS },
+      { loopbackOnly: true },
+    );
     port.onDisconnect(() => {
       tabsWatchPorts.delete(consumerId);
       if (tabsWatchPorts.size === 0) {
@@ -474,6 +512,25 @@ export function createBrowserLiveRelay(): BrowserLiveRelay {
     fanToTabsWatchers({ kind: 'peer-tabs', peer: peerTabsRow(payload, peer) });
   }
 
+  /** The asked peer's icons — only the keys asked for, only image bytes. */
+  function handleFaviconsResponse(message: Record<string, unknown>, peer: PeerSummary): void {
+    const callId = message.callId;
+    if (typeof callId !== 'string') return;
+    const slot = pendingFavicons.get(callId);
+    if (!slot || slot.peerKey !== peerKey(peer)) return;
+    pendingFavicons.delete(callId);
+    const answered = (message.payload as { icons?: unknown } | undefined)?.icons;
+    const icons: Record<string, string> = {};
+    if (answered !== null && typeof answered === 'object') {
+      for (const [key, dataUri] of Object.entries(answered)) {
+        if (slot.keys.has(key) && typeof dataUri === 'string' && dataUri.startsWith(FAVICON_DATA_URI_PREFIX)) {
+          icons[key] = dataUri;
+        }
+      }
+    }
+    slot.settle(icons);
+  }
+
   function handleDebugResponse(message: Record<string, unknown>, peer: PeerSummary): void {
     const queue = pendingDebug.get(peerKey(peer));
     const slot = queue?.shift();
@@ -539,6 +596,7 @@ export function createBrowserLiveRelay(): BrowserLiveRelay {
         type === TELEMETRY_LIFECYCLE_BATCH_TYPE ||
         type === TELEMETRY_CONSOLE_BATCH_TYPE ||
         type === TABS_LIST_RESPONSE_TYPE ||
+        type === TABS_FAVICONS_RESPONSE_TYPE ||
         type === TELEMETRY_TABS_PUSH_TYPE ||
         type === DEBUG_CONTROL_RESPONSE_TYPE ||
         type === STORAGE_CALL_RESPONSE_TYPE ||
@@ -555,6 +613,7 @@ export function createBrowserLiveRelay(): BrowserLiveRelay {
         holds.releasePeer(peerKey(peer));
         rejoinPeerWatches(peer, 'telemetry host ready');
       } else if (message.type === TELEMETRY_TABS_PUSH_TYPE) handleTabsPush(message, peer);
+      else if (message.type === TABS_FAVICONS_RESPONSE_TYPE) handleFaviconsResponse(message, peer);
       else if (message.type === DEBUG_CONTROL_RESPONSE_TYPE) handleDebugResponse(message, peer);
       else if (message.type === STORAGE_CALL_RESPONSE_TYPE) handleStorageResponse(message);
       else if (message.type === TELEMETRY_STORAGE_INVALIDATION_TYPE) handleStorageInvalidation(message, peer);
@@ -615,7 +674,7 @@ export function createBrowserLiveRelay(): BrowserLiveRelay {
     // (re)connects is re-subscribed, and its snapshot-on-subscribe push
     // upserts it into every viewer's rail without a pull.
     if (tabsWatchPorts.size > 0) {
-      sendToPeer(peerKey(peer), { type: TELEMETRY_TABS_SUBSCRIBE_TYPE });
+      sendToPeer(peerKey(peer), { type: TELEMETRY_TABS_SUBSCRIBE_TYPE, favicons: INVENTORY_FAVICONS });
     }
   }
 
@@ -674,12 +733,38 @@ export function createBrowserLiveRelay(): BrowserLiveRelay {
               }, TABS_LIST_TIMEOUT_MS);
               queue.push(slot);
               liveServer.broadcastFrame(
-                { type: TELEMETRY_TABS_LIST_TYPE },
+                { type: TELEMETRY_TABS_LIST_TYPE, favicons: INVENTORY_FAVICONS },
                 { filterPeer: (p) => p.peerId === peer.peerId },
               );
             }),
         ),
       ).then((collected) => ({ peers: collected.filter((p): p is BrowserTelemetryPeerTabs => p !== null) }));
+    },
+    favicons(nodeId, keys) {
+      const liveServer = server;
+      const asked = [...new Set(keys)].slice(0, TELEMETRY_FAVICONS_PER_PULL);
+      if (!liveServer || asked.length === 0) return Promise.resolve({});
+      const peer = liveServer.listConnectedPeers().find((p) => peerKey(p) === nodeId);
+      if (!peer) return Promise.resolve({});
+      return new Promise<Record<string, string>>((resolve) => {
+        const callId = `fv${++faviconsCallSeq}`;
+        const timer = setTimeout(() => {
+          pendingFavicons.delete(callId);
+          resolve({});
+        }, TABS_FAVICONS_TIMEOUT_MS);
+        pendingFavicons.set(callId, {
+          peerKey: nodeId,
+          keys: new Set(asked),
+          settle(icons) {
+            clearTimeout(timer);
+            resolve(icons);
+          },
+        });
+        liveServer.broadcastFrame(
+          { type: TELEMETRY_TABS_FAVICONS_TYPE, callId, keys: asked },
+          { filterPeer: (p) => p.peerId === peer.peerId },
+        );
+      });
     },
     debugControl(nodeId, command) {
       const liveServer = server;
@@ -748,6 +833,8 @@ export function createBrowserLiveRelay(): BrowserLiveRelay {
       pendingDebug.clear();
       for (const slot of pendingStorage.values()) slot.settle(false, null);
       pendingStorage.clear();
+      for (const slot of pendingFavicons.values()) slot.settle({});
+      pendingFavicons.clear();
       watches.clear();
       storageWatches.clear();
       consoleWatches.clear();
