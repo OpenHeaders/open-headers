@@ -14,6 +14,7 @@ export type StartupData = {
   isPackaged: boolean;
   locale: string;
   theme: 'light' | 'dark';
+  mcpClientCommand: string | null;
 };
 
 export const startupData = ipcRenderer.sendSync('oh:startup-data') as StartupData;

@@ -38,6 +38,7 @@
  */
 
 import { homedir } from 'node:os';
+import { join } from 'node:path';
 import { hostProcessRoots } from '@openheaders/oracle-host-node/process-reader';
 import { app } from 'electron';
 import { installAboutPanel } from './main/bootstrap/about-panel';
@@ -56,6 +57,7 @@ import { installAppLifecycle, isQuitting, trackEngineBoot } from './main/bootstr
 import { initMainLocale } from './main/bootstrap/locale';
 import { installLogFilesHandler } from './main/bootstrap/log-files';
 import { createLogger, installMainLogger } from './main/bootstrap/logger';
+import { missingPackageAliases } from './main/bootstrap/package-aliases';
 import { installProcessDiagnostics } from './main/bootstrap/process-diagnostics';
 import { drainPendingProtocolUrls, installProtocolHandler, registerAsProtocolHandler } from './main/bootstrap/protocol';
 import { installRpcQueue } from './main/bootstrap/rpc-queue';
@@ -145,6 +147,12 @@ function bootstrapDesktopApp(): void {
   if (install.kind !== null) logger.info(`install kind: ${install.kind}`);
   if (install.lonePackageSign !== null) {
     logger.warn(`a Windows package by one sign only: ${install.lonePackageSign}`);
+  }
+  for (const alias of missingPackageAliases({
+    installKind: install.kind,
+    localAppDataDir: process.env.LOCALAPPDATA ?? join(homedir(), 'AppData', 'Local'),
+  })) {
+    logger.warn(`the launch alias ${alias} is switched off in Windows Settings`);
   }
   if (dataFolderReturn?.outcome === 'returned') {
     logger.info(`data folder taken back from ${dataFolderReturn.from}`);

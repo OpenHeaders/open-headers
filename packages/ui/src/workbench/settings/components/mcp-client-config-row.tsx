@@ -9,15 +9,17 @@
  *   - HTTP — clients that speak streamable HTTP call the endpoint
  *     directly with the bearer token.
  *
- * The binary path is a per-platform placeholder for the standard
- * install location — shown for the platform this app is running on.
- * Snippets carry a token placeholder; the real secret is minted on
+ * The binary path is the host's own answer where it gives one (the
+ * `mcpClientCommand` capability); otherwise a per-platform placeholder
+ * for the standard install location — shown for the platform this app
+ * is running on. Snippets carry a token placeholder; the real secret is minted on
  * Backend › Server (the one token home — the row links there) and is
  * shown exactly once at mint.
  */
 
 import { App as AntApp, Button, Tabs, theme } from 'antd';
 import type React from 'react';
+import { getCapability } from '@openheaders/core/capabilities';
 import { MCP_HTTP_PATH, WS_PORT } from '@openheaders/core/protocol';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import FieldRow from '../fields/FieldRow';
@@ -29,11 +31,16 @@ import SettingsCategoryLink from './settings-category-link';
 const TOKEN_PLACEHOLDER = 'YOUR_ACCESS_TOKEN';
 const TOKENS_HOME_CATEGORY = 'backendServer';
 
-function binaryPathForThisPlatform(): string {
+function standardBinaryPathForThisPlatform(): string {
   const platform = navigator.platform.toLowerCase();
-  if (platform.startsWith('win')) return 'C:\\Users\\YOU\\AppData\\Local\\Programs\\OpenHeaders\\OpenHeaders.exe';
+  if (platform.startsWith('win')) return 'C:\\Users\\YOU\\AppData\\Local\\Programs\\open-headers\\OpenHeaders.exe';
   if (platform.startsWith('linux')) return '/opt/OpenHeaders/open-headers';
   return '/Applications/OpenHeaders.app/Contents/MacOS/OpenHeaders';
+}
+
+/** The app's program as an MCP client runs it: the host's own answer where it gives one. */
+export function binaryPathForThisPlatform(): string {
+  return getCapability('mcpClientCommand')?.() ?? standardBinaryPathForThisPlatform();
 }
 
 function stdioArgs(port: number): string[] {

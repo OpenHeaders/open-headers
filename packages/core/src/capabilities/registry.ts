@@ -970,6 +970,17 @@ export interface Capabilities {
    * last report for windows it opens later.
    */
   applyWindowChrome?: (chrome: WindowChrome) => void;
+
+  /**
+   * The command an MCP client runs to reach this app over stdio: the
+   * app's own program as something outside the app can start it.
+   * Registered by a host that knows where it is installed — the desktop
+   * on Windows, where the place differs by installer and a Windows
+   * package can only be started through its launch alias. Hosts that
+   * leave it absent get the platform's standard install location in the
+   * client configuration snippets.
+   */
+  mcpClientCommand?: () => string;
 }
 
 export type CapabilityName = keyof Capabilities;

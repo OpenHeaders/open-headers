@@ -50,6 +50,7 @@ declare global {
         isPackaged: boolean;
         locale: string;
         theme: 'light' | 'dark';
+        mcpClientCommand: string | null;
       };
       invoke(message: Record<string, unknown>): Promise<unknown>;
       onBroadcast(handler: (envelope: { type: string; payload: unknown }) => void): () => void;

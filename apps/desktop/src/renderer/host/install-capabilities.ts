@@ -214,5 +214,15 @@ registerCapability('activityMonitor', () => true);
 // which settles the probe denied without a dial.
 registerCapability('serverAdmin', () => true);
 
+// The MCP client snippets name this install's own program where main
+// knows a better answer than the platform's standard location: on
+// Windows, the program where the installer really put it, or the launch
+// alias of a Windows package. Elsewhere main hands over nothing and the
+// snippets keep the standard location.
+const mcpClientCommand = window.oh.startupData.mcpClientCommand;
+if (mcpClientCommand !== null) {
+  registerCapability('mcpClientCommand', () => mcpClientCommand);
+}
+
 // No `closeSurface` registration — the workbench window is the long-
 // lived primary; nothing in shared UI should close it implicitly.

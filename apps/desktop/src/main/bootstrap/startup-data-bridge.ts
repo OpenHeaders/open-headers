@@ -5,7 +5,11 @@
  * runs — no async roundtrip in the first-paint critical path.
  */
 
+import { homedir } from 'node:os';
+import { join } from 'node:path';
 import { app, ipcMain, nativeTheme } from 'electron';
+import { installKind } from './install-kind';
+import { mcpClientCommand } from './package-aliases';
 
 export type StartupData = {
   platform: NodeJS.Platform;
@@ -13,6 +17,8 @@ export type StartupData = {
   isPackaged: boolean;
   locale: string;
   theme: 'light' | 'dark';
+  /** The command an MCP client runs to reach this install; null where the standard location is shown. */
+  mcpClientCommand: string | null;
 };
 
 function build(): StartupData {
@@ -22,6 +28,11 @@ function build(): StartupData {
     isPackaged: app.isPackaged,
     locale: app.getLocale(),
     theme: nativeTheme.shouldUseDarkColors ? 'dark' : 'light',
+    mcpClientCommand: mcpClientCommand({
+      installKind: installKind(),
+      executablePath: process.execPath,
+      localAppDataDir: process.env.LOCALAPPDATA ?? join(homedir(), 'AppData', 'Local'),
+    }),
   };
 }
 
