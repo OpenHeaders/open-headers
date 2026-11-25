@@ -184,7 +184,12 @@ export const workbenchLive = {
   'workbench.editors.live.run.row.sending': 'Se trimite…',
   'workbench.editors.live.run.row.attempt': 'Încercarea {attempt} din {max}',
   'workbench.editors.live.run.row.passedOnAttempt': 'Reușit la încercarea {attempt} din {max}',
-  'workbench.editors.live.run.row.captures': 'capturi: {count}',
+  'workbench.editors.live.run.row.captures': ({ count }, locale) =>
+    plural(locale, Number(count), {
+      one: '{count} captură',
+      few: '{count} capturi',
+      other: '{count} de capturi',
+    }),
   'workbench.editors.live.run.row.failed': 'Eșuat',
   'workbench.editors.live.run.row.skipped': 'Sărit',
   'workbench.editors.live.run.row.skippedReason': 'Condiția sa de rulare nu a fost îndeplinită.',

@@ -166,6 +166,7 @@ export const workbenchLive = {
   'workbench.editors.live.run.row.captures': ({ count }, locale) =>
     plural(locale, Number(count), {
       one: '{count} capture',
+      many: '{count} captures',
       other: '{count} captures',
     }),
   'workbench.editors.live.run.row.failed': 'Échouée',

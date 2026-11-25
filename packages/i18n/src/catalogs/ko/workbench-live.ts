@@ -163,7 +163,8 @@ export const workbenchLive = {
   'workbench.editors.live.run.row.sending': '보내는 중…',
   'workbench.editors.live.run.row.attempt': '시도 {attempt}/{max}',
   'workbench.editors.live.run.row.passedOnAttempt': '시도 {attempt}/{max}에서 통과',
-  'workbench.editors.live.run.row.captures': '캡처 {count}개',
+  'workbench.editors.live.run.row.captures': ({ count }, locale) =>
+    plural(locale, Number(count), { other: '캡처 {count}개' }),
   'workbench.editors.live.run.row.failed': '실패',
   'workbench.editors.live.run.row.skipped': '건너뜀',
   'workbench.editors.live.run.row.skippedReason': '실행 조건이 충족되지 않았습니다.',

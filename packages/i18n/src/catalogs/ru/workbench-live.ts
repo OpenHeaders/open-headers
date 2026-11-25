@@ -179,7 +179,13 @@ export const workbenchLive = {
   'workbench.editors.live.run.row.sending': 'Отправка…',
   'workbench.editors.live.run.row.attempt': 'Попытка {attempt} из {max}',
   'workbench.editors.live.run.row.passedOnAttempt': 'Пройден с попытки {attempt} из {max}',
-  'workbench.editors.live.run.row.captures': 'захватов: {count}',
+  'workbench.editors.live.run.row.captures': ({ count }, locale) =>
+    plural(locale, Number(count), {
+      one: '{count} захват',
+      few: '{count} захвата',
+      many: '{count} захватов',
+      other: '{count} захвата',
+    }),
   'workbench.editors.live.run.row.failed': 'Сбой',
   'workbench.editors.live.run.row.skipped': 'Пропущен',
   'workbench.editors.live.run.row.skippedReason': 'Его условие запуска не выполнено.',

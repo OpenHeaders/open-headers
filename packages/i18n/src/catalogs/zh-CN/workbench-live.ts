@@ -152,7 +152,8 @@ export const workbenchLive = {
   'workbench.editors.live.run.row.sending': '发送中…',
   'workbench.editors.live.run.row.attempt': '第 {attempt} 次尝试，共 {max} 次',
   'workbench.editors.live.run.row.passedOnAttempt': '第 {attempt} 次尝试通过，共 {max} 次',
-  'workbench.editors.live.run.row.captures': '{count} 个捕获',
+  'workbench.editors.live.run.row.captures': ({ count }, locale) =>
+    plural(locale, Number(count), { other: '{count} 个捕获' }),
   'workbench.editors.live.run.row.failed': '失败',
   'workbench.editors.live.run.row.skipped': '已跳过',
   'workbench.editors.live.run.row.skippedReason': '其运行条件未满足。',
