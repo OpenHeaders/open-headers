@@ -1,11 +1,13 @@
 ; Custom NSIS installer script for Open Headers
 
 ; Counts the processes whose program file lies in the install folder and
-; leaves the count on the stack. With TERMINATE 1 each one is closed first
-; and waited for. The uninstaller's own file is left out: Windows starts it
-; from the install folder and it hands over to a copy of itself.
+; leaves two counts on the stack: all of them on top, the app's own
+; beneath. With TERMINATE 1 each one is closed first and waited for. The
+; uninstaller's own file is left out: Windows starts it from the install
+; folder and it hands over to a copy of itself.
 !macro openHeadersAppProcesses TERMINATE
   Push $0
+  Push $1
   Push $R0
   Push $R1
   Push $R2
@@ -18,6 +20,7 @@
   Push $R9
 
   StrCpy $R7 0
+  StrCpy $1 0
   ; The folder and each program path are compared in their long form: a
   ; process started through a short (8.3) path reports that path.
   System::Call 'kernel32::GetLongPathNameW(w "$INSTDIR", w .R8, i ${NSIS_MAX_STRLEN}) i .r0'
@@ -53,6 +56,9 @@
             ${if} $R9 == $R8
             ${andif} $R5 != "$R8${UNINSTALL_FILENAME}"
               IntOp $R7 $R7 + 1
+              ${if} $R5 == "$R8${APP_EXECUTABLE_FILENAME}"
+                IntOp $1 $1 + 1
+              ${endif}
               !if "${TERMINATE}" == "1"
                 ; SYNCHRONIZE | PROCESS_TERMINATE
                 System::Call 'kernel32::OpenProcess(i 0x100001, i 0, i R3) i .R4'
@@ -83,6 +89,8 @@
   Pop $R2
   Pop $R1
   Pop $R0
+  Exch $1
+  Exch
   Exch $0
 !macroend
 
@@ -93,19 +101,23 @@
 !macro customCheckAppRunning
   Push $R0
   Push $R1
+  Push $R2
   !insertmacro openHeadersAppProcesses 0
   Pop $R0
+  Pop $R2
   ${if} $R0 > 0
     ${if} ${isUpdated}
       ; The app that started this update is leaving by itself, and gives
-      ; itself two seconds before it forces its own exit.
+      ; itself two seconds before it forces its own exit. Only the app is
+      ; waited for: a helper the browser started stays until it is closed.
       ${for} $R1 1 10
+        ${if} $R2 = 0
+          ${exitfor}
+        ${endif}
         Sleep 200
         !insertmacro openHeadersAppProcesses 0
         Pop $R0
-        ${if} $R0 = 0
-          ${exitfor}
-        ${endif}
+        Pop $R2
       ${next}
     ${else}
       MessageBox MB_OKCANCEL|MB_ICONEXCLAMATION "$(appRunning)" /SD IDOK IDOK +2
@@ -117,8 +129,10 @@
     ${do}
       !insertmacro openHeadersAppProcesses 1
       Pop $R0
+      Pop $R2
       !insertmacro openHeadersAppProcesses 0
       Pop $R0
+      Pop $R2
       ${if} $R0 = 0
         ${exitdo}
       ${endif}
@@ -127,6 +141,7 @@
       Quit
     ${loop}
   ${endif}
+  Pop $R2
   Pop $R1
   Pop $R0
 !macroend

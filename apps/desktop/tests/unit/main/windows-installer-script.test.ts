@@ -36,6 +36,10 @@ describe('the Windows installer script', () => {
     expect(macro('openHeadersAppProcesses')).toMatch(/\$\{UNINSTALL_FILENAME\}/);
   });
 
+  it('tells the app apart from the helpers that run from its folder', () => {
+    expect(macro('openHeadersAppProcesses')).toMatch(/\$\{APP_EXECUTABLE_FILENAME\}/);
+  });
+
   it('adds no wait to an uninstall', () => {
     expect(macro('customUnInstall')).not.toMatch(/\bSleep\b/);
   });
