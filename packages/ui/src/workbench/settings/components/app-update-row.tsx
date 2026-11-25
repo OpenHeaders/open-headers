@@ -70,17 +70,19 @@ const AppUpdateRow: React.FC<{ def: SettingDef }> = ({ def }) => {
       </Button>
     ) : null;
 
+  const busyLine = (label: string): React.ReactNode => (
+    <Text type="secondary">
+      <SyncOutlined spin /> {label}
+    </Text>
+  );
+
   let body: React.ReactNode;
   if (state === null || !state.supported) {
     body = <Text type="secondary">{t('workbench.settings.updatesRow.unsupported')}</Text>;
   } else {
     switch (state.phase) {
       case 'checking':
-        body = (
-          <Text type="secondary">
-            <SyncOutlined spin /> {t('workbench.settings.updatesRow.checking')}
-          </Text>
-        );
+        body = busyLine(t('workbench.settings.updatesRow.checking'));
         break;
       case 'available':
         body = (
@@ -111,17 +113,22 @@ const AppUpdateRow: React.FC<{ def: SettingDef }> = ({ def }) => {
         );
         break;
       case 'downloading':
-        body = (
-          <div style={{ width: '100%', maxWidth: 320 }}>
-            <Text type="secondary">
-              {t('workbench.settings.updatesRow.downloading', { version: state.availableVersion ?? '' })}
-            </Text>
-            {/* The updater reports 100 before it verifies the file, so the bar
-                stays in the active style until the phase flips to downloaded —
-                antd would otherwise paint the success check at 100. */}
-            <Progress percent={state.progressPercent ?? 0} status="active" size="small" />
-          </div>
-        );
+        // A download that reports no progress has no bar to draw: the
+        // row is busy until the phase moves on.
+        body =
+          state.progressPercent === null ? (
+            busyLine(t('workbench.settings.updatesRow.downloading', { version: state.availableVersion ?? '' }))
+          ) : (
+            <div style={{ width: '100%', maxWidth: 320 }}>
+              <Text type="secondary">
+                {t('workbench.settings.updatesRow.downloading', { version: state.availableVersion ?? '' })}
+              </Text>
+              {/* The updater reports 100 before it verifies the file, so the bar
+                  stays in the active style until the phase flips to downloaded —
+                  antd would otherwise paint the success check at 100. */}
+              <Progress percent={state.progressPercent} status="active" size="small" />
+            </div>
+          );
         break;
       case 'downloaded':
         body = (

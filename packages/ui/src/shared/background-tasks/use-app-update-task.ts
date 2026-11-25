@@ -1,7 +1,8 @@
 /**
  * useAppUpdateTask — feeds the updater's busy phases into the
  * background-tasks store: an indeterminate "Checking for updates" bar
- * while a check runs, a percent bar while a download stages, nothing
+ * while a check runs, a percent bar while a download stages —
+ * indeterminate too when the download reports no progress — nothing
  * otherwise. Display only — the update service owns the work.
  *
  * No-op on hosts without an in-app updater (the bridge RPC rejects and
@@ -28,7 +29,7 @@ export function useAppUpdateTask(): void {
             id: TASK_ID,
             title: `Downloading ${state.availableVersion ?? 'update'}`,
             detail: 'Installs when you restart',
-            percent: state.progressPercent ?? 0,
+            percent: state.progressPercent,
           });
           break;
         default:
