@@ -5,9 +5,11 @@
  * links to the GitHub release page that keeps every byte for good.
  *
  * Retention is by reference, never by age. A tag stays while any live
- * pointer names it — `versions/<channel>.json` (every app's `tag`) and
+ * pointer names it — `versions/<channel>.json` (every app's `tag`),
  * the electron-updater `desktop/<channel>/*.yml` files (their absolute
- * `dl/<tag>/` URLs) — so the current stable in a quiet quarter is
+ * `dl/<tag>/` URLs) and the Windows package pointer beside them (its
+ * `tag` and its links; a stopped one may name an older tag than the
+ * installers') — so the current stable in a quiet quarter is
  * safe: the manifest names it until the next one lands. The PREVIOUS
  * stable stays too, as operational slack: a broken stable is rolled
  * back by re-pointing at it, and a fresh install's first update reads
@@ -129,7 +131,7 @@ function walk(dir) {
   return files;
 }
 
-/** Every `tag` string anywhere in a versions manifest. */
+/** Every `tag` string anywhere in a versions manifest or a package pointer. */
 function manifestTags(value, into) {
   if (Array.isArray(value)) {
     for (const item of value) manifestTags(item, into);
@@ -152,8 +154,15 @@ function referencedTags(pointersDir) {
     }
   }
   for (const file of walk(path.join(pointersDir, 'desktop'))) {
-    if (!file.endsWith('.yml')) continue;
-    for (const match of readFileSync(file, 'utf8').matchAll(/\/dl\/([^/\s"']+)\//g)) tags.add(match[1]);
+    if (!file.endsWith('.yml') && !file.endsWith('.json')) continue;
+    const content = readFileSync(file, 'utf8');
+    for (const match of content.matchAll(/\/dl\/([^/\s"']+)\//g)) tags.add(match[1]);
+    if (!file.endsWith('.json')) continue;
+    try {
+      manifestTags(JSON.parse(content), tags);
+    } catch (error) {
+      fail(`cannot parse ${file}: ${error.message}`);
+    }
   }
   return tags;
 }

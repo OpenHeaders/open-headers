@@ -214,6 +214,38 @@ describe('prune-feed', () => {
     expect(report).toContain('::warning::v2026.11.0 is referenced but has no dl/v2026.11.0/ objects');
   });
 
+  it('keeps a tag only a Windows package pointer names, by its tag and by its links', () => {
+    const pointers = {
+      ...POINTERS,
+      'desktop/stable/windows-package.json': JSON.stringify({
+        version: '2026.8.2',
+        tag: 'v2026.8.2',
+        packages: {},
+        stop: true,
+      }),
+      'desktop/beta/windows-package.json': JSON.stringify({
+        version: '2026.7.17',
+        packages: {
+          x64: { url: 'https://updates.openheaders.com/dl/v2026.7.17/OpenHeaders-2026.7.17-x64.msix' },
+        },
+        stop: false,
+      }),
+    };
+    const paths = setUp(LISTING, pointers);
+    run(paths);
+    const plan = readPlan(paths.out);
+
+    const reasonOf = (tag: string) => plan.keptTags.find((entry: { tag: string }) => entry.tag === tag)?.reason;
+    expect(reasonOf('v2026.8.2')).toBe('referenced');
+    expect(reasonOf('v2026.7.17')).toBe('referenced');
+    expect(plan.droppedTags).toEqual([]);
+  });
+
+  it('refuses to plan against a package pointer it cannot read', () => {
+    const paths = setUp(LISTING, { ...POINTERS, 'desktop/stable/windows-package.json': '{ "tag": ' });
+    expect(runFailing(paths)).toContain('windows-package.json');
+  });
+
   it('drops every unreferenced tag but the previous stable with a zero grace window', () => {
     const paths = setUp(LISTING, POINTERS);
     run(paths, ['--grace-days=0']);
