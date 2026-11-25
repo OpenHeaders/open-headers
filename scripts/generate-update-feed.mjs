@@ -8,6 +8,9 @@
  *   desktop/<channel>/latest*.yml   — electron-updater generic feed,
  *                                     file entries rewritten to
  *                                     absolute release-asset URLs
+ *   desktop/<channel>/windows-package.json
+ *                                   — the Windows package pointer, only
+ *                                     when the input holds packages
  *   versions/<channel>.json         — severity manifest, all apps
  *   install.sh · install.ps1        — CLI installers (stable only),
  *                                     resolve versions/stable.json
@@ -28,17 +31,47 @@
  * Artifacts stay on the feed's `dl/<tag>/` path: the yml files carry
  * absolute URLs and clients download from those.
  *
+ * The Windows package pointer is what an installed package reads to
+ * learn of an update: one file for both arches, staged when the input
+ * holds `<product>-<version>-<arch>.msix` for every arch, and not at all
+ * when it holds none. Its shape is a wire contract from the first
+ * release that carries one — an older package reads newer pointers. It
+ * rides with the installer pointers, so a stable that overtakes the
+ * beta channel carries it across. The publisher is the subject of the
+ * certificate the packages were signed with, handed over by the leg
+ * that signed them: Windows takes an update only from the publisher the
+ * installed package names.
+ *
  * Usage: node scripts/generate-update-feed.mjs <tag> <download-base-url> <input-dir> <output-dir>
  *          [--live-stable=<versions/stable.json copy>] [--live-beta=<versions/beta.json copy>]
+ *          [--package-publisher=<file holding the packages' signer subject>]...
  *        A live manifest file holds `{}` when its channel has none yet.
+ *        One publisher file per leg that signed a package; they must agree.
  */
 
-import { copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { createHash } from 'node:crypto';
+import {
+  closeSync,
+  copyFileSync,
+  existsSync,
+  mkdirSync,
+  openSync,
+  readdirSync,
+  readFileSync,
+  readSync,
+  statSync,
+  writeFileSync,
+} from 'node:fs';
 import * as path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { channelForTag, compareVersions } from './lib/versions.mjs';
+import { channelForTag, compareVersions, packageVersion } from './lib/versions.mjs';
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+
+/** The pack script's artifact name: `<product>-<version>-<arch>.msix`. */
+const PACKAGE_PRODUCT_NAME = 'OpenHeaders';
+const PACKAGE_ARCHES = ['x64', 'arm64'];
+const PACKAGE_POINTER_NAME = 'windows-package.json';
 
 function fail(message) {
   console.error(`generate-update-feed: ${message}`);
@@ -68,13 +101,78 @@ function readManifest(file, what) {
   return parsed;
 }
 
+function sha256Of(file) {
+  const hash = createHash('sha256');
+  const chunk = Buffer.allocUnsafe(1 << 20);
+  const fd = openSync(file, 'r');
+  try {
+    for (let read = readSync(fd, chunk); read > 0; read = readSync(fd, chunk)) hash.update(chunk.subarray(0, read));
+  } finally {
+    closeSync(fd);
+  }
+  return hash.digest('hex');
+}
+
+/** The one signer subject every publisher file names. */
+function readPackagePublisher(files) {
+  if (files.length === 0) fail('the input holds a Windows package but no --package-publisher names its signer');
+  const subjects = files.map((file) => {
+    let subject;
+    try {
+      subject = readFileSync(file, 'utf8').replace(/^\uFEFF/, '').trim();
+    } catch (error) {
+      fail(`cannot read the package publisher ${file}: ${error.message}`);
+    }
+    if (!subject || /[\r\n]/.test(subject)) fail(`${file}: expected one line, the signer's subject`);
+    return subject;
+  });
+  const differing = subjects.find((subject) => subject !== subjects[0]);
+  if (differing) fail(`the Windows packages name two publishers: '${subjects[0]}' and '${differing}'`);
+  return subjects[0];
+}
+
+/**
+ * The pointer for the packages in the input, or undefined when it holds
+ * none. A release ships a package for every arch or for none: a pointer
+ * naming one arch would leave the other's installs without an update
+ * and say nothing.
+ */
+function windowsPackagePointer(inputDir, tag, base, publisherFiles) {
+  const present = readdirSync(inputDir).filter((name) => name.toLowerCase().endsWith('.msix'));
+  if (present.length === 0) return undefined;
+  const version = tag.slice(1);
+  const nameFor = (arch) => `${PACKAGE_PRODUCT_NAME}-${version}-${arch}.msix`;
+  const expected = PACKAGE_ARCHES.map(nameFor);
+  const missing = expected.filter((name) => !present.includes(name));
+  const unexpected = present.filter((name) => !expected.includes(name));
+  if (missing.length > 0) fail(`a Windows package is missing from the input: ${missing.join(', ')}`);
+  if (unexpected.length > 0) fail(`a Windows package in the input is not this release's: ${unexpected.join(', ')}`);
+  let filledVersion;
+  try {
+    filledVersion = packageVersion(version);
+  } catch (error) {
+    fail(error.message);
+  }
+  const publisher = readPackagePublisher(publisherFiles);
+  const packages = {};
+  for (const arch of PACKAGE_ARCHES) {
+    const file = path.join(inputDir, nameFor(arch));
+    const size = statSync(file).size;
+    if (size === 0) fail(`${nameFor(arch)} is empty`);
+    packages[arch] = { url: `${base}/${nameFor(arch)}`, size, sha256: sha256Of(file) };
+  }
+  return { version, packageVersion: filledVersion, tag, publisher, packages, stop: false, ramp: 100 };
+}
+
 const options = {};
+const packagePublisherFiles = [];
 const positional = [];
 for (const arg of process.argv.slice(2)) {
-  const match = arg.match(/^--(live-stable|live-beta)=(.*)$/);
+  const match = arg.match(/^--(live-stable|live-beta|package-publisher)=(.*)$/);
   if (match) {
     if (!match[2]) fail(`--${match[1]} expects a file path`);
-    options[match[1]] = match[2];
+    if (match[1] === 'package-publisher') packagePublisherFiles.push(match[2]);
+    else options[match[1]] = match[2];
   } else if (arg.startsWith('--')) {
     fail(`unknown option '${arg}'`);
   } else {
@@ -85,11 +183,17 @@ const [tag, downloadBase, inputDir, outputDir] = positional;
 if (!tag?.startsWith('v')) fail(`expected the release tag as first argument, got '${tag}'`);
 if (!downloadBase?.startsWith('https://')) fail(`expected an absolute download base URL, got '${downloadBase}'`);
 if (!inputDir || !outputDir) {
-  fail('usage: generate-update-feed.mjs <tag> <download-base-url> <input-dir> <output-dir> [--live-stable=<file>] [--live-beta=<file>]');
+  fail(
+    'usage: generate-update-feed.mjs <tag> <download-base-url> <input-dir> <output-dir> [--live-stable=<file>] [--live-beta=<file>] [--package-publisher=<file>]...',
+  );
 }
 
 const channel = channelForTag(tag);
 const base = downloadBase.replace(/\/+$/, '');
+
+// Read before anything is staged: a package that cannot be pointed at
+// fails the release with an empty output tree.
+const packagePointer = windowsPackagePointer(inputDir, tag, base, packagePublisherFiles);
 
 // Desktop feed pointers — whatever OS legs produced artifacts. A leg
 // that failed simply leaves its previous pointer in place on the feed.
@@ -112,6 +216,13 @@ if (feedFiles.length === 0) {
     writeFileSync(path.join(desktopDir, stagedName), rewritten);
     stagedPointers.set(stagedName, rewritten);
   }
+}
+if (packagePointer) {
+  const desktopDir = path.join(outputDir, 'desktop', channel);
+  mkdirSync(desktopDir, { recursive: true });
+  const content = `${JSON.stringify(packagePointer, null, 2)}\n`;
+  writeFileSync(path.join(desktopDir, PACKAGE_POINTER_NAME), content);
+  stagedPointers.set(PACKAGE_POINTER_NAME, content);
 }
 
 // Severity manifest — always present (the generator ran before this).
@@ -147,7 +258,7 @@ if (channel === 'stable' && options['live-beta']) {
     const live = liveBeta[app];
     const older = !live?.latest || compareVersions(entry.latest, live.latest) > 0;
     if (!older) continue;
-    if (app === 'desktop' && stagedPointers.size === 0) {
+    if (app === 'desktop' && feedFiles.length === 0) {
       console.error('generate-update-feed: no desktop pointers staged — the beta desktop entry is not overtaken');
       continue;
     }

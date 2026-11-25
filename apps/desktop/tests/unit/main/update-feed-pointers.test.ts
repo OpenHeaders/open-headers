@@ -6,6 +6,7 @@
  */
 
 import { execFileSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import * as path from 'node:path';
@@ -44,10 +45,14 @@ let workDir: string;
 /** Live channel manifests as the release job hands them over (`{}` = the channel has none yet). */
 type LiveManifests = { stable?: unknown; beta?: unknown };
 
+/** What the legs that signed a package hand over: each one's reading of the signer's subject. */
+type PackageInputs = { publishers?: string[] };
+
 function stage(
   tag: string,
   files: Record<string, string>,
   live: LiveManifests = {},
+  packageInputs: PackageInputs = {},
 ): { out: string; run: () => string } {
   workDir = mkdtempSync(path.join(tmpdir(), 'oh-update-feed-'));
   const input = path.join(workDir, 'processed_files');
@@ -62,6 +67,11 @@ function stage(
     const file = path.join(workDir, `live_${channel}.json`);
     writeFileSync(file, JSON.stringify(live[channel]));
     flags.push(`--live-${channel}=${file}`);
+  }
+  for (const [index, subject] of (packageInputs.publishers ?? []).entries()) {
+    const file = path.join(workDir, `package_publisher_${index}.txt`);
+    writeFileSync(file, subject);
+    flags.push(`--package-publisher=${file}`);
   }
   const run = () =>
     execFileSync(process.execPath, [SCRIPT, tag, DOWNLOAD_BASE, input, out, ...flags], { encoding: 'utf8' });
@@ -267,6 +277,162 @@ describe('generate-update-feed', () => {
 
       expect(existsSync(path.join(out, 'desktop/beta'))).toBe(false);
       expect(existsSync(path.join(out, 'versions/beta.json'))).toBe(false);
+    });
+  });
+
+  describe('the Windows package pointer', () => {
+    const PUBLISHER = 'CN=John Doe SRL, O=John Doe SRL, L=Iasi, S=Iasi, C=RO';
+    const X64_BYTES = 'the x64 package';
+    const ARM64_BYTES = 'the arm64 package, a little longer';
+    const STABLE_INPUT = {
+      'latest-mac.yml': LATEST_MAC_YML,
+      'versions.json': VERSIONS_JSON,
+      'install-oh.ps1': '# signed',
+    };
+    const STABLE_PACKAGES = {
+      'OpenHeaders-2026.7.2-x64.msix': X64_BYTES,
+      'OpenHeaders-2026.7.2-arm64.msix': ARM64_BYTES,
+    };
+    const sha256 = (content: string) => createHash('sha256').update(content).digest('hex');
+
+    it('stages one pointer for both arches when the input holds the packages', () => {
+      const { out, run } = stage('v2026.7.2', { ...STABLE_INPUT, ...STABLE_PACKAGES }, {}, { publishers: [PUBLISHER] });
+      run();
+
+      expect(JSON.parse(readFileSync(path.join(out, 'desktop/stable/windows-package.json'), 'utf8'))).toEqual({
+        version: '2026.7.2',
+        packageVersion: '2026.7.2.1000',
+        tag: 'v2026.7.2',
+        publisher: PUBLISHER,
+        packages: {
+          x64: {
+            url: `${DOWNLOAD_BASE}/OpenHeaders-2026.7.2-x64.msix`,
+            size: X64_BYTES.length,
+            sha256: sha256(X64_BYTES),
+          },
+          arm64: {
+            url: `${DOWNLOAD_BASE}/OpenHeaders-2026.7.2-arm64.msix`,
+            size: ARM64_BYTES.length,
+            sha256: sha256(ARM64_BYTES),
+          },
+        },
+        stop: false,
+        ramp: 100,
+      });
+      expect(existsSync(path.join(out, 'desktop/stable/latest-mac.yml'))).toBe(true);
+    });
+
+    it('stages no pointer when the input holds no package', () => {
+      const { out, run } = stage('v2026.7.2', STABLE_INPUT, {}, { publishers: [PUBLISHER] });
+      run();
+
+      expect(readdirSync(path.join(out, 'desktop/stable'))).toEqual(['latest-mac.yml']);
+    });
+
+    it("gives a beta's pointer the beta's package version, under the beta channel alone", () => {
+      const { out, run } = stage(
+        'v2026.8.0-beta.3',
+        {
+          'beta-mac.yml': LATEST_MAC_YML,
+          'versions.json': VERSIONS_JSON,
+          'OpenHeaders-2026.8.0-beta.3-x64.msix': X64_BYTES,
+          'OpenHeaders-2026.8.0-beta.3-arm64.msix': ARM64_BYTES,
+        },
+        {},
+        { publishers: [PUBLISHER] },
+      );
+      run();
+
+      const pointer = JSON.parse(readFileSync(path.join(out, 'desktop/beta/windows-package.json'), 'utf8'));
+      expect(pointer).toMatchObject({
+        version: '2026.8.0-beta.3',
+        packageVersion: '2026.8.0.3',
+        tag: 'v2026.8.0-beta.3',
+      });
+      expect(pointer.packages.arm64.url).toBe(`${DOWNLOAD_BASE}/OpenHeaders-2026.8.0-beta.3-arm64.msix`);
+      expect(existsSync(path.join(out, 'desktop/stable'))).toBe(false);
+    });
+
+    it('takes the publisher as its one line from every leg that signed', () => {
+      const { out, run } = stage(
+        'v2026.7.2',
+        { ...STABLE_INPUT, ...STABLE_PACKAGES },
+        {},
+        { publishers: [`\uFEFF${PUBLISHER}\r\n`, `${PUBLISHER}\n`] },
+      );
+      run();
+
+      expect(readJson(path.join(out, 'desktop/stable/windows-package.json')).publisher).toBe(PUBLISHER);
+    });
+
+    it('fails with nothing staged when a package is missing for one arch', () => {
+      const { out, run } = stage(
+        'v2026.7.2',
+        { ...STABLE_INPUT, 'OpenHeaders-2026.7.2-x64.msix': X64_BYTES },
+        {},
+        { publishers: [PUBLISHER] },
+      );
+
+      expect(run).toThrow(/a Windows package is missing from the input: OpenHeaders-2026\.7\.2-arm64\.msix/);
+      expect(existsSync(out)).toBe(false);
+    });
+
+    it("fails on a package that is not this release's", () => {
+      const { run } = stage(
+        'v2026.7.2',
+        { ...STABLE_INPUT, ...STABLE_PACKAGES, 'OpenHeaders-2026.7.1-x64.msix': X64_BYTES },
+        {},
+        { publishers: [PUBLISHER] },
+      );
+
+      expect(run).toThrow(/not this release's: OpenHeaders-2026\.7\.1-x64\.msix/);
+    });
+
+    it('fails on a package no leg named a publisher for', () => {
+      const { run } = stage('v2026.7.2', { ...STABLE_INPUT, ...STABLE_PACKAGES });
+
+      expect(run).toThrow(/no --package-publisher names its signer/);
+    });
+
+    it('fails when two legs name two publishers', () => {
+      const { run } = stage(
+        'v2026.7.2',
+        { ...STABLE_INPUT, ...STABLE_PACKAGES },
+        {},
+        { publishers: [PUBLISHER, 'CN=Jane Doe SRL, O=Jane Doe SRL, L=Iasi, S=Iasi, C=RO'] },
+      );
+
+      expect(run).toThrow(/name two publishers: 'CN=John Doe SRL.*' and 'CN=Jane Doe SRL/);
+    });
+
+    it('rides with the installer pointers when the stable overtakes the beta channel', () => {
+      const { out, run } = stage(
+        'v2026.7.2',
+        { ...STABLE_INPUT, ...STABLE_PACKAGES },
+        { beta: LIVE_BETA_OLDER },
+        { publishers: [PUBLISHER] },
+      );
+      run();
+
+      expect(readFileSync(path.join(out, 'desktop/beta/windows-package.json'), 'utf8')).toBe(
+        readFileSync(path.join(out, 'desktop/stable/windows-package.json'), 'utf8'),
+      );
+    });
+
+    it('stays out of a beta channel that is newer than the stable', () => {
+      const newerBeta = {
+        ...LIVE_BETA_OLDER,
+        desktop: { latest: '2026.7.3-beta.1', tag: 'v2026.7.3-beta.1', severity: 'normal' },
+      };
+      const { out, run } = stage(
+        'v2026.7.2',
+        { ...STABLE_INPUT, ...STABLE_PACKAGES },
+        { beta: newerBeta },
+        { publishers: [PUBLISHER] },
+      );
+      run();
+
+      expect(existsSync(path.join(out, 'desktop/beta'))).toBe(false);
     });
   });
 
