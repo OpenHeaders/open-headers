@@ -176,6 +176,8 @@ export const workbenchLive = {
   'workbench.editors.live.run.pane.none': '이 단계에는 표시할 내용이 없습니다.',
   'workbench.editors.live.run.pane.gone': '이 단계의 응답은 더 이상 보관되어 있지 않습니다.',
   'workbench.editors.live.workflow.refresh': '새로 고침',
+  'workbench.editors.live.workflow.runUnavailable':
+    '워크플로는 아직 브라우저 탭에서 실행되지 않습니다. 데스크톱 앱이나 브라우저 확장 프로그램에서 실행하세요.',
   'workbench.editors.live.workflow.disabledTag': '비활성',
   'workbench.editors.live.workflow.notFound': '워크플로를 찾을 수 없습니다.',
   'workbench.editors.live.workflow.needsUpdate':

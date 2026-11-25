@@ -37,6 +37,7 @@ import type React from 'react';
 import { useCallback, useMemo, useState } from 'react';
 import EditorHeader from '../shell/EditorHeader';
 import { scopeBadge } from '../shared/scope-colors';
+import { workflowRunsHere } from '../live/run-availability';
 
 const { Text, Title } = Typography;
 
@@ -62,6 +63,7 @@ const LiveVariablesEditor: React.FC<LiveVariablesEditorProps> = ({
   const { variables: liveVariables, deleteVariable } = useLiveVariables();
   const { workflows: liveWorkflows, refreshNow } = useLiveWorkflows();
   const { activeEnvironmentId } = useEnvironments();
+  const runsHere = workflowRunsHere();
 
   const workflowUids = useMemo(() => liveWorkflows.map((w) => w.uid), [liveWorkflows]);
   const { byWorkflowUid: liveCaches } = useAllLiveCaches(workflowUids);
@@ -336,15 +338,17 @@ const LiveVariablesEditor: React.FC<LiveVariablesEditorProps> = ({
 
                     {/* Actions cell */}
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 2 }}>
-                      <Tooltip title={t('workbench.variables.live.refreshNow')}>
-                        <Button
-                          type="text"
-                          size="small"
-                          icon={<ReloadOutlined />}
-                          onClick={() => void handleRefresh(lv.workflowUid)}
-                          aria-label={t('workbench.variables.live.refreshAria', { name: lv.name })}
-                        />
-                      </Tooltip>
+                      {runsHere && (
+                        <Tooltip title={t('workbench.variables.live.refreshNow')}>
+                          <Button
+                            type="text"
+                            size="small"
+                            icon={<ReloadOutlined />}
+                            onClick={() => void handleRefresh(lv.workflowUid)}
+                            aria-label={t('workbench.variables.live.refreshAria', { name: lv.name })}
+                          />
+                        </Tooltip>
+                      )}
                       {onEditBinding && (
                         <Tooltip title={t('workbench.variables.live.editBinding')}>
                           <Button

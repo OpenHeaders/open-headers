@@ -15,6 +15,7 @@
  * state is exposed via `aria-disabled` + the native `disabled` property.
  */
 
+import { registerCapability, unregisterCapability } from '@openheaders/core/capabilities';
 import { LiveWorkflowSchema } from '@openheaders/core/schemas';
 import type { GraphqlRequest, LiveWorkflow, Request } from '@openheaders/core/types';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
@@ -304,5 +305,54 @@ describe('LiveWorkflowEditor — the Run view', () => {
     expect(screen.getByTestId('wf-run-row-probe').getAttribute('data-run-state')).toBe('cannot-run');
     expect(screen.getByTestId('wf-run-row-reboot').getAttribute('data-run-state')).toBe('not-run');
     expect(screen.getByTestId('wf-run-row-status').getAttribute('data-run-state')).toBe('cannot-run');
+  });
+});
+
+// ── A surface that runs no workflow ───────────────────────────────
+//
+// The workflow runs plan, Decisions log, S5: until the served tab runs
+// its own chain it declares so, and every other surface — the cases
+// above, with nothing declared — stays as it was.
+
+describe('LiveWorkflowEditor — on a surface that runs no workflow', () => {
+  const SENTENCE =
+    'Workflows do not run in a browser tab yet. Use the desktop app or the browser extension to run one.';
+  const refreshButton = () =>
+    screen.getByRole('button', { name: (name) => name.endsWith('Refresh') && !name.startsWith('About') });
+
+  function renderUnavailable() {
+    registerCapability('workflowRunUnavailable', () => true);
+    return renderEditor();
+  }
+
+  afterEach(() => unregisterCapability('workflowRunUnavailable'));
+
+  it('Refresh is off and a press starts no run', () => {
+    renderUnavailable();
+
+    expect(refreshButton()).toHaveProperty('disabled', true);
+    fireEvent.click(refreshButton());
+    expect(refreshNowMock).not.toHaveBeenCalled();
+  });
+
+  it('an (i) beside Refresh says where a workflow runs', async () => {
+    renderUnavailable();
+    fireEvent.click(screen.getByRole('button', { name: 'About Refresh' }));
+
+    expect(await screen.findByText(SENTENCE)).toBeTruthy();
+  });
+
+  it('the workflow tab offers no Run view', () => {
+    renderUnavailable();
+
+    expect(screen.getByText('Preview')).toBeTruthy();
+    expect(screen.queryByText('Run')).toBeNull();
+  });
+
+  it('with nothing declared there is no (i) and Refresh is on', () => {
+    renderEditor();
+
+    expect(screen.queryByRole('button', { name: 'About Refresh' })).toBeNull();
+    expect(refreshButton()).toHaveProperty('disabled', false);
   });
 });

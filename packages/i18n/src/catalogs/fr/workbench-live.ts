@@ -180,6 +180,8 @@ export const workbenchLive = {
   'workbench.editors.live.run.pane.none': "Cette étape n'a rien à afficher.",
   'workbench.editors.live.run.pane.gone': "La réponse de cette étape n'est plus conservée.",
   'workbench.editors.live.workflow.refresh': 'Actualiser',
+  'workbench.editors.live.workflow.runUnavailable':
+    "Les workflows ne s'exécutent pas encore dans un onglet de navigateur. Utilisez l'application de bureau ou l'extension de navigateur pour en exécuter un.",
   'workbench.editors.live.workflow.disabledTag': 'Désactivé',
   'workbench.editors.live.workflow.notFound': 'Workflow introuvable.',
   'workbench.editors.live.workflow.needsUpdate':

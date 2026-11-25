@@ -201,6 +201,8 @@ export const workbenchLive = {
   'workbench.editors.live.run.pane.none': 'Acest pas nu are nimic de arătat.',
   'workbench.editors.live.run.pane.gone': 'Răspunsul acestui pas nu mai este păstrat.',
   'workbench.editors.live.workflow.refresh': 'Reîmprospătare',
+  'workbench.editors.live.workflow.runUnavailable':
+    'Fluxurile de lucru nu rulează încă într-o filă de browser. Folosiți aplicația desktop sau extensia de browser pentru a rula unul.',
   'workbench.editors.live.workflow.disabledTag': 'Dezactivat',
   'workbench.editors.live.workflow.notFound': 'Fluxul de lucru nu a fost găsit.',
   'workbench.editors.live.workflow.needsUpdate':

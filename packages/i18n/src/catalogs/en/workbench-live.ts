@@ -170,6 +170,8 @@ export const workbenchLive = {
   'workbench.editors.live.run.pane.none': 'This step has nothing to show.',
   'workbench.editors.live.run.pane.gone': 'The response of this step is no longer kept.',
   'workbench.editors.live.workflow.refresh': 'Refresh',
+  'workbench.editors.live.workflow.runUnavailable':
+    'Workflows do not run in a browser tab yet. Use the desktop app or the browser extension to run one.',
   'workbench.editors.live.workflow.disabledTag': 'Disabled',
   'workbench.editors.live.workflow.notFound': 'Workflow not found.',
   'workbench.editors.live.workflow.needsUpdate':

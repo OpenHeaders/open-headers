@@ -981,6 +981,18 @@ export interface Capabilities {
    * client configuration snippets.
    */
   mcpClientCommand?: () => string;
+
+  /**
+   * Declares that this surface has NO realm that runs a workflow on a
+   * person's press — its bridge answers neither the run nor the cache
+   * read. Registered only by the served web tab, until the page there
+   * runs its own chain (the workflow runs plan, slice E); the extension
+   * and the desktop app run workflows and leave it absent. Where it is
+   * present every Refresh of a workflow is off with an (i) that says
+   * where one runs, and the workflow tab offers no Run view. Presence is
+   * the whole signal.
+   */
+  workflowRunUnavailable?: () => boolean;
 }
 
 export type CapabilityName = keyof Capabilities;

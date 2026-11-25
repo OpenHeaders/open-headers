@@ -172,6 +172,8 @@ export const workbenchLive = {
   'workbench.editors.live.run.pane.none': 'このステップには表示するものがありません。',
   'workbench.editors.live.run.pane.gone': 'このステップのレスポンスはもう保持されていません。',
   'workbench.editors.live.workflow.refresh': '更新',
+  'workbench.editors.live.workflow.runUnavailable':
+    'ワークフローはまだブラウザーのタブでは実行できません。デスクトップアプリまたはブラウザー拡張機能で実行してください。',
   'workbench.editors.live.workflow.disabledTag': '無効',
   'workbench.editors.live.workflow.notFound': 'ワークフローが見つかりません。',
   'workbench.editors.live.workflow.needsUpdate':

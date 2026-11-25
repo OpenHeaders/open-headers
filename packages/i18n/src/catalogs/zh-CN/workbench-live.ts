@@ -165,6 +165,8 @@ export const workbenchLive = {
   'workbench.editors.live.run.pane.none': '此步骤没有可显示的内容。',
   'workbench.editors.live.run.pane.gone': '此步骤的响应已不再保留。',
   'workbench.editors.live.workflow.refresh': '刷新',
+  'workbench.editors.live.workflow.runUnavailable':
+    '工作流尚不能在浏览器标签页中运行。请使用桌面应用或浏览器扩展来运行。',
   'workbench.editors.live.workflow.disabledTag': '已禁用',
   'workbench.editors.live.workflow.notFound': '未找到工作流。',
   'workbench.editors.live.workflow.needsUpdate': '此工作流包含需要更新版本 OpenHeaders 的步骤。请更新后再编辑或运行。',

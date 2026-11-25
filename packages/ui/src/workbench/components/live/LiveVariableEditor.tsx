@@ -40,6 +40,7 @@ import { useCallback, useMemo, useRef, useState } from 'react';
 import { type EditDraft, editDraftFromVariable, fingerprintEdit } from './live-variable-drafts';
 import LiveVariableCreateMode, { type CreateProps } from './LiveVariableCreateMode';
 import LiveVariableToggles from './LiveVariableToggles';
+import { RunUnavailableInfo, workflowRunsHere } from './run-availability';
 import { useLiveVariableConflictResolution } from './use-live-variable-conflict-resolution';
 import EditorHeader from '../shell/EditorHeader';
 import { FieldRow, LIVE_ROW_GAP, LIVE_ROW_LABEL_WIDTH, Section } from './layout';
@@ -275,10 +276,19 @@ const EditMode: React.FC<EditProps> = ({ variableUid, onDirtyChange, registerSav
     </>
   );
 
+  const runsHere = workflowRunsHere();
   const editHeaderActions = (
-    <Button size="small" icon={<ReloadOutlined spin={refreshing} />} onClick={() => void handleRefreshNow()}>
-      {t('workbench.editors.live.variable.refresh')}
-    </Button>
+    <>
+      <Button
+        size="small"
+        icon={<ReloadOutlined spin={refreshing} />}
+        disabled={!runsHere}
+        onClick={() => void handleRefreshNow()}
+      >
+        {t('workbench.editors.live.variable.refresh')}
+      </Button>
+      {!runsHere && <RunUnavailableInfo />}
+    </>
   );
 
   return (

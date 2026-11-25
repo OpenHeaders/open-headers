@@ -72,6 +72,7 @@ import { LIVE_WORKFLOW_FIELD, liveWorkflowStepIndexFromPath } from '@openheaders
 import { appendDraftStep } from './graph-edit';
 import { LIVE_FORM_PAD_X } from './layout';
 import { classifyRun, pickActiveRun, statusColor } from './live-display';
+import { RunUnavailableInfo, workflowRunsHere } from './run-availability';
 import WorkflowFormBody from './WorkflowFormBody';
 import WorkflowGraphBody from './WorkflowGraphBody';
 import WorkflowRunBody from './WorkflowRunBody';
@@ -164,7 +165,8 @@ type Props = EditProps | CreateProps;
  *
  * A saved workflow has a third view, Run (the workflow runs plan, The
  * Run view) — its last run on this page, read from the run's step
- * events, never from the draft. A draft that was never saved has no run.
+ * events, never from the draft. A draft that was never saved has no run,
+ * and a surface that runs no workflow has no Run view.
  */
 type WorkflowView = 'form' | 'graph' | 'run';
 
@@ -213,6 +215,7 @@ const EditMode: React.FC<EditProps> = ({ workflowUid, seedSteps, onDirtyChange, 
 
   const workflow = useMemo(() => workflows.find((w) => w.uid === workflowUid) ?? null, [workflows, workflowUid]);
   const needsUpdate = workflow !== null && workflowNeedsUpdate(workflow);
+  const runsHere = workflowRunsHere();
   const boundVars = useMemo(() => variables.filter((v) => v.workflowUid === workflowUid), [variables, workflowUid]);
 
   const [draft, setDraft] = useState<Draft | null>(() => (workflow ? draftFromWorkflow(workflow, variables) : null));
@@ -486,15 +489,16 @@ const EditMode: React.FC<EditProps> = ({ workflowUid, seedSteps, onDirtyChange, 
 
   const editHeaderActions = (
     <>
-      <ViewToggle view={view} setView={setView} withRun />
+      <ViewToggle view={view} setView={setView} withRun={runsHere} />
       <Button
         size="small"
         icon={<ReloadOutlined spin={refreshing} />}
-        disabled={needsUpdate}
+        disabled={needsUpdate || !runsHere}
         onClick={() => void handleRefreshNow()}
       >
         {t('workbench.editors.live.workflow.refresh')}
       </Button>
+      {!runsHere && <RunUnavailableInfo />}
     </>
   );
 

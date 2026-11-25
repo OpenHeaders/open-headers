@@ -30,6 +30,13 @@ registerCapability('openExternalUrl', (url) => {
   return Promise.resolve({ ok: true });
 });
 
+// Nothing in a tab runs a workflow on a press yet: the tab's dispatch
+// answers neither the run nor the cache read, and the server's own runs
+// reach no tab. Every Refresh of a workflow is off with an (i) and the
+// workflow tab offers no Run view, until the page runs its own chain
+// (the workflow runs plan, slice E) and this line goes.
+registerCapability('workflowRunUnavailable', () => true);
+
 // The anonymous public viewer (F5b) is a session-less, wire-less
 // read-only mount — everything below is a signed-tab affordance (a
 // daemon session, wire verbs, remote dispatch) and stays unregistered
