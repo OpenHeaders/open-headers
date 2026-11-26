@@ -190,6 +190,8 @@ export const workbenchLive = {
   'workbench.editors.live.workflow.notFound': 'Workflow introuvable.',
   'workbench.editors.live.workflow.needsUpdate':
     "Ce workflow contient des étapes qui nécessitent une version plus récente d'OpenHeaders. Mettez à jour pour le modifier ou l'exécuter.",
+  'workbench.editors.live.workflow.sessionStepsReadOnly':
+    "Ce workflow contient des étapes de session. Il s'exécute ici ; ses étapes ne peuvent pas être modifiées dans cette version.",
   'workbench.editors.live.workflow.deletedElsewhere': 'Le workflow a été supprimé depuis un autre onglet',
   'workbench.editors.live.workflow.saveFailed': "Impossible d'enregistrer le workflow",
   'workbench.editors.live.workflow.createFailed': 'Impossible de créer le workflow',

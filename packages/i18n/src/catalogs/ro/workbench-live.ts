@@ -211,6 +211,8 @@ export const workbenchLive = {
   'workbench.editors.live.workflow.notFound': 'Fluxul de lucru nu a fost găsit.',
   'workbench.editors.live.workflow.needsUpdate':
     'Acest flux de lucru are pași care necesită o versiune mai nouă de OpenHeaders. Actualizați pentru a-l edita sau rula.',
+  'workbench.editors.live.workflow.sessionStepsReadOnly':
+    'Acest flux de lucru are pași de sesiune. Rulează aici; pașii săi nu pot fi editați în această versiune.',
   'workbench.editors.live.workflow.deletedElsewhere': 'Fluxul de lucru a fost șters din altă filă',
   'workbench.editors.live.workflow.saveFailed': 'Salvarea fluxului de lucru a eșuat',
   'workbench.editors.live.workflow.createFailed': 'Crearea fluxului de lucru a eșuat',

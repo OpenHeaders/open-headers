@@ -186,6 +186,8 @@ export const workbenchLive = {
   'workbench.editors.live.workflow.notFound': '워크플로를 찾을 수 없습니다.',
   'workbench.editors.live.workflow.needsUpdate':
     '이 워크플로에는 더 새로운 버전의 OpenHeaders가 필요한 단계가 있습니다. 편집하거나 실행하려면 업데이트하세요.',
+  'workbench.editors.live.workflow.sessionStepsReadOnly':
+    '이 워크플로에는 세션 단계가 있습니다. 여기에서 실행되지만 이 버전에서는 단계를 편집할 수 없습니다.',
   'workbench.editors.live.workflow.deletedElsewhere': '워크플로가 다른 탭에서 삭제되었습니다',
   'workbench.editors.live.workflow.saveFailed': '워크플로를 저장하지 못했습니다',
   'workbench.editors.live.workflow.createFailed': '워크플로를 만들지 못했습니다',

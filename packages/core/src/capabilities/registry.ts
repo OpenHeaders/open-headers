@@ -1019,6 +1019,18 @@ export interface Capabilities {
    * the whole signal.
    */
   workflowRunUnavailable?: () => boolean;
+
+  /**
+   * Declares that this surface's host runs a workflow's session steps —
+   * `listen`, `send`, `expect` (the workflow runs plan, slice D).
+   * Registered only by the desktop app, whose main process opens the
+   * session; the extension and the served web tab leave it absent and
+   * read such a workflow as one that needs a newer version, until their
+   * own slice. Where it is present a workflow whose every step is of an
+   * action the model knows is run on a press and shown in the Run view;
+   * its steps are still not edited here. Presence is the whole signal.
+   */
+  workflowSessionSteps?: () => boolean;
 }
 
 export type CapabilityName = keyof Capabilities;

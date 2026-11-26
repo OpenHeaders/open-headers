@@ -180,6 +180,8 @@ export const workbenchLive = {
   'workbench.editors.live.workflow.notFound': 'Workflow not found.',
   'workbench.editors.live.workflow.needsUpdate':
     'This workflow has steps that need a newer version of OpenHeaders. Update to edit or run it.',
+  'workbench.editors.live.workflow.sessionStepsReadOnly':
+    'This workflow has session steps. It runs here; its steps cannot be edited in this version.',
   'workbench.editors.live.workflow.deletedElsewhere': 'Workflow was deleted from another tab',
   'workbench.editors.live.workflow.saveFailed': 'Failed to save workflow',
   'workbench.editors.live.workflow.createFailed': 'Failed to create workflow',

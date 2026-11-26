@@ -174,6 +174,7 @@ export const workbenchLive = {
   'workbench.editors.live.workflow.disabledTag': '已禁用',
   'workbench.editors.live.workflow.notFound': '未找到工作流。',
   'workbench.editors.live.workflow.needsUpdate': '此工作流包含需要更新版本 OpenHeaders 的步骤。请更新后再编辑或运行。',
+  'workbench.editors.live.workflow.sessionStepsReadOnly': '此工作流包含会话步骤。它在此处运行；此版本无法编辑其步骤。',
   'workbench.editors.live.workflow.deletedElsewhere': '工作流已在另一个标签页中被删除',
   'workbench.editors.live.workflow.saveFailed': '保存工作流失败',
   'workbench.editors.live.workflow.createFailed': '创建工作流失败',

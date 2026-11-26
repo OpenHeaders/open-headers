@@ -234,5 +234,10 @@ if (window.oh.startupData.windowsPackage) {
   }));
 }
 
+// A workflow's session steps run here: the main process opens the
+// session a `listen` step names. The extension and the served tab
+// register nothing and read such a workflow as needing a newer version.
+registerCapability('workflowSessionSteps', () => true);
+
 // No `closeSurface` registration — the workbench window is the long-
 // lived primary; nothing in shared UI should close it implicitly.

@@ -207,6 +207,8 @@ export const workbenchLive = {
   'workbench.editors.live.workflow.notFound': 'Рабочий процесс не найден.',
   'workbench.editors.live.workflow.needsUpdate':
     'В этом рабочем процессе есть шаги, для которых нужна более новая версия OpenHeaders. Обновите приложение, чтобы изменить или запустить его.',
+  'workbench.editors.live.workflow.sessionStepsReadOnly':
+    'В этом рабочем процессе есть шаги сеанса. Он выполняется здесь; его шаги нельзя изменить в этой версии.',
   'workbench.editors.live.workflow.deletedElsewhere': 'Рабочий процесс удалён из другой вкладки',
   'workbench.editors.live.workflow.saveFailed': 'Не удалось сохранить рабочий процесс',
   'workbench.editors.live.workflow.createFailed': 'Не удалось создать рабочий процесс',

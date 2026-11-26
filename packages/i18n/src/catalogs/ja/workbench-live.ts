@@ -182,6 +182,8 @@ export const workbenchLive = {
   'workbench.editors.live.workflow.notFound': 'ワークフローが見つかりません。',
   'workbench.editors.live.workflow.needsUpdate':
     'このワークフローには、より新しいバージョンの OpenHeaders が必要なステップがあります。編集または実行するには更新してください。',
+  'workbench.editors.live.workflow.sessionStepsReadOnly':
+    'このワークフローにはセッションステップがあります。ここで実行できますが、このバージョンではステップを編集できません。',
   'workbench.editors.live.workflow.deletedElsewhere': 'ワークフローが別のタブから削除されました',
   'workbench.editors.live.workflow.saveFailed': 'ワークフローの保存に失敗しました',
   'workbench.editors.live.workflow.createFailed': 'ワークフローの作成に失敗しました',

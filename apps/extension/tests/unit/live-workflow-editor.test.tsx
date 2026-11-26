@@ -356,3 +356,106 @@ describe('LiveWorkflowEditor — on a surface that runs no workflow', () => {
     expect(refreshButton()).toHaveProperty('disabled', false);
   });
 });
+
+// ── A host that runs session steps ────────────────────────────────
+//
+// The workflow runs plan, Decisions log, S10: the desktop app declares
+// that it runs `listen`, `send` and `expect`. There a workflow of known
+// actions runs on a press and shows its run; its steps are still not
+// edited. Every other surface — the cases above, with nothing declared —
+// stays as it was.
+
+describe('LiveWorkflowEditor — on a host that runs session steps', () => {
+  const NEEDS_UPDATE = 'This workflow has steps that need a newer version of OpenHeaders. Update to edit or run it.';
+  const RUNS_HERE = 'This workflow has session steps. It runs here; its steps cannot be edited in this version.';
+
+  const sessionFixture: LiveWorkflow = v.parse(LiveWorkflowSchema, {
+    ...workflowFixture,
+    uid: 'wfdevice',
+    name: 'Reboot',
+    steps: [
+      {
+        uid: 'stplistn',
+        id: 'probe',
+        action: 'listen',
+        sessionRequestUid: 'mqttreq1',
+        timeoutMs: 10_000,
+        captures: [],
+      },
+      { uid: 'stpcall0', id: 'reboot', requestUid: 'reqfixt1', captures: [] },
+      {
+        uid: 'stpexpct',
+        id: 'status',
+        action: 'expect',
+        on: 'probe',
+        after: 'reboot',
+        address: 'devices/dev-1/status',
+        match: [
+          { kind: 'equals', uid: 'crtstate', extractor: { kind: 'json-path', path: '$.state' }, value: 'rebooting' },
+        ],
+        timeoutMs: 10_000,
+        captures: [],
+      },
+    ],
+  });
+
+  function renderWorkflow(workflow: LiveWorkflow) {
+    workflowState = workflow;
+    requestsState = { ...requestsState, requests: [makeRequest({ uid: 'reqfixt1' })] };
+    return renderEditor();
+  }
+
+  afterEach(() => unregisterCapability('workflowSessionSteps'));
+
+  it('a session-step workflow runs on a press, and the banner says it runs here', async () => {
+    registerCapability('workflowSessionSteps', () => true);
+    renderWorkflow(sessionFixture);
+
+    expect(screen.getAllByText(RUNS_HERE)).toHaveLength(1);
+    expect(screen.queryByText(NEEDS_UPDATE)).toBeNull();
+    const refresh = screen.getByRole('button', { name: /Refresh/ });
+    expect(refresh).toHaveProperty('disabled', false);
+    fireEvent.click(refresh);
+    await waitFor(() => expect(refreshNowMock).toHaveBeenCalledTimes(1));
+  });
+
+  it('its Run view opens on the empty state, not on a refusal', () => {
+    registerCapability('workflowSessionSteps', () => true);
+    renderWorkflow(sessionFixture);
+    fireEvent.click(screen.getByText('Run'));
+
+    expect(screen.getByTestId('wf-run-empty')).toBeTruthy();
+  });
+
+  it('its steps still take no edit', () => {
+    registerCapability('workflowSessionSteps', () => true);
+    const { container } = renderWorkflow(sessionFixture);
+
+    const controls = Array.from(
+      container.querySelector('[data-step-card="reboot"]')?.querySelectorAll('input, button') ?? [],
+    );
+    expect(controls.length).toBeGreaterThan(0);
+    for (const control of controls) expect(control).toHaveProperty('disabled', true);
+    expect(screen.getByRole('button', { name: /Step$/ })).toHaveProperty('disabled', true);
+  });
+
+  it('a workflow with an action no build knows is still not run', () => {
+    registerCapability('workflowSessionSteps', () => true);
+    renderWorkflow(needsUpdateFixture);
+
+    expect(screen.getAllByText(NEEDS_UPDATE)).toHaveLength(1);
+    expect(screen.getByRole('button', { name: /Refresh/ })).toHaveProperty('disabled', true);
+    fireEvent.click(screen.getByText('Run'));
+    expect(screen.getByTestId('wf-run-row-probe').getAttribute('data-run-state')).toBe('cannot-run');
+  });
+
+  it('with nothing declared a session-step workflow needs a newer version', () => {
+    renderWorkflow(sessionFixture);
+
+    expect(screen.getAllByText(NEEDS_UPDATE)).toHaveLength(1);
+    expect(screen.getByRole('button', { name: /Refresh/ })).toHaveProperty('disabled', true);
+    fireEvent.click(screen.getByText('Run'));
+    expect(screen.getByTestId('wf-run-row-probe').getAttribute('data-run-state')).toBe('cannot-run');
+    expect(screen.getByTestId('wf-run-row-status').getAttribute('data-run-state')).toBe('cannot-run');
+  });
+});

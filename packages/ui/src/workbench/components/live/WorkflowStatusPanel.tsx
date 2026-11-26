@@ -34,7 +34,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { createPanelHeaderWiring, PanelHeader } from '@openheaders/ui/shared/dock-layout';
 import type { InfoPopoverContent } from '@openheaders/ui/shared/info-popover';
 import { classifyRun, describeCircuit, describeRunSchedule, formatCountdown, statusColor } from './live-display';
-import { workflowRunsHere } from './run-availability';
+import { canRunWorkflowHere } from './run-availability';
 
 const { Text } = Typography;
 
@@ -61,6 +61,8 @@ interface Row {
   environmentId: string | null;
   environmentName: string;
   run: LiveWorkflowRunSnapshot;
+  /** Whether a press runs this workflow on this surface — the editor header's answer. */
+  canRun: boolean;
 }
 
 const WorkflowStatusPanel: React.FC<Props> = ({ info, onClose, onOpenWorkflow, onCreateWorkflow }) => {
@@ -94,6 +96,7 @@ const WorkflowStatusPanel: React.FC<Props> = ({ info, onClose, onOpenWorkflow, o
     const out: Row[] = [];
     for (const wf of workflows) {
       const runs = byWorkflowUid[wf.uid] ?? [];
+      const canRun = canRunWorkflowHere(wf);
       for (const run of runs) {
         out.push({
           workflowUid: wf.uid,
@@ -102,6 +105,7 @@ const WorkflowStatusPanel: React.FC<Props> = ({ info, onClose, onOpenWorkflow, o
           environmentId: run.environmentId,
           environmentName: envName(run.environmentId),
           run,
+          canRun,
         });
       }
     }
@@ -428,7 +432,7 @@ const WorkflowStatusRow: React.FC<RowProps> = ({ row, isActiveEnv, onRefresh, on
 
       {/* Row 3 — actions */}
       <div style={{ display: 'flex', gap: 6 }}>
-        <Button size="small" icon={<ReloadOutlined />} disabled={!workflowRunsHere()} onClick={onRefresh}>
+        <Button size="small" icon={<ReloadOutlined />} disabled={!row.canRun} onClick={onRefresh}>
           {t('workbench.editors.live.status.refreshNow')}
         </Button>
         {c && (c.state !== 'closed' || c.consecutiveFailures > 0 || c.consecutiveOpenings > 0) && (
