@@ -56,7 +56,7 @@ import type {
   SessionSendResult,
   TestAssertion,
 } from './index';
-import { clampScriptTimeoutMs, isSessionScriptExecution } from './index';
+import { clampScriptTimeoutMs, isSessionScriptExecution, SCRIPT_ERROR_ASSERTION } from './index';
 import type {
   GrpcFrameSnapshot,
   GrpcInvokeSnapshot,
@@ -227,7 +227,7 @@ export async function executeScript(
     // response panel can show it inline even if the script produced
     // no explicit oh.test() calls.
     assertions.push({
-      name: 'script error',
+      name: SCRIPT_ERROR_ASSERTION,
       passed: false,
       message: error.message,
     });

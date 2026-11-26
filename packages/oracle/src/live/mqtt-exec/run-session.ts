@@ -28,6 +28,7 @@ import {
   type SessionOpenResult,
 } from '@openheaders/core/live';
 import { type MqttProperties, mqttReasonCodeName, topicMatchesFilter } from '@openheaders/core/mqtt';
+import { SCRIPT_ERROR_ASSERTION } from '@openheaders/core/scripts';
 import type { ExecutedMqttEnd, ExecutedMqttSnapshot, MqttRequest } from '@openheaders/core/types';
 import { encodeBase64Bytes, generateUid } from '@openheaders/core/utils';
 import type { SessionScriptHost } from '../request-exec/script-hooks';
@@ -251,7 +252,8 @@ function endedReason(facts: { end: ExecutedMqttEnd; stopped: boolean; error?: st
 /**
  * What a closed session's scripts did not do cleanly, or `null`: an After
  * close that errored, the script tests that failed, the On message runs
- * that errored. The tests are counted off the recorded marks.
+ * that errored. The tests are counted off the recorded marks; the row
+ * the runtime adds for a run that errored is that run's error, not a test.
  */
 function scriptsWarning(snapshot: ExecutedMqttSnapshot): string | null {
   const { scripts } = snapshot;
@@ -264,7 +266,7 @@ function scriptsWarning(snapshot: ExecutedMqttSnapshot): string | null {
   for (const event of snapshot.events) {
     if (event.kind !== 'script') continue;
     for (const assertion of event.assertions ?? []) {
-      if (!assertion.passed) failedTests += 1;
+      if (!assertion.passed && assertion.name !== SCRIPT_ERROR_ASSERTION) failedTests += 1;
     }
   }
   if (failedTests > 0) parts.push(`${failedTests} script ${failedTests === 1 ? 'test' : 'tests'} failed`);

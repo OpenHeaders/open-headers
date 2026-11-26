@@ -150,8 +150,10 @@ export interface ResponseSnapshot {
  * A single assertion the test script registered via `oh.test(...)`.
  * Ordered so UI can render them in call order. `passed: false` carries
  * a best-effort message; uncaught errors land as a failed assertion
- * with name `'script error'`.
+ * with name {@link SCRIPT_ERROR_ASSERTION}.
  */
+export const SCRIPT_ERROR_ASSERTION = 'script error';
+
 export interface TestAssertion {
   name: string;
   passed: boolean;

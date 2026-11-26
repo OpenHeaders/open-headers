@@ -541,8 +541,13 @@ describe('a listen that runs its request’s scripts', () => {
     durationMs: 1,
     ...over,
   });
+  /** A run that threw, as the runtime reports it: the error, and its own row among the tests. */
   const failed = (message: string): ScriptExecutionResult =>
-    ran({ succeeded: false, error: { name: 'Error', message } });
+    ran({
+      succeeded: false,
+      error: { name: 'Error', message },
+      assertions: [{ name: 'script error', passed: false, message }],
+    });
 
   /** A listen being opened over a script host that answers per source; `null` = a host that runs no script. */
   function scripted(
