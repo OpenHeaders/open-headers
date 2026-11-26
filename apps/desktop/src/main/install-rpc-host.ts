@@ -138,6 +138,7 @@ import { createOnePasswordProvider } from './secret-providers/onepassword';
 import { createServerSignInRpc } from './server-sign-in';
 import { describeOsProxy } from './system-proxy-describe';
 import { installSystemProxyService } from './system-proxy-install';
+import { channelOfVersion } from './update-feed';
 import { createUpdateService, readUpdatePreferences } from './update-service';
 import { fetchDesktopSeverity } from './versions-manifest';
 import { readServeWebApp, webAppRootCandidate } from './web-app-root';
@@ -326,10 +327,12 @@ export async function installRpcHost(): Promise<void> {
   installWindowChromeSubscription(hostStorage);
 
   let serveWebApp = readServeWebApp((await hostStorage.get(OH.settingsUser)) ?? undefined);
-  let updatePreferences = readUpdatePreferences((await hostStorage.get(OH.settingsUser)) ?? undefined);
+  // Until a channel is chosen an install follows the one its build was released on.
+  const buildChannel = channelOfVersion(app.getVersion());
+  let updatePreferences = readUpdatePreferences((await hostStorage.get(OH.settingsUser)) ?? undefined, buildChannel);
   hostStorage.subscribe(OH.settingsUser, (next) => {
     serveWebApp = readServeWebApp(next);
-    updatePreferences = readUpdatePreferences(next);
+    updatePreferences = readUpdatePreferences(next, buildChannel);
     updateService.preferencesChanged();
   });
 

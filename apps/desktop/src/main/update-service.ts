@@ -132,15 +132,22 @@ export interface UpdatePreferences {
   channel: UpdateChannel;
 }
 
-/** `updates.*` reader over the raw user-settings record. */
-export function readUpdatePreferences(settings: Record<string, unknown> | undefined): UpdatePreferences {
+/**
+ * `updates.*` reader over the raw user-settings record. `defaultChannel`
+ * is the channel followed while no channel has been chosen: the one this
+ * build was released on.
+ */
+export function readUpdatePreferences(
+  settings: Record<string, unknown> | undefined,
+  defaultChannel: UpdateChannel,
+): UpdatePreferences {
   const check = settings?.['updates.check'];
   const autoDownload = settings?.['updates.autoDownload'];
   const channel = settings?.['updates.channel'];
   return {
     check: check === 'off' || check === 'security-only' ? check : 'all',
     autoDownload: autoDownload !== false,
-    channel: channel === 'beta' ? 'beta' : 'stable',
+    channel: channel === 'beta' || channel === 'stable' ? channel : defaultChannel,
   };
 }
 

@@ -1030,6 +1030,14 @@ export interface Capabilities {
   updatesOnRequest?: () => boolean;
 
   /**
+   * The update channel this install follows while its person has chosen
+   * none. Registered only by a desktop app whose build was released on
+   * the Beta channel, so that whoever installed a beta gets the betas
+   * after it. Where it is absent an unset channel is Stable.
+   */
+  updateChannelDefault?: () => 'stable' | 'beta';
+
+  /**
    * Declares that this surface has NO realm that runs a workflow on a
    * person's press. Registered only by the web host's anonymous public
    * view, which has no wire to the server its steps would go out

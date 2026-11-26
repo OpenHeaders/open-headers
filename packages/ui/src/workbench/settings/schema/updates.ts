@@ -14,7 +14,7 @@
  * the running version.
  */
 
-import { hasCapability } from '@openheaders/core/capabilities';
+import { getCapability, hasCapability } from '@openheaders/core/capabilities';
 import { lazy } from 'react';
 import * as v from 'valibot';
 import { getCurrentHost } from '../../../shared/host-vocabulary';
@@ -80,6 +80,8 @@ registerSetting({
   subcategory: 'behavior',
   type: 'enum',
   default: 'stable',
+  // A build released on the Beta channel follows it until a channel is chosen.
+  getDefault: () => getCapability('updateChannelDefault')?.() ?? 'stable',
   schema: channelSchema,
   labelKey: 'workbench.settings.def.updates.channel.label',
   descriptionKey: 'workbench.settings.def.updates.channel.description',

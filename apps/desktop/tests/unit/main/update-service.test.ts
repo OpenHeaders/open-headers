@@ -110,10 +110,13 @@ function makeHarness(
 }
 
 describe('readUpdatePreferences', () => {
-  it('defaults to check=all, autoDownload=true, channel=stable on empty/garbage records', () => {
-    expect(readUpdatePreferences(undefined)).toEqual({ check: 'all', autoDownload: true, channel: 'stable' });
+  it("defaults to check=all, autoDownload=true and the build's channel on empty/garbage records", () => {
+    expect(readUpdatePreferences(undefined, 'stable')).toEqual({ check: 'all', autoDownload: true, channel: 'stable' });
     expect(
-      readUpdatePreferences({ 'updates.check': 42, 'updates.autoDownload': 'yes', 'updates.channel': 'nightly' }),
+      readUpdatePreferences(
+        { 'updates.check': 42, 'updates.autoDownload': 'yes', 'updates.channel': 'nightly' },
+        'stable',
+      ),
     ).toEqual({
       check: 'all',
       autoDownload: true,
@@ -123,13 +126,24 @@ describe('readUpdatePreferences', () => {
 
   it('reads explicit values', () => {
     expect(
-      readUpdatePreferences({ 'updates.check': 'off', 'updates.autoDownload': false, 'updates.channel': 'beta' }),
+      readUpdatePreferences(
+        { 'updates.check': 'off', 'updates.autoDownload': false, 'updates.channel': 'beta' },
+        'stable',
+      ),
     ).toEqual({
       check: 'off',
       autoDownload: false,
       channel: 'beta',
     });
-    expect(readUpdatePreferences({ 'updates.check': 'security-only' }).check).toBe('security-only');
+    expect(readUpdatePreferences({ 'updates.check': 'security-only' }, 'stable').check).toBe('security-only');
+  });
+
+  it('a beta build follows the Beta channel until a channel is chosen', () => {
+    expect(readUpdatePreferences(undefined, 'beta').channel).toBe('beta');
+    expect(readUpdatePreferences({ 'updates.channel': 'nightly' }, 'beta').channel).toBe('beta');
+    // A choice stands on any build: Stable on a beta build stays Stable.
+    expect(readUpdatePreferences({ 'updates.channel': 'stable' }, 'beta').channel).toBe('stable');
+    expect(readUpdatePreferences({ 'updates.channel': 'beta' }, 'stable').channel).toBe('beta');
   });
 });
 

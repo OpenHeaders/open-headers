@@ -170,6 +170,19 @@ describe('the setting that downloads updates ahead', () => {
   });
 });
 
+describe('the update channel while none is chosen', () => {
+  afterEach(() => {
+    unregisterCapability('updateChannelDefault');
+  });
+
+  it('is Stable, and Beta on a build that was released as a beta', () => {
+    const def = getDef('updates.channel');
+    expect(def?.getDefault?.()).toBe('stable');
+    registerCapability('updateChannelDefault', () => 'beta');
+    expect(def?.getDefault?.()).toBe('beta');
+  });
+});
+
 describe('the footer update task while a download runs', () => {
   it('carries the reported percentage', async () => {
     installBridge(makeState({ ...DOWNLOADING, progressPercent: 42 }));

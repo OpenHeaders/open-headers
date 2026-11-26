@@ -15,6 +15,7 @@ export type StartupData = {
   locale: string;
   theme: 'light' | 'dark';
   mcpClientCommand: string | null;
+  updateChannelDefault: 'stable' | 'beta';
   windowsPackage: boolean;
   localDataRemoval: boolean;
 };

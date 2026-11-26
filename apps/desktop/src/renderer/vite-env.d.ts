@@ -59,6 +59,7 @@ declare global {
         locale: string;
         theme: 'light' | 'dark';
         mcpClientCommand: string | null;
+        updateChannelDefault: 'stable' | 'beta';
         windowsPackage: boolean;
         localDataRemoval: boolean;
       };

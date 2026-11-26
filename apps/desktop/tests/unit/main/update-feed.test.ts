@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  channelOfVersion,
   desktopFeedUrl,
   releaseNotesUrl,
   UPDATE_FEED_ORIGIN,
@@ -22,6 +23,12 @@ describe('update feed URLs', () => {
       'https://updates.openheaders.com/desktop/stable/windows-package.json',
     );
     expect(windowsPackagePointerUrl('beta')).toBe('https://updates.openheaders.com/desktop/beta/windows-package.json');
+  });
+
+  it("reads a build's channel from its version", () => {
+    expect(channelOfVersion('2026.11.3-beta.6')).toBe('beta');
+    expect(channelOfVersion('2026.11.3')).toBe('stable');
+    expect(channelOfVersion('2026.11.3-beta')).toBe('stable');
   });
 
   it('severity always reads the STABLE manifest', () => {

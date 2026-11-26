@@ -224,6 +224,13 @@ if (mcpClientCommand !== null) {
   registerCapability('mcpClientCommand', () => mcpClientCommand);
 }
 
+// An install follows the update channel its build was released on until
+// its person chooses one: a beta build says so, and the channel setting
+// then reads Beta while it is unset. A stable build registers nothing.
+if (window.oh.startupData.updateChannelDefault === 'beta') {
+  registerCapability('updateChannelDefault', () => 'beta');
+}
+
 // The two launch aliases of a Windows package: main reads them at each
 // ask, and opens the Windows Settings page that holds their switches.
 // No other install has aliases, so no other install registers this.

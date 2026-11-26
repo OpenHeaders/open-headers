@@ -8,6 +8,7 @@
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { app, ipcMain, nativeTheme } from 'electron';
+import { channelOfVersion, type UpdateChannel } from '../update-feed';
 import { installKind } from './install-kind';
 import { localDataRemovalTarget } from './local-data-removal';
 import { mcpClientCommand } from './package-aliases';
@@ -20,6 +21,8 @@ export type StartupData = {
   theme: 'light' | 'dark';
   /** The command an MCP client runs to reach this install; null where the standard location is shown. */
   mcpClientCommand: string | null;
+  /** The update channel this build was released on: what an install follows until one is chosen. */
+  updateChannelDefault: UpdateChannel;
   /** This install is a Windows package: the renderer registers what only a package has. */
   windowsPackage: boolean;
   /** This install can remove its own data folder: a Windows package running on that folder. */
@@ -38,6 +41,7 @@ function build(): StartupData {
       executablePath: process.execPath,
       localAppDataDir: process.env.LOCALAPPDATA ?? join(homedir(), 'AppData', 'Local'),
     }),
+    updateChannelDefault: channelOfVersion(app.getVersion()),
     windowsPackage: installKind() === 'msix',
     localDataRemoval:
       localDataRemovalTarget({

@@ -20,6 +20,15 @@ export const UPDATE_FEED_ORIGIN = 'https://updates.openheaders.com';
 /** Channel = path segment, selected by the `updates.channel` setting (default `stable`). */
 export type UpdateChannel = 'stable' | 'beta';
 
+/**
+ * The channel a build was released on, from its own version. It is the
+ * channel an install follows until its person chooses one: whoever
+ * installed a beta gets the betas after it.
+ */
+export function channelOfVersion(version: string): UpdateChannel {
+  return /-beta\.\d+$/.test(version) ? 'beta' : 'stable';
+}
+
 /** Base URL electron-updater's generic provider resolves `latest*.yml` against. */
 export function desktopFeedUrl(channel: UpdateChannel): string {
   return `${UPDATE_FEED_ORIGIN}/desktop/${channel}`;
