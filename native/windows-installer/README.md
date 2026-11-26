@@ -27,6 +27,22 @@ small native program in front of the Windows package (MSIX). It
 Its channel is the one of the release it was built for: a beta's
 installer installs betas.
 
+## The window
+
+A window of its own, with no title bar, moved by its body: the app's
+mark and name, one line — "Downloading OpenHeaders… 39% (98 of 240
+MB)", megabytes as Windows counts them — and a thin bar, which runs
+where there is nothing to count. A close mark at the top right, and
+Esc, cancel the run for as long as a cancel is taken: not once Windows
+has the package. Light or dark as the PC is set, and in the person's
+own colours where they asked for contrast. When a run stops, Windows'
+own dialog comes in front of it with the run's sentence, Try again
+where another try can end otherwise, Show log, and Close.
+
+The mark is the desktop's icon picture and the program's icon the
+desktop's icon file, both read where they live
+(`apps/desktop/build/icon.png`, `icon.ico`).
+
 ## Switches
 
 | Switch | |
@@ -60,8 +76,11 @@ installer installs betas.
 What the installer decides runs anywhere and is tested with
 `cargo test` on any machine: the switches (`args.rs`), the pointer
 (`pointer.rs`), the download's tries (`transfer.rs`), the order of a
-run and every way it stops (`flow.rs`). What it asks of Windows is in
-`src/win/` and compiles on Windows targets only.
+run and every way it stops (`flow.rs`), what the window shows for a
+run's state and where each part lies (`view.rs`). What it asks of
+Windows is in `src/win/` and compiles on Windows targets only: the
+window (`window.rs`), how it is drawn (`paint.rs`), the dialog of a
+stop (`dialog.rs`).
 
 ## Build
 

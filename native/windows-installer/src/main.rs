@@ -20,6 +20,7 @@ mod log;
 mod outcome;
 mod pointer;
 mod transfer;
+mod view;
 #[cfg(windows)]
 mod win;
 

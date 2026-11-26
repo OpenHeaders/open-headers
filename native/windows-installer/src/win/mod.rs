@@ -1,12 +1,14 @@
 //! The installer on Windows: what the run asks of the PC, and the two
-//! ways it runs — beside its dialog, or silently.
+//! ways it runs — beside its window, or silently.
 
 mod checks;
 mod dialog;
 mod hash;
 mod http;
 mod package;
+mod paint;
 mod trust;
+mod window;
 
 use std::panic::{AssertUnwindSafe, catch_unwind};
 use std::path::{Path, PathBuf};
@@ -74,7 +76,7 @@ impl System for Pc {
 }
 
 /// One run of the install, on the calling thread. A panic is a run that
-/// stopped, never a dialog left with nothing behind it.
+/// stopped, never a window left with nothing behind it.
 fn attempt(plan: &Plan, watcher: &dyn Watcher, log: &Log, carry: &mut Carry) -> Result<Done, Stop> {
     let result = catch_unwind(AssertUnwindSafe(|| {
         let http = http::WinHttp::open(&format!("OpenHeaders-Installer/{RELEASE_VERSION}"))
@@ -105,24 +107,23 @@ fn plan_of(args: &Args) -> Plan {
 }
 
 fn watched(plan: Plan, log: Arc<Log>) -> i32 {
-    // The dialog's thread opens the log from its button: the shell wants a single-threaded apartment there.
+    // The window's thread opens the log from the stop dialog's button: the shell wants a single-threaded apartment there.
     let _ = unsafe { CoInitializeEx(None, COINIT_APARTMENTTHREADED) };
     let log_path = log.path().to_path_buf();
-    dialog::run(&log_path, move |window| {
+    window::run(&log_path, move |window| {
         let _ = unsafe { CoInitializeEx(None, COINIT_MULTITHREADED) };
         let mut carry = Carry::default();
         loop {
             let result = attempt(&plan, window, &log, &mut carry);
             match &result {
-                Err(stop) if stop.failure != Failure::Cancelled => {
-                    if window.stopped(stop.failure) == dialog::Answer::TryAgain {
-                        log.line("trying again");
-                        continue;
-                    }
+                Err(stop)
+                    if stop.failure != Failure::Cancelled
+                        && window.stopped(stop.failure) == dialog::Answer::TryAgain =>
+                {
+                    log.line("trying again");
                 }
-                _ => window.close(),
+                _ => return exit_code_of(&result),
             }
-            return exit_code_of(&result);
         }
     })
 }
@@ -149,7 +150,7 @@ pub fn run() -> i32 {
     log.line(&format!(
         "channel {}, {}, {}, {}",
         plan.channel.name(),
-        if args.silent { "silent" } else { "with its dialog" },
+        if args.silent { "silent" } else { "with its window" },
         match &plan.package {
             Some(file) => format!("from the file {}", file.display()),
             None => "from the feed".to_string(),

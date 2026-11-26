@@ -11,6 +11,8 @@ on:
       - 'native/windows-installer/**'
       - 'scripts/build-windows-installer.mjs'
       - 'apps/desktop/build/windows/AppxManifest.xml'
+      - 'apps/desktop/build/icon.ico'
+      - 'apps/desktop/build/icon.png'
       - '.github/workflows/windows-installer.yml'
   pull_request:
     branches: [main]
@@ -18,6 +20,8 @@ on:
       - 'native/windows-installer/**'
       - 'scripts/build-windows-installer.mjs'
       - 'apps/desktop/build/windows/AppxManifest.xml'
+      - 'apps/desktop/build/icon.ico'
+      - 'apps/desktop/build/icon.png'
       - '.github/workflows/windows-installer.yml'
   workflow_dispatch:
 

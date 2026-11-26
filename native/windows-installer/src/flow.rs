@@ -67,9 +67,46 @@ pub enum Stage {
     Opening,
 }
 
+/// A megabyte as Windows counts one where it shows a file's size.
+const MEGABYTE: u64 = 1024 * 1024;
+
+/// How far a stage is.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Progress {
+    /// Nothing to count yet, or nothing that can be counted.
+    Unknown,
+    Percent(u32),
+    /// A download: the bytes on disk, of the bytes the pointer names.
+    Bytes {
+        have: u64,
+        total: u64,
+    },
+}
+
+impl Progress {
+    pub fn percent(self) -> Option<u32> {
+        match self {
+            Progress::Unknown => None,
+            Progress::Percent(percent) => Some(percent.min(100)),
+            Progress::Bytes { total: 0, .. } => None,
+            Progress::Bytes { have, total } => Some((have.saturating_mul(100) / total).min(100) as u32),
+        }
+    }
+
+    /// The download in whole megabytes, where it is at least one.
+    fn megabytes(self) -> Option<(u64, u64)> {
+        match self {
+            Progress::Bytes { have, total } if total >= MEGABYTE => {
+                Some((have.min(total) / MEGABYTE, total / MEGABYTE))
+            }
+            _ => None,
+        }
+    }
+}
+
 impl Stage {
     /// The line a person reads while the stage runs.
-    pub fn words(self, percent: Option<u32>) -> String {
+    pub fn words(self, progress: Progress) -> String {
         let words = match self {
             Stage::Checking => "Getting ready…",
             Stage::Downloading => "Downloading OpenHeaders…",
@@ -77,8 +114,11 @@ impl Stage {
             Stage::Installing => "Installing…",
             Stage::Opening => "Opening OpenHeaders…",
         };
-        match (self, percent) {
-            (Stage::Downloading | Stage::Installing, Some(percent)) => format!("{words} {percent}%"),
+        match (self, progress.percent(), progress.megabytes()) {
+            (Stage::Downloading, Some(percent), Some((have, total))) => {
+                format!("{words} {percent}% ({have} of {total} MB)")
+            }
+            (Stage::Downloading | Stage::Installing, Some(percent), _) => format!("{words} {percent}%"),
             _ => words.to_string(),
         }
     }
@@ -92,8 +132,8 @@ impl Stage {
 /// The person watching, if anyone is.
 pub trait Watcher {
     fn stage(&self, stage: Stage);
-    /// Progress of the stage: a percentage, or `None` while there is none to give.
-    fn percent(&self, percent: Option<u32>);
+    /// How far the stage is.
+    fn progress(&self, progress: Progress);
     fn cancelled(&self) -> bool;
 }
 
@@ -102,7 +142,7 @@ pub struct Unwatched;
 
 impl Watcher for Unwatched {
     fn stage(&self, _stage: Stage) {}
-    fn percent(&self, _percent: Option<u32>) {}
+    fn progress(&self, _progress: Progress) {}
     fn cancelled(&self) -> bool {
         false
     }
@@ -185,10 +225,15 @@ fn fetch(
         Around {
             pause: &|milliseconds| system.pause(milliseconds),
             on_bytes: &mut |have| {
-                let percent = (have.saturating_mul(100) / offer.size).min(100) as u32;
-                if shown != Some(percent) {
-                    shown = Some(percent);
-                    watcher.percent(Some(percent));
+                // The line changes with the percentage and with the megabyte, and is said once per change.
+                let progress = Progress::Bytes {
+                    have,
+                    total: offer.size,
+                };
+                let line = (progress.percent(), progress.megabytes());
+                if shown != Some(line) {
+                    shown = Some(line);
+                    watcher.progress(progress);
                 }
             },
             is_cancelled: &|| watcher.cancelled(),
@@ -204,7 +249,7 @@ fn fetch(
     log.line(&format!("downloaded {}", file.display()));
 
     watcher.stage(Stage::Verifying);
-    watcher.percent(None);
+    watcher.progress(Progress::Unknown);
     let hash = system
         .sha256_hex(&file)
         .map_err(|error| Stop::new(Failure::Hash, error))?;
@@ -267,7 +312,7 @@ pub fn run(
     carry: &mut Carry,
 ) -> Result<Done, Stop> {
     watcher.stage(Stage::Checking);
-    watcher.percent(None);
+    watcher.progress(Progress::Unknown);
     system.fitness().map_err(|unfit| match unfit {
         Unfit::WindowsTooOld => Stop::new(
             Failure::WindowsTooOld,
@@ -322,7 +367,7 @@ pub fn run(
         .install(&file, &mut |percent| {
             if shown != Some(percent) {
                 shown = Some(percent);
-                watcher.percent(Some(percent.min(100)));
+                watcher.progress(Progress::Percent(percent));
             }
         })
         .map_err(|error| Stop::new(Failure::WindowsRefused, error))?;
@@ -330,7 +375,7 @@ pub fn run(
 
     if plan.open_app {
         watcher.stage(Stage::Opening);
-        watcher.percent(None);
+        watcher.progress(Progress::Unknown);
         system
             .open_app()
             .map_err(|error| Stop::new(Failure::NotOpened, error))?;
@@ -475,7 +520,7 @@ mod tests {
     #[derive(Default)]
     struct Seen {
         stages: RefCell<Vec<Stage>>,
-        percents: RefCell<Vec<Option<u32>>>,
+        progress: RefCell<Vec<Progress>>,
         cancel_at: Cell<Option<Stage>>,
     }
 
@@ -483,8 +528,8 @@ mod tests {
         fn stage(&self, stage: Stage) {
             self.stages.borrow_mut().push(stage);
         }
-        fn percent(&self, percent: Option<u32>) {
-            self.percents.borrow_mut().push(percent);
+        fn progress(&self, progress: Progress) {
+            self.progress.borrow_mut().push(progress);
         }
         fn cancelled(&self) -> bool {
             self.cancel_at
@@ -543,27 +588,61 @@ mod tests {
     }
 
     #[test]
-    fn the_bar_hears_each_percentage_once() {
+    fn the_window_hears_each_change_once() {
         let pc = Pc::new("percent");
         let seen = Seen::default();
         go(&pc, &plan(), &seen).unwrap();
-        let percents = seen.percents.borrow();
-        assert!(percents.contains(&Some(100)));
+        let progress = seen.progress.borrow();
+        assert!(progress.contains(&Progress::Bytes {
+            have: PACKAGE.len() as u64,
+            total: PACKAGE.len() as u64
+        }));
         assert!(
-            percents.windows(2).all(|pair| pair[0] != pair[1] || pair[0].is_none()),
-            "{percents:?}"
+            progress
+                .windows(2)
+                .all(|pair| pair[0] != pair[1] || pair[0] == Progress::Unknown),
+            "{progress:?}"
         );
-        assert_eq!(&percents[percents.len() - 4..], [Some(0), Some(40), Some(100), None]);
+        assert_eq!(
+            &progress[progress.len() - 4..],
+            [
+                Progress::Percent(0),
+                Progress::Percent(40),
+                Progress::Percent(100),
+                Progress::Unknown
+            ]
+        );
     }
 
     #[test]
     fn a_stage_reads_as_its_line_with_a_percentage_where_there_is_one() {
-        assert_eq!(Stage::Downloading.words(Some(42)), "Downloading OpenHeaders… 42%");
-        assert_eq!(Stage::Downloading.words(None), "Downloading OpenHeaders…");
-        assert_eq!(Stage::Verifying.words(Some(42)), "Verifying…");
-        assert_eq!(Stage::Installing.words(Some(7)), "Installing… 7%");
-        assert_eq!(Stage::Opening.words(None), "Opening OpenHeaders…");
+        assert_eq!(
+            Stage::Downloading.words(Progress::Percent(42)),
+            "Downloading OpenHeaders… 42%"
+        );
+        assert_eq!(Stage::Downloading.words(Progress::Unknown), "Downloading OpenHeaders…");
+        assert_eq!(Stage::Verifying.words(Progress::Percent(42)), "Verifying…");
+        assert_eq!(Stage::Installing.words(Progress::Percent(7)), "Installing… 7%");
+        assert_eq!(Stage::Opening.words(Progress::Unknown), "Opening OpenHeaders…");
         assert!(Stage::Verifying.takes_cancel() && !Stage::Installing.takes_cancel());
+    }
+
+    #[test]
+    fn a_download_reads_with_its_megabytes_as_windows_counts_them() {
+        let megabyte = 1024 * 1024;
+        // The package of beta.5 for ARM64: Windows shows the file as 240 MB.
+        let total = 252_212_268;
+        let words = |have| Stage::Downloading.words(Progress::Bytes { have, total });
+        assert_eq!(words(0), "Downloading OpenHeaders… 0% (0 of 240 MB)");
+        assert_eq!(words(112 * megabyte), "Downloading OpenHeaders… 46% (112 of 240 MB)");
+        assert_eq!(words(total), "Downloading OpenHeaders… 100% (240 of 240 MB)");
+        assert_eq!(words(total + megabyte), "Downloading OpenHeaders… 100% (240 of 240 MB)");
+        // A download under a megabyte has none to count.
+        assert_eq!(
+            Stage::Downloading.words(Progress::Bytes { have: 20, total: 40 }),
+            "Downloading OpenHeaders… 50%"
+        );
+        assert_eq!(Progress::Bytes { have: 0, total: 0 }.percent(), None);
     }
 
     #[test]
