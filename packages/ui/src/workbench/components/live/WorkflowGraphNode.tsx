@@ -6,15 +6,17 @@
  * last run made of it. A selected node wears the accent ring, whatever
  * its state.
  *
- * Beside the name sit three marks the design does not draw: the step has
- * a run condition, a capture sets its order, the draft says something is
- * wrong with it.
+ * Its sizes are one step under the design's: the whole workflow view
+ * is drawn that much smaller, to hold more.
+ *
+ * Beside the name sit two marks the design does not draw: a capture
+ * sets the step's order, the draft says something is wrong with it.
  */
 
-import { FilterOutlined, SortAscendingOutlined, ThunderboltFilled, WarningOutlined } from '@ant-design/icons';
+import { SortAscendingOutlined, ThunderboltFilled, WarningOutlined } from '@ant-design/icons';
 import type { DraftCapture } from '@openheaders/core/live';
-import type { LiveVariable, StepGateClause } from '@openheaders/core/types';
-import { type Translate, useT } from '@openheaders/ui/context/LocaleContext';
+import type { LiveVariable } from '@openheaders/core/types';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { Tooltip } from 'antd';
 import type React from 'react';
 import { type RequestKind, requestKindMeta } from '../../request-kind-menu';
@@ -23,15 +25,15 @@ import { STEP_MARK_INK } from './StepGlyph';
 import type { StepMark } from './step-mark';
 import { StepRunMark } from './WorkflowGraphRunOverlay';
 
-export const GRAPH_NODE_W = 232;
-export const GRAPH_NODE_H = 92;
+export const GRAPH_NODE_W = 208;
+export const GRAPH_NODE_H = 82;
 
 const MONO = 'ui-monospace, SFMono-Regular, Menlo, monospace';
 
 const LINE: React.CSSProperties = {
   display: 'block',
-  fontSize: 12,
-  lineHeight: '16px',
+  fontSize: 11,
+  lineHeight: '15px',
   whiteSpace: 'nowrap',
   overflow: 'hidden',
   textOverflow: 'ellipsis',
@@ -39,10 +41,10 @@ const LINE: React.CSSProperties = {
 
 const TAG: React.CSSProperties = {
   flex: 'none',
-  padding: '0 6px',
+  padding: '0 5px',
   borderRadius: 4,
-  fontSize: 11,
-  lineHeight: '16px',
+  fontSize: 10,
+  lineHeight: '14px',
   fontWeight: 600,
   whiteSpace: 'nowrap',
 };
@@ -61,34 +63,6 @@ function protocolTagStyle(kind: RequestKind): React.CSSProperties {
       background: `color-mix(in srgb, ${REQUEST_KIND_COLORS[kind]} 14%, transparent)`,
     }
   );
-}
-
-function clauseSummary(clause: StepGateClause, t: Translate): string {
-  switch (clause.kind) {
-    case 'status':
-      return typeof clause.match === 'string'
-        ? t('workbench.editors.live.graph.clauseStatusIs', { stepId: clause.stepId, value: clause.match })
-        : clause.match[0] === 'eq'
-          ? t('workbench.editors.live.graph.clauseStatusIs', { stepId: clause.stepId, value: clause.match[1] })
-          : clause.match[0] === 'ne'
-            ? t('workbench.editors.live.graph.clauseStatusIsNot', { stepId: clause.stepId, value: clause.match[1] })
-            : t('workbench.editors.live.graph.clauseStatusIn', {
-                stepId: clause.stepId,
-                list: clause.match[1].join(', '),
-              });
-    case 'capture-exists':
-      return t('workbench.editors.live.graph.clauseCaptureExists', {
-        ref: `${clause.stepId}.${clause.captureName}`,
-      });
-    case 'capture-equals':
-      // Pure technical composition — no English words, stays raw.
-      return `${clause.stepId}.${clause.captureName} = "${clause.value}"`;
-    case 'capture-matches':
-      return t('workbench.editors.live.graph.clauseCaptureMatches', {
-        ref: `${clause.stepId}.${clause.captureName}`,
-        pattern: clause.pattern,
-      });
-  }
 }
 
 /** A node's second line: what the step does. */
@@ -110,10 +84,8 @@ interface WorkflowGraphNodeProps {
   onSelect?: () => void;
   /** Right-click — selects the node and opens the compact context menu. */
   onContextMenu?: (e: React.MouseEvent) => void;
-  /** Drag-to-move handlers — ephemeral layout offsets owned by the body. */
-  onDragDown?: (e: React.PointerEvent<HTMLDivElement>) => void;
-  onDragMove?: (e: React.PointerEvent<HTMLDivElement>) => void;
-  onDragUp?: (e: React.PointerEvent<HTMLDivElement>) => void;
+  /** The pointer is over the node, or has left it. */
+  onHover?: (over: boolean) => void;
   /** The kind of request the step speaks — `null` where it names none the workspace holds. */
   protocol: RequestKind | null;
   /** The step's kind in a word — empty for a step of an action the model does not know. */
@@ -133,7 +105,6 @@ interface WorkflowGraphNodeProps {
   runCaptures?: Record<string, string>;
   /** This step's response byte count from the cache row. */
   runResponseBytes?: number;
-  gateClauses: readonly StepGateClause[];
   /** How a capture orders the step — empty where none does. */
   priorityLabel: string;
   errors: readonly string[];
@@ -148,9 +119,7 @@ const WorkflowGraphNode: React.FC<WorkflowGraphNodeProps> = ({
   selected,
   onSelect,
   onContextMenu,
-  onDragDown,
-  onDragMove,
-  onDragUp,
+  onHover,
   protocol,
   kind,
   does,
@@ -162,7 +131,6 @@ const WorkflowGraphNode: React.FC<WorkflowGraphNodeProps> = ({
   mark,
   runCaptures,
   runResponseBytes,
-  gateClauses,
   priorityLabel,
   errors,
   cycleWarn,
@@ -224,15 +192,8 @@ const WorkflowGraphNode: React.FC<WorkflowGraphNodeProps> = ({
       data-cycle-target={cycleWarn ? 'true' : undefined}
       onClick={onSelect}
       onContextMenu={onContextMenu}
-      // Select on press, not on release — the highlight (node +
-      // outgoing arrows) must follow the node through a drag.
-      onPointerDown={(e) => {
-        onSelect?.();
-        onDragDown?.(e);
-      }}
-      onPointerMove={onDragMove}
-      onPointerUp={onDragUp}
-      onPointerCancel={onDragUp}
+      onPointerEnter={onHover ? () => onHover(true) : undefined}
+      onPointerLeave={onHover ? () => onHover(false) : undefined}
       style={{
         position: 'absolute',
         left: x,
@@ -240,25 +201,24 @@ const WorkflowGraphNode: React.FC<WorkflowGraphNodeProps> = ({
         width: GRAPH_NODE_W,
         height: GRAPH_NODE_H,
         boxSizing: 'border-box',
-        padding: '0 14px',
+        padding: '0 12px',
         display: 'flex',
         alignItems: 'center',
-        gap: 10,
-        borderRadius: 14,
+        gap: 9,
+        borderRadius: 12,
         background: 'var(--oh-wf-surface)',
         color: 'var(--oh-wf-text)',
         boxShadow: ring,
-        touchAction: 'none',
         cursor: onSelect ? 'pointer' : undefined,
       }}
     >
       <StepRunMark stepId={stepId} mark={mark} captures={runCaptures} responseBytes={runResponseBytes} />
       <span style={{ flex: 1, minWidth: 0 }}>
-        <span style={{ display: 'flex', alignItems: 'center', gap: 6, height: 20 }}>
+        <span style={{ display: 'flex', alignItems: 'center', gap: 5, height: 18 }}>
           <b
             style={{
               minWidth: 0,
-              fontSize: 13,
+              fontSize: 12,
               fontWeight: 600,
               whiteSpace: 'nowrap',
               overflow: 'hidden',
@@ -273,24 +233,6 @@ const WorkflowGraphNode: React.FC<WorkflowGraphNodeProps> = ({
           )}
           {kind !== '' && (
             <span style={{ ...TAG, background: 'var(--oh-wf-tag-bg)', color: 'var(--oh-wf-tag-text)' }}>{kind}</span>
-          )}
-          {gateClauses.length > 0 && (
-            <Tooltip
-              title={
-                <div>
-                  {gateClauses.map((clause) => (
-                    <div key={clause.uid} style={{ fontSize: 11 }}>
-                      {clauseSummary(clause, t)}
-                    </div>
-                  ))}
-                </div>
-              }
-            >
-              <FilterOutlined
-                data-testid={`wf-graph-gate-${stepId}`}
-                style={{ flex: 'none', fontSize: 11, color: 'var(--ant-color-warning)' }}
-              />
-            </Tooltip>
           )}
           {priorityLabel !== '' && (
             <Tooltip title={priorityLabel}>
@@ -319,7 +261,7 @@ const WorkflowGraphNode: React.FC<WorkflowGraphNodeProps> = ({
         {does.text !== '' && (
           <span style={{ ...LINE, color: does.muted ? 'var(--oh-wf-text-secondary)' : undefined }}>
             {does.lead !== undefined && does.lead !== '' && (
-              <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--oh-wf-text-secondary)' }}>{does.lead} </span>
+              <span style={{ fontSize: 10, fontWeight: 600, color: 'var(--oh-wf-text-secondary)' }}>{does.lead} </span>
             )}
             <span style={does.mono ? { fontFamily: MONO } : undefined}>{does.text}</span>
           </span>

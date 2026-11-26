@@ -4,13 +4,13 @@
  * redesign).
  *
  * A pure projection of the same `DraftWorkflow` the form edits: one
- * node per step (`WorkflowGraphNode`), one edge per resolved
- * `dependsOn` parent. Layout comes from `buildWorkflowGraphLayout` —
- * layers top-down, declared order across each layer; nodes are
- * fixed-size so edge anchors stay deterministic. A session step's node
- * says its kind and what it acts on, and names as text what arms it —
- * the listen it is on, the step it waits after — with no edge of a kind
- * of its own.
+ * node per step (`WorkflowGraphNode`), one line per resolved
+ * `dependsOn` parent (`WorkflowGraphLines`). Layout comes from
+ * `buildWorkflowGraphLayout` — layers top-down, a node under the middle
+ * of its parents — and the lines' runs from `routeGraph`; nobody places
+ * a node by hand. A session step's node says its kind and what it acts
+ * on, and names as text what arms it — the listen it is on, the step it
+ * waits after — with no line of a kind of its own.
  *
  * Selection: a click selects a node, and the view's panel shows that
  * step; a click on the empty canvas deselects. Selection is ephemeral UI
@@ -24,18 +24,21 @@
  * a step captured come from the cache row alone, masked until asked
  * for; an exposed capture carries its variable's publication state
  * (Save activates the workflow; a successful RUN is what publishes the
- * vars — pending until then).
+ * vars — pending until then). A line reads the same two sources for
+ * whether the last run took it.
  *
  * Editing (slice 4): when the editor passes `setDraft`, the graph
  * gains structural edit gestures that mutate the SAME draft the form
  * edits — never a second model:
- *   - connect: pointer-drag from a node's bottom anchor rubber-bands
- *     an edge; dropping on another node adds that `dependsOn` edge
- *     via `addGraphDependency`. Would-be-cycle targets tint warning
- *     during the drag but the drop still commits — the form allows
- *     invalid drafts and badges them, so the graph does the same.
- *   - remove: click an edge (widened transparent hit path) to select
- *     it, then the × affordance at its midpoint removes the edge.
+ *   - connect: pointer-drag from the ring at a node's lower edge — it
+ *     shows on the node under the pointer and on the selected one —
+ *     rubber-bands a line; dropping on another node adds that
+ *     `dependsOn` edge via `addGraphDependency`. Would-be-cycle targets
+ *     tint warning during the drag but the drop still commits — the
+ *     form allows invalid drafts and badges them, so the graph does the
+ *     same.
+ *   - remove: click a line or its label to select it, then the × by
+ *     the label removes the dependency.
  *   - add step: pane affordance appending the form's "+ Step"
  *     defaults and selecting the new node.
  * Rubber-banding is component-local state; only the drop mutates the
@@ -44,20 +47,19 @@
  *
  * Canvas chrome: a pan/zoom viewport (drag the background to pan,
  * wheel/pinch to zoom around the cursor, a row of controls bottom-left
- * with a re-center/fit action), edges carry direction arrowheads, a
- * compact right-click context menu on the background (add step) and on
- * nodes (delete), keyboard shortcuts on the focused pane (⌫ delete node
- * or selected edge, Esc dismiss), and a legend behind a button
- * bottom-right naming all of them — the graph may be a short strip over
- * its panel, so nothing sits open on it. The first view centres the
- * graph, drawn smaller where it is wider than the pane. Delete mirrors
- * the form's remove button via `removeDraftStep` — last step stays,
- * dangling references badge.
+ * with a re-center/fit action), a compact right-click context menu on
+ * the background (add step) and on nodes (delete), keyboard shortcuts
+ * on the focused pane (⌫ delete node or selected line, Esc dismiss), and
+ * a legend behind a button bottom-right naming all of them — the graph
+ * may be a short strip over its panel, so nothing sits open on it. The
+ * first view centres the graph at the app's UI scale, drawn smaller
+ * where it is wider than the pane. Delete mirrors the form's remove
+ * button via `removeDraftStep` — last step stays, dangling references
+ * badge.
  */
 
 import {
   AimOutlined,
-  CloseOutlined,
   DeleteOutlined,
   PlusOutlined,
   QuestionCircleOutlined,
@@ -66,6 +68,9 @@ import {
 } from '@ant-design/icons';
 import type { DraftCapture, DraftStep, DraftWorkflow } from '@openheaders/core/live';
 import {
+  collectGraphqlRequestTemplateStrings,
+  collectMqttRequestTemplateStrings,
+  collectRequestTemplateStrings,
   isExpectStep,
   isKnownStep,
   isListenStep,
@@ -88,6 +93,7 @@ import type {
 } from '@openheaders/core/types';
 import type { MessageKey } from '@openheaders/i18n';
 import { useT } from '@openheaders/ui/context/LocaleContext';
+import { useTheme } from '@openheaders/ui/context/ThemeContext';
 import { useRequests } from '@openheaders/ui/shared/hooks/readers/useRequests';
 import { Button, Popover, Tooltip, theme } from 'antd';
 import type React from 'react';
@@ -95,18 +101,40 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { RequestKind } from '../../request-kind-menu';
 import { addGraphDependency, appendDraftStep, removeDraftStep, removeGraphDependency } from './graph-edit';
 import { buildWorkflowGraphLayout } from './graph-layout';
+import {
+  capsuleArrowState,
+  capturesRead,
+  clausesOn,
+  lineLabel,
+  lineStateOf,
+  reachOfCacheRow,
+  reachOfRunRow,
+  type StepReach,
+  stepOwnTemplates,
+} from './graph-lines';
+import { routeGraph } from './graph-routing';
 import { type RunStepAction, sessionOfRow } from './run-display';
 import { sessionRequestOf } from './step-action';
 import { idleMark, markOfCacheRow, markOfRunRow, type StepMark } from './step-mark';
 import { useWaitClock } from './use-wait-clock';
 import type { ShownWorkflowRun } from './use-workflow-run';
+import WorkflowGraphLines, {
+  type GraphCapsuleView,
+  type GraphEdgeRef,
+  type GraphLineView,
+} from './WorkflowGraphLines';
 import WorkflowGraphNode, { GRAPH_NODE_H, GRAPH_NODE_W, type GraphNodeDoes } from './WorkflowGraphNode';
 
 const NODE_W = GRAPH_NODE_W;
 const NODE_H = GRAPH_NODE_H;
 const GAP_X = 24;
-const GAP_Y = 80;
+/** Room for a line's label, a capsule and its arrow. */
+const GAP_Y = 72;
 const PAD = 24;
+/** What a line that passes a layer keeps to itself there. */
+const LANE_W = 24;
+const LAYOUT_METRICS = { nodeWidth: NODE_W, gap: GAP_X, laneWidth: LANE_W };
+const ROUTE_METRICS = { nodeWidth: NODE_W, nodeHeight: NODE_H, layerGap: GAP_Y };
 
 interface WorkflowGraphBodyProps {
   draft: DraftWorkflow;
@@ -196,14 +224,6 @@ function shiftInto(start: number, end: number, size: number): number {
  */
 const PAN_EXCLUDE_SELECTOR = '[data-graph-interactive], button';
 
-/**
- * Clickable node children the card drag must never claim. Pointer
- * capture retargets the derived `click` to the capturing card, so a
- * press starting on the run dot or the edit pencil would silently
- * eat their click handlers if the drag captured it.
- */
-const NODE_DRAG_EXCLUDE_SELECTOR = '[data-graph-node-action]';
-
 const WorkflowGraphBody: React.FC<WorkflowGraphBodyProps> = ({
   draft,
   setDraft,
@@ -218,13 +238,16 @@ const WorkflowGraphBody: React.FC<WorkflowGraphBodyProps> = ({
   const t = useT();
   const { requests, graphqlRequests, mqttRequests, isReady: requestsReady } = useRequests();
   const now = useWaitClock(run?.record ?? null);
+  const { uiScale } = useTheme();
   const editable = setDraft !== undefined;
   const paneRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLDivElement>(null);
   // Rubber-band connect gesture — component-local, never on the draft.
   const [drag, setDrag] = useState<ConnectDrag | null>(null);
   // Edge selection for the remove affordance — graph-only UI state.
-  const [selectedEdge, setSelectedEdge] = useState<{ from: string; to: string } | null>(null);
+  const [selectedEdge, setSelectedEdge] = useState<GraphEdgeRef | null>(null);
+  // The node under the pointer shows its connect ring.
+  const [hoveredStepId, setHoveredStepId] = useState<string | null>(null);
   // Right-click context menu — graph-only UI state, pane coordinates.
   const [menu, setMenu] = useState<GraphMenu | null>(null);
   // Pan/zoom viewport — graph-only UI state, never on the draft.
@@ -234,17 +257,6 @@ const WorkflowGraphBody: React.FC<WorkflowGraphBodyProps> = ({
   const panRef = useRef<{ pointerId: number; startX: number; startY: number; ox: number; oy: number } | null>(null);
   const panMovedRef = useRef(false);
   const [panning, setPanning] = useState(false);
-  // Node drag — ephemeral per-step offsets layered over the auto
-  // layout. Pure view state (never on the draft); re-center clears it.
-  const [nodeOffsets, setNodeOffsets] = useState<Map<string, { x: number; y: number }>>(new Map());
-  const nodeDragRef = useRef<{
-    stepId: string;
-    pointerId: number;
-    startX: number;
-    startY: number;
-    ox: number;
-    oy: number;
-  } | null>(null);
 
   // Same synthetic-workflow construction the form body uses — the
   // layout helper + validators only inspect cross-reference shape.
@@ -263,7 +275,7 @@ const WorkflowGraphBody: React.FC<WorkflowGraphBodyProps> = ({
     [draft],
   );
 
-  const layout = useMemo(() => buildWorkflowGraphLayout(draftWorkflow), [draftWorkflow]);
+  const layout = useMemo(() => buildWorkflowGraphLayout(draftWorkflow, LAYOUT_METRICS), [draftWorkflow]);
 
   const requestsByUid = useMemo(() => new Map(requests.map((r) => [r.uid, r])), [requests]);
   const graphqlByUid = useMemo(() => new Map(graphqlRequests.map((r) => [r.uid, r])), [graphqlRequests]);
@@ -298,17 +310,33 @@ const WorkflowGraphBody: React.FC<WorkflowGraphBodyProps> = ({
   const positions = useMemo(() => {
     const map = new Map<string, { x: number; y: number }>();
     for (const node of layout.nodes) {
-      const offset = nodeOffsets.get(node.step.id);
-      map.set(node.step.id, {
-        x: PAD + node.slot * (NODE_W + GAP_X) + (offset?.x ?? 0),
-        y: PAD + node.layer * (NODE_H + GAP_Y) + (offset?.y ?? 0),
-      });
+      map.set(node.step.id, { x: PAD + node.x, y: PAD + node.layer * (NODE_H + GAP_Y) });
     }
     return map;
-  }, [layout, nodeOffsets]);
+  }, [layout]);
 
-  const canvasW = PAD * 2 + Math.max(1, layout.maxSlots) * (NODE_W + GAP_X) - GAP_X;
+  const canvasW = PAD * 2 + Math.max(NODE_W, layout.width);
   const canvasH = PAD * 2 + Math.max(1, layout.layerCount) * (NODE_H + GAP_Y) - GAP_Y;
+
+  const routes = useMemo(
+    () =>
+      routeGraph(
+        layout.nodes.map((node) => ({
+          id: node.step.id,
+          layer: node.layer,
+          x: PAD + node.x,
+          y: PAD + node.layer * (NODE_H + GAP_Y),
+        })),
+        layout.edges.map((edge) => ({ ...edge, lanes: edge.lanes.map((lane) => PAD + lane) })),
+        new Set(
+          layout.nodes.flatMap(({ step }) =>
+            isKnownStep(step) && (step.runIf?.all.length ?? 0) > 0 ? [step.id] : [],
+          ),
+        ),
+        ROUTE_METRICS,
+      ),
+    [layout],
+  );
 
   // Would-be-cycle targets while rubber-banding: dropping `from → t`
   // cycles iff t is a transitive ancestor of `from` (or `from` itself).
@@ -343,10 +371,10 @@ const WorkflowGraphBody: React.FC<WorkflowGraphBodyProps> = ({
   };
 
   // The first view, once the pane has a size (a tab mounted hidden has
-  // none yet): the graph centred, drawn smaller where it is wider than
-  // the pane. After that the view is the user's.
-  const canvasWidthRef = useRef(canvasW);
-  canvasWidthRef.current = canvasW;
+  // none yet): the graph centred at the app's UI scale, drawn smaller
+  // where it is wider than the pane. After that the view is the user's.
+  const firstViewRef = useRef({ content: canvasW, uiScale });
+  firstViewRef.current = { content: canvasW, uiScale };
   useLayoutEffect(() => {
     const pane = paneRef.current;
     if (!pane) return;
@@ -354,8 +382,8 @@ const WorkflowGraphBody: React.FC<WorkflowGraphBodyProps> = ({
       const { width } = pane.getBoundingClientRect();
       if (width === 0) return;
       observer.disconnect();
-      const content = canvasWidthRef.current;
-      const scale = Math.min(1, Math.max(FIRST_VIEW_MIN_SCALE, width / content));
+      const { content, uiScale: full } = firstViewRef.current;
+      const scale = Math.min(full, Math.max(FIRST_VIEW_MIN_SCALE, width / content));
       setViewport({ scale, x: Math.max(0, (width - content * scale) / 2), y: 0 });
     });
     observer.observe(pane);
@@ -411,47 +439,13 @@ const WorkflowGraphBody: React.FC<WorkflowGraphBodyProps> = ({
     });
   };
 
-  // Fit-and-center the whole graph in the pane (the re-focus action).
-  // Also clears manual node offsets — re-center doubles as "tidy up".
+  // Fit-and-center the whole graph in the pane (the re-focus action),
+  // never drawn larger than the app's UI scale.
   const fitView = () => {
-    setNodeOffsets(new Map());
     const rect = paneRef.current?.getBoundingClientRect();
     if (!rect) return;
-    const scale = clampScale(Math.min((rect.width - FIT_PAD) / canvasW, (rect.height - FIT_PAD) / canvasH, 1));
+    const scale = clampScale(Math.min((rect.width - FIT_PAD) / canvasW, (rect.height - FIT_PAD) / canvasH, uiScale));
     setViewport({ scale, x: (rect.width - canvasW * scale) / 2, y: (rect.height - canvasH * scale) / 2 });
-  };
-
-  // Node drag — pointer capture stays on the card; deltas convert to
-  // canvas units through the zoom so the node tracks the cursor 1:1.
-  const beginNodeDrag = (stepId: string) => (e: React.PointerEvent<HTMLDivElement>) => {
-    if (e.button !== 0) return;
-    if ((e.target as Element).closest(NODE_DRAG_EXCLUDE_SELECTOR)) return;
-    const offset = nodeOffsets.get(stepId);
-    nodeDragRef.current = {
-      stepId,
-      pointerId: e.pointerId,
-      startX: e.clientX,
-      startY: e.clientY,
-      ox: offset?.x ?? 0,
-      oy: offset?.y ?? 0,
-    };
-    e.currentTarget.setPointerCapture(e.pointerId);
-  };
-
-  const moveNodeDrag = (e: React.PointerEvent<HTMLDivElement>) => {
-    const nodeDrag = nodeDragRef.current;
-    if (!nodeDrag || nodeDrag.pointerId !== e.pointerId) return;
-    const dx = (e.clientX - nodeDrag.startX) / viewport.scale;
-    const dy = (e.clientY - nodeDrag.startY) / viewport.scale;
-    setNodeOffsets((prev) => {
-      const next = new Map(prev);
-      next.set(nodeDrag.stepId, { x: nodeDrag.ox + dx, y: nodeDrag.oy + dy });
-      return next;
-    });
-  };
-
-  const endNodeDrag = (e: React.PointerEvent<HTMLDivElement>) => {
-    if (nodeDragRef.current?.pointerId === e.pointerId) nodeDragRef.current = null;
   };
 
   const beginPan = (e: React.PointerEvent<HTMLDivElement>) => {
@@ -657,6 +651,52 @@ const WorkflowGraphBody: React.FC<WorkflowGraphBodyProps> = ({
     });
   };
 
+  // ── What a line says ───────────────────────────────────────────────
+
+  const stepsById = new Map(layout.nodes.map((node) => [node.step.id, node.step]));
+
+  /** Every template a step resolves: its request's, and the ones it holds itself. */
+  const templatesOf = (step: WorkflowStep): string[] => {
+    const own = stepOwnTemplates(step);
+    if (isSessionStep(step)) {
+      const request = isListenStep(step)
+        ? mqttRequests.find((each) => each.uid === step.sessionRequestUid)
+        : undefined;
+      return request !== undefined ? [...own, ...collectMqttRequestTemplateStrings(request)] : own;
+    }
+    if (isUnknownStep(step)) return own;
+    const http = requestsByUid.get(step.requestUid);
+    if (http !== undefined) return [...own, ...collectRequestTemplateStrings(http)];
+    const graphql = graphqlByUid.get(step.requestUid);
+    return graphql !== undefined ? [...own, ...collectGraphqlRequestTemplateStrings(graphql)] : own;
+  };
+
+  const reachOf = (step: WorkflowStep): StepReach =>
+    run == null
+      ? reachOfCacheRow(cacheRun, step.id)
+      : reachOfRunRow(run.record.steps.find((each) => each.uid === step.uid));
+
+  const capsuleIds = new Set(routes.capsules.map((capsule) => capsule.stepId));
+
+  const lineViews: GraphLineView[] = routes.lines.flatMap((line) => {
+    const child = stepsById.get(line.to);
+    if (child === undefined) return [];
+    const clauses = clausesOn(isKnownStep(child) ? (child.runIf?.all ?? []) : [], line.from);
+    return [
+      {
+        ...line,
+        text: lineLabel(clauses, t),
+        chips: capturesRead(templatesOf(child), line.from),
+        state: lineStateOf(reachOf(child), clauses, capsuleIds.has(line.to)),
+      },
+    ];
+  });
+
+  const capsuleViews: GraphCapsuleView[] = routes.capsules.flatMap((capsule) => {
+    const step = stepsById.get(capsule.stepId);
+    return step === undefined ? [] : [{ ...capsule, state: capsuleArrowState(reachOf(step)) }];
+  });
+
   const dragSource = drag ? positions.get(drag.from) : undefined;
 
   return (
@@ -721,98 +761,16 @@ const WorkflowGraphBody: React.FC<WorkflowGraphBodyProps> = ({
           transformOrigin: '0 0',
         }}
       >
-        <svg
+        <WorkflowGraphLines
           width={canvasW}
           height={canvasH}
-          // overflow visible: dragged nodes can sit outside the layout
-          // bounds, and a clipping svg would swallow their edges.
-          style={{ position: 'absolute', inset: 0, pointerEvents: 'none', overflow: 'visible' }}
-          aria-hidden="true"
+          lines={lineViews}
+          capsules={capsuleViews}
+          selectedStepId={selectedStepId ?? null}
+          selectedEdge={activeEdge}
+          onSelectEdge={editable ? setSelectedEdge : undefined}
+          onRemoveEdge={editable ? (edge) => removeEdge(edge.from, edge.to) : undefined}
         >
-          {/* Direction arrowheads — dependsOn edges run parent → child. */}
-          <defs>
-            <marker
-              id="wf-graph-arrow"
-              viewBox="0 0 10 10"
-              refX="8"
-              refY="5"
-              markerWidth="7"
-              markerHeight="7"
-              orient="auto-start-reverse"
-            >
-              <path d="M 0 1 L 8 5 L 0 9 z" fill={token.colorBorder} />
-            </marker>
-            <marker
-              id="wf-graph-arrow-active"
-              viewBox="0 0 10 10"
-              refX="8"
-              refY="5"
-              markerWidth="7"
-              markerHeight="7"
-              orient="auto-start-reverse"
-            >
-              <path d="M 0 1 L 8 5 L 0 9 z" fill={token.colorPrimary} />
-            </marker>
-          </defs>
-          {layout.edges.map((edge) => {
-            const from = positions.get(edge.from);
-            const to = positions.get(edge.to);
-            if (!from || !to) return null;
-            const x1 = from.x + NODE_W / 2;
-            const y1 = from.y + NODE_H;
-            const x2 = to.x + NODE_W / 2;
-            const y2 = to.y;
-            const bend = Math.max(16, (y2 - y1) / 2);
-            const d = `M ${x1} ${y1} C ${x1} ${y1 + bend}, ${x2} ${y2 - bend}, ${x2} ${y2}`;
-            const selected = activeEdge?.from === edge.from && activeEdge?.to === edge.to;
-            // Selecting a node lights its outgoing arrows too, so the
-            // direction of its dependents reads at a glance.
-            const highlight = selected || edge.from === selectedStepId;
-            return (
-              <g key={`${edge.from}->${edge.to}`}>
-                <path
-                  data-testid={`wf-graph-edge-${edge.from}-${edge.to}`}
-                  data-graph-interactive=""
-                  data-selected={selected ? 'true' : undefined}
-                  data-highlight={highlight ? 'true' : undefined}
-                  d={d}
-                  fill="none"
-                  stroke={highlight ? token.colorPrimary : token.colorBorder}
-                  strokeWidth={selected ? 2 : 1.5}
-                  markerEnd={`url(#wf-graph-arrow${highlight ? '-active' : ''})`}
-                />
-                {editable && (
-                  // Widened transparent twin — the click target. SVG
-                  // pointer-events re-enable under a none parent.
-                  <path
-                    data-testid={`wf-graph-edge-hit-${edge.from}-${edge.to}`}
-                    data-graph-interactive=""
-                    d={d}
-                    fill="none"
-                    stroke="transparent"
-                    strokeWidth={14}
-                    style={{ pointerEvents: 'stroke', cursor: 'pointer' }}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setSelectedEdge({ from: edge.from, to: edge.to });
-                    }}
-                  />
-                )}
-              </g>
-            );
-          })}
-          {drag && dragSource && (
-            <path
-              data-testid="wf-graph-rubberband"
-              d={`M ${dragSource.x + NODE_W / 2} ${dragSource.y + NODE_H} L ${drag.x} ${drag.y}`}
-              fill="none"
-              stroke={token.colorPrimary}
-              strokeWidth={1.5}
-              strokeDasharray="4 4"
-              markerEnd="url(#wf-graph-arrow-active)"
-            />
-          )}
-        </svg>
         {layout.nodes.map((node) => {
           const pos = positions.get(node.step.id);
           if (!pos) return null;
@@ -830,9 +788,9 @@ const WorkflowGraphBody: React.FC<WorkflowGraphBodyProps> = ({
               selected={selectedStepId === step.id}
               onSelect={onSelectStep ? () => onSelectStep(step.uid) : undefined}
               onContextMenu={handleNodeContextMenu({ stepId: step.id, stepUid: step.uid })}
-              onDragDown={beginNodeDrag(step.id)}
-              onDragMove={moveNodeDrag}
-              onDragUp={endNodeDrag}
+              onHover={
+                editable ? (over) => setHoveredStepId((id) => (over ? step.id : id === step.id ? null : id)) : undefined
+              }
               protocol={protocolOf(step)}
               kind={action !== undefined ? t(STEP_KIND_WORD[action]) : ''}
               does={doesOf(step)}
@@ -844,7 +802,6 @@ const WorkflowGraphBody: React.FC<WorkflowGraphBodyProps> = ({
               mark={markOf(step.id, step.uid, action)}
               runCaptures={cacheRun?.stepCaptures[step.id]}
               runResponseBytes={cacheRun?.stepResponseBytes[step.id]}
-              gateClauses={shared?.runIf?.all ?? []}
               priorityLabel={
                 shared?.priorityFrom
                   ? t('workbench.editors.live.graph.orderedBy', {
@@ -857,20 +814,43 @@ const WorkflowGraphBody: React.FC<WorkflowGraphBodyProps> = ({
             />
           );
         })}
+        </WorkflowGraphLines>
+        {drag && dragSource && (
+          <svg
+            width={canvasW}
+            height={canvasH}
+            style={{ position: 'absolute', inset: 0, pointerEvents: 'none', overflow: 'visible' }}
+            aria-hidden="true"
+          >
+            <path
+              data-testid="wf-graph-rubberband"
+              d={`M ${dragSource.x + NODE_W / 2} ${dragSource.y + NODE_H} L ${drag.x} ${drag.y}`}
+              fill="none"
+              stroke="var(--oh-wf-accent)"
+              strokeWidth={1.5}
+              strokeDasharray="4 4"
+            />
+          </svg>
+        )}
         {editable &&
           layout.nodes.map((node) => {
             const pos = positions.get(node.step.id);
             if (!pos) return null;
+            const { id } = node.step;
+            const shown = hoveredStepId === id || selectedStepId === id || drag?.from === id;
             return (
-              // Connect anchor — always-visible dot on the node's
-              // bottom edge; pointer capture keeps the whole drag on
-              // this element so the drop hit-tests by coordinates.
+              // Connect ring — at the node's lower edge, shown on the
+              // node under the pointer and on the selected one; pointer
+              // capture keeps the whole drag on this element so the drop
+              // hit-tests by coordinates.
               <div
                 key={`connect-${node.step.uid}`}
-                data-testid={`wf-graph-connect-${node.step.id}`}
+                data-testid={`wf-graph-connect-${id}`}
                 data-graph-interactive=""
                 title={t('workbench.editors.live.graph.connectTitle')}
-                onPointerDown={beginConnect(node.step.id)}
+                onPointerEnter={() => setHoveredStepId(id)}
+                onPointerLeave={() => setHoveredStepId((hovered) => (hovered === id ? null : hovered))}
+                onPointerDown={beginConnect(id)}
                 onPointerMove={moveConnect}
                 onPointerUp={endConnect}
                 onClick={(e) => e.stopPropagation()}
@@ -881,8 +861,9 @@ const WorkflowGraphBody: React.FC<WorkflowGraphBodyProps> = ({
                   width: 12,
                   height: 12,
                   borderRadius: '50%',
-                  border: `2px solid ${token.colorPrimary}`,
-                  background: token.colorBgElevated,
+                  border: '2px solid var(--oh-wf-accent)',
+                  background: 'var(--oh-wf-surface)',
+                  opacity: shown ? 1 : 0,
                   cursor: 'crosshair',
                   touchAction: 'none',
                   zIndex: 2,
@@ -890,48 +871,6 @@ const WorkflowGraphBody: React.FC<WorkflowGraphBodyProps> = ({
               />
             );
           })}
-        {editable &&
-          activeEdge &&
-          (() => {
-            const from = positions.get(activeEdge.from);
-            const to = positions.get(activeEdge.to);
-            if (!from || !to) return null;
-            // Cubic midpoint with symmetric control offsets = plain
-            // endpoint average.
-            const mx = (from.x + to.x + NODE_W) / 2;
-            const my = (from.y + NODE_H + to.y) / 2;
-            return (
-              <Tooltip title={t('workbench.editors.live.graph.removeDependency')}>
-                <button
-                  type="button"
-                  data-testid={`wf-graph-edge-remove-${activeEdge.from}-${activeEdge.to}`}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    removeEdge(activeEdge.from, activeEdge.to);
-                  }}
-                  style={{
-                    position: 'absolute',
-                    left: mx - 9,
-                    top: my - 9,
-                    width: 18,
-                    height: 18,
-                    borderRadius: '50%',
-                    border: `1px solid ${token.colorError}`,
-                    background: token.colorBgElevated,
-                    color: token.colorError,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    cursor: 'pointer',
-                    padding: 0,
-                    zIndex: 2,
-                  }}
-                >
-                  <CloseOutlined style={{ fontSize: 9 }} />
-                </button>
-              </Tooltip>
-            );
-          })()}
       </div>
       {menu !== null && menuActions.length > 0 && (
         <div
@@ -1097,7 +1036,6 @@ const GraphLegend: React.FC<{ editable: boolean }> = ({ editable }) => {
           },
         ]
       : []),
-    { keys: t('workbench.editors.live.graph.legendDragNode'), action: t('workbench.editors.live.graph.legendMove') },
     { keys: t('workbench.editors.live.graph.legendDragBg'), action: t('workbench.editors.live.graph.legendPan') },
     { keys: t('workbench.editors.live.graph.legendScroll'), action: t('workbench.editors.live.graph.legendZoom') },
   ];

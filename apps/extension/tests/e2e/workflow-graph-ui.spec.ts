@@ -7,7 +7,7 @@
  *
  *   - Graph pane renders one node per step (`wf-graph-node-<stepId>`),
  *     one edge per resolved dependsOn (`wf-graph-edge-<from>-<to>`),
- *     the gate marker on the gated step, and the exposed capture's
+ *     the gated step's condition on its line, and the exposed capture's
  *     live name.
  *   - Layout is layered: the two fan-out children share a row below
  *     the root; the sink sits below both.
@@ -202,9 +202,9 @@ test('graph toggle renders the step DAG and returns to the form loss-free', asyn
     await expect(page.getByTestId(`wf-graph-edge-${from}-${to}`)).toHaveCount(1);
   }
 
-  // Gate marker on the gated step only.
-  await expect(page.getByTestId('wf-graph-gate-left')).toBeVisible();
-  await expect(page.getByTestId('wf-graph-gate-right')).toHaveCount(0);
+  // The gated step's condition is on its line; a line with none reads "always".
+  await expect(page.getByTestId('wf-graph-edge-label-root-left')).toHaveText('if token exists');
+  await expect(page.getByTestId('wf-graph-edge-label-root-right')).toHaveText('always');
 
   // Run marks on a never-run workflow: the summary says so and every
   // node wears the empty ring. The exposed capture's LV exists but
@@ -370,16 +370,15 @@ test('graph editing: connect adds a dependsOn edge, edge remove, add step, cycle
 
   // ── Select + remove the edge ─────────────────────────────────────
   await expect(page.getByTestId('wf-graph-edge-hit-b-c')).toHaveCount(1);
-  // The b→c edge is a vertical line here (same column), so its hit
+  // The b→c edge is a vertical line here (c sits under b), so its hit
   // path has a zero-width bounding box — Playwright's locator click
-  // refuses it as invisible. Click the edge midpoint by coordinates
-  // instead; the transparent hit stroke is 14px wide there.
+  // refuses it as invisible. Click it by coordinates instead, a quarter
+  // of the way down: the transparent hit stroke is 14px wide, and the
+  // a→c line joins it only at the middle of the gap.
   const nodeB = (await page.getByTestId('wf-graph-node-b').boundingBox())!;
   const nodeCPost = (await page.getByTestId('wf-graph-node-c').boundingBox())!;
-  await page.mouse.click(
-    (nodeB.x + nodeB.width / 2 + nodeCPost.x + nodeCPost.width / 2) / 2,
-    (nodeB.y + nodeB.height + nodeCPost.y) / 2,
-  );
+  const underB = nodeB.y + nodeB.height;
+  await page.mouse.click(nodeB.x + nodeB.width / 2, underB + (nodeCPost.y - underB) / 4);
   await expect(page.getByTestId('wf-graph-edge-b-c')).toHaveAttribute('data-selected', 'true');
   await page.getByTestId('wf-graph-edge-remove-b-c').click();
   await expect(page.getByTestId('wf-graph-edge-b-c')).toHaveCount(0);
@@ -503,6 +502,9 @@ test('run overlay: per-node states, masked value reveal, publication split', asy
   await expect(page.getByTestId('wf-run-status-strip').filter({ visible: true }).first()).toContainText('last');
   await expect(page.getByTestId('wf-graph-run-introspect')).toHaveAttribute('data-run-state', 'passed');
   await expect(page.getByTestId('wf-graph-run-refresh')).toHaveAttribute('data-run-state', 'skipped');
+  // The line into the skipped step was not taken, and says the condition that skipped it.
+  await expect(page.getByTestId('wf-graph-edge-introspect-refresh')).toHaveAttribute('data-truth', 'not-taken');
+  await expect(page.getByTestId('wf-graph-edge-label-introspect-refresh')).toHaveText('if active = "false"');
 
   // Captured values are masked by default; reveal is an explicit click.
   await page.getByTestId('wf-graph-run-introspect').click();

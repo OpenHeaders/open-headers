@@ -47,15 +47,15 @@ const draft: DraftWorkflow = {
 
 describe('layout', () => {
   it('lays the steps out as a chain, each after the one before it', () => {
-    const layout = buildWorkflowGraphLayout(workflow);
+    const layout = buildWorkflowGraphLayout(workflow, { nodeWidth: 100, gap: 20, laneWidth: 10 });
     expect(layout.nodes.map((node) => [node.step.id, node.layer])).toEqual([
       ['probe', 0],
       ['reboot', 1],
       ['status', 2],
     ]);
     expect(layout.edges).toEqual([
-      { from: 'probe', to: 'reboot' },
-      { from: 'reboot', to: 'status' },
+      { from: 'probe', to: 'reboot', lanes: [] },
+      { from: 'reboot', to: 'status', lanes: [] },
     ]);
   });
 

@@ -21,6 +21,8 @@ import type { StepMark } from './step-mark';
 
 const { Text } = Typography;
 
+const NODE_GLYPH_SIZE = 16;
+
 interface StepRunMarkProps {
   stepId: string;
   mark: StepMark;
@@ -41,12 +43,11 @@ export const StepRunMark: React.FC<StepRunMarkProps> = ({ stepId, mark, captures
   const glyph = (
     <span
       data-testid={`wf-graph-run-${stepId}`}
-      data-graph-node-action=""
       data-run-state={mark.kind}
       onClick={(e) => e.stopPropagation()}
       style={{ display: 'inline-flex', flex: 'none', cursor: hasValues ? 'pointer' : 'default' }}
     >
-      <StepGlyph kind={mark.kind} label={mark.label} />
+      <StepGlyph kind={mark.kind} label={mark.label} size={NODE_GLYPH_SIZE} />
     </span>
   );
 
@@ -88,12 +89,7 @@ const StepCapturePopover: React.FC<StepCapturePopoverProps> = ({ stepId, mark, c
   // explicit toggle per popover, matching the LV editor's reveal idiom.
   const [reveal, setReveal] = useState(false);
   return (
-    // `data-graph-node-action`: the popover is DOM-portaled but its
-    // React events bubble through the portal into the node card's
-    // `onPointerDown` — without the drag exclusion a press on the
-    // reveal eye starts a node drag whose pointer capture retargets
-    // the derived click to the card, silently eating the toggle.
-    <div data-testid={`wf-graph-run-pop-${stepId}`} data-graph-node-action="" style={{ maxWidth: 360, fontSize: 11 }}>
+    <div data-testid={`wf-graph-run-pop-${stepId}`} style={{ maxWidth: 360, fontSize: 11 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
         <Text type="secondary" style={{ fontSize: 11, flex: 1 }}>
           {mark.label}

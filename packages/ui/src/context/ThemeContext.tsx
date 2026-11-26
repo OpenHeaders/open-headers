@@ -48,6 +48,8 @@ interface ThemeContextValue {
   variant: ThemeVariant;
   /** Monaco theme id matching the active variant. */
   monacoTheme: string;
+  /** The chrome's scale — for a surface that sizes itself in pixels, outside the theme's tokens. */
+  uiScale: number;
 }
 
 // Sentinel default — ThemeProvider always overrides this. The variant
@@ -63,6 +65,7 @@ export const ThemeContext = createContext<ThemeContextValue>({
   toggleCompactMode: () => {},
   variant: DEFAULT_VARIANT,
   monacoTheme: DEFAULT_VARIANT.monacoTheme,
+  uiScale: 1,
 });
 
 export const useTheme = (): ThemeContextValue => useContext(ThemeContext);
@@ -168,6 +171,7 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({ children }) => {
         toggleCompactMode,
         variant,
         monacoTheme: variant.monacoTheme,
+        uiScale,
       }}
     >
       <ConfigProvider theme={antTheme}>
