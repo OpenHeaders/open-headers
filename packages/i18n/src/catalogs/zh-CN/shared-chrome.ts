@@ -105,6 +105,8 @@ export const sharedChrome = {
   'shared.chrome.addons.notConfigured': '未配置',
   'shared.chrome.addons.requiresDesktop': '需要桌面应用',
   'shared.chrome.addons.cliViaDesktop': '通过桌面应用配置',
+  'shared.chrome.addons.helper': '助手',
+  'shared.chrome.addons.helperAliasOff': '浏览器需要在 Windows 中开启“{name}”别名。',
   'shared.chrome.status.coldStart': '冷启动',
   'shared.chrome.status.coldStartMessage': '检测到性能回退——参见诊断导出',
   'shared.chrome.status.coldStartTooltip':

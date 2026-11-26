@@ -12,6 +12,7 @@ export const shared = {
   'shared.action.close': 'Fermer',
   'shared.action.copy': 'Copier',
   'shared.action.remove': 'Retirer',
+  'shared.action.openWindowsSettings': 'Ouvrir les paramètres Windows',
   'shared.toast.copiedToClipboard': 'Copié dans le presse-papiers',
   'shared.toast.copyFailed': 'Accès au presse-papiers refusé — copiez la valeur manuellement',
   'shared.count.rules': ({ count }, locale) =>

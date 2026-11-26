@@ -381,6 +381,7 @@ export const workbenchSettingsPanes = {
     'Pick your client, replace the token placeholder with an access token, and adjust the app path if you ' +
     'installed somewhere else. The app must be running for clients to connect.',
   'workbench.settings.mcpPane.tokensHome': 'Access tokens are minted and revoked under',
+  'workbench.settings.mcpPane.aliasOff': 'This command needs the “{name}” alias turned on in Windows.',
   'workbench.settings.mcpPane.snippet.claudeDesktopTitle': 'claude_desktop_config.json — merge into the existing file',
   'workbench.settings.mcpPane.snippet.runOnceTitle': 'Run once in a terminal',
   'workbench.settings.mcpPane.snippet.cliTitle': 'Run once in a terminal — later oh runs need no flags',

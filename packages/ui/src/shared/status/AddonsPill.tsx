@@ -27,6 +27,8 @@
  *     switch only via the TUI's retry screen), and the Daemon row.
  *   - web      → Extensions row; its serving back-end is already the
  *     sync rows' story.
+ *   - a Windows package → one more row under Browser extensions while its
+ *     browser helper's launch alias is switched off in Windows Settings.
  */
 
 import { RobotOutlined } from '@ant-design/icons';
@@ -53,7 +55,7 @@ import {
   AddonMark,
   AddonRow as AddonRowShell,
 } from './addon-row';
-import { DesktopAppRow, ExtensionsRow } from './companion-rows';
+import { BrowserHelperAliasRow, DesktopAppRow, ExtensionsRow } from './companion-rows';
 import { StatusGroupHeading } from './StatusPill';
 
 export interface AddonsPillProps {
@@ -74,6 +76,7 @@ export const AddonsPill: React.FC<AddonsPillProps> = ({ className, placement = '
         <>
           <StatusGroupHeading token={token} label={t('shared.chrome.addons.groupBrowser')} />
           <ExtensionsRow />
+          <BrowserHelperAliasRow />
         </>
       )}
       {host !== 'web' && (

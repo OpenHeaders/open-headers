@@ -434,6 +434,7 @@ export const workbenchSettingsPanes = {
   'workbench.settings.mcpPane.connect.blurb':
     'Alegeți clientul, înlocuiți substituentul tokenului cu un token de acces și ajustați calea aplicației dacă ați instalat-o în altă parte. Aplicația trebuie să ruleze pentru ca clienții să se poată conecta.',
   'workbench.settings.mcpPane.tokensHome': 'Tokenurile de acces se emit și se revocă la',
+  'workbench.settings.mcpPane.aliasOff': 'Această comandă are nevoie de aliasul „{name}” activat în Windows.',
   'workbench.settings.mcpPane.snippet.claudeDesktopTitle': 'claude_desktop_config.json — îmbinați în fișierul existent',
   'workbench.settings.mcpPane.snippet.runOnceTitle': 'Rulați o dată într-un terminal',
   'workbench.settings.mcpPane.snippet.cliTitle':

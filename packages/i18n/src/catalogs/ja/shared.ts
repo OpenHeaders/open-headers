@@ -31,6 +31,7 @@ export const shared = {
   'shared.action.close': '閉じる',
   'shared.action.copy': 'コピー',
   'shared.action.remove': '削除',
+  'shared.action.openWindowsSettings': 'Windows の設定を開く',
   'shared.toast.copiedToClipboard': 'クリップボードにコピーしました',
   'shared.toast.copyFailed': 'クリップボードへのアクセスが拒否されました。値を手動でコピーしてください',
   'shared.count.rules': ({ count }, locale) => plural(locale, Number(count), { other: '{count} 件のルール' }),

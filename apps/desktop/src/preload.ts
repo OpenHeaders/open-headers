@@ -14,6 +14,7 @@ import { downloads } from './preload/downloads';
 import { externalLinks } from './preload/external-links';
 import { lifeline } from './preload/lifeline';
 import { logs } from './preload/logs';
+import { packageAliases } from './preload/package-aliases';
 import { protocol } from './preload/protocol';
 import { type BroadcastEnvelope, rpc } from './preload/rpc';
 import { type StartupData, startupData } from './preload/startup-data';
@@ -40,6 +41,7 @@ const api = {
   logs,
   downloads,
   appMenu,
+  packageAliases,
   protocol,
   terminal,
   windowChrome,

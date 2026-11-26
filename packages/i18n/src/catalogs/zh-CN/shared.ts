@@ -24,6 +24,7 @@ export const shared = {
   'shared.action.close': '关闭',
   'shared.action.copy': '复制',
   'shared.action.remove': '移除',
+  'shared.action.openWindowsSettings': '打开 Windows 设置',
   'shared.toast.copiedToClipboard': '已复制到剪贴板',
   'shared.toast.copyFailed': '剪贴板访问被拒绝——请手动复制该值',
   'shared.count.rules': ({ count }, locale) => plural(locale, Number(count), { other: '{count} 条规则' }),

@@ -20,6 +20,7 @@ export const shared = {
   'shared.action.close': 'Cerrar',
   'shared.action.copy': 'Copiar',
   'shared.action.remove': 'Quitar',
+  'shared.action.openWindowsSettings': 'Abrir Configuración de Windows',
   'shared.toast.copiedToClipboard': 'Copiado al portapapeles',
   'shared.toast.copyFailed': 'Acceso al portapapeles denegado — copia el valor manualmente',
   'shared.count.rules': ({ count }, locale) =>

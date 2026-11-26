@@ -396,6 +396,7 @@ export const workbenchSettingsPanes = {
   'workbench.settings.mcpPane.connect.blurb':
     'クライアントを選び、token のプレースホルダーをアクセス token に置き換え、別の場所にインストールした場合はアプリのパスを調整してください。クライアントが接続するにはアプリが動作している必要があります。',
   'workbench.settings.mcpPane.tokensHome': 'アクセス token の発行と取り消しは次の場所で行います：',
+  'workbench.settings.mcpPane.aliasOff': 'このコマンドには、Windows でエイリアス「{name}」をオンにする必要があります。',
   'workbench.settings.mcpPane.snippet.claudeDesktopTitle': 'claude_desktop_config.json：既存のファイルにマージ',
   'workbench.settings.mcpPane.snippet.runOnceTitle': 'ターミナルで一度だけ実行',
   'workbench.settings.mcpPane.snippet.cliTitle': 'ターミナルで一度だけ実行。以後の oh の実行にフラグは不要です',

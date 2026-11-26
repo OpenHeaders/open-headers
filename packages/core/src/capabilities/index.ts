@@ -5,6 +5,8 @@ export type {
   InstallTargetBrowser,
   NmAutoPairResult,
   NmHostPresenceVerdict,
+  PackageAliases,
+  PackageAliasState,
   PairWithCodeInput,
   PairWithCodeResult,
   RequestRuntimeKind,

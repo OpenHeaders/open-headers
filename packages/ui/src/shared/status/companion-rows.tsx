@@ -46,6 +46,7 @@ import { DESKTOP_DOWNLOAD_URL, fetchLatestDesktopInstaller } from '../desktop-te
 import { browserGlyph, detectedBrowser, detectedPlatform, platformGlyph } from '../host-glyph';
 import { getCurrentHost } from '../host-vocabulary';
 import { useBackendSyncStatus } from '../hooks/useBackendSyncStatus';
+import { usePackageAliases } from '../hooks/usePackageAliases';
 import { useStatus } from '../hooks/useStatus';
 import { hostKindIcon } from '../workspace-org/org-scope-vocabulary';
 import { ADDON_GLYPH_COLOR, ADDON_GLYPH_SIZE, type AddonGlyph, AddonMark, AddonRow } from './addon-row';
@@ -422,6 +423,39 @@ export const ExtensionsRow: React.FC = () => {
           );
         })}
       </span>
+    </AddonRow>
+  );
+};
+
+/**
+ * A Windows package's browser helper is started through a launch alias,
+ * and a person can switch that alias off in Windows Settings: browsers
+ * then stop reaching the app without a word. The row shows only then,
+ * with the way to the switch. Hosts without aliases render nothing.
+ */
+export const BrowserHelperAliasRow: React.FC = () => {
+  const t = useT();
+  const aliases = usePackageAliases();
+  if (aliases === null || aliases.helper.on) return null;
+  return (
+    <AddonRow
+      glyph={<AddonMark icon={hostKindIcon('browser')} color={ADDON_GLYPH_COLOR.browser} />}
+      tagColor="warning"
+      label={t('shared.chrome.addons.helper')}
+      testId="addons-helper-alias"
+    >
+      <Typography.Text style={{ fontSize: 11 }}>
+        {t('shared.chrome.addons.helperAliasOff', { name: aliases.helper.name })}
+      </Typography.Text>
+      <Button
+        size="small"
+        type="primary"
+        onClick={aliases.openSettings}
+        data-testid="addons-helper-alias-open"
+        style={{ fontSize: 11, height: 20, padding: '0 6px' }}
+      >
+        {t('shared.action.openWindowsSettings')}
+      </Button>
     </AddonRow>
   );
 };

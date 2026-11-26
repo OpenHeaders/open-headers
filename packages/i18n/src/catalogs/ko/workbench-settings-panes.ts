@@ -394,6 +394,7 @@ export const workbenchSettingsPanes = {
   'workbench.settings.mcpPane.connect.blurb':
     '클라이언트를 고르고, token 자리 표시자를 접근 token 값으로 바꾸고, 다른 곳에 설치했다면 앱 경로를 조정하세요. 클라이언트가 연결하려면 앱이 실행 중이어야 합니다.',
   'workbench.settings.mcpPane.tokensHome': '접근 token 값의 발급과 취소는 다음 위치에서 합니다:',
+  'workbench.settings.mcpPane.aliasOff': '이 명령을 사용하려면 Windows에서 “{name}” 별칭을 켜야 합니다.',
   'workbench.settings.mcpPane.snippet.claudeDesktopTitle': 'claude_desktop_config.json. 기존 파일에 병합하세요',
   'workbench.settings.mcpPane.snippet.runOnceTitle': '터미널에서 한 번 실행',
   'workbench.settings.mcpPane.snippet.cliTitle': '터미널에서 한 번 실행. 이후 oh 명령 실행에는 플래그가 필요 없습니다',

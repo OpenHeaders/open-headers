@@ -106,6 +106,10 @@ export const sharedChrome = {
   'shared.chrome.addons.notConfigured': 'Not configured',
   'shared.chrome.addons.requiresDesktop': 'Requires the desktop app',
   'shared.chrome.addons.cliViaDesktop': 'Set up from the desktop app',
+  // A Windows package's browser helper is started through a launch alias a
+  // person can switch off in Windows Settings; the row shows only then.
+  'shared.chrome.addons.helper': 'Helper',
+  'shared.chrome.addons.helperAliasOff': 'Browsers need the “{name}” alias turned on in Windows.',
   'shared.chrome.status.coldStart': 'Cold start',
   'shared.chrome.status.coldStartMessage': 'Performance regression detected — see diagnostic export',
   'shared.chrome.status.coldStartTooltip':

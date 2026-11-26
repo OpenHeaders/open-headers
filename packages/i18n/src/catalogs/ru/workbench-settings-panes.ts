@@ -427,6 +427,7 @@ export const workbenchSettingsPanes = {
     'Выберите клиент, замените заглушку токена токеном доступа и поправьте путь к приложению, если ' +
     'установили его в другое место. Для подключения клиентов приложение должно быть запущено.',
   'workbench.settings.mcpPane.tokensHome': 'Токены доступа выпускаются и отзываются в разделе',
+  'workbench.settings.mcpPane.aliasOff': 'Этой команде нужен включённый в Windows псевдоним «{name}».',
   'workbench.settings.mcpPane.snippet.claudeDesktopTitle':
     'claude_desktop_config.json — объедините с существующим файлом',
   'workbench.settings.mcpPane.snippet.runOnceTitle': 'Выполните один раз в терминале',

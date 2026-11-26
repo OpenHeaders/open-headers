@@ -104,6 +104,8 @@ export const sharedChrome = {
   'shared.chrome.addons.notConfigured': 'Nicht eingerichtet',
   'shared.chrome.addons.requiresDesktop': 'Erfordert die Desktop-App',
   'shared.chrome.addons.cliViaDesktop': 'Einrichtung über die Desktop-App',
+  'shared.chrome.addons.helper': 'Helfer',
+  'shared.chrome.addons.helperAliasOff': 'Browser brauchen den in Windows aktivierten Alias „{name}“.',
   'shared.chrome.status.coldStart': 'Kaltstart',
   'shared.chrome.status.coldStartMessage': 'Performance-Regression erkannt — siehe Diagnose-Export',
   'shared.chrome.status.coldStartTooltip':

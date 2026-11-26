@@ -64,6 +64,7 @@ export const shared = {
   'shared.action.close': 'Закрыть',
   'shared.action.copy': 'Копировать',
   'shared.action.remove': 'Удалить',
+  'shared.action.openWindowsSettings': 'Открыть параметры Windows',
   'shared.toast.copiedToClipboard': 'Скопировано в буфер обмена',
   'shared.toast.copyFailed': 'Доступ к буферу обмена запрещён — скопируйте значение вручную',
   'shared.count.rules': ({ count }, locale) =>

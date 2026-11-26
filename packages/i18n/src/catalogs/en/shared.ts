@@ -13,6 +13,7 @@ export const shared = {
   'shared.action.close': 'Close',
   'shared.action.copy': 'Copy',
   'shared.action.remove': 'Remove',
+  'shared.action.openWindowsSettings': 'Open Windows Settings',
   'shared.toast.copiedToClipboard': 'Copied to clipboard',
   'shared.toast.copyFailed': 'Clipboard access denied — copy the value manually',
   'shared.count.rules': ({ count }, locale) =>

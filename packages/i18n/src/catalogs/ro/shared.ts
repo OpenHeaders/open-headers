@@ -86,6 +86,7 @@ export const shared = {
   'shared.action.close': 'Închidere',
   'shared.action.copy': 'Copiere',
   'shared.action.remove': 'Eliminare',
+  'shared.action.openWindowsSettings': 'Deschidere Setări Windows',
   'shared.toast.copiedToClipboard': 'Copiat în clipboard',
   'shared.toast.copyFailed': 'Accesul la clipboard a fost refuzat — copiați valoarea manual',
   'shared.count.rules': ({ count }, locale) =>

@@ -48,6 +48,7 @@ export const shared = {
   'shared.action.close': '닫기',
   'shared.action.copy': '복사',
   'shared.action.remove': '제거',
+  'shared.action.openWindowsSettings': 'Windows 설정 열기',
   'shared.toast.copiedToClipboard': '클립보드에 복사했습니다',
   'shared.toast.copyFailed': '클립보드 접근이 거부되었습니다. 값을 직접 복사하세요',
   'shared.count.rules': ({ count }, locale) => plural(locale, Number(count), { other: '규칙 {count}개' }),

@@ -51,6 +51,7 @@ declare global {
         locale: string;
         theme: 'light' | 'dark';
         mcpClientCommand: string | null;
+        windowsPackage: boolean;
       };
       invoke(message: Record<string, unknown>): Promise<unknown>;
       onBroadcast(handler: (envelope: { type: string; payload: unknown }) => void): () => void;
@@ -92,6 +93,10 @@ declare global {
       };
       appMenu: {
         popup(anchor: { x: number; y: number }): Promise<void>;
+      };
+      packageAliases: {
+        read(): Promise<{ app: { on: boolean; name: string }; helper: { on: boolean; name: string } }>;
+        openSettings(): Promise<void>;
       };
       windowChrome: {
         apply(palette: { background: string; symbolColor: string }): Promise<void>;

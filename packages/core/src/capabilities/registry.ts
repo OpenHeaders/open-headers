@@ -416,6 +416,22 @@ export interface WindowChrome {
   readonly symbolColor: string;
 }
 
+/** One launch alias of a Windows package, as Windows keeps it now. */
+export interface PackageAliasState {
+  /** Whether Windows keeps the alias; false once a person switched it off. */
+  readonly on: boolean;
+  /** The name Windows Settings lists the alias under. */
+  readonly name: string;
+}
+
+/** The {@link Capabilities.packageAliases} value. */
+export interface PackageAliases {
+  /** Both aliases, read from Windows at the call. */
+  read(): Promise<{ readonly app: PackageAliasState; readonly helper: PackageAliasState }>;
+  /** Opens the Windows Settings page that holds the alias switches. */
+  openSettings(): void;
+}
+
 /**
  * The universe of capabilities. Optional members (`name?:`) are
  * host-specific; required members are universal contracts every host
@@ -981,6 +997,16 @@ export interface Capabilities {
    * client configuration snippets.
    */
   mcpClientCommand?: () => string;
+
+  /**
+   * The two launch aliases of a Windows package, as Windows keeps them
+   * now (see {@link PackageAliases}). Registered only by the desktop app
+   * installed as a Windows package: nothing outside the package can start
+   * the app or its browser helper but through them, and a person can
+   * switch either off in Windows Settings. Where it is present, the
+   * surface that hands an alias out says so when the alias is off.
+   */
+  packageAliases?: () => PackageAliases;
 
   /**
    * Declares that this surface has NO realm that runs a workflow on a

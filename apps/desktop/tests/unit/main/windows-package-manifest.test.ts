@@ -14,7 +14,12 @@ import * as path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { PACKAGE_IDENTITY_NAME } from '../../../src/main/bootstrap/data-folder-return';
 import { PACKAGE_MANIFEST_FILE_NAME } from '../../../src/main/bootstrap/install-kind';
-import { PACKAGE_APP_ALIAS, PACKAGE_HOST_ALIAS } from '../../../src/main/bootstrap/package-aliases';
+import {
+  PACKAGE_APP_ALIAS,
+  PACKAGE_APP_DISPLAY_NAME,
+  PACKAGE_HOST_ALIAS,
+  PACKAGE_HOST_DISPLAY_NAME,
+} from '../../../src/main/bootstrap/package-aliases';
 import { PROTOCOL_SCHEME } from '../../../src/main/bootstrap/protocol';
 import { nmHostBinaryCandidate } from '../../../src/main/nm-host-install';
 
@@ -78,6 +83,14 @@ describe("the Windows package's manifest — the names the app knows", () => {
     expect(aliasesOf(helper)).toEqual([{ program: HELPER_PROGRAM, alias: PACKAGE_HOST_ALIAS }]);
     expect(helper).toMatch(/<uap:VisualElements\b[^>]*\bAppListEntry="none"/);
     expect(application(APP_PROGRAM)).not.toMatch(/AppListEntry/);
+  });
+
+  it('names the two programs as the app names their aliases to a person', () => {
+    const displayName = (body: string): string | undefined =>
+      /<uap:VisualElements\b[^>]*?\bDisplayName="([^"]+)"/.exec(body)?.[1];
+
+    expect(displayName(application(APP_PROGRAM))).toBe(PACKAGE_APP_DISPLAY_NAME);
+    expect(displayName(application(HELPER_PROGRAM))).toBe(PACKAGE_HOST_DISPLAY_NAME);
   });
 
   it("declares the app's link scheme, once, on the app", () => {

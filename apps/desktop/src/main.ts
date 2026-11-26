@@ -67,6 +67,7 @@ import { installAppLifecycle, isQuitting, trackEngineBoot } from './main/bootstr
 import { initMainLocale, mainTranslator } from './main/bootstrap/locale';
 import { installLogFilesHandler } from './main/bootstrap/log-files';
 import { createLogger, installMainLogger } from './main/bootstrap/logger';
+import { installPackageAliasHandlers } from './main/bootstrap/package-alias-bridge';
 import { missingPackageAliases } from './main/bootstrap/package-aliases';
 import { handOverToPackage } from './main/bootstrap/package-hand-over';
 import { CHECK_PACKAGE_START_SWITCH, runPackageStartCheck } from './main/bootstrap/package-start-check';
@@ -316,6 +317,7 @@ function bootstrapDesktopApp(): void {
   installLogFilesHandler();
   installAppMenuPopupHandler();
   installWindowChromeHandler();
+  installPackageAliasHandlers(install.kind);
   installProtocolHandler();
 
   void app.whenReady().then(() => {

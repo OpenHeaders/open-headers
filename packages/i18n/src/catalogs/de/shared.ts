@@ -23,6 +23,7 @@ export const shared = {
   'shared.action.close': 'Schließen',
   'shared.action.copy': 'Kopieren',
   'shared.action.remove': 'Entfernen',
+  'shared.action.openWindowsSettings': 'Windows-Einstellungen öffnen',
   'shared.toast.copiedToClipboard': 'In die Zwischenablage kopiert',
   'shared.toast.copyFailed': 'Zugriff auf die Zwischenablage verweigert — kopiere den Wert manuell',
   'shared.count.rules': ({ count }, locale) =>

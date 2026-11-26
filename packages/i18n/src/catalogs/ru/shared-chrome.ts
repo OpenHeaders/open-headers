@@ -118,6 +118,8 @@ export const sharedChrome = {
   'shared.chrome.addons.notConfigured': 'Не настроено',
   'shared.chrome.addons.requiresDesktop': 'Требуется настольное приложение',
   'shared.chrome.addons.cliViaDesktop': 'Настройте из настольного приложения',
+  'shared.chrome.addons.helper': 'Помощник',
+  'shared.chrome.addons.helperAliasOff': 'Браузерам нужен включённый в Windows псевдоним «{name}».',
   'shared.chrome.status.coldStart': 'Холодный старт',
   'shared.chrome.status.coldStartMessage': 'Обнаружено снижение производительности — см. диагностический экспорт',
   'shared.chrome.status.coldStartTooltip':

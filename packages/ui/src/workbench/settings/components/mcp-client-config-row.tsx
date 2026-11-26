@@ -15,13 +15,17 @@
  * is running on. Snippets carry a token placeholder; the real secret is minted on
  * Backend › Server (the one token home — the row links there) and is
  * shown exactly once at mint.
+ *
+ * In a Windows package the path is the app's launch alias, which a person
+ * can switch off in Windows Settings: the row says so while it is off.
  */
 
-import { App as AntApp, Button, Tabs, theme } from 'antd';
+import { Alert, App as AntApp, Button, Tabs, theme } from 'antd';
 import type React from 'react';
 import { getCapability } from '@openheaders/core/capabilities';
 import { MCP_HTTP_PATH, WS_PORT } from '@openheaders/core/protocol';
 import { useT } from '@openheaders/ui/context/LocaleContext';
+import { usePackageAliases } from '@openheaders/ui/shared/hooks/usePackageAliases';
 import FieldRow from '../fields/FieldRow';
 import { useSettingValue } from '../hooks';
 import { resolveDescription, resolveLabel } from '../localize';
@@ -120,6 +124,7 @@ const McpClientConfigRow: React.FC<{ def: SettingDef }> = ({ def }) => {
   const httpUrl = `http://127.0.0.1:${port}${MCP_HTTP_PATH}`;
   const binary = binaryPathForThisPlatform();
   const argsShell = stdioArgs(port).join(' ');
+  const aliases = usePackageAliases();
 
   const items = [
     {
@@ -182,6 +187,24 @@ const McpClientConfigRow: React.FC<{ def: SettingDef }> = ({ def }) => {
       resettable={false}
       block
     >
+      {aliases !== null && !aliases.app.on && (
+        <Alert
+          type="warning"
+          showIcon
+          data-testid="mcp-alias-off"
+          title={
+            <span style={{ fontSize: 12 }}>
+              {t('workbench.settings.mcpPane.aliasOff', { name: aliases.app.name })}
+            </span>
+          }
+          action={
+            <Button size="small" onClick={aliases.openSettings} data-testid="mcp-alias-open">
+              {t('shared.action.openWindowsSettings')}
+            </Button>
+          }
+          style={{ marginBottom: 8 }}
+        />
+      )}
       <Tabs size="small" items={items} />
       <TokensHomeNote />
     </FieldRow>

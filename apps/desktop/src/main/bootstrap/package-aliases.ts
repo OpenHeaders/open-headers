@@ -22,6 +22,10 @@ export const PACKAGE_APP_ALIAS = 'openheaders.exe';
 /** The browser helper's alias — the path a browser's manifest names. */
 export const PACKAGE_HOST_ALIAS = 'openheaders-nm-host.exe';
 
+/** The names Windows Settings lists the two aliases under: the display names the package's manifest gives its programs. */
+export const PACKAGE_APP_DISPLAY_NAME = 'OpenHeaders';
+export const PACKAGE_HOST_DISPLAY_NAME = 'OpenHeaders browser helper';
+
 /** Where Windows keeps this user's alias of that name. */
 export function packageAliasPath(localAppDataDir: string, alias: string): string {
   return path.join(localAppDataDir, 'Microsoft', 'WindowsApps', alias);
@@ -59,6 +63,42 @@ export function missingPackageAliases(facts: PackageAliasFacts, seams: PackageAl
   return [PACKAGE_APP_ALIAS, PACKAGE_HOST_ALIAS].filter(
     (alias) => !aliasExists(packageAliasPath(facts.localAppDataDir, alias)),
   );
+}
+
+export interface PackageAliasStates {
+  readonly app: { readonly on: boolean; readonly name: string };
+  readonly helper: { readonly on: boolean; readonly name: string };
+}
+
+/** Both aliases as Windows keeps them at the call: a person switches one back on while the app runs. */
+export function packageAliasStates(
+  facts: Pick<PackageAliasFacts, 'localAppDataDir'>,
+  seams: PackageAliasSeams = {},
+): PackageAliasStates {
+  const aliasExists = seams.aliasExists ?? aliasIsThere;
+  return {
+    app: {
+      on: aliasExists(packageAliasPath(facts.localAppDataDir, PACKAGE_APP_ALIAS)),
+      name: PACKAGE_APP_DISPLAY_NAME,
+    },
+    helper: {
+      on: aliasExists(packageAliasPath(facts.localAppDataDir, PACKAGE_HOST_ALIAS)),
+      name: PACKAGE_HOST_DISPLAY_NAME,
+    },
+  };
+}
+
+/** The first Windows 11 build: its Settings has the page the alias switches hang from. */
+const WINDOWS_11_FIRST_BUILD = 22000;
+
+/**
+ * The Windows Settings page that leads to the alias switches. Windows 11
+ * keeps them one row below Apps > Advanced app settings; Windows 10 has
+ * no such page, and its Apps & features page carries the link.
+ */
+export function aliasSettingsLink(osRelease: string): string {
+  const build = Number(osRelease.split('.')[2]);
+  return build >= WINDOWS_11_FIRST_BUILD ? 'ms-settings:advanced-apps' : 'ms-settings:appsfeatures';
 }
 
 export interface McpClientCommandFacts {

@@ -103,6 +103,8 @@ export const sharedChrome = {
   'shared.chrome.addons.notConfigured': 'Sin configurar',
   'shared.chrome.addons.requiresDesktop': 'Requiere la aplicación de escritorio',
   'shared.chrome.addons.cliViaDesktop': 'Se configura desde la aplicación de escritorio',
+  'shared.chrome.addons.helper': 'Asistente',
+  'shared.chrome.addons.helperAliasOff': 'Los navegadores necesitan el alias «{name}» activado en Windows.',
   'shared.chrome.status.coldStart': 'Arranque en frío',
   'shared.chrome.status.coldStartMessage':
     'Regresión de rendimiento detectada — consulta la exportación de diagnóstico',

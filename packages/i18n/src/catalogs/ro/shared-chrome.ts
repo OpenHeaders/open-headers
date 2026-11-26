@@ -122,6 +122,8 @@ export const sharedChrome = {
   'shared.chrome.addons.notConfigured': 'Neconfigurat',
   'shared.chrome.addons.requiresDesktop': 'Necesită aplicația desktop',
   'shared.chrome.addons.cliViaDesktop': 'Configurați din aplicația desktop',
+  'shared.chrome.addons.helper': 'Asistent',
+  'shared.chrome.addons.helperAliasOff': 'Browserele au nevoie de aliasul „{name}” activat în Windows.',
   'shared.chrome.status.coldStart': 'Pornire la rece',
   'shared.chrome.status.coldStartMessage': 'Regresie de performanță detectată — consultați exportul de diagnostic',
   'shared.chrome.status.coldStartTooltip':

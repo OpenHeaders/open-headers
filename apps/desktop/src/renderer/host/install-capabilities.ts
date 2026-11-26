@@ -224,5 +224,15 @@ if (mcpClientCommand !== null) {
   registerCapability('mcpClientCommand', () => mcpClientCommand);
 }
 
+// The two launch aliases of a Windows package: main reads them at each
+// ask, and opens the Windows Settings page that holds their switches.
+// No other install has aliases, so no other install registers this.
+if (window.oh.startupData.windowsPackage) {
+  registerCapability('packageAliases', () => ({
+    read: () => window.oh.packageAliases.read(),
+    openSettings: () => void window.oh.packageAliases.openSettings(),
+  }));
+}
+
 // No `closeSurface` registration — the workbench window is the long-
 // lived primary; nothing in shared UI should close it implicitly.

@@ -19,6 +19,8 @@ export type StartupData = {
   theme: 'light' | 'dark';
   /** The command an MCP client runs to reach this install; null where the standard location is shown. */
   mcpClientCommand: string | null;
+  /** This install is a Windows package: the renderer registers what only a package has. */
+  windowsPackage: boolean;
 };
 
 function build(): StartupData {
@@ -33,6 +35,7 @@ function build(): StartupData {
       executablePath: process.execPath,
       localAppDataDir: process.env.LOCALAPPDATA ?? join(homedir(), 'AppData', 'Local'),
     }),
+    windowsPackage: installKind() === 'msix',
   };
 }
 

@@ -441,6 +441,7 @@ export const workbenchSettingsPanes = {
     'Wähle deinen Client, ersetze den Token-Platzhalter durch einen Zugriffstoken und passe den App-Pfad an, ' +
     'falls du woanders installiert hast. Die App muss laufen, damit sich Clients verbinden können.',
   'workbench.settings.mcpPane.tokensHome': 'Zugriffstoken werden erzeugt und widerrufen unter',
+  'workbench.settings.mcpPane.aliasOff': 'Dieser Befehl braucht den in Windows aktivierten Alias „{name}“.',
   'workbench.settings.mcpPane.snippet.claudeDesktopTitle':
     'claude_desktop_config.json — in die bestehende Datei einmischen',
   'workbench.settings.mcpPane.snippet.runOnceTitle': 'Einmal in einem Terminal ausführen',

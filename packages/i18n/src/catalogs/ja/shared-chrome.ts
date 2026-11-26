@@ -108,6 +108,8 @@ export const sharedChrome = {
   'shared.chrome.addons.notConfigured': '未設定',
   'shared.chrome.addons.requiresDesktop': 'デスクトップアプリが必要です',
   'shared.chrome.addons.cliViaDesktop': 'デスクトップアプリから設定',
+  'shared.chrome.addons.helper': 'ヘルパー',
+  'shared.chrome.addons.helperAliasOff': 'ブラウザーには、Windows でエイリアス「{name}」をオンにする必要があります。',
   'shared.chrome.status.coldStart': 'コールドスタート',
   'shared.chrome.status.coldStartMessage': 'パフォーマンスの低下を検出しました。診断エクスポートを参照してください',
   'shared.chrome.status.coldStartTooltip':

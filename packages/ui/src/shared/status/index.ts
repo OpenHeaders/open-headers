@@ -2,6 +2,7 @@ export type { AddonsPillProps } from './AddonsPill';
 export { AddonsPill } from './AddonsPill';
 export type { DesktopCompanion, DesktopCompanionState } from './companion-rows';
 export {
+  BrowserHelperAliasRow,
   DesktopAppRow,
   DesktopConnectAction,
   DesktopDownloadAction,

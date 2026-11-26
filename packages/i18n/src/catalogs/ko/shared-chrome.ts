@@ -110,6 +110,8 @@ export const sharedChrome = {
   'shared.chrome.addons.notConfigured': '구성되지 않음',
   'shared.chrome.addons.requiresDesktop': '데스크톱 앱이 필요합니다',
   'shared.chrome.addons.cliViaDesktop': '데스크톱 앱에서 설정',
+  'shared.chrome.addons.helper': '도우미',
+  'shared.chrome.addons.helperAliasOff': '브라우저를 사용하려면 Windows에서 “{name}” 별칭을 켜야 합니다.',
   'shared.chrome.status.coldStart': '콜드 스타트',
   'shared.chrome.status.coldStartMessage': '성능 저하가 감지되었습니다. 진단 내보내기를 확인하세요',
   'shared.chrome.status.coldStartTooltip':
