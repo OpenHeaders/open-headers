@@ -608,3 +608,47 @@
     border-style: dashed;
   }
 }
+
+// ── Workflow Run view ──────────────────────────────────────────────
+// The run's rows beside what the picked row produced. An editor pane
+// too narrow for both stacks them — the rows keep to the top half and
+// scroll there — instead of squeezing the product into a sliver.
+
+.oh-workflow-run-view {
+  height: 100%;
+  min-height: 0;
+  display: flex;
+}
+
+.oh-workflow-run-rows {
+  flex: 1 1 0;
+  min-width: 320px;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid var(--ant-color-border-secondary);
+}
+
+.oh-workflow-run-product {
+  flex: 1.2 1 0;
+  min-width: 0;
+  min-height: 0;
+}
+
+@container editor (max-width: 680px) {
+  .oh-workflow-run-view {
+    flex-direction: column;
+  }
+
+  .oh-workflow-run-rows {
+    flex: 0 1 auto;
+    min-width: 0;
+    max-height: 50%;
+    border-right: 0;
+    border-bottom: 1px solid var(--ant-color-border-secondary);
+  }
+
+  .oh-workflow-run-product {
+    flex: 1 1 0;
+  }
+}

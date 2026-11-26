@@ -214,17 +214,10 @@ const WorkflowRunBody: React.FC<Props> = ({ workflow, needsUpdate }) => {
         : null;
 
   return (
-    <div data-testid="wf-run-view" data-run-verdict={verdict} style={{ height: '100%', display: 'flex', minHeight: 0 }}>
-      <div
-        style={{
-          flex: '1 1 0',
-          minWidth: 320,
-          display: 'flex',
-          flexDirection: 'column',
-          minHeight: 0,
-          borderRight: `1px solid ${token.colorBorderSecondary}`,
-        }}
-      >
+    // Two panes side by side; an editor pane too narrow for both stacks
+    // them (`.oh-workflow-run-view`, the workbench's editor stylesheet).
+    <div data-testid="wf-run-view" data-run-verdict={verdict} className="oh-workflow-run-view">
+      <div className="oh-workflow-run-rows">
         <div
           style={{
             display: 'flex',
@@ -263,7 +256,7 @@ const WorkflowRunBody: React.FC<Props> = ({ workflow, needsUpdate }) => {
           )}
         </div>
       </div>
-      <div style={{ flex: '1.2 1 0', minWidth: 0, minHeight: 0 }}>
+      <div className="oh-workflow-run-product">
         <WorkflowRunProductPane
           stepId={selectedId}
           state={selectedId === null ? undefined : kept?.products[selectedId]}
