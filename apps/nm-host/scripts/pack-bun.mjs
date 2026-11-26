@@ -66,6 +66,7 @@ const UNREACHABLE_PORT = 18837;
 
 /** The helper's listener check starts PowerShell twice at worst, ten seconds each. */
 const SHIPPED_PROBE_TIMEOUT_MS = 60_000;
+const SHIPPED_PROBE_ATTEMPTS = 3;
 
 function fail(message) {
   console.error(`pack-bun: ${message}`);
@@ -204,11 +205,23 @@ async function verifyShippedListenerCheck() {
       server.listen(0, '127.0.0.1', resolve);
     });
     const { port } = server.address();
-    const shipped = spawnSync(shippedBinary, [], {
-      input: frame({ kind: 'bootstrap', url: `ws://127.0.0.1:${port}` }),
-      timeout: SHIPPED_PROBE_TIMEOUT_MS,
-    });
-    const stderr = shipped.stderr.toString('utf-8').trim();
+    // The helper gives each PowerShell question ten seconds, and a
+    // runner's first PowerShell start can take longer: a probe that
+    // ended without learning the listener's program is asked again,
+    // that start now behind it. One that crashed is not.
+    let shipped;
+    let stderr;
+    for (let attempt = 1; attempt <= SHIPPED_PROBE_ATTEMPTS; attempt++) {
+      shipped = spawnSync(shippedBinary, [], {
+        input: frame({ kind: 'bootstrap', url: `ws://127.0.0.1:${port}` }),
+        timeout: SHIPPED_PROBE_TIMEOUT_MS,
+      });
+      stderr = shipped.stderr.toString('utf-8').trim();
+      if (shipped.status !== 0 || stderr.includes('outside install root')) break;
+      console.log(
+        `pack-bun: shipped-layout probe ${attempt} of ${SHIPPED_PROBE_ATTEMPTS} did not read the listener (${stderr})`,
+      );
+    }
     if (shipped.status !== 0) fail(`shipped-layout probe exited ${shipped.status}: ${stderr}`);
     const responses = parseFrames(shipped.stdout);
     if (responses.length !== 1) fail(`shipped-layout probe answered ${responses.length} frames, expected 1`);
