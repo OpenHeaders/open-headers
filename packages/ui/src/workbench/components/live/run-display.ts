@@ -4,7 +4,13 @@
  * sentence derive here from the run record alone.
  */
 
-import type { SessionClose, SessionOpenFacts, WorkflowRunStepRow, WorkflowRunVerdict } from '@openheaders/core/live';
+import type {
+  SessionClose,
+  SessionOpenFacts,
+  WorkflowRunRecord,
+  WorkflowRunStepRow,
+  WorkflowRunVerdict,
+} from '@openheaders/core/live';
 import type { Translate } from '@openheaders/ui/context/LocaleContext';
 import { formatDurationRolled } from '../request-editor/response/response-meta';
 
@@ -28,6 +34,13 @@ export interface RunRowContext {
   now?: number;
   /** A `listen`'s session: open while the run goes, then how it closed. */
   session?: 'open' | SessionClose;
+}
+
+/** A `listen` row's session: open while the run goes, then how it closed. */
+export function sessionOfRow(row: WorkflowRunStepRow, record: WorkflowRunRecord): RunRowContext['session'] {
+  if (row.state !== 'settled' || row.settlement.state !== 'ready') return undefined;
+  if (record.ended === null) return 'open';
+  return record.ended.sessions?.find((close) => close.stepId === row.id);
 }
 
 export function describeRunRow(row: WorkflowRunStepRow, t: Translate, context: RunRowContext = {}): RunRowDisplay {
@@ -135,7 +148,12 @@ export function describeRunRow(row: WorkflowRunStepRow, t: Translate, context: R
       ];
       return {
         tone: 'failed',
-        facts: facts.length > 0 ? facts : [t('workbench.editors.live.run.row.failed')],
+        facts:
+          settlement.timedOut === true
+            ? [t('workbench.editors.live.run.row.timedOut')]
+            : facts.length > 0
+              ? facts
+              : [t('workbench.editors.live.run.row.failed')],
         sub: { text: settlement.reason, tone: 'danger' },
       };
     }

@@ -145,6 +145,11 @@ function runRow(stepId: string): Locator {
   return workbench.getByTestId(`wf-run-row-${stepId}`).filter({ visible: true }).first();
 }
 
+/** A step's state glyph on the graph. */
+function nodeMark(stepId: string): Locator {
+  return workbench.getByTestId(`wf-graph-run-${stepId}`).filter({ visible: true }).first();
+}
+
 /** Open a workflow's tab — its panel says no run was seen yet — and press the header's Refresh. */
 async function runWorkflow(uid: string): Promise<void> {
   await workbench.locator(`[data-item-id="workflow-${uid}"]`).click();
@@ -266,7 +271,11 @@ test('R3 — a message that never comes fails its step at the deadline, naming t
   await expect(runRow('health')).toContainText(
     'No message on devices/dev-1/health matched within 1.5 s of "probe" starting.',
   );
+  await expect(runRow('health')).toContainText('Timed out');
   await expect(runRow('probe')).toContainText('closed after');
+  // The graph says the same: the wait timed out, and the listen that had been open is closed.
+  await expect(nodeMark('health')).toHaveAttribute('data-run-state', 'timed-out');
+  await expect(nodeMark('probe')).toHaveAttribute('data-run-state', 'passed');
 });
 
 test('R4 — a listen that runs its request’s scripts passes, and its row says what the hooks left', async () => {
@@ -283,6 +292,8 @@ test('R5 — a Before connect that throws fails the listen before the dial; noth
   await expect(runRow('probe')).toContainText('Before connect script failed at Request: no key');
   await expect(runRow('reboot')).toContainText('Not run');
   await expect(runRow('status')).toContainText('Not run');
+  await expect(nodeMark('probe')).toHaveAttribute('data-run-state', 'failed');
+  await expect(nodeMark('reboot')).toHaveAttribute('data-run-state', 'not-run');
 });
 
 test('R6 — an expect that passes over stored messages is refused before the run on a row that keeps the retain flag', async () => {

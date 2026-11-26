@@ -287,6 +287,36 @@ describe('a run in the workflow view', () => {
     expect(screen.getByTestId('wf-run-row-profile').textContent).toContain('Sending… · Attempt 2 of 3');
   });
 
+  it('the graph’s nodes wear the run’s marks as it goes, each with the row’s words on its last line', async () => {
+    render(<SavedWorkflowView workflow={workflow} />);
+    const markOf = (stepId: string) => screen.getByTestId(`wf-graph-run-${stepId}`).getAttribute('data-run-state');
+    const lineOf = (stepId: string) => screen.queryByTestId(`wf-graph-result-${stepId}`)?.textContent ?? null;
+    expect(markOf('login')).toBe('idle');
+    expect(lineOf('login')).toBeNull();
+
+    await feed(BEGIN);
+    expect(markOf('login')).toBe('waiting');
+    expect(markOf('profile')).toBe('waiting');
+
+    await feed(LOGIN_START);
+    expect(markOf('login')).toBe('running');
+    expect(lineOf('login')).toBe('Sending…');
+
+    await feed(LOGIN_PASSED);
+    expect(markOf('login')).toBe('passed');
+    expect(lineOf('login')).toBe('200 · 10 ms · 1 capture');
+
+    await feed(PROFILE_START);
+    expect(markOf('profile')).toBe('running');
+    await feed(PROFILE_RETRY);
+    expect(markOf('profile')).toBe('retrying');
+    expect(lineOf('profile')).toBe('Sending… · Attempt 2 of 3');
+
+    await feed(PROFILE_FAILED);
+    expect(markOf('profile')).toBe('failed');
+    expect(screen.getByTestId('wf-graph-result-profile').getAttribute('title')).toBe(`Failed: ${REFUSED}`);
+  });
+
   it('a run failing at the fetch — the step before it passed, the failing row states the condition', async () => {
     render(<SavedWorkflowView workflow={workflow} />);
 

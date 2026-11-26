@@ -1,16 +1,13 @@
 /**
- * Run-status overlay for the workflow graph view (the workflow-graph plan
- * §6.3) — `StepRunDot`, the per-node state dot (`classifyStepRun`
- * vocabulary) `WorkflowGraphBody` composes when the editor hands it the
- * active environment's run row. When the step has captured values,
- * clicking opens a masked-by-default value popover (capture sets can
- * hold tokens; reveal is an explicit eye toggle, matching the LV editor
- * idiom). The whole-run summary lives on the editor's bottom
- * `WorkflowRunStatusStrip`.
+ * A graph node's run mark (the workflows redesign, Step states) —
+ * `StepRunMark`, the state glyph `WorkflowGraphNode` wears. Hovered, it
+ * says the state in words. Where the cache row holds values the step
+ * captured, a click opens them masked by default (capture sets can hold
+ * tokens; reveal is an explicit eye toggle, matching the LV editor
+ * idiom).
  *
- * Everything here derives at render time from the cache row — the
- * overlay holds no state beyond the popover's reveal toggle, and it
- * never touches the draft.
+ * The mark is derived by the graph at render time; this holds no state
+ * beyond the popover's reveal toggle, and it never touches the draft.
  */
 
 import { EyeInvisibleOutlined, EyeOutlined } from '@ant-design/icons';
@@ -18,59 +15,44 @@ import { useT } from '@openheaders/ui/context/LocaleContext';
 import { Button, Popover, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
 import { useState } from 'react';
-import { describeStepRun, maskValue, statusColor, type StepRunState, stepRunLevel } from './live-display';
+import { maskValue } from './live-display';
+import StepGlyph from './StepGlyph';
+import type { StepMark } from './step-mark';
 
 const { Text } = Typography;
 
-// ── Per-node state dot + captured-values popover ───────────────────
-
-interface StepRunDotProps {
+interface StepRunMarkProps {
   stepId: string;
-  state: StepRunState;
-  /** Failure message when this node is the run's failure point. */
-  errorMessage?: string;
-  /** Captured values for this step from the run row (may be a prior run's, when skipped). */
+  mark: StepMark;
+  /** Captured values for this step from the cache row (may be a prior run's, when skipped). */
   captures?: Record<string, string>;
   /** Response body byte count for this step — observability garnish. */
   responseBytes?: number;
 }
 
-export const StepRunDot: React.FC<StepRunDotProps> = ({ stepId, state, errorMessage, captures, responseBytes }) => {
-  const { token } = theme.useToken();
-  const t = useT();
+export const StepRunMark: React.FC<StepRunMarkProps> = ({ stepId, mark, captures, responseBytes }) => {
   // Suppress the hover tooltip while the click-opened capture popover
-  // shows — the pointer stays on the dot after the click, so the
+  // shows — the pointer stays on the glyph after the click, so the
   // tooltip would otherwise linger over the popover.
   const [capturesOpen, setCapturesOpen] = useState(false);
-  const level = stepRunLevel(state);
-  const hollow = state === 'skipped' || state === 'not-run';
-  const hollowBorder = state === 'skipped' ? token.colorWarning : token.colorTextQuaternary;
   const captureEntries = captures ? Object.entries(captures) : [];
   const hasValues = captureEntries.length > 0;
 
-  const dot = (
+  const glyph = (
     <span
       data-testid={`wf-graph-run-${stepId}`}
       data-graph-node-action=""
-      data-run-state={state}
+      data-run-state={mark.kind}
       onClick={(e) => e.stopPropagation()}
-      onDoubleClick={(e) => e.stopPropagation()}
-      style={{
-        width: 8,
-        height: 8,
-        borderRadius: '50%',
-        flexShrink: 0,
-        boxSizing: 'border-box',
-        background: hollow ? 'transparent' : statusColor(level),
-        border: hollow ? `1.5px solid ${hollowBorder}` : undefined,
-        cursor: hasValues ? 'pointer' : 'default',
-      }}
-    />
+      style={{ display: 'inline-flex', flex: 'none', cursor: hasValues ? 'pointer' : 'default' }}
+    >
+      <StepGlyph kind={mark.kind} label={mark.label} />
+    </span>
   );
 
   if (!hasValues) {
-    const hint = errorMessage ? `${describeStepRun(state, t)}: ${errorMessage}` : describeStepRun(state, t);
-    return <Tooltip title={hint}>{dot}</Tooltip>;
+    const hint = mark.detail !== undefined ? `${mark.label}: ${mark.detail}` : mark.label;
+    return <Tooltip title={hint}>{glyph}</Tooltip>;
   }
   return (
     <Popover
@@ -79,15 +61,14 @@ export const StepRunDot: React.FC<StepRunDotProps> = ({ stepId, state, errorMess
       content={
         <StepCapturePopover
           stepId={stepId}
-          state={state}
-          errorMessage={errorMessage}
+          mark={mark}
           captureEntries={captureEntries}
           responseBytes={responseBytes}
         />
       }
     >
-      <Tooltip title={describeStepRun(state, t)} open={capturesOpen ? false : undefined}>
-        {dot}
+      <Tooltip title={mark.label} open={capturesOpen ? false : undefined}>
+        {glyph}
       </Tooltip>
     </Popover>
   );
@@ -95,19 +76,12 @@ export const StepRunDot: React.FC<StepRunDotProps> = ({ stepId, state, errorMess
 
 interface StepCapturePopoverProps {
   stepId: string;
-  state: StepRunState;
-  errorMessage?: string;
+  mark: StepMark;
   captureEntries: [string, string][];
   responseBytes?: number;
 }
 
-const StepCapturePopover: React.FC<StepCapturePopoverProps> = ({
-  stepId,
-  state,
-  errorMessage,
-  captureEntries,
-  responseBytes,
-}) => {
+const StepCapturePopover: React.FC<StepCapturePopoverProps> = ({ stepId, mark, captureEntries, responseBytes }) => {
   const { token } = theme.useToken();
   const t = useT();
   // Masked by default — capture sets can hold access tokens. One
@@ -122,7 +96,7 @@ const StepCapturePopover: React.FC<StepCapturePopoverProps> = ({
     <div data-testid={`wf-graph-run-pop-${stepId}`} data-graph-node-action="" style={{ maxWidth: 360, fontSize: 11 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
         <Text type="secondary" style={{ fontSize: 11, flex: 1 }}>
-          {describeStepRun(state, t)}
+          {mark.label}
         </Text>
         <Button
           size="small"
@@ -132,14 +106,17 @@ const StepCapturePopover: React.FC<StepCapturePopoverProps> = ({
           onClick={() => setReveal((r) => !r)}
         />
       </div>
-      {state === 'skipped' && (
+      {mark.kind === 'skipped' && (
         <Text type="secondary" style={{ fontSize: 11, fontStyle: 'italic', display: 'block', marginBottom: 4 }}>
           {t('workbench.editors.live.runOverlay.valuesPreserved')}
         </Text>
       )}
-      {errorMessage && (
-        <Text type="danger" style={{ fontSize: 11, display: 'block', marginBottom: 4 }}>
-          {errorMessage}
+      {mark.detail !== undefined && (
+        <Text
+          type={mark.kind === 'failed' || mark.kind === 'timed-out' ? 'danger' : 'secondary'}
+          style={{ fontSize: 11, display: 'block', marginBottom: 4 }}
+        >
+          {mark.detail}
         </Text>
       )}
       {captureEntries.map(([name, value]) => (

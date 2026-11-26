@@ -469,7 +469,14 @@ async function walkChain(
           type: 'step-settle',
           at: now(),
           stepId,
-          settlement: { state: 'failed', phase: outcome.phase, reason: outcome.reason, attempts: 1, maxAttempts: 1 },
+          settlement: {
+            state: 'failed',
+            phase: outcome.phase,
+            reason: outcome.reason,
+            attempts: 1,
+            maxAttempts: 1,
+            ...(outcome.timedOut === true ? { timedOut: true } : {}),
+          },
           ...(outcome.product !== undefined ? { product: outcome.product } : {}),
         });
         await finish(false);

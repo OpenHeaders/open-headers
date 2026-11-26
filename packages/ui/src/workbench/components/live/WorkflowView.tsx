@@ -59,7 +59,11 @@ interface Props {
   /** The saved workflow on a surface that runs workflows — absent where there is no run to show. */
   workflow?: LiveWorkflow;
   run?: ShownWorkflowRun | null;
-  /** The active environment's cache row for the graph's run marks — `undefined` for a draft never saved. */
+  /**
+   * The active environment's cache row: the graph's marks while no run is
+   * kept, and the values a step captured — `undefined` for a draft never
+   * saved.
+   */
   cacheRun?: LiveWorkflowRunSnapshot | null;
   boundVars?: LiveVariable[];
 }
@@ -140,7 +144,8 @@ const WorkflowView: React.FC<Props> = ({
           selectedStepId={selectedStepId}
           onSelectStep={onSelectStep}
           onDeselect={() => onSelectStep(null)}
-          run={cacheRun}
+          run={run}
+          cacheRun={cacheRun}
           boundVars={boundVars}
         />
       </div>

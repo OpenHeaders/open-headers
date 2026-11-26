@@ -182,8 +182,9 @@ async function newWorkflow(name: string): Promise<void> {
   await workbench.keyboard.press('Enter');
 }
 
-/** Open a step in the view's panel by its node on the graph. */
+/** Open a step in the view's panel by its node on the graph — re-centred first, so a node below the strip is in reach. */
 async function openStep(stepId: string): Promise<void> {
+  await workbench.getByTestId('wf-graph-fit').filter({ visible: true }).first().click();
   await workbench.getByTestId(`wf-graph-node-${stepId}`).filter({ visible: true }).first().click();
   await expect(card(stepId)).toBeVisible();
 }

@@ -139,8 +139,13 @@ function card(page: Page, stepId: string): Locator {
   return page.locator(`[data-step-card="${stepId}"]`);
 }
 
-/** Open a step in the view's panel by its node on the graph; its card is the one the panel shows. */
+/**
+ * Open a step in the view's panel by its node on the graph — re-centred
+ * first, so a node below the strip is in reach; its card is the one the
+ * panel shows.
+ */
 async function openStep(page: Page, stepId: string): Promise<Locator> {
+  await page.getByTestId('wf-graph-fit').filter({ visible: true }).first().click();
   await page.getByTestId(`wf-graph-node-${stepId}`).filter({ visible: true }).first().click();
   const stepCard = card(page, stepId).filter({ visible: true });
   await expect(stepCard).toBeVisible();

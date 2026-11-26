@@ -94,6 +94,8 @@ export type StepSettlement =
       /** Present when a response head arrived before the failure. */
       status?: number;
       durationMs?: number;
+      /** The step's own deadline passed: a `listen` not ready in time, an `expect` with no match in time. */
+      timedOut?: true;
     }
   /** Its run condition was not met. */
   | { state: 'skipped' }

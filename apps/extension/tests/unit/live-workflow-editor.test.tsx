@@ -298,11 +298,16 @@ describe('LiveWorkflowEditor — a workflow that needs a newer version', () => {
     expect(updateWorkflowMock).toHaveBeenCalledWith('wfdevice', { enabled: false });
   });
 
-  it('draws the unknown steps on the graph with no edit gesture', () => {
+  it('draws the unknown steps on the graph with no edit gesture, each marked as one that cannot run', () => {
     const { container } = renderNeedsUpdate();
 
     const nodes = Array.from(container.querySelectorAll('[data-needs-update]'));
-    expect(nodes.map((node) => node.textContent)).toEqual([`probe${STEP}watch`, `status${STEP}verify`]);
+    expect(nodes.map((node) => node.textContent)).toEqual([
+      `probe${STEP}watchCannot run here`,
+      `status${STEP}verifyCannot run here`,
+    ]);
+    expect(screen.getByTestId('wf-graph-run-probe').getAttribute('data-run-state')).toBe('cannot-run');
+    expect(screen.getByTestId('wf-graph-run-reboot').getAttribute('data-run-state')).toBe('not-run');
     expect(screen.queryByTestId('wf-graph-connect-reboot')).toBeNull();
   });
 });
@@ -673,16 +678,23 @@ describe('LiveWorkflowEditor — a workflow that holds session steps', () => {
     expect(screen.getByTestId('wf-run-empty')).toBeTruthy();
   });
 
-  it('its node says its action, what it acts on, and what arms it', () => {
+  it('its node says its protocol and its kind, what it acts on, and what arms it or uses it', () => {
     const { container } = renderWorkflow(sessionFixture);
 
     expect(container.querySelector('[data-needs-update]')).toBeNull();
-    expect(screen.getByTestId('wf-graph-node-probe').textContent).toBe('probeListenProbe MQTT');
+    expect(screen.getByTestId('wf-graph-node-probe').textContent).toBe('probeMQTTListenProbe MQTTused by status');
     expect(screen.getByTestId('wf-graph-node-status').textContent).toBe(
-      'statusExpectdevices/dev-1/statuson probe · after reboot',
+      'statusMQTTWaitdevices/dev-1/statuson probe · after reboot',
     );
     expect(screen.getByTestId('wf-graph-armed-status').textContent).toBe('on probe · after reboot');
     expect(screen.queryByTestId('wf-graph-armed-probe')).toBeNull();
+  });
+
+  it('a node no run has reached wears the empty ring and has no last line', () => {
+    renderWorkflow(sessionFixture);
+
+    expect(screen.getByTestId('wf-graph-run-probe').getAttribute('data-run-state')).toBe('idle');
+    expect(screen.queryByTestId('wf-graph-result-probe')).toBeNull();
   });
 
   it('a session step’s captures are on its node, unexposed', () => {
@@ -697,7 +709,7 @@ describe('LiveWorkflowEditor — a workflow that holds session steps', () => {
     renderWorkflow(capturing);
 
     expect(screen.getByTestId('wf-graph-node-status').textContent).toBe(
-      'statusExpectdevices/dev-1/statuson probe · after rebootstate',
+      'statusMQTTWaitdevices/dev-1/statuson probe · after reboot · captures state',
     );
     expect(screen.getByTestId('wf-graph-node-status').querySelector('[data-lv-published]')).toBeNull();
   });

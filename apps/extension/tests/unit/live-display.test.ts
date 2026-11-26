@@ -16,7 +16,6 @@ import {
   formatCountdown,
   formatRelativeMs,
   pickActiveRun,
-  stepRunLevel,
   summarizeRunsByEnv,
 } from '@openheaders/ui/workbench/components/live/live-display';
 import type { LiveWorkflowRunSnapshot } from '@utils/bridge';
@@ -335,13 +334,5 @@ describe('classifyStepRun', () => {
     const run = makeRun({ stepCaptures: { root: { token: 'tok' } } });
     expect(classifyStepRun(run, 'root')).toBe('completed');
     expect(classifyStepRun(run, 'gated')).toBe('not-run');
-  });
-
-  it('maps states onto the shared status scale', () => {
-    expect(stepRunLevel('completed')).toBe('green');
-    expect(stepRunLevel('failed')).toBe('red');
-    expect(stepRunLevel('extract-failed')).toBe('yellow');
-    expect(stepRunLevel('skipped')).toBe('idle');
-    expect(stepRunLevel('not-run')).toBe('idle');
   });
 });

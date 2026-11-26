@@ -631,6 +631,24 @@
   min-height: 0;
 }
 
+// A going step's glyph turns its arc about the ring's centre.
+.oh-workflow-glyph-turning {
+  transform-origin: 9px 9px;
+  animation: oh-workflow-glyph-turn 1s linear infinite;
+}
+
+@keyframes oh-workflow-glyph-turn {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .oh-workflow-glyph-turning {
+    animation: none;
+  }
+}
+
 .oh-workflow-view-panel {
   position: relative;
   min-width: 0;

@@ -399,20 +399,6 @@ export function classifyStepRun(run: LiveWorkflowRunSnapshot | null, stepId: str
   return 'not-run';
 }
 
-/** Status tier a step state maps to — reuses the shared `statusColor` scale. */
-export function stepRunLevel(state: StepRunState): LiveStatusLevel {
-  switch (state) {
-    case 'completed':
-      return 'green';
-    case 'failed':
-      return 'red';
-    case 'extract-failed':
-      return 'yellow';
-    default:
-      return 'idle';
-  }
-}
-
 /** Short human label per step state — tooltip vocabulary, one phrase each. */
 export function describeStepRun(state: StepRunState, t: Translate): string {
   switch (state) {

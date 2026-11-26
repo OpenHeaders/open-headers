@@ -104,6 +104,16 @@ describe('a session step’s row, in the plan’s words', () => {
       facts: ['Matched after 312 ms', '1 capture'],
     });
   });
+
+  it('a step whose own deadline passed says Timed out, over the sentence that names the wait', () => {
+    const reason = 'No message on devices/dev-1/status matched within 5 s of "reboot" starting.';
+    expect(
+      describeRunRow(
+        settled({ state: 'failed', phase: 'expect', reason, attempts: 1, maxAttempts: 1, timedOut: true }),
+        t,
+      ),
+    ).toEqual({ tone: 'failed', facts: ['Timed out'], sub: { text: reason, tone: 'danger' } });
+  });
 });
 
 describe('a row while its step runs', () => {

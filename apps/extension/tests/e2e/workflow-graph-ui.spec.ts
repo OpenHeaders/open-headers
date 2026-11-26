@@ -31,6 +31,7 @@
 import path from 'node:path';
 import { type BrowserContext, expect, type Page, test } from '@playwright/test';
 import { launchExtensionContext } from './fixtures/launch-extension';
+import { WorkbenchPage } from './pages/workbench-page';
 
 const extensionPath = path.resolve(__dirname, '../../dist/chrome');
 
@@ -205,15 +206,15 @@ test('graph toggle renders the step DAG and returns to the form loss-free', asyn
   await expect(page.getByTestId('wf-graph-gate-left')).toBeVisible();
   await expect(page.getByTestId('wf-graph-gate-right')).toHaveCount(0);
 
-  // Run overlay on a never-run workflow: the summary says so and every
-  // node carries the not-run state. The exposed capture's LV exists but
+  // Run marks on a never-run workflow: the summary says so and every
+  // node wears the empty ring. The exposed capture's LV exists but
   // is unpublished — pending first run, never presented as live.
   // Earlier tests' editor tabs stay mounted — scope to the visible strip.
   await expect(page.getByTestId('wf-run-status-strip').filter({ visible: true }).first()).toContainText(
     'never run for this env',
   );
   for (const stepId of ['root', 'left', 'right', 'sink']) {
-    await expect(page.getByTestId(`wf-graph-run-${stepId}`)).toHaveAttribute('data-run-state', 'not-run');
+    await expect(page.getByTestId(`wf-graph-run-${stepId}`)).toHaveAttribute('data-run-state', 'idle');
   }
   await expect(page.getByTestId('wf-graph-node-root').locator('[data-lv-published]')).toHaveAttribute(
     'data-lv-published',
@@ -329,7 +330,10 @@ test('graph editing: connect adds a dependsOn edge, edge remove, add step, cycle
   const saveButton = page.getByRole('button', { name: 'Save' }).filter({ visible: true }).first();
   await saveButton.waitFor({ state: 'visible', timeout: 5_000 });
   await expect(saveButton).toBeDisabled();
-  await expect(page.getByTestId('wf-graph-pane')).toBeVisible();
+  await expect(page.getByTestId('wf-graph-pane').filter({ visible: true }).first()).toBeVisible();
+  // The gestures below reach the second layer's lower edge: beside its panel the
+  // graph has the pane's whole height, stacked over it only a short strip.
+  await new WorkbenchPage(page).collapseRightSidebar();
 
   // ── Connect b → c ────────────────────────────────────────────────
   const center = (box: { x: number; y: number; width: number; height: number }) => ({
@@ -491,12 +495,13 @@ test('run overlay: per-node states, masked value reveal, publication split', asy
     .filter({ visible: true })
     .first()
     .waitFor({ state: 'visible', timeout: 5_000 });
-  await expect(page.getByTestId('wf-graph-pane')).toBeVisible();
+  // An earlier case's tab may still be mounted behind this one.
+  await expect(page.getByTestId('wf-graph-pane').filter({ visible: true }).first()).toBeVisible();
 
   // Summary reflects the successful run; per-node states carry the
-  // runner's attestation: completed vs gate-skipped.
+  // runner's attestation: passed vs gate-skipped.
   await expect(page.getByTestId('wf-run-status-strip').filter({ visible: true }).first()).toContainText('last');
-  await expect(page.getByTestId('wf-graph-run-introspect')).toHaveAttribute('data-run-state', 'completed');
+  await expect(page.getByTestId('wf-graph-run-introspect')).toHaveAttribute('data-run-state', 'passed');
   await expect(page.getByTestId('wf-graph-run-refresh')).toHaveAttribute('data-run-state', 'skipped');
 
   // Captured values are masked by default; reveal is an explicit click.

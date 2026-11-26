@@ -338,6 +338,7 @@ describe('an expect’s window', () => {
       failedPhase: 'expect',
       failedReason: `No message on ${STATUS_TOPIC} matched within 10 s of "reboot" starting.`,
     });
+    expect(settlementOf('status').settlement).toMatchObject({ state: 'failed', phase: 'expect', timedOut: true });
     expect(settlementOf('status').product).toEqual({ kind: 'message', message: null, window: [] });
   });
 
@@ -570,7 +571,7 @@ describe('a listen', () => {
   });
 
   it('fails at its deadline, tells the session so, and ends one that becomes ready too late', async () => {
-    const { clock, session, start } = rig();
+    const { clock, session, start, settlementOf } = rig();
     let answer: (result: SessionOpenResult) => void = () => {};
     session.host.open = (step, opened) => {
       session.log.push(`open ${step.sessionRequestUid}`);
@@ -584,17 +585,19 @@ describe('a listen', () => {
     clock.advance(10_000);
 
     expect(await run).toMatchObject({ ok: false, failedPhase: 'listen', failedReason: 'Not ready within 10 s.' });
+    expect(settlementOf('probe').settlement).toMatchObject({ state: 'failed', phase: 'listen', timedOut: true });
     answer({ ok: true, session: session.session });
     await settle();
     expect(session.log).toEqual(['open mqttreq1', 'aborted', 'end']);
   });
 
   it('fails with the error when opening throws', async () => {
-    const { session, start } = rig();
+    const { session, start, settlementOf } = rig();
     session.host.open = async () => {
       throw new Error('No such request.');
     };
     expect(await start()).toMatchObject({ ok: false, failedPhase: 'listen', failedReason: 'No such request.' });
+    expect(settlementOf('probe').settlement).not.toHaveProperty('timedOut');
   });
 
   it('hands the session the run’s captures by reference', async () => {

@@ -101,9 +101,63 @@
    * behind dark text, light and dark. */
   --oh-settings-match-bg: #fcd47e;
   --oh-settings-match-text: #1f1f1f;
+
+  /* Workflow view — the workflows redesign's own colours in the light
+   * theme: the graph's ground and a node's surface, the state colours a
+   * glyph and a node's last line wear, the tags. `blocked` is the one
+   * colour the design does not have: a step this host cannot run. */
+  --oh-wf-bg: #f5f5f7;
+  --oh-wf-surface: #ffffff;
+  --oh-wf-text: #1d1d1f;
+  --oh-wf-text-secondary: #6e6e73;
+  --oh-wf-accent: #0071e3;
+  --oh-wf-success: #248a3d;
+  --oh-wf-failure: #d70015;
+  --oh-wf-timeout: #c93400;
+  --oh-wf-blocked: #9a6700;
+  --oh-wf-open: #8944ab;
+  --oh-wf-idle: #c7c7cc;
+  --oh-wf-quiet: #8e8e93;
+  --oh-wf-track: #d2d2d7;
+  --oh-wf-on-fill: #ffffff;
+  --oh-wf-tag-bg: #f0f0f2;
+  --oh-wf-tag-text: #636366;
+  --oh-wf-tag-http: #0058b0;
+  --oh-wf-tag-http-bg: #e5f0ff;
+  --oh-wf-tag-graphql: #a3246e;
+  --oh-wf-tag-graphql-bg: #fde8f3;
+  --oh-wf-tag-mqtt: #6f2f93;
+  --oh-wf-tag-mqtt-bg: #f1e8f8;
+  --oh-wf-node-shadow: 0 0 0 0.5px rgba(0, 0, 0, 0.1), 0 1px 3px rgba(0, 0, 0, 0.06);
+  --oh-wf-node-ring: 0 0 0 2px #0071e3, 0 6px 18px rgba(0, 113, 227, 0.16);
 }
 
 [data-theme='dark'] {
+  /* Workflow view — the dark theme reads the app's own tokens. */
+  --oh-wf-bg: var(--ant-color-bg-layout);
+  --oh-wf-surface: var(--ant-color-bg-elevated);
+  --oh-wf-text: var(--ant-color-text);
+  --oh-wf-text-secondary: var(--ant-color-text-secondary);
+  --oh-wf-accent: var(--ant-color-primary);
+  --oh-wf-success: var(--ant-color-success);
+  --oh-wf-failure: var(--ant-color-error);
+  --oh-wf-timeout: var(--oh-method-ws);
+  --oh-wf-blocked: var(--ant-color-warning);
+  --oh-wf-open: var(--oh-method-mqtt);
+  --oh-wf-idle: var(--ant-color-text-quaternary);
+  --oh-wf-quiet: var(--ant-color-text-tertiary);
+  --oh-wf-track: var(--ant-color-border);
+  --oh-wf-tag-bg: var(--ant-color-fill-tertiary);
+  --oh-wf-tag-text: var(--ant-color-text-secondary);
+  --oh-wf-tag-http: var(--oh-method-put);
+  --oh-wf-tag-http-bg: color-mix(in srgb, var(--oh-method-put) 18%, transparent);
+  --oh-wf-tag-graphql: var(--oh-method-options);
+  --oh-wf-tag-graphql-bg: color-mix(in srgb, var(--oh-method-options) 18%, transparent);
+  --oh-wf-tag-mqtt: var(--oh-method-mqtt);
+  --oh-wf-tag-mqtt-bg: color-mix(in srgb, var(--oh-method-mqtt) 18%, transparent);
+  --oh-wf-node-shadow: 0 0 0 1px var(--ant-color-border-secondary);
+  --oh-wf-node-ring: 0 0 0 2px var(--ant-color-primary);
+
   --scope-vault-color:       #ff7875;
   --scope-vault-bg:          #2a1215;
   --scope-environment-color: #6BDD9A;

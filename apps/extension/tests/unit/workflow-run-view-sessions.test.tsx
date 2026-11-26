@@ -227,6 +227,8 @@ async function feed(fact: WorkflowRunFact): Promise<void> {
 }
 
 const rowText = (stepId: string): string => screen.getByTestId(`wf-run-row-${stepId}`).textContent ?? '';
+const markOf = (stepId: string): string | null =>
+  screen.getByTestId(`wf-graph-run-${stepId}`).getAttribute('data-run-state');
 
 beforeEach(() => {
   seq = 0;
@@ -258,10 +260,13 @@ describe('a run with session steps in the workflow view', () => {
     await feed(BEGIN);
     await feed(start('probe'));
     expect(rowText('probe')).toContain('Connecting…');
+    expect(markOf('probe')).toBe('running');
 
     await feed(PROBE_READY);
     expect(rowText('probe')).toContain('Ready in 41 ms · open');
     expect(rowText('probe')).toContain('Client ID generated · Clean start · 1 subscription granted');
+    expect(markOf('probe')).toBe('open');
+    expect(screen.getByTestId('wf-graph-result-probe').textContent).toBe('Ready in 41 ms · open');
   });
 
   it('a call the rate limit holds says so until it leaves', async () => {
@@ -270,10 +275,12 @@ describe('a run with session steps in the workflow view', () => {
     await feed(start('reboot'));
     await feed({ type: 'step-hold', at: 102, stepId: 'reboot', held: true });
     expect(rowText('reboot')).toContain('Waiting on the rate limit');
+    expect(markOf('reboot')).toBe('held');
 
     await feed({ type: 'step-hold', at: 19_102, stepId: 'reboot', held: false });
     expect(rowText('reboot')).toContain('Sending…');
     expect(rowText('reboot')).not.toContain('rate limit');
+    expect(markOf('reboot')).toBe('running');
   });
 
   it('an expect says what it waits for and how far into its deadline it is', async () => {
@@ -299,6 +306,25 @@ describe('a run with session steps in the workflow view', () => {
     expect(screen.getByTestId('wf-run-facts-probe').style.whiteSpace).toBe('');
     expect(rowText('status')).toContain('Matched after 312 ms');
     expect(screen.getByTestId('wf-view').getAttribute('data-run-verdict')).toBe('passed');
+    expect(markOf('probe')).toBe('passed');
+  });
+
+  it('an expect whose deadline passed is timed out, on its row and on its node', async () => {
+    const reason = `No message on ${STATUS_TOPIC} matched within 10 s of "reboot" starting.`;
+    render(<SavedWorkflowView workflow={workflow} />);
+    for (const fact of [BEGIN, start('probe'), PROBE_READY, start('reboot'), REBOOT_PASSED]) await feed(fact);
+    await feed({
+      type: 'step-settle',
+      at: 10_160,
+      stepId: 'status',
+      settlement: { state: 'failed', phase: 'expect', reason, attempts: 1, maxAttempts: 1, timedOut: true },
+      hasProduct: false,
+    });
+
+    expect(rowText('status')).toContain('Timed out');
+    expect(rowText('status')).toContain(reason);
+    expect(markOf('status')).toBe('timed-out');
+    expect(screen.getByTestId('wf-graph-result-status').textContent).toBe('Timed out');
   });
 
   it('an expect opens to its window, on the message that matched', async () => {

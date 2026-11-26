@@ -4,28 +4,27 @@
  * redesign).
  *
  * A pure projection of the same `DraftWorkflow` the form edits: one
- * node per step (request, captures + exposure marks, gate / priority
- * markers, validation badge), one edge per resolved `dependsOn`
- * parent. Layout comes from `buildWorkflowGraphLayout` — layers
- * top-down, declared order across each layer. The pane scrolls in both
- * axes; nodes are fixed-size so edge anchors stay deterministic. A
- * session step's node says its action and what it acts on, and names as
- * text what arms it — the listen it is on, the step it waits after —
- * with no edge of a kind of its own.
+ * node per step (`WorkflowGraphNode`), one edge per resolved
+ * `dependsOn` parent. Layout comes from `buildWorkflowGraphLayout` —
+ * layers top-down, declared order across each layer; nodes are
+ * fixed-size so edge anchors stay deterministic. A session step's node
+ * says its kind and what it acts on, and names as text what arms it —
+ * the listen it is on, the step it waits after — with no edge of a kind
+ * of its own.
  *
  * Selection: a click selects a node, and the view's panel shows that
  * step; a click on the empty canvas deselects. Selection is ephemeral UI
- * state owned by `LiveWorkflowEditor` — it never touches the draft.
+ * state owned by `LiveWorkflowEditor` — it never touches the draft. A
+ * step selected from elsewhere is brought into view.
  *
- * Run overlay (slice 3): when the editor passes the active env's run
- * row (`run` — edit mode only; `undefined` disables the overlay), each
- * node carries a `classifyStepRun` state dot with a masked-by-default
- * captured-values popover, and exposed capture chips carry the LV's
- * publication state (Save activates the workflow; a successful RUN is
- * what publishes the vars — pending until then). The whole-run summary
- * lives on the editor's bottom `WorkflowRunStatusStrip`. Read-only and
- * environment-scoped by construction: it
- * renders one `pickActiveRun` row, derived at render time.
+ * Run marks: every node wears its step's mark (`step-mark.ts`). While
+ * the page keeps a run of the workflow (`run`) a mark is that run's own
+ * row, live as the run goes; with none kept it is what the active
+ * environment's cache row (`cacheRun`) says of the last run. The values
+ * a step captured come from the cache row alone, masked until asked
+ * for; an exposed capture carries its variable's publication state
+ * (Save activates the workflow; a successful RUN is what publishes the
+ * vars — pending until then).
  *
  * Editing (slice 4): when the editor passes `setDraft`, the graph
  * gains structural edit gestures that mutate the SAME draft the form
@@ -44,26 +43,24 @@
  * gesture that didn't commit.
  *
  * Canvas chrome: a pan/zoom viewport (drag the background to pan,
- * wheel/pinch to zoom around the cursor, bottom-left controls with a
- * re-center/fit action — the dotted grid rides the transform), edges
- * carry direction arrowheads, a compact right-click context menu on
- * the background (add step) and on nodes (delete), keyboard
- * shortcuts on the focused pane (⌫ delete node or selected
- * edge, Esc dismiss), and a pointer-transparent legend pinned
- * bottom-right naming all of them. Delete mirrors the form's remove
- * button via `removeDraftStep` — last step stays, dangling references
- * badge.
+ * wheel/pinch to zoom around the cursor, a row of controls bottom-left
+ * with a re-center/fit action), edges carry direction arrowheads, a
+ * compact right-click context menu on the background (add step) and on
+ * nodes (delete), keyboard shortcuts on the focused pane (⌫ delete node
+ * or selected edge, Esc dismiss), and a legend behind a button
+ * bottom-right naming all of them — the graph may be a short strip over
+ * its panel, so nothing sits open on it. The first view centres the
+ * graph, drawn smaller where it is wider than the pane. Delete mirrors
+ * the form's remove button via `removeDraftStep` — last step stays,
+ * dangling references badge.
  */
 
 import {
   AimOutlined,
   CloseOutlined,
   DeleteOutlined,
-  FilterOutlined,
   PlusOutlined,
-  SortAscendingOutlined,
-  ThunderboltFilled,
-  WarningOutlined,
+  QuestionCircleOutlined,
   ZoomInOutlined,
   ZoomOutOutlined,
 } from '@ant-design/icons';
@@ -87,28 +84,28 @@ import type {
   LiveWorkflow,
   MqttRequest,
   SessionWorkflowStep,
-  StepGate,
-  StepGateClause,
+  WorkflowStep,
 } from '@openheaders/core/types';
 import type { MessageKey } from '@openheaders/i18n';
-import { type Translate, useT } from '@openheaders/ui/context/LocaleContext';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { useRequests } from '@openheaders/ui/shared/hooks/readers/useRequests';
-import { Button, Tooltip, Typography, theme } from 'antd';
+import { Button, Popover, Tooltip, theme } from 'antd';
 import type React from 'react';
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { METHOD_COLORS } from '../sidebar/icons';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import type { RequestKind } from '../../request-kind-menu';
 import { addGraphDependency, appendDraftStep, removeDraftStep, removeGraphDependency } from './graph-edit';
 import { buildWorkflowGraphLayout } from './graph-layout';
-import { classifyStepRun, type StepRunState } from './live-display';
+import { type RunStepAction, sessionOfRow } from './run-display';
 import { sessionRequestOf } from './step-action';
-import { StepRunDot } from './WorkflowGraphRunOverlay';
+import { idleMark, markOfCacheRow, markOfRunRow, type StepMark } from './step-mark';
+import { useWaitClock } from './use-wait-clock';
+import type { ShownWorkflowRun } from './use-workflow-run';
+import WorkflowGraphNode, { GRAPH_NODE_H, GRAPH_NODE_W, type GraphNodeDoes } from './WorkflowGraphNode';
 
-const { Text } = Typography;
-
-const NODE_W = 208;
-const NODE_H = 92;
-const GAP_X = 32;
-const GAP_Y = 48;
+const NODE_W = GRAPH_NODE_W;
+const NODE_H = GRAPH_NODE_H;
+const GAP_X = 24;
+const GAP_Y = 80;
 const PAD = 24;
 
 interface WorkflowGraphBodyProps {
@@ -124,21 +121,24 @@ interface WorkflowGraphBodyProps {
   onSelectStep?: (stepUid: string) => void;
   /** A click on the empty canvas. */
   onDeselect?: () => void;
+  /** The run the page keeps of this workflow — a node's mark is its row while there is one. */
+  run?: ShownWorkflowRun | null;
   /**
-   * Active env's run row for the overlay — `pickActiveRun` output.
-   * `null` = edit mode with no cache yet; `undefined` = no overlay
-   * (create mode — nothing has an entity id, nothing can have run).
+   * The active environment's cache row — `pickActiveRun` output. It
+   * marks the nodes while no run is kept, and holds the values a step
+   * captured. `null` = no cache yet; `undefined` = a draft never saved.
    */
-  run?: LiveWorkflowRunSnapshot | null;
+  cacheRun?: LiveWorkflowRunSnapshot | null;
   /** LVs bound to this workflow — supplies per-exposure publication state. */
   boundVars?: LiveVariable[];
 }
 
-/** A session step's word on its node — the Run view's own. */
-const SESSION_ACTION_WORD: Record<SessionWorkflowStep['action'], MessageKey> = {
+/** A step's kind on its node, in the design's words: an `expect` is a Wait. */
+const STEP_KIND_WORD: Record<RunStepAction, MessageKey> = {
+  call: 'workbench.editors.live.run.action.call',
   listen: 'workbench.editors.live.run.action.listen',
   send: 'workbench.editors.live.run.action.send',
-  expect: 'workbench.editors.live.run.action.expect',
+  expect: 'workbench.editors.live.graph.kindWait',
 };
 
 /** What a session step acts on, by name: the request a listen opens, the message a send sends, where an expect's message lands. */
@@ -153,34 +153,6 @@ function sessionTargetOf(
     return saved?.find((message) => message.uid === step.messageUid)?.name ?? '';
   }
   return step.address ?? '';
-}
-
-function clauseSummary(clause: StepGateClause, t: Translate): string {
-  switch (clause.kind) {
-    case 'status':
-      return typeof clause.match === 'string'
-        ? t('workbench.editors.live.graph.clauseStatusIs', { stepId: clause.stepId, value: clause.match })
-        : clause.match[0] === 'eq'
-          ? t('workbench.editors.live.graph.clauseStatusIs', { stepId: clause.stepId, value: clause.match[1] })
-          : clause.match[0] === 'ne'
-            ? t('workbench.editors.live.graph.clauseStatusIsNot', { stepId: clause.stepId, value: clause.match[1] })
-            : t('workbench.editors.live.graph.clauseStatusIn', {
-                stepId: clause.stepId,
-                list: clause.match[1].join(', '),
-              });
-    case 'capture-exists':
-      return t('workbench.editors.live.graph.clauseCaptureExists', {
-        ref: `${clause.stepId}.${clause.captureName}`,
-      });
-    case 'capture-equals':
-      // Pure technical composition — no English words, stays raw.
-      return `${clause.stepId}.${clause.captureName} = "${clause.value}"`;
-    case 'capture-matches':
-      return t('workbench.editors.live.graph.clauseCaptureMatches', {
-        ref: `${clause.stepId}.${clause.captureName}`,
-        pattern: clause.pattern,
-      });
-  }
 }
 
 interface ConnectDrag {
@@ -203,9 +175,19 @@ interface Viewport {
 const MIN_SCALE = 0.25;
 const MAX_SCALE = 2;
 const FIT_PAD = 32;
-const GRID_STEP = 16;
+/** The first view never draws the graph smaller than this to fit its width — a node must stay readable. */
+const FIRST_VIEW_MIN_SCALE = 0.5;
+/** What a step brought into view keeps between itself and the pane's edge. */
+const REVEAL_MARGIN = 16;
 
 const clampScale = (s: number): number => Math.min(MAX_SCALE, Math.max(MIN_SCALE, s));
+
+/** How far a span must move along an axis to sit inside it, its start winning where it cannot fit whole. */
+function shiftInto(start: number, end: number, size: number): number {
+  if (start < REVEAL_MARGIN) return REVEAL_MARGIN - start;
+  if (end > size - REVEAL_MARGIN) return Math.max(REVEAL_MARGIN - start, size - REVEAL_MARGIN - end);
+  return 0;
+}
 
 /**
  * Interactive graph elements the background pan must never claim.
@@ -229,11 +211,13 @@ const WorkflowGraphBody: React.FC<WorkflowGraphBodyProps> = ({
   onSelectStep,
   onDeselect,
   run,
+  cacheRun,
   boundVars,
 }) => {
   const { token } = theme.useToken();
   const t = useT();
-  const { requests, mqttRequests, isReady: requestsReady } = useRequests();
+  const { requests, graphqlRequests, mqttRequests, isReady: requestsReady } = useRequests();
+  const now = useWaitClock(run?.record ?? null);
   const editable = setDraft !== undefined;
   const paneRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLDivElement>(null);
@@ -282,8 +266,12 @@ const WorkflowGraphBody: React.FC<WorkflowGraphBodyProps> = ({
   const layout = useMemo(() => buildWorkflowGraphLayout(draftWorkflow), [draftWorkflow]);
 
   const requestsByUid = useMemo(() => new Map(requests.map((r) => [r.uid, r])), [requests]);
+  const graphqlByUid = useMemo(() => new Map(graphqlRequests.map((r) => [r.uid, r])), [graphqlRequests]);
 
-  const knownRequestUids = useMemo(() => new Set(requests.map((r) => r.uid)), [requests]);
+  const knownRequestUids = useMemo(
+    () => new Set([...requests.map((r) => r.uid), ...graphqlRequests.map((r) => r.uid)]),
+    [requests, graphqlRequests],
+  );
   const errorsByStepId = useMemo(() => {
     const shape = [...validateWorkflowShape(draftWorkflow), ...validateSessionSteps(draftWorkflow)];
     const all = requestsReady
@@ -353,6 +341,43 @@ const WorkflowGraphBody: React.FC<WorkflowGraphBodyProps> = ({
     const rect = paneRef.current?.getBoundingClientRect();
     return rect ? { x: e.clientX - rect.left, y: e.clientY - rect.top } : { x: 0, y: 0 };
   };
+
+  // The first view, once the pane has a size (a tab mounted hidden has
+  // none yet): the graph centred, drawn smaller where it is wider than
+  // the pane. After that the view is the user's.
+  const canvasWidthRef = useRef(canvasW);
+  canvasWidthRef.current = canvasW;
+  useLayoutEffect(() => {
+    const pane = paneRef.current;
+    if (!pane) return;
+    const observer = new ResizeObserver(() => {
+      const { width } = pane.getBoundingClientRect();
+      if (width === 0) return;
+      observer.disconnect();
+      const content = canvasWidthRef.current;
+      const scale = Math.min(1, Math.max(FIRST_VIEW_MIN_SCALE, width / content));
+      setViewport({ scale, x: Math.max(0, (width - content * scale) / 2), y: 0 });
+    });
+    observer.observe(pane);
+    return () => observer.disconnect();
+  }, []);
+
+  // A step selected from elsewhere — a row of the panel — is brought
+  // into view by the shortest pan; one already in view stays put.
+  const positionsRef = useRef(positions);
+  positionsRef.current = positions;
+  useEffect(() => {
+    const rect = paneRef.current?.getBoundingClientRect();
+    const pos = selectedStepId == null ? undefined : positionsRef.current.get(selectedStepId);
+    if (!rect || rect.width === 0 || !pos) return;
+    setViewport((v) => {
+      const left = v.x + pos.x * v.scale;
+      const top = v.y + pos.y * v.scale;
+      const dx = shiftInto(left, left + NODE_W * v.scale, rect.width);
+      const dy = shiftInto(top, top + NODE_H * v.scale, rect.height);
+      return dx === 0 && dy === 0 ? v : { ...v, x: v.x + dx, y: v.y + dy };
+    });
+  }, [selectedStepId]);
 
   // Wheel = zoom around the cursor. Native non-passive listener —
   // React's synthetic wheel handlers can't preventDefault reliably.
@@ -567,6 +592,71 @@ const WorkflowGraphBody: React.FC<WorkflowGraphBodyProps> = ({
             },
           ];
 
+  // ── What a node says of its step ───────────────────────────────────
+
+  /** The kind of request a step speaks: a call's own request, a session step's listen. */
+  const protocolOf = (step: WorkflowStep): RequestKind | null => {
+    if (isSessionStep(step)) {
+      const listenId = isListenStep(step) ? step.id : step.on;
+      return sessionRequestOf(draft.steps, listenId, mqttRequests) !== undefined ? 'mqtt' : null;
+    }
+    if (isUnknownStep(step)) return null;
+    if (requestsByUid.has(step.requestUid)) return 'http';
+    return graphqlByUid.has(step.requestUid) ? 'graphql' : null;
+  };
+
+  const doesOf = (step: WorkflowStep): GraphNodeDoes => {
+    if (isSessionStep(step)) {
+      return { text: sessionTargetOf(step, draft.steps, mqttRequests), mono: isExpectStep(step) };
+    }
+    if (isUnknownStep(step)) return { text: t('workbench.editors.live.step.needsUpdate'), muted: true };
+    const http = requestsByUid.get(step.requestUid);
+    if (http !== undefined) return { lead: http.method, text: http.name };
+    const graphql = graphqlByUid.get(step.requestUid);
+    if (graphql !== undefined) return { text: graphql.name };
+    return {
+      text:
+        requestsReady && step.requestUid !== ''
+          ? t('workbench.editors.live.graph.requestNotFound')
+          : t('workbench.editors.live.graph.noRequestSelected'),
+      muted: true,
+    };
+  };
+
+  /** What arms a session step, as text: the listen it is on, the step it waits after. */
+  const armedByOf = (step: SessionWorkflowStep): string =>
+    [
+      ...(!isListenStep(step) && step.on ? [`${t('workbench.editors.live.step.onPrefix')} ${step.on}`] : []),
+      ...(isExpectStep(step) && step.after ? [`${t('workbench.editors.live.step.afterPrefix')} ${step.after}`] : []),
+    ].join(' · ');
+
+  /** The steps that act on a listen's session. */
+  const usersOf = (listenId: string): string[] =>
+    draft.steps
+      .filter((each) => isSessionStep(each) && !isListenStep(each) && each.on === listenId)
+      .map((each) => each.id);
+
+  // A session step's captures carry no exposure: they read as a call's
+  // unexposed ones do.
+  const capturesOf = (step: DraftStep | undefined): DraftCapture[] =>
+    step === undefined || !isKnownStep(step)
+      ? []
+      : isSessionStep(step)
+        ? step.captures.map((capture) => toDraftCapture(capture, null))
+        : step.captures;
+
+  const markOf = (stepId: string, stepUid: string, action: RunStepAction | undefined): StepMark => {
+    if (run == null) return markOfCacheRow(cacheRun, stepId, t);
+    const row = run.record.steps.find((each) => each.uid === stepUid);
+    if (row === undefined) return idleMark(t);
+    const session = sessionOfRow(row, run.record);
+    return markOfRunRow(row, t, {
+      now,
+      ...(action !== undefined ? { action } : {}),
+      ...(session !== undefined ? { session } : {}),
+    });
+  };
+
   const dragSource = drag ? positions.get(drag.from) : undefined;
 
   return (
@@ -583,26 +673,25 @@ const WorkflowGraphBody: React.FC<WorkflowGraphBodyProps> = ({
           icon={<PlusOutlined />}
           data-testid="wf-graph-add-step"
           onClick={handleAddStep}
-          style={{ position: 'absolute', top: 8, right: 16, zIndex: 3 }}
+          style={{ position: 'absolute', top: 8, right: 12, zIndex: 3 }}
         >
           {t('workbench.editors.live.form.addStepButton')}
         </Button>
       )}
       <GraphLegend editable={editable} />
       <GraphViewControls onZoomIn={() => zoomBy(1.2)} onZoomOut={() => zoomBy(1 / 1.2)} onFit={fitView} />
-      {/* Viewport: the pane never moves (dots ride backgroundPosition so
-          the grid pans/zooms with the content); the canvas carries the
-          translate+scale transform. Background drag pans, wheel zooms. */}
+      {/* Viewport: the pane never moves and never scrolls — `clip`, not
+          `hidden`, which a scroll-into-view still scrolls; the canvas
+          carries the translate+scale transform. Background drag pans,
+          wheel zooms. */}
       <div
         ref={paneRef}
         data-testid="wf-graph-pane"
         style={{
-          overflow: 'hidden',
+          overflow: 'clip',
           height: '100%',
           position: 'relative',
-          backgroundImage: `radial-gradient(circle, ${token.colorBorderSecondary} 1px, transparent 1px)`,
-          backgroundSize: `${GRID_STEP * viewport.scale}px ${GRID_STEP * viewport.scale}px`,
-          backgroundPosition: `${viewport.x}px ${viewport.y}px`,
+          background: 'var(--oh-wf-bg)',
           cursor: panning ? 'grabbing' : undefined,
           userSelect: 'none',
         }}
@@ -727,30 +816,35 @@ const WorkflowGraphBody: React.FC<WorkflowGraphBodyProps> = ({
         {layout.nodes.map((node) => {
           const pos = positions.get(node.step.id);
           if (!pos) return null;
-          const draftStep = draftStepsById.get(node.step.id);
-          const call = isUnknownStep(node.step) ? undefined : node.step;
-          const session = isSessionStep(node.step) ? node.step : undefined;
+          const { step } = node;
+          const call = isUnknownStep(step) ? undefined : step;
+          const session = isSessionStep(step) ? step : undefined;
           const shared = call ?? session;
-          const request = call?.requestUid ? requestsByUid.get(call.requestUid) : undefined;
-          const errors = errorsByStepId.get(node.step.id) ?? [];
+          const action: RunStepAction | undefined = session?.action ?? (call !== undefined ? 'call' : undefined);
           return (
-            <GraphNodeCard
-              key={node.step.uid}
-              stepId={node.step.id}
-              selected={selectedStepId === node.step.id}
-              onSelect={onSelectStep ? () => onSelectStep(node.step.uid) : undefined}
-              onContextMenu={handleNodeContextMenu({ stepId: node.step.id, stepUid: node.step.uid })}
-              onDragDown={beginNodeDrag(node.step.id)}
+            <WorkflowGraphNode
+              key={step.uid}
+              stepId={step.id}
+              x={pos.x}
+              y={pos.y}
+              selected={selectedStepId === step.id}
+              onSelect={onSelectStep ? () => onSelectStep(step.uid) : undefined}
+              onContextMenu={handleNodeContextMenu({ stepId: step.id, stepUid: step.uid })}
+              onDragDown={beginNodeDrag(step.id)}
               onDragMove={moveNodeDrag}
               onDragUp={endNodeDrag}
-              draftStep={draftStep}
-              unknownAction={isKnownStep(node.step) ? undefined : node.step.action}
-              sessionAction={session?.action}
-              sessionTarget={session ? sessionTargetOf(session, draft.steps, mqttRequests) : ''}
-              sessionOn={session !== undefined && !isListenStep(session) ? session.on : undefined}
-              sessionAfter={session !== undefined && isExpectStep(session) ? session.after : undefined}
-              runIf={shared?.runIf}
-              hasPriority={shared?.priorityFrom !== undefined}
+              protocol={protocolOf(step)}
+              kind={action !== undefined ? t(STEP_KIND_WORD[action]) : ''}
+              does={doesOf(step)}
+              unknownAction={isKnownStep(step) ? undefined : step.action}
+              armedBy={session !== undefined ? armedByOf(session) : ''}
+              usedBy={session !== undefined && isListenStep(session) ? usersOf(session.id) : []}
+              captures={capturesOf(draftStepsById.get(step.id))}
+              boundVars={boundVars}
+              mark={markOf(step.id, step.uid, action)}
+              runCaptures={cacheRun?.stepCaptures[step.id]}
+              runResponseBytes={cacheRun?.stepResponseBytes[step.id]}
+              gateClauses={shared?.runIf?.all ?? []}
               priorityLabel={
                 shared?.priorityFrom
                   ? t('workbench.editors.live.graph.orderedBy', {
@@ -758,18 +852,8 @@ const WorkflowGraphBody: React.FC<WorkflowGraphBodyProps> = ({
                     })
                   : ''
               }
-              method={request?.method ?? ''}
-              requestName={request?.name ?? ''}
-              requestMissing={call !== undefined && requestsReady && call.requestUid !== '' && request === undefined}
-              errors={errors}
-              x={pos.x}
-              y={pos.y}
-              runState={run !== undefined ? classifyStepRun(run, node.step.id) : undefined}
-              runErrorMessage={run && run.lastErrorStepId === node.step.id ? run.lastErrorMessage : undefined}
-              runCaptures={run ? run.stepCaptures[node.step.id] : undefined}
-              runResponseBytes={run ? run.stepResponseBytes[node.step.id] : undefined}
-              boundVars={boundVars}
-              cycleWarn={cycleTargets?.has(node.step.id) === true}
+              errors={errorsByStepId.get(step.id) ?? []}
+              cycleWarn={cycleTargets?.has(step.id) === true}
             />
           );
         })}
@@ -938,23 +1022,17 @@ const GraphMenuRow: React.FC<{ action: GraphMenuAction; onDone: () => void }> = 
   );
 };
 
-/** Zoom in / zoom out / fit-and-center controls, pinned bottom-left. */
-const GraphViewControls: React.FC<{ onZoomIn: () => void; onZoomOut: () => void; onFit: () => void }> = ({
-  onZoomIn,
-  onZoomOut,
-  onFit,
-}) => {
+/** A group of the pane's own controls, pinned to one of its bottom corners. */
+const GraphControlGroup: React.FC<{ corner: 'left' | 'right'; children: React.ReactNode }> = ({ corner, children }) => {
   const { token } = theme.useToken();
-  const t = useT();
   return (
     <div
       style={{
         position: 'absolute',
-        bottom: 10,
-        left: 16,
+        bottom: 8,
+        ...(corner === 'left' ? { left: 12 } : { right: 12 }),
         zIndex: 3,
         display: 'flex',
-        flexDirection: 'column',
         borderRadius: 6,
         border: `1px solid ${token.colorBorderSecondary}`,
         background: token.colorBgElevated,
@@ -962,10 +1040,24 @@ const GraphViewControls: React.FC<{ onZoomIn: () => void; onZoomOut: () => void;
         overflow: 'hidden',
       }}
     >
-      <Tooltip title={t('workbench.editors.live.graph.zoomIn')} placement="right">
+      {children}
+    </div>
+  );
+};
+
+/** Zoom in / zoom out / fit-and-center controls, one row pinned bottom-left. */
+const GraphViewControls: React.FC<{ onZoomIn: () => void; onZoomOut: () => void; onFit: () => void }> = ({
+  onZoomIn,
+  onZoomOut,
+  onFit,
+}) => {
+  const t = useT();
+  return (
+    <GraphControlGroup corner="left">
+      <Tooltip title={t('workbench.editors.live.graph.zoomIn')}>
         <Button type="text" size="small" data-testid="wf-graph-zoom-in" icon={<ZoomInOutlined />} onClick={onZoomIn} />
       </Tooltip>
-      <Tooltip title={t('workbench.editors.live.graph.zoomOut')} placement="right">
+      <Tooltip title={t('workbench.editors.live.graph.zoomOut')}>
         <Button
           type="text"
           size="small"
@@ -974,15 +1066,15 @@ const GraphViewControls: React.FC<{ onZoomIn: () => void; onZoomOut: () => void;
           onClick={onZoomOut}
         />
       </Tooltip>
-      <Tooltip title={t('workbench.editors.live.graph.recenter')} placement="right">
+      <Tooltip title={t('workbench.editors.live.graph.recenter')}>
         <Button type="text" size="small" data-testid="wf-graph-fit" icon={<AimOutlined />} onClick={onFit} />
       </Tooltip>
-    </div>
+    </GraphControlGroup>
   );
 };
 
 /**
- * Pointer-transparent shortcut legend pinned to the pane's bottom-right
+ * The shortcut legend, behind a button in the pane's bottom-right
  * corner — names every canvas gesture so nothing is discover-by-luck.
  */
 const GraphLegend: React.FC<{ editable: boolean }> = ({ editable }) => {
@@ -1009,25 +1101,14 @@ const GraphLegend: React.FC<{ editable: boolean }> = ({ editable }) => {
     { keys: t('workbench.editors.live.graph.legendDragBg'), action: t('workbench.editors.live.graph.legendPan') },
     { keys: t('workbench.editors.live.graph.legendScroll'), action: t('workbench.editors.live.graph.legendZoom') },
   ];
-  return (
+  const legend = (
     <div
       data-testid="wf-graph-legend"
       style={{
-        position: 'absolute',
-        bottom: 10,
-        right: 16,
-        zIndex: 3,
-        pointerEvents: 'none',
         display: 'grid',
         gridTemplateColumns: 'auto auto',
         columnGap: 12,
         rowGap: 3,
-        padding: '6px 10px',
-        borderRadius: 6,
-        background: token.colorBgElevated,
-        border: `1px solid ${token.colorBorderSecondary}`,
-        boxShadow: token.boxShadowTertiary,
-        opacity: 0.9,
         fontSize: 10,
         color: token.colorTextTertiary,
         whiteSpace: 'nowrap',
@@ -1053,309 +1134,18 @@ const GraphLegend: React.FC<{ editable: boolean }> = ({ editable }) => {
       ))}
     </div>
   );
-};
-
-interface GraphNodeCardProps {
-  stepId: string;
-  selected?: boolean;
-  onSelect?: () => void;
-  /** Right-click — selects the node and opens the compact context menu. */
-  onContextMenu?: (e: React.MouseEvent) => void;
-  /** Drag-to-move handlers — ephemeral layout offsets owned by the body. */
-  onDragDown?: (e: React.PointerEvent<HTMLDivElement>) => void;
-  onDragMove?: (e: React.PointerEvent<HTMLDivElement>) => void;
-  onDragUp?: (e: React.PointerEvent<HTMLDivElement>) => void;
-  /** Draft overlay for the step — supplies capture exposure state. */
-  draftStep: DraftStep | undefined;
-  /** Set for a step of an action the model does not know — its raw `action`. The card says so and shows nothing else of it. */
-  unknownAction?: string;
-  /** Set for a session step — its action. The card shows its word and what it acts on. */
-  sessionAction?: SessionWorkflowStep['action'];
-  /** What a session step acts on, by name — empty where it names nothing. */
-  sessionTarget: string;
-  /** The listen a send or an expect is on. */
-  sessionOn?: string;
-  /** The step an expect waits after. */
-  sessionAfter?: string;
-  runIf: StepGate | undefined;
-  hasPriority: boolean;
-  priorityLabel: string;
-  method: string;
-  requestName: string;
-  requestMissing: boolean;
-  errors: string[];
-  x: number;
-  y: number;
-  /** Per-step run state — `undefined` when the overlay is off (create mode). */
-  runState?: StepRunState;
-  /** Failure message when this step is the run's failure point. */
-  runErrorMessage?: string;
-  /** This step's captured values from the run row. */
-  runCaptures?: Record<string, string>;
-  /** This step's response byte count from the run row. */
-  runResponseBytes?: number;
-  /** Bound LVs — publication state per exposed capture (overlay only). */
-  boundVars?: LiveVariable[];
-  /** Dropping the in-flight connect here would create a cycle. */
-  cycleWarn?: boolean;
-}
-
-const GraphNodeCard: React.FC<GraphNodeCardProps> = ({
-  stepId,
-  selected,
-  onSelect,
-  onContextMenu,
-  onDragDown,
-  onDragMove,
-  onDragUp,
-  draftStep,
-  unknownAction,
-  sessionAction,
-  sessionTarget,
-  sessionOn,
-  sessionAfter,
-  runIf,
-  hasPriority,
-  priorityLabel,
-  method,
-  requestName,
-  requestMissing,
-  errors,
-  x,
-  y,
-  runState,
-  runErrorMessage,
-  runCaptures,
-  runResponseBytes,
-  boundVars,
-  cycleWarn,
-}) => {
-  const { token } = theme.useToken();
-  const t = useT();
-  const gateClauses = runIf?.all ?? [];
-  // A session step's captures carry no exposure: they are drawn as a
-  // call's unexposed ones are.
-  const captures: DraftCapture[] =
-    draftStep === undefined || !isKnownStep(draftStep)
-      ? []
-      : isSessionStep(draftStep)
-        ? draftStep.captures.map((capture) => toDraftCapture(capture, null))
-        : draftStep.captures;
-  const needsUpdate = unknownAction !== undefined;
-  const isSession = sessionAction !== undefined;
-  // What arms a session step, as text: the listen it is on, the step it waits after.
-  const armedBy = [
-    ...(sessionOn ? [`${t('workbench.editors.live.step.onPrefix')} ${sessionOn}`] : []),
-    ...(sessionAfter ? [`${t('workbench.editors.live.step.afterPrefix')} ${sessionAfter}`] : []),
-  ].join(' · ');
-  const requestLine = needsUpdate
-    ? t('workbench.editors.live.step.needsUpdate')
-    : isSession
-      ? sessionTarget
-      : requestMissing
-        ? t('workbench.editors.live.graph.requestNotFound')
-        : requestName || t('workbench.editors.live.graph.noRequestSelected');
-  const requestMuted = needsUpdate || (!isSession && (requestMissing || requestName === ''));
-  const lead = isSession ? t(SESSION_ACTION_WORD[sessionAction]) : method;
-  const borderColor = cycleWarn
-    ? token.colorWarning
-    : errors.length > 0
-      ? token.colorErrorBorder
-      : selected
-        ? token.colorPrimary
-        : needsUpdate
-          ? token.colorWarningBorder
-          : token.colorBorder;
-
   return (
-    <div
-      data-testid={`wf-graph-node-${stepId}`}
-      data-graph-interactive=""
-      data-needs-update={needsUpdate ? 'true' : undefined}
-      data-selected={selected ? 'true' : undefined}
-      data-cycle-target={cycleWarn ? 'true' : undefined}
-      onClick={onSelect}
-      onContextMenu={onContextMenu}
-      // Select on press, not on release — the highlight (node +
-      // outgoing arrows) must follow the node through a drag.
-      onPointerDown={(e) => {
-        onSelect?.();
-        onDragDown?.(e);
-      }}
-      onPointerMove={onDragMove}
-      onPointerUp={onDragUp}
-      onPointerCancel={onDragUp}
-      style={{
-        position: 'absolute',
-        left: x,
-        top: y,
-        width: NODE_W,
-        touchAction: 'none',
-        height: NODE_H,
-        display: 'flex',
-        flexDirection: 'column',
-        gap: 4,
-        padding: '8px 10px',
-        borderRadius: token.borderRadius,
-        border: `1px solid ${borderColor}`,
-        boxShadow: selected ? `0 0 0 1px ${token.colorPrimary}` : undefined,
-        background: token.colorBgElevated,
-        boxSizing: 'border-box',
-        overflow: 'hidden',
-        cursor: onSelect ? 'pointer' : undefined,
-      }}
-    >
-      <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
-        {runState !== undefined && (
-          <StepRunDot
-            stepId={stepId}
-            state={runState}
-            errorMessage={runErrorMessage}
-            captures={runCaptures}
-            responseBytes={runResponseBytes}
-          />
-        )}
-        <Text strong ellipsis style={{ fontSize: 12, flex: 1, minWidth: 0 }}>
-          {stepId}
-        </Text>
-        {gateClauses.length > 0 && (
-          <Tooltip
-            title={
-              <div>
-                {gateClauses.map((clause) => (
-                  <div key={clause.uid} style={{ fontSize: 11 }}>
-                    {clauseSummary(clause, t)}
-                  </div>
-                ))}
-              </div>
-            }
-          >
-            <FilterOutlined
-              data-testid={`wf-graph-gate-${stepId}`}
-              style={{ fontSize: 11, color: token.colorWarning }}
-            />
-          </Tooltip>
-        )}
-        {hasPriority && (
-          <Tooltip title={priorityLabel}>
-            <SortAscendingOutlined style={{ fontSize: 11, color: token.colorTextTertiary }} />
-          </Tooltip>
-        )}
-        {errors.length > 0 && (
-          <Tooltip
-            title={
-              <div>
-                {errors.map((message) => (
-                  <div key={message} style={{ fontSize: 11 }}>
-                    {message}
-                  </div>
-                ))}
-              </div>
-            }
-          >
-            <WarningOutlined
-              data-testid={`wf-graph-error-${stepId}`}
-              style={{ fontSize: 11, color: token.colorError }}
-            />
-          </Tooltip>
-        )}
-      </div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
-        {lead !== '' && (
-          <span
-            style={{
-              fontSize: 10,
-              fontWeight: 600,
-              color: METHOD_COLORS[lead] ?? token.colorText,
-              flexShrink: 0,
-            }}
-          >
-            {lead}
-          </span>
-        )}
-        <Text type={requestMuted ? 'secondary' : undefined} ellipsis style={{ fontSize: 11, minWidth: 0 }}>
-          {requestLine}
-        </Text>
-      </div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 4, minWidth: 0, overflow: 'hidden' }}>
-        {needsUpdate && (
-          <span
-            style={{
-              fontSize: 10,
-              lineHeight: '16px',
-              padding: '0 6px',
-              borderRadius: 8,
-              border: `1px solid ${token.colorBorderSecondary}`,
-              color: token.colorTextSecondary,
-              fontFamily: "'SF Mono', monospace",
-              whiteSpace: 'nowrap',
-            }}
-          >
-            {unknownAction}
-          </span>
-        )}
-        {armedBy !== '' && (
-          <Text
-            type="secondary"
-            data-testid={`wf-graph-armed-${stepId}`}
-            style={{ fontSize: 10, whiteSpace: 'nowrap', flexShrink: 0 }}
-          >
-            {armedBy}
-          </Text>
-        )}
-        {!needsUpdate && !isSession && captures.length === 0 && (
-          <Text type="secondary" style={{ fontSize: 10, fontStyle: 'italic' }}>
-            {t('workbench.editors.live.graph.noCaptures')}
-          </Text>
-        )}
-        {captures.map((capture) => {
-          // Publication split (PLAN §2.4): Save activates the WORKFLOW;
-          // a successful RUN publishes the exposed VARS. An exposed
-          // capture whose LV is still `published: false` is pending its
-          // first run — never presented as live. Derived here at render
-          // time from the bound LV; only meaningful when the overlay is
-          // on (boundVars provided — edit mode).
-          const lv =
-            capture.exposed && boundVars
-              ? (boundVars.find((v) => v.uid === capture.liveUid) ??
-                boundVars.find((v) => v.stepId === stepId && v.captureName === capture.name))
-              : undefined;
-          const publicationKnown = capture.exposed && boundVars !== undefined;
-          const pending = publicationKnown && lv?.published !== true;
-          const exposedTitle = pending
-            ? t('workbench.editors.live.graph.exposedAsPending', { name: capture.liveName })
-            : t('workbench.editors.live.graph.exposedAs', { name: capture.liveName });
-          return (
-            <span
-              key={capture.uid}
-              data-lv-published={publicationKnown ? String(!pending) : undefined}
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 3,
-                fontSize: 10,
-                lineHeight: '16px',
-                padding: '0 6px',
-                borderRadius: 8,
-                border: `1px solid ${token.colorBorderSecondary}`,
-                color: capture.exposed ? token.colorText : token.colorTextSecondary,
-                background: capture.exposed ? token.colorFillTertiary : 'transparent',
-                whiteSpace: 'nowrap',
-                flexShrink: 0,
-              }}
-              title={capture.exposed ? exposedTitle : capture.name}
-            >
-              {capture.exposed && (
-                <ThunderboltFilled
-                  style={{ fontSize: 9, color: pending ? token.colorTextTertiary : token.colorWarning }}
-                />
-              )}
-              {capture.exposed ? capture.liveName : capture.name}
-            </span>
-          );
-        })}
-      </div>
-    </div>
+    <GraphControlGroup corner="right">
+      <Popover content={legend} placement="topRight">
+        <Button
+          type="text"
+          size="small"
+          data-testid="wf-graph-legend-toggle"
+          aria-label={t('workbench.editors.live.graph.legendTitle')}
+          icon={<QuestionCircleOutlined />}
+        />
+      </Popover>
+    </GraphControlGroup>
   );
 };
 

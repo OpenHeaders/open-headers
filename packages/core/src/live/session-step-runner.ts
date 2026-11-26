@@ -61,6 +61,8 @@ export type SessionStepOutcome =
       ok: false;
       phase: StepFailurePhase;
       reason: string;
+      /** The step's own deadline passed. */
+      timedOut?: true;
       extractorFailure?: { captureName: string; kind: string; message: string };
       product?: StepProduct;
     };
@@ -147,7 +149,12 @@ export function createSessionStepRunner(deps: {
       deadline.abort();
       // A session that becomes ready after its deadline is nobody's: end it.
       void opening.then((late) => (late.ok ? late.session.end() : undefined)).catch(() => undefined);
-      return { ok: false, phase: 'listen', reason: `Not ready within ${formatWait(step.timeoutMs)}.` };
+      return {
+        ok: false,
+        phase: 'listen',
+        reason: `Not ready within ${formatWait(step.timeoutMs)}.`,
+        timedOut: true,
+      };
     }
     if (!opened.value.ok) return { ok: false, phase: 'listen', reason: opened.value.reason };
     const { session, facts } = opened.value;
@@ -207,7 +214,7 @@ export function createSessionStepRunner(deps: {
   };
 
   const expect = async (step: ExpectWorkflowStep): Promise<SessionStepOutcome> => {
-    const fail = (reason: string, window?: WindowEntry[]): SessionStepOutcome => ({
+    const fail = (reason: string, window?: WindowEntry[]): Extract<SessionStepOutcome, { ok: false }> => ({
       ok: false,
       phase: 'expect',
       reason,
@@ -266,10 +273,13 @@ export function createSessionStepRunner(deps: {
       if (remaining <= 0) {
         const missed = seen.filter((entry) => entry.outcome === 'not-matched').length;
         const arrived = missed === 0 ? '' : `; ${missed} arrived and did not match`;
-        return fail(
-          `No message${where} matched within ${formatWait(step.timeoutMs)} of "${step.after}" starting${arrived}.`,
-          seen,
-        );
+        return {
+          ...fail(
+            `No message${where} matched within ${formatWait(step.timeoutMs)} of "${step.after}" starting${arrived}.`,
+            seen,
+          ),
+          timedOut: true,
+        };
       }
       await within(remaining, hold.changed());
     }

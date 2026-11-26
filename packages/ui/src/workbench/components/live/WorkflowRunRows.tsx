@@ -15,7 +15,6 @@ import {
   isUnknownStep,
   runTotals,
   runVerdict,
-  type WorkflowRunRecord,
   type WorkflowRunStepRow,
   type WorkflowRunVerdict,
 } from '@openheaders/core/live';
@@ -25,7 +24,6 @@ import { useEnvironments } from '@openheaders/ui/shared/hooks/readers/useEnviron
 import { useRequests } from '@openheaders/ui/shared/hooks/readers/useRequests';
 import { Tag, Typography, theme } from 'antd';
 import type React from 'react';
-import { useEffect, useState } from 'react';
 import { formatDurationRolled } from '../request-editor/response/response-meta';
 import { METHOD_COLORS, REQUEST_KIND_COLORS } from '../sidebar/icons';
 import {
@@ -34,7 +32,9 @@ import {
   type RunRowContext,
   type RunRowTone,
   type RunStepAction,
+  sessionOfRow,
 } from './run-display';
+import { useWaitClock } from './use-wait-clock';
 import type { ShownWorkflowRun } from './use-workflow-run';
 
 const { Text } = Typography;
@@ -62,9 +62,6 @@ interface StepTarget {
   muted: boolean;
 }
 
-/** How often a wait's elapsed time is redrawn while an `expect` is waiting. */
-const WAIT_TICK_MS = 200;
-
 const WorkflowRunRows: React.FC<Props> = ({ workflow, run, onSelectStep }) => {
   const { token } = theme.useToken();
   const t = useT();
@@ -72,15 +69,7 @@ const WorkflowRunRows: React.FC<Props> = ({ workflow, run, onSelectStep }) => {
   const requestsApi = useRequests();
   const { requests, graphqlRequests } = requestsApi;
   const record = run?.record ?? null;
-
-  const waiting = record?.steps.some((row) => row.state === 'running' && row.awaiting !== undefined) === true;
-  const [now, setNow] = useState(() => Date.now());
-  useEffect(() => {
-    if (!waiting) return;
-    setNow(Date.now());
-    const id = setInterval(() => setNow(Date.now()), WAIT_TICK_MS);
-    return () => clearInterval(id);
-  }, [waiting]);
+  const now = useWaitClock(record);
 
   const notFound = (action: RunStepAction): StepTarget => ({
     action,
@@ -130,13 +119,6 @@ const WorkflowRunRows: React.FC<Props> = ({ workflow, run, onSelectStep }) => {
       return { action: 'call', tag: 'GQL', tagColor: REQUEST_KIND_COLORS.graphql, name: graphql.name, muted: false };
     }
     return notFound('call');
-  };
-
-  /** A `listen` row's session: open while the run goes, then how it closed. */
-  const sessionOf = (row: WorkflowRunStepRow, running: WorkflowRunRecord): RunRowContext['session'] => {
-    if (row.state !== 'settled' || row.settlement.state !== 'ready') return undefined;
-    if (running.ended === null) return 'open';
-    return running.ended.sessions?.find((close) => close.stepId === row.id);
   };
 
   if (run === null || record === null) {
@@ -199,7 +181,7 @@ const WorkflowRunRows: React.FC<Props> = ({ workflow, run, onSelectStep }) => {
           row={row}
           target={targetOf(row.id)}
           now={now}
-          session={sessionOf(row, record)}
+          session={sessionOfRow(row, record)}
           onSelect={() => onSelectStep(row.uid)}
         />
       ))}
