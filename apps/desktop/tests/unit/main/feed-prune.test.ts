@@ -182,7 +182,7 @@ describe('prune-feed', () => {
     expect(batch.Objects.map((entry: { Key: string }) => entry.Key)).toEqual(plan.deleteKeys);
   });
 
-  it('builds the redirect from the kept tags and excludes blockmaps', () => {
+  it('builds the redirect from the kept tags and excludes blockmaps and Windows packages', () => {
     const paths = setUp(LISTING, POINTERS);
     run(paths, ['--release-repo=OpenHeaders/open-headers']);
     const { redirect } = readPlan(paths.out);
@@ -192,6 +192,7 @@ describe('prune-feed', () => {
       [
         'starts_with(http.request.uri.path, "/dl/")',
         'not ends_with(http.request.uri.path, ".blockmap")',
+        'not ends_with(http.request.uri.path, ".msix")',
         'not starts_with(http.request.uri.path, "/dl/v2026.10.0/")',
         'not starts_with(http.request.uri.path, "/dl/v2026.10.1/")',
         'not starts_with(http.request.uri.path, "/dl/v2026.9.0/")',

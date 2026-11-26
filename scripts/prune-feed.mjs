@@ -33,7 +33,11 @@
  * `.blockmap` files on purpose: the desktop app fetches an old
  * blockmap only when its local copy is gone, and a 404 there means a
  * full download from the feed — the app's own requests never leave
- * the first-party domain.
+ * the first-party domain. It skips `.msix` files too: Windows takes a
+ * package update only from a link whose final path ends in `.msix`,
+ * which the release page's does not, and the rule learns of a new tag
+ * only at the sweep after its release — a redirected package link
+ * would fail every update asked for in between.
  *
  * Inputs are local files the workflow fetches with the AWS CLI: the
  * bucket listing (`aws s3api list-objects-v2` JSON) and a directory
@@ -290,15 +294,19 @@ function planRpm(objects, pointersDir, warnings) {
 
 /**
  * The zone Redirect Rule: a `dl/` path outside the kept tags goes to
- * the same asset on the GitHub release page, blockmaps excepted.
+ * the same asset on the GitHub release page, blockmaps and Windows
+ * packages excepted.
  */
 function redirectRule(keptTags, releaseRepo) {
   const exclusions = [...keptTags]
     .sort()
     .map((tag) => `not starts_with(http.request.uri.path, "/dl/${tag}/")`);
-  const expression = ['starts_with(http.request.uri.path, "/dl/")', 'not ends_with(http.request.uri.path, ".blockmap")', ...exclusions].join(
-    ' and ',
-  );
+  const expression = [
+    'starts_with(http.request.uri.path, "/dl/")',
+    'not ends_with(http.request.uri.path, ".blockmap")',
+    'not ends_with(http.request.uri.path, ".msix")',
+    ...exclusions,
+  ].join(' and ');
   const target = `https://github.com/${releaseRepo}/releases/download/`;
   const targetExpression = `wildcard_replace(http.request.uri.path, "/dl/*", "${target}\${1}")`;
   return { expression, targetExpression, statusCode: 302 };
