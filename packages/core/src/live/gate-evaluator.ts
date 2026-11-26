@@ -38,6 +38,18 @@ export function evaluateGate(
 }
 
 /**
+ * The clauses of a gate that do not hold, by uid, in declared order —
+ * empty exactly when {@link evaluateGate} passes.
+ */
+export function unmetGateClauses(
+  gate: StepGate,
+  captures: ReadonlyMap<string, ReadonlyMap<string, string>>,
+  statuses: ReadonlyMap<string, number>,
+): string[] {
+  return gate.all.filter((clause) => !evaluateClause(clause, captures, statuses)).map((clause) => clause.uid);
+}
+
+/**
  * Evaluate a single clause. Exposed for tests + for the editor's
  * per-clause validation preview.
  */

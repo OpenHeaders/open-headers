@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { evaluateClause, evaluateGate, matchStatus } from '../../src/live/gate-evaluator';
+import { evaluateClause, evaluateGate, matchStatus, unmetGateClauses } from '../../src/live/gate-evaluator';
 import type { StepGate, StepGateClause } from '../../src/types/live';
 
 function captures(shape: Record<string, Record<string, string>>): ReadonlyMap<string, ReadonlyMap<string, string>> {
@@ -151,5 +151,27 @@ describe('evaluateGate — AND across clauses', () => {
       ],
     };
     expect(evaluateGate(gate, caps, sts)).toBe(false);
+  });
+});
+
+describe('unmetGateClauses — which clauses did not hold', () => {
+  const caps = captures({ probe: { flag: 'a' } });
+  const sts = statuses({ probe: 200 });
+
+  it('a gate that passes has none', () => {
+    const gate: StepGate = { all: [{ uid: 'gat2sta1', kind: 'status', stepId: 'probe', match: '2xx' }] };
+    expect(unmetGateClauses(gate, caps, sts)).toEqual([]);
+    expect(unmetGateClauses({ all: [] }, caps, sts)).toEqual([]);
+  });
+
+  it('names every clause that fails, in declared order, and no clause that holds', () => {
+    const gate: StepGate = {
+      all: [
+        { uid: 'gat2eq01', kind: 'capture-equals', stepId: 'probe', captureName: 'flag', value: 'b' },
+        { uid: 'gat2sta2', kind: 'status', stepId: 'probe', match: '2xx' },
+        { uid: 'gat2ex01', kind: 'capture-exists', stepId: 'ghost', captureName: 'flag' },
+      ],
+    };
+    expect(unmetGateClauses(gate, caps, sts)).toEqual(['gat2eq01', 'gat2ex01']);
   });
 });

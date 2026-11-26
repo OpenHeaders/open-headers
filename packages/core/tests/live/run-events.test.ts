@@ -267,7 +267,7 @@ describe('the events of an HTTP-only run', () => {
         },
         product: { kind: 'response', snapshot: snapshot(goldens.responses.introspect) },
       },
-      { type: 'step-settle', at: 4, stepId: 'refresh', settlement: { state: 'skipped' } },
+      { type: 'step-settle', at: 4, stepId: 'refresh', settlement: { state: 'skipped', unmet: ['gateactv'] } },
       { type: 'end', at: 5, ok: true, durationMs: 4 },
     ]);
   });

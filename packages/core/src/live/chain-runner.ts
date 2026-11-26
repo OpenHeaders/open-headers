@@ -58,7 +58,7 @@ import type {
 } from '../types/live';
 import { type CriteriaVerdict, judgeCriteria, resolveCriteria } from './criteria';
 import { applyExtractor, type StepResponse } from './extractor';
-import { evaluateGate, matchStatus } from './gate-evaluator';
+import { matchStatus, unmetGateClauses } from './gate-evaluator';
 import { comparePriority, priorityValue } from './priority-evaluator';
 import type { AttemptRetryCause, SessionClose, StepFailurePhase, StepProduct, WorkflowRunEvent } from './run-events';
 import { stepsThisRunCannotRun } from './run-requirements';
@@ -420,11 +420,11 @@ async function walkChain(
     const eligible: KnownWorkflowStep[] = [];
     for (const step of ready) {
       const gate = step.runIf;
-      const passes = gate === undefined || evaluateGate(gate, stepCaptures, stepStatuses);
-      if (!passes) {
+      const unmet = gate === undefined ? [] : unmetGateClauses(gate, stepCaptures, stepStatuses);
+      if (unmet.length > 0) {
         state.set(step.id, 'skipped');
         skippedStepIds.push(step.id);
-        onEvent?.({ type: 'step-settle', at: now(), stepId: step.id, settlement: { state: 'skipped' } });
+        onEvent?.({ type: 'step-settle', at: now(), stepId: step.id, settlement: { state: 'skipped', unmet } });
         continue;
       }
       eligible.push(step);

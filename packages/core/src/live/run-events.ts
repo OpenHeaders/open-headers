@@ -97,8 +97,8 @@ export type StepSettlement =
       /** The step's own deadline passed: a `listen` not ready in time, an `expect` with no match in time. */
       timedOut?: true;
     }
-  /** Its run condition was not met. */
-  | { state: 'skipped' }
+  /** Its run condition was not met. `unmet`: the clauses that did not hold, by uid, where the run says. */
+  | { state: 'skipped'; unmet?: string[] }
   /** An earlier step failed, or the run was refused before it. */
   | { state: 'not-run' }
   /** This build cannot run the step — an error, never a skip, never a failed test. */
