@@ -7,7 +7,10 @@
  * markers, validation badge), one edge per resolved `dependsOn`
  * parent. Layout comes from `buildWorkflowGraphLayout` — layers
  * top-down, declared order across each layer. The pane scrolls in both
- * axes; nodes are fixed-size so edge anchors stay deterministic.
+ * axes; nodes are fixed-size so edge anchors stay deterministic. A
+ * session step's node says its action and what it acts on, and names as
+ * text what arms it — the listen it is on, the step it waits after —
+ * with no edge of a kind of its own.
  *
  * Selection (slice 2): click selects a node — highlight only, the view
  * stays on Graph; the selected node grows an explicit "Edit step"
@@ -66,13 +69,15 @@ import {
   ZoomInOutlined,
   ZoomOutOutlined,
 } from '@ant-design/icons';
-import type { DraftStep, DraftWorkflow } from '@openheaders/core/live';
+import type { DraftCapture, DraftStep, DraftWorkflow } from '@openheaders/core/live';
 import {
+  isExpectStep,
   isKnownStep,
   isListenStep,
   isSendStep,
   isSessionStep,
   isUnknownStep,
+  toDraftCapture,
   validateSessionRequests,
   validateSessionSteps,
   validateStepRequestsExist,
@@ -762,6 +767,8 @@ const WorkflowGraphBody: React.FC<WorkflowGraphBodyProps> = ({
               unknownAction={isKnownStep(node.step) ? undefined : node.step.action}
               sessionAction={session?.action}
               sessionTarget={session ? sessionTargetOf(session, draft.steps, mqttRequests) : ''}
+              sessionOn={session !== undefined && !isListenStep(session) ? session.on : undefined}
+              sessionAfter={session !== undefined && isExpectStep(session) ? session.after : undefined}
               runIf={shared?.runIf}
               hasPriority={shared?.priorityFrom !== undefined}
               priorityLabel={
@@ -1090,6 +1097,10 @@ interface GraphNodeCardProps {
   sessionAction?: SessionWorkflowStep['action'];
   /** What a session step acts on, by name — empty where it names nothing. */
   sessionTarget: string;
+  /** The listen a send or an expect is on. */
+  sessionOn?: string;
+  /** The step an expect waits after. */
+  sessionAfter?: string;
   runIf: StepGate | undefined;
   hasPriority: boolean;
   priorityLabel: string;
@@ -1126,6 +1137,8 @@ const GraphNodeCard: React.FC<GraphNodeCardProps> = ({
   unknownAction,
   sessionAction,
   sessionTarget,
+  sessionOn,
+  sessionAfter,
   runIf,
   hasPriority,
   priorityLabel,
@@ -1145,9 +1158,21 @@ const GraphNodeCard: React.FC<GraphNodeCardProps> = ({
   const { token } = theme.useToken();
   const t = useT();
   const gateClauses = runIf?.all ?? [];
-  const captures = draftStep && !isUnknownStep(draftStep) ? draftStep.captures : [];
+  // A session step's captures carry no exposure: they are drawn as a
+  // call's unexposed ones are.
+  const captures: DraftCapture[] =
+    draftStep === undefined || !isKnownStep(draftStep)
+      ? []
+      : isSessionStep(draftStep)
+        ? draftStep.captures.map((capture) => toDraftCapture(capture, null))
+        : draftStep.captures;
   const needsUpdate = unknownAction !== undefined;
   const isSession = sessionAction !== undefined;
+  // What arms a session step, as text: the listen it is on, the step it waits after.
+  const armedBy = [
+    ...(sessionOn ? [`${t('workbench.editors.live.step.onPrefix')} ${sessionOn}`] : []),
+    ...(sessionAfter ? [`${t('workbench.editors.live.step.afterPrefix')} ${sessionAfter}`] : []),
+  ].join(' · ');
   const requestLine = needsUpdate
     ? t('workbench.editors.live.step.needsUpdate')
     : isSession
@@ -1307,6 +1332,15 @@ const GraphNodeCard: React.FC<GraphNodeCardProps> = ({
           >
             {unknownAction}
           </span>
+        )}
+        {armedBy !== '' && (
+          <Text
+            type="secondary"
+            data-testid={`wf-graph-armed-${stepId}`}
+            style={{ fontSize: 10, whiteSpace: 'nowrap', flexShrink: 0 }}
+          >
+            {armedBy}
+          </Text>
         )}
         {!needsUpdate && !isSession && captures.length === 0 && (
           <Text type="secondary" style={{ fontSize: 10, fontStyle: 'italic' }}>

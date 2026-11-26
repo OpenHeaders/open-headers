@@ -542,13 +542,35 @@ describe('LiveWorkflowEditor — a workflow that holds session steps', () => {
     expect(screen.getByTestId('wf-run-empty')).toBeTruthy();
   });
 
-  it('its preview node says its action and what it acts on', () => {
+  it('its preview node says its action, what it acts on, and what arms it', () => {
     const { container } = renderWorkflow(sessionFixture);
     fireEvent.click(screen.getByText('Preview'));
 
     expect(container.querySelector('[data-needs-update]')).toBeNull();
     expect(screen.getByTestId('wf-graph-node-probe').textContent).toBe('probeListenProbe MQTT');
-    expect(screen.getByTestId('wf-graph-node-status').textContent).toBe('statusExpectdevices/dev-1/status');
+    expect(screen.getByTestId('wf-graph-node-status').textContent).toBe(
+      'statusExpectdevices/dev-1/statuson probe · after reboot',
+    );
+    expect(screen.getByTestId('wf-graph-armed-status').textContent).toBe('on probe · after reboot');
+    expect(screen.queryByTestId('wf-graph-armed-probe')).toBeNull();
+  });
+
+  it('a session step’s captures are on its node, unexposed', () => {
+    const capturing: LiveWorkflow = {
+      ...sessionFixture,
+      steps: sessionFixture.steps.map((step) =>
+        step.id === 'status'
+          ? { ...step, captures: [{ uid: 'capstate', name: 'state', extractor: { kind: 'whole-body' } }] }
+          : step,
+      ),
+    };
+    renderWorkflow(capturing);
+    fireEvent.click(screen.getByText('Preview'));
+
+    expect(screen.getByTestId('wf-graph-node-status').textContent).toBe(
+      'statusExpectdevices/dev-1/statuson probe · after rebootstate',
+    );
+    expect(screen.getByTestId('wf-graph-node-status').querySelector('[data-lv-published]')).toBeNull();
   });
 
   it('a step of an action no build knows still needs a newer version, beside a session step that does not', () => {

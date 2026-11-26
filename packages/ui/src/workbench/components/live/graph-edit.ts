@@ -14,8 +14,9 @@
  * effective parents into an explicit array first, so the gesture's
  * intent (add/remove exactly one edge) survives later reorders.
  *
- * A step this build does not know takes no edge edit: its dependencies
- * are its own keys, not this build's to write.
+ * A step of an action the model does not know takes no edge edit: its
+ * dependencies are its own keys, not this build's to write. A session
+ * step takes one as a call does.
  *
  * Cycle-creating edges are NOT blocked here — the form allows invalid
  * drafts and badges them via `validateWorkflowShape`; the graph does
@@ -23,7 +24,7 @@
  */
 
 import type { DraftStep, DraftWorkflow } from '@openheaders/core/live';
-import { effectiveDependsOn, isUnknownStep } from '@openheaders/core/live';
+import { effectiveDependsOn, isKnownStep } from '@openheaders/core/live';
 import type { LiveWorkflow } from '@openheaders/core/types';
 import { generateUid } from '@openheaders/core/utils';
 
@@ -63,7 +64,7 @@ function withStepDependsOn(draft: DraftWorkflow, index: number, dependsOn: strin
 export function addGraphDependency(draft: DraftWorkflow, parentId: string, childId: string): DraftWorkflow | null {
   if (parentId === childId) return null;
   const index = draft.steps.findIndex((s) => s.id === childId);
-  if (index < 0 || isUnknownStep(draft.steps[index])) return null;
+  if (index < 0 || !isKnownStep(draft.steps[index])) return null;
   if (!draft.steps.some((s) => s.id === parentId)) return null;
   const current = effectiveParentsAt(draft, index);
   if (current.includes(parentId)) return null;
@@ -83,7 +84,7 @@ export function addGraphDependency(draft: DraftWorkflow, parentId: string, child
  */
 export function removeGraphDependency(draft: DraftWorkflow, parentId: string, childId: string): DraftWorkflow | null {
   const index = draft.steps.findIndex((s) => s.id === childId);
-  if (index < 0 || isUnknownStep(draft.steps[index])) return null;
+  if (index < 0 || !isKnownStep(draft.steps[index])) return null;
   const current = effectiveParentsAt(draft, index);
   if (!current.includes(parentId)) return null;
   return withStepDependsOn(

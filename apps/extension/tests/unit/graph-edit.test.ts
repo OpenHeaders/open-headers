@@ -17,6 +17,7 @@
  */
 
 import { callStepsOf, type DraftCallStep, type DraftWorkflow } from '@openheaders/core/live';
+import type { ExpectWorkflowStep, ListenWorkflowStep } from '@openheaders/core/types';
 import {
   addGraphDependency,
   appendDraftStep,
@@ -117,6 +118,45 @@ describe('removeGraphDependency', () => {
     expect(removeGraphDependency(draft, 'a', 'b')).toBeNull();
     expect(removeGraphDependency(draft, 'ghost', 'b')).toBeNull();
     expect(removeGraphDependency(draft, 'a', 'ghost')).toBeNull();
+  });
+});
+
+describe('a session step', () => {
+  const listen: ListenWorkflowStep = {
+    uid: 'stplistn',
+    id: 'probe',
+    action: 'listen',
+    sessionRequestUid: 'mqttreq1',
+    timeoutMs: 10_000,
+    captures: [],
+  };
+  const expectStep: ExpectWorkflowStep = {
+    uid: 'stpexpct',
+    id: 'status',
+    action: 'expect',
+    on: 'probe',
+    after: 'reboot',
+    match: [],
+    timeoutMs: 10_000,
+    captures: [],
+  };
+  const draft: DraftWorkflow = {
+    name: 'Reboot',
+    description: '',
+    steps: [listen, mkStep('reboot'), expectStep],
+    refresh: { kind: 'manual' },
+    enabled: true,
+  };
+
+  it('takes an edge as a call does, its own keys kept', () => {
+    expect(addGraphDependency(draft, 'probe', 'status')?.steps[2]).toEqual({
+      ...expectStep,
+      dependsOn: ['probe', 'reboot'],
+    });
+  });
+
+  it('gives one up as a call does', () => {
+    expect(removeGraphDependency(draft, 'reboot', 'status')?.steps[2]).toEqual({ ...expectStep, dependsOn: [] });
   });
 });
 
