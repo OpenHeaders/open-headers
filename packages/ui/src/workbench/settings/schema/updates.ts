@@ -14,6 +14,7 @@
  * the running version.
  */
 
+import { hasCapability } from '@openheaders/core/capabilities';
 import { lazy } from 'react';
 import * as v from 'valibot';
 import { getCurrentHost } from '../../../shared/host-vocabulary';
@@ -117,5 +118,5 @@ registerSetting({
   category: 'updates',
   tags: ['update', 'download', 'background', 'staged'],
   scope: 'user',
-  when: () => getCurrentHost() === 'desktop',
+  when: () => getCurrentHost() === 'desktop' && !hasCapability('updatesOnRequest'),
 });

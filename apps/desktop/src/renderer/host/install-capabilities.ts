@@ -232,6 +232,9 @@ if (window.oh.startupData.windowsPackage) {
     read: () => window.oh.packageAliases.read(),
     openSettings: () => void window.oh.packageAliases.openSettings(),
   }));
+  // Windows fetches a package's update and cannot withdraw it, so it is
+  // fetched only with its install: nothing is downloaded ahead here.
+  registerCapability('updatesOnRequest', () => true);
 }
 
 // Windows removes a package without asking it anything, so a package

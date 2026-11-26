@@ -8,16 +8,21 @@
  * null`: a host whose update is fetched by the system). With a number
  * both draw a bar; with none the row shows its busy line and the task
  * goes indeterminate — never a bar standing at zero.
+ *
+ * And the setting that downloads updates ahead: not offered where an
+ * update is downloaded only together with its install.
  */
 
 import '@openheaders/ui/workbench/settings/categories';
 import '@openheaders/ui/workbench/settings/schema/updates';
 import { type AppUpdateState, type HostBridge, setHostBridge } from '@openheaders/core/bridge';
+import { registerCapability, unregisterCapability } from '@openheaders/core/capabilities';
 import {
   __resetBackgroundTasksForTests,
   useAppUpdateTask,
   useBackgroundTasks,
 } from '@openheaders/ui/shared/background-tasks';
+import { setCurrentHost } from '@openheaders/ui/shared/host-vocabulary';
 import AppUpdateRow from '@openheaders/ui/workbench/settings/components/app-update-row';
 import { getDef } from '@openheaders/ui/workbench/settings/registry';
 import type { DictStorage, SettingScope } from '@openheaders/ui/workbench/settings/storage/adapter';
@@ -25,6 +30,7 @@ import {
   __resetStoreForTests,
   configureSettingsStorage,
   initSettingsStore,
+  get as readSetting,
 } from '@openheaders/ui/workbench/settings/store';
 import { act, cleanup, render, renderHook, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
@@ -142,6 +148,25 @@ describe('the Settings update row while a download runs', () => {
     });
     expect(container.querySelector('.anticon-sync')).toBeNull();
     expect(screen.getByText('Restart to install')).toBeTruthy();
+  });
+});
+
+describe('the setting that downloads updates ahead', () => {
+  afterEach(() => {
+    unregisterCapability('updatesOnRequest');
+    setCurrentHost('extension');
+  });
+
+  it('is offered by the desktop app, and not where an update is downloaded only with its install', () => {
+    const def = getDef('updates.autoDownload');
+    expect(def?.when?.(readSetting)).toBe(false);
+    setCurrentHost('desktop');
+    expect(def?.when?.(readSetting)).toBe(true);
+    registerCapability('updatesOnRequest', () => true);
+    expect(def?.when?.(readSetting)).toBe(false);
+    // The rows beside it stay: the check and the channel work as anywhere.
+    expect(getDef('updates.check')?.when?.(readSetting)).toBe(true);
+    expect(getDef('updates.channel')?.when?.(readSetting)).toBe(true);
   });
 });
 

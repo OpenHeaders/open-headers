@@ -1021,6 +1021,15 @@ export interface Capabilities {
   removeLocalData?: (options: { readonly force: boolean }) => Promise<LocalDataRemovalResult>;
 
   /**
+   * Declares that this install downloads an update only together with
+   * installing it, on the person's Update & Restart. Registered only by
+   * the desktop app installed as a Windows package, where Windows cannot
+   * withdraw a downloaded update. Where it is present the setting that
+   * downloads updates ahead is not offered. Presence is the whole signal.
+   */
+  updatesOnRequest?: () => boolean;
+
+  /**
    * Declares that this surface has NO realm that runs a workflow on a
    * person's press. Registered only by the web host's anonymous public
    * view, which has no wire to the server its steps would go out
