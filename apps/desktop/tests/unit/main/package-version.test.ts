@@ -122,7 +122,7 @@ describe('shipsWindowsPackage — from the first release that ships one', () => 
   });
 
   it('does not hold for the classic releases before it', () => {
-    expect(ships(['2026.11.2', '2026.11.3-beta.1', '2026.11.3']).ships).toEqual([false, false, false]);
+    expect(ships(['2026.11.2-beta.7', '2026.11.2', '2026.11.3-beta.1']).ships).toEqual([false, false, false]);
   });
 });
 
