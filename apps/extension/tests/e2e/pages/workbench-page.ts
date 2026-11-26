@@ -153,6 +153,23 @@ export class WorkbenchPage {
     await this.page.locator('[data-item-id^="req-col-"]').first().waitFor({ state: 'visible', timeout: 10000 });
   }
 
+  /** Activate the Workflows tool window and expand its WORKFLOWS
+   *  section — state-driven, as {@link showRequestsView}. */
+  async showWorkflowsView(): Promise<void> {
+    const viewTab = this.dockTab('workflows');
+    if ((await viewTab.getAttribute('aria-selected')) !== 'true') {
+      await viewTab.click();
+    }
+    const sectionHeader = this.page
+      .getByRole('button', { name: /WORKFLOWS/ })
+      .filter({ visible: true })
+      .first();
+    await sectionHeader.waitFor({ state: 'visible', timeout: 10000 });
+    if ((await sectionHeader.getAttribute('aria-expanded')) !== 'true') {
+      await sectionHeader.click();
+    }
+  }
+
   /** Collapse the right sidebar region (Docs/Scope dock) via the top
    *  bar's "Right sidebar" toggle so the editor pane runs full width.
    *  Region-level on purpose — it never references a specific tool
