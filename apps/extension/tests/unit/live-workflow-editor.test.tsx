@@ -17,7 +17,7 @@
 
 import { registerCapability, unregisterCapability } from '@openheaders/core/capabilities';
 import { LiveWorkflowSchema } from '@openheaders/core/schemas';
-import type { GraphqlRequest, LiveWorkflow, Request } from '@openheaders/core/types';
+import type { GraphqlRequest, LiveWorkflow, MqttRequest, Request } from '@openheaders/core/types';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { App } from 'antd';
 import * as v from 'valibot';
@@ -131,11 +131,13 @@ function makeRequest(overrides: Partial<Request> = {}): Request {
 let requestsState: {
   requests: Request[];
   graphqlRequests: GraphqlRequest[];
+  mqttRequests: MqttRequest[];
   collectionTrees: unknown[];
   isReady: boolean;
 } = {
   requests: [makeRequest()],
   graphqlRequests: [],
+  mqttRequests: [],
   collectionTrees: [],
   isReady: true,
 };
@@ -158,7 +160,13 @@ const testIdentity = resolveWorkbenchIdentity();
 
 afterEach(() => {
   cleanup();
-  requestsState = { requests: [makeRequest()], graphqlRequests: [], collectionTrees: [], isReady: true };
+  requestsState = {
+    requests: [makeRequest()],
+    graphqlRequests: [],
+    mqttRequests: [],
+    collectionTrees: [],
+    isReady: true,
+  };
   workflowState = workflowFixture;
   updateWorkflowMock.mockClear();
   refreshNowMock.mockClear();
@@ -193,14 +201,14 @@ describe('LiveWorkflowEditor — deleted-request validity', () => {
 
   it('flags the step when its backing request was deleted', () => {
     // Request gone from the store, registry hydrated (`isReady`).
-    requestsState = { requests: [], graphqlRequests: [], collectionTrees: [], isReady: true };
+    requestsState = { requests: [], graphqlRequests: [], mqttRequests: [], collectionTrees: [], isReady: true };
     const { container } = renderEditor();
     expect(container.querySelector('.ant-select-status-error')).not.toBeNull();
   });
 
   it('does not flag the step while the request store is still loading', () => {
     // Empty requests but NOT ready — a cold store must not false-flag.
-    requestsState = { requests: [], graphqlRequests: [], collectionTrees: [], isReady: false };
+    requestsState = { requests: [], graphqlRequests: [], mqttRequests: [], collectionTrees: [], isReady: false };
     const { container } = renderEditor();
     expect(container.querySelector('.ant-select-status-error')).toBeNull();
   });

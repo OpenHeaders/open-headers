@@ -295,6 +295,8 @@ describe('the Run view on a run with session steps', () => {
     await feed({ type: 'end', at: 843, ok: true, durationMs: 742, sessions: [{ stepId: 'probe', openForMs: 742 }] });
 
     expect(rowText('probe')).toContain('Ready in 41 ms · closed after 742 ms');
+    // Long facts wrap inside a narrow pane; they are never cut at its edge.
+    expect(screen.getByTestId('wf-run-facts-probe').style.whiteSpace).toBe('');
     expect(rowText('status')).toContain('Matched after 312 ms');
     expect(screen.getByTestId('wf-run-view').getAttribute('data-run-verdict')).toBe('passed');
   });

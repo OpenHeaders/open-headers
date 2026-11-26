@@ -313,7 +313,7 @@ const RunRow: React.FC<{
       }}
       style={{
         display: 'grid',
-        gridTemplateColumns: '14px 54px minmax(60px, 96px) minmax(0, 1fr) auto',
+        gridTemplateColumns: '14px 54px minmax(0, 1fr)',
         columnGap: 10,
         alignItems: 'baseline',
         padding: '6px 12px',
@@ -331,20 +331,39 @@ const RunRow: React.FC<{
       ) : (
         <span />
       )}
-      <Text type="secondary" ellipsis style={{ fontSize: 11, fontFamily: "'SF Mono', monospace" }}>
-        {row.id}
-      </Text>
-      <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-        {target !== null && target.tag !== '' && (
-          <span style={{ fontSize: 10, fontWeight: 600, marginRight: 6, color: target.tagColor }}>{target.tag}</span>
-        )}
-        {target !== null && (
-          <span style={{ color: target.muted ? token.colorTextTertiary : token.colorText }}>{target.name}</span>
-        )}
+      {/* The facts sit beside the name where the pane has room and drop under the id, whole, where it has not. */}
+      <span style={{ minWidth: 0, display: 'flex', flexWrap: 'wrap', alignItems: 'baseline', columnGap: 10 }}>
+        <Text
+          type="secondary"
+          ellipsis
+          style={{ flex: '0 1 96px', minWidth: 60, fontSize: 11, fontFamily: "'SF Mono', monospace" }}
+        >
+          {row.id}
+        </Text>
+        <span
+          style={{
+            flex: '1 1 72px',
+            minWidth: 0,
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+          }}
+        >
+          {target !== null && target.tag !== '' && (
+            <span style={{ fontSize: 10, fontWeight: 600, marginRight: 6, color: target.tagColor }}>{target.tag}</span>
+          )}
+          {target !== null && (
+            <span style={{ color: target.muted ? token.colorTextTertiary : token.colorText }}>{target.name}</span>
+          )}
+        </span>
+        <Text
+          type="secondary"
+          data-testid={`wf-run-facts-${row.id}`}
+          style={{ fontSize: 12, marginLeft: 'auto', textAlign: 'right', wordBreak: 'normal' }}
+        >
+          {display.facts.join(' · ')}
+        </Text>
       </span>
-      <Text type="secondary" style={{ fontSize: 12, whiteSpace: 'nowrap' }}>
-        {display.facts.join(' · ')}
-      </Text>
       {display.sub && (
         <Text type={display.sub.tone} style={{ gridColumn: '3 / -1', fontSize: 12, marginTop: 2 }}>
           {display.sub.text}
