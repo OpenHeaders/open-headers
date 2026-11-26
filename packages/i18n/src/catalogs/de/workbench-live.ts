@@ -148,9 +148,11 @@ export const workbenchLive = {
     'Füge dem Workflow zuerst eine Erfassung hinzu, damit die Ablaufrechnung eine Quelle hat.',
 
   // ── Workflow editor shell (LiveWorkflowEditor) ──────────────────────
-  'workbench.editors.live.workflow.viewEditor': 'Editor',
-  'workbench.editors.live.workflow.viewPreview': 'Vorschau',
-  'workbench.editors.live.workflow.viewRun': 'Lauf',
+  'workbench.editors.live.panel.noStep':
+    'Kein Schritt ausgewählt, daher wird der ganze Workflow gezeigt. Klicke im Graphen auf einen Schritt, um ihn zu öffnen.',
+  'workbench.editors.live.panel.stepOf': 'Schritt {number} von {total}',
+  'workbench.editors.live.panel.closeStep': 'Schritt schließen und den Workflow zeigen',
+  'workbench.editors.live.panel.lastRun': 'Letzter Lauf',
   'workbench.editors.live.run.empty':
     'In dieser Sitzung gab es noch keinen Lauf. Drücke {button}, um diesen Workflow auszuführen.',
   'workbench.editors.live.run.verdict.running': 'Läuft',
@@ -183,7 +185,6 @@ export const workbenchLive = {
   'workbench.editors.live.run.row.cannotRun': 'Hier nicht ausführbar',
   'workbench.editors.live.run.footer.failed': 'Nichts wurde veröffentlicht. Die letzten gültigen Werte bleiben.',
   'workbench.editors.live.run.footer.cannotRun': 'Kein Schritt wurde ausgeführt.',
-  'workbench.editors.live.run.pane.select': 'Wähle einen Schritt, um zu sehen, was er ergeben hat.',
   'workbench.editors.live.run.pane.none': 'Dieser Schritt hat nichts anzuzeigen.',
   'workbench.editors.live.run.pane.gone': 'Die Antwort dieses Schritts wird nicht mehr aufbewahrt.',
   'workbench.editors.live.run.action.listen': 'Lauschen',
@@ -407,7 +408,6 @@ export const workbenchLive = {
   'workbench.editors.live.graph.clauseCaptureExists': '{ref} existiert',
   'workbench.editors.live.graph.clauseCaptureMatches': '{ref} passt auf /{pattern}/',
   'workbench.editors.live.graph.menuAddStep': 'Schritt hinzufügen',
-  'workbench.editors.live.graph.menuEditStep': 'Schritt bearbeiten',
   'workbench.editors.live.graph.menuDeleteStep': 'Schritt löschen',
   'workbench.editors.live.graph.connectTitle': 'Ziehe auf einen anderen Schritt, um eine Abhängigkeit hinzuzufügen',
   'workbench.editors.live.graph.removeDependency': 'Abhängigkeit entfernen',
@@ -416,8 +416,6 @@ export const workbenchLive = {
   'workbench.editors.live.graph.recenter': 'Neu zentrieren',
   'workbench.editors.live.graph.legendClick': 'Klick',
   'workbench.editors.live.graph.legendSelect': 'auswählen',
-  'workbench.editors.live.graph.legendEditKeys': '2×Klick / ⏎',
-  'workbench.editors.live.graph.legendEdit': 'bearbeiten',
   'workbench.editors.live.graph.legendDelete': 'löschen',
   'workbench.editors.live.graph.legendConnectKeys': 'ziehen ○',
   'workbench.editors.live.graph.legendConnect': 'verbinden',
@@ -429,7 +427,6 @@ export const workbenchLive = {
   'workbench.editors.live.graph.legendPan': 'schwenken',
   'workbench.editors.live.graph.legendScroll': 'scrollen',
   'workbench.editors.live.graph.legendZoom': 'zoomen',
-  'workbench.editors.live.graph.editStepInForm': 'Schritt im Formular bearbeiten',
   'workbench.editors.live.graph.requestNotFound': 'Anfrage nicht gefunden',
   'workbench.editors.live.graph.noRequestSelected': 'Keine Anfrage ausgewählt',
   'workbench.editors.live.graph.noCaptures': 'Keine Erfassungen',

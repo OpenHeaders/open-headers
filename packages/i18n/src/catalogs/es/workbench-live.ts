@@ -149,9 +149,11 @@ export const workbenchLive = {
     'Añade primero una captura al workflow para que el cálculo de caducidad tenga una fuente.',
 
   // ── Workflow editor shell (LiveWorkflowEditor) ──────────────────────
-  'workbench.editors.live.workflow.viewEditor': 'Editor',
-  'workbench.editors.live.workflow.viewPreview': 'Vista previa',
-  'workbench.editors.live.workflow.viewRun': 'Ejecución',
+  'workbench.editors.live.panel.noStep':
+    'No hay ningún paso seleccionado, así que se muestra el workflow completo. Haz clic en un paso del grafo para abrirlo.',
+  'workbench.editors.live.panel.stepOf': 'Paso {number} de {total}',
+  'workbench.editors.live.panel.closeStep': 'Cerrar el paso y mostrar el workflow',
+  'workbench.editors.live.panel.lastRun': 'Última ejecución',
   'workbench.editors.live.run.empty':
     'Aún no hay ninguna ejecución en esta sesión. Pulsa {button} para ejecutar este workflow.',
   'workbench.editors.live.run.verdict.running': 'En ejecución',
@@ -185,7 +187,6 @@ export const workbenchLive = {
   'workbench.editors.live.run.row.cannotRun': 'No se puede ejecutar aquí',
   'workbench.editors.live.run.footer.failed': 'No se publicó nada. Se mantienen los últimos valores válidos.',
   'workbench.editors.live.run.footer.cannotRun': 'No se ejecutó ningún paso.',
-  'workbench.editors.live.run.pane.select': 'Selecciona un paso para ver qué produjo.',
   'workbench.editors.live.run.pane.none': 'Este paso no tiene nada que mostrar.',
   'workbench.editors.live.run.pane.gone': 'La respuesta de este paso ya no se conserva.',
   'workbench.editors.live.run.action.listen': 'Escucha',
@@ -413,7 +414,6 @@ export const workbenchLive = {
   'workbench.editors.live.graph.clauseCaptureExists': '{ref} existe',
   'workbench.editors.live.graph.clauseCaptureMatches': '{ref} coincide con /{pattern}/',
   'workbench.editors.live.graph.menuAddStep': 'Añadir paso',
-  'workbench.editors.live.graph.menuEditStep': 'Editar el paso',
   'workbench.editors.live.graph.menuDeleteStep': 'Eliminar el paso',
   'workbench.editors.live.graph.connectTitle': 'Arrastra hasta otro paso para añadir una dependencia',
   'workbench.editors.live.graph.removeDependency': 'Quitar la dependencia',
@@ -422,8 +422,6 @@ export const workbenchLive = {
   'workbench.editors.live.graph.recenter': 'Recentrar',
   'workbench.editors.live.graph.legendClick': 'clic',
   'workbench.editors.live.graph.legendSelect': 'seleccionar',
-  'workbench.editors.live.graph.legendEditKeys': '2×clic / ⏎',
-  'workbench.editors.live.graph.legendEdit': 'editar',
   'workbench.editors.live.graph.legendDelete': 'eliminar',
   'workbench.editors.live.graph.legendConnectKeys': 'arrastrar ○',
   'workbench.editors.live.graph.legendConnect': 'conectar',
@@ -435,7 +433,6 @@ export const workbenchLive = {
   'workbench.editors.live.graph.legendPan': 'panorámica',
   'workbench.editors.live.graph.legendScroll': 'desplazar',
   'workbench.editors.live.graph.legendZoom': 'zoom',
-  'workbench.editors.live.graph.editStepInForm': 'Editar el paso en el formulario',
   'workbench.editors.live.graph.requestNotFound': 'Solicitud no encontrada',
   'workbench.editors.live.graph.noRequestSelected': 'Ninguna solicitud seleccionada',
   'workbench.editors.live.graph.noCaptures': 'Sin capturas',

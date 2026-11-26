@@ -3,7 +3,7 @@
  *
  * Seeds a fan-out/fan-in workflow via real RPC (request + workflow +
  * one bound LV for the exposure mark), opens its editor from the
- * Workflows sidebar, and drives the Editor | Preview toggle:
+ * Workflows sidebar, and drives the graph half of its one view:
  *
  *   - Graph pane renders one node per step (`wf-graph-node-<stepId>`),
  *     one edge per resolved dependsOn (`wf-graph-edge-<from>-<to>`),
@@ -11,13 +11,10 @@
  *     live name.
  *   - Layout is layered: the two fan-out children share a row below
  *     the root; the sink sits below both.
- *   - Selection sync (slice 2): node click selects (highlight only,
- *     stays on Graph); the selected node's "Edit step" affordance
- *     jumps to the form scrolled to that step's card; focusing a
- *     field in another step moves the selection so returning to
- *     Graph highlights that node.
- *   - Toggling back to Form is loss-free: step editors reappear and
- *     Save stays disabled (toggle + selection never dirty the draft).
+ *   - Selection: a node click selects it and the panel beside the
+ *     graph opens that step's card; another node replaces the card;
+ *     closing the step shows the workflow's own panel again. Save
+ *     stays disabled (selection never dirties the draft).
  *   - Run overlay (slice 3): a never-run workflow shows `not-run` dots
  *     + the never-run summary; a real run through the playground
  *     backend (gate-skip scenario) shows completed/skipped per node,
@@ -25,7 +22,7 @@
  *     reveal, and the publication split — the produced capture's LV
  *     is live, the skipped step's LV stays "pending first run".
  *   - Editing (slice 4): rubber-band connect adds a dependsOn edge
- *     (form shows the new parent, isDirty flips, Save persists);
+ *     (the step's card shows the new parent, isDirty flips, Save persists);
  *     would-be-cycle targets tint during the drag but the drop still
  *     commits and the validation badge flags it; edge select + remove;
  *     the add-step affordance appends a form-default step.
@@ -184,13 +181,12 @@ test('graph toggle renders the step DAG and returns to the form loss-free', asyn
   await row.waitFor({ state: 'visible', timeout: 5_000 });
   await row.click();
 
-  // The editor opens on the Form view: step editors visible, no pane.
+  // The editor opens on its one view: the graph beside the workflow's
+  // own panel, no step's card open.
   const saveButton = page.getByRole('button', { name: 'Save' }).filter({ visible: true }).first();
   await saveButton.waitFor({ state: 'visible', timeout: 5_000 });
-  await expect(page.getByTestId('wf-graph-pane')).toHaveCount(0);
-
-  await page.getByText('Preview', { exact: true }).filter({ visible: true }).first().click();
   await expect(page.getByTestId('wf-graph-pane')).toBeVisible();
+  await expect(page.locator('[data-step-card]')).toHaveCount(0);
 
   // One node per step, one edge per resolved dependsOn parent.
   for (const stepId of ['root', 'left', 'right', 'sink']) {
@@ -242,36 +238,30 @@ test('graph toggle renders the step DAG and returns to the form loss-free', asyn
   expect(leftBox.y).toBeGreaterThan(rootBox.y);
   expect(sinkBox.y).toBeGreaterThan(leftBox.y);
 
-  // ── Slice 2: selection sync graph↔form ─────────────────────────
+  // ── Selection: the graph picks the step the panel shows ────────
 
-  // Node click selects — highlight only, the view stays on Graph.
+  // A node click selects it, and the panel opens that step's card
+  // beside the graph. Selection never dirties the draft.
   await page.getByTestId('wf-graph-node-left').click();
   await expect(page.getByTestId('wf-graph-node-left')).toHaveAttribute('data-selected', 'true');
   await expect(page.getByTestId('wf-graph-node-root')).not.toHaveAttribute('data-selected', 'true');
   await expect(page.getByTestId('wf-graph-pane')).toBeVisible();
-
-  // The selected node grows the explicit "Edit step" affordance; the
-  // jump lands on the form with that step's card highlighted and
-  // scrolled into view. Selection never dirties the draft.
-  await page.getByTestId('wf-graph-open-left').click();
-  await expect(page.getByTestId('wf-graph-pane')).toHaveCount(0);
-  const leftCard = page.locator('[data-step-card="left"]');
-  await expect(leftCard).toHaveAttribute('data-selected', 'true');
-  await expect(leftCard).toBeInViewport();
+  await expect(page.locator('[data-step-card]')).toHaveCount(1);
+  await expect(page.locator('[data-step-card="left"]')).toBeInViewport();
   await expect(saveButton).toBeDisabled();
 
-  // Focusing a field in another step moves the selection; returning
-  // to Graph highlights that node.
-  await page.locator('[data-step-card="sink"] input').first().click();
-  await page.getByText('Preview', { exact: true }).filter({ visible: true }).first().click();
-  await expect(page.getByTestId('wf-graph-node-sink')).toHaveAttribute('data-selected', 'true');
+  // Another node replaces the card; the panel shows one step.
+  await page.getByTestId('wf-graph-node-root').click();
+  await expect(page.locator('[data-step-card="root"]')).toBeVisible();
+  await expect(page.locator('[data-step-card]')).toHaveCount(1);
   await expect(page.getByTestId('wf-graph-node-left')).not.toHaveAttribute('data-selected', 'true');
 
-  // Back to Form: step editors return, the toggle never dirtied the
-  // draft, so Save stays disabled.
-  await page.getByText('Editor', { exact: true }).filter({ visible: true }).first().click();
-  await expect(page.getByTestId('wf-graph-pane')).toHaveCount(0);
-  await expect(page.getByText('Steps (4)', { exact: false }).first()).toBeVisible();
+  // Closing the step deselects it: the panel shows the workflow, the
+  // graph stays, and Save stays disabled.
+  await page.getByTestId('wf-panel-close').click();
+  await expect(page.locator('[data-step-card]')).toHaveCount(0);
+  await expect(page.getByTestId('wf-graph-node-root')).not.toHaveAttribute('data-selected', 'true');
+  await expect(page.getByTestId('wf-graph-pane')).toBeVisible();
   await expect(saveButton).toBeDisabled();
 
   expect(pageErrors).toEqual([]);
@@ -339,7 +329,6 @@ test('graph editing: connect adds a dependsOn edge, edge remove, add step, cycle
   const saveButton = page.getByRole('button', { name: 'Save' }).filter({ visible: true }).first();
   await saveButton.waitFor({ state: 'visible', timeout: 5_000 });
   await expect(saveButton).toBeDisabled();
-  await page.getByText('Preview', { exact: true }).filter({ visible: true }).first().click();
   await expect(page.getByTestId('wf-graph-pane')).toBeVisible();
 
   // ── Connect b → c ────────────────────────────────────────────────
@@ -367,8 +356,8 @@ test('graph editing: connect adds a dependsOn edge, edge remove, add step, cycle
   // external-change banner (conflict tracking keys steps by uid).
   await expect(page.getByText('changed externally', { exact: false })).toHaveCount(0);
 
-  // The form shows the materialized explicit parents on step c.
-  await page.getByText('Editor', { exact: true }).filter({ visible: true }).first().click();
+  // Step c's card shows the materialized explicit parents.
+  await page.getByTestId('wf-graph-node-c').click();
   await expect(page.locator('[data-step-card="c"]')).toContainText('after a, b');
 
   // Save persists the graph-made edit through the normal save path.
@@ -376,7 +365,6 @@ test('graph editing: connect adds a dependsOn edge, edge remove, add step, cycle
   await expect(saveButton).toBeDisabled();
 
   // ── Select + remove the edge ─────────────────────────────────────
-  await page.getByText('Preview', { exact: true }).filter({ visible: true }).first().click();
   await expect(page.getByTestId('wf-graph-edge-hit-b-c')).toHaveCount(1);
   // The b→c edge is a vertical line here (same column), so its hit
   // path has a zero-width bounding box — Playwright's locator click
@@ -503,7 +491,6 @@ test('run overlay: per-node states, masked value reveal, publication split', asy
     .filter({ visible: true })
     .first()
     .waitFor({ state: 'visible', timeout: 5_000 });
-  await page.getByText('Preview', { exact: true }).filter({ visible: true }).first().click();
   await expect(page.getByTestId('wf-graph-pane')).toBeVisible();
 
   // Summary reflects the successful run; per-node states carry the

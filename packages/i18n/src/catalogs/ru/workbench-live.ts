@@ -160,9 +160,11 @@ export const workbenchLive = {
     'Сначала добавьте в рабочий процесс захват, чтобы у расчёта истечения был источник.',
 
   // ── Workflow editor shell (LiveWorkflowEditor) ──────────────────────
-  'workbench.editors.live.workflow.viewEditor': 'Редактор',
-  'workbench.editors.live.workflow.viewPreview': 'Предпросмотр',
-  'workbench.editors.live.workflow.viewRun': 'Запуск',
+  'workbench.editors.live.panel.noStep':
+    'Шаг не выбран, поэтому показан весь рабочий процесс. Щёлкните шаг на графе, чтобы открыть его.',
+  'workbench.editors.live.panel.stepOf': 'Шаг {number} из {total}',
+  'workbench.editors.live.panel.closeStep': 'Закрыть шаг и показать рабочий процесс',
+  'workbench.editors.live.panel.lastRun': 'Последний запуск',
   'workbench.editors.live.run.empty':
     'В этом сеансе запусков ещё не было. Нажмите «{button}», чтобы запустить этот рабочий процесс.',
   'workbench.editors.live.run.verdict.running': 'Выполняется',
@@ -197,7 +199,6 @@ export const workbenchLive = {
   'workbench.editors.live.run.row.cannotRun': 'Здесь не запускается',
   'workbench.editors.live.run.footer.failed': 'Ничего не опубликовано. Последние исправные значения сохраняются.',
   'workbench.editors.live.run.footer.cannotRun': 'Ни один шаг не выполнялся.',
-  'workbench.editors.live.run.pane.select': 'Выберите шаг, чтобы увидеть его результат.',
   'workbench.editors.live.run.pane.none': 'У этого шага нечего показать.',
   'workbench.editors.live.run.pane.gone': 'Ответ этого шага больше не хранится.',
   'workbench.editors.live.run.action.listen': 'Прослушивание',
@@ -414,7 +415,6 @@ export const workbenchLive = {
   'workbench.editors.live.graph.clauseCaptureExists': 'захват {ref} существует',
   'workbench.editors.live.graph.clauseCaptureMatches': 'захват {ref} совпадает с /{pattern}/',
   'workbench.editors.live.graph.menuAddStep': 'Добавить шаг',
-  'workbench.editors.live.graph.menuEditStep': 'Изменить шаг',
   'workbench.editors.live.graph.menuDeleteStep': 'Удалить шаг',
   'workbench.editors.live.graph.connectTitle': 'Перетащите на другой шаг, чтобы добавить зависимость',
   'workbench.editors.live.graph.removeDependency': 'Удалить зависимость',
@@ -423,8 +423,6 @@ export const workbenchLive = {
   'workbench.editors.live.graph.recenter': 'По центру',
   'workbench.editors.live.graph.legendClick': 'щелчок',
   'workbench.editors.live.graph.legendSelect': 'выбрать',
-  'workbench.editors.live.graph.legendEditKeys': '2×щелчок / ⏎',
-  'workbench.editors.live.graph.legendEdit': 'изменить',
   'workbench.editors.live.graph.legendDelete': 'удалить',
   'workbench.editors.live.graph.legendConnectKeys': 'тянуть ○',
   'workbench.editors.live.graph.legendConnect': 'соединить',
@@ -436,7 +434,6 @@ export const workbenchLive = {
   'workbench.editors.live.graph.legendPan': 'прокрутить холст',
   'workbench.editors.live.graph.legendScroll': 'колесо',
   'workbench.editors.live.graph.legendZoom': 'масштаб',
-  'workbench.editors.live.graph.editStepInForm': 'Изменить шаг в форме',
   'workbench.editors.live.graph.requestNotFound': 'Запрос не найден',
   'workbench.editors.live.graph.noRequestSelected': 'Запрос не выбран',
   'workbench.editors.live.graph.noCaptures': 'Захватов нет',

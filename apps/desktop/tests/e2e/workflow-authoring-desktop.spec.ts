@@ -1,7 +1,7 @@
 /**
  * Authoring a workflow's session steps on the desktop host — the two
  * device scenarios written through the REAL form from "New workflow",
- * saved, and run green in the Run view against the playground's device
+ * saved, and run green in the workflow's view against the playground's device
  * scenario (a backend's HTTP api beside the aedes probe broker on TCP
  * 3131).
  *
@@ -182,8 +182,20 @@ async function newWorkflow(name: string): Promise<void> {
   await workbench.keyboard.press('Enter');
 }
 
+/** Open a step in the view's panel by its node on the graph. */
+async function openStep(stepId: string): Promise<void> {
+  await workbench.getByTestId(`wf-graph-node-${stepId}`).filter({ visible: true }).first().click();
+  await expect(card(stepId)).toBeVisible();
+}
+
+/** Close the open step: the panel shows the workflow. */
+async function closeStep(): Promise<void> {
+  await workbench.getByTestId('wf-panel-close').filter({ visible: true }).first().click();
+}
+
 /** The first step of a new workflow, made the Listen every later step is on. */
 async function authorListen(): Promise<void> {
+  await openStep('step1');
   const action = select('wf-step-0-action');
   await action.click();
   await expect(
@@ -224,16 +236,15 @@ function runRow(stepId: string): Locator {
   return workbench.getByTestId(`wf-run-row-${stepId}`).filter({ visible: true }).first();
 }
 
-/** The saved workflow's tab is open: go to its Run view and press the header's Refresh. */
+/** The saved workflow's tab is open, its panel saying no run was seen yet: press the header's Refresh. */
 async function runOpenWorkflow(): Promise<void> {
-  await workbench.getByText('Run', { exact: true }).filter({ visible: true }).first().click();
   await workbench.getByTestId('wf-run-empty').filter({ visible: true }).first().waitFor({ state: 'visible' });
   await workbench
     .getByRole('button', { name: /Refresh$/ })
     .filter({ visible: true })
     .first()
     .click();
-  await expect(workbench.getByTestId('wf-run-view').filter({ visible: true }).first()).toHaveAttribute(
+  await expect(workbench.getByTestId('wf-view').filter({ visible: true }).first()).toHaveAttribute(
     'data-run-verdict',
     'passed',
     { timeout: 10_000 },
@@ -320,7 +331,8 @@ test('A1 — a reboot commanded over HTTP and acknowledged over MQTT is authored
   await addEqualsRow('wf-step-2-match', 1, '$.commandId', '{{step.reboot.commandId}}');
   await addJsonCapture(2, 0, 'state', '$.state');
 
-  // A workflow that holds a session gives a verdict, refreshed by hand.
+  // A workflow that holds a session gives a verdict, refreshed by hand: its own panel says so.
+  await closeStep();
   await expect(workbench.getByTestId('wf-form-session-verdict').filter({ visible: true })).toBeVisible();
   await save();
 

@@ -1,5 +1,5 @@
 import type { WorkflowRunStepRow } from '@openheaders/core/live';
-import { defaultRunSelection, describeRunRow } from '@openheaders/ui/workbench/components/live/run-display';
+import { describeRunRow } from '@openheaders/ui/workbench/components/live/run-display';
 import { translateEnglish as t } from '@openheaders/ui/workbench/settings/localize';
 import { describe, expect, it } from 'vitest';
 
@@ -214,20 +214,5 @@ describe('any action', () => {
       facts: ['Cannot run here'],
       sub: { text: 'Needs a newer version.', tone: 'warning' },
     });
-  });
-});
-
-describe('the step a run opens on', () => {
-  it('is where the run stopped, and none when every step went through', () => {
-    const login: WorkflowRunStepRow = { ...passed(1, 1, []), id: 'login', uid: 'stplogin' };
-    const failed: WorkflowRunStepRow = {
-      ...STEP,
-      state: 'settled',
-      hasProduct: true,
-      settlement: { state: 'failed', phase: 'fetch', reason: 'Connection refused.', attempts: 1, maxAttempts: 1 },
-    };
-
-    expect(defaultRunSelection([login, failed])).toBe('profile');
-    expect(defaultRunSelection([login, passed(1, 1, [])])).toBeNull();
   });
 });

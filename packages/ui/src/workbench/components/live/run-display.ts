@@ -191,11 +191,3 @@ export function describeRunVerdict(verdict: WorkflowRunVerdict, t: Translate): s
       return t('workbench.editors.live.run.verdict.cannotRun');
   }
 }
-
-/** The step a view opens on when none was picked: where the run stopped, else nothing. */
-export function defaultRunSelection(rows: readonly WorkflowRunStepRow[]): string | null {
-  const stopped = rows.find(
-    (row) => row.state === 'settled' && (row.settlement.state === 'failed' || row.settlement.state === 'cannot-run'),
-  );
-  return stopped?.id ?? null;
-}

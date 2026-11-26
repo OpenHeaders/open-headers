@@ -217,6 +217,8 @@ test.afterAll(async () => {
 test('A1 — a reboot commanded over HTTP and acknowledged over MQTT is authored through the form and runs green in the page', async () => {
   await newWorkflow('Authored reboot');
 
+  // A new workflow opens on its graph and its own panel: the first step's node opens its card.
+  await page.getByTestId('wf-graph-node-step1').filter({ visible: true }).first().click();
   const action = select('wf-step-0-action');
   await action.click();
   await expect(
@@ -244,7 +246,8 @@ test('A1 — a reboot commanded over HTTP and acknowledged over MQTT is authored
   await addEqualsRow('wf-step-2-match', 1, '$.commandId', '{{step.reboot.commandId}}');
   await addJsonCapture(2, 0, 'state', '$.state');
 
-  // A workflow that holds a session gives a verdict, refreshed by hand.
+  // A workflow that holds a session gives a verdict, refreshed by hand: its own panel says so.
+  await page.getByTestId('wf-panel-close').filter({ visible: true }).first().click();
   await expect(page.getByTestId('wf-form-session-verdict').filter({ visible: true })).toBeVisible();
   await page.getByRole('button', { name: 'Save' }).filter({ visible: true }).first().click();
 
@@ -280,15 +283,14 @@ test('A1 — a reboot commanded over HTTP and acknowledged over MQTT is authored
       ],
     });
 
-  // The saved workflow's tab is open: its Run view, then the header's Refresh.
-  await page.getByText('Run', { exact: true }).filter({ visible: true }).first().click();
+  // The saved workflow's tab is open, its panel saying no run was seen yet: the header's Refresh.
   await page.getByTestId('wf-run-empty').filter({ visible: true }).first().waitFor({ state: 'visible' });
   await page
     .getByRole('button', { name: /Refresh$/ })
     .filter({ visible: true })
     .first()
     .click();
-  await expect(page.getByTestId('wf-run-view').filter({ visible: true }).first()).toHaveAttribute(
+  await expect(page.getByTestId('wf-view').filter({ visible: true }).first()).toHaveAttribute(
     'data-run-verdict',
     'passed',
     { timeout: 10_000 },

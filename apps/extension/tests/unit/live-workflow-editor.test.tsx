@@ -182,6 +182,16 @@ function renderEditor() {
   );
 }
 
+/** Open a step in the view's panel, as a click on its node does. */
+function openStep(stepId: string): void {
+  fireEvent.click(screen.getByTestId(`wf-graph-node-${stepId}`));
+}
+
+/** Close the open step: the panel shows the workflow again. */
+function closeStep(): void {
+  fireEvent.click(screen.getByTestId('wf-panel-close'));
+}
+
 describe('LiveWorkflowEditor — show-but-disable', () => {
   it('renders the "Run independent steps in parallel" Switch as disabled + unchecked', () => {
     renderEditor();
@@ -196,6 +206,8 @@ describe('LiveWorkflowEditor — show-but-disable', () => {
 describe('LiveWorkflowEditor — deleted-request validity', () => {
   it('no validity error while the step request still exists', () => {
     const { container } = renderEditor();
+    openStep('only');
+    expect(container.querySelector('[data-step-card="only"]')).not.toBeNull();
     expect(container.querySelector('.ant-select-status-error')).toBeNull();
   });
 
@@ -203,6 +215,7 @@ describe('LiveWorkflowEditor — deleted-request validity', () => {
     // Request gone from the store, registry hydrated (`isReady`).
     requestsState = { requests: [], graphqlRequests: [], mqttRequests: [], collectionTrees: [], isReady: true };
     const { container } = renderEditor();
+    openStep('only');
     expect(container.querySelector('.ant-select-status-error')).not.toBeNull();
   });
 
@@ -210,6 +223,8 @@ describe('LiveWorkflowEditor — deleted-request validity', () => {
     // Empty requests but NOT ready — a cold store must not false-flag.
     requestsState = { requests: [], graphqlRequests: [], mqttRequests: [], collectionTrees: [], isReady: false };
     const { container } = renderEditor();
+    openStep('only');
+    expect(container.querySelector('[data-step-card="only"]')).not.toBeNull();
     expect(container.querySelector('.ant-select-status-error')).toBeNull();
   });
 });
@@ -230,7 +245,7 @@ describe('LiveWorkflowEditor — a workflow that needs a newer version', () => {
     return renderEditor();
   }
 
-  it('says so once, above the form', () => {
+  it('says so once, above the view', () => {
     renderNeedsUpdate();
     expect(screen.getAllByText(BANNER)).toHaveLength(1);
   });
@@ -243,25 +258,31 @@ describe('LiveWorkflowEditor — a workflow that needs a newer version', () => {
   it('shows each unknown step with the sentence and its raw action, and no request to pick', () => {
     const { container } = renderNeedsUpdate();
 
-    const cards = Array.from(container.querySelectorAll('[data-step-needs-update]'));
-    expect(cards.map((card) => card.getAttribute('data-step-card'))).toEqual(['probe', 'status']);
-    for (const card of cards) {
+    for (const [stepId, action] of [
+      ['probe', 'watch'],
+      ['status', 'verify'],
+    ]) {
+      openStep(stepId);
+      const cards = Array.from(container.querySelectorAll('[data-step-card]'));
+      expect(cards.map((card) => card.getAttribute('data-step-card'))).toEqual([stepId]);
+      const [card] = cards;
+      expect(card.hasAttribute('data-step-needs-update')).toBe(true);
       expect(card.textContent).toContain(STEP);
+      expect(card.textContent).toContain(action);
       expect(card.querySelector('.ant-select')).toBeNull();
       expect(card.querySelector('input')).toBeNull();
     }
-    expect(cards[0].textContent).toContain('watch');
-    expect(cards[1].textContent).toContain('verify');
   });
 
-  it('takes no edit: the call step, the add-step button and Refresh are off', () => {
+  it('takes no edit: the call step and Refresh are off, and no step can be added', () => {
     const { container } = renderNeedsUpdate();
+    openStep('reboot');
 
     const callCard = container.querySelector('[data-step-card="reboot"]');
     const controls = Array.from(callCard?.querySelectorAll('input, button') ?? []);
     expect(controls.length).toBeGreaterThan(0);
     for (const control of controls) expect(control).toHaveProperty('disabled', true);
-    expect(screen.getByRole('button', { name: /Step$/ })).toHaveProperty('disabled', true);
+    expect(screen.queryByRole('button', { name: /Step$/ })).toBeNull();
     expect(screen.getByRole('button', { name: /Refresh/ })).toHaveProperty('disabled', true);
   });
 
@@ -277,20 +298,78 @@ describe('LiveWorkflowEditor — a workflow that needs a newer version', () => {
     expect(updateWorkflowMock).toHaveBeenCalledWith('wfdevice', { enabled: false });
   });
 
-  it('draws the unknown steps in the preview with no edit gesture', () => {
+  it('draws the unknown steps on the graph with no edit gesture', () => {
     const { container } = renderNeedsUpdate();
-    fireEvent.click(screen.getByText('Preview'));
 
     const nodes = Array.from(container.querySelectorAll('[data-needs-update]'));
     expect(nodes.map((node) => node.textContent)).toEqual([`probe${STEP}watch`, `status${STEP}verify`]);
-    expect(screen.queryByRole('button', { name: /Step$/ })).toBeNull();
+    expect(screen.queryByTestId('wf-graph-connect-reboot')).toBeNull();
   });
 });
 
-describe('LiveWorkflowEditor — the Run view', () => {
-  it('is the third view of a saved workflow and opens on the empty state', () => {
+describe('LiveWorkflowEditor — one view', () => {
+  it('shows the graph beside the workflow, with no switch between views', () => {
     renderEditor();
-    fireEvent.click(screen.getByText('Run'));
+
+    expect(screen.getByTestId('wf-graph-node-only')).toBeTruthy();
+    expect(screen.getByTestId('wf-panel').textContent).toContain(
+      'No step selected, so this shows the whole workflow. Click a step on the graph to open it.',
+    );
+    expect(screen.queryByText('Preview')).toBeNull();
+    expect(screen.queryByText('Editor')).toBeNull();
+  });
+
+  it('a click on a node opens that step in the panel, and closing it shows the workflow again', () => {
+    const { container } = renderEditor();
+    expect(container.querySelector('[data-step-card]')).toBeNull();
+
+    openStep('only');
+    expect(container.querySelector('[data-step-card="only"]')).not.toBeNull();
+    expect(screen.getByTestId('wf-panel').textContent).toContain('Step 1 of 1');
+    expect(screen.getByTestId('wf-graph-node-only').getAttribute('data-selected')).toBe('true');
+    expect(screen.queryByRole('switch', { name: /Run independent steps in parallel/i })).toBeNull();
+
+    closeStep();
+    expect(container.querySelector('[data-step-card]')).toBeNull();
+    expect(screen.getByTestId('wf-graph-node-only').hasAttribute('data-selected')).toBe(false);
+    expect(screen.getByRole('switch', { name: /Run independent steps in parallel/i })).toBeTruthy();
+  });
+
+  it('a click on the empty canvas deselects the step', () => {
+    const { container } = renderEditor();
+    openStep('only');
+
+    fireEvent.click(screen.getByTestId('wf-graph-pane'));
+
+    expect(container.querySelector('[data-step-card]')).toBeNull();
+  });
+
+  it('a step added on the graph opens in the panel', () => {
+    const { container } = renderEditor();
+
+    fireEvent.click(screen.getByRole('button', { name: /Step$/ }));
+
+    expect(container.querySelector('[data-step-card="step2"]')).not.toBeNull();
+    expect(screen.getByTestId('wf-panel').textContent).toContain('Step 2 of 2');
+  });
+
+  it('deleting the open step from its card closes it', () => {
+    const { container } = renderEditor();
+    fireEvent.click(screen.getByRole('button', { name: /Step$/ }));
+
+    const card = container.querySelector('[data-step-card="step2"]');
+    const remove = card?.querySelector<HTMLButtonElement>('button.ant-btn-dangerous');
+    if (!remove) throw new Error('the open step has no delete button');
+    fireEvent.click(remove);
+
+    expect(container.querySelector('[data-step-card]')).toBeNull();
+    expect(screen.queryByTestId('wf-graph-node-step2')).toBeNull();
+  });
+});
+
+describe('LiveWorkflowEditor — a run in the view', () => {
+  it('a saved workflow with no run says so in its panel', () => {
+    renderEditor();
 
     expect(screen.getByTestId('wf-run-empty').textContent).toBe(
       'No run in this session yet. Press Refresh to run this workflow.',
@@ -308,7 +387,6 @@ describe('LiveWorkflowEditor — the Run view', () => {
   it('a workflow that needs a newer version shows which steps cannot run', () => {
     workflowState = needsUpdateFixture;
     renderEditor();
-    fireEvent.click(screen.getByText('Run'));
 
     expect(screen.getByTestId('wf-run-row-probe').getAttribute('data-run-state')).toBe('cannot-run');
     expect(screen.getByTestId('wf-run-row-reboot').getAttribute('data-run-state')).toBe('not-run');
@@ -350,11 +428,12 @@ describe('LiveWorkflowEditor — on a surface that runs no workflow', () => {
     expect(await screen.findByText(SENTENCE)).toBeTruthy();
   });
 
-  it('the workflow tab offers no Run view', () => {
+  it('the workflow’s panel shows no run', () => {
     renderUnavailable();
 
-    expect(screen.getByText('Preview')).toBeTruthy();
-    expect(screen.queryByText('Run')).toBeNull();
+    expect(screen.getByTestId('wf-graph-node-only')).toBeTruthy();
+    expect(screen.queryByTestId('wf-run-empty')).toBeNull();
+    expect(screen.getByTestId('wf-panel').textContent).not.toContain('Last run');
   });
 
   it('with nothing declared there is no (i) and Refresh is on', () => {
@@ -446,32 +525,38 @@ describe('LiveWorkflowEditor — a workflow that holds session steps', () => {
     await waitFor(() => expect(refreshNowMock).toHaveBeenCalledTimes(1));
   });
 
-  it('its Run view opens on the empty state, not on a refusal', () => {
+  it('its panel shows no run yet, not a refusal', () => {
     registerCapability('workflowSessionSteps', () => true);
     renderWorkflow(sessionFixture);
-    fireEvent.click(screen.getByText('Run'));
 
     expect(screen.getByTestId('wf-run-empty')).toBeTruthy();
   });
 
-  it('is edited: each step has the card of its action, and a step can be added', () => {
+  it('is edited: each step opens to the card of its action, and a step can be added', () => {
     const { container } = renderWorkflow(sessionFixture);
 
-    const cards = Array.from(container.querySelectorAll('[data-step-card]'));
-    expect(cards.map((card) => [card.getAttribute('data-step-card'), card.getAttribute('data-step-action')])).toEqual([
+    for (const [stepId, action] of [
       ['probe', 'listen'],
       ['reboot', 'call'],
       ['status', 'expect'],
-    ]);
-    expect(container.querySelector('[data-step-needs-update]')).toBeNull();
-    expect(screen.getByTestId('wf-step-0-session-request').textContent).toContain('Probe MQTT');
+    ]) {
+      openStep(stepId);
+      const cards = Array.from(container.querySelectorAll('[data-step-card]'));
+      expect(cards.map((card) => [card.getAttribute('data-step-card'), card.getAttribute('data-step-action')])).toEqual(
+        [[stepId, action]],
+      );
+      expect(container.querySelector('[data-step-needs-update]')).toBeNull();
+    }
     expect(screen.getByTestId<HTMLInputElement>('wf-step-2-address').value).toBe('devices/dev-1/status');
     expect(screen.getByTestId<HTMLInputElement>('wf-step-2-address').disabled).toBe(false);
+    openStep('probe');
+    expect(screen.getByTestId('wf-step-0-session-request').textContent).toContain('Probe MQTT');
     expect(screen.getByRole('button', { name: /Step$/ })).toHaveProperty('disabled', false);
   });
 
   it('an edit of a session step is saved with the whole workflow', async () => {
     renderWorkflow(sessionFixture);
+    openStep('status');
 
     fireEvent.change(screen.getByTestId('wf-step-2-address'), { target: { value: 'devices/+/status' } });
     fireEvent.click(screen.getByRole('button', { name: /Save/ }));
@@ -485,6 +570,7 @@ describe('LiveWorkflowEditor — a workflow that holds session steps', () => {
 
   it('a step’s id is typed in place: its field stays, and keeps the focus, as each letter lands', () => {
     const { container } = renderWorkflow(sessionFixture);
+    openStep('probe');
     const idField = (): HTMLInputElement => {
       const input = container.querySelector<HTMLInputElement>('[data-field-path="steps.0.id"] input');
       if (input === null) throw new Error('the first step has no id field');
@@ -498,6 +584,9 @@ describe('LiveWorkflowEditor — a workflow that holds session steps', () => {
     expect(idField()).toBe(field);
     expect(document.activeElement).toBe(field);
     expect(field.value).toBe('probe2');
+    // The renamed step stays open, and the rename follows into the step that is on it.
+    expect(container.querySelector('[data-step-card="probe2"]')).not.toBeNull();
+    openStep('status');
     expect(screen.getByTestId('wf-step-2-on').textContent).toContain('probe2');
   });
 
@@ -536,23 +625,25 @@ describe('LiveWorkflowEditor — a workflow that holds session steps', () => {
     };
     const { container } = renderWorkflow(captured);
 
-    const policy = within(screen.getByTestId('wf-form-floor')).getAllByRole('combobox')[0];
+    const policy = within(screen.getByTestId('wf-panel-policy')).getAllByRole('combobox')[0];
     expect(policy).toHaveProperty('disabled', true);
     expect(screen.getByTestId('wf-form-session-verdict').textContent).toBe(
       'A workflow with session steps gives a verdict; its captures are not exposed as live variables.',
     );
-    expect(container.querySelector('[data-step-card="reboot"]')?.textContent).toContain('CAPTURES (1)');
-    expect(screen.queryByRole('switch', { name: /Expose capture/ })).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: 'About Refresh policy' }));
     expect(await screen.findByText('A workflow with session steps runs when you press Refresh.')).toBeTruthy();
+    openStep('reboot');
+    expect(container.querySelector('[data-step-card="reboot"]')?.textContent).toContain('CAPTURES (1)');
+    expect(screen.queryByRole('switch', { name: /Expose capture/ })).toBeNull();
   });
 
   it('a workflow of calls keeps its policy open and its exposure rows', () => {
     renderEditor();
 
-    const policy = within(screen.getByTestId('wf-form-floor')).getAllByRole('combobox')[0];
+    const policy = within(screen.getByTestId('wf-panel-policy')).getAllByRole('combobox')[0];
     expect(policy).toHaveProperty('disabled', false);
     expect(screen.queryByTestId('wf-form-session-verdict')).toBeNull();
+    openStep('only');
     expect(screen.getByRole('switch', { name: 'Expose capture v as live variable' })).toBeTruthy();
   });
 
@@ -562,7 +653,6 @@ describe('LiveWorkflowEditor — a workflow that holds session steps', () => {
 
     expect(screen.getAllByText(NEEDS_UPDATE)).toHaveLength(1);
     expect(screen.getByRole('button', { name: /Refresh/ })).toHaveProperty('disabled', true);
-    fireEvent.click(screen.getByText('Run'));
     expect(screen.getByTestId('wf-run-row-probe').getAttribute('data-run-state')).toBe('cannot-run');
   });
 
@@ -577,16 +667,14 @@ describe('LiveWorkflowEditor — a workflow that holds session steps', () => {
     expect(await screen.findByText(RUNS_ELSEWHERE)).toBeTruthy();
   });
 
-  it('there its Run view opens on the empty state, not on a refusal', () => {
+  it('there its panel shows no run yet, not a refusal', () => {
     renderWorkflow(sessionFixture);
-    fireEvent.click(screen.getByText('Run'));
 
     expect(screen.getByTestId('wf-run-empty')).toBeTruthy();
   });
 
-  it('its preview node says its action, what it acts on, and what arms it', () => {
+  it('its node says its action, what it acts on, and what arms it', () => {
     const { container } = renderWorkflow(sessionFixture);
-    fireEvent.click(screen.getByText('Preview'));
 
     expect(container.querySelector('[data-needs-update]')).toBeNull();
     expect(screen.getByTestId('wf-graph-node-probe').textContent).toBe('probeListenProbe MQTT');
@@ -607,7 +695,6 @@ describe('LiveWorkflowEditor — a workflow that holds session steps', () => {
       ),
     };
     renderWorkflow(capturing);
-    fireEvent.click(screen.getByText('Preview'));
 
     expect(screen.getByTestId('wf-graph-node-status').textContent).toBe(
       'statusExpectdevices/dev-1/statuson probe · after rebootstate',
@@ -624,16 +711,19 @@ describe('LiveWorkflowEditor — a workflow that holds session steps', () => {
     const { container } = renderWorkflow(mixed);
 
     expect(screen.getAllByText(NEEDS_UPDATE)).toHaveLength(1);
-    const cards = Array.from(container.querySelectorAll('[data-step-needs-update]'));
-    expect(cards.map((card) => card.textContent)).toEqual([`Step 2hangup${STEP_NEEDS_UPDATE}close`]);
     expect(refreshButton()).toHaveProperty('disabled', true);
-    fireEvent.click(screen.getByText('Run'));
     expect(screen.getByTestId('wf-run-row-probe').getAttribute('data-run-state')).toBe('not-run');
     expect(screen.getByTestId('wf-run-row-hangup').getAttribute('data-run-state')).toBe('cannot-run');
+    openStep('probe');
+    expect(container.querySelector('[data-step-needs-update]')).toBeNull();
+    openStep('hangup');
+    const cards = Array.from(container.querySelectorAll('[data-step-needs-update]'));
+    expect(cards.map((card) => card.textContent)).toEqual([`Step 2hangup${STEP_NEEDS_UPDATE}close`]);
   });
 
   it('a step’s type selector offers a call alone until the surface authors session steps', () => {
     renderEditor();
+    openStep('only');
 
     const combobox = within(screen.getByTestId('wf-step-0-action')).getByRole('combobox');
     fireEvent.mouseDown(combobox);
@@ -644,6 +734,7 @@ describe('LiveWorkflowEditor — a workflow that holds session steps', () => {
   it('where it does, picking Listen makes the step one and the workflow a verdict', () => {
     registerCapability('workflowSessionAuthoring', () => true);
     const { container } = renderEditor();
+    openStep('only');
 
     const combobox = within(screen.getByTestId('wf-step-0-action')).getByRole('combobox');
     fireEvent.mouseDown(combobox);
@@ -652,7 +743,8 @@ describe('LiveWorkflowEditor — a workflow that holds session steps', () => {
 
     expect(container.querySelector('[data-step-card="only"]')?.getAttribute('data-step-action')).toBe('listen');
     expect(screen.getByTestId('wf-step-0-session-request').textContent).toContain('Select an MQTT request');
+    closeStep();
     expect(screen.getByTestId('wf-form-session-verdict')).toBeTruthy();
-    expect(within(screen.getByTestId('wf-form-floor')).getAllByRole('combobox')[0]).toHaveProperty('disabled', true);
+    expect(within(screen.getByTestId('wf-panel-policy')).getAllByRole('combobox')[0]).toHaveProperty('disabled', true);
   });
 });

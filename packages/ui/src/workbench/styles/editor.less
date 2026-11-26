@@ -609,46 +609,58 @@
   }
 }
 
-// ── Workflow Run view ──────────────────────────────────────────────
-// The run's rows beside what the picked row produced. An editor pane
-// too narrow for both stacks them — the rows keep to the top half and
-// scroll there — instead of squeezing the product into a sliver.
+// ── Workflow view ──────────────────────────────────────────────────
+// The graph and its docked panel on one grid. Side by side the panel's
+// track is `--oh-workflow-panel-width`; in an editor pane too narrow for
+// that the two stack — the graph above, the panel under it — and the
+// track is `--oh-workflow-panel-height`. A divider's drag writes its one
+// property and nothing else; each is capped so the graph keeps room.
+// Both dividers are mounted, and the layout shows the one it uses.
 
-.oh-workflow-run-view {
-  height: 100%;
+.oh-workflow-view {
+  flex: 1;
   min-height: 0;
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr) min(var(--oh-workflow-panel-height, 58%), 85%);
 }
 
-.oh-workflow-run-rows {
-  flex: 1 1 0;
-  min-width: 320px;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-  border-right: 1px solid var(--ant-color-border-secondary);
-}
-
-.oh-workflow-run-product {
-  flex: 1.2 1 0;
+.oh-workflow-view-graph {
+  position: relative;
   min-width: 0;
   min-height: 0;
 }
 
-@container editor (max-width: 680px) {
-  .oh-workflow-run-view {
-    flex-direction: column;
+.oh-workflow-view-panel {
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  border-top: 1px solid var(--ant-color-border-secondary);
+  background: var(--ant-color-bg-container);
+
+  > .oh-sash--x {
+    display: none;
+  }
+}
+
+@container editor (min-width: 900px) {
+  .oh-workflow-view {
+    grid-template-columns: minmax(0, 1fr) min(var(--oh-workflow-panel-width, 620px), 55%);
+    grid-template-rows: minmax(0, 1fr);
   }
 
-  .oh-workflow-run-rows {
-    flex: 0 1 auto;
-    min-width: 0;
-    max-height: 50%;
-    border-right: 0;
-    border-bottom: 1px solid var(--ant-color-border-secondary);
-  }
+  .oh-workflow-view-panel {
+    border-top: 0;
+    border-left: 1px solid var(--ant-color-border-secondary);
 
-  .oh-workflow-run-product {
-    flex: 1 1 0;
+    > .oh-sash--x {
+      display: block;
+    }
+
+    > .oh-sash--y {
+      display: none;
+    }
   }
 }

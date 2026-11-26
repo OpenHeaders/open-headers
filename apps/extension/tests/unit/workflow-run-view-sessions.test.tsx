@@ -89,11 +89,11 @@ vi.mock('@openheaders/ui/shared/hooks/readers/useRequests', () => ({
   }),
 }));
 
-import WorkflowRunBody from '@openheaders/ui/workbench/components/live/WorkflowRunBody';
 import {
   __resetWorkflowRunStoreForTests,
   installWorkflowRunStore,
 } from '@openheaders/ui/workbench/data/workflow-run-store';
+import { SavedWorkflowView } from '../helpers/workflow-view-harness';
 
 beforeAll(async () => {
   // The message view loads when a step is first opened; load it once here
@@ -243,9 +243,9 @@ afterEach(() => {
   __resetWorkflowRunStoreForTests();
 });
 
-describe('the Run view on a run with session steps', () => {
+describe('a run with session steps in the workflow view', () => {
   it('names each row by its action and what it acts on', async () => {
-    render(<WorkflowRunBody workflow={workflow} needsUpdate={false} />);
+    render(<SavedWorkflowView workflow={workflow} />);
     await feed(BEGIN);
 
     expect(rowText('probe')).toBe('ListenprobeMQTTProbe MQTTWaiting');
@@ -254,7 +254,7 @@ describe('the Run view on a run with session steps', () => {
   });
 
   it('a listen connects, then reads ready and open with how its session opened', async () => {
-    render(<WorkflowRunBody workflow={workflow} needsUpdate={false} />);
+    render(<SavedWorkflowView workflow={workflow} />);
     await feed(BEGIN);
     await feed(start('probe'));
     expect(rowText('probe')).toContain('Connecting…');
@@ -265,7 +265,7 @@ describe('the Run view on a run with session steps', () => {
   });
 
   it('a call the rate limit holds says so until it leaves', async () => {
-    render(<WorkflowRunBody workflow={workflow} needsUpdate={false} />);
+    render(<SavedWorkflowView workflow={workflow} />);
     await feed(BEGIN);
     await feed(start('reboot'));
     await feed({ type: 'step-hold', at: 102, stepId: 'reboot', held: true });
@@ -277,7 +277,7 @@ describe('the Run view on a run with session steps', () => {
   });
 
   it('an expect says what it waits for and how far into its deadline it is', async () => {
-    render(<WorkflowRunBody workflow={workflow} needsUpdate={false} />);
+    render(<SavedWorkflowView workflow={workflow} />);
     await feed(BEGIN);
     await feed({
       ...start('status'),
@@ -288,7 +288,7 @@ describe('the Run view on a run with session steps', () => {
   });
 
   it('the listen reads closed once the run ends, and the run passed', async () => {
-    render(<WorkflowRunBody workflow={workflow} needsUpdate={false} />);
+    render(<SavedWorkflowView workflow={workflow} />);
     for (const fact of [BEGIN, start('probe'), PROBE_READY, start('reboot'), REBOOT_PASSED, STATUS_MATCHED]) {
       await feed(fact);
     }
@@ -298,11 +298,11 @@ describe('the Run view on a run with session steps', () => {
     // Long facts wrap inside a narrow pane; they are never cut at its edge.
     expect(screen.getByTestId('wf-run-facts-probe').style.whiteSpace).toBe('');
     expect(rowText('status')).toContain('Matched after 312 ms');
-    expect(screen.getByTestId('wf-run-view').getAttribute('data-run-verdict')).toBe('passed');
+    expect(screen.getByTestId('wf-view').getAttribute('data-run-verdict')).toBe('passed');
   });
 
   it('an expect opens to its window, on the message that matched', async () => {
-    render(<WorkflowRunBody workflow={workflow} needsUpdate={false} />);
+    render(<SavedWorkflowView workflow={workflow} />);
     await feed(BEGIN);
     await feed(STATUS_MATCHED);
     fireEvent.click(screen.getByTestId('wf-run-row-status'));

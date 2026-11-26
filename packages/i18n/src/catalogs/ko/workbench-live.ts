@@ -144,9 +144,11 @@ export const workbenchLive = {
     '만료 계산의 소스가 생기도록 먼저 워크플로에 캡처를 추가하세요.',
 
   // ── Workflow editor shell (LiveWorkflowEditor) ──────────────────────
-  'workbench.editors.live.workflow.viewEditor': '편집기',
-  'workbench.editors.live.workflow.viewPreview': '미리 보기',
-  'workbench.editors.live.workflow.viewRun': '실행',
+  'workbench.editors.live.panel.noStep':
+    '선택된 단계가 없어 워크플로 전체를 표시합니다. 그래프에서 단계를 클릭하면 열립니다.',
+  'workbench.editors.live.panel.stepOf': '{total}단계 중 {number}단계',
+  'workbench.editors.live.panel.closeStep': '단계를 닫고 워크플로 표시',
+  'workbench.editors.live.panel.lastRun': '마지막 실행',
   'workbench.editors.live.run.empty':
     '이 세션에서는 아직 실행하지 않았습니다. {button}을(를) 눌러 이 워크플로를 실행하세요.',
   'workbench.editors.live.run.verdict.running': '실행 중',
@@ -176,7 +178,6 @@ export const workbenchLive = {
   'workbench.editors.live.run.row.cannotRun': '여기서 실행할 수 없음',
   'workbench.editors.live.run.footer.failed': '아무것도 게시되지 않았습니다. 마지막 정상 값이 유지됩니다.',
   'workbench.editors.live.run.footer.cannotRun': '어떤 단계도 실행되지 않았습니다.',
-  'workbench.editors.live.run.pane.select': '단계를 선택하면 그 결과를 볼 수 있습니다.',
   'workbench.editors.live.run.pane.none': '이 단계에는 표시할 내용이 없습니다.',
   'workbench.editors.live.run.pane.gone': '이 단계의 응답은 더 이상 보관되어 있지 않습니다.',
   'workbench.editors.live.run.action.listen': '수신 대기',
@@ -373,7 +374,6 @@ export const workbenchLive = {
   'workbench.editors.live.graph.clauseCaptureExists': '{ref} 항목 존재',
   'workbench.editors.live.graph.clauseCaptureMatches': '{ref} 항목이 /{pattern}/ 패턴과 일치',
   'workbench.editors.live.graph.menuAddStep': '단계 추가',
-  'workbench.editors.live.graph.menuEditStep': '단계 편집',
   'workbench.editors.live.graph.menuDeleteStep': '단계 삭제',
   'workbench.editors.live.graph.connectTitle': '다른 단계로 끌어 의존 관계 추가',
   'workbench.editors.live.graph.removeDependency': '의존 관계 제거',
@@ -382,8 +382,6 @@ export const workbenchLive = {
   'workbench.editors.live.graph.recenter': '가운데로',
   'workbench.editors.live.graph.legendClick': '클릭',
   'workbench.editors.live.graph.legendSelect': '선택',
-  'workbench.editors.live.graph.legendEditKeys': '2×클릭 / ⏎',
-  'workbench.editors.live.graph.legendEdit': '편집',
   'workbench.editors.live.graph.legendDelete': '삭제',
   'workbench.editors.live.graph.legendConnectKeys': '○ 드래그',
   'workbench.editors.live.graph.legendConnect': '연결',
@@ -395,7 +393,6 @@ export const workbenchLive = {
   'workbench.editors.live.graph.legendPan': '이동',
   'workbench.editors.live.graph.legendScroll': '스크롤',
   'workbench.editors.live.graph.legendZoom': '확대/축소',
-  'workbench.editors.live.graph.editStepInForm': '폼에서 단계 편집',
   'workbench.editors.live.graph.requestNotFound': '요청을 찾을 수 없습니다',
   'workbench.editors.live.graph.noRequestSelected': '선택한 요청 없음',
   'workbench.editors.live.graph.noCaptures': '캡처 없음',

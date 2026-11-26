@@ -1,7 +1,7 @@
 /**
  * UnknownStepCard — a step of an action the model does not know, in the
- * workflow form (the workflow runs plan, Laws — "A reader assumes only
- * `uid`, `id` and `action`").
+ * workflow's step panel (the workflow runs plan, Laws — "A reader
+ * assumes only `uid`, `id` and `action`").
  *
  * It shows the step's id, the one sentence and its raw action, and
  * offers nothing to edit: a request picked here would turn the step
@@ -12,36 +12,26 @@ import type { UnknownWorkflowStep } from '@openheaders/core/types';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { Tag, Typography, theme } from 'antd';
 import type React from 'react';
-import { useScrollCardIntoView } from './use-scroll-card-into-view';
 
 const { Text } = Typography;
 
 interface Props {
   step: UnknownWorkflowStep;
   index: number;
-  selected?: boolean;
-  scrollRequested?: boolean;
-  onScrollDone?: () => void;
 }
 
-const UnknownStepCard: React.FC<Props> = ({ step, index, selected = false, scrollRequested = false, onScrollDone }) => {
+const UnknownStepCard: React.FC<Props> = ({ step, index }) => {
   const { token } = theme.useToken();
   const t = useT();
-  const cardRef = useScrollCardIntoView(scrollRequested, onScrollDone);
-  const edgeColor = selected ? token.colorPrimary : token.colorWarningBorder;
 
   return (
     <div
-      ref={cardRef}
       data-step-card={step.id}
       data-step-needs-update="true"
-      data-selected={selected ? 'true' : undefined}
       style={{
-        border: `1px solid ${edgeColor}`,
-        boxShadow: selected ? `0 0 0 1px ${token.colorPrimary}` : undefined,
+        border: `1px solid ${token.colorWarningBorder}`,
         borderRadius: 6,
         padding: 12,
-        marginBottom: 12,
         background: token.colorBgContainer,
       }}
     >

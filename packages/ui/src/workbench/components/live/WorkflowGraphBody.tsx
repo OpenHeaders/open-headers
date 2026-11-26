@@ -1,6 +1,7 @@
 /**
- * WorkflowGraphBody — read-only graph view of a workflow draft
- * (the workflow-graph plan slice 1).
+ * WorkflowGraphBody — the graph of a workflow draft, the left half of
+ * the workflow's one view (the workflow-graph plan; the workflows
+ * redesign).
  *
  * A pure projection of the same `DraftWorkflow` the form edits: one
  * node per step (request, captures + exposure marks, gate / priority
@@ -12,11 +13,9 @@
  * text what arms it — the listen it is on, the step it waits after —
  * with no edge of a kind of its own.
  *
- * Selection (slice 2): click selects a node — highlight only, the view
- * stays on Graph; the selected node grows an explicit "Edit step"
- * affordance (double-click is the shortcut) that jumps to the form
- * scrolled to that step. Selection is ephemeral UI state owned by
- * `LiveWorkflowEditor` — it never touches the draft.
+ * Selection: a click selects a node, and the view's panel shows that
+ * step; a click on the empty canvas deselects. Selection is ephemeral UI
+ * state owned by `LiveWorkflowEditor` — it never touches the draft.
  *
  * Run overlay (slice 3): when the editor passes the active env's run
  * row (`run` — edit mode only; `undefined` disables the overlay), each
@@ -24,8 +23,8 @@
  * captured-values popover, and exposed capture chips carry the LV's
  * publication state (Save activates the workflow; a successful RUN is
  * what publishes the vars — pending until then). The whole-run summary
- * lives on the editor's bottom `WorkflowRunStatusStrip`, shared with
- * the form view. Read-only and environment-scoped by construction: it
+ * lives on the editor's bottom `WorkflowRunStatusStrip`. Read-only and
+ * environment-scoped by construction: it
  * renders one `pickActiveRun` row, derived at render time.
  *
  * Editing (slice 4): when the editor passes `setDraft`, the graph
@@ -48,8 +47,8 @@
  * wheel/pinch to zoom around the cursor, bottom-left controls with a
  * re-center/fit action — the dotted grid rides the transform), edges
  * carry direction arrowheads, a compact right-click context menu on
- * the background (add step) and on nodes (edit / delete), keyboard
- * shortcuts on the focused pane (⏎ edit, ⌫ delete node or selected
+ * the background (add step) and on nodes (delete), keyboard
+ * shortcuts on the focused pane (⌫ delete node or selected
  * edge, Esc dismiss), and a pointer-transparent legend pinned
  * bottom-right naming all of them. Delete mirrors the form's remove
  * button via `removeDraftStep` — last step stays, dangling references
@@ -60,7 +59,6 @@ import {
   AimOutlined,
   CloseOutlined,
   DeleteOutlined,
-  EditOutlined,
   FilterOutlined,
   PlusOutlined,
   SortAscendingOutlined,
@@ -122,10 +120,10 @@ interface WorkflowGraphBodyProps {
   setDraft?: (next: DraftWorkflow) => void;
   /** Currently selected step id (ephemeral UI state owned by the editor). */
   selectedStepId?: string | null;
-  /** Click on a node — select + highlight, stay in Graph. */
-  onSelectStep?: (stepId: string, declaredIndex: number) => void;
-  /** Explicit "Edit step" affordance / double-click — jump to the form. */
-  onOpenStep?: (stepId: string) => void;
+  /** A press on a node, or a step the graph just added — select it, by uid. */
+  onSelectStep?: (stepUid: string) => void;
+  /** A click on the empty canvas. */
+  onDeselect?: () => void;
   /**
    * Active env's run row for the overlay — `pickActiveRun` output.
    * `null` = edit mode with no cache yet; `undefined` = no overlay
@@ -229,7 +227,7 @@ const WorkflowGraphBody: React.FC<WorkflowGraphBodyProps> = ({
   setDraft,
   selectedStepId,
   onSelectStep,
-  onOpenStep,
+  onDeselect,
   run,
   boundVars,
 }) => {
@@ -497,7 +495,8 @@ const WorkflowGraphBody: React.FC<WorkflowGraphBodyProps> = ({
     if (!setDraft) return;
     const appended = appendDraftStep(draft);
     setDraft(appended.draft);
-    onSelectStep?.(appended.stepId, draft.steps.length);
+    const added = appended.draft.steps.at(-1);
+    if (added !== undefined) onSelectStep?.(added.uid);
   };
 
   const handleDeleteStep = (stepId: string) => {
@@ -526,11 +525,6 @@ const WorkflowGraphBody: React.FC<WorkflowGraphBodyProps> = ({
         e.preventDefault();
         handleDeleteStep(selectedStepId);
       }
-      return;
-    }
-    if (e.key === 'Enter' && selectedStepId && onOpenStep) {
-      e.preventDefault();
-      onOpenStep(selectedStepId);
     }
   };
 
@@ -541,11 +535,11 @@ const WorkflowGraphBody: React.FC<WorkflowGraphBodyProps> = ({
     setMenu({ ...panePoint(e), kind: 'canvas' });
   };
 
-  const handleNodeContextMenu = (node: { stepId: string; declaredIndex: number }) => (e: React.MouseEvent) => {
-    if (!editable && !onOpenStep) return;
+  const handleNodeContextMenu = (node: { stepId: string; stepUid: string }) => (e: React.MouseEvent) => {
+    if (!editable) return;
     e.preventDefault();
     e.stopPropagation();
-    onSelectStep?.(node.stepId, node.declaredIndex);
+    onSelectStep?.(node.stepUid);
     setMenu({ ...panePoint(e), kind: 'node', stepId: node.stepId });
   };
 
@@ -562,30 +556,15 @@ const WorkflowGraphBody: React.FC<WorkflowGraphBodyProps> = ({
             },
           ]
         : [
-            ...(onOpenStep
-              ? [
-                  {
-                    key: 'edit-step',
-                    icon: <EditOutlined />,
-                    text: t('workbench.editors.live.graph.menuEditStep'),
-                    kbd: '⏎',
-                    onClick: () => onOpenStep(menu.stepId),
-                  },
-                ]
-              : []),
-            ...(editable
-              ? [
-                  {
-                    key: 'delete-step',
-                    icon: <DeleteOutlined />,
-                    text: t('workbench.editors.live.graph.menuDeleteStep'),
-                    kbd: '⌫',
-                    danger: true,
-                    disabled: draft.steps.length <= 1,
-                    onClick: () => handleDeleteStep(menu.stepId),
-                  },
-                ]
-              : []),
+            {
+              key: 'delete-step',
+              icon: <DeleteOutlined />,
+              text: t('workbench.editors.live.graph.menuDeleteStep'),
+              kbd: '⌫',
+              danger: true,
+              disabled: draft.steps.length <= 1,
+              onClick: () => handleDeleteStep(menu.stepId),
+            },
           ];
 
   const dragSource = drag ? positions.get(drag.from) : undefined;
@@ -609,7 +588,7 @@ const WorkflowGraphBody: React.FC<WorkflowGraphBodyProps> = ({
           {t('workbench.editors.live.form.addStepButton')}
         </Button>
       )}
-      <GraphLegend editable={editable} canOpen={onOpenStep !== undefined} />
+      <GraphLegend editable={editable} />
       <GraphViewControls onZoomIn={() => zoomBy(1.2)} onZoomOut={() => zoomBy(1 / 1.2)} onFit={fitView} />
       {/* Viewport: the pane never moves (dots ride backgroundPosition so
           the grid pans/zooms with the content); the canvas carries the
@@ -631,13 +610,15 @@ const WorkflowGraphBody: React.FC<WorkflowGraphBodyProps> = ({
         onPointerMove={movePan}
         onPointerUp={endPan}
         onPointerCancel={endPan}
-        onClick={() => {
+        onClick={(e) => {
           if (panMovedRef.current) {
             panMovedRef.current = false;
             return;
           }
           setSelectedEdge(null);
           setMenu(null);
+          // A click that lands on a node or a control is that element's own.
+          if (!(e.target as Element).closest(PAN_EXCLUDE_SELECTOR)) onDeselect?.();
         }}
         onContextMenu={handleCanvasContextMenu}
       >
@@ -757,9 +738,8 @@ const WorkflowGraphBody: React.FC<WorkflowGraphBodyProps> = ({
               key={node.step.uid}
               stepId={node.step.id}
               selected={selectedStepId === node.step.id}
-              onSelect={onSelectStep ? () => onSelectStep(node.step.id, node.declaredIndex) : undefined}
-              onOpen={onOpenStep ? () => onOpenStep(node.step.id) : undefined}
-              onContextMenu={handleNodeContextMenu({ stepId: node.step.id, declaredIndex: node.declaredIndex })}
+              onSelect={onSelectStep ? () => onSelectStep(node.step.uid) : undefined}
+              onContextMenu={handleNodeContextMenu({ stepId: node.step.id, stepUid: node.step.uid })}
               onDragDown={beginNodeDrag(node.step.id)}
               onDragMove={moveNodeDrag}
               onDragUp={endNodeDrag}
@@ -1005,16 +985,13 @@ const GraphViewControls: React.FC<{ onZoomIn: () => void; onZoomOut: () => void;
  * Pointer-transparent shortcut legend pinned to the pane's bottom-right
  * corner — names every canvas gesture so nothing is discover-by-luck.
  */
-const GraphLegend: React.FC<{ editable: boolean; canOpen: boolean }> = ({ editable, canOpen }) => {
+const GraphLegend: React.FC<{ editable: boolean }> = ({ editable }) => {
   const { token } = theme.useToken();
   const t = useT();
   // Word-bearing gesture chips are keyed; the lone ⌫ glyph stays raw
   // (key caps/glyphs raw — standing rule).
   const entries: { keys: string; action: string }[] = [
     { keys: t('workbench.editors.live.graph.legendClick'), action: t('workbench.editors.live.graph.legendSelect') },
-    ...(canOpen
-      ? [{ keys: t('workbench.editors.live.graph.legendEditKeys'), action: t('workbench.editors.live.graph.legendEdit') }]
-      : []),
     ...(editable
       ? [
           { keys: '⌫', action: t('workbench.editors.live.graph.legendDelete') },
@@ -1082,7 +1059,6 @@ interface GraphNodeCardProps {
   stepId: string;
   selected?: boolean;
   onSelect?: () => void;
-  onOpen?: () => void;
   /** Right-click — selects the node and opens the compact context menu. */
   onContextMenu?: (e: React.MouseEvent) => void;
   /** Drag-to-move handlers — ephemeral layout offsets owned by the body. */
@@ -1128,7 +1104,6 @@ const GraphNodeCard: React.FC<GraphNodeCardProps> = ({
   stepId,
   selected,
   onSelect,
-  onOpen,
   onContextMenu,
   onDragDown,
   onDragMove,
@@ -1200,7 +1175,6 @@ const GraphNodeCard: React.FC<GraphNodeCardProps> = ({
       data-selected={selected ? 'true' : undefined}
       data-cycle-target={cycleWarn ? 'true' : undefined}
       onClick={onSelect}
-      onDoubleClick={onOpen}
       onContextMenu={onContextMenu}
       // Select on press, not on release — the highlight (node +
       // outgoing arrows) must follow the node through a drag.
@@ -1282,19 +1256,6 @@ const GraphNodeCard: React.FC<GraphNodeCardProps> = ({
             <WarningOutlined
               data-testid={`wf-graph-error-${stepId}`}
               style={{ fontSize: 11, color: token.colorError }}
-            />
-          </Tooltip>
-        )}
-        {selected && onOpen && (
-          <Tooltip title={t('workbench.editors.live.graph.editStepInForm')}>
-            <EditOutlined
-              data-testid={`wf-graph-open-${stepId}`}
-              data-graph-node-action=""
-              style={{ fontSize: 11, color: token.colorPrimary }}
-              onClick={(e) => {
-                e.stopPropagation();
-                onOpen();
-              }}
             />
           </Tooltip>
         )}

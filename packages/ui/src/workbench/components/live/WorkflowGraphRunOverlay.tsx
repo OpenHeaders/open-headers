@@ -6,7 +6,7 @@
  * clicking opens a masked-by-default value popover (capture sets can
  * hold tokens; reveal is an explicit eye toggle, matching the LV editor
  * idiom). The whole-run summary lives on the editor's bottom
- * `WorkflowRunStatusStrip` — one surface for both views.
+ * `WorkflowRunStatusStrip`.
  *
  * Everything here derives at render time from the cache row — the
  * overlay holds no state beyond the popover's reveal toggle, and it

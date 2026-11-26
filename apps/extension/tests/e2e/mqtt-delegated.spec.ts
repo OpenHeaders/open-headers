@@ -491,7 +491,6 @@ test('D4 — a workflow run in the page opens its listen through the server: the
   test.setTimeout(20_000);
   await workbench.showWorkflowsView();
   await page.locator('[data-item-id="workflow-e2emqwf1"]').click();
-  await page.getByText('Run', { exact: true }).filter({ visible: true }).first().click();
   await page.getByTestId('wf-run-empty').filter({ visible: true }).first().waitFor({ state: 'visible' });
   await page
     .getByRole('button', { name: /Refresh$/ })
@@ -499,7 +498,7 @@ test('D4 — a workflow run in the page opens its listen through the server: the
     .first()
     .click();
 
-  await expect(page.getByTestId('wf-run-view').filter({ visible: true }).first()).toHaveAttribute(
+  await expect(page.getByTestId('wf-view').filter({ visible: true }).first()).toHaveAttribute(
     'data-run-verdict',
     'passed',
     { timeout: 10_000 },

@@ -144,9 +144,11 @@ export const workbenchLive = {
     "Ajoutez d'abord une capture au workflow pour que le calcul d'expiration ait une source.",
 
   // ── Workflow editor shell (LiveWorkflowEditor) ──────────────────────
-  'workbench.editors.live.workflow.viewEditor': 'Éditeur',
-  'workbench.editors.live.workflow.viewPreview': 'Aperçu',
-  'workbench.editors.live.workflow.viewRun': 'Exécution',
+  'workbench.editors.live.panel.noStep':
+    "Aucune étape sélectionnée : le workflow entier est affiché. Cliquez sur une étape du graphe pour l'ouvrir.",
+  'workbench.editors.live.panel.stepOf': 'Étape {number} sur {total}',
+  'workbench.editors.live.panel.closeStep': "Fermer l'étape et afficher le workflow",
+  'workbench.editors.live.panel.lastRun': 'Dernière exécution',
   'workbench.editors.live.run.empty':
     "Aucune exécution dans cette session pour l'instant. Appuyez sur {button} pour exécuter ce workflow.",
   'workbench.editors.live.run.verdict.running': 'En cours',
@@ -180,7 +182,6 @@ export const workbenchLive = {
   'workbench.editors.live.run.row.cannotRun': "Ne peut pas s'exécuter ici",
   'workbench.editors.live.run.footer.failed': "Rien n'a été publié. Les dernières valeurs valides sont conservées.",
   'workbench.editors.live.run.footer.cannotRun': "Aucune étape ne s'est exécutée.",
-  'workbench.editors.live.run.pane.select': "Sélectionnez une étape pour voir ce qu'elle a produit.",
   'workbench.editors.live.run.pane.none': "Cette étape n'a rien à afficher.",
   'workbench.editors.live.run.pane.gone': "La réponse de cette étape n'est plus conservée.",
   'workbench.editors.live.run.action.listen': 'Écoute',
@@ -408,7 +409,6 @@ export const workbenchLive = {
   'workbench.editors.live.graph.clauseCaptureExists': '{ref} existe',
   'workbench.editors.live.graph.clauseCaptureMatches': '{ref} correspond à /{pattern}/',
   'workbench.editors.live.graph.menuAddStep': 'Ajouter une étape',
-  'workbench.editors.live.graph.menuEditStep': "Modifier l'étape",
   'workbench.editors.live.graph.menuDeleteStep': "Supprimer l'étape",
   'workbench.editors.live.graph.connectTitle': 'Glissez vers une autre étape pour ajouter une dépendance',
   'workbench.editors.live.graph.removeDependency': 'Retirer la dépendance',
@@ -417,8 +417,6 @@ export const workbenchLive = {
   'workbench.editors.live.graph.recenter': 'Recentrer',
   'workbench.editors.live.graph.legendClick': 'clic',
   'workbench.editors.live.graph.legendSelect': 'sélectionner',
-  'workbench.editors.live.graph.legendEditKeys': '2×clic / ⏎',
-  'workbench.editors.live.graph.legendEdit': 'modifier',
   'workbench.editors.live.graph.legendDelete': 'supprimer',
   'workbench.editors.live.graph.legendConnectKeys': 'glisser ○',
   'workbench.editors.live.graph.legendConnect': 'connecter',
@@ -430,7 +428,6 @@ export const workbenchLive = {
   'workbench.editors.live.graph.legendPan': 'panoramique',
   'workbench.editors.live.graph.legendScroll': 'défilement',
   'workbench.editors.live.graph.legendZoom': 'zoom',
-  'workbench.editors.live.graph.editStepInForm': "Modifier l'étape dans le formulaire",
   'workbench.editors.live.graph.requestNotFound': 'Requête introuvable',
   'workbench.editors.live.graph.noRequestSelected': 'Aucune requête sélectionnée',
   'workbench.editors.live.graph.noCaptures': 'Aucune capture',

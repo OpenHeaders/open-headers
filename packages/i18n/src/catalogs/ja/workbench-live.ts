@@ -140,9 +140,11 @@ export const workbenchLive = {
     '期限の計算に元となる値が必要です。まずワークフローにキャプチャを追加してください。',
 
   // ── Workflow editor shell (LiveWorkflowEditor) ──────────────────────
-  'workbench.editors.live.workflow.viewEditor': 'エディター',
-  'workbench.editors.live.workflow.viewPreview': 'プレビュー',
-  'workbench.editors.live.workflow.viewRun': '実行',
+  'workbench.editors.live.panel.noStep':
+    'ステップが選択されていないため、ワークフロー全体を表示しています。グラフのステップをクリックすると開きます。',
+  'workbench.editors.live.panel.stepOf': 'ステップ {number} / {total}',
+  'workbench.editors.live.panel.closeStep': 'ステップを閉じてワークフローを表示',
+  'workbench.editors.live.panel.lastRun': '前回の実行',
   'workbench.editors.live.run.empty':
     'このセッションではまだ実行されていません。{button} を押すとこのワークフローを実行します。',
   'workbench.editors.live.run.verdict.running': '実行中',
@@ -172,7 +174,6 @@ export const workbenchLive = {
   'workbench.editors.live.run.row.cannotRun': 'ここでは実行できません',
   'workbench.editors.live.run.footer.failed': '何も公開されていません。最後の正常な値が保持されます。',
   'workbench.editors.live.run.footer.cannotRun': 'どのステップも実行されませんでした。',
-  'workbench.editors.live.run.pane.select': 'ステップを選択すると、その結果が表示されます。',
   'workbench.editors.live.run.pane.none': 'このステップには表示するものがありません。',
   'workbench.editors.live.run.pane.gone': 'このステップのレスポンスはもう保持されていません。',
   'workbench.editors.live.run.action.listen': '待ち受け',
@@ -372,7 +373,6 @@ export const workbenchLive = {
   'workbench.editors.live.graph.clauseCaptureExists': '{ref} が存在する',
   'workbench.editors.live.graph.clauseCaptureMatches': '{ref} が /{pattern}/ に一致する',
   'workbench.editors.live.graph.menuAddStep': 'ステップを追加',
-  'workbench.editors.live.graph.menuEditStep': 'ステップを編集',
   'workbench.editors.live.graph.menuDeleteStep': 'ステップを削除',
   'workbench.editors.live.graph.connectTitle': '別のステップへドラッグすると依存関係を追加します',
   'workbench.editors.live.graph.removeDependency': '依存関係を削除',
@@ -381,8 +381,6 @@ export const workbenchLive = {
   'workbench.editors.live.graph.recenter': '中央に戻す',
   'workbench.editors.live.graph.legendClick': 'クリック',
   'workbench.editors.live.graph.legendSelect': '選択',
-  'workbench.editors.live.graph.legendEditKeys': '2×クリック / ⏎',
-  'workbench.editors.live.graph.legendEdit': '編集',
   'workbench.editors.live.graph.legendDelete': '削除',
   'workbench.editors.live.graph.legendConnectKeys': '○ をドラッグ',
   'workbench.editors.live.graph.legendConnect': '接続',
@@ -394,7 +392,6 @@ export const workbenchLive = {
   'workbench.editors.live.graph.legendPan': 'パン',
   'workbench.editors.live.graph.legendScroll': 'スクロール',
   'workbench.editors.live.graph.legendZoom': 'ズーム',
-  'workbench.editors.live.graph.editStepInForm': 'フォームでステップを編集',
   'workbench.editors.live.graph.requestNotFound': 'リクエストが見つかりません',
   'workbench.editors.live.graph.noRequestSelected': 'リクエストが選択されていません',
   'workbench.editors.live.graph.noCaptures': 'キャプチャなし',

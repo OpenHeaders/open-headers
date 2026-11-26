@@ -77,18 +77,17 @@ async function storageGet<T>(key: string): Promise<T | undefined> {
   );
 }
 
-function runView(): Locator {
-  return page.getByTestId('wf-run-view').filter({ visible: true }).first();
+function workflowView(): Locator {
+  return page.getByTestId('wf-view').filter({ visible: true }).first();
 }
 
 function runRow(stepId: string): Locator {
   return page.getByTestId(`wf-run-row-${stepId}`).filter({ visible: true }).first();
 }
 
-/** Open a workflow's tab on its Run view and press the header's Refresh. */
+/** Open a workflow's tab — its panel says no run was seen yet — and press the header's Refresh. */
 async function runWorkflow(uid: string): Promise<void> {
   await page.locator(`[data-item-id="workflow-${uid}"]`).click();
-  await page.getByText('Run', { exact: true }).filter({ visible: true }).first().click();
   await page.getByTestId('wf-run-empty').filter({ visible: true }).first().waitFor({ state: 'visible' });
   await page
     .getByRole('button', { name: /Refresh$/ })
@@ -98,7 +97,7 @@ async function runWorkflow(uid: string): Promise<void> {
 }
 
 async function expectVerdict(verdict: 'passed' | 'failed' | 'cannot-run'): Promise<void> {
-  await expect(runView()).toHaveAttribute('data-run-verdict', verdict, { timeout: 10_000 });
+  await expect(workflowView()).toHaveAttribute('data-run-verdict', verdict, { timeout: 10_000 });
 }
 
 test.describe.configure({ mode: 'serial' });

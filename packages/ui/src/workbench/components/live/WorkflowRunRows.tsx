@@ -1,8 +1,7 @@
 /**
- * WorkflowRunBody — the workflow tab's Run view (the workflow runs
- * plan, The Run view): the last run of this workflow seen on this page,
- * as its steps in order on the left and the selected step's product on
- * the right.
+ * WorkflowRunRows — the last run of a workflow seen on this page, as its
+ * steps in order (the workflow runs plan, The Run view). A row selects
+ * its step: what the step produced is shown with the step.
  *
  * The rows come from the run's step events, never from the cache row or
  * a run report. A workflow that holds a step of an action the model does
@@ -10,17 +9,12 @@
  */
 
 import {
-  applyRunFact,
   isExpectStep,
-  isKnownStep,
   isListenStep,
   isSendStep,
   isUnknownStep,
-  runFactOf,
-  runRefusalEvents,
   runTotals,
   runVerdict,
-  unknownStepMessage,
   type WorkflowRunRecord,
   type WorkflowRunStepRow,
   type WorkflowRunVerdict,
@@ -31,27 +25,25 @@ import { useEnvironments } from '@openheaders/ui/shared/hooks/readers/useEnviron
 import { useRequests } from '@openheaders/ui/shared/hooks/readers/useRequests';
 import { Tag, Typography, theme } from 'antd';
 import type React from 'react';
-import { useEffect, useMemo, useState } from 'react';
-import { readKeptRunProduct } from '../../data/workflow-run-store';
+import { useEffect, useState } from 'react';
 import { formatDurationRolled } from '../request-editor/response/response-meta';
 import { METHOD_COLORS, REQUEST_KIND_COLORS } from '../sidebar/icons';
 import {
-  defaultRunSelection,
   describeRunRow,
   describeRunVerdict,
   type RunRowContext,
   type RunRowTone,
   type RunStepAction,
 } from './run-display';
-import { useWorkflowRun } from './use-workflow-run';
-import WorkflowRunProductPane from './WorkflowRunProductPane';
+import type { ShownWorkflowRun } from './use-workflow-run';
 
 const { Text } = Typography;
 
 interface Props {
   workflow: LiveWorkflow;
-  /** The workflow holds a step of an action the model does not know — it is not run. */
-  needsUpdate: boolean;
+  /** The run the view shows — `null` until one was seen on this page. */
+  run: ShownWorkflowRun | null;
+  onSelectStep: (stepUid: string) => void;
 }
 
 const VERDICT_COLOR: Record<WorkflowRunVerdict, string> = {
@@ -60,20 +52,6 @@ const VERDICT_COLOR: Record<WorkflowRunVerdict, string> = {
   failed: 'error',
   'cannot-run': 'warning',
 };
-
-/** What a needs-update workflow shows in place of a run: no step ran, and the steps of an action the model does not know say why. */
-function refusedRecord(workflow: LiveWorkflow): WorkflowRunRecord | null {
-  const refusals = workflow.steps
-    .filter(isUnknownStep)
-    .filter((step) => !isKnownStep(step))
-    .map((step) => ({ stepId: step.id, reason: unknownStepMessage(step) }));
-  return runRefusalEvents(workflow, 0, refusals)
-    .map(runFactOf)
-    .reduce<WorkflowRunRecord | null>(
-      (record, fact) => applyRunFact(record, { runId: '', environmentId: null }, fact),
-      null,
-    );
-}
 
 interface StepTarget {
   /** The step's action; `null` for a step of an action this build does not know. */
@@ -87,17 +65,13 @@ interface StepTarget {
 /** How often a wait's elapsed time is redrawn while an `expect` is waiting. */
 const WAIT_TICK_MS = 200;
 
-const WorkflowRunBody: React.FC<Props> = ({ workflow, needsUpdate }) => {
+const WorkflowRunRows: React.FC<Props> = ({ workflow, run, onSelectStep }) => {
   const { token } = theme.useToken();
   const t = useT();
-  const kept = useWorkflowRun(workflow.uid);
   const { environments } = useEnvironments();
   const requestsApi = useRequests();
   const { requests, graphqlRequests } = requestsApi;
-  const [pickedStepId, setPickedStepId] = useState<string | null>(null);
-
-  const refused = useMemo(() => (needsUpdate ? refusedRecord(workflow) : null), [needsUpdate, workflow]);
-  const record = refused ?? kept?.record ?? null;
+  const record = run?.record ?? null;
 
   const waiting = record?.steps.some((row) => row.state === 'running' && row.awaiting !== undefined) === true;
   const [now, setNow] = useState(() => Date.now());
@@ -158,12 +132,6 @@ const WorkflowRunBody: React.FC<Props> = ({ workflow, needsUpdate }) => {
     return notFound('call');
   };
 
-  /** The step whose start opened an `expect`'s window. */
-  const triggerOf = (stepId: string): string | undefined => {
-    const step = workflow.steps.find((each) => each.id === stepId);
-    return step !== undefined && isExpectStep(step) ? step.after : undefined;
-  };
-
   /** A `listen` row's session: open while the run goes, then how it closed. */
   const sessionOf = (row: WorkflowRunStepRow, running: WorkflowRunRecord): RunRowContext['session'] => {
     if (row.state !== 'settled' || row.settlement.state !== 'ready') return undefined;
@@ -171,33 +139,24 @@ const WorkflowRunBody: React.FC<Props> = ({ workflow, needsUpdate }) => {
     return running.ended.sessions?.find((close) => close.stepId === row.id);
   };
 
-  if (record === null) {
+  if (run === null || record === null) {
     return (
-      <div
-        data-testid="wf-run-empty"
-        style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}
-      >
-        <Text type="secondary" style={{ fontSize: 12, textAlign: 'center' }}>
-          {t('workbench.editors.live.run.empty', { button: t('workbench.editors.live.workflow.refresh') })}
-        </Text>
-      </div>
+      <Text type="secondary" data-testid="wf-run-empty" style={{ fontSize: 12 }}>
+        {t('workbench.editors.live.run.empty', { button: t('workbench.editors.live.workflow.refresh') })}
+      </Text>
     );
   }
 
   const verdict = runVerdict(record);
   const totals = runTotals(record);
-  const selectedId =
-    pickedStepId !== null && record.steps.some((row) => row.id === pickedStepId)
-      ? pickedStepId
-      : defaultRunSelection(record.steps);
   const summary = [
     t('workbench.editors.live.run.total.passed', { count: totals.passed }),
     t('workbench.editors.live.run.total.failed', { count: totals.failed }),
     ...(totals.skipped > 0 ? [t('workbench.editors.live.run.total.skipped', { count: totals.skipped })] : []),
     ...(totals.cannotRun > 0 ? [t('workbench.editors.live.run.total.cannotRun', { count: totals.cannotRun })] : []),
     ...(totals.notRun > 0 ? [t('workbench.editors.live.run.total.notRun', { count: totals.notRun })] : []),
-    ...(refused === null && record.ended !== null ? [formatDurationRolled(record.ended.durationMs)] : []),
-    ...(refused === null
+    ...(!run.refused && record.ended !== null ? [formatDurationRolled(record.ended.durationMs)] : []),
+    ...(!run.refused
       ? [
           record.environmentId === null
             ? t('workbench.editors.live.status.noEnvironment')
@@ -214,61 +173,48 @@ const WorkflowRunBody: React.FC<Props> = ({ workflow, needsUpdate }) => {
         : null;
 
   return (
-    // Two panes side by side; an editor pane too narrow for both stacks
-    // them (`.oh-workflow-run-view`, the workbench's editor stylesheet).
-    <div data-testid="wf-run-view" data-run-verdict={verdict} className="oh-workflow-run-view">
-      <div className="oh-workflow-run-rows">
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 10,
-            padding: '8px 12px',
-            borderBottom: `1px solid ${token.colorBorderSecondary}`,
-            flexShrink: 0,
-          }}
-        >
-          <Tag color={VERDICT_COLOR[verdict]} data-testid="wf-run-verdict" style={{ marginInlineEnd: 0 }}>
-            {describeRunVerdict(verdict, t)}
-          </Tag>
-          <Text type="secondary" ellipsis style={{ fontSize: 12, minWidth: 0 }}>
-            {summary}
+    <div
+      data-testid="wf-run-rows"
+      style={{ border: `1px solid ${token.colorBorderSecondary}`, borderRadius: token.borderRadius, overflow: 'hidden' }}
+    >
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 10,
+          padding: '8px 12px',
+          borderBottom: `1px solid ${token.colorBorderSecondary}`,
+        }}
+      >
+        <Tag color={VERDICT_COLOR[verdict]} data-testid="wf-run-verdict" style={{ marginInlineEnd: 0 }}>
+          {describeRunVerdict(verdict, t)}
+        </Tag>
+        <Text type="secondary" style={{ fontSize: 12, minWidth: 0 }}>
+          {summary}
+        </Text>
+      </div>
+      {record.steps.map((row) => (
+        <RunRow
+          key={row.uid}
+          row={row}
+          target={targetOf(row.id)}
+          now={now}
+          session={sessionOf(row, record)}
+          onSelect={() => onSelectStep(row.uid)}
+        />
+      ))}
+      {footer !== null && (
+        <div style={{ padding: '6px 12px' }}>
+          <Text type="secondary" style={{ fontSize: 12 }}>
+            {footer}
           </Text>
         </div>
-        <div className="oh-persistent-scroll" style={{ flex: 1, minHeight: 0 }}>
-          {record.steps.map((row) => (
-            <RunRow
-              key={row.id}
-              row={row}
-              target={targetOf(row.id)}
-              now={now}
-              session={sessionOf(row, record)}
-              selected={row.id === selectedId}
-              onSelect={() => setPickedStepId(row.id)}
-            />
-          ))}
-          {footer !== null && (
-            <div style={{ padding: '6px 12px' }}>
-              <Text type="secondary" style={{ fontSize: 12 }}>
-                {footer}
-              </Text>
-            </div>
-          )}
-        </div>
-      </div>
-      <div className="oh-workflow-run-product">
-        <WorkflowRunProductPane
-          stepId={selectedId}
-          state={selectedId === null ? undefined : kept?.products[selectedId]}
-          product={selectedId === null || refused !== null ? null : readKeptRunProduct(record.runId, selectedId)}
-          trigger={selectedId === null ? undefined : triggerOf(selectedId)}
-        />
-      </div>
+      )}
     </div>
   );
 };
 
-export default WorkflowRunBody;
+export default WorkflowRunRows;
 
 // ── One row ────────────────────────────────────────────────────────
 
@@ -284,9 +230,8 @@ const RunRow: React.FC<{
   target: StepTarget | null;
   now: number;
   session: RunRowContext['session'];
-  selected: boolean;
   onSelect: () => void;
-}> = ({ row, target, now, session, selected, onSelect }) => {
+}> = ({ row, target, now, session, onSelect }) => {
   const { token } = theme.useToken();
   const t = useT();
   const action = target?.action ?? null;
@@ -302,7 +247,6 @@ const RunRow: React.FC<{
       tabIndex={0}
       data-testid={`wf-run-row-${row.id}`}
       data-run-state={display.tone}
-      data-selected={selected ? 'true' : undefined}
       onClick={onSelect}
       onKeyDown={(e) => {
         if (e.key === 'Enter' || e.key === ' ') {
@@ -317,7 +261,6 @@ const RunRow: React.FC<{
         alignItems: 'baseline',
         padding: '6px 12px',
         borderBottom: `1px solid ${token.colorBorderSecondary}`,
-        background: selected ? token.controlItemBgActive : 'transparent',
         cursor: 'pointer',
         fontSize: 12,
       }}
@@ -330,7 +273,7 @@ const RunRow: React.FC<{
       ) : (
         <span />
       )}
-      {/* The facts sit beside the name where the pane has room and drop under the id, whole, where it has not. */}
+      {/* The facts sit beside the name where the panel has room and drop under the id, whole, where it has not. */}
       <span style={{ minWidth: 0, display: 'flex', flexWrap: 'wrap', alignItems: 'baseline', columnGap: 10 }}>
         <Text
           type="secondary"

@@ -4,9 +4,9 @@
  * session (a step of any other action has its own card,
  * `UnknownStepCard`).
  *
- * Used inside `LiveWorkflowEditor` (once per step). The step-id chip is
- * editable because `{{step.<id>.<capture>}}` references are stable
- * identifiers users might reference from later steps.
+ * Used inside the workflow's step panel, for the selected step. The
+ * step-id chip is editable because `{{step.<id>.<capture>}}` references
+ * are stable identifiers users might reference from later steps.
  *
  * The card is a shell every action shares — its id, its type selector,
  * its place among the steps, the sections `Depends on`, `Run condition`
@@ -58,7 +58,6 @@ import CallStepFields from './CallStepFields';
 import type { DependencyRow } from './dependencies-view';
 import { ExpectStepFields, ListenStepFields, SendStepFields } from './SessionStepFields';
 import { STEP_ACTIONS, type StepAction, stepActionOf } from './step-action';
-import { useScrollCardIntoView } from './use-scroll-card-into-view';
 import type { StepRequestChoice } from './workflow-step-request-options';
 import { buildCallStepSections, buildSharedStepSections } from './workflow-step-sections';
 
@@ -134,15 +133,6 @@ interface Props {
   sessionAuthoring?: boolean;
   /** The workflow publishes live variables — a call's captures carry the exposure row. */
   exposable?: boolean;
-  // ── Selection sync (graph↔form, the workflow-graph plan §6.2) ─────
-  /** This step is the editor's selected step — accent highlight. */
-  selected?: boolean;
-  /** Consume-once scroll request from a graph-side "Edit step" jump:
-   *  the card scrolls itself into view and reports done so the owner
-   *  clears the request. Mere selection (form focus) never scrolls —
-   *  only an explicit jump does. */
-  scrollRequested?: boolean;
-  onScrollDone?: () => void;
 }
 
 /** A call's own sections, with the setters that write each back onto the step. */
@@ -249,9 +239,6 @@ const WorkflowStepEditor: React.FC<Props> = ({
   sessionRequests = [],
   sessionAuthoring = false,
   exposable = true,
-  selected = false,
-  scrollRequested = false,
-  onScrollDone,
 }) => {
   const { token } = theme.useToken();
   const t = useT();
@@ -259,7 +246,6 @@ const WorkflowStepEditor: React.FC<Props> = ({
   // the controls below that set their own `disabled` must agree with it.
   const readOnly = ConfigProvider.useConfig().componentDisabled === true;
 
-  const cardRef = useScrollCardIntoView(scrollRequested, onScrollDone);
   const action = stepActionOf(step);
 
   // ── Derived error subsets ───────────────────────────────────────
@@ -399,20 +385,16 @@ const WorkflowStepEditor: React.FC<Props> = ({
 
   const indent = dependencyRow?.indent ?? 0;
 
-  const edgeColor = stepLevelError || requestError ? token.colorError : selected ? token.colorPrimary : token.colorBorderSecondary;
+  const edgeColor = stepLevelError || requestError ? token.colorError : token.colorBorderSecondary;
 
   return (
     <div
-      ref={cardRef}
       data-step-card={step.id}
       data-step-action={action}
-      data-selected={selected ? 'true' : undefined}
       style={{
         border: `1px solid ${edgeColor}`,
-        boxShadow: selected ? `0 0 0 1px ${token.colorPrimary}` : undefined,
         borderRadius: 6,
         padding: 12,
-        marginBottom: 12,
         background: token.colorBgContainer,
         // Connector rail on the left edge for children — a thin vertical
         // stripe in the primary-color family. Pure visual cue that this

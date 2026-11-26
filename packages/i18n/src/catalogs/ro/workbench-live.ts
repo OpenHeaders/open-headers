@@ -165,9 +165,11 @@ export const workbenchLive = {
     'Adăugați mai întâi o captură în fluxul de lucru, pentru ca aritmetica expirării să aibă o sursă.',
 
   // ── Workflow editor shell (LiveWorkflowEditor) ──────────────────────
-  'workbench.editors.live.workflow.viewEditor': 'Editor',
-  'workbench.editors.live.workflow.viewPreview': 'Previzualizare',
-  'workbench.editors.live.workflow.viewRun': 'Rulare',
+  'workbench.editors.live.panel.noStep':
+    'Niciun pas selectat, așa că se afișează întregul flux de lucru. Faceți clic pe un pas din graf pentru a-l deschide.',
+  'workbench.editors.live.panel.stepOf': 'Pasul {number} din {total}',
+  'workbench.editors.live.panel.closeStep': 'Închide pasul și afișează fluxul de lucru',
+  'workbench.editors.live.panel.lastRun': 'Ultima rulare',
   'workbench.editors.live.run.empty':
     'Nicio rulare în această sesiune încă. Apăsați {button} pentru a rula acest flux de lucru.',
   'workbench.editors.live.run.verdict.running': 'În curs',
@@ -201,7 +203,6 @@ export const workbenchLive = {
   'workbench.editors.live.run.row.cannotRun': 'Nu poate rula aici',
   'workbench.editors.live.run.footer.failed': 'Nu s-a publicat nimic. Ultimele valori bune rămân.',
   'workbench.editors.live.run.footer.cannotRun': 'Niciun pas nu a rulat.',
-  'workbench.editors.live.run.pane.select': 'Selectați un pas pentru a vedea ce a produs.',
   'workbench.editors.live.run.pane.none': 'Acest pas nu are nimic de arătat.',
   'workbench.editors.live.run.pane.gone': 'Răspunsul acestui pas nu mai este păstrat.',
   'workbench.editors.live.run.action.listen': 'Ascultare',
@@ -416,7 +417,6 @@ export const workbenchLive = {
   'workbench.editors.live.graph.clauseCaptureExists': 'captura {ref} există',
   'workbench.editors.live.graph.clauseCaptureMatches': 'captura {ref} se potrivește cu /{pattern}/',
   'workbench.editors.live.graph.menuAddStep': 'Adăugare pas',
-  'workbench.editors.live.graph.menuEditStep': 'Editare pas',
   'workbench.editors.live.graph.menuDeleteStep': 'Ștergere pas',
   'workbench.editors.live.graph.connectTitle': 'Trageți spre alt pas pentru a adăuga o dependență',
   'workbench.editors.live.graph.removeDependency': 'Eliminare dependență',
@@ -425,8 +425,6 @@ export const workbenchLive = {
   'workbench.editors.live.graph.recenter': 'Recentrare',
   'workbench.editors.live.graph.legendClick': 'clic',
   'workbench.editors.live.graph.legendSelect': 'selectare',
-  'workbench.editors.live.graph.legendEditKeys': '2×clic / ⏎',
-  'workbench.editors.live.graph.legendEdit': 'editare',
   'workbench.editors.live.graph.legendDelete': 'ștergere',
   'workbench.editors.live.graph.legendConnectKeys': 'tragere ○',
   'workbench.editors.live.graph.legendConnect': 'conectare',
@@ -438,7 +436,6 @@ export const workbenchLive = {
   'workbench.editors.live.graph.legendPan': 'panoramare',
   'workbench.editors.live.graph.legendScroll': 'derulare',
   'workbench.editors.live.graph.legendZoom': 'zoom',
-  'workbench.editors.live.graph.editStepInForm': 'Editare pas în formular',
   'workbench.editors.live.graph.requestNotFound': 'Cererea nu a fost găsită',
   'workbench.editors.live.graph.noRequestSelected': 'Nicio cerere selectată',
   'workbench.editors.live.graph.noCaptures': 'Nicio captură',

@@ -139,6 +139,14 @@ function card(page: Page, stepId: string): Locator {
   return page.locator(`[data-step-card="${stepId}"]`);
 }
 
+/** Open a step in the view's panel by its node on the graph; its card is the one the panel shows. */
+async function openStep(page: Page, stepId: string): Promise<Locator> {
+  await page.getByTestId(`wf-graph-node-${stepId}`).click();
+  const stepCard = card(page, stepId);
+  await expect(stepCard).toBeVisible();
+  return stepCard;
+}
+
 /** Collapse section header inside a step card — role button whose
  *  accessible name starts with the section label. */
 function sectionHeader(stepCard: Locator, label: string): Locator {
@@ -160,7 +168,7 @@ async function pickOption(page: Page, select: Locator, label: string): Promise<v
 
 // ── Tests ──────────────────────────────────────────────────────────
 
-test('seeded combinations render section summaries + controls, survive view toggles', async () => {
+test('seeded combinations render section summaries + controls, and survive a step being closed and reopened', async () => {
   const page = await context.newPage();
   page.on('pageerror', (err) => pageErrors.push(err.message));
   await openWorkbench(page);
@@ -222,8 +230,12 @@ test('seeded combinations render section summaries + controls, survive view togg
   const saveButton = await openWorkflowEditor(page, wfRes.workflow!.uid);
   await expect(saveButton).toBeDisabled();
 
+  // The graph is there beside the panel; no step's card is open yet.
+  await expect(page.getByTestId('wf-graph-pane')).toBeVisible();
+  await expect(page.locator('[data-step-card]')).toHaveCount(0);
+
   // Section summaries per card — every dimension's collapsed label.
-  const s1 = card(page, 's1');
+  const s1 = await openStep(page, 's1');
   await expect(sectionHeader(s1, 'Depends on')).toContainText('(implicit — prior step)');
   await expect(sectionHeader(s1, 'Run condition')).toContainText('(none)');
   await expect(sectionHeader(s1, 'Priority')).toContainText('(none)');
@@ -233,24 +245,6 @@ test('seeded combinations render section summaries + controls, survive view togg
   // Opted-in step advertises itself in the card header chip row.
   await expect(s1.getByText('scripts', { exact: true })).toBeVisible();
 
-  const s2 = card(page, 's2');
-  await expect(sectionHeader(s2, 'Depends on')).toContainText('(s1)');
-  await expect(sectionHeader(s2, 'Run condition')).toContainText('(1)');
-  await expect(sectionHeader(s2, 'Priority')).toContainText('(s1.token)');
-  await expect(sectionHeader(s2, 'Retry policy')).toContainText('(2 attempts)');
-  await expect(sectionHeader(s2, 'Timeout')).toContainText('(none)');
-  await expect(sectionHeader(s2, 'Scripts')).toContainText('(off)');
-
-  const s3 = card(page, 's3');
-  await expect(sectionHeader(s3, 'Depends on')).toContainText('(root)');
-  await expect(sectionHeader(s3, 'Timeout')).toContainText('(100 ms)');
-  await expect(sectionHeader(s3, 'Retry policy')).toContainText('(none)');
-
-  const s4 = card(page, 's4');
-  await expect(sectionHeader(s4, 'Depends on')).toContainText('(s2, s3)');
-  await expect(sectionHeader(s4, 'Run condition')).toContainText('(2)');
-  await expect(sectionHeader(s4, 'Retry policy')).toContainText('(5 attempts)');
-
   // Expanded s1 retry: controls carry the persisted policy.
   await sectionHeader(s1, 'Retry policy').click();
   await expect(page.getByTestId('wf-step-0-retry')).toBeVisible();
@@ -258,6 +252,27 @@ test('seeded combinations render section summaries + controls, survive view togg
   await expect(numberInput(page, 'wf-step-0-retry-delay')).toHaveValue('500');
   await expect(page.getByTestId('wf-step-0-retry-backoff')).toContainText('Exponential');
   await expect(page.getByTestId('wf-step-0-retry-on')).toContainText('Network + 5xx');
+
+  // The panel shows one step: opening another replaces the card, its sections closed.
+  const s2 = await openStep(page, 's2');
+  await expect(page.locator('[data-step-card]')).toHaveCount(1);
+  await expect(page.getByTestId('wf-step-1-retry')).toBeHidden();
+  await expect(sectionHeader(s2, 'Depends on')).toContainText('(s1)');
+  await expect(sectionHeader(s2, 'Run condition')).toContainText('(1)');
+  await expect(sectionHeader(s2, 'Priority')).toContainText('(s1.token)');
+  await expect(sectionHeader(s2, 'Retry policy')).toContainText('(2 attempts)');
+  await expect(sectionHeader(s2, 'Timeout')).toContainText('(none)');
+  await expect(sectionHeader(s2, 'Scripts')).toContainText('(off)');
+
+  const s3 = await openStep(page, 's3');
+  await expect(sectionHeader(s3, 'Depends on')).toContainText('(root)');
+  await expect(sectionHeader(s3, 'Timeout')).toContainText('(100 ms)');
+  await expect(sectionHeader(s3, 'Retry policy')).toContainText('(none)');
+
+  const s4 = await openStep(page, 's4');
+  await expect(sectionHeader(s4, 'Depends on')).toContainText('(s2, s3)');
+  await expect(sectionHeader(s4, 'Run condition')).toContainText('(2)');
+  await expect(sectionHeader(s4, 'Retry policy')).toContainText('(5 attempts)');
 
   // Expanded s4 retry: the data-authored ['ne', 500] renders as the
   // read-only Custom entry — never silently rewritten.
@@ -270,13 +285,12 @@ test('seeded combinations render section summaries + controls, survive view togg
   await expect(s4Gate.getByTestId('gate-clause-0-value')).toHaveValue('abc');
   await expect(s4Gate.getByTestId('gate-clause-1-pattern')).toHaveValue('^on$');
 
-  // Expansion never dirties the draft; summaries survive Form↔Graph.
+  // Expansion never dirties the draft; the summaries survive a step being closed and reopened.
   await expect(saveButton).toBeDisabled();
-  await page.getByText('Preview', { exact: true }).filter({ visible: true }).first().click();
-  await expect(page.getByTestId('wf-graph-pane')).toBeVisible();
-  await page.getByText('Editor', { exact: true }).filter({ visible: true }).first().click();
-  await expect(sectionHeader(card(page, 's1'), 'Retry policy')).toContainText('(3 attempts, exponential)');
-  await expect(sectionHeader(card(page, 's3'), 'Depends on')).toContainText('(root)');
+  await page.getByTestId('wf-panel-close').click();
+  await expect(page.locator('[data-step-card]')).toHaveCount(0);
+  await expect(sectionHeader(await openStep(page, 's1'), 'Retry policy')).toContainText('(3 attempts, exponential)');
+  await expect(sectionHeader(await openStep(page, 's3'), 'Depends on')).toContainText('(root)');
   await expect(saveButton).toBeDisabled();
 
   await page.close();
@@ -310,7 +324,7 @@ test('editing every knob through the UI persists the exact step fields on Save',
   await expect(saveButton).toBeDisabled();
 
   // ── Step b (index 1): retry + timeout on one step ────────────────
-  const b = card(page, 'b');
+  const b = await openStep(page, 'b');
   await sectionHeader(b, 'Retry policy').click();
 
   // No policy yet — the dependent controls are disabled until the
@@ -335,7 +349,7 @@ test('editing every knob through the UI persists the exact step fields on Save',
   await expect(saveButton).toBeEnabled();
 
   // ── Step c (index 2): multi-parent deps + gate + priority ────────
-  const c = card(page, 'c');
+  const c = await openStep(page, 'c');
   await sectionHeader(c, 'Depends on').click();
   await page.getByTestId('wf-step-2-deps-select').click();
   const depsDropdown = page.locator('.ant-select-dropdown:not(.ant-select-dropdown-hidden)').last();
@@ -441,7 +455,7 @@ test('clearing every knob removes the fields and persists the deletions', async 
 
   const saveButton = await openWorkflowEditor(page, workflowUid);
   await expect(saveButton).toBeDisabled();
-  const b = card(page, 'b');
+  const b = await openStep(page, 'b');
 
   // Clearing the attempts field destroys the whole policy (bootstrap/
   // destroy semantics) and re-disables the dependent controls.

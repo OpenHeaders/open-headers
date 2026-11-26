@@ -1,8 +1,9 @@
 /**
- * The workflow tab's Run view (the workflow runs plan, The Run view):
- * the page's run store fed by `liveWorkflowRunEvent` frames, and the
- * rows and the product pane it renders — on the pinned workflow (login,
- * then profile) failing at the fetch.
+ * A workflow's run in its view (the workflow runs plan, The Run view;
+ * the workflows redesign): the page's run store fed by
+ * `liveWorkflowRunEvent` frames, the rows the workflow's panel renders
+ * and the product a step's panel opens to — on the pinned workflow
+ * (login, then profile) failing at the fetch.
  */
 
 import type { LiveWorkflowRunEventWire } from '@openheaders/core/bridge';
@@ -58,18 +59,19 @@ vi.mock('@openheaders/ui/shared/hooks/readers/useRequests', () => ({
   useRequests: () => ({
     requests: [makeRequest('reqtoken', 'Login', 'POST'), makeRequest('reqprofl', 'Profile', 'GET')],
     graphqlRequests: [],
+    mqttRequests: [],
     collectionTrees: [],
     isReady: true,
   }),
 }));
 
-import WorkflowRunBody from '@openheaders/ui/workbench/components/live/WorkflowRunBody';
 import {
   __resetWorkflowRunStoreForTests,
   getKeptWorkflowRun,
   installWorkflowRunStore,
   readKeptRunProduct,
 } from '@openheaders/ui/workbench/data/workflow-run-store';
+import { SavedWorkflowView } from '../helpers/workflow-view-harness';
 
 beforeAll(async () => {
   // The response views load when a step is first opened; load them once
@@ -252,20 +254,21 @@ describe('the page keeps a run from its frames', () => {
   });
 });
 
-describe('the Run view', () => {
+describe('a run in the workflow view', () => {
   it('says there is no run in this session and names the button', () => {
-    render(<WorkflowRunBody workflow={workflow} needsUpdate={false} />);
+    render(<SavedWorkflowView workflow={workflow} />);
 
     expect(screen.getByTestId('wf-run-empty').textContent).toBe(
       'No run in this session yet. Press Refresh to run this workflow.',
     );
+    expect(screen.getByTestId('wf-view').hasAttribute('data-run-verdict')).toBe(false);
   });
 
   it('shows the rows live — waiting, sending, the attempt, then how each step ended', async () => {
-    render(<WorkflowRunBody workflow={workflow} needsUpdate={false} />);
+    render(<SavedWorkflowView workflow={workflow} />);
 
     await feed(BEGIN);
-    expect(screen.getByTestId('wf-run-view').getAttribute('data-run-verdict')).toBe('running');
+    expect(screen.getByTestId('wf-view').getAttribute('data-run-verdict')).toBe('running');
     expect(screen.getByTestId('wf-run-row-login').textContent).toContain('Waiting');
 
     await feed(LOGIN_START);
@@ -285,41 +288,47 @@ describe('the Run view', () => {
   });
 
   it('a run failing at the fetch — the step before it passed, the failing row states the condition', async () => {
-    render(<WorkflowRunBody workflow={workflow} needsUpdate={false} />);
+    render(<SavedWorkflowView workflow={workflow} />);
 
     for (const fact of [BEGIN, LOGIN_START, LOGIN_PASSED, PROFILE_START, PROFILE_FAILED, END]) await feed(fact);
 
     expect(screen.getByTestId('wf-run-verdict').textContent).toBe('Failed');
-    expect(screen.getByTestId('wf-run-view').textContent).toContain('1 passed · 1 failed · 21 ms · No environment');
+    expect(screen.getByTestId('wf-view').getAttribute('data-run-verdict')).toBe('failed');
+    expect(screen.getByTestId('wf-run-rows').textContent).toContain('1 passed · 1 failed · 21 ms · No environment');
     expect(screen.getByTestId('wf-run-row-login').getAttribute('data-run-state')).toBe('passed');
     const profile = screen.getByTestId('wf-run-row-profile');
     expect(profile.getAttribute('data-run-state')).toBe('failed');
     expect(profile.textContent).toContain(REFUSED);
     // The sentence has the row's width from the step id on — a narrow pane never stacks it under the name alone.
     expect(within(profile).getByText(REFUSED).style.gridColumn).toBe('3 / -1');
-    expect(screen.getByTestId('wf-run-view').textContent).toContain(
+    expect(screen.getByTestId('wf-run-rows').textContent).toContain(
       'Nothing was published. The last good values stay.',
     );
   });
 
-  it('opens on the step where the run stopped; a click opens another step to its response', async () => {
-    render(<WorkflowRunBody workflow={workflow} needsUpdate={false} />);
+  it('a row opens its step: the panel shows the step with what it produced, and closing it returns to the rows', async () => {
+    render(<SavedWorkflowView workflow={workflow} />);
     for (const fact of [BEGIN, LOGIN_START, LOGIN_PASSED, PROFILE_START, PROFILE_FAILED, END]) await feed(fact);
+    expect(screen.queryByTestId('wf-run-product')).toBeNull();
+
+    fireEvent.click(screen.getByTestId('wf-run-row-profile'));
 
     const pane = screen.getByTestId('wf-run-product');
     expect(pane.getAttribute('data-step')).toBe('profile');
     expect(await within(pane).findByText(REFUSED)).toBeTruthy();
+    expect(within(screen.getByTestId('wf-panel')).getByText('Step 2 of 2')).toBeTruthy();
+    expect(screen.queryByTestId('wf-run-rows')).toBeNull();
 
+    fireEvent.click(screen.getByTestId('wf-panel-close'));
     fireEvent.click(screen.getByTestId('wf-run-row-login'));
 
     expect(screen.getByTestId('wf-run-product').getAttribute('data-step')).toBe('login');
-    expect(screen.getByTestId('wf-run-row-login').getAttribute('data-selected')).toBe('true');
     const body = await within(screen.getByTestId('wf-run-product')).findByTestId('wf-run-body');
     expect(body.textContent).toBe('{"name":"John Doe"}');
   });
 
   it('a workflow that needs a newer version shows which steps cannot run, with no run behind them', () => {
-    render(<WorkflowRunBody workflow={needsUpdateWorkflow} needsUpdate />);
+    render(<SavedWorkflowView workflow={needsUpdateWorkflow} needsUpdate />);
 
     expect(screen.getByTestId('wf-run-verdict').textContent).toBe('Cannot run here');
     const probe = screen.getByTestId('wf-run-row-probe');
@@ -328,6 +337,6 @@ describe('the Run view', () => {
     expect(probe.textContent).toContain('Cannot run here');
     expect(probe.textContent).toContain('Step "probe" needs a newer version of OpenHeaders (action "watch").');
     expect(screen.getByTestId('wf-run-row-login').getAttribute('data-run-state')).toBe('not-run');
-    expect(screen.getByTestId('wf-run-view').textContent).toContain('No step ran.');
+    expect(screen.getByTestId('wf-run-rows').textContent).toContain('No step ran.');
   });
 });

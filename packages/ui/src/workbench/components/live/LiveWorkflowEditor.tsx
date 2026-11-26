@@ -41,7 +41,7 @@
  *     per the show-but-disable catalog.
  */
 
-import { ApartmentOutlined, FormOutlined, PlayCircleOutlined, ReloadOutlined } from '@ant-design/icons';
+import { ReloadOutlined } from '@ant-design/icons';
 import { useEnvironments } from '@openheaders/ui/shared/hooks/readers/useEnvironments';
 import { useLiveWorkflowCache } from '@openheaders/ui/shared/hooks/readers/useLiveCache';
 import { useLiveVariables } from '@openheaders/ui/shared/hooks/readers/useLiveVariables';
@@ -68,14 +68,13 @@ import { applyLiveWorkflowPublish } from '@openheaders/ui/shared/sync/live-workf
 import { useWorkbenchEditingScopeWorkspaceId } from '../../hooks/EditingScopeWorkspaceContext';
 import type { WorkflowSeedStep } from '../../types';
 import type { LiveWorkflow } from '@openheaders/core/types';
-import { Alert, App, Button, Segmented, Tag, Typography, theme } from 'antd';
+import { Alert, App, Button, Tag, Typography, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useMemo, useRef, useState } from 'react';
 import EditorHeader from '../shell/EditorHeader';
 import { readFieldPath } from '@openheaders/ui/shared/awareness/field-path';
-import { LIVE_WORKFLOW_FIELD, liveWorkflowStepIndexFromPath } from '@openheaders/ui/shared/awareness/live-paths';
+import { LIVE_WORKFLOW_FIELD } from '@openheaders/ui/shared/awareness/live-paths';
 import { appendDraftStep } from './graph-edit';
-import { LIVE_FORM_PAD_X } from './layout';
 import { classifyRun, pickActiveRun, statusColor } from './live-display';
 import {
   canRunWorkflowHere,
@@ -85,10 +84,9 @@ import {
   workflowRunsHere,
 } from './run-availability';
 import { firstStepWithNothingPicked } from './step-action';
-import WorkflowFormBody from './WorkflowFormBody';
-import WorkflowGraphBody from './WorkflowGraphBody';
-import WorkflowRunBody from './WorkflowRunBody';
+import { useShownWorkflowRun } from './use-workflow-run';
 import WorkflowRunStatusStrip from './WorkflowRunStatusStrip';
+import WorkflowView from './WorkflowView';
 
 const { Text, Title } = Typography;
 
@@ -168,42 +166,6 @@ interface CreateProps {
 
 type Props = EditProps | CreateProps;
 
-/**
- * Editor↔preview view toggle (the workflow-graph plan §4). Component-local
- * UI state — never persisted, never on the tab or entity. Both panes
- * render from the same draft, so switching is loss-free by construction.
- * The selected segment fills primary so the control reads as a mode
- * switch, not a button.
- *
- * A saved workflow has a third view, Run (the workflow runs plan, The
- * Run view) — its last run on this page, read from the run's step
- * events, never from the draft. A draft that was never saved has no run,
- * and a surface that runs no workflow has no Run view.
- */
-type WorkflowView = 'form' | 'graph' | 'run';
-
-const ViewToggle: React.FC<{ view: WorkflowView; setView: (v: WorkflowView) => void; withRun?: boolean }> = ({
-  view,
-  setView,
-  withRun = false,
-}) => {
-  const t = useT();
-  return (
-    <Segmented
-      size="small"
-      value={view}
-      onChange={(v) => setView(v as WorkflowView)}
-      options={[
-        { label: t('workbench.editors.live.workflow.viewEditor'), value: 'form', icon: <FormOutlined /> },
-        { label: t('workbench.editors.live.workflow.viewPreview'), value: 'graph', icon: <ApartmentOutlined /> },
-        ...(withRun
-          ? [{ label: t('workbench.editors.live.workflow.viewRun'), value: 'run', icon: <PlayCircleOutlined /> }]
-          : []),
-      ]}
-    />
-  );
-};
-
 // ── Unified dispatcher ─────────────────────────────────────────────
 
 const LiveWorkflowEditor: React.FC<Props> = (props) => {
@@ -234,15 +196,11 @@ const EditMode: React.FC<EditProps> = ({ workflowUid, seedSteps, onDirtyChange, 
   const [draft, setDraft] = useState<Draft | null>(() => (workflow ? draftFromWorkflow(workflow, variables) : null));
 
   const [refreshing, setRefreshing] = useState(false);
-  const [view, setView] = useState<WorkflowView>('form');
-  // Graph↔form selection sync (the workflow-graph plan §6.2). Ephemeral
-  // UI state like `view` — never persisted, never on the draft, so it
-  // can't move `isDirty` by construction. `scrollToStepId` is a
-  // consume-once request set only by an explicit graph-side "Edit
-  // step" jump; mere selection following form focus never scrolls.
-  const [selectedStepId, setSelectedStepId] = useState<string | null>(null);
-  const [scrollToStepId, setScrollToStepId] = useState<string | null>(null);
-  const handleScrollToStepDone = useCallback(() => setScrollToStepId(null), []);
+  // The step the view's panel shows, by uid so a rename keeps it.
+  // Ephemeral UI state — never persisted, never on the draft, so it
+  // can't move `isDirty` by construction.
+  const [selectedStepUid, setSelectedStepUid] = useState<string | null>(null);
+  const shownRun = useShownWorkflowRun(workflow, needsUpdate);
 
   const formFingerprint = useMemo(() => (draft ? fingerprint(draft) : ''), [draft]);
 
@@ -304,7 +262,7 @@ const EditMode: React.FC<EditProps> = ({ workflowUid, seedSteps, onDirtyChange, 
 
   // Per-field focus path. Live editors don't use antd Form, so focus
   // mapping rides `data-field-path` attributes on field-section
-  // wrappers (within `WorkflowFormBody`); a focus-capture ancestor
+  // wrappers (within the view's panels); a focus-capture ancestor
   // walk reads the path off the focused element and routes it through
   // `useSetActiveFieldFocus` — the same central context the
   // workspace-level publisher reads.
@@ -314,17 +272,9 @@ const EditMode: React.FC<EditProps> = ({ workflowUid, seedSteps, onDirtyChange, 
       if (!workflow) return;
       const path = readFieldPath(e.target);
       if (!path) return;
-      // Form-side focus drives the graph selection: a step-scoped path
-      // maps back to its step id so returning to Graph highlights the
-      // node the user was just editing.
-      const stepIndex = liveWorkflowStepIndexFromPath(path);
-      if (stepIndex !== null) {
-        const stepId = draft?.steps[stepIndex]?.id;
-        if (stepId) setSelectedStepId(stepId);
-      }
       setActiveFieldFocus({ entityType: LIVE_WORKFLOW_ENTITY_TYPE, entityId: workflow.uid, path });
     },
-    [workflow, draft, setActiveFieldFocus],
+    [workflow, setActiveFieldFocus],
   );
   const handleBlurCapture = useCallback(
     (e: React.FocusEvent<HTMLDivElement>) => {
@@ -335,29 +285,25 @@ const EditMode: React.FC<EditProps> = ({ workflowUid, seedSteps, onDirtyChange, 
     [setActiveFieldFocus],
   );
 
-  // Graph node click: select + publish the whole-step path through the
-  // same awareness context form focus uses (PLAN §6.2) — no leaf is
-  // focused, so the step-root path is the honest granularity.
-  const handleGraphSelect = useCallback(
-    (stepId: string, declaredIndex: number) => {
-      setSelectedStepId(stepId);
-      if (!workflow) return;
+  // A step selected on the graph or from a run row: publish the
+  // whole-step path through the same awareness context field focus uses
+  // (the workflow-graph plan §6.2) — no leaf is focused, so the step-root
+  // path is the honest granularity. A step the draft does not hold yet
+  // (one just added) has no saved place to publish.
+  const handleSelectStep = useCallback(
+    (stepUid: string | null) => {
+      setSelectedStepUid(stepUid);
+      if (!workflow || stepUid === null) return;
+      const declaredIndex = draft?.steps.findIndex((step) => step.uid === stepUid) ?? -1;
+      if (declaredIndex < 0) return;
       setActiveFieldFocus({
         entityType: LIVE_WORKFLOW_ENTITY_TYPE,
         entityId: workflow.uid,
         path: LIVE_WORKFLOW_FIELD.stepRoot(declaredIndex),
       });
     },
-    [workflow, setActiveFieldFocus],
+    [workflow, draft, setActiveFieldFocus],
   );
-
-  // Graph "Edit step" affordance / double-click: jump to the form
-  // scrolled to that step's card.
-  const handleGraphOpen = useCallback((stepId: string) => {
-    setSelectedStepId(stepId);
-    setView('form');
-    setScrollToStepId(stepId);
-  }, []);
 
   const handleSave = useCallback(async () => {
     if (!workflow || !draft) return;
@@ -508,7 +454,6 @@ const EditMode: React.FC<EditProps> = ({ workflowUid, seedSteps, onDirtyChange, 
 
   const editHeaderActions = (
     <>
-      <ViewToggle view={view} setView={setView} withRun={runsHere} />
       <Button
         size="small"
         icon={<ReloadOutlined spin={refreshing} />}
@@ -545,42 +490,18 @@ const EditMode: React.FC<EditProps> = ({ workflowUid, seedSteps, onDirtyChange, 
           title={t('workbench.editors.live.workflow.needsUpdate')}
         />
       )}
-      {view === 'form' ? (
-        // Padding lives on the inner wrapper, NOT the scroll container —
-        // container padding sits outside the sticky header/floor and
-        // lets content scroll through a transparent band around them.
-        // `oh-persistent-scroll` keeps the scrollbar visible whenever
-        // the step list overflows.
-        <div className="oh-persistent-scroll" style={{ flex: 1 }}>
-          <div style={{ maxWidth: 920, margin: '0 auto', padding: `16px ${LIVE_FORM_PAD_X}px 0` }}>
-            <WorkflowFormBody
-              draft={draft}
-              setDraft={setDraft}
-              selectedStepId={selectedStepId}
-              scrollToStepId={scrollToStepId}
-              onScrollToStepDone={handleScrollToStepDone}
-              readOnly={needsUpdate}
-            />
-          </div>
-        </div>
-      ) : view === 'run' ? (
-        <div style={{ flex: 1, minHeight: 0 }}>
-          <WorkflowRunBody workflow={workflow} needsUpdate={needsUpdate} />
-        </div>
-      ) : (
-        <div style={{ flex: 1, minHeight: 0 }}>
-          <WorkflowGraphBody
-            draft={draft}
-            setDraft={needsUpdate ? undefined : setDraft}
-            selectedStepId={selectedStepId}
-            onSelectStep={handleGraphSelect}
-            onOpenStep={handleGraphOpen}
-            run={run}
-            boundVars={boundVars}
-          />
-        </div>
-      )}
-      {/* Live-status surface — pinned below both views so "what's
+      <WorkflowView
+        draft={draft}
+        setDraft={setDraft}
+        readOnly={needsUpdate}
+        selectedStepUid={selectedStepUid}
+        onSelectStep={handleSelectStep}
+        workflow={runsHere ? workflow : undefined}
+        run={runsHere ? shownRun : undefined}
+        cacheRun={run}
+        boundVars={boundVars}
+      />
+      {/* Live-status surface — pinned below the view so "what's
           resolved RIGHT NOW per env" is always visible while editing. */}
       <WorkflowRunStatusStrip
         runs={runs}
@@ -613,34 +534,9 @@ const CreateMode: React.FC<CreateProps> = ({ draftName, seedSteps, onDirtyChange
   const editingWorkspaceId = useWorkbenchEditingScopeWorkspaceId();
 
   const [draft, setDraft] = useState<Draft>(() => emptyDraft(seedSteps));
-  const [view, setView] = useState<WorkflowView>('form');
-  // Graph↔form selection sync — same ephemeral state as EditMode, but
-  // with no awareness publishing: a draft has no entity id until save.
-  const [selectedStepId, setSelectedStepId] = useState<string | null>(null);
-  const [scrollToStepId, setScrollToStepId] = useState<string | null>(null);
-  const handleScrollToStepDone = useCallback(() => setScrollToStepId(null), []);
-
-  const handleFocusCapture = useCallback(
-    (e: React.FocusEvent<HTMLDivElement>) => {
-      const path = readFieldPath(e.target);
-      if (!path) return;
-      const stepIndex = liveWorkflowStepIndexFromPath(path);
-      if (stepIndex === null) return;
-      const stepId = draft.steps[stepIndex]?.id;
-      if (stepId) setSelectedStepId(stepId);
-    },
-    [draft],
-  );
-
-  const handleGraphSelect = useCallback((stepId: string) => {
-    setSelectedStepId(stepId);
-  }, []);
-
-  const handleGraphOpen = useCallback((stepId: string) => {
-    setSelectedStepId(stepId);
-    setView('form');
-    setScrollToStepId(stepId);
-  }, []);
+  // The same ephemeral selection as EditMode, with no awareness
+  // publishing: a draft has no entity id until save.
+  const [selectedStepUid, setSelectedStepUid] = useState<string | null>(null);
 
   // Dirty the moment the user touches anything. Comparing against the
   // initial seed-derived fingerprint keeps empty drafts from being
@@ -724,36 +620,14 @@ const CreateMode: React.FC<CreateProps> = ({ draftName, seedSteps, onDirtyChange
 
   return (
     <EntityScopeProvider shell={shell.scopeProps}>
-    <div
-      style={{ display: 'flex', flexDirection: 'column', background: token.colorBgContainer, height: '100%' }}
-      onFocusCapture={handleFocusCapture}
-    >
-      <EditorHeader title={createHeaderTitle} actions={<ViewToggle view={view} setView={setView} />} shell={shell.headerProps} />
-      {view === 'form' ? (
-        // Same scroll/padding structure as EditMode — see the comment
-        // there for why the container itself carries no padding.
-        <div className="oh-persistent-scroll" style={{ flex: 1 }}>
-          <div style={{ maxWidth: 920, margin: '0 auto', padding: `16px ${LIVE_FORM_PAD_X}px 0` }}>
-            <WorkflowFormBody
-              draft={draft}
-              setDraft={setDraft}
-              selectedStepId={selectedStepId}
-              scrollToStepId={scrollToStepId}
-              onScrollToStepDone={handleScrollToStepDone}
-            />
-          </div>
-        </div>
-      ) : (
-        <div style={{ flex: 1, minHeight: 0 }}>
-          <WorkflowGraphBody
-            draft={draft}
-            setDraft={setDraft}
-            selectedStepId={selectedStepId}
-            onSelectStep={handleGraphSelect}
-            onOpenStep={handleGraphOpen}
-          />
-        </div>
-      )}
+    <div style={{ display: 'flex', flexDirection: 'column', background: token.colorBgContainer, height: '100%' }}>
+      <EditorHeader title={createHeaderTitle} shell={shell.headerProps} />
+      <WorkflowView
+        draft={draft}
+        setDraft={setDraft}
+        selectedStepUid={selectedStepUid}
+        onSelectStep={setSelectedStepUid}
+      />
     </div>
     </EntityScopeProvider>
   );

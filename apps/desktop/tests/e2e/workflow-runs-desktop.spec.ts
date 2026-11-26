@@ -1,6 +1,6 @@
 /**
  * Workflow runs on the desktop host — a workflow whose steps open an MQTT
- * session, driven through the REAL spine: the built app's Run view and
+ * session, driven through the REAL spine: the built app's workflow view and
  * the built `oh` CLI against the same app, the node byte-stream
  * transport, the desktop's sandboxed script runtime, and the playground's
  * device scenario (a backend's HTTP api beside the aedes probe broker on
@@ -137,18 +137,17 @@ async function showWorkflowsView(): Promise<void> {
   }
 }
 
-function runView(): Locator {
-  return workbench.getByTestId('wf-run-view').filter({ visible: true }).first();
+function workflowView(): Locator {
+  return workbench.getByTestId('wf-view').filter({ visible: true }).first();
 }
 
 function runRow(stepId: string): Locator {
   return workbench.getByTestId(`wf-run-row-${stepId}`).filter({ visible: true }).first();
 }
 
-/** Open a workflow's tab on its Run view and press the header's Refresh. */
+/** Open a workflow's tab — its panel says no run was seen yet — and press the header's Refresh. */
 async function runWorkflow(uid: string): Promise<void> {
   await workbench.locator(`[data-item-id="workflow-${uid}"]`).click();
-  await workbench.getByText('Run', { exact: true }).filter({ visible: true }).first().click();
   await workbench.getByTestId('wf-run-empty').filter({ visible: true }).first().waitFor({ state: 'visible' });
   await workbench
     .getByRole('button', { name: /Refresh$/ })
@@ -158,7 +157,7 @@ async function runWorkflow(uid: string): Promise<void> {
 }
 
 async function expectVerdict(verdict: 'passed' | 'failed' | 'cannot-run'): Promise<void> {
-  await expect(runView()).toHaveAttribute('data-run-verdict', verdict, { timeout: 10_000 });
+  await expect(workflowView()).toHaveAttribute('data-run-verdict', verdict, { timeout: 10_000 });
 }
 
 test.describe.configure({ mode: 'serial' });
@@ -235,7 +234,7 @@ test.afterAll(async () => {
   await electronApp?.close();
 });
 
-// ── The Run view ────────────────────────────────────────────────────
+// ── A run in the workflow's view ────────────────────────────────────
 
 test('R1 — a reboot commanded over HTTP is acknowledged over MQTT: the answer to this run’s command is the match', async () => {
   await runWorkflow('e2ewrwf1');
@@ -245,8 +244,9 @@ test('R1 — a reboot commanded over HTTP is acknowledged over MQTT: the answer 
   await expect(runRow('reboot')).toContainText('202');
   await expect(runRow('status')).toContainText('Matched after');
 
-  // The step opens to its window: the one message on the address, and it matched.
+  // The row opens its step, and the step shows its window: the one message on the address, and it matched.
   await runRow('status').click();
+  await expect(workbench.locator('[data-step-card="status"]').filter({ visible: true })).toBeVisible();
   const message = workbench.getByTestId('wf-run-message').filter({ visible: true }).first();
   await expect(message.getByTestId('wf-run-message-row-0')).toContainText('Matched');
   await expect(message.getByTestId('wf-run-message-fields')).toContainText('devices/dev-1/status');
