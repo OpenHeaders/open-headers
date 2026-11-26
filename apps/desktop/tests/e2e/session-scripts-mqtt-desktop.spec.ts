@@ -154,6 +154,17 @@ async function disconnectAndAwaitClose(): Promise<void> {
   await endTag().filter({ hasText: 'Disconnected' }).waitFor({ state: 'visible', timeout: 20_000 });
 }
 
+/** An editor tab by its label. The accessible name folds in the grid
+ *  tabs' count badge and every tab's hover-revealed (i) ("Topics 1 About
+ *  Topics") — anchored both ends, so the session pane's same-named tab
+ *  never matches. */
+function editorTab(label: string): Locator {
+  return workbench
+    .getByRole('tab', { name: new RegExp(`^${label}\\s*\\d*\\s*About ${label}$`) })
+    .filter({ visible: true })
+    .first();
+}
+
 /** Switch the session pane to one of its tabs (Scripts is present once a hook ran). */
 async function showSessionTab(name: 'Timeline' | 'Connection' | 'Scripts'): Promise<void> {
   const pane = workbench.getByTestId('mqtt-session-pane').filter({ visible: true }).first();
@@ -224,7 +235,7 @@ test('S1 — Before connect runs at the dial, collection first: the subscription
   await openMqttRequest('e2esmq01');
   // The Scripts tab draws the request's four MQTT slots flat with the
   // "Runs after" line naming the collection ahead of Before connect.
-  await workbench.getByRole('tab', { name: 'Scripts', exact: true }).filter({ visible: true }).first().click();
+  await editorTab('Scripts').click();
   const rail = workbench.getByTestId('oh-script-rail').filter({ visible: true }).first();
   await expect(rail).toContainText('Before connect');
   await expect(rail).toContainText('Before publish');
