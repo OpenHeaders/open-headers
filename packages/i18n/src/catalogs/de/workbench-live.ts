@@ -218,8 +218,8 @@ export const workbenchLive = {
   'workbench.editors.live.workflow.notFound': 'Workflow nicht gefunden.',
   'workbench.editors.live.workflow.needsUpdate':
     'Dieser Workflow enthält Schritte, die eine neuere Version von OpenHeaders benötigen. Aktualisiere, um ihn zu bearbeiten oder auszuführen.',
-  'workbench.editors.live.workflow.sessionStepsReadOnly':
-    'Dieser Workflow enthält Sitzungsschritte. Er wird hier ausgeführt; seine Schritte lassen sich in dieser Version nicht bearbeiten.',
+  'workbench.editors.live.workflow.sessionRunsElsewhere':
+    'Ein Workflow mit Sitzungsschritten läuft im Tab „{surface}“.',
   'workbench.editors.live.workflow.deletedElsewhere': 'Der Workflow wurde in einem anderen Tab gelöscht',
   'workbench.editors.live.workflow.saveFailed': 'Workflow konnte nicht gespeichert werden',
   'workbench.editors.live.workflow.createFailed': 'Workflow konnte nicht erstellt werden',
@@ -241,16 +241,17 @@ export const workbenchLive = {
   'workbench.editors.live.form.parallelTooltip':
     'In v1 nur sequenziell. Parallele Ausführung kommt in einer künftigen Version.',
   'workbench.editors.live.form.refreshPolicySection': 'Aktualisierungsrichtlinie',
+  'workbench.editors.live.form.sessionPolicyInfo':
+    'Ein Workflow mit Sitzungsschritten läuft, wenn du auf Aktualisieren drückst.',
+  'workbench.editors.live.form.sessionNoLiveVariables':
+    'Ein Workflow mit Sitzungsschritten liefert ein Urteil; seine Erfassungen werden nicht als Live-Variablen freigegeben.',
 
   // ── Workflow step editor ────────────────────────────────────────────
   'workbench.editors.live.step.title': 'Schritt {number}',
   'workbench.editors.live.step.needsUpdate': 'Dieser Schritt benötigt eine neuere Version von OpenHeaders.',
-  'workbench.editors.live.step.runsHereReadOnly':
-    'Dieser Schritt wird hier ausgeführt; er lässt sich in dieser Version nicht bearbeiten.',
   'workbench.editors.live.step.idPrefix': 'id',
   'workbench.editors.live.step.namePrefix': 'Name',
   'workbench.editors.live.step.typeTooltip': 'Schritt-Typ — Foreach und Composite kommen in einer künftigen Version.',
-  'workbench.editors.live.step.typeRequest': 'Anfrage',
   'workbench.editors.live.step.typeForeach': 'Foreach',
   'workbench.editors.live.step.typeComposite': 'Composite',
   'workbench.editors.live.step.runsIfTag': ({ count }, locale) =>
@@ -261,6 +262,18 @@ export const workbenchLive = {
   'workbench.editors.live.step.priorityTag': 'Priorität: {ref}',
   'workbench.editors.live.step.scriptsTag': 'Scripts',
   'workbench.editors.live.step.selectRequest': 'Wähle eine Anfrage',
+  'workbench.editors.live.step.selectSessionRequest': 'Wähle eine MQTT-Anfrage',
+  'workbench.editors.live.step.readyWithin': 'bereit innerhalb',
+  'workbench.editors.live.step.sessionScriptsLabel': 'Die Scripts der Anfrage ausführen',
+  'workbench.editors.live.step.identityTitle': 'Sitzungsidentität',
+  'workbench.editors.live.step.identityInfo':
+    'Die Sitzung verbindet sich so, wie ihre MQTT-Anfrage eingestellt ist. Ändere es an der Anfrage.',
+  'workbench.editors.live.step.onPrefix': 'auf',
+  'workbench.editors.live.step.selectMessage': 'Wähle eine gespeicherte Nachricht',
+  'workbench.editors.live.step.afterPrefix': 'nach',
+  'workbench.editors.live.step.within': 'innerhalb',
+  'workbench.editors.live.step.includeStored': 'Vom Broker aufbewahrte Nachrichten einbeziehen',
+  'workbench.editors.live.step.matchHeader': 'ABGLEICH ({count})',
   'workbench.editors.live.step.descriptionPlaceholder': 'Optionale Schrittbeschreibung',
   'workbench.editors.live.step.capturesHeader': 'ERFASSUNGEN ({count})',
   'workbench.editors.live.step.addCapture': '+ Erfassung',
@@ -330,6 +343,7 @@ export const workbenchLive = {
     'Feld für keine Obergrenze.',
   'workbench.editors.live.sections.successCriteria': 'Erfolgskriterien',
   'workbench.editors.live.criteria.noneForCall': 'Keine Kriterien — jede eintreffende Antwort gilt als bestanden.',
+  'workbench.editors.live.criteria.noneForExpect': 'Keine Zeilen — die erste eintreffende Nachricht passt.',
   'workbench.editors.live.criteria.kindExists': 'Existiert',
   'workbench.editors.live.criteria.kindEquals': 'Ist gleich',
   'workbench.editors.live.criteria.kindMatches': 'Entspricht Muster',
@@ -492,4 +506,8 @@ export const workbenchLive = {
   'workbench.editors.live.extractor.regex': 'Regex',
   'workbench.editors.live.extractor.header': 'Header',
   'workbench.editors.live.extractor.statusCode': 'Statuscode',
+  'workbench.editors.live.extractor.groupPayload': 'Nutzlast der Nachricht',
+  'workbench.editors.live.extractor.wholePayload': 'Ganze Nutzlast',
+  'workbench.editors.live.extractor.groupMessage': 'Nachricht',
+  'workbench.editors.live.extractor.field': 'Feld',
 } as const satisfies Catalog;

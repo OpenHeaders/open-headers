@@ -18,7 +18,7 @@
 import { registerCapability, unregisterCapability } from '@openheaders/core/capabilities';
 import { LiveWorkflowSchema } from '@openheaders/core/schemas';
 import type { GraphqlRequest, LiveWorkflow, MqttRequest, Request } from '@openheaders/core/types';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { App } from 'antd';
 import * as v from 'valibot';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
@@ -365,19 +365,34 @@ describe('LiveWorkflowEditor — on a surface that runs no workflow', () => {
   });
 });
 
-// ── A host that runs session steps ────────────────────────────────
+// ── A workflow that holds session steps ───────────────────────────
 //
-// The workflow runs plan, Decisions log, S10: the desktop app declares
-// that it runs `listen`, `send` and `expect`. There a workflow of known
-// actions runs on a press and shows its run; its steps are still not
-// edited. Every other surface — the cases above, with nothing declared —
-// stays as it was.
+// The workflow runs plan, Decisions log, S10 and S16: a workflow whose
+// steps are `listen`, `send` and `expect` is edited on every surface,
+// and run where the host declares that it runs session steps. It gives
+// a verdict: its refresh is manual and its captures are not exposed.
+// Listen, Send and Expect are offered in a step's type selector only
+// where the surface declares that it authors them.
 
-describe('LiveWorkflowEditor — on a host that runs session steps', () => {
+describe('LiveWorkflowEditor — a workflow that holds session steps', () => {
   const NEEDS_UPDATE = 'This workflow has steps that need a newer version of OpenHeaders. Update to edit or run it.';
-  const RUNS_HERE = 'This workflow has session steps. It runs here; its steps cannot be edited in this version.';
-  const STEP_RUNS_HERE = 'This step runs here; it cannot be edited in this version.';
   const STEP_NEEDS_UPDATE = 'This step needs a newer version of OpenHeaders.';
+  const RUNS_ELSEWHERE = 'A workflow with session steps runs in the Workbench tab.';
+  const refreshButton = () =>
+    screen.getByRole('button', { name: (name) => name.endsWith('Refresh') && !name.startsWith('About') });
+
+  const mqttRequest: MqttRequest = {
+    schemaVersion: 5,
+    uid: 'mqttreq1',
+    path: 'api-requests/probe-mqttreq1',
+    name: 'Probe MQTT',
+    url: 'ws://openheaders.io/mqtt',
+    topic: '',
+    payload: '',
+    topics: [],
+    savedMessages: [],
+    userProperties: [],
+  };
 
   const sessionFixture: LiveWorkflow = v.parse(LiveWorkflowSchema, {
     ...workflowFixture,
@@ -411,21 +426,23 @@ describe('LiveWorkflowEditor — on a host that runs session steps', () => {
 
   function renderWorkflow(workflow: LiveWorkflow) {
     workflowState = workflow;
-    requestsState = { ...requestsState, requests: [makeRequest({ uid: 'reqfixt1' })] };
+    requestsState = { ...requestsState, requests: [makeRequest({ uid: 'reqfixt1' })], mqttRequests: [mqttRequest] };
     return renderEditor();
   }
 
-  afterEach(() => unregisterCapability('workflowSessionSteps'));
+  afterEach(() => {
+    unregisterCapability('workflowSessionSteps');
+    unregisterCapability('workflowSessionAuthoring');
+  });
 
-  it('a session-step workflow runs on a press, and the banner says it runs here', async () => {
+  it('runs on a press where the host runs session steps, under no banner', async () => {
     registerCapability('workflowSessionSteps', () => true);
-    renderWorkflow(sessionFixture);
+    const { container } = renderWorkflow(sessionFixture);
 
-    expect(screen.getAllByText(RUNS_HERE)).toHaveLength(1);
-    expect(screen.queryByText(NEEDS_UPDATE)).toBeNull();
-    const refresh = screen.getByRole('button', { name: /Refresh/ });
-    expect(refresh).toHaveProperty('disabled', false);
-    fireEvent.click(refresh);
+    expect(container.querySelector('[data-workflow-needs-update]')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'About Refresh' })).toBeNull();
+    expect(refreshButton()).toHaveProperty('disabled', false);
+    fireEvent.click(refreshButton());
     await waitFor(() => expect(refreshNowMock).toHaveBeenCalledTimes(1));
   });
 
@@ -437,16 +454,64 @@ describe('LiveWorkflowEditor — on a host that runs session steps', () => {
     expect(screen.getByTestId('wf-run-empty')).toBeTruthy();
   });
 
-  it('its steps still take no edit', () => {
-    registerCapability('workflowSessionSteps', () => true);
+  it('is edited: each step has the card of its action, and a step can be added', () => {
     const { container } = renderWorkflow(sessionFixture);
 
-    const controls = Array.from(
-      container.querySelector('[data-step-card="reboot"]')?.querySelectorAll('input, button') ?? [],
+    const cards = Array.from(container.querySelectorAll('[data-step-card]'));
+    expect(cards.map((card) => [card.getAttribute('data-step-card'), card.getAttribute('data-step-action')])).toEqual([
+      ['probe', 'listen'],
+      ['reboot', 'call'],
+      ['status', 'expect'],
+    ]);
+    expect(container.querySelector('[data-step-needs-update]')).toBeNull();
+    expect(screen.getByTestId('wf-step-0-session-request').textContent).toContain('Probe MQTT');
+    expect(screen.getByTestId<HTMLInputElement>('wf-step-2-address').value).toBe('devices/dev-1/status');
+    expect(screen.getByTestId<HTMLInputElement>('wf-step-2-address').disabled).toBe(false);
+    expect(screen.getByRole('button', { name: /Step$/ })).toHaveProperty('disabled', false);
+  });
+
+  it('an edit of a session step is saved with the whole workflow', async () => {
+    renderWorkflow(sessionFixture);
+
+    fireEvent.change(screen.getByTestId('wf-step-2-address'), { target: { value: 'devices/+/status' } });
+    fireEvent.click(screen.getByRole('button', { name: /Save/ }));
+
+    await waitFor(() => expect(updateWorkflowMock).toHaveBeenCalledTimes(1));
+    const [, patch] = updateWorkflowMock.mock.calls[0] as [string, Pick<LiveWorkflow, 'steps' | 'refresh'>];
+    expect(patch.steps[2]).toEqual({ ...sessionFixture.steps[2], address: 'devices/+/status' });
+    expect(patch.steps[0]).toEqual(sessionFixture.steps[0]);
+    expect(patch.refresh).toEqual({ kind: 'manual' });
+  });
+
+  it('gives a verdict: its refresh is fixed at manual, and its captures offer no exposure', async () => {
+    const captured: LiveWorkflow = {
+      ...sessionFixture,
+      steps: sessionFixture.steps.map((step) =>
+        step.id === 'reboot'
+          ? { ...step, captures: [{ uid: 'capcmd00', name: 'commandId', extractor: { kind: 'whole-body' } }] }
+          : step,
+      ),
+    };
+    const { container } = renderWorkflow(captured);
+
+    const policy = within(screen.getByTestId('wf-form-floor')).getAllByRole('combobox')[0];
+    expect(policy).toHaveProperty('disabled', true);
+    expect(screen.getByTestId('wf-form-session-verdict').textContent).toBe(
+      'A workflow with session steps gives a verdict; its captures are not exposed as live variables.',
     );
-    expect(controls.length).toBeGreaterThan(0);
-    for (const control of controls) expect(control).toHaveProperty('disabled', true);
-    expect(screen.getByRole('button', { name: /Step$/ })).toHaveProperty('disabled', true);
+    expect(container.querySelector('[data-step-card="reboot"]')?.textContent).toContain('CAPTURES (1)');
+    expect(screen.queryByRole('switch', { name: /Expose capture/ })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'About Refresh policy' }));
+    expect(await screen.findByText('A workflow with session steps runs when you press Refresh.')).toBeTruthy();
+  });
+
+  it('a workflow of calls keeps its policy open and its exposure rows', () => {
+    renderEditor();
+
+    const policy = within(screen.getByTestId('wf-form-floor')).getAllByRole('combobox')[0];
+    expect(policy).toHaveProperty('disabled', false);
+    expect(screen.queryByTestId('wf-form-session-verdict')).toBeNull();
+    expect(screen.getByRole('switch', { name: 'Expose capture v as live variable' })).toBeTruthy();
   });
 
   it('a workflow with an action no build knows is still not run', () => {
@@ -459,44 +524,71 @@ describe('LiveWorkflowEditor — on a host that runs session steps', () => {
     expect(screen.getByTestId('wf-run-row-probe').getAttribute('data-run-state')).toBe('cannot-run');
   });
 
-  it('with nothing declared a session-step workflow needs a newer version', () => {
-    renderWorkflow(sessionFixture);
-
-    expect(screen.getAllByText(NEEDS_UPDATE)).toHaveLength(1);
-    expect(screen.getByRole('button', { name: /Refresh/ })).toHaveProperty('disabled', true);
-    fireEvent.click(screen.getByText('Run'));
-    expect(screen.getByTestId('wf-run-row-probe').getAttribute('data-run-state')).toBe('cannot-run');
-    expect(screen.getByTestId('wf-run-row-status').getAttribute('data-run-state')).toBe('cannot-run');
-  });
-
-  it('a session step says it runs here on its card and on its preview node', () => {
-    registerCapability('workflowSessionSteps', () => true);
+  it('where the host runs no session step, Refresh is off with an (i) that names the surface that runs it', async () => {
     const { container } = renderWorkflow(sessionFixture);
 
-    const cards = Array.from(container.querySelectorAll('[data-step-needs-update]'));
-    expect(cards.map((card) => card.textContent)).toEqual([
-      `Step 1probe${STEP_RUNS_HERE}listen`,
-      `Step 3status${STEP_RUNS_HERE}expect`,
-    ]);
-    fireEvent.click(screen.getByText('Preview'));
-    const nodes = Array.from(container.querySelectorAll('[data-needs-update]'));
-    expect(nodes.map((node) => node.textContent)).toEqual([
-      `probe${STEP_RUNS_HERE}listen`,
-      `status${STEP_RUNS_HERE}expect`,
-    ]);
+    expect(container.querySelector('[data-workflow-needs-update]')).toBeNull();
+    expect(refreshButton()).toHaveProperty('disabled', true);
+    fireEvent.click(refreshButton());
+    expect(refreshNowMock).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button', { name: 'About Refresh' }));
+    expect(await screen.findByText(RUNS_ELSEWHERE)).toBeTruthy();
   });
 
-  it('with nothing declared, or with an action no build knows, a step still needs a newer version', () => {
-    const undeclared = renderWorkflow(sessionFixture);
-    const undeclaredCards = Array.from(undeclared.container.querySelectorAll('[data-step-needs-update]'));
-    expect(undeclaredCards).toHaveLength(2);
-    for (const card of undeclaredCards) expect(card.textContent).toContain(STEP_NEEDS_UPDATE);
-    undeclared.unmount();
+  it('there its Run view opens on the empty state, not on a refusal', () => {
+    renderWorkflow(sessionFixture);
+    fireEvent.click(screen.getByText('Run'));
 
+    expect(screen.getByTestId('wf-run-empty')).toBeTruthy();
+  });
+
+  it('its preview node says its action and what it acts on', () => {
+    const { container } = renderWorkflow(sessionFixture);
+    fireEvent.click(screen.getByText('Preview'));
+
+    expect(container.querySelector('[data-needs-update]')).toBeNull();
+    expect(screen.getByTestId('wf-graph-node-probe').textContent).toBe('probeListenProbe MQTT');
+    expect(screen.getByTestId('wf-graph-node-status').textContent).toBe('statusExpectdevices/dev-1/status');
+  });
+
+  it('a step of an action no build knows still needs a newer version, beside a session step that does not', () => {
     registerCapability('workflowSessionSteps', () => true);
-    const unknown = renderWorkflow(needsUpdateFixture);
-    const unknownCards = Array.from(unknown.container.querySelectorAll('[data-step-needs-update]'));
-    expect(unknownCards).toHaveLength(2);
-    for (const card of unknownCards) expect(card.textContent).toContain(STEP_NEEDS_UPDATE);
+    const mixed: LiveWorkflow = v.parse(LiveWorkflowSchema, {
+      ...sessionFixture,
+      steps: [sessionFixture.steps[0], { uid: 'stpclose', id: 'hangup', action: 'close', on: 'probe' }],
+    });
+    const { container } = renderWorkflow(mixed);
+
+    expect(screen.getAllByText(NEEDS_UPDATE)).toHaveLength(1);
+    const cards = Array.from(container.querySelectorAll('[data-step-needs-update]'));
+    expect(cards.map((card) => card.textContent)).toEqual([`Step 2hangup${STEP_NEEDS_UPDATE}close`]);
+    expect(refreshButton()).toHaveProperty('disabled', true);
+    fireEvent.click(screen.getByText('Run'));
+    expect(screen.getByTestId('wf-run-row-probe').getAttribute('data-run-state')).toBe('not-run');
+    expect(screen.getByTestId('wf-run-row-hangup').getAttribute('data-run-state')).toBe('cannot-run');
+  });
+
+  it('a step’s type selector offers a call alone until the surface authors session steps', () => {
+    renderEditor();
+
+    const combobox = within(screen.getByTestId('wf-step-0-action')).getByRole('combobox');
+    fireEvent.mouseDown(combobox);
+    fireEvent.click(combobox);
+    expect(screen.queryByText('Listen')).toBeNull();
+  });
+
+  it('where it does, picking Listen makes the step one and the workflow a verdict', () => {
+    registerCapability('workflowSessionAuthoring', () => true);
+    const { container } = renderEditor();
+
+    const combobox = within(screen.getByTestId('wf-step-0-action')).getByRole('combobox');
+    fireEvent.mouseDown(combobox);
+    fireEvent.click(combobox);
+    fireEvent.click(screen.getByText('Listen', { selector: '.ant-select-item-option-content' }));
+
+    expect(container.querySelector('[data-step-card="only"]')?.getAttribute('data-step-action')).toBe('listen');
+    expect(screen.getByTestId('wf-step-0-session-request').textContent).toContain('Select an MQTT request');
+    expect(screen.getByTestId('wf-form-session-verdict')).toBeTruthy();
+    expect(within(screen.getByTestId('wf-form-floor')).getAllByRole('combobox')[0]).toHaveProperty('disabled', true);
   });
 });

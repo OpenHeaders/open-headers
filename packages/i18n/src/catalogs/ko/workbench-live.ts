@@ -208,8 +208,7 @@ export const workbenchLive = {
   'workbench.editors.live.workflow.notFound': '워크플로를 찾을 수 없습니다.',
   'workbench.editors.live.workflow.needsUpdate':
     '이 워크플로에는 더 새로운 버전의 OpenHeaders가 필요한 단계가 있습니다. 편집하거나 실행하려면 업데이트하세요.',
-  'workbench.editors.live.workflow.sessionStepsReadOnly':
-    '이 워크플로에는 세션 단계가 있습니다. 여기에서 실행되지만 이 버전에서는 단계를 편집할 수 없습니다.',
+  'workbench.editors.live.workflow.sessionRunsElsewhere': '세션 단계가 있는 워크플로는 "{surface}" 탭에서 실행됩니다.',
   'workbench.editors.live.workflow.deletedElsewhere': '워크플로가 다른 탭에서 삭제되었습니다',
   'workbench.editors.live.workflow.saveFailed': '워크플로를 저장하지 못했습니다',
   'workbench.editors.live.workflow.createFailed': '워크플로를 만들지 못했습니다',
@@ -230,16 +229,17 @@ export const workbenchLive = {
   'workbench.editors.live.form.parallelTooltip':
     'v1에서는 순차 실행만 지원합니다. 병렬 실행은 향후 릴리스에서 제공됩니다.',
   'workbench.editors.live.form.refreshPolicySection': '새로 고침 정책',
+  'workbench.editors.live.form.sessionPolicyInfo': '세션 단계가 있는 워크플로는 새로 고침을 누를 때 실행됩니다.',
+  'workbench.editors.live.form.sessionNoLiveVariables':
+    '세션 단계가 있는 워크플로는 판정을 내립니다. 캡처는 라이브 변수로 노출되지 않습니다.',
 
   // ── Workflow step editor ────────────────────────────────────────────
   'workbench.editors.live.step.title': '{number}단계',
   'workbench.editors.live.step.needsUpdate': '이 단계에는 더 새로운 버전의 OpenHeaders가 필요합니다.',
-  'workbench.editors.live.step.runsHereReadOnly': '이 단계는 여기에서 실행되지만 이 버전에서는 편집할 수 없습니다.',
   'workbench.editors.live.step.idPrefix': 'id',
   'workbench.editors.live.step.namePrefix': '이름',
   'workbench.editors.live.step.typeTooltip':
     '단계 유형입니다. Foreach 유형과 Composite 유형은 향후 릴리스에서 제공됩니다.',
-  'workbench.editors.live.step.typeRequest': '요청',
   'workbench.editors.live.step.typeForeach': 'Foreach',
   'workbench.editors.live.step.typeComposite': 'Composite',
   'workbench.editors.live.step.runsIfTag': ({ count }, locale) =>
@@ -247,6 +247,17 @@ export const workbenchLive = {
   'workbench.editors.live.step.priorityTag': '우선순위: {ref}',
   'workbench.editors.live.step.scriptsTag': '스크립트',
   'workbench.editors.live.step.selectRequest': '요청 선택',
+  'workbench.editors.live.step.selectSessionRequest': 'MQTT 요청 선택',
+  'workbench.editors.live.step.readyWithin': '준비 기한',
+  'workbench.editors.live.step.sessionScriptsLabel': '요청의 스크립트 실행',
+  'workbench.editors.live.step.identityTitle': '세션 식별 정보',
+  'workbench.editors.live.step.identityInfo': '세션은 MQTT 요청에 설정된 대로 연결합니다. 변경은 요청에서 하세요.',
+  'workbench.editors.live.step.onPrefix': '세션',
+  'workbench.editors.live.step.selectMessage': '저장된 메시지 선택',
+  'workbench.editors.live.step.afterPrefix': '트리거',
+  'workbench.editors.live.step.within': '기한',
+  'workbench.editors.live.step.includeStored': '브로커가 보관한 메시지 포함',
+  'workbench.editors.live.step.matchHeader': '일치 조건 ({count})',
   'workbench.editors.live.step.descriptionPlaceholder': '단계 설명 (선택 사항)',
   'workbench.editors.live.step.capturesHeader': '캡처 ({count})',
   'workbench.editors.live.step.addCapture': '+ 캡처',
@@ -304,6 +315,7 @@ export const workbenchLive = {
     '시도마다 적용됩니다. 요청 (본문 읽기 포함)이 이 상한을 넘으면 중단됩니다. 재시도하는 단계는 시도마다 전체 시간 제한을 다시 받습니다. 상한을 없애려면 필드를 비우세요.',
   'workbench.editors.live.sections.successCriteria': '성공 기준',
   'workbench.editors.live.criteria.noneForCall': '기준 없음 — 도착한 응답은 모두 통과합니다.',
+  'workbench.editors.live.criteria.noneForExpect': '행 없음 — 처음 도착한 메시지가 일치합니다.',
   'workbench.editors.live.criteria.kindExists': '존재함',
   'workbench.editors.live.criteria.kindEquals': '같음',
   'workbench.editors.live.criteria.kindMatches': '일치함',
@@ -447,4 +459,8 @@ export const workbenchLive = {
   'workbench.editors.live.extractor.regex': '정규식',
   'workbench.editors.live.extractor.header': '헤더',
   'workbench.editors.live.extractor.statusCode': '상태 코드',
+  'workbench.editors.live.extractor.groupPayload': '메시지 페이로드',
+  'workbench.editors.live.extractor.wholePayload': '페이로드 전체',
+  'workbench.editors.live.extractor.groupMessage': '메시지',
+  'workbench.editors.live.extractor.field': '필드',
 } as const satisfies Catalog;

@@ -1,4 +1,5 @@
-import { callStepsOf, type DraftWorkflow } from '@openheaders/core/live';
+import { callStepsOf, type DraftCallStep, type DraftWorkflow } from '@openheaders/core/live';
+import type { Criterion, ExpectWorkflowStep, ListenWorkflowStep, SendWorkflowStep } from '@openheaders/core/types';
 import { rebindStepReferences } from '@openheaders/ui/workbench/components/live/rebind-step-references';
 import { describe, expect, it } from 'vitest';
 
@@ -114,5 +115,87 @@ describe('rebindStepReferences', () => {
     });
     const out = rebindStepReferences({ draft, targetUid: 'aaaaaaaa', oldId: 'login', newId: 'auth' });
     expect(stepAt(out, 0).dependsOn).toEqual(['login']);
+  });
+
+  // ── A session step's own references ─────────────────────────────
+
+  const LISTEN: ListenWorkflowStep = {
+    uid: 'stplistn',
+    id: 'probe',
+    action: 'listen',
+    sessionRequestUid: 'mqttreq1',
+    timeoutMs: 10_000,
+    captures: [],
+  };
+  const CALL: DraftCallStep = { uid: 'stpcall0', id: 'reboot', requestUid: 'httpreq1', captures: [] };
+  const SEND: SendWorkflowStep = {
+    uid: 'stpsend0',
+    id: 'rename',
+    action: 'send',
+    on: 'probe',
+    messageUid: 'msgname1',
+    captures: [],
+  };
+  const EXPECT: ExpectWorkflowStep = {
+    uid: 'stpexpct',
+    id: 'status',
+    action: 'expect',
+    on: 'probe',
+    after: 'reboot',
+    address: 'devices/{{step.reboot.deviceId}}/status',
+    match: [
+      {
+        kind: 'equals',
+        uid: 'crtcmd00',
+        extractor: { kind: 'json-path', path: '$.commandId' },
+        value: '{{step.reboot.commandId}}',
+      },
+      { kind: 'exists', uid: 'crtstate', extractor: { kind: 'json-path', path: '$.state' } },
+    ],
+    timeoutMs: 10_000,
+    captures: [],
+  };
+
+  it('follows a renamed listen into the On of a send and of an expect', () => {
+    const draft = makeDraft({ steps: [{ ...LISTEN, id: 'device' }, CALL, SEND, EXPECT] });
+    const out = rebindStepReferences({ draft, targetUid: 'stplistn', oldId: 'probe', newId: 'device' });
+    expect(out.steps[2]).toEqual({ ...SEND, on: 'device' });
+    expect(out.steps[3]).toEqual({ ...EXPECT, on: 'device' });
+    expect(out.steps[1]).toBe(draft.steps[1]);
+  });
+
+  it('follows a renamed trigger into an expect’s After, its topic filter and a criterion’s value', () => {
+    const draft = makeDraft({ steps: [LISTEN, { ...CALL, id: 'restart' }, EXPECT] });
+    const out = rebindStepReferences({ draft, targetUid: 'stpcall0', oldId: 'reboot', newId: 'restart' });
+    expect(out.steps[2]).toEqual({
+      ...EXPECT,
+      after: 'restart',
+      address: 'devices/{{step.restart.deviceId}}/status',
+      match: [{ ...EXPECT.match[0], value: '{{step.restart.commandId}}' }, EXPECT.match[1]],
+    });
+  });
+
+  it('follows a renamed step into the value of a call’s success criterion', () => {
+    const criterion: Criterion = {
+      kind: 'equals',
+      uid: 'crtname0',
+      extractor: { kind: 'json-path', path: '$.name' },
+      value: '{{step.reboot.name}}',
+    };
+    const polled: DraftCallStep = {
+      uid: 'stppoll0',
+      id: 'poll',
+      requestUid: 'httpreq2',
+      captures: [],
+      successCriteria: [criterion],
+    };
+    const draft = makeDraft({ steps: [{ ...CALL, id: 'restart' }, polled] });
+    const out = rebindStepReferences({ draft, targetUid: 'stpcall0', oldId: 'reboot', newId: 'restart' });
+    expect(stepAt(out, 1).successCriteria).toEqual([{ ...criterion, value: '{{step.restart.name}}' }]);
+  });
+
+  it('returns the input draft when no session step names the renamed one', () => {
+    const draft = makeDraft({ steps: [LISTEN, CALL, SEND, EXPECT] });
+    expect(rebindStepReferences({ draft, targetUid: 'zzzzzzzz', oldId: 'other', newId: 'another' })).toBe(draft);
   });
 });

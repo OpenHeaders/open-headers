@@ -234,8 +234,8 @@ export const workbenchLive = {
   'workbench.editors.live.workflow.notFound': 'Рабочий процесс не найден.',
   'workbench.editors.live.workflow.needsUpdate':
     'В этом рабочем процессе есть шаги, для которых нужна более новая версия OpenHeaders. Обновите приложение, чтобы изменить или запустить его.',
-  'workbench.editors.live.workflow.sessionStepsReadOnly':
-    'В этом рабочем процессе есть шаги сеанса. Он выполняется здесь; его шаги нельзя изменить в этой версии.',
+  'workbench.editors.live.workflow.sessionRunsElsewhere':
+    'Рабочий процесс с шагами сеанса выполняется на вкладке «{surface}».',
   'workbench.editors.live.workflow.deletedElsewhere': 'Рабочий процесс удалён из другой вкладки',
   'workbench.editors.live.workflow.saveFailed': 'Не удалось сохранить рабочий процесс',
   'workbench.editors.live.workflow.createFailed': 'Не удалось создать рабочий процесс',
@@ -257,16 +257,18 @@ export const workbenchLive = {
   'workbench.editors.live.form.parallelTooltip':
     'В v1 только последовательно. Параллельное выполнение появится в одном из следующих выпусков.',
   'workbench.editors.live.form.refreshPolicySection': 'Политика обновления',
+  'workbench.editors.live.form.sessionPolicyInfo':
+    'Рабочий процесс с шагами сеанса выполняется, когда вы нажимаете «Обновить».',
+  'workbench.editors.live.form.sessionNoLiveVariables':
+    'Рабочий процесс с шагами сеанса выносит вердикт; его захваты не раскрываются как переменные Live.',
 
   // ── Workflow step editor ────────────────────────────────────────────
   'workbench.editors.live.step.title': 'Шаг {number}',
   'workbench.editors.live.step.needsUpdate': 'Для этого шага нужна более новая версия OpenHeaders.',
-  'workbench.editors.live.step.runsHereReadOnly': 'Этот шаг выполняется здесь; его нельзя изменить в этой версии.',
   'workbench.editors.live.step.idPrefix': 'id',
   'workbench.editors.live.step.namePrefix': 'имя',
   'workbench.editors.live.step.typeTooltip':
     'Тип шага — типы Foreach и Composite появятся в одном из следующих выпусков.',
-  'workbench.editors.live.step.typeRequest': 'Запрос',
   'workbench.editors.live.step.typeForeach': 'Foreach',
   'workbench.editors.live.step.typeComposite': 'Composite',
   'workbench.editors.live.step.runsIfTag': ({ count }, locale) =>
@@ -279,6 +281,18 @@ export const workbenchLive = {
   'workbench.editors.live.step.priorityTag': 'приоритет: {ref}',
   'workbench.editors.live.step.scriptsTag': 'скрипты',
   'workbench.editors.live.step.selectRequest': 'Выберите запрос',
+  'workbench.editors.live.step.selectSessionRequest': 'Выберите MQTT-запрос',
+  'workbench.editors.live.step.readyWithin': 'готов за',
+  'workbench.editors.live.step.sessionScriptsLabel': 'Выполнять скрипты запроса',
+  'workbench.editors.live.step.identityTitle': 'Идентичность сеанса',
+  'workbench.editors.live.step.identityInfo':
+    'Сеанс подключается так, как настроен его MQTT-запрос. Измените это в запросе.',
+  'workbench.editors.live.step.onPrefix': 'на',
+  'workbench.editors.live.step.selectMessage': 'Выберите сохранённое сообщение',
+  'workbench.editors.live.step.afterPrefix': 'после',
+  'workbench.editors.live.step.within': 'в течение',
+  'workbench.editors.live.step.includeStored': 'Учитывать сообщения, хранившиеся у брокера',
+  'workbench.editors.live.step.matchHeader': 'СОВПАДЕНИЕ ({count})',
   'workbench.editors.live.step.descriptionPlaceholder': 'Описание шага (необязательно)',
   'workbench.editors.live.step.capturesHeader': 'ЗАХВАТЫ ({count})',
   'workbench.editors.live.step.addCapture': '+ Захват',
@@ -342,6 +356,7 @@ export const workbenchLive = {
     'На каждую попытку — запрос (включая чтение тела) прерывается по достижении этого предела. Шаг с повторами получает полный тайм-аут на каждую попытку. Очистите поле, чтобы снять предел.',
   'workbench.editors.live.sections.successCriteria': 'Критерии успеха',
   'workbench.editors.live.criteria.noneForCall': 'Критериев нет — любой полученный ответ считается успешным.',
+  'workbench.editors.live.criteria.noneForExpect': 'Строк нет — подходит первое пришедшее сообщение.',
   'workbench.editors.live.criteria.kindExists': 'Существует',
   'workbench.editors.live.criteria.kindEquals': 'Равно',
   'workbench.editors.live.criteria.kindMatches': 'Соответствует',
@@ -499,4 +514,8 @@ export const workbenchLive = {
   'workbench.editors.live.extractor.regex': 'Регулярное выражение',
   'workbench.editors.live.extractor.header': 'Заголовок',
   'workbench.editors.live.extractor.statusCode': 'Код состояния',
+  'workbench.editors.live.extractor.groupPayload': 'Полезная нагрузка сообщения',
+  'workbench.editors.live.extractor.wholePayload': 'Вся полезная нагрузка',
+  'workbench.editors.live.extractor.groupMessage': 'Сообщение',
+  'workbench.editors.live.extractor.field': 'Поле',
 } as const satisfies Catalog;

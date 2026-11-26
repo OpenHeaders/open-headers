@@ -6,11 +6,15 @@
  */
 
 import { InfoCircleOutlined, PlusOutlined } from '@ant-design/icons';
+import { hasCapability } from '@openheaders/core/capabilities';
 import {
   callStepsOf,
-  type DraftCallStep,
+  type DraftKnownStep,
   type DraftWorkflow,
-  isUnknownStep,
+  isKnownStep,
+  isSessionStep,
+  validateSessionRequests,
+  validateSessionSteps,
   validateStepRequestsExist,
   validateWorkflowShape,
 } from '@openheaders/core/live';
@@ -18,6 +22,7 @@ import type { LiveWorkflow } from '@openheaders/core/types';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { LIVE_WORKFLOW_FIELD } from '@openheaders/ui/shared/awareness/live-paths';
 import { useRequests } from '@openheaders/ui/shared/hooks/readers/useRequests';
+import { InfoTrigger } from '@openheaders/ui/shared/info-popover';
 import { Alert, Button, ConfigProvider, Switch, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
 import { useMemo } from 'react';
@@ -28,6 +33,7 @@ import { InlineDescription, LIVE_FORM_PAD_X, Section } from './layout';
 import { rebindCaptureReferences } from './rebind-capture-references';
 import { rebindStepReferences } from './rebind-step-references';
 import RefreshPolicyEditor from './RefreshPolicyEditor';
+import { type StepAction, withStepAction } from './step-action';
 import UnknownStepCard from './UnknownStepCard';
 import type { StepRequestChoice } from './workflow-step-request-options';
 import WorkflowStepEditor from './WorkflowStepEditor';
@@ -43,13 +49,11 @@ interface WorkflowFormBodyProps {
   scrollToStepId?: string | null;
   onScrollToStepDone?: () => void;
   /**
-   * The workflow holds a step this build does not know and is read-only
-   * here (the workflow runs plan, Laws): every control is off but the
-   * Enabled switch — it can still be switched off.
+   * The workflow holds a step of an action the model does not know and
+   * is read-only here (the workflow runs plan, Laws): every control is
+   * off but the Enabled switch — it can still be switched off.
    */
   readOnly?: boolean;
-  /** The read-only workflow runs on this surface — its unknown steps' cards say so. */
-  runsHere?: boolean;
 }
 
 const WorkflowFormBody: React.FC<WorkflowFormBodyProps> = ({
@@ -59,11 +63,21 @@ const WorkflowFormBody: React.FC<WorkflowFormBodyProps> = ({
   scrollToStepId,
   onScrollToStepDone,
   readOnly = false,
-  runsHere = false,
 }) => {
   const { token } = theme.useToken();
   const t = useT();
-  const { requests, graphqlRequests, collectionTrees: requestCollectionTrees, isReady: requestsReady } = useRequests();
+  const {
+    requests,
+    graphqlRequests,
+    mqttRequests,
+    collectionTrees: requestCollectionTrees,
+    isReady: requestsReady,
+  } = useRequests();
+  // A workflow that holds a session step gives a verdict (the workflow
+  // runs plan, Decisions log, S16): it is refreshed by hand and its
+  // captures are not exposed as live variables.
+  const holdsSession = useMemo(() => draft.steps.some(isSessionStep), [draft.steps]);
+  const sessionAuthoring = hasCapability('workflowSessionAuthoring');
 
   // Construct a full LiveWorkflow shape so the validator + layout
   // helper see a coherent object. Synthetic `uid` / `path` /
@@ -94,11 +108,17 @@ const WorkflowFormBody: React.FC<WorkflowFormBodyProps> = ({
     () => new Set([...requests.map((r) => r.uid), ...graphqlRequests.map((r) => r.uid)]),
     [requests, graphqlRequests],
   );
+  // What a session step asks of its request is a cross-request check
+  // too, and waits on the same hydration.
   const validationErrors = useMemo(() => {
-    const shape = validateWorkflowShape(draftWorkflow);
+    const shape = [...validateWorkflowShape(draftWorkflow), ...validateSessionSteps(draftWorkflow)];
     if (!requestsReady) return shape;
-    return [...shape, ...validateStepRequestsExist(draftWorkflow, knownRequestUids)];
-  }, [draftWorkflow, requestsReady, knownRequestUids]);
+    return [
+      ...shape,
+      ...validateStepRequestsExist(draftWorkflow, knownRequestUids),
+      ...validateSessionRequests(draftWorkflow, (uid) => mqttRequests.find((request) => request.uid === uid) ?? null),
+    ];
+  }, [draftWorkflow, requestsReady, knownRequestUids, mqttRequests]);
 
   const errorsByStepId = useMemo(() => {
     const map = new Map<string, typeof validationErrors>();
@@ -117,7 +137,8 @@ const WorkflowFormBody: React.FC<WorkflowFormBodyProps> = ({
 
   const capturesByStepId = useMemo(() => {
     const map = new Map<string, string[]>();
-    for (const step of callStepsOf(draft)) {
+    for (const step of draft.steps) {
+      if (!isKnownStep(step)) continue;
       map.set(
         step.id,
         step.captures.map((c) => c.name),
@@ -168,7 +189,25 @@ const WorkflowFormBody: React.FC<WorkflowFormBodyProps> = ({
     [requests, graphqlRequests, requestCollectionTrees],
   );
 
-  const updateStep = (idx: number, next: DraftCallStep) => {
+  // The session requests a listen step can open — MQTT, the one kind a
+  // run's session speaks today.
+  const sessionRequests = useMemo<StepRequestChoice[]>(
+    () =>
+      mqttRequests.map((r): StepRequestChoice => {
+        const trail = computeRequestTrail(r.uid, requestCollectionTrees);
+        return {
+          uid: r.uid,
+          name: r.name,
+          method: 'MQTT',
+          kind: 'mqtt',
+          collectionName: trail?.collectionName ?? null,
+          folderTrail: trail?.folderTrail ?? [],
+        };
+      }),
+    [mqttRequests, requestCollectionTrees],
+  );
+
+  const updateStep = (idx: number, next: DraftKnownStep) => {
     const prev = draft.steps[idx];
     const nextSteps = draft.steps.slice();
     nextSteps[idx] = next;
@@ -191,7 +230,7 @@ const WorkflowFormBody: React.FC<WorkflowFormBodyProps> = ({
     // and captureName === old. Use the renamed step's CURRENT id
     // (next.id) since the step-id rebind above already shifted the
     // owner's identifier when both rename together.
-    if (prev && !isUnknownStep(prev)) {
+    if (prev && isKnownStep(prev)) {
       const prevCapByUid = new Map(prev.captures.map((c) => [c.uid, c]));
       for (const nextCap of next.captures) {
         const prevCap = prevCapByUid.get(nextCap.uid);
@@ -207,6 +246,10 @@ const WorkflowFormBody: React.FC<WorkflowFormBodyProps> = ({
       }
     }
     setDraft(nextDraft);
+  };
+
+  const changeStepAction = (idx: number, action: StepAction) => {
+    setDraft(withStepAction(draft, idx, action));
   };
 
   const addStep = () => {
@@ -288,13 +331,12 @@ const WorkflowFormBody: React.FC<WorkflowFormBodyProps> = ({
           // runIf / priorityFrom. The transitive set is computed by
           // `buildDependencyRows` via the core validator's helper.
           const reachableSteps = Array.from(row?.reachable ?? []).map((id) => ({ id, label: id }));
-          if (isUnknownStep(step)) {
+          if (!isKnownStep(step)) {
             return (
               <UnknownStepCard
                 key={step.id || `step-${idx}`}
                 step={step}
                 index={idx}
-                runsHere={runsHere}
                 selected={selectedStepId === step.id}
                 scrollRequested={scrollToStepId === step.id}
                 onScrollDone={onScrollToStepDone}
@@ -310,6 +352,12 @@ const WorkflowFormBody: React.FC<WorkflowFormBodyProps> = ({
               totalSteps={draft.steps.length}
               availableRequests={availableRequests}
               onChange={(next) => updateStep(idx, next)}
+              onActionChange={(action) => changeStepAction(idx, action)}
+              steps={draft.steps}
+              mqttRequests={mqttRequests}
+              sessionRequests={sessionRequests}
+              sessionAuthoring={sessionAuthoring}
+              exposable={!holdsSession}
               onRemove={() => removeStep(idx)}
               onMoveUp={() => moveStep(idx, -1)}
               onMoveDown={() => moveStep(idx, 1)}
@@ -348,12 +396,34 @@ const WorkflowFormBody: React.FC<WorkflowFormBodyProps> = ({
         }}
       >
       <div data-field-path={LIVE_WORKFLOW_FIELD.refresh}>
-      <Section title={t('workbench.editors.live.form.refreshPolicySection')}>
+      <Section
+        title={
+          <>
+            {t('workbench.editors.live.form.refreshPolicySection')}
+            {holdsSession && (
+              <InfoTrigger
+                content={{
+                  title: t('workbench.editors.live.form.refreshPolicySection'),
+                  summary: t('workbench.editors.live.form.sessionPolicyInfo'),
+                }}
+              />
+            )}
+          </>
+        }
+      >
+        {/* Fixed at Manual while the workflow holds a session step; a
+            policy that is not Manual yet stays open so it can be set. */}
         <RefreshPolicyEditor
           value={draft.refresh}
           onChange={(refresh) => setDraft({ ...draft, refresh })}
           availableCaptures={availableCaptures}
+          disabled={holdsSession && draft.refresh.kind === 'manual'}
         />
+        {holdsSession && (
+          <Text type="secondary" style={{ fontSize: 11 }} data-testid="wf-form-session-verdict">
+            {t('workbench.editors.live.form.sessionNoLiveVariables')}
+          </Text>
+        )}
       </Section>
       </div>
 

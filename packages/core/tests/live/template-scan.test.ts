@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { scanTemplateReferences, scanTemplateReferencesMany } from '../../src/live/template-scan';
+import {
+  rewriteStepReferences,
+  scanTemplateReferences,
+  scanTemplateReferencesMany,
+} from '../../src/live/template-scan';
 
 describe('scanTemplateReferences', () => {
   it('returns empty result for a template with no references', () => {
@@ -78,5 +82,33 @@ describe('scanTemplateReferencesMany', () => {
   it('collects non-namespaced refs in `other` across many templates', () => {
     const r = scanTemplateReferencesMany(['{{env.A}}', '{{env.B}}', '{{vault.C}}']);
     expect(r.other.map((o) => `${o.namespace}.${o.name}`)).toEqual(['env.A', 'env.B', 'vault.C']);
+  });
+});
+
+describe('rewriteStepReferences', () => {
+  const renameStep = (template: string) =>
+    rewriteStepReferences(template, (ref) => (ref.stepId === 'reboot' ? { ...ref, stepId: 'restart' } : null));
+
+  it('replaces each step reference the rewrite answers, and keeps every other character', () => {
+    expect(renameStep('devices/{{step.reboot.deviceId}}/status/{{step.reboot.commandId}}')).toBe(
+      'devices/{{step.restart.deviceId}}/status/{{step.restart.commandId}}',
+    );
+  });
+
+  it('leaves a reference the rewrite passes by, and every other namespace, as written', () => {
+    const template = '{{step.probe.id}} {{ live.reboot }} {{env.reboot}} {{reboot}}';
+    expect(renameStep(template)).toBe(template);
+  });
+
+  it('reads a reference written with spaces', () => {
+    expect(renameStep('{{ step.reboot.commandId }}')).toBe('{{step.restart.commandId}}');
+  });
+
+  it('moves the capture half as it moves the step half', () => {
+    const renameCapture = (template: string) =>
+      rewriteStepReferences(template, (ref) =>
+        ref.stepId === 'reboot' && ref.captureName === 'id' ? { ...ref, captureName: 'commandId' } : null,
+      );
+    expect(renameCapture('{{step.reboot.id}}/{{step.probe.id}}')).toBe('{{step.reboot.commandId}}/{{step.probe.id}}');
   });
 });

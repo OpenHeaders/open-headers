@@ -29,6 +29,7 @@ import type {
   Extractor,
   LiveVariable,
   LiveWorkflow,
+  SessionWorkflowStep,
   UnknownWorkflowStep,
   WorkflowStep,
 } from '../types/live';
@@ -61,8 +62,15 @@ export interface DraftCallStep extends Omit<CallWorkflowStep, 'captures'> {
   captures: DraftCapture[];
 }
 
-/** A step of the draft — a call step under edit, or a step this build does not know, carried as it is. */
-export type DraftStep = DraftCallStep | UnknownWorkflowStep;
+/**
+ * A step of the draft the editor edits: a call, or a session step. A
+ * session step's captures carry no exposure — a workflow that holds one
+ * publishes no live variable (the workflow runs plan, Decisions log, S16).
+ */
+export type DraftKnownStep = DraftCallStep | SessionWorkflowStep;
+
+/** A step of the draft — one under edit, or a step of an action the model does not know, carried as it is. */
+export type DraftStep = DraftKnownStep | UnknownWorkflowStep;
 
 /**
  * Full draft shape — every field the editor owns while the user is

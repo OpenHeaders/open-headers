@@ -20,10 +20,16 @@
  * (aria-disabled is an ARIA state) without touching AntD's class names.
  */
 
-import type { DraftCallStep } from '@openheaders/core/live';
-import type { Criterion } from '@openheaders/core/types';
+import type { DraftCallStep, DraftKnownStep, StructuralError } from '@openheaders/core/live';
+import type {
+  Criterion,
+  ExpectWorkflowStep,
+  ListenWorkflowStep,
+  MqttRequest,
+  SendWorkflowStep,
+} from '@openheaders/core/types';
 import WorkflowStepEditor from '@openheaders/ui/workbench/components/live/WorkflowStepEditor';
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import type React from 'react';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
@@ -58,7 +64,10 @@ function numberInput(testId: string): HTMLInputElement | null {
   return el.querySelector('input');
 }
 
-function renderStep(step: DraftCallStep, propOverrides: Partial<React.ComponentProps<typeof WorkflowStepEditor>> = {}) {
+function renderStep(
+  step: DraftKnownStep,
+  propOverrides: Partial<React.ComponentProps<typeof WorkflowStepEditor>> = {},
+) {
   const onChange = vi.fn();
   render(
     <WorkflowStepEditor
@@ -312,5 +321,313 @@ describe('WorkflowStepEditor — Phase I', () => {
     expect(screen.getByTestId('wf-step-1-poll').textContent).toContain(
       'Step "refresh" polls with no success criteria to wait for.',
     );
+  });
+});
+
+// ── A session step's card ───────────────────────────────────────────
+//
+// The workflow runs plan, Decisions log, S16: the type selector is the
+// action, and a listen, a send and an expect each have their own fields
+// under the head and the sections every step shares.
+
+const LISTEN: ListenWorkflowStep = {
+  uid: 'stplistn',
+  id: 'probe',
+  action: 'listen',
+  sessionRequestUid: 'mqttreq1',
+  timeoutMs: 10_000,
+  captures: [],
+};
+const REBOOT: DraftCallStep = { uid: 'stpcall0', id: 'reboot', requestUid: 'reqrefrsh', captures: [] };
+const SEND: SendWorkflowStep = {
+  uid: 'stpsend0',
+  id: 'rename',
+  action: 'send',
+  on: 'probe',
+  messageUid: 'msgname1',
+  captures: [],
+};
+const EXPECT: ExpectWorkflowStep = {
+  uid: 'stpexpct',
+  id: 'status',
+  action: 'expect',
+  on: 'probe',
+  after: 'reboot',
+  address: 'devices/dev-1/status',
+  match: [],
+  timeoutMs: 10_000,
+  captures: [],
+};
+
+function makeMqttRequest(overrides: Partial<MqttRequest> = {}): MqttRequest {
+  return {
+    schemaVersion: 5,
+    uid: 'mqttreq1',
+    path: 'api-requests/probe-mqttreq1',
+    name: 'Probe MQTT',
+    url: 'ws://openheaders.io/mqtt',
+    topic: '',
+    payload: '',
+    topics: [],
+    savedMessages: [
+      { uid: 'msgname1', name: 'Rename', topic: 'devices/dev-1/name', payload: 'John Doe' },
+      { uid: 'msgping1', name: 'Ping', topic: 'devices/dev-1/ping', payload: '' },
+    ],
+    userProperties: [],
+    ...overrides,
+  };
+}
+
+function renderSession(
+  step: DraftKnownStep,
+  propOverrides: Partial<React.ComponentProps<typeof WorkflowStepEditor>> = {},
+) {
+  return renderStep(step, {
+    steps: [LISTEN, REBOOT, SEND, EXPECT],
+    mqttRequests: [makeMqttRequest()],
+    sessionRequests: [
+      { uid: 'mqttreq1', name: 'Probe MQTT', method: 'MQTT', kind: 'mqtt', collectionName: 'devices', folderTrail: [] },
+    ],
+    ...propOverrides,
+  });
+}
+
+/** Open a Select from its testid — AntD stamps the data attribute on the control's root. */
+function openSelect(testId: string): void {
+  const combobox = within(screen.getByTestId(testId)).getByRole('combobox');
+  fireEvent.mouseDown(combobox);
+  fireEvent.click(combobox);
+}
+
+/** Press an open Select's option. AntD draws each option twice — an accessible list entry and the visible row; the row takes the press. */
+function pickOption(label: string): void {
+  fireEvent.click(screen.getByText(label, { selector: '.ant-select-item-option-content' }));
+}
+
+function issue(overrides: Pick<StructuralError, 'issue' | 'stepId' | 'message'>): StructuralError {
+  return overrides;
+}
+
+describe('WorkflowStepEditor — the type selector is the action', () => {
+  it('offers a call alone until the surface authors session steps', () => {
+    renderStep(mkStep());
+    openSelect('wf-step-1-action');
+    expect(screen.queryByText('Listen')).toBeNull();
+    expect(screen.queryByText('Send')).toBeNull();
+    expect(screen.queryByText('Expect')).toBeNull();
+  });
+
+  it('offers Listen, Send and Expect where it does, and hands the pick to its owner', () => {
+    const onActionChange = vi.fn();
+    renderStep(mkStep(), { sessionAuthoring: true, onActionChange });
+    openSelect('wf-step-1-action');
+    pickOption('Expect');
+    expect(onActionChange).toHaveBeenCalledWith('expect');
+  });
+
+  it('shows a session step under its own action whether or not session steps are authored here', () => {
+    renderSession(LISTEN);
+    expect(screen.getByTestId('wf-step-1-action').textContent).toContain('Listen');
+    openSelect('wf-step-1-action');
+    expect(screen.queryByText('Send')).toBeNull();
+    expect(screen.queryByText('Expect')).toBeNull();
+  });
+});
+
+describe('WorkflowStepEditor — a listen', () => {
+  it('has its request, its deadline, its scripts and the shared sections — and nothing to capture', () => {
+    renderSession(LISTEN);
+    expect(screen.getByTestId('wf-step-1-session-request').textContent).toContain('Probe MQTT');
+    expect(numberInput('wf-step-1-ready-within')?.value).toBe('10000');
+    expect(screen.queryByRole('button', { name: '+ Capture' })).toBeNull();
+    expect(screen.getByRole('button', { name: /Depends on/i })).toBeTruthy();
+    expect(screen.getByRole('button', { name: /Run condition/i })).toBeTruthy();
+    expect(screen.getByRole('button', { name: /Priority/i })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: /Retry policy/i })).toBeNull();
+    expect(screen.queryByRole('button', { name: /Success criteria/i })).toBeNull();
+  });
+
+  it('emits its deadline and its scripts switch', () => {
+    const { onChange } = renderSession(LISTEN);
+    fireEvent.change(numberInput('wf-step-1-ready-within') as HTMLInputElement, { target: { value: '2500' } });
+    expect(onChange).toHaveBeenCalledWith({ ...LISTEN, timeoutMs: 2500 });
+    fireEvent.click(screen.getByRole('switch', { name: /Run the request's scripts/i }));
+    expect(onChange).toHaveBeenLastCalledWith({ ...LISTEN, runScripts: true });
+  });
+
+  it('says who the session connects as, from the request', () => {
+    renderSession(LISTEN);
+    expect(screen.getByTestId('wf-step-1-identity').textContent).toContain('Client ID generated · Clean start');
+    cleanup();
+    renderSession(LISTEN, {
+      mqttRequests: [makeMqttRequest({ clientId: 'probe-1', cleanStart: false, sessionExpiryInterval: 300 })],
+    });
+    expect(screen.getByTestId('wf-step-1-identity').textContent).toContain(
+      'Client ID set on the request · Session Expiry Interval 300 s',
+    );
+  });
+
+  it('marks a request that is gone, and not one that was never picked', () => {
+    const missing = issue({
+      issue: 'listen-request-missing',
+      stepId: 'probe',
+      message: 'Step "probe" names a session request that is not an MQTT request in this workspace.',
+    });
+    renderSession(LISTEN, { errors: [missing], mqttRequests: [] });
+    expect(screen.getByTestId('wf-step-1-session-request').className).toContain('ant-select-status-error');
+    expect(screen.queryByTestId('wf-step-1-issues')).toBeNull();
+    cleanup();
+    renderSession({ ...LISTEN, sessionRequestUid: '' }, { errors: [missing], mqttRequests: [] });
+    expect(screen.getByTestId('wf-step-1-session-request').className).not.toContain('ant-select-status-error');
+    expect(screen.getByTestId('wf-step-1-session-request').textContent).toContain('Select an MQTT request');
+  });
+});
+
+describe('WorkflowStepEditor — a send', () => {
+  it('is on a listen and sends one of its request’s saved messages', () => {
+    renderSession(SEND);
+    expect(screen.getByTestId('wf-step-1-on').textContent).toContain('probe');
+    expect(screen.getByTestId('wf-step-1-message').textContent).toContain('Rename');
+    openSelect('wf-step-1-message');
+    expect(screen.getByText('Ping')).toBeTruthy();
+  });
+
+  it('emits the message picked', () => {
+    const { onChange } = renderSession(SEND);
+    openSelect('wf-step-1-message');
+    fireEvent.click(screen.getByText('Ping'));
+    expect(onChange).toHaveBeenCalledWith({ ...SEND, messageUid: 'msgping1' });
+  });
+
+  it('drops its message when it moves to another listen', () => {
+    const second: ListenWorkflowStep = { ...LISTEN, uid: 'stplist2', id: 'second', sessionRequestUid: 'mqttreq2' };
+    const { onChange } = renderSession(SEND, { steps: [LISTEN, second, SEND] });
+    openSelect('wf-step-1-on');
+    pickOption('second');
+    expect(onChange).toHaveBeenCalledWith({
+      uid: 'stpsend0',
+      id: 'rename',
+      action: 'send',
+      on: 'second',
+      captures: [],
+    });
+  });
+
+  it('captures the message as sent: no status code among its extractors', () => {
+    const { onChange } = renderSession(SEND);
+    fireEvent.click(screen.getByRole('button', { name: '+ Capture' }));
+    expect(onChange).toHaveBeenCalledWith({
+      ...SEND,
+      captures: [{ uid: expect.any(String), name: 'capture1', extractor: { kind: 'whole-body' } }],
+    });
+    cleanup();
+    renderSession({ ...SEND, captures: [{ uid: 'capname0', name: 'sent', extractor: { kind: 'whole-body' } }] });
+    expect(screen.getByText('Whole payload')).toBeTruthy();
+    expect(screen.queryByRole('switch', { name: /Expose capture/i })).toBeNull();
+  });
+
+  it('says a missing message and a listen it cannot be on, each on its field', () => {
+    const { messageUid: _picked, ...unpicked } = SEND;
+    renderSession(unpicked, {
+      errors: [
+        issue({ issue: 'send-without-message', stepId: 'rename', message: 'Step "rename" has no message to send.' }),
+        issue({
+          issue: 'session-step-unknown-listen',
+          stepId: 'rename',
+          message: 'Step "rename" names "probe" as its session, which is not a listen step.',
+        }),
+      ],
+    });
+    expect(screen.getByTestId('wf-step-1-message').className).toContain('ant-select-status-error');
+    expect(screen.getByTestId('wf-step-1-on').className).toContain('ant-select-status-error');
+    expect(screen.queryByTestId('wf-step-1-issues')).toBeNull();
+  });
+});
+
+describe('WorkflowStepEditor — an expect', () => {
+  it('is on a listen, after a trigger, on a topic filter, within a deadline', () => {
+    renderSession(EXPECT);
+    expect(screen.getByTestId('wf-step-1-on').textContent).toContain('probe');
+    expect(screen.getByTestId('wf-step-1-after').textContent).toContain('reboot');
+    expect(screen.getByTestId<HTMLInputElement>('wf-step-1-address').value).toBe('devices/dev-1/status');
+    expect(numberInput('wf-step-1-within')?.value).toBe('10000');
+  });
+
+  it('emits its topic filter, and drops the field when it is emptied', () => {
+    const { onChange } = renderSession(EXPECT);
+    fireEvent.change(screen.getByTestId('wf-step-1-address'), { target: { value: 'devices/+/status' } });
+    expect(onChange).toHaveBeenCalledWith({ ...EXPECT, address: 'devices/+/status' });
+    fireEvent.change(screen.getByTestId('wf-step-1-address'), { target: { value: '' } });
+    const last = onChange.mock.calls.at(-1)?.[0] as ExpectWorkflowStep;
+    expect('address' in last).toBe(false);
+  });
+
+  it('emits its deadline and whether a stored message counts', () => {
+    const { onChange } = renderSession(EXPECT);
+    fireEvent.change(numberInput('wf-step-1-within') as HTMLInputElement, { target: { value: '5000' } });
+    expect(onChange).toHaveBeenCalledWith({ ...EXPECT, timeoutMs: 5000 });
+    fireEvent.click(screen.getByRole('switch', { name: 'Include stored messages' }));
+    expect(onChange).toHaveBeenLastCalledWith({ ...EXPECT, includeStored: true });
+  });
+
+  it('starts a match row as a comparison: a message has no status', () => {
+    const { onChange } = renderSession(EXPECT);
+    expect(screen.getByText('No rows — the first message that lands matches.')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: /Add criterion/i }));
+    expect(onChange).toHaveBeenCalledWith({
+      ...EXPECT,
+      match: [{ kind: 'exists', uid: expect.any(String), extractor: { kind: 'json-path', path: '$.' } }],
+    });
+    cleanup();
+    renderSession({
+      ...EXPECT,
+      match: [{ kind: 'exists', uid: 'crtstate', extractor: { kind: 'json-path', path: '$.state' } }],
+    });
+    openSelect('wf-step-1-match-0-kind');
+    expect(screen.getByText('Equals')).toBeTruthy();
+    expect(screen.queryByText('Status')).toBeNull();
+  });
+
+  it('says a trigger that could fire unarmed on After, and an issue no field owns at the foot', () => {
+    renderSession(EXPECT, {
+      errors: [
+        issue({
+          issue: 'expect-unarmed-trigger',
+          stepId: 'status',
+          message: 'Step "reboot" can start before "probe" is ready, so "status" could miss what it sets off.',
+        }),
+        issue({
+          issue: 'expect-stored-unsure',
+          stepId: 'status',
+          message:
+            'Step "status" passes over stored messages, but "Probe MQTT" subscribes to devices/# with Retain As Published on, so a live message can look stored.',
+        }),
+      ],
+    });
+    expect(screen.getByTestId('wf-step-1-after').className).toContain('ant-select-status-error');
+    expect(screen.getByTestId('wf-step-1-issues').textContent).toBe(
+      'Step "status" passes over stored messages, but "Probe MQTT" subscribes to devices/# with Retain As Published on, so a live message can look stored.',
+    );
+  });
+});
+
+describe('WorkflowStepEditor — a call in a workflow that holds a session step', () => {
+  const captured = mkStep({
+    captures: [
+      { uid: 'captoken', name: 'token', extractor: { kind: 'whole-body' }, exposed: false, liveName: 'token' },
+    ],
+  });
+
+  it('offers no exposure on its captures, and adds one that is not exposed', () => {
+    const { onChange } = renderStep(captured, { exposable: false });
+    expect(screen.queryByRole('switch', { name: /Expose capture/i })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: '+ Capture' }));
+    const last = onChange.mock.calls.at(-1)?.[0] as DraftCallStep;
+    expect(last.captures[1]).toMatchObject({ name: 'capture2', exposed: false });
+  });
+
+  it('keeps the exposure row everywhere else', () => {
+    renderStep(captured);
+    expect(screen.getByRole('switch', { name: 'Expose capture token as live variable' })).toBeTruthy();
   });
 });

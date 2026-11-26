@@ -47,6 +47,7 @@ export { detectCycles } from './cycle-detect';
 export type {
   DraftCallStep,
   DraftCapture,
+  DraftKnownStep,
   DraftStep,
   DraftWorkflow,
   LvCreateOp,
@@ -168,7 +169,7 @@ export {
   validateWorkflowShape,
 } from './step-validation';
 export type { StepRef, TemplateScanResult } from './template-scan';
-export { scanTemplateReferences, scanTemplateReferencesMany } from './template-scan';
+export { rewriteStepReferences, scanTemplateReferences, scanTemplateReferencesMany } from './template-scan';
 export {
   callStepsOf,
   isRunnableWorkflow,
@@ -188,6 +189,7 @@ export {
   isWorkflowComplete,
   isWorkflowDraft,
   isWorkflowEffective,
+  workflowHoldsSession,
   workflowNeedsUpdate,
   workflowStepsResolvable,
 } from './workflow-state';

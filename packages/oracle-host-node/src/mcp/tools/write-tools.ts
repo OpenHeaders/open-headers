@@ -25,7 +25,6 @@ import {
   validateStepRequestsExist,
   validateWorkflowShape,
   WORKFLOW_NEEDS_UPDATE_MESSAGE,
-  workflowNeedsUpdate,
 } from '@openheaders/core/live';
 import {
   EnvironmentSchema,
@@ -453,14 +452,15 @@ function assertWorkflowStructure(workspaceId: string, workflow: LiveWorkflow, st
 }
 
 /**
- * Update guard: a workflow with a step this build does not know is
- * read-only here — a patch may rename it or switch it on or off, and
+ * Update guard: a workflow with a step this tool does not author — a
+ * session step, or one of an action the model does not know — is
+ * read-only here: a patch may rename it or switch it on or off, and
  * change nothing else.
  */
 const READ_ONLY_PATCH_KEYS: ReadonlySet<string> = new Set(['name', 'enabled']);
 
 function assertPatchAllowed(existing: LiveWorkflow, patch: Record<string, unknown>): void {
-  if (!workflowNeedsUpdate(existing)) return;
+  if (!existing.steps.some(isUnknownStep)) return;
   const refused = Object.keys(patch).filter((key) => !READ_ONLY_PATCH_KEYS.has(key));
   if (refused.length === 0) return;
   throw new McpToolInputError(

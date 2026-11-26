@@ -9,7 +9,10 @@
  * `refresh.{stepId}` pointing at a stepId that no longer exists — the
  * validator surfaces the dangling reference as `step-unknown-dep`,
  * but the user shouldn't have to chase the rename through the
- * workflow themselves.
+ * workflow themselves. A session step's own references follow too: the
+ * `listen` a send or an expect is on, the trigger an expect waits after,
+ * and the `{{step.<id>.<capture>}}` tokens in an expect's address and in
+ * a criterion's value.
  *
  * Out of scope: cross-entity rebinding. Bound `LiveVariable.stepId`
  * values that point at this workflow are NOT rewritten here — those
@@ -20,8 +23,16 @@
  * rare case that gets manual treatment.
  */
 
-import { type DraftWorkflow, isUnknownStep } from '@openheaders/core/live';
+import {
+  type DraftKnownStep,
+  type DraftWorkflow,
+  isExpectStep,
+  isKnownStep,
+  isSendStep,
+  rewriteStepReferences,
+} from '@openheaders/core/live';
 import type { CallWorkflowStep, LiveWorkflow } from '@openheaders/core/types';
+import { rewriteStepTemplates } from './rebind-templates';
 
 function rewriteRefresh(refresh: LiveWorkflow['refresh'], oldId: string, newId: string): LiveWorkflow['refresh'] {
   if (refresh.kind === 'expires-in' || refresh.kind === 'expires-at') {
@@ -75,6 +86,21 @@ function rewriteDependsOn(
 }
 
 /**
+ * A session step's own references to a step: the `listen` a send or an
+ * expect is on, and the trigger an expect waits after.
+ */
+function rewriteSessionRefs(step: DraftKnownStep, oldId: string, newId: string): DraftKnownStep {
+  if (isSendStep(step)) return step.on === oldId ? { ...step, on: newId } : step;
+  if (!isExpectStep(step)) return step;
+  if (step.on !== oldId && step.after !== oldId) return step;
+  return {
+    ...step,
+    on: step.on === oldId ? newId : step.on,
+    after: step.after === oldId ? newId : step.after,
+  };
+}
+
+/**
  * Walk the draft and rebind every reference to `oldId` → `newId`. The
  * step whose own `id` is being changed (`targetUid`) is left to the
  * caller — pass the already-renamed step in `draft.steps` and this
@@ -96,15 +122,19 @@ export function rebindStepReferences(args: {
     // `id` is `newId`; we don't rewrite anything inside the renamed
     // step (a self-reference in dependsOn would be a cycle the
     // validator already rejects).
-    if (step.uid === targetUid || isUnknownStep(step)) return step;
+    if (step.uid === targetUid || !isKnownStep(step)) return step;
     const dependsOn = rewriteDependsOn(step.dependsOn, oldId, newId);
     const runIf = rewriteStepGate(step.runIf, oldId, newId);
     const priorityFrom = rewritePriority(step.priorityFrom, oldId, newId);
-    if (dependsOn === step.dependsOn && runIf === step.runIf && priorityFrom === step.priorityFrom) {
-      return step;
-    }
-    stepsChanged = true;
-    return { ...step, dependsOn, runIf, priorityFrom };
+    const shared: DraftKnownStep =
+      dependsOn === step.dependsOn && runIf === step.runIf && priorityFrom === step.priorityFrom
+        ? step
+        : { ...step, dependsOn, runIf, priorityFrom };
+    const next = rewriteStepTemplates(rewriteSessionRefs(shared, oldId, newId), (template) =>
+      rewriteStepReferences(template, (ref) => (ref.stepId === oldId ? { ...ref, stepId: newId } : null)),
+    );
+    if (next !== step) stepsChanged = true;
+    return next;
   });
   const refresh = rewriteRefresh(draft.refresh, oldId, newId);
   if (!stepsChanged && refresh === draft.refresh) return draft;

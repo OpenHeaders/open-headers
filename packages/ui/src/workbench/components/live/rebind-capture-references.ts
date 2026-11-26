@@ -7,7 +7,9 @@
  * Capture references appear as the `(stepId, captureName)` pair
  * inside `runIf.all[]` `capture-exists` / `capture-equals` /
  * `capture-matches` clauses, `priorityFrom`, and `refresh`
- * (`expires-in` / `expires-at`). Only references whose `stepId`
+ * (`expires-in` / `expires-at`), and as a `{{step.<id>.<capture>}}`
+ * token in an expect's address and in a criterion's value. Only
+ * references whose `stepId`
  * matches `ownerStepId` AND whose `captureName` matches `oldName`
  * get rewritten — captures with the same name on a different step
  * are independent.
@@ -19,8 +21,9 @@
  * entity gets its own UX).
  */
 
-import { type DraftWorkflow, isUnknownStep } from '@openheaders/core/live';
+import { type DraftKnownStep, type DraftWorkflow, isKnownStep, rewriteStepReferences } from '@openheaders/core/live';
 import type { CallWorkflowStep, LiveWorkflow } from '@openheaders/core/types';
+import { rewriteStepTemplates } from './rebind-templates';
 
 function rewriteRefresh(
   refresh: LiveWorkflow['refresh'],
@@ -86,12 +89,18 @@ export function rebindCaptureReferences(args: {
   if (oldName === newName) return draft;
   let stepsChanged = false;
   const nextSteps = draft.steps.map((step) => {
-    if (isUnknownStep(step)) return step;
+    if (!isKnownStep(step)) return step;
     const runIf = rewriteStepGate(step.runIf, ownerStepId, oldName, newName);
     const priorityFrom = rewritePriority(step.priorityFrom, ownerStepId, oldName, newName);
-    if (runIf === step.runIf && priorityFrom === step.priorityFrom) return step;
-    stepsChanged = true;
-    return { ...step, runIf, priorityFrom };
+    const shared: DraftKnownStep =
+      runIf === step.runIf && priorityFrom === step.priorityFrom ? step : { ...step, runIf, priorityFrom };
+    const next = rewriteStepTemplates(shared, (template) =>
+      rewriteStepReferences(template, (ref) =>
+        ref.stepId === ownerStepId && ref.captureName === oldName ? { ...ref, captureName: newName } : null,
+      ),
+    );
+    if (next !== step) stepsChanged = true;
+    return next;
   });
   const refresh = rewriteRefresh(draft.refresh, ownerStepId, oldName, newName);
   if (!stepsChanged && refresh === draft.refresh) return draft;

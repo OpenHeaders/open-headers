@@ -5,20 +5,22 @@
  * the right.
  *
  * The rows come from the run's step events, never from the cache row or
- * a run report. A workflow that holds a step this build does not know
- * has no run to show: its rows say which steps cannot run here.
+ * a run report. A workflow that holds a step of an action the model does
+ * not know has no run to show: its rows say which steps cannot run.
  */
 
 import {
   applyRunFact,
   isExpectStep,
+  isKnownStep,
   isListenStep,
   isSendStep,
   isUnknownStep,
-  refusedRunEvents,
   runFactOf,
+  runRefusalEvents,
   runTotals,
   runVerdict,
+  unknownStepMessage,
   type WorkflowRunRecord,
   type WorkflowRunStepRow,
   type WorkflowRunVerdict,
@@ -48,7 +50,7 @@ const { Text } = Typography;
 
 interface Props {
   workflow: LiveWorkflow;
-  /** The workflow holds a step this build does not know — it is not run here. */
+  /** The workflow holds a step of an action the model does not know — it is not run. */
   needsUpdate: boolean;
 }
 
@@ -59,9 +61,13 @@ const VERDICT_COLOR: Record<WorkflowRunVerdict, string> = {
   'cannot-run': 'warning',
 };
 
-/** What a needs-update workflow shows in place of a run: no step ran, and why. */
+/** What a needs-update workflow shows in place of a run: no step ran, and the steps of an action the model does not know say why. */
 function refusedRecord(workflow: LiveWorkflow): WorkflowRunRecord | null {
-  return refusedRunEvents(workflow, 0)
+  const refusals = workflow.steps
+    .filter(isUnknownStep)
+    .filter((step) => !isKnownStep(step))
+    .map((step) => ({ stepId: step.id, reason: unknownStepMessage(step) }));
+  return runRefusalEvents(workflow, 0, refusals)
     .map(runFactOf)
     .reduce<WorkflowRunRecord | null>(
       (record, fact) => applyRunFact(record, { runId: '', environmentId: null }, fact),

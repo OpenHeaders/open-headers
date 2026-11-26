@@ -1,12 +1,11 @@
 /**
- * UnknownStepCard — a step this build does not know, in the workflow
- * form (the workflow runs plan, Laws — "A reader assumes only `uid`,
- * `id` and `action`").
+ * UnknownStepCard — a step of an action the model does not know, in the
+ * workflow form (the workflow runs plan, Laws — "A reader assumes only
+ * `uid`, `id` and `action`").
  *
  * It shows the step's id, the one sentence and its raw action, and
  * offers nothing to edit: a request picked here would turn the step
- * into a call. Where the workflow runs on this surface the sentence
- * says so (the workflow runs plan, Decisions log, S11).
+ * into a call.
  */
 
 import type { UnknownWorkflowStep } from '@openheaders/core/types';
@@ -20,21 +19,12 @@ const { Text } = Typography;
 interface Props {
   step: UnknownWorkflowStep;
   index: number;
-  /** The workflow runs on this surface; the step is still not edited here. */
-  runsHere?: boolean;
   selected?: boolean;
   scrollRequested?: boolean;
   onScrollDone?: () => void;
 }
 
-const UnknownStepCard: React.FC<Props> = ({
-  step,
-  index,
-  runsHere = false,
-  selected = false,
-  scrollRequested = false,
-  onScrollDone,
-}) => {
+const UnknownStepCard: React.FC<Props> = ({ step, index, selected = false, scrollRequested = false, onScrollDone }) => {
   const { token } = theme.useToken();
   const t = useT();
   const cardRef = useScrollCardIntoView(scrollRequested, onScrollDone);
@@ -65,7 +55,7 @@ const UnknownStepCard: React.FC<Props> = ({
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
         <Text type="secondary" style={{ fontSize: 12 }}>
-          {t(runsHere ? 'workbench.editors.live.step.runsHereReadOnly' : 'workbench.editors.live.step.needsUpdate')}
+          {t('workbench.editors.live.step.needsUpdate')}
         </Text>
         <Tag style={{ fontSize: 10, lineHeight: '18px', margin: 0, fontFamily: "'SF Mono', monospace" }}>
           {step.action}

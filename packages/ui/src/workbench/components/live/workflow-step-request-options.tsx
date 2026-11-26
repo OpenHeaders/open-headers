@@ -23,11 +23,12 @@ import { METHOD_COLORS, REQUEST_KIND_COLORS } from '../sidebar/icons';
 export interface StepRequestChoice {
   uid: string;
   name: string;
-  /** The HTTP verb — or the kind code (`GQL`) for a GraphQL request,
-   *  which runs as one POST through the compile. */
+  /** The HTTP verb — or the kind code: `GQL` for a GraphQL request,
+   *  which runs as one POST through the compile, `MQTT` for the session
+   *  request a listen step opens. */
   method: string;
-  /** Present for a GraphQL request — the tag takes the kind's tint. */
-  kind?: 'graphql';
+  /** Present for a request of a kind — the tag takes the kind's tint. */
+  kind?: 'graphql' | 'mqtt';
   collectionName: string | null;
   folderTrail: string[];
 }
@@ -35,7 +36,7 @@ export interface StepRequestChoice {
 export function buildRequestPickerOptions(availableRequests: StepRequestChoice[], token: GlobalToken) {
   return availableRequests.map((r) => {
     const methodColor =
-      r.kind === 'graphql' ? REQUEST_KIND_COLORS.graphql : (METHOD_COLORS[r.method] ?? token.colorTextSecondary);
+      r.kind !== undefined ? REQUEST_KIND_COLORS[r.kind] : (METHOD_COLORS[r.method] ?? token.colorTextSecondary);
     // String for filterOption + accessibility; stays consistent
     // with the JSX the user sees (same segments, same order).
     const titleSegments = [r.collectionName, ...r.folderTrail, `${r.method} ${r.name}`].filter(

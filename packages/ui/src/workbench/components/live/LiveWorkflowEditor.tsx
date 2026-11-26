@@ -20,13 +20,14 @@
  *   tree's "Create Workflow…" picker). No status bar, no Refresh-now
  *   button (nothing to refresh before first save).
  *
- * A workflow that holds a step this build does not know (the workflow
- * runs plan, Laws) opens read-only in edit mode: one banner says why,
- * the form and the graph take no edit, Refresh is off, and Save writes
- * the Enabled switch alone — it can still be switched off. Where the
- * host runs session steps and the workflow holds no other unknown, it is
- * read-only all the same but Refresh is on and the Run view shows its
- * run; the banner says that instead.
+ * A workflow that holds a step of an action the model does not know
+ * (the workflow runs plan, Laws) opens read-only in edit mode: one
+ * banner says why, the form and the graph take no edit, Refresh is off,
+ * and Save writes the Enabled switch alone — it can still be switched
+ * off. A workflow that holds a session step is edited on every surface
+ * and run where the host runs session steps (the workflow runs plan,
+ * Decisions log, S16); elsewhere its Refresh is off, with an (i) that
+ * says where it runs.
  *
  * Phase I responsibilities (both modes):
  *   - Runs `validateWorkflowShape` against the draft on every change
@@ -75,7 +76,13 @@ import { LIVE_WORKFLOW_FIELD, liveWorkflowStepIndexFromPath } from '@openheaders
 import { appendDraftStep } from './graph-edit';
 import { LIVE_FORM_PAD_X } from './layout';
 import { classifyRun, pickActiveRun, statusColor } from './live-display';
-import { canRunWorkflowHere, RunUnavailableInfo, workflowRunsHere } from './run-availability';
+import {
+  canRunWorkflowHere,
+  RunUnavailableInfo,
+  SessionRunElsewhereInfo,
+  sessionRunsElsewhere,
+  workflowRunsHere,
+} from './run-availability';
 import WorkflowFormBody from './WorkflowFormBody';
 import WorkflowGraphBody from './WorkflowGraphBody';
 import WorkflowRunBody from './WorkflowRunBody';
@@ -502,7 +509,7 @@ const EditMode: React.FC<EditProps> = ({ workflowUid, seedSteps, onDirtyChange, 
       >
         {t('workbench.editors.live.workflow.refresh')}
       </Button>
-      {!runsHere && <RunUnavailableInfo />}
+      {!runsHere ? <RunUnavailableInfo /> : sessionRunsElsewhere(workflow) && <SessionRunElsewhereInfo />}
     </>
   );
 
@@ -527,11 +534,7 @@ const EditMode: React.FC<EditProps> = ({ workflowUid, seedSteps, onDirtyChange, 
           showIcon
           banner
           data-workflow-needs-update="true"
-          title={t(
-            canRun
-              ? 'workbench.editors.live.workflow.sessionStepsReadOnly'
-              : 'workbench.editors.live.workflow.needsUpdate',
-          )}
+          title={t('workbench.editors.live.workflow.needsUpdate')}
         />
       )}
       {view === 'form' ? (
@@ -549,13 +552,12 @@ const EditMode: React.FC<EditProps> = ({ workflowUid, seedSteps, onDirtyChange, 
               scrollToStepId={scrollToStepId}
               onScrollToStepDone={handleScrollToStepDone}
               readOnly={needsUpdate}
-              runsHere={canRun}
             />
           </div>
         </div>
       ) : view === 'run' ? (
         <div style={{ flex: 1, minHeight: 0 }}>
-          <WorkflowRunBody workflow={workflow} needsUpdate={!canRun} />
+          <WorkflowRunBody workflow={workflow} needsUpdate={needsUpdate} />
         </div>
       ) : (
         <div style={{ flex: 1, minHeight: 0 }}>
@@ -567,7 +569,6 @@ const EditMode: React.FC<EditProps> = ({ workflowUid, seedSteps, onDirtyChange, 
             onOpenStep={handleGraphOpen}
             run={run}
             boundVars={boundVars}
-            runsHere={canRun}
           />
         </div>
       )}

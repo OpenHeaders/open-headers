@@ -67,9 +67,27 @@ import {
   ZoomOutOutlined,
 } from '@ant-design/icons';
 import type { DraftStep, DraftWorkflow } from '@openheaders/core/live';
-import { isUnknownStep, validateStepRequestsExist, validateWorkflowShape } from '@openheaders/core/live';
+import {
+  isKnownStep,
+  isListenStep,
+  isSendStep,
+  isSessionStep,
+  isUnknownStep,
+  validateSessionRequests,
+  validateSessionSteps,
+  validateStepRequestsExist,
+  validateWorkflowShape,
+} from '@openheaders/core/live';
 import type { LiveWorkflowRunSnapshot } from '@openheaders/core/bridge';
-import type { LiveVariable, LiveWorkflow, StepGate, StepGateClause } from '@openheaders/core/types';
+import type {
+  LiveVariable,
+  LiveWorkflow,
+  MqttRequest,
+  SessionWorkflowStep,
+  StepGate,
+  StepGateClause,
+} from '@openheaders/core/types';
+import type { MessageKey } from '@openheaders/i18n';
 import { type Translate, useT } from '@openheaders/ui/context/LocaleContext';
 import { useRequests } from '@openheaders/ui/shared/hooks/readers/useRequests';
 import { Button, Tooltip, Typography, theme } from 'antd';
@@ -79,6 +97,7 @@ import { METHOD_COLORS } from '../sidebar/icons';
 import { addGraphDependency, appendDraftStep, removeDraftStep, removeGraphDependency } from './graph-edit';
 import { buildWorkflowGraphLayout } from './graph-layout';
 import { classifyStepRun, type StepRunState } from './live-display';
+import { sessionRequestOf } from './step-action';
 import { StepRunDot } from './WorkflowGraphRunOverlay';
 
 const { Text } = Typography;
@@ -110,8 +129,27 @@ interface WorkflowGraphBodyProps {
   run?: LiveWorkflowRunSnapshot | null;
   /** LVs bound to this workflow — supplies per-exposure publication state. */
   boundVars?: LiveVariable[];
-  /** The workflow runs on this surface though it holds steps not edited here — their nodes say so. */
-  runsHere?: boolean;
+}
+
+/** A session step's word on its node — the Run view's own. */
+const SESSION_ACTION_WORD: Record<SessionWorkflowStep['action'], MessageKey> = {
+  listen: 'workbench.editors.live.run.action.listen',
+  send: 'workbench.editors.live.run.action.send',
+  expect: 'workbench.editors.live.run.action.expect',
+};
+
+/** What a session step acts on, by name: the request a listen opens, the message a send sends, where an expect's message lands. */
+function sessionTargetOf(
+  step: SessionWorkflowStep,
+  steps: readonly DraftStep[],
+  mqttRequests: readonly MqttRequest[],
+): string {
+  if (isListenStep(step)) return mqttRequests.find((request) => request.uid === step.sessionRequestUid)?.name ?? '';
+  if (isSendStep(step)) {
+    const saved = sessionRequestOf(steps, step.on, mqttRequests)?.savedMessages;
+    return saved?.find((message) => message.uid === step.messageUid)?.name ?? '';
+  }
+  return step.address ?? '';
 }
 
 function clauseSummary(clause: StepGateClause, t: Translate): string {
@@ -189,11 +227,10 @@ const WorkflowGraphBody: React.FC<WorkflowGraphBodyProps> = ({
   onOpenStep,
   run,
   boundVars,
-  runsHere = false,
 }) => {
   const { token } = theme.useToken();
   const t = useT();
-  const { requests, isReady: requestsReady } = useRequests();
+  const { requests, mqttRequests, isReady: requestsReady } = useRequests();
   const editable = setDraft !== undefined;
   const paneRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLDivElement>(null);
@@ -245,17 +282,25 @@ const WorkflowGraphBody: React.FC<WorkflowGraphBodyProps> = ({
 
   const knownRequestUids = useMemo(() => new Set(requests.map((r) => r.uid)), [requests]);
   const errorsByStepId = useMemo(() => {
+    const shape = [...validateWorkflowShape(draftWorkflow), ...validateSessionSteps(draftWorkflow)];
     const all = requestsReady
-      ? [...validateWorkflowShape(draftWorkflow), ...validateStepRequestsExist(draftWorkflow, knownRequestUids)]
-      : validateWorkflowShape(draftWorkflow);
+      ? [
+          ...shape,
+          ...validateStepRequestsExist(draftWorkflow, knownRequestUids),
+          ...validateSessionRequests(
+            draftWorkflow,
+            (uid) => mqttRequests.find((request) => request.uid === uid) ?? null,
+          ),
+        ]
+      : shape;
     const map = new Map<string, string[]>();
     for (const err of all) {
-      // A step this build does not know says so on its own card.
+      // A step of an action the model does not know says so on its own card.
       if (err.stepId === null || err.issue === 'step-needs-update') continue;
       map.set(err.stepId, [...(map.get(err.stepId) ?? []), err.message]);
     }
     return map;
-  }, [draftWorkflow, requestsReady, knownRequestUids]);
+  }, [draftWorkflow, requestsReady, knownRequestUids, mqttRequests]);
 
   const draftStepsById = useMemo(() => new Map(draft.steps.map((s) => [s.id, s])), [draft.steps]);
 
@@ -698,6 +743,8 @@ const WorkflowGraphBody: React.FC<WorkflowGraphBodyProps> = ({
           if (!pos) return null;
           const draftStep = draftStepsById.get(node.step.id);
           const call = isUnknownStep(node.step) ? undefined : node.step;
+          const session = isSessionStep(node.step) ? node.step : undefined;
+          const shared = call ?? session;
           const request = call?.requestUid ? requestsByUid.get(call.requestUid) : undefined;
           const errors = errorsByStepId.get(node.step.id) ?? [];
           return (
@@ -712,14 +759,15 @@ const WorkflowGraphBody: React.FC<WorkflowGraphBodyProps> = ({
               onDragMove={moveNodeDrag}
               onDragUp={endNodeDrag}
               draftStep={draftStep}
-              unknownAction={isUnknownStep(node.step) ? node.step.action : undefined}
-              runsHere={runsHere}
-              runIf={call?.runIf}
-              hasPriority={call?.priorityFrom !== undefined}
+              unknownAction={isKnownStep(node.step) ? undefined : node.step.action}
+              sessionAction={session?.action}
+              sessionTarget={session ? sessionTargetOf(session, draft.steps, mqttRequests) : ''}
+              runIf={shared?.runIf}
+              hasPriority={shared?.priorityFrom !== undefined}
               priorityLabel={
-                call?.priorityFrom
+                shared?.priorityFrom
                   ? t('workbench.editors.live.graph.orderedBy', {
-                      ref: `${call.priorityFrom.stepId}.${call.priorityFrom.captureName}`,
+                      ref: `${shared.priorityFrom.stepId}.${shared.priorityFrom.captureName}`,
                     })
                   : ''
               }
@@ -1036,10 +1084,12 @@ interface GraphNodeCardProps {
   onDragUp?: (e: React.PointerEvent<HTMLDivElement>) => void;
   /** Draft overlay for the step — supplies capture exposure state. */
   draftStep: DraftStep | undefined;
-  /** Set for a step this build does not know — its raw `action`. The card says so and shows nothing else of it. */
+  /** Set for a step of an action the model does not know — its raw `action`. The card says so and shows nothing else of it. */
   unknownAction?: string;
-  /** The workflow runs on this surface — an unknown step's sentence says that instead. */
-  runsHere: boolean;
+  /** Set for a session step — its action. The card shows its word and what it acts on. */
+  sessionAction?: SessionWorkflowStep['action'];
+  /** What a session step acts on, by name — empty where it names nothing. */
+  sessionTarget: string;
   runIf: StepGate | undefined;
   hasPriority: boolean;
   priorityLabel: string;
@@ -1074,7 +1124,8 @@ const GraphNodeCard: React.FC<GraphNodeCardProps> = ({
   onDragUp,
   draftStep,
   unknownAction,
-  runsHere,
+  sessionAction,
+  sessionTarget,
   runIf,
   hasPriority,
   priorityLabel,
@@ -1096,12 +1147,16 @@ const GraphNodeCard: React.FC<GraphNodeCardProps> = ({
   const gateClauses = runIf?.all ?? [];
   const captures = draftStep && !isUnknownStep(draftStep) ? draftStep.captures : [];
   const needsUpdate = unknownAction !== undefined;
+  const isSession = sessionAction !== undefined;
   const requestLine = needsUpdate
-    ? t(runsHere ? 'workbench.editors.live.step.runsHereReadOnly' : 'workbench.editors.live.step.needsUpdate')
-    : requestMissing
-      ? t('workbench.editors.live.graph.requestNotFound')
-      : requestName || t('workbench.editors.live.graph.noRequestSelected');
-  const requestMuted = needsUpdate || requestMissing || requestName === '';
+    ? t('workbench.editors.live.step.needsUpdate')
+    : isSession
+      ? sessionTarget
+      : requestMissing
+        ? t('workbench.editors.live.graph.requestNotFound')
+        : requestName || t('workbench.editors.live.graph.noRequestSelected');
+  const requestMuted = needsUpdate || (!isSession && (requestMissing || requestName === ''));
+  const lead = isSession ? t(SESSION_ACTION_WORD[sessionAction]) : method;
   const borderColor = cycleWarn
     ? token.colorWarning
     : errors.length > 0
@@ -1220,16 +1275,16 @@ const GraphNodeCard: React.FC<GraphNodeCardProps> = ({
         )}
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
-        {method !== '' && (
+        {lead !== '' && (
           <span
             style={{
               fontSize: 10,
               fontWeight: 600,
-              color: METHOD_COLORS[method] ?? token.colorText,
+              color: METHOD_COLORS[lead] ?? token.colorText,
               flexShrink: 0,
             }}
           >
-            {method}
+            {lead}
           </span>
         )}
         <Text type={requestMuted ? 'secondary' : undefined} ellipsis style={{ fontSize: 11, minWidth: 0 }}>
@@ -1253,7 +1308,7 @@ const GraphNodeCard: React.FC<GraphNodeCardProps> = ({
             {unknownAction}
           </span>
         )}
-        {!needsUpdate && captures.length === 0 && (
+        {!needsUpdate && !isSession && captures.length === 0 && (
           <Text type="secondary" style={{ fontSize: 10, fontStyle: 'italic' }}>
             {t('workbench.editors.live.graph.noCaptures')}
           </Text>

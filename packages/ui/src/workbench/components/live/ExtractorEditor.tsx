@@ -4,28 +4,56 @@ import { useT } from '@openheaders/ui/context/LocaleContext';
 import { Input, InputNumber, Select } from 'antd';
 import type React from 'react';
 
-// Extractor kind ids stay raw (resolver-vocab precedent); the picker
-// labels around them are keyed and resolve at render.
-const KIND_OPTIONS: {
+/**
+ * What an extractor reads: a call's response, or a session's message. A
+ * message has a payload and named fields (its topic, its QoS, …) and no
+ * status, so its picker words them so and offers no status code.
+ */
+export type ExtractorSubjectKind = 'response' | 'message';
+
+interface KindGroup {
   labelKey: MessageKey;
   options: { value: Extractor['kind']; labelKey: MessageKey }[];
-}[] = [
-  {
-    labelKey: 'workbench.editors.live.extractor.groupBody',
-    options: [
-      { value: 'whole-body', labelKey: 'workbench.editors.live.extractor.wholeBody' },
-      { value: 'json-path', labelKey: 'workbench.editors.live.extractor.jsonPath' },
-      { value: 'body-regex', labelKey: 'workbench.editors.live.extractor.regex' },
-    ],
-  },
-  {
-    labelKey: 'workbench.editors.live.extractor.groupResponse',
-    options: [
-      { value: 'header', labelKey: 'workbench.editors.live.extractor.header' },
-      { value: 'status-code', labelKey: 'workbench.editors.live.extractor.statusCode' },
-    ],
-  },
-];
+}
+
+// Extractor kind ids stay raw (resolver-vocab precedent); the picker
+// labels around them are keyed and resolve at render.
+const KIND_OPTIONS: Record<ExtractorSubjectKind, KindGroup[]> = {
+  response: [
+    {
+      labelKey: 'workbench.editors.live.extractor.groupBody',
+      options: [
+        { value: 'whole-body', labelKey: 'workbench.editors.live.extractor.wholeBody' },
+        { value: 'json-path', labelKey: 'workbench.editors.live.extractor.jsonPath' },
+        { value: 'body-regex', labelKey: 'workbench.editors.live.extractor.regex' },
+      ],
+    },
+    {
+      labelKey: 'workbench.editors.live.extractor.groupResponse',
+      options: [
+        { value: 'header', labelKey: 'workbench.editors.live.extractor.header' },
+        { value: 'status-code', labelKey: 'workbench.editors.live.extractor.statusCode' },
+      ],
+    },
+  ],
+  message: [
+    {
+      labelKey: 'workbench.editors.live.extractor.groupPayload',
+      options: [
+        { value: 'whole-body', labelKey: 'workbench.editors.live.extractor.wholePayload' },
+        { value: 'json-path', labelKey: 'workbench.editors.live.extractor.jsonPath' },
+        { value: 'body-regex', labelKey: 'workbench.editors.live.extractor.regex' },
+      ],
+    },
+    {
+      labelKey: 'workbench.editors.live.extractor.groupMessage',
+      options: [{ value: 'header', labelKey: 'workbench.editors.live.extractor.field' }],
+    },
+  ],
+};
+
+// Field-name examples shown in the name placeholder — raw by design.
+const NAME_EXAMPLE: Record<ExtractorSubjectKind, string> = { response: 'X-Auth-Token', message: 'topic' };
 
 export function defaultExtractorFor(kind: Extractor['kind']): Extractor {
   switch (kind) {
@@ -46,9 +74,11 @@ interface Props {
   value: Extractor;
   onChange: (next: Extractor) => void;
   compact?: boolean;
+  /** What is read. Absent = a call's response. */
+  subject?: ExtractorSubjectKind;
 }
 
-const ExtractorEditor: React.FC<Props> = ({ value, onChange, compact }) => {
+const ExtractorEditor: React.FC<Props> = ({ value, onChange, compact, subject = 'response' }) => {
   const t = useT();
   const size = compact ? 'small' : 'middle';
   return (
@@ -57,7 +87,7 @@ const ExtractorEditor: React.FC<Props> = ({ value, onChange, compact }) => {
         size={size}
         style={{ width: 220, flexShrink: 0 }}
         value={value.kind}
-        options={KIND_OPTIONS.map((group) => ({
+        options={KIND_OPTIONS[subject].map((group) => ({
           label: t(group.labelKey),
           options: group.options.map((o) => ({ value: o.value, label: t(o.labelKey) })),
         }))}
@@ -76,7 +106,7 @@ const ExtractorEditor: React.FC<Props> = ({ value, onChange, compact }) => {
         <Input
           size={size}
           style={{ flex: 1, minWidth: 160 }}
-          placeholder="X-Auth-Token"
+          placeholder={NAME_EXAMPLE[subject]}
           value={value.name}
           onChange={(e) => onChange({ kind: 'header', name: e.target.value })}
         />

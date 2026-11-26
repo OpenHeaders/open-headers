@@ -76,6 +76,21 @@ export function scanTemplateReferences(template: string): TemplateScanResult {
 }
 
 /**
+ * Rewrite a template's `{{step.<id>.<capture>}}` references: each is
+ * handed to `rewrite` and replaced where it answers another reference.
+ * Every other character of the template is kept as written.
+ */
+export function rewriteStepReferences(template: string, rewrite: (ref: StepRef) => StepRef | null): string {
+  return template.replace(TEMPLATE_REGEX, (token: string, inner: string) => {
+    const parsed = parseReference(inner);
+    if (!parsed.ok || parsed.ref.namespace !== 'step') return token;
+    const ref = parseStepRefName(parsed.ref.name);
+    const next = ref === null ? null : rewrite(ref);
+    return next === null ? token : `{{step.${next.stepId}.${next.captureName}}}`;
+  });
+}
+
+/**
  * Aggregate {@link scanTemplateReferences} across multiple templates
  * (e.g. every URL + header + body inside a single request). The
  * dedupe semantics apply across the full batch.

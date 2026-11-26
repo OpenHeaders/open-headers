@@ -16,7 +16,12 @@ import { isExpectStep, isKnownStep, isListenStep, isSendStep, isSessionStep } fr
 import { validateWorkflowShape } from '../../src/live/step-validation';
 import { isRunnableWorkflow, isUnknownStep } from '../../src/live/unknown-step';
 import { workflowDefinitionFingerprint } from '../../src/live/workflow-scan';
-import { isWorkflowComplete, workflowNeedsUpdate } from '../../src/live/workflow-state';
+import {
+  isWorkflowComplete,
+  isWorkflowEffective,
+  workflowHoldsSession,
+  workflowNeedsUpdate,
+} from '../../src/live/workflow-state';
 import { mergePatch } from '../../src/schemas/document';
 import { LiveWorkflowSchema, MAX_POLL_ATTEMPTS, MIN_POLL_DELAY_MS, StepPollSchema } from '../../src/schemas/live';
 import type { LiveWorkflow } from '../../src/types/live';
@@ -149,9 +154,33 @@ describe('the predicates', () => {
   it('leave a session step unknown to a reader that knows only calls', () => {
     const workflow = scenario();
     expect(workflow.steps.map(isUnknownStep)).toEqual([true, false, true]);
-    expect(workflowNeedsUpdate(workflow)).toBe(true);
-    expect(isWorkflowComplete(workflow)).toBe(false);
     expect(isRunnableWorkflow(workflow)).toBe(false);
+  });
+
+  it('read a workflow of session steps as complete, needing no update — and never effective', () => {
+    const workflow = scenario();
+    expect(workflowNeedsUpdate(workflow)).toBe(false);
+    expect(isWorkflowComplete(workflow)).toBe(true);
+    expect(workflowHoldsSession(workflow)).toBe(true);
+    expect(isWorkflowEffective(workflow)).toBe(false);
+    expect(workflowHoldsSession(scenario([CALL]))).toBe(false);
+    expect(isWorkflowEffective(scenario([CALL]))).toBe(true);
+  });
+
+  it('read it as incomplete while a listen has no request, or a rule of the model is broken', () => {
+    const workflow = scenario();
+    const [listen, call, expected] = workflow.steps;
+    const unpicked = { ...workflow, steps: [{ ...listen, sessionRequestUid: '' }, call, expected] };
+    expect(isWorkflowComplete(unpicked)).toBe(false);
+    expect(workflowNeedsUpdate(unpicked)).toBe(false);
+    expect(isWorkflowComplete(scenario(undefined, { refresh: { kind: 'interval', seconds: 60 } }))).toBe(false);
+    expect(isWorkflowComplete(scenario([LISTEN, CALL, { ...EXPECT, on: 'reboot' }]))).toBe(false);
+  });
+
+  it('say a workflow needs an update only for an action the model does not know', () => {
+    const future = scenario([LISTEN, { uid: 'stpclose', id: 'hangup', action: 'close', on: 'probe' }]);
+    expect(workflowNeedsUpdate(future)).toBe(true);
+    expect(isWorkflowComplete(future)).toBe(false);
   });
 
   it('read a session step’s own dependencies', () => {

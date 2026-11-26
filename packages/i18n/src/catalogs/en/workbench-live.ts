@@ -205,8 +205,7 @@ export const workbenchLive = {
   'workbench.editors.live.workflow.notFound': 'Workflow not found.',
   'workbench.editors.live.workflow.needsUpdate':
     'This workflow has steps that need a newer version of OpenHeaders. Update to edit or run it.',
-  'workbench.editors.live.workflow.sessionStepsReadOnly':
-    'This workflow has session steps. It runs here; its steps cannot be edited in this version.',
+  'workbench.editors.live.workflow.sessionRunsElsewhere': 'A workflow with session steps runs in the {surface} tab.',
   'workbench.editors.live.workflow.deletedElsewhere': 'Workflow was deleted from another tab',
   'workbench.editors.live.workflow.saveFailed': 'Failed to save workflow',
   'workbench.editors.live.workflow.createFailed': 'Failed to create workflow',
@@ -227,15 +226,16 @@ export const workbenchLive = {
   'workbench.editors.live.form.parallelTooltip':
     'Sequential only in v1. Parallel execution coming in a future release.',
   'workbench.editors.live.form.refreshPolicySection': 'Refresh policy',
+  'workbench.editors.live.form.sessionPolicyInfo': 'A workflow with session steps runs when you press Refresh.',
+  'workbench.editors.live.form.sessionNoLiveVariables':
+    'A workflow with session steps gives a verdict; its captures are not exposed as live variables.',
 
   // ── Workflow step editor ────────────────────────────────────────────
   'workbench.editors.live.step.title': 'Step {number}',
   'workbench.editors.live.step.needsUpdate': 'This step needs a newer version of OpenHeaders.',
-  'workbench.editors.live.step.runsHereReadOnly': 'This step runs here; it cannot be edited in this version.',
   'workbench.editors.live.step.idPrefix': 'id',
   'workbench.editors.live.step.namePrefix': 'name',
   'workbench.editors.live.step.typeTooltip': 'Step type — Foreach and Composite coming in a future release.',
-  'workbench.editors.live.step.typeRequest': 'Request',
   'workbench.editors.live.step.typeForeach': 'Foreach',
   'workbench.editors.live.step.typeComposite': 'Composite',
   'workbench.editors.live.step.runsIfTag': ({ count }, locale) =>
@@ -246,6 +246,18 @@ export const workbenchLive = {
   'workbench.editors.live.step.priorityTag': 'priority: {ref}',
   'workbench.editors.live.step.scriptsTag': 'scripts',
   'workbench.editors.live.step.selectRequest': 'Select a request',
+  'workbench.editors.live.step.selectSessionRequest': 'Select an MQTT request',
+  'workbench.editors.live.step.readyWithin': 'ready within',
+  'workbench.editors.live.step.sessionScriptsLabel': "Run the request's scripts",
+  'workbench.editors.live.step.identityTitle': 'Session identity',
+  'workbench.editors.live.step.identityInfo':
+    'The session connects as its MQTT request is set to. Change it on the request.',
+  'workbench.editors.live.step.onPrefix': 'on',
+  'workbench.editors.live.step.selectMessage': 'Select a saved message',
+  'workbench.editors.live.step.afterPrefix': 'after',
+  'workbench.editors.live.step.within': 'within',
+  'workbench.editors.live.step.includeStored': 'Include stored messages',
+  'workbench.editors.live.step.matchHeader': 'MATCH ({count})',
   'workbench.editors.live.step.descriptionPlaceholder': 'Optional step description',
   'workbench.editors.live.step.capturesHeader': 'CAPTURES ({count})',
   'workbench.editors.live.step.addCapture': '+ Capture',
@@ -306,6 +318,7 @@ export const workbenchLive = {
     'Per attempt — the request (including the body read) aborts past this ceiling. A retrying step gets the full timeout on every attempt. Clear the field for no ceiling.',
   'workbench.editors.live.sections.successCriteria': 'Success criteria',
   'workbench.editors.live.criteria.noneForCall': 'No criteria — any response that arrives passes.',
+  'workbench.editors.live.criteria.noneForExpect': 'No rows — the first message that lands matches.',
   'workbench.editors.live.criteria.kindExists': 'Exists',
   'workbench.editors.live.criteria.kindEquals': 'Equals',
   'workbench.editors.live.criteria.kindMatches': 'Matches',
@@ -455,4 +468,8 @@ export const workbenchLive = {
   'workbench.editors.live.extractor.regex': 'Regex',
   'workbench.editors.live.extractor.header': 'Header',
   'workbench.editors.live.extractor.statusCode': 'Status code',
+  'workbench.editors.live.extractor.groupPayload': 'Message payload',
+  'workbench.editors.live.extractor.wholePayload': 'Whole payload',
+  'workbench.editors.live.extractor.groupMessage': 'Message',
+  'workbench.editors.live.extractor.field': 'Field',
 } as const satisfies Catalog;

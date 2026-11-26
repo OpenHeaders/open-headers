@@ -1,4 +1,5 @@
 import { callStepsOf, type DraftWorkflow } from '@openheaders/core/live';
+import type { ExpectWorkflowStep } from '@openheaders/core/types';
 import { rebindCaptureReferences } from '@openheaders/ui/workbench/components/live/rebind-capture-references';
 import { describe, expect, it } from 'vitest';
 
@@ -118,5 +119,42 @@ describe('rebindCaptureReferences', () => {
     });
     const out = rebindCaptureReferences({ draft, ownerStepId: 'login', oldName: 'unrelated', newName: 'whatever' });
     expect(out).toBe(draft);
+  });
+
+  it('follows a renamed capture into an expect’s topic filter and a criterion’s value', () => {
+    const expectStep: ExpectWorkflowStep = {
+      uid: 'stpexpct',
+      id: 'status',
+      action: 'expect',
+      on: 'probe',
+      after: 'reboot',
+      address: 'devices/{{step.reboot.id}}/status',
+      match: [
+        {
+          kind: 'equals',
+          uid: 'crtcmd00',
+          extractor: { kind: 'json-path', path: '$.commandId' },
+          value: '{{step.reboot.id}}',
+        },
+        {
+          kind: 'equals',
+          uid: 'crtname0',
+          extractor: { kind: 'json-path', path: '$.name' },
+          value: '{{step.probe.id}}',
+        },
+      ],
+      timeoutMs: 10_000,
+      captures: [],
+    };
+    const draft = makeDraft({
+      steps: [{ uid: 'stpcall0', id: 'reboot', requestUid: 'httpreq1', captures: [] }, expectStep],
+    });
+    const out = rebindCaptureReferences({ draft, ownerStepId: 'reboot', oldName: 'id', newName: 'commandId' });
+    expect(out.steps[1]).toEqual({
+      ...expectStep,
+      address: 'devices/{{step.reboot.commandId}}/status',
+      match: [{ ...expectStep.match[0], value: '{{step.reboot.commandId}}' }, expectStep.match[1]],
+    });
+    expect(out.steps[0]).toBe(draft.steps[0]);
   });
 });

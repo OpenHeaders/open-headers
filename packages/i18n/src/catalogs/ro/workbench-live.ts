@@ -237,8 +237,8 @@ export const workbenchLive = {
   'workbench.editors.live.workflow.notFound': 'Fluxul de lucru nu a fost găsit.',
   'workbench.editors.live.workflow.needsUpdate':
     'Acest flux de lucru are pași care necesită o versiune mai nouă de OpenHeaders. Actualizați pentru a-l edita sau rula.',
-  'workbench.editors.live.workflow.sessionStepsReadOnly':
-    'Acest flux de lucru are pași de sesiune. Rulează aici; pașii săi nu pot fi editați în această versiune.',
+  'workbench.editors.live.workflow.sessionRunsElsewhere':
+    'Un flux de lucru cu pași de sesiune rulează în fila „{surface}”.',
   'workbench.editors.live.workflow.deletedElsewhere': 'Fluxul de lucru a fost șters din altă filă',
   'workbench.editors.live.workflow.saveFailed': 'Salvarea fluxului de lucru a eșuat',
   'workbench.editors.live.workflow.createFailed': 'Crearea fluxului de lucru a eșuat',
@@ -260,15 +260,17 @@ export const workbenchLive = {
   'workbench.editors.live.form.parallelTooltip':
     'Doar secvențial în v1. Execuția paralelă va veni într-o versiune viitoare.',
   'workbench.editors.live.form.refreshPolicySection': 'Politică de reîmprospătare',
+  'workbench.editors.live.form.sessionPolicyInfo':
+    'Un flux de lucru cu pași de sesiune rulează când apăsați Reîmprospătare.',
+  'workbench.editors.live.form.sessionNoLiveVariables':
+    'Un flux de lucru cu pași de sesiune dă un verdict; capturile sale nu sunt expuse ca variabile Live.',
 
   // ── Workflow step editor ────────────────────────────────────────────
   'workbench.editors.live.step.title': 'Pasul {number}',
   'workbench.editors.live.step.needsUpdate': 'Acest pas necesită o versiune mai nouă de OpenHeaders.',
-  'workbench.editors.live.step.runsHereReadOnly': 'Acest pas rulează aici; nu poate fi editat în această versiune.',
   'workbench.editors.live.step.idPrefix': 'id',
   'workbench.editors.live.step.namePrefix': 'nume',
   'workbench.editors.live.step.typeTooltip': 'Tipul pasului — Foreach și Composite vor veni într-o versiune viitoare.',
-  'workbench.editors.live.step.typeRequest': 'Cerere',
   'workbench.editors.live.step.typeForeach': 'Foreach',
   'workbench.editors.live.step.typeComposite': 'Composite',
   'workbench.editors.live.step.runsIfTag': ({ count }, locale) =>
@@ -280,6 +282,18 @@ export const workbenchLive = {
   'workbench.editors.live.step.priorityTag': 'prioritate: {ref}',
   'workbench.editors.live.step.scriptsTag': 'scripturi',
   'workbench.editors.live.step.selectRequest': 'Selectați o cerere',
+  'workbench.editors.live.step.selectSessionRequest': 'Selectați o cerere MQTT',
+  'workbench.editors.live.step.readyWithin': 'gata în',
+  'workbench.editors.live.step.sessionScriptsLabel': 'Rulare scripturi ale cererii',
+  'workbench.editors.live.step.identityTitle': 'Identitatea sesiunii',
+  'workbench.editors.live.step.identityInfo':
+    'Sesiunea se conectează așa cum este setată cererea ei MQTT. Modificați pe cerere.',
+  'workbench.editors.live.step.onPrefix': 'pe',
+  'workbench.editors.live.step.selectMessage': 'Selectați un mesaj salvat',
+  'workbench.editors.live.step.afterPrefix': 'după',
+  'workbench.editors.live.step.within': 'în',
+  'workbench.editors.live.step.includeStored': 'Include mesajele stocate',
+  'workbench.editors.live.step.matchHeader': 'POTRIVIRE ({count})',
   'workbench.editors.live.step.descriptionPlaceholder': 'Descriere pas (opțional)',
   'workbench.editors.live.step.capturesHeader': 'CAPTURI ({count})',
   'workbench.editors.live.step.addCapture': '+ Captură',
@@ -343,6 +357,7 @@ export const workbenchLive = {
     'Per încercare — cererea (inclusiv citirea corpului) se abandonează după acest plafon. Un pas cu reîncercări primește întregul timp de așteptare la fiecare încercare. Goliți câmpul pentru a nu avea plafon.',
   'workbench.editors.live.sections.successCriteria': 'Criterii de succes',
   'workbench.editors.live.criteria.noneForCall': 'Niciun criteriu — orice răspuns primit trece.',
+  'workbench.editors.live.criteria.noneForExpect': 'Niciun rând — primul mesaj sosit se potrivește.',
   'workbench.editors.live.criteria.kindExists': 'Există',
   'workbench.editors.live.criteria.kindEquals': 'Este egal cu',
   'workbench.editors.live.criteria.kindMatches': 'Se potrivește cu',
@@ -499,4 +514,8 @@ export const workbenchLive = {
   'workbench.editors.live.extractor.regex': 'Expresie regulată',
   'workbench.editors.live.extractor.header': 'Antet',
   'workbench.editors.live.extractor.statusCode': 'Cod de stare',
+  'workbench.editors.live.extractor.groupPayload': 'Conținut util mesaj',
+  'workbench.editors.live.extractor.wholePayload': 'Întregul conținut util',
+  'workbench.editors.live.extractor.groupMessage': 'Mesaj',
+  'workbench.editors.live.extractor.field': 'Câmp',
 } as const satisfies Catalog;

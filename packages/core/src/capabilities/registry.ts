@@ -1037,13 +1037,23 @@ export interface Capabilities {
    * Registered by the desktop app, whose main process opens the
    * session, and by the extension's workbench page and the signed-in
    * web tab, which run such a workflow themselves; the extension's
-   * other surfaces leave it absent and read such a workflow as one that
-   * needs a newer version, until their own slice. Where it is present a
-   * workflow whose every step is of an action the model knows is run on
-   * a press and shown in the Run view; its steps are still not edited
-   * here. Presence is the whole signal.
+   * other surfaces leave it absent. Every surface edits a session step;
+   * where this is present a workflow that holds one is run on a press
+   * and shown in the Run view, and where it is absent its Refresh is off
+   * with an (i) that names the surface that runs it. Presence is the
+   * whole signal.
    */
   workflowSessionSteps?: () => boolean;
+
+  /**
+   * Declares that this surface offers Listen, Send and Expect in a
+   * step's type selector (the workflow runs plan, Decisions log, S16):
+   * a build opts in, and one that does not leaves it absent — no release
+   * authors a session step until every released build reads one. A
+   * session step that exists is edited whether or not this is present.
+   * Presence is the whole signal.
+   */
+  workflowSessionAuthoring?: () => boolean;
 
   /**
    * Declares that this surface's own page runs a workflow that holds a

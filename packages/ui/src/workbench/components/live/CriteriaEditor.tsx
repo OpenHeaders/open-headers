@@ -1,7 +1,8 @@
 /**
- * CriteriaEditor — the rows a response is held to (the workflow runs
- * plan, The model): a status match, or an extractor with a comparison —
- * exists, equals a value, matches a pattern. Every row must hold.
+ * CriteriaEditor — the rows a response or a message is held to (the
+ * workflow runs plan, The model): a status match, or an extractor with a
+ * comparison — exists, equals a value, matches a pattern. Every row must
+ * hold. A message has no status, so its rows offer none.
  *
  * Pure controlled component — owns no state. An empty list is the
  * owner's "no criteria" state; `emptyText` says what that means there.
@@ -17,7 +18,7 @@ import type { MessageKey } from '@openheaders/i18n';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { Button, Input, Select, Tooltip, theme } from 'antd';
 import type React from 'react';
-import ExtractorEditor, { defaultExtractorFor } from './ExtractorEditor';
+import ExtractorEditor, { defaultExtractorFor, type ExtractorSubjectKind } from './ExtractorEditor';
 import { StatusMatchControls } from './StepGateEditor';
 
 // Regex format example shown in the pattern placeholder — raw by design.
@@ -29,6 +30,14 @@ const KIND_OPTIONS: { value: Criterion['kind']; labelKey: MessageKey }[] = [
   { value: 'equals', labelKey: 'workbench.editors.live.criteria.kindEquals' },
   { value: 'matches', labelKey: 'workbench.editors.live.criteria.kindMatches' },
 ];
+
+/** The row a press on Add starts as: a status for a response, the first comparison for a message, which has none. */
+function seedCriterion(subject: ExtractorSubjectKind): Criterion {
+  const uid = generateUid();
+  return subject === 'response'
+    ? { kind: 'status', uid, match: '2xx' }
+    : { kind: 'exists', uid, extractor: defaultExtractorFor('json-path') };
+}
 
 /** The same row under another comparison: its extractor is kept where both have one. */
 function withKind(criterion: Criterion, kind: Criterion['kind']): Criterion {
@@ -49,11 +58,21 @@ interface CriteriaEditorProps {
   errors?: readonly StructuralError[];
   /** Prefix of the rows' test ids. */
   testId: string;
+  /** What the rows are held against. Absent = a call's response; a message has no status row. */
+  subject?: ExtractorSubjectKind;
 }
 
-const CriteriaEditor: React.FC<CriteriaEditorProps> = ({ value, onChange, emptyText, errors = [], testId }) => {
+const CriteriaEditor: React.FC<CriteriaEditorProps> = ({
+  value,
+  onChange,
+  emptyText,
+  errors = [],
+  testId,
+  subject = 'response',
+}) => {
   const { token } = theme.useToken();
   const t = useT();
+  const kindOptions = subject === 'response' ? KIND_OPTIONS : KIND_OPTIONS.filter((option) => option.value !== 'status');
 
   const update = (index: number, next: Criterion) => onChange(value.map((each, i) => (i === index ? next : each)));
 
@@ -82,7 +101,7 @@ const CriteriaEditor: React.FC<CriteriaEditorProps> = ({ value, onChange, emptyT
               style={{ width: 110, flexShrink: 0 }}
               data-testid={`${testId}-${index}-kind`}
               value={criterion.kind}
-              options={KIND_OPTIONS.map((option) => ({ value: option.value, label: t(option.labelKey) }))}
+              options={kindOptions.map((option) => ({ value: option.value, label: t(option.labelKey) }))}
               onChange={(kind) => update(index, withKind(criterion, kind))}
             />
             {criterion.kind === 'status' ? (
@@ -90,6 +109,7 @@ const CriteriaEditor: React.FC<CriteriaEditorProps> = ({ value, onChange, emptyT
             ) : (
               <ExtractorEditor
                 compact
+                subject={subject}
                 value={criterion.extractor}
                 onChange={(extractor) => update(index, { ...criterion, extractor })}
               />
@@ -133,7 +153,7 @@ const CriteriaEditor: React.FC<CriteriaEditorProps> = ({ value, onChange, emptyT
           type="dashed"
           size="small"
           icon={<PlusOutlined />}
-          onClick={() => onChange([...value, { kind: 'status', uid: generateUid(), match: '2xx' }])}
+          onClick={() => onChange([...value, seedCriterion(subject)])}
           style={{ fontSize: 12 }}
           data-testid={`${testId}-add`}
         >

@@ -1,8 +1,8 @@
 /**
- * Collapse sections for {@link WorkflowStepEditor} — Depends on,
- * Run condition, Priority, Retry policy, Timeout, Success criteria,
- * Poll, and Scripts.
- * Pure factory rebuilt every render (as the inline array
+ * Collapse sections for {@link WorkflowStepEditor}: the ones every step
+ * has — Depends on, Run condition, Priority — and a call's own — Retry
+ * policy, Timeout, Success criteria, Poll, and Scripts.
+ * Pure factories rebuilt every render (as the inline array
  * was) so state and handlers stay current — no memoization is required
  * because no renderer closes over a value that must be referentially
  * stable.
@@ -44,7 +44,7 @@ const { Text } = Typography;
 /** The wait a poll starts with when its attempts are first set — the editor's seed; the step stores its own. */
 const SEED_POLL_DELAY_MS = 1_000;
 
-export interface WorkflowStepSectionsOptions {
+export interface SharedStepSectionsOptions {
   token: GlobalToken;
   t: Translate;
   index: number;
@@ -60,6 +60,18 @@ export interface WorkflowStepSectionsOptions {
   priority: PriorityRef | undefined;
   priorityStepOptions: { value: string; label: string }[];
   priorityCaptureOptions: { value: string; label: string }[];
+  /** The form is read-only — a control that sets its own `disabled` stays off whatever its own condition says. */
+  readOnly: boolean;
+  handleDependsOnChange: (next: string[]) => void;
+  clearExplicitDependsOn: () => void;
+  handleRunIfChange: (next: StepGate | undefined) => void;
+  setPriority: (next: PriorityRef | undefined) => void;
+}
+
+export interface CallStepSectionsOptions {
+  token: GlobalToken;
+  t: Translate;
+  index: number;
   retry: StepRetryPolicy | undefined;
   timeoutMs: number | undefined;
   successCriteria: Criterion[] | undefined;
@@ -70,10 +82,6 @@ export interface WorkflowStepSectionsOptions {
   runScripts: boolean | undefined;
   /** The form is read-only — a control that sets its own `disabled` stays off whatever its own condition says. */
   readOnly: boolean;
-  handleDependsOnChange: (next: string[]) => void;
-  clearExplicitDependsOn: () => void;
-  handleRunIfChange: (next: StepGate | undefined) => void;
-  setPriority: (next: PriorityRef | undefined) => void;
   setRetry: (next: StepRetryPolicy | undefined) => void;
   setTimeoutMs: (next: number | undefined) => void;
   setSuccessCriteria: (next: Criterion[]) => void;
@@ -107,7 +115,8 @@ function decodeRetryOn(choice: RetryOnChoice): StatusMatch | undefined {
   }
 }
 
-export function buildWorkflowStepSections({
+/** The sections every step has, whatever its action. */
+export function buildSharedStepSections({
   token,
   t,
   index,
@@ -123,26 +132,12 @@ export function buildWorkflowStepSections({
   priority,
   priorityStepOptions,
   priorityCaptureOptions,
-  retry,
-  timeoutMs,
-  successCriteria,
-  criteriaErrors,
-  poll,
-  pollError,
-  runScripts,
   readOnly,
   handleDependsOnChange,
   clearExplicitDependsOn,
   handleRunIfChange,
   setPriority,
-  setRetry,
-  setTimeoutMs,
-  setSuccessCriteria,
-  setPoll,
-  setRunScripts,
-}: WorkflowStepSectionsOptions): CollapseProps['items'] {
-  const retryOnChoice = encodeRetryOn(retry?.retryOn);
-  const criteriaCount = successCriteria?.length ?? 0;
+}: SharedStepSectionsOptions): NonNullable<CollapseProps['items']> {
   return [
     {
       key: 'deps',
@@ -321,6 +316,31 @@ export function buildWorkflowStepSections({
         </div>
       ),
     },
+  ];
+}
+
+/** A call's own sections: how it is sent, and what its response is held to. */
+export function buildCallStepSections({
+  token,
+  t,
+  index,
+  retry,
+  timeoutMs,
+  successCriteria,
+  criteriaErrors,
+  poll,
+  pollError,
+  runScripts,
+  readOnly,
+  setRetry,
+  setTimeoutMs,
+  setSuccessCriteria,
+  setPoll,
+  setRunScripts,
+}: CallStepSectionsOptions): NonNullable<CollapseProps['items']> {
+  const retryOnChoice = encodeRetryOn(retry?.retryOn);
+  const criteriaCount = successCriteria?.length ?? 0;
+  return [
     {
       key: 'retry',
       label: (

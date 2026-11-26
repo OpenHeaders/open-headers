@@ -1,41 +1,66 @@
 /**
- * WorkflowStepEditor — draft-level editor for a single call step (a
- * step this build does not know has its own card, `UnknownStepCard`).
+ * WorkflowStepEditor — draft-level editor for a single step of an action
+ * the model knows: a call, or a `listen`, a `send` or an `expect` on a
+ * session (a step of any other action has its own card,
+ * `UnknownStepCard`).
  *
  * Used inside `LiveWorkflowEditor` (once per step). The step-id chip is
  * editable because `{{step.<id>.<capture>}}` references are stable
  * identifiers users might reference from later steps.
  *
- * Phase I surface (all optional — the editor degrades gracefully when
- * the parent doesn't wire them through):
- *   - `dependsOn` multi-select: picks ancestor steps by id.
- *   - `runIf` gate section (`StepGateEditor`).
- *   - `priorityFrom` row (step + capture + sort).
- *   - `retry` policy row (attempts + delay + backoff + retry-on) and
- *     `timeoutMs` row (per-attempt ceiling).
- *   - `runScripts` toggle — opt the step into running its request's
- *     pre/post scripts under the strict chain contract.
- *   - Disabled step-type selector (Request / Foreach / Composite) — the
- *     remaining show-but-disable catalog entry, with a tooltip naming
- *     the future capability.
+ * The card is a shell every action shares — its id, its type selector,
+ * its place among the steps, the sections `Depends on`, `Run condition`
+ * and `Priority`, and a foot for an issue no field owns — around the
+ * fields of the step's own action:
+ *   - a call: `CallStepFields`, and the sections `Retry policy`,
+ *     `Timeout`, `Success criteria`, `Poll` and `Scripts`;
+ *   - a session step: `SessionStepFields`.
+ *
+ * The type selector is the action (the workflow runs plan, Decisions
+ * log, S16). Foreach and Composite stay the show-but-disable catalog
+ * entry, with a tooltip naming the future capability.
  */
 
-import { DeleteOutlined, DownOutlined, InfoCircleOutlined, UpOutlined } from '@ant-design/icons';
-import type { DraftCallStep, DraftCapture, StructuralError, StructuralIssue } from '@openheaders/core/live';
-import { newDraftCapture } from '@openheaders/core/live';
-import type { Criterion, PriorityRef, StepGate, StepPoll, StepRetryPolicy } from '@openheaders/core/types';
-import { useT } from '@openheaders/ui/context/LocaleContext';
+import { DeleteOutlined, DownOutlined, UpOutlined } from '@ant-design/icons';
+import {
+  type DraftCallStep,
+  type DraftKnownStep,
+  type DraftStep,
+  isExpectStep,
+  isListenStep,
+  isSendStep,
+  isSessionStep,
+  type StructuralError,
+  type StructuralIssue,
+} from '@openheaders/core/live';
+import type { Criterion, MqttRequest, PriorityRef, StepGate, StepPoll, StepRetryPolicy } from '@openheaders/core/types';
+import type { MessageKey } from '@openheaders/i18n';
+import { type Translate, useT } from '@openheaders/ui/context/LocaleContext';
+import { LIVE_WORKFLOW_FIELD } from '@openheaders/ui/shared/awareness/live-paths';
 import { noteFeatureUsed } from '@openheaders/ui/shared/product-telemetry';
-import { Button, Collapse, ConfigProvider, Input, Select, Space, Switch, Tag, Tooltip, Typography, theme } from 'antd';
+import {
+  Button,
+  Collapse,
+  type CollapseProps,
+  ConfigProvider,
+  Input,
+  Select,
+  Space,
+  Tag,
+  Tooltip,
+  Typography,
+  theme,
+} from 'antd';
+import type { GlobalToken } from 'antd/es/theme/interface';
 import type React from 'react';
 import { useMemo } from 'react';
-import { scopeBadge } from '../shared/scope-colors';
+import CallStepFields from './CallStepFields';
 import type { DependencyRow } from './dependencies-view';
-import ExtractorEditor from './ExtractorEditor';
-import { LIVE_WORKFLOW_FIELD } from '@openheaders/ui/shared/awareness/live-paths';
+import { ExpectStepFields, ListenStepFields, SendStepFields } from './SessionStepFields';
+import { STEP_ACTIONS, type StepAction, stepActionOf } from './step-action';
 import { useScrollCardIntoView } from './use-scroll-card-into-view';
-import { buildRequestPickerOptions, type StepRequestChoice } from './workflow-step-request-options';
-import { buildWorkflowStepSections } from './workflow-step-sections';
+import type { StepRequestChoice } from './workflow-step-request-options';
+import { buildCallStepSections, buildSharedStepSections } from './workflow-step-sections';
 
 const { Text } = Typography;
 
@@ -55,15 +80,33 @@ const FIELD_OWNED_ISSUES: ReadonlySet<StructuralIssue> = new Set([
   'criterion-invalid-regex',
   'poll-without-criteria',
   'poll-exceeds-limit',
+  'listen-request-missing',
+  'session-step-unknown-listen',
+  'session-step-unreachable-listen',
+  'send-without-message',
+  'expect-unknown-trigger',
+  'expect-unreachable-trigger',
+  'expect-unarmed-trigger',
+  'expect-address-reads-trigger',
 ]);
 
+/** The selector's word for each action — the Run view's own. */
+const ACTION_LABEL: Record<StepAction, MessageKey> = {
+  call: 'workbench.editors.live.run.action.call',
+  listen: 'workbench.editors.live.run.action.listen',
+  send: 'workbench.editors.live.run.action.send',
+  expect: 'workbench.editors.live.run.action.expect',
+};
+
 interface Props {
-  step: DraftCallStep;
+  step: DraftKnownStep;
   index: number;
   totalSteps: number;
-  /** Requests the step's Request picker can choose from. */
+  /** Requests a call's Request picker can choose from. */
   availableRequests: StepRequestChoice[];
-  onChange: (next: DraftCallStep) => void;
+  onChange: (next: DraftKnownStep) => void;
+  /** The type selector picked another action — the owner rebuilds the step under it. */
+  onActionChange?: (action: StepAction) => void;
   onRemove?: () => void;
   onMoveUp?: () => void;
   onMoveDown?: () => void;
@@ -80,6 +123,17 @@ interface Props {
   errors?: StructuralError[];
   /** Layout metadata (indent + effective parents) from `buildDependencyRows`. */
   dependencyRow?: DependencyRow;
+  // ── Session context (the workflow runs plan, Decisions log, S16) ──
+  /** The draft's steps in order — the listens a step can be on, the steps an expect can wait after. */
+  steps?: readonly DraftStep[];
+  /** The workspace's MQTT requests — what a listen opens, and whose saved messages a send picks from. */
+  mqttRequests?: readonly MqttRequest[];
+  /** The MQTT requests as the request picker shows them. */
+  sessionRequests?: StepRequestChoice[];
+  /** The selector offers Listen, Send and Expect. A step that already is one keeps its own. */
+  sessionAuthoring?: boolean;
+  /** The workflow publishes live variables — a call's captures carry the exposure row. */
+  exposable?: boolean;
   // ── Selection sync (graph↔form, the workflow-graph plan §6.2) ─────
   /** This step is the editor's selected step — accent highlight. */
   selected?: boolean;
@@ -91,12 +145,96 @@ interface Props {
   onScrollDone?: () => void;
 }
 
+/** A call's own sections, with the setters that write each back onto the step. */
+function callSectionsOf(
+  step: DraftCallStep,
+  onChange: (next: DraftCallStep) => void,
+  context: { token: GlobalToken; t: Translate; index: number; errors: StructuralError[]; readOnly: boolean },
+): NonNullable<CollapseProps['items']> {
+  const setRetry = (next: StepRetryPolicy | undefined) => {
+    const nextStep = { ...step };
+    if (next === undefined) {
+      delete nextStep.retry;
+    } else {
+      nextStep.retry = next;
+    }
+    onChange(nextStep);
+  };
+
+  const setTimeoutMs = (next: number | undefined) => {
+    const nextStep = { ...step };
+    if (next === undefined) {
+      delete nextStep.timeoutMs;
+    } else {
+      nextStep.timeoutMs = next;
+    }
+    onChange(nextStep);
+  };
+
+  // An emptied list deletes the field: absent is "any response that
+  // arrived passes", and an empty array would say the same twice.
+  const setSuccessCriteria = (next: Criterion[]) => {
+    const nextStep = { ...step };
+    if (next.length === 0) {
+      delete nextStep.successCriteria;
+    } else {
+      nextStep.successCriteria = next;
+    }
+    onChange(nextStep);
+  };
+
+  const setPoll = (next: StepPoll | undefined) => {
+    const nextStep = { ...step };
+    if (next === undefined) {
+      delete nextStep.poll;
+    } else {
+      nextStep.poll = next;
+    }
+    onChange(nextStep);
+  };
+
+  // Off deletes the field rather than persisting `false` — absent is
+  // the canonical "no scripts" state (schema default, cleaner YAML).
+  const setRunScripts = (next: boolean | undefined) => {
+    // Step scripts ship default-off, so switching them on is the
+    // feature's first meaningful use (S17 product telemetry).
+    if (next === true) noteFeatureUsed('workflow-scripts');
+    const nextStep = { ...step };
+    if (next === undefined) {
+      delete nextStep.runScripts;
+    } else {
+      nextStep.runScripts = next;
+    }
+    onChange(nextStep);
+  };
+
+  return buildCallStepSections({
+    token: context.token,
+    t: context.t,
+    index: context.index,
+    retry: step.retry,
+    timeoutMs: step.timeoutMs,
+    successCriteria: step.successCriteria,
+    criteriaErrors: context.errors.filter((e) => e.issue === 'criterion-invalid-regex'),
+    poll: step.poll,
+    pollError: context.errors.find((e) => e.issue === 'poll-without-criteria' || e.issue === 'poll-exceeds-limit'),
+    runScripts: step.runScripts,
+    readOnly: context.readOnly,
+    setRetry,
+    setTimeoutMs,
+    setSuccessCriteria,
+    setPoll,
+    setRunScripts,
+  });
+}
+
 const WorkflowStepEditor: React.FC<Props> = ({
   step,
   index,
   totalSteps,
   availableRequests,
   onChange,
+  onActionChange,
   onRemove,
   onMoveUp,
   onMoveDown,
@@ -106,6 +244,11 @@ const WorkflowStepEditor: React.FC<Props> = ({
   capturesByStepId = new Map(),
   errors = [],
   dependencyRow,
+  steps = [],
+  mqttRequests = [],
+  sessionRequests = [],
+  sessionAuthoring = false,
+  exposable = true,
   selected = false,
   scrollRequested = false,
   onScrollDone,
@@ -117,22 +260,7 @@ const WorkflowStepEditor: React.FC<Props> = ({
   const readOnly = ConfigProvider.useConfig().componentDisabled === true;
 
   const cardRef = useScrollCardIntoView(scrollRequested, onScrollDone);
-
-  const addCapture = () => {
-    const name = `capture${step.captures.length + 1}`;
-    const nextCaptures: DraftCapture[] = [...step.captures, newDraftCapture(name, { kind: 'whole-body' })];
-    onChange({ ...step, captures: nextCaptures });
-  };
-
-  const updateCapture = (idx: number, next: DraftCapture) => {
-    const nextCaptures = step.captures.slice();
-    nextCaptures[idx] = next;
-    onChange({ ...step, captures: nextCaptures });
-  };
-
-  const removeCapture = (idx: number) => {
-    onChange({ ...step, captures: step.captures.filter((_, i) => i !== idx) });
-  };
+  const action = stepActionOf(step);
 
   // ── Derived error subsets ───────────────────────────────────────
   const stepLevelError = useMemo(
@@ -170,11 +298,6 @@ const WorkflowStepEditor: React.FC<Props> = ({
   // The step's backing request was deleted out from under it — the
   // workflow can't run until the user re-points or removes the step.
   const requestError = useMemo(() => errors.find((e) => e.issue === 'step-request-missing'), [errors]);
-  const criteriaErrors = useMemo(() => errors.filter((e) => e.issue === 'criterion-invalid-regex'), [errors]);
-  const pollError = useMemo(
-    () => errors.find((e) => e.issue === 'poll-without-criteria' || e.issue === 'poll-exceeds-limit'),
-    [errors],
-  );
   // An issue no field of the card owns is said at the card's foot.
   const footErrors = useMemo(() => errors.filter((e) => !FIELD_OWNED_ISSUES.has(e.issue)), [errors]);
 
@@ -244,65 +367,31 @@ const WorkflowStepEditor: React.FC<Props> = ({
     onChange(nextStep);
   };
 
-  // ── retry + timeout helpers ─────────────────────────────────────
-  const setRetry = (next: StepRetryPolicy | undefined) => {
-    const nextStep = { ...step };
-    if (next === undefined) {
-      delete nextStep.retry;
-    } else {
-      nextStep.retry = next;
-    }
-    onChange(nextStep);
-  };
+  const sharedSections = buildSharedStepSections({
+    token,
+    t,
+    index,
+    runIf: step.runIf,
+    dependsOnValue,
+    allStepIds,
+    reachableSteps,
+    capturesByStepId,
+    dependsOnError,
+    gateErrors,
+    priorityError,
+    runIfCount,
+    priority,
+    priorityStepOptions,
+    priorityCaptureOptions,
+    readOnly,
+    handleDependsOnChange,
+    clearExplicitDependsOn,
+    handleRunIfChange,
+    setPriority,
+  });
 
-  const setTimeoutMs = (next: number | undefined) => {
-    const nextStep = { ...step };
-    if (next === undefined) {
-      delete nextStep.timeoutMs;
-    } else {
-      nextStep.timeoutMs = next;
-    }
-    onChange(nextStep);
-  };
-
-  // ── success criteria + poll helpers ─────────────────────────────
-  // An emptied list deletes the field: absent is "any response that
-  // arrived passes", and an empty array would say the same twice.
-  const setSuccessCriteria = (next: Criterion[]) => {
-    const nextStep = { ...step };
-    if (next.length === 0) {
-      delete nextStep.successCriteria;
-    } else {
-      nextStep.successCriteria = next;
-    }
-    onChange(nextStep);
-  };
-
-  const setPoll = (next: StepPoll | undefined) => {
-    const nextStep = { ...step };
-    if (next === undefined) {
-      delete nextStep.poll;
-    } else {
-      nextStep.poll = next;
-    }
-    onChange(nextStep);
-  };
-
-  // ── runScripts helper ───────────────────────────────────────────
-  // Off deletes the field rather than persisting `false` — absent is
-  // the canonical "no scripts" state (schema default, cleaner YAML).
-  const setRunScripts = (next: boolean | undefined) => {
-    // Step scripts ship default-off, so switching them on is the
-    // feature's first meaningful use (S17 product telemetry).
-    if (next === true) noteFeatureUsed('workflow-scripts');
-    const nextStep = { ...step };
-    if (next === undefined) {
-      delete nextStep.runScripts;
-    } else {
-      nextStep.runScripts = next;
-    }
-    onChange(nextStep);
-  };
+  const session = { index, steps, mqttRequests, errors };
+  const runsScripts = !isSendStep(step) && !isExpectStep(step) && step.runScripts === true;
 
   const indent = dependencyRow?.indent ?? 0;
 
@@ -312,6 +401,7 @@ const WorkflowStepEditor: React.FC<Props> = ({
     <div
       ref={cardRef}
       data-step-card={step.id}
+      data-step-action={action}
       data-selected={selected ? 'true' : undefined}
       style={{
         border: `1px solid ${edgeColor}`,
@@ -374,19 +464,23 @@ const WorkflowStepEditor: React.FC<Props> = ({
           </Tooltip>
         </span>
 
-        {/* Disabled step-type selector — show-but-disable catalog. */}
+        {/* The step's action. Foreach and Composite — show-but-disable catalog. */}
         <Tooltip title={t('workbench.editors.live.step.typeTooltip')}>
-          <Select
+          <Select<StepAction | 'foreach' | 'composite'>
             size="small"
             style={{ width: 110, flexShrink: 0 }}
-            value="request"
+            data-testid={`wf-step-${index}-action`}
+            value={action}
             options={[
-              { value: 'request', label: t('workbench.editors.live.step.typeRequest') },
+              ...STEP_ACTIONS.filter((each) => each === 'call' || each === action || sessionAuthoring).map((each) => ({
+                value: each,
+                label: t(ACTION_LABEL[each]),
+              })),
               { value: 'foreach', label: t('workbench.editors.live.step.typeForeach'), disabled: true },
               { value: 'composite', label: t('workbench.editors.live.step.typeComposite'), disabled: true },
             ]}
-            onChange={() => {
-              // Disabled options suppress selection; no-op.
+            onChange={(next) => {
+              if (next !== 'foreach' && next !== 'composite') onActionChange?.(next);
             }}
           />
         </Tooltip>
@@ -402,7 +496,7 @@ const WorkflowStepEditor: React.FC<Props> = ({
             {t('workbench.editors.live.step.priorityTag', { ref: `${priority.stepId}.${priority.captureName}` })}
           </Tag>
         )}
-        {step.runScripts === true && (
+        {runsScripts && (
           <Tag color="purple" style={{ fontSize: 10, lineHeight: '18px', margin: 0 }}>
             {t('workbench.editors.live.step.scriptsTag')}
           </Tag>
@@ -432,143 +526,22 @@ const WorkflowStepEditor: React.FC<Props> = ({
       </div>
 
       <Space orientation="vertical" size={8} style={{ width: '100%' }}>
-        {/* Request picker + optional description — inlined on one row.
-         *  Request gets ~60% width, description ~40%. Both `size="small"`
-         *  so they render at identical heights (the Select's option label
-         *  is single-line). Option label is a structured breadcrumb:
-         *
-         *    [📂] <Collection>  ›  [📁] <Folder>  ›  [METHOD] <Request>
-         *
-         *  Method is colored via the shared `METHOD_COLORS` so it matches
-         *  the sidebar + tab-bar method tags. Search filters on the full
-         *  text breadcrumb via `filterOption` against the option `title`. */}
-        <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
-          <span data-field-path={LIVE_WORKFLOW_FIELD.step(index, 'requestUid')} style={{ display: 'contents' }}>
-          <Tooltip open={requestError ? undefined : false} title={requestError?.message}>
-          <Select
-            size="small"
-            style={{ flex: '1 1 60%', minWidth: 0 }}
-            showSearch
-            status={requestError ? 'error' : undefined}
-            filterOption={(input, option) => {
-              if (!option) return true;
-              const haystack = String(option.title ?? '').toLowerCase();
-              return haystack.includes(input.toLowerCase());
-            }}
-            placeholder={t('workbench.editors.live.step.selectRequest')}
-            value={step.requestUid || undefined}
-            onChange={(uid) => onChange({ ...step, requestUid: uid })}
-            options={buildRequestPickerOptions(availableRequests, token)}
+        {isListenStep(step) ? (
+          <ListenStepFields step={step} onChange={onChange} sessionRequests={sessionRequests} {...session} />
+        ) : isSendStep(step) ? (
+          <SendStepFields step={step} onChange={onChange} {...session} />
+        ) : isExpectStep(step) ? (
+          <ExpectStepFields step={step} onChange={onChange} {...session} />
+        ) : (
+          <CallStepFields
+            step={step}
+            index={index}
+            onChange={onChange}
+            availableRequests={availableRequests}
+            requestError={requestError}
+            exposable={exposable}
           />
-          </Tooltip>
-          </span>
-          <Input
-            size="small"
-            style={{ flex: '1 1 40%' }}
-            placeholder={t('workbench.editors.live.step.descriptionPlaceholder')}
-            value={step.description ?? ''}
-            onChange={(e) => onChange({ ...step, description: e.target.value || undefined })}
-          />
-        </div>
-
-        <div data-field-path={LIVE_WORKFLOW_FIELD.step(index, 'captures')}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-            <Text type="secondary" style={{ fontSize: 11 }}>
-              {t('workbench.editors.live.step.capturesHeader', { count: step.captures.length })}
-            </Text>
-            <Button size="small" onClick={addCapture}>
-              {t('workbench.editors.live.step.addCapture')}
-            </Button>
-          </div>
-          {step.captures.length === 0 && (
-            <Text type="secondary" style={{ fontSize: 11, fontStyle: 'italic' }}>
-              {t('workbench.editors.live.step.captureRequired')}
-            </Text>
-          )}
-          {step.captures.map((c, idx) => (
-            <div
-              // Key on idx ALONE — not idx + name. Including the name
-              // (which is the editable field) changes the key on every
-              // keystroke, which unmounts/remounts the row and steals
-              // focus from the name Input mid-type. Captures have no
-              // stable uid today and the list is short + non-reorderable,
-              // so idx is the right primary key.
-              key={idx}
-              style={{
-                display: 'flex',
-                flexDirection: 'column',
-                gap: 6,
-                border: `1px dashed ${token.colorBorderSecondary}`,
-                borderRadius: 4,
-                padding: 8,
-                marginBottom: 6,
-              }}
-            >
-              <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
-                <Input
-                  size="small"
-                  style={{ width: 160, flexShrink: 0 }}
-                  prefix={<Text type="secondary">{t('workbench.editors.live.step.namePrefix')}</Text>}
-                  value={c.name}
-                  onChange={(e) => updateCapture(idx, { ...c, name: e.target.value })}
-                />
-                <ExtractorEditor
-                  compact
-                  value={c.extractor}
-                  onChange={(extractor) => updateCapture(idx, { ...c, extractor })}
-                />
-                <Button
-                  size="small"
-                  type="text"
-                  danger
-                  icon={<DeleteOutlined />}
-                  onClick={() => removeCapture(idx)}
-                  aria-label={t('workbench.editors.live.step.removeCaptureAria', { name: c.name || idx + 1 })}
-                />
-              </div>
-              {/* Expose switch — flipping on creates a Live Variable
-               *  (on save) that resolves `{{live.<liveName>}}` from
-               *  this capture. Off by default for pre-existing captures
-               *  without an LV; on by default for newly-added captures.
-               *  The live-name defaults to the capture name but can be
-               *  overridden inline for alias-style renames. */}
-              <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
-                <Switch
-                  size="small"
-                  checked={c.exposed}
-                  onChange={(exposed) => {
-                    const next: DraftCapture = { ...c, exposed };
-                    // First-time expose seeds liveName from capture
-                    // name so the user sees a sensible default.
-                    if (exposed && !c.liveName.trim()) next.liveName = c.name;
-                    updateCapture(idx, next);
-                  }}
-                  aria-label={t('workbench.editors.live.step.exposeAria', { name: c.name || idx + 1 })}
-                />
-                <Text type="secondary" style={{ fontSize: 11, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                  {scopeBadge('live', 13)} {t('workbench.editors.live.step.exposeAs')}
-                </Text>
-                <span style={{ fontFamily: "'SF Mono', monospace", fontSize: 11, color: token.colorTextTertiary }}>
-                  {'{{'}live.
-                </span>
-                <Input
-                  size="small"
-                  disabled={readOnly || !c.exposed}
-                  style={{ width: 180 }}
-                  placeholder={c.name || t('workbench.editors.live.step.namePrefix')}
-                  value={c.liveName}
-                  onChange={(e) => updateCapture(idx, { ...c, liveName: e.target.value })}
-                />
-                <span style={{ fontFamily: "'SF Mono', monospace", fontSize: 11, color: token.colorTextTertiary }}>
-                  {'}}'}
-                </span>
-                <Tooltip title={t('workbench.editors.live.step.exposeTooltip')}>
-                  <InfoCircleOutlined style={{ fontSize: 11, color: token.colorTextTertiary, cursor: 'help' }} />
-                </Tooltip>
-              </div>
-            </div>
-          ))}
-        </div>
+        )}
 
         {/* ── Phase I sections ──────────────────────────────────── */}
 
@@ -576,40 +549,11 @@ const WorkflowStepEditor: React.FC<Props> = ({
           size="small"
           ghost
           defaultActiveKey={[]}
-          items={buildWorkflowStepSections({
-            token,
-            t,
-            index,
-            runIf: step.runIf,
-            dependsOnValue,
-            allStepIds,
-            reachableSteps,
-            capturesByStepId,
-            dependsOnError,
-            gateErrors,
-            priorityError,
-            runIfCount,
-            priority,
-            priorityStepOptions,
-            priorityCaptureOptions,
-            retry: step.retry,
-            timeoutMs: step.timeoutMs,
-            successCriteria: step.successCriteria,
-            criteriaErrors,
-            poll: step.poll,
-            pollError,
-            runScripts: step.runScripts,
-            readOnly,
-            handleDependsOnChange,
-            clearExplicitDependsOn,
-            handleRunIfChange,
-            setPriority,
-            setRetry,
-            setTimeoutMs,
-            setSuccessCriteria,
-            setPoll,
-            setRunScripts,
-          })}
+          items={
+            isSessionStep(step)
+              ? sharedSections
+              : [...sharedSections, ...callSectionsOf(step, onChange, { token, t, index, errors, readOnly })]
+          }
         />
 
         {footErrors.length > 0 && (

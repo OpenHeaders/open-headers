@@ -204,8 +204,8 @@ export const workbenchLive = {
   'workbench.editors.live.workflow.notFound': 'ワークフローが見つかりません。',
   'workbench.editors.live.workflow.needsUpdate':
     'このワークフローには、より新しいバージョンの OpenHeaders が必要なステップがあります。編集または実行するには更新してください。',
-  'workbench.editors.live.workflow.sessionStepsReadOnly':
-    'このワークフローにはセッションステップがあります。ここで実行できますが、このバージョンではステップを編集できません。',
+  'workbench.editors.live.workflow.sessionRunsElsewhere':
+    'セッションステップのあるワークフローは「{surface}」タブで実行されます。',
   'workbench.editors.live.workflow.deletedElsewhere': 'ワークフローが別のタブから削除されました',
   'workbench.editors.live.workflow.saveFailed': 'ワークフローの保存に失敗しました',
   'workbench.editors.live.workflow.createFailed': 'ワークフローの作成に失敗しました',
@@ -226,16 +226,17 @@ export const workbenchLive = {
   'workbench.editors.live.form.parallelLabel': '独立したステップを並列に実行',
   'workbench.editors.live.form.parallelTooltip': 'v1 では逐次実行のみです。並列実行は今後のリリースで提供予定です。',
   'workbench.editors.live.form.refreshPolicySection': '更新ポリシー',
+  'workbench.editors.live.form.sessionPolicyInfo':
+    'セッションステップのあるワークフローは、「更新」を押したときに実行されます。',
+  'workbench.editors.live.form.sessionNoLiveVariables':
+    'セッションステップのあるワークフローは判定を返します。キャプチャはライブ変数として公開されません。',
 
   // ── Workflow step editor ────────────────────────────────────────────
   'workbench.editors.live.step.title': 'ステップ {number}',
   'workbench.editors.live.step.needsUpdate': 'このステップには、より新しいバージョンの OpenHeaders が必要です。',
-  'workbench.editors.live.step.runsHereReadOnly':
-    'このステップはここで実行できますが、このバージョンでは編集できません。',
   'workbench.editors.live.step.idPrefix': 'id',
   'workbench.editors.live.step.namePrefix': '名前',
   'workbench.editors.live.step.typeTooltip': 'ステップの種類。Foreach と Composite は今後のリリースで提供予定です。',
-  'workbench.editors.live.step.typeRequest': 'リクエスト',
   'workbench.editors.live.step.typeForeach': 'Foreach',
   'workbench.editors.live.step.typeComposite': 'Composite',
   'workbench.editors.live.step.runsIfTag': ({ count }, locale) =>
@@ -243,6 +244,18 @@ export const workbenchLive = {
   'workbench.editors.live.step.priorityTag': '優先度：{ref}',
   'workbench.editors.live.step.scriptsTag': 'scripts',
   'workbench.editors.live.step.selectRequest': 'リクエストを選択',
+  'workbench.editors.live.step.selectSessionRequest': 'MQTT リクエストを選択',
+  'workbench.editors.live.step.readyWithin': '準備期限',
+  'workbench.editors.live.step.sessionScriptsLabel': 'リクエストのスクリプトを実行',
+  'workbench.editors.live.step.identityTitle': 'セッションの識別情報',
+  'workbench.editors.live.step.identityInfo':
+    'セッションは MQTT リクエストの設定どおりに接続します。変更はリクエスト側で行ってください。',
+  'workbench.editors.live.step.onPrefix': 'セッション',
+  'workbench.editors.live.step.selectMessage': '保存済みメッセージを選択',
+  'workbench.editors.live.step.afterPrefix': 'トリガー',
+  'workbench.editors.live.step.within': '期限',
+  'workbench.editors.live.step.includeStored': 'ブローカーが保持していたメッセージも含める',
+  'workbench.editors.live.step.matchHeader': '一致条件（{count}）',
   'workbench.editors.live.step.descriptionPlaceholder': 'ステップの説明（省略可）',
   'workbench.editors.live.step.capturesHeader': 'キャプチャ（{count}）',
   'workbench.editors.live.step.addCapture': '+ キャプチャ',
@@ -301,6 +314,7 @@ export const workbenchLive = {
     '試行ごとの上限です。リクエスト（ボディの読み取りを含む）はこの上限を過ぎると中止されます。再試行するステップは試行のたびに完全なタイムアウトを得ます。上限をなくすにはフィールドをクリアしてください。',
   'workbench.editors.live.sections.successCriteria': '成功条件',
   'workbench.editors.live.criteria.noneForCall': '条件なし — 届いたレスポンスはすべて合格になります。',
+  'workbench.editors.live.criteria.noneForExpect': '行なし — 最初に届いたメッセージが一致します。',
   'workbench.editors.live.criteria.kindExists': '存在する',
   'workbench.editors.live.criteria.kindEquals': '等しい',
   'workbench.editors.live.criteria.kindMatches': '一致する',
@@ -446,4 +460,8 @@ export const workbenchLive = {
   'workbench.editors.live.extractor.regex': 'Regex',
   'workbench.editors.live.extractor.header': 'ヘッダー',
   'workbench.editors.live.extractor.statusCode': 'ステータスコード',
+  'workbench.editors.live.extractor.groupPayload': 'メッセージのペイロード',
+  'workbench.editors.live.extractor.wholePayload': 'ペイロード全体',
+  'workbench.editors.live.extractor.groupMessage': 'メッセージ',
+  'workbench.editors.live.extractor.field': 'フィールド',
 } as const satisfies Catalog;

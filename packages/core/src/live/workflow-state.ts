@@ -12,9 +12,16 @@
  * duplicating the predicates.
  */
 
-import type { LiveWorkflow } from '../types/live';
+import type { LiveWorkflow, WorkflowStep } from '../types/live';
+import { validateSessionSteps } from './session-step-validation';
+import { isCallStep, isKnownStep, isListenStep, isSessionStep } from './step-actions';
 import { validateStepRequestsExist, validateWorkflowShape } from './step-validation';
-import { isUnknownStep } from './unknown-step';
+
+/** A step whose request was never picked — the editor's in-progress placeholder. */
+function lacksItsRequest(step: WorkflowStep): boolean {
+  if (isCallStep(step)) return !step.requestUid || step.requestUid.length === 0;
+  return isListenStep(step) && (!step.sessionRequestUid || step.sessionRequestUid.length === 0);
+}
 
 /**
  * Is this workflow complete enough to actually run? An incomplete
@@ -24,14 +31,17 @@ import { isUnknownStep } from './unknown-step';
  *
  * Completeness rules:
  *   - At least one step (empty workflows have nothing to fetch).
- *   - Every step is one this build knows — {@link workflowNeedsUpdate}
- *     says when that is why.
- *   - Every step has a `requestUid` (empty-string is the in-progress
- *     placeholder the editor emits before the user picks a request).
+ *   - Every step is of an action the model knows —
+ *     {@link workflowNeedsUpdate} says when that is why.
+ *   - Every call has a `requestUid` and every listen a
+ *     `sessionRequestUid` (empty-string is the in-progress placeholder
+ *     the editor emits before the user picks a request).
  *   - `validateWorkflowShape` returns no structural errors. This covers
  *     duplicate step ids, cycles, gate refs to unreachable steps,
  *     priority refs to missing captures, no-root-step, and the full
  *     Phase I-A validator surface.
+ *   - `validateSessionSteps` returns none either: what a listen, a send
+ *     and an expect must hold for the run to mean what it says.
  */
 export function isWorkflowComplete(wf: LiveWorkflow): boolean {
   // Trust boundary: same contract as `isRequestResolvable` — persisted
@@ -40,8 +50,9 @@ export function isWorkflowComplete(wf: LiveWorkflow): boolean {
   // skips) instead of throwing into the render path.
   try {
     if (!Array.isArray(wf.steps) || wf.steps.length === 0) return false;
-    if (wf.steps.some((s) => isUnknownStep(s) || !s.requestUid || s.requestUid.length === 0)) return false;
+    if (wf.steps.some((s) => !isKnownStep(s) || lacksItsRequest(s))) return false;
     if (validateWorkflowShape(wf).length > 0) return false;
+    if (validateSessionSteps(wf).length > 0) return false;
     return true;
   } catch {
     return false;
@@ -49,18 +60,32 @@ export function isWorkflowComplete(wf: LiveWorkflow): boolean {
 }
 
 /**
- * Does this workflow hold a step this build does not know (the workflow
- * runs plan, Laws)? Such a workflow is read-only here: it can be renamed,
- * moved, switched off and deleted, and is neither edited nor run. It is
- * never complete, and this is the answer that says why — "needs update"
- * where an unfinished workflow reads "incomplete".
+ * Does this workflow hold a step of an action the model does not know
+ * (the workflow runs plan, Laws)? Such a workflow is read-only here: it
+ * can be renamed, moved, switched off and deleted, and is neither edited
+ * nor run. It is never complete, and this is the answer that says why —
+ * "needs update" where an unfinished workflow reads "incomplete".
  *
  * Same trust boundary as {@link isWorkflowComplete}: a malformed row
  * answers false instead of throwing into the render path.
  */
 export function workflowNeedsUpdate(wf: LiveWorkflow): boolean {
   try {
-    return Array.isArray(wf.steps) && wf.steps.some(isUnknownStep);
+    return Array.isArray(wf.steps) && wf.steps.some((step) => !isKnownStep(step));
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Does this workflow hold a session step — a `listen`, a `send` or an
+ * `expect`? Such a workflow gives a verdict and publishes no live
+ * variable (the workflow runs plan, Decisions log, S16): it is refreshed
+ * by hand and is never effective. A malformed row answers false.
+ */
+export function workflowHoldsSession(wf: LiveWorkflow): boolean {
+  try {
+    return Array.isArray(wf.steps) && wf.steps.some(isSessionStep);
   } catch {
     return false;
   }
@@ -111,6 +136,10 @@ export function isWorkflowDraft(wf: LiveWorkflow): boolean {
  *                               against the user's network.
  *   - `wf.enabled === true`   — user's explicit toggle
  *   - `isWorkflowComplete`    — incomplete workflows don't schedule
+ *   - no session step         — the schedule and the refresh after a
+ *                               definition change start a run with
+ *                               nobody pressing; a session is opened on
+ *                               a press alone
  *
  * Every call site that needs "effective workflow set" — scheduler
  * enumeration, sidebar badge filter, DNR compile-time sync-warm
@@ -119,5 +148,5 @@ export function isWorkflowDraft(wf: LiveWorkflow): boolean {
 export function isWorkflowEffective(wf: LiveWorkflow): boolean {
   if (isWorkflowDraft(wf)) return false;
   if (wf.enabled !== true) return false;
-  return isWorkflowComplete(wf);
+  return isWorkflowComplete(wf) && !workflowHoldsSession(wf);
 }

@@ -21,9 +21,11 @@ import { rebindStepReferences } from '@openheaders/ui/workbench/components/live/
 import { projectLiveWorkflowToForm } from '@openheaders/ui/workbench/components/live/use-live-workflow-conflicts';
 import { describe, expect, it } from 'vitest';
 
-const listen: UnknownWorkflowStep = { uid: 'stplistn', id: 'probe', action: 'listen' };
+// Actions no build knows: `listen` and `expect` are the model's own now,
+// and the editor's helpers read their keys.
+const listen: UnknownWorkflowStep = { uid: 'stplistn', id: 'probe', action: 'watch' };
 const call: DraftCallStep = { uid: 'stpcall0', id: 'reboot', requestUid: 'httpreq1', captures: [] };
-const expectStep: UnknownWorkflowStep = { uid: 'stpexpct', id: 'status', action: 'expect' };
+const expectStep: UnknownWorkflowStep = { uid: 'stpexpct', id: 'status', action: 'verify' };
 
 const workflow: LiveWorkflow = {
   schemaVersion: 5,

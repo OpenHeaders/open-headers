@@ -243,8 +243,7 @@ if (window.oh.startupData.localDataRemoval) {
 }
 
 // A workflow's session steps run here: the main process opens the
-// session a `listen` step names. The extension and the served tab
-// register nothing and read such a workflow as needing a newer version.
+// session a `listen` step names.
 registerCapability('workflowSessionSteps', () => true);
 
 // No `closeSurface` registration — the workbench window is the long-
