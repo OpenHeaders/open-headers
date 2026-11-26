@@ -72,7 +72,7 @@ export function packageVersion(version) {
  * take a package, and a stable overtakes the beta channel. A release
  * below it ships none — its legs still build one, as a workflow artifact.
  */
-export const FIRST_WINDOWS_PACKAGE_VERSION = '2026.12.0-beta.1';
+export const FIRST_WINDOWS_PACKAGE_VERSION = '2026.11.4-beta.1';
 
 /** Whether a release ships a Windows package beside its installers. */
 export function shipsWindowsPackage(version) {
