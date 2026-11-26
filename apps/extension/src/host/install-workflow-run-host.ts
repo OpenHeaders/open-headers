@@ -11,8 +11,10 @@
  * shell publishes the scopes) and `workflowSessionSteps` (every Refresh
  * and the Run view follow), and ends a run's sessions as the page goes.
  *
- * Not yet here, each refused before the run by name: a `listen` that runs
- * its request's scripts, and a request on mqtt(s):// — a place's socket.
+ * A `listen` that runs its request's scripts runs them on this page's
+ * sandbox under the run's tier; where the page has no sandbox (Firefox)
+ * the run is refused before its first step. Not yet here, refused by
+ * name: a request on mqtt(s):// — a place's socket.
  */
 
 import { getHostBridge, setHostBridge } from '@openheaders/core/bridge';
@@ -20,6 +22,7 @@ import { registerCapability } from '@openheaders/core/capabilities';
 import { createMqttRunSessionHost } from '@openheaders/oracle/live/mqtt-exec/run-session';
 import { createBrowserMqttTransport } from '@openheaders/oracle-host-browser/live/browser-mqtt-transport';
 import { getWorkflowRunScope } from '@openheaders/ui/workbench/components/live/workflow-run-scope';
+import { getPageRunScriptHost, setPageScriptScope } from '@/host/page-script-host';
 import { createWorkflowRunBridge } from '@/host/workflow-page-run';
 
 const baseBridge = getHostBridge();
@@ -29,6 +32,8 @@ if (baseBridge === null) {
 
 // Stateless — one stream per session.
 const browserMqttTransport = createBrowserMqttTransport();
+// The run's tier on the page's one script runtime; null on Firefox.
+const runScriptHost = getPageRunScriptHost();
 
 const { bridge, endOpenSessions } = createWorkflowRunBridge({
   base: baseBridge,
@@ -42,6 +47,8 @@ const { bridge, endOpenSessions } = createWorkflowRunBridge({
       findRequest: (uid) => scope.mqttRequests.find((request) => request.uid === uid) ?? null,
       sessionScope: async (request, stepCaptures) => {
         const session = await scope.mqttSession(request, { environmentId, stepCaptures });
+        // A hook's `oh.require` and credential refs answer against this session's scope, as a Connect's do.
+        setPageScriptScope(session.scripts);
         return {
           resolution: session.resolve,
           prepareResolution: session.prepare,
@@ -52,8 +59,9 @@ const { bridge, endOpenSessions } = createWorkflowRunBridge({
           settingsChain: session.settingsChain,
         };
       },
+      resolveScriptHost: async () => runScriptHost,
     }),
-  runsScripts: false,
+  runsScripts: runScriptHost !== null,
 });
 
 setHostBridge(bridge);

@@ -14,6 +14,8 @@
  */
 
 import type { ScriptVariableScope } from '@openheaders/core/scripts';
+import type { ScriptBroker, ScriptBrokerDeps } from '@openheaders/core/scripts/broker';
+import type { SessionScriptInput } from '@openheaders/oracle/live/request-exec/script-hooks';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const h = vi.hoisted(() => ({
@@ -22,6 +24,7 @@ const h = vi.hoisted(() => ({
   sessionSend: vi.fn(async (..._args: unknown[]): Promise<unknown> => ({ success: true })),
   sessionPublish: vi.fn(async (..._args: unknown[]): Promise<unknown> => ({ success: true })),
   tokenBundle: vi.fn(async (..._args: unknown[]): Promise<unknown> => null),
+  brokerRun: vi.fn((..._args: unknown[]): void => undefined),
   manifest: { sandbox: { pages: ['sandbox.html'] } } as { sandbox?: { pages?: string[] } },
 }));
 
@@ -44,6 +47,23 @@ vi.mock('@openheaders/oracle/live/mqtt-exec/session-plane', async (importOrigina
     publishActiveMqttMessage: (...args: unknown[]) => h.sessionPublish(...args),
   };
 });
+// The real broker, with what each host asks of it recorded.
+vi.mock('@openheaders/core/scripts/broker', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@openheaders/core/scripts/broker')>();
+  return {
+    ...actual,
+    createScriptBroker: (deps: ScriptBrokerDeps): ScriptBroker => {
+      const broker = actual.createScriptBroker(deps);
+      return {
+        ...broker,
+        runScript: (opts) => {
+          h.brokerRun(opts);
+          return broker.runScript(opts);
+        },
+      };
+    },
+  };
+});
 vi.mock('@/types/browser', () => ({
   getBrowserAPI: () => ({
     runtime: { getManifest: () => h.manifest, getURL: (p: string) => `chrome-extension://x/${p}` },
@@ -51,6 +71,7 @@ vi.mock('@/types/browser', () => ({
 }));
 
 import {
+  getPageRunScriptHost,
   getPageScriptHost,
   handlePageScriptHostRequest,
   pageScriptHostAvailable,
@@ -291,5 +312,51 @@ describe('the sandbox iframe transport', () => {
     expect(iframe.hidden).toBe(true);
     expect(document.querySelectorAll('iframe[data-testid="oh-page-script-sandbox"]')).toHaveLength(1);
     host.endSession('send-iframe');
+  });
+});
+
+describe("a workflow run's script host", () => {
+  const scope: ScriptVariableScope = { readVariable: async () => null };
+  const input: SessionScriptInput = {
+    kind: 'ws-on-message',
+    source: `oh.test('seen', () => {});`,
+    sessionId: 'run-1',
+    hook: {
+      kind: 'ws-on-message',
+      message: { direction: 'down', text: 'hi', dataBase64: 'aGk=', binary: false, index: 0 },
+    },
+    scope,
+  };
+
+  it("asks the broker for the run's tier and hands each hook its session's scope; an editor's host asks for neither", () => {
+    const run = getPageRunScriptHost();
+    const editor = getPageScriptHost();
+    if (run === null || editor === null) throw new Error('host unavailable');
+    expect(run.mode).toBe('safe');
+
+    void run.run(input);
+    expect(h.brokerRun).toHaveBeenLastCalledWith({
+      kind: input.kind,
+      source: input.source,
+      sessionId: 'run-1',
+      hook: input.hook,
+      hostContext: 'chain',
+      scope,
+    });
+
+    void editor.run({ ...input, sessionId: 'send-1' });
+    expect(h.brokerRun).toHaveBeenLastCalledWith({
+      kind: input.kind,
+      source: input.source,
+      sessionId: 'send-1',
+      hook: input.hook,
+    });
+    run.endSession('run-1');
+    editor.endSession('send-1');
+  });
+
+  it('is null where the manifest declares no sandbox page', () => {
+    h.manifest = {};
+    expect(getPageRunScriptHost()).toBeNull();
   });
 });

@@ -8,10 +8,11 @@
  * seeding a shape the extension would silently reject.
  *
  * One collection over the playground's device scenario: the backend's two
- * HTTP requests, three MQTT requests — the probe over the broker's
- * WebSocket path, a 5.0 one that keeps the retain flag as published, and
- * one on the broker's raw TCP listener — and a workflow per leg of the
- * spec.
+ * HTTP requests, five MQTT requests — the probe over the broker's
+ * WebSocket path, a 5.0 one that keeps the retain flag as published, one
+ * on the broker's raw TCP listener, one whose scripts misbehave on
+ * purpose and one whose Before connect throws — and a workflow per leg of
+ * the spec.
  *
  * The backend's origin rides OH_E2E_DEVICES_ORIGIN, the probe's WebSocket
  * url OH_E2E_MQTT_WS_URL, its TCP port OH_E2E_MQTT_PROBE_PORT, the
@@ -97,15 +98,30 @@ const mqttRequests: MqttRequest[] = [
     topics: [{ uid: 'e2ewxrow', topicFilter: 'devices/dev-1/#', retainAsPublished: true }],
   }),
   mqttRequest('e2ewxmq3', 'Probe MQTT tcp', { url: `mqtt://127.0.0.1:${probePort}` }),
+  // Its Before connect narrows nothing and renames the client; its On
+  // message fails one test and then asks for what the run's tier refuses.
+  mqttRequest('e2ewxmq4', 'Probe MQTT scripted', {
+    scripts: {
+      'mqtt-before-connect': `oh.setClientId('run-probe');`,
+      'mqtt-on-message': `if (oh.message.topic === 'devices/dev-1/status') {
+  await oh.test('the device is idle', () => oh.expect(JSON.parse(oh.message.text).state).toBe('idle'));
+  await oh.sendRequest({ method: 'GET', url: '${DEVICE_URL}' });
+}`,
+    },
+  }),
+  mqttRequest('e2ewxmq5', 'Probe MQTT unsigned', {
+    scripts: { 'mqtt-before-connect': `throw new Error('no key');` },
+  }),
 ];
 
-const listen = (sessionRequestUid: string): WorkflowStep => ({
+const listen = (sessionRequestUid: string, overrides: Record<string, unknown> = {}): WorkflowStep => ({
   uid: 'e2ewxlsn',
   id: 'probe',
   action: 'listen',
   sessionRequestUid,
   timeoutMs: 5_000,
   captures: [],
+  ...overrides,
 });
 
 const REBOOT: WorkflowStep = {
@@ -195,6 +211,8 @@ const liveWorkflows: LiveWorkflow[] = [
   ]),
   workflow('e2ewxwf4', 'Device reboot retained', [listen('e2ewxmq2'), REBOOT, STATUS]),
   workflow('e2ewxwf5', 'Device reboot over tcp', [listen('e2ewxmq3'), REBOOT, STATUS]),
+  workflow('e2ewxwf6', 'Device reboot scripted', [listen('e2ewxmq4', { runScripts: true }), REBOOT, STATUS]),
+  workflow('e2ewxwf7', 'Device reboot unsigned', [listen('e2ewxmq5', { runScripts: true }), REBOOT, STATUS]),
 ];
 
 const values: Record<string, unknown> = {

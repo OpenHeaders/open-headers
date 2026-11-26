@@ -20,10 +20,15 @@
  *       that keeps the retain flag.
  *   X5  A listen on a raw TCP broker url is refused before the run: a
  *       browser page cannot open that socket.
+ *   X6  A listen that runs its request's scripts, on the page's sandbox:
+ *       the run passes, and the Listen row says what the hooks did not
+ *       do cleanly.
+ *   X7  A Before connect that throws fails the listen before the dial;
+ *       nothing after it runs.
  *
  * Every call goes to the playground's one origin, and the worker holds a
- * sixth start to an origin inside a minute: X1 and X2 are the two that
- * call. A leg added here that calls counts against the five.
+ * sixth start to an origin inside a minute: X1, X2 and X6 are the three
+ * that call. A leg added here that calls counts against the five.
  *
  * Requires the extension `dist/chrome` build; the playground boots as
  * Playwright's webServer.
@@ -199,6 +204,22 @@ test('X5 — a listen on a raw TCP broker url is refused before the run, naming 
   await expect(runRow('probe')).toContainText(
     'Step "probe" cannot run here: "Probe MQTT tcp" opens a raw TCP socket (mqtt:// or mqtts://), which a browser page cannot; the desktop app can run it.',
   );
+  await expect(runRow('reboot')).toContainText('Not run');
+  await expect(runRow('status')).toContainText('Not run');
+});
+
+test('X6 — a listen that runs its request’s scripts passes, and its row says what the hooks left', async () => {
+  await runWorkflow('e2ewxwf6');
+  await expectVerdict('passed');
+  await expect(runRow('status')).toContainText('Matched after');
+  // The failed test is a note; the refused oh.sendRequest is that one On message run erroring.
+  await expect(runRow('probe')).toContainText('1 script test failed · On message script failed 1 time');
+});
+
+test('X7 — a Before connect that throws fails the listen before the dial; nothing after it runs', async () => {
+  await runWorkflow('e2ewxwf7');
+  await expectVerdict('failed');
+  await expect(runRow('probe')).toContainText('Before connect script failed at Request: no key');
   await expect(runRow('reboot')).toContainText('Not run');
   await expect(runRow('status')).toContainText('Not run');
 });

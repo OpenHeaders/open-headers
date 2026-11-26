@@ -247,3 +247,28 @@ export function getPageScriptHost(): SessionScriptHost | null {
     endSession: (sessionId) => pageBroker().endSession(sessionId),
   };
 }
+
+/**
+ * The script host of a session a workflow run opens in this page (the
+ * workflow runs plan, The model — scripts on a run's session): the run's
+ * tier, where the broker refuses `oh.sendRequest` and `oh.variables.set`,
+ * and each hook reads the scope its own session resolved under — the
+ * run's environment and captures. `null` where the page cannot mount the
+ * sandbox (Firefox).
+ */
+export function getPageRunScriptHost(): SessionScriptHost | null {
+  if (!pageScriptHostAvailable()) return null;
+  return {
+    mode: 'safe',
+    run: (input) =>
+      pageBroker().runScript({
+        kind: input.kind,
+        source: input.source,
+        sessionId: input.sessionId,
+        hook: input.hook,
+        hostContext: 'chain',
+        scope: input.scope,
+      }),
+    endSession: (sessionId) => pageBroker().endSession(sessionId),
+  };
+}
