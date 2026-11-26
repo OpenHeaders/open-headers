@@ -5,11 +5,11 @@
  * completed before a failure as skipped.
  */
 
-import type { StepSettlement, WorkflowRunFact } from './run-events';
+import type { SessionClose, StepAwaiting, StepSettlement, WorkflowRunFact } from './run-events';
 
 export type WorkflowRunStepRow = { id: string; uid: string } & (
   | { state: 'waiting' }
-  | { state: 'running'; attempt: number; maxAttempts: number; held?: true }
+  | { state: 'running'; attempt: number; maxAttempts: number; held?: true; awaiting?: StepAwaiting }
   | { state: 'settled'; settlement: StepSettlement; hasProduct: boolean }
 );
 
@@ -20,8 +20,8 @@ export interface WorkflowRunRecord {
   startedAt: number;
   /** The run's steps in declared order. */
   steps: WorkflowRunStepRow[];
-  /** `null` while the run is going. */
-  ended: { ok: boolean; durationMs: number } | null;
+  /** `null` while the run is going. `sessions`: how each session it opened closed. */
+  ended: { ok: boolean; durationMs: number; sessions?: SessionClose[] } | null;
 }
 
 /**
@@ -52,6 +52,7 @@ export function applyRunFact(
         state: 'running',
         attempt: 1,
         maxAttempts: fact.maxAttempts,
+        ...(fact.awaiting !== undefined ? { awaiting: fact.awaiting } : {}),
       }));
     case 'attempt-end':
       return withRow(record, fact.stepId, ({ id, uid }) => ({
@@ -76,7 +77,14 @@ export function applyRunFact(
         hasProduct: fact.hasProduct,
       }));
     case 'end':
-      return { ...record, ended: { ok: fact.ok, durationMs: fact.durationMs } };
+      return {
+        ...record,
+        ended: {
+          ok: fact.ok,
+          durationMs: fact.durationMs,
+          ...(fact.sessions !== undefined ? { sessions: fact.sessions } : {}),
+        },
+      };
   }
 }
 

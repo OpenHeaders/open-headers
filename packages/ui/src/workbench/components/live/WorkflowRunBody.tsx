@@ -11,6 +11,9 @@
 
 import {
   applyRunFact,
+  isExpectStep,
+  isListenStep,
+  isSendStep,
   isUnknownStep,
   refusedRunEvents,
   runFactOf,
@@ -26,11 +29,18 @@ import { useEnvironments } from '@openheaders/ui/shared/hooks/readers/useEnviron
 import { useRequests } from '@openheaders/ui/shared/hooks/readers/useRequests';
 import { Tag, Typography, theme } from 'antd';
 import type React from 'react';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { readKeptRunProduct } from '../../data/workflow-run-store';
 import { formatDurationRolled } from '../request-editor/response/response-meta';
 import { METHOD_COLORS, REQUEST_KIND_COLORS } from '../sidebar/icons';
-import { defaultRunSelection, describeRunRow, describeRunVerdict, type RunRowTone } from './run-display';
+import {
+  defaultRunSelection,
+  describeRunRow,
+  describeRunVerdict,
+  type RunRowContext,
+  type RunRowTone,
+  type RunStepAction,
+} from './run-display';
 import { useWorkflowRun } from './use-workflow-run';
 import WorkflowRunProductPane from './WorkflowRunProductPane';
 
@@ -60,35 +70,75 @@ function refusedRecord(workflow: LiveWorkflow): WorkflowRunRecord | null {
 }
 
 interface StepTarget {
-  /** A step this build runs as a call; false for a step it does not know. */
-  call: boolean;
+  /** The step's action; `null` for a step of an action this build does not know. */
+  action: RunStepAction | null;
   tag: string;
   tagColor: string;
   name: string;
   muted: boolean;
 }
 
+/** How often a wait's elapsed time is redrawn while an `expect` is waiting. */
+const WAIT_TICK_MS = 200;
+
 const WorkflowRunBody: React.FC<Props> = ({ workflow, needsUpdate }) => {
   const { token } = theme.useToken();
   const t = useT();
   const kept = useWorkflowRun(workflow.uid);
   const { environments } = useEnvironments();
-  const { requests, graphqlRequests } = useRequests();
+  const requestsApi = useRequests();
+  const { requests, graphqlRequests } = requestsApi;
   const [pickedStepId, setPickedStepId] = useState<string | null>(null);
 
   const refused = useMemo(() => (needsUpdate ? refusedRecord(workflow) : null), [needsUpdate, workflow]);
   const record = refused ?? kept?.record ?? null;
 
+  const waiting = record?.steps.some((row) => row.state === 'running' && row.awaiting !== undefined) === true;
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    if (!waiting) return;
+    setNow(Date.now());
+    const id = setInterval(() => setNow(Date.now()), WAIT_TICK_MS);
+    return () => clearInterval(id);
+  }, [waiting]);
+
+  const notFound = (action: RunStepAction): StepTarget => ({
+    action,
+    tag: '',
+    tagColor: token.colorTextTertiary,
+    name: t('workbench.editors.live.graph.requestNotFound'),
+    muted: true,
+  });
+
+  /** The session request a `listen` step names — of the kinds a run opens today. */
+  const sessionRequestOf = (listenId: string) => {
+    const listen = workflow.steps.find((each) => each.id === listenId);
+    if (listen === undefined || !isListenStep(listen)) return undefined;
+    return requestsApi.mqttRequests.find((request) => request.uid === listen.sessionRequestUid);
+  };
+
   const targetOf = (stepId: string): StepTarget | null => {
     const step = workflow.steps.find((each) => each.id === stepId);
     if (step === undefined) return null;
+    if (isListenStep(step)) {
+      const session = sessionRequestOf(step.id);
+      if (session === undefined) return notFound('listen');
+      return { action: 'listen', tag: 'MQTT', tagColor: REQUEST_KIND_COLORS.mqtt, name: session.name, muted: false };
+    }
+    if (isSendStep(step)) {
+      const saved = sessionRequestOf(step.on)?.savedMessages.find((message) => message.uid === step.messageUid);
+      return { action: 'send', tag: '', tagColor: token.colorTextTertiary, name: saved?.name ?? '', muted: false };
+    }
+    if (isExpectStep(step)) {
+      return { action: 'expect', tag: '', tagColor: token.colorTextTertiary, name: step.address ?? '', muted: false };
+    }
     if (isUnknownStep(step)) {
-      return { call: false, tag: step.action, tagColor: token.colorTextTertiary, name: '', muted: true };
+      return { action: null, tag: step.action, tagColor: token.colorTextTertiary, name: '', muted: true };
     }
     const http = requests.find((request) => request.uid === step.requestUid);
     if (http) {
       return {
-        call: true,
+        action: 'call',
         tag: http.method,
         tagColor: METHOD_COLORS[http.method] ?? token.colorText,
         name: http.name,
@@ -97,15 +147,22 @@ const WorkflowRunBody: React.FC<Props> = ({ workflow, needsUpdate }) => {
     }
     const graphql = graphqlRequests.find((request) => request.uid === step.requestUid);
     if (graphql) {
-      return { call: true, tag: 'GQL', tagColor: REQUEST_KIND_COLORS.graphql, name: graphql.name, muted: false };
+      return { action: 'call', tag: 'GQL', tagColor: REQUEST_KIND_COLORS.graphql, name: graphql.name, muted: false };
     }
-    return {
-      call: true,
-      tag: '',
-      tagColor: token.colorTextTertiary,
-      name: t('workbench.editors.live.graph.requestNotFound'),
-      muted: true,
-    };
+    return notFound('call');
+  };
+
+  /** The step whose start opened an `expect`'s window. */
+  const triggerOf = (stepId: string): string | undefined => {
+    const step = workflow.steps.find((each) => each.id === stepId);
+    return step !== undefined && isExpectStep(step) ? step.after : undefined;
+  };
+
+  /** A `listen` row's session: open while the run goes, then how it closed. */
+  const sessionOf = (row: WorkflowRunStepRow, running: WorkflowRunRecord): RunRowContext['session'] => {
+    if (row.state !== 'settled' || row.settlement.state !== 'ready') return undefined;
+    if (running.ended === null) return 'open';
+    return running.ended.sessions?.find((close) => close.stepId === row.id);
   };
 
   if (record === null) {
@@ -185,6 +242,8 @@ const WorkflowRunBody: React.FC<Props> = ({ workflow, needsUpdate }) => {
               key={row.id}
               row={row}
               target={targetOf(row.id)}
+              now={now}
+              session={sessionOf(row, record)}
               selected={row.id === selectedId}
               onSelect={() => setPickedStepId(row.id)}
             />
@@ -203,6 +262,7 @@ const WorkflowRunBody: React.FC<Props> = ({ workflow, needsUpdate }) => {
           stepId={selectedId}
           state={selectedId === null ? undefined : kept?.products[selectedId]}
           product={selectedId === null || refused !== null ? null : readKeptRunProduct(record.runId, selectedId)}
+          trigger={selectedId === null ? undefined : triggerOf(selectedId)}
         />
       </div>
     </div>
@@ -213,15 +273,29 @@ export default WorkflowRunBody;
 
 // ── One row ────────────────────────────────────────────────────────
 
+const ACTION_WORD = {
+  call: 'workbench.editors.live.run.action.call',
+  listen: 'workbench.editors.live.run.action.listen',
+  send: 'workbench.editors.live.run.action.send',
+  expect: 'workbench.editors.live.run.action.expect',
+} as const;
+
 const RunRow: React.FC<{
   row: WorkflowRunStepRow;
   target: StepTarget | null;
+  now: number;
+  session: RunRowContext['session'];
   selected: boolean;
   onSelect: () => void;
-}> = ({ row, target, selected, onSelect }) => {
+}> = ({ row, target, now, session, selected, onSelect }) => {
   const { token } = theme.useToken();
   const t = useT();
-  const display = describeRunRow(row, t);
+  const action = target?.action ?? null;
+  const display = describeRunRow(row, t, {
+    now,
+    ...(action !== null ? { action } : {}),
+    ...(session !== undefined ? { session } : {}),
+  });
 
   return (
     <div
@@ -250,9 +324,9 @@ const RunRow: React.FC<{
       }}
     >
       <RunDot tone={display.tone} />
-      {target?.call ? (
+      {action !== null ? (
         <Text strong style={{ fontSize: 12 }}>
-          {t('workbench.editors.live.run.action.call')}
+          {t(ACTION_WORD[action])}
         </Text>
       ) : (
         <span />

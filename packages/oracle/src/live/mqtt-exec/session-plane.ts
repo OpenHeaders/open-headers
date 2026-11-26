@@ -182,6 +182,10 @@ export interface MqttSessionObserver {
   ready(facts: {
     sessionPresent: boolean;
     clientId: string;
+    /** Present when the CONNECT's id was generated for it, not set on the request or by a script. */
+    clientIdGenerated?: true;
+    /** Present when the CONNECT asked to keep a stored session — Clean Start off. */
+    keptSession?: true;
     grants: ExecutedMqttGrant[];
     unsent: Array<{ topicFilters: string[]; error: string }>;
   }): void;

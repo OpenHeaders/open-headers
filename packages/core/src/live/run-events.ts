@@ -17,7 +17,7 @@
 import type { ExecutedRequestSnapshot } from '../types';
 import type { LiveWorkflow } from '../types/live';
 import type { RunRefusal } from './run-requirements';
-import type { SessionMessage } from './session-port';
+import type { SessionMessage, SessionOpenFacts } from './session-port';
 import { isUnknownStep, unknownStepMessage } from './unknown-step';
 
 /** A message an `expect` held in its window, and what became of it. */
@@ -57,6 +57,15 @@ export interface SessionClose {
   warning?: string;
 }
 
+/** What an `expect` waits for as it starts. */
+export interface StepAwaiting {
+  /** The address as resolved; `null` for a kind with one stream. */
+  address: string | null;
+  /** When its window opened — its trigger's start. */
+  since: number;
+  timeoutMs: number;
+}
+
 /** How a step ended. Capture names only — a value never rides an event. */
 export type StepSettlement =
   | {
@@ -69,8 +78,8 @@ export type StepSettlement =
       maxAttempts: number;
       captureNames: string[];
     }
-  /** A `listen`: its session is ready to receive. */
-  | { state: 'ready'; readyMs: number; captureNames: string[] }
+  /** A `listen`: its session is ready to receive. `facts`: how it opened, where the kind says. */
+  | { state: 'ready'; readyMs: number; captureNames: string[]; facts?: SessionOpenFacts }
   /** A `send`: the message has left, acknowledged where the kind acknowledges. */
   | { state: 'sent'; ackMs?: number; captureNames: string[] }
   /** An `expect`: a message matched, `afterMs` from its trigger's start. */
@@ -103,7 +112,14 @@ interface StepSettleEvent {
 
 export type WorkflowRunEvent =
   | { type: 'begin'; at: number; steps: Array<{ id: string; uid: string }> }
-  | { type: 'step-start'; at: number; stepId: string; maxAttempts: number }
+  | {
+      type: 'step-start';
+      at: number;
+      stepId: string;
+      maxAttempts: number;
+      /** An `expect` alone: what it waits for, and the deadline it waits under. */
+      awaiting?: StepAwaiting;
+    }
   | {
       type: 'attempt-end';
       at: number;

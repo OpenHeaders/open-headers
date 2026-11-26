@@ -527,7 +527,8 @@ export async function executeMqttSession(
   const configuredClientId = resolveStr(request.clientId ?? '').trim();
   // The client id the LAST dial's CONNECT carried — a Before connect
   // hook may rename it per dial; the open frame and snapshot read it.
-  let clientId = configuredClientId !== '' ? configuredClientId : `oh-${generateUid()}${generateUid()}`;
+  const generatedClientId = configuredClientId !== '' ? null : `oh-${generateUid()}${generateUid()}`;
+  let clientId = generatedClientId ?? configuredClientId;
 
   // Session credential (Basic — the MQTT mask's whole set) — the
   // request's own subset config, or Inherit resolved over the ancestor
@@ -739,7 +740,14 @@ export async function executeMqttSession(
       if (openSubscribes === null || openSubscribes.waiting.size > 0 || connack === null) return;
       const { grants, unsent } = openSubscribes;
       openSubscribes = null;
-      observer?.ready({ sessionPresent: connack.sessionPresent, clientId, grants, unsent });
+      observer?.ready({
+        sessionPresent: connack.sessionPresent,
+        clientId,
+        ...(clientId === generatedClientId ? { clientIdGenerated: true } : {}),
+        ...(settings.cleanStart === false ? { keptSession: true } : {}),
+        grants,
+        unsent,
+      });
     };
 
     // ── Per-connection state — reset on every (re)dial ──

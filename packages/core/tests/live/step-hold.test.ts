@@ -6,6 +6,9 @@
  *
  * The reboot scenario over a fake session; the adapter stands where a
  * host's rate limit would and drives the signals by hand.
+ *
+ * And what a session step's row is told: how a `listen`'s session
+ * opened, and what an `expect` waits for from when.
  */
 
 import * as v from 'valibot';
@@ -71,6 +74,7 @@ function rig(steps: unknown[] = [LISTEN, CALL, EXPECT]) {
       opening = opened;
       return {
         ok: true,
+        facts: { identityGenerated: true, cleanStart: true, resumed: false, granted: 1 },
         session: {
           position: () => position,
           matchesAddress: (address, landed) => landed.address === address,
@@ -187,6 +191,46 @@ describe('an expect’s window, behind a held trigger', () => {
 
     expect(outcome.ok).toBe(true);
     expect(settlementOf('status').settlement).toMatchObject({ state: 'matched', afterMs: 100 });
+  });
+});
+
+describe('what a session step’s row is told', () => {
+  it('a listen settles with how its session opened', async () => {
+    const { start, settlementOf } = rig([LISTEN]);
+    await start({ executeStep: async () => response('{}') });
+
+    expect(settlementOf('probe').settlement).toEqual({
+      state: 'ready',
+      readyMs: 0,
+      captureNames: [],
+      facts: { identityGenerated: true, cleanStart: true, resumed: false, granted: 1 },
+    });
+  });
+
+  it('an expect starts with its address, its deadline and when its window opened', async () => {
+    const { events, deliver, advance, start } = rig();
+    await start({
+      executeStep: async (_step, _captures, _context, send) => {
+        send?.onHeld();
+        advance(19_000);
+        send?.onLeave();
+        advance(300);
+        deliver(REBOOTING);
+        return response('{}');
+      },
+    });
+
+    expect(events.filter((event) => event.type === 'step-start')).toEqual([
+      { type: 'step-start', at: 1_000, stepId: 'probe', maxAttempts: 1 },
+      { type: 'step-start', at: 1_000, stepId: 'reboot', maxAttempts: 1 },
+      {
+        type: 'step-start',
+        at: 20_300,
+        stepId: 'status',
+        maxAttempts: 1,
+        awaiting: { address: STATUS_TOPIC, since: 20_000, timeoutMs: 5_000 },
+      },
+    ]);
   });
 });
 

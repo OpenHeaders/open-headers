@@ -74,7 +74,24 @@ export interface SessionOpening {
   onEnded(reason: string): void;
 }
 
-export type SessionOpenResult = { ok: true; session: RunSession } | { ok: false; reason: string };
+/**
+ * How a session opened, for its `listen` row. A kind says what it has;
+ * a fact it does not have is absent, never guessed.
+ */
+export interface SessionOpenFacts {
+  /** It connected under an identity made up for this connection, not one the request set. */
+  identityGenerated?: boolean;
+  /** It asked the other side to start from nothing kept. */
+  cleanStart?: boolean;
+  /** The other side resumed a session it had kept. */
+  resumed?: boolean;
+  /** How many subscriptions the other side granted as it opened. */
+  granted?: number;
+}
+
+export type SessionOpenResult =
+  | { ok: true; session: RunSession; facts?: SessionOpenFacts }
+  | { ok: false; reason: string };
 
 export interface SessionHost {
   /** Open a `listen` step's session. Answers when it is ready to receive, or with a refusal in words. */

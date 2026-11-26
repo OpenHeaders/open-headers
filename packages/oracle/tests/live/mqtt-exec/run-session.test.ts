@@ -498,3 +498,30 @@ describe('the end of a run’s session', () => {
     expect(listen.ended).toEqual(['The broker disconnected: Session taken over (code 142).']);
   });
 });
+
+describe('how a run’s session opened', () => {
+  it('is said for the request’s own client id on a clean start', async () => {
+    const listen = await opening();
+    listen.grant(0);
+
+    expect(await listen.opened).toMatchObject({
+      ok: true,
+      facts: { identityGenerated: false, cleanStart: true, resumed: false, granted: 1 },
+    });
+    await (await listen.session()).end();
+  });
+
+  it('is said for a generated client id and a stored session the broker resumed', async () => {
+    const listen = await opening({ ...PROBE, clientId: '', cleanStart: false });
+    listen.rig.push({ type: 'connack', sessionPresent: true, reasonCode: 0 });
+    const subscribe = listen.rig.written.at(-1);
+    if (subscribe?.type !== 'subscribe') throw new Error('expected the open-time SUBSCRIBE');
+    listen.rig.push({ type: 'suback', packetId: subscribe.packetId, reasonCodes: [0] });
+
+    expect(await listen.opened).toMatchObject({
+      ok: true,
+      facts: { identityGenerated: true, cleanStart: false, resumed: true, granted: 1 },
+    });
+    await (await listen.session()).end();
+  });
+});

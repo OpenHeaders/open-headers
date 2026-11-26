@@ -28,7 +28,14 @@ import type {
 import type { ChainExecutionContext } from './chain-runner';
 import { judgeCriteria, resolveCriteria } from './criteria';
 import { applyExtractor } from './extractor';
-import type { SessionClose, StepFailurePhase, StepProduct, StepSettlement, WindowEntry } from './run-events';
+import type {
+  SessionClose,
+  StepAwaiting,
+  StepFailurePhase,
+  StepProduct,
+  StepSettlement,
+  WindowEntry,
+} from './run-events';
 import {
   type RunSession,
   type SessionHost,
@@ -67,6 +74,8 @@ export interface SessionStepRunner {
    * window nor counted against its deadline.
    */
   triggerLeft(step: KnownWorkflowStep): void;
+  /** What an `expect` waits for as it starts — absent for any other step, and for one whose window never opened. */
+  awaiting(step: SessionWorkflowStep): StepAwaiting | undefined;
   run(step: SessionWorkflowStep): Promise<SessionStepOutcome>;
   /** End every open session, last opened first, each under the close deadline. */
   close(): Promise<SessionClose[]>;
@@ -141,14 +150,19 @@ export function createSessionStepRunner(deps: {
       return { ok: false, phase: 'listen', reason: `Not ready within ${formatWait(step.timeoutMs)}.` };
     }
     if (!opened.value.ok) return { ok: false, phase: 'listen', reason: opened.value.reason };
-    const { session } = opened.value;
+    const { session, facts } = opened.value;
     hold.setMatcher((address, message) => session.matchesAddress(address, message));
     const readyAt = now();
     open.set(step.id, { session, readyAt });
     return {
       ok: true,
       captures: new Map(),
-      settlement: { state: 'ready', readyMs: readyAt - startedAt, captureNames: [] },
+      settlement: {
+        state: 'ready',
+        readyMs: readyAt - startedAt,
+        captureNames: [],
+        ...(facts !== undefined ? { facts } : {}),
+      },
     };
   };
 
@@ -288,6 +302,11 @@ export function createSessionStepRunner(deps: {
         holdOf(step.on).arm(step.id, { from: listening.session.position(), address: window.address });
         armed.set(step.id, { startedAt: now(), address: window.address });
       }
+    },
+    awaiting(step) {
+      const window = armed.get(step.id);
+      if (window === undefined || !isExpectStep(step)) return undefined;
+      return { address: window.address, since: window.startedAt, timeoutMs: step.timeoutMs };
     },
     run(step) {
       switch (step.action) {

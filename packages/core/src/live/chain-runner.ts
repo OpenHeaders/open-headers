@@ -452,7 +452,16 @@ async function walkChain(
     await sessionSteps.armTriggeredBy(step);
 
     if (!isCallStep(step)) {
-      onEvent?.({ type: 'step-start', at: now(), stepId, maxAttempts: 1 });
+      if (onEvent) {
+        const awaiting = sessionSteps.awaiting(step);
+        onEvent({
+          type: 'step-start',
+          at: now(),
+          stepId,
+          maxAttempts: 1,
+          ...(awaiting !== undefined ? { awaiting } : {}),
+        });
+      }
       const outcome = await sessionSteps.run(step);
       if (!outcome.ok) {
         state.set(stepId, 'failed');

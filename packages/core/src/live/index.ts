@@ -15,6 +15,7 @@ export type {
   ChainRunSuccess,
   FetchAdapter,
   RunChainArgs,
+  StepSend,
   TemplateResolver,
 } from './chain-runner';
 export { effectiveDependsOn, retryDelayMs, runChain, StepExecutionError } from './chain-runner';
@@ -120,6 +121,7 @@ export {
 export type {
   AttemptRetryCause,
   SessionClose,
+  StepAwaiting,
   StepFailurePhase,
   StepProduct,
   StepSettlement,
@@ -138,6 +140,7 @@ export type {
   RunSession,
   SessionHost,
   SessionMessage,
+  SessionOpenFacts,
   SessionOpening,
   SessionOpenResult,
   SessionSendResult,

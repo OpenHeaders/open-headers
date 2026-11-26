@@ -4,42 +4,94 @@
  * sentence derive here from the run record alone.
  */
 
-import type { WorkflowRunStepRow, WorkflowRunVerdict } from '@openheaders/core/live';
+import type { SessionClose, SessionOpenFacts, WorkflowRunStepRow, WorkflowRunVerdict } from '@openheaders/core/live';
 import type { Translate } from '@openheaders/ui/context/LocaleContext';
 import { formatDurationRolled } from '../request-editor/response/response-meta';
 
 export type RunRowTone = 'waiting' | 'running' | 'passed' | 'failed' | 'skipped' | 'not-run' | 'cannot-run';
 
+export type RunStepAction = 'call' | 'listen' | 'send' | 'expect';
+
 export interface RunRowDisplay {
   tone: RunRowTone;
   /** Short facts, shown joined on the row's right. */
   facts: string[];
-  /** The line under the row — a failure's sentence, a skip's reason. */
+  /** The line under the row — a failure's sentence, a skip's reason, how a session opened. */
   sub?: { text: string; tone: 'secondary' | 'danger' | 'warning' };
 }
 
-export function describeRunRow(row: WorkflowRunStepRow, t: Translate): RunRowDisplay {
+/** What a row's words need beyond the row itself. */
+export interface RunRowContext {
+  /** The step's action, where the workflow still holds the step. */
+  action?: RunStepAction;
+  /** The clock, for a wait that says how far into its deadline it is. */
+  now?: number;
+  /** A `listen`'s session: open while the run goes, then how it closed. */
+  session?: 'open' | SessionClose;
+}
+
+export function describeRunRow(row: WorkflowRunStepRow, t: Translate, context: RunRowContext = {}): RunRowDisplay {
   if (row.state === 'waiting') return { tone: 'waiting', facts: [t('workbench.editors.live.run.row.waiting')] };
   if (row.state === 'running') {
-    return {
-      tone: 'running',
-      facts: [
-        t('workbench.editors.live.run.row.sending'),
-        ...(row.maxAttempts > 1
-          ? [t('workbench.editors.live.run.row.attempt', { attempt: row.attempt, max: row.maxAttempts })]
-          : []),
-      ],
-    };
+    const attempt =
+      row.maxAttempts > 1
+        ? [t('workbench.editors.live.run.row.attempt', { attempt: row.attempt, max: row.maxAttempts })]
+        : [];
+    if (row.held === true) {
+      return { tone: 'running', facts: [t('workbench.editors.live.run.row.heldByRateLimit'), ...attempt] };
+    }
+    if (row.awaiting !== undefined) {
+      const { address, since, timeoutMs } = row.awaiting;
+      return {
+        tone: 'running',
+        facts: [
+          address === null
+            ? t('workbench.editors.live.run.row.waitingForMessage')
+            : t('workbench.editors.live.run.row.waitingFor', { address }),
+          ...(context.now !== undefined
+            ? [
+                t('workbench.editors.live.run.row.elapsedOf', {
+                  elapsed: formatDurationRolled(Math.min(context.now - since, timeoutMs)),
+                  deadline: formatDurationRolled(timeoutMs),
+                }),
+              ]
+            : []),
+        ],
+      };
+    }
+    if (context.action === 'listen') {
+      return { tone: 'running', facts: [t('workbench.editors.live.run.row.connecting')] };
+    }
+    return { tone: 'running', facts: [t('workbench.editors.live.run.row.sending'), ...attempt] };
   }
   const { settlement } = row;
   const captures = (names: readonly string[]): string[] =>
     names.length > 0 ? [t('workbench.editors.live.run.row.captures', { count: names.length })] : [];
   switch (settlement.state) {
-    case 'ready':
+    case 'ready': {
+      const { session } = context;
+      const opened = settlement.facts === undefined ? [] : describeOpenFacts(settlement.facts, t);
       return {
         tone: 'passed',
-        facts: [t('workbench.editors.live.run.row.readyIn', { duration: formatDurationRolled(settlement.readyMs) })],
+        facts: [
+          t('workbench.editors.live.run.row.readyIn', { duration: formatDurationRolled(settlement.readyMs) }),
+          ...(session === undefined
+            ? []
+            : session === 'open'
+              ? [t('workbench.editors.live.run.row.open')]
+              : [
+                  t('workbench.editors.live.run.row.closedAfter', {
+                    duration: formatDurationRolled(session.openForMs),
+                  }),
+                ]),
+        ],
+        ...(session !== undefined && session !== 'open' && session.warning !== undefined
+          ? { sub: { text: session.warning, tone: 'warning' } }
+          : opened.length > 0
+            ? { sub: { text: opened.join(' · '), tone: 'secondary' } }
+            : {}),
       };
+    }
     case 'sent':
       return {
         tone: 'passed',
@@ -102,6 +154,29 @@ export function describeRunRow(row: WorkflowRunStepRow, t: Translate): RunRowDis
         sub: { text: settlement.reason, tone: 'warning' },
       };
   }
+}
+
+/** How a session opened, in the order a person reads it: who it is, what it started from, what it was granted. */
+function describeOpenFacts(facts: SessionOpenFacts, t: Translate): string[] {
+  return [
+    ...(facts.identityGenerated === undefined
+      ? []
+      : [
+          t(
+            facts.identityGenerated
+              ? 'workbench.editors.live.run.row.identityGenerated'
+              : 'workbench.editors.live.run.row.identityOwn',
+          ),
+        ]),
+    ...(facts.resumed === true
+      ? [t('workbench.editors.live.run.row.resumed')]
+      : facts.cleanStart === true
+        ? [t('workbench.editors.live.run.row.cleanStart')]
+        : []),
+    ...(facts.granted !== undefined && facts.granted > 0
+      ? [t('workbench.editors.live.run.row.granted', { count: facts.granted })]
+      : []),
+  ];
 }
 
 export function describeRunVerdict(verdict: WorkflowRunVerdict, t: Translate): string {

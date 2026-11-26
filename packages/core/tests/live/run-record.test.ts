@@ -75,6 +75,23 @@ describe('the record of a run, fact by fact', () => {
     expect(left?.steps[0]).toEqual(running);
   });
 
+  it('a started expect keeps what it waits for; the end keeps how each session closed', () => {
+    const awaiting = { address: 'devices/dev-1/status', since: 105, timeoutMs: 10_000 };
+    const started = replay([BEGIN, { type: 'step-start', at: 110, stepId: 'profile', maxAttempts: 1, awaiting }]);
+    expect(started?.steps[1]).toEqual({
+      id: 'profile',
+      uid: 'stpprofl',
+      state: 'running',
+      attempt: 1,
+      maxAttempts: 1,
+      awaiting,
+    });
+
+    const sessions = [{ stepId: 'login', openForMs: 742 }];
+    const ended = applyRunFact(started, RUN, { type: 'end', at: 900, ok: true, durationMs: 800, sessions });
+    expect(ended?.ended).toEqual({ ok: true, durationMs: 800, sessions });
+  });
+
   it('the run failing at a fetch — the step before it stays passed', () => {
     const record = replay([
       BEGIN,

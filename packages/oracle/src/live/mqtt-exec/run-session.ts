@@ -116,7 +116,16 @@ export function createMqttRunSessionHost(options: MqttRunSessionHostOptions): Se
               return;
             }
             ready = true;
-            answer({ ok: true, session });
+            answer({
+              ok: true,
+              session,
+              facts: {
+                identityGenerated: facts.clientIdGenerated === true,
+                cleanStart: facts.keptSession !== true,
+                resumed: facts.sessionPresent,
+                granted: facts.grants.length,
+              },
+            });
           },
           message(observed) {
             lastPosition = observed.position + 1;
