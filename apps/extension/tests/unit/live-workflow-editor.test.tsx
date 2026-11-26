@@ -483,6 +483,24 @@ describe('LiveWorkflowEditor — a workflow that holds session steps', () => {
     expect(patch.refresh).toEqual({ kind: 'manual' });
   });
 
+  it('a step’s id is typed in place: its field stays, and keeps the focus, as each letter lands', () => {
+    const { container } = renderWorkflow(sessionFixture);
+    const idField = (): HTMLInputElement => {
+      const input = container.querySelector<HTMLInputElement>('[data-field-path="steps.0.id"] input');
+      if (input === null) throw new Error('the first step has no id field');
+      return input;
+    };
+
+    const field = idField();
+    field.focus();
+    fireEvent.change(field, { target: { value: 'probe2' } });
+
+    expect(idField()).toBe(field);
+    expect(document.activeElement).toBe(field);
+    expect(field.value).toBe('probe2');
+    expect(screen.getByTestId('wf-step-2-on').textContent).toContain('probe2');
+  });
+
   it('gives a verdict: its refresh is fixed at manual, and its captures offer no exposure', async () => {
     const captured: LiveWorkflow = {
       ...sessionFixture,

@@ -334,7 +334,7 @@ const WorkflowFormBody: React.FC<WorkflowFormBodyProps> = ({
           if (!isKnownStep(step)) {
             return (
               <UnknownStepCard
-                key={step.id || `step-${idx}`}
+                key={step.uid}
                 step={step}
                 index={idx}
                 selected={selectedStepId === step.id}
@@ -346,7 +346,7 @@ const WorkflowFormBody: React.FC<WorkflowFormBodyProps> = ({
           const stepErrors = errorsByStepId.get(step.id) ?? [];
           return (
             <WorkflowStepEditor
-              key={step.id || `step-${idx}`}
+              key={step.uid}
               step={step}
               index={idx}
               totalSteps={draft.steps.length}
