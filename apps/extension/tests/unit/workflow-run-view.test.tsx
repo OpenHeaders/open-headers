@@ -295,6 +295,8 @@ describe('the Run view', () => {
     const profile = screen.getByTestId('wf-run-row-profile');
     expect(profile.getAttribute('data-run-state')).toBe('failed');
     expect(profile.textContent).toContain(REFUSED);
+    // The sentence has the row's width from the step id on — a narrow pane never stacks it under the name alone.
+    expect(within(profile).getByText(REFUSED).style.gridColumn).toBe('3 / -1');
     expect(screen.getByTestId('wf-run-view').textContent).toContain(
       'Nothing was published. The last good values stay.',
     );

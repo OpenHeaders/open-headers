@@ -272,7 +272,7 @@ const RunRow: React.FC<{
         {display.facts.join(' · ')}
       </Text>
       {display.sub && (
-        <Text type={display.sub.tone} style={{ gridColumn: '4 / 6', fontSize: 12, marginTop: 2 }}>
+        <Text type={display.sub.tone} style={{ gridColumn: '3 / -1', fontSize: 12, marginTop: 2 }}>
           {display.sub.text}
         </Text>
       )}
