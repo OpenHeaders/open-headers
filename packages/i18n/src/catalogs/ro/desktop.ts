@@ -56,6 +56,13 @@ export const desktop = {
   'desktop.dialog.hardwareAcceleration.later': 'Mai târziu',
   'desktop.dialog.dataMoveHeld.title': 'Datele dvs. sunt în uz',
   'desktop.dialog.dataMoveHeld.message': 'Închideți programul care folosește {path}, apoi porniți din nou aplicația.',
+  'desktop.dialog.packageRuns.title': 'Aplicația {name} este instalată ca pachet Windows',
+  'desktop.dialog.packageRuns.message':
+    'Deschideți-o din meniul Start sau eliminați pachetul pentru a folosi această copie.',
+  'desktop.dialog.dataLeft.title': 'Datele dvs. nu au fost aduse înapoi',
+  'desktop.dialog.dataLeft.message': 'Datele dvs. sunt încă în folderul {path} ({reason}).',
+  'desktop.dialog.dataLeft.tryAgain': 'Reîncercare',
+  'desktop.dialog.dataLeft.startEmpty': 'Pornire fără date',
   'desktop.dialog.windowCrashed.title': 'Fereastra s-a închis neașteptat',
   'desktop.dialog.windowCrashed.message':
     '{name} a redeschis fereastra o dată, iar aceasta s-a închis din nou neașteptat.',

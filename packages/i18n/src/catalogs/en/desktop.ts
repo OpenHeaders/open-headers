@@ -61,6 +61,15 @@ export const desktop = {
   // it ends instead of starting on an empty folder.
   'desktop.dialog.dataMoveHeld.title': 'Your data is in use',
   'desktop.dialog.dataMoveHeld.message': 'Close the program that is using {path}, then start the app again.',
+  // A classic app that has no data of its own beside a Windows package:
+  // the package is the app, and a folder a package left behind that
+  // cannot be taken back is the person's call.
+  'desktop.dialog.packageRuns.title': '{name} is installed as a Windows package',
+  'desktop.dialog.packageRuns.message': 'Open it from the Start menu, or remove the package to use this copy.',
+  'desktop.dialog.dataLeft.title': 'Your data was not brought back',
+  'desktop.dialog.dataLeft.message': 'Your data is still in {path} ({reason}).',
+  'desktop.dialog.dataLeft.tryAgain': 'Try Again',
+  'desktop.dialog.dataLeft.startEmpty': 'Start Empty',
   // The window supervisor's dialogs (a renderer that died twice, a
   // renderer that stopped responding) and the graphics-process escape.
   'desktop.dialog.windowCrashed.title': 'The window crashed',

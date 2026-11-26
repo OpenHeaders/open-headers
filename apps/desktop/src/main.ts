@@ -40,6 +40,7 @@
  *                                       opens when it settles.
  */
 
+import { mkdirSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { hostProcessRoots } from '@openheaders/oracle-host-node/process-reader';
@@ -56,7 +57,7 @@ import {
   FINISH_MOVE_SWITCH,
   moveDataFolderToPackage,
 } from './main/bootstrap/data-folder-move';
-import { returnDataFolderFromPackage } from './main/bootstrap/data-folder-return';
+import { type DataFolderReturn, returnDataFolderFromPackage } from './main/bootstrap/data-folder-return';
 import { installDownloadFeedback } from './main/bootstrap/downloads';
 import { createEngineReadiness } from './main/bootstrap/engine-readiness';
 import { installExternalLinkHandler } from './main/bootstrap/external-links';
@@ -67,9 +68,15 @@ import { initMainLocale, mainTranslator } from './main/bootstrap/locale';
 import { installLogFilesHandler } from './main/bootstrap/log-files';
 import { createLogger, installMainLogger } from './main/bootstrap/logger';
 import { missingPackageAliases } from './main/bootstrap/package-aliases';
+import { handOverToPackage } from './main/bootstrap/package-hand-over';
 import { CHECK_PACKAGE_START_SWITCH, runPackageStartCheck } from './main/bootstrap/package-start-check';
 import { installProcessDiagnostics } from './main/bootstrap/process-diagnostics';
-import { drainPendingProtocolUrls, installProtocolHandler, registerAsProtocolHandler } from './main/bootstrap/protocol';
+import {
+  drainPendingProtocolUrls,
+  installProtocolHandler,
+  PROTOCOL_SCHEME,
+  registerAsProtocolHandler,
+} from './main/bootstrap/protocol';
 import { installRpcQueue } from './main/bootstrap/rpc-queue';
 import { startOnScratchProfile } from './main/bootstrap/scratch-profile';
 import { installPermissionPolicy } from './main/bootstrap/security';
@@ -134,6 +141,68 @@ function endStartBeforeDataFolder(move: DataFolderMove | null, finishingMove: bo
   return false;
 }
 
+/**
+ * A classic app with no data folder of its own does not make a fresh one
+ * while the user's data may sit with a Windows package. Where a package is
+ * installed, the start is handed over to it. Where a package's folder was
+ * left behind and could not be taken back, the person chooses: ask again
+ * at a new start, or start empty — the folder made here is what makes the
+ * next start an ordinary one. Returns whether the start ends here.
+ */
+function endStartForPackageData(result: DataFolderReturn | null, ownDataDir: string): boolean {
+  if (result?.outcome === 'package-installed') {
+    startOnScratchProfile();
+    const link = process.argv.find((arg) => arg.startsWith(`${PROTOCOL_SCHEME}://`));
+    void handOverToPackage({
+      localAppDataDir: process.env.LOCALAPPDATA ?? join(homedir(), 'AppData', 'Local'),
+      args: link === undefined ? [] : [link],
+    }).then(async (started) => {
+      if (started) {
+        app.exit(0);
+        return;
+      }
+      await app.whenReady();
+      initMainLocale();
+      const t = mainTranslator();
+      dialog.showErrorBox(
+        t('desktop.dialog.packageRuns.title', { name: APP_DISPLAY_NAME }),
+        t('desktop.dialog.packageRuns.message'),
+      );
+      app.exit(1);
+    });
+    return true;
+  }
+  if (result?.outcome === 'left') {
+    startOnScratchProfile();
+    const { from, reason } = result;
+    void app.whenReady().then(() => {
+      initMainLocale();
+      const t = mainTranslator();
+      const startEmpty = 1;
+      const choice = dialog.showMessageBoxSync({
+        type: 'warning',
+        title: t('desktop.dialog.dataLeft.title'),
+        message: t('desktop.dialog.dataLeft.message', { path: from, reason }),
+        buttons: [t('desktop.dialog.dataLeft.tryAgain'), t('desktop.dialog.dataLeft.startEmpty')],
+        defaultId: 0,
+        cancelId: 0,
+        noLink: true,
+      });
+      if (choice === startEmpty) {
+        try {
+          mkdirSync(ownDataDir, { recursive: true });
+        } catch {
+          // The next start finds no folder and asks again.
+        }
+      }
+      app.relaunch();
+      app.exit(0);
+    });
+    return true;
+  }
+  return false;
+}
+
 function bootstrapDesktopApp(): void {
   // userData — must land before ANY consumer of `app.getPath('userData')`:
   // the logger writes there, storage/persistence key off it, and the
@@ -157,7 +226,8 @@ function bootstrapDesktopApp(): void {
   // An installed classic app on Windows takes its data back from the
   // Windows package's folder when a move left it there and the package
   // is gone — before the folder is chosen, so the first start after a
-  // reinstall opens the user's data and not an empty folder.
+  // reinstall opens the user's data and not an empty folder. It never
+  // makes that empty folder by itself while the data may be a package's.
   const dataFolderReturn = userDataOverride
     ? null
     : returnDataFolderFromPackage({
@@ -165,6 +235,7 @@ function bootstrapDesktopApp(): void {
         ownDir: ownDataDir,
         localAppDataDir: process.env.LOCALAPPDATA,
       });
+  if (endStartForPackageData(dataFolderReturn, ownDataDir)) return;
   // A Windows package takes in the data a move from the classic app
   // handed over — before the folder is chosen as well, so the first
   // start after a move opens the user's data.
@@ -220,8 +291,6 @@ function bootstrapDesktopApp(): void {
   }
   if (dataFolderReturn?.outcome === 'returned') {
     logger.info(`data folder taken back from ${dataFolderReturn.from}`);
-  } else if (dataFolderReturn?.outcome === 'left') {
-    logger.warn(`data folder left at ${dataFolderReturn.from}: ${dataFolderReturn.why}`);
   }
 
   // Then process diagnostics — any throw in later bootstrap calls

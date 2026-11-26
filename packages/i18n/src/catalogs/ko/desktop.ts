@@ -56,6 +56,12 @@ export const desktop = {
   'desktop.dialog.hardwareAcceleration.later': '나중에',
   'desktop.dialog.dataMoveHeld.title': '데이터가 사용 중입니다',
   'desktop.dialog.dataMoveHeld.message': '{path} 폴더를 사용 중인 프로그램을 닫은 다음 앱을 다시 시작하세요.',
+  'desktop.dialog.packageRuns.title': '{name} 앱이 Windows 패키지로 설치되어 있습니다',
+  'desktop.dialog.packageRuns.message': '시작 메뉴에서 열거나, 이 복사본을 사용하려면 패키지를 제거하세요.',
+  'desktop.dialog.dataLeft.title': '데이터를 가져오지 못했습니다',
+  'desktop.dialog.dataLeft.message': '데이터가 아직 {path} 폴더에 있습니다({reason}).',
+  'desktop.dialog.dataLeft.tryAgain': '다시 시도',
+  'desktop.dialog.dataLeft.startEmpty': '데이터 없이 시작',
   'desktop.dialog.windowCrashed.title': '창이 비정상 종료되었습니다',
   'desktop.dialog.windowCrashed.message': '{name} 앱이 창을 한 번 다시 열었지만 다시 비정상 종료되었습니다.',
   'desktop.dialog.windowCrashed.detail':

@@ -60,6 +60,12 @@ export const desktop = {
   'desktop.dialog.hardwareAcceleration.later': 'Позже',
   'desktop.dialog.dataMoveHeld.title': 'Ваши данные сейчас используются',
   'desktop.dialog.dataMoveHeld.message': 'Закройте программу, которая использует {path}, и запустите приложение снова.',
+  'desktop.dialog.packageRuns.title': 'Приложение {name} установлено как пакет Windows',
+  'desktop.dialog.packageRuns.message': 'Откройте его из меню «Пуск» или удалите пакет, чтобы использовать эту копию.',
+  'desktop.dialog.dataLeft.title': 'Ваши данные не были возвращены',
+  'desktop.dialog.dataLeft.message': 'Ваши данные по-прежнему находятся в папке {path} ({reason}).',
+  'desktop.dialog.dataLeft.tryAgain': 'Повторить',
+  'desktop.dialog.dataLeft.startEmpty': 'Запустить без данных',
   'desktop.dialog.windowCrashed.title': 'Окно аварийно завершилось',
   'desktop.dialog.windowCrashed.message': '{name} один раз открыл окно заново, и оно снова аварийно завершилось.',
   'desktop.dialog.windowCrashed.detail':

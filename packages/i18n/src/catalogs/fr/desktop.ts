@@ -55,6 +55,13 @@ export const desktop = {
   'desktop.dialog.hardwareAcceleration.later': 'Plus tard',
   'desktop.dialog.dataMoveHeld.title': "Vos données sont en cours d'utilisation",
   'desktop.dialog.dataMoveHeld.message': "Fermez le programme qui utilise {path}, puis relancez l'application.",
+  'desktop.dialog.packageRuns.title': '{name} est installé en tant que package Windows',
+  'desktop.dialog.packageRuns.message':
+    'Ouvrez-le depuis le menu Démarrer, ou supprimez le package pour utiliser cette copie.',
+  'desktop.dialog.dataLeft.title': "Vos données n'ont pas été récupérées",
+  'desktop.dialog.dataLeft.message': 'Vos données sont toujours dans {path} ({reason}).',
+  'desktop.dialog.dataLeft.tryAgain': 'Réessayer',
+  'desktop.dialog.dataLeft.startEmpty': 'Démarrer sans données',
   'desktop.dialog.windowCrashed.title': 'La fenêtre a planté',
   'desktop.dialog.windowCrashed.message': '{name} a rouvert la fenêtre une fois, et elle a planté de nouveau.',
   'desktop.dialog.windowCrashed.detail':

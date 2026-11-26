@@ -57,6 +57,12 @@ export const desktop = {
   'desktop.dialog.hardwareAcceleration.later': 'Más tarde',
   'desktop.dialog.dataMoveHeld.title': 'Tus datos están en uso',
   'desktop.dialog.dataMoveHeld.message': 'Cierra el programa que está usando {path} y vuelve a iniciar la aplicación.',
+  'desktop.dialog.packageRuns.title': '{name} está instalado como paquete de Windows',
+  'desktop.dialog.packageRuns.message': 'Ábrelo desde el menú Inicio o quita el paquete para usar esta copia.',
+  'desktop.dialog.dataLeft.title': 'Tus datos no se han recuperado',
+  'desktop.dialog.dataLeft.message': 'Tus datos siguen en {path} ({reason}).',
+  'desktop.dialog.dataLeft.tryAgain': 'Reintentar',
+  'desktop.dialog.dataLeft.startEmpty': 'Iniciar sin datos',
   'desktop.dialog.windowCrashed.title': 'La ventana se ha cerrado inesperadamente',
   'desktop.dialog.windowCrashed.message': '{name} volvió a abrir la ventana una vez y se cerró de nuevo.',
   'desktop.dialog.windowCrashed.detail':

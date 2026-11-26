@@ -58,6 +58,13 @@ export const desktop = {
   'desktop.dialog.hardwareAcceleration.later': 'Später',
   'desktop.dialog.dataMoveHeld.title': 'Deine Daten werden gerade verwendet',
   'desktop.dialog.dataMoveHeld.message': 'Schließe das Programm, das {path} verwendet, und starte die App dann erneut.',
+  'desktop.dialog.packageRuns.title': '{name} ist als Windows-Paket installiert',
+  'desktop.dialog.packageRuns.message':
+    'Öffne es über das Startmenü oder entferne das Paket, um diese Kopie zu verwenden.',
+  'desktop.dialog.dataLeft.title': 'Deine Daten wurden nicht zurückgeholt',
+  'desktop.dialog.dataLeft.message': 'Deine Daten liegen noch in {path} ({reason}).',
+  'desktop.dialog.dataLeft.tryAgain': 'Erneut versuchen',
+  'desktop.dialog.dataLeft.startEmpty': 'Ohne Daten starten',
   'desktop.dialog.windowCrashed.title': 'Das Fenster ist abgestürzt',
   'desktop.dialog.windowCrashed.message': '{name} hat das Fenster einmal neu geöffnet, und es ist erneut abgestürzt.',
   'desktop.dialog.windowCrashed.detail':

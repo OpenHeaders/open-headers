@@ -56,6 +56,13 @@ export const desktop = {
   'desktop.dialog.dataMoveHeld.title': 'データは使用中です',
   'desktop.dialog.dataMoveHeld.message':
     '{path} を使用しているプログラムを閉じてから、アプリをもう一度起動してください。',
+  'desktop.dialog.packageRuns.title': '{name} は Windows パッケージとしてインストールされています',
+  'desktop.dialog.packageRuns.message':
+    'スタートメニューから開くか、パッケージを削除してこのコピーを使用してください。',
+  'desktop.dialog.dataLeft.title': 'データを戻せませんでした',
+  'desktop.dialog.dataLeft.message': 'データはまだ {path} にあります（{reason}）。',
+  'desktop.dialog.dataLeft.tryAgain': '再試行',
+  'desktop.dialog.dataLeft.startEmpty': 'データなしで起動',
   'desktop.dialog.windowCrashed.title': 'ウィンドウがクラッシュしました',
   'desktop.dialog.windowCrashed.message': '{name} はウィンドウを一度開き直しましたが、再びクラッシュしました。',
   'desktop.dialog.windowCrashed.detail':

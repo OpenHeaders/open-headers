@@ -15,9 +15,14 @@
  *
  * One rename and nothing else — no copy, no merge, no delete, no retry,
  * no other folder. Windows refuses the rename while any process holds a
- * file inside and when the two folders are on different volumes; the app
- * then starts as it always has. Its own folder exists from that start
- * on, so this runs once in an install's life.
+ * file inside and when the two folders are on different volumes.
+ *
+ * A classic app that has no folder of its own never makes a fresh one by
+ * itself while the user's data may sit with a package: its own folder
+ * would exist from that start on, and this would never run again. While a
+ * package is installed the start is handed over to it; when the package's
+ * folder was left behind and cannot be taken back, the caller asks the
+ * person. An app that has its own folder reads nothing here.
  */
 
 import { execFileSync } from 'node:child_process';
@@ -54,9 +59,13 @@ export interface DataFolderReturnSeams {
 export type DataFolderReturn =
   | { readonly outcome: 'nothing-to-return' }
   | { readonly outcome: 'returned'; readonly from: string }
-  | { readonly outcome: 'left'; readonly from: string; readonly why: string };
+  /** A package of ours is installed: it is the app on this account. */
+  | { readonly outcome: 'package-installed' }
+  /** `why` is for the log; `reason` is the short token a person is shown. */
+  | { readonly outcome: 'left'; readonly from: string; readonly why: string; readonly reason: string };
 
 const NOTHING_TO_RETURN: DataFolderReturn = { outcome: 'nothing-to-return' };
+const PACKAGE_INSTALLED: DataFolderReturn = { outcome: 'package-installed' };
 
 const WINDOWS_ANSWER_TIMEOUT_MS = 30_000;
 
@@ -126,21 +135,27 @@ export function returnDataFolderFromPackage(
   const isClassicInstall = facts.installKind === 'nsis' || facts.installKind === 'msi';
   if (!isClassicInstall || !facts.localAppDataDir) return NOTHING_TO_RETURN;
   if (!isAbsent(facts.ownDir)) return NOTHING_TO_RETURN;
+  const packageFolder = hasPackageFolder(facts.localAppDataDir);
+  if (packageFolder) return PACKAGE_INSTALLED;
   const from = path.join(facts.localAppDataDir, PACKAGE_DATA_DIR_NAME);
   if (isAbsent(from)) return NOTHING_TO_RETURN;
-  if (!isPlainDirectory(from)) return { outcome: 'left', from, why: 'it is not a plain folder' };
-
-  const packageFolder = hasPackageFolder(facts.localAppDataDir);
-  if (packageFolder === null) return { outcome: 'left', from, why: "the user's Packages folder could not be read" };
-  if (packageFolder) return { outcome: 'left', from, why: 'a Windows package of the app is installed' };
+  if (!isPlainDirectory(from)) {
+    return { outcome: 'left', from, why: 'it is not a plain folder', reason: 'not-a-folder' };
+  }
+  if (packageFolder === null) {
+    return { outcome: 'left', from, why: "the user's Packages folder could not be read", reason: 'unreadable' };
+  }
   const listed = (seams.isPackageInstalled ?? askWindowsForPackage)();
-  if (listed === null) return { outcome: 'left', from, why: 'Windows did not say whether a package is installed' };
-  if (listed) return { outcome: 'left', from, why: 'a Windows package of the app is installed' };
+  if (listed === null) {
+    return { outcome: 'left', from, why: 'Windows did not say whether a package is installed', reason: 'no-answer' };
+  }
+  if (listed) return PACKAGE_INSTALLED;
 
   try {
     (seams.rename ?? fs.renameSync)(from, facts.ownDir);
   } catch (error) {
-    return { outcome: 'left', from, why: `Windows refused the rename (${errorCode(error)})` };
+    const code = errorCode(error);
+    return { outcome: 'left', from, why: `Windows refused the rename (${code})`, reason: code };
   }
   return { outcome: 'returned', from };
 }
