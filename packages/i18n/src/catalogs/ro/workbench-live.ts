@@ -232,8 +232,7 @@ export const workbenchLive = {
   'workbench.editors.live.run.pane.note.sent': 'Trimis',
   'workbench.editors.live.run.pane.note.reply': 'Răspuns',
   'workbench.editors.live.workflow.refresh': 'Reîmprospătare',
-  'workbench.editors.live.workflow.runUnavailable':
-    'Fluxurile de lucru nu rulează încă într-o filă de browser. Folosiți aplicația desktop sau extensia de browser pentru a rula unul.',
+  'workbench.editors.live.workflow.runUnavailable': 'Fluxurile de lucru nu rulează într-o copie publică.',
   'workbench.editors.live.workflow.disabledTag': 'Dezactivat',
   'workbench.editors.live.workflow.notFound': 'Fluxul de lucru nu a fost găsit.',
   'workbench.editors.live.workflow.needsUpdate':

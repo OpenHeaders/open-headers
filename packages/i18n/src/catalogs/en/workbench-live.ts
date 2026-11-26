@@ -200,8 +200,7 @@ export const workbenchLive = {
   'workbench.editors.live.run.pane.note.sent': 'Sent',
   'workbench.editors.live.run.pane.note.reply': 'Reply',
   'workbench.editors.live.workflow.refresh': 'Refresh',
-  'workbench.editors.live.workflow.runUnavailable':
-    'Workflows do not run in a browser tab yet. Use the desktop app or the browser extension to run one.',
+  'workbench.editors.live.workflow.runUnavailable': 'Workflows do not run in a public view.',
   'workbench.editors.live.workflow.disabledTag': 'Disabled',
   'workbench.editors.live.workflow.notFound': 'Workflow not found.',
   'workbench.editors.live.workflow.needsUpdate':

@@ -1022,13 +1022,12 @@ export interface Capabilities {
 
   /**
    * Declares that this surface has NO realm that runs a workflow on a
-   * person's press — its bridge answers neither the run nor the cache
-   * read. Registered only by the served web tab, until the page there
-   * runs its own chain (the workflow runs plan, slice E); the extension
-   * and the desktop app run workflows and leave it absent. Where it is
-   * present every Refresh of a workflow is off with an (i) that says
-   * where one runs, and the workflow tab offers no Run view. Presence is
-   * the whole signal.
+   * person's press. Registered only by the web host's anonymous public
+   * view, which has no wire to the server its steps would go out
+   * through; the signed-in web tab, the extension and the desktop app
+   * run workflows and leave it absent. Where it is present every Refresh
+   * of a workflow is off with an (i) that says so, and the workflow tab
+   * offers no Run view. Presence is the whole signal.
    */
   workflowRunUnavailable?: () => boolean;
 
@@ -1036,13 +1035,13 @@ export interface Capabilities {
    * Declares that this surface's host runs a workflow's session steps —
    * `listen`, `send`, `expect` (the workflow runs plan, slices D and E).
    * Registered by the desktop app, whose main process opens the
-   * session, and by the extension's workbench page, which runs such a
-   * workflow itself; the extension's other surfaces and the served web
-   * tab leave it absent and read such a workflow as one that needs a
-   * newer version, until their own slice. Where it is present a workflow
-   * whose every step is of an action the model knows is run on a press
-   * and shown in the Run view; its steps are still not edited here.
-   * Presence is the whole signal.
+   * session, and by the extension's workbench page and the signed-in
+   * web tab, which run such a workflow themselves; the extension's
+   * other surfaces leave it absent and read such a workflow as one that
+   * needs a newer version, until their own slice. Where it is present a
+   * workflow whose every step is of an action the model knows is run on
+   * a press and shown in the Run view; its steps are still not edited
+   * here. Presence is the whole signal.
    */
   workflowSessionSteps?: () => boolean;
 

@@ -30,18 +30,21 @@ registerCapability('openExternalUrl', (url) => {
   return Promise.resolve({ ok: true });
 });
 
-// Nothing in a tab runs a workflow on a press yet: the tab's dispatch
-// answers neither the run nor the cache read, and the server's own runs
-// reach no tab. Every Refresh of a workflow is off with an (i) and the
-// workflow tab offers no Run view, until the page runs its own chain
-// (the workflow runs plan, slice E) and this line goes.
-registerCapability('workflowRunUnavailable', () => true);
-
 // The anonymous public viewer (F5b) is a session-less, wire-less
 // read-only mount — everything below is a signed-tab affordance (a
 // daemon session, wire verbs, remote dispatch) and stays unregistered
 // there so shared UI hides it wholesale.
-if (!isPublicView()) {
+if (isPublicView()) {
+  // A workflow's steps go out through the serving daemon, and a public
+  // view has no wire to it: every Refresh of a workflow is off with an
+  // (i) and the workflow tab offers no Run view.
+  registerCapability('workflowRunUnavailable', () => true);
+} else {
+  // A workflow runs HERE on a press (`tab-workflows-rpc.ts`): the runner,
+  // a `listen` step's session and the scripts in this tab, the sockets
+  // on the serving daemon — so a workflow with session steps runs too.
+  registerCapability('workflowSessionSteps', () => true);
+
   // API requests open their sockets on the connected daemon's Node
   // stack, never in this tab — the request editor's Settings tab shows
   // the Node fact sheet (every node knob applies at the place) and

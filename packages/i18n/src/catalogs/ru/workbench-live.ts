@@ -229,8 +229,7 @@ export const workbenchLive = {
   'workbench.editors.live.run.pane.note.sent': 'Отправлено',
   'workbench.editors.live.run.pane.note.reply': 'Ответ',
   'workbench.editors.live.workflow.refresh': 'Обновить',
-  'workbench.editors.live.workflow.runUnavailable':
-    'Рабочие процессы пока не запускаются во вкладке браузера. Запустите его в настольном приложении или в расширении браузера.',
+  'workbench.editors.live.workflow.runUnavailable': 'Рабочие процессы не запускаются в публичной копии.',
   'workbench.editors.live.workflow.disabledTag': 'Выключено',
   'workbench.editors.live.workflow.notFound': 'Рабочий процесс не найден.',
   'workbench.editors.live.workflow.needsUpdate':

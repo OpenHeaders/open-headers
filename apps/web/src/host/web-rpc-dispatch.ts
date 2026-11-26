@@ -2,8 +2,8 @@
  * Web host RPC dispatch — the in-process "reactor" the host bridge
  * calls into. The tab oracle lives in the same JS context as the
  * Workbench, so dispatch is a function call: universal host RPCs
- * first, the tab-answered request, gRPC and session channels (the tab
- * is the context), the daemon-answered channels forwarded up the
+ * first, the tab-answered request, gRPC, session and workflow channels
+ * (the tab is the context), the daemon-answered channels forwarded up the
  * single wire (admin plane, migration pull hydration), then the
  * host-neutral sync + awareness channels via {@link dispatchSyncRpc},
  * and a recognizable rejection for anything only other hosts
@@ -17,6 +17,7 @@ import { getStatusSnapshot } from '@openheaders/ui/shared/status';
 import { getServedBackendSnapshot } from './served-backend-slot';
 import { dispatchTabRequestsRpc, isTabRequestsChannel } from './tab-requests-rpc';
 import { dispatchTabSessionsRpc, isTabSessionsChannel } from './tab-sessions-rpc';
+import { dispatchTabWorkflowsRpc, isTabWorkflowsChannel } from './tab-workflows-rpc';
 import { dispatchExportImportRpc, isExportImportChannel } from './web-export-import-rpc';
 import { fetchMigrationPullState, MIGRATION_GET_STATE_CHANNEL } from './wire-migration-mirror';
 import { callWireRpc } from './wire-rpc';
@@ -55,6 +56,12 @@ export async function dispatchWebRpc(raw: unknown): Promise<unknown> {
   // transports; the daemon opens the socket).
   if (isTabSessionsChannel(type)) {
     return dispatchTabSessionsRpc(type, message);
+  }
+  // A workflow's run, its cache read, its circuit reset and a step's
+  // product — answered IN the tab too: the runner here over the same
+  // delegating transports, the outcome in the tab's own live cache.
+  if (isTabWorkflowsChannel(type)) {
+    return dispatchTabWorkflowsRpc(type, message);
   }
   // Migration pull hydration — the run lives on the serving daemon, so
   // the background-tasks tenant's mount-time getState forwards up the

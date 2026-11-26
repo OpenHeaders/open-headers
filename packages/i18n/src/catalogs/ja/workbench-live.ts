@@ -199,8 +199,7 @@ export const workbenchLive = {
   'workbench.editors.live.run.pane.note.sent': '送信済み',
   'workbench.editors.live.run.pane.note.reply': '返信',
   'workbench.editors.live.workflow.refresh': '更新',
-  'workbench.editors.live.workflow.runUnavailable':
-    'ワークフローはまだブラウザーのタブでは実行できません。デスクトップアプリまたはブラウザー拡張機能で実行してください。',
+  'workbench.editors.live.workflow.runUnavailable': 'ワークフローは公開コピーでは実行できません。',
   'workbench.editors.live.workflow.disabledTag': '無効',
   'workbench.editors.live.workflow.notFound': 'ワークフローが見つかりません。',
   'workbench.editors.live.workflow.needsUpdate':

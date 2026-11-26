@@ -318,13 +318,13 @@ describe('LiveWorkflowEditor — the Run view', () => {
 
 // ── A surface that runs no workflow ───────────────────────────────
 //
-// The workflow runs plan, Decisions log, S5: until the served tab runs
-// its own chain it declares so, and every other surface — the cases
-// above, with nothing declared — stays as it was.
+// The workflow runs plan, Decisions log, S5 and S15: a surface with no
+// realm that runs a workflow — the web host's public view — declares
+// so, and every other surface — the cases above, with nothing declared —
+// stays as it was.
 
 describe('LiveWorkflowEditor — on a surface that runs no workflow', () => {
-  const SENTENCE =
-    'Workflows do not run in a browser tab yet. Use the desktop app or the browser extension to run one.';
+  const SENTENCE = 'Workflows do not run in a public view.';
   const refreshButton = () =>
     screen.getByRole('button', { name: (name) => name.endsWith('Refresh') && !name.startsWith('About') });
 

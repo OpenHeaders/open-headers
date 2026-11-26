@@ -213,8 +213,7 @@ export const workbenchLive = {
   'workbench.editors.live.run.pane.note.sent': 'Gesendet',
   'workbench.editors.live.run.pane.note.reply': 'Antwort',
   'workbench.editors.live.workflow.refresh': 'Aktualisieren',
-  'workbench.editors.live.workflow.runUnavailable':
-    'Workflows laufen noch nicht in einem Browser-Tab. Führe sie in der Desktop-App oder der Browser-Erweiterung aus.',
+  'workbench.editors.live.workflow.runUnavailable': 'Workflows laufen nicht in einer öffentlichen Kopie.',
   'workbench.editors.live.workflow.disabledTag': 'Deaktiviert',
   'workbench.editors.live.workflow.notFound': 'Workflow nicht gefunden.',
   'workbench.editors.live.workflow.needsUpdate':

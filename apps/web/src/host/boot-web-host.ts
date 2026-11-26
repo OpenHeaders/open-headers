@@ -55,6 +55,7 @@ import { IdbAuditLog } from '@openheaders/oracle-host-browser/sync/idb-audit-log
 import { createIdbSyncPersistenceProvider } from '@openheaders/oracle-host-browser/sync/idb-sync-persistence';
 import { getStatusSnapshot, report, subscribe as subscribeStatus } from '@openheaders/ui/shared/status';
 import { hydrateDaemonToken } from './daemon-token';
+import { installTabWorkflowBroadcasts } from './tab-workflows-rpc';
 import { WEB_DAEMON_BACKEND_ID } from './web-backend-id';
 import { broadcastLocal } from './web-broadcast';
 import { isServedOriginLoopback } from './wire-inbound';
@@ -199,4 +200,8 @@ export async function bootWebHost(): Promise<void> {
     broadcastLocal('statusUpdated', snapshot);
   });
   broadcastLocal('statusUpdated', getStatusSnapshot());
+
+  // 5. Workflow fan-out — a cache row that changed and a run's step
+  //    events reach the workflow surfaces on the same in-tab registry.
+  installTabWorkflowBroadcasts();
 }
