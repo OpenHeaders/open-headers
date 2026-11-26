@@ -76,7 +76,8 @@ export interface VerifyDaemonListenerOptions {
    * QUERY_LIMITED handle here). Integrity-proof: a de-elevated host —
    * Firefox spawns NM hosts at Medium — can still read an elevated
    * listener's path this way, where the WMI/MainModule probes need
-   * QUERY_INFORMATION and answer nothing.
+   * QUERY_INFORMATION and answer nothing. A probe that throws counts
+   * as no answer and the WMI leg runs.
    */
   readonly readImageName?: (pid: number) => Promise<string | null>;
 }
@@ -198,6 +199,24 @@ async function listenerPid(port: number, platform: NodeJS.Platform, run: Command
   return parseSsListenerPid(ss.stdout);
 }
 
+/**
+ * The direct probe's answer, or null when it has none — a probe that
+ * throws (a runtime built without in-process calls) is no answer, and
+ * the reason goes to stderr so the browser's log shows why the slower
+ * leg ran.
+ */
+async function directImageName(
+  pid: number,
+  readImageName: (pid: number) => Promise<string | null>,
+): Promise<string | null> {
+  try {
+    return await readImageName(pid);
+  } catch (err) {
+    process.stderr.write(`direct image-name probe unavailable: ${err instanceof Error ? err.message : String(err)}\n`);
+    return null;
+  }
+}
+
 async function executablePathOf(
   pid: number,
   platform: NodeJS.Platform,
@@ -212,7 +231,7 @@ async function executablePathOf(
   }
   if (platform === 'win32') {
     if (readImageName) {
-      const direct = await readImageName(pid);
+      const direct = await directImageName(pid, readImageName);
       if (direct !== null && direct.length > 0) return direct;
     }
     const script =

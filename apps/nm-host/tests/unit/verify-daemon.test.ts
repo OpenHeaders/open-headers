@@ -5,7 +5,7 @@
  * and the macOS signing-team rider over an injected command runner.
  */
 
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import {
   appInstallRoot,
   type CommandResult,
@@ -209,5 +209,32 @@ describe('verifyDaemonListener', () => {
       readImageName: async () => null,
     });
     expect(verification.ok).toBe(true);
+  });
+
+  it('falls back to the WMI leg when the direct probe throws, and says why on stderr', async () => {
+    const stderr = vi.spyOn(process.stderr, 'write').mockReturnValue(true);
+    try {
+      const run: CommandRunner = async (_file, args) => {
+        const script = args[args.length - 1];
+        if (script.includes('Get-NetTCPConnection')) return ok('{"LocalPort":8137,"OwningProcess":4242}');
+        return ok('{"ExecutablePath":"C:\\\\Program Files\\\\OpenHeaders\\\\OpenHeaders.exe"}');
+      };
+      const verification = await verifyDaemonListener({
+        port: 8137,
+        ownExecutablePath: 'C:\\Program Files\\OpenHeaders\\resources\\nm-host\\oh-nm-host.exe',
+        platform: 'win32',
+        run,
+        readImageName: async () => {
+          throw new Error('bun:ffi dlopen() is not available in this build (TinyCC is disabled)');
+        },
+      });
+      expect(verification.ok).toBe(true);
+      expect(verification.detail).toContain('C:\\Program Files\\OpenHeaders\\OpenHeaders.exe');
+      expect(stderr).toHaveBeenCalledWith(
+        'direct image-name probe unavailable: bun:ffi dlopen() is not available in this build (TinyCC is disabled)\n',
+      );
+    } finally {
+      stderr.mockRestore();
+    }
   });
 });

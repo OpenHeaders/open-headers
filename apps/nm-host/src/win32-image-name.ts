@@ -11,6 +11,10 @@
  * `MainModule`) come back empty — they need QUERY_INFORMATION — while
  * this call still answers. Chromium hosts inherit the browser's
  * integrity and never hit the gap.
+ *
+ * A Bun built without its in-process call support (Windows ARM64
+ * before Bun 1.4) throws at the first call; the listener check reads
+ * that as no answer and runs its PowerShell leg.
  */
 
 import { dlopen, ptr } from 'bun:ffi';

@@ -15,13 +15,28 @@
  * contract: a framed bootstrap request against an unreachable daemon
  * port must answer one framed `{ ok: false, reason: 'unreachable' }`
  * message and exit 0, and a garbage frame must exit non-zero without a
- * response. A cross-target artifact cannot execute here, so its
+ * response. A Windows artifact is then run once more from a
+ * shipped-shaped folder against a live listener, which is the only
+ * place the helper's listener check — and its in-process image-name
+ * call — runs. A cross-target artifact cannot execute here, so its
  * executable header is asserted against the requested platform + arch
  * instead — a wrong-arch binary fails the build rather than shipping.
  */
 
 import { spawnSync } from 'node:child_process';
-import { closeSync, existsSync, mkdirSync, openSync, readSync, rmSync, statSync } from 'node:fs';
+import {
+  closeSync,
+  copyFileSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  openSync,
+  readSync,
+  rmSync,
+  statSync,
+} from 'node:fs';
+import { createServer } from 'node:net';
+import { tmpdir } from 'node:os';
 import * as path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -48,6 +63,9 @@ function hostTarget() {
 // pack-sea 18637, cli pack-bun 18737. Nothing listens here — the
 // bootstrap probe must fail with `unreachable`.
 const UNREACHABLE_PORT = 18837;
+
+/** The helper's listener check starts PowerShell twice at worst, ten seconds each. */
+const SHIPPED_PROBE_TIMEOUT_MS = 60_000;
 
 function fail(message) {
   console.error(`pack-bun: ${message}`);
@@ -166,6 +184,45 @@ if (crossTarget) {
   if (garbage.status === 0) fail('garbage frame exited 0, expected a protocol-error exit');
   if (garbage.stdout.length !== 0) fail('garbage frame produced a response, expected silence');
   console.log('pack-bun: verified — unreachable refusal framed, garbage frame refused');
+  if (TARGETS[target].platform === 'win32') await verifyShippedListenerCheck();
+}
+
+// The dev layout skips the listener check, so the probes above never
+// reach the in-process image-name call. From a shipped-shaped folder
+// (`<root>/resources/nm-host/`) a bootstrap against a live listener
+// runs the whole check: this script's own process holds the port, it
+// lies outside the folder, and the helper must read that and refuse.
+async function verifyShippedListenerCheck() {
+  const root = mkdtempSync(path.join(tmpdir(), 'oh-nm-host-shipped-'));
+  const server = createServer();
+  try {
+    const shippedBinary = path.join(root, 'resources', 'nm-host', path.basename(binaryPath));
+    mkdirSync(path.dirname(shippedBinary), { recursive: true });
+    copyFileSync(binaryPath, shippedBinary);
+    await new Promise((resolve, reject) => {
+      server.once('error', reject);
+      server.listen(0, '127.0.0.1', resolve);
+    });
+    const { port } = server.address();
+    const shipped = spawnSync(shippedBinary, [], {
+      input: frame({ kind: 'bootstrap', url: `ws://127.0.0.1:${port}` }),
+      timeout: SHIPPED_PROBE_TIMEOUT_MS,
+    });
+    const stderr = shipped.stderr.toString('utf-8').trim();
+    if (shipped.status !== 0) fail(`shipped-layout probe exited ${shipped.status}: ${stderr}`);
+    const responses = parseFrames(shipped.stdout);
+    if (responses.length !== 1) fail(`shipped-layout probe answered ${responses.length} frames, expected 1`);
+    if (responses[0].ok !== false || responses[0].reason !== 'refused') {
+      fail(`shipped-layout probe answered ${JSON.stringify(responses[0])}, expected a refusal`);
+    }
+    if (!stderr.includes('outside install root')) {
+      fail(`shipped-layout probe did not read the listener's program: ${stderr}`);
+    }
+    console.log(`pack-bun: verified — shipped-layout listener check refused a foreign listener (${stderr})`);
+  } finally {
+    server.close();
+    rmSync(root, { recursive: true, force: true });
+  }
 }
 
 const sizeMb = (statSync(binaryPath).size / (1024 * 1024)).toFixed(1);
