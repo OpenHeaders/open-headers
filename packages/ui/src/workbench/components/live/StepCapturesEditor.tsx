@@ -68,6 +68,7 @@ function StepCapturesEditor<C extends Capture>({
           // keystroke and steals focus from the name input mid-type.
           // The list is short and is not reordered.
           key={rowIndex}
+          data-testid={`wf-step-${index}-capture-${rowIndex}`}
           style={{
             display: 'flex',
             flexDirection: 'column',
@@ -83,6 +84,7 @@ function StepCapturesEditor<C extends Capture>({
               size="small"
               style={{ width: 160, flexShrink: 0 }}
               prefix={<Text type="secondary">{t('workbench.editors.live.step.namePrefix')}</Text>}
+              data-testid={`wf-step-${index}-capture-${rowIndex}-name`}
               value={capture.name}
               onChange={(e) => update(rowIndex, { ...capture, name: e.target.value })}
             />

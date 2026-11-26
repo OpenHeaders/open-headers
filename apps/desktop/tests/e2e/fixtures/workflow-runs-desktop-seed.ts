@@ -1,7 +1,8 @@
 /**
- * Seed builder for the workflow-runs-desktop spec — run under tsx (the
- * core schemas are TS source the Playwright loader can't resolve), prints
- * a JSON map of desktop storage values to stdout.
+ * Seed builder for the workflow-runs-desktop spec, and for the
+ * workflow-authoring-desktop spec, which authors on its requests — run
+ * under tsx (the core schemas are TS source the Playwright loader can't
+ * resolve), prints a JSON map of desktop storage values to stdout.
  *
  * Every entity is built as a literal and then validated by the REAL core
  * valibot schema, so a schema change fails this script loudly instead of
