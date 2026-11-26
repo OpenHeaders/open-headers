@@ -256,9 +256,35 @@ describe('the session validator', () => {
   it('lets a criterion read the trigger’s capture, and nothing outside the chain', () => {
     const criterion = EXPECT.match[0];
     const fromTrigger = { ...EXPECT, match: [{ ...criterion, value: '{{step.reboot.command}}' }] };
-    const fromNowhere = { ...EXPECT, match: [{ ...criterion, value: '{{step.elsewhere.name}}' }] };
+    const later = { ...CALL, uid: 'stplater', id: 'later' };
+    const fromLater = { ...EXPECT, match: [{ ...criterion, value: '{{step.later.name}}' }] };
     expect(validateSessionSteps(scenario([LISTEN, CALL, fromTrigger]))).toEqual([]);
-    expect(issuesOf(scenario([LISTEN, CALL, fromNowhere]))).toEqual(['step-template-unreachable-stepid']);
+    expect(validateSessionSteps(scenario([LISTEN, CALL, fromLater, later]))).toEqual([
+      {
+        issue: 'step-template-unreachable-stepid',
+        stepId: 'status',
+        referencedStepId: 'later',
+        referencedCaptureName: 'name',
+        referencedCriterionUid: criterion.uid,
+        message:
+          'Step "status" criterion references "later", which isn\'t in its dependency chain. Add "later" (or an ancestor of it) to dependsOn.',
+      },
+    ]);
+  });
+
+  it('says so when a criterion reads a step that does not exist, naming its row', () => {
+    const criterion = EXPECT.match[0];
+    const fromNowhere = { ...EXPECT, match: [{ ...criterion, value: '{{step.elsewhere.name}}' }] };
+    expect(validateSessionSteps(scenario([LISTEN, CALL, fromNowhere]))).toEqual([
+      {
+        issue: 'step-unknown-step-id',
+        stepId: 'status',
+        referencedStepId: 'elsewhere',
+        referencedCaptureName: 'name',
+        referencedCriterionUid: criterion.uid,
+        message: 'Step "status" criterion references "elsewhere", and there is no such step.',
+      },
+    ]);
   });
 
   it('refuses every read of a status a session step does not have', () => {

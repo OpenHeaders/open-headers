@@ -298,8 +298,12 @@ const WorkflowStepEditor: React.FC<Props> = ({
   // The step's backing request was deleted out from under it — the
   // workflow can't run until the user re-points or removes the step.
   const requestError = useMemo(() => errors.find((e) => e.issue === 'step-request-missing'), [errors]);
-  // An issue no field of the card owns is said at the card's foot.
-  const footErrors = useMemo(() => errors.filter((e) => !FIELD_OWNED_ISSUES.has(e.issue)), [errors]);
+  // An issue no field of the card owns is said at the card's foot; one
+  // that names a criterion row is that row's.
+  const footErrors = useMemo(
+    () => errors.filter((e) => !FIELD_OWNED_ISSUES.has(e.issue) && e.referencedCriterionUid === undefined),
+    [errors],
+  );
 
   // ── dependsOn helpers ───────────────────────────────────────────
   // `undefined` = implicit prior-step dep; `[]` = explicit root; array

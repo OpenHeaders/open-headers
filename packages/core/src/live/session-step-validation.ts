@@ -195,11 +195,23 @@ function expectErrors(
     if (criterion.kind !== 'equals') continue;
     for (const ref of scanTemplateReferences(criterion.value).step) {
       if (ancestorsOf(step.id).has(ref.stepId)) continue;
+      if (!byId.has(ref.stepId)) {
+        errors.push({
+          issue: 'step-unknown-step-id',
+          stepId: step.id,
+          referencedStepId: ref.stepId,
+          referencedCaptureName: ref.captureName,
+          referencedCriterionUid: criterion.uid,
+          message: `Step "${step.id}" criterion references "${ref.stepId}", and there is no such step.`,
+        });
+        continue;
+      }
       errors.push({
         issue: 'step-template-unreachable-stepid',
         stepId: step.id,
         referencedStepId: ref.stepId,
         referencedCaptureName: ref.captureName,
+        referencedCriterionUid: criterion.uid,
         message: `Step "${step.id}" criterion references "${ref.stepId}", which isn't in its dependency chain. Add "${ref.stepId}" (or an ancestor of it) to dependsOn.`,
       });
     }

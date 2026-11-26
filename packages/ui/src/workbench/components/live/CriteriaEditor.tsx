@@ -6,8 +6,8 @@
  *
  * Pure controlled component — owns no state. An empty list is the
  * owner's "no criteria" state; `emptyText` says what that means there.
- * A row whose pattern does not compile is marked from `errors`, which
- * name their row by its uid.
+ * A row whose pattern does not compile, or whose value reads a step it
+ * cannot, is marked from `errors`, which name their row by its uid.
  */
 
 import { CloseOutlined, PlusOutlined } from '@ant-design/icons';
@@ -54,7 +54,7 @@ interface CriteriaEditorProps {
   onChange: (next: Criterion[]) => void;
   /** What an empty list means where this editor sits. */
   emptyText: string;
-  /** The step's `criterion-invalid-regex` errors. */
+  /** The step's errors that name a row. */
   errors?: readonly StructuralError[];
   /** Prefix of the rows' test ids. */
   testId: string;
@@ -82,7 +82,7 @@ const CriteriaEditor: React.FC<CriteriaEditorProps> = ({
         <div style={{ padding: '6px 10px', fontSize: 11, color: token.colorTextTertiary }}>{emptyText}</div>
       )}
       {value.map((criterion, index) => {
-        const patternError = errors.find((error) => error.referencedCriterionUid === criterion.uid);
+        const rowError = errors.find((error) => error.referencedCriterionUid === criterion.uid);
         return (
           <div
             key={criterion.uid}
@@ -115,22 +115,25 @@ const CriteriaEditor: React.FC<CriteriaEditorProps> = ({
               />
             )}
             {criterion.kind === 'equals' && (
-              <Input
-                size="small"
-                style={{ flex: 1, minWidth: 120 }}
-                placeholder={t('workbench.editors.live.gate.equalsPlaceholder')}
-                data-testid={`${testId}-${index}-value`}
-                value={criterion.value}
-                onChange={(e) => update(index, { ...criterion, value: e.target.value })}
-              />
+              <Tooltip open={rowError ? undefined : false} title={rowError?.message}>
+                <Input
+                  size="small"
+                  style={{ flex: 1, minWidth: 120 }}
+                  placeholder={t('workbench.editors.live.gate.equalsPlaceholder')}
+                  status={rowError ? 'error' : undefined}
+                  data-testid={`${testId}-${index}-value`}
+                  value={criterion.value}
+                  onChange={(e) => update(index, { ...criterion, value: e.target.value })}
+                />
+              </Tooltip>
             )}
             {criterion.kind === 'matches' && (
-              <Tooltip open={patternError ? undefined : false} title={patternError?.message}>
+              <Tooltip open={rowError ? undefined : false} title={rowError?.message}>
                 <Input
                   size="small"
                   style={{ flex: 1, minWidth: 120, fontFamily: 'monospace' }}
                   placeholder={CRITERION_PATTERN_EXAMPLE}
-                  status={patternError ? 'error' : undefined}
+                  status={rowError ? 'error' : undefined}
                   data-testid={`${testId}-${index}-pattern`}
                   value={criterion.pattern}
                   onChange={(e) => update(index, { ...criterion, pattern: e.target.value })}

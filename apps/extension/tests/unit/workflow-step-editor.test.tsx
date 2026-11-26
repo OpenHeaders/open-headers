@@ -526,7 +526,7 @@ describe('WorkflowStepEditor — a send', () => {
     expect(screen.queryByRole('switch', { name: /Expose capture/i })).toBeNull();
   });
 
-  it('says a missing message and a listen it cannot be on, each on its field', () => {
+  it('says a listen it cannot be on, on its field; a message not picked yet marks nothing', () => {
     const { messageUid: _picked, ...unpicked } = SEND;
     renderSession(unpicked, {
       errors: [
@@ -538,7 +538,7 @@ describe('WorkflowStepEditor — a send', () => {
         }),
       ],
     });
-    expect(screen.getByTestId('wf-step-1-message').className).toContain('ant-select-status-error');
+    expect(screen.getByTestId('wf-step-1-message').className).not.toContain('ant-select-status-error');
     expect(screen.getByTestId('wf-step-1-on').className).toContain('ant-select-status-error');
     expect(screen.queryByTestId('wf-step-1-issues')).toBeNull();
   });
@@ -608,6 +608,29 @@ describe('WorkflowStepEditor — an expect', () => {
     expect(screen.getByTestId('wf-step-1-issues').textContent).toBe(
       'Step "status" passes over stored messages, but "Probe MQTT" subscribes to devices/# with Retain As Published on, so a live message can look stored.',
     );
+  });
+
+  it('marks the match row whose value reads a step it cannot, and says nothing of it at the foot', () => {
+    const reading: ExpectWorkflowStep = {
+      ...EXPECT,
+      match: [
+        { kind: 'equals', uid: 'crtstate', extractor: { kind: 'json-path', path: '$.state' }, value: 'rebooting' },
+        { kind: 'equals', uid: 'crtghost', extractor: { kind: 'json-path', path: '$.id' }, value: '{{step.ghost.id}}' },
+      ],
+    };
+    renderSession(reading, {
+      errors: [
+        {
+          issue: 'step-unknown-step-id',
+          stepId: 'status',
+          referencedCriterionUid: 'crtghost',
+          message: 'Step "status" criterion references "ghost", and there is no such step.',
+        },
+      ],
+    });
+    expect(screen.getByTestId('wf-step-1-match-1-value').className).toContain('ant-input-status-error');
+    expect(screen.getByTestId('wf-step-1-match-0-value').className).not.toContain('ant-input-status-error');
+    expect(screen.queryByTestId('wf-step-1-issues')).toBeNull();
   });
 });
 

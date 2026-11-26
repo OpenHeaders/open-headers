@@ -230,7 +230,6 @@ export const SendStepFields: React.FC<SessionFieldsProps<SendWorkflowStep>> = ({
   const { token } = theme.useToken();
   const t = useT();
   const session = sessionRequestOf(steps, step.on, mqttRequests);
-  const messageError = errorOf(errors, 'send-without-message');
 
   // Another listen is another request: the message picked on the first is not one of its messages.
   const setSession = (on: string) => {
@@ -249,29 +248,27 @@ export const SendStepFields: React.FC<SessionFieldsProps<SendWorkflowStep>> = ({
           error={errorOf(errors, 'session-step-unknown-listen', 'session-step-unreachable-listen')}
           onChange={setSession}
         />
-        <Tooltip open={messageError ? undefined : false} title={messageError?.message}>
-          <Select
-            size="small"
-            style={{ flex: '2 1 40%', minWidth: 0 }}
-            popupMatchSelectWidth={false}
-            status={messageError ? 'error' : undefined}
-            placeholder={t('workbench.editors.live.step.selectMessage')}
-            data-testid={`wf-step-${index}-message`}
-            value={step.messageUid}
-            options={(session?.savedMessages ?? []).map((message) => ({
-              value: message.uid,
-              label: (
-                <span>
-                  {message.name}
-                  <span style={{ marginLeft: 6, color: token.colorTextTertiary, fontFamily: "'SF Mono', monospace" }}>
-                    {message.topic}
-                  </span>
+        {/* A message not picked yet is no error on its picker — as a call's or a listen's request. */}
+        <Select
+          size="small"
+          style={{ flex: '2 1 40%', minWidth: 0 }}
+          popupMatchSelectWidth={false}
+          placeholder={t('workbench.editors.live.step.selectMessage')}
+          data-testid={`wf-step-${index}-message`}
+          value={step.messageUid}
+          options={(session?.savedMessages ?? []).map((message) => ({
+            value: message.uid,
+            label: (
+              <span>
+                {message.name}
+                <span style={{ marginLeft: 6, color: token.colorTextTertiary, fontFamily: "'SF Mono', monospace" }}>
+                  {message.topic}
                 </span>
-              ),
-            }))}
-            onChange={(messageUid) => onChange({ ...step, messageUid })}
-          />
-        </Tooltip>
+              </span>
+            ),
+          }))}
+          onChange={(messageUid) => onChange({ ...step, messageUid })}
+        />
         <StepDescription value={step.description} onChange={(description) => onChange({ ...step, description })} />
       </div>
       <StepCapturesEditor
@@ -405,7 +402,7 @@ export const ExpectStepFields: React.FC<SessionFieldsProps<ExpectWorkflowStep>> 
           value={step.match}
           onChange={(match) => onChange({ ...step, match })}
           emptyText={t('workbench.editors.live.criteria.noneForExpect')}
-          errors={errors.filter((error) => error.issue === 'criterion-invalid-regex')}
+          errors={errors.filter((error) => error.referencedCriterionUid !== undefined)}
           testId={`wf-step-${index}-match`}
         />
       </div>
