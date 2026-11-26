@@ -59,3 +59,27 @@ export function topicMatchesFilter(topic: string, filter: string): boolean {
   }
   return filterLevels.length === topicLevels.length;
 }
+
+const isWildcardLevel = (level: string): boolean => level === '+' || level === '#';
+
+/**
+ * Whether two topic FILTERS can take one same topic — the rules of
+ * {@link topicMatchesFilter} on both sides: a wildcard meets any level, a
+ * `#` meets the rest, and a filter that opens with a wildcard meets none
+ * that opens with a `$` level.
+ */
+export function topicFiltersOverlap(a: string, b: string): boolean {
+  const aLevels = a.split('/');
+  const bLevels = b.split('/');
+  if (
+    isWildcardLevel(aLevels[0]) !== isWildcardLevel(bLevels[0]) &&
+    (aLevels[0].startsWith('$') || bLevels[0].startsWith('$'))
+  ) {
+    return false;
+  }
+  for (let i = 0; ; i++) {
+    if (aLevels[i] === '#' || bLevels[i] === '#') return true;
+    if (i >= aLevels.length || i >= bLevels.length) return aLevels.length === bLevels.length;
+    if (aLevels[i] !== '+' && bLevels[i] !== '+' && aLevels[i] !== bLevels[i]) return false;
+  }
+}

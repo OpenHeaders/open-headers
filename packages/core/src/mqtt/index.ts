@@ -42,7 +42,7 @@ export {
   type MqttStreamDecoderOptions,
   type MqttStreamEvent,
 } from './stream';
-export { topicFilterError, topicMatchesFilter, topicNameError } from './topic';
+export { topicFilterError, topicFiltersOverlap, topicMatchesFilter, topicNameError } from './topic';
 export {
   MQTT_STRING_MAX_BYTES,
   MQTT_VARINT_MAX,

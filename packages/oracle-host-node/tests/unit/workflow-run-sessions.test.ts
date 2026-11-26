@@ -478,3 +478,22 @@ describe('a listen that runs its request’s scripts, on a host with a script ru
     expect(calls).toEqual([]);
   });
 });
+
+describe('an expect that passes over stored messages, on a row that keeps the retain flag as published', () => {
+  it('is refused before the run by the step, the request and the row’s filter, and nothing is dialled', async () => {
+    await saveProbe({
+      protocolVersion: '5.0',
+      topics: [{ uid: 'rowdevc1', topicFilter: 'devices/dev-1/#', retainAsPublished: true }],
+    });
+    const workflow = await seedWorkflow([LISTEN, await rebootStep(), statusStep()]);
+
+    expect(await run(workflow)).toEqual({
+      ok: false,
+      failedStepId: 'status',
+      failedPhase: 'unsupported',
+      message:
+        'Step "status" passes over stored messages, but "Probe MQTT" subscribes to devices/dev-1/# with Retain As Published on, so a live message can look stored.',
+    });
+    expect(seen).toEqual([]);
+  });
+});

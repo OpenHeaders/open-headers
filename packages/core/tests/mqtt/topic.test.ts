@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { topicFilterError, topicMatchesFilter, topicNameError } from '../../src/mqtt';
+import { topicFilterError, topicFiltersOverlap, topicMatchesFilter, topicNameError } from '../../src/mqtt';
 
 const NUL = String.fromCharCode(0);
 
@@ -93,5 +93,36 @@ describe('topicMatchesFilter', () => {
     expect(topicMatchesFilter('$SYS/broker/uptime', '#')).toBe(false);
     expect(topicMatchesFilter('$SYS/broker/uptime', '+/broker/uptime')).toBe(false);
     expect(topicMatchesFilter('$SYS/broker/uptime', '$SYS/#')).toBe(true);
+  });
+});
+
+describe('topicFiltersOverlap', () => {
+  it('holds for two filters that take one same topic, whichever is given first', () => {
+    expect(topicFiltersOverlap('devices/dev-1/#', 'devices/dev-1/status')).toBe(true);
+    expect(topicFiltersOverlap('devices/dev-1/status', 'devices/dev-1/#')).toBe(true);
+    expect(topicFiltersOverlap('devices/+/status', 'devices/dev-1/+')).toBe(true);
+    expect(topicFiltersOverlap('devices/dev-1/status', 'devices/dev-1/status')).toBe(true);
+    expect(topicFiltersOverlap('#', 'devices/dev-1/status')).toBe(true);
+    expect(topicFiltersOverlap('#', '+/status')).toBe(true);
+  });
+
+  it('fails where a level differs or one filter ends first', () => {
+    expect(topicFiltersOverlap('logs/#', 'devices/dev-1/status')).toBe(false);
+    expect(topicFiltersOverlap('devices/dev-2/+', 'devices/dev-1/status')).toBe(false);
+    expect(topicFiltersOverlap('devices/+', 'devices/dev-1/status')).toBe(false);
+    expect(topicFiltersOverlap('devices/dev-1/status', 'devices/dev-1')).toBe(false);
+    expect(topicFiltersOverlap('Devices/#', 'devices/dev-1/status')).toBe(false);
+  });
+
+  it('lets "#" meet the level above it', () => {
+    expect(topicFiltersOverlap('devices/dev-1/#', 'devices/dev-1')).toBe(true);
+    expect(topicFiltersOverlap('devices/dev-1/#', 'devices/+')).toBe(true);
+    expect(topicFiltersOverlap('devices/dev-1/#', 'devices')).toBe(false);
+  });
+
+  it('keeps a filter that opens with "$" from one that opens with a wildcard', () => {
+    expect(topicFiltersOverlap('#', '$SYS/broker/uptime')).toBe(false);
+    expect(topicFiltersOverlap('$SYS/#', '+/broker/uptime')).toBe(false);
+    expect(topicFiltersOverlap('$SYS/#', '$SYS/broker/+')).toBe(true);
   });
 });
