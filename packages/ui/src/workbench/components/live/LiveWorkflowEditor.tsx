@@ -50,6 +50,7 @@ import {
   type DraftStep,
   type DraftWorkflow,
   draftFromWorkflow as draftFromWorkflowCore,
+  isSessionStep,
   isWorkflowComplete,
   newDraftCapture,
   planLiveVariableReconcile,
@@ -83,6 +84,7 @@ import {
   sessionRunsElsewhere,
   workflowRunsHere,
 } from './run-availability';
+import { firstStepWithNothingPicked } from './step-action';
 import WorkflowFormBody from './WorkflowFormBody';
 import WorkflowGraphBody from './WorkflowGraphBody';
 import WorkflowRunBody from './WorkflowRunBody';
@@ -359,6 +361,12 @@ const EditMode: React.FC<EditProps> = ({ workflowUid, seedSteps, onDirtyChange, 
 
   const handleSave = useCallback(async () => {
     if (!workflow || !draft) return;
+    // A step with nothing picked cannot be stored: the save says which.
+    const unpicked = needsUpdate ? undefined : firstStepWithNothingPicked(draft.steps);
+    if (unpicked !== undefined) {
+      message.error(t('workbench.editors.live.workflow.nothingPicked', { id: unpicked.id }));
+      return;
+    }
     // 1. Persist the workflow itself. Captures are stripped of their
     //    draft-only exposure overlay — the workflow schema doesn't
     //    include `exposed` / `liveName` / `liveUid`.
@@ -574,7 +582,12 @@ const EditMode: React.FC<EditProps> = ({ workflowUid, seedSteps, onDirtyChange, 
       )}
       {/* Live-status surface — pinned below both views so "what's
           resolved RIGHT NOW per env" is always visible while editing. */}
-      <WorkflowRunStatusStrip runs={runs} refresh={draft.refresh} boundCount={boundVars.length} />
+      <WorkflowRunStatusStrip
+        runs={runs}
+        refresh={draft.refresh}
+        boundCount={boundVars.length}
+        verdictOnly={draft.steps.some(isSessionStep)}
+      />
       <EntityConflictDialog
         open={isConflictDialogOpen}
         savedText={savedText}
@@ -636,6 +649,12 @@ const CreateMode: React.FC<CreateProps> = ({ draftName, seedSteps, onDirtyChange
   const isDirty = useMemo(() => fingerprint(draft) !== seedFp, [draft, seedFp]);
 
   const handleSave = useCallback(async () => {
+    // A step with nothing picked cannot be stored: the save says which.
+    const unpicked = firstStepWithNothingPicked(draft.steps);
+    if (unpicked !== undefined) {
+      message.error(t('workbench.editors.live.workflow.nothingPicked', { id: unpicked.id }));
+      return;
+    }
     const name = draft.name.trim() || draftName?.trim() || t('workbench.editors.live.workflow.defaultName');
     const wf = await createWorkflow({
       name,

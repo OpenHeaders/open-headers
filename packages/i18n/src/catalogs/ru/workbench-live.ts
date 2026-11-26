@@ -239,6 +239,7 @@ export const workbenchLive = {
   'workbench.editors.live.workflow.deletedElsewhere': 'Рабочий процесс удалён из другой вкладки',
   'workbench.editors.live.workflow.saveFailed': 'Не удалось сохранить рабочий процесс',
   'workbench.editors.live.workflow.createFailed': 'Не удалось создать рабочий процесс',
+  'workbench.editors.live.workflow.nothingPicked': 'Для шага «{id}» ещё ничего не выбрано.',
   'workbench.editors.live.workflow.refreshed': 'Обновлено',
   'workbench.editors.live.workflow.refreshFailed': 'Обновление не удалось: {error}',
   'workbench.editors.live.workflow.defaultName': 'Рабочий процесс',
@@ -486,6 +487,7 @@ export const workbenchLive = {
     'Рабочий процесс или разрешаемые им входные данные изменились после извлечения этого значения — запустите «Обновить», чтобы извлечь заново.',
   'workbench.editors.live.status.neverRunForEnv':
     'в этом окружении ещё не запускался — нажмите «Обновить», чтобы заполнить',
+  'workbench.editors.live.status.notRunYet': 'ещё не запускался — нажмите «Обновить», чтобы запустить',
 
   // ── Graph run overlay ───────────────────────────────────────────────
   'workbench.editors.live.runOverlay.valuesPreserved': 'значения сохранены из более раннего запуска',

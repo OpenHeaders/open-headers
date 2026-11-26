@@ -501,6 +501,30 @@ describe('LiveWorkflowEditor — a workflow that holds session steps', () => {
     expect(screen.getByTestId('wf-step-2-on').textContent).toContain('probe2');
   });
 
+  it('its status strip speaks of a run, not of live variables', () => {
+    const { container } = renderWorkflow(sessionFixture);
+
+    expect(container.textContent).toContain('not run yet — press Refresh to run');
+    expect(container.textContent).not.toContain('bound:');
+  });
+
+  it('a workflow of calls keeps the strip’s binding count and its never-run line', () => {
+    const { container } = renderEditor();
+
+    expect(container.textContent).toContain('never run for this env — click Refresh to populate');
+    expect(container.textContent).toContain('bound:');
+  });
+
+  it('a save with a step that has nothing picked names the step and stores nothing', async () => {
+    renderWorkflow(sessionFixture);
+
+    fireEvent.click(screen.getByRole('button', { name: /Step$/ }));
+    fireEvent.click(screen.getByRole('button', { name: /Save/ }));
+
+    expect(await screen.findByText('Step "step4" has nothing picked yet.')).toBeTruthy();
+    expect(updateWorkflowMock).not.toHaveBeenCalled();
+  });
+
   it('gives a verdict: its refresh is fixed at manual, and its captures offer no exposure', async () => {
     const captured: LiveWorkflow = {
       ...sessionFixture,

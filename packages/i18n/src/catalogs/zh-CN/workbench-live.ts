@@ -200,6 +200,7 @@ export const workbenchLive = {
   'workbench.editors.live.workflow.deletedElsewhere': '工作流已在另一个标签页中被删除',
   'workbench.editors.live.workflow.saveFailed': '保存工作流失败',
   'workbench.editors.live.workflow.createFailed': '创建工作流失败',
+  'workbench.editors.live.workflow.nothingPicked': '步骤“{id}”尚未选择任何内容。',
   'workbench.editors.live.workflow.refreshed': '已刷新',
   'workbench.editors.live.workflow.refreshFailed': '刷新失败：{error}',
   'workbench.editors.live.workflow.defaultName': '工作流',
@@ -424,6 +425,7 @@ export const workbenchLive = {
   'workbench.editors.live.status.needsReRunTooltip':
     '自提取此值以来，工作流或其解析的某个输入已发生变化——运行“刷新”以重新提取。',
   'workbench.editors.live.status.neverRunForEnv': '此环境从未运行过——点击“刷新”来填充',
+  'workbench.editors.live.status.notRunYet': '尚未运行——点击“刷新”来运行',
 
   // ── Graph run overlay ───────────────────────────────────────────────
   'workbench.editors.live.runOverlay.valuesPreserved': '值保留自较早的一次运行',

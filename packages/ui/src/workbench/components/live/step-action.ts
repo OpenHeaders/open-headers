@@ -16,8 +16,10 @@ import {
   type DraftStep,
   type DraftWorkflow,
   isCallStep,
+  isExpectStep,
   isKnownStep,
   isListenStep,
+  isSendStep,
   isSessionStep,
 } from '@openheaders/core/live';
 import type { ListenWorkflowStep, MqttRequest, SessionWorkflowStep } from '@openheaders/core/types';
@@ -48,6 +50,20 @@ export function sessionRequestOf(
 ): MqttRequest | undefined {
   const listen = listenStepOf(steps, listenId);
   return listen === undefined ? undefined : mqttRequests.find((request) => request.uid === listen.sessionRequestUid);
+}
+
+/**
+ * The first step a save cannot store yet: what it acts on was never
+ * picked — a call's request, a listen's session request, the listen a
+ * send or an expect is on, the step an expect waits after.
+ */
+export function firstStepWithNothingPicked(steps: readonly DraftStep[]): DraftStep | undefined {
+  return steps.find((step) => {
+    if (isCallStep(step)) return step.requestUid === '';
+    if (isListenStep(step)) return step.sessionRequestUid === '';
+    if (isSendStep(step)) return step.on === '';
+    return isExpectStep(step) && (step.on === '' || step.after === '');
+  });
 }
 
 function nearestListenAbove(steps: readonly DraftStep[], index: number): string {

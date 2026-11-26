@@ -242,6 +242,7 @@ export const workbenchLive = {
   'workbench.editors.live.workflow.deletedElsewhere': 'Fluxul de lucru a fost șters din altă filă',
   'workbench.editors.live.workflow.saveFailed': 'Salvarea fluxului de lucru a eșuat',
   'workbench.editors.live.workflow.createFailed': 'Crearea fluxului de lucru a eșuat',
+  'workbench.editors.live.workflow.nothingPicked': 'Pasul „{id}” nu are încă nimic selectat.',
   'workbench.editors.live.workflow.refreshed': 'Reîmprospătat',
   'workbench.editors.live.workflow.refreshFailed': 'Reîmprospătarea a eșuat: {error}',
   'workbench.editors.live.workflow.defaultName': 'Flux de lucru',
@@ -487,6 +488,7 @@ export const workbenchLive = {
     'Fluxul de lucru sau o intrare pe care o rezolvă s-a schimbat de când a fost extrasă această valoare — rulați „Reîmprospătare” pentru a extrage din nou.',
   'workbench.editors.live.status.neverRunForEnv':
     'nicio rulare pentru acest mediu — apăsați „Reîmprospătare” pentru a popula',
+  'workbench.editors.live.status.notRunYet': 'încă nerulat — apăsați „Reîmprospătare” pentru a rula',
 
   // ── Graph run overlay ───────────────────────────────────────────────
   'workbench.editors.live.runOverlay.valuesPreserved': 'valori păstrate dintr-o rulare anterioară',

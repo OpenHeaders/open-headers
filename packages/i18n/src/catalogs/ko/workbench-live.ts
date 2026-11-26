@@ -212,6 +212,7 @@ export const workbenchLive = {
   'workbench.editors.live.workflow.deletedElsewhere': '워크플로가 다른 탭에서 삭제되었습니다',
   'workbench.editors.live.workflow.saveFailed': '워크플로를 저장하지 못했습니다',
   'workbench.editors.live.workflow.createFailed': '워크플로를 만들지 못했습니다',
+  'workbench.editors.live.workflow.nothingPicked': '"{id}" 단계에 아직 선택된 항목이 없습니다.',
   'workbench.editors.live.workflow.refreshed': '새로 고쳤습니다',
   'workbench.editors.live.workflow.refreshFailed': '새로 고침 실패: {error}',
   'workbench.editors.live.workflow.defaultName': '워크플로',
@@ -438,6 +439,7 @@ export const workbenchLive = {
   'workbench.editors.live.status.needsReRunTooltip':
     '이 값을 추출한 뒤 워크플로나 워크플로가 해석하는 입력이 바뀌었습니다. 새로 고침을 실행해 다시 추출하세요.',
   'workbench.editors.live.status.neverRunForEnv': '이 환경에서 실행된 적 없음. 새로 고침을 눌러 채우세요',
+  'workbench.editors.live.status.notRunYet': '아직 실행되지 않음. 새로 고침을 눌러 실행하세요',
 
   // ── Graph run overlay ───────────────────────────────────────────────
   'workbench.editors.live.runOverlay.valuesPreserved': '이전 실행의 값이 보존됨',

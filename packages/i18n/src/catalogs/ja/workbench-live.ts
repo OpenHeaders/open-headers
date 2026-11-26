@@ -209,6 +209,7 @@ export const workbenchLive = {
   'workbench.editors.live.workflow.deletedElsewhere': 'ワークフローが別のタブから削除されました',
   'workbench.editors.live.workflow.saveFailed': 'ワークフローの保存に失敗しました',
   'workbench.editors.live.workflow.createFailed': 'ワークフローの作成に失敗しました',
+  'workbench.editors.live.workflow.nothingPicked': 'ステップ「{id}」はまだ何も選択されていません。',
   'workbench.editors.live.workflow.refreshed': '更新しました',
   'workbench.editors.live.workflow.refreshFailed': '更新に失敗しました：{error}',
   'workbench.editors.live.workflow.defaultName': 'ワークフロー',
@@ -439,6 +440,7 @@ export const workbenchLive = {
     'この値を抽出した後にワークフローまたはそれが解決する入力が変わりました。再抽出するには「更新」を実行してください。',
   'workbench.editors.live.status.neverRunForEnv':
     'この環境ではまだ実行されていません。「更新」をクリックして値を用意してください',
+  'workbench.editors.live.status.notRunYet': 'まだ実行されていません。「更新」をクリックして実行してください',
 
   // ── Graph run overlay ───────────────────────────────────────────────
   'workbench.editors.live.runOverlay.valuesPreserved': '以前の実行の値を保持',

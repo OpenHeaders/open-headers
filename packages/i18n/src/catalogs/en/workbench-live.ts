@@ -209,6 +209,7 @@ export const workbenchLive = {
   'workbench.editors.live.workflow.deletedElsewhere': 'Workflow was deleted from another tab',
   'workbench.editors.live.workflow.saveFailed': 'Failed to save workflow',
   'workbench.editors.live.workflow.createFailed': 'Failed to create workflow',
+  'workbench.editors.live.workflow.nothingPicked': 'Step "{id}" has nothing picked yet.',
   'workbench.editors.live.workflow.refreshed': 'Refreshed',
   'workbench.editors.live.workflow.refreshFailed': 'Refresh failed: {error}',
   'workbench.editors.live.workflow.defaultName': 'Workflow',
@@ -444,6 +445,7 @@ export const workbenchLive = {
   'workbench.editors.live.status.needsReRunTooltip':
     'The workflow or an input it resolves changed since this value was extracted — run Refresh to re-extract.',
   'workbench.editors.live.status.neverRunForEnv': 'never run for this env — click Refresh to populate',
+  'workbench.editors.live.status.notRunYet': 'not run yet — press Refresh to run',
 
   // ── Graph run overlay ───────────────────────────────────────────────
   'workbench.editors.live.runOverlay.valuesPreserved': 'values preserved from an earlier run',

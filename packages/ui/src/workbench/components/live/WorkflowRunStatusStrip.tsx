@@ -32,6 +32,8 @@ interface WorkflowRunStatusStripProps {
   runs: LiveWorkflowRunSnapshot[];
   refresh: RefreshPolicy;
   boundCount: number;
+  /** The workflow gives a verdict and publishes no live variable: the strip says nothing of bindings. */
+  verdictOnly?: boolean;
 }
 
 // Resize bounds for the drag divider. Below MIN the strip is useless
@@ -41,7 +43,12 @@ const STRIP_MAX_H = 320;
 // Natural-height cap before the user has ever dragged.
 const STRIP_NATURAL_MAX_H = 140;
 
-const WorkflowRunStatusStrip: React.FC<WorkflowRunStatusStripProps> = ({ runs, refresh, boundCount }) => {
+const WorkflowRunStatusStrip: React.FC<WorkflowRunStatusStripProps> = ({
+  runs,
+  refresh,
+  boundCount,
+  verdictOnly = false,
+}) => {
   const { token } = theme.useToken();
   const t = useT();
   const { environments, activeEnvironmentId } = useEnvironments();
@@ -116,9 +123,11 @@ const WorkflowRunStatusStrip: React.FC<WorkflowRunStatusStripProps> = ({ runs, r
           {describeRefreshPolicy(refresh, t)}
         </Text>
         <div style={{ flex: 1 }} />
-        <Text type="secondary" style={{ fontSize: 11 }}>
-          {t('workbench.editors.live.status.boundCount', { count: boundCount })}
-        </Text>
+        {!verdictOnly && (
+          <Text type="secondary" style={{ fontSize: 11 }}>
+            {t('workbench.editors.live.status.boundCount', { count: boundCount })}
+          </Text>
+        )}
       </div>
       {/* Per-env table — one row per env that has a cache, plus the
         active env row even when no cache exists for it. The active
@@ -190,7 +199,12 @@ const WorkflowRunStatusStrip: React.FC<WorkflowRunStatusStripProps> = ({ runs, r
                 </>
               ) : (
                 <Text type="warning" style={{ fontSize: 11 }}>
-                  · {t('workbench.editors.live.status.neverRunForEnv')}
+                  ·{' '}
+                  {t(
+                    verdictOnly
+                      ? 'workbench.editors.live.status.notRunYet'
+                      : 'workbench.editors.live.status.neverRunForEnv',
+                  )}
                 </Text>
               )}
             </div>

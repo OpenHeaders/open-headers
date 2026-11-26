@@ -221,6 +221,7 @@ export const workbenchLive = {
   'workbench.editors.live.workflow.deletedElsewhere': 'Le workflow a été supprimé depuis un autre onglet',
   'workbench.editors.live.workflow.saveFailed': "Impossible d'enregistrer le workflow",
   'workbench.editors.live.workflow.createFailed': 'Impossible de créer le workflow',
+  'workbench.editors.live.workflow.nothingPicked': "L'étape « {id} » n'a encore rien de sélectionné.",
   'workbench.editors.live.workflow.refreshed': 'Actualisé',
   'workbench.editors.live.workflow.refreshFailed': "Échec de l'actualisation : {error}",
   'workbench.editors.live.workflow.defaultName': 'Workflow',
@@ -482,6 +483,7 @@ export const workbenchLive = {
     "Le workflow ou une entrée qu'il résout a changé depuis l'extraction de cette valeur — lancez Actualiser " +
     'pour ré-extraire.',
   'workbench.editors.live.status.neverRunForEnv': 'jamais exécuté pour cet env — cliquez sur Actualiser pour alimenter',
+  'workbench.editors.live.status.notRunYet': 'pas encore exécuté — cliquez sur Actualiser pour exécuter',
 
   // ── Graph run overlay ───────────────────────────────────────────────
   'workbench.editors.live.runOverlay.valuesPreserved': "valeurs préservées d'une exécution antérieure",
