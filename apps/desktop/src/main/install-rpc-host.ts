@@ -100,6 +100,7 @@ import { revealAppSurface } from './bootstrap/app-reveal';
 import { installKind, installKindReading } from './bootstrap/install-kind';
 import { writeRestartHiddenFlag } from './bootstrap/launch-flags';
 import { registerTeardown, requestQuit } from './bootstrap/lifecycle';
+import { localDataRemovalTarget } from './bootstrap/local-data-removal';
 import { installLocaleSubscription, mainTranslator } from './bootstrap/locale';
 import { createEngineHostLogger } from './bootstrap/logger';
 import { relaunchApp } from './bootstrap/relaunch';
@@ -114,6 +115,7 @@ import { installErrorReports } from './error-reports';
 import { h3HelperBinaryCandidates } from './h3-helper-install';
 import { installBackendClient } from './install-backend-client';
 import { installHostStorage } from './install-host-storage';
+import { createLocalDataRemovalRpc } from './local-data-removal-rpc';
 import { createManifestUpdaterPort } from './manifest-updater-port';
 import { createMsixUpdaterPort } from './msix-updater-port';
 import {
@@ -602,6 +604,23 @@ export async function installRpcHost(): Promise<void> {
   const serverSignInRpc = createServerSignInRpc({ userAgent: spine.authorizationUserAgent });
   const backendProbeRpc = createBackendProbeRpc();
   const backendIdentityRpc = createBackendIdentityRpc();
+  const localDataRemovalRpc = createLocalDataRemovalRpc({
+    target: localDataRemovalTarget({
+      installKind: installKind(),
+      userDataOverride: process.env.OPENHEADERS_USER_DATA_DIR,
+      localAppDataDir: process.env.LOCALAPPDATA,
+      homeDir: os.homedir(),
+    }),
+    undoTrust: async () =>
+      (await spine.dispatchRpc({
+        type: 'oh.daemon.proxy.trust.remove',
+        dropCa: true,
+      })) as BridgeRpcResponse<'oh.daemon.proxy.trust.remove'>,
+    log: {
+      info: (msg) => engineLogger.info(SCOPE, msg),
+      warn: (msg) => engineLogger.warn(SCOPE, msg),
+    },
+  });
   const activityMonitor = createDesktopActivityMonitor();
 
   rpcDispatcher = async (raw) => {
@@ -831,6 +850,10 @@ export async function installRpcHost(): Promise<void> {
     // plane this process runs.
     const accepted = backendIdentityRpc.dispatch(type, message);
     if (accepted !== undefined) return accepted;
+    // A Windows package removing its own data and capture trust: trust
+    // is undone through the spine, the folder goes from a new start.
+    const removal = localDataRemovalRpc.dispatch(type, message);
+    if (removal !== undefined) return removal;
     const updateState = await updateService.dispatchRpc(type);
     return updateState !== undefined ? updateState : spine.dispatchRpc(raw);
   };

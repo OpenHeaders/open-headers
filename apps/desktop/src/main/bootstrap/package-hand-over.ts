@@ -6,6 +6,9 @@
  * app starts it through its launch alias and ends, before it has chosen
  * or made a folder. The alias is the only way in — Windows keeps none
  * when the person has switched it off, and the start is then refused.
+ *
+ * A package starts itself the same way when it removes its data: the
+ * folder is deleted by a new start, once this one has let go of it.
  */
 
 import { spawn } from 'node:child_process';

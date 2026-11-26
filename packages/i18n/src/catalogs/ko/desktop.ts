@@ -62,6 +62,9 @@ export const desktop = {
   'desktop.dialog.dataLeft.message': '데이터가 아직 {path} 폴더에 있습니다({reason}).',
   'desktop.dialog.dataLeft.tryAgain': '다시 시도',
   'desktop.dialog.dataLeft.startEmpty': '데이터 없이 시작',
+  'desktop.dialog.dataRemoval.done': '데이터와 캡처 신뢰가 이 기기에서 제거되었습니다.',
+  'desktop.dialog.dataRemoval.left': '일부 데이터를 제거하지 못했습니다({reason}). {path} 폴더를 삭제하여 완료하세요.',
+  'desktop.dialog.dataRemoval.notStarted': '제거를 시작하지 못했습니다. 데이터가 아직 이 기기에 있습니다.',
   'desktop.dialog.windowCrashed.title': '창이 비정상 종료되었습니다',
   'desktop.dialog.windowCrashed.message': '{name} 앱이 창을 한 번 다시 열었지만 다시 비정상 종료되었습니다.',
   'desktop.dialog.windowCrashed.detail':

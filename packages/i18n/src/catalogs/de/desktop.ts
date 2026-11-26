@@ -65,6 +65,11 @@ export const desktop = {
   'desktop.dialog.dataLeft.message': 'Deine Daten liegen noch in {path} ({reason}).',
   'desktop.dialog.dataLeft.tryAgain': 'Erneut versuchen',
   'desktop.dialog.dataLeft.startEmpty': 'Ohne Daten starten',
+  'desktop.dialog.dataRemoval.done': 'Deine Daten und das Erfassungsvertrauen wurden von diesem Gerät entfernt.',
+  'desktop.dialog.dataRemoval.left':
+    'Ein Teil deiner Daten konnte nicht entfernt werden ({reason}). Lösche {path}, um abzuschließen.',
+  'desktop.dialog.dataRemoval.notStarted':
+    'Das Entfernen konnte nicht starten. Deine Daten liegen noch auf diesem Gerät.',
   'desktop.dialog.windowCrashed.title': 'Das Fenster ist abgestürzt',
   'desktop.dialog.windowCrashed.message': '{name} hat das Fenster einmal neu geöffnet, und es ist erneut abgestürzt.',
   'desktop.dialog.windowCrashed.detail':

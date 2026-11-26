@@ -70,6 +70,11 @@ export const desktop = {
   'desktop.dialog.dataLeft.message': 'Your data is still in {path} ({reason}).',
   'desktop.dialog.dataLeft.tryAgain': 'Try Again',
   'desktop.dialog.dataLeft.startEmpty': 'Start Empty',
+  // A Windows package removing its own data: the start that deletes the
+  // folder says how it ended, and the app says when that start was refused.
+  'desktop.dialog.dataRemoval.done': 'Your data and capture trust were removed from this device.',
+  'desktop.dialog.dataRemoval.left': 'Some of your data could not be removed ({reason}). Delete {path} to finish.',
+  'desktop.dialog.dataRemoval.notStarted': 'The removal could not start. Your data is still on this device.',
   // The window supervisor's dialogs (a renderer that died twice, a
   // renderer that stopped responding) and the graphics-process escape.
   'desktop.dialog.windowCrashed.title': 'The window crashed',

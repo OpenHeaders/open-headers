@@ -43,6 +43,8 @@ export type {
   JarCookieWire,
   LiveWorkflowRunEventWire,
   LiveWorkflowRunSnapshot,
+  LocalDataRemovalRefusedStore,
+  LocalDataRemovalResult,
   MigrationPullStartResult,
   MigrationReadBackupResult,
   MigrationReadInsomniaDataResult,

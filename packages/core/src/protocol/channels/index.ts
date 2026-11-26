@@ -40,6 +40,7 @@ import type { EnvironmentRpc } from './environments';
 import type { ErrorReportRpc } from './error-reports';
 import type { FileRpc } from './files';
 import type { LiveRpc } from './live';
+import type { LocalDataRpc } from './local-data';
 import type { MigrationRpc } from './migration';
 import type { NavigationRpc } from './navigation';
 import type { OAuthRpc } from './oauth';
@@ -92,6 +93,7 @@ export type {
   ErrorReportWireEntry,
 } from './error-reports';
 export type { LiveWorkflowRunEventWire, LiveWorkflowRunSnapshot } from './live';
+export type { LocalDataRemovalRefusedStore, LocalDataRemovalResult } from './local-data';
 export type {
   MigrationPullStartResult,
   MigrationReadBackupResult,
@@ -229,7 +231,8 @@ export interface BridgeRpcContract
     BackendProbeRpc,
     BackendIdentityRpc,
     DiagnosticsRpc,
-    ActivityMonitorRpc {}
+    ActivityMonitorRpc,
+    LocalDataRpc {}
 
 /**
  * Tab-directed contract: map of message-type → { req, res } for messages

@@ -312,7 +312,7 @@ export interface RegistryCommandResult {
   readonly code: number;
 }
 
-/** `reg.exe` seam — query/add against the per-user hive. */
+/** `reg.exe` seam — query/add/delete against the per-user hive. */
 export type RegistryRunner = (args: readonly string[]) => Promise<RegistryCommandResult>;
 
 const REG_COMMAND_TIMEOUT_MS = 10_000;
@@ -435,6 +435,60 @@ export async function registerWindowsNmManifests(
       });
     } catch {
       results.push({ browser: target.browser, registryKey: target.registryKey, action: 'skipped' });
+    }
+  }
+  return results;
+}
+
+export interface RemoveWindowsNmRegistryKeysOptions {
+  /** The data folder whose manifests the keys to remove point at. */
+  readonly dataDir: string;
+  readonly targets: readonly NmRegistryTarget[];
+  /** Test seam — defaults to real `reg.exe`. */
+  readonly runRegistry?: RegistryRunner;
+}
+
+export interface NmRegistryRemoval {
+  readonly browser: string;
+  readonly registryKey: string;
+  /** `kept`: the key points at a manifest outside the data folder — another install's. */
+  readonly action: 'removed' | 'absent' | 'kept' | 'failed';
+}
+
+/** Whether a path a key holds lies inside that folder, as Windows compares paths. */
+function liesInFolder(target: string, folder: string): boolean {
+  const asWindows = (value: string): string => value.replaceAll('/', '\\').toLowerCase();
+  return asWindows(target).startsWith(`${asWindows(folder).replace(/\\+$/, '')}\\`);
+}
+
+/**
+ * Remove the per-vendor registry keys that point into a data folder about
+ * to be deleted. The keys are the user's hive, written by whichever
+ * install started last: one that points elsewhere is another install's
+ * and stays. Browsers are not looked for — a key outlives the browser
+ * that read it. Never throws; the caller logs the per-key outcome.
+ */
+export async function removeWindowsNmRegistryKeys(
+  options: RemoveWindowsNmRegistryKeysOptions,
+): Promise<NmRegistryRemoval[]> {
+  const runRegistry = options.runRegistry ?? defaultRegistryRunner;
+  const results: NmRegistryRemoval[] = [];
+  for (const { browser, registryKey } of options.targets) {
+    try {
+      const query = await runRegistry(['query', registryKey, '/ve']);
+      const value = query.code === 0 ? parseRegQueryDefaultValue(query.stdout) : null;
+      if (value === null) {
+        results.push({ browser, registryKey, action: 'absent' });
+        continue;
+      }
+      if (!liesInFolder(value, options.dataDir)) {
+        results.push({ browser, registryKey, action: 'kept' });
+        continue;
+      }
+      const removal = await runRegistry(['delete', registryKey, '/f']);
+      results.push({ browser, registryKey, action: removal.code === 0 ? 'removed' : 'failed' });
+    } catch {
+      results.push({ browser, registryKey, action: 'failed' });
     }
   }
   return results;

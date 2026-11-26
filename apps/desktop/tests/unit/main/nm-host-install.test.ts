@@ -33,6 +33,7 @@ import {
   type RegistryRunner,
   registerNmManifests,
   registerWindowsNmManifests,
+  removeWindowsNmRegistryKeys,
   windowsNmManifestTargets,
 } from '../../../src/main/nm-host-install';
 
@@ -393,13 +394,19 @@ describe('parseRegQueryDefaultValue', () => {
 interface FakeRegistry {
   values: Map<string, string>;
   adds: string[][];
+  deletes: string[][];
   run: RegistryRunner;
 }
 
 function fakeRegistry(seed: Record<string, string> = {}): FakeRegistry {
   const values = new Map(Object.entries(seed));
   const adds: string[][] = [];
+  const deletes: string[][] = [];
   const run: RegistryRunner = async (args) => {
+    if (args[0] === 'delete') {
+      deletes.push([...args]);
+      return { stdout: '', code: values.delete(args[1]) ? 0 : 1 };
+    }
     if (args[0] === 'query') {
       const value = values.get(args[1]);
       if (value === undefined) return { stdout: '', code: 1 };
@@ -412,7 +419,7 @@ function fakeRegistry(seed: Record<string, string> = {}): FakeRegistry {
     }
     return { stdout: '', code: 1 };
   };
-  return { values, adds, run };
+  return { values, adds, deletes, run };
 }
 
 describe('registerWindowsNmManifests', () => {
@@ -537,5 +544,73 @@ describe('registerWindowsNmManifests', () => {
     expect(await register(fs, failingRun)).toEqual([
       { browser: 'Microsoft Edge', registryKey: edge.registryKey, action: 'skipped' },
     ]);
+  });
+});
+
+describe('removeWindowsNmRegistryKeys', () => {
+  const dataDir = 'C:\\Users\\casey\\AppData\\Local\\OpenHeaders-Data';
+  const ownManifest = `${dataDir}\\nm-host\\${NM_HOST_NAME}.json`;
+  const ownGeckoManifest = `${dataDir}\\nm-host\\${NM_HOST_NAME}.firefox.json`;
+  const classicManifest = `C:\\Users\\casey\\AppData\\Roaming\\OpenHeaders\\nm-host\\${NM_HOST_NAME}.json`;
+  const targets = windowsNmManifestTargets('C:\\Users\\casey\\AppData\\Local', 'C:\\Users\\casey\\AppData\\Roaming');
+  const [chrome, edge, brave, firefox] = targets;
+
+  it('removes every key that points into the data folder, looking for no browser', async () => {
+    const reg = fakeRegistry({
+      [chrome.registryKey]: ownManifest,
+      [edge.registryKey]: ownManifest,
+      [firefox.registryKey]: ownGeckoManifest,
+    });
+    expect(await removeWindowsNmRegistryKeys({ dataDir, targets, runRegistry: reg.run })).toEqual([
+      { browser: 'Google Chrome', registryKey: chrome.registryKey, action: 'removed' },
+      { browser: 'Microsoft Edge', registryKey: edge.registryKey, action: 'removed' },
+      { browser: 'Brave Browser', registryKey: brave.registryKey, action: 'absent' },
+      { browser: 'Firefox', registryKey: firefox.registryKey, action: 'removed' },
+    ]);
+    expect(reg.values.size).toBe(0);
+    expect(reg.deletes).toEqual([
+      ['delete', chrome.registryKey, '/f'],
+      ['delete', edge.registryKey, '/f'],
+      ['delete', firefox.registryKey, '/f'],
+    ]);
+  });
+
+  it("keeps a key that points at another install's manifest", async () => {
+    const reg = fakeRegistry({ [chrome.registryKey]: classicManifest, [edge.registryKey]: ownManifest });
+    const removals = await removeWindowsNmRegistryKeys({ dataDir, targets: [chrome, edge], runRegistry: reg.run });
+    expect(removals.map((removal) => removal.action)).toEqual(['kept', 'removed']);
+    expect(reg.values.get(chrome.registryKey)).toBe(classicManifest);
+  });
+
+  it('does not take a sibling folder of a longer name for the data folder', async () => {
+    const reg = fakeRegistry({ [edge.registryKey]: `${dataDir}-Old\\nm-host\\${NM_HOST_NAME}.json` });
+    const removals = await removeWindowsNmRegistryKeys({ dataDir, targets: [edge], runRegistry: reg.run });
+    expect(removals.map((removal) => removal.action)).toEqual(['kept']);
+    expect(reg.deletes).toEqual([]);
+  });
+
+  it('compares paths as Windows does: any case, either separator, a trailing one or none', async () => {
+    const reg = fakeRegistry({
+      [chrome.registryKey]: ownManifest.toUpperCase(),
+      [edge.registryKey]: ownManifest.replaceAll('\\', '/'),
+    });
+    const removals = await removeWindowsNmRegistryKeys({
+      dataDir: `${dataDir}\\`,
+      targets: [chrome, edge],
+      runRegistry: reg.run,
+    });
+    expect(removals.map((removal) => removal.action)).toEqual(['removed', 'removed']);
+  });
+
+  it('answers failed instead of throwing when a key cannot be deleted or read, and goes on', async () => {
+    const reg = fakeRegistry({ [chrome.registryKey]: ownManifest, [firefox.registryKey]: ownGeckoManifest });
+    const run: RegistryRunner = async (args) => {
+      if (args[0] === 'delete' && args[1] === chrome.registryKey)
+        return { stdout: 'ERROR: Access is denied.', code: 1 };
+      if (args[1] === edge.registryKey) throw new Error('spawn reg.exe ENOENT');
+      return reg.run(args);
+    };
+    const removals = await removeWindowsNmRegistryKeys({ dataDir, targets, runRegistry: run });
+    expect(removals.map((removal) => removal.action)).toEqual(['failed', 'failed', 'absent', 'removed']);
   });
 });

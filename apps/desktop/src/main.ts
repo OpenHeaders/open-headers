@@ -9,6 +9,10 @@
  *   - `--check-package-start` branch  — the same: the check a move to the
  *                                       Windows package makes opens no
  *                                       data folder at all.
+ *   - `--remove-local-data` branch    — the same again: the start a
+ *                                       Windows package deletes its data
+ *                                       folder from must hold no file
+ *                                       in it.
  *   - `installChromiumSwitches`       — must precede `app` init; Chromium
  *                                       reads switches once at network-stack
  *                                       construction.
@@ -64,6 +68,12 @@ import { installExternalLinkHandler } from './main/bootstrap/external-links';
 import { applyHardwareAccelerationPolicy } from './main/bootstrap/hardware-acceleration';
 import { installKindReading } from './main/bootstrap/install-kind';
 import { installAppLifecycle, isQuitting, trackEngineBoot } from './main/bootstrap/lifecycle';
+import {
+  localDataRemovalTarget,
+  REMOVE_LOCAL_DATA_SWITCH,
+  runLocalDataRemoval,
+  withdrawRemovalRequest,
+} from './main/bootstrap/local-data-removal';
 import { initMainLocale, mainTranslator } from './main/bootstrap/locale';
 import { installLogFilesHandler } from './main/bootstrap/log-files';
 import { createLogger, installMainLogger } from './main/bootstrap/logger';
@@ -109,6 +119,10 @@ if (process.argv.includes('--mcp-stdio')) {
   // The check a move to the Windows package makes is not an app instance
   // either: it opens no data folder and asks for no lock.
   runPackageStartCheck();
+} else if (process.argv.includes(REMOVE_LOCAL_DATA_SWITCH)) {
+  // Nor is the start a Windows package deletes its data folder from: the
+  // app that asked has quit, and this one opens nothing in the folder.
+  runLocalDataRemoval(APP_DISPLAY_NAME);
 } else {
   bootstrapDesktopApp();
 }
@@ -250,6 +264,15 @@ function bootstrapDesktopApp(): void {
         awaitClassicUninstall: finishingMove,
       });
   if (endStartBeforeDataFolder(dataFolderMove, finishingMove)) return;
+  // A removal the person asked for and no start took up is withdrawn by
+  // the next ordinary start: the request never waits in the folder.
+  const removalTarget = localDataRemovalTarget({
+    installKind: install.kind,
+    userDataOverride,
+    localAppDataDir: process.env.LOCALAPPDATA,
+    homeDir: homedir(),
+  });
+  if (removalTarget !== null) withdrawRemovalRequest(removalTarget);
   app.setPath('userData', userDataOverride || ownDataDir);
 
   // Chromium's profile noise (caches, GPU blobs, Local Storage, service

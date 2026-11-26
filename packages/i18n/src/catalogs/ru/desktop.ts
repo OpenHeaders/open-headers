@@ -66,6 +66,11 @@ export const desktop = {
   'desktop.dialog.dataLeft.message': 'Ваши данные по-прежнему находятся в папке {path} ({reason}).',
   'desktop.dialog.dataLeft.tryAgain': 'Повторить',
   'desktop.dialog.dataLeft.startEmpty': 'Запустить без данных',
+  'desktop.dialog.dataRemoval.done': 'Ваши данные и доверие для захвата удалены с этого устройства.',
+  'desktop.dialog.dataRemoval.left':
+    'Часть ваших данных не удалось удалить ({reason}). Удалите папку {path}, чтобы завершить.',
+  'desktop.dialog.dataRemoval.notStarted':
+    'Удаление не удалось начать. Ваши данные по-прежнему находятся на этом устройстве.',
   'desktop.dialog.windowCrashed.title': 'Окно аварийно завершилось',
   'desktop.dialog.windowCrashed.message': '{name} один раз открыл окно заново, и оно снова аварийно завершилось.',
   'desktop.dialog.windowCrashed.detail':

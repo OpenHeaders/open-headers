@@ -62,6 +62,11 @@ export const desktop = {
   'desktop.dialog.dataLeft.message': 'Vos données sont toujours dans {path} ({reason}).',
   'desktop.dialog.dataLeft.tryAgain': 'Réessayer',
   'desktop.dialog.dataLeft.startEmpty': 'Démarrer sans données',
+  'desktop.dialog.dataRemoval.done': 'Vos données et la confiance de capture ont été supprimées de cet appareil.',
+  'desktop.dialog.dataRemoval.left':
+    "Certaines de vos données n'ont pas pu être supprimées ({reason}). Supprimez {path} pour terminer.",
+  'desktop.dialog.dataRemoval.notStarted':
+    "La suppression n'a pas pu démarrer. Vos données sont toujours sur cet appareil.",
   'desktop.dialog.windowCrashed.title': 'La fenêtre a planté',
   'desktop.dialog.windowCrashed.message': '{name} a rouvert la fenêtre une fois, et elle a planté de nouveau.',
   'desktop.dialog.windowCrashed.detail':

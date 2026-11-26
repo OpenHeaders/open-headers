@@ -63,6 +63,11 @@ export const desktop = {
   'desktop.dialog.dataLeft.message': 'Datele dvs. sunt încă în folderul {path} ({reason}).',
   'desktop.dialog.dataLeft.tryAgain': 'Reîncercare',
   'desktop.dialog.dataLeft.startEmpty': 'Pornire fără date',
+  'desktop.dialog.dataRemoval.done':
+    'Datele dvs. și încrederea pentru captură au fost eliminate de pe acest dispozitiv.',
+  'desktop.dialog.dataRemoval.left':
+    'O parte din datele dvs. nu a putut fi eliminată ({reason}). Ștergeți folderul {path} pentru a finaliza.',
+  'desktop.dialog.dataRemoval.notStarted': 'Eliminarea nu a putut porni. Datele dvs. sunt încă pe acest dispozitiv.',
   'desktop.dialog.windowCrashed.title': 'Fereastra s-a închis neașteptat',
   'desktop.dialog.windowCrashed.message':
     '{name} a redeschis fereastra o dată, iar aceasta s-a închis din nou neașteptat.',

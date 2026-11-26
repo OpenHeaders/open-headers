@@ -63,6 +63,10 @@ export const desktop = {
   'desktop.dialog.dataLeft.message': 'データはまだ {path} にあります（{reason}）。',
   'desktop.dialog.dataLeft.tryAgain': '再試行',
   'desktop.dialog.dataLeft.startEmpty': 'データなしで起動',
+  'desktop.dialog.dataRemoval.done': 'データとキャプチャの信頼をこのデバイスから削除しました。',
+  'desktop.dialog.dataRemoval.left':
+    '一部のデータを削除できませんでした（{reason}）。{path} を削除して完了してください。',
+  'desktop.dialog.dataRemoval.notStarted': '削除を開始できませんでした。データはまだこのデバイスにあります。',
   'desktop.dialog.windowCrashed.title': 'ウィンドウがクラッシュしました',
   'desktop.dialog.windowCrashed.message': '{name} はウィンドウを一度開き直しましたが、再びクラッシュしました。',
   'desktop.dialog.windowCrashed.detail':

@@ -63,6 +63,11 @@ export const desktop = {
   'desktop.dialog.dataLeft.message': 'Tus datos siguen en {path} ({reason}).',
   'desktop.dialog.dataLeft.tryAgain': 'Reintentar',
   'desktop.dialog.dataLeft.startEmpty': 'Iniciar sin datos',
+  'desktop.dialog.dataRemoval.done': 'Tus datos y la confianza de captura se han eliminado de este dispositivo.',
+  'desktop.dialog.dataRemoval.left':
+    'Algunos de tus datos no se han podido eliminar ({reason}). Elimina {path} para terminar.',
+  'desktop.dialog.dataRemoval.notStarted':
+    'La eliminación no ha podido iniciarse. Tus datos siguen en este dispositivo.',
   'desktop.dialog.windowCrashed.title': 'La ventana se ha cerrado inesperadamente',
   'desktop.dialog.windowCrashed.message': '{name} volvió a abrir la ventana una vez y se cerró de nuevo.',
   'desktop.dialog.windowCrashed.detail':
