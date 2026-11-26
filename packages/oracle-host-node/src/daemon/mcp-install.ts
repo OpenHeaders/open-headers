@@ -76,6 +76,8 @@ export interface InstallMcpServerOptions {
    *  session tools register only when present. Redaction and the raw
    *  grant live below it; tools are pure projection consumers. */
   trafficSessions?: TrafficSessionQuery;
+  /** This build authors a workflow's session steps — see `WriteToolOptions`. */
+  workflowSessionAuthoring?: boolean;
 }
 
 export async function installMcpServer(options: InstallMcpServerOptions): Promise<McpServerInstall> {
@@ -100,7 +102,7 @@ export async function installMcpServer(options: InstallMcpServerOptions): Promis
         ? createSessionToolDefinitions({ sessions: options.trafficSessions })
         : []),
       ...createDiffToolDefinitions(),
-      ...createWriteToolDefinitions(),
+      ...createWriteToolDefinitions({ workflowSessionAuthoring: options.workflowSessionAuthoring }),
       ...createImportToolDefinitions(),
       ...createRuntimeToolDefinitions(),
       ...createSecretToolDefinitions(),

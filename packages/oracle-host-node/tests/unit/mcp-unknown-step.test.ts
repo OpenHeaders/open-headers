@@ -262,7 +262,7 @@ describe('the agent save tool and a workflow with steps this build does not know
     ).rejects.toThrow(`'exposes[0]' cannot bind — ${EXPECT_SENTENCE}`);
   });
 
-  it('refuses to author a session step too: the tool authors calls alone', async () => {
+  it('refuses to author a session step too, in a build that authors calls alone', async () => {
     const listen = { id: 'probe', action: 'listen', sessionRequestUid: 'mqttreq1', timeoutMs: 5_000, captures: [] };
 
     const authoring = call('workflows_save', { workflow: { name: 'Probe', steps: [listen] } });

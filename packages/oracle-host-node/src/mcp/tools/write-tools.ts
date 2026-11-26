@@ -19,12 +19,16 @@
  */
 
 import {
+  isKnownStep,
   isSessionStep,
   isUnknownStep,
   unknownStepMessage,
+  validateSessionRequests,
+  validateSessionSteps,
   validateStepRequestsExist,
   validateWorkflowShape,
   WORKFLOW_NEEDS_UPDATE_MESSAGE,
+  workflowHoldsSession,
 } from '@openheaders/core/live';
 import {
   EnvironmentSchema,
@@ -78,6 +82,7 @@ import type {
   Environment,
   LiveVariable,
   LiveWorkflow,
+  MqttRequest,
   Request,
   Rule,
   Variable,
@@ -92,6 +97,7 @@ import {
   snapshotFolderPostStates,
   snapshotLiveVariablePostStates,
   snapshotLiveWorkflowPostStates,
+  snapshotMqttRequestPostStates,
   snapshotRequestCollectionPostStates,
   snapshotRequestFolderPostStates,
   snapshotRequestPostStates,
@@ -395,10 +401,10 @@ function readVariableInputs(raw: unknown, argName: string): VariableInput[] {
 
 /**
  * Mint row uids across a workflow payload's nested set-modeled arrays:
- * steps, each step's captures, its success criteria, and its `runIf.all`
- * gate clauses. Same identity discipline as {@link withRowUids} — agents
- * supply content, the host supplies identity; rows that already carry
- * a uid keep it.
+ * steps, each step's captures, its success criteria, an expect's match
+ * rows, and its `runIf.all` gate clauses. Same identity discipline as
+ * {@link withRowUids} — agents supply content, the host supplies
+ * identity; rows that already carry a uid keep it.
  */
 function withWorkflowRowUids(record: Record<string, unknown>): Record<string, unknown> {
   const mintRow = (row: unknown): unknown =>
@@ -413,6 +419,7 @@ function withWorkflowRowUids(record: Record<string, unknown>): Record<string, un
     const next = step as Record<string, unknown>;
     if (Array.isArray(next.captures)) next.captures = next.captures.map(mintRow);
     if (Array.isArray(next.successCriteria)) next.successCriteria = next.successCriteria.map(mintRow);
+    if (Array.isArray(next.match)) next.match = next.match.map(mintRow);
     const runIf = next.runIf;
     if (typeof runIf === 'object' && runIf !== null && !Array.isArray(runIf)) {
       const gate = runIf as Record<string, unknown>;
@@ -436,15 +443,30 @@ function findWorkflow(workspaceId: string, uid: string): LiveWorkflow {
  * that writes `steps` authors them, and a step this build does not know
  * is refused by name; a patch that leaves `steps` alone renames or
  * switches off a workflow a newer build wrote, and rides past that one
- * issue. This tool authors calls alone: a session step is refused as a
- * step it does not know.
+ * issue. Where the build authors session steps they are held to the
+ * model's own checks, the editor's and the run's; elsewhere this tool
+ * authors calls alone and a session step is refused as a step it does
+ * not know.
  */
-function assertWorkflowStructure(workspaceId: string, workflow: LiveWorkflow, stepsAuthored: boolean): void {
+function assertWorkflowStructure(
+  workspaceId: string,
+  workflow: LiveWorkflow,
+  stepsAuthored: boolean,
+  sessionAuthoring: boolean,
+): void {
   const knownRequestUids = new Set(snapshotRequestPostStates(workspaceId).map((ps) => ps.request.uid));
-  const structural = [...validateWorkflowShape(workflow), ...validateStepRequestsExist(workflow, knownRequestUids)]
+  const findMqttRequest = (uid: string): MqttRequest | null =>
+    snapshotMqttRequestPostStates(workspaceId).find((ps) => ps.mqttRequest.uid === uid)?.mqttRequest ?? null;
+  const structural = [
+    ...validateWorkflowShape(workflow),
+    ...validateStepRequestsExist(workflow, knownRequestUids),
+    ...(sessionAuthoring ? validateSessionSteps(workflow) : []),
+    ...(sessionAuthoring ? validateSessionRequests(workflow, findMqttRequest) : []),
+  ]
     .filter((error) => stepsAuthored || error.issue !== 'step-needs-update')
     .map((error) => error.message);
-  const unauthored = stepsAuthored ? workflow.steps.filter(isSessionStep).map(unknownStepMessage) : [];
+  const unauthored =
+    stepsAuthored && !sessionAuthoring ? workflow.steps.filter(isSessionStep).map(unknownStepMessage) : [];
   const refused = [...structural, ...unauthored];
   if (refused.length > 0) {
     throw new McpToolInputError(`invalid workflow: ${refused.slice(0, 5).join('; ')}`);
@@ -452,15 +474,16 @@ function assertWorkflowStructure(workspaceId: string, workflow: LiveWorkflow, st
 }
 
 /**
- * Update guard: a workflow with a step this tool does not author — a
- * session step, or one of an action the model does not know — is
- * read-only here: a patch may rename it or switch it on or off, and
- * change nothing else.
+ * Update guard: a workflow with a step this tool does not author — one
+ * of an action the model does not know, and a session step where the
+ * build authors calls alone — is read-only here: a patch may rename it
+ * or switch it on or off, and change nothing else.
  */
 const READ_ONLY_PATCH_KEYS: ReadonlySet<string> = new Set(['name', 'enabled']);
 
-function assertPatchAllowed(existing: LiveWorkflow, patch: Record<string, unknown>): void {
-  if (!existing.steps.some(isUnknownStep)) return;
+function assertPatchAllowed(existing: LiveWorkflow, patch: Record<string, unknown>, sessionAuthoring: boolean): void {
+  const readOnly = existing.steps.some((step) => (sessionAuthoring ? !isKnownStep(step) : isUnknownStep(step)));
+  if (!readOnly) return;
   const refused = Object.keys(patch).filter((key) => !READ_ONLY_PATCH_KEYS.has(key));
   if (refused.length === 0) return;
   throw new McpToolInputError(
@@ -502,12 +525,24 @@ interface ExposeInput {
  * Validate the `exposes` bindings against the workflow they attach to:
  * each must reference a declared step + capture, and names must be
  * unique within the call and against the workspace's existing live
- * variables (`{{live.<name>}}` is a workspace-wide namespace).
+ * variables (`{{live.<name>}}` is a workspace-wide namespace). Where the
+ * build authors session steps, a workflow that holds one takes none: it
+ * gives a verdict and publishes no live variable.
  */
-function readExposeInputs(raw: unknown, workflow: LiveWorkflow, workspaceId: string): ExposeInput[] {
+function readExposeInputs(
+  raw: unknown,
+  workflow: LiveWorkflow,
+  workspaceId: string,
+  sessionAuthoring: boolean,
+): ExposeInput[] {
   if (raw === undefined) return [];
   if (!Array.isArray(raw)) {
     throw new McpToolInputError("'exposes' must be an array of { name, stepId, captureName } records");
+  }
+  if (sessionAuthoring && raw.length > 0 && workflowHoldsSession(workflow)) {
+    throw new McpToolInputError(
+      "'exposes' cannot bind — a workflow with session steps gives a verdict; its captures are not exposed as live variables.",
+    );
   }
   const existingNames = new Set(snapshotLiveVariablePostStates(workspaceId).map((ps) => ps.liveVariable.name));
   const seen = new Set<string>();
@@ -610,9 +645,34 @@ const VARIABLE_INPUT_SCHEMA = {
   },
 } as const;
 
+/** What `workflows_save` says of session steps, where the build authors them. */
+const WORKFLOW_SESSION_STEPS_DESCRIPTION =
+  ' A step with an action works on an MQTT session instead of sending a request: listen opens a saved MQTT ' +
+  "request and completes when its subscriptions are granted; send publishes one of that request's saved " +
+  "messages on a listen step's session; expect waits on that session for a message that lands after the " +
+  'step named by after starts, and passes when every match row holds. A workflow with a session step gives ' +
+  'a verdict: its refresh stays manual, it takes no exposes, and it runs when asked (workflows_run), never ' +
+  'on a schedule.';
+
+const WORKFLOW_SESSION_STEPS_SHAPE =
+  ' Session steps: { id, action: listen, sessionRequestUid, timeoutMs, runScripts?, captures: [] }, ' +
+  '{ id, action: send, on, messageUid, captures[] }, { id, action: expect, on, after, address?, ' +
+  'match[{ kind: exists | equals | matches, extractor, value | pattern }], timeoutMs, includeStored?, ' +
+  'captures[] } — on names a listen step, after the step whose start opens the wait.';
+
+export interface WriteToolOptions {
+  /**
+   * This build authors a workflow's session steps (the workflow runs
+   * plan, Decisions log, S16) — a build's opt-in, handed over by its
+   * host. Absent = off: `workflows_save` authors calls alone.
+   */
+  workflowSessionAuthoring?: boolean;
+}
+
 // ── Tool definitions ────────────────────────────────────────────────
 
-export function createWriteToolDefinitions(): McpToolDefinition[] {
+export function createWriteToolDefinitions(options: WriteToolOptions = {}): McpToolDefinition[] {
+  const sessionAuthoring = options.workflowSessionAuthoring === true;
   const workspaceScoped: Pick<McpToolDefinition, 'tier' | 'resolveWorkspaceId'> = {
     tier: 'write',
     // Arg-or-active — the same resolution the handler's `requireWorkspace`
@@ -1078,7 +1138,8 @@ export function createWriteToolDefinitions(): McpToolDefinition[] {
         'Pass uid to patch an existing workflow: the call is one atomic gesture (a published workflow stays ' +
         'published), and a patch may not remove a step or capture an existing {{live.*}} variable is bound ' +
         "to — re-point those bindings in Open Headers. A workflow holding steps this host's version does not " +
-        'know can only be renamed or switched on or off. Saving never sends traffic.',
+        'know can only be renamed or switched on or off. Saving never sends traffic.' +
+        (sessionAuthoring ? WORKFLOW_SESSION_STEPS_DESCRIPTION : ''),
       inputSchema: {
         type: 'object',
         properties: {
@@ -1092,7 +1153,8 @@ export function createWriteToolDefinitions(): McpToolDefinition[] {
               'Workflow definition: name, steps[] ({ id, requestUid, captures[{ name, extractor }], ' +
               'dependsOn?, runIf? }), refresh ({ kind: manual } default, { kind: interval, seconds ≥ 30 }, ' +
               'or expires-in / expires-at reading a capture), enabled, published. On update, a partial ' +
-              'patch of these fields.',
+              'patch of these fields.' +
+              (sessionAuthoring ? WORKFLOW_SESSION_STEPS_SHAPE : ''),
           },
           exposes: {
             type: 'array',
@@ -1122,13 +1184,13 @@ export function createWriteToolDefinitions(): McpToolDefinition[] {
 
         if (typeof args.uid === 'string' && args.uid.length > 0) {
           const existing = findWorkflow(workspaceId, args.uid);
-          assertPatchAllowed(existing, input);
+          assertPatchAllowed(existing, input, sessionAuthoring);
           const augmented: Record<string, unknown> =
             existing.published === true && !('published' in input) ? { ...input, published: true } : input;
           const merged = parseOrThrow(LiveWorkflowSchema, { ...existing, ...augmented }, 'workflow');
-          assertWorkflowStructure(workspaceId, merged, 'steps' in input);
+          assertWorkflowStructure(workspaceId, merged, 'steps' in input, sessionAuthoring);
           assertBoundLiveVariablesIntact(workspaceId, merged);
-          const exposes = readExposeInputs(args.exposes, merged, workspaceId);
+          const exposes = readExposeInputs(args.exposes, merged, workspaceId, sessionAuthoring);
 
           await applyMcpMutation(
             buildUpdateLiveWorkflowBatch(
@@ -1157,8 +1219,8 @@ export function createWriteToolDefinitions(): McpToolDefinition[] {
           },
           'workflow',
         );
-        assertWorkflowStructure(workspaceId, created, true);
-        const exposes = readExposeInputs(args.exposes, created, workspaceId);
+        assertWorkflowStructure(workspaceId, created, true, sessionAuthoring);
+        const exposes = readExposeInputs(args.exposes, created, workspaceId, sessionAuthoring);
 
         await applyMcpMutation(buildAddLiveWorkflowBatch(created, mintMcpContext(workspaceId)));
         const liveVariables = await mintExposedLiveVariables(workspaceId, created.uid, exposes);

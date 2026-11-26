@@ -461,6 +461,13 @@ export interface DaemonSpineConfig {
    * answers 404 — standing publications go dark, nothing is deleted).
    */
   publicWorkspaces?: boolean;
+  /**
+   * This build authors a workflow's session steps (the workflow runs
+   * plan, Decisions log, S16): the agent's save tool takes a `listen`, a
+   * `send` and an `expect`. The host hands over its bundle's own
+   * build-time opt-in; absent = off, the tool authors calls alone.
+   */
+  workflowSessionAuthoring?: boolean;
 }
 
 export interface DaemonSpineHandle {
@@ -1145,6 +1152,7 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
   //     the same bound socket as pairing via handler composition below.
   const mcpInstall = await installMcpServer({
     serverVersion: config.appVersion,
+    workflowSessionAuthoring: config.workflowSessionAuthoring,
     resolvePeer: admission.resolvePeer,
     // Agent-traffic tap (S3) — the observe-tier traffic_* tools' read
     // seam; redaction and absence semantics live below it.

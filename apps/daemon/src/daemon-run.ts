@@ -48,6 +48,7 @@ import { installScriptRuntime } from './script-sandbox/install';
 import { ensureSeaPayload } from './sea/payload';
 import { createDaemonStatusStore } from './status-store';
 import { resolveDaemonCipher } from './vault-cipher';
+import { WORKFLOW_SESSION_AUTHORING } from './workflow-authoring';
 
 const SCOPE = 'oh-daemon';
 
@@ -295,6 +296,7 @@ export async function runDaemon(argv: readonly string[]): Promise<void> {
       licenseRefresh: config.licenseRefresh,
       personalSeats: config.personalSeats,
       publicWorkspaces: config.publicWorkspaces,
+      workflowSessionAuthoring: WORKFLOW_SESSION_AUTHORING,
       staticWeb,
       broadcastLocal: () => {
         // No same-process surfaces yet — the served web app (Phase 4)

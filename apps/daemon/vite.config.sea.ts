@@ -22,6 +22,9 @@ export default defineConfig({
   define: {
     __BUILD_INFO__: JSON.stringify(buildInfo),
     __DAEMON_CHANGELOG__: JSON.stringify(resolveChangelogEntry(buildInfo.version)),
+    // A build's opt-in to authoring a workflow's session steps: off
+    // unless the build sets the variable.
+    __WORKFLOW_SESSION_AUTHORING__: JSON.stringify(process.env.OH_WORKFLOW_SESSION_AUTHORING === '1'),
   },
   resolve: {
     alias: {

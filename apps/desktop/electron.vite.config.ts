@@ -256,6 +256,10 @@ export default defineConfig({
     },
     define: {
       'process.env.RUNNING_IN_PRODUCTION': JSON.stringify(true),
+      // A build's opt-in to authoring a workflow's session steps: off
+      // unless the build sets the variable. The agent's save tool runs
+      // in this process; the renderer target reads the same variable.
+      __WORKFLOW_SESSION_AUTHORING__: JSON.stringify(process.env.OH_WORKFLOW_SESSION_AUTHORING === '1'),
     },
   },
 

@@ -142,6 +142,7 @@ import { createUpdateService, readUpdatePreferences } from './update-service';
 import { fetchDesktopSeverity } from './versions-manifest';
 import { readServeWebApp, webAppRootCandidate } from './web-app-root';
 import { fetchWhatsNewEntryBody, fetchWhatsNewHistory } from './whats-new-history';
+import { WORKFLOW_SESSION_AUTHORING } from './workflow-authoring';
 
 const SCOPE = 'install-rpc-host';
 /** The update service's own log scope — its rows are not engine-shell rows. */
@@ -507,6 +508,7 @@ export async function installRpcHost(): Promise<void> {
     // Front the workbench when the OAuth callback lands.
     revealApp: () => revealAppSurface('workbench'),
     staticWeb: webRootPresent ? { rootDir: webRoot, enabled: () => serveWebApp } : undefined,
+    workflowSessionAuthoring: WORKFLOW_SESSION_AUTHORING,
     // Composed only when the host binary is shipped — the identity
     // chain has no anchor without it. Signature enforcement follows the
     // build posture: packaged macOS and Windows builds are signed on
