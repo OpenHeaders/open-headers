@@ -59,6 +59,11 @@ vi.mock('@openheaders/oracle/live/live-variable-store', () => ({
   publishLiveVariablesProducedByRun: (...args: unknown[]) => publishLiveVariablesProducedByRunMock(...args),
 }));
 
+// The run's template resolver loads the variables resolver, which reads the cache store stubbed above.
+vi.mock('@openheaders/oracle/live/request-exec/chain-template-resolver', () => ({
+  createChainTemplateResolver: () => async (template: string) => template,
+}));
+
 // The C7 health classifier reads the workflow's credential-step set from
 // the execution-policy resolver; in this isolated adapter test the entity
 // stores aren't materialized, so stub it to a no-credential workflow.

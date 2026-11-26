@@ -31,7 +31,8 @@ import type { ChainRunFailure } from './chain-runner';
 const AUTH_REJECTION_STATUSES: ReadonlySet<number> = new Set([401, 403]);
 
 export function classifyRefreshHealth(
-  outcome: ChainRunFailure,
+  // All the classifier reads of a failure — a run that failed in another realm hands back no more.
+  outcome: Pick<ChainRunFailure, 'failedStepId' | 'partialStepStatuses'>,
   credentialStepIds: ReadonlySet<string>,
 ): Exclude<RefreshHealth, 'ok'> {
   const status = outcome.partialStepStatuses.get(outcome.failedStepId);

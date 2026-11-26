@@ -92,7 +92,12 @@ export type {
   ErrorReportSnapshotWire,
   ErrorReportWireEntry,
 } from './error-reports';
-export type { LiveWorkflowRunEventWire, LiveWorkflowRunSnapshot } from './live';
+export type {
+  LiveWorkflowRunEventWire,
+  LiveWorkflowRunOutcomeWire,
+  LiveWorkflowRunSnapshot,
+  LiveWorkflowStepSignalWire,
+} from './live';
 export type { LocalDataRemovalRefusedStore, LocalDataRemovalResult } from './local-data';
 export type {
   MigrationPullStartResult,

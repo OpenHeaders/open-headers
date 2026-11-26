@@ -1,5 +1,6 @@
 /** Live Variables + Workflows RPCs (Phase B). */
 
+import type { BridgeRpcRequest } from '@openheaders/core/bridge';
 import type {
   LiveVariable,
   LiveVariableOverride,
@@ -28,9 +29,37 @@ import {
   updateLiveWorkflow,
 } from '@openheaders/oracle/live/live-workflow-store';
 import { getWorkflowRunProduct } from '@openheaders/oracle/live/workflow-run-feed';
-import { refreshLiveWorkflowByUser, resetCircuitForWorkflow } from '../../live-refresh-scheduler';
+import type { SendResponse } from '@/types/browser';
+import { ackPageRunStepLeave, callPageRunStep, settlePageRun } from '../../live-page-run';
+import {
+  beginLiveWorkflowRunByUser,
+  refreshLiveWorkflowByUser,
+  resetCircuitForWorkflow,
+} from '../../live-refresh-scheduler';
 import { getActiveWorkspaceId } from '../../workspace/workspace-store';
 import type { HandlerMap } from '../types';
+
+/**
+ * Answer a run with the row it left. A thrown error is the source of
+ * truth for success or failure; the row carries the failure's own
+ * sentence when it has one.
+ */
+async function answerWithRunRow(
+  respond: SendResponse,
+  workspaceId: string,
+  workflowUid: string,
+  environmentId: string | null,
+  run: () => Promise<void>,
+): Promise<void> {
+  try {
+    await run();
+    respond({ success: true, run: await getWorkflowRunCache(workflowUid, environmentId, workspaceId) });
+  } catch (err) {
+    const row = await getWorkflowRunCache(workflowUid, environmentId, workspaceId);
+    const thrownMessage = err instanceof Error ? err.message : String(err);
+    respond({ success: false, error: row?.lastErrorMessage ?? thrownMessage });
+  }
+}
 
 export const liveHandlers: HandlerMap = {
   listLiveWorkflows: ({ respond }) => {
@@ -217,22 +246,38 @@ export const liveHandlers: HandlerMap = {
       workspaceId?: string;
       runId?: string;
     };
-    void (async () => {
-      // Same threading contract as `resetLiveWorkflowCircuit` —
-      // workbench gestures from a diverged tab pass the editing-scope
-      // workspaceId; system surfaces fall back to runtime-Active.
-      const wsId = req.workspaceId ?? getActiveWorkspaceId();
-      const envId = req.environmentId ?? null;
-      try {
-        await refreshLiveWorkflowByUser(wsId, req.workflowUid, envId, req.runId);
-        const run = await getWorkflowRunCache(req.workflowUid, envId, wsId);
-        respond({ success: true, run });
-      } catch (err) {
-        const run = await getWorkflowRunCache(req.workflowUid, envId, wsId);
-        const thrownMessage = err instanceof Error ? err.message : String(err);
-        respond({ success: false, error: run?.lastErrorMessage ?? thrownMessage });
-      }
-    })();
+    // Same threading contract as `resetLiveWorkflowCircuit` —
+    // workbench gestures from a diverged tab pass the editing-scope
+    // workspaceId; system surfaces fall back to runtime-Active.
+    const wsId = req.workspaceId ?? getActiveWorkspaceId();
+    const envId = req.environmentId ?? null;
+    void answerWithRunRow(respond, wsId, req.workflowUid, envId, () =>
+      refreshLiveWorkflowByUser(wsId, req.workflowUid, envId, req.runId),
+    );
+    return true;
+  },
+
+  beginLiveWorkflowRun: ({ message, respond }) => {
+    const req = message as BridgeRpcRequest<'beginLiveWorkflowRun'>;
+    beginLiveWorkflowRunByUser(req.workspaceId, req.workflowUid, req.environmentId)
+      .then(({ workflow, bypass }) => respond({ success: true, workflow, bypass }))
+      .catch((err: Error) => respond({ success: false, error: err.message }));
+    return true;
+  },
+
+  callLiveWorkflowStep: ({ message, respond }) => {
+    void callPageRunStep(message as BridgeRpcRequest<'callLiveWorkflowStep'>).then(respond);
+    return true;
+  },
+
+  ackLiveWorkflowStepLeave: ({ message, respond }) => {
+    respond({ success: ackPageRunStepLeave((message as BridgeRpcRequest<'ackLiveWorkflowStepLeave'>).callId) });
+    return true;
+  },
+
+  commitLiveWorkflowRun: ({ message, respond }) => {
+    const req = message as BridgeRpcRequest<'commitLiveWorkflowRun'>;
+    void answerWithRunRow(respond, req.workspaceId, req.workflowUid, req.environmentId, () => settlePageRun(req));
     return true;
   },
 

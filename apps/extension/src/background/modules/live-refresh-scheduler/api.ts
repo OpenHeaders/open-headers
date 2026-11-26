@@ -21,7 +21,13 @@ import {
 } from '@openheaders/oracle/live/live-cache-store';
 import { getLiveVariables, getLiveVariablesForWorkflow } from '@openheaders/oracle/live/live-variable-store';
 import { getLiveWorkflows } from '@openheaders/oracle/live/live-workflow-store';
-import { refreshWorkflowByUser } from '@openheaders/oracle/live/manual-refresh';
+import {
+  beginManualRefresh,
+  type ManualRefreshBegun,
+  type ManualRefreshHooks,
+  refreshWorkflowByUser,
+  settleManualRefresh,
+} from '@openheaders/oracle/live/manual-refresh';
 import { canScheduleWorkflow } from '@openheaders/oracle/live/scheduling-gate';
 import { getOrCreateWorkspaceService, releaseWorkspaceService } from '@openheaders/oracle/sync/service';
 import { alarms } from '@utils/browser-api';
@@ -221,23 +227,67 @@ export async function refreshLiveWorkflowByUser(
   environmentId: string | null,
   runId?: string,
 ): Promise<void> {
-  const payload: LiveAlarmPayload = { w: workspaceId, u: workflowUid, e: environmentId };
   return refreshWorkflowByUser(
     { workspaceId, workflowUid, environmentId, ...(runId !== undefined ? { runId } : {}) },
     {
-      // A press with no connectivity cannot succeed and must not count
-      // against the circuit.
-      isOnline: isNetworkOnline,
+      ...manualRefreshHooks(workspaceId, workflowUid, environmentId),
       run: async (args) => {
         if (!refreshAdapter) {
           throw new LiveSchedulerNotReadyError(`scheduler-not-ready: no refresh adapter for workflow ${workflowUid}`);
         }
         await refreshAdapter.refreshWorkflow(args);
       },
-      onFired: () => provider.onFired?.(payload),
-      onSucceeded: () => provider.onSucceeded?.(payload),
-      onFailed: (error, cache) => provider.onFailed?.(payload, error, cache),
     },
+  );
+}
+
+/** What this worker hands the manual-refresh rule beside a runner. */
+function manualRefreshHooks(
+  workspaceId: string,
+  workflowUid: string,
+  environmentId: string | null,
+): ManualRefreshHooks {
+  const payload: LiveAlarmPayload = { w: workspaceId, u: workflowUid, e: environmentId };
+  return {
+    // A press with no connectivity cannot succeed and must not count
+    // against the circuit.
+    isOnline: isNetworkOnline,
+    onFired: () => provider.onFired?.(payload),
+    onSucceeded: () => provider.onSucceeded?.(payload),
+    onFailed: (error, cache) => provider.onFailed?.(payload, error, cache),
+  };
+}
+
+/**
+ * The first half of a press whose run lives in the workbench page (the
+ * workflow runs plan, Laws — "The run lives with its session"): the rule
+ * up to the run, answered with the workflow and the bypass decision.
+ */
+export function beginLiveWorkflowRunByUser(
+  workspaceId: string,
+  workflowUid: string,
+  environmentId: string | null,
+): Promise<ManualRefreshBegun> {
+  return beginManualRefresh(
+    { workspaceId, workflowUid, environmentId },
+    manualRefreshHooks(workspaceId, workflowUid, environmentId),
+  );
+}
+
+/**
+ * The second half: `commit` writes the outcome the page handed back and
+ * throws when that run did not pass.
+ */
+export function settleLiveWorkflowRunByUser(
+  workspaceId: string,
+  workflowUid: string,
+  environmentId: string | null,
+  commit: () => Promise<void>,
+): Promise<void> {
+  return settleManualRefresh(
+    { workspaceId, workflowUid, environmentId },
+    manualRefreshHooks(workspaceId, workflowUid, environmentId),
+    commit,
   );
 }
 

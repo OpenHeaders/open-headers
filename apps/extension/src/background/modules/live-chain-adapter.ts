@@ -41,6 +41,7 @@
  *     for that case as Phase F UI).
  */
 
+import type { LiveWorkflowRunOutcomeWire } from '@openheaders/core/bridge';
 import {
   type ChainRunFailure,
   type ChainRunOutcome,
@@ -48,7 +49,9 @@ import {
   classifyRefreshHealth,
   deriveExpiresAt,
   type FetchAdapter,
+  isKnownStep,
   isRunnableWorkflow,
+  type RunRefusal,
   refusedRunEvents,
   runChain,
   StepExecutionError,
@@ -56,7 +59,7 @@ import {
   unknownStepMessage,
   unknownStepsOf,
 } from '@openheaders/core/live';
-import type { LiveWorkflow, RunnableWorkflow } from '@openheaders/core/types';
+import type { LiveWorkflow } from '@openheaders/core/types';
 import { getRequestInWorkspace } from '@openheaders/oracle/entity/request-store';
 import { deriveExecutionPolicyForWorkflow } from '@openheaders/oracle/live/execution-policy-resolver';
 import {
@@ -65,6 +68,7 @@ import {
   recordRefreshError,
 } from '@openheaders/oracle/live/live-cache-store';
 import { publishLiveVariablesProducedByRun } from '@openheaders/oracle/live/live-variable-store';
+import { createChainTemplateResolver } from '@openheaders/oracle/live/request-exec/chain-template-resolver';
 import { openWorkflowRunFeed } from '@openheaders/oracle/live/workflow-run-feed';
 import { logger } from '@utils/logger';
 import { __setLiveRefreshAdapter, type LiveRefreshAdapter } from './live-refresh-scheduler';
@@ -84,8 +88,17 @@ import { type ExecutedRequestSnapshot, executeForLiveChain } from './request-exe
  * Cross-workspace dispatches (a per-tab MWPT workspace's chain firing
  * while a different workspace is runtime-Active) require this so the
  * captures land against the correct workspace's variable scope.
+ *
+ * `beforeWire` is awaited once the call has left the rate limit and
+ * before it goes to the wire — a run that lives in another realm notes
+ * the leave there first.
  */
-function buildFetchAdapter(workspaceId: string, workflowUid: string, environmentId: string | null): FetchAdapter {
+export function buildFetchAdapter(
+  workspaceId: string,
+  workflowUid: string,
+  environmentId: string | null,
+  beforeWire?: () => Promise<void>,
+): FetchAdapter {
   return {
     async executeStep(step, stepCaptures, _context, send) {
       const request = getRequestInWorkspace(step.requestUid, workspaceId);
@@ -104,18 +117,19 @@ function buildFetchAdapter(workspaceId: string, workflowUid: string, environment
       // avoids paying a resolution round-trip just to pick a slot.
       // Origins that can't be parsed fall through to direct execution
       // via `withRefreshRateLimit`'s safeOrigin.
+      const execute = () =>
+        executeForLiveChain(request, {
+          workspaceId,
+          environmentId,
+          workflowUid,
+          stepId: step.id,
+          stepCaptures,
+          timeoutMs: step.timeoutMs,
+          runScripts: step.runScripts === true,
+        });
       const snapshot = await withRefreshRateLimit(
         request.url,
-        () =>
-          executeForLiveChain(request, {
-            workspaceId,
-            environmentId,
-            workflowUid,
-            stepId: step.id,
-            stepCaptures,
-            timeoutMs: step.timeoutMs,
-            runScripts: step.runScripts === true,
-          }),
+        beforeWire === undefined ? execute : () => beforeWire().then(execute),
         { uncounted: send?.resend, onHeld: send?.onHeld, onLeave: send?.onLeave },
       );
 
@@ -166,7 +180,11 @@ export const liveChainAdapter: LiveRefreshAdapter = {
     const onEvent = openWorkflowRunFeed({ workspaceId, workflowUid: workflow.uid, environmentId, runId });
     if (!isRunnableWorkflow(workflow)) {
       for (const event of refusedRunEvents(workflow, Date.now())) onEvent(event);
-      return refuseUnknownSteps(workspaceId, workflow, environmentId, bypass);
+      const [step] = unknownStepsOf(workflow);
+      return refuseRun(workspaceId, workflow, environmentId, bypass, {
+        stepId: step.id,
+        reason: unknownStepMessage(step),
+      });
     }
     // No Active-workspace guard (MWPT-FULL session #19). The chain
     // executor now threads `workspaceId` end-to-end: every store read
@@ -180,71 +198,125 @@ export const liveChainAdapter: LiveRefreshAdapter = {
       adapter: buildFetchAdapter(workspaceId, workflow.uid, environmentId),
       context: { workflowUid: workflow.uid, workspaceId, environmentId },
       onEvent,
+      resolveTemplate: createChainTemplateResolver(),
     });
 
-    if (outcome.ok) {
-      await commitSuccess(workspaceId, workflow, environmentId, outcome);
-      trackProductTelemetryEvent({ name: 'workflow_run', ok: true });
-      return;
-    }
-    // Record before commitFailure — it re-throws to the scheduler. The
-    // step-failure beacon lands here (the chain actually ran and a step
-    // failed); scheduler-level failures beacon `source-refresh-failed`
-    // in the provider's `onFailed` instead.
-    trackProductTelemetryEvent({ name: 'workflow_run', ok: false });
-    trackProductTelemetryEvent({ name: 'error_beacon', code: 'workflow-step-failed' });
+    if (outcome.ok) return commitSuccess(workspaceId, workflow, environmentId, passedRunOf(outcome));
     await commitFailure(workspaceId, workflow, environmentId, outcome, bypass);
   },
 };
 
+/** What a run that passed commits — the plain shape the cache blob stores. */
+type PassedRun = Extract<LiveWorkflowRunOutcomeWire, { kind: 'passed' }>;
+
+/** What a run that failed commits. */
+type FailedRun = Pick<ChainRunFailure, 'failedStepId' | 'failedPhase' | 'failedReason' | 'partialStepStatuses'>;
+
+/**
+ * Project core Maps → the plain-object shape the cache blob stores.
+ * Round-tripping through plain records is deliberate — the cache lives
+ * in `chrome.storage.local` which serializes JSON, not Map instances;
+ * crossing the boundary here keeps the store naive.
+ */
+function passedRunOf(outcome: ChainRunSuccess): PassedRun {
+  const stepCaptures: Record<string, Record<string, string>> = {};
+  for (const [stepId, captures] of outcome.stepCaptures) {
+    stepCaptures[stepId] = Object.fromEntries(captures);
+  }
+  return {
+    kind: 'passed',
+    stepCaptures,
+    stepResponseBytes: Object.fromEntries(outcome.stepResponseBytes),
+    stepAttempts: Object.fromEntries(outcome.stepAttempts),
+    skippedStepIds: outcome.skippedStepIds,
+    completedAt: outcome.completedAt,
+  };
+}
+
+/**
+ * Commit a run that lived in the workbench page (the workflow runs plan,
+ * Laws — "The run lives with its session"): the one write a run of this
+ * worker's own makes at its end, over the outcome the page hands back.
+ * Throws as {@link liveChainAdapter}'s `refreshWorkflow` does when the run
+ * did not pass.
+ */
+export async function commitPageRun(args: {
+  workspaceId: string;
+  workflow: LiveWorkflow;
+  /** `null` = "No environment". */
+  environmentId: string | null;
+  bypass: boolean;
+  outcome: LiveWorkflowRunOutcomeWire;
+}): Promise<void> {
+  const { workspaceId, workflow, environmentId, bypass, outcome } = args;
+  if (outcome.kind === 'refused') {
+    return refuseRun(workspaceId, workflow, environmentId, bypass, { stepId: outcome.stepId, reason: outcome.reason });
+  }
+  if (outcome.kind === 'passed') return commitSuccess(workspaceId, workflow, environmentId, outcome);
+  const { failedStepId, failedPhase, failedReason, failedStepStatus } = outcome;
+  await commitFailure(
+    workspaceId,
+    workflow,
+    environmentId,
+    {
+      failedStepId,
+      failedPhase,
+      failedReason,
+      partialStepStatuses: new Map(failedStepStatus !== undefined ? [[failedStepId, failedStepStatus]] : []),
+    },
+    bypass,
+  );
+}
+
 /**
  * A run that cannot run every step runs none (the workflow runs plan,
- * Laws). The workflow holds a step this build does not know: nothing is
- * sent, nothing is published, and the cache row records the first such
- * step and the sentence. No health is passed — a refusal is neither the
- * source nor the credential failing, and nothing rides to a peer.
+ * Laws). The workflow holds a step its host refuses: nothing is sent,
+ * nothing is published, and the cache row records that step and the
+ * sentence. No health is passed — a refusal is neither the source nor
+ * the credential failing, and nothing rides to a peer.
  */
-async function refuseUnknownSteps(
+async function refuseRun(
   workspaceId: string,
   workflow: LiveWorkflow,
   environmentId: string | null,
   bypass: boolean,
+  refusal: RunRefusal,
 ): Promise<never> {
-  const [step] = unknownStepsOf(workflow);
-  const message = unknownStepMessage(step);
-  logger.warn('LiveChainAdapter', `Workflow ${workflow.uid} was not run: ${message}`);
-  const errorInput = { workflowUid: workflow.uid, environmentId, message, failedStepId: step.id, extractorOk: true };
+  const { stepId, reason } = refusal;
+  logger.warn('LiveChainAdapter', `Workflow ${workflow.uid} was not run: ${reason}`);
+  const errorInput = {
+    workflowUid: workflow.uid,
+    environmentId,
+    message: reason,
+    failedStepId: stepId,
+    extractorOk: true,
+  };
   if (bypass) await recordManualBypassFailureForRun(errorInput, workspaceId);
   else await recordRefreshError(errorInput, workspaceId);
-  throw new ChainRefreshError(message, { failedStepId: step.id, failedPhase: UNKNOWN_STEP_PHASE });
+  throw new ChainRefreshError(reason, { failedStepId: stepId, failedPhase: UNKNOWN_STEP_PHASE });
 }
 
 async function commitSuccess(
   workspaceId: string,
-  workflow: RunnableWorkflow,
+  workflow: LiveWorkflow,
   environmentId: string | null,
-  outcome: ChainRunSuccess,
+  run: PassedRun,
 ): Promise<void> {
-  // Project core Maps → the plain-object shape the cache blob stores.
-  // Round-tripping through plain records is deliberate — the cache
-  // lives in `chrome.storage.local` which serializes JSON, not Map
-  // instances; crossing the boundary here keeps the store naive.
-  //
-  // Phase I: `outcome.stepCaptures` contains only COMPLETED steps.
-  // Skipped steps ride `skippedStepIds` into the cache write, where
-  // the skip-merge preserves their prior captures (resolvable by
-  // `{{live.X}}`) and stamps the per-step outcome map. Per-step skip
-  // entries land on the observability log below so exports carry the
-  // full branch-taken picture.
-  if (outcome.skippedStepIds.length > 0) {
+  // `run.stepCaptures` contains only COMPLETED steps. Skipped steps ride
+  // `skippedStepIds` into the cache write, where the skip-merge
+  // preserves their prior captures (resolvable by `{{live.X}}`) and
+  // stamps the per-step outcome map. Per-step skip entries land on the
+  // observability log below so exports carry the full branch-taken
+  // picture.
+  if (run.skippedStepIds.length > 0) {
     logger.info(
       'LiveChainAdapter',
-      `Workflow ${workflow.uid} refresh skipped ${outcome.skippedStepIds.length} step(s): ${outcome.skippedStepIds.join(', ')}`,
+      `Workflow ${workflow.uid} refresh skipped ${run.skippedStepIds.length} step(s): ${run.skippedStepIds.join(', ')}`,
     );
-    emitSkipEntries(workspaceId, workflow, environmentId, outcome.skippedStepIds);
+    emitSkipEntries(workspaceId, workflow, environmentId, run.skippedStepIds);
   }
 
-  for (const [stepId, attempts] of outcome.stepAttempts) {
+  for (const [stepId, attempts] of Object.entries(run.stepAttempts)) {
     if (attempts > 1) {
       logger.info(
         'LiveChainAdapter',
@@ -253,21 +325,15 @@ async function commitSuccess(
     }
   }
 
-  const stepCaptures: Record<string, Record<string, string>> = {};
-  for (const [stepId, captures] of outcome.stepCaptures) {
-    stepCaptures[stepId] = Object.fromEntries(captures);
-  }
-  const stepResponseBytes: Record<string, number> = Object.fromEntries(outcome.stepResponseBytes);
-
   await putWorkflowRunCache(
     {
       workflowUid: workflow.uid,
       environmentId,
-      stepCaptures,
-      stepResponseBytes,
-      extractedAt: outcome.completedAt,
-      expiresAt: deriveExpiresAt(workflow, stepCaptures, outcome.completedAt),
-      skippedStepIds: outcome.skippedStepIds,
+      stepCaptures: run.stepCaptures,
+      stepResponseBytes: run.stepResponseBytes,
+      extractedAt: run.completedAt,
+      expiresAt: deriveExpiresAt(workflow, run.stepCaptures, run.completedAt),
+      skippedStepIds: run.skippedStepIds,
     },
     workspaceId,
   );
@@ -277,7 +343,8 @@ async function commitSuccess(
   // value. This is the user-facing contract — the workflow's trigger
   // (manual Refresh or an auto policy) produces the live var; Save only
   // activates the workflow.
-  await publishLiveVariablesProducedByRun(workspaceId, workflow.uid, stepCaptures);
+  await publishLiveVariablesProducedByRun(workspaceId, workflow.uid, run.stepCaptures);
+  trackProductTelemetryEvent({ name: 'workflow_run', ok: true });
 }
 
 /**
@@ -302,12 +369,12 @@ async function commitSuccess(
  */
 function emitSkipEntries(
   workspaceId: string,
-  workflow: RunnableWorkflow,
+  workflow: LiveWorkflow,
   environmentId: string | null,
   skippedStepIds: readonly string[],
 ): void {
   const skippedSet = new Set(skippedStepIds);
-  const stepIndex = new Map(workflow.steps.map((s) => [s.id, s]));
+  const stepIndex = new Map(workflow.steps.filter(isKnownStep).map((s) => [s.id, s]));
   for (const stepId of skippedStepIds) {
     const step = stepIndex.get(stepId);
     const gate = step?.runIf;
@@ -341,11 +408,17 @@ function emitSkipEntries(
 
 async function commitFailure(
   workspaceId: string,
-  workflow: RunnableWorkflow,
+  workflow: LiveWorkflow,
   environmentId: string | null,
-  outcome: ChainRunFailure,
+  outcome: FailedRun,
   bypass: boolean,
 ): Promise<void> {
+  // Recorded first — this function re-throws to the scheduler. The
+  // step-failure beacon lands here (the chain actually ran and a step
+  // failed); scheduler-level failures beacon `source-refresh-failed`
+  // in the provider's `onFailed` instead.
+  trackProductTelemetryEvent({ name: 'workflow_run', ok: false });
+  trackProductTelemetryEvent({ name: 'error_beacon', code: 'workflow-step-failed' });
   // `'extract'` failures point at a user misconfiguration (JSON path /
   // regex wrong against the real response) — surface as extractor-not-ok
   // for the Status yellow path. `'fetch'` and `'graph'` are both

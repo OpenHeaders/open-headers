@@ -60,7 +60,7 @@ import type {
 } from '../sync-bridge';
 import type { WorkspaceSnapshot } from './common';
 import type { EnvironmentsSnapshot } from './environments';
-import type { LiveWorkflowRunEventWire } from './live';
+import type { LiveWorkflowRunEventWire, LiveWorkflowStepSignalWire } from './live';
 import type { GrpcStreamEventWire, MqttStreamEventWire, RequestStreamEventWire, WsStreamEventWire } from './requests';
 import type { SecretsStorageState } from './secrets';
 import type { AppUpdateState } from './updates';
@@ -416,6 +416,13 @@ export interface BridgeBroadcastContract {
    * filter on `workspaceId` and `workflowUid`.
    */
   liveWorkflowRunEvent: LiveWorkflowRunEventWire;
+
+  /**
+   * The rate limit's fact about one call of a run that lives in a page
+   * (`callLiveWorkflowStep`). The page that sent the call knows it by
+   * `callId`; every other consumer passes it over.
+   */
+  liveWorkflowStepSignal: LiveWorkflowStepSignalWire;
 
   /**
    * Workspace-tree git plane (the git-sync plan §9): the bound workspace's

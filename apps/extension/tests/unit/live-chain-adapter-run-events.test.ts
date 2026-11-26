@@ -34,6 +34,11 @@ vi.mock('@openheaders/oracle/live/live-variable-store', () => ({
   publishLiveVariablesProducedByRun: vi.fn(),
 }));
 
+// The run's template resolver loads the variables resolver, which reads the cache store stubbed above.
+vi.mock('@openheaders/oracle/live/request-exec/chain-template-resolver', () => ({
+  createChainTemplateResolver: () => async (template: string) => template,
+}));
+
 vi.mock('@openheaders/oracle/live/execution-policy-resolver', () => ({
   deriveExecutionPolicyForWorkflow: (): ExecutionPolicyResult => ({
     policy: 'idempotent',

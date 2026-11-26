@@ -58,6 +58,7 @@ export { canScheduleWorkflow } from '@openheaders/oracle/live/scheduling-gate';
 
 export { __setLiveRefreshAdapter, type LiveRefreshAdapter } from './adapter';
 export {
+  beginLiveWorkflowRunByUser,
   cancelLiveWorkflowRefresh,
   handleLiveAlarm,
   kickActiveContextRefresh,
@@ -66,6 +67,7 @@ export {
   refreshLiveWorkflowSynchronously,
   resetCircuitForWorkflow,
   scheduleLiveWorkflowRefresh,
+  settleLiveWorkflowRunByUser,
   startLiveScheduler,
   stopLiveScheduler,
 } from './api';
