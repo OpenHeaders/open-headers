@@ -622,18 +622,37 @@ jobs:
             apps/desktop/dist/latest*.yml
             apps/desktop/dist/beta*.yml
 
+      # Whether this run's Windows package ships. From the first release
+      # that ships one (`shipsWindowsPackage`) every release must have
+      # both arches' packages — an installed package can only take a
+      # package — so there the package steps below and the install test
+      # fail their job, and with it the release. Below that release the
+      # package is a workflow artifact, and no step of it can cost the
+      # release its installer. A dry run has no tag: it runs the lane as
+      # a release that ships a package does.
+      - &package_plan_step
+        name: Decide whether the Windows package ships
+        id: package_plan
+        shell: bash
+        run: |
+          if [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ]; then
+            echo "required=true" >> "$GITHUB_OUTPUT"
+          else
+            node --input-type=module -e "import { shipsWindowsPackage } from './scripts/lib/versions.mjs'; console.log('required=' + shipsWindowsPackage(process.argv[1]))" "${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+          fi
+          cat "$GITHUB_OUTPUT"
+
       # The Windows package: a second wrapper around the signed tree the
       # installer was compiled from — packed, signed and checked here,
-      # installed in the job that tests it. It is a WORKFLOW ARTIFACT
-      # under a name the release job does not download; no release, feed
-      # pointer or download path carries one, and the release manifest
-      # fails on one that is staged.
+      # installed in the job that tests it. On a release that ships one
+      # the release job takes it from this leg's package artifact; below
+      # that release nothing downloads the artifact and the release
+      # manifest fails on a package that is staged.
       #
-      # These steps come after the installer's upload and none of them
-      # can fail the leg (`continue-on-error`): until a release ships a
-      # package, a package that cannot be made costs no release its
-      # installer. One that failed shows in the test job, which then
-      # finds no package to install.
+      # These steps come after the installer's upload. Where the package
+      # does not ship none of them can fail the leg (`continue-on-error`);
+      # one that failed shows in the test job, which then finds no
+      # package to install.
       #
       # The pack reads the arch from the program and the publisher from
       # the program's signature; both arches are packed by this x64
@@ -642,7 +661,7 @@ jobs:
         name: Pack the Windows package
         id: pack_package
         if: matrix.os == 'windows-2022' && steps.win_sign.outputs.enabled == 'true'
-        continue-on-error: true
+        continue-on-error: ${{ steps.package_plan.outputs.required != 'true' }}
         working-directory: apps/desktop
         shell: bash
         run: |
@@ -658,7 +677,7 @@ jobs:
         name: Sign the Windows package
         id: sign_package
         if: steps.pack_package.outcome == 'success'
-        continue-on-error: true
+        continue-on-error: ${{ steps.package_plan.outputs.required != 'true' }}
         working-directory: apps/desktop
         shell: bash
         run: node scripts/build/sign-windows.js --package dist/windows-package/*.msix
@@ -672,12 +691,15 @@ jobs:
       # Windows takes an update only from the publisher the installed
       # package names, so the manifest inside the signed package is held
       # to the signer's subject, and its version and arch to the app in
-      # the tree.
+      # the tree. The subject then leaves beside the package, as one
+      # line of text: the release job cannot read a signature, and the
+      # feed holds every release's packages to the publisher the live
+      # pointers name.
       - &verify_package_step
         name: Verify the Windows package
         id: verify_package
         if: steps.sign_package.outcome == 'success'
-        continue-on-error: true
+        continue-on-error: ${{ steps.package_plan.outputs.required != 'true' }}
         run: |
           $package = @(Get-ChildItem -Path "apps/desktop/dist/windows-package" -Filter "*.msix" -File)
           if ($package.Count -ne 1) { Write-Error "Expected one package, found $($package.Count)"; exit 1 }
@@ -702,20 +724,25 @@ jobs:
           $env:OH_PACKAGE_SIGNER = $sig.SignerCertificate.Subject
           node apps/desktop/scripts/build/check-msix.mjs $manifest "apps/desktop/dist/win${{ matrix.arch == 'arm64' && '-arm64' || '' }}-unpacked"
           if ($LASTEXITCODE -ne 0) { exit 1 }
+
+          [System.IO.File]::WriteAllText((Join-Path $package[0].DirectoryName "publisher.txt"), $sig.SignerCertificate.Subject)
         shell: pwsh
 
-      # Only a package that passed its check leaves the leg.
+      # Only a package that passed its check leaves the leg, with its
+      # signer's subject beside it.
       - &upload_package_step
         name: Upload the Windows package
         if: steps.verify_package.outcome == 'success'
-        continue-on-error: true
+        continue-on-error: ${{ steps.package_plan.outputs.required != 'true' }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: package-windows-${{ matrix.arch || 'x64' }}
           if-no-files-found: error
           compression-level: 0
           retention-days: 7
-          path: apps/desktop/dist/windows-package/*.msix
+          path: |
+            apps/desktop/dist/windows-package/*.msix
+            apps/desktop/dist/windows-package/publisher.txt
 
   # Windows ARM64 — a leg like the ones above, on an ARM runner and on
   # the same steps. It is a job of its own, not a row of that matrix,
@@ -791,6 +818,7 @@ jobs:
       - *verify_update_cache_step
       - *upload_desktop_step
       - *upload_desktop_retry_step
+      - *package_plan_step
       - *pack_package_step
       - *sign_package_step
       - *verify_package_step
@@ -806,14 +834,17 @@ jobs:
   # The x64 package is tested on a server build of Windows, the only
   # x64 image there is; the ARM64 one on Windows 11.
   #
-  # Nothing waits for this job and it cannot fail the run: the release
-  # job does not need it, and a failure shows here alone. Waiting for
-  # the whole desktop matrix costs it nothing for the same reason.
+  # The release job waits for this job. On a release that ships a
+  # package, a package that does not install or start fails it, and
+  # nothing is published. Below that release its two steps cannot fail
+  # it (`continue-on-error`): a failure shows in this job's log alone —
+  # read its PASS and FAIL lines, never its colour. The release job
+  # waits for the whole desktop matrix as this job does, so the wait
+  # costs the install test's own minutes.
   test-windows-package:
     name: test-package
     needs: [build-desktop, package-desktop-windows-arm64]
     if: ${{ !cancelled() && !contains(github.ref_name, '-ext') && !contains(github.ref_name, '-cli') && !contains(github.ref_name, '-daemon') }}
-    continue-on-error: true
     runs-on: ${{ matrix.os }}
     permissions:
       contents: read
@@ -848,8 +879,12 @@ jobs:
           AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
           AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
 
+      - *package_plan_step
+
       - name: Download the Windows package
+        id: download_package
         if: steps.win_sign.outputs.enabled == 'true'
+        continue-on-error: ${{ steps.package_plan.outputs.required != 'true' }}
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: package-windows-${{ matrix.arch }}
@@ -858,7 +893,8 @@ jobs:
       # Windows PowerShell, not PowerShell 7: the package cmdlets are
       # its own.
       - name: Install the package and ask it whether it starts
-        if: steps.win_sign.outputs.enabled == 'true'
+        if: steps.download_package.outcome == 'success'
+        continue-on-error: ${{ steps.package_plan.outputs.required != 'true' }}
         shell: powershell
         run: |
           $package = @(Get-ChildItem -Path "windows-package" -Filter "*.msix" -File)
@@ -1190,9 +1226,10 @@ jobs:
     # default would skip this job silently); the result checks decide.
     # build-binaries is stable-only, so a beta sees it skipped. The
     # Windows ARM64 packaging job stands for its leg too — it only runs
-    # when that leg succeeded.
-    if: ${{ !cancelled() && github.event_name != 'workflow_dispatch' && !contains(github.ref_name, '-ext') && !contains(github.ref_name, '-cli') && !contains(github.ref_name, '-daemon') && needs.build-desktop.result == 'success' && needs.package-desktop-windows-arm64.result == 'success' && (needs.build-binaries.result == 'success' || (contains(github.ref_name, '-beta') && needs.build-binaries.result == 'skipped')) }}
-    needs: [build-desktop, package-desktop-windows-arm64, build-binaries]
+    # when that leg succeeded. The package's install test is needed too:
+    # it can fail only on a release that ships a Windows package.
+    if: ${{ !cancelled() && github.event_name != 'workflow_dispatch' && !contains(github.ref_name, '-ext') && !contains(github.ref_name, '-cli') && !contains(github.ref_name, '-daemon') && needs.build-desktop.result == 'success' && needs.package-desktop-windows-arm64.result == 'success' && needs.test-windows-package.result == 'success' && (needs.build-binaries.result == 'success' || (contains(github.ref_name, '-beta') && needs.build-binaries.result == 'skipped')) }}
+    needs: [build-desktop, package-desktop-windows-arm64, test-windows-package, build-binaries]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -1236,6 +1273,17 @@ jobs:
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           pattern: binaries-*
+          path: dist
+
+      - *package_plan_step
+
+      # The Windows packages, one artifact per arch, each with its
+      # signer's subject beside it — only on a release that ships them.
+      - name: Download Windows package artifacts
+        if: steps.package_plan.outputs.required == 'true'
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          pattern: package-windows-*
           path: dist
 
       # Store listings serve the extension (stable only — it has no
@@ -1297,6 +1345,14 @@ jobs:
             cp "$d"/*.exe processed_files/ 2>/dev/null || true
             cp "$d"/*.msi processed_files/ 2>/dev/null || true
             cp "$d"/*.blockmap processed_files/ 2>/dev/null || true
+          done
+
+          # The Windows packages ride with the installers: the download
+          # host and the release page. The signer's subject beside each
+          # stays behind — the feed staging reads it where it is.
+          for d in dist/package-windows-*; do
+            [ -d "$d" ] || continue
+            cp "$d"/*.msix processed_files/ 2>/dev/null || true
           done
 
           for d in dist/desktop-macos-latest-*; do
@@ -1489,6 +1545,32 @@ jobs:
           fi
           cat processed_files/versions.json
 
+      # The live Windows package pointer of every channel this release
+      # may write — a beta the beta channel's, a stable both, since it
+      # may overtake the beta channel. The feed staging holds this
+      # release's packages to the publisher each one names: Windows
+      # takes an update only from the publisher the installed package
+      # names. A 404 is the state "no package on this channel yet" (an
+      # empty pointer); any other failure is fatal, as for the manifests
+      # above — a release that cannot see a live pointer cannot know
+      # whether its packages would strand the installs it serves.
+      - name: Read the live Windows package pointers
+        if: steps.package_plan.outputs.required == 'true'
+        run: |
+          CHANNELS="beta"
+          if [ "${{ steps.release_type.outputs.is_prerelease }}" = "false" ]; then CHANNELS="stable beta"; fi
+          for CHANNEL in $CHANNELS; do
+            STATUS=$(curl -sS --retry 3 --retry-all-errors --max-time 30 -w '%{http_code}' \
+              "https://updates.openheaders.com/desktop/${CHANNEL}/windows-package.json" -o "live_package_${CHANNEL}.json" || echo "000")
+            case "$STATUS" in
+              200) echo "Live ${CHANNEL} package pointer read"; cat "live_package_${CHANNEL}.json" ;;
+              404) echo '{}' > "live_package_${CHANNEL}.json"; echo "No live ${CHANNEL} package pointer — the channel has no package yet" ;;
+              *)
+                echo "::error::the live ${CHANNEL} package pointer (desktop/${CHANNEL}/windows-package.json) answered ${STATUS} — nothing published"
+                exit 1 ;;
+            esac
+          done
+
       - name: Generate Release Body
         run: |
           VERSION=${GITHUB_REF_NAME/v/}
@@ -1559,7 +1641,9 @@ jobs:
               "$(dl_link 'Intel (DMG)' "OpenHeaders-${VERSION}-mac-x64.dmg")"
             row "${I_WIN} Windows" \
               "$(dl_link 'x64 (EXE)' "OpenHeaders-${VERSION}-Setup.exe")" \
-              "$(dl_link 'ARM64 (EXE)' "OpenHeaders-${VERSION}-arm64-Setup.exe")"
+              "$(dl_link 'ARM64 (EXE)' "OpenHeaders-${VERSION}-arm64-Setup.exe")" \
+              "$(dl_link 'x64 (MSIX)' "OpenHeaders-${VERSION}-x64.msix")" \
+              "$(dl_link 'ARM64 (MSIX)' "OpenHeaders-${VERSION}-arm64.msix")"
             row "${I_LINUX} Linux" \
               "$(dl_link 'AppImage x64' "OpenHeaders-${VERSION}-x86_64.AppImage")" \
               "$(dl_link 'AppImage ARM64' "OpenHeaders-${VERSION}-arm64.AppImage")"
@@ -1712,13 +1796,34 @@ jobs:
       # overtakes the beta channel's entries and pointers it is newer
       # than, so the beta channel never sits behind stable (the live
       # manifests read above decide). A beta older than the live stable
-      # fails here.
+      # fails here. On a release that ships Windows packages the
+      # package pointer is staged too, from each leg's signer file and
+      # the live pointers read above; packages signed by another
+      # publisher than a live pointer names fail here. So does such a
+      # release without the feed bucket: Windows takes a package update
+      # only from a link whose final path ends in `.msix`, and a GitHub
+      # release file redirects to one that does not.
       - name: Stage update feed pointers
         run: |
+          PACKAGE_INPUTS=()
+          if [ "${{ steps.package_plan.outputs.required }}" = "true" ]; then
+            if [ "${{ steps.r2.outputs.enabled }}" != "true" ]; then
+              echo "::error::a release that ships a Windows package needs the feed bucket — a package updates only from our own download host"
+              exit 1
+            fi
+            for FILE in dist/package-windows-*/publisher.txt; do PACKAGE_INPUTS+=("--package-publisher=${FILE}"); done
+            for FILE in live_package_*.json; do PACKAGE_INPUTS+=("--live-package=${FILE}"); done
+          fi
           node scripts/generate-update-feed.mjs "$GITHUB_REF_NAME" \
             "${{ steps.dl_base.outputs.url }}" \
             processed_files feed \
-            --live-stable=live_stable.json --live-beta=live_beta.json
+            --live-stable=live_stable.json --live-beta=live_beta.json \
+            "${PACKAGE_INPUTS[@]}"
+          for POINTER in feed/desktop/*/windows-package.json; do
+            [ -f "$POINTER" ] || continue
+            echo "$POINTER"
+            cat "$POINTER"
+          done
 
       # The signed apt repository (the distribution plan §8, Phase 7):
       # pool + dists staged into the same tree the pointer upload
@@ -1805,6 +1910,7 @@ jobs:
               *.sh) type="text/x-shellscript; charset=utf-8" ;;
               *.ps1) type="text/plain; charset=utf-8" ;;
               *.zip) type="application/zip" ;;
+              *.msix) type="application/msix" ;;
               *) type="application/octet-stream" ;;
             esac
             local err
@@ -1835,6 +1941,37 @@ jobs:
           find processed_files -maxdepth 1 -type f \
             ! -name 'latest*.yml' ! -name 'beta*.yml' ! -name 'versions.json' -print0 \
             | sort -z | xargs -0 -P 8 -n 1 bash -c 'put_dl "$1"' _
+
+      # The links the package pointer hands to Windows, asked as Windows
+      # asks them: each must answer a range from our own host, at a path
+      # that ends in `.msix`, with no redirect — a link that redirects
+      # or serves whole files only would fail every package update.
+      # Asked before the release and the pointers exist: a failure here
+      # publishes nothing.
+      - name: Check the Windows package links
+        if: steps.package_plan.outputs.required == 'true'
+        run: |
+          URLS=$(jq -r '.packages[].url' feed/desktop/*/windows-package.json | sort -u)
+          if [ -z "$URLS" ]; then
+            echo "::error::no Windows package pointer was staged"
+            exit 1
+          fi
+          for URL in $URLS; do
+            ANSWER=$(curl -sS --retry 3 --retry-all-errors --max-time 60 -r 0-1023 -o /dev/null \
+              -w '%{http_code} %{size_download} %{content_type}' "$URL" || echo "000 0 -")
+            echo "${URL} -> ${ANSWER}"
+            read -r CODE SIZE TYPE <<< "$ANSWER"
+            case "$URL" in
+              *.msix) ;;
+              *)
+                echo "::error::${URL} does not end in .msix"
+                exit 1 ;;
+            esac
+            if [ "$CODE" != "206" ] || [ "$SIZE" != "1024" ]; then
+              echo "::error::${URL} did not answer a range of its own bytes (${ANSWER})"
+              exit 1
+            fi
+          done
 
       # The GitHub release page stays the human-browsable home and a
       # redundant copy of every artifact — machine contracts point at
