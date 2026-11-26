@@ -252,10 +252,17 @@
   DetailPrint "Uninstalling OpenHeaders..."
   SetDetailsPrint both
   
-  ; Remove protocol handlers
+  ; Remove protocol handlers. In a move the Windows package is installed
+  ; by now, and Windows keeps the scheme's key for it: only this
+  ; install's command under the key is taken away, the key stays.
   DetailPrint "Removing protocol handlers..."
-  DeleteRegKey HKCR "openheaders"
-  DeleteRegKey HKCU "Software\Classes\openheaders"
+  ${if} ${isMoveToPackage}
+    DeleteRegKey HKCU "Software\Classes\openheaders\shell"
+    DeleteRegKey HKCU "Software\Classes\openheaders\DefaultIcon"
+  ${else}
+    DeleteRegKey HKCR "openheaders"
+    DeleteRegKey HKCU "Software\Classes\openheaders"
+  ${endif}
   
   ; Clean up registry entries
   DetailPrint "Cleaning up registry entries..."

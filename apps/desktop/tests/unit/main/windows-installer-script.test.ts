@@ -148,6 +148,13 @@ describe('a move to the Windows package', () => {
     expect(CODE.match(/DeleteRegKey HKCU "\$\{KEY\}"/g)).toHaveLength(1);
   });
 
+  it("takes this install's command out of the scheme's key and leaves the key to Windows", () => {
+    expect(uninstall).toMatch(
+      /\$\{if\} \$\{isMoveToPackage\}\s+DeleteRegKey HKCU "Software\\Classes\\openheaders\\shell"\s+DeleteRegKey HKCU "Software\\Classes\\openheaders\\DefaultIcon"\s+\$\{else\}\s+DeleteRegKey HKCR "openheaders"\s+DeleteRegKey HKCU "Software\\Classes\\openheaders"\s+\$\{endif\}/,
+    );
+    expect(uninstall.match(/DeleteRegKey HKC[RU] "(?:Software\\Classes\\)?openheaders"/g)).toHaveLength(2);
+  });
+
   it("keeps that folder's name the one the app gives its data", () => {
     expect(PRODUCT_NAME).toBe(APP_DATA_DIR_NAME);
   });
