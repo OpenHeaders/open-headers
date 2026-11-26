@@ -66,6 +66,19 @@ export function packageVersion(version) {
   return `${year}.${month}.${patch}.${beta}`;
 }
 
+/**
+ * The first release that ships a Windows package. Every release from it
+ * on ships one, beta and stable alike: an installed package can only
+ * take a package, and a stable overtakes the beta channel. A release
+ * below it ships none — its legs still build one, as a workflow artifact.
+ */
+export const FIRST_WINDOWS_PACKAGE_VERSION = '2026.12.0-beta.1';
+
+/** Whether a release ships a Windows package beside its installers. */
+export function shipsWindowsPackage(version) {
+  return compareVersions(version, FIRST_WINDOWS_PACKAGE_VERSION) >= 0;
+}
+
 /** `stable` | `beta` from the tag shape — the only channel authority. */
 export function channelForTag(tag) {
   return /-beta[.0-9]*$/.test(tag) ? 'beta' : 'stable';

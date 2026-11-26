@@ -87,6 +87,45 @@ describe('packageVersion — the order', () => {
   });
 });
 
+/** The first release that ships a package, and whether each argument ships one. */
+const SHIPS = `
+const [library, ...versions] = process.argv.slice(1);
+import(library).then(({ FIRST_WINDOWS_PACKAGE_VERSION, shipsWindowsPackage }) => {
+  console.log(JSON.stringify({ first: FIRST_WINDOWS_PACKAGE_VERSION, ships: versions.map(shipsWindowsPackage) }));
+});
+`;
+
+function ships(versions: string[]): { first: string; ships: boolean[] } {
+  const result = spawnSync(process.execPath, ['-e', SHIPS, LIBRARY, ...versions], { encoding: 'utf8' });
+  expect(result.stderr).toBe('');
+  return JSON.parse(result.stdout);
+}
+
+describe('shipsWindowsPackage — from the first release that ships one', () => {
+  it('starts at a release a package version can be made for', () => {
+    const { first } = ships([]);
+
+    expect(map([first])[0].packageVersion).toBeDefined();
+  });
+
+  it('holds for the first release and every release after it, beta and stable alike', () => {
+    const { first } = ships([]);
+    const base = first.replace(/-beta\.\d+$/, '');
+    const [year, month, patch] = base.split('.').map(Number);
+
+    expect(ships([first, base, `${year}.${month}.${patch + 1}-beta.1`, `${year + 1}.1.0`]).ships).toEqual([
+      true,
+      true,
+      true,
+      true,
+    ]);
+  });
+
+  it('does not hold for the classic releases before it', () => {
+    expect(ships(['2026.11.2', '2026.11.3-beta.1', '2026.11.3']).ships).toEqual([false, false, false]);
+  });
+});
+
 describe('packageVersion — what it refuses', () => {
   it.each([
     ['a tag', 'v2026.11.2'],
