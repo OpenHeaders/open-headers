@@ -184,11 +184,16 @@ pub struct Around<'a> {
     pub is_cancelled: &'a dyn Fn() -> bool,
     /// Takes a line for the log.
     pub note: &'a dyn Fn(&str),
+    /// What the file holds already is not to be kept: the first try asks
+    /// from the first byte and writes over it.
+    pub start_over: bool,
 }
 
 /// Downloads `url` into `dest` until the file holds `size` bytes. What a
 /// broken try left in the file is kept, and the next try asks for the
-/// rest.
+/// rest. Nothing is deleted or renamed on the way — Windows can hold
+/// either for a long time on a file that was just written — a file that
+/// is not wanted is written over.
 pub fn download(
     transport: &dyn Transport,
     url: &str,
@@ -201,7 +206,9 @@ pub fn download(
         on_bytes,
         is_cancelled,
         note,
+        start_over,
     } = around;
+    let mut start_over = start_over;
     let mut last = String::new();
     for attempt in 1..=DOWNLOAD_ATTEMPTS {
         if attempt > 1 {
@@ -210,9 +217,13 @@ pub fn download(
         if is_cancelled() {
             return Err(DownloadError::Cancelled);
         }
-        let mut have = fs::metadata(dest).map(|meta| meta.len()).unwrap_or(0);
+        let mut have = if start_over {
+            0
+        } else {
+            fs::metadata(dest).map(|meta| meta.len()).unwrap_or(0)
+        };
+        start_over = false;
         if have > size {
-            let _ = fs::remove_file(dest);
             have = 0;
         }
         if have == size {
@@ -373,6 +384,7 @@ mod tests {
                 },
                 is_cancelled: &|| cancel_at.is_some_and(|at| seen.get() >= at),
                 note: &|_| {},
+                start_over: false,
             },
         );
         let file = fs::read(&dest).unwrap_or_default();
@@ -474,6 +486,31 @@ mod tests {
         assert_eq!(run.result, Ok(()));
         assert_eq!(run.file, CONTENT);
         assert_eq!(*host.asked.borrow(), [(URL.to_string(), 0)]);
+    }
+
+    #[test]
+    fn a_file_that_is_not_to_be_kept_is_asked_for_from_its_first_byte() {
+        let host = FakeHost::new(CONTENT, vec![]);
+        let dir = scratch_dir("start-over");
+        let dest = dir.join("package.msix");
+        fs::write(&dest, vec![b'x'; CONTENT.len()]).unwrap();
+        let result = download(
+            &host,
+            URL,
+            &dest,
+            CONTENT.len() as u64,
+            Around {
+                pause: &|_| {},
+                on_bytes: &mut |_| {},
+                is_cancelled: &|| false,
+                note: &|_| {},
+                start_over: true,
+            },
+        );
+        assert_eq!(result, Ok(()));
+        assert_eq!(*host.asked.borrow(), [(URL.to_string(), 0)]);
+        assert_eq!(fs::read(&dest).unwrap(), CONTENT);
+        let _ = fs::remove_dir_all(&dir);
     }
 
     #[test]

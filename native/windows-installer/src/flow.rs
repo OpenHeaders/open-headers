@@ -115,6 +115,13 @@ pub struct Plan {
     pub open_app: bool,
 }
 
+/// What one try of a run hands the next.
+#[derive(Debug, Default)]
+pub struct Carry {
+    /// The download on disk failed its hash: the next try fetches it anew.
+    pub distrust_download: bool,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Done {
     Installed,
@@ -154,7 +161,13 @@ fn offer_for(plan: &Plan, system: &dyn System, log: &Log) -> Result<PackageOffer
     Ok(offer)
 }
 
-fn fetch(offer: &PackageOffer, system: &dyn System, watcher: &dyn Watcher, log: &Log) -> Result<PathBuf, Stop> {
+fn fetch(
+    offer: &PackageOffer,
+    system: &dyn System,
+    watcher: &dyn Watcher,
+    log: &Log,
+    carry: &mut Carry,
+) -> Result<PathBuf, Stop> {
     let name = file_name_of(&offer.url)
         .ok_or_else(|| Stop::new(Failure::Pointer, format!("the link {} names no file", offer.url)))?;
     let dir = system.download_dir();
@@ -180,6 +193,7 @@ fn fetch(offer: &PackageOffer, system: &dyn System, watcher: &dyn Watcher, log: 
             },
             is_cancelled: &|| watcher.cancelled(),
             note: &|text| log.line(text),
+            start_over: carry.distrust_download,
         },
     );
     match result {
@@ -195,13 +209,16 @@ fn fetch(offer: &PackageOffer, system: &dyn System, watcher: &dyn Watcher, log: 
         .sha256_hex(&file)
         .map_err(|error| Stop::new(Failure::Hash, error))?;
     if !hash.eq_ignore_ascii_case(&offer.sha256) {
-        // A whole file with the wrong bytes: another try must not find it there.
-        let _ = std::fs::remove_file(&file);
+        // A whole file with the wrong bytes: another try fetches it anew over this one, and the
+        // run's end takes it away. It is not deleted here — Windows can hold a delete of a file
+        // it is still scanning for a long time, and the person is owed the answer now.
+        carry.distrust_download = true;
         return Err(Stop::new(
             Failure::Hash,
             format!("the download hashes to {hash}, the pointer names {}", offer.sha256),
         ));
     }
+    carry.distrust_download = false;
     log.line(&format!("sha256 {hash} matches the pointer"));
     Ok(file)
 }
@@ -242,7 +259,13 @@ fn hold_to_signer(file: &Path, publisher: Option<&str>, system: &dyn System, log
     Ok(())
 }
 
-pub fn run(plan: &Plan, system: &dyn System, watcher: &dyn Watcher, log: &Log) -> Result<Done, Stop> {
+pub fn run(
+    plan: &Plan,
+    system: &dyn System,
+    watcher: &dyn Watcher,
+    log: &Log,
+    carry: &mut Carry,
+) -> Result<Done, Stop> {
     watcher.stage(Stage::Checking);
     watcher.percent(None);
     system.fitness().map_err(|unfit| match unfit {
@@ -284,7 +307,7 @@ pub fn run(plan: &Plan, system: &dyn System, watcher: &dyn Watcher, log: &Log) -
         }
         None => {
             let offer = offer_for(plan, system, log)?;
-            (fetch(&offer, system, watcher, log)?, Some(offer.publisher))
+            (fetch(&offer, system, watcher, log, carry)?, Some(offer.publisher))
         }
     };
     hold_to_signer(&file, publisher.as_deref(), system, log)?;
@@ -479,8 +502,12 @@ mod tests {
     }
 
     fn go(pc: &Pc, plan: &Plan, seen: &Seen) -> Result<Done, Stop> {
+        go_on(pc, plan, seen, &mut Carry::default())
+    }
+
+    fn go_on(pc: &Pc, plan: &Plan, seen: &Seen, carry: &mut Carry) -> Result<Done, Stop> {
         let log = Log::create(&pc.dir.join("install.log"));
-        run(plan, pc, seen, &log)
+        run(plan, pc, seen, &log, carry)
     }
 
     fn failure(result: Result<Done, Stop>) -> Failure {
@@ -599,17 +626,27 @@ mod tests {
     }
 
     #[test]
-    fn a_wrong_hash_stops_the_run_and_takes_the_file_away() {
+    fn a_wrong_hash_stops_the_run_at_once_and_the_next_try_fetches_anew() {
         let mut pc = Pc::new("hash");
         pc.hash = HASH.replace('5', "6");
-        assert_eq!(failure(go(&pc, &plan(), &Seen::default())), Failure::Hash);
-        assert_eq!(pc.calls(), ["hash"]);
-        assert!(
-            !pc.dir
-                .join("download")
-                .join("OpenHeaders-2026.11.3-beta.6-x64.msix")
-                .exists()
+        let mut carry = Carry::default();
+        assert_eq!(
+            failure(go_on(&pc, &plan(), &Seen::default(), &mut carry)),
+            Failure::Hash
         );
+        assert_eq!(pc.calls(), ["hash"]);
+        // The file is left where it is: nothing waits on Windows before the person is told.
+        let file = pc.dir.join("download").join("OpenHeaders-2026.11.3-beta.6-x64.msix");
+        assert!(file.exists() && carry.distrust_download);
+        assert_eq!(pc.feed.package.asked.borrow().len(), 1);
+
+        // The next try does not take the whole file it finds for the package.
+        pc.hash = HASH.to_string();
+        assert_eq!(go_on(&pc, &plan(), &Seen::default(), &mut carry), Ok(Done::Installed));
+        let asked = pc.feed.package.asked.borrow();
+        assert_eq!(asked.len(), 2);
+        assert_eq!(asked[1].1, 0);
+        assert!(!carry.distrust_download);
     }
 
     #[test]

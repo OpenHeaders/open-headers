@@ -17,8 +17,9 @@ use windows::Win32::System::Com::{COINIT_APARTMENTTHREADED, COINIT_MULTITHREADED
 
 use crate::RELEASE_VERSION;
 use crate::args::{self, Args};
+use crate::cleanup;
 use crate::feed::Channel;
-use crate::flow::{self, Done, Plan, Signer, System, Unfit, Unwatched, Watcher};
+use crate::flow::{self, Carry, Done, Plan, Signer, System, Unfit, Unwatched, Watcher};
 use crate::log::{LOG_FILE_NAME, Log};
 use crate::outcome::{EXIT_INSTALLED, Failure, Stop};
 use crate::pointer::Arch;
@@ -74,11 +75,11 @@ impl System for Pc {
 
 /// One run of the install, on the calling thread. A panic is a run that
 /// stopped, never a dialog left with nothing behind it.
-fn attempt(plan: &Plan, watcher: &dyn Watcher, log: &Log) -> Result<Done, Stop> {
+fn attempt(plan: &Plan, watcher: &dyn Watcher, log: &Log, carry: &mut Carry) -> Result<Done, Stop> {
     let result = catch_unwind(AssertUnwindSafe(|| {
         let http = http::WinHttp::open(&format!("OpenHeaders-Installer/{RELEASE_VERSION}"))
             .map_err(|error| Stop::new(Failure::Unexpected, error))?;
-        flow::run(plan, &Pc { http }, watcher, log)
+        flow::run(plan, &Pc { http }, watcher, log, carry)
     }))
     .unwrap_or_else(|_| Err(Stop::new(Failure::Unexpected, "the run panicked")));
     match &result {
@@ -109,8 +110,9 @@ fn watched(plan: Plan, log: Arc<Log>) -> i32 {
     let log_path = log.path().to_path_buf();
     dialog::run(&log_path, move |window| {
         let _ = unsafe { CoInitializeEx(None, COINIT_MULTITHREADED) };
+        let mut carry = Carry::default();
         loop {
-            let result = attempt(&plan, window, &log);
+            let result = attempt(&plan, window, &log, &mut carry);
             match &result {
                 Err(stop) if stop.failure != Failure::Cancelled => {
                     if window.stopped(stop.failure) == dialog::Answer::TryAgain {
@@ -161,11 +163,16 @@ pub fn run() -> i32 {
 
     let code = if args.silent {
         let _ = unsafe { CoInitializeEx(None, COINIT_MULTITHREADED) };
-        exit_code_of(&attempt(&plan, &Unwatched, &log))
+        exit_code_of(&attempt(&plan, &Unwatched, &log, &mut Carry::default()))
     } else {
         watched(plan, log.clone())
     };
-    let _ = std::fs::remove_dir_all(download_dir());
+    cleanup::remove_download_dir(
+        &download_dir(),
+        cleanup::TRIES,
+        &|milliseconds| std::thread::sleep(Duration::from_millis(milliseconds)),
+        &|text| log.line(text),
+    );
     log.line(&format!("exit code {code}"));
     code
 }

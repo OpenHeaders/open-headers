@@ -19,13 +19,20 @@ const RESOLVE_AND_CONNECT_MS: i32 = 15_000;
 const SEND_AND_RECEIVE_MS: i32 = 30_000;
 const PIECE_BYTES: usize = 256 * 1024;
 
+/// An error in words and by its number: Windows has no words for most of its network errors.
+fn words(error: &Error) -> String {
+    format!("{} (0x{:08X})", error.message().trim(), error.code().0 as u32)
+        .trim()
+        .to_string()
+}
+
 /// A WinHTTP handle, closed when it goes.
 struct Handle(*mut c_void);
 
 impl Handle {
     fn of(raw: *mut c_void, what: &str) -> Result<Handle, String> {
         if raw.is_null() {
-            Err(format!("{what}: {}", Error::from_thread().message()))
+            Err(format!("{what}: {}", words(&Error::from_thread())))
         } else {
             Ok(Handle(raw))
         }
@@ -65,7 +72,7 @@ impl WinHttp {
                 SEND_AND_RECEIVE_MS,
             )
         }
-        .map_err(|error| format!("setting the network timeouts: {}", error.message()))?;
+        .map_err(|error| format!("setting the network timeouts: {}", words(&error)))?;
         Ok(WinHttp { session })
     }
 }
@@ -73,7 +80,7 @@ impl WinHttp {
 impl Transport for WinHttp {
     fn get(&self, url: &str, from: u64, body: &mut dyn Body) -> Result<(), String> {
         let (host, port, path) = split_https_url(url).ok_or_else(|| format!("{url} is not an https link"))?;
-        let said = |what: &str, error: Error| format!("{what} {host}: {}", error.message());
+        let said = |what: &str, error: Error| format!("{what} {host}: {}", words(&error));
 
         let connection = Handle::of(
             unsafe { WinHttpConnect(self.session.0, &HSTRING::from(host.as_str()), port, 0) },

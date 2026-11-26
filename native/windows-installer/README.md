@@ -18,7 +18,11 @@ small native program in front of the Windows package (MSIX). It
    and to its own signer;
 6. hands the file to Windows' package manager to install for this
    user, without elevation;
-7. opens the app.
+7. opens the app;
+8. takes its download away, and ends. Windows' antivirus can hold that
+   delete while it scans the package — about a minute and a half where
+   it was measured — so this is the last act, after the dialog is gone
+   and the app is open; a silent run ends when it is done.
 
 Its channel is the one of the release it was built for: a beta's
 installer installs betas.
