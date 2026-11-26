@@ -52,7 +52,7 @@ const BOOT_SETTLE_DEADLINE_MS = 15_000;
 const TEARDOWN_WATCHDOG_MS = 20_000;
 
 /** Grace for the finisher's exit to complete before force-exit. */
-const EXIT_GRACE_MS = 2_000;
+export const EXIT_GRACE_MS = 2_000;
 
 export type LifecyclePhase = 'booting' | 'running' | 'tearing-down' | 'exiting';
 
@@ -63,8 +63,8 @@ export interface QuitRequest {
   finish?: () => void;
   /**
    * How long the finisher's exit may take before the force-exit, for a
-   * finisher whose exit is not the app's own: one that waits for
-   * Windows to close the process. Defaults to {@link EXIT_GRACE_MS}.
+   * finisher that does not exit at once: one that first leaves a
+   * package install with Windows. Defaults to {@link EXIT_GRACE_MS}.
    */
   exitGraceMs?: number;
 }

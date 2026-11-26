@@ -14,6 +14,12 @@
  * Windows fetches the bytes and reports nothing on the way, so the port
  * declares that it has no progress to give.
  *
+ * Windows registers a staged package once the app's process is gone, and
+ * starts the app again; it closes nothing itself. So after the install
+ * request the port ends the app — a moment later, since Electron hands
+ * the request to Windows on another thread and says nothing when it is
+ * there.
+ *
  * Everything outside this file is injected — the fetch, Electron's
  * updater, the facts of this install — so the port is pinned with fakes.
  */
@@ -24,12 +30,23 @@ import { compareCalVer, isVersionString } from './versions-manifest';
 
 type PackageUpdaterEvent = 'update-downloaded' | 'update-not-available' | 'error';
 
+/**
+ * How long the app stays after the install request before it ends
+ * itself: the time for the request to reach Windows and for Windows to
+ * find the app running, which is what makes it start the app again.
+ */
+export const PACKAGE_INSTALL_HAND_OVER_MS = 4_000;
+
 /** The slice of Electron's updater the port drives. */
 export interface PackageUpdater {
   setFeedURL(options: { url: string }): void;
   /** In a package: hands Windows the feed's link and stages what it fetches. */
   checkForUpdates(): void | Promise<void>;
-  /** In a package: asks Windows to register the staged version, closing what is left of the package. */
+  /**
+   * In a package: asks Windows to register the staged version and to
+   * start the app again. Settles when Windows' operation ends, whatever
+   * its outcome; a request that never reached Windows is an `error`.
+   */
   quitAndInstall(): void | Promise<void>;
   on(event: PackageUpdaterEvent, listener: (...args: unknown[]) => void): unknown;
   removeListener(event: PackageUpdaterEvent, listener: (...args: unknown[]) => void): unknown;
@@ -50,8 +67,9 @@ export interface MsixUpdaterPortDeps {
   readonly getChannel: () => UpdateChannel;
   /** The app's own quit: its teardown first, `finish` as the last act. */
   readonly quitThen: (finish: () => void) => void;
-  /** Ends the process when Windows did not take the install. */
+  /** Ends the process, once the app is torn down. */
   readonly exit: () => void;
+  readonly setTimer: (fn: () => void, ms: number) => unknown;
   readonly log: { info(msg: string): void; warn(msg: string, err?: unknown): void };
 }
 
@@ -147,20 +165,35 @@ export function createMsixUpdaterPort(deps: MsixUpdaterPortDeps): UpdaterPort {
 
     quitAndInstall(): void {
       deps.quitThen(() => {
-        // Electron's call asks Windows to register the staged version;
-        // Windows closes what is left of the package and starts the app
-        // again. The call does not end this process, so one Windows
-        // refuses would leave a torn-down app running.
-        const onRefused = (...args: unknown[]): void => {
-          deps.log.warn('Windows did not take the package install', args[0]);
+        let ended = false;
+        const end = (): void => {
+          if (ended) return;
+          ended = true;
           deps.exit();
+        };
+        const onRefused = (...args: unknown[]): void => {
+          if (ended) return;
+          deps.log.warn('Windows did not take the package install', args[0]);
+          end();
+        };
+        // Windows' operation waits for this process to go, so one that
+        // ends while the app still runs did not install.
+        const onEndedEarly = (): void => {
+          if (ended) return;
+          deps.log.warn("Windows' package install ended with the app still running");
+          end();
         };
         deps.updater.on('error', onRefused);
         try {
-          void Promise.resolve(deps.updater.quitAndInstall()).catch(onRefused);
+          void Promise.resolve(deps.updater.quitAndInstall()).then(onEndedEarly, onRefused);
         } catch (err) {
           onRefused(err);
         }
+        deps.setTimer(() => {
+          if (ended) return;
+          deps.log.info('package install left to Windows — exiting');
+          end();
+        }, PACKAGE_INSTALL_HAND_OVER_MS);
       });
     },
 

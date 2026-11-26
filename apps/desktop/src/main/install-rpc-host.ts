@@ -99,7 +99,7 @@ import { dataDir } from './bootstrap/app-paths';
 import { revealAppSurface } from './bootstrap/app-reveal';
 import { installKind, installKindReading } from './bootstrap/install-kind';
 import { writeRestartHiddenFlag } from './bootstrap/launch-flags';
-import { registerTeardown, requestQuit } from './bootstrap/lifecycle';
+import { EXIT_GRACE_MS, registerTeardown, requestQuit } from './bootstrap/lifecycle';
 import { localDataRemovalTarget } from './bootstrap/local-data-removal';
 import { installLocaleSubscription, mainTranslator } from './bootstrap/locale';
 import { createEngineHostLogger } from './bootstrap/logger';
@@ -117,7 +117,7 @@ import { installBackendClient } from './install-backend-client';
 import { installHostStorage } from './install-host-storage';
 import { createLocalDataRemovalRpc } from './local-data-removal-rpc';
 import { createManifestUpdaterPort } from './manifest-updater-port';
-import { createMsixUpdaterPort } from './msix-updater-port';
+import { createMsixUpdaterPort, PACKAGE_INSTALL_HAND_OVER_MS } from './msix-updater-port';
 import {
   linuxNmManifestTargets,
   macosNmManifestTargets,
@@ -149,11 +149,11 @@ const SCOPE = 'install-rpc-host';
 const UPDATE_SCOPE = 'UpdateService';
 
 /**
- * How long a package install may take to end the process: Electron's
- * call hands the staged package to Windows and returns, and Windows
- * closes the app — the exit is Windows', not the app's own.
+ * How long a package install may take to end the process: the port ends
+ * it once the install is with Windows, and that exit gets the time any
+ * other does.
  */
-const PACKAGE_INSTALL_EXIT_GRACE_MS = 30_000;
+const PACKAGE_INSTALL_EXIT_GRACE_MS = PACKAGE_INSTALL_HAND_OVER_MS + EXIT_GRACE_MS;
 
 /** Deadline for the engine's quit-time dispose (lifecycle participant). */
 const ENGINE_DISPOSE_DEADLINE_MS = 10_000;
@@ -397,6 +397,7 @@ export async function installRpcHost(): Promise<void> {
               requestQuit({ reason: 'update-install', finish, exitGraceMs: PACKAGE_INSTALL_EXIT_GRACE_MS });
             },
             exit: () => app.quit(),
+            setTimer: (fn, ms) => setTimeout(fn, ms),
             log: updateLog,
           })
         : createElectronUpdaterPort(() => updatePreferences.channel);

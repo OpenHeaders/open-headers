@@ -178,11 +178,11 @@ describe('app lifecycle', () => {
     }
   });
 
-  it("waits the exit grace a request asks for, for a finisher whose exit is not the app's own", async () => {
+  it('waits the exit grace a request asks for, for a finisher that does not exit at once', async () => {
     vi.useFakeTimers();
     try {
-      requestQuit({ reason: 'update-install', finish: vi.fn(), exitGraceMs: 30_000 });
-      await vi.advanceTimersByTimeAsync(29_999);
+      requestQuit({ reason: 'update-install', finish: vi.fn(), exitGraceMs: 6_000 });
+      await vi.advanceTimersByTimeAsync(5_999);
       expect(exitSpy).not.toHaveBeenCalled();
       await vi.advanceTimersByTimeAsync(1);
       expect(exitSpy).toHaveBeenCalledWith(0);

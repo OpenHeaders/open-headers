@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { createMsixUpdaterPort, type PackageUpdater } from '../../../src/main/msix-updater-port';
+import {
+  createMsixUpdaterPort,
+  PACKAGE_INSTALL_HAND_OVER_MS,
+  type PackageUpdater,
+} from '../../../src/main/msix-updater-port';
 import type { UpdateChannel } from '../../../src/main/update-feed';
 
 type Listener = (...args: unknown[]) => void;
@@ -24,7 +28,13 @@ function makePointer(overrides: Record<string, unknown> = {}): Record<string, un
 }
 
 /** Electron's updater as the port sees it: what it was asked, and a way to answer as Windows would. */
-function makeUpdater(behavior: { onCheck?: (emit: (event: string, ...args: unknown[]) => void) => void } = {}) {
+function makeUpdater(
+  behavior: {
+    onCheck?: (emit: (event: string, ...args: unknown[]) => void) => void;
+    /** What the install call answers; left out, it stays open as while Windows waits for the app to go. */
+    onInstall?: () => Promise<void>;
+  } = {},
+) {
   const listeners = new Map<string, Set<Listener>>();
   const calls: string[] = [];
   const emit = (event: string, ...args: unknown[]): void => {
@@ -38,8 +48,9 @@ function makeUpdater(behavior: { onCheck?: (emit: (event: string, ...args: unkno
       calls.push('checkForUpdates');
       behavior.onCheck?.(emit);
     },
-    async quitAndInstall() {
+    quitAndInstall() {
       calls.push('quitAndInstall');
+      return behavior.onInstall?.() ?? new Promise<void>(() => {});
     },
     on(event, listener) {
       const set = listeners.get(event) ?? new Set<Listener>();
@@ -76,6 +87,7 @@ function makePort(options: PortOptions = {}) {
   }) as typeof fetch;
   const fake = options.updater ?? makeUpdater({ onCheck: (emit) => emit('update-downloaded') });
   const quits: Array<() => void> = [];
+  const timers: Array<{ fn: () => void; ms: number }> = [];
   const logged = { info: [] as string[], warn: [] as string[] };
   let exits = 0;
   const port = createMsixUpdaterPort({
@@ -89,9 +101,10 @@ function makePort(options: PortOptions = {}) {
     exit: () => {
       exits += 1;
     },
+    setTimer: (fn, ms) => timers.push({ fn, ms }),
     log: { info: (msg) => logged.info.push(msg), warn: (msg) => logged.warn.push(msg) },
   });
-  return { port, urls, fake, quits, logged, exits: () => exits };
+  return { port, urls, fake, quits, timers, logged, exits: () => exits };
 }
 
 describe('createMsixUpdaterPort', () => {
@@ -247,6 +260,7 @@ describe('createMsixUpdaterPort', () => {
         getChannel: () => 'beta',
         quitThen: () => {},
         exit: () => {},
+        setTimer: () => {},
         log: { info: () => {}, warn: () => {} },
       });
       expect(await port.check()).not.toBeNull();
@@ -257,8 +271,10 @@ describe('createMsixUpdaterPort', () => {
   });
 
   describe('quitAndInstall', () => {
-    it("quits through the app's own teardown, with the updater's call as the last act", async () => {
-      const { port, fake, quits, exits } = makePort();
+    const flush = (): Promise<void> => new Promise((resolve) => setImmediate(resolve));
+
+    it("quits through the app's own teardown, with the updater's call after it", async () => {
+      const { port, fake, quits, timers, exits } = makePort();
       await port.check();
       await port.download(() => {});
       port.quitAndInstall();
@@ -266,15 +282,67 @@ describe('createMsixUpdaterPort', () => {
       expect(quits).toHaveLength(1);
       quits[0]?.();
       expect(fake.calls.at(-1)).toBe('quitAndInstall');
-      // Windows closes the process; the port does not end it itself.
+      // The request is on its way to Windows: the app stays for the hand-over.
+      await flush();
       expect(exits()).toBe(0);
+      expect(timers.map((timer) => timer.ms)).toEqual([PACKAGE_INSTALL_HAND_OVER_MS]);
     });
 
-    it('ends the process when Windows does not take the install', async () => {
-      const { port, fake, quits, exits, logged } = makePort();
+    it('ends the app once the hand-over is over, leaving the install to Windows', async () => {
+      const { port, quits, timers, exits, logged } = makePort();
+      port.quitAndInstall();
+      quits[0]?.();
+      timers[0]?.fn();
+      expect(exits()).toBe(1);
+      expect(logged.info).toEqual(['package install left to Windows — exiting']);
+      expect(logged.warn).toEqual([]);
+    });
+
+    it('ends the app at once when the request does not reach Windows', async () => {
+      const { port, fake, quits, timers, exits, logged } = makePort();
       port.quitAndInstall();
       quits[0]?.();
       fake.emit('error', new Error('MSIX updates are not supported'));
+      expect(exits()).toBe(1);
+      expect(logged.warn).toEqual(['Windows did not take the package install']);
+      // The hand-over's timer finds the app already ending.
+      timers[0]?.fn();
+      expect(exits()).toBe(1);
+      expect(logged.info).toEqual([]);
+    });
+
+    it("ends the app at once when Windows' operation ends while the app still runs", async () => {
+      const updater = makeUpdater({ onInstall: () => Promise.resolve() });
+      const { port, quits, timers, exits, logged } = makePort({ updater });
+      port.quitAndInstall();
+      quits[0]?.();
+      await flush();
+      expect(exits()).toBe(1);
+      expect(logged.warn).toEqual(["Windows' package install ended with the app still running"]);
+      timers[0]?.fn();
+      expect(exits()).toBe(1);
+    });
+
+    it('says a refusal once: the updater reports it, then its call settles', async () => {
+      const fake = makeUpdater({
+        onInstall: async () => {
+          fake.emit('error', new Error('Deployment is NULL'));
+        },
+      });
+      const { port, quits, exits, logged } = makePort({ updater: fake });
+      port.quitAndInstall();
+      quits[0]?.();
+      await flush();
+      expect(exits()).toBe(1);
+      expect(logged.warn).toEqual(['Windows did not take the package install']);
+    });
+
+    it('ends the app when the updater call itself fails', async () => {
+      const updater = makeUpdater({ onInstall: () => Promise.reject(new Error('the updater is gone')) });
+      const { port, quits, exits, logged } = makePort({ updater });
+      port.quitAndInstall();
+      quits[0]?.();
+      await flush();
       expect(exits()).toBe(1);
       expect(logged.warn).toEqual(['Windows did not take the package install']);
     });
