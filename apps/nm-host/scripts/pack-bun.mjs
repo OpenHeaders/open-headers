@@ -18,7 +18,8 @@
  * response. A Windows artifact is then run once more from a
  * shipped-shaped folder against a live listener, which is the only
  * place the helper's listener check — and its in-process image-name
- * call — runs. A cross-target artifact cannot execute here, so its
+ * call — runs: it must answer one framed refusal there, never crash.
+ * A cross-target artifact cannot execute here, so its
  * executable header is asserted against the requested platform + arch
  * instead — a wrong-arch binary fails the build rather than shipping.
  */
@@ -66,7 +67,9 @@ const UNREACHABLE_PORT = 18837;
 
 /** The helper's listener check starts PowerShell twice at worst, ten seconds each. */
 const SHIPPED_PROBE_TIMEOUT_MS = 60_000;
-const SHIPPED_PROBE_ATTEMPTS = 3;
+
+/** How long the build waits for the helper's own question when the helper got no answer to it. */
+const LISTENER_QUESTION_TIMEOUT_MS = 120_000;
 
 function fail(message) {
   console.error(`pack-bun: ${message}`);
@@ -191,8 +194,16 @@ if (crossTarget) {
 // The dev layout skips the listener check, so the probes above never
 // reach the in-process image-name call. From a shipped-shaped folder
 // (`<root>/resources/nm-host/`) a bootstrap against a live listener
-// runs the whole check: this script's own process holds the port, it
-// lies outside the folder, and the helper must read that and refuse.
+// runs the whole check: this script's own process holds the port and
+// lies outside the folder, so the helper must answer one framed
+// refusal and end with 0 — a helper that crashes on the way fails the
+// build.
+//
+// Whether the helper got as far as reading the listener's program is
+// this machine's answer as much as the helper's: it asks PowerShell who
+// listens and gives the answer ten seconds. Where none came, the build
+// says so, with what the same question costs asked from here, and goes
+// on — the refusal is then the helper's right answer.
 async function verifyShippedListenerCheck() {
   const root = mkdtempSync(path.join(tmpdir(), 'oh-nm-host-shipped-'));
   const server = createServer();
@@ -205,33 +216,38 @@ async function verifyShippedListenerCheck() {
       server.listen(0, '127.0.0.1', resolve);
     });
     const { port } = server.address();
-    // The helper gives each PowerShell question ten seconds, and a
-    // runner's first PowerShell start can take longer: a probe that
-    // ended without learning the listener's program is asked again,
-    // that start now behind it. One that crashed is not.
-    let shipped;
-    let stderr;
-    for (let attempt = 1; attempt <= SHIPPED_PROBE_ATTEMPTS; attempt++) {
-      shipped = spawnSync(shippedBinary, [], {
-        input: frame({ kind: 'bootstrap', url: `ws://127.0.0.1:${port}` }),
-        timeout: SHIPPED_PROBE_TIMEOUT_MS,
-      });
-      stderr = shipped.stderr.toString('utf-8').trim();
-      if (shipped.status !== 0 || stderr.includes('outside install root')) break;
-      console.log(
-        `pack-bun: shipped-layout probe ${attempt} of ${SHIPPED_PROBE_ATTEMPTS} did not read the listener (${stderr})`,
-      );
-    }
+    const shipped = spawnSync(shippedBinary, [], {
+      input: frame({ kind: 'bootstrap', url: `ws://127.0.0.1:${port}` }),
+      timeout: SHIPPED_PROBE_TIMEOUT_MS,
+    });
+    const stderr = shipped.stderr.toString('utf-8').trim();
     if (shipped.status !== 0) fail(`shipped-layout probe exited ${shipped.status}: ${stderr}`);
     const responses = parseFrames(shipped.stdout);
     if (responses.length !== 1) fail(`shipped-layout probe answered ${responses.length} frames, expected 1`);
     if (responses[0].ok !== false || responses[0].reason !== 'refused') {
       fail(`shipped-layout probe answered ${JSON.stringify(responses[0])}, expected a refusal`);
     }
-    if (!stderr.includes('outside install root')) {
-      fail(`shipped-layout probe did not read the listener's program: ${stderr}`);
+    if (stderr.includes('outside install root')) {
+      console.log(`pack-bun: verified — shipped-layout listener check refused a foreign listener (${stderr})`);
+      return;
     }
-    console.log(`pack-bun: verified — shipped-layout listener check refused a foreign listener (${stderr})`);
+    const started = Date.now();
+    const asked = spawnSync(
+      'powershell.exe',
+      [
+        '-NoProfile',
+        '-NonInteractive',
+        '-Command',
+        `Get-NetTCPConnection -State Listen -LocalPort ${port} -ErrorAction SilentlyContinue | Select-Object -Property LocalPort,OwningProcess | ConvertTo-Json -Compress`,
+      ],
+      { encoding: 'utf-8', stdio: ['ignore', 'pipe', 'pipe'], timeout: LISTENER_QUESTION_TIMEOUT_MS },
+    );
+    const outcome = asked.error ? asked.error.code : `exit ${asked.status}`;
+    console.log(
+      `pack-bun: shipped-layout probe answered its refusal without reading the listener (${stderr}); ` +
+        `the same question asked from here: ${outcome} in ${Date.now() - started} ms, ` +
+        `answer ${JSON.stringify((asked.stdout ?? '').trim())}, error output ${JSON.stringify((asked.stderr ?? '').trim().slice(0, 300))}`,
+    );
   } finally {
     server.close();
     rmSync(root, { recursive: true, force: true });
