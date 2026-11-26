@@ -249,6 +249,7 @@ export const workbenchLive = {
   // ── Workflow step editor ────────────────────────────────────────────
   'workbench.editors.live.step.title': 'Paso {number}',
   'workbench.editors.live.step.needsUpdate': 'Este paso necesita una versión más reciente de OpenHeaders.',
+  'workbench.editors.live.step.runsHereReadOnly': 'Este paso se ejecuta aquí; no se puede editar en esta versión.',
   'workbench.editors.live.step.idPrefix': 'id',
   'workbench.editors.live.step.namePrefix': 'nombre',
   'workbench.editors.live.step.typeTooltip': 'Tipo de paso — Foreach y Composite llegarán en una versión futura.',

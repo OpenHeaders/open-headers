@@ -221,6 +221,7 @@ export const workbenchLive = {
   // ── Workflow step editor ────────────────────────────────────────────
   'workbench.editors.live.step.title': '步骤 {number}',
   'workbench.editors.live.step.needsUpdate': '此步骤需要更新版本的 OpenHeaders。',
+  'workbench.editors.live.step.runsHereReadOnly': '此步骤在此处运行；此版本无法编辑它。',
   'workbench.editors.live.step.idPrefix': 'id',
   'workbench.editors.live.step.namePrefix': '名称',
   'workbench.editors.live.step.typeTooltip': '步骤类型——Foreach 和 Composite 将在未来版本推出。',

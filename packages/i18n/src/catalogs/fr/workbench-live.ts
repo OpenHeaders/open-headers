@@ -244,6 +244,8 @@ export const workbenchLive = {
   // ── Workflow step editor ────────────────────────────────────────────
   'workbench.editors.live.step.title': 'Étape {number}',
   'workbench.editors.live.step.needsUpdate': "Cette étape nécessite une version plus récente d'OpenHeaders.",
+  'workbench.editors.live.step.runsHereReadOnly':
+    "Cette étape s'exécute ici ; elle ne peut pas être modifiée dans cette version.",
   'workbench.editors.live.step.idPrefix': 'id',
   'workbench.editors.live.step.namePrefix': 'nom',
   'workbench.editors.live.step.typeTooltip':

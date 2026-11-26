@@ -376,6 +376,8 @@ describe('LiveWorkflowEditor — on a surface that runs no workflow', () => {
 describe('LiveWorkflowEditor — on a host that runs session steps', () => {
   const NEEDS_UPDATE = 'This workflow has steps that need a newer version of OpenHeaders. Update to edit or run it.';
   const RUNS_HERE = 'This workflow has session steps. It runs here; its steps cannot be edited in this version.';
+  const STEP_RUNS_HERE = 'This step runs here; it cannot be edited in this version.';
+  const STEP_NEEDS_UPDATE = 'This step needs a newer version of OpenHeaders.';
 
   const sessionFixture: LiveWorkflow = v.parse(LiveWorkflowSchema, {
     ...workflowFixture,
@@ -465,5 +467,36 @@ describe('LiveWorkflowEditor — on a host that runs session steps', () => {
     fireEvent.click(screen.getByText('Run'));
     expect(screen.getByTestId('wf-run-row-probe').getAttribute('data-run-state')).toBe('cannot-run');
     expect(screen.getByTestId('wf-run-row-status').getAttribute('data-run-state')).toBe('cannot-run');
+  });
+
+  it('a session step says it runs here on its card and on its preview node', () => {
+    registerCapability('workflowSessionSteps', () => true);
+    const { container } = renderWorkflow(sessionFixture);
+
+    const cards = Array.from(container.querySelectorAll('[data-step-needs-update]'));
+    expect(cards.map((card) => card.textContent)).toEqual([
+      `Step 1probe${STEP_RUNS_HERE}listen`,
+      `Step 3status${STEP_RUNS_HERE}expect`,
+    ]);
+    fireEvent.click(screen.getByText('Preview'));
+    const nodes = Array.from(container.querySelectorAll('[data-needs-update]'));
+    expect(nodes.map((node) => node.textContent)).toEqual([
+      `probe${STEP_RUNS_HERE}listen`,
+      `status${STEP_RUNS_HERE}expect`,
+    ]);
+  });
+
+  it('with nothing declared, or with an action no build knows, a step still needs a newer version', () => {
+    const undeclared = renderWorkflow(sessionFixture);
+    const undeclaredCards = Array.from(undeclared.container.querySelectorAll('[data-step-needs-update]'));
+    expect(undeclaredCards).toHaveLength(2);
+    for (const card of undeclaredCards) expect(card.textContent).toContain(STEP_NEEDS_UPDATE);
+    undeclared.unmount();
+
+    registerCapability('workflowSessionSteps', () => true);
+    const unknown = renderWorkflow(needsUpdateFixture);
+    const unknownCards = Array.from(unknown.container.querySelectorAll('[data-step-needs-update]'));
+    expect(unknownCards).toHaveLength(2);
+    for (const card of unknownCards) expect(card.textContent).toContain(STEP_NEEDS_UPDATE);
   });
 });

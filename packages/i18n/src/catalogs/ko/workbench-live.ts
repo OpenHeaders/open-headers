@@ -235,6 +235,7 @@ export const workbenchLive = {
   // ── Workflow step editor ────────────────────────────────────────────
   'workbench.editors.live.step.title': '{number}단계',
   'workbench.editors.live.step.needsUpdate': '이 단계에는 더 새로운 버전의 OpenHeaders가 필요합니다.',
+  'workbench.editors.live.step.runsHereReadOnly': '이 단계는 여기에서 실행되지만 이 버전에서는 편집할 수 없습니다.',
   'workbench.editors.live.step.idPrefix': 'id',
   'workbench.editors.live.step.namePrefix': '이름',
   'workbench.editors.live.step.typeTooltip':

@@ -262,6 +262,7 @@ export const workbenchLive = {
   // ── Workflow step editor ────────────────────────────────────────────
   'workbench.editors.live.step.title': 'Шаг {number}',
   'workbench.editors.live.step.needsUpdate': 'Для этого шага нужна более новая версия OpenHeaders.',
+  'workbench.editors.live.step.runsHereReadOnly': 'Этот шаг выполняется здесь; его нельзя изменить в этой версии.',
   'workbench.editors.live.step.idPrefix': 'id',
   'workbench.editors.live.step.namePrefix': 'имя',
   'workbench.editors.live.step.typeTooltip':

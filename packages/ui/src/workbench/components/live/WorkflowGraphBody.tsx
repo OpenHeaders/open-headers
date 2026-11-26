@@ -110,6 +110,8 @@ interface WorkflowGraphBodyProps {
   run?: LiveWorkflowRunSnapshot | null;
   /** LVs bound to this workflow — supplies per-exposure publication state. */
   boundVars?: LiveVariable[];
+  /** The workflow runs on this surface though it holds steps not edited here — their nodes say so. */
+  runsHere?: boolean;
 }
 
 function clauseSummary(clause: StepGateClause, t: Translate): string {
@@ -187,6 +189,7 @@ const WorkflowGraphBody: React.FC<WorkflowGraphBodyProps> = ({
   onOpenStep,
   run,
   boundVars,
+  runsHere = false,
 }) => {
   const { token } = theme.useToken();
   const t = useT();
@@ -710,6 +713,7 @@ const WorkflowGraphBody: React.FC<WorkflowGraphBodyProps> = ({
               onDragUp={endNodeDrag}
               draftStep={draftStep}
               unknownAction={isUnknownStep(node.step) ? node.step.action : undefined}
+              runsHere={runsHere}
               runIf={call?.runIf}
               hasPriority={call?.priorityFrom !== undefined}
               priorityLabel={
@@ -1034,6 +1038,8 @@ interface GraphNodeCardProps {
   draftStep: DraftStep | undefined;
   /** Set for a step this build does not know — its raw `action`. The card says so and shows nothing else of it. */
   unknownAction?: string;
+  /** The workflow runs on this surface — an unknown step's sentence says that instead. */
+  runsHere: boolean;
   runIf: StepGate | undefined;
   hasPriority: boolean;
   priorityLabel: string;
@@ -1068,6 +1074,7 @@ const GraphNodeCard: React.FC<GraphNodeCardProps> = ({
   onDragUp,
   draftStep,
   unknownAction,
+  runsHere,
   runIf,
   hasPriority,
   priorityLabel,
@@ -1090,7 +1097,7 @@ const GraphNodeCard: React.FC<GraphNodeCardProps> = ({
   const captures = draftStep && !isUnknownStep(draftStep) ? draftStep.captures : [];
   const needsUpdate = unknownAction !== undefined;
   const requestLine = needsUpdate
-    ? t('workbench.editors.live.step.needsUpdate')
+    ? t(runsHere ? 'workbench.editors.live.step.runsHereReadOnly' : 'workbench.editors.live.step.needsUpdate')
     : requestMissing
       ? t('workbench.editors.live.graph.requestNotFound')
       : requestName || t('workbench.editors.live.graph.noRequestSelected');

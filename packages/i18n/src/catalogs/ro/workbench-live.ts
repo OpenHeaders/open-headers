@@ -265,6 +265,7 @@ export const workbenchLive = {
   // ── Workflow step editor ────────────────────────────────────────────
   'workbench.editors.live.step.title': 'Pasul {number}',
   'workbench.editors.live.step.needsUpdate': 'Acest pas necesită o versiune mai nouă de OpenHeaders.',
+  'workbench.editors.live.step.runsHereReadOnly': 'Acest pas rulează aici; nu poate fi editat în această versiune.',
   'workbench.editors.live.step.idPrefix': 'id',
   'workbench.editors.live.step.namePrefix': 'nume',
   'workbench.editors.live.step.typeTooltip': 'Tipul pasului — Foreach și Composite vor veni într-o versiune viitoare.',

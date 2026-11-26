@@ -549,6 +549,7 @@ const EditMode: React.FC<EditProps> = ({ workflowUid, seedSteps, onDirtyChange, 
               scrollToStepId={scrollToStepId}
               onScrollToStepDone={handleScrollToStepDone}
               readOnly={needsUpdate}
+              runsHere={canRun}
             />
           </div>
         </div>
@@ -566,6 +567,7 @@ const EditMode: React.FC<EditProps> = ({ workflowUid, seedSteps, onDirtyChange, 
             onOpenStep={handleGraphOpen}
             run={run}
             boundVars={boundVars}
+            runsHere={canRun}
           />
         </div>
       )}

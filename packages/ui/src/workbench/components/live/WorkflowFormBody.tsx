@@ -48,6 +48,8 @@ interface WorkflowFormBodyProps {
    * Enabled switch — it can still be switched off.
    */
   readOnly?: boolean;
+  /** The read-only workflow runs on this surface — its unknown steps' cards say so. */
+  runsHere?: boolean;
 }
 
 const WorkflowFormBody: React.FC<WorkflowFormBodyProps> = ({
@@ -57,6 +59,7 @@ const WorkflowFormBody: React.FC<WorkflowFormBodyProps> = ({
   scrollToStepId,
   onScrollToStepDone,
   readOnly = false,
+  runsHere = false,
 }) => {
   const { token } = theme.useToken();
   const t = useT();
@@ -291,6 +294,7 @@ const WorkflowFormBody: React.FC<WorkflowFormBodyProps> = ({
                 key={step.id || `step-${idx}`}
                 step={step}
                 index={idx}
+                runsHere={runsHere}
                 selected={selectedStepId === step.id}
                 scrollRequested={scrollToStepId === step.id}
                 onScrollDone={onScrollToStepDone}
