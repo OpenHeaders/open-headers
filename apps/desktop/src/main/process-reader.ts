@@ -9,10 +9,12 @@
  * pnpm materializes each addon only on its own platform, so a static
  * import would fail module resolution on every other one. This module
  * owns the guarded requires.
+ *
+ * The reader is composed before the engine boots, so what it says goes
+ * to the main process's own logger: the engine's is not installed yet.
  */
 
 import { createRequire } from 'node:module';
-import { hostLogger as logger } from '@openheaders/core/logger';
 import {
   createDarwinProcessReader,
   createLinuxProcessReader,
@@ -23,8 +25,9 @@ import {
   type ProcessReader,
   type Win32ProcessBinding,
 } from '@openheaders/oracle-host-node/process-reader';
+import { createLogger } from './bootstrap/logger';
 
-const SCOPE = 'ProcessReader';
+const logger = createLogger('ProcessReader');
 
 export interface ProcessReaderSources {
   /** The macOS addon's binding; null where it is not built or will not load. */
@@ -77,7 +80,7 @@ export function desktopProcessReader(): ProcessReader | null {
       selfPid: process.pid,
     });
     if (cached === null) {
-      logger.warn(SCOPE, 'no process reader on this host — the runtime’s own figures stand in');
+      logger.warn('no process reader on this host — the runtime’s own figures stand in');
     }
   }
   return cached;

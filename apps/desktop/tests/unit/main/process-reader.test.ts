@@ -13,8 +13,12 @@ import type {
   Win32ProcessBinding,
   Win32ProcessRead,
 } from '@openheaders/oracle-host-node/process-reader';
-import { describe, expect, it } from 'vitest';
-import { createProcessReaderFor, type ProcessReaderSources } from '@/main/process-reader';
+import { describe, expect, it, vi } from 'vitest';
+import { createProcessReaderFor, desktopProcessReader, type ProcessReaderSources } from '@/main/process-reader';
+
+const log = vi.hoisted(() => ({ error: vi.fn(), warn: vi.fn(), info: vi.fn(), debug: vi.fn() }));
+
+vi.mock('@/main/bootstrap/logger', () => ({ createLogger: () => log }));
 
 const SELF_PID = 4312;
 
@@ -134,5 +138,18 @@ describe('createProcessReaderFor', () => {
     expect(createProcessReaderFor('linux', makeSources({ procSource: () => procSource({}) }))).toBeNull();
     expect(createProcessReaderFor('darwin', makeSources({ selfPid: 999_999 }))).toBeNull();
     expect(createProcessReaderFor('win32', makeSources({ selfPid: 999_999 }))).toBeNull();
+  });
+});
+
+describe('desktopProcessReader', () => {
+  it('says a host has no reader before the engine has booted — nothing of the engine’s is asked', () => {
+    const platform = Object.getOwnPropertyDescriptor(process, 'platform');
+    Object.defineProperty(process, 'platform', { value: 'aix' });
+    try {
+      expect(desktopProcessReader()).toBeNull();
+    } finally {
+      if (platform) Object.defineProperty(process, 'platform', platform);
+    }
+    expect(log.warn).toHaveBeenCalledWith('no process reader on this host — the runtime’s own figures stand in');
   });
 });
