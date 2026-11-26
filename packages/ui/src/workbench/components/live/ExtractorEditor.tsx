@@ -82,10 +82,13 @@ const ExtractorEditor: React.FC<Props> = ({ value, onChange, compact, subject = 
   const t = useT();
   const size = compact ? 'small' : 'middle';
   return (
-    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center', flex: 1, minWidth: 0 }}>
+    // The basis is the picker's width: a row too narrow for it wraps the
+    // editor onto a line of its own, and the picker gives way before it
+    // would run past the edge.
+    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center', flex: '1 1 220px', minWidth: 0 }}>
       <Select
         size={size}
-        style={{ width: 220, flexShrink: 0 }}
+        style={{ flex: '0 1 220px', minWidth: 0 }}
         value={value.kind}
         options={KIND_OPTIONS[subject].map((group) => ({
           label: t(group.labelKey),
