@@ -29,14 +29,8 @@ import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { createInterface } from 'node:readline';
-import {
-  type BrowserContext,
-  chromium,
-  type ElectronApplication,
-  expect,
-  type Page,
-  test,
-} from '@playwright/test';
+import { type BrowserContext, type ElectronApplication, expect, type Page, test } from '@playwright/test';
+import { launchExtensionContext } from '../../../extension/tests/e2e/fixtures/launch-extension';
 import { launchDesktopApp } from './fixtures/launch-app';
 
 const APP_ROOT = path.resolve(__dirname, '../..');
@@ -785,10 +779,7 @@ test('the Settings MCP pages surface the tiers and the client snippets', async (
 // ── Extension round-trip ────────────────────────────────────────────
 
 test('the MCP-created rule syncs into a connected browser extension', async () => {
-  extensionContext = await chromium.launchPersistentContext('', {
-    headless: false,
-    args: [`--disable-extensions-except=${EXTENSION_PATH}`, `--load-extension=${EXTENSION_PATH}`, '--no-sandbox'],
-  });
+  extensionContext = await launchExtensionContext('', EXTENSION_PATH);
   const bootWorker = extensionContext.serviceWorkers()[0] ?? (await extensionContext.waitForEvent('serviceworker'));
   const extensionId = bootWorker.url().split('/')[2];
 

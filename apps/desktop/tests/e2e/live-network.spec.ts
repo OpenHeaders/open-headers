@@ -48,7 +48,8 @@
 import { mkdir, mkdtemp, writeFile } from 'node:fs/promises';
 import * as os from 'node:os';
 import path from 'node:path';
-import { type BrowserContext, chromium, type ElectronApplication, expect, type Page, test } from '@playwright/test';
+import { type BrowserContext, type ElectronApplication, expect, type Page, test } from '@playwright/test';
+import { launchExtensionContext } from '../../../extension/tests/e2e/fixtures/launch-extension';
 import { createExtensionSeedHarness, type ExtensionSeedHarness } from './agent-traffic-harness';
 import { launchDesktopApp } from './fixtures/launch-app';
 
@@ -134,10 +135,7 @@ function echoRows() {
 /** Launch a fresh extension profile — a distinct peer (fresh install
  * identity ⇒ fresh HELLO nodeId). */
 async function launchExtensionPeer(): Promise<ExtensionPeer> {
-  const context = await chromium.launchPersistentContext('', {
-    headless: false,
-    args: [`--disable-extensions-except=${EXTENSION_PATH}`, `--load-extension=${EXTENSION_PATH}`, '--no-sandbox'],
-  });
+  const context = await launchExtensionContext('', EXTENSION_PATH);
   const bootWorker = context.serviceWorkers()[0] ?? (await context.waitForEvent('serviceworker'));
   const extensionId = bootWorker.url().split('/')[2];
 

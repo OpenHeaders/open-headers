@@ -59,7 +59,8 @@ import * as http from 'node:http';
 import * as net from 'node:net';
 import * as os from 'node:os';
 import path from 'node:path';
-import { type BrowserContext, chromium, type ElectronApplication, expect, type Page, test } from '@playwright/test';
+import { type BrowserContext, type ElectronApplication, expect, type Page, test } from '@playwright/test';
+import { launchExtensionContext } from '../../../extension/tests/e2e/fixtures/launch-extension';
 import { createExtensionSeedHarness, type ExtensionSeedHarness } from './agent-traffic-harness';
 import { launchDesktopApp } from './fixtures/launch-app';
 
@@ -230,15 +231,9 @@ function playgroundDebugAffordance() {
 
 /** Launch the extension profile. */
 async function launchExtensionPeer(): Promise<ExtensionPeer> {
-  const context = await chromium.launchPersistentContext('', {
-    headless: false,
-    args: [
-      `--disable-extensions-except=${EXTENSION_PATH}`,
-      `--load-extension=${EXTENSION_PATH}`,
-      '--no-sandbox',
-      `--host-resolver-rules=MAP ${WIRE_JOIN_HOST} 127.0.0.1`,
-    ],
-  });
+  const context = await launchExtensionContext('', EXTENSION_PATH, [
+    `--host-resolver-rules=MAP ${WIRE_JOIN_HOST} 127.0.0.1`,
+  ]);
   const bootWorker = context.serviceWorkers()[0] ?? (await context.waitForEvent('serviceworker'));
   const extensionId = bootWorker.url().split('/')[2];
 

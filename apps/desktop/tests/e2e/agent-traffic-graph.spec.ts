@@ -24,7 +24,8 @@
 import { mkdir, mkdtemp, writeFile } from 'node:fs/promises';
 import * as os from 'node:os';
 import path from 'node:path';
-import { type BrowserContext, chromium, type ElectronApplication, expect, type Page, test } from '@playwright/test';
+import { type BrowserContext, type ElectronApplication, expect, type Page, test } from '@playwright/test';
+import { launchExtensionContext } from '../../../extension/tests/e2e/fixtures/launch-extension';
 import { createExtensionSeedHarness } from './agent-traffic-harness';
 import { launchDesktopApp } from './fixtures/launch-app';
 
@@ -236,10 +237,7 @@ test.beforeAll(async () => {
   expect(minted.ok).toBe(true);
   token = minted.secret ?? '';
 
-  context = await chromium.launchPersistentContext('', {
-    headless: false,
-    args: [`--disable-extensions-except=${EXTENSION_PATH}`, `--load-extension=${EXTENSION_PATH}`, '--no-sandbox'],
-  });
+  context = await launchExtensionContext('', EXTENSION_PATH);
   const bootWorker = context.serviceWorkers()[0] ?? (await context.waitForEvent('serviceworker'));
   extensionId = bootWorker.url().split('/')[2] ?? '';
   await harness.extensionPage();

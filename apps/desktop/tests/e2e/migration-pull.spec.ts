@@ -36,7 +36,8 @@ import { mkdir, mkdtemp, writeFile } from 'node:fs/promises';
 import { createServer, type Server } from 'node:http';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { type BrowserContext, chromium, type ElectronApplication, expect, type Page, test } from '@playwright/test';
+import { type BrowserContext, type ElectronApplication, expect, type Page, test } from '@playwright/test';
+import { launchExtensionContext } from '../../../extension/tests/e2e/fixtures/launch-extension';
 import { createExtensionSeedHarness } from './agent-traffic-harness';
 import { launchDesktopApp } from './fixtures/launch-app';
 
@@ -324,11 +325,7 @@ test('a connected extension mirrors the finished run in its own corner', async (
   expect(minted.ok).toBe(true);
   const token = minted.secret ?? '';
 
-  extensionContext = await chromium.launchPersistentContext('', {
-    headless: false,
-    slowMo: SLOWMO_MS,
-    args: [`--disable-extensions-except=${EXTENSION_PATH}`, `--load-extension=${EXTENSION_PATH}`, '--no-sandbox'],
-  });
+  extensionContext = await launchExtensionContext('', EXTENSION_PATH);
   const bootWorker = extensionContext.serviceWorkers()[0] ?? (await extensionContext.waitForEvent('serviceworker'));
   const extensionId = bootWorker.url().split('/')[2];
 

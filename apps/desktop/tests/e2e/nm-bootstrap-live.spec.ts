@@ -40,7 +40,8 @@ import { existsSync } from 'node:fs';
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import * as os from 'node:os';
 import path from 'node:path';
-import { type BrowserContext, chromium, type ElectronApplication, expect, type Page, test } from '@playwright/test';
+import { type BrowserContext, type ElectronApplication, expect, type Page, test } from '@playwright/test';
+import { launchExtensionContext } from '../../../extension/tests/e2e/fixtures/launch-extension';
 import { createExtensionSeedHarness } from './agent-traffic-harness';
 import { launchDesktopApp } from './fixtures/launch-app';
 
@@ -264,12 +265,7 @@ test('Chromium spawns the host from the manifest and the SW-boot attempt rides t
     fallbackManifestsCreated.push(fallbackManifestPath);
   }
 
-  const launchArgs = [
-    `--disable-extensions-except=${EXTENSION_PATH}`,
-    `--load-extension=${EXTENSION_PATH}`,
-    '--no-sandbox',
-  ];
-  const seedContext = await chromium.launchPersistentContext(profileDir, { headless: false, args: launchArgs });
+  const seedContext = await launchExtensionContext(profileDir, EXTENSION_PATH);
   step('browser launched');
   const bootWorker = seedContext.serviceWorkers()[0] ?? (await seedContext.waitForEvent('serviceworker'));
   const extensionId = bootWorker.url().split('/')[2];
@@ -300,7 +296,7 @@ test('Chromium spawns the host from the manifest and the SW-boot attempt rides t
   step('backend seeded (empty token)');
   await seedContext.close();
 
-  extensionContext = await chromium.launchPersistentContext(profileDir, { headless: false, args: launchArgs });
+  extensionContext = await launchExtensionContext(profileDir, EXTENSION_PATH);
   await (extensionContext.serviceWorkers()[0] ?? extensionContext.waitForEvent('serviceworker'));
   step('browser relaunched — SW boot attempt in flight');
 
