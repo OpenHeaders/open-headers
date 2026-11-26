@@ -187,3 +187,43 @@ describe('an error row — a step the host could not run', () => {
     expect(formatRunJUnit(clean)).not.toContain('errors=');
   });
 });
+
+// ── A workflow with session steps ───────────────────────────────────
+
+describe('a workflow with session steps', () => {
+  const report = makeReport({
+    target: { kind: 'workflow', uid: 'wfdevice', name: 'Reboot' },
+    scripts: undefined,
+    items: [
+      { kind: 'step', uid: 'stplistn', name: 'probe', action: 'listen', status: 'skipped' },
+      { kind: 'step', uid: 'stpcall0', name: 'reboot', status: 'skipped' },
+      {
+        kind: 'step',
+        uid: 'stpexpct',
+        name: 'status',
+        action: 'expect',
+        status: 'failed',
+        error: 'expect: No message on devices/dev-1/health matched within 200 ms of "reboot" starting.',
+      },
+    ],
+    totals: { items: 3, passed: 0, failed: 1, skipped: 2 },
+  });
+
+  it('leads a session step’s line with its action, and leaves a call’s line as it was', () => {
+    expect(formatRunHuman(report)).toEqual([
+      'skip  listen probe',
+      'skip  reboot',
+      'FAIL  expect status',
+      '      expect: No message on devices/dev-1/health matched within 200 ms of "reboot" starting.',
+      'workflow "Reboot" — 0 passed · 1 failed · 2 skipped · 4.2 s · workspace ws-1',
+    ]);
+  });
+
+  it('names a JUnit case by its step id alone', () => {
+    const xml = formatRunJUnit(report);
+    expect(xml).toContain('<testcase name="probe" classname="Reboot" time="0.000"><skipped/></testcase>');
+    expect(xml).toContain(
+      '<testcase name="status" classname="Reboot" time="0.000"><failure message="expect: No message',
+    );
+  });
+});

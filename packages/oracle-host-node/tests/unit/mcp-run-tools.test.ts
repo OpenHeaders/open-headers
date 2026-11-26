@@ -20,10 +20,11 @@ import {
   REQUEST_FOLDER_CHILDREN_PATH,
   REQUEST_FOLDER_ITEMS_PATH,
 } from '@openheaders/core/sync';
+import { buildAddLiveWorkflowBatch } from '@openheaders/core/sync-builders/mutations/live-workflow-mutations';
 import { buildCreateRequestFolderBatch } from '@openheaders/core/sync-builders/mutations/request-folder-mutations';
 import { buildAddBatch as buildAddRequestBatch } from '@openheaders/core/sync-builders/mutations/request-mutations';
 import { seedRequestCollection } from '@openheaders/core/sync-builders/projections/request-collection-projection';
-import type { Folder, Request } from '@openheaders/core/types';
+import type { Folder, LiveWorkflow, Request } from '@openheaders/core/types';
 import { logger as consoleLogger, generateUid, toFolderName } from '@openheaders/core/utils';
 import {
   __configureRateLimiterForTests,
@@ -515,5 +516,109 @@ describe('runs_execute workflow', () => {
 
   it('errors on an unknown workflow ref', async () => {
     await expect(runTarget({ kind: 'workflow', ref: 'ghost' })).rejects.toThrow(/see workflows_list/);
+  });
+});
+
+// ── A workflow with session steps ───────────────────────────────────
+
+/** A session-step workflow as a peer's arrives — the save tool does not author one yet. */
+async function receiveSessionWorkflow(extraSteps: LiveWorkflow['steps'] = []): Promise<void> {
+  const { uid: requestUid } = await saveRequest({ name: 'Reboot dev-1', url: `http://127.0.0.1:${port}/ok` });
+  const workflow: LiveWorkflow = {
+    schemaVersion: 5,
+    uid: 'wfdevice',
+    path: 'live-workflows/device-wfdevice',
+    name: 'Device',
+    steps: [
+      { uid: 'stplistn', id: 'probe', action: 'listen', sessionRequestUid: 'mqttprob', timeoutMs: 5_000, captures: [] },
+      { uid: 'stpreboo', id: 'reboot', requestUid, captures: [] },
+      {
+        uid: 'stpexpct',
+        id: 'status',
+        action: 'expect',
+        on: 'probe',
+        after: 'reboot',
+        address: 'devices/dev-1/status',
+        match: [],
+        timeoutMs: 5_000,
+        captures: [],
+      },
+      ...extraSteps,
+    ],
+    refresh: { kind: 'manual' },
+    enabled: true,
+    published: true,
+  };
+  await applyMcpMutation(buildAddLiveWorkflowBatch(workflow, mintMcpContext(wsId)));
+}
+
+describe('runs_execute workflow — session steps', () => {
+  it('gives a listen, a send or an expect its action on its row, and a call none', async () => {
+    await receiveSessionWorkflow();
+    workflowOutcome = { ok: true, skippedStepIds: [] };
+
+    const report = await call('runs_execute', { kind: 'workflow', ref: 'Device' });
+
+    expect(report.items).toEqual([
+      { kind: 'step', uid: 'stplistn', name: 'probe', action: 'listen', status: 'passed' },
+      { kind: 'step', uid: 'stpreboo', name: 'reboot', status: 'passed' },
+      { kind: 'step', uid: 'stpexpct', name: 'status', action: 'expect', status: 'passed' },
+    ]);
+  });
+
+  it('fails the step that failed by its phase and sentence', async () => {
+    await receiveSessionWorkflow();
+    workflowOutcome = {
+      ok: false,
+      failedStepId: 'status',
+      failedPhase: 'expect',
+      message: 'No message on devices/dev-1/status matched within 5 s of "reboot" starting.',
+    };
+
+    const report = await call('runs_execute', { kind: 'workflow', ref: 'Device' });
+
+    expect(report.items).toEqual([
+      { kind: 'step', uid: 'stplistn', name: 'probe', action: 'listen', status: 'skipped' },
+      { kind: 'step', uid: 'stpreboo', name: 'reboot', status: 'skipped' },
+      {
+        kind: 'step',
+        uid: 'stpexpct',
+        name: 'status',
+        action: 'expect',
+        status: 'failed',
+        error: 'expect: No message on devices/dev-1/status matched within 5 s of "reboot" starting.',
+      },
+    ]);
+    expect(report.totals).toEqual({ items: 3, passed: 0, failed: 1, skipped: 2 });
+  });
+
+  it('reports the step this host’s check refused as an error with the check’s sentence, the rest skipped', async () => {
+    await receiveSessionWorkflow();
+    const sentence = 'Step "probe" names a session request that is not an MQTT request in this workspace.';
+    workflowOutcome = { ok: false, failedStepId: 'probe', failedPhase: 'unsupported', message: sentence };
+
+    const report = await call('runs_execute', { kind: 'workflow', ref: 'Device' });
+
+    expect(report.items).toEqual([
+      { kind: 'step', uid: 'stplistn', name: 'probe', action: 'listen', status: 'error', error: sentence },
+      { kind: 'step', uid: 'stpreboo', name: 'reboot', status: 'skipped' },
+      { kind: 'step', uid: 'stpexpct', name: 'status', action: 'expect', status: 'skipped' },
+    ]);
+    expect(report.totals).toEqual({ items: 3, passed: 0, failed: 0, skipped: 2, errors: 1 });
+  });
+
+  it('beside a step of an action no build knows, a session step is skipped — never said to need a newer version', async () => {
+    await receiveSessionWorkflow([{ uid: 'stpwatch', id: 'guard', action: 'watch' }]);
+    const sentence = 'Step "guard" needs a newer version of OpenHeaders (action "watch").';
+    workflowOutcome = { ok: false, failedStepId: 'guard', failedPhase: 'unsupported', message: sentence };
+
+    const report = await call('runs_execute', { kind: 'workflow', ref: 'Device' });
+
+    expect(report.items).toEqual([
+      { kind: 'step', uid: 'stplistn', name: 'probe', action: 'listen', status: 'skipped' },
+      { kind: 'step', uid: 'stpreboo', name: 'reboot', status: 'skipped' },
+      { kind: 'step', uid: 'stpexpct', name: 'status', action: 'expect', status: 'skipped' },
+      { kind: 'step', uid: 'stpwatch', name: 'guard', status: 'error', error: sentence },
+    ]);
   });
 });

@@ -12,6 +12,8 @@ export interface RunReportItem {
   name: string;
   path?: string;
   method?: string;
+  /** A workflow step that is not a call: `listen`, `send` or `expect`. */
+  action?: string;
   /** `error` — the host could not run the item at all: never a skip, never a failed test. */
   status: 'passed' | 'failed' | 'skipped' | 'error';
   httpStatus?: number;
@@ -52,7 +54,8 @@ function itemTiming(item: RunReportItem): string {
 export function formatRunHuman(report: RunReport): string[] {
   const lines: string[] = [];
   for (const item of report.items) {
-    const label = item.method !== undefined ? `${item.method} ${item.name}` : item.name;
+    const lead = item.method ?? item.action;
+    const label = lead !== undefined ? `${lead} ${item.name}` : item.name;
     lines.push(`${STATUS_MARK[item.status]}  ${label}${itemTiming(item)}`);
     for (const assertion of item.assertions ?? []) {
       if (!assertion.passed) {

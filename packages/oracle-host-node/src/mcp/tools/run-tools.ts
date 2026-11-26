@@ -13,8 +13,8 @@
  * run (atomic cache commit, publish-on-run), reshaped as report items.
  */
 
-import { isUnknownStep, UNKNOWN_STEP_PHASE, unknownStepMessage } from '@openheaders/core/live';
-import type { LiveWorkflow, Request } from '@openheaders/core/types';
+import { isKnownStep, isSessionStep, UNKNOWN_STEP_PHASE, unknownStepMessage } from '@openheaders/core/live';
+import type { LiveWorkflow, Request, SessionWorkflowStep } from '@openheaders/core/types';
 import { getWorkflowRunCache } from '@openheaders/oracle/live/live-cache-store';
 import { snapshotLiveWorkflowPostStates } from '@openheaders/oracle/sync/service';
 import { type McpToolCallContext, type McpToolDefinition, McpToolInputError } from '../registry';
@@ -41,6 +41,8 @@ export interface McpRunItem {
   path?: string;
   method?: string;
   url?: string;
+  /** A workflow step that is not a call says which it is; a call's row is as it always was. */
+  action?: SessionWorkflowStep['action'];
   status: 'passed' | 'failed' | 'skipped' | 'error';
   httpStatus?: number;
   durationMs?: number;
@@ -150,36 +152,32 @@ function progressBridge(
 /** Reshape one workflow run as report items — atomic semantics made
  *  visible: on failure only the failing step ran to a verdict; every
  *  other step's work was discarded with the cache commit, so it
- *  reports `skipped`, never a phantom pass. A run refused for a step this
- *  build does not know ran nothing: each such step is an `error` row with
- *  its reason, every other step `skipped`. */
+ *  reports `skipped`, never a phantom pass. A run refused before its
+ *  first step ran nothing: a step of an action this build does not know
+ *  is an `error` row with its reason, the step this host's own check
+ *  refused is an `error` row with the check's sentence, every other step
+ *  `skipped`. */
 function workflowItems(workflow: LiveWorkflow, outcome: McpWorkflowRunOutcome): McpRunItem[] {
   return workflow.steps.map((step) => {
+    const row = {
+      kind: 'step' as const,
+      uid: step.uid,
+      name: step.id,
+      ...(isSessionStep(step) ? { action: step.action } : {}),
+    };
     if (outcome.ok) {
       const status = outcome.skippedStepIds.includes(step.id) ? ('skipped' as const) : ('passed' as const);
-      return { kind: 'step' as const, uid: step.uid, name: step.id, status };
+      return { ...row, status };
     }
     if (outcome.failedPhase === UNKNOWN_STEP_PHASE) {
-      return isUnknownStep(step)
-        ? {
-            kind: 'step' as const,
-            uid: step.uid,
-            name: step.id,
-            status: 'error' as const,
-            error: unknownStepMessage(step),
-          }
-        : { kind: 'step' as const, uid: step.uid, name: step.id, status: 'skipped' as const };
+      if (!isKnownStep(step)) return { ...row, status: 'error' as const, error: unknownStepMessage(step) };
+      if (step.id === outcome.failedStepId) return { ...row, status: 'error' as const, error: outcome.message };
+      return { ...row, status: 'skipped' as const };
     }
     if (step.id === outcome.failedStepId) {
-      return {
-        kind: 'step' as const,
-        uid: step.uid,
-        name: step.id,
-        status: 'failed' as const,
-        error: `${outcome.failedPhase}: ${outcome.message}`,
-      };
+      return { ...row, status: 'failed' as const, error: `${outcome.failedPhase}: ${outcome.message}` };
     }
-    return { kind: 'step' as const, uid: step.uid, name: step.id, status: 'skipped' as const };
+    return { ...row, status: 'skipped' as const };
   });
 }
 
@@ -198,7 +196,8 @@ export function createRunToolDefinitions(deps: McpRunToolDeps): McpToolDefinitio
         "'Collection/Folder' path); bail stops at the first failure and reports the rest skipped. A " +
         'workflow target runs exactly like workflows_run (atomic captures, publish-on-run), reported as ' +
         "per-step items. A workflow holding a step this host's version does not know runs nothing: each such " +
-        'step reports status error with its reason, and totals.errors counts them. A collection/folder call ' +
+        'step reports status error with its reason, and totals.errors counts them; so does a step this host ' +
+        'refuses for a reason of its own. A listen, send or expect step carries its action. A collection/folder call ' +
         'carrying a _meta.progressToken streams live per-item ' +
         'progress notifications during the run; the final report is unchanged either way.',
       inputSchema: {
