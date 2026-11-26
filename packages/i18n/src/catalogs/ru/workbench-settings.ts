@@ -283,6 +283,7 @@ export const workbenchSettings = {
   'workbench.settings.category.data.sub.diagnostics': 'Диагностика',
   'workbench.settings.category.data.sub.importReports': 'Отчёты об импорте',
   'workbench.settings.category.data.sub.files': 'Файлы',
+  'workbench.settings.category.data.sub.removal': 'Удаление',
   'workbench.settings.category.license.label': 'Лицензия',
   'workbench.settings.category.license.description':
     'Всё, что есть в Open Headers сегодня, включено в каждый уровень — платные планы покрывают места для команды. Бесплатный уровень допускает до 6 активных пользователей на сервер.',

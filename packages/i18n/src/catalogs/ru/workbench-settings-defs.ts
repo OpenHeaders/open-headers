@@ -712,6 +712,22 @@ export const workbenchSettingsDefs = {
   'workbench.settings.def.data.resetAllSettings.action.label': 'Сбросить по умолчанию',
   'workbench.settings.def.data.resetAllSettings.confirm':
     'Сбросить все параметры до значений по умолчанию? Это действие нельзя отменить.',
+  'workbench.settings.def.data.removeLocalData.label': 'Данные и доверие для захвата',
+  'workbench.settings.def.data.removeLocalData.description':
+    'Удаляет всё, что это приложение хранит на этом устройстве, и отменяет доверие для захвата. Windows оставляет и то и другое при удалении приложения.',
+  'workbench.settings.def.data.removeLocalData.action.label': 'Удалить…',
+  'workbench.settings.def.data.removeLocalData.confirm.title': 'Удалить данные и доверие для захвата?',
+  'workbench.settings.def.data.removeLocalData.confirm.goes':
+    'С этого устройства будут удалены ваши рабочие пространства, настройки и сохранённые секреты, а также сертификат захвата вместе с доверием, которое ему дали браузеры. Затем приложение закроется.',
+  'workbench.settings.def.data.removeLocalData.confirm.stays':
+    'Останутся: приложение и его псевдонимы запуска, сертификат, добавленный в хранилище вручную, и файл настроек CLI.',
+  'workbench.settings.def.data.removeLocalData.confirm.ok': 'Удалить и закрыть',
+  'workbench.settings.def.data.removeLocalData.trustRefused':
+    'Эти хранилища сохранили сертификат захвата. Больше ничего не изменено.',
+  'workbench.settings.def.data.removeLocalData.keepEverything': 'Оставить всё',
+  'workbench.settings.def.data.removeLocalData.removeAnyway': 'Всё равно удалить',
+  'workbench.settings.def.data.removeLocalData.aliasOff': 'Для удаления нужен включённый в Windows псевдоним «{name}».',
+  'workbench.settings.def.data.removeLocalData.failed': 'Удаление не удалось начать ({reason}).',
 
   // ── Updates defs (About category) ──────────────────────────────────
   'workbench.settings.def.updates.state.label': 'Обновление программы',

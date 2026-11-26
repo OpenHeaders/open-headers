@@ -636,6 +636,21 @@ export const workbenchSettingsDefs = {
   'workbench.settings.def.data.resetAllSettings.description': '把每个类别中的每个设置恢复为默认值。',
   'workbench.settings.def.data.resetAllSettings.action.label': '重置为默认值',
   'workbench.settings.def.data.resetAllSettings.confirm': '把每个设置重置为默认值？此操作无法撤销。',
+  'workbench.settings.def.data.removeLocalData.label': '数据与捕获信任',
+  'workbench.settings.def.data.removeLocalData.description':
+    '删除此应用保存在此设备上的全部内容，并撤销其捕获信任。Windows 卸载应用时会留下这两者。',
+  'workbench.settings.def.data.removeLocalData.action.label': '移除…',
+  'workbench.settings.def.data.removeLocalData.confirm.title': '移除数据与捕获信任？',
+  'workbench.settings.def.data.removeLocalData.confirm.goes':
+    '将从此设备删除：你的工作区、设置和已保存的机密，以及捕获证书和浏览器给予它的信任。随后应用会关闭。',
+  'workbench.settings.def.data.removeLocalData.confirm.stays':
+    '将保留：应用及其启动别名、你手动添加到存储中的证书，以及 CLI 的设置文件。',
+  'workbench.settings.def.data.removeLocalData.confirm.ok': '移除并关闭',
+  'workbench.settings.def.data.removeLocalData.trustRefused': '这些存储保留了捕获证书。其他内容未作更改。',
+  'workbench.settings.def.data.removeLocalData.keepEverything': '全部保留',
+  'workbench.settings.def.data.removeLocalData.removeAnyway': '仍然移除',
+  'workbench.settings.def.data.removeLocalData.aliasOff': '移除需要在 Windows 中开启“{name}”别名。',
+  'workbench.settings.def.data.removeLocalData.failed': '移除未能开始（{reason}）。',
 
   // ── Updates defs (About category) ──────────────────────────────────
   'workbench.settings.def.updates.state.label': '软件更新',

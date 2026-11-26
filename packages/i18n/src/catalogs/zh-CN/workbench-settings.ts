@@ -244,6 +244,7 @@ export const workbenchSettings = {
   'workbench.settings.category.data.sub.diagnostics': '诊断',
   'workbench.settings.category.data.sub.importReports': '导入报告',
   'workbench.settings.category.data.sub.files': '文件',
+  'workbench.settings.category.data.sub.removal': '移除',
   'workbench.settings.category.license.label': '许可证',
   'workbench.settings.category.license.description':
     '今天 Open Headers 的一切在每个档位都包含——付费方案覆盖的是团队席位。免费档每个服务器最多准入 6 位' + '活跃用户。',

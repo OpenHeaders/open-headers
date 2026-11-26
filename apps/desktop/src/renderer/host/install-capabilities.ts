@@ -234,6 +234,14 @@ if (window.oh.startupData.windowsPackage) {
   }));
 }
 
+// Windows removes a package without asking it anything, so a package
+// offers the removal of its own data and capture trust: main undoes
+// trust and the browsers' keys, then closes the app and deletes the
+// folder from a new start. No other install registers this.
+if (window.oh.startupData.localDataRemoval) {
+  registerCapability('removeLocalData', ({ force }) => hostBridge.call('oh.desktop.localData.remove', { force }));
+}
+
 // A workflow's session steps run here: the main process opens the
 // session a `listen` step names. The extension and the served tab
 // register nothing and read such a workflow as needing a newer version.

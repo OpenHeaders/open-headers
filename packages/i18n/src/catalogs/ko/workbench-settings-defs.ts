@@ -679,6 +679,22 @@ export const workbenchSettingsDefs = {
   'workbench.settings.def.data.resetAllSettings.action.label': '기본값으로 재설정',
   'workbench.settings.def.data.resetAllSettings.confirm':
     '모든 설정을 기본값으로 재설정하시겠습니까? 되돌릴 수 없습니다.',
+  'workbench.settings.def.data.removeLocalData.label': '데이터 및 캡처 신뢰',
+  'workbench.settings.def.data.removeLocalData.description':
+    '이 앱이 이 기기에 보관하는 모든 것을 삭제하고 캡처 신뢰를 되돌립니다. Windows는 앱을 제거할 때 둘 다 남겨 둡니다.',
+  'workbench.settings.def.data.removeLocalData.action.label': '제거…',
+  'workbench.settings.def.data.removeLocalData.confirm.title': '데이터와 캡처 신뢰를 제거하시겠습니까?',
+  'workbench.settings.def.data.removeLocalData.confirm.goes':
+    '이 기기에서 삭제되는 항목: 워크스페이스, 설정, 저장된 시크릿, 그리고 캡처 인증서와 브라우저가 부여한 신뢰입니다. 그런 다음 앱이 닫힙니다.',
+  'workbench.settings.def.data.removeLocalData.confirm.stays':
+    '남는 항목: 앱과 실행 별칭, 직접 저장소에 추가한 인증서, CLI 설정 파일입니다.',
+  'workbench.settings.def.data.removeLocalData.confirm.ok': '제거 후 닫기',
+  'workbench.settings.def.data.removeLocalData.trustRefused':
+    '이 저장소들은 캡처 인증서를 그대로 유지했습니다. 그 밖에는 아무것도 변경되지 않았습니다.',
+  'workbench.settings.def.data.removeLocalData.keepEverything': '모두 유지',
+  'workbench.settings.def.data.removeLocalData.removeAnyway': '그래도 제거',
+  'workbench.settings.def.data.removeLocalData.aliasOff': '제거하려면 Windows에서 “{name}” 별칭을 켜야 합니다.',
+  'workbench.settings.def.data.removeLocalData.failed': '제거를 시작하지 못했습니다({reason}).',
 
   // ── Updates defs (About category) ──────────────────────────────────
   'workbench.settings.def.updates.state.label': '소프트웨어 업데이트',

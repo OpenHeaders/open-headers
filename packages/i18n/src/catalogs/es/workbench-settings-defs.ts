@@ -880,6 +880,23 @@ export const workbenchSettingsDefs = {
   'workbench.settings.def.data.resetAllSettings.action.label': 'Restablecer los valores por defecto',
   'workbench.settings.def.data.resetAllSettings.confirm':
     '¿Restablecer cada ajuste a su valor por defecto? Esto no se puede deshacer.',
+  'workbench.settings.def.data.removeLocalData.label': 'Datos y confianza de captura',
+  'workbench.settings.def.data.removeLocalData.description':
+    'Elimina todo lo que esta aplicación guarda en este dispositivo y retira su confianza de captura. Windows deja ambas cosas cuando desinstala la aplicación.',
+  'workbench.settings.def.data.removeLocalData.action.label': 'Eliminar…',
+  'workbench.settings.def.data.removeLocalData.confirm.title': '¿Eliminar los datos y la confianza de captura?',
+  'workbench.settings.def.data.removeLocalData.confirm.goes':
+    'Se eliminan de este dispositivo: tus espacios de trabajo, ajustes y secretos guardados, y el certificado de captura con la confianza que le dieron los navegadores. Después la aplicación se cierra.',
+  'workbench.settings.def.data.removeLocalData.confirm.stays':
+    'Se conservan: la aplicación y sus alias de inicio, un certificado que añadiste a mano a un almacén y el archivo de ajustes de la CLI.',
+  'workbench.settings.def.data.removeLocalData.confirm.ok': 'Eliminar y cerrar',
+  'workbench.settings.def.data.removeLocalData.trustRefused':
+    'Estos almacenes han conservado el certificado de captura. No se ha cambiado nada más.',
+  'workbench.settings.def.data.removeLocalData.keepEverything': 'Conservar todo',
+  'workbench.settings.def.data.removeLocalData.removeAnyway': 'Eliminar de todos modos',
+  'workbench.settings.def.data.removeLocalData.aliasOff':
+    'La eliminación necesita el alias «{name}» activado en Windows.',
+  'workbench.settings.def.data.removeLocalData.failed': 'La eliminación no ha podido iniciarse ({reason}).',
 
   // ── Updates defs (About category) ──────────────────────────────────
   'workbench.settings.def.updates.state.label': 'Actualización de software',

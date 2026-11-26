@@ -20,6 +20,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { trackProductTelemetryEvent } from '@openheaders/ui/shared/product-telemetry';
 import { Pane, PaneHeader, PaneSection } from './pane-chrome';
+import { STORE_LABEL, storeLabelKey, storeRefName } from './proxy-trust-stores';
 import type { CategoryPaneProps } from '../types';
 
 interface TrustStatus {
@@ -63,35 +64,7 @@ const HELPER_STATE_COLOR: Record<HelperRegistration, string | undefined> = {
   unknown: undefined,
 };
 
-/** A derived Firefox row names the installed app bundle, not a profile. */
-function isFirefoxInstallRef(store: ProxyTrustStoreId, ref: string): boolean {
-  return store === 'nss-firefox' && ref.endsWith('.app');
-}
-
-/**
- * Firefox profile rows are per-profile — profile dirs are
- * `<salt>.<name>`, so the name part tells them apart ("default",
- * "default-release"); the full path stays in the row tooltip. An
- * install row shows its bundle path whole, like the keychain rows.
- */
-function storeRefName(store: ProxyTrustStoreId, ref: string): string {
-  if (store !== 'nss-firefox' || isFirefoxInstallRef(store, ref)) return ref;
-  const basename = ref.split('/').pop() ?? ref;
-  const dot = basename.indexOf('.');
-  return dot > 0 ? basename.slice(dot + 1) : basename;
-}
-
-function storeLabelKey(store: ProxyTrustStoreId, ref: string): MessageKey {
-  return isFirefoxInstallRef(store, ref) ? 'workbench.settings.proxyTrustPane.stores.firefox' : STORE_LABEL[store];
-}
-
 type WizardStep = { step: 'explain' } | { step: 'choose' } | { step: 'results'; results: ReadonlyArray<StoreResult> };
-
-const STORE_LABEL: Record<ProxyTrustStoreId, MessageKey> = {
-  'macos-login-keychain': 'workbench.settings.proxyTrustPane.stores.loginKeychain',
-  'macos-system-keychain': 'workbench.settings.proxyTrustPane.stores.systemKeychain',
-  'nss-firefox': 'workbench.settings.proxyTrustPane.stores.firefoxProfile',
-};
 
 const STATE_TEXT: Record<ProxyTrustStoreState['state'], MessageKey> = {
   trusted: 'workbench.settings.proxyTrustPane.stores.state.trusted',

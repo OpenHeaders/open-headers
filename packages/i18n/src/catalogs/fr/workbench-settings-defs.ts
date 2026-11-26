@@ -854,6 +854,23 @@ export const workbenchSettingsDefs = {
   'workbench.settings.def.data.resetAllSettings.action.label': 'Rétablir les valeurs par défaut',
   'workbench.settings.def.data.resetAllSettings.confirm':
     'Réinitialiser chaque réglage à sa valeur par défaut ? Cette action est irréversible.',
+  'workbench.settings.def.data.removeLocalData.label': 'Données et confiance de capture',
+  'workbench.settings.def.data.removeLocalData.description':
+    "Supprime tout ce que cette application conserve sur cet appareil et retire sa confiance de capture. Windows laisse les deux en place lorsqu'il désinstalle l'application.",
+  'workbench.settings.def.data.removeLocalData.action.label': 'Supprimer…',
+  'workbench.settings.def.data.removeLocalData.confirm.title': 'Supprimer les données et la confiance de capture ?',
+  'workbench.settings.def.data.removeLocalData.confirm.goes':
+    "Supprimés de cet appareil : vos espaces de travail, vos réglages et vos secrets enregistrés, ainsi que le certificat de capture et la confiance que les navigateurs lui ont accordée. L'application se ferme ensuite.",
+  'workbench.settings.def.data.removeLocalData.confirm.stays':
+    "Conservés : l'application et ses alias de lancement, un certificat ajouté à la main dans un magasin, et le fichier de réglages de la CLI.",
+  'workbench.settings.def.data.removeLocalData.confirm.ok': 'Supprimer et fermer',
+  'workbench.settings.def.data.removeLocalData.trustRefused':
+    "Ces magasins ont conservé le certificat de capture. Rien d'autre n'a été modifié.",
+  'workbench.settings.def.data.removeLocalData.keepEverything': 'Tout conserver',
+  'workbench.settings.def.data.removeLocalData.removeAnyway': 'Supprimer quand même',
+  'workbench.settings.def.data.removeLocalData.aliasOff':
+    "La suppression a besoin de l'alias « {name} » activé dans Windows.",
+  'workbench.settings.def.data.removeLocalData.failed': "La suppression n'a pas pu démarrer ({reason}).",
 
   // ── Updates defs (About category) ──────────────────────────────────
   'workbench.settings.def.updates.state.label': 'Mise à jour logicielle',

@@ -842,6 +842,23 @@ export const workbenchSettingsDefs = {
   'workbench.settings.def.data.resetAllSettings.action.label': 'Auf Standard zurücksetzen',
   'workbench.settings.def.data.resetAllSettings.confirm':
     'Jede Einstellung auf ihren Standard zurücksetzen? Das lässt sich nicht rückgängig machen.',
+  'workbench.settings.def.data.removeLocalData.label': 'Daten und Erfassungsvertrauen',
+  'workbench.settings.def.data.removeLocalData.description':
+    'Löscht alles, was diese App auf diesem Gerät speichert, und nimmt ihr Erfassungsvertrauen zurück. Windows lässt beides zurück, wenn es die App deinstalliert.',
+  'workbench.settings.def.data.removeLocalData.action.label': 'Entfernen…',
+  'workbench.settings.def.data.removeLocalData.confirm.title': 'Daten und Erfassungsvertrauen entfernen?',
+  'workbench.settings.def.data.removeLocalData.confirm.goes':
+    'Von diesem Gerät gelöscht: deine Arbeitsbereiche, Einstellungen und gespeicherten Secrets sowie das Erfassungszertifikat samt dem Vertrauen, das Browser ihm gegeben haben. Danach schließt sich die App.',
+  'workbench.settings.def.data.removeLocalData.confirm.stays':
+    'Bleibt erhalten: die App und ihre Start-Aliasse, ein von Hand zu einem Speicher hinzugefügtes Zertifikat und die Einstellungsdatei der CLI.',
+  'workbench.settings.def.data.removeLocalData.confirm.ok': 'Entfernen und schließen',
+  'workbench.settings.def.data.removeLocalData.trustRefused':
+    'Diese Speicher haben das Erfassungszertifikat behalten. Sonst wurde nichts geändert.',
+  'workbench.settings.def.data.removeLocalData.keepEverything': 'Alles behalten',
+  'workbench.settings.def.data.removeLocalData.removeAnyway': 'Trotzdem entfernen',
+  'workbench.settings.def.data.removeLocalData.aliasOff':
+    'Das Entfernen braucht den in Windows aktivierten Alias „{name}“.',
+  'workbench.settings.def.data.removeLocalData.failed': 'Das Entfernen konnte nicht starten ({reason}).',
 
   // ── Updates defs (About category) ──────────────────────────────────
   'workbench.settings.def.updates.state.label': 'Software-Update',

@@ -275,6 +275,7 @@ export const workbenchSettings = {
   'workbench.settings.category.data.sub.diagnostics': 'Diagnostics',
   'workbench.settings.category.data.sub.importReports': "Rapports d'importation",
   'workbench.settings.category.data.sub.files': 'Fichiers',
+  'workbench.settings.category.data.sub.removal': 'Suppression',
   'workbench.settings.category.license.label': 'Licence',
   'workbench.settings.category.license.description':
     "Tout ce qu'Open Headers propose aujourd'hui est inclus dans chaque palier — les offres payantes couvrent " +

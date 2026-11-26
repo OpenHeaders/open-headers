@@ -665,6 +665,7 @@ registerCategory({
     { id: 'diagnostics', labelKey: 'workbench.settings.category.data.sub.diagnostics', order: 20 },
     { id: 'importReports', labelKey: 'workbench.settings.category.data.sub.importReports', order: 30 },
     { id: 'files', labelKey: 'workbench.settings.category.data.sub.files', order: 40 },
+    { id: 'removal', labelKey: 'workbench.settings.category.data.sub.removal', order: 50 },
   ],
 });
 

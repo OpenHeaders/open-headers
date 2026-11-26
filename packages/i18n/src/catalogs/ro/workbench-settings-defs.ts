@@ -729,6 +729,23 @@ export const workbenchSettingsDefs = {
   'workbench.settings.def.data.resetAllSettings.action.label': 'Resetare la valorile implicite',
   'workbench.settings.def.data.resetAllSettings.confirm':
     'Resetați fiecare setare la valoarea implicită? Această acțiune nu poate fi anulată.',
+  'workbench.settings.def.data.removeLocalData.label': 'Date și încredere pentru captură',
+  'workbench.settings.def.data.removeLocalData.description':
+    'Șterge tot ce păstrează această aplicație pe acest dispozitiv și retrage încrederea pentru captură. Windows le lasă pe amândouă când dezinstalează aplicația.',
+  'workbench.settings.def.data.removeLocalData.action.label': 'Eliminare…',
+  'workbench.settings.def.data.removeLocalData.confirm.title': 'Eliminați datele și încrederea pentru captură?',
+  'workbench.settings.def.data.removeLocalData.confirm.goes':
+    'Se șterg de pe acest dispozitiv: spațiile dvs. de lucru, setările și secretele stocate, precum și certificatul de captură împreună cu încrederea acordată de browsere. Apoi aplicația se închide.',
+  'workbench.settings.def.data.removeLocalData.confirm.stays':
+    'Rămân: aplicația și aliasurile ei de lansare, un certificat adăugat manual într-un depozit și fișierul de setări al instrumentului CLI.',
+  'workbench.settings.def.data.removeLocalData.confirm.ok': 'Eliminare și închidere',
+  'workbench.settings.def.data.removeLocalData.trustRefused':
+    'Aceste depozite au păstrat certificatul de captură. Nimic altceva nu a fost modificat.',
+  'workbench.settings.def.data.removeLocalData.keepEverything': 'Păstrare totală',
+  'workbench.settings.def.data.removeLocalData.removeAnyway': 'Eliminare oricum',
+  'workbench.settings.def.data.removeLocalData.aliasOff':
+    'Eliminarea are nevoie de aliasul „{name}” activat în Windows.',
+  'workbench.settings.def.data.removeLocalData.failed': 'Eliminarea nu a putut porni ({reason}).',
 
   // ── Updates defs (About category) ──────────────────────────────────
   'workbench.settings.def.updates.state.label': 'Actualizare software',

@@ -261,6 +261,7 @@ export const workbenchSettings = {
   'workbench.settings.category.data.sub.diagnostics': '診断',
   'workbench.settings.category.data.sub.importReports': 'インポートレポート',
   'workbench.settings.category.data.sub.files': 'ファイル',
+  'workbench.settings.category.data.sub.removal': '削除',
   'workbench.settings.category.license.label': 'ライセンス',
   'workbench.settings.category.license.description':
     '現在の Open Headers のすべての機能はどのティアにも含まれています。有料プランはチームのシートをカバーします。無料ティアはサーバーごとに最大 6 人のアクティブユーザーを受け入れます。',

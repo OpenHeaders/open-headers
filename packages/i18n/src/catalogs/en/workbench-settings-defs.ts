@@ -679,6 +679,24 @@ export const workbenchSettingsDefs = {
     'Return every setting in every category to its default value.',
   'workbench.settings.def.data.resetAllSettings.action.label': 'Reset to defaults',
   'workbench.settings.def.data.resetAllSettings.confirm': 'Reset every setting to its default? This cannot be undone.',
+  // A Windows package removing its own data and capture trust: the row,
+  // its two-step dialog, and what it says when the run is refused.
+  'workbench.settings.def.data.removeLocalData.label': 'Data and Capture Trust',
+  'workbench.settings.def.data.removeLocalData.description':
+    'Deletes everything this app keeps on this device and undoes its capture trust. Windows leaves both behind when it uninstalls the app.',
+  'workbench.settings.def.data.removeLocalData.action.label': 'Remove…',
+  'workbench.settings.def.data.removeLocalData.confirm.title': 'Remove data and capture trust?',
+  'workbench.settings.def.data.removeLocalData.confirm.goes':
+    'Deleted from this device: your workspaces, settings and stored secrets, and the capture certificate with the trust browsers gave it. The app then closes.',
+  'workbench.settings.def.data.removeLocalData.confirm.stays':
+    'Kept: the app and its launch aliases, a certificate you added to a store by hand, and the CLI’s settings file.',
+  'workbench.settings.def.data.removeLocalData.confirm.ok': 'Remove and Close',
+  'workbench.settings.def.data.removeLocalData.trustRefused':
+    'These stores kept the capture certificate. Nothing else was changed.',
+  'workbench.settings.def.data.removeLocalData.keepEverything': 'Keep Everything',
+  'workbench.settings.def.data.removeLocalData.removeAnyway': 'Remove Anyway',
+  'workbench.settings.def.data.removeLocalData.aliasOff': 'The removal needs the “{name}” alias turned on in Windows.',
+  'workbench.settings.def.data.removeLocalData.failed': 'The removal could not start ({reason}).',
 
   // ── Updates defs (About category) ──────────────────────────────────
   'workbench.settings.def.updates.state.label': 'Software update',

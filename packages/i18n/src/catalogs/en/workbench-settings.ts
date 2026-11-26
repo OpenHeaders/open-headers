@@ -254,6 +254,7 @@ export const workbenchSettings = {
   'workbench.settings.category.data.sub.diagnostics': 'Diagnostics',
   'workbench.settings.category.data.sub.importReports': 'Import Reports',
   'workbench.settings.category.data.sub.files': 'Files',
+  'workbench.settings.category.data.sub.removal': 'Removal',
   'workbench.settings.category.license.label': 'License',
   'workbench.settings.category.license.description':
     'Everything in Open Headers today is included on every tier — paid plans cover team seats. The free tier admits up to 6 active users per server.',

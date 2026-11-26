@@ -52,6 +52,7 @@ declare global {
         theme: 'light' | 'dark';
         mcpClientCommand: string | null;
         windowsPackage: boolean;
+        localDataRemoval: boolean;
       };
       invoke(message: Record<string, unknown>): Promise<unknown>;
       onBroadcast(handler: (envelope: { type: string; payload: unknown }) => void): () => void;

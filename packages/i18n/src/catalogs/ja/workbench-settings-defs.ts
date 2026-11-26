@@ -688,6 +688,23 @@ export const workbenchSettingsDefs = {
   'workbench.settings.def.data.resetAllSettings.action.label': 'デフォルトに戻す',
   'workbench.settings.def.data.resetAllSettings.confirm':
     'すべての設定をデフォルトにリセットしますか？この操作は元に戻せません。',
+  'workbench.settings.def.data.removeLocalData.label': 'データとキャプチャの信頼',
+  'workbench.settings.def.data.removeLocalData.description':
+    'このアプリがこのデバイスに保存しているすべてを削除し、キャプチャの信頼を取り消します。Windows はアプリをアンインストールしても、どちらも残します。',
+  'workbench.settings.def.data.removeLocalData.action.label': '削除…',
+  'workbench.settings.def.data.removeLocalData.confirm.title': 'データとキャプチャの信頼を削除しますか？',
+  'workbench.settings.def.data.removeLocalData.confirm.goes':
+    'このデバイスから削除されるもの：ワークスペース、設定、保存されたシークレット、およびキャプチャ証明書とブラウザーがそれに与えた信頼。その後、アプリは終了します。',
+  'workbench.settings.def.data.removeLocalData.confirm.stays':
+    '残るもの：アプリとその起動エイリアス、手動でストアに追加した証明書、CLI の設定ファイル。',
+  'workbench.settings.def.data.removeLocalData.confirm.ok': '削除して終了',
+  'workbench.settings.def.data.removeLocalData.trustRefused':
+    'これらのストアにはキャプチャ証明書が残っています。ほかには何も変更されていません。',
+  'workbench.settings.def.data.removeLocalData.keepEverything': 'すべて残す',
+  'workbench.settings.def.data.removeLocalData.removeAnyway': 'それでも削除',
+  'workbench.settings.def.data.removeLocalData.aliasOff':
+    '削除には、Windows でエイリアス「{name}」をオンにする必要があります。',
+  'workbench.settings.def.data.removeLocalData.failed': '削除を開始できませんでした（{reason}）。',
 
   // ── Updates defs (About category) ──────────────────────────────────
   'workbench.settings.def.updates.state.label': 'ソフトウェアアップデート',

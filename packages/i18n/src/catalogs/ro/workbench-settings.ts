@@ -288,6 +288,7 @@ export const workbenchSettings = {
   'workbench.settings.category.data.sub.diagnostics': 'Diagnostic',
   'workbench.settings.category.data.sub.importReports': 'Rapoarte de import',
   'workbench.settings.category.data.sub.files': 'Fișiere',
+  'workbench.settings.category.data.sub.removal': 'Eliminare',
   'workbench.settings.category.license.label': 'Licență',
   'workbench.settings.category.license.description':
     'Tot ce oferă Open Headers astăzi este inclus la fiecare nivel — planurile plătite acoperă locurile pentru echipe. Nivelul gratuit admite până la 6 utilizatori activi per server.',

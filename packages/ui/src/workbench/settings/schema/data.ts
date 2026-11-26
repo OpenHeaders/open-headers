@@ -8,12 +8,16 @@
  */
 
 import { hostBridge } from '@openheaders/core/bridge';
+import { hasCapability } from '@openheaders/core/capabilities';
+import { lazy } from 'react';
 import * as v from 'valibot';
 import { saveDiagnosticsBundle } from '../diagnostics-bundle';
 import { allDefs, registerSetting } from '../registry';
 import { isPersistedSetting, snapshotSettings } from '../settings-snapshot';
 import { reset as resetSetting, set as setStoreValue } from '../store';
 import type { SettingKey, SettingsMap } from '../types';
+
+const LocalDataRemovalRow = lazy(() => import('../components/local-data-removal-row'));
 
 const logLevelSchema = v.picklist(['error', 'warn', 'info', 'debug']);
 export type LogLevel = v.InferOutput<typeof logLevelSchema>;
@@ -33,6 +37,7 @@ declare module '@openheaders/ui/workbench/settings/types' {
     'data.exportFilesManifest': string;
     'data.clearAllFiles': string;
     'data.filesBrowser': string;
+    'data.removeLocalData': string;
   }
 }
 
@@ -404,4 +409,23 @@ registerSetting({
       }
     },
   },
+});
+
+// A host that keeps data its uninstall leaves behind offers to remove it:
+// the desktop app installed as a Windows package registers the
+// capability, and no other host shows the row or its section. The row
+// owns its two steps and what it says when the run is refused.
+registerSetting({
+  key: 'data.removeLocalData',
+  subcategory: 'removal',
+  type: 'action',
+  default: '',
+  schema: actionSchema,
+  labelKey: 'workbench.settings.def.data.removeLocalData.label',
+  descriptionKey: 'workbench.settings.def.data.removeLocalData.description',
+  category: 'data',
+  tags: ['remove', 'delete', 'uninstall', 'data', 'secrets', 'certificate', 'trust', 'capture'],
+  scope: 'user',
+  when: () => hasCapability('removeLocalData'),
+  customEditor: LocalDataRemovalRow,
 });

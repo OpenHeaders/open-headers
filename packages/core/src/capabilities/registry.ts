@@ -48,6 +48,7 @@ import type { ChangelogIndexRow } from '../changelog-feed';
 import type { DiagnosticsLogFile } from '../diagnostics/bundle';
 import type { DiagnosticsRoot } from '../diagnostics/redact';
 import type { ProbeConnectionResult, ProbeOptions } from '../identity/probe-connection';
+import type { LocalDataRemovalResult } from '../protocol/channels/local-data';
 import type { CompanionRevealTarget } from '../protocol/messages';
 import type { PublicWorkspaceSnapshotSummary } from '../protocol/public-workspace-snapshot';
 import type { ScriptExecutionMode } from '../scripts';
@@ -1007,6 +1008,17 @@ export interface Capabilities {
    * surface that hands an alias out says so when the alias is off.
    */
   packageAliases?: () => PackageAliases;
+
+  /**
+   * Remove everything this app keeps on the device outside its own
+   * install — its data folder and the capture trust it set up — and close
+   * the app (see {@link LocalDataRemovalResult}). `force` goes on past a
+   * trust store that kept the certificate. Registered only by the desktop
+   * app installed as a Windows package: Windows removes a package without
+   * asking it anything, so the person removes its data here first. Where
+   * it is absent the surface offers no removal.
+   */
+  removeLocalData?: (options: { readonly force: boolean }) => Promise<LocalDataRemovalResult>;
 
   /**
    * Declares that this surface has NO realm that runs a workflow on a

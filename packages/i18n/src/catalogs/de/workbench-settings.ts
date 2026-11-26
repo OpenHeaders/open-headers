@@ -278,6 +278,7 @@ export const workbenchSettings = {
   'workbench.settings.category.data.sub.diagnostics': 'Diagnose',
   'workbench.settings.category.data.sub.importReports': 'Importberichte',
   'workbench.settings.category.data.sub.files': 'Dateien',
+  'workbench.settings.category.data.sub.removal': 'Entfernen',
   'workbench.settings.category.license.label': 'Lizenz',
   'workbench.settings.category.license.description':
     'Alles, was Open Headers heute bietet, ist in jeder Stufe enthalten — bezahlte Pläne decken Team-Plätze ' +

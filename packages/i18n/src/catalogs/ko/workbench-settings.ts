@@ -258,6 +258,7 @@ export const workbenchSettings = {
   'workbench.settings.category.data.sub.diagnostics': '진단',
   'workbench.settings.category.data.sub.importReports': '가져오기 보고서',
   'workbench.settings.category.data.sub.files': '파일',
+  'workbench.settings.category.data.sub.removal': '제거',
   'workbench.settings.category.license.label': '라이선스',
   'workbench.settings.category.license.description':
     '오늘날 Open Headers 앱의 모든 기능은 모든 티어에 포함됩니다. 유료 플랜은 팀 시트를 다룹니다. 무료 티어는 서버당 활성 사용자 6명까지 허용합니다.',

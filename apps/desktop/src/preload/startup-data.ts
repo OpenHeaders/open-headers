@@ -16,6 +16,7 @@ export type StartupData = {
   theme: 'light' | 'dark';
   mcpClientCommand: string | null;
   windowsPackage: boolean;
+  localDataRemoval: boolean;
 };
 
 export const startupData = ipcRenderer.sendSync('oh:startup-data') as StartupData;

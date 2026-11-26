@@ -9,6 +9,7 @@ import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { app, ipcMain, nativeTheme } from 'electron';
 import { installKind } from './install-kind';
+import { localDataRemovalTarget } from './local-data-removal';
 import { mcpClientCommand } from './package-aliases';
 
 export type StartupData = {
@@ -21,6 +22,8 @@ export type StartupData = {
   mcpClientCommand: string | null;
   /** This install is a Windows package: the renderer registers what only a package has. */
   windowsPackage: boolean;
+  /** This install can remove its own data folder: a Windows package running on that folder. */
+  localDataRemoval: boolean;
 };
 
 function build(): StartupData {
@@ -36,6 +39,13 @@ function build(): StartupData {
       localAppDataDir: process.env.LOCALAPPDATA ?? join(homedir(), 'AppData', 'Local'),
     }),
     windowsPackage: installKind() === 'msix',
+    localDataRemoval:
+      localDataRemovalTarget({
+        installKind: installKind(),
+        userDataOverride: process.env.OPENHEADERS_USER_DATA_DIR,
+        localAppDataDir: process.env.LOCALAPPDATA,
+        homeDir: homedir(),
+      }) !== null,
   };
 }
 
