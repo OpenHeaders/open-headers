@@ -29,6 +29,14 @@ import type {
   WorkflowStep,
 } from '@openheaders/core/types';
 import type { WorkflowRunScope } from '@openheaders/ui/workbench/components/live/workflow-run-scope';
+import {
+  type ExecutionPlaceFacts,
+  resolveExecutionPlaceFromFacts,
+} from '@openheaders/ui/workbench/execution-place/execution-place-facts';
+import {
+  type ExecutionPlacePreference,
+  mqttTransportOf,
+} from '@openheaders/ui/workbench/execution-place/resolve-execution-place';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { createWorkflowRunBridge } from '@/host/workflow-page-run';
 
@@ -261,6 +269,30 @@ function fakeWorker(script: WorkerScript = {}) {
   return { bridge, calls, commits };
 }
 
+/** A workbench page of the extension with nothing beside it: no desktop app, no server. */
+const alone: ExecutionPlaceFacts = {
+  markers: {
+    requestRuntime: 'browser',
+    remoteRequestDispatch: null,
+    wsPageSession: true,
+    mqttPageSession: true,
+    delegatedRequestDispatch: true,
+    delegatedSessionDispatch: true,
+    delegatedGrpcDispatch: true,
+  },
+  desktopApp: 'not-installed',
+  desktopAppLaunchable: false,
+  desktopAppBackendId: null,
+  server: null,
+  serverAllowed: true,
+};
+
+/** A request's place by the editors' own reader, over the facts and the preference a case sets. */
+function placeBy(facts: ExecutionPlaceFacts, preference: ExecutionPlacePreference = 'auto') {
+  return (request: MqttRequest) =>
+    resolveExecutionPlaceFromFacts(facts, { kind: 'mqtt', mqttTransport: mqttTransportOf(request.url), preference });
+}
+
 function makeScope(over: Partial<WorkflowRunScope> = {}): WorkflowRunScope {
   return {
     workspaceId: WS,
@@ -269,6 +301,7 @@ function makeScope(over: Partial<WorkflowRunScope> = {}): WorkflowRunScope {
     mqttSession: async () => {
       throw new Error('no session scope is asked of this suite');
     },
+    mqttPlace: placeBy(alone),
     templates: (run) => (template) => ({
       result: template.replace('{{step.reboot.commandId}}', run.stepCaptures.get('reboot')?.get('commandId') ?? ''),
       errors: [],
@@ -496,6 +529,76 @@ describe('what the page refuses before a run', () => {
       kind: 'refused',
       stepId: 'probe',
       reason: 'Step "probe" cannot run here: this host runs no script on a run\'s session.',
+    });
+  });
+});
+
+describe('a listen whose session opens on another place', () => {
+  const tcp: MqttRequest = { ...probe, url: 'mqtt://broker.openheaders.io:1883' };
+  const withServer: ExecutionPlaceFacts = {
+    ...alone,
+    server: { backendId: 'backend-team', name: 'Team server', connected: true },
+  };
+
+  it('runs a listen on a raw TCP broker once a connected place can dial it', async () => {
+    const sessions = fakeSessions();
+    const worker = fakeWorker({ onSent: () => sessions.deliver('devices/dev-1/status', STATUS_BODY) });
+    const page = pageOver(worker, sessions.host, makeScope({ mqttRequests: [tcp], mqttPlace: placeBy(withServer) }));
+
+    expect(await page.press('wfdevice')).toEqual({ success: true, run: row });
+    expect(log).toContain('open probe');
+    expect(log.at(-1)).toBe('commit passed');
+  });
+
+  it('refuses a listen whose request is set to a place that is not connected, naming the place', async () => {
+    const worker = fakeWorker();
+    const page = pageOver(worker, fakeSessions().host, makeScope({ mqttPlace: placeBy(alone, 'desktop-app') }));
+
+    await page.press('wfdevice');
+
+    expect(worker.commits[0].outcome).toEqual({
+      kind: 'refused',
+      stepId: 'probe',
+      reason: 'Step "probe" cannot run here: "Probe MQTT" is set to run on the desktop app, which is not connected.',
+    });
+    expect(log).toEqual(['begin', 'commit refused']);
+  });
+
+  it('refuses a listen set to the workspace’s server, by the server or by this device’s own switch', async () => {
+    const noServer = fakeWorker();
+    await pageOver(noServer, fakeSessions().host, makeScope({ mqttPlace: placeBy(alone, 'workspace-server') })).press(
+      'wfdevice',
+    );
+    const switchedOff = fakeWorker();
+    await pageOver(
+      switchedOff,
+      fakeSessions().host,
+      makeScope({ mqttPlace: placeBy({ ...withServer, serverAllowed: false }, 'workspace-server') }),
+    ).press('wfdevice');
+
+    expect(noServer.commits[0].outcome).toMatchObject({
+      reason:
+        'Step "probe" cannot run here: "Probe MQTT" is set to run on the workspace\'s server, which is not connected.',
+    });
+    expect(switchedOff.commits[0].outcome).toMatchObject({
+      reason:
+        'Step "probe" cannot run here: "Probe MQTT" is set to run on the workspace\'s server, which this device\'s settings keep requests off.',
+    });
+  });
+
+  it('refuses a raw TCP broker set to run here by the socket a page cannot open', async () => {
+    const worker = fakeWorker();
+    const page = pageOver(
+      worker,
+      fakeSessions().host,
+      makeScope({ mqttRequests: [tcp], mqttPlace: placeBy(withServer, 'here') }),
+    );
+
+    await page.press('wfdevice');
+
+    expect(worker.commits[0].outcome).toMatchObject({
+      reason:
+        'Step "probe" cannot run here: "Probe MQTT" opens a raw TCP socket (mqtt:// or mqtts://), which a browser page cannot; the desktop app can run it.',
     });
   });
 });

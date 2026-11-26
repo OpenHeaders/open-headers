@@ -58,6 +58,8 @@ export interface MqttRunSessionHostOptions {
   /** `null` = "No environment". */
   environmentId: string | null;
   transport: MqttByteTransport;
+  /** A realm where a request's stream may open on another host names that transport; `null` = `transport`. */
+  transportFor?: (request: MqttRequest) => MqttByteTransport | null;
   /** The MQTT request a `listen` step names; `null` when the workspace holds none by that uid. */
   findRequest(uid: string): MqttRequest | null;
   /**
@@ -80,6 +82,7 @@ export function createMqttRunSessionHost(options: MqttRunSessionHostOptions): Se
     workspaceId,
     environmentId,
     transport,
+    transportFor,
     findRequest,
     sessionScope,
     resolveScriptHost,
@@ -183,7 +186,7 @@ export function createMqttRunSessionHost(options: MqttRunSessionHostOptions): Se
           {
             workspaceId,
             environmentId,
-            transport,
+            transport: transportFor?.(request) ?? transport,
             sendId,
             observer,
             ...(scope !== null ? scope : { stepCaptures: opening.stepCaptures }),

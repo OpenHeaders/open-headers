@@ -43,7 +43,7 @@ import {
   StepExecutionError,
   type TemplateResolver,
 } from '@openheaders/core/live';
-import type { ChainWorkflow, MqttRequest } from '@openheaders/core/types';
+import type { ChainWorkflow } from '@openheaders/core/types';
 import { generateUid } from '@openheaders/core/utils';
 import { unresolvedReferenceLines } from '@openheaders/oracle/live/request-exec/unresolved-references';
 import { checkWorkflowRun } from '@openheaders/oracle/live/run-check';
@@ -53,7 +53,7 @@ import {
   setWorkflowRunEventSink,
 } from '@openheaders/oracle/live/workflow-run-feed';
 import type { WorkflowRunScope } from '@openheaders/ui/workbench/components/live/workflow-run-scope';
-import { mqttTransportOf } from '@openheaders/ui/workbench/execution-place/resolve-execution-place';
+import type { ExecutionPlaceReason } from '@openheaders/ui/workbench/execution-place/resolve-execution-place';
 
 export interface WorkflowPageRunHost {
   /** The bridge beneath — the worker answers every channel this page does not. */
@@ -73,25 +73,38 @@ interface PagePress {
   runId?: string;
 }
 
-type FindMqttRequest = (uid: string) => MqttRequest | null;
-
 /**
- * A `listen` on a request a page cannot dial. Refused before the run,
- * with the rest of what this host cannot run, so nothing is triggered
- * that cannot be judged.
+ * A `listen` whose session no place opens for this page — asked of the
+ * rule its request's Connect follows. Refused before the run, with the
+ * rest of what this host cannot run, so nothing is triggered that cannot
+ * be judged.
  */
-function rawSocketRefusals(workflow: ChainWorkflow, findMqttRequest: FindMqttRequest): RunRefusal[] {
+function placeRefusals(workflow: ChainWorkflow, scope: WorkflowRunScope): RunRefusal[] {
   const refusals: RunRefusal[] = [];
   for (const step of workflow.steps) {
     if (!isListenStep(step)) continue;
-    const request = findMqttRequest(step.sessionRequestUid);
-    if (request === null || mqttTransportOf(request.url) !== 'tcp') continue;
+    const request = scope.mqttRequests.find((each) => each.uid === step.sessionRequestUid);
+    if (request === undefined) continue;
+    const place = scope.mqttPlace(request);
+    if (place.state === 'ready') continue;
     refusals.push({
       stepId: step.id,
-      reason: `Step "${step.id}" cannot run here: "${request.name}" opens a raw TCP socket (mqtt:// or mqtts://), which a browser page cannot; the desktop app can run it.`,
+      reason: `Step "${step.id}" cannot run here: "${request.name}" ${placeFault(place.reason)}`,
     });
   }
   return refusals;
+}
+
+/** Why no place opens the session; a page left to open it itself is asked for a raw TCP socket. */
+function placeFault(reason: ExecutionPlaceReason): string {
+  if (reason.kind === 'server-off') {
+    return "is set to run on the workspace's server, which this device's settings keep requests off.";
+  }
+  if (reason.kind === 'preference-unavailable' && reason.preferred !== 'here') {
+    const place = reason.preferred === 'desktop-app' ? 'the desktop app' : "the workspace's server";
+    return `is set to run on ${place}, which is not connected.`;
+  }
+  return 'opens a raw TCP socket (mqtt:// or mqtts://), which a browser page cannot; the desktop app can run it.';
 }
 
 function recordsOf<V>(maps: ReadonlyMap<string, ReadonlyMap<string, V>>): Record<string, Record<string, V>> {
@@ -190,9 +203,9 @@ export function createWorkflowRunBridge(host: WorkflowPageRunHost): {
     const commit = (outcome: LiveWorkflowRunOutcomeWire) =>
       base.call('commitLiveWorkflowRun', { workflowUid, environmentId, workspaceId, bypass, outcome });
 
-    const findMqttRequest: FindMqttRequest = (uid) => scope.mqttRequests.find((request) => request.uid === uid) ?? null;
+    const findMqttRequest = (uid: string) => scope.mqttRequests.find((request) => request.uid === uid) ?? null;
     const checked = checkWorkflowRun(workflow, { findMqttRequest, runsScripts: host.runsScripts });
-    const refusals = checked.ok ? rawSocketRefusals(checked.workflow, findMqttRequest) : checked.refusals;
+    const refusals = checked.ok ? placeRefusals(checked.workflow, scope) : checked.refusals;
     if (!checked.ok || refusals.length > 0) {
       for (const event of runRefusalEvents(workflow, Date.now(), refusals)) onEvent(event);
       return commit({ kind: 'refused', stepId: refusals[0].stepId, reason: refusals[0].reason });

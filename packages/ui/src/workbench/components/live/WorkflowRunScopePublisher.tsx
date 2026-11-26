@@ -8,6 +8,9 @@ import { useLiveWorkflows } from '@openheaders/ui/shared/hooks/readers/useLiveWo
 import { useRequests } from '@openheaders/ui/shared/hooks/readers/useRequests';
 import { useScriptPackages } from '@openheaders/ui/shared/hooks/readers/useScriptPackages';
 import { useVariableResolverInputs } from '@openheaders/ui/shared/hooks/variables/useVariableResolver';
+import { useRequestExecutionPlaces } from '@openheaders/ui/workbench/execution-place/local-place';
+import { useExecutionPlaceFacts } from '@openheaders/ui/workbench/execution-place/useExecutionPlace';
+import { useSettingValue } from '@openheaders/ui/workbench/settings/hooks';
 import type React from 'react';
 import { useEffect } from 'react';
 import { useWorkbenchEditingScopeWorkspaceId } from '../../hooks/EditingScopeWorkspaceContext';
@@ -19,6 +22,9 @@ export const WorkflowRunScopePublisher: React.FC = () => {
   const { collections, collectionTrees, folders, mqttRequests } = useRequests();
   const { workflows } = useLiveWorkflows();
   const packages = useScriptPackages(workspaceId);
+  const placeFacts = useExecutionPlaceFacts();
+  const { placeOf } = useRequestExecutionPlaces(workspaceId);
+  const globalPlace = useSettingValue('requests.executionPlace');
 
   useEffect(() => {
     if (workspaceId === null) return;
@@ -30,10 +36,23 @@ export const WorkflowRunScopePublisher: React.FC = () => {
         workflows,
         mqttRequests,
         packages: packages.map((each) => ({ name: each.name, source: each.source })),
+        places: { facts: placeFacts, placeOf, global: globalPlace },
       }),
     );
     return () => publishWorkflowRunScope(null);
-  }, [workspaceId, resolver, collectionTrees, collections, folders, workflows, mqttRequests, packages]);
+  }, [
+    workspaceId,
+    resolver,
+    collectionTrees,
+    collections,
+    folders,
+    workflows,
+    mqttRequests,
+    packages,
+    placeFacts,
+    placeOf,
+    globalPlace,
+  ]);
 
   return null;
 };

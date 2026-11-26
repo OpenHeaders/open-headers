@@ -707,3 +707,47 @@ describe('a listen in a realm that hands its own scopes in', () => {
     await session.end();
   });
 });
+
+describe('a listen in a realm where another host may open the stream', () => {
+  async function dial(named: MqttByteTransport | null) {
+    const own = scriptedTransport();
+    const asked: string[] = [];
+    const host = createMqttRunSessionHost({
+      workspaceId: 'ws-devices',
+      environmentId: null,
+      transport: own.transport,
+      transportFor: (request) => {
+        asked.push(request.uid);
+        return named;
+      },
+      findRequest: () => PROBE,
+    });
+    const deadline = new AbortController();
+    const opened = host.open(LISTEN, {
+      stepCaptures: new Map(),
+      context: CONTEXT,
+      signal: deadline.signal,
+      onMessage: () => {},
+      onEnded: () => {},
+    });
+    await settleTick();
+    deadline.abort();
+    await opened;
+    return { own, asked };
+  }
+
+  it('dials over the transport the realm names for the request', async () => {
+    const place = scriptedTransport();
+    const { own, asked } = await dial(place.transport);
+
+    expect(asked).toEqual(['mqttreq1']);
+    expect(place.connects()).toBe(1);
+    expect(own.connects()).toBe(0);
+  });
+
+  it('dials over its own when the realm names none', async () => {
+    const { own } = await dial(null);
+
+    expect(own.connects()).toBe(1);
+  });
+});

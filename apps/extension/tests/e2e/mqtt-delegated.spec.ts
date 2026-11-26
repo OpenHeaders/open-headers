@@ -22,7 +22,11 @@
  *       page realm) — the CONNECT the server dialled carries the
  *       scripted client id; Disconnect settles clean and the timeline
  *       header attributes the run to the answering host ("Sent from").
- *   D4  daemon gone → the chip falls back to the honest companion
+ *   D4  a workflow run in this page opens its `listen` through the same
+ *       place: the runner, the window and the captures stay here, the
+ *       server dials the broker, and the device's answer to this run's
+ *       reboot is the match.
+ *   D5  daemon gone → the chip falls back to the honest companion
  *       state ("Needs the desktop app") and Connect disables with the
  *       tcp-scheme copy — never a silent downgrade to ws.
  *
@@ -483,9 +487,38 @@ test('D3 — opt-in ON: the session runs over the delegated socket, scripted in 
   await expect(tag).toContainText(`Sent from ${expectedLabel}`);
 });
 
-// ── D4: no place left ───────────────────────────────────────────────
+// ── D4: a workflow's session through the place ──────────────────────
 
-test('D4 — daemon gone: the chip falls back to the companion state and Connect disables with the tcp copy', async () => {
+test('D4 — a workflow run in the page opens its listen through the server: the answer to this run’s reboot is the match', async () => {
+  test.setTimeout(20_000);
+  await workbench.showWorkflowsView();
+  await page.locator('[data-item-id="workflow-e2emqwf1"]').click();
+  await page.getByText('Run', { exact: true }).filter({ visible: true }).first().click();
+  await page.getByTestId('wf-run-empty').filter({ visible: true }).first().waitFor({ state: 'visible' });
+  await page
+    .getByRole('button', { name: /Refresh$/ })
+    .filter({ visible: true })
+    .first()
+    .click();
+
+  await expect(page.getByTestId('wf-run-view').filter({ visible: true }).first()).toHaveAttribute(
+    'data-run-verdict',
+    'passed',
+    { timeout: 10_000 },
+  );
+  const row = (stepId: string) => page.getByTestId(`wf-run-row-${stepId}`).filter({ visible: true }).first();
+  await expect(row('probe')).toContainText('Ready in');
+  await expect(row('reboot')).toContainText('202');
+  await expect(row('status')).toContainText('Matched after');
+
+  // Back on the request: the next leg reads its chip.
+  await workbench.showRequestsView();
+  await openMqttRequest('e2emqtt1');
+});
+
+// ── D5: no place left ───────────────────────────────────────────────
+
+test('D5 — daemon gone: the chip falls back to the companion state and Connect disables with the tcp copy', async () => {
   await stopDaemon();
   await expect
     .poll(async () => placeChip().getAttribute('aria-label'), { timeout: 20_000 })

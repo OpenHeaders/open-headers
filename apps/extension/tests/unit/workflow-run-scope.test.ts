@@ -12,7 +12,9 @@ import {
   getWorkflowRunScope,
   makeWorkflowRunScope,
   publishWorkflowRunScope,
+  type WorkflowRunScopeInputs,
 } from '@openheaders/ui/workbench/components/live/workflow-run-scope';
+import type { ExecutionPlaceFacts } from '@openheaders/ui/workbench/execution-place/execution-place-facts';
 import { describe, expect, it } from 'vitest';
 
 function environment(uid: string, device: string): Environment {
@@ -48,7 +50,30 @@ const probe: MqttRequest = {
   userProperties: [],
 };
 
-function makeScope() {
+/** A workbench page of the extension with nothing beside it: no desktop app, no server. */
+const alone: ExecutionPlaceFacts = {
+  markers: {
+    requestRuntime: 'browser',
+    remoteRequestDispatch: null,
+    wsPageSession: true,
+    mqttPageSession: true,
+    delegatedRequestDispatch: true,
+    delegatedSessionDispatch: true,
+    delegatedGrpcDispatch: true,
+  },
+  desktopApp: 'not-installed',
+  desktopAppLaunchable: false,
+  desktopAppBackendId: null,
+  server: null,
+  serverAllowed: true,
+};
+
+const withServer: ExecutionPlaceFacts = {
+  ...alone,
+  server: { backendId: 'backend-team', name: 'Team server', connected: true },
+};
+
+function makeScope(places: Partial<WorkflowRunScopeInputs['places']> = {}) {
   return makeWorkflowRunScope({
     workspaceId: 'ws-devices',
     resolver,
@@ -56,6 +81,7 @@ function makeScope() {
     workflows: [],
     mqttRequests: [probe],
     packages: [],
+    places: { facts: alone, placeOf: () => undefined, global: 'auto', ...places },
   });
 }
 
@@ -97,5 +123,46 @@ describe('a run’s scopes in the page', () => {
     expect(getWorkflowRunScope()).toBe(scope);
     publishWorkflowRunScope(null);
     expect(getWorkflowRunScope()).toBeNull();
+  });
+});
+
+describe('where a run’s session opens', () => {
+  const tcp: MqttRequest = { ...probe, uid: 'mqtttcp1', url: 'mqtt://broker.openheaders.io:1883' };
+
+  it('is here for a WebSocket broker, and nowhere for a raw TCP one with no place connected', () => {
+    const scope = makeScope();
+
+    expect(scope.mqttPlace(probe)).toMatchObject({ place: 'here', state: 'ready', target: null });
+    expect(scope.mqttPlace(tcp)).toMatchObject({
+      place: 'desktop-app',
+      state: 'needs-companion',
+      reason: { kind: 'tcp-scheme' },
+      target: null,
+    });
+  });
+
+  it('is the workspace’s connected server for a raw TCP broker, named by its backend', () => {
+    expect(makeScope({ facts: withServer }).mqttPlace(tcp)).toMatchObject({
+      place: 'workspace-server',
+      state: 'ready',
+      reason: { kind: 'delegated', role: 'workspace-server' },
+      target: { backendId: 'backend-team' },
+    });
+  });
+
+  it('follows the request’s own saved place over the global row, as its editor does', () => {
+    const scope = makeScope({
+      facts: withServer,
+      placeOf: (uid) => (uid === 'mqttprob' ? 'workspace-server' : undefined),
+      global: 'desktop-app',
+    });
+
+    expect(scope.mqttPlace(probe)).toMatchObject({ place: 'workspace-server', target: { backendId: 'backend-team' } });
+    // No saved place of its own: the global row asks for a desktop app that is not there.
+    expect(scope.mqttPlace({ ...probe, uid: 'mqttelse' })).toMatchObject({
+      state: 'unsupported',
+      reason: { kind: 'preference-unavailable', preferred: 'desktop-app' },
+      target: null,
+    });
   });
 });

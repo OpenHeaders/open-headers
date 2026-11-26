@@ -1,18 +1,14 @@
 /**
  * useExecutionPlace — the live wrapper over {@link resolveExecutionPlace}:
- * reads the capability markers once per render, the desktop app's
- * companion state through the ONE shared derivation
- * (`useDesktopCompanion` — the status row's), the workspace's server
- * through `useWorkspaceServer`, and hands the pure reader the
- * per-editor transport facts and the resolved preference (the per-send
- * pick today; the settings layers fold in beneath it). Beside the
- * resolution it names the send's TARGET — the resolved place's backend
- * record by explicit id (the desktop app's record, the workspace
- * server's) — for the send frame; null when the socket opens here or
- * the surface's wire already forwards by construction (the web tab).
+ * `useExecutionPlaceFacts` reads the capability markers once per render,
+ * the desktop app's companion state through the ONE shared derivation
+ * (`useDesktopCompanion` — the status row's) and the workspace's server
+ * through `useWorkspaceServer`; the pure reader over those facts
+ * (`execution-place-facts.ts`) takes the per-editor transport facts and
+ * the resolved preference (the per-send pick today; the settings layers
+ * fold in beneath it) and names the send's TARGET beside the resolution.
  */
 
-import type { ExecutionPlaceTarget } from '@openheaders/core/bridge';
 import { getCapability } from '@openheaders/core/capabilities';
 import { desktopAppRecord, useBackends } from '@openheaders/ui/shared/backend';
 import { getCurrentHost } from '@openheaders/ui/shared/host-vocabulary';
@@ -20,38 +16,16 @@ import { useDesktopCompanion } from '@openheaders/ui/shared/status';
 import { useSettingValue } from '@openheaders/ui/workbench/settings/hooks';
 import { useMemo } from 'react';
 import {
-  type ExecutionPlaceInput,
-  type ExecutionPlaceMarkers,
-  type ExecutionPlacePreference,
-  type ExecutionPlaceResolution,
-  type ExecutionPlaceRosterRow,
-  type ExecutionRequestKind,
-  type MqttTransport,
-  type PageSessionKnob,
-  resolveExecutionPlace,
-  resolveExecutionPlaceRoster,
-} from './resolve-execution-place';
+  type ExecutionPlaceFacts,
+  type ExecutionPlaceRequest,
+  type ResolvedExecutionPlace,
+  resolveExecutionPlaceFromFacts,
+} from './execution-place-facts';
+import type { ExecutionPlaceMarkers } from './resolve-execution-place';
 import { useWorkspaceServer } from './useWorkspaceServer';
 
-export interface UseExecutionPlaceInput {
-  kind: ExecutionRequestKind;
-  mqttTransport?: MqttTransport;
-  /** Memoized by the caller — identity drives the resolution memo. */
-  inapplicableKnobs?: readonly PageSessionKnob[];
-  /** The per-send pick (or the settings layers' role); absent = Auto. */
-  preference?: ExecutionPlacePreference;
-  /** Memoized by the caller — the context's knobs a delegated socket cannot honour. */
-  delegationKnobs?: readonly PageSessionKnob[];
-  /** The draft's referenced secret-manager rows, counted (`useSecretManagerReferenceCount`). */
-  secretManagerReferences?: number;
-}
-
-export interface UseExecutionPlaceResult extends ExecutionPlaceResolution {
-  /** The backend the send names when its socket opens elsewhere; null when here. */
-  target: ExecutionPlaceTarget | null;
-  /** Every place this host knows for this send, available or not — the picker's rows. */
-  roster: readonly ExecutionPlaceRosterRow[];
-}
+export type UseExecutionPlaceInput = ExecutionPlaceRequest;
+export type UseExecutionPlaceResult = ResolvedExecutionPlace;
 
 function readMarkers(): ExecutionPlaceMarkers {
   return {
@@ -65,14 +39,8 @@ function readMarkers(): ExecutionPlaceMarkers {
   };
 }
 
-export function useExecutionPlace({
-  kind,
-  mqttTransport,
-  inapplicableKnobs,
-  preference,
-  delegationKnobs,
-  secretManagerReferences,
-}: UseExecutionPlaceInput): UseExecutionPlaceResult {
+/** The device's place facts, live — one identity until a fact changes. */
+export function useExecutionPlaceFacts(): ExecutionPlaceFacts {
   const { state: desktopApp, launchable } = useDesktopCompanion();
   const backends = useBackends();
   const desktopAppBackendId = desktopAppRecord(getCurrentHost(), backends)?.id ?? null;
@@ -81,7 +49,6 @@ export function useExecutionPlace({
   // under Settings › API Requests; false withholds the server leg
   // from every send on this device.
   const serverAllowed = useSettingValue('requests.allowServerExecution');
-  const markers = readMarkers();
   const {
     requestRuntime,
     remoteRequestDispatch,
@@ -90,10 +57,9 @@ export function useExecutionPlace({
     delegatedRequestDispatch,
     delegatedSessionDispatch,
     delegatedGrpcDispatch,
-  } = markers;
-  return useMemo(() => {
-    const input: ExecutionPlaceInput = {
-      kind,
+  } = readMarkers();
+  return useMemo(
+    () => ({
       markers: {
         requestRuntime,
         remoteRequestDispatch,
@@ -103,58 +69,48 @@ export function useExecutionPlace({
         delegatedSessionDispatch,
         delegatedGrpcDispatch,
       },
-      ...(mqttTransport !== undefined ? { mqttTransport } : {}),
       desktopApp,
       desktopAppLaunchable: launchable,
-      ...(server !== null ? { workspaceServer: { name: server.name, connected: server.connected } } : {}),
-      ...(serverAllowed ? {} : { serverAllowed: false }),
-      ...(preference !== undefined ? { preference } : {}),
-      ...(inapplicableKnobs !== undefined ? { inapplicableKnobs } : {}),
-      ...(delegationKnobs !== undefined ? { delegationKnobs } : {}),
-      ...(secretManagerReferences !== undefined ? { secretManagerReferences } : {}),
-    };
-    const resolution = resolveExecutionPlace(input);
-    // The served tab has one place by construction and its seam leases
-    // that wire for every send, whatever the frame says: the frame
-    // names nothing there (the S4 rule), the server read only names it.
-    const serverBackendId = remoteRequestDispatch === null ? (server?.backendId ?? null) : null;
-    return {
-      ...resolution,
-      target: targetOf(resolution, desktopAppBackendId, serverBackendId),
-      roster: resolveExecutionPlaceRoster(input),
-    };
-  }, [
-    kind,
-    requestRuntime,
-    remoteRequestDispatch,
-    wsPageSession,
-    mqttPageSession,
-    delegatedRequestDispatch,
-    delegatedSessionDispatch,
-    delegatedGrpcDispatch,
-    mqttTransport,
-    desktopApp,
-    launchable,
-    desktopAppBackendId,
-    server,
-    serverAllowed,
-    preference,
-    inapplicableKnobs,
-    delegationKnobs,
-    secretManagerReferences,
-  ]);
+      desktopAppBackendId,
+      server,
+      serverAllowed,
+    }),
+    [
+      requestRuntime,
+      remoteRequestDispatch,
+      wsPageSession,
+      mqttPageSession,
+      delegatedRequestDispatch,
+      delegatedSessionDispatch,
+      delegatedGrpcDispatch,
+      desktopApp,
+      launchable,
+      desktopAppBackendId,
+      server,
+      serverAllowed,
+    ],
+  );
 }
 
-/** The explicit backend a READY delegated send names — its socket
- *  opens on another record of this surface's, the desktop app or the
- *  server; a context send on a remote-dispatch surface rides the
- *  surface's one wire and names nothing. */
-function targetOf(
-  resolution: ExecutionPlaceResolution,
-  desktopAppBackendId: string | null,
-  serverBackendId: string | null,
-): ExecutionPlaceTarget | null {
-  if (resolution.state !== 'ready' || resolution.reason.kind !== 'delegated') return null;
-  const backendId = resolution.place === 'desktop-app' ? desktopAppBackendId : serverBackendId;
-  return backendId !== null ? { backendId } : null;
+export function useExecutionPlace({
+  kind,
+  mqttTransport,
+  inapplicableKnobs,
+  preference,
+  delegationKnobs,
+  secretManagerReferences,
+}: UseExecutionPlaceInput): UseExecutionPlaceResult {
+  const facts = useExecutionPlaceFacts();
+  return useMemo(
+    () =>
+      resolveExecutionPlaceFromFacts(facts, {
+        kind,
+        ...(mqttTransport !== undefined ? { mqttTransport } : {}),
+        ...(inapplicableKnobs !== undefined ? { inapplicableKnobs } : {}),
+        ...(preference !== undefined ? { preference } : {}),
+        ...(delegationKnobs !== undefined ? { delegationKnobs } : {}),
+        ...(secretManagerReferences !== undefined ? { secretManagerReferences } : {}),
+      }),
+    [facts, kind, mqttTransport, inapplicableKnobs, preference, delegationKnobs, secretManagerReferences],
+  );
 }
