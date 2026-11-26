@@ -26,7 +26,8 @@
  */
 
 import path from 'node:path';
-import { type BrowserContext, chromium, expect, type Page, test } from '@playwright/test';
+import { type BrowserContext, expect, type Page, test } from '@playwright/test';
+import { launchExtensionContext } from './fixtures/launch-extension';
 
 const extensionPath = path.resolve(__dirname, '../../dist/chrome');
 
@@ -34,11 +35,7 @@ let context: BrowserContext;
 let extensionId: string;
 
 test.beforeAll(async () => {
-  context = await chromium.launchPersistentContext('', {
-    headless: false,
-    slowMo: process.env.SLOW_MO ? parseInt(process.env.SLOW_MO, 10) : undefined,
-    args: [`--disable-extensions-except=${extensionPath}`, `--load-extension=${extensionPath}`, '--no-sandbox'],
-  });
+  context = await launchExtensionContext('', extensionPath);
   const sw = context.serviceWorkers()[0] || (await context.waitForEvent('serviceworker'));
   extensionId = sw.url().split('/')[2];
 

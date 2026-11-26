@@ -21,7 +21,8 @@
  */
 
 import path from 'node:path';
-import { type BrowserContext, chromium, expect, type Locator, type Page, test } from '@playwright/test';
+import { type BrowserContext, expect, type Locator, type Page, test } from '@playwright/test';
+import { launchExtensionContext } from './fixtures/launch-extension';
 import { expectUniqueRows, installBroadcastLog } from './pages/duplicate-rows';
 import { TreeRows } from './pages/tree-rows';
 import { WorkbenchPage } from './pages/workbench-page';
@@ -60,10 +61,7 @@ async function childrenOf(containerId: string, count: number): Promise<string[]>
 test.describe.configure({ mode: 'serial' });
 
 test.beforeAll(async () => {
-  context = await chromium.launchPersistentContext('', {
-    headless: false,
-    args: [`--disable-extensions-except=${extensionPath}`, `--load-extension=${extensionPath}`, '--no-sandbox'],
-  });
+  context = await launchExtensionContext('', extensionPath);
   const sw = context.serviceWorkers()[0] || (await context.waitForEvent('serviceworker'));
   const extensionId = sw.url().split('/')[2]!;
   page = await context.newPage();

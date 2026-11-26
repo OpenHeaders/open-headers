@@ -35,6 +35,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { _electron, type ElectronApplication, expect, type Locator, type Page, test } from '@playwright/test';
 import { WebSocketServer } from 'ws';
+import { seedMaximizedWindow } from './fixtures/launch-app';
 
 /** An echo that remembers the Authorization header of its last request —
  *  the wire read, so the resolved value is checked and never printed. */
@@ -125,6 +126,7 @@ async function invoke<T>(message: Record<string, unknown>): Promise<T> {
 const PACKAGED_APP = process.env.OH_LOOK_APP;
 
 async function launchApp(): Promise<void> {
+  await seedMaximizedWindow(userData);
   electronApp = await _electron.launch({
     ...(PACKAGED_APP !== undefined ? { executablePath: PACKAGED_APP } : { args: [APP_ROOT] }),
     env: { ...process.env, OPENHEADERS_USER_DATA_DIR: userData, OH_DISABLE_UPDATE_CHECKS: '1' },

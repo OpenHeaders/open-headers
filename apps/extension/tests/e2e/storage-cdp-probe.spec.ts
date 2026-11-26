@@ -16,7 +16,8 @@
  */
 
 import path from 'node:path';
-import { type BrowserContext, chromium, expect, test } from '@playwright/test';
+import { type BrowserContext, expect, test } from '@playwright/test';
+import { launchExtensionContext } from './fixtures/launch-extension';
 
 const extensionPath = path.resolve(__dirname, '../../dist/chrome');
 
@@ -45,16 +46,10 @@ interface ProbeReport {
 let context: BrowserContext;
 
 test.beforeAll(async () => {
-  context = await chromium.launchPersistentContext('', {
-    headless: false,
-    args: [
-      `--disable-extensions-except=${extensionPath}`,
-      `--load-extension=${extensionPath}`,
-      '--no-sandbox',
-      // Keep the probe about protocol dispatch, not infobar layout shifts.
-      '--silent-debugger-extension-api',
-    ],
-  });
+  context = await launchExtensionContext('', extensionPath, [
+    // Keep the probe about protocol dispatch, not infobar layout shifts.
+    '--silent-debugger-extension-api',
+  ]);
 });
 
 test.afterAll(async () => {

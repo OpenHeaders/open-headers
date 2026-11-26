@@ -35,7 +35,8 @@ import { mkdtemp, writeFile } from 'node:fs/promises';
 import { createRequire } from 'node:module';
 import * as os from 'node:os';
 import path from 'node:path';
-import { type BrowserContext, chromium, type Download, expect, type Page, test, type Worker } from '@playwright/test';
+import { type BrowserContext, type Download, expect, type Page, test, type Worker } from '@playwright/test';
+import { launchExtensionContext } from './fixtures/launch-extension';
 
 const REPO_ROOT = path.resolve(__dirname, '../../../..');
 const EXTENSION_PATH = path.resolve(__dirname, '../../dist/chrome');
@@ -512,10 +513,7 @@ test.beforeAll(async () => {
   baselineWorkspaceIdsA = await workspaceIds(rigA);
   baselineWorkspaceIdsB = await workspaceIds(rigB);
 
-  context = await chromium.launchPersistentContext('', {
-    headless: false,
-    args: [`--disable-extensions-except=${EXTENSION_PATH}`, `--load-extension=${EXTENSION_PATH}`, '--no-sandbox'],
-  });
+  context = await launchExtensionContext('', EXTENSION_PATH);
   const bootWorker = context.serviceWorkers()[0] ?? (await context.waitForEvent('serviceworker'));
   extensionId = bootWorker.url().split('/')[2];
   await bootWorker.evaluate(

@@ -28,8 +28,9 @@ import { mkdtemp, writeFile } from 'node:fs/promises';
 import { createRequire } from 'node:module';
 import * as os from 'node:os';
 import path from 'node:path';
-import { type BrowserContext, chromium, expect, type Page, test } from '@playwright/test';
+import { type BrowserContext, expect, type Page, test } from '@playwright/test';
 import { seedEncryptedBackendRegistry } from './fixtures/backend-seed';
+import { launchExtensionContext } from './fixtures/launch-extension';
 
 const REPO_ROOT = path.resolve(__dirname, '../../../..');
 const EXTENSION_PATH = path.resolve(__dirname, '../../dist/chrome');
@@ -171,10 +172,7 @@ test('the daemon answers initialize and names its workspace', async () => {
 });
 
 test('the extension joins and adopts the daemon workspace as active', async () => {
-  extensionContext = await chromium.launchPersistentContext('', {
-    headless: false,
-    args: [`--disable-extensions-except=${EXTENSION_PATH}`, `--load-extension=${EXTENSION_PATH}`, '--no-sandbox'],
-  });
+  extensionContext = await launchExtensionContext('', EXTENSION_PATH);
   const bootWorker = extensionContext.serviceWorkers()[0] ?? (await extensionContext.waitForEvent('serviceworker'));
   const extensionId = bootWorker.url().split('/')[2];
 

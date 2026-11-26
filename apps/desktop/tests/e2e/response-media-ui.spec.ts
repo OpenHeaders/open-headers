@@ -25,7 +25,8 @@
 import { mkdir, mkdtemp, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { _electron, type ElectronApplication, expect, type Page, test } from '@playwright/test';
+import { type ElectronApplication, expect, type Page, test } from '@playwright/test';
+import { launchDesktopApp } from './fixtures/launch-app';
 
 const APP_ROOT = path.resolve(__dirname, '../..');
 // Port etiquette: off every prior suite's ports, and off 19337 — the
@@ -238,10 +239,7 @@ test.beforeAll(async () => {
       secrets: {},
     }),
   );
-  electronApp = await _electron.launch({
-    args: [APP_ROOT],
-    env: { ...process.env, OPENHEADERS_USER_DATA_DIR: userData, OH_DISABLE_UPDATE_CHECKS: '1' },
-  });
+  electronApp = await launchDesktopApp(APP_ROOT, userData);
   workbench = await electronApp.firstWindow();
   workbench.on('console', (msg) => {
     if (msg.type() === 'error') consoleErrors.push(msg.text());

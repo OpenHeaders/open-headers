@@ -29,7 +29,8 @@ import { createHash } from 'node:crypto';
 import { mkdtemp } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { type BrowserContext, chromium, expect, type Page, test } from '@playwright/test';
+import { type BrowserContext, expect, type Page, test } from '@playwright/test';
+import { launchExtensionContext } from './fixtures/launch-extension';
 import { SEED } from './fixtures/tree-order-ids';
 import { TreeRows } from './pages/tree-rows';
 import { WorkbenchPage } from './pages/workbench-page';
@@ -78,10 +79,7 @@ const uidOf = (segment: string): string => segment.slice(-8);
 const slugOf = (segment: string): string => segment.slice(0, -9);
 
 async function launch(): Promise<void> {
-  context = await chromium.launchPersistentContext(profileDir, {
-    headless: false,
-    args: [`--disable-extensions-except=${extensionPath}`, `--load-extension=${extensionPath}`, '--no-sandbox'],
-  });
+  context = await launchExtensionContext(profileDir, extensionPath);
   const sw = context.serviceWorkers()[0] || (await context.waitForEvent('serviceworker'));
   const extensionId = sw.url().split('/')[2]!;
   page = await context.newPage();

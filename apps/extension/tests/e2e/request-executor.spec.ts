@@ -22,7 +22,7 @@
  */
 
 import path from 'node:path';
-import { type BrowserContext, chromium, expect, type Page, test } from '@playwright/test';
+import { type BrowserContext, expect, type Page, test } from '@playwright/test';
 import {
   API_CLIENT_COMBOS,
   API_ECHO_URL,
@@ -31,6 +31,7 @@ import {
 } from '../../../../playground/scripts/api-client-matrix';
 import { AUTH_TYPE_CASES } from '../../../../playground/scripts/auth-type-suite';
 import { API_PDF_BYTE_LENGTH } from '../../../../playground/server/api-pdf';
+import { launchExtensionContext } from './fixtures/launch-extension';
 import { assertEchoAuth } from './pages/echo-auth';
 import { seedOAuthSuite } from './pages/oauth-seed';
 
@@ -41,11 +42,7 @@ let extensionId: string;
 let rpcPage: Page;
 
 test.beforeAll(async () => {
-  context = await chromium.launchPersistentContext('', {
-    headless: false,
-    slowMo: process.env.SLOW_MO ? parseInt(process.env.SLOW_MO, 10) : undefined,
-    args: [`--disable-extensions-except=${extensionPath}`, `--load-extension=${extensionPath}`, '--no-sandbox'],
-  });
+  context = await launchExtensionContext('', extensionPath);
   const sw = context.serviceWorkers()[0] || (await context.waitForEvent('serviceworker'));
   extensionId = sw.url().split('/')[2]!;
 

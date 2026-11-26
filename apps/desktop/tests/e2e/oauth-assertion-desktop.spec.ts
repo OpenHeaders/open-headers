@@ -22,11 +22,12 @@
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { _electron, type ElectronApplication, expect, type Page, test } from '@playwright/test';
+import { type ElectronApplication, expect, type Page, test } from '@playwright/test';
 import {
   ASAP_SUITE_PRIVATE_KEY_PEM,
   OAUTH2_JWT_BEARER_SEED_AUTH,
 } from '../../../../playground/scripts/auth-type-suite';
+import { launchDesktopApp } from './fixtures/launch-app';
 
 const APP_ROOT = path.resolve(__dirname, '../..');
 // Off the default 8137 and the other OAuth suite's port so the runs
@@ -121,10 +122,7 @@ test.beforeAll(async () => {
       secrets: {},
     }),
   );
-  electronApp = await _electron.launch({
-    args: [APP_ROOT],
-    env: { ...process.env, OPENHEADERS_USER_DATA_DIR: userData, OH_DISABLE_UPDATE_CHECKS: '1' },
-  });
+  electronApp = await launchDesktopApp(APP_ROOT, userData);
   workbench = await electronApp.firstWindow();
   await expect
     .poll(

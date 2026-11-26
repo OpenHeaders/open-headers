@@ -33,16 +33,9 @@
 import { mkdir, mkdtemp, writeFile } from 'node:fs/promises';
 import * as os from 'node:os';
 import path from 'node:path';
-import {
-  _electron,
-  type BrowserContext,
-  chromium,
-  type ElectronApplication,
-  expect,
-  type Page,
-  test,
-} from '@playwright/test';
+import { type BrowserContext, chromium, type ElectronApplication, expect, type Page, test } from '@playwright/test';
 import { createExtensionSeedHarness } from './agent-traffic-harness';
+import { launchDesktopApp } from './fixtures/launch-app';
 
 const APP_ROOT = path.resolve(__dirname, '../..');
 const EXTENSION_PATH = path.resolve(APP_ROOT, '../extension/dist/chrome');
@@ -139,10 +132,7 @@ test.beforeAll(async () => {
     }),
   );
 
-  electronApp = await _electron.launch({
-    args: [APP_ROOT],
-    env: { ...process.env, OPENHEADERS_USER_DATA_DIR: userData, OH_DISABLE_UPDATE_CHECKS: '1' },
-  });
+  electronApp = await launchDesktopApp(APP_ROOT, userData);
   workbench = await electronApp.firstWindow();
 
   // Engine-ready gate: 401 = bound + MCP enabled, token missing.

@@ -43,7 +43,6 @@ import { hostname, tmpdir } from 'node:os';
 import path from 'node:path';
 import { parseWorkspaceExport, type WorkspaceExport } from '@openheaders/core/workspace-export';
 import {
-  _electron,
   type Browser,
   type BrowserContext,
   chromium,
@@ -52,6 +51,7 @@ import {
   type Page,
   test,
 } from '@playwright/test';
+import { launchDesktopApp } from './fixtures/launch-app';
 import { type Rig, startHttpRig } from './request-settings-rigs';
 
 const APP_ROOT = path.resolve(__dirname, '../..');
@@ -307,10 +307,7 @@ test.beforeAll(async () => {
     }),
   );
 
-  electronApp = await _electron.launch({
-    args: [APP_ROOT],
-    env: { ...process.env, OPENHEADERS_USER_DATA_DIR: userData, OH_DISABLE_UPDATE_CHECKS: '1' },
-  });
+  electronApp = await launchDesktopApp(APP_ROOT, userData);
   workbench = await electronApp.firstWindow();
 
   await expect

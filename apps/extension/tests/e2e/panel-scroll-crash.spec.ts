@@ -15,7 +15,8 @@
  */
 
 import path from 'node:path';
-import { type BrowserContext, chromium, expect, type Page, test, type Worker } from '@playwright/test';
+import { type BrowserContext, expect, type Page, test, type Worker } from '@playwright/test';
+import { launchExtensionContext } from './fixtures/launch-extension';
 import { seedPanelDebugFlags } from './fixtures/panel-seed';
 import { WorkbenchPage } from './pages/workbench-page';
 
@@ -45,15 +46,7 @@ test.describe('panel scroll crash repro — wheel scroll during debug-mode captu
 
   test.beforeAll(async () => {
     test.setTimeout(120_000);
-    context = await chromium.launchPersistentContext('', {
-      headless: false,
-      args: [
-        `--disable-extensions-except=${extensionPath}`,
-        `--load-extension=${extensionPath}`,
-        '--no-sandbox',
-        '--silent-debugger-extension-api',
-      ],
-    });
+    context = await launchExtensionContext('', extensionPath, ['--silent-debugger-extension-api']);
     sw = context.serviceWorkers()[0] || (await context.waitForEvent('serviceworker'));
     extensionId = sw.url().split('/')[2]!;
     sw = await seedPanelDebugFlags(context);

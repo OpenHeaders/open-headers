@@ -32,7 +32,8 @@
  */
 
 import path from 'node:path';
-import { type BrowserContext, chromium, expect, type Page, test } from '@playwright/test';
+import { type BrowserContext, expect, type Page, test } from '@playwright/test';
+import { launchExtensionContext } from './fixtures/launch-extension';
 
 const extensionPath = path.resolve(__dirname, '../../dist/chrome');
 
@@ -41,10 +42,7 @@ let extensionId: string;
 const pageErrors: string[] = [];
 
 test.beforeAll(async () => {
-  context = await chromium.launchPersistentContext('', {
-    headless: false,
-    args: [`--disable-extensions-except=${extensionPath}`, `--load-extension=${extensionPath}`, '--no-sandbox'],
-  });
+  context = await launchExtensionContext('', extensionPath);
   const sw = context.serviceWorkers()[0] || (await context.waitForEvent('serviceworker'));
   extensionId = sw.url().split('/')[2];
   await sw.evaluate(
@@ -114,7 +112,14 @@ test('graph toggle renders the step DAG and returns to the form loss-free', asyn
   // to the root capture so its chip renders the exposed live name.
   const reqRes = await rpc<{ success: boolean; request?: { uid: string } }>(page, 'createLocalRequest', {
     name: 'Token introspection',
-    seed: { method: 'GET', url: 'https://api.openheaders.io/introspect', headers: [], params: [], auth: null, body: null },
+    seed: {
+      method: 'GET',
+      url: 'https://api.openheaders.io/introspect',
+      headers: [],
+      params: [],
+      auth: null,
+      body: null,
+    },
   });
   expect(reqRes.success).toBe(true);
   const requestUid = reqRes.request!.uid;
@@ -227,7 +232,12 @@ test('graph toggle renders the step DAG and returns to the form loss-free', asyn
   // Layered layout: fan-out children share a row below the root; the
   // sink sits below both.
   const box = async (id: string) => (await page.getByTestId(`wf-graph-node-${id}`).boundingBox())!;
-  const [rootBox, leftBox, rightBox, sinkBox] = await Promise.all([box('root'), box('left'), box('right'), box('sink')]);
+  const [rootBox, leftBox, rightBox, sinkBox] = await Promise.all([
+    box('root'),
+    box('left'),
+    box('right'),
+    box('sink'),
+  ]);
   expect(leftBox.y).toBeCloseTo(rightBox.y, 1);
   expect(leftBox.y).toBeGreaterThan(rootBox.y);
   expect(sinkBox.y).toBeGreaterThan(leftBox.y);

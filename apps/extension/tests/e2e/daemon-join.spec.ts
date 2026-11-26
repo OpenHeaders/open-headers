@@ -52,7 +52,8 @@ import { mkdtemp, readFile, writeFile } from 'node:fs/promises';
 import { createRequire } from 'node:module';
 import * as os from 'node:os';
 import path from 'node:path';
-import { type BrowserContext, chromium, expect, type Locator, type Page, test, type Worker } from '@playwright/test';
+import { type BrowserContext, expect, type Locator, type Page, test, type Worker } from '@playwright/test';
+import { launchExtensionContext } from './fixtures/launch-extension';
 
 const REPO_ROOT = path.resolve(__dirname, '../../../..');
 const EXTENSION_PATH = path.resolve(__dirname, '../../dist/chrome');
@@ -421,10 +422,7 @@ test('the administrator admits the person in one act — name, email, workspace 
 // ── The extension signs the person in through the browser ───────────
 
 test('the extension signs the person in on the code grant over the LAN bind and the rule syncs down', async () => {
-  extensionContext = await chromium.launchPersistentContext('', {
-    headless: false,
-    args: [`--disable-extensions-except=${EXTENSION_PATH}`, `--load-extension=${EXTENSION_PATH}`, '--no-sandbox'],
-  });
+  extensionContext = await launchExtensionContext('', EXTENSION_PATH);
   const bootWorker = extensionContext.serviceWorkers()[0] ?? (await extensionContext.waitForEvent('serviceworker'));
   extensionId = bootWorker.url().split('/')[2];
 

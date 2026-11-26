@@ -30,7 +30,8 @@
  */
 
 import path from 'node:path';
-import { type BrowserContext, chromium, expect, type Locator, type Page, test, type Worker } from '@playwright/test';
+import { type BrowserContext, expect, type Locator, type Page, test, type Worker } from '@playwright/test';
+import { launchExtensionContext } from './fixtures/launch-extension';
 import { seedPanelDebugFlags } from './fixtures/panel-seed';
 import { WorkbenchPage } from './pages/workbench-page';
 
@@ -117,11 +118,7 @@ async function fillModalMonaco(text: string): Promise<void> {
 
 test.beforeAll(async () => {
   test.setTimeout(90_000);
-  context = await chromium.launchPersistentContext('', {
-    headless: false,
-    slowMo: process.env.SLOW_MO ? parseInt(process.env.SLOW_MO, 10) : undefined,
-    args: [`--disable-extensions-except=${extensionPath}`, `--load-extension=${extensionPath}`, '--no-sandbox'],
-  });
+  context = await launchExtensionContext('', extensionPath);
   sw = context.serviceWorkers()[0] || (await context.waitForEvent('serviceworker'));
   extensionId = sw.url().split('/')[2]!;
   sw = await seedPanelDebugFlags(context);

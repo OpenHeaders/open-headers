@@ -42,7 +42,8 @@ import { mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import type { Page } from '@playwright/test';
-import { _electron, type ElectronApplication, expect, type Locator, test } from '@playwright/test';
+import { type ElectronApplication, expect, type Locator, test } from '@playwright/test';
+import { launchDesktopApp } from './fixtures/launch-app';
 
 const APP_ROOT = path.resolve(__dirname, '../..');
 const REPO_ROOT = path.resolve(__dirname, '../../../..');
@@ -70,17 +71,8 @@ async function invoke<T>(message: Record<string, unknown>): Promise<T> {
 }
 
 async function launchApp(): Promise<void> {
-  electronApp = await _electron.launch({
-    args: [APP_ROOT],
-    env: {
-      ...process.env,
-      OPENHEADERS_USER_DATA_DIR: userData,
-      OH_DISABLE_UPDATE_CHECKS: '1',
-    },
-  });
+  electronApp = await launchDesktopApp(APP_ROOT, userData);
   workbench = await electronApp.firstWindow();
-  // A Run view is two panes: the wide viewport keeps a row's facts beside its name.
-  await workbench.setViewportSize({ width: 1720, height: 1000 });
   await expect
     .poll(
       async () => {

@@ -27,7 +27,8 @@ import { spawnSync } from 'node:child_process';
 import { mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises';
 import { hostname as osHostname, tmpdir } from 'node:os';
 import path from 'node:path';
-import { _electron, type ElectronApplication, expect, type Page, test } from '@playwright/test';
+import { type ElectronApplication, expect, type Page, test } from '@playwright/test';
+import { launchDesktopApp } from './fixtures/launch-app';
 
 const APP_ROOT = path.resolve(__dirname, '../..');
 const CLI_BIN = path.resolve(APP_ROOT, '../cli/dist/cli.js');
@@ -153,16 +154,10 @@ test.beforeAll(async () => {
     }),
   );
 
-  electronApp = await _electron.launch({
-    args: [APP_ROOT],
-    env: {
-      ...process.env,
-      OPENHEADERS_USER_DATA_DIR: userData,
-      OH_DISABLE_UPDATE_CHECKS: '1',
-      // The provision service resolves cli.json through the same env the
-      // CLI does — the isolated config home keeps the real file out of it.
-      XDG_CONFIG_HOME: configHome,
-    },
+  electronApp = await launchDesktopApp(APP_ROOT, userData, {
+    // The provision service resolves cli.json through the same env the
+    // CLI does — the isolated config home keeps the real file out of it.
+    XDG_CONFIG_HOME: configHome,
   });
   workbench = await electronApp.firstWindow();
 
@@ -265,9 +260,7 @@ test('Rotate swaps the secret, revokes the old row, and never accumulates', asyn
   // The file gains the new secret BEFORE the old row is revoked
   // (mint-first: rotation must never leave the machine credential-less),
   // so the ledger converges only after the poll gate above fires.
-  await expect
-    .poll(async () => (await cliLedgerRows()).filter((row) => row.revokedAt === null).length)
-    .toBe(1);
+  await expect.poll(async () => (await cliLedgerRows()).filter((row) => row.revokedAt === null).length).toBe(1);
   const rows = await cliLedgerRows();
   expect(rows.find((row) => row.id === oldTokenId)?.revokedAt).not.toBeNull();
 

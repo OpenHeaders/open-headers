@@ -49,8 +49,9 @@ import { mkdtemp, readFile, writeFile } from 'node:fs/promises';
 import { createRequire } from 'node:module';
 import * as os from 'node:os';
 import path from 'node:path';
-import { type BrowserContext, chromium, expect, type Page, test } from '@playwright/test';
+import { type BrowserContext, expect, type Page, test } from '@playwright/test';
 import { seedEncryptedBackendRegistry } from './fixtures/backend-seed';
+import { launchExtensionContext } from './fixtures/launch-extension';
 import { WorkbenchPage } from './pages/workbench-page';
 
 const REPO_ROOT = path.resolve(__dirname, '../../../..');
@@ -353,10 +354,7 @@ test('the daemon mints its workspace and reboots on the seeded gRPC entities', a
 
 test('the extension joins and the gRPC entities replicate down', async () => {
   test.setTimeout(60_000);
-  extensionContext = await chromium.launchPersistentContext('', {
-    headless: false,
-    args: [`--disable-extensions-except=${EXTENSION_PATH}`, `--load-extension=${EXTENSION_PATH}`, '--no-sandbox'],
-  });
+  extensionContext = await launchExtensionContext('', EXTENSION_PATH);
   const bootWorker = extensionContext.serviceWorkers()[0] ?? (await extensionContext.waitForEvent('serviceworker'));
   extensionId = bootWorker.url().split('/')[2];
 

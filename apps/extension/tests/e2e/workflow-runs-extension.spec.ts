@@ -44,7 +44,8 @@ import { spawnSync } from 'node:child_process';
 import { mkdtemp } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { type BrowserContext, chromium, expect, type Locator, type Page, test } from '@playwright/test';
+import { type BrowserContext, expect, type Locator, type Page, test } from '@playwright/test';
+import { launchExtensionContext } from './fixtures/launch-extension';
 import { WorkbenchPage } from './pages/workbench-page';
 
 const extensionPath = path.resolve(__dirname, '../../dist/chrome');
@@ -62,10 +63,7 @@ let page: Page;
 let workbench: WorkbenchPage;
 
 async function launch(): Promise<void> {
-  context = await chromium.launchPersistentContext(profileDir, {
-    headless: false,
-    args: [`--disable-extensions-except=${extensionPath}`, `--load-extension=${extensionPath}`, '--no-sandbox'],
-  });
+  context = await launchExtensionContext(profileDir, extensionPath);
   const sw = context.serviceWorkers()[0] ?? (await context.waitForEvent('serviceworker'));
   const extensionId = sw.url().split('/')[2]!;
   page = await context.newPage();

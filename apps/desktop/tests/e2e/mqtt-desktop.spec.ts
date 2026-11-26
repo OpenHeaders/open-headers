@@ -61,7 +61,8 @@ import { mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import type { Page } from '@playwright/test';
-import { _electron, type ElectronApplication, expect, type Locator, test } from '@playwright/test';
+import { type ElectronApplication, expect, type Locator, test } from '@playwright/test';
+import { launchDesktopApp } from './fixtures/launch-app';
 
 const APP_ROOT = path.resolve(__dirname, '../..');
 const REPO_ROOT = path.resolve(__dirname, '../../../..');
@@ -87,14 +88,7 @@ async function invoke<T>(message: Record<string, unknown>): Promise<T> {
 }
 
 async function launchApp(): Promise<void> {
-  electronApp = await _electron.launch({
-    args: [APP_ROOT],
-    env: {
-      ...process.env,
-      OPENHEADERS_USER_DATA_DIR: userData,
-      OH_DISABLE_UPDATE_CHECKS: '1',
-    },
-  });
+  electronApp = await launchDesktopApp(APP_ROOT, userData);
   workbench = await electronApp.firstWindow();
   // Engine-ready gate: the pre-engine rpc queue answers once the spine
   // is up, so one bridge round-trip is the readiness probe.
@@ -249,9 +243,9 @@ test('M1 — Connect carries CONNACK, open-time SUBACK grant, echo publishes lan
 
   // The version knob locks while the session is in flight — the open
   // session speaks the version it connected with.
-  await expect(
-    workbench.getByTestId('mqtt-version-select').filter({ visible: true }).first(),
-  ).toHaveClass(/ant-select-disabled/);
+  await expect(workbench.getByTestId('mqtt-version-select').filter({ visible: true }).first()).toHaveClass(
+    /ant-select-disabled/,
+  );
 
   // The Connected lifecycle row reads plain; expanding it shows the
   // verbatim CONNACK facts — the 3.1.1 return-code name beside the

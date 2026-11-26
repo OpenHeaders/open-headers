@@ -18,7 +18,8 @@
 import { mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { _electron, type ElectronApplication, expect, type Page, test } from '@playwright/test';
+import { type ElectronApplication, expect, type Page, test } from '@playwright/test';
+import { launchDesktopApp } from './fixtures/launch-app';
 
 const APP_ROOT = path.resolve(__dirname, '../..');
 // Port etiquette: off every prior suite's ports (18137, 18337–18339,
@@ -42,10 +43,7 @@ async function invoke<T>(message: Record<string, unknown>): Promise<T> {
 /** Launch the built app on the shared user-data dir and gate on the
  *  engine spine answering through the bridge. */
 async function launch(): Promise<void> {
-  electronApp = await _electron.launch({
-    args: [APP_ROOT],
-    env: { ...process.env, OPENHEADERS_USER_DATA_DIR: userData, OH_DISABLE_UPDATE_CHECKS: '1' },
-  });
+  electronApp = await launchDesktopApp(APP_ROOT, userData);
   workbench = await electronApp.firstWindow();
   await expect
     .poll(

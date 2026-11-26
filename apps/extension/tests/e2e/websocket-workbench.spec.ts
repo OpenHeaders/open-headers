@@ -81,7 +81,8 @@
  */
 
 import path from 'node:path';
-import { type BrowserContext, chromium, expect, type Page, test } from '@playwright/test';
+import { type BrowserContext, expect, type Page, test } from '@playwright/test';
+import { launchExtensionContext } from './fixtures/launch-extension';
 import { WorkbenchPage } from './pages/workbench-page';
 
 const extensionPath = path.resolve(__dirname, '../../dist/chrome');
@@ -268,10 +269,7 @@ async function disconnectAndAwaitClose(): Promise<void> {
 test.describe.configure({ mode: 'serial' });
 
 test.beforeAll(async () => {
-  context = await chromium.launchPersistentContext('', {
-    headless: false,
-    args: [`--disable-extensions-except=${extensionPath}`, `--load-extension=${extensionPath}`, '--no-sandbox'],
-  });
+  context = await launchExtensionContext('', extensionPath);
   const sw = context.serviceWorkers()[0] ?? (await context.waitForEvent('serviceworker'));
   extensionId = sw.url().split('/')[2]!;
 
@@ -676,10 +674,7 @@ test('B10 — the bearer credential rides the CONNECT auth payload in-page and t
   // works IN the page realm, so no honesty notice appears on THIS
   // session (visible-scoped: the raw editor's B6 notice persists in
   // its background tab).
-  await timelineMessageRows()
-    .filter({ hasText: 'sio-page-tok' })
-    .first()
-    .waitFor({ state: 'visible', timeout: 5_000 });
+  await timelineMessageRows().filter({ hasText: 'sio-page-tok' }).first().waitFor({ state: 'visible', timeout: 5_000 });
   await expect(page.getByTestId('ws-host-knob-notice').filter({ visible: true })).toHaveCount(0);
 
   // Send the acked echo: the correlated ACK lands (proof the reply

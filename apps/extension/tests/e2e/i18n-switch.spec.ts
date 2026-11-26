@@ -22,7 +22,8 @@
 import { mkdtemp, rm } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import { type BrowserContext, chromium, expect, type Page, test } from '@playwright/test';
+import { type BrowserContext, expect, type Page, test } from '@playwright/test';
+import { launchExtensionContext } from './fixtures/launch-extension';
 
 const extensionPath = path.resolve(__dirname, '../../dist/chrome');
 
@@ -45,10 +46,7 @@ async function waitForRoot(page: Page): Promise<void> {
 }
 
 async function launch(dir: string): Promise<void> {
-  context = await chromium.launchPersistentContext(dir, {
-    headless: false,
-    args: [`--disable-extensions-except=${extensionPath}`, `--load-extension=${extensionPath}`, '--no-sandbox'],
-  });
+  context = await launchExtensionContext(dir, extensionPath);
   const serviceWorker = context.serviceWorkers()[0] || (await context.waitForEvent('serviceworker'));
   extensionId = serviceWorker.url().split('/')[2];
 }

@@ -22,8 +22,9 @@
 
 import { createHmac } from 'node:crypto';
 import path from 'node:path';
-import { type BrowserContext, chromium, expect, type Page, test } from '@playwright/test';
+import { type BrowserContext, expect, type Page, test } from '@playwright/test';
 import { AUTH_TYPE_CASES, buildAuthSuiteSeedEnvelope } from '../../../../playground/scripts/auth-type-suite';
+import { launchExtensionContext } from './fixtures/launch-extension';
 import { assertEchoAuth, type EchoAuthResponse } from './pages/echo-auth';
 import { seedOAuthSuite } from './pages/oauth-seed';
 import { WorkbenchPage } from './pages/workbench-page';
@@ -63,11 +64,7 @@ const RESIGN_SECRET = 'oh-e2e-signing-secret';
 const JWT_RESIGNED = makeJWT(JWT_HEADER, JWT_PAYLOAD_EDITED_OBJ, RESIGN_SECRET);
 
 test.beforeAll(async () => {
-  context = await chromium.launchPersistentContext('', {
-    headless: false,
-    slowMo: process.env.SLOW_MO ? parseInt(process.env.SLOW_MO, 10) : undefined,
-    args: [`--disable-extensions-except=${extensionPath}`, `--load-extension=${extensionPath}`, '--no-sandbox'],
-  });
+  context = await launchExtensionContext('', extensionPath);
   const sw = context.serviceWorkers()[0] || (await context.waitForEvent('serviceworker'));
   extensionId = sw.url().split('/')[2]!;
 
