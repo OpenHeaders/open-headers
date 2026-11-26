@@ -55,12 +55,22 @@ export type MqttBeforePublishOutcome =
   | { kind: 'publish'; message: MqttOutboundMessageSnapshot }
   | { kind: 'dropped'; by: string };
 
+/** A strict Before connect's answer: the connect as the chain left it,
+ *  or the level that failed and why. */
+export type MqttBeforeConnectOutcome =
+  | { kind: 'connect'; connect: MqttConnectSnapshot }
+  | { kind: 'failed'; at: string; message: string };
+
 export interface MqttScriptPlane {
   /** Run the Before connect chain for one dial; the CONNECT composes
    *  on what it returns (the input verbatim when no level mutated).
    *  `scope` is the dial's batch scope — a code a level reads is the
    *  dial's usage (`script-scope.ts`). */
   beforeConnect(connect: MqttConnectSnapshot, scope?: ScriptVariableScope): Promise<MqttConnectSnapshot>;
+  /** The same chain for a dial that must not go out on a script that
+   *  failed (a workflow run's session): it stops at the first level
+   *  that errors and answers with it. */
+  beforeConnectStrict(connect: MqttConnectSnapshot, scope?: ScriptVariableScope): Promise<MqttBeforeConnectOutcome>;
   /** Run the Before publish chain for one rider publish; `scope` is
    *  the rider's batch scope. */
   beforePublish(message: MqttOutboundMessageSnapshot, scope?: ScriptVariableScope): Promise<MqttBeforePublishOutcome>;
@@ -84,37 +94,59 @@ export function createMqttScriptPlane(deps: MqttScriptPlaneDeps): MqttScriptPlan
   let beforePublish: (ScriptEventSummary & { dropped: number }) | undefined;
   let onMessage: ScriptEventSummary | undefined;
 
+  /** One dial's chain — the connect as the levels left it, and the
+   *  first level that errored (`null` when none did). */
+  const runBeforeConnect = (
+    connect: MqttConnectSnapshot,
+    scope: ScriptVariableScope | undefined,
+    strict: boolean,
+  ): Promise<{ connect: MqttConnectSnapshot; failure: { at: string; message: string } | null }> => {
+    if (!core.has('mqtt-before-connect')) return Promise.resolve({ connect, failure: null });
+    return core.enqueue(async () => {
+      let current = connect;
+      const fold = await core.run(
+        'mqtt-before-connect',
+        () => ({ kind: 'mqtt-before-connect', connect: current }),
+        (result) => {
+          const m = result.sessionMutation;
+          if (m === undefined || m.kind !== 'mqtt-connect') return undefined;
+          current = {
+            ...current,
+            clientId: m.clientId ?? current.clientId,
+            username: m.username ?? current.username,
+            password: m.password ?? current.password,
+            // `null` drops the will — an explicit key, not an absence.
+            will: m.will !== undefined ? m.will : current.will,
+            subscriptions: m.subscriptions ?? current.subscriptions,
+            userProperties: m.userProperties ?? current.userProperties,
+          };
+          return undefined;
+        },
+        scope,
+        strict,
+      );
+      if (fold === null) return { connect: current, failure: null };
+      core.record('mqtt-before-connect', fold, { attempt: connect.attempt });
+      beforeConnect = { ...core.foldOf(fold), dials: (beforeConnect?.dials ?? 0) + 1 };
+      const failed = fold.chain.find((level) => !level.succeeded);
+      return {
+        connect: current,
+        failure:
+          fold.failedLabel !== null
+            ? { at: fold.failedLabel, message: failed?.error?.message ?? 'script failed' }
+            : null,
+      };
+    });
+  };
+
   return {
-    beforeConnect(connect, scope) {
-      if (!core.has('mqtt-before-connect')) return Promise.resolve(connect);
-      return core.enqueue(async () => {
-        let current = connect;
-        const fold = await core.run(
-          'mqtt-before-connect',
-          () => ({ kind: 'mqtt-before-connect', connect: current }),
-          (result) => {
-            const m = result.sessionMutation;
-            if (m === undefined || m.kind !== 'mqtt-connect') return undefined;
-            current = {
-              ...current,
-              clientId: m.clientId ?? current.clientId,
-              username: m.username ?? current.username,
-              password: m.password ?? current.password,
-              // `null` drops the will — an explicit key, not an absence.
-              will: m.will !== undefined ? m.will : current.will,
-              subscriptions: m.subscriptions ?? current.subscriptions,
-              userProperties: m.userProperties ?? current.userProperties,
-            };
-            return undefined;
-          },
-          scope,
-        );
-        if (fold !== null) {
-          core.record('mqtt-before-connect', fold, { attempt: connect.attempt });
-          beforeConnect = { ...core.foldOf(fold), dials: (beforeConnect?.dials ?? 0) + 1 };
-        }
-        return current;
-      });
+    async beforeConnect(connect, scope) {
+      return (await runBeforeConnect(connect, scope, false)).connect;
+    },
+
+    async beforeConnectStrict(connect, scope) {
+      const dial = await runBeforeConnect(connect, scope, true);
+      return dial.failure !== null ? { kind: 'failed', ...dial.failure } : { kind: 'connect', connect: dial.connect };
     },
 
     beforePublish(message, scope) {

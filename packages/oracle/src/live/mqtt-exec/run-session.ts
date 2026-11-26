@@ -14,6 +14,10 @@
  *     the broker's acknowledgement, under the `listen` step's deadline.
  *   - A drop ends the session for the run: the request is opened with no
  *     reconnect, whatever it or an ancestor asks for.
+ *   - The request's scripts run only for a `listen` that opts in, under
+ *     the run's tier. A Before connect that errors fails the `listen`;
+ *     what the other hooks did not do cleanly is the close's warning,
+ *     and never a verdict.
  */
 
 import {
@@ -26,6 +30,7 @@ import {
 import { type MqttProperties, mqttReasonCodeName, topicMatchesFilter } from '@openheaders/core/mqtt';
 import type { ExecutedMqttEnd, ExecutedMqttSnapshot, MqttRequest } from '@openheaders/core/types';
 import { encodeBase64Bytes, generateUid } from '@openheaders/core/utils';
+import type { SessionScriptHost } from '../request-exec/script-hooks';
 import { stopActiveSend } from '../request-exec/send-stream';
 import { decodeUtf8Text, executeMqttSession } from './execute';
 import {
@@ -43,16 +48,22 @@ export interface MqttRunSessionHostOptions {
   transport: MqttByteTransport;
   /** The MQTT request a `listen` step names; `null` when the workspace holds none by that uid. */
   findRequest(uid: string): MqttRequest | null;
+  /** The run's script host, asked for a `listen` that runs its request's scripts; `null` = this host runs none. */
+  resolveScriptHost?: () => Promise<SessionScriptHost | null>;
   /** Injectable deadline — settles after `ms`, dropped when `signal` aborts first. Defaults to `setTimeout`. */
   timer?: (ms: number, signal: AbortSignal) => Promise<void>;
 }
 
 export function createMqttRunSessionHost(options: MqttRunSessionHostOptions): SessionHost {
-  const { workspaceId, environmentId, transport, findRequest, timer = deadlineTimer } = options;
+  const { workspaceId, environmentId, transport, findRequest, resolveScriptHost, timer = deadlineTimer } = options;
   return {
     async open(step, opening) {
       const request = findRequest(step.sessionRequestUid);
       if (request === null) return { ok: false, reason: `Session request ${step.sessionRequestUid} was not found.` };
+      const scriptHost = step.runScripts === true ? ((await resolveScriptHost?.()) ?? null) : null;
+      if (step.runScripts === true && scriptHost === null) {
+        return { ok: false, reason: `Step "${step.id}" cannot run here: this host runs no script on a run's session.` };
+      }
       const namesReasons = request.protocolVersion !== '3.1.1';
       const sendId = `run-${generateUid()}`;
       let ready = false;
@@ -99,8 +110,9 @@ export function createMqttRunSessionHost(options: MqttRunSessionHostOptions): Se
         async end() {
           closing = true;
           closeActiveMqttSession(sendId);
-          if (running !== null) await running;
-          return {};
+          if (running === null) return {};
+          const warning = scriptsWarning(await running);
+          return warning !== null ? { warning } : {};
         },
       };
 
@@ -138,7 +150,15 @@ export function createMqttRunSessionHost(options: MqttRunSessionHostOptions): Se
         running = executeMqttSession(
           // The request's own knob outranks an ancestor's: nothing redials in a run.
           { ...request, autoReconnect: false },
-          { workspaceId, environmentId, transport, sendId, observer, stepCaptures: opening.stepCaptures },
+          {
+            workspaceId,
+            environmentId,
+            transport,
+            sendId,
+            observer,
+            stepCaptures: opening.stepCaptures,
+            ...(scriptHost !== null ? { scriptHost, strictBeforeConnect: true } : {}),
+          },
         );
         // A session that settles before it was ready answers with why it never was.
         void running.then((snapshot) =>
@@ -226,6 +246,31 @@ function endedReason(facts: { end: ExecutedMqttEnd; stopped: boolean; error?: st
   return facts.end.reasonCode === null
     ? 'The broker disconnected.'
     : `The broker disconnected${reasonSuffix(facts.end.reasonCode, 'disconnect', named)}`;
+}
+
+/**
+ * What a closed session's scripts did not do cleanly, or `null`: an After
+ * close that errored, the script tests that failed, the On message runs
+ * that errored. The tests are counted off the recorded marks.
+ */
+function scriptsWarning(snapshot: ExecutedMqttSnapshot): string | null {
+  const { scripts } = snapshot;
+  if (scripts === undefined) return null;
+  const parts: string[] = [];
+  if (scripts.afterClose?.succeeded === false) {
+    parts.push(`After close script failed: ${scripts.afterClose.error?.message ?? 'script failed'}`);
+  }
+  let failedTests = 0;
+  for (const event of snapshot.events) {
+    if (event.kind !== 'script') continue;
+    for (const assertion of event.assertions ?? []) {
+      if (!assertion.passed) failedTests += 1;
+    }
+  }
+  if (failedTests > 0) parts.push(`${failedTests} script ${failedTests === 1 ? 'test' : 'tests'} failed`);
+  const failedRuns = scripts.onMessage?.failed ?? 0;
+  if (failedRuns > 0) parts.push(`On message script failed ${failedRuns} ${failedRuns === 1 ? 'time' : 'times'}`);
+  return parts.length > 0 ? parts.join(' · ') : null;
 }
 
 /** Why a session that settled before it was ready never was. */

@@ -67,12 +67,14 @@ vi.mock('../../../src/entity/device-trust-store', () => ({
 }));
 
 import type { SessionMessage, SessionOpenResult } from '@openheaders/core/live';
+import type { ScriptExecutionResult } from '@openheaders/core/scripts';
 import { createMqttRunSessionHost } from '../../../src/live/mqtt-exec/run-session';
 import {
   type MqttByteTransport,
   type MqttStreamCallbacks,
   MqttTransportError,
 } from '../../../src/live/mqtt-exec/transport';
+import type { SessionScriptHost, SessionScriptInput } from '../../../src/live/request-exec/script-hooks';
 
 const PROBE: MqttRequest = {
   schemaVersion: 5,
@@ -523,5 +525,149 @@ describe('how a run’s session opened', () => {
       facts: { identityGenerated: true, cleanStart: false, resumed: true, granted: 1 },
     });
     await (await listen.session()).end();
+  });
+});
+
+describe('a listen that runs its request’s scripts', () => {
+  const SCRIPTED: MqttRequest = {
+    ...PROBE,
+    scripts: { 'mqtt-before-connect': 'sign();', 'mqtt-on-message': 'check();', 'mqtt-after-close': 'bye();' },
+  };
+  const ran = (over: Partial<ScriptExecutionResult> = {}): ScriptExecutionResult => ({
+    executionId: 'e',
+    succeeded: true,
+    assertions: [],
+    consoleLog: [],
+    durationMs: 1,
+    ...over,
+  });
+  const failed = (message: string): ScriptExecutionResult =>
+    ran({ succeeded: false, error: { name: 'Error', message } });
+
+  /** A listen being opened over a script host that answers per source; `null` = a host that runs no script. */
+  function scripted(
+    step: ListenWorkflowStep,
+    answers: Record<string, (input: SessionScriptInput) => ScriptExecutionResult> | null,
+  ) {
+    const rig = scriptedTransport();
+    const sources: string[] = [];
+    const scriptHost: SessionScriptHost = {
+      mode: 'safe',
+      run: async (input) => {
+        sources.push(input.source);
+        return answers?.[input.source]?.(input) ?? ran();
+      },
+      endSession: () => {},
+    };
+    const resolveScriptHost = vi.fn(async () => (answers === null ? null : scriptHost));
+    const host = createMqttRunSessionHost({
+      workspaceId: 'ws-devices',
+      environmentId: null,
+      transport: rig.transport,
+      findRequest: () => SCRIPTED,
+      resolveScriptHost,
+    });
+    const opened = host.open(step, {
+      stepCaptures: new Map(),
+      context: CONTEXT,
+      signal: new AbortController().signal,
+      onMessage: () => {},
+      onEnded: () => {},
+    });
+    /** The broker accepts the connection and grants the open-time SUBSCRIBE. */
+    const accept = async (): Promise<void> => {
+      await settleTick();
+      rig.establish();
+      rig.push({ type: 'connack', sessionPresent: false, reasonCode: 0 });
+      const subscribe = rig.written.at(-1);
+      if (subscribe?.type !== 'subscribe') throw new Error('expected the open-time SUBSCRIBE');
+      rig.push({ type: 'suback', packetId: subscribe.packetId, reasonCodes: [0] });
+    };
+    const session = async () => {
+      const result: SessionOpenResult = await opened;
+      if (!result.ok) throw new Error(`not opened: ${result.reason}`);
+      return result.session;
+    };
+    const publish = (payload: string): void =>
+      rig.push({
+        type: 'publish',
+        topic: 'devices/dev-1/status',
+        payload: text(payload),
+        qos: 0,
+        retain: false,
+        dup: false,
+        packetId: null,
+      });
+    return { rig, sources, resolveScriptHost, opened, accept, session, publish };
+  }
+
+  const WITH_SCRIPTS: ListenWorkflowStep = { ...LISTEN, runScripts: true };
+
+  it('connects as its Before connect script left the connection', async () => {
+    const listen = scripted(WITH_SCRIPTS, {
+      'sign();': () => ran({ sessionMutation: { kind: 'mqtt-connect', password: 'signed' } }),
+    });
+    await listen.accept();
+
+    const connect = listen.rig.written[0];
+    if (connect.type !== 'connect') throw new Error('expected CONNECT');
+    expect(connect.password === undefined ? null : new TextDecoder().decode(connect.password)).toBe('signed');
+    expect(listen.resolveScriptHost).toHaveBeenCalledTimes(1);
+    expect(await (await listen.session()).end()).toEqual({});
+    expect(listen.sources).toEqual(['sign();', 'bye();']);
+  });
+
+  it('runs no script for a listen that does not ask for them', async () => {
+    const listen = scripted(LISTEN, {});
+    await listen.accept();
+    const session = await listen.session();
+    listen.publish('{"state":"rebooting"}');
+
+    expect(await session.end()).toEqual({});
+    expect(listen.resolveScriptHost).not.toHaveBeenCalled();
+    expect(listen.sources).toEqual([]);
+  });
+
+  it('fails before anything is dialled when a Before connect level errors', async () => {
+    const listen = scripted(WITH_SCRIPTS, { 'sign();': () => failed('no key') });
+
+    expect(await listen.opened).toEqual({ ok: false, reason: 'Before connect script failed at Request: no key' });
+    expect(listen.rig.connects()).toBe(0);
+  });
+
+  it('is refused where the host runs no script, and nothing is dialled', async () => {
+    const listen = scripted(WITH_SCRIPTS, null);
+
+    expect(await listen.opened).toEqual({
+      ok: false,
+      reason: 'Step "probe" cannot run here: this host runs no script on a run\'s session.',
+    });
+    expect(listen.rig.connects()).toBe(0);
+  });
+
+  it('says at its close what its scripts did not do cleanly, as a warning', async () => {
+    let messages = 0;
+    const listen = scripted(WITH_SCRIPTS, {
+      'check();': () => {
+        messages += 1;
+        return messages === 1
+          ? ran({
+              assertions: [
+                { name: 'is rebooting', passed: false, message: 'was idle' },
+                { name: 'has a state', passed: true },
+              ],
+            })
+          : failed('not json');
+      },
+      'bye();': () => failed('bye'),
+    });
+    await listen.accept();
+    const session = await listen.session();
+    listen.publish('{"state":"idle"}');
+    listen.publish('not json');
+
+    expect(await session.end()).toEqual({
+      warning: 'After close script failed: bye · 1 script test failed · On message script failed 1 time',
+    });
   });
 });

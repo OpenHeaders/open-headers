@@ -79,12 +79,13 @@ export interface SessionScriptPlaneCore<K extends SessionScriptKind> {
    *  LEVEL, so a mutating hook hands a thunk over its running input and
    *  each level sees what the previous one left. `scope` is the batch's
    *  own (a code it reads is that wire write's usage); absent, the
-   *  session's. */
+   *  session's. `strict` stops the chain at its first failing level. */
   run(
     kind: K,
     hook: () => SessionHookInput,
     onLevel?: SessionLevelHandler,
     scope?: ScriptVariableScope,
+    strict?: boolean,
   ): Promise<ChainFold | null>;
   /** Record one hook run as a timeline mark — a no-op past the cap. */
   record(hook: K, fold: ChainFold, extra?: Pick<ExecutedSessionScriptMark, 'attempt' | 'droppedBy'>): void;
@@ -125,12 +126,12 @@ export function createSessionScriptPlaneCore<K extends SessionScriptKind>(
     mode: host.mode,
     has: (kind) => chains[kind].length > 0,
     enqueue,
-    run(kind, hook, onLevel, batchScope) {
+    run(kind, hook, onLevel, batchScope, strict = false) {
       return runScriptChain(
         chains[kind],
         (script) => host.run({ kind, source: script.source, sessionId, hook: hook(), scope: batchScope ?? scope }),
         {
-          strict: false,
+          strict,
           ...(onLevel !== undefined ? { onLevelSucceeded: onLevel } : {}),
         },
       );

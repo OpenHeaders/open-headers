@@ -66,7 +66,7 @@ import { openWorkflowRunFeed } from '@openheaders/oracle/live/workflow-run-feed'
 import { snapshotMqttRequestPostStates } from '@openheaders/oracle/sync/service';
 import { createNodeMqttTransport } from '../../live/node-mqtt-transport';
 import { createNodeRequestTransport } from '../../live/node-request-transport';
-import { resolveScriptRunner } from '../script-capability';
+import { getHostScriptCapability, resolveScriptRunner, resolveSessionScriptHost } from '../script-capability';
 import { checkWorkflowRun } from './run-check';
 
 /** One Node transport for the whole process — stateless, so a singleton
@@ -108,7 +108,7 @@ export async function runWorkflowRefresh(args: WorkflowRefreshArgs): Promise<Wor
   const onEvent = openWorkflowRunFeed({ workspaceId, workflowUid: workflow.uid, environmentId, runId });
   const findMqttRequest = (uid: string): MqttRequest | null =>
     snapshotMqttRequestPostStates(workspaceId).find((state) => state.mqttRequest.uid === uid)?.mqttRequest ?? null;
-  const checked = checkWorkflowRun(workflow, findMqttRequest);
+  const checked = checkWorkflowRun(workflow, { findMqttRequest, runsScripts: getHostScriptCapability() !== null });
   if (!checked.ok) {
     for (const event of runRefusalEvents(workflow, Date.now(), checked.refusals)) onEvent(event);
     return refuseRun(workspaceId, workflow, environmentId, bypass, checked.refusals[0]);
@@ -141,6 +141,8 @@ export async function runWorkflowRefresh(args: WorkflowRefreshArgs): Promise<Wor
       environmentId,
       transport: nodeMqttTransport,
       findRequest: findMqttRequest,
+      // A run's session rides the run's tier, never the editor's.
+      resolveScriptHost: () => resolveSessionScriptHost({ workspaceId, hostContext: 'chain' }),
     }),
   });
 

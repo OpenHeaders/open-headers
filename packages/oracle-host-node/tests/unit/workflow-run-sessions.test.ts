@@ -33,6 +33,7 @@ import {
 import { __initSyncServiceForTests, dispose as disposeSyncService } from '@openheaders/oracle/sync/service';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { runWorkflowRefresh } from '../../src/daemon/live/chain-runner';
+import { type HostScriptRunOptions, setHostScriptCapabilities } from '../../src/daemon/script-capability';
 import type { McpToolDefinition } from '../../src/mcp/registry';
 import { applyMcpMutation, mintMcpContext } from '../../src/mcp/tools/common';
 import { createWriteToolDefinitions } from '../../src/mcp/tools/write-tools';
@@ -407,5 +408,73 @@ describe('a run this host refuses before its first step', () => {
       message: 'Step "probe" cannot run here: this host runs no script on a run\'s session.',
     });
     expect(seen).toEqual([]);
+  });
+});
+
+describe('a listen that runs its request’s scripts, on a host with a script runtime', () => {
+  const calls: HostScriptRunOptions[] = [];
+
+  /** A Safe runtime that answers a Before connect per source and lets every other hook pass. */
+  function installRuntime(beforeConnect: 'narrow' | 'error'): void {
+    setHostScriptCapabilities({
+      safe: {
+        mode: 'safe',
+        runScript: async (options) => {
+          calls.push(options);
+          const base = { executionId: 'e', assertions: [], consoleLog: [], durationMs: 1 };
+          if (options.kind !== 'mqtt-before-connect') return { ...base, succeeded: true };
+          if (beforeConnect === 'error') {
+            return { ...base, succeeded: false, error: { name: 'Error', message: 'no key' } };
+          }
+          return {
+            ...base,
+            succeeded: true,
+            sessionMutation: { kind: 'mqtt-connect', subscriptions: [{ topicFilter: 'devices/dev-1/status', qos: 0 }] },
+          };
+        },
+        endSession: () => {},
+      },
+    });
+  }
+
+  beforeEach(() => {
+    calls.length = 0;
+  });
+
+  afterEach(() => setHostScriptCapabilities(null));
+
+  it('passes the scenario on the connection its Before connect left, every hook on the run’s tier', async () => {
+    installRuntime('narrow');
+    await saveProbe({ scripts: { 'mqtt-before-connect': 'narrow();', 'mqtt-on-message': 'check();' } });
+    const workflow = await seedWorkflow([{ ...LISTEN, runScripts: true }, await rebootStep(), statusStep()]);
+
+    expect(await run(workflow)).toEqual({ ok: true, skippedStepIds: [] });
+
+    expect(seen).toEqual(['connect', 'subscribe devices/dev-1/status', 'disconnect']);
+    expect(calls.map((call) => call.kind)).toEqual(['mqtt-before-connect', 'mqtt-on-message']);
+    expect(calls.map((call) => call.hostContext)).toEqual(['chain', 'chain']);
+  });
+
+  it('fails the listen before anything is dialled when its Before connect errors, and commands nothing', async () => {
+    installRuntime('error');
+    await saveProbe({ scripts: { 'mqtt-before-connect': 'sign();' } });
+    const workflow = await seedWorkflow([{ ...LISTEN, runScripts: true }, await rebootStep(), statusStep()]);
+
+    expect(await run(workflow)).toEqual({
+      ok: false,
+      failedStepId: 'probe',
+      failedPhase: 'listen',
+      message: 'Before connect script failed at Request: no key',
+    });
+    expect(seen).toEqual([]);
+  });
+
+  it('runs no script for a listen that does not ask for them', async () => {
+    installRuntime('error');
+    await saveProbe({ scripts: { 'mqtt-before-connect': 'sign();' } });
+    const workflow = await seedWorkflow([LISTEN, await rebootStep(), statusStep()]);
+
+    expect(await run(workflow)).toEqual({ ok: true, skippedStepIds: [] });
+    expect(calls).toEqual([]);
   });
 });

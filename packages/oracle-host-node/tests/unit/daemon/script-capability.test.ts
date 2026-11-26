@@ -262,3 +262,39 @@ describe('resolveSessionScriptHost', () => {
     expect(result).toMatchObject({ succeeded: false, error: { name: 'ScriptRuntimeError', message: 'runtime gone' } });
   });
 });
+
+describe('resolveSessionScriptHost — a session a workflow run opened', () => {
+  const hook = {
+    kind: 'mqtt-on-message' as const,
+    message: {
+      direction: 'down' as const,
+      topic: 'devices/dev-1/status',
+      payloadBase64: 'aGk=',
+      text: 'hi',
+      qos: 0 as const,
+      retain: false,
+      dup: false,
+      index: 0,
+    },
+  };
+
+  it('stays Safe whatever the workspace’s slot says, and every hook call rides the chain tier', async () => {
+    const safe = { mode: 'safe' as const, runScript: vi.fn(async () => okResult()), endSession: vi.fn() };
+    const developer = { mode: 'developer' as const, runScript: vi.fn(async () => okResult()), endSession: vi.fn() };
+    setHostScriptCapabilities({ safe, developer });
+    h.storageGet.mockResolvedValue({ ws1: 'developer' });
+
+    const host = await resolveSessionScriptHost({ workspaceId: 'ws1', hostContext: 'chain' });
+    expect(host?.mode).toBe('safe');
+    await host?.run({ kind: 'mqtt-on-message', source: 'x();', sessionId: 'run-1', hook });
+
+    expect(safe.runScript).toHaveBeenCalledWith({
+      kind: 'mqtt-on-message',
+      source: 'x();',
+      sessionId: 'run-1',
+      hook,
+      hostContext: 'chain',
+    });
+    expect(developer.runScript).not.toHaveBeenCalled();
+  });
+});

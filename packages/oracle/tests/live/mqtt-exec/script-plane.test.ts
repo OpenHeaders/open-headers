@@ -363,3 +363,57 @@ describe('marks and the record', () => {
     expect(rig.ended).toEqual(['send-9']);
   });
 });
+
+describe('beforeConnectStrict — a dial that must not go out on a script that failed', () => {
+  it('stops at the first level that errors and answers with that level and its message', async () => {
+    const rig = scriptedHost({
+      'boom();': () => ok({ succeeded: false, error: { name: 'Error', message: 'boom' } }),
+      'ok();': () => ok({ sessionMutation: { kind: 'mqtt-connect', clientId: 'alt' } }),
+    });
+    const marks: ExecutedMqttScriptMark[] = [];
+    const plane = createMqttScriptPlane({
+      sessionId: 'send-10',
+      host: rig.host,
+      chains: { ...EMPTY, 'mqtt-before-connect': [level('A', 'boom();'), level('B', 'ok();', 'folder')] },
+      recordMark: (mark) => marks.push(mark),
+    });
+
+    expect(await plane.beforeConnectStrict(CONNECT)).toEqual({ kind: 'failed', at: "Collection 'A'", message: 'boom' });
+    expect(rig.ran.map((input) => input.source)).toEqual(['boom();']);
+    expect(marks[0]).toMatchObject({ hook: 'mqtt-before-connect', succeeded: false });
+    expect(plane.summary()?.beforeConnect).toMatchObject({ succeeded: false, dials: 1 });
+  });
+
+  it('answers the connect as the chain left it when every level succeeded, a failed test included', async () => {
+    const rig = scriptedHost({
+      'sign();': () =>
+        ok({
+          sessionMutation: { kind: 'mqtt-connect', password: 'signed' },
+          assertions: [{ name: 'has a secret', passed: false, message: 'none' }],
+        }),
+    });
+    const plane = createMqttScriptPlane({
+      sessionId: 'send-11',
+      host: rig.host,
+      chains: { ...EMPTY, 'mqtt-before-connect': [level('Probe', 'sign();', 'request')] },
+      recordMark: () => {},
+    });
+
+    expect(await plane.beforeConnectStrict(CONNECT)).toEqual({
+      kind: 'connect',
+      connect: { ...CONNECT, password: 'signed' },
+    });
+  });
+
+  it('an empty chain answers the input verbatim', async () => {
+    const plane = createMqttScriptPlane({
+      sessionId: 'send-12',
+      host: scriptedHost({}).host,
+      chains: EMPTY,
+      recordMark: () => {},
+    });
+
+    const outcome = await plane.beforeConnectStrict(CONNECT);
+    expect(outcome.kind === 'connect' && outcome.connect).toBe(CONNECT);
+  });
+});

@@ -531,3 +531,62 @@ describe('executeMqttSession — After close and the chain', () => {
     expect((await noHost).scripts).toBeUndefined();
   });
 });
+
+describe('executeMqttSession — a strict Before connect (a workflow run’s session)', () => {
+  it('fails before anything is dialled, naming the level that errored', async () => {
+    const t = rig();
+    const host = scriptedHost({
+      'boom();': () => ok({ succeeded: false, error: { name: 'Error', message: 'boom' } }),
+    });
+    const snapshot = await executeMqttSession(makeMqttRequest({ scripts: { 'mqtt-before-connect': 'req();' } }), {
+      workspaceId: null,
+      environmentId: undefined,
+      transport: t.transport,
+      sendId: 'send-mscr-strict-1',
+      resolution: (template) => template,
+      scriptChain: [
+        {
+          level: 'collection',
+          label: "Collection 'Fleet'",
+          entity: { uid: 'col1', name: 'Fleet', scripts: { 'mqtt-before-connect': 'boom();' } },
+        },
+      ],
+      scriptHost: host.host,
+      strictBeforeConnect: true,
+    });
+
+    expect(t.dialed()).toBe(false);
+    expect(host.ran.map((input) => input.source)).toEqual(['boom();']);
+    expect(snapshot.outcome).toEqual({
+      kind: 'failed',
+      error: "Before connect script failed at Collection 'Fleet': boom",
+    });
+    expect(snapshot.scripts?.beforeConnect).toMatchObject({ succeeded: false, dials: 1 });
+    expect(host.ended).toEqual(['send-mscr-strict-1']);
+  });
+
+  it('dials on the connect the chain left when no level errored', async () => {
+    const t = rig();
+    const host = scriptedHost({
+      'sign();': () => ok({ sessionMutation: { kind: 'mqtt-connect', password: 'signed' } }),
+    });
+    const settled = executeMqttSession(makeMqttRequest({ scripts: { 'mqtt-before-connect': 'sign();' } }), {
+      workspaceId: null,
+      environmentId: undefined,
+      transport: t.transport,
+      sendId: 'send-mscr-strict-2',
+      resolution: (template) => template,
+      scriptChain: [],
+      scriptHost: host.host,
+      strictBeforeConnect: true,
+    });
+    await settleTick();
+    t.establish();
+    const connect = t.written[0];
+    if (connect.type !== 'connect') throw new Error('expected CONNECT');
+    expect(connect.password === undefined ? null : utf8(connect.password)).toBe('signed');
+    t.push(acceptedConnack);
+    closeActiveMqttSession('send-mscr-strict-2');
+    expect((await settled).outcome.kind).toBe('connected');
+  });
+});

@@ -4,8 +4,8 @@
  * an action the model does not know, whatever the model's own validator
  * refuses of the session steps, and a session step this host has no
  * adapter for — it runs a session on an MQTT request, and on no other
- * kind. The check is before the run, so nothing is sent that cannot be
- * judged.
+ * kind — or no script runtime for. The check is before the run, so
+ * nothing is sent that cannot be judged.
  */
 
 import {
@@ -23,10 +23,13 @@ import type { ChainWorkflow, LiveWorkflow, MqttRequest } from '@openheaders/core
 
 export type WorkflowRunCheck = { ok: true; workflow: ChainWorkflow } | { ok: false; refusals: RunRefusal[] };
 
-export function checkWorkflowRun(
-  workflow: LiveWorkflow,
-  findMqttRequest: (uid: string) => MqttRequest | null,
-): WorkflowRunCheck {
+export interface WorkflowRunHost {
+  findMqttRequest(uid: string): MqttRequest | null;
+  /** This host has a script runtime — a `listen` that runs its request's scripts can run here. */
+  runsScripts: boolean;
+}
+
+export function checkWorkflowRun(workflow: LiveWorkflow, host: WorkflowRunHost): WorkflowRunCheck {
   if (!isChainWorkflow(workflow)) {
     return {
       ok: false,
@@ -47,12 +50,12 @@ export function checkWorkflowRun(
   }));
   for (const step of sessionSteps) {
     if (isListenStep(step)) {
-      if (findMqttRequest(step.sessionRequestUid) === null) {
+      if (host.findMqttRequest(step.sessionRequestUid) === null) {
         refusals.push({
           stepId: step.id,
           reason: `Step "${step.id}" names a session request that is not an MQTT request in this workspace.`,
         });
-      } else if (step.runScripts === true) {
+      } else if (step.runScripts === true && !host.runsScripts) {
         refusals.push({
           stepId: step.id,
           reason: `Step "${step.id}" cannot run here: this host runs no script on a run's session.`,

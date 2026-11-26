@@ -146,16 +146,20 @@ export function resolveInteractiveScriptRunner(input: {
 
 /**
  * Resolve the session script host for one live session, or `null`
- * when this host has no script runtime. A session is always a LOCAL
- * INTERACTIVE dispatch or a peer-forwarded one — the same mode gate as
- * {@link resolveScriptRunner}: the slot is consulted locally, a
- * forwarded session runs Safe or not at all.
+ * when this host has no script runtime. A session a person opened is a
+ * LOCAL INTERACTIVE dispatch or a peer-forwarded one — the same mode
+ * gate as {@link resolveScriptRunner}: the slot is consulted locally, a
+ * forwarded session runs Safe or not at all. A session a workflow run
+ * opened asks for `'chain'`: Safe whatever the slot says, and the
+ * read-only tier on every hook.
  */
 export async function resolveSessionScriptHost(options: {
   workspaceId: string | null;
   forwarded?: boolean;
+  hostContext?: 'interactive' | 'chain';
 }): Promise<SessionScriptHost | null> {
-  const cap = await resolveCapability({ ...options, hostContext: 'interactive' });
+  const hostContext = options.hostContext ?? 'interactive';
+  const cap = await resolveCapability({ ...options, hostContext });
   if (!cap) return null;
   return {
     mode: cap.mode,
@@ -166,7 +170,7 @@ export async function resolveSessionScriptHost(options: {
           source: input.source,
           sessionId: input.sessionId,
           hook: input.hook,
-          hostContext: 'interactive',
+          hostContext,
           scope: input.scope,
         })
         .catch(runtimeUnavailable),

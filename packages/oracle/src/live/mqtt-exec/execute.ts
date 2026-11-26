@@ -205,6 +205,10 @@ export interface ExecuteMqttSessionOptions {
    *  Before publish / On message / After close) run through it; absent
    *  = the session runs scriptless and records no script outcome. */
   scriptHost?: SessionScriptHost;
+  /** A workflow run's session: a Before connect level that errors
+   *  stops its chain and the session fails before anything is dialled.
+   *  Absent = lenient, the editor's session. */
+  strictBeforeConnect?: boolean;
   /** Host-injected ancestor script carriers (outer → inner) — for page
    *  realms whose oracle mirrors are empty (the `authChain` twin);
    *  absent = the executor walks the tree index per slot kind. */
@@ -1363,12 +1367,22 @@ export async function executeMqttSession(
             userProperties: connectUserProps.map((p): SessionHeader => ({ key: p.key, value: p.value })),
             attempt: reconnectAttempt,
           };
-          const connect = await scripts.beforeConnect(input, reconnectAttempt === 0 ? connectScope : undefined);
+          const dialScope = reconnectAttempt === 0 ? connectScope : undefined;
+          const dialled =
+            options.strictBeforeConnect === true
+              ? await scripts.beforeConnectStrict(input, dialScope)
+              : { kind: 'connect' as const, connect: await scripts.beforeConnect(input, dialScope) };
           if (settled) return;
           if (stopped) {
             settle();
             return;
           }
+          if (dialled.kind === 'failed') {
+            refusalMessage = `Before connect script failed at ${dialled.at}: ${dialled.message}`;
+            settle();
+            return;
+          }
+          const { connect } = dialled;
           clientId = connect.clientId;
           dialUsername = connect.username;
           dialPassword = connect.password;
