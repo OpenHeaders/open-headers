@@ -49,6 +49,7 @@ import {
   WORKSPACE_VARIABLES_ENTITY_TYPE,
 } from '@openheaders/core/sync';
 import { hostBridge } from '@openheaders/core/bridge';
+import { hasCapability } from '@openheaders/core/capabilities';
 import type { PostmanImportSummary } from '@openheaders/core/import';
 import type { CompanionRevealTarget } from '@openheaders/core/protocol';
 import { App as AntApp, theme } from 'antd';
@@ -78,6 +79,7 @@ import { viewActivityEntity } from './components/panels/activity-view-router';
 import { getWorkbenchTerminalTabs } from './components/panels/terminal/terminal-instance';
 import { toggleTerminalTabSearch } from './components/panels/terminal/terminal-tab-search-toggle';
 import MigrationReportModal from './components/import/MigrationReportModal';
+import { WorkflowRunScopePublisher } from './components/live/WorkflowRunScopePublisher';
 import SaveToCollectionModal from './components/save/SaveToCollectionModal';
 import ShellLayout from './components/shell/ShellLayout';
 import type { SidebarView } from './components/sidebar/types';
@@ -283,6 +285,8 @@ const WorkbenchTabAware: React.FC<{
                             activeWorkspaceIdOverride={editingScopeWorkspaceId}
                           >
                             <InspectorNavProvider>
+                              {/* A host whose page runs a session-step workflow resolves it from these scopes. */}
+                              {hasCapability('workflowPageRun') && <WorkflowRunScopePublisher />}
                               <WorkbenchShell layout={layout} perTab={perTab} />
                             </InspectorNavProvider>
                           </OAuthBundlesProvider>

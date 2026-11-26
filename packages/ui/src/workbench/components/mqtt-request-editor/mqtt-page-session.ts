@@ -106,9 +106,18 @@ export interface MqttPageSessionScope {
   workspaceId: string | null;
 }
 
+/** A workflow run a session belongs to (the workflow runs plan, The
+ *  model): the session resolves under the run's environment and reads
+ *  the run's captures, kept by reference. */
+export interface PageSessionRun {
+  /** `null` = "No environment". */
+  environmentId: string | null;
+  stepCaptures: ReadonlyMap<string, ReadonlyMap<string, string>>;
+}
+
 /** Built per Connect — TOTP codes have ~30s lifetime, so the registry
  *  computes fresh each time (the SW request executor's discipline). */
-export type MqttPageResolutionFactory = (request: MqttRequest) => Promise<MqttPageSessionScope>;
+export type MqttPageResolutionFactory = (request: MqttRequest, run?: PageSessionRun) => Promise<MqttPageSessionScope>;
 
 let currentFactory: MqttPageResolutionFactory | null = null;
 
@@ -157,16 +166,21 @@ async function buildPageTotpRegistry(vault: Vault): Promise<TotpRegistry> {
  *  scope, the auth chain and the script chain all come off the TREES
  *  via the request's ancestry (the tree containment law — never the
  *  stored path); the environment defers to the active pointer the
- *  snapshot carries — the in-process Connect path. `packages` is the
- *  workspace's Package Library — the hooks' `oh.require`. */
+ *  snapshot carries — the in-process Connect path; a session a workflow
+ *  run opens resolves under the run's environment instead. `packages`
+ *  is the workspace's Package Library — the hooks' `oh.require`. */
 export function makeMqttPageResolutionFactory(
   inputs: RendererResolverInputs,
   ancestryInputs: RequestAncestryInputs,
   workspaceId: string | null,
   packages: readonly ScriptPackageModule[] = [],
 ): MqttPageResolutionFactory {
-  return async (request) => {
-    const resolver = buildRendererResolver(inputs, { totpRegistry: await buildPageTotpRegistry(inputs.vault) });
+  return async (request, run) => {
+    const resolver = buildRendererResolver(
+      run !== undefined ? { ...inputs, activeEnvironmentId: run.environmentId } : inputs,
+      { totpRegistry: await buildPageTotpRegistry(inputs.vault) },
+    );
+    if (run !== undefined) resolver.setStepCaptures(run.stepCaptures);
     const ancestry = findRequestAncestry(
       ancestryInputs.collectionTrees,
       ancestryInputs.collections,

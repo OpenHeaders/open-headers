@@ -1034,15 +1034,28 @@ export interface Capabilities {
 
   /**
    * Declares that this surface's host runs a workflow's session steps —
-   * `listen`, `send`, `expect` (the workflow runs plan, slice D).
-   * Registered only by the desktop app, whose main process opens the
-   * session; the extension and the served web tab leave it absent and
-   * read such a workflow as one that needs a newer version, until their
-   * own slice. Where it is present a workflow whose every step is of an
-   * action the model knows is run on a press and shown in the Run view;
-   * its steps are still not edited here. Presence is the whole signal.
+   * `listen`, `send`, `expect` (the workflow runs plan, slices D and E).
+   * Registered by the desktop app, whose main process opens the
+   * session, and by the extension's workbench page, which runs such a
+   * workflow itself; the extension's other surfaces and the served web
+   * tab leave it absent and read such a workflow as one that needs a
+   * newer version, until their own slice. Where it is present a workflow
+   * whose every step is of an action the model knows is run on a press
+   * and shown in the Run view; its steps are still not edited here.
+   * Presence is the whole signal.
    */
   workflowSessionSteps?: () => boolean;
+
+  /**
+   * Declares that this surface's own page runs a workflow that holds a
+   * session (the workflow runs plan, Laws — "The run lives with its
+   * session"): the page's engine stores are empty, so the workbench
+   * shell publishes the renderer scopes such a run resolves from.
+   * Registered only by the extension's workbench page; a host that runs
+   * workflows in the realm of its stores leaves it absent and publishes
+   * nothing. Presence is the whole signal.
+   */
+  workflowPageRun?: () => boolean;
 }
 
 export type CapabilityName = keyof Capabilities;

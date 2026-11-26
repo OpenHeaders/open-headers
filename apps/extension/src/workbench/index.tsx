@@ -13,6 +13,10 @@ import '@/host/install-mqtt-session-host';
 // invoke host (the call executed in this page realm, its HTTP/2
 // session opened by the place) and registers `delegatedGrpcDispatch`.
 import '@/host/install-grpc-invoke-host';
+// AFTER install-grpc-invoke-host: decorates ITS bridge with the workflow
+// run host (a workflow that holds a session runs in this page) and
+// registers `workflowPageRun` and `workflowSessionSteps`.
+import '@/host/install-workflow-run-host';
 import '@/host/install-host-logger';
 import '@/host/install-build-info';
 import '@/host/install-developer-diagnostics';
