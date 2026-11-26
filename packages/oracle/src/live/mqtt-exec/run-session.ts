@@ -33,7 +33,7 @@ import type { ExecutedMqttEnd, ExecutedMqttSnapshot, MqttRequest } from '@openhe
 import { encodeBase64Bytes, generateUid } from '@openheaders/core/utils';
 import type { SessionScriptHost } from '../request-exec/script-hooks';
 import { stopActiveSend } from '../request-exec/send-stream';
-import { decodeUtf8Text, executeMqttSession } from './execute';
+import { decodeUtf8Text, type ExecuteMqttSessionOptions, executeMqttSession } from './execute';
 import {
   activeMqttSessionPosition,
   closeActiveMqttSession,
@@ -42,13 +42,33 @@ import {
 } from './session-plane';
 import type { MqttByteTransport } from './transport';
 
+/**
+ * A session's scopes as a realm outside the engine's stores holds them —
+ * the executor's injected contract, whole: its resolution reads the run's
+ * captures itself.
+ */
+export type MqttRunSessionScope = Pick<
+  ExecuteMqttSessionOptions,
+  'prepareResolution' | 'referencesSecret' | 'totp' | 'authChain' | 'scriptChain' | 'settingsChain'
+> & { resolution: NonNullable<ExecuteMqttSessionOptions['resolution']> };
+
 export interface MqttRunSessionHostOptions {
-  workspaceId: string;
+  /** `null` = a realm that pins none of the engine's workspaces and hands its scopes in. */
+  workspaceId: string | null;
   /** `null` = "No environment". */
   environmentId: string | null;
   transport: MqttByteTransport;
   /** The MQTT request a `listen` step names; `null` when the workspace holds none by that uid. */
   findRequest(uid: string): MqttRequest | null;
+  /**
+   * The scopes of a realm whose engine stores are empty, built for one
+   * session over the run's captures, kept by reference. Absent = the
+   * engine resolves from its own stores.
+   */
+  sessionScope?: (
+    request: MqttRequest,
+    stepCaptures: ReadonlyMap<string, ReadonlyMap<string, string>>,
+  ) => Promise<MqttRunSessionScope>;
   /** The run's script host, asked for a `listen` that runs its request's scripts; `null` = this host runs none. */
   resolveScriptHost?: () => Promise<SessionScriptHost | null>;
   /** Injectable deadline — settles after `ms`, dropped when `signal` aborts first. Defaults to `setTimeout`. */
@@ -56,7 +76,15 @@ export interface MqttRunSessionHostOptions {
 }
 
 export function createMqttRunSessionHost(options: MqttRunSessionHostOptions): SessionHost {
-  const { workspaceId, environmentId, transport, findRequest, resolveScriptHost, timer = deadlineTimer } = options;
+  const {
+    workspaceId,
+    environmentId,
+    transport,
+    findRequest,
+    sessionScope,
+    resolveScriptHost,
+    timer = deadlineTimer,
+  } = options;
   return {
     async open(step, opening) {
       const request = findRequest(step.sessionRequestUid);
@@ -65,6 +93,7 @@ export function createMqttRunSessionHost(options: MqttRunSessionHostOptions): Se
       if (step.runScripts === true && scriptHost === null) {
         return { ok: false, reason: `Step "${step.id}" cannot run here: this host runs no script on a run's session.` };
       }
+      const scope = sessionScope !== undefined ? await sessionScope(request, opening.stepCaptures) : null;
       const namesReasons = request.protocolVersion !== '3.1.1';
       const sendId = `run-${generateUid()}`;
       let ready = false;
@@ -157,7 +186,7 @@ export function createMqttRunSessionHost(options: MqttRunSessionHostOptions): Se
             transport,
             sendId,
             observer,
-            stepCaptures: opening.stepCaptures,
+            ...(scope !== null ? scope : { stepCaptures: opening.stepCaptures }),
             ...(scriptHost !== null ? { scriptHost, strictBeforeConnect: true } : {}),
           },
         );

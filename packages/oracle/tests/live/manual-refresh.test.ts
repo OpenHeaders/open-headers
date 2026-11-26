@@ -37,7 +37,13 @@ vi.mock('../../src/live/live-cache-store', () => ({
   },
 }));
 
-import { type ManualRefreshHost, type ManualRefreshRun, refreshWorkflowByUser } from '../../src/live/manual-refresh';
+import {
+  beginManualRefresh,
+  type ManualRefreshHost,
+  type ManualRefreshRun,
+  refreshWorkflowByUser,
+  settleManualRefresh,
+} from '../../src/live/manual-refresh';
 
 const WS = 'ws-1';
 const NOW = 1_800_000_000_000;
@@ -191,5 +197,50 @@ describe('refreshWorkflowByUser', () => {
     const run = vi.fn(async () => undefined);
     await refreshWorkflowByUser(target, { run });
     expect(run).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('the rule in two halves, around a run in another realm', () => {
+  it('answers the workflow and the bypass decision, the workspace held for the half alone', async () => {
+    state.rows = [row(openCircuit(NOW + 60_000))];
+    const { host } = makeHost();
+    expect(await beginManualRefresh(target, host)).toEqual({ workflow, bypass: true });
+    expect(state.calls).toEqual([`acquire ${WS}`, 'fired', `release ${WS}`]);
+  });
+
+  it('marks the probe start in the first half on an open circuit past its backoff', async () => {
+    state.rows = [row(openCircuit(NOW - 1))];
+    const { host } = makeHost();
+    expect((await beginManualRefresh(target, host)).bypass).toBe(false);
+    expect(state.calls).toEqual([`acquire ${WS}`, 'fired', `probe-start ${workflow.uid} none`, `release ${WS}`]);
+  });
+
+  it('refuses a press with no network in the first half', async () => {
+    const { host } = makeHost({ isOnline: () => false });
+    await expect(beginManualRefresh(target, host)).rejects.toThrow(/You're offline/);
+    expect(state.calls).toEqual([`acquire ${WS}`, `release ${WS}`]);
+  });
+
+  it('commits a run that passed and tells the hook, the workspace held for the write', async () => {
+    const { host } = makeHost();
+    await settleManualRefresh(target, host, async () => {
+      state.calls.push('commit');
+    });
+    expect(state.calls).toEqual([`acquire ${WS}`, 'commit', 'succeeded', `release ${WS}`]);
+  });
+
+  it('hands a failed run’s error to the hook with the row its commit left, and to the caller unchanged', async () => {
+    const failure = new Error('No message matched devices/dev-1/status within 10 s.');
+    const after = row({ ...initialCircuitSnapshot(), consecutiveFailures: 1, lastErrorAt: NOW });
+    const seen: Array<WorkflowRunCache | null> = [];
+    const { host } = makeHost({ onFailed: (_error, cache) => seen.push(cache) });
+    await expect(
+      settleManualRefresh(target, host, async () => {
+        state.rows = [after];
+        throw failure;
+      }),
+    ).rejects.toBe(failure);
+    expect(seen).toEqual([after]);
+    expect(state.calls).toEqual([`acquire ${WS}`, `release ${WS}`]);
   });
 });

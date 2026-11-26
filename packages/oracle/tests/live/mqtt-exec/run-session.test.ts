@@ -68,7 +68,7 @@ vi.mock('../../../src/entity/device-trust-store', () => ({
 
 import type { SessionMessage, SessionOpenResult } from '@openheaders/core/live';
 import type { ScriptExecutionResult } from '@openheaders/core/scripts';
-import { createMqttRunSessionHost } from '../../../src/live/mqtt-exec/run-session';
+import { createMqttRunSessionHost, type MqttRunSessionHostOptions } from '../../../src/live/mqtt-exec/run-session';
 import {
   type MqttByteTransport,
   type MqttStreamCallbacks,
@@ -170,7 +170,7 @@ const settleTick = (): Promise<void> => new Promise((resolve) => setTimeout(reso
 const text = (value: string): Uint8Array => new TextEncoder().encode(value);
 
 /** A `listen` being opened: the socket is up and the CONNECT written, the broker has not answered. */
-async function opening(request: MqttRequest = PROBE) {
+async function opening(request: MqttRequest = PROBE, over: Partial<MqttRunSessionHostOptions> = {}) {
   const rig = scriptedTransport();
   const messages: SessionMessage[] = [];
   const ended: string[] = [];
@@ -188,6 +188,7 @@ async function opening(request: MqttRequest = PROBE) {
         waits.push(ms);
         passDeadline = resolve;
       }),
+    ...over,
   });
   const opened = host.open(LISTEN, {
     stepCaptures,
@@ -674,5 +675,35 @@ describe('a listen that runs its request’s scripts', () => {
     expect(await session.end()).toEqual({
       warning: 'After close script failed: bye · 1 script test failed · On message script failed 1 time',
     });
+  });
+});
+
+describe('a listen in a realm that hands its own scopes in', () => {
+  it('resolves through them, reading a capture made after the session opened', async () => {
+    const scoped: Array<{ uid: string; captures: ReadonlyMap<string, ReadonlyMap<string, string>> }> = [];
+    const listen = await opening(PROBE, {
+      workspaceId: null,
+      sessionScope: async (request, stepCaptures) => {
+        scoped.push({ uid: request.uid, captures: stepCaptures });
+        return {
+          resolution: (template) =>
+            template.replace('{{step.reboot.command}}', stepCaptures.get('reboot')?.get('command') ?? ''),
+        };
+      },
+    });
+    listen.grant(0);
+    const session = await listen.session();
+    expect(scoped).toEqual([{ uid: 'mqttreq1', captures: listen.stepCaptures }]);
+    listen.stepCaptures.set('reboot', new Map([['command', 'restart']]));
+
+    const sending = session.send(SEND);
+    await settleTick();
+    const publish = listen.rig.written.at(-1);
+    if (publish?.type !== 'publish' || publish.packetId === null) throw new Error('expected a QoS 1 PUBLISH');
+    expect(new TextDecoder().decode(publish.payload)).toBe('{"name":"restart-1"}');
+    listen.rig.push({ type: 'puback', packetId: publish.packetId, reasonCode: 0 });
+
+    expect((await sending).ok).toBe(true);
+    await session.end();
   });
 });
