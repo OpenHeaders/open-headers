@@ -506,7 +506,7 @@ export const StatusMatchControls: React.FC<{
     <>
       <Select
         size="small"
-        style={{ width: 150, flexShrink: 0 }}
+        style={{ width: 180, flexShrink: 0 }}
         value={mode}
         options={STATUS_MATCH_OPTIONS.map((o) => ({ value: o.value, label: t(o.labelKey) }))}
         onChange={(v) => onModeChange(v as StatusMatchMode)}

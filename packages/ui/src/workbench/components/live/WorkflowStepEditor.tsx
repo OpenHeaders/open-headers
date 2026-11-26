@@ -447,7 +447,7 @@ const WorkflowStepEditor: React.FC<Props> = ({
       )}
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-        <Text strong style={{ fontSize: 12 }}>
+        <Text strong style={{ fontSize: 12, whiteSpace: 'nowrap', flexShrink: 0 }}>
           {t('workbench.editors.live.step.title', { number: index + 1 })}
         </Text>
         <span data-field-path={LIVE_WORKFLOW_FIELD.step(index, 'id')} style={{ display: 'contents' }}>

@@ -252,7 +252,8 @@ export const SendStepFields: React.FC<SessionFieldsProps<SendWorkflowStep>> = ({
         <Tooltip open={messageError ? undefined : false} title={messageError?.message}>
           <Select
             size="small"
-            style={{ flex: '1 1 30%', minWidth: 0 }}
+            style={{ flex: '2 1 40%', minWidth: 0 }}
+            popupMatchSelectWidth={false}
             status={messageError ? 'error' : undefined}
             placeholder={t('workbench.editors.live.step.selectMessage')}
             data-testid={`wf-step-${index}-message`}
