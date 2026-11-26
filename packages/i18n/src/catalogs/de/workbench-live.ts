@@ -328,6 +328,16 @@ export const workbenchLive = {
     'Pro Versuch — die Anfrage (einschließlich des Body-Lesens) bricht ab, wenn diese Obergrenze ' +
     'überschritten wird. Ein wiederholender Schritt bekommt bei jedem Versuch das volle Zeitlimit. Leere das ' +
     'Feld für keine Obergrenze.',
+  'workbench.editors.live.sections.successCriteria': 'Erfolgskriterien',
+  'workbench.editors.live.criteria.noneForCall': 'Keine Kriterien — jede eintreffende Antwort gilt als bestanden.',
+  'workbench.editors.live.criteria.kindExists': 'Existiert',
+  'workbench.editors.live.criteria.kindEquals': 'Ist gleich',
+  'workbench.editors.live.criteria.kindMatches': 'Entspricht Muster',
+  'workbench.editors.live.criteria.add': 'Kriterium hinzufügen',
+  'workbench.editors.live.criteria.removeAria': 'Kriterium {number} entfernen',
+  'workbench.editors.live.sections.poll': 'Polling',
+  'workbench.editors.live.sections.pollSummary': '({count} × {delay} ms)',
+  'workbench.editors.live.sections.pollInfo': 'Sendet die Anfrage erneut, bis ihre Erfolgskriterien erfüllt sind.',
   'workbench.editors.live.sections.scripts': 'Scripts',
   'workbench.editors.live.sections.scriptsOn': '(an)',
   'workbench.editors.live.sections.scriptsOff': '(aus)',

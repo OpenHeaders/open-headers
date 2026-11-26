@@ -331,6 +331,17 @@ export const workbenchLive = {
   'workbench.editors.live.sections.timeoutTooltip':
     'Por intento — la solicitud (incluida la lectura del cuerpo) se aborta al superar este tope. Un paso que ' +
     'reintenta dispone del tiempo completo en cada intento. Vacía el campo para no tener tope.',
+  'workbench.editors.live.sections.successCriteria': 'Criterios de éxito',
+  'workbench.editors.live.criteria.noneForCall': 'Sin criterios — cualquier respuesta que llegue se da por válida.',
+  'workbench.editors.live.criteria.kindExists': 'Existe',
+  'workbench.editors.live.criteria.kindEquals': 'Es igual a',
+  'workbench.editors.live.criteria.kindMatches': 'Coincide con',
+  'workbench.editors.live.criteria.add': 'Añadir criterio',
+  'workbench.editors.live.criteria.removeAria': 'Quitar el criterio {number}',
+  'workbench.editors.live.sections.poll': 'Sondeo',
+  'workbench.editors.live.sections.pollSummary': '({count} × {delay} ms)',
+  'workbench.editors.live.sections.pollInfo':
+    'Vuelve a enviar la solicitud hasta que se cumplan sus criterios de éxito.',
   'workbench.editors.live.sections.scripts': 'Scripts',
   'workbench.editors.live.sections.scriptsOn': '(activados)',
   'workbench.editors.live.sections.scriptsOff': '(desactivados)',

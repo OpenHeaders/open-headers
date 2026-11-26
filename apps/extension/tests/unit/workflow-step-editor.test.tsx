@@ -21,6 +21,7 @@
  */
 
 import type { DraftCallStep } from '@openheaders/core/live';
+import type { Criterion } from '@openheaders/core/types';
 import WorkflowStepEditor from '@openheaders/ui/workbench/components/live/WorkflowStepEditor';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import type React from 'react';
@@ -220,5 +221,96 @@ describe('WorkflowStepEditor — Phase I', () => {
     cleanup();
     renderStep(mkStep());
     expect(screen.queryByText(/^scripts$/)).toBeNull();
+  });
+
+  // ── Success criteria + Poll sections ────────────────────────────────
+
+  it('Success criteria header summarizes (none), then the number of rows', () => {
+    renderStep(mkStep());
+    expect(screen.getByRole('button', { name: /Success criteria/i }).textContent).toContain('(none)');
+    cleanup();
+    renderStep(
+      mkStep({
+        successCriteria: [
+          { kind: 'status', uid: 'crtstat0', match: '2xx' },
+          { kind: 'exists', uid: 'crtname0', extractor: { kind: 'json-path', path: '$.name' } },
+        ],
+      }),
+    );
+    expect(screen.getByRole('button', { name: /Success criteria/i }).textContent).toContain('(2)');
+  });
+
+  it('adding a criterion emits a status row; removing the last one removes the field', () => {
+    const { onChange } = renderStep(mkStep());
+    fireEvent.click(screen.getByRole('button', { name: /Success criteria/i }));
+    expect(screen.queryByText('No criteria — any response that arrives passes.')).not.toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: /Add criterion/i }));
+    expect(onChange).toHaveBeenCalledWith(
+      expect.objectContaining({ successCriteria: [{ kind: 'status', uid: expect.any(String), match: '2xx' }] }),
+    );
+    cleanup();
+    const held = renderStep(mkStep({ successCriteria: [{ kind: 'status', uid: 'crtstat0', match: '2xx' }] }));
+    fireEvent.click(screen.getByRole('button', { name: /Success criteria/i }));
+    fireEvent.click(screen.getByRole('button', { name: 'Remove criterion 1' }));
+    const last = held.onChange.mock.calls.at(-1)?.[0] as DraftCallStep;
+    expect(last.successCriteria).toBeUndefined();
+  });
+
+  it('editing an equals row’s value emits the row with its extractor kept', () => {
+    const criterion: Criterion = {
+      kind: 'equals',
+      uid: 'crtname0',
+      extractor: { kind: 'json-path', path: '$.name' },
+      value: '',
+    };
+    const { onChange } = renderStep(mkStep({ successCriteria: [criterion] }));
+    fireEvent.click(screen.getByRole('button', { name: /Success criteria/i }));
+    fireEvent.change(screen.getByTestId('wf-step-1-criterion-0-value'), { target: { value: '{{step.rename.name}}' } });
+    expect(onChange).toHaveBeenCalledWith(
+      expect.objectContaining({ successCriteria: [{ ...criterion, value: '{{step.rename.name}}' }] }),
+    );
+  });
+
+  it('Poll header summarizes its two numbers; setting attempts starts a poll, Clear ends it', () => {
+    const { onChange } = renderStep(mkStep());
+    const header = screen.getByRole('button', { name: /Poll/i });
+    expect(header.textContent).toContain('(none)');
+    fireEvent.click(header);
+    fireEvent.change(numberInput('wf-step-1-poll-attempts') as HTMLInputElement, { target: { value: '10' } });
+    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ poll: { maxAttempts: 10, delayMs: 1_000 } }));
+    cleanup();
+    const polled = renderStep(mkStep({ poll: { maxAttempts: 10, delayMs: 200 } }));
+    const polledHeader = screen.getByRole('button', { name: /Poll/i });
+    expect(polledHeader.textContent).toContain('(10 × 200 ms)');
+    fireEvent.click(polledHeader);
+    fireEvent.change(numberInput('wf-step-1-poll-delay') as HTMLInputElement, { target: { value: '500' } });
+    expect(polled.onChange).toHaveBeenCalledWith(expect.objectContaining({ poll: { maxAttempts: 10, delayMs: 500 } }));
+    fireEvent.click(screen.getByRole('button', { name: /^Clear$/ }));
+    const last = polled.onChange.mock.calls.at(-1)?.[0] as DraftCallStep;
+    expect(last.poll).toBeUndefined();
+  });
+
+  it('a poll’s issue is said in its section, and an issue no field owns at the card’s foot', () => {
+    renderStep(mkStep({ poll: { maxAttempts: 10, delayMs: 200 } }), {
+      errors: [
+        {
+          issue: 'poll-without-criteria',
+          stepId: 'refresh',
+          message: 'Step "refresh" polls with no success criteria to wait for.',
+        },
+        {
+          issue: 'duplicate-capture-name',
+          stepId: 'refresh',
+          referencedCaptureName: 'token',
+          message: 'Duplicate capture name "token" in step "refresh".',
+        },
+      ],
+    });
+    const foot = screen.getByTestId('wf-step-1-issues');
+    expect(foot.textContent).toBe('Duplicate capture name "token" in step "refresh".');
+    fireEvent.click(screen.getByRole('button', { name: /Poll/i }));
+    expect(screen.getByTestId('wf-step-1-poll').textContent).toContain(
+      'Step "refresh" polls with no success criteria to wait for.',
+    );
   });
 });

@@ -312,6 +312,16 @@ describe('the workflow validator', () => {
       validateWorkflowShape(scenario([{ ...CALL, successCriteria: [broken] }])).map((error) => error.issue),
     ).toEqual(['criterion-invalid-regex']);
   });
+
+  it('names the criterion row a pattern error is about', () => {
+    const sound = { kind: 'matches', uid: 'crtsound', extractor: { kind: 'whole-body' }, pattern: '^ok$' };
+    const broken = { kind: 'matches', uid: 'crtbrokn', extractor: { kind: 'whole-body' }, pattern: '(' };
+    expect(
+      validateWorkflowShape(scenario([{ ...CALL, successCriteria: [sound, broken] }])).map(
+        (error) => error.referencedCriterionUid,
+      ),
+    ).toEqual(['crtbrokn']);
+  });
 });
 
 describe('the definition fingerprint', () => {

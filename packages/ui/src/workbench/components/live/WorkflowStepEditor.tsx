@@ -21,9 +21,9 @@
  */
 
 import { DeleteOutlined, DownOutlined, InfoCircleOutlined, UpOutlined } from '@ant-design/icons';
-import type { DraftCallStep, DraftCapture, StructuralError } from '@openheaders/core/live';
+import type { DraftCallStep, DraftCapture, StructuralError, StructuralIssue } from '@openheaders/core/live';
 import { newDraftCapture } from '@openheaders/core/live';
-import type { PriorityRef, StepGate, StepRetryPolicy } from '@openheaders/core/types';
+import type { Criterion, PriorityRef, StepGate, StepPoll, StepRetryPolicy } from '@openheaders/core/types';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { noteFeatureUsed } from '@openheaders/ui/shared/product-telemetry';
 import { Button, Collapse, ConfigProvider, Input, Select, Space, Switch, Tag, Tooltip, Typography, theme } from 'antd';
@@ -38,6 +38,24 @@ import { buildRequestPickerOptions, type StepRequestChoice } from './workflow-st
 import { buildWorkflowStepSections } from './workflow-step-sections';
 
 const { Text } = Typography;
+
+/** The issues a field of the card shows where it sits — every other one is said at the card's foot. */
+const FIELD_OWNED_ISSUES: ReadonlySet<StructuralIssue> = new Set([
+  'duplicate-step-id',
+  'step-unknown-dep',
+  'depends-on-cycle',
+  'step-request-missing',
+  'gate-unknown-stepid',
+  'gate-unreachable-stepid',
+  'gate-unknown-capture',
+  'gate-invalid-regex',
+  'priority-unknown-stepid',
+  'priority-unreachable-stepid',
+  'priority-unknown-capture',
+  'criterion-invalid-regex',
+  'poll-without-criteria',
+  'poll-exceeds-limit',
+]);
 
 interface Props {
   step: DraftCallStep;
@@ -152,6 +170,13 @@ const WorkflowStepEditor: React.FC<Props> = ({
   // The step's backing request was deleted out from under it — the
   // workflow can't run until the user re-points or removes the step.
   const requestError = useMemo(() => errors.find((e) => e.issue === 'step-request-missing'), [errors]);
+  const criteriaErrors = useMemo(() => errors.filter((e) => e.issue === 'criterion-invalid-regex'), [errors]);
+  const pollError = useMemo(
+    () => errors.find((e) => e.issue === 'poll-without-criteria' || e.issue === 'poll-exceeds-limit'),
+    [errors],
+  );
+  // An issue no field of the card owns is said at the card's foot.
+  const footErrors = useMemo(() => errors.filter((e) => !FIELD_OWNED_ISSUES.has(e.issue)), [errors]);
 
   // ── dependsOn helpers ───────────────────────────────────────────
   // `undefined` = implicit prior-step dep; `[]` = explicit root; array
@@ -236,6 +261,29 @@ const WorkflowStepEditor: React.FC<Props> = ({
       delete nextStep.timeoutMs;
     } else {
       nextStep.timeoutMs = next;
+    }
+    onChange(nextStep);
+  };
+
+  // ── success criteria + poll helpers ─────────────────────────────
+  // An emptied list deletes the field: absent is "any response that
+  // arrived passes", and an empty array would say the same twice.
+  const setSuccessCriteria = (next: Criterion[]) => {
+    const nextStep = { ...step };
+    if (next.length === 0) {
+      delete nextStep.successCriteria;
+    } else {
+      nextStep.successCriteria = next;
+    }
+    onChange(nextStep);
+  };
+
+  const setPoll = (next: StepPoll | undefined) => {
+    const nextStep = { ...step };
+    if (next === undefined) {
+      delete nextStep.poll;
+    } else {
+      nextStep.poll = next;
     }
     onChange(nextStep);
   };
@@ -546,6 +594,10 @@ const WorkflowStepEditor: React.FC<Props> = ({
             priorityCaptureOptions,
             retry: step.retry,
             timeoutMs: step.timeoutMs,
+            successCriteria: step.successCriteria,
+            criteriaErrors,
+            poll: step.poll,
+            pollError,
             runScripts: step.runScripts,
             readOnly,
             handleDependsOnChange,
@@ -554,9 +606,21 @@ const WorkflowStepEditor: React.FC<Props> = ({
             setPriority,
             setRetry,
             setTimeoutMs,
+            setSuccessCriteria,
+            setPoll,
             setRunScripts,
           })}
         />
+
+        {footErrors.length > 0 && (
+          <div data-testid={`wf-step-${index}-issues`} style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+            {footErrors.map((error) => (
+              <Text key={`${error.issue}:${error.message}`} type="danger" style={{ fontSize: 11 }}>
+                {error.message}
+              </Text>
+            ))}
+          </div>
+        )}
       </Space>
     </div>
   );

@@ -93,6 +93,8 @@ export interface StructuralError {
   referencedStepId?: string;
   /** Referenced capture name when relevant. */
   referencedCaptureName?: string;
+  /** The criterion row the error is about, when it is about one. */
+  referencedCriterionUid?: string;
   /**
    * Sub-reason for `step-request-incomplete` errors — lets the UI pick
    * a specific hint ("Set a URL" vs "Set a username" etc.).
@@ -346,6 +348,7 @@ export function criterionPatternErrors(stepId: string, criteria: readonly Criter
       errors.push({
         issue: 'criterion-invalid-regex',
         stepId,
+        referencedCriterionUid: criterion.uid,
         message: `Step "${stepId}" has a criterion with an invalid regex pattern: ${criterion.pattern}`,
       });
     }

@@ -1,6 +1,7 @@
 /**
  * Collapse sections for {@link WorkflowStepEditor} — Depends on,
- * Run condition, Priority, Retry policy, Timeout, and Scripts.
+ * Run condition, Priority, Retry policy, Timeout, Success criteria,
+ * Poll, and Scripts.
  * Pure factory rebuilt every render (as the inline array
  * was) so state and handlers stay current — no memoization is required
  * because no renderer closes over a value that must be referentially
@@ -9,28 +10,39 @@
 
 import {
   BranchesOutlined,
+  CheckCircleOutlined,
   ClockCircleOutlined,
   CodeOutlined,
   InfoCircleOutlined,
   ReloadOutlined,
+  SyncOutlined,
 } from '@ant-design/icons';
 import type { StructuralError } from '@openheaders/core/live';
 import {
   DEFAULT_RETRY_DELAY_MS,
+  MAX_POLL_ATTEMPTS,
+  MAX_POLL_DELAY_MS,
   MAX_RETRY_ATTEMPTS,
   MAX_RETRY_DELAY_MS,
   MAX_STEP_TIMEOUT_MS,
+  MIN_POLL_ATTEMPTS,
+  MIN_POLL_DELAY_MS,
   MIN_RETRY_ATTEMPTS,
   MIN_STEP_TIMEOUT_MS,
 } from '@openheaders/core/schemas';
-import type { PriorityRef, StatusMatch, StepGate, StepRetryPolicy } from '@openheaders/core/types';
+import type { Criterion, PriorityRef, StatusMatch, StepGate, StepPoll, StepRetryPolicy } from '@openheaders/core/types';
 import type { Translate } from '@openheaders/ui/context/LocaleContext';
 import { LIVE_WORKFLOW_FIELD } from '@openheaders/ui/shared/awareness/live-paths';
+import { InfoTrigger } from '@openheaders/ui/shared/info-popover';
 import { Button, type CollapseProps, InputNumber, Select, Space, Switch, Tooltip, Typography } from 'antd';
 import type { GlobalToken } from 'antd/es/theme/interface';
+import CriteriaEditor from './CriteriaEditor';
 import StepGateEditor from './StepGateEditor';
 
 const { Text } = Typography;
+
+/** The wait a poll starts with when its attempts are first set — the editor's seed; the step stores its own. */
+const SEED_POLL_DELAY_MS = 1_000;
 
 export interface WorkflowStepSectionsOptions {
   token: GlobalToken;
@@ -50,6 +62,11 @@ export interface WorkflowStepSectionsOptions {
   priorityCaptureOptions: { value: string; label: string }[];
   retry: StepRetryPolicy | undefined;
   timeoutMs: number | undefined;
+  successCriteria: Criterion[] | undefined;
+  /** The step's errors about a criterion row — each names its row. */
+  criteriaErrors: StructuralError[];
+  poll: StepPoll | undefined;
+  pollError: StructuralError | undefined;
   runScripts: boolean | undefined;
   /** The form is read-only — a control that sets its own `disabled` stays off whatever its own condition says. */
   readOnly: boolean;
@@ -59,6 +76,8 @@ export interface WorkflowStepSectionsOptions {
   setPriority: (next: PriorityRef | undefined) => void;
   setRetry: (next: StepRetryPolicy | undefined) => void;
   setTimeoutMs: (next: number | undefined) => void;
+  setSuccessCriteria: (next: Criterion[]) => void;
+  setPoll: (next: StepPoll | undefined) => void;
   setRunScripts: (next: boolean | undefined) => void;
 }
 
@@ -106,6 +125,10 @@ export function buildWorkflowStepSections({
   priorityCaptureOptions,
   retry,
   timeoutMs,
+  successCriteria,
+  criteriaErrors,
+  poll,
+  pollError,
   runScripts,
   readOnly,
   handleDependsOnChange,
@@ -114,9 +137,12 @@ export function buildWorkflowStepSections({
   setPriority,
   setRetry,
   setTimeoutMs,
+  setSuccessCriteria,
+  setPoll,
   setRunScripts,
 }: WorkflowStepSectionsOptions): CollapseProps['items'] {
   const retryOnChoice = encodeRetryOn(retry?.retryOn);
+  const criteriaCount = successCriteria?.length ?? 0;
   return [
     {
       key: 'deps',
@@ -459,6 +485,113 @@ export function buildWorkflowStepSections({
               </Button>
             )}
           </Space>
+        </div>
+      ),
+    },
+    {
+      key: 'criteria',
+      label: (
+        <span style={{ fontSize: 11 }}>
+          <CheckCircleOutlined style={{ marginRight: 4 }} />
+          <span style={{ textTransform: 'uppercase', letterSpacing: 0.4, color: token.colorTextSecondary }}>
+            {t('workbench.editors.live.sections.successCriteria')}
+          </span>
+          <span style={{ marginLeft: 6, color: token.colorTextTertiary }}>
+            {criteriaCount === 0 ? t('workbench.editors.live.sections.none') : `(${criteriaCount})`}
+          </span>
+        </span>
+      ),
+      children: (
+        <div style={{ padding: '0 0 4px' }} data-testid={`wf-step-${index}-criteria`}>
+          <CriteriaEditor
+            value={successCriteria ?? []}
+            onChange={setSuccessCriteria}
+            emptyText={t('workbench.editors.live.criteria.noneForCall')}
+            errors={criteriaErrors}
+            testId={`wf-step-${index}-criterion`}
+          />
+        </div>
+      ),
+    },
+    {
+      key: 'poll',
+      label: (
+        <span style={{ fontSize: 11 }}>
+          <SyncOutlined style={{ marginRight: 4 }} />
+          <span style={{ textTransform: 'uppercase', letterSpacing: 0.4, color: token.colorTextSecondary }}>
+            {t('workbench.editors.live.sections.poll')}
+          </span>
+          <span style={{ marginLeft: 6, color: token.colorTextTertiary }}>
+            {poll
+              ? t('workbench.editors.live.sections.pollSummary', { count: poll.maxAttempts, delay: poll.delayMs })
+              : t('workbench.editors.live.sections.none')}
+          </span>
+        </span>
+      ),
+      children: (
+        <div style={{ padding: '0 0 4px' }} data-testid={`wf-step-${index}-poll`}>
+          <Space wrap size={6} style={{ width: '100%' }}>
+            <InputNumber
+              size="small"
+              style={{ width: 130 }}
+              min={MIN_POLL_ATTEMPTS}
+              max={MAX_POLL_ATTEMPTS}
+              status={pollError ? 'error' : undefined}
+              placeholder={t('workbench.editors.live.sections.attemptsPlaceholder')}
+              prefix={
+                <Text type="secondary" style={{ fontSize: 11 }}>
+                  {t('workbench.editors.live.sections.attemptsPrefix')}
+                </Text>
+              }
+              data-testid={`wf-step-${index}-poll-attempts`}
+              value={poll?.maxAttempts ?? null}
+              onChange={(v) => {
+                if (v == null) {
+                  setPoll(undefined);
+                  return;
+                }
+                setPoll({ maxAttempts: v, delayMs: poll?.delayMs ?? SEED_POLL_DELAY_MS });
+              }}
+            />
+            <InputNumber
+              size="small"
+              style={{ width: 140 }}
+              min={MIN_POLL_DELAY_MS}
+              max={MAX_POLL_DELAY_MS}
+              step={100}
+              disabled={readOnly || !poll}
+              status={pollError ? 'error' : undefined}
+              prefix={
+                <Text type="secondary" style={{ fontSize: 11 }}>
+                  {t('workbench.editors.live.sections.delayPrefix')}
+                </Text>
+              }
+              data-testid={`wf-step-${index}-poll-delay`}
+              value={poll?.delayMs ?? null}
+              onChange={(v) => {
+                if (!poll || v == null) return;
+                setPoll({ ...poll, delayMs: v });
+              }}
+            />
+            <InfoTrigger
+              content={{
+                title: t('workbench.editors.live.sections.poll'),
+                summary: t('workbench.editors.live.sections.pollInfo'),
+              }}
+            />
+            {poll && (
+              <Button size="small" type="text" onClick={() => setPoll(undefined)}>
+                {t('workbench.editors.live.sections.clear')}
+              </Button>
+            )}
+          </Space>
+          {pollError && (
+            <div>
+              <Text type="danger" style={{ fontSize: 11 }}>
+                {pollError.message}
+              </Text>
+            </div>
+          )}
         </div>
       ),
     },

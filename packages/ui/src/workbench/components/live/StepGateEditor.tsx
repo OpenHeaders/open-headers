@@ -491,7 +491,7 @@ const ClauseRow: React.FC<ClauseRowProps> = ({
 
 // ── Status-match controls ─────────────────────────────────────────
 
-const StatusMatchControls: React.FC<{
+export const StatusMatchControls: React.FC<{
   match: StatusMatch;
   onChange: (next: StatusMatch) => void;
 }> = ({ match, onChange }) => {

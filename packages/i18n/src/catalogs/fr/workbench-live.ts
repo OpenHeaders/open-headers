@@ -328,6 +328,17 @@ export const workbenchLive = {
   'workbench.editors.live.sections.timeoutTooltip':
     "Par tentative — la requête (lecture du corps incluse) s'interrompt au-delà de ce plafond. Une étape qui " +
     'réessaie dispose du délai complet à chaque tentative. Videz le champ pour aucun plafond.',
+  'workbench.editors.live.sections.successCriteria': 'Critères de réussite',
+  'workbench.editors.live.criteria.noneForCall': 'Aucun critère — toute réponse reçue est acceptée.',
+  'workbench.editors.live.criteria.kindExists': 'Existe',
+  'workbench.editors.live.criteria.kindEquals': 'Est égal à',
+  'workbench.editors.live.criteria.kindMatches': 'Correspond à',
+  'workbench.editors.live.criteria.add': 'Ajouter un critère',
+  'workbench.editors.live.criteria.removeAria': 'Retirer le critère {number}',
+  'workbench.editors.live.sections.poll': 'Interrogation répétée',
+  'workbench.editors.live.sections.pollSummary': '({count} × {delay} ms)',
+  'workbench.editors.live.sections.pollInfo':
+    "Renvoie la requête jusqu'à ce que ses critères de réussite soient remplis.",
   'workbench.editors.live.sections.scripts': 'Scripts',
   'workbench.editors.live.sections.scriptsOn': '(activés)',
   'workbench.editors.live.sections.scriptsOff': '(désactivés)',
