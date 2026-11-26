@@ -1,9 +1,12 @@
 /**
  * Pure validators for a Live Workflow's structural invariants.
  *
- * Covers two distinct checks the editor + save path must run (a session
- * step's own invariants are `validateSessionSteps`'; to these two it is
- * a step that needs an update, as to every reader that knows only calls):
+ * Covers two distinct checks the editor + save path must run. A session
+ * step is held here to what every step shares — its id, its
+ * dependencies, its gate, its priority; the keys of its own action are
+ * `validateSessionSteps`', and what its session request must be is
+ * `validateSessionRequests`'. A step of an action the model does not
+ * know needs an update:
  *
  *   1. {@link validateWorkflowShape} — local invariants that don't
  *      touch any other entity. Unique step ids, unique capture names
@@ -32,6 +35,7 @@ import { MAX_POLL_TOTAL_MS } from '../schemas/live';
 import type { CallWorkflowStep, Criterion, LiveWorkflow, WorkflowStep } from '../types/live';
 import type { RequestIncompleteReason } from '../utils/request-validation';
 import { effectiveDependsOn } from './chain-runner';
+import { isKnownStep, isSessionStep } from './step-actions';
 import { scanTemplateReferences } from './template-scan';
 import { isUnknownStep, unknownStepMessage } from './unknown-step';
 
@@ -75,7 +79,11 @@ export type StructuralIssue =
   | 'expect-unknown-trigger'
   | 'expect-unreachable-trigger'
   | 'expect-unarmed-trigger'
-  | 'expect-address-reads-trigger';
+  | 'expect-address-reads-trigger'
+  // ── Session requests (`validateSessionRequests`) ─────────────
+  | 'listen-request-missing'
+  | 'send-end-input-unsupported'
+  | 'expect-stored-unsure';
 
 export interface StructuralError {
   issue: StructuralIssue;
@@ -102,7 +110,7 @@ export function validateWorkflowShape(workflow: LiveWorkflow): StructuralError[]
   const knownStepIds = new Set(workflow.steps.map((s) => s.id));
   const captureIndex = new Map<string, Set<string>>();
   for (const s of workflow.steps) {
-    if (!isUnknownStep(s)) captureIndex.set(s.id, new Set(s.captures.map((c) => c.name)));
+    if (isKnownStep(s)) captureIndex.set(s.id, new Set(s.captures.map((c) => c.name)));
   }
 
   for (const step of workflow.steps) {
@@ -115,10 +123,12 @@ export function validateWorkflowShape(workflow: LiveWorkflow): StructuralError[]
     }
     seenStepIds.add(step.id);
 
-    if (isUnknownStep(step)) {
+    if (!isKnownStep(step)) {
       errors.push({ issue: 'step-needs-update', stepId: step.id, message: unknownStepMessage(step) });
       continue;
     }
+    // A session step's captures and criteria are `validateSessionSteps`'.
+    if (isSessionStep(step)) continue;
 
     const seenCaptures = new Set<string>();
     for (const capture of step.captures) {
@@ -164,7 +174,7 @@ export function validateWorkflowShape(workflow: LiveWorkflow): StructuralError[]
         referencedStepId: policy.stepId,
         message: `Refresh policy references unknown step "${policy.stepId}".`,
       });
-    } else if (!isUnknownStep(step) && !step.captures.some((c) => c.name === policy.captureName)) {
+    } else if (isKnownStep(step) && !step.captures.some((c) => c.name === policy.captureName)) {
       errors.push({
         issue: 'refresh-unknown-capture',
         stepId: policy.stepId,
@@ -187,7 +197,7 @@ export function validateWorkflowShape(workflow: LiveWorkflow): StructuralError[]
 
   // ── Phase I — dependsOn validation (explicit references) ──────
   for (const step of workflow.steps) {
-    if (isUnknownStep(step) || step.dependsOn === undefined) continue; // implicit = prior step, handled elsewhere
+    if (!isKnownStep(step) || step.dependsOn === undefined) continue; // implicit = prior step, handled elsewhere
     for (const depId of step.dependsOn) {
       if (!knownStepIds.has(depId)) {
         errors.push({
@@ -231,7 +241,7 @@ export function validateWorkflowShape(workflow: LiveWorkflow): StructuralError[]
 
   // ── Phase I — runIf clause validation ─────────────────────────
   for (const step of workflow.steps) {
-    if (isUnknownStep(step)) continue;
+    if (!isKnownStep(step)) continue;
     const gate = step.runIf;
     if (!gate) continue;
     for (const clause of gate.all) {
@@ -288,7 +298,7 @@ export function validateWorkflowShape(workflow: LiveWorkflow): StructuralError[]
 
   // ── Phase I — priorityFrom validation ─────────────────────────
   for (const step of workflow.steps) {
-    if (isUnknownStep(step)) continue;
+    if (!isKnownStep(step)) continue;
     const ref = step.priorityFrom;
     if (!ref) continue;
     if (!knownStepIds.has(ref.stepId)) {

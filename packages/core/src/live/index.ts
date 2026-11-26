@@ -146,6 +146,8 @@ export type {
   SessionSendResult,
 } from './session-port';
 export { subjectOfMessage } from './session-port';
+export type { MqttRequestLookup } from './session-request-validation';
+export { validateSessionRequests } from './session-request-validation';
 export { formatWait, SESSION_CLOSE_DEADLINE_MS } from './session-step-runner';
 export { validateSessionSteps } from './session-step-validation';
 export { RUN_WINDOW_MAX_BYTES, RUN_WINDOW_MAX_MESSAGES } from './session-window';

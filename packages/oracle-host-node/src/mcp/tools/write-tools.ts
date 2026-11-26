@@ -19,6 +19,7 @@
  */
 
 import {
+  isSessionStep,
   isUnknownStep,
   unknownStepMessage,
   validateStepRequestsExist,
@@ -436,21 +437,18 @@ function findWorkflow(workspaceId: string, uid: string): LiveWorkflow {
  * that writes `steps` authors them, and a step this build does not know
  * is refused by name; a patch that leaves `steps` alone renames or
  * switches off a workflow a newer build wrote, and rides past that one
- * issue.
+ * issue. This tool authors calls alone: a session step is refused as a
+ * step it does not know.
  */
 function assertWorkflowStructure(workspaceId: string, workflow: LiveWorkflow, stepsAuthored: boolean): void {
   const knownRequestUids = new Set(snapshotRequestPostStates(workspaceId).map((ps) => ps.request.uid));
-  const structural = [
-    ...validateWorkflowShape(workflow),
-    ...validateStepRequestsExist(workflow, knownRequestUids),
-  ].filter((error) => stepsAuthored || error.issue !== 'step-needs-update');
-  if (structural.length > 0) {
-    throw new McpToolInputError(
-      `invalid workflow: ${structural
-        .slice(0, 5)
-        .map((e) => e.message)
-        .join('; ')}`,
-    );
+  const structural = [...validateWorkflowShape(workflow), ...validateStepRequestsExist(workflow, knownRequestUids)]
+    .filter((error) => stepsAuthored || error.issue !== 'step-needs-update')
+    .map((error) => error.message);
+  const unauthored = stepsAuthored ? workflow.steps.filter(isSessionStep).map(unknownStepMessage) : [];
+  const refused = [...structural, ...unauthored];
+  if (refused.length > 0) {
+    throw new McpToolInputError(`invalid workflow: ${refused.slice(0, 5).join('; ')}`);
   }
 }
 

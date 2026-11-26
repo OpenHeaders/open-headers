@@ -263,10 +263,30 @@ describe('the session validator', () => {
 });
 
 describe('the workflow validator', () => {
-  it('still says a session step needs an update, as every reader that knows only calls does', () => {
-    expect(validateWorkflowShape(scenario()).map((error) => [error.issue, error.stepId])).toEqual([
-      ['step-needs-update', 'probe'],
-      ['step-needs-update', 'status'],
+  it('holds a session step to what every step shares, and says no step of the scenario needs an update', () => {
+    expect(validateWorkflowShape(scenario())).toEqual([]);
+    expect(
+      validateWorkflowShape(scenario([LISTEN, CALL, { ...EXPECT, dependsOn: ['ghost'] }])).map((error) => [
+        error.issue,
+        error.stepId,
+      ]),
+    ).toEqual([['step-unknown-dep', 'status']]);
+  });
+
+  it('reads a session step’s captures where a later step’s gate names one', () => {
+    const state = { uid: 'capstate', name: 'state', extractor: { kind: 'json-path', path: '$.state' } };
+    const gate = { all: [{ kind: 'capture-exists', uid: 'gatestat', stepId: 'status', captureName: 'state' }] };
+    const after = { uid: 'stpafter', id: 'confirm', requestUid: 'httpreq2', captures: [], runIf: gate };
+    expect(validateWorkflowShape(scenario([LISTEN, CALL, EXPECT, after])).map((error) => error.issue)).toEqual([
+      'gate-unknown-capture',
+    ]);
+    expect(validateWorkflowShape(scenario([LISTEN, CALL, { ...EXPECT, captures: [state] }, after]))).toEqual([]);
+  });
+
+  it('still says a step of an action the model does not know needs an update', () => {
+    const future = { uid: 'stpclose', id: 'hangup', action: 'close', on: 'probe' };
+    expect(validateWorkflowShape(scenario([LISTEN, future])).map((error) => [error.issue, error.stepId])).toEqual([
+      ['step-needs-update', 'hangup'],
     ]);
   });
 
