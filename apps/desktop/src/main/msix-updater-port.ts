@@ -34,8 +34,9 @@ type PackageUpdaterEvent = 'update-downloaded' | 'update-not-available' | 'error
  * How long the app stays after the install request before it ends
  * itself: the time for the request to reach Windows and for Windows to
  * find the app running, which is what makes it start the app again.
+ * Windows has the request within a few hundredths of a second.
  */
-export const PACKAGE_INSTALL_HAND_OVER_MS = 4_000;
+export const PACKAGE_INSTALL_HAND_OVER_MS = 1_000;
 
 /** The slice of Electron's updater the port drives. */
 export interface PackageUpdater {
