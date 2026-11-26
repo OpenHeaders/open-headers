@@ -322,7 +322,12 @@ export async function resolveRequest(
   // inherited bearer's `{{vault.X}}` counts and a disabled row's does
   // not. Nothing else is ever asked of the desktop app.
   const secretNames = collectTemplateVariableNames(collectRequestTemplateStrings(gated));
-  const { resolver, context: scope } = await buildResolver(options.workspaceId, options.stepCaptures, secretNames);
+  const { resolver, context: scope } = await buildResolver(
+    options.workspaceId,
+    options.stepCaptures,
+    secretNames,
+    options.environmentId,
+  );
   // The collection scope reads off the same ancestor chain the auth
   // walk uses — the tree index, never the request's stored path.
   const context = {

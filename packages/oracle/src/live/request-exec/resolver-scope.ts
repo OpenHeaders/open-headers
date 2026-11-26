@@ -36,6 +36,7 @@ import {
 } from '@openheaders/core/variables';
 import {
   getActiveEnvironmentId,
+  getActiveEnvironmentIdForWorkspace,
   getDefaultEnvironmentId,
   getDefaultEnvironmentIdForWorkspace,
   getEnvironments,
@@ -91,17 +92,19 @@ function readActiveScope(): ExecutionScope {
 }
 
 async function readPerWorkspaceScope(workspaceId: string): Promise<ExecutionScope> {
-  // The default-env pointer is the only scope value not tracked by an
-  // entity cache (a singleton scalar); read it via storage. Active-env
-  // pointer is irrelevant for chain execution — the chain is dispatched
-  // against an explicit env, so we leave activeEnvironmentId null and
-  // rely on the caller's environmentId override. Other scopes route
-  // through their workspace caches.
-  const defaultEnvironmentId = await getDefaultEnvironmentIdForWorkspace(workspaceId);
+  // The two environment pointers are the only scope values no entity
+  // cache tracks (singleton scalars); read them via storage. The active
+  // one is the pinned workspace's own — what a send that names no
+  // environment resolves against; a dispatch that names one (a chain)
+  // overrides it. Other scopes route through their workspace caches.
+  const [activeEnvironmentId, defaultEnvironmentId] = await Promise.all([
+    getActiveEnvironmentIdForWorkspace(workspaceId),
+    getDefaultEnvironmentIdForWorkspace(workspaceId),
+  ]);
   return {
     vault: getVaultForWorkspace(workspaceId),
     environments: getEnvironmentsForWorkspace(workspaceId),
-    activeEnvironmentId: null,
+    activeEnvironmentId,
     defaultEnvironmentId,
     workspaceVariables: getWorkspaceVariablesForWorkspace(workspaceId),
     collections: {
@@ -127,11 +130,17 @@ export const NO_SECRET_NAMES: ReadonlySet<string> = new Set();
  * resolved through their providers, so an unreferenced entry never
  * triggers a provider's prompt. Absent = none — the copy-as-command and
  * compile-adjacent paths stay prompt-free and value-free by default.
+ *
+ * `environmentId` is the environment the dispatch names — a string pins
+ * one, `null` means none, absent defers to the scope's active pointer.
+ * The live scope of a pinned workspace reads that same environment's
+ * runs, so `{{live.X}}` and `{{env.X}}` never answer from two.
  */
 export async function buildResolver(
   workspaceId: string | undefined,
   stepCaptures?: ReadonlyMap<string, ReadonlyMap<string, string>>,
   secretNames: ReadonlySet<string> = NO_SECRET_NAMES,
+  environmentId?: string | null,
 ): Promise<{ resolver: VariableResolver; context: ResolverContext }> {
   const resolver = new VariableResolver();
   const scope = workspaceId ? await readPerWorkspaceScope(workspaceId) : readActiveScope();
@@ -151,10 +160,13 @@ export async function buildResolver(
   resolver.setSecretManagerRegistry(secretManager.registry, secretManager.failures);
   // Live scope — for an Active-workspace dispatch read the snapshot that
   // backs the DNR compile pipeline; for a per-workspace dispatch read the
-  // workspace's own mirror keyed on the explicit envId.
+  // workspace's own mirror keyed on the environment the dispatch resolves in.
   resolver.setLiveRegistry(
     workspaceId
-      ? getLiveRegistrySnapshotForWorkspace(workspaceId, scope.activeEnvironmentId)
+      ? getLiveRegistrySnapshotForWorkspace(
+          workspaceId,
+          environmentId === undefined ? scope.activeEnvironmentId : environmentId,
+        )
       : getLiveRegistrySnapshot(),
   );
   if (stepCaptures) resolver.setStepCaptures(stepCaptures);

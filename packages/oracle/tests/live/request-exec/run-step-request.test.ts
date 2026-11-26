@@ -26,6 +26,7 @@ const activeEnvironmentId = vi.fn<() => string | null>(() => null);
 vi.mock('../../../src/entity/environment-store', () => ({
   getActiveEnvironmentId: () => activeEnvironmentId(),
   getDefaultEnvironmentId: () => null,
+  getActiveEnvironmentIdForWorkspace: async () => null,
   getDefaultEnvironmentIdForWorkspace: async () => null,
   getEnvironments: () => environments(),
   getEnvironmentsForWorkspace: () => environments(),

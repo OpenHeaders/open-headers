@@ -14,6 +14,7 @@ import { treeOracleFrom } from '../request-exec/tree-oracle';
 vi.mock('../../../src/entity/environment-store', () => ({
   getActiveEnvironmentId: () => null,
   getDefaultEnvironmentId: () => null,
+  getActiveEnvironmentIdForWorkspace: async () => null,
   getDefaultEnvironmentIdForWorkspace: async () => null,
   getEnvironments: () => [],
   getEnvironmentsForWorkspace: () => [],

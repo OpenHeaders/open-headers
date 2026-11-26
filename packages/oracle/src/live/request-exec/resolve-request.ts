@@ -363,7 +363,12 @@ export async function resolveRequest(
     options.resolveSecretManager === false
       ? undefined
       : collectTemplateVariableNames(collectRequestTemplateStrings(gated));
-  const { resolver, context: scope } = await buildResolver(options.workspaceId, options.stepCaptures, secretNames);
+  const { resolver, context: scope } = await buildResolver(
+    options.workspaceId,
+    options.stepCaptures,
+    secretNames,
+    options.environmentId,
+  );
   // The collection scope reads off the same ancestor chain the auth
   // walk uses — the tree index, never the request's stored path.
   const context = {

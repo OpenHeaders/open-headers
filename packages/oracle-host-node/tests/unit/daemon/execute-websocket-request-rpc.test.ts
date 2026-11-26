@@ -33,6 +33,7 @@ const h = vi.hoisted(() => ({
 vi.mock('@openheaders/oracle/entity/environment-store', () => ({
   getActiveEnvironmentId: () => h.activeEnvironmentId(),
   getDefaultEnvironmentId: () => null,
+  getActiveEnvironmentIdForWorkspace: async () => null,
   getDefaultEnvironmentIdForWorkspace: async () => null,
   getEnvironments: () => h.environments(),
   getEnvironmentsForWorkspace: () => h.environments(),

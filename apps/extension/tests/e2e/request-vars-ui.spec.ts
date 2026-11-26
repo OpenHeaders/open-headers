@@ -8,16 +8,15 @@
  * implementation (`useVariableResolver`, fed from React context, not the
  * SW stores) that drives the editor's reactive unresolved-flagging loop:
  * a `{{ref}}` that resolves nowhere flags the owning section (a red tab
- * dot) and disables Send (the wire-facing gate, equivalent to the DNR
- * compile gate for rules); a ref that resolves clears the flag, re-enables
- * Send, and the value rides the actual wire (read back from the
- * `/api/echo` reflection in the response panel).
+ * dot) and rides the wire as written, named on the response's meta strip;
+ * a ref that resolves clears the flag and its value rides the actual wire
+ * (read back from the `/api/echo` reflection in the response panel).
  *
  * One namespaced `{{ns.X}}` per scope (env / collection / workspace /
  * vault-string / vault-TOTP / file / live) proves the renderer resolver
  * sees each store. Namespaced (not flat) refs keep every case single-scope
  * — precedence is the executor suite's concern. A trailing negative case
- * (an undefined ref) keeps the gate honest.
+ * (an undefined ref) keeps the flag honest.
  *
  * Seeding reuses the proven import harness from `request-vars.spec.ts`:
  * one `importWorkspace` seeds env + collection + workspace + vault (string
@@ -26,7 +25,7 @@
  * directly in `chrome.storage` (no setter RPC exists), and the live
  * workflow is refreshed UNDER that env — the executor's live registry
  * keys runs by the active env with NO null fallback, so a run keyed to any
- * other env would resolve in the renderer yet fail the wire-side gate.
+ * other env would resolve in the renderer yet ride the wire as written.
  */
 
 import path from 'node:path';
@@ -232,22 +231,29 @@ function buildSeedEnvelope(): Record<string, unknown> {
 
 /** Create the shared probe request under the seeded collection. */
 async function createCollectionRequest(collUid: string): Promise<string> {
-  const res = await workbench.rpc<{ success: boolean; request?: { uid: string }; error?: string }>(
-    'createLocalRequest',
-    {
-      name: 'ui-var-probe',
-      collectionUid: collUid,
-      seed: {
-        method: 'GET',
-        url: API_ECHO_URL,
-        headers: [],
-        params: [],
-        auth: { type: 'none' },
-        body: { type: 'none' },
+  // The import re-hydrates the worker's stores, and a create is refused
+  // until they are back — the readiness idiom of the sibling specs.
+  let res: { success: boolean; request?: { uid: string }; error?: string } = { success: false };
+  await expect
+    .poll(
+      async () => {
+        res = await workbench.rpc('createLocalRequest', {
+          name: 'ui-var-probe',
+          collectionUid: collUid,
+          seed: {
+            method: 'GET',
+            url: API_ECHO_URL,
+            headers: [],
+            params: [],
+            auth: { type: 'none' },
+            body: { type: 'none' },
+          },
+        });
+        return res.success;
       },
-    },
-  );
-  expect(res.success, res.error).toBe(true);
+      { timeout: 20_000 },
+    )
+    .toBe(true);
   return res.request!.uid;
 }
 
@@ -410,10 +416,10 @@ test.describe('Request editor — per-scope resolution clears the flag and rides
   });
 });
 
-// ── Negative case (the gate fires) ─────────────────────────────────
+// ── Negative case (the flag fires, the reference rides as written) ──
 
-test.describe('Request editor — unresolved flagging gates Send', () => {
-  test('an undefined {{ref}} flags the section and disables Send', async () => {
+test.describe('Request editor — an unresolved reference is flagged and sent as written', () => {
+  test('an undefined {{ref}} flags the section, leaves Send enabled and reaches the wire literally', async () => {
     const sendButton = page.getByRole('button', { name: 'Send' }).filter({ visible: true }).first();
     const unresolvedDot = page.getByTestId('oh-section-unresolved').filter({ visible: true });
 
@@ -422,6 +428,18 @@ test.describe('Request editor — unresolved flagging gates Send', () => {
     await workbench.fillBulkEdit(HEADERS_BULK, 'X-Scope: {{wsMissingVar}}');
 
     await expect(unresolvedDot).toBeVisible();
-    await expect(sendButton).toBeDisabled();
+    await expect(sendButton).toBeEnabled();
+
+    await workbench.send();
+    await expect
+      .poll(
+        async () => {
+          const echo = await workbench.responseEcho<Echo>().catch(() => null);
+          return (echo?.headers['x-scope'] as string | undefined) ?? '';
+        },
+        { timeout: 5_000 },
+      )
+      .toEqual('{{wsMissingVar}}');
+    await expect(page.getByTestId('oh-response-sent-as-written').filter({ visible: true }).first()).toBeVisible();
   });
 });

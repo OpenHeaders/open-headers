@@ -20,9 +20,11 @@ import { treeOracleFrom } from './tree-oracle';
 const wsVars = vi.fn<() => WorkspaceVariables>(() => ({ schemaVersion: 5, variables: [] }));
 const vault = vi.fn<() => Vault>(() => ({ schemaVersion: 5, secrets: [] }));
 const environments = vi.fn<() => Environment[]>(() => []);
+const pinnedActiveEnvironmentId = vi.fn<(workspaceId: string) => Promise<string | null>>(async () => null);
 
 vi.mock('../../../src/entity/environment-store', () => ({
   getActiveEnvironmentId: () => null,
+  getActiveEnvironmentIdForWorkspace: (workspaceId: string) => pinnedActiveEnvironmentId(workspaceId),
   getDefaultEnvironmentId: () => null,
   getDefaultEnvironmentIdForWorkspace: async () => null,
   getEnvironments: () => environments(),
@@ -63,9 +65,13 @@ vi.mock('../../../src/entity/files-store', () => ({
   getFileBlob: async () => null,
   listFiles: async () => [],
 }));
+const liveRegistryFor = vi.fn<
+  (workspaceId: string, environmentId: string | null) => Map<string, { value: string; workflowUid: string }>
+>(() => new Map());
 vi.mock('../../../src/rule-engine/variables-resolver', () => ({
   getLiveRegistrySnapshot: () => new Map(),
-  getLiveRegistrySnapshotForWorkspace: () => new Map(),
+  getLiveRegistrySnapshotForWorkspace: (workspaceId: string, environmentId: string | null) =>
+    liveRegistryFor(workspaceId, environmentId),
 }));
 vi.mock('../../../src/entity/oauth-token-store', () => ({
   getTokenBundle: async () => null,
@@ -130,6 +136,9 @@ beforeEach(() => {
   requestFolders.mockReturnValue([]);
   wsVars.mockReturnValue({ schemaVersion: 5, variables: [] });
   vault.mockReturnValue({ schemaVersion: 5, secrets: [] });
+  environments.mockReturnValue([]);
+  pinnedActiveEnvironmentId.mockImplementation(async () => null);
+  liveRegistryFor.mockImplementation(() => new Map());
 });
 
 describe('resolveRequest — inherited settings', () => {
@@ -276,6 +285,57 @@ describe('resolveRequest — inherited settings', () => {
     const { resolved } = await resolveRequest(makeRequest({ uid: 'req00009', path: 'scratch/x', timeoutMs: 700 }), {});
     expect(resolved.timeoutMs).toBe(700);
     expect(resolved.inheritedSettings).toBeUndefined();
+  });
+});
+
+describe('resolveRequest — the environment of a send that names its workspace', () => {
+  const STAGING: Environment = {
+    schemaVersion: 5,
+    uid: 'env00001',
+    name: 'Staging',
+    variables: [{ uid: 'var00002', name: 'HOST', value: 'staging.openheaders.io', type: 'default' }],
+  };
+  const PRODUCTION: Environment = {
+    schemaVersion: 5,
+    uid: 'env00002',
+    name: 'Production',
+    variables: [{ uid: 'var00003', name: 'HOST', value: 'api.openheaders.io', type: 'default' }],
+  };
+  const templated = () =>
+    makeRequest({
+      url: 'https://{{env.HOST}}/ping',
+      headers: [{ uid: 'hdr00001', key: 'Authorization', value: 'Bearer {{live.token}}', enabled: true }],
+    });
+
+  beforeEach(() => {
+    environments.mockReturnValue([STAGING, PRODUCTION]);
+    liveRegistryFor.mockImplementation((_workspaceId, environmentId) =>
+      environmentId === null
+        ? new Map()
+        : new Map([['token', { value: `token-of-${environmentId}`, workflowUid: 'wf000001' }]]),
+    );
+  });
+
+  it("resolves in that workspace's active environment when the send names none — its variables and its live values", async () => {
+    pinnedActiveEnvironmentId.mockImplementation(async (workspaceId) => (workspaceId === 'ws-1' ? 'env00001' : null));
+    const { resolved } = await resolveRequest(templated(), { workspaceId: 'ws-1' });
+    expect(resolved.url).toBe('https://staging.openheaders.io/ping');
+    expect(resolved.headers).toContainEqual({ key: 'Authorization', value: 'Bearer token-of-env00001' });
+    expect(resolved.sentAsWritten).toBeUndefined();
+  });
+
+  it('resolves in the environment the dispatch names, over the active one — both scopes from the same one', async () => {
+    pinnedActiveEnvironmentId.mockImplementation(async () => 'env00001');
+    const { resolved } = await resolveRequest(templated(), { workspaceId: 'ws-1', environmentId: 'env00002' });
+    expect(resolved.url).toBe('https://api.openheaders.io/ping');
+    expect(resolved.headers).toContainEqual({ key: 'Authorization', value: 'Bearer token-of-env00002' });
+  });
+
+  it('a dispatch that names no environment at all resolves in none, whatever the active one is', async () => {
+    pinnedActiveEnvironmentId.mockImplementation(async () => 'env00001');
+    const { resolved } = await resolveRequest(templated(), { workspaceId: 'ws-1', environmentId: null });
+    expect(resolved.url).toBe('https://{{env.HOST}}/ping');
+    expect(resolved.sentAsWritten?.map((entry) => entry.reference)).toEqual(['env.HOST', 'live.token']);
   });
 });
 

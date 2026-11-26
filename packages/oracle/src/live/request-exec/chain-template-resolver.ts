@@ -21,7 +21,7 @@ import { unresolvedReferenceLines } from './unresolved-references';
 export function createChainTemplateResolver(): TemplateResolver {
   let built: ReturnType<typeof buildResolver> | null = null;
   return async (template, stepCaptures, context) => {
-    built ??= buildResolver(context.workspaceId, stepCaptures);
+    built ??= buildResolver(context.workspaceId, stepCaptures, undefined, context.environmentId);
     const { resolver } = await built;
     const scope = { environmentId: context.environmentId };
     const resolved = resolveTemplate(

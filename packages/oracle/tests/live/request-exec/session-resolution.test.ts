@@ -23,6 +23,7 @@ const recordUsage = vi.fn();
 vi.mock('../../../src/entity/environment-store', () => ({
   getActiveEnvironmentId: () => null,
   getDefaultEnvironmentId: () => null,
+  getActiveEnvironmentIdForWorkspace: async () => null,
   getDefaultEnvironmentIdForWorkspace: async () => null,
   getEnvironments: () => [],
   getEnvironmentsForWorkspace: () => [],

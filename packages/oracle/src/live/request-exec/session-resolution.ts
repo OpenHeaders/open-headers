@@ -104,7 +104,12 @@ export async function buildOracleSessionResolution(
   request: { uid: string; path: string },
   options: SessionResolutionOptions,
 ): Promise<SessionResolution> {
-  const { resolver, context: scope } = await buildResolver(options.workspaceId ?? undefined, options.stepCaptures);
+  const { resolver, context: scope } = await buildResolver(
+    options.workspaceId ?? undefined,
+    options.stepCaptures,
+    undefined,
+    options.environmentId,
+  );
   const context = {
     collectionId: collectionUidForRequest(request, scope.workspaceId),
     environmentId: options.environmentId,

@@ -196,6 +196,17 @@ export async function getDefaultEnvironmentIdForWorkspace(workspaceId: string): 
   return typeof v === 'string' ? v : null;
 }
 
+/**
+ * Read the persisted active-environment pointer for an explicit
+ * workspace — the pointer the environment picker of a surface showing
+ * that workspace writes. Same one-shot read as
+ * {@link getDefaultEnvironmentIdForWorkspace}.
+ */
+export async function getActiveEnvironmentIdForWorkspace(workspaceId: string): Promise<string | null> {
+  const v = await hostStorage.get(wsKeys(workspaceId).activeEnvironmentId);
+  return typeof v === 'string' ? v : null;
+}
+
 // ── Environments CRUD ──────────────────────────────────────────────
 
 function assertLoaded(): string {
