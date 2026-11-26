@@ -45,6 +45,10 @@ if (isPublicView()) {
   // on the serving daemon — so a workflow with session steps runs too.
   registerCapability('workflowSessionSteps', () => true);
 
+  // Listen, Send and Expect are offered in a step's type selector only
+  // in a build that opts in (the workflow runs plan, Decisions log, S16).
+  if (__WORKFLOW_SESSION_AUTHORING__) registerCapability('workflowSessionAuthoring', () => true);
+
   // API requests open their sockets on the connected daemon's Node
   // stack, never in this tab — the request editor's Settings tab shows
   // the Node fact sheet (every node knob applies at the place) and

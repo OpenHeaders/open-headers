@@ -31,6 +31,14 @@ declare global {
   const __APP_VERSION__: string;
 
   /**
+   * Whether this build authors a workflow's session steps — injected by
+   * electron-vite from the build's `OH_WORKFLOW_SESSION_AUTHORING`, off
+   * when it is absent. `src/renderer/host/install-capabilities.ts` is its
+   * one reader.
+   */
+  const __WORKFLOW_SESSION_AUTHORING__: boolean;
+
+  /**
    * Preload-exposed RPC surface to the main-process engine host. Set up
    * by `apps/desktop/src/preload.ts` through `contextBridge`. Only the
    * IPC `HostBridge` adapter (`renderer/host/ipc-bridge.ts`) should

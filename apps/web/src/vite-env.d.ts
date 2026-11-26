@@ -23,3 +23,10 @@ declare const __BUILD_INFO__: {
   date: string;
   channel: 'stable' | 'beta';
 };
+
+/**
+ * Whether this build authors a workflow's session steps — injected by
+ * Vite from the build's `OH_WORKFLOW_SESSION_AUTHORING`, off when it is
+ * absent. `src/host/install-capabilities.ts` is its one reader.
+ */
+declare const __WORKFLOW_SESSION_AUTHORING__: boolean;

@@ -67,9 +67,12 @@ export default defineConfig({
     },
   },
 
+  // __WORKFLOW_SESSION_AUTHORING__ is a build's opt-in to authoring a
+  // workflow's session steps: off unless the build sets the variable.
   define: {
     __APP_VERSION__: JSON.stringify(pkg.version),
     __BUILD_INFO__: JSON.stringify(buildInfo),
+    __WORKFLOW_SESSION_AUTHORING__: JSON.stringify(process.env.OH_WORKFLOW_SESSION_AUTHORING === '1'),
   },
 
   css: {

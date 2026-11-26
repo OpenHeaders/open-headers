@@ -570,9 +570,12 @@ export default defineConfig({
   // __APP_VERSION__ uses the numeric manifest-style version (e.g. 2026.7.0.1 instead of 2026.7.0-beta.1)
   // so callers reading runtime.getManifest().version line up with this constant exactly.
   // globalThis override prevents Vite from using detection code that violates CSP.
+  // __WORKFLOW_SESSION_AUTHORING__ is a build's opt-in to authoring a
+  // workflow's session steps: off unless the build sets the variable.
   define: {
     __APP_VERSION__: JSON.stringify(manifestNumericVersion),
     __BUILD_INFO__: JSON.stringify(buildInfo),
+    __WORKFLOW_SESSION_AUTHORING__: JSON.stringify(process.env.OH_WORKFLOW_SESSION_AUTHORING === '1'),
     globalThis: 'globalThis',
   },
 

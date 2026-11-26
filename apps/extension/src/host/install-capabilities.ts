@@ -21,6 +21,7 @@ import { createBridgedServerSignIn } from '@openheaders/core/identity';
 import './install-cdp-capability';
 import './install-csp-exempt-capability';
 import './install-whats-new-capability';
+import './install-workflow-authoring';
 import { hasSidePanelSurface } from '@/background/view-mode/select-adapter';
 import { getBrowserAPI } from '@/types/browser';
 import { companionReveal } from './companion-reveal';

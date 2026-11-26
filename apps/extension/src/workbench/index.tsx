@@ -26,6 +26,7 @@ import '@/host/install-assets-host';
 import '@/host/install-cdp-capability';
 import '@/host/install-csp-exempt-capability';
 import '@/host/install-whats-new-capability';
+import '@/host/install-workflow-authoring';
 import { registerCapability } from '@openheaders/core/capabilities';
 import { createBridgedServerSignIn } from '@openheaders/core/identity';
 import ErrorBoundary from '@openheaders/ui/components/ErrorBoundary';

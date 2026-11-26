@@ -17,6 +17,13 @@ declare const __BUILD_INFO__: {
   channel: 'stable' | 'beta';
 };
 
+/**
+ * Whether this build authors a workflow's session steps — injected by
+ * Vite from the build's `OH_WORKFLOW_SESSION_AUTHORING`, off when it is
+ * absent. `src/host/install-workflow-authoring.ts` is its one reader.
+ */
+declare const __WORKFLOW_SESSION_AUTHORING__: boolean;
+
 // Monaco submodule imports we use to keep the bundle lean (see
 // `rules/components/monaco/bootstrap.ts`). Monaco's `package.json`
 // `exports` field maps `./*` but only ships types for the default

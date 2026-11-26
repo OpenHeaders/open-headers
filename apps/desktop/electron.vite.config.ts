@@ -411,6 +411,9 @@ export default defineConfig({
       // extension's vite.config.ts injects this from its manifest
       // version; desktop uses its own package.json version (CalVer).
       __APP_VERSION__: JSON.stringify(pkgVersion),
+      // A build's opt-in to authoring a workflow's session steps: off
+      // unless the build sets the variable.
+      __WORKFLOW_SESSION_AUTHORING__: JSON.stringify(process.env.OH_WORKFLOW_SESSION_AUTHORING === '1'),
     },
   },
 });

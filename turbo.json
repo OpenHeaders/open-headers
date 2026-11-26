@@ -3,23 +3,28 @@
   "tasks": {
     "build": {
       "dependsOn": ["^build"],
-      "outputs": ["dist/**", "dist-webpack/**"]
+      "outputs": ["dist/**", "dist-webpack/**"],
+      "env": ["OH_WORKFLOW_SESSION_AUTHORING"]
     },
     "build:chrome": {
       "dependsOn": ["^build"],
-      "outputs": ["dist/chrome/**"]
+      "outputs": ["dist/chrome/**"],
+      "env": ["OH_WORKFLOW_SESSION_AUTHORING"]
     },
     "build:firefox": {
       "dependsOn": ["^build"],
-      "outputs": ["dist/firefox/**"]
+      "outputs": ["dist/firefox/**"],
+      "env": ["OH_WORKFLOW_SESSION_AUTHORING"]
     },
     "build:edge": {
       "dependsOn": ["^build"],
-      "outputs": ["dist/edge/**"]
+      "outputs": ["dist/edge/**"],
+      "env": ["OH_WORKFLOW_SESSION_AUTHORING"]
     },
     "build:safari": {
       "dependsOn": ["^build"],
-      "outputs": ["dist/safari/**"]
+      "outputs": ["dist/safari/**"],
+      "env": ["OH_WORKFLOW_SESSION_AUTHORING"]
     },
     "typecheck": {
       "dependsOn": ["^build"]

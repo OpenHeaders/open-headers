@@ -3,9 +3,11 @@
  * Decisions log, S15): a signed-in tab runs a workflow itself, session
  * steps included, and declares so; the anonymous public view has no
  * wire a step could go out through and declares that it runs none.
+ * A signed-in tab authors session steps only in a build that opts in
+ * (Decisions log, S16).
  */
 
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const h = vi.hoisted(() => ({ publicView: false }));
 
@@ -21,10 +23,15 @@ async function installed() {
 }
 
 describe('install-capabilities — workflows', () => {
+  // The build's opt-in is a constant the bundler writes in; a test run
+  // has no bundler, so each case states it.
   beforeEach(() => {
     vi.resetModules();
     h.publicView = false;
+    vi.stubGlobal('__WORKFLOW_SESSION_AUTHORING__', false);
   });
+
+  afterEach(() => vi.unstubAllGlobals());
 
   it('a signed-in tab runs workflows and their session steps', async () => {
     const { hasCapability } = await installed();
@@ -37,5 +44,19 @@ describe('install-capabilities — workflows', () => {
     const { hasCapability } = await installed();
     expect(hasCapability('workflowRunUnavailable')).toBe(true);
     expect(hasCapability('workflowSessionSteps')).toBe(false);
+  });
+
+  it('a build that did not opt in authors no session step', async () => {
+    const { hasCapability } = await installed();
+    expect(hasCapability('workflowSessionAuthoring')).toBe(false);
+  });
+
+  it('a build that opted in authors them in a signed-in tab, and never in the public view', async () => {
+    vi.stubGlobal('__WORKFLOW_SESSION_AUTHORING__', true);
+    expect((await installed()).hasCapability('workflowSessionAuthoring')).toBe(true);
+
+    vi.resetModules();
+    h.publicView = true;
+    expect((await installed()).hasCapability('workflowSessionAuthoring')).toBe(false);
   });
 });

@@ -246,5 +246,9 @@ if (window.oh.startupData.localDataRemoval) {
 // session a `listen` step names.
 registerCapability('workflowSessionSteps', () => true);
 
+// Listen, Send and Expect are offered in a step's type selector only in
+// a build that opts in (the workflow runs plan, Decisions log, S16).
+if (__WORKFLOW_SESSION_AUTHORING__) registerCapability('workflowSessionAuthoring', () => true);
+
 // No `closeSurface` registration — the workbench window is the long-
 // lived primary; nothing in shared UI should close it implicitly.
