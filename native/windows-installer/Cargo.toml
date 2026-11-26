@@ -1,0 +1,46 @@
+[package]
+name = "openheaders-installer"
+version = "2026.11.3"
+edition = "2024"
+publish = false
+build = "build.rs"
+
+[[bin]]
+name = "openheaders-installer"
+path = "src/main.rs"
+
+[dependencies]
+serde_json = "1"
+
+[target.'cfg(windows)'.dependencies]
+windows = { version = "0.62", features = [
+  "ApplicationModel",
+  "ApplicationModel_Core",
+  "Foundation",
+  "Foundation_Collections",
+  "Foundation_Metadata",
+  "Management_Deployment",
+  "System_Profile",
+  "Win32_Foundation",
+  "Win32_Networking_WinHttp",
+  "Win32_Security",
+  "Win32_Security_Cryptography",
+  "Win32_Security_Cryptography_Catalog",
+  "Win32_Security_Cryptography_Sip",
+  "Win32_Security_WinTrust",
+  "Win32_System_Com",
+  "Win32_System_Registry",
+  "Win32_System_SystemInformation",
+  "Win32_System_Threading",
+  "Win32_UI_Controls",
+  "Win32_UI_Shell",
+  "Win32_UI_WindowsAndMessaging",
+] }
+# The bindings' own crate for operations Windows runs in the background;
+# `windows` builds on it and does not hand its names on.
+windows-future = "0.3"
+
+[profile.release]
+lto = true
+strip = true
+opt-level = "z"
