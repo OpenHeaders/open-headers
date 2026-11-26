@@ -9,7 +9,7 @@ import type { StepSettlement, WorkflowRunFact } from './run-events';
 
 export type WorkflowRunStepRow = { id: string; uid: string } & (
   | { state: 'waiting' }
-  | { state: 'running'; attempt: number; maxAttempts: number }
+  | { state: 'running'; attempt: number; maxAttempts: number; held?: true }
   | { state: 'settled'; settlement: StepSettlement; hasProduct: boolean }
 );
 
@@ -61,6 +61,12 @@ export function applyRunFact(
         attempt: fact.attempt + 1,
         maxAttempts: fact.maxAttempts,
       }));
+    case 'step-hold':
+      return withRow(record, fact.stepId, (row) => {
+        if (row.state !== 'running') return row;
+        const { held: _held, ...running } = row;
+        return fact.held ? { ...running, held: true } : running;
+      });
     case 'step-settle':
       return withRow(record, fact.stepId, ({ id, uid }) => ({
         id,

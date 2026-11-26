@@ -6,7 +6,9 @@
  * and one `step-settle`; `end` closes the run on every path. Every step
  * settles exactly once — a skipped step and a step that never ran settle
  * without starting. A `listen` settles when its session is ready; how
- * that session closed rides `end`.
+ * that session closed rides `end`. A `step-hold` is there only for a
+ * call its host's rate limit made wait: once as it waits, once as it
+ * leaves.
  *
  * Events are additive: the run's outcome, its report and what the cache
  * is handed are the same with or without a listener.
@@ -112,6 +114,8 @@ export type WorkflowRunEvent =
       /** The wait before the next attempt starts. */
       retryInMs: number;
     }
+  /** `held`: the call waits on the host's rate limit; `false` when it leaves after a wait. */
+  | { type: 'step-hold'; at: number; stepId: string; held: boolean }
   | StepSettleEvent
   | {
       type: 'end';

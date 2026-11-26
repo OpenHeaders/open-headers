@@ -64,6 +64,17 @@ describe('the record of a run, fact by fact', () => {
     expect(retried?.steps[0]).toEqual({ id: 'login', uid: 'stplogin', state: 'running', attempt: 3, maxAttempts: 3 });
   });
 
+  it('a held call reads held until it leaves, on the attempt it was on', () => {
+    const running = { id: 'login', uid: 'stplogin', state: 'running', attempt: 1, maxAttempts: 3 };
+    const started = replay([BEGIN, { type: 'step-start', at: 110, stepId: 'login', maxAttempts: 3 }]);
+
+    const held = applyRunFact(started, RUN, { type: 'step-hold', at: 111, stepId: 'login', held: true });
+    expect(held?.steps[0]).toEqual({ ...running, held: true });
+
+    const left = applyRunFact(held, RUN, { type: 'step-hold', at: 19_111, stepId: 'login', held: false });
+    expect(left?.steps[0]).toEqual(running);
+  });
+
   it('the run failing at a fetch — the step before it stays passed', () => {
     const record = replay([
       BEGIN,

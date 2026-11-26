@@ -54,7 +54,7 @@ export interface ChainFetchAdapterOptions {
 export function buildChainFetchAdapter(options: ChainFetchAdapterOptions): FetchAdapter {
   const { workspaceId, environmentId, transport, refreshOAuth, prepareRequest, scriptRunner } = options;
   return {
-    async executeStep(step, stepCaptures) {
+    async executeStep(step, stepCaptures, _context, send) {
       // A step names a request of either kind: an HTTP request runs as
       // is; a GraphQL request compiles ONCE into its HTTP send (the
       // same uid + path, so the ancestor chain resolves unchanged).
@@ -67,16 +67,19 @@ export function buildChainFetchAdapter(options: ChainFetchAdapterOptions): Fetch
       }
       const prepared = prepareRequest ? prepareRequest(request) : request;
 
-      const snapshot = await withRefreshRateLimit(request.url, () =>
-        runStepRequest(prepared, {
-          workspaceId,
-          environmentId,
-          stepCaptures,
-          transport,
-          refreshOAuth,
-          timeoutMs: step.timeoutMs,
-          scriptRunner: step.runScripts === true ? scriptRunner : undefined,
-        }),
+      const snapshot = await withRefreshRateLimit(
+        request.url,
+        () =>
+          runStepRequest(prepared, {
+            workspaceId,
+            environmentId,
+            stepCaptures,
+            transport,
+            refreshOAuth,
+            timeoutMs: step.timeoutMs,
+            scriptRunner: step.runScripts === true ? scriptRunner : undefined,
+          }),
+        { uncounted: send?.resend, onHeld: send?.onHeld, onLeave: send?.onLeave },
       );
 
       if (snapshot.error != null) {

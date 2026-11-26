@@ -25,7 +25,7 @@ vi.mock('../../../src/live/request-exec/run-step-request', () => ({
   runStepRequest: (...args: unknown[]) => runStepRequestMock(...args),
 }));
 vi.mock('../../../src/live/request-exec/rate-limiter', () => ({
-  withRefreshRateLimit: (url: string, fn: () => Promise<unknown>) => withRefreshRateLimitMock(url, fn),
+  withRefreshRateLimit: (...args: unknown[]) => withRefreshRateLimitMock(...args),
 }));
 
 const transport: RequestTransport = { send: vi.fn() };
@@ -134,7 +134,23 @@ describe('buildChainFetchAdapter', () => {
     runStepRequestMock.mockResolvedValue(makeSnapshot());
     const adapter = buildChainFetchAdapter({ workspaceId: 'ws-1', environmentId: null, transport });
     await adapter.executeStep(makeStep(), new Map(), ctx);
-    expect(withRefreshRateLimitMock).toHaveBeenCalledWith('https://api.openheaders.io/auth', expect.any(Function));
+    expect(withRefreshRateLimitMock).toHaveBeenCalledWith('https://api.openheaders.io/auth', expect.any(Function), {});
+  });
+
+  it('hands the run’s signals to the rate limiter, a poll’s re-send as an uncounted start', async () => {
+    getRequestInWorkspaceMock.mockReturnValue(makeRequest({ url: 'https://api.openheaders.io/auth' }));
+    runStepRequestMock.mockResolvedValue(makeSnapshot());
+    const adapter = buildChainFetchAdapter({ workspaceId: 'ws-1', environmentId: null, transport });
+    const onHeld = vi.fn();
+    const onLeave = vi.fn();
+
+    await adapter.executeStep(makeStep(), new Map(), ctx, { resend: false, onHeld, onLeave });
+    await adapter.executeStep(makeStep(), new Map(), ctx, { resend: true, onHeld, onLeave });
+
+    expect(withRefreshRateLimitMock.mock.calls.map(([, , call]) => call)).toEqual([
+      { uncounted: false, onHeld, onLeave },
+      { uncounted: true, onHeld, onLeave },
+    ]);
   });
 
   it('applies the prepareRequest hook before resolve (DNR-bypass stamping)', async () => {

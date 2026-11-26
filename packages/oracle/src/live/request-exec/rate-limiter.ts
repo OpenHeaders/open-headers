@@ -25,6 +25,10 @@
  *     limiter — they don't hit a network origin, so the bucket doesn't
  *     apply. The limiter's contract is "network-bound fetches only";
  *     fallthrough keeps callers simple.
+ *   - A caller may be told when its call waits for a slot and when it
+ *     starts, and may ask for a start the minute window passes over —
+ *     a poll's re-send, paced by the poll's own wait. One in flight per
+ *     origin holds for every call.
  *
  * The module exposes a single process-level singleton so both OAuth
  * and Live see the same bucket for `accounts.google.com` (OAuth refresh
@@ -56,7 +60,16 @@ interface HostBucket {
   /** Absolute-ms timestamps of request STARTS in the trailing minute. */
   recentStartsMs: number[];
   /** FIFO waiter queue — `resolve()` is called when a slot opens. */
-  waiters: Array<() => void>;
+  waiters: Array<{ counted: boolean; resolve: () => void }>;
+}
+
+export interface RateLimitedCall {
+  /** A start the minute window neither counts nor holds. */
+  uncounted?: boolean;
+  /** The call waits for a slot. */
+  onHeld?: () => void;
+  /** The call starts now — at once for a URL the limiter does not gate. */
+  onLeave?: () => void;
 }
 
 let config: RateLimiterConfig = { ...DEFAULT_CONFIG };
@@ -78,11 +91,16 @@ function pruneOldStarts(bucket: HostBucket, nowMs: number): void {
   }
 }
 
-function canStart(bucket: HostBucket, nowMs: number): boolean {
+function canStart(bucket: HostBucket, nowMs: number, counted: boolean): boolean {
   pruneOldStarts(bucket, nowMs);
   if (bucket.inFlight >= config.maxConcurrent) return false;
-  if (bucket.recentStartsMs.length >= config.maxPerMinute) return false;
+  if (counted && bucket.recentStartsMs.length >= config.maxPerMinute) return false;
   return true;
+}
+
+function start(bucket: HostBucket, counted: boolean): void {
+  bucket.inFlight += 1;
+  if (counted) bucket.recentStartsMs.push(Date.now());
 }
 
 function nextAvailableMs(bucket: HostBucket): number {
@@ -103,12 +121,18 @@ function drainWaiters(origin: string): void {
   const bucket = buckets.get(origin);
   if (!bucket) return;
   const now = Date.now();
-  while (bucket.waiters.length > 0 && canStart(bucket, now)) {
-    const resolve = bucket.waiters.shift();
-    if (!resolve) break;
-    bucket.inFlight += 1;
-    bucket.recentStartsMs.push(Date.now());
-    resolve();
+  // In order, passing over a waiter only the minute window holds: one
+  // the window does not count may start behind it.
+  let index = 0;
+  while (index < bucket.waiters.length && bucket.inFlight < config.maxConcurrent) {
+    const waiter = bucket.waiters[index];
+    if (!canStart(bucket, now, waiter.counted)) {
+      index += 1;
+      continue;
+    }
+    bucket.waiters.splice(index, 1);
+    start(bucket, waiter.counted);
+    waiter.resolve();
   }
   // If there are still waiters but the minute-window is blocking, arm a
   // setTimeout to re-drain when the oldest start ages out. We skip this
@@ -140,27 +164,36 @@ function safeOrigin(url: string): string | null {
  * Non-network URLs (bad scheme, malformed) fall through to `fn()`
  * without limiting. Exceptions thrown from `fn` still release the slot.
  */
-export async function withRefreshRateLimit<T>(url: string, fn: () => Promise<T>): Promise<T> {
+export async function withRefreshRateLimit<T>(
+  url: string,
+  fn: () => Promise<T>,
+  call: RateLimitedCall = {},
+): Promise<T> {
   const origin = safeOrigin(url);
-  if (!origin) return fn();
-  await acquire(origin);
+  if (!origin) {
+    call.onLeave?.();
+    return fn();
+  }
+  await acquire(origin, call);
   try {
+    call.onLeave?.();
     return await fn();
   } finally {
     releaseSlot(origin);
   }
 }
 
-function acquire(origin: string): Promise<void> {
+function acquire(origin: string, call: RateLimitedCall): Promise<void> {
   const bucket = bucketFor(origin);
-  if (canStart(bucket, Date.now())) {
-    bucket.inFlight += 1;
-    bucket.recentStartsMs.push(Date.now());
+  const counted = call.uncounted !== true;
+  if (canStart(bucket, Date.now(), counted)) {
+    start(bucket, counted);
     return Promise.resolve();
   }
   logger.debug('RefreshRateLimit', `Queued request for ${origin} (inFlight=${bucket.inFlight})`);
+  call.onHeld?.();
   return new Promise<void>((resolve) => {
-    bucket.waiters.push(resolve);
+    bucket.waiters.push({ counted, resolve });
     // Arm a drain for the minute-window case — concurrency releases
     // trigger `drainWaiters` via `releaseSlot`, but a purely rate-limit
     // wait only drains when the oldest start ages out.

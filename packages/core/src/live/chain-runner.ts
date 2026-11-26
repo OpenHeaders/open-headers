@@ -92,12 +92,27 @@ export interface FetchAdapter {
    * Thrown errors bubble as a step failure with the error's message. An
    * adapter that holds the executor's record of the failed exchange
    * throws a {@link StepExecutionError} carrying it.
+   *
+   * An adapter behind a rate limit tells the run through `send` when the
+   * call waits and when it leaves; one that tells nothing is read as
+   * leaving when the step starts.
    */
   executeStep(
     step: CallWorkflowStep,
     stepCaptures: ReadonlyMap<string, ReadonlyMap<string, string>>,
     context: ChainExecutionContext,
+    send?: StepSend,
   ): Promise<StepResponse>;
+}
+
+/** One send of a call, between the run and the host's rate limit. */
+export interface StepSend {
+  /** A poll sends the call again, paced by its own wait: the limit does not count this start. */
+  resend: boolean;
+  /** The call waits on the rate limit. */
+  onHeld(): void;
+  /** The call leaves for the wire. */
+  onLeave(): void;
 }
 
 /**
@@ -491,6 +506,19 @@ async function walkChain(
     }
     const pollStartedAt = poll === undefined ? 0 : now();
     let sends = 0;
+    let left = false;
+    let held = false;
+    const onHeld = (): void => {
+      held = true;
+      onEvent?.({ type: 'step-hold', at: now(), stepId, held: true });
+    };
+    const onLeave = (): void => {
+      // The window of an `expect` this call triggers opens at its first send.
+      if (!left) sessionSteps.triggerLeft(step);
+      left = true;
+      if (held) onEvent?.({ type: 'step-hold', at: now(), stepId, held: false });
+      held = false;
+    };
     let attempt: StepAttemptOutcome;
     let verdict: CriteriaVerdict = { ok: true };
     for (;;) {
@@ -500,6 +528,7 @@ async function walkChain(
         adapter,
         stepCaptures,
         context,
+        { resend: sends > 1, onHeld, onLeave },
         sleep,
         onEvent && poll === undefined
           ? (ended, cause, retryInMs) =>
@@ -679,6 +708,7 @@ async function executeStepWithRetry(
   adapter: FetchAdapter,
   stepCaptures: ReadonlyMap<string, ReadonlyMap<string, string>>,
   context: ChainExecutionContext,
+  send: StepSend,
   sleep: (ms: number) => Promise<void>,
   onRetry: ((attempt: number, cause: AttemptRetryCause, retryInMs: number) => void) | undefined,
 ): Promise<StepAttemptOutcome> {
@@ -693,7 +723,11 @@ async function executeStepWithRetry(
     }
     let response: StepResponse;
     try {
-      response = await adapter.executeStep(step, stepCaptures, context);
+      // A retry is a start like any other: only a poll's own re-send goes uncounted.
+      response = await adapter.executeStep(step, stepCaptures, context, {
+        ...send,
+        resend: send.resend && attempt === 1,
+      });
     } catch (err) {
       lastError = err instanceof Error ? err.message : String(err);
       lastSnapshot = err instanceof StepExecutionError ? err.snapshot : undefined;

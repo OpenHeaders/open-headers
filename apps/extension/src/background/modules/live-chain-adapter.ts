@@ -87,7 +87,7 @@ import { type ExecutedRequestSnapshot, executeForLiveChain } from './request-exe
  */
 function buildFetchAdapter(workspaceId: string, workflowUid: string, environmentId: string | null): FetchAdapter {
   return {
-    async executeStep(step, stepCaptures, _context) {
+    async executeStep(step, stepCaptures, _context, send) {
       const request = getRequestInWorkspace(step.requestUid, workspaceId);
       if (!request) {
         // Treated as a fetch-phase failure by the core runner. The
@@ -104,16 +104,19 @@ function buildFetchAdapter(workspaceId: string, workflowUid: string, environment
       // avoids paying a resolution round-trip just to pick a slot.
       // Origins that can't be parsed fall through to direct execution
       // via `withRefreshRateLimit`'s safeOrigin.
-      const snapshot = await withRefreshRateLimit(request.url, () =>
-        executeForLiveChain(request, {
-          workspaceId,
-          environmentId,
-          workflowUid,
-          stepId: step.id,
-          stepCaptures,
-          timeoutMs: step.timeoutMs,
-          runScripts: step.runScripts === true,
-        }),
+      const snapshot = await withRefreshRateLimit(
+        request.url,
+        () =>
+          executeForLiveChain(request, {
+            workspaceId,
+            environmentId,
+            workflowUid,
+            stepId: step.id,
+            stepCaptures,
+            timeoutMs: step.timeoutMs,
+            runScripts: step.runScripts === true,
+          }),
+        { uncounted: send?.resend, onHeld: send?.onHeld, onLeave: send?.onLeave },
       );
 
       if (snapshot.error != null) {

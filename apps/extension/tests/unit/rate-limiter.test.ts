@@ -143,3 +143,97 @@ describe('withRefreshRateLimit', () => {
     }
   });
 });
+
+describe('what a caller hears and may ask', () => {
+  it('a call that starts at once hears that it leaves, and never that it waits', async () => {
+    const heard: string[] = [];
+    await withRefreshRateLimit('https://openheaders.io/a', async () => heard.push('sent'), {
+      onHeld: () => heard.push('held'),
+      onLeave: () => heard.push('leave'),
+    });
+    expect(heard).toEqual(['leave', 'sent']);
+  });
+
+  it('a call the limiter does not gate hears that it leaves', async () => {
+    const onLeave = vi.fn();
+    await withRefreshRateLimit('data:text/plain,hi', async () => 'direct', { onLeave });
+    expect(onLeave).toHaveBeenCalledTimes(1);
+  });
+
+  it('a queued call hears that it waits, then that it leaves as its slot opens', async () => {
+    __configureRateLimiterForTests({ maxConcurrent: 1, maxPerMinute: 100 });
+    const first = defer<void>();
+    const heard: string[] = [];
+
+    const a = withRefreshRateLimit('https://openheaders.io/a', () => first.promise);
+    await Promise.resolve();
+    const b = withRefreshRateLimit('https://openheaders.io/b', async () => heard.push('sent'), {
+      onHeld: () => heard.push('held'),
+      onLeave: () => heard.push('leave'),
+    });
+    await Promise.resolve();
+    expect(heard).toEqual(['held']);
+
+    first.resolve();
+    await Promise.all([a, b]);
+    expect(heard).toEqual(['held', 'leave', 'sent']);
+  });
+
+  it('an uncounted start passes a full minute window and adds nothing to it', async () => {
+    __configureRateLimiterForTests({ maxConcurrent: 1, maxPerMinute: 2 });
+    await withRefreshRateLimit('https://openheaders.io/a', async () => 1);
+    await withRefreshRateLimit('https://openheaders.io/b', async () => 2);
+
+    const onHeld = vi.fn();
+    const out = await withRefreshRateLimit('https://openheaders.io/c', async () => 3, { uncounted: true, onHeld });
+
+    expect(out).toBe(3);
+    expect(onHeld).not.toHaveBeenCalled();
+    expect(inspectRateLimiter('https://openheaders.io')).toEqual({ inFlight: 0, recentStartsInMinute: 2, queued: 0 });
+  });
+
+  it('an uncounted start still waits for the one in flight', async () => {
+    __configureRateLimiterForTests({ maxConcurrent: 1, maxPerMinute: 100 });
+    const first = defer<void>();
+    const onHeld = vi.fn();
+
+    const a = withRefreshRateLimit('https://openheaders.io/a', () => first.promise);
+    await Promise.resolve();
+    const b = withRefreshRateLimit('https://openheaders.io/b', async () => 'B', { uncounted: true, onHeld });
+    await Promise.resolve();
+    expect(onHeld).toHaveBeenCalledTimes(1);
+    expect(inspectRateLimiter('https://openheaders.io')).toEqual(expect.objectContaining({ inFlight: 1, queued: 1 }));
+
+    first.resolve();
+    await a;
+    expect(await b).toBe('B');
+  });
+
+  it('an uncounted waiter starts behind one the minute window holds', async () => {
+    vi.useFakeTimers();
+    try {
+      __configureRateLimiterForTests({ maxConcurrent: 1, maxPerMinute: 1 });
+      const first = defer<void>();
+      const order: string[] = [];
+
+      const a = withRefreshRateLimit('https://openheaders.io/a', () => first.promise);
+      await Promise.resolve();
+      const counted = withRefreshRateLimit('https://openheaders.io/b', async () => order.push('counted'));
+      const uncounted = withRefreshRateLimit('https://openheaders.io/c', async () => order.push('uncounted'), {
+        uncounted: true,
+      });
+      await Promise.resolve();
+
+      first.resolve();
+      await a;
+      await uncounted;
+      expect(order).toEqual(['uncounted']);
+
+      await vi.advanceTimersByTimeAsync(61_000);
+      await counted;
+      expect(order).toEqual(['uncounted', 'counted']);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});

@@ -7,7 +7,8 @@
  *
  *   - An `expect`'s window opens when its trigger starts: its address is
  *     resolved then, and the window is a position in the session's order.
- *     Its deadline counts from there.
+ *     Its deadline counts from there. A call starts when its first send
+ *     leaves for the wire — a wait on the host's rate limit is before it.
  *   - A match is the first message in the window that holds to the
  *     criteria; a stored message is passed over unless the step asks.
  *   - Every wait has a deadline: becoming ready, a match, a close.
@@ -60,6 +61,12 @@ export type SessionStepOutcome =
 export interface SessionStepRunner {
   /** Open the window of every `expect` this step triggers — asked as the step starts. */
   armTriggeredBy(step: KnownWorkflowStep): Promise<void>;
+  /**
+   * A call's first send left for the wire: each window it opened opens
+   * here instead, so a wait on the host's rate limit is neither in the
+   * window nor counted against its deadline.
+   */
+  triggerLeft(step: KnownWorkflowStep): void;
   run(step: SessionWorkflowStep): Promise<SessionStepOutcome>;
   /** End every open session, last opened first, each under the close deadline. */
   close(): Promise<SessionClose[]>;
@@ -270,6 +277,16 @@ export function createSessionStepRunner(deps: {
         }
         holdOf(step.on).arm(step.id, { from: listening === undefined ? 0 : listening.session.position(), address });
         armed.set(step.id, { startedAt: now(), address });
+      }
+    },
+    triggerLeft(trigger) {
+      for (const step of expects) {
+        if (step.after !== trigger.id) continue;
+        const window = armed.get(step.id);
+        const listening = open.get(step.on);
+        if (window === undefined || listening === undefined) continue;
+        holdOf(step.on).arm(step.id, { from: listening.session.position(), address: window.address });
+        armed.set(step.id, { startedAt: now(), address: window.address });
       }
     },
     run(step) {
