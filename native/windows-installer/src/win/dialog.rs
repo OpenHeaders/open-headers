@@ -16,7 +16,7 @@ use windows::core::{HRESULT, HSTRING, PCWSTR, w};
 
 use crate::outcome::Failure;
 
-pub const TITLE: &str = "OpenHeaders Installer";
+pub const TITLE: &str = "Open Headers Installer";
 const TRY_AGAIN: i32 = 1001;
 const SHOW_LOG: i32 = 1002;
 /// The dialog's width, in dialog units: wide enough for every sentence it shows.

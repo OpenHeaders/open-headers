@@ -1,8 +1,13 @@
-# Installs a signed Windows package on this machine, the way a person's Windows does, and asks
-# the installed package whether it starts. The release lane runs it on a machine of the package's
-# own arch that never held the tree the package was packed from.
+# Installs a signed Windows package on this machine, the way a person's PC gets it - through the
+# release's own installer program - and asks the installed package whether it starts. The release
+# lane runs it on a machine of the package's own arch that never held the tree the package was
+# packed from.
 #
-#   powershell -File scripts/build/test-msix-install.ps1 -Package <file.msix>
+#   powershell -File scripts/build/test-msix-install.ps1 -Package <file.msix> -Installer <file.exe>
+#
+# The installer runs without its window, takes the package from this file where a person's run
+# downloads it, and does not open the app. It must end with 0 and say in its own log that the
+# package's signer is its own: a signed installer installs no other signer's package.
 #
 # Everything it looks for is read from the package's own manifest: the identity, the logos, the
 # launch aliases - the app's is the first the manifest names. Every check runs and reports, so
@@ -10,7 +15,7 @@
 #
 # Run by Windows PowerShell, which reads a script without a byte-order mark in the machine's old
 # code page: this file stays plain ASCII.
-param([Parameter(Mandatory = $true)][string]$Package)
+param([Parameter(Mandatory = $true)][string]$Package, [Parameter(Mandatory = $true)][string]$Installer)
 
 $failed = 0
 function Report([bool]$ok, [string]$line) {
@@ -21,6 +26,8 @@ function FirstLines($text) { (("$text" -split "`r?`n" | Where-Object { $_.Trim()
 
 if (-not (Test-Path -LiteralPath $Package -PathType Leaf)) { Write-Host "no package at $Package"; exit 1 }
 $Package = (Resolve-Path -LiteralPath $Package).Path
+if (-not (Test-Path -LiteralPath $Installer -PathType Leaf)) { Write-Host "no installer at $Installer"; exit 1 }
+$Installer = (Resolve-Path -LiteralPath $Installer).Path
 
 $os = Get-CimInstance Win32_OperatingSystem
 $ubr = (Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion').UBR
@@ -53,14 +60,30 @@ Report ($signature.Status -eq 'Valid') "this machine trusts the package's signat
 $earlier = @(Get-AppxPackage -Name $identity.Name)
 if ($earlier.Count -gt 0) { Write-Host "a package named $($identity.Name) is already installed ($($earlier[0].PackageFullName)); stop"; exit 1 }
 
+$shown = (Get-Item -LiteralPath $Installer).VersionInfo
+Write-Host "installer: $($shown.FileDescription) $($shown.ProductVersion), $((Get-Item -LiteralPath $Installer).Length) bytes, signed by $((Get-AuthenticodeSignature -LiteralPath $Installer).SignerCertificate.Subject)"
+$runLog = Join-Path $env:TEMP 'openheaders-installer-test.log'
+Remove-Item -LiteralPath $runLog -Force -ErrorAction SilentlyContinue
 $watch = [Diagnostics.Stopwatch]::StartNew()
+$ended = $false
 try {
-  Add-AppxPackage -Path $Package -ErrorAction Stop
-  Report $true "Windows installs the package ($($watch.ElapsedMilliseconds) ms)"
+  $run = Start-Process -FilePath $Installer -ArgumentList ('--silent --no-launch --package "{0}" --log "{1}"' -f $Package, $runLog) -PassThru
+  # An exit code is read only from a process whose handle was taken while it ran.
+  $null = $run.Handle
+  if ($run.WaitForExit(300000)) {
+    $ended = $run.ExitCode -eq 0
+    Report $ended "the installer installs the package (exit $($run.ExitCode), $($watch.ElapsedMilliseconds) ms)"
+  } else {
+    Report $false 'the installer installs the package (it did not end in 300 s)'
+    Stop-Process -Id $run.Id -Force -ErrorAction SilentlyContinue
+  }
 } catch {
-  Report $false "Windows installs the package: $(FirstLines $_.Exception.Message)"
-  exit 1
+  Report $false "the installer installs the package: $(FirstLines $_.Exception.Message)"
 }
+$said = @(Get-Content -LiteralPath $runLog -ErrorAction SilentlyContinue)
+foreach ($line in $said) { Write-Host "  installer | $line" }
+Report (@($said | Where-Object { $_ -like "*the package's signer is this installer's own*" }).Count -eq 1) "the installer held the package to its own signer"
+if (-not $ended) { Write-Host "$failed check(s) failed"; exit 1 }
 
 try {
   $installed = Get-AppxPackage -Name $identity.Name

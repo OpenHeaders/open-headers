@@ -126,6 +126,45 @@ describe('shipsWindowsPackage — from the first release that ships one', () => 
   });
 });
 
+/** The first release that ships the installer program, and whether each argument ships one. */
+const SHIPS_INSTALLER = `
+const [library, ...versions] = process.argv.slice(1);
+import(library).then(({ FIRST_WINDOWS_INSTALLER_VERSION, shipsWindowsInstaller }) => {
+  console.log(JSON.stringify({ first: FIRST_WINDOWS_INSTALLER_VERSION, ships: versions.map(shipsWindowsInstaller) }));
+});
+`;
+
+function shipsInstaller(versions: string[]): { first: string; ships: boolean[] } {
+  const result = spawnSync(process.execPath, ['-e', SHIPS_INSTALLER, LIBRARY, ...versions], { encoding: 'utf8' });
+  expect(result.stderr).toBe('');
+  return JSON.parse(result.stdout);
+}
+
+describe('shipsWindowsInstaller — from the first release that ships the installer program', () => {
+  it('starts at a release that ships a package: the installer installs one', () => {
+    const { first } = shipsInstaller([]);
+
+    expect(ships([first]).ships).toEqual([true]);
+  });
+
+  it('holds for the first release and every release after it, beta and stable alike', () => {
+    const { first } = shipsInstaller([]);
+    const base = first.replace(/-beta\.\d+$/, '');
+    const [year, month, patch] = base.split('.').map(Number);
+
+    expect(shipsInstaller([first, base, `${year}.${month}.${patch + 1}-beta.1`, `${year + 1}.1.0`]).ships).toEqual([
+      true,
+      true,
+      true,
+      true,
+    ]);
+  });
+
+  it('does not hold for the package betas before it', () => {
+    expect(shipsInstaller(['2026.11.2', '2026.11.3-beta.2', '2026.11.3-beta.5']).ships).toEqual([false, false, false]);
+  });
+});
+
 describe('packageVersion — what it refuses', () => {
   it.each([
     ['a tag', 'v2026.11.2'],

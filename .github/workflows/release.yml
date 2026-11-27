@@ -8,8 +8,8 @@ on:
   # signing path (the unpacked tree signed → installers packaged and
   # signed by the builder → signature checks) and uploads the
   # artifacts — no binaries leg, no release job, nothing published.
-  # The Windows legs also pack, sign and test the Windows package, as
-  # on a tag.
+  # The Windows legs also pack, sign and test the Windows package and
+  # its installer program, as on a tag.
   # `windows` builds the two Windows arches only (the signing dry run);
   # `all` builds every desktop leg.
   workflow_dispatch:
@@ -728,11 +728,86 @@ jobs:
           [System.IO.File]::WriteAllText((Join-Path $package[0].DirectoryName "publisher.txt"), $sig.SignerCertificate.Subject)
         shell: pwsh
 
+      # The installer program — the file a person downloads: a small
+      # native program that fetches the channel's package with a
+      # percentage and has Windows install it. Built here for this leg's
+      # arch, both arches by this x64 runner's compiler, for the release
+      # the desktop's package.json names: a tag pins its own version
+      # there, so a beta's installer installs betas; a dry run builds the
+      # base's. The cache is the one its own workflow saves on main.
+      - &installer_cache_step
+        name: Cache cargo (Windows installer)
+        if: steps.verify_package.outcome == 'success'
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            native/windows-installer/target
+          key: ${{ runner.os }}-windows-installer-${{ hashFiles('native/windows-installer/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-windows-installer-
+
+      - &build_installer_step
+        name: Build the Windows installer
+        id: build_installer
+        if: steps.verify_package.outcome == 'success'
+        continue-on-error: ${{ steps.package_plan.outputs.required != 'true' }}
+        shell: bash
+        run: node scripts/build-windows-installer.mjs "win-${{ matrix.arch || 'x64' }}"
+
+      # One more signing call per arch: the staged folder holds the one
+      # program, and the script signs every unsigned program in a folder.
+      - &sign_installer_step
+        name: Sign the Windows installer
+        id: sign_installer
+        if: steps.build_installer.outcome == 'success'
+        continue-on-error: ${{ steps.package_plan.outputs.required != 'true' }}
+        working-directory: apps/desktop
+        shell: bash
+        run: node scripts/build/sign-windows.js "../../native/windows-installer/dist/win-${{ matrix.arch || 'x64' }}"
+        env:
+          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+
+      # Valid and timestamped, like the package. The installer takes only
+      # a package of its own signer, so its signer is held to the
+      # package's here, letter for letter; and the version Windows shows
+      # for the file must name the release it was built for. Then it
+      # joins the package: one artifact carries both to the install test
+      # and to the release job.
+      - &verify_installer_step
+        name: Verify the Windows installer
+        id: verify_installer
+        if: steps.sign_installer.outcome == 'success'
+        continue-on-error: ${{ steps.package_plan.outputs.required != 'true' }}
+        run: |
+          $arch = "${{ matrix.arch || 'x64' }}"
+          $installer = Get-Item -LiteralPath "native/windows-installer/dist/win-$arch/OpenHeaders-Installer-$arch.exe"
+          $packageDir = "apps/desktop/dist/windows-package"
+
+          $sig = Get-AuthenticodeSignature -LiteralPath $installer.FullName
+          Write-Host "$($sig.Status)  $($sig.SignerCertificate.Subject)  timestamped by: $($sig.TimeStamperCertificate.Subject)  $($installer.FullName) ($($installer.Length) bytes)"
+          if ($sig.Status -ne 'Valid') { Write-Error "The installer carries no valid signature ($($sig.Status))"; exit 1 }
+          if (-not $sig.TimeStamperCertificate) { Write-Error "The installer's signature carries no timestamp"; exit 1 }
+          $publisher = [System.IO.File]::ReadAllText((Join-Path $packageDir "publisher.txt"))
+          if ($sig.SignerCertificate.Subject -cne $publisher) { Write-Error "The installer's signer is not the package's ($publisher)"; exit 1 }
+
+          $release = node -p "require('./apps/desktop/package.json').version"
+          $shown = $installer.VersionInfo
+          Write-Host "version: $($shown.FileDescription) / $($shown.ProductName) $($shown.ProductVersion) / file $($shown.FileVersion) / $($shown.CompanyName) / $($shown.OriginalFilename)"
+          if ($shown.ProductVersion -cne $release) { Write-Error "The installer says it is of $($shown.ProductVersion), the release is $release"; exit 1 }
+          if ($shown.OriginalFilename -cne $installer.Name) { Write-Error "The installer names itself $($shown.OriginalFilename)"; exit 1 }
+
+          Copy-Item -LiteralPath $installer.FullName -Destination $packageDir
+        shell: pwsh
+
       # Only a package that passed its check leaves the leg, with its
-      # signer's subject beside it.
+      # signer's subject and its installer beside it.
       - &upload_package_step
         name: Upload the Windows package
-        if: steps.verify_package.outcome == 'success'
+        if: steps.verify_installer.outcome == 'success'
         continue-on-error: ${{ steps.package_plan.outputs.required != 'true' }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
@@ -743,6 +818,7 @@ jobs:
           path: |
             apps/desktop/dist/windows-package/*.msix
             apps/desktop/dist/windows-package/publisher.txt
+            apps/desktop/dist/windows-package/OpenHeaders-Installer-*.exe
 
   # Windows ARM64 — a leg like the ones above, on an ARM runner and on
   # the same steps. It is a job of its own, not a row of that matrix,
@@ -822,14 +898,20 @@ jobs:
       - *pack_package_step
       - *sign_package_step
       - *verify_package_step
+      - *installer_cache_step
+      - *build_installer_step
+      - *sign_installer_step
+      - *verify_installer_step
       - *upload_package_step
 
   # The Windows package, installed on a machine of its own arch that
-  # never held the tree: Windows installs it from the file as it would
-  # on a person's PC, the manifest's logos are looked up in the installed
-  # package (an index that names its files wrongly packs, signs and
-  # installs without a word), and the app is asked through its launch
-  # alias whether it starts — its start check, which opens no data.
+  # never held the tree: the release's own installer program installs it
+  # from the file, as it does on a person's PC after its download, and
+  # must say it held the package to its own signer; the manifest's logos
+  # are looked up in the installed package (an index that names its
+  # files wrongly packs, signs and installs without a word), and the app
+  # is asked through its launch alias whether it starts — its start
+  # check, which opens no data.
   #
   # The x64 package is tested on a server build of Windows, the only
   # x64 image there is; the ARM64 one on Windows 11.
@@ -899,7 +981,9 @@ jobs:
         run: |
           $package = @(Get-ChildItem -Path "windows-package" -Filter "*.msix" -File)
           if ($package.Count -ne 1) { Write-Host "Expected one package, found $($package.Count)"; exit 1 }
-          & "apps/desktop/scripts/build/test-msix-install.ps1" -Package $package[0].FullName
+          $installer = @(Get-ChildItem -Path "windows-package" -Filter "OpenHeaders-Installer-*.exe" -File)
+          if ($installer.Count -ne 1) { Write-Host "Expected one installer, found $($installer.Count)"; exit 1 }
+          & "apps/desktop/scripts/build/test-msix-install.ps1" -Package $package[0].FullName -Installer $installer[0].FullName
           exit $LASTEXITCODE
 
   # Standalone `oh` and `ohd` (win32 is not a daemon target) ship on
@@ -1348,11 +1432,14 @@ jobs:
           done
 
           # The Windows packages ride with the installers: the download
-          # host and the release page. The signer's subject beside each
-          # stays behind — the feed staging reads it where it is.
+          # host and the release page — and with each its installer
+          # program, the file a person downloads. The signer's subject
+          # beside each stays behind — the feed staging reads it where
+          # it is.
           for d in dist/package-windows-*; do
             [ -d "$d" ] || continue
             cp "$d"/*.msix processed_files/ 2>/dev/null || true
+            cp "$d"/OpenHeaders-Installer-*.exe processed_files/ 2>/dev/null || true
           done
 
           for d in dist/desktop-macos-latest-*; do
@@ -1640,6 +1727,8 @@ jobs:
               "$(dl_link 'Apple Silicon (DMG)' "OpenHeaders-${VERSION}-mac-arm64.dmg")" \
               "$(dl_link 'Intel (DMG)' "OpenHeaders-${VERSION}-mac-x64.dmg")"
             row "${I_WIN} Windows" \
+              "$(dl_link 'x64 (Installer)' "OpenHeaders-Installer-x64.exe")" \
+              "$(dl_link 'ARM64 (Installer)' "OpenHeaders-Installer-arm64.exe")" \
               "$(dl_link 'x64 (EXE)' "OpenHeaders-${VERSION}-Setup.exe")" \
               "$(dl_link 'ARM64 (EXE)' "OpenHeaders-${VERSION}-arm64-Setup.exe")" \
               "$(dl_link 'x64 (MSIX)' "OpenHeaders-${VERSION}-x64.msix")" \

@@ -109,10 +109,10 @@ impl Stage {
     pub fn words(self, progress: Progress) -> String {
         let words = match self {
             Stage::Checking => "Getting ready…",
-            Stage::Downloading => "Downloading OpenHeaders…",
+            Stage::Downloading => "Downloading Open Headers…",
             Stage::Verifying => "Verifying…",
             Stage::Installing => "Installing…",
-            Stage::Opening => "Opening OpenHeaders…",
+            Stage::Opening => "Opening Open Headers…",
         };
         match (self, progress.percent(), progress.megabytes()) {
             (Stage::Downloading, Some(percent), Some((have, total))) => {
@@ -191,6 +191,13 @@ fn offer_for(plan: &Plan, system: &dyn System, log: &Log) -> Result<PackageOffer
         PointerError::NoPackage => Stop::new(
             Failure::NothingPublished,
             format!("the pointer names no {} package", arch.name()),
+        ),
+        PointerError::Stopped => Stop::new(
+            Failure::HeldBack,
+            format!(
+                "the {} channel's pointer says stop: its package is held back",
+                plan.channel.name()
+            ),
         ),
         PointerError::Unreadable(why) => Stop::new(Failure::Pointer, format!("unreadable pointer: {why}")),
     })?;
@@ -618,12 +625,12 @@ mod tests {
     fn a_stage_reads_as_its_line_with_a_percentage_where_there_is_one() {
         assert_eq!(
             Stage::Downloading.words(Progress::Percent(42)),
-            "Downloading OpenHeaders… 42%"
+            "Downloading Open Headers… 42%"
         );
-        assert_eq!(Stage::Downloading.words(Progress::Unknown), "Downloading OpenHeaders…");
+        assert_eq!(Stage::Downloading.words(Progress::Unknown), "Downloading Open Headers…");
         assert_eq!(Stage::Verifying.words(Progress::Percent(42)), "Verifying…");
         assert_eq!(Stage::Installing.words(Progress::Percent(7)), "Installing… 7%");
-        assert_eq!(Stage::Opening.words(Progress::Unknown), "Opening OpenHeaders…");
+        assert_eq!(Stage::Opening.words(Progress::Unknown), "Opening Open Headers…");
         assert!(Stage::Verifying.takes_cancel() && !Stage::Installing.takes_cancel());
     }
 
@@ -633,14 +640,17 @@ mod tests {
         // The package of beta.5 for ARM64: Windows shows the file as 240 MB.
         let total = 252_212_268;
         let words = |have| Stage::Downloading.words(Progress::Bytes { have, total });
-        assert_eq!(words(0), "Downloading OpenHeaders… 0% (0 of 240 MB)");
-        assert_eq!(words(112 * megabyte), "Downloading OpenHeaders… 46% (112 of 240 MB)");
-        assert_eq!(words(total), "Downloading OpenHeaders… 100% (240 of 240 MB)");
-        assert_eq!(words(total + megabyte), "Downloading OpenHeaders… 100% (240 of 240 MB)");
+        assert_eq!(words(0), "Downloading Open Headers… 0% (0 of 240 MB)");
+        assert_eq!(words(112 * megabyte), "Downloading Open Headers… 46% (112 of 240 MB)");
+        assert_eq!(words(total), "Downloading Open Headers… 100% (240 of 240 MB)");
+        assert_eq!(
+            words(total + megabyte),
+            "Downloading Open Headers… 100% (240 of 240 MB)"
+        );
         // A download under a megabyte has none to count.
         assert_eq!(
             Stage::Downloading.words(Progress::Bytes { have: 20, total: 40 }),
-            "Downloading OpenHeaders… 50%"
+            "Downloading Open Headers… 50%"
         );
         assert_eq!(Progress::Bytes { have: 0, total: 0 }.percent(), None);
     }
@@ -679,6 +689,19 @@ mod tests {
             failure(go(&other_arch, &plan(), &Seen::default())),
             Failure::NothingPublished
         );
+    }
+
+    #[test]
+    fn a_channel_held_back_installs_nothing_and_is_not_tried_again() {
+        let mut pc = Pc::new("held-back");
+        let held = String::from_utf8(pointer())
+            .unwrap()
+            .replace("\"stop\":false", "\"stop\":true");
+        pc.feed.pointer = FakeHost::new(held.as_bytes(), vec![]);
+        let stop = go(&pc, &plan(), &Seen::default()).unwrap_err();
+        assert_eq!(stop.failure, Failure::HeldBack);
+        assert!(!stop.failure.worth_another_try());
+        assert!(pc.calls().is_empty() && pc.feed.package.asked.borrow().is_empty());
     }
 
     #[test]

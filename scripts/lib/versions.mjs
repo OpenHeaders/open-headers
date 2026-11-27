@@ -79,6 +79,19 @@ export function shipsWindowsPackage(version) {
   return compareVersions(version, FIRST_WINDOWS_PACKAGE_VERSION) >= 0;
 }
 
+/**
+ * The first release that ships the Windows installer program beside its
+ * packages — `OpenHeaders-Installer-<arch>.exe`, the file a person
+ * downloads: it fetches the channel's package and has Windows install
+ * it. Every release from it on ships one per arch.
+ */
+export const FIRST_WINDOWS_INSTALLER_VERSION = '2026.11.3-beta.6';
+
+/** Whether a release ships the Windows installer program. */
+export function shipsWindowsInstaller(version) {
+  return compareVersions(version, FIRST_WINDOWS_INSTALLER_VERSION) >= 0;
+}
+
 /** `stable` | `beta` from the tag shape — the only channel authority. */
 export function channelForTag(tag) {
   return /-beta[.0-9]*$/.test(tag) ? 'beta' : 'stable';

@@ -77,9 +77,15 @@ const BETA_ASSETS = [
 ];
 const BETA_YMLS = ['beta.yml', 'beta-mac.yml', 'beta-linux.yml'];
 
-/** Releases past the first that ships a Windows package (`scripts/lib/versions.mjs`). */
+/**
+ * Releases past the first that ships a Windows package and its installer
+ * program (`scripts/lib/versions.mjs`), and a beta between the two: it
+ * ships the packages and no installer program yet.
+ */
 const PACKAGE_STABLE_VERSION = '2027.1.0';
 const PACKAGE_BETA_VERSION = '2027.1.1-beta.1';
+const PACKAGE_ONLY_BETA_VERSION = '2026.11.3-beta.5';
+const WINDOWS_INSTALLERS = ['OpenHeaders-Installer-x64.exe', 'OpenHeaders-Installer-arm64.exe'];
 
 function atVersion(assets: string[], from: string, to: string): string[] {
   return assets.map((name) => name.replace(from, to));
@@ -87,6 +93,11 @@ function atVersion(assets: string[], from: string, to: string): string[] {
 
 function windowsPackages(version: string): string[] {
   return [`OpenHeaders-${version}-x64.msix`, `OpenHeaders-${version}-arm64.msix`];
+}
+
+/** What such a release stages for Windows beside its classic installers. */
+function windowsPackageAssets(version: string): string[] {
+  return [...windowsPackages(version), ...WINDOWS_INSTALLERS];
 }
 
 let workDir: string;
@@ -196,25 +207,32 @@ describe('assert-release-manifest', () => {
     expect(beta.run).toThrow(/does not ship: OpenHeaders-2026\.9\.1-beta\.1-x64\.msix/);
   });
 
-  it('expects both Windows packages on either channel from the first release that ships one', () => {
+  it('expects both Windows packages and both installer programs on either channel from the first release that ships them', () => {
     const stable = stage(
       PACKAGE_STABLE_VERSION,
-      [...atVersion(STABLE_ASSETS, STABLE_VERSION, PACKAGE_STABLE_VERSION), ...windowsPackages(PACKAGE_STABLE_VERSION)],
+      [
+        ...atVersion(STABLE_ASSETS, STABLE_VERSION, PACKAGE_STABLE_VERSION),
+        ...windowsPackageAssets(PACKAGE_STABLE_VERSION),
+      ],
       STABLE_YMLS,
     );
-    expect(stable.run()).toContain('expects 34 assets, 34 files staged');
+    expect(stable.run()).toContain('expects 36 assets, 36 files staged');
     rmSync(workDir, { recursive: true, force: true });
 
     const beta = stage(
       PACKAGE_BETA_VERSION,
-      [...atVersion(BETA_ASSETS, BETA_VERSION, PACKAGE_BETA_VERSION), ...windowsPackages(PACKAGE_BETA_VERSION)],
+      [...atVersion(BETA_ASSETS, BETA_VERSION, PACKAGE_BETA_VERSION), ...windowsPackageAssets(PACKAGE_BETA_VERSION)],
       BETA_YMLS,
     );
-    expect(beta.run()).toContain('expects 14 assets, 14 files staged');
+    expect(beta.run()).toContain('expects 16 assets, 16 files staged');
   });
 
   it('fails such a release without its packages, or with one arch alone', () => {
-    const none = stage(PACKAGE_BETA_VERSION, atVersion(BETA_ASSETS, BETA_VERSION, PACKAGE_BETA_VERSION), BETA_YMLS);
+    const none = stage(
+      PACKAGE_BETA_VERSION,
+      [...atVersion(BETA_ASSETS, BETA_VERSION, PACKAGE_BETA_VERSION), ...WINDOWS_INSTALLERS],
+      BETA_YMLS,
+    );
     expect(none.run).toThrow(
       /missing: OpenHeaders-2027\.1\.1-beta\.1-x64\.msix[\s\S]*missing: OpenHeaders-2027\.1\.1-beta\.1-arm64\.msix[\s\S]*2 problem\(s\)/,
     );
@@ -223,10 +241,48 @@ describe('assert-release-manifest', () => {
     const [x64] = windowsPackages(PACKAGE_STABLE_VERSION);
     const oneArch = stage(
       PACKAGE_STABLE_VERSION,
-      [...atVersion(STABLE_ASSETS, STABLE_VERSION, PACKAGE_STABLE_VERSION), x64],
+      [...atVersion(STABLE_ASSETS, STABLE_VERSION, PACKAGE_STABLE_VERSION), x64, ...WINDOWS_INSTALLERS],
       STABLE_YMLS,
     );
     expect(oneArch.run).toThrow(/missing: OpenHeaders-2027\.1\.0-arm64\.msix[\s\S]*1 problem\(s\)/);
+  });
+
+  it('fails such a release without its installer programs, or with one arch alone', () => {
+    const none = stage(
+      PACKAGE_BETA_VERSION,
+      [...atVersion(BETA_ASSETS, BETA_VERSION, PACKAGE_BETA_VERSION), ...windowsPackages(PACKAGE_BETA_VERSION)],
+      BETA_YMLS,
+    );
+    expect(none.run).toThrow(
+      /missing: OpenHeaders-Installer-x64\.exe[\s\S]*missing: OpenHeaders-Installer-arm64\.exe[\s\S]*2 problem\(s\)/,
+    );
+    rmSync(workDir, { recursive: true, force: true });
+
+    const oneArch = stage(
+      PACKAGE_STABLE_VERSION,
+      [
+        ...atVersion(STABLE_ASSETS, STABLE_VERSION, PACKAGE_STABLE_VERSION),
+        ...windowsPackages(PACKAGE_STABLE_VERSION),
+        WINDOWS_INSTALLERS[0],
+      ],
+      STABLE_YMLS,
+    );
+    expect(oneArch.run).toThrow(/missing: OpenHeaders-Installer-arm64\.exe[\s\S]*1 problem\(s\)/);
+  });
+
+  it('takes a package beta from before the installer program without one, and fails one that is staged', () => {
+    const assets = [
+      ...atVersion(BETA_ASSETS, BETA_VERSION, PACKAGE_ONLY_BETA_VERSION),
+      ...windowsPackages(PACKAGE_ONLY_BETA_VERSION),
+    ];
+    const without = stage(PACKAGE_ONLY_BETA_VERSION, assets, BETA_YMLS);
+    expect(without.run()).toContain('expects 14 assets, 14 files staged');
+    rmSync(workDir, { recursive: true, force: true });
+
+    const stray = stage(PACKAGE_ONLY_BETA_VERSION, [...assets, WINDOWS_INSTALLERS[1]], BETA_YMLS);
+    expect(stray.run).toThrow(
+      /a Windows installer is staged that v2026\.11\.3-beta\.5 does not ship: OpenHeaders-Installer-arm64\.exe[\s\S]*1 problem\(s\)/,
+    );
   });
 
   it("fails a package that is not the release's own", () => {
@@ -234,7 +290,7 @@ describe('assert-release-manifest', () => {
       PACKAGE_STABLE_VERSION,
       [
         ...atVersion(STABLE_ASSETS, STABLE_VERSION, PACKAGE_STABLE_VERSION),
-        ...windowsPackages(PACKAGE_STABLE_VERSION),
+        ...windowsPackageAssets(PACKAGE_STABLE_VERSION),
         'OpenHeaders-2026.12.0-x64.msix',
       ],
       STABLE_YMLS,

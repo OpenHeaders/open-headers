@@ -24,6 +24,11 @@
  * and everything staged here is uploaded to the download host and the
  * release page. A package that is not this release's own fails always.
  *
+ * The Windows installer program (`OpenHeaders-Installer-<arch>.exe`, one
+ * per arch, no version in its name — it installs what its channel
+ * offers) is expected from the first release that ships it
+ * (`shipsWindowsInstaller`); below that release a staged one fails.
+ *
  * Lockstep: the five shipping apps (desktop, cli, daemon, extension,
  * web) share the tag's base version — the runbook's suite-tag law,
  * which the build legs check for the desktop alone. packages/* and
@@ -38,7 +43,7 @@
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import * as path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { shipsWindowsPackage } from './lib/versions.mjs';
+import { shipsWindowsInstaller, shipsWindowsPackage } from './lib/versions.mjs';
 
 const LOCKSTEP_APPS = ['desktop', 'cli', 'daemon', 'extension', 'web'];
 
@@ -65,7 +70,10 @@ function expectedAssets(tag, versions) {
   const beta = /-beta[.0-9]*$/.test(tag);
   const app = `OpenHeaders-${version}`;
   const mac = (arch, targets) => targets.map((target) => `${app}-mac-${arch}.${target}`);
-  const windowsPackages = shipsWindowsPackage(version) ? [`${app}-x64.msix`, `${app}-arm64.msix`] : [];
+  const windowsPackageAssets = [
+    ...(shipsWindowsPackage(version) ? [`${app}-x64.msix`, `${app}-arm64.msix`] : []),
+    ...(shipsWindowsInstaller(version) ? ['OpenHeaders-Installer-x64.exe', 'OpenHeaders-Installer-arm64.exe'] : []),
+  ];
   if (beta) {
     return [
       ...mac('arm64', ['dmg', 'zip', 'zip.blockmap']),
@@ -73,7 +81,7 @@ function expectedAssets(tag, versions) {
       `${app}-Setup.exe.blockmap`,
       `${app}-arm64-Setup.exe`,
       `${app}-arm64-Setup.exe.blockmap`,
-      ...windowsPackages,
+      ...windowsPackageAssets,
       `${app}-x86_64.AppImage`,
       `open-headers_${version}_amd64.deb`,
       'beta.yml',
@@ -89,7 +97,7 @@ function expectedAssets(tag, versions) {
     `${app}-arm64-Setup.exe`,
     `${app}-arm64-Setup.exe.blockmap`,
     `${app}.msi`,
-    ...windowsPackages,
+    ...windowsPackageAssets,
     `${app}-x86_64.AppImage`,
     `${app}-arm64.AppImage`,
     `open-headers_${version}_amd64.deb`,
@@ -139,6 +147,7 @@ const missing = expected.filter((name) => !present.has(name));
 const empty = expected.filter((name) => present.has(name) && statSync(path.join(processedDir, name)).size === 0);
 const extra = [...present].filter((name) => !expected.includes(name)).sort();
 const strayWindowsPackages = extra.filter((name) => name.toLowerCase().endsWith('.msix'));
+const strayWindowsInstallers = extra.filter((name) => /^openheaders-installer-.*\.exe$/i.test(name));
 
 // Every update-info file present (expected or not) must carry the
 // tag's version — electron-builder writes it from package.json, which
@@ -162,6 +171,7 @@ const problems = [
   ...empty.map((name) => `empty: ${name}`),
   ...versionMismatch.map((entry) => `version mismatch: ${entry}`),
   ...strayWindowsPackages.map((name) => `a Windows package is staged that ${tag} does not ship: ${name}`),
+  ...strayWindowsInstallers.map((name) => `a Windows installer is staged that ${tag} does not ship: ${name}`),
 ];
 if (problems.length > 0) {
   for (const problem of problems) console.error(`::error::assert-release-manifest: ${problem}`);

@@ -19,6 +19,10 @@ mod flow;
 mod log;
 mod outcome;
 mod pointer;
+/// What `build.rs` writes into the program, here for its tests.
+#[cfg(test)]
+#[path = "../resources.rs"]
+mod resources;
 mod transfer;
 mod view;
 #[cfg(windows)]

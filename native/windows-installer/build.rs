@@ -7,104 +7,31 @@
 //! build — an installer of one release never ships under another's tag.
 //! A build without the variable is the base itself.
 //!
-//! Its resources: the application manifest (`installer.manifest`) and
-//! the app's icon — the desktop's own icon file, read where it lives —
-//! as a compiled resource file the linker takes like any object. It is
-//! written here byte by byte, so the build needs no resource compiler
-//! and is the same under Microsoft's linker and under LLVM's.
+//! Its resources (`resources.rs`): the application manifest
+//! (`installer.manifest`), the app's icon — the desktop's own icon file,
+//! read where it lives — and the version Windows shows for the file, as
+//! a compiled resource file the linker takes like any object.
 
 use std::path::{Path, PathBuf};
 
-/// Resource type of an application manifest, and the id Windows reads it under in a program.
-const RT_MANIFEST: u16 = 24;
-const PROGRAM_MANIFEST_ID: u16 = 1;
-/// Resource types of one image of an icon, and of the list that names an icon's images.
-const RT_ICON: u16 = 3;
-const RT_GROUP_ICON: u16 = 14;
-/// The id of the program's icon: Windows shows a program's first icon as the file's own, and the
-/// window loads it by this number (`ICON_ID` in `src/win/window.rs`).
-const PROGRAM_ICON_ID: u16 = 1;
-const LANGUAGE_EN_US: u16 = 0x0409;
+#[path = "resources.rs"]
+mod resources;
 
 /// The desktop's icon file, from this crate's folder.
 const ICON_FILE: &str = "../../apps/desktop/build/icon.ico";
 
-/// One entry of a compiled resource file: a 32-byte header naming the
-/// resource by numbers, then its bytes, padded to a multiple of four.
-fn resource_entry(kind: u16, id: u16, language: u16, data: &[u8]) -> Vec<u8> {
-    let mut entry = Vec::with_capacity(32 + data.len() + 3);
-    entry.extend_from_slice(&(data.len() as u32).to_le_bytes());
-    entry.extend_from_slice(&32u32.to_le_bytes());
-    for number in [0xFFFF, kind, 0xFFFF, id] {
-        entry.extend_from_slice(&number.to_le_bytes());
+/// The arch in the published file's name (`scripts/build-windows-installer.mjs`).
+fn published_arch(target_arch: &str) -> &str {
+    match target_arch {
+        "aarch64" => "arm64",
+        "x86_64" => "x64",
+        other => other,
     }
-    entry.extend_from_slice(&0u32.to_le_bytes()); // data version
-    entry.extend_from_slice(&0u16.to_le_bytes()); // memory flags
-    entry.extend_from_slice(&language.to_le_bytes());
-    entry.extend_from_slice(&0u32.to_le_bytes()); // version
-    entry.extend_from_slice(&0u32.to_le_bytes()); // characteristics
-    entry.extend_from_slice(data);
-    while entry.len() % 4 != 0 {
-        entry.push(0);
-    }
-    entry
-}
-
-/// An icon file as resource entries: each image under a number of its
-/// own, then the list of them. An icon file opens with a six-byte header
-/// (the image count last) and one sixteen-byte row per image, whose last
-/// eight bytes are the image's size and its place in the file; the list
-/// in a program keeps a row's first twelve bytes and names the image by
-/// its number instead of its place.
-fn icon_resource_entries(icon: &[u8]) -> Vec<u8> {
-    let number = |at: usize, bytes: usize| -> usize {
-        let field = icon.get(at..at + bytes).expect("the icon file is cut short");
-        field
-            .iter()
-            .rev()
-            .fold(0usize, |value, byte| (value << 8) | usize::from(*byte))
-    };
-    assert!(
-        number(0, 2) == 0 && number(2, 2) == 1,
-        "{ICON_FILE} is not an icon file"
-    );
-    let count = number(4, 2);
-    assert!(count > 0, "{ICON_FILE} holds no image");
-
-    let mut entries = Vec::new();
-    let mut list = Vec::with_capacity(6 + count * 14);
-    list.extend_from_slice(&icon[..6]);
-    for index in 0..count {
-        let row = 6 + index * 16;
-        let (size, place) = (number(row + 8, 4), number(row + 12, 4));
-        let image = icon
-            .get(place..place + size)
-            .expect("an icon image lies outside the file");
-        let id = index as u16 + 1;
-        entries.extend(resource_entry(RT_ICON, id, LANGUAGE_EN_US, image));
-        list.extend_from_slice(&icon[row..row + 12]);
-        list.extend_from_slice(&id.to_le_bytes());
-    }
-    entries.extend(resource_entry(RT_GROUP_ICON, PROGRAM_ICON_ID, LANGUAGE_EN_US, &list));
-    entries
-}
-
-/// The compiled resource file: the manifest and the icon. Such a file
-/// opens with an empty entry that marks its format.
-fn resource_file(manifest: &[u8], icon: &[u8]) -> Vec<u8> {
-    let mut file = resource_entry(0, 0, 0, &[]);
-    file.extend(resource_entry(
-        RT_MANIFEST,
-        PROGRAM_MANIFEST_ID,
-        LANGUAGE_EN_US,
-        manifest,
-    ));
-    file.extend(icon_resource_entries(icon));
-    file
 }
 
 fn main() {
     println!("cargo:rerun-if-changed=build.rs");
+    println!("cargo:rerun-if-changed=resources.rs");
     println!("cargo:rerun-if-changed=installer.manifest");
     println!("cargo:rerun-if-changed={ICON_FILE}");
     println!("cargo:rerun-if-env-changed=OPENHEADERS_INSTALLER_VERSION");
@@ -120,16 +47,34 @@ fn main() {
             "the installer is at {base} (Cargo.toml) and was asked to build for {release}: bump Cargo.toml with the apps' versions"
         );
     }
+    let numbers = resources::release_numbers(&release).unwrap_or_else(|why| panic!("{why}"));
     println!("cargo:rustc-env=OPENHEADERS_RELEASE_VERSION={release}");
 
     if std::env::var_os("CARGO_CFG_WINDOWS").is_some() {
+        let dotted = numbers.map(|number| number.to_string()).join(".");
         let manifest = std::fs::read_to_string("installer.manifest")
             .expect("installer.manifest is read")
-            .replace("${version}", &format!("{base}.0"));
+            .replace("${version}", &dotted);
         let icon = std::fs::read(Path::new(ICON_FILE)).expect("the desktop's icon file is read");
+        let target_arch = std::env::var("CARGO_CFG_TARGET_ARCH").expect("cargo names the target's arch");
+        let version = resources::version_resource(
+            numbers,
+            &[
+                ("CompanyName", "BITHUB TEAM SRL"),
+                ("FileDescription", "Open Headers Installer"),
+                ("FileVersion", &dotted),
+                (
+                    "OriginalFilename",
+                    &format!("OpenHeaders-Installer-{}.exe", published_arch(&target_arch)),
+                ),
+                ("ProductName", "Open Headers"),
+                ("ProductVersion", &release),
+            ],
+        );
         let out =
             PathBuf::from(std::env::var_os("OUT_DIR").expect("cargo sets the output folder")).join("resources.res");
-        std::fs::write(&out, resource_file(manifest.as_bytes(), &icon)).expect("the resource file is written");
+        std::fs::write(&out, resources::resource_file(manifest.as_bytes(), &icon, &version))
+            .expect("the resource file is written");
         // The manifest above is the program's only one: the linker adds none of its own.
         println!("cargo:rustc-link-arg-bins=/MANIFEST:NO");
         println!("cargo:rustc-link-arg-bins={}", out.display());

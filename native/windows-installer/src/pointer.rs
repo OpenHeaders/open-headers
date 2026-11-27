@@ -1,8 +1,10 @@
 //! The Windows package pointer, as the installer reads it. The release
 //! workflow writes one per channel (`scripts/generate-update-feed.mjs`):
 //! the release, the signer's subject, and each arch's link with its size
-//! and hash. Fields the installer does not read are passed by — the
-//! pointer is a wire contract, and an older installer reads newer ones.
+//! and hash, and `stop`, which holds a release back — from an installed
+//! app as an update, from here as a first install. Fields the installer
+//! does not read are passed by — the pointer is a wire contract, and an
+//! older installer reads newer ones.
 
 use serde_json::Value;
 
@@ -45,6 +47,9 @@ pub enum PointerError {
     Unreadable(String),
     /// A pointer that names no package for this arch.
     NoPackage,
+    /// A pointer whose `stop` is set: the release is held back, and a
+    /// package the app is not offered as an update is not installed anew.
+    Stopped,
 }
 
 fn text<'a>(object: &'a Value, key: &str) -> Result<&'a str, PointerError> {
@@ -70,6 +75,11 @@ pub fn read_offer(body: &[u8], arch: Arch) -> Result<PackageOffer, PointerError>
     }
     let version = text(&pointer, "version")?;
     let publisher = text(&pointer, "publisher")?;
+    match pointer.get("stop").and_then(Value::as_bool) {
+        Some(false) => {}
+        Some(true) => return Err(PointerError::Stopped),
+        None => return Err(PointerError::Unreadable("'stop' is not true or false".to_string())),
+    }
     let packages = pointer
         .get("packages")
         .filter(|packages| packages.is_object())
@@ -187,6 +197,25 @@ mod tests {
     fn a_pointer_without_this_arch_offers_nothing() {
         let body = LIVE_SHAPE.replace("\"arm64\"", "\"riscv\"");
         assert_eq!(read_offer(body.as_bytes(), Arch::Arm64), Err(PointerError::NoPackage));
+    }
+
+    #[test]
+    fn a_pointer_that_says_stop_offers_nothing_to_any_arch() {
+        let body = LIVE_SHAPE.replace("\"stop\": false", "\"stop\": true");
+        for arch in [Arch::X64, Arch::Arm64] {
+            assert_eq!(read_offer(body.as_bytes(), arch), Err(PointerError::Stopped));
+        }
+    }
+
+    #[test]
+    fn a_stop_that_is_not_true_or_false_is_unreadable() {
+        for stop in ["\"stop\": \"no\"", "\"stop\": 0", "\"halt\": false"] {
+            let body = LIVE_SHAPE.replace("\"stop\": false", stop);
+            assert!(
+                matches!(read_offer(body.as_bytes(), Arch::X64), Err(PointerError::Unreadable(_))),
+                "{stop}"
+            );
+        }
     }
 
     #[test]

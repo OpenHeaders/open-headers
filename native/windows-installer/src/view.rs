@@ -278,7 +278,7 @@ mod tests {
         assert_eq!(
             shown(Stage::Downloading, progress, false),
             Shown {
-                line: "Downloading OpenHeaders… 38% (98 of 252 MB)".to_string(),
+                line: "Downloading Open Headers… 38% (98 of 252 MB)".to_string(),
                 bar: Bar::Filled(38),
                 takes_cancel: true,
             }
