@@ -34,6 +34,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import type { Page } from '@playwright/test';
 import { type ElectronApplication, expect, type Locator, test } from '@playwright/test';
+import { WorkbenchPage } from '../../../extension/tests/e2e/pages/workbench-page';
 import { launchDesktopApp } from './fixtures/launch-app';
 
 const APP_ROOT = path.resolve(__dirname, '../..');
@@ -105,11 +106,6 @@ function field(testId: string): Locator {
 
 function card(stepId: string): Locator {
   return workbench.locator(`[data-step-card="${stepId}"]`).filter({ visible: true });
-}
-
-/** A card's collapse section header — a button whose name starts with the section's label. */
-function sectionHeader(stepCard: Locator, label: string): Locator {
-  return stepCard.getByRole('button', { name: new RegExp(label) });
 }
 
 function openDropdown(): Locator {
@@ -301,9 +297,11 @@ test.beforeAll(async () => {
   Object.assign(envelope.values, JSON.parse(seeded.stdout) as Record<string, unknown>);
   await writeFile(storagePath, JSON.stringify(envelope));
 
-  // Phase 2: relaunch on the seeded requests and open the workflows view.
+  // Phase 2: relaunch on the seeded requests and open the workflows view, the right
+  // sidebar closed: the graph and the panel sit side by side, as in the extension's specs.
   await launchApp();
   await closeNotifications();
+  await new WorkbenchPage(workbench).collapseRightSidebar();
   await showWorkflowsView();
   await workbench.locator('[data-item-id="workflow-e2ewrwf1"]').waitFor({ state: 'visible', timeout: 15_000 });
 });
@@ -390,9 +388,7 @@ test('A2 — a name published over MQTT and read back over HTTP is authored thro
   await addStep();
   await nameStep(2, 'device');
   await pickOption(stepField(2, 'requestUid').locator('.ant-select'), 'Devices > GET Get dev-1');
-  await sectionHeader(card('device'), 'Success criteria').click();
   await addEqualsRow('wf-step-2-criterion', 0, '$.name', '{{step.rename.name}}');
-  await sectionHeader(card('device'), 'Poll').click();
   await field('wf-step-2-poll-attempts').fill('10');
   await field('wf-step-2-poll-delay').fill('200');
 

@@ -7,30 +7,28 @@
  * First the cards every step has: where it stands among the others
  * (`StepDependencyCards`) and its run condition (`StepGateEditor`). Then
  * the cards of the step's own action — a call's Request
- * (`CallStepFields`), a session step's Connection, Send message, or
- * Expect message with Match criteria (`SessionStepFields`). Under them,
- * what is not a card yet: the step's captures, the `Priority` section
- * every step has, and a call's `Retry policy`, `Timeout`,
- * `Success criteria` and `Poll`.
+ * (`CallStepFields`) and its Success criteria, Poll, Retry policy and
+ * Timeout (`CallPolicyCards`), a session step's Connection, Send
+ * message, or Expect message with Match criteria (`SessionStepFields`).
+ * Under them, what is not a card yet: the step's captures and the
+ * `Priority` section every step has.
  */
 
 import {
-  type DraftCallStep,
   type DraftKnownStep,
   type DraftStep,
   isExpectStep,
   isListenStep,
   isSendStep,
-  isSessionStep,
   type StructuralError,
 } from '@openheaders/core/live';
-import type { Criterion, MqttRequest, PriorityRef, StepGate, StepPoll, StepRetryPolicy } from '@openheaders/core/types';
-import { type Translate, useT } from '@openheaders/ui/context/LocaleContext';
+import type { MqttRequest, PriorityRef, StepGate } from '@openheaders/core/types';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { LIVE_WORKFLOW_FIELD } from '@openheaders/ui/shared/awareness/live-paths';
-import { Collapse, type CollapseProps, ConfigProvider, Space, theme } from 'antd';
-import type { GlobalToken } from 'antd/es/theme/interface';
+import { Collapse, ConfigProvider, Space, theme } from 'antd';
 import type React from 'react';
 import { useMemo } from 'react';
+import CallPolicyCards from './CallPolicyCards';
 import { CallRequestCard, CallStepCaptures } from './CallStepFields';
 import type { LabelTruth } from './graph-lines';
 import { ExpectStepFields, ListenStepFields, SendStepFields, SessionStepCaptures } from './SessionStepFields';
@@ -39,7 +37,7 @@ import StepGateEditor from './StepGateEditor';
 import type { StepMiniFacts } from './StepMiniRow';
 import type { StepMarkKind } from './step-mark';
 import type { StepRequestChoice } from './workflow-step-request-options';
-import { buildCallStepSections, buildSharedStepSections } from './workflow-step-sections';
+import { buildSharedStepSections } from './workflow-step-sections';
 
 /** Where a step stands among the others, and the edits its Depends on card makes — each one the graph's own. */
 export interface StepDependencies {
@@ -84,72 +82,6 @@ interface Props {
   sessionRequests?: StepRequestChoice[];
   /** The workflow publishes live variables — a call's captures carry the exposure row. */
   exposable?: boolean;
-}
-
-/** A call's own sections, with the setters that write each back onto the step. */
-function callSectionsOf(
-  step: DraftCallStep,
-  onChange: (next: DraftCallStep) => void,
-  context: { token: GlobalToken; t: Translate; index: number; errors: StructuralError[]; readOnly: boolean },
-): NonNullable<CollapseProps['items']> {
-  const setRetry = (next: StepRetryPolicy | undefined) => {
-    const nextStep = { ...step };
-    if (next === undefined) {
-      delete nextStep.retry;
-    } else {
-      nextStep.retry = next;
-    }
-    onChange(nextStep);
-  };
-
-  const setTimeoutMs = (next: number | undefined) => {
-    const nextStep = { ...step };
-    if (next === undefined) {
-      delete nextStep.timeoutMs;
-    } else {
-      nextStep.timeoutMs = next;
-    }
-    onChange(nextStep);
-  };
-
-  // An emptied list deletes the field: absent is "any response that
-  // arrived passes", and an empty array would say the same twice.
-  const setSuccessCriteria = (next: Criterion[]) => {
-    const nextStep = { ...step };
-    if (next.length === 0) {
-      delete nextStep.successCriteria;
-    } else {
-      nextStep.successCriteria = next;
-    }
-    onChange(nextStep);
-  };
-
-  const setPoll = (next: StepPoll | undefined) => {
-    const nextStep = { ...step };
-    if (next === undefined) {
-      delete nextStep.poll;
-    } else {
-      nextStep.poll = next;
-    }
-    onChange(nextStep);
-  };
-
-  return buildCallStepSections({
-    token: context.token,
-    t: context.t,
-    index: context.index,
-    retry: step.retry,
-    timeoutMs: step.timeoutMs,
-    successCriteria: step.successCriteria,
-    criteriaErrors: context.errors.filter((e) => e.issue === 'criterion-invalid-regex'),
-    poll: step.poll,
-    pollError: context.errors.find((e) => e.issue === 'poll-without-criteria' || e.issue === 'poll-exceeds-limit'),
-    readOnly: context.readOnly,
-    setRetry,
-    setTimeoutMs,
-    setSuccessCriteria,
-    setPoll,
-  });
 }
 
 const WorkflowStepEditor: React.FC<Props> = ({
@@ -303,16 +235,19 @@ const WorkflowStepEditor: React.FC<Props> = ({
       ) : isExpectStep(step) ? (
         <ExpectStepFields step={step} onChange={onChange} runState={runState} {...session} />
       ) : (
-        <CallRequestCard
-          step={step}
-          index={index}
-          onChange={onChange}
-          availableRequests={availableRequests}
-          requestError={requestError}
-          onOpenRequest={onOpenRequest}
-        />
+        <>
+          <CallRequestCard
+            step={step}
+            index={index}
+            onChange={onChange}
+            availableRequests={availableRequests}
+            requestError={requestError}
+            onOpenRequest={onOpenRequest}
+          />
+          <CallPolicyCards step={step} index={index} onChange={onChange} errors={errors} />
+        </>
       )}
-      {/* What is not a card yet: the captures, and the sections of the old step card. */}
+      {/* What is not a card yet: the captures, and the one section of the old step card. */}
       <div style={{ border: `1px solid ${token.colorBorderSecondary}`, borderRadius: 6, padding: 12 }}>
         <Space orientation="vertical" size={8} style={{ width: '100%' }}>
           {isListenStep(step) ? null : isSendStep(step) || isExpectStep(step) ? (
@@ -321,16 +256,7 @@ const WorkflowStepEditor: React.FC<Props> = ({
             <CallStepCaptures step={step} index={index} onChange={onChange} exposable={exposable} />
           )}
 
-          <Collapse
-            size="small"
-            ghost
-            defaultActiveKey={[]}
-            items={
-              isSessionStep(step)
-                ? sharedSections
-                : [...sharedSections, ...callSectionsOf(step, onChange, { token, t, index, errors, readOnly })]
-            }
-          />
+          <Collapse size="small" ghost defaultActiveKey={[]} items={sharedSections} />
         </Space>
       </div>
     </>

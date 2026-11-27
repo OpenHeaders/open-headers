@@ -43,6 +43,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import type { Page } from '@playwright/test';
 import { type ElectronApplication, expect, type Locator, test } from '@playwright/test';
+import { WorkbenchPage } from '../../../extension/tests/e2e/pages/workbench-page';
 import { launchDesktopApp } from './fixtures/launch-app';
 
 const APP_ROOT = path.resolve(__dirname, '../..');
@@ -223,8 +224,10 @@ test.beforeAll(async () => {
   Object.assign(envelope.values, JSON.parse(seeded.stdout) as Record<string, unknown>);
   await writeFile(storagePath, JSON.stringify(envelope));
 
-  // Phase 2: relaunch on the seeded slots, open the workflows view and mint the CLI's token.
+  // Phase 2: relaunch on the seeded slots, open the workflows view — the right sidebar closed,
+  // the graph and the panel side by side as in the extension's specs — and mint the CLI's token.
   await launchApp();
+  await new WorkbenchPage(workbench).collapseRightSidebar();
   await showWorkflowsView();
   await workbench.locator('[data-item-id="workflow-e2ewrwf1"]').waitFor({ state: 'visible', timeout: 15_000 });
   const minted = await invoke<{ ok: boolean; secret?: string }>({

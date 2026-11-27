@@ -460,6 +460,7 @@ export const StatusMatchControls: React.FC<{
   match: StatusMatch;
   onChange: (next: StatusMatch) => void;
 }> = ({ match, onChange }) => {
+  const { token } = theme.useToken();
   const t = useT();
   const mode = statusMatchMode(match);
 
@@ -509,7 +510,7 @@ export const StatusMatchControls: React.FC<{
       ) : null}
       {(mode === '2xx' || mode === '3xx' || mode === '4xx' || mode === '5xx') && (
         <Tooltip title={t('workbench.editors.live.gate.statusClassTooltip')}>
-          <InfoCircleOutlined style={{ fontSize: 11, color: 'rgba(0,0,0,0.35)' }} />
+          <InfoCircleOutlined style={{ fontSize: 11, color: token.colorTextTertiary }} />
         </Tooltip>
       )}
     </>

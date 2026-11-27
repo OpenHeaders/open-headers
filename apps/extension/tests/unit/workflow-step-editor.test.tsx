@@ -7,7 +7,8 @@
  *   2. `Depends on` section presence + clear button emission.
  *   3. Priority row `Clear` emits `priorityFrom: undefined`.
  *   4. `Run condition` count badge reflects the gate's clause count.
- *   5. Retry policy + Timeout sections — summaries + edit/clear emission.
+ *   5. A call's Success criteria, Poll, Retry policy and Timeout cards —
+ *      what each holds + edit/clear emission.
  *
  * Existing behavior (request select, captures, reorder) stays under the
  * legacy suite — this file is scoped to the new fields.
@@ -266,24 +267,34 @@ describe('WorkflowStepEditor — a call’s sections', () => {
     }
   });
 
-  // ── Retry policy + Timeout sections (live editors) ─────────────────
+  // ── The Retry policy and Timeout cards ──────────────────────────────
 
-  it('Retry policy collapse header is enabled and summarizes (none) without a policy', () => {
+  it('a call’s four cards are open under its Request, each unset until its first field holds a number', () => {
     renderStep(mkStep());
-    const header = screen.getByRole('button', { name: /Retry policy/i });
-    expect(header.getAttribute('aria-disabled')).not.toBe('true');
-    expect(header.textContent).toContain('(none)');
+    for (const title of ['Success criteria', 'Poll', 'Retry policy', 'Timeout']) {
+      expect(screen.getByRole('heading', { name: title })).toBeTruthy();
+    }
+    expect(numberInput('wf-step-1-retry-attempts')?.placeholder).toBe('No retry');
+    expect(numberInput('wf-step-1-retry-delay')).toHaveProperty('disabled', true);
+    expect(numberInput('wf-step-1-poll-attempts')?.placeholder).toBe('No poll');
+    expect(numberInput('wf-step-1-poll-delay')).toHaveProperty('disabled', true);
+    expect(numberInput('wf-step-1-timeout')?.placeholder).toBe('No timeout');
+    expect(screen.queryByRole('button', { name: /^Clear$/ })).toBeNull();
   });
 
-  it('Retry policy header summarizes attempts + backoff when a policy is set', () => {
-    renderStep(mkStep({ retry: { maxAttempts: 4, backoff: 'exponential' } }));
-    const header = screen.getByRole('button', { name: /Retry policy/i });
-    expect(header.textContent).toContain('(4 attempts, exponential)');
+  it('the Retry policy card holds the policy: its attempts, its backoff, and a Clear that removes it', () => {
+    const { onChange } = renderStep(mkStep({ retry: { maxAttempts: 4, backoff: 'exponential' } }));
+    const card = screen.getByTestId('wf-step-1-retry');
+    expect(numberInput('wf-step-1-retry-attempts')?.value).toBe('4');
+    expect(numberInput('wf-step-1-retry-delay')).toHaveProperty('disabled', false);
+    expect(screen.getByTestId('wf-step-1-retry-backoff').textContent).toContain('Exponential');
+    fireEvent.click(within(card).getByRole('button', { name: /^Clear$/ }));
+    const last = onChange.mock.calls.at(-1)?.[0] as DraftCallStep;
+    expect(last.retry).toBeUndefined();
   });
 
   it('setting attempts creates a policy; clearing the field removes it', () => {
     const { onChange } = renderStep(mkStep({ retry: { maxAttempts: 3 } }));
-    fireEvent.click(screen.getByRole('button', { name: /Retry policy/i }));
     const attempts = numberInput('wf-step-1-retry-attempts');
     expect(attempts).not.toBeNull();
     fireEvent.change(attempts as HTMLInputElement, { target: { value: '5' } });
@@ -293,21 +304,17 @@ describe('WorkflowStepEditor — a call’s sections', () => {
     expect(last.retry).toBeUndefined();
   });
 
-  it('Timeout header summarizes the ceiling; editing the field emits timeoutMs', () => {
+  it('the Timeout card holds the ceiling; editing the field emits timeoutMs', () => {
     const { onChange } = renderStep(mkStep({ timeoutMs: 10_000 }));
-    const header = screen.getByRole('button', { name: /Timeout/i });
-    expect(header.getAttribute('aria-disabled')).not.toBe('true');
-    expect(header.textContent).toContain('(10000 ms)');
-    fireEvent.click(header);
     const input = numberInput('wf-step-1-timeout');
+    expect(input?.value).toBe('10000');
     fireEvent.change(input as HTMLInputElement, { target: { value: '2500' } });
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ timeoutMs: 2500 }));
   });
 
   it('Timeout Clear button removes the ceiling', () => {
     const { onChange } = renderStep(mkStep({ timeoutMs: 5_000 }));
-    fireEvent.click(screen.getByRole('button', { name: /Timeout/i }));
-    fireEvent.click(screen.getByRole('button', { name: /^Clear$/ }));
+    fireEvent.click(within(screen.getByTestId('wf-step-1-timeout-section')).getByRole('button', { name: /^Clear$/ }));
     const last = onChange.mock.calls.at(-1)?.[0] as DraftCallStep;
     expect(last.timeoutMs).toBeUndefined();
   });
@@ -345,11 +352,14 @@ describe('WorkflowStepEditor — a call’s sections', () => {
     expect(last.runScripts).toBeUndefined();
   });
 
-  // ── Success criteria + Poll sections ────────────────────────────────
+  // ── The Success criteria and Poll cards ─────────────────────────────
 
-  it('Success criteria header summarizes (none), then the number of rows', () => {
+  it('the Success criteria card says what none means, then holds a row per criterion', () => {
     renderStep(mkStep());
-    expect(screen.getByRole('button', { name: /Success criteria/i }).textContent).toContain('(none)');
+    const empty = screen.getByTestId('wf-step-1-criteria');
+    expect(empty.textContent).toContain('The response passes when every row holds.');
+    expect(empty.textContent).toContain('No criteria — any response that arrives passes.');
+    expect(screen.queryByTestId('wf-step-1-criterion-0')).toBeNull();
     cleanup();
     renderStep(
       mkStep({
@@ -359,20 +369,20 @@ describe('WorkflowStepEditor — a call’s sections', () => {
         ],
       }),
     );
-    expect(screen.getByRole('button', { name: /Success criteria/i }).textContent).toContain('(2)');
+    expect(screen.getByTestId('wf-step-1-criterion-0').textContent).toContain('Status code');
+    expect(screen.getByTestId('wf-step-1-criterion-1')).toBeTruthy();
+    expect(screen.queryByTestId('wf-step-1-criterion-2')).toBeNull();
+    expect(screen.queryByText('No criteria — any response that arrives passes.')).toBeNull();
   });
 
   it('adding a criterion emits a status row; removing the last one removes the field', () => {
     const { onChange } = renderStep(mkStep());
-    fireEvent.click(screen.getByRole('button', { name: /Success criteria/i }));
-    expect(screen.queryByText('No criteria — any response that arrives passes.')).not.toBeNull();
     fireEvent.click(screen.getByRole('button', { name: /Add criterion/i }));
     expect(onChange).toHaveBeenCalledWith(
       expect.objectContaining({ successCriteria: [{ kind: 'status', uid: expect.any(String), match: '2xx' }] }),
     );
     cleanup();
     const held = renderStep(mkStep({ successCriteria: [{ kind: 'status', uid: 'crtstat0', match: '2xx' }] }));
-    fireEvent.click(screen.getByRole('button', { name: /Success criteria/i }));
     fireEvent.click(screen.getByRole('button', { name: 'Remove criterion 1' }));
     const last = held.onChange.mock.calls.at(-1)?.[0] as DraftCallStep;
     expect(last.successCriteria).toBeUndefined();
@@ -386,33 +396,31 @@ describe('WorkflowStepEditor — a call’s sections', () => {
       value: '',
     };
     const { onChange } = renderStep(mkStep({ successCriteria: [criterion] }));
-    fireEvent.click(screen.getByRole('button', { name: /Success criteria/i }));
     fireEvent.change(screen.getByTestId('wf-step-1-criterion-0-value'), { target: { value: '{{step.rename.name}}' } });
     expect(onChange).toHaveBeenCalledWith(
       expect.objectContaining({ successCriteria: [{ ...criterion, value: '{{step.rename.name}}' }] }),
     );
   });
 
-  it('Poll header summarizes its two numbers; setting attempts starts a poll, Clear ends it', () => {
+  it('the Poll card holds its two numbers; setting attempts starts a poll, Clear ends it', () => {
     const { onChange } = renderStep(mkStep());
-    const header = screen.getByRole('button', { name: /Poll/i });
-    expect(header.textContent).toContain('(none)');
-    fireEvent.click(header);
+    expect(screen.getByTestId('wf-step-1-poll').textContent).toContain(
+      'Sends the request again until its success criteria hold.',
+    );
     fireEvent.change(numberInput('wf-step-1-poll-attempts') as HTMLInputElement, { target: { value: '10' } });
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ poll: { maxAttempts: 10, delayMs: 1_000 } }));
     cleanup();
     const polled = renderStep(mkStep({ poll: { maxAttempts: 10, delayMs: 200 } }));
-    const polledHeader = screen.getByRole('button', { name: /Poll/i });
-    expect(polledHeader.textContent).toContain('(10 × 200 ms)');
-    fireEvent.click(polledHeader);
+    expect(numberInput('wf-step-1-poll-attempts')?.value).toBe('10');
+    expect(numberInput('wf-step-1-poll-delay')?.value).toBe('200');
     fireEvent.change(numberInput('wf-step-1-poll-delay') as HTMLInputElement, { target: { value: '500' } });
     expect(polled.onChange).toHaveBeenCalledWith(expect.objectContaining({ poll: { maxAttempts: 10, delayMs: 500 } }));
-    fireEvent.click(screen.getByRole('button', { name: /^Clear$/ }));
+    fireEvent.click(within(screen.getByTestId('wf-step-1-poll')).getByRole('button', { name: /^Clear$/ }));
     const last = polled.onChange.mock.calls.at(-1)?.[0] as DraftCallStep;
     expect(last.poll).toBeUndefined();
   });
 
-  it('a poll’s issue is said in its section, and an issue no field owns under the panel’s head', () => {
+  it('a poll’s issue is said in its card, and an issue no field owns under the panel’s head', () => {
     renderStep(mkStep({ poll: { maxAttempts: 10, delayMs: 200 } }), {
       errors: [
         {
@@ -430,7 +438,6 @@ describe('WorkflowStepEditor — a call’s sections', () => {
     });
     const foot = screen.getByTestId('wf-step-1-issues');
     expect(foot.textContent).toBe('Duplicate capture name "token" in step "refresh".');
-    fireEvent.click(screen.getByRole('button', { name: /Poll/i }));
     expect(screen.getByTestId('wf-step-1-poll').textContent).toContain(
       'Step "refresh" polls with no success criteria to wait for.',
     );
@@ -558,8 +565,8 @@ describe('WorkflowStepEditor — a listen', () => {
     expect(screen.getByRole('heading', { name: 'Depends on' })).toBeTruthy();
     expect(screen.getByRole('heading', { name: 'Run condition' })).toBeTruthy();
     expect(screen.getByRole('button', { name: /Priority/i })).toBeTruthy();
-    expect(screen.queryByRole('button', { name: /Retry policy/i })).toBeNull();
-    expect(screen.queryByRole('button', { name: /Success criteria/i })).toBeNull();
+    expect(screen.queryByRole('heading', { name: 'Retry policy' })).toBeNull();
+    expect(screen.queryByRole('heading', { name: 'Success criteria' })).toBeNull();
   });
 
   it('emits its deadline and its scripts checkbox', () => {

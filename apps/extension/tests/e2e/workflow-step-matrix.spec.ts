@@ -154,8 +154,8 @@ async function openStep(page: Page, stepId: string): Promise<Locator> {
 }
 
 /** Collapse section header inside a step card — role button whose
- *  accessible name starts with the section label. The sections that
- *  are not cards yet: Priority, Retry policy, Timeout. */
+ *  accessible name starts with the section label. The one section that
+ *  is not a card yet: Priority. */
 function sectionHeader(stepCard: Locator, label: string): Locator {
   return stepCard.getByRole('button', { name: new RegExp(label) });
 }
@@ -266,47 +266,46 @@ test('seeded combinations render in the cards and the sections, and survive a st
     'No dependencies, so this step runs when the workflow starts.',
   );
   await expect(sectionHeader(s1, 'Priority')).toContainText('(none)');
-  await expect(sectionHeader(s1, 'Retry policy')).toContainText('(3 attempts, exponential)');
-  await expect(sectionHeader(s1, 'Timeout')).toContainText('(5000 ms)');
   await expect(scriptsCheckbox(page, 0)).toBeChecked();
 
-  // Expanded s1 retry: controls carry the persisted policy.
-  await sectionHeader(s1, 'Retry policy').click();
+  // s1's Retry policy and Timeout cards carry the persisted policy and ceiling.
   await expect(page.getByTestId('wf-step-0-retry')).toBeVisible();
   await expect(numberInput(page, 'wf-step-0-retry-attempts')).toHaveValue('3');
   await expect(numberInput(page, 'wf-step-0-retry-delay')).toHaveValue('500');
   await expect(page.getByTestId('wf-step-0-retry-backoff')).toContainText('Exponential');
   await expect(page.getByTestId('wf-step-0-retry-on')).toContainText('Network + 5xx');
+  await expect(numberInput(page, 'wf-step-0-timeout')).toHaveValue('5000');
 
-  // The panel shows one step: opening another replaces the card, its sections closed.
+  // The panel shows one step: opening another replaces the card, and the first step's cards go with it.
   const s2 = await openStep(page, 's2');
   await expect(page.locator('[data-step-card]')).toHaveCount(1);
-  await expect(page.getByTestId('wf-step-1-retry')).toBeHidden();
+  await expect(page.getByTestId('wf-step-0-retry')).toHaveCount(0);
   await expect(page.getByTestId('wf-step-1-dep-s1')).toBeVisible();
   await expect(depsCard(page, 1)).toContainText('Chosen for this step.');
   await expect(gateCard(page, 1).getByTestId('gate-clause-0')).toBeVisible();
   await expect(gateCard(page, 1).getByTestId('gate-clause-1')).toHaveCount(0);
   await expect(gateCard(page, 1).getByTestId('gate-summary')).toHaveText('Runs when every condition holds: s1 201.');
   await expect(sectionHeader(s2, 'Priority')).toContainText('(s1.token)');
-  await expect(sectionHeader(s2, 'Retry policy')).toContainText('(2 attempts)');
-  await expect(sectionHeader(s2, 'Timeout')).toContainText('(none)');
+  await expect(numberInput(page, 'wf-step-1-retry-attempts')).toHaveValue('2');
+  await expect(page.getByTestId('wf-step-1-retry-backoff')).toContainText('Fixed');
+  await expect(numberInput(page, 'wf-step-1-timeout')).toHaveValue('');
   await expect(scriptsCheckbox(page, 1)).not.toBeChecked();
 
   // s3 names an empty list: a root by its own word, so Reset is offered.
-  const s3 = await openStep(page, 's3');
+  await openStep(page, 's3');
   await expect(depsCard(page, 2)).toContainText('Nothing. This step starts with the workflow.');
   await expect(depsCard(page, 2).getByRole('button', { name: 'Reset' })).toBeVisible();
-  await expect(sectionHeader(s3, 'Timeout')).toContainText('(100 ms)');
-  await expect(sectionHeader(s3, 'Retry policy')).toContainText('(none)');
+  await expect(numberInput(page, 'wf-step-2-timeout')).toHaveValue('100');
+  await expect(numberInput(page, 'wf-step-2-retry-attempts')).toHaveValue('');
+  await expect(numberInput(page, 'wf-step-2-retry-delay')).toBeDisabled();
 
-  const s4 = await openStep(page, 's4');
+  await openStep(page, 's4');
   await expect(page.getByTestId('wf-step-3-dep-s2')).toBeVisible();
   await expect(page.getByTestId('wf-step-3-dep-s3')).toBeVisible();
-  await expect(sectionHeader(s4, 'Retry policy')).toContainText('(5 attempts)');
+  await expect(numberInput(page, 'wf-step-3-retry-attempts')).toHaveValue('5');
 
-  // Expanded s4 retry: the data-authored ['ne', 500] renders as the
+  // s4's retry: the data-authored ['ne', 500] renders as the
   // read-only Custom entry — never silently rewritten.
-  await sectionHeader(s4, 'Retry policy').click();
   await expect(page.getByTestId('wf-step-3-retry-on')).toContainText('Custom (edited as data)');
 
   // s4's gate: both clause kinds render their persisted values.
@@ -319,7 +318,9 @@ test('seeded combinations render in the cards and the sections, and survive a st
   await expect(saveButton).toBeDisabled();
   await page.getByTestId('wf-panel-close').click();
   await expect(page.locator('[data-step-card]')).toHaveCount(0);
-  await expect(sectionHeader(await openStep(page, 's1'), 'Retry policy')).toContainText('(3 attempts, exponential)');
+  await openStep(page, 's1');
+  await expect(numberInput(page, 'wf-step-0-retry-attempts')).toHaveValue('3');
+  await expect(page.getByTestId('wf-step-0-retry-backoff')).toContainText('Exponential');
   await openStep(page, 's3');
   await expect(depsCard(page, 2)).toContainText('Nothing. This step starts with the workflow.');
   await expect(saveButton).toBeDisabled();
@@ -355,24 +356,27 @@ test('editing every knob through the UI persists the exact step fields on Save',
   await expect(saveButton).toBeDisabled();
 
   // ── Step b (index 1): retry + timeout on one step ────────────────
-  const b = await openStep(page, 'b');
-  await sectionHeader(b, 'Retry policy').click();
+  await openStep(page, 'b');
+  const retryCard = page.getByTestId('wf-step-1-retry');
+  const timeoutCard = page.getByTestId('wf-step-1-timeout-section');
 
   // No policy yet — the dependent controls are disabled until the
-  // attempts field bootstraps one.
+  // attempts field bootstraps one, and there is nothing to clear.
   await expect(numberInput(page, 'wf-step-1-retry-delay')).toBeDisabled();
   await expect(page.getByTestId('wf-step-1-retry-backoff')).toHaveClass(/ant-select-disabled/);
+  await expect(retryCard.getByRole('button', { name: 'Clear' })).toHaveCount(0);
 
   await numberInput(page, 'wf-step-1-retry-attempts').fill('4');
-  await expect(sectionHeader(b, 'Retry policy')).toContainText('(4 attempts)');
+  await expect(retryCard.getByRole('button', { name: 'Clear' })).toBeVisible();
   await numberInput(page, 'wf-step-1-retry-delay').fill('2000');
   await pickOption(page, page.getByTestId('wf-step-1-retry-backoff'), 'Exponential');
   await pickOption(page, page.getByTestId('wf-step-1-retry-on'), 'Network + 429');
-  await expect(sectionHeader(b, 'Retry policy')).toContainText('(4 attempts, exponential)');
+  await expect(page.getByTestId('wf-step-1-retry-backoff')).toContainText('Exponential');
+  await expect(page.getByTestId('wf-step-1-retry-on')).toContainText('Network + 429');
 
-  await sectionHeader(b, 'Timeout').click();
+  await expect(timeoutCard.getByRole('button', { name: 'Clear' })).toHaveCount(0);
   await numberInput(page, 'wf-step-1-timeout').fill('1500');
-  await expect(sectionHeader(b, 'Timeout')).toContainText('(1500 ms)');
+  await expect(timeoutCard.getByRole('button', { name: 'Clear' })).toBeVisible();
 
   await scriptsCheckbox(page, 1).check();
   await expect(scriptsCheckbox(page, 1)).toBeChecked();
@@ -488,15 +492,14 @@ test('clearing every knob removes the fields and persists the deletions', async 
 
   // Clearing the attempts field destroys the whole policy (bootstrap/
   // destroy semantics) and re-disables the dependent controls.
-  await sectionHeader(b, 'Retry policy').click();
   await numberInput(page, 'wf-step-1-retry-attempts').fill('');
-  await expect(sectionHeader(b, 'Retry policy')).toContainText('(none)');
+  await expect(page.getByTestId('wf-step-1-retry').getByRole('button', { name: 'Clear' })).toHaveCount(0);
   await expect(numberInput(page, 'wf-step-1-retry-delay')).toBeDisabled();
+  await expect(numberInput(page, 'wf-step-1-retry-delay')).toHaveValue('');
 
   // Timeout + Priority go through their Clear buttons.
-  await sectionHeader(b, 'Timeout').click();
   await page.getByTestId('wf-step-1-timeout-section').getByRole('button', { name: 'Clear' }).click();
-  await expect(sectionHeader(b, 'Timeout')).toContainText('(none)');
+  await expect(numberInput(page, 'wf-step-1-timeout')).toHaveValue('');
 
   await sectionHeader(b, 'Priority').click();
   await page.getByTestId('wf-step-1-priority').getByRole('button', { name: 'Clear' }).click();
