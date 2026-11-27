@@ -146,21 +146,23 @@ export const workbenchLive = {
   'workbench.editors.live.refreshPolicy.interval': 'Interval fix',
   'workbench.editors.live.refreshPolicy.expiresIn': 'Expiră în N secunde (relativ)',
   'workbench.editors.live.refreshPolicy.expiresAt': 'Expiră la epoch ms (absolut)',
-  'workbench.editors.live.refreshPolicy.leadUnit': 'avans s',
+  'workbench.editors.live.refreshPolicy.scheduled': 'Programat',
+  'workbench.editors.live.refreshPolicy.schedule': 'Programare',
+  'workbench.editors.live.refreshPolicy.every': 'La fiecare',
+  'workbench.editors.live.refreshPolicy.lead': 'Avans (s)',
   'workbench.editors.live.refreshPolicy.selectCapture': 'Selectare captură',
   'workbench.editors.live.refreshPolicy.noCaptures': 'Nicio captură definită încă.',
   'workbench.editors.live.refreshPolicy.subMinuteWarning':
     'Intervalele sub un minut ating pragul minim al alarmelor MV3 și consumă rapid cota. Folosiți-le doar când este necesar.',
   'workbench.editors.live.refreshPolicy.expiresInHelpPrefix':
     'Valoarea capturii = secunde până la expirare (de ex. OAuth',
-  'workbench.editors.live.refreshPolicy.expiresInHelpMid':
-    '). Reîmprospătarea se declanșează cu `lead` secunde înainte de',
+  'workbench.editors.live.refreshPolicy.expiresInHelpMid': '). Fluxul de lucru rulează cu `lead` secunde înainte de',
   'workbench.editors.live.refreshPolicy.expiresInHelpSuffix': '.',
   'workbench.editors.live.refreshPolicy.expiresAtHelpPrefix': 'Valoarea capturii = timp unix epoch absolut în',
   'workbench.editors.live.refreshPolicy.expiresAtHelpMilliseconds': 'milisecunde',
   'workbench.editors.live.refreshPolicy.expiresAtHelpMid': '(e.g.',
   'workbench.editors.live.refreshPolicy.expiresAtHelpSuffix':
-    '). Reîmprospătarea se declanșează cu `lead` secunde înainte de acel moment.',
+    '). Fluxul de lucru rulează cu `lead` secunde înainte de acel moment.',
   'workbench.editors.live.refreshPolicy.noCapturesWarning':
     'Adăugați mai întâi o captură în fluxul de lucru, pentru ca aritmetica expirării să aibă o sursă.',
 
@@ -325,6 +327,10 @@ export const workbenchLive = {
   'workbench.editors.live.overview.capturesDescription': 'Valori trecute de la un pas la altul.',
   'workbench.editors.live.overview.colCapturedBy': 'Capturată de',
   'workbench.editors.live.overview.capturesNone': 'Niciun pas nu capturează încă o valoare.',
+  'workbench.editors.live.overview.environmentsTitle': 'Medii',
+  'workbench.editors.live.overview.environmentsDescription': 'Ultima rulare din fiecare mediu, cel activ primul.',
+  'workbench.editors.live.overview.settingsTitle': 'Setări',
+  'workbench.editors.live.overview.settingsDescription': 'Când rulează acest flux de lucru.',
   'workbench.editors.live.workflow.run': 'Rulare',
   'workbench.editors.live.workflow.runUnavailable': 'Fluxurile de lucru nu rulează într-o copie publică.',
   'workbench.editors.live.workflow.saveToRun': 'Salvați fluxul de lucru pentru a-l rula.',
@@ -545,7 +551,6 @@ export const workbenchLive = {
     'Golește contoarele de eșecuri și backoff-ul în așteptare. Nu rulează o verificare.',
   'workbench.editors.live.status.circuitReset': 'Circuit resetat',
   'workbench.editors.live.status.resetFailed': 'Resetarea a eșuat: {error}',
-  'workbench.editors.live.status.dragToResize': 'Trageți pentru a redimensiona',
   'workbench.editors.live.status.boundCount': ({ count }, locale) =>
     plural(locale, Number(count), {
       one: 'legate: {count} variabilă',

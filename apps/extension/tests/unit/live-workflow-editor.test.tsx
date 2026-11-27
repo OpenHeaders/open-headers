@@ -469,6 +469,19 @@ describe('LiveWorkflowEditor — the header is the toolbar', () => {
     fireEvent.click(screen.getByRole('button', { name: 'About Run' }));
     expect(await screen.findByText('Save the workflow to run it.')).toBeTruthy();
   });
+
+  it('a draft never saved has run nowhere: its panel has its settings and no environments', () => {
+    render(
+      <App>
+        <AwarenessIdentityProvider value={testIdentity}>
+          <LiveWorkflowEditor mode="create" onCreated={vi.fn()} />
+        </AwarenessIdentityProvider>
+      </App>,
+    );
+
+    expect(screen.getByTestId('wf-panel-policy')).toBeTruthy();
+    expect(screen.queryByTestId('wf-run-status-strip')).toBeNull();
+  });
 });
 
 // ── A surface that runs no workflow ───────────────────────────────
@@ -663,18 +676,22 @@ describe('LiveWorkflowEditor — a workflow that holds session steps', () => {
     expect(screen.getByTestId('wf-step-2-on').textContent).toContain('probe2');
   });
 
-  it('its status strip speaks of a run, not of live variables', () => {
+  it('its environments speak of a run, not of live variables', () => {
     const { container } = renderWorkflow(sessionFixture);
 
     expect(container.textContent).toContain('not run yet — press Run');
     expect(container.textContent).not.toContain('bound:');
   });
 
-  it('a workflow of calls keeps the strip’s binding count and its never-run line', () => {
+  it('a workflow of calls keeps its binding count and its never-run line, on the active environment’s row', () => {
     const { container } = renderEditor();
 
     expect(container.textContent).toContain('never run for this env — press Run to populate');
     expect(container.textContent).toContain('bound:');
+    expect(screen.getByTestId('wf-env-none').textContent).toBe(
+      'No environment (active)never run for this env — press Run to populate',
+    );
+    expect(screen.getByTestId('wf-env-bound').textContent).toBe('bound: 0 variables');
   });
 
   it('a save with a step that has nothing picked names the step and stores nothing', async () => {

@@ -7,8 +7,8 @@
  *   which routes through the sync engine's per-(field) LWW oracle
  *   (sync engine §6.3). On external commit while the editor is clean,
  *   the draft re-primes from the new persisted state; while dirty the
- *   user's typing is preserved and LWW resolves at save time. Shows a
- *   status bar with the last run / expiry / policy summary.
+ *   user's typing is preserved and LWW resolves at save time. The
+ *   workflow's panel says how each environment stands.
  *
  * Create mode (`mode: 'create'`):
  *   No `workflowUid` until save. Local-only draft; Save creates the
@@ -16,8 +16,8 @@
  *   can replace the draft tab with a fresh edit tab. Optional `seedSteps`
  *   preseeds the draft's steps in declared order (one from the Request
  *   editor's "Use response in workflow" action, many from the request
- *   tree's "Create Workflow…" picker). No status bar; Run is in view
- *   and off, with an (i) that says a save comes first.
+ *   tree's "Create Workflow…" picker). It has run nowhere; Run is in
+ *   view and off, with an (i) that says a save comes first.
  *
  * The header is the screen's toolbar in both modes (the workflows
  * redesign, Screen layout): after the name one phrase for the run the
@@ -54,7 +54,6 @@ import {
   type DraftStep,
   type DraftWorkflow,
   draftFromWorkflow as draftFromWorkflowCore,
-  isSessionStep,
   isWorkflowComplete,
   newDraftCapture,
   planLiveVariableReconcile,
@@ -92,7 +91,6 @@ import { describeRunStatus } from './run-display';
 import { firstStepWithNothingPicked } from './step-action';
 import type { StepRequestOpeners } from './step-facts';
 import { useShownWorkflowRun } from './use-workflow-run';
-import WorkflowRunStatusStrip from './WorkflowRunStatusStrip';
 import WorkflowView from './WorkflowView';
 
 const { Text, Title } = Typography;
@@ -563,18 +561,11 @@ const EditMode: React.FC<EditProps> = ({
         workflow={runsHere ? workflow : undefined}
         run={runsHere ? shownRun : undefined}
         cacheRun={run}
+        runs={runs}
         boundVars={boundVars}
         requestOpeners={requestOpeners}
         revealSettings={revealSettings}
         onSettingsRevealed={handleSettingsRevealed}
-      />
-      {/* Live-status surface — pinned below the view so "what's
-          resolved RIGHT NOW per env" is always visible while editing. */}
-      <WorkflowRunStatusStrip
-        runs={runs}
-        refresh={draft.refresh}
-        boundCount={boundVars.length}
-        verdictOnly={draft.steps.some(isSessionStep)}
       />
       <EntityConflictDialog
         open={isConflictDialogOpen}

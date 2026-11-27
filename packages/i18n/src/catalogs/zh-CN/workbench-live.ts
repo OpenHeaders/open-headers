@@ -119,18 +119,21 @@ export const workbenchLive = {
   'workbench.editors.live.refreshPolicy.interval': '固定间隔',
   'workbench.editors.live.refreshPolicy.expiresIn': '在 N 秒后过期（相对）',
   'workbench.editors.live.refreshPolicy.expiresAt': '在 epoch ms 时过期（绝对）',
-  'workbench.editors.live.refreshPolicy.leadUnit': '提前 s',
+  'workbench.editors.live.refreshPolicy.scheduled': '按计划',
+  'workbench.editors.live.refreshPolicy.schedule': '计划',
+  'workbench.editors.live.refreshPolicy.every': '每隔',
+  'workbench.editors.live.refreshPolicy.lead': '提前（秒）',
   'workbench.editors.live.refreshPolicy.selectCapture': '选择捕获',
   'workbench.editors.live.refreshPolicy.noCaptures': '还没有定义捕获。',
   'workbench.editors.live.refreshPolicy.subMinuteWarning':
     '低于一分钟的间隔会碰到 MV3 的 alarm 下限，并快速消耗配额。仅在必要时使用。',
   'workbench.editors.live.refreshPolicy.expiresInHelpPrefix': '捕获值 = 距过期的秒数 (例如 OAuth',
-  'workbench.editors.live.refreshPolicy.expiresInHelpMid': '). 刷新会提前 `lead` 秒触发',
+  'workbench.editors.live.refreshPolicy.expiresInHelpMid': '). 工作流会提前 `lead` 秒运行',
   'workbench.editors.live.refreshPolicy.expiresInHelpSuffix': '.',
   'workbench.editors.live.refreshPolicy.expiresAtHelpPrefix': '捕获值 = 绝对 unix epoch，单位为',
   'workbench.editors.live.refreshPolicy.expiresAtHelpMilliseconds': '毫秒',
   'workbench.editors.live.refreshPolicy.expiresAtHelpMid': '(e.g.',
-  'workbench.editors.live.refreshPolicy.expiresAtHelpSuffix': '). 刷新会在该时刻前 `lead` 秒触发。',
+  'workbench.editors.live.refreshPolicy.expiresAtHelpSuffix': '). 工作流会在该时刻前 `lead` 秒运行。',
   'workbench.editors.live.refreshPolicy.noCapturesWarning': '先给工作流添加一个捕获，让过期计算有一个来源。',
 
   // ── Workflow editor shell (LiveWorkflowEditor) ──────────────────────
@@ -280,6 +283,10 @@ export const workbenchLive = {
   'workbench.editors.live.overview.capturesDescription': '从一个步骤传给另一个步骤的值。',
   'workbench.editors.live.overview.colCapturedBy': '捕获自',
   'workbench.editors.live.overview.capturesNone': '还没有步骤捕获值。',
+  'workbench.editors.live.overview.environmentsTitle': '环境',
+  'workbench.editors.live.overview.environmentsDescription': '每个环境中的最后一次运行，活动环境在前。',
+  'workbench.editors.live.overview.settingsTitle': '设置',
+  'workbench.editors.live.overview.settingsDescription': '此工作流何时运行。',
   'workbench.editors.live.workflow.run': '运行',
   'workbench.editors.live.workflow.runUnavailable': '工作流不能在公开副本中运行。',
   'workbench.editors.live.workflow.saveToRun': '保存工作流后才能运行。',
@@ -488,7 +495,6 @@ export const workbenchLive = {
   'workbench.editors.live.status.resetCircuitTooltip': '清除失败计数器 + 待定的 backoff。不会运行探测。',
   'workbench.editors.live.status.circuitReset': '电路已重置',
   'workbench.editors.live.status.resetFailed': '重置失败：{error}',
-  'workbench.editors.live.status.dragToResize': '拖动以调整大小',
   'workbench.editors.live.status.boundCount': ({ count }, locale) =>
     plural(locale, Number(count), {
       other: '已绑定：{count} 个变量',

@@ -142,20 +142,23 @@ export const workbenchLive = {
   'workbench.editors.live.refreshPolicy.interval': 'Фиксированный интервал',
   'workbench.editors.live.refreshPolicy.expiresIn': 'Истекает через N секунд (относительно)',
   'workbench.editors.live.refreshPolicy.expiresAt': 'Истекает в момент epoch ms (абсолютно)',
-  'workbench.editors.live.refreshPolicy.leadUnit': 'упреждение, с',
+  'workbench.editors.live.refreshPolicy.scheduled': 'По расписанию',
+  'workbench.editors.live.refreshPolicy.schedule': 'Расписание',
+  'workbench.editors.live.refreshPolicy.every': 'Каждые',
+  'workbench.editors.live.refreshPolicy.lead': 'Упреждение (с)',
   'workbench.editors.live.refreshPolicy.selectCapture': 'Выберите захват',
   'workbench.editors.live.refreshPolicy.noCaptures': 'Захваты ещё не определены.',
   'workbench.editors.live.refreshPolicy.subMinuteWarning':
     'Интервалы короче минуты упираются в нижний предел будильников MV3 и быстро расходуют квоту. Используйте только при необходимости.',
   'workbench.editors.live.refreshPolicy.expiresInHelpPrefix':
     'Значение захвата = секунды до истечения (например, OAuth',
-  'workbench.editors.live.refreshPolicy.expiresInHelpMid': '). Обновление запускается за `lead` секунд до',
+  'workbench.editors.live.refreshPolicy.expiresInHelpMid': '). Рабочий процесс запускается за `lead` секунд до',
   'workbench.editors.live.refreshPolicy.expiresInHelpSuffix': '.',
   'workbench.editors.live.refreshPolicy.expiresAtHelpPrefix': 'Значение захвата = абсолютное время unix epoch в',
   'workbench.editors.live.refreshPolicy.expiresAtHelpMilliseconds': 'миллисекундах',
   'workbench.editors.live.refreshPolicy.expiresAtHelpMid': '(e.g.',
   'workbench.editors.live.refreshPolicy.expiresAtHelpSuffix':
-    '). Обновление запускается за `lead` секунд до этого момента.',
+    '). Рабочий процесс запускается за `lead` секунд до этого момента.',
   'workbench.editors.live.refreshPolicy.noCapturesWarning':
     'Сначала добавьте в рабочий процесс захват, чтобы у расчёта истечения был источник.',
 
@@ -323,6 +326,10 @@ export const workbenchLive = {
   'workbench.editors.live.overview.capturesDescription': 'Значения, которые один шаг передаёт другому.',
   'workbench.editors.live.overview.colCapturedBy': 'Захвачено шагом',
   'workbench.editors.live.overview.capturesNone': 'Пока ни один шаг не захватывает значение.',
+  'workbench.editors.live.overview.environmentsTitle': 'Окружения',
+  'workbench.editors.live.overview.environmentsDescription': 'Последний запуск в каждом окружении, активное — первым.',
+  'workbench.editors.live.overview.settingsTitle': 'Настройки',
+  'workbench.editors.live.overview.settingsDescription': 'Когда запускается этот рабочий процесс.',
   'workbench.editors.live.workflow.run': 'Запустить',
   'workbench.editors.live.workflow.runUnavailable': 'Рабочие процессы не запускаются в публичной копии.',
   'workbench.editors.live.workflow.saveToRun': 'Сохраните рабочий процесс, чтобы запустить его.',
@@ -545,7 +552,6 @@ export const workbenchLive = {
     'Очистить счётчики сбоев и отложенную задержку. Проверку не запускает.',
   'workbench.editors.live.status.circuitReset': 'Выключатель сброшен',
   'workbench.editors.live.status.resetFailed': 'Сброс не удался: {error}',
-  'workbench.editors.live.status.dragToResize': 'Потяните, чтобы изменить размер',
   'workbench.editors.live.status.boundCount': ({ count }, locale) =>
     plural(locale, Number(count), {
       one: 'привязано: {count} переменная',

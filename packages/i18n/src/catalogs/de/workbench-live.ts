@@ -130,20 +130,23 @@ export const workbenchLive = {
   'workbench.editors.live.refreshPolicy.interval': 'Festes Intervall',
   'workbench.editors.live.refreshPolicy.expiresIn': 'Läuft in N Sekunden ab (relativ)',
   'workbench.editors.live.refreshPolicy.expiresAt': 'Läuft bei Epoch ms ab (absolut)',
-  'workbench.editors.live.refreshPolicy.leadUnit': 'Vorlauf s',
+  'workbench.editors.live.refreshPolicy.scheduled': 'Nach Zeitplan',
+  'workbench.editors.live.refreshPolicy.schedule': 'Zeitplan',
+  'workbench.editors.live.refreshPolicy.every': 'Alle',
+  'workbench.editors.live.refreshPolicy.lead': 'Vorlauf (s)',
   'workbench.editors.live.refreshPolicy.selectCapture': 'Erfassung wählen',
   'workbench.editors.live.refreshPolicy.noCaptures': 'Noch keine Erfassungen definiert.',
   'workbench.editors.live.refreshPolicy.subMinuteWarning':
     'Intervalle unter einer Minute stoßen an die Alarm-Untergrenze von MV3 und verbrennen das Kontingent ' +
     'schnell. Nur wenn nötig verwenden.',
   'workbench.editors.live.refreshPolicy.expiresInHelpPrefix': 'Erfasster Wert = Sekunden bis zum Ablauf (z. B. OAuth',
-  'workbench.editors.live.refreshPolicy.expiresInHelpMid': '). Die Aktualisierung feuert `lead` Sekunden vorher',
+  'workbench.editors.live.refreshPolicy.expiresInHelpMid': '). Der Workflow läuft `lead` Sekunden vorher',
   'workbench.editors.live.refreshPolicy.expiresInHelpSuffix': '.',
   'workbench.editors.live.refreshPolicy.expiresAtHelpPrefix': 'Erfasster Wert = absolute Unix-Epoch in',
   'workbench.editors.live.refreshPolicy.expiresAtHelpMilliseconds': 'Millisekunden',
   'workbench.editors.live.refreshPolicy.expiresAtHelpMid': '(e.g.',
   'workbench.editors.live.refreshPolicy.expiresAtHelpSuffix':
-    '). Die Aktualisierung feuert `lead` Sekunden vor diesem Zeitpunkt.',
+    '). Der Workflow läuft `lead` Sekunden vor diesem Zeitpunkt.',
   'workbench.editors.live.refreshPolicy.noCapturesWarning':
     'Füge dem Workflow zuerst eine Erfassung hinzu, damit die Ablaufrechnung eine Quelle hat.',
 
@@ -309,6 +312,11 @@ export const workbenchLive = {
     'Werte, die von einem Schritt an einen anderen weitergegeben werden.',
   'workbench.editors.live.overview.colCapturedBy': 'Erfasst von',
   'workbench.editors.live.overview.capturesNone': 'Noch kein Schritt erfasst einen Wert.',
+  'workbench.editors.live.overview.environmentsTitle': 'Umgebungen',
+  'workbench.editors.live.overview.environmentsDescription':
+    'Die letzte Ausführung in jeder Umgebung, die aktive zuerst.',
+  'workbench.editors.live.overview.settingsTitle': 'Einstellungen',
+  'workbench.editors.live.overview.settingsDescription': 'Wann dieser Workflow läuft.',
   'workbench.editors.live.workflow.run': 'Ausführen',
   'workbench.editors.live.workflow.runUnavailable': 'Workflows laufen nicht in einer öffentlichen Kopie.',
   'workbench.editors.live.workflow.saveToRun': 'Speichere den Workflow, um ihn auszuführen.',
@@ -537,7 +545,6 @@ export const workbenchLive = {
     'Leert Fehlschlag-Zähler + ausstehenden Backoff. Führt keine Sondierung aus.',
   'workbench.editors.live.status.circuitReset': 'Schaltkreis zurückgesetzt',
   'workbench.editors.live.status.resetFailed': 'Zurücksetzen fehlgeschlagen: {error}',
-  'workbench.editors.live.status.dragToResize': 'Zum Anpassen der Größe ziehen',
   'workbench.editors.live.status.boundCount': ({ count }, locale) =>
     plural(locale, Number(count), {
       one: 'gebunden: {count} Variable',

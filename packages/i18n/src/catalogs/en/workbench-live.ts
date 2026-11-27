@@ -120,18 +120,21 @@ export const workbenchLive = {
   'workbench.editors.live.refreshPolicy.interval': 'Fixed interval',
   'workbench.editors.live.refreshPolicy.expiresIn': 'Expires in N seconds (relative)',
   'workbench.editors.live.refreshPolicy.expiresAt': 'Expires at epoch ms (absolute)',
-  'workbench.editors.live.refreshPolicy.leadUnit': 'lead s',
+  'workbench.editors.live.refreshPolicy.scheduled': 'On a schedule',
+  'workbench.editors.live.refreshPolicy.schedule': 'Schedule',
+  'workbench.editors.live.refreshPolicy.every': 'Every',
+  'workbench.editors.live.refreshPolicy.lead': 'Lead (s)',
   'workbench.editors.live.refreshPolicy.selectCapture': 'Select capture',
   'workbench.editors.live.refreshPolicy.noCaptures': 'No captures defined yet.',
   'workbench.editors.live.refreshPolicy.subMinuteWarning':
     'Sub-minute intervals hit the MV3 alarm floor and burn quota fast. Use only when necessary.',
   'workbench.editors.live.refreshPolicy.expiresInHelpPrefix': 'Capture value = seconds until expiry (e.g. OAuth',
-  'workbench.editors.live.refreshPolicy.expiresInHelpMid': '). Refresh fires `lead` seconds before',
+  'workbench.editors.live.refreshPolicy.expiresInHelpMid': '). The workflow runs `lead` seconds before',
   'workbench.editors.live.refreshPolicy.expiresInHelpSuffix': '.',
   'workbench.editors.live.refreshPolicy.expiresAtHelpPrefix': 'Capture value = absolute unix epoch in',
   'workbench.editors.live.refreshPolicy.expiresAtHelpMilliseconds': 'milliseconds',
   'workbench.editors.live.refreshPolicy.expiresAtHelpMid': '(e.g.',
-  'workbench.editors.live.refreshPolicy.expiresAtHelpSuffix': '). Refresh fires `lead` seconds before that moment.',
+  'workbench.editors.live.refreshPolicy.expiresAtHelpSuffix': '). The workflow runs `lead` seconds before that moment.',
   'workbench.editors.live.refreshPolicy.noCapturesWarning':
     'Add a capture to the workflow first so expiry math has a source.',
 
@@ -292,6 +295,10 @@ export const workbenchLive = {
   'workbench.editors.live.overview.capturesDescription': 'Values passed from one step to another.',
   'workbench.editors.live.overview.colCapturedBy': 'Captured by',
   'workbench.editors.live.overview.capturesNone': 'No step captures a value yet.',
+  'workbench.editors.live.overview.environmentsTitle': 'Environments',
+  'workbench.editors.live.overview.environmentsDescription': 'The last run in each environment, the active one first.',
+  'workbench.editors.live.overview.settingsTitle': 'Settings',
+  'workbench.editors.live.overview.settingsDescription': 'When this workflow runs.',
   'workbench.editors.live.workflow.run': 'Run',
   'workbench.editors.live.workflow.runUnavailable': 'Workflows do not run in a public view.',
   'workbench.editors.live.workflow.saveToRun': 'Save the workflow to run it.',
@@ -508,7 +515,6 @@ export const workbenchLive = {
     'Clear failure counters + pending backoff. Does not run a probe.',
   'workbench.editors.live.status.circuitReset': 'Circuit reset',
   'workbench.editors.live.status.resetFailed': 'Reset failed: {error}',
-  'workbench.editors.live.status.dragToResize': 'Drag to resize',
   'workbench.editors.live.status.boundCount': ({ count }, locale) =>
     plural(locale, Number(count), {
       one: 'bound: {count} variable',

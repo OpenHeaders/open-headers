@@ -3,25 +3,22 @@
  * is selected (the workflows redesign, Workflow panel): the workflow as
  * a whole. Its head — the name, how many steps, the description — and
  * under it one scrolling page of cards: its last run, what needs a look,
- * its steps in run order, its captures, and when it runs.
+ * its steps in run order, its captures, how each environment stands, and
+ * its settings.
  *
  * Drawn at the step panel's sizes, as the whole workflow view is.
  */
 
-import { InfoCircleOutlined } from '@ant-design/icons';
 import type { LiveWorkflowRunSnapshot } from '@openheaders/core/bridge';
 import { type DraftWorkflow, isKnownStep, runVerdict } from '@openheaders/core/live';
 import type { LiveWorkflow } from '@openheaders/core/types';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { LIVE_WORKFLOW_FIELD } from '@openheaders/ui/shared/awareness/live-paths';
-import { InfoTrigger } from '@openheaders/ui/shared/info-popover';
-import { ConfigProvider, Input, Switch, Tooltip, Typography, theme } from 'antd';
+import { ConfigProvider, Input } from 'antd';
 import type React from 'react';
 import { useEffect, useRef } from 'react';
 import { captureUsesOf } from './capture-uses';
 import { appendDraftStep } from './graph-edit';
-import { Section } from './layout';
-import RefreshPolicyEditor from './RefreshPolicyEditor';
 import type { OverviewStepFacts } from './StepOverviewRow';
 import { KindTag } from './StepTags';
 import {
@@ -40,10 +37,10 @@ import type { WorkflowFormModel } from './use-workflow-form-model';
 import type { ShownWorkflowRun } from './use-workflow-run';
 import WorkflowAttentionCard, { type AttentionPhase } from './WorkflowAttentionCard';
 import WorkflowCapturesCard, { type OverviewCapture } from './WorkflowCapturesCard';
+import WorkflowEnvironmentsCard from './WorkflowEnvironmentsCard';
 import WorkflowLastRunCard from './WorkflowLastRunCard';
+import WorkflowSettingsCard from './WorkflowSettingsCard';
 import WorkflowStepsCard from './WorkflowStepsCard';
-
-const { Text } = Typography;
 
 interface Props {
   /** The workflow's name, as its tab's header says it. */
@@ -59,7 +56,11 @@ interface Props {
   run?: ShownWorkflowRun | null;
   /** The active environment's cache row: how the last run left each step while no run is kept. */
   cacheRun?: LiveWorkflowRunSnapshot | null;
-  /** The header's schedule word was pressed: bring the setting of when the workflow runs to the panel's top. */
+  /** Every environment's cache row of the workflow — absent for a draft never saved, which has run nowhere. */
+  runs?: LiveWorkflowRunSnapshot[];
+  /** How many live variables read the workflow. */
+  boundCount?: number;
+  /** The header's schedule word was pressed: bring the workflow's settings into view. */
   revealSettings?: boolean;
   onSettingsRevealed?: () => void;
 }
@@ -74,16 +75,17 @@ const WorkflowOverviewPanel: React.FC<Props> = ({
   workflow,
   run,
   cacheRun,
+  runs,
+  boundCount = 0,
   revealSettings = false,
   onSettingsRevealed,
 }) => {
-  const { token } = theme.useToken();
   const t = useT();
   const { fontSize, theme: sizes } = usePanelSizes();
   const stepRequests = useStepRequests();
   const now = useWaitClock(run?.record ?? null);
   const scrollerRef = useRef<HTMLDivElement>(null);
-  const settingsRef = useRef<HTMLDivElement>(null);
+  const settingsRef = useRef<HTMLElement>(null);
 
   useEffect(() => {
     if (!revealSettings) return;
@@ -191,72 +193,23 @@ const WorkflowOverviewPanel: React.FC<Props> = ({
                 onAdd={handleAddStep}
               />
               <WorkflowCapturesCard captures={captures} />
-
-              <div ref={settingsRef} data-field-path={LIVE_WORKFLOW_FIELD.refresh} data-testid="wf-panel-policy">
-                <Section
-                  title={
-                    <>
-                      {t('workbench.editors.live.form.runsSection')}
-                      {model.holdsSession && (
-                        <InfoTrigger
-                          content={{
-                            title: t('workbench.editors.live.form.runsSection'),
-                            summary: t('workbench.editors.live.form.sessionPolicyInfo'),
-                          }}
-                        />
-                      )}
-                    </>
-                  }
-                >
-                  {/* Fixed at Manual while the workflow holds a session step; a
-                      policy that is not Manual yet stays open so it can be set. */}
-                  <RefreshPolicyEditor
-                    value={draft.refresh}
-                    onChange={(refresh) => setDraft({ ...draft, refresh })}
-                    availableCaptures={model.availableCaptures}
-                    disabled={model.holdsSession && draft.refresh.kind === 'manual'}
-                  />
-                  {model.holdsSession && (
-                    <Text type="secondary" style={{ fontSize: 11 }} data-testid="wf-form-session-verdict">
-                      {t('workbench.editors.live.form.sessionNoLiveVariables')}
-                    </Text>
-                  )}
-                </Section>
-              </div>
-
-              <div style={{ display: 'flex', gap: 20, alignItems: 'center', flexWrap: 'wrap' }}>
-                <div
-                  data-field-path={LIVE_WORKFLOW_FIELD.enabled}
-                  style={{ display: 'flex', alignItems: 'center', gap: 6 }}
-                >
-                  {/* A read-only workflow can still be switched off. */}
-                  <ConfigProvider componentDisabled={false}>
-                    <Switch
-                      size="small"
-                      aria-label={t('workbench.editors.live.form.enabledAria')}
-                      checked={draft.enabled}
-                      onChange={(enabled) => setDraft({ ...draft, enabled })}
-                    />
-                  </ConfigProvider>
-                  <Text>
-                    {draft.enabled
-                      ? t('workbench.editors.live.form.enabled')
-                      : t('workbench.editors.live.form.disabled')}
-                  </Text>
-                </div>
-                <Tooltip title={t('workbench.editors.live.form.parallelTooltip')}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                    <Switch
-                      aria-label={t('workbench.editors.live.form.parallelLabel')}
-                      size="small"
-                      checked={false}
-                      disabled
-                    />
-                    <Text type="secondary">{t('workbench.editors.live.form.parallelLabel')}</Text>
-                    <InfoCircleOutlined style={{ fontSize: 11, color: token.colorTextTertiary }} />
-                  </div>
-                </Tooltip>
-              </div>
+              {runs !== undefined && (
+                <WorkflowEnvironmentsCard
+                  runs={runs}
+                  refresh={draft.refresh}
+                  boundCount={boundCount}
+                  verdictOnly={model.holdsSession}
+                />
+              )}
+              <WorkflowSettingsCard
+                ref={settingsRef}
+                refresh={draft.refresh}
+                onRefreshChange={(refresh) => setDraft({ ...draft, refresh })}
+                enabled={draft.enabled}
+                onEnabledChange={(enabled) => setDraft({ ...draft, enabled })}
+                availableCaptures={model.availableCaptures}
+                holdsSession={model.holdsSession}
+              />
             </div>
           </ConfigProvider>
         </div>

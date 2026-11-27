@@ -22,11 +22,13 @@ interface Props {
   testId?: string;
   /** Canonical schema path of the field the card edits — read by field-focus awareness. */
   fieldPath?: string;
+  /** The card's own element, for a panel that brings the card into view. */
+  ref?: React.Ref<HTMLElement>;
   children?: React.ReactNode;
 }
 
-const WorkflowCard: React.FC<Props> = ({ title, description, extra, footer, testId, fieldPath, children }) => (
-  <section className="oh-wf-card" data-testid={testId} data-field-path={fieldPath}>
+const WorkflowCard: React.FC<Props> = ({ title, description, extra, footer, testId, fieldPath, ref, children }) => (
+  <section ref={ref} className="oh-wf-card" data-testid={testId} data-field-path={fieldPath}>
     <div className="oh-wf-card-head">
       <div className="oh-wf-card-heading">
         <h3 className="oh-wf-card-title">{title}</h3>

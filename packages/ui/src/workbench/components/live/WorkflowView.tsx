@@ -68,6 +68,8 @@ interface Props {
    * saved.
    */
   cacheRun?: LiveWorkflowRunSnapshot | null;
+  /** Every environment's cache row of the workflow — absent for a draft never saved. */
+  runs?: LiveWorkflowRunSnapshot[];
   boundVars?: LiveVariable[];
   /** What opens a request's own tab — a step's panel opens the request the step names. */
   requestOpeners?: StepRequestOpeners;
@@ -86,6 +88,7 @@ const WorkflowView: React.FC<Props> = ({
   workflow,
   run,
   cacheRun,
+  runs,
   boundVars,
   requestOpeners,
   revealSettings,
@@ -187,6 +190,8 @@ const WorkflowView: React.FC<Props> = ({
             workflow={workflow}
             run={run}
             cacheRun={cacheRun}
+            runs={runs}
+            boundCount={boundVars?.length}
             revealSettings={revealSettings}
             onSettingsRevealed={onSettingsRevealed}
           />

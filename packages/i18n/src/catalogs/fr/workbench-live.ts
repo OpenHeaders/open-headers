@@ -125,7 +125,10 @@ export const workbenchLive = {
   'workbench.editors.live.refreshPolicy.interval': 'Intervalle fixe',
   'workbench.editors.live.refreshPolicy.expiresIn': 'Expire dans N secondes (relatif)',
   'workbench.editors.live.refreshPolicy.expiresAt': "Expire à l'epoch ms (absolu)",
-  'workbench.editors.live.refreshPolicy.leadUnit': 'avance s',
+  'workbench.editors.live.refreshPolicy.scheduled': 'Planifiée',
+  'workbench.editors.live.refreshPolicy.schedule': 'Planification',
+  'workbench.editors.live.refreshPolicy.every': 'Toutes les',
+  'workbench.editors.live.refreshPolicy.lead': 'Avance (s)',
   'workbench.editors.live.refreshPolicy.selectCapture': 'Sélectionner la capture',
   'workbench.editors.live.refreshPolicy.noCaptures': 'Aucune capture définie pour le moment.',
   'workbench.editors.live.refreshPolicy.subMinuteWarning':
@@ -133,13 +136,13 @@ export const workbenchLive = {
     "n'utiliser qu'en cas de nécessité.",
   'workbench.editors.live.refreshPolicy.expiresInHelpPrefix':
     'Valeur de capture = secondes avant expiration (p. ex. OAuth',
-  'workbench.editors.live.refreshPolicy.expiresInHelpMid': "). L'actualisation se déclenche `lead` secondes avant",
+  'workbench.editors.live.refreshPolicy.expiresInHelpMid': "). Le workflow s'exécute `lead` secondes avant",
   'workbench.editors.live.refreshPolicy.expiresInHelpSuffix': '.',
   'workbench.editors.live.refreshPolicy.expiresAtHelpPrefix': 'Valeur de capture = epoch unix absolu en',
   'workbench.editors.live.refreshPolicy.expiresAtHelpMilliseconds': 'millisecondes',
   'workbench.editors.live.refreshPolicy.expiresAtHelpMid': '(e.g.',
   'workbench.editors.live.refreshPolicy.expiresAtHelpSuffix':
-    "). L'actualisation se déclenche `lead` secondes avant ce moment.",
+    "). Le workflow s'exécute `lead` secondes avant ce moment.",
   'workbench.editors.live.refreshPolicy.noCapturesWarning':
     "Ajoutez d'abord une capture au workflow pour que le calcul d'expiration ait une source.",
 
@@ -306,6 +309,11 @@ export const workbenchLive = {
   'workbench.editors.live.overview.capturesDescription': "Valeurs transmises d'une étape à une autre.",
   'workbench.editors.live.overview.colCapturedBy': 'Capturée par',
   'workbench.editors.live.overview.capturesNone': 'Aucune étape ne capture encore de valeur.',
+  'workbench.editors.live.overview.environmentsTitle': 'Environnements',
+  'workbench.editors.live.overview.environmentsDescription':
+    "La dernière exécution dans chaque environnement, l'actif en premier.",
+  'workbench.editors.live.overview.settingsTitle': 'Paramètres',
+  'workbench.editors.live.overview.settingsDescription': "Quand ce workflow s'exécute.",
   'workbench.editors.live.workflow.run': 'Exécuter',
   'workbench.editors.live.workflow.runUnavailable': "Les workflows ne s'exécutent pas dans une copie publique.",
   'workbench.editors.live.workflow.saveToRun': "Enregistrez le workflow pour l'exécuter.",
@@ -540,7 +548,6 @@ export const workbenchLive = {
     "Efface les compteurs d'échec + le backoff en attente. N'exécute pas de sonde.",
   'workbench.editors.live.status.circuitReset': 'Circuit réinitialisé',
   'workbench.editors.live.status.resetFailed': 'Échec de la réinitialisation : {error}',
-  'workbench.editors.live.status.dragToResize': 'Glisser pour redimensionner',
   'workbench.editors.live.status.boundCount': ({ count }, locale) =>
     plural(locale, Number(count), {
       one: 'liée : {count} variable',
