@@ -113,10 +113,10 @@ export interface UpdaterPort {
    */
   setInstallOnQuit(enabled: boolean): void;
   /**
-   * False on a port whose download tells nobody how far it is (Windows
-   * fetches a package itself). The state then carries no percentage
-   * while it runs and the surfaces show a busy state in place of a bar.
-   * Absent means progress is reported.
+   * False on a port whose download tells nobody how far it is (a Windows
+   * package fetched by Windows with nothing hearing its progress). The
+   * state then carries no percentage while it runs and the surfaces show
+   * a busy state in place of a bar. Absent means progress is reported.
    */
   readonly reportsDownloadProgress?: boolean;
 }

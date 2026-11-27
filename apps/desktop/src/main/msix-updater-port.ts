@@ -4,24 +4,27 @@
  *
  * `check()` reads our own pointer — the channel's
  * `desktop/<channel>/windows-package.json`, written by the release
- * workflow — and downloads nothing. Electron's package updater has no
- * such look: its one call stages at once, and a staged package is the
- * app at its next start with no way to withdraw it. So that call is
- * `download()`, reached only through the user's Update & Restart (the
- * service's `onRequest` capability), and `quitAndInstall()` follows it
- * in the same motion.
+ * workflow — and downloads nothing. Asking Windows for a package stages
+ * it at once, and a staged package is the app at its next start with no
+ * way to withdraw it. So that ask is `download()`, reached only through
+ * the user's Update & Restart (the service's `onRequest` capability),
+ * and `quitAndInstall()` follows it in the same motion.
  *
- * Windows fetches the bytes and reports nothing on the way, so the port
- * declares that it has no progress to give.
+ * Both asks go through the package-update addon, which hears the
+ * percentage Windows reports while it fetches. Where the addon did not
+ * load, Electron's package updater makes the same two asks: it tells
+ * nobody how far a fetch is, so the port then declares that it has no
+ * progress to give. One of the two makes both asks — Electron's updater
+ * installs only what it staged itself.
  *
  * Windows registers a staged package once the app's process is gone, and
  * starts the app again; it closes nothing itself. So after the install
- * request the port ends the app — a moment later, since Electron hands
- * the request to Windows on another thread and says nothing when it is
- * there.
+ * request the port ends the app — a moment later, since the request
+ * reaches Windows on another thread and nothing says when it is there.
  *
- * Everything outside this file is injected — the fetch, Electron's
- * updater, the facts of this install — so the port is pinned with fakes.
+ * Everything outside this file is injected — the fetch, the addon,
+ * Electron's updater, the facts of this install — so the port is pinned
+ * with fakes.
  */
 
 import { releaseNotesUrl, type UpdateChannel, windowsPackagePointerUrl } from './update-feed';
@@ -38,7 +41,22 @@ type PackageUpdaterEvent = 'update-downloaded' | 'update-not-available' | 'error
  */
 export const PACKAGE_INSTALL_HAND_OVER_MS = 1_000;
 
-/** The slice of Electron's updater the port drives. */
+/** The slice of the package-update addon the port drives. */
+export interface PackageUpdateAddon {
+  /**
+   * Asks Windows to stage the package at the link, telling `onPercent`
+   * every percentage Windows reports. Rejects with Windows' own words.
+   */
+  stage(link: string, onPercent: (percent: number) => void): Promise<void>;
+  /**
+   * Asks Windows to register the staged version and to start the app
+   * again. Settles when Windows' operation ends: rejected with Windows'
+   * own words when Windows refused.
+   */
+  register(): Promise<void>;
+}
+
+/** The slice of Electron's updater the port drives where the addon did not load. */
 export interface PackageUpdater {
   setFeedURL(options: { url: string }): void;
   /** In a package: hands Windows the feed's link and stages what it fetches. */
@@ -54,6 +72,8 @@ export interface PackageUpdater {
 }
 
 export interface MsixUpdaterPortDeps {
+  /** Null where the addon is not built or did not load. */
+  readonly addon: PackageUpdateAddon | null;
   readonly updater: PackageUpdater;
   readonly fetch: typeof fetch;
   /**
@@ -104,12 +124,37 @@ function asError(value: unknown): Error {
   return value instanceof Error ? value : new Error(String(value));
 }
 
+/** Stages the package at the link through Electron's updater, which reports no progress. */
+function stageThroughUpdater(updater: PackageUpdater, url: string): Promise<void> {
+  updater.setFeedURL({ url });
+  return new Promise<void>((resolve, reject) => {
+    const settle = (outcome: () => void): void => {
+      updater.removeListener('update-downloaded', onDownloaded);
+      updater.removeListener('update-not-available', onNotAvailable);
+      updater.removeListener('error', onError);
+      outcome();
+    };
+    const onDownloaded = (): void => settle(resolve);
+    const onNotAvailable = (): void => settle(() => reject(new Error('Windows found no package at the offered link')));
+    const onError = (...args: unknown[]): void => settle(() => reject(asError(args[0])));
+    updater.on('update-downloaded', onDownloaded);
+    updater.on('update-not-available', onNotAvailable);
+    updater.on('error', onError);
+    try {
+      void Promise.resolve(updater.checkForUpdates()).catch(onError);
+    } catch (err) {
+      onError(err);
+    }
+  });
+}
+
 export function createMsixUpdaterPort(deps: MsixUpdaterPortDeps): UpdaterPort {
+  const { addon, updater } = deps;
   // The last check's offer: the link `download()` hands to Windows.
   let offered: { version: string; url: string } | null = null;
 
   return {
-    reportsDownloadProgress: false,
+    reportsDownloadProgress: addon !== null,
 
     async check(): Promise<AvailableUpdate | null> {
       offered = null;
@@ -134,33 +179,14 @@ export function createMsixUpdaterPort(deps: MsixUpdaterPortDeps): UpdaterPort {
       return { version: pointer.version, releaseNotesUrl: releaseNotesUrl(pointer.version) };
     },
 
-    async download(): Promise<void> {
+    async download(onProgressPercent: (percent: number) => void): Promise<void> {
       const target = offered;
       if (target === null) throw new Error('no package update is on offer');
       if (!deps.hasPackageIdentity()) {
         throw new Error('this process does not carry the package identity Windows updates a package by');
       }
-      deps.updater.setFeedURL({ url: target.url });
-      await new Promise<void>((resolve, reject) => {
-        const settle = (outcome: () => void): void => {
-          deps.updater.removeListener('update-downloaded', onDownloaded);
-          deps.updater.removeListener('update-not-available', onNotAvailable);
-          deps.updater.removeListener('error', onError);
-          outcome();
-        };
-        const onDownloaded = (): void => settle(resolve);
-        const onNotAvailable = (): void =>
-          settle(() => reject(new Error('Windows found no package at the offered link')));
-        const onError = (...args: unknown[]): void => settle(() => reject(asError(args[0])));
-        deps.updater.on('update-downloaded', onDownloaded);
-        deps.updater.on('update-not-available', onNotAvailable);
-        deps.updater.on('error', onError);
-        try {
-          void Promise.resolve(deps.updater.checkForUpdates()).catch(onError);
-        } catch (err) {
-          onError(err);
-        }
-      });
+      if (addon !== null) await addon.stage(target.url, onProgressPercent);
+      else await stageThroughUpdater(updater, target.url);
       deps.log.info(`package ${target.version} staged by Windows`);
     },
 
@@ -184,9 +210,17 @@ export function createMsixUpdaterPort(deps: MsixUpdaterPortDeps): UpdaterPort {
           deps.log.warn("Windows' package install ended with the app still running");
           end();
         };
-        deps.updater.on('error', onRefused);
+        // Electron's updater says a request that never reached Windows
+        // as an `error`; the addon says every refusal by rejecting.
+        const install =
+          addon !== null
+            ? () => addon.register()
+            : () => {
+                updater.on('error', onRefused);
+                return updater.quitAndInstall();
+              };
         try {
-          void Promise.resolve(deps.updater.quitAndInstall()).then(onEndedEarly, onRefused);
+          void Promise.resolve(install()).then(onEndedEarly, onRefused);
         } catch (err) {
           onRefused(err);
         }

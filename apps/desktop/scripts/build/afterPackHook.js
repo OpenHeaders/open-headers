@@ -135,18 +135,19 @@ function verifyMacProcessReader(context) {
     }
 }
 
-// The Windows half of the same check, with the same consequence.
-function verifyWindowsProcessReader(appOutDir) {
+// The same check for an addon of the Windows build. A build without one
+// still runs: `without` says what it does instead.
+function verifyWindowsAddon(appOutDir, addon, binary, without) {
     const binaryPath = path.join(
         appOutDir, 'resources', 'app.asar.unpacked',
-        'node_modules', '@openheaders', 'windows-process-reader', 'build', 'Release', 'windows_process_reader.node'
+        'node_modules', '@openheaders', addon, 'build', 'Release', binary
     );
     if (fs.existsSync(binaryPath)) {
-        console.log('✓ @openheaders/windows-process-reader binary found in unpacked resources');
+        console.log(`✓ @openheaders/${addon} binary found in unpacked resources`);
     } else {
-        console.warn('⚠ @openheaders/windows-process-reader binary not found in unpacked resources');
+        console.warn(`⚠ @openheaders/${addon} binary not found in unpacked resources`);
         console.warn(`  Expected path: ${binaryPath}`);
-        console.warn('  The activity monitor will read the runtime\'s own figures');
+        console.warn(`  ${without}`);
     }
 }
 
@@ -172,7 +173,14 @@ exports.default = async function(context) {
             console.warn(`  Expected path: ${nativeModulePath}`);
             console.warn('  Windows focus enhancement will use fallback methods');
         }
-        verifyWindowsProcessReader(appOutDir);
+        verifyWindowsAddon(
+            appOutDir, 'windows-process-reader', 'windows_process_reader.node',
+            'The activity monitor will read the runtime\'s own figures'
+        );
+        verifyWindowsAddon(
+            appOutDir, 'windows-package-update', 'windows_package_update.node',
+            'A package\'s update will show no percentage'
+        );
         return;
     }
 };

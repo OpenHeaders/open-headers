@@ -66,6 +66,9 @@ const KEPT = [
   'node_modules/@openheaders/windows-foreground/build/Release/foreground.node',
   'node_modules/@openheaders/process-reader/build/Release/process_reader.node',
   'node_modules/@openheaders/windows-process-reader/build/Release/windows_process_reader.node',
+  'node_modules/@openheaders/windows-package-update/index.js',
+  'node_modules/@openheaders/windows-package-update/binding.js',
+  'node_modules/@openheaders/windows-package-update/build/Release/windows_package_update.node',
 ];
 
 const LEFT_OUT = [
@@ -96,6 +99,11 @@ const LEFT_OUT = [
   'node_modules/@openheaders/windows-foreground/build/Release/foreground.iobj',
   'node_modules/@openheaders/windows-foreground/build/Release/obj/foreground/foreground.tlog/link.read.1.tlog',
   'node_modules/@openheaders/windows-process-reader/build/Release/windows_process_reader.lib',
+  'node_modules/@openheaders/windows-package-update/src/win32.cc',
+  'node_modules/@openheaders/windows-package-update/build/windows_package_update.vcxproj',
+  'node_modules/@openheaders/windows-package-update/build/Release/windows_package_update.iobj',
+  'node_modules/@openheaders/windows-package-update/build/Release/windows_package_update.lib',
+  'node_modules/@openheaders/windows-package-update/build/Release/obj/windows_package_update/win32.obj',
 ];
 
 describe('the package file filter for native modules', () => {

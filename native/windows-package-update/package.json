@@ -1,0 +1,25 @@
+{
+  "name": "@openheaders/windows-package-update",
+  "version": "2026.11.3",
+  "private": true,
+  "description": "A Windows package's own update, asked of Windows' package manager with the percentage it reports heard on the way",
+  "main": "index.js",
+  "typings": "index.d.ts",
+  "scripts": {
+    "test": "node test/test.js",
+    "install": "node-gyp-build",
+    "build": "node-gyp rebuild"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/OpenHeaders/open-headers.git",
+    "directory": "native/windows-package-update"
+  },
+  "author": "Open Headers",
+  "license": "Apache-2.0",
+  "os": ["win32"],
+  "gypfile": true,
+  "dependencies": {
+    "node-gyp-build": "^4.8.0"
+  }
+}

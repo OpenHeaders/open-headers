@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   createMsixUpdaterPort,
   PACKAGE_INSTALL_HAND_OVER_MS,
+  type PackageUpdateAddon,
   type PackageUpdater,
 } from '../../../src/main/msix-updater-port';
 import type { UpdateChannel } from '../../../src/main/update-feed';
@@ -64,6 +65,28 @@ function makeUpdater(
   return { updater, calls, emit, listenerCount: (event: string) => listeners.get(event)?.size ?? 0 };
 }
 
+/** The addon as the port sees it: what it was asked, and a way to answer as Windows would. */
+function makeAddon(
+  behavior: {
+    onStage?: (onPercent: (percent: number) => void) => void | Promise<void>;
+    /** What the registration answers; left out, it stays open as while Windows waits for the app to go. */
+    onRegister?: () => Promise<void>;
+  } = {},
+) {
+  const calls: string[] = [];
+  const addon: PackageUpdateAddon = {
+    async stage(link, onPercent) {
+      calls.push(`stage ${link}`);
+      await behavior.onStage?.(onPercent);
+    },
+    register() {
+      calls.push('register');
+      return behavior.onRegister?.() ?? new Promise<void>(() => {});
+    },
+  };
+  return { addon, calls };
+}
+
 interface PortOptions {
   pointer?: unknown;
   status?: number;
@@ -71,6 +94,8 @@ interface PortOptions {
   arch?: string;
   currentVersion?: string;
   hasPackageIdentity?: boolean;
+  /** Left out, the addon did not load and Electron's updater makes both asks. */
+  addon?: ReturnType<typeof makeAddon>;
   updater?: ReturnType<typeof makeUpdater>;
 }
 
@@ -88,9 +113,10 @@ function makePort(options: PortOptions = {}) {
   const fake = options.updater ?? makeUpdater({ onCheck: (emit) => emit('update-downloaded') });
   const quits: Array<() => void> = [];
   const timers: Array<{ fn: () => void; ms: number }> = [];
-  const logged = { info: [] as string[], warn: [] as string[] };
+  const logged = { info: [] as string[], warn: [] as string[], causes: [] as unknown[] };
   let exits = 0;
   const port = createMsixUpdaterPort({
+    addon: options.addon?.addon ?? null,
     updater: fake.updater,
     fetch: fetchFn,
     hasPackageIdentity: () => options.hasPackageIdentity ?? true,
@@ -102,7 +128,13 @@ function makePort(options: PortOptions = {}) {
       exits += 1;
     },
     setTimer: (fn, ms) => timers.push({ fn, ms }),
-    log: { info: (msg) => logged.info.push(msg), warn: (msg) => logged.warn.push(msg) },
+    log: {
+      info: (msg) => logged.info.push(msg),
+      warn: (msg, err) => {
+        logged.warn.push(msg);
+        if (err !== undefined) logged.causes.push(err);
+      },
+    },
   });
   return { port, urls, fake, quits, timers, logged, exits: () => exits };
 }
@@ -187,7 +219,60 @@ describe('createMsixUpdaterPort', () => {
     });
   });
 
-  describe('download', () => {
+  describe('download through the addon', () => {
+    const WINDOWS_WORDS = '0x80073CF0 Package could not be opened.';
+
+    it("hands Windows this arch's link and settles when the package is staged", async () => {
+      const addon = makeAddon();
+      const { port, fake, logged } = makePort({ arch: 'arm64', addon });
+      await port.check();
+      await port.download(() => {});
+      expect(addon.calls).toEqual([`stage ${ARM64_URL}`]);
+      expect(logged.info).toEqual(['package 2026.12.0-beta.2 staged by Windows']);
+      // One of the two makes both asks: Electron's updater is left alone.
+      expect(fake.calls).toEqual([]);
+    });
+
+    it('passes on every percentage Windows reports, as it comes', async () => {
+      const addon = makeAddon({
+        onStage: (onPercent) => {
+          for (const percent of [0, 0, 1, 69, 70, 89, 100]) onPercent(percent);
+        },
+      });
+      const { port } = makePort({ addon });
+      expect(port.reportsDownloadProgress).toBe(true);
+      await port.check();
+      const percents: number[] = [];
+      await port.download((percent) => percents.push(percent));
+      expect(percents).toEqual([0, 0, 1, 69, 70, 89, 100]);
+    });
+
+    it("rejects with Windows' own words, and does not try Electron's updater after", async () => {
+      const addon = makeAddon({ onStage: () => Promise.reject(new Error(WINDOWS_WORDS)) });
+      const { port, fake, logged } = makePort({ addon });
+      await port.check();
+      await expect(port.download(() => {})).rejects.toThrow(WINDOWS_WORDS);
+      expect(fake.calls).toEqual([]);
+      expect(logged.info).toEqual([]);
+    });
+
+    it('refuses in a process without the package identity, before the addon is asked', async () => {
+      const addon = makeAddon();
+      const { port } = makePort({ hasPackageIdentity: false, addon });
+      await port.check();
+      await expect(port.download(() => {})).rejects.toThrow('does not carry the package identity');
+      expect(addon.calls).toEqual([]);
+    });
+
+    it('refuses without an offer', async () => {
+      const addon = makeAddon();
+      const { port } = makePort({ addon });
+      await expect(port.download(() => {})).rejects.toThrow('no package update is on offer');
+      expect(addon.calls).toEqual([]);
+    });
+  });
+
+  describe("download through Electron's updater, where the addon did not load", () => {
     it("hands Windows this arch's link and settles when the package is staged", async () => {
       const { port, fake, logged } = makePort({ arch: 'arm64' });
       await port.check();
@@ -249,6 +334,7 @@ describe('createMsixUpdaterPort', () => {
       const urls: string[] = [];
       const fake = makeUpdater({ onCheck: (emit) => emit('update-downloaded') });
       const port = createMsixUpdaterPort({
+        addon: null,
         updater: fake.updater,
         fetch: (async (input: string | URL | Request) => {
           urls.push(String(input));
@@ -270,7 +356,68 @@ describe('createMsixUpdaterPort', () => {
     });
   });
 
-  describe('quitAndInstall', () => {
+  describe('quitAndInstall through the addon', () => {
+    const flush = (): Promise<void> => new Promise((resolve) => setImmediate(resolve));
+    const WINDOWS_WORDS = '0x80073D02 The package could not be installed because resources it modifies are in use.';
+
+    it("quits through the app's own teardown, with the registration asked after it", async () => {
+      const addon = makeAddon();
+      const { port, fake, quits, timers, exits } = makePort({ addon });
+      await port.check();
+      await port.download(() => {});
+      port.quitAndInstall();
+      expect(addon.calls).not.toContain('register');
+      expect(quits).toHaveLength(1);
+      quits[0]?.();
+      expect(addon.calls.at(-1)).toBe('register');
+      // The request is on its way to Windows: the app stays for the hand-over.
+      await flush();
+      expect(exits()).toBe(0);
+      expect(timers.map((timer) => timer.ms)).toEqual([PACKAGE_INSTALL_HAND_OVER_MS]);
+      // Electron's updater installs only what it staged itself: it is never asked.
+      expect(fake.calls).toEqual([]);
+      expect(fake.listenerCount('error')).toBe(0);
+    });
+
+    it('ends the app once the hand-over is over, leaving the install to Windows', async () => {
+      const { port, quits, timers, exits, logged } = makePort({ addon: makeAddon() });
+      port.quitAndInstall();
+      quits[0]?.();
+      timers[0]?.fn();
+      expect(exits()).toBe(1);
+      expect(logged.info).toEqual(['package install left to Windows — exiting']);
+      expect(logged.warn).toEqual([]);
+    });
+
+    it("ends the app at once when Windows refuses, with Windows' words in the log", async () => {
+      const addon = makeAddon({ onRegister: () => Promise.reject(new Error(WINDOWS_WORDS)) });
+      const { port, quits, timers, exits, logged } = makePort({ addon });
+      port.quitAndInstall();
+      quits[0]?.();
+      await flush();
+      expect(exits()).toBe(1);
+      expect(logged.warn).toEqual(['Windows did not take the package install']);
+      expect(logged.causes).toEqual([new Error(WINDOWS_WORDS)]);
+      // The hand-over's timer finds the app already ending.
+      timers[0]?.fn();
+      expect(exits()).toBe(1);
+      expect(logged.info).toEqual([]);
+    });
+
+    it("ends the app at once when Windows' operation ends while the app still runs", async () => {
+      const addon = makeAddon({ onRegister: () => Promise.resolve() });
+      const { port, quits, timers, exits, logged } = makePort({ addon });
+      port.quitAndInstall();
+      quits[0]?.();
+      await flush();
+      expect(exits()).toBe(1);
+      expect(logged.warn).toEqual(["Windows' package install ended with the app still running"]);
+      timers[0]?.fn();
+      expect(exits()).toBe(1);
+    });
+  });
+
+  describe("quitAndInstall through Electron's updater, where the addon did not load", () => {
     const flush = (): Promise<void> => new Promise((resolve) => setImmediate(resolve));
 
     it("quits through the app's own teardown, with the updater's call after it", async () => {

@@ -125,6 +125,7 @@
       "dist-webpack/renderer/images/**/*",
       "node_modules/@openheaders/windows-foreground/**/*",
       "node_modules/@openheaders/process-reader/**/*",
+      "node_modules/@openheaders/windows-package-update/**/*",
       "node_modules/@openheaders/windows-process-reader/**/*"
     ],
     "npmRebuild": true,
@@ -344,6 +345,7 @@
   "optionalDependencies": {
     "@openheaders/process-reader": "file:../../native/process-reader",
     "@openheaders/windows-foreground": "file:../../native/windows-foreground",
+    "@openheaders/windows-package-update": "file:../../native/windows-package-update",
     "@openheaders/windows-process-reader": "file:../../native/windows-process-reader"
   },
   "devDependencies": {

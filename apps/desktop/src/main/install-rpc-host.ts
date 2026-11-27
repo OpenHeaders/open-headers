@@ -128,6 +128,7 @@ import {
   windowsNmManifestTargets,
 } from './nm-host-install';
 import { safeOsHostname } from './os-hostname';
+import { loadPackageUpdateAddon } from './package-update-addon';
 import { buildEnvelopeFacts, installProductTelemetry, type ProductTelemetryHostDeps } from './product-telemetry';
 import { installProductTelemetryMcpBeacons } from './product-telemetry-mcp-beacons';
 import { installProductTelemetryPairingBeacon } from './product-telemetry-pairing-beacon';
@@ -381,11 +382,19 @@ export async function installRpcHost(): Promise<void> {
     info: (msg: string) => engineLogger.info(UPDATE_SCOPE, msg),
     warn: (msg: string, err?: unknown) => engineLogger.warn(UPDATE_SCOPE, msg, err),
   };
+  // A package asks Windows for its update through an addon that hears
+  // Windows' percentage. Where it did not load, Electron's updater makes
+  // the same asks and the surfaces show a busy state in place of a bar.
+  const packageUpdateAddon = updateServiceCapability === 'onRequest' ? loadPackageUpdateAddon() : null;
+  if (updateServiceCapability === 'onRequest' && packageUpdateAddon === null) {
+    updateLog.warn('the package update addon did not load — an update is fetched with no percentage to show');
+  }
   const updaterPort =
     updateServiceCapability === 'notify'
       ? createManifestUpdaterPort(app.getVersion(), () => updatePreferences.channel)
       : updateServiceCapability === 'onRequest'
         ? createMsixUpdaterPort({
+            addon: packageUpdateAddon,
             updater: autoUpdater,
             fetch,
             hasPackageIdentity: () => installKindReading().lonePackageSign !== 'manifest',

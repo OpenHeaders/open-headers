@@ -288,6 +288,9 @@ importers:
       '@openheaders/windows-foreground':
         specifier: file:../../native/windows-foreground
         version: file:native/windows-foreground
+      '@openheaders/windows-package-update':
+        specifier: file:../../native/windows-package-update
+        version: file:native/windows-package-update
       '@openheaders/windows-process-reader':
         specifier: file:../../native/windows-process-reader
         version: file:native/windows-process-reader
@@ -1561,6 +1564,10 @@ packages:
 
   '@openheaders/windows-foreground@file:native/windows-foreground':
     resolution: {directory: native/windows-foreground, type: directory}
+    os: [win32]
+
+  '@openheaders/windows-package-update@file:native/windows-package-update':
+    resolution: {directory: native/windows-package-update, type: directory}
     os: [win32]
 
   '@openheaders/windows-process-reader@file:native/windows-process-reader':
@@ -5426,6 +5433,11 @@ snapshots:
     optional: true
 
   '@openheaders/windows-foreground@file:native/windows-foreground':
+    dependencies:
+      node-gyp-build: 4.8.4
+    optional: true
+
+  '@openheaders/windows-package-update@file:native/windows-package-update':
     dependencies:
       node-gyp-build: 4.8.4
     optional: true
