@@ -7,8 +7,12 @@
 import { mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises';
 import * as os from 'node:os';
 import * as path from 'node:path';
+import { CONFIG_DIR_FILE_NAMES } from '@openheaders/core/cli-config';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { autoUpgradeAttemptPath } from '../../src/auto-upgrade';
 import { cliConfigPath, readCliConfig, writeCliConfig } from '../../src/config-store';
+import { telemetryOutboxPath } from '../../src/telemetry-outbox';
+import { updateCheckCachePath } from '../../src/update-check';
 
 let dir: string;
 
@@ -18,6 +22,24 @@ beforeEach(async () => {
 
 afterEach(async () => {
   await rm(dir, { recursive: true, force: true });
+});
+
+describe('the config directory', () => {
+  // On Windows the directory is the classic desktop install's data folder
+  // by another spelling: the desktop knows the CLI's files by this list.
+  it('holds no file of the CLI that the shared list does not name', () => {
+    const configPath = cliConfigPath({}, '/home/oh');
+    const files = [
+      configPath,
+      updateCheckCachePath(configPath),
+      autoUpgradeAttemptPath(configPath),
+      telemetryOutboxPath(configPath),
+    ];
+    for (const file of files) {
+      expect(path.dirname(file)).toBe(path.dirname(configPath));
+      expect(CONFIG_DIR_FILE_NAMES).toContain(path.basename(file));
+    }
+  });
 });
 
 describe('cliConfigPath', () => {

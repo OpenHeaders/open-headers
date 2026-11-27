@@ -8,7 +8,16 @@
  */
 
 import { createHash } from 'node:crypto';
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -61,11 +70,31 @@ describe('the data folder taken in by the Windows package', () => {
   it('renames the classic folder into its own when the request is there and the classic install is gone', () => {
     seedClassicData();
     const result = moveDataFolderToPackage(makeFacts(), { isClassicInstalled: classicGone, sleep });
-    expect(result).toEqual({ outcome: 'moved', from: classicDir });
+    expect(result).toEqual({ outcome: 'moved', from: classicDir, sharedFilesLeft: [] });
     expect(readFileSync(join(ownDir, 'data', 'settings.json'), 'utf8')).toBe('{"owner":"John Doe"}');
     expect(existsSync(classicDir)).toBe(false);
     expect(existsSync(join(ownDir, MOVE_REQUEST_FILE_NAME))).toBe(false);
     expect(sleep).not.toHaveBeenCalled();
+  });
+
+  it('puts the files of oh and the hosts back under the classic name, where they are read', () => {
+    seedClassicData();
+    writeFileSync(join(classicDir, 'cli.json'), '{"token":"t"}');
+    writeFileSync(join(classicDir, 'telemetry-outbox.json'), '{}');
+    writeFileSync(join(classicDir, 'desktop-traffic-seal.key'), 'key');
+    const result = moveDataFolderToPackage(makeFacts(), { isClassicInstalled: classicGone, sleep });
+    expect(result).toEqual({ outcome: 'moved', from: classicDir, sharedFilesLeft: [] });
+    expect(readdirSync(classicDir).sort()).toEqual(['cli.json', 'desktop-traffic-seal.key', 'telemetry-outbox.json']);
+    expect(readFileSync(join(classicDir, 'cli.json'), 'utf8')).toBe('{"token":"t"}');
+    expect(readdirSync(ownDir)).toEqual(['data']);
+  });
+
+  it('makes no classic folder again when the data brought no file of theirs', () => {
+    seedClassicData();
+    writeFileSync(join(classicDir, 'window-state.json'), '{}');
+    moveDataFolderToPackage(makeFacts(), { isClassicInstalled: classicGone, sleep });
+    expect(existsSync(classicDir)).toBe(false);
+    expect(readdirSync(ownDir).sort()).toEqual(['data', 'window-state.json']);
   });
 
   it.each<InstallKind | null>(['nsis', 'msi', 'dev', null])('does nothing in an install of kind %s', (installKind) => {
@@ -142,7 +171,7 @@ describe('the data folder taken in by the Windows package', () => {
       .mockReturnValueOnce(true)
       .mockReturnValue(false);
     const result = moveDataFolderToPackage(makeFacts({ awaitClassicUninstall: true }), { isClassicInstalled, sleep });
-    expect(result).toEqual({ outcome: 'moved', from: classicDir });
+    expect(result).toEqual({ outcome: 'moved', from: classicDir, sharedFilesLeft: [] });
     expect(isClassicInstalled).toHaveBeenCalledTimes(4);
     expect(sleep).toHaveBeenCalledTimes(3);
     expect(sleep).toHaveBeenCalledWith(500);
@@ -173,7 +202,7 @@ describe('the data folder taken in by the Windows package', () => {
       rmSync(from, { recursive: true });
     });
     const result = moveDataFolderToPackage(makeFacts(), { isClassicInstalled: classicGone, rename, sleep });
-    expect(result).toEqual({ outcome: 'moved', from: classicDir });
+    expect(result).toEqual({ outcome: 'moved', from: classicDir, sharedFilesLeft: [] });
     expect(rename).toHaveBeenCalledTimes(4);
     expect(sleep).toHaveBeenCalledTimes(3);
   });

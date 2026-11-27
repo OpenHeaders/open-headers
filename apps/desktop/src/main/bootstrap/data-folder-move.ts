@@ -13,12 +13,17 @@
  * folder until the move is made, so a move the first start could not
  * finish is finished by a later one.
  *
- * One rename and nothing else — no copy, no merge, no delete. Windows
+ * One rename of the folder — no copy, no merge, no delete. Windows
  * refuses it while any process holds a file inside: that is waited out,
  * and past the wait the package must not start, or it would make an empty
  * folder of its own beside the user's data. A refusal that cannot pass
  * (another volume) is written into the request: the package then starts
  * on its own folder and the data stays where a classic install finds it.
+ *
+ * The classic folder's name is shared with `oh` and the hosts' config
+ * directory (bootstrap/shared-config-files). Their files came along with
+ * the rename, and are put back under the classic name, where `oh` reads
+ * them.
  */
 
 import { execFileSync } from 'node:child_process';
@@ -26,6 +31,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { errorCode, isAbsent, isPlainDirectory } from './data-folder-return';
 import type { InstallKind } from './install-kind';
+import { moveSharedConfigFiles, readSharedConfigFiles } from './shared-config-files';
 
 /** The switch the classic app starts the package with, to finish a move. Permanent: an older classic app starts a newer package. */
 export const FINISH_MOVE_SWITCH = '--finish-move-to-package';
@@ -76,7 +82,8 @@ export interface DataFolderMoveSeams {
 
 export type DataFolderMove =
   | { readonly outcome: 'nothing-to-move' }
-  | { readonly outcome: 'moved'; readonly from: string }
+  /** `sharedFilesLeft` names the files of `oh` and the hosts that could not be put back where they are read. */
+  | { readonly outcome: 'moved'; readonly from: string; readonly sharedFilesLeft: readonly string[] }
   | { readonly outcome: 'classic-still-installed'; readonly from: string }
   | { readonly outcome: 'held'; readonly from: string; readonly code: string }
   | { readonly outcome: 'ineligible'; readonly from: string; readonly code: string };
@@ -174,5 +181,7 @@ export function moveDataFolderToPackage(facts: DataFolderMoveFacts, seams: DataF
   } catch {
     // The request stays in a folder that is the package's now: no start reads it there.
   }
-  return { outcome: 'moved', from };
+  const shared = readSharedConfigFiles(facts.ownDir);
+  const sharedFilesLeft = shared === null ? [] : moveSharedConfigFiles(facts.ownDir, from, shared.names);
+  return { outcome: 'moved', from, sharedFilesLeft };
 }

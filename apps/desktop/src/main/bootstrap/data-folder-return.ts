@@ -13,28 +13,38 @@
  * Windows is asked by the package's name. An answer that cannot be had
  * counts as "installed": the data stays where a package may be using it.
  *
- * One rename and nothing else — no copy, no merge, no delete, no retry,
- * no other folder. Windows refuses the rename while any process holds a
- * file inside and when the two folders are on different volumes.
+ * One rename of the folder — no copy, no merge, no delete of data, no
+ * retry, no other folder. Windows refuses the rename while any process
+ * holds a file inside and when the two folders are on different volumes.
  *
- * A classic app that has no folder of its own never makes a fresh one by
- * itself while the user's data may sit with a package: its own folder
+ * The classic folder's name is shared with `oh` and the hosts' config
+ * directory (bootstrap/shared-config-files): a folder of that name
+ * holding their files alone holds no data of the app's, and counts as
+ * none. Their files step into the package's folder for the rename and
+ * come back with it under the classic name.
+ *
+ * A classic app that has no data of its own never makes a fresh folder by
+ * itself while the user's data may sit with a package: its own data
  * would exist from that start on, and this would never run again. While a
  * package is installed the start is handed over to it; when the package's
  * folder was left behind and cannot be taken back, the caller asks the
- * person. An app that has its own folder reads nothing here.
+ * person. An app that has its own data reads nothing here.
  */
 
 import { execFileSync } from 'node:child_process';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import type { InstallKind } from './install-kind';
+import { moveSharedConfigFiles, readSharedConfigFiles } from './shared-config-files';
 
 /** The package's data folder, under `%LOCALAPPDATA%`. */
 export const PACKAGE_DATA_DIR_NAME = 'OpenHeaders-Data';
 
 /** The package's identity name: what Windows knows an installed package by. */
 export const PACKAGE_IDENTITY_NAME = 'OpenHeaders';
+
+/** A folder of the app's own inside its data folder: the first thing any start makes there. */
+const OWN_DATA_MARK_DIR_NAME = 'logs';
 
 export interface DataFolderReturnFacts {
   /**
@@ -91,6 +101,49 @@ export function isAbsent(target: string): boolean {
 }
 
 /**
+ * The shared files a classic folder holds when it holds nothing else;
+ * null when it holds anything of the app's, is empty, or cannot be read.
+ */
+function sharedFilesStandingAlone(ownDir: string): readonly string[] | null {
+  if (!isPlainDirectory(ownDir)) return null;
+  const shared = readSharedConfigFiles(ownDir);
+  return shared?.alone && shared.names.length > 0 ? shared.names : null;
+}
+
+/**
+ * Moves the shared files into the package's folder and removes the
+ * classic folder they emptied. Returns the code of what refused, with
+ * every file back where it was; null when the classic name is free.
+ */
+function freeClassicName(ownDir: string, packageDir: string, sharedFiles: readonly string[]): string | null {
+  const stayed = moveSharedConfigFiles(ownDir, packageDir, sharedFiles);
+  let code: string | null = stayed.length > 0 ? 'EBUSY' : null;
+  if (code === null) {
+    try {
+      fs.rmdirSync(ownDir);
+    } catch (error) {
+      code = errorCode(error);
+    }
+  }
+  if (code !== null) {
+    moveSharedConfigFiles(
+      packageDir,
+      ownDir,
+      sharedFiles.filter((name) => !stayed.includes(name)),
+    );
+  }
+  return code;
+}
+
+/**
+ * Makes the classic folder the app's own, with something of the app's in
+ * it: no later start then reads it as holding none of the app's data.
+ */
+export function claimDataFolder(ownDir: string): void {
+  fs.mkdirSync(path.join(ownDir, OWN_DATA_MARK_DIR_NAME), { recursive: true });
+}
+
+/**
  * Whether Windows keeps a folder for a package of ours: one per package
  * family, named `<identity name>_<publisher id>`. Null when the listing
  * cannot be read.
@@ -134,7 +187,8 @@ export function returnDataFolderFromPackage(
 ): DataFolderReturn {
   const isClassicInstall = facts.installKind === 'nsis' || facts.installKind === 'msi';
   if (!isClassicInstall || !facts.localAppDataDir) return NOTHING_TO_RETURN;
-  if (!isAbsent(facts.ownDir)) return NOTHING_TO_RETURN;
+  const sharedFiles = isAbsent(facts.ownDir) ? [] : sharedFilesStandingAlone(facts.ownDir);
+  if (sharedFiles === null) return NOTHING_TO_RETURN;
   const packageFolder = hasPackageFolder(facts.localAppDataDir);
   if (packageFolder) return PACKAGE_INSTALLED;
   const from = path.join(facts.localAppDataDir, PACKAGE_DATA_DIR_NAME);
@@ -151,9 +205,18 @@ export function returnDataFolderFromPackage(
   }
   if (listed) return PACKAGE_INSTALLED;
 
+  // The shared files step into the package's folder, so that the classic
+  // name is free for the rename; they are back under it either way.
+  if (sharedFiles.length > 0) {
+    const code = freeClassicName(facts.ownDir, from, sharedFiles);
+    if (code !== null) {
+      return { outcome: 'left', from, why: `the classic folder could not be cleared (${code})`, reason: code };
+    }
+  }
   try {
     (seams.rename ?? fs.renameSync)(from, facts.ownDir);
   } catch (error) {
+    moveSharedConfigFiles(from, facts.ownDir, sharedFiles);
     const code = errorCode(error);
     return { outcome: 'left', from, why: `Windows refused the rename (${code})`, reason: code };
   }

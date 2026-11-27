@@ -43,6 +43,27 @@ export const CLI_CONFIG_DIR_MODE = 0o700;
 export const CLI_CONFIG_FILE_MODE = 0o600;
 
 /**
+ * Every file kept in the `openheaders` config directory, whoever keeps
+ * it: `oh` (its config, its update check and upgrade stamps, its
+ * telemetry outbox) and the hosts' raw traffic seal keys.
+ *
+ * On Windows that directory is the classic desktop install's data folder
+ * by another spelling — `%APPDATA%\openheaders` and
+ * `%APPDATA%\OpenHeaders` are one folder there. The desktop tells these
+ * files from its own data by this list: a move to the Windows package
+ * leaves them where `oh` reads them. A file added to the directory is
+ * added here.
+ */
+export const CONFIG_DIR_FILE_NAMES: readonly string[] = [
+  'cli.json',
+  'update-check.json',
+  'upgrade-attempt.json',
+  'telemetry-outbox.json',
+  'desktop-traffic-seal.key',
+  'daemon-traffic-seal.key',
+];
+
+/**
  * Path segments of the config file, base directory included — join with
  * the host's `path.join(...)`. `$XDG_CONFIG_HOME` wins on every
  * platform (the explicit-relocation escape hatch, and the test seam),

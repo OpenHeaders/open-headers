@@ -8,11 +8,21 @@
  * every rule runs on every platform.
  */
 
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
+  claimDataFolder,
   type DataFolderReturnFacts,
   PACKAGE_DATA_DIR_NAME,
   PACKAGE_IDENTITY_NAME,
@@ -39,6 +49,13 @@ describe('the data folder taken back from the Windows package', () => {
   function seedPackageData(): void {
     mkdirSync(join(packageDir, 'data'), { recursive: true });
     writeFileSync(join(packageDir, 'data', 'settings.json'), '{"owner":"John Doe"}');
+  }
+
+  /** What `oh` leaves under the classic name on a PC whose data went to the package. */
+  function seedSharedFiles(): void {
+    mkdirSync(ownDir);
+    writeFileSync(join(ownDir, 'cli.json'), '{"token":"t"}');
+    writeFileSync(join(ownDir, 'update-check.json'), '{}');
   }
 
   function fileError(code: string): Error {
@@ -191,6 +208,84 @@ describe('the data folder taken back from the Windows package', () => {
     expect(rename).toHaveBeenCalledExactlyOnceWith(packageDir, ownDir);
     expect(existsSync(join(packageDir, 'data', 'settings.json'))).toBe(true);
     expect(existsSync(ownDir)).toBe(false);
+  });
+
+  it('takes the data back over a classic folder that holds the files of oh alone, and keeps them there', () => {
+    seedPackageData();
+    seedSharedFiles();
+    const result = returnDataFolderFromPackage(makeFacts(), { isPackageInstalled: noPackage });
+    expect(result).toEqual({ outcome: 'returned', from: packageDir });
+    expect(readdirSync(ownDir).sort()).toEqual(['cli.json', 'data', 'update-check.json']);
+    expect(readFileSync(join(ownDir, 'cli.json'), 'utf8')).toBe('{"token":"t"}');
+    expect(existsSync(packageDir)).toBe(false);
+  });
+
+  it("keeps the file oh reads over an older one of its name in the package's folder", () => {
+    seedPackageData();
+    writeFileSync(join(packageDir, 'cli.json'), '{"token":"old"}');
+    seedSharedFiles();
+    returnDataFolderFromPackage(makeFacts(), { isPackageInstalled: noPackage });
+    expect(readFileSync(join(ownDir, 'cli.json'), 'utf8')).toBe('{"token":"t"}');
+  });
+
+  it('hands the start over from a classic folder that holds the files of oh alone, touching none', () => {
+    seedSharedFiles();
+    mkdirSync(join(localAppDataDir, 'Packages', `${PACKAGE_IDENTITY_NAME}_8wekyb3d8bbwe`));
+    const rename = vi.fn();
+    const result = returnDataFolderFromPackage(makeFacts(), { isPackageInstalled: noPackage, rename });
+    expect(result).toEqual({ outcome: 'package-installed' });
+    expect(rename).not.toHaveBeenCalled();
+    expect(readdirSync(ownDir).sort()).toEqual(['cli.json', 'update-check.json']);
+  });
+
+  it.each([
+    ["a folder of the app's", (): void => mkdirSync(join(ownDir, 'logs'))],
+    ["a file of the app's", (): void => writeFileSync(join(ownDir, 'window-state.json'), '{}')],
+    ['a folder under a shared name', (): void => mkdirSync(join(ownDir, 'telemetry-outbox.json'))],
+  ])('reads a classic folder that also holds %s as in use', (_case, add) => {
+    seedPackageData();
+    seedSharedFiles();
+    add();
+    const rename = vi.fn();
+    const result = returnDataFolderFromPackage(makeFacts(), { isPackageInstalled: noPackage, rename });
+    expect(result).toEqual({ outcome: 'nothing-to-return' });
+    expect(noPackage).not.toHaveBeenCalled();
+    expect(rename).not.toHaveBeenCalled();
+    expect(existsSync(join(ownDir, 'cli.json'))).toBe(true);
+  });
+
+  it('puts the files of oh back when Windows refuses the rename', () => {
+    seedPackageData();
+    seedSharedFiles();
+    const rename = vi.fn(() => {
+      throw fileError('EPERM');
+    });
+    const result = returnDataFolderFromPackage(makeFacts(), { isPackageInstalled: noPackage, rename });
+    expect(result).toEqual({
+      outcome: 'left',
+      from: packageDir,
+      why: 'Windows refused the rename (EPERM)',
+      reason: 'EPERM',
+    });
+    expect(readdirSync(ownDir).sort()).toEqual(['cli.json', 'update-check.json']);
+    expect(readdirSync(packageDir)).toEqual(['data']);
+  });
+
+  it('asks no more once the person chose to start empty beside the files of oh', () => {
+    seedPackageData();
+    seedSharedFiles();
+    claimDataFolder(ownDir);
+    const rename = vi.fn();
+    const result = returnDataFolderFromPackage(makeFacts(), { isPackageInstalled: () => null, rename });
+    expect(result).toEqual({ outcome: 'nothing-to-return' });
+    expect(rename).not.toHaveBeenCalled();
+  });
+
+  it('claims a folder that is not there yet', () => {
+    claimDataFolder(ownDir);
+    seedPackageData();
+    const result = returnDataFolderFromPackage(makeFacts(), { isPackageInstalled: noPackage });
+    expect(result).toEqual({ outcome: 'nothing-to-return' });
   });
 
   it('does not follow a link standing where the package folder would be', () => {

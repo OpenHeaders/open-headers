@@ -44,7 +44,6 @@
  *                                       opens when it settles.
  */
 
-import { mkdirSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { hostProcessRoots } from '@openheaders/oracle-host-node/process-reader';
@@ -61,7 +60,11 @@ import {
   FINISH_MOVE_SWITCH,
   moveDataFolderToPackage,
 } from './main/bootstrap/data-folder-move';
-import { type DataFolderReturn, returnDataFolderFromPackage } from './main/bootstrap/data-folder-return';
+import {
+  claimDataFolder,
+  type DataFolderReturn,
+  returnDataFolderFromPackage,
+} from './main/bootstrap/data-folder-return';
 import { installDownloadFeedback } from './main/bootstrap/downloads';
 import { createEngineReadiness } from './main/bootstrap/engine-readiness';
 import { installExternalLinkHandler } from './main/bootstrap/external-links';
@@ -157,12 +160,12 @@ function endStartBeforeDataFolder(move: DataFolderMove | null, finishingMove: bo
 }
 
 /**
- * A classic app with no data folder of its own does not make a fresh one
+ * A classic app with no data of its own does not start on a fresh folder
  * while the user's data may sit with a Windows package. Where a package is
  * installed, the start is handed over to it. Where a package's folder was
  * left behind and could not be taken back, the person chooses: ask again
- * at a new start, or start empty — the folder made here is what makes the
- * next start an ordinary one. Returns whether the start ends here.
+ * at a new start, or start empty — the folder claimed here is what makes
+ * the next start an ordinary one. Returns whether the start ends here.
  */
 function endStartForPackageData(result: DataFolderReturn | null, ownDataDir: string): boolean {
   if (result?.outcome === 'package-installed') {
@@ -205,7 +208,7 @@ function endStartForPackageData(result: DataFolderReturn | null, ownDataDir: str
       });
       if (choice === startEmpty) {
         try {
-          mkdirSync(ownDataDir, { recursive: true });
+          claimDataFolder(ownDataDir);
         } catch {
           // The next start finds no folder and asks again.
         }
@@ -308,6 +311,9 @@ function bootstrapDesktopApp(): void {
   }
   if (dataFolderMove?.outcome === 'moved') {
     logger.info(`data folder taken in from ${dataFolderMove.from}`);
+    if (dataFolderMove.sharedFilesLeft.length > 0) {
+      logger.warn(`not put back in ${dataFolderMove.from}: ${dataFolderMove.sharedFilesLeft.join(', ')}`);
+    }
   } else if (dataFolderMove?.outcome === 'ineligible') {
     logger.warn(`data folder left at ${dataFolderMove.from}: it cannot be moved (${dataFolderMove.code})`);
   } else if (dataFolderMove?.outcome === 'classic-still-installed') {
