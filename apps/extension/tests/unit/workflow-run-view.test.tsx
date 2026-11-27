@@ -262,10 +262,15 @@ describe('a run in the workflow view', () => {
     expect(screen.getByTestId('wf-view').hasAttribute('data-run-verdict')).toBe(false);
   });
 
-  it('shows the rows live — waiting, sending, the attempt, then how each step ended', async () => {
+  it('shows the rows live — what each step does, then waiting, sending, the attempt, and how each step ended', async () => {
     render(<SavedWorkflowView workflow={workflow} />);
+    const steps = () => screen.getByTestId('wf-steps').textContent ?? '';
+    expect(steps()).toContain('StepTypeDoes');
+    expect(screen.getByTestId('wf-run-row-login').textContent).toBe('loginHTTPCallPOST Login');
+    expect(screen.getByTestId('wf-run-row-login').getAttribute('data-run-state')).toBe('idle');
 
     await feed(BEGIN);
+    expect(steps()).toContain('StepTypeLast run');
     expect(screen.getByTestId('wf-view').getAttribute('data-run-verdict')).toBe('running');
     expect(screen.getByTestId('wf-run-row-login').textContent).toContain('Waiting');
 
@@ -275,10 +280,7 @@ describe('a run in the workflow view', () => {
     await feed(LOGIN_PASSED);
     const login = screen.getByTestId('wf-run-row-login');
     expect(login.getAttribute('data-run-state')).toBe('passed');
-    expect(login.textContent).toContain('Call');
-    expect(login.textContent).toContain('POST');
-    expect(login.textContent).toContain('Login');
-    expect(login.textContent).toContain('200 · 10 ms · 1 capture');
+    expect(login.textContent).toBe('loginHTTPCall200 · 10 ms · 1 capture');
 
     await feed(PROFILE_START);
     await feed(PROFILE_RETRY);
@@ -322,16 +324,62 @@ describe('a run in the workflow view', () => {
 
     expect(screen.getByTestId('wf-run-verdict').textContent).toBe('Failed');
     expect(screen.getByTestId('wf-view').getAttribute('data-run-verdict')).toBe('failed');
-    expect(screen.getByTestId('wf-run-rows').textContent).toContain('1 passed · 1 failed · 21 ms · No environment');
+    const lastRun = screen.getByTestId('wf-last-run');
+    expect(lastRun.textContent).toContain('profile failed, and the run ended there.');
+    expect(screen.getByTestId('wf-last-run-passed').textContent).toBe('Passed1');
+    expect(screen.getByTestId('wf-last-run-failed').textContent).toBe('Failed1');
+    expect(screen.getByTestId('wf-last-run-duration').textContent).toBe('Duration21 ms');
+    expect(screen.getByTestId('wf-last-run-environment').textContent).toBe('EnvironmentNo environment');
     expect(screen.getByTestId('wf-run-row-login').getAttribute('data-run-state')).toBe('passed');
     const profile = screen.getByTestId('wf-run-row-profile');
     expect(profile.getAttribute('data-run-state')).toBe('failed');
     expect(profile.textContent).toContain(REFUSED);
-    // The sentence has the row's width from the step id on — a narrow pane never stacks it under the name alone.
-    expect(within(profile).getByText(REFUSED).style.gridColumn).toBe('3 / -1');
-    expect(screen.getByTestId('wf-run-rows').textContent).toContain(
-      'Nothing was published. The last good values stay.',
+    // The sentence is a line of its own, the row wide — a narrow pane never stacks it under the name alone.
+    expect(within(profile).getByText(REFUSED).className).toBe('oh-wf-row-line');
+    expect(lastRun.textContent).toContain('Nothing was published. The last good values stay.');
+  });
+
+  it('what needs attention is the step the run stopped at, with its reason, and its row opens the step', async () => {
+    render(<SavedWorkflowView workflow={workflow} />);
+    const attention = () => screen.getByTestId('wf-attention').textContent ?? '';
+    expect(attention()).toContain('Nothing yet. Run the workflow first.');
+
+    for (const fact of [BEGIN, LOGIN_START, LOGIN_PASSED]) await feed(fact);
+    expect(attention()).toContain('No problems so far.');
+
+    for (const fact of [PROFILE_START, PROFILE_FAILED, END]) await feed(fact);
+    expect(screen.queryByTestId('wf-attention-login')).toBeNull();
+    expect(screen.getByTestId('wf-attention-profile').textContent).toBe(`profileHTTPCallFailed${REFUSED}`);
+    fireEvent.click(screen.getByTestId('wf-attention-profile'));
+
+    expect(screen.getByTestId('wf-panel').querySelector('[data-step-card]')?.getAttribute('data-step-card')).toBe(
+      'profile',
     );
+  });
+
+  it('the arrows at a row’s end set the step’s place, and the card’s head adds a step and opens it', () => {
+    render(<SavedWorkflowView workflow={workflow} />);
+    const order = () =>
+      Array.from(screen.getByTestId('wf-steps').querySelectorAll('[data-testid^="wf-run-row-"]')).map((row) =>
+        row.getAttribute('data-testid'),
+      );
+    expect(order()).toEqual(['wf-run-row-login', 'wf-run-row-profile']);
+    expect(screen.getByTestId('wf-step-up-login')).toHaveProperty('disabled', true);
+    expect(screen.getByTestId('wf-step-down-profile')).toHaveProperty('disabled', true);
+
+    fireEvent.click(screen.getByTestId('wf-step-down-login'));
+    expect(order()).toEqual(['wf-run-row-profile', 'wf-run-row-login']);
+    expect(screen.getByTestId('wf-panel').textContent).toContain('2 steps');
+
+    fireEvent.click(screen.getByTestId('wf-steps-add'));
+    expect(within(screen.getByTestId('wf-panel')).getByText('Step 3 of 3')).toBeTruthy();
+  });
+
+  it('the captures of the workflow say which step captures each', () => {
+    render(<SavedWorkflowView workflow={workflow} />);
+
+    expect(screen.getByTestId('wf-capture-login-token').textContent).toBe('tokenlogin—');
+    expect(screen.getByTestId('wf-capture-profile-name').textContent).toBe('nameprofile—');
   });
 
   it('a row opens its step: the panel shows the step with what it produced, and closing it returns to the rows', async () => {
@@ -345,7 +393,7 @@ describe('a run in the workflow view', () => {
     expect(pane.getAttribute('data-step')).toBe('profile');
     expect(await within(pane).findByText(REFUSED)).toBeTruthy();
     expect(within(screen.getByTestId('wf-panel')).getByText('Step 2 of 2')).toBeTruthy();
-    expect(screen.queryByTestId('wf-run-rows')).toBeNull();
+    expect(screen.queryByTestId('wf-steps')).toBeNull();
 
     fireEvent.click(screen.getByTestId('wf-panel-close'));
     fireEvent.click(screen.getByTestId('wf-run-row-login'));
@@ -422,6 +470,6 @@ describe('a run in the workflow view', () => {
     expect(probe.textContent).toContain('Cannot run here');
     expect(probe.textContent).toContain('Step "probe" needs a newer version of OpenHeaders (action "watch").');
     expect(screen.getByTestId('wf-run-row-login').getAttribute('data-run-state')).toBe('not-run');
-    expect(screen.getByTestId('wf-run-rows').textContent).toContain('No step ran.');
+    expect(screen.getByTestId('wf-last-run').textContent).toContain('No step ran.');
   });
 });

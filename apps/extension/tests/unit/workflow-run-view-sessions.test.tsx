@@ -246,13 +246,17 @@ afterEach(() => {
 });
 
 describe('a run with session steps in the workflow view', () => {
-  it('names each row by its action and what it acts on', async () => {
+  it('names each row by its protocol and its kind: what it acts on before a run, how the run left it after', async () => {
     render(<SavedWorkflowView workflow={workflow} />);
+    expect(rowText('probe')).toBe('probeMQTTListenProbe MQTT');
+    expect(rowText('reboot')).toBe('rebootHTTPCallPOST Reboot dev-1');
+    expect(rowText('status')).toBe(`statusMQTTWait${STATUS_TOPIC}`);
+
     await feed(BEGIN);
 
-    expect(rowText('probe')).toBe('ListenprobeMQTTProbe MQTTWaiting');
-    expect(rowText('reboot')).toBe('CallrebootPOSTReboot dev-1Waiting');
-    expect(rowText('status')).toBe(`Waitstatus${STATUS_TOPIC}Waiting`);
+    expect(rowText('probe')).toBe('probeMQTTListenWaiting');
+    expect(rowText('reboot')).toBe('rebootHTTPCallWaiting');
+    expect(rowText('status')).toBe('statusMQTTWaitWaiting');
   });
 
   it('a listen connects, then reads ready and open with how its session opened', async () => {

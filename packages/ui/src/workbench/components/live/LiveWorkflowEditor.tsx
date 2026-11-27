@@ -554,6 +554,7 @@ const EditMode: React.FC<EditProps> = ({
         />
       )}
       <WorkflowView
+        name={workflow.name}
         draft={draft}
         setDraft={setDraft}
         readOnly={needsUpdate}
@@ -710,6 +711,7 @@ const CreateMode: React.FC<CreateProps> = ({
     <div style={{ display: 'flex', flexDirection: 'column', background: token.colorBgContainer, height: '100%' }}>
       <EditorHeader title={createHeaderTitle} actions={createHeaderActions} shell={shell.headerProps} />
       <WorkflowView
+        name={displayName}
         draft={draft}
         setDraft={setDraft}
         selectedStepUid={selectedStepUid}

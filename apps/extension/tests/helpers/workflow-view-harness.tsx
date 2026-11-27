@@ -20,6 +20,7 @@ export const SavedWorkflowView: React.FC<{ workflow: LiveWorkflow; needsUpdate?:
   const run = useShownWorkflowRun(workflow, needsUpdate);
   return (
     <WorkflowView
+      name={workflow.name}
       draft={draft}
       setDraft={setDraft}
       readOnly={needsUpdate}

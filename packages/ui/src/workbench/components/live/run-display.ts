@@ -5,6 +5,7 @@
  */
 
 import {
+  runTotals,
   runVerdict,
   type SessionClose,
   type SessionOpenFacts,
@@ -216,6 +217,16 @@ export interface RunStatusPhrase {
   tone: 'secondary' | 'danger' | 'warning';
 }
 
+/** The step a failed run stopped at — a failed step ends the run, so there is one at most. */
+function failedStepOf(record: WorkflowRunRecord): { id: string; timedOut: boolean } | undefined {
+  for (const row of record.steps) {
+    if (row.state === 'settled' && row.settlement.state === 'failed') {
+      return { id: row.id, timedOut: row.settlement.timedOut === true };
+    }
+  }
+  return undefined;
+}
+
 /** One phrase for a run — what a workflow's header says of the run its view shows. */
 export function describeRunStatus(record: WorkflowRunRecord, t: Translate): RunStatusPhrase {
   const verdict = runVerdict(record);
@@ -227,7 +238,7 @@ export function describeRunStatus(record: WorkflowRunRecord, t: Translate): RunS
     };
   }
   if (verdict === 'failed') {
-    const failed = record.steps.find((row) => row.state === 'settled' && row.settlement.state === 'failed');
+    const failed = failedStepOf(record);
     return {
       text:
         failed === undefined
@@ -237,4 +248,27 @@ export function describeRunStatus(record: WorkflowRunRecord, t: Translate): RunS
     };
   }
   return { text: describeRunVerdict(verdict, t), tone: verdict === 'cannot-run' ? 'warning' : 'secondary' };
+}
+
+/** One sentence on what happened in a run — the line under the workflow's Last run. */
+export function describeRunSentence(record: WorkflowRunRecord, t: Translate): string {
+  const verdict = runVerdict(record);
+  if (verdict === 'running') {
+    const going = record.steps.find((row) => row.state === 'running');
+    return going === undefined
+      ? t('workbench.editors.live.overview.runningNow')
+      : t('workbench.editors.live.overview.runningAt', { step: going.id });
+  }
+  if (verdict === 'cannot-run') return t('workbench.editors.live.run.footer.cannotRun');
+  if (verdict === 'failed') {
+    const failed = failedStepOf(record);
+    if (failed === undefined) return describeRunVerdict(verdict, t);
+    return t(
+      failed.timedOut ? 'workbench.editors.live.overview.timedOutAt' : 'workbench.editors.live.overview.failedAt',
+      { step: failed.id },
+    );
+  }
+  return runTotals(record).skipped > 0
+    ? t('workbench.editors.live.overview.passedSkipped')
+    : t('workbench.editors.live.overview.passedAll');
 }

@@ -2,8 +2,8 @@
  * WorkflowStepHeader — the head of a step's panel (the workflows
  * redesign, Step panel): the step's state glyph, its name, the protocol
  * it speaks and its kind; then what is done to the step as a whole —
- * its place among the steps, a copy of it, its removal — and the close
- * that hands the panel back to the workflow. Under them: where the step
+ * a copy of it, its removal — and the close that hands the panel back to
+ * the workflow, where its place among the steps is set. Under them: where the step
  * stands and what it does, a line for its description, and the issues no
  * field of the panel owns.
  *
@@ -15,7 +15,7 @@
  * edit.
  */
 
-import { CloseOutlined, DownOutlined, UpOutlined } from '@ant-design/icons';
+import { CloseOutlined } from '@ant-design/icons';
 import {
   type DraftKnownStep,
   type DraftStep,
@@ -80,8 +80,6 @@ interface Props {
   onChange?: (next: DraftKnownStep) => void;
   /** The picker took another action — the owner rebuilds the step under it. */
   onActionChange?: (action: StepAction) => void;
-  onMoveUp?: () => void;
-  onMoveDown?: () => void;
   onDuplicate?: () => void;
   onRemove?: () => void;
   onClose?: () => void;
@@ -99,8 +97,6 @@ const WorkflowStepHeader: React.FC<Props> = ({
   errors = [],
   onChange,
   onActionChange,
-  onMoveUp,
-  onMoveDown,
   onDuplicate,
   onRemove,
   onClose,
@@ -168,20 +164,6 @@ const WorkflowStepHeader: React.FC<Props> = ({
         <span style={{ flex: 1 }} />
         {known !== undefined && (
           <>
-            <Button
-              type="text"
-              icon={<UpOutlined />}
-              aria-label={t('workbench.editors.live.panel.moveUp')}
-              disabled={readOnly || index === 0}
-              onClick={onMoveUp}
-            />
-            <Button
-              type="text"
-              icon={<DownOutlined />}
-              aria-label={t('workbench.editors.live.panel.moveDown')}
-              disabled={readOnly || index === totalSteps - 1}
-              onClick={onMoveDown}
-            />
             <Button data-testid="wf-step-duplicate" disabled={readOnly} onClick={onDuplicate}>
               {t('workbench.editors.live.panel.duplicate')}
             </Button>

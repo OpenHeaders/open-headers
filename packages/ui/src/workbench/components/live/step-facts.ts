@@ -13,12 +13,19 @@ import {
   isSendStep,
   isSessionStep,
   isUnknownStep,
+  type WorkflowRunStepRow,
 } from '@openheaders/core/live';
 import type { MqttRequest, SessionWorkflowStep, WorkflowStep } from '@openheaders/core/types';
 import type { MessageKey } from '@openheaders/i18n';
 import type { Translate } from '@openheaders/ui/context/LocaleContext';
 import type { RequestKind } from '../../request-kind-menu';
-import { type RunStepAction, sessionOfRow } from './run-display';
+import {
+  describeRunRow,
+  type RunRowContext,
+  type RunRowDisplay,
+  type RunStepAction,
+  sessionOfRow,
+} from './run-display';
 import { sessionRequestOf } from './step-action';
 import { idleMark, markOfCacheRow, markOfRunRow, type StepMark } from './step-mark';
 import type { StepRequests } from './use-step-requests';
@@ -137,16 +144,38 @@ export interface StepMarkSources {
   now: number;
 }
 
-export function markOfStep(step: WorkflowStep, sources: StepMarkSources, t: Translate): StepMark {
-  const { run, cacheRun, now } = sources;
-  if (run == null) return markOfCacheRow(cacheRun, step.id, t);
-  const row = run.record.steps.find((each) => each.uid === step.uid);
-  if (row === undefined) return idleMark(t);
+/** A step's row in the run the page keeps, with what its words need — `undefined` where the run holds no row for it. */
+function runRowOfStep(
+  step: WorkflowStep,
+  sources: StepMarkSources,
+): { row: WorkflowRunStepRow; context: RunRowContext } | undefined {
+  const { run, now } = sources;
+  const row = run?.record.steps.find((each) => each.uid === step.uid);
+  if (run == null || row === undefined) return undefined;
   const action = actionOfStep(step);
   const session = sessionOfRow(row, run.record);
-  return markOfRunRow(row, t, {
-    now,
-    ...(action !== undefined ? { action } : {}),
-    ...(session !== undefined ? { session } : {}),
-  });
+  return {
+    row,
+    context: {
+      now,
+      ...(action !== undefined ? { action } : {}),
+      ...(session !== undefined ? { session } : {}),
+    },
+  };
+}
+
+export function markOfStep(step: WorkflowStep, sources: StepMarkSources, t: Translate): StepMark {
+  if (sources.run == null) return markOfCacheRow(sources.cacheRun, step.id, t);
+  const found = runRowOfStep(step, sources);
+  return found === undefined ? idleMark(t) : markOfRunRow(found.row, t, found.context);
+}
+
+/** The words of a step's row in the run the page keeps — `undefined` where it keeps none, or none for this step. */
+export function runRowDisplayOfStep(
+  step: WorkflowStep,
+  sources: StepMarkSources,
+  t: Translate,
+): RunRowDisplay | undefined {
+  const found = runRowOfStep(step, sources);
+  return found === undefined ? undefined : describeRunRow(found.row, t, found.context);
 }

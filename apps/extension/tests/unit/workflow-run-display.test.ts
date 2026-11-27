@@ -1,5 +1,9 @@
 import type { WorkflowRunRecord, WorkflowRunStepRow } from '@openheaders/core/live';
-import { describeRunRow, describeRunStatus } from '@openheaders/ui/workbench/components/live/run-display';
+import {
+  describeRunRow,
+  describeRunSentence,
+  describeRunStatus,
+} from '@openheaders/ui/workbench/components/live/run-display';
 import { translateEnglish as t } from '@openheaders/ui/workbench/settings/localize';
 import { describe, expect, it } from 'vitest';
 
@@ -277,5 +281,45 @@ describe('a run in one phrase — the workflow header’s', () => {
       text: 'Cannot run here',
       tone: 'warning',
     });
+    expect(describeRunSentence(record([refused], { ok: false, durationMs: 0 }), t)).toBe('No step ran.');
+  });
+
+  it('in one sentence: where it is, where it stopped and why, or that it passed', () => {
+    const running: WorkflowRunStepRow = { ...STEP, state: 'running', attempt: 1, maxAttempts: 1 };
+    const waiting: WorkflowRunStepRow = { ...STEP, state: 'waiting' };
+    const timedOut: WorkflowRunStepRow = {
+      ...STEP,
+      state: 'settled',
+      hasProduct: false,
+      settlement: {
+        state: 'failed',
+        phase: 'fetch',
+        reason: 'No message matched within 1.5 s.',
+        attempts: 1,
+        maxAttempts: 1,
+        timedOut: true,
+      },
+    };
+    const skipped: WorkflowRunStepRow = {
+      ...STEP,
+      state: 'settled',
+      hasProduct: false,
+      settlement: { state: 'skipped' },
+    };
+
+    expect(describeRunSentence(record([LOGIN, running], null), t)).toBe('Running now, at profile.');
+    expect(describeRunSentence(record([LOGIN, waiting], null), t)).toBe('Running now.');
+    expect(describeRunSentence(record([LOGIN, FAILED], { ok: false, durationMs: 40 }), t)).toBe(
+      'profile failed, and the run ended there.',
+    );
+    expect(describeRunSentence(record([LOGIN, timedOut], { ok: false, durationMs: 40 }), t)).toBe(
+      'profile timed out, and the run ended there.',
+    );
+    expect(describeRunSentence(record([LOGIN, passed(1, 1, [])], { ok: true, durationMs: 40 }), t)).toBe(
+      'Every step passed.',
+    );
+    expect(describeRunSentence(record([LOGIN, skipped], { ok: true, durationMs: 40 }), t)).toBe(
+      'Passed. Some steps were skipped by their run condition.',
+    );
   });
 });

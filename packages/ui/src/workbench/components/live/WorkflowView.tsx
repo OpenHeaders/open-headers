@@ -50,6 +50,8 @@ function applyDragged(root: HTMLElement): void {
 }
 
 interface Props {
+  /** The workflow's name, as its tab's header says it. */
+  name: string;
   draft: DraftWorkflow;
   setDraft: (next: DraftWorkflow) => void;
   /** The workflow is read-only here — it holds a step of an action the model does not know. */
@@ -75,6 +77,7 @@ interface Props {
 }
 
 const WorkflowView: React.FC<Props> = ({
+  name,
   draft,
   setDraft,
   readOnly = false,
@@ -175,6 +178,7 @@ const WorkflowView: React.FC<Props> = ({
           />
         ) : (
           <WorkflowOverviewPanel
+            name={name}
             draft={draft}
             setDraft={setDraft}
             model={model}
@@ -182,6 +186,7 @@ const WorkflowView: React.FC<Props> = ({
             onSelectStep={onSelectStep}
             workflow={workflow}
             run={run}
+            cacheRun={cacheRun}
             revealSettings={revealSettings}
             onSettingsRevealed={onSettingsRevealed}
           />

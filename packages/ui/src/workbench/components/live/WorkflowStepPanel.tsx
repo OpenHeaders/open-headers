@@ -14,11 +14,9 @@
 import type { LiveWorkflowRunSnapshot } from '@openheaders/core/bridge';
 import { type DraftWorkflow, isExpectStep, isKnownStep } from '@openheaders/core/live';
 import { useT } from '@openheaders/ui/context/LocaleContext';
-import { useTheme } from '@openheaders/ui/context/ThemeContext';
 import { LIVE_WORKFLOW_FIELD } from '@openheaders/ui/shared/awareness/live-paths';
 import { ConfigProvider } from 'antd';
 import type React from 'react';
-import { useMemo } from 'react';
 import { readKeptRunProduct } from '../../data/workflow-run-store';
 import { captureUsesOf } from './capture-uses';
 import { clauseTruthOf, reachOfCacheRow, reachOfRunRow } from './graph-lines';
@@ -36,15 +34,13 @@ import {
 import { describeStepLastRun } from './step-last-run';
 import { idleMark } from './step-mark';
 import UnknownStepCard from './UnknownStepCard';
+import { usePanelSizes } from './use-panel-sizes';
 import { useStepRequests } from './use-step-requests';
 import { useWaitClock } from './use-wait-clock';
 import type { WorkflowFormModel } from './use-workflow-form-model';
 import type { ShownWorkflowRun } from './use-workflow-run';
 import WorkflowStepEditor, { type StepCaptureFacts, type StepDependencies } from './WorkflowStepEditor';
 import WorkflowStepHeader from './WorkflowStepHeader';
-
-/** The panel's text, a size under the app's own. */
-const PANEL_FONT_SIZE = 12;
 
 interface Props {
   draft: DraftWorkflow;
@@ -76,7 +72,7 @@ const WorkflowStepPanel: React.FC<Props> = ({
   requestOpeners,
 }) => {
   const t = useT();
-  const { uiScale } = useTheme();
+  const { fontSize, theme: sizes } = usePanelSizes();
   const stepRequests = useStepRequests();
   const now = useWaitClock(run?.record ?? null);
   const step = draft.steps[stepIndex];
@@ -136,9 +132,6 @@ const WorkflowStepPanel: React.FC<Props> = ({
     { step, mark, row, now, runButton: t('workbench.editors.live.workflow.run') },
     t,
   );
-  // The stylesheet sizes the panel's own text from this one number.
-  const fontSize = Math.round(PANEL_FONT_SIZE * uiScale);
-  const sizes = useMemo(() => ({ token: { fontSize } }), [fontSize]);
   const action = actionOfStep(step);
 
   return (
@@ -165,8 +158,6 @@ const WorkflowStepPanel: React.FC<Props> = ({
           errors={errors}
           onChange={(next) => model.updateStep(stepIndex, next)}
           onActionChange={(action) => model.changeStepAction(stepIndex, action)}
-          onMoveUp={() => model.moveStep(stepIndex, -1)}
-          onMoveDown={() => model.moveStep(stepIndex, 1)}
           onDuplicate={() => {
             const copyUid = model.duplicateStep(stepIndex);
             if (copyUid !== null) onSelectStep(copyUid);
