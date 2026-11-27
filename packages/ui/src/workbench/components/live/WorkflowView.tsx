@@ -69,6 +69,9 @@ interface Props {
   boundVars?: LiveVariable[];
   /** What opens a request's own tab — a step's panel opens the request the step names. */
   requestOpeners?: StepRequestOpeners;
+  /** The header's schedule word was pressed: the workflow's panel brings its setting to the top. */
+  revealSettings?: boolean;
+  onSettingsRevealed?: () => void;
 }
 
 const WorkflowView: React.FC<Props> = ({
@@ -82,6 +85,8 @@ const WorkflowView: React.FC<Props> = ({
   cacheRun,
   boundVars,
   requestOpeners,
+  revealSettings,
+  onSettingsRevealed,
 }) => {
   const model = useWorkflowFormModel(draft, setDraft);
   const rootRef = useRef<HTMLDivElement>(null);
@@ -177,6 +182,8 @@ const WorkflowView: React.FC<Props> = ({
             onSelectStep={onSelectStep}
             workflow={workflow}
             run={run}
+            revealSettings={revealSettings}
+            onSettingsRevealed={onSettingsRevealed}
           />
         )}
       </aside>

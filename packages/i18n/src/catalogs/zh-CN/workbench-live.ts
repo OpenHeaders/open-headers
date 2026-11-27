@@ -26,7 +26,7 @@ import type { Catalog } from '../../types';
 export const workbenchLive = {
   // ── live-display: circuit descriptors ───────────────────────────────
   'workbench.editors.live.circuit.idleLabel': '空闲',
-  'workbench.editors.live.circuit.idleHint': '还没有缓存——运行一次刷新来填充。',
+  'workbench.editors.live.circuit.idleHint': '还没有缓存——运行工作流来填充。',
   'workbench.editors.live.circuit.pausedLabel': '已暂停',
   'workbench.editors.live.circuit.pausedHint': ({ count }, locale) =>
     plural(locale, Number(count), {
@@ -42,13 +42,13 @@ export const workbenchLive = {
 
   // ── live-display: schedule + policy wording ─────────────────────────
   'workbench.editors.live.schedule.last': '上次刷新 {when}',
-  'workbench.editors.live.schedule.manualOnly': '仅手动刷新',
-  'workbench.editors.live.schedule.autoRefresh': '自动刷新 {when}',
+  'workbench.editors.live.schedule.manualOnly': '手动运行',
+  'workbench.editors.live.schedule.runsAgain': '再次运行 {when}',
   'workbench.editors.live.schedule.expires': '过期 {when}',
   'workbench.editors.live.policy.interval': '每 {seconds}s',
   'workbench.editors.live.policy.expiresIn': 'expires-in 来自 {source}（提前 {lead}s）',
   'workbench.editors.live.policy.expiresAt': 'expires-at 来自 {source}（提前 {lead}s）',
-  'workbench.editors.live.policy.manual': '手动刷新',
+  'workbench.editors.live.policy.manual': '手动',
 
   // ── live-display: per-step run states ───────────────────────────────
   'workbench.editors.live.stepRun.completed': '上次运行已完成',
@@ -209,7 +209,7 @@ export const workbenchLive = {
   'workbench.editors.live.criteria.colOperator': '运算符',
   'workbench.editors.live.criteria.lastRun': '上次运行：{outcome}',
   'workbench.editors.live.criteria.neverMatched': '从未匹配',
-  'workbench.editors.live.run.empty': '本次会话中尚未运行。按“{button}”运行此工作流。',
+  'workbench.editors.live.run.empty': '本次会话中尚未运行。按“{button}”开始。',
   'workbench.editors.live.run.verdict.running': '运行中',
   'workbench.editors.live.run.verdict.passed': '通过',
   'workbench.editors.live.run.verdict.failed': '失败',
@@ -263,8 +263,14 @@ export const workbenchLive = {
   'workbench.editors.live.run.pane.note.stored': '已存储 · 已跳过',
   'workbench.editors.live.run.pane.note.sent': '已发送',
   'workbench.editors.live.run.pane.note.reply': '回复',
-  'workbench.editors.live.workflow.refresh': '刷新',
+  'workbench.editors.live.workflow.run': '运行',
   'workbench.editors.live.workflow.runUnavailable': '工作流不能在公开副本中运行。',
+  'workbench.editors.live.workflow.saveToRun': '保存工作流后才能运行。',
+  'workbench.editors.live.workflow.statusRunning': '运行中，已完成 {done}/{total}',
+  'workbench.editors.live.workflow.statusFailedAt': '在 {step} 失败',
+  'workbench.editors.live.workflow.scheduleManual': '手动',
+  'workbench.editors.live.workflow.scheduleEvery': '每 {interval}',
+  'workbench.editors.live.workflow.scheduleBeforeExpiry': '过期前',
   'workbench.editors.live.workflow.disabledTag': '已禁用',
   'workbench.editors.live.workflow.notFound': '未找到工作流。',
   'workbench.editors.live.workflow.needsUpdate': '此工作流包含需要更新版本 OpenHeaders 的步骤。请更新后再编辑或运行。',
@@ -273,8 +279,8 @@ export const workbenchLive = {
   'workbench.editors.live.workflow.saveFailed': '保存工作流失败',
   'workbench.editors.live.workflow.createFailed': '创建工作流失败',
   'workbench.editors.live.workflow.nothingPicked': '步骤“{id}”尚未选择任何内容。',
-  'workbench.editors.live.workflow.refreshed': '已刷新',
-  'workbench.editors.live.workflow.refreshFailed': '刷新失败：{error}',
+  'workbench.editors.live.workflow.runPassed': '运行通过',
+  'workbench.editors.live.workflow.runFailed': '运行失败：{error}',
   'workbench.editors.live.workflow.defaultName': '工作流',
   'workbench.editors.live.workflow.newDraftName': '新建工作流',
 
@@ -286,8 +292,8 @@ export const workbenchLive = {
   'workbench.editors.live.form.disabled': '已禁用',
   'workbench.editors.live.form.parallelLabel': '并行运行相互独立的步骤',
   'workbench.editors.live.form.parallelTooltip': 'v1 仅支持顺序执行。并行执行将在未来版本推出。',
-  'workbench.editors.live.form.refreshPolicySection': '刷新策略',
-  'workbench.editors.live.form.sessionPolicyInfo': '包含会话步骤的工作流在你按下“刷新”时运行。',
+  'workbench.editors.live.form.runsSection': '运行',
+  'workbench.editors.live.form.sessionPolicyInfo': '包含会话步骤的工作流在你按下“运行”时运行。',
   'workbench.editors.live.form.sessionNoLiveVariables': '包含会话步骤的工作流给出判定；其捕获不会公开为 Live 变量。',
 
   // ── Workflow step editor ────────────────────────────────────────────
@@ -453,15 +459,15 @@ export const workbenchLive = {
   'workbench.editors.live.status.summaryProbing': '{count} 个探测中',
   'workbench.editors.live.status.summaryPaused': '{count} 个已暂停',
   'workbench.editors.live.status.loading': '加载中…',
-  'workbench.editors.live.status.empty': '还没有工作流运行。创建一个工作流并点击“刷新”来填充。',
+  'workbench.editors.live.status.empty': '还没有工作流运行。创建一个工作流并按“运行”。',
   'workbench.editors.live.status.failuresCount': '失败：{count}',
-  'workbench.editors.live.status.failuresTooltip': '自上次成功刷新以来的连续失败次数。',
+  'workbench.editors.live.status.failuresTooltip': '自上次通过的运行以来的连续失败次数。',
   'workbench.editors.live.status.openingsCount': '断开：{count}',
   'workbench.editors.live.status.openingsTooltip':
     '电路在当前周期内转入 OPEN 的次数。经过充分时间的恢复后减半，最近一次恢复后减一。',
   'workbench.editors.live.status.nextAttempt': '下次尝试 {countdown}',
-  'workbench.editors.live.status.nextAttemptTooltip': '下一次自动探测运行的真实时刻。点击“立即刷新”可跳过等待。',
-  'workbench.editors.live.status.refreshNow': '立即刷新',
+  'workbench.editors.live.status.nextAttemptTooltip': '下一次自动探测运行的真实时刻。点击“立即运行”可跳过等待。',
+  'workbench.editors.live.status.runNow': '立即运行',
   'workbench.editors.live.status.resetCircuit': '重置电路',
   'workbench.editors.live.status.resetCircuitTooltip': '清除失败计数器 + 待定的 backoff。不会运行探测。',
   'workbench.editors.live.status.circuitReset': '电路已重置',
@@ -473,9 +479,9 @@ export const workbenchLive = {
     }),
   'workbench.editors.live.status.needsReRun': '需要重新运行',
   'workbench.editors.live.status.needsReRunTooltip':
-    '自提取此值以来，工作流或其解析的某个输入已发生变化——运行“刷新”以重新提取。',
-  'workbench.editors.live.status.neverRunForEnv': '此环境从未运行过——点击“刷新”来填充',
-  'workbench.editors.live.status.notRunYet': '尚未运行——点击“刷新”来运行',
+    '自提取此值以来，工作流或其解析的某个输入已发生变化——再次运行以重新提取。',
+  'workbench.editors.live.status.neverRunForEnv': '此环境从未运行过——按“运行”来填充',
+  'workbench.editors.live.status.notRunYet': '尚未运行——按“运行”',
 
   // ── Create Workflow from requests modal ─────────────────────────────
   'workbench.editors.live.fromRequests.title': '从“{name}”创建工作流',

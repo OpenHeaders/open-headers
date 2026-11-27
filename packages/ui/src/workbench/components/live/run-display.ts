@@ -4,12 +4,13 @@
  * sentence derive here from the run record alone.
  */
 
-import type {
-  SessionClose,
-  SessionOpenFacts,
-  WorkflowRunRecord,
-  WorkflowRunStepRow,
-  WorkflowRunVerdict,
+import {
+  runVerdict,
+  type SessionClose,
+  type SessionOpenFacts,
+  type WorkflowRunRecord,
+  type WorkflowRunStepRow,
+  type WorkflowRunVerdict,
 } from '@openheaders/core/live';
 import type { Translate } from '@openheaders/ui/context/LocaleContext';
 import { formatDurationRolled } from '../request-editor/response/response-meta';
@@ -208,4 +209,32 @@ export function describeRunVerdict(verdict: WorkflowRunVerdict, t: Translate): s
     case 'cannot-run':
       return t('workbench.editors.live.run.verdict.cannotRun');
   }
+}
+
+export interface RunStatusPhrase {
+  text: string;
+  tone: 'secondary' | 'danger' | 'warning';
+}
+
+/** One phrase for a run — what a workflow's header says of the run its view shows. */
+export function describeRunStatus(record: WorkflowRunRecord, t: Translate): RunStatusPhrase {
+  const verdict = runVerdict(record);
+  if (verdict === 'running') {
+    const done = record.steps.filter((row) => row.state === 'settled').length;
+    return {
+      text: t('workbench.editors.live.workflow.statusRunning', { done, total: record.steps.length }),
+      tone: 'secondary',
+    };
+  }
+  if (verdict === 'failed') {
+    const failed = record.steps.find((row) => row.state === 'settled' && row.settlement.state === 'failed');
+    return {
+      text:
+        failed === undefined
+          ? describeRunVerdict(verdict, t)
+          : t('workbench.editors.live.workflow.statusFailedAt', { step: failed.id }),
+      tone: 'danger',
+    };
+  }
+  return { text: describeRunVerdict(verdict, t), tone: verdict === 'cannot-run' ? 'warning' : 'secondary' };
 }

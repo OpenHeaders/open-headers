@@ -31,7 +31,7 @@ import type { Catalog } from '../../types';
 export const workbenchLive = {
   // ── live-display: circuit descriptors ───────────────────────────────
   'workbench.editors.live.circuit.idleLabel': '유휴',
-  'workbench.editors.live.circuit.idleHint': '아직 캐시가 없습니다. 새로 고침을 실행해 채우세요.',
+  'workbench.editors.live.circuit.idleHint': '아직 캐시가 없습니다. 워크플로를 실행해 채우세요.',
   'workbench.editors.live.circuit.pausedLabel': '일시 중지됨',
   'workbench.editors.live.circuit.pausedHint': ({ count }, locale) =>
     plural(locale, Number(count), {
@@ -48,13 +48,13 @@ export const workbenchLive = {
 
   // ── live-display: schedule + policy wording ─────────────────────────
   'workbench.editors.live.schedule.last': '마지막 {when}',
-  'workbench.editors.live.schedule.manualOnly': '수동 새로 고침만',
-  'workbench.editors.live.schedule.autoRefresh': '자동 새로 고침 {when}',
+  'workbench.editors.live.schedule.manualOnly': '수동으로 실행',
+  'workbench.editors.live.schedule.runsAgain': '다음 실행 {when}',
   'workbench.editors.live.schedule.expires': '만료 {when}',
   'workbench.editors.live.policy.interval': '{seconds}초마다',
   'workbench.editors.live.policy.expiresIn': '{source} 캡처의 expires-in (선행 {lead}초)',
   'workbench.editors.live.policy.expiresAt': '{source} 캡처의 expires-at (선행 {lead}초)',
-  'workbench.editors.live.policy.manual': '수동 새로 고침',
+  'workbench.editors.live.policy.manual': '수동',
 
   // ── live-display: per-step run states ───────────────────────────────
   'workbench.editors.live.stepRun.completed': '마지막 실행에서 완료됨',
@@ -220,8 +220,7 @@ export const workbenchLive = {
   'workbench.editors.live.criteria.colOperator': '연산자',
   'workbench.editors.live.criteria.lastRun': '마지막 실행: {outcome}',
   'workbench.editors.live.criteria.neverMatched': '일치 없음',
-  'workbench.editors.live.run.empty':
-    '이 세션에서는 아직 실행하지 않았습니다. {button}을(를) 눌러 이 워크플로를 실행하세요.',
+  'workbench.editors.live.run.empty': '이 세션에서는 아직 실행하지 않았습니다. {button}을(를) 눌러 시작하세요.',
   'workbench.editors.live.run.verdict.running': '실행 중',
   'workbench.editors.live.run.verdict.passed': '통과',
   'workbench.editors.live.run.verdict.failed': '실패',
@@ -275,8 +274,14 @@ export const workbenchLive = {
   'workbench.editors.live.run.pane.note.stored': '저장됨 · 건너뜀',
   'workbench.editors.live.run.pane.note.sent': '보냄',
   'workbench.editors.live.run.pane.note.reply': '응답',
-  'workbench.editors.live.workflow.refresh': '새로 고침',
+  'workbench.editors.live.workflow.run': '실행',
   'workbench.editors.live.workflow.runUnavailable': '워크플로는 공개 사본에서 실행되지 않습니다.',
+  'workbench.editors.live.workflow.saveToRun': '실행하려면 워크플로를 저장하세요.',
+  'workbench.editors.live.workflow.statusRunning': '실행 중, {total}개 중 {done}개 완료',
+  'workbench.editors.live.workflow.statusFailedAt': '{step}에서 실패',
+  'workbench.editors.live.workflow.scheduleManual': '수동',
+  'workbench.editors.live.workflow.scheduleEvery': '{interval}마다',
+  'workbench.editors.live.workflow.scheduleBeforeExpiry': '만료 전',
   'workbench.editors.live.workflow.disabledTag': '비활성',
   'workbench.editors.live.workflow.notFound': '워크플로를 찾을 수 없습니다.',
   'workbench.editors.live.workflow.needsUpdate':
@@ -286,8 +291,8 @@ export const workbenchLive = {
   'workbench.editors.live.workflow.saveFailed': '워크플로를 저장하지 못했습니다',
   'workbench.editors.live.workflow.createFailed': '워크플로를 만들지 못했습니다',
   'workbench.editors.live.workflow.nothingPicked': '"{id}" 단계에 아직 선택된 항목이 없습니다.',
-  'workbench.editors.live.workflow.refreshed': '새로 고쳤습니다',
-  'workbench.editors.live.workflow.refreshFailed': '새로 고침 실패: {error}',
+  'workbench.editors.live.workflow.runPassed': '실행 통과',
+  'workbench.editors.live.workflow.runFailed': '실행 실패: {error}',
   'workbench.editors.live.workflow.defaultName': '워크플로',
   'workbench.editors.live.workflow.newDraftName': '새 워크플로',
 
@@ -300,8 +305,8 @@ export const workbenchLive = {
   'workbench.editors.live.form.parallelLabel': '독립 단계를 병렬로 실행',
   'workbench.editors.live.form.parallelTooltip':
     'v1에서는 순차 실행만 지원합니다. 병렬 실행은 향후 릴리스에서 제공됩니다.',
-  'workbench.editors.live.form.refreshPolicySection': '새로 고침 정책',
-  'workbench.editors.live.form.sessionPolicyInfo': '세션 단계가 있는 워크플로는 새로 고침을 누를 때 실행됩니다.',
+  'workbench.editors.live.form.runsSection': '실행',
+  'workbench.editors.live.form.sessionPolicyInfo': '세션 단계가 있는 워크플로는 실행을 누를 때 실행됩니다.',
   'workbench.editors.live.form.sessionNoLiveVariables':
     '세션 단계가 있는 워크플로는 판정을 내립니다. 캡처는 라이브 변수로 노출되지 않습니다.',
 
@@ -472,16 +477,16 @@ export const workbenchLive = {
   'workbench.editors.live.status.summaryProbing': '프로빙 중 {count}개',
   'workbench.editors.live.status.summaryPaused': '일시 중지됨 {count}개',
   'workbench.editors.live.status.loading': '불러오는 중…',
-  'workbench.editors.live.status.empty': '아직 워크플로 실행이 없습니다. 워크플로를 만들고 새로 고침을 눌러 채우세요.',
+  'workbench.editors.live.status.empty': '아직 워크플로 실행이 없습니다. 워크플로를 만들고 실행을 누르세요.',
   'workbench.editors.live.status.failuresCount': '실패: {count}',
-  'workbench.editors.live.status.failuresTooltip': '마지막으로 성공한 새로 고침 이후의 연속 실패 횟수입니다.',
+  'workbench.editors.live.status.failuresTooltip': '마지막으로 통과한 실행 이후의 연속 실패 횟수입니다.',
   'workbench.editors.live.status.openingsCount': '개방: {count}',
   'workbench.editors.live.status.openingsTooltip':
     '현재 주기에서 서킷이 개방 상태로 전환된 횟수입니다. 충분히 오래된 복구에서는 절반으로, 최근 복구에서는 하나씩 줄어듭니다.',
   'workbench.editors.live.status.nextAttempt': '다음 시도 {countdown}',
   'workbench.editors.live.status.nextAttemptTooltip':
-    '다음 자동 프로브가 실행될 벽시계 시각입니다. 건너뛰려면 “지금 새로 고침”을 누르세요.',
-  'workbench.editors.live.status.refreshNow': '지금 새로 고침',
+    '다음 자동 프로브가 실행될 벽시계 시각입니다. 건너뛰려면 “지금 실행”을 누르세요.',
+  'workbench.editors.live.status.runNow': '지금 실행',
   'workbench.editors.live.status.resetCircuit': '서킷 재설정',
   'workbench.editors.live.status.resetCircuitTooltip':
     '실패 카운터와 대기 중인 백오프를 지웁니다. 프로브는 실행하지 않습니다.',
@@ -492,9 +497,9 @@ export const workbenchLive = {
     plural(locale, Number(count), { other: '바인딩: 변수 {count}개' }),
   'workbench.editors.live.status.needsReRun': '다시 실행 필요',
   'workbench.editors.live.status.needsReRunTooltip':
-    '이 값을 추출한 뒤 워크플로나 워크플로가 해석하는 입력이 바뀌었습니다. 새로 고침을 실행해 다시 추출하세요.',
-  'workbench.editors.live.status.neverRunForEnv': '이 환경에서 실행된 적 없음. 새로 고침을 눌러 채우세요',
-  'workbench.editors.live.status.notRunYet': '아직 실행되지 않음. 새로 고침을 눌러 실행하세요',
+    '이 값을 추출한 뒤 워크플로나 워크플로가 해석하는 입력이 바뀌었습니다. 다시 실행해 다시 추출하세요.',
+  'workbench.editors.live.status.neverRunForEnv': '이 환경에서 실행된 적 없음. 실행을 눌러 채우세요',
+  'workbench.editors.live.status.notRunYet': '아직 실행되지 않음. 실행을 누르세요',
 
   // ── Create Workflow from requests modal ─────────────────────────────
   'workbench.editors.live.fromRequests.title': '“{name}”에서 워크플로 만들기',

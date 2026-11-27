@@ -85,15 +85,11 @@ function runRow(stepId: string): Locator {
   return page.getByTestId(`wf-run-row-${stepId}`).filter({ visible: true }).first();
 }
 
-/** Open a workflow's tab — its panel says no run was seen yet — and press the header's Refresh. */
+/** Open a workflow's tab — its panel says no run was seen yet — and press the header's Run. */
 async function runWorkflow(uid: string): Promise<void> {
   await page.locator(`[data-item-id="workflow-${uid}"]`).click();
   await page.getByTestId('wf-run-empty').filter({ visible: true }).first().waitFor({ state: 'visible' });
-  await page
-    .getByRole('button', { name: /Refresh$/ })
-    .filter({ visible: true })
-    .first()
-    .click();
+  await page.getByTestId('wf-run').filter({ visible: true }).first().click();
 }
 
 async function expectVerdict(verdict: 'passed' | 'failed' | 'cannot-run'): Promise<void> {

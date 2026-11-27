@@ -283,13 +283,9 @@ test('A1 — a reboot commanded over HTTP and acknowledged over MQTT is authored
       ],
     });
 
-  // The saved workflow's tab is open, its panel saying no run was seen yet: the header's Refresh.
+  // The saved workflow's tab is open, its panel saying no run was seen yet: the header's Run.
   await page.getByTestId('wf-run-empty').filter({ visible: true }).first().waitFor({ state: 'visible' });
-  await page
-    .getByRole('button', { name: /Refresh$/ })
-    .filter({ visible: true })
-    .first()
-    .click();
+  await page.getByTestId('wf-run').filter({ visible: true }).first().click();
   await expect(page.getByTestId('wf-view').filter({ visible: true }).first()).toHaveAttribute(
     'data-run-verdict',
     'passed',

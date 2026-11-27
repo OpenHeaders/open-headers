@@ -26,7 +26,7 @@ import type { Catalog } from '../../types';
 export const workbenchLive = {
   // ── live-display: circuit descriptors ───────────────────────────────
   'workbench.editors.live.circuit.idleLabel': 'アイドル',
-  'workbench.editors.live.circuit.idleHint': 'キャッシュはまだありません。更新を実行して値を用意してください。',
+  'workbench.editors.live.circuit.idleHint': 'キャッシュはまだありません。ワークフローを実行して値を用意してください。',
   'workbench.editors.live.circuit.pausedLabel': '一時停止中',
   'workbench.editors.live.circuit.pausedHint': ({ count }, locale) =>
     plural(locale, Number(count), {
@@ -43,13 +43,13 @@ export const workbenchLive = {
 
   // ── live-display: schedule + policy wording ─────────────────────────
   'workbench.editors.live.schedule.last': '前回 {when}',
-  'workbench.editors.live.schedule.manualOnly': '手動更新のみ',
-  'workbench.editors.live.schedule.autoRefresh': '自動更新 {when}',
+  'workbench.editors.live.schedule.manualOnly': '手動で実行',
+  'workbench.editors.live.schedule.runsAgain': '次回の実行 {when}',
   'workbench.editors.live.schedule.expires': '有効期限 {when}',
   'workbench.editors.live.policy.interval': '{seconds} 秒ごと',
   'workbench.editors.live.policy.expiresIn': '{source} からの expires-in（先行 {lead} 秒）',
   'workbench.editors.live.policy.expiresAt': '{source} からの expires-at（先行 {lead} 秒）',
-  'workbench.editors.live.policy.manual': '手動更新',
+  'workbench.editors.live.policy.manual': '手動',
 
   // ── live-display: per-step run states ───────────────────────────────
   'workbench.editors.live.stepRun.completed': '前回の実行で完了',
@@ -216,8 +216,7 @@ export const workbenchLive = {
   'workbench.editors.live.criteria.colOperator': '演算子',
   'workbench.editors.live.criteria.lastRun': '前回の実行: {outcome}',
   'workbench.editors.live.criteria.neverMatched': '一致なし',
-  'workbench.editors.live.run.empty':
-    'このセッションではまだ実行されていません。{button} を押すとこのワークフローを実行します。',
+  'workbench.editors.live.run.empty': 'このセッションではまだ実行されていません。{button} を押すと開始します。',
   'workbench.editors.live.run.verdict.running': '実行中',
   'workbench.editors.live.run.verdict.passed': '成功',
   'workbench.editors.live.run.verdict.failed': '失敗',
@@ -271,8 +270,14 @@ export const workbenchLive = {
   'workbench.editors.live.run.pane.note.stored': '保存済み · 対象外',
   'workbench.editors.live.run.pane.note.sent': '送信済み',
   'workbench.editors.live.run.pane.note.reply': '返信',
-  'workbench.editors.live.workflow.refresh': '更新',
+  'workbench.editors.live.workflow.run': '実行',
   'workbench.editors.live.workflow.runUnavailable': 'ワークフローは公開コピーでは実行できません。',
+  'workbench.editors.live.workflow.saveToRun': '実行するにはワークフローを保存してください。',
+  'workbench.editors.live.workflow.statusRunning': '実行中、{total} 件中 {done} 件完了',
+  'workbench.editors.live.workflow.statusFailedAt': '{step} で失敗',
+  'workbench.editors.live.workflow.scheduleManual': '手動',
+  'workbench.editors.live.workflow.scheduleEvery': '{interval} ごと',
+  'workbench.editors.live.workflow.scheduleBeforeExpiry': '期限切れ前',
   'workbench.editors.live.workflow.disabledTag': '無効',
   'workbench.editors.live.workflow.notFound': 'ワークフローが見つかりません。',
   'workbench.editors.live.workflow.needsUpdate':
@@ -283,8 +288,8 @@ export const workbenchLive = {
   'workbench.editors.live.workflow.saveFailed': 'ワークフローの保存に失敗しました',
   'workbench.editors.live.workflow.createFailed': 'ワークフローの作成に失敗しました',
   'workbench.editors.live.workflow.nothingPicked': 'ステップ「{id}」はまだ何も選択されていません。',
-  'workbench.editors.live.workflow.refreshed': '更新しました',
-  'workbench.editors.live.workflow.refreshFailed': '更新に失敗しました：{error}',
+  'workbench.editors.live.workflow.runPassed': '実行に成功しました',
+  'workbench.editors.live.workflow.runFailed': '実行に失敗しました：{error}',
   'workbench.editors.live.workflow.defaultName': 'ワークフロー',
   'workbench.editors.live.workflow.newDraftName': '新しいワークフロー',
 
@@ -296,9 +301,9 @@ export const workbenchLive = {
   'workbench.editors.live.form.disabled': '無効',
   'workbench.editors.live.form.parallelLabel': '独立したステップを並列に実行',
   'workbench.editors.live.form.parallelTooltip': 'v1 では逐次実行のみです。並列実行は今後のリリースで提供予定です。',
-  'workbench.editors.live.form.refreshPolicySection': '更新ポリシー',
+  'workbench.editors.live.form.runsSection': '実行',
   'workbench.editors.live.form.sessionPolicyInfo':
-    'セッションステップのあるワークフローは、「更新」を押したときに実行されます。',
+    'セッションステップのあるワークフローは、「実行」を押したときに実行されます。',
   'workbench.editors.live.form.sessionNoLiveVariables':
     'セッションステップのあるワークフローは判定を返します。キャプチャはライブ変数として公開されません。',
 
@@ -470,16 +475,16 @@ export const workbenchLive = {
   'workbench.editors.live.status.summaryPaused': '{count} 件一時停止中',
   'workbench.editors.live.status.loading': '読み込み中…',
   'workbench.editors.live.status.empty':
-    'ワークフローの実行はまだありません。ワークフローを作成し、「更新」をクリックして値を用意してください。',
+    'ワークフローの実行はまだありません。ワークフローを作成し、「実行」を押してください。',
   'workbench.editors.live.status.failuresCount': '失敗：{count}',
-  'workbench.editors.live.status.failuresTooltip': '最後に成功した更新以降の連続失敗回数です。',
+  'workbench.editors.live.status.failuresTooltip': '最後に成功した実行以降の連続失敗回数です。',
   'workbench.editors.live.status.openingsCount': '開放：{count}',
   'workbench.editors.live.status.openingsTooltip':
     '現在のサイクルでサーキットが OPEN に遷移した回数です。十分に時間の経った回復で半減し、最近の回復で 1 減ります。',
   'workbench.editors.live.status.nextAttempt': '次回試行 {countdown}',
   'workbench.editors.live.status.nextAttemptTooltip':
-    '次の自動プローブが実行される実時刻です。バイパスするには「今すぐ更新」をクリックしてください。',
-  'workbench.editors.live.status.refreshNow': '今すぐ更新',
+    '次の自動プローブが実行される実時刻です。バイパスするには「今すぐ実行」をクリックしてください。',
+  'workbench.editors.live.status.runNow': '今すぐ実行',
   'workbench.editors.live.status.resetCircuit': 'サーキットをリセット',
   'workbench.editors.live.status.resetCircuitTooltip':
     '失敗カウンターと保留中のバックオフをクリアします。プローブは実行しません。',
@@ -490,10 +495,10 @@ export const workbenchLive = {
     plural(locale, Number(count), { other: 'バインド：{count} 件の変数' }),
   'workbench.editors.live.status.needsReRun': '再実行が必要',
   'workbench.editors.live.status.needsReRunTooltip':
-    'この値を抽出した後にワークフローまたはそれが解決する入力が変わりました。再抽出するには「更新」を実行してください。',
+    'この値を抽出した後にワークフローまたはそれが解決する入力が変わりました。再抽出するにはもう一度実行してください。',
   'workbench.editors.live.status.neverRunForEnv':
-    'この環境ではまだ実行されていません。「更新」をクリックして値を用意してください',
-  'workbench.editors.live.status.notRunYet': 'まだ実行されていません。「更新」をクリックして実行してください',
+    'この環境ではまだ実行されていません。「実行」を押して値を用意してください',
+  'workbench.editors.live.status.notRunYet': 'まだ実行されていません。「実行」を押してください',
 
   // ── Create Workflow from requests modal ─────────────────────────────
   'workbench.editors.live.fromRequests.title': '「{name}」からワークフローを作成',

@@ -293,7 +293,7 @@ export function describeRunSchedule(
       // actual token expiry. Word it accordingly.
       if (run.expiresAt != null) {
         chunks.push({
-          text: t('workbench.editors.live.schedule.autoRefresh', { when: formatRelativeMs(run.expiresAt, nowMs) }),
+          text: t('workbench.editors.live.schedule.runsAgain', { when: formatRelativeMs(run.expiresAt, nowMs) }),
           tone: 'secondary',
         });
       }
@@ -316,7 +316,7 @@ export function describeRunSchedule(
         // AND distinct enough from the expiry to matter (> 30s gap).
         if (refreshAt > nowMs && run.expiresAt - refreshAt > 30_000) {
           chunks.push({
-            text: t('workbench.editors.live.schedule.autoRefresh', { when: formatRelativeMs(refreshAt, nowMs) }),
+            text: t('workbench.editors.live.schedule.runsAgain', { when: formatRelativeMs(refreshAt, nowMs) }),
             tone: 'secondary',
           });
         }
@@ -343,7 +343,7 @@ export function statusColor(level: LiveStatusLevel): string {
 /**
  * Describe a refresh policy in one short phrase. Used in editor summaries
  * and the sidebar's per-LV subtitle so the user immediately sees whether
- * a workflow re-runs on its own or only when they click Refresh.
+ * a workflow re-runs on its own or only when they press Run.
  */
 export function describeRefreshPolicy(policy: RefreshPolicy, t: Translate): string {
   switch (policy.kind) {
@@ -361,6 +361,25 @@ export function describeRefreshPolicy(policy: RefreshPolicy, t: Translate): stri
       });
     case 'manual':
       return t('workbench.editors.live.policy.manual');
+  }
+}
+
+function formatInterval(seconds: number): string {
+  if (seconds >= 3600 && seconds % 3600 === 0) return `${seconds / 3600} h`;
+  if (seconds >= 60 && seconds % 60 === 0) return `${seconds / 60} min`;
+  return `${seconds} s`;
+}
+
+/** When a workflow runs, in a word or two — the schedule button of its header. */
+export function describeSchedule(policy: RefreshPolicy, t: Translate): string {
+  switch (policy.kind) {
+    case 'manual':
+      return t('workbench.editors.live.workflow.scheduleManual');
+    case 'interval':
+      return t('workbench.editors.live.workflow.scheduleEvery', { interval: formatInterval(policy.seconds) });
+    case 'expires-in':
+    case 'expires-at':
+      return t('workbench.editors.live.workflow.scheduleBeforeExpiry');
   }
 }
 

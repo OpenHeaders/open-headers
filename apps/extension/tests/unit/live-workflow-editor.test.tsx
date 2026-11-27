@@ -192,6 +192,11 @@ function closeStep(): void {
   fireEvent.click(screen.getByTestId('wf-panel-close'));
 }
 
+/** The header's Run. */
+function runButton(): HTMLElement {
+  return screen.getByTestId('wf-run');
+}
+
 describe('LiveWorkflowEditor — show-but-disable', () => {
   it('renders the "Run independent steps in parallel" Switch as disabled + unchecked', () => {
     renderEditor();
@@ -274,7 +279,7 @@ describe('LiveWorkflowEditor — a workflow that needs a newer version', () => {
     }
   });
 
-  it('takes no edit: the call step and Refresh are off, and no step can be added', () => {
+  it('takes no edit: the call step and Run are off, and no step can be added', () => {
     const openers: StepRequestOpeners = { http: vi.fn(), graphql: vi.fn(), mqtt: vi.fn() };
     const { container } = renderNeedsUpdate(openers);
     openStep('reboot');
@@ -298,7 +303,7 @@ describe('LiveWorkflowEditor — a workflow that needs a newer version', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Open request' }));
     expect(openers.http).toHaveBeenCalledWith('reqfixt1', 'Fixture request', 'GET');
     expect(screen.queryByRole('button', { name: /Step$/ })).toBeNull();
-    expect(screen.getByRole('button', { name: /Refresh/ })).toHaveProperty('disabled', true);
+    expect(runButton()).toHaveProperty('disabled', true);
   });
 
   it('can still be switched off, and the save writes that alone', async () => {
@@ -402,14 +407,13 @@ describe('LiveWorkflowEditor — a run in the view', () => {
   it('a saved workflow with no run says so in its panel', () => {
     renderEditor();
 
-    expect(screen.getByTestId('wf-run-empty').textContent).toBe(
-      'No run in this session yet. Press Refresh to run this workflow.',
-    );
+    expect(screen.getByTestId('wf-run-empty').textContent).toBe('No run in this session yet. Press Run to start one.');
   });
 
-  it('the Refresh press carries an id of its own for the run', async () => {
+  it('the header’s button is named Run, and its press carries an id of its own for the run', async () => {
     renderEditor();
-    fireEvent.click(screen.getByRole('button', { name: /Refresh/ }));
+    expect(screen.getByRole('button', { name: (name) => name.endsWith('Run') })).toBe(runButton());
+    fireEvent.click(runButton());
 
     await waitFor(() => expect(refreshNowMock).toHaveBeenCalledTimes(1));
     expect(refreshNowMock).toHaveBeenCalledWith('wftestfxt', null, expect.stringMatching(/.+/));
@@ -425,6 +429,48 @@ describe('LiveWorkflowEditor — a run in the view', () => {
   });
 });
 
+// ── The header as the screen's toolbar ────────────────────────────
+//
+// The workflows redesign, Screen layout: after the name, one phrase for
+// the run the view shows; then when the workflow runs, in a word that
+// opens the workflow's panel at that setting; then Run.
+
+describe('LiveWorkflowEditor — the header is the toolbar', () => {
+  it('says when the workflow runs in a word, and a press of it shows the workflow at that setting', () => {
+    renderEditor();
+    const schedule = screen.getByTestId('wf-header-schedule');
+    expect(schedule.textContent).toBe('Manual');
+
+    openStep('only');
+    expect(screen.queryByTestId('wf-panel-policy')).toBeNull();
+    fireEvent.click(schedule);
+
+    expect(screen.getByTestId('wf-panel-policy')).toBeTruthy();
+    expect(screen.getByTestId('wf-graph-node-only').getAttribute('data-selected')).not.toBe('true');
+  });
+
+  it('says nothing of a run before one was seen', () => {
+    renderEditor();
+
+    expect(screen.queryByTestId('wf-header-status')).toBeNull();
+  });
+
+  it('a draft never saved has Run in view, off, with an (i) that says a save comes first', async () => {
+    render(
+      <App>
+        <AwarenessIdentityProvider value={testIdentity}>
+          <LiveWorkflowEditor mode="create" onCreated={vi.fn()} />
+        </AwarenessIdentityProvider>
+      </App>,
+    );
+
+    expect(runButton()).toHaveProperty('disabled', true);
+    expect(screen.getByTestId('wf-header-schedule').textContent).toBe('Manual');
+    fireEvent.click(screen.getByRole('button', { name: 'About Run' }));
+    expect(await screen.findByText('Save the workflow to run it.')).toBeTruthy();
+  });
+});
+
 // ── A surface that runs no workflow ───────────────────────────────
 //
 // The workflow runs plan, Decisions log, S5 and S15: a surface with no
@@ -434,8 +480,6 @@ describe('LiveWorkflowEditor — a run in the view', () => {
 
 describe('LiveWorkflowEditor — on a surface that runs no workflow', () => {
   const SENTENCE = 'Workflows do not run in a public view.';
-  const refreshButton = () =>
-    screen.getByRole('button', { name: (name) => name.endsWith('Refresh') && !name.startsWith('About') });
 
   function renderUnavailable() {
     registerCapability('workflowRunUnavailable', () => true);
@@ -444,17 +488,17 @@ describe('LiveWorkflowEditor — on a surface that runs no workflow', () => {
 
   afterEach(() => unregisterCapability('workflowRunUnavailable'));
 
-  it('Refresh is off and a press starts no run', () => {
+  it('Run is in view, off, and a press starts no run', () => {
     renderUnavailable();
 
-    expect(refreshButton()).toHaveProperty('disabled', true);
-    fireEvent.click(refreshButton());
+    expect(runButton()).toHaveProperty('disabled', true);
+    fireEvent.click(runButton());
     expect(refreshNowMock).not.toHaveBeenCalled();
   });
 
-  it('an (i) beside Refresh says where a workflow runs', async () => {
+  it('an (i) beside Run says where a workflow runs', async () => {
     renderUnavailable();
-    fireEvent.click(screen.getByRole('button', { name: 'About Refresh' }));
+    fireEvent.click(screen.getByRole('button', { name: 'About Run' }));
 
     expect(await screen.findByText(SENTENCE)).toBeTruthy();
   });
@@ -467,11 +511,11 @@ describe('LiveWorkflowEditor — on a surface that runs no workflow', () => {
     expect(screen.getByTestId('wf-panel').textContent).not.toContain('Last run');
   });
 
-  it('with nothing declared there is no (i) and Refresh is on', () => {
+  it('with nothing declared there is no (i) and Run is on', () => {
     renderEditor();
 
-    expect(screen.queryByRole('button', { name: 'About Refresh' })).toBeNull();
-    expect(refreshButton()).toHaveProperty('disabled', false);
+    expect(screen.queryByRole('button', { name: 'About Run' })).toBeNull();
+    expect(runButton()).toHaveProperty('disabled', false);
   });
 });
 
@@ -488,8 +532,6 @@ describe('LiveWorkflowEditor — a workflow that holds session steps', () => {
   const NEEDS_UPDATE = 'This workflow has steps that need a newer version of OpenHeaders. Update to edit or run it.';
   const STEP_NEEDS_UPDATE = 'This step needs a newer version of OpenHeaders.';
   const RUNS_ELSEWHERE = 'A workflow with session steps runs in the Workbench tab.';
-  const refreshButton = () =>
-    screen.getByRole('button', { name: (name) => name.endsWith('Refresh') && !name.startsWith('About') });
 
   const mqttRequest: MqttRequest = {
     schemaVersion: 5,
@@ -550,9 +592,9 @@ describe('LiveWorkflowEditor — a workflow that holds session steps', () => {
     const { container } = renderWorkflow(sessionFixture);
 
     expect(container.querySelector('[data-workflow-needs-update]')).toBeNull();
-    expect(screen.queryByRole('button', { name: 'About Refresh' })).toBeNull();
-    expect(refreshButton()).toHaveProperty('disabled', false);
-    fireEvent.click(refreshButton());
+    expect(screen.queryByRole('button', { name: 'About Run' })).toBeNull();
+    expect(runButton()).toHaveProperty('disabled', false);
+    fireEvent.click(runButton());
     await waitFor(() => expect(refreshNowMock).toHaveBeenCalledTimes(1));
   });
 
@@ -624,14 +666,14 @@ describe('LiveWorkflowEditor — a workflow that holds session steps', () => {
   it('its status strip speaks of a run, not of live variables', () => {
     const { container } = renderWorkflow(sessionFixture);
 
-    expect(container.textContent).toContain('not run yet — press Refresh to run');
+    expect(container.textContent).toContain('not run yet — press Run');
     expect(container.textContent).not.toContain('bound:');
   });
 
   it('a workflow of calls keeps the strip’s binding count and its never-run line', () => {
     const { container } = renderEditor();
 
-    expect(container.textContent).toContain('never run for this env — click Refresh to populate');
+    expect(container.textContent).toContain('never run for this env — press Run to populate');
     expect(container.textContent).toContain('bound:');
   });
 
@@ -661,8 +703,8 @@ describe('LiveWorkflowEditor — a workflow that holds session steps', () => {
     expect(screen.getByTestId('wf-form-session-verdict').textContent).toBe(
       'A workflow with session steps gives a verdict; its captures are not exposed as live variables.',
     );
-    fireEvent.click(screen.getByRole('button', { name: 'About Refresh policy' }));
-    expect(await screen.findByText('A workflow with session steps runs when you press Refresh.')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'About Runs' }));
+    expect(await screen.findByText('A workflow with session steps runs when you press Run.')).toBeTruthy();
     openStep('reboot');
     const reboot = container.querySelector('[data-step-card="reboot"]');
     expect(reboot?.querySelector('[data-testid$="-capture-0-name"]')).toHaveProperty('value', 'commandId');
@@ -685,18 +727,18 @@ describe('LiveWorkflowEditor — a workflow that holds session steps', () => {
     renderWorkflow(needsUpdateFixture);
 
     expect(screen.getAllByText(NEEDS_UPDATE)).toHaveLength(1);
-    expect(screen.getByRole('button', { name: /Refresh/ })).toHaveProperty('disabled', true);
+    expect(runButton()).toHaveProperty('disabled', true);
     expect(screen.getByTestId('wf-run-row-probe').getAttribute('data-run-state')).toBe('cannot-run');
   });
 
-  it('where the host runs no session step, Refresh is off with an (i) that names the surface that runs it', async () => {
+  it('where the host runs no session step, Run is off with an (i) that names the surface that runs it', async () => {
     const { container } = renderWorkflow(sessionFixture);
 
     expect(container.querySelector('[data-workflow-needs-update]')).toBeNull();
-    expect(refreshButton()).toHaveProperty('disabled', true);
-    fireEvent.click(refreshButton());
+    expect(runButton()).toHaveProperty('disabled', true);
+    fireEvent.click(runButton());
     expect(refreshNowMock).not.toHaveBeenCalled();
-    fireEvent.click(screen.getByRole('button', { name: 'About Refresh' }));
+    fireEvent.click(screen.getByRole('button', { name: 'About Run' }));
     expect(await screen.findByText(RUNS_ELSEWHERE)).toBeTruthy();
   });
 
@@ -751,7 +793,7 @@ describe('LiveWorkflowEditor — a workflow that holds session steps', () => {
     const { container } = renderWorkflow(mixed);
 
     expect(screen.getAllByText(NEEDS_UPDATE)).toHaveLength(1);
-    expect(refreshButton()).toHaveProperty('disabled', true);
+    expect(runButton()).toHaveProperty('disabled', true);
     expect(screen.getByTestId('wf-run-row-probe').getAttribute('data-run-state')).toBe('not-run');
     expect(screen.getByTestId('wf-run-row-hangup').getAttribute('data-run-state')).toBe('cannot-run');
     openStep('probe');

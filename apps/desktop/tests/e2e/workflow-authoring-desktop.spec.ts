@@ -233,14 +233,10 @@ function runRow(stepId: string): Locator {
   return workbench.getByTestId(`wf-run-row-${stepId}`).filter({ visible: true }).first();
 }
 
-/** The saved workflow's tab is open, its panel saying no run was seen yet: press the header's Refresh. */
+/** The saved workflow's tab is open, its panel saying no run was seen yet: press the header's Run. */
 async function runOpenWorkflow(): Promise<void> {
   await workbench.getByTestId('wf-run-empty').filter({ visible: true }).first().waitFor({ state: 'visible' });
-  await workbench
-    .getByRole('button', { name: /Refresh$/ })
-    .filter({ visible: true })
-    .first()
-    .click();
+  await workbench.getByTestId('wf-run').filter({ visible: true }).first().click();
   await expect(workbench.getByTestId('wf-view').filter({ visible: true }).first()).toHaveAttribute(
     'data-run-verdict',
     'passed',

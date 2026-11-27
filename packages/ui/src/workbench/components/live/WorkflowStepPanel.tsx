@@ -133,7 +133,7 @@ const WorkflowStepPanel: React.FC<Props> = ({
   };
   const reach = run == null ? reachOfCacheRow(cacheRun, step.id) : reachOfRunRow(row);
   const lastRun = describeStepLastRun(
-    { step, mark, row, now, runButton: t('workbench.editors.live.workflow.refresh') },
+    { step, mark, row, now, runButton: t('workbench.editors.live.workflow.run') },
     t,
   );
   // The stylesheet sizes the panel's own text from this one number.

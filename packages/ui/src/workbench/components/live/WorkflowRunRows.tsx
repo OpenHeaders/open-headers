@@ -125,7 +125,7 @@ const WorkflowRunRows: React.FC<Props> = ({ workflow, run, onSelectStep }) => {
   if (run === null || record === null) {
     return (
       <Text type="secondary" data-testid="wf-run-empty" style={{ fontSize: 12 }}>
-        {t('workbench.editors.live.run.empty', { button: t('workbench.editors.live.workflow.refresh') })}
+        {t('workbench.editors.live.run.empty', { button: t('workbench.editors.live.workflow.run') })}
       </Text>
     );
   }

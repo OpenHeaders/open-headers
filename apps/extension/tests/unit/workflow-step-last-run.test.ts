@@ -36,7 +36,7 @@ const NOW = 23_200;
 function lastRunOf(step: Step, row: WorkflowRunStepRow, session?: 'open') {
   const action = 'action' in step ? step.action : 'call';
   const mark = markOfRunRow(row, t, { action, now: NOW, ...(session !== undefined ? { session } : {}) });
-  return describeStepLastRun({ step, mark, row, now: NOW, runButton: 'Refresh' }, t);
+  return describeStepLastRun({ step, mark, row, now: NOW, runButton: 'Run' }, t);
 }
 
 const settled = (step: Step, settlement: Settlement): WorkflowRunStepRow => ({
@@ -53,11 +53,11 @@ const figures = (lastRun: ReturnType<typeof describeStepLastRun>) =>
 describe('a step’s Last run with no run to speak of', () => {
   it('says the step has not run, and which button runs it', () => {
     expect(
-      describeStepLastRun({ step: CALL, mark: idleMark(t), row: undefined, now: NOW, runButton: 'Refresh' }, t),
+      describeStepLastRun({ step: CALL, mark: idleMark(t), row: undefined, now: NOW, runButton: 'Run' }, t),
     ).toEqual({
       kind: 'idle',
       word: 'Not run yet',
-      sentence: 'Press Refresh to see what this step does.',
+      sentence: 'Press Run to see what this step does.',
       figures: [{ key: 'status', label: 'Status', value: 'Not run yet' }],
     });
   });
@@ -80,7 +80,7 @@ describe('a step’s Last run with no run to speak of', () => {
       'reboot',
       t,
     );
-    expect(describeStepLastRun({ step: CALL, mark, row: undefined, now: NOW, runButton: 'Refresh' }, t)).toEqual({
+    expect(describeStepLastRun({ step: CALL, mark, row: undefined, now: NOW, runButton: 'Run' }, t)).toEqual({
       kind: 'failed',
       word: 'Failed',
       sentence: 'connect ECONNREFUSED',

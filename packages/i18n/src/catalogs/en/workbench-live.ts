@@ -22,7 +22,7 @@ import type { Catalog } from '../../types';
 export const workbenchLive = {
   // ── live-display: circuit descriptors ───────────────────────────────
   'workbench.editors.live.circuit.idleLabel': 'idle',
-  'workbench.editors.live.circuit.idleHint': 'No cache yet — run a refresh to populate.',
+  'workbench.editors.live.circuit.idleHint': 'No cache yet — run the workflow to populate.',
   'workbench.editors.live.circuit.pausedLabel': 'paused',
   'workbench.editors.live.circuit.pausedHint': ({ count }, locale) =>
     plural(locale, Number(count), {
@@ -40,13 +40,13 @@ export const workbenchLive = {
 
   // ── live-display: schedule + policy wording ─────────────────────────
   'workbench.editors.live.schedule.last': 'last {when}',
-  'workbench.editors.live.schedule.manualOnly': 'manual refresh only',
-  'workbench.editors.live.schedule.autoRefresh': 'auto-refresh {when}',
+  'workbench.editors.live.schedule.manualOnly': 'runs manually',
+  'workbench.editors.live.schedule.runsAgain': 'runs again {when}',
   'workbench.editors.live.schedule.expires': 'expires {when}',
   'workbench.editors.live.policy.interval': 'every {seconds}s',
   'workbench.editors.live.policy.expiresIn': 'expires-in from {source} (lead {lead}s)',
   'workbench.editors.live.policy.expiresAt': 'expires-at from {source} (lead {lead}s)',
-  'workbench.editors.live.policy.manual': 'manual refresh',
+  'workbench.editors.live.policy.manual': 'manual',
 
   // ── live-display: per-step run states ───────────────────────────────
   'workbench.editors.live.stepRun.completed': 'Completed on last run',
@@ -212,7 +212,7 @@ export const workbenchLive = {
   'workbench.editors.live.criteria.colOperator': 'Operator',
   'workbench.editors.live.criteria.lastRun': 'Last run: {outcome}',
   'workbench.editors.live.criteria.neverMatched': 'Never matched',
-  'workbench.editors.live.run.empty': 'No run in this session yet. Press {button} to run this workflow.',
+  'workbench.editors.live.run.empty': 'No run in this session yet. Press {button} to start one.',
   'workbench.editors.live.run.verdict.running': 'Running',
   'workbench.editors.live.run.verdict.passed': 'Passed',
   'workbench.editors.live.run.verdict.failed': 'Failed',
@@ -272,8 +272,14 @@ export const workbenchLive = {
   'workbench.editors.live.run.pane.note.stored': 'Stored · passed over',
   'workbench.editors.live.run.pane.note.sent': 'Sent',
   'workbench.editors.live.run.pane.note.reply': 'Reply',
-  'workbench.editors.live.workflow.refresh': 'Refresh',
+  'workbench.editors.live.workflow.run': 'Run',
   'workbench.editors.live.workflow.runUnavailable': 'Workflows do not run in a public view.',
+  'workbench.editors.live.workflow.saveToRun': 'Save the workflow to run it.',
+  'workbench.editors.live.workflow.statusRunning': 'Running, {done} of {total} done',
+  'workbench.editors.live.workflow.statusFailedAt': 'Failed at {step}',
+  'workbench.editors.live.workflow.scheduleManual': 'Manual',
+  'workbench.editors.live.workflow.scheduleEvery': 'Every {interval}',
+  'workbench.editors.live.workflow.scheduleBeforeExpiry': 'Before expiry',
   'workbench.editors.live.workflow.disabledTag': 'Disabled',
   'workbench.editors.live.workflow.notFound': 'Workflow not found.',
   'workbench.editors.live.workflow.needsUpdate':
@@ -283,8 +289,8 @@ export const workbenchLive = {
   'workbench.editors.live.workflow.saveFailed': 'Failed to save workflow',
   'workbench.editors.live.workflow.createFailed': 'Failed to create workflow',
   'workbench.editors.live.workflow.nothingPicked': 'Step "{id}" has nothing picked yet.',
-  'workbench.editors.live.workflow.refreshed': 'Refreshed',
-  'workbench.editors.live.workflow.refreshFailed': 'Refresh failed: {error}',
+  'workbench.editors.live.workflow.runPassed': 'Run passed',
+  'workbench.editors.live.workflow.runFailed': 'Run failed: {error}',
   'workbench.editors.live.workflow.defaultName': 'Workflow',
   'workbench.editors.live.workflow.newDraftName': 'New Workflow',
 
@@ -297,8 +303,8 @@ export const workbenchLive = {
   'workbench.editors.live.form.parallelLabel': 'Run independent steps in parallel',
   'workbench.editors.live.form.parallelTooltip':
     'Sequential only in v1. Parallel execution coming in a future release.',
-  'workbench.editors.live.form.refreshPolicySection': 'Refresh policy',
-  'workbench.editors.live.form.sessionPolicyInfo': 'A workflow with session steps runs when you press Refresh.',
+  'workbench.editors.live.form.runsSection': 'Runs',
+  'workbench.editors.live.form.sessionPolicyInfo': 'A workflow with session steps runs when you press Run.',
   'workbench.editors.live.form.sessionNoLiveVariables':
     'A workflow with session steps gives a verdict; its captures are not exposed as live variables.',
 
@@ -468,16 +474,16 @@ export const workbenchLive = {
   'workbench.editors.live.status.summaryProbing': '{count} probing',
   'workbench.editors.live.status.summaryPaused': '{count} paused',
   'workbench.editors.live.status.loading': 'Loading…',
-  'workbench.editors.live.status.empty': 'No workflow runs yet. Create a workflow and click Refresh to populate.',
+  'workbench.editors.live.status.empty': 'No workflow runs yet. Create a workflow and press Run.',
   'workbench.editors.live.status.failuresCount': 'failures: {count}',
-  'workbench.editors.live.status.failuresTooltip': 'Consecutive failures since the last successful refresh.',
+  'workbench.editors.live.status.failuresTooltip': 'Consecutive failures since the last run that passed.',
   'workbench.editors.live.status.openingsCount': 'openings: {count}',
   'workbench.editors.live.status.openingsTooltip':
     'Number of times the circuit has transitioned OPEN in the current cycle. Halves on a well-aged recovery, decrements by one on a recent recovery.',
   'workbench.editors.live.status.nextAttempt': 'next attempt {countdown}',
   'workbench.editors.live.status.nextAttemptTooltip':
-    'Wall-clock time at which the next automatic probe will run. Click Refresh now to bypass.',
-  'workbench.editors.live.status.refreshNow': 'Refresh now',
+    'Wall-clock time at which the next automatic probe will run. Click Run now to bypass.',
+  'workbench.editors.live.status.runNow': 'Run now',
   'workbench.editors.live.status.resetCircuit': 'Reset circuit',
   'workbench.editors.live.status.resetCircuitTooltip':
     'Clear failure counters + pending backoff. Does not run a probe.',
@@ -491,9 +497,9 @@ export const workbenchLive = {
     }),
   'workbench.editors.live.status.needsReRun': 'needs re-run',
   'workbench.editors.live.status.needsReRunTooltip':
-    'The workflow or an input it resolves changed since this value was extracted — run Refresh to re-extract.',
-  'workbench.editors.live.status.neverRunForEnv': 'never run for this env — click Refresh to populate',
-  'workbench.editors.live.status.notRunYet': 'not run yet — press Refresh to run',
+    'The workflow or an input it resolves changed since this value was extracted — run it again to re-extract.',
+  'workbench.editors.live.status.neverRunForEnv': 'never run for this env — press Run to populate',
+  'workbench.editors.live.status.notRunYet': 'not run yet — press Run',
 
   // ── Create Workflow from requests modal ─────────────────────────────
   'workbench.editors.live.fromRequests.title': 'Create Workflow from “{name}”',

@@ -258,9 +258,7 @@ describe('a run in the workflow view', () => {
   it('says there is no run in this session and names the button', () => {
     render(<SavedWorkflowView workflow={workflow} />);
 
-    expect(screen.getByTestId('wf-run-empty').textContent).toBe(
-      'No run in this session yet. Press Refresh to run this workflow.',
-    );
+    expect(screen.getByTestId('wf-run-empty').textContent).toBe('No run in this session yet. Press Run to start one.');
     expect(screen.getByTestId('wf-view').hasAttribute('data-run-verdict')).toBe(false);
   });
 
@@ -381,7 +379,7 @@ describe('a run in the workflow view', () => {
     const card = () => screen.getByTestId('wf-step-last-run');
     const state = () => screen.getByTestId('wf-step-last-run-state');
     expect(state().getAttribute('data-run-state')).toBe('idle');
-    expect(card().textContent).toBe('Last runPress Refresh to see what this step does.Not run yetStatusNot run yet');
+    expect(card().textContent).toBe('Last runPress Run to see what this step does.Not run yetStatusNot run yet');
 
     await feed(BEGIN);
     expect(state().textContent).toBe('Waiting');

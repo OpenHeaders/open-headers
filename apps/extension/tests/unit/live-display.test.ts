@@ -13,6 +13,7 @@ import { DEFAULT_LOCALE, getTranslator } from '@openheaders/i18n';
 import {
   classifyStepRun,
   describeRunSchedule,
+  describeSchedule,
   formatCountdown,
   formatRelativeMs,
   pickActiveRun,
@@ -126,19 +127,19 @@ describe('summarizeRunsByEnv', () => {
 describe('describeRunSchedule', () => {
   const NOW = 1_700_000_000_000;
 
-  it('interval policy — says "auto-refresh" instead of "expires"', () => {
+  it('interval policy — says "runs again" instead of "expires"', () => {
     const run = makeRun({ extractedAt: NOW - 60_000, expiresAt: NOW + 240_000 });
     const policy: RefreshPolicy = { kind: 'interval', seconds: 300 };
     const chunks = describeRunSchedule(run, policy, t, NOW);
     const labels = chunks.map((c) => c.text);
     expect(labels).toContain('last 1m ago');
-    expect(labels.some((l) => l.startsWith('auto-refresh'))).toBe(true);
+    expect(labels).toContain('runs again in 4m');
     // No "expires" wording for interval — the cached value doesn't
     // actually expire; the scheduler just ticks at expiresAt.
     expect(labels.some((l) => l.startsWith('expires'))).toBe(false);
   });
 
-  it('expires-in policy — says "expires" and optionally "auto-refresh" when leadSeconds gap is significant', () => {
+  it('expires-in policy — says "expires" and optionally "runs again" when leadSeconds gap is significant', () => {
     const run = makeRun({ extractedAt: NOW - 60_000, expiresAt: NOW + 600_000 });
     const policy: RefreshPolicy = {
       kind: 'expires-in',
@@ -151,10 +152,10 @@ describe('describeRunSchedule', () => {
     expect(labels.some((l) => l.startsWith('expires'))).toBe(true);
     // leadSeconds is 60s and the gap (600s) is large enough to
     // surface both — real token expiry + refresh window.
-    expect(labels.some((l) => l.startsWith('auto-refresh'))).toBe(true);
+    expect(labels.some((l) => l.startsWith('runs again'))).toBe(true);
   });
 
-  it('expires-in policy — suppresses the auto-refresh chunk when leadSeconds gap is < 30s', () => {
+  it('expires-in policy — suppresses the "runs again" chunk when leadSeconds gap is < 30s', () => {
     const run = makeRun({ extractedAt: NOW - 60_000, expiresAt: NOW + 60_000 });
     const policy: RefreshPolicy = {
       kind: 'expires-in',
@@ -166,7 +167,7 @@ describe('describeRunSchedule', () => {
     const labels = chunks.map((c) => c.text);
     expect(labels.some((l) => l.startsWith('expires'))).toBe(true);
     // Two nearly-identical timestamps would be noise; only expiry shown.
-    expect(labels.some((l) => l.startsWith('auto-refresh'))).toBe(false);
+    expect(labels.some((l) => l.startsWith('runs again'))).toBe(false);
   });
 
   it('expires-at policy — treats the captured ms as true expiry', () => {
@@ -182,12 +183,12 @@ describe('describeRunSchedule', () => {
     expect(labels.some((l) => l.startsWith('expires'))).toBe(true);
   });
 
-  it('manual policy — says "manual refresh only"', () => {
+  it('manual policy — says "runs manually"', () => {
     const run = makeRun({ extractedAt: NOW - 60_000, expiresAt: null });
     const policy: RefreshPolicy = { kind: 'manual' };
     const chunks = describeRunSchedule(run, policy, t, NOW);
     const labels = chunks.map((c) => c.text);
-    expect(labels).toEqual(['last 1m ago', 'manual refresh only']);
+    expect(labels).toEqual(['last 1m ago', 'runs manually']);
   });
 
   it('past-expired token — flags the expiry chunk with warning tone', () => {
@@ -210,6 +211,26 @@ describe('describeRunSchedule', () => {
     const chunks = describeRunSchedule(run, policy, t, NOW);
     const labels = chunks.map((c) => c.text);
     expect(labels.some((l) => l.startsWith('last'))).toBe(false);
+  });
+});
+
+describe('describeSchedule — when a workflow runs, in a word', () => {
+  it('says Manual for a workflow that runs on a press alone', () => {
+    expect(describeSchedule({ kind: 'manual' }, t)).toBe('Manual');
+  });
+
+  it('says an interval in its largest whole unit', () => {
+    expect(describeSchedule({ kind: 'interval', seconds: 45 }, t)).toBe('Every 45 s');
+    expect(describeSchedule({ kind: 'interval', seconds: 300 }, t)).toBe('Every 5 min');
+    expect(describeSchedule({ kind: 'interval', seconds: 90 }, t)).toBe('Every 90 s');
+    expect(describeSchedule({ kind: 'interval', seconds: 7200 }, t)).toBe('Every 2 h');
+    expect(describeSchedule({ kind: 'interval', seconds: 5400 }, t)).toBe('Every 90 min');
+  });
+
+  it('says Before expiry for both expiry kinds', () => {
+    const source = { stepId: 'login', captureName: 'expires_in', leadSeconds: 60 };
+    expect(describeSchedule({ kind: 'expires-in', ...source }, t)).toBe('Before expiry');
+    expect(describeSchedule({ kind: 'expires-at', ...source }, t)).toBe('Before expiry');
   });
 });
 

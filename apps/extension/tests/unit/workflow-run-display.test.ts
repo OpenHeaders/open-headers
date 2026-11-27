@@ -1,5 +1,5 @@
-import type { WorkflowRunStepRow } from '@openheaders/core/live';
-import { describeRunRow } from '@openheaders/ui/workbench/components/live/run-display';
+import type { WorkflowRunRecord, WorkflowRunStepRow } from '@openheaders/core/live';
+import { describeRunRow, describeRunStatus } from '@openheaders/ui/workbench/components/live/run-display';
 import { translateEnglish as t } from '@openheaders/ui/workbench/settings/localize';
 import { describe, expect, it } from 'vitest';
 
@@ -223,6 +223,59 @@ describe('any action', () => {
       tone: 'cannot-run',
       facts: ['Cannot run here'],
       sub: { text: 'Needs a newer version.', tone: 'warning' },
+    });
+  });
+});
+
+describe('a run in one phrase — the workflow header’s', () => {
+  const LOGIN: WorkflowRunStepRow = { ...passed(1, 1, []), id: 'login', uid: 'stplogin' };
+  const FAILED: WorkflowRunStepRow = {
+    ...STEP,
+    state: 'settled',
+    hasProduct: true,
+    settlement: { state: 'failed', phase: 'fetch', reason: 'Connection refused.', attempts: 1, maxAttempts: 1 },
+  };
+
+  function record(steps: WorkflowRunStepRow[], ended: WorkflowRunRecord['ended']): WorkflowRunRecord {
+    return { runId: 'run-1', environmentId: null, startedAt: 100, steps, ended };
+  }
+
+  it('while it goes, how many of its steps are done', () => {
+    const steps: WorkflowRunStepRow[] = [LOGIN, { ...STEP, state: 'running', attempt: 1, maxAttempts: 1 }];
+    expect(describeRunStatus(record(steps, null), t)).toEqual({ text: 'Running, 1 of 2 done', tone: 'secondary' });
+  });
+
+  it('passed is the verdict’s word', () => {
+    expect(describeRunStatus(record([LOGIN, passed(1, 1, [])], { ok: true, durationMs: 40 }), t)).toEqual({
+      text: 'Passed',
+      tone: 'secondary',
+    });
+  });
+
+  it('a failed run names the step it stopped at', () => {
+    expect(describeRunStatus(record([LOGIN, FAILED], { ok: false, durationMs: 40 }), t)).toEqual({
+      text: 'Failed at profile',
+      tone: 'danger',
+    });
+  });
+
+  it('a run that failed with no failed step says Failed', () => {
+    expect(describeRunStatus(record([LOGIN], { ok: false, durationMs: 40 }), t)).toEqual({
+      text: 'Failed',
+      tone: 'danger',
+    });
+  });
+
+  it('a run no step of which could run says so', () => {
+    const refused: WorkflowRunStepRow = {
+      ...STEP,
+      state: 'settled',
+      hasProduct: false,
+      settlement: { state: 'cannot-run', reason: 'Needs a newer version.' },
+    };
+    expect(describeRunStatus(record([refused], { ok: false, durationMs: 0 }), t)).toEqual({
+      text: 'Cannot run here',
+      tone: 'warning',
     });
   });
 });

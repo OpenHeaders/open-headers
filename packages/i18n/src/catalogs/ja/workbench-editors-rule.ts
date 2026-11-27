@@ -205,7 +205,7 @@ export const workbenchEditorsRule = {
   'workbench.editors.rule.resolution.reason.secretUnavailable': 'マネージャーが利用不可',
   'workbench.editors.rule.resolution.reason.secretBrokerUnreachable': 'デスクトップアプリ未接続',
   'workbench.editors.rule.resolution.hint.noCacheForEnv':
-    '環境「{envName}」のキャッシュされた実行がありません。ワークフローを開き、この環境で「更新」をクリックして値を用意してください',
+    '環境「{envName}」のキャッシュされた実行がありません。ワークフローを開き、この環境で「実行」をクリックして値を用意してください',
   'workbench.editors.rule.resolution.hint.disabledLv': 'ライブ変数が無効です。ライブ変数エディターで有効にしてください',
   'workbench.editors.rule.resolution.hint.draftLv':
     'ライブ変数は下書きです。開いて「保存」をクリックして公開してください',

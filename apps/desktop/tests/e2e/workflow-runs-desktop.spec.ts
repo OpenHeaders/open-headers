@@ -151,15 +151,11 @@ function nodeMark(stepId: string): Locator {
   return workbench.getByTestId(`wf-graph-run-${stepId}`).filter({ visible: true }).first();
 }
 
-/** Open a workflow's tab — its panel says no run was seen yet — and press the header's Refresh. */
+/** Open a workflow's tab — its panel says no run was seen yet — and press the header's Run. */
 async function runWorkflow(uid: string): Promise<void> {
   await workbench.locator(`[data-item-id="workflow-${uid}"]`).click();
   await workbench.getByTestId('wf-run-empty').filter({ visible: true }).first().waitFor({ state: 'visible' });
-  await workbench
-    .getByRole('button', { name: /Refresh$/ })
-    .filter({ visible: true })
-    .first()
-    .click();
+  await workbench.getByTestId('wf-run').filter({ visible: true }).first().click();
 }
 
 async function expectVerdict(verdict: 'passed' | 'failed' | 'cannot-run'): Promise<void> {

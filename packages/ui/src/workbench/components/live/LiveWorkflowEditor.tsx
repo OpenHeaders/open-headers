@@ -8,8 +8,7 @@
  *   (sync engine §6.3). On external commit while the editor is clean,
  *   the draft re-primes from the new persisted state; while dirty the
  *   user's typing is preserved and LWW resolves at save time. Shows a
- *   status bar with the last refresh / expiry / policy summary + a
- *   Refresh-now button.
+ *   status bar with the last run / expiry / policy summary.
  *
  * Create mode (`mode: 'create'`):
  *   No `workflowUid` until save. Local-only draft; Save creates the
@@ -17,16 +16,21 @@
  *   can replace the draft tab with a fresh edit tab. Optional `seedSteps`
  *   preseeds the draft's steps in declared order (one from the Request
  *   editor's "Use response in workflow" action, many from the request
- *   tree's "Create Workflow…" picker). No status bar, no Refresh-now
- *   button (nothing to refresh before first save).
+ *   tree's "Create Workflow…" picker). No status bar; Run is in view
+ *   and off, with an (i) that says a save comes first.
+ *
+ * The header is the screen's toolbar in both modes (the workflows
+ * redesign, Screen layout): after the name one phrase for the run the
+ * view shows, then the schedule in a word — a press opens the
+ * workflow's panel at that setting — and Run.
  *
  * A workflow that holds a step of an action the model does not know
  * (the workflow runs plan, Laws) opens read-only in edit mode: one
- * banner says why, the form and the graph take no edit, Refresh is off,
+ * banner says why, the form and the graph take no edit, Run is off,
  * and Save writes the Enabled switch alone — it can still be switched
  * off. A workflow that holds a session step is edited on every surface
  * and run where the host runs session steps (the workflow runs plan,
- * Decisions log, S16); elsewhere its Refresh is off, with an (i) that
+ * Decisions log, S16); elsewhere its Run is off, with an (i) that
  * says where it runs.
  *
  * Phase I responsibilities (both modes):
@@ -41,7 +45,7 @@
  *     per the show-but-disable catalog.
  */
 
-import { ReloadOutlined } from '@ant-design/icons';
+import { CaretRightOutlined, DownOutlined, LoadingOutlined } from '@ant-design/icons';
 import { useEnvironments } from '@openheaders/ui/shared/hooks/readers/useEnvironments';
 import { useLiveWorkflowCache } from '@openheaders/ui/shared/hooks/readers/useLiveCache';
 import { useLiveVariables } from '@openheaders/ui/shared/hooks/readers/useLiveVariables';
@@ -67,7 +71,7 @@ import { useLiveWorkflowConflictResolution } from './use-live-workflow-conflict-
 import { applyLiveWorkflowPublish } from '@openheaders/ui/shared/sync/live-workflow-write-client';
 import { useWorkbenchEditingScopeWorkspaceId } from '../../hooks/EditingScopeWorkspaceContext';
 import type { WorkflowSeedStep } from '../../types';
-import type { LiveWorkflow } from '@openheaders/core/types';
+import type { LiveWorkflow, RefreshPolicy } from '@openheaders/core/types';
 import { Alert, App, Button, Tag, Typography, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useMemo, useRef, useState } from 'react';
@@ -75,14 +79,16 @@ import EditorHeader from '../shell/EditorHeader';
 import { readFieldPath } from '@openheaders/ui/shared/awareness/field-path';
 import { LIVE_WORKFLOW_FIELD } from '@openheaders/ui/shared/awareness/live-paths';
 import { appendDraftStep } from './graph-edit';
-import { classifyRun, pickActiveRun, statusColor } from './live-display';
+import { classifyRun, describeSchedule, pickActiveRun, statusColor } from './live-display';
 import {
   canRunWorkflowHere,
   RunUnavailableInfo,
+  SaveToRunInfo,
   SessionRunElsewhereInfo,
   sessionRunsElsewhere,
   workflowRunsHere,
 } from './run-availability';
+import { describeRunStatus } from './run-display';
 import { firstStepWithNothingPicked } from './step-action';
 import type { StepRequestOpeners } from './step-facts';
 import { useShownWorkflowRun } from './use-workflow-run';
@@ -133,6 +139,38 @@ function emptyDraft(seedSteps?: readonly WorkflowSeedStep[]): Draft {
 
 // Re-aliased to match existing component call sites.
 const draftFromWorkflow = draftFromWorkflowCore;
+
+// ── The header's schedule word and Run (both modes) ────────────────
+
+const ScheduleButton: React.FC<{ refresh: RefreshPolicy; onOpen: () => void }> = ({ refresh, onOpen }) => {
+  const t = useT();
+  return (
+    <Button size="small" type="text" data-testid="wf-header-schedule" onClick={onOpen}>
+      {describeSchedule(refresh, t)}
+      <DownOutlined style={{ fontSize: 9 }} />
+    </Button>
+  );
+};
+
+const RunButton: React.FC<{ disabled: boolean; running?: boolean; onRun?: () => void }> = ({
+  disabled,
+  running = false,
+  onRun,
+}) => {
+  const t = useT();
+  return (
+    <Button
+      size="small"
+      type="primary"
+      data-testid="wf-run"
+      icon={running ? <LoadingOutlined /> : <CaretRightOutlined />}
+      disabled={disabled}
+      onClick={onRun}
+    >
+      {t('workbench.editors.live.workflow.run')}
+    </Button>
+  );
+};
 
 // ── Props (discriminated union) ────────────────────────────────────
 
@@ -211,6 +249,7 @@ const EditMode: React.FC<EditProps> = ({
   // Ephemeral UI state — never persisted, never on the draft, so it
   // can't move `isDirty` by construction.
   const [selectedStepUid, setSelectedStepUid] = useState<string | null>(null);
+  const [revealSettings, setRevealSettings] = useState(false);
   const shownRun = useShownWorkflowRun(workflow, needsUpdate);
 
   const formFingerprint = useMemo(() => (draft ? fingerprint(draft) : ''), [draft]);
@@ -315,6 +354,12 @@ const EditMode: React.FC<EditProps> = ({
     },
     [workflow, draft, setActiveFieldFocus],
   );
+
+  const handleOpenSettings = useCallback(() => {
+    handleSelectStep(null);
+    setRevealSettings(true);
+  }, [handleSelectStep]);
+  const handleSettingsRevealed = useCallback(() => setRevealSettings(false), []);
 
   const handleSave = useCallback(async () => {
     if (!workflow || !draft) return;
@@ -426,9 +471,9 @@ const EditMode: React.FC<EditProps> = ({
     const resp = await refreshNow(workflow.uid, activeEnvironmentId, generateUid());
     setRefreshing(false);
     if (!resp.success) {
-      message.error(t('workbench.editors.live.workflow.refreshFailed', { error: resp.error ?? 'unknown error' }));
+      message.error(t('workbench.editors.live.workflow.runFailed', { error: resp.error ?? 'unknown error' }));
     } else {
-      message.success(t('workbench.editors.live.workflow.refreshed'));
+      message.success(t('workbench.editors.live.workflow.runPassed'));
     }
   }, [workflow, refreshNow, activeEnvironmentId, message, t]);
 
@@ -445,6 +490,9 @@ const EditMode: React.FC<EditProps> = ({
 
   if (!draft) return null;
 
+  // The banner speaks for a workflow that was refused; the phrase is a run's.
+  const runStatus = runsHere && shownRun !== null && !shownRun.refused ? describeRunStatus(shownRun.record, t) : null;
+
   const editHeaderTitle = (
     <>
       <span
@@ -460,19 +508,23 @@ const EditMode: React.FC<EditProps> = ({
         {workflow.name}
       </Title>
       {!draft.enabled && <Tag style={{ marginInlineEnd: 0 }}>{t('workbench.editors.live.workflow.disabledTag')}</Tag>}
+      {runStatus !== null && (
+        <Text
+          type={runStatus.tone}
+          strong={runStatus.tone === 'danger'}
+          data-testid="wf-header-status"
+          style={{ fontSize: 12, flexShrink: 0, whiteSpace: 'nowrap' }}
+        >
+          {runStatus.text}
+        </Text>
+      )}
     </>
   );
 
   const editHeaderActions = (
     <>
-      <Button
-        size="small"
-        icon={<ReloadOutlined spin={refreshing} />}
-        disabled={!canRun}
-        onClick={() => void handleRefreshNow()}
-      >
-        {t('workbench.editors.live.workflow.refresh')}
-      </Button>
+      <ScheduleButton refresh={draft.refresh} onOpen={handleOpenSettings} />
+      <RunButton disabled={!canRun} running={refreshing} onRun={() => void handleRefreshNow()} />
       {!runsHere ? <RunUnavailableInfo /> : sessionRunsElsewhere(workflow) && <SessionRunElsewhereInfo />}
     </>
   );
@@ -512,6 +564,8 @@ const EditMode: React.FC<EditProps> = ({
         cacheRun={run}
         boundVars={boundVars}
         requestOpeners={requestOpeners}
+        revealSettings={revealSettings}
+        onSettingsRevealed={handleSettingsRevealed}
       />
       {/* Live-status surface — pinned below the view so "what's
           resolved RIGHT NOW per env" is always visible while editing. */}
@@ -556,6 +610,12 @@ const CreateMode: React.FC<CreateProps> = ({
   // The same ephemeral selection as EditMode, with no awareness
   // publishing: a draft has no entity id until save.
   const [selectedStepUid, setSelectedStepUid] = useState<string | null>(null);
+  const [revealSettings, setRevealSettings] = useState(false);
+  const handleOpenSettings = useCallback(() => {
+    setSelectedStepUid(null);
+    setRevealSettings(true);
+  }, []);
+  const handleSettingsRevealed = useCallback(() => setRevealSettings(false), []);
 
   // Dirty the moment the user touches anything. Comparing against the
   // initial seed-derived fingerprint keeps empty drafts from being
@@ -637,16 +697,26 @@ const CreateMode: React.FC<CreateProps> = ({
     </>
   );
 
+  const createHeaderActions = (
+    <>
+      <ScheduleButton refresh={draft.refresh} onOpen={handleOpenSettings} />
+      <RunButton disabled />
+      <SaveToRunInfo />
+    </>
+  );
+
   return (
     <EntityScopeProvider shell={shell.scopeProps}>
     <div style={{ display: 'flex', flexDirection: 'column', background: token.colorBgContainer, height: '100%' }}>
-      <EditorHeader title={createHeaderTitle} shell={shell.headerProps} />
+      <EditorHeader title={createHeaderTitle} actions={createHeaderActions} shell={shell.headerProps} />
       <WorkflowView
         draft={draft}
         setDraft={setDraft}
         selectedStepUid={selectedStepUid}
         onSelectStep={setSelectedStepUid}
         requestOpeners={requestOpeners}
+        revealSettings={revealSettings}
+        onSettingsRevealed={handleSettingsRevealed}
       />
     </div>
     </EntityScopeProvider>

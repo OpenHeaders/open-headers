@@ -17,7 +17,7 @@ import type { Catalog } from '../../types';
 export const workbenchLive = {
   // ── live-display: circuit descriptors ───────────────────────────────
   'workbench.editors.live.circuit.idleLabel': 'au repos',
-  'workbench.editors.live.circuit.idleHint': 'Aucun cache pour le moment — lancez une actualisation pour alimenter.',
+  'workbench.editors.live.circuit.idleHint': 'Aucun cache pour le moment — exécutez le workflow pour alimenter.',
   'workbench.editors.live.circuit.pausedLabel': 'suspendu',
   'workbench.editors.live.circuit.pausedHint': ({ count }, locale) =>
     plural(locale, Number(count), {
@@ -42,13 +42,13 @@ export const workbenchLive = {
 
   // ── live-display: schedule + policy wording ─────────────────────────
   'workbench.editors.live.schedule.last': 'dernière actualisation {when}',
-  'workbench.editors.live.schedule.manualOnly': 'actualisation manuelle uniquement',
-  'workbench.editors.live.schedule.autoRefresh': 'actualisation auto {when}',
+  'workbench.editors.live.schedule.manualOnly': "s'exécute manuellement",
+  'workbench.editors.live.schedule.runsAgain': "s'exécute à nouveau {when}",
   'workbench.editors.live.schedule.expires': 'expire {when}',
   'workbench.editors.live.policy.interval': 'toutes les {seconds}s',
   'workbench.editors.live.policy.expiresIn': 'expires-in depuis {source} (avance {lead}s)',
   'workbench.editors.live.policy.expiresAt': 'expires-at depuis {source} (avance {lead}s)',
-  'workbench.editors.live.policy.manual': 'actualisation manuelle',
+  'workbench.editors.live.policy.manual': 'manuel',
 
   // ── live-display: per-step run states ───────────────────────────────
   'workbench.editors.live.stepRun.completed': 'Terminée à la dernière exécution',
@@ -221,7 +221,7 @@ export const workbenchLive = {
   'workbench.editors.live.criteria.lastRun': 'Dernière exécution : {outcome}',
   'workbench.editors.live.criteria.neverMatched': "N'a jamais correspondu",
   'workbench.editors.live.run.empty':
-    "Aucune exécution dans cette session pour l'instant. Appuyez sur {button} pour exécuter ce workflow.",
+    "Aucune exécution dans cette session pour l'instant. Appuyez sur {button} pour en lancer une.",
   'workbench.editors.live.run.verdict.running': 'En cours',
   'workbench.editors.live.run.verdict.passed': 'Réussie',
   'workbench.editors.live.run.verdict.failed': 'Échouée',
@@ -283,8 +283,14 @@ export const workbenchLive = {
   'workbench.editors.live.run.pane.note.stored': 'Stocké · ignoré',
   'workbench.editors.live.run.pane.note.sent': 'Envoyé',
   'workbench.editors.live.run.pane.note.reply': 'Réponse',
-  'workbench.editors.live.workflow.refresh': 'Actualiser',
+  'workbench.editors.live.workflow.run': 'Exécuter',
   'workbench.editors.live.workflow.runUnavailable': "Les workflows ne s'exécutent pas dans une copie publique.",
+  'workbench.editors.live.workflow.saveToRun': "Enregistrez le workflow pour l'exécuter.",
+  'workbench.editors.live.workflow.statusRunning': 'En cours, {done} sur {total} terminées',
+  'workbench.editors.live.workflow.statusFailedAt': 'Échec à {step}',
+  'workbench.editors.live.workflow.scheduleManual': 'Manuel',
+  'workbench.editors.live.workflow.scheduleEvery': 'Toutes les {interval}',
+  'workbench.editors.live.workflow.scheduleBeforeExpiry': "Avant l'expiration",
   'workbench.editors.live.workflow.disabledTag': 'Désactivé',
   'workbench.editors.live.workflow.notFound': 'Workflow introuvable.',
   'workbench.editors.live.workflow.needsUpdate':
@@ -295,8 +301,8 @@ export const workbenchLive = {
   'workbench.editors.live.workflow.saveFailed': "Impossible d'enregistrer le workflow",
   'workbench.editors.live.workflow.createFailed': 'Impossible de créer le workflow',
   'workbench.editors.live.workflow.nothingPicked': "L'étape « {id} » n'a encore rien de sélectionné.",
-  'workbench.editors.live.workflow.refreshed': 'Actualisé',
-  'workbench.editors.live.workflow.refreshFailed': "Échec de l'actualisation : {error}",
+  'workbench.editors.live.workflow.runPassed': 'Exécution réussie',
+  'workbench.editors.live.workflow.runFailed': "Échec de l'exécution : {error}",
   'workbench.editors.live.workflow.defaultName': 'Workflow',
   'workbench.editors.live.workflow.newDraftName': 'Nouveau workflow',
 
@@ -309,9 +315,9 @@ export const workbenchLive = {
   'workbench.editors.live.form.parallelLabel': 'Exécuter les étapes indépendantes en parallèle',
   'workbench.editors.live.form.parallelTooltip':
     "Séquentiel uniquement en v1. L'exécution parallèle arrivera dans une prochaine version.",
-  'workbench.editors.live.form.refreshPolicySection': "Politique d'actualisation",
+  'workbench.editors.live.form.runsSection': 'Exécution',
   'workbench.editors.live.form.sessionPolicyInfo':
-    "Un workflow avec des étapes de session s'exécute quand vous appuyez sur Actualiser.",
+    "Un workflow avec des étapes de session s'exécute quand vous appuyez sur Exécuter.",
   'workbench.editors.live.form.sessionNoLiveVariables':
     'Un workflow avec des étapes de session rend un verdict ; ses captures ne sont pas exposées comme variables live.',
 
@@ -495,18 +501,18 @@ export const workbenchLive = {
   'workbench.editors.live.status.summaryPaused': '{count} suspendus',
   'workbench.editors.live.status.loading': 'Chargement…',
   'workbench.editors.live.status.empty':
-    'Aucune exécution de workflow pour le moment. Créez un workflow et cliquez sur Actualiser pour alimenter.',
+    'Aucune exécution de workflow pour le moment. Créez un workflow et appuyez sur Exécuter.',
   'workbench.editors.live.status.failuresCount': 'échecs : {count}',
-  'workbench.editors.live.status.failuresTooltip': 'Échecs consécutifs depuis la dernière actualisation réussie.',
+  'workbench.editors.live.status.failuresTooltip': 'Échecs consécutifs depuis la dernière exécution réussie.',
   'workbench.editors.live.status.openingsCount': 'ouvertures : {count}',
   'workbench.editors.live.status.openingsTooltip':
     'Nombre de passages du circuit à OPEN dans le cycle courant. Divisé par deux après une récupération bien ' +
     'installée, décrémenté de un après une récupération récente.',
   'workbench.editors.live.status.nextAttempt': 'prochaine tentative {countdown}',
   'workbench.editors.live.status.nextAttemptTooltip':
-    "Heure à laquelle la prochaine sonde automatique s'exécutera. Cliquez sur Actualiser maintenant pour la " +
+    "Heure à laquelle la prochaine sonde automatique s'exécutera. Cliquez sur Exécuter maintenant pour la " +
     'court-circuiter.',
-  'workbench.editors.live.status.refreshNow': 'Actualiser maintenant',
+  'workbench.editors.live.status.runNow': 'Exécuter maintenant',
   'workbench.editors.live.status.resetCircuit': 'Réinitialiser le circuit',
   'workbench.editors.live.status.resetCircuitTooltip':
     "Efface les compteurs d'échec + le backoff en attente. N'exécute pas de sonde.",
@@ -521,10 +527,10 @@ export const workbenchLive = {
     }),
   'workbench.editors.live.status.needsReRun': 'réexécution requise',
   'workbench.editors.live.status.needsReRunTooltip':
-    "Le workflow ou une entrée qu'il résout a changé depuis l'extraction de cette valeur — lancez Actualiser " +
-    'pour ré-extraire.',
-  'workbench.editors.live.status.neverRunForEnv': 'jamais exécuté pour cet env — cliquez sur Actualiser pour alimenter',
-  'workbench.editors.live.status.notRunYet': 'pas encore exécuté — cliquez sur Actualiser pour exécuter',
+    "Le workflow ou une entrée qu'il résout a changé depuis l'extraction de cette valeur — exécutez-le à " +
+    'nouveau pour ré-extraire.',
+  'workbench.editors.live.status.neverRunForEnv': 'jamais exécuté pour cet env — appuyez sur Exécuter pour alimenter',
+  'workbench.editors.live.status.notRunYet': 'pas encore exécuté — appuyez sur Exécuter',
 
   // ── Create Workflow from requests modal ─────────────────────────────
   'workbench.editors.live.fromRequests.title': 'Créer un workflow depuis « {name} »',

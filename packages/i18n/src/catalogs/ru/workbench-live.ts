@@ -40,7 +40,7 @@ import type { Catalog } from '../../types';
 export const workbenchLive = {
   // ── live-display: circuit descriptors ───────────────────────────────
   'workbench.editors.live.circuit.idleLabel': 'простой',
-  'workbench.editors.live.circuit.idleHint': 'Кеша ещё нет — запустите обновление, чтобы заполнить его.',
+  'workbench.editors.live.circuit.idleHint': 'Кеша ещё нет — запустите рабочий процесс, чтобы заполнить его.',
   'workbench.editors.live.circuit.pausedLabel': 'на паузе',
   'workbench.editors.live.circuit.pausedHint': ({ count }, locale) =>
     plural(locale, Number(count), {
@@ -61,13 +61,13 @@ export const workbenchLive = {
 
   // ── live-display: schedule + policy wording ─────────────────────────
   'workbench.editors.live.schedule.last': 'последнее {when}',
-  'workbench.editors.live.schedule.manualOnly': 'только ручное обновление',
-  'workbench.editors.live.schedule.autoRefresh': 'автообновление {when}',
+  'workbench.editors.live.schedule.manualOnly': 'запускается вручную',
+  'workbench.editors.live.schedule.runsAgain': 'запустится снова {when}',
   'workbench.editors.live.schedule.expires': 'истекает {when}',
   'workbench.editors.live.policy.interval': 'каждые {seconds}s',
   'workbench.editors.live.policy.expiresIn': 'expires-in из захвата {source} (упреждение {lead} с)',
   'workbench.editors.live.policy.expiresAt': 'expires-at из захвата {source} (упреждение {lead} с)',
-  'workbench.editors.live.policy.manual': 'ручное обновление',
+  'workbench.editors.live.policy.manual': 'вручную',
 
   // ── live-display: per-step run states ───────────────────────────────
   'workbench.editors.live.stepRun.completed': 'Завершён в последнем запуске',
@@ -236,8 +236,7 @@ export const workbenchLive = {
   'workbench.editors.live.criteria.colOperator': 'Оператор',
   'workbench.editors.live.criteria.lastRun': 'Последний запуск: {outcome}',
   'workbench.editors.live.criteria.neverMatched': 'Совпадений не было',
-  'workbench.editors.live.run.empty':
-    'В этом сеансе запусков ещё не было. Нажмите «{button}», чтобы запустить этот рабочий процесс.',
+  'workbench.editors.live.run.empty': 'В этом сеансе запусков ещё не было. Нажмите «{button}», чтобы начать.',
   'workbench.editors.live.run.verdict.running': 'Выполняется',
   'workbench.editors.live.run.verdict.passed': 'Пройден',
   'workbench.editors.live.run.verdict.failed': 'Сбой',
@@ -301,8 +300,14 @@ export const workbenchLive = {
   'workbench.editors.live.run.pane.note.stored': 'Сохранённое · пропущено',
   'workbench.editors.live.run.pane.note.sent': 'Отправлено',
   'workbench.editors.live.run.pane.note.reply': 'Ответ',
-  'workbench.editors.live.workflow.refresh': 'Обновить',
+  'workbench.editors.live.workflow.run': 'Запустить',
   'workbench.editors.live.workflow.runUnavailable': 'Рабочие процессы не запускаются в публичной копии.',
+  'workbench.editors.live.workflow.saveToRun': 'Сохраните рабочий процесс, чтобы запустить его.',
+  'workbench.editors.live.workflow.statusRunning': 'Выполняется, готово {done} из {total}',
+  'workbench.editors.live.workflow.statusFailedAt': 'Сбой на шаге {step}',
+  'workbench.editors.live.workflow.scheduleManual': 'Вручную',
+  'workbench.editors.live.workflow.scheduleEvery': 'Каждые {interval}',
+  'workbench.editors.live.workflow.scheduleBeforeExpiry': 'До истечения',
   'workbench.editors.live.workflow.disabledTag': 'Выключено',
   'workbench.editors.live.workflow.notFound': 'Рабочий процесс не найден.',
   'workbench.editors.live.workflow.needsUpdate':
@@ -313,8 +318,8 @@ export const workbenchLive = {
   'workbench.editors.live.workflow.saveFailed': 'Не удалось сохранить рабочий процесс',
   'workbench.editors.live.workflow.createFailed': 'Не удалось создать рабочий процесс',
   'workbench.editors.live.workflow.nothingPicked': 'Для шага «{id}» ещё ничего не выбрано.',
-  'workbench.editors.live.workflow.refreshed': 'Обновлено',
-  'workbench.editors.live.workflow.refreshFailed': 'Обновление не удалось: {error}',
+  'workbench.editors.live.workflow.runPassed': 'Запуск пройден',
+  'workbench.editors.live.workflow.runFailed': 'Запуск не удался: {error}',
   'workbench.editors.live.workflow.defaultName': 'Рабочий процесс',
   'workbench.editors.live.workflow.newDraftName': 'Новый рабочий процесс',
 
@@ -327,9 +332,9 @@ export const workbenchLive = {
   'workbench.editors.live.form.parallelLabel': 'Выполнять независимые шаги параллельно',
   'workbench.editors.live.form.parallelTooltip':
     'В v1 только последовательно. Параллельное выполнение появится в одном из следующих выпусков.',
-  'workbench.editors.live.form.refreshPolicySection': 'Политика обновления',
+  'workbench.editors.live.form.runsSection': 'Запуск',
   'workbench.editors.live.form.sessionPolicyInfo':
-    'Рабочий процесс с шагами сеанса выполняется, когда вы нажимаете «Обновить».',
+    'Рабочий процесс с шагами сеанса выполняется, когда вы нажимаете «Запустить».',
   'workbench.editors.live.form.sessionNoLiveVariables':
     'Рабочий процесс с шагами сеанса выносит вердикт; его захваты не раскрываются как переменные Live.',
 
@@ -503,16 +508,16 @@ export const workbenchLive = {
   'workbench.editors.live.status.summaryPaused': '{count} на паузе',
   'workbench.editors.live.status.loading': 'Загрузка…',
   'workbench.editors.live.status.empty':
-    'Запусков рабочих процессов пока нет. Создайте рабочий процесс и нажмите «Обновить», чтобы заполнить.',
+    'Запусков рабочих процессов пока нет. Создайте рабочий процесс и нажмите «Запустить».',
   'workbench.editors.live.status.failuresCount': 'сбоев: {count}',
-  'workbench.editors.live.status.failuresTooltip': 'Сбои подряд с момента последнего успешного обновления.',
+  'workbench.editors.live.status.failuresTooltip': 'Сбои подряд с момента последнего пройденного запуска.',
   'workbench.editors.live.status.openingsCount': 'размыканий: {count}',
   'workbench.editors.live.status.openingsTooltip':
     'Сколько раз выключатель переходил в разомкнутое состояние в текущем цикле. Уменьшается вдвое после давнего восстановления и на единицу — после недавнего.',
   'workbench.editors.live.status.nextAttempt': 'следующая попытка {countdown}',
   'workbench.editors.live.status.nextAttemptTooltip':
-    'Реальное время следующей автоматической проверки. Нажмите «Обновить сейчас», чтобы не ждать.',
-  'workbench.editors.live.status.refreshNow': 'Обновить сейчас',
+    'Реальное время следующей автоматической проверки. Нажмите «Запустить сейчас», чтобы не ждать.',
+  'workbench.editors.live.status.runNow': 'Запустить сейчас',
   'workbench.editors.live.status.resetCircuit': 'Сбросить выключатель',
   'workbench.editors.live.status.resetCircuitTooltip':
     'Очистить счётчики сбоев и отложенную задержку. Проверку не запускает.',
@@ -528,10 +533,10 @@ export const workbenchLive = {
     }),
   'workbench.editors.live.status.needsReRun': 'нужен повторный запуск',
   'workbench.editors.live.status.needsReRunTooltip':
-    'Рабочий процесс или разрешаемые им входные данные изменились после извлечения этого значения — запустите «Обновить», чтобы извлечь заново.',
+    'Рабочий процесс или разрешаемые им входные данные изменились после извлечения этого значения — запустите его снова, чтобы извлечь заново.',
   'workbench.editors.live.status.neverRunForEnv':
-    'в этом окружении ещё не запускался — нажмите «Обновить», чтобы заполнить',
-  'workbench.editors.live.status.notRunYet': 'ещё не запускался — нажмите «Обновить», чтобы запустить',
+    'в этом окружении ещё не запускался — нажмите «Запустить», чтобы заполнить',
+  'workbench.editors.live.status.notRunYet': 'ещё не запускался — нажмите «Запустить»',
 
   // ── Create Workflow from requests modal ─────────────────────────────
   'workbench.editors.live.fromRequests.title': 'Создать рабочий процесс из «{name}»',

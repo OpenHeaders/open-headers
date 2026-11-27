@@ -231,7 +231,7 @@ export const workbenchEditorsRule = {
   'workbench.editors.rule.resolution.reason.secretUnavailable': 'gestor no disponible',
   'workbench.editors.rule.resolution.reason.secretBrokerUnreachable': 'aplicación de escritorio no conectada',
   'workbench.editors.rule.resolution.hint.noCacheForEnv':
-    'no hay ejecución en caché para el entorno «{envName}» — abre el workflow y haz clic en Actualizar bajo ' +
+    'no hay ejecución en caché para el entorno «{envName}» — abre el workflow y haz clic en Ejecutar bajo ' +
     'ese entorno para rellenarla',
   'workbench.editors.rule.resolution.hint.disabledLv':
     'la variable Live está desactivada — actívala en el editor de Variables Live',

@@ -1,7 +1,7 @@
 /**
  * Whether this surface can run a workflow on a press, and the (i) that
  * says where one runs when it cannot (the workflow runs plan, Decisions
- * log, S5 and S16). Every Refresh of a workflow reads the one answer.
+ * log, S5 and S16). Every Run of a workflow reads the one answer.
  */
 
 import { hasCapability } from '@openheaders/core/capabilities';
@@ -35,29 +35,42 @@ export function canRunWorkflowHere(workflow: LiveWorkflow): boolean {
   return !sessionRunsElsewhere(workflow);
 }
 
-/** The (i) beside a Refresh that is off because this surface runs no workflow. */
+/** The (i) beside a Run that is off because this surface runs no workflow. */
 export const RunUnavailableInfo: React.FC = () => {
   const t = useT();
   return (
     <InfoTrigger
       content={{
-        title: t('workbench.editors.live.workflow.refresh'),
+        title: t('workbench.editors.live.workflow.run'),
         summary: t('workbench.editors.live.workflow.runUnavailable'),
       }}
     />
   );
 };
 
-/** The (i) beside a Refresh that is off because this surface opens no session. */
+/** The (i) beside a Run that is off because this surface opens no session. */
 export const SessionRunElsewhereInfo: React.FC = () => {
   const t = useT();
   return (
     <InfoTrigger
       content={{
-        title: t('workbench.editors.live.workflow.refresh'),
+        title: t('workbench.editors.live.workflow.run'),
         summary: t('workbench.editors.live.workflow.sessionRunsElsewhere', {
           surface: t('shared.awareness.kind.workbench'),
         }),
+      }}
+    />
+  );
+};
+
+/** The (i) beside a Run that is off because the workflow was never saved. */
+export const SaveToRunInfo: React.FC = () => {
+  const t = useT();
+  return (
+    <InfoTrigger
+      content={{
+        title: t('workbench.editors.live.workflow.run'),
+        summary: t('workbench.editors.live.workflow.saveToRun'),
       }}
     />
   );

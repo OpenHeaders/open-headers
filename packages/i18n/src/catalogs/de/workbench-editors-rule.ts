@@ -229,7 +229,7 @@ export const workbenchEditorsRule = {
   'workbench.editors.rule.resolution.reason.secretBrokerUnreachable': 'Desktop-App nicht verbunden',
   'workbench.editors.rule.resolution.hint.noCacheForEnv':
     'kein zwischengespeicherter Lauf für die Umgebung „{envName}“ — öffne den Workflow und klicke unter ' +
-    'dieser Umgebung auf Aktualisieren, um ihn zu befüllen',
+    'dieser Umgebung auf Ausführen, um ihn zu befüllen',
   'workbench.editors.rule.resolution.hint.disabledLv':
     'die Live-Variable ist deaktiviert — aktiviere sie im Editor für Live-Variablen',
   'workbench.editors.rule.resolution.hint.draftLv':

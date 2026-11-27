@@ -6,7 +6,7 @@
  * consecutive-failure + consecutive-openings counts, last-error
  * message, and a live ticking countdown to `nextAttemptAt` for
  * paused circuits. Per-row actions:
- *   • Refresh now — forces a probe, bypassing both the canSchedule
+ *   • Run now — forces a probe, bypassing both the canSchedule
  *     binding gate AND the circuit's `canAttempt` gate when open.
  *   • Reset circuit — clears failure counters + nextAttemptAt
  *     without running a probe.
@@ -19,7 +19,7 @@
  * timer runs.
  */
 
-import { PlusOutlined, ReloadOutlined } from '@ant-design/icons';
+import { CaretRightOutlined, PlusOutlined } from '@ant-design/icons';
 import { useEnvironments } from '@openheaders/ui/shared/hooks/readers/useEnvironments';
 import { useRules } from '@openheaders/ui/shared/hooks/readers/useRules';
 import { useAllLiveCaches } from '@openheaders/ui/shared/hooks/readers/useLiveCache';
@@ -152,9 +152,9 @@ const WorkflowStatusPanel: React.FC<Props> = ({ info, onClose, onOpenWorkflow, o
         workspaceId: editingWorkspaceId,
       });
       if (resp.success) {
-        message.success(t('workbench.editors.live.workflow.refreshed'));
+        message.success(t('workbench.editors.live.workflow.runPassed'));
       } else {
-        message.error(t('workbench.editors.live.workflow.refreshFailed', { error: resp.error }));
+        message.error(t('workbench.editors.live.workflow.runFailed', { error: resp.error }));
       }
     },
     [message, editingWorkspaceId, t],
@@ -432,8 +432,8 @@ const WorkflowStatusRow: React.FC<RowProps> = ({ row, isActiveEnv, onRefresh, on
 
       {/* Row 3 — actions */}
       <div style={{ display: 'flex', gap: 6 }}>
-        <Button size="small" icon={<ReloadOutlined />} disabled={!row.canRun} onClick={onRefresh}>
-          {t('workbench.editors.live.status.refreshNow')}
+        <Button size="small" icon={<CaretRightOutlined />} disabled={!row.canRun} onClick={onRefresh}>
+          {t('workbench.editors.live.status.runNow')}
         </Button>
         {c && (c.state !== 'closed' || c.consecutiveFailures > 0 || c.consecutiveOpenings > 0) && (
           <Tooltip title={t('workbench.editors.live.status.resetCircuitTooltip')}>

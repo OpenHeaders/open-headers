@@ -13,6 +13,7 @@ import { LIVE_WORKFLOW_FIELD } from '@openheaders/ui/shared/awareness/live-paths
 import { InfoTrigger } from '@openheaders/ui/shared/info-popover';
 import { Alert, ConfigProvider, Switch, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
+import { useEffect, useRef } from 'react';
 import { InlineDescription, LIVE_FORM_PAD_X, Section } from './layout';
 import RefreshPolicyEditor from './RefreshPolicyEditor';
 import type { WorkflowFormModel } from './use-workflow-form-model';
@@ -31,6 +32,9 @@ interface Props {
   /** The saved workflow on a surface that runs workflows — absent where there is no run to show. */
   workflow?: LiveWorkflow;
   run?: ShownWorkflowRun | null;
+  /** The header's schedule word was pressed: bring the setting of when the workflow runs to the panel's top. */
+  revealSettings?: boolean;
+  onSettingsRevealed?: () => void;
 }
 
 const WorkflowOverviewPanel: React.FC<Props> = ({
@@ -41,9 +45,23 @@ const WorkflowOverviewPanel: React.FC<Props> = ({
   onSelectStep,
   workflow,
   run,
+  revealSettings = false,
+  onSettingsRevealed,
 }) => {
   const { token } = theme.useToken();
   const t = useT();
+  const scrollerRef = useRef<HTMLDivElement>(null);
+  const settingsRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!revealSettings) return;
+    const scroller = scrollerRef.current;
+    const settings = settingsRef.current;
+    if (scroller && settings) {
+      scroller.scrollTop += settings.getBoundingClientRect().top - scroller.getBoundingClientRect().top;
+    }
+    onSettingsRevealed?.();
+  }, [revealSettings, onSettingsRevealed]);
 
   return (
     <>
@@ -61,7 +79,7 @@ const WorkflowOverviewPanel: React.FC<Props> = ({
           {t('workbench.editors.live.panel.noStep')}
         </Text>
       </div>
-      <div className="oh-persistent-scroll" style={{ flex: 1, minHeight: 0 }}>
+      <div ref={scrollerRef} className="oh-persistent-scroll" style={{ flex: 1, minHeight: 0 }}>
         <ConfigProvider componentDisabled={readOnly}>
           <div style={{ padding: `16px ${LIVE_FORM_PAD_X}px`, display: 'flex', flexDirection: 'column', gap: 16 }}>
             {model.workflowLevelErrors.length > 0 && (
@@ -94,15 +112,15 @@ const WorkflowOverviewPanel: React.FC<Props> = ({
               </Section>
             )}
 
-            <div data-field-path={LIVE_WORKFLOW_FIELD.refresh} data-testid="wf-panel-policy">
+            <div ref={settingsRef} data-field-path={LIVE_WORKFLOW_FIELD.refresh} data-testid="wf-panel-policy">
               <Section
                 title={
                   <>
-                    {t('workbench.editors.live.form.refreshPolicySection')}
+                    {t('workbench.editors.live.form.runsSection')}
                     {model.holdsSession && (
                       <InfoTrigger
                         content={{
-                          title: t('workbench.editors.live.form.refreshPolicySection'),
+                          title: t('workbench.editors.live.form.runsSection'),
                           summary: t('workbench.editors.live.form.sessionPolicyInfo'),
                         }}
                       />

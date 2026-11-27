@@ -187,7 +187,7 @@ export const workbenchEditorsRule = {
   'workbench.editors.rule.resolution.reason.secretUnavailable': 'manager unavailable',
   'workbench.editors.rule.resolution.reason.secretBrokerUnreachable': 'desktop app not connected',
   'workbench.editors.rule.resolution.hint.noCacheForEnv':
-    'no cached run for env "{envName}" — open the workflow and click Refresh under this env to populate',
+    'no cached run for env "{envName}" — open the workflow and click Run under this env to populate',
   'workbench.editors.rule.resolution.hint.disabledLv':
     'live variable is disabled — enable it in the Live Variables editor',
   'workbench.editors.rule.resolution.hint.draftLv': 'live variable is a draft — open it and click Save to publish',

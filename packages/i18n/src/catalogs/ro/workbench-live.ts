@@ -46,7 +46,7 @@ import type { Catalog } from '../../types';
 export const workbenchLive = {
   // ── live-display: circuit descriptors ───────────────────────────────
   'workbench.editors.live.circuit.idleLabel': 'inactiv',
-  'workbench.editors.live.circuit.idleHint': 'Niciun cache încă — rulați o reîmprospătare pentru a-l popula.',
+  'workbench.editors.live.circuit.idleHint': 'Niciun cache încă — rulați fluxul de lucru pentru a-l popula.',
   'workbench.editors.live.circuit.pausedLabel': 'în pauză',
   'workbench.editors.live.circuit.pausedHint': ({ count }, locale) =>
     plural(locale, Number(count), {
@@ -65,13 +65,13 @@ export const workbenchLive = {
 
   // ── live-display: schedule + policy wording ─────────────────────────
   'workbench.editors.live.schedule.last': 'ultima {when}',
-  'workbench.editors.live.schedule.manualOnly': 'doar reîmprospătare manuală',
-  'workbench.editors.live.schedule.autoRefresh': 'reîmprospătare automată {when}',
+  'workbench.editors.live.schedule.manualOnly': 'rulează manual',
+  'workbench.editors.live.schedule.runsAgain': 'rulează din nou {when}',
   'workbench.editors.live.schedule.expires': 'expiră {when}',
   'workbench.editors.live.policy.interval': 'la fiecare {seconds}s',
   'workbench.editors.live.policy.expiresIn': 'expires-in din captura {source} (avans {lead} s)',
   'workbench.editors.live.policy.expiresAt': 'expires-at din captura {source} (avans {lead} s)',
-  'workbench.editors.live.policy.manual': 'reîmprospătare manuală',
+  'workbench.editors.live.policy.manual': 'manual',
 
   // ── live-display: per-step run states ───────────────────────────────
   'workbench.editors.live.stepRun.completed': 'Finalizat la ultima rulare',
@@ -241,8 +241,7 @@ export const workbenchLive = {
   'workbench.editors.live.criteria.colOperator': 'Operator',
   'workbench.editors.live.criteria.lastRun': 'Ultima rulare: {outcome}',
   'workbench.editors.live.criteria.neverMatched': 'Nu s-a potrivit niciodată',
-  'workbench.editors.live.run.empty':
-    'Nicio rulare în această sesiune încă. Apăsați {button} pentru a rula acest flux de lucru.',
+  'workbench.editors.live.run.empty': 'Nicio rulare în această sesiune încă. Apăsați {button} pentru a porni una.',
   'workbench.editors.live.run.verdict.running': 'În curs',
   'workbench.editors.live.run.verdict.passed': 'Reușită',
   'workbench.editors.live.run.verdict.failed': 'Eșuată',
@@ -304,8 +303,14 @@ export const workbenchLive = {
   'workbench.editors.live.run.pane.note.stored': 'Stocat · omis',
   'workbench.editors.live.run.pane.note.sent': 'Trimis',
   'workbench.editors.live.run.pane.note.reply': 'Răspuns',
-  'workbench.editors.live.workflow.refresh': 'Reîmprospătare',
+  'workbench.editors.live.workflow.run': 'Rulare',
   'workbench.editors.live.workflow.runUnavailable': 'Fluxurile de lucru nu rulează într-o copie publică.',
+  'workbench.editors.live.workflow.saveToRun': 'Salvați fluxul de lucru pentru a-l rula.',
+  'workbench.editors.live.workflow.statusRunning': 'În curs, {done} din {total} gata',
+  'workbench.editors.live.workflow.statusFailedAt': 'Eșuat la {step}',
+  'workbench.editors.live.workflow.scheduleManual': 'Manual',
+  'workbench.editors.live.workflow.scheduleEvery': 'La fiecare {interval}',
+  'workbench.editors.live.workflow.scheduleBeforeExpiry': 'Înainte de expirare',
   'workbench.editors.live.workflow.disabledTag': 'Dezactivat',
   'workbench.editors.live.workflow.notFound': 'Fluxul de lucru nu a fost găsit.',
   'workbench.editors.live.workflow.needsUpdate':
@@ -316,8 +321,8 @@ export const workbenchLive = {
   'workbench.editors.live.workflow.saveFailed': 'Salvarea fluxului de lucru a eșuat',
   'workbench.editors.live.workflow.createFailed': 'Crearea fluxului de lucru a eșuat',
   'workbench.editors.live.workflow.nothingPicked': 'Pasul „{id}” nu are încă nimic selectat.',
-  'workbench.editors.live.workflow.refreshed': 'Reîmprospătat',
-  'workbench.editors.live.workflow.refreshFailed': 'Reîmprospătarea a eșuat: {error}',
+  'workbench.editors.live.workflow.runPassed': 'Rulare reușită',
+  'workbench.editors.live.workflow.runFailed': 'Rularea a eșuat: {error}',
   'workbench.editors.live.workflow.defaultName': 'Flux de lucru',
   'workbench.editors.live.workflow.newDraftName': 'Flux de lucru nou',
 
@@ -330,9 +335,8 @@ export const workbenchLive = {
   'workbench.editors.live.form.parallelLabel': 'Rulare pași independenți în paralel',
   'workbench.editors.live.form.parallelTooltip':
     'Doar secvențial în v1. Execuția paralelă va veni într-o versiune viitoare.',
-  'workbench.editors.live.form.refreshPolicySection': 'Politică de reîmprospătare',
-  'workbench.editors.live.form.sessionPolicyInfo':
-    'Un flux de lucru cu pași de sesiune rulează când apăsați Reîmprospătare.',
+  'workbench.editors.live.form.runsSection': 'Rulare',
+  'workbench.editors.live.form.sessionPolicyInfo': 'Un flux de lucru cu pași de sesiune rulează când apăsați Rulare.',
   'workbench.editors.live.form.sessionNoLiveVariables':
     'Un flux de lucru cu pași de sesiune dă un verdict; capturile sale nu sunt expuse ca variabile Live.',
 
@@ -505,16 +509,16 @@ export const workbenchLive = {
   'workbench.editors.live.status.summaryPaused': '{count} în pauză',
   'workbench.editors.live.status.loading': 'Se încarcă…',
   'workbench.editors.live.status.empty':
-    'Nicio rulare de flux de lucru încă. Creați un flux de lucru și apăsați „Reîmprospătare” pentru a popula.',
+    'Nicio rulare de flux de lucru încă. Creați un flux de lucru și apăsați „Rulare”.',
   'workbench.editors.live.status.failuresCount': 'eșecuri: {count}',
-  'workbench.editors.live.status.failuresTooltip': 'Eșecuri consecutive de la ultima reîmprospătare reușită.',
+  'workbench.editors.live.status.failuresTooltip': 'Eșecuri consecutive de la ultima rulare reușită.',
   'workbench.editors.live.status.openingsCount': 'deschideri: {count}',
   'workbench.editors.live.status.openingsTooltip':
     'De câte ori a trecut circuitul în starea DESCHIS în ciclul curent. Se înjumătățește la o recuperare bine așezată în timp și scade cu unu la o recuperare recentă.',
   'workbench.editors.live.status.nextAttempt': 'următoarea încercare {countdown}',
   'workbench.editors.live.status.nextAttemptTooltip':
-    'Ora reală la care va rula următoarea verificare automată. Apăsați „Reîmprospătare acum” pentru a o ocoli.',
-  'workbench.editors.live.status.refreshNow': 'Reîmprospătare acum',
+    'Ora reală la care va rula următoarea verificare automată. Apăsați „Rulare acum” pentru a o ocoli.',
+  'workbench.editors.live.status.runNow': 'Rulare acum',
   'workbench.editors.live.status.resetCircuit': 'Resetare circuit',
   'workbench.editors.live.status.resetCircuitTooltip':
     'Golește contoarele de eșecuri și backoff-ul în așteptare. Nu rulează o verificare.',
@@ -529,10 +533,9 @@ export const workbenchLive = {
     }),
   'workbench.editors.live.status.needsReRun': 'necesită rerulare',
   'workbench.editors.live.status.needsReRunTooltip':
-    'Fluxul de lucru sau o intrare pe care o rezolvă s-a schimbat de când a fost extrasă această valoare — rulați „Reîmprospătare” pentru a extrage din nou.',
-  'workbench.editors.live.status.neverRunForEnv':
-    'nicio rulare pentru acest mediu — apăsați „Reîmprospătare” pentru a popula',
-  'workbench.editors.live.status.notRunYet': 'încă nerulat — apăsați „Reîmprospătare” pentru a rula',
+    'Fluxul de lucru sau o intrare pe care o rezolvă s-a schimbat de când a fost extrasă această valoare — rulați-l din nou pentru a extrage din nou.',
+  'workbench.editors.live.status.neverRunForEnv': 'nicio rulare pentru acest mediu — apăsați „Rulare” pentru a popula',
+  'workbench.editors.live.status.notRunYet': 'încă nerulat — apăsați „Rulare”',
 
   // ── Create Workflow from requests modal ─────────────────────────────
   'workbench.editors.live.fromRequests.title': 'Creare flux de lucru din „{name}”',
