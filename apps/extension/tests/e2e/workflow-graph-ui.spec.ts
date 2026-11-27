@@ -25,7 +25,11 @@
  *     (the step's card shows the new parent, isDirty flips, Save persists);
  *     would-be-cycle targets tint during the drag but the drop still
  *     commits and the validation badge flags it; edge select + remove;
- *     the add-step affordance appends a form-default step.
+ *     "+ Step" opens the step picker, whose Call row appends a step with
+ *     nothing picked.
+ *   - The bar of the selected step and a node's menu: "Add step after"
+ *     with a request found by search and taken by Enter, Duplicate from
+ *     the menu, Delete from the bar.
  *   - The start mark on the step that waits on no other; the minimap's
  *     rectangle a step, and a press on it moving the view.
  *   - Undo and redo: the connect is taken back and brought back by the
@@ -432,7 +436,12 @@ test('graph editing: connect adds a dependsOn edge, edge remove, add step, cycle
   await expect(saveButton).toBeEnabled();
 
   // ── Add step ─────────────────────────────────────────────────────
+  // "+ Step" opens the picker and adds nothing by itself; its Call row is a step with nothing picked.
   await page.getByTestId('wf-graph-add-step').click();
+  await expect(page.getByTestId('wf-step-picker')).toBeVisible();
+  await expect(page.getByTestId('wf-graph-node-step4')).toHaveCount(0);
+  await page.getByTestId('wf-step-picker-kind-call').click();
+  await expect(page.getByTestId('wf-step-picker')).toHaveCount(0);
   await expect(page.getByTestId('wf-graph-node-step4')).toBeVisible();
   await expect(page.getByTestId('wf-graph-node-step4')).toHaveAttribute('data-selected', 'true');
 
@@ -446,6 +455,47 @@ test('graph editing: connect adds a dependsOn edge, edge remove, add step, cycle
   await page.mouse.up();
   await expect(page.getByTestId('wf-graph-edge-c-a')).toHaveCount(1);
   await expect(page.locator('[data-testid^="wf-graph-error-"]').first()).toBeVisible();
+
+  // ── The bar of the selected step ─────────────────────────────────
+  // By the selected node and off it: four actions, the last a delete.
+  await page.getByTestId('wf-graph-fit').click();
+  await page.getByTestId('wf-graph-node-a').click();
+  const bar = page.getByTestId('wf-graph-bar');
+  await expect(bar.locator('button')).toHaveCount(4);
+  const barBox = (await bar.boundingBox())!;
+  const selectedBox = (await page.getByTestId('wf-graph-node-a').boundingBox())!;
+  expect(barBox.y + barBox.height <= selectedBox.y || barBox.y >= selectedBox.y + selectedBox.height).toBe(true);
+
+  // "Add step after" opens the picker; a search finds the saved request,
+  // Enter takes it: a call on it, named after it, waiting on the selected step.
+  await page.getByTestId('wf-graph-bar-add-step-after').click();
+  await page.getByTestId('wf-step-picker-search').fill('EDIT-E2E');
+  await expect(page.getByTestId('wf-step-picker-kind-call')).toHaveCount(0);
+  await expect(page.getByTestId(`wf-step-picker-request-${requestUid}`)).toHaveAttribute('data-first', 'true');
+  await page.keyboard.press('Enter');
+  const added = page.getByTestId('wf-graph-node-edit-e2e-request');
+  await expect(added).toHaveAttribute('data-selected', 'true');
+  await expect(page.getByTestId('wf-graph-edge-a-edit-e2e-request')).toHaveCount(1);
+  await expect(page.locator('[data-step-card="edit-e2e-request"]')).toContainText('edit-e2e request');
+
+  // Focus is back on the graph: the shortcut takes the step back in one.
+  await page.keyboard.press('ControlOrMeta+z');
+  await expect(added).toHaveCount(0);
+
+  // ── A node's menu ────────────────────────────────────────────────
+  // A right-click selects the node and offers the bar's four. The undo
+  // took the step back, not the pan that had brought it into view.
+  await page.getByTestId('wf-graph-fit').click();
+  await page.getByTestId('wf-graph-node-b').click({ button: 'right' });
+  await expect(page.getByTestId('wf-graph-node-b')).toHaveAttribute('data-selected', 'true');
+  await expect(page.getByTestId('wf-graph-context-menu').locator('button')).toHaveCount(4);
+  await page.getByTestId('wf-graph-menu-duplicate-step').click();
+  await expect(page.getByTestId('wf-graph-node-b-copy')).toHaveAttribute('data-selected', 'true');
+
+  // The copy's bar deletes it.
+  await page.getByTestId('wf-graph-bar-delete-step').click();
+  await expect(page.getByTestId('wf-graph-node-b-copy')).toHaveCount(0);
+  await expect(bar).toHaveCount(0);
 
   expect(pageErrors).toEqual([]);
   await page.close();

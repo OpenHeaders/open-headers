@@ -196,6 +196,8 @@ const WorkflowView: React.FC<Props> = ({
           run={run}
           cacheRun={cacheRun}
           boundVars={boundVars}
+          stepChoices={model.stepChoices}
+          requestOpeners={requestOpeners}
         />
       </div>
       <aside ref={panelRef} className="oh-workflow-view-panel" data-testid="wf-panel">

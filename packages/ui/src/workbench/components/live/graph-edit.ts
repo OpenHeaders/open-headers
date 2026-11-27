@@ -24,9 +24,11 @@
  */
 
 import type { DraftKnownStep, DraftStep, DraftWorkflow } from '@openheaders/core/live';
-import { effectiveDependsOn, isExpectStep, isKnownStep, isSessionStep } from '@openheaders/core/live';
+import { effectiveDependsOn, isExpectStep, isKnownStep, isListenStep, isSessionStep } from '@openheaders/core/live';
 import type { LiveWorkflow } from '@openheaders/core/types';
 import { generateUid } from '@openheaders/core/utils';
+import { type StepAction, withStepAction } from './step-action';
+import type { StepPick } from './step-picker';
 
 /** Minimal synthetic workflow — `effectiveDependsOn` only reads steps. */
 function syntheticWorkflow(draft: DraftWorkflow): LiveWorkflow {
@@ -179,12 +181,82 @@ export function duplicateDraftStep(
 }
 
 /**
- * Append a fresh step (implicit prior-step dep, no captures) — the
- * same defaults the form's "+ Step" button produces. Returns the new
- * draft plus the generated step id so callers can select it.
+ * Append a fresh call (implicit prior-step dep, no captures) under the
+ * next `step<n>` id — a step a new workflow is seeded with. Returns the
+ * new draft plus the generated step id.
  */
 export function appendDraftStep(draft: DraftWorkflow, requestUid = ''): { draft: DraftWorkflow; stepId: string } {
   const stepId = nextStepId(draft.steps);
   const step: DraftStep = { uid: generateUid(), id: stepId, requestUid, captures: [] };
   return { draft: { ...draft, steps: [...draft.steps, step] }, stepId };
+}
+
+/** What a step id keeps of a name before the mark that tells two apart. */
+const NAMED_STEP_ID_MAX = 60;
+
+/**
+ * A step id from a request's name: its letters and digits in lower case,
+ * every run of anything else one hyphen. A name that leaves nothing — it
+ * holds no Latin letter or digit — gives the next `step<n>`. The first
+ * of `<id>`, `<id>-2`, `<id>-3`, … not already taken.
+ */
+export function stepIdFromName(steps: readonly DraftStep[], name: string): string {
+  const words = name
+    .toLowerCase()
+    .replace(/[^a-z0-9_]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+  if (words === '') return nextStepId(steps);
+  const base = (/^[a-z_]/.test(words) ? words : `step-${words}`).slice(0, NAMED_STEP_ID_MAX).replace(/-+$/, '');
+  const existing = new Set(steps.map((s) => s.id));
+  let n = 1;
+  let candidate = base;
+  while (existing.has(candidate)) {
+    n += 1;
+    candidate = `${base}-${n}`;
+  }
+  return candidate;
+}
+
+/** The listen whose session a step is part of: itself, or the one it is on. */
+function listenIdOf(step: DraftStep): string {
+  if (!isSessionStep(step)) return '';
+  return isListenStep(step) ? step.id : step.on;
+}
+
+/**
+ * A new step from the step picker, as the workflow's last step: a kind
+ * with nothing picked yet, a call on a request, a listen on a session
+ * request — its id from the request's name. Its defaults are the ones the
+ * step's own kind selector gives.
+ *
+ * Added after a step, it waits on that step by name — it is placed last
+ * for the reason a copy is (`duplicateDraftStep`) — and a send or a wait
+ * is armed by it: on its session where it has one, and a wait after it.
+ */
+export function addPickedStep(
+  draft: DraftWorkflow,
+  pick: StepPick,
+  afterStepId?: string,
+): { draft: DraftWorkflow; stepUid: string } {
+  const index = draft.steps.length;
+  const call: DraftStep = {
+    uid: generateUid(),
+    id: pick.kind === 'action' ? nextStepId(draft.steps) : stepIdFromName(draft.steps, pick.name),
+    requestUid: pick.kind === 'request' ? pick.uid : '',
+    captures: [],
+    ...(afterStepId !== undefined ? { dependsOn: [afterStepId] } : {}),
+  };
+  const action: StepAction = pick.kind === 'action' ? pick.action : pick.kind === 'session-request' ? 'listen' : 'call';
+  const next = withStepAction({ ...draft, steps: [...draft.steps, call] }, index, action);
+
+  let added = next.steps[index];
+  if (pick.kind === 'session-request' && isListenStep(added)) added = { ...added, sessionRequestUid: pick.uid };
+  const anchor = afterStepId === undefined ? undefined : draft.steps.find((s) => s.id === afterStepId);
+  if (anchor !== undefined && isSessionStep(added) && !isListenStep(added)) {
+    const on = listenIdOf(anchor) || added.on;
+    added = isExpectStep(added) ? { ...added, on, after: anchor.id } : { ...added, on };
+  }
+  const steps = next.steps.slice();
+  steps[index] = added;
+  return { draft: { ...next, steps }, stepUid: call.uid };
 }

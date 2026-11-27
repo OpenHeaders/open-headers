@@ -39,8 +39,8 @@
  *     same.
  *   - remove: click a line or its label to select it, then the × by
  *     the label removes the dependency.
- *   - add step: pane affordance appending the form's "+ Step"
- *     defaults and selecting the new node.
+ *   - add step: the pane's "+ Step" opens the step picker
+ *     (`StepPicker`); the step taken there is added and selected.
  * Rubber-banding is component-local state; only the drop mutates the
  * draft, so `isDirty` (a fingerprint comparison) can never move on a
  * gesture that didn't commit.
@@ -48,8 +48,11 @@
  * Canvas chrome: a pan/zoom viewport (drag the background to pan,
  * wheel/pinch to zoom around the cursor, a row of controls bottom-left
  * with a re-center/fit action, then the draft's undo and redo — the
- * workflow runs plan, Decisions log, S31), a compact right-click context menu on
- * the background (add step) and on nodes (delete), keyboard shortcuts
+ * workflow runs plan, Decisions log, S31), a bar of the selected step's
+ * actions by its node (`WorkflowGraphActionBar`: a copy, a step added
+ * after it, its request opened, its removal — a read-only workflow keeps
+ * the request alone), a compact right-click context menu on the
+ * background (add step) and on nodes (the bar's actions), keyboard shortcuts
  * on the focused pane (⌫ delete node or selected line, Esc dismiss), and
  * a legend behind a button at the row's end naming all of them. From two
  * steps up the whole graph sits small in the bottom-right corner
@@ -63,7 +66,9 @@
 
 import {
   AimOutlined,
+  CopyOutlined,
   DeleteOutlined,
+  ExportOutlined,
   PlusOutlined,
   QuestionCircleOutlined,
   RedoOutlined,
@@ -93,7 +98,14 @@ import type React from 'react';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { formatChord } from '../../hooks/useWorkspaceShortcuts';
 import { stepRequestTemplates } from './capture-uses';
-import { addGraphDependency, appendDraftStep, removeDraftStep, removeGraphDependency } from './graph-edit';
+import GraphControlGroup from './GraphControlGroup';
+import {
+  addGraphDependency,
+  addPickedStep,
+  duplicateDraftStep,
+  removeDraftStep,
+  removeGraphDependency,
+} from './graph-edit';
 import { buildWorkflowGraphLayout } from './graph-layout';
 import {
   capsuleArrowState,
@@ -108,17 +120,28 @@ import {
 } from './graph-lines';
 import { type Point, viewportCentredOn } from './graph-minimap';
 import { routeGraph } from './graph-routing';
-import { actionOfStep, doesOfStep, markOfStep, protocolOfStep, STEP_KIND_WORD } from './step-facts';
+import { StepPickerPopover } from './StepPicker';
+import {
+  actionOfStep,
+  doesOfStep,
+  markOfStep,
+  protocolOfStep,
+  requestOpenOf,
+  STEP_KIND_WORD,
+  type StepRequestOpeners,
+} from './step-facts';
+import type { StepPick, StepPickerChoices } from './step-picker';
 import { type DraftHistoryControls, REDO_HINT_CHORD, UNDO_CHORD } from './use-draft-history';
 import { useStepRequests } from './use-step-requests';
 import { useWaitClock } from './use-wait-clock';
 import type { ShownWorkflowRun } from './use-workflow-run';
+import WorkflowGraphActionBar, { type GraphAction } from './WorkflowGraphActionBar';
 import WorkflowGraphLines, {
   type GraphCapsuleView,
   type GraphEdgeRef,
   type GraphLineView,
 } from './WorkflowGraphLines';
-import WorkflowGraphMinimap from './WorkflowGraphMinimap';
+import WorkflowGraphMinimap, { MINIMAP_OFFSET, MINIMAP_SIZE } from './WorkflowGraphMinimap';
 import WorkflowGraphNode, { GRAPH_NODE_H, GRAPH_NODE_W } from './WorkflowGraphNode';
 
 const NODE_W = GRAPH_NODE_W;
@@ -131,6 +154,15 @@ const PAD = 24;
 const LANE_W = 24;
 const LAYOUT_METRICS = { nodeWidth: NODE_W, gap: GAP_X, laneWidth: LANE_W };
 const ROUTE_METRICS = { nodeWidth: NODE_W, nodeHeight: NODE_H, layerGap: GAP_Y };
+const NODE_SIZE = { width: NODE_W, height: NODE_H };
+/** A node's connect ring, and how far under the node it reaches. */
+const RING = 12;
+const RING_REACH = RING / 2;
+/** What the selected step's bar keeps from its node's middle: half a capsule, and a little. */
+const BAR_CLEAR_OF_LINES = 18;
+/** The band at the pane's top its "+ Step" button sits in, and what is left of it where there is no button. */
+const TOP_BAND = 40;
+const TOP_EDGE = 4;
 
 interface WorkflowGraphBodyProps {
   draft: DraftWorkflow;
@@ -157,7 +189,14 @@ interface WorkflowGraphBodyProps {
   cacheRun?: LiveWorkflowRunSnapshot | null;
   /** LVs bound to this workflow — supplies per-exposure publication state. */
   boundVars?: LiveVariable[];
+  /** What the step picker lists. */
+  stepChoices: StepPickerChoices;
+  /** What opens a request's own tab — absent on a surface that opens none. */
+  requestOpeners?: StepRequestOpeners;
 }
+
+/** The door the step picker is open at: the pane's button, a point of the canvas, the bar of the selected step. */
+type PickerDoor = 'button' | 'point' | 'bar';
 
 interface ConnectDrag {
   from: string;
@@ -167,7 +206,10 @@ interface ConnectDrag {
 
 /** Right-click context menu — pane-relative position + target (the
  *  pane never transforms, so the menu doesn't scale with the zoom). */
-type GraphMenu = { x: number; y: number } & ({ kind: 'canvas' } | { kind: 'node'; stepId: string });
+type GraphMenu = { x: number; y: number; hang: MenuHang } & ({ kind: 'canvas' } | { kind: 'node'; stepId: string });
+
+/** The edges of the pane a menu is placed from: it opens toward the pane's middle, so the pane never cuts it. */
+type MenuHang = Pick<React.CSSProperties, 'left' | 'right' | 'top' | 'bottom'>;
 
 /** Pan/zoom viewport — translate-then-scale, origin top-left. */
 interface Viewport {
@@ -210,6 +252,8 @@ const WorkflowGraphBody: React.FC<WorkflowGraphBodyProps> = ({
   run,
   cacheRun,
   boundVars,
+  stepChoices,
+  requestOpeners,
 }) => {
   const { token } = theme.useToken();
   const t = useT();
@@ -218,6 +262,7 @@ const WorkflowGraphBody: React.FC<WorkflowGraphBodyProps> = ({
   const now = useWaitClock(run?.record ?? null);
   const { uiScale } = useTheme();
   const editable = setDraft !== undefined;
+  const rootRef = useRef<HTMLDivElement>(null);
   const paneRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLDivElement>(null);
   // Rubber-band connect gesture — component-local, never on the draft.
@@ -228,6 +273,9 @@ const WorkflowGraphBody: React.FC<WorkflowGraphBodyProps> = ({
   const [hoveredStepId, setHoveredStepId] = useState<string | null>(null);
   // Right-click context menu — graph-only UI state, pane coordinates.
   const [menu, setMenu] = useState<GraphMenu | null>(null);
+  // The step picker's open door, and the point of the pane its canvas door last opened at.
+  const [picker, setPicker] = useState<PickerDoor | null>(null);
+  const [pickerPoint, setPickerPoint] = useState<Point>({ x: 0, y: 0 });
   // Pan/zoom viewport — graph-only UI state, never on the draft.
   const [viewport, setViewport] = useState<Viewport>({ x: 0, y: 0, scale: 1 });
   // Background pan gesture; `moved` suppresses the click-through that
@@ -343,6 +391,22 @@ const WorkflowGraphBody: React.FC<WorkflowGraphBodyProps> = ({
   const panePoint = (e: { clientX: number; clientY: number }): { x: number; y: number } => {
     const rect = paneRef.current?.getBoundingClientRect();
     return rect ? { x: e.clientX - rect.left, y: e.clientY - rect.top } : { x: 0, y: 0 };
+  };
+
+  // Where a right-click's menu goes: at the pointer, opening away from
+  // the pane's nearer edges.
+  const menuAt = (e: { clientX: number; clientY: number }): { x: number; y: number; hang: MenuHang } => {
+    const rect = paneRef.current?.getBoundingClientRect();
+    const { x, y } = panePoint(e);
+    if (!rect) return { x, y, hang: { left: x, top: y } };
+    return {
+      x,
+      y,
+      hang: {
+        ...(x > rect.width / 2 ? { right: rect.width - x } : { left: x }),
+        ...(y > rect.height / 2 ? { bottom: rect.height - y } : { top: y }),
+      },
+    };
   };
 
   // The first view, once the pane has a size (a tab mounted hidden has
@@ -485,12 +549,23 @@ const WorkflowGraphBody: React.FC<WorkflowGraphBodyProps> = ({
     setSelectedEdge(null);
   };
 
-  const handleAddStep = () => {
+  // A row of the step picker was taken. From the bar's door the new step waits on the selected one.
+  const handlePickStep = (pick: StepPick) => {
     if (!setDraft) return;
-    const appended = appendDraftStep(draft);
-    setDraft(appended.draft);
-    const added = appended.draft.steps.at(-1);
-    if (added !== undefined) onSelectStep?.(added.uid);
+    // Focus returns to the graph, where the picker was opened from: its shortcuts act on the step just added.
+    rootRef.current?.focus({ preventScroll: true });
+    const added = addPickedStep(draft, pick, picker === 'bar' ? (selectedStepId ?? undefined) : undefined);
+    setDraft(added.draft);
+    onSelectStep?.(added.stepUid);
+    setPicker(null);
+  };
+
+  const handleDuplicateStep = (stepUid: string) => {
+    if (!setDraft) return;
+    const copied = duplicateDraftStep(draft, stepUid);
+    if (copied === null) return;
+    setDraft(copied.draft);
+    onSelectStep?.(copied.stepUid);
   };
 
   const handleDeleteStep = (stepId: string) => {
@@ -498,6 +573,54 @@ const WorkflowGraphBody: React.FC<WorkflowGraphBodyProps> = ({
     const next = removeDraftStep(draft, stepId);
     if (next) setDraft(next);
     setMenu(null);
+  };
+
+  /**
+   * What is done to a step as a whole — the bar by its node and its
+   * right-click menu hold the same. A read-only workflow keeps the one
+   * that edits nothing; a step that names no saved request has it off.
+   */
+  const stepActionsOf = (step: WorkflowStep): GraphAction[] => {
+    const openRequest = requestOpeners !== undefined ? requestOpenOf(step, stepRequests, requestOpeners) : undefined;
+    const open: GraphAction[] =
+      requestOpeners === undefined
+        ? []
+        : [
+            {
+              key: 'open-request',
+              icon: <ExportOutlined />,
+              text: t('workbench.editors.live.request.open'),
+              disabled: openRequest === undefined,
+              onClick: () => openRequest?.(),
+            },
+          ];
+    if (!editable) return openRequest === undefined ? [] : open;
+    return [
+      {
+        key: 'duplicate-step',
+        icon: <CopyOutlined />,
+        text: t('workbench.editors.live.panel.duplicate'),
+        disabled: !isKnownStep(step),
+        onClick: () => handleDuplicateStep(step.uid),
+      },
+      {
+        key: 'add-step-after',
+        icon: <PlusOutlined />,
+        text: t('workbench.editors.live.graph.addStepAfter'),
+        opensPicker: true,
+        onClick: () => setPicker('bar'),
+      },
+      ...open,
+      {
+        key: 'delete-step',
+        icon: <DeleteOutlined />,
+        text: t('workbench.editors.live.graph.menuDeleteStep'),
+        kbd: '⌫',
+        danger: true,
+        disabled: draft.steps.length <= 1,
+        onClick: () => handleDeleteStep(step.id),
+      },
+    ];
   };
 
   // Pane-scoped shortcuts — the wrapper is focusable (pointer-down
@@ -526,18 +649,21 @@ const WorkflowGraphBody: React.FC<WorkflowGraphBodyProps> = ({
     if (!editable) return;
     e.preventDefault();
     setSelectedEdge(null);
-    setMenu({ ...panePoint(e), kind: 'canvas' });
+    setMenu({ ...menuAt(e), kind: 'canvas' });
   };
 
-  const handleNodeContextMenu = (node: { stepId: string; stepUid: string }) => (e: React.MouseEvent) => {
-    if (!editable) return;
+  const handleNodeContextMenu = (step: WorkflowStep) => (e: React.MouseEvent) => {
+    // A step with nothing to offer keeps the browser's own menu.
+    if (stepActionsOf(step).length === 0) return;
     e.preventDefault();
     e.stopPropagation();
-    onSelectStep?.(node.stepUid);
-    setMenu({ ...panePoint(e), kind: 'node', stepId: node.stepId });
+    onSelectStep?.(step.uid);
+    setMenu({ ...menuAt(e), kind: 'node', stepId: step.id });
   };
 
-  const menuActions: GraphMenuAction[] =
+  const selectedStep = selectedStepId == null ? undefined : draft.steps.find((step) => step.id === selectedStepId);
+  const menuStep = menu?.kind === 'node' ? draft.steps.find((step) => step.id === menu.stepId) : undefined;
+  const menuActions: GraphAction[] =
     menu === null
       ? []
       : menu.kind === 'canvas'
@@ -546,20 +672,15 @@ const WorkflowGraphBody: React.FC<WorkflowGraphBodyProps> = ({
               key: 'add-step',
               icon: <PlusOutlined />,
               text: t('workbench.editors.live.graph.menuAddStep'),
-              onClick: handleAddStep,
+              onClick: () => {
+                setPickerPoint({ x: menu.x, y: menu.y });
+                setPicker('point');
+              },
             },
           ]
-        : [
-            {
-              key: 'delete-step',
-              icon: <DeleteOutlined />,
-              text: t('workbench.editors.live.graph.menuDeleteStep'),
-              kbd: '⌫',
-              danger: true,
-              disabled: draft.steps.length <= 1,
-              onClick: () => handleDeleteStep(menu.stepId),
-            },
-          ];
+        : menuStep !== undefined
+          ? stepActionsOf(menuStep)
+          : [];
 
   // ── What a node says of its step ───────────────────────────────────
 
@@ -636,6 +757,7 @@ const WorkflowGraphBody: React.FC<WorkflowGraphBodyProps> = ({
 
   return (
     <div
+      ref={rootRef}
       style={{ display: 'flex', flexDirection: 'column', height: '100%', outline: 'none' }}
       tabIndex={0}
       onKeyDown={handleKeyDown}
@@ -643,16 +765,61 @@ const WorkflowGraphBody: React.FC<WorkflowGraphBodyProps> = ({
     >
       <div style={{ position: 'relative', flex: 1, minHeight: 0 }}>
       {editable && (
-        <Button
-          size="small"
-          icon={<PlusOutlined />}
-          data-testid="wf-graph-add-step"
-          onClick={handleAddStep}
-          style={{ position: 'absolute', top: 8, right: 12, zIndex: 3 }}
-        >
-          {t('workbench.editors.live.form.addStepButton')}
-        </Button>
+        <>
+          <StepPickerPopover
+            open={picker === 'button'}
+            onOpenChange={(open) => setPicker(open ? 'button' : null)}
+            placement="bottomRight"
+            choices={stepChoices}
+            onPick={handlePickStep}
+          >
+            <Button
+              size="small"
+              icon={<PlusOutlined />}
+              data-testid="wf-graph-add-step"
+              style={{ position: 'absolute', top: 8, right: 12, zIndex: 3 }}
+            >
+              {t('workbench.editors.live.form.addStepButton')}
+            </Button>
+          </StepPickerPopover>
+          {/* The canvas menu's door has no button to hang the picker on: it hangs on the point pressed. */}
+          <StepPickerPopover
+            open={picker === 'point'}
+            onOpenChange={(open) => {
+              if (!open) setPicker(null);
+            }}
+            placement="bottomLeft"
+            choices={stepChoices}
+            onPick={handlePickStep}
+          >
+            <span
+              aria-hidden="true"
+              style={{ position: 'absolute', left: pickerPoint.x, top: pickerPoint.y, width: 0, height: 0 }}
+            />
+          </StepPickerPopover>
+        </>
       )}
+      <WorkflowGraphActionBar
+        pane={paneRef}
+        viewport={viewport}
+        node={(selectedStep !== undefined ? positions.get(selectedStep.id) : undefined) ?? null}
+        nodeSize={NODE_SIZE}
+        topBand={editable ? TOP_BAND : TOP_EDGE}
+        ringReach={editable ? RING_REACH : 0}
+        lineClear={BAR_CLEAR_OF_LINES}
+        map={hasMinimap ? { size: MINIMAP_SIZE, ...MINIMAP_OFFSET } : null}
+        actions={selectedStep !== undefined ? stepActionsOf(selectedStep) : []}
+        picker={
+          editable
+            ? {
+                open: picker === 'bar',
+                onOpenChange: (open) => setPicker(open ? 'bar' : null),
+                choices: stepChoices,
+                onPick: handlePickStep,
+              }
+            : undefined
+        }
+      />
       <GraphControlRow>
         <GraphViewControls onZoomIn={() => zoomBy(1.2)} onZoomOut={() => zoomBy(1 / 1.2)} onFit={fitView} />
         <GraphHistoryControls history={history} />
@@ -742,7 +909,7 @@ const WorkflowGraphBody: React.FC<WorkflowGraphBodyProps> = ({
               selected={selectedStepId === step.id}
               start={node.parents.length === 0}
               onSelect={onSelectStep ? () => onSelectStep(step.uid) : undefined}
-              onContextMenu={handleNodeContextMenu({ stepId: step.id, stepUid: step.uid })}
+              onContextMenu={handleNodeContextMenu(step)}
               onHover={
                 editable ? (over) => setHoveredStepId((id) => (over ? step.id : id === step.id ? null : id)) : undefined
               }
@@ -809,10 +976,10 @@ const WorkflowGraphBody: React.FC<WorkflowGraphBodyProps> = ({
                 onClick={(e) => e.stopPropagation()}
                 style={{
                   position: 'absolute',
-                  left: pos.x + NODE_W / 2 - 6,
-                  top: pos.y + NODE_H - 6,
-                  width: 12,
-                  height: 12,
+                  left: pos.x + NODE_W / 2 - RING_REACH,
+                  top: pos.y + NODE_H - RING_REACH,
+                  width: RING,
+                  height: RING,
                   borderRadius: '50%',
                   border: '2px solid var(--oh-wf-accent)',
                   background: 'var(--oh-wf-surface)',
@@ -831,8 +998,7 @@ const WorkflowGraphBody: React.FC<WorkflowGraphBodyProps> = ({
           data-graph-interactive=""
           style={{
             position: 'absolute',
-            left: menu.x,
-            top: menu.y,
+            ...menu.hang,
             zIndex: 5,
             minWidth: 148,
             background: token.colorBgElevated,
@@ -865,18 +1031,8 @@ const WorkflowGraphBody: React.FC<WorkflowGraphBodyProps> = ({
   );
 };
 
-interface GraphMenuAction {
-  key: string;
-  icon: React.ReactNode;
-  text: string;
-  kbd?: string;
-  danger?: boolean;
-  disabled?: boolean;
-  onClick: () => void;
-}
-
 /** Compact context-menu row — icon, action text, shortcut hint. */
-const GraphMenuRow: React.FC<{ action: GraphMenuAction; onDone: () => void }> = ({ action, onDone }) => {
+const GraphMenuRow: React.FC<{ action: GraphAction; onDone: () => void }> = ({ action, onDone }) => {
   const { token } = theme.useToken();
   const [hover, setHover] = useState(false);
   const color = action.disabled ? token.colorTextQuaternary : action.danger ? token.colorError : token.colorText;
@@ -918,25 +1074,6 @@ const GraphMenuRow: React.FC<{ action: GraphMenuAction; onDone: () => void }> = 
 const GraphControlRow: React.FC<{ children: React.ReactNode }> = ({ children }) => (
   <div style={{ position: 'absolute', bottom: 8, left: 12, zIndex: 3, display: 'flex', gap: 6 }}>{children}</div>
 );
-
-/** A group of controls that belong together, in one box. */
-const GraphControlGroup: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { token } = theme.useToken();
-  return (
-    <div
-      style={{
-        display: 'flex',
-        borderRadius: 6,
-        border: `1px solid ${token.colorBorderSecondary}`,
-        background: token.colorBgElevated,
-        boxShadow: token.boxShadowTertiary,
-        overflow: 'hidden',
-      }}
-    >
-      {children}
-    </div>
-  );
-};
 
 /** Zoom in / zoom out / fit-and-center controls. */
 const GraphViewControls: React.FC<{ onZoomIn: () => void; onZoomOut: () => void; onFit: () => void }> = ({

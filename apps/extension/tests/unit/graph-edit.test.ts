@@ -10,23 +10,28 @@
  *   - removeGraphDependency materializes the remainder explicitly,
  *     writes explicit `[]` when the last parent goes, and no-ops when
  *     the edge isn't an effective parent.
- *   - appendDraftStep / nextStepId mirror the form's "+ Step"
- *     defaults with collision-safe ids.
+ *   - appendDraftStep / nextStepId give a seeded call its defaults
+ *     with collision-safe ids.
  *   - removeDraftStep mirrors the form's remove button: last step
  *     stays, dangling references are left for the validator.
  *   - duplicateDraftStep puts a copy last, waiting for what the
  *     original waits for, under fresh uids and with no capture exposed.
+ *   - stepIdFromName / addPickedStep: the step picker's row as the
+ *     workflow's last step, named after its request, armed by the step
+ *     it is added after.
  */
 
 import { callStepsOf, type DraftCallStep, type DraftWorkflow } from '@openheaders/core/live';
 import type { ExpectWorkflowStep, ListenWorkflowStep } from '@openheaders/core/types';
 import {
   addGraphDependency,
+  addPickedStep,
   appendDraftStep,
   duplicateDraftStep,
   nextStepId,
   removeDraftStep,
   removeGraphDependency,
+  stepIdFromName,
 } from '@openheaders/ui/workbench/components/live/graph-edit';
 import { describe, expect, it } from 'vitest';
 
@@ -312,5 +317,127 @@ describe('appendDraftStep / nextStepId', () => {
     expect(nextStepId([mkStep('step2'), mkStep('step3')])).toBe('step4');
     expect(nextStepId([mkStep('a'), mkStep('step2')])).toBe('step3');
     expect(nextStepId([])).toBe('step1');
+  });
+});
+
+describe('stepIdFromName', () => {
+  it('keeps a name’s letters and digits in lower case, every run of anything else one hyphen', () => {
+    expect(stepIdFromName([], 'Reboot dev-1')).toBe('reboot-dev-1');
+    expect(stepIdFromName([], '  GET /users/{id}  ')).toBe('get-users-id');
+    expect(stepIdFromName([], 'refresh_token')).toBe('refresh_token');
+  });
+
+  it('starts with a letter or an underscore, whatever the name starts with', () => {
+    expect(stepIdFromName([], '2FA login')).toBe('step-2fa-login');
+  });
+
+  it('falls back to the next step<n> for a name that leaves nothing', () => {
+    expect(stepIdFromName([mkStep('a')], 'Получить токен')).toBe('step2');
+    expect(stepIdFromName([], '')).toBe('step1');
+  });
+
+  it('counts up from 2 past the ids already taken', () => {
+    expect(stepIdFromName([mkStep('login')], 'Login')).toBe('login-2');
+    expect(stepIdFromName([mkStep('login'), mkStep('login-2')], 'Login')).toBe('login-3');
+  });
+
+  it('keeps sixty characters of a long name, and ends on none of its hyphens', () => {
+    const id = stepIdFromName([], `${'a'.repeat(59)} ${'b'.repeat(20)}`);
+    expect(id).toBe('a'.repeat(59));
+  });
+});
+
+describe('addPickedStep', () => {
+  const listen: ListenWorkflowStep = {
+    uid: 'stplistn',
+    id: 'probe',
+    action: 'listen',
+    sessionRequestUid: 'mqttreq1',
+    timeoutMs: 10_000,
+    captures: [],
+  };
+  const sessionDraft = (steps: DraftWorkflow['steps']): DraftWorkflow => ({
+    name: 'Reboot',
+    description: '',
+    steps,
+    refresh: { kind: 'manual' },
+    enabled: true,
+  });
+
+  it('a kind taken is the workflow’s last step with nothing picked, waiting on the step before it', () => {
+    const draft = mkDraft([mkStep('step1')]);
+    const added = addPickedStep(draft, { kind: 'action', action: 'call' });
+    expect(added.draft.steps).toHaveLength(2);
+    expect(added.draft.steps[1]).toEqual({ uid: added.stepUid, id: 'step2', requestUid: '', captures: [] });
+    expect(added.draft.steps[0]).toBe(draft.steps[0]);
+  });
+
+  it('a request taken is a call on it, named after it', () => {
+    const added = addPickedStep(mkDraft([mkStep('a')]), { kind: 'request', uid: 'reqreboo', name: 'Reboot dev-1' });
+    expect(added.draft.steps[1]).toEqual({
+      uid: added.stepUid,
+      id: 'reboot-dev-1',
+      requestUid: 'reqreboo',
+      captures: [],
+    });
+  });
+
+  it('a session request taken is a listen on it, and the workflow is run by hand from then on', () => {
+    const draft: DraftWorkflow = { ...mkDraft([mkStep('a')]), refresh: { kind: 'interval', seconds: 60 } };
+    const added = addPickedStep(draft, { kind: 'session-request', uid: 'mqttreq1', name: 'Probe MQTT' });
+    expect(added.draft.steps[1]).toEqual({
+      uid: added.stepUid,
+      id: 'probe-mqtt',
+      action: 'listen',
+      sessionRequestUid: 'mqttreq1',
+      timeoutMs: 10_000,
+      captures: [],
+    });
+    expect(added.draft.refresh).toEqual({ kind: 'manual' });
+  });
+
+  it('a wait taken carries the arming its kind selector gives: on the listen above, after the step before', () => {
+    const added = addPickedStep(sessionDraft([listen, mkStep('reboot')]), { kind: 'action', action: 'expect' });
+    expect(added.draft.steps[2]).toMatchObject({ id: 'step3', action: 'expect', on: 'probe', after: 'reboot' });
+    expect(added.draft.steps[2]).not.toHaveProperty('dependsOn');
+  });
+
+  it('a step added after another is last, and waits on that one by name', () => {
+    const draft = mkDraft([mkStep('a'), mkStep('b'), mkStep('c')]);
+    const added = addPickedStep(draft, { kind: 'request', uid: 'reqlogin', name: 'Login' }, 'a');
+    expect(added.draft.steps.slice(0, 3)).toEqual(draft.steps);
+    expect(stepAt(added.draft, 3)).toMatchObject({ id: 'login', requestUid: 'reqlogin', dependsOn: ['a'] });
+  });
+
+  it('a wait added after a step waits after that step, on the session that step is part of', () => {
+    const other: ListenWorkflowStep = { ...listen, uid: 'stplist2', id: 'audit', dependsOn: [] };
+    const draft = sessionDraft([
+      listen,
+      { uid: 'stpsend0', id: 'rename', action: 'send', on: 'probe', captures: [] },
+      other,
+      mkStep('last', { dependsOn: ['audit'] }),
+    ]);
+    const added = addPickedStep(draft, { kind: 'action', action: 'expect' }, 'rename');
+    expect(added.draft.steps[4]).toMatchObject({
+      action: 'expect',
+      on: 'probe',
+      after: 'rename',
+      dependsOn: ['rename'],
+    });
+  });
+
+  it('a send added after a listen is on that listen; after a call it keeps the listen above it', () => {
+    const draft = sessionDraft([listen, mkStep('reboot')]);
+    expect(addPickedStep(draft, { kind: 'action', action: 'send' }, 'probe').draft.steps[2]).toMatchObject({
+      action: 'send',
+      on: 'probe',
+      dependsOn: ['probe'],
+    });
+    expect(addPickedStep(draft, { kind: 'action', action: 'expect' }, 'reboot').draft.steps[2]).toMatchObject({
+      action: 'expect',
+      on: 'probe',
+      after: 'reboot',
+      dependsOn: ['reboot'],
+    });
   });
 });

@@ -423,6 +423,7 @@ describe('a run in the workflow view', () => {
     expect(screen.getByTestId('wf-panel').textContent).toContain('2 steps');
 
     fireEvent.click(screen.getByTestId('wf-steps-add'));
+    fireEvent.click(screen.getByTestId('wf-step-picker-kind-call'));
     expect(within(screen.getByTestId('wf-panel')).getByText('Step 3 of 3')).toBeTruthy();
   });
 

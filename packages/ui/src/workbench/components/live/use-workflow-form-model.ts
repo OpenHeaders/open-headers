@@ -26,6 +26,7 @@ import { addGraphDependency, duplicateDraftStep, removeGraphDependency } from '.
 import { rebindCaptureReferences } from './rebind-capture-references';
 import { rebindStepReferences } from './rebind-step-references';
 import { type StepAction, withStepAction } from './step-action';
+import type { StepPickerChoices } from './step-picker';
 import type { StepRequestChoice } from './workflow-step-request-options';
 
 export type WorkflowFormModel = ReturnType<typeof useWorkflowFormModel>;
@@ -163,6 +164,11 @@ export function useWorkflowFormModel(draft: DraftWorkflow, setDraft: (next: Draf
     [mqttRequests, requestCollectionTrees],
   );
 
+  const stepChoices = useMemo<StepPickerChoices>(
+    () => ({ sessionAuthoring, requests: availableRequests, sessionRequests }),
+    [sessionAuthoring, availableRequests, sessionRequests],
+  );
+
   const updateStep = (idx: number, next: DraftKnownStep) => {
     const prev = draft.steps[idx];
     const nextSteps = draft.steps.slice();
@@ -249,6 +255,7 @@ export function useWorkflowFormModel(draft: DraftWorkflow, setDraft: (next: Draf
     availableCaptures,
     availableRequests,
     sessionRequests,
+    stepChoices,
     mqttRequests,
     updateStep,
     changeStepAction,

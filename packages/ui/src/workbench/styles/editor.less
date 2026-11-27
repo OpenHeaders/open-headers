@@ -631,6 +631,31 @@
   min-height: 0;
 }
 
+// A row of the step picker: a kind, or a saved request on one line. The
+// first row is the one Enter takes.
+.oh-wf-picker-row {
+  flex: none;
+  padding: 3px 4px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--ant-color-text);
+  font: inherit;
+  text-align: left;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: pointer;
+
+  &[data-first='true'] {
+    background: var(--ant-color-fill-quaternary);
+  }
+
+  &:hover {
+    background: var(--ant-color-fill-tertiary);
+  }
+}
+
 // A going step's glyph turns its arc about the ring's centre.
 .oh-workflow-glyph-turning {
   transform-origin: 9px 9px;

@@ -132,13 +132,18 @@ async function nameStep(index: number, id: string): Promise<void> {
   await expect(card(id)).toBeVisible();
 }
 
-async function addStep(): Promise<void> {
-  await workbench
-    .locator('button')
-    .filter({ hasText: /^Step$/ })
-    .filter({ visible: true })
-    .first()
-    .click();
+/** Add a step through the picker "+ Step" opens: a kind's row — a call, where none is named. */
+async function addStep(kind: 'call' | 'listen' | 'send' | 'expect' = 'call'): Promise<void> {
+  await workbench.getByTestId('wf-graph-add-step').filter({ visible: true }).first().click();
+  await workbench.getByTestId(`wf-step-picker-kind-${kind}`).click();
+}
+
+/** Add a call on a saved request: found by a search of the picker, its row named by its path, taken by Enter. */
+async function addStepOnRequest(search: string, path: string): Promise<void> {
+  await workbench.getByTestId('wf-graph-add-step').filter({ visible: true }).first().click();
+  await workbench.getByTestId('wf-step-picker-search').fill(search);
+  await expect(workbench.locator(`.oh-wf-picker-row[title="${path}"]`)).toHaveAttribute('data-first', 'true');
+  await workbench.keyboard.press('Enter');
 }
 
 /** Add a capture row to a step and set it to read a JSON path. */
@@ -310,14 +315,16 @@ test('A1 — a reboot commanded over HTTP and acknowledged over MQTT is authored
   await newWorkflow('Authored reboot');
   await authorListen();
 
-  await addStep();
+  // A request taken in the picker is a call on it, named after it.
+  await addStepOnRequest('reboot', 'Devices > POST Reboot dev-1');
+  await expect(card('reboot-dev-1')).toBeVisible();
+  await expect(stepField(1, 'requestUid').locator('.ant-select')).toContainText('Reboot dev-1');
   await nameStep(1, 'reboot');
-  await pickOption(stepField(1, 'requestUid').locator('.ant-select'), 'Devices > POST Reboot dev-1');
   await addJsonCapture(1, 0, 'commandId', '$.commandId');
 
-  // The defaults carry the arming: on the Listen above, after the step before.
-  await addStep();
-  await pickOption(select('wf-step-2-action'), 'Wait');
+  // The picker's Wait carries the arming: on the Listen above, after the step before.
+  await addStep('expect');
+  await expect(select('wf-step-2-action')).toContainText('Wait');
   await nameStep(2, 'status');
   await expect(select('wf-step-2-on')).toContainText('probe');
   await expect(select('wf-step-2-after')).toContainText('reboot');

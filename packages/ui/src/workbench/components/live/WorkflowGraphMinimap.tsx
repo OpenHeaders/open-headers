@@ -13,7 +13,7 @@
 
 import { theme } from 'antd';
 import type React from 'react';
-import { useEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import {
   fitWorldInBox,
   type PaneViewport,
@@ -24,9 +24,12 @@ import {
 } from './graph-minimap';
 import { STEP_MARK_FILL } from './StepGlyph';
 import type { StepMarkKind } from './step-mark';
+import { usePaneSize } from './use-pane-size';
 
 export const MINIMAP_SIZE: Size = { width: 120, height: 80 };
 export const MINIMAP_SIZE_OPEN: Size = { width: 240, height: 160 };
+/** What the map keeps between itself and the pane's right and bottom edges. */
+export const MINIMAP_OFFSET = { right: 12, bottom: 8 };
 /** What the box keeps between its edge and the drawing. */
 const INSET = 4;
 
@@ -53,20 +56,7 @@ const WorkflowGraphMinimap: React.FC<Props> = ({ world, nodes, nodeSize, pane, v
   const [dragging, setDragging] = useState(false);
   const size = over || dragging ? MINIMAP_SIZE_OPEN : MINIMAP_SIZE;
 
-  // The pane's size is read here, not by the graph: a pane that is
-  // resized redraws the map alone. After the commit — the pane mounts
-  // with the map, and holds its element only once the commit is whole.
-  const [paneSize, setPaneSize] = useState<Size | null>(null);
-  useEffect(() => {
-    const el = pane.current;
-    if (!el) return;
-    const observer = new ResizeObserver(() => {
-      const { width, height } = el.getBoundingClientRect();
-      setPaneSize(width === 0 ? null : { width, height });
-    });
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, [pane]);
+  const paneSize = usePaneSize(pane);
   const view = paneSize === null ? null : viewRectOf(viewport, paneSize);
 
   // The drawing's own box — the map's, less its edge.
@@ -102,8 +92,7 @@ const WorkflowGraphMinimap: React.FC<Props> = ({ world, nodes, nodeSize, pane, v
       onContextMenu={(e) => e.stopPropagation()}
       style={{
         position: 'absolute',
-        right: 12,
-        bottom: 8,
+        ...MINIMAP_OFFSET,
         zIndex: 3,
         boxSizing: 'border-box',
         width: size.width,

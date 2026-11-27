@@ -20,7 +20,7 @@ import { LiveWorkflowSchema } from '@openheaders/core/schemas';
 import type { GraphqlRequest, LiveWorkflow, MqttRequest, Request } from '@openheaders/core/types';
 import type { StepRequestOpeners } from '@openheaders/ui/workbench/components/live/step-facts';
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
-import { App } from 'antd';
+import { App, ConfigProvider } from 'antd';
 import * as v from 'valibot';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
@@ -125,6 +125,19 @@ function makeRequest(overrides: Partial<Request> = {}): Request {
   };
 }
 
+const mqttRequest: MqttRequest = {
+  schemaVersion: 5,
+  uid: 'mqttreq1',
+  path: 'api-requests/probe-mqttreq1',
+  name: 'Probe MQTT',
+  url: 'ws://openheaders.io/mqtt',
+  topic: '',
+  payload: '',
+  topics: [],
+  savedMessages: [],
+  userProperties: [],
+};
+
 // Mutable so a test can simulate the fixture step's request being
 // deleted. Defaults to the request the workflow fixture's step points
 // at, so the non-deletion cases render with no validity error.
@@ -172,13 +185,16 @@ afterEach(() => {
   refreshNowMock.mockClear();
 });
 
+// Motion off: jsdom never ends an animation, and a popover that closed would stay drawn.
 function renderEditor(requestOpeners?: StepRequestOpeners) {
   return render(
-    <App>
-      <AwarenessIdentityProvider value={testIdentity}>
-        <LiveWorkflowEditor mode="edit" workflowUid={workflowState.uid} requestOpeners={requestOpeners} />
-      </AwarenessIdentityProvider>
-    </App>,
+    <ConfigProvider theme={{ token: { motion: false } }}>
+      <App>
+        <AwarenessIdentityProvider value={testIdentity}>
+          <LiveWorkflowEditor mode="edit" workflowUid={workflowState.uid} requestOpeners={requestOpeners} />
+        </AwarenessIdentityProvider>
+      </App>
+    </ConfigProvider>,
   );
 }
 
@@ -195,6 +211,39 @@ function closeStep(): void {
 /** The header's Run. */
 function runButton(): HTMLElement {
   return screen.getByTestId('wf-run');
+}
+
+/** Add a call with nothing picked: the graph's "+ Step", then the picker's Call. */
+function addCallStep(): void {
+  fireEvent.click(screen.getByTestId('wf-graph-add-step'));
+  fireEvent.click(screen.getByTestId('wf-step-picker-kind-call'));
+}
+
+/**
+ * Run with a graph pane that has a size and reports it as it is
+ * observed, as a browser's does — jsdom's own observer never reports, and
+ * what is drawn over the pane waits for its size.
+ */
+function withSizedPane(run: () => void): void {
+  class ReportingResizeObserver implements ResizeObserver {
+    private readonly report: ResizeObserverCallback;
+    constructor(report: ResizeObserverCallback) {
+      this.report = report;
+    }
+    observe(): void {
+      this.report([], this);
+    }
+    unobserve(): void {}
+    disconnect(): void {}
+  }
+  vi.stubGlobal('ResizeObserver', ReportingResizeObserver);
+  const rect = vi.spyOn(Element.prototype, 'getBoundingClientRect').mockReturnValue(new DOMRect(0, 0, 800, 600));
+  try {
+    run();
+  } finally {
+    rect.mockRestore();
+    vi.unstubAllGlobals();
+  }
 }
 
 describe('LiveWorkflowEditor — show-but-disable', () => {
@@ -372,7 +421,7 @@ describe('LiveWorkflowEditor — one view', () => {
   it('a step added on the graph opens in the panel', () => {
     const { container } = renderEditor();
 
-    fireEvent.click(screen.getByRole('button', { name: /Step$/ }));
+    addCallStep();
 
     expect(container.querySelector('[data-step-card="step2"]')).not.toBeNull();
     expect(screen.getByTestId('wf-panel').textContent).toContain('Step 2 of 2');
@@ -391,7 +440,7 @@ describe('LiveWorkflowEditor — one view', () => {
 
   it('deleting the open step from its card closes it', () => {
     const { container } = renderEditor();
-    fireEvent.click(screen.getByRole('button', { name: /Step$/ }));
+    addCallStep();
 
     const card = container.querySelector('[data-step-card="step2"]');
     const remove = card?.querySelector<HTMLButtonElement>('button.ant-btn-dangerous');
@@ -420,9 +469,7 @@ describe('LiveWorkflowEditor — undo and redo', () => {
   const undoButton = (): HTMLElement => screen.getByTestId('wf-graph-undo');
   const redoButton = (): HTMLElement => screen.getByTestId('wf-graph-redo');
   const saveButton = (): HTMLElement => screen.getByRole('button', { name: /Save/ });
-  const addStep = (): void => {
-    fireEvent.click(screen.getByRole('button', { name: /Step$/ }));
-  };
+  const addStep = addCallStep;
 
   it('both buttons are off until there is an edit to take back', () => {
     renderEditor();
@@ -570,9 +617,7 @@ describe('LiveWorkflowEditor — undo and redo', () => {
 // waits on no other wears a bar on its top edge.
 
 describe('LiveWorkflowEditor — the minimap and the start mark', () => {
-  const addStep = (): void => {
-    fireEvent.click(screen.getByRole('button', { name: /Step$/ }));
-  };
+  const addStep = addCallStep;
 
   it('a workflow of one step has no minimap; the second step brings it', () => {
     renderEditor();
@@ -625,31 +670,14 @@ describe('LiveWorkflowEditor — the minimap and the start mark', () => {
   });
 
   it('the minimap outlines what the pane shows, from the graph’s first mount', () => {
-    // A pane with a size, reported as it is observed — as a browser does.
-    class ReportingResizeObserver implements ResizeObserver {
-      private readonly report: ResizeObserverCallback;
-      constructor(report: ResizeObserverCallback) {
-        this.report = report;
-      }
-      observe(): void {
-        this.report([], this);
-      }
-      unobserve(): void {}
-      disconnect(): void {}
-    }
-    vi.stubGlobal('ResizeObserver', ReportingResizeObserver);
-    const rect = vi.spyOn(Element.prototype, 'getBoundingClientRect').mockReturnValue(new DOMRect(0, 0, 800, 600));
-    try {
+    withSizedPane(() => {
       workflowState = needsUpdateFixture;
       renderEditor();
 
       const view = screen.getByTestId('wf-graph-minimap-view');
       expect(Number(view.getAttribute('width'))).toBeGreaterThan(0);
       expect(Number(view.getAttribute('height'))).toBeGreaterThan(0);
-    } finally {
-      rect.mockRestore();
-      vi.unstubAllGlobals();
-    }
+    });
   });
 
   it('the minimap grows under the pointer and returns when it leaves', () => {
@@ -684,6 +712,399 @@ describe('LiveWorkflowEditor — the minimap and the start mark', () => {
     fireEvent.mouseEnter(screen.getByTestId('wf-graph-legend-toggle'));
 
     expect((await screen.findByTestId('wf-graph-legend')).textContent).toContain('drag map');
+  });
+});
+
+// ── The step picker ───────────────────────────────────────────────
+//
+// The workflow runs plan, Decisions log, S31: every "add a step" door
+// opens a search over the step kinds and the saved requests; a request
+// taken is a call on it — a listen, for one that opens a session.
+
+describe('LiveWorkflowEditor — the step picker', () => {
+  afterEach(() => {
+    unregisterCapability('workflowSessionAuthoring');
+  });
+
+  const openPicker = (): void => {
+    fireEvent.click(screen.getByTestId('wf-graph-add-step'));
+  };
+  const search = (): HTMLElement => screen.getByTestId('wf-step-picker-search');
+  const rows = (): Array<string | null> =>
+    Array.from(screen.getByTestId('wf-step-picker').querySelectorAll('.oh-wf-picker-row')).map((row) =>
+      row.getAttribute('data-testid'),
+    );
+
+  it('"+ Step" opens the picker over a call and the saved requests, and adds no step by itself', () => {
+    renderEditor();
+    openPicker();
+
+    expect(rows()).toEqual(['wf-step-picker-kind-call', 'wf-step-picker-request-reqtestfxt']);
+    expect(screen.getByTestId('wf-step-picker-kind-call').textContent).toBe('Call');
+    expect(screen.getByTestId('wf-step-picker-request-reqtestfxt').textContent).toBe('GETFixture request');
+    expect(screen.queryByTestId('wf-graph-node-step2')).toBeNull();
+  });
+
+  it('where session steps are authored it offers the four kinds, and the requests a listen opens', () => {
+    registerCapability('workflowSessionAuthoring', () => true);
+    requestsState = { ...requestsState, mqttRequests: [mqttRequest] };
+    renderEditor();
+    openPicker();
+
+    expect(rows()).toEqual([
+      'wf-step-picker-kind-call',
+      'wf-step-picker-kind-listen',
+      'wf-step-picker-kind-send',
+      'wf-step-picker-kind-expect',
+      'wf-step-picker-request-reqtestfxt',
+      'wf-step-picker-request-mqttreq1',
+    ]);
+    expect(screen.getByTestId('wf-step-picker-kind-expect').textContent).toBe('Wait');
+  });
+
+  it('lists no request a listen opens where session steps are not authored', () => {
+    requestsState = { ...requestsState, mqttRequests: [mqttRequest] };
+    renderEditor();
+    openPicker();
+
+    expect(rows()).toEqual(['wf-step-picker-kind-call', 'wf-step-picker-request-reqtestfxt']);
+  });
+
+  it('a request taken is a call on it, named after it, and open in the panel', () => {
+    const { container } = renderEditor();
+    openPicker();
+
+    fireEvent.click(screen.getByTestId('wf-step-picker-request-reqtestfxt'));
+
+    expect(screen.queryByTestId('wf-step-picker')).toBeNull();
+    expect(screen.getByTestId('wf-graph-node-fixture-request').getAttribute('data-selected')).toBe('true');
+    expect(container.querySelector('[data-step-card="fixture-request"]')?.getAttribute('data-step-action')).toBe(
+      'call',
+    );
+    expect(screen.getByTestId('wf-graph-node-fixture-request').textContent).toContain('Fixture request');
+  });
+
+  it('a session request taken is a listen on it', () => {
+    registerCapability('workflowSessionAuthoring', () => true);
+    requestsState = { ...requestsState, mqttRequests: [mqttRequest] };
+    const { container } = renderEditor();
+    openPicker();
+
+    fireEvent.click(screen.getByTestId('wf-step-picker-request-mqttreq1'));
+
+    expect(container.querySelector('[data-step-card="probe-mqtt"]')?.getAttribute('data-step-action')).toBe('listen');
+    expect(screen.getByTestId('wf-step-1-session-request').textContent).toContain('Probe MQTT');
+  });
+
+  it('a search narrows the rows whatever the case, and Enter takes the first', () => {
+    renderEditor();
+    openPicker();
+
+    fireEvent.change(search(), { target: { value: 'FIXTURE' } });
+    expect(rows()).toEqual(['wf-step-picker-request-reqtestfxt']);
+    expect(screen.getByTestId('wf-step-picker-request-reqtestfxt').getAttribute('data-first')).toBe('true');
+
+    fireEvent.keyDown(search(), { key: 'Enter', code: 'Enter', keyCode: 13 });
+
+    expect(screen.getByTestId('wf-graph-node-fixture-request')).toBeTruthy();
+  });
+
+  it('with nothing typed Enter takes a call', () => {
+    renderEditor();
+    openPicker();
+
+    fireEvent.keyDown(search(), { key: 'Enter', code: 'Enter', keyCode: 13 });
+
+    expect(screen.getByTestId('wf-graph-node-step2')).toBeTruthy();
+  });
+
+  it('a search that matches nothing says so, and Enter takes nothing', () => {
+    renderEditor();
+    openPicker();
+
+    fireEvent.change(search(), { target: { value: 'no such thing' } });
+    expect(rows()).toEqual([]);
+    expect(screen.getByTestId('wf-step-picker-empty').textContent).toBe('No match');
+
+    fireEvent.keyDown(search(), { key: 'Enter', code: 'Enter', keyCode: 13 });
+    expect(screen.getAllByTestId(/^wf-graph-node-/)).toHaveLength(1);
+  });
+
+  it('Esc closes it with no step added', () => {
+    renderEditor();
+    openPicker();
+
+    fireEvent.keyDown(search(), { key: 'Escape', code: 'Escape' });
+
+    expect(screen.queryByTestId('wf-step-picker')).toBeNull();
+    expect(screen.getAllByTestId(/^wf-graph-node-/)).toHaveLength(1);
+  });
+
+  it('a key typed in its search is no gesture of the graph: ⌫ removes no step, and the shortcut undoes nothing', () => {
+    renderEditor();
+    addCallStep();
+    openPicker();
+
+    fireEvent.keyDown(search(), { key: 'Backspace', code: 'Backspace' });
+    fireEvent.keyDown(screen.getByTestId('wf-step-picker-kind-call'), { key: 'z', code: 'KeyZ', metaKey: true });
+
+    expect(screen.getByTestId('wf-graph-node-step2')).toBeTruthy();
+  });
+
+  it('the Steps card’s Add step opens the same picker', () => {
+    renderEditor();
+
+    fireEvent.click(screen.getByTestId('wf-steps-add'));
+    expect(rows()).toEqual(['wf-step-picker-kind-call', 'wf-step-picker-request-reqtestfxt']);
+    fireEvent.click(screen.getByTestId('wf-step-picker-kind-call'));
+
+    expect(screen.getByTestId('wf-panel').textContent).toContain('Step 2 of 2');
+  });
+
+  it('the canvas menu’s Add step opens the picker where the menu was', () => {
+    renderEditor();
+
+    fireEvent.contextMenu(screen.getByTestId('wf-graph-pane'), { clientX: 120, clientY: 90 });
+    fireEvent.click(screen.getByTestId('wf-graph-menu-add-step'));
+
+    expect(screen.queryByTestId('wf-graph-context-menu')).toBeNull();
+    expect(screen.queryByTestId('wf-graph-node-step2')).toBeNull();
+    fireEvent.click(screen.getByTestId('wf-step-picker-kind-call'));
+    expect(screen.getByTestId('wf-graph-node-step2').getAttribute('data-selected')).toBe('true');
+  });
+
+  it('a step added is one undo', () => {
+    renderEditor();
+    openPicker();
+    fireEvent.click(screen.getByTestId('wf-step-picker-request-reqtestfxt'));
+
+    fireEvent.click(screen.getByTestId('wf-graph-undo'));
+
+    expect(screen.queryByTestId('wf-graph-node-fixture-request')).toBeNull();
+    expect(screen.getByTestId('wf-graph-undo')).toHaveProperty('disabled', true);
+  });
+});
+
+// ── The bar of the selected step, and a node's menu ───────────────
+//
+// The workflow runs plan, Decisions log, S31: Duplicate, Add step
+// after, Open request and Delete in a bar by the selected node and in a
+// node's right-click menu; a read-only workflow keeps Open request
+// alone.
+
+describe('LiveWorkflowEditor — the bar of the selected step', () => {
+  const BAR = [
+    'wf-graph-bar-duplicate-step',
+    'wf-graph-bar-add-step-after',
+    'wf-graph-bar-open-request',
+    'wf-graph-bar-delete-step',
+  ];
+  const makeOpeners = (): StepRequestOpeners => ({ http: vi.fn(), graphql: vi.fn(), mqtt: vi.fn() });
+  const barButtons = (): Array<string | null> =>
+    Array.from(screen.getByTestId('wf-graph-bar').querySelectorAll('button')).map((button) =>
+      button.getAttribute('data-testid'),
+    );
+  const menuRows = (): Array<string | null> =>
+    Array.from(screen.getByTestId('wf-graph-context-menu').querySelectorAll('button')).map((button) =>
+      button.getAttribute('data-testid'),
+    );
+  const renderReadOnly = (openers?: StepRequestOpeners) => {
+    workflowState = needsUpdateFixture;
+    requestsState = { ...requestsState, requests: [makeRequest({ uid: 'reqfixt1' })] };
+    return renderEditor(openers);
+  };
+
+  it('shows by the selected node with its four actions, each named, and goes with the selection', () => {
+    withSizedPane(() => {
+      renderEditor(makeOpeners());
+      expect(screen.queryByTestId('wf-graph-bar')).toBeNull();
+
+      openStep('only');
+      expect(barButtons()).toEqual(BAR);
+      expect(BAR.map((id) => screen.getByTestId(id).getAttribute('aria-label'))).toEqual([
+        'Duplicate',
+        'Add step after',
+        'Open request',
+        'Delete step',
+      ]);
+
+      closeStep();
+      expect(screen.queryByTestId('wf-graph-bar')).toBeNull();
+    });
+  });
+
+  it('sits under a node at the pane’s top, at its left, clear of the connect ring and of the node’s middle', () => {
+    withSizedPane(() => {
+      renderEditor(makeOpeners());
+      openStep('only');
+
+      // One step in a pane 800 wide: its node at 296, 24, its middle at 400. The bar is 98
+      // wide, ends 18 short of the middle, and starts 12 under the node.
+      const bar = screen.getByTestId('wf-graph-bar');
+      expect(bar.style.left).toBe('284px');
+      expect(bar.style.top).toBe('118px');
+    });
+  });
+
+  it('the last step cannot be deleted, and a step that names no saved request has Open request off', () => {
+    withSizedPane(() => {
+      renderEditor(makeOpeners());
+      openStep('only');
+      expect(screen.getByTestId('wf-graph-bar-delete-step')).toHaveProperty('disabled', true);
+      expect(screen.getByTestId('wf-graph-bar-open-request')).toHaveProperty('disabled', false);
+
+      addCallStep();
+      expect(screen.getByTestId('wf-graph-node-step2').getAttribute('data-selected')).toBe('true');
+      expect(screen.getByTestId('wf-graph-bar-delete-step')).toHaveProperty('disabled', false);
+      expect(screen.getByTestId('wf-graph-bar-open-request')).toHaveProperty('disabled', true);
+    });
+  });
+
+  it('Duplicate copies the step and opens the copy; one undo takes the copy back', () => {
+    withSizedPane(() => {
+      const { container } = renderEditor(makeOpeners());
+      openStep('only');
+
+      fireEvent.click(screen.getByTestId('wf-graph-bar-duplicate-step'));
+      expect(container.querySelector('[data-step-card="only-copy"]')).not.toBeNull();
+      expect(screen.getByTestId('wf-graph-node-only-copy').getAttribute('data-selected')).toBe('true');
+
+      fireEvent.click(screen.getByTestId('wf-graph-undo'));
+      expect(screen.queryByTestId('wf-graph-node-only-copy')).toBeNull();
+    });
+  });
+
+  it('Delete removes the step and its bar; one undo brings the step back', () => {
+    withSizedPane(() => {
+      renderEditor(makeOpeners());
+      addCallStep();
+
+      fireEvent.click(screen.getByTestId('wf-graph-bar-delete-step'));
+      expect(screen.queryByTestId('wf-graph-node-step2')).toBeNull();
+      expect(screen.queryByTestId('wf-graph-bar')).toBeNull();
+
+      fireEvent.click(screen.getByTestId('wf-graph-undo'));
+      expect(screen.getByTestId('wf-graph-node-step2')).toBeTruthy();
+    });
+  });
+
+  it('Open request opens the tab of the request the step names', () => {
+    withSizedPane(() => {
+      const openers = makeOpeners();
+      renderEditor(openers);
+      openStep('only');
+
+      fireEvent.click(screen.getByTestId('wf-graph-bar-open-request'));
+
+      expect(openers.http).toHaveBeenCalledWith('reqtestfxt', 'Fixture request', 'GET');
+    });
+  });
+
+  it('Add step after opens the picker, and the step taken waits on the selected one alone', () => {
+    withSizedPane(() => {
+      renderEditor(makeOpeners());
+      addCallStep();
+      openStep('only');
+
+      fireEvent.click(screen.getByTestId('wf-graph-bar-add-step-after'));
+      expect(screen.queryByTestId('wf-graph-node-step3')).toBeNull();
+      fireEvent.click(screen.getByTestId('wf-step-picker-kind-call'));
+
+      expect(screen.getByTestId('wf-graph-node-step3').getAttribute('data-selected')).toBe('true');
+      expect(screen.getByTestId('wf-graph-edge-only-step3')).toBeTruthy();
+      expect(screen.queryByTestId('wf-graph-edge-step2-step3')).toBeNull();
+    });
+  });
+
+  it('a surface that opens no request’s tab has no Open request', () => {
+    withSizedPane(() => {
+      renderEditor();
+      openStep('only');
+
+      expect(barButtons()).toEqual(BAR.filter((id) => id !== 'wf-graph-bar-open-request'));
+    });
+  });
+
+  it('a read-only workflow keeps Open request alone, and a step with nothing to open has no bar', () => {
+    withSizedPane(() => {
+      const openers = makeOpeners();
+      renderReadOnly(openers);
+
+      openStep('reboot');
+      expect(barButtons()).toEqual(['wf-graph-bar-open-request']);
+      fireEvent.click(screen.getByTestId('wf-graph-bar-open-request'));
+      expect(openers.http).toHaveBeenCalledWith('reqfixt1', 'Fixture request', 'GET');
+
+      openStep('probe');
+      expect(screen.queryByTestId('wf-graph-bar')).toBeNull();
+    });
+  });
+
+  it('a right-click on a node selects it and offers the bar’s four', () => {
+    const openers = makeOpeners();
+    renderEditor(openers);
+
+    fireEvent.contextMenu(screen.getByTestId('wf-graph-node-only'));
+
+    expect(screen.getByTestId('wf-graph-node-only').getAttribute('data-selected')).toBe('true');
+    expect(menuRows()).toEqual([
+      'wf-graph-menu-duplicate-step',
+      'wf-graph-menu-add-step-after',
+      'wf-graph-menu-open-request',
+      'wf-graph-menu-delete-step',
+    ]);
+    expect(screen.getByTestId('wf-graph-context-menu').textContent).toBe(
+      'DuplicateAdd step afterOpen requestDelete step⌫',
+    );
+
+    fireEvent.click(screen.getByTestId('wf-graph-menu-duplicate-step'));
+    expect(screen.queryByTestId('wf-graph-context-menu')).toBeNull();
+    expect(screen.getByTestId('wf-graph-node-only-copy').getAttribute('data-selected')).toBe('true');
+  });
+
+  it('the menu’s Add step after opens the picker at the bar, and the step taken waits on that node', () => {
+    withSizedPane(() => {
+      renderEditor(makeOpeners());
+      addCallStep();
+
+      fireEvent.contextMenu(screen.getByTestId('wf-graph-node-only'));
+      fireEvent.click(screen.getByTestId('wf-graph-menu-add-step-after'));
+      fireEvent.click(screen.getByTestId('wf-step-picker-kind-call'));
+
+      expect(screen.getByTestId('wf-graph-edge-only-step3')).toBeTruthy();
+      expect(screen.queryByTestId('wf-graph-edge-step2-step3')).toBeNull();
+    });
+  });
+
+  it('a menu opens toward the pane’s middle: from its far half it hangs from that side, and the pane cuts none', () => {
+    withSizedPane(() => {
+      renderEditor();
+      const pane = screen.getByTestId('wf-graph-pane');
+      const edges = (): string[] => {
+        const { style } = screen.getByTestId('wf-graph-context-menu');
+        return [style.left, style.top, style.right, style.bottom];
+      };
+
+      // The pane is 800 by 600.
+      fireEvent.contextMenu(pane, { clientX: 120, clientY: 90 });
+      expect(edges()).toEqual(['120px', '90px', '', '']);
+
+      fireEvent.contextMenu(pane, { clientX: 700, clientY: 500 });
+      expect(edges()).toEqual(['', '', '100px', '100px']);
+    });
+  });
+
+  it('on a read-only workflow a node’s menu holds Open request alone, and a step with nothing to open has none', () => {
+    const openers = makeOpeners();
+    renderReadOnly(openers);
+
+    fireEvent.contextMenu(screen.getByTestId('wf-graph-node-reboot'));
+    expect(menuRows()).toEqual(['wf-graph-menu-open-request']);
+    fireEvent.click(screen.getByTestId('wf-graph-menu-open-request'));
+    expect(openers.http).toHaveBeenCalledWith('reqfixt1', 'Fixture request', 'GET');
+
+    fireEvent.contextMenu(screen.getByTestId('wf-graph-node-probe'));
+    expect(screen.queryByTestId('wf-graph-context-menu')).toBeNull();
   });
 });
 
@@ -843,19 +1264,6 @@ describe('LiveWorkflowEditor — a workflow that holds session steps', () => {
   const STEP_NEEDS_UPDATE = 'This step needs a newer version of OpenHeaders.';
   const RUNS_ELSEWHERE = 'A workflow with session steps runs in the Workbench tab.';
 
-  const mqttRequest: MqttRequest = {
-    schemaVersion: 5,
-    uid: 'mqttreq1',
-    path: 'api-requests/probe-mqttreq1',
-    name: 'Probe MQTT',
-    url: 'ws://openheaders.io/mqtt',
-    topic: '',
-    payload: '',
-    topics: [],
-    savedMessages: [],
-    userProperties: [],
-  };
-
   const sessionFixture: LiveWorkflow = v.parse(LiveWorkflowSchema, {
     ...workflowFixture,
     uid: 'wfdevice',
@@ -994,7 +1402,7 @@ describe('LiveWorkflowEditor — a workflow that holds session steps', () => {
   it('a save with a step that has nothing picked names the step and stores nothing', async () => {
     renderWorkflow(sessionFixture);
 
-    fireEvent.click(screen.getByRole('button', { name: /Step$/ }));
+    addCallStep();
     fireEvent.click(screen.getByRole('button', { name: /Save/ }));
 
     expect(await screen.findByText('Step "step4" has nothing picked yet.')).toBeTruthy();

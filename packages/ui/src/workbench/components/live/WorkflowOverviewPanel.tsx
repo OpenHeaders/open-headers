@@ -22,9 +22,10 @@ import { ConfigProvider, Input } from 'antd';
 import type React from 'react';
 import { useEffect, useRef } from 'react';
 import { captureUsesOf } from './capture-uses';
-import { appendDraftStep } from './graph-edit';
+import { addPickedStep } from './graph-edit';
 import type { OverviewStepFacts } from './StepOverviewRow';
 import { KindTag } from './StepTags';
+import type { StepPick } from './step-picker';
 import {
   actionOfStep,
   doesOfStep,
@@ -179,11 +180,10 @@ const WorkflowOverviewPanel: React.FC<Props> = ({
     { id: 'history', label: t('workbench.editors.live.panel.tabHistory'), count: keptRuns.length },
   ];
 
-  const handleAddStep = () => {
-    const appended = appendDraftStep(draft);
-    setDraft(appended.draft);
-    const added = appended.draft.steps.at(-1);
-    if (added !== undefined) onSelectStep(added.uid);
+  const handleAddStep = (pick: StepPick) => {
+    const added = addPickedStep(draft, pick);
+    setDraft(added.draft);
+    onSelectStep(added.stepUid);
   };
 
   return (
@@ -254,6 +254,7 @@ const WorkflowOverviewPanel: React.FC<Props> = ({
                   readOnly={readOnly}
                   onOpen={onSelectStep}
                   onMove={model.moveStep}
+                  stepChoices={model.stepChoices}
                   onAdd={handleAddStep}
                 />
                 <WorkflowCapturesCard captures={captures} />

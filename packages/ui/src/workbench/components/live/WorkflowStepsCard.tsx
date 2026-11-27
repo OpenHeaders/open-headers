@@ -3,14 +3,17 @@
  * workflows redesign, Workflow panel): its tags, and its last result or,
  * while no run has reached any step, what it does. A row opens its step;
  * the arrows at a row's end set the step's place among the steps, and the
- * card's head adds one more.
+ * card's head opens the step picker to add one more.
  */
 
 import { DownOutlined, UpOutlined } from '@ant-design/icons';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { Button } from 'antd';
 import type React from 'react';
+import { useState } from 'react';
 import StepOverviewRow, { type OverviewStepFacts } from './StepOverviewRow';
+import { StepPickerPopover } from './StepPicker';
+import type { StepPick, StepPickerChoices } from './step-picker';
 import WorkflowCard from './WorkflowCard';
 
 interface Props {
@@ -19,11 +22,15 @@ interface Props {
   readOnly: boolean;
   onOpen: (stepUid: string) => void;
   onMove: (index: number, delta: -1 | 1) => void;
-  onAdd: () => void;
+  /** What the step picker lists. */
+  stepChoices: StepPickerChoices;
+  /** A row of the step picker was taken. */
+  onAdd: (pick: StepPick) => void;
 }
 
-const WorkflowStepsCard: React.FC<Props> = ({ steps, readOnly, onOpen, onMove, onAdd }) => {
+const WorkflowStepsCard: React.FC<Props> = ({ steps, readOnly, onOpen, onMove, stepChoices, onAdd }) => {
   const t = useT();
+  const [pickerOpen, setPickerOpen] = useState(false);
   // One column says how the last run left each step once a run has reached any of them.
   const showResult = steps.some((step) => step.mark.kind !== 'idle');
 
@@ -34,9 +41,18 @@ const WorkflowStepsCard: React.FC<Props> = ({ steps, readOnly, onOpen, onMove, o
       description={t('workbench.editors.live.overview.stepsDescription')}
       extra={
         !readOnly && (
-          <Button data-testid="wf-steps-add" onClick={onAdd}>
-            {t('workbench.editors.live.graph.menuAddStep')}
-          </Button>
+          <StepPickerPopover
+            open={pickerOpen}
+            onOpenChange={setPickerOpen}
+            placement="bottomRight"
+            choices={stepChoices}
+            onPick={(pick) => {
+              setPickerOpen(false);
+              onAdd(pick);
+            }}
+          >
+            <Button data-testid="wf-steps-add">{t('workbench.editors.live.graph.menuAddStep')}</Button>
+          </StepPickerPopover>
         )
       }
     >
