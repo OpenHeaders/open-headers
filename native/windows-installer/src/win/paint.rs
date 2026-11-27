@@ -1,6 +1,6 @@
 //! How the installer's window is drawn: its colours, read from the PC's
 //! own settings, and one whole picture of it for a state — the ground,
-//! the mark, the name, the line, the bar and the close mark — drawn off
+//! the mark, the name, the line and the bar — drawn off
 //! screen and put on the window in one piece.
 
 use core::ffi::c_void;
@@ -10,16 +10,16 @@ use windows::Win32::Foundation::{COLORREF, ERROR_SUCCESS, RECT};
 use windows::Win32::Graphics::Gdi::{
     BitBlt, CLEARTYPE_QUALITY, CLIP_DEFAULT_PRECIS, COLOR_GRAYTEXT, COLOR_HIGHLIGHT, COLOR_WINDOW, COLOR_WINDOWTEXT,
     CreateCompatibleBitmap, CreateCompatibleDC, CreateFontW, CreateSolidBrush, DEFAULT_CHARSET, DT_CENTER,
-    DT_END_ELLIPSIS, DT_NOPREFIX, DT_SINGLELINE, DT_VCENTER, DeleteDC, DeleteObject, DrawTextW, FW_NORMAL, FW_SEMIBOLD,
-    FillRect, FrameRect, GetSysColor, HDC, HFONT, HGDIOBJ, OUT_DEFAULT_PRECIS, SRCCOPY, SYS_COLOR_INDEX, SelectObject,
-    SetBkMode, SetTextColor, TRANSPARENT,
+    DT_END_ELLIPSIS, DT_NOPREFIX, DT_SINGLELINE, DT_VCENTER, DeleteDC, DeleteObject, DrawTextW, FW_NORMAL, FillRect,
+    FrameRect, GetSysColor, HDC, HFONT, HGDIOBJ, OUT_DEFAULT_PRECIS, SRCCOPY, SYS_COLOR_INDEX, SelectObject, SetBkMode,
+    SetTextColor, TRANSPARENT,
 };
 use windows::Win32::Graphics::GdiPlus::{
-    GdipCreateBitmapFromScan0, GdipCreateBitmapFromStream, GdipCreateFromHDC, GdipCreatePen1, GdipCreateSolidFill,
-    GdipDeleteBrush, GdipDeleteGraphics, GdipDeletePen, GdipDisposeImage, GdipDrawImageRectI, GdipDrawLine,
-    GdipFillEllipse, GdipFillRectangle, GdipGetImageGraphicsContext, GdipSetInterpolationMode, GdipSetPixelOffsetMode,
-    GdipSetSmoothingMode, GdiplusShutdown, GdiplusStartup, GdiplusStartupInput, GpBitmap, GpBrush, GpGraphics, GpImage,
-    GpPen, GpSolidFill, InterpolationModeHighQualityBicubic, PixelOffsetModeHalf, SmoothingModeAntiAlias, UnitPixel,
+    GdipCreateBitmapFromScan0, GdipCreateBitmapFromStream, GdipCreateFromHDC, GdipCreateSolidFill, GdipDeleteBrush,
+    GdipDeleteGraphics, GdipDisposeImage, GdipDrawImageRectI, GdipFillEllipse, GdipFillRectangle,
+    GdipGetImageGraphicsContext, GdipSetInterpolationMode, GdipSetPixelOffsetMode, GdipSetSmoothingMode,
+    GdiplusShutdown, GdiplusStartup, GdiplusStartupInput, GpBitmap, GpBrush, GpGraphics, GpImage, GpSolidFill,
+    InterpolationModeHighQualityBicubic, PixelOffsetModeHalf, SmoothingModeAntiAlias,
 };
 use windows::Win32::System::Registry::{HKEY_CURRENT_USER, RRF_RT_REG_DWORD, RegGetValueW};
 use windows::Win32::UI::Accessibility::{HCF_HIGHCONTRASTON, HIGHCONTRASTW};
@@ -53,30 +53,26 @@ pub struct Palette {
     ground: u32,
     /// The name.
     text: u32,
-    /// The line and the close mark.
+    /// The line.
     quiet: u32,
     track: u32,
     fill: u32,
-    /// Under the close mark while the pointer is on it.
-    hover: u32,
 }
 
 const LIGHT: Palette = Palette {
-    ground: rgb(0xF7, 0xF8, 0xFA),
-    text: rgb(0x1B, 0x1C, 0x1F),
-    quiet: rgb(0x5D, 0x62, 0x6C),
-    track: rgb(0xE1, 0xE4, 0xEA),
-    fill: rgb(0x4A, 0x7F, 0xE8),
-    hover: rgb(0xE7, 0xEA, 0xEF),
+    ground: rgb(0xDC, 0xDC, 0xDC),
+    text: rgb(0x1A, 0x1A, 0x1A),
+    quiet: rgb(0x4E, 0x4E, 0x4E),
+    track: rgb(0xC2, 0xC2, 0xC2),
+    fill: rgb(0x3F, 0x74, 0xE0),
 };
 
 const DARK: Palette = Palette {
-    ground: rgb(0x1F, 0x20, 0x23),
-    text: rgb(0xF1, 0xF2, 0xF4),
-    quiet: rgb(0xA9, 0xAD, 0xB6),
-    track: rgb(0x36, 0x38, 0x3E),
+    ground: rgb(0x20, 0x20, 0x20),
+    text: rgb(0xF2, 0xF2, 0xF2),
+    quiet: rgb(0xAB, 0xAB, 0xAB),
+    track: rgb(0x3A, 0x3A, 0x3A),
     fill: rgb(0x58, 0x90, 0xFF),
-    hover: rgb(0x2D, 0x2F, 0x34),
 };
 
 /// Whether the person chose dark for apps. A PC that does not say is light.
@@ -124,7 +120,6 @@ pub fn palette() -> Palette {
             quiet: system(COLOR_WINDOWTEXT),
             track: system(COLOR_GRAYTEXT),
             fill: system(COLOR_HIGHLIGHT),
-            hover: system(COLOR_WINDOW),
         };
     }
     if apps_are_dark() { DARK } else { LIGHT }
@@ -134,8 +129,6 @@ pub fn palette() -> Palette {
 #[derive(Clone, Copy)]
 pub struct Look {
     pub palette: Palette,
-    /// The pointer is on the close mark.
-    pub hover: bool,
     /// The timer tick the running piece of the bar is drawn at.
     pub tick: u32,
     /// Windows gives the window no edge of its own: one is drawn.
@@ -209,14 +202,13 @@ fn pill(graphics: *mut GpGraphics, rect: Rect, color: u32) {
 
 /// What draws the window, kept for as long as the window lives: the
 /// picture library, the mark as it was read, and for the screen's
-/// scaling the mark at its size and the two fonts.
+/// scaling the mark at its size and the line's font.
 pub struct Painter {
     library: usize,
     source: *mut GpImage,
     /// The mark at the size the window shows it, so that drawing the window scales nothing.
     mark: *mut GpImage,
     dpi: u32,
-    name_font: HFONT,
     line_font: HFONT,
 }
 
@@ -238,17 +230,14 @@ impl Painter {
             source: bitmap.cast(),
             mark: null_mut(),
             dpi: 0,
-            name_font: HFONT::default(),
             line_font: HFONT::default(),
         }
     }
 
-    fn drop_fonts(&mut self) {
-        for font in [self.name_font, self.line_font] {
-            if !font.is_invalid() {
-                unsafe {
-                    let _ = DeleteObject(HGDIOBJ(font.0));
-                }
+    fn drop_font(&mut self) {
+        if !self.line_font.is_invalid() {
+            unsafe {
+                let _ = DeleteObject(HGDIOBJ(self.line_font.0));
             }
         }
     }
@@ -287,11 +276,10 @@ impl Painter {
         if dpi == self.dpi {
             return;
         }
-        self.drop_fonts();
+        self.drop_font();
         self.drop_mark();
         self.dpi = dpi;
         self.mark = self.mark_at(view::layout(dpi).mark.width());
-        self.name_font = font(view::scaled(view::NAME_TEXT, dpi), FW_SEMIBOLD.0 as i32);
         self.line_font = font(view::scaled(view::LINE_TEXT, dpi), FW_NORMAL.0 as i32);
     }
 
@@ -320,55 +308,28 @@ impl Painter {
             pill(graphics, part, palette.fill);
         }
 
-        if shown.close {
-            let close = layout.close;
-            if look.hover {
-                let ground = Brush::new(palette.hover);
-                unsafe {
-                    GdipFillRectangle(
-                        graphics,
-                        ground.raw(),
-                        close.left as f32,
-                        close.top as f32,
-                        close.width() as f32,
-                        close.height() as f32,
-                    )
-                };
-            }
-            let half = view::scaled(view::CLOSE_GLYPH, self.dpi) as f32 / 2.0;
-            let (x, y) = (
-                (close.left + close.right) as f32 / 2.0,
-                (close.top + close.bottom) as f32 / 2.0,
-            );
-            let mut pen: *mut GpPen = null_mut();
-            let stroke = self.dpi as f32 / view::BASE_DPI as f32;
-            unsafe {
-                GdipCreatePen1(argb(palette.quiet), stroke, UnitPixel, &raw mut pen);
-                if !pen.is_null() {
-                    GdipDrawLine(graphics, pen, x - half, y - half, x + half, y + half);
-                    GdipDrawLine(graphics, pen, x - half, y + half, x + half, y - half);
-                    GdipDeletePen(pen);
-                }
-            }
-        }
         unsafe { GdipDeleteGraphics(graphics) };
     }
 
+    /// The name, dot by dot, and the line under it.
     fn words(&self, canvas: HDC, layout: &Layout, shown: &Shown, palette: Palette) {
         let centred = DT_CENTER | DT_VCENTER | DT_SINGLELINE | DT_NOPREFIX | DT_END_ELLIPSIS;
-        let say = |text: &str, place: Rect, font: HFONT, color: u32| {
-            let mut text: Vec<u16> = text.encode_utf16().collect();
-            let mut place = to_rect(place);
-            unsafe {
-                let before = SelectObject(canvas, HGDIOBJ(font.0));
-                SetTextColor(canvas, COLORREF(color));
-                DrawTextW(canvas, &mut text, &raw mut place, centred);
-                SelectObject(canvas, before);
+        let mut line: Vec<u16> = shown.line.encode_utf16().collect();
+        let mut place = to_rect(layout.line);
+        unsafe {
+            let ink = CreateSolidBrush(COLORREF(palette.text));
+            for run in view::wordmark(layout.name, self.dpi) {
+                let dots = to_rect(run);
+                FillRect(canvas, &raw const dots, ink);
             }
-        };
-        unsafe { SetBkMode(canvas, TRANSPARENT) };
-        say(view::NAME, layout.name, self.name_font, palette.text);
-        say(&shown.line, layout.line, self.line_font, palette.quiet);
+            let _ = DeleteObject(HGDIOBJ(ink.0));
+
+            SetBkMode(canvas, TRANSPARENT);
+            let before = SelectObject(canvas, HGDIOBJ(self.line_font.0));
+            SetTextColor(canvas, COLORREF(palette.quiet));
+            DrawTextW(canvas, &mut line, &raw mut place, centred);
+            SelectObject(canvas, before);
+        }
     }
 
     /// Draws the whole window for a state onto `target`.
@@ -405,7 +366,7 @@ impl Painter {
 
 impl Drop for Painter {
     fn drop(&mut self) {
-        self.drop_fonts();
+        self.drop_font();
         self.drop_mark();
         unsafe {
             if !self.source.is_null() {

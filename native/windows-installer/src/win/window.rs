@@ -1,6 +1,7 @@
 //! The window a person watches: the app's mark and name, one line, a
-//! thin bar, and a close mark for as long as a cancel is taken. It has
-//! no title bar and is moved by its body.
+//! thin bar. It has no title bar and no button, and is moved by its
+//! body; Esc, or closing it from the taskbar, cancels the run for as
+//! long as a cancel is taken.
 //!
 //! The window owns the thread that shows it. The install runs on a
 //! thread of its own and tells the window what to show by posting it
@@ -19,21 +20,19 @@ use windows::Win32::Foundation::{HINSTANCE, HWND, LPARAM, LRESULT, POINT, RECT, 
 use windows::Win32::Graphics::Dwm::{DWMWA_WINDOW_CORNER_PREFERENCE, DWMWCP_ROUND, DwmSetWindowAttribute};
 use windows::Win32::Graphics::Gdi::{
     BeginPaint, EndPaint, GetMonitorInfoW, InvalidateRect, MONITOR_DEFAULTTOPRIMARY, MONITORINFO, MonitorFromPoint,
-    PAINTSTRUCT, ScreenToClient,
+    PAINTSTRUCT,
 };
 use windows::Win32::System::LibraryLoader::GetModuleHandleW;
-use windows::Win32::UI::Controls::WM_MOUSELEAVE;
 use windows::Win32::UI::HiDpi::GetDpiForWindow;
-use windows::Win32::UI::Input::KeyboardAndMouse::{TME_LEAVE, TRACKMOUSEEVENT, TrackMouseEvent, VK_ESCAPE};
+use windows::Win32::UI::Input::KeyboardAndMouse::VK_ESCAPE;
 use windows::Win32::UI::WindowsAndMessaging::{
     CREATESTRUCTW, CreateWindowExW, DefWindowProcW, DestroyWindow, DispatchMessageW, GWLP_USERDATA, GetCursorPos,
-    GetMessageW, GetSystemMetrics, GetWindowLongPtrW, HICON, HTCAPTION, HTCLIENT, IDC_ARROW, IMAGE_ICON, KillTimer,
+    GetMessageW, GetSystemMetrics, GetWindowLongPtrW, HICON, HTCAPTION, IDC_ARROW, IMAGE_ICON, KillTimer,
     LR_DEFAULTCOLOR, LoadCursorW, LoadImageW, MSG, PostMessageW, PostQuitMessage, RegisterClassExW, SM_CXICON,
     SM_CXSMICON, SM_CYICON, SM_CYSMICON, SW_SHOWNORMAL, SWP_NOACTIVATE, SWP_NOZORDER, SYSTEM_METRICS_INDEX,
     SetForegroundWindow, SetTimer, SetWindowLongPtrW, SetWindowPos, ShowWindow, TranslateMessage, WM_APP, WM_CLOSE,
-    WM_DESTROY, WM_DPICHANGED, WM_ERASEBKGND, WM_KEYDOWN, WM_LBUTTONDOWN, WM_LBUTTONUP, WM_MOUSEMOVE, WM_NCCREATE,
-    WM_NCHITTEST, WM_PAINT, WM_SETTINGCHANGE, WM_SYSCOLORCHANGE, WM_THEMECHANGED, WM_TIMER, WNDCLASSEXW,
-    WS_EX_APPWINDOW, WS_MINIMIZEBOX, WS_POPUP, WS_SYSMENU,
+    WM_DESTROY, WM_DPICHANGED, WM_ERASEBKGND, WM_KEYDOWN, WM_NCCREATE, WM_NCHITTEST, WM_PAINT, WM_SETTINGCHANGE,
+    WM_SYSCOLORCHANGE, WM_THEMECHANGED, WM_TIMER, WNDCLASSEXW, WS_EX_APPWINDOW, WS_MINIMIZEBOX, WS_POPUP, WS_SYSMENU,
 };
 use windows::core::{HSTRING, PCWSTR, w};
 
@@ -122,10 +121,6 @@ struct Face {
     palette: Cell<Palette>,
     /// Windows gives the window no edge of its own.
     framed: Cell<bool>,
-    /// The pointer is on the close mark.
-    hover: Cell<bool>,
-    /// The button went down on the close mark and has not come up.
-    armed: Cell<bool>,
     tick: Cell<u32>,
     /// The timer that moves the bar's running piece is on.
     running: Cell<bool>,
@@ -160,9 +155,9 @@ impl Face {
         redraw(window);
     }
 
-    /// The person asks the run to end. Taken only while the close mark shows.
+    /// The person asks the run to end. Not taken once Windows has the package.
     fn ask_to_cancel(&self, window: HWND) {
-        if self.shared.shown().close {
+        if self.shared.shown().takes_cancel {
             self.shared.cancel.store(true, Ordering::SeqCst);
             self.refresh(window);
         }
@@ -173,7 +168,6 @@ impl Face {
         let target = unsafe { BeginPaint(window, &raw mut paint) };
         let look = Look {
             palette: self.palette.get(),
-            hover: self.hover.get(),
             tick: self.tick.get(),
             framed: self.framed.get(),
         };
@@ -207,45 +201,8 @@ impl Face {
                 self.paint(window);
                 Some(0)
             }
-            // The window is moved by its body; the close mark alone takes the pointer.
-            WM_NCHITTEST => {
-                let mut point = POINT {
-                    x: i32::from(lparam.0 as u16 as i16),
-                    y: i32::from((lparam.0 >> 16) as u16 as i16),
-                };
-                let _ = unsafe { ScreenToClient(window, &raw mut point) };
-                let on_close = self.shared.shown().close && self.layout.get().close.holds(point.x, point.y);
-                Some(if on_close { HTCLIENT } else { HTCAPTION } as isize)
-            }
-            WM_MOUSEMOVE => {
-                if !self.hover.replace(true) {
-                    let mut track = TRACKMOUSEEVENT {
-                        cbSize: size_of::<TRACKMOUSEEVENT>() as u32,
-                        dwFlags: TME_LEAVE,
-                        hwndTrack: window,
-                        dwHoverTime: 0,
-                    };
-                    let _ = unsafe { TrackMouseEvent(&raw mut track) };
-                    redraw(window);
-                }
-                Some(0)
-            }
-            WM_MOUSELEAVE => {
-                self.hover.set(false);
-                self.armed.set(false);
-                redraw(window);
-                Some(0)
-            }
-            WM_LBUTTONDOWN => {
-                self.armed.set(true);
-                Some(0)
-            }
-            WM_LBUTTONUP => {
-                if self.armed.replace(false) {
-                    self.ask_to_cancel(window);
-                }
-                Some(0)
-            }
+            // The window is moved by its body, all of it.
+            WM_NCHITTEST => Some(HTCAPTION as isize),
             WM_KEYDOWN if wparam.0 == usize::from(VK_ESCAPE.0) => {
                 self.ask_to_cancel(window);
                 Some(0)
@@ -481,8 +438,6 @@ pub fn run(log_path: &Path, work: impl FnOnce(&Window) -> i32 + Send + 'static) 
         layout: Cell::new(view::layout(view::BASE_DPI)),
         palette: Cell::new(paint::palette()),
         framed: Cell::new(false),
-        hover: Cell::new(false),
-        armed: Cell::new(false),
         tick: Cell::new(0),
         running: Cell::new(false),
     });

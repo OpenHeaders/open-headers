@@ -1,12 +1,25 @@
-//! What the installer's window shows, and where: the line, the bar and
-//! the close mark for a run's state, and the place of every part for a
+//! What the installer's window shows, and where: the line and the bar
+//! for a run's state, and the place of every part for a
 //! screen's scaling. Nothing here asks Windows anything, so the window's
 //! look is pinned without one.
 
 use crate::flow::{Progress, Stage};
 
-/// The name under the mark.
-pub const NAME: &str = "OpenHeaders";
+/// The name under the mark, "Open Headers", as the product writes it: in its wordmark face, which
+/// is drawn on a grid of eight dots a letter. The name is kept as those dots, a row of text for a
+/// row of dots, and drawn as squares — sharp at every scaling, and no font is carried.
+const WORDMARK: [&str; 8] = [
+    ".#####..................................##...##......................##.........................",
+    "##...##.................................##...##......................##.........................",
+    "##...##.######...#####..######..........##...##..#####...#####...######..#####...##.###..#####..",
+    "##...##.##...##.##...##.##...##.........#######.##...##......##.##...##.##...##..###....##......",
+    "##...##.##...##.#######.##...##.........##...##.#######..######.##...##.#######..##......#####..",
+    "##...##.######..##......##...##.........##...##.##......##...##.##...##.##.......##..........##.",
+    ".#####..##.......#####..##...##.........##...##..#####...######..######..#####...##.....######..",
+    "........##......................................................................................",
+];
+/// The side of one dot of the name.
+const WORDMARK_DOT: i32 = 3;
 
 /// The window's size, in the units a screen at 100% shows as pixels.
 const WIDTH: i32 = 440;
@@ -21,10 +34,6 @@ const TRACK_TOP: i32 = 320;
 const TRACK_HEIGHT: i32 = 4;
 /// How far the line and the bar stay from the window's sides.
 const INSET: i32 = 36;
-const CLOSE_WIDTH: i32 = 46;
-const CLOSE_HEIGHT: i32 = 34;
-pub const CLOSE_GLYPH: i32 = 10;
-pub const NAME_TEXT: i32 = 22;
 pub const LINE_TEXT: i32 = 14;
 
 /// The scaling of a screen at 100%.
@@ -49,10 +58,6 @@ impl Rect {
     pub fn height(self) -> i32 {
         self.bottom - self.top
     }
-
-    pub fn holds(self, x: i32, y: i32) -> bool {
-        x >= self.left && x < self.right && y >= self.top && y < self.bottom
-    }
 }
 
 /// A length for a screen's scaling.
@@ -69,7 +74,6 @@ pub struct Layout {
     pub name: Rect,
     pub line: Rect,
     pub track: Rect,
-    pub close: Rect,
 }
 
 pub fn layout(dpi: u32) -> Layout {
@@ -94,13 +98,39 @@ pub fn layout(dpi: u32) -> Layout {
         name: across(NAME_TOP, NAME_HEIGHT, 0),
         line: across(LINE_TOP, LINE_HEIGHT, INSET),
         track: across(TRACK_TOP, TRACK_HEIGHT, INSET),
-        close: Rect {
-            left: width - at(CLOSE_WIDTH),
-            top: 0,
-            right: width,
-            bottom: at(CLOSE_HEIGHT),
-        },
     }
+}
+
+/// The name's dots as rectangles, one for each unbroken run of dots in a row, centred in `place`.
+/// A dot is a whole number of pixels a side.
+pub fn wordmark(place: Rect, dpi: u32) -> Vec<Rect> {
+    let dot = scaled(WORDMARK_DOT, dpi).max(1);
+    let used = |row: &&str| row.rfind('#').map_or(0, |column| column + 1);
+    let columns = WORDMARK.iter().map(used).max().unwrap_or(0) as i32;
+    let left = place.left + (place.width() - columns * dot) / 2;
+    let top = place.top + (place.height() - WORDMARK.len() as i32 * dot) / 2;
+    let mut runs = Vec::new();
+    for (row, dots) in WORDMARK.iter().enumerate() {
+        let top = top + row as i32 * dot;
+        let mut start = None;
+        // One column past the end closes a run that reaches it.
+        for (column, mark) in dots.bytes().chain(*b".").enumerate() {
+            match (mark == b'#', start) {
+                (true, None) => start = Some(column),
+                (false, Some(from)) => {
+                    runs.push(Rect {
+                        left: left + from as i32 * dot,
+                        top,
+                        right: left + column as i32 * dot,
+                        bottom: top + dot,
+                    });
+                    start = None;
+                }
+                _ => {}
+            }
+        }
+    }
+    runs
 }
 
 /// What the bar shows.
@@ -117,8 +147,8 @@ pub enum Bar {
 pub struct Shown {
     pub line: String,
     pub bar: Bar,
-    /// Whether the close mark is there to be pressed.
-    pub close: bool,
+    /// Whether a cancel is taken now: Esc, or the window closed from the taskbar.
+    pub takes_cancel: bool,
 }
 
 /// `cancel_asked`: the person asked the run to end and it has not yet.
@@ -128,7 +158,7 @@ pub fn shown(stage: Stage, progress: Progress, cancel_asked: bool) -> Shown {
         return Shown {
             line: "Cancelling…".to_string(),
             bar: Bar::Running,
-            close: false,
+            takes_cancel: false,
         };
     }
     Shown {
@@ -137,7 +167,7 @@ pub fn shown(stage: Stage, progress: Progress, cancel_asked: bool) -> Shown {
             (Stage::Downloading | Stage::Installing, Some(percent)) => Bar::Filled(percent),
             _ => Bar::Running,
         },
-        close: stage.takes_cancel(),
+        takes_cancel: stage.takes_cancel(),
     }
 }
 
@@ -182,13 +212,43 @@ mod tests {
     fn every_part_lies_inside_the_window_at_every_scaling() {
         for dpi in [96, 120, 144, 168, 192, 240, 288] {
             let layout = layout(dpi);
-            for part in [layout.mark, layout.name, layout.line, layout.track, layout.close] {
+            for part in [layout.mark, layout.name, layout.line, layout.track] {
                 assert!(inside(part, layout), "{dpi}: {part:?}");
             }
             assert!(layout.mark.bottom <= layout.name.top && layout.name.bottom <= layout.line.top);
             assert!(layout.line.bottom <= layout.track.top);
-            assert!(layout.close.bottom <= layout.mark.top);
         }
+    }
+
+    #[test]
+    fn the_name_is_twelve_letters_of_eight_dots_and_lies_in_its_place() {
+        assert!(WORDMARK.iter().all(|row| row.len() == 12 * 8));
+        let dots: usize = WORDMARK.iter().map(|row| row.matches('#').count()).sum();
+        for dpi in [96, 120, 144, 168, 192, 240, 288] {
+            let place = layout(dpi).name;
+            let runs = wordmark(place, dpi);
+            let dot = runs[0].height();
+            assert!(dot >= 2 && runs.iter().all(|run| run.height() == dot && run.width() % dot == 0));
+            let drawn: i32 = runs.iter().map(|run| run.width() / dot).sum();
+            assert_eq!(drawn as usize, dots, "{dpi}");
+            let (left, right) = (
+                runs.iter().map(|run| run.left).min().unwrap(),
+                runs.iter().map(|run| run.right).max().unwrap(),
+            );
+            assert!(left >= place.left && right <= place.right, "{dpi}");
+            assert!(
+                runs.iter()
+                    .all(|run| run.top >= place.top && run.bottom <= place.bottom)
+            );
+            assert!(((left - place.left) - (place.right - right)).abs() <= 1, "{dpi}");
+        }
+    }
+
+    #[test]
+    fn the_name_leaves_a_letters_width_between_its_two_words() {
+        // "Open" is four letters, the space the fifth: nothing is drawn in its eight columns.
+        assert!(WORDMARK.iter().all(|row| !row[4 * 8..5 * 8].contains('#')));
+        assert!(WORDMARK.iter().any(|row| row[5 * 8..6 * 8].contains('#')));
     }
 
     #[test]
@@ -220,7 +280,7 @@ mod tests {
             Shown {
                 line: "Downloading OpenHeaders… 38% (98 of 252 MB)".to_string(),
                 bar: Bar::Filled(38),
-                close: true,
+                takes_cancel: true,
             }
         );
     }
@@ -236,23 +296,23 @@ mod tests {
             Shown {
                 line: "Installing… 57%".to_string(),
                 bar: Bar::Filled(57),
-                close: false,
+                takes_cancel: false,
             }
         );
     }
 
     #[test]
-    fn the_close_mark_goes_once_windows_has_the_package() {
-        assert!(shown(Stage::Verifying, Progress::Unknown, false).close);
-        assert!(!shown(Stage::Installing, Progress::Unknown, false).close);
-        assert!(!shown(Stage::Opening, Progress::Unknown, false).close);
+    fn no_cancel_is_taken_once_windows_has_the_package() {
+        assert!(shown(Stage::Verifying, Progress::Unknown, false).takes_cancel);
+        assert!(!shown(Stage::Installing, Progress::Unknown, false).takes_cancel);
+        assert!(!shown(Stage::Opening, Progress::Unknown, false).takes_cancel);
     }
 
     #[test]
     fn a_cancel_is_said_until_the_run_ends_and_not_when_it_came_too_late() {
         let asked = shown(Stage::Downloading, Progress::Percent(40), true);
         assert_eq!(
-            (asked.line.as_str(), asked.bar, asked.close),
+            (asked.line.as_str(), asked.bar, asked.takes_cancel),
             ("Cancelling…", Bar::Running, false)
         );
         assert_eq!(

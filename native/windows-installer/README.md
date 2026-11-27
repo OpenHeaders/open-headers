@@ -30,14 +30,17 @@ installer installs betas.
 ## The window
 
 A window of its own, with no title bar, moved by its body: the app's
-mark and name, one line — "Downloading OpenHeaders… 39% (98 of 240
+mark, its name as the product writes it ("Open Headers" in the
+wordmark face, kept as the face's own dots — no font is carried), one
+line — "Downloading OpenHeaders… 39% (98 of 240
 MB)", megabytes as Windows counts them — and a thin bar, which runs
-where there is nothing to count. A close mark at the top right, and
-Esc, cancel the run for as long as a cancel is taken: not once Windows
-has the package. Light or dark as the PC is set, and in the person's
-own colours where they asked for contrast. When a run stops, Windows'
-own dialog comes in front of it with the run's sentence, Try again
-where another try can end otherwise, Show log, and Close.
+where there is nothing to count. It has no button: Esc, or closing it
+from the taskbar, cancels the run for as long as a cancel is taken —
+not once Windows has the package. A neutral grey ground, light or dark
+as the PC is set, and the person's own colours where they asked for
+contrast. When a run stops, Windows' own dialog comes in front of it
+with the run's sentence, Try again where another try can end
+otherwise, Show log, and Close.
 
 The mark is the desktop's icon picture and the program's icon the
 desktop's icon file, both read where they live
