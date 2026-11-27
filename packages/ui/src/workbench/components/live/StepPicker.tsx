@@ -188,18 +188,34 @@ export const StepPickerPopover: React.FC<StepPickerPopoverProps> = ({
   choices,
   onPick,
   children,
-}) => (
-  <Popover
-    content={<StepPicker open={open} choices={choices} onPick={onPick} onClose={() => onOpenChange(false)} />}
-    trigger="click"
-    placement={placement}
-    open={open}
-    onOpenChange={onOpenChange}
-    destroyOnHidden
-    styles={{ container: { padding: 8 } }}
-  >
-    {children}
-  </Popover>
-);
+}) => {
+  // Each opening is a picker of its own: its search empty, its field
+  // focused. The last one's content is still in the page while it fades,
+  // so the content is told apart by the opening it belongs to — however
+  // the door was opened, by a press of it or by the graph.
+  const [shown, setShown] = useState({ open, opening: 0 });
+  if (shown.open !== open) setShown({ open, opening: open ? shown.opening + 1 : shown.opening });
+  return (
+    <Popover
+      content={
+        <StepPicker
+          key={shown.opening}
+          open={open}
+          choices={choices}
+          onPick={onPick}
+          onClose={() => onOpenChange(false)}
+        />
+      }
+      trigger="click"
+      placement={placement}
+      open={open}
+      onOpenChange={onOpenChange}
+      destroyOnHidden
+      styles={{ container: { padding: 8 } }}
+    >
+      {children}
+    </Popover>
+  );
+};
 
 export default StepPicker;

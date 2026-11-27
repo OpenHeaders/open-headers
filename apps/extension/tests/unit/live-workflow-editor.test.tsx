@@ -17,12 +17,14 @@
 
 import { registerCapability, unregisterCapability } from '@openheaders/core/capabilities';
 import { LiveWorkflowSchema } from '@openheaders/core/schemas';
+import { getHostStorage, type HostStorage, setHostStorage, wsKeys } from '@openheaders/core/storage';
 import type { GraphqlRequest, LiveWorkflow, MqttRequest, Request } from '@openheaders/core/types';
 import type { StepRequestOpeners } from '@openheaders/ui/workbench/components/live/step-facts';
-import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { EditingScopeWorkspaceProvider } from '@openheaders/ui/workbench/hooks/EditingScopeWorkspaceContext';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { App, ConfigProvider } from 'antd';
 import * as v from 'valibot';
-import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 // Monaco (transitively pulled in via EntityConflictDialog) calls
 // `document.queryCommandSupported` at module-load time. The polyfill
@@ -809,6 +811,27 @@ describe('LiveWorkflowEditor — the step picker', () => {
     expect(screen.getByTestId('wf-graph-node-fixture-request')).toBeTruthy();
   });
 
+  it('opened again while the last one still fades, it is a picker of its own: its search empty and focused', () => {
+    // Motion on: a picker that closed is still in the page, as it is in a browser until its fade ends.
+    render(
+      <App>
+        <AwarenessIdentityProvider value={testIdentity}>
+          <LiveWorkflowEditor mode="edit" workflowUid={workflowState.uid} />
+        </AwarenessIdentityProvider>
+      </App>,
+    );
+    openPicker();
+    fireEvent.change(search(), { target: { value: 'fixture' } });
+    fireEvent.keyDown(search(), { key: 'Enter', code: 'Enter', keyCode: 13 });
+    expect(screen.getByTestId('wf-graph-node-fixture-request')).toBeTruthy();
+
+    openPicker();
+
+    expect(search()).toHaveProperty('value', '');
+    expect(rows()).toEqual(['wf-step-picker-kind-call', 'wf-step-picker-request-reqtestfxt']);
+    expect(document.activeElement).toBe(search());
+  });
+
   it('with nothing typed Enter takes a call', () => {
     renderEditor();
     openPicker();
@@ -1105,6 +1128,286 @@ describe('LiveWorkflowEditor — the bar of the selected step', () => {
 
     fireEvent.contextMenu(screen.getByTestId('wf-graph-node-probe'));
     expect(screen.queryByTestId('wf-graph-context-menu')).toBeNull();
+  });
+});
+
+// ── Moving the nodes ──────────────────────────────────────────────
+//
+// The workflow runs plan, Decisions log, S31: a node is dragged by its
+// body and snaps to 8; the first move keeps every node where it stands
+// and a step added after lands under its parent; Auto-arrange returns
+// to the computed layout. A move is an entry of the draft's history,
+// and its place is this device's, never the workflow's.
+
+describe('LiveWorkflowEditor — moving the nodes', () => {
+  const node = (stepId: string): HTMLElement => screen.getByTestId(`wf-graph-node-${stepId}`);
+  const placeOf = (stepId: string): [string, string] => [node(stepId).style.left, node(stepId).style.top];
+  const arrangeButton = (): HTMLElement => screen.getByTestId('wf-graph-auto-arrange');
+  const undoButton = (): HTMLElement => screen.getByTestId('wf-graph-undo');
+  const redoButton = (): HTMLElement => screen.getByTestId('wf-graph-redo');
+  const saveButton = (): HTMLElement => screen.getByRole('button', { name: /Save/ });
+
+  /** A press on a node's body, the pointer moved by `dx`, `dy`, and let go — with the click a browser sends after. */
+  const dragNode = (stepId: string, dx: number, dy: number): void => {
+    const el = node(stepId);
+    fireEvent.pointerDown(el, { button: 0, pointerId: 1, clientX: 100, clientY: 100 });
+    fireEvent.pointerMove(el, { pointerId: 1, buttons: 1, clientX: 100 + dx, clientY: 100 + dy });
+    fireEvent.pointerUp(el, { pointerId: 1, clientX: 100 + dx, clientY: 100 + dy });
+    fireEvent.click(el);
+  };
+
+  beforeEach(() => {
+    Element.prototype.setPointerCapture = vi.fn();
+  });
+
+  it('a node dragged by its body follows the pointer, snapped to 8, and its line follows', () => {
+    renderEditor();
+    addCallStep();
+    // Two steps, one under the other.
+    expect(placeOf('only')).toEqual(['24px', '24px']);
+    expect(placeOf('step2')).toEqual(['24px', '178px']);
+
+    const step2 = node('step2');
+    fireEvent.pointerDown(step2, { button: 0, pointerId: 1, clientX: 100, clientY: 100 });
+    fireEvent.pointerMove(step2, { pointerId: 1, buttons: 1, clientX: 400, clientY: 100 });
+
+    // 324, 178 on the 8-unit grid.
+    expect(placeOf('step2')).toEqual(['328px', '176px']);
+    expect(step2.getAttribute('data-moving')).toBe('true');
+    // Out of its parent's lower edge, across 36 above the step, into its top: square turns.
+    expect(screen.getByTestId('wf-graph-edge-only-step2').getAttribute('d')).toBe(
+      'M 128 106 L 128 130 Q 128 140 138 140 L 422 140 Q 432 140 432 150 L 432 170',
+    );
+
+    fireEvent.pointerUp(step2, { pointerId: 1, clientX: 400, clientY: 100 });
+    expect(placeOf('step2')).toEqual(['328px', '176px']);
+    expect(step2.getAttribute('data-moving')).toBeNull();
+    expect(placeOf('only')).toEqual(['24px', '24px']);
+  });
+
+  it('a press that does not move selects; a press that moves leaves the selection as it was', () => {
+    renderEditor();
+    addCallStep();
+    expect(node('step2').getAttribute('data-selected')).toBe('true');
+
+    // Inside a click's give: no move, and the click selects.
+    const only = node('only');
+    fireEvent.pointerDown(only, { button: 0, pointerId: 1, clientX: 100, clientY: 100 });
+    fireEvent.pointerMove(only, { pointerId: 1, buttons: 1, clientX: 102, clientY: 101 });
+    fireEvent.pointerUp(only, { pointerId: 1, clientX: 102, clientY: 101 });
+    fireEvent.click(only);
+    expect(placeOf('only')).toEqual(['24px', '24px']);
+    expect(only.getAttribute('data-selected')).toBe('true');
+    expect(arrangeButton()).toHaveProperty('disabled', true);
+
+    dragNode('step2', 300, 0);
+    expect(placeOf('step2')).toEqual(['328px', '176px']);
+    expect(node('step2').getAttribute('data-selected')).toBeNull();
+    expect(only.getAttribute('data-selected')).toBe('true');
+
+    // The next press of the moved node is a click again.
+    fireEvent.click(node('step2'));
+    expect(node('step2').getAttribute('data-selected')).toBe('true');
+  });
+
+  it('a press whose release was lost ends at the next move with no button held: the node goes back, nothing is kept', () => {
+    renderEditor();
+    const only = node('only');
+    fireEvent.pointerDown(only, { button: 0, pointerId: 1, clientX: 100, clientY: 100 });
+    fireEvent.pointerMove(only, { pointerId: 1, buttons: 1, clientX: 300, clientY: 100 });
+    expect(only.getAttribute('data-moving')).toBe('true');
+
+    // The pointer comes back over the node with nothing held.
+    fireEvent.pointerMove(only, { pointerId: 1, buttons: 0, clientX: 320, clientY: 140 });
+    expect(only.getAttribute('data-moving')).toBeNull();
+    expect(placeOf('only')).toEqual(['24px', '24px']);
+
+    fireEvent.pointerMove(only, { pointerId: 1, buttons: 0, clientX: 500, clientY: 300 });
+    expect(placeOf('only')).toEqual(['24px', '24px']);
+    expect(undoButton()).toHaveProperty('disabled', true);
+    expect(arrangeButton()).toHaveProperty('disabled', true);
+  });
+
+  it('a move leaves the workflow as saved as it was, and is one entry of the draft’s history', () => {
+    renderEditor();
+    expect(saveButton()).toHaveProperty('disabled', true);
+
+    dragNode('only', 100, 50);
+    expect(placeOf('only')).toEqual(['128px', '72px']);
+    expect(saveButton()).toHaveProperty('disabled', true);
+    expect(undoButton()).toHaveProperty('disabled', false);
+
+    fireEvent.click(undoButton());
+    expect(placeOf('only')).toEqual(['24px', '24px']);
+    expect(undoButton()).toHaveProperty('disabled', true);
+
+    fireEvent.click(redoButton());
+    expect(placeOf('only')).toEqual(['128px', '72px']);
+    expect(saveButton()).toHaveProperty('disabled', true);
+  });
+
+  it('a move and an edit are taken back in the order they were made', () => {
+    renderEditor();
+    dragNode('only', 100, 50);
+    addCallStep();
+    dragNode('step2', 0, 100);
+    // Added under its parent at 128, 226; moved 100 down, on the grid.
+    expect(placeOf('step2')).toEqual(['128px', '328px']);
+
+    fireEvent.click(undoButton());
+    expect(placeOf('step2')).toEqual(['128px', '226px']);
+
+    fireEvent.click(undoButton());
+    expect(screen.queryByTestId('wf-graph-node-step2')).toBeNull();
+    expect(placeOf('only')).toEqual(['128px', '72px']);
+
+    fireEvent.click(undoButton());
+    expect(placeOf('only')).toEqual(['24px', '24px']);
+  });
+
+  it('the first move keeps every node where it stands; a step added then lands under its parent', () => {
+    renderEditor();
+    addCallStep();
+    addCallStep();
+    expect(placeOf('step3')).toEqual(['24px', '332px']);
+
+    dragNode('step2', 300, 0);
+    expect(placeOf('only')).toEqual(['24px', '24px']);
+    expect(placeOf('step3')).toEqual(['24px', '332px']);
+
+    // Added last: it waits on the step before it, and lands a layer's gap under that one.
+    addCallStep();
+    expect(placeOf('step4')).toEqual(['24px', '486px']);
+    expect(placeOf('step2')).toEqual(['328px', '176px']);
+  });
+
+  it('Auto-arrange is off until a node is moved, returns the computed layout, and is one undo', () => {
+    renderEditor();
+    addCallStep();
+    expect(arrangeButton()).toHaveProperty('disabled', true);
+    expect(arrangeButton().getAttribute('aria-label')).toBe('Auto-arrange');
+
+    dragNode('step2', 300, 0);
+    expect(arrangeButton()).toHaveProperty('disabled', false);
+
+    fireEvent.click(arrangeButton());
+    expect(placeOf('step2')).toEqual(['24px', '178px']);
+    expect(arrangeButton()).toHaveProperty('disabled', true);
+
+    fireEvent.click(undoButton());
+    expect(placeOf('step2')).toEqual(['328px', '176px']);
+    expect(arrangeButton()).toHaveProperty('disabled', false);
+  });
+
+  it('the minimap draws a moved step where it stands, off the origin too', () => {
+    renderEditor();
+    addCallStep();
+
+    dragNode('step2', -200, 0);
+
+    // 24 − 200 on the grid; the map's box starts a pad left of it.
+    expect(placeOf('step2')).toEqual(['-176px', '176px']);
+    expect(screen.getByTestId('wf-graph-minimap-node-step2').getAttribute('x')).toBe('-176');
+    expect(screen.getByTestId('wf-graph-minimap').querySelector('svg')?.getAttribute('viewBox')).toBe('-200 0 456 282');
+  });
+
+  it('a workflow that takes no edit takes no move, and has no Auto-arrange', () => {
+    workflowState = needsUpdateFixture;
+    renderEditor();
+    const before = placeOf('reboot');
+
+    dragNode('reboot', 300, 0);
+
+    expect(placeOf('reboot')).toEqual(before);
+    expect(screen.queryByTestId('wf-graph-auto-arrange')).toBeNull();
+  });
+
+  it('a draft never saved is arranged too', () => {
+    render(
+      <App>
+        <AwarenessIdentityProvider value={testIdentity}>
+          <LiveWorkflowEditor mode="create" onCreated={vi.fn()} />
+        </AwarenessIdentityProvider>
+      </App>,
+    );
+
+    dragNode('step1', 100, 50);
+
+    expect(placeOf('step1')).toEqual(['128px', '72px']);
+    fireEvent.click(undoButton());
+    expect(placeOf('step1')).toEqual(['24px', '24px']);
+  });
+
+  describe('on the device', () => {
+    const slot = wsKeys('ws-places').workflowNodePlaces;
+    let kept: Map<string, unknown>;
+    let installed: HostStorage | null;
+
+    beforeEach(() => {
+      kept = new Map();
+      installed = getHostStorage();
+      setHostStorage({
+        get: async (spec) => kept.get(spec.key) as never,
+        getMany: async () => ({}) as never,
+        set: async (spec, value) => {
+          kept.set(spec.key, value);
+        },
+        setMany: async () => undefined,
+        remove: async () => undefined,
+        getValidated: async () => null,
+        getValidatedArray: async () => [],
+        subscribe: () => () => undefined,
+      });
+    });
+
+    afterEach(() => {
+      if (installed !== null) setHostStorage(installed);
+    });
+
+    const renderScoped = () =>
+      render(
+        <ConfigProvider theme={{ token: { motion: false } }}>
+          <App>
+            <AwarenessIdentityProvider value={testIdentity}>
+              <EditingScopeWorkspaceProvider workspaceId="ws-places">
+                <LiveWorkflowEditor mode="edit" workflowUid={workflowState.uid} />
+              </EditingScopeWorkspaceProvider>
+            </AwarenessIdentityProvider>
+          </App>
+        </ConfigProvider>,
+      );
+
+    it('the places kept for the workflow are drawn as its editor mounts, and are no undo', async () => {
+      kept.set(slot.key, { [workflowFixture.uid]: { stponly0: { x: 400, y: 80 } } });
+
+      renderScoped();
+
+      await waitFor(() => expect(placeOf('only')).toEqual(['400px', '80px']));
+      expect(undoButton()).toHaveProperty('disabled', true);
+      expect(arrangeButton()).toHaveProperty('disabled', false);
+    });
+
+    it('a move, its undo and Auto-arrange are each written there, by step uid', async () => {
+      renderScoped();
+      // The read that comes before any write.
+      await act(async () => {});
+
+      dragNode('only', 100, 50);
+      await waitFor(() =>
+        expect(kept.get(slot.key)).toEqual({ [workflowFixture.uid]: { stponly0: { x: 128, y: 72 } } }),
+      );
+
+      fireEvent.click(undoButton());
+      await waitFor(() => expect(kept.get(slot.key)).toEqual({}));
+
+      fireEvent.click(redoButton());
+      await waitFor(() =>
+        expect(kept.get(slot.key)).toEqual({ [workflowFixture.uid]: { stponly0: { x: 128, y: 72 } } }),
+      );
+
+      fireEvent.click(arrangeButton());
+      await waitFor(() => expect(kept.get(slot.key)).toEqual({}));
+    });
   });
 });
 

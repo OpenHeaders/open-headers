@@ -192,6 +192,13 @@ export { isUuidV7, UUIDV7_LENGTH, uuidV7Timestamp, uuidv7 } from './uuidv7';
 export type { BuildEmptyWebSocketRequestInput } from './websocket-request-defaults';
 export { buildEmptyWebSocketRequest } from './websocket-request-defaults';
 export {
+  type NodePlace,
+  readWorkflowNodePlaces,
+  type WorkflowNodePlaces,
+  type WorkflowNodePlacesRecord,
+  withWorkflowNodePlaces,
+} from './workflow-node-places';
+export {
   extractUid,
   generateUid,
   isUid,

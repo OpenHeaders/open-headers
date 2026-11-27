@@ -35,6 +35,11 @@
  *   - Undo and redo: the connect is taken back and brought back by the
  *     two buttons of the graph's row and by the shortcut; taken back,
  *     the draft reads as saved.
+ *   - Moving the nodes: a node dragged by its body lands on the 8-unit
+ *     grid and the others stay where they stood; the move leaves the
+ *     selection and the saved state as they were and is one undo; a
+ *     step added then lands under its parent; a reload draws the places
+ *     this device kept; Auto-arrange returns the computed layout.
  */
 
 import path from 'node:path';
@@ -629,6 +634,163 @@ test('run overlay: per-node states, masked value reveal, publication split', asy
     'data-lv-published',
     'false',
   );
+
+  expect(pageErrors).toEqual([]);
+  await page.close();
+});
+
+test('moving the nodes: a drag snaps and is one undo, the device keeps the places, Auto-arrange forgets them', async () => {
+  const page = await context.newPage();
+  page.on('pageerror', (err) => pageErrors.push(err.message));
+
+  await page.goto(`chrome-extension://${extensionId}/workbench.html`);
+  await page.waitForFunction(() => {
+    const root = document.getElementById('root');
+    return root !== null && root.children.length > 0;
+  });
+
+  const reqRes = await rpc<{ success: boolean; request?: { uid: string } }>(page, 'createLocalRequest', {
+    name: 'move-e2e request',
+    seed: { method: 'GET', url: 'https://api.openheaders.io/move', headers: [], params: [], auth: null, body: null },
+  });
+  expect(reqRes.success).toBe(true);
+  const requestUid = reqRes.request!.uid;
+
+  const wfRes = await rpc<{ success: boolean; workflow?: { uid: string } }>(page, 'createLiveWorkflow', {
+    name: 'graph-move-e2e',
+    enabled: true,
+    refresh: { kind: 'manual' },
+    steps: [
+      { uid: 'stpmov01', id: 'a', requestUid, captures: [] },
+      { uid: 'stpmov02', id: 'b', requestUid, dependsOn: ['a'], captures: [] },
+      { uid: 'stpmov03', id: 'c', requestUid, dependsOn: ['a'], captures: [] },
+    ],
+  });
+  expect(wfRes.success).toBe(true);
+  const workflowUid = wfRes.workflow!.uid;
+
+  // Open the workflow's editor from the Workflows sidebar, the graph beside its panel.
+  const openWorkflow = async (): Promise<void> => {
+    await page.reload();
+    await page.waitForFunction(() => {
+      const root = document.getElementById('root');
+      return root !== null && root.children.length > 0;
+    });
+    const workflowsTab = page.locator('[data-tool-window="workflows"]').first();
+    if ((await workflowsTab.getAttribute('aria-selected')) !== 'true') {
+      await workflowsTab.click();
+    }
+    const sectionHeader = page
+      .getByRole('button', { name: /WORKFLOWS/ })
+      .filter({ visible: true })
+      .first();
+    await sectionHeader.waitFor({ state: 'visible', timeout: 5_000 });
+    if ((await sectionHeader.getAttribute('aria-expanded')) !== 'true') {
+      await sectionHeader.click();
+    }
+    const row = page.locator(`[data-item-id="workflow-${workflowUid}"]`);
+    await row.waitFor({ state: 'visible', timeout: 5_000 });
+    await row.click();
+    await expect(page.getByTestId('wf-graph-pane').filter({ visible: true }).first()).toBeVisible();
+    await new WorkbenchPage(page).collapseRightSidebar();
+  };
+  await openWorkflow();
+
+  const saveButton = page.getByRole('button', { name: 'Save' }).filter({ visible: true }).first();
+  const node = (id: string) => page.getByTestId(`wf-graph-node-${id}`).filter({ visible: true }).first();
+  const undoButton = page.getByTestId('wf-graph-undo').filter({ visible: true }).first();
+  const arrangeButton = page.getByTestId('wf-graph-auto-arrange').filter({ visible: true }).first();
+  /** A node's place on the graph, in the graph's own units. */
+  const place = (id: string): Promise<[number, number]> =>
+    node(id).evaluate((el) => {
+      const { left, top } = (el as HTMLElement).style;
+      return [Number.parseFloat(left), Number.parseFloat(top)];
+    });
+  /** The places this device keeps for the workflow, as its storage holds them — `null` where it keeps none. */
+  const keptPlaces = (): Promise<Array<{ x: number; y: number }> | null> =>
+    page.evaluate(async (uid) => {
+      const slots = await chrome.storage.local.get(null);
+      const slot = Object.entries(slots).find(([key]) => key.endsWith('.workflowNodePlaces'));
+      const kept = (slot?.[1] as Record<string, Record<string, { x: number; y: number }>> | undefined)?.[uid];
+      return kept === undefined ? null : Object.values(kept);
+    }, workflowUid);
+
+  await page.getByTestId('wf-graph-fit').filter({ visible: true }).first().click();
+  const [aAt, bAt, cAt] = [await place('a'), await place('b'), await place('c')];
+  await expect(arrangeButton).toBeDisabled();
+  await expect(saveButton).toBeDisabled();
+
+  // ── A drag by the body ───────────────────────────────────────────
+  const bBox = (await node('b').boundingBox())!;
+  const grip = { x: bBox.x + bBox.width / 2, y: bBox.y + bBox.height / 2 };
+  await page.mouse.move(grip.x, grip.y);
+  await page.mouse.down();
+  await page.mouse.move(grip.x - 60, grip.y + 30, { steps: 5 });
+  await page.mouse.move(grip.x - 120, grip.y + 60, { steps: 5 });
+  await expect(node('b')).toHaveAttribute('data-moving', 'true');
+  await page.mouse.up();
+  await expect(node('b')).not.toHaveAttribute('data-moving', 'true');
+
+  // It lands on the grid, left of and under where it stood — off the graph's
+  // origin; the others stand where they stood.
+  const bMoved = await place('b');
+  expect(bMoved[0]).toBeLessThan(bAt[0]);
+  expect(bMoved[1]).toBeGreaterThan(bAt[1]);
+  expect(bMoved.map((unit) => Math.abs(unit % 8))).toEqual([0, 0]);
+  expect(await place('a')).toEqual(aAt);
+  expect(await place('c')).toEqual(cAt);
+  // An earlier case's tab stays mounted behind this one, with a line of the same name.
+  await expect(page.getByTestId('wf-graph-edge-a-b').filter({ visible: true })).toHaveCount(1);
+
+  // A move is not an edit of the workflow, and not a click: nothing to save, nothing selected.
+  await expect(saveButton).toBeDisabled();
+  await expect(node('b')).not.toHaveAttribute('data-selected', 'true');
+  await expect(page.locator('[data-step-card]').filter({ visible: true })).toHaveCount(0);
+  await expect(arrangeButton).toBeEnabled();
+
+  // It is one entry of the draft's history.
+  await undoButton.click();
+  expect(await place('b')).toEqual(bAt);
+  await expect(arrangeButton).toBeDisabled();
+  await page.getByTestId('wf-graph-redo').filter({ visible: true }).first().click();
+  expect(await place('b')).toEqual(bMoved);
+
+  // A press that does not move still selects.
+  await node('b').click();
+  await expect(node('b')).toHaveAttribute('data-selected', 'true');
+  await page.getByTestId('wf-panel-close').filter({ visible: true }).first().click();
+
+  // ── A step added to an arranged graph lands under its parent ─────
+  await page.getByTestId('wf-graph-add-step').filter({ visible: true }).first().click();
+  await page.getByTestId('wf-step-picker-kind-call').click();
+  await expect(node('step4')).toBeVisible();
+  // It waits on the step before it, c: a layer's gap under it.
+  expect(await place('step4')).toEqual([cAt[0], cAt[1] + 154]);
+  await page.keyboard.press('ControlOrMeta+z');
+  await expect(node('step4')).toHaveCount(0);
+  expect(await place('b')).toEqual(bMoved);
+  await expect(saveButton).toBeDisabled();
+
+  // ── The device keeps the places: a reload draws them ─────────────
+  // Every node's, from the first move — a's and c's where they stood.
+  await expect.poll(keptPlaces).toHaveLength(3);
+  expect(await keptPlaces()).toContainEqual({ x: bMoved[0], y: bMoved[1] });
+  await openWorkflow();
+  await expect.poll(() => place('b')).toEqual(bMoved);
+  expect(await place('a')).toEqual(aAt);
+  expect(await place('c')).toEqual(cAt);
+  await expect(saveButton).toBeDisabled();
+  await expect(undoButton).toBeDisabled();
+
+  // ── Auto-arrange forgets them, and a reload has none ─────────────
+  await arrangeButton.click();
+  expect(await place('b')).toEqual(bAt);
+  await expect(arrangeButton).toBeDisabled();
+  await expect.poll(keptPlaces).toBeNull();
+  await openWorkflow();
+  await expect(node('b')).toBeVisible();
+  await expect(arrangeButton).toBeDisabled();
+  expect(await place('b')).toEqual(bAt);
 
   expect(pageErrors).toEqual([]);
   await page.close();

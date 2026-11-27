@@ -69,7 +69,7 @@ import type {
   WorkspaceVariables,
   WsResponseExample,
 } from '../types';
-import type { ExecutionPlacesRecord, PauseMarkersRecord } from '../utils';
+import type { ExecutionPlacesRecord, PauseMarkersRecord, WorkflowNodePlacesRecord } from '../utils';
 
 // ── Core key type ────────────────────────────────────────────────────
 
@@ -681,6 +681,8 @@ export interface WorkspaceKeys {
   pauseMarkers: StorageKey<PauseMarkersRecord>;
   /** Request uid → the execution place saved on THIS device (the Execution Place plan); absent = Automatic. */
   executionPlaces: StorageKey<ExecutionPlacesRecord>;
+  /** Workflow uid → its steps' places on the graph on THIS device (the workflow runs plan); absent = computed. */
+  workflowNodePlaces: StorageKey<WorkflowNodePlacesRecord>;
   tabSession: StorageKey<PersistedTabSession>;
   panelLayout: StorageKey<PersistedPanelLayout>;
   /** R2a — taste-scoped workspace settings. Always reads from the global active workspace. */
@@ -881,6 +883,7 @@ export function wsKeys(workspaceId: string): WorkspaceKeys {
     treeOrder: storageKey<TreeOrderRecord>(`${p}.treeOrder`),
     pauseMarkers: storageKey<PauseMarkersRecord>(`${p}.pauseMarkers`),
     executionPlaces: storageKey<ExecutionPlacesRecord>(`${p}.executionPlaces`),
+    workflowNodePlaces: storageKey<WorkflowNodePlacesRecord>(`${p}.workflowNodePlaces`),
     tabSession: storageKey<PersistedTabSession>(`${p}.tabSession`),
     panelLayout: storageKey<PersistedPanelLayout>(`${p}.panelLayout`),
     settingsWorkspaceTaste: storageKey<Record<string, unknown>>(`${p}.settings.workspaceTaste`),

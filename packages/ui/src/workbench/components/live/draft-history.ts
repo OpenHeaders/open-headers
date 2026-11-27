@@ -33,6 +33,18 @@ export function amendEdit<T>(history: DraftHistory<T>, next: T): DraftHistory<T>
   return { past: history.past, present: next, future: [] };
 }
 
+/**
+ * Every entry rewritten, none added — for what is read after the draft
+ * is held and belongs to each of them. No undo takes it back.
+ */
+export function restateEntries<T>(history: DraftHistory<T>, restate: (entry: T) => T): DraftHistory<T> {
+  return {
+    past: history.past.map(restate),
+    present: restate(history.present),
+    future: history.future.map(restate),
+  };
+}
+
 export function undoEdit<T>(history: DraftHistory<T>): DraftHistory<T> {
   if (history.past.length === 0) return history;
   return {

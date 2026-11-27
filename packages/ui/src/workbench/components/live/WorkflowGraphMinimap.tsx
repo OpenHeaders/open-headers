@@ -18,6 +18,7 @@ import {
   fitWorldInBox,
   type PaneViewport,
   type Point,
+  type Rect,
   type Size,
   viewRectOf,
   worldPointAt,
@@ -39,8 +40,8 @@ export interface MinimapNode extends Point {
 }
 
 interface Props {
-  /** The graph's own extent — what the map shows whole. */
-  world: Size;
+  /** The box the graph fills — what the map shows whole; nodes placed by hand may leave the origin. */
+  world: Rect;
   nodes: readonly MinimapNode[];
   nodeSize: Size;
   /** The graph's pane, and its pan and zoom: what it shows is the map's outline. */
@@ -66,7 +67,8 @@ const WorkflowGraphMinimap: React.FC<Props> = ({ world, nodes, nodeSize, pane, v
     const rect = drawingRef.current?.getBoundingClientRect();
     if (!rect) return;
     const fit = fitWorldInBox(world, { width: rect.width, height: rect.height });
-    onCentre(worldPointAt(fit, { x: e.clientX - rect.left, y: e.clientY - rect.top }));
+    const within = worldPointAt(fit, { x: e.clientX - rect.left, y: e.clientY - rect.top });
+    onCentre({ x: world.x + within.x, y: world.y + within.y });
   };
 
   return (
@@ -114,7 +116,7 @@ const WorkflowGraphMinimap: React.FC<Props> = ({ world, nodes, nodeSize, pane, v
         ref={drawingRef}
         width="100%"
         height="100%"
-        viewBox={`0 0 ${world.width} ${world.height}`}
+        viewBox={`${world.x} ${world.y} ${world.width} ${world.height}`}
         preserveAspectRatio="xMidYMid meet"
         style={{ display: 'block', overflow: 'visible', pointerEvents: 'none' }}
       >

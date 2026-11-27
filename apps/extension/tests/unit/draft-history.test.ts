@@ -4,6 +4,7 @@ import {
   historyOf,
   pushEdit,
   redoEdit,
+  restateEntries,
   undoEdit,
 } from '@openheaders/ui/workbench/components/live/draft-history';
 import { describe, expect, it } from 'vitest';
@@ -77,6 +78,14 @@ describe('the undo history of a draft', () => {
     const undone = undoEdit(pushEdit(pushEdit(historyOf(draft('a')), draft('b')), draft('c')));
 
     expect(amendEdit(undone, draft('d')).future).toEqual([]);
+  });
+
+  it('every entry can be rewritten with none added: what an undo and a redo return is rewritten too', () => {
+    const undone = undoEdit(pushEdit(pushEdit(historyOf(draft('a')), draft('b')), draft('c')));
+
+    const restated = restateEntries(undone, (entry) => draft(`${entry.name}!`));
+
+    expect(restated).toEqual({ past: [draft('a!')], present: draft('b!'), future: [draft('c!')] });
   });
 
   it(`keeps ${DRAFT_HISTORY_LIMIT} edits, and the oldest goes first`, () => {

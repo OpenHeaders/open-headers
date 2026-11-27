@@ -14,6 +14,10 @@
  *
  * A step that waits on no other wears a bar in the accent on its top
  * edge (the workflow runs plan, Decisions log, S31): a run starts there.
+ *
+ * Where the graph can be arranged the node is moved by its body: it
+ * takes the pointer's handlers (`drag`) and the graph decides what a
+ * press that moves does.
  */
 
 import { SortAscendingOutlined, ThunderboltFilled, WarningOutlined } from '@ant-design/icons';
@@ -45,11 +49,23 @@ const LINE: React.CSSProperties = {
   textOverflow: 'ellipsis',
 };
 
+/** The pointer's handlers of a node that can be moved. */
+export interface NodeDragHandlers {
+  onPointerDown: (e: React.PointerEvent<HTMLDivElement>) => void;
+  onPointerMove: (e: React.PointerEvent<HTMLDivElement>) => void;
+  onPointerUp: (e: React.PointerEvent<HTMLDivElement>) => void;
+  onPointerCancel: (e: React.PointerEvent<HTMLDivElement>) => void;
+}
+
 interface WorkflowGraphNodeProps {
   stepId: string;
   x: number;
   y: number;
   selected: boolean;
+  /** Present where the node can be moved by its body. */
+  drag?: NodeDragHandlers;
+  /** The node is being moved: it is drawn over the others. */
+  moving?: boolean;
   /** The step waits on no other: a run starts here, and the node wears the start bar. */
   start: boolean;
   onSelect?: () => void;
@@ -85,6 +101,8 @@ const WorkflowGraphNode: React.FC<WorkflowGraphNodeProps> = ({
   x,
   y,
   selected,
+  drag,
+  moving = false,
   start,
   onSelect,
   onContextMenu,
@@ -157,10 +175,12 @@ const WorkflowGraphNode: React.FC<WorkflowGraphNodeProps> = ({
       data-needs-update={needsUpdate ? 'true' : undefined}
       data-selected={selected ? 'true' : undefined}
       data-cycle-target={cycleWarn ? 'true' : undefined}
+      data-moving={moving ? 'true' : undefined}
       onClick={onSelect}
       onContextMenu={onContextMenu}
       onPointerEnter={onHover ? () => onHover(true) : undefined}
       onPointerLeave={onHover ? () => onHover(false) : undefined}
+      {...drag}
       style={{
         position: 'absolute',
         left: x,
@@ -176,7 +196,10 @@ const WorkflowGraphNode: React.FC<WorkflowGraphNodeProps> = ({
         background: 'var(--oh-wf-surface)',
         color: 'var(--oh-wf-text)',
         boxShadow: ring,
-        cursor: onSelect ? 'pointer' : undefined,
+        cursor: moving ? 'grabbing' : onSelect ? 'pointer' : undefined,
+        // A touch on a node that can be moved moves it, and scrolls nothing.
+        touchAction: drag ? 'none' : undefined,
+        zIndex: moving ? 1 : undefined,
       }}
     >
       {start && (

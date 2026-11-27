@@ -13,7 +13,7 @@
 
 import { isMac } from '@openheaders/ui/shared/platform';
 import { useCallback, useMemo, useRef, useState } from 'react';
-import { amendEdit, historyOf, pushEdit, redoEdit, undoEdit } from './draft-history';
+import { amendEdit, historyOf, pushEdit, redoEdit, restateEntries, undoEdit } from './draft-history';
 
 /** How long typing in one field may rest and still be one entry. */
 const TYPING_PAUSE_MS = 600;
@@ -63,6 +63,8 @@ export interface DraftWithHistory<T> {
   edit: (next: T) => void;
   /** The draft replaced from outside the user's edits: the history is emptied, unless the draft comes back as it was. */
   replace: (update: (current: T) => T) => void;
+  /** Every entry rewritten, the history kept: what is read late belongs to all of them, and is no edit. */
+  restate: (update: (entry: T) => T) => void;
   history: DraftHistoryControls;
 }
 
@@ -88,6 +90,10 @@ export function useDraftHistory<T>(initial: () => T): DraftWithHistory<T> {
     });
   }, []);
 
+  const restate = useCallback((update: (entry: T) => T) => {
+    setState((current) => restateEntries(current, update));
+  }, []);
+
   const undo = useCallback(() => {
     typingRef.current = null;
     setState(undoEdit);
@@ -102,5 +108,5 @@ export function useDraftHistory<T>(initial: () => T): DraftWithHistory<T> {
   const canRedo = state.future.length > 0;
   const history = useMemo(() => ({ canUndo, canRedo, undo, redo }), [canUndo, canRedo, undo, redo]);
 
-  return { draft: state.present, edit, replace, history };
+  return { draft: state.present, edit, replace, restate, history };
 }

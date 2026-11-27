@@ -12,7 +12,11 @@
  *
  * The draft's edits can be undone and redone in both modes
  * (`useDraftHistory`): the history is the tab's, a save keeps it, and a
- * draft replaced from outside the user's edits empties it.
+ * draft replaced from outside the user's edits empties it. A node moved
+ * on the graph is an entry of the same history (`useArrangedDraft`),
+ * and its place is this device's (`useKeptNodePlaces`), never the
+ * workflow's: a move saves nothing and leaves the workflow as saved as
+ * it was. A draft's places are kept under the workflow it becomes.
  *
  * Create mode (`mode: 'create'`):
  *   No `workflowUid` until save. Local-only draft; Save creates the
@@ -94,7 +98,8 @@ import {
 import { describeRunStatus } from './run-display';
 import { firstStepWithNothingPicked } from './step-action';
 import type { StepRequestOpeners } from './step-facts';
-import { useDraftHistory } from './use-draft-history';
+import { useArrangedDraft } from './use-arranged-draft';
+import { keepNodePlaces, useKeptNodePlaces } from './use-kept-node-places';
 import { useShownWorkflowRun } from './use-workflow-run';
 import WorkflowView from './WorkflowView';
 
@@ -247,12 +252,18 @@ const EditMode: React.FC<EditProps> = ({
 
   // The user's edits go through `editDraft` and can be undone; what
   // replaces the draft from outside them goes through `replaceDraft`.
+  // A node moved on the graph goes through `movePlaces`, into the same
+  // history and onto this device.
   const {
     draft,
+    places,
     edit: editDraft,
+    move: movePlaces,
     replace: replaceDraft,
+    placesRead,
     history,
-  } = useDraftHistory<Draft | null>(() => (workflow ? draftFromWorkflow(workflow, variables) : null));
+  } = useArrangedDraft<Draft | null>(() => (workflow ? draftFromWorkflow(workflow, variables) : null));
+  useKeptNodePlaces(editingWorkspaceId, workflowUid, places, placesRead);
 
   const [refreshing, setRefreshing] = useState(false);
   // The step the view's panel shows, by uid so a rename keeps it.
@@ -572,6 +583,8 @@ const EditMode: React.FC<EditProps> = ({
         draft={draft}
         setDraft={editDraft}
         history={history}
+        places={places}
+        onMovePlaces={movePlaces}
         readOnly={needsUpdate}
         selectedStepUid={selectedStepUid}
         onSelectStep={handleSelectStep}
@@ -615,7 +628,13 @@ const CreateMode: React.FC<CreateProps> = ({
   const { createVariable } = useLiveVariables();
   const editingWorkspaceId = useWorkbenchEditingScopeWorkspaceId();
 
-  const { draft, edit: editDraft, history } = useDraftHistory<Draft>(() => emptyDraft(seedSteps));
+  const {
+    draft,
+    places,
+    edit: editDraft,
+    move: movePlaces,
+    history,
+  } = useArrangedDraft<Draft>(() => emptyDraft(seedSteps));
   // The same ephemeral selection as EditMode, with no awareness
   // publishing: a draft has no entity id until save.
   const [selectedStepUid, setSelectedStepUid] = useState<string | null>(null);
@@ -673,8 +692,11 @@ const CreateMode: React.FC<CreateProps> = ({
     if (editingWorkspaceId) {
       await applyLiveWorkflowPublish(wf.uid, { workspaceId: editingWorkspaceId, surfaceId: 'workbench' });
     }
+    // Where the draft's steps were placed is kept under the workflow it
+    // became: its own tab opens arranged as this one was.
+    if (places !== null) await keepNodePlaces(editingWorkspaceId, wf.uid, places);
     onCreated(wf);
-  }, [draft, draftName, createWorkflow, createVariable, editingWorkspaceId, message, t, onCreated]);
+  }, [draft, places, draftName, createWorkflow, createVariable, editingWorkspaceId, message, t, onCreated]);
 
   const handleSaveSync = useCallback(() => void handleSave(), [handleSave]);
 
@@ -723,6 +745,8 @@ const CreateMode: React.FC<CreateProps> = ({
         draft={draft}
         setDraft={editDraft}
         history={history}
+        places={places}
+        onMovePlaces={movePlaces}
         selectedStepUid={selectedStepUid}
         onSelectStep={setSelectedStepUid}
         requestOpeners={requestOpeners}

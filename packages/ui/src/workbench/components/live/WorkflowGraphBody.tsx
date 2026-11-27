@@ -7,8 +7,12 @@
  * node per step (`WorkflowGraphNode`), one line per resolved
  * `dependsOn` parent (`WorkflowGraphLines`). Layout comes from
  * `buildWorkflowGraphLayout` — layers top-down, a node under the middle
- * of its parents — and the lines' runs from `routeGraph`; nobody places
- * a node by hand. A session step's node says its kind and what it acts
+ * of its parents — and the lines' runs from `routeGraph`. Where the
+ * workflow can be edited a node is moved by its body (the workflow runs
+ * plan, Decisions log, S31): the first drop keeps every node where it
+ * stands, and from then the graph is drawn by those places — this
+ * device's, handed in as `places`, never the draft's — until
+ * Auto-arrange forgets them. A session step's node says its kind and what it acts
  * on, and names as text what arms it — the listen it is on, the step it
  * waits after — with no line of a kind of its own.
  *
@@ -47,8 +51,9 @@
  *
  * Canvas chrome: a pan/zoom viewport (drag the background to pan,
  * wheel/pinch to zoom around the cursor, a row of controls bottom-left
- * with a re-center/fit action, then the draft's undo and redo — the
- * workflow runs plan, Decisions log, S31), a bar of the selected step's
+ * with a re-center/fit action, then the draft's undo and redo, then
+ * Auto-arrange where a node can be moved — the workflow runs plan,
+ * Decisions log, S31), a bar of the selected step's
  * actions by its node (`WorkflowGraphActionBar`: a copy, a step added
  * after it, its request opened, its removal — a read-only workflow keeps
  * the request alone), a compact right-click context menu on the
@@ -66,6 +71,7 @@
 
 import {
   AimOutlined,
+  ApartmentOutlined,
   CopyOutlined,
   DeleteOutlined,
   ExportOutlined,
@@ -91,6 +97,7 @@ import {
 } from '@openheaders/core/live';
 import type { LiveWorkflowRunSnapshot } from '@openheaders/core/bridge';
 import type { LiveVariable, LiveWorkflow, SessionWorkflowStep, WorkflowStep } from '@openheaders/core/types';
+import type { WorkflowNodePlaces } from '@openheaders/core/utils';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { useTheme } from '@openheaders/ui/context/ThemeContext';
 import { Button, Popover, Tooltip, theme } from 'antd';
@@ -118,7 +125,8 @@ import {
   type StepReach,
   stepOwnTemplates,
 } from './graph-lines';
-import { type Point, viewportCentredOn } from './graph-minimap';
+import { type Point, type Rect, viewportCentredOn } from './graph-minimap';
+import { boundsOfNodes, freezePlaces, type PlacedStep, placedPositions, snapPlace } from './graph-places';
 import { routeGraph } from './graph-routing';
 import { StepPickerPopover } from './StepPicker';
 import {
@@ -142,7 +150,7 @@ import WorkflowGraphLines, {
   type GraphLineView,
 } from './WorkflowGraphLines';
 import WorkflowGraphMinimap, { MINIMAP_OFFSET, MINIMAP_SIZE } from './WorkflowGraphMinimap';
-import WorkflowGraphNode, { GRAPH_NODE_H, GRAPH_NODE_W } from './WorkflowGraphNode';
+import WorkflowGraphNode, { GRAPH_NODE_H, GRAPH_NODE_W, type NodeDragHandlers } from './WorkflowGraphNode';
 
 const NODE_W = GRAPH_NODE_W;
 const NODE_H = GRAPH_NODE_H;
@@ -155,6 +163,9 @@ const LANE_W = 24;
 const LAYOUT_METRICS = { nodeWidth: NODE_W, gap: GAP_X, laneWidth: LANE_W };
 const ROUTE_METRICS = { nodeWidth: NODE_W, nodeHeight: NODE_H, layerGap: GAP_Y };
 const NODE_SIZE = { width: NODE_W, height: NODE_H };
+const PLACE_METRICS = { node: NODE_SIZE, gapX: GAP_X, gapY: GAP_Y };
+/** How far a press on a node may move and still be a click — the background pan's own give. */
+const MOVE_GIVE = 3;
 /** A node's connect ring, and how far under the node it reaches. */
 const RING = 12;
 const RING_REACH = RING / 2;
@@ -173,6 +184,14 @@ interface WorkflowGraphBodyProps {
   setDraft?: (next: DraftWorkflow) => void;
   /** The draft's undo and redo — two buttons in the row of controls. */
   history: DraftHistoryControls;
+  /** Where the steps were placed by hand, by step uid — `null` while the graph follows its computed layout. */
+  places?: WorkflowNodePlaces | null;
+  /**
+   * The nodes placed, or their places forgotten (`null`). Present = a
+   * node is moved by its body and the row has Auto-arrange; a graph that
+   * takes no edit takes no move either.
+   */
+  onMovePlaces?: (next: WorkflowNodePlaces | null) => void;
   /** Currently selected step id (ephemeral UI state owned by the editor). */
   selectedStepId?: string | null;
   /** A press on a node, or a step the graph just added — select it, by uid. */
@@ -202,6 +221,16 @@ interface ConnectDrag {
   from: string;
   x: number;
   y: number;
+}
+
+/** A press held on a node's body: where it began, where the node stood, whether it moved past a click's give. */
+interface NodePress {
+  pointerId: number;
+  stepId: string;
+  startX: number;
+  startY: number;
+  from: Point;
+  moved: boolean;
 }
 
 /** Right-click context menu — pane-relative position + target (the
@@ -246,6 +275,8 @@ const WorkflowGraphBody: React.FC<WorkflowGraphBodyProps> = ({
   draft,
   setDraft,
   history,
+  places = null,
+  onMovePlaces,
   selectedStepId,
   onSelectStep,
   onDeselect,
@@ -262,6 +293,7 @@ const WorkflowGraphBody: React.FC<WorkflowGraphBodyProps> = ({
   const now = useWaitClock(run?.record ?? null);
   const { uiScale } = useTheme();
   const editable = setDraft !== undefined;
+  const movable = editable && onMovePlaces !== undefined;
   const rootRef = useRef<HTMLDivElement>(null);
   const paneRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLDivElement>(null);
@@ -283,6 +315,13 @@ const WorkflowGraphBody: React.FC<WorkflowGraphBodyProps> = ({
   const panRef = useRef<{ pointerId: number; startX: number; startY: number; ox: number; oy: number } | null>(null);
   const panMovedRef = useRef(false);
   const [panning, setPanning] = useState(false);
+  // A node moved by its body — graph-only UI state until the drop, which
+  // keeps the places. A press that moved its node is no click.
+  const nodePressRef = useRef<NodePress | null>(null);
+  const nodeMovedRef = useRef(false);
+  const [move, setMove] = useState<{ stepId: string; at: Point } | null>(null);
+  // The user has pressed, scrolled or typed on the graph: the view is theirs.
+  const touchedRef = useRef(false);
 
   // Same synthetic-workflow construction the form body uses — the
   // layout helper + validators only inspect cross-reference shape.
@@ -330,27 +369,60 @@ const WorkflowGraphBody: React.FC<WorkflowGraphBodyProps> = ({
 
   const draftStepsById = useMemo(() => new Map(draft.steps.map((s) => [s.id, s])), [draft.steps]);
 
-  const positions = useMemo(() => {
-    const map = new Map<string, { x: number; y: number }>();
+  // Where the computed layout puts each node, and the box it fills.
+  const computedPositions = useMemo(() => {
+    const map = new Map<string, Point>();
     for (const node of layout.nodes) {
       map.set(node.step.id, { x: PAD + node.x, y: PAD + node.layer * (NODE_H + GAP_Y) });
     }
     return map;
   }, [layout]);
+  const computedWorld = useMemo<Rect>(
+    () => ({
+      x: 0,
+      y: 0,
+      width: PAD * 2 + Math.max(NODE_W, layout.width),
+      height: PAD * 2 + Math.max(1, layout.layerCount) * (NODE_H + GAP_Y) - GAP_Y,
+    }),
+    [layout],
+  );
 
-  const canvasW = PAD * 2 + Math.max(NODE_W, layout.width);
-  const canvasH = PAD * 2 + Math.max(1, layout.layerCount) * (NODE_H + GAP_Y) - GAP_Y;
+  const placedSteps = useMemo<PlacedStep[]>(
+    () => layout.nodes.map((node) => ({ id: node.step.id, uid: node.step.uid, parents: node.parents })),
+    [layout],
+  );
+
+  // Where each node stands: by the places kept once the graph is
+  // arranged, by the computed layout until then.
+  const standing = useMemo(
+    () =>
+      places === null ? computedPositions : placedPositions(placedSteps, computedPositions, places, PLACE_METRICS),
+    [places, placedSteps, computedPositions],
+  );
+  // A node being moved is where the pointer has it: its lines, the map
+  // and the bar read the same place and follow.
+  const positions = useMemo(() => {
+    if (move === null) return standing;
+    return new Map(standing).set(move.stepId, move.at);
+  }, [standing, move]);
+
+  // A graph is arranged from its first move. The world is then the box
+  // its nodes fill, wherever they were put, and no line keeps a lane of
+  // the computed layout — a line may pass under a node.
+  const arranged = places !== null || move !== null;
+  const world = useMemo(
+    () => (arranged ? boundsOfNodes(positions.values(), NODE_SIZE, PAD) : computedWorld),
+    [arranged, positions, computedWorld],
+  );
 
   const routes = useMemo(
     () =>
       routeGraph(
-        layout.nodes.map((node) => ({
-          id: node.step.id,
-          layer: node.layer,
-          x: PAD + node.x,
-          y: PAD + node.layer * (NODE_H + GAP_Y),
-        })),
-        layout.edges.map((edge) => ({ ...edge, lanes: edge.lanes.map((lane) => PAD + lane) })),
+        layout.nodes.flatMap((node) => {
+          const at = positions.get(node.step.id);
+          return at === undefined ? [] : [{ id: node.step.id, ...at }];
+        }),
+        layout.edges.map((edge) => ({ ...edge, lanes: arranged ? [] : edge.lanes.map((lane) => PAD + lane) })),
         new Set(
           layout.nodes.flatMap(({ step }) =>
             isKnownStep(step) && (step.runIf?.all.length ?? 0) > 0 ? [step.id] : [],
@@ -358,7 +430,7 @@ const WorkflowGraphBody: React.FC<WorkflowGraphBodyProps> = ({
         ),
         ROUTE_METRICS,
       ),
-    [layout],
+    [layout, positions, arranged],
   );
 
   // Would-be-cycle targets while rubber-banding: dropping `from → t`
@@ -412,8 +484,13 @@ const WorkflowGraphBody: React.FC<WorkflowGraphBodyProps> = ({
   // The first view, once the pane has a size (a tab mounted hidden has
   // none yet): the graph centred at the app's UI scale, drawn smaller
   // where it is wider than the pane. After that the view is the user's.
-  const firstViewRef = useRef({ content: canvasW, uiScale });
-  firstViewRef.current = { content: canvasW, uiScale };
+  const firstViewOf = (width: number): Viewport => {
+    const scale = Math.min(uiScale, Math.max(FIRST_VIEW_MIN_SCALE, width / world.width));
+    return { scale, x: Math.max(0, (width - world.width * scale) / 2) - world.x * scale, y: 0 - world.y * scale };
+  };
+  const firstViewRef = useRef(firstViewOf);
+  firstViewRef.current = firstViewOf;
+  const firstViewShownRef = useRef(false);
   useLayoutEffect(() => {
     const pane = paneRef.current;
     if (!pane) return;
@@ -421,13 +498,24 @@ const WorkflowGraphBody: React.FC<WorkflowGraphBodyProps> = ({
       const { width } = pane.getBoundingClientRect();
       if (width === 0) return;
       observer.disconnect();
-      const { content, uiScale: full } = firstViewRef.current;
-      const scale = Math.min(full, Math.max(FIRST_VIEW_MIN_SCALE, width / content));
-      setViewport({ scale, x: Math.max(0, (width - content * scale) / 2), y: 0 });
+      firstViewShownRef.current = true;
+      setViewport(firstViewRef.current(width));
     });
     observer.observe(pane);
     return () => observer.disconnect();
   }, []);
+
+  // The places this device kept are read a moment after the graph
+  // mounts. While the view is still as it was first shown, it is shown
+  // again around them — in the paint that draws them.
+  const placesShownRef = useRef(places);
+  useLayoutEffect(() => {
+    if (placesShownRef.current === places) return;
+    placesShownRef.current = places;
+    if (!firstViewShownRef.current || touchedRef.current) return;
+    const width = paneRef.current?.getBoundingClientRect().width ?? 0;
+    if (width > 0) setViewport(firstViewRef.current(width));
+  }, [places]);
 
   // A step selected from elsewhere — a row of the panel — is brought
   // into view by the shortest pan; one already in view stays put.
@@ -453,6 +541,7 @@ const WorkflowGraphBody: React.FC<WorkflowGraphBodyProps> = ({
     if (!pane) return;
     const onWheel = (e: WheelEvent) => {
       e.preventDefault();
+      touchedRef.current = true;
       const rect = pane.getBoundingClientRect();
       const px = e.clientX - rect.left;
       const py = e.clientY - rect.top;
@@ -478,13 +567,87 @@ const WorkflowGraphBody: React.FC<WorkflowGraphBodyProps> = ({
     });
   };
 
-  // Fit-and-center the whole graph in the pane (the re-focus action),
-  // never drawn larger than the app's UI scale.
-  const fitView = () => {
+  // Fit-and-center a box of the graph in the pane, never drawn larger
+  // than the app's UI scale. The whole graph's is the re-focus action.
+  const fitTo = (box: Rect) => {
     const rect = paneRef.current?.getBoundingClientRect();
     if (!rect) return;
-    const scale = clampScale(Math.min((rect.width - FIT_PAD) / canvasW, (rect.height - FIT_PAD) / canvasH, uiScale));
-    setViewport({ scale, x: (rect.width - canvasW * scale) / 2, y: (rect.height - canvasH * scale) / 2 });
+    const scale = clampScale(
+      Math.min((rect.width - FIT_PAD) / box.width, (rect.height - FIT_PAD) / box.height, uiScale),
+    );
+    setViewport({
+      scale,
+      x: (rect.width - box.width * scale) / 2 - box.x * scale,
+      y: (rect.height - box.height * scale) / 2 - box.y * scale,
+    });
+  };
+  const fitView = () => fitTo(world);
+
+  // The pointer's place for a node pressed at `press`: where it stood,
+  // moved by what the pointer moved, snapped.
+  const placeUnder = (press: NodePress, e: { clientX: number; clientY: number }): Point =>
+    snapPlace({
+      x: press.from.x + (e.clientX - press.startX) / viewport.scale,
+      y: press.from.y + (e.clientY - press.startY) / viewport.scale,
+    });
+
+  // A node moved by its body. Until the press has moved past a click's
+  // give it is a click; from there the node follows the pointer, and
+  // the drop keeps every node where it then stands.
+  const dragOf = (stepId: string): NodeDragHandlers => ({
+    onPointerDown: (e) => {
+      nodeMovedRef.current = false;
+      const from = positions.get(stepId);
+      if (e.button !== 0 || from === undefined) return;
+      nodePressRef.current = {
+        pointerId: e.pointerId,
+        stepId,
+        startX: e.clientX,
+        startY: e.clientY,
+        from,
+        moved: false,
+      };
+      e.currentTarget.setPointerCapture(e.pointerId);
+    },
+    onPointerMove: (e) => {
+      const press = nodePressRef.current;
+      if (!press || press.pointerId !== e.pointerId) return;
+      // No button is held: the release was lost on its way here. The node goes back and follows nothing.
+      if ((e.buttons & 1) === 0) {
+        nodePressRef.current = null;
+        setMove(null);
+        return;
+      }
+      const travelled = Math.abs(e.clientX - press.startX) + Math.abs(e.clientY - press.startY);
+      if (!press.moved && travelled <= MOVE_GIVE) return;
+      press.moved = true;
+      const at = placeUnder(press, e);
+      setMove((current) =>
+        current !== null && current.at.x === at.x && current.at.y === at.y ? current : { stepId, at },
+      );
+    },
+    onPointerUp: (e) => {
+      const press = nodePressRef.current;
+      if (!press || press.pointerId !== e.pointerId) return;
+      nodePressRef.current = null;
+      if (!press.moved) return;
+      nodeMovedRef.current = true;
+      setMove(null);
+      const at = placeUnder(press, e);
+      // Dropped where it stood, nothing is kept: the graph is as it was.
+      if (at.x === press.from.x && at.y === press.from.y) return;
+      onMovePlaces?.(freezePlaces(placedSteps, new Map(standing).set(stepId, at)));
+    },
+    onPointerCancel: () => {
+      nodePressRef.current = null;
+      setMove(null);
+    },
+  });
+
+  // Back to the computed layout, brought into view: the places are forgotten.
+  const autoArrange = () => {
+    onMovePlaces?.(null);
+    fitTo(computedWorld);
   };
 
   const beginPan = (e: React.PointerEvent<HTMLDivElement>) => {
@@ -626,6 +789,7 @@ const WorkflowGraphBody: React.FC<WorkflowGraphBodyProps> = ({
   // Pane-scoped shortcuts — the wrapper is focusable (pointer-down
   // focuses it), so these never fire while a form field has focus.
   const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    touchedRef.current = true;
     if (e.key === 'Escape') {
       setMenu(null);
       setSelectedEdge(null);
@@ -761,7 +925,10 @@ const WorkflowGraphBody: React.FC<WorkflowGraphBodyProps> = ({
       style={{ display: 'flex', flexDirection: 'column', height: '100%', outline: 'none' }}
       tabIndex={0}
       onKeyDown={handleKeyDown}
-      onPointerDown={(e) => e.currentTarget.focus({ preventScroll: true })}
+      onPointerDown={(e) => {
+        touchedRef.current = true;
+        e.currentTarget.focus({ preventScroll: true });
+      }}
     >
       <div style={{ position: 'relative', flex: 1, minHeight: 0 }}>
       {editable && (
@@ -823,11 +990,12 @@ const WorkflowGraphBody: React.FC<WorkflowGraphBodyProps> = ({
       <GraphControlRow>
         <GraphViewControls onZoomIn={() => zoomBy(1.2)} onZoomOut={() => zoomBy(1 / 1.2)} onFit={fitView} />
         <GraphHistoryControls history={history} />
-        <GraphLegend editable={editable} withMap={hasMinimap} />
+        {movable && <GraphArrangeControl arranged={places !== null} onArrange={autoArrange} />}
+        <GraphLegend editable={editable} movable={movable} withMap={hasMinimap} />
       </GraphControlRow>
       {hasMinimap && (
         <WorkflowGraphMinimap
-          world={{ width: canvasW, height: canvasH }}
+          world={world}
           nodes={layout.nodes.flatMap((node) => {
             const pos = positions.get(node.step.id);
             const mark = marks.get(node.step.id);
@@ -874,15 +1042,15 @@ const WorkflowGraphBody: React.FC<WorkflowGraphBodyProps> = ({
         ref={canvasRef}
         style={{
           position: 'relative',
-          width: canvasW,
-          height: canvasH,
+          width: world.width,
+          height: world.height,
           transform: `translate(${viewport.x}px, ${viewport.y}px) scale(${viewport.scale})`,
           transformOrigin: '0 0',
         }}
       >
         <WorkflowGraphLines
-          width={canvasW}
-          height={canvasH}
+          width={world.width}
+          height={world.height}
           lines={lineViews}
           capsules={capsuleViews}
           selectedStepId={selectedStepId ?? null}
@@ -907,8 +1075,18 @@ const WorkflowGraphBody: React.FC<WorkflowGraphBodyProps> = ({
               x={pos.x}
               y={pos.y}
               selected={selectedStepId === step.id}
+              drag={movable ? dragOf(step.id) : undefined}
+              moving={move?.stepId === step.id}
               start={node.parents.length === 0}
-              onSelect={onSelectStep ? () => onSelectStep(step.uid) : undefined}
+              onSelect={
+                onSelectStep
+                  ? () => {
+                      // The click that ends a move selects nothing.
+                      if (nodeMovedRef.current) nodeMovedRef.current = false;
+                      else onSelectStep(step.uid);
+                    }
+                  : undefined
+              }
               onContextMenu={handleNodeContextMenu(step)}
               onHover={
                 editable ? (over) => setHoveredStepId((id) => (over ? step.id : id === step.id ? null : id)) : undefined
@@ -937,8 +1115,8 @@ const WorkflowGraphBody: React.FC<WorkflowGraphBodyProps> = ({
         </WorkflowGraphLines>
         {drag && dragSource && (
           <svg
-            width={canvasW}
-            height={canvasH}
+            width={world.width}
+            height={world.height}
             style={{ position: 'absolute', inset: 0, pointerEvents: 'none', overflow: 'visible' }}
             aria-hidden="true"
           >
@@ -1141,11 +1319,38 @@ const GraphHistoryControls: React.FC<{ history: DraftHistoryControls }> = ({ his
   );
 };
 
+/** Back to the computed layout — off while the graph follows it already. */
+const GraphArrangeControl: React.FC<{ arranged: boolean; onArrange: () => void }> = ({ arranged, onArrange }) => {
+  const t = useT();
+  const name = t('workbench.editors.live.graph.autoArrange');
+  return (
+    <GraphControlGroup>
+      <Tooltip title={name}>
+        <Button
+          type="text"
+          size="small"
+          data-testid="wf-graph-auto-arrange"
+          aria-label={name}
+          icon={<ApartmentOutlined />}
+          disabled={!arranged}
+          // A press leaves focus on the graph, as undo's does: the button goes off under it.
+          onMouseDown={(e) => e.preventDefault()}
+          onClick={onArrange}
+        />
+      </Tooltip>
+    </GraphControlGroup>
+  );
+};
+
 /**
  * The shortcut legend, behind a button at the end of the row of
  * controls — names every canvas gesture so nothing is discover-by-luck.
  */
-const GraphLegend: React.FC<{ editable: boolean; withMap: boolean }> = ({ editable, withMap }) => {
+const GraphLegend: React.FC<{ editable: boolean; movable: boolean; withMap: boolean }> = ({
+  editable,
+  movable,
+  withMap,
+}) => {
   const { token } = theme.useToken();
   const t = useT();
   // Word-bearing gesture chips are keyed; the lone ⌫ glyph stays raw
@@ -1162,6 +1367,14 @@ const GraphLegend: React.FC<{ editable: boolean; withMap: boolean }> = ({ editab
           {
             keys: t('workbench.editors.live.graph.legendRightClick'),
             action: t('workbench.editors.live.graph.legendMenu'),
+          },
+        ]
+      : []),
+    ...(movable
+      ? [
+          {
+            keys: t('workbench.editors.live.graph.legendDragStep'),
+            action: t('workbench.editors.live.graph.legendMove'),
           },
         ]
       : []),

@@ -17,11 +17,16 @@
  *
  * The draft's undo and redo are the view's: its shortcut acts wherever
  * focus is in the view, a field that takes typing aside.
+ *
+ * Where the steps were placed on the graph by hand comes in beside the
+ * draft (`places`) and goes to the graph alone; a read-only workflow is
+ * drawn by its places and takes no move.
  */
 
 import type { LiveWorkflowRunSnapshot } from '@openheaders/core/bridge';
 import { type DraftWorkflow, runVerdict } from '@openheaders/core/live';
 import type { LiveVariable, LiveWorkflow } from '@openheaders/core/types';
+import type { WorkflowNodePlaces } from '@openheaders/core/utils';
 import { Sash, type SashSession } from '@openheaders/ui/shared/dock-layout';
 import type React from 'react';
 import { useCallback, useLayoutEffect, useRef, useState } from 'react';
@@ -66,6 +71,10 @@ interface Props {
   setDraft: (next: DraftWorkflow) => void;
   /** The draft's undo and redo. */
   history: DraftHistoryControls;
+  /** Where the steps were placed on the graph by hand — `null` while it follows its computed layout. */
+  places?: WorkflowNodePlaces | null;
+  /** The nodes placed, or their places forgotten (`null`) — an entry of the same history as an edit. */
+  onMovePlaces?: (next: WorkflowNodePlaces | null) => void;
   /** The workflow is read-only here — it holds a step of an action the model does not know. */
   readOnly?: boolean;
   /** The selected step, by uid — a step keeps its selection through a rename. */
@@ -96,6 +105,8 @@ const WorkflowView: React.FC<Props> = ({
   draft,
   setDraft,
   history,
+  places,
+  onMovePlaces,
   readOnly = false,
   selectedStepUid,
   onSelectStep,
@@ -190,6 +201,8 @@ const WorkflowView: React.FC<Props> = ({
           draft={draft}
           setDraft={readOnly ? undefined : setDraft}
           history={history}
+          places={places}
+          onMovePlaces={readOnly ? undefined : onMovePlaces}
           selectedStepId={selectedStepId}
           onSelectStep={onSelectStep}
           onDeselect={() => onSelectStep(null)}

@@ -10,7 +10,7 @@ const METRICS = { nodeWidth: 100, nodeHeight: 40, layerGap: 60 };
 const NONE = new Set<string>();
 
 /** A node of the given layer: layers are 100 apart. */
-const at = (id: string, layer: number, x: number): RouteNode => ({ id, layer, x, y: layer * 100 });
+const at = (id: string, layer: number, x: number): RouteNode => ({ id, x, y: layer * 100 });
 
 describe('routeGraph', () => {
   it('a step straight under its only parent: one stroke, its own arrowhead, the label above the step', () => {
@@ -173,6 +173,63 @@ describe('routeGraph', () => {
     expect(back?.arrow).toEqual({ x: 50, y: 99 });
     expect(back?.d.startsWith('M 50 240 L 50 248 Q 50 256 58 256')).toBe(true);
     expect(back?.d.endsWith('L 50 94')).toBe(true);
+  });
+
+  it('a step placed far under its parent: the line runs across half a layer’s gap above the step', () => {
+    const { lines } = routeGraph(
+      [
+        { id: 'a', x: 0, y: 0 },
+        { id: 'b', x: 300, y: 500 },
+      ],
+      [{ from: 'a', to: 'b', lanes: [] }],
+      NONE,
+      METRICS,
+    );
+    expect(lines).toEqual([
+      {
+        from: 'a',
+        to: 'b',
+        d: 'M 50 40 L 50 460 Q 50 470 60 470 L 340 470 Q 350 470 350 480 L 350 494',
+        port: { x: 50, y: 40 },
+        arrow: { x: 350, y: 499 },
+        label: { x: 358, y: 479, align: 'left' },
+      },
+    ]);
+  });
+
+  it('a step placed beside its parent is not below it: the line goes round the side', () => {
+    const { lines } = routeGraph(
+      [
+        { id: 'a', x: 0, y: 0 },
+        { id: 'b', x: 200, y: 0 },
+      ],
+      [{ from: 'a', to: 'b', lanes: [] }],
+      NONE,
+      METRICS,
+    );
+    expect(lines[0].port).toEqual({ x: 50, y: 40 });
+    expect(lines[0].arrow).toEqual({ x: 250, y: -1 });
+    expect(lines[0].d).toBe(
+      'M 50 40 L 50 48 Q 50 56 58 56 L 306 56 Q 316 56 316 46 L 316 -6 Q 316 -16 306 -16' +
+        ' L 255 -16 Q 250 -16 250 -11 L 250 -6',
+    );
+  });
+
+  it('a step goes down from its parent only where its meeting line is clear under the parent', () => {
+    const route = (childY: number) =>
+      routeGraph(
+        [
+          { id: 'a', x: 0, y: 0 },
+          { id: 'b', x: 0, y: childY },
+        ],
+        [{ from: 'a', to: 'b', lanes: [] }],
+        NONE,
+        METRICS,
+      ).lines[0];
+
+    // The meeting line is 30 above the step; it must be 16 under the parent's lower edge at 40.
+    expect(route(86).d).toBe('M 50 40 L 50 80');
+    expect(route(85).d.startsWith('M 50 40 L 50 48 Q 50 56 58 56')).toBe(true);
   });
 
   it('an edge to a step that is not placed is not routed', () => {

@@ -18,7 +18,10 @@
  * above each child.
  *
  * A line to a step that is not below its parent — a cycle, which a
- * draft can hold until it is saved — goes round the side of both.
+ * draft can hold until it is saved, or a step moved beside or above the
+ * one it waits on — goes round the side of both. "Below" is read from
+ * the two nodes' places, so the routing holds for nodes placed by hand
+ * as for the computed layout's layers.
  *
  * Pure — no React, no DOM.
  */
@@ -33,7 +36,6 @@ export interface Point {
 /** A placed node: its top-left corner. */
 export interface RouteNode {
   id: string;
-  layer: number;
   x: number;
   y: number;
 }
@@ -145,10 +147,12 @@ export function routeGraph(
   for (const edge of routable) parentCount.set(edge.to, (parentCount.get(edge.to) ?? 0) + 1);
   const meets = (stepId: string): boolean => (parentCount.get(stepId) ?? 0) > 1;
   const hasCapsule = (stepId: string): boolean => meets(stepId) && gated.has(stepId);
+  // A line drops into its child where the stretch it runs across on — the
+  // middle of a layer's gap above the child — is far enough under its parent.
   const goesDown = (edge: GraphEdge): boolean => {
     const from = byId.get(edge.from);
     const to = byId.get(edge.to);
-    return from !== undefined && to !== undefined && to.layer > from.layer;
+    return from !== undefined && to !== undefined && to.y - layerGap / 2 >= from.y + nodeHeight + ROUND_THE_SIDE;
   };
   const firstAim = (edge: GraphEdge): number => {
     const to = byId.get(edge.to);
