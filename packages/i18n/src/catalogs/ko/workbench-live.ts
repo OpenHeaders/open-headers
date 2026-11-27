@@ -157,6 +157,9 @@ export const workbenchLive = {
   'workbench.editors.live.panel.delete': '삭제',
   'workbench.editors.live.panel.response': '응답',
   'workbench.editors.live.panel.message': '메시지',
+  'workbench.editors.live.panel.responseDescription': '마지막 실행에서 요청이 반환한 내용입니다.',
+  'workbench.editors.live.panel.sentDescription': '마지막 실행에서 이 단계가 보낸 내용입니다.',
+  'workbench.editors.live.panel.messagesDescription': '마지막 실행에서 이 단계가 받은 메시지입니다.',
   'workbench.editors.live.lastRun.stateIdle': '아직 실행 안 됨',
   'workbench.editors.live.lastRun.stateRetrying': '재시도 중',
   'workbench.editors.live.lastRun.stateOpen': '열림',
@@ -249,6 +252,7 @@ export const workbenchLive = {
   'workbench.editors.live.run.footer.cannotRun': '어떤 단계도 실행되지 않았습니다.',
   'workbench.editors.live.run.pane.none': '이 단계에는 표시할 내용이 없습니다.',
   'workbench.editors.live.run.pane.gone': '이 단계의 응답은 더 이상 보관되어 있지 않습니다.',
+  'workbench.editors.live.run.pane.goneMessages': '이 단계의 메시지는 더 이상 보관되어 있지 않습니다.',
   'workbench.editors.live.run.action.listen': '수신 대기',
   'workbench.editors.live.run.action.send': '보내기',
   'workbench.editors.live.run.row.heldByRateLimit': '속도 제한 대기 중',
@@ -346,7 +350,7 @@ export const workbenchLive = {
   'workbench.editors.live.step.exposeTooltip':
     '켜면 워크플로를 저장할 때 이 캡처에서 `{{live.<name>}}` 참조를 해석하는 라이브 변수가 만들어집니다. 캡처를 이 워크플로 안에서만 쓰려면 끄세요 (예: {{step.<stepId>.<captureName>}} 참조로).',
 
-  // ── Step collapse sections (depends on / run condition / priority / retry / timeout / scripts) ──
+  // ── Step cards (depends on / run condition / priority / success criteria / poll / retry / timeout / scripts) ──
   'workbench.editors.live.sections.dependsOn': '의존 대상',
   'workbench.editors.live.sections.reset': '재설정',
   'workbench.editors.live.sections.runCondition': '실행 조건',

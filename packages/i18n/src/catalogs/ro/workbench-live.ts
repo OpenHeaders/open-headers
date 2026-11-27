@@ -178,6 +178,9 @@ export const workbenchLive = {
   'workbench.editors.live.panel.delete': 'Ștergeți',
   'workbench.editors.live.panel.response': 'Răspuns',
   'workbench.editors.live.panel.message': 'Mesaj',
+  'workbench.editors.live.panel.responseDescription': 'Ce a returnat cererea la ultima rulare.',
+  'workbench.editors.live.panel.sentDescription': 'Ce a trimis acest pas la ultima rulare.',
+  'workbench.editors.live.panel.messagesDescription': 'Mesajele pe care le-a văzut acest pas la ultima rulare.',
   'workbench.editors.live.lastRun.stateIdle': 'Nerulat încă',
   'workbench.editors.live.lastRun.stateRetrying': 'Se reîncearcă',
   'workbench.editors.live.lastRun.stateOpen': 'Deschisă',
@@ -274,6 +277,7 @@ export const workbenchLive = {
   'workbench.editors.live.run.footer.cannotRun': 'Niciun pas nu a rulat.',
   'workbench.editors.live.run.pane.none': 'Acest pas nu are nimic de arătat.',
   'workbench.editors.live.run.pane.gone': 'Răspunsul acestui pas nu mai este păstrat.',
+  'workbench.editors.live.run.pane.goneMessages': 'Mesajele acestui pas nu mai sunt păstrate.',
   'workbench.editors.live.run.action.listen': 'Ascultare',
   'workbench.editors.live.run.action.send': 'Trimitere',
   'workbench.editors.live.run.row.heldByRateLimit': 'Așteaptă limita de frecvență',
@@ -378,7 +382,7 @@ export const workbenchLive = {
   'workbench.editors.live.step.exposeTooltip':
     'Când este activat, salvarea fluxului de lucru creează o variabilă Live care rezolvă `{{live.<name>}}` din această captură. Dezactivați pentru a folosi captura doar în interiorul acestui flux de lucru (de ex. prin {{step.<stepId>.<captureName>}}).',
 
-  // ── Step collapse sections (depends on / run condition / priority / retry / timeout / scripts) ──
+  // ── Step cards (depends on / run condition / priority / success criteria / poll / retry / timeout / scripts) ──
   'workbench.editors.live.sections.dependsOn': 'Depinde de',
   'workbench.editors.live.sections.reset': 'Resetare',
   'workbench.editors.live.sections.runCondition': 'Condiție de rulare',

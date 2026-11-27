@@ -149,6 +149,9 @@ export const workbenchLive = {
   'workbench.editors.live.panel.delete': 'Delete',
   'workbench.editors.live.panel.response': 'Response',
   'workbench.editors.live.panel.message': 'Message',
+  'workbench.editors.live.panel.responseDescription': 'What the request returned in the last run.',
+  'workbench.editors.live.panel.sentDescription': 'What this step sent in the last run.',
+  'workbench.editors.live.panel.messagesDescription': 'The messages this step saw in the last run.',
   'workbench.editors.live.lastRun.stateIdle': 'Not run yet',
   'workbench.editors.live.lastRun.stateRetrying': 'Retrying',
   'workbench.editors.live.lastRun.stateOpen': 'Open',
@@ -243,6 +246,7 @@ export const workbenchLive = {
   'workbench.editors.live.run.footer.cannotRun': 'No step ran.',
   'workbench.editors.live.run.pane.none': 'This step has nothing to show.',
   'workbench.editors.live.run.pane.gone': 'The response of this step is no longer kept.',
+  'workbench.editors.live.run.pane.goneMessages': 'The messages of this step are no longer kept.',
   'workbench.editors.live.run.action.listen': 'Listen',
   'workbench.editors.live.run.action.send': 'Send',
   'workbench.editors.live.run.row.heldByRateLimit': 'Waiting on the rate limit',
@@ -342,7 +346,7 @@ export const workbenchLive = {
   'workbench.editors.live.step.exposeTooltip':
     'When on, saving the workflow creates a Live Variable that resolves `{{live.<name>}}` from this capture. Turn off to use the capture only inside this workflow (e.g. via {{step.<stepId>.<captureName>}}).',
 
-  // ── Step collapse sections (depends on / run condition / priority / retry / timeout / scripts) ──
+  // ── Step cards (depends on / run condition / priority / success criteria / poll / retry / timeout / scripts) ──
   'workbench.editors.live.sections.dependsOn': 'Depends on',
   'workbench.editors.live.sections.reset': 'Reset',
   'workbench.editors.live.sections.runCondition': 'Run condition',

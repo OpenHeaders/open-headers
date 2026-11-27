@@ -21,10 +21,10 @@ import { Tooltip } from 'antd';
 import type React from 'react';
 import type { RequestKind } from '../../request-kind-menu';
 import { STEP_MARK_INK } from './StepGlyph';
+import StepRunMark from './StepRunMark';
 import { KindTag, ProtocolTag } from './StepTags';
 import type { StepDoes } from './step-facts';
 import type { StepMark } from './step-mark';
-import { StepRunMark } from './WorkflowGraphRunOverlay';
 
 export const GRAPH_NODE_W = 208;
 export const GRAPH_NODE_H = 82;

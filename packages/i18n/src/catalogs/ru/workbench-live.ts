@@ -173,6 +173,9 @@ export const workbenchLive = {
   'workbench.editors.live.panel.delete': 'Удалить',
   'workbench.editors.live.panel.response': 'Ответ',
   'workbench.editors.live.panel.message': 'Сообщение',
+  'workbench.editors.live.panel.responseDescription': 'Что вернул запрос в последнем запуске.',
+  'workbench.editors.live.panel.sentDescription': 'Что отправил этот шаг в последнем запуске.',
+  'workbench.editors.live.panel.messagesDescription': 'Сообщения, которые этот шаг увидел в последнем запуске.',
   'workbench.editors.live.lastRun.stateIdle': 'Ещё не запускался',
   'workbench.editors.live.lastRun.stateRetrying': 'Повторная попытка',
   'workbench.editors.live.lastRun.stateOpen': 'Открыт',
@@ -270,6 +273,7 @@ export const workbenchLive = {
   'workbench.editors.live.run.footer.cannotRun': 'Ни один шаг не выполнялся.',
   'workbench.editors.live.run.pane.none': 'У этого шага нечего показать.',
   'workbench.editors.live.run.pane.gone': 'Ответ этого шага больше не хранится.',
+  'workbench.editors.live.run.pane.goneMessages': 'Сообщения этого шага больше не хранятся.',
   'workbench.editors.live.run.action.listen': 'Прослушивание',
   'workbench.editors.live.run.action.send': 'Отправка',
   'workbench.editors.live.run.row.heldByRateLimit': 'Ожидает лимита частоты',
@@ -377,7 +381,7 @@ export const workbenchLive = {
   'workbench.editors.live.step.exposeTooltip':
     'Когда включено, сохранение рабочего процесса создаёт переменную Live, которая разрешает `{{live.<name>}}` из этого захвата. Выключите, чтобы использовать захват только внутри этого рабочего процесса (например, через {{step.<stepId>.<captureName>}}).',
 
-  // ── Step collapse sections (depends on / run condition / priority / retry / timeout / scripts) ──
+  // ── Step cards (depends on / run condition / priority / success criteria / poll / retry / timeout / scripts) ──
   'workbench.editors.live.sections.dependsOn': 'Зависит от',
   'workbench.editors.live.sections.reset': 'Сбросить',
   'workbench.editors.live.sections.runCondition': 'Условие запуска',

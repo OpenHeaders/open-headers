@@ -161,6 +161,9 @@ export const workbenchLive = {
   'workbench.editors.live.panel.delete': 'Löschen',
   'workbench.editors.live.panel.response': 'Antwort',
   'workbench.editors.live.panel.message': 'Nachricht',
+  'workbench.editors.live.panel.responseDescription': 'Was die Anfrage im letzten Lauf zurückgab.',
+  'workbench.editors.live.panel.sentDescription': 'Was dieser Schritt im letzten Lauf gesendet hat.',
+  'workbench.editors.live.panel.messagesDescription': 'Die Nachrichten, die dieser Schritt im letzten Lauf sah.',
   'workbench.editors.live.lastRun.stateIdle': 'Noch nicht gelaufen',
   'workbench.editors.live.lastRun.stateRetrying': 'Neuer Versuch',
   'workbench.editors.live.lastRun.stateOpen': 'Offen',
@@ -257,6 +260,7 @@ export const workbenchLive = {
   'workbench.editors.live.run.footer.cannotRun': 'Kein Schritt wurde ausgeführt.',
   'workbench.editors.live.run.pane.none': 'Dieser Schritt hat nichts anzuzeigen.',
   'workbench.editors.live.run.pane.gone': 'Die Antwort dieses Schritts wird nicht mehr aufbewahrt.',
+  'workbench.editors.live.run.pane.goneMessages': 'Die Nachrichten dieses Schritts werden nicht mehr aufbewahrt.',
   'workbench.editors.live.run.action.listen': 'Lauschen',
   'workbench.editors.live.run.action.send': 'Senden',
   'workbench.editors.live.run.row.heldByRateLimit': 'Wartet auf das Ratenlimit',
@@ -362,7 +366,7 @@ export const workbenchLive = {
     'Erfassung auflöst. Schalte es aus, um die Erfassung nur innerhalb dieses Workflows zu verwenden ' +
     '(z. B. über {{step.<stepId>.<captureName>}}).',
 
-  // ── Step collapse sections (depends on / run condition / priority / retry / timeout / scripts) ──
+  // ── Step cards (depends on / run condition / priority / success criteria / poll / retry / timeout / scripts) ──
   'workbench.editors.live.sections.dependsOn': 'Hängt ab von',
   'workbench.editors.live.sections.reset': 'Zurücksetzen',
   'workbench.editors.live.sections.runCondition': 'Laufbedingung',

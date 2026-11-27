@@ -29,6 +29,9 @@ interface Props {
   trigger: string | undefined;
 }
 
+/** A window's messages scroll past this: the selected one's viewer stays in the card. */
+const WINDOW_LIST_MAX_PX = 168;
+
 const NOTE_WORD = {
   matched: 'workbench.editors.live.run.pane.note.matched',
   'not-matched': 'workbench.editors.live.run.pane.note.notMatched',
@@ -61,7 +64,9 @@ const WorkflowRunMessage: React.FC<Props> = ({ product, trigger }) => {
   return (
     <div
       data-testid="wf-run-message"
-      style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', padding: '8px 12px', gap: 8 }}
+      // The viewer closes the card: no line under it, as under a timeline's last row.
+      className="oh-stream-last-row"
+      style={{ display: 'flex', flexDirection: 'column', padding: '8px 12px', gap: 8 }}
     >
       {isWindow && trigger !== undefined && (
         <Text type="secondary" style={{ fontSize: 12 }}>
@@ -76,9 +81,8 @@ const WorkflowRunMessage: React.FC<Props> = ({ product, trigger }) => {
         <div
           className="oh-persistent-scroll"
           style={{
-            flex: '0 1 auto',
-            maxHeight: '40%',
-            minHeight: 0,
+            flex: 'none',
+            maxHeight: WINDOW_LIST_MAX_PX,
             border: `1px solid ${token.colorBorderSecondary}`,
             borderRadius: 6,
           }}

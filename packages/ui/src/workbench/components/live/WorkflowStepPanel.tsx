@@ -24,6 +24,7 @@ import { captureUsesOf } from './capture-uses';
 import { clauseTruthOf, reachOfCacheRow, reachOfRunRow } from './graph-lines';
 import StepLastRunCard from './StepLastRunCard';
 import type { StepMiniFacts } from './StepMiniRow';
+import StepProductCard from './StepProductCard';
 import {
   actionOfStep,
   doesOfStep,
@@ -39,8 +40,6 @@ import { useStepRequests } from './use-step-requests';
 import { useWaitClock } from './use-wait-clock';
 import type { WorkflowFormModel } from './use-workflow-form-model';
 import type { ShownWorkflowRun } from './use-workflow-run';
-import WorkflowCard from './WorkflowCard';
-import WorkflowRunProductPane from './WorkflowRunProductPane';
 import WorkflowStepEditor, { type StepCaptureFacts, type StepDependencies } from './WorkflowStepEditor';
 import WorkflowStepHeader from './WorkflowStepHeader';
 
@@ -82,6 +81,7 @@ const WorkflowStepPanel: React.FC<Props> = ({
   const now = useWaitClock(run?.record ?? null);
   const step = draft.steps[stepIndex];
   const row = run?.record.steps.find((each) => each.uid === step.uid);
+  const productState = row !== undefined ? run?.products[row.id] : undefined;
   const dependencyRow = model.dependencyRows[stepIndex];
   const errors = model.errorsByStepId.get(step.id) ?? [];
 
@@ -209,21 +209,15 @@ const WorkflowStepPanel: React.FC<Props> = ({
                 <UnknownStepCard />
               )}
             </ConfigProvider>
-            {run != null && row !== undefined && (
-              <WorkflowCard
-                title={t(
-                  action === 'call' ? 'workbench.editors.live.panel.response' : 'workbench.editors.live.panel.message',
-                )}
-              >
-                <div className="oh-wf-card-product">
-                  <WorkflowRunProductPane
-                    stepId={row.id}
-                    state={run.products[row.id]}
-                    product={run.refused ? null : readKeptRunProduct(run.record.runId, row.id)}
-                    trigger={isKnownStep(step) && isExpectStep(step) ? step.after : undefined}
-                  />
-                </div>
-              </WorkflowCard>
+            {/* A run that was refused, a step with nothing to show: neither names a product. */}
+            {run != null && row !== undefined && productState !== undefined && (
+              <StepProductCard
+                stepId={row.id}
+                action={action}
+                state={productState}
+                product={readKeptRunProduct(run.record.runId, row.id)}
+                trigger={isKnownStep(step) && isExpectStep(step) ? step.after : undefined}
+              />
             )}
           </div>
         </div>

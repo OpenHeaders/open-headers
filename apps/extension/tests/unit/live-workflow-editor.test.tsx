@@ -37,9 +37,8 @@ if (typeof document.queryCommandSupported !== 'function') {
 // schema barrel for its side effects.
 import '@openheaders/ui/workbench/settings/schema';
 
-// AntD Collapse (used inside WorkflowStepEditor) and several other
-// AntD primitives rely on ResizeObserver via rc-resize-observer. jsdom
-// doesn't ship one.
+// AntD's pickers and several other of its primitives rely on
+// ResizeObserver via rc-resize-observer. jsdom doesn't ship one.
 beforeAll(() => {
   // Monaco (transitively pulled in via EntityConflictDialog) calls
   // `document.queryCommandSupported` at import time; jsdom doesn't

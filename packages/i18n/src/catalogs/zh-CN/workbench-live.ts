@@ -146,6 +146,9 @@ export const workbenchLive = {
   'workbench.editors.live.panel.delete': '删除',
   'workbench.editors.live.panel.response': '响应',
   'workbench.editors.live.panel.message': '消息',
+  'workbench.editors.live.panel.responseDescription': '上次运行中请求返回的内容。',
+  'workbench.editors.live.panel.sentDescription': '上次运行中此步骤发送的内容。',
+  'workbench.editors.live.panel.messagesDescription': '上次运行中此步骤收到的消息。',
   'workbench.editors.live.lastRun.stateIdle': '尚未运行',
   'workbench.editors.live.lastRun.stateRetrying': '正在重试',
   'workbench.editors.live.lastRun.stateOpen': '已打开',
@@ -237,6 +240,7 @@ export const workbenchLive = {
   'workbench.editors.live.run.footer.cannotRun': '没有步骤运行。',
   'workbench.editors.live.run.pane.none': '此步骤没有可显示的内容。',
   'workbench.editors.live.run.pane.gone': '此步骤的响应已不再保留。',
+  'workbench.editors.live.run.pane.goneMessages': '此步骤的消息已不再保留。',
   'workbench.editors.live.run.action.listen': '监听',
   'workbench.editors.live.run.action.send': '发送',
   'workbench.editors.live.run.row.heldByRateLimit': '正在等待速率限制',
@@ -329,7 +333,7 @@ export const workbenchLive = {
   'workbench.editors.live.step.exposeTooltip':
     '开启后，保存工作流会创建一个 Live 变量，从此捕获解析 `{{live.<name>}}`。关闭则仅在此工作流内部使用该捕获（例如通过 {{step.<stepId>.<captureName>}}）。',
 
-  // ── Step collapse sections (depends on / run condition / priority / retry / timeout / scripts) ──
+  // ── Step cards (depends on / run condition / priority / success criteria / poll / retry / timeout / scripts) ──
   'workbench.editors.live.sections.dependsOn': '依赖于',
   'workbench.editors.live.sections.reset': '重置',
   'workbench.editors.live.sections.runCondition': '运行条件',

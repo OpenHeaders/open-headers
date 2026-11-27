@@ -1205,9 +1205,18 @@
   font-size: 0.9167em;
 }
 
+// What a step produced, in its viewer.
 .oh-wf-card-product {
-  height: 420px;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
   border-top: 1px solid var(--oh-wf-card-border);
+  background: var(--ant-color-bg-container);
+}
+
+// A response's views fill a pane and scroll inside it; a message's viewer has its own height.
+.oh-wf-card-product--response {
+  height: 420px;
 }
 
 .oh-wf-figures {

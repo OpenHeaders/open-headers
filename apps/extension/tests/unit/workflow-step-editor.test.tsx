@@ -16,8 +16,7 @@
  * legacy suite — this file is scoped to the new fields.
  *
  * Queries use Testing Library's semantic roles + ARIA state attributes
- * wherever AntD exposes them (role="button" + aria-disabled on Collapse
- * headers; aria-disabled on dropdown options). Where AntD has an a11y
+ * wherever AntD exposes them (aria-disabled on dropdown options). Where AntD has an a11y
  * gap (Select visible options lack role="option"), the pragmatic fallback
  * is text search + closest('[aria-disabled]') — still semantic
  * (aria-disabled is an ARIA state) without touching AntD's class names.
@@ -43,9 +42,8 @@ import { cleanup, fireEvent, render, screen, within } from '@testing-library/rea
 import type React from 'react';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
-// jsdom doesn't provide ResizeObserver, which Ant Design's Collapse
-// (via rc-resize-observer) expects. Tests that render a Collapse need
-// this shim; a minimal stub is enough — we don't assert on resize events.
+// jsdom has no ResizeObserver, and an open Ant Design picker observes its
+// own size; a stub that observes nothing is enough.
 beforeAll(() => {
   class ResizeObserverStub implements ResizeObserver {
     observe(): void {}

@@ -1,8 +1,8 @@
 /**
- * A graph node's run mark (the workflows redesign, Step states) —
- * `StepRunMark`, the state glyph `WorkflowGraphNode` wears. Hovered, it
- * says the state in words. The values a step captured are its panel's
- * to show, in its Captures card.
+ * StepRunMark — a graph node's run mark (the workflows redesign, Step
+ * states): the state glyph `WorkflowGraphNode` wears. Hovered, it says
+ * the state in words. The values a step captured are its panel's to
+ * show, in its Captures card.
  *
  * The mark is derived by the graph at render time; this holds no state,
  * and it never touches the draft.
@@ -15,12 +15,12 @@ import type { StepMark } from './step-mark';
 
 const NODE_GLYPH_SIZE = 16;
 
-interface StepRunMarkProps {
+interface Props {
   stepId: string;
   mark: StepMark;
 }
 
-export const StepRunMark: React.FC<StepRunMarkProps> = ({ stepId, mark }) => (
+const StepRunMark: React.FC<Props> = ({ stepId, mark }) => (
   <Tooltip title={mark.detail !== undefined ? `${mark.label}: ${mark.detail}` : mark.label}>
     <span
       data-testid={`wf-graph-run-${stepId}`}
@@ -31,3 +31,5 @@ export const StepRunMark: React.FC<StepRunMarkProps> = ({ stepId, mark }) => (
     </span>
   </Tooltip>
 );
+
+export default StepRunMark;

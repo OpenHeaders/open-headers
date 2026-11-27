@@ -10,7 +10,7 @@ import type { LiveWorkflowRunEventWire } from '@openheaders/core/bridge';
 import type { SessionMessage, StepProduct, WorkflowRunFact } from '@openheaders/core/live';
 import { LiveWorkflowSchema } from '@openheaders/core/schemas';
 import type { LiveWorkflow, MqttRequest, Request } from '@openheaders/core/types';
-import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import * as v from 'valibot';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -334,6 +334,9 @@ describe('a run with session steps in the workflow view', () => {
     fireEvent.click(screen.getByTestId('wf-run-row-status'));
 
     const pane = await screen.findByTestId('wf-run-message');
+    const card = within(screen.getByTestId('wf-step-product'));
+    expect(card.getByRole('heading', { name: 'Message' })).toBeTruthy();
+    expect(card.getByText('The messages this step saw in the last run.')).toBeTruthy();
     expect(pane.textContent).toContain('Messages on the address since "reboot" started');
     expect(screen.getByTestId('wf-run-message-row-0').getAttribute('data-note')).toBe('stored');
     expect(screen.getByTestId('wf-run-message-row-1').getAttribute('data-selected')).toBe('true');
@@ -342,5 +345,14 @@ describe('a run with session steps in the workflow view', () => {
 
     fireEvent.click(screen.getByTestId('wf-run-message-row-0'));
     expect(screen.getByTestId('wf-run-message-body').textContent).toBe('{"state":"online"}');
+  });
+
+  it('a listen has nothing to open to: its panel ends without a message card', async () => {
+    render(<SavedWorkflowView workflow={workflow} />);
+    for (const fact of [BEGIN, start('probe'), PROBE_READY]) await feed(fact);
+    fireEvent.click(screen.getByTestId('wf-run-row-probe'));
+
+    expect(screen.getByTestId('wf-step-last-run')).toBeTruthy();
+    expect(screen.queryByTestId('wf-step-product')).toBeNull();
   });
 });

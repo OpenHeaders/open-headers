@@ -153,6 +153,9 @@ export const workbenchLive = {
   'workbench.editors.live.panel.delete': '削除',
   'workbench.editors.live.panel.response': 'レスポンス',
   'workbench.editors.live.panel.message': 'メッセージ',
+  'workbench.editors.live.panel.responseDescription': '前回の実行でリクエストが返した内容です。',
+  'workbench.editors.live.panel.sentDescription': '前回の実行でこのステップが送信した内容です。',
+  'workbench.editors.live.panel.messagesDescription': '前回の実行でこのステップに届いたメッセージです。',
   'workbench.editors.live.lastRun.stateIdle': '未実行',
   'workbench.editors.live.lastRun.stateRetrying': '再試行中',
   'workbench.editors.live.lastRun.stateOpen': '接続中',
@@ -245,6 +248,7 @@ export const workbenchLive = {
   'workbench.editors.live.run.footer.cannotRun': 'どのステップも実行されませんでした。',
   'workbench.editors.live.run.pane.none': 'このステップには表示するものがありません。',
   'workbench.editors.live.run.pane.gone': 'このステップのレスポンスはもう保持されていません。',
+  'workbench.editors.live.run.pane.goneMessages': 'このステップのメッセージはもう保持されていません。',
   'workbench.editors.live.run.action.listen': '待ち受け',
   'workbench.editors.live.run.action.send': '送信',
   'workbench.editors.live.run.row.heldByRateLimit': 'レート制限を待機中',
@@ -344,7 +348,7 @@ export const workbenchLive = {
   'workbench.editors.live.step.exposeTooltip':
     'オンにすると、ワークフローの保存時に、このキャプチャから `{{live.<name>}}` を解決するライブ変数が作成されます。このワークフロー内でのみキャプチャを使う場合（例：{{step.<stepId>.<captureName>}} 経由）はオフにしてください。',
 
-  // ── Step collapse sections (depends on / run condition / priority / retry / timeout / scripts) ──
+  // ── Step cards (depends on / run condition / priority / success criteria / poll / retry / timeout / scripts) ──
   'workbench.editors.live.sections.dependsOn': '依存先',
   'workbench.editors.live.sections.reset': 'リセット',
   'workbench.editors.live.sections.runCondition': '実行条件',

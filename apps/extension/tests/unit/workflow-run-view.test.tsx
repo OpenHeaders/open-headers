@@ -355,6 +355,24 @@ describe('a run in the workflow view', () => {
     expect(screen.getByTestId('wf-run-product').getAttribute('data-step')).toBe('login');
     const body = await within(screen.getByTestId('wf-run-product')).findByTestId('wf-run-body');
     expect(body.textContent).toBe('{"name":"John Doe"}');
+    const card = within(screen.getByTestId('wf-step-product'));
+    expect(card.getByRole('heading', { name: 'Response' })).toBeTruthy();
+    expect(card.getByText('What the request returned in the last run.')).toBeTruthy();
+  });
+
+  it('the response card is there once the step has something to show, and says so when the page no longer keeps it', async () => {
+    h.call.mockImplementation(async () => ({ product: null }));
+    render(<SavedWorkflowView workflow={workflow} />);
+    fireEvent.click(screen.getByTestId('wf-graph-node-login'));
+    for (const fact of [BEGIN, LOGIN_START]) await feed(fact);
+    expect(screen.queryByTestId('wf-step-product')).toBeNull();
+
+    await feed(LOGIN_PASSED);
+
+    expect(screen.getByTestId('wf-step-product').textContent).toBe(
+      'ResponseWhat the request returned in the last run.The response of this step is no longer kept.',
+    );
+    expect(screen.getByTestId('wf-run-product').getAttribute('data-step')).toBe('login');
   });
 
   it('an open step’s panel leads with what the last run made of it, live as the run goes', async () => {

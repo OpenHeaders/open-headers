@@ -157,6 +157,9 @@ export const workbenchLive = {
   'workbench.editors.live.panel.delete': 'Supprimer',
   'workbench.editors.live.panel.response': 'Réponse',
   'workbench.editors.live.panel.message': 'Message',
+  'workbench.editors.live.panel.responseDescription': 'Ce que la requête a renvoyé lors de la dernière exécution.',
+  'workbench.editors.live.panel.sentDescription': 'Ce que cette étape a envoyé lors de la dernière exécution.',
+  'workbench.editors.live.panel.messagesDescription': 'Les messages vus par cette étape à la dernière exécution.',
   'workbench.editors.live.lastRun.stateIdle': 'Pas encore exécutée',
   'workbench.editors.live.lastRun.stateRetrying': 'Nouvelle tentative',
   'workbench.editors.live.lastRun.stateOpen': 'Ouverte',
@@ -253,6 +256,7 @@ export const workbenchLive = {
   'workbench.editors.live.run.footer.cannotRun': "Aucune étape ne s'est exécutée.",
   'workbench.editors.live.run.pane.none': "Cette étape n'a rien à afficher.",
   'workbench.editors.live.run.pane.gone': "La réponse de cette étape n'est plus conservée.",
+  'workbench.editors.live.run.pane.goneMessages': 'Les messages de cette étape ne sont plus conservés.',
   'workbench.editors.live.run.action.listen': 'Écoute',
   'workbench.editors.live.run.action.send': 'Envoi',
   'workbench.editors.live.run.row.heldByRateLimit': 'En attente de la limite de débit',
@@ -361,7 +365,7 @@ export const workbenchLive = {
     "cette capture. Désactivez pour n'utiliser la capture qu'à l'intérieur de ce workflow (p. ex. via " +
     '{{step.<stepId>.<captureName>}}).',
 
-  // ── Step collapse sections (depends on / run condition / priority / retry / timeout / scripts) ──
+  // ── Step cards (depends on / run condition / priority / success criteria / poll / retry / timeout / scripts) ──
   'workbench.editors.live.sections.dependsOn': 'Dépend de',
   'workbench.editors.live.sections.reset': 'Réinitialiser',
   'workbench.editors.live.sections.runCondition': "Condition d'exécution",
