@@ -10,6 +10,10 @@
  * it — and the stylesheet alone decides which it is
  * (`.oh-workflow-view`, the workbench's editor stylesheet): both
  * dividers are always mounted, and the layout shows the one it uses.
+ *
+ * The run the two draw is the latest, until a run is picked from the
+ * workflow's History: then the graph and the panel draw that one, and a
+ * line at the panel's head says which, with the way back.
  */
 
 import type { LiveWorkflowRunSnapshot } from '@openheaders/core/bridge';
@@ -20,9 +24,10 @@ import type React from 'react';
 import { useCallback, useLayoutEffect, useRef, useState } from 'react';
 import type { StepRequestOpeners } from './step-facts';
 import { useWorkflowFormModel } from './use-workflow-form-model';
-import type { ShownWorkflowRun } from './use-workflow-run';
+import { type ShownWorkflowRun, useWorkflowRunPick, useWorkflowRuns } from './use-workflow-run';
 import WorkflowGraphBody from './WorkflowGraphBody';
 import WorkflowOverviewPanel, { type WorkflowPanelTab } from './WorkflowOverviewPanel';
+import WorkflowShownRunBar from './WorkflowShownRunBar';
 import WorkflowStepPanel from './WorkflowStepPanel';
 
 const PANEL_WIDTH_VAR = '--oh-workflow-panel-width';
@@ -61,6 +66,7 @@ interface Props {
   onSelectStep: (stepUid: string | null) => void;
   /** The saved workflow on a surface that runs workflows — absent where there is no run to show. */
   workflow?: LiveWorkflow;
+  /** The workflow's latest run on this page — what the view draws while no run is picked from its History. */
   run?: ShownWorkflowRun | null;
   /**
    * The active environment's cache row: the graph's marks while no run is
@@ -86,7 +92,7 @@ const WorkflowView: React.FC<Props> = ({
   selectedStepUid,
   onSelectStep,
   workflow,
-  run,
+  run: latestRun,
   cacheRun,
   runs,
   boundVars,
@@ -97,6 +103,8 @@ const WorkflowView: React.FC<Props> = ({
   const model = useWorkflowFormModel(draft, setDraft);
   // Held here, above the panel: a step opened and closed returns to the page that was open.
   const [panelTab, setPanelTab] = useState<WorkflowPanelTab>('overview');
+  const keptRuns = useWorkflowRuns(workflow?.uid ?? '');
+  const { run, picked, pick, backToLatest } = useWorkflowRunPick(keptRuns, latestRun);
   const rootRef = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLElement>(null);
 
@@ -169,6 +177,7 @@ const WorkflowView: React.FC<Props> = ({
       <aside ref={panelRef} className="oh-workflow-view-panel" data-testid="wf-panel">
         <Sash axis="x" edge="start" begin={beginWidth} onReset={resetWidth} />
         <Sash axis="y" edge="start" begin={beginHeight} onReset={resetHeight} />
+        {picked !== null && <WorkflowShownRunBar record={picked} onBackToLatest={backToLatest} />}
         {selectedIndex >= 0 ? (
           <WorkflowStepPanel
             draft={draft}
@@ -193,6 +202,8 @@ const WorkflowView: React.FC<Props> = ({
             onTabChange={setPanelTab}
             workflow={workflow}
             run={run}
+            keptRuns={keptRuns}
+            onPickRun={pick}
             cacheRun={cacheRun}
             runs={runs}
             boundCount={boundVars?.length}

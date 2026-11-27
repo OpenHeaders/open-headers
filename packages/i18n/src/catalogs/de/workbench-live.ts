@@ -320,7 +320,8 @@ export const workbenchLive = {
   'workbench.editors.live.overview.settingsTitle': 'Einstellungen',
   'workbench.editors.live.overview.settingsDescription': 'Wann dieser Workflow läuft.',
   'workbench.editors.live.history.title': 'Läufe',
-  'workbench.editors.live.history.description': 'Die letzten 20 Läufe dieser Sitzung, der neueste zuerst.',
+  'workbench.editors.live.history.description':
+    'Die letzten 20 Läufe dieser Sitzung, der neueste zuerst. Drücke einen Lauf, um ihn im Graphen zu zeigen.',
   'workbench.editors.live.history.colWhen': 'Wann',
   'workbench.editors.live.history.colResult': 'Ergebnis',
   'workbench.editors.live.history.colTrigger': 'Auslöser',
@@ -330,6 +331,8 @@ export const workbenchLive = {
   'workbench.editors.live.history.now': 'Jetzt',
   'workbench.editors.live.history.stepsDone': '{done} von {total} fertig',
   'workbench.editors.live.history.shownNote': 'Der hervorgehobene Lauf ist der im Graphen gezeigte.',
+  'workbench.editors.live.history.shownRun': 'Gezeigt wird der Lauf von {when}',
+  'workbench.editors.live.history.backToLatest': 'Zurück zum neuesten',
   'workbench.editors.live.workflow.run': 'Ausführen',
   'workbench.editors.live.workflow.runUnavailable': 'Workflows laufen nicht in einer öffentlichen Kopie.',
   'workbench.editors.live.workflow.saveToRun': 'Speichere den Workflow, um ihn auszuführen.',

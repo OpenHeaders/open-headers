@@ -321,7 +321,8 @@ export const workbenchLive = {
   'workbench.editors.live.overview.settingsTitle': 'Configuración',
   'workbench.editors.live.overview.settingsDescription': 'Cuándo se ejecuta este workflow.',
   'workbench.editors.live.history.title': 'Ejecuciones',
-  'workbench.editors.live.history.description': 'Las últimas 20 ejecuciones de esta sesión, la más reciente primero.',
+  'workbench.editors.live.history.description':
+    'Las últimas 20 ejecuciones de esta sesión, la más reciente primero. Pulsa una ejecución para mostrarla en el grafo.',
   'workbench.editors.live.history.colWhen': 'Cuándo',
   'workbench.editors.live.history.colResult': 'Resultado',
   'workbench.editors.live.history.colTrigger': 'Disparador',
@@ -331,6 +332,8 @@ export const workbenchLive = {
   'workbench.editors.live.history.now': 'Ahora',
   'workbench.editors.live.history.stepsDone': '{done} de {total} terminados',
   'workbench.editors.live.history.shownNote': 'La ejecución resaltada es la que se muestra en el grafo.',
+  'workbench.editors.live.history.shownRun': 'Se muestra la ejecución de {when}',
+  'workbench.editors.live.history.backToLatest': 'Volver a la última',
   'workbench.editors.live.workflow.run': 'Ejecutar',
   'workbench.editors.live.workflow.runUnavailable': 'Los workflows no se ejecutan en una copia pública.',
   'workbench.editors.live.workflow.saveToRun': 'Guarda el workflow para ejecutarlo.',

@@ -7,7 +7,8 @@
  * its settings.
  *
  * A saved workflow where it runs has a second page behind a tab of the
- * head: History, the runs this page saw.
+ * head: History, the runs this page saw. A run pressed there is the one
+ * the whole view draws.
  *
  * Drawn at the step panel's sizes, as the whole workflow view is.
  */
@@ -37,7 +38,8 @@ import { usePanelSizes } from './use-panel-sizes';
 import { useStepRequests } from './use-step-requests';
 import { useWaitClock } from './use-wait-clock';
 import type { WorkflowFormModel } from './use-workflow-form-model';
-import { type ShownWorkflowRun, useWorkflowRuns } from './use-workflow-run';
+import type { KeptWorkflowRun } from '../../data/workflow-run-store';
+import type { ShownWorkflowRun } from './use-workflow-run';
 import WorkflowAttentionCard, { type AttentionPhase } from './WorkflowAttentionCard';
 import WorkflowCapturesCard, { type OverviewCapture } from './WorkflowCapturesCard';
 import WorkflowEnvironmentsCard from './WorkflowEnvironmentsCard';
@@ -63,7 +65,12 @@ interface Props {
   onTabChange: (tab: WorkflowPanelTab) => void;
   /** The saved workflow on a surface that runs workflows — absent where there is no run to show. */
   workflow?: LiveWorkflow;
+  /** The run the view draws. */
   run?: ShownWorkflowRun | null;
+  /** The workflow's runs this page saw, the newest first — what its History lists. */
+  keptRuns: readonly KeptWorkflowRun[];
+  /** A run of the History was pressed: the view draws it. */
+  onPickRun: (runId: string) => void;
   /** The active environment's cache row: how the last run left each step while no run is kept. */
   cacheRun?: LiveWorkflowRunSnapshot | null;
   /** Every environment's cache row of the workflow — absent for a draft never saved, which has run nowhere. */
@@ -86,6 +93,8 @@ const WorkflowOverviewPanel: React.FC<Props> = ({
   onTabChange,
   workflow,
   run,
+  keptRuns,
+  onPickRun,
   cacheRun,
   runs,
   boundCount = 0,
@@ -96,7 +105,6 @@ const WorkflowOverviewPanel: React.FC<Props> = ({
   const { fontSize, theme: sizes } = usePanelSizes();
   const stepRequests = useStepRequests();
   const now = useWaitClock(run?.record ?? null);
-  const keptRuns = useWorkflowRuns(workflow?.uid ?? '');
   const scrollerRef = useRef<HTMLDivElement>(null);
   const settingsRef = useRef<HTMLElement>(null);
 
@@ -227,6 +235,7 @@ const WorkflowOverviewPanel: React.FC<Props> = ({
                 <WorkflowHistoryCard
                   runs={keptRuns}
                   shownRunId={run != null && !run.refused ? run.record.runId : null}
+                  onPick={onPickRun}
                 />
               </div>
             ) : (

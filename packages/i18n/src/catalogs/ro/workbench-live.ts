@@ -334,7 +334,8 @@ export const workbenchLive = {
   'workbench.editors.live.overview.settingsTitle': 'Setări',
   'workbench.editors.live.overview.settingsDescription': 'Când rulează acest flux de lucru.',
   'workbench.editors.live.history.title': 'Rulări',
-  'workbench.editors.live.history.description': 'Ultimele 20 de rulări din această sesiune, cea mai recentă prima.',
+  'workbench.editors.live.history.description':
+    'Ultimele 20 de rulări din această sesiune, cea mai recentă prima. Apăsați o rulare pentru a o afișa pe graf.',
   'workbench.editors.live.history.colWhen': 'Când',
   'workbench.editors.live.history.colResult': 'Rezultat',
   'workbench.editors.live.history.colTrigger': 'Declanșator',
@@ -344,6 +345,8 @@ export const workbenchLive = {
   'workbench.editors.live.history.now': 'Acum',
   'workbench.editors.live.history.stepsDone': '{done} din {total} gata',
   'workbench.editors.live.history.shownNote': 'Rularea evidențiată este cea desenată pe graf.',
+  'workbench.editors.live.history.shownRun': 'Se afișează rularea de la {when}',
+  'workbench.editors.live.history.backToLatest': 'Înapoi la cea mai recentă',
   'workbench.editors.live.workflow.run': 'Rulare',
   'workbench.editors.live.workflow.runUnavailable': 'Fluxurile de lucru nu rulează într-o copie publică.',
   'workbench.editors.live.workflow.saveToRun': 'Salvați fluxul de lucru pentru a-l rula.',

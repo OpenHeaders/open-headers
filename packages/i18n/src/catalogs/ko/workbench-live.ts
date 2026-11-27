@@ -302,7 +302,8 @@ export const workbenchLive = {
   'workbench.editors.live.overview.settingsTitle': '설정',
   'workbench.editors.live.overview.settingsDescription': '이 워크플로가 실행되는 시점입니다.',
   'workbench.editors.live.history.title': '실행',
-  'workbench.editors.live.history.description': '이 세션의 최근 실행 20개를 최신순으로 표시합니다.',
+  'workbench.editors.live.history.description':
+    '이 세션의 최근 실행 20개를 최신순으로 표시합니다. 실행을 누르면 그래프에 표시됩니다.',
   'workbench.editors.live.history.colWhen': '시각',
   'workbench.editors.live.history.colResult': '결과',
   'workbench.editors.live.history.colTrigger': '트리거',
@@ -312,6 +313,8 @@ export const workbenchLive = {
   'workbench.editors.live.history.now': '지금',
   'workbench.editors.live.history.stepsDone': '{total}개 중 {done}개 완료',
   'workbench.editors.live.history.shownNote': '강조 표시된 실행이 그래프에 표시된 실행입니다.',
+  'workbench.editors.live.history.shownRun': '{when} 실행을 표시 중',
+  'workbench.editors.live.history.backToLatest': '최신 실행으로 돌아가기',
   'workbench.editors.live.workflow.run': '실행',
   'workbench.editors.live.workflow.runUnavailable': '워크플로는 공개 사본에서 실행되지 않습니다.',
   'workbench.editors.live.workflow.saveToRun': '실행하려면 워크플로를 저장하세요.',

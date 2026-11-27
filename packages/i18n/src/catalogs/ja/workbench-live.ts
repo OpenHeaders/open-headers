@@ -298,7 +298,8 @@ export const workbenchLive = {
   'workbench.editors.live.overview.settingsTitle': '設定',
   'workbench.editors.live.overview.settingsDescription': 'このワークフローを実行するタイミングです。',
   'workbench.editors.live.history.title': '実行',
-  'workbench.editors.live.history.description': 'このセッションの直近 20 件の実行を新しい順に表示します。',
+  'workbench.editors.live.history.description':
+    'このセッションの直近 20 件の実行を新しい順に表示します。実行を押すとグラフに表示されます。',
   'workbench.editors.live.history.colWhen': '日時',
   'workbench.editors.live.history.colResult': '結果',
   'workbench.editors.live.history.colTrigger': 'トリガー',
@@ -308,6 +309,8 @@ export const workbenchLive = {
   'workbench.editors.live.history.now': '現在',
   'workbench.editors.live.history.stepsDone': '{total} 件中 {done} 件完了',
   'workbench.editors.live.history.shownNote': 'ハイライトされた実行がグラフに表示されています。',
+  'workbench.editors.live.history.shownRun': '{when} の実行を表示中',
+  'workbench.editors.live.history.backToLatest': '最新に戻る',
   'workbench.editors.live.workflow.run': '実行',
   'workbench.editors.live.workflow.runUnavailable': 'ワークフローは公開コピーでは実行できません。',
   'workbench.editors.live.workflow.saveToRun': '実行するにはワークフローを保存してください。',

@@ -194,11 +194,11 @@ const END: WorkflowRunFact = { type: 'end', at: 121, ok: false, durationMs: 21 }
 
 let seq = 0;
 
-async function feed(fact: WorkflowRunFact, runId = 'run-1'): Promise<void> {
+async function feed(fact: WorkflowRunFact, runId = 'run-1', workflowUid = 'wfpins01'): Promise<void> {
   await act(async () => {
     h.onFrame?.({
       workspaceId: 'ws-run-pins',
-      workflowUid: 'wfpins01',
+      workflowUid,
       environmentId: null,
       runId,
       seq: seq++,
@@ -630,5 +630,121 @@ describe('the workflow’s History', () => {
 
     expect(tab('history').getAttribute('aria-selected')).toBe('true');
     expect(screen.getByTestId('wf-history-row-run-1')).toBeTruthy();
+  });
+
+  describe('a run picked from the list', () => {
+    const view = () => screen.getByTestId('wf-view');
+    const markOf = (stepId: string) => screen.getByTestId(`wf-graph-run-${stepId}`).getAttribute('data-run-state');
+    const shownRow = () => rows().filter((row) => row.getAttribute('data-shown') === 'true');
+
+    /** `run-1` failed at the fetch; `run-2`, the latest, passed its login and is still going. */
+    async function twoRuns(): Promise<void> {
+      await feed({ ...BEGIN, at: Date.now() });
+      for (const fact of [LOGIN_START, LOGIN_PASSED, PROFILE_START, PROFILE_FAILED, END]) await feed(fact);
+      for (const fact of [BEGIN, LOGIN_START, LOGIN_PASSED]) await feed(fact, 'run-2');
+    }
+
+    it('a press of a row draws that run on the whole view, and the panel’s head says which', async () => {
+      render(<SavedWorkflowView workflow={workflow} />);
+      await twoRuns();
+      fireEvent.click(tab('history'));
+      expect(screen.queryByTestId('wf-shown-run')).toBeNull();
+      expect(view().getAttribute('data-run-verdict')).toBe('running');
+      expect(markOf('profile')).toBe('waiting');
+
+      fireEvent.click(screen.getByTestId('wf-history-row-run-1'));
+
+      expect(shownRow().map((row) => row.getAttribute('data-testid'))).toEqual(['wf-history-row-run-1']);
+      const bar = screen.getByTestId('wf-shown-run');
+      expect(bar.getAttribute('data-run-id')).toBe('run-1');
+      expect(bar.textContent).toMatch(/^Showing the run of \d{2}:\d{2}:\d{2}.* · FailedBack to latest$/);
+      expect(view().getAttribute('data-run-verdict')).toBe('failed');
+      expect(markOf('login')).toBe('passed');
+      expect(markOf('profile')).toBe('failed');
+
+      fireEvent.click(tab('overview'));
+      expect(screen.getByTestId('wf-run-verdict').textContent).toBe('Failed');
+      expect(screen.getByTestId('wf-last-run').textContent).toContain('profile failed, and the run ended there.');
+      expect(screen.getByTestId('wf-run-row-profile').getAttribute('data-run-state')).toBe('failed');
+    });
+
+    it('a step’s panel is the picked run’s too, under the same line, with what the step produced in it', async () => {
+      render(<SavedWorkflowView workflow={workflow} />);
+      await twoRuns();
+      fireEvent.click(tab('history'));
+      fireEvent.click(screen.getByTestId('wf-history-row-run-1'));
+
+      fireEvent.click(screen.getByTestId('wf-graph-node-profile'));
+
+      expect(screen.getByTestId('wf-shown-run').getAttribute('data-run-id')).toBe('run-1');
+      expect(screen.getByTestId('wf-step-last-run-state').textContent).toBe('Failed');
+      const pane = screen.getByTestId('wf-run-product');
+      expect(pane.getAttribute('data-step')).toBe('profile');
+      expect(await within(pane).findByText(REFUSED)).toBeTruthy();
+    });
+
+    it('Back to latest returns the whole view to the latest run', async () => {
+      render(<SavedWorkflowView workflow={workflow} />);
+      await twoRuns();
+      fireEvent.click(tab('history'));
+      fireEvent.click(screen.getByTestId('wf-history-row-run-1'));
+      fireEvent.click(screen.getByTestId('wf-graph-node-profile'));
+
+      fireEvent.click(screen.getByTestId('wf-shown-run-latest'));
+
+      expect(screen.queryByTestId('wf-shown-run')).toBeNull();
+      expect(view().getAttribute('data-run-verdict')).toBe('running');
+      expect(markOf('profile')).toBe('waiting');
+      expect(screen.getByTestId('wf-step-last-run-state').textContent).toBe('Waiting');
+      expect(screen.queryByTestId('wf-run-product')).toBeNull();
+      fireEvent.click(screen.getByTestId('wf-panel-close'));
+      expect(shownRow().map((row) => row.getAttribute('data-testid'))).toEqual(['wf-history-row-run-2']);
+    });
+
+    it('a press of the latest run’s row is the latest: no line at the head', async () => {
+      render(<SavedWorkflowView workflow={workflow} />);
+      await twoRuns();
+      fireEvent.click(tab('history'));
+      fireEvent.click(screen.getByTestId('wf-history-row-run-1'));
+
+      fireEvent.click(screen.getByTestId('wf-history-row-run-2'));
+
+      expect(screen.queryByTestId('wf-shown-run')).toBeNull();
+      expect(shownRow().map((row) => row.getAttribute('data-testid'))).toEqual(['wf-history-row-run-2']);
+      expect(view().getAttribute('data-run-verdict')).toBe('running');
+    });
+
+    it('a new run of the workflow returns the view to the latest', async () => {
+      render(<SavedWorkflowView workflow={workflow} />);
+      await twoRuns();
+      fireEvent.click(tab('history'));
+      fireEvent.click(screen.getByTestId('wf-history-row-run-1'));
+      expect(markOf('profile')).toBe('failed');
+
+      await feed(BEGIN, 'run-3');
+
+      expect(screen.queryByTestId('wf-shown-run')).toBeNull();
+      expect(shownRow().map((row) => row.getAttribute('data-testid'))).toEqual(['wf-history-row-run-3']);
+      expect(markOf('login')).toBe('waiting');
+      expect(markOf('profile')).toBe('waiting');
+    });
+
+    it('a workflow that needs a newer version draws a pressed run over its record, and returns to the record', async () => {
+      await feed(BEGIN, 'run-1', 'wfdevice');
+      await feed(LOGIN_PASSED, 'run-1', 'wfdevice');
+      render(<SavedWorkflowView workflow={needsUpdateWorkflow} needsUpdate />);
+      fireEvent.click(tab('history'));
+      expect(shownRow()).toEqual([]);
+
+      fireEvent.click(screen.getByTestId('wf-history-row-run-1'));
+
+      expect(screen.getByTestId('wf-shown-run').getAttribute('data-run-id')).toBe('run-1');
+      expect(markOf('login')).toBe('passed');
+
+      fireEvent.click(screen.getByTestId('wf-shown-run-latest'));
+
+      expect(markOf('probe')).toBe('cannot-run');
+      expect(shownRow()).toEqual([]);
+    });
   });
 });

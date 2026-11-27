@@ -318,7 +318,7 @@ export const workbenchLive = {
   'workbench.editors.live.overview.settingsDescription': "Quand ce workflow s'exécute.",
   'workbench.editors.live.history.title': 'Exécutions',
   'workbench.editors.live.history.description':
-    'Les 20 dernières exécutions de cette session, la plus récente en premier.',
+    "Les 20 dernières exécutions de cette session, la plus récente en premier. Appuyez sur une exécution pour l'afficher sur le graphe.",
   'workbench.editors.live.history.colWhen': 'Quand',
   'workbench.editors.live.history.colResult': 'Résultat',
   'workbench.editors.live.history.colTrigger': 'Déclencheur',
@@ -328,6 +328,8 @@ export const workbenchLive = {
   'workbench.editors.live.history.now': 'Maintenant',
   'workbench.editors.live.history.stepsDone': '{done} sur {total} terminées',
   'workbench.editors.live.history.shownNote': "L'exécution en surbrillance est celle dessinée sur le graphe.",
+  'workbench.editors.live.history.shownRun': 'Exécution affichée : celle de {when}',
+  'workbench.editors.live.history.backToLatest': 'Revenir à la dernière',
   'workbench.editors.live.workflow.run': 'Exécuter',
   'workbench.editors.live.workflow.runUnavailable': "Les workflows ne s'exécutent pas dans une copie publique.",
   'workbench.editors.live.workflow.saveToRun': "Enregistrez le workflow pour l'exécuter.",

@@ -1360,9 +1360,59 @@
   grid-template-columns: 104px 92px minmax(0, 1fr) 62px 64px;
   gap: 2px 8px;
   align-items: baseline;
+}
+
+// A run's row is a button: a press draws that run on the whole view.
+.oh-wf-history-row {
+  width: 100%;
+  border: 0;
+  border-top: 1px solid var(--oh-wf-row-border);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+
+  &:hover {
+    background: var(--oh-wf-card-head);
+  }
 
   &[data-shown='true'] {
     background: color-mix(in srgb, var(--oh-wf-accent) 7%, transparent);
+  }
+}
+
+// While the view draws a run picked from the History: which run, and the way back to the latest.
+.oh-wf-shown-run {
+  flex: none;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 2px 12px;
+  padding: 6px 15px;
+  border-bottom: 1px solid var(--oh-wf-card-border);
+  background: color-mix(in srgb, var(--oh-wf-accent) 7%, transparent);
+  color: var(--oh-wf-text);
+  line-height: 1.4;
+}
+
+.oh-wf-shown-run-which {
+  min-width: 0;
+}
+
+.oh-wf-shown-run-latest {
+  flex: none;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--oh-wf-accent);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+
+  &:hover {
+    text-decoration: underline;
   }
 }
 

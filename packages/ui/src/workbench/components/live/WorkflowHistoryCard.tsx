@@ -2,8 +2,9 @@
  * WorkflowHistoryCard — a workflow's History (the workflows redesign,
  * Workflow panel): the runs of the workflow this page saw, the newest
  * first. A row says when the run began and in which environment, how it
- * ended, how its steps ended, how long it took and what started it. The
- * run the graph draws is the highlighted one.
+ * ended, how its steps ended, how long it took and what started it. A
+ * press of a row draws that run on the whole view; the run the view
+ * draws is the highlighted one.
  *
  * Built from the page's kept runs alone: a run this page did not see is
  * not listed, and a reload empties the list.
@@ -34,9 +35,10 @@ interface Props {
   runs: readonly KeptWorkflowRun[];
   /** The run the view draws, by its id. */
   shownRunId: string | null;
+  onPick: (runId: string) => void;
 }
 
-const WorkflowHistoryCard: React.FC<Props> = ({ runs, shownRunId }) => {
+const WorkflowHistoryCard: React.FC<Props> = ({ runs, shownRunId, onPick }) => {
   const { locale, t } = useLocale();
   const environmentName = useEnvironmentName();
   const title = t('workbench.editors.live.history.title');
@@ -73,13 +75,17 @@ const WorkflowHistoryCard: React.FC<Props> = ({ runs, shownRunId }) => {
       {runs.map(({ record }) => {
         const verdict = runVerdict(record);
         const going = record.ended === null;
+        const shown = record.runId === shownRunId;
         return (
-          <div
+          <button
             key={record.runId}
-            className="oh-wf-card-row oh-wf-history-grid"
+            type="button"
+            className="oh-wf-card-row oh-wf-history-grid oh-wf-history-row"
             data-testid={`wf-history-row-${record.runId}`}
             data-run-verdict={verdict}
-            data-shown={record.runId === shownRunId ? 'true' : undefined}
+            data-shown={shown ? 'true' : undefined}
+            aria-current={shown ? 'true' : undefined}
+            onClick={() => onPick(record.runId)}
           >
             <span className="oh-wf-history-when">
               <span className="oh-wf-mini-name">
@@ -99,7 +105,7 @@ const WorkflowHistoryCard: React.FC<Props> = ({ runs, shownRunId }) => {
             <span className="oh-wf-history-cell">
               {record.trigger === undefined ? NONE : t(TRIGGER_WORD[record.trigger])}
             </span>
-          </div>
+          </button>
         );
       })}
     </WorkflowCard>

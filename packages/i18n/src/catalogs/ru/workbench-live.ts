@@ -333,7 +333,8 @@ export const workbenchLive = {
   'workbench.editors.live.overview.settingsTitle': 'Настройки',
   'workbench.editors.live.overview.settingsDescription': 'Когда запускается этот рабочий процесс.',
   'workbench.editors.live.history.title': 'Запуски',
-  'workbench.editors.live.history.description': 'Последние 20 запусков этого сеанса, сначала новые.',
+  'workbench.editors.live.history.description':
+    'Последние 20 запусков этого сеанса, сначала новые. Нажмите запуск, чтобы показать его на графе.',
   'workbench.editors.live.history.colWhen': 'Когда',
   'workbench.editors.live.history.colResult': 'Результат',
   'workbench.editors.live.history.colTrigger': 'Триггер',
@@ -343,6 +344,8 @@ export const workbenchLive = {
   'workbench.editors.live.history.now': 'Сейчас',
   'workbench.editors.live.history.stepsDone': 'Готово {done} из {total}',
   'workbench.editors.live.history.shownNote': 'Выделенный запуск — тот, что показан на графе.',
+  'workbench.editors.live.history.shownRun': 'Показан запуск от {when}',
+  'workbench.editors.live.history.backToLatest': 'Вернуться к последнему',
   'workbench.editors.live.workflow.run': 'Запустить',
   'workbench.editors.live.workflow.runUnavailable': 'Рабочие процессы не запускаются в публичной копии.',
   'workbench.editors.live.workflow.saveToRun': 'Сохраните рабочий процесс, чтобы запустить его.',
