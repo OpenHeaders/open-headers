@@ -323,10 +323,7 @@ export const workbenchLive = {
 
   // ── Workflow form body ──────────────────────────────────────────────
   'workbench.editors.live.form.structuralIssues': 'Fluxul de lucru are probleme structurale',
-  'workbench.editors.live.form.stepsTitle': 'Pași ({count})',
   'workbench.editors.live.form.addStepButton': 'Pas',
-  'workbench.editors.live.form.noSteps':
-    'Niciun pas încă — adăugați unul pentru a lega o cerere și o extragere în acest flux de lucru.',
   'workbench.editors.live.form.enabledAria': 'Flux de lucru activat',
   'workbench.editors.live.form.enabled': 'Activat',
   'workbench.editors.live.form.disabled': 'Dezactivat',

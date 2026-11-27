@@ -293,9 +293,7 @@ export const workbenchLive = {
 
   // ── Workflow form body ──────────────────────────────────────────────
   'workbench.editors.live.form.structuralIssues': '워크플로에 구조적 문제가 있습니다',
-  'workbench.editors.live.form.stepsTitle': '단계 ({count})',
   'workbench.editors.live.form.addStepButton': '단계',
-  'workbench.editors.live.form.noSteps': '아직 단계가 없습니다. 단계를 추가해 요청 + 추출을 이 워크플로에 연결하세요.',
   'workbench.editors.live.form.enabledAria': '워크플로 활성',
   'workbench.editors.live.form.enabled': '활성',
   'workbench.editors.live.form.disabled': '비활성',

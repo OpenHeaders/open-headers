@@ -280,9 +280,7 @@ export const workbenchLive = {
 
   // ── Workflow form body ──────────────────────────────────────────────
   'workbench.editors.live.form.structuralIssues': '工作流存在结构问题',
-  'workbench.editors.live.form.stepsTitle': '步骤（{count}）',
   'workbench.editors.live.form.addStepButton': '步骤',
-  'workbench.editors.live.form.noSteps': '还没有步骤——添加一个，把请求 + 提取接入此工作流。',
   'workbench.editors.live.form.enabledAria': '工作流已启用',
   'workbench.editors.live.form.enabled': '已启用',
   'workbench.editors.live.form.disabled': '已禁用',

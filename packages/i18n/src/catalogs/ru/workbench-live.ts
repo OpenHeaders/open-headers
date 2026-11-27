@@ -320,10 +320,7 @@ export const workbenchLive = {
 
   // ── Workflow form body ──────────────────────────────────────────────
   'workbench.editors.live.form.structuralIssues': 'В рабочем процессе есть структурные проблемы',
-  'workbench.editors.live.form.stepsTitle': 'Шаги ({count})',
   'workbench.editors.live.form.addStepButton': 'Шаг',
-  'workbench.editors.live.form.noSteps':
-    'Шагов пока нет — добавьте шаг, чтобы связать запрос и извлечение в этом рабочем процессе.',
   'workbench.editors.live.form.enabledAria': 'Рабочий процесс включён',
   'workbench.editors.live.form.enabled': 'Включено',
   'workbench.editors.live.form.disabled': 'Выключено',

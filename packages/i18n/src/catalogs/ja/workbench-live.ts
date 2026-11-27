@@ -290,10 +290,7 @@ export const workbenchLive = {
 
   // ── Workflow form body ──────────────────────────────────────────────
   'workbench.editors.live.form.structuralIssues': 'ワークフローに構造上の問題があります',
-  'workbench.editors.live.form.stepsTitle': 'ステップ（{count}）',
   'workbench.editors.live.form.addStepButton': 'ステップ',
-  'workbench.editors.live.form.noSteps':
-    'ステップはまだありません。追加して、リクエストと抽出をこのワークフローに組み込んでください。',
   'workbench.editors.live.form.enabledAria': 'ワークフローが有効',
   'workbench.editors.live.form.enabled': '有効',
   'workbench.editors.live.form.disabled': '無効',
