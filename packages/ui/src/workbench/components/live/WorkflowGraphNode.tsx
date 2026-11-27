@@ -66,10 +66,6 @@ interface WorkflowGraphNodeProps {
   /** Bound LVs — publication state per exposed capture; absent for a draft never saved. */
   boundVars?: LiveVariable[];
   mark: StepMark;
-  /** This step's captured values from the cache row. */
-  runCaptures?: Record<string, string>;
-  /** This step's response byte count from the cache row. */
-  runResponseBytes?: number;
   /** How a capture orders the step — empty where none does. */
   priorityLabel: string;
   errors: readonly string[];
@@ -94,8 +90,6 @@ const WorkflowGraphNode: React.FC<WorkflowGraphNodeProps> = ({
   captures,
   boundVars,
   mark,
-  runCaptures,
-  runResponseBytes,
   priorityLabel,
   errors,
   cycleWarn,
@@ -177,7 +171,7 @@ const WorkflowGraphNode: React.FC<WorkflowGraphNodeProps> = ({
         cursor: onSelect ? 'pointer' : undefined,
       }}
     >
-      <StepRunMark stepId={stepId} mark={mark} captures={runCaptures} responseBytes={runResponseBytes} />
+      <StepRunMark stepId={stepId} mark={mark} />
       <span style={{ flex: 1, minWidth: 0 }}>
         <span style={{ display: 'flex', alignItems: 'center', gap: 5, height: 18 }}>
           <b

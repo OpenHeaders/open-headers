@@ -12,8 +12,8 @@
  *     on, the step it waits after, how long it waits and whether a stored
  *     message counts; then Match criteria, the rows that pick the message.
  *
- * A send's and an expect's captures read the message, and stay rows of
- * the step's remaining fields.
+ * A send's and an expect's captures read the message, in a Captures
+ * card of their own.
  *
  * An issue is shown on the field that owns it, in the validator's
  * sentence. The labels are an MQTT session's: a topic filter, a saved
@@ -409,15 +409,21 @@ export const ExpectStepFields: React.FC<
   );
 };
 
-/** The captures of a send's or an expect's message. */
+/** The Captures card of a send's or an expect's message. */
 export function SessionStepCaptures<S extends SendWorkflowStep | ExpectWorkflowStep>({
   step,
   index,
   onChange,
+  readersOf,
+  lastValues,
 }: {
   step: S;
   index: number;
   onChange: (next: S) => void;
+  /** The steps that read a capture, by its name. */
+  readersOf: (captureName: string) => readonly string[];
+  /** The values the captures last held, by name. */
+  lastValues: Readonly<Record<string, string>>;
 }) {
   return (
     <StepCapturesEditor
@@ -426,6 +432,8 @@ export function SessionStepCaptures<S extends SendWorkflowStep | ExpectWorkflowS
       captures={step.captures}
       onChange={(captures) => onChange({ ...step, captures })}
       newCapture={newMessageCapture}
+      readersOf={readersOf}
+      lastValues={lastValues}
     />
   );
 }

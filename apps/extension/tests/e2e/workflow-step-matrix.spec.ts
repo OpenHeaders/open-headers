@@ -153,11 +153,9 @@ async function openStep(page: Page, stepId: string): Promise<Locator> {
   return stepCard;
 }
 
-/** Collapse section header inside a step card — role button whose
- *  accessible name starts with the section label. The one section that
- *  is not a card yet: Priority. */
-function sectionHeader(stepCard: Locator, label: string): Locator {
-  return stepCard.getByRole('button', { name: new RegExp(label) });
+/** A step's Priority card, by the step's place among the steps. */
+function priorityCard(page: Page, index: number): Locator {
+  return page.getByTestId(`wf-step-${index}-priority`);
 }
 
 /** A step's Depends on card, by the step's place among the steps. */
@@ -190,7 +188,7 @@ async function pickOption(page: Page, select: Locator, label: string): Promise<v
 
 // ── Tests ──────────────────────────────────────────────────────────
 
-test('seeded combinations render in the cards and the sections, and survive a step being closed and reopened', async () => {
+test('seeded combinations render in the cards, and survive a step being closed and reopened', async () => {
   const page = await context.newPage();
   page.on('pageerror', (err) => pageErrors.push(err.message));
   await openWorkbench(page);
@@ -256,16 +254,17 @@ test('seeded combinations render in the cards and the sections, and survive a st
   await expect(page.getByTestId('wf-graph-pane')).toBeVisible();
   await expect(page.locator('[data-step-card]')).toHaveCount(0);
 
-  // Every dimension per step: the cards say theirs, the sections their collapsed label.
+  // Every dimension per step: each card says its own.
   // s1 names no dependency and no step is before it: it starts with the workflow.
-  const s1 = await openStep(page, 's1');
+  await openStep(page, 's1');
   await expect(depsCard(page, 0)).toContainText('Nothing. This step starts with the workflow.');
   await expect(depsCard(page, 0).getByRole('button', { name: 'Reset' })).toHaveCount(0);
   await expect(gateCard(page, 0).getByTestId('gate-clause-0')).toHaveCount(0);
   await expect(gateCard(page, 0).getByTestId('gate-summary')).toHaveText(
     'No dependencies, so this step runs when the workflow starts.',
   );
-  await expect(sectionHeader(s1, 'Priority')).toContainText('(none)');
+  await expect(page.getByTestId('wf-step-0-priority-step')).toContainText('None');
+  await expect(priorityCard(page, 0).getByRole('button', { name: 'Clear' })).toHaveCount(0);
   await expect(scriptsCheckbox(page, 0)).toBeChecked();
 
   // s1's Retry policy and Timeout cards carry the persisted policy and ceiling.
@@ -277,7 +276,7 @@ test('seeded combinations render in the cards and the sections, and survive a st
   await expect(numberInput(page, 'wf-step-0-timeout')).toHaveValue('5000');
 
   // The panel shows one step: opening another replaces the card, and the first step's cards go with it.
-  const s2 = await openStep(page, 's2');
+  await openStep(page, 's2');
   await expect(page.locator('[data-step-card]')).toHaveCount(1);
   await expect(page.getByTestId('wf-step-0-retry')).toHaveCount(0);
   await expect(page.getByTestId('wf-step-1-dep-s1')).toBeVisible();
@@ -285,7 +284,8 @@ test('seeded combinations render in the cards and the sections, and survive a st
   await expect(gateCard(page, 1).getByTestId('gate-clause-0')).toBeVisible();
   await expect(gateCard(page, 1).getByTestId('gate-clause-1')).toHaveCount(0);
   await expect(gateCard(page, 1).getByTestId('gate-summary')).toHaveText('Runs when every condition holds: s1 201.');
-  await expect(sectionHeader(s2, 'Priority')).toContainText('(s1.token)');
+  await expect(page.getByTestId('wf-step-1-priority-step')).toContainText('s1');
+  await expect(page.getByTestId('wf-step-1-priority-capture')).toContainText('token');
   await expect(numberInput(page, 'wf-step-1-retry-attempts')).toHaveValue('2');
   await expect(page.getByTestId('wf-step-1-retry-backoff')).toContainText('Fixed');
   await expect(numberInput(page, 'wf-step-1-timeout')).toHaveValue('');
@@ -385,7 +385,7 @@ test('editing every knob through the UI persists the exact step fields on Save',
   // ── Step c (index 2): multi-parent deps + gate + priority ────────
   // c names no dependency, so it waits for b, the step before it. Add
   // takes one step a pick, and the first pick writes the list out.
-  const c = await openStep(page, 'c');
+  await openStep(page, 'c');
   await expect(page.getByTestId('wf-step-2-dep-b')).toBeVisible();
   await expect(depsCard(page, 2)).toContainText('By default it waits for the step before it.');
   await pickOption(page, page.getByTestId('wf-step-2-deps-select'), 'a');
@@ -402,10 +402,11 @@ test('editing every knob through the UI persists the exact step fields on Save',
   await gate.getByTestId('gate-clause-0-value').fill('yes');
   await expect(gate.getByTestId('gate-clause-1')).toHaveCount(0);
 
-  await sectionHeader(c, 'Priority').click();
+  await expect(page.getByTestId('wf-step-2-priority-capture')).toHaveClass(/ant-select-disabled/);
   await pickOption(page, page.getByTestId('wf-step-2-priority-step'), 'a');
   await pickOption(page, page.getByTestId('wf-step-2-priority-capture'), 'token');
-  await expect(sectionHeader(c, 'Priority')).toContainText('(a.token)');
+  await expect(page.getByTestId('wf-step-2-priority-capture')).toContainText('token');
+  await expect(priorityCard(page, 2).getByRole('button', { name: 'Clear' })).toBeVisible();
 
   // ── Save → exact persisted shape over RPC readback ───────────────
   await saveButton.click();
@@ -488,7 +489,7 @@ test('clearing every knob removes the fields and persists the deletions', async 
 
   const saveButton = await openWorkflowEditor(page, workflowUid);
   await expect(saveButton).toBeDisabled();
-  const b = await openStep(page, 'b');
+  await openStep(page, 'b');
 
   // Clearing the attempts field destroys the whole policy (bootstrap/
   // destroy semantics) and re-disables the dependent controls.
@@ -501,9 +502,9 @@ test('clearing every knob removes the fields and persists the deletions', async 
   await page.getByTestId('wf-step-1-timeout-section').getByRole('button', { name: 'Clear' }).click();
   await expect(numberInput(page, 'wf-step-1-timeout')).toHaveValue('');
 
-  await sectionHeader(b, 'Priority').click();
-  await page.getByTestId('wf-step-1-priority').getByRole('button', { name: 'Clear' }).click();
-  await expect(sectionHeader(b, 'Priority')).toContainText('(none)');
+  await priorityCard(page, 1).getByRole('button', { name: 'Clear' }).click();
+  await expect(priorityCard(page, 1).getByRole('button', { name: 'Clear' })).toHaveCount(0);
+  await expect(page.getByTestId('wf-step-1-priority-step')).toContainText('None');
 
   // Removing the last clause drops the gate entirely (never `{all: []}`).
   await gateCard(page, 1).getByRole('button', { name: 'Remove clause 1' }).click();

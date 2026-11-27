@@ -5,7 +5,9 @@
  *   1. Show-but-disable catalog — step-type selector (Foreach + Composite
  *      options disabled).
  *   2. `Depends on` section presence + clear button emission.
- *   3. Priority row `Clear` emits `priorityFrom: undefined`.
+ *   3. The Captures, Used from other steps and Priority cards — a
+ *      capture's readers and masked last value, the way to a step, and
+ *      Priority's `Clear` emitting `priorityFrom: undefined`.
  *   4. `Run condition` count badge reflects the gate's clause count.
  *   5. A call's Success criteria, Poll, Retry policy and Timeout cards —
  *      what each holds + edit/clear emission.
@@ -33,6 +35,7 @@ import type {
 import type { StepMiniFacts } from '@openheaders/ui/workbench/components/live/StepMiniRow';
 import type { StepMark } from '@openheaders/ui/workbench/components/live/step-mark';
 import WorkflowStepEditor, {
+  type StepCaptureFacts,
   type StepDependencies,
 } from '@openheaders/ui/workbench/components/live/WorkflowStepEditor';
 import WorkflowStepHeader from '@openheaders/ui/workbench/components/live/WorkflowStepHeader';
@@ -561,10 +564,12 @@ describe('WorkflowStepEditor — a listen', () => {
     expect(screen.getByTestId('wf-step-1-connection').textContent).toContain('Stays open until the run ends.');
     expect(screen.getByTestId('wf-step-1-session-request').textContent).toContain('Probe MQTT');
     expect(numberInput('wf-step-1-ready-within')?.value).toBe('10000');
-    expect(screen.queryByRole('button', { name: '+ Capture' })).toBeNull();
+    expect(screen.queryByRole('heading', { name: 'Captures' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Add capture' })).toBeNull();
     expect(screen.getByRole('heading', { name: 'Depends on' })).toBeTruthy();
     expect(screen.getByRole('heading', { name: 'Run condition' })).toBeTruthy();
-    expect(screen.getByRole('button', { name: /Priority/i })).toBeTruthy();
+    expect(screen.getByRole('heading', { name: 'Used from other steps' })).toBeTruthy();
+    expect(screen.getByRole('heading', { name: 'Priority' })).toBeTruthy();
     expect(screen.queryByRole('heading', { name: 'Retry policy' })).toBeNull();
     expect(screen.queryByRole('heading', { name: 'Success criteria' })).toBeNull();
   });
@@ -645,7 +650,7 @@ describe('WorkflowStepEditor — a send', () => {
 
   it('captures the message as sent: no status code among its extractors', () => {
     const { onChange } = renderSession(SEND);
-    fireEvent.click(screen.getByRole('button', { name: '+ Capture' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Add capture' }));
     expect(onChange).toHaveBeenCalledWith({
       ...SEND,
       captures: [{ uid: expect.any(String), name: 'capture1', extractor: { kind: 'whole-body' } }],
@@ -794,7 +799,7 @@ describe('WorkflowStepEditor — a call in a workflow that holds a session step'
   it('offers no exposure on its captures, and adds one that is not exposed', () => {
     const { onChange } = renderStep(captured, { exposable: false });
     expect(screen.queryByRole('switch', { name: /Expose capture/i })).toBeNull();
-    fireEvent.click(screen.getByRole('button', { name: '+ Capture' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Add capture' }));
     const last = onChange.mock.calls.at(-1)?.[0] as DraftCallStep;
     expect(last.captures[1]).toMatchObject({ name: 'capture2', exposed: false });
   });
@@ -802,5 +807,99 @@ describe('WorkflowStepEditor — a call in a workflow that holds a session step'
   it('keeps the exposure row everywhere else', () => {
     renderStep(captured);
     expect(screen.getByRole('switch', { name: 'Expose capture token as live variable' })).toBeTruthy();
+  });
+});
+
+describe('WorkflowStepEditor — what a step keeps, what it reads, and its priority', () => {
+  const captured = mkStep({
+    captures: [
+      { uid: 'captoken', name: 'token', extractor: { kind: 'json-path', path: '$.t' }, exposed: false, liveName: '' },
+      { uid: 'capexpir', name: 'expires', extractor: { kind: 'whole-body' }, exposed: false, liveName: '' },
+    ],
+  });
+  const facts = (overrides: Partial<StepCaptureFacts> = {}): StepCaptureFacts => ({
+    readersOf: (name) => (name === 'token' ? ['profile', 'audit'] : []),
+    lastValues: { token: 'eyJhbGciOiJIUzI1NiJ9' },
+    uses: [],
+    goToStep: () => undefined,
+    ...overrides,
+  });
+
+  it('the Captures card says what none means, then holds a row per capture with the steps that use it', () => {
+    renderStep(mkStep());
+    const empty = screen.getByTestId('wf-step-1-captures');
+    expect(empty.textContent).toContain('Values saved from this step for later steps.');
+    expect(empty.textContent).toContain('No captures yet. Add one to pass a value from this step to a later one.');
+    cleanup();
+    renderStep(captured, { captureFacts: facts() });
+    expect(screen.getByTestId<HTMLInputElement>('wf-step-1-capture-0-name').value).toBe('token');
+    expect(screen.getByTestId('wf-step-1-capture-0-used-by').textContent).toBe('profile, audit');
+    expect(screen.getByTestId('wf-step-1-capture-1-used-by').textContent).toBe('—');
+    expect(screen.queryByText('No captures yet. Add one to pass a value from this step to a later one.')).toBeNull();
+  });
+
+  it('a capture’s last value is masked until the card’s one eye is pressed, and absent where no run left one', () => {
+    renderStep(captured, { captureFacts: facts() });
+    const last = screen.getByTestId('wf-step-1-capture-0-last');
+    expect(last.textContent).toBe('Last value: ••••••••');
+    expect(screen.queryByTestId('wf-step-1-capture-1-last')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Show last values' }));
+    expect(last.textContent).toBe('Last value: eyJhbGciOiJIUzI1NiJ9');
+    cleanup();
+    renderStep(captured);
+    expect(screen.queryByRole('button', { name: 'Show last values' })).toBeNull();
+    expect(screen.queryByTestId('wf-step-1-capture-0-last')).toBeNull();
+  });
+
+  it('renaming a capture and removing one emit the rows that are left', () => {
+    const { onChange } = renderStep(captured);
+    fireEvent.change(screen.getByTestId('wf-step-1-capture-0-name'), { target: { value: 'access' } });
+    const renamed = onChange.mock.calls.at(-1)?.[0] as DraftCallStep;
+    expect(renamed.captures[0]).toMatchObject({ name: 'access' });
+    fireEvent.click(screen.getByRole('button', { name: 'Remove capture expires' }));
+    const removed = onChange.mock.calls.at(-1)?.[0] as DraftCallStep;
+    expect(removed.captures.map((each) => each.name)).toEqual(['token']);
+  });
+
+  it('Used from other steps lists each value it reads, where, and the way to its step', () => {
+    renderStep(mkStep());
+    expect(screen.getByTestId('wf-step-1-uses').textContent).toContain(
+      'None. This step does not read values captured by other steps.',
+    );
+    cleanup();
+    const go = vi.fn();
+    renderStep(mkStep(), {
+      captureFacts: facts({
+        uses: [
+          { stepId: 'introspect', captureName: 'active', place: 'request' },
+          { stepId: 'introspect', captureName: 'exp', place: 'condition' },
+          { stepId: 'ghost', captureName: 'id', place: 'criteria' },
+        ],
+        goToStep: (stepId) => (stepId === 'introspect' ? go : undefined),
+      }),
+    });
+    expect(screen.getByTestId('wf-step-1-use-0').textContent).toBe('introspect.activeRequestGo to step');
+    expect(screen.getByTestId('wf-step-1-use-1').textContent).toBe('introspect.expRun conditionGo to step');
+    expect(screen.getByTestId('wf-step-1-use-2').textContent).toBe('ghost.idSuccess criteriaGo to step');
+    const buttons = screen.getAllByRole('button', { name: 'Go to step' });
+    expect(buttons[2]).toHaveProperty('disabled', true);
+    fireEvent.click(buttons[0]);
+    expect(go).toHaveBeenCalledTimes(1);
+  });
+
+  it('the Priority card is unset until a step is picked, and Clear removes it whole', () => {
+    renderStep(mkStep());
+    const unset = screen.getByTestId('wf-step-1-priority');
+    expect(unset.textContent).toContain('Only matters when several steps are ready at once.');
+    expect(unset.textContent).toContain('The lowest value runs first. Missing values sort last.');
+    expect(within(unset).queryByRole('button', { name: /^Clear$/ })).toBeNull();
+    expect(screen.getByTestId('wf-step-1-priority-capture').className).toContain('ant-select-disabled');
+    cleanup();
+    const { onChange } = renderStep(mkStep({ priorityFrom: { stepId: 'introspect', captureName: 'exp' } }));
+    expect(screen.getByTestId('wf-step-1-priority-step').textContent).toContain('introspect');
+    expect(screen.getByTestId('wf-step-1-priority-capture').textContent).toContain('exp');
+    fireEvent.click(within(screen.getByTestId('wf-step-1-priority')).getByRole('button', { name: /^Clear$/ }));
+    const last = onChange.mock.calls.at(-1)?.[0] as DraftCallStep;
+    expect(last.priorityFrom).toBeUndefined();
   });
 });

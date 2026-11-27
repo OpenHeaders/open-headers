@@ -665,7 +665,9 @@ describe('LiveWorkflowEditor — a workflow that holds session steps', () => {
     fireEvent.click(screen.getByRole('button', { name: 'About Refresh policy' }));
     expect(await screen.findByText('A workflow with session steps runs when you press Refresh.')).toBeTruthy();
     openStep('reboot');
-    expect(container.querySelector('[data-step-card="reboot"]')?.textContent).toContain('CAPTURES (1)');
+    const reboot = container.querySelector('[data-step-card="reboot"]');
+    expect(reboot?.querySelector('[data-testid$="-capture-0-name"]')).toHaveProperty('value', 'commandId');
+    expect(reboot?.querySelector('[data-testid$="-capture-1-name"]')).toBeNull();
     expect(screen.queryByRole('switch', { name: /Expose capture/ })).toBeNull();
   });
 

@@ -14,15 +14,10 @@
  */
 
 import type { LiveWorkflowRunSnapshot } from '@openheaders/core/bridge';
-import {
-  isCallStep,
-  isExpectStep,
-  isKnownStep,
-  scanTemplateReferencesMany,
-  type WorkflowRunStepRow,
-} from '@openheaders/core/live';
-import type { Criterion, StepGateClause, WorkflowStep } from '@openheaders/core/types';
+import { scanTemplateReferencesMany, type WorkflowRunStepRow } from '@openheaders/core/live';
+import type { StepGateClause, WorkflowStep } from '@openheaders/core/types';
 import type { Translate } from '@openheaders/ui/context/LocaleContext';
+import { stepOwnTemplateSources } from './capture-uses';
 import { classifyStepRun } from './live-display';
 
 export type LineTruth = 'unknown' | 'taken' | 'not-taken';
@@ -140,17 +135,9 @@ export function lineLabel(clauses: readonly StepGateClause[], t: Translate): str
   });
 }
 
-const criterionTemplates = (criteria: readonly Criterion[]): string[] =>
-  criteria.flatMap((criterion) => (criterion.kind === 'equals' ? [criterion.value] : []));
-
 /** The templates a step holds itself: a Wait's topic and match values, a Call's success criteria. */
 export function stepOwnTemplates(step: WorkflowStep): string[] {
-  if (!isKnownStep(step)) return [];
-  if (isExpectStep(step)) {
-    return [...(step.address !== undefined ? [step.address] : []), ...criterionTemplates(step.match)];
-  }
-  if (isCallStep(step)) return criterionTemplates(step.successCriteria ?? []);
-  return [];
+  return stepOwnTemplateSources(step).flatMap((source) => source.templates);
 }
 
 /** The captures of `parentId` that `templates` read, by name, first seen first. */

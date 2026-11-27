@@ -92,7 +92,7 @@ describe('A step in its panel — per-step data-field-path', () => {
       `[data-field-path="${LIVE_WORKFLOW_FIELD.step(3, 'captures')}"]`,
     );
     expect(capturesWrapper).not.toBeNull();
-    // The "+ Capture" button lives inside this wrapper — its focus
+    // The "Add capture" button lives inside this wrapper — its focus
     // resolves to the captures path.
     const addBtn = capturesWrapper?.querySelector('button');
     expect(addBtn).not.toBeNull();

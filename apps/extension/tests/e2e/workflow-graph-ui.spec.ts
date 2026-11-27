@@ -509,14 +509,21 @@ test('run overlay: per-node states, masked value reveal, publication split', asy
   await expect(page.getByTestId('wf-graph-edge-introspect-refresh')).toHaveAttribute('data-truth', 'not-taken');
   await expect(page.getByTestId('wf-graph-edge-label-introspect-refresh')).toHaveText('if active = "false"');
 
-  // Captured values are masked by default; reveal is an explicit click.
-  await page.getByTestId('wf-graph-run-introspect').click();
-  const pop = page.getByTestId('wf-graph-run-pop-introspect');
-  await expect(pop).toBeVisible();
-  await expect(pop).toContainText('active');
-  await expect(pop).toContainText('••••••••');
-  await page.getByTestId('wf-graph-reveal-introspect').click();
-  await expect(pop).toContainText('true');
+  // Captured values are the step's panel's to show, in its Captures card: masked
+  // by default, the card's one eye an explicit click; the row names who reads it.
+  await page.getByTestId('wf-graph-node-introspect').filter({ visible: true }).first().click();
+  await expect(page.getByTestId('wf-step-0-capture-0-name')).toHaveValue('active');
+  await expect(page.getByTestId('wf-step-0-capture-0-used-by')).toHaveText('refresh');
+  const lastValue = page.getByTestId('wf-step-0-capture-0-last');
+  await expect(lastValue).toContainText('••••••••');
+  await page.getByTestId('wf-step-0-captures-reveal').click();
+  await expect(lastValue).toContainText('true');
+  // And the step that reads it says so, with the way back.
+  await page.getByTestId('wf-graph-node-refresh').filter({ visible: true }).first().click();
+  await expect(page.getByTestId('wf-step-1-use-0')).toContainText('introspect.active');
+  await expect(page.getByTestId('wf-step-1-use-0')).toContainText('Run condition');
+  await page.getByTestId('wf-step-1-use-0').getByRole('button', { name: 'Go to step' }).click();
+  await expect(page.locator('[data-step-card="introspect"]').filter({ visible: true })).toBeVisible();
 
   // Publication split: the run produced introspect.active, so its LV is
   // live; refresh.token was never produced — pending first run.

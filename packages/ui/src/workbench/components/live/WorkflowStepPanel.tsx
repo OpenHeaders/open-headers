@@ -20,6 +20,7 @@ import { ConfigProvider } from 'antd';
 import type React from 'react';
 import { useMemo } from 'react';
 import { readKeptRunProduct } from '../../data/workflow-run-store';
+import { captureUsesOf } from './capture-uses';
 import { clauseTruthOf, reachOfCacheRow, reachOfRunRow } from './graph-lines';
 import StepLastRunCard from './StepLastRunCard';
 import type { StepMiniFacts } from './StepMiniRow';
@@ -40,7 +41,7 @@ import type { WorkflowFormModel } from './use-workflow-form-model';
 import type { ShownWorkflowRun } from './use-workflow-run';
 import WorkflowCard from './WorkflowCard';
 import WorkflowRunProductPane from './WorkflowRunProductPane';
-import WorkflowStepEditor, { type StepDependencies } from './WorkflowStepEditor';
+import WorkflowStepEditor, { type StepCaptureFacts, type StepDependencies } from './WorkflowStepEditor';
 import WorkflowStepHeader from './WorkflowStepHeader';
 
 /** The panel's text, a size under the app's own. */
@@ -111,6 +112,25 @@ const WorkflowStepPanel: React.FC<Props> = ({
     onRemove: (parentId) => model.removeDependency(stepIndex, parentId),
     onGoToStep: onSelectStep,
   };
+  // Who reads what: every step's uses of the others' captures, read once for the panel.
+  const usesByStep = draft.steps.map((each) => captureUsesOf(each, stepRequests));
+  const captureFacts: StepCaptureFacts = {
+    readersOf: (captureName) =>
+      draft.steps
+        .filter(
+          (_, at) =>
+            at !== stepIndex &&
+            usesByStep[at].some((use) => use.stepId === step.id && use.captureName === captureName),
+        )
+        .map((each) => each.id),
+    // A captured value is kept by the cache row alone: a run's own events carry names, never values.
+    lastValues: cacheRun?.stepCaptures[step.id] ?? {},
+    uses: usesByStep[stepIndex].filter((use) => use.stepId !== step.id),
+    goToStep: (stepId) => {
+      const target = draft.steps.find((each) => each.id === stepId);
+      return target !== undefined ? () => onSelectStep(target.uid) : undefined;
+    },
+  };
   const reach = run == null ? reachOfCacheRow(cacheRun, step.id) : reachOfRunRow(row);
   const lastRun = describeStepLastRun(
     { step, mark, row, now, runButton: t('workbench.editors.live.workflow.refresh') },
@@ -180,6 +200,7 @@ const WorkflowStepPanel: React.FC<Props> = ({
                   errors={errors}
                   clauseTruth={(clauseUid) => clauseTruthOf(reach, clauseUid)}
                   runState={mark.kind}
+                  captureFacts={captureFacts}
                   onOpenRequest={
                     requestOpeners !== undefined ? requestOpenOf(step, stepRequests, requestOpeners) : undefined
                   }

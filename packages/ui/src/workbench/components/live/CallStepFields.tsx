@@ -1,31 +1,28 @@
 /**
  * A call step's own fields: its Request card (the workflows redesign,
  * Step panel) — the saved request it sends, a line that says which that
- * is, and whether the request's scripts run — and the captures of its
- * response.
+ * is, and whether the request's scripts run — and the Captures card of
+ * its response.
  *
- * Each capture carries an exposure row — the switch that makes it a
+ * Each capture carries an exposure line — the switch that makes it a
  * `{{live.<name>}}` — unless the workflow holds a session step: such a
  * workflow publishes no live variable (the workflow runs plan, Decisions
  * log, S16), so its captures offer none and a new one is not exposed.
  */
 
-import { InfoCircleOutlined } from '@ant-design/icons';
 import type { DraftCallStep, DraftCapture, StructuralError } from '@openheaders/core/live';
 import { newDraftCapture } from '@openheaders/core/live';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { LIVE_WORKFLOW_FIELD } from '@openheaders/ui/shared/awareness/live-paths';
 import { InfoTrigger } from '@openheaders/ui/shared/info-popover';
 import { noteFeatureUsed } from '@openheaders/ui/shared/product-telemetry';
-import { Button, Checkbox, ConfigProvider, Input, Select, Switch, Tooltip, Typography, theme } from 'antd';
+import { Button, Checkbox, ConfigProvider, Input, Select, Switch, Tooltip, theme } from 'antd';
 import type React from 'react';
 import { scopeBadge } from '../shared/scope-colors';
 import StepCapturesEditor from './StepCapturesEditor';
 import { ProtocolTag } from './StepTags';
 import WorkflowCard, { CardField } from './WorkflowCard';
 import { buildRequestPickerOptions, type StepRequestChoice } from './workflow-step-request-options';
-
-const { Text } = Typography;
 
 interface RequestCardProps {
   step: DraftCallStep;
@@ -147,16 +144,27 @@ interface CapturesProps {
   step: DraftCallStep;
   index: number;
   onChange: (next: DraftCallStep) => void;
-  /** The workflow publishes live variables — its captures carry the exposure row. */
+  /** The workflow publishes live variables — its captures carry the exposure line. */
   exposable: boolean;
+  /** The steps that read a capture, by its name. */
+  readersOf: (captureName: string) => readonly string[];
+  /** The values the captures last held, by name. */
+  lastValues: Readonly<Record<string, string>>;
 }
 
-export const CallStepCaptures: React.FC<CapturesProps> = ({ step, index, onChange, exposable }) => {
-  const { token } = theme.useToken();
+export const CallStepCaptures: React.FC<CapturesProps> = ({
+  step,
+  index,
+  onChange,
+  exposable,
+  readersOf,
+  lastValues,
+}) => {
   const t = useT();
   // A read-only form switches every control off through the provider;
   // the controls below that set their own `disabled` must agree with it.
   const readOnly = ConfigProvider.useConfig().componentDisabled === true;
+  const exposeLabel = t('workbench.editors.live.step.exposeAs');
 
   const renderExposure = (capture: DraftCapture, rowIndex: number, update: (next: DraftCapture) => void) => (
     // Expose switch — flipping on creates a Live Variable (on save)
@@ -164,7 +172,7 @@ export const CallStepCaptures: React.FC<CapturesProps> = ({ step, index, onChang
     // default for pre-existing captures without an LV; on by default
     // for newly-added captures. The live-name defaults to the capture
     // name but can be overridden inline for alias-style renames.
-    <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
+    <div className="oh-wf-expose">
       <Switch
         size="small"
         checked={capture.exposed}
@@ -177,24 +185,21 @@ export const CallStepCaptures: React.FC<CapturesProps> = ({ step, index, onChang
         }}
         aria-label={t('workbench.editors.live.step.exposeAria', { name: capture.name || rowIndex + 1 })}
       />
-      <Text type="secondary" style={{ fontSize: 11, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-        {scopeBadge('live', 13)} {t('workbench.editors.live.step.exposeAs')}
-      </Text>
-      <span style={{ fontFamily: "'SF Mono', monospace", fontSize: 11, color: token.colorTextTertiary }}>
-        {'{{'}live.
+      <span className="oh-wf-quiet oh-wf-expose-label">
+        {scopeBadge('live', 13)} {exposeLabel}
       </span>
+      <span className="oh-wf-code oh-wf-quiet">{'{{'}live.</span>
       <Input
-        size="small"
+        className="oh-wf-code"
         disabled={readOnly || !capture.exposed}
-        style={{ width: 180 }}
-        placeholder={capture.name || t('workbench.editors.live.step.namePrefix')}
+        style={{ flex: '0 1 150px', minWidth: 60 }}
+        placeholder={capture.name}
+        aria-label={exposeLabel}
         value={capture.liveName}
         onChange={(e) => update({ ...capture, liveName: e.target.value })}
       />
-      <span style={{ fontFamily: "'SF Mono', monospace", fontSize: 11, color: token.colorTextTertiary }}>{'}}'}</span>
-      <Tooltip title={t('workbench.editors.live.step.exposeTooltip')}>
-        <InfoCircleOutlined style={{ fontSize: 11, color: token.colorTextTertiary, cursor: 'help' }} />
-      </Tooltip>
+      <span className="oh-wf-code oh-wf-quiet">{'}}'}</span>
+      <InfoTrigger content={{ title: exposeLabel, summary: t('workbench.editors.live.step.exposeTooltip') }} />
     </div>
   );
 
@@ -204,8 +209,9 @@ export const CallStepCaptures: React.FC<CapturesProps> = ({ step, index, onChang
       captures={step.captures}
       onChange={(captures) => onChange({ ...step, captures })}
       newCapture={(name) => ({ ...newDraftCapture(name, { kind: 'whole-body' }), exposed: exposable })}
-      emptyText={exposable ? t('workbench.editors.live.step.captureRequired') : undefined}
       renderExposure={exposable ? renderExposure : undefined}
+      readersOf={readersOf}
+      lastValues={lastValues}
     />
   );
 };

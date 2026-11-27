@@ -1049,9 +1049,98 @@
   }
 }
 
+// Three fields on a line.
+.oh-wf-field-grid--three {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+// Captures: a capture's name, what it reads, what it reads it by, the steps that use it, and the row's remove.
+.oh-wf-captures-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 112px minmax(0, 1fr) minmax(0, 1fr) 24px;
+  gap: 4px 6px;
+  align-items: center;
+}
+
+// A line under a row's cells, the row wide. The longhands: the stylesheet's compiler would divide a `1 / -1`.
+.oh-wf-row-line {
+  grid-column-start: 1;
+  grid-column-end: -1;
+  min-width: 0;
+  font-size: 0.9167em;
+  line-height: 1.3;
+}
+
+// A capture's name wherever the panel says one wears the design's teal.
+.oh-wf-capture-name.ant-input {
+  background: var(--oh-wf-capture-bg);
+  color: var(--oh-wf-capture);
+}
+
+.oh-wf-capture-token {
+  min-width: 0;
+  color: var(--oh-wf-capture);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.oh-wf-capture-readers {
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.oh-wf-capture-value {
+  color: var(--oh-wf-text);
+  word-break: break-all;
+}
+
+// The line that makes a capture a live variable.
+.oh-wf-expose {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 6px;
+}
+
+.oh-wf-expose-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+// Used from other steps: the value, where it is used, and the way to the step that captured it.
+.oh-wf-uses-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr) 96px;
+  gap: 4px 8px;
+  align-items: center;
+
+  > .ant-btn {
+    max-width: 100%;
+    overflow: hidden;
+  }
+}
+
 @container wf-panel (max-width: 460px) {
   .oh-wf-field-grid {
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  .oh-wf-card-columns.oh-wf-captures-grid {
+    display: none;
+  }
+
+  // Two lines a row — its name and its source, then its path and who uses it — the remove at the first line's end.
+  .oh-wf-captures-grid {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 24px;
+
+    > .oh-wf-row-remove {
+      grid-row: 1;
+      grid-column-start: 3;
+    }
   }
 
   .oh-wf-card-columns.oh-wf-criteria-grid {

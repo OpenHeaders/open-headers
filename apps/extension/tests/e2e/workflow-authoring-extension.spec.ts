@@ -111,7 +111,7 @@ async function addStep(): Promise<void> {
 /** Add a capture row to a step and set it to read a JSON path. */
 async function addJsonCapture(index: number, row: number, name: string, jsonPath: string): Promise<void> {
   const captures = page.locator(`[data-field-path="steps.${index}.captures"]`).filter({ visible: true });
-  await captures.locator('button').filter({ hasText: '+ Capture' }).click();
+  await captures.locator('button').filter({ hasText: 'Add capture' }).click();
   const captureRow = page.getByTestId(`wf-step-${index}-capture-${row}`).filter({ visible: true });
   await field(`wf-step-${index}-capture-${row}-name`).fill(name);
   await pickOption(captureRow.locator('.ant-select'), 'JSON path');

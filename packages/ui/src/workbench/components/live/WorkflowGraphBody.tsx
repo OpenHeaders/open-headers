@@ -21,8 +21,8 @@
  * the page keeps a run of the workflow (`run`) a mark is that run's own
  * row, live as the run goes; with none kept it is what the active
  * environment's cache row (`cacheRun`) says of the last run. The values
- * a step captured come from the cache row alone, masked until asked
- * for; an exposed capture carries its variable's publication state
+ * a step captured are its panel's to show, in its Captures card; on a
+ * node an exposed capture carries its variable's publication state
  * (Save activates the workflow; a successful RUN is what publishes the
  * vars — pending until then). A line reads the same two sources for
  * whether the last run took it.
@@ -68,9 +68,6 @@ import {
 } from '@ant-design/icons';
 import type { DraftCapture, DraftStep, DraftWorkflow } from '@openheaders/core/live';
 import {
-  collectGraphqlRequestTemplateStrings,
-  collectMqttRequestTemplateStrings,
-  collectRequestTemplateStrings,
   isExpectStep,
   isKnownStep,
   isListenStep,
@@ -89,6 +86,7 @@ import { useTheme } from '@openheaders/ui/context/ThemeContext';
 import { Button, Popover, Tooltip, theme } from 'antd';
 import type React from 'react';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { stepRequestTemplates } from './capture-uses';
 import { addGraphDependency, appendDraftStep, removeDraftStep, removeGraphDependency } from './graph-edit';
 import { buildWorkflowGraphLayout } from './graph-layout';
 import {
@@ -142,8 +140,8 @@ interface WorkflowGraphBodyProps {
   run?: ShownWorkflowRun | null;
   /**
    * The active environment's cache row — `pickActiveRun` output. It
-   * marks the nodes while no run is kept, and holds the values a step
-   * captured. `null` = no cache yet; `undefined` = a draft never saved.
+   * marks the nodes while no run is kept. `null` = no cache yet;
+   * `undefined` = a draft never saved.
    */
   cacheRun?: LiveWorkflowRunSnapshot | null;
   /** LVs bound to this workflow — supplies per-exposure publication state. */
@@ -580,20 +578,10 @@ const WorkflowGraphBody: React.FC<WorkflowGraphBodyProps> = ({
   const stepsById = new Map(layout.nodes.map((node) => [node.step.id, node.step]));
 
   /** Every template a step resolves: its request's, and the ones it holds itself. */
-  const templatesOf = (step: WorkflowStep): string[] => {
-    const own = stepOwnTemplates(step);
-    if (isSessionStep(step)) {
-      const request = isListenStep(step)
-        ? mqttRequests.find((each) => each.uid === step.sessionRequestUid)
-        : undefined;
-      return request !== undefined ? [...own, ...collectMqttRequestTemplateStrings(request)] : own;
-    }
-    if (isUnknownStep(step)) return own;
-    const http = requestsByUid.get(step.requestUid);
-    if (http !== undefined) return [...own, ...collectRequestTemplateStrings(http)];
-    const graphql = graphqlByUid.get(step.requestUid);
-    return graphql !== undefined ? [...own, ...collectGraphqlRequestTemplateStrings(graphql)] : own;
-  };
+  const templatesOf = (step: WorkflowStep): string[] => [
+    ...stepOwnTemplates(step),
+    ...stepRequestTemplates(step, stepRequests),
+  ];
 
   const reachOf = (step: WorkflowStep): StepReach =>
     run == null
@@ -724,8 +712,6 @@ const WorkflowGraphBody: React.FC<WorkflowGraphBodyProps> = ({
               captures={capturesOf(draftStepsById.get(step.id))}
               boundVars={boundVars}
               mark={markOfStep(step, { run, cacheRun, now }, t)}
-              runCaptures={cacheRun?.stepCaptures[step.id]}
-              runResponseBytes={cacheRun?.stepResponseBytes[step.id]}
               priorityLabel={
                 shared?.priorityFrom
                   ? t('workbench.editors.live.graph.orderedBy', {

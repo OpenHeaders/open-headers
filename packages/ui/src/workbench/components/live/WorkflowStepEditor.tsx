@@ -1,5 +1,5 @@
 /**
- * WorkflowStepEditor — the fields of a single step of an action the
+ * WorkflowStepEditor — the cards of a single step of an action the
  * model knows, under its panel's head: a call, or a `listen`, a `send`
  * or an `expect` on a session (a step of any other action has its own
  * card, `UnknownStepCard`).
@@ -10,8 +10,9 @@
  * (`CallStepFields`) and its Success criteria, Poll, Retry policy and
  * Timeout (`CallPolicyCards`), a session step's Connection, Send
  * message, or Expect message with Match criteria (`SessionStepFields`).
- * Under them, what is not a card yet: the step's captures and the
- * `Priority` section every step has.
+ * Then what it keeps and what it reads — its Captures (a listen has
+ * none) and the captures it uses from other steps (`StepUsesCard`) —
+ * and its Priority (`StepPriorityCard`).
  */
 
 import {
@@ -23,21 +24,21 @@ import {
   type StructuralError,
 } from '@openheaders/core/live';
 import type { MqttRequest, PriorityRef, StepGate } from '@openheaders/core/types';
-import { useT } from '@openheaders/ui/context/LocaleContext';
 import { LIVE_WORKFLOW_FIELD } from '@openheaders/ui/shared/awareness/live-paths';
-import { Collapse, ConfigProvider, Space, theme } from 'antd';
 import type React from 'react';
 import { useMemo } from 'react';
 import CallPolicyCards from './CallPolicyCards';
 import { CallRequestCard, CallStepCaptures } from './CallStepFields';
+import type { CaptureUse } from './capture-uses';
 import type { LabelTruth } from './graph-lines';
 import { ExpectStepFields, ListenStepFields, SendStepFields, SessionStepCaptures } from './SessionStepFields';
 import StepDependencyCards from './StepDependencyCards';
 import StepGateEditor from './StepGateEditor';
 import type { StepMiniFacts } from './StepMiniRow';
+import StepPriorityCard from './StepPriorityCard';
+import StepUsesCard from './StepUsesCard';
 import type { StepMarkKind } from './step-mark';
 import type { StepRequestChoice } from './workflow-step-request-options';
-import { buildSharedStepSections } from './workflow-step-sections';
 
 /** Where a step stands among the others, and the edits its Depends on card makes — each one the graph's own. */
 export interface StepDependencies {
@@ -51,6 +52,26 @@ export interface StepDependencies {
   onRemove: (parentId: string) => void;
   onGoToStep: (stepUid: string) => void;
 }
+
+/** What a step's captures are to the other steps, and theirs to it. */
+export interface StepCaptureFacts {
+  /** The steps that read one of its captures, by the capture's name. */
+  readersOf: (captureName: string) => readonly string[];
+  /** The values its captures last held, by name. */
+  lastValues: Readonly<Record<string, string>>;
+  /** The captures of other steps it reads, and where. */
+  uses: readonly CaptureUse[];
+  /** Selects the step a value was captured by — `undefined` where the draft holds no such step. */
+  goToStep: (stepId: string) => (() => void) | undefined;
+}
+
+/** A step shown on its own: nothing reads it, it reads nothing, and no run left a value. */
+const NO_CAPTURE_FACTS: StepCaptureFacts = {
+  readersOf: () => [],
+  lastValues: {},
+  uses: [],
+  goToStep: () => undefined,
+};
 
 interface Props {
   step: DraftKnownStep;
@@ -73,6 +94,8 @@ interface Props {
   runState?: StepMarkKind;
   /** Opens the tab of the request the step names — absent where it names none the workspace holds. */
   onOpenRequest?: () => void;
+  /** Who reads the step's captures, what they last held, and what the step reads of the others'. */
+  captureFacts?: StepCaptureFacts;
   // ── Session context (the workflow runs plan, Decisions log, S16) ──
   /** The draft's steps in order — the listens a step can be on, the steps an expect can wait after. */
   steps?: readonly DraftStep[];
@@ -80,7 +103,7 @@ interface Props {
   mqttRequests?: readonly MqttRequest[];
   /** The MQTT requests as the request picker shows them. */
   sessionRequests?: StepRequestChoice[];
-  /** The workflow publishes live variables — a call's captures carry the exposure row. */
+  /** The workflow publishes live variables — a call's captures carry the exposure line. */
   exposable?: boolean;
 }
 
@@ -96,17 +119,12 @@ const WorkflowStepEditor: React.FC<Props> = ({
   clauseTruth,
   runState,
   onOpenRequest,
+  captureFacts = NO_CAPTURE_FACTS,
   steps = [],
   mqttRequests = [],
   sessionRequests = [],
   exposable = true,
 }) => {
-  const { token } = theme.useToken();
-  const t = useT();
-  // A read-only form switches every control off through the provider;
-  // the controls below that set their own `disabled` must agree with it.
-  const readOnly = ConfigProvider.useConfig().componentDisabled === true;
-
   // ── Derived error subsets ───────────────────────────────────────
   const gateErrors = useMemo(
     () =>
@@ -161,16 +179,6 @@ const WorkflowStepEditor: React.FC<Props> = ({
   };
 
   // ── priorityFrom helpers ────────────────────────────────────────
-  const priority = step.priorityFrom;
-  const priorityStepOptions = useMemo(
-    () => reachableSteps.map((s) => ({ value: s.id, label: s.label })),
-    [reachableSteps],
-  );
-  const priorityCaptureOptions = useMemo(() => {
-    if (!priority?.stepId) return [] as { value: string; label: string }[];
-    return (capturesByStepId.get(priority.stepId) ?? []).map((c: string) => ({ value: c, label: c }));
-  }, [priority, capturesByStepId]);
-
   const setPriority = (next: PriorityRef | undefined) => {
     const nextStep = { ...step };
     if (next === undefined) {
@@ -181,19 +189,8 @@ const WorkflowStepEditor: React.FC<Props> = ({
     onChange(nextStep);
   };
 
-  const sharedSections = buildSharedStepSections({
-    token,
-    t,
-    index,
-    priorityError,
-    priority,
-    priorityStepOptions,
-    priorityCaptureOptions,
-    readOnly,
-    setPriority,
-  });
-
   const session = { index, steps, mqttRequests, errors };
+  const captures = { index, readersOf: captureFacts.readersOf, lastValues: captureFacts.lastValues };
 
   return (
     <>
@@ -231,9 +228,15 @@ const WorkflowStepEditor: React.FC<Props> = ({
           {...session}
         />
       ) : isSendStep(step) ? (
-        <SendStepFields step={step} onChange={onChange} {...session} />
+        <>
+          <SendStepFields step={step} onChange={onChange} {...session} />
+          <SessionStepCaptures step={step} onChange={onChange} {...captures} />
+        </>
       ) : isExpectStep(step) ? (
-        <ExpectStepFields step={step} onChange={onChange} runState={runState} {...session} />
+        <>
+          <ExpectStepFields step={step} onChange={onChange} runState={runState} {...session} />
+          <SessionStepCaptures step={step} onChange={onChange} {...captures} />
+        </>
       ) : (
         <>
           <CallRequestCard
@@ -245,20 +248,18 @@ const WorkflowStepEditor: React.FC<Props> = ({
             onOpenRequest={onOpenRequest}
           />
           <CallPolicyCards step={step} index={index} onChange={onChange} errors={errors} />
+          <CallStepCaptures step={step} onChange={onChange} exposable={exposable} {...captures} />
         </>
       )}
-      {/* What is not a card yet: the captures, and the one section of the old step card. */}
-      <div style={{ border: `1px solid ${token.colorBorderSecondary}`, borderRadius: 6, padding: 12 }}>
-        <Space orientation="vertical" size={8} style={{ width: '100%' }}>
-          {isListenStep(step) ? null : isSendStep(step) || isExpectStep(step) ? (
-            <SessionStepCaptures step={step} index={index} onChange={onChange} />
-          ) : (
-            <CallStepCaptures step={step} index={index} onChange={onChange} exposable={exposable} />
-          )}
-
-          <Collapse size="small" ghost defaultActiveKey={[]} items={sharedSections} />
-        </Space>
-      </div>
+      <StepUsesCard index={index} uses={captureFacts.uses} goToStep={captureFacts.goToStep} />
+      <StepPriorityCard
+        index={index}
+        value={step.priorityFrom}
+        onChange={setPriority}
+        reachableSteps={reachableSteps}
+        capturesByStepId={capturesByStepId}
+        error={priorityError}
+      />
     </>
   );
 };
