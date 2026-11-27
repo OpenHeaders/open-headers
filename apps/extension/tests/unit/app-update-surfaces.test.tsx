@@ -11,6 +11,10 @@
  *
  * And the setting that downloads updates ahead: not offered where an
  * update is downloaded only together with its install.
+ *
+ * And the button that starts or finishes an update, on the row and in
+ * the update dialog: a colour of its own, never the theme's primary —
+ * the selected options beside it are the primary's.
  */
 
 import '@openheaders/ui/workbench/settings/categories';
@@ -23,8 +27,9 @@ import {
   useBackgroundTasks,
 } from '@openheaders/ui/shared/background-tasks';
 import { setCurrentHost } from '@openheaders/ui/shared/host-vocabulary';
+import { closeUpdateDialog, openUpdateDialog, UPDATE_ACTION_COLOR, UpdateDialog } from '@openheaders/ui/shared/updates';
 import AppUpdateRow from '@openheaders/ui/workbench/settings/components/app-update-row';
-import { getDef } from '@openheaders/ui/workbench/settings/registry';
+import { getCategory, getDef } from '@openheaders/ui/workbench/settings/registry';
 import type { DictStorage, SettingScope } from '@openheaders/ui/workbench/settings/storage/adapter';
 import {
   __resetStoreForTests,
@@ -33,6 +38,8 @@ import {
   get as readSetting,
 } from '@openheaders/ui/workbench/settings/store';
 import { act, cleanup, render, renderHook, screen, waitFor } from '@testing-library/react';
+import { Button, ConfigProvider } from 'antd';
+import type React from 'react';
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
 class NoopDictStorage implements DictStorage {
@@ -148,6 +155,72 @@ describe('the Settings update row while a download runs', () => {
     });
     expect(container.querySelector('.anticon-sync')).toBeNull();
     expect(screen.getByText('Restart to install')).toBeTruthy();
+  });
+});
+
+describe('the button that starts or finishes an update', () => {
+  const THEME_PRIMARY = '#1677ff';
+  const OFFERED = { availableVersion: '2026.12.0-beta.2' } as const;
+
+  /** The primary a button paints with, as its own theme scope hands it down. */
+  function primaryOf(label: string): string {
+    const button = screen.getByText(label).closest('button');
+    if (!button) throw new Error(`no button reads "${label}"`);
+    return getComputedStyle(button).getPropertyValue('--ant-color-primary').toLowerCase();
+  }
+
+  function renderInTheme(children: React.ReactNode) {
+    return render(
+      <ConfigProvider theme={{ token: { colorPrimary: THEME_PRIMARY } }}>
+        {children}
+        <Button type="primary">A selected state's colour</Button>
+      </ConfigProvider>,
+    );
+  }
+
+  function row(): React.ReactNode {
+    const def = getDef('updates.state');
+    if (!def) throw new Error('updates.state not registered');
+    return <AppUpdateRow def={def} />;
+  }
+
+  afterEach(() => {
+    closeUpdateDialog();
+  });
+
+  it('is not the theme primary on the row, where an update is on offer', async () => {
+    installBridge(makeState({ phase: 'available', ...OFFERED }));
+    renderInTheme(row());
+
+    await screen.findByText('Update & Restart');
+    expect(primaryOf('Update & Restart')).toBe(UPDATE_ACTION_COLOR);
+    expect(primaryOf("A selected state's colour")).toBe(THEME_PRIMARY);
+  });
+
+  it('is the same colour once the update is downloaded', async () => {
+    installBridge(makeState({ phase: 'downloaded', ...OFFERED, progressPercent: 100 }));
+    renderInTheme(row());
+
+    await screen.findByText('Restart to install');
+    expect(primaryOf('Restart to install')).toBe(UPDATE_ACTION_COLOR);
+  });
+
+  it('is the same colour in the update dialog', async () => {
+    installBridge(makeState({ phase: 'available', ...OFFERED }));
+    renderInTheme(<UpdateDialog onConfigureUpdates={() => {}} />);
+    act(() => openUpdateDialog());
+
+    await screen.findByText('Update & Restart');
+    expect(primaryOf('Update & Restart')).toBe(UPDATE_ACTION_COLOR);
+    // The dialog's other buttons stay the theme's.
+    expect(primaryOf('Remind Me Later')).toBe(THEME_PRIMARY);
+  });
+});
+
+describe('the Updates page', () => {
+  it('puts what the app does about updates above what it found', () => {
+    const sections = [...(getCategory('updates')?.subcategories ?? [])].sort((a, b) => a.order - b.order);
+    expect(sections.map((section) => section.id)).toEqual(['behavior', 'status']);
   });
 });
 

@@ -696,8 +696,8 @@ registerCategory({
   // and a served web tab updates with the daemon behind it.
   when: () => getCurrentHost() === 'desktop',
   subcategories: [
-    { id: 'status', labelKey: 'workbench.settings.category.updates.sub.status', order: 10 },
-    { id: 'behavior', labelKey: 'workbench.settings.category.updates.sub.behavior', order: 20 },
+    { id: 'behavior', labelKey: 'workbench.settings.category.updates.sub.behavior', order: 10 },
+    { id: 'status', labelKey: 'workbench.settings.category.updates.sub.status', order: 20 },
   ],
 });
 

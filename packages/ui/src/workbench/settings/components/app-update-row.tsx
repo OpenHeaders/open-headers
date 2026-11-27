@@ -16,6 +16,7 @@ import { Button, Progress, Typography } from 'antd';
 import type React from 'react';
 import { useEffect, useState } from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
+import { UpdateActionButton } from '@openheaders/ui/shared/updates';
 import FieldRow from '../fields/FieldRow';
 import { resolveDescription, resolveLabel } from '../localize';
 import type { SettingDef } from '../types';
@@ -99,14 +100,13 @@ const AppUpdateRow: React.FC<{ def: SettingDef }> = ({ def }) => {
               // the row informs instead of offering Update & Restart.
               <Text type="secondary">{t('workbench.settings.updatesRow.packageManager')}</Text>
             ) : (
-              <Button
+              <UpdateActionButton
                 size="small"
-                type="primary"
                 icon={<ReloadOutlined />}
                 onClick={() => run('oh.updates.updateAndRestart')}
               >
                 {t('workbench.settings.updatesRow.updateAndRestart')}
-              </Button>
+              </UpdateActionButton>
             )}
             {releaseNotesLink}
           </>
@@ -134,9 +134,9 @@ const AppUpdateRow: React.FC<{ def: SettingDef }> = ({ def }) => {
         body = (
           <>
             <Text>{t('workbench.settings.updatesRow.readyToInstall', { version: state.availableVersion ?? '' })}</Text>
-            <Button size="small" type="primary" icon={<ReloadOutlined />} onClick={() => run('oh.updates.install')}>
+            <UpdateActionButton size="small" icon={<ReloadOutlined />} onClick={() => run('oh.updates.install')}>
               {t('workbench.settings.updatesRow.restartToInstall')}
-            </Button>
+            </UpdateActionButton>
             {releaseNotesLink}
           </>
         );

@@ -22,6 +22,7 @@ import { useEffect, useState } from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { releasePageUrl, writeIgnoredVersion } from './release-notes';
 import { closeUpdateDialog, useUpdateDialogOpen } from './store';
+import UpdateActionButton from './UpdateActionButton';
 
 interface UpdateDialogProps {
   /** Route to the Settings update row (Configure updates…). */
@@ -79,20 +80,20 @@ const UpdateDialog: React.FC<UpdateDialogProps> = ({ onConfigureUpdates }) => {
     switch (phase) {
       case 'downloading':
         return (
-          <Button type="primary" loading disabled>
+          <UpdateActionButton loading disabled>
             {state.progressPercent !== null
               ? t('shared.chrome.updates.downloadingPercent', { percent: state.progressPercent })
               : t('shared.chrome.updates.downloading')}
-          </Button>
+          </UpdateActionButton>
         );
       default:
         // available and downloaded share the one-click action: download
         // if needed, then restart into the update. The dialog stays open
         // so the button mirrors download progress until the restart.
         return (
-          <Button type="primary" onClick={() => void bridge?.call('oh.updates.updateAndRestart')}>
+          <UpdateActionButton onClick={() => void bridge?.call('oh.updates.updateAndRestart')}>
             {t('shared.chrome.updates.updateAndRestart')}
-          </Button>
+          </UpdateActionButton>
         );
     }
   })();
