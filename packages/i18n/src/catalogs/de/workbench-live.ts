@@ -319,7 +319,6 @@ export const workbenchLive = {
 
   // ── Workflow step editor ────────────────────────────────────────────
   'workbench.editors.live.step.needsUpdate': 'Dieser Schritt benötigt eine neuere Version von OpenHeaders.',
-  'workbench.editors.live.step.namePrefix': 'Name',
   'workbench.editors.live.step.typeTooltip': 'Schritt-Typ — Foreach und Composite kommen in einer künftigen Version.',
   'workbench.editors.live.step.typeForeach': 'Foreach',
   'workbench.editors.live.step.typeComposite': 'Composite',
@@ -334,7 +333,6 @@ export const workbenchLive = {
   'workbench.editors.live.step.afterPrefix': 'nach',
   'workbench.editors.live.step.includeStored': 'Vom Broker aufbewahrte Nachrichten einbeziehen',
   'workbench.editors.live.step.descriptionPlaceholder': 'Optionale Schrittbeschreibung',
-  'workbench.editors.live.step.capturesHeader': 'ERFASSUNGEN ({count})',
   'workbench.editors.live.step.addCapture': 'Erfassung hinzufügen',
   'workbench.editors.live.captures.title': 'Erfassungen',
   'workbench.editors.live.captures.description': 'Werte, die dieser Schritt für spätere Schritte speichert.',
@@ -356,8 +354,6 @@ export const workbenchLive = {
   'workbench.editors.live.priority.capture': 'Erfassung',
   'workbench.editors.live.priority.compareAs': 'Vergleichen als',
   'workbench.editors.live.priority.none': 'Keine',
-  'workbench.editors.live.step.captureRequired':
-    'Mindestens eine Erfassung ist nötig, bevor sich eine LV an diesen Schritt binden kann.',
   'workbench.editors.live.step.removeCaptureAria': 'Erfassung {name} entfernen',
   'workbench.editors.live.step.exposeAria': 'Erfassung {name} als Live-Variable freigeben',
   'workbench.editors.live.step.exposeAs': 'Freigeben als',
@@ -370,22 +366,11 @@ export const workbenchLive = {
   'workbench.editors.live.sections.dependsOn': 'Hängt ab von',
   'workbench.editors.live.sections.reset': 'Zurücksetzen',
   'workbench.editors.live.sections.runCondition': 'Laufbedingung',
-  'workbench.editors.live.sections.none': '(keine)',
   'workbench.editors.live.sections.priority': 'Priorität',
-  'workbench.editors.live.sections.priorityStepPlaceholder': 'Vorgänger-Schritt',
-  'workbench.editors.live.sections.priorityCapturePlaceholder': 'Name der Erfassung',
   'workbench.editors.live.sections.sortNumeric': 'Numerisch',
   'workbench.editors.live.sections.sortLexicographic': 'Lexikografisch',
-  'workbench.editors.live.sections.priorityTooltip':
-    'Wenn mehrere Schritte als Nächstes laufen können, läuft der mit dem niedrigsten Prioritätswert zuerst. ' +
-    'Fehlende Werte sortieren ans Ende.',
   'workbench.editors.live.sections.clear': 'Leeren',
   'workbench.editors.live.sections.retryPolicy': 'Wiederholungsrichtlinie',
-  'workbench.editors.live.sections.retrySummary': '({count} Versuche)',
-  'workbench.editors.live.sections.retrySummaryExponential': '({count} Versuche, exponentiell)',
-  'workbench.editors.live.sections.attemptsPlaceholder': 'Versuche',
-  'workbench.editors.live.sections.attemptsPrefix': 'Versuche',
-  'workbench.editors.live.sections.delayPrefix': 'Verzögerung ms',
   'workbench.editors.live.sections.backoffFixed': 'Fest',
   'workbench.editors.live.sections.backoffExponential': 'Exponentiell',
   'workbench.editors.live.sections.retryOnNetwork': 'Nur Netzwerkfehler',
@@ -393,16 +378,8 @@ export const workbenchLive = {
   'workbench.editors.live.sections.retryOn429': 'Netzwerk + 429',
   'workbench.editors.live.sections.retryOn4xx': 'Netzwerk + 4xx',
   'workbench.editors.live.sections.retryOnCustom': 'Benutzerdefiniert (als Daten bearbeitet)',
-  'workbench.editors.live.sections.retryTooltip':
-    'Netzwerkfehler (DNS, Verbindung, Zeitüberschreitung) werden immer wiederholt, solange Versuche übrig ' +
-    'sind. Mit einem Status-Abgleich werden auch passende Antworten wiederholt; Extraktionsfehler werden nie ' +
-    'wiederholt. Leere das Versuche-Feld, um Wiederholungen zu deaktivieren.',
   'workbench.editors.live.sections.timeout': 'Zeitlimit',
   'workbench.editors.live.sections.noTimeoutPlaceholder': 'Kein Zeitlimit',
-  'workbench.editors.live.sections.timeoutTooltip':
-    'Pro Versuch — die Anfrage (einschließlich des Body-Lesens) bricht ab, wenn diese Obergrenze ' +
-    'überschritten wird. Ein wiederholender Schritt bekommt bei jedem Versuch das volle Zeitlimit. Leere das ' +
-    'Feld für keine Obergrenze.',
   'workbench.editors.live.sections.successCriteria': 'Erfolgskriterien',
   'workbench.editors.live.criteria.noneForCall': 'Keine Kriterien — jede eintreffende Antwort gilt als bestanden.',
   'workbench.editors.live.criteria.noneForExpect': 'Keine Zeilen — die erste eintreffende Nachricht passt.',
@@ -425,7 +402,6 @@ export const workbenchLive = {
   'workbench.editors.live.sections.timeoutDescription': 'So lange darf ein Versuch höchstens dauern.',
   'workbench.editors.live.sections.timeoutPerAttempt': 'Pro Versuch (ms)',
   'workbench.editors.live.criteria.successDescription': 'Die Antwort besteht, wenn jede Zeile zutrifft.',
-  'workbench.editors.live.sections.pollSummary': '({count} × {delay} ms)',
   'workbench.editors.live.sections.pollInfo': 'Sendet die Anfrage erneut, bis ihre Erfolgskriterien erfüllt sind.',
   'workbench.editors.live.sections.scriptsTooltip':
     'Läuft bei jedem Versuch der Kette. Schritt-Scripts erhalten eine schreibgeschützte oh.*-Oberfläche ' +
@@ -547,10 +523,6 @@ export const workbenchLive = {
   'workbench.editors.live.status.neverRunForEnv':
     'für diese Umgebung nie gelaufen — klicke auf Aktualisieren, um zu füllen',
   'workbench.editors.live.status.notRunYet': 'noch nicht gelaufen — klicke auf Aktualisieren, um auszuführen',
-
-  // ── Graph run overlay ───────────────────────────────────────────────
-  'workbench.editors.live.runOverlay.valuesPreserved': 'Werte aus einem früheren Lauf erhalten',
-  'workbench.editors.live.runOverlay.responseBytes': 'Antwort {bytes} Bytes',
 
   // ── Create Workflow from requests modal ─────────────────────────────
   'workbench.editors.live.fromRequests.title': 'Workflow aus „{name}“ erstellen',

@@ -290,7 +290,6 @@ export const workbenchLive = {
 
   // ── Workflow step editor ────────────────────────────────────────────
   'workbench.editors.live.step.needsUpdate': '此步骤需要更新版本的 OpenHeaders。',
-  'workbench.editors.live.step.namePrefix': '名称',
   'workbench.editors.live.step.typeTooltip': '步骤类型——Foreach 和 Composite 将在未来版本推出。',
   'workbench.editors.live.step.typeForeach': 'Foreach',
   'workbench.editors.live.step.typeComposite': 'Composite',
@@ -304,7 +303,6 @@ export const workbenchLive = {
   'workbench.editors.live.step.afterPrefix': '触发步骤',
   'workbench.editors.live.step.includeStored': '包含已存储的消息',
   'workbench.editors.live.step.descriptionPlaceholder': '可选的步骤描述',
-  'workbench.editors.live.step.capturesHeader': '捕获（{count}）',
   'workbench.editors.live.step.addCapture': '添加捕获',
   'workbench.editors.live.captures.title': '捕获',
   'workbench.editors.live.captures.description': '此步骤为后续步骤保存的值。',
@@ -325,7 +323,6 @@ export const workbenchLive = {
   'workbench.editors.live.priority.capture': '捕获',
   'workbench.editors.live.priority.compareAs': '比较方式',
   'workbench.editors.live.priority.none': '无',
-  'workbench.editors.live.step.captureRequired': '至少需要一个捕获，LV 才能绑定到此步骤。',
   'workbench.editors.live.step.removeCaptureAria': '移除捕获 {name}',
   'workbench.editors.live.step.exposeAria': '将捕获 {name} 公开为 Live 变量',
   'workbench.editors.live.step.exposeAs': '公开为',
@@ -336,21 +333,11 @@ export const workbenchLive = {
   'workbench.editors.live.sections.dependsOn': '依赖于',
   'workbench.editors.live.sections.reset': '重置',
   'workbench.editors.live.sections.runCondition': '运行条件',
-  'workbench.editors.live.sections.none': '（无）',
   'workbench.editors.live.sections.priority': '优先级',
-  'workbench.editors.live.sections.priorityStepPlaceholder': '祖先步骤',
-  'workbench.editors.live.sections.priorityCapturePlaceholder': '捕获名称',
   'workbench.editors.live.sections.sortNumeric': '数值',
   'workbench.editors.live.sections.sortLexicographic': '字典序',
-  'workbench.editors.live.sections.priorityTooltip':
-    '当多个步骤都可以接着运行时，优先级值最低的先运行。缺失的值排在最后。',
   'workbench.editors.live.sections.clear': '清除',
   'workbench.editors.live.sections.retryPolicy': '重试策略',
-  'workbench.editors.live.sections.retrySummary': '（{count} 次尝试）',
-  'workbench.editors.live.sections.retrySummaryExponential': '（{count} 次尝试，指数）',
-  'workbench.editors.live.sections.attemptsPlaceholder': '尝试次数',
-  'workbench.editors.live.sections.attemptsPrefix': '尝试次数',
-  'workbench.editors.live.sections.delayPrefix': '延迟 ms',
   'workbench.editors.live.sections.backoffFixed': '固定',
   'workbench.editors.live.sections.backoffExponential': '指数',
   'workbench.editors.live.sections.retryOnNetwork': '仅网络错误',
@@ -358,12 +345,8 @@ export const workbenchLive = {
   'workbench.editors.live.sections.retryOn429': '网络 + 429',
   'workbench.editors.live.sections.retryOn4xx': '网络 + 4xx',
   'workbench.editors.live.sections.retryOnCustom': '自定义（作为数据编辑）',
-  'workbench.editors.live.sections.retryTooltip':
-    '网络故障（DNS、连接、超时）只要还有尝试次数就总会重试。添加状态匹配后，匹配的响应也会重试；提取错误从不重试。清空尝试次数字段可禁用重试。',
   'workbench.editors.live.sections.timeout': '超时',
   'workbench.editors.live.sections.noTimeoutPlaceholder': '无超时',
-  'workbench.editors.live.sections.timeoutTooltip':
-    '按每次尝试计——请求（包括读取响应体）超过此上限即中止。重试的步骤每次尝试都拥有完整的超时。清空该字段则不设上限。',
   'workbench.editors.live.sections.successCriteria': '成功条件',
   'workbench.editors.live.criteria.noneForCall': '无条件——只要收到响应即通过。',
   'workbench.editors.live.criteria.noneForExpect': '无行——第一条到达的消息即匹配。',
@@ -386,7 +369,6 @@ export const workbenchLive = {
   'workbench.editors.live.sections.timeoutDescription': '单次尝试最长可用的时间。',
   'workbench.editors.live.sections.timeoutPerAttempt': '每次尝试 (ms)',
   'workbench.editors.live.criteria.successDescription': '每一行都成立时，响应即通过。',
-  'workbench.editors.live.sections.pollSummary': '（{count} × {delay} ms）',
   'workbench.editors.live.sections.pollInfo': '重复发送请求，直到满足其成功条件。',
   'workbench.editors.live.sections.scriptsTooltip':
     '在链条的每次尝试中运行。步骤脚本获得只读的 oh.* 界面（oh.sendRequest 和 oh.variables.set 会被拒绝）。脚本错误或失败的 oh.test 断言会让该步骤失败，从而保留最后一次的良好值——断言把关此工作流发布的内容。需要支持脚本的运行时；在没有的主机上，该步骤会不带脚本运行。',
@@ -492,10 +474,6 @@ export const workbenchLive = {
     '自提取此值以来，工作流或其解析的某个输入已发生变化——运行“刷新”以重新提取。',
   'workbench.editors.live.status.neverRunForEnv': '此环境从未运行过——点击“刷新”来填充',
   'workbench.editors.live.status.notRunYet': '尚未运行——点击“刷新”来运行',
-
-  // ── Graph run overlay ───────────────────────────────────────────────
-  'workbench.editors.live.runOverlay.valuesPreserved': '值保留自较早的一次运行',
-  'workbench.editors.live.runOverlay.responseBytes': '响应 {bytes} 字节',
 
   // ── Create Workflow from requests modal ─────────────────────────────
   'workbench.editors.live.fromRequests.title': '从“{name}”创建工作流',

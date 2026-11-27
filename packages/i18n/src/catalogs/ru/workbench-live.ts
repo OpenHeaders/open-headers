@@ -334,7 +334,6 @@ export const workbenchLive = {
 
   // ── Workflow step editor ────────────────────────────────────────────
   'workbench.editors.live.step.needsUpdate': 'Для этого шага нужна более новая версия OpenHeaders.',
-  'workbench.editors.live.step.namePrefix': 'имя',
   'workbench.editors.live.step.typeTooltip':
     'Тип шага — типы Foreach и Composite появятся в одном из следующих выпусков.',
   'workbench.editors.live.step.typeForeach': 'Foreach',
@@ -350,7 +349,6 @@ export const workbenchLive = {
   'workbench.editors.live.step.afterPrefix': 'после',
   'workbench.editors.live.step.includeStored': 'Учитывать сообщения, хранившиеся у брокера',
   'workbench.editors.live.step.descriptionPlaceholder': 'Описание шага (необязательно)',
-  'workbench.editors.live.step.capturesHeader': 'ЗАХВАТЫ ({count})',
   'workbench.editors.live.step.addCapture': 'Добавить захват',
   'workbench.editors.live.captures.title': 'Захваты',
   'workbench.editors.live.captures.description': 'Значения, которые этот шаг сохраняет для следующих шагов.',
@@ -373,8 +371,6 @@ export const workbenchLive = {
   'workbench.editors.live.priority.capture': 'Захват',
   'workbench.editors.live.priority.compareAs': 'Сравнивать как',
   'workbench.editors.live.priority.none': 'Нет',
-  'workbench.editors.live.step.captureRequired':
-    'Нужен хотя бы один захват, прежде чем переменная Live сможет привязаться к этому шагу.',
   'workbench.editors.live.step.removeCaptureAria': 'Удалить захват {name}',
   'workbench.editors.live.step.exposeAria': 'Раскрыть захват {name} как переменную Live',
   'workbench.editors.live.step.exposeAs': 'Раскрыть как',
@@ -385,21 +381,11 @@ export const workbenchLive = {
   'workbench.editors.live.sections.dependsOn': 'Зависит от',
   'workbench.editors.live.sections.reset': 'Сбросить',
   'workbench.editors.live.sections.runCondition': 'Условие запуска',
-  'workbench.editors.live.sections.none': '(нет)',
   'workbench.editors.live.sections.priority': 'Приоритет',
-  'workbench.editors.live.sections.priorityStepPlaceholder': 'Шаг-предок',
-  'workbench.editors.live.sections.priorityCapturePlaceholder': 'Имя захвата',
   'workbench.editors.live.sections.sortNumeric': 'Числовой',
   'workbench.editors.live.sections.sortLexicographic': 'Лексикографический',
-  'workbench.editors.live.sections.priorityTooltip':
-    'Когда следующими могут запуститься несколько шагов, первым идёт шаг с наименьшим значением приоритета. Шаги без значения идут последними.',
   'workbench.editors.live.sections.clear': 'Очистить',
   'workbench.editors.live.sections.retryPolicy': 'Политика повторов',
-  'workbench.editors.live.sections.retrySummary': '(попыток: {count})',
-  'workbench.editors.live.sections.retrySummaryExponential': '(попыток: {count}, экспоненциально)',
-  'workbench.editors.live.sections.attemptsPlaceholder': 'Попытки',
-  'workbench.editors.live.sections.attemptsPrefix': 'попытки',
-  'workbench.editors.live.sections.delayPrefix': 'задержка ms',
   'workbench.editors.live.sections.backoffFixed': 'Фиксированная',
   'workbench.editors.live.sections.backoffExponential': 'Экспоненциальная',
   'workbench.editors.live.sections.retryOnNetwork': 'Только сетевые ошибки',
@@ -407,12 +393,8 @@ export const workbenchLive = {
   'workbench.editors.live.sections.retryOn429': 'Сеть + 429',
   'workbench.editors.live.sections.retryOn4xx': 'Сеть + 4xx',
   'workbench.editors.live.sections.retryOnCustom': 'Своя (правится как данные)',
-  'workbench.editors.live.sections.retryTooltip':
-    'Сетевые сбои (DNS, соединение, тайм-аут) повторяются всегда, пока остаются попытки. Добавление совпадения по статусу повторяет и совпавшие ответы; ошибки извлечения не повторяются никогда. Очистите поле попыток, чтобы отключить повторы.',
   'workbench.editors.live.sections.timeout': 'Тайм-аут',
   'workbench.editors.live.sections.noTimeoutPlaceholder': 'Без тайм-аута',
-  'workbench.editors.live.sections.timeoutTooltip':
-    'На каждую попытку — запрос (включая чтение тела) прерывается по достижении этого предела. Шаг с повторами получает полный тайм-аут на каждую попытку. Очистите поле, чтобы снять предел.',
   'workbench.editors.live.sections.successCriteria': 'Критерии успеха',
   'workbench.editors.live.criteria.noneForCall': 'Критериев нет — любой полученный ответ считается успешным.',
   'workbench.editors.live.criteria.noneForExpect': 'Строк нет — подходит первое пришедшее сообщение.',
@@ -435,7 +417,6 @@ export const workbenchLive = {
   'workbench.editors.live.sections.timeoutDescription': 'Сколько может длиться одна попытка.',
   'workbench.editors.live.sections.timeoutPerAttempt': 'На попытку (ms)',
   'workbench.editors.live.criteria.successDescription': 'Ответ считается успешным, когда выполняется каждая строка.',
-  'workbench.editors.live.sections.pollSummary': '({count} × {delay} ms)',
   'workbench.editors.live.sections.pollInfo': 'Отправляет запрос повторно, пока не выполнятся его критерии успеха.',
   'workbench.editors.live.sections.scriptsTooltip':
     'Выполняется при каждой попытке цепочки. Скрипты шага получают поверхность oh.* только для чтения (oh.sendRequest и oh.variables.set отклоняются). Ошибка скрипта или проваленная проверка oh.test приводит к сбою шага, так что последние удачные значения сохраняются — проверки решают, что публикует этот рабочий процесс. Нужна среда выполнения с поддержкой скриптов; на хостах без неё шаг выполняется без скриптов.',
@@ -550,10 +531,6 @@ export const workbenchLive = {
   'workbench.editors.live.status.neverRunForEnv':
     'в этом окружении ещё не запускался — нажмите «Обновить», чтобы заполнить',
   'workbench.editors.live.status.notRunYet': 'ещё не запускался — нажмите «Обновить», чтобы запустить',
-
-  // ── Graph run overlay ───────────────────────────────────────────────
-  'workbench.editors.live.runOverlay.valuesPreserved': 'значения сохранены из более раннего запуска',
-  'workbench.editors.live.runOverlay.responseBytes': 'ответ {bytes} байт',
 
   // ── Create Workflow from requests modal ─────────────────────────────
   'workbench.editors.live.fromRequests.title': 'Создать рабочий процесс из «{name}»',

@@ -305,7 +305,6 @@ export const workbenchLive = {
 
   // ── Workflow step editor ────────────────────────────────────────────
   'workbench.editors.live.step.needsUpdate': '이 단계에는 더 새로운 버전의 OpenHeaders가 필요합니다.',
-  'workbench.editors.live.step.namePrefix': '이름',
   'workbench.editors.live.step.typeTooltip':
     '단계 유형입니다. Foreach 유형과 Composite 유형은 향후 릴리스에서 제공됩니다.',
   'workbench.editors.live.step.typeForeach': 'Foreach',
@@ -320,7 +319,6 @@ export const workbenchLive = {
   'workbench.editors.live.step.afterPrefix': '트리거',
   'workbench.editors.live.step.includeStored': '브로커가 보관한 메시지 포함',
   'workbench.editors.live.step.descriptionPlaceholder': '단계 설명 (선택 사항)',
-  'workbench.editors.live.step.capturesHeader': '캡처 ({count})',
   'workbench.editors.live.step.addCapture': '캡처 추가',
   'workbench.editors.live.captures.title': '캡처',
   'workbench.editors.live.captures.description': '이 단계가 이후 단계를 위해 저장하는 값입니다.',
@@ -342,7 +340,6 @@ export const workbenchLive = {
   'workbench.editors.live.priority.capture': '캡처',
   'workbench.editors.live.priority.compareAs': '비교 방식',
   'workbench.editors.live.priority.none': '없음',
-  'workbench.editors.live.step.captureRequired': '라이브 변수가 이 단계에 바인딩되려면 캡처가 하나 이상 필요합니다.',
   'workbench.editors.live.step.removeCaptureAria': '캡처 {name} 제거',
   'workbench.editors.live.step.exposeAria': '캡처 {name} 항목을 라이브 변수로 노출',
   'workbench.editors.live.step.exposeAs': '노출 이름',
@@ -353,21 +350,11 @@ export const workbenchLive = {
   'workbench.editors.live.sections.dependsOn': '의존 대상',
   'workbench.editors.live.sections.reset': '재설정',
   'workbench.editors.live.sections.runCondition': '실행 조건',
-  'workbench.editors.live.sections.none': '(없음)',
   'workbench.editors.live.sections.priority': '우선순위',
-  'workbench.editors.live.sections.priorityStepPlaceholder': '조상 단계',
-  'workbench.editors.live.sections.priorityCapturePlaceholder': '캡처 이름',
   'workbench.editors.live.sections.sortNumeric': '숫자순',
   'workbench.editors.live.sections.sortLexicographic': '사전순',
-  'workbench.editors.live.sections.priorityTooltip':
-    '다음에 실행할 수 있는 단계가 여럿이면 우선순위 값이 가장 낮은 단계가 먼저 실행됩니다. 값이 없으면 맨 뒤로 정렬됩니다.',
   'workbench.editors.live.sections.clear': '지우기',
   'workbench.editors.live.sections.retryPolicy': '재시도 정책',
-  'workbench.editors.live.sections.retrySummary': '({count}회 시도)',
-  'workbench.editors.live.sections.retrySummaryExponential': '({count}회 시도, 지수)',
-  'workbench.editors.live.sections.attemptsPlaceholder': '시도 횟수',
-  'workbench.editors.live.sections.attemptsPrefix': '시도 횟수',
-  'workbench.editors.live.sections.delayPrefix': '지연 ms',
   'workbench.editors.live.sections.backoffFixed': '고정',
   'workbench.editors.live.sections.backoffExponential': '지수',
   'workbench.editors.live.sections.retryOnNetwork': '네트워크 오류만',
@@ -375,12 +362,8 @@ export const workbenchLive = {
   'workbench.editors.live.sections.retryOn429': '네트워크 + 429',
   'workbench.editors.live.sections.retryOn4xx': '네트워크 + 4xx',
   'workbench.editors.live.sections.retryOnCustom': '사용자 지정 (데이터로 편집됨)',
-  'workbench.editors.live.sections.retryTooltip':
-    '네트워크 실패 (DNS, 연결, 시간 초과)는 시도 횟수가 남아 있는 한 항상 재시도합니다. 상태 일치를 추가하면 일치하는 응답도 재시도하며, 추출 오류는 절대 재시도하지 않습니다. 재시도를 끄려면 시도 횟수 필드를 비우세요.',
   'workbench.editors.live.sections.timeout': '시간 제한',
   'workbench.editors.live.sections.noTimeoutPlaceholder': '시간 제한 없음',
-  'workbench.editors.live.sections.timeoutTooltip':
-    '시도마다 적용됩니다. 요청 (본문 읽기 포함)이 이 상한을 넘으면 중단됩니다. 재시도하는 단계는 시도마다 전체 시간 제한을 다시 받습니다. 상한을 없애려면 필드를 비우세요.',
   'workbench.editors.live.sections.successCriteria': '성공 기준',
   'workbench.editors.live.criteria.noneForCall': '기준 없음 — 도착한 응답은 모두 통과합니다.',
   'workbench.editors.live.criteria.noneForExpect': '행 없음 — 처음 도착한 메시지가 일치합니다.',
@@ -403,7 +386,6 @@ export const workbenchLive = {
   'workbench.editors.live.sections.timeoutDescription': '한 번의 시도에 허용되는 최대 시간입니다.',
   'workbench.editors.live.sections.timeoutPerAttempt': '시도당 (ms)',
   'workbench.editors.live.criteria.successDescription': '모든 행이 성립하면 응답이 통과합니다.',
-  'workbench.editors.live.sections.pollSummary': '({count} × {delay} ms)',
   'workbench.editors.live.sections.pollInfo': '성공 기준이 충족될 때까지 요청을 다시 보냅니다.',
   'workbench.editors.live.sections.scriptsTooltip':
     '연쇄 시도마다 실행됩니다. 단계 스크립트는 읽기 전용 oh.* 표면을 받습니다 (oh.sendRequest 함수와 oh.variables.set 함수는 거부됩니다). 스크립트 오류나 실패한 oh.test 단언은 단계를 실패시키므로 마지막 정상 값이 보존됩니다. 단언이 이 워크플로가 게시하는 것을 거릅니다. 스크립트를 실행할 수 있는 런타임이 필요하며, 없는 호스트에서는 단계가 스크립트 없이 실행됩니다.',
@@ -511,10 +493,6 @@ export const workbenchLive = {
     '이 값을 추출한 뒤 워크플로나 워크플로가 해석하는 입력이 바뀌었습니다. 새로 고침을 실행해 다시 추출하세요.',
   'workbench.editors.live.status.neverRunForEnv': '이 환경에서 실행된 적 없음. 새로 고침을 눌러 채우세요',
   'workbench.editors.live.status.notRunYet': '아직 실행되지 않음. 새로 고침을 눌러 실행하세요',
-
-  // ── Graph run overlay ───────────────────────────────────────────────
-  'workbench.editors.live.runOverlay.valuesPreserved': '이전 실행의 값이 보존됨',
-  'workbench.editors.live.runOverlay.responseBytes': '응답 {bytes}바이트',
 
   // ── Create Workflow from requests modal ─────────────────────────────
   'workbench.editors.live.fromRequests.title': '“{name}”에서 워크플로 만들기',

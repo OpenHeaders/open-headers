@@ -337,7 +337,6 @@ export const workbenchLive = {
 
   // ── Workflow step editor ────────────────────────────────────────────
   'workbench.editors.live.step.needsUpdate': 'Acest pas necesită o versiune mai nouă de OpenHeaders.',
-  'workbench.editors.live.step.namePrefix': 'nume',
   'workbench.editors.live.step.typeTooltip': 'Tipul pasului — Foreach și Composite vor veni într-o versiune viitoare.',
   'workbench.editors.live.step.typeForeach': 'Foreach',
   'workbench.editors.live.step.typeComposite': 'Composite',
@@ -352,7 +351,6 @@ export const workbenchLive = {
   'workbench.editors.live.step.afterPrefix': 'după',
   'workbench.editors.live.step.includeStored': 'Include mesajele stocate',
   'workbench.editors.live.step.descriptionPlaceholder': 'Descriere pas (opțional)',
-  'workbench.editors.live.step.capturesHeader': 'CAPTURI ({count})',
   'workbench.editors.live.step.addCapture': 'Adăugare captură',
   'workbench.editors.live.captures.title': 'Capturi',
   'workbench.editors.live.captures.description': 'Valori pe care acest pas le păstrează pentru pașii următori.',
@@ -374,8 +372,6 @@ export const workbenchLive = {
   'workbench.editors.live.priority.capture': 'Captură',
   'workbench.editors.live.priority.compareAs': 'Compară ca',
   'workbench.editors.live.priority.none': 'Niciuna',
-  'workbench.editors.live.step.captureRequired':
-    'Este necesară cel puțin o captură înainte ca o variabilă Live să se poată lega de acest pas.',
   'workbench.editors.live.step.removeCaptureAria': 'Eliminare captură {name}',
   'workbench.editors.live.step.exposeAria': 'Expunere captură {name} ca variabilă Live',
   'workbench.editors.live.step.exposeAs': 'Expunere ca',
@@ -386,21 +382,11 @@ export const workbenchLive = {
   'workbench.editors.live.sections.dependsOn': 'Depinde de',
   'workbench.editors.live.sections.reset': 'Resetare',
   'workbench.editors.live.sections.runCondition': 'Condiție de rulare',
-  'workbench.editors.live.sections.none': '(niciuna)',
   'workbench.editors.live.sections.priority': 'Prioritate',
-  'workbench.editors.live.sections.priorityStepPlaceholder': 'Pas strămoș',
-  'workbench.editors.live.sections.priorityCapturePlaceholder': 'Nume captură',
   'workbench.editors.live.sections.sortNumeric': 'Numeric',
   'workbench.editors.live.sections.sortLexicographic': 'Lexicografic',
-  'workbench.editors.live.sections.priorityTooltip':
-    'Când mai mulți pași pot rula în continuare, primul rulează cel cu cea mai mică valoare de prioritate. Valorile lipsă se ordonează la sfârșit.',
   'workbench.editors.live.sections.clear': 'Golire',
   'workbench.editors.live.sections.retryPolicy': 'Politică de reîncercare',
-  'workbench.editors.live.sections.retrySummary': '(încercări: {count})',
-  'workbench.editors.live.sections.retrySummaryExponential': '(încercări: {count}, exponențial)',
-  'workbench.editors.live.sections.attemptsPlaceholder': 'Încercări',
-  'workbench.editors.live.sections.attemptsPrefix': 'încercări',
-  'workbench.editors.live.sections.delayPrefix': 'întârziere ms',
   'workbench.editors.live.sections.backoffFixed': 'Fix',
   'workbench.editors.live.sections.backoffExponential': 'Exponențial',
   'workbench.editors.live.sections.retryOnNetwork': 'Doar erori de rețea',
@@ -408,12 +394,8 @@ export const workbenchLive = {
   'workbench.editors.live.sections.retryOn429': 'Rețea + 429',
   'workbench.editors.live.sections.retryOn4xx': 'Rețea + 4xx',
   'workbench.editors.live.sections.retryOnCustom': 'Personalizată (editată ca date)',
-  'workbench.editors.live.sections.retryTooltip':
-    'Eșecurile de rețea (DNS, conexiune, timp de așteptare) se reîncearcă întotdeauna cât timp rămân încercări. Adăugarea unei potriviri de stare reîncearcă și răspunsurile potrivite; erorile de extragere nu se reîncearcă niciodată. Goliți câmpul încercărilor pentru a dezactiva reîncercările.',
   'workbench.editors.live.sections.timeout': 'Timp de așteptare',
   'workbench.editors.live.sections.noTimeoutPlaceholder': 'Fără timp de așteptare',
-  'workbench.editors.live.sections.timeoutTooltip':
-    'Per încercare — cererea (inclusiv citirea corpului) se abandonează după acest plafon. Un pas cu reîncercări primește întregul timp de așteptare la fiecare încercare. Goliți câmpul pentru a nu avea plafon.',
   'workbench.editors.live.sections.successCriteria': 'Criterii de succes',
   'workbench.editors.live.criteria.noneForCall': 'Niciun criteriu — orice răspuns primit trece.',
   'workbench.editors.live.criteria.noneForExpect': 'Niciun rând — primul mesaj sosit se potrivește.',
@@ -436,7 +418,6 @@ export const workbenchLive = {
   'workbench.editors.live.sections.timeoutDescription': 'Cât poate dura cel mult o încercare.',
   'workbench.editors.live.sections.timeoutPerAttempt': 'Per încercare (ms)',
   'workbench.editors.live.criteria.successDescription': 'Răspunsul trece când fiecare rând este îndeplinit.',
-  'workbench.editors.live.sections.pollSummary': '({count} × {delay} ms)',
   'workbench.editors.live.sections.pollInfo': 'Retrimite cererea până când criteriile ei de succes sunt îndeplinite.',
   'workbench.editors.live.sections.scriptsTooltip':
     'Rulează la fiecare încercare a lanțului. Scripturile pasului primesc o suprafață oh.* doar în citire (oh.sendRequest și oh.variables.set sunt respinse). O eroare de script sau o aserțiune oh.test eșuată face pasul să eșueze, astfel că ultimele valori bune sunt păstrate — aserțiunile controlează ce publică acest flux de lucru. Necesită un runtime cu suport de scripturi; pe gazdele fără unul, pasul rulează fără scripturi.',
@@ -551,10 +532,6 @@ export const workbenchLive = {
   'workbench.editors.live.status.neverRunForEnv':
     'nicio rulare pentru acest mediu — apăsați „Reîmprospătare” pentru a popula',
   'workbench.editors.live.status.notRunYet': 'încă nerulat — apăsați „Reîmprospătare” pentru a rula',
-
-  // ── Graph run overlay ───────────────────────────────────────────────
-  'workbench.editors.live.runOverlay.valuesPreserved': 'valori păstrate dintr-o rulare anterioară',
-  'workbench.editors.live.runOverlay.responseBytes': 'răspuns {bytes} octeți',
 
   // ── Create Workflow from requests modal ─────────────────────────────
   'workbench.editors.live.fromRequests.title': 'Creare flux de lucru din „{name}”',

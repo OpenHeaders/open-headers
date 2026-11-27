@@ -302,7 +302,6 @@ export const workbenchLive = {
 
   // ── Workflow step editor ────────────────────────────────────────────
   'workbench.editors.live.step.needsUpdate': 'This step needs a newer version of OpenHeaders.',
-  'workbench.editors.live.step.namePrefix': 'name',
   'workbench.editors.live.step.typeTooltip': 'Step type — Foreach and Composite coming in a future release.',
   'workbench.editors.live.step.typeForeach': 'Foreach',
   'workbench.editors.live.step.typeComposite': 'Composite',
@@ -317,7 +316,6 @@ export const workbenchLive = {
   'workbench.editors.live.step.afterPrefix': 'after',
   'workbench.editors.live.step.includeStored': 'Include stored messages',
   'workbench.editors.live.step.descriptionPlaceholder': 'Optional step description',
-  'workbench.editors.live.step.capturesHeader': 'CAPTURES ({count})',
   'workbench.editors.live.step.addCapture': 'Add capture',
   'workbench.editors.live.captures.title': 'Captures',
   'workbench.editors.live.captures.description': 'Values saved from this step for later steps.',
@@ -338,7 +336,6 @@ export const workbenchLive = {
   'workbench.editors.live.priority.capture': 'Capture',
   'workbench.editors.live.priority.compareAs': 'Compare as',
   'workbench.editors.live.priority.none': 'None',
-  'workbench.editors.live.step.captureRequired': 'At least one capture is required before an LV can bind to this step.',
   'workbench.editors.live.step.removeCaptureAria': 'Remove capture {name}',
   'workbench.editors.live.step.exposeAria': 'Expose capture {name} as live variable',
   'workbench.editors.live.step.exposeAs': 'Expose as',
@@ -349,21 +346,11 @@ export const workbenchLive = {
   'workbench.editors.live.sections.dependsOn': 'Depends on',
   'workbench.editors.live.sections.reset': 'Reset',
   'workbench.editors.live.sections.runCondition': 'Run condition',
-  'workbench.editors.live.sections.none': '(none)',
   'workbench.editors.live.sections.priority': 'Priority',
-  'workbench.editors.live.sections.priorityStepPlaceholder': 'Ancestor step',
-  'workbench.editors.live.sections.priorityCapturePlaceholder': 'Capture name',
   'workbench.editors.live.sections.sortNumeric': 'Numeric',
   'workbench.editors.live.sections.sortLexicographic': 'Lexicographic',
-  'workbench.editors.live.sections.priorityTooltip':
-    'When multiple steps can run next, the one with the lowest priority value runs first. Missing values sort last.',
   'workbench.editors.live.sections.clear': 'Clear',
   'workbench.editors.live.sections.retryPolicy': 'Retry policy',
-  'workbench.editors.live.sections.retrySummary': '({count} attempts)',
-  'workbench.editors.live.sections.retrySummaryExponential': '({count} attempts, exponential)',
-  'workbench.editors.live.sections.attemptsPlaceholder': 'Attempts',
-  'workbench.editors.live.sections.attemptsPrefix': 'attempts',
-  'workbench.editors.live.sections.delayPrefix': 'delay ms',
   'workbench.editors.live.sections.backoffFixed': 'Fixed',
   'workbench.editors.live.sections.backoffExponential': 'Exponential',
   'workbench.editors.live.sections.retryOnNetwork': 'Network errors only',
@@ -371,12 +358,8 @@ export const workbenchLive = {
   'workbench.editors.live.sections.retryOn429': 'Network + 429',
   'workbench.editors.live.sections.retryOn4xx': 'Network + 4xx',
   'workbench.editors.live.sections.retryOnCustom': 'Custom (edited as data)',
-  'workbench.editors.live.sections.retryTooltip':
-    'Network failures (DNS, connection, timeout) always retry while attempts remain. Adding a status match also retries matching responses; extraction errors never retry. Clear the attempts field to disable retries.',
   'workbench.editors.live.sections.timeout': 'Timeout',
   'workbench.editors.live.sections.noTimeoutPlaceholder': 'No timeout',
-  'workbench.editors.live.sections.timeoutTooltip':
-    'Per attempt — the request (including the body read) aborts past this ceiling. A retrying step gets the full timeout on every attempt. Clear the field for no ceiling.',
   'workbench.editors.live.sections.successCriteria': 'Success criteria',
   'workbench.editors.live.criteria.noneForCall': 'No criteria — any response that arrives passes.',
   'workbench.editors.live.criteria.noneForExpect': 'No rows — the first message that lands matches.',
@@ -399,7 +382,6 @@ export const workbenchLive = {
   'workbench.editors.live.sections.timeoutDescription': 'The longest one attempt may take.',
   'workbench.editors.live.sections.timeoutPerAttempt': 'Per attempt (ms)',
   'workbench.editors.live.criteria.successDescription': 'The response passes when every row holds.',
-  'workbench.editors.live.sections.pollSummary': '({count} × {delay} ms)',
   'workbench.editors.live.sections.pollInfo': 'Sends the request again until its success criteria hold.',
   'workbench.editors.live.sections.scriptsTooltip':
     'Runs on every chain attempt. Step scripts get a read-only oh.* surface (oh.sendRequest and oh.variables.set are rejected). A script error or a failed oh.test assertion fails the step, so last-good values are preserved — assertions gate what this workflow publishes. Needs a script-capable runtime; on hosts without one the step runs without scripts.',
@@ -510,10 +492,6 @@ export const workbenchLive = {
     'The workflow or an input it resolves changed since this value was extracted — run Refresh to re-extract.',
   'workbench.editors.live.status.neverRunForEnv': 'never run for this env — click Refresh to populate',
   'workbench.editors.live.status.notRunYet': 'not run yet — press Refresh to run',
-
-  // ── Graph run overlay ───────────────────────────────────────────────
-  'workbench.editors.live.runOverlay.valuesPreserved': 'values preserved from an earlier run',
-  'workbench.editors.live.runOverlay.responseBytes': 'response {bytes} bytes',
 
   // ── Create Workflow from requests modal ─────────────────────────────
   'workbench.editors.live.fromRequests.title': 'Create Workflow from “{name}”',

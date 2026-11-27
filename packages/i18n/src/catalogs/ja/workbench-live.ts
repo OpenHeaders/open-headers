@@ -303,7 +303,6 @@ export const workbenchLive = {
 
   // ── Workflow step editor ────────────────────────────────────────────
   'workbench.editors.live.step.needsUpdate': 'このステップには、より新しいバージョンの OpenHeaders が必要です。',
-  'workbench.editors.live.step.namePrefix': '名前',
   'workbench.editors.live.step.typeTooltip': 'ステップの種類。Foreach と Composite は今後のリリースで提供予定です。',
   'workbench.editors.live.step.typeForeach': 'Foreach',
   'workbench.editors.live.step.typeComposite': 'Composite',
@@ -318,7 +317,6 @@ export const workbenchLive = {
   'workbench.editors.live.step.afterPrefix': 'トリガー',
   'workbench.editors.live.step.includeStored': 'ブローカーが保持していたメッセージも含める',
   'workbench.editors.live.step.descriptionPlaceholder': 'ステップの説明（省略可）',
-  'workbench.editors.live.step.capturesHeader': 'キャプチャ（{count}）',
   'workbench.editors.live.step.addCapture': 'キャプチャを追加',
   'workbench.editors.live.captures.title': 'キャプチャ',
   'workbench.editors.live.captures.description': 'このステップが後のステップのために保存する値です。',
@@ -340,8 +338,6 @@ export const workbenchLive = {
   'workbench.editors.live.priority.capture': 'キャプチャ',
   'workbench.editors.live.priority.compareAs': '比較方法',
   'workbench.editors.live.priority.none': 'なし',
-  'workbench.editors.live.step.captureRequired':
-    'ライブ変数をこのステップにバインドするには、キャプチャが少なくとも 1 つ必要です。',
   'workbench.editors.live.step.removeCaptureAria': 'キャプチャ {name} を削除',
   'workbench.editors.live.step.exposeAria': 'キャプチャ {name} をライブ変数として公開',
   'workbench.editors.live.step.exposeAs': '公開名',
@@ -352,21 +348,11 @@ export const workbenchLive = {
   'workbench.editors.live.sections.dependsOn': '依存先',
   'workbench.editors.live.sections.reset': 'リセット',
   'workbench.editors.live.sections.runCondition': '実行条件',
-  'workbench.editors.live.sections.none': '（なし）',
   'workbench.editors.live.sections.priority': '優先度',
-  'workbench.editors.live.sections.priorityStepPlaceholder': '祖先ステップ',
-  'workbench.editors.live.sections.priorityCapturePlaceholder': 'キャプチャ名',
   'workbench.editors.live.sections.sortNumeric': '数値順',
   'workbench.editors.live.sections.sortLexicographic': '辞書順',
-  'workbench.editors.live.sections.priorityTooltip':
-    '次に実行できるステップが複数あるとき、優先度の値が最も小さいものが先に実行されます。値がないものは最後に並びます。',
   'workbench.editors.live.sections.clear': 'クリア',
   'workbench.editors.live.sections.retryPolicy': '再試行ポリシー',
-  'workbench.editors.live.sections.retrySummary': '（{count} 回試行）',
-  'workbench.editors.live.sections.retrySummaryExponential': '（{count} 回試行、指数）',
-  'workbench.editors.live.sections.attemptsPlaceholder': '試行回数',
-  'workbench.editors.live.sections.attemptsPrefix': '試行回数',
-  'workbench.editors.live.sections.delayPrefix': '遅延 ms',
   'workbench.editors.live.sections.backoffFixed': '固定',
   'workbench.editors.live.sections.backoffExponential': '指数',
   'workbench.editors.live.sections.retryOnNetwork': 'ネットワークエラーのみ',
@@ -374,12 +360,8 @@ export const workbenchLive = {
   'workbench.editors.live.sections.retryOn429': 'ネットワーク + 429',
   'workbench.editors.live.sections.retryOn4xx': 'ネットワーク + 4xx',
   'workbench.editors.live.sections.retryOnCustom': 'カスタム（データとして編集）',
-  'workbench.editors.live.sections.retryTooltip':
-    'ネットワークの失敗（DNS、接続、タイムアウト）は、試行回数が残っている限り常に再試行します。ステータスの一致を追加すると、一致するレスポンスも再試行します。抽出エラーは決して再試行しません。再試行を無効にするには試行回数のフィールドをクリアしてください。',
   'workbench.editors.live.sections.timeout': 'タイムアウト',
   'workbench.editors.live.sections.noTimeoutPlaceholder': 'タイムアウトなし',
-  'workbench.editors.live.sections.timeoutTooltip':
-    '試行ごとの上限です。リクエスト（ボディの読み取りを含む）はこの上限を過ぎると中止されます。再試行するステップは試行のたびに完全なタイムアウトを得ます。上限をなくすにはフィールドをクリアしてください。',
   'workbench.editors.live.sections.successCriteria': '成功条件',
   'workbench.editors.live.criteria.noneForCall': '条件なし — 届いたレスポンスはすべて合格になります。',
   'workbench.editors.live.criteria.noneForExpect': '行なし — 最初に届いたメッセージが一致します。',
@@ -402,7 +384,6 @@ export const workbenchLive = {
   'workbench.editors.live.sections.timeoutDescription': '1 回の試行にかけられる最長時間です。',
   'workbench.editors.live.sections.timeoutPerAttempt': '試行ごと (ms)',
   'workbench.editors.live.criteria.successDescription': 'すべての行が成り立つとレスポンスは合格になります。',
-  'workbench.editors.live.sections.pollSummary': '（{count} × {delay} ms）',
   'workbench.editors.live.sections.pollInfo': '成功条件を満たすまでリクエストを再送します。',
   'workbench.editors.live.sections.scriptsTooltip':
     'チェーンの試行ごとに実行されます。ステップのスクリプトは読み取り専用の oh.* の面を得ます（oh.sendRequest と oh.variables.set は拒否されます）。スクリプトのエラーや oh.test のアサーションの失敗はステップを失敗させるため、最後の正常な値が保持されます。アサーションがこのワークフローの公開内容を制御します。スクリプト対応のランタイムが必要で、対応していないホストではステップはスクリプトなしで実行されます。',
@@ -512,10 +493,6 @@ export const workbenchLive = {
   'workbench.editors.live.status.neverRunForEnv':
     'この環境ではまだ実行されていません。「更新」をクリックして値を用意してください',
   'workbench.editors.live.status.notRunYet': 'まだ実行されていません。「更新」をクリックして実行してください',
-
-  // ── Graph run overlay ───────────────────────────────────────────────
-  'workbench.editors.live.runOverlay.valuesPreserved': '以前の実行の値を保持',
-  'workbench.editors.live.runOverlay.responseBytes': 'レスポンス {bytes} バイト',
 
   // ── Create Workflow from requests modal ─────────────────────────────
   'workbench.editors.live.fromRequests.title': '「{name}」からワークフローを作成',
