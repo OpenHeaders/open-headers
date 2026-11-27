@@ -70,6 +70,22 @@ export const STEP_MARK_INK: Record<StepMarkKind, string> = {
   'cannot-run': 'var(--oh-wf-blocked)',
 };
 
+/** The colour a state gives a mark too small for its shape — its glyph's own. */
+export const STEP_MARK_FILL: Record<StepMarkKind, string> = {
+  idle: 'var(--oh-wf-idle)',
+  waiting: QUIET,
+  running: ACCENT,
+  retrying: ACCENT,
+  held: ACCENT,
+  open: 'var(--oh-wf-open)',
+  passed: 'var(--oh-wf-success)',
+  failed: 'var(--oh-wf-failure)',
+  'timed-out': 'var(--oh-wf-timeout)',
+  skipped: QUIET,
+  'not-run': QUIET,
+  'cannot-run': 'var(--oh-wf-blocked)',
+};
+
 const StepGlyph: React.FC<{ kind: StepMarkKind; label: string; size?: number }> = ({ kind, label, size = 18 }) => {
   const shape = SHAPES[kind];
   return (

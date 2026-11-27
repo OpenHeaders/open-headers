@@ -51,8 +51,10 @@
  * workflow runs plan, Decisions log, S31), a compact right-click context menu on
  * the background (add step) and on nodes (delete), keyboard shortcuts
  * on the focused pane (⌫ delete node or selected line, Esc dismiss), and
- * a legend behind a button bottom-right naming all of them — the graph
- * may be a short strip over its panel, so nothing sits open on it. The
+ * a legend behind a button at the row's end naming all of them. From two
+ * steps up the whole graph sits small in the bottom-right corner
+ * (`WorkflowGraphMinimap`), and a step that waits on no other wears a
+ * bar on its top edge: a run starts there. The
  * first view centres the graph at the app's UI scale, drawn smaller
  * where it is wider than the pane. Delete mirrors the form's remove
  * button via `removeDraftStep` — last step stays, dangling references
@@ -104,6 +106,7 @@ import {
   type StepReach,
   stepOwnTemplates,
 } from './graph-lines';
+import { type Point, viewportCentredOn } from './graph-minimap';
 import { routeGraph } from './graph-routing';
 import { actionOfStep, doesOfStep, markOfStep, protocolOfStep, STEP_KIND_WORD } from './step-facts';
 import { type DraftHistoryControls, REDO_HINT_CHORD, UNDO_CHORD } from './use-draft-history';
@@ -115,6 +118,7 @@ import WorkflowGraphLines, {
   type GraphEdgeRef,
   type GraphLineView,
 } from './WorkflowGraphLines';
+import WorkflowGraphMinimap from './WorkflowGraphMinimap';
 import WorkflowGraphNode, { GRAPH_NODE_H, GRAPH_NODE_W } from './WorkflowGraphNode';
 
 const NODE_W = GRAPH_NODE_W;
@@ -619,6 +623,17 @@ const WorkflowGraphBody: React.FC<WorkflowGraphBodyProps> = ({
 
   const dragSource = drag ? positions.get(drag.from) : undefined;
 
+  // Each step's mark, read once: its node wears it, and the minimap its colour.
+  const marks = new Map(layout.nodes.map(({ step }) => [step.id, markOfStep(step, { run, cacheRun, now }, t)]));
+  // A graph of one step is all in view: the minimap comes with the second.
+  const hasMinimap = draft.steps.length >= 2;
+
+  const centreOn = (point: Point) => {
+    const rect = paneRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    setViewport((v) => viewportCentredOn(point, rect, v.scale));
+  };
+
   return (
     <div
       style={{ display: 'flex', flexDirection: 'column', height: '100%', outline: 'none' }}
@@ -638,13 +653,25 @@ const WorkflowGraphBody: React.FC<WorkflowGraphBodyProps> = ({
           {t('workbench.editors.live.form.addStepButton')}
         </Button>
       )}
-      <GraphControlRow corner="right">
-        <GraphLegend editable={editable} />
-      </GraphControlRow>
-      <GraphControlRow corner="left">
+      <GraphControlRow>
         <GraphViewControls onZoomIn={() => zoomBy(1.2)} onZoomOut={() => zoomBy(1 / 1.2)} onFit={fitView} />
         <GraphHistoryControls history={history} />
+        <GraphLegend editable={editable} withMap={hasMinimap} />
       </GraphControlRow>
+      {hasMinimap && (
+        <WorkflowGraphMinimap
+          world={{ width: canvasW, height: canvasH }}
+          nodes={layout.nodes.flatMap((node) => {
+            const pos = positions.get(node.step.id);
+            const mark = marks.get(node.step.id);
+            return pos === undefined || mark === undefined ? [] : [{ id: node.step.id, ...pos, kind: mark.kind }];
+          })}
+          nodeSize={{ width: NODE_W, height: NODE_H }}
+          pane={paneRef}
+          viewport={viewport}
+          onCentre={centreOn}
+        />
+      )}
       {/* Viewport: the pane never moves and never scrolls — `clip`, not
           `hidden`, which a scroll-into-view still scrolls; the canvas
           carries the translate+scale transform. Background drag pans,
@@ -704,6 +731,8 @@ const WorkflowGraphBody: React.FC<WorkflowGraphBodyProps> = ({
           const session = isSessionStep(step) ? step : undefined;
           const shared = call ?? session;
           const action = actionOfStep(step);
+          const mark = marks.get(step.id);
+          if (mark === undefined) return null;
           return (
             <WorkflowGraphNode
               key={step.uid}
@@ -711,6 +740,7 @@ const WorkflowGraphBody: React.FC<WorkflowGraphBodyProps> = ({
               x={pos.x}
               y={pos.y}
               selected={selectedStepId === step.id}
+              start={node.parents.length === 0}
               onSelect={onSelectStep ? () => onSelectStep(step.uid) : undefined}
               onContextMenu={handleNodeContextMenu({ stepId: step.id, stepUid: step.uid })}
               onHover={
@@ -724,7 +754,7 @@ const WorkflowGraphBody: React.FC<WorkflowGraphBodyProps> = ({
               usedBy={session !== undefined && isListenStep(session) ? usersOf(session.id) : []}
               captures={capturesOf(draftStepsById.get(step.id))}
               boundVars={boundVars}
-              mark={markOfStep(step, { run, cacheRun, now }, t)}
+              mark={mark}
               priorityLabel={
                 shared?.priorityFrom
                   ? t('workbench.editors.live.graph.orderedBy', {
@@ -884,20 +914,9 @@ const GraphMenuRow: React.FC<{ action: GraphMenuAction; onDone: () => void }> = 
   );
 };
 
-/** The pane's own controls in one of its bottom corners: a row of groups. */
-const GraphControlRow: React.FC<{ corner: 'left' | 'right'; children: React.ReactNode }> = ({ corner, children }) => (
-  <div
-    style={{
-      position: 'absolute',
-      bottom: 8,
-      ...(corner === 'left' ? { left: 12 } : { right: 12 }),
-      zIndex: 3,
-      display: 'flex',
-      gap: 6,
-    }}
-  >
-    {children}
-  </div>
+/** The pane's own controls, in its bottom-left corner: a row of groups. */
+const GraphControlRow: React.FC<{ children: React.ReactNode }> = ({ children }) => (
+  <div style={{ position: 'absolute', bottom: 8, left: 12, zIndex: 3, display: 'flex', gap: 6 }}>{children}</div>
 );
 
 /** A group of controls that belong together, in one box. */
@@ -986,10 +1005,10 @@ const GraphHistoryControls: React.FC<{ history: DraftHistoryControls }> = ({ his
 };
 
 /**
- * The shortcut legend, behind a button in the pane's bottom-right
- * corner — names every canvas gesture so nothing is discover-by-luck.
+ * The shortcut legend, behind a button at the end of the row of
+ * controls — names every canvas gesture so nothing is discover-by-luck.
  */
-const GraphLegend: React.FC<{ editable: boolean }> = ({ editable }) => {
+const GraphLegend: React.FC<{ editable: boolean; withMap: boolean }> = ({ editable, withMap }) => {
   const { token } = theme.useToken();
   const t = useT();
   // Word-bearing gesture chips are keyed; the lone ⌫ glyph stays raw
@@ -1010,6 +1029,9 @@ const GraphLegend: React.FC<{ editable: boolean }> = ({ editable }) => {
         ]
       : []),
     { keys: t('workbench.editors.live.graph.legendDragBg'), action: t('workbench.editors.live.graph.legendPan') },
+    ...(withMap
+      ? [{ keys: t('workbench.editors.live.graph.legendDragMap'), action: t('workbench.editors.live.graph.legendPan') }]
+      : []),
     { keys: t('workbench.editors.live.graph.legendScroll'), action: t('workbench.editors.live.graph.legendZoom') },
     { keys: formatChord(UNDO_CHORD), action: t('workbench.editors.live.graph.legendUndo') },
     { keys: formatChord(REDO_HINT_CHORD), action: t('workbench.editors.live.graph.legendRedo') },
@@ -1028,7 +1050,7 @@ const GraphLegend: React.FC<{ editable: boolean }> = ({ editable }) => {
       }}
     >
       {entries.map((entry) => (
-        <span key={entry.action} style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+        <span key={entry.keys} style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
           <span
             style={{
               padding: '0 4px',
@@ -1049,7 +1071,7 @@ const GraphLegend: React.FC<{ editable: boolean }> = ({ editable }) => {
   );
   return (
     <GraphControlGroup>
-      <Popover content={legend} placement="topRight">
+      <Popover content={legend} placement="topLeft">
         <Button
           type="text"
           size="small"

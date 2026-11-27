@@ -527,6 +527,7 @@ export const workbenchLive = {
   'workbench.editors.live.graph.legendRightClick': 'правый щелчок',
   'workbench.editors.live.graph.legendMenu': 'меню',
   'workbench.editors.live.graph.legendDragBg': 'тянуть фон',
+  'workbench.editors.live.graph.legendDragMap': 'тянуть карту',
   'workbench.editors.live.graph.legendPan': 'прокрутить холст',
   'workbench.editors.live.graph.legendScroll': 'колесо',
   'workbench.editors.live.graph.legendZoom': 'масштаб',

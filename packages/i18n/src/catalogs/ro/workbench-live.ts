@@ -526,6 +526,7 @@ export const workbenchLive = {
   'workbench.editors.live.graph.legendRightClick': 'clic dreapta',
   'workbench.editors.live.graph.legendMenu': 'meniu',
   'workbench.editors.live.graph.legendDragBg': 'tragere fundal',
+  'workbench.editors.live.graph.legendDragMap': 'tragere hartă',
   'workbench.editors.live.graph.legendPan': 'panoramare',
   'workbench.editors.live.graph.legendScroll': 'derulare',
   'workbench.editors.live.graph.legendZoom': 'zoom',

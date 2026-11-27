@@ -11,6 +11,9 @@
  *
  * Beside the name sit two marks the design does not draw: a capture
  * sets the step's order, the draft says something is wrong with it.
+ *
+ * A step that waits on no other wears a bar in the accent on its top
+ * edge (the workflow runs plan, Decisions log, S31): a run starts there.
  */
 
 import { SortAscendingOutlined, ThunderboltFilled, WarningOutlined } from '@ant-design/icons';
@@ -28,6 +31,8 @@ import type { StepMark } from './step-mark';
 
 export const GRAPH_NODE_W = 208;
 export const GRAPH_NODE_H = 82;
+/** The bar on the top edge of a step a run starts at. */
+const START_BAR_H = 3;
 
 const MONO = 'ui-monospace, SFMono-Regular, Menlo, monospace';
 
@@ -45,6 +50,8 @@ interface WorkflowGraphNodeProps {
   x: number;
   y: number;
   selected: boolean;
+  /** The step waits on no other: a run starts here, and the node wears the start bar. */
+  start: boolean;
   onSelect?: () => void;
   /** Right-click — selects the node and opens the compact context menu. */
   onContextMenu?: (e: React.MouseEvent) => void;
@@ -78,6 +85,7 @@ const WorkflowGraphNode: React.FC<WorkflowGraphNodeProps> = ({
   x,
   y,
   selected,
+  start,
   onSelect,
   onContextMenu,
   onHover,
@@ -171,6 +179,25 @@ const WorkflowGraphNode: React.FC<WorkflowGraphNodeProps> = ({
         cursor: onSelect ? 'pointer' : undefined,
       }}
     >
+      {start && (
+        // Cut by the node's own corners, so the bar follows its top edge.
+        <span
+          aria-hidden="true"
+          style={{ position: 'absolute', inset: 0, borderRadius: 'inherit', overflow: 'hidden', pointerEvents: 'none' }}
+        >
+          <span
+            data-testid={`wf-graph-start-${stepId}`}
+            style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              right: 0,
+              height: START_BAR_H,
+              background: 'var(--oh-wf-accent)',
+            }}
+          />
+        </span>
+      )}
       <StepRunMark stepId={stepId} mark={mark} />
       <span style={{ flex: 1, minWidth: 0 }}>
         <span style={{ display: 'flex', alignItems: 'center', gap: 5, height: 18 }}>

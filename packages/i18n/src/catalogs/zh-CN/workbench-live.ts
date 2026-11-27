@@ -472,6 +472,7 @@ export const workbenchLive = {
   'workbench.editors.live.graph.legendRightClick': '右键单击',
   'workbench.editors.live.graph.legendMenu': '菜单',
   'workbench.editors.live.graph.legendDragBg': '拖动背景',
+  'workbench.editors.live.graph.legendDragMap': '拖动小地图',
   'workbench.editors.live.graph.legendPan': '平移',
   'workbench.editors.live.graph.legendScroll': '滚动',
   'workbench.editors.live.graph.legendZoom': '缩放',

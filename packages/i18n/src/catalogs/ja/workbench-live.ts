@@ -489,6 +489,7 @@ export const workbenchLive = {
   'workbench.editors.live.graph.legendRightClick': '右クリック',
   'workbench.editors.live.graph.legendMenu': 'メニュー',
   'workbench.editors.live.graph.legendDragBg': '背景をドラッグ',
+  'workbench.editors.live.graph.legendDragMap': 'マップをドラッグ',
   'workbench.editors.live.graph.legendPan': 'パン',
   'workbench.editors.live.graph.legendScroll': 'スクロール',
   'workbench.editors.live.graph.legendZoom': 'ズーム',

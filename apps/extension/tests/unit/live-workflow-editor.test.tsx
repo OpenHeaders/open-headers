@@ -562,6 +562,131 @@ describe('LiveWorkflowEditor — undo and redo', () => {
   });
 });
 
+// ── The minimap and the start mark ────────────────────────────────
+//
+// The workflow runs plan, Decisions log, S31: from two steps up the
+// whole graph sits small in the graph's corner, a rectangle a step in
+// its state's colour, and a press there moves the view; a step that
+// waits on no other wears a bar on its top edge.
+
+describe('LiveWorkflowEditor — the minimap and the start mark', () => {
+  const addStep = (): void => {
+    fireEvent.click(screen.getByRole('button', { name: /Step$/ }));
+  };
+
+  it('a workflow of one step has no minimap; the second step brings it', () => {
+    renderEditor();
+    expect(screen.queryByTestId('wf-graph-minimap')).toBeNull();
+
+    addStep();
+
+    expect(screen.getByTestId('wf-graph-minimap')).toBeTruthy();
+    expect(screen.getByTestId('wf-graph-minimap-node-only').getAttribute('data-run-state')).toBe('idle');
+    expect(screen.getByTestId('wf-graph-minimap-node-step2').getAttribute('data-run-state')).toBe('idle');
+  });
+
+  it('a step of the minimap wears the state its node wears', () => {
+    workflowState = needsUpdateFixture;
+    renderEditor();
+
+    for (const stepId of ['probe', 'reboot', 'status']) {
+      expect(screen.getByTestId(`wf-graph-minimap-node-${stepId}`).getAttribute('data-run-state')).toBe(
+        screen.getByTestId(`wf-graph-run-${stepId}`).getAttribute('data-run-state'),
+      );
+    }
+    expect(screen.getByTestId('wf-graph-minimap-node-probe').getAttribute('data-run-state')).toBe('cannot-run');
+  });
+
+  it('a press on the minimap puts the pressed point of the graph at the middle of the pane', () => {
+    Element.prototype.setPointerCapture = vi.fn();
+    renderEditor();
+    addStep();
+    const minimap = screen.getByTestId('wf-graph-minimap');
+    const drawing = minimap.querySelector('svg');
+    const pane = screen.getByTestId('wf-graph-pane');
+    const canvas = pane.firstElementChild;
+    if (drawing === null || !(canvas instanceof HTMLElement)) throw new Error('the graph did not mount');
+    // Two steps, one under the other: a graph 256 wide and 284 tall, in a drawing 112 by 71.
+    vi.spyOn(drawing, 'getBoundingClientRect').mockReturnValue(new DOMRect(1000, 500, 112, 71));
+    vi.spyOn(pane, 'getBoundingClientRect').mockReturnValue(new DOMRect(0, 0, 800, 600));
+
+    // The drawing's middle is the graph's middle.
+    fireEvent.pointerDown(minimap, { button: 0, pointerId: 1, clientX: 1056, clientY: 535.5 });
+    expect(canvas.style.transform).toBe('translate(272px, 158px) scale(1)');
+
+    // Held and moved to the drawing's top edge: the graph's top is at the pane's middle.
+    fireEvent.pointerMove(minimap, { pointerId: 1, clientX: 1056, clientY: 500 });
+    expect(canvas.style.transform).toBe('translate(272px, 300px) scale(1)');
+
+    // Let go: a move no longer pans.
+    fireEvent.pointerUp(minimap, { pointerId: 1 });
+    fireEvent.pointerMove(minimap, { pointerId: 1, clientX: 1056, clientY: 571 });
+    expect(canvas.style.transform).toBe('translate(272px, 300px) scale(1)');
+  });
+
+  it('the minimap outlines what the pane shows, from the graph’s first mount', () => {
+    // A pane with a size, reported as it is observed — as a browser does.
+    class ReportingResizeObserver implements ResizeObserver {
+      private readonly report: ResizeObserverCallback;
+      constructor(report: ResizeObserverCallback) {
+        this.report = report;
+      }
+      observe(): void {
+        this.report([], this);
+      }
+      unobserve(): void {}
+      disconnect(): void {}
+    }
+    vi.stubGlobal('ResizeObserver', ReportingResizeObserver);
+    const rect = vi.spyOn(Element.prototype, 'getBoundingClientRect').mockReturnValue(new DOMRect(0, 0, 800, 600));
+    try {
+      workflowState = needsUpdateFixture;
+      renderEditor();
+
+      const view = screen.getByTestId('wf-graph-minimap-view');
+      expect(Number(view.getAttribute('width'))).toBeGreaterThan(0);
+      expect(Number(view.getAttribute('height'))).toBeGreaterThan(0);
+    } finally {
+      rect.mockRestore();
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it('the minimap grows under the pointer and returns when it leaves', () => {
+    renderEditor();
+    addStep();
+    const minimap = screen.getByTestId('wf-graph-minimap');
+    expect(minimap.style.width).toBe('120px');
+    expect(minimap.style.height).toBe('80px');
+
+    fireEvent.pointerEnter(minimap);
+    expect(minimap.style.width).toBe('240px');
+    expect(minimap.style.height).toBe('160px');
+
+    fireEvent.pointerLeave(minimap);
+    expect(minimap.style.width).toBe('120px');
+  });
+
+  it('a step that waits on no other wears the start bar; a step that waits on one does not', () => {
+    renderEditor();
+    addStep();
+
+    expect(screen.getByTestId('wf-graph-start-only')).toBeTruthy();
+    expect(screen.queryByTestId('wf-graph-start-step2')).toBeNull();
+  });
+
+  it('the legend is in the row of controls, and names the minimap once there is one', async () => {
+    renderEditor();
+    const row = screen.getByTestId('wf-graph-zoom-in').parentElement?.parentElement;
+    expect(row?.contains(screen.getByTestId('wf-graph-legend-toggle'))).toBe(true);
+
+    addStep();
+    fireEvent.mouseEnter(screen.getByTestId('wf-graph-legend-toggle'));
+
+    expect((await screen.findByTestId('wf-graph-legend')).textContent).toContain('drag map');
+  });
+});
+
 describe('LiveWorkflowEditor — a run in the view', () => {
   it('a saved workflow with no run says so in its panel', () => {
     renderEditor();

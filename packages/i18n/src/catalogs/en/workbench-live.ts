@@ -491,6 +491,7 @@ export const workbenchLive = {
   'workbench.editors.live.graph.legendRightClick': 'right-click',
   'workbench.editors.live.graph.legendMenu': 'menu',
   'workbench.editors.live.graph.legendDragBg': 'drag bg',
+  'workbench.editors.live.graph.legendDragMap': 'drag map',
   'workbench.editors.live.graph.legendPan': 'pan',
   'workbench.editors.live.graph.legendScroll': 'scroll',
   'workbench.editors.live.graph.legendZoom': 'zoom',

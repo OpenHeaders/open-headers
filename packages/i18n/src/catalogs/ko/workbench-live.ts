@@ -492,6 +492,7 @@ export const workbenchLive = {
   'workbench.editors.live.graph.legendRightClick': '오른쪽 클릭',
   'workbench.editors.live.graph.legendMenu': '메뉴',
   'workbench.editors.live.graph.legendDragBg': '배경 드래그',
+  'workbench.editors.live.graph.legendDragMap': '미니맵 드래그',
   'workbench.editors.live.graph.legendPan': '이동',
   'workbench.editors.live.graph.legendScroll': '스크롤',
   'workbench.editors.live.graph.legendZoom': '확대/축소',

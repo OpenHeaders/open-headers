@@ -520,6 +520,7 @@ export const workbenchLive = {
   'workbench.editors.live.graph.legendRightClick': 'clic droit',
   'workbench.editors.live.graph.legendMenu': 'menu',
   'workbench.editors.live.graph.legendDragBg': 'glisser le fond',
+  'workbench.editors.live.graph.legendDragMap': 'glisser la carte',
   'workbench.editors.live.graph.legendPan': 'panoramique',
   'workbench.editors.live.graph.legendScroll': 'défilement',
   'workbench.editors.live.graph.legendZoom': 'zoom',

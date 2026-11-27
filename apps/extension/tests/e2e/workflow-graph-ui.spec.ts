@@ -26,6 +26,8 @@
  *     would-be-cycle targets tint during the drag but the drop still
  *     commits and the validation badge flags it; edge select + remove;
  *     the add-step affordance appends a form-default step.
+ *   - The start mark on the step that waits on no other; the minimap's
+ *     rectangle a step, and a press on it moving the view.
  *   - Undo and redo: the connect is taken back and brought back by the
  *     two buttons of the graph's row and by the shortcut; taken back,
  *     the draft reads as saved.
@@ -266,6 +268,25 @@ test('graph toggle renders the step DAG and returns to the form loss-free', asyn
   await expect(page.locator('[data-step-card]')).toHaveCount(0);
   await expect(page.getByTestId('wf-graph-node-root')).not.toHaveAttribute('data-selected', 'true');
   await expect(page.getByTestId('wf-graph-pane')).toBeVisible();
+  await expect(saveButton).toBeDisabled();
+
+  // ── The start mark and the minimap ─────────────────────────────
+
+  // The bar is on the step that waits on no other, and only there.
+  await expect(page.getByTestId('wf-graph-start-root')).toBeVisible();
+  await expect(page.locator('[data-testid^="wf-graph-start-"]')).toHaveCount(1);
+
+  // The minimap holds a rectangle a step, in the state its node wears;
+  // a press on it moves the view, and never dirties the draft.
+  const minimap = page.getByTestId('wf-graph-minimap');
+  await expect(minimap.locator('[data-testid^="wf-graph-minimap-node-"]')).toHaveCount(4);
+  await expect(page.getByTestId('wf-graph-minimap-node-sink')).toHaveAttribute('data-run-state', 'idle');
+  await expect(page.getByTestId('wf-graph-minimap-view')).toHaveCount(1);
+  const canvasTransform = () =>
+    page.getByTestId('wf-graph-pane').evaluate((pane) => (pane.firstElementChild as HTMLElement).style.transform);
+  const before = await canvasTransform();
+  await minimap.click({ position: { x: 10, y: 10 } });
+  expect(await canvasTransform()).not.toBe(before);
   await expect(saveButton).toBeDisabled();
 
   expect(pageErrors).toEqual([]);
