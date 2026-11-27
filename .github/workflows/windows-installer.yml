@@ -83,14 +83,16 @@ jobs:
 
       # The program started on this Windows, with no window: a switch it
       # does not take must end it with its own code for that, and leave
-      # its log — the proof that it starts and reaches its own code.
+      # its log — the proof that it starts and reaches its own code. A
+      # run whose switches it refuses writes its log where a run without
+      # `--log` does, in the user's temp folder.
       - name: Start the x64 installer with a switch it refuses
         shell: bash
         run: |
           set +e
-          native/windows-installer/dist/win-x64/OpenHeaders-Installer-x64.exe --silent --no-launch --channel nightly --log "$RUNNER_TEMP/installer.log"
+          native/windows-installer/dist/win-x64/OpenHeaders-Installer-x64.exe --silent --no-launch --channel nightly
           code=$?
-          cat "$RUNNER_TEMP/installer.log"
+          cat "$LOCALAPPDATA/Temp/OpenHeaders-Installer.log"
           if [ "$code" != "2" ]; then
             echo "::error::a bad switch should end with 2, the installer ended with $code"
             exit 1
