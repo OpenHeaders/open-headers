@@ -20,6 +20,9 @@
  *       nothing after it runs.
  *   R6  A run this host refuses before its first step, by the check's
  *       own sentence.
+ *   H1  A run pressed in the workflow's History is drawn on the whole
+ *       view while a newer one goes; Back to latest and a new run both
+ *       return the view to the latest.
  *   C1  `oh run workflow` reports a row per step and exits 0.
  *   C2  A failed run writes its JUnit failure and exits 1.
  *
@@ -138,8 +141,12 @@ async function showWorkflowsView(): Promise<void> {
   }
 }
 
+function visible(testId: string): Locator {
+  return workbench.getByTestId(testId).filter({ visible: true }).first();
+}
+
 function workflowView(): Locator {
-  return workbench.getByTestId('wf-view').filter({ visible: true }).first();
+  return visible('wf-view');
 }
 
 function runRow(stepId: string): Locator {
@@ -303,6 +310,47 @@ test('R6 — an expect that passes over stored messages is refused before the ru
   );
   await expect(runRow('probe')).toContainText('Not run');
   await expect(runRow('reboot')).toContainText('Not run');
+});
+
+// ── A run picked from the workflow's History ────────────────────────
+
+test('H1 — a run pressed in History is drawn on the whole view while a newer one goes; Back to latest and a new run return to the latest', async () => {
+  // R3 left one run of this workflow, failed at its deadline. It calls nothing: no start is counted here.
+  await workbench.locator('[data-item-id="workflow-e2ewrwf3"]').click();
+  await visible('wf-panel-tab-history').click();
+  const rows = workbench.locator('[data-testid^="wf-history-row-"]').filter({ visible: true });
+  const shownRun = workbench.getByTestId('wf-shown-run').filter({ visible: true });
+  await expect(visible('wf-history-count')).toHaveText('1');
+  await expect(rows.first()).toHaveAttribute('data-shown', 'true');
+
+  // A second run goes for its 1.5 s; the first is pressed while it does.
+  await visible('wf-run').click();
+  await expect(rows.first()).toHaveAttribute('data-run-verdict', 'running');
+  await rows.nth(1).click();
+  await expect(shownRun).toContainText('Failed');
+  await expect(rows.nth(1)).toHaveAttribute('data-shown', 'true');
+  await expect(workflowView()).toHaveAttribute('data-run-verdict', 'failed');
+  await expect(nodeMark('health')).toHaveAttribute('data-run-state', 'timed-out');
+  // The latest is still going: its row says so, and the header's phrase is its own.
+  await expect(rows.first()).toHaveAttribute('data-run-verdict', 'running');
+  await expect(visible('wf-header-status')).toContainText('Running');
+
+  // The latest ends; the view still draws the pressed run until Back to latest.
+  await expect(rows.first()).toHaveAttribute('data-run-verdict', 'failed', { timeout: 10_000 });
+  await expect(visible('wf-header-status')).toHaveText('Failed at health');
+  await expect(shownRun).toHaveCount(1);
+  await visible('wf-shown-run-latest').click();
+  await expect(shownRun).toHaveCount(0);
+  await expect(rows.first()).toHaveAttribute('data-shown', 'true');
+
+  // A run pressed, then a new run: the view is the new run's.
+  await rows.nth(1).click();
+  await expect(shownRun).toHaveCount(1);
+  await visible('wf-run').click();
+  await expect(shownRun).toHaveCount(0);
+  await expect(visible('wf-history-count')).toHaveText('3');
+  await expect(rows.first()).toHaveAttribute('data-shown', 'true');
+  await expect(rows.first()).toHaveAttribute('data-run-verdict', 'failed', { timeout: 10_000 });
 });
 
 // ── `oh run workflow` against the same app ──────────────────────────
