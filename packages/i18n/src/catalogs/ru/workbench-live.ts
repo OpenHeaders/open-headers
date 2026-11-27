@@ -241,11 +241,6 @@ export const workbenchLive = {
   'workbench.editors.live.run.verdict.passed': 'Пройден',
   'workbench.editors.live.run.verdict.failed': 'Сбой',
   'workbench.editors.live.run.verdict.cannotRun': 'Здесь не запускается',
-  'workbench.editors.live.run.total.passed': 'пройдено: {count}',
-  'workbench.editors.live.run.total.failed': 'сбоев: {count}',
-  'workbench.editors.live.run.total.skipped': 'пропущено: {count}',
-  'workbench.editors.live.run.total.notRun': 'не запущено: {count}',
-  'workbench.editors.live.run.total.cannotRun': 'не запускается: {count}',
   'workbench.editors.live.run.action.call': 'Вызов',
   'workbench.editors.live.run.row.waiting': 'Ожидает',
   'workbench.editors.live.run.row.sending': 'Отправка…',
@@ -352,7 +347,6 @@ export const workbenchLive = {
   'workbench.editors.live.workflow.newDraftName': 'Новый рабочий процесс',
 
   // ── Workflow form body ──────────────────────────────────────────────
-  'workbench.editors.live.form.structuralIssues': 'В рабочем процессе есть структурные проблемы',
   'workbench.editors.live.form.addStepButton': 'Шаг',
   'workbench.editors.live.form.enabledAria': 'Рабочий процесс включён',
   'workbench.editors.live.form.enabled': 'Включено',

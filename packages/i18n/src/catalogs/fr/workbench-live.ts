@@ -226,11 +226,6 @@ export const workbenchLive = {
   'workbench.editors.live.run.verdict.passed': 'Réussie',
   'workbench.editors.live.run.verdict.failed': 'Échouée',
   'workbench.editors.live.run.verdict.cannotRun': "Ne peut pas s'exécuter ici",
-  'workbench.editors.live.run.total.passed': '{count} réussies',
-  'workbench.editors.live.run.total.failed': '{count} échouées',
-  'workbench.editors.live.run.total.skipped': '{count} sautées',
-  'workbench.editors.live.run.total.notRun': '{count} non exécutées',
-  'workbench.editors.live.run.total.cannotRun': '{count} non exécutables',
   'workbench.editors.live.run.action.call': 'Appel',
   'workbench.editors.live.run.row.waiting': 'En attente',
   'workbench.editors.live.run.row.sending': 'Envoi…',
@@ -335,7 +330,6 @@ export const workbenchLive = {
   'workbench.editors.live.workflow.newDraftName': 'Nouveau workflow',
 
   // ── Workflow form body ──────────────────────────────────────────────
-  'workbench.editors.live.form.structuralIssues': 'Le workflow a des problèmes structurels',
   'workbench.editors.live.form.addStepButton': 'Étape',
   'workbench.editors.live.form.enabledAria': 'Workflow activé',
   'workbench.editors.live.form.enabled': 'Activé',

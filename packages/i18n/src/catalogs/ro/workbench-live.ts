@@ -246,11 +246,6 @@ export const workbenchLive = {
   'workbench.editors.live.run.verdict.passed': 'Reușită',
   'workbench.editors.live.run.verdict.failed': 'Eșuată',
   'workbench.editors.live.run.verdict.cannotRun': 'Nu poate rula aici',
-  'workbench.editors.live.run.total.passed': 'reușiți: {count}',
-  'workbench.editors.live.run.total.failed': 'eșuați: {count}',
-  'workbench.editors.live.run.total.skipped': 'săriți: {count}',
-  'workbench.editors.live.run.total.notRun': 'nerulați: {count}',
-  'workbench.editors.live.run.total.cannotRun': 'nu pot rula: {count}',
   'workbench.editors.live.run.action.call': 'Apel',
   'workbench.editors.live.run.row.waiting': 'În așteptare',
   'workbench.editors.live.run.row.sending': 'Se trimite…',
@@ -354,7 +349,6 @@ export const workbenchLive = {
   'workbench.editors.live.workflow.newDraftName': 'Flux de lucru nou',
 
   // ── Workflow form body ──────────────────────────────────────────────
-  'workbench.editors.live.form.structuralIssues': 'Fluxul de lucru are probleme structurale',
   'workbench.editors.live.form.addStepButton': 'Pas',
   'workbench.editors.live.form.enabledAria': 'Flux de lucru activat',
   'workbench.editors.live.form.enabled': 'Activat',

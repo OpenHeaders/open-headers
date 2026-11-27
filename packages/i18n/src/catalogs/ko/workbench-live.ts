@@ -225,11 +225,6 @@ export const workbenchLive = {
   'workbench.editors.live.run.verdict.passed': '통과',
   'workbench.editors.live.run.verdict.failed': '실패',
   'workbench.editors.live.run.verdict.cannotRun': '여기서 실행할 수 없음',
-  'workbench.editors.live.run.total.passed': '통과 {count}',
-  'workbench.editors.live.run.total.failed': '실패 {count}',
-  'workbench.editors.live.run.total.skipped': '건너뜀 {count}',
-  'workbench.editors.live.run.total.notRun': '실행 안 됨 {count}',
-  'workbench.editors.live.run.total.cannotRun': '실행 불가 {count}',
   'workbench.editors.live.run.action.call': '호출',
   'workbench.editors.live.run.row.waiting': '대기 중',
   'workbench.editors.live.run.row.sending': '보내는 중…',
@@ -320,7 +315,6 @@ export const workbenchLive = {
   'workbench.editors.live.workflow.newDraftName': '새 워크플로',
 
   // ── Workflow form body ──────────────────────────────────────────────
-  'workbench.editors.live.form.structuralIssues': '워크플로에 구조적 문제가 있습니다',
   'workbench.editors.live.form.addStepButton': '단계',
   'workbench.editors.live.form.enabledAria': '워크플로 활성',
   'workbench.editors.live.form.enabled': '활성',

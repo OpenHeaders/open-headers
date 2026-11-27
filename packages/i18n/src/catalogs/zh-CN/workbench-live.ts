@@ -214,11 +214,6 @@ export const workbenchLive = {
   'workbench.editors.live.run.verdict.passed': '通过',
   'workbench.editors.live.run.verdict.failed': '失败',
   'workbench.editors.live.run.verdict.cannotRun': '无法在此运行',
-  'workbench.editors.live.run.total.passed': '{count} 个通过',
-  'workbench.editors.live.run.total.failed': '{count} 个失败',
-  'workbench.editors.live.run.total.skipped': '{count} 个已跳过',
-  'workbench.editors.live.run.total.notRun': '{count} 个未运行',
-  'workbench.editors.live.run.total.cannotRun': '{count} 个无法运行',
   'workbench.editors.live.run.action.call': '调用',
   'workbench.editors.live.run.row.waiting': '等待中',
   'workbench.editors.live.run.row.sending': '发送中…',
@@ -307,7 +302,6 @@ export const workbenchLive = {
   'workbench.editors.live.workflow.newDraftName': '新建工作流',
 
   // ── Workflow form body ──────────────────────────────────────────────
-  'workbench.editors.live.form.structuralIssues': '工作流存在结构问题',
   'workbench.editors.live.form.addStepButton': '步骤',
   'workbench.editors.live.form.enabledAria': '工作流已启用',
   'workbench.editors.live.form.enabled': '已启用',

@@ -221,11 +221,6 @@ export const workbenchLive = {
   'workbench.editors.live.run.verdict.passed': '成功',
   'workbench.editors.live.run.verdict.failed': '失敗',
   'workbench.editors.live.run.verdict.cannotRun': 'ここでは実行できません',
-  'workbench.editors.live.run.total.passed': '成功 {count}',
-  'workbench.editors.live.run.total.failed': '失敗 {count}',
-  'workbench.editors.live.run.total.skipped': 'スキップ {count}',
-  'workbench.editors.live.run.total.notRun': '未実行 {count}',
-  'workbench.editors.live.run.total.cannotRun': '実行不可 {count}',
   'workbench.editors.live.run.action.call': '呼び出し',
   'workbench.editors.live.run.row.waiting': '待機中',
   'workbench.editors.live.run.row.sending': '送信中…',
@@ -317,7 +312,6 @@ export const workbenchLive = {
   'workbench.editors.live.workflow.newDraftName': '新しいワークフロー',
 
   // ── Workflow form body ──────────────────────────────────────────────
-  'workbench.editors.live.form.structuralIssues': 'ワークフローに構造上の問題があります',
   'workbench.editors.live.form.addStepButton': 'ステップ',
   'workbench.editors.live.form.enabledAria': 'ワークフローが有効',
   'workbench.editors.live.form.enabled': '有効',
