@@ -688,6 +688,11 @@ const WorkbenchTabBody: React.FC<WorkbenchTabBodyProps> = ({
         seedSteps={tab.liveWorkflowSeedSteps}
         onDirtyChange={(dirty) => handleDirtyChange(tab.id, dirty)}
         registerSaveRef={(saveFn) => registerSaveRef(tab.id, saveFn)}
+        requestOpeners={{
+          http: openRequestEditTab,
+          graphql: openGraphqlRequestEditTab,
+          mqtt: openMqttRequestEditTab,
+        }}
       />
     );
   }
@@ -699,6 +704,11 @@ const WorkbenchTabBody: React.FC<WorkbenchTabBodyProps> = ({
         seedSteps={tab.liveWorkflowSeedSteps}
         onDirtyChange={(dirty) => handleDirtyChange(tab.id, dirty)}
         registerSaveRef={(saveFn) => registerSaveRef(tab.id, saveFn)}
+        requestOpeners={{
+          http: openRequestEditTab,
+          graphql: openGraphqlRequestEditTab,
+          mqtt: openMqttRequestEditTab,
+        }}
         onCreated={(wf) =>
           replaceTab(tab.id, {
             id: `live-wf-${wf.uid}`,

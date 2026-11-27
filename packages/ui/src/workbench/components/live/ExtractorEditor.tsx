@@ -74,32 +74,42 @@ interface Props {
   value: Extractor;
   onChange: (next: Extractor) => void;
   compact?: boolean;
+  /**
+   * Laid out as two cells of the owner's table — the source, then what
+   * it is read by — where the editor would otherwise be a row of its own.
+   * The controls take the size of the panel they sit in.
+   */
+  cells?: boolean;
   /** What is read. Absent = a call's response. */
   subject?: ExtractorSubjectKind;
 }
 
-const ExtractorEditor: React.FC<Props> = ({ value, onChange, compact, subject = 'response' }) => {
+const ExtractorEditor: React.FC<Props> = ({ value, onChange, compact, cells = false, subject = 'response' }) => {
   const t = useT();
-  const size = compact ? 'small' : 'middle';
-  return (
-    // The basis is the picker's width: a row too narrow for it wraps the
-    // editor onto a line of its own, and the picker gives way before it
-    // would run past the edge.
-    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center', flex: '1 1 220px', minWidth: 0 }}>
-      <Select
-        size={size}
-        style={{ flex: '0 1 220px', minWidth: 0 }}
-        value={value.kind}
-        options={KIND_OPTIONS[subject].map((group) => ({
-          label: t(group.labelKey),
-          options: group.options.map((o) => ({ value: o.value, label: t(o.labelKey) })),
-        }))}
-        onChange={(kind) => onChange(defaultExtractorFor(kind as Extractor['kind']))}
-      />
+  const size = cells ? undefined : compact ? 'small' : 'middle';
+  const readByStyle = cells ? { flex: '1 1 72px', minWidth: 0 } : { flex: 1, minWidth: 160 };
+  const readByClass = cells ? 'oh-wf-code' : undefined;
+
+  const source = (
+    <Select
+      size={size}
+      style={cells ? { minWidth: 0 } : { flex: '0 1 220px', minWidth: 0 }}
+      value={value.kind}
+      options={KIND_OPTIONS[subject].map((group) => ({
+        label: t(group.labelKey),
+        options: group.options.map((o) => ({ value: o.value, label: t(o.labelKey) })),
+      }))}
+      onChange={(kind) => onChange(defaultExtractorFor(kind as Extractor['kind']))}
+    />
+  );
+
+  const readBy = (
+    <>
       {value.kind === 'json-path' && (
         <Input
           size={size}
-          style={{ flex: 1, minWidth: 160 }}
+          className={readByClass}
+          style={readByStyle}
           placeholder="$.access_token"
           value={value.path}
           onChange={(e) => onChange({ kind: 'json-path', path: e.target.value })}
@@ -108,7 +118,8 @@ const ExtractorEditor: React.FC<Props> = ({ value, onChange, compact, subject = 
       {value.kind === 'header' && (
         <Input
           size={size}
-          style={{ flex: 1, minWidth: 160 }}
+          className={readByClass}
+          style={readByStyle}
           placeholder={NAME_EXAMPLE[subject]}
           value={value.name}
           onChange={(e) => onChange({ kind: 'header', name: e.target.value })}
@@ -118,7 +129,8 @@ const ExtractorEditor: React.FC<Props> = ({ value, onChange, compact, subject = 
         <>
           <Input
             size={size}
-            style={{ flex: 1, minWidth: 160 }}
+            className={readByClass}
+            style={readByStyle}
             placeholder={'"token":"([^"]+)"'}
             value={value.pattern}
             onChange={(e) =>
@@ -131,7 +143,7 @@ const ExtractorEditor: React.FC<Props> = ({ value, onChange, compact, subject = 
           />
           <InputNumber
             size={size}
-            style={{ width: 90, flexShrink: 0 }}
+            style={{ width: cells ? 56 : 90, flexShrink: 0 }}
             min={0}
             placeholder={t('workbench.editors.live.extractor.groupPlaceholder')}
             value={value.group}
@@ -145,6 +157,25 @@ const ExtractorEditor: React.FC<Props> = ({ value, onChange, compact, subject = 
           />
         </>
       )}
+    </>
+  );
+
+  if (cells) {
+    return (
+      <>
+        {source}
+        <div className="oh-wf-cell-controls">{readBy}</div>
+      </>
+    );
+  }
+
+  return (
+    // The basis is the picker's width: a row too narrow for it wraps the
+    // editor onto a line of its own, and the picker gives way before it
+    // would run past the edge.
+    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center', flex: '1 1 220px', minWidth: 0 }}>
+      {source}
+      {readBy}
     </div>
   );
 };

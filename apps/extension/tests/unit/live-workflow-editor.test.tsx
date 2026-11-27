@@ -18,6 +18,7 @@
 import { registerCapability, unregisterCapability } from '@openheaders/core/capabilities';
 import { LiveWorkflowSchema } from '@openheaders/core/schemas';
 import type { GraphqlRequest, LiveWorkflow, MqttRequest, Request } from '@openheaders/core/types';
+import type { StepRequestOpeners } from '@openheaders/ui/workbench/components/live/step-facts';
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { App } from 'antd';
 import * as v from 'valibot';
@@ -172,11 +173,11 @@ afterEach(() => {
   refreshNowMock.mockClear();
 });
 
-function renderEditor() {
+function renderEditor(requestOpeners?: StepRequestOpeners) {
   return render(
     <App>
       <AwarenessIdentityProvider value={testIdentity}>
-        <LiveWorkflowEditor mode="edit" workflowUid={workflowState.uid} />
+        <LiveWorkflowEditor mode="edit" workflowUid={workflowState.uid} requestOpeners={requestOpeners} />
       </AwarenessIdentityProvider>
     </App>,
   );
@@ -239,10 +240,10 @@ describe('LiveWorkflowEditor — a workflow that needs a newer version', () => {
   const BANNER = 'This workflow has steps that need a newer version of OpenHeaders. Update to edit or run it.';
   const STEP = 'This step needs a newer version of OpenHeaders.';
 
-  function renderNeedsUpdate() {
+  function renderNeedsUpdate(requestOpeners?: StepRequestOpeners) {
     workflowState = needsUpdateFixture;
     requestsState = { ...requestsState, requests: [makeRequest({ uid: 'reqfixt1' })] };
-    return renderEditor();
+    return renderEditor(requestOpeners);
   }
 
   it('says so once, above the view', () => {
@@ -275,14 +276,19 @@ describe('LiveWorkflowEditor — a workflow that needs a newer version', () => {
   });
 
   it('takes no edit: the call step and Refresh are off, and no step can be added', () => {
-    const { container } = renderNeedsUpdate();
+    const openers: StepRequestOpeners = { http: vi.fn(), graphql: vi.fn(), mqtt: vi.fn() };
+    const { container } = renderNeedsUpdate(openers);
     openStep('reboot');
 
-    // Every control that edits the step is off. What only moves about is not:
-    // the close, and a row that opens another step.
+    // Every control that edits the step is off. What only moves about or
+    // explains is not: the close, a row that opens another step, the
+    // button that opens the step's request, an (i).
     const callCard = container.querySelector('[data-step-card="reboot"]');
     const controls = Array.from(
-      callCard?.querySelectorAll('input, button:not([data-testid="wf-panel-close"]):not(.oh-wf-mini-step)') ?? [],
+      callCard?.querySelectorAll(
+        'input, button:not([data-testid="wf-panel-close"]):not(.oh-wf-mini-step)' +
+          ':not([data-testid$="-open-request"]):not(.oh-info-trigger)',
+      ) ?? [],
     );
     expect(controls.length).toBeGreaterThan(0);
     for (const control of controls) expect(control).toHaveProperty('disabled', true);
@@ -290,6 +296,8 @@ describe('LiveWorkflowEditor — a workflow that needs a newer version', () => {
     for (const row of callCard?.querySelectorAll('.oh-wf-mini-step') ?? []) {
       expect(row).toHaveProperty('disabled', false);
     }
+    fireEvent.click(screen.getByRole('button', { name: 'Open request' }));
+    expect(openers.http).toHaveBeenCalledWith('reqfixt1', 'Fixture request', 'GET');
     expect(screen.queryByRole('button', { name: /Step$/ })).toBeNull();
     expect(screen.getByRole('button', { name: /Refresh/ })).toHaveProperty('disabled', true);
   });

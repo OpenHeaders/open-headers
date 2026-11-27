@@ -84,6 +84,7 @@ import {
   workflowRunsHere,
 } from './run-availability';
 import { firstStepWithNothingPicked } from './step-action';
+import type { StepRequestOpeners } from './step-facts';
 import { useShownWorkflowRun } from './use-workflow-run';
 import WorkflowRunStatusStrip from './WorkflowRunStatusStrip';
 import WorkflowView from './WorkflowView';
@@ -149,6 +150,8 @@ interface EditProps {
   seedSteps?: WorkflowSeedStep[];
   onDirtyChange?: (dirty: boolean) => void;
   registerSaveRef?: (save: () => void) => void;
+  /** What opens a request's own tab — a step's panel opens the request the step names. */
+  requestOpeners?: StepRequestOpeners;
 }
 
 interface CreateProps {
@@ -162,6 +165,8 @@ interface CreateProps {
   registerSaveRef?: (save: () => void) => void;
   /** Called when the draft persists. Host replaces the tab with an edit tab. */
   onCreated: (wf: LiveWorkflow) => void;
+  /** What opens a request's own tab — a step's panel opens the request the step names. */
+  requestOpeners?: StepRequestOpeners;
 }
 
 type Props = EditProps | CreateProps;
@@ -177,7 +182,13 @@ export default LiveWorkflowEditor;
 
 // ── Edit mode ──────────────────────────────────────────────────────
 
-const EditMode: React.FC<EditProps> = ({ workflowUid, seedSteps, onDirtyChange, registerSaveRef }) => {
+const EditMode: React.FC<EditProps> = ({
+  workflowUid,
+  seedSteps,
+  onDirtyChange,
+  registerSaveRef,
+  requestOpeners,
+}) => {
   const { token } = theme.useToken();
   const t = useT();
   const { message } = App.useApp();
@@ -500,6 +511,7 @@ const EditMode: React.FC<EditProps> = ({ workflowUid, seedSteps, onDirtyChange, 
         run={runsHere ? shownRun : undefined}
         cacheRun={run}
         boundVars={boundVars}
+        requestOpeners={requestOpeners}
       />
       {/* Live-status surface — pinned below the view so "what's
           resolved RIGHT NOW per env" is always visible while editing. */}
@@ -525,7 +537,14 @@ const EditMode: React.FC<EditProps> = ({ workflowUid, seedSteps, onDirtyChange, 
 
 // ── Create mode ────────────────────────────────────────────────────
 
-const CreateMode: React.FC<CreateProps> = ({ draftName, seedSteps, onDirtyChange, registerSaveRef, onCreated }) => {
+const CreateMode: React.FC<CreateProps> = ({
+  draftName,
+  seedSteps,
+  onDirtyChange,
+  registerSaveRef,
+  onCreated,
+  requestOpeners,
+}) => {
   const { token } = theme.useToken();
   const t = useT();
   const { message } = App.useApp();
@@ -627,6 +646,7 @@ const CreateMode: React.FC<CreateProps> = ({ draftName, seedSteps, onDirtyChange
         setDraft={setDraft}
         selectedStepUid={selectedStepUid}
         onSelectStep={setSelectedStepUid}
+        requestOpeners={requestOpeners}
       />
     </div>
     </EntityScopeProvider>

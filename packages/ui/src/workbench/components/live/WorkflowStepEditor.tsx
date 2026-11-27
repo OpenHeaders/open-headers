@@ -6,11 +6,12 @@
  *
  * First the cards every step has: where it stands among the others
  * (`StepDependencyCards`) and its run condition (`StepGateEditor`). Then
- * the fields of the step's own action:
- *   - a call: `CallStepFields`, and the sections `Retry policy`,
- *     `Timeout`, `Success criteria`, `Poll` and `Scripts`;
- *   - a session step: `SessionStepFields`;
- * with the `Priority` section every step has.
+ * the cards of the step's own action — a call's Request
+ * (`CallStepFields`), a session step's Connection, Send message, or
+ * Expect message with Match criteria (`SessionStepFields`). Under them,
+ * what is not a card yet: the step's captures, the `Priority` section
+ * every step has, and a call's `Retry policy`, `Timeout`,
+ * `Success criteria` and `Poll`.
  */
 
 import {
@@ -26,17 +27,17 @@ import {
 import type { Criterion, MqttRequest, PriorityRef, StepGate, StepPoll, StepRetryPolicy } from '@openheaders/core/types';
 import { type Translate, useT } from '@openheaders/ui/context/LocaleContext';
 import { LIVE_WORKFLOW_FIELD } from '@openheaders/ui/shared/awareness/live-paths';
-import { noteFeatureUsed } from '@openheaders/ui/shared/product-telemetry';
 import { Collapse, type CollapseProps, ConfigProvider, Space, theme } from 'antd';
 import type { GlobalToken } from 'antd/es/theme/interface';
 import type React from 'react';
 import { useMemo } from 'react';
-import CallStepFields from './CallStepFields';
+import { CallRequestCard, CallStepCaptures } from './CallStepFields';
 import type { LabelTruth } from './graph-lines';
-import { ExpectStepFields, ListenStepFields, SendStepFields } from './SessionStepFields';
+import { ExpectStepFields, ListenStepFields, SendStepFields, SessionStepCaptures } from './SessionStepFields';
 import StepDependencyCards from './StepDependencyCards';
 import StepGateEditor from './StepGateEditor';
 import type { StepMiniFacts } from './StepMiniRow';
+import type { StepMarkKind } from './step-mark';
 import type { StepRequestChoice } from './workflow-step-request-options';
 import { buildCallStepSections, buildSharedStepSections } from './workflow-step-sections';
 
@@ -70,6 +71,10 @@ interface Props {
   errors?: StructuralError[];
   /** Whether a run-condition clause held in the last run, by its uid. */
   clauseTruth?: (clauseUid: string) => LabelTruth;
+  /** How the last run left the step — absent where the step is not shown beside a run. */
+  runState?: StepMarkKind;
+  /** Opens the tab of the request the step names — absent where it names none the workspace holds. */
+  onOpenRequest?: () => void;
   // ── Session context (the workflow runs plan, Decisions log, S16) ──
   /** The draft's steps in order — the listens a step can be on, the steps an expect can wait after. */
   steps?: readonly DraftStep[];
@@ -129,21 +134,6 @@ function callSectionsOf(
     onChange(nextStep);
   };
 
-  // Off deletes the field rather than persisting `false` — absent is
-  // the canonical "no scripts" state (schema default, cleaner YAML).
-  const setRunScripts = (next: boolean | undefined) => {
-    // Step scripts ship default-off, so switching them on is the
-    // feature's first meaningful use (S17 product telemetry).
-    if (next === true) noteFeatureUsed('workflow-scripts');
-    const nextStep = { ...step };
-    if (next === undefined) {
-      delete nextStep.runScripts;
-    } else {
-      nextStep.runScripts = next;
-    }
-    onChange(nextStep);
-  };
-
   return buildCallStepSections({
     token: context.token,
     t: context.t,
@@ -154,13 +144,11 @@ function callSectionsOf(
     criteriaErrors: context.errors.filter((e) => e.issue === 'criterion-invalid-regex'),
     poll: step.poll,
     pollError: context.errors.find((e) => e.issue === 'poll-without-criteria' || e.issue === 'poll-exceeds-limit'),
-    runScripts: step.runScripts,
     readOnly: context.readOnly,
     setRetry,
     setTimeoutMs,
     setSuccessCriteria,
     setPoll,
-    setRunScripts,
   });
 }
 
@@ -174,6 +162,8 @@ const WorkflowStepEditor: React.FC<Props> = ({
   capturesByStepId = new Map(),
   errors = [],
   clauseTruth,
+  runState,
+  onOpenRequest,
   steps = [],
   mqttRequests = [],
   sessionRequests = [],
@@ -300,32 +290,36 @@ const WorkflowStepEditor: React.FC<Props> = ({
         clauseTruth={clauseTruth}
         root={dependencies !== undefined && dependencies.parents.length === 0}
       />
-      <div
-        style={{
-          border: `1px solid ${requestError ? token.colorError : token.colorBorderSecondary}`,
-          borderRadius: 6,
-          padding: 12,
-        }}
-      >
+      {isListenStep(step) ? (
+        <ListenStepFields
+          step={step}
+          onChange={onChange}
+          sessionRequests={sessionRequests}
+          onOpenRequest={onOpenRequest}
+          {...session}
+        />
+      ) : isSendStep(step) ? (
+        <SendStepFields step={step} onChange={onChange} {...session} />
+      ) : isExpectStep(step) ? (
+        <ExpectStepFields step={step} onChange={onChange} runState={runState} {...session} />
+      ) : (
+        <CallRequestCard
+          step={step}
+          index={index}
+          onChange={onChange}
+          availableRequests={availableRequests}
+          requestError={requestError}
+          onOpenRequest={onOpenRequest}
+        />
+      )}
+      {/* What is not a card yet: the captures, and the sections of the old step card. */}
+      <div style={{ border: `1px solid ${token.colorBorderSecondary}`, borderRadius: 6, padding: 12 }}>
         <Space orientation="vertical" size={8} style={{ width: '100%' }}>
-          {isListenStep(step) ? (
-            <ListenStepFields step={step} onChange={onChange} sessionRequests={sessionRequests} {...session} />
-          ) : isSendStep(step) ? (
-            <SendStepFields step={step} onChange={onChange} {...session} />
-          ) : isExpectStep(step) ? (
-            <ExpectStepFields step={step} onChange={onChange} {...session} />
+          {isListenStep(step) ? null : isSendStep(step) || isExpectStep(step) ? (
+            <SessionStepCaptures step={step} index={index} onChange={onChange} />
           ) : (
-            <CallStepFields
-              step={step}
-              index={index}
-              onChange={onChange}
-              availableRequests={availableRequests}
-              requestError={requestError}
-              exposable={exposable}
-            />
+            <CallStepCaptures step={step} index={index} onChange={onChange} exposable={exposable} />
           )}
-
-          {/* ── Phase I sections ──────────────────────────────────── */}
 
           <Collapse
             size="small"

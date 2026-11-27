@@ -1,22 +1,26 @@
 /**
- * The fields of a session step's card (the workflow runs plan, Decisions
- * log, S16), under the card's shared head and above its shared sections:
+ * A session step's own cards (the workflow runs plan, Decisions log,
+ * S16; the workflows redesign, Step panel):
  *
- *   - Listen — the session request it opens, how long it may take to be
- *     ready, whether the request's scripts run, and one read-only line of
- *     the identity the session connects under. It has nothing to capture.
- *   - Send — the listen it is on, the saved message of that listen's
- *     request, and captures of the message as sent.
- *   - Expect — the listen it is on, the step it waits after, where the
- *     message lands, the rows that pick it, how long it waits, whether a
- *     stored message counts, and captures of the matched message.
+ *   - Listen — Connection: the session request it opens, how long it may
+ *     take to be ready, whether the request's scripts run, and at the
+ *     card's foot the identity the session connects under. It has nothing
+ *     to capture.
+ *   - Send — Send message: the listen it is on and the saved message of
+ *     that listen's request.
+ *   - Expect — Expect message: where the message lands, the listen it is
+ *     on, the step it waits after, how long it waits and whether a stored
+ *     message counts; then Match criteria, the rows that pick the message.
+ *
+ * A send's and an expect's captures read the message, and stay rows of
+ * the step's remaining fields.
  *
  * An issue is shown on the field that owns it, in the validator's
  * sentence. The labels are an MQTT session's: a topic filter, a saved
  * message, a client id.
  */
 
-import { isListenStep, type DraftStep, type StructuralError, type StructuralIssue } from '@openheaders/core/live';
+import { type DraftStep, isListenStep, type StructuralError, type StructuralIssue } from '@openheaders/core/live';
 import { MAX_STEP_TIMEOUT_MS, MIN_STEP_TIMEOUT_MS } from '@openheaders/core/schemas';
 import type {
   Capture,
@@ -30,14 +34,14 @@ import { type Translate, useT } from '@openheaders/ui/context/LocaleContext';
 import { LIVE_WORKFLOW_FIELD } from '@openheaders/ui/shared/awareness/live-paths';
 import { InfoTrigger } from '@openheaders/ui/shared/info-popover';
 import { noteFeatureUsed } from '@openheaders/ui/shared/product-telemetry';
-import { Input, InputNumber, Select, Switch, Tooltip, Typography, theme } from 'antd';
+import { Button, Checkbox, Input, InputNumber, Select, Tooltip, theme } from 'antd';
 import type React from 'react';
 import CriteriaEditor from './CriteriaEditor';
 import StepCapturesEditor from './StepCapturesEditor';
 import { sessionRequestOf } from './step-action';
+import type { StepMarkKind } from './step-mark';
+import WorkflowCard, { CardField } from './WorkflowCard';
 import { buildRequestPickerOptions, type StepRequestChoice } from './workflow-step-request-options';
-
-const { Text } = Typography;
 
 // Topic-filter format example shown in the address placeholder — raw by design.
 const TOPIC_FILTER_EXAMPLE = 'devices/+/status';
@@ -73,11 +77,9 @@ const SessionPicker: React.FC<{
   return (
     <Tooltip open={error ? undefined : false} title={error?.message}>
       <Select
-        size="small"
-        style={{ flex: '1 1 30%', minWidth: 0 }}
-        prefix={<Text type="secondary">{t('workbench.editors.live.step.onPrefix')}</Text>}
         status={error ? 'error' : undefined}
         data-testid={`wf-step-${index}-on`}
+        aria-label={t('workbench.editors.live.step.onConnection')}
         value={value || undefined}
         options={steps.filter(isListenStep).map((listen) => ({ value: listen.id, label: listen.id }))}
         onChange={onChange}
@@ -86,7 +88,7 @@ const SessionPicker: React.FC<{
   );
 };
 
-/** Who the session connects as, in the Run view's own words. */
+/** Who the session connects as, in the run rows' own words. */
 function identityFacts(request: MqttRequest, t: Translate): string[] {
   const generated = request.clientId === undefined || request.clientId.trim() === '';
   return [
@@ -103,8 +105,10 @@ export const ListenStepFields: React.FC<
   SessionFieldsProps<ListenWorkflowStep> & {
     /** The MQTT requests a listen can open, as the request picker shows them. */
     sessionRequests: StepRequestChoice[];
+    /** Opens the session request's own tab — absent where the step names no request the workspace holds. */
+    onOpenRequest?: () => void;
   }
-> = ({ step, index, onChange, mqttRequests, sessionRequests, errors }) => {
+> = ({ step, index, onChange, mqttRequests, sessionRequests, errors, onOpenRequest }) => {
   const { token } = theme.useToken();
   const t = useT();
   const request = mqttRequests.find((each) => each.uid === step.sessionRequestUid);
@@ -123,82 +127,80 @@ export const ListenStepFields: React.FC<
   };
 
   return (
-    <>
-      <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
-        <span data-field-path={LIVE_WORKFLOW_FIELD.step(index, 'requestUid')} style={{ display: 'contents' }}>
-          <Tooltip open={requestError ? undefined : false} title={requestError?.message}>
-            <Select
-              size="small"
-              style={{ flex: '1 1 60%', minWidth: 0 }}
-              showSearch
-              status={requestError ? 'error' : undefined}
-              filterOption={(input, option) =>
-                String(option?.title ?? '')
-                  .toLowerCase()
-                  .includes(input.toLowerCase())
-              }
-              placeholder={t('workbench.editors.live.step.selectSessionRequest')}
-              data-testid={`wf-step-${index}-session-request`}
-              value={step.sessionRequestUid || undefined}
-              onChange={(sessionRequestUid) => onChange({ ...step, sessionRequestUid })}
-              options={buildRequestPickerOptions(sessionRequests, token)}
-            />
-          </Tooltip>
-        </span>
-      </div>
-      <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
-        <InputNumber
-          size="small"
-          style={{ width: 200 }}
-          min={MIN_STEP_TIMEOUT_MS}
-          max={MAX_STEP_TIMEOUT_MS}
-          step={500}
-          prefix={
-            <Text type="secondary" style={{ fontSize: 11 }}>
-              {t('workbench.editors.live.step.readyWithin')}
-            </Text>
-          }
-          suffix={
-            <Text type="secondary" style={{ fontSize: 11 }}>
-              ms
-            </Text>
-          }
-          data-testid={`wf-step-${index}-ready-within`}
-          value={step.timeoutMs}
-          onChange={(timeoutMs) => {
-            if (timeoutMs !== null) onChange({ ...step, timeoutMs });
-          }}
-        />
-        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-          <Switch
-            size="small"
-            checked={step.runScripts === true}
-            data-testid={`wf-step-${index}-run-scripts`}
-            aria-label={t('workbench.editors.live.sections.runScriptsAria')}
-            onChange={setRunScripts}
-          />
-          <Text type="secondary" style={{ fontSize: 11 }}>
-            {t('workbench.editors.live.step.sessionScriptsLabel')}
-          </Text>
-        </span>
-      </div>
-      {request !== undefined && (
-        <div
-          data-testid={`wf-step-${index}-identity`}
-          style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}
+    <WorkflowCard
+      testId={`wf-step-${index}-connection`}
+      title={t('workbench.editors.live.connection.title')}
+      description={t('workbench.editors.live.connection.description')}
+      extra={
+        // It edits nothing, so it is told by its own `disabled`, never a read-only form's.
+        <Button
+          data-testid={`wf-step-${index}-open-request`}
+          disabled={onOpenRequest === undefined}
+          onClick={onOpenRequest}
         >
-          <Text type="secondary" style={{ fontSize: 11 }}>
-            {identityFacts(request, t).join(' · ')}
-          </Text>
-          <InfoTrigger
-            content={{
-              title: t('workbench.editors.live.step.identityTitle'),
-              summary: t('workbench.editors.live.step.identityInfo'),
-            }}
-          />
+          {t('workbench.editors.live.request.open')}
+        </Button>
+      }
+      footer={
+        request !== undefined ? (
+          <span className="oh-wf-foot-row" data-testid={`wf-step-${index}-identity`}>
+            <span>{identityFacts(request, t).join(' · ')}</span>
+            <InfoTrigger
+              content={{
+                title: t('workbench.editors.live.step.identityTitle'),
+                summary: t('workbench.editors.live.step.identityInfo'),
+              }}
+            />
+          </span>
+        ) : undefined
+      }
+    >
+      <div className="oh-wf-card-body oh-wf-fields">
+        <div className="oh-wf-field-grid oh-wf-field-grid--lead">
+          <CardField label={t('workbench.editors.live.request.saved')}>
+            <span data-field-path={LIVE_WORKFLOW_FIELD.step(index, 'requestUid')} style={{ display: 'contents' }}>
+              <Tooltip open={requestError ? undefined : false} title={requestError?.message}>
+                <Select
+                  showSearch
+                  status={requestError ? 'error' : undefined}
+                  filterOption={(input, option) =>
+                    String(option?.title ?? '')
+                      .toLowerCase()
+                      .includes(input.toLowerCase())
+                  }
+                  placeholder={t('workbench.editors.live.step.selectSessionRequest')}
+                  data-testid={`wf-step-${index}-session-request`}
+                  aria-label={t('workbench.editors.live.request.saved')}
+                  value={step.sessionRequestUid || undefined}
+                  onChange={(sessionRequestUid) => onChange({ ...step, sessionRequestUid })}
+                  options={buildRequestPickerOptions(sessionRequests, token)}
+                />
+              </Tooltip>
+            </span>
+          </CardField>
+          <CardField label={t('workbench.editors.live.connection.readyWithin')}>
+            <InputNumber
+              min={MIN_STEP_TIMEOUT_MS}
+              max={MAX_STEP_TIMEOUT_MS}
+              step={500}
+              data-testid={`wf-step-${index}-ready-within`}
+              aria-label={t('workbench.editors.live.connection.readyWithin')}
+              value={step.timeoutMs}
+              onChange={(timeoutMs) => {
+                if (timeoutMs !== null) onChange({ ...step, timeoutMs });
+              }}
+            />
+          </CardField>
         </div>
-      )}
-    </>
+        <Checkbox
+          data-testid={`wf-step-${index}-run-scripts`}
+          checked={step.runScripts === true}
+          onChange={(e) => setRunScripts(e.target.checked)}
+        >
+          {t('workbench.editors.live.step.sessionScriptsLabel')}
+        </Checkbox>
+      </div>
+    </WorkflowCard>
   );
 };
 
@@ -222,55 +224,60 @@ export const SendStepFields: React.FC<SessionFieldsProps<SendWorkflowStep>> = ({
   };
 
   return (
-    <>
-      <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
-        <SessionPicker
-          index={index}
-          value={step.on}
-          steps={steps}
-          error={errorOf(errors, 'session-step-unknown-listen', 'session-step-unreachable-listen')}
-          onChange={setSession}
-        />
-        {/* A message not picked yet is no error on its picker — as a call's or a listen's request. */}
-        <Select
-          size="small"
-          style={{ flex: '2 1 40%', minWidth: 0 }}
-          popupMatchSelectWidth={false}
-          placeholder={t('workbench.editors.live.step.selectMessage')}
-          data-testid={`wf-step-${index}-message`}
-          value={step.messageUid}
-          options={(session?.savedMessages ?? []).map((message) => ({
-            value: message.uid,
-            label: (
-              <span>
-                {message.name}
-                <span style={{ marginLeft: 6, color: token.colorTextTertiary, fontFamily: "'SF Mono', monospace" }}>
-                  {message.topic}
+    <WorkflowCard
+      testId={`wf-step-${index}-send`}
+      title={t('workbench.editors.live.send.title')}
+      description={t('workbench.editors.live.send.description')}
+    >
+      <div className="oh-wf-card-body oh-wf-field-grid">
+        <CardField label={t('workbench.editors.live.step.onConnection')}>
+          <SessionPicker
+            index={index}
+            value={step.on}
+            steps={steps}
+            error={errorOf(errors, 'session-step-unknown-listen', 'session-step-unreachable-listen')}
+            onChange={setSession}
+          />
+        </CardField>
+        <CardField label={t('workbench.editors.live.send.savedMessage')}>
+          {/* A message not picked yet is no error on its picker — as a call's or a listen's request. */}
+          <Select
+            popupMatchSelectWidth={false}
+            placeholder={t('workbench.editors.live.step.selectMessage')}
+            data-testid={`wf-step-${index}-message`}
+            aria-label={t('workbench.editors.live.send.savedMessage')}
+            value={step.messageUid}
+            options={(session?.savedMessages ?? []).map((message) => ({
+              value: message.uid,
+              label: (
+                <span>
+                  {message.name}
+                  <span className="oh-wf-code" style={{ marginLeft: 6, color: token.colorTextTertiary }}>
+                    {message.topic}
+                  </span>
                 </span>
-              </span>
-            ),
-          }))}
-          onChange={(messageUid) => onChange({ ...step, messageUid })}
-        />
+              ),
+            }))}
+            onChange={(messageUid) => onChange({ ...step, messageUid })}
+          />
+        </CardField>
       </div>
-      <StepCapturesEditor
-        index={index}
-        subject="message"
-        captures={step.captures}
-        onChange={(captures) => onChange({ ...step, captures })}
-        newCapture={newMessageCapture}
-      />
-    </>
+    </WorkflowCard>
   );
 };
 
-export const ExpectStepFields: React.FC<SessionFieldsProps<ExpectWorkflowStep>> = ({
-  step,
-  index,
-  onChange,
-  steps,
-  errors,
-}) => {
+/** How the last run left an expect, as its Match criteria card says it — nothing where no run judged the rows. */
+function matchOutcomeOf(runState: StepMarkKind | undefined): 'matched' | 'never' | undefined {
+  if (runState === 'passed') return 'matched';
+  return runState === 'timed-out' ? 'never' : undefined;
+}
+
+export const ExpectStepFields: React.FC<
+  SessionFieldsProps<ExpectWorkflowStep> & {
+    /** How the last run left the step — absent where the step is not shown beside a run. */
+    runState?: StepMarkKind;
+  }
+> = ({ step, index, onChange, steps, errors, runState }) => {
   const t = useT();
   const triggerError = errorOf(
     errors,
@@ -279,6 +286,8 @@ export const ExpectStepFields: React.FC<SessionFieldsProps<ExpectWorkflowStep>> 
     'expect-unarmed-trigger',
   );
   const addressError = errorOf(errors, 'expect-address-reads-trigger');
+  // The run knows the step matched, not which row held: one line for the rows together.
+  const matchOutcome = step.match.length > 0 ? matchOutcomeOf(runState) : undefined;
 
   // An emptied address deletes the field: absent is "wherever a message lands".
   const setAddress = (address: string) => {
@@ -303,97 +312,120 @@ export const ExpectStepFields: React.FC<SessionFieldsProps<ExpectWorkflowStep>> 
 
   return (
     <>
-      <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
-        <SessionPicker
-          index={index}
-          value={step.on}
-          steps={steps}
-          error={errorOf(errors, 'session-step-unknown-listen', 'session-step-unreachable-listen')}
-          onChange={(on) => onChange({ ...step, on })}
-        />
-        <Tooltip open={triggerError ? undefined : false} title={triggerError?.message}>
-          <Select
-            size="small"
-            style={{ flex: '1 1 30%', minWidth: 0 }}
-            prefix={<Text type="secondary">{t('workbench.editors.live.step.afterPrefix')}</Text>}
-            status={triggerError ? 'error' : undefined}
-            data-testid={`wf-step-${index}-after`}
-            value={step.after || undefined}
-            options={steps
-              .filter((each) => each.id !== step.id && each.id.length > 0)
-              .map((each) => ({ value: each.id, label: each.id }))}
-            onChange={(after) => onChange({ ...step, after })}
-          />
-        </Tooltip>
-      </div>
-      <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
-        <Tooltip open={addressError ? undefined : false} title={addressError?.message}>
-          <Input
-            size="small"
-            style={{ flex: '1 1 240px', minWidth: 0, fontFamily: "'SF Mono', monospace" }}
-            prefix={<Text type="secondary">{t('workbench.editors.mqtt.saved.topicTagPlaceholder')}</Text>}
-            placeholder={TOPIC_FILTER_EXAMPLE}
-            status={addressError ? 'error' : undefined}
-            data-testid={`wf-step-${index}-address`}
-            value={step.address ?? ''}
-            onChange={(e) => setAddress(e.target.value)}
-          />
-        </Tooltip>
-        <InputNumber
-          size="small"
-          style={{ width: 170 }}
-          min={MIN_STEP_TIMEOUT_MS}
-          max={MAX_STEP_TIMEOUT_MS}
-          step={500}
-          prefix={
-            <Text type="secondary" style={{ fontSize: 11 }}>
-              {t('workbench.editors.live.step.within')}
-            </Text>
-          }
-          suffix={
-            <Text type="secondary" style={{ fontSize: 11 }}>
-              ms
-            </Text>
-          }
-          data-testid={`wf-step-${index}-within`}
-          value={step.timeoutMs}
-          onChange={(timeoutMs) => {
-            if (timeoutMs !== null) onChange({ ...step, timeoutMs });
-          }}
-        />
-        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-          <Switch
-            size="small"
-            checked={step.includeStored === true}
+      <WorkflowCard
+        testId={`wf-step-${index}-expect`}
+        title={t('workbench.editors.live.expect.title')}
+        description={t('workbench.editors.live.expect.description')}
+      >
+        <div className="oh-wf-card-body oh-wf-field-grid">
+          <CardField wide label={t('workbench.editors.live.expect.topic')}>
+            <Tooltip open={addressError ? undefined : false} title={addressError?.message}>
+              <Input
+                className="oh-wf-code"
+                placeholder={TOPIC_FILTER_EXAMPLE}
+                status={addressError ? 'error' : undefined}
+                data-testid={`wf-step-${index}-address`}
+                aria-label={t('workbench.editors.live.expect.topic')}
+                value={step.address ?? ''}
+                onChange={(e) => setAddress(e.target.value)}
+              />
+            </Tooltip>
+          </CardField>
+          <CardField label={t('workbench.editors.live.step.onConnection')}>
+            <SessionPicker
+              index={index}
+              value={step.on}
+              steps={steps}
+              error={errorOf(errors, 'session-step-unknown-listen', 'session-step-unreachable-listen')}
+              onChange={(on) => onChange({ ...step, on })}
+            />
+          </CardField>
+          <CardField label={t('workbench.editors.live.expect.onlyAfter')}>
+            <Tooltip open={triggerError ? undefined : false} title={triggerError?.message}>
+              <Select
+                status={triggerError ? 'error' : undefined}
+                data-testid={`wf-step-${index}-after`}
+                aria-label={t('workbench.editors.live.expect.onlyAfter')}
+                value={step.after || undefined}
+                options={steps
+                  .filter((each) => each.id !== step.id && each.id.length > 0)
+                  .map((each) => ({ value: each.id, label: each.id }))}
+                onChange={(after) => onChange({ ...step, after })}
+              />
+            </Tooltip>
+          </CardField>
+          <CardField label={t('workbench.editors.live.expect.within')}>
+            <InputNumber
+              min={MIN_STEP_TIMEOUT_MS}
+              max={MAX_STEP_TIMEOUT_MS}
+              step={500}
+              data-testid={`wf-step-${index}-within`}
+              aria-label={t('workbench.editors.live.expect.within')}
+              value={step.timeoutMs}
+              onChange={(timeoutMs) => {
+                if (timeoutMs !== null) onChange({ ...step, timeoutMs });
+              }}
+            />
+          </CardField>
+          <Checkbox
+            className="oh-wf-field-check"
             data-testid={`wf-step-${index}-include-stored`}
-            aria-label={t('workbench.editors.live.step.includeStored')}
-            onChange={setIncludeStored}
-          />
-          <Text type="secondary" style={{ fontSize: 11 }}>
+            checked={step.includeStored === true}
+            onChange={(e) => setIncludeStored(e.target.checked)}
+          >
             {t('workbench.editors.live.step.includeStored')}
-          </Text>
-        </span>
-      </div>
-      <div data-testid={`wf-step-${index}-match`}>
-        <Text type="secondary" style={{ fontSize: 11, display: 'block', marginBottom: 6 }}>
-          {t('workbench.editors.live.step.matchHeader', { count: step.match.length })}
-        </Text>
-        <CriteriaEditor
-          subject="message"
-          value={step.match}
-          onChange={(match) => onChange({ ...step, match })}
-          emptyText={t('workbench.editors.live.criteria.noneForExpect')}
-          errors={errors.filter((error) => error.referencedCriterionUid !== undefined)}
-          testId={`wf-step-${index}-match`}
-        />
-      </div>
-      <StepCapturesEditor
-        index={index}
+          </Checkbox>
+        </div>
+      </WorkflowCard>
+      <CriteriaEditor
+        cardTestId={`wf-step-${index}-match`}
+        title={t('workbench.editors.live.criteria.matchTitle')}
+        description={t('workbench.editors.live.criteria.matchDescription')}
         subject="message"
-        captures={step.captures}
-        onChange={(captures) => onChange({ ...step, captures })}
-        newCapture={newMessageCapture}
+        value={step.match}
+        onChange={(match) => onChange({ ...step, match })}
+        emptyText={t('workbench.editors.live.criteria.noneForExpect')}
+        errors={errors.filter((error) => error.referencedCriterionUid !== undefined)}
+        testId={`wf-step-${index}-match`}
+        footer={
+          matchOutcome !== undefined ? (
+            <span
+              className="oh-wf-match-run"
+              data-testid={`wf-step-${index}-match-last-run`}
+              data-outcome={matchOutcome}
+            >
+              {t('workbench.editors.live.criteria.lastRun', {
+                outcome: t(
+                  matchOutcome === 'matched'
+                    ? 'workbench.editors.live.run.pane.note.matched'
+                    : 'workbench.editors.live.criteria.neverMatched',
+                ),
+              })}
+            </span>
+          ) : undefined
+        }
       />
     </>
   );
 };
+
+/** The captures of a send's or an expect's message. */
+export function SessionStepCaptures<S extends SendWorkflowStep | ExpectWorkflowStep>({
+  step,
+  index,
+  onChange,
+}: {
+  step: S;
+  index: number;
+  onChange: (next: S) => void;
+}) {
+  return (
+    <StepCapturesEditor
+      index={index}
+      subject="message"
+      captures={step.captures}
+      onChange={(captures) => onChange({ ...step, captures })}
+      newCapture={newMessageCapture}
+    />
+  );
+}

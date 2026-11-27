@@ -42,9 +42,18 @@ function protocolTagColors(kind: RequestKind): React.CSSProperties {
   );
 }
 
-export const ProtocolTag: React.FC<{ kind: RequestKind; size: StepTagSize }> = ({ kind, size }) => {
+/** A protocol's tag. `children` are its words where they are not the protocol's own name — a request's method. */
+export const ProtocolTag: React.FC<{ kind: RequestKind; size: StepTagSize; children?: React.ReactNode }> = ({
+  kind,
+  size,
+  children,
+}) => {
   const t = useT();
-  return <span style={{ ...stepTagStyle(size), ...protocolTagColors(kind) }}>{t(requestKindMeta(kind).labelKey)}</span>;
+  return (
+    <span style={{ ...stepTagStyle(size), ...protocolTagColors(kind) }}>
+      {children ?? t(requestKindMeta(kind).labelKey)}
+    </span>
+  );
 };
 
 export const KindTag: React.FC<{ size: StepTagSize; children: React.ReactNode }> = ({ size, children }) => (

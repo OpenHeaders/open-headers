@@ -23,7 +23,14 @@ import { readKeptRunProduct } from '../../data/workflow-run-store';
 import { clauseTruthOf, reachOfCacheRow, reachOfRunRow } from './graph-lines';
 import StepLastRunCard from './StepLastRunCard';
 import type { StepMiniFacts } from './StepMiniRow';
-import { actionOfStep, doesOfStep, markOfStep, protocolOfStep } from './step-facts';
+import {
+  actionOfStep,
+  doesOfStep,
+  markOfStep,
+  protocolOfStep,
+  requestOpenOf,
+  type StepRequestOpeners,
+} from './step-facts';
 import { describeStepLastRun } from './step-last-run';
 import { idleMark } from './step-mark';
 import UnknownStepCard from './UnknownStepCard';
@@ -53,6 +60,8 @@ interface Props {
   run?: ShownWorkflowRun | null;
   /** The active environment's cache row: what the last run made of the step while no run is kept. */
   cacheRun?: LiveWorkflowRunSnapshot | null;
+  /** What opens a request's own tab — absent on a surface that opens none. */
+  requestOpeners?: StepRequestOpeners;
 }
 
 const WorkflowStepPanel: React.FC<Props> = ({
@@ -64,6 +73,7 @@ const WorkflowStepPanel: React.FC<Props> = ({
   onSelectStep,
   run,
   cacheRun,
+  requestOpeners,
 }) => {
   const t = useT();
   const { uiScale } = useTheme();
@@ -169,6 +179,10 @@ const WorkflowStepPanel: React.FC<Props> = ({
                   capturesByStepId={model.capturesByStepId}
                   errors={errors}
                   clauseTruth={(clauseUid) => clauseTruthOf(reach, clauseUid)}
+                  runState={mark.kind}
+                  onOpenRequest={
+                    requestOpeners !== undefined ? requestOpenOf(step, stepRequests, requestOpeners) : undefined
+                  }
                 />
               ) : (
                 <UnknownStepCard />

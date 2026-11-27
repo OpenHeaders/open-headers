@@ -1,8 +1,8 @@
 /**
  * What a step says of itself wherever the workflow view names it — on
  * its node, in its panel's header, in a row that stands for it: the kind
- * of request it speaks, its kind in a word, what it does, and its mark
- * from the last run. Pure.
+ * of request it speaks, its kind in a word, what it does, what opens its
+ * request, and its mark from the last run. Pure.
  */
 
 import type { LiveWorkflowRunSnapshot } from '@openheaders/core/bridge';
@@ -99,6 +99,34 @@ export function doesOfStep(
         : t('workbench.editors.live.graph.noRequestSelected'),
     muted: true,
   };
+}
+
+/** What opens a request's own tab, by the kind of request — handed down from where the workbench binds its tabs. */
+export interface StepRequestOpeners {
+  http: (uid: string, name: string, method: string) => void;
+  graphql: (uid: string, name: string) => void;
+  mqtt: (uid: string, name: string) => void;
+}
+
+/**
+ * Opens the tab of the request a step names: a call's own, the one a
+ * listen opens. `undefined` where it names none the workspace holds.
+ */
+export function requestOpenOf(
+  step: WorkflowStep,
+  requests: StepRequests,
+  openers: StepRequestOpeners,
+): (() => void) | undefined {
+  if (isSessionStep(step)) {
+    if (!isListenStep(step)) return undefined;
+    const session = requests.mqttRequests.find((request) => request.uid === step.sessionRequestUid);
+    return session !== undefined ? () => openers.mqtt(session.uid, session.name) : undefined;
+  }
+  if (isUnknownStep(step)) return undefined;
+  const http = requests.requestsByUid.get(step.requestUid);
+  if (http !== undefined) return () => openers.http(http.uid, http.name, http.method);
+  const graphql = requests.graphqlByUid.get(step.requestUid);
+  return graphql !== undefined ? () => openers.graphql(graphql.uid, graphql.name) : undefined;
 }
 
 /** Where a step's mark is read from: the run the page keeps, or the cache row where it keeps none. */

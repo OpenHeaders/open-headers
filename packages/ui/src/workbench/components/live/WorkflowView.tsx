@@ -18,6 +18,7 @@ import type { LiveVariable, LiveWorkflow } from '@openheaders/core/types';
 import { Sash, type SashSession } from '@openheaders/ui/shared/dock-layout';
 import type React from 'react';
 import { useCallback, useLayoutEffect, useRef } from 'react';
+import type { StepRequestOpeners } from './step-facts';
 import { useWorkflowFormModel } from './use-workflow-form-model';
 import type { ShownWorkflowRun } from './use-workflow-run';
 import WorkflowGraphBody from './WorkflowGraphBody';
@@ -66,6 +67,8 @@ interface Props {
    */
   cacheRun?: LiveWorkflowRunSnapshot | null;
   boundVars?: LiveVariable[];
+  /** What opens a request's own tab — a step's panel opens the request the step names. */
+  requestOpeners?: StepRequestOpeners;
 }
 
 const WorkflowView: React.FC<Props> = ({
@@ -78,6 +81,7 @@ const WorkflowView: React.FC<Props> = ({
   run,
   cacheRun,
   boundVars,
+  requestOpeners,
 }) => {
   const model = useWorkflowFormModel(draft, setDraft);
   const rootRef = useRef<HTMLDivElement>(null);
@@ -162,6 +166,7 @@ const WorkflowView: React.FC<Props> = ({
             onSelectStep={onSelectStep}
             run={run}
             cacheRun={cacheRun}
+            requestOpeners={requestOpeners}
           />
         ) : (
           <WorkflowOverviewPanel

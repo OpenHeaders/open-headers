@@ -312,25 +312,35 @@ describe('WorkflowStepEditor — a call’s sections', () => {
     expect(last.timeoutMs).toBeUndefined();
   });
 
-  // ── Scripts section (runScripts opt-in) ─────────────────────────────
+  // ── The Request card ────────────────────────────────────────────────
 
-  it('Scripts header summarizes (off) by default and (on) when opted in', () => {
+  it('names the request it sends: its method, and where it is kept', () => {
     renderStep(mkStep());
-    expect(screen.getByRole('button', { name: /Scripts/i }).textContent).toContain('(off)');
+    expect(screen.getByRole('heading', { name: 'Request' })).toBeTruthy();
+    expect(screen.getByTestId('wf-step-1-request-meta').textContent).toBe('POSTin auth › oauth');
     cleanup();
-    renderStep(mkStep({ runScripts: true }));
-    expect(screen.getByRole('button', { name: /Scripts/i }).textContent).toContain('(on)');
+    renderStep(mkStep({ requestUid: 'reqgone00' }));
+    expect(screen.queryByTestId('wf-step-1-request-meta')).toBeNull();
   });
 
-  it('toggling the switch on emits runScripts: true; off removes the field', () => {
+  it('Open request opens the request’s tab, and is off where the step names none', () => {
+    const onOpenRequest = vi.fn();
+    renderStep(mkStep(), { onOpenRequest });
+    fireEvent.click(screen.getByRole('button', { name: 'Open request' }));
+    expect(onOpenRequest).toHaveBeenCalledTimes(1);
+    cleanup();
+    renderStep(mkStep());
+    expect(screen.getByRole('button', { name: 'Open request' })).toHaveProperty('disabled', true);
+  });
+
+  it('ticking the scripts checkbox emits runScripts: true; unticking removes the field', () => {
     const { onChange } = renderStep(mkStep());
-    fireEvent.click(screen.getByRole('button', { name: /Scripts/i }));
-    fireEvent.click(screen.getByRole('switch', { name: /Run the request's scripts/i }));
+    expect(screen.queryByRole('button', { name: /^Scripts/ })).toBeNull();
+    fireEvent.click(screen.getByRole('checkbox', { name: /Run the request's scripts/i }));
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ runScripts: true }));
     cleanup();
     const optedIn = renderStep(mkStep({ runScripts: true }));
-    fireEvent.click(screen.getByRole('button', { name: /Scripts/i }));
-    fireEvent.click(screen.getByRole('switch', { name: /Run the request's scripts/i }));
+    fireEvent.click(screen.getByRole('checkbox', { name: /Run the request's scripts/i }));
     const last = optedIn.onChange.mock.calls.at(-1)?.[0] as DraftCallStep;
     expect(last.runScripts).toBeUndefined();
   });
@@ -540,6 +550,8 @@ describe('WorkflowStepEditor — the type selector is the action', () => {
 describe('WorkflowStepEditor — a listen', () => {
   it('has its request, its deadline, its scripts and the shared sections — and nothing to capture', () => {
     renderSession(LISTEN);
+    expect(screen.getByRole('heading', { name: 'Connection' })).toBeTruthy();
+    expect(screen.getByTestId('wf-step-1-connection').textContent).toContain('Stays open until the run ends.');
     expect(screen.getByTestId('wf-step-1-session-request').textContent).toContain('Probe MQTT');
     expect(numberInput('wf-step-1-ready-within')?.value).toBe('10000');
     expect(screen.queryByRole('button', { name: '+ Capture' })).toBeNull();
@@ -550,12 +562,19 @@ describe('WorkflowStepEditor — a listen', () => {
     expect(screen.queryByRole('button', { name: /Success criteria/i })).toBeNull();
   });
 
-  it('emits its deadline and its scripts switch', () => {
+  it('emits its deadline and its scripts checkbox', () => {
     const { onChange } = renderSession(LISTEN);
     fireEvent.change(numberInput('wf-step-1-ready-within') as HTMLInputElement, { target: { value: '2500' } });
     expect(onChange).toHaveBeenCalledWith({ ...LISTEN, timeoutMs: 2500 });
-    fireEvent.click(screen.getByRole('switch', { name: /Run the request's scripts/i }));
+    fireEvent.click(screen.getByRole('checkbox', { name: /Run the request's scripts/i }));
     expect(onChange).toHaveBeenLastCalledWith({ ...LISTEN, runScripts: true });
+  });
+
+  it('Open request opens the session request’s tab', () => {
+    const onOpenRequest = vi.fn();
+    renderSession(LISTEN, { onOpenRequest });
+    fireEvent.click(screen.getByRole('button', { name: 'Open request' }));
+    expect(onOpenRequest).toHaveBeenCalledTimes(1);
   });
 
   it('says who the session connects as, from the request', () => {
@@ -589,6 +608,7 @@ describe('WorkflowStepEditor — a listen', () => {
 describe('WorkflowStepEditor — a send', () => {
   it('is on a listen and sends one of its request’s saved messages', () => {
     renderSession(SEND);
+    expect(screen.getByRole('heading', { name: 'Send message' })).toBeTruthy();
     expect(screen.getByTestId('wf-step-1-on').textContent).toContain('probe');
     expect(screen.getByTestId('wf-step-1-message').textContent).toContain('Rename');
     openSelect('wf-step-1-message');
@@ -650,6 +670,8 @@ describe('WorkflowStepEditor — a send', () => {
 describe('WorkflowStepEditor — an expect', () => {
   it('is on a listen, after a trigger, on a topic filter, within a deadline', () => {
     renderSession(EXPECT);
+    expect(screen.getByRole('heading', { name: 'Expect message' })).toBeTruthy();
+    expect(screen.getByRole('heading', { name: 'Match criteria' })).toBeTruthy();
     expect(screen.getByTestId('wf-step-1-on').textContent).toContain('probe');
     expect(screen.getByTestId('wf-step-1-after').textContent).toContain('reboot');
     expect(screen.getByTestId<HTMLInputElement>('wf-step-1-address').value).toBe('devices/dev-1/status');
@@ -669,8 +691,26 @@ describe('WorkflowStepEditor — an expect', () => {
     const { onChange } = renderSession(EXPECT);
     fireEvent.change(numberInput('wf-step-1-within') as HTMLInputElement, { target: { value: '5000' } });
     expect(onChange).toHaveBeenCalledWith({ ...EXPECT, timeoutMs: 5000 });
-    fireEvent.click(screen.getByRole('switch', { name: 'Include stored messages' }));
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Include stored messages' }));
     expect(onChange).toHaveBeenLastCalledWith({ ...EXPECT, includeStored: true });
+  });
+
+  it('says in one line what the last run made of its rows together, and nothing while it has none', () => {
+    const held: ExpectWorkflowStep = {
+      ...EXPECT,
+      match: [{ kind: 'exists', uid: 'crtstate', extractor: { kind: 'json-path', path: '$.state' } }],
+    };
+    renderSession(held, { runState: 'passed' });
+    expect(screen.getByTestId('wf-step-1-match-last-run').textContent).toBe('Last run: Matched');
+    cleanup();
+    renderSession(held, { runState: 'timed-out' });
+    expect(screen.getByTestId('wf-step-1-match-last-run').textContent).toBe('Last run: Never matched');
+    cleanup();
+    renderSession(held, { runState: 'failed' });
+    expect(screen.queryByTestId('wf-step-1-match-last-run')).toBeNull();
+    cleanup();
+    renderSession(EXPECT, { runState: 'passed' });
+    expect(screen.queryByTestId('wf-step-1-match-last-run')).toBeNull();
   });
 
   it('starts a match row as a comparison: a message has no status', () => {

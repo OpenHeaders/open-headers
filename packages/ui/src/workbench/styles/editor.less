@@ -962,6 +962,113 @@
   }
 }
 
+// Code: a topic, a path, a pattern.
+.oh-wf-code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+// A card's body as a column of fields.
+.oh-wf-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+}
+
+// A card's body as fields in two columns; one column where the panel is narrow.
+.oh-wf-field-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 9px 8px;
+}
+
+// A picker beside one number: the picker takes two thirds.
+.oh-wf-field-grid--lead {
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+}
+
+// A field: its label over its control, which takes the field's width.
+.oh-wf-field {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+
+  .ant-select,
+  .ant-input-number {
+    width: 100%;
+  }
+}
+
+// The longhands: the stylesheet's compiler would divide a `1 / -1`.
+.oh-wf-field--wide {
+  grid-column-start: 1;
+  grid-column-end: -1;
+}
+
+// A checkbox standing where a field would: on the line of its neighbour's control.
+.oh-wf-field-check.ant-checkbox-wrapper {
+  align-self: end;
+  align-items: center;
+  min-height: 2em;
+}
+
+// A checkbox with what explains it beside it.
+.oh-wf-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+// Which request a step's picker holds: its method, and where it is kept.
+.oh-wf-request-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  font-size: 0.9167em;
+  line-height: 1.3;
+  color: var(--oh-wf-text-secondary);
+}
+
+// Criteria: what a row reads, what it reads it by, how it compares, what it expects, and the row's remove.
+.oh-wf-criteria-grid {
+  display: grid;
+  grid-template-columns: 112px minmax(0, 1fr) 88px minmax(0, 1.3fr) 24px;
+  gap: 4px 6px;
+  align-items: center;
+}
+
+// What the last run made of a wait's rows together.
+.oh-wf-match-run {
+  &[data-outcome='matched'] {
+    color: var(--oh-wf-success);
+  }
+
+  &[data-outcome='never'] {
+    color: var(--oh-wf-timeout);
+  }
+}
+
+@container wf-panel (max-width: 460px) {
+  .oh-wf-field-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .oh-wf-card-columns.oh-wf-criteria-grid {
+    display: none;
+  }
+
+  // Two lines a row — what it reads, then how it compares — with the remove at the first line's end.
+  .oh-wf-criteria-grid {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr) 24px;
+
+    > .oh-wf-row-remove {
+      grid-row: 1;
+      grid-column-start: 3;
+    }
+  }
+}
+
 // A step standing in a row of another step's panel.
 .oh-wf-mini-row {
   display: flex;

@@ -360,9 +360,12 @@ test('graph editing: connect adds a dependsOn edge, edge remove, add step, cycle
   // external-change banner (conflict tracking keys steps by uid).
   await expect(page.getByText('changed externally', { exact: false })).toHaveCount(0);
 
-  // Step c's card shows the materialized explicit parents.
+  // Step c's Depends on card shows the materialized explicit parents, a row each.
   await page.getByTestId('wf-graph-node-c').click();
-  await expect(page.locator('[data-step-card="c"]')).toContainText('after a, b');
+  const cDeps = page.locator('[data-step-card="c"]').getByTestId('wf-step-2-deps');
+  await expect(cDeps.getByTestId('wf-step-2-dep-a')).toBeVisible();
+  await expect(cDeps.getByTestId('wf-step-2-dep-b')).toBeVisible();
+  await expect(cDeps).toContainText('Chosen for this step.');
 
   // Save persists the graph-made edit through the normal save path.
   await saveButton.click();

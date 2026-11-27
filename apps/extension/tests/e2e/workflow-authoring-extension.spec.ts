@@ -237,7 +237,7 @@ test('A1 — a reboot commanded over HTTP and acknowledged over MQTT is authored
 
   // The defaults carry the arming: on the Listen above, after the step before.
   await addStep();
-  await pickOption(select('wf-step-2-action'), 'Expect');
+  await pickOption(select('wf-step-2-action'), 'Wait');
   await nameStep(2, 'status');
   await expect(select('wf-step-2-on')).toContainText('probe');
   await expect(select('wf-step-2-after')).toContainText('reboot');

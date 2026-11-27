@@ -39,4 +39,16 @@ const WorkflowCard: React.FC<Props> = ({ title, description, extra, footer, test
   </section>
 );
 
+/** A field of a card's body: its label over its control. `wide` takes the whole line of a body laid out in columns. */
+export const CardField: React.FC<{ label: string; wide?: boolean; children: React.ReactNode }> = ({
+  label,
+  wide = false,
+  children,
+}) => (
+  <div className={wide ? 'oh-wf-field oh-wf-field--wide' : 'oh-wf-field'}>
+    <span className="oh-wf-label">{label}</span>
+    {children}
+  </div>
+);
+
 export default WorkflowCard;

@@ -8,11 +8,12 @@
  * retry-on / clear) × timeout (set / clear) × scripts (on / off) —
  * plus the interaction cases that matter:
  *
- *   - Seeded combinations render the right section summaries and the
- *     expanded controls carry the persisted values (including the
- *     read-only "Custom" retry-on entry for a data-authored shape the
- *     picker can't produce); summaries survive Form↔Graph toggles
- *     without dirtying the draft.
+ *   - Seeded combinations render in the step's panel: its cards (Depends
+ *     on, Run condition, Request) carry the persisted values, as do the
+ *     sections that are not cards yet — their summaries and expanded
+ *     controls (including the read-only "Custom" retry-on entry for a
+ *     data-authored shape the picker can't produce); they survive a step
+ *     being closed and reopened without dirtying the draft.
  *   - Editing every knob through the real UI persists the exact step
  *     fields on Save (readback over RPC): explicit multi-parent
  *     dependsOn, a capture-equals gate, priorityFrom, a full retry
@@ -153,9 +154,25 @@ async function openStep(page: Page, stepId: string): Promise<Locator> {
 }
 
 /** Collapse section header inside a step card — role button whose
- *  accessible name starts with the section label. */
+ *  accessible name starts with the section label. The sections that
+ *  are not cards yet: Priority, Retry policy, Timeout. */
 function sectionHeader(stepCard: Locator, label: string): Locator {
   return stepCard.getByRole('button', { name: new RegExp(label) });
+}
+
+/** A step's Depends on card, by the step's place among the steps. */
+function depsCard(page: Page, index: number): Locator {
+  return page.getByTestId(`wf-step-${index}-deps`);
+}
+
+/** A step's Run condition card. */
+function gateCard(page: Page, index: number): Locator {
+  return page.getByTestId(`wf-step-${index}-runif`);
+}
+
+/** The checkbox of a call's Request card that runs the request's scripts. */
+function scriptsCheckbox(page: Page, index: number): Locator {
+  return page.getByTestId(`wf-step-${index}-run-scripts`);
 }
 
 /** Resolve an InputNumber's editable `<input>` from its testid — AntD
@@ -173,7 +190,7 @@ async function pickOption(page: Page, select: Locator, label: string): Promise<v
 
 // ── Tests ──────────────────────────────────────────────────────────
 
-test('seeded combinations render section summaries + controls, and survive a step being closed and reopened', async () => {
+test('seeded combinations render in the cards and the sections, and survive a step being closed and reopened', async () => {
   const page = await context.newPage();
   page.on('pageerror', (err) => pageErrors.push(err.message));
   await openWorkbench(page);
@@ -239,16 +256,19 @@ test('seeded combinations render section summaries + controls, and survive a ste
   await expect(page.getByTestId('wf-graph-pane')).toBeVisible();
   await expect(page.locator('[data-step-card]')).toHaveCount(0);
 
-  // Section summaries per card — every dimension's collapsed label.
+  // Every dimension per step: the cards say theirs, the sections their collapsed label.
+  // s1 names no dependency and no step is before it: it starts with the workflow.
   const s1 = await openStep(page, 's1');
-  await expect(sectionHeader(s1, 'Depends on')).toContainText('(implicit — prior step)');
-  await expect(sectionHeader(s1, 'Run condition')).toContainText('(none)');
+  await expect(depsCard(page, 0)).toContainText('Nothing. This step starts with the workflow.');
+  await expect(depsCard(page, 0).getByRole('button', { name: 'Reset' })).toHaveCount(0);
+  await expect(gateCard(page, 0).getByTestId('gate-clause-0')).toHaveCount(0);
+  await expect(gateCard(page, 0).getByTestId('gate-summary')).toHaveText(
+    'No dependencies, so this step runs when the workflow starts.',
+  );
   await expect(sectionHeader(s1, 'Priority')).toContainText('(none)');
   await expect(sectionHeader(s1, 'Retry policy')).toContainText('(3 attempts, exponential)');
   await expect(sectionHeader(s1, 'Timeout')).toContainText('(5000 ms)');
-  await expect(sectionHeader(s1, 'Scripts')).toContainText('(on)');
-  // Opted-in step advertises itself in the card header chip row.
-  await expect(s1.getByText('scripts', { exact: true })).toBeVisible();
+  await expect(scriptsCheckbox(page, 0)).toBeChecked();
 
   // Expanded s1 retry: controls carry the persisted policy.
   await sectionHeader(s1, 'Retry policy').click();
@@ -262,21 +282,26 @@ test('seeded combinations render section summaries + controls, and survive a ste
   const s2 = await openStep(page, 's2');
   await expect(page.locator('[data-step-card]')).toHaveCount(1);
   await expect(page.getByTestId('wf-step-1-retry')).toBeHidden();
-  await expect(sectionHeader(s2, 'Depends on')).toContainText('(s1)');
-  await expect(sectionHeader(s2, 'Run condition')).toContainText('(1)');
+  await expect(page.getByTestId('wf-step-1-dep-s1')).toBeVisible();
+  await expect(depsCard(page, 1)).toContainText('Chosen for this step.');
+  await expect(gateCard(page, 1).getByTestId('gate-clause-0')).toBeVisible();
+  await expect(gateCard(page, 1).getByTestId('gate-clause-1')).toHaveCount(0);
+  await expect(gateCard(page, 1).getByTestId('gate-summary')).toHaveText('Runs when every condition holds: s1 201.');
   await expect(sectionHeader(s2, 'Priority')).toContainText('(s1.token)');
   await expect(sectionHeader(s2, 'Retry policy')).toContainText('(2 attempts)');
   await expect(sectionHeader(s2, 'Timeout')).toContainText('(none)');
-  await expect(sectionHeader(s2, 'Scripts')).toContainText('(off)');
+  await expect(scriptsCheckbox(page, 1)).not.toBeChecked();
 
+  // s3 names an empty list: a root by its own word, so Reset is offered.
   const s3 = await openStep(page, 's3');
-  await expect(sectionHeader(s3, 'Depends on')).toContainText('(root)');
+  await expect(depsCard(page, 2)).toContainText('Nothing. This step starts with the workflow.');
+  await expect(depsCard(page, 2).getByRole('button', { name: 'Reset' })).toBeVisible();
   await expect(sectionHeader(s3, 'Timeout')).toContainText('(100 ms)');
   await expect(sectionHeader(s3, 'Retry policy')).toContainText('(none)');
 
   const s4 = await openStep(page, 's4');
-  await expect(sectionHeader(s4, 'Depends on')).toContainText('(s2, s3)');
-  await expect(sectionHeader(s4, 'Run condition')).toContainText('(2)');
+  await expect(page.getByTestId('wf-step-3-dep-s2')).toBeVisible();
+  await expect(page.getByTestId('wf-step-3-dep-s3')).toBeVisible();
   await expect(sectionHeader(s4, 'Retry policy')).toContainText('(5 attempts)');
 
   // Expanded s4 retry: the data-authored ['ne', 500] renders as the
@@ -284,18 +309,19 @@ test('seeded combinations render section summaries + controls, and survive a ste
   await sectionHeader(s4, 'Retry policy').click();
   await expect(page.getByTestId('wf-step-3-retry-on')).toContainText('Custom (edited as data)');
 
-  // Expanded s4 gate: both clause kinds render their persisted values.
-  await sectionHeader(s4, 'Run condition').click();
-  const s4Gate = page.getByTestId('wf-step-3-runif');
+  // s4's gate: both clause kinds render their persisted values.
+  const s4Gate = gateCard(page, 3);
   await expect(s4Gate.getByTestId('gate-clause-0-value')).toHaveValue('abc');
   await expect(s4Gate.getByTestId('gate-clause-1-pattern')).toHaveValue('^on$');
+  await expect(s4Gate.getByTestId('gate-clause-2')).toHaveCount(0);
 
-  // Expansion never dirties the draft; the summaries survive a step being closed and reopened.
+  // Reading never dirties the draft; what a step says survives its being closed and reopened.
   await expect(saveButton).toBeDisabled();
   await page.getByTestId('wf-panel-close').click();
   await expect(page.locator('[data-step-card]')).toHaveCount(0);
   await expect(sectionHeader(await openStep(page, 's1'), 'Retry policy')).toContainText('(3 attempts, exponential)');
-  await expect(sectionHeader(await openStep(page, 's3'), 'Depends on')).toContainText('(root)');
+  await openStep(page, 's3');
+  await expect(depsCard(page, 2)).toContainText('Nothing. This step starts with the workflow.');
   await expect(saveButton).toBeDisabled();
 
   await page.close();
@@ -348,31 +374,29 @@ test('editing every knob through the UI persists the exact step fields on Save',
   await numberInput(page, 'wf-step-1-timeout').fill('1500');
   await expect(sectionHeader(b, 'Timeout')).toContainText('(1500 ms)');
 
-  await sectionHeader(b, 'Scripts').click();
-  await page.getByTestId('wf-step-1-run-scripts').click();
-  await expect(sectionHeader(b, 'Scripts')).toContainText('(on)');
+  await scriptsCheckbox(page, 1).check();
+  await expect(scriptsCheckbox(page, 1)).toBeChecked();
   await expect(saveButton).toBeEnabled();
 
   // ── Step c (index 2): multi-parent deps + gate + priority ────────
+  // c names no dependency, so it waits for b, the step before it. Add
+  // takes one step a pick, and the first pick writes the list out.
   const c = await openStep(page, 'c');
-  await sectionHeader(c, 'Depends on').click();
-  await page.getByTestId('wf-step-2-deps-select').click();
-  const depsDropdown = page.locator('.ant-select-dropdown:not(.ant-select-dropdown-hidden)').last();
-  await depsDropdown.locator('.ant-select-item-option[title="a"]').click();
-  await depsDropdown.locator('.ant-select-item-option[title="b"]').click();
-  await page.keyboard.press('Escape');
-  await expect(sectionHeader(c, 'Depends on')).toContainText('(a, b)');
-  await expect(c).toContainText('after a, b');
+  await expect(page.getByTestId('wf-step-2-dep-b')).toBeVisible();
+  await expect(depsCard(page, 2)).toContainText('By default it waits for the step before it.');
+  await pickOption(page, page.getByTestId('wf-step-2-deps-select'), 'a');
+  await expect(page.getByTestId('wf-step-2-dep-a')).toBeVisible();
+  await expect(page.getByTestId('wf-step-2-dep-b')).toBeVisible();
+  await expect(depsCard(page, 2)).toContainText('Chosen for this step.');
 
-  await sectionHeader(c, 'Run condition').click();
-  const gate = page.getByTestId('wf-step-2-runif');
+  const gate = gateCard(page, 2);
   await gate.getByTestId('gate-add-condition').click();
   await expect(gate.getByTestId('gate-clause-0')).toBeVisible();
   await pickOption(page, gate.getByTestId('gate-clause-0-step'), 'a');
   await pickOption(page, gate.getByTestId('gate-clause-0-kind'), 'Capture equals');
   await pickOption(page, gate.getByTestId('gate-clause-0-capture'), 'token');
   await gate.getByTestId('gate-clause-0-value').fill('yes');
-  await expect(sectionHeader(c, 'Run condition')).toContainText('(1)');
+  await expect(gate.getByTestId('gate-clause-1')).toHaveCount(0);
 
   await sectionHeader(c, 'Priority').click();
   await pickOption(page, page.getByTestId('wf-step-2-priority-step'), 'a');
@@ -479,19 +503,20 @@ test('clearing every knob removes the fields and persists the deletions', async 
   await expect(sectionHeader(b, 'Priority')).toContainText('(none)');
 
   // Removing the last clause drops the gate entirely (never `{all: []}`).
-  await sectionHeader(b, 'Run condition').click();
-  await page.getByTestId('wf-step-1-runif').getByRole('button', { name: 'Remove clause 1' }).click();
-  await expect(sectionHeader(b, 'Run condition')).toContainText('(none)');
+  await gateCard(page, 1).getByRole('button', { name: 'Remove clause 1' }).click();
+  await expect(gateCard(page, 1).getByTestId('gate-clause-0')).toHaveCount(0);
+  await expect(gateCard(page, 1).getByTestId('gate-summary')).toHaveText(
+    'No conditions — step runs whenever its dependencies complete.',
+  );
 
   // Reset returns dependsOn to the implicit prior-step relationship.
-  await sectionHeader(b, 'Depends on').click();
-  await page.getByTestId('wf-step-1-deps').getByRole('button', { name: 'Reset' }).click();
-  await expect(sectionHeader(b, 'Depends on')).toContainText('(implicit — prior step)');
+  await depsCard(page, 1).getByRole('button', { name: 'Reset' }).click();
+  await expect(page.getByTestId('wf-step-1-dep-a')).toBeVisible();
+  await expect(depsCard(page, 1)).toContainText('By default it waits for the step before it.');
 
-  // Toggling scripts off deletes the field (absent is canonical).
-  await sectionHeader(b, 'Scripts').click();
-  await page.getByTestId('wf-step-1-run-scripts').click();
-  await expect(sectionHeader(b, 'Scripts')).toContainText('(off)');
+  // Unticking scripts deletes the field (absent is canonical).
+  await scriptsCheckbox(page, 1).uncheck();
+  await expect(scriptsCheckbox(page, 1)).not.toBeChecked();
 
   await expect(saveButton).toBeEnabled();
   await saveButton.click();
@@ -504,6 +529,7 @@ test('clearing every knob removes the fields and persists the deletions', async 
     priorityFrom?: unknown;
     retry?: unknown;
     timeoutMs?: number;
+    runScripts?: boolean;
   };
   await expect
     .poll(async () => {
@@ -518,6 +544,7 @@ test('clearing every knob removes the fields and persists the deletions', async 
         priorityFrom: b2.priorityFrom,
         retry: b2.retry,
         timeoutMs: b2.timeoutMs,
+        runScripts: b2.runScripts,
       };
     })
     .toEqual({
@@ -526,6 +553,7 @@ test('clearing every knob removes the fields and persists the deletions', async 
       priorityFrom: undefined,
       retry: undefined,
       timeoutMs: undefined,
+      runScripts: undefined,
     });
 
   await page.close();

@@ -1,7 +1,7 @@
 /**
  * Collapse sections for {@link WorkflowStepEditor}: the one every step
  * has — Priority — and a call's own — Retry policy, Timeout, Success
- * criteria, Poll, and Scripts.
+ * criteria and Poll.
  * Pure factories rebuilt every render (as the inline array
  * was) so state and handlers stay current — no memoization is required
  * because no renderer closes over a value that must be referentially
@@ -11,7 +11,6 @@
 import {
   CheckCircleOutlined,
   ClockCircleOutlined,
-  CodeOutlined,
   InfoCircleOutlined,
   ReloadOutlined,
   SyncOutlined,
@@ -32,7 +31,7 @@ import {
 import type { Criterion, PriorityRef, StatusMatch, StepPoll, StepRetryPolicy } from '@openheaders/core/types';
 import type { Translate } from '@openheaders/ui/context/LocaleContext';
 import { InfoTrigger } from '@openheaders/ui/shared/info-popover';
-import { Button, type CollapseProps, InputNumber, Select, Space, Switch, Tooltip, Typography } from 'antd';
+import { Button, type CollapseProps, InputNumber, Select, Space, Tooltip, Typography } from 'antd';
 import type { GlobalToken } from 'antd/es/theme/interface';
 import CriteriaEditor from './CriteriaEditor';
 
@@ -65,14 +64,12 @@ export interface CallStepSectionsOptions {
   criteriaErrors: StructuralError[];
   poll: StepPoll | undefined;
   pollError: StructuralError | undefined;
-  runScripts: boolean | undefined;
   /** The form is read-only — a control that sets its own `disabled` stays off whatever its own condition says. */
   readOnly: boolean;
   setRetry: (next: StepRetryPolicy | undefined) => void;
   setTimeoutMs: (next: number | undefined) => void;
   setSuccessCriteria: (next: Criterion[]) => void;
   setPoll: (next: StepPoll | undefined) => void;
-  setRunScripts: (next: boolean | undefined) => void;
 }
 
 // ── Retry-on encoding — the UI's picklist over the StatusMatch union ──
@@ -212,13 +209,11 @@ export function buildCallStepSections({
   criteriaErrors,
   poll,
   pollError,
-  runScripts,
   readOnly,
   setRetry,
   setTimeoutMs,
   setSuccessCriteria,
   setPoll,
-  setRunScripts,
 }: CallStepSectionsOptions): NonNullable<CollapseProps['items']> {
   const retryOnChoice = encodeRetryOn(retry?.retryOn);
   const criteriaCount = successCriteria?.length ?? 0;
@@ -406,6 +401,7 @@ export function buildCallStepSections({
       children: (
         <div style={{ padding: '0 0 4px' }} data-testid={`wf-step-${index}-criteria`}>
           <CriteriaEditor
+            title={t('workbench.editors.live.sections.successCriteria')}
             value={successCriteria ?? []}
             onChange={setSuccessCriteria}
             emptyText={t('workbench.editors.live.criteria.noneForCall')}
@@ -494,41 +490,6 @@ export function buildCallStepSections({
               </Text>
             </div>
           )}
-        </div>
-      ),
-    },
-    {
-      key: 'scripts',
-      label: (
-        <span style={{ fontSize: 11 }}>
-          <CodeOutlined style={{ marginRight: 4 }} />
-          <span style={{ textTransform: 'uppercase', letterSpacing: 0.4, color: token.colorTextSecondary }}>
-            {t('workbench.editors.live.sections.scripts')}
-          </span>
-          <span style={{ marginLeft: 6, color: token.colorTextTertiary }}>
-            {runScripts === true
-              ? t('workbench.editors.live.sections.scriptsOn')
-              : t('workbench.editors.live.sections.scriptsOff')}
-          </span>
-        </span>
-      ),
-      children: (
-        <div style={{ padding: '0 0 4px' }} data-testid={`wf-step-${index}-scripts`}>
-          <Space wrap size={6} style={{ width: '100%' }}>
-            <Switch
-              size="small"
-              checked={runScripts === true}
-              data-testid={`wf-step-${index}-run-scripts`}
-              aria-label={t('workbench.editors.live.sections.runScriptsAria')}
-              onChange={(on) => setRunScripts(on ? true : undefined)}
-            />
-            <Text type="secondary" style={{ fontSize: 11 }}>
-              {t('workbench.editors.live.sections.runScriptsLabel')}
-            </Text>
-            <Tooltip title={t('workbench.editors.live.sections.scriptsTooltip')}>
-              <InfoCircleOutlined style={{ fontSize: 12, color: token.colorTextTertiary }} />
-            </Tooltip>
-          </Space>
         </div>
       ),
     },
