@@ -272,7 +272,6 @@ export const workbenchLive = {
   'workbench.editors.live.run.pane.gone': 'Ответ этого шага больше не хранится.',
   'workbench.editors.live.run.action.listen': 'Прослушивание',
   'workbench.editors.live.run.action.send': 'Отправка',
-  'workbench.editors.live.run.action.expect': 'Ожидание',
   'workbench.editors.live.run.row.heldByRateLimit': 'Ожидает лимита частоты',
   'workbench.editors.live.run.row.connecting': 'Подключение…',
   'workbench.editors.live.run.row.waitingFor': 'Ожидает {address}',
@@ -334,26 +333,14 @@ export const workbenchLive = {
     'Рабочий процесс с шагами сеанса выносит вердикт; его захваты не раскрываются как переменные Live.',
 
   // ── Workflow step editor ────────────────────────────────────────────
-  'workbench.editors.live.step.title': 'Шаг {number}',
   'workbench.editors.live.step.needsUpdate': 'Для этого шага нужна более новая версия OpenHeaders.',
-  'workbench.editors.live.step.idPrefix': 'id',
   'workbench.editors.live.step.namePrefix': 'имя',
   'workbench.editors.live.step.typeTooltip':
     'Тип шага — типы Foreach и Composite появятся в одном из следующих выпусков.',
   'workbench.editors.live.step.typeForeach': 'Foreach',
   'workbench.editors.live.step.typeComposite': 'Composite',
-  'workbench.editors.live.step.runsIfTag': ({ count }, locale) =>
-    plural(locale, Number(count), {
-      one: 'запуск при {count} условии',
-      few: 'запуск при {count} условиях',
-      many: 'запуск при {count} условиях',
-      other: 'запуск при {count} условиях',
-    }),
-  'workbench.editors.live.step.priorityTag': 'приоритет: {ref}',
-  'workbench.editors.live.step.scriptsTag': 'скрипты',
   'workbench.editors.live.step.selectRequest': 'Выберите запрос',
   'workbench.editors.live.step.selectSessionRequest': 'Выберите MQTT-запрос',
-  'workbench.editors.live.step.readyWithin': 'готов за',
   'workbench.editors.live.step.sessionScriptsLabel': 'Выполнять скрипты запроса',
   'workbench.editors.live.step.identityTitle': 'Идентичность сеанса',
   'workbench.editors.live.step.identityInfo':
@@ -361,9 +348,7 @@ export const workbenchLive = {
   'workbench.editors.live.step.onPrefix': 'на',
   'workbench.editors.live.step.selectMessage': 'Выберите сохранённое сообщение',
   'workbench.editors.live.step.afterPrefix': 'после',
-  'workbench.editors.live.step.within': 'в течение',
   'workbench.editors.live.step.includeStored': 'Учитывать сообщения, хранившиеся у брокера',
-  'workbench.editors.live.step.matchHeader': 'СОВПАДЕНИЕ ({count})',
   'workbench.editors.live.step.descriptionPlaceholder': 'Описание шага (необязательно)',
   'workbench.editors.live.step.capturesHeader': 'ЗАХВАТЫ ({count})',
   'workbench.editors.live.step.addCapture': '+ Захват',
@@ -374,27 +359,9 @@ export const workbenchLive = {
   'workbench.editors.live.step.exposeAs': 'Раскрыть как',
   'workbench.editors.live.step.exposeTooltip':
     'Когда включено, сохранение рабочего процесса создаёт переменную Live, которая разрешает `{{live.<name>}}` из этого захвата. Выключите, чтобы использовать захват только внутри этого рабочего процесса (например, через {{step.<stepId>.<captureName>}}).',
-  'workbench.editors.live.step.afterChip': '↳ после {parents}',
-  'workbench.editors.live.step.implicitMark': '(неявно)',
-  'workbench.editors.live.step.implicitTooltip':
-    'Неявная зависимость от предыдущего шага (явный dependsOn не объявлен). Задайте явный dependsOn, чтобы зафиксировать связь.',
 
   // ── Step collapse sections (depends on / run condition / priority / retry / timeout / scripts) ──
   'workbench.editors.live.sections.dependsOn': 'Зависит от',
-  'workbench.editors.live.sections.dependsOnImplicit': '(неявно — предыдущий шаг)',
-  'workbench.editors.live.sections.dependsOnRoot': '(корень)',
-  'workbench.editors.live.sections.dependsOnPlaceholder': 'Выберите шаги-предки — пусто = корневой шаг',
-  'workbench.editors.live.sections.dependsOnImplicitHint':
-    'Явного dependsOn нет — шаг неявно зависит от предыдущего в порядке объявления.',
-  'workbench.editors.live.sections.dependsOnRootHint': 'Явный корень — запускается сразу при старте рабочего процесса.',
-  'workbench.editors.live.sections.useImplicit': 'Использовать неявную',
-  'workbench.editors.live.sections.waitsFor': ({ count }, locale) =>
-    plural(locale, Number(count), {
-      one: 'Шаг ждёт, пока {count} шаг-предок завершится или будет пропущен.',
-      few: 'Шаг ждёт, пока {count} шага-предка завершатся или будут пропущены.',
-      many: 'Шаг ждёт, пока {count} шагов-предков завершатся или будут пропущены.',
-      other: 'Шаг ждёт, пока {count} шагов-предков завершатся или будут пропущены.',
-    }),
   'workbench.editors.live.sections.reset': 'Сбросить',
   'workbench.editors.live.sections.runCondition': 'Условие запуска',
   'workbench.editors.live.sections.none': '(нет)',
@@ -436,11 +403,6 @@ export const workbenchLive = {
   'workbench.editors.live.sections.poll': 'Опрос',
   'workbench.editors.live.sections.pollSummary': '({count} × {delay} ms)',
   'workbench.editors.live.sections.pollInfo': 'Отправляет запрос повторно, пока не выполнятся его критерии успеха.',
-  'workbench.editors.live.sections.scripts': 'Скрипты',
-  'workbench.editors.live.sections.scriptsOn': '(вкл.)',
-  'workbench.editors.live.sections.scriptsOff': '(выкл.)',
-  'workbench.editors.live.sections.runScriptsAria': 'Выполнять скрипты запроса на этом шаге',
-  'workbench.editors.live.sections.runScriptsLabel': 'Выполнять скрипты запроса до запроса / после ответа',
   'workbench.editors.live.sections.scriptsTooltip':
     'Выполняется при каждой попытке цепочки. Скрипты шага получают поверхность oh.* только для чтения (oh.sendRequest и oh.variables.set отклоняются). Ошибка скрипта или проваленная проверка oh.test приводит к сбою шага, так что последние удачные значения сохраняются — проверки решают, что публикует этот рабочий процесс. Нужна среда выполнения с поддержкой скриптов; на хостах без неё шаг выполняется без скриптов.',
 
@@ -468,9 +430,7 @@ export const workbenchLive = {
     'Логика OR появится в одном из следующих выпусков. Пока используйте несколько шагов со взаимоисключающими условиями.',
   'workbench.editors.live.gate.matchModesAria': 'О режимах совпадения',
   'workbench.editors.live.gate.noConditions': 'Условий нет — шаг запускается, как только завершатся его зависимости.',
-  'workbench.editors.live.gate.conditionCount': 'условий: {count}',
   'workbench.editors.live.gate.addCondition': 'Добавить условие',
-  'workbench.editors.live.gate.andTag': 'AND',
   'workbench.editors.live.gate.stepPlaceholder': 'Шаг',
   'workbench.editors.live.gate.capturePlaceholder': 'Имя захвата',
   'workbench.editors.live.gate.equalsPlaceholder': 'Значение для сравнения',

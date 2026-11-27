@@ -276,7 +276,6 @@ export const workbenchLive = {
   'workbench.editors.live.run.pane.gone': 'Răspunsul acestui pas nu mai este păstrat.',
   'workbench.editors.live.run.action.listen': 'Ascultare',
   'workbench.editors.live.run.action.send': 'Trimitere',
-  'workbench.editors.live.run.action.expect': 'Așteptare',
   'workbench.editors.live.run.row.heldByRateLimit': 'Așteaptă limita de frecvență',
   'workbench.editors.live.run.row.connecting': 'Se conectează…',
   'workbench.editors.live.run.row.waitingFor': 'Se așteaptă {address}',
@@ -337,24 +336,13 @@ export const workbenchLive = {
     'Un flux de lucru cu pași de sesiune dă un verdict; capturile sale nu sunt expuse ca variabile Live.',
 
   // ── Workflow step editor ────────────────────────────────────────────
-  'workbench.editors.live.step.title': 'Pasul {number}',
   'workbench.editors.live.step.needsUpdate': 'Acest pas necesită o versiune mai nouă de OpenHeaders.',
-  'workbench.editors.live.step.idPrefix': 'id',
   'workbench.editors.live.step.namePrefix': 'nume',
   'workbench.editors.live.step.typeTooltip': 'Tipul pasului — Foreach și Composite vor veni într-o versiune viitoare.',
   'workbench.editors.live.step.typeForeach': 'Foreach',
   'workbench.editors.live.step.typeComposite': 'Composite',
-  'workbench.editors.live.step.runsIfTag': ({ count }, locale) =>
-    plural(locale, Number(count), {
-      one: 'rulează dacă {count} condiție',
-      few: 'rulează dacă {count} condiții',
-      other: 'rulează dacă {count} de condiții',
-    }),
-  'workbench.editors.live.step.priorityTag': 'prioritate: {ref}',
-  'workbench.editors.live.step.scriptsTag': 'scripturi',
   'workbench.editors.live.step.selectRequest': 'Selectați o cerere',
   'workbench.editors.live.step.selectSessionRequest': 'Selectați o cerere MQTT',
-  'workbench.editors.live.step.readyWithin': 'gata în',
   'workbench.editors.live.step.sessionScriptsLabel': 'Rulare scripturi ale cererii',
   'workbench.editors.live.step.identityTitle': 'Identitatea sesiunii',
   'workbench.editors.live.step.identityInfo':
@@ -362,9 +350,7 @@ export const workbenchLive = {
   'workbench.editors.live.step.onPrefix': 'pe',
   'workbench.editors.live.step.selectMessage': 'Selectați un mesaj salvat',
   'workbench.editors.live.step.afterPrefix': 'după',
-  'workbench.editors.live.step.within': 'în',
   'workbench.editors.live.step.includeStored': 'Include mesajele stocate',
-  'workbench.editors.live.step.matchHeader': 'POTRIVIRE ({count})',
   'workbench.editors.live.step.descriptionPlaceholder': 'Descriere pas (opțional)',
   'workbench.editors.live.step.capturesHeader': 'CAPTURI ({count})',
   'workbench.editors.live.step.addCapture': '+ Captură',
@@ -375,27 +361,9 @@ export const workbenchLive = {
   'workbench.editors.live.step.exposeAs': 'Expunere ca',
   'workbench.editors.live.step.exposeTooltip':
     'Când este activat, salvarea fluxului de lucru creează o variabilă Live care rezolvă `{{live.<name>}}` din această captură. Dezactivați pentru a folosi captura doar în interiorul acestui flux de lucru (de ex. prin {{step.<stepId>.<captureName>}}).',
-  'workbench.editors.live.step.afterChip': '↳ după {parents}',
-  'workbench.editors.live.step.implicitMark': '(implicit)',
-  'workbench.editors.live.step.implicitTooltip':
-    'Dependență implicită de pasul anterior (niciun dependsOn explicit declarat). Setați un dependsOn explicit pentru a fixa relația.',
 
   // ── Step collapse sections (depends on / run condition / priority / retry / timeout / scripts) ──
   'workbench.editors.live.sections.dependsOn': 'Depinde de',
-  'workbench.editors.live.sections.dependsOnImplicit': '(implicit — pasul anterior)',
-  'workbench.editors.live.sections.dependsOnRoot': '(rădăcină)',
-  'workbench.editors.live.sections.dependsOnPlaceholder': 'Selectați pașii strămoși — gol = pas rădăcină',
-  'workbench.editors.live.sections.dependsOnImplicitHint':
-    'Niciun dependsOn explicit — depinde implicit de pasul anterior în ordinea declarată.',
-  'workbench.editors.live.sections.dependsOnRootHint':
-    'Rădăcină explicită — rulează imediat ce pornește fluxul de lucru.',
-  'workbench.editors.live.sections.useImplicit': 'Utilizare implicită',
-  'workbench.editors.live.sections.waitsFor': ({ count }, locale) =>
-    plural(locale, Number(count), {
-      one: 'Pasul așteaptă ca {count} pas strămoș să se încheie sau să fie sărit.',
-      few: 'Pasul așteaptă ca {count} pași strămoși să se încheie sau să fie săriți.',
-      other: 'Pasul așteaptă ca {count} de pași strămoși să se încheie sau să fie săriți.',
-    }),
   'workbench.editors.live.sections.reset': 'Resetare',
   'workbench.editors.live.sections.runCondition': 'Condiție de rulare',
   'workbench.editors.live.sections.none': '(niciuna)',
@@ -437,11 +405,6 @@ export const workbenchLive = {
   'workbench.editors.live.sections.poll': 'Interogare repetată',
   'workbench.editors.live.sections.pollSummary': '({count} × {delay} ms)',
   'workbench.editors.live.sections.pollInfo': 'Retrimite cererea până când criteriile ei de succes sunt îndeplinite.',
-  'workbench.editors.live.sections.scripts': 'Scripturi',
-  'workbench.editors.live.sections.scriptsOn': '(activat)',
-  'workbench.editors.live.sections.scriptsOff': '(dezactivat)',
-  'workbench.editors.live.sections.runScriptsAria': 'Rulare scripturi ale cererii pe acest pas',
-  'workbench.editors.live.sections.runScriptsLabel': 'Rulare scripturi pre-cerere / post-răspuns ale cererii',
   'workbench.editors.live.sections.scriptsTooltip':
     'Rulează la fiecare încercare a lanțului. Scripturile pasului primesc o suprafață oh.* doar în citire (oh.sendRequest și oh.variables.set sunt respinse). O eroare de script sau o aserțiune oh.test eșuată face pasul să eșueze, astfel că ultimele valori bune sunt păstrate — aserțiunile controlează ce publică acest flux de lucru. Necesită un runtime cu suport de scripturi; pe gazdele fără unul, pasul rulează fără scripturi.',
 
@@ -470,9 +433,7 @@ export const workbenchLive = {
   'workbench.editors.live.gate.matchModesAria': 'Despre modurile de potrivire',
   'workbench.editors.live.gate.noConditions':
     'Nicio condiție — pasul rulează ori de câte ori i se încheie dependențele.',
-  'workbench.editors.live.gate.conditionCount': 'condiții: {count}',
   'workbench.editors.live.gate.addCondition': 'Adăugare condiție',
-  'workbench.editors.live.gate.andTag': 'AND',
   'workbench.editors.live.gate.stepPlaceholder': 'Pas',
   'workbench.editors.live.gate.capturePlaceholder': 'Nume captură',
   'workbench.editors.live.gate.equalsPlaceholder': 'Valoarea de comparat',

@@ -245,7 +245,6 @@ export const workbenchLive = {
   'workbench.editors.live.run.pane.gone': 'The response of this step is no longer kept.',
   'workbench.editors.live.run.action.listen': 'Listen',
   'workbench.editors.live.run.action.send': 'Send',
-  'workbench.editors.live.run.action.expect': 'Expect',
   'workbench.editors.live.run.row.heldByRateLimit': 'Waiting on the rate limit',
   'workbench.editors.live.run.row.connecting': 'Connecting…',
   'workbench.editors.live.run.row.waitingFor': 'Waiting for {address}',
@@ -302,23 +301,13 @@ export const workbenchLive = {
     'A workflow with session steps gives a verdict; its captures are not exposed as live variables.',
 
   // ── Workflow step editor ────────────────────────────────────────────
-  'workbench.editors.live.step.title': 'Step {number}',
   'workbench.editors.live.step.needsUpdate': 'This step needs a newer version of OpenHeaders.',
-  'workbench.editors.live.step.idPrefix': 'id',
   'workbench.editors.live.step.namePrefix': 'name',
   'workbench.editors.live.step.typeTooltip': 'Step type — Foreach and Composite coming in a future release.',
   'workbench.editors.live.step.typeForeach': 'Foreach',
   'workbench.editors.live.step.typeComposite': 'Composite',
-  'workbench.editors.live.step.runsIfTag': ({ count }, locale) =>
-    plural(locale, Number(count), {
-      one: 'runs if {count} condition',
-      other: 'runs if {count} conditions',
-    }),
-  'workbench.editors.live.step.priorityTag': 'priority: {ref}',
-  'workbench.editors.live.step.scriptsTag': 'scripts',
   'workbench.editors.live.step.selectRequest': 'Select a request',
   'workbench.editors.live.step.selectSessionRequest': 'Select an MQTT request',
-  'workbench.editors.live.step.readyWithin': 'ready within',
   'workbench.editors.live.step.sessionScriptsLabel': "Run the request's scripts",
   'workbench.editors.live.step.identityTitle': 'Session identity',
   'workbench.editors.live.step.identityInfo':
@@ -326,9 +315,7 @@ export const workbenchLive = {
   'workbench.editors.live.step.onPrefix': 'on',
   'workbench.editors.live.step.selectMessage': 'Select a saved message',
   'workbench.editors.live.step.afterPrefix': 'after',
-  'workbench.editors.live.step.within': 'within',
   'workbench.editors.live.step.includeStored': 'Include stored messages',
-  'workbench.editors.live.step.matchHeader': 'MATCH ({count})',
   'workbench.editors.live.step.descriptionPlaceholder': 'Optional step description',
   'workbench.editors.live.step.capturesHeader': 'CAPTURES ({count})',
   'workbench.editors.live.step.addCapture': '+ Capture',
@@ -338,25 +325,9 @@ export const workbenchLive = {
   'workbench.editors.live.step.exposeAs': 'Expose as',
   'workbench.editors.live.step.exposeTooltip':
     'When on, saving the workflow creates a Live Variable that resolves `{{live.<name>}}` from this capture. Turn off to use the capture only inside this workflow (e.g. via {{step.<stepId>.<captureName>}}).',
-  'workbench.editors.live.step.afterChip': '↳ after {parents}',
-  'workbench.editors.live.step.implicitMark': '(implicit)',
-  'workbench.editors.live.step.implicitTooltip':
-    'Implicit prior-step dependency (no explicit dependsOn declared). Set an explicit dependsOn to lock the relationship.',
 
   // ── Step collapse sections (depends on / run condition / priority / retry / timeout / scripts) ──
   'workbench.editors.live.sections.dependsOn': 'Depends on',
-  'workbench.editors.live.sections.dependsOnImplicit': '(implicit — prior step)',
-  'workbench.editors.live.sections.dependsOnRoot': '(root)',
-  'workbench.editors.live.sections.dependsOnPlaceholder': 'Select ancestor step(s) — empty = root step',
-  'workbench.editors.live.sections.dependsOnImplicitHint':
-    'No explicit dependsOn — implicitly depends on the previous step in declared order.',
-  'workbench.editors.live.sections.dependsOnRootHint': 'Explicit root — runs as soon as the workflow starts.',
-  'workbench.editors.live.sections.useImplicit': 'Use implicit',
-  'workbench.editors.live.sections.waitsFor': ({ count }, locale) =>
-    plural(locale, Number(count), {
-      one: 'Step waits for {count} ancestor to complete or skip.',
-      other: 'Step waits for {count} ancestors to complete or skip.',
-    }),
   'workbench.editors.live.sections.reset': 'Reset',
   'workbench.editors.live.sections.runCondition': 'Run condition',
   'workbench.editors.live.sections.none': '(none)',
@@ -398,11 +369,6 @@ export const workbenchLive = {
   'workbench.editors.live.sections.poll': 'Poll',
   'workbench.editors.live.sections.pollSummary': '({count} × {delay} ms)',
   'workbench.editors.live.sections.pollInfo': 'Sends the request again until its success criteria hold.',
-  'workbench.editors.live.sections.scripts': 'Scripts',
-  'workbench.editors.live.sections.scriptsOn': '(on)',
-  'workbench.editors.live.sections.scriptsOff': '(off)',
-  'workbench.editors.live.sections.runScriptsAria': "Run the request's scripts on this step",
-  'workbench.editors.live.sections.runScriptsLabel': "Run the request's pre-request / post-response scripts",
   'workbench.editors.live.sections.scriptsTooltip':
     'Runs on every chain attempt. Step scripts get a read-only oh.* surface (oh.sendRequest and oh.variables.set are rejected). A script error or a failed oh.test assertion fails the step, so last-good values are preserved — assertions gate what this workflow publishes. Needs a script-capable runtime; on hosts without one the step runs without scripts.',
 
@@ -430,9 +396,7 @@ export const workbenchLive = {
     'OR logic coming in a future release. Use multiple steps with mutually-exclusive gates for now.',
   'workbench.editors.live.gate.matchModesAria': 'About match modes',
   'workbench.editors.live.gate.noConditions': 'No conditions — step runs whenever its dependencies complete.',
-  'workbench.editors.live.gate.conditionCount': '{count} condition(s)',
   'workbench.editors.live.gate.addCondition': 'Add condition',
-  'workbench.editors.live.gate.andTag': 'AND',
   'workbench.editors.live.gate.stepPlaceholder': 'Step',
   'workbench.editors.live.gate.capturePlaceholder': 'Capture name',
   'workbench.editors.live.gate.equalsPlaceholder': 'Equals value',

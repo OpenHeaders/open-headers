@@ -261,7 +261,6 @@ export const workbenchLive = {
   'workbench.editors.live.run.pane.gone': 'La respuesta de este paso ya no se conserva.',
   'workbench.editors.live.run.action.listen': 'Escucha',
   'workbench.editors.live.run.action.send': 'Envío',
-  'workbench.editors.live.run.action.expect': 'Espera',
   'workbench.editors.live.run.row.heldByRateLimit': 'Esperando el límite de frecuencia',
   'workbench.editors.live.run.row.connecting': 'Conectando…',
   'workbench.editors.live.run.row.waitingFor': 'Esperando {address}',
@@ -322,24 +321,13 @@ export const workbenchLive = {
     'Un workflow con pasos de sesión da un veredicto; sus capturas no se exponen como variables live.',
 
   // ── Workflow step editor ────────────────────────────────────────────
-  'workbench.editors.live.step.title': 'Paso {number}',
   'workbench.editors.live.step.needsUpdate': 'Este paso necesita una versión más reciente de OpenHeaders.',
-  'workbench.editors.live.step.idPrefix': 'id',
   'workbench.editors.live.step.namePrefix': 'nombre',
   'workbench.editors.live.step.typeTooltip': 'Tipo de paso — Foreach y Composite llegarán en una versión futura.',
   'workbench.editors.live.step.typeForeach': 'Foreach',
   'workbench.editors.live.step.typeComposite': 'Composite',
-  'workbench.editors.live.step.runsIfTag': ({ count }, locale) =>
-    plural(locale, Number(count), {
-      one: 'se ejecuta si {count} condición',
-      many: 'se ejecuta si {count} condiciones',
-      other: 'se ejecuta si {count} condiciones',
-    }),
-  'workbench.editors.live.step.priorityTag': 'prioridad: {ref}',
-  'workbench.editors.live.step.scriptsTag': 'scripts',
   'workbench.editors.live.step.selectRequest': 'Selecciona una solicitud',
   'workbench.editors.live.step.selectSessionRequest': 'Selecciona una solicitud MQTT',
-  'workbench.editors.live.step.readyWithin': 'lista en',
   'workbench.editors.live.step.sessionScriptsLabel': 'Ejecutar los scripts de la solicitud',
   'workbench.editors.live.step.identityTitle': 'Identidad de la sesión',
   'workbench.editors.live.step.identityInfo':
@@ -347,9 +335,7 @@ export const workbenchLive = {
   'workbench.editors.live.step.onPrefix': 'en',
   'workbench.editors.live.step.selectMessage': 'Selecciona un mensaje guardado',
   'workbench.editors.live.step.afterPrefix': 'tras',
-  'workbench.editors.live.step.within': 'dentro de',
   'workbench.editors.live.step.includeStored': 'Incluir mensajes almacenados',
-  'workbench.editors.live.step.matchHeader': 'COINCIDENCIA ({count})',
   'workbench.editors.live.step.descriptionPlaceholder': 'Descripción opcional del paso',
   'workbench.editors.live.step.capturesHeader': 'CAPTURAS ({count})',
   'workbench.editors.live.step.addCapture': '+ Captura',
@@ -362,27 +348,9 @@ export const workbenchLive = {
     'Cuando está activado, guardar el workflow crea una variable Live que resuelve `{{live.<name>}}` desde ' +
     'esta captura. Desactívalo para usar la captura solo dentro de este workflow (p. ej. vía ' +
     '{{step.<stepId>.<captureName>}}).',
-  'workbench.editors.live.step.afterChip': '↳ después de {parents}',
-  'workbench.editors.live.step.implicitMark': '(implícito)',
-  'workbench.editors.live.step.implicitTooltip':
-    'Dependencia implícita del paso anterior (sin dependsOn explícito declarado). Define un dependsOn ' +
-    'explícito para fijar la relación.',
 
   // ── Step collapse sections (depends on / run condition / priority / retry / timeout / scripts) ──
   'workbench.editors.live.sections.dependsOn': 'Depende de',
-  'workbench.editors.live.sections.dependsOnImplicit': '(implícito — paso anterior)',
-  'workbench.editors.live.sections.dependsOnRoot': '(raíz)',
-  'workbench.editors.live.sections.dependsOnPlaceholder': 'Selecciona el o los pasos ancestros — vacío = paso raíz',
-  'workbench.editors.live.sections.dependsOnImplicitHint':
-    'Sin dependsOn explícito — depende implícitamente del paso anterior en el orden declarado.',
-  'workbench.editors.live.sections.dependsOnRootHint': 'Raíz explícita — se ejecuta en cuanto arranca el workflow.',
-  'workbench.editors.live.sections.useImplicit': 'Usar el implícito',
-  'workbench.editors.live.sections.waitsFor': ({ count }, locale) =>
-    plural(locale, Number(count), {
-      one: 'El paso espera a que {count} ancestro se complete o se omita.',
-      many: 'El paso espera a que {count} ancestros se completen o se omitan.',
-      other: 'El paso espera a que {count} ancestros se completen o se omitan.',
-    }),
   'workbench.editors.live.sections.reset': 'Restablecer',
   'workbench.editors.live.sections.runCondition': 'Condición de ejecución',
   'workbench.editors.live.sections.none': '(ninguna)',
@@ -429,12 +397,6 @@ export const workbenchLive = {
   'workbench.editors.live.sections.pollSummary': '({count} × {delay} ms)',
   'workbench.editors.live.sections.pollInfo':
     'Vuelve a enviar la solicitud hasta que se cumplan sus criterios de éxito.',
-  'workbench.editors.live.sections.scripts': 'Scripts',
-  'workbench.editors.live.sections.scriptsOn': '(activados)',
-  'workbench.editors.live.sections.scriptsOff': '(desactivados)',
-  'workbench.editors.live.sections.runScriptsAria': 'Ejecutar los scripts de la solicitud en este paso',
-  'workbench.editors.live.sections.runScriptsLabel':
-    'Ejecutar los scripts pre-solicitud / pos-respuesta de la solicitud',
   'workbench.editors.live.sections.scriptsTooltip':
     'Se ejecuta en cada intento de la cadena. Los scripts de paso reciben una superficie oh.* de solo lectura ' +
     '(oh.sendRequest y oh.variables.set se rechazan). Un error de script o una aserción oh.test fallida hace ' +
@@ -468,9 +430,7 @@ export const workbenchLive = {
   'workbench.editors.live.gate.matchModesAria': 'Acerca de los modos de coincidencia',
   'workbench.editors.live.gate.noConditions':
     'Sin condiciones — el paso se ejecuta en cuanto sus dependencias terminan.',
-  'workbench.editors.live.gate.conditionCount': '{count} condición(es)',
   'workbench.editors.live.gate.addCondition': 'Añadir condición',
-  'workbench.editors.live.gate.andTag': 'AND',
   'workbench.editors.live.gate.stepPlaceholder': 'Paso',
   'workbench.editors.live.gate.capturePlaceholder': 'Nombre de la captura',
   'workbench.editors.live.gate.equalsPlaceholder': 'Valor de igualdad',

@@ -251,7 +251,6 @@ export const workbenchLive = {
   'workbench.editors.live.run.pane.gone': '이 단계의 응답은 더 이상 보관되어 있지 않습니다.',
   'workbench.editors.live.run.action.listen': '수신 대기',
   'workbench.editors.live.run.action.send': '보내기',
-  'workbench.editors.live.run.action.expect': '기대',
   'workbench.editors.live.run.row.heldByRateLimit': '속도 제한 대기 중',
   'workbench.editors.live.run.row.connecting': '연결 중…',
   'workbench.editors.live.run.row.waitingFor': '{address} 대기 중',
@@ -305,30 +304,21 @@ export const workbenchLive = {
     '세션 단계가 있는 워크플로는 판정을 내립니다. 캡처는 라이브 변수로 노출되지 않습니다.',
 
   // ── Workflow step editor ────────────────────────────────────────────
-  'workbench.editors.live.step.title': '{number}단계',
   'workbench.editors.live.step.needsUpdate': '이 단계에는 더 새로운 버전의 OpenHeaders가 필요합니다.',
-  'workbench.editors.live.step.idPrefix': 'id',
   'workbench.editors.live.step.namePrefix': '이름',
   'workbench.editors.live.step.typeTooltip':
     '단계 유형입니다. Foreach 유형과 Composite 유형은 향후 릴리스에서 제공됩니다.',
   'workbench.editors.live.step.typeForeach': 'Foreach',
   'workbench.editors.live.step.typeComposite': 'Composite',
-  'workbench.editors.live.step.runsIfTag': ({ count }, locale) =>
-    plural(locale, Number(count), { other: '조건 {count}개 충족 시 실행' }),
-  'workbench.editors.live.step.priorityTag': '우선순위: {ref}',
-  'workbench.editors.live.step.scriptsTag': '스크립트',
   'workbench.editors.live.step.selectRequest': '요청 선택',
   'workbench.editors.live.step.selectSessionRequest': 'MQTT 요청 선택',
-  'workbench.editors.live.step.readyWithin': '준비 기한',
   'workbench.editors.live.step.sessionScriptsLabel': '요청의 스크립트 실행',
   'workbench.editors.live.step.identityTitle': '세션 식별 정보',
   'workbench.editors.live.step.identityInfo': '세션은 MQTT 요청에 설정된 대로 연결합니다. 변경은 요청에서 하세요.',
   'workbench.editors.live.step.onPrefix': '세션',
   'workbench.editors.live.step.selectMessage': '저장된 메시지 선택',
   'workbench.editors.live.step.afterPrefix': '트리거',
-  'workbench.editors.live.step.within': '기한',
   'workbench.editors.live.step.includeStored': '브로커가 보관한 메시지 포함',
-  'workbench.editors.live.step.matchHeader': '일치 조건 ({count})',
   'workbench.editors.live.step.descriptionPlaceholder': '단계 설명 (선택 사항)',
   'workbench.editors.live.step.capturesHeader': '캡처 ({count})',
   'workbench.editors.live.step.addCapture': '+ 캡처',
@@ -338,22 +328,9 @@ export const workbenchLive = {
   'workbench.editors.live.step.exposeAs': '노출 이름',
   'workbench.editors.live.step.exposeTooltip':
     '켜면 워크플로를 저장할 때 이 캡처에서 `{{live.<name>}}` 참조를 해석하는 라이브 변수가 만들어집니다. 캡처를 이 워크플로 안에서만 쓰려면 끄세요 (예: {{step.<stepId>.<captureName>}} 참조로).',
-  'workbench.editors.live.step.afterChip': '↳ {parents} 다음',
-  'workbench.editors.live.step.implicitMark': '(암시적)',
-  'workbench.editors.live.step.implicitTooltip':
-    '암시적인 이전 단계 의존입니다 (명시적 dependsOn 선언 없음). 관계를 고정하려면 명시적 dependsOn 값을 설정하세요.',
 
   // ── Step collapse sections (depends on / run condition / priority / retry / timeout / scripts) ──
   'workbench.editors.live.sections.dependsOn': '의존 대상',
-  'workbench.editors.live.sections.dependsOnImplicit': '(암시적: 이전 단계)',
-  'workbench.editors.live.sections.dependsOnRoot': '(루트)',
-  'workbench.editors.live.sections.dependsOnPlaceholder': '조상 단계 선택. 비우면 루트 단계',
-  'workbench.editors.live.sections.dependsOnImplicitHint':
-    '명시적 dependsOn 선언이 없습니다. 선언 순서상 이전 단계에 암시적으로 의존합니다.',
-  'workbench.editors.live.sections.dependsOnRootHint': '명시적 루트입니다. 워크플로가 시작되는 즉시 실행됩니다.',
-  'workbench.editors.live.sections.useImplicit': '암시적 사용',
-  'workbench.editors.live.sections.waitsFor': ({ count }, locale) =>
-    plural(locale, Number(count), { other: '단계는 조상 {count}개가 완료되거나 건너뛰어질 때까지 기다립니다.' }),
   'workbench.editors.live.sections.reset': '재설정',
   'workbench.editors.live.sections.runCondition': '실행 조건',
   'workbench.editors.live.sections.none': '(없음)',
@@ -395,11 +372,6 @@ export const workbenchLive = {
   'workbench.editors.live.sections.poll': '폴링',
   'workbench.editors.live.sections.pollSummary': '({count} × {delay} ms)',
   'workbench.editors.live.sections.pollInfo': '성공 기준이 충족될 때까지 요청을 다시 보냅니다.',
-  'workbench.editors.live.sections.scripts': '스크립트',
-  'workbench.editors.live.sections.scriptsOn': '(켜짐)',
-  'workbench.editors.live.sections.scriptsOff': '(꺼짐)',
-  'workbench.editors.live.sections.runScriptsAria': '이 단계에서 요청의 스크립트 실행',
-  'workbench.editors.live.sections.runScriptsLabel': '요청의 요청 전 / 응답 후 스크립트 실행',
   'workbench.editors.live.sections.scriptsTooltip':
     '연쇄 시도마다 실행됩니다. 단계 스크립트는 읽기 전용 oh.* 표면을 받습니다 (oh.sendRequest 함수와 oh.variables.set 함수는 거부됩니다). 스크립트 오류나 실패한 oh.test 단언은 단계를 실패시키므로 마지막 정상 값이 보존됩니다. 단언이 이 워크플로가 게시하는 것을 거릅니다. 스크립트를 실행할 수 있는 런타임이 필요하며, 없는 호스트에서는 단계가 스크립트 없이 실행됩니다.',
 
@@ -427,9 +399,7 @@ export const workbenchLive = {
     'OR 논리는 향후 릴리스에서 제공됩니다. 지금은 서로 배타적인 조건을 가진 여러 단계를 쓰세요.',
   'workbench.editors.live.gate.matchModesAria': '일치 모드 정보',
   'workbench.editors.live.gate.noConditions': '조건이 없습니다. 의존 대상이 완료될 때마다 단계가 실행됩니다.',
-  'workbench.editors.live.gate.conditionCount': '조건 {count}개',
   'workbench.editors.live.gate.addCondition': '조건 추가',
-  'workbench.editors.live.gate.andTag': 'AND',
   'workbench.editors.live.gate.stepPlaceholder': '단계',
   'workbench.editors.live.gate.capturePlaceholder': '캡처 이름',
   'workbench.editors.live.gate.equalsPlaceholder': '비교할 값',

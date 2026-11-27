@@ -239,7 +239,6 @@ export const workbenchLive = {
   'workbench.editors.live.run.pane.gone': '此步骤的响应已不再保留。',
   'workbench.editors.live.run.action.listen': '监听',
   'workbench.editors.live.run.action.send': '发送',
-  'workbench.editors.live.run.action.expect': '期望',
   'workbench.editors.live.run.row.heldByRateLimit': '正在等待速率限制',
   'workbench.editors.live.run.row.connecting': '连接中…',
   'workbench.editors.live.run.row.waitingFor': '正在等待 {address}',
@@ -290,31 +289,20 @@ export const workbenchLive = {
   'workbench.editors.live.form.sessionNoLiveVariables': '包含会话步骤的工作流给出判定；其捕获不会公开为 Live 变量。',
 
   // ── Workflow step editor ────────────────────────────────────────────
-  'workbench.editors.live.step.title': '步骤 {number}',
   'workbench.editors.live.step.needsUpdate': '此步骤需要更新版本的 OpenHeaders。',
-  'workbench.editors.live.step.idPrefix': 'id',
   'workbench.editors.live.step.namePrefix': '名称',
   'workbench.editors.live.step.typeTooltip': '步骤类型——Foreach 和 Composite 将在未来版本推出。',
   'workbench.editors.live.step.typeForeach': 'Foreach',
   'workbench.editors.live.step.typeComposite': 'Composite',
-  'workbench.editors.live.step.runsIfTag': ({ count }, locale) =>
-    plural(locale, Number(count), {
-      other: '满足 {count} 个条件时运行',
-    }),
-  'workbench.editors.live.step.priorityTag': '优先级：{ref}',
-  'workbench.editors.live.step.scriptsTag': 'scripts',
   'workbench.editors.live.step.selectRequest': '选择一个请求',
   'workbench.editors.live.step.selectSessionRequest': '选择一个 MQTT 请求',
-  'workbench.editors.live.step.readyWithin': '就绪时限',
   'workbench.editors.live.step.sessionScriptsLabel': '运行该请求的脚本',
   'workbench.editors.live.step.identityTitle': '会话身份',
   'workbench.editors.live.step.identityInfo': '会话按其 MQTT 请求的设置连接。请在该请求上修改。',
   'workbench.editors.live.step.onPrefix': '会话',
   'workbench.editors.live.step.selectMessage': '选择一条已保存消息',
   'workbench.editors.live.step.afterPrefix': '触发步骤',
-  'workbench.editors.live.step.within': '时限',
   'workbench.editors.live.step.includeStored': '包含已存储的消息',
-  'workbench.editors.live.step.matchHeader': '匹配（{count}）',
   'workbench.editors.live.step.descriptionPlaceholder': '可选的步骤描述',
   'workbench.editors.live.step.capturesHeader': '捕获（{count}）',
   'workbench.editors.live.step.addCapture': '+ 捕获',
@@ -324,23 +312,9 @@ export const workbenchLive = {
   'workbench.editors.live.step.exposeAs': '公开为',
   'workbench.editors.live.step.exposeTooltip':
     '开启后，保存工作流会创建一个 Live 变量，从此捕获解析 `{{live.<name>}}`。关闭则仅在此工作流内部使用该捕获（例如通过 {{step.<stepId>.<captureName>}}）。',
-  'workbench.editors.live.step.afterChip': '↳ 在 {parents} 之后',
-  'workbench.editors.live.step.implicitMark': '（隐式）',
-  'workbench.editors.live.step.implicitTooltip':
-    '对上一步骤的隐式依赖（未声明显式 dependsOn）。设置显式 dependsOn 以锁定这层关系。',
 
   // ── Step collapse sections (depends on / run condition / priority / retry / timeout / scripts) ──
   'workbench.editors.live.sections.dependsOn': '依赖于',
-  'workbench.editors.live.sections.dependsOnImplicit': '（隐式——上一步）',
-  'workbench.editors.live.sections.dependsOnRoot': '（根）',
-  'workbench.editors.live.sections.dependsOnPlaceholder': '选择祖先步骤——留空 = 根步骤',
-  'workbench.editors.live.sections.dependsOnImplicitHint': '没有显式 dependsOn——按声明顺序隐式依赖上一步。',
-  'workbench.editors.live.sections.dependsOnRootHint': '显式根——工作流一启动就运行。',
-  'workbench.editors.live.sections.useImplicit': '使用隐式',
-  'workbench.editors.live.sections.waitsFor': ({ count }, locale) =>
-    plural(locale, Number(count), {
-      other: '该步骤会等待 {count} 个祖先完成或被跳过。',
-    }),
   'workbench.editors.live.sections.reset': '重置',
   'workbench.editors.live.sections.runCondition': '运行条件',
   'workbench.editors.live.sections.none': '（无）',
@@ -382,11 +356,6 @@ export const workbenchLive = {
   'workbench.editors.live.sections.poll': '轮询',
   'workbench.editors.live.sections.pollSummary': '（{count} × {delay} ms）',
   'workbench.editors.live.sections.pollInfo': '重复发送请求，直到满足其成功条件。',
-  'workbench.editors.live.sections.scripts': 'Scripts',
-  'workbench.editors.live.sections.scriptsOn': '（开）',
-  'workbench.editors.live.sections.scriptsOff': '（关）',
-  'workbench.editors.live.sections.runScriptsAria': '在此步骤运行该请求的脚本',
-  'workbench.editors.live.sections.runScriptsLabel': '运行该请求的 pre-request / post-response 脚本',
   'workbench.editors.live.sections.scriptsTooltip':
     '在链条的每次尝试中运行。步骤脚本获得只读的 oh.* 界面（oh.sendRequest 和 oh.variables.set 会被拒绝）。脚本错误或失败的 oh.test 断言会让该步骤失败，从而保留最后一次的良好值——断言把关此工作流发布的内容。需要支持脚本的运行时；在没有的主机上，该步骤会不带脚本运行。',
   // ── Step gate editor (run-condition clauses) ────────────────────────
@@ -412,9 +381,7 @@ export const workbenchLive = {
   'workbench.editors.live.gate.orTooltip': 'OR 逻辑将在未来版本推出。目前请用多个步骤搭配互斥的条件。',
   'workbench.editors.live.gate.matchModesAria': '关于匹配模式',
   'workbench.editors.live.gate.noConditions': '没有条件——步骤在其依赖完成后即运行。',
-  'workbench.editors.live.gate.conditionCount': '{count} 个条件',
   'workbench.editors.live.gate.addCondition': '添加条件',
-  'workbench.editors.live.gate.andTag': 'AND',
   'workbench.editors.live.gate.stepPlaceholder': '步骤',
   'workbench.editors.live.gate.capturePlaceholder': '捕获名称',
   'workbench.editors.live.gate.equalsPlaceholder': '等于的值',

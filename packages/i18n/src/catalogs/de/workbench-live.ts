@@ -259,7 +259,6 @@ export const workbenchLive = {
   'workbench.editors.live.run.pane.gone': 'Die Antwort dieses Schritts wird nicht mehr aufbewahrt.',
   'workbench.editors.live.run.action.listen': 'Lauschen',
   'workbench.editors.live.run.action.send': 'Senden',
-  'workbench.editors.live.run.action.expect': 'Erwarten',
   'workbench.editors.live.run.row.heldByRateLimit': 'Wartet auf das Ratenlimit',
   'workbench.editors.live.run.row.connecting': 'Verbindung wird hergestellt…',
   'workbench.editors.live.run.row.waitingFor': 'Wartet auf {address}',
@@ -319,23 +318,13 @@ export const workbenchLive = {
     'Ein Workflow mit Sitzungsschritten liefert ein Urteil; seine Erfassungen werden nicht als Live-Variablen freigegeben.',
 
   // ── Workflow step editor ────────────────────────────────────────────
-  'workbench.editors.live.step.title': 'Schritt {number}',
   'workbench.editors.live.step.needsUpdate': 'Dieser Schritt benötigt eine neuere Version von OpenHeaders.',
-  'workbench.editors.live.step.idPrefix': 'id',
   'workbench.editors.live.step.namePrefix': 'Name',
   'workbench.editors.live.step.typeTooltip': 'Schritt-Typ — Foreach und Composite kommen in einer künftigen Version.',
   'workbench.editors.live.step.typeForeach': 'Foreach',
   'workbench.editors.live.step.typeComposite': 'Composite',
-  'workbench.editors.live.step.runsIfTag': ({ count }, locale) =>
-    plural(locale, Number(count), {
-      one: 'läuft bei {count} Bedingung',
-      other: 'läuft bei {count} Bedingungen',
-    }),
-  'workbench.editors.live.step.priorityTag': 'Priorität: {ref}',
-  'workbench.editors.live.step.scriptsTag': 'Scripts',
   'workbench.editors.live.step.selectRequest': 'Wähle eine Anfrage',
   'workbench.editors.live.step.selectSessionRequest': 'Wähle eine MQTT-Anfrage',
-  'workbench.editors.live.step.readyWithin': 'bereit innerhalb',
   'workbench.editors.live.step.sessionScriptsLabel': 'Die Scripts der Anfrage ausführen',
   'workbench.editors.live.step.identityTitle': 'Sitzungsidentität',
   'workbench.editors.live.step.identityInfo':
@@ -343,9 +332,7 @@ export const workbenchLive = {
   'workbench.editors.live.step.onPrefix': 'auf',
   'workbench.editors.live.step.selectMessage': 'Wähle eine gespeicherte Nachricht',
   'workbench.editors.live.step.afterPrefix': 'nach',
-  'workbench.editors.live.step.within': 'innerhalb',
   'workbench.editors.live.step.includeStored': 'Vom Broker aufbewahrte Nachrichten einbeziehen',
-  'workbench.editors.live.step.matchHeader': 'ABGLEICH ({count})',
   'workbench.editors.live.step.descriptionPlaceholder': 'Optionale Schrittbeschreibung',
   'workbench.editors.live.step.capturesHeader': 'ERFASSUNGEN ({count})',
   'workbench.editors.live.step.addCapture': '+ Erfassung',
@@ -358,26 +345,9 @@ export const workbenchLive = {
     'Wenn an, erstellt das Speichern des Workflows eine Live-Variable, die `{{live.<name>}}` aus dieser ' +
     'Erfassung auflöst. Schalte es aus, um die Erfassung nur innerhalb dieses Workflows zu verwenden ' +
     '(z. B. über {{step.<stepId>.<captureName>}}).',
-  'workbench.editors.live.step.afterChip': '↳ nach {parents}',
-  'workbench.editors.live.step.implicitMark': '(implizit)',
-  'workbench.editors.live.step.implicitTooltip':
-    'Implizite Abhängigkeit vom vorherigen Schritt (kein explizites dependsOn deklariert). Setze ein ' +
-    'explizites dependsOn, um die Beziehung festzuschreiben.',
 
   // ── Step collapse sections (depends on / run condition / priority / retry / timeout / scripts) ──
   'workbench.editors.live.sections.dependsOn': 'Hängt ab von',
-  'workbench.editors.live.sections.dependsOnImplicit': '(implizit — vorheriger Schritt)',
-  'workbench.editors.live.sections.dependsOnRoot': '(Wurzel)',
-  'workbench.editors.live.sections.dependsOnPlaceholder': 'Wähle Vorgänger-Schritte — leer = Wurzelschritt',
-  'workbench.editors.live.sections.dependsOnImplicitHint':
-    'Kein explizites dependsOn — hängt implizit vom vorherigen Schritt in deklarierter Reihenfolge ab.',
-  'workbench.editors.live.sections.dependsOnRootHint': 'Explizite Wurzel — läuft, sobald der Workflow startet.',
-  'workbench.editors.live.sections.useImplicit': 'Implizit verwenden',
-  'workbench.editors.live.sections.waitsFor': ({ count }, locale) =>
-    plural(locale, Number(count), {
-      one: 'Der Schritt wartet, bis {count} Vorgänger abschließt oder übersprungen wird.',
-      other: 'Der Schritt wartet, bis {count} Vorgänger abschließen oder übersprungen werden.',
-    }),
   'workbench.editors.live.sections.reset': 'Zurücksetzen',
   'workbench.editors.live.sections.runCondition': 'Laufbedingung',
   'workbench.editors.live.sections.none': '(keine)',
@@ -424,11 +394,6 @@ export const workbenchLive = {
   'workbench.editors.live.sections.poll': 'Polling',
   'workbench.editors.live.sections.pollSummary': '({count} × {delay} ms)',
   'workbench.editors.live.sections.pollInfo': 'Sendet die Anfrage erneut, bis ihre Erfolgskriterien erfüllt sind.',
-  'workbench.editors.live.sections.scripts': 'Scripts',
-  'workbench.editors.live.sections.scriptsOn': '(an)',
-  'workbench.editors.live.sections.scriptsOff': '(aus)',
-  'workbench.editors.live.sections.runScriptsAria': 'Die Scripts der Anfrage in diesem Schritt ausführen',
-  'workbench.editors.live.sections.runScriptsLabel': 'Die Pre-Request-/Post-Response-Scripts der Anfrage ausführen',
   'workbench.editors.live.sections.scriptsTooltip':
     'Läuft bei jedem Versuch der Kette. Schritt-Scripts erhalten eine schreibgeschützte oh.*-Oberfläche ' +
     '(oh.sendRequest und oh.variables.set werden abgelehnt). Ein Script-Fehler oder eine fehlgeschlagene ' +
@@ -462,9 +427,7 @@ export const workbenchLive = {
   'workbench.editors.live.gate.matchModesAria': 'Über die Abgleichmodi',
   'workbench.editors.live.gate.noConditions':
     'Keine Bedingungen — der Schritt läuft, sobald seine Abhängigkeiten abgeschlossen sind.',
-  'workbench.editors.live.gate.conditionCount': '{count} Bedingung(en)',
   'workbench.editors.live.gate.addCondition': 'Bedingung hinzufügen',
-  'workbench.editors.live.gate.andTag': 'AND',
   'workbench.editors.live.gate.stepPlaceholder': 'Schritt',
   'workbench.editors.live.gate.capturePlaceholder': 'Name der Erfassung',
   'workbench.editors.live.gate.equalsPlaceholder': 'Vergleichswert',

@@ -247,7 +247,6 @@ export const workbenchLive = {
   'workbench.editors.live.run.pane.gone': 'このステップのレスポンスはもう保持されていません。',
   'workbench.editors.live.run.action.listen': '待ち受け',
   'workbench.editors.live.run.action.send': '送信',
-  'workbench.editors.live.run.action.expect': '期待',
   'workbench.editors.live.run.row.heldByRateLimit': 'レート制限を待機中',
   'workbench.editors.live.run.row.connecting': '接続中…',
   'workbench.editors.live.run.row.waitingFor': '{address} を待機中',
@@ -303,20 +302,13 @@ export const workbenchLive = {
     'セッションステップのあるワークフローは判定を返します。キャプチャはライブ変数として公開されません。',
 
   // ── Workflow step editor ────────────────────────────────────────────
-  'workbench.editors.live.step.title': 'ステップ {number}',
   'workbench.editors.live.step.needsUpdate': 'このステップには、より新しいバージョンの OpenHeaders が必要です。',
-  'workbench.editors.live.step.idPrefix': 'id',
   'workbench.editors.live.step.namePrefix': '名前',
   'workbench.editors.live.step.typeTooltip': 'ステップの種類。Foreach と Composite は今後のリリースで提供予定です。',
   'workbench.editors.live.step.typeForeach': 'Foreach',
   'workbench.editors.live.step.typeComposite': 'Composite',
-  'workbench.editors.live.step.runsIfTag': ({ count }, locale) =>
-    plural(locale, Number(count), { other: '{count} 件の条件で実行' }),
-  'workbench.editors.live.step.priorityTag': '優先度：{ref}',
-  'workbench.editors.live.step.scriptsTag': 'scripts',
   'workbench.editors.live.step.selectRequest': 'リクエストを選択',
   'workbench.editors.live.step.selectSessionRequest': 'MQTT リクエストを選択',
-  'workbench.editors.live.step.readyWithin': '準備期限',
   'workbench.editors.live.step.sessionScriptsLabel': 'リクエストのスクリプトを実行',
   'workbench.editors.live.step.identityTitle': 'セッションの識別情報',
   'workbench.editors.live.step.identityInfo':
@@ -324,9 +316,7 @@ export const workbenchLive = {
   'workbench.editors.live.step.onPrefix': 'セッション',
   'workbench.editors.live.step.selectMessage': '保存済みメッセージを選択',
   'workbench.editors.live.step.afterPrefix': 'トリガー',
-  'workbench.editors.live.step.within': '期限',
   'workbench.editors.live.step.includeStored': 'ブローカーが保持していたメッセージも含める',
-  'workbench.editors.live.step.matchHeader': '一致条件（{count}）',
   'workbench.editors.live.step.descriptionPlaceholder': 'ステップの説明（省略可）',
   'workbench.editors.live.step.capturesHeader': 'キャプチャ（{count}）',
   'workbench.editors.live.step.addCapture': '+ キャプチャ',
@@ -337,22 +327,9 @@ export const workbenchLive = {
   'workbench.editors.live.step.exposeAs': '公開名',
   'workbench.editors.live.step.exposeTooltip':
     'オンにすると、ワークフローの保存時に、このキャプチャから `{{live.<name>}}` を解決するライブ変数が作成されます。このワークフロー内でのみキャプチャを使う場合（例：{{step.<stepId>.<captureName>}} 経由）はオフにしてください。',
-  'workbench.editors.live.step.afterChip': '↳ {parents} の後',
-  'workbench.editors.live.step.implicitMark': '（暗黙）',
-  'workbench.editors.live.step.implicitTooltip':
-    '直前のステップへの暗黙の依存です（明示的な dependsOn は宣言されていません）。関係を固定するには明示的な dependsOn を設定してください。',
 
   // ── Step collapse sections (depends on / run condition / priority / retry / timeout / scripts) ──
   'workbench.editors.live.sections.dependsOn': '依存先',
-  'workbench.editors.live.sections.dependsOnImplicit': '（暗黙：直前のステップ）',
-  'workbench.editors.live.sections.dependsOnRoot': '（ルート）',
-  'workbench.editors.live.sections.dependsOnPlaceholder': '祖先ステップを選択。空 = ルートステップ',
-  'workbench.editors.live.sections.dependsOnImplicitHint':
-    '明示的な dependsOn がありません。宣言順で直前のステップに暗黙に依存します。',
-  'workbench.editors.live.sections.dependsOnRootHint': '明示的なルートです。ワークフローの開始と同時に実行されます。',
-  'workbench.editors.live.sections.useImplicit': '暗黙を使う',
-  'workbench.editors.live.sections.waitsFor': ({ count }, locale) =>
-    plural(locale, Number(count), { other: 'ステップは {count} 個の祖先の完了またはスキップを待ちます。' }),
   'workbench.editors.live.sections.reset': 'リセット',
   'workbench.editors.live.sections.runCondition': '実行条件',
   'workbench.editors.live.sections.none': '（なし）',
@@ -394,11 +371,6 @@ export const workbenchLive = {
   'workbench.editors.live.sections.poll': 'ポーリング',
   'workbench.editors.live.sections.pollSummary': '（{count} × {delay} ms）',
   'workbench.editors.live.sections.pollInfo': '成功条件を満たすまでリクエストを再送します。',
-  'workbench.editors.live.sections.scripts': 'Scripts',
-  'workbench.editors.live.sections.scriptsOn': '（オン）',
-  'workbench.editors.live.sections.scriptsOff': '（オフ）',
-  'workbench.editors.live.sections.runScriptsAria': 'このステップでリクエストのスクリプトを実行',
-  'workbench.editors.live.sections.runScriptsLabel': 'リクエストのプリリクエスト / ポストレスポンススクリプトを実行',
   'workbench.editors.live.sections.scriptsTooltip':
     'チェーンの試行ごとに実行されます。ステップのスクリプトは読み取り専用の oh.* の面を得ます（oh.sendRequest と oh.variables.set は拒否されます）。スクリプトのエラーや oh.test のアサーションの失敗はステップを失敗させるため、最後の正常な値が保持されます。アサーションがこのワークフローの公開内容を制御します。スクリプト対応のランタイムが必要で、対応していないホストではステップはスクリプトなしで実行されます。',
 
@@ -426,9 +398,7 @@ export const workbenchLive = {
     'OR 論理は今後のリリースで提供予定です。当面は相互に排他的なゲートを持つ複数のステップを使ってください。',
   'workbench.editors.live.gate.matchModesAria': '一致モードについて',
   'workbench.editors.live.gate.noConditions': '条件がありません。依存先が完了するたびにステップが実行されます。',
-  'workbench.editors.live.gate.conditionCount': '{count} 件の条件',
   'workbench.editors.live.gate.addCondition': '条件を追加',
-  'workbench.editors.live.gate.andTag': 'AND',
   'workbench.editors.live.gate.stepPlaceholder': 'ステップ',
   'workbench.editors.live.gate.capturePlaceholder': 'キャプチャ名',
   'workbench.editors.live.gate.equalsPlaceholder': '等しい値',
