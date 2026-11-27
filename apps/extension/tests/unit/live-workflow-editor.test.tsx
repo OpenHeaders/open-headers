@@ -403,6 +403,165 @@ describe('LiveWorkflowEditor — one view', () => {
   });
 });
 
+// ── Undo and redo ─────────────────────────────────────────────────
+//
+// The workflow runs plan, Decisions log, S31: one history of the draft a
+// tab, two buttons in the graph's row of controls, and a shortcut that
+// acts in the view but not in a field that takes typing.
+
+describe('LiveWorkflowEditor — undo and redo', () => {
+  const editorTree = () => (
+    <App>
+      <AwarenessIdentityProvider value={testIdentity}>
+        <LiveWorkflowEditor mode="edit" workflowUid={workflowState.uid} />
+      </AwarenessIdentityProvider>
+    </App>
+  );
+  const undoButton = (): HTMLElement => screen.getByTestId('wf-graph-undo');
+  const redoButton = (): HTMLElement => screen.getByTestId('wf-graph-redo');
+  const saveButton = (): HTMLElement => screen.getByRole('button', { name: /Save/ });
+  const addStep = (): void => {
+    fireEvent.click(screen.getByRole('button', { name: /Step$/ }));
+  };
+
+  it('both buttons are off until there is an edit to take back', () => {
+    renderEditor();
+
+    expect(undoButton()).toHaveProperty('disabled', true);
+    expect(redoButton()).toHaveProperty('disabled', true);
+  });
+
+  it('a step added is taken back and brought back, and the step open before is open again', () => {
+    const { container } = renderEditor();
+    addStep();
+    expect(undoButton()).toHaveProperty('disabled', false);
+
+    fireEvent.click(undoButton());
+    expect(screen.queryByTestId('wf-graph-node-step2')).toBeNull();
+    expect(container.querySelector('[data-step-card]')).toBeNull();
+    expect(undoButton()).toHaveProperty('disabled', true);
+
+    fireEvent.click(redoButton());
+    expect(screen.getByTestId('wf-graph-node-step2')).toBeTruthy();
+    expect(container.querySelector('[data-step-card="step2"]')).not.toBeNull();
+    expect(redoButton()).toHaveProperty('disabled', true);
+  });
+
+  it('an undo back to what is saved reads as saved by itself', () => {
+    renderEditor();
+    expect(saveButton()).toHaveProperty('disabled', true);
+
+    addStep();
+    expect(saveButton()).toHaveProperty('disabled', false);
+
+    fireEvent.click(undoButton());
+    expect(saveButton()).toHaveProperty('disabled', true);
+  });
+
+  it('an edit of the panel is in the same history as one of the graph', () => {
+    renderEditor();
+    fireEvent.click(screen.getByRole('switch', { name: 'Workflow enabled' }));
+    addStep();
+
+    fireEvent.click(undoButton());
+    expect(screen.queryByTestId('wf-graph-node-step2')).toBeNull();
+    expect(screen.getByRole('switch', { name: 'Workflow enabled' }).getAttribute('aria-checked')).toBe('false');
+
+    fireEvent.click(undoButton());
+    expect(screen.getByRole('switch', { name: 'Workflow enabled' }).getAttribute('aria-checked')).toBe('true');
+  });
+
+  it('the shortcut takes an edit back and brings it back, with either platform’s redo', () => {
+    renderEditor();
+    addStep();
+    const pane = screen.getByTestId('wf-graph-pane');
+
+    fireEvent.keyDown(pane, { key: 'z', code: 'KeyZ', metaKey: true });
+    expect(screen.queryByTestId('wf-graph-node-step2')).toBeNull();
+
+    fireEvent.keyDown(pane, { key: 'z', code: 'KeyZ', metaKey: true, shiftKey: true });
+    expect(screen.getByTestId('wf-graph-node-step2')).toBeTruthy();
+
+    fireEvent.keyDown(pane, { key: 'z', code: 'KeyZ', ctrlKey: true });
+    expect(screen.queryByTestId('wf-graph-node-step2')).toBeNull();
+
+    fireEvent.keyDown(pane, { key: 'y', code: 'KeyY', ctrlKey: true });
+    expect(screen.getByTestId('wf-graph-node-step2')).toBeTruthy();
+  });
+
+  it('in a field that takes typing the shortcut is the field’s own', () => {
+    const { container } = renderEditor();
+    const description = container.querySelector<HTMLInputElement>('input.oh-wf-step-description');
+    if (description === null) throw new Error('the workflow has no description field');
+
+    fireEvent.change(description, { target: { value: 'Reboots the device' } });
+    fireEvent.keyDown(description, { key: 'z', code: 'KeyZ', metaKey: true });
+    expect(description.value).toBe('Reboots the device');
+    expect(undoButton()).toHaveProperty('disabled', false);
+
+    fireEvent.keyDown(screen.getByTestId('wf-graph-pane'), { key: 'z', code: 'KeyZ', metaKey: true });
+    expect(description.value).toBe('');
+  });
+
+  it('a save keeps the history: its echo holds what the draft holds', async () => {
+    const view = render(editorTree());
+    fireEvent.click(screen.getByRole('switch', { name: 'Workflow enabled' }));
+    expect(saveButton()).toHaveProperty('disabled', false);
+
+    workflowState = { ...workflowFixture, enabled: false };
+    view.rerender(editorTree());
+
+    await waitFor(() => expect(saveButton()).toHaveProperty('disabled', true));
+    expect(undoButton()).toHaveProperty('disabled', false);
+    fireEvent.click(undoButton());
+    expect(screen.getByRole('switch', { name: 'Workflow enabled' }).getAttribute('aria-checked')).toBe('true');
+    expect(saveButton()).toHaveProperty('disabled', false);
+  });
+
+  it('a change taken from outside empties the history', async () => {
+    const view = render(editorTree());
+    addStep();
+    fireEvent.click(undoButton());
+    expect(redoButton()).toHaveProperty('disabled', false);
+
+    workflowState = { ...workflowFixture, enabled: false };
+    view.rerender(editorTree());
+
+    await waitFor(() =>
+      expect(screen.getByRole('switch', { name: 'Workflow enabled' }).getAttribute('aria-checked')).toBe('false'),
+    );
+    expect(undoButton()).toHaveProperty('disabled', true);
+    expect(redoButton()).toHaveProperty('disabled', true);
+  });
+
+  it('a draft never saved has its history too', () => {
+    render(
+      <App>
+        <AwarenessIdentityProvider value={testIdentity}>
+          <LiveWorkflowEditor mode="create" onCreated={vi.fn()} />
+        </AwarenessIdentityProvider>
+      </App>,
+    );
+    expect(undoButton()).toHaveProperty('disabled', true);
+
+    addStep();
+    fireEvent.click(undoButton());
+
+    expect(screen.queryByTestId('wf-graph-node-step2')).toBeNull();
+    expect(redoButton()).toHaveProperty('disabled', false);
+  });
+
+  it('a workflow that needs a newer version has it for its one edit', () => {
+    workflowState = needsUpdateFixture;
+    renderEditor();
+    fireEvent.click(screen.getByRole('switch', { name: 'Workflow enabled' }));
+
+    fireEvent.click(undoButton());
+
+    expect(screen.getByRole('switch', { name: 'Workflow enabled' }).getAttribute('aria-checked')).toBe('true');
+  });
+});
+
 describe('LiveWorkflowEditor — a run in the view', () => {
   it('a saved workflow with no run says so in its panel', () => {
     renderEditor();

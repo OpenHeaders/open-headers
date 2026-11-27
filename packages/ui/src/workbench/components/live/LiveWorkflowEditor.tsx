@@ -10,6 +10,10 @@
  *   user's typing is preserved and LWW resolves at save time. The
  *   workflow's panel says how each environment stands.
  *
+ * The draft's edits can be undone and redone in both modes
+ * (`useDraftHistory`): the history is the tab's, a save keeps it, and a
+ * draft replaced from outside the user's edits empties it.
+ *
  * Create mode (`mode: 'create'`):
  *   No `workflowUid` until save. Local-only draft; Save creates the
  *   workflow via `createLiveWorkflow` and calls `onCreated` so the host
@@ -90,6 +94,7 @@ import {
 import { describeRunStatus } from './run-display';
 import { firstStepWithNothingPicked } from './step-action';
 import type { StepRequestOpeners } from './step-facts';
+import { useDraftHistory } from './use-draft-history';
 import { useShownWorkflowRun } from './use-workflow-run';
 import WorkflowView from './WorkflowView';
 
@@ -240,7 +245,14 @@ const EditMode: React.FC<EditProps> = ({
   const canRun = workflow !== null && canRunWorkflowHere(workflow);
   const boundVars = useMemo(() => variables.filter((v) => v.workflowUid === workflowUid), [variables, workflowUid]);
 
-  const [draft, setDraft] = useState<Draft | null>(() => (workflow ? draftFromWorkflow(workflow, variables) : null));
+  // The user's edits go through `editDraft` and can be undone; what
+  // replaces the draft from outside them goes through `replaceDraft`.
+  const {
+    draft,
+    edit: editDraft,
+    replace: replaceDraft,
+    history,
+  } = useDraftHistory<Draft | null>(() => (workflow ? draftFromWorkflow(workflow, variables) : null));
 
   const [refreshing, setRefreshing] = useState(false);
   // The step the view's panel shows, by uid so a rename keeps it.
@@ -271,13 +283,17 @@ const EditMode: React.FC<EditProps> = ({
     enabled: workflow != null,
     formFingerprint,
     signature: (e) => fingerprint(draftFromWorkflow(e, variables)),
-    populate: (e) => setDraft(draftFromWorkflow(e, variables)),
+    populate: (e) => {
+      const next = draftFromWorkflow(e, variables);
+      // A save's echo holds what the draft holds: the draft stays, and its undo history with it.
+      replaceDraft((d) => (d !== null && fingerprint(d) === fingerprint(next) ? d : next));
+    },
     onPrimed: (e) => {
       setBaselineRef.current(e);
       baselineLiveWorkflowRef.current = e;
       if (!seedSteps || seedSteps.length === 0 || seedAppliedRef.current || workflowNeedsUpdate(e)) return;
       seedAppliedRef.current = true;
-      setDraft((d) => {
+      replaceDraft((d) => {
         if (!d) return d;
         let next = d;
         for (const seed of seedSteps) next = appendDraftStep(next, seed.requestUid).draft;
@@ -301,7 +317,7 @@ const EditMode: React.FC<EditProps> = ({
   } = useLiveWorkflowConflictResolution({
     workflow,
     draft,
-    setDraft,
+    setDraft: replaceDraft,
     isDirty,
     boundVars,
     setBaselineRef,
@@ -554,7 +570,8 @@ const EditMode: React.FC<EditProps> = ({
       <WorkflowView
         name={workflow.name}
         draft={draft}
-        setDraft={setDraft}
+        setDraft={editDraft}
+        history={history}
         readOnly={needsUpdate}
         selectedStepUid={selectedStepUid}
         onSelectStep={handleSelectStep}
@@ -598,7 +615,7 @@ const CreateMode: React.FC<CreateProps> = ({
   const { createVariable } = useLiveVariables();
   const editingWorkspaceId = useWorkbenchEditingScopeWorkspaceId();
 
-  const [draft, setDraft] = useState<Draft>(() => emptyDraft(seedSteps));
+  const { draft, edit: editDraft, history } = useDraftHistory<Draft>(() => emptyDraft(seedSteps));
   // The same ephemeral selection as EditMode, with no awareness
   // publishing: a draft has no entity id until save.
   const [selectedStepUid, setSelectedStepUid] = useState<string | null>(null);
@@ -704,7 +721,8 @@ const CreateMode: React.FC<CreateProps> = ({
       <WorkflowView
         name={displayName}
         draft={draft}
-        setDraft={setDraft}
+        setDraft={editDraft}
+        history={history}
         selectedStepUid={selectedStepUid}
         onSelectStep={setSelectedStepUid}
         requestOpeners={requestOpeners}

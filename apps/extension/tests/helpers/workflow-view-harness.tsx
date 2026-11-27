@@ -6,6 +6,7 @@
 
 import { draftFromWorkflow } from '@openheaders/core/live';
 import type { LiveWorkflow } from '@openheaders/core/types';
+import { useDraftHistory } from '@openheaders/ui/workbench/components/live/use-draft-history';
 import { useShownWorkflowRun } from '@openheaders/ui/workbench/components/live/use-workflow-run';
 import WorkflowView from '@openheaders/ui/workbench/components/live/WorkflowView';
 import type React from 'react';
@@ -15,14 +16,15 @@ export const SavedWorkflowView: React.FC<{ workflow: LiveWorkflow; needsUpdate?:
   workflow,
   needsUpdate = false,
 }) => {
-  const [draft, setDraft] = useState(() => draftFromWorkflow(workflow, []));
+  const { draft, edit, history } = useDraftHistory(() => draftFromWorkflow(workflow, []));
   const [selectedStepUid, setSelectedStepUid] = useState<string | null>(null);
   const run = useShownWorkflowRun(workflow, needsUpdate);
   return (
     <WorkflowView
       name={workflow.name}
       draft={draft}
-      setDraft={setDraft}
+      setDraft={edit}
+      history={history}
       readOnly={needsUpdate}
       selectedStepUid={selectedStepUid}
       onSelectStep={setSelectedStepUid}

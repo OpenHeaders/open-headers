@@ -14,6 +14,9 @@
  * The run the two draw is the latest, until a run is picked from the
  * workflow's History: then the graph and the panel draw that one, and a
  * line at the panel's head says which, with the way back.
+ *
+ * The draft's undo and redo are the view's: its shortcut acts wherever
+ * focus is in the view, a field that takes typing aside.
  */
 
 import type { LiveWorkflowRunSnapshot } from '@openheaders/core/bridge';
@@ -22,7 +25,9 @@ import type { LiveVariable, LiveWorkflow } from '@openheaders/core/types';
 import { Sash, type SashSession } from '@openheaders/ui/shared/dock-layout';
 import type React from 'react';
 import { useCallback, useLayoutEffect, useRef, useState } from 'react';
+import { buildChordsFromEvent } from '../../hooks/useWorkspaceShortcuts';
 import type { StepRequestOpeners } from './step-facts';
+import { type DraftHistoryControls, isTextEntry, REDO_CHORDS, UNDO_CHORD } from './use-draft-history';
 import { useWorkflowFormModel } from './use-workflow-form-model';
 import { type ShownWorkflowRun, useWorkflowRunPick, useWorkflowRuns } from './use-workflow-run';
 import WorkflowGraphBody from './WorkflowGraphBody';
@@ -59,6 +64,8 @@ interface Props {
   name: string;
   draft: DraftWorkflow;
   setDraft: (next: DraftWorkflow) => void;
+  /** The draft's undo and redo. */
+  history: DraftHistoryControls;
   /** The workflow is read-only here — it holds a step of an action the model does not know. */
   readOnly?: boolean;
   /** The selected step, by uid — a step keeps its selection through a rename. */
@@ -88,6 +95,7 @@ const WorkflowView: React.FC<Props> = ({
   name,
   draft,
   setDraft,
+  history,
   readOnly = false,
   selectedStepUid,
   onSelectStep,
@@ -155,17 +163,33 @@ const WorkflowView: React.FC<Props> = ({
     if (rootRef.current) applyDragged(rootRef.current);
   }, []);
 
+  // Undo and redo from anywhere in the view but a field that takes
+  // typing — there the field's own undo acts.
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (e.target instanceof Element && isTextEntry(e.target)) return;
+    const chords = buildChordsFromEvent(e.nativeEvent);
+    if (chords.includes(UNDO_CHORD)) {
+      e.preventDefault();
+      history.undo();
+    } else if (REDO_CHORDS.some((chord) => chords.includes(chord))) {
+      e.preventDefault();
+      history.redo();
+    }
+  };
+
   return (
     <div
       ref={rootRef}
       className="oh-workflow-view"
       data-testid="wf-view"
       data-run-verdict={run != null ? runVerdict(run.record) : undefined}
+      onKeyDown={handleKeyDown}
     >
       <div className="oh-workflow-view-graph">
         <WorkflowGraphBody
           draft={draft}
           setDraft={readOnly ? undefined : setDraft}
+          history={history}
           selectedStepId={selectedStepId}
           onSelectStep={onSelectStep}
           onDeselect={() => onSelectStep(null)}

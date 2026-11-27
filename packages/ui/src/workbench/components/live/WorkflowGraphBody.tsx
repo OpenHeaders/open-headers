@@ -47,7 +47,8 @@
  *
  * Canvas chrome: a pan/zoom viewport (drag the background to pan,
  * wheel/pinch to zoom around the cursor, a row of controls bottom-left
- * with a re-center/fit action), a compact right-click context menu on
+ * with a re-center/fit action, then the draft's undo and redo — the
+ * workflow runs plan, Decisions log, S31), a compact right-click context menu on
  * the background (add step) and on nodes (delete), keyboard shortcuts
  * on the focused pane (⌫ delete node or selected line, Esc dismiss), and
  * a legend behind a button bottom-right naming all of them — the graph
@@ -63,6 +64,8 @@ import {
   DeleteOutlined,
   PlusOutlined,
   QuestionCircleOutlined,
+  RedoOutlined,
+  UndoOutlined,
   ZoomInOutlined,
   ZoomOutOutlined,
 } from '@ant-design/icons';
@@ -86,6 +89,7 @@ import { useTheme } from '@openheaders/ui/context/ThemeContext';
 import { Button, Popover, Tooltip, theme } from 'antd';
 import type React from 'react';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { formatChord } from '../../hooks/useWorkspaceShortcuts';
 import { stepRequestTemplates } from './capture-uses';
 import { addGraphDependency, appendDraftStep, removeDraftStep, removeGraphDependency } from './graph-edit';
 import { buildWorkflowGraphLayout } from './graph-layout';
@@ -102,6 +106,7 @@ import {
 } from './graph-lines';
 import { routeGraph } from './graph-routing';
 import { actionOfStep, doesOfStep, markOfStep, protocolOfStep, STEP_KIND_WORD } from './step-facts';
+import { type DraftHistoryControls, REDO_HINT_CHORD, UNDO_CHORD } from './use-draft-history';
 import { useStepRequests } from './use-step-requests';
 import { useWaitClock } from './use-wait-clock';
 import type { ShownWorkflowRun } from './use-workflow-run';
@@ -130,6 +135,8 @@ interface WorkflowGraphBodyProps {
    * Present = editing gestures on; absent = read-only graph.
    */
   setDraft?: (next: DraftWorkflow) => void;
+  /** The draft's undo and redo — two buttons in the row of controls. */
+  history: DraftHistoryControls;
   /** Currently selected step id (ephemeral UI state owned by the editor). */
   selectedStepId?: string | null;
   /** A press on a node, or a step the graph just added — select it, by uid. */
@@ -192,6 +199,7 @@ const PAN_EXCLUDE_SELECTOR = '[data-graph-interactive], button';
 const WorkflowGraphBody: React.FC<WorkflowGraphBodyProps> = ({
   draft,
   setDraft,
+  history,
   selectedStepId,
   onSelectStep,
   onDeselect,
@@ -630,8 +638,13 @@ const WorkflowGraphBody: React.FC<WorkflowGraphBodyProps> = ({
           {t('workbench.editors.live.form.addStepButton')}
         </Button>
       )}
-      <GraphLegend editable={editable} />
-      <GraphViewControls onZoomIn={() => zoomBy(1.2)} onZoomOut={() => zoomBy(1 / 1.2)} onFit={fitView} />
+      <GraphControlRow corner="right">
+        <GraphLegend editable={editable} />
+      </GraphControlRow>
+      <GraphControlRow corner="left">
+        <GraphViewControls onZoomIn={() => zoomBy(1.2)} onZoomOut={() => zoomBy(1 / 1.2)} onFit={fitView} />
+        <GraphHistoryControls history={history} />
+      </GraphControlRow>
       {/* Viewport: the pane never moves and never scrolls — `clip`, not
           `hidden`, which a scroll-into-view still scrolls; the canvas
           carries the translate+scale transform. Background drag pans,
@@ -871,16 +884,28 @@ const GraphMenuRow: React.FC<{ action: GraphMenuAction; onDone: () => void }> = 
   );
 };
 
-/** A group of the pane's own controls, pinned to one of its bottom corners. */
-const GraphControlGroup: React.FC<{ corner: 'left' | 'right'; children: React.ReactNode }> = ({ corner, children }) => {
+/** The pane's own controls in one of its bottom corners: a row of groups. */
+const GraphControlRow: React.FC<{ corner: 'left' | 'right'; children: React.ReactNode }> = ({ corner, children }) => (
+  <div
+    style={{
+      position: 'absolute',
+      bottom: 8,
+      ...(corner === 'left' ? { left: 12 } : { right: 12 }),
+      zIndex: 3,
+      display: 'flex',
+      gap: 6,
+    }}
+  >
+    {children}
+  </div>
+);
+
+/** A group of controls that belong together, in one box. */
+const GraphControlGroup: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { token } = theme.useToken();
   return (
     <div
       style={{
-        position: 'absolute',
-        bottom: 8,
-        ...(corner === 'left' ? { left: 12 } : { right: 12 }),
-        zIndex: 3,
         display: 'flex',
         borderRadius: 6,
         border: `1px solid ${token.colorBorderSecondary}`,
@@ -894,7 +919,7 @@ const GraphControlGroup: React.FC<{ corner: 'left' | 'right'; children: React.Re
   );
 };
 
-/** Zoom in / zoom out / fit-and-center controls, one row pinned bottom-left. */
+/** Zoom in / zoom out / fit-and-center controls. */
 const GraphViewControls: React.FC<{ onZoomIn: () => void; onZoomOut: () => void; onFit: () => void }> = ({
   onZoomIn,
   onZoomOut,
@@ -902,7 +927,7 @@ const GraphViewControls: React.FC<{ onZoomIn: () => void; onZoomOut: () => void;
 }) => {
   const t = useT();
   return (
-    <GraphControlGroup corner="left">
+    <GraphControlGroup>
       <Tooltip title={t('workbench.editors.live.graph.zoomIn')}>
         <Button type="text" size="small" data-testid="wf-graph-zoom-in" icon={<ZoomInOutlined />} onClick={onZoomIn} />
       </Tooltip>
@@ -917,6 +942,44 @@ const GraphViewControls: React.FC<{ onZoomIn: () => void; onZoomOut: () => void;
       </Tooltip>
       <Tooltip title={t('workbench.editors.live.graph.recenter')}>
         <Button type="text" size="small" data-testid="wf-graph-fit" icon={<AimOutlined />} onClick={onFit} />
+      </Tooltip>
+    </GraphControlGroup>
+  );
+};
+
+/** Undo and redo of the draft, each named with its shortcut. */
+const GraphHistoryControls: React.FC<{ history: DraftHistoryControls }> = ({ history }) => {
+  const t = useT();
+  const undo = t('workbench.editors.live.graph.undo');
+  const redo = t('workbench.editors.live.graph.redo');
+  // A press leaves focus on the graph: a button that goes off while it
+  // holds focus takes no key, and the shortcut would stop with it.
+  const keepFocus = (e: React.MouseEvent) => e.preventDefault();
+  return (
+    <GraphControlGroup>
+      <Tooltip title={`${undo} (${formatChord(UNDO_CHORD)})`}>
+        <Button
+          type="text"
+          size="small"
+          data-testid="wf-graph-undo"
+          aria-label={undo}
+          icon={<UndoOutlined />}
+          disabled={!history.canUndo}
+          onMouseDown={keepFocus}
+          onClick={history.undo}
+        />
+      </Tooltip>
+      <Tooltip title={`${redo} (${formatChord(REDO_HINT_CHORD)})`}>
+        <Button
+          type="text"
+          size="small"
+          data-testid="wf-graph-redo"
+          aria-label={redo}
+          icon={<RedoOutlined />}
+          disabled={!history.canRedo}
+          onMouseDown={keepFocus}
+          onClick={history.redo}
+        />
       </Tooltip>
     </GraphControlGroup>
   );
@@ -948,6 +1011,8 @@ const GraphLegend: React.FC<{ editable: boolean }> = ({ editable }) => {
       : []),
     { keys: t('workbench.editors.live.graph.legendDragBg'), action: t('workbench.editors.live.graph.legendPan') },
     { keys: t('workbench.editors.live.graph.legendScroll'), action: t('workbench.editors.live.graph.legendZoom') },
+    { keys: formatChord(UNDO_CHORD), action: t('workbench.editors.live.graph.legendUndo') },
+    { keys: formatChord(REDO_HINT_CHORD), action: t('workbench.editors.live.graph.legendRedo') },
   ];
   const legend = (
     <div
@@ -983,7 +1048,7 @@ const GraphLegend: React.FC<{ editable: boolean }> = ({ editable }) => {
     </div>
   );
   return (
-    <GraphControlGroup corner="right">
+    <GraphControlGroup>
       <Popover content={legend} placement="topRight">
         <Button
           type="text"

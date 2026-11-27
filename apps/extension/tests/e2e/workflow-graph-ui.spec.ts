@@ -26,6 +26,9 @@
  *     would-be-cycle targets tint during the drag but the drop still
  *     commits and the validation badge flags it; edge select + remove;
  *     the add-step affordance appends a form-default step.
+ *   - Undo and redo: the connect is taken back and brought back by the
+ *     two buttons of the graph's row and by the shortcut; taken back,
+ *     the draft reads as saved.
  */
 
 import path from 'node:path';
@@ -359,6 +362,26 @@ test('graph editing: connect adds a dependsOn edge, edge remove, add step, cycle
   // A dirty draft with no peer writes must never raise the
   // external-change banner (conflict tracking keys steps by uid).
   await expect(page.getByText('changed externally', { exact: false })).toHaveCount(0);
+
+  // ── Undo and redo ────────────────────────────────────────────────
+  // The connect is one entry. Taken back, the draft is what is saved
+  // again and nothing is left to undo; the buttons leave focus on the
+  // graph, so the shortcut acts after them.
+  const undoButton = page.getByTestId('wf-graph-undo');
+  const redoButton = page.getByTestId('wf-graph-redo');
+  await expect(redoButton).toBeDisabled();
+  await undoButton.click();
+  await expect(page.getByTestId('wf-graph-edge-b-c')).toHaveCount(0);
+  await expect(saveButton).toBeDisabled();
+  await expect(undoButton).toBeDisabled();
+  await redoButton.click();
+  await expect(page.getByTestId('wf-graph-edge-b-c')).toHaveCount(1);
+  await expect(redoButton).toBeDisabled();
+  await page.keyboard.press('ControlOrMeta+z');
+  await expect(page.getByTestId('wf-graph-edge-b-c')).toHaveCount(0);
+  await page.keyboard.press(process.platform === 'darwin' ? 'Meta+Shift+z' : 'Control+y');
+  await expect(page.getByTestId('wf-graph-edge-b-c')).toHaveCount(1);
+  await expect(saveButton).toBeEnabled();
 
   // Step c's Depends on card shows the materialized explicit parents, a row each.
   await page.getByTestId('wf-graph-node-c').click();

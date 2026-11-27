@@ -26,7 +26,7 @@ import {
 import { canonicalJsonPretty, LIVE_WORKFLOW_ENTITY_TYPE } from '@openheaders/core/sync';
 import type { LiveVariable, LiveWorkflow, WorkflowStep } from '@openheaders/core/types';
 import { type ConflictResolution, type PathConflict, useAutoMergeForm } from '@openheaders/ui/shared/conflicts';
-import type { Dispatch, RefObject, SetStateAction } from 'react';
+import type { RefObject } from 'react';
 import { useCallback, useMemo, useState } from 'react';
 import { liveWorkflowResolveAdapter } from './live-workflow-conflict-adapter';
 import { projectLiveWorkflowToForm, useLiveWorkflowConflicts } from './use-live-workflow-conflicts';
@@ -34,7 +34,8 @@ import { projectLiveWorkflowToForm, useLiveWorkflowConflicts } from './use-live-
 interface UseLiveWorkflowConflictResolutionArgs {
   workflow: LiveWorkflow | null;
   draft: DraftWorkflow | null;
-  setDraft: Dispatch<SetStateAction<DraftWorkflow | null>>;
+  /** The editor's replace door — what a resolution writes is not an edit an undo takes back. */
+  setDraft: (update: (current: DraftWorkflow | null) => DraftWorkflow | null) => void;
   isDirty: boolean;
   boundVars: readonly LiveVariable[];
   setBaselineRef: RefObject<(e: LiveWorkflow) => void>;
