@@ -380,6 +380,22 @@ describe('a run in the workflow view', () => {
     expect(screen.queryByTestId('wf-step-last-run-timing')).toBeNull();
   });
 
+  it('a step’s Depends on row says how the run left that step, and opens it', async () => {
+    render(<SavedWorkflowView workflow={workflow} />);
+    for (const fact of [BEGIN, LOGIN_START, LOGIN_PASSED, PROFILE_START, PROFILE_FAILED, END]) await feed(fact);
+    fireEvent.click(screen.getByTestId('wf-graph-node-profile'));
+
+    const row = screen.getByTestId('wf-step-1-dep-login');
+    expect(row.textContent).toBe('loginHTTPPassed');
+    expect(screen.getByTestId('wf-step-1-deps').textContent).toContain('By default it waits for the step before it.');
+    fireEvent.click(within(row).getAllByRole('button')[0]);
+
+    expect(screen.getByTestId('wf-panel').querySelector('[data-step-card]')?.getAttribute('data-step-card')).toBe(
+      'login',
+    );
+    expect(screen.getByTestId('wf-step-0-dependent-profile').textContent).toBe('profileHTTPFailed');
+  });
+
   it('a workflow that needs a newer version shows which steps cannot run, with no run behind them', () => {
     render(<SavedWorkflowView workflow={needsUpdateWorkflow} needsUpdate />);
 

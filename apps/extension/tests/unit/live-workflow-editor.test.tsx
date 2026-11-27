@@ -278,12 +278,18 @@ describe('LiveWorkflowEditor — a workflow that needs a newer version', () => {
     const { container } = renderNeedsUpdate();
     openStep('reboot');
 
-    // Every control of the step's panel is off but the one that closes it.
+    // Every control that edits the step is off. What only moves about is not:
+    // the close, and a row that opens another step.
     const callCard = container.querySelector('[data-step-card="reboot"]');
-    const controls = Array.from(callCard?.querySelectorAll('input, button:not([data-testid="wf-panel-close"])') ?? []);
+    const controls = Array.from(
+      callCard?.querySelectorAll('input, button:not([data-testid="wf-panel-close"]):not(.oh-wf-mini-step)') ?? [],
+    );
     expect(controls.length).toBeGreaterThan(0);
     for (const control of controls) expect(control).toHaveProperty('disabled', true);
     expect(screen.getByTestId('wf-panel-close')).toHaveProperty('disabled', false);
+    for (const row of callCard?.querySelectorAll('.oh-wf-mini-step') ?? []) {
+      expect(row).toHaveProperty('disabled', false);
+    }
     expect(screen.queryByRole('button', { name: /Step$/ })).toBeNull();
     expect(screen.getByRole('button', { name: /Refresh/ })).toHaveProperty('disabled', true);
   });

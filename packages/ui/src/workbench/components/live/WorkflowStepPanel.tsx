@@ -20,9 +20,12 @@ import { ConfigProvider } from 'antd';
 import type React from 'react';
 import { useMemo } from 'react';
 import { readKeptRunProduct } from '../../data/workflow-run-store';
+import { clauseTruthOf, reachOfCacheRow, reachOfRunRow } from './graph-lines';
 import StepLastRunCard from './StepLastRunCard';
+import type { StepMiniFacts } from './StepMiniRow';
 import { actionOfStep, doesOfStep, markOfStep, protocolOfStep } from './step-facts';
 import { describeStepLastRun } from './step-last-run';
+import { idleMark } from './step-mark';
 import UnknownStepCard from './UnknownStepCard';
 import { useStepRequests } from './use-step-requests';
 import { useWaitClock } from './use-wait-clock';
@@ -30,7 +33,7 @@ import type { WorkflowFormModel } from './use-workflow-form-model';
 import type { ShownWorkflowRun } from './use-workflow-run';
 import WorkflowCard from './WorkflowCard';
 import WorkflowRunProductPane from './WorkflowRunProductPane';
-import WorkflowStepEditor from './WorkflowStepEditor';
+import WorkflowStepEditor, { type StepDependencies } from './WorkflowStepEditor';
 import WorkflowStepHeader from './WorkflowStepHeader';
 
 /** The panel's text, a size under the app's own. */
@@ -71,7 +74,34 @@ const WorkflowStepPanel: React.FC<Props> = ({
   const dependencyRow = model.dependencyRows[stepIndex];
   const errors = model.errorsByStepId.get(step.id) ?? [];
 
-  const mark = markOfStep(step, { run, cacheRun, now }, t);
+  const markSources = { run, cacheRun, now };
+  const mark = markOfStep(step, markSources, t);
+
+  /** A step as a row of this one's panel; a name that is no step is a row that opens nothing. */
+  const miniOf = (id: string): StepMiniFacts => {
+    const other = draft.steps.find((each) => each.id === id);
+    if (other === undefined) return { id, mark: idleMark(t), protocol: null };
+    return {
+      id,
+      uid: other.uid,
+      mark: markOfStep(other, markSources, t),
+      protocol: protocolOfStep(other, draft.steps, stepRequests),
+    };
+  };
+  const parentIds = dependencyRow?.parents ?? [];
+  const dependencies: StepDependencies = {
+    parents: parentIds.map(miniOf),
+    dependents: model.dependencyRows
+      .filter((each) => each.parents.includes(step.id))
+      .map((each) => miniOf(each.step.id)),
+    addable: draft.steps
+      .filter((each) => each.id !== step.id && each.id.length > 0 && !parentIds.includes(each.id))
+      .map((each) => each.id),
+    onAdd: (parentId) => model.addDependency(stepIndex, parentId),
+    onRemove: (parentId) => model.removeDependency(stepIndex, parentId),
+    onGoToStep: onSelectStep,
+  };
+  const reach = run == null ? reachOfCacheRow(cacheRun, step.id) : reachOfRunRow(row);
   const lastRun = describeStepLastRun(
     { step, mark, row, now, runButton: t('workbench.editors.live.workflow.refresh') },
     t,
@@ -133,15 +163,12 @@ const WorkflowStepPanel: React.FC<Props> = ({
                   mqttRequests={model.mqttRequests}
                   sessionRequests={model.sessionRequests}
                   exposable={!model.holdsSession}
-                  // Every other step by id — a step cannot depend on itself.
-                  allStepIds={draft.steps
-                    .filter((each) => each.id !== step.id && each.id.length > 0)
-                    .map((each) => ({ id: each.id, label: each.id }))}
+                  dependencies={dependencies}
                   // Only a transitive ancestor can be named by a run condition or a priority.
                   reachableSteps={Array.from(dependencyRow?.reachable ?? []).map((id) => ({ id, label: id }))}
                   capturesByStepId={model.capturesByStepId}
                   errors={errors}
-                  dependencyRow={dependencyRow}
+                  clauseTruth={(clauseUid) => clauseTruthOf(reach, clauseUid)}
                 />
               ) : (
                 <UnknownStepCard />

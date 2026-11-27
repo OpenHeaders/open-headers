@@ -22,7 +22,7 @@ import { useRequests } from '@openheaders/ui/shared/hooks/readers/useRequests';
 import { useMemo } from 'react';
 import { computeRequestTrail } from '../../breadcrumbs';
 import { buildDependencyRows } from './dependencies-view';
-import { duplicateDraftStep } from './graph-edit';
+import { addGraphDependency, duplicateDraftStep, removeGraphDependency } from './graph-edit';
 import { rebindCaptureReferences } from './rebind-capture-references';
 import { rebindStepReferences } from './rebind-step-references';
 import { type StepAction, withStepAction } from './step-action';
@@ -210,6 +210,18 @@ export function useWorkflowFormModel(draft: DraftWorkflow, setDraft: (next: Draf
     setDraft({ ...draft, steps: draft.steps.filter((_, i) => i !== idx) });
   };
 
+  // One more step to wait for, or one fewer — the same edits as a line
+  // drawn or removed on the graph.
+  const addDependency = (idx: number, parentId: string) => {
+    const next = addGraphDependency(draft, parentId, draft.steps[idx].id);
+    if (next !== null) setDraft(next);
+  };
+
+  const removeDependency = (idx: number, parentId: string) => {
+    const next = removeGraphDependency(draft, parentId, draft.steps[idx].id);
+    if (next !== null) setDraft(next);
+  };
+
   /** The uid of the copy, or `null` where the step takes none. */
   const duplicateStep = (idx: number): string | null => {
     const step = draft.steps[idx];
@@ -241,6 +253,8 @@ export function useWorkflowFormModel(draft: DraftWorkflow, setDraft: (next: Draf
     updateStep,
     changeStepAction,
     removeStep,
+    addDependency,
+    removeDependency,
     duplicateStep,
     moveStep,
   };

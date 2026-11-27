@@ -27,8 +27,13 @@ import type {
   ListenWorkflowStep,
   MqttRequest,
   SendWorkflowStep,
+  StepGate,
 } from '@openheaders/core/types';
-import WorkflowStepEditor from '@openheaders/ui/workbench/components/live/WorkflowStepEditor';
+import type { StepMiniFacts } from '@openheaders/ui/workbench/components/live/StepMiniRow';
+import type { StepMark } from '@openheaders/ui/workbench/components/live/step-mark';
+import WorkflowStepEditor, {
+  type StepDependencies,
+} from '@openheaders/ui/workbench/components/live/WorkflowStepEditor';
 import WorkflowStepHeader from '@openheaders/ui/workbench/components/live/WorkflowStepHeader';
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import type React from 'react';
@@ -69,9 +74,26 @@ function numberInput(testId: string): HTMLInputElement | null {
 type StepPanelOverrides = Partial<React.ComponentProps<typeof WorkflowStepEditor>> &
   Pick<React.ComponentProps<typeof WorkflowStepHeader>, 'sessionAuthoring' | 'onActionChange'>;
 
-/** A step as its panel shows it: the head, and under it the step's fields. */
+const IDLE: StepMark = { kind: 'idle', text: '', label: 'Not part of a successful run yet' };
+const INTROSPECT: StepMiniFacts = { id: 'introspect', uid: 'stpintro', mark: IDLE, protocol: 'http' };
+
+/** Where the step stands: it waits for `introspect`, and nothing waits for it. */
+function dependenciesOf(overrides: Partial<StepDependencies> = {}): StepDependencies {
+  return {
+    parents: [INTROSPECT],
+    dependents: [],
+    addable: [],
+    onAdd: vi.fn(),
+    onRemove: vi.fn(),
+    onGoToStep: vi.fn(),
+    ...overrides,
+  };
+}
+
+/** A step as its panel shows it: the head, and under it the step's cards. */
 function renderStep(step: DraftKnownStep, propOverrides: StepPanelOverrides = {}) {
   const onChange = vi.fn();
+  const dependencies = dependenciesOf();
   const { sessionAuthoring, onActionChange, ...fieldOverrides } = propOverrides;
   render(
     <>
@@ -79,7 +101,7 @@ function renderStep(step: DraftKnownStep, propOverrides: StepPanelOverrides = {}
         step={step}
         index={1}
         totalSteps={2}
-        mark={{ kind: 'idle', text: '', label: 'Not part of a successful run yet' }}
+        mark={IDLE}
         protocol={null}
         does={{ text: '' }}
         sessionAuthoring={sessionAuthoring}
@@ -94,35 +116,130 @@ function renderStep(step: DraftKnownStep, propOverrides: StepPanelOverrides = {}
           { uid: 'reqrefrsh', name: 'refresh', method: 'POST', collectionName: 'auth', folderTrail: ['oauth'] },
         ]}
         onChange={onChange}
-        allStepIds={[{ id: 'introspect', label: 'introspect' }]}
+        dependencies={dependencies}
         reachableSteps={[{ id: 'introspect', label: 'introspect' }]}
         capturesByStepId={new Map([['introspect', ['active', 'exp']]])}
         errors={[]}
-        dependencyRow={{
-          step,
-          declaredIndex: 1,
-          indent: 1,
-          parents: ['introspect'],
-          reachable: new Set(['introspect']),
-        }}
         {...fieldOverrides}
       />
     </>,
   );
-  return { onChange };
+  return { onChange, dependencies: fieldOverrides.dependencies ?? dependencies };
 }
 
-describe('WorkflowStepEditor — Phase I', () => {
-  it('shows "(implicit — prior step)" label when dependsOn is absent', () => {
+describe('WorkflowStepEditor — Depends on and Required by', () => {
+  const deps = () => screen.getByTestId('wf-step-1-deps');
+
+  it('a step that names none shows the step before it, and says that is the default', () => {
     renderStep(mkStep());
-    expect(screen.queryByText(/implicit — prior step/i)).not.toBeNull();
+    expect(within(deps()).getByTestId('wf-step-1-dep-introspect').textContent).toBe('introspectHTTP');
+    expect(deps().textContent).toContain('By default it waits for the step before it.');
+    expect(within(deps()).queryByRole('button', { name: 'Reset' })).toBeNull();
   });
 
-  it('shows "(root)" label when dependsOn is an empty array', () => {
-    renderStep(mkStep({ dependsOn: [] }));
-    expect(screen.queryByText(/\(root\)/i)).not.toBeNull();
+  it('a step that waits for nothing says it starts with the workflow', () => {
+    renderStep(mkStep({ dependsOn: [] }), { dependencies: dependenciesOf({ parents: [] }) });
+    expect(deps().textContent).toContain('Nothing. This step starts with the workflow.');
+    expect(screen.getByTestId('gate-summary').textContent).toBe(
+      'No dependencies, so this step runs when the workflow starts.',
+    );
   });
 
+  it('Reset goes back to naming none', () => {
+    const { onChange } = renderStep(mkStep({ dependsOn: ['introspect'] }));
+    expect(deps().textContent).toContain('Chosen for this step.');
+    fireEvent.click(within(deps()).getByRole('button', { name: 'Reset' }));
+    const last = onChange.mock.calls.at(-1)?.[0] as DraftCallStep;
+    expect('dependsOn' in last).toBe(false);
+  });
+
+  it('Add names one more step, and the × on a row drops that one', () => {
+    const { dependencies } = renderStep(mkStep(), { dependencies: dependenciesOf({ addable: ['probe'] }) });
+    openSelect('wf-step-1-deps-select');
+    pickOption('probe');
+    expect(dependencies.onAdd).toHaveBeenCalledWith('probe');
+    fireEvent.click(screen.getByRole('button', { name: 'Remove dependency introspect' }));
+    expect(dependencies.onRemove).toHaveBeenCalledWith('introspect');
+  });
+
+  it('Add is off where there is no other step to wait for', () => {
+    renderStep(mkStep());
+    expect(within(screen.getByTestId('wf-step-1-deps-select')).getByRole('combobox')).toHaveProperty('disabled', true);
+  });
+
+  it('a row opens its step, and says how the last run left it', () => {
+    const passed: StepMark = { kind: 'passed', text: '200 · 10 ms', label: '200 · 10 ms' };
+    const { dependencies } = renderStep(mkStep(), {
+      dependencies: dependenciesOf({
+        parents: [{ ...INTROSPECT, mark: passed }],
+        dependents: [{ id: 'report', uid: 'stpreprt', mark: IDLE, protocol: null }],
+      }),
+    });
+    expect(screen.getByTestId('wf-step-1-dep-introspect').textContent).toBe('introspectHTTPPassed');
+    fireEvent.click(within(screen.getByTestId('wf-step-1-dependent-report')).getByRole('button'));
+    expect(dependencies.onGoToStep).toHaveBeenCalledWith('stpreprt');
+  });
+
+  it('a dependency that is no step is a row that opens nothing, with the validator’s sentence under it', () => {
+    renderStep(mkStep({ dependsOn: ['ghost'] }), {
+      dependencies: dependenciesOf({ parents: [{ id: 'ghost', mark: IDLE, protocol: null }] }),
+      errors: [
+        { issue: 'step-unknown-dep', stepId: 'refresh', message: 'Step "refresh" depends on unknown step "ghost".' },
+      ],
+    });
+    const row = within(screen.getByTestId('wf-step-1-dep-ghost')).getAllByRole('button')[0];
+    expect(row).toHaveProperty('disabled', true);
+    expect(deps().textContent).toContain('Step "refresh" depends on unknown step "ghost".');
+  });
+
+  it('nothing waits for a step no other one names', () => {
+    renderStep(mkStep());
+    expect(screen.getByTestId('wf-step-1-required-by').textContent).toContain('Nothing waits for this step.');
+  });
+});
+
+describe('WorkflowStepEditor — Run condition', () => {
+  const gate: StepGate = {
+    all: [
+      { uid: 'gat0sta1', kind: 'status', stepId: 'introspect', match: '2xx' },
+      { uid: 'gat0ex01', kind: 'capture-exists', stepId: 'introspect', captureName: 'active' },
+    ],
+  };
+
+  it('reads the logic back at its foot', () => {
+    renderStep(mkStep({ runIf: gate }));
+    expect(screen.getByTestId('gate-summary').textContent).toBe(
+      'Runs when every condition holds: introspect 2xx · introspect active exists.',
+    );
+    cleanup();
+    renderStep(mkStep());
+    expect(screen.getByTestId('gate-summary').textContent).toBe(
+      'No conditions — step runs whenever its dependencies complete.',
+    );
+  });
+
+  it('says of each clause whether it held in the last run, and a dash where no run judged it', () => {
+    renderStep(mkStep({ runIf: gate }));
+    expect(screen.getByTestId('gate-clause-0-truth').textContent).toBe('—');
+    cleanup();
+    renderStep(mkStep({ runIf: gate }), { clauseTruth: (uid) => (uid === 'gat0ex01' ? 'false' : 'true') });
+    expect(screen.getByTestId('gate-clause-0-truth').textContent).toBe('True');
+    expect(screen.getByTestId('gate-clause-1-truth').textContent).toBe('False');
+  });
+
+  it('adds a clause from the card’s head and removes one from its row', () => {
+    const { onChange } = renderStep(mkStep({ runIf: gate }));
+    const card = screen.getByTestId('wf-step-1-runif');
+    fireEvent.click(within(card).getByRole('button', { name: 'Add condition' }));
+    const added = onChange.mock.calls.at(-1)?.[0] as DraftCallStep;
+    expect(added.runIf?.all).toHaveLength(3);
+    fireEvent.click(within(card).getByRole('button', { name: 'Remove clause 2' }));
+    const removed = onChange.mock.calls.at(-1)?.[0] as DraftCallStep;
+    expect(removed.runIf?.all).toEqual([gate.all[0]]);
+  });
+});
+
+describe('WorkflowStepEditor — a call’s sections', () => {
   // ── Show-but-disable catalog ────────────────────────────────────────
   // Each of these assertions verifies a future-feature affordance is
   // surfaced in v1 with a disabled state — the plan's show-but-disable
@@ -426,8 +543,8 @@ describe('WorkflowStepEditor — a listen', () => {
     expect(screen.getByTestId('wf-step-1-session-request').textContent).toContain('Probe MQTT');
     expect(numberInput('wf-step-1-ready-within')?.value).toBe('10000');
     expect(screen.queryByRole('button', { name: '+ Capture' })).toBeNull();
-    expect(screen.getByRole('button', { name: /Depends on/i })).toBeTruthy();
-    expect(screen.getByRole('button', { name: /Run condition/i })).toBeTruthy();
+    expect(screen.getByRole('heading', { name: 'Depends on' })).toBeTruthy();
+    expect(screen.getByRole('heading', { name: 'Run condition' })).toBeTruthy();
     expect(screen.getByRole('button', { name: /Priority/i })).toBeTruthy();
     expect(screen.queryByRole('button', { name: /Retry policy/i })).toBeNull();
     expect(screen.queryByRole('button', { name: /Success criteria/i })).toBeNull();

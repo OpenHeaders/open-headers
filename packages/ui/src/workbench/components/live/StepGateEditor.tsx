@@ -1,9 +1,14 @@
 /**
- * StepGateEditor — AND-of-clauses predicate editor for a workflow step's
- * optional `runIf` gate. Surfaces the full architectural capability
- * (match mode + 4 v1 clause kinds + 3 future clause kinds + OR future)
- * with a show-but-disable policy on unimplemented features; see
- * the live-orchestration plan §UI — show-but-disable catalog.
+ * StepGateEditor — the Run condition card of a step's panel (the
+ * workflows redesign, Step panel): the AND-of-clauses predicate editor
+ * for a workflow step's optional `runIf` gate, as a table — the step a
+ * clause reads, what it checks, what it expects, and whether it held in
+ * the last run. The card's foot reads the logic back in a sentence.
+ *
+ * Surfaces the full architectural capability (match mode + 4 v1 clause
+ * kinds + 3 future clause kinds + OR future) with a show-but-disable
+ * policy on unimplemented features; see the live-orchestration plan
+ * §UI — show-but-disable catalog.
  *
  * Validation errors flow in through `errors`; every clause row that
  * matches an error kind (`gate-unknown-stepid` / `gate-unreachable-stepid`
@@ -18,15 +23,17 @@
  * when the list empties, `onChange(undefined)` clears the gate entirely.
  */
 
-import { CloseOutlined, InfoCircleOutlined, PlusOutlined } from '@ant-design/icons';
+import { CloseOutlined, InfoCircleOutlined } from '@ant-design/icons';
 import type { MessageKey } from '@openheaders/i18n';
 import type { StructuralError } from '@openheaders/core/live';
 import type { StatusMatch, StepGate, StepGateClause, StepGateClauseKind } from '@openheaders/core/types';
 import { generateUid } from '@openheaders/core/utils';
 import { useT } from '@openheaders/ui/context/LocaleContext';
-import { Button, Input, InputNumber, Segmented, Select, Tag, Tooltip, theme } from 'antd';
+import { Button, ConfigProvider, Input, InputNumber, Segmented, Select, Tooltip, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useMemo } from 'react';
+import { clauseWords, type LabelTruth } from './graph-lines';
+import WorkflowCard from './WorkflowCard';
 
 // ── Clause-kind catalog (enabled + future) ────────────────────────
 
@@ -132,6 +139,13 @@ interface StepGateEditorProps {
    * filters the full `validateWorkflowShape` output.
    */
   errors?: StructuralError[];
+  /** Whether a clause held in the last run, by its uid — absent where no run judged the step. */
+  clauseTruth?: (clauseUid: string) => LabelTruth;
+  /** The step waits for no other: with no clause it runs as the workflow starts. */
+  root?: boolean;
+  testId?: string;
+  /** Canonical schema path of the gate — read by field-focus awareness. */
+  fieldPath?: string;
 }
 
 const StepGateEditor: React.FC<StepGateEditorProps> = ({
@@ -140,9 +154,16 @@ const StepGateEditor: React.FC<StepGateEditorProps> = ({
   reachableSteps,
   capturesByStepId,
   errors = [],
+  clauseTruth,
+  root = false,
+  testId,
+  fieldPath,
 }) => {
   const { token } = theme.useToken();
   const t = useT();
+  // A read-only form switches every control off through the provider;
+  // the match-mode switch does not hear it and is told here.
+  const readOnly = ConfigProvider.useConfig().componentDisabled === true;
   const clauses: StepGateClause[] = useMemo(() => value?.all ?? [], [value]);
 
   const emitNext = useCallback(
@@ -208,59 +229,65 @@ const StepGateEditor: React.FC<StepGateEditorProps> = ({
 
   const stepOptions = useMemo(() => reachableSteps.map((s) => ({ value: s.id, label: s.label })), [reachableSteps]);
 
-  return (
-    <div
-      style={{
-        border: `1px solid ${token.colorBorder}`,
-        borderRadius: 6,
-        background: token.colorBgContainer,
-      }}
-    >
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: 8,
-          padding: '6px 10px',
-          borderBottom: clauses.length > 0 ? `1px solid ${token.colorBorderSecondary}` : undefined,
-        }}
-      >
-        <Segmented
-          size="small"
-          value="all"
-          options={[
-            { value: 'all', label: t('workbench.editors.live.gate.allAnd') },
-            { value: 'any', label: t('workbench.editors.live.gate.anyOr'), disabled: true },
-          ]}
-        />
-        {/* Tooltip on an adjacent info icon rather than on the disabled option
-         *  itself — AntD applies `pointer-events: none` to disabled Segmented
-         *  items which can swallow hover on the option's inner tooltip trigger.
-         *  A sibling trigger is keyboard-discoverable (Tab → focus-shown
-         *  tooltip) and never relies on the disabled-option hover working. */}
-        <Tooltip title={t('workbench.editors.live.gate.orTooltip')}>
-          <InfoCircleOutlined
-            tabIndex={0}
-            aria-label={t('workbench.editors.live.gate.matchModesAria')}
-            style={{ fontSize: 11, color: token.colorTextTertiary, cursor: 'help' }}
-          />
-        </Tooltip>
-        <span style={{ fontSize: 11, color: token.colorTextTertiary }}>
-          {clauses.length === 0
-            ? t('workbench.editors.live.gate.noConditions')
-            : t('workbench.editors.live.gate.conditionCount', { count: clauses.length })}
-        </span>
-      </div>
+  // The logic read back: what the clauses say together, or what having none means.
+  const summary =
+    clauses.length > 0
+      ? t('workbench.editors.live.gate.summaryAll', {
+          conditions: clauses.map((clause) => `${clause.stepId} ${clauseWords(clause, t)}`).join(' · '),
+        })
+      : root
+        ? t('workbench.editors.live.gate.summaryRoot')
+        : t('workbench.editors.live.gate.noConditions');
 
+  return (
+    <WorkflowCard
+      testId={testId}
+      fieldPath={fieldPath}
+      title={t('workbench.editors.live.sections.runCondition')}
+      description={t('workbench.editors.live.gate.description')}
+      extra={
+        <>
+          <Segmented
+            value="all"
+            disabled={readOnly}
+            options={[
+              { value: 'all', label: t('workbench.editors.live.gate.allAnd') },
+              { value: 'any', label: t('workbench.editors.live.gate.anyOr'), disabled: true },
+            ]}
+          />
+          {/* Tooltip on an adjacent info icon rather than on the disabled option
+           *  itself — AntD applies `pointer-events: none` to disabled Segmented
+           *  items which can swallow hover on the option's inner tooltip trigger.
+           *  A sibling trigger is keyboard-discoverable (Tab → focus-shown
+           *  tooltip) and never relies on the disabled-option hover working. */}
+          <Tooltip title={t('workbench.editors.live.gate.orTooltip')}>
+            <InfoCircleOutlined
+              tabIndex={0}
+              aria-label={t('workbench.editors.live.gate.matchModesAria')}
+              style={{ fontSize: 11, color: token.colorTextTertiary, cursor: 'help' }}
+            />
+          </Tooltip>
+          <Button onClick={addClause} data-testid="gate-add-condition">
+            {t('workbench.editors.live.gate.addCondition')}
+          </Button>
+        </>
+      }
+      footer={<span data-testid="gate-summary">{summary}</span>}
+    >
+      {clauses.length > 0 && (
+        <div className="oh-wf-card-columns oh-wf-gate-grid">
+          <span>{t('workbench.editors.live.gate.stepPlaceholder')}</span>
+          <span>{t('workbench.editors.live.gate.colCheck')}</span>
+          <span>{t('workbench.editors.live.gate.colExpected')}</span>
+          <span>{t('workbench.editors.live.panel.lastRun')}</span>
+        </div>
+      )}
       {clauses.map((clause, index) => (
         <ClauseRow
-          // Clauses don't carry a stable id; position + kind makes the key
-          // unique enough for this short-lived list. Adding/removing
-          // triggers a re-render anyway.
-          key={`${index}-${clause.kind}`}
+          key={clause.uid}
           index={index}
           clause={clause}
-          isFirst={index === 0}
+          truth={clauseTruth?.(clause.uid) ?? 'unknown'}
           stepOptions={stepOptions}
           capturesByStepId={capturesByStepId}
           errors={errors}
@@ -269,34 +296,22 @@ const StepGateEditor: React.FC<StepGateEditorProps> = ({
           onRemove={() => removeClause(index)}
         />
       ))}
-
-      <div
-        style={{
-          padding: '6px 10px',
-          borderTop: clauses.length > 0 ? `1px solid ${token.colorBorderSecondary}` : undefined,
-        }}
-      >
-        <Button
-          type="dashed"
-          size="small"
-          icon={<PlusOutlined />}
-          onClick={addClause}
-          style={{ fontSize: 12 }}
-          data-testid="gate-add-condition"
-        >
-          {t('workbench.editors.live.gate.addCondition')}
-        </Button>
-      </div>
-    </div>
+    </WorkflowCard>
   );
 };
 
 // ── Row ───────────────────────────────────────────────────────────
 
+/** Whether a clause held in the last run, as its row says it. A dash where no run judged it. */
+const TRUTH_WORD: Record<Exclude<LabelTruth, 'unknown'>, MessageKey> = {
+  true: 'workbench.editors.live.gate.truthTrue',
+  false: 'workbench.editors.live.gate.truthFalse',
+};
+
 interface ClauseRowProps {
   index: number;
   clause: StepGateClause;
-  isFirst: boolean;
+  truth: LabelTruth;
   stepOptions: { value: string; label: string }[];
   capturesByStepId: Map<string, string[]>;
   errors: StructuralError[];
@@ -308,7 +323,7 @@ interface ClauseRowProps {
 const ClauseRow: React.FC<ClauseRowProps> = ({
   index,
   clause,
-  isFirst,
+  truth,
   stepOptions,
   capturesByStepId,
   errors,
@@ -347,8 +362,7 @@ const ClauseRow: React.FC<ClauseRowProps> = ({
   const renderStepSelect = () => (
     <Tooltip open={stepError ? undefined : false} title={stepError?.message}>
       <Select
-        size="small"
-        style={{ width: 180, flexShrink: 0 }}
+        style={{ minWidth: 0 }}
         status={stepError ? 'error' : undefined}
         data-testid={`gate-clause-${index}-step`}
         placeholder={t('workbench.editors.live.gate.stepPlaceholder')}
@@ -361,8 +375,7 @@ const ClauseRow: React.FC<ClauseRowProps> = ({
 
   const renderKindSelect = () => (
     <Select
-      size="small"
-      style={{ width: 180, flexShrink: 0 }}
+      style={{ minWidth: 0 }}
       data-testid={`gate-clause-${index}-kind`}
       value={clause.kind}
       popupMatchSelectWidth={220}
@@ -381,108 +394,60 @@ const ClauseRow: React.FC<ClauseRowProps> = ({
     />
   );
 
-  return (
-    <div
-      data-testid={`gate-clause-${index}`}
-      style={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: 6,
-        padding: '8px 10px',
-        borderBottom: `1px solid ${token.colorBorderSecondary}`,
-      }}
-    >
-      {!isFirst && (
-        <Tag
-          color="blue"
-          style={{
-            fontSize: 9,
-            fontWeight: 700,
-            letterSpacing: 1,
-            lineHeight: '18px',
-            margin: 0,
-            padding: '0 4px',
-            flexShrink: 0,
-          }}
-        >
-          {t('workbench.editors.live.gate.andTag')}
-        </Tag>
-      )}
+  const captureSelect =
+    clause.kind === 'status' ? null : (
+      <Tooltip open={captureError ? undefined : false} title={captureError?.message}>
+        <Select
+          style={{ flex: '1 1 84px', minWidth: 0 }}
+          status={captureError ? 'error' : undefined}
+          data-testid={`gate-clause-${index}-capture`}
+          placeholder={t('workbench.editors.live.gate.capturePlaceholder')}
+          value={clause.captureName || undefined}
+          options={captureOptions}
+          onChange={(captureName) => onChange({ ...clause, captureName })}
+        />
+      </Tooltip>
+    );
 
+  return (
+    <div className="oh-wf-card-row oh-wf-gate-grid" data-testid={`gate-clause-${index}`}>
       {renderStepSelect()}
       {renderKindSelect()}
-
-      {clause.kind === 'status' ? (
-        <StatusMatchControls match={clause.match} onChange={(match) => onChange({ ...clause, match })} />
-      ) : clause.kind === 'capture-exists' ? (
-        <Tooltip open={captureError ? undefined : false} title={captureError?.message}>
-          <Select
-            size="small"
-            style={{ flex: 1, minWidth: 160 }}
-            status={captureError ? 'error' : undefined}
-            data-testid={`gate-clause-${index}-capture`}
-            placeholder={t('workbench.editors.live.gate.capturePlaceholder')}
-            value={clause.captureName || undefined}
-            options={captureOptions}
-            onChange={(captureName) => onChange({ ...clause, captureName })}
-          />
-        </Tooltip>
-      ) : clause.kind === 'capture-equals' ? (
-        <>
-          <Tooltip open={captureError ? undefined : false} title={captureError?.message}>
-            <Select
-              size="small"
-              style={{ width: 160, flexShrink: 0 }}
-              status={captureError ? 'error' : undefined}
-              data-testid={`gate-clause-${index}-capture`}
-              placeholder={t('workbench.editors.live.gate.capturePlaceholder')}
-              value={clause.captureName || undefined}
-              options={captureOptions}
-              onChange={(captureName) => onChange({ ...clause, captureName })}
-            />
-          </Tooltip>
+      {/* What the clause expects: its own controls, on a second line where the panel is narrow. */}
+      <div className="oh-wf-cell-controls">
+        {clause.kind === 'status' ? (
+          <StatusMatchControls match={clause.match} onChange={(match) => onChange({ ...clause, match })} />
+        ) : (
+          captureSelect
+        )}
+        {clause.kind === 'capture-equals' && (
           <Input
-            size="small"
-            style={{ flex: 1, minWidth: 100 }}
+            style={{ flex: '1 1 72px', minWidth: 0 }}
             placeholder={t('workbench.editors.live.gate.equalsPlaceholder')}
             data-testid={`gate-clause-${index}-value`}
             value={clause.value}
             onChange={(e) => onChange({ ...clause, value: e.target.value })}
           />
-        </>
-      ) : (
-        // capture-matches
-        <>
-          <Tooltip open={captureError ? undefined : false} title={captureError?.message}>
-            <Select
-              size="small"
-              style={{ width: 160, flexShrink: 0 }}
-              status={captureError ? 'error' : undefined}
-              data-testid={`gate-clause-${index}-capture`}
-              placeholder={t('workbench.editors.live.gate.capturePlaceholder')}
-              value={clause.captureName || undefined}
-              options={captureOptions}
-              onChange={(captureName) => onChange({ ...clause, captureName })}
-            />
-          </Tooltip>
+        )}
+        {clause.kind === 'capture-matches' && (
           <Input
-            size="small"
-            style={{ flex: 1, minWidth: 100, fontFamily: 'monospace' }}
+            style={{ flex: '1 1 72px', minWidth: 0, fontFamily: 'monospace' }}
             placeholder={GATE_PATTERN_EXAMPLE}
             status={captureError?.issue === 'gate-invalid-regex' ? 'error' : undefined}
             data-testid={`gate-clause-${index}-pattern`}
             value={clause.pattern}
             onChange={(e) => onChange({ ...clause, pattern: e.target.value })}
           />
-        </>
-      )}
-
+        )}
+      </div>
+      <span className="oh-wf-gate-truth" data-testid={`gate-clause-${index}-truth`} data-truth={truth}>
+        {truth === 'unknown' ? '—' : t(TRUTH_WORD[truth])}
+      </span>
       <Button
         type="text"
-        size="small"
         icon={<CloseOutlined style={{ fontSize: 10 }} />}
         onClick={onRemove}
-        style={{ color: token.colorTextTertiary, flexShrink: 0 }}
+        style={{ color: token.colorTextTertiary }}
         aria-label={t('workbench.editors.live.gate.removeClauseAria', { number: index + 1 })}
       />
     </div>
@@ -506,7 +471,7 @@ export const StatusMatchControls: React.FC<{
     <>
       <Select
         size="small"
-        style={{ width: 180, flexShrink: 0 }}
+        style={{ flex: '1 1 96px', minWidth: 0 }}
         value={mode}
         options={STATUS_MATCH_OPTIONS.map((o) => ({ value: o.value, label: t(o.labelKey) }))}
         onChange={(v) => onModeChange(v as StatusMatchMode)}
@@ -516,7 +481,7 @@ export const StatusMatchControls: React.FC<{
           size="small"
           min={100}
           max={599}
-          style={{ width: 90, flexShrink: 0 }}
+          style={{ width: 64, flexShrink: 0 }}
           placeholder="200"
           value={typeof match[1] === 'number' ? match[1] : undefined}
           onChange={(n) => {
@@ -530,7 +495,7 @@ export const StatusMatchControls: React.FC<{
         <Select
           size="small"
           mode="tags"
-          style={{ flex: 1, minWidth: 150 }}
+          style={{ flex: '1 1 96px', minWidth: 0 }}
           placeholder="200, 201, 204"
           value={(match[1] as number[]).map(String)}
           onChange={(vals: string[]) => {

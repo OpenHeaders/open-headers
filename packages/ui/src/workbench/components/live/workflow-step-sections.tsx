@@ -1,7 +1,7 @@
 /**
- * Collapse sections for {@link WorkflowStepEditor}: the ones every step
- * has — Depends on, Run condition, Priority — and a call's own — Retry
- * policy, Timeout, Success criteria, Poll, and Scripts.
+ * Collapse sections for {@link WorkflowStepEditor}: the one every step
+ * has — Priority — and a call's own — Retry policy, Timeout, Success
+ * criteria, Poll, and Scripts.
  * Pure factories rebuilt every render (as the inline array
  * was) so state and handlers stay current — no memoization is required
  * because no renderer closes over a value that must be referentially
@@ -9,7 +9,6 @@
  */
 
 import {
-  BranchesOutlined,
   CheckCircleOutlined,
   ClockCircleOutlined,
   CodeOutlined,
@@ -30,14 +29,12 @@ import {
   MIN_RETRY_ATTEMPTS,
   MIN_STEP_TIMEOUT_MS,
 } from '@openheaders/core/schemas';
-import type { Criterion, PriorityRef, StatusMatch, StepGate, StepPoll, StepRetryPolicy } from '@openheaders/core/types';
+import type { Criterion, PriorityRef, StatusMatch, StepPoll, StepRetryPolicy } from '@openheaders/core/types';
 import type { Translate } from '@openheaders/ui/context/LocaleContext';
-import { LIVE_WORKFLOW_FIELD } from '@openheaders/ui/shared/awareness/live-paths';
 import { InfoTrigger } from '@openheaders/ui/shared/info-popover';
 import { Button, type CollapseProps, InputNumber, Select, Space, Switch, Tooltip, Typography } from 'antd';
 import type { GlobalToken } from 'antd/es/theme/interface';
 import CriteriaEditor from './CriteriaEditor';
-import StepGateEditor from './StepGateEditor';
 
 const { Text } = Typography;
 
@@ -48,23 +45,12 @@ export interface SharedStepSectionsOptions {
   token: GlobalToken;
   t: Translate;
   index: number;
-  runIf: StepGate | undefined;
-  dependsOnValue: string[] | undefined;
-  allStepIds: { id: string; label: string }[];
-  reachableSteps: { id: string; label: string }[];
-  capturesByStepId: Map<string, string[]>;
-  dependsOnError: StructuralError | undefined;
-  gateErrors: StructuralError[];
   priorityError: StructuralError | undefined;
-  runIfCount: number;
   priority: PriorityRef | undefined;
   priorityStepOptions: { value: string; label: string }[];
   priorityCaptureOptions: { value: string; label: string }[];
   /** The form is read-only — a control that sets its own `disabled` stays off whatever its own condition says. */
   readOnly: boolean;
-  handleDependsOnChange: (next: string[]) => void;
-  clearExplicitDependsOn: () => void;
-  handleRunIfChange: (next: StepGate | undefined) => void;
   setPriority: (next: PriorityRef | undefined) => void;
 }
 
@@ -115,123 +101,19 @@ function decodeRetryOn(choice: RetryOnChoice): StatusMatch | undefined {
   }
 }
 
-/** The sections every step has, whatever its action. */
+/** The section every step has, whatever its action. */
 export function buildSharedStepSections({
   token,
   t,
   index,
-  runIf,
-  dependsOnValue,
-  allStepIds,
-  reachableSteps,
-  capturesByStepId,
-  dependsOnError,
-  gateErrors,
   priorityError,
-  runIfCount,
   priority,
   priorityStepOptions,
   priorityCaptureOptions,
   readOnly,
-  handleDependsOnChange,
-  clearExplicitDependsOn,
-  handleRunIfChange,
   setPriority,
 }: SharedStepSectionsOptions): NonNullable<CollapseProps['items']> {
   return [
-    {
-      key: 'deps',
-      label: (
-        <span style={{ fontSize: 11 }}>
-          <BranchesOutlined style={{ marginRight: 4 }} />
-          <span style={{ textTransform: 'uppercase', letterSpacing: 0.4, color: token.colorTextSecondary }}>
-            {t('workbench.editors.live.sections.dependsOn')}
-          </span>
-          <span style={{ marginLeft: 6, color: token.colorTextTertiary }}>
-            {dependsOnValue === undefined
-              ? t('workbench.editors.live.sections.dependsOnImplicit')
-              : dependsOnValue.length === 0
-                ? t('workbench.editors.live.sections.dependsOnRoot')
-                : `(${dependsOnValue.join(', ')})`}
-          </span>
-        </span>
-      ),
-      children: (
-        <div style={{ padding: '0 0 4px' }} data-testid={`wf-step-${index}-deps`}>
-          <Tooltip open={dependsOnError ? undefined : false} title={dependsOnError?.message}>
-            <Select
-              size="small"
-              mode="multiple"
-              style={{ width: '100%' }}
-              placeholder={t('workbench.editors.live.sections.dependsOnPlaceholder')}
-              status={dependsOnError ? 'error' : undefined}
-              data-testid={`wf-step-${index}-deps-select`}
-              value={dependsOnValue ?? []}
-              options={allStepIds.map((s) => ({ value: s.id, label: s.label }))}
-              onChange={handleDependsOnChange}
-            />
-          </Tooltip>
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 6,
-              marginTop: 4,
-              fontSize: 11,
-              color: token.colorTextTertiary,
-            }}
-          >
-            {dependsOnValue === undefined ? (
-              <Text type="secondary" style={{ fontSize: 11 }}>
-                {t('workbench.editors.live.sections.dependsOnImplicitHint')}
-              </Text>
-            ) : dependsOnValue.length === 0 ? (
-              <>
-                <Text type="secondary" style={{ fontSize: 11 }}>
-                  {t('workbench.editors.live.sections.dependsOnRootHint')}
-                </Text>
-                <Button size="small" type="link" style={{ fontSize: 11, padding: 0 }} onClick={clearExplicitDependsOn}>
-                  {t('workbench.editors.live.sections.useImplicit')}
-                </Button>
-              </>
-            ) : (
-              <>
-                <Text type="secondary" style={{ fontSize: 11 }}>
-                  {t('workbench.editors.live.sections.waitsFor', { count: dependsOnValue.length })}
-                </Text>
-                <Button size="small" type="link" style={{ fontSize: 11, padding: 0 }} onClick={clearExplicitDependsOn}>
-                  {t('workbench.editors.live.sections.reset')}
-                </Button>
-              </>
-            )}
-          </div>
-        </div>
-      ),
-    },
-    {
-      key: 'runIf',
-      label: (
-        <span style={{ fontSize: 11 }}>
-          <span style={{ textTransform: 'uppercase', letterSpacing: 0.4, color: token.colorTextSecondary }}>
-            {t('workbench.editors.live.sections.runCondition')}
-          </span>
-          <span style={{ marginLeft: 6, color: token.colorTextTertiary }}>
-            {runIfCount === 0 ? t('workbench.editors.live.sections.none') : `(${runIfCount})`}
-          </span>
-        </span>
-      ),
-      children: (
-        <div data-field-path={LIVE_WORKFLOW_FIELD.step(index, 'gate')} data-testid={`wf-step-${index}-runif`}>
-          <StepGateEditor
-            value={runIf}
-            onChange={handleRunIfChange}
-            reachableSteps={reachableSteps}
-            capturesByStepId={capturesByStepId}
-            errors={gateErrors}
-          />
-        </div>
-      ),
-    },
     {
       key: 'priority',
       label: (

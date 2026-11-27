@@ -9,10 +9,12 @@ import {
   capsuleArrowState,
   capturesRead,
   clausesOn,
+  clauseTruthOf,
   lineLabel,
   lineStateOf,
   reachOfCacheRow,
   reachOfRunRow,
+  type StepReach,
   stepOwnTemplates,
 } from '@openheaders/ui/workbench/components/live/graph-lines';
 import { translateEnglish as t } from '@openheaders/ui/workbench/settings/localize';
@@ -156,6 +158,26 @@ describe('whether a run took a line', () => {
   it('a capsule’s arrow follows its step', () => {
     expect(capsuleArrowState({ reached: 'unknown' })).toBe('unknown');
     expect(capsuleArrowState({ reached: 'ran' })).toBe('taken');
+  });
+});
+
+describe('whether a clause of a run condition held', () => {
+  it('is unknown where no run judged the step', () => {
+    expect(clauseTruthOf({ reached: 'unknown' }, on2xx.uid)).toBe('unknown');
+  });
+
+  it('every clause of a step that ran held', () => {
+    expect(clauseTruthOf({ reached: 'ran' }, on2xx.uid)).toBe('true');
+  });
+
+  it('of a skipped step, the clauses the run named did not hold and the others did', () => {
+    const reach: StepReach = { reached: 'skipped', unmet: [hasId.uid] };
+    expect(clauseTruthOf(reach, hasId.uid)).toBe('false');
+    expect(clauseTruthOf(reach, on2xx.uid)).toBe('true');
+  });
+
+  it('a skip the run did not explain says nothing of any clause', () => {
+    expect(clauseTruthOf({ reached: 'skipped' }, on2xx.uid)).toBe('unknown');
   });
 });
 

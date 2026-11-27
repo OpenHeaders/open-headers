@@ -4,12 +4,13 @@
  * or an `expect` on a session (a step of any other action has its own
  * card, `UnknownStepCard`).
  *
- * The fields of the step's own action come first:
+ * First the cards every step has: where it stands among the others
+ * (`StepDependencyCards`) and its run condition (`StepGateEditor`). Then
+ * the fields of the step's own action:
  *   - a call: `CallStepFields`, and the sections `Retry policy`,
  *     `Timeout`, `Success criteria`, `Poll` and `Scripts`;
  *   - a session step: `SessionStepFields`;
- * then the sections every step has — `Depends on`, `Run condition` and
- * `Priority`.
+ * with the `Priority` section every step has.
  */
 
 import {
@@ -24,16 +25,33 @@ import {
 } from '@openheaders/core/live';
 import type { Criterion, MqttRequest, PriorityRef, StepGate, StepPoll, StepRetryPolicy } from '@openheaders/core/types';
 import { type Translate, useT } from '@openheaders/ui/context/LocaleContext';
+import { LIVE_WORKFLOW_FIELD } from '@openheaders/ui/shared/awareness/live-paths';
 import { noteFeatureUsed } from '@openheaders/ui/shared/product-telemetry';
-import { Collapse, type CollapseProps, ConfigProvider, Space, Tooltip, theme } from 'antd';
+import { Collapse, type CollapseProps, ConfigProvider, Space, theme } from 'antd';
 import type { GlobalToken } from 'antd/es/theme/interface';
 import type React from 'react';
 import { useMemo } from 'react';
 import CallStepFields from './CallStepFields';
-import type { DependencyRow } from './dependencies-view';
+import type { LabelTruth } from './graph-lines';
 import { ExpectStepFields, ListenStepFields, SendStepFields } from './SessionStepFields';
+import StepDependencyCards from './StepDependencyCards';
+import StepGateEditor from './StepGateEditor';
+import type { StepMiniFacts } from './StepMiniRow';
 import type { StepRequestChoice } from './workflow-step-request-options';
 import { buildCallStepSections, buildSharedStepSections } from './workflow-step-sections';
+
+/** Where a step stands among the others, and the edits its Depends on card makes — each one the graph's own. */
+export interface StepDependencies {
+  /** The steps it waits for, as resolved: the step before it where it names none. */
+  parents: readonly StepMiniFacts[];
+  /** The steps that wait for it. */
+  dependents: readonly StepMiniFacts[];
+  /** Every other step it does not wait for yet, by id. */
+  addable: readonly string[];
+  onAdd: (parentId: string) => void;
+  onRemove: (parentId: string) => void;
+  onGoToStep: (stepUid: string) => void;
+}
 
 interface Props {
   step: DraftKnownStep;
@@ -42,16 +60,16 @@ interface Props {
   availableRequests: StepRequestChoice[];
   onChange: (next: DraftKnownStep) => void;
   // ── Phase I context (optional — editor works without them) ──────
-  /** All other step ids in the workflow for the dependsOn multi-select. */
-  allStepIds?: { id: string; label: string }[];
+  /** Where the step stands among the others — absent, its two dependency cards are not shown. */
+  dependencies?: StepDependencies;
   /** Transitive ancestors (legal ref targets) for runIf + priorityFrom. */
   reachableSteps?: { id: string; label: string }[];
   /** Map of stepId → declared capture names for runIf + priorityFrom. */
   capturesByStepId?: Map<string, string[]>;
   /** Structural errors scoped to this step (stepId matches) — inline badging. */
   errors?: StructuralError[];
-  /** Layout metadata (indent + effective parents) from `buildDependencyRows`. */
-  dependencyRow?: DependencyRow;
+  /** Whether a run-condition clause held in the last run, by its uid. */
+  clauseTruth?: (clauseUid: string) => LabelTruth;
   // ── Session context (the workflow runs plan, Decisions log, S16) ──
   /** The draft's steps in order — the listens a step can be on, the steps an expect can wait after. */
   steps?: readonly DraftStep[];
@@ -151,11 +169,11 @@ const WorkflowStepEditor: React.FC<Props> = ({
   index,
   availableRequests,
   onChange,
-  allStepIds = [],
+  dependencies,
   reachableSteps = [],
   capturesByStepId = new Map(),
   errors = [],
-  dependencyRow,
+  clauseTruth,
   steps = [],
   mqttRequests = [],
   sessionRequests = [],
@@ -199,28 +217,8 @@ const WorkflowStepEditor: React.FC<Props> = ({
 
   // ── dependsOn helpers ───────────────────────────────────────────
   // `undefined` = implicit prior-step dep; `[]` = explicit root; array
-  // of ids = explicit DAG. The multi-select emits `undefined` when the
-  // user clears an explicit list AND the implicit-prior dep matches the
-  // declared list; otherwise it persists an explicit `[]` so the user's
-  // root intent survives a reorder. We surface both states distinctly
-  // so users can see the difference.
-  const effectiveParents = dependencyRow?.parents ?? [];
-  const dependsOnValue = step.dependsOn;
-
-  const handleDependsOnChange = (next: string[]) => {
-    // Dedup + keep order stable by filtering against allStepIds order.
-    const ordered = allStepIds.filter((s) => next.includes(s.id)).map((s) => s.id);
-    if (ordered.length === 0) {
-      // Empty selection = explicit root. Persist `[]` so serialization
-      // is unambiguous (absent = implicit prior). This lets users
-      // deliberately promote a step to a root vs relying on the
-      // canonical-order fallback.
-      onChange({ ...step, dependsOn: [] });
-      return;
-    }
-    onChange({ ...step, dependsOn: ordered });
-  };
-
+  // of ids = explicit DAG. The card's Add and × write the list out, as
+  // the graph's gestures do; Reset is the one edit made here.
   const clearExplicitDependsOn = () => {
     // Remove explicit dependsOn entirely — falls back to implicit
     // prior-step dep (linear-chain default).
@@ -230,8 +228,6 @@ const WorkflowStepEditor: React.FC<Props> = ({
   };
 
   // ── runIf helpers ───────────────────────────────────────────────
-  const runIfCount = step.runIf?.all.length ?? 0;
-
   const handleRunIfChange = (next: StepGate | undefined) => {
     const nextStep = { ...step };
     if (next === undefined) {
@@ -267,96 +263,83 @@ const WorkflowStepEditor: React.FC<Props> = ({
     token,
     t,
     index,
-    runIf: step.runIf,
-    dependsOnValue,
-    allStepIds,
-    reachableSteps,
-    capturesByStepId,
-    dependsOnError,
-    gateErrors,
     priorityError,
-    runIfCount,
     priority,
     priorityStepOptions,
     priorityCaptureOptions,
     readOnly,
-    handleDependsOnChange,
-    clearExplicitDependsOn,
-    handleRunIfChange,
     setPriority,
   });
 
   const session = { index, steps, mqttRequests, errors };
-  const indent = dependencyRow?.indent ?? 0;
 
   return (
-    <div
-      style={{
-        border: `1px solid ${requestError ? token.colorError : token.colorBorderSecondary}`,
-        borderRadius: 6,
-        padding: 12,
-        position: 'relative',
-      }}
-    >
-      {/* Parent-connector chip — tiny textual summary of effective parents.
-          Draws the reader's eye to the dependency relationship without
-          requiring them to open the Depends-on section. */}
-      {indent > 0 && effectiveParents.length > 0 && (
-        <div
-          style={{
-            position: 'absolute',
-            top: -9,
-            left: 8,
-            padding: '0 6px',
-            fontSize: 10,
-            color: token.colorTextTertiary,
-            background: token.colorBgContainer,
-            lineHeight: 1.4,
-          }}
-        >
-          {t('workbench.editors.live.step.afterChip', { parents: effectiveParents.join(', ') })}
-          {step.dependsOn === undefined && (
-            <Tooltip title={t('workbench.editors.live.step.implicitTooltip')}>
-              <span style={{ marginLeft: 4, fontStyle: 'italic' }}>
-                {t('workbench.editors.live.step.implicitMark')}
-              </span>
-            </Tooltip>
-          )}
-        </div>
-      )}
-
-      <Space orientation="vertical" size={8} style={{ width: '100%' }}>
-        {isListenStep(step) ? (
-          <ListenStepFields step={step} onChange={onChange} sessionRequests={sessionRequests} {...session} />
-        ) : isSendStep(step) ? (
-          <SendStepFields step={step} onChange={onChange} {...session} />
-        ) : isExpectStep(step) ? (
-          <ExpectStepFields step={step} onChange={onChange} {...session} />
-        ) : (
-          <CallStepFields
-            step={step}
-            index={index}
-            onChange={onChange}
-            availableRequests={availableRequests}
-            requestError={requestError}
-            exposable={exposable}
-          />
-        )}
-
-        {/* ── Phase I sections ──────────────────────────────────── */}
-
-        <Collapse
-          size="small"
-          ghost
-          defaultActiveKey={[]}
-          items={
-            isSessionStep(step)
-              ? sharedSections
-              : [...sharedSections, ...callSectionsOf(step, onChange, { token, t, index, errors, readOnly })]
-          }
+    <>
+      {dependencies !== undefined && (
+        <StepDependencyCards
+          index={index}
+          parents={dependencies.parents}
+          dependents={dependencies.dependents}
+          explicit={step.dependsOn !== undefined}
+          addable={dependencies.addable}
+          error={dependsOnError}
+          onAdd={dependencies.onAdd}
+          onRemove={dependencies.onRemove}
+          onReset={clearExplicitDependsOn}
+          onGoToStep={dependencies.onGoToStep}
         />
-      </Space>
-    </div>
+      )}
+      <StepGateEditor
+        testId={`wf-step-${index}-runif`}
+        fieldPath={LIVE_WORKFLOW_FIELD.step(index, 'gate')}
+        value={step.runIf}
+        onChange={handleRunIfChange}
+        reachableSteps={reachableSteps}
+        capturesByStepId={capturesByStepId}
+        errors={gateErrors}
+        clauseTruth={clauseTruth}
+        root={dependencies !== undefined && dependencies.parents.length === 0}
+      />
+      <div
+        style={{
+          border: `1px solid ${requestError ? token.colorError : token.colorBorderSecondary}`,
+          borderRadius: 6,
+          padding: 12,
+        }}
+      >
+        <Space orientation="vertical" size={8} style={{ width: '100%' }}>
+          {isListenStep(step) ? (
+            <ListenStepFields step={step} onChange={onChange} sessionRequests={sessionRequests} {...session} />
+          ) : isSendStep(step) ? (
+            <SendStepFields step={step} onChange={onChange} {...session} />
+          ) : isExpectStep(step) ? (
+            <ExpectStepFields step={step} onChange={onChange} {...session} />
+          ) : (
+            <CallStepFields
+              step={step}
+              index={index}
+              onChange={onChange}
+              availableRequests={availableRequests}
+              requestError={requestError}
+              exposable={exposable}
+            />
+          )}
+
+          {/* ── Phase I sections ──────────────────────────────────── */}
+
+          <Collapse
+            size="small"
+            ghost
+            defaultActiveKey={[]}
+            items={
+              isSessionStep(step)
+                ? sharedSections
+                : [...sharedSections, ...callSectionsOf(step, onChange, { token, t, index, errors, readOnly })]
+            }
+          />
+        </Space>
+      </div>
+    </>
   );
 };
 

@@ -780,6 +780,22 @@
   flex-direction: column;
   gap: 10px;
   padding: 12px 15px 18px;
+  // The cards lay themselves out by the panel's own width, whatever the window's.
+  container: wf-panel / inline-size;
+}
+
+// Two cards side by side; one under the other where the panel is narrow.
+.oh-wf-card-pair {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  align-items: start;
+}
+
+@container wf-panel (max-width: 460px) {
+  .oh-wf-card-pair {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 
 .oh-wf-card {
@@ -793,16 +809,23 @@
   }
 }
 
+// What a head offers at its right drops under the title where the two do not fit on a line.
 .oh-wf-card-head {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 9px;
+  gap: 5px 9px;
   padding: 7px 9px;
   background: var(--oh-wf-card-head);
 }
 
+// What follows a card's head is set off from it by the card's own hairline, whatever its own is.
+.oh-wf-card-head + * {
+  border-top-color: var(--oh-wf-card-border);
+}
+
 .oh-wf-card-heading {
-  flex: 1;
+  flex: 1 1 150px;
   min-width: 0;
 }
 
@@ -839,6 +862,10 @@
   color: var(--oh-wf-text-secondary);
 }
 
+.oh-wf-card-note--error {
+  color: var(--oh-wf-failure);
+}
+
 .oh-wf-card-foot {
   padding: 7px 9px;
   border-top: 1px solid var(--oh-wf-card-border);
@@ -846,6 +873,140 @@
   font-size: 0.9167em;
   line-height: 1.3;
   color: var(--oh-wf-text-secondary);
+}
+
+// A foot that says something and offers one action at its end.
+.oh-wf-foot-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+
+  > :first-child {
+    flex: 1;
+    min-width: 0;
+  }
+
+  > .ant-btn {
+    height: auto;
+    padding: 0;
+    font-size: inherit;
+  }
+}
+
+// The picker at a card's head that adds one more of something.
+.oh-wf-add-select.ant-select {
+  flex: none;
+  min-width: 64px;
+}
+
+// A table inside a card: its column heads, then a row per entry.
+.oh-wf-card-columns {
+  padding: 5px 9px;
+  border-top: 1px solid var(--oh-wf-card-border);
+  font-size: 0.9167em;
+  line-height: 1.3;
+  font-weight: 600;
+  color: var(--oh-wf-text-secondary);
+}
+
+.oh-wf-card-row {
+  padding: 6px 9px;
+  border-top: 1px solid var(--oh-wf-row-border);
+}
+
+// What a row's widest cell holds: its controls on a line, wrapping where the cell is narrow.
+.oh-wf-cell-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 6px;
+  min-width: 0;
+}
+
+// Run condition: the step, the check, what is expected, whether it held, and the row's remove.
+.oh-wf-gate-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr) minmax(0, 1.5fr) 56px 24px;
+  gap: 4px 6px;
+  align-items: center;
+}
+
+.oh-wf-gate-truth {
+  font-size: 0.9167em;
+  font-weight: 600;
+  color: var(--oh-wf-text-secondary);
+
+  &[data-truth='true'] {
+    color: var(--oh-wf-success);
+  }
+
+  &[data-truth='false'] {
+    color: var(--oh-wf-text);
+  }
+}
+
+@container wf-panel (max-width: 460px) {
+  .oh-wf-card-columns.oh-wf-gate-grid {
+    display: none;
+  }
+
+  .oh-wf-gate-grid {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 56px 24px;
+
+    // The longhands: the stylesheet's compiler would divide a `1 / -1`.
+    > .oh-wf-cell-controls {
+      grid-row: 2;
+      grid-column-start: 1;
+      grid-column-end: -1;
+    }
+  }
+}
+
+// A step standing in a row of another step's panel.
+.oh-wf-mini-row {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding-right: 4px;
+  border-top: 1px solid var(--oh-wf-row-border);
+}
+
+.oh-wf-mini-step {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 29px;
+  padding: 0 5px 0 9px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+
+  &:hover:not(:disabled) {
+    background: var(--oh-wf-card-head);
+  }
+
+  &:disabled {
+    cursor: default;
+    color: var(--oh-wf-text-secondary);
+  }
+}
+
+.oh-wf-mini-name {
+  min-width: 0;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.oh-wf-mini-outcome {
+  flex: none;
+  font-size: 0.9167em;
 }
 
 .oh-wf-card-product {

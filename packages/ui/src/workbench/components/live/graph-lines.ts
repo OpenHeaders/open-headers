@@ -86,13 +86,26 @@ export function lineStateOf(
   return { line: 'not-taken', label: clauses.length > 0 ? 'true' : 'unknown' };
 }
 
+/**
+ * Whether one clause of a step's run condition held, from the step's
+ * reach: every clause of a step that ran did; of a skipped step, the
+ * ones the run named did not and the others did.
+ */
+export function clauseTruthOf(reach: StepReach, clauseUid: string): LabelTruth {
+  if (reach.reached === 'unknown') return 'unknown';
+  if (reach.reached === 'ran') return 'true';
+  if (reach.unmet === undefined) return 'unknown';
+  return reach.unmet.includes(clauseUid) ? 'false' : 'true';
+}
+
 /** The arrow from a capsule into its step: dashed where the run condition skipped the step. */
 export function capsuleArrowState(reach: StepReach): LineTruth {
   if (reach.reached === 'unknown') return 'unknown';
   return reach.reached === 'ran' ? 'taken' : 'not-taken';
 }
 
-function clauseWords(clause: StepGateClause, t: Translate): string {
+/** What a clause asks of its step, in a line's words. */
+export function clauseWords(clause: StepGateClause, t: Translate): string {
   switch (clause.kind) {
     case 'status':
       if (typeof clause.match === 'string') return clause.match;
