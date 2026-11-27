@@ -22,6 +22,7 @@ import { useRequests } from '@openheaders/ui/shared/hooks/readers/useRequests';
 import { useMemo } from 'react';
 import { computeRequestTrail } from '../../breadcrumbs';
 import { buildDependencyRows } from './dependencies-view';
+import { duplicateDraftStep } from './graph-edit';
 import { rebindCaptureReferences } from './rebind-capture-references';
 import { rebindStepReferences } from './rebind-step-references';
 import { type StepAction, withStepAction } from './step-action';
@@ -209,6 +210,15 @@ export function useWorkflowFormModel(draft: DraftWorkflow, setDraft: (next: Draf
     setDraft({ ...draft, steps: draft.steps.filter((_, i) => i !== idx) });
   };
 
+  /** The uid of the copy, or `null` where the step takes none. */
+  const duplicateStep = (idx: number): string | null => {
+    const step = draft.steps[idx];
+    const copied = step === undefined ? null : duplicateDraftStep(draft, step.uid);
+    if (copied === null) return null;
+    setDraft(copied.draft);
+    return copied.stepUid;
+  };
+
   const moveStep = (idx: number, delta: -1 | 1) => {
     const target = idx + delta;
     if (target < 0 || target >= draft.steps.length) return;
@@ -231,6 +241,7 @@ export function useWorkflowFormModel(draft: DraftWorkflow, setDraft: (next: Draf
     updateStep,
     changeStepAction,
     removeStep,
+    duplicateStep,
     moveStep,
   };
 }

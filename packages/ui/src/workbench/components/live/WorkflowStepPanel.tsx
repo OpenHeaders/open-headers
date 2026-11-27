@@ -1,135 +1,172 @@
 /**
  * WorkflowStepPanel — the workflow view's docked panel while a step is
- * selected (the workflows redesign, Step panel): the step's own card,
- * and under it what the step produced in the run this page last saw.
- * Closing it deselects the step, and the panel shows the workflow.
+ * selected (the workflows redesign, Step panel): the step's head, and
+ * under it one scrolling page of cards — what the last run made of the
+ * step, the step's own fields, and what it produced in the run this page
+ * last saw. Closing it deselects the step, and the panel shows the
+ * workflow.
+ *
+ * The panel is drawn one size under the design's, as the whole workflow
+ * view is: its controls are the small ones and its text a size down,
+ * both on the app's UI scale.
  */
 
-import { CloseOutlined } from '@ant-design/icons';
+import type { LiveWorkflowRunSnapshot } from '@openheaders/core/bridge';
 import { type DraftWorkflow, isExpectStep, isKnownStep } from '@openheaders/core/live';
 import { useT } from '@openheaders/ui/context/LocaleContext';
+import { useTheme } from '@openheaders/ui/context/ThemeContext';
 import { LIVE_WORKFLOW_FIELD } from '@openheaders/ui/shared/awareness/live-paths';
-import { Button, ConfigProvider, Typography, theme } from 'antd';
+import { ConfigProvider } from 'antd';
 import type React from 'react';
+import { useMemo } from 'react';
 import { readKeptRunProduct } from '../../data/workflow-run-store';
-import { LIVE_FORM_PAD_X, Section } from './layout';
+import StepLastRunCard from './StepLastRunCard';
+import { actionOfStep, doesOfStep, markOfStep, protocolOfStep } from './step-facts';
+import { describeStepLastRun } from './step-last-run';
 import UnknownStepCard from './UnknownStepCard';
+import { useStepRequests } from './use-step-requests';
+import { useWaitClock } from './use-wait-clock';
 import type { WorkflowFormModel } from './use-workflow-form-model';
 import type { ShownWorkflowRun } from './use-workflow-run';
+import WorkflowCard from './WorkflowCard';
 import WorkflowRunProductPane from './WorkflowRunProductPane';
 import WorkflowStepEditor from './WorkflowStepEditor';
+import WorkflowStepHeader from './WorkflowStepHeader';
 
-const { Text } = Typography;
-
-/** The height a step's product is given inside the scrolling panel. */
-const PRODUCT_HEIGHT = 420;
+/** The panel's text, a size under the app's own. */
+const PANEL_FONT_SIZE = 12;
 
 interface Props {
   draft: DraftWorkflow;
   model: WorkflowFormModel;
   /** The selected step's place among the draft's steps. */
   stepIndex: number;
-  /** The workflow is read-only here: every control of the card is off. */
+  /** The workflow is read-only here: every control of the panel is off but its close. */
   readOnly: boolean;
   onClose: () => void;
+  /** Another step takes the panel — a copy just made. */
+  onSelectStep: (stepUid: string) => void;
   /** The run the view shows — absent where the workflow has none to show. */
   run?: ShownWorkflowRun | null;
+  /** The active environment's cache row: what the last run made of the step while no run is kept. */
+  cacheRun?: LiveWorkflowRunSnapshot | null;
 }
 
-const WorkflowStepPanel: React.FC<Props> = ({ draft, model, stepIndex, readOnly, onClose, run }) => {
-  const { token } = theme.useToken();
+const WorkflowStepPanel: React.FC<Props> = ({
+  draft,
+  model,
+  stepIndex,
+  readOnly,
+  onClose,
+  onSelectStep,
+  run,
+  cacheRun,
+}) => {
   const t = useT();
+  const { uiScale } = useTheme();
+  const stepRequests = useStepRequests();
+  const now = useWaitClock(run?.record ?? null);
   const step = draft.steps[stepIndex];
   const row = run?.record.steps.find((each) => each.uid === step.uid);
   const dependencyRow = model.dependencyRows[stepIndex];
+  const errors = model.errorsByStepId.get(step.id) ?? [];
+
+  const mark = markOfStep(step, { run, cacheRun, now }, t);
+  const lastRun = describeStepLastRun(
+    { step, mark, row, now, runButton: t('workbench.editors.live.workflow.refresh') },
+    t,
+  );
+  // The stylesheet sizes the panel's own text from this one number.
+  const fontSize = Math.round(PANEL_FONT_SIZE * uiScale);
+  const sizes = useMemo(() => ({ token: { fontSize } }), [fontSize]);
+  const action = actionOfStep(step);
 
   return (
-    <>
+    <ConfigProvider componentSize="small" theme={sizes}>
       <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: 8,
-          padding: `8px ${LIVE_FORM_PAD_X}px`,
-          borderBottom: `1px solid ${token.colorBorderSecondary}`,
-          flexShrink: 0,
-        }}
+        className="oh-wf-step-panel"
+        data-step-card={step.id}
+        data-step-action={action}
+        data-step-needs-update={isKnownStep(step) ? undefined : 'true'}
+        style={{ fontSize }}
       >
-        <Text type="secondary" style={{ flex: 1, minWidth: 0, fontSize: 12 }}>
-          {t('workbench.editors.live.panel.stepOf', { number: stepIndex + 1, total: draft.steps.length })}
-        </Text>
-        <Button
-          size="small"
-          type="text"
-          data-testid="wf-panel-close"
-          aria-label={t('workbench.editors.live.panel.closeStep')}
-          icon={<CloseOutlined />}
-          onClick={onClose}
+        <WorkflowStepHeader
+          // Keyed by the step: a field mid-edit is never another step's.
+          key={step.uid}
+          step={step}
+          index={stepIndex}
+          totalSteps={draft.steps.length}
+          mark={mark}
+          protocol={protocolOfStep(step, draft.steps, stepRequests)}
+          // A step of an action the model does not know says its one sentence in its card.
+          does={isKnownStep(step) ? doesOfStep(step, draft.steps, stepRequests, t) : { text: '' }}
+          readOnly={readOnly}
+          sessionAuthoring={model.sessionAuthoring}
+          errors={errors}
+          onChange={(next) => model.updateStep(stepIndex, next)}
+          onActionChange={(action) => model.changeStepAction(stepIndex, action)}
+          onMoveUp={() => model.moveStep(stepIndex, -1)}
+          onMoveDown={() => model.moveStep(stepIndex, 1)}
+          onDuplicate={() => {
+            const copyUid = model.duplicateStep(stepIndex);
+            if (copyUid !== null) onSelectStep(copyUid);
+          }}
+          onRemove={() => {
+            model.removeStep(stepIndex);
+            onClose();
+          }}
+          onClose={onClose}
         />
-      </div>
-      <div className="oh-persistent-scroll" style={{ flex: 1, minHeight: 0 }}>
-        <div
-          style={{ padding: `16px ${LIVE_FORM_PAD_X}px`, display: 'flex', flexDirection: 'column', gap: 12 }}
-          data-field-path={LIVE_WORKFLOW_FIELD.steps}
-        >
-          <ConfigProvider componentDisabled={readOnly}>
-            {/* Keyed by the step: a card's own state — an open section, a field mid-edit — is never another step's. */}
-            {isKnownStep(step) ? (
-              <WorkflowStepEditor
-                key={step.uid}
-                step={step}
-                index={stepIndex}
-                totalSteps={draft.steps.length}
-                availableRequests={model.availableRequests}
-                onChange={(next) => model.updateStep(stepIndex, next)}
-                onActionChange={(action) => model.changeStepAction(stepIndex, action)}
-                steps={draft.steps}
-                mqttRequests={model.mqttRequests}
-                sessionRequests={model.sessionRequests}
-                sessionAuthoring={model.sessionAuthoring}
-                exposable={!model.holdsSession}
-                onRemove={() => {
-                  model.removeStep(stepIndex);
-                  onClose();
-                }}
-                onMoveUp={() => model.moveStep(stepIndex, -1)}
-                onMoveDown={() => model.moveStep(stepIndex, 1)}
-                // Every other step by id — a step cannot depend on itself.
-                allStepIds={draft.steps
-                  .filter((each) => each.id !== step.id && each.id.length > 0)
-                  .map((each) => ({ id: each.id, label: each.id }))}
-                // Only a transitive ancestor can be named by a run condition or a priority.
-                reachableSteps={Array.from(dependencyRow?.reachable ?? []).map((id) => ({ id, label: id }))}
-                capturesByStepId={model.capturesByStepId}
-                errors={model.errorsByStepId.get(step.id) ?? []}
-                dependencyRow={dependencyRow}
-              />
-            ) : (
-              <UnknownStepCard key={step.uid} step={step} index={stepIndex} />
-            )}
-          </ConfigProvider>
-          {run != null && row !== undefined && (
-            <Section title={t('workbench.editors.live.panel.lastRun')}>
-              <div
-                style={{
-                  height: PRODUCT_HEIGHT,
-                  border: `1px solid ${token.colorBorderSecondary}`,
-                  borderRadius: token.borderRadius,
-                  overflow: 'hidden',
-                }}
-              >
-                <WorkflowRunProductPane
-                  stepId={row.id}
-                  state={run.products[row.id]}
-                  product={run.refused ? null : readKeptRunProduct(run.record.runId, row.id)}
-                  trigger={isKnownStep(step) && isExpectStep(step) ? step.after : undefined}
+        <div className="oh-persistent-scroll" style={{ flex: 1, minHeight: 0 }}>
+          <div className="oh-wf-panel-body" data-field-path={LIVE_WORKFLOW_FIELD.steps}>
+            <StepLastRunCard lastRun={lastRun} />
+            <ConfigProvider componentDisabled={readOnly}>
+              {/* Keyed by the step: a card's own state — a field mid-edit — is never another step's. */}
+              {isKnownStep(step) ? (
+                <WorkflowStepEditor
+                  key={step.uid}
+                  step={step}
+                  index={stepIndex}
+                  availableRequests={model.availableRequests}
+                  onChange={(next) => model.updateStep(stepIndex, next)}
+                  steps={draft.steps}
+                  mqttRequests={model.mqttRequests}
+                  sessionRequests={model.sessionRequests}
+                  exposable={!model.holdsSession}
+                  // Every other step by id — a step cannot depend on itself.
+                  allStepIds={draft.steps
+                    .filter((each) => each.id !== step.id && each.id.length > 0)
+                    .map((each) => ({ id: each.id, label: each.id }))}
+                  // Only a transitive ancestor can be named by a run condition or a priority.
+                  reachableSteps={Array.from(dependencyRow?.reachable ?? []).map((id) => ({ id, label: id }))}
+                  capturesByStepId={model.capturesByStepId}
+                  errors={errors}
+                  dependencyRow={dependencyRow}
                 />
-              </div>
-            </Section>
-          )}
+              ) : (
+                <UnknownStepCard />
+              )}
+            </ConfigProvider>
+            {run != null && row !== undefined && (
+              <WorkflowCard
+                title={t(
+                  action === 'call' ? 'workbench.editors.live.panel.response' : 'workbench.editors.live.panel.message',
+                )}
+              >
+                <div className="oh-wf-card-product">
+                  <WorkflowRunProductPane
+                    stepId={row.id}
+                    state={run.products[row.id]}
+                    product={run.refused ? null : readKeptRunProduct(run.record.runId, row.id)}
+                    trigger={isKnownStep(step) && isExpectStep(step) ? step.after : undefined}
+                  />
+                </div>
+              </WorkflowCard>
+            )}
+          </div>
         </div>
       </div>
-    </>
+    </ConfigProvider>
   );
 };
 

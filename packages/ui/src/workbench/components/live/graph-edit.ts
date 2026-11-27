@@ -23,8 +23,8 @@
  * the same (warn during the gesture, badge after the drop).
  */
 
-import type { DraftStep, DraftWorkflow } from '@openheaders/core/live';
-import { effectiveDependsOn, isKnownStep } from '@openheaders/core/live';
+import type { DraftKnownStep, DraftStep, DraftWorkflow } from '@openheaders/core/live';
+import { effectiveDependsOn, isExpectStep, isKnownStep, isSessionStep } from '@openheaders/core/live';
 import type { LiveWorkflow } from '@openheaders/core/types';
 import { generateUid } from '@openheaders/core/utils';
 
@@ -117,6 +117,65 @@ export function removeDraftStep(draft: DraftWorkflow, stepId: string): DraftWork
   if (draft.steps.length <= 1) return null;
   if (!draft.steps.some((s) => s.id === stepId)) return null;
   return { ...draft, steps: draft.steps.filter((s) => s.id !== stepId) };
+}
+
+/** First `<id>-copy`, `<id>-copy2`, … not already taken. */
+function copyStepId(steps: readonly DraftStep[], id: string): string {
+  const existing = new Set(steps.map((s) => s.id));
+  let n = 1;
+  let candidate = `${id}-copy`;
+  while (existing.has(candidate)) {
+    n += 1;
+    candidate = `${id}-copy${n}`;
+  }
+  return candidate;
+}
+
+const withFreshUid = <T extends { uid: string }>(held: T): T => ({ ...held, uid: generateUid() });
+
+/** A step's own fields under fresh uids; a call's captures are no longer exposed — a live variable has one source. */
+function copyOfStep(step: DraftKnownStep): DraftKnownStep {
+  const runIf = step.runIf !== undefined ? { runIf: { all: step.runIf.all.map(withFreshUid) } } : {};
+  if (isSessionStep(step)) {
+    const captures = step.captures.map(withFreshUid);
+    return isExpectStep(step)
+      ? { ...step, ...runIf, captures, match: step.match.map(withFreshUid) }
+      : { ...step, ...runIf, captures };
+  }
+  return {
+    ...step,
+    ...runIf,
+    ...(step.successCriteria !== undefined ? { successCriteria: step.successCriteria.map(withFreshUid) } : {}),
+    captures: step.captures.map(({ liveUid: _bound, ...capture }) => ({
+      ...capture,
+      uid: generateUid(),
+      exposed: false,
+    })),
+  };
+}
+
+/**
+ * A copy of a step, as the workflow's last step — the step panel's
+ * Duplicate. The copy waits for what the original waits for, by name: a
+ * step placed anywhere else would become the step before another one,
+ * and so the dependency of every step that names none. Returns the new
+ * draft and the copy's uid, or `null` for a step of an action the model
+ * does not know.
+ */
+export function duplicateDraftStep(
+  draft: DraftWorkflow,
+  stepUid: string,
+): { draft: DraftWorkflow; stepUid: string } | null {
+  const index = draft.steps.findIndex((s) => s.uid === stepUid);
+  const step = draft.steps[index];
+  if (step === undefined || !isKnownStep(step)) return null;
+  const copy: DraftKnownStep = {
+    ...copyOfStep(step),
+    uid: generateUid(),
+    id: copyStepId(draft.steps, step.id),
+    dependsOn: effectiveParentsAt(draft, index),
+  };
+  return { draft: { ...draft, steps: [...draft.steps, copy] }, stepUid: copy.uid };
 }
 
 /**

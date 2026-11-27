@@ -34,6 +34,7 @@ import {
   type RunStepAction,
   sessionOfRow,
 } from './run-display';
+import { STEP_KIND_WORD } from './step-facts';
 import { useWaitClock } from './use-wait-clock';
 import type { ShownWorkflowRun } from './use-workflow-run';
 
@@ -200,13 +201,6 @@ export default WorkflowRunRows;
 
 // ── One row ────────────────────────────────────────────────────────
 
-const ACTION_WORD = {
-  call: 'workbench.editors.live.run.action.call',
-  listen: 'workbench.editors.live.run.action.listen',
-  send: 'workbench.editors.live.run.action.send',
-  expect: 'workbench.editors.live.run.action.expect',
-} as const;
-
 const RunRow: React.FC<{
   row: WorkflowRunStepRow;
   target: StepTarget | null;
@@ -250,7 +244,7 @@ const RunRow: React.FC<{
       <RunDot tone={display.tone} />
       {action !== null ? (
         <Text strong style={{ fontSize: 12 }}>
-          {t(ACTION_WORD[action])}
+          {t(STEP_KIND_WORD[action])}
         </Text>
       ) : (
         <span />

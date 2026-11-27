@@ -74,7 +74,6 @@ import {
   isExpectStep,
   isKnownStep,
   isListenStep,
-  isSendStep,
   isSessionStep,
   isUnknownStep,
   toDraftCapture,
@@ -84,21 +83,12 @@ import {
   validateWorkflowShape,
 } from '@openheaders/core/live';
 import type { LiveWorkflowRunSnapshot } from '@openheaders/core/bridge';
-import type {
-  LiveVariable,
-  LiveWorkflow,
-  MqttRequest,
-  SessionWorkflowStep,
-  WorkflowStep,
-} from '@openheaders/core/types';
-import type { MessageKey } from '@openheaders/i18n';
+import type { LiveVariable, LiveWorkflow, SessionWorkflowStep, WorkflowStep } from '@openheaders/core/types';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { useTheme } from '@openheaders/ui/context/ThemeContext';
-import { useRequests } from '@openheaders/ui/shared/hooks/readers/useRequests';
 import { Button, Popover, Tooltip, theme } from 'antd';
 import type React from 'react';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import type { RequestKind } from '../../request-kind-menu';
 import { addGraphDependency, appendDraftStep, removeDraftStep, removeGraphDependency } from './graph-edit';
 import { buildWorkflowGraphLayout } from './graph-layout';
 import {
@@ -113,9 +103,8 @@ import {
   stepOwnTemplates,
 } from './graph-lines';
 import { routeGraph } from './graph-routing';
-import { type RunStepAction, sessionOfRow } from './run-display';
-import { sessionRequestOf } from './step-action';
-import { idleMark, markOfCacheRow, markOfRunRow, type StepMark } from './step-mark';
+import { actionOfStep, doesOfStep, markOfStep, protocolOfStep, STEP_KIND_WORD } from './step-facts';
+import { useStepRequests } from './use-step-requests';
 import { useWaitClock } from './use-wait-clock';
 import type { ShownWorkflowRun } from './use-workflow-run';
 import WorkflowGraphLines, {
@@ -123,7 +112,7 @@ import WorkflowGraphLines, {
   type GraphEdgeRef,
   type GraphLineView,
 } from './WorkflowGraphLines';
-import WorkflowGraphNode, { GRAPH_NODE_H, GRAPH_NODE_W, type GraphNodeDoes } from './WorkflowGraphNode';
+import WorkflowGraphNode, { GRAPH_NODE_H, GRAPH_NODE_W } from './WorkflowGraphNode';
 
 const NODE_W = GRAPH_NODE_W;
 const NODE_H = GRAPH_NODE_H;
@@ -159,28 +148,6 @@ interface WorkflowGraphBodyProps {
   cacheRun?: LiveWorkflowRunSnapshot | null;
   /** LVs bound to this workflow — supplies per-exposure publication state. */
   boundVars?: LiveVariable[];
-}
-
-/** A step's kind on its node, in the design's words: an `expect` is a Wait. */
-const STEP_KIND_WORD: Record<RunStepAction, MessageKey> = {
-  call: 'workbench.editors.live.run.action.call',
-  listen: 'workbench.editors.live.run.action.listen',
-  send: 'workbench.editors.live.run.action.send',
-  expect: 'workbench.editors.live.graph.kindWait',
-};
-
-/** What a session step acts on, by name: the request a listen opens, the message a send sends, where an expect's message lands. */
-function sessionTargetOf(
-  step: SessionWorkflowStep,
-  steps: readonly DraftStep[],
-  mqttRequests: readonly MqttRequest[],
-): string {
-  if (isListenStep(step)) return mqttRequests.find((request) => request.uid === step.sessionRequestUid)?.name ?? '';
-  if (isSendStep(step)) {
-    const saved = sessionRequestOf(steps, step.on, mqttRequests)?.savedMessages;
-    return saved?.find((message) => message.uid === step.messageUid)?.name ?? '';
-  }
-  return step.address ?? '';
 }
 
 interface ConnectDrag {
@@ -236,7 +203,8 @@ const WorkflowGraphBody: React.FC<WorkflowGraphBodyProps> = ({
 }) => {
   const { token } = theme.useToken();
   const t = useT();
-  const { requests, graphqlRequests, mqttRequests, isReady: requestsReady } = useRequests();
+  const stepRequests = useStepRequests();
+  const { requestsByUid, graphqlByUid, mqttRequests, ready: requestsReady } = stepRequests;
   const now = useWaitClock(run?.record ?? null);
   const { uiScale } = useTheme();
   const editable = setDraft !== undefined;
@@ -277,12 +245,9 @@ const WorkflowGraphBody: React.FC<WorkflowGraphBodyProps> = ({
 
   const layout = useMemo(() => buildWorkflowGraphLayout(draftWorkflow, LAYOUT_METRICS), [draftWorkflow]);
 
-  const requestsByUid = useMemo(() => new Map(requests.map((r) => [r.uid, r])), [requests]);
-  const graphqlByUid = useMemo(() => new Map(graphqlRequests.map((r) => [r.uid, r])), [graphqlRequests]);
-
   const knownRequestUids = useMemo(
-    () => new Set([...requests.map((r) => r.uid), ...graphqlRequests.map((r) => r.uid)]),
-    [requests, graphqlRequests],
+    () => new Set([...requestsByUid.keys(), ...graphqlByUid.keys()]),
+    [requestsByUid, graphqlByUid],
   );
   const errorsByStepId = useMemo(() => {
     const shape = [...validateWorkflowShape(draftWorkflow), ...validateSessionSteps(draftWorkflow)];
@@ -588,35 +553,6 @@ const WorkflowGraphBody: React.FC<WorkflowGraphBodyProps> = ({
 
   // ── What a node says of its step ───────────────────────────────────
 
-  /** The kind of request a step speaks: a call's own request, a session step's listen. */
-  const protocolOf = (step: WorkflowStep): RequestKind | null => {
-    if (isSessionStep(step)) {
-      const listenId = isListenStep(step) ? step.id : step.on;
-      return sessionRequestOf(draft.steps, listenId, mqttRequests) !== undefined ? 'mqtt' : null;
-    }
-    if (isUnknownStep(step)) return null;
-    if (requestsByUid.has(step.requestUid)) return 'http';
-    return graphqlByUid.has(step.requestUid) ? 'graphql' : null;
-  };
-
-  const doesOf = (step: WorkflowStep): GraphNodeDoes => {
-    if (isSessionStep(step)) {
-      return { text: sessionTargetOf(step, draft.steps, mqttRequests), mono: isExpectStep(step) };
-    }
-    if (isUnknownStep(step)) return { text: t('workbench.editors.live.step.needsUpdate'), muted: true };
-    const http = requestsByUid.get(step.requestUid);
-    if (http !== undefined) return { lead: http.method, text: http.name };
-    const graphql = graphqlByUid.get(step.requestUid);
-    if (graphql !== undefined) return { text: graphql.name };
-    return {
-      text:
-        requestsReady && step.requestUid !== ''
-          ? t('workbench.editors.live.graph.requestNotFound')
-          : t('workbench.editors.live.graph.noRequestSelected'),
-      muted: true,
-    };
-  };
-
   /** What arms a session step, as text: the listen it is on, the step it waits after. */
   const armedByOf = (step: SessionWorkflowStep): string =>
     [
@@ -638,18 +574,6 @@ const WorkflowGraphBody: React.FC<WorkflowGraphBodyProps> = ({
       : isSessionStep(step)
         ? step.captures.map((capture) => toDraftCapture(capture, null))
         : step.captures;
-
-  const markOf = (stepId: string, stepUid: string, action: RunStepAction | undefined): StepMark => {
-    if (run == null) return markOfCacheRow(cacheRun, stepId, t);
-    const row = run.record.steps.find((each) => each.uid === stepUid);
-    if (row === undefined) return idleMark(t);
-    const session = sessionOfRow(row, run.record);
-    return markOfRunRow(row, t, {
-      now,
-      ...(action !== undefined ? { action } : {}),
-      ...(session !== undefined ? { session } : {}),
-    });
-  };
 
   // ── What a line says ───────────────────────────────────────────────
 
@@ -778,7 +702,7 @@ const WorkflowGraphBody: React.FC<WorkflowGraphBodyProps> = ({
           const call = isUnknownStep(step) ? undefined : step;
           const session = isSessionStep(step) ? step : undefined;
           const shared = call ?? session;
-          const action: RunStepAction | undefined = session?.action ?? (call !== undefined ? 'call' : undefined);
+          const action = actionOfStep(step);
           return (
             <WorkflowGraphNode
               key={step.uid}
@@ -791,15 +715,15 @@ const WorkflowGraphBody: React.FC<WorkflowGraphBodyProps> = ({
               onHover={
                 editable ? (over) => setHoveredStepId((id) => (over ? step.id : id === step.id ? null : id)) : undefined
               }
-              protocol={protocolOf(step)}
+              protocol={protocolOfStep(step, draft.steps, stepRequests)}
               kind={action !== undefined ? t(STEP_KIND_WORD[action]) : ''}
-              does={doesOf(step)}
+              does={doesOfStep(step, draft.steps, stepRequests, t)}
               unknownAction={isKnownStep(step) ? undefined : step.action}
               armedBy={session !== undefined ? armedByOf(session) : ''}
               usedBy={session !== undefined && isListenStep(session) ? usersOf(session.id) : []}
               captures={capturesOf(draftStepsById.get(step.id))}
               boundVars={boundVars}
-              mark={markOf(step.id, step.uid, action)}
+              mark={markOfStep(step, { run, cacheRun, now }, t)}
               runCaptures={cacheRun?.stepCaptures[step.id]}
               runResponseBytes={cacheRun?.stepResponseBytes[step.id]}
               priorityLabel={

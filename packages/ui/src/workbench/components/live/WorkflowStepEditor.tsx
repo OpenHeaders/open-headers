@@ -1,27 +1,17 @@
 /**
- * WorkflowStepEditor — draft-level editor for a single step of an action
- * the model knows: a call, or a `listen`, a `send` or an `expect` on a
- * session (a step of any other action has its own card,
- * `UnknownStepCard`).
+ * WorkflowStepEditor — the fields of a single step of an action the
+ * model knows, under its panel's head: a call, or a `listen`, a `send`
+ * or an `expect` on a session (a step of any other action has its own
+ * card, `UnknownStepCard`).
  *
- * Used inside the workflow's step panel, for the selected step. The
- * step-id chip is editable because `{{step.<id>.<capture>}}` references
- * are stable identifiers users might reference from later steps.
- *
- * The card is a shell every action shares — its id, its type selector,
- * its place among the steps, the sections `Depends on`, `Run condition`
- * and `Priority`, and a foot for an issue no field owns — around the
- * fields of the step's own action:
+ * The fields of the step's own action come first:
  *   - a call: `CallStepFields`, and the sections `Retry policy`,
  *     `Timeout`, `Success criteria`, `Poll` and `Scripts`;
- *   - a session step: `SessionStepFields`.
- *
- * The type selector is the action (the workflow runs plan, Decisions
- * log, S16). Foreach and Composite stay the show-but-disable catalog
- * entry, with a tooltip naming the future capability.
+ *   - a session step: `SessionStepFields`;
+ * then the sections every step has — `Depends on`, `Run condition` and
+ * `Priority`.
  */
 
-import { DeleteOutlined, DownOutlined, UpOutlined } from '@ant-design/icons';
 import {
   type DraftCallStep,
   type DraftKnownStep,
@@ -31,86 +21,26 @@ import {
   isSendStep,
   isSessionStep,
   type StructuralError,
-  type StructuralIssue,
 } from '@openheaders/core/live';
 import type { Criterion, MqttRequest, PriorityRef, StepGate, StepPoll, StepRetryPolicy } from '@openheaders/core/types';
-import type { MessageKey } from '@openheaders/i18n';
 import { type Translate, useT } from '@openheaders/ui/context/LocaleContext';
-import { LIVE_WORKFLOW_FIELD } from '@openheaders/ui/shared/awareness/live-paths';
 import { noteFeatureUsed } from '@openheaders/ui/shared/product-telemetry';
-import {
-  Button,
-  Collapse,
-  type CollapseProps,
-  ConfigProvider,
-  Input,
-  Select,
-  Space,
-  Tag,
-  Tooltip,
-  Typography,
-  theme,
-} from 'antd';
+import { Collapse, type CollapseProps, ConfigProvider, Space, Tooltip, theme } from 'antd';
 import type { GlobalToken } from 'antd/es/theme/interface';
 import type React from 'react';
 import { useMemo } from 'react';
 import CallStepFields from './CallStepFields';
 import type { DependencyRow } from './dependencies-view';
 import { ExpectStepFields, ListenStepFields, SendStepFields } from './SessionStepFields';
-import { STEP_ACTIONS, type StepAction, stepActionOf } from './step-action';
 import type { StepRequestChoice } from './workflow-step-request-options';
 import { buildCallStepSections, buildSharedStepSections } from './workflow-step-sections';
-
-const { Text } = Typography;
-
-/** The issues a field of the card shows where it sits — every other one is said at the card's foot. */
-const FIELD_OWNED_ISSUES: ReadonlySet<StructuralIssue> = new Set([
-  'duplicate-step-id',
-  'step-unknown-dep',
-  'depends-on-cycle',
-  'step-request-missing',
-  'gate-unknown-stepid',
-  'gate-unreachable-stepid',
-  'gate-unknown-capture',
-  'gate-invalid-regex',
-  'priority-unknown-stepid',
-  'priority-unreachable-stepid',
-  'priority-unknown-capture',
-  'criterion-invalid-regex',
-  'poll-without-criteria',
-  'poll-exceeds-limit',
-  'listen-request-missing',
-  'session-step-unknown-listen',
-  'session-step-unreachable-listen',
-  'send-without-message',
-  'expect-unknown-trigger',
-  'expect-unreachable-trigger',
-  'expect-unarmed-trigger',
-  'expect-address-reads-trigger',
-]);
-
-/** The selector's word for each action — the Run view's own. */
-const ACTION_LABEL: Record<StepAction, MessageKey> = {
-  call: 'workbench.editors.live.run.action.call',
-  listen: 'workbench.editors.live.run.action.listen',
-  send: 'workbench.editors.live.run.action.send',
-  expect: 'workbench.editors.live.run.action.expect',
-};
 
 interface Props {
   step: DraftKnownStep;
   index: number;
-  totalSteps: number;
   /** Requests a call's Request picker can choose from. */
   availableRequests: StepRequestChoice[];
   onChange: (next: DraftKnownStep) => void;
-  /** The type selector picked another action — the owner rebuilds the step under it. */
-  onActionChange?: (action: StepAction) => void;
-  onRemove?: () => void;
-  onMoveUp?: () => void;
-  onMoveDown?: () => void;
-  /** Disable the step id input if it would break existing step references. */
-  lockStepId?: boolean;
   // ── Phase I context (optional — editor works without them) ──────
   /** All other step ids in the workflow for the dependsOn multi-select. */
   allStepIds?: { id: string; label: string }[];
@@ -129,8 +59,6 @@ interface Props {
   mqttRequests?: readonly MqttRequest[];
   /** The MQTT requests as the request picker shows them. */
   sessionRequests?: StepRequestChoice[];
-  /** The selector offers Listen, Send and Expect. A step that already is one keeps its own. */
-  sessionAuthoring?: boolean;
   /** The workflow publishes live variables — a call's captures carry the exposure row. */
   exposable?: boolean;
 }
@@ -221,14 +149,8 @@ function callSectionsOf(
 const WorkflowStepEditor: React.FC<Props> = ({
   step,
   index,
-  totalSteps,
   availableRequests,
   onChange,
-  onActionChange,
-  onRemove,
-  onMoveUp,
-  onMoveDown,
-  lockStepId,
   allStepIds = [],
   reachableSteps = [],
   capturesByStepId = new Map(),
@@ -237,7 +159,6 @@ const WorkflowStepEditor: React.FC<Props> = ({
   steps = [],
   mqttRequests = [],
   sessionRequests = [],
-  sessionAuthoring = false,
   exposable = true,
 }) => {
   const { token } = theme.useToken();
@@ -246,16 +167,7 @@ const WorkflowStepEditor: React.FC<Props> = ({
   // the controls below that set their own `disabled` must agree with it.
   const readOnly = ConfigProvider.useConfig().componentDisabled === true;
 
-  const action = stepActionOf(step);
-
   // ── Derived error subsets ───────────────────────────────────────
-  const stepLevelError = useMemo(
-    () =>
-      errors.find(
-        (e) => e.issue === 'duplicate-step-id' || e.issue === 'step-unknown-dep' || e.issue === 'depends-on-cycle',
-      ),
-    [errors],
-  );
   const gateErrors = useMemo(
     () =>
       errors.filter(
@@ -284,12 +196,6 @@ const WorkflowStepEditor: React.FC<Props> = ({
   // The step's backing request was deleted out from under it — the
   // workflow can't run until the user re-points or removes the step.
   const requestError = useMemo(() => errors.find((e) => e.issue === 'step-request-missing'), [errors]);
-  // An issue no field of the card owns is said at the card's foot; one
-  // that names a criterion row is that row's.
-  const footErrors = useMemo(
-    () => errors.filter((e) => !FIELD_OWNED_ISSUES.has(e.issue) && e.referencedCriterionUid === undefined),
-    [errors],
-  );
 
   // ── dependsOn helpers ───────────────────────────────────────────
   // `undefined` = implicit prior-step dep; `[]` = explicit root; array
@@ -381,27 +287,14 @@ const WorkflowStepEditor: React.FC<Props> = ({
   });
 
   const session = { index, steps, mqttRequests, errors };
-  const runsScripts = !isSendStep(step) && !isExpectStep(step) && step.runScripts === true;
-
   const indent = dependencyRow?.indent ?? 0;
-
-  const edgeColor = stepLevelError || requestError ? token.colorError : token.colorBorderSecondary;
 
   return (
     <div
-      data-step-card={step.id}
-      data-step-action={action}
       style={{
-        border: `1px solid ${edgeColor}`,
+        border: `1px solid ${requestError ? token.colorError : token.colorBorderSecondary}`,
         borderRadius: 6,
         padding: 12,
-        background: token.colorBgContainer,
-        // Connector rail on the left edge for children — a thin vertical
-        // stripe in the primary-color family. Pure visual cue that this
-        // step is NOT a root; actual dependency info is in the
-        // "Depends on" section. All cards sit flush left — depth is
-        // conveyed by the rail + "after" chip, never by indentation.
-        borderLeft: indent > 0 ? `3px solid ${token.colorPrimaryBorder}` : `1px solid ${edgeColor}`,
         position: 'relative',
       }}
     >
@@ -431,85 +324,6 @@ const WorkflowStepEditor: React.FC<Props> = ({
           )}
         </div>
       )}
-
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-        <Text strong style={{ fontSize: 12, whiteSpace: 'nowrap', flexShrink: 0 }}>
-          {t('workbench.editors.live.step.title', { number: index + 1 })}
-        </Text>
-        <span data-field-path={LIVE_WORKFLOW_FIELD.step(index, 'id')} style={{ display: 'contents' }}>
-          <Tooltip open={stepLevelError ? undefined : false} title={stepLevelError?.message}>
-            <Input
-              size="small"
-              style={{ width: 160 }}
-              prefix={<Text type="secondary">{t('workbench.editors.live.step.idPrefix')}</Text>}
-              value={step.id}
-              disabled={lockStepId}
-              status={stepLevelError?.issue === 'duplicate-step-id' ? 'error' : undefined}
-              onChange={(e) => onChange({ ...step, id: e.target.value })}
-            />
-          </Tooltip>
-        </span>
-
-        {/* The step's action. Foreach and Composite — show-but-disable catalog. */}
-        <Tooltip title={t('workbench.editors.live.step.typeTooltip')}>
-          <Select<StepAction | 'foreach' | 'composite'>
-            size="small"
-            style={{ width: 110, flexShrink: 0 }}
-            data-testid={`wf-step-${index}-action`}
-            value={action}
-            options={[
-              ...STEP_ACTIONS.filter((each) => each === 'call' || each === action || sessionAuthoring).map((each) => ({
-                value: each,
-                label: t(ACTION_LABEL[each]),
-              })),
-              { value: 'foreach', label: t('workbench.editors.live.step.typeForeach'), disabled: true },
-              { value: 'composite', label: t('workbench.editors.live.step.typeComposite'), disabled: true },
-            ]}
-            onChange={(next) => {
-              if (next !== 'foreach' && next !== 'composite') onActionChange?.(next);
-            }}
-          />
-        </Tooltip>
-
-        <div style={{ flex: 1 }} />
-        {runIfCount > 0 && (
-          <Tag color="gold" style={{ fontSize: 10, lineHeight: '18px', margin: 0 }}>
-            {t('workbench.editors.live.step.runsIfTag', { count: runIfCount })}
-          </Tag>
-        )}
-        {priority && (
-          <Tag color="cyan" style={{ fontSize: 10, lineHeight: '18px', margin: 0 }}>
-            {t('workbench.editors.live.step.priorityTag', { ref: `${priority.stepId}.${priority.captureName}` })}
-          </Tag>
-        )}
-        {runsScripts && (
-          <Tag color="purple" style={{ fontSize: 10, lineHeight: '18px', margin: 0 }}>
-            {t('workbench.editors.live.step.scriptsTag')}
-          </Tag>
-        )}
-        {onMoveUp && (
-          <Button size="small" type="text" icon={<UpOutlined />} disabled={readOnly || index === 0} onClick={onMoveUp} />
-        )}
-        {onMoveDown && (
-          <Button
-            size="small"
-            type="text"
-            icon={<DownOutlined />}
-            disabled={readOnly || index === totalSteps - 1}
-            onClick={onMoveDown}
-          />
-        )}
-        {onRemove && (
-          <Button
-            size="small"
-            type="text"
-            danger
-            icon={<DeleteOutlined />}
-            disabled={readOnly || totalSteps <= 1}
-            onClick={onRemove}
-          />
-        )}
-      </div>
 
       <Space orientation="vertical" size={8} style={{ width: '100%' }}>
         {isListenStep(step) ? (
@@ -541,16 +355,6 @@ const WorkflowStepEditor: React.FC<Props> = ({
               : [...sharedSections, ...callSectionsOf(step, onChange, { token, t, index, errors, readOnly })]
           }
         />
-
-        {footErrors.length > 0 && (
-          <div data-testid={`wf-step-${index}-issues`} style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-            {footErrors.map((error) => (
-              <Text key={`${error.issue}:${error.message}`} type="danger" style={{ fontSize: 11 }}>
-                {error.message}
-              </Text>
-            ))}
-          </div>
-        )}
       </Space>
     </div>
   );

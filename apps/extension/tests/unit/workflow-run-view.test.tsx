@@ -357,6 +357,29 @@ describe('a run in the workflow view', () => {
     expect(body.textContent).toBe('{"name":"John Doe"}');
   });
 
+  it('an open step’s panel leads with what the last run made of it, live as the run goes', async () => {
+    render(<SavedWorkflowView workflow={workflow} />);
+    fireEvent.click(screen.getByTestId('wf-graph-node-login'));
+    const card = () => screen.getByTestId('wf-step-last-run');
+    const state = () => screen.getByTestId('wf-step-last-run-state');
+    expect(state().getAttribute('data-run-state')).toBe('idle');
+    expect(card().textContent).toBe('Last runPress Refresh to see what this step does.Not run yetStatusNot run yet');
+
+    await feed(BEGIN);
+    expect(state().textContent).toBe('Waiting');
+    await feed(LOGIN_START);
+    expect(state().getAttribute('data-run-state')).toBe('running');
+    expect(card().textContent).toContain('Sending…');
+
+    await feed(LOGIN_PASSED);
+    expect(state().textContent).toBe('Passed');
+    expect(card().textContent).toContain('Returned 200.');
+    expect(screen.getByTestId('wf-step-last-run-response').textContent).toBe('Response200');
+    expect(screen.getByTestId('wf-step-last-run-duration').textContent).toBe('Duration10 ms');
+    expect(screen.getByTestId('wf-step-last-run-size').textContent).toBe('Size44 B');
+    expect(screen.queryByTestId('wf-step-last-run-timing')).toBeNull();
+  });
+
   it('a workflow that needs a newer version shows which steps cannot run, with no run behind them', () => {
     render(<SavedWorkflowView workflow={needsUpdateWorkflow} needsUpdate />);
 

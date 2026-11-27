@@ -61,22 +61,6 @@ function newMessageCapture(name: string): Capture {
   return { uid: generateUid(), name, extractor: { kind: 'whole-body' } };
 }
 
-const StepDescription: React.FC<{ value: string | undefined; onChange: (next: string | undefined) => void }> = ({
-  value,
-  onChange,
-}) => {
-  const t = useT();
-  return (
-    <Input
-      size="small"
-      style={{ flex: '1 1 40%' }}
-      placeholder={t('workbench.editors.live.step.descriptionPlaceholder')}
-      value={value ?? ''}
-      onChange={(e) => onChange(e.target.value || undefined)}
-    />
-  );
-};
-
 /** The listen a send or an expect is on. */
 const SessionPicker: React.FC<{
   index: number;
@@ -161,7 +145,6 @@ export const ListenStepFields: React.FC<
             />
           </Tooltip>
         </span>
-        <StepDescription value={step.description} onChange={(description) => onChange({ ...step, description })} />
       </div>
       <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
         <InputNumber
@@ -269,7 +252,6 @@ export const SendStepFields: React.FC<SessionFieldsProps<SendWorkflowStep>> = ({
           }))}
           onChange={(messageUid) => onChange({ ...step, messageUid })}
         />
-        <StepDescription value={step.description} onChange={(description) => onChange({ ...step, description })} />
       </div>
       <StepCapturesEditor
         index={index}
@@ -343,7 +325,6 @@ export const ExpectStepFields: React.FC<SessionFieldsProps<ExpectWorkflowStep>> 
             onChange={(after) => onChange({ ...step, after })}
           />
         </Tooltip>
-        <StepDescription value={step.description} onChange={(description) => onChange({ ...step, description })} />
       </div>
       <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
         <Tooltip open={addressError ? undefined : false} title={addressError?.message}>

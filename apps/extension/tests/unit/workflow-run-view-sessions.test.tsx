@@ -252,7 +252,7 @@ describe('a run with session steps in the workflow view', () => {
 
     expect(rowText('probe')).toBe('ListenprobeMQTTProbe MQTTWaiting');
     expect(rowText('reboot')).toBe('CallrebootPOSTReboot dev-1Waiting');
-    expect(rowText('status')).toBe(`Expectstatus${STATUS_TOPIC}Waiting`);
+    expect(rowText('status')).toBe(`Waitstatus${STATUS_TOPIC}Waiting`);
   });
 
   it('a listen connects, then reads ready and open with how its session opened', async () => {

@@ -29,6 +29,7 @@ import type {
   SendWorkflowStep,
 } from '@openheaders/core/types';
 import WorkflowStepEditor from '@openheaders/ui/workbench/components/live/WorkflowStepEditor';
+import WorkflowStepHeader from '@openheaders/ui/workbench/components/live/WorkflowStepHeader';
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import type React from 'react';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
@@ -64,33 +65,49 @@ function numberInput(testId: string): HTMLInputElement | null {
   return el.querySelector('input');
 }
 
-function renderStep(
-  step: DraftKnownStep,
-  propOverrides: Partial<React.ComponentProps<typeof WorkflowStepEditor>> = {},
-) {
+/** What a case may set: the fields' own props, and the two the panel's head takes beside them. */
+type StepPanelOverrides = Partial<React.ComponentProps<typeof WorkflowStepEditor>> &
+  Pick<React.ComponentProps<typeof WorkflowStepHeader>, 'sessionAuthoring' | 'onActionChange'>;
+
+/** A step as its panel shows it: the head, and under it the step's fields. */
+function renderStep(step: DraftKnownStep, propOverrides: StepPanelOverrides = {}) {
   const onChange = vi.fn();
+  const { sessionAuthoring, onActionChange, ...fieldOverrides } = propOverrides;
   render(
-    <WorkflowStepEditor
-      step={step}
-      index={1}
-      totalSteps={2}
-      availableRequests={[
-        { uid: 'reqrefrsh', name: 'refresh', method: 'POST', collectionName: 'auth', folderTrail: ['oauth'] },
-      ]}
-      onChange={onChange}
-      allStepIds={[{ id: 'introspect', label: 'introspect' }]}
-      reachableSteps={[{ id: 'introspect', label: 'introspect' }]}
-      capturesByStepId={new Map([['introspect', ['active', 'exp']]])}
-      errors={[]}
-      dependencyRow={{
-        step,
-        declaredIndex: 1,
-        indent: 1,
-        parents: ['introspect'],
-        reachable: new Set(['introspect']),
-      }}
-      {...propOverrides}
-    />,
+    <>
+      <WorkflowStepHeader
+        step={step}
+        index={1}
+        totalSteps={2}
+        mark={{ kind: 'idle', text: '', label: 'Not part of a successful run yet' }}
+        protocol={null}
+        does={{ text: '' }}
+        sessionAuthoring={sessionAuthoring}
+        errors={fieldOverrides.errors ?? []}
+        onChange={onChange}
+        onActionChange={onActionChange}
+      />
+      <WorkflowStepEditor
+        step={step}
+        index={1}
+        availableRequests={[
+          { uid: 'reqrefrsh', name: 'refresh', method: 'POST', collectionName: 'auth', folderTrail: ['oauth'] },
+        ]}
+        onChange={onChange}
+        allStepIds={[{ id: 'introspect', label: 'introspect' }]}
+        reachableSteps={[{ id: 'introspect', label: 'introspect' }]}
+        capturesByStepId={new Map([['introspect', ['active', 'exp']]])}
+        errors={[]}
+        dependencyRow={{
+          step,
+          declaredIndex: 1,
+          indent: 1,
+          parents: ['introspect'],
+          reachable: new Set(['introspect']),
+        }}
+        {...fieldOverrides}
+      />
+    </>,
   );
   return { onChange };
 }
@@ -106,29 +123,6 @@ describe('WorkflowStepEditor — Phase I', () => {
     expect(screen.queryByText(/\(root\)/i)).not.toBeNull();
   });
 
-  it('shows `runs if N conditions` chip when runIf has clauses', () => {
-    renderStep(
-      mkStep({
-        runIf: {
-          all: [
-            { uid: 'gat0sta1', kind: 'status', stepId: 'introspect', match: '2xx' },
-            { uid: 'gat0ex01', kind: 'capture-exists', stepId: 'introspect', captureName: 'active' },
-          ],
-        },
-      }),
-    );
-    expect(screen.queryByText(/runs if 2 conditions/i)).not.toBeNull();
-  });
-
-  it('shows `priority: <step>.<capture>` chip when priorityFrom is set', () => {
-    renderStep(
-      mkStep({
-        priorityFrom: { stepId: 'introspect', captureName: 'exp' },
-      }),
-    );
-    expect(screen.queryByText(/priority: introspect\.exp/i)).not.toBeNull();
-  });
-
   // ── Show-but-disable catalog ────────────────────────────────────────
   // Each of these assertions verifies a future-feature affordance is
   // surfaced in v1 with a disabled state — the plan's show-but-disable
@@ -138,7 +132,7 @@ describe('WorkflowStepEditor — Phase I', () => {
     renderStep(mkStep());
 
     // Step-type selector is the first combobox in render order — it sits
-    // in the step header row, before the REQUEST selector. The underlying
+    // in the panel's head, before the REQUEST selector. The underlying
     // request's requestUid is already bound so its Select also renders,
     // but after the step-type one. AntD's visible options lack role="option"
     // (a11y gap); we locate each visible option by text and check the
@@ -224,14 +218,6 @@ describe('WorkflowStepEditor — Phase I', () => {
     expect(last.runScripts).toBeUndefined();
   });
 
-  it('shows a `scripts` chip in the step header when opted in', () => {
-    renderStep(mkStep({ runScripts: true }));
-    expect(screen.queryByText(/^scripts$/)).not.toBeNull();
-    cleanup();
-    renderStep(mkStep());
-    expect(screen.queryByText(/^scripts$/)).toBeNull();
-  });
-
   // ── Success criteria + Poll sections ────────────────────────────────
 
   it('Success criteria header summarizes (none), then the number of rows', () => {
@@ -299,7 +285,7 @@ describe('WorkflowStepEditor — Phase I', () => {
     expect(last.poll).toBeUndefined();
   });
 
-  it('a poll’s issue is said in its section, and an issue no field owns at the card’s foot', () => {
+  it('a poll’s issue is said in its section, and an issue no field owns under the panel’s head', () => {
     renderStep(mkStep({ poll: { maxAttempts: 10, delayMs: 200 } }), {
       errors: [
         {
@@ -414,14 +400,14 @@ describe('WorkflowStepEditor — the type selector is the action', () => {
     openSelect('wf-step-1-action');
     expect(screen.queryByText('Listen')).toBeNull();
     expect(screen.queryByText('Send')).toBeNull();
-    expect(screen.queryByText('Expect')).toBeNull();
+    expect(screen.queryByText('Wait')).toBeNull();
   });
 
-  it('offers Listen, Send and Expect where it does, and hands the pick to its owner', () => {
+  it('offers Listen, Send and Wait where it does, and hands the pick to its owner', () => {
     const onActionChange = vi.fn();
     renderStep(mkStep(), { sessionAuthoring: true, onActionChange });
     openSelect('wf-step-1-action');
-    pickOption('Expect');
+    pickOption('Wait');
     expect(onActionChange).toHaveBeenCalledWith('expect');
   });
 
@@ -430,7 +416,7 @@ describe('WorkflowStepEditor — the type selector is the action', () => {
     expect(screen.getByTestId('wf-step-1-action').textContent).toContain('Listen');
     openSelect('wf-step-1-action');
     expect(screen.queryByText('Send')).toBeNull();
-    expect(screen.queryByText('Expect')).toBeNull();
+    expect(screen.queryByText('Wait')).toBeNull();
   });
 });
 

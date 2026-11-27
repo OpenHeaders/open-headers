@@ -14,6 +14,8 @@
  *     defaults with collision-safe ids.
  *   - removeDraftStep mirrors the form's remove button: last step
  *     stays, dangling references are left for the validator.
+ *   - duplicateDraftStep puts a copy last, waiting for what the
+ *     original waits for, under fresh uids and with no capture exposed.
  */
 
 import { callStepsOf, type DraftCallStep, type DraftWorkflow } from '@openheaders/core/live';
@@ -21,6 +23,7 @@ import type { ExpectWorkflowStep, ListenWorkflowStep } from '@openheaders/core/t
 import {
   addGraphDependency,
   appendDraftStep,
+  duplicateDraftStep,
   nextStepId,
   removeDraftStep,
   removeGraphDependency,
@@ -187,6 +190,105 @@ describe('removeDraftStep', () => {
     const frozen = JSON.stringify(draft);
     removeDraftStep(draft, 'a');
     expect(JSON.stringify(draft)).toBe(frozen);
+  });
+});
+
+describe('duplicateDraftStep', () => {
+  it('puts the copy last, under an id and a uid of its own, and returns the copy’s uid', () => {
+    const draft = mkDraft([mkStep('a'), mkStep('b'), mkStep('c')]);
+    const copied = duplicateDraftStep(draft, draft.steps[1].uid);
+    expect(copied?.draft.steps.map((s) => s.id)).toEqual(['a', 'b', 'c', 'b-copy']);
+    expect(copied?.draft.steps[3].uid).toBe(copied?.stepUid);
+    expect(copied?.stepUid).not.toBe(draft.steps[1].uid);
+    expect(copied?.stepUid).toHaveLength(8);
+  });
+
+  it('waits for what the original waits for, by name — the step before it where it names none', () => {
+    const draft = mkDraft([mkStep('a'), mkStep('b'), mkStep('c', { dependsOn: ['a'] })]);
+    expect(stepAt(duplicateDraftStep(draft, draft.steps[1].uid)?.draft ?? null, 3).dependsOn).toEqual(['a']);
+    expect(stepAt(duplicateDraftStep(draft, draft.steps[2].uid)?.draft ?? null, 3).dependsOn).toEqual(['a']);
+    expect(stepAt(duplicateDraftStep(draft, draft.steps[0].uid)?.draft ?? null, 3).dependsOn).toEqual([]);
+  });
+
+  it('leaves every other step as it was', () => {
+    const draft = mkDraft([mkStep('a'), mkStep('b'), mkStep('c')]);
+    expect(duplicateDraftStep(draft, draft.steps[0].uid)?.draft.steps.slice(0, 3)).toEqual(draft.steps);
+  });
+
+  it('skips over taken ids', () => {
+    const draft = mkDraft([mkStep('a'), mkStep('a-copy'), mkStep('a-copy2')]);
+    expect(duplicateDraftStep(draft, draft.steps[0].uid)?.draft.steps[3].id).toBe('a-copy3');
+  });
+
+  it('gives what the copy holds fresh uids, and exposes none of its captures', () => {
+    const original = mkStep('a', {
+      runIf: { all: [{ uid: 'gatstat0', kind: 'status', stepId: 'root', match: '2xx' }] },
+      successCriteria: [{ kind: 'status', uid: 'crtstat0', match: '2xx' }],
+      captures: [
+        {
+          uid: 'captoken',
+          name: 'token',
+          extractor: { kind: 'whole-body' },
+          exposed: true,
+          liveName: 'token',
+          liveUid: 'lvtoken0',
+        },
+      ],
+    });
+    const draft = mkDraft([mkStep('root'), original]);
+    const copy = stepAt(duplicateDraftStep(draft, original.uid)?.draft ?? null, 2);
+    expect(copy.runIf?.all).toEqual([{ uid: expect.any(String), kind: 'status', stepId: 'root', match: '2xx' }]);
+    expect(copy.runIf?.all[0].uid).not.toBe('gatstat0');
+    expect(copy.successCriteria?.[0].uid).not.toBe('crtstat0');
+    expect(copy.captures).toEqual([
+      { uid: expect.any(String), name: 'token', extractor: { kind: 'whole-body' }, exposed: false, liveName: 'token' },
+    ]);
+    expect(copy.captures[0].uid).not.toBe('captoken');
+  });
+
+  it('copies a session step with its own keys, its match rows under fresh uids', () => {
+    const listen: ListenWorkflowStep = {
+      uid: 'stplistn',
+      id: 'probe',
+      action: 'listen',
+      sessionRequestUid: 'mqttreq1',
+      timeoutMs: 10_000,
+      captures: [],
+    };
+    const wait: ExpectWorkflowStep = {
+      uid: 'stpexpct',
+      id: 'status',
+      action: 'expect',
+      on: 'probe',
+      after: 'probe',
+      match: [{ kind: 'exists', uid: 'crtstate', extractor: { kind: 'json-path', path: '$.state' } }],
+      timeoutMs: 10_000,
+      captures: [],
+    };
+    const draft: DraftWorkflow = {
+      name: 'Reboot',
+      description: '',
+      steps: [listen, wait],
+      refresh: { kind: 'manual' },
+      enabled: true,
+    };
+    const copied = duplicateDraftStep(draft, wait.uid);
+    expect(copied?.draft.steps[2]).toEqual({
+      ...wait,
+      uid: copied?.stepUid,
+      id: 'status-copy',
+      dependsOn: ['probe'],
+      match: [{ kind: 'exists', uid: expect.any(String), extractor: { kind: 'json-path', path: '$.state' } }],
+    });
+  });
+
+  it('takes no copy of a step of an action the model does not know, nor of a step that is not there', () => {
+    const draft: DraftWorkflow = {
+      ...mkDraft([mkStep('a')]),
+      steps: [mkStep('a'), { uid: 'stpwatch', id: 'probe', action: 'watch' }],
+    };
+    expect(duplicateDraftStep(draft, 'stpwatch')).toBeNull();
+    expect(duplicateDraftStep(draft, 'stpghost')).toBeNull();
   });
 });
 

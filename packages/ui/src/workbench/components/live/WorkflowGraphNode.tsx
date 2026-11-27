@@ -19,9 +19,10 @@ import type { LiveVariable } from '@openheaders/core/types';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { Tooltip } from 'antd';
 import type React from 'react';
-import { type RequestKind, requestKindMeta } from '../../request-kind-menu';
-import { REQUEST_KIND_COLORS } from '../sidebar/icons';
+import type { RequestKind } from '../../request-kind-menu';
 import { STEP_MARK_INK } from './StepGlyph';
+import { KindTag, ProtocolTag } from './StepTags';
+import type { StepDoes } from './step-facts';
 import type { StepMark } from './step-mark';
 import { StepRunMark } from './WorkflowGraphRunOverlay';
 
@@ -39,43 +40,6 @@ const LINE: React.CSSProperties = {
   textOverflow: 'ellipsis',
 };
 
-const TAG: React.CSSProperties = {
-  flex: 'none',
-  padding: '0 5px',
-  borderRadius: 4,
-  fontSize: 10,
-  lineHeight: '14px',
-  fontWeight: 600,
-  whiteSpace: 'nowrap',
-};
-
-/** The design draws three protocol tags; a kind it does not draw wears the app's own colour for that kind. */
-const DESIGNED_PROTOCOL_TAG: Partial<Record<RequestKind, React.CSSProperties>> = {
-  http: { color: 'var(--oh-wf-tag-http)', background: 'var(--oh-wf-tag-http-bg)' },
-  graphql: { color: 'var(--oh-wf-tag-graphql)', background: 'var(--oh-wf-tag-graphql-bg)' },
-  mqtt: { color: 'var(--oh-wf-tag-mqtt)', background: 'var(--oh-wf-tag-mqtt-bg)' },
-};
-
-function protocolTagStyle(kind: RequestKind): React.CSSProperties {
-  return (
-    DESIGNED_PROTOCOL_TAG[kind] ?? {
-      color: REQUEST_KIND_COLORS[kind],
-      background: `color-mix(in srgb, ${REQUEST_KIND_COLORS[kind]} 14%, transparent)`,
-    }
-  );
-}
-
-/** A node's second line: what the step does. */
-export interface GraphNodeDoes {
-  /** A call's method, ahead of its request's name. */
-  lead?: string;
-  text: string;
-  /** An address is code; a name is not. */
-  mono?: boolean;
-  /** The line stands for something missing. */
-  muted?: boolean;
-}
-
 interface WorkflowGraphNodeProps {
   stepId: string;
   x: number;
@@ -90,7 +54,8 @@ interface WorkflowGraphNodeProps {
   protocol: RequestKind | null;
   /** The step's kind in a word — empty for a step of an action the model does not know. */
   kind: string;
-  does: GraphNodeDoes;
+  /** The node's second line: what the step does. */
+  does: StepDoes;
   /** Set for a step of an action the model does not know — its raw `action`. */
   unknownAction?: string;
   /** What arms a session step, as text: the listen it is on, the step it waits after. */
@@ -228,12 +193,8 @@ const WorkflowGraphNode: React.FC<WorkflowGraphNodeProps> = ({
           >
             {stepId}
           </b>
-          {protocol !== null && (
-            <span style={{ ...TAG, ...protocolTagStyle(protocol) }}>{t(requestKindMeta(protocol).labelKey)}</span>
-          )}
-          {kind !== '' && (
-            <span style={{ ...TAG, background: 'var(--oh-wf-tag-bg)', color: 'var(--oh-wf-tag-text)' }}>{kind}</span>
-          )}
+          {protocol !== null && <ProtocolTag kind={protocol} size="node" />}
+          {kind !== '' && <KindTag size="node">{kind}</KindTag>}
           {priorityLabel !== '' && (
             <Tooltip title={priorityLabel}>
               <SortAscendingOutlined style={{ flex: 'none', fontSize: 11, color: 'var(--oh-wf-quiet)' }} />

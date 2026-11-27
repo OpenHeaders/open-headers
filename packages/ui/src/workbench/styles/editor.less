@@ -682,3 +682,223 @@
     }
   }
 }
+
+// ── Workflow step panel ────────────────────────────────────────────
+// A step's panel: its head, and under it one scrolling page of cards.
+// The panel sets its own font size — a size under the app's, on the UI
+// scale — and every size of text here is relative to it: 1em is the
+// panel's text, 0.9167em its labels and second lines, 1.0833em a name
+// or a figure.
+
+.oh-wf-step-panel {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  color: var(--oh-wf-text);
+  line-height: 1.4;
+}
+
+.oh-wf-quiet {
+  color: var(--oh-wf-text-secondary);
+}
+
+.oh-wf-label {
+  font-size: 0.9167em;
+  line-height: 1.3;
+  font-weight: 600;
+  color: var(--oh-wf-text-secondary);
+}
+
+.oh-wf-step-head {
+  flex: none;
+  padding: 12px 15px 9px;
+  border-bottom: 1px solid var(--oh-wf-card-border);
+}
+
+.oh-wf-step-head-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+}
+
+.oh-wf-step-name {
+  font-size: 1.0833em;
+  font-weight: 600;
+
+  &.ant-input {
+    flex: 0 1 auto;
+    width: auto;
+    min-width: 40px;
+    max-width: 100%;
+    field-sizing: content;
+    margin-left: -4px;
+    padding: 0 4px;
+    border-radius: 4px;
+    font-size: 1.0833em;
+
+    &:hover:not(:disabled),
+    &:focus {
+      background: var(--oh-wf-tag-bg);
+    }
+  }
+}
+
+.oh-wf-step-kind.ant-select {
+  flex: none;
+  font-size: 0.9167em;
+  font-weight: 600;
+}
+
+.oh-wf-step-subline {
+  padding-top: 4px;
+  font-size: 0.9167em;
+  line-height: 1.3;
+  color: var(--oh-wf-text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.oh-wf-step-description.ant-input {
+  margin-top: 2px;
+  padding: 0;
+  font-size: 0.9167em;
+  color: var(--oh-wf-text-secondary);
+}
+
+.oh-wf-step-issues {
+  padding-top: 4px;
+  font-size: 0.9167em;
+  line-height: 1.3;
+  color: var(--oh-wf-failure);
+}
+
+.oh-wf-panel-body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px 15px 18px;
+}
+
+.oh-wf-card {
+  border: 1px solid var(--oh-wf-card-border);
+  border-radius: 8px;
+  overflow: hidden;
+
+  // Whatever a card opens with has the card's own edge above it.
+  > :first-child {
+    border-top: 0;
+  }
+}
+
+.oh-wf-card-head {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 7px 9px;
+  background: var(--oh-wf-card-head);
+}
+
+.oh-wf-card-heading {
+  flex: 1;
+  min-width: 0;
+}
+
+.oh-wf-card-title {
+  margin: 0;
+  font-size: 1em;
+  line-height: 1.35;
+  font-weight: 600;
+  color: inherit;
+}
+
+.oh-wf-card-description {
+  margin: 0;
+  font-size: 0.9167em;
+  line-height: 1.3;
+  color: var(--oh-wf-text-secondary);
+}
+
+.oh-wf-card-state {
+  flex: none;
+  font-weight: 600;
+}
+
+.oh-wf-card-body {
+  padding: 9px;
+  border-top: 1px solid var(--oh-wf-card-border);
+}
+
+.oh-wf-card-note {
+  padding: 7px 9px;
+  border-top: 1px solid var(--oh-wf-card-border);
+  font-size: 0.9167em;
+  line-height: 1.3;
+  color: var(--oh-wf-text-secondary);
+}
+
+.oh-wf-card-foot {
+  padding: 7px 9px;
+  border-top: 1px solid var(--oh-wf-card-border);
+  background: var(--oh-wf-card-foot);
+  font-size: 0.9167em;
+  line-height: 1.3;
+  color: var(--oh-wf-text-secondary);
+}
+
+.oh-wf-card-product {
+  height: 420px;
+  border-top: 1px solid var(--oh-wf-card-border);
+}
+
+.oh-wf-figures {
+  display: flex;
+  flex-wrap: wrap;
+  border-top: 1px solid var(--oh-wf-card-border);
+}
+
+.oh-wf-figure {
+  flex: 1 1 90px;
+  min-width: 0;
+  padding: 7px 9px;
+}
+
+.oh-wf-figure-value {
+  padding-top: 1px;
+  font-size: 1.0833em;
+  line-height: 1.4;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.oh-wf-timing {
+  padding: 9px;
+  border-top: 1px solid var(--oh-wf-row-border);
+}
+
+.oh-wf-timing-track,
+.oh-wf-timing-fill {
+  height: 5px;
+  border-radius: 3px;
+}
+
+.oh-wf-timing-track {
+  background: var(--oh-wf-bar-track);
+}
+
+.oh-wf-timing-words {
+  display: flex;
+  gap: 8px;
+  padding-top: 6px;
+  font-size: 0.9167em;
+  line-height: 1.3;
+
+  > :first-child {
+    flex: 1;
+    min-width: 0;
+  }
+}

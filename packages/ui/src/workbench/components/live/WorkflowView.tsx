@@ -159,7 +159,9 @@ const WorkflowView: React.FC<Props> = ({
             stepIndex={selectedIndex}
             readOnly={readOnly}
             onClose={() => onSelectStep(null)}
+            onSelectStep={onSelectStep}
             run={run}
+            cacheRun={cacheRun}
           />
         ) : (
           <WorkflowOverviewPanel

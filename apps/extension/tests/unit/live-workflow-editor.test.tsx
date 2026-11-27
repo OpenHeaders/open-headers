@@ -278,10 +278,12 @@ describe('LiveWorkflowEditor — a workflow that needs a newer version', () => {
     const { container } = renderNeedsUpdate();
     openStep('reboot');
 
+    // Every control of the step's panel is off but the one that closes it.
     const callCard = container.querySelector('[data-step-card="reboot"]');
-    const controls = Array.from(callCard?.querySelectorAll('input, button') ?? []);
+    const controls = Array.from(callCard?.querySelectorAll('input, button:not([data-testid="wf-panel-close"])') ?? []);
     expect(controls.length).toBeGreaterThan(0);
     for (const control of controls) expect(control).toHaveProperty('disabled', true);
+    expect(screen.getByTestId('wf-panel-close')).toHaveProperty('disabled', false);
     expect(screen.queryByRole('button', { name: /Step$/ })).toBeNull();
     expect(screen.getByRole('button', { name: /Refresh/ })).toHaveProperty('disabled', true);
   });
@@ -356,6 +358,17 @@ describe('LiveWorkflowEditor — one view', () => {
 
     expect(container.querySelector('[data-step-card="step2"]')).not.toBeNull();
     expect(screen.getByTestId('wf-panel').textContent).toContain('Step 2 of 2');
+  });
+
+  it('Duplicate puts a copy of the open step last and opens it', () => {
+    const { container } = renderEditor();
+    openStep('only');
+
+    fireEvent.click(screen.getByTestId('wf-step-duplicate'));
+
+    expect(container.querySelector('[data-step-card="only-copy"]')).not.toBeNull();
+    expect(screen.getByTestId('wf-panel').textContent).toContain('Step 2 of 2');
+    expect(screen.getByTestId('wf-graph-node-only-copy').getAttribute('data-selected')).toBe('true');
   });
 
   it('deleting the open step from its card closes it', () => {
@@ -730,7 +743,10 @@ describe('LiveWorkflowEditor — a workflow that holds session steps', () => {
     expect(container.querySelector('[data-step-needs-update]')).toBeNull();
     openStep('hangup');
     const cards = Array.from(container.querySelectorAll('[data-step-needs-update]'));
-    expect(cards.map((card) => card.textContent)).toEqual([`Step 2hangup${STEP_NEEDS_UPDATE}close`]);
+    expect(cards.map((card) => card.getAttribute('data-step-card'))).toEqual(['hangup']);
+    // Its head names it and its raw action; its one card says the sentence.
+    expect(cards[0].textContent).toContain('hangupcloseStep 2 of 2');
+    expect(cards[0].textContent).toContain(STEP_NEEDS_UPDATE);
   });
 
   it('a step’s type selector offers a call alone until the surface authors session steps', () => {

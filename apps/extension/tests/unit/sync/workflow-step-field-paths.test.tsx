@@ -1,10 +1,10 @@
 // @vitest-environment jsdom
 /**
- * Per-step `data-field-path` propagation in WorkflowStepEditor.
+ * Per-step `data-field-path` propagation in a step's panel.
  *
  * Awareness publishing inside `LiveWorkflowEditor` rides
  * `data-field-path` ancestor walks (see `shared/awareness/live-paths.ts`). The
- * step editor wraps four leaves declared by `LIVE_WORKFLOW_FIELD.step`:
+ * panel's head and the step's fields wrap four leaves declared by `LIVE_WORKFLOW_FIELD.step`:
  * `id`, `requestUid`, `gate`, `captures`. These tests verify the
  * attribute is present at the right leaves and that `readFieldPath`
  * resolves a focusable descendant to the matching path.
@@ -14,6 +14,7 @@ import type { DraftCallStep } from '@openheaders/core/live';
 import { readFieldPath } from '@openheaders/ui/shared/awareness/field-path';
 import { LIVE_WORKFLOW_FIELD } from '@openheaders/ui/shared/awareness/live-paths';
 import WorkflowStepEditor from '@openheaders/ui/workbench/components/live/WorkflowStepEditor';
+import WorkflowStepHeader from '@openheaders/ui/workbench/components/live/WorkflowStepHeader';
 import { cleanup, render } from '@testing-library/react';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
@@ -37,22 +38,33 @@ function mkStep(overrides: Partial<DraftCallStep> = {}): DraftCallStep {
   return { uid: 'stpauth0', id: 'authenticate', requestUid: 'req-auth', captures: [], ...overrides };
 }
 
+/** A step as its panel shows it: the head, which holds the id, and under it the step's fields. */
 function renderStep(index: number, step: DraftCallStep) {
   const { container } = render(
-    <WorkflowStepEditor
-      step={step}
-      index={index}
-      totalSteps={index + 1}
-      availableRequests={[
-        { uid: 'req-auth', name: 'auth', method: 'POST', collectionName: 'openheaders.io', folderTrail: ['oauth'] },
-      ]}
-      onChange={vi.fn()}
-    />,
+    <>
+      <WorkflowStepHeader
+        step={step}
+        index={index}
+        totalSteps={index + 1}
+        mark={{ kind: 'idle', text: '', label: 'Not part of a successful run yet' }}
+        protocol={null}
+        does={{ text: '' }}
+        onChange={vi.fn()}
+      />
+      <WorkflowStepEditor
+        step={step}
+        index={index}
+        availableRequests={[
+          { uid: 'req-auth', name: 'auth', method: 'POST', collectionName: 'openheaders.io', folderTrail: ['oauth'] },
+        ]}
+        onChange={vi.fn()}
+      />
+    </>,
   );
   return container;
 }
 
-describe('WorkflowStepEditor — per-step data-field-path', () => {
+describe('A step in its panel — per-step data-field-path', () => {
   it('wraps the step id Input with steps.{index}.id', () => {
     const container = renderStep(0, mkStep());
     const idInput = container.querySelector<HTMLInputElement>('input[value="authenticate"]');

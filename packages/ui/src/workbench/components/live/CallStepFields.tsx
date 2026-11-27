@@ -1,7 +1,6 @@
 /**
- * The fields of a call step's card, under the card's shared head and
- * above its sections: the request it sends, an optional description, and
- * the captures of its response.
+ * The fields of a call step, above its sections: the request it sends
+ * and the captures of its response.
  *
  * Each capture carries an exposure row — the switch that makes it a
  * `{{live.<name>}}` — unless the workflow holds a session step: such a
@@ -83,10 +82,7 @@ const CallStepFields: React.FC<Props> = ({ step, index, onChange, availableReque
 
   return (
     <>
-      {/* Request picker + optional description — inlined on one row.
-       *  Request gets ~60% width, description ~40%. Both `size="small"`
-       *  so they render at identical heights (the Select's option label
-       *  is single-line). Option label is a structured breadcrumb:
+      {/* Request picker. Option label is a structured breadcrumb:
        *
        *    [📂] <Collection>  ›  [📁] <Folder>  ›  [METHOD] <Request>
        *
@@ -98,7 +94,7 @@ const CallStepFields: React.FC<Props> = ({ step, index, onChange, availableReque
           <Tooltip open={requestError ? undefined : false} title={requestError?.message}>
             <Select
               size="small"
-              style={{ flex: '1 1 60%', minWidth: 0 }}
+              style={{ flex: 1, minWidth: 0 }}
               showSearch
               status={requestError ? 'error' : undefined}
               filterOption={(input, option) => {
@@ -113,13 +109,6 @@ const CallStepFields: React.FC<Props> = ({ step, index, onChange, availableReque
             />
           </Tooltip>
         </span>
-        <Input
-          size="small"
-          style={{ flex: '1 1 40%' }}
-          placeholder={t('workbench.editors.live.step.descriptionPlaceholder')}
-          value={step.description ?? ''}
-          onChange={(e) => onChange({ ...step, description: e.target.value || undefined })}
-        />
       </div>
 
       <StepCapturesEditor
