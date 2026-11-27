@@ -449,6 +449,17 @@ describe('LiveWorkflowEditor — the header is the toolbar', () => {
     expect(screen.getByTestId('wf-graph-node-only').getAttribute('data-selected')).not.toBe('true');
   });
 
+  it('a press of that word from History returns the panel to its Overview, at the setting', async () => {
+    renderEditor();
+    fireEvent.click(screen.getByTestId('wf-panel-tab-history'));
+    expect(screen.queryByTestId('wf-panel-policy')).toBeNull();
+
+    fireEvent.click(screen.getByTestId('wf-header-schedule'));
+
+    await waitFor(() => expect(screen.getByTestId('wf-panel-policy')).toBeTruthy());
+    expect(screen.getByTestId('wf-panel-tab-overview').getAttribute('aria-selected')).toBe('true');
+  });
+
   it('says nothing of a run before one was seen', () => {
     renderEditor();
 
@@ -470,7 +481,7 @@ describe('LiveWorkflowEditor — the header is the toolbar', () => {
     expect(await screen.findByText('Save the workflow to run it.')).toBeTruthy();
   });
 
-  it('a draft never saved has run nowhere: its panel has its settings and no environments', () => {
+  it('a draft never saved has run nowhere: its panel has its settings, no environments and no History', () => {
     render(
       <App>
         <AwarenessIdentityProvider value={testIdentity}>
@@ -481,6 +492,7 @@ describe('LiveWorkflowEditor — the header is the toolbar', () => {
 
     expect(screen.getByTestId('wf-panel-policy')).toBeTruthy();
     expect(screen.queryByTestId('wf-run-status-strip')).toBeNull();
+    expect(screen.queryByTestId('wf-panel-tab-history')).toBeNull();
   });
 });
 
@@ -516,12 +528,13 @@ describe('LiveWorkflowEditor — on a surface that runs no workflow', () => {
     expect(await screen.findByText(SENTENCE)).toBeTruthy();
   });
 
-  it('the workflow’s panel shows no run', () => {
+  it('the workflow’s panel shows no run and has no History', () => {
     renderUnavailable();
 
     expect(screen.getByTestId('wf-graph-node-only')).toBeTruthy();
     expect(screen.queryByTestId('wf-run-empty')).toBeNull();
     expect(screen.getByTestId('wf-panel').textContent).not.toContain('Last run');
+    expect(screen.queryByTestId('wf-panel-tab-history')).toBeNull();
   });
 
   it('with nothing declared there is no (i) and Run is on', () => {

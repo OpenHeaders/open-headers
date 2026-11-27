@@ -27,6 +27,7 @@ import {
   statusColor,
   summarizeRunsByEnv,
 } from './live-display';
+import { useEnvironmentName } from './use-environment-name';
 import WorkflowCard from './WorkflowCard';
 
 const WARNING_INK = 'var(--oh-wf-blocked)';
@@ -152,13 +153,9 @@ interface Props {
 
 const WorkflowEnvironmentsCard: React.FC<Props> = ({ runs, refresh, boundCount, verdictOnly }) => {
   const t = useT();
-  const { environments, activeEnvironmentId } = useEnvironments();
+  const { activeEnvironmentId } = useEnvironments();
+  const nameOf = useEnvironmentName();
   const entries = summarizeRunsByEnv(runs, activeEnvironmentId ?? null);
-  const nameOf = (environmentId: string | null): string =>
-    environmentId === null
-      ? t('workbench.editors.live.status.noEnvironment')
-      : (environments.find((each) => each.uid === environmentId)?.name ??
-        t('workbench.editors.live.status.unknownEnv'));
 
   return (
     <WorkflowCard

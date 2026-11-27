@@ -250,6 +250,37 @@ export function describeRunStatus(record: WorkflowRunRecord, t: Translate): RunS
   return { text: describeRunVerdict(verdict, t), tone: verdict === 'cannot-run' ? 'warning' : 'secondary' };
 }
 
+/** When a run began, on the clock: the time for a run of today, the day and the time for an earlier one. */
+export function formatRunWhen(startedAt: number, now: number, locale: string): string {
+  const at = new Date(startedAt);
+  if (at.toDateString() === new Date(now).toDateString()) {
+    return at.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  }
+  return at.toLocaleString(locale, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+}
+
+/** How a run's steps ended, each count under the word the Last run card gives it; while it goes, how many are done. */
+export function describeRunSteps(record: WorkflowRunRecord, t: Translate): string {
+  if (record.ended === null) {
+    return t('workbench.editors.live.history.stepsDone', {
+      done: record.steps.filter((row) => row.state === 'settled').length,
+      total: record.steps.length,
+    });
+  }
+  const totals = runTotals(record);
+  const counts: Array<[string, number]> = [
+    [t('workbench.editors.live.run.verdict.passed'), totals.passed],
+    [t('workbench.editors.live.run.verdict.failed'), totals.failed],
+    [t('workbench.editors.live.run.row.skipped'), totals.skipped],
+    [t('workbench.editors.live.run.row.notRun'), totals.notRun],
+    [t('workbench.editors.live.run.row.cannotRun'), totals.cannotRun],
+  ];
+  return counts
+    .filter(([, count]) => count > 0)
+    .map(([label, count]) => `${label} ${count}`)
+    .join(' · ');
+}
+
 /** One sentence on what happened in a run — the line under the workflow's Last run. */
 export function describeRunSentence(record: WorkflowRunRecord, t: Translate): string {
   const verdict = runVerdict(record);

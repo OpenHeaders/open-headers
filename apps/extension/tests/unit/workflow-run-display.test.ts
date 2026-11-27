@@ -3,6 +3,8 @@ import {
   describeRunRow,
   describeRunSentence,
   describeRunStatus,
+  describeRunSteps,
+  formatRunWhen,
 } from '@openheaders/ui/workbench/components/live/run-display';
 import { translateEnglish as t } from '@openheaders/ui/workbench/settings/localize';
 import { describe, expect, it } from 'vitest';
@@ -321,5 +323,36 @@ describe('a run in one phrase — the workflow header’s', () => {
     expect(describeRunSentence(record([LOGIN, skipped], { ok: true, durationMs: 40 }), t)).toBe(
       'Passed. Some steps were skipped by their run condition.',
     );
+  });
+
+  it('as a row of the History: how its steps ended, by the Last run card’s words; while it goes, how many are done', () => {
+    const settled = (state: 'skipped' | 'not-run'): WorkflowRunStepRow => ({
+      ...STEP,
+      state: 'settled',
+      hasProduct: false,
+      settlement: { state },
+    });
+    const running: WorkflowRunStepRow = { ...STEP, state: 'running', attempt: 1, maxAttempts: 1 };
+
+    expect(describeRunSteps(record([LOGIN, running], null), t)).toBe('1 of 2 done');
+    expect(describeRunSteps(record([LOGIN, passed(1, 1, [])], { ok: true, durationMs: 40 }), t)).toBe('Passed 2');
+    expect(
+      describeRunSteps(
+        record([LOGIN, settled('skipped'), FAILED, settled('not-run')], { ok: false, durationMs: 40 }),
+        t,
+      ),
+    ).toBe('Passed 1 · Failed 1 · Skipped 1 · Not run 1');
+  });
+});
+
+describe('when a run began, on the clock', () => {
+  const now = new Date(2026, 10, 27, 16, 30, 0).getTime();
+
+  it('a run of today says its time to the second', () => {
+    expect(formatRunWhen(new Date(2026, 10, 27, 14, 2, 11).getTime(), now, 'en-GB')).toBe('14:02:11');
+  });
+
+  it('an earlier run says its day and its time', () => {
+    expect(formatRunWhen(new Date(2026, 10, 26, 14, 2, 11).getTime(), now, 'en-GB')).toBe('26 Nov, 14:02');
   });
 });

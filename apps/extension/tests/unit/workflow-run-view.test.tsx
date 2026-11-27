@@ -524,3 +524,111 @@ describe('a run in the workflow view', () => {
     expect(screen.getByTestId('wf-last-run').textContent).toContain('No step ran.');
   });
 });
+
+describe('the workflow’s History', () => {
+  const tab = (id: 'overview' | 'history') => screen.getByTestId(`wf-panel-tab-${id}`);
+  const rows = () => Array.from(screen.getByTestId('wf-history').querySelectorAll('[data-testid^="wf-history-row-"]'));
+
+  it('a saved workflow’s panel has two tabs, Overview first, History with how many runs this page saw', async () => {
+    render(<SavedWorkflowView workflow={workflow} />);
+
+    expect(tab('overview').getAttribute('aria-selected')).toBe('true');
+    expect(tab('history').getAttribute('aria-selected')).toBe('false');
+    expect(tab('history').textContent).toBe('History0');
+    expect(screen.queryByTestId('wf-history')).toBeNull();
+
+    await feed(BEGIN);
+    await feed(BEGIN, 'run-2');
+    expect(screen.getByTestId('wf-history-count').textContent).toBe('2');
+  });
+
+  it('with no run yet, History says so and names the button', () => {
+    render(<SavedWorkflowView workflow={workflow} />);
+    fireEvent.click(tab('history'));
+
+    expect(tab('history').getAttribute('aria-selected')).toBe('true');
+    expect(screen.queryByTestId('wf-last-run')).toBeNull();
+    expect(screen.getByTestId('wf-history-empty').textContent).toBe(
+      'No run in this session yet. Press Run to start one.',
+    );
+    expect(rows()).toEqual([]);
+  });
+
+  it('lists the runs newest first: when and where, the result, the steps, the duration, what started it', async () => {
+    render(<SavedWorkflowView workflow={workflow} />);
+    fireEvent.click(tab('history'));
+
+    await feed({ ...BEGIN, at: Date.now(), trigger: 'schedule' });
+    await feed(LOGIN_PASSED);
+    await feed(PROFILE_FAILED);
+    await feed(END);
+    await feed({ ...BEGIN, trigger: 'manual' }, 'run-2');
+    await feed(LOGIN_PASSED, 'run-2');
+
+    const history = screen.getByTestId('wf-history');
+    expect(history.textContent).toContain('The last 20 runs of this session, newest first.');
+    expect(history.textContent).toContain('WhenResultStepsDurationTrigger');
+    expect(rows().map((row) => row.getAttribute('data-testid'))).toEqual([
+      'wf-history-row-run-2',
+      'wf-history-row-run-1',
+    ]);
+
+    const [going, ended] = rows();
+    expect(going.getAttribute('data-run-verdict')).toBe('running');
+    expect(going.textContent).toBe('NowNo environmentRunning1 of 2 done—Manual');
+    expect(ended.getAttribute('data-run-verdict')).toBe('failed');
+    expect(ended.textContent).toMatch(/^\d{2}:\d{2}:\d{2}.*No environmentFailedPassed 1 · Failed 121 msSchedule$/);
+  });
+
+  it('the run the graph draws is the highlighted one, and the foot says so', async () => {
+    render(<SavedWorkflowView workflow={workflow} />);
+    fireEvent.click(tab('history'));
+    await feed(BEGIN);
+    await feed(END);
+    await feed(BEGIN, 'run-2');
+
+    expect(screen.getByTestId('wf-history-row-run-2').getAttribute('data-shown')).toBe('true');
+    expect(screen.getByTestId('wf-history-row-run-1').hasAttribute('data-shown')).toBe(false);
+    expect(screen.getByTestId('wf-history').textContent).toContain(
+      'The highlighted run is the one drawn on the graph.',
+    );
+  });
+
+  it('a run whose first frame named no trigger shows a dash, and a run that could not run no duration', async () => {
+    render(<SavedWorkflowView workflow={workflow} />);
+    fireEvent.click(tab('history'));
+    await feed(BEGIN);
+    await feed({
+      type: 'step-settle',
+      at: 101,
+      stepId: 'login',
+      settlement: { state: 'cannot-run', reason: 'Needs a newer version.' },
+      hasProduct: false,
+    });
+    await feed({
+      type: 'step-settle',
+      at: 101,
+      stepId: 'profile',
+      settlement: { state: 'not-run' },
+      hasProduct: false,
+    });
+    await feed({ type: 'end', at: 101, ok: false, durationMs: 0 });
+
+    expect(screen.getByTestId('wf-history-row-run-1').textContent).toMatch(
+      /No environmentCannot run hereNot run 1 · Cannot run here 1——$/,
+    );
+  });
+
+  it('a step opened and closed returns to the tab that was open', async () => {
+    render(<SavedWorkflowView workflow={workflow} />);
+    fireEvent.click(tab('history'));
+    await feed(BEGIN);
+
+    fireEvent.click(screen.getByTestId('wf-graph-node-login'));
+    expect(screen.queryByTestId('wf-history')).toBeNull();
+    fireEvent.click(screen.getByTestId('wf-panel-close'));
+
+    expect(tab('history').getAttribute('aria-selected')).toBe('true');
+    expect(screen.getByTestId('wf-history-row-run-1')).toBeTruthy();
+  });
+});

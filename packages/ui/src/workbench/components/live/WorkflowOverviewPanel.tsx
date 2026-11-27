@@ -6,6 +6,9 @@
  * its steps in run order, its captures, how each environment stands, and
  * its settings.
  *
+ * A saved workflow where it runs has a second page behind a tab of the
+ * head: History, the runs this page saw.
+ *
  * Drawn at the step panel's sizes, as the whole workflow view is.
  */
 
@@ -34,13 +37,17 @@ import { usePanelSizes } from './use-panel-sizes';
 import { useStepRequests } from './use-step-requests';
 import { useWaitClock } from './use-wait-clock';
 import type { WorkflowFormModel } from './use-workflow-form-model';
-import type { ShownWorkflowRun } from './use-workflow-run';
+import { type ShownWorkflowRun, useWorkflowRuns } from './use-workflow-run';
 import WorkflowAttentionCard, { type AttentionPhase } from './WorkflowAttentionCard';
 import WorkflowCapturesCard, { type OverviewCapture } from './WorkflowCapturesCard';
 import WorkflowEnvironmentsCard from './WorkflowEnvironmentsCard';
+import WorkflowHistoryCard from './WorkflowHistoryCard';
 import WorkflowLastRunCard from './WorkflowLastRunCard';
 import WorkflowSettingsCard from './WorkflowSettingsCard';
 import WorkflowStepsCard from './WorkflowStepsCard';
+
+/** The pages of the workflow's panel. */
+export type WorkflowPanelTab = 'overview' | 'history';
 
 interface Props {
   /** The workflow's name, as its tab's header says it. */
@@ -51,6 +58,9 @@ interface Props {
   /** The workflow is read-only here: every control is off but the Enabled switch. */
   readOnly: boolean;
   onSelectStep: (stepUid: string) => void;
+  /** The page the panel is on. A workflow with no History is on its Overview, whatever this says. */
+  tab: WorkflowPanelTab;
+  onTabChange: (tab: WorkflowPanelTab) => void;
   /** The saved workflow on a surface that runs workflows — absent where there is no run to show. */
   workflow?: LiveWorkflow;
   run?: ShownWorkflowRun | null;
@@ -72,6 +82,8 @@ const WorkflowOverviewPanel: React.FC<Props> = ({
   model,
   readOnly,
   onSelectStep,
+  tab,
+  onTabChange,
   workflow,
   run,
   cacheRun,
@@ -84,18 +96,27 @@ const WorkflowOverviewPanel: React.FC<Props> = ({
   const { fontSize, theme: sizes } = usePanelSizes();
   const stepRequests = useStepRequests();
   const now = useWaitClock(run?.record ?? null);
+  const keptRuns = useWorkflowRuns(workflow?.uid ?? '');
   const scrollerRef = useRef<HTMLDivElement>(null);
   const settingsRef = useRef<HTMLElement>(null);
 
+  const hasHistory = workflow !== undefined;
+  const page: WorkflowPanelTab = hasHistory ? tab : 'overview';
+
   useEffect(() => {
     if (!revealSettings) return;
+    // The settings are a card of the Overview: go there first.
+    if (page !== 'overview') {
+      onTabChange('overview');
+      return;
+    }
     const scroller = scrollerRef.current;
     const settings = settingsRef.current;
     if (scroller && settings) {
       scroller.scrollTop += settings.getBoundingClientRect().top - scroller.getBoundingClientRect().top;
     }
     onSettingsRevealed?.();
-  }, [revealSettings, onSettingsRevealed]);
+  }, [revealSettings, page, onTabChange, onSettingsRevealed]);
 
   const markSources: StepMarkSources = { run, cacheRun, now };
   const steps: OverviewStepFacts[] = draft.steps.map((step) => {
@@ -145,6 +166,10 @@ const WorkflowOverviewPanel: React.FC<Props> = ({
       ? 'running'
       : 'done';
   const stepCount = t('workbench.editors.live.overview.stepCount', { count: draft.steps.length });
+  const tabs: Array<{ id: WorkflowPanelTab; label: string; count?: number }> = [
+    { id: 'overview', label: t('workbench.editors.live.panel.tabOverview') },
+    { id: 'history', label: t('workbench.editors.live.panel.tabHistory'), count: keptRuns.length },
+  ];
 
   const handleAddStep = () => {
     const appended = appendDraftStep(draft);
@@ -156,7 +181,7 @@ const WorkflowOverviewPanel: React.FC<Props> = ({
   return (
     <ConfigProvider componentSize="small" theme={sizes}>
       <div className="oh-wf-step-panel" style={{ fontSize }}>
-        <div className="oh-wf-step-head">
+        <div className={hasHistory ? 'oh-wf-step-head oh-wf-step-head--tabs' : 'oh-wf-step-head'}>
           <div className="oh-wf-step-head-row">
             <b className="oh-wf-step-name oh-wf-overview-name">{name}</b>
             <KindTag size="panel">{stepCount}</KindTag>
@@ -172,45 +197,76 @@ const WorkflowOverviewPanel: React.FC<Props> = ({
               onChange={(e) => setDraft({ ...draft, description: e.target.value })}
             />
           </span>
+          {hasHistory && (
+            <div className="oh-wf-tabs" role="tablist">
+              {tabs.map(({ id, label, count }) => (
+                <button
+                  key={id}
+                  type="button"
+                  role="tab"
+                  className="oh-wf-tab"
+                  aria-selected={page === id}
+                  data-testid={`wf-panel-tab-${id}`}
+                  onClick={() => onTabChange(id)}
+                >
+                  {label}
+                  {count !== undefined && (
+                    <span className="oh-wf-tab-count" data-testid="wf-history-count">
+                      {count}
+                    </span>
+                  )}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
         <div ref={scrollerRef} className="oh-persistent-scroll" style={{ flex: 1, minHeight: 0 }}>
           <ConfigProvider componentDisabled={readOnly}>
-            <div className="oh-wf-panel-body">
-              {workflow !== undefined && <WorkflowLastRunCard run={run ?? null} />}
-              {(workflow !== undefined || model.workflowLevelErrors.length > 0) && (
-                <WorkflowAttentionCard
+            {page === 'history' ? (
+              <div className="oh-wf-panel-body">
+                <WorkflowHistoryCard
+                  runs={keptRuns}
+                  shownRunId={run != null && !run.refused ? run.record.runId : null}
+                />
+              </div>
+            ) : (
+              <div className="oh-wf-panel-body">
+                {workflow !== undefined && <WorkflowLastRunCard run={run ?? null} />}
+                {(workflow !== undefined || model.workflowLevelErrors.length > 0) && (
+                  <WorkflowAttentionCard
+                    steps={steps}
+                    issues={model.workflowLevelErrors}
+                    phase={attentionPhase}
+                    onOpen={onSelectStep}
+                  />
+                )}
+                <WorkflowStepsCard
                   steps={steps}
-                  issues={model.workflowLevelErrors}
-                  phase={attentionPhase}
+                  readOnly={readOnly}
                   onOpen={onSelectStep}
+                  onMove={model.moveStep}
+                  onAdd={handleAddStep}
                 />
-              )}
-              <WorkflowStepsCard
-                steps={steps}
-                readOnly={readOnly}
-                onOpen={onSelectStep}
-                onMove={model.moveStep}
-                onAdd={handleAddStep}
-              />
-              <WorkflowCapturesCard captures={captures} />
-              {runs !== undefined && (
-                <WorkflowEnvironmentsCard
-                  runs={runs}
+                <WorkflowCapturesCard captures={captures} />
+                {runs !== undefined && (
+                  <WorkflowEnvironmentsCard
+                    runs={runs}
+                    refresh={draft.refresh}
+                    boundCount={boundCount}
+                    verdictOnly={model.holdsSession}
+                  />
+                )}
+                <WorkflowSettingsCard
+                  ref={settingsRef}
                   refresh={draft.refresh}
-                  boundCount={boundCount}
-                  verdictOnly={model.holdsSession}
+                  onRefreshChange={(refresh) => setDraft({ ...draft, refresh })}
+                  enabled={draft.enabled}
+                  onEnabledChange={(enabled) => setDraft({ ...draft, enabled })}
+                  availableCaptures={model.availableCaptures}
+                  holdsSession={model.holdsSession}
                 />
-              )}
-              <WorkflowSettingsCard
-                ref={settingsRef}
-                refresh={draft.refresh}
-                onRefreshChange={(refresh) => setDraft({ ...draft, refresh })}
-                enabled={draft.enabled}
-                onEnabledChange={(enabled) => setDraft({ ...draft, enabled })}
-                availableCaptures={model.availableCaptures}
-                holdsSession={model.holdsSession}
-              />
-            </div>
+              </div>
+            )}
           </ConfigProvider>
         </div>
       </div>

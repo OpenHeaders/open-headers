@@ -12,11 +12,11 @@
 
 import { runTotals, runVerdict } from '@openheaders/core/live';
 import { useT } from '@openheaders/ui/context/LocaleContext';
-import { useEnvironments } from '@openheaders/ui/shared/hooks/readers/useEnvironments';
 import type React from 'react';
 import { formatDurationRolled } from '../request-editor/response/response-meta';
 import { describeRunSentence, describeRunVerdict } from './run-display';
 import { STEP_MARK_INK } from './StepGlyph';
+import { useEnvironmentName } from './use-environment-name';
 import type { ShownWorkflowRun } from './use-workflow-run';
 import WorkflowCard from './WorkflowCard';
 
@@ -29,7 +29,7 @@ interface Figure {
 
 const WorkflowLastRunCard: React.FC<{ run: ShownWorkflowRun | null }> = ({ run }) => {
   const t = useT();
-  const { environments } = useEnvironments();
+  const environmentName = useEnvironmentName();
   const title = t('workbench.editors.live.panel.lastRun');
 
   if (run === null) {
@@ -49,11 +49,7 @@ const WorkflowLastRunCard: React.FC<{ run: ShownWorkflowRun | null }> = ({ run }
   const { record } = run;
   const verdict = runVerdict(record);
   const totals = runTotals(record);
-  const environment =
-    record.environmentId === null
-      ? t('workbench.editors.live.status.noEnvironment')
-      : (environments.find((each) => each.uid === record.environmentId)?.name ??
-        t('workbench.editors.live.status.unknownEnv'));
+  const environment = environmentName(record.environmentId);
   const figures: Figure[] = [
     { key: 'passed', label: t('workbench.editors.live.run.verdict.passed'), value: String(totals.passed) },
     { key: 'failed', label: t('workbench.editors.live.run.verdict.failed'), value: String(totals.failed) },

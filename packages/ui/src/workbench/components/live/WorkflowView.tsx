@@ -17,12 +17,12 @@ import { type DraftWorkflow, runVerdict } from '@openheaders/core/live';
 import type { LiveVariable, LiveWorkflow } from '@openheaders/core/types';
 import { Sash, type SashSession } from '@openheaders/ui/shared/dock-layout';
 import type React from 'react';
-import { useCallback, useLayoutEffect, useRef } from 'react';
+import { useCallback, useLayoutEffect, useRef, useState } from 'react';
 import type { StepRequestOpeners } from './step-facts';
 import { useWorkflowFormModel } from './use-workflow-form-model';
 import type { ShownWorkflowRun } from './use-workflow-run';
 import WorkflowGraphBody from './WorkflowGraphBody';
-import WorkflowOverviewPanel from './WorkflowOverviewPanel';
+import WorkflowOverviewPanel, { type WorkflowPanelTab } from './WorkflowOverviewPanel';
 import WorkflowStepPanel from './WorkflowStepPanel';
 
 const PANEL_WIDTH_VAR = '--oh-workflow-panel-width';
@@ -95,6 +95,8 @@ const WorkflowView: React.FC<Props> = ({
   onSettingsRevealed,
 }) => {
   const model = useWorkflowFormModel(draft, setDraft);
+  // Held here, above the panel: a step opened and closed returns to the page that was open.
+  const [panelTab, setPanelTab] = useState<WorkflowPanelTab>('overview');
   const rootRef = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLElement>(null);
 
@@ -187,6 +189,8 @@ const WorkflowView: React.FC<Props> = ({
             model={model}
             readOnly={readOnly}
             onSelectStep={onSelectStep}
+            tab={panelTab}
+            onTabChange={setPanelTab}
             workflow={workflow}
             run={run}
             cacheRun={cacheRun}

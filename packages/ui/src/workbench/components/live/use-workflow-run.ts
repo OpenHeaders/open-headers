@@ -1,9 +1,9 @@
 /**
- * The page's kept run of one workflow in the editing scope's workspace —
- * `null` until a run of it was seen on this page — and the run a
- * workflow's view shows: the kept one, or, for a workflow that holds a
- * step of an action the model does not know, the record that says which
- * steps cannot run.
+ * The page's kept runs of one workflow in the editing scope's workspace —
+ * its latest, `null` until a run of it was seen on this page, and the
+ * list its History shows — and the run a workflow's view shows: the
+ * latest kept one, or, for a workflow that holds a step of an action the
+ * model does not know, the record that says which steps cannot run.
  */
 
 import {
@@ -17,13 +17,28 @@ import {
 } from '@openheaders/core/live';
 import type { LiveWorkflow } from '@openheaders/core/types';
 import { useMemo, useSyncExternalStore } from 'react';
-import { getKeptWorkflowRun, type KeptWorkflowRun, subscribeWorkflowRuns } from '../../data/workflow-run-store';
+import {
+  getKeptWorkflowRun,
+  getKeptWorkflowRuns,
+  type KeptWorkflowRun,
+  subscribeWorkflowRuns,
+} from '../../data/workflow-run-store';
 import { useWorkbenchEditingScopeWorkspaceId } from '../../hooks/EditingScopeWorkspaceContext';
+
+const NO_RUNS: readonly KeptWorkflowRun[] = [];
 
 export function useWorkflowRun(workflowUid: string): KeptWorkflowRun | null {
   const workspaceId = useWorkbenchEditingScopeWorkspaceId();
   return useSyncExternalStore(subscribeWorkflowRuns, () =>
     workspaceId === null ? null : getKeptWorkflowRun(workspaceId, workflowUid),
+  );
+}
+
+/** The runs of one workflow this page saw, the newest first. */
+export function useWorkflowRuns(workflowUid: string): readonly KeptWorkflowRun[] {
+  const workspaceId = useWorkbenchEditingScopeWorkspaceId();
+  return useSyncExternalStore(subscribeWorkflowRuns, () =>
+    workspaceId === null ? NO_RUNS : getKeptWorkflowRuns(workspaceId, workflowUid),
   );
 }
 
