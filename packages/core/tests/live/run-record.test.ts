@@ -48,6 +48,11 @@ describe('the record of a run, fact by fact', () => {
     });
   });
 
+  it('keeps what started the run where its first fact says so', () => {
+    expect(replay([{ ...BEGIN, trigger: 'schedule' }])).toMatchObject({ runId: 'run-1', trigger: 'schedule' });
+    expect(replay([BEGIN])).not.toHaveProperty('trigger');
+  });
+
   it('a started step is on its first attempt; an ended attempt moves it to the next', () => {
     const started = replay([BEGIN, { type: 'step-start', at: 110, stepId: 'login', maxAttempts: 3 }]);
     expect(started?.steps[0]).toEqual({ id: 'login', uid: 'stplogin', state: 'running', attempt: 1, maxAttempts: 3 });

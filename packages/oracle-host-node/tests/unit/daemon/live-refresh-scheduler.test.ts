@@ -190,6 +190,7 @@ describe('startLiveRunner', () => {
       workspaceId: 'ws-1',
       workflow: WF,
       environmentId: null,
+      trigger: 'schedule',
     });
   });
 

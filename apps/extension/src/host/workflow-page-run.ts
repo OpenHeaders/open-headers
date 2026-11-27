@@ -199,7 +199,8 @@ export function createWorkflowRunBridge(host: WorkflowPageRunHost): {
     if (!begun.success) return { success: false, error: begun.error };
     const { workflow, bypass } = begun;
 
-    const onEvent = openWorkflowRunFeed({ workspaceId, workflowUid, environmentId, runId });
+    // A run lives here only on a person's press.
+    const onEvent = openWorkflowRunFeed({ workspaceId, workflowUid, environmentId, runId, trigger: 'manual' });
     const commit = (outcome: LiveWorkflowRunOutcomeWire) =>
       base.call('commitLiveWorkflowRun', { workflowUid, environmentId, workspaceId, bypass, outcome });
 

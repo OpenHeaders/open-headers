@@ -187,6 +187,7 @@ describe('the node host’s live-workflow doors', () => {
       'settle profile passed +product',
       'end',
     ]);
+    expect(frames[0].fact).toMatchObject({ type: 'begin', trigger: 'manual' });
     expect(frames.map((frame) => frame.seq)).toEqual([0, 1, 2, 3, 4, 5]);
     expect(new Set(frames.map((frame) => `${frame.workspaceId} ${frame.workflowUid} ${frame.runId}`))).toEqual(
       new Set([`${wsId} ${WORKFLOW_UID} run-pass`]),

@@ -1,11 +1,11 @@
 /**
- * The record a page keeps of a workflow's last run (the workflow runs
+ * The record a page keeps of one run of a workflow (the workflow runs
  * plan, The Run view): the run's steps as rows, built from its step
  * events alone — never from the run report, which marks the steps that
  * completed before a failure as skipped.
  */
 
-import type { SessionClose, StepAwaiting, StepSettlement, WorkflowRunFact } from './run-events';
+import type { RunTrigger, SessionClose, StepAwaiting, StepSettlement, WorkflowRunFact } from './run-events';
 
 export type WorkflowRunStepRow = { id: string; uid: string } & (
   | { state: 'waiting' }
@@ -18,6 +18,8 @@ export interface WorkflowRunRecord {
   /** `null` = "No environment". */
   environmentId: string | null;
   startedAt: number;
+  /** What started the run; absent where its first fact named nothing. */
+  trigger?: RunTrigger;
   /** The run's steps in declared order. */
   steps: WorkflowRunStepRow[];
   /** `null` while the run is going. `sessions`: how each session it opened closed. */
@@ -39,6 +41,7 @@ export function applyRunFact(
       runId: run.runId,
       environmentId: run.environmentId,
       startedAt: fact.at,
+      ...(fact.trigger !== undefined ? { trigger: fact.trigger } : {}),
       steps: fact.steps.map(({ id, uid }) => ({ id, uid, state: 'waiting' })),
       ended: null,
     };

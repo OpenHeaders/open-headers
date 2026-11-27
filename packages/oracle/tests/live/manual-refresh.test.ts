@@ -102,10 +102,10 @@ beforeEach(() => {
 });
 
 describe('refreshWorkflowByUser', () => {
-  it('runs a workflow that has never run, with no bypass, the workspace held for the run', async () => {
+  it('runs a workflow that has never run as a manual run, with no bypass, the workspace held for the run', async () => {
     const { host, runs } = makeHost();
     await refreshWorkflowByUser(target, host);
-    expect(runs).toEqual([{ workspaceId: WS, workflow, environmentId: null, bypass: false }]);
+    expect(runs).toEqual([{ workspaceId: WS, workflow, environmentId: null, bypass: false, trigger: 'manual' }]);
     expect(state.calls).toEqual([`acquire ${WS}`, 'fired', 'run', 'succeeded', `release ${WS}`]);
   });
 

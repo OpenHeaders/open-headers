@@ -173,11 +173,11 @@ export function buildFetchAdapter(
  *      so Phase G's aggregation + Status pill have structured input.
  */
 export const liveChainAdapter: LiveRefreshAdapter = {
-  async refreshWorkflow({ workspaceId, workflow, environmentId, bypass = false, runId }) {
+  async refreshWorkflow({ workspaceId, workflow, environmentId, bypass = false, runId, trigger }) {
     // The run's step events — a fact per event on the broadcast, each
     // step's product held for the page that asks (the workflow runs
     // plan, The Run view). Scheduled and manual runs alike.
-    const onEvent = openWorkflowRunFeed({ workspaceId, workflowUid: workflow.uid, environmentId, runId });
+    const onEvent = openWorkflowRunFeed({ workspaceId, workflowUid: workflow.uid, environmentId, runId, trigger });
     if (!isRunnableWorkflow(workflow)) {
       for (const event of refusedRunEvents(workflow, Date.now())) onEvent(event);
       const [step] = unknownStepsOf(workflow);

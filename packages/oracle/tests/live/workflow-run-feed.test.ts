@@ -69,6 +69,27 @@ describe('a run feed', () => {
     ]);
   });
 
+  it('says what started the run on its first fact alone, where the opener names it', () => {
+    const frames = collect();
+    const feed = openWorkflowRunFeed({
+      workspaceId: 'ws-1',
+      workflowUid: 'wfpins01',
+      environmentId: null,
+      runId: 'run-1',
+      trigger: 'schedule',
+    });
+
+    feed(BEGIN);
+    feed(settle('login', '{"name":"John Doe"}'));
+    feed({ type: 'end', at: 3, ok: true, durationMs: 2 });
+
+    expect(frames.map((frame) => frame.fact)).toEqual([
+      { ...BEGIN, trigger: 'schedule' },
+      { type: 'step-settle', at: 2, stepId: 'login', settlement: { state: 'skipped' }, hasProduct: true },
+      { type: 'end', at: 3, ok: true, durationMs: 2 },
+    ]);
+  });
+
   it('mints a run id when the caller gave none, one per run', () => {
     const frames = collect();
     const target = { workspaceId: 'ws-1', workflowUid: 'wfpins01', environmentId: null };

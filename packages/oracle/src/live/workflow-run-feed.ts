@@ -12,7 +12,7 @@
  */
 
 import type { LiveWorkflowRunEventWire } from '@openheaders/core/bridge';
-import type { StepProduct, WorkflowRunEvent } from '@openheaders/core/live';
+import type { RunTrigger, StepProduct, WorkflowRunEvent } from '@openheaders/core/live';
 import { createRunProductHold, runFactOf } from '@openheaders/core/live';
 import { generateUid } from '@openheaders/core/utils';
 
@@ -36,11 +36,13 @@ export interface WorkflowRunFeedTarget {
   environmentId: string | null;
   /** The caller's id for a run it started; absent ⇒ one is minted. */
   runId?: string;
+  /** What started the run — its first fact says so. */
+  trigger?: RunTrigger;
 }
 
 /** The listener one run's step events are handed to. */
 export function openWorkflowRunFeed(target: WorkflowRunFeedTarget): (event: WorkflowRunEvent) => void {
-  const { workspaceId, workflowUid, environmentId } = target;
+  const { workspaceId, workflowUid, environmentId, trigger } = target;
   const runId = target.runId ?? generateUid();
   const key = `${workspaceId} ${workflowUid}`;
   let seq = 0;
@@ -49,7 +51,15 @@ export function openWorkflowRunFeed(target: WorkflowRunFeedTarget): (event: Work
     if (event.type === 'step-settle' && event.product !== undefined) {
       hold.put(key, runId, event.stepId, event.product);
     }
-    sink?.({ workspaceId, workflowUid, environmentId, runId, seq: seq++, fact: runFactOf(event) });
+    const fact = runFactOf(event);
+    sink?.({
+      workspaceId,
+      workflowUid,
+      environmentId,
+      runId,
+      seq: seq++,
+      fact: fact.type === 'begin' && trigger !== undefined ? { ...fact, trigger } : fact,
+    });
   };
 }
 

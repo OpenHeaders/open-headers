@@ -44,6 +44,8 @@ export interface ManualRefreshRun {
   environmentId: string | null;
   /** The press overrides an open circuit: a failure must leave the circuit as it was. */
   bypass: boolean;
+  /** What the run's first step event says started it. */
+  trigger: 'manual';
   runId?: string;
 }
 
@@ -123,7 +125,14 @@ export async function refreshWorkflowByUser(target: ManualRefreshTarget, host: M
   return holdingWorkspace(workspaceId, async () => {
     const { workflow, bypass } = await begin(target, host);
     await settle(target, host, () =>
-      host.run({ workspaceId, workflow, environmentId, bypass, ...(runId !== undefined ? { runId } : {}) }),
+      host.run({
+        workspaceId,
+        workflow,
+        environmentId,
+        bypass,
+        trigger: 'manual',
+        ...(runId !== undefined ? { runId } : {}),
+      }),
     );
   });
 }

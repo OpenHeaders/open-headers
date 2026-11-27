@@ -209,6 +209,20 @@ describe('the step events of a run in the worker', () => {
     expect(new Set(frames.map((frame) => frame.runId)).size).toBe(1);
   });
 
+  it('a run says what started it on its first fact, and on no other', async () => {
+    executeForLiveChainMock.mockImplementation(async () => answer(TOKEN_BODY));
+
+    await adapterModule.liveChainAdapter.refreshWorkflow({
+      workspaceId: 'ws-run-pins',
+      workflow: makeWorkflow([loginStep]),
+      environmentId: null,
+      trigger: 'schedule',
+    });
+
+    expect(frames[0].fact).toMatchObject({ type: 'begin', trigger: 'schedule' });
+    expect(frames.slice(1).filter((frame) => 'trigger' in frame.fact)).toEqual([]);
+  });
+
   it('a refused run — each step this build does not know cannot run, nothing is sent', async () => {
     await expect(
       adapterModule.liveChainAdapter.refreshWorkflow({

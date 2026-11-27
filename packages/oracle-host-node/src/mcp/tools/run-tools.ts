@@ -236,7 +236,7 @@ export function createRunToolDefinitions(deps: McpRunToolDeps): McpToolDefinitio
 
         if (kind === 'workflow') {
           const workflow = resolveWorkflowRef(workspaceId, ref);
-          const outcome = await deps.runWorkflow({ workspaceId, workflow, environmentId });
+          const outcome = await deps.runWorkflow({ workspaceId, workflow, environmentId, trigger: 'agent' });
           const items = workflowItems(workflow, outcome);
           const cache = outcome.ok ? await getWorkflowRunCache(workflow.uid, environmentId, workspaceId) : null;
           return {

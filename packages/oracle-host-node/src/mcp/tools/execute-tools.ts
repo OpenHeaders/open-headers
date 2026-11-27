@@ -76,12 +76,14 @@ export const ENVIRONMENT_ID_PROPERTY = {
 } as const;
 
 /** Arguments the injected workflow runner receives — one workflow run
- *  against one environment, exactly the chain scheduler's fire shape. */
+ *  against one environment, the chain scheduler's fire shape, saying
+ *  what started it. */
 export interface McpWorkflowRunArgs {
   workspaceId: string;
   workflow: LiveWorkflow;
   /** `null` = "No environment". */
   environmentId: string | null;
+  trigger: 'agent';
 }
 
 /** Outcome contract of the injected runner. Mirrors the desktop chain
@@ -320,7 +322,7 @@ export function createExecuteToolDefinitions(deps: McpExecuteToolDeps): McpToolD
         const workspaceId = requireWorkspace(args);
         const workflow = findWorkflow(workspaceId, requireStringArg(args, 'uid'));
         const environmentId = resolveEnvironmentArg(workspaceId, args);
-        const outcome = await deps.runWorkflow({ workspaceId, workflow, environmentId });
+        const outcome = await deps.runWorkflow({ workspaceId, workflow, environmentId, trigger: 'agent' });
         if (!outcome.ok) {
           return {
             workspaceId,

@@ -121,6 +121,7 @@ export {
 } from './request-scan';
 export type {
   AttemptRetryCause,
+  RunTrigger,
   SessionClose,
   StepAwaiting,
   StepFailurePhase,

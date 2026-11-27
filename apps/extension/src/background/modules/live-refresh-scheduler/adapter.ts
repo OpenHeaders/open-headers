@@ -4,6 +4,7 @@
  * `live-chain-adapter` without importing it.
  */
 
+import type { RunTrigger } from '@openheaders/core/live';
 import type { LiveWorkflow } from '@openheaders/core/types';
 
 export interface LiveRefreshAdapter {
@@ -24,6 +25,8 @@ export interface LiveRefreshAdapter {
    *
    * `runId` is the caller's id for a run it started — the run's step
    * events are tagged with it. Absent on a scheduled run.
+   *
+   * `trigger` is what started the run — its first step event says so.
    */
   refreshWorkflow(args: {
     workspaceId: string;
@@ -31,6 +34,7 @@ export interface LiveRefreshAdapter {
     environmentId: string | null;
     bypass?: boolean;
     runId?: string;
+    trigger?: RunTrigger;
   }): Promise<void>;
 }
 

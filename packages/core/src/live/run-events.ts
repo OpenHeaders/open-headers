@@ -112,8 +112,17 @@ interface StepSettleEvent {
   product?: StepProduct;
 }
 
+interface RunBeginEvent {
+  type: 'begin';
+  at: number;
+  steps: Array<{ id: string; uid: string }>;
+}
+
+/** What started a run: a person's press, the scheduler's fire, an agent's tool call. */
+export type RunTrigger = 'manual' | 'schedule' | 'agent';
+
 export type WorkflowRunEvent =
-  | { type: 'begin'; at: number; steps: Array<{ id: string; uid: string }> }
+  | RunBeginEvent
   | {
       type: 'step-start';
       at: number;
@@ -147,10 +156,12 @@ export type WorkflowRunEvent =
 /**
  * An event as it crosses to a page: the same facts, the product left
  * with whoever ran the step and named by `hasProduct` alone — a body
- * travels on a call's answer, never on a broadcast.
+ * travels on a call's answer, never on a broadcast. The first one also
+ * says what started the run, where the realm that ran it names that.
  */
 export type WorkflowRunFact =
-  | Exclude<WorkflowRunEvent, StepSettleEvent>
+  | Exclude<WorkflowRunEvent, RunBeginEvent | StepSettleEvent>
+  | (RunBeginEvent & { trigger?: RunTrigger })
   | (Omit<StepSettleEvent, 'product'> & { hasProduct: boolean });
 
 export function runFactOf(event: WorkflowRunEvent): WorkflowRunFact {

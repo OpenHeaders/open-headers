@@ -224,6 +224,7 @@ const provider: RefreshProvider<LiveKeyPayload, LiveEntry, WorkflowRunCache | nu
       workspaceId: entry.workspaceId,
       workflow: entry.workflow,
       environmentId: entry.environmentId,
+      trigger: 'schedule',
     });
   },
   async recordFailure(_payload, _err, job) {

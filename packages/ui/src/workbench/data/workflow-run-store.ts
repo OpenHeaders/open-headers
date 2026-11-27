@@ -1,18 +1,25 @@
 /**
- * The page's record of each workflow's last run (the workflow runs
+ * The page's records of each workflow's last runs (the workflow runs
  * plan, The Run view) — kept for this page's life only, at the
- * workbench level so a tab switch or a view switch keeps it.
+ * workbench level so a tab switch or a view switch keeps them.
  *
  * Built from `liveWorkflowRunEvent` frames alone, whoever started the
  * run (a press, a schedule, an agent). A frame carries facts; each
  * step's product is asked for as its settle arrives, while the realm
  * that ran the step still holds it.
+ *
+ * A run's rows stay for as long as the run is listed. Its products are
+ * bounded across every run kept here: past the budget the oldest runs
+ * give theirs up first.
  */
 
 import { hostBridge, type LiveWorkflowRunEventWire } from '@openheaders/core/bridge';
 import { applyRunFact, createRunProductHold, type StepProduct, type WorkflowRunRecord } from '@openheaders/core/live';
 
-/** Body characters kept across every workflow's last run on this page. */
+/** Runs kept a workflow, the newest first. */
+const KEPT_RUNS_PER_WORKFLOW = 20;
+
+/** Body characters kept across every run kept on this page. */
 const KEPT_BODY_BUDGET = 32 * 1024 * 1024;
 
 /** `asked` — on its way; `kept` — here; `gone` — the realm that ran the step no longer had it. */
@@ -24,8 +31,10 @@ export interface KeptWorkflowRun {
   products: Readonly<Record<string, KeptProductState>>;
 }
 
-const kept = new Map<string, KeptWorkflowRun>();
-const hold = createRunProductHold(KEPT_BODY_BUDGET);
+const NO_RUNS: readonly KeptWorkflowRun[] = [];
+
+const kept = new Map<string, readonly KeptWorkflowRun[]>();
+const hold = createRunProductHold(KEPT_BODY_BUDGET, KEPT_RUNS_PER_WORKFLOW);
 const listeners = new Set<() => void>();
 
 function keyOf(workspaceId: string, workflowUid: string): string {
@@ -38,30 +47,45 @@ function notify(): void {
 
 function onFrame(frame: LiveWorkflowRunEventWire): void {
   const key = keyOf(frame.workspaceId, frame.workflowUid);
-  const before = kept.get(key);
-  const record = applyRunFact(before?.record ?? null, frame, frame.fact);
-  if (record === null || record === before?.record) return;
+  const runs = kept.get(key) ?? NO_RUNS;
   const { fact } = frame;
-  if (fact.type === 'begin') hold.open(key, frame.runId);
+  const before = fact.type === 'begin' ? undefined : runs.find((run) => run.record.runId === frame.runId);
+  const record = applyRunFact(before?.record ?? null, frame, fact);
+  if (record === null || record === before?.record) return;
   const asks = fact.type === 'step-settle' && fact.hasProduct;
-  kept.set(key, {
+  const run: KeptWorkflowRun = {
     record,
-    products: {
-      ...(fact.type === 'begin' ? {} : before?.products),
-      ...(asks ? { [fact.stepId]: 'asked' } : {}),
-    },
-  });
+    products: { ...before?.products, ...(asks ? { [fact.stepId]: 'asked' } : {}) },
+  };
+  if (fact.type === 'begin') {
+    hold.open(key, frame.runId);
+    const earlier = runs.filter((each) => each.record.runId !== frame.runId);
+    kept.set(key, [run, ...earlier].slice(0, KEPT_RUNS_PER_WORKFLOW));
+  } else {
+    kept.set(
+      key,
+      runs.map((each) => (each === before ? run : each)),
+    );
+  }
   notify();
   if (asks) void fetchProduct(key, frame.runId, fact.stepId);
 }
 
 async function fetchProduct(key: string, runId: string, stepId: string): Promise<void> {
   const answer = await hostBridge.call('getLiveWorkflowRunProduct', { runId, stepId }).catch(() => null);
-  const current = kept.get(key);
-  if (current === undefined || current.record.runId !== runId) return;
+  const runs = kept.get(key) ?? NO_RUNS;
+  const current = runs.find((run) => run.record.runId === runId);
+  if (current === undefined) return;
   const product = answer?.product ?? null;
   if (product !== null) hold.put(key, runId, stepId, product);
-  kept.set(key, { ...current, products: { ...current.products, [stepId]: product === null ? 'gone' : 'kept' } });
+  const next: KeptWorkflowRun = {
+    ...current,
+    products: { ...current.products, [stepId]: product === null ? 'gone' : 'kept' },
+  };
+  kept.set(
+    key,
+    runs.map((each) => (each === current ? next : each)),
+  );
   notify();
 }
 
@@ -77,8 +101,14 @@ export function subscribeWorkflowRuns(listener: () => void): () => void {
   };
 }
 
+/** The runs of a workflow this page saw, the newest first. */
+export function getKeptWorkflowRuns(workspaceId: string, workflowUid: string): readonly KeptWorkflowRun[] {
+  return kept.get(keyOf(workspaceId, workflowUid)) ?? NO_RUNS;
+}
+
+/** The workflow's latest run on this page. */
 export function getKeptWorkflowRun(workspaceId: string, workflowUid: string): KeptWorkflowRun | null {
-  return kept.get(keyOf(workspaceId, workflowUid)) ?? null;
+  return getKeptWorkflowRuns(workspaceId, workflowUid)[0] ?? null;
 }
 
 /** A kept step's product — `null` once the page's budget gave it up to newer runs. */

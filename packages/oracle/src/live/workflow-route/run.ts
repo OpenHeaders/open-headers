@@ -40,6 +40,7 @@ import {
   classifyRefreshHealth,
   deriveExpiresAt,
   type RunRefusal,
+  type RunTrigger,
   runChain,
   runRefusalEvents,
   UNKNOWN_STEP_PHASE,
@@ -75,6 +76,8 @@ export interface WorkflowRefreshArgs {
   bypass?: boolean;
   /** The caller's id for a run it started — the run's step events carry it. */
   runId?: string;
+  /** What started the run — its first step event says so. */
+  trigger?: RunTrigger;
 }
 
 export type WorkflowRefreshResult =
@@ -97,8 +100,8 @@ export async function runWorkflowRefresh(
   args: WorkflowRefreshArgs,
   host: WorkflowRouteHost,
 ): Promise<WorkflowRefreshResult> {
-  const { workspaceId, workflow, environmentId, bypass = false, runId } = args;
-  const onEvent = openWorkflowRunFeed({ workspaceId, workflowUid: workflow.uid, environmentId, runId });
+  const { workspaceId, workflow, environmentId, bypass = false, runId, trigger } = args;
+  const onEvent = openWorkflowRunFeed({ workspaceId, workflowUid: workflow.uid, environmentId, runId, trigger });
   const findMqttRequest = (uid: string): MqttRequest | null =>
     snapshotMqttRequestPostStates(workspaceId).find((state) => state.mqttRequest.uid === uid)?.mqttRequest ?? null;
   const checked = checkWorkflowRun(workflow, { findMqttRequest, runsScripts: getHostScriptCapability() !== null });

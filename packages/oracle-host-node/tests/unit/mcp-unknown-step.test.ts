@@ -13,6 +13,7 @@
 
 import { createServer, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
+import type { LiveWorkflowRunEventWire } from '@openheaders/core/bridge';
 import { setHostLogger } from '@openheaders/core/logger';
 import { LiveWorkflowSchema } from '@openheaders/core/schemas';
 import { setHostStorage } from '@openheaders/core/storage';
@@ -24,6 +25,7 @@ import {
   __configureRateLimiterForTests,
   __resetRateLimiterForTests,
 } from '@openheaders/oracle/live/request-exec/rate-limiter';
+import { __resetWorkflowRunFeedForTests, setWorkflowRunEventSink } from '@openheaders/oracle/live/workflow-run-feed';
 import {
   __initSyncServiceForTests,
   dispose as disposeSyncService,
@@ -147,6 +149,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  __resetWorkflowRunFeedForTests();
   __resetRateLimiterForTests();
   disposeSyncService();
 });
@@ -208,6 +211,20 @@ describe('running a workflow with steps this build does not know', () => {
       message: LISTEN_SENTENCE,
     });
     expect(hits).toEqual([]);
+  });
+
+  it('each tool’s run says on its first step event that an agent started it', async () => {
+    await receiveWorkflow();
+    const frames: LiveWorkflowRunEventWire[] = [];
+    setWorkflowRunEventSink((frame) => frames.push(frame));
+
+    await call('runs_execute', { kind: 'workflow', ref: 'Reboot' });
+    await call('workflows_run', { uid: 'wfdevice' });
+
+    expect(frames.filter((frame) => frame.seq === 0).map((frame) => frame.fact)).toMatchObject([
+      { type: 'begin', trigger: 'agent' },
+      { type: 'begin', trigger: 'agent' },
+    ]);
   });
 });
 

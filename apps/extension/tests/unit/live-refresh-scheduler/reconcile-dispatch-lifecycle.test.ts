@@ -110,8 +110,13 @@ describe('handleLiveAlarm', () => {
     expect(arg.message).toContain('scheduler-not-ready');
   });
 
-  it('calls the installed adapter on successful dispatch', async () => {
-    type RefreshArgs = { workspaceId: string; workflow: LiveWorkflow; environmentId: string | null };
+  it('calls the installed adapter on successful dispatch, as a scheduled run', async () => {
+    type RefreshArgs = {
+      workspaceId: string;
+      workflow: LiveWorkflow;
+      environmentId: string | null;
+      trigger?: string;
+    };
     const refreshSpy = vi.fn<(args: RefreshArgs) => Promise<void>>(async () => {});
     H.scheduler.__setLiveRefreshAdapter({ refreshWorkflow: refreshSpy });
     storeState.workflows = [makeWorkflow()];
@@ -125,6 +130,7 @@ describe('handleLiveAlarm', () => {
     expect(arg.workspaceId).toBe('ws-live');
     expect(arg.workflow.uid).toBe('wflow001');
     expect(arg.environmentId).toBe('env-prod');
+    expect(arg.trigger).toBe('schedule');
   });
 
   it('records a refresh-succeeded log entry when the adapter resolves', async () => {

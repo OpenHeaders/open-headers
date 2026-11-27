@@ -240,6 +240,7 @@ export const provider: RefreshProvider<LiveAlarmPayload, LiveEntry, WorkflowRunC
       workspaceId: entry.workspaceId,
       workflow: entry.workflow,
       environmentId: entry.environmentId,
+      trigger: 'schedule',
     });
   },
   async recordFailure(payload, err, job) {

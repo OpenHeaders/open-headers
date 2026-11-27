@@ -494,7 +494,7 @@ describe('what the page refuses before a run', () => {
     expect(log).toEqual(['begin', 'commit refused']);
     expect(worker.commits[0].outcome).toEqual({ kind: 'refused', stepId: 'probe', reason });
     expect(page.frames.map((frame) => frame.fact)).toMatchObject([
-      { type: 'begin' },
+      { type: 'begin', trigger: 'manual' },
       { type: 'step-settle', stepId: 'probe', settlement: { state: 'cannot-run', reason } },
       { type: 'step-settle', stepId: 'reboot', settlement: { state: 'not-run' } },
       { type: 'step-settle', stepId: 'status', settlement: { state: 'not-run' } },

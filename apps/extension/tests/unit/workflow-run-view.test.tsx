@@ -68,6 +68,7 @@ vi.mock('@openheaders/ui/shared/hooks/readers/useRequests', () => ({
 import {
   __resetWorkflowRunStoreForTests,
   getKeptWorkflowRun,
+  getKeptWorkflowRuns,
   installWorkflowRunStore,
   readKeptRunProduct,
 } from '@openheaders/ui/workbench/data/workflow-run-store';
@@ -242,15 +243,65 @@ describe('the page keeps a run from its frames', () => {
     expect(getKeptWorkflowRun('ws-run-pins', 'wfpins01')?.products).toEqual({ login: 'gone' });
   });
 
-  it('a new run of the workflow replaces the kept one and its products', async () => {
+  it('a new run of the workflow joins the kept ones as the latest; the earlier run and its products stay', async () => {
     await feed(BEGIN);
     await feed(LOGIN_PASSED);
     await feed(BEGIN, 'run-2');
 
-    const kept = getKeptWorkflowRun('ws-run-pins', 'wfpins01');
-    expect(kept?.record.runId).toBe('run-2');
-    expect(kept?.products).toEqual({});
-    expect(readKeptRunProduct('run-1', 'login')).toBeNull();
+    const latest = getKeptWorkflowRun('ws-run-pins', 'wfpins01');
+    expect(latest?.record.runId).toBe('run-2');
+    expect(latest?.products).toEqual({});
+    const runs = getKeptWorkflowRuns('ws-run-pins', 'wfpins01');
+    expect(runs.map((run) => run.record.runId)).toEqual(['run-2', 'run-1']);
+    expect(runs[1].products).toEqual({ login: 'kept' });
+    expect(readKeptRunProduct('run-1', 'login')).toMatchObject({ snapshot: { body: '{"name":"John Doe"}' } });
+  });
+
+  it('a fact lands on its own run, the latest or an earlier one still going', async () => {
+    await feed(BEGIN);
+    await feed(BEGIN, 'run-2');
+    await feed(LOGIN_START, 'run-2');
+    await feed(LOGIN_PASSED);
+    await feed(END);
+
+    const [latest, earlier] = getKeptWorkflowRuns('ws-run-pins', 'wfpins01');
+    expect(latest.record).toMatchObject({ runId: 'run-2', ended: null });
+    expect(latest.record.steps[0].state).toBe('running');
+    expect(earlier.record).toMatchObject({ runId: 'run-1', ended: { ok: false, durationMs: 21 } });
+    expect(earlier.products).toEqual({ login: 'kept' });
+  });
+
+  it('keeps what started each run, and nothing where its first frame named none', async () => {
+    await feed({ ...BEGIN, trigger: 'schedule' });
+    await feed({ ...BEGIN, trigger: 'agent' }, 'run-2');
+    await feed(BEGIN, 'run-3');
+
+    expect(getKeptWorkflowRuns('ws-run-pins', 'wfpins01').map((run) => run.record.trigger)).toEqual([
+      undefined,
+      'agent',
+      'schedule',
+    ]);
+  });
+
+  it('keeps the last twenty runs of a workflow; the run before them goes with its products', async () => {
+    await feed(BEGIN, 'run-0');
+    await feed(LOGIN_PASSED, 'run-0');
+    for (let n = 1; n <= 20; n += 1) {
+      await feed(BEGIN, `run-${n}`);
+      await feed(LOGIN_PASSED, `run-${n}`);
+    }
+
+    const runs = getKeptWorkflowRuns('ws-run-pins', 'wfpins01');
+    expect(runs).toHaveLength(20);
+    expect(runs[0].record.runId).toBe('run-20');
+    expect(runs[19].record.runId).toBe('run-1');
+    expect(readKeptRunProduct('run-0', 'login')).toBeNull();
+    expect(readKeptRunProduct('run-1', 'login')).not.toBeNull();
+  });
+
+  it('a workflow with no run on this page lists none', () => {
+    expect(getKeptWorkflowRuns('ws-run-pins', 'wfpins01')).toEqual([]);
+    expect(getKeptWorkflowRun('ws-run-pins', 'wfpins01')).toBeNull();
   });
 });
 
