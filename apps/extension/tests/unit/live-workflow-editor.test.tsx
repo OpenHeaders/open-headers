@@ -771,6 +771,14 @@ describe('LiveWorkflowEditor — the minimap and the start mark', () => {
     expect(screen.queryByTestId('wf-graph-start-step2')).toBeNull();
   });
 
+  it('a node’s header holds its request kind’s code badge, its name and its kind; a step that names no request has no badge', () => {
+    renderEditor();
+    addStep();
+
+    expect(screen.getByTestId('wf-graph-node-only').textContent).toBe('HTTPonlyCallGET Fixture requestcaptures v');
+    expect(screen.getByTestId('wf-graph-node-step2').textContent).toBe('step2CallNo request selected');
+  });
+
   it('the legend is in the row of controls, and names the minimap once there is one', async () => {
     renderEditor();
     const row = screen.getByTestId('wf-graph-zoom-in').parentElement?.parentElement;
@@ -1843,9 +1851,10 @@ describe('LiveWorkflowEditor — a workflow that holds session steps', () => {
     const { container } = renderWorkflow(sessionFixture);
 
     expect(container.querySelector('[data-needs-update]')).toBeNull();
-    expect(screen.getByTestId('wf-graph-node-probe').textContent).toBe('probeMQTTListenProbe MQTTused by status');
+    // The header first — the kind's code badge, the name, the kind's word — then the lines under it.
+    expect(screen.getByTestId('wf-graph-node-probe').textContent).toBe('MQTTprobeListenProbe MQTTused by status');
     expect(screen.getByTestId('wf-graph-node-status').textContent).toBe(
-      'statusMQTTWaitdevices/dev-1/statuson probe · after reboot',
+      'MQTTstatusWaitdevices/dev-1/statuson probe · after reboot',
     );
     expect(screen.getByTestId('wf-graph-armed-status').textContent).toBe('on probe · after reboot');
     expect(screen.queryByTestId('wf-graph-armed-probe')).toBeNull();
@@ -1870,7 +1879,7 @@ describe('LiveWorkflowEditor — a workflow that holds session steps', () => {
     renderWorkflow(capturing);
 
     expect(screen.getByTestId('wf-graph-node-status').textContent).toBe(
-      'statusMQTTWaitdevices/dev-1/statuson probe · after reboot · captures state',
+      'MQTTstatusWaitdevices/dev-1/statuson probe · after reboot · captures state',
     );
     expect(screen.getByTestId('wf-graph-node-status').querySelector('[data-lv-published]')).toBeNull();
   });

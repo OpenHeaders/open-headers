@@ -1,16 +1,17 @@
 /**
- * WorkflowGraphNode — one step on the workflow graph, as the workflows
- * redesign draws it: a fixed card with the step's state glyph on the
- * left and four lines that never wrap — the step's name with its
- * protocol and its kind, what it does, its key setting, and what the
- * last run made of it. A selected node wears the accent ring, whatever
- * its state.
+ * WorkflowGraphNode — one step on the workflow graph: a fixed card
+ * with a header band across its top (the workflow runs plan, Decisions
+ * log, S34) — the code badge of the kind of request the step speaks,
+ * the step's name, its kind in a word at the band's end — and under it
+ * the step's state glyph beside three lines that never wrap: what it
+ * does, its key setting, and what the last run made of it. A selected
+ * node wears the accent ring, whatever its state.
  *
- * Its sizes are one step under the design's: the whole workflow view
- * is drawn that much smaller, to hold more.
+ * Its sizes are one step under the workflows redesign's: the whole
+ * workflow view is drawn that much smaller, to hold more.
  *
- * Beside the name sit two marks the design does not draw: a capture
- * sets the step's order, the draft says something is wrong with it.
+ * Beside the name sit two marks: a capture sets the step's order, the
+ * draft says something is wrong with it.
  *
  * A step that waits on no other wears a bar in the accent on its top
  * edge (the workflow runs plan, Decisions log, S31): a run starts there.
@@ -26,15 +27,21 @@ import type { LiveVariable } from '@openheaders/core/types';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { Tooltip } from 'antd';
 import type React from 'react';
-import type { RequestKind } from '../../request-kind-menu';
+import { type RequestKind, requestKindMeta } from '../../request-kind-menu';
+import { codeBadge } from '../shared/code-badge';
+import { REQUEST_KIND_COLORS } from '../sidebar/icons';
 import { STEP_MARK_INK } from './StepGlyph';
 import StepRunMark from './StepRunMark';
-import { KindTag, ProtocolTag } from './StepTags';
+import { KindTag } from './StepTags';
 import type { StepDoes } from './step-facts';
 import type { StepMark } from './step-mark';
 
 export const GRAPH_NODE_W = 208;
 export const GRAPH_NODE_H = 82;
+const NODE_RADIUS = 12;
+/** The band across the node's top, and the slot its code badge keeps so names line up from node to node. */
+const HEADER_H = 24;
+const BADGE_W = 30;
 /** The bar on the top edge of a step a run starts at. */
 const START_BAR_H = 3;
 
@@ -188,11 +195,9 @@ const WorkflowGraphNode: React.FC<WorkflowGraphNodeProps> = ({
         width: GRAPH_NODE_W,
         height: GRAPH_NODE_H,
         boxSizing: 'border-box',
-        padding: '0 12px',
         display: 'flex',
-        alignItems: 'center',
-        gap: 9,
-        borderRadius: 12,
+        flexDirection: 'column',
+        borderRadius: NODE_RADIUS,
         background: 'var(--oh-wf-surface)',
         color: 'var(--oh-wf-text)',
         boxShadow: ring,
@@ -221,70 +226,88 @@ const WorkflowGraphNode: React.FC<WorkflowGraphNodeProps> = ({
           />
         </span>
       )}
-      <StepRunMark stepId={stepId} mark={mark} />
-      <span style={{ flex: 1, minWidth: 0 }}>
-        <span style={{ display: 'flex', alignItems: 'center', gap: 5, height: 18 }}>
-          <b
-            style={{
-              minWidth: 0,
-              fontSize: 12,
-              fontWeight: 600,
-              whiteSpace: 'nowrap',
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-              color: needsUpdate ? 'var(--oh-wf-text-secondary)' : undefined,
-            }}
+      <span
+        style={{
+          flex: 'none',
+          boxSizing: 'border-box',
+          height: HEADER_H,
+          padding: '0 10px 0 12px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: 6,
+          borderRadius: `${NODE_RADIUS}px ${NODE_RADIUS}px 0 0`,
+          borderBottom: '1px solid var(--oh-wf-card-border)',
+          background: 'var(--oh-wf-card-head)',
+        }}
+      >
+        {protocol !== null && codeBadge(requestKindMeta(protocol).code, BADGE_W, REQUEST_KIND_COLORS[protocol])}
+        <b
+          style={{
+            minWidth: 0,
+            fontSize: 12,
+            fontWeight: 600,
+            whiteSpace: 'nowrap',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            color: needsUpdate ? 'var(--oh-wf-text-secondary)' : undefined,
+          }}
+        >
+          {stepId}
+        </b>
+        {priorityLabel !== '' && (
+          <Tooltip title={priorityLabel}>
+            <SortAscendingOutlined style={{ flex: 'none', fontSize: 11, color: 'var(--oh-wf-quiet)' }} />
+          </Tooltip>
+        )}
+        {errors.length > 0 && (
+          <Tooltip
+            title={
+              <div>
+                {errors.map((message) => (
+                  <div key={message} style={{ fontSize: 11 }}>
+                    {message}
+                  </div>
+                ))}
+              </div>
+            }
           >
-            {stepId}
-          </b>
-          {protocol !== null && <ProtocolTag kind={protocol} size="node" />}
-          {kind !== '' && <KindTag size="node">{kind}</KindTag>}
-          {priorityLabel !== '' && (
-            <Tooltip title={priorityLabel}>
-              <SortAscendingOutlined style={{ flex: 'none', fontSize: 11, color: 'var(--oh-wf-quiet)' }} />
-            </Tooltip>
+            <WarningOutlined
+              data-testid={`wf-graph-error-${stepId}`}
+              style={{ flex: 'none', fontSize: 11, color: 'var(--ant-color-error)' }}
+            />
+          </Tooltip>
+        )}
+        <span style={{ flex: 1 }} />
+        {kind !== '' && <KindTag size="node">{kind}</KindTag>}
+      </span>
+      <span style={{ flex: 1, minHeight: 0, padding: '0 12px', display: 'flex', alignItems: 'center', gap: 9 }}>
+        <StepRunMark stepId={stepId} mark={mark} />
+        <span style={{ flex: 1, minWidth: 0 }}>
+          {does.text !== '' && (
+            <span style={{ ...LINE, color: does.muted ? 'var(--oh-wf-text-secondary)' : undefined }}>
+              {does.lead !== undefined && does.lead !== '' && (
+                <span style={{ fontSize: 10, fontWeight: 600, color: 'var(--oh-wf-text-secondary)' }}>
+                  {does.lead}{' '}
+                </span>
+              )}
+              <span style={does.mono ? { fontFamily: MONO } : undefined}>{does.text}</span>
+            </span>
           )}
-          {errors.length > 0 && (
-            <Tooltip
-              title={
-                <div>
-                  {errors.map((message) => (
-                    <div key={message} style={{ fontSize: 11 }}>
-                      {message}
-                    </div>
-                  ))}
-                </div>
-              }
+          {setting.length > 0 && (
+            <span style={{ ...LINE, color: 'var(--oh-wf-text-secondary)' }}>
+              {setting.flatMap((part, index) => (index === 0 ? [part] : [' · ', part]))}
+            </span>
+          )}
+          {mark.text !== '' && (
+            <span
+              data-testid={`wf-graph-result-${stepId}`}
+              title={mark.detail !== undefined ? `${mark.text}: ${mark.detail}` : mark.text}
+              style={{ ...LINE, color: STEP_MARK_INK[mark.kind] }}
             >
-              <WarningOutlined
-                data-testid={`wf-graph-error-${stepId}`}
-                style={{ flex: 'none', fontSize: 11, color: 'var(--ant-color-error)' }}
-              />
-            </Tooltip>
+              {mark.text}
+            </span>
           )}
         </span>
-        {does.text !== '' && (
-          <span style={{ ...LINE, color: does.muted ? 'var(--oh-wf-text-secondary)' : undefined }}>
-            {does.lead !== undefined && does.lead !== '' && (
-              <span style={{ fontSize: 10, fontWeight: 600, color: 'var(--oh-wf-text-secondary)' }}>{does.lead} </span>
-            )}
-            <span style={does.mono ? { fontFamily: MONO } : undefined}>{does.text}</span>
-          </span>
-        )}
-        {setting.length > 0 && (
-          <span style={{ ...LINE, color: 'var(--oh-wf-text-secondary)' }}>
-            {setting.flatMap((part, index) => (index === 0 ? [part] : [' · ', part]))}
-          </span>
-        )}
-        {mark.text !== '' && (
-          <span
-            data-testid={`wf-graph-result-${stepId}`}
-            title={mark.detail !== undefined ? `${mark.text}: ${mark.detail}` : mark.text}
-            style={{ ...LINE, color: STEP_MARK_INK[mark.kind] }}
-          >
-            {mark.text}
-          </span>
-        )}
       </span>
     </div>
   );
