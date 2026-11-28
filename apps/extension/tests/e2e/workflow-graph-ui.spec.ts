@@ -413,8 +413,9 @@ test('graph editing: connect adds a dependsOn edge, edge remove, add step, cycle
   await expect(page.getByTestId('wf-graph-edge-b-c')).toHaveCount(1);
   await expect(saveButton).toBeEnabled();
 
-  // Step c's Depends on card shows the materialized explicit parents, a row each.
+  // Step c's Depends on card, on its Flow tab, shows the materialized explicit parents, a row each.
   await page.getByTestId('wf-graph-node-c').click();
+  await page.getByTestId('wf-step-tab-flow').filter({ visible: true }).first().click();
   const cDeps = page.locator('[data-step-card="c"]').getByTestId('wf-step-2-deps');
   await expect(cDeps.getByTestId('wf-step-2-dep-a')).toBeVisible();
   await expect(cDeps.getByTestId('wf-step-2-dep-b')).toBeVisible();
@@ -608,21 +609,25 @@ test('run overlay: per-node states, masked value reveal, publication split', asy
   await expect(page.getByTestId('wf-graph-edge-introspect-refresh')).toHaveAttribute('data-truth', 'not-taken');
   await expect(page.getByTestId('wf-graph-edge-label-introspect-refresh')).toHaveText('if active = "false"');
 
-  // Captured values are the step's panel's to show, in its Captures card: masked
-  // by default, the card's one eye an explicit click; the row names who reads it.
+  // Captured values are the step's panel's to show, in the Captures card of its Data tab:
+  // masked by default, the card's one eye an explicit click; the row names who reads it.
   await page.getByTestId('wf-graph-node-introspect').filter({ visible: true }).first().click();
+  const dataTab = page.getByTestId('wf-step-tab-data').filter({ visible: true }).first();
+  await dataTab.click();
   await expect(page.getByTestId('wf-step-0-capture-0-name')).toHaveValue('active');
   await expect(page.getByTestId('wf-step-0-capture-0-used-by')).toHaveText('refresh');
   const lastValue = page.getByTestId('wf-step-0-capture-0-last');
   await expect(lastValue).toContainText('••••••••');
   await page.getByTestId('wf-step-0-captures-reveal').click();
   await expect(lastValue).toContainText('true');
-  // And the step that reads it says so, with the way back.
+  // And the step that reads it says so, with the way back: each opens on the tab the last was on.
   await page.getByTestId('wf-graph-node-refresh').filter({ visible: true }).first().click();
+  await expect(dataTab).toHaveAttribute('aria-selected', 'true');
   await expect(page.getByTestId('wf-step-1-use-0')).toContainText('introspect.active');
   await expect(page.getByTestId('wf-step-1-use-0')).toContainText('Run condition');
   await page.getByTestId('wf-step-1-use-0').getByRole('button', { name: 'Go to step' }).click();
   await expect(page.locator('[data-step-card="introspect"]').filter({ visible: true })).toBeVisible();
+  await expect(dataTab).toHaveAttribute('aria-selected', 'true');
 
   // Publication split: the run produced introspect.active, so its LV is
   // live; refresh.token was never produced — pending first run.

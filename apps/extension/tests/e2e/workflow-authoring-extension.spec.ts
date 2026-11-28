@@ -113,8 +113,9 @@ async function addStepOnRequest(search: string, path: string): Promise<void> {
   await page.keyboard.press('Enter');
 }
 
-/** Add a capture row to a step and set it to read a JSON path. */
+/** Add a capture row to the open step, on its Data tab, and set it to read a JSON path. */
 async function addJsonCapture(index: number, row: number, name: string, jsonPath: string): Promise<void> {
+  await page.getByTestId('wf-step-tab-data').filter({ visible: true }).first().click();
   const captures = page.locator(`[data-field-path="steps.${index}.captures"]`).filter({ visible: true });
   await captures.locator('button').filter({ hasText: 'Add capture' }).click();
   const captureRow = page.getByTestId(`wf-step-${index}-capture-${row}`).filter({ visible: true });

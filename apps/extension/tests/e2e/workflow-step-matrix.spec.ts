@@ -153,6 +153,13 @@ async function openStep(page: Page, stepId: string): Promise<Locator> {
   return stepCard;
 }
 
+/** Open a tab of the open step's panel: the cards of its other tabs are not in the page. */
+async function openTab(page: Page, tab: 'setup' | 'flow' | 'data' | 'last-run'): Promise<void> {
+  const button = page.getByTestId(`wf-step-tab-${tab}`).filter({ visible: true }).first();
+  await button.click();
+  await expect(button).toHaveAttribute('aria-selected', 'true');
+}
+
 /** A step's Priority card, by the step's place among the steps. */
 function priorityCard(page: Page, index: number): Locator {
   return page.getByTestId(`wf-step-${index}-priority`);
@@ -254,9 +261,27 @@ test('seeded combinations render in the cards, and survive a step being closed a
   await expect(page.getByTestId('wf-graph-pane')).toBeVisible();
   await expect(page.locator('[data-step-card]')).toHaveCount(0);
 
-  // Every dimension per step: each card says its own.
-  // s1 names no dependency and no step is before it: it starts with the workflow.
+  // Every dimension per step: each card says its own, on its tab — a step
+  // opens on Setup, and the next one on the tab the last was on.
+  // s1's Request, Retry policy and Timeout cards carry the persisted policy and ceiling.
   await openStep(page, 's1');
+  await expect(page.getByTestId('wf-step-tab-setup').filter({ visible: true })).toHaveAttribute(
+    'aria-selected',
+    'true',
+  );
+  await expect(scriptsCheckbox(page, 0)).toBeChecked();
+  await expect(page.getByTestId('wf-step-0-retry')).toBeVisible();
+  await expect(numberInput(page, 'wf-step-0-retry-attempts')).toHaveValue('3');
+  await expect(numberInput(page, 'wf-step-0-retry-delay')).toHaveValue('500');
+  await expect(page.getByTestId('wf-step-0-retry-backoff')).toContainText('Exponential');
+  await expect(page.getByTestId('wf-step-0-retry-on')).toContainText('Network + 5xx');
+  await expect(numberInput(page, 'wf-step-0-timeout')).toHaveValue('5000');
+  // A card of another tab is not in the page.
+  await expect(depsCard(page, 0)).toHaveCount(0);
+
+  // s1 names no dependency and no step is before it: it starts with the workflow.
+  await openTab(page, 'flow');
+  await expect(page.getByTestId('wf-step-0-retry')).toHaveCount(0);
   await expect(depsCard(page, 0)).toContainText('Nothing. This step starts with the workflow.');
   await expect(depsCard(page, 0).getByRole('button', { name: 'Reset' })).toHaveCount(0);
   await expect(gateCard(page, 0).getByTestId('gate-clause-0')).toHaveCount(0);
@@ -265,20 +290,11 @@ test('seeded combinations render in the cards, and survive a step being closed a
   );
   await expect(page.getByTestId('wf-step-0-priority-step')).toContainText('None');
   await expect(priorityCard(page, 0).getByRole('button', { name: 'Clear' })).toHaveCount(0);
-  await expect(scriptsCheckbox(page, 0)).toBeChecked();
 
-  // s1's Retry policy and Timeout cards carry the persisted policy and ceiling.
-  await expect(page.getByTestId('wf-step-0-retry')).toBeVisible();
-  await expect(numberInput(page, 'wf-step-0-retry-attempts')).toHaveValue('3');
-  await expect(numberInput(page, 'wf-step-0-retry-delay')).toHaveValue('500');
-  await expect(page.getByTestId('wf-step-0-retry-backoff')).toContainText('Exponential');
-  await expect(page.getByTestId('wf-step-0-retry-on')).toContainText('Network + 5xx');
-  await expect(numberInput(page, 'wf-step-0-timeout')).toHaveValue('5000');
-
-  // The panel shows one step: opening another replaces the card, and the first step's cards go with it.
+  // The panel shows one step: opening another replaces the card, on the tab that was open.
   await openStep(page, 's2');
   await expect(page.locator('[data-step-card]')).toHaveCount(1);
-  await expect(page.getByTestId('wf-step-0-retry')).toHaveCount(0);
+  await expect(depsCard(page, 0)).toHaveCount(0);
   await expect(page.getByTestId('wf-step-1-dep-s1')).toBeVisible();
   await expect(depsCard(page, 1)).toContainText('Chosen for this step.');
   await expect(gateCard(page, 1).getByTestId('gate-clause-0')).toBeVisible();
@@ -286,6 +302,8 @@ test('seeded combinations render in the cards, and survive a step being closed a
   await expect(gateCard(page, 1).getByTestId('gate-summary')).toHaveText('Runs when every condition holds: s1 201.');
   await expect(page.getByTestId('wf-step-1-priority-step')).toContainText('s1');
   await expect(page.getByTestId('wf-step-1-priority-capture')).toContainText('token');
+  await openTab(page, 'setup');
+  await expect(page.getByTestId('wf-step-0-retry')).toHaveCount(0);
   await expect(numberInput(page, 'wf-step-1-retry-attempts')).toHaveValue('2');
   await expect(page.getByTestId('wf-step-1-retry-backoff')).toContainText('Fixed');
   await expect(numberInput(page, 'wf-step-1-timeout')).toHaveValue('');
@@ -293,26 +311,28 @@ test('seeded combinations render in the cards, and survive a step being closed a
 
   // s3 names an empty list: a root by its own word, so Reset is offered.
   await openStep(page, 's3');
-  await expect(depsCard(page, 2)).toContainText('Nothing. This step starts with the workflow.');
-  await expect(depsCard(page, 2).getByRole('button', { name: 'Reset' })).toBeVisible();
   await expect(numberInput(page, 'wf-step-2-timeout')).toHaveValue('100');
   await expect(numberInput(page, 'wf-step-2-retry-attempts')).toHaveValue('');
   await expect(numberInput(page, 'wf-step-2-retry-delay')).toBeDisabled();
+  await openTab(page, 'flow');
+  await expect(depsCard(page, 2)).toContainText('Nothing. This step starts with the workflow.');
+  await expect(depsCard(page, 2).getByRole('button', { name: 'Reset' })).toBeVisible();
 
   await openStep(page, 's4');
   await expect(page.getByTestId('wf-step-3-dep-s2')).toBeVisible();
   await expect(page.getByTestId('wf-step-3-dep-s3')).toBeVisible();
-  await expect(numberInput(page, 'wf-step-3-retry-attempts')).toHaveValue('5');
-
-  // s4's retry: the data-authored ['ne', 500] renders as the
-  // read-only Custom entry — never silently rewritten.
-  await expect(page.getByTestId('wf-step-3-retry-on')).toContainText('Custom (edited as data)');
 
   // s4's gate: both clause kinds render their persisted values.
   const s4Gate = gateCard(page, 3);
   await expect(s4Gate.getByTestId('gate-clause-0-value')).toHaveValue('abc');
   await expect(s4Gate.getByTestId('gate-clause-1-pattern')).toHaveValue('^on$');
   await expect(s4Gate.getByTestId('gate-clause-2')).toHaveCount(0);
+
+  // s4's retry: the data-authored ['ne', 500] renders as the
+  // read-only Custom entry — never silently rewritten.
+  await openTab(page, 'setup');
+  await expect(numberInput(page, 'wf-step-3-retry-attempts')).toHaveValue('5');
+  await expect(page.getByTestId('wf-step-3-retry-on')).toContainText('Custom (edited as data)');
 
   // Reading never dirties the draft; what a step says survives its being closed and reopened.
   await expect(saveButton).toBeDisabled();
@@ -322,6 +342,7 @@ test('seeded combinations render in the cards, and survive a step being closed a
   await expect(numberInput(page, 'wf-step-0-retry-attempts')).toHaveValue('3');
   await expect(page.getByTestId('wf-step-0-retry-backoff')).toContainText('Exponential');
   await openStep(page, 's3');
+  await openTab(page, 'flow');
   await expect(depsCard(page, 2)).toContainText('Nothing. This step starts with the workflow.');
   await expect(saveButton).toBeDisabled();
 
@@ -386,6 +407,7 @@ test('editing every knob through the UI persists the exact step fields on Save',
   // c names no dependency, so it waits for b, the step before it. Add
   // takes one step a pick, and the first pick writes the list out.
   await openStep(page, 'c');
+  await openTab(page, 'flow');
   await expect(page.getByTestId('wf-step-2-dep-b')).toBeVisible();
   await expect(depsCard(page, 2)).toContainText('By default it waits for the step before it.');
   await pickOption(page, page.getByTestId('wf-step-2-deps-select'), 'a');
@@ -502,6 +524,12 @@ test('clearing every knob removes the fields and persists the deletions', async 
   await page.getByTestId('wf-step-1-timeout-section').getByRole('button', { name: 'Clear' }).click();
   await expect(numberInput(page, 'wf-step-1-timeout')).toHaveValue('');
 
+  // Unticking scripts deletes the field (absent is canonical).
+  await scriptsCheckbox(page, 1).uncheck();
+  await expect(scriptsCheckbox(page, 1)).not.toBeChecked();
+
+  // The rest is on the step's Flow tab.
+  await openTab(page, 'flow');
   await priorityCard(page, 1).getByRole('button', { name: 'Clear' }).click();
   await expect(priorityCard(page, 1).getByRole('button', { name: 'Clear' })).toHaveCount(0);
   await expect(page.getByTestId('wf-step-1-priority-step')).toContainText('None');
@@ -517,10 +545,6 @@ test('clearing every knob removes the fields and persists the deletions', async 
   await depsCard(page, 1).getByRole('button', { name: 'Reset' }).click();
   await expect(page.getByTestId('wf-step-1-dep-a')).toBeVisible();
   await expect(depsCard(page, 1)).toContainText('By default it waits for the step before it.');
-
-  // Unticking scripts deletes the field (absent is canonical).
-  await scriptsCheckbox(page, 1).uncheck();
-  await expect(scriptsCheckbox(page, 1)).not.toBeChecked();
 
   await expect(saveButton).toBeEnabled();
   await saveButton.click();

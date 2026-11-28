@@ -400,8 +400,9 @@ test('W2 — a reboot commanded over HTTP is acknowledged over MQTT on a raw TCP
   await expect(runRow('reboot')).toContainText('202');
   await expect(runRow('status')).toContainText('Matched after');
 
-  // The step opens to its window: the one message on the address, and it matched.
+  // The step's Last run tab opens to its window: the one message on the address, and it matched.
   await runRow('status').click();
+  await page.getByTestId('wf-step-tab-last-run').filter({ visible: true }).first().click();
   const message = page.getByTestId('wf-run-message').filter({ visible: true }).first();
   await expect(message.getByTestId('wf-run-message-row-0')).toContainText('Matched');
   await expect(message.getByTestId('wf-run-message-fields')).toContainText('devices/dev-1/status');

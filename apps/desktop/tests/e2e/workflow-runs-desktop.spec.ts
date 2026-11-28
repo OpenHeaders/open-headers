@@ -255,9 +255,10 @@ test('R1 — a reboot commanded over HTTP is acknowledged over MQTT: the answer 
   await expect(runRow('reboot')).toContainText('202');
   await expect(runRow('status')).toContainText('Matched after');
 
-  // The row opens its step, and the step shows its window: the one message on the address, and it matched.
+  // The row opens its step, and the step's Last run tab shows its window: the one message on the address, and it matched.
   await runRow('status').click();
   await expect(workbench.locator('[data-step-card="status"]').filter({ visible: true })).toBeVisible();
+  await workbench.getByTestId('wf-step-tab-last-run').filter({ visible: true }).first().click();
   const message = workbench.getByTestId('wf-run-message').filter({ visible: true }).first();
   await expect(message.getByTestId('wf-run-message-row-0')).toContainText('Matched');
   await expect(message.getByTestId('wf-run-message-fields')).toContainText('devices/dev-1/status');
