@@ -906,6 +906,50 @@ export const workbenchSettingsDefs = {
     "nouvelle version. Désactivé, rien n'est téléchargé tant que vous ne choisissez pas « Mettre à jour et " +
     "redémarrer ». Dans les deux cas, l'application ne redémarre jamais d'elle-même.",
 
+  // A classic Windows install switching to the Windows package: the row,
+  // why a switch may not begin, its dialog, and how one that stopped is said.
+  'workbench.settings.def.updates.installType.label': "Type d'installation",
+  'workbench.settings.def.updates.installType.description':
+    "Le package Windows s'installe et se met à jour par Windows lui-même. Le changement conserve vos données.",
+  'workbench.settings.def.updates.installType.value.classic': "Programme d'installation classique",
+  'workbench.settings.def.updates.installType.action.label': 'Passer au package Windows…',
+  'workbench.settings.def.updates.installType.checking': 'Vérification…',
+  'workbench.settings.def.updates.installType.working':
+    'Changement en cours. Suivez la fenêtre du programme Open Headers Installer.',
+  'workbench.settings.def.updates.installType.reason.windowsTooOld':
+    'Le package Windows nécessite Windows 10 version 2004 ou ultérieure.',
+  'workbench.settings.def.updates.installType.reason.cannotSwitch':
+    "Cette copie de l'application ne peut pas effectuer le changement.",
+  'workbench.settings.def.updates.installType.reason.dataFolder':
+    'Votre dossier de données est un lien ou se trouve sur un autre lecteur, et ne peut pas être transmis.',
+  'workbench.settings.def.updates.installType.reason.packageInstalled':
+    "Le package Windows est déjà installé. Désinstallez-le d'abord dans les Paramètres Windows.",
+  'workbench.settings.def.updates.installType.reason.packageDataLeft':
+    "Un package Windows antérieur a laissé des données dans {path}. Déplacez ou supprimez d'abord ce dossier.",
+  'workbench.settings.def.updates.installType.reason.feedUnread':
+    'Impossible de vérifier la disponibilité du package Windows.',
+  'workbench.settings.def.updates.installType.reason.noPackageOffered':
+    "Le canal {channel} n'a pas encore de package Windows.",
+  'workbench.settings.def.updates.installType.reason.heldBack': 'Le package Windows est retenu pour le moment.',
+  'workbench.settings.def.updates.installType.reason.packageOlder':
+    'Le package Windows du canal {channel} ({version}) est plus ancien que cette application.',
+  'workbench.settings.def.updates.installType.confirm.title': 'Passer au package Windows ?',
+  'workbench.settings.def.updates.installType.confirm.does':
+    "Installe la version {version} en tant que package Windows et supprime cette installation. L'application se ferme puis se rouvre.",
+  'workbench.settings.def.updates.installType.confirm.kept':
+    'Conservés : vos espaces de travail, vos réglages et vos secrets enregistrés. À refaire : une épingle dans la barre des tâches, et une commande de client MCP que vous avez collée.',
+  'workbench.settings.def.updates.installType.confirm.ok': 'Changer',
+  'workbench.settings.def.updates.installType.stopped.thisPc': 'Ce PC ne peut pas installer le package Windows.',
+  'workbench.settings.def.updates.installType.stopped.download':
+    "Le package n'a pas pu être téléchargé. Rien n'a été modifié.",
+  'workbench.settings.def.updates.installType.stopped.install':
+    "Windows n'a pas pu installer le package. Rien n'a été modifié.",
+  'workbench.settings.def.updates.installType.stopped.packageStart':
+    "Le package Windows n'a pas démarré. Rien n'a été modifié.",
+  'workbench.settings.def.updates.installType.stopped.appStayed':
+    "L'application ne s'est pas fermée à temps. Rien n'a été modifié.",
+  'workbench.settings.def.updates.installType.stopped.other': "Le changement s'est arrêté. Rien n'a été modifié.",
+
   // ── About category defs ────────────────────────────────────────────
   'workbench.settings.def.about.version.label': 'Version',
   'workbench.settings.def.about.version.description': "La version de l'extension actuellement installée.",

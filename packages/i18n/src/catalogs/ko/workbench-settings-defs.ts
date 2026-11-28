@@ -718,6 +718,47 @@ export const workbenchSettingsDefs = {
   'workbench.settings.def.updates.autoDownload.description':
     '업데이트가 발견되면 바로 백그라운드에서 받아, 설치가 “업데이트 후 다시 시작” 한 번으로 끝나고 앱을 종료했다가 다시 열기만 해도 새 버전이 시작되게 합니다. 끄면 직접 “업데이트 후 다시 시작”을 고르기 전까지 아무것도 다운로드하지 않습니다. 어느 쪽이든 앱은 스스로 다시 시작하지 않습니다.',
 
+  // A classic Windows install switching to the Windows package: the row,
+  // why a switch may not begin, its dialog, and how one that stopped is said.
+  'workbench.settings.def.updates.installType.label': '설치 유형',
+  'workbench.settings.def.updates.installType.description':
+    'Windows 패키지는 Windows 자체를 통해 설치되고 업데이트됩니다. 전환해도 데이터는 유지됩니다.',
+  'workbench.settings.def.updates.installType.value.classic': '기존 설치 프로그램',
+  'workbench.settings.def.updates.installType.action.label': 'Windows 패키지로 전환…',
+  'workbench.settings.def.updates.installType.checking': '확인 중…',
+  'workbench.settings.def.updates.installType.working': '전환 중입니다. Open Headers Installer 창의 안내를 따르세요.',
+  'workbench.settings.def.updates.installType.reason.windowsTooOld':
+    'Windows 패키지에는 Windows 10 버전 2004 이상이 필요합니다.',
+  'workbench.settings.def.updates.installType.reason.cannotSwitch': '이 앱 복사본으로는 전환할 수 없습니다.',
+  'workbench.settings.def.updates.installType.reason.dataFolder':
+    '데이터 폴더가 링크이거나 다른 드라이브에 있어 넘겨줄 수 없습니다.',
+  'workbench.settings.def.updates.installType.reason.packageInstalled':
+    'Windows 패키지가 이미 설치되어 있습니다. 먼저 Windows 설정에서 제거하세요.',
+  'workbench.settings.def.updates.installType.reason.packageDataLeft':
+    '이전 Windows 패키지가 {path} 폴더에 데이터를 남겼습니다. 먼저 해당 폴더를 옮기거나 삭제하세요.',
+  'workbench.settings.def.updates.installType.reason.feedUnread': 'Windows 패키지를 확인하지 못했습니다.',
+  'workbench.settings.def.updates.installType.reason.noPackageOffered':
+    '{channel} 채널에는 아직 Windows 패키지가 없습니다.',
+  'workbench.settings.def.updates.installType.reason.heldBack': 'Windows 패키지는 현재 보류 중입니다.',
+  'workbench.settings.def.updates.installType.reason.packageOlder':
+    '{channel} 채널의 Windows 패키지는 이 앱보다 오래된 {version} 버전입니다.',
+  'workbench.settings.def.updates.installType.confirm.title': 'Windows 패키지로 전환하시겠습니까?',
+  'workbench.settings.def.updates.installType.confirm.does':
+    '{version} 버전을 Windows 패키지로 설치하고 현재 설치를 제거합니다. 앱이 닫혔다가 다시 열립니다.',
+  'workbench.settings.def.updates.installType.confirm.kept':
+    '유지되는 항목: 워크스페이스, 설정, 저장된 시크릿입니다. 다시 해야 하는 항목: 작업 표시줄 고정과 붙여넣은 MCP 클라이언트 명령입니다.',
+  'workbench.settings.def.updates.installType.confirm.ok': '전환',
+  'workbench.settings.def.updates.installType.stopped.thisPc': '이 컴퓨터에는 Windows 패키지를 설치할 수 없습니다.',
+  'workbench.settings.def.updates.installType.stopped.download':
+    '패키지를 다운로드하지 못했습니다. 아무것도 변경되지 않았습니다.',
+  'workbench.settings.def.updates.installType.stopped.install':
+    'Windows 시스템이 패키지를 설치하지 못했습니다. 아무것도 변경되지 않았습니다.',
+  'workbench.settings.def.updates.installType.stopped.packageStart':
+    'Windows 패키지가 시작되지 않았습니다. 아무것도 변경되지 않았습니다.',
+  'workbench.settings.def.updates.installType.stopped.appStayed':
+    '앱이 제때 닫히지 않았습니다. 아무것도 변경되지 않았습니다.',
+  'workbench.settings.def.updates.installType.stopped.other': '전환이 중단되었습니다. 아무것도 변경되지 않았습니다.',
+
   // ── About category defs ────────────────────────────────────────────
   'workbench.settings.def.about.version.label': '버전',
   'workbench.settings.def.about.version.description': '현재 설치된 확장 프로그램 버전입니다.',

@@ -931,6 +931,50 @@ export const workbenchSettingsDefs = {
     'versión. Desactivado, no se descarga nada hasta que eliges «Actualizar y reiniciar». En ambos casos, la ' +
     'aplicación nunca se reinicia por sí sola.',
 
+  // A classic Windows install switching to the Windows package: the row,
+  // why a switch may not begin, its dialog, and how one that stopped is said.
+  'workbench.settings.def.updates.installType.label': 'Tipo de instalación',
+  'workbench.settings.def.updates.installType.description':
+    'El paquete de Windows se instala y se actualiza a través del propio Windows. El cambio conserva tus datos.',
+  'workbench.settings.def.updates.installType.value.classic': 'Instalador clásico',
+  'workbench.settings.def.updates.installType.action.label': 'Cambiar al paquete de Windows…',
+  'workbench.settings.def.updates.installType.checking': 'Comprobando…',
+  'workbench.settings.def.updates.installType.working':
+    'Cambiando. Sigue la ventana del programa Open Headers Installer.',
+  'workbench.settings.def.updates.installType.reason.windowsTooOld':
+    'El paquete de Windows necesita Windows 10 versión 2004 o posterior.',
+  'workbench.settings.def.updates.installType.reason.cannotSwitch':
+    'Esta copia de la aplicación no puede hacer el cambio.',
+  'workbench.settings.def.updates.installType.reason.dataFolder':
+    'Tu carpeta de datos es un enlace o está en otra unidad, y no se puede traspasar.',
+  'workbench.settings.def.updates.installType.reason.packageInstalled':
+    'El paquete de Windows ya está instalado. Desinstálalo primero en la Configuración de Windows.',
+  'workbench.settings.def.updates.installType.reason.packageDataLeft':
+    'Un paquete de Windows anterior dejó datos en {path}. Mueve o elimina primero esa carpeta.',
+  'workbench.settings.def.updates.installType.reason.feedUnread':
+    'No se ha podido comprobar si hay paquete de Windows.',
+  'workbench.settings.def.updates.installType.reason.noPackageOffered':
+    'El canal {channel} aún no tiene paquete de Windows.',
+  'workbench.settings.def.updates.installType.reason.heldBack': 'El paquete de Windows está retenido por ahora.',
+  'workbench.settings.def.updates.installType.reason.packageOlder':
+    'El paquete de Windows del canal {channel} ({version}) es anterior a esta aplicación.',
+  'workbench.settings.def.updates.installType.confirm.title': '¿Cambiar al paquete de Windows?',
+  'workbench.settings.def.updates.installType.confirm.does':
+    'Instala la versión {version} como paquete de Windows y quita esta instalación. La aplicación se cierra y vuelve a abrirse.',
+  'workbench.settings.def.updates.installType.confirm.kept':
+    'Se conservan: tus espacios de trabajo, ajustes y secretos guardados. Hay que rehacer: un anclaje en la barra de tareas y un comando de cliente MCP que hayas pegado.',
+  'workbench.settings.def.updates.installType.confirm.ok': 'Cambiar',
+  'workbench.settings.def.updates.installType.stopped.thisPc': 'Este PC no puede instalar el paquete de Windows.',
+  'workbench.settings.def.updates.installType.stopped.download':
+    'No se ha podido descargar el paquete. No se ha cambiado nada.',
+  'workbench.settings.def.updates.installType.stopped.install':
+    'Windows no ha podido instalar el paquete. No se ha cambiado nada.',
+  'workbench.settings.def.updates.installType.stopped.packageStart':
+    'El paquete de Windows no se ha iniciado. No se ha cambiado nada.',
+  'workbench.settings.def.updates.installType.stopped.appStayed':
+    'La aplicación no se ha cerrado a tiempo. No se ha cambiado nada.',
+  'workbench.settings.def.updates.installType.stopped.other': 'El cambio se ha detenido. No se ha cambiado nada.',
+
   // ── About category defs ────────────────────────────────────────────
   'workbench.settings.def.about.version.label': 'Versión',
   'workbench.settings.def.about.version.description': 'La versión de la extensión instalada actualmente.',

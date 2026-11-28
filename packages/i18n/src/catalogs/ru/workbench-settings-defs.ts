@@ -751,6 +751,45 @@ export const workbenchSettingsDefs = {
   'workbench.settings.def.updates.autoDownload.description':
     'Когда обновление найдено, сразу загружать его в фоне, чтобы установка сводилась к одному нажатию «Обновить и перезапустить» — а простой выход и повторное открытие приложения запускали новую версию. Когда выключено, ничего не загружается, пока вы сами не выберете «Обновить и перезапустить». В любом случае приложение никогда не перезапускается само.',
 
+  // A classic Windows install switching to the Windows package: the row,
+  // why a switch may not begin, its dialog, and how one that stopped is said.
+  'workbench.settings.def.updates.installType.label': 'Тип установки',
+  'workbench.settings.def.updates.installType.description':
+    'Пакет Windows устанавливается и обновляется средствами самой системы Windows. При переходе ваши данные сохраняются.',
+  'workbench.settings.def.updates.installType.value.classic': 'Классический установщик',
+  'workbench.settings.def.updates.installType.action.label': 'Перейти на пакет Windows…',
+  'workbench.settings.def.updates.installType.checking': 'Проверка…',
+  'workbench.settings.def.updates.installType.working':
+    'Выполняется переход. Следите за окном программы Open Headers Installer.',
+  'workbench.settings.def.updates.installType.reason.windowsTooOld':
+    'Для пакета Windows нужна система Windows 10 версии 2004 или новее.',
+  'workbench.settings.def.updates.installType.reason.cannotSwitch': 'Эта копия приложения не может выполнить переход.',
+  'workbench.settings.def.updates.installType.reason.dataFolder':
+    'Ваша папка данных является ссылкой или находится на другом диске, и её нельзя передать.',
+  'workbench.settings.def.updates.installType.reason.packageInstalled':
+    'Пакет Windows уже установлен. Сначала удалите его в параметрах Windows.',
+  'workbench.settings.def.updates.installType.reason.packageDataLeft':
+    'Прежний пакет Windows оставил данные в папке {path}. Сначала переместите или удалите эту папку.',
+  'workbench.settings.def.updates.installType.reason.feedUnread': 'Не удалось проверить наличие пакета Windows.',
+  'workbench.settings.def.updates.installType.reason.noPackageOffered': 'В канале «{channel}» пока нет пакета Windows.',
+  'workbench.settings.def.updates.installType.reason.heldBack': 'Выпуск пакета Windows сейчас приостановлен.',
+  'workbench.settings.def.updates.installType.reason.packageOlder':
+    'Пакет Windows в канале «{channel}» (версия {version}) старше этого приложения.',
+  'workbench.settings.def.updates.installType.confirm.title': 'Перейти на пакет Windows?',
+  'workbench.settings.def.updates.installType.confirm.does':
+    'Будет установлена версия {version} в виде пакета Windows, а эта установка будет удалена. Приложение закроется и откроется снова.',
+  'workbench.settings.def.updates.installType.confirm.kept':
+    'Сохранятся: ваши рабочие пространства, настройки и сохранённые секреты. Нужно будет повторить: закрепление на панели задач и вставленную вами команду MCP-клиента.',
+  'workbench.settings.def.updates.installType.confirm.ok': 'Перейти',
+  'workbench.settings.def.updates.installType.stopped.thisPc': 'Этот компьютер не может установить пакет Windows.',
+  'workbench.settings.def.updates.installType.stopped.download': 'Не удалось скачать пакет. Ничего не изменено.',
+  'workbench.settings.def.updates.installType.stopped.install':
+    'Системе Windows не удалось установить пакет. Ничего не изменено.',
+  'workbench.settings.def.updates.installType.stopped.packageStart': 'Пакет Windows не запустился. Ничего не изменено.',
+  'workbench.settings.def.updates.installType.stopped.appStayed':
+    'Приложение не закрылось вовремя. Ничего не изменено.',
+  'workbench.settings.def.updates.installType.stopped.other': 'Переход остановлен. Ничего не изменено.',
+
   // ── About category defs ────────────────────────────────────────────
   'workbench.settings.def.about.version.label': 'Версия',
   'workbench.settings.def.about.version.description': 'Установленная сейчас версия расширения.',

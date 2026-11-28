@@ -128,6 +128,7 @@ import {
   windowsNmManifestTargets,
 } from './nm-host-install';
 import { safeOsHostname } from './os-hostname';
+import { createPackageSwitchRpc } from './package-switch-rpc';
 import { loadPackageUpdateAddon } from './package-update-addon';
 import { buildEnvelopeFacts, installProductTelemetry, type ProductTelemetryHostDeps } from './product-telemetry';
 import { installProductTelemetryMcpBeacons } from './product-telemetry-mcp-beacons';
@@ -636,6 +637,31 @@ export async function installRpcHost(): Promise<void> {
       warn: (msg) => engineLogger.warn(SCOPE, msg),
     },
   });
+  const packageSwitchRpc = createPackageSwitchRpc({
+    install: {
+      installKind: installKind(),
+      osRelease: os.release(),
+      resourcesPath: process.resourcesPath,
+      arch: process.arch,
+      underArm64Translation: app.runningUnderARM64Translation === true,
+      dataDir: app.getPath('userData'),
+      isPackaged: app.isPackaged,
+      appDataDir: app.getPath('appData'),
+      localAppDataDir: process.env.LOCALAPPDATA,
+      homeDir: os.homedir(),
+      appVersion: app.getVersion(),
+    },
+    tempDir: app.getPath('temp'),
+    executablePath: process.execPath,
+    pid: process.pid,
+    getChannel: () => updatePreferences.channel,
+    fetch,
+    broadcast: (state) => broadcastToAllRenderers('packageSwitchState', state),
+    log: {
+      info: (msg) => engineLogger.info(SCOPE, msg),
+      warn: (msg) => engineLogger.warn(SCOPE, msg),
+    },
+  });
   const activityMonitor = createDesktopActivityMonitor();
 
   rpcDispatcher = async (raw) => {
@@ -869,6 +895,10 @@ export async function installRpcHost(): Promise<void> {
     // is undone through the spine, the folder goes from a new start.
     const removal = localDataRemovalRpc.dispatch(type, message);
     if (removal !== undefined) return removal;
+    // A classic Windows install switching to the Windows package: this
+    // process judges whether it may and starts the installer it carries.
+    const packageSwitch = packageSwitchRpc.dispatch(type);
+    if (packageSwitch !== undefined) return packageSwitch;
     const updateState = await updateService.dispatchRpc(type);
     return updateState !== undefined ? updateState : spine.dispatchRpc(raw);
   };

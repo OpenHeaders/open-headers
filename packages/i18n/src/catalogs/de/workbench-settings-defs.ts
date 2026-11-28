@@ -894,6 +894,50 @@ export const workbenchSettingsDefs = {
     'nichts wird geladen, bis du selbst „Aktualisieren und neu starten“ wählst. So oder so startet die App ' +
     'nie von selbst neu.',
 
+  // A classic Windows install switching to the Windows package: the row,
+  // why a switch may not begin, its dialog, and how one that stopped is said.
+  'workbench.settings.def.updates.installType.label': 'Installationsart',
+  'workbench.settings.def.updates.installType.description':
+    'Das Windows-Paket wird über Windows selbst installiert und aktualisiert. Beim Wechsel bleiben deine Daten erhalten.',
+  'workbench.settings.def.updates.installType.value.classic': 'Klassisches Installationsprogramm',
+  'workbench.settings.def.updates.installType.action.label': 'Zum Windows-Paket wechseln…',
+  'workbench.settings.def.updates.installType.checking': 'Wird geprüft…',
+  'workbench.settings.def.updates.installType.working':
+    'Wechsel läuft. Folge dem Fenster des Programms Open Headers Installer.',
+  'workbench.settings.def.updates.installType.reason.windowsTooOld':
+    'Das Windows-Paket benötigt Windows 10 Version 2004 oder neuer.',
+  'workbench.settings.def.updates.installType.reason.cannotSwitch':
+    'Diese Kopie der App kann den Wechsel nicht durchführen.',
+  'workbench.settings.def.updates.installType.reason.dataFolder':
+    'Dein Datenordner ist eine Verknüpfung oder liegt auf einem anderen Laufwerk und kann nicht übergeben werden.',
+  'workbench.settings.def.updates.installType.reason.packageInstalled':
+    'Das Windows-Paket ist bereits installiert. Deinstalliere es zuerst in den Windows-Einstellungen.',
+  'workbench.settings.def.updates.installType.reason.packageDataLeft':
+    'Ein früheres Windows-Paket hat Daten in {path} hinterlassen. Verschiebe oder lösche diesen Ordner zuerst.',
+  'workbench.settings.def.updates.installType.reason.feedUnread': 'Das Windows-Paket konnte nicht abgefragt werden.',
+  'workbench.settings.def.updates.installType.reason.noPackageOffered':
+    'Der Kanal „{channel}“ hat noch kein Windows-Paket.',
+  'workbench.settings.def.updates.installType.reason.heldBack': 'Das Windows-Paket wird derzeit zurückgehalten.',
+  'workbench.settings.def.updates.installType.reason.packageOlder':
+    'Das Windows-Paket im Kanal „{channel}“ ({version}) ist älter als diese App.',
+  'workbench.settings.def.updates.installType.confirm.title': 'Zum Windows-Paket wechseln?',
+  'workbench.settings.def.updates.installType.confirm.does':
+    'Installiert Version {version} als Windows-Paket und entfernt diese Installation. Die App schließt sich und öffnet sich wieder.',
+  'workbench.settings.def.updates.installType.confirm.kept':
+    'Bleibt erhalten: deine Arbeitsbereiche, Einstellungen und gespeicherten Secrets. Neu einzurichten: eine Anheftung an der Taskleiste und ein MCP-Client-Befehl, den du eingefügt hast.',
+  'workbench.settings.def.updates.installType.confirm.ok': 'Wechseln',
+  'workbench.settings.def.updates.installType.stopped.thisPc': 'Dieser PC kann das Windows-Paket nicht installieren.',
+  'workbench.settings.def.updates.installType.stopped.download':
+    'Das Paket konnte nicht heruntergeladen werden. Es wurde nichts geändert.',
+  'workbench.settings.def.updates.installType.stopped.install':
+    'Windows konnte das Paket nicht installieren. Es wurde nichts geändert.',
+  'workbench.settings.def.updates.installType.stopped.packageStart':
+    'Das Windows-Paket ist nicht gestartet. Es wurde nichts geändert.',
+  'workbench.settings.def.updates.installType.stopped.appStayed':
+    'Die App hat sich nicht rechtzeitig geschlossen. Es wurde nichts geändert.',
+  'workbench.settings.def.updates.installType.stopped.other':
+    'Der Wechsel wurde abgebrochen. Es wurde nichts geändert.',
+
   // ── About category defs ────────────────────────────────────────────
   'workbench.settings.def.about.version.label': 'Version',
   'workbench.settings.def.about.version.description': 'Die derzeit installierte Version der Erweiterung.',

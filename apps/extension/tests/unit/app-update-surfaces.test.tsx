@@ -220,7 +220,7 @@ describe('the button that starts or finishes an update', () => {
 describe('the Updates page', () => {
   it('puts what the app does about updates above what it found', () => {
     const sections = [...(getCategory('updates')?.subcategories ?? [])].sort((a, b) => a.order - b.order);
-    expect(sections.map((section) => section.id)).toEqual(['behavior', 'status']);
+    expect(sections.map((section) => section.id)).toEqual(['behavior', 'status', 'installation']);
   });
 });
 

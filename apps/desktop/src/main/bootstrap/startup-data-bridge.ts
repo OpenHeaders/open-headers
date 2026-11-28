@@ -27,6 +27,8 @@ export type StartupData = {
   windowsPackage: boolean;
   /** This install can remove its own data folder: a Windows package running on that folder. */
   localDataRemoval: boolean;
+  /** This install came from the classic Windows installer: it can switch to the Windows package. */
+  packageSwitch: boolean;
 };
 
 function build(): StartupData {
@@ -50,6 +52,7 @@ function build(): StartupData {
         localAppDataDir: process.env.LOCALAPPDATA,
         homeDir: homedir(),
       }) !== null,
+    packageSwitch: installKind() === 'nsis',
   };
 }
 

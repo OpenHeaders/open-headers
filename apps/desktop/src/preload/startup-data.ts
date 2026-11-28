@@ -18,6 +18,7 @@ export type StartupData = {
   updateChannelDefault: 'stable' | 'beta';
   windowsPackage: boolean;
   localDataRemoval: boolean;
+  packageSwitch: boolean;
 };
 
 export const startupData = ipcRenderer.sendSync('oh:startup-data') as StartupData;

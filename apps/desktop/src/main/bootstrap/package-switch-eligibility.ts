@@ -16,6 +16,7 @@
  */
 
 import * as path from 'node:path';
+import type { PackageSwitchBlocker, PackageSwitchVerdict } from '@openheaders/core/bridge';
 import { compareCalVer } from '../versions-manifest';
 import type { InstallKind } from './install-kind';
 
@@ -59,24 +60,9 @@ export interface PackageSwitchFacts {
   readonly offer: PackageOffer;
 }
 
-export type PackageSwitchBlocker =
-  | 'not-classic-install'
-  | 'windows-too-old'
-  | 'no-installer'
-  | 'data-folder-elsewhere'
-  | 'data-folder-not-plain'
-  | 'data-on-another-volume'
-  | 'package-installed'
-  | 'package-data-left'
-  | 'feed-unread'
-  | 'no-package-offered'
-  | 'held-back'
-  | 'package-older';
-
-export type PackageSwitchEligibility =
-  /** `version` is the package the switch would install. */
-  | { readonly eligible: true; readonly version: string }
-  | { readonly eligible: false; readonly blocker: PackageSwitchBlocker };
+/** The reasons and the verdict are the page's too: they are declared where the channel is. */
+export type { PackageSwitchBlocker };
+export type PackageSwitchEligibility = PackageSwitchVerdict;
 
 /** Windows names a folder without regard to case. */
 function sameFolder(a: string, b: string): boolean {

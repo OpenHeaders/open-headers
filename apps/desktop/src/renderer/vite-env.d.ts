@@ -62,6 +62,7 @@ declare global {
         updateChannelDefault: 'stable' | 'beta';
         windowsPackage: boolean;
         localDataRemoval: boolean;
+        packageSwitch: boolean;
       };
       invoke(message: Record<string, unknown>): Promise<unknown>;
       onBroadcast(handler: (envelope: { type: string; payload: unknown }) => void): () => void;

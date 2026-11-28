@@ -285,6 +285,7 @@ export const workbenchSettings = {
     'Recherche de mises à jour, canal et comportement de téléchargement.',
   'workbench.settings.category.updates.sub.status': 'État',
   'workbench.settings.category.updates.sub.behavior': 'Comportement',
+  'workbench.settings.category.updates.sub.installation': 'Installation',
   'workbench.settings.category.about.label': 'À propos',
   'workbench.settings.category.about.description': 'Version, licences et informations de build.',
   'workbench.settings.category.about.sub.application': 'Application',

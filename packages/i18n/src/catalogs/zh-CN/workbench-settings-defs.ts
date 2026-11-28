@@ -673,6 +673,41 @@ export const workbenchSettingsDefs = {
   'workbench.settings.def.updates.autoDownload.description':
     '发现更新时立即在后台获取，安装只需一次“更新并重启”——而且直接退出再打开应用也会启动新版本。关闭表示在你自己选择“更新并重启”之前不下载任何内容。无论哪种方式，应用都绝不会自行重启。',
 
+  // A classic Windows install switching to the Windows package: the row,
+  // why a switch may not begin, its dialog, and how one that stopped is said.
+  'workbench.settings.def.updates.installType.label': '安装类型',
+  'workbench.settings.def.updates.installType.description':
+    'Windows 应用包通过 Windows 自身安装和更新。切换会保留你的数据。',
+  'workbench.settings.def.updates.installType.value.classic': '经典安装程序',
+  'workbench.settings.def.updates.installType.action.label': '切换到 Windows 应用包…',
+  'workbench.settings.def.updates.installType.checking': '正在检查…',
+  'workbench.settings.def.updates.installType.working': '正在切换。请留意 Open Headers Installer 窗口。',
+  'workbench.settings.def.updates.installType.reason.windowsTooOld':
+    'Windows 应用包需要 Windows 10 版本 2004 或更高版本。',
+  'workbench.settings.def.updates.installType.reason.cannotSwitch': '此应用副本无法进行切换。',
+  'workbench.settings.def.updates.installType.reason.dataFolder': '你的数据文件夹是链接或位于其他驱动器，无法移交。',
+  'workbench.settings.def.updates.installType.reason.packageInstalled':
+    'Windows 应用包已安装。请先在 Windows 设置中将其卸载。',
+  'workbench.settings.def.updates.installType.reason.packageDataLeft':
+    '之前的 Windows 应用包在 {path} 留下了数据。请先移动或删除该文件夹。',
+  'workbench.settings.def.updates.installType.reason.feedUnread': '无法检查 Windows 应用包。',
+  'workbench.settings.def.updates.installType.reason.noPackageOffered': '“{channel}”通道尚无 Windows 应用包。',
+  'workbench.settings.def.updates.installType.reason.heldBack': 'Windows 应用包目前暂缓提供。',
+  'workbench.settings.def.updates.installType.reason.packageOlder':
+    '“{channel}”通道上的 Windows 应用包（{version}）比此应用旧。',
+  'workbench.settings.def.updates.installType.confirm.title': '切换到 Windows 应用包？',
+  'workbench.settings.def.updates.installType.confirm.does':
+    '将版本 {version} 作为 Windows 应用包安装，并移除当前安装。应用会关闭并重新打开。',
+  'workbench.settings.def.updates.installType.confirm.kept':
+    '将保留：你的工作区、设置和已保存的机密。需要重新设置：任务栏固定项，以及你粘贴过的 MCP 客户端命令。',
+  'workbench.settings.def.updates.installType.confirm.ok': '切换',
+  'workbench.settings.def.updates.installType.stopped.thisPc': '此电脑无法安装 Windows 应用包。',
+  'workbench.settings.def.updates.installType.stopped.download': '应用包未能下载。未作任何更改。',
+  'workbench.settings.def.updates.installType.stopped.install': 'Windows 未能安装应用包。未作任何更改。',
+  'workbench.settings.def.updates.installType.stopped.packageStart': 'Windows 应用包未能启动。未作任何更改。',
+  'workbench.settings.def.updates.installType.stopped.appStayed': '应用未能及时关闭。未作任何更改。',
+  'workbench.settings.def.updates.installType.stopped.other': '切换已停止。未作任何更改。',
+
   // ── About category defs ────────────────────────────────────────────
   'workbench.settings.def.about.version.label': '版本',
   'workbench.settings.def.about.version.description': '当前安装的扩展版本。',

@@ -720,6 +720,46 @@ export const workbenchSettingsDefs = {
   'workbench.settings.def.updates.autoDownload.description':
     'When an update is found, fetch it in the background right away so installing is a single Update & Restart — and simply quitting and reopening the app launches the new version. Off means nothing downloads until you choose Update & Restart yourself. Either way, the app never restarts on its own.',
 
+  // A classic Windows install switching to the Windows package: the row,
+  // why a switch may not begin, its dialog, and how one that stopped is said.
+  'workbench.settings.def.updates.installType.label': 'Install type',
+  'workbench.settings.def.updates.installType.description':
+    'The Windows package installs and updates through Windows itself. Switching keeps your data.',
+  'workbench.settings.def.updates.installType.value.classic': 'Classic installer',
+  'workbench.settings.def.updates.installType.action.label': 'Switch to the Windows package…',
+  'workbench.settings.def.updates.installType.checking': 'Checking…',
+  'workbench.settings.def.updates.installType.working': 'Switching. Follow the Open Headers Installer window.',
+  'workbench.settings.def.updates.installType.reason.windowsTooOld':
+    'The Windows package needs Windows 10 version 2004 or later.',
+  'workbench.settings.def.updates.installType.reason.cannotSwitch': 'This copy of the app can’t make the switch.',
+  'workbench.settings.def.updates.installType.reason.dataFolder':
+    'Your data folder is a link or on another drive, and can’t be handed over.',
+  'workbench.settings.def.updates.installType.reason.packageInstalled':
+    'The Windows package is already installed. Uninstall it in Windows Settings first.',
+  'workbench.settings.def.updates.installType.reason.packageDataLeft':
+    'An earlier Windows package left data in {path}. Move or delete that folder first.',
+  'workbench.settings.def.updates.installType.reason.feedUnread': 'Couldn’t check for the Windows package.',
+  'workbench.settings.def.updates.installType.reason.noPackageOffered':
+    'The {channel} channel has no Windows package yet.',
+  'workbench.settings.def.updates.installType.reason.heldBack': 'The Windows package is held back right now.',
+  'workbench.settings.def.updates.installType.reason.packageOlder':
+    'The Windows package on the {channel} channel ({version}) is older than this app.',
+  'workbench.settings.def.updates.installType.confirm.title': 'Switch to the Windows package?',
+  'workbench.settings.def.updates.installType.confirm.does':
+    'Installs version {version} as a Windows package and removes this install. The app closes and opens again.',
+  'workbench.settings.def.updates.installType.confirm.kept':
+    'Kept: your workspaces, settings and stored secrets. To redo: a taskbar pin, and an MCP client command you pasted.',
+  'workbench.settings.def.updates.installType.confirm.ok': 'Switch',
+  'workbench.settings.def.updates.installType.stopped.thisPc': 'This PC can’t install the Windows package.',
+  'workbench.settings.def.updates.installType.stopped.download':
+    'The package couldn’t be downloaded. Nothing was changed.',
+  'workbench.settings.def.updates.installType.stopped.install':
+    'Windows couldn’t install the package. Nothing was changed.',
+  'workbench.settings.def.updates.installType.stopped.packageStart':
+    'The Windows package didn’t start. Nothing was changed.',
+  'workbench.settings.def.updates.installType.stopped.appStayed': 'The app didn’t close in time. Nothing was changed.',
+  'workbench.settings.def.updates.installType.stopped.other': 'The switch stopped. Nothing was changed.',
+
   // ── About category defs ────────────────────────────────────────────
   'workbench.settings.def.about.version.label': 'Version',
   'workbench.settings.def.about.version.description': 'The currently installed extension version.',

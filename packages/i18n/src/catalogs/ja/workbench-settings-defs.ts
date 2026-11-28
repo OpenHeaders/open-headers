@@ -728,6 +728,49 @@ export const workbenchSettingsDefs = {
   'workbench.settings.def.updates.autoDownload.description':
     'アップデートが見つかったらすぐにバックグラウンドで取得し、インストールが「更新して再起動」の 1 回で済むようにします。アプリを終了して開き直すだけでも新しいバージョンが起動します。オフの場合、自分で「更新して再起動」を選ぶまで何もダウンロードされません。どちらでも、アプリが自動で再起動することはありません。',
 
+  // A classic Windows install switching to the Windows package: the row,
+  // why a switch may not begin, its dialog, and how one that stopped is said.
+  'workbench.settings.def.updates.installType.label': 'インストールの種類',
+  'workbench.settings.def.updates.installType.description':
+    'Windows パッケージは Windows 自体を通じてインストールおよび更新されます。切り替えてもデータは保持されます。',
+  'workbench.settings.def.updates.installType.value.classic': '従来のインストーラー',
+  'workbench.settings.def.updates.installType.action.label': 'Windows パッケージに切り替える…',
+  'workbench.settings.def.updates.installType.checking': '確認中…',
+  'workbench.settings.def.updates.installType.working':
+    '切り替え中です。Open Headers Installer のウィンドウに従ってください。',
+  'workbench.settings.def.updates.installType.reason.windowsTooOld':
+    'Windows パッケージには Windows 10 バージョン 2004 以降が必要です。',
+  'workbench.settings.def.updates.installType.reason.cannotSwitch': 'このアプリのコピーでは切り替えを行えません。',
+  'workbench.settings.def.updates.installType.reason.dataFolder':
+    'データフォルダーがリンクであるか別のドライブにあるため、引き継げません。',
+  'workbench.settings.def.updates.installType.reason.packageInstalled':
+    'Windows パッケージはすでにインストールされています。先に Windows の設定でアンインストールしてください。',
+  'workbench.settings.def.updates.installType.reason.packageDataLeft':
+    '以前の Windows パッケージのデータが {path} に残っています。先にそのフォルダーを移動または削除してください。',
+  'workbench.settings.def.updates.installType.reason.feedUnread': 'Windows パッケージを確認できませんでした。',
+  'workbench.settings.def.updates.installType.reason.noPackageOffered':
+    '{channel} チャネルにはまだ Windows パッケージがありません。',
+  'workbench.settings.def.updates.installType.reason.heldBack': 'Windows パッケージは現在保留されています。',
+  'workbench.settings.def.updates.installType.reason.packageOlder':
+    '{channel} チャネルの Windows パッケージ（{version}）はこのアプリより古いバージョンです。',
+  'workbench.settings.def.updates.installType.confirm.title': 'Windows パッケージに切り替えますか？',
+  'workbench.settings.def.updates.installType.confirm.does':
+    'バージョン {version} を Windows パッケージとしてインストールし、現在のインストールを削除します。アプリは終了し、再び開きます。',
+  'workbench.settings.def.updates.installType.confirm.kept':
+    '保持されるもの：ワークスペース、設定、保存されたシークレット。やり直しが必要なもの：タスクバーへのピン留めと、貼り付けた MCP クライアントのコマンド。',
+  'workbench.settings.def.updates.installType.confirm.ok': '切り替える',
+  'workbench.settings.def.updates.installType.stopped.thisPc':
+    'この PC には Windows パッケージをインストールできません。',
+  'workbench.settings.def.updates.installType.stopped.download':
+    'パッケージをダウンロードできませんでした。何も変更されていません。',
+  'workbench.settings.def.updates.installType.stopped.install':
+    'Windows がパッケージをインストールできませんでした。何も変更されていません。',
+  'workbench.settings.def.updates.installType.stopped.packageStart':
+    'Windows パッケージが起動しませんでした。何も変更されていません。',
+  'workbench.settings.def.updates.installType.stopped.appStayed':
+    'アプリが時間内に終了しませんでした。何も変更されていません。',
+  'workbench.settings.def.updates.installType.stopped.other': '切り替えが中止されました。何も変更されていません。',
+
   // ── About category defs ────────────────────────────────────────────
   'workbench.settings.def.about.version.label': 'バージョン',
   'workbench.settings.def.about.version.description': '現在インストールされている拡張機能のバージョンです。',

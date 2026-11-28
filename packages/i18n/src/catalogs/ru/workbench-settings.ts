@@ -291,6 +291,7 @@ export const workbenchSettings = {
   'workbench.settings.category.updates.description': 'Проверка обновлений, канал и поведение загрузки.',
   'workbench.settings.category.updates.sub.status': 'Состояние',
   'workbench.settings.category.updates.sub.behavior': 'Поведение',
+  'workbench.settings.category.updates.sub.installation': 'Установка',
   'workbench.settings.category.about.label': 'О программе',
   'workbench.settings.category.about.description': 'Версия, лицензии и сведения о сборке.',
   'workbench.settings.category.about.sub.application': 'Приложение',

@@ -252,6 +252,7 @@ export const workbenchSettings = {
   'workbench.settings.category.updates.description': '更新检查、通道与下载行为。',
   'workbench.settings.category.updates.sub.status': '状态',
   'workbench.settings.category.updates.sub.behavior': '行为',
+  'workbench.settings.category.updates.sub.installation': '安装',
   'workbench.settings.category.about.label': '关于',
   'workbench.settings.category.about.description': '版本、许可与构建信息。',
   'workbench.settings.category.about.sub.application': '应用程序',

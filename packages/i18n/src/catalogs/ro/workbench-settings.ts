@@ -297,6 +297,7 @@ export const workbenchSettings = {
     'Verificarea actualizărilor, canalul și comportamentul la descărcare.',
   'workbench.settings.category.updates.sub.status': 'Stare',
   'workbench.settings.category.updates.sub.behavior': 'Comportament',
+  'workbench.settings.category.updates.sub.installation': 'Instalare',
   'workbench.settings.category.about.label': 'Despre',
   'workbench.settings.category.about.description': 'Versiunea, licențele și informațiile despre build.',
   'workbench.settings.category.about.sub.application': 'Aplicație',

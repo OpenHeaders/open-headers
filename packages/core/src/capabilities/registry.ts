@@ -49,6 +49,7 @@ import type { DiagnosticsLogFile } from '../diagnostics/bundle';
 import type { DiagnosticsRoot } from '../diagnostics/redact';
 import type { ProbeConnectionResult, ProbeOptions } from '../identity/probe-connection';
 import type { LocalDataRemovalResult } from '../protocol/channels/local-data';
+import type { PackageSwitchState } from '../protocol/channels/package-switch';
 import type { CompanionRevealTarget } from '../protocol/messages';
 import type { PublicWorkspaceSnapshotSummary } from '../protocol/public-workspace-snapshot';
 import type { ScriptExecutionMode } from '../scripts';
@@ -431,6 +432,14 @@ export interface PackageAliases {
   read(): Promise<{ readonly app: PackageAliasState; readonly helper: PackageAliasState }>;
   /** Opens the Windows Settings page that holds the alias switches. */
   openSettings(): void;
+}
+
+/** The {@link Capabilities.packageSwitch} value. */
+export interface PackageSwitch {
+  /** Whether a switch may begin, read from this PC and the feed at the call. */
+  read(): Promise<PackageSwitchState>;
+  /** Starts the switch where it may begin; answers the state it left. */
+  start(): Promise<PackageSwitchState>;
 }
 
 /**
@@ -1019,6 +1028,15 @@ export interface Capabilities {
    * it is absent the surface offers no removal.
    */
   removeLocalData?: (options: { readonly force: boolean }) => Promise<LocalDataRemovalResult>;
+
+  /**
+   * This install switching to the Windows package (see
+   * {@link PackageSwitch}). Registered only by the desktop app installed
+   * by the classic Windows installer, which carries the installer program
+   * that makes the move. Where it is absent the surface names no install
+   * type and offers no switch.
+   */
+  packageSwitch?: () => PackageSwitch;
 
   /**
    * Declares that this install downloads an update only together with

@@ -7,6 +7,7 @@ export type {
   NmHostPresenceVerdict,
   PackageAliases,
   PackageAliasState,
+  PackageSwitch,
   PairWithCodeInput,
   PairWithCodeResult,
   RequestRuntimeKind,

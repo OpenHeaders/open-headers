@@ -266,6 +266,7 @@ export const workbenchSettings = {
   'workbench.settings.category.updates.description': '업데이트 확인, 채널, 다운로드 동작입니다.',
   'workbench.settings.category.updates.sub.status': '상태',
   'workbench.settings.category.updates.sub.behavior': '동작',
+  'workbench.settings.category.updates.sub.installation': '설치',
   'workbench.settings.category.about.label': '정보',
   'workbench.settings.category.about.description': '버전, 라이선스, 빌드 정보입니다.',
   'workbench.settings.category.about.sub.application': '애플리케이션',

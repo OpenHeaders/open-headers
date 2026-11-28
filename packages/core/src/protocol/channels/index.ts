@@ -45,6 +45,7 @@ import type { MigrationRpc } from './migration';
 import type { NavigationRpc } from './navigation';
 import type { OAuthRpc } from './oauth';
 import type { ObservabilityRpc } from './observability';
+import type { PackageSwitchRpc } from './package-switch';
 import type { ProductTelemetryRpc } from './product-telemetry';
 import type { RequestRpc } from './requests';
 import type { RuleRpc } from './rules';
@@ -105,6 +106,7 @@ export type {
   MigrationReadInsomniaDataResult,
   MigrationScanResult,
 } from './migration';
+export type { PackageSwitchBlocker, PackageSwitchState, PackageSwitchVerdict } from './package-switch';
 export type { ProductTelemetryLogEntryWire, ProductTelemetrySnapshot } from './product-telemetry';
 export type {
   CookieJarEntryWire,
@@ -237,7 +239,8 @@ export interface BridgeRpcContract
     BackendIdentityRpc,
     DiagnosticsRpc,
     ActivityMonitorRpc,
-    LocalDataRpc {}
+    LocalDataRpc,
+    PackageSwitchRpc {}
 
 /**
  * Tab-directed contract: map of message-type → { req, res } for messages

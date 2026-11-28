@@ -262,6 +262,7 @@ export const workbenchSettings = {
   'workbench.settings.category.updates.description': 'Update checks, channel, and download behavior.',
   'workbench.settings.category.updates.sub.status': 'Status',
   'workbench.settings.category.updates.sub.behavior': 'Behavior',
+  'workbench.settings.category.updates.sub.installation': 'Installation',
   'workbench.settings.category.about.label': 'About',
   'workbench.settings.category.about.description': 'Version, licenses and build information.',
   'workbench.settings.category.about.sub.application': 'Application',

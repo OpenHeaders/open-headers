@@ -61,6 +61,7 @@ import type {
 import type { WorkspaceSnapshot } from './common';
 import type { EnvironmentsSnapshot } from './environments';
 import type { LiveWorkflowRunEventWire, LiveWorkflowStepSignalWire } from './live';
+import type { PackageSwitchState } from './package-switch';
 import type { GrpcStreamEventWire, MqttStreamEventWire, RequestStreamEventWire, WsStreamEventWire } from './requests';
 import type { SecretsStorageState } from './secrets';
 import type { AppUpdateState } from './updates';
@@ -176,6 +177,12 @@ export interface BridgeBroadcastContract {
    * simply never emit it.
    */
   appUpdateState: AppUpdateState;
+  /**
+   * Fires when a classic Windows install's switch to the Windows package
+   * starts, and when one stops with the install as it was. Payload is the
+   * full state so listeners never re-query. Only that install emits it.
+   */
+  packageSwitchState: PackageSwitchState;
   /**
    * Fires on every observed at-rest-cipher status transition — the
    * secrets-storage banner's feed. Payload is the full state so

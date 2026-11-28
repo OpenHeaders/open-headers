@@ -252,6 +252,17 @@ if (window.oh.startupData.localDataRemoval) {
   registerCapability('removeLocalData', ({ force }) => hostBridge.call('oh.desktop.localData.remove', { force }));
 }
 
+// An install from the classic Windows installer can switch to the
+// Windows package: main judges whether it may, and on the person's word
+// starts the installer program the app carries. No other install
+// registers this.
+if (window.oh.startupData.packageSwitch) {
+  registerCapability('packageSwitch', () => ({
+    read: () => hostBridge.call('oh.desktop.packageSwitch.getState'),
+    start: () => hostBridge.call('oh.desktop.packageSwitch.start'),
+  }));
+}
+
 // A workflow's session steps run here: the main process opens the
 // session a `listen` step names.
 registerCapability('workflowSessionSteps', () => true);

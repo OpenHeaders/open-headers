@@ -21,6 +21,7 @@ import { getCurrentHost } from '../../../shared/host-vocabulary';
 import { registerSetting } from '../registry';
 
 const AppUpdateRow = lazy(() => import('../components/app-update-row'));
+const PackageSwitchRow = lazy(() => import('../components/package-switch-row'));
 
 export const UPDATE_CHECK_TIERS = ['all', 'security-only', 'off'] as const;
 export type UpdateCheckTier = (typeof UPDATE_CHECK_TIERS)[number];
@@ -38,6 +39,7 @@ declare module '@openheaders/ui/workbench/settings/types' {
     'updates.channel': UpdateChannel;
     'updates.autoDownload': boolean;
     'updates.showWhatsNew': boolean;
+    'updates.installType': string;
   }
 }
 
@@ -121,4 +123,23 @@ registerSetting({
   tags: ['update', 'download', 'background', 'staged'],
   scope: 'user',
   when: () => getCurrentHost() === 'desktop' && !hasCapability('updatesOnRequest'),
+});
+
+// An install that can change how it is installed names its install type
+// and offers the switch: the desktop app installed by the classic Windows
+// installer registers the capability, and no other host shows the row or
+// its section. The row owns its dialog and what it says of a switch.
+registerSetting({
+  key: 'updates.installType',
+  subcategory: 'installation',
+  type: 'info',
+  default: '',
+  schema: v.string(),
+  labelKey: 'workbench.settings.def.updates.installType.label',
+  descriptionKey: 'workbench.settings.def.updates.installType.description',
+  category: 'updates',
+  tags: ['install', 'installer', 'windows', 'package', 'msix', 'switch', 'migrate'],
+  scope: 'user',
+  when: () => hasCapability('packageSwitch'),
+  customEditor: PackageSwitchRow,
 });

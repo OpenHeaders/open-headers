@@ -269,6 +269,7 @@ export const workbenchSettings = {
   'workbench.settings.category.updates.description': 'アップデートの確認、チャネル、ダウンロードの動作。',
   'workbench.settings.category.updates.sub.status': 'ステータス',
   'workbench.settings.category.updates.sub.behavior': '動作',
+  'workbench.settings.category.updates.sub.installation': 'インストール',
   'workbench.settings.category.about.label': 'このアプリについて',
   'workbench.settings.category.about.description': 'バージョン、ライセンス、ビルド情報。',
   'workbench.settings.category.about.sub.application': 'アプリケーション',

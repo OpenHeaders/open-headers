@@ -769,6 +769,49 @@ export const workbenchSettingsDefs = {
   'workbench.settings.def.updates.autoDownload.description':
     'Când se găsește o actualizare, o descarcă imediat în fundal, astfel încât instalarea să fie un singur clic pe „Actualizare și repornire” — iar simpla închidere și redeschidere a aplicației lansează versiunea nouă. Dezactivată, nimic nu se descarcă până nu alegeți dvs. „Actualizare și repornire”. În ambele cazuri, aplicația nu repornește niciodată de la sine.',
 
+  // A classic Windows install switching to the Windows package: the row,
+  // why a switch may not begin, its dialog, and how one that stopped is said.
+  'workbench.settings.def.updates.installType.label': 'Tip de instalare',
+  'workbench.settings.def.updates.installType.description':
+    'Pachetul Windows se instalează și se actualizează prin sistemul Windows însuși. Trecerea vă păstrează datele.',
+  'workbench.settings.def.updates.installType.value.classic': 'Program de instalare clasic',
+  'workbench.settings.def.updates.installType.action.label': 'Trecere la pachetul Windows…',
+  'workbench.settings.def.updates.installType.checking': 'Se verifică…',
+  'workbench.settings.def.updates.installType.working':
+    'Trecere în curs. Urmăriți fereastra programului Open Headers Installer.',
+  'workbench.settings.def.updates.installType.reason.windowsTooOld':
+    'Pachetul Windows necesită sistemul Windows 10 versiunea 2004 sau una ulterioară.',
+  'workbench.settings.def.updates.installType.reason.cannotSwitch':
+    'Această copie a aplicației nu poate face trecerea.',
+  'workbench.settings.def.updates.installType.reason.dataFolder':
+    'Folderul dvs. de date este un link sau se află pe altă unitate și nu poate fi predat.',
+  'workbench.settings.def.updates.installType.reason.packageInstalled':
+    'Pachetul Windows este deja instalat. Dezinstalați-l mai întâi din setările Windows.',
+  'workbench.settings.def.updates.installType.reason.packageDataLeft':
+    'Un pachet Windows anterior a lăsat date în folderul {path}. Mutați sau ștergeți mai întâi acel folder.',
+  'workbench.settings.def.updates.installType.reason.feedUnread': 'Nu s-a putut verifica pachetul Windows.',
+  'workbench.settings.def.updates.installType.reason.noPackageOffered':
+    'Canalul „{channel}” nu are încă un pachet Windows.',
+  'workbench.settings.def.updates.installType.reason.heldBack': 'Pachetul Windows este reținut momentan.',
+  'workbench.settings.def.updates.installType.reason.packageOlder':
+    'Pachetul Windows de pe canalul „{channel}” (versiunea {version}) este mai vechi decât această aplicație.',
+  'workbench.settings.def.updates.installType.confirm.title': 'Treceți la pachetul Windows?',
+  'workbench.settings.def.updates.installType.confirm.does':
+    'Instalează versiunea {version} ca pachet Windows și elimină această instalare. Aplicația se închide și se deschide din nou.',
+  'workbench.settings.def.updates.installType.confirm.kept':
+    'Se păstrează: spațiile dvs. de lucru, setările și secretele stocate. De refăcut: fixarea în bara de activități și o comandă de client MCP pe care ați lipit-o.',
+  'workbench.settings.def.updates.installType.confirm.ok': 'Trecere',
+  'workbench.settings.def.updates.installType.stopped.thisPc': 'Acest computer nu poate instala pachetul Windows.',
+  'workbench.settings.def.updates.installType.stopped.download':
+    'Pachetul nu a putut fi descărcat. Nimic nu a fost modificat.',
+  'workbench.settings.def.updates.installType.stopped.install':
+    'Sistemul Windows nu a putut instala pachetul. Nimic nu a fost modificat.',
+  'workbench.settings.def.updates.installType.stopped.packageStart':
+    'Pachetul Windows nu a pornit. Nimic nu a fost modificat.',
+  'workbench.settings.def.updates.installType.stopped.appStayed':
+    'Aplicația nu s-a închis la timp. Nimic nu a fost modificat.',
+  'workbench.settings.def.updates.installType.stopped.other': 'Trecerea s-a oprit. Nimic nu a fost modificat.',
+
   // ── About category defs ────────────────────────────────────────────
   'workbench.settings.def.about.version.label': 'Versiune',
   'workbench.settings.def.about.version.description': 'Versiunea instalată în prezent a extensiei.',

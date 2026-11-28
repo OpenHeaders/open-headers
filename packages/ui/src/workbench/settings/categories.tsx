@@ -698,6 +698,7 @@ registerCategory({
   subcategories: [
     { id: 'behavior', labelKey: 'workbench.settings.category.updates.sub.behavior', order: 10 },
     { id: 'status', labelKey: 'workbench.settings.category.updates.sub.status', order: 20 },
+    { id: 'installation', labelKey: 'workbench.settings.category.updates.sub.installation', order: 30 },
   ],
 });
 
