@@ -119,4 +119,11 @@ export const sharedNotifications = {
     "relancez l'application.",
   'shared.notifications.secrets.remedy.other':
     "Open Headers n'a pas pu accéder au magasin d'identifiants du système. Relancez l'application pour réessayer.",
+
+  // ── A move to the Windows package, as the package's start found it ──
+  'shared.notifications.packageArrived.title': "L'application s'exécute désormais en tant que package Windows",
+  'shared.notifications.packageArrived.description':
+    "Épinglez de nouveau l'application à la barre des tâches et mettez à jour toute commande de client MCP que vous avez collée.",
+  'shared.notifications.packageDataLeft.title': "Vos données n'ont pas été transférées",
+  'shared.notifications.packageDataLeft.description': 'Elles sont toujours dans {path}.',
 } as const satisfies Catalog;

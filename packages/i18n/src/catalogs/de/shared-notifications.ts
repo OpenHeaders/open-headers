@@ -120,4 +120,11 @@ export const sharedNotifications = {
   'shared.notifications.secrets.remedy.other':
     'Open Headers konnte nicht auf den Anmeldedaten-Speicher des Systems zugreifen. Starte die App neu, um es ' +
     'erneut zu versuchen.',
+
+  // ── A move to the Windows package, as the package's start found it ──
+  'shared.notifications.packageArrived.title': 'Läuft jetzt als Windows-Paket',
+  'shared.notifications.packageArrived.description':
+    'Hefte die App wieder an die Taskleiste an und aktualisiere jeden MCP-Client-Befehl, den du eingefügt hast.',
+  'shared.notifications.packageDataLeft.title': 'Deine Daten wurden nicht übernommen',
+  'shared.notifications.packageDataLeft.description': 'Sie liegen noch in {path}.',
 } as const satisfies Catalog;

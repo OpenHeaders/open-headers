@@ -63,6 +63,8 @@ declare global {
         windowsPackage: boolean;
         localDataRemoval: boolean;
         packageSwitch: boolean;
+        packageDataTakenIn: boolean;
+        packageDataLeftAt: string | null;
       };
       invoke(message: Record<string, unknown>): Promise<unknown>;
       onBroadcast(handler: (envelope: { type: string; payload: unknown }) => void): () => void;

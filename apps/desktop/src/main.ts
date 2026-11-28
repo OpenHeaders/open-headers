@@ -56,6 +56,7 @@ import { installChromiumSwitches } from './main/bootstrap/cli-switches';
 import { chooseDataDir, classicDataDir } from './main/bootstrap/data-dir';
 import {
   type DataFolderMove,
+  dataLeftByMove,
   FINISH_MOVE_EXIT,
   FINISH_MOVE_SWITCH,
   moveDataFolderToPackage,
@@ -258,15 +259,20 @@ function bootstrapDesktopApp(): void {
   // handed over — before the folder is chosen as well, so the first
   // start after a move opens the user's data.
   const finishingMove = process.argv.includes(FINISH_MOVE_SWITCH);
+  const classicDir = classicDataDir({ isPackaged: app.isPackaged, appDataDir: app.getPath('appData') });
   const dataFolderMove = userDataOverride
     ? null
     : moveDataFolderToPackage({
         installKind: install.kind,
         ownDir: ownDataDir,
-        classicDir: classicDataDir({ isPackaged: app.isPackaged, appDataDir: app.getPath('appData') }),
+        classicDir,
         awaitClassicUninstall: finishingMove,
       });
   if (endStartBeforeDataFolder(dataFolderMove, finishingMove)) return;
+  // A package that starts on a folder of its own while a move's data is
+  // still in the classic folder says so at every start, until that folder
+  // is dealt with.
+  const dataLeftAt = userDataOverride ? null : dataLeftByMove({ installKind: install.kind, classicDir });
   // A removal the person asked for and no start took up is withdrawn by
   // the next ordinary start: the request never waits in the folder.
   const removalTarget = localDataRemovalTarget({
@@ -335,7 +341,7 @@ function bootstrapDesktopApp(): void {
   // Single quit owner (bootstrap/lifecycle.ts) — after the lock check
   // so a lost race's `app.quit()` still routes through the machine.
   installAppLifecycle();
-  installStartupDataBridge();
+  installStartupDataBridge({ packageDataTakenIn: dataFolderMove?.outcome === 'moved', packageDataLeftAt: dataLeftAt });
   // The renderer's two doors into main share one gate: the window mounts
   // while the engine boots, and whatever it says first is held, then
   // released in arrival order when the boot settles.

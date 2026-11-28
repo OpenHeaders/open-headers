@@ -109,4 +109,11 @@ export const sharedNotifications = {
     '使用可能なキーリングのバックエンドがありません。GNOME Keyring または KWallet を設定してから、アプリを再起動してください。',
   'shared.notifications.secrets.remedy.other':
     'Open Headers はシステムの資格情報ストアにアクセスできませんでした。アプリを再起動してもう一度お試しください。',
+
+  // ── A move to the Windows package, as the package's start found it ──
+  'shared.notifications.packageArrived.title': 'Windows パッケージとして実行されています',
+  'shared.notifications.packageArrived.description':
+    'アプリをタスクバーにもう一度ピン留めし、貼り付けた MCP クライアントのコマンドを更新してください。',
+  'shared.notifications.packageDataLeft.title': 'データは引き継がれませんでした',
+  'shared.notifications.packageDataLeft.description': 'データはまだ {path} にあります。',
 } as const satisfies Catalog;

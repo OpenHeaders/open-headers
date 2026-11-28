@@ -185,3 +185,15 @@ export function moveDataFolderToPackage(facts: DataFolderMoveFacts, seams: DataF
   const sharedFilesLeft = shared === null ? [] : moveSharedConfigFiles(facts.ownDir, from, shared.names);
   return { outcome: 'moved', from, sharedFilesLeft };
 }
+
+/**
+ * Where a move's data still lies while the package runs on a folder of
+ * its own: the classic folder, as long as it carries a request no start
+ * could finish — judged impossible, or left beside a classic install that
+ * stayed. Null where nothing was left behind.
+ */
+export function dataLeftByMove(facts: Pick<DataFolderMoveFacts, 'installKind' | 'classicDir'>): string | null {
+  if (facts.installKind !== 'msix') return null;
+  if (!isPlainDirectory(facts.classicDir)) return null;
+  return readMoveRequest(facts.classicDir) === 'absent' ? null : facts.classicDir;
+}

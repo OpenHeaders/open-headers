@@ -24,6 +24,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   CLASSIC_UNINSTALL_REGISTRY_KEY,
   type DataFolderMoveFacts,
+  dataLeftByMove,
   FINISH_MOVE_EXIT,
   FINISH_MOVE_SWITCH,
   MOVE_REQUEST_FILE_NAME,
@@ -238,6 +239,57 @@ describe('the data folder taken in by the Windows package', () => {
     const second = moveDataFolderToPackage(makeFacts(), { isClassicInstalled: classicGone, rename, sleep });
     expect(second).toEqual({ outcome: 'nothing-to-move' });
     expect(rename).toHaveBeenCalledOnce();
+  });
+
+  describe('the data a move left behind, as a later start of the package finds it', () => {
+    it('is in the classic folder after a refusal that cannot pass', () => {
+      seedClassicData();
+      const rename = vi.fn(() => {
+        throw fileError('EXDEV');
+      });
+      moveDataFolderToPackage(makeFacts(), { isClassicInstalled: classicGone, rename, sleep });
+      mkdirSync(ownDir);
+      expect(dataLeftByMove(makeFacts())).toBe(classicDir);
+    });
+
+    it('is in the classic folder while the classic install stayed and the package started on its own', () => {
+      seedClassicData();
+      classicGone.mockReturnValue(true);
+      const result = moveDataFolderToPackage(makeFacts(), { isClassicInstalled: classicGone, sleep });
+      expect(result).toEqual({ outcome: 'classic-still-installed', from: classicDir });
+      mkdirSync(ownDir);
+      expect(dataLeftByMove(makeFacts())).toBe(classicDir);
+    });
+
+    it('is nowhere once the data was taken in, though the files of oh are back under the classic name', () => {
+      seedClassicData();
+      writeFileSync(join(classicDir, 'cli.json'), '{"token":"t"}');
+      moveDataFolderToPackage(makeFacts(), { isClassicInstalled: classicGone, sleep });
+      expect(readdirSync(classicDir)).toEqual(['cli.json']);
+      expect(dataLeftByMove(makeFacts())).toBeNull();
+    });
+
+    it('is nowhere for a classic folder that carries no request: an install of its own may be using it', () => {
+      seedClassicData(null);
+      expect(dataLeftByMove(makeFacts())).toBeNull();
+    });
+
+    it('is nowhere where no classic folder is, and never behind a link standing in its place', () => {
+      expect(dataLeftByMove(makeFacts())).toBeNull();
+      const elsewhere = join(root, 'Elsewhere');
+      mkdirSync(elsewhere);
+      writeFileSync(join(elsewhere, MOVE_REQUEST_FILE_NAME), '{}');
+      symlinkSync(elsewhere, classicDir, 'junction');
+      expect(dataLeftByMove(makeFacts())).toBeNull();
+    });
+
+    it.each<InstallKind | null>(['nsis', 'msi', 'dev', null])(
+      'is nothing an install of kind %s says',
+      (installKind) => {
+        seedClassicData();
+        expect(dataLeftByMove(makeFacts({ installKind }))).toBeNull();
+      },
+    );
   });
 
   it('keeps its permanent names', () => {

@@ -109,4 +109,11 @@ export const sharedNotifications = {
     '사용할 수 있는 키링 백엔드가 없습니다. 키링(GNOME Keyring 또는 KWallet)을 설정한 다음 앱을 다시 실행하세요.',
   'shared.notifications.secrets.remedy.other':
     'Open Headers 앱이 시스템 자격 증명 저장소에 접근할 수 없습니다. 앱을 다시 실행해 다시 시도하세요.',
+
+  // ── A move to the Windows package, as the package's start found it ──
+  'shared.notifications.packageArrived.title': '이제 Windows 패키지로 실행됩니다',
+  'shared.notifications.packageArrived.description':
+    '앱을 작업 표시줄에 다시 고정하고, 붙여넣은 MCP 클라이언트 명령을 업데이트하세요.',
+  'shared.notifications.packageDataLeft.title': '데이터를 가져오지 못했습니다',
+  'shared.notifications.packageDataLeft.description': '데이터가 아직 {path} 폴더에 있습니다.',
 } as const satisfies Catalog;

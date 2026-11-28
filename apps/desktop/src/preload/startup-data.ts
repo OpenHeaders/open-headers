@@ -19,6 +19,8 @@ export type StartupData = {
   windowsPackage: boolean;
   localDataRemoval: boolean;
   packageSwitch: boolean;
+  packageDataTakenIn: boolean;
+  packageDataLeftAt: string | null;
 };
 
 export const startupData = ipcRenderer.sendSync('oh:startup-data') as StartupData;

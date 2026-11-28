@@ -30,6 +30,7 @@ export {
 export { errorToastDuration } from './toast-duration';
 export { useAppUpdateNotification } from './use-app-update-notification';
 export { __resetDesktopAppSuggestionForTests, useDesktopAppSuggestion } from './use-desktop-app-suggestion';
+export { usePackageDataNotices } from './use-package-data-notices';
 export { useSecretsStorageNotice } from './use-secrets-storage-notice';
 export { __resetSeedNotificationsForTests, useSeedNotifications } from './use-seed-notifications';
 export { useUpdatedNotification } from './use-updated-notification';

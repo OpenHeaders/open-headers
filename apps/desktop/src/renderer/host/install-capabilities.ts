@@ -263,6 +263,14 @@ if (window.oh.startupData.packageSwitch) {
   }));
 }
 
+// A Windows package's start knows what became of the data a move handed
+// over: taken in at this start, or still in the classic folder. Only such
+// a start registers this; the notifications timeline says which.
+const { packageDataTakenIn, packageDataLeftAt } = window.oh.startupData;
+if (packageDataTakenIn || packageDataLeftAt !== null) {
+  registerCapability('packageDataMove', () => ({ takenIn: packageDataTakenIn, leftAt: packageDataLeftAt }));
+}
+
 // A workflow's session steps run here: the main process opens the
 // session a `listen` step names.
 registerCapability('workflowSessionSteps', () => true);

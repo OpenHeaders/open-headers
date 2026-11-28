@@ -118,4 +118,11 @@ export const sharedNotifications = {
   'shared.notifications.secrets.remedy.other':
     'Приложению Open Headers не удалось получить доступ к системному хранилищу учётных данных. Перезапустите ' +
     'приложение, чтобы повторить попытку.',
+
+  // ── A move to the Windows package, as the package's start found it ──
+  'shared.notifications.packageArrived.title': 'Теперь приложение работает как пакет Windows',
+  'shared.notifications.packageArrived.description':
+    'Снова закрепите приложение на панели задач и обновите вставленные вами команды MCP-клиента.',
+  'shared.notifications.packageDataLeft.title': 'Ваши данные не были перенесены',
+  'shared.notifications.packageDataLeft.description': 'Они по-прежнему находятся в папке {path}.',
 } as const satisfies Catalog;

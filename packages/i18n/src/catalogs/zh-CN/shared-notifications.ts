@@ -106,4 +106,10 @@ export const sharedNotifications = {
   'shared.notifications.secrets.remedy.linux':
     '没有可用的密钥环后端。请设置一个（GNOME Keyring 或 KWallet），然后重新启动应用。',
   'shared.notifications.secrets.remedy.other': 'Open Headers 无法访问系统凭据存储。请重新启动应用重试。',
+
+  // ── A move to the Windows package, as the package's start found it ──
+  'shared.notifications.packageArrived.title': '现在以 Windows 应用包运行',
+  'shared.notifications.packageArrived.description': '请重新将应用固定到任务栏，并更新你粘贴过的任何 MCP 客户端命令。',
+  'shared.notifications.packageDataLeft.title': '你的数据未随之迁移',
+  'shared.notifications.packageDataLeft.description': '数据仍在 {path}。',
 } as const satisfies Catalog;

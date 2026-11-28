@@ -115,4 +115,11 @@ export const sharedNotifications = {
     'Nu este disponibil niciun backend de keyring utilizabil. Configurați unul (GNOME Keyring sau KWallet), apoi relansați aplicația.',
   'shared.notifications.secrets.remedy.other':
     'Open Headers nu a putut accesa depozitul de acreditări al sistemului. Relansați aplicația pentru a încerca din nou.',
+
+  // ── A move to the Windows package, as the package's start found it ──
+  'shared.notifications.packageArrived.title': 'Aplicația rulează acum ca pachet Windows',
+  'shared.notifications.packageArrived.description':
+    'Fixați din nou aplicația în bara de activități și actualizați orice comandă de client MCP pe care ați lipit-o.',
+  'shared.notifications.packageDataLeft.title': 'Datele dvs. nu au fost aduse',
+  'shared.notifications.packageDataLeft.description': 'Sunt încă în folderul {path}.',
 } as const satisfies Catalog;

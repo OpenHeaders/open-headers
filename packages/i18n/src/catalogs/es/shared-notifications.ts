@@ -122,4 +122,11 @@ export const sharedNotifications = {
   'shared.notifications.secrets.remedy.other':
     'Open Headers no pudo acceder al almacén de credenciales del sistema. Relanza la aplicación para volver a ' +
     'intentarlo.',
+
+  // ── A move to the Windows package, as the package's start found it ──
+  'shared.notifications.packageArrived.title': 'Ahora se ejecuta como paquete de Windows',
+  'shared.notifications.packageArrived.description':
+    'Vuelve a anclar la aplicación a la barra de tareas y actualiza cualquier comando de cliente MCP que hayas pegado.',
+  'shared.notifications.packageDataLeft.title': 'Tus datos no se han traspasado',
+  'shared.notifications.packageDataLeft.description': 'Siguen en {path}.',
 } as const satisfies Catalog;

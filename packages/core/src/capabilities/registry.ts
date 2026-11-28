@@ -434,6 +434,14 @@ export interface PackageAliases {
   openSettings(): void;
 }
 
+/** The {@link Capabilities.packageDataMove} value. */
+export interface PackageDataMove {
+  /** This start took in the data a move from the classic install handed over. */
+  readonly takenIn: boolean;
+  /** Where a move's data still lies while the package runs on a folder of its own; null where none was left. */
+  readonly leftAt: string | null;
+}
+
 /** The {@link Capabilities.packageSwitch} value. */
 export interface PackageSwitch {
   /** Whether a switch may begin, read from this PC and the feed at the call. */
@@ -1037,6 +1045,15 @@ export interface Capabilities {
    * type and offers no switch.
    */
   packageSwitch?: () => PackageSwitch;
+
+  /**
+   * What became of the data a move to the Windows package handed over,
+   * as this start found it (see {@link PackageDataMove}). Registered only
+   * by the desktop app installed as a Windows package, and only at a
+   * start that took the data in or found it left behind. Where it is
+   * present the notifications timeline says which.
+   */
+  packageDataMove?: () => PackageDataMove;
 
   /**
    * Declares that this install downloads an update only together with

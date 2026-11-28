@@ -29,10 +29,18 @@ export type StartupData = {
   localDataRemoval: boolean;
   /** This install came from the classic Windows installer: it can switch to the Windows package. */
   packageSwitch: boolean;
+  /** This start took in the data a move from the classic install handed over. */
+  packageDataTakenIn: boolean;
+  /** Where a move's data still lies while this package runs on a folder of its own; null where none was left. */
+  packageDataLeftAt: string | null;
 };
 
-function build(): StartupData {
+/** What only the start itself knows: read before the data folder was chosen. */
+export type StartFacts = Pick<StartupData, 'packageDataTakenIn' | 'packageDataLeftAt'>;
+
+function build(start: StartFacts): StartupData {
   return {
+    ...start,
     platform: process.platform,
     version: app.getVersion(),
     isPackaged: app.isPackaged,
@@ -56,8 +64,8 @@ function build(): StartupData {
   };
 }
 
-export function installStartupDataBridge(): void {
+export function installStartupDataBridge(start: StartFacts): void {
   ipcMain.on('oh:startup-data', (event) => {
-    event.returnValue = build();
+    event.returnValue = build(start);
   });
 }

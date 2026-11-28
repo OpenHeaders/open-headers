@@ -151,6 +151,7 @@ import {
   SecurityUpdateBanner,
   useAppUpdateNotification,
   useDesktopAppSuggestion,
+  usePackageDataNotices,
   useSecretsStorageNotice,
   useSeedNotifications,
   useUpdatedNotification,
@@ -508,6 +509,9 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
   // as a standing suggestion with the relaunch remedy; the footer's
   // status pill carries the same fact as a red `secrets` row.
   useSecretsStorageNotice();
+  // A Windows package says what became of the data a move from the
+  // classic install handed over: taken in at this start, or left behind.
+  usePackageDataNotices();
   // A consumed workspace's backend moved its checked-out branch between
   // two connects — one toast names the workspace and the branch.
   useGitHeadNotice();

@@ -109,4 +109,11 @@ export const sharedNotifications = {
     'No usable keyring backend is available. Set one up (GNOME Keyring or KWallet), then relaunch the app.',
   'shared.notifications.secrets.remedy.other':
     'Open Headers could not access the system credential store. Relaunch the app to try again.',
+
+  // ── A move to the Windows package, as the package's start found it ──
+  'shared.notifications.packageArrived.title': 'Now running as a Windows package',
+  'shared.notifications.packageArrived.description':
+    'Pin the app to the taskbar again and update any MCP client command you pasted.',
+  'shared.notifications.packageDataLeft.title': 'Your data was not brought over',
+  'shared.notifications.packageDataLeft.description': 'It is still in {path}.',
 } as const satisfies Catalog;
