@@ -6,10 +6,19 @@
 //!   --no-launch         do not open the app afterwards
 //!   --log <file>        write the log there
 //!
+//! A move (`classic_move`) is asked for by the classic app with four more,
+//! all of them or none:
+//!
+//!   --move-app <file>          the app's own program
+//!   --move-app-pid <number>    the running app's process
+//!   --move-uninstaller <file>  its uninstaller, in the install folder
+//!   --move-note <file>         where it writes its request note
+//!
 //! A value may also follow its switch after `=`.
 
 use std::path::PathBuf;
 
+use crate::classic_move::ClassicInstall;
 use crate::feed::Channel;
 
 #[derive(Debug, Default, PartialEq, Eq)]
@@ -19,6 +28,8 @@ pub struct Args {
     pub package: Option<PathBuf>,
     pub no_launch: bool,
     pub log: Option<PathBuf>,
+    /// The classic install a move takes the place of.
+    pub classic: Option<ClassicInstall>,
 }
 
 pub fn parse<I>(args: I) -> Result<Args, String>
@@ -26,6 +37,7 @@ where
     I: IntoIterator<Item = String>,
 {
     let mut parsed = Args::default();
+    let (mut app, mut app_pid, mut uninstaller, mut note) = (None, None, None, None);
     let mut rest = args.into_iter();
     while let Some(arg) = rest.next() {
         let (name, inline) = match arg.split_once('=') {
@@ -51,11 +63,41 @@ where
             }
             "--package" => parsed.package = Some(PathBuf::from(value("--package")?)),
             "--log" => parsed.log = Some(PathBuf::from(value("--log")?)),
+            "--move-app" => app = Some(PathBuf::from(value("--move-app")?)),
+            "--move-app-pid" => {
+                let text = value("--move-app-pid")?;
+                app_pid = Some(
+                    text.parse::<u32>()
+                        .ok()
+                        .filter(|pid| *pid > 0)
+                        .ok_or_else(|| format!("--move-app-pid is a process id, not '{text}'"))?,
+                );
+            }
+            "--move-uninstaller" => uninstaller = Some(PathBuf::from(value("--move-uninstaller")?)),
+            "--move-note" => note = Some(PathBuf::from(value("--move-note")?)),
             "--silent" | "--no-launch" if inline.is_some() => return Err(format!("{name} takes no value")),
             "--silent" => parsed.silent = true,
             "--no-launch" => parsed.no_launch = true,
             other => return Err(format!("unknown switch '{other}'")),
         }
+    }
+    parsed.classic = match (app, app_pid, uninstaller, note) {
+        (None, None, None, None) => None,
+        (Some(app), Some(app_pid), Some(uninstaller), Some(note)) => Some(ClassicInstall {
+            app,
+            app_pid,
+            uninstaller,
+            note,
+        }),
+        _ => {
+            return Err(
+                "a move takes --move-app, --move-app-pid, --move-uninstaller and --move-note together".to_string(),
+            );
+        }
+    };
+    // A move ends by starting the package: there is nothing to leave closed.
+    if parsed.classic.is_some() && parsed.no_launch {
+        return Err("--no-launch does not go with a move".to_string());
     }
     Ok(parsed)
 }
@@ -111,6 +153,64 @@ mod tests {
         assert_eq!(
             parse_words(&["--package="]),
             Err("--package expects a value".to_string())
+        );
+    }
+
+    const MOVE: [&str; 8] = [
+        "--move-app",
+        "C:\\Users\\John Doe\\AppData\\Local\\Programs\\open-headers\\OpenHeaders.exe",
+        "--move-app-pid",
+        "4312",
+        "--move-uninstaller",
+        "C:\\Users\\John Doe\\AppData\\Local\\Programs\\open-headers\\Uninstall OpenHeaders.exe",
+        "--move-note",
+        "C:\\Users\\John Doe\\AppData\\Roaming\\OpenHeaders\\move-to-package.json",
+    ];
+
+    #[test]
+    fn a_move_is_its_four_switches() {
+        let args = parse_words(&MOVE).unwrap();
+        assert_eq!(
+            args.classic,
+            Some(ClassicInstall {
+                app: PathBuf::from(MOVE[1]),
+                app_pid: 4312,
+                uninstaller: PathBuf::from(MOVE[5]),
+                note: PathBuf::from(MOVE[7]),
+            })
+        );
+        assert!(!args.silent && args.package.is_none());
+    }
+
+    #[test]
+    fn a_move_named_in_part_is_refused() {
+        for missing in [0, 2, 4, 6] {
+            let mut words = MOVE.to_vec();
+            words.drain(missing..missing + 2);
+            assert_eq!(
+                parse_words(&words),
+                Err("a move takes --move-app, --move-app-pid, --move-uninstaller and --move-note together".to_string()),
+                "without {}",
+                MOVE[missing]
+            );
+        }
+    }
+
+    #[test]
+    fn a_moves_process_is_a_number_and_a_move_always_starts_the_package() {
+        for pid in ["0", "-4", "the app"] {
+            let mut words = MOVE.to_vec();
+            words[3] = pid;
+            assert_eq!(
+                parse_words(&words),
+                Err(format!("--move-app-pid is a process id, not '{pid}'"))
+            );
+        }
+        let mut words = MOVE.to_vec();
+        words.push("--no-launch");
+        assert_eq!(
+            parse_words(&words),
+            Err("--no-launch does not go with a move".to_string())
         );
     }
 

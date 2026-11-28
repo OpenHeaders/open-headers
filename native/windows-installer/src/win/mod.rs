@@ -2,11 +2,13 @@
 //! ways it runs — beside its window, or silently.
 
 mod checks;
+mod classic;
 mod dialog;
 mod hash;
 mod http;
 mod package;
 mod paint;
+mod process;
 mod trust;
 mod window;
 
@@ -19,6 +21,7 @@ use windows::Win32::System::Com::{COINIT_APARTMENTTHREADED, COINIT_MULTITHREADED
 
 use crate::RELEASE_VERSION;
 use crate::args::{self, Args};
+use crate::classic_move;
 use crate::cleanup;
 use crate::feed::Channel;
 use crate::flow::{self, Carry, Done, Plan, Signer, System, Unfit, Unwatched, Watcher};
@@ -73,15 +76,35 @@ impl System for Pc {
     fn open_app(&self) -> Result<(), String> {
         package::open_app()
     }
+    fn check_package_start(&self, within_ms: u64) -> Result<i32, String> {
+        package::check_start(within_ms)
+    }
+    fn remove_package(&self) -> Result<(), String> {
+        package::remove()
+    }
+    fn finish_move(&self) -> Result<(), String> {
+        package::finish_move()
+    }
 }
 
-/// One run of the install, on the calling thread. A panic is a run that
-/// stopped, never a window left with nothing behind it.
-fn attempt(plan: &Plan, watcher: &dyn Watcher, log: &Log, carry: &mut Carry) -> Result<Done, Stop> {
+/// One run of the install — or, with a classic install's side, of a move —
+/// on the calling thread. A panic is a run that stopped, never a window
+/// left with nothing behind it.
+fn attempt(
+    plan: &Plan,
+    mover: Option<&classic::Mover>,
+    watcher: &dyn Watcher,
+    log: &Log,
+    carry: &mut Carry,
+) -> Result<Done, Stop> {
     let result = catch_unwind(AssertUnwindSafe(|| {
         let http = http::WinHttp::open(&format!("OpenHeaders-Installer/{RELEASE_VERSION}"))
             .map_err(|error| Stop::new(Failure::Unexpected, error))?;
-        flow::run(plan, &Pc { http }, watcher, log, carry)
+        let pc = Pc { http };
+        match mover {
+            Some(mover) => classic_move::run(plan, &pc, mover, watcher, log, carry),
+            None => flow::run(plan, &pc, watcher, log, carry),
+        }
     }))
     .unwrap_or_else(|_| Err(Stop::new(Failure::Unexpected, "the run panicked")));
     match &result {
@@ -91,10 +114,18 @@ fn attempt(plan: &Plan, watcher: &dyn Watcher, log: &Log, carry: &mut Carry) -> 
     result
 }
 
-fn exit_code_of(result: &Result<Done, Stop>) -> i32 {
+/// The exit code of a run that is over. A move that stopped is said to
+/// the app here, before the download is taken away.
+fn exit_code_of(result: &Result<Done, Stop>, mover: Option<&classic::Mover>) -> i32 {
     match result {
         Ok(_) => EXIT_INSTALLED,
-        Err(stop) => stop.failure.exit_code(),
+        Err(stop) => {
+            let code = stop.failure.exit_code();
+            if let Some(mover) = mover {
+                mover.say_stopped(code);
+            }
+            code
+        }
     }
 }
 
@@ -106,7 +137,7 @@ fn plan_of(args: &Args) -> Plan {
     }
 }
 
-fn watched(plan: Plan, log: Arc<Log>) -> i32 {
+fn watched(plan: Plan, mover: Option<classic::Mover>, log: Arc<Log>) -> i32 {
     // The window's thread opens the log from the stop dialog's button: the shell wants a single-threaded apartment there.
     let _ = unsafe { CoInitializeEx(None, COINIT_APARTMENTTHREADED) };
     let log_path = log.path().to_path_buf();
@@ -114,7 +145,7 @@ fn watched(plan: Plan, log: Arc<Log>) -> i32 {
         let _ = unsafe { CoInitializeEx(None, COINIT_MULTITHREADED) };
         let mut carry = Carry::default();
         loop {
-            let result = attempt(&plan, window, &log, &mut carry);
+            let result = attempt(&plan, mover.as_ref(), window, &log, &mut carry);
             match &result {
                 Err(stop)
                     if stop.failure != Failure::Cancelled
@@ -122,7 +153,7 @@ fn watched(plan: Plan, log: Arc<Log>) -> i32 {
                 {
                     log.line("trying again");
                 }
-                _ => return exit_code_of(&result),
+                _ => return exit_code_of(&result, mover.as_ref()),
             }
         }
     })
@@ -155,18 +186,36 @@ pub fn run() -> i32 {
             Some(file) => format!("from the file {}", file.display()),
             None => "from the feed".to_string(),
         },
-        if plan.open_app {
-            "opens the app"
-        } else {
-            "does not open the app"
+        match &args.classic {
+            Some(install) => format!(
+                "takes the place of the classic install of {} (process {})",
+                install.app.display(),
+                install.app_pid
+            ),
+            None if plan.open_app => "opens the app".to_string(),
+            None => "does not open the app".to_string(),
         },
     ));
+    let mover = match args.classic {
+        Some(install) => match classic::Mover::open(install, download_dir()) {
+            Ok(mover) => Some(mover),
+            Err(why) => {
+                log.line(&format!(
+                    "stopped: {:?} — the app's process cannot be waited for: {why}",
+                    Failure::BadSwitches
+                ));
+                return Failure::BadSwitches.exit_code();
+            }
+        },
+        None => None,
+    };
 
     let code = if args.silent {
         let _ = unsafe { CoInitializeEx(None, COINIT_MULTITHREADED) };
-        exit_code_of(&attempt(&plan, &Unwatched, &log, &mut Carry::default()))
+        let result = attempt(&plan, mover.as_ref(), &Unwatched, &log, &mut Carry::default());
+        exit_code_of(&result, mover.as_ref())
     } else {
-        watched(plan, log.clone())
+        watched(plan, mover, log.clone())
     };
     cleanup::remove_download_dir(
         &download_dir(),

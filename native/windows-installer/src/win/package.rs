@@ -1,7 +1,8 @@
 //! The package, through Windows' package manager: is it installed for
-//! this user, install it from a file, open its app.
+//! this user, install it from a file, open its app, take it away again —
+//! and its app started through its alias, for a move.
 
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::sync::mpsc;
 
 use windows::ApplicationModel::Package;
@@ -10,8 +11,12 @@ use windows::Management::Deployment::{AddPackageOptions, DeploymentProgress, Dep
 use windows::Win32::System::Com::{CLSCTX_LOCAL_SERVER, CoAllowSetForegroundWindow, CoCreateInstance};
 use windows::Win32::UI::Shell::{AO_NONE, ApplicationActivationManager, IApplicationActivationManager};
 use windows::core::{HSTRING, PCWSTR};
-use windows_future::{AsyncOperationProgressHandler, AsyncOperationWithProgressCompletedHandler, AsyncStatus};
+use windows_future::{
+    AsyncOperationProgressHandler, AsyncOperationWithProgressCompletedHandler, AsyncStatus, IAsyncOperationWithProgress,
+};
 
+use super::process;
+use crate::classic_move::{CHECK_PACKAGE_START_SWITCH, FINISH_MOVE_SWITCH, package_app_alias};
 use crate::file_uri::file_uri;
 use crate::pointer::PACKAGE_IDENTITY_NAME;
 
@@ -57,7 +62,28 @@ pub fn install(file: &Path, on_percent: &mut dyn FnMut(u32)) -> Result<(), Strin
     let operation = PackageManager::new()
         .and_then(|manager| manager.AddPackageByUriAsync(&uri, &AddPackageOptions::new()?))
         .map_err(said)?;
+    ended(&operation, on_percent)
+}
 
+/// Asks Windows to take this user's package away again and waits for it.
+/// Windows closes what runs of the package. No package is no error.
+pub fn remove() -> Result<(), String> {
+    let Some(package) = installed().map_err(said)? else {
+        return Ok(());
+    };
+    let full_name = package.Id().and_then(|id| id.FullName()).map_err(said)?;
+    let operation = PackageManager::new()
+        .and_then(|manager| manager.RemovePackageAsync(&full_name))
+        .map_err(said)?;
+    ended(&operation, &mut |_| {})
+}
+
+/// Waits for an operation of the package manager, passing on the
+/// percentages Windows reports on the way; a refusal in Windows' own words.
+fn ended(
+    operation: &IAsyncOperationWithProgress<DeploymentResult, DeploymentProgress>,
+    on_percent: &mut dyn FnMut(u32),
+) -> Result<(), String> {
     let (heard, hears) = mpsc::channel();
     let progress = heard.clone();
     operation
@@ -81,14 +107,14 @@ pub fn install(file: &Path, on_percent: &mut dyn FnMut(u32)) -> Result<(), Strin
         match hears.recv() {
             Ok(Heard::Percent(percent)) => on_percent(percent),
             Ok(Heard::Ended(status)) => break status,
-            Err(_) => return Err("Windows dropped the install without an answer".to_string()),
+            Err(_) => return Err("Windows dropped the operation without an answer".to_string()),
         }
     };
     if status == AsyncStatus::Completed {
         return Ok(());
     }
 
-    // Windows' own words for a refusal: the operation's code, and the result's text.
+    // The operation's code, and the result's text.
     let code = operation.ErrorCode().map(|code| code.0 as u32).unwrap_or(0);
     let text = operation
         .GetResults()
@@ -117,4 +143,41 @@ pub fn open_app() -> Result<(), String> {
             .map_err(said)?;
     }
     Ok(())
+}
+
+/// The package's app as a program outside the package starts it.
+fn app_alias() -> Result<PathBuf, String> {
+    std::env::var_os("LOCALAPPDATA")
+        .map(|local| package_app_alias(Path::new(&local)))
+        .ok_or_else(|| "this user has no LOCALAPPDATA".to_string())
+}
+
+/// Starts the installed app in its check mode and waits this long for it:
+/// how the check ended. A check that outstays the wait is left to itself —
+/// it ends by its own limit, and with the package when that is removed.
+pub fn check_start(within_ms: u64) -> Result<i32, String> {
+    let alias = app_alias()?;
+    let mut check = process::apart(&alias)
+        .arg(CHECK_PACKAGE_START_SWITCH)
+        .spawn()
+        .map_err(|error| format!("cannot start {}: {error}", alias.display()))?;
+    if !process::ended_within(&check, within_ms) {
+        return Err(format!("it did not end in {} s", within_ms / 1000));
+    }
+    check
+        .wait()
+        .map_err(|error| error.to_string())?
+        .code()
+        .ok_or_else(|| "it ended without a code".to_string())
+}
+
+/// Starts the installed app to take the classic install's data in; it
+/// carries on as the app.
+pub fn finish_move() -> Result<(), String> {
+    let alias = app_alias()?;
+    process::apart(&alias)
+        .arg(FINISH_MOVE_SWITCH)
+        .spawn()
+        .map(drop)
+        .map_err(|error| format!("cannot start {}: {error}", alias.display()))
 }

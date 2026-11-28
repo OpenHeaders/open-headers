@@ -25,6 +25,15 @@ pub enum Failure {
     WindowsRefused,
     /// Installed, and the app could not be opened.
     NotOpened,
+    /// A move: the installed package did not pass its start check, and was removed.
+    PackageCheck,
+    /// A move: the classic app did not give its word or did not close; the package was removed.
+    AppStayed,
+    /// A move: the classic uninstaller refused; the package was removed and the classic app started again.
+    ClassicRemains,
+    /// A move asked for where a package is installed already: only a
+    /// package the move installed itself may be removed when it is put back.
+    PackagePresent,
     Cancelled,
 }
 
@@ -42,6 +51,10 @@ impl Failure {
             Failure::Signature => 23,
             Failure::WindowsRefused => 30,
             Failure::NotOpened => 31,
+            Failure::PackageCheck => 32,
+            Failure::AppStayed => 33,
+            Failure::ClassicRemains => 34,
+            Failure::PackagePresent => 35,
             Failure::Cancelled => 40,
         }
     }
@@ -59,6 +72,10 @@ impl Failure {
             Failure::Hash | Failure::Signature => "The download doesn't match what was published.",
             Failure::WindowsRefused => "Windows couldn't install Open Headers.",
             Failure::NotOpened => "Open Headers is installed. Open it from the Start menu.",
+            Failure::PackageCheck => "The Windows package didn't start. Nothing was changed.",
+            Failure::AppStayed => "Open Headers didn't close. Nothing was changed.",
+            Failure::ClassicRemains => "The switch couldn't finish. Open Headers is as it was.",
+            Failure::PackagePresent => "The Windows package is already installed.",
             Failure::Cancelled => "The install was cancelled.",
         }
     }
@@ -92,7 +109,7 @@ impl Stop {
 mod tests {
     use super::*;
 
-    const ALL: [Failure; 14] = [
+    const ALL: [Failure; 18] = [
         Failure::Unexpected,
         Failure::BadSwitches,
         Failure::WindowsTooOld,
@@ -106,13 +123,32 @@ mod tests {
         Failure::Signature,
         Failure::WindowsRefused,
         Failure::NotOpened,
+        Failure::PackageCheck,
+        Failure::AppStayed,
+        Failure::ClassicRemains,
+        Failure::PackagePresent,
         Failure::Cancelled,
     ];
 
     #[test]
     fn exit_codes_are_the_published_ones() {
         let codes: Vec<i32> = ALL.iter().map(|failure| failure.exit_code()).collect();
-        assert_eq!(codes, [1, 2, 10, 11, 12, 20, 20, 20, 21, 22, 23, 30, 31, 40]);
+        assert_eq!(
+            codes,
+            [1, 2, 10, 11, 12, 20, 20, 20, 21, 22, 23, 30, 31, 32, 33, 34, 35, 40]
+        );
+    }
+
+    #[test]
+    fn a_move_that_was_put_back_is_not_tried_again() {
+        for failure in [
+            Failure::PackageCheck,
+            Failure::AppStayed,
+            Failure::ClassicRemains,
+            Failure::PackagePresent,
+        ] {
+            assert!(!failure.worth_another_try(), "{failure:?}");
+        }
     }
 
     #[test]

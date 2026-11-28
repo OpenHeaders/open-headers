@@ -309,6 +309,20 @@ mod tests {
     }
 
     #[test]
+    fn a_moves_stages_run_the_bar_and_take_no_cancel() {
+        for stage in [
+            Stage::CheckingPackage,
+            Stage::ClosingApp,
+            Stage::RemovingClassic,
+            Stage::PuttingBack,
+        ] {
+            let seen = shown(stage, Progress::Unknown, true);
+            assert_eq!((seen.bar, seen.takes_cancel), (Bar::Running, false), "{stage:?}");
+            assert_eq!(seen.line, stage.words(Progress::Unknown));
+        }
+    }
+
+    #[test]
     fn a_cancel_is_said_until_the_run_ends_and_not_when_it_came_too_late() {
         let asked = shown(Stage::Downloading, Progress::Percent(40), true);
         assert_eq!(

@@ -29,6 +29,35 @@ small native program in front of the Windows package (MSIX). It
 Its channel is the one of the release it was built for: a beta's
 installer installs betas.
 
+## A move
+
+The classic app starts the installer — a copy outside its install
+folder — to put the package in the classic install's place, naming its
+own program, its process, its uninstaller and the place of its request
+note, over a pipe (the installer's standard handles). The installer
+
+1. does steps 1 to 6 as above, but stops where a package is installed
+   already: a move removes only a package it installed itself;
+2. starts the package through its alias in its check mode and wants 0;
+   any other answer, and the package is removed again;
+3. says `ready` on the pipe and waits for the app's `go`, which the app
+   gives once its request note is written; then waits for the app's
+   process to end — the app quits by itself, nothing of its is closed.
+   No `go`, or an app that stays: the note and the package are removed,
+   nothing is uninstalled;
+4. runs a copy of the classic uninstaller in its move mode, as the
+   builder's own installer runs an old one, and reads its exit code.
+   0: the package is started to take the data in. Any other: the note
+   and the package are removed and the classic app is started again.
+
+A move that stops says `stopped <exit code>` on the pipe, for an app
+that still runs — at once, where its own exit can wait on the
+download's delete. The installer never touches the data folder but to
+take the note of a move it gives up away. The switches and the words
+on the pipe are between one version of the app and the installer it
+carries; the package's alias, its two switches and the note are the
+package's own and permanent.
+
 ## The window
 
 A window of its own, with no title bar, moved by its body: the app's
@@ -70,11 +99,20 @@ stable ends in `1000`).
 | `--no-launch` | do not open the app afterwards |
 | `--log <file>` | write the log there, in place of `%TEMP%\OpenHeaders-Installer.log` |
 
+A move takes four more, all of them or none, and never `--no-launch`:
+
+| Switch | |
+| --- | --- |
+| `--move-app <file>` | the classic app's own program, started again when a move is put back |
+| `--move-app-pid <number>` | the running app's process, waited for |
+| `--move-uninstaller <file>` | the classic uninstaller, in the install folder |
+| `--move-note <file>` | where the app writes its request note |
+
 ## Exit codes
 
 | Code | |
 | --- | --- |
-| 0 | installed, or installed already |
+| 0 | installed, or installed already; a move: the package was started in the classic install's place |
 | 1 | unexpected |
 | 2 | bad switches |
 | 10 | Windows too old |
@@ -86,6 +124,10 @@ stable ends in `1000`).
 | 23 | the package's signature or signer |
 | 30 | Windows refused the install |
 | 31 | installed, and the app could not be opened |
+| 32 | a move: the package did not pass its start check, and was removed |
+| 33 | a move: the classic app gave no go or did not close; the package was removed |
+| 34 | a move: the classic uninstaller refused; the package was removed and the classic app started again |
+| 35 | a move asked for where a package is installed already |
 | 40 | cancelled |
 
 ## Layout
@@ -93,11 +135,13 @@ stable ends in `1000`).
 What the installer decides runs anywhere and is tested with
 `cargo test` on any machine: the switches (`args.rs`), the pointer
 (`pointer.rs`), the download's tries (`transfer.rs`), the order of a
-run and every way it stops (`flow.rs`), what the window shows for a
+run and every way it stops (`flow.rs`), a move's order and what each
+stop puts back (`classic_move.rs`), what the window shows for a
 run's state and where each part lies (`view.rs`). What it asks of
 Windows is in `src/win/` and compiles on Windows targets only: the
 window (`window.rs`), how it is drawn (`paint.rs`), the dialog of a
-stop (`dialog.rs`).
+stop (`dialog.rs`), the classic install's side of a move
+(`classic.rs`).
 
 ## Build
 

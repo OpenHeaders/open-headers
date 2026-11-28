@@ -56,6 +56,13 @@ pub trait System {
     fn package_signer(&self, file: &Path) -> Result<Signer, String>;
     fn install(&self, file: &Path, on_percent: &mut dyn FnMut(u32)) -> Result<(), String>;
     fn open_app(&self) -> Result<(), String>;
+    /// Starts the installed package in its check mode and waits this long
+    /// for it: how the check ended.
+    fn check_package_start(&self, within_ms: u64) -> Result<i32, String>;
+    /// Takes this user's package away again.
+    fn remove_package(&self) -> Result<(), String>;
+    /// Starts the installed package to take the classic install's data in.
+    fn finish_move(&self) -> Result<(), String>;
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -65,6 +72,14 @@ pub enum Stage {
     Verifying,
     Installing,
     Opening,
+    /// A move: the installed package is asked whether it starts.
+    CheckingPackage,
+    /// A move: the classic app is told, and waited for.
+    ClosingApp,
+    /// A move: the classic install's own uninstaller runs.
+    RemovingClassic,
+    /// A move that stopped: what it changed is undone.
+    PuttingBack,
 }
 
 /// A megabyte as Windows counts one where it shows a file's size.
@@ -113,6 +128,10 @@ impl Stage {
             Stage::Verifying => "Verifying…",
             Stage::Installing => "Installing…",
             Stage::Opening => "Opening Open Headers…",
+            Stage::CheckingPackage => "Checking the package…",
+            Stage::ClosingApp => "Closing Open Headers…",
+            Stage::RemovingClassic => "Removing the previous install…",
+            Stage::PuttingBack => "Putting things back…",
         };
         match (self, progress.percent(), progress.megabytes()) {
             (Stage::Downloading, Some(percent), Some((have, total))) => {
@@ -125,7 +144,7 @@ impl Stage {
 
     /// Whether a cancel is still taken: not once Windows has the package.
     pub fn takes_cancel(self) -> bool {
-        !matches!(self, Stage::Installing | Stage::Opening)
+        matches!(self, Stage::Checking | Stage::Downloading | Stage::Verifying)
     }
 }
 
@@ -167,6 +186,8 @@ pub enum Done {
     Installed,
     /// The package was there already; the app updates itself.
     AlreadyInstalled,
+    /// The package took the classic install's place (`classic_move`).
+    Moved,
 }
 
 fn offer_for(plan: &Plan, system: &dyn System, log: &Log) -> Result<PackageOffer, Stop> {
@@ -311,13 +332,9 @@ fn hold_to_signer(file: &Path, publisher: Option<&str>, system: &dyn System, log
     Ok(())
 }
 
-pub fn run(
-    plan: &Plan,
-    system: &dyn System,
-    watcher: &dyn Watcher,
-    log: &Log,
-    carry: &mut Carry,
-) -> Result<Done, Stop> {
+/// Whether this PC takes the package, and the version of the one this
+/// user has already, if any. Nothing is read from the feed before it.
+pub fn survey(system: &dyn System, watcher: &dyn Watcher) -> Result<Option<String>, Stop> {
     watcher.stage(Stage::Checking);
     watcher.progress(Progress::Unknown);
     system.fitness().map_err(|unfit| match unfit {
@@ -328,23 +345,21 @@ pub fn run(
         Unfit::SMode => Stop::new(Failure::SMode, "Windows is in S mode"),
         Unfit::PolicyBlocks => Stop::new(Failure::PolicyBlocks, "the policy AllowAllTrustedApps is 0"),
     })?;
-
-    let installed = system
+    system
         .installed_version()
-        .map_err(|error| Stop::new(Failure::Unexpected, error))?;
-    if let Some(version) = installed {
-        log.line(&format!(
-            "the package is installed already ({version}): nothing is installed over it"
-        ));
-        if plan.open_app {
-            watcher.stage(Stage::Opening);
-            system
-                .open_app()
-                .map_err(|error| Stop::new(Failure::NotOpened, error))?;
-        }
-        return Ok(Done::AlreadyInstalled);
-    }
+        .map_err(|error| Stop::new(Failure::Unexpected, error))
+}
 
+/// Puts the package on the PC: the channel's, downloaded and held to the
+/// pointer's hash, or the file the plan names; held to our signer; handed
+/// to Windows.
+pub fn place(
+    plan: &Plan,
+    system: &dyn System,
+    watcher: &dyn Watcher,
+    log: &Log,
+    carry: &mut Carry,
+) -> Result<(), Stop> {
     let (file, publisher) = match &plan.package {
         Some(file) => {
             if !file.is_file() {
@@ -379,6 +394,29 @@ pub fn run(
         })
         .map_err(|error| Stop::new(Failure::WindowsRefused, error))?;
     log.line("Windows installed the package");
+    Ok(())
+}
+
+pub fn run(
+    plan: &Plan,
+    system: &dyn System,
+    watcher: &dyn Watcher,
+    log: &Log,
+    carry: &mut Carry,
+) -> Result<Done, Stop> {
+    if let Some(version) = survey(system, watcher)? {
+        log.line(&format!(
+            "the package is installed already ({version}): nothing is installed over it"
+        ));
+        if plan.open_app {
+            watcher.stage(Stage::Opening);
+            system
+                .open_app()
+                .map_err(|error| Stop::new(Failure::NotOpened, error))?;
+        }
+        return Ok(Done::AlreadyInstalled);
+    }
+    place(plan, system, watcher, log, carry)?;
 
     if plan.open_app {
         watcher.stage(Stage::Opening);
@@ -391,17 +429,19 @@ pub fn run(
     Ok(Done::Installed)
 }
 
+/// A PC and a watcher that answer from what a test set, for this module's
+/// tests and for the move's.
 #[cfg(test)]
-mod tests {
+pub mod testing {
     use super::*;
-    use crate::transfer::testing::{Answer, FakeHost, scratch_dir};
+    use crate::transfer::testing::{FakeHost, scratch_dir};
     use std::cell::{Cell, RefCell};
 
-    const PUBLISHER: &str = "CN=BITHUB TEAM SRL, O=BITHUB TEAM SRL, L=Iasi, S=Iasi, C=RO";
-    const PACKAGE: &[u8] = b"a package's bytes, as the download host holds them";
-    const HASH: &str = "5f0c3e6f6f4a1e2d3c4b5a69788796a5b4c3d2e1f00112233445566778899aab";
+    pub const PUBLISHER: &str = "CN=BITHUB TEAM SRL, O=BITHUB TEAM SRL, L=Iasi, S=Iasi, C=RO";
+    pub const PACKAGE: &[u8] = b"a package's bytes, as the download host holds them";
+    pub const HASH: &str = "5f0c3e6f6f4a1e2d3c4b5a69788796a5b4c3d2e1f00112233445566778899aab";
 
-    fn pointer() -> Vec<u8> {
+    pub fn pointer() -> Vec<u8> {
         format!(
             r#"{{"version":"2026.11.3-beta.6","packageVersion":"2026.11.3.6","tag":"v2026.11.3-beta.6","publisher":"{PUBLISHER}",
             "packages":{{"x64":{{"url":"https://updates.openheaders.io/dl/v2026.11.3-beta.6/OpenHeaders-2026.11.3-beta.6-x64.msix","size":{},"sha256":"{HASH}"}}}},
@@ -413,9 +453,9 @@ mod tests {
 
     /// The feed and the download host in one: the pointer at the pointer's
     /// link, the package at any other.
-    struct Feed {
-        pointer: FakeHost,
-        package: FakeHost,
+    pub struct Feed {
+        pub pointer: FakeHost,
+        pub package: FakeHost,
     }
 
     impl Transport for Feed {
@@ -428,30 +468,34 @@ mod tests {
         }
     }
 
-    fn signer(subject: &str) -> Signer {
+    pub fn signer(subject: &str) -> Signer {
         Signer {
             subject: subject.to_string(),
             subject_der: subject.as_bytes().to_vec(),
         }
     }
 
-    struct Pc {
-        dir: PathBuf,
-        feed: Feed,
-        fitness: Result<(), Unfit>,
-        arch: Option<Arch>,
-        installed: Option<String>,
-        hash: String,
-        own: Result<Option<Signer>, String>,
-        package_signer: Result<Signer, String>,
-        install: Result<(), String>,
-        open: Result<(), String>,
-        calls: RefCell<Vec<String>>,
-        installed_from: RefCell<Option<PathBuf>>,
+    pub struct Pc {
+        pub dir: PathBuf,
+        pub feed: Feed,
+        pub fitness: Result<(), Unfit>,
+        pub arch: Option<Arch>,
+        pub installed: Option<String>,
+        pub hash: String,
+        pub own: Result<Option<Signer>, String>,
+        pub package_signer: Result<Signer, String>,
+        pub install: Result<(), String>,
+        pub open: Result<(), String>,
+        pub check: Result<i32, String>,
+        pub remove: Result<(), String>,
+        pub finish: Result<(), String>,
+        /// What was asked of the PC, in its order.
+        pub calls: RefCell<Vec<String>>,
+        pub installed_from: RefCell<Option<PathBuf>>,
     }
 
     impl Pc {
-        fn new(name: &str) -> Pc {
+        pub fn new(name: &str) -> Pc {
             Pc {
                 dir: scratch_dir(name),
                 feed: Feed {
@@ -466,12 +510,15 @@ mod tests {
                 package_signer: Ok(signer(PUBLISHER)),
                 install: Ok(()),
                 open: Ok(()),
+                check: Ok(0),
+                remove: Ok(()),
+                finish: Ok(()),
                 calls: RefCell::new(Vec::new()),
                 installed_from: RefCell::new(None),
             }
         }
 
-        fn calls(&self) -> Vec<String> {
+        pub fn calls(&self) -> Vec<String> {
             self.calls.borrow().clone()
         }
     }
@@ -522,13 +569,25 @@ mod tests {
             self.calls.borrow_mut().push("open".to_string());
             self.open.clone()
         }
+        fn check_package_start(&self, _within_ms: u64) -> Result<i32, String> {
+            self.calls.borrow_mut().push("check".to_string());
+            self.check.clone()
+        }
+        fn remove_package(&self) -> Result<(), String> {
+            self.calls.borrow_mut().push("remove package".to_string());
+            self.remove.clone()
+        }
+        fn finish_move(&self) -> Result<(), String> {
+            self.calls.borrow_mut().push("finish".to_string());
+            self.finish.clone()
+        }
     }
 
     #[derive(Default)]
-    struct Seen {
-        stages: RefCell<Vec<Stage>>,
-        progress: RefCell<Vec<Progress>>,
-        cancel_at: Cell<Option<Stage>>,
+    pub struct Seen {
+        pub stages: RefCell<Vec<Stage>>,
+        pub progress: RefCell<Vec<Progress>>,
+        pub cancel_at: Cell<Option<Stage>>,
     }
 
     impl Watcher for Seen {
@@ -545,13 +604,20 @@ mod tests {
         }
     }
 
-    fn plan() -> Plan {
+    pub fn plan() -> Plan {
         Plan {
             channel: Channel::Beta,
             package: None,
             open_app: true,
         }
     }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::testing::*;
+    use super::*;
+    use crate::transfer::testing::{Answer, FakeHost};
 
     fn go(pc: &Pc, plan: &Plan, seen: &Seen) -> Result<Done, Stop> {
         go_on(pc, plan, seen, &mut Carry::default())
@@ -632,6 +698,20 @@ mod tests {
         assert_eq!(Stage::Installing.words(Progress::Percent(7)), "Installing… 7%");
         assert_eq!(Stage::Opening.words(Progress::Unknown), "Opening Open Headers…");
         assert!(Stage::Verifying.takes_cancel() && !Stage::Installing.takes_cancel());
+    }
+
+    #[test]
+    fn a_moves_stages_read_as_their_lines_and_take_no_cancel() {
+        let lines = [
+            (Stage::CheckingPackage, "Checking the package…"),
+            (Stage::ClosingApp, "Closing Open Headers…"),
+            (Stage::RemovingClassic, "Removing the previous install…"),
+            (Stage::PuttingBack, "Putting things back…"),
+        ];
+        for (stage, line) in lines {
+            assert_eq!(stage.words(Progress::Percent(42)), line);
+            assert!(!stage.takes_cancel(), "{stage:?}");
+        }
     }
 
     #[test]

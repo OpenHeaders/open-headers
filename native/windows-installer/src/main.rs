@@ -12,6 +12,7 @@
 #![cfg_attr(not(windows), allow(dead_code))]
 
 mod args;
+mod classic_move;
 mod cleanup;
 mod feed;
 mod file_uri;
