@@ -477,6 +477,7 @@ export const workbenchLive = {
   'workbench.editors.live.graph.lineCaptureMatches': '{name} が /{pattern}/ に一致する',
   'workbench.editors.live.graph.capsuleAll': 'すべて',
   'workbench.editors.live.graph.menuAddStep': 'ステップを追加',
+  'workbench.editors.live.graph.menuRenameStep': 'ステップの名前を変更',
   'workbench.editors.live.graph.menuDeleteStep': 'ステップを削除',
   'workbench.editors.live.graph.addStepAfter': '後にステップを追加',
   'workbench.editors.live.picker.search': 'ステップの種類とリクエストを検索',

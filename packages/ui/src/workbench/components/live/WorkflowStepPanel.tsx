@@ -57,6 +57,9 @@ interface Props {
   /** The open tab — the view's, so the next step opens on it too. */
   tab: StepTab;
   onTabChange: (tab: StepTab) => void;
+  /** The step's rename was asked for: its name takes focus, and the head says once it has. */
+  focusName?: boolean;
+  onNameFocused?: () => void;
   onClose: () => void;
   /** Another step takes the panel — a copy just made. */
   onSelectStep: (stepUid: string) => void;
@@ -75,6 +78,8 @@ const WorkflowStepPanel: React.FC<Props> = ({
   readOnly,
   tab,
   onTabChange,
+  focusName,
+  onNameFocused,
   onClose,
   onSelectStep,
   run,
@@ -171,6 +176,8 @@ const WorkflowStepPanel: React.FC<Props> = ({
           errors={errors}
           tab={page ?? undefined}
           onTabChange={onTabChange}
+          focusName={focusName}
+          onNameFocused={onNameFocused}
           onChange={(next) => model.updateStep(stepIndex, next)}
           onActionChange={(action) => model.changeStepAction(stepIndex, action)}
           onDuplicate={() => {

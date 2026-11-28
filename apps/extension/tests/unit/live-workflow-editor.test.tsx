@@ -923,7 +923,7 @@ describe('LiveWorkflowEditor — the minimap and the start mark', () => {
     });
   });
 
-  it('the minimap’s world holds the graph and what the pane shows, and holds still while it is pressed', () => {
+  it('the minimap’s world holds the graph and what the pane shows, and takes the view in as a press moves it', () => {
     Element.prototype.setPointerCapture = vi.fn();
     withSizedPane(() => {
       renderEditor();
@@ -937,14 +937,47 @@ describe('LiveWorkflowEditor — the minimap and the start mark', () => {
       expect(canvas.style.transform).toBe('translate(272px, 0px) scale(1)');
       expect(viewBox()).toBe('-272 0 800 600');
 
-      // The drawing is 800 by 600 too: the point pressed is 100, 100 into that world.
+      // The drawing is 800 by 600 too: the point pressed is 100, 100 into that world. The view now
+      // starts 572 left of and 200 above the graph, and the map takes it in with the press still held.
       fireEvent.pointerDown(minimap, { button: 0, pointerId: 1, clientX: 100, clientY: 100 });
       expect(canvas.style.transform).toBe('translate(572px, 200px) scale(1)');
-      expect(viewBox()).toBe('-272 0 800 600');
+      expect(viewBox()).toBe('-572 -200 828 600');
 
-      // Let go: the view now starts 572 left of and 200 above the graph, and the map takes it in.
       fireEvent.pointerUp(minimap, { pointerId: 1 });
       expect(viewBox()).toBe('-572 -200 828 600');
+    });
+  });
+
+  it('a drag of the minimap moves the view by what the pointer travels, in the scale of its press', () => {
+    Element.prototype.setPointerCapture = vi.fn();
+    withSizedPane(() => {
+      renderEditor();
+      addStep();
+      const minimap = screen.getByTestId('wf-graph-minimap');
+      const canvas = screen.getByTestId('wf-graph-pane').firstElementChild;
+      if (!(canvas instanceof HTMLElement)) throw new Error('the graph did not mount');
+      const viewBox = () => minimap.querySelector('svg')?.getAttribute('viewBox');
+
+      // The drawing's middle is the view's own: a press there moves nothing, and the map is drawn one to one.
+      fireEvent.pointerDown(minimap, { button: 0, pointerId: 1, clientX: 400, clientY: 300 });
+      expect(canvas.style.transform).toBe('translate(272px, 0px) scale(1)');
+      expect(viewBox()).toBe('-272 0 800 600');
+
+      // 300 to the left: the view starts 572 left of the graph and ends 28 short of its right edge,
+      // and the map holds both — it is drawn smaller, with the press still held.
+      fireEvent.pointerMove(minimap, { pointerId: 1, clientX: 100, clientY: 300 });
+      expect(canvas.style.transform).toBe('translate(572px, 0px) scale(1)');
+      expect(viewBox()).toBe('-572 0 828 600');
+
+      // As far again: the view moves 300 more, as the press read it, whatever the map is drawn at now.
+      fireEvent.pointerMove(minimap, { pointerId: 1, clientX: -200, clientY: 300 });
+      expect(canvas.style.transform).toBe('translate(872px, 0px) scale(1)');
+      expect(viewBox()).toBe('-872 0 1128 600');
+
+      // Let go: a move no longer pans.
+      fireEvent.pointerUp(minimap, { pointerId: 1 });
+      fireEvent.pointerMove(minimap, { pointerId: 1, clientX: 400, clientY: 300 });
+      expect(canvas.style.transform).toBe('translate(872px, 0px) scale(1)');
     });
   });
 
@@ -1004,6 +1037,49 @@ describe('LiveWorkflowEditor — the minimap and the start mark', () => {
     expect(minimap.style.width).toBe('120px');
   });
 
+  it('zoom in, zoom out and Re-center sit at the map’s left; with no map they have the corner to themselves', () => {
+    renderEditor();
+    const zoomIds = ['wf-graph-zoom-in', 'wf-graph-zoom-out', 'wf-graph-fit'];
+    const zoomGroup = (): HTMLElement | null => screen.getByTestId('wf-graph-zoom-in').parentElement;
+    const historyRow = (): HTMLElement | null | undefined =>
+      screen.getByTestId('wf-graph-undo').parentElement?.parentElement;
+
+    // One step: no map. The group's holder is the corner's own box.
+    expect(zoomIds.every((id) => zoomGroup()?.contains(screen.getByTestId(id)))).toBe(true);
+    expect([zoomGroup()?.parentElement?.style.right, zoomGroup()?.parentElement?.style.bottom]).toEqual([
+      '12px',
+      '8px',
+    ]);
+    expect(historyRow()?.contains(screen.getByTestId('wf-graph-zoom-in'))).toBe(false);
+
+    addStep();
+
+    // The map is there: the group is what stands before it, in the map's own corner.
+    const beside = screen.getByTestId('wf-graph-minimap').previousElementSibling;
+    expect(zoomIds.every((id) => beside?.contains(screen.getByTestId(id)))).toBe(true);
+    expect(historyRow()?.contains(screen.getByTestId('wf-graph-zoom-in'))).toBe(false);
+  });
+
+  it('the grown minimap stays grown while the pointer goes from it onto the zoom group', () => {
+    renderEditor();
+    addStep();
+    const minimap = screen.getByTestId('wf-graph-minimap');
+    const zoomIn = screen.getByTestId('wf-graph-zoom-in');
+
+    // A pointer that comes to the group first leaves the map as it is.
+    fireEvent.pointerEnter(zoomIn);
+    expect(minimap.style.width).toBe('120px');
+
+    fireEvent.pointerEnter(minimap);
+    expect(minimap.style.width).toBe('240px');
+
+    fireEvent.pointerLeave(minimap, { relatedTarget: zoomIn });
+    expect(minimap.style.width).toBe('240px');
+
+    fireEvent.pointerLeave(zoomIn);
+    expect(minimap.style.width).toBe('120px');
+  });
+
   it('a step that waits on no other wears the start bar; a step that waits on one does not', () => {
     renderEditor();
     addStep();
@@ -1022,7 +1098,7 @@ describe('LiveWorkflowEditor — the minimap and the start mark', () => {
 
   it('the legend is in the row of controls, and names the minimap once there is one', async () => {
     renderEditor();
-    const row = screen.getByTestId('wf-graph-zoom-in').parentElement?.parentElement;
+    const row = screen.getByTestId('wf-graph-undo').parentElement?.parentElement;
     expect(row?.contains(screen.getByTestId('wf-graph-legend-toggle'))).toBe(true);
 
     addStep();
@@ -1378,7 +1454,7 @@ describe('LiveWorkflowEditor — the bar of the selected step', () => {
     });
   });
 
-  it('a right-click on a node selects it and offers the bar’s four', () => {
+  it('a right-click on a node selects it and offers the step’s rename, then the bar’s four', () => {
     const openers = makeOpeners();
     renderEditor(openers);
 
@@ -1386,18 +1462,65 @@ describe('LiveWorkflowEditor — the bar of the selected step', () => {
 
     expect(screen.getByTestId('wf-graph-node-only').getAttribute('data-selected')).toBe('true');
     expect(menuRows()).toEqual([
+      'wf-graph-menu-rename-step',
       'wf-graph-menu-duplicate-step',
       'wf-graph-menu-add-step-after',
       'wf-graph-menu-open-request',
       'wf-graph-menu-delete-step',
     ]);
     expect(screen.getByTestId('wf-graph-context-menu').textContent).toBe(
-      'DuplicateAdd step afterOpen requestDelete step⌫',
+      'Rename stepDuplicateAdd step afterOpen requestDelete step⌫',
     );
 
     fireEvent.click(screen.getByTestId('wf-graph-menu-duplicate-step'));
     expect(screen.queryByTestId('wf-graph-context-menu')).toBeNull();
     expect(screen.getByTestId('wf-graph-node-only-copy').getAttribute('data-selected')).toBe('true');
+  });
+
+  it('the menu’s Rename step opens the step’s panel with its name focused and selected, on the tab that was open', () => {
+    const { container } = renderEditor();
+    addCallStep();
+    openStepTab('flow');
+    const nameField = (): HTMLInputElement => {
+      const field = container.querySelector<HTMLInputElement>('input.oh-wf-step-name');
+      if (field === null) throw new Error('the open step has no name field');
+      return field;
+    };
+
+    fireEvent.contextMenu(screen.getByTestId('wf-graph-node-only'));
+    fireEvent.click(screen.getByTestId('wf-graph-menu-rename-step'));
+
+    expect(container.querySelector('[data-step-card="only"]')).not.toBeNull();
+    expect(openTab()).toBe('flow');
+    expect(document.activeElement).toBe(nameField());
+    // The name is "only": all four letters are selected.
+    expect([nameField().selectionStart, nameField().selectionEnd]).toEqual([0, 4]);
+
+    // Asked again on the step that is open, after focus has gone elsewhere: the name takes it back.
+    nameField().blur();
+    fireEvent.contextMenu(screen.getByTestId('wf-graph-node-only'));
+    fireEvent.click(screen.getByTestId('wf-graph-menu-rename-step'));
+    expect(document.activeElement).toBe(nameField());
+
+    // A step opened by its node after that takes no focus: the ask was answered once.
+    openStep('step2');
+    openStep('only');
+    expect(document.activeElement).not.toBe(nameField());
+  });
+
+  it('a copy is bound to no step: it waits on none, and a run starts at it', () => {
+    withSizedPane(() => {
+      renderEditor(makeOpeners());
+      addCallStep();
+      expect(screen.getByTestId('wf-graph-edge-only-step2')).toBeTruthy();
+
+      fireEvent.click(screen.getByTestId('wf-graph-bar-duplicate-step'));
+
+      expect(screen.getByTestId('wf-graph-node-step2-copy').getAttribute('data-selected')).toBe('true');
+      expect(screen.queryByTestId('wf-graph-edge-only-step2-copy')).toBeNull();
+      expect(screen.queryByTestId('wf-graph-edge-step2-step2-copy')).toBeNull();
+      expect(screen.getByTestId('wf-graph-start-step2-copy')).toBeTruthy();
+    });
   });
 
   it('the menu’s Add step after opens the picker at the bar, and the step taken waits on that node', () => {

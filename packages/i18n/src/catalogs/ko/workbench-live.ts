@@ -480,6 +480,7 @@ export const workbenchLive = {
   'workbench.editors.live.graph.lineCaptureMatches': '{name} 항목이 /{pattern}/ 패턴과 일치',
   'workbench.editors.live.graph.capsuleAll': '모두',
   'workbench.editors.live.graph.menuAddStep': '단계 추가',
+  'workbench.editors.live.graph.menuRenameStep': '단계 이름 바꾸기',
   'workbench.editors.live.graph.menuDeleteStep': '단계 삭제',
   'workbench.editors.live.graph.addStepAfter': '뒤에 단계 추가',
   'workbench.editors.live.picker.search': '단계 종류 및 요청 검색',

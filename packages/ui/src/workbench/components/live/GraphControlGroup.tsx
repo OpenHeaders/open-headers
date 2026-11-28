@@ -5,6 +5,16 @@
 
 import { theme } from 'antd';
 import type React from 'react';
+import type { Size } from './graph-minimap';
+
+/** A graph control's side, and the box's edge on both sides of the row. */
+const BUTTON = 24;
+const BOX_EDGE = 2;
+
+/** The box of a group of that many buttons. */
+export function controlGroupSize(buttons: number): Size {
+  return { width: buttons * BUTTON + BOX_EDGE, height: BUTTON + BOX_EDGE };
+}
 
 const GraphControlGroup: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { token } = theme.useToken();

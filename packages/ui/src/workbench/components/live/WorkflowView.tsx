@@ -130,6 +130,13 @@ const WorkflowView: React.FC<Props> = ({
     setStepTab('setup');
     onSelectStep(stepUid);
   };
+  // The step a node's menu asked to rename: its panel opens with its name focused, once.
+  const [renamingStepUid, setRenamingStepUid] = useState<string | null>(null);
+  const renameStep = (stepUid: string) => {
+    setRenamingStepUid(stepUid);
+    onSelectStep(stepUid);
+  };
+  const nameFocused = useCallback(() => setRenamingStepUid(null), []);
   const keptRuns = useWorkflowRuns(workflow?.uid ?? '');
   const { run, picked, pick, backToLatest } = useWorkflowRunPick(keptRuns, latestRun);
   const rootRef = useRef<HTMLDivElement>(null);
@@ -214,6 +221,7 @@ const WorkflowView: React.FC<Props> = ({
           selectedStepId={selectedStepId}
           onSelectStep={onSelectStep}
           onStepAdded={openAddedStep}
+          onRenameStep={renameStep}
           onDeselect={() => onSelectStep(null)}
           run={run}
           cacheRun={cacheRun}
@@ -234,6 +242,8 @@ const WorkflowView: React.FC<Props> = ({
             readOnly={readOnly}
             tab={stepTab}
             onTabChange={setStepTab}
+            focusName={renamingStepUid === selectedStepUid}
+            onNameFocused={nameFocused}
             onClose={() => onSelectStep(null)}
             onSelectStep={onSelectStep}
             run={run}

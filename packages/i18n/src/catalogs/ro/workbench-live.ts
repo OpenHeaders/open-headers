@@ -514,6 +514,7 @@ export const workbenchLive = {
   'workbench.editors.live.graph.lineCaptureMatches': '{name} se potrivește cu /{pattern}/',
   'workbench.editors.live.graph.capsuleAll': 'TOATE',
   'workbench.editors.live.graph.menuAddStep': 'Adăugare pas',
+  'workbench.editors.live.graph.menuRenameStep': 'Redenumire pas',
   'workbench.editors.live.graph.menuDeleteStep': 'Ștergere pas',
   'workbench.editors.live.graph.addStepAfter': 'Adăugare pas după',
   'workbench.editors.live.picker.search': 'Căutare tipuri de pași și cereri',

@@ -489,14 +489,28 @@ test('graph editing: connect adds a dependsOn edge, edge remove, add step, cycle
   await expect(added).toHaveCount(0);
 
   // ── A node's menu ────────────────────────────────────────────────
-  // A right-click selects the node and offers the bar's four. The undo
-  // took the step back, not the pan that had brought it into view.
+  // A right-click selects the node and offers the step's rename, then
+  // the bar's four. The undo took the step back, not the pan that had
+  // brought it into view.
   await page.getByTestId('wf-graph-fit').click();
   await page.getByTestId('wf-graph-node-b').click({ button: 'right' });
   await expect(page.getByTestId('wf-graph-node-b')).toHaveAttribute('data-selected', 'true');
-  await expect(page.getByTestId('wf-graph-context-menu').locator('button')).toHaveCount(4);
+  await expect(page.getByTestId('wf-graph-context-menu').locator('button')).toHaveCount(5);
+
+  // Rename step: the step's name takes focus in its panel, its text selected.
+  await page.getByTestId('wf-graph-menu-rename-step').click();
+  const stepName = page.locator('[data-step-card="b"] input.oh-wf-step-name');
+  await expect(stepName).toBeFocused();
+  expect(await stepName.evaluate((field: HTMLInputElement) => [field.selectionStart, field.selectionEnd])).toEqual([
+    0, 1,
+  ]);
+
+  // A copy is bound to no step: no line runs into it, and a run starts at it.
+  await page.getByTestId('wf-graph-node-b').click({ button: 'right' });
   await page.getByTestId('wf-graph-menu-duplicate-step').click();
   await expect(page.getByTestId('wf-graph-node-b-copy')).toHaveAttribute('data-selected', 'true');
+  await expect(page.locator('[data-testid^="wf-graph-edge-"][data-testid$="-b-copy"]')).toHaveCount(0);
+  await expect(page.getByTestId('wf-graph-start-b-copy')).toBeVisible();
 
   // The copy's bar deletes it.
   await page.getByTestId('wf-graph-bar-delete-step').click();

@@ -2,13 +2,13 @@
  * Where the bar of a selected step's actions sits in the graph's pane
  * (the workflow runs plan, Decisions log, S31): above the node, under it
  * where the pane's top has no room — at the node's left, clear of the
- * lines that run at its middle — inside the pane's edges and off the map.
- * Pure.
+ * lines that run at its middle — inside the pane's edges and off the
+ * zoom group and the map in its corner. Pure.
  */
 
 import type { PaneViewport, Point, Rect, Size } from './graph-minimap';
 
-/** What the bar keeps between itself and the node, and off the map. */
+/** What the bar keeps between itself and the node, and off the corner's controls. */
 const GAP = 6;
 /** What the bar keeps between itself and the pane's edge. */
 const EDGE = 4;
@@ -24,7 +24,7 @@ export interface ActionBarPlacement {
   ringReach: number;
   /** What the bar's end keeps from the node's middle, where the node's lines run. */
   lineClear: number;
-  /** A box of the pane the bar never lies on: the map, at rest. */
+  /** A box of the pane the bar never lies on: what sits in its bottom-right corner, at rest. */
   avoid: Rect | null;
 }
 

@@ -14,15 +14,17 @@
  *     with collision-safe ids.
  *   - removeDraftStep mirrors the form's remove button: last step
  *     stays, dangling references are left for the validator.
- *   - duplicateDraftStep puts a copy last, waiting for what the
- *     original waits for, under fresh uids and with no capture exposed.
+ *   - duplicateDraftStep puts a copy last, bound to no other step — it
+ *     waits on none, with no run condition and no priority, but for the
+ *     listen and the trigger a send and a wait cannot be without —
+ *     under fresh uids and with no capture exposed.
  *   - stepIdFromName / addPickedStep: the step picker's row as the
  *     workflow's last step, named after its request, armed by the step
  *     it is added after.
  */
 
 import { callStepsOf, type DraftCallStep, type DraftWorkflow } from '@openheaders/core/live';
-import type { ExpectWorkflowStep, ListenWorkflowStep } from '@openheaders/core/types';
+import type { ExpectWorkflowStep, ListenWorkflowStep, SendWorkflowStep } from '@openheaders/core/types';
 import {
   addGraphDependency,
   addPickedStep,
@@ -208,10 +210,10 @@ describe('duplicateDraftStep', () => {
     expect(copied?.stepUid).toHaveLength(8);
   });
 
-  it('waits for what the original waits for, by name — the step before it where it names none', () => {
+  it('waits on no step, written out — whatever the original waits on, by name or as the step after another', () => {
     const draft = mkDraft([mkStep('a'), mkStep('b'), mkStep('c', { dependsOn: ['a'] })]);
-    expect(stepAt(duplicateDraftStep(draft, draft.steps[1].uid)?.draft ?? null, 3).dependsOn).toEqual(['a']);
-    expect(stepAt(duplicateDraftStep(draft, draft.steps[2].uid)?.draft ?? null, 3).dependsOn).toEqual(['a']);
+    expect(stepAt(duplicateDraftStep(draft, draft.steps[1].uid)?.draft ?? null, 3).dependsOn).toEqual([]);
+    expect(stepAt(duplicateDraftStep(draft, draft.steps[2].uid)?.draft ?? null, 3).dependsOn).toEqual([]);
     expect(stepAt(duplicateDraftStep(draft, draft.steps[0].uid)?.draft ?? null, 3).dependsOn).toEqual([]);
   });
 
@@ -225,9 +227,23 @@ describe('duplicateDraftStep', () => {
     expect(duplicateDraftStep(draft, draft.steps[0].uid)?.draft.steps[3].id).toBe('a-copy3');
   });
 
-  it('gives what the copy holds fresh uids, and exposes none of its captures', () => {
+  it('carries no run condition and no priority', () => {
     const original = mkStep('a', {
       runIf: { all: [{ uid: 'gatstat0', kind: 'status', stepId: 'root', match: '2xx' }] },
+      priorityFrom: { stepId: 'root', captureName: 'rank' },
+    });
+    const draft = mkDraft([mkStep('root'), original]);
+    const { uid: _uid, id: _id, runIf: _gate, priorityFrom: _order, ...own } = original;
+    expect(duplicateDraftStep(draft, original.uid)?.draft.steps[2]).toEqual({
+      ...own,
+      uid: expect.any(String),
+      id: 'a-copy',
+      dependsOn: [],
+    });
+  });
+
+  it('gives what the copy holds fresh uids, and exposes none of its captures', () => {
+    const original = mkStep('a', {
       successCriteria: [{ kind: 'status', uid: 'crtstat0', match: '2xx' }],
       captures: [
         {
@@ -242,13 +258,88 @@ describe('duplicateDraftStep', () => {
     });
     const draft = mkDraft([mkStep('root'), original]);
     const copy = stepAt(duplicateDraftStep(draft, original.uid)?.draft ?? null, 2);
-    expect(copy.runIf?.all).toEqual([{ uid: expect.any(String), kind: 'status', stepId: 'root', match: '2xx' }]);
-    expect(copy.runIf?.all[0].uid).not.toBe('gatstat0');
+    expect(copy.successCriteria).toEqual([{ kind: 'status', uid: expect.any(String), match: '2xx' }]);
     expect(copy.successCriteria?.[0].uid).not.toBe('crtstat0');
     expect(copy.captures).toEqual([
       { uid: expect.any(String), name: 'token', extractor: { kind: 'whole-body' }, exposed: false, liveName: 'token' },
     ]);
     expect(copy.captures[0].uid).not.toBe('captoken');
+  });
+
+  describe('a send and a wait stay on their session', () => {
+    const listen: ListenWorkflowStep = {
+      uid: 'stplistn',
+      id: 'probe',
+      action: 'listen',
+      sessionRequestUid: 'mqttreq1',
+      timeoutMs: 10_000,
+      captures: [],
+    };
+    const reboot = mkStep('reboot', { dependsOn: ['probe'] });
+    const send: SendWorkflowStep = {
+      uid: 'stpsendx',
+      id: 'ask',
+      action: 'send',
+      on: 'probe',
+      messageUid: 'msgask01',
+      dependsOn: ['reboot'],
+      runIf: { all: [{ uid: 'gatstat1', kind: 'status', stepId: 'reboot', match: '2xx' }] },
+      captures: [],
+    };
+    const wait: ExpectWorkflowStep = {
+      uid: 'stpexpct',
+      id: 'status',
+      action: 'expect',
+      on: 'probe',
+      after: 'reboot',
+      match: [],
+      timeoutMs: 10_000,
+      dependsOn: ['ask'],
+      priorityFrom: { stepId: 'reboot', captureName: 'rank' },
+      captures: [],
+    };
+    const draft: DraftWorkflow = {
+      name: 'Reboot',
+      description: '',
+      steps: [listen, reboot, send, wait],
+      refresh: { kind: 'manual' },
+      enabled: true,
+    };
+    const copyOf = (from: DraftWorkflow, stepUid: string) => duplicateDraftStep(from, stepUid)?.draft.steps.at(-1);
+
+    it('a listen’s copy waits on no step', () => {
+      expect(copyOf(draft, listen.uid)).toEqual({
+        ...listen,
+        uid: expect.any(String),
+        id: 'probe-copy',
+        dependsOn: [],
+      });
+    });
+
+    it('a send’s copy waits on the listen it is on, and on that alone', () => {
+      const { runIf: _gate, ...own } = send;
+      expect(copyOf(draft, send.uid)).toEqual({
+        ...own,
+        uid: expect.any(String),
+        id: 'ask-copy',
+        dependsOn: ['probe'],
+      });
+    });
+
+    it('a wait’s copy waits on its listen and on its trigger, in the workflow’s order', () => {
+      const { priorityFrom: _order, ...own } = wait;
+      expect(copyOf(draft, wait.uid)).toEqual({
+        ...own,
+        uid: expect.any(String),
+        id: 'status-copy',
+        dependsOn: ['probe', 'reboot'],
+      });
+    });
+
+    it('a name that is no step is left out of what the copy waits on', () => {
+      const lost: DraftWorkflow = { ...draft, steps: [listen, reboot, { ...wait, on: 'ghost' }] };
+      expect(copyOf(lost, wait.uid)).toMatchObject({ on: 'ghost', after: 'reboot', dependsOn: ['reboot'] });
+    });
   });
 
   it('copies a session step with its own keys, its match rows under fresh uids', () => {

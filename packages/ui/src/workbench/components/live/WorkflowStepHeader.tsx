@@ -20,8 +20,9 @@ import { CloseOutlined } from '@ant-design/icons';
 import { type DraftKnownStep, type DraftStep, isKnownStep, type StructuralError } from '@openheaders/core/live';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { LIVE_WORKFLOW_FIELD } from '@openheaders/ui/shared/awareness/live-paths';
-import { Button, Input, Select, Tooltip } from 'antd';
+import { Button, Input, type InputRef, Select, Tooltip } from 'antd';
 import type React from 'react';
+import { useEffect, useRef } from 'react';
 import type { RequestKind } from '../../request-kind-menu';
 import StepGlyph from './StepGlyph';
 import { KindTag, ProtocolTag } from './StepTags';
@@ -49,6 +50,9 @@ interface Props {
   /** The open page of the panel — absent, the head has no tabs. */
   tab?: StepTab;
   onTabChange?: (tab: StepTab) => void;
+  /** The step's rename was asked for: the name takes focus with its text selected, and `onNameFocused` says it has. */
+  focusName?: boolean;
+  onNameFocused?: () => void;
   onChange?: (next: DraftKnownStep) => void;
   /** The picker took another action — the owner rebuilds the step under it. */
   onActionChange?: (action: StepAction) => void;
@@ -69,6 +73,8 @@ const WorkflowStepHeader: React.FC<Props> = ({
   errors = [],
   tab,
   onTabChange,
+  focusName = false,
+  onNameFocused,
   onChange,
   onActionChange,
   onDuplicate,
@@ -76,6 +82,12 @@ const WorkflowStepHeader: React.FC<Props> = ({
   onClose,
 }) => {
   const t = useT();
+  const nameRef = useRef<InputRef>(null);
+  useEffect(() => {
+    if (!focusName) return;
+    nameRef.current?.focus({ cursor: 'all' });
+    onNameFocused?.();
+  }, [focusName, onNameFocused]);
   const known = isKnownStep(step) ? step : undefined;
   const action = known !== undefined ? stepActionOf(known) : undefined;
   const rawAction = isKnownStep(step) ? '' : step.action;
@@ -96,6 +108,7 @@ const WorkflowStepHeader: React.FC<Props> = ({
           <span data-field-path={LIVE_WORKFLOW_FIELD.step(index, 'id')} style={{ display: 'contents' }}>
             <Tooltip open={nameError ? undefined : false} title={nameError?.message}>
               <Input
+                ref={nameRef}
                 className="oh-wf-step-name"
                 variant="borderless"
                 aria-label={t('workbench.editors.live.panel.stepName')}

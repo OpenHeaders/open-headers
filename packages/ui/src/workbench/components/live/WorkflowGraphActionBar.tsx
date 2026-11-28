@@ -9,16 +9,12 @@
 
 import { Button, Tooltip } from 'antd';
 import type React from 'react';
-import GraphControlGroup from './GraphControlGroup';
+import GraphControlGroup, { controlGroupSize } from './GraphControlGroup';
 import { nodeRectInPane, placeActionBar } from './graph-action-bar';
 import type { PaneViewport, Point, Size } from './graph-minimap';
 import { StepPickerPopover } from './StepPicker';
 import type { StepPick, StepPickerChoices } from './step-picker';
 import { usePaneSize } from './use-pane-size';
-
-/** A graph control's side, and the box's edge on both sides of the row. */
-const BUTTON = 24;
-const BOX_EDGE = 2;
 
 /** An action of the graph on a step or on its canvas — a row of the right-click menu, a button of the bar. */
 export interface GraphAction {
@@ -30,6 +26,8 @@ export interface GraphAction {
   disabled?: boolean;
   /** The action opens the step picker; in the bar the picker hangs on its button. */
   opensPicker?: boolean;
+  /** A row of the menu alone: one more button would reach the node's middle, where its line enters. */
+  menuOnly?: boolean;
   onClick: () => void;
 }
 
@@ -53,8 +51,12 @@ interface Props {
   ringReach: number;
   /** What the bar keeps from the node's middle, where its lines run, in the graph's own units. */
   lineClear: number;
-  /** The map's box at rest and what it keeps from the pane's corner — `null` where the graph has no map. */
-  map: { size: Size; right: number; bottom: number } | null;
+  /**
+   * What sits in the pane's bottom-right corner at rest — the zoom group,
+   * with the map where there is one — and what it keeps from the corner.
+   */
+  corner: { size: Size; right: number; bottom: number };
+  /** The step's actions; the bar draws the ones that are not the menu's alone. */
   actions: readonly GraphAction[];
   picker?: ActionBarPicker;
 }
@@ -67,28 +69,26 @@ const WorkflowGraphActionBar: React.FC<Props> = ({
   topBand,
   ringReach,
   lineClear,
-  map,
-  actions,
+  corner,
+  actions: stepActions,
   picker,
 }) => {
   const paneSize = usePaneSize(pane);
+  const actions = stepActions.filter((action) => action.menuOnly !== true);
   if (node === null || paneSize === null || actions.length === 0) return null;
 
   const at = placeActionBar({
     node: nodeRectInPane(node, nodeSize, viewport),
     pane: paneSize,
-    bar: { width: actions.length * BUTTON + BOX_EDGE, height: BUTTON + BOX_EDGE },
+    bar: controlGroupSize(actions.length),
     topBand,
     ringReach: ringReach * viewport.scale,
     lineClear: lineClear * viewport.scale,
-    avoid:
-      map === null
-        ? null
-        : {
-            x: paneSize.width - map.right - map.size.width,
-            y: paneSize.height - map.bottom - map.size.height,
-            ...map.size,
-          },
+    avoid: {
+      x: paneSize.width - corner.right - corner.size.width,
+      y: paneSize.height - corner.bottom - corner.size.height,
+      ...corner.size,
+    },
   });
   if (at === null) return null;
 

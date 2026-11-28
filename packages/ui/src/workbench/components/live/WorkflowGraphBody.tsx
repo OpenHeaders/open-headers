@@ -52,18 +52,19 @@
  * Canvas chrome: a pan/zoom viewport (drag the background to pan,
  * wheel/pinch to zoom around the cursor — `graph-zoom.ts` holds the
  * rates and the stops —, a row of controls bottom-left
- * with a re-center/fit action, then the draft's undo and redo, then
- * Auto-arrange where a node can be moved — the workflow runs plan,
- * Decisions log, S31), a bar of the selected step's
- * actions by its node (`WorkflowGraphActionBar`: a copy, a step added
- * after it, its request opened, its removal — a read-only workflow keeps
- * the request alone), a compact right-click context menu on the
- * background (add step) and on nodes (the bar's actions), keyboard shortcuts
- * on the focused pane (⌫ delete node or selected line, Esc dismiss), and
- * a legend behind a button at the row's end naming all of them. From two
- * steps up the whole graph sits small in the bottom-right corner
- * (`WorkflowGraphMinimap`), and a step that waits on no other wears a
- * bar on its top edge: a run starts there. The
+ * with the draft's undo and redo, then Auto-arrange where a node can be
+ * moved — the workflow runs plan, Decisions log, S31 —, and bottom-right
+ * the zoom group with its re-center/fit action), a bar of the selected
+ * step's actions by its node (`WorkflowGraphActionBar`: a copy, a step
+ * added after it, its request opened, its removal — a read-only workflow
+ * keeps the request alone), a compact right-click context menu on the
+ * background (add step) and on nodes (the bar's actions, and the step's
+ * rename), keyboard shortcuts on the focused pane (⌫ delete node or
+ * selected line, Esc dismiss), and a legend behind a button at the
+ * row's end naming all of them. From two steps up the whole graph sits
+ * small in the bottom-right corner (`WorkflowGraphMinimap`), the zoom
+ * group at its left, and a step that waits on no other wears a bar on
+ * its top edge: a run starts there. The
  * first view centres the graph at the app's UI scale, drawn smaller
  * where it is wider than the pane. Delete mirrors the form's remove
  * button via `removeDraftStep` — last step stays, dangling references
@@ -75,6 +76,7 @@ import {
   ApartmentOutlined,
   CopyOutlined,
   DeleteOutlined,
+  EditOutlined,
   ExportOutlined,
   PlusOutlined,
   QuestionCircleOutlined,
@@ -106,7 +108,7 @@ import type React from 'react';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { formatChord } from '../../hooks/useWorkspaceShortcuts';
 import { stepRequestTemplates } from './capture-uses';
-import GraphControlGroup from './GraphControlGroup';
+import GraphControlGroup, { controlGroupSize } from './GraphControlGroup';
 import {
   addGraphDependency,
   addPickedStep,
@@ -151,7 +153,7 @@ import WorkflowGraphLines, {
   type GraphEdgeRef,
   type GraphLineView,
 } from './WorkflowGraphLines';
-import WorkflowGraphMinimap, { MINIMAP_OFFSET, MINIMAP_SIZE } from './WorkflowGraphMinimap';
+import WorkflowGraphMinimap, { MINIMAP_BESIDE_GAP, MINIMAP_OFFSET, MINIMAP_SIZE } from './WorkflowGraphMinimap';
 import WorkflowGraphNode, { GRAPH_NODE_H, GRAPH_NODE_W, type NodeDragHandlers } from './WorkflowGraphNode';
 
 const NODE_W = GRAPH_NODE_W;
@@ -176,6 +178,12 @@ const BAR_CLEAR_OF_LINES = 18;
 /** The band at the pane's top its "+ Step" button sits in, and what is left of it where there is no button. */
 const TOP_BAND = 40;
 const TOP_EDGE = 4;
+/** The zoom group's box — zoom in, zoom out, re-center — and the corner's with the map at rest beside it. */
+const ZOOM_GROUP_SIZE = controlGroupSize(3);
+const CORNER_SIZE_WITH_MAP = {
+  width: ZOOM_GROUP_SIZE.width + MINIMAP_BESIDE_GAP + MINIMAP_SIZE.width,
+  height: MINIMAP_SIZE.height,
+};
 
 interface WorkflowGraphBodyProps {
   draft: DraftWorkflow;
@@ -200,6 +208,8 @@ interface WorkflowGraphBodyProps {
   onSelectStep?: (stepUid: string) => void;
   /** The step picker added a step — absent, the step is selected as any other is. */
   onStepAdded?: (stepUid: string) => void;
+  /** A node's menu asked for the step's rename — absent, the menu has no such row. */
+  onRenameStep?: (stepUid: string) => void;
   /** A click on the empty canvas. */
   onDeselect?: () => void;
   /** The run the page keeps of this workflow — a node's mark is its row while there is one. */
@@ -280,6 +290,7 @@ const WorkflowGraphBody: React.FC<WorkflowGraphBodyProps> = ({
   selectedStepId,
   onSelectStep,
   onStepAdded = onSelectStep,
+  onRenameStep,
   onDeselect,
   run,
   cacheRun,
@@ -742,8 +753,10 @@ const WorkflowGraphBody: React.FC<WorkflowGraphBodyProps> = ({
 
   /**
    * What is done to a step as a whole — the bar by its node and its
-   * right-click menu hold the same. A read-only workflow keeps the one
-   * that edits nothing; a step that names no saved request has it off.
+   * right-click menu hold the same, but the rename, which is the menu's
+   * alone (the workflow runs plan, Decisions log, S36). A read-only
+   * workflow keeps the one that edits nothing; a step that names no saved
+   * request has it off.
    */
   const stepActionsOf = (step: WorkflowStep): GraphAction[] => {
     const openRequest = requestOpeners !== undefined ? requestOpenOf(step, stepRequests, requestOpeners) : undefined;
@@ -760,7 +773,21 @@ const WorkflowGraphBody: React.FC<WorkflowGraphBodyProps> = ({
             },
           ];
     if (!editable) return openRequest === undefined ? [] : open;
+    const rename: GraphAction[] =
+      onRenameStep === undefined
+        ? []
+        : [
+            {
+              key: 'rename-step',
+              icon: <EditOutlined />,
+              text: t('workbench.editors.live.graph.menuRenameStep'),
+              menuOnly: true,
+              disabled: !isKnownStep(step),
+              onClick: () => onRenameStep(step.uid),
+            },
+          ];
     return [
+      ...rename,
       {
         key: 'duplicate-step',
         icon: <CopyOutlined />,
@@ -921,6 +948,11 @@ const WorkflowGraphBody: React.FC<WorkflowGraphBodyProps> = ({
     setViewport((v) => viewportCentredOn(point, rect, v.scale));
   };
 
+  // Zoom in, zoom out and re-center: at the map's left, in the corner alone where the graph has no map.
+  const zoomControls = (
+    <GraphViewControls onZoomIn={() => zoomBy(1.2)} onZoomOut={() => zoomBy(1 / 1.2)} onFit={fitView} />
+  );
+
   return (
     <div
       ref={rootRef}
@@ -976,7 +1008,7 @@ const WorkflowGraphBody: React.FC<WorkflowGraphBodyProps> = ({
         topBand={editable ? TOP_BAND : TOP_EDGE}
         ringReach={editable ? RING_REACH : 0}
         lineClear={BAR_CLEAR_OF_LINES}
-        map={hasMinimap ? { size: MINIMAP_SIZE, ...MINIMAP_OFFSET } : null}
+        corner={{ size: hasMinimap ? CORNER_SIZE_WITH_MAP : ZOOM_GROUP_SIZE, ...MINIMAP_OFFSET }}
         actions={selectedStep !== undefined ? stepActionsOf(selectedStep) : []}
         picker={
           editable
@@ -990,13 +1022,13 @@ const WorkflowGraphBody: React.FC<WorkflowGraphBodyProps> = ({
         }
       />
       <GraphControlRow>
-        <GraphViewControls onZoomIn={() => zoomBy(1.2)} onZoomOut={() => zoomBy(1 / 1.2)} onFit={fitView} />
         <GraphHistoryControls history={history} />
         {movable && <GraphArrangeControl arranged={places !== null} onArrange={autoArrange} />}
         <GraphLegend editable={editable} movable={movable} withMap={hasMinimap} />
       </GraphControlRow>
-      {hasMinimap && (
+      {hasMinimap ? (
         <WorkflowGraphMinimap
+          beside={zoomControls}
           world={world}
           nodes={layout.nodes.flatMap((node) => {
             const pos = positions.get(node.step.id);
@@ -1008,6 +1040,9 @@ const WorkflowGraphBody: React.FC<WorkflowGraphBodyProps> = ({
           viewport={viewport}
           onCentre={centreOn}
         />
+      ) : (
+        // No map yet: the zoom group has the corner to itself.
+        <div style={{ position: 'absolute', ...MINIMAP_OFFSET, zIndex: 3 }}>{zoomControls}</div>
       )}
       {/* Viewport: the pane never moves and never scrolls — `clip`, not
           `hidden`, which a scroll-into-view still scrolls; the canvas
@@ -1250,7 +1285,7 @@ const GraphMenuRow: React.FC<{ action: GraphAction; onDone: () => void }> = ({ a
   );
 };
 
-/** The pane's own controls, in its bottom-left corner: a row of groups. */
+/** The pane's controls of the draft, in its bottom-left corner: a row of groups. */
 const GraphControlRow: React.FC<{ children: React.ReactNode }> = ({ children }) => (
   <div style={{ position: 'absolute', bottom: 8, left: 12, zIndex: 3, display: 'flex', gap: 6 }}>{children}</div>
 );

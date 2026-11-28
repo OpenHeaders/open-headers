@@ -515,6 +515,7 @@ export const workbenchLive = {
   'workbench.editors.live.graph.lineCaptureMatches': '{name} совпадает с /{pattern}/',
   'workbench.editors.live.graph.capsuleAll': 'ВСЕ',
   'workbench.editors.live.graph.menuAddStep': 'Добавить шаг',
+  'workbench.editors.live.graph.menuRenameStep': 'Переименовать шаг',
   'workbench.editors.live.graph.menuDeleteStep': 'Удалить шаг',
   'workbench.editors.live.graph.addStepAfter': 'Добавить шаг после',
   'workbench.editors.live.picker.search': 'Поиск по видам шагов и запросам',

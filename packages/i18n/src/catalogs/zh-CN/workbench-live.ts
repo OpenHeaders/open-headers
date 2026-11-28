@@ -460,6 +460,7 @@ export const workbenchLive = {
   'workbench.editors.live.graph.lineCaptureMatches': '{name} 匹配 /{pattern}/',
   'workbench.editors.live.graph.capsuleAll': '全部',
   'workbench.editors.live.graph.menuAddStep': '添加步骤',
+  'workbench.editors.live.graph.menuRenameStep': '重命名步骤',
   'workbench.editors.live.graph.menuDeleteStep': '删除步骤',
   'workbench.editors.live.graph.addStepAfter': '在其后添加步骤',
   'workbench.editors.live.picker.search': '搜索步骤类型和请求',

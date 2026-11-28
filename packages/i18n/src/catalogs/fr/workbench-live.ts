@@ -508,6 +508,7 @@ export const workbenchLive = {
   'workbench.editors.live.graph.lineCaptureMatches': '{name} correspond à /{pattern}/',
   'workbench.editors.live.graph.capsuleAll': 'TOUS',
   'workbench.editors.live.graph.menuAddStep': 'Ajouter une étape',
+  'workbench.editors.live.graph.menuRenameStep': "Renommer l'étape",
   'workbench.editors.live.graph.menuDeleteStep': "Supprimer l'étape",
   'workbench.editors.live.graph.addStepAfter': 'Ajouter une étape après',
   'workbench.editors.live.picker.search': "Rechercher des types d'étape et des requêtes",

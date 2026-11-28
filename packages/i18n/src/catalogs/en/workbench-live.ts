@@ -479,6 +479,7 @@ export const workbenchLive = {
   'workbench.editors.live.graph.lineCaptureMatches': '{name} matches /{pattern}/',
   'workbench.editors.live.graph.capsuleAll': 'ALL',
   'workbench.editors.live.graph.menuAddStep': 'Add step',
+  'workbench.editors.live.graph.menuRenameStep': 'Rename step',
   'workbench.editors.live.graph.menuDeleteStep': 'Delete step',
   'workbench.editors.live.graph.addStepAfter': 'Add step after',
   'workbench.editors.live.picker.search': 'Search step kinds and requests',

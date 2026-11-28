@@ -509,6 +509,7 @@ export const workbenchLive = {
   'workbench.editors.live.graph.lineCaptureMatches': '{name} coincide con /{pattern}/',
   'workbench.editors.live.graph.capsuleAll': 'TODAS',
   'workbench.editors.live.graph.menuAddStep': 'Añadir paso',
+  'workbench.editors.live.graph.menuRenameStep': 'Renombrar el paso',
   'workbench.editors.live.graph.menuDeleteStep': 'Eliminar el paso',
   'workbench.editors.live.graph.addStepAfter': 'Añadir paso después',
   'workbench.editors.live.picker.search': 'Buscar tipos de paso y solicitudes',

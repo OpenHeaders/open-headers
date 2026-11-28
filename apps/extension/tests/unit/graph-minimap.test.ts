@@ -1,6 +1,8 @@
 import {
   boxAround,
+  centreAfterTravel,
   fitWorldInBox,
+  pressOnMap,
   viewportCentredOn,
   viewRectOf,
   worldPointAt,
@@ -88,6 +90,50 @@ describe('boxAround', () => {
       width: 828,
       height: 600,
     });
+  });
+});
+
+describe('pressOnMap', () => {
+  it('a pane with no size yet: the pressed point of the graph, in the scale the graph is drawn at', () => {
+    // 200 by 400 in a box 120 by 80 is drawn at 0.2, 40 in from the left: the box's middle is the graph's.
+    expect(
+      pressOnMap({ x: 0, y: 0, width: 200, height: 400 }, null, { width: 120, height: 80 }, { x: 60, y: 40 }),
+    ).toEqual({ centre: { x: 100, y: 200 }, scale: 0.2 });
+  });
+
+  it('the scale is the map’s once the pane shows the pressed point, not the one the press was read in', () => {
+    const graph = { x: 0, y: 0, width: 400, height: 200 };
+    // The pane shows what lies right of the graph: the map holds 800 by 200, at 0.125 in a box
+    // 100 by 50, 12.5 down. The point 25, 25 of the box is the graph's middle.
+    const press = pressOnMap(
+      graph,
+      { x: 400, y: 0, width: 400, height: 200 },
+      { width: 100, height: 50 },
+      { x: 25, y: 25 },
+    );
+
+    // With its middle there the pane shows the graph and nothing else: the map is drawn at 0.25.
+    expect(press).toEqual({ centre: { x: 200, y: 100 }, scale: 0.25 });
+  });
+
+  it('a graph with no extent is pressed at its origin, in no scale', () => {
+    expect(pressOnMap({ x: 0, y: 0, width: 0, height: 0 }, null, { width: 120, height: 80 }, { x: 60, y: 40 })).toEqual(
+      {
+        centre: { x: 0, y: 0 },
+        scale: 0,
+      },
+    );
+  });
+});
+
+describe('centreAfterTravel', () => {
+  it('moves the view’s middle by the pointer’s travel, in the scale of the press', () => {
+    // 10 right and 5 up at 0.25 a unit: 40 and 20 of the graph.
+    expect(centreAfterTravel({ centre: { x: 200, y: 100 }, scale: 0.25 }, { x: 10, y: -5 })).toEqual({ x: 240, y: 80 });
+  });
+
+  it('a press in no scale stays where it was', () => {
+    expect(centreAfterTravel({ centre: { x: 0, y: 0 }, scale: 0 }, { x: 10, y: -5 })).toEqual({ x: 0, y: 0 });
   });
 });
 

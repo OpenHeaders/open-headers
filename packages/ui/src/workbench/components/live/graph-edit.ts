@@ -135,20 +135,25 @@ function copyStepId(steps: readonly DraftStep[], id: string): string {
 
 const withFreshUid = <T extends { uid: string }>(held: T): T => ({ ...held, uid: generateUid() });
 
-/** A step's own fields under fresh uids; a call's captures are no longer exposed — a live variable has one source. */
+/**
+ * A step's own fields under fresh uids, without what binds it to the
+ * other steps' outcomes — its run condition and its priority. A call's
+ * captures are no longer exposed: a live variable has one source.
+ */
 function copyOfStep(step: DraftKnownStep): DraftKnownStep {
-  const runIf = step.runIf !== undefined ? { runIf: { all: step.runIf.all.map(withFreshUid) } } : {};
   if (isSessionStep(step)) {
-    const captures = step.captures.map(withFreshUid);
-    return isExpectStep(step)
-      ? { ...step, ...runIf, captures, match: step.match.map(withFreshUid) }
-      : { ...step, ...runIf, captures };
+    if (isExpectStep(step)) {
+      const { runIf: _gate, priorityFrom: _order, ...own } = step;
+      return { ...own, captures: own.captures.map(withFreshUid), match: own.match.map(withFreshUid) };
+    }
+    const { runIf: _gate, priorityFrom: _order, ...own } = step;
+    return { ...own, captures: own.captures.map(withFreshUid) };
   }
+  const { runIf: _gate, priorityFrom: _order, ...own } = step;
   return {
-    ...step,
-    ...runIf,
-    ...(step.successCriteria !== undefined ? { successCriteria: step.successCriteria.map(withFreshUid) } : {}),
-    captures: step.captures.map(({ liveUid: _bound, ...capture }) => ({
+    ...own,
+    ...(own.successCriteria !== undefined ? { successCriteria: own.successCriteria.map(withFreshUid) } : {}),
+    captures: own.captures.map(({ liveUid: _bound, ...capture }) => ({
       ...capture,
       uid: generateUid(),
       exposed: false,
@@ -157,25 +162,37 @@ function copyOfStep(step: DraftKnownStep): DraftKnownStep {
 }
 
 /**
+ * What a copy waits on: nothing — but a send and a wait keep the listen
+ * they are on, and a wait its trigger, which the model refuses them
+ * without. In the workflow's own order; a name that is no step is left
+ * out.
+ */
+function copyDependsOn(draft: DraftWorkflow, step: DraftKnownStep): string[] {
+  if (!isSessionStep(step) || isListenStep(step)) return [];
+  const kept = new Set(isExpectStep(step) ? [step.on, step.after] : [step.on]);
+  return draft.steps.filter((each) => kept.has(each.id)).map((each) => each.id);
+}
+
+/**
  * A copy of a step, as the workflow's last step — the step panel's
- * Duplicate. The copy waits for what the original waits for, by name: a
- * step placed anywhere else would become the step before another one,
- * and so the dependency of every step that names none. Returns the new
- * draft and the copy's uid, or `null` for a step of an action the model
- * does not know.
+ * Duplicate (the workflow runs plan, Decisions log, S36). The copy is
+ * bound to no other step: it waits on none, written out as an empty
+ * list — a step that names no dependency waits on the one before it —
+ * and carries no run condition and no priority. A send and a wait stay
+ * on their session (`copyDependsOn`). Returns the new draft and the
+ * copy's uid, or `null` for a step of an action the model does not know.
  */
 export function duplicateDraftStep(
   draft: DraftWorkflow,
   stepUid: string,
 ): { draft: DraftWorkflow; stepUid: string } | null {
-  const index = draft.steps.findIndex((s) => s.uid === stepUid);
-  const step = draft.steps[index];
+  const step = draft.steps.find((s) => s.uid === stepUid);
   if (step === undefined || !isKnownStep(step)) return null;
   const copy: DraftKnownStep = {
     ...copyOfStep(step),
     uid: generateUid(),
     id: copyStepId(draft.steps, step.id),
-    dependsOn: effectiveParentsAt(draft, index),
+    dependsOn: copyDependsOn(draft, step),
   };
   return { draft: { ...draft, steps: [...draft.steps, copy] }, stepUid: copy.uid };
 }
@@ -229,8 +246,9 @@ function listenIdOf(step: DraftStep): string {
  * request — its id from the request's name. Its defaults are the ones the
  * step's own kind selector gives.
  *
- * Added after a step, it waits on that step by name — it is placed last
- * for the reason a copy is (`duplicateDraftStep`) — and a send or a wait
+ * Added after a step, it waits on that step by name — it is placed last:
+ * a step placed anywhere else would become the step before another one,
+ * and so the dependency of every step that names none — and a send or a wait
  * is armed by it: on its session where it has one, and a wait after it.
  */
 export function addPickedStep(

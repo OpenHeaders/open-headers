@@ -2,8 +2,9 @@
  * The geometry of the workflow graph's minimap (the workflow runs plan,
  * Decisions log, S31 and S34): how a world sits in the map's box, which
  * point of it is under a point of the box, what a pane shows of the
- * graph through its viewport, and the box that holds the graph and that
- * view together — the map's world. Pure.
+ * graph through its viewport, the box that holds the graph and that
+ * view together — the map's world — and where a press held on the map
+ * and moved takes the view. Pure.
  */
 
 export interface Size {
@@ -64,6 +65,37 @@ export function boxAround(a: Rect, b: Rect): Rect {
     width: Math.max(a.x + a.width, b.x + b.width) - x,
     height: Math.max(a.y + a.height, b.y + b.height) - y,
   };
+}
+
+/** A press held on the map. */
+export interface MapPress {
+  /** The point of the world under the press: the middle of what the pane shows from then. */
+  centre: Point;
+  /** Box pixels a unit of the world, as the map is drawn once the pane shows that point. */
+  scale: number;
+}
+
+/**
+ * A press on the map, at a point of its box: `graph` is the box the
+ * steps fill, `view` what the pane shows — `null` while the pane has no
+ * size. The pane goes to the pressed point. A drag from there is read by
+ * the pointer's travel, in the one scale the map has as it starts: the
+ * map's world follows the view, and a drag read by the pointer's place
+ * in a world that moves under it would run away at the map's edge.
+ */
+export function pressOnMap(graph: Rect, view: Rect | null, box: Size, point: Point): MapPress {
+  const drawn = view === null ? graph : boxAround(graph, view);
+  const within = worldPointAt(fitWorldInBox(drawn, box), point);
+  const centre = { x: drawn.x + within.x, y: drawn.y + within.y };
+  const from =
+    view === null ? graph : boxAround(graph, { ...view, x: centre.x - view.width / 2, y: centre.y - view.height / 2 });
+  return { centre, scale: fitWorldInBox(from, box).scale };
+}
+
+/** The middle of what the pane shows once the pointer has travelled that far from its press. */
+export function centreAfterTravel(press: MapPress, travel: Point): Point {
+  if (press.scale === 0) return press.centre;
+  return { x: press.centre.x + travel.x / press.scale, y: press.centre.y + travel.y / press.scale };
 }
 
 /** The viewport that shows a point of the world at the middle of a pane, at a zoom. */
