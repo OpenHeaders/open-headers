@@ -4,9 +4,9 @@
  * it speaks and its kind; then what is done to the step as a whole —
  * a copy of it, its removal — and the close that hands the panel back to
  * the workflow, where its place among the steps is set. Under them: where the step
- * stands and what it does, a line for its description, the issues no
- * field of the panel owns, and last the tabs of the panel's pages — a
- * tab whose card holds an error wears a dot.
+ * stands and what it does, the issues no field of the panel owns, and
+ * last the tabs of the panel's pages — a tab whose card holds an error
+ * wears a dot.
  *
  * The name is the step's id: `{{step.<id>.<capture>}}` references name a
  * step by it. The kind tag is the picker of the step's action (the
@@ -179,16 +179,6 @@ const WorkflowStepHeader: React.FC<Props> = ({
           </>
         )}
       </div>
-      {known !== undefined && (
-        <Input
-          className="oh-wf-step-description"
-          variant="borderless"
-          placeholder={t('workbench.editors.live.step.descriptionPlaceholder')}
-          value={known.description ?? ''}
-          disabled={readOnly}
-          onChange={(e) => onChange?.({ ...known, description: e.target.value || undefined })}
-        />
-      )}
       {issues.length > 0 && (
         <div className="oh-wf-step-issues" data-testid={`wf-step-${index}-issues`}>
           {issues.map((error) => (

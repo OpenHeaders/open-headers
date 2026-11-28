@@ -9,8 +9,9 @@
  * the cards of the step's own action — a call's Request
  * (`CallStepFields`) and its Success criteria, Poll, Retry policy and
  * Timeout (`CallPolicyCards`), a session step's Connection, Send
- * message, or Expect message with Match criteria (`SessionStepFields`).
- * Then what it keeps and what it reads — its Captures (a listen has
+ * message, or Expect message with Match criteria (`SessionStepFields`) —
+ * and, last of them on every action, the step's Description
+ * (`DescriptionCard`). Then what it keeps and what it reads — its Captures (a listen has
  * none) and the captures it uses from other steps (`StepUsesCard`) —
  * and its Priority (`StepPriorityCard`).
  *
@@ -28,12 +29,14 @@ import {
   type StructuralError,
 } from '@openheaders/core/live';
 import type { MqttRequest, PriorityRef, StepGate } from '@openheaders/core/types';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { LIVE_WORKFLOW_FIELD } from '@openheaders/ui/shared/awareness/live-paths';
 import type React from 'react';
 import { useMemo } from 'react';
 import CallPolicyCards from './CallPolicyCards';
 import { CallRequestCard, CallStepCaptures } from './CallStepFields';
 import type { CaptureUse } from './capture-uses';
+import DescriptionCard from './DescriptionCard';
 import type { LabelTruth } from './graph-lines';
 import { ExpectStepFields, ListenStepFields, SendStepFields, SessionStepCaptures } from './SessionStepFields';
 import StepDependencyCards from './StepDependencyCards';
@@ -133,6 +136,7 @@ const WorkflowStepEditor: React.FC<Props> = ({
   sessionRequests = [],
   exposable = true,
 }) => {
+  const t = useT();
   // ── Derived error subsets ───────────────────────────────────────
   const gateErrors = useMemo(
     () =>
@@ -193,6 +197,18 @@ const WorkflowStepEditor: React.FC<Props> = ({
       delete nextStep.priorityFrom;
     } else {
       nextStep.priorityFrom = next;
+    }
+    onChange(nextStep);
+  };
+
+  // ── description ─────────────────────────────────────────────────
+  // Kept only while it says something: an emptied note leaves the step.
+  const setDescription = (value: string) => {
+    const nextStep = { ...step };
+    if (value === '') {
+      delete nextStep.description;
+    } else {
+      nextStep.description = value;
     }
     onChange(nextStep);
   };
@@ -258,6 +274,14 @@ const WorkflowStepEditor: React.FC<Props> = ({
             <CallPolicyCards step={step} index={index} onChange={onChange} errors={errors} />
           </>
         ))}
+      {shows('setup') && (
+        <DescriptionCard
+          testId={`wf-step-${index}-description`}
+          line={t('workbench.editors.live.description.stepLine')}
+          value={step.description ?? ''}
+          onChange={setDescription}
+        />
+      )}
       {shows('data') && (
         <>
           {/* A listen has nothing to capture. */}

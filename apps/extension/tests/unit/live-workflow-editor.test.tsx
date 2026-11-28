@@ -550,6 +550,7 @@ describe('LiveWorkflowEditor — a step’s tabs', () => {
       'wf-step-0-poll',
       'wf-step-0-retry',
       'wf-step-0-timeout-section',
+      'wf-step-0-description',
     ]);
     openStepTab('flow');
     expect(cardsShown()).toEqual(FLOW(0));
@@ -562,9 +563,14 @@ describe('LiveWorkflowEditor — a step’s tabs', () => {
   });
 
   it.each<[string, number, string[], string[]]>([
-    ['probe', 0, ['wf-step-0-connection'], ['wf-step-0-uses']],
-    ['ping', 2, ['wf-step-2-send'], ['wf-step-2-captures', 'wf-step-2-uses']],
-    ['status', 3, ['wf-step-3-expect', 'wf-step-3-match'], ['wf-step-3-captures', 'wf-step-3-uses']],
+    ['probe', 0, ['wf-step-0-connection', 'wf-step-0-description'], ['wf-step-0-uses']],
+    ['ping', 2, ['wf-step-2-send', 'wf-step-2-description'], ['wf-step-2-captures', 'wf-step-2-uses']],
+    [
+      'status',
+      3,
+      ['wf-step-3-expect', 'wf-step-3-match', 'wf-step-3-description'],
+      ['wf-step-3-captures', 'wf-step-3-uses'],
+    ],
   ])('the session step %s has the same four tabs, its own cards on Setup and Data', (stepId, index, setup, data) => {
     renderKinds();
     openStep(stepId);
@@ -577,6 +583,41 @@ describe('LiveWorkflowEditor — a step’s tabs', () => {
     expect(cardsShown()).toEqual(data);
     openStepTab('last-run');
     expect(cardsShown()).toEqual(['wf-step-last-run']);
+  });
+
+  it('a step’s description is the last card of its Setup: a field of several lines, the step’s own', () => {
+    renderEditor();
+    addCallStep();
+    const field = (index: number): HTMLTextAreaElement => {
+      const textarea = screen.getByTestId(`wf-step-${index}-description`).querySelector('textarea');
+      if (textarea === null) throw new Error('the step has no description field');
+      return textarea;
+    };
+    expect(screen.getByTestId('wf-step-1-description').textContent).toBe('DescriptionA note on what this step is for.');
+
+    fireEvent.change(field(1), { target: { value: 'Asks the device\nto restart' } });
+    expect(field(1).value).toBe('Asks the device\nto restart');
+
+    // The other step's is its own; this one's is there when the step is opened again.
+    openStep('only');
+    expect(field(0).value).toBe('');
+    openStep('step2');
+    expect(field(1).value).toBe('Asks the device\nto restart');
+  });
+
+  it('the workflow’s description is the last card of its Overview, under the field path it had in the head', () => {
+    renderEditor();
+    const cards = cardsShown();
+    const card = screen.getByTestId('wf-description');
+
+    expect(cards.at(-1)).toBe('wf-description');
+    expect(cards.at(-2)).toBe('wf-panel-policy');
+    expect(card.textContent).toBe('DescriptionA note on what this workflow is for.');
+    expect(card.querySelector('[data-field-path="description"] textarea')).not.toBeNull();
+    // Neither head holds a description any more.
+    expect(
+      screen.getByTestId('wf-panel').querySelector('.oh-wf-step-head textarea, .oh-wf-step-head input'),
+    ).toBeNull();
   });
 
   it('the view holds the open tab from step to step, and through a close', () => {
@@ -780,8 +821,8 @@ describe('LiveWorkflowEditor — undo and redo', () => {
   });
 
   it('in a field that takes typing the shortcut is the field’s own', () => {
-    const { container } = renderEditor();
-    const description = container.querySelector<HTMLInputElement>('input.oh-wf-step-description');
+    renderEditor();
+    const description = screen.getByTestId('wf-description').querySelector('textarea');
     if (description === null) throw new Error('the workflow has no description field');
 
     fireEvent.change(description, { target: { value: 'Reboots the device' } });

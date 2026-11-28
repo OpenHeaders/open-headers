@@ -322,13 +322,49 @@ describe('WorkflowStepEditor — a call’s sections', () => {
 
   // ── The Request card ────────────────────────────────────────────────
 
-  it('names the request it sends: its method, and where it is kept', () => {
+  it('names the request it sends in its picker, and nowhere else on the card', () => {
     renderStep(mkStep());
-    expect(screen.getByRole('heading', { name: 'Request' })).toBeTruthy();
-    expect(screen.getByTestId('wf-step-1-request-meta').textContent).toBe('POSTin auth › oauth');
+    const card = screen.getByTestId('wf-step-1-request');
+    expect(within(card).getByRole('heading', { name: 'Request' })).toBeTruthy();
+    // The card's head, the field's label, the picked request as the picker draws it, the scripts line and its (i).
+    expect(card.textContent).toBe(
+      "RequestThe saved request this step sends.Open requestSaved requestauth›oauth›POSTrefreshRun the request's scriptsi",
+    );
+  });
+
+  // ── The Description card ────────────────────────────────────────────
+
+  it('the Description card holds the step’s note; typing emits it, and an emptied note leaves the step', () => {
+    const { onChange } = renderStep(mkStep({ description: 'Refreshes the token' }));
+    const card = screen.getByTestId('wf-step-1-description');
+    const field = card.querySelector('textarea');
+    expect(within(card).getByRole('heading', { name: 'Description' })).toBeTruthy();
+    expect(field?.value).toBe('Refreshes the token');
+
+    fireEvent.change(field as HTMLTextAreaElement, { target: { value: 'Refreshes the token\nonce an hour' } });
+    expect(onChange).toHaveBeenCalledWith(
+      expect.objectContaining({ description: 'Refreshes the token\nonce an hour' }),
+    );
+
+    fireEvent.change(field as HTMLTextAreaElement, { target: { value: '' } });
+    const last = onChange.mock.calls.at(-1)?.[0] as DraftCallStep;
+    expect('description' in last).toBe(false);
+  });
+
+  it('the Description card comes after the step’s own cards of Setup, on a session step too', () => {
+    renderStep(mkStep(), { tab: 'setup' });
+    const cards = (): Array<string | null> =>
+      Array.from(document.querySelectorAll('section.oh-wf-card')).map((card) => card.getAttribute('data-testid'));
+    expect(cards().at(-1)).toBe('wf-step-1-description');
     cleanup();
-    renderStep(mkStep({ requestUid: 'reqgone00' }));
-    expect(screen.queryByTestId('wf-step-1-request-meta')).toBeNull();
+
+    renderStep(
+      { uid: 'stplistn', id: 'probe', action: 'listen', sessionRequestUid: '', timeoutMs: 10_000, captures: [] },
+      {
+        tab: 'setup',
+      },
+    );
+    expect(cards()).toEqual(['wf-step-1-connection', 'wf-step-1-description']);
   });
 
   it('Open request opens the request’s tab, and is off where the step names none', () => {

@@ -1,8 +1,7 @@
 /**
  * A call step's own fields: its Request card (the workflows redesign,
- * Step panel) — the saved request it sends, a line that says which that
- * is, and whether the request's scripts run — and the Captures card of
- * its response.
+ * Step panel) — the saved request it sends, and whether the request's
+ * scripts run — and the Captures card of its response.
  *
  * Each capture carries an exposure line — the switch that makes it a
  * `{{live.<name>}}` — unless the workflow holds a session step: such a
@@ -20,7 +19,6 @@ import { Button, Checkbox, ConfigProvider, Input, Select, Switch, Tooltip, theme
 import type React from 'react';
 import { scopeBadge } from '../shared/scope-colors';
 import StepCapturesEditor from './StepCapturesEditor';
-import { ProtocolTag } from './StepTags';
 import WorkflowCard, { CardField } from './WorkflowCard';
 import { buildRequestPickerOptions, type StepRequestChoice } from './workflow-step-request-options';
 
@@ -46,7 +44,6 @@ export const CallRequestCard: React.FC<RequestCardProps> = ({
 }) => {
   const { token } = theme.useToken();
   const t = useT();
-  const picked = availableRequests.find((each) => each.uid === step.requestUid);
   const scriptsLabel = t('workbench.editors.live.step.sessionScriptsLabel');
 
   // Off deletes the field rather than persisting `false` — absent is
@@ -108,21 +105,6 @@ export const CallRequestCard: React.FC<RequestCardProps> = ({
             </Tooltip>
           </span>
         </CardField>
-        {picked !== undefined && (
-          <div className="oh-wf-request-meta" data-testid={`wf-step-${index}-request-meta`}>
-            {/* A request of a kind wears the kind's own name; an HTTP request its method. */}
-            <ProtocolTag kind={picked.kind ?? 'http'} size="panel">
-              {picked.kind === undefined ? picked.method : undefined}
-            </ProtocolTag>
-            {picked.collectionName !== null && (
-              <span>
-                {t('workbench.editors.live.request.inCollection', {
-                  path: [picked.collectionName, ...picked.folderTrail].join(' › '),
-                })}
-              </span>
-            )}
-          </div>
-        )}
         <span className="oh-wf-check">
           <Checkbox
             data-testid={`wf-step-${index}-run-scripts`}

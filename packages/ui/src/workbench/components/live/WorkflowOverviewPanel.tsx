@@ -1,10 +1,10 @@
 /**
  * WorkflowOverviewPanel — the workflow view's docked panel while no step
  * is selected (the workflows redesign, Workflow panel): the workflow as
- * a whole. Its head — the name, how many steps, the description — and
- * under it one scrolling page of cards: its last run, what needs a look,
- * its steps in run order, its captures, how each environment stands, and
- * its settings.
+ * a whole. Its head — the name, how many steps — and under it one
+ * scrolling page of cards: its last run, what needs a look, its steps in
+ * run order, its captures, how each environment stands, its settings,
+ * and last its description.
  *
  * A saved workflow where it runs has a second page behind a tab of the
  * head: History, the runs this page saw. A run pressed there is the one
@@ -18,10 +18,11 @@ import { type DraftWorkflow, isKnownStep, runVerdict } from '@openheaders/core/l
 import type { LiveWorkflow } from '@openheaders/core/types';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { LIVE_WORKFLOW_FIELD } from '@openheaders/ui/shared/awareness/live-paths';
-import { ConfigProvider, Input } from 'antd';
+import { ConfigProvider } from 'antd';
 import type React from 'react';
 import { useEffect, useRef } from 'react';
 import { captureUsesOf } from './capture-uses';
+import DescriptionCard from './DescriptionCard';
 import { addPickedStep } from './graph-edit';
 import type { OverviewStepFacts } from './StepOverviewRow';
 import { KindTag } from './StepTags';
@@ -198,16 +199,6 @@ const WorkflowOverviewPanel: React.FC<Props> = ({
             <KindTag size="panel">{stepCount}</KindTag>
           </div>
           <div className="oh-wf-overview-hint">{t('workbench.editors.live.panel.noStep')}</div>
-          <span data-field-path={LIVE_WORKFLOW_FIELD.description} style={{ display: 'contents' }}>
-            <Input
-              className="oh-wf-step-description"
-              variant="borderless"
-              placeholder={t('workbench.editors.live.form.descriptionPlaceholder')}
-              value={draft.description}
-              disabled={readOnly}
-              onChange={(e) => setDraft({ ...draft, description: e.target.value })}
-            />
-          </span>
           {hasHistory && (
             <div className="oh-wf-tabs" role="tablist">
               {tabs.map(({ id, label, count }) => (
@@ -277,6 +268,13 @@ const WorkflowOverviewPanel: React.FC<Props> = ({
                   onEnabledChange={(enabled) => setDraft({ ...draft, enabled })}
                   availableCaptures={model.availableCaptures}
                   holdsSession={model.holdsSession}
+                />
+                <DescriptionCard
+                  testId="wf-description"
+                  line={t('workbench.editors.live.description.workflowLine')}
+                  value={draft.description}
+                  onChange={(description) => setDraft({ ...draft, description })}
+                  fieldPath={LIVE_WORKFLOW_FIELD.description}
                 />
               </div>
             )}
