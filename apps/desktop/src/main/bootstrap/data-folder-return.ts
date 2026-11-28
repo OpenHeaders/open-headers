@@ -148,7 +148,7 @@ export function claimDataFolder(ownDir: string): void {
  * family, named `<identity name>_<publisher id>`. Null when the listing
  * cannot be read.
  */
-function hasPackageFolder(localAppDataDir: string): boolean | null {
+export function hasPackageFolder(localAppDataDir: string): boolean | null {
   const prefix = `${PACKAGE_IDENTITY_NAME}_`.toLowerCase();
   try {
     return fs.readdirSync(path.join(localAppDataDir, 'Packages')).some((name) => name.toLowerCase().startsWith(prefix));
@@ -157,8 +157,8 @@ function hasPackageFolder(localAppDataDir: string): boolean | null {
   }
 }
 
-/** Asks Windows for the packages of our name installed for this user. */
-function askWindowsForPackage(): boolean | null {
+/** The question that asks Windows for the packages of our name installed for this user: a program and its arguments. */
+export function windowsPackageQuery(): { readonly file: string; readonly args: readonly string[] } {
   const powershell = path.join(
     process.env.SystemRoot ?? 'C:\\Windows',
     'System32',
@@ -168,14 +168,26 @@ function askWindowsForPackage(): boolean | null {
   );
   // A failed query must end the command, not print a count of nothing.
   const command = `$ErrorActionPreference = 'Stop'; @(Get-AppxPackage -Name '${PACKAGE_IDENTITY_NAME}').Count`;
+  return { file: powershell, args: ['-NoProfile', '-NonInteractive', '-Command', command] };
+}
+
+/** What Windows answered that question with: whether it lists a package; null when the answer is not a count. */
+export function packageListedIn(answer: string): boolean | null {
+  const count = answer.trim();
+  return /^\d+$/.test(count) ? Number(count) > 0 : null;
+}
+
+function askWindowsForPackage(): boolean | null {
+  const { file, args } = windowsPackageQuery();
   try {
-    const answer = execFileSync(powershell, ['-NoProfile', '-NonInteractive', '-Command', command], {
-      encoding: 'utf8',
-      stdio: ['ignore', 'pipe', 'ignore'],
-      timeout: WINDOWS_ANSWER_TIMEOUT_MS,
-      windowsHide: true,
-    }).trim();
-    return /^\d+$/.test(answer) ? Number(answer) > 0 : null;
+    return packageListedIn(
+      execFileSync(file, [...args], {
+        encoding: 'utf8',
+        stdio: ['ignore', 'pipe', 'ignore'],
+        timeout: WINDOWS_ANSWER_TIMEOUT_MS,
+        windowsHide: true,
+      }),
+    );
   } catch {
     return null;
   }

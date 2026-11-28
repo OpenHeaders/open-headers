@@ -27,9 +27,10 @@
  * with fakes.
  */
 
-import { releaseNotesUrl, type UpdateChannel, windowsPackagePointerUrl } from './update-feed';
+import { fetchPackagePointer } from './package-pointer';
+import { releaseNotesUrl, type UpdateChannel } from './update-feed';
 import type { AvailableUpdate, UpdaterPort } from './update-service';
-import { compareCalVer, isVersionString } from './versions-manifest';
+import { compareCalVer } from './versions-manifest';
 
 type PackageUpdaterEvent = 'update-downloaded' | 'update-not-available' | 'error';
 
@@ -94,32 +95,6 @@ export interface MsixUpdaterPortDeps {
   readonly log: { info(msg: string): void; warn(msg: string, err?: unknown): void };
 }
 
-interface PointerReading {
-  version: string;
-  stop: boolean;
-  /** This arch's link; null when the pointer names no package for it. */
-  url: string | null;
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
-
-/**
- * What this install reads from a fetched pointer. Null on a shape it
- * cannot act on. Fields it does not read are passed by: the pointer is a
- * wire contract, and an older package reads newer ones.
- */
-function readPointer(raw: unknown, arch: string): PointerReading | null {
-  if (!isRecord(raw)) return null;
-  const { version, stop, packages } = raw;
-  if (!isVersionString(version) || typeof stop !== 'boolean' || !isRecord(packages)) return null;
-  const entry = packages[arch];
-  if (entry === undefined) return { version, stop, url: null };
-  if (!isRecord(entry) || typeof entry.url !== 'string' || !entry.url.startsWith('https://')) return null;
-  return { version, stop, url: entry.url };
-}
-
 function asError(value: unknown): Error {
   return value instanceof Error ? value : new Error(String(value));
 }
@@ -158,17 +133,11 @@ export function createMsixUpdaterPort(deps: MsixUpdaterPortDeps): UpdaterPort {
 
     async check(): Promise<AvailableUpdate | null> {
       offered = null;
-      const response = await deps.fetch(windowsPackagePointerUrl(deps.getChannel()), {
-        cache: 'no-store',
-        redirect: 'follow',
-      });
       // No pointer: the channel has published no package. Any other
       // failure throws — a check must never report "up to date" for a
       // feed it could not read.
-      if (response.status === 404) return null;
-      if (!response.ok) throw new Error(`update feed returned ${response.status}`);
-      const pointer = readPointer(await response.json(), deps.arch);
-      if (pointer === null) throw new Error('update feed returned an unreadable package pointer');
+      const pointer = await fetchPackagePointer(deps.fetch, deps.getChannel(), deps.arch);
+      if (pointer === null) return null;
       if (pointer.stop) return null;
       if (compareCalVer(pointer.version, deps.currentVersion) <= 0) return null;
       if (pointer.url === null) {

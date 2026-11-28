@@ -15,6 +15,7 @@ import { tmpdir } from 'node:os';
 import * as path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import { PACKAGE_MANIFEST_FILE_NAME } from '../../../src/main/bootstrap/install-kind';
+import { CARRIED_INSTALLER_DIR_NAME, carriedInstallerFileName } from '../../../src/main/package-switch-facts';
 
 const APP_DIR = path.resolve(__dirname, '../../..');
 const REPO_DIR = path.resolve(APP_DIR, '../..');
@@ -116,6 +117,13 @@ describe('the names the release lane rests on', () => {
     for (const arch of ['x64', 'arm64'] as const) {
       expect(staged.replace(/\$\{arch\}/, arch)).toBe(names[arch]);
       expect(RELEASE_MANIFEST).toContain(`'${names[arch]}'`);
+    }
+  });
+
+  it('is found by the app where the hook puts it', () => {
+    expect(CARRIED_INSTALLER_DIR_NAME).toBe(names.dir);
+    for (const arch of ['x64', 'arm64'] as const) {
+      expect(carriedInstallerFileName(arch)).toBe(names[arch]);
     }
   });
 
