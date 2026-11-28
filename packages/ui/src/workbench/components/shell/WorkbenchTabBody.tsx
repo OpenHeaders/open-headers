@@ -26,6 +26,7 @@ import FolderOverview from '../overviews/FolderOverview';
 import LiveVariablesEditor from '../variables/LiveVariablesEditor';
 import LiveVariableEditor from '../live/LiveVariableEditor';
 import LiveWorkflowEditor from '../live/LiveWorkflowEditor';
+import type { StepRequestOpeners } from '../live/step-facts';
 import GraphqlRequestEditorTab from '../graphql-request-editor/GraphqlRequestEditorTab';
 import GrpcRequestEditorTab from '../grpc-request-editor/GrpcRequestEditorTab';
 import MqttRequestEditorTab from '../mqtt-request-editor/MqttRequestEditorTab';
@@ -54,6 +55,7 @@ import WhatsNewTab from '../whats-new/WhatsNewTab';
 import WorkspaceManager from '../workspace/WorkspaceManager';
 import WorkspaceVariablesEditor from '../variables/WorkspaceVariablesEditor';
 import type { EditorRegistrations } from '../../hooks/useEditorRegistrations';
+import type { OpenBeside } from '../../hooks/use-open-beside';
 import type { UseEditorGroupsApi } from '../../hooks/useEditorGroups';
 import type { SaveRequestFlowApi } from '../../hooks/useSaveRequestFlow';
 import type { SaveRuleFlowApi } from '../../hooks/useSaveRuleFlow';
@@ -113,6 +115,8 @@ interface WorkbenchTabBodyProps {
   openRequestFolderSettings: UseTabOpenersApi['openRequestFolderSettings'];
   openRequestCollectionScripts: UseTabOpenersApi['openRequestCollectionScripts'];
   openRequestFolderScripts: UseTabOpenersApi['openRequestFolderScripts'];
+  /** Runs an opener and stands the tab it shows beside this one. */
+  openBeside: OpenBeside;
 
   // Shell-local handlers and slices.
   handleSwitchWorkspace: (targetId: string, opts?: { makeActive?: boolean }) => void;
@@ -175,6 +179,7 @@ const WorkbenchTabBody: React.FC<WorkbenchTabBodyProps> = ({
   openRequestFolderSettings,
   openRequestCollectionScripts,
   openRequestFolderScripts,
+  openBeside,
   handleSwitchWorkspace,
   onRuleSaveDraft,
   onRequestSaveDraft,
@@ -201,6 +206,13 @@ const WorkbenchTabBody: React.FC<WorkbenchTabBodyProps> = ({
   // same dispatch onto the container's Settings section.
   const openContainerSettings = (kind: 'collection' | 'folder', uid: string, name: string) =>
     kind === 'collection' ? openRequestCollectionSettings(uid, name) : openRequestFolderSettings(uid, name);
+  // A workflow's "Open request" — the request's own tab, in the group
+  // beside the workflow's.
+  const requestOpenersBeside: StepRequestOpeners = {
+    http: (uid, name, method) => openBeside(tab.id, () => openRequestEditTab(uid, name, method)),
+    graphql: (uid, name) => openBeside(tab.id, () => openGraphqlRequestEditTab(uid, name)),
+    mqtt: (uid, name) => openBeside(tab.id, () => openMqttRequestEditTab(uid, name)),
+  };
   if (tab.mode === 'edit' && tab.ruleUid) {
     return (
       <RuleEditor
@@ -688,11 +700,7 @@ const WorkbenchTabBody: React.FC<WorkbenchTabBodyProps> = ({
         seedSteps={tab.liveWorkflowSeedSteps}
         onDirtyChange={(dirty) => handleDirtyChange(tab.id, dirty)}
         registerSaveRef={(saveFn) => registerSaveRef(tab.id, saveFn)}
-        requestOpeners={{
-          http: openRequestEditTab,
-          graphql: openGraphqlRequestEditTab,
-          mqtt: openMqttRequestEditTab,
-        }}
+        requestOpeners={requestOpenersBeside}
       />
     );
   }
@@ -704,11 +712,7 @@ const WorkbenchTabBody: React.FC<WorkbenchTabBodyProps> = ({
         seedSteps={tab.liveWorkflowSeedSteps}
         onDirtyChange={(dirty) => handleDirtyChange(tab.id, dirty)}
         registerSaveRef={(saveFn) => registerSaveRef(tab.id, saveFn)}
-        requestOpeners={{
-          http: openRequestEditTab,
-          graphql: openGraphqlRequestEditTab,
-          mqtt: openMqttRequestEditTab,
-        }}
+        requestOpeners={requestOpenersBeside}
         onCreated={(wf) =>
           replaceTab(tab.id, {
             id: `live-wf-${wf.uid}`,

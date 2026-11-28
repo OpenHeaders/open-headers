@@ -121,6 +121,7 @@ function groupsOf(root: EditorNode, focusedLeafId: string, focusLeaf: (leafId: s
     splitAndMoveDown: noop,
     splitAndMoveUp: noop,
     moveToOppositeGroup: noop,
+    moveShownTabBeside: noop,
     changeSplitterOrientation: noop,
     unsplit: noop,
     unsplitAll: noop,

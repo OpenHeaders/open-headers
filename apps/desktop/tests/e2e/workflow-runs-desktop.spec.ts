@@ -23,6 +23,9 @@
  *   H1  A run pressed in the workflow's History is drawn on the whole
  *       view while a newer one goes; Back to latest and a new run both
  *       return the view to the latest.
+ *   B1  Open request stands the request's own tab in a group beside the
+ *       workflow; the workflow keeps an unsaved edit through the split
+ *       and the fold.
  *   C1  `oh run workflow` reports a row per step and exits 0.
  *   C2  A failed run writes its JUnit failure and exits 1.
  *
@@ -352,6 +355,55 @@ test('H1 — a run pressed in History is drawn on the whole view while a newer o
   await expect(visible('wf-history-count')).toHaveText('3');
   await expect(rows.first()).toHaveAttribute('data-shown', 'true');
   await expect(rows.first()).toHaveAttribute('data-run-verdict', 'failed', { timeout: 10_000 });
+});
+
+// ── A step's request, beside the workflow ───────────────────────────
+
+test('B1 — Open request stands the request’s own tab beside the workflow, and an unsaved edit stays through the split and the fold', async () => {
+  // Sends nothing: no start is counted here.
+  const groups = workbench.locator('.rules-editor-leaf');
+  // A group's own tabs — an editor in it has a row of tabs of its own.
+  const tabsOf = (group: Locator) => group.locator('.rules-tabs-bar [role="tab"]');
+  const tabIn = (group: Locator, tabId: string) => group.locator(`.rules-tabs-bar [data-tab-id="${tabId}"]`);
+  const workflowTab = tabIn(groups.first(), 'live-wf-e2ewrwf1');
+  const stepNote = visible('wf-step-1-description').locator('textarea');
+  const openStep = async (stepId: string): Promise<void> => {
+    await visible('wf-graph-fit').click();
+    await visible(`wf-graph-node-${stepId}`).click();
+    await visible('wf-step-tab-setup').click();
+  };
+  await workbench.locator('[data-item-id="workflow-e2ewrwf1"]').click();
+  await expect(groups).toHaveCount(1);
+
+  // An unsaved note on the call.
+  await openStep('reboot');
+  await stepNote.fill('Sent once the session is ready.');
+  await expect(workflowTab.locator('.rules-tab-unsaved')).toHaveCount(1);
+
+  // The call's request: a second group with its tab alone in it; the workflow is still in sight, as it was.
+  await visible('wf-step-1-open-request').click();
+  await expect(groups).toHaveCount(2);
+  await expect(tabsOf(groups.nth(1))).toHaveCount(1);
+  await expect(tabIn(groups.nth(1), 'request-e2ewrreb')).toHaveAttribute('aria-selected', 'true');
+  await expect(workflowTab).toHaveAttribute('aria-selected', 'true');
+  await expect(stepNote).toHaveValue('Sent once the session is ready.');
+  await expect(workflowTab.locator('.rules-tab-unsaved')).toHaveCount(1);
+
+  // The listen's request joins that group: no third one.
+  await openStep('probe');
+  await visible('wf-step-0-open-request').click();
+  await expect(groups).toHaveCount(2);
+  await expect(tabsOf(groups.nth(1))).toHaveCount(2);
+  await expect(tabIn(groups.nth(1), 'mqtt-request-e2ewrmq1')).toHaveAttribute('aria-selected', 'true');
+
+  // Both closed: one group again, the note still there. Undone, the workflow is as it was found.
+  await tabIn(groups.nth(1), 'mqtt-request-e2ewrmq1').locator('.rules-tab-close').click();
+  await tabIn(groups.nth(1), 'request-e2ewrreb').locator('.rules-tab-close').click();
+  await expect(groups).toHaveCount(1);
+  await openStep('reboot');
+  await expect(stepNote).toHaveValue('Sent once the session is ready.');
+  await visible('wf-graph-undo').click();
+  await expect(workflowTab.locator('.rules-tab-unsaved')).toHaveCount(0);
 });
 
 // ── `oh run workflow` against the same app ──────────────────────────

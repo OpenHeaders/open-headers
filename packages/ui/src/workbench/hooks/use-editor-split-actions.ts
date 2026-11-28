@@ -7,7 +7,9 @@
 
 import { useCallback, useMemo } from 'react';
 import {
+  activateTabInLeaf,
   findLeaf,
+  findLeafContainingTab,
   findOppositeLeaf,
   firstLeaf,
   flipParentSplit,
@@ -25,6 +27,7 @@ export type EditorSplitActions = Pick<
   | 'splitAndMoveDown'
   | 'splitAndMoveUp'
   | 'moveToOppositeGroup'
+  | 'moveShownTabBeside'
   | 'changeSplitterOrientation'
   | 'unsplit'
   | 'unsplitAll'
@@ -94,6 +97,31 @@ export function useEditorSplitActions({ transform }: UseEditorSplitActionsArgs):
     [transform],
   );
 
+  const moveShownTabBeside = useCallback(
+    (anchorTabId: string, direction: 'right' | 'bottom') => {
+      transform((prev) => {
+        const leaf = findLeafContainingTab(prev.root, anchorTabId);
+        if (!leaf || prev.focusedLeafId !== leaf.id) return prev;
+        const tab = leaf.tabs.find((t) => t.id === leaf.activeTabId);
+        if (!tab || tab.id === anchorTabId) return prev;
+        const opposite = findOppositeLeaf(prev.root, leaf.id);
+        if (opposite) {
+          const moved = moveTabBetweenLeaves(prev.root, leaf.id, opposite.id, tab.id);
+          return { ...prev, root: activateTabInLeaf(moved, leaf.id, anchorTabId), focusedLeafId: opposite.id };
+        }
+        const newLeafId = `leaf-${prev.nextId}`;
+        const splitId = `split-${prev.nextId}`;
+        const { root } = splitLeafWithTab(prev.root, leaf.id, direction, tab, newLeafId, splitId);
+        return {
+          root: activateTabInLeaf(root, leaf.id, anchorTabId),
+          focusedLeafId: newLeafId,
+          nextId: prev.nextId + 1,
+        };
+      });
+    },
+    [transform],
+  );
+
   const changeSplitterOrientation = useCallback(
     (leafId: string) => {
       transform((prev) => ({ ...prev, root: flipParentSplit(prev.root, leafId) }));
@@ -128,6 +156,7 @@ export function useEditorSplitActions({ transform }: UseEditorSplitActionsArgs):
       splitAndMoveDown,
       splitAndMoveUp,
       moveToOppositeGroup,
+      moveShownTabBeside,
       changeSplitterOrientation,
       unsplit,
       unsplitAll: unsplitAllAction,
@@ -138,6 +167,7 @@ export function useEditorSplitActions({ transform }: UseEditorSplitActionsArgs):
       splitAndMoveDown,
       splitAndMoveUp,
       moveToOppositeGroup,
+      moveShownTabBeside,
       changeSplitterOrientation,
       unsplit,
       unsplitAllAction,

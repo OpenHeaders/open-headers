@@ -106,6 +106,7 @@ import { OpenSettingsProvider } from './hooks/OpenSettingsContext';
 import { OpenVaultProvider } from './hooks/OpenVaultContext';
 import { useCommandPaletteData } from './hooks/useCommandPaletteData';
 import { useEditingScopeWorkspaceId } from './hooks/useEditingScopeWorkspaceId';
+import { useOpenBeside } from './hooks/use-open-beside';
 import { useEditorGroups } from './hooks/useEditorGroups';
 import { useEditorRegistrations } from './hooks/useEditorRegistrations';
 import { useEntityStatusSets } from './hooks/useEntityStatusSets';
@@ -416,6 +417,7 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
     [groups],
   );
   const getFocusedLeafTabs = useCallback(() => groups.focusedLeaf.tabs, [groups.focusedLeaf]);
+  const openBeside = useOpenBeside(groups.moveShownTabBeside);
 
   // Decoration sets — greyed method tags (unresolvable refs), dirty dots,
   // and pending-script badges — the sidebar, editor group, and drag
@@ -1427,6 +1429,7 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
           openRequestFolderSettings={openRequestFolderSettings}
           openRequestCollectionScripts={openRequestCollectionScripts}
           openRequestFolderScripts={openRequestFolderScripts}
+          openBeside={openBeside}
           handleSwitchWorkspace={handleSwitchWorkspace}
           onRuleSaveDraft={ruleSaveFlow.handleSaveDraft}
           onRequestSaveDraft={requestSaveFlow.handleSaveDraft}
@@ -1479,6 +1482,7 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
       openRequestFolderSettings,
       openRequestCollectionScripts,
       openRequestFolderScripts,
+      openBeside,
       liveWorkflowsApi.workflows,
       replaceTab,
       editingScopeWorkspaceId,

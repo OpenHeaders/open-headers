@@ -120,6 +120,15 @@ export interface UseEditorGroupsApi {
   splitAndMoveDown: (leafId: string, tabId: string) => void;
   splitAndMoveUp: (leafId: string, tabId: string) => void;
   moveToOppositeGroup: (leafId: string, tabId: string) => void;
+  /**
+   * Stand the tab an opener just showed beside the tab it was opened
+   * from: where that tab's group is focused and shows another tab, the
+   * shown tab goes to the group on the other side of its split — a new
+   * group split off in `direction` where it has none — and the anchor is
+   * its own group's shown tab again. A tab the opener showed in another
+   * group stays there.
+   */
+  moveShownTabBeside: (anchorTabId: string, direction: 'right' | 'bottom') => void;
   changeSplitterOrientation: (leafId: string) => void;
   unsplit: (leafId: string) => void;
   unsplitAll: () => void;
