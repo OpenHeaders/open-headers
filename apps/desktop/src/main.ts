@@ -60,6 +60,7 @@ import {
   FINISH_MOVE_EXIT,
   FINISH_MOVE_SWITCH,
   moveDataFolderToPackage,
+  withdrawLeftMoveRequest,
 } from './main/bootstrap/data-folder-move';
 import {
   claimDataFolder,
@@ -327,6 +328,11 @@ function bootstrapDesktopApp(): void {
   }
   if (dataFolderReturn?.outcome === 'returned') {
     logger.info(`data folder taken back from ${dataFolderReturn.from}`);
+  }
+  // A classic app that starts is not being moved: a request a switch left
+  // behind goes. One young enough to be a switch under way stays.
+  if (install.kind === 'nsis' && !userDataOverride && withdrawLeftMoveRequest(ownDataDir)) {
+    logger.info('a request to move to the Windows package was left in the data folder: removed');
   }
 
   // Then process diagnostics — any throw in later bootstrap calls

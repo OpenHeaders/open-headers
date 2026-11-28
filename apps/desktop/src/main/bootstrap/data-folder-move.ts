@@ -197,3 +197,26 @@ export function dataLeftByMove(facts: Pick<DataFolderMoveFacts, 'installKind' | 
   if (!isPlainDirectory(facts.classicDir)) return null;
   return readMoveRequest(facts.classicDir) === 'absent' ? null : facts.classicDir;
 }
+
+/** A move in flight ends within minutes of its request: one older than this was left behind. */
+const LEFT_REQUEST_AGE_MS = 10 * 60_000;
+
+/**
+ * Takes a request out of a classic install's own data folder once it is
+ * a left one. A classic app that starts is not being moved — but it may
+ * start while a switch is under way, in the seconds between its go and
+ * its uninstaller's end, and that switch's request has to stay: the
+ * package takes the data in on its word. So only a request older than any
+ * move in flight goes. Returns whether one was removed.
+ */
+export function withdrawLeftMoveRequest(classicDir: string, now: number = Date.now()): boolean {
+  const note = path.join(classicDir, MOVE_REQUEST_FILE_NAME);
+  try {
+    if (now - fs.lstatSync(note).mtimeMs < LEFT_REQUEST_AGE_MS) return false;
+    fs.rmSync(note);
+    return true;
+  } catch {
+    // None there — or one that cannot be removed, which the next start meets again.
+    return false;
+  }
+}

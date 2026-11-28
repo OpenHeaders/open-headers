@@ -29,6 +29,7 @@ import {
   FINISH_MOVE_SWITCH,
   MOVE_REQUEST_FILE_NAME,
   moveDataFolderToPackage,
+  withdrawLeftMoveRequest,
 } from '@/main/bootstrap/data-folder-move';
 import type { InstallKind } from '@/main/bootstrap/install-kind';
 
@@ -290,6 +291,36 @@ describe('the data folder taken in by the Windows package', () => {
         expect(dataLeftByMove(makeFacts({ installKind }))).toBeNull();
       },
     );
+  });
+
+  describe("a request left in a classic install's own folder", () => {
+    const MINUTE_MS = 60_000;
+
+    it('goes at a classic start once it is older than any move in flight', () => {
+      seedClassicData();
+      expect(withdrawLeftMoveRequest(classicDir, Date.now() + 11 * MINUTE_MS)).toBe(true);
+      expect(existsSync(join(classicDir, MOVE_REQUEST_FILE_NAME))).toBe(false);
+      expect(existsSync(join(classicDir, 'data', 'settings.json'))).toBe(true);
+    });
+
+    it('stays while it may be the request of a switch under way: the package takes the data in on its word', () => {
+      seedClassicData();
+      expect(withdrawLeftMoveRequest(classicDir)).toBe(false);
+      expect(withdrawLeftMoveRequest(classicDir, Date.now() + 9 * MINUTE_MS)).toBe(false);
+      expect(readFileSync(join(classicDir, MOVE_REQUEST_FILE_NAME), 'utf8')).toBe('{"requestedBy":"2026.11.3"}');
+    });
+
+    it('goes when it was judged too: a package installed later would read it as data left behind', () => {
+      seedClassicData('{"verdict":"ineligible","code":"EXDEV"}');
+      expect(withdrawLeftMoveRequest(classicDir, Date.now() + 11 * MINUTE_MS)).toBe(true);
+      expect(existsSync(join(classicDir, MOVE_REQUEST_FILE_NAME))).toBe(false);
+    });
+
+    it('answers no where there is none, and where there is no folder', () => {
+      expect(withdrawLeftMoveRequest(classicDir, Date.now() + 11 * MINUTE_MS)).toBe(false);
+      seedClassicData(null);
+      expect(withdrawLeftMoveRequest(classicDir, Date.now() + 11 * MINUTE_MS)).toBe(false);
+    });
   });
 
   it('keeps its permanent names', () => {
