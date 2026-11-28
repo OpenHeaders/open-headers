@@ -30,6 +30,7 @@ import { Allotment } from 'allotment';
 import { theme } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { TabActiveProvider } from '@openheaders/ui/shared/awareness/TabActiveContext';
 import { type DragIntent, DragIntentContext } from '../../drag-intent';
 import { useFocusedRegion } from '../../stores/focus-region-store';
@@ -138,10 +139,12 @@ function previewStyleFor(zone: LeafDropZone): React.CSSProperties {
 
 interface TabPanelProps {
   isActive: boolean;
+  /** A press anywhere in the body — the body is not a React child of its leaf. */
+  onPointerDownCapture: () => void;
   children: React.ReactNode;
 }
 
-const TabPanel: React.FC<TabPanelProps> = ({ isActive, children }) => {
+const TabPanel: React.FC<TabPanelProps> = ({ isActive, onPointerDownCapture, children }) => {
   const panelRef = useRef<HTMLDivElement | null>(null);
   const scrollTopRef = useRef(0);
 
@@ -171,6 +174,7 @@ const TabPanel: React.FC<TabPanelProps> = ({ isActive, children }) => {
         className="rules-editor-tab-panel"
         style={isActive ? undefined : { display: 'none' }}
         onScroll={handleScroll}
+        onPointerDownCapture={onPointerDownCapture}
         aria-hidden={isActive ? undefined : true}
         inert={!isActive}
       >
@@ -178,6 +182,32 @@ const TabPanel: React.FC<TabPanelProps> = ({ isActive, children }) => {
       </div>
     </TabActiveProvider>
   );
+};
+
+// ── A body outlives the leaf it is drawn in ──────────────────────
+//
+// A split, an orientation flip, a fold and a move between groups all
+// rebuild leaves: a leaf's place in the tree changes, and React builds
+// it anew. A tab's body must not be rebuilt with it — an editor holds
+// its draft, its history and its session in its own state. So every
+// body is mounted once, in a flat layer keyed by tab id, through a
+// portal into a host element of its own; a leaf holds one slot per tab,
+// and the slot adopts that tab's host. A rebuilt leaf's new slot takes
+// the host over with the editor in it. A host that changes slot is taken
+// out of the page for a moment, so its panel shows from the top again.
+
+interface TabSlotProps {
+  host: HTMLElement;
+}
+
+const TabSlot: React.FC<TabSlotProps> = ({ host }) => {
+  const slotRef = useRef<HTMLDivElement | null>(null);
+
+  useLayoutEffect(() => {
+    slotRef.current?.appendChild(host);
+  }, [host]);
+
+  return <div ref={slotRef} style={{ display: 'contents' }} />;
 };
 
 // ── Preview overlay ──────────────────────────────────────────────
@@ -317,6 +347,23 @@ export const EditorGroupRenderer: React.FC<EditorGroupRendererProps> = ({
       else leafRefs.current.delete(leafId);
     };
   }, []);
+
+  // One host element per open tab — the portal target its body lives in.
+  const tabHosts = useRef(new Map<string, HTMLElement>());
+  const hostOf = (tabId: string): HTMLElement => {
+    const known = tabHosts.current.get(tabId);
+    if (known !== undefined) return known;
+    const host = document.createElement('div');
+    host.style.display = 'contents';
+    tabHosts.current.set(tabId, host);
+    return host;
+  };
+  useEffect(() => {
+    const open = new Set(groups.allTabs.map((tab) => tab.id));
+    for (const tabId of tabHosts.current.keys()) {
+      if (!open.has(tabId)) tabHosts.current.delete(tabId);
+    }
+  }, [groups.allTabs]);
 
   // Drag state — only populated while an editor-tab drag is active. We
   // keep a ref mirror for inside-of-listener reads without stale closures.
@@ -565,9 +612,7 @@ export const EditorGroupRenderer: React.FC<EditorGroupRendererProps> = ({
           <div className="rules-editor-content">
             {leaf.tabs.length === 0 && renderEmpty()}
             {leaf.tabs.map((tab) => (
-              <TabPanel key={tab.id} isActive={tab.id === leaf.activeTabId}>
-                {renderTabBody({ tab, leafId: leaf.id, isFocusedLeaf: isFocused })}
-              </TabPanel>
+              <TabSlot key={tab.id} host={hostOf(tab.id)} />
             ))}
           </div>
           <LeafDropPreview active={hoverHere} zone={hover?.zone ?? 'center'} />
@@ -591,9 +636,28 @@ export const EditorGroupRenderer: React.FC<EditorGroupRendererProps> = ({
     );
   };
 
+  // After the tree, so a slot has taken its host into the page before
+  // the body in it runs its own layout effects.
+  const bodies = allLeaves(groups.root).flatMap((leaf) =>
+    leaf.tabs.map((tab) =>
+      createPortal(
+        <TabPanel isActive={tab.id === leaf.activeTabId} onPointerDownCapture={() => handleLeafPointerDown(leaf.id)}>
+          {renderTabBody({
+            tab,
+            leafId: leaf.id,
+            isFocusedLeaf: groups.focusedLeafId === leaf.id && editorOwnsFocus,
+          })}
+        </TabPanel>,
+        hostOf(tab.id),
+        tab.id,
+      ),
+    ),
+  );
+
   return (
     <DragIntentContext.Provider value={dragIntent}>
       <div className="rules-editor-tree">{renderNode(groups.root)}</div>
+      {bodies}
     </DragIntentContext.Provider>
   );
 };
