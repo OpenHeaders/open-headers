@@ -13,6 +13,10 @@
  * Then what it keeps and what it reads — its Captures (a listen has
  * none) and the captures it uses from other steps (`StepUsesCard`) —
  * and its Priority (`StepPriorityCard`).
+ *
+ * In a step's panel the cards are on tabs (`step-tabs.ts`): the panel
+ * names the open one and only its cards are drawn. With no tab named,
+ * every card is.
  */
 
 import {
@@ -38,6 +42,7 @@ import type { StepMiniFacts } from './StepMiniRow';
 import StepPriorityCard from './StepPriorityCard';
 import StepUsesCard from './StepUsesCard';
 import type { StepMarkKind } from './step-mark';
+import type { StepTab } from './step-tabs';
 import type { StepRequestChoice } from './workflow-step-request-options';
 
 /** Where a step stands among the others, and the edits its Depends on card makes — each one the graph's own. */
@@ -79,6 +84,8 @@ interface Props {
   /** Requests a call's Request picker can choose from. */
   availableRequests: StepRequestChoice[];
   onChange: (next: DraftKnownStep) => void;
+  /** The open tab of the step's panel: only its cards are drawn — absent, every card is. */
+  tab?: StepTab;
   // ── Phase I context (optional — editor works without them) ──────
   /** Where the step stands among the others — absent, its two dependency cards are not shown. */
   dependencies?: StepDependencies;
@@ -112,6 +119,7 @@ const WorkflowStepEditor: React.FC<Props> = ({
   index,
   availableRequests,
   onChange,
+  tab,
   dependencies,
   reachableSteps = [],
   capturesByStepId = new Map(),
@@ -191,75 +199,86 @@ const WorkflowStepEditor: React.FC<Props> = ({
 
   const session = { index, steps, mqttRequests, errors };
   const captures = { index, readersOf: captureFacts.readersOf, lastValues: captureFacts.lastValues };
+  const shows = (cardTab: StepTab) => tab === undefined || tab === cardTab;
 
   return (
     <>
-      {dependencies !== undefined && (
-        <StepDependencyCards
-          index={index}
-          parents={dependencies.parents}
-          dependents={dependencies.dependents}
-          explicit={step.dependsOn !== undefined}
-          addable={dependencies.addable}
-          error={dependsOnError}
-          onAdd={dependencies.onAdd}
-          onRemove={dependencies.onRemove}
-          onReset={clearExplicitDependsOn}
-          onGoToStep={dependencies.onGoToStep}
-        />
-      )}
-      <StepGateEditor
-        testId={`wf-step-${index}-runif`}
-        fieldPath={LIVE_WORKFLOW_FIELD.step(index, 'gate')}
-        value={step.runIf}
-        onChange={handleRunIfChange}
-        reachableSteps={reachableSteps}
-        capturesByStepId={capturesByStepId}
-        errors={gateErrors}
-        clauseTruth={clauseTruth}
-        root={dependencies !== undefined && dependencies.parents.length === 0}
-      />
-      {isListenStep(step) ? (
-        <ListenStepFields
-          step={step}
-          onChange={onChange}
-          sessionRequests={sessionRequests}
-          onOpenRequest={onOpenRequest}
-          {...session}
-        />
-      ) : isSendStep(step) ? (
+      {shows('flow') && (
         <>
-          <SendStepFields step={step} onChange={onChange} {...session} />
-          <SessionStepCaptures step={step} onChange={onChange} {...captures} />
-        </>
-      ) : isExpectStep(step) ? (
-        <>
-          <ExpectStepFields step={step} onChange={onChange} runState={runState} {...session} />
-          <SessionStepCaptures step={step} onChange={onChange} {...captures} />
-        </>
-      ) : (
-        <>
-          <CallRequestCard
-            step={step}
-            index={index}
-            onChange={onChange}
-            availableRequests={availableRequests}
-            requestError={requestError}
-            onOpenRequest={onOpenRequest}
+          {dependencies !== undefined && (
+            <StepDependencyCards
+              index={index}
+              parents={dependencies.parents}
+              dependents={dependencies.dependents}
+              explicit={step.dependsOn !== undefined}
+              addable={dependencies.addable}
+              error={dependsOnError}
+              onAdd={dependencies.onAdd}
+              onRemove={dependencies.onRemove}
+              onReset={clearExplicitDependsOn}
+              onGoToStep={dependencies.onGoToStep}
+            />
+          )}
+          <StepGateEditor
+            testId={`wf-step-${index}-runif`}
+            fieldPath={LIVE_WORKFLOW_FIELD.step(index, 'gate')}
+            value={step.runIf}
+            onChange={handleRunIfChange}
+            reachableSteps={reachableSteps}
+            capturesByStepId={capturesByStepId}
+            errors={gateErrors}
+            clauseTruth={clauseTruth}
+            root={dependencies !== undefined && dependencies.parents.length === 0}
           />
-          <CallPolicyCards step={step} index={index} onChange={onChange} errors={errors} />
-          <CallStepCaptures step={step} onChange={onChange} exposable={exposable} {...captures} />
         </>
       )}
-      <StepUsesCard index={index} uses={captureFacts.uses} goToStep={captureFacts.goToStep} />
-      <StepPriorityCard
-        index={index}
-        value={step.priorityFrom}
-        onChange={setPriority}
-        reachableSteps={reachableSteps}
-        capturesByStepId={capturesByStepId}
-        error={priorityError}
-      />
+      {shows('setup') &&
+        (isListenStep(step) ? (
+          <ListenStepFields
+            step={step}
+            onChange={onChange}
+            sessionRequests={sessionRequests}
+            onOpenRequest={onOpenRequest}
+            {...session}
+          />
+        ) : isSendStep(step) ? (
+          <SendStepFields step={step} onChange={onChange} {...session} />
+        ) : isExpectStep(step) ? (
+          <ExpectStepFields step={step} onChange={onChange} runState={runState} {...session} />
+        ) : (
+          <>
+            <CallRequestCard
+              step={step}
+              index={index}
+              onChange={onChange}
+              availableRequests={availableRequests}
+              requestError={requestError}
+              onOpenRequest={onOpenRequest}
+            />
+            <CallPolicyCards step={step} index={index} onChange={onChange} errors={errors} />
+          </>
+        ))}
+      {shows('data') && (
+        <>
+          {/* A listen has nothing to capture. */}
+          {isListenStep(step) ? null : isSendStep(step) || isExpectStep(step) ? (
+            <SessionStepCaptures step={step} onChange={onChange} {...captures} />
+          ) : (
+            <CallStepCaptures step={step} onChange={onChange} exposable={exposable} {...captures} />
+          )}
+          <StepUsesCard index={index} uses={captureFacts.uses} goToStep={captureFacts.goToStep} />
+        </>
+      )}
+      {shows('flow') && (
+        <StepPriorityCard
+          index={index}
+          value={step.priorityFrom}
+          onChange={setPriority}
+          reachableSteps={reachableSteps}
+          capturesByStepId={capturesByStepId}
+          error={priorityError}
+        />
+      )}
     </>
   );
 };

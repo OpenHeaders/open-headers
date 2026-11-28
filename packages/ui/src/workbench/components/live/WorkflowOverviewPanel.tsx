@@ -61,6 +61,8 @@ interface Props {
   /** The workflow is read-only here: every control is off but the Enabled switch. */
   readOnly: boolean;
   onSelectStep: (stepUid: string) => void;
+  /** The Steps card's picker added a step: it takes the panel. */
+  onStepAdded: (stepUid: string) => void;
   /** The page the panel is on. A workflow with no History is on its Overview, whatever this says. */
   tab: WorkflowPanelTab;
   onTabChange: (tab: WorkflowPanelTab) => void;
@@ -90,6 +92,7 @@ const WorkflowOverviewPanel: React.FC<Props> = ({
   model,
   readOnly,
   onSelectStep,
+  onStepAdded,
   tab,
   onTabChange,
   workflow,
@@ -183,7 +186,7 @@ const WorkflowOverviewPanel: React.FC<Props> = ({
   const handleAddStep = (pick: StepPick) => {
     const added = addPickedStep(draft, pick);
     setDraft(added.draft);
-    onSelectStep(added.stepUid);
+    onStepAdded(added.stepUid);
   };
 
   return (

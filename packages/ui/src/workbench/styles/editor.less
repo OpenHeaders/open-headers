@@ -1346,9 +1346,11 @@
   padding-bottom: 0;
 }
 
+// A row too wide for a narrow panel goes on to a second line: no word of a tab is cut.
 .oh-wf-tabs {
   display: flex;
-  gap: 16px;
+  flex-wrap: wrap;
+  gap: 0 16px;
   margin-top: 7px;
 }
 
@@ -1377,6 +1379,17 @@
   font-size: 0.9167em;
   font-weight: 600;
   color: var(--oh-wf-text-secondary);
+}
+
+// A card of the tab holds an error.
+.oh-wf-tab-dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  margin-left: 4px;
+  border-radius: 50%;
+  background: var(--oh-wf-failure);
+  vertical-align: middle;
 }
 
 // A run of the workflow: when and where, how it ended, how its steps ended, how long, what started it.

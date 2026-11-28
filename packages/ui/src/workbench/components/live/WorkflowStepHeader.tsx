@@ -4,25 +4,20 @@
  * it speaks and its kind; then what is done to the step as a whole —
  * a copy of it, its removal — and the close that hands the panel back to
  * the workflow, where its place among the steps is set. Under them: where the step
- * stands and what it does, a line for its description, and the issues no
- * field of the panel owns.
+ * stands and what it does, a line for its description, the issues no
+ * field of the panel owns, and last the tabs of the panel's pages — a
+ * tab whose card holds an error wears a dot.
  *
  * The name is the step's id: `{{step.<id>.<capture>}}` references name a
  * step by it. The kind tag is the picker of the step's action (the
  * workflow runs plan, Decisions log, S16 and S20); Foreach and Composite
  * stay the show-but-disable catalog entries. A step of an action the
- * model does not know shows its name and its raw action, and takes no
- * edit.
+ * model does not know shows its name and its raw action, takes no edit
+ * and has no tabs.
  */
 
 import { CloseOutlined } from '@ant-design/icons';
-import {
-  type DraftKnownStep,
-  type DraftStep,
-  isKnownStep,
-  type StructuralError,
-  type StructuralIssue,
-} from '@openheaders/core/live';
+import { type DraftKnownStep, type DraftStep, isKnownStep, type StructuralError } from '@openheaders/core/live';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { LIVE_WORKFLOW_FIELD } from '@openheaders/ui/shared/awareness/live-paths';
 import { Button, Input, Select, Tooltip } from 'antd';
@@ -33,35 +28,9 @@ import { KindTag, ProtocolTag } from './StepTags';
 import { STEP_ACTIONS, type StepAction, stepActionOf } from './step-action';
 import { STEP_KIND_WORD, type StepDoes } from './step-facts';
 import type { StepMark } from './step-mark';
+import { isListedUnderHead, STEP_TAB_WORD, STEP_TABS, type StepTab, tabsWithErrors } from './step-tabs';
 
 const MONO = 'ui-monospace, SFMono-Regular, Menlo, monospace';
-
-/** The issues a field of the panel shows where it sits — every other one is listed under the head. */
-const FIELD_OWNED_ISSUES: ReadonlySet<StructuralIssue> = new Set([
-  'duplicate-step-id',
-  'step-unknown-dep',
-  'depends-on-cycle',
-  'step-request-missing',
-  'gate-unknown-stepid',
-  'gate-unreachable-stepid',
-  'gate-unknown-capture',
-  'gate-invalid-regex',
-  'priority-unknown-stepid',
-  'priority-unreachable-stepid',
-  'priority-unknown-capture',
-  'criterion-invalid-regex',
-  'poll-without-criteria',
-  'poll-exceeds-limit',
-  'listen-request-missing',
-  'session-step-unknown-listen',
-  'session-step-unreachable-listen',
-  'send-without-message',
-  'expect-unknown-trigger',
-  'expect-unreachable-trigger',
-  'expect-unarmed-trigger',
-  'expect-address-reads-trigger',
-  'step-needs-update',
-]);
 
 interface Props {
   step: DraftStep;
@@ -77,6 +46,9 @@ interface Props {
   sessionAuthoring?: boolean;
   /** The step's errors, from the validators. */
   errors?: readonly StructuralError[];
+  /** The open page of the panel — absent, the head has no tabs. */
+  tab?: StepTab;
+  onTabChange?: (tab: StepTab) => void;
   onChange?: (next: DraftKnownStep) => void;
   /** The picker took another action — the owner rebuilds the step under it. */
   onActionChange?: (action: StepAction) => void;
@@ -95,6 +67,8 @@ const WorkflowStepHeader: React.FC<Props> = ({
   readOnly = false,
   sessionAuthoring = false,
   errors = [],
+  tab,
+  onTabChange,
   onChange,
   onActionChange,
   onDuplicate,
@@ -110,10 +84,12 @@ const WorkflowStepHeader: React.FC<Props> = ({
   const nameError = errors.find(
     (e) => e.issue === 'duplicate-step-id' || e.issue === 'step-unknown-dep' || e.issue === 'depends-on-cycle',
   );
-  const issues = errors.filter((e) => !FIELD_OWNED_ISSUES.has(e.issue) && e.referencedCriterionUid === undefined);
+  const issues = errors.filter(isListedUnderHead);
+  const shownTab = known !== undefined ? tab : undefined;
+  const errorTabs = tabsWithErrors(errors, step);
 
   return (
-    <div className="oh-wf-step-head">
+    <div className={shownTab !== undefined ? 'oh-wf-step-head oh-wf-step-head--tabs' : 'oh-wf-step-head'}>
       <div className="oh-wf-step-head-row">
         <StepGlyph kind={mark.kind} label={mark.label} size={16} />
         {known !== undefined ? (
@@ -204,6 +180,25 @@ const WorkflowStepHeader: React.FC<Props> = ({
         <div className="oh-wf-step-issues" data-testid={`wf-step-${index}-issues`}>
           {issues.map((error) => (
             <div key={`${error.issue}:${error.message}`}>{error.message}</div>
+          ))}
+        </div>
+      )}
+      {shownTab !== undefined && (
+        <div className="oh-wf-tabs" role="tablist" data-testid="wf-step-tabs">
+          {STEP_TABS.map((id) => (
+            <button
+              key={id}
+              type="button"
+              role="tab"
+              className="oh-wf-tab"
+              aria-selected={shownTab === id}
+              data-testid={`wf-step-tab-${id}`}
+              data-error={errorTabs.has(id) ? 'true' : undefined}
+              onClick={() => onTabChange?.(id)}
+            >
+              {t(STEP_TAB_WORD[id])}
+              {errorTabs.has(id) && <span className="oh-wf-tab-dot" aria-hidden="true" />}
+            </button>
           ))}
         </div>
       )}

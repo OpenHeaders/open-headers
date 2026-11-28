@@ -336,6 +336,7 @@ describe('a run with session steps in the workflow view', () => {
     await feed(BEGIN);
     await feed(STATUS_MATCHED);
     fireEvent.click(screen.getByTestId('wf-run-row-status'));
+    fireEvent.click(screen.getByTestId('wf-step-tab-last-run'));
 
     const pane = await screen.findByTestId('wf-run-message');
     const card = within(screen.getByTestId('wf-step-product'));
@@ -355,6 +356,7 @@ describe('a run with session steps in the workflow view', () => {
     render(<SavedWorkflowView workflow={workflow} />);
     for (const fact of [BEGIN, start('probe'), PROBE_READY]) await feed(fact);
     fireEvent.click(screen.getByTestId('wf-run-row-probe'));
+    fireEvent.click(screen.getByTestId('wf-step-tab-last-run'));
 
     expect(screen.getByTestId('wf-step-last-run')).toBeTruthy();
     expect(screen.queryByTestId('wf-step-product')).toBeNull();

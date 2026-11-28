@@ -210,6 +210,26 @@ function closeStep(): void {
   fireEvent.click(screen.getByTestId('wf-panel-close'));
 }
 
+type StepTabId = 'setup' | 'flow' | 'data' | 'last-run';
+const STEP_TAB_IDS: StepTabId[] = ['setup', 'flow', 'data', 'last-run'];
+
+/** Open a tab of the open step's panel. */
+function openStepTab(tab: StepTabId): void {
+  fireEvent.click(screen.getByTestId(`wf-step-tab-${tab}`));
+}
+
+/** The open tab of the open step's panel. */
+function openTab(): string | undefined {
+  return STEP_TAB_IDS.find((tab) => screen.getByTestId(`wf-step-tab-${tab}`).getAttribute('aria-selected') === 'true');
+}
+
+/** The cards in the panel, by test id, in the order they are drawn. */
+function cardsShown(): string[] {
+  return Array.from(screen.getByTestId('wf-panel').querySelectorAll('section.oh-wf-card')).map(
+    (card) => card.getAttribute('data-testid') ?? '',
+  );
+}
+
 /** The header's Run. */
 function runButton(): HTMLElement {
   return screen.getByTestId('wf-run');
@@ -335,22 +355,27 @@ describe('LiveWorkflowEditor — a workflow that needs a newer version', () => {
     const { container } = renderNeedsUpdate(openers);
     openStep('reboot');
 
-    // Every control that edits the step is off. What only moves about or
-    // explains is not: the close, a row that opens another step, the
-    // button that opens the step's request, an (i).
+    // Every control that edits the step is off, on each of its tabs. What
+    // only moves about or explains is not: the close, a tab, a row that
+    // opens another step, the button that opens the step's request, an (i).
     const callCard = container.querySelector('[data-step-card="reboot"]');
-    const controls = Array.from(
-      callCard?.querySelectorAll(
-        'input, button:not([data-testid="wf-panel-close"]):not(.oh-wf-mini-step)' +
-          ':not([data-testid$="-open-request"]):not(.oh-info-trigger)',
-      ) ?? [],
-    );
-    expect(controls.length).toBeGreaterThan(0);
-    for (const control of controls) expect(control).toHaveProperty('disabled', true);
-    expect(screen.getByTestId('wf-panel-close')).toHaveProperty('disabled', false);
-    for (const row of callCard?.querySelectorAll('.oh-wf-mini-step') ?? []) {
-      expect(row).toHaveProperty('disabled', false);
+    for (const tab of STEP_TAB_IDS) {
+      openStepTab(tab);
+      const controls = Array.from(
+        callCard?.querySelectorAll(
+          'input, button:not([data-testid="wf-panel-close"]):not(.oh-wf-tab):not(.oh-wf-mini-step)' +
+            ':not([data-testid$="-open-request"]):not(.oh-info-trigger)',
+        ) ?? [],
+      );
+      expect(controls.length).toBeGreaterThan(0);
+      for (const control of controls) expect(control).toHaveProperty('disabled', true);
+      expect(screen.getByTestId(`wf-step-tab-${tab}`)).toHaveProperty('disabled', false);
+      for (const row of callCard?.querySelectorAll('.oh-wf-mini-step') ?? []) {
+        expect(row).toHaveProperty('disabled', false);
+      }
     }
+    expect(screen.getByTestId('wf-panel-close')).toHaveProperty('disabled', false);
+    openStepTab('setup');
     fireEvent.click(screen.getByRole('button', { name: 'Open request' }));
     expect(openers.http).toHaveBeenCalledWith('reqfixt1', 'Fixture request', 'GET');
     expect(screen.queryByRole('button', { name: /Step$/ })).toBeNull();
@@ -451,6 +476,222 @@ describe('LiveWorkflowEditor — one view', () => {
 
     expect(container.querySelector('[data-step-card]')).toBeNull();
     expect(screen.queryByTestId('wf-graph-node-step2')).toBeNull();
+  });
+});
+
+// ── A step's tabs ─────────────────────────────────────────────────
+//
+// The workflow runs plan, Decisions log, S35: the step panel's cards on
+// four tabs — Setup, Flow, Data, Last run — the same on every kind; the
+// view holds the open one from step to step; a tab whose card holds an
+// error wears a dot; a step of an action no build knows has none.
+
+describe('LiveWorkflowEditor — a step’s tabs', () => {
+  const kindsFixture: LiveWorkflow = v.parse(LiveWorkflowSchema, {
+    ...workflowFixture,
+    uid: 'wfdevice',
+    name: 'Reboot',
+    steps: [
+      {
+        uid: 'stplistn',
+        id: 'probe',
+        action: 'listen',
+        sessionRequestUid: 'mqttreq1',
+        timeoutMs: 10_000,
+        captures: [],
+      },
+      { uid: 'stpcall0', id: 'reboot', requestUid: 'reqfixt1', captures: [] },
+      { uid: 'stpsend0', id: 'ping', action: 'send', on: 'probe', captures: [] },
+      {
+        uid: 'stpexpct',
+        id: 'status',
+        action: 'expect',
+        on: 'probe',
+        after: 'reboot',
+        match: [
+          { kind: 'equals', uid: 'crtstate', extractor: { kind: 'json-path', path: '$.state' }, value: 'rebooting' },
+        ],
+        timeoutMs: 10_000,
+        captures: [],
+      },
+    ],
+  });
+
+  function renderKinds() {
+    workflowState = kindsFixture;
+    requestsState = { ...requestsState, requests: [makeRequest({ uid: 'reqfixt1' })], mqttRequests: [mqttRequest] };
+    return renderEditor();
+  }
+
+  const FLOW = (index: number) => [
+    `wf-step-${index}-deps`,
+    `wf-step-${index}-required-by`,
+    `wf-step-${index}-runif`,
+    `wf-step-${index}-priority`,
+  ];
+
+  it('a step opens on Setup, and its head ends in the four tabs', () => {
+    renderEditor();
+    openStep('only');
+
+    const tabs = within(screen.getByTestId('wf-step-tabs')).getAllByRole('tab');
+    expect(tabs.map((tab) => tab.textContent)).toEqual(['Setup', 'Flow', 'Data', 'Last run']);
+    expect(openTab()).toBe('setup');
+    expect(screen.getByTestId('wf-step-tabs').parentElement?.lastElementChild).toBe(screen.getByTestId('wf-step-tabs'));
+  });
+
+  it('a call’s cards are on their tabs, and only the open tab’s are in the page', () => {
+    renderEditor();
+    openStep('only');
+
+    expect(cardsShown()).toEqual([
+      'wf-step-0-request',
+      'wf-step-0-criteria',
+      'wf-step-0-poll',
+      'wf-step-0-retry',
+      'wf-step-0-timeout-section',
+    ]);
+    openStepTab('flow');
+    expect(cardsShown()).toEqual(FLOW(0));
+    openStepTab('data');
+    expect(cardsShown()).toEqual(['wf-step-0-captures', 'wf-step-0-uses']);
+    openStepTab('last-run');
+    expect(cardsShown()).toEqual(['wf-step-last-run']);
+    openStepTab('setup');
+    expect(cardsShown()[0]).toBe('wf-step-0-request');
+  });
+
+  it.each<[string, number, string[], string[]]>([
+    ['probe', 0, ['wf-step-0-connection'], ['wf-step-0-uses']],
+    ['ping', 2, ['wf-step-2-send'], ['wf-step-2-captures', 'wf-step-2-uses']],
+    ['status', 3, ['wf-step-3-expect', 'wf-step-3-match'], ['wf-step-3-captures', 'wf-step-3-uses']],
+  ])('the session step %s has the same four tabs, its own cards on Setup and Data', (stepId, index, setup, data) => {
+    renderKinds();
+    openStep(stepId);
+
+    expect(within(screen.getByTestId('wf-step-tabs')).getAllByRole('tab')).toHaveLength(4);
+    expect(cardsShown()).toEqual(setup);
+    openStepTab('flow');
+    expect(cardsShown()).toEqual(FLOW(index));
+    openStepTab('data');
+    expect(cardsShown()).toEqual(data);
+    openStepTab('last-run');
+    expect(cardsShown()).toEqual(['wf-step-last-run']);
+  });
+
+  it('the view holds the open tab from step to step, and through a close', () => {
+    renderKinds();
+    openStep('reboot');
+    openStepTab('flow');
+
+    openStep('status');
+    expect(openTab()).toBe('flow');
+    expect(cardsShown()).toEqual(FLOW(3));
+
+    // A row of the open step's own card is a door to another step.
+    fireEvent.click(within(screen.getByTestId('wf-step-3-dep-ping')).getAllByRole('button')[0]);
+    expect(screen.getByTestId('wf-panel').querySelector('[data-step-card]')?.getAttribute('data-step-card')).toBe(
+      'ping',
+    );
+    expect(openTab()).toBe('flow');
+
+    closeStep();
+    openStep('probe');
+    expect(openTab()).toBe('flow');
+    expect(cardsShown()).toEqual(FLOW(0));
+  });
+
+  it('a copy of a step opens on the tab that was open', () => {
+    renderEditor();
+    openStep('only');
+    openStepTab('data');
+
+    fireEvent.click(screen.getByTestId('wf-step-duplicate'));
+
+    expect(openTab()).toBe('data');
+    expect(cardsShown()).toEqual(['wf-step-1-captures', 'wf-step-1-uses']);
+  });
+
+  it('a step the picker adds opens on Setup, whatever tab was open, and Setup is the tab held from there', () => {
+    renderEditor();
+    openStep('only');
+    openStepTab('data');
+
+    // From the graph's "+ Step".
+    addCallStep();
+    expect(openTab()).toBe('setup');
+    expect(cardsShown()[0]).toBe('wf-step-1-request');
+    openStep('only');
+    expect(openTab()).toBe('setup');
+
+    // From the Steps card of the workflow's panel.
+    openStepTab('flow');
+    closeStep();
+    fireEvent.click(screen.getByTestId('wf-steps-add'));
+    fireEvent.click(screen.getByTestId('wf-step-picker-kind-call'));
+    expect(openTab()).toBe('setup');
+    expect(cardsShown()[0]).toBe('wf-step-2-request');
+  });
+
+  it('a tab whose card holds an error wears a dot, the others none', () => {
+    // The step's request is gone: its picker, on Setup, says so.
+    requestsState = { requests: [], graphqlRequests: [], mqttRequests: [], collectionTrees: [], isReady: true };
+    const { container } = renderEditor();
+    openStep('only');
+
+    expect(STEP_TAB_IDS.filter((tab) => screen.getByTestId(`wf-step-tab-${tab}`).hasAttribute('data-error'))).toEqual([
+      'setup',
+    ]);
+    expect(screen.getByTestId('wf-step-tab-setup').querySelector('.oh-wf-tab-dot')).not.toBeNull();
+    expect(screen.getByTestId('wf-step-tab-flow').querySelector('.oh-wf-tab-dot')).toBeNull();
+    // The dot stays while another tab is open, where the error is not in the page.
+    openStepTab('flow');
+    expect(container.querySelector('.ant-select-status-error')).toBeNull();
+    expect(screen.getByTestId('wf-step-tab-setup').getAttribute('data-error')).toBe('true');
+  });
+
+  it('an error of a Flow card dots Flow, and is in the page once Flow is open', () => {
+    workflowState = {
+      ...workflowFixture,
+      steps: [
+        {
+          ...workflowFixture.steps[0],
+          runIf: { all: [{ kind: 'status', uid: 'gate0001', stepId: 'ghost', match: '2xx' }] },
+        },
+      ],
+    };
+    renderEditor();
+    openStep('only');
+
+    expect(STEP_TAB_IDS.filter((tab) => screen.getByTestId(`wf-step-tab-${tab}`).hasAttribute('data-error'))).toEqual([
+      'flow',
+    ]);
+    expect(screen.queryByTestId('wf-step-0-runif')).toBeNull();
+    openStepTab('flow');
+    expect(screen.getByTestId('wf-step-0-runif')).toBeTruthy();
+  });
+
+  it('a step with no error has no dot', () => {
+    renderEditor();
+    openStep('only');
+
+    expect(screen.getByTestId('wf-step-tabs').querySelector('.oh-wf-tab-dot')).toBeNull();
+  });
+
+  it('a step of an action no build knows has no tabs, and leaves the held tab as it was', () => {
+    workflowState = needsUpdateFixture;
+    requestsState = { ...requestsState, requests: [makeRequest({ uid: 'reqfixt1' })] };
+    renderEditor();
+    openStep('reboot');
+    openStepTab('flow');
+
+    openStep('probe');
+    expect(screen.queryByTestId('wf-step-tabs')).toBeNull();
+    // Its one page: the last run, then the step's one sentence.
+    expect(cardsShown()).toEqual(['wf-step-last-run', '']);
+
+    openStep('reboot');
+    expect(openTab()).toBe('flow');
   });
 });
 
@@ -1805,6 +2046,7 @@ describe('LiveWorkflowEditor — a workflow that holds session steps', () => {
     fireEvent.click(screen.getByRole('button', { name: 'About Runs' }));
     expect(await screen.findByText('A workflow with session steps runs when you press Run.')).toBeTruthy();
     openStep('reboot');
+    openStepTab('data');
     const reboot = container.querySelector('[data-step-card="reboot"]');
     expect(reboot?.querySelector('[data-testid$="-capture-0-name"]')).toHaveProperty('value', 'commandId');
     expect(reboot?.querySelector('[data-testid$="-capture-1-name"]')).toBeNull();
@@ -1818,6 +2060,7 @@ describe('LiveWorkflowEditor — a workflow that holds session steps', () => {
     expect(policy).toHaveProperty('disabled', false);
     expect(screen.queryByTestId('wf-form-session-verdict')).toBeNull();
     openStep('only');
+    openStepTab('data');
     expect(screen.getByRole('switch', { name: 'Expose capture v as live variable' })).toBeTruthy();
   });
 

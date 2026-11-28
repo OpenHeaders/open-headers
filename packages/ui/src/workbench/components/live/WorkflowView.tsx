@@ -32,6 +32,7 @@ import type React from 'react';
 import { useCallback, useLayoutEffect, useRef, useState } from 'react';
 import { buildChordsFromEvent } from '../../hooks/useWorkspaceShortcuts';
 import type { StepRequestOpeners } from './step-facts';
+import type { StepTab } from './step-tabs';
 import { type DraftHistoryControls, isTextEntry, REDO_CHORDS, UNDO_CHORD } from './use-draft-history';
 import { useWorkflowFormModel } from './use-workflow-form-model';
 import { type ShownWorkflowRun, useWorkflowRunPick, useWorkflowRuns } from './use-workflow-run';
@@ -122,6 +123,13 @@ const WorkflowView: React.FC<Props> = ({
   const model = useWorkflowFormModel(draft, setDraft);
   // Held here, above the panel: a step opened and closed returns to the page that was open.
   const [panelTab, setPanelTab] = useState<WorkflowPanelTab>('overview');
+  // The step panel's too: the next step opened shows the tab the last one was on.
+  const [stepTab, setStepTab] = useState<StepTab>('setup');
+  // But for a step the picker just added: it has nothing set up yet, so it opens there.
+  const openAddedStep = (stepUid: string) => {
+    setStepTab('setup');
+    onSelectStep(stepUid);
+  };
   const keptRuns = useWorkflowRuns(workflow?.uid ?? '');
   const { run, picked, pick, backToLatest } = useWorkflowRunPick(keptRuns, latestRun);
   const rootRef = useRef<HTMLDivElement>(null);
@@ -205,6 +213,7 @@ const WorkflowView: React.FC<Props> = ({
           onMovePlaces={readOnly ? undefined : onMovePlaces}
           selectedStepId={selectedStepId}
           onSelectStep={onSelectStep}
+          onStepAdded={openAddedStep}
           onDeselect={() => onSelectStep(null)}
           run={run}
           cacheRun={cacheRun}
@@ -223,6 +232,8 @@ const WorkflowView: React.FC<Props> = ({
             model={model}
             stepIndex={selectedIndex}
             readOnly={readOnly}
+            tab={stepTab}
+            onTabChange={setStepTab}
             onClose={() => onSelectStep(null)}
             onSelectStep={onSelectStep}
             run={run}
@@ -237,6 +248,7 @@ const WorkflowView: React.FC<Props> = ({
             model={model}
             readOnly={readOnly}
             onSelectStep={onSelectStep}
+            onStepAdded={openAddedStep}
             tab={panelTab}
             onTabChange={setPanelTab}
             workflow={workflow}

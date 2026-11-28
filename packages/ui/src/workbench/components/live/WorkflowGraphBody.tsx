@@ -198,6 +198,8 @@ interface WorkflowGraphBodyProps {
   selectedStepId?: string | null;
   /** A press on a node, or a step the graph just added — select it, by uid. */
   onSelectStep?: (stepUid: string) => void;
+  /** The step picker added a step — absent, the step is selected as any other is. */
+  onStepAdded?: (stepUid: string) => void;
   /** A click on the empty canvas. */
   onDeselect?: () => void;
   /** The run the page keeps of this workflow — a node's mark is its row while there is one. */
@@ -277,6 +279,7 @@ const WorkflowGraphBody: React.FC<WorkflowGraphBodyProps> = ({
   onMovePlaces,
   selectedStepId,
   onSelectStep,
+  onStepAdded = onSelectStep,
   onDeselect,
   run,
   cacheRun,
@@ -718,7 +721,7 @@ const WorkflowGraphBody: React.FC<WorkflowGraphBodyProps> = ({
     rootRef.current?.focus({ preventScroll: true });
     const added = addPickedStep(draft, pick, picker === 'bar' ? (selectedStepId ?? undefined) : undefined);
     setDraft(added.draft);
-    onSelectStep?.(added.stepUid);
+    onStepAdded?.(added.stepUid);
     setPicker(null);
   };
 

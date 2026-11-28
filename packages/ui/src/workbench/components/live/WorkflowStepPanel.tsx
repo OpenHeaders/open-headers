@@ -1,10 +1,14 @@
 /**
  * WorkflowStepPanel — the workflow view's docked panel while a step is
  * selected (the workflows redesign, Step panel): the step's head, and
- * under it one scrolling page of cards — what the last run made of the
- * step, the step's own fields, and what it produced in the run this page
- * last saw. Closing it deselects the step, and the panel shows the
- * workflow.
+ * under it one scrolling page of cards. The cards are on four tabs of
+ * the head (the workflow runs plan, Decisions log, S35) — Setup, Flow
+ * and Data hold the step's own fields, Last run what the last run made
+ * of the step and what it produced in the run this page last saw. Only
+ * the open tab's cards are in the page, and the view holds which tab
+ * that is from step to step. A step of an action the model does not know
+ * has no tabs: its one page says so under its last run. Closing the
+ * panel deselects the step, and the panel shows the workflow.
  *
  * The panel is drawn one size under the design's, as the whole workflow
  * view is: its controls are the small ones and its text a size down,
@@ -33,6 +37,7 @@ import {
 } from './step-facts';
 import { describeStepLastRun } from './step-last-run';
 import { idleMark } from './step-mark';
+import type { StepTab } from './step-tabs';
 import UnknownStepCard from './UnknownStepCard';
 import { usePanelSizes } from './use-panel-sizes';
 import { useStepRequests } from './use-step-requests';
@@ -49,6 +54,9 @@ interface Props {
   stepIndex: number;
   /** The workflow is read-only here: every control of the panel is off but its close. */
   readOnly: boolean;
+  /** The open tab — the view's, so the next step opens on it too. */
+  tab: StepTab;
+  onTabChange: (tab: StepTab) => void;
   onClose: () => void;
   /** Another step takes the panel — a copy just made. */
   onSelectStep: (stepUid: string) => void;
@@ -65,6 +73,8 @@ const WorkflowStepPanel: React.FC<Props> = ({
   model,
   stepIndex,
   readOnly,
+  tab,
+  onTabChange,
   onClose,
   onSelectStep,
   run,
@@ -133,6 +143,9 @@ const WorkflowStepPanel: React.FC<Props> = ({
     t,
   );
   const action = actionOfStep(step);
+  // The open page — `null` for a step with no tabs, whose one page holds everything.
+  const page = isKnownStep(step) ? tab : null;
+  const showsRun = page === null || page === 'last-run';
 
   return (
     <ConfigProvider componentSize="small" theme={sizes}>
@@ -156,6 +169,8 @@ const WorkflowStepPanel: React.FC<Props> = ({
           readOnly={readOnly}
           sessionAuthoring={model.sessionAuthoring}
           errors={errors}
+          tab={page ?? undefined}
+          onTabChange={onTabChange}
           onChange={(next) => model.updateStep(stepIndex, next)}
           onActionChange={(action) => model.changeStepAction(stepIndex, action)}
           onDuplicate={() => {
@@ -168,16 +183,20 @@ const WorkflowStepPanel: React.FC<Props> = ({
           }}
           onClose={onClose}
         />
-        <div className="oh-persistent-scroll" style={{ flex: 1, minHeight: 0 }}>
+        {/* Keyed by the page: a tab opens at its top. */}
+        <div key={page ?? 'whole'} className="oh-persistent-scroll" style={{ flex: 1, minHeight: 0 }}>
           <div className="oh-wf-panel-body" data-field-path={LIVE_WORKFLOW_FIELD.steps}>
-            <StepLastRunCard lastRun={lastRun} />
+            {showsRun && <StepLastRunCard lastRun={lastRun} />}
             <ConfigProvider componentDisabled={readOnly}>
               {/* Keyed by the step: a card's own state — a field mid-edit — is never another step's. */}
-              {isKnownStep(step) ? (
+              {!isKnownStep(step) ? (
+                <UnknownStepCard />
+              ) : page !== null && page !== 'last-run' ? (
                 <WorkflowStepEditor
                   key={step.uid}
                   step={step}
                   index={stepIndex}
+                  tab={page}
                   availableRequests={model.availableRequests}
                   onChange={(next) => model.updateStep(stepIndex, next)}
                   steps={draft.steps}
@@ -196,12 +215,10 @@ const WorkflowStepPanel: React.FC<Props> = ({
                     requestOpeners !== undefined ? requestOpenOf(step, stepRequests, requestOpeners) : undefined
                   }
                 />
-              ) : (
-                <UnknownStepCard />
-              )}
+              ) : null}
             </ConfigProvider>
             {/* A run that was refused, a step with nothing to show: neither names a product. */}
-            {run != null && row !== undefined && productState !== undefined && (
+            {showsRun && run != null && row !== undefined && productState !== undefined && (
               <StepProductCard
                 stepId={row.id}
                 action={action}

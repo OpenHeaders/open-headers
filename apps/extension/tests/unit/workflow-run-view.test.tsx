@@ -207,6 +207,11 @@ async function feed(fact: WorkflowRunFact, runId = 'run-1', workflowUid = 'wfpin
   });
 }
 
+/** Open a tab of the open step's panel. */
+function openStepTab(tab: 'setup' | 'flow' | 'data' | 'last-run'): void {
+  fireEvent.click(screen.getByTestId(`wf-step-tab-${tab}`));
+}
+
 beforeEach(() => {
   seq = 0;
   h.call.mockReset();
@@ -440,6 +445,9 @@ describe('a run in the workflow view', () => {
     expect(screen.queryByTestId('wf-run-product')).toBeNull();
 
     fireEvent.click(screen.getByTestId('wf-run-row-profile'));
+    // What a step produced is a card of its Last run tab.
+    expect(screen.queryByTestId('wf-run-product')).toBeNull();
+    openStepTab('last-run');
 
     const pane = screen.getByTestId('wf-run-product');
     expect(pane.getAttribute('data-step')).toBe('profile');
@@ -450,6 +458,7 @@ describe('a run in the workflow view', () => {
     fireEvent.click(screen.getByTestId('wf-panel-close'));
     fireEvent.click(screen.getByTestId('wf-run-row-login'));
 
+    // The next step opens on the tab the last one was on.
     expect(screen.getByTestId('wf-run-product').getAttribute('data-step')).toBe('login');
     const body = await within(screen.getByTestId('wf-run-product')).findByTestId('wf-run-body');
     expect(body.textContent).toBe('{"name":"John Doe"}');
@@ -462,6 +471,7 @@ describe('a run in the workflow view', () => {
     h.call.mockImplementation(async () => ({ product: null }));
     render(<SavedWorkflowView workflow={workflow} />);
     fireEvent.click(screen.getByTestId('wf-graph-node-login'));
+    openStepTab('last-run');
     for (const fact of [BEGIN, LOGIN_START]) await feed(fact);
     expect(screen.queryByTestId('wf-step-product')).toBeNull();
 
@@ -473,9 +483,10 @@ describe('a run in the workflow view', () => {
     expect(screen.getByTestId('wf-run-product').getAttribute('data-step')).toBe('login');
   });
 
-  it('an open step’s panel leads with what the last run made of it, live as the run goes', async () => {
+  it('an open step’s Last run tab leads with what the last run made of it, live as the run goes', async () => {
     render(<SavedWorkflowView workflow={workflow} />);
     fireEvent.click(screen.getByTestId('wf-graph-node-login'));
+    openStepTab('last-run');
     const card = () => screen.getByTestId('wf-step-last-run');
     const state = () => screen.getByTestId('wf-step-last-run-state');
     expect(state().getAttribute('data-run-state')).toBe('idle');
@@ -500,6 +511,7 @@ describe('a run in the workflow view', () => {
     render(<SavedWorkflowView workflow={workflow} />);
     for (const fact of [BEGIN, LOGIN_START, LOGIN_PASSED, PROFILE_START, PROFILE_FAILED, END]) await feed(fact);
     fireEvent.click(screen.getByTestId('wf-graph-node-profile'));
+    openStepTab('flow');
 
     const row = screen.getByTestId('wf-step-1-dep-login');
     expect(row.textContent).toBe('loginHTTPPassed');
@@ -676,6 +688,7 @@ describe('the workflow’s History', () => {
       fireEvent.click(screen.getByTestId('wf-history-row-run-1'));
 
       fireEvent.click(screen.getByTestId('wf-graph-node-profile'));
+      openStepTab('last-run');
 
       expect(screen.getByTestId('wf-shown-run').getAttribute('data-run-id')).toBe('run-1');
       expect(screen.getByTestId('wf-step-last-run-state').textContent).toBe('Failed');
@@ -690,6 +703,7 @@ describe('the workflow’s History', () => {
       fireEvent.click(tab('history'));
       fireEvent.click(screen.getByTestId('wf-history-row-run-1'));
       fireEvent.click(screen.getByTestId('wf-graph-node-profile'));
+      openStepTab('last-run');
 
       fireEvent.click(screen.getByTestId('wf-shown-run-latest'));
 
