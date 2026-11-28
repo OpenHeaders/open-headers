@@ -106,6 +106,39 @@ function embedH3Helper(context) {
     console.log(`✓ HTTP/3 helper embedded (${osName}-${archName})`);
 }
 
+// Where a Windows tree keeps the installer program, and under which
+// name: the one it is published by, which its version resource names.
+const WINDOWS_INSTALLER_DIR_NAME = 'installer';
+const WINDOWS_INSTALLER_STAGE_ROOT = path.join(__dirname, '..', '..', '..', '..', 'native', 'windows-installer', 'dist');
+
+function windowsInstallerFileName(archName) {
+    return `OpenHeaders-Installer-${archName}.exe`;
+}
+
+// Copies the installer program staged by scripts/build-windows-installer.mjs
+// into resources/installer — the program a classic install starts to
+// put the Windows package in its place. It rides the tree, so it is
+// signed with the tree and both wrappers carry it. A missing stage
+// ships the tree without it, and that install offers no switch.
+function embedWindowsInstaller(context, stageRoot = WINDOWS_INSTALLER_STAGE_ROOT) {
+    // electron-builder Arch enum: 1 = x64, 3 = arm64 (the installer is built for these two)
+    const archName = context.arch === 1 ? 'x64' : context.arch === 3 ? 'arm64' : null;
+    if (archName === null) {
+        console.warn(`⚠ The installer program has no build for arch enum ${context.arch} — shipping without it`);
+        return;
+    }
+    const fileName = windowsInstallerFileName(archName);
+    const source = path.join(stageRoot, `win-${archName}`, fileName);
+    if (!fs.existsSync(source)) {
+        console.warn(`⚠ Installer program not staged at ${source} — shipping without it (no switch to the Windows package)`);
+        return;
+    }
+    const destDir = path.join(context.appOutDir, 'resources', WINDOWS_INSTALLER_DIR_NAME);
+    fs.mkdirSync(destDir, { recursive: true });
+    fs.copyFileSync(source, path.join(destDir, fileName));
+    console.log(`✓ Installer program embedded (win-${archName})`);
+}
+
 // A pack with no installer target — the signed lane's unpacked tree —
 // gets no update config from the builder; it is written here from the
 // builder's own values (update-config.js).
@@ -164,6 +197,7 @@ exports.default = async function(context) {
 
     // Windows builds — verify the native foreground module was unpacked
     if (electronPlatformName === 'win32') {
+        embedWindowsInstaller(context);
         await ensureWindowsUpdateConfig(context);
         const nativeModulePath = path.join(appOutDir, 'resources', 'app.asar.unpacked', 'node_modules', '@openheaders', 'windows-foreground');
         if (fs.existsSync(nativeModulePath)) {
@@ -184,3 +218,7 @@ exports.default = async function(context) {
         return;
     }
 };
+
+exports.embedWindowsInstaller = embedWindowsInstaller;
+exports.windowsInstallerFileName = windowsInstallerFileName;
+exports.WINDOWS_INSTALLER_DIR_NAME = WINDOWS_INSTALLER_DIR_NAME;

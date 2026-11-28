@@ -1,7 +1,10 @@
 /**
  * Build + stage the Windows installer program (`native/windows-installer`)
  * — the file a person downloads to install the desktop app — into
- * `native/windows-installer/dist/<target>/OpenHeaders-Installer-<arch>.exe`.
+ * `native/windows-installer/dist/<target>/OpenHeaders-Installer-<arch>.exe`,
+ * the layout the desktop's afterPack hook reads: a Windows tree carries
+ * the program of its own arch, and the published file is a copy of the
+ * one in the signed tree.
  *
  *   node scripts/build-windows-installer.mjs            # both arches
  *   node scripts/build-windows-installer.mjs win-arm64  # one

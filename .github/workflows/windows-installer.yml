@@ -2,7 +2,8 @@ name: Windows Installer
 
 # Path-gated: whenever the installer program moves, its tests run — they
 # need no Windows — and the program is built for both arches the way a
-# release leg builds it, on the runner that signs.
+# release leg builds it: each arch on a runner of its own, where the
+# app's tree that carries it is packed.
 
 on:
   push:
@@ -53,7 +54,15 @@ jobs:
         run: cargo test --manifest-path native/windows-installer/Cargo.toml
 
   build:
-    runs-on: windows-2022
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-2022
+            arch: x64
+          - os: windows-11-arm
+            arch: arm64
 
     steps:
       - name: Checkout code
@@ -73,12 +82,12 @@ jobs:
             ~/.cargo/registry
             ~/.cargo/git
             native/windows-installer/target
-          key: ${{ runner.os }}-windows-installer-${{ hashFiles('native/windows-installer/Cargo.lock') }}
+          key: ${{ runner.os }}-${{ matrix.arch }}-windows-installer-${{ hashFiles('native/windows-installer/Cargo.lock') }}
           restore-keys: |
-            ${{ runner.os }}-windows-installer-
+            ${{ runner.os }}-${{ matrix.arch }}-windows-installer-
 
-      - name: Build the installer for both arches
-        run: node scripts/build-windows-installer.mjs
+      - name: Build the installer for this runner's arch
+        run: node scripts/build-windows-installer.mjs "win-${{ matrix.arch }}"
         shell: bash
 
       # The program started on this Windows, with no window: a switch it
@@ -86,11 +95,11 @@ jobs:
       # its log — the proof that it starts and reaches its own code. A
       # run whose switches it refuses writes its log where a run without
       # `--log` does, in the user's temp folder.
-      - name: Start the x64 installer with a switch it refuses
+      - name: Start the installer with a switch it refuses
         shell: bash
         run: |
           set +e
-          native/windows-installer/dist/win-x64/OpenHeaders-Installer-x64.exe --silent --no-launch --channel nightly
+          "native/windows-installer/dist/win-${{ matrix.arch }}/OpenHeaders-Installer-${{ matrix.arch }}.exe" --silent --no-launch --channel nightly
           code=$?
           cat "$LOCALAPPDATA/Temp/OpenHeaders-Installer.log"
           if [ "$code" != "2" ]; then

@@ -303,6 +303,34 @@ jobs:
           node -e "const fs=require('fs'),p=JSON.parse(fs.readFileSync('apps/desktop/package.json'));p.version='$TAG';fs.writeFileSync('apps/desktop/package.json',JSON.stringify(p,null,2)+'\n')"
         shell: bash
 
+      # The installer program — the file a person downloads, and the
+      # program a classic install starts to put the Windows package in
+      # its place: a small native program that fetches the channel's
+      # package with a percentage and has Windows install it. It rides
+      # the app's tree (the pack hook copies it under resources/installer),
+      # so it is built here, before the tree is packed, for this leg's
+      # own arch on this leg's own runner, and the tree's signing pass
+      # signs it. Built for the release the desktop's package.json names:
+      # the tag's version is pinned there by now, so a beta's installer
+      # installs betas; a dry run builds the base's. The cache is the one
+      # its own workflow saves on main.
+      - name: Cache cargo (Windows installer)
+        if: runner.os == 'Windows'
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            native/windows-installer/target
+          key: ${{ runner.os }}-${{ matrix.arch || 'x64' }}-windows-installer-${{ hashFiles('native/windows-installer/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-${{ matrix.arch || 'x64' }}-windows-installer-
+
+      - name: Build the Windows installer
+        if: runner.os == 'Windows'
+        shell: bash
+        run: node scripts/build-windows-installer.mjs "${{ steps.leg_target.outputs.target }}"
+
       # Betas build every arch the stable builds — the beta channel is
       # read by every platform, so a pointer a beta does not rewrite
       # would strand that platform on an old beta (or offer one whose
@@ -728,63 +756,24 @@ jobs:
           [System.IO.File]::WriteAllText((Join-Path $package[0].DirectoryName "publisher.txt"), $sig.SignerCertificate.Subject)
         shell: pwsh
 
-      # The installer program — the file a person downloads: a small
-      # native program that fetches the channel's package with a
-      # percentage and has Windows install it. Built here for this leg's
-      # arch, both arches by this x64 runner's compiler, for the release
-      # the desktop's package.json names: a tag pins its own version
-      # there, so a beta's installer installs betas; a dry run builds the
-      # base's. The cache is the one its own workflow saves on main.
-      - &installer_cache_step
-        name: Cache cargo (Windows installer)
-        if: steps.verify_package.outcome == 'success'
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            native/windows-installer/target
-          key: ${{ runner.os }}-windows-installer-${{ hashFiles('native/windows-installer/Cargo.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-windows-installer-
-
-      - &build_installer_step
-        name: Build the Windows installer
-        id: build_installer
-        if: steps.verify_package.outcome == 'success'
-        continue-on-error: ${{ steps.package_plan.outputs.required != 'true' }}
-        shell: bash
-        run: node scripts/build-windows-installer.mjs "win-${{ matrix.arch || 'x64' }}"
-
-      # One more signing call per arch: the staged folder holds the one
-      # program, and the script signs every unsigned program in a folder.
-      - &sign_installer_step
-        name: Sign the Windows installer
-        id: sign_installer
-        if: steps.build_installer.outcome == 'success'
-        continue-on-error: ${{ steps.package_plan.outputs.required != 'true' }}
-        working-directory: apps/desktop
-        shell: bash
-        run: node scripts/build/sign-windows.js "../../native/windows-installer/dist/win-${{ matrix.arch || 'x64' }}"
-        env:
-          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
-          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
-          AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
-
-      # Valid and timestamped, like the package. The installer takes only
+      # The installer program, read where the signed tree carries it:
+      # valid and timestamped, like the package. The installer takes only
       # a package of its own signer, so its signer is held to the
       # package's here, letter for letter; and the version Windows shows
-      # for the file must name the release it was built for. Then it
-      # joins the package: one artifact carries both to the install test
-      # and to the release job.
+      # for the file must name the release it was built for. The file a
+      # person downloads is a copy of this one: it joins the package, and
+      # one artifact carries both to the install test and to the release
+      # job.
       - &verify_installer_step
         name: Verify the Windows installer
         id: verify_installer
-        if: steps.sign_installer.outcome == 'success'
+        if: steps.verify_package.outcome == 'success'
         continue-on-error: ${{ steps.package_plan.outputs.required != 'true' }}
         run: |
           $arch = "${{ matrix.arch || 'x64' }}"
-          $installer = Get-Item -LiteralPath "native/windows-installer/dist/win-$arch/OpenHeaders-Installer-$arch.exe"
+          $inTree = "apps/desktop/dist/win${{ matrix.arch == 'arm64' && '-arm64' || '' }}-unpacked/resources/installer/OpenHeaders-Installer-$arch.exe"
+          if (-not (Test-Path -LiteralPath $inTree -PathType Leaf)) { Write-Error "The signed tree carries no installer program at $inTree"; exit 1 }
+          $installer = Get-Item -LiteralPath $inTree
           $packageDir = "apps/desktop/dist/windows-package"
 
           $sig = Get-AuthenticodeSignature -LiteralPath $installer.FullName
@@ -898,9 +887,6 @@ jobs:
       - *pack_package_step
       - *sign_package_step
       - *verify_package_step
-      - *installer_cache_step
-      - *build_installer_step
-      - *sign_installer_step
       - *verify_installer_step
       - *upload_package_step
 

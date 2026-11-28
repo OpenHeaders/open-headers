@@ -92,6 +92,12 @@ try {
   Report ("$($installed.Architecture)" -ieq $identity.ProcessorArchitecture) "Windows reads the manifest's arch ($($installed.Architecture))"
   Report ($installed.Publisher -ceq $identity.Publisher) "Windows reads the manifest's publisher ($($installed.Publisher))"
 
+  # The installer program rides the app's tree, so the package carries one too: the file a person
+  # downloads is a copy of it, and the two must be the same bytes.
+  $carried = Join-Path $installed.InstallLocation ('app\resources\installer\' + (Split-Path -Leaf $Installer))
+  $carriedHash = (Get-FileHash -LiteralPath $carried -Algorithm SHA256 -ErrorAction SilentlyContinue).Hash
+  Report ($carriedHash -and $carriedHash -eq (Get-FileHash -LiteralPath $Installer -Algorithm SHA256).Hash) "the package carries this installer, byte for byte (sha256 $carriedHash)"
+
   # A logo as Windows finds it: the manifest's name looked up in the package's index. An index
   # that names its files otherwise packs, signs and installs without a word.
   Add-Type -Namespace OpenHeaders -Name Shell -MemberDefinition '[DllImport("shlwapi.dll", CharSet = CharSet.Unicode)] public static extern int SHLoadIndirectString(string pszSource, System.Text.StringBuilder pszOutBuf, int cchOutBuf, System.IntPtr ppvReserved);'

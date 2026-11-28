@@ -152,6 +152,13 @@ cargo test                                   # the tests, on any machine
 node ../../scripts/build-windows-installer.mjs   # build + stage dist/<target>/ for both arches
 ```
 
+A Windows pack of the desktop app copies the staged program of its arch
+into the tree, under `resources\installer` (the desktop's afterPack
+hook): the app carries the installer it starts for a move. A release
+leg builds it before the tree is packed, the tree's signing pass signs
+it, and the file a person downloads is a copy of the signed one in the
+tree.
+
 The crate's version is the release's base and is bumped with the apps'
 versions; the build script hands over the whole version from the
 desktop's `package.json`.
