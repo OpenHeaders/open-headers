@@ -101,8 +101,9 @@ const PackageSwitchRow: React.FC<{ def: SettingDef }> = ({ def }) => {
         label={resolveLabel(def, t)}
         description={resolveDescription(def, t)}
         resettable={false}
+        block
       >
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 4, padding: '2px 0' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
             <span style={{ fontSize: 13, color: token.colorText }} data-testid="package-switch-value">
               {t('workbench.settings.def.updates.installType.value.classic')}
