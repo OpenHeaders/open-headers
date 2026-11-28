@@ -6,6 +6,12 @@
  * corner. A press puts the pressed point at the middle of the pane; a
  * press held and moved pans.
  *
+ * The map's world is the box that holds the graph and what the pane
+ * shows (S34): the outline is always whole, and the steps are drawn
+ * smaller as the view zooms out or pans away from them. While the map
+ * is pressed its world holds still — the press moves the view, and a
+ * world that followed it would move under the pointer.
+ *
  * The drawing is fitted by the SVG's own view box, so it follows the
  * box as it grows; a press is read through the same fit
  * (`fitWorldInBox`).
@@ -15,6 +21,7 @@ import { theme } from 'antd';
 import type React from 'react';
 import { useRef, useState } from 'react';
 import {
+  boxAround,
   fitWorldInBox,
   type PaneViewport,
   type Point,
@@ -40,7 +47,7 @@ export interface MinimapNode extends Point {
 }
 
 interface Props {
-  /** The box the graph fills — what the map shows whole; nodes placed by hand may leave the origin. */
+  /** The box the graph fills; nodes placed by hand may leave the origin. */
   world: Rect;
   nodes: readonly MinimapNode[];
   nodeSize: Size;
@@ -54,21 +61,25 @@ interface Props {
 const WorkflowGraphMinimap: React.FC<Props> = ({ world, nodes, nodeSize, pane, viewport, onCentre }) => {
   const { token } = theme.useToken();
   const [over, setOver] = useState(false);
-  const [dragging, setDragging] = useState(false);
+  // The world the map held as it was pressed — `null` while it is not.
+  const [held, setHeld] = useState<Rect | null>(null);
+  const dragging = held !== null;
   const size = over || dragging ? MINIMAP_SIZE_OPEN : MINIMAP_SIZE;
 
   const paneSize = usePaneSize(pane);
   const view = paneSize === null ? null : viewRectOf(viewport, paneSize);
+  const around = view === null ? world : boxAround(world, view);
+  const shown = held ?? around;
 
   // The drawing's own box — the map's, less its edge.
   const drawingRef = useRef<SVGSVGElement>(null);
 
-  const centreAt = (e: React.PointerEvent<HTMLDivElement>) => {
+  const centreAt = (e: React.PointerEvent<HTMLDivElement>, drawn: Rect) => {
     const rect = drawingRef.current?.getBoundingClientRect();
     if (!rect) return;
-    const fit = fitWorldInBox(world, { width: rect.width, height: rect.height });
+    const fit = fitWorldInBox(drawn, { width: rect.width, height: rect.height });
     const within = worldPointAt(fit, { x: e.clientX - rect.left, y: e.clientY - rect.top });
-    onCentre({ x: world.x + within.x, y: world.y + within.y });
+    onCentre({ x: drawn.x + within.x, y: drawn.y + within.y });
   };
 
   return (
@@ -82,14 +93,14 @@ const WorkflowGraphMinimap: React.FC<Props> = ({ world, nodes, nodeSize, pane, v
       onPointerDown={(e) => {
         if (e.button !== 0) return;
         e.currentTarget.setPointerCapture(e.pointerId);
-        setDragging(true);
-        centreAt(e);
+        setHeld(around);
+        centreAt(e, around);
       }}
       onPointerMove={(e) => {
-        if (dragging) centreAt(e);
+        if (held !== null) centreAt(e, held);
       }}
-      onPointerUp={() => setDragging(false)}
-      onPointerCancel={() => setDragging(false)}
+      onPointerUp={() => setHeld(null)}
+      onPointerCancel={() => setHeld(null)}
       onClick={(e) => e.stopPropagation()}
       onContextMenu={(e) => e.stopPropagation()}
       style={{
@@ -116,7 +127,7 @@ const WorkflowGraphMinimap: React.FC<Props> = ({ world, nodes, nodeSize, pane, v
         ref={drawingRef}
         width="100%"
         height="100%"
-        viewBox={`${world.x} ${world.y} ${world.width} ${world.height}`}
+        viewBox={`${shown.x} ${shown.y} ${shown.width} ${shown.height}`}
         preserveAspectRatio="xMidYMid meet"
         style={{ display: 'block', overflow: 'visible', pointerEvents: 'none' }}
       >

@@ -1,4 +1,5 @@
 import {
+  boxAround,
   fitWorldInBox,
   viewportCentredOn,
   viewRectOf,
@@ -61,6 +62,30 @@ describe('viewRectOf', () => {
       x: 200,
       y: -100,
       width: 1200,
+      height: 600,
+    });
+  });
+});
+
+describe('boxAround', () => {
+  const graph = { x: 0, y: 0, width: 256, height: 284 };
+
+  it('a view inside the graph leaves the graph’s box', () => {
+    expect(boxAround(graph, { x: 40, y: 60, width: 100, height: 80 })).toEqual(graph);
+  });
+
+  it('a view larger than the graph is the box', () => {
+    const view = { x: -272, y: 0, width: 800, height: 600 };
+
+    expect(boxAround(graph, view)).toEqual(view);
+  });
+
+  it('a view panned away is taken in with the graph', () => {
+    // From 572 left of the graph to its right edge at 256; from 200 above it to the view's lower edge at 400.
+    expect(boxAround(graph, { x: -572, y: -200, width: 800, height: 600 })).toEqual({
+      x: -572,
+      y: -200,
+      width: 828,
       height: 600,
     });
   });

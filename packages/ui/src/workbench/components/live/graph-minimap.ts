@@ -1,8 +1,9 @@
 /**
  * The geometry of the workflow graph's minimap (the workflow runs plan,
- * Decisions log, S31): how the whole graph sits in the map's box, which
- * point of the graph is under a point of the box, and what a pane shows
- * of the graph through its viewport. Pure.
+ * Decisions log, S31 and S34): how a world sits in the map's box, which
+ * point of it is under a point of the box, what a pane shows of the
+ * graph through its viewport, and the box that holds the graph and that
+ * view together — the map's world. Pure.
  */
 
 export interface Size {
@@ -50,6 +51,18 @@ export function viewRectOf(viewport: PaneViewport, pane: Size): Rect {
     y: (0 - viewport.y) / viewport.scale,
     width: pane.width / viewport.scale,
     height: pane.height / viewport.scale,
+  };
+}
+
+/** The smallest box that holds two. */
+export function boxAround(a: Rect, b: Rect): Rect {
+  const x = Math.min(a.x, b.x);
+  const y = Math.min(a.y, b.y);
+  return {
+    x,
+    y,
+    width: Math.max(a.x + a.width, b.x + b.width) - x,
+    height: Math.max(a.y + a.height, b.y + b.height) - y,
   };
 }
 

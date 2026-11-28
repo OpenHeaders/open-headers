@@ -50,7 +50,8 @@
  * gesture that didn't commit.
  *
  * Canvas chrome: a pan/zoom viewport (drag the background to pan,
- * wheel/pinch to zoom around the cursor, a row of controls bottom-left
+ * wheel/pinch to zoom around the cursor — `graph-zoom.ts` holds the
+ * rates and the stops —, a row of controls bottom-left
  * with a re-center/fit action, then the draft's undo and redo, then
  * Auto-arrange where a node can be moved — the workflow runs plan,
  * Decisions log, S31), a bar of the selected step's
@@ -125,9 +126,10 @@ import {
   type StepReach,
   stepOwnTemplates,
 } from './graph-lines';
-import { type Point, type Rect, viewportCentredOn } from './graph-minimap';
+import { type Point, type Rect, type Size, viewportCentredOn } from './graph-minimap';
 import { boundsOfNodes, freezePlaces, type PlacedStep, placedPositions, snapPlace } from './graph-places';
 import { routeGraph } from './graph-routing';
+import { fittedScale, wheelZoomFactor, zoomedScale, zoomOutStopOf } from './graph-zoom';
 import { StepPickerPopover } from './StepPicker';
 import {
   actionOfStep,
@@ -247,15 +249,11 @@ interface Viewport {
   scale: number;
 }
 
-const MIN_SCALE = 0.25;
-const MAX_SCALE = 2;
 const FIT_PAD = 32;
 /** The first view never draws the graph smaller than this to fit its width — a node must stay readable. */
 const FIRST_VIEW_MIN_SCALE = 0.5;
 /** What a step brought into view keeps between itself and the pane's edge. */
 const REVEAL_MARGIN = 16;
-
-const clampScale = (s: number): number => Math.min(MAX_SCALE, Math.max(MIN_SCALE, s));
 
 /** How far a span must move along an axis to sit inside it, its start winning where it cannot fit whole. */
 function shiftInto(start: number, end: number, size: number): number {
@@ -534,8 +532,22 @@ const WorkflowGraphBody: React.FC<WorkflowGraphBodyProps> = ({
     });
   }, [selectedStepId]);
 
-  // Wheel = zoom around the cursor. Native non-passive listener —
-  // React's synthetic wheel handlers can't preventDefault reliably.
+  // A zoom around a point of the pane. Zooming out stops where the
+  // graph is half the size Re-center would draw it in this pane.
+  const zoomAt = (pane: Size, at: Point, factor: number) => {
+    const stop = zoomOutStopOf(fittedScale(world, pane, FIT_PAD, uiScale));
+    setViewport((v) => {
+      const scale = zoomedScale(v.scale, factor, stop);
+      const k = scale / v.scale;
+      return { scale, x: at.x - (at.x - v.x) * k, y: at.y - (at.y - v.y) * k };
+    });
+  };
+  const zoomAtRef = useRef(zoomAt);
+  zoomAtRef.current = zoomAt;
+
+  // Wheel = zoom around the cursor, a trackpad's pinch at its own rate.
+  // Native non-passive listener — React's synthetic wheel handlers
+  // can't preventDefault reliably.
   useEffect(() => {
     const pane = paneRef.current;
     if (!pane) return;
@@ -543,28 +555,15 @@ const WorkflowGraphBody: React.FC<WorkflowGraphBodyProps> = ({
       e.preventDefault();
       touchedRef.current = true;
       const rect = pane.getBoundingClientRect();
-      const px = e.clientX - rect.left;
-      const py = e.clientY - rect.top;
-      setViewport((v) => {
-        const scale = clampScale(v.scale * Math.exp(-e.deltaY * 0.0015));
-        const k = scale / v.scale;
-        return { scale, x: px - (px - v.x) * k, y: py - (py - v.y) * k };
-      });
+      zoomAtRef.current(rect, { x: e.clientX - rect.left, y: e.clientY - rect.top }, wheelZoomFactor(e));
     };
     pane.addEventListener('wheel', onWheel, { passive: false });
     return () => pane.removeEventListener('wheel', onWheel);
   }, []);
 
   const zoomBy = (factor: number) => {
-    const pane = paneRef.current;
-    const rect = pane?.getBoundingClientRect();
-    const px = rect ? rect.width / 2 : 0;
-    const py = rect ? rect.height / 2 : 0;
-    setViewport((v) => {
-      const scale = clampScale(v.scale * factor);
-      const k = scale / v.scale;
-      return { scale, x: px - (px - v.x) * k, y: py - (py - v.y) * k };
-    });
+    const rect = paneRef.current?.getBoundingClientRect();
+    if (rect) zoomAt(rect, { x: rect.width / 2, y: rect.height / 2 }, factor);
   };
 
   // Fit-and-center a box of the graph in the pane, never drawn larger
@@ -572,9 +571,9 @@ const WorkflowGraphBody: React.FC<WorkflowGraphBodyProps> = ({
   const fitTo = (box: Rect) => {
     const rect = paneRef.current?.getBoundingClientRect();
     if (!rect) return;
-    const scale = clampScale(
-      Math.min((rect.width - FIT_PAD) / box.width, (rect.height - FIT_PAD) / box.height, uiScale),
-    );
+    const scale = fittedScale(box, rect, FIT_PAD, uiScale);
+    // A pane with no room for the box has nothing to fit it in.
+    if (scale <= 0) return;
     setViewport({
       scale,
       x: (rect.width - box.width * scale) / 2 - box.x * scale,

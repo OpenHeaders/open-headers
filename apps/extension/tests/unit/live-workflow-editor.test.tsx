@@ -682,6 +682,72 @@ describe('LiveWorkflowEditor — the minimap and the start mark', () => {
     });
   });
 
+  it('the minimap’s world holds the graph and what the pane shows, and holds still while it is pressed', () => {
+    Element.prototype.setPointerCapture = vi.fn();
+    withSizedPane(() => {
+      renderEditor();
+      addStep();
+      const minimap = screen.getByTestId('wf-graph-minimap');
+      const canvas = screen.getByTestId('wf-graph-pane').firstElementChild;
+      if (!(canvas instanceof HTMLElement)) throw new Error('the graph did not mount');
+      const viewBox = () => minimap.querySelector('svg')?.getAttribute('viewBox');
+
+      // The graph is 256 by 284 from its origin; a pane 800 by 600 first shows it from 272 left of it.
+      expect(canvas.style.transform).toBe('translate(272px, 0px) scale(1)');
+      expect(viewBox()).toBe('-272 0 800 600');
+
+      // The drawing is 800 by 600 too: the point pressed is 100, 100 into that world.
+      fireEvent.pointerDown(minimap, { button: 0, pointerId: 1, clientX: 100, clientY: 100 });
+      expect(canvas.style.transform).toBe('translate(572px, 200px) scale(1)');
+      expect(viewBox()).toBe('-272 0 800 600');
+
+      // Let go: the view now starts 572 left of and 200 above the graph, and the map takes it in.
+      fireEvent.pointerUp(minimap, { pointerId: 1 });
+      expect(viewBox()).toBe('-572 -200 828 600');
+    });
+  });
+
+  it('zooming out stops where the graph is half its fitted size; Re-center draws it fitted', () => {
+    withSizedPane(() => {
+      renderEditor();
+      addStep();
+      const canvas = screen.getByTestId('wf-graph-pane').firstElementChild;
+      if (!(canvas instanceof HTMLElement)) throw new Error('the graph did not mount');
+      const scale = () => Number(/scale\(([^)]+)\)/.exec(canvas.style.transform)?.[1]);
+      const zoomOut = screen.getByTestId('wf-graph-zoom-out');
+
+      // 256 by 284 in a pane 800 by 600 fits at 2, drawn at the app's scale of 1: the stop is 0.5.
+      // A press zooms by 1.2: three leave 0.5787, the fourth would pass the stop.
+      for (let press = 0; press < 3; press++) fireEvent.click(zoomOut);
+      expect(scale()).toBeCloseTo(1 / 1.2 ** 3, 10);
+      fireEvent.click(zoomOut);
+      expect(scale()).toBe(0.5);
+      fireEvent.click(zoomOut);
+      expect(scale()).toBe(0.5);
+
+      fireEvent.click(screen.getByTestId('wf-graph-zoom-in'));
+      expect(scale()).toBe(0.6);
+
+      fireEvent.click(screen.getByTestId('wf-graph-fit'));
+      expect(scale()).toBe(1);
+    });
+  });
+
+  it('a pinch zooms at ten times a wheel’s rate', () => {
+    renderEditor();
+    const pane = screen.getByTestId('wf-graph-pane');
+    const canvas = pane.firstElementChild;
+    if (!(canvas instanceof HTMLElement)) throw new Error('the graph did not mount');
+    const scale = () => Number(/scale\(([^)]+)\)/.exec(canvas.style.transform)?.[1]);
+
+    // Four units of travel: 0.006 by the wheel, 0.06 as a pinch — the browser hands a pinch over with the control key.
+    fireEvent.wheel(pane, { deltaY: -4 });
+    expect(scale()).toBeCloseTo(Math.exp(0.006), 10);
+
+    fireEvent.wheel(pane, { deltaY: -4, ctrlKey: true });
+    expect(scale()).toBeCloseTo(Math.exp(0.066), 10);
+  });
+
   it('the minimap grows under the pointer and returns when it leaves', () => {
     renderEditor();
     addStep();
